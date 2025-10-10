@@ -151,6 +151,145 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* Technical Indicators Section */}
+      <section className="py-20 lg:py-24 px-6 lg:px-8 relative" aria-labelledby="indicators-heading">
+        <div className="max-w-7xl mx-auto">
+          <motion.h2
+            id="indicators-heading"
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, ease: [0.19, 1, 0.22, 1] }}
+            viewport={{ once: true, margin: "-100px" }}
+            className="text-3xl sm:text-4xl md:text-5xl font-extralight mb-12 lg:mb-16 text-center text-green-400/90 tracking-tight"
+          >
+            AI가 분석하는 기술적 지표
+          </motion.h2>
+
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
+            {[
+              {
+                title: "가격/모멘텀",
+                items: [
+                  "이동평균선 (SMA/EMA/WMA)",
+                  "골든크로스/데드크로스",
+                  "RSI, Stochastic, Williams %R",
+                  "MACD, ROC, VWAP",
+                  "캔들 패턴 분석"
+                ],
+                gradient: "from-green-500/10 via-emerald-500/5 to-transparent",
+                delay: 0
+              },
+              {
+                title: "거래량",
+                items: [
+                  "거래량 vs 평균거래량",
+                  "연속 거래량 증가",
+                  "OBV 추세",
+                  "CMF (자금흐름)",
+                  "MFI (자금유입강도)"
+                ],
+                gradient: "from-lime-500/10 via-green-500/5 to-transparent",
+                delay: 0.1
+              },
+              {
+                title: "변동성",
+                items: [
+                  "ATR (평균진폭)",
+                  "볼린저밴드 위치",
+                  "밴드폭 변화",
+                  "역사적 변동성 (HV)",
+                  "가격 변동 범위"
+                ],
+                gradient: "from-emerald-500/10 via-teal-500/5 to-transparent",
+                delay: 0.2
+              },
+              {
+                title: "추세",
+                items: [
+                  "ADX, DI+, DI-",
+                  "Parabolic SAR",
+                  "일목균형표",
+                  "SuperTrend",
+                  "추세선 분석"
+                ],
+                gradient: "from-teal-500/10 via-cyan-500/5 to-transparent",
+                delay: 0.3
+              },
+              {
+                title: "시장 심리",
+                items: [
+                  "A/D Line (수급)",
+                  "Chaikin Oscillator",
+                  "체결강도",
+                  "매수/매도 압력",
+                  "투자심리 지수"
+                ],
+                gradient: "from-cyan-500/10 via-sky-500/5 to-transparent",
+                delay: 0.4
+              },
+              {
+                title: "종합 분석",
+                items: [
+                  "정배열/역배열 여부",
+                  "지지/저항선 확인",
+                  "신호 강도 계산",
+                  "리스크/리워드 비율",
+                  "최적 진입 타이밍"
+                ],
+                gradient: "from-sky-500/10 via-blue-500/5 to-transparent",
+                delay: 0.5
+              },
+            ].map((category, index) => (
+              <motion.div
+                key={index}
+                initial={{ opacity: 0, y: 60 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                transition={{
+                  duration: 0.8,
+                  delay: category.delay,
+                  ease: [0.19, 1, 0.22, 1]
+                }}
+                viewport={{ once: true, margin: "-100px" }}
+                className="group relative"
+              >
+                <div className={`relative p-6 lg:p-8 rounded-3xl glass-morphism border border-green-500/20 transition-all duration-700 ease-out-expo group-hover:border-green-500/40 group-hover:shadow-[0_0_40px_rgba(0,255,65,0.1)] overflow-hidden h-full`}>
+                  <div className={`absolute inset-0 bg-gradient-to-br ${category.gradient} opacity-0 group-hover:opacity-100 transition-opacity duration-700 ease-out-expo`} aria-hidden="true" />
+
+                  <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-700">
+                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-green-500/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-[2s] ease-out-expo" aria-hidden="true" />
+                  </div>
+
+                  <div className="relative z-10">
+                    <h3 className="text-xl lg:text-2xl font-normal mb-6 text-green-300 tracking-tight group-hover:text-green-200 transition-colors duration-500">
+                      {category.title}
+                    </h3>
+                    <ul className="space-y-3">
+                      {category.items.map((item, itemIndex) => (
+                        <li
+                          key={itemIndex}
+                          className="text-xs lg:text-sm text-green-200/60 font-light leading-relaxed tracking-wide group-hover:text-green-200/80 transition-colors duration-500 flex items-start"
+                        >
+                          <span className="text-green-400/60 mr-2 mt-0.5">•</span>
+                          <span>{item}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  <div className="absolute inset-0 rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none" style={{
+                    background: 'linear-gradient(135deg, transparent 0%, rgba(0,255,65,0.1) 50%, transparent 100%)',
+                    padding: '1px',
+                    WebkitMask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
+                    WebkitMaskComposite: 'xor',
+                    maskComposite: 'exclude'
+                  }} aria-hidden="true" />
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* Features Grid */}
       <section className="py-20 lg:py-24 px-6 lg:px-8 relative" aria-labelledby="features-heading">
         <div className="max-w-7xl mx-auto">
@@ -162,7 +301,7 @@ export default function HomePage() {
             viewport={{ once: true, margin: "-100px" }}
             className="text-4xl sm:text-5xl md:text-6xl font-extralight mb-14 lg:mb-16 text-center text-green-400/90 tracking-tight"
           >
-            3개 AI 모델
+            3개의 LLM 모델
           </motion.h2>
 
           <div className="grid md:grid-cols-3 gap-6 lg:gap-8">
