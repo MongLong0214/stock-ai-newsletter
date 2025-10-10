@@ -9,6 +9,7 @@ import { z } from 'zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import AnimatedBackground from '@/components/animated-background';
+import { useCountdownToTomorrow } from '@/hooks/use-countdown-to-tomorrow';
 
 const subscribeSchema = z.object({
   email: z.string().email('잘못된 이메일 형식'),
@@ -16,6 +17,7 @@ const subscribeSchema = z.object({
 });
 
 export default function SubscribePage() {
+  const { formatted } = useCountdownToTomorrow();
   const [email, setEmail] = useState('');
   const [name, setName] = useState('');
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
@@ -210,7 +212,7 @@ export default function SubscribePage() {
                         처리 중...
                       </>
                     ) : (
-                      '오전 8시 50분 메일받기'
+                      `${formatted} 후 메일 받기`
                     )}
                   </span>
                   <span className="absolute inset-0 bg-gradient-to-r from-green-400 via-green-300 to-green-400 opacity-0 group-hover:opacity-100 transition-opacity duration-700" aria-hidden="true" />
