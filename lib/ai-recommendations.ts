@@ -2,20 +2,6 @@ import Anthropic from '@anthropic-ai/sdk';
 import OpenAI from 'openai';
 import { GoogleGenAI } from '@google/genai';
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-  timeout: 30000,
-  maxRetries: 2,
-});
-
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
-  timeout: 30000,
-  maxRetries: 2,
-});
-
-const genAI = new GoogleGenAI({});
-
 const STOCK_PROMPT = `당신은 월스트리트에서 경력 20년차 업계 상위 0.1% 실력의 프로페셔널 'K-Stock Tactical Analyst'입니다.
 KOSPI/KOSDAQ 상장 종목 중 1주 내 최소 10% 이상 상승이 높은 확률로 가능한 종목 5개를 기술적 지표를 분석하여 추천합니다.
 
@@ -78,7 +64,17 @@ async function retry<T>(
 }
 
 export async function getGPTRecommendation(): Promise<string> {
+  if (!process.env.OPENAI_API_KEY) {
+    return '⚠️ OpenAI API 키가 설정되지 않았습니다.';
+  }
+
   try {
+    const openai = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY,
+      timeout: 30000,
+      maxRetries: 2,
+    });
+
     const result = await retry(async () => {
       const completion = await openai.chat.completions.create({
         model: 'gpt-4-turbo-preview',
@@ -104,7 +100,17 @@ export async function getGPTRecommendation(): Promise<string> {
 }
 
 export async function getClaudeRecommendation(): Promise<string> {
+  if (!process.env.ANTHROPIC_API_KEY) {
+    return '⚠️ Anthropic API 키가 설정되지 않았습니다.';
+  }
+
   try {
+    const anthropic = new Anthropic({
+      apiKey: process.env.ANTHROPIC_API_KEY,
+      timeout: 30000,
+      maxRetries: 2,
+    });
+
     const result = await retry(async () => {
       const message = await anthropic.messages.create({
         model: 'claude-sonnet-4-5-20250929',
@@ -124,7 +130,13 @@ export async function getClaudeRecommendation(): Promise<string> {
 }
 
 export async function getGeminiRecommendation(): Promise<string> {
+  if (!process.env.GEMINI_API_KEY) {
+    return '⚠️ Gemini API 키가 설정되지 않았습니다.';
+  }
+
   try {
+    const genAI = new GoogleGenAI({});
+
     const result = await retry(async () => {
       const response = await genAI.models.generateContent({
         model: 'gemini-2.0-flash',
