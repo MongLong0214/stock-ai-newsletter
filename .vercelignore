@@ -1,0 +1,20 @@
+# Development
+.env*.local
+.env
+
+# Testing
+scripts/
+*.test.js
+*.test.ts
+
+# Documentation (optional - 배포 시 포함하려면 제거)
+DEPLOYMENT_GUIDE.md
+QUICK_START.md
+
+# IDE
+.idea
+.vscode
+
+# Logs
+*.log
+npm-debug.log*

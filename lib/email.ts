@@ -1,9 +1,17 @@
 import { Resend } from 'resend';
+import sgMail from '@sendgrid/mail';
 import { z } from 'zod';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
-
 const emailSchema = z.string().email();
+
+// Email provider 선택 (SENDGRID_API_KEY가 있으면 SendGrid, 없으면 Resend)
+const useSendGrid = !!process.env.SENDGRID_API_KEY;
+
+if (useSendGrid) {
+  sgMail.setApiKey(process.env.SENDGRID_API_KEY!);
+} else {
+  var resend = new Resend(process.env.RESEND_API_KEY);
+}
 
 type Recommendations = {
   gpt: string;
@@ -31,16 +39,29 @@ export async function sendStockEmail(
     const greeting = name?.trim() ? `${name.trim()}님` : '구독자님';
 
     const fromEmail = process.env.EMAIL_FROM || 'AI 주식 추천 <onboarding@resend.dev>';
+    const subject = `[${today}] AI 주식 추천`;
+    const html = generateEmailHTML(greeting, today, recommendations, email);
 
-    const { error } = await resend.emails.send({
-      from: fromEmail,
-      to: email,
-      subject: `[${today}] AI 주식 추천`,
-      html: generateEmailHTML(greeting, today, recommendations, email),
-    });
+    if (useSendGrid) {
+      // SendGrid로 발송
+      await sgMail.send({
+        to: email,
+        from: fromEmail,
+        subject,
+        html,
+      });
+    } else {
+      // Resend로 발송
+      const { error } = await resend!.emails.send({
+        from: fromEmail,
+        to: email,
+        subject,
+        html,
+      });
 
-    if (error) {
-      throw error;
+      if (error) {
+        throw error;
+      }
     }
 
     return { success: true };
