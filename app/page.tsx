@@ -83,11 +83,11 @@ export default function HomePage() {
           >
             <h1
               id="hero-heading"
-              className="text-6xl sm:text-7xl md:text-8xl lg:text-9xl font-extralight mb-8 lg:mb-10 tracking-[-0.02em] leading-[0.95]"
+              className="font-extralight mb-8 lg:mb-10 tracking-[-0.02em] leading-[0.95]"
             >
-              <span className="text-green-400/90">3개의 AI가 계산</span>
+              <span className="block text-5xl sm:text-6xl md:text-7xl lg:text-8xl xl:text-9xl text-green-400/90">3개의 AI가 계산</span>
               <br />
-              <span className="font-normal bg-clip-text text-transparent bg-gradient-to-r from-green-300 via-green-400 to-green-300 bg-[length:200%_100%] animate-[matrix-shimmer_8s_linear_infinite]">
+              <span className="block text-4xl sm:text-5xl md:text-6xl lg:text-7xl xl:text-8xl font-normal bg-clip-text text-transparent bg-gradient-to-r from-green-300 via-green-400 to-green-300 bg-[length:200%_100%] animate-[matrix-shimmer_8s_linear_infinite]">
                 1주 10% 수익 목표
               </span>
             </h1>
@@ -99,13 +99,13 @@ export default function HomePage() {
             transition={{ duration: 0.8, delay: 0.2, ease: [0.19, 1, 0.22, 1] }}
             className="mb-12 max-w-4xl mx-auto text-center"
           >
-            <p className="text-xl sm:text-2xl md:text-3xl text-green-200/70 font-light leading-relaxed tracking-wide mb-1">
+            <p className="text-lg sm:text-xl md:text-2xl lg:text-3xl text-green-200/70 font-light leading-relaxed tracking-wide mb-1">
               매일 개장 10분 전
             </p>
-              <p className="text-xl sm:text-2xl md:text-3xl text-green-200/70 font-light leading-relaxed tracking-wide mb-3">
+              <p className="text-lg sm:text-xl md:text-2xl lg:text-3xl text-green-200/70 font-light leading-relaxed tracking-wide mb-3">
                   코스피·코스닥 종목 3개
               </p>
-            <p className="text-base sm:text-lg text-green-200/50 font-light tracking-wide">
+            <p className="text-sm sm:text-base md:text-lg text-green-200/50 font-light tracking-wide">
               5초 구독 • 광고 없음 • 완전 무료
             </p>
           </motion.div>
@@ -141,10 +141,10 @@ export default function HomePage() {
             transition={{ duration: 0.9, ease: [0.19, 1, 0.22, 1] }}
             viewport={{ once: true, margin: "-100px" }}
           >
-            <h2 id="philosophy-heading" className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-extralight mb-8 lg:mb-10 text-green-400/90 tracking-tight leading-tight">
+            <h2 id="philosophy-heading" className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl xl:text-8xl font-extralight mb-8 lg:mb-10 text-green-400/90 tracking-tight leading-tight">
               오로지 <span className="font-normal text-green-300">숫자</span>와 <span className="font-normal text-green-300">차트</span>로만
             </h2>
-            <p className="text-xl sm:text-2xl md:text-3xl text-green-200/60 font-light leading-relaxed tracking-wide">
+            <p className="text-lg sm:text-xl md:text-2xl lg:text-3xl text-green-200/60 font-light leading-relaxed tracking-wide">
               감이 아닌 데이터, 추측이 아닌 신호
             </p>
           </motion.div>
