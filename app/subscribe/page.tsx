@@ -48,7 +48,7 @@ export default function SubscribePage() {
       setName('');
     } catch (error) {
       if (error instanceof z.ZodError) {
-        setMessage(error.errors[0].message);
+        setMessage(error.issues[0].message);
       } else {
         console.error('Subscribe error:', error);
         setMessage('오류가 발생했습니다. 다시 시도해주세요.');
