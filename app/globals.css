@@ -1,8 +1,56 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #000000;
+  --foreground: #ededed;
+
+  /* Sophisticated Matrix color palette */
+  --matrix-black: #000000;
+  --matrix-deep-black: #0a0a0a;
+  --matrix-darkest: #050505;
+
+  --matrix-green-primary: #00ff41;
+  --matrix-green-light: #39ff14;
+  --matrix-green-dark: #00cc33;
+  --matrix-green-darker: #008822;
+
+  --matrix-green-glow: rgba(0, 255, 65, 0.15);
+  --matrix-green-subtle: rgba(0, 255, 65, 0.05);
+  --matrix-green-border: rgba(0, 255, 65, 0.2);
+
+  /* Typography scale - perfect ratios */
+  --font-size-xs: 0.75rem;
+  --font-size-sm: 0.875rem;
+  --font-size-base: 1rem;
+  --font-size-lg: 1.125rem;
+  --font-size-xl: 1.25rem;
+  --font-size-2xl: 1.5rem;
+  --font-size-3xl: 1.875rem;
+  --font-size-4xl: 2.25rem;
+  --font-size-5xl: 3rem;
+  --font-size-6xl: 3.75rem;
+  --font-size-7xl: 4.5rem;
+  --font-size-8xl: 6rem;
+  --font-size-9xl: 8rem;
+
+  /* Perfect letter spacing */
+  --tracking-tighter: -0.05em;
+  --tracking-tight: -0.025em;
+  --tracking-normal: 0em;
+  --tracking-wide: 0.025em;
+  --tracking-wider: 0.05em;
+  --tracking-widest: 0.1em;
+
+  /* Golden ratio spacing */
+  --spacing-xs: 0.25rem;
+  --spacing-sm: 0.5rem;
+  --spacing-md: 0.75rem;
+  --spacing-lg: 1rem;
+  --spacing-xl: 1.618rem;
+  --spacing-2xl: 2.618rem;
+  --spacing-3xl: 4.236rem;
+  --spacing-4xl: 6.854rem;
+  --spacing-5xl: 11.09rem;
 }
 
 @theme inline {
@@ -14,13 +62,136 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
+    --background: #000000;
     --foreground: #ededed;
   }
 }
 
+/* Ultra-smooth scrolling */
+html {
+  scroll-behavior: smooth;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
 body {
-  background: var(--background);
+  background: var(--matrix-black);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans), -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+  overflow-x: hidden;
+}
+
+/* Custom selection styling */
+::selection {
+  background-color: var(--matrix-green-primary);
+  color: var(--matrix-black);
+}
+
+::-moz-selection {
+  background-color: var(--matrix-green-primary);
+  color: var(--matrix-black);
+}
+
+/* Premium focus states */
+*:focus-visible {
+  outline: 2px solid var(--matrix-green-primary);
+  outline-offset: 2px;
+}
+
+/* Sophisticated animations */
+@keyframes matrix-glow {
+  0%, 100% {
+    box-shadow: 0 0 20px var(--matrix-green-glow),
+                0 0 40px var(--matrix-green-subtle);
+  }
+  50% {
+    box-shadow: 0 0 30px var(--matrix-green-glow),
+                0 0 60px var(--matrix-green-subtle),
+                0 0 80px rgba(0, 255, 65, 0.03);
+  }
+}
+
+@keyframes matrix-pulse {
+  0%, 100% {
+    opacity: 0.8;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes matrix-shimmer {
+  0% {
+    background-position: -200% center;
+  }
+  100% {
+    background-position: 200% center;
+  }
+}
+
+@keyframes matrix-scan {
+  0%, 100% {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+  50% {
+    opacity: 0.3;
+  }
+}
+
+/* Glass morphism utilities */
+.glass-morphism {
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(12px) saturate(180%);
+  -webkit-backdrop-filter: blur(12px) saturate(180%);
+  border: 1px solid rgba(0, 255, 65, 0.1);
+}
+
+.glass-morphism-strong {
+  background: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(20px) saturate(200%);
+  -webkit-backdrop-filter: blur(20px) saturate(200%);
+  border: 1px solid rgba(0, 255, 65, 0.15);
+}
+
+/* Premium gradient border */
+.gradient-border {
+  position: relative;
+  background: var(--matrix-black);
+  border-radius: inherit;
+}
+
+.gradient-border::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(135deg,
+    transparent 0%,
+    var(--matrix-green-primary) 50%,
+    transparent 100%);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.gradient-border:hover::before {
+  opacity: 1;
+}
+
+/* Smooth easing functions */
+.ease-out-expo {
+  transition-timing-function: cubic-bezier(0.19, 1, 0.22, 1);
+}
+
+.ease-in-out-quint {
+  transition-timing-function: cubic-bezier(0.83, 0, 0.17, 1);
+}
+
+.ease-spring {
+  transition-timing-function: cubic-bezier(0.68, -0.55, 0.265, 1.55);
 }
