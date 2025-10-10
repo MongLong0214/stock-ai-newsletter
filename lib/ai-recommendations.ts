@@ -91,10 +91,11 @@ export async function getGPTRecommendation(): Promise<string> {
       return completion.choices[0]?.message?.content || null;
     });
 
-    if (!result) throw new Error('Empty response');
+    if (!result) throw new Error('Empty response from GPT');
     return result;
   } catch (error) {
-    console.error('GPT Error:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    console.error('[GPT Error]', errorMessage);
     return '⚠️ GPT 추천을 가져올 수 없습니다. 잠시 후 다시 시도해주세요.';
   }
 }
@@ -121,10 +122,11 @@ export async function getClaudeRecommendation(): Promise<string> {
       return textContent && textContent.type === 'text' ? textContent.text : null;
     });
 
-    if (!result) throw new Error('Empty response');
+    if (!result) throw new Error('Empty response from Claude');
     return result;
   } catch (error) {
-    console.error('Claude Error:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    console.error('[Claude Error]', errorMessage);
     return '⚠️ Claude 추천을 가져올 수 없습니다. 잠시 후 다시 시도해주세요.';
   }
 }
@@ -143,16 +145,17 @@ export async function getGeminiRecommendation(): Promise<string> {
         contents: STOCK_PROMPT,
         config: {
           maxOutputTokens: 3000,
-          temperature: 0.7
-        }
+          temperature: 0.7,
+        },
       });
       return response.text || '';
     });
 
-    if (!result) throw new Error('Empty response');
+    if (!result) throw new Error('Empty response from Gemini');
     return result;
   } catch (error) {
-    console.error('Gemini Error:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    console.error('[Gemini Error]', errorMessage);
     return '⚠️ Gemini 추천을 가져올 수 없습니다. 잠시 후 다시 시도해주세요.';
   }
 }
