@@ -67,10 +67,11 @@ export default function SubscribePage() {
 
   const features = [
     '3개 AI 독립 분석',
+      '총 9개의 종목 추천',
     '매일 오전 8:50 발송',
     '진입가 & 손절가 포함',
     '완전 무료',
-    '5초 구독 취소',
+
   ];
 
   return (
@@ -112,10 +113,10 @@ export default function SubscribePage() {
               transition={{ duration: 0.8, delay: 0.2, ease: [0.19, 1, 0.22, 1] }}
             >
               <h1 className="text-6xl sm:text-7xl md:text-8xl font-extralight mb-6 lg:mb-8 text-green-400/90 leading-tight tracking-tight">
-                구독
+                메일 받기
               </h1>
               <p className="text-xl sm:text-2xl text-green-200/60 font-light leading-relaxed tracking-wide">
-                  KOSPI·KOSDAQ
+                  매일 KOSPI·KOSDAQ 9개 종목
               </p>
                 <p className="text-xl sm:text-2xl text-green-200/60 font-light leading-relaxed tracking-wide">
                     1주일 내 최소 10% 이상 수익 목표
@@ -257,9 +258,9 @@ export default function SubscribePage() {
             className="mt-16 lg:mt-20 pt-16 lg:pt-20 border-t border-green-500/10"
             aria-labelledby="features-heading"
           >
-            <h3 id="features-heading" className="text-base text-green-200/70 mb-8 font-light tracking-wider">
+            <h1 id="features-heading" className="text-base text-green-200/70 mb-8 font-light tracking-wider">
               포함 내용
-            </h3>
+            </h1>
             <ul className="space-y-5" role="list">
               {features.map((feature, index) => (
                 <motion.li
@@ -273,7 +274,7 @@ export default function SubscribePage() {
                   }}
                   className="group flex items-start gap-4 text-green-200/60 font-light hover:text-green-200/80 transition-colors duration-300"
                 >
-                  <div className="mt-1.5 w-1.5 h-1.5 rounded-full bg-green-500/60 flex-shrink-0 group-hover:bg-green-500 group-hover:shadow-[0_0_8px_rgba(0,255,65,0.6)] transition-all duration-300" aria-hidden="true" />
+                  <div className="mt-2 w-1.5 h-1.5 rounded-full bg-green-500/60 flex-shrink-0 group-hover:bg-green-500 group-hover:shadow-[0_0_8px_rgba(0,255,65,0.6)] transition-all duration-300" aria-hidden="true" />
                   <span className="text-base tracking-wide">{feature}</span>
                 </motion.li>
               ))}
