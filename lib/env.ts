@@ -25,7 +25,7 @@ export function validateEnv() {
     });
   } catch (error) {
     if (error instanceof z.ZodError) {
-      console.error('❌ 환경 변수 검증 실패:', error.errors);
+      console.error('❌ 환경 변수 검증 실패:', error.issues);
       throw new Error('환경 변수가 올바르게 설정되지 않았습니다.');
     }
     throw error;
