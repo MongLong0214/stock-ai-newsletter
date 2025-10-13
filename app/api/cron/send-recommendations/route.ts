@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { timingSafeEqual } from 'crypto';
 import { supabase, type Subscriber } from '@/lib/supabase';
 import {
   getGPTRecommendation,
@@ -11,14 +12,35 @@ import { validateEnv } from '@/lib/env';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
 
+function verifyBearerToken(authHeader: string | null, secret: string): boolean {
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return false;
+  }
+
+  const token = authHeader.slice(7); // Remove 'Bearer '
+
+  if (token.length !== secret.length) {
+    return false;
+  }
+
+  try {
+    const tokenBuffer = Buffer.from(token, 'utf8');
+    const secretBuffer = Buffer.from(secret, 'utf8');
+    return timingSafeEqual(tokenBuffer, secretBuffer);
+  } catch {
+    return false;
+  }
+}
+
 export async function GET(request: NextRequest) {
   const startTime = Date.now();
 
   try {
     validateEnv();
 
+    // Secure authentication check with timing-safe comparison
     const authHeader = request.headers.get('authorization');
-    if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+    if (!process.env.CRON_SECRET || !verifyBearerToken(authHeader, process.env.CRON_SECRET)) {
       console.error('❌ Unauthorized access attempt');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }

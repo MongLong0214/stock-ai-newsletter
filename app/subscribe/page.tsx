@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { ArrowLeft, Loader2, CheckCircle, XCircle, Mail, User } from 'lucide-react';
 import Link from 'next/link';
@@ -10,9 +10,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import AnimatedBackground from '@/components/animated-background';
 import { useCountdownToTomorrow } from '@/hooks/use-countdown-to-tomorrow';
+import { isDisposableEmail } from 'disposable-email-domains-js';
 
 const subscribeSchema = z.object({
-  email: z.string().email('잘못된 이메일 형식'),
+  email: z.string()
+    .min(1, '이메일을 입력해주세요')
+    .pipe(z.email({ message: '잘못된 이메일 형식' }))
+    .refine((email) => !isDisposableEmail(email), '일회용 이메일은 사용할 수 없습니다'),
   name: z.string().max(100, '이름 길이 제한 초과').optional(),
 });
 
