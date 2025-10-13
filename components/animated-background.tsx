@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
+import { useIsMobile } from '@/hooks/use-is-mobile';
 
 interface Column {
   id: number;
@@ -47,13 +48,15 @@ const codeSnippets = [
   'ｻ', 'ｼ', 'ｽ', 'ｾ', 'ｿ', 'ﾀ', 'ﾁ', 'ﾂ', 'ﾃ', 'ﾄ',
 ];
 
-const generateColumns = () => {
+const generateColumns = (isMobileDevice: boolean) => {
   const newColumns: Column[] = [];
-  const columnCount = 50; // Reduced for less overlap and smoother animation
+  const columnCount = isMobileDevice ? 10 : 50;  // Mobile: 10 columns
 
   for (let i = 0; i < columnCount; i++) {
     const columnChars = [];
-    const charCount = Math.floor(Math.random() * 15) + 8; // 8-23 characters per column (reduced)
+    const charCount = isMobileDevice
+      ? Math.floor(Math.random() * 3) + 3  // Mobile: 3-6 characters
+      : Math.floor(Math.random() * 15) + 8;
 
     for (let j = 0; j < charCount; j++) {
       columnChars.push(codeSnippets[Math.floor(Math.random() * codeSnippets.length)]);
@@ -63,9 +66,13 @@ const generateColumns = () => {
       id: i,
       x: (i / columnCount) * 100,
       chars: columnChars,
-      speed: 5 + Math.random() * 7, // 5-12 seconds (1.7x faster than original 8-20s)
-      delay: Math.random() * 0.5, // Quick start within 0.5 seconds
-      opacity: 0.12 + Math.random() * 0.10, // Enhanced opacity (0.12-0.22) for better visibility
+      speed: isMobileDevice
+        ? 1 + Math.random() * 1  // Mobile: 1-2 seconds (매우 빠르게)
+        : 5 + Math.random() * 7, // Desktop: 5-12 seconds (unchanged)
+      delay: Math.random() * (isMobileDevice ? 1 : 0.5),
+      opacity: isMobileDevice
+        ? 0.06 + Math.random() * 0.06  // Mobile: 0.06-0.12 (약간 더 밝게)
+        : 0.12 + Math.random() * 0.10,
     });
   }
 
@@ -73,13 +80,14 @@ const generateColumns = () => {
 };
 
 function AnimatedBackground() {
-  const [mounted, setMounted] = useState(false);
+  const isMobile = useIsMobile();
   const [columns, setColumns] = useState<Column[]>([]);
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     setMounted(true);
-    setColumns(generateColumns());
-  }, []);
+    setColumns(generateColumns(isMobile));
+  }, [isMobile]);
 
   if (!mounted) {
     return null;
@@ -95,6 +103,8 @@ function AnimatedBackground() {
           style={{
             left: `${column.x}%`,
             opacity: column.opacity,
+            willChange: 'transform',
+            transform: 'translateZ(0)',
           }}
           initial={{ y: '-150%' }}
           animate={{
