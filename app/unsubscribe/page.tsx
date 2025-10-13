@@ -10,7 +10,7 @@ import { z } from 'zod';
 import { Button } from '@/components/ui/button';
 import AnimatedBackground from '@/components/animated-background';
 
-const emailSchema = z.string().email();
+const emailSchema = z.string().pipe(z.email({ message: '잘못된 이메일 형식' }));
 
 function UnsubscribeContent() {
   const searchParams = useSearchParams();

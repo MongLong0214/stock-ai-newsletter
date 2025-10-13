@@ -35,3 +35,14 @@ export function validateEnv() {
     throw error;
   }
 }
+
+// Build-time environment validation (production only)
+if (process.env.NODE_ENV === 'production' && typeof window === 'undefined') {
+  try {
+    validateEnv();
+    console.log('✅ Environment variables validated successfully at build time');
+  } catch (error) {
+    console.error('❌ Environment validation failed at build time');
+    throw error;
+  }
+}

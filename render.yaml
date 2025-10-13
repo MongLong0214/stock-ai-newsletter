@@ -1,0 +1,25 @@
+# Render.com 무료 Cron Job 설정
+services:
+  - type: web
+    name: stock-ai-newsletter
+    env: node
+    plan: free
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+
+  - type: cron
+    name: daily-stock-newsletter
+    env: docker
+    plan: free
+    schedule: "30 23 * * *"  # 매일 한국 시간 08:30
+    dockerCommand: |
+      curl -X GET "$APP_URL/api/cron/send-recommendations" \
+        -H "Authorization: Bearer $CRON_SECRET"
+    envVars:
+      - key: APP_URL
+        sync: false
+      - key: CRON_SECRET
+        sync: false
