@@ -55,7 +55,7 @@ const generateColumns = (isMobileDevice: boolean) => {
   for (let i = 0; i < columnCount; i++) {
     const columnChars = [];
     const charCount = isMobileDevice
-      ? Math.floor(Math.random() * 3) + 3  // Mobile: 3-6 characters
+      ? Math.floor(Math.random() * 2) + 3  // Mobile: 3-5 characters
       : Math.floor(Math.random() * 15) + 8;
 
     for (let j = 0; j < charCount; j++) {
@@ -67,11 +67,11 @@ const generateColumns = (isMobileDevice: boolean) => {
       x: (i / columnCount) * 100,
       chars: columnChars,
       speed: isMobileDevice
-        ? 1 + Math.random() * 1  // Mobile: 1-2 seconds (매우 빠르게)
-        : 5 + Math.random() * 7, // Desktop: 5-12 seconds (unchanged)
-      delay: Math.random() * (isMobileDevice ? 1 : 0.5),
+        ? 2 + Math.random() * 3  // Mobile: 2-5초
+        : 5 + Math.random() * 7,
+      delay: Math.random() * (isMobileDevice ? 2 : 0.5),
       opacity: isMobileDevice
-        ? 0.06 + Math.random() * 0.06  // Mobile: 0.06-0.12 (약간 더 밝게)
+        ? 0.05 + Math.random() * 0.10  // Mobile: 0.05-0.15
         : 0.12 + Math.random() * 0.10,
     });
   }

@@ -9,9 +9,9 @@ function Navigation() {
           <Link
             href="/"
             className="group relative text-xl font-medium tracking-tight text-green-400 hover:text-green-300 transition-all duration-300 ease-out-expo focus:outline-none rounded-lg px-3 py-2 -mx-3 -my-2"
-            aria-label="AI Stock Intel - Home"
+            aria-label="Stock Matrix - Home"
           >
-            <span className="relative z-10">AI‑Powered Stock Signals</span>
+            <span className="relative z-10">Stock Matrix</span>
             <span className="absolute inset-0 rounded-lg bg-green-500/5 scale-0 group-hover:scale-100 transition-transform duration-300 ease-out-expo" aria-hidden="true" />
           </Link>
           <Link href="/subscribe">

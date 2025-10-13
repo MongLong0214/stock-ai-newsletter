@@ -12,10 +12,16 @@ type Recommendations = {
 type Stock = {
   ticker: string;
   name: string;
-  current_price: number;
+  close_price: number;
   rationale: string;
-  entry_price: number;
-  stop_loss: number;
+  levels: {
+    entry1: number;
+    entry2: number;
+    entry3: number;
+    sl1: number;
+    sl2: number;
+    sl3: number;
+  };
 };
 
 // Lazy initialization for AWS SES client
@@ -125,9 +131,10 @@ function renderStockTable(stocks: Stock[]): string {
         <div style="font-size:12px;color:#6c757d;">${escapeHtml(stock.ticker)}</div>
       </td>
       <td style="padding:16px 12px;text-align:right;">
-        <div style="font-weight:600;color:#333;margin-bottom:2px;">${stock.current_price.toLocaleString()}원</div>
-        <div style="font-size:11px;color:#28a745;">진입: ${stock.entry_price.toLocaleString()}원</div>
-        <div style="font-size:11px;color:#dc3545;">손절: ${stock.stop_loss.toLocaleString()}원</div>
+        <div style="font-weight:600;color:#333;margin-bottom:8px;">전일종가: ${stock.close_price.toLocaleString()}원</div>
+        <div style="font-size:11px;color:#28a745;margin-bottom:2px;">진입1: ${stock.levels.entry1.toLocaleString()}원 / 손절: ${stock.levels.sl1.toLocaleString()}원</div>
+        <div style="font-size:11px;color:#28a745;margin-bottom:2px;">진입2: ${stock.levels.entry2.toLocaleString()}원 / 손절: ${stock.levels.sl2.toLocaleString()}원</div>
+        <div style="font-size:11px;color:#28a745;">진입3: ${stock.levels.entry3.toLocaleString()}원 / 손절: ${stock.levels.sl3.toLocaleString()}원</div>
       </td>
     </tr>
     <tr>
