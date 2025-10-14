@@ -1,17 +1,29 @@
 // 환경변수를 가장 먼저 로드
 import { config } from 'dotenv';
 import { resolve } from 'path';
+import { existsSync } from 'fs';
 
-// GitHub Actions 환경에서는 .env.local 파일이 없으므로 에러 무시
-config({ path: resolve(process.cwd(), '.env.local') });
+// 로컬 환경에서만 .env.local 로드 (GitHub Actions는 환경변수 직접 사용)
+const envPath = resolve(process.cwd(), '.env.local');
+if (existsSync(envPath)) {
+  config({ path: envPath });
+}
 
 import { createClient } from '@supabase/supabase-js';
 import { sendStockNewsletter } from '../lib/sendgrid';
 import { getParallelAnalysis } from '../lib/llm/parallel-analysis';
 
+// 환경변수 검증
+if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
+  throw new Error('NEXT_PUBLIC_SUPABASE_URL is not set');
+}
+if (!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+  throw new Error('NEXT_PUBLIC_SUPABASE_ANON_KEY is not set');
+}
+
 const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
   {
     auth: { persistSession: false },
     db: { schema: 'public' },
