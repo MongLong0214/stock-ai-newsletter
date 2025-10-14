@@ -3,7 +3,13 @@ import { CircuitBreaker } from './circuit-breaker';
 import { STOCK_ANALYSIS_PROMPT, SYSTEM_MESSAGE } from '../prompts/stock-analysis-prompt';
 
 const geminiBreaker = new CircuitBreaker();
+const MAX_RETRY = 5;
+const RETRY_DELAY = 2000;
+const API_TIMEOUT = 600000; // 10분
 
+/**
+ * Promise에 타임아웃 적용
+ */
 async function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   return Promise.race([
     promise,
@@ -14,45 +20,63 @@ async function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
 }
 
 /**
- * JSON 유효성 검증 함수
- * @param text - 검증할 텍스트
- * @returns JSON 배열이면 true, 아니면 false
+ * 응답에서 유효한 JSON 배열 추출 및 검증
+ * @param text - 전체 응답 텍스트
+ * @returns 유효한 JSON 문자열 또는 null
  */
-function isValidJSON(text: string): boolean {
+function extractAndValidateJSON(text: string): string | null {
   try {
     const trimmed = text.trim();
-    // JSON 배열 형식인지 확인
-    if (!trimmed.startsWith('[') || !trimmed.endsWith(']')) {
-      return false;
+
+    // JSON 배열의 시작과 끝 위치 찾기
+    const startIdx = trimmed.indexOf('[');
+    const endIdx = trimmed.lastIndexOf(']');
+
+    if (startIdx === -1 || endIdx === -1 || startIdx >= endIdx) {
+      return null;
     }
 
-    // 실제 파싱 테스트
-    const parsed = JSON.parse(trimmed);
+    // JSON 부분 추출
+    const jsonStr = trimmed.substring(startIdx, endIdx + 1);
+    const parsed = JSON.parse(jsonStr);
 
-    // 배열이고, 최소 1개 이상의 요소가 있는지 확인
-    if (!Array.isArray(parsed) || parsed.length === 0) {
-      return false;
+    // 데이터 구조 검증
+    if (validateStockData(parsed)) {
+      return jsonStr;
     }
 
-    // 각 요소가 필수 필드를 가지고 있는지 확인
-    for (const item of parsed) {
-      if (!item.ticker || !item.name || !item.close_price || !item.rationale || !item.levels) {
-        return false;
-      }
-      if (!item.levels.entry1 || !item.levels.entry2 || !item.levels.entry3 ||
-          !item.levels.sl1 || !item.levels.sl2 || !item.levels.sl3) {
-        return false;
-      }
-    }
-
-    return true;
+    return null;
   } catch {
-    return false;
+    return null;
   }
 }
 
 /**
- * Gemini API 호출 후 응답 처리
+ * 주식 데이터 구조 검증
+ */
+function validateStockData(data: unknown): boolean {
+  if (!Array.isArray(data) || data.length === 0) {
+    return false;
+  }
+
+  return data.every((item) => {
+    if (!item || typeof item !== 'object') return false;
+
+    const { ticker, name, close_price, rationale, levels } = item;
+
+    // 필수 필드 존재 확인
+    if (!ticker || !name || !close_price || !rationale || !levels) {
+      return false;
+    }
+
+    // levels 하위 필드 확인
+    const { entry1, entry2, entry3, sl1, sl2, sl3 } = levels;
+    return !!(entry1 && entry2 && entry3 && sl1 && sl2 && sl3);
+  });
+}
+
+/**
+ * Gemini API 호출
  */
 async function callGeminiAPI(genAI: GoogleGenAI): Promise<string> {
   const response = await withTimeout(
@@ -70,27 +94,14 @@ async function callGeminiAPI(genAI: GoogleGenAI): Promise<string> {
         temperature: 0.3,
       },
     }),
-    600000 // 10분
+    API_TIMEOUT
   );
 
   return response.text || '';
 }
 
 /**
- * 재시도 가능 여부 확인 및 대기
- */
-async function handleRetry(attempt: number, maxRetries: number, delay: number): Promise<boolean> {
-  if (attempt >= maxRetries) {
-    return false; // 재시도 불가
-  }
-
-  console.log(`🔄 [Gemini] ${delay / 1000}초 후 재시도...`);
-  await new Promise((resolve) => setTimeout(resolve, delay));
-  return true; // 재시도 가능
-}
-
-/**
- * 에러 메시지를 사용자 친화적 메시지로 변환
+ * 에러 메시지 포맷팅
  */
 function formatErrorMessage(error: unknown): string {
   const msg = error instanceof Error ? error.message : String(error);
@@ -104,8 +115,10 @@ function formatErrorMessage(error: unknown): string {
   return `⚠️ Gemini 오류: ${msg}`;
 }
 
+/**
+ * Gemini 주식 추천 분석 실행
+ */
 export async function getGeminiRecommendation(): Promise<string> {
-  // 사전 검증
   if (!process.env.GEMINI_API_KEY) {
     return '⚠️ Gemini API 키가 설정되지 않았습니다.';
   }
@@ -115,59 +128,61 @@ export async function getGeminiRecommendation(): Promise<string> {
     return '⚠️ Gemini 서비스가 일시적으로 불안정합니다.';
   }
 
-  const MAX_RETRY = 5;
-  const RETRY_DELAY = 2000;
-
   try {
     const genAI = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
-    // 재시도 루프
     for (let attempt = 1; attempt <= MAX_RETRY; attempt++) {
       console.log(`[Gemini] 시도 ${attempt}/${MAX_RETRY}`);
 
       try {
         const result = await callGeminiAPI(genAI);
 
-        // 빈 응답 처리
         if (!result) {
           throw new Error('Empty response from Gemini');
         }
 
-        // 응답값 전체 로깅
+        // 응답 로깅
         console.log(`\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
-        console.log(`📥 [Gemini 응답] (${attempt}/${MAX_RETRY})`);
+        console.log(`📥 [Gemini 원본 응답] (${attempt}/${MAX_RETRY})`);
         console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
         console.log(result);
         console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`);
 
-        // JSON 검증
-        if (!isValidJSON(result)) {
-          console.warn(`⚠️ [Gemini] 비-JSON 응답 감지 (${attempt}/${MAX_RETRY})`);
+        // JSON 추출 및 검증
+        const validJSON = extractAndValidateJSON(result);
 
-          const canRetry = await handleRetry(attempt, MAX_RETRY, RETRY_DELAY);
-          if (!canRetry) {
-            throw new Error(`JSON 검증 실패: ${MAX_RETRY}번 시도 후에도 올바른 응답을 받지 못했습니다.`);
+        if (validJSON) {
+          console.log(`✅ [Gemini] 유효한 JSON 응답 받음 (${attempt}/${MAX_RETRY})`);
+          if (validJSON !== result) {
+            console.log(`📦 [추출된 JSON]:\n${validJSON}\n`);
           }
-          continue;
+          geminiBreaker.recordSuccess();
+          return validJSON;
         }
 
-        // 성공
-        console.log(`✅ [Gemini] 유효한 JSON 응답 받음 (${attempt}/${MAX_RETRY})`);
-        geminiBreaker.recordSuccess();
-        return result;
+        // 재시도 처리
+        console.warn(`⚠️ [Gemini] JSON 검증 실패 (${attempt}/${MAX_RETRY})`);
+
+        if (attempt < MAX_RETRY) {
+          console.log(`🔄 [Gemini] ${RETRY_DELAY / 1000}초 후 재시도...`);
+          await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY));
+        }
 
       } catch (apiError) {
         const errorMsg = apiError instanceof Error ? apiError.message : String(apiError);
         console.warn(`⚠️ [Gemini] API 오류 (${attempt}/${MAX_RETRY}): ${errorMsg}`);
 
-        const canRetry = await handleRetry(attempt, MAX_RETRY, RETRY_DELAY);
-        if (!canRetry) {
+        if (attempt < MAX_RETRY) {
+          console.log(`🔄 [Gemini] ${RETRY_DELAY / 1000}초 후 재시도...`);
+          await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY));
+        } else {
           throw apiError;
         }
       }
     }
 
-    throw new Error('재시도 로직 오류');
+    throw new Error(`JSON 검증 실패: ${MAX_RETRY}번 시도 후에도 올바른 응답을 받지 못했습니다.`);
+
   } catch (error) {
     geminiBreaker.recordFailure();
     console.error('❌ [Gemini Error]', error);
