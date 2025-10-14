@@ -84,8 +84,8 @@ function generateNewsletterHTML(data: StockNewsletterData, email: string): strin
               <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
                 <tr>
                   <td style="text-align: center;">
-                    <h1 style="margin: 0 0 8px 0; padding: 0; font-size: 24px; font-weight: 600; letter-spacing: -0.02em; color: #FFFFFF; line-height: 1.2;">오늘의 AI 추천 종목</h1>
-                    <p style="margin: 0 0 12px 0; padding: 0; font-size: 13px; font-weight: 400; color: #94A3B8; letter-spacing: 0.01em; line-height: 1.5;">오로지 숫자와 차트로만</p>
+                    <h1 style="margin: 0 0 8px 0; padding: 0; font-size: 26px; font-weight: 700; letter-spacing: -0.03em; color: #FFFFFF; line-height: 1.2;">오늘의 AI 추천 종목</h1>
+                    <p style="margin: 0 0 12px 0; padding: 0; font-size: 14px; font-weight: 400; color: #94A3B8; letter-spacing: 0.02em; line-height: 1.5;">3개 AI, 각 3종목씩 총 9개</p>
                     <div style="display: inline-block; padding: 6px 16px; background-color: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 6px;">
                       <span style="font-size: 12px; font-weight: 500; color: #E2E8F0; letter-spacing: 0.01em;">${data.date}</span>
                     </div>
@@ -110,10 +110,7 @@ function generateNewsletterHTML(data: StockNewsletterData, email: string): strin
                           <table role="presentation" cellspacing="0" cellpadding="0" border="0">
                             <tr>
                               <td style="padding: 6px 14px; background-color: #10B981; border-radius: 6px; vertical-align: middle;">
-                                <span style="font-size: 11px; font-weight: 600; color: #FFFFFF; letter-spacing: 0.05em; text-transform: uppercase; line-height: 1;">GPT-5</span>
-                              </td>
-                              <td style="padding-left: 12px; vertical-align: middle;">
-                                <span style="font-size: 13px; font-weight: 500; color: #64748B; line-height: 1;">OpenAI</span>
+                                <span style="font-size: 11px; font-weight: 600; color: #FFFFFF; letter-spacing: 0.05em; text-transform: uppercase; line-height: 1;">GPT</span>
                               </td>
                             </tr>
                           </table>
@@ -138,10 +135,7 @@ function generateNewsletterHTML(data: StockNewsletterData, email: string): strin
                           <table role="presentation" cellspacing="0" cellpadding="0" border="0">
                             <tr>
                               <td style="padding: 6px 14px; background-color: #8B5CF6; border-radius: 6px; vertical-align: middle;">
-                                <span style="font-size: 11px; font-weight: 600; color: #FFFFFF; letter-spacing: 0.05em; text-transform: uppercase; line-height: 1;">CLAUDE OPUS 4.1</span>
-                              </td>
-                              <td style="padding-left: 12px; vertical-align: middle;">
-                                <span style="font-size: 13px; font-weight: 500; color: #64748B; line-height: 1;">Anthropic</span>
+                                <span style="font-size: 11px; font-weight: 600; color: #FFFFFF; letter-spacing: 0.05em; text-transform: uppercase; line-height: 1;">CLAUDE</span>
                               </td>
                             </tr>
                           </table>
@@ -166,10 +160,7 @@ function generateNewsletterHTML(data: StockNewsletterData, email: string): strin
                           <table role="presentation" cellspacing="0" cellpadding="0" border="0">
                             <tr>
                               <td style="padding: 6px 14px; background-color: #0EA5E9; border-radius: 6px; vertical-align: middle;">
-                                <span style="font-size: 11px; font-weight: 600; color: #FFFFFF; letter-spacing: 0.05em; text-transform: uppercase; line-height: 1;">GEMINI-2.5 PRO</span>
-                              </td>
-                              <td style="padding-left: 12px; vertical-align: middle;">
-                                <span style="font-size: 13px; font-weight: 500; color: #64748B; line-height: 1;">Google</span>
+                                <span style="font-size: 11px; font-weight: 600; color: #FFFFFF; letter-spacing: 0.05em; text-transform: uppercase; line-height: 1;">GEMINI</span>
                               </td>
                             </tr>
                           </table>
@@ -186,9 +177,8 @@ function generateNewsletterHTML(data: StockNewsletterData, email: string): strin
               <!-- Disclaimer -->
               <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin: 32px 0;">
                 <tr>
-                  <td style="padding: 20px 24px; background-color: #F8FAFC; border-left: 3px solid #CBD5E1; border-radius: 4px;">
-                    <p style="margin: 0 0 8px 0; padding: 0; font-size: 12px; font-weight: 600; color: #0F172A; line-height: 1.5;">투자 유의사항</p>
-                    <p style="margin: 0; padding: 0; font-size: 12px; font-weight: 400; color: #64748B; line-height: 1.6;">이 분석은 AI 기술적 분석 결과이며, 투자 권유가 아닙니다. 모든 투자 결정과 손실에 대한 책임은 투자자 본인에게 있습니다.</p>
+                  <td style="padding: 16px 20px; background-color: #F8FAFC; border-radius: 4px;">
+                    <p style="margin: 0; padding: 0; font-size: 11px; font-weight: 400; color: #64748B; line-height: 1.6;">투자 권유가 아닙니다. 투자 판단과 손실 책임은 본인에게 있습니다.</p>
                   </td>
                 </tr>
               </table>
@@ -199,8 +189,7 @@ function generateNewsletterHTML(data: StockNewsletterData, email: string): strin
           <!-- Footer -->
           <tr>
             <td style="padding: 32px 40px; background-color: #F8FAFC; border-radius: 0 0 8px 8px; text-align: center;">
-              <p style="margin: 0 0 8px 0; padding: 0; font-size: 13px; font-weight: 500; color: #475569; line-height: 1.5;">감이 아닌 데이터, 추측이 아닌 신호</p>
-              <p style="margin: 0 0 20px 0; padding: 0; font-size: 12px; font-weight: 400; color: #94A3B8; line-height: 1.5;">GPT • Claude Opus • Gemini</p>
+              <p style="margin: 0 0 16px 0; padding: 0; font-size: 12px; font-weight: 400; color: #94A3B8; line-height: 1.5;">GPT • CLAUDE • GEMINI</p>
               <a href="${process.env.NEXT_PUBLIC_APP_URL}/unsubscribe?email=${encodeURIComponent(email)}" style="display: inline-block; padding: 8px 16px; font-size: 12px; font-weight: 500; color: #64748B; text-decoration: none; border: 1px solid #E2E8F0; border-radius: 6px; transition: all 0.2s;">수신거부</a>
             </td>
           </tr>
@@ -263,6 +252,7 @@ function parseAndFormatAnalysis(jsonString: string): string {
                     <p style="margin: 0; padding: 0; font-size: 12px; font-weight: 500; color: #94A3B8; letter-spacing: 0.02em; text-transform: uppercase; line-height: 1;">${stock.ticker}</p>
                   </td>
                   <td style="vertical-align: top; width: 40%; text-align: right;">
+                    <p style="margin: 0 0 6px 0; padding: 0; font-size: 11px; font-weight: 500; color: #94A3B8; text-align: right;">전일 종가</p>
                     <div style="display: inline-block; padding: 8px 16px; background-color: #F8FAFC; border-radius: 6px;">
                       <span style="font-size: 24px; font-weight: 700; color: #0F172A; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; line-height: 1;">${stock.close_price.toLocaleString()}</span>
                       <span style="font-size: 14px; font-weight: 500; color: #64748B;">원</span>
