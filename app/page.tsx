@@ -29,7 +29,7 @@ export default function HomePage() {
 
       {/* Scanline Effect */}
       <div className="fixed inset-0 pointer-events-none z-[1] opacity-[0.04]">
-        <div className="absolute inset-0 bg-[linear-gradient(transparent_50%,rgba(0,255,65,0.04)_50%)] bg-[length:100%_4px] animate-[matrix-scan_8s_linear_infinite]" aria-hidden="true" />
+        <div className="absolute inset-0 bg-[linear-gradient(transparent_50%,rgba(16,185,129,0.04)_50%)] bg-[length:100%_4px] animate-[matrix-scan_8s_linear_infinite]" aria-hidden="true" />
       </div>
 
       {/* Navigation */}
