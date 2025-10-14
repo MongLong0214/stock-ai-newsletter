@@ -270,9 +270,9 @@ function parseAndFormatAnalysis(jsonString: string): string {
                   </td>
                   <td style="vertical-align: top; width: 40%; text-align: right;">
                     <p style="margin: 0 0 6px 0; padding: 0; font-size: 11px; font-weight: 500; color: #94A3B8; text-align: right;">전일 종가</p>
-                    <div style="display: inline-block; padding: 8px 16px; background-color: #F8FAFC; border-radius: 6px;">
-                      <span style="font-size: 24px; font-weight: 700; color: #0F172A; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; line-height: 1;">${stock.close_price.toLocaleString()}</span>
-                      <span style="font-size: 14px; font-weight: 500; color: #64748B;">원</span>
+                    <div style="display: inline-block; padding: 8px 12px; background-color: #F8FAFC; border-radius: 6px;">
+                      <span style="font-size: 18px; font-weight: 700; color: #0F172A; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; line-height: 1;">${stock.close_price.toLocaleString()}</span>
+                      <span style="font-size: 12px; font-weight: 500; color: #64748B;">원</span>
                     </div>
                   </td>
                 </tr>
@@ -303,25 +303,21 @@ function parseAndFormatAnalysis(jsonString: string): string {
 
               <!-- Entry & Stop-Loss Levels -->
               <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin-top: 24px; padding-top: 24px; border-top: 1px solid #F1F5F9;">
+                <!-- Section Title: 진입 기회 -->
+                <tr>
+                  <td colspan="3" style="padding: 0 0 12px 0;">
+                    <p style="margin: 0; padding: 0; font-size: 11px; font-weight: 600; color: #059669; letter-spacing: 0.05em; text-transform: uppercase;">진입 기회</p>
+                  </td>
+                </tr>
+                <!-- Entry Levels Row -->
                 <tr>
                   <!-- Entry 1 -->
                   <td style="width: 33.33%; padding: 0 4px;">
                     <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color: #ECFDF5; border: 1px solid #A7F3D0; border-radius: 6px;">
                       <tr>
                         <td style="padding: 12px; text-align: center;">
-                          <p style="margin: 0 0 6px 0; padding: 0; font-size: 10px; font-weight: 600; color: #059669; letter-spacing: 0.05em; text-transform: uppercase; line-height: 1;">진입 1</p>
-                          <p style="margin: 0; padding: 0; font-size: 14px; font-weight: 700; color: #047857; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; line-height: 1;">${stock.levels.entry1.toLocaleString()}</p>
-                        </td>
-                      </tr>
-                    </table>
-                  </td>
-                  <!-- Stop-Loss 1 -->
-                  <td style="width: 33.33%; padding: 0 4px;">
-                    <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color: #FEF2F2; border: 1px solid #FECACA; border-radius: 6px;">
-                      <tr>
-                        <td style="padding: 12px; text-align: center;">
-                          <p style="margin: 0 0 6px 0; padding: 0; font-size: 10px; font-weight: 600; color: #DC2626; letter-spacing: 0.05em; text-transform: uppercase; line-height: 1;">손절 1</p>
-                          <p style="margin: 0; padding: 0; font-size: 14px; font-weight: 700; color: #B91C1C; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; line-height: 1;">${stock.levels.sl1.toLocaleString()}</p>
+                          <p style="margin: 0 0 6px 0; padding: 0; font-size: 10px; font-weight: 600; color: #059669; letter-spacing: 0.05em; text-transform: uppercase; line-height: 1;">1단계</p>
+                          <p style="margin: 0; padding: 0; font-size: 16px; font-weight: 700; color: #047857; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; line-height: 1;">${stock.levels.entry1.toLocaleString()}</p>
                         </td>
                       </tr>
                     </table>
@@ -331,22 +327,8 @@ function parseAndFormatAnalysis(jsonString: string): string {
                     <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color: #ECFDF5; border: 1px solid #A7F3D0; border-radius: 6px;">
                       <tr>
                         <td style="padding: 12px; text-align: center;">
-                          <p style="margin: 0 0 6px 0; padding: 0; font-size: 10px; font-weight: 600; color: #059669; letter-spacing: 0.05em; text-transform: uppercase; line-height: 1;">진입 2</p>
-                          <p style="margin: 0; padding: 0; font-size: 14px; font-weight: 700; color: #047857; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; line-height: 1;">${stock.levels.entry2.toLocaleString()}</p>
-                        </td>
-                      </tr>
-                    </table>
-                  </td>
-                </tr>
-                <tr><td colspan="3" style="height: 8px;"></td></tr>
-                <tr>
-                  <!-- Stop-Loss 2 -->
-                  <td style="width: 33.33%; padding: 0 4px;">
-                    <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color: #FEF2F2; border: 1px solid #FECACA; border-radius: 6px;">
-                      <tr>
-                        <td style="padding: 12px; text-align: center;">
-                          <p style="margin: 0 0 6px 0; padding: 0; font-size: 10px; font-weight: 600; color: #DC2626; letter-spacing: 0.05em; text-transform: uppercase; line-height: 1;">손절 2</p>
-                          <p style="margin: 0; padding: 0; font-size: 14px; font-weight: 700; color: #B91C1C; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; line-height: 1;">${stock.levels.sl2.toLocaleString()}</p>
+                          <p style="margin: 0 0 6px 0; padding: 0; font-size: 10px; font-weight: 600; color: #059669; letter-spacing: 0.05em; text-transform: uppercase; line-height: 1;">2단계</p>
+                          <p style="margin: 0; padding: 0; font-size: 16px; font-weight: 700; color: #047857; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; line-height: 1;">${stock.levels.entry2.toLocaleString()}</p>
                         </td>
                       </tr>
                     </table>
@@ -356,8 +338,43 @@ function parseAndFormatAnalysis(jsonString: string): string {
                     <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color: #ECFDF5; border: 1px solid #A7F3D0; border-radius: 6px;">
                       <tr>
                         <td style="padding: 12px; text-align: center;">
-                          <p style="margin: 0 0 6px 0; padding: 0; font-size: 10px; font-weight: 600; color: #059669; letter-spacing: 0.05em; text-transform: uppercase; line-height: 1;">진입 3</p>
-                          <p style="margin: 0; padding: 0; font-size: 14px; font-weight: 700; color: #047857; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; line-height: 1;">${stock.levels.entry3.toLocaleString()}</p>
+                          <p style="margin: 0 0 6px 0; padding: 0; font-size: 10px; font-weight: 600; color: #059669; letter-spacing: 0.05em; text-transform: uppercase; line-height: 1;">3단계</p>
+                          <p style="margin: 0; padding: 0; font-size: 16px; font-weight: 700; color: #047857; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; line-height: 1;">${stock.levels.entry3.toLocaleString()}</p>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+
+                <!-- Spacing -->
+                <tr><td colspan="3" style="height: 16px;"></td></tr>
+
+                <!-- Section Title: 손절 라인 -->
+                <tr>
+                  <td colspan="3" style="padding: 0 0 12px 0;">
+                    <p style="margin: 0; padding: 0; font-size: 11px; font-weight: 600; color: #DC2626; letter-spacing: 0.05em; text-transform: uppercase;">손절 라인</p>
+                  </td>
+                </tr>
+                <!-- Stop-Loss Levels Row -->
+                <tr>
+                  <!-- Stop-Loss 1 -->
+                  <td style="width: 33.33%; padding: 0 4px;">
+                    <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color: #FEF2F2; border: 1px solid #FECACA; border-radius: 6px;">
+                      <tr>
+                        <td style="padding: 12px; text-align: center;">
+                          <p style="margin: 0 0 6px 0; padding: 0; font-size: 10px; font-weight: 600; color: #DC2626; letter-spacing: 0.05em; text-transform: uppercase; line-height: 1;">1단계</p>
+                          <p style="margin: 0; padding: 0; font-size: 16px; font-weight: 700; color: #B91C1C; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; line-height: 1;">${stock.levels.sl1.toLocaleString()}</p>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                  <!-- Stop-Loss 2 -->
+                  <td style="width: 33.33%; padding: 0 4px;">
+                    <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color: #FEF2F2; border: 1px solid #FECACA; border-radius: 6px;">
+                      <tr>
+                        <td style="padding: 12px; text-align: center;">
+                          <p style="margin: 0 0 6px 0; padding: 0; font-size: 10px; font-weight: 600; color: #DC2626; letter-spacing: 0.05em; text-transform: uppercase; line-height: 1;">2단계</p>
+                          <p style="margin: 0; padding: 0; font-size: 16px; font-weight: 700; color: #B91C1C; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; line-height: 1;">${stock.levels.sl2.toLocaleString()}</p>
                         </td>
                       </tr>
                     </table>
@@ -367,8 +384,8 @@ function parseAndFormatAnalysis(jsonString: string): string {
                     <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color: #FEF2F2; border: 1px solid #FECACA; border-radius: 6px;">
                       <tr>
                         <td style="padding: 12px; text-align: center;">
-                          <p style="margin: 0 0 6px 0; padding: 0; font-size: 10px; font-weight: 600; color: #DC2626; letter-spacing: 0.05em; text-transform: uppercase; line-height: 1;">손절 3</p>
-                          <p style="margin: 0; padding: 0; font-size: 14px; font-weight: 700; color: #B91C1C; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; line-height: 1;">${stock.levels.sl3.toLocaleString()}</p>
+                          <p style="margin: 0 0 6px 0; padding: 0; font-size: 10px; font-weight: 600; color: #DC2626; letter-spacing: 0.05em; text-transform: uppercase; line-height: 1;">3단계</p>
+                          <p style="margin: 0; padding: 0; font-size: 16px; font-weight: 700; color: #B91C1C; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; line-height: 1;">${stock.levels.sl3.toLocaleString()}</p>
                         </td>
                       </tr>
                     </table>
