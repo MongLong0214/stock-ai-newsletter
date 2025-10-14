@@ -33,7 +33,7 @@ function CTASection({
             <h3 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-extralight mb-6 lg:mb-8 text-green-400/90 tracking-tight leading-tight">
               이 모든 지표를 분석한 결과를
               <br />
-              <span className="font-light text-green-300">매일 아침 8시 50분</span>에 받아보세요
+              <span className="font-light text-green-300">매일 아침 7시 50분</span>에 받아보세요
             </h3>
 
             <motion.div

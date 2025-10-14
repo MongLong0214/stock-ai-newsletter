@@ -76,7 +76,7 @@ export default function SubscribePage() {
         }
       }
 
-      setMessage('구독이 완료되었습니다! 매일 오전 8시 50분에 이메일을 받으실 수 있습니다.');
+      setMessage('구독이 완료되었습니다! 매일 오전 7시 50분에 이메일을 받으실 수 있습니다.');
       setStatus('success');
       setEmail('');
       setName('');
@@ -94,7 +94,7 @@ export default function SubscribePage() {
   const features = [
     '3개 AI 독립 분석',
       '총 9개의 종목 추천',
-    '매일 오전 8:50 발송',
+    '매일 오전 7:50 발송',
     '진입가 & 손절가 포함',
     '완전 무료',
 

@@ -43,7 +43,7 @@ function HeroSection({ formatted }: HeroSectionProps) {
           className="mb-12 max-w-4xl mx-auto text-center"
         >
           <p className="text-lg sm:text-xl md:text-2xl lg:text-3xl text-green-200/70 font-light leading-relaxed tracking-wide mb-1">
-            매일 개장 10분 전
+            매일 NXT 프리마켓 개장 10분 전
           </p>
           <p className="text-lg sm:text-xl md:text-2xl lg:text-3xl text-green-200/70 font-light leading-relaxed tracking-wide mb-3">
             코스피·코스닥 종목 9개
