@@ -27,8 +27,10 @@ function CTASection({
           <motion.div
             initial={{ opacity: 0, y: 40 }}
             whileInView={{ opacity: 1, y: 0 }}
-            transition={{ duration: longAnimationDuration, ease: [0.19, 1, 0.22, 1] }}
+            transition={{ duration: longAnimationDuration, ease: [0.16, 1, 0.3, 1] }}
             viewport={{ once: true, margin: viewportMargin }}
+            className="will-change-transform"
+            style={{ transform: 'translateZ(0)' }}
           >
             <h3 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-extralight mb-6 lg:mb-8 text-emerald-500/80 tracking-tight leading-tight">
               이 모든 지표를 분석한 결과를
@@ -80,8 +82,10 @@ function CTASection({
         <motion.div
           initial={{ opacity: 0, y: 40 }}
           whileInView={{ opacity: 1, y: 0 }}
-          transition={{ duration: longAnimationDuration, ease: [0.19, 1, 0.22, 1] }}
+          transition={{ duration: longAnimationDuration, ease: [0.16, 1, 0.3, 1] }}
           viewport={{ once: true, margin: viewportMargin }}
+          className="will-change-transform"
+          style={{ transform: 'translateZ(0)' }}
         >
           <h2 id="cta-heading" className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-extralight mb-6 lg:mb-8 text-emerald-500/80 tracking-tight leading-tight">
             <span className="font-normal text-emerald-300">9개 종목</span>을 드립니다

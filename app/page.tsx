@@ -18,9 +18,9 @@ export default function HomePage() {
   const { formatted } = useCountdownToTomorrow();
   const isMobile = useIsMobile();
 
-  const animationDuration = isMobile ? 0.2 : 0.8;
-  const longAnimationDuration = isMobile ? 0.25 : 0.9;
-  const viewportMargin = isMobile ? '100px' : '-100px';
+  const animationDuration = isMobile ? 0.15 : 0.8;
+  const longAnimationDuration = isMobile ? 0.2 : 0.9;
+  const viewportMargin = isMobile ? '0px' : '-100px';
 
   return (
     <div className="min-h-screen bg-black text-white relative overflow-hidden">
