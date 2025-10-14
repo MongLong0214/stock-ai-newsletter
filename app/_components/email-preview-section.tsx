@@ -23,9 +23,8 @@ function EmailPreviewSection() {
         {/* Simple Text Header - outside card */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: "-100px" }}
-          transition={{ duration: 0.6, delay: 0.1 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.6, ease: [0.16, 1, 0.3, 1] }}
           className="text-center mb-8"
         >
           <p className="text-sm text-emerald-500 uppercase tracking-wider mb-4 font-medium">
@@ -43,11 +42,11 @@ function EmailPreviewSection() {
 
         {/* Email Card Preview */}
         <motion.div
-          initial={{ opacity: 0, y: 40 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.8, delay: 0.5 }}
-          className="bg-slate-900/50 backdrop-blur-sm rounded-xl shadow-xl overflow-hidden border border-emerald-500/20"
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.8, ease: [0.16, 1, 0.3, 1] }}
+          className="bg-slate-900/90 rounded-xl shadow-xl overflow-hidden border border-emerald-500/20 will-change-transform"
+          style={{ transform: 'translateZ(0)' }}
         >
           {/* AI Badge */}
           <div className="px-6 pt-6 pb-4 border-b border-slate-700/50">
@@ -152,9 +151,8 @@ function EmailPreviewSection() {
         {/* Additional Info with Beta Badge */}
         <motion.div
           initial={{ opacity: 0 }}
-          whileInView={{ opacity: 1 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.6, delay: 0.7 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.5, delay: 1.0, ease: [0.16, 1, 0.3, 1] }}
           className="mt-8 flex flex-col items-center gap-4"
         >
           {/* Beta Badge */}

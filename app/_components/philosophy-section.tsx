@@ -12,8 +12,10 @@ function PhilosophySection({ longAnimationDuration, viewportMargin }: Philosophy
         <motion.div
           initial={{ opacity: 0, y: 40 }}
           whileInView={{ opacity: 1, y: 0 }}
-          transition={{ duration: longAnimationDuration, ease: [0.19, 1, 0.22, 1] }}
+          transition={{ duration: longAnimationDuration, ease: [0.16, 1, 0.3, 1] }}
           viewport={{ once: true, margin: viewportMargin }}
+          className="will-change-transform"
+          style={{ transform: 'translateZ(0)' }}
         >
           <h2 id="philosophy-heading" className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl xl:text-8xl font-extralight mb-8 lg:mb-10 text-emerald-500/80 tracking-tight leading-tight">
             오로지 <span className="font-normal text-emerald-300">숫자</span>와 <span className="font-normal text-emerald-300">차트</span>로만

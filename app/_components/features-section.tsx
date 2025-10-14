@@ -43,15 +43,16 @@ function FeaturesSection({
           {features.map((feature, index) => (
             <motion.article
               key={index}
-              initial={{ opacity: 0, y: 60 }}
+              initial={{ opacity: 0, y: isMobile ? 30 : 60 }}
               whileInView={{ opacity: 1, y: 0 }}
               transition={{
                 duration: animationDuration,
                 delay: getDelay(index),
-                ease: [0.19, 1, 0.22, 1]
+                ease: [0.16, 1, 0.3, 1]
               }}
               viewport={{ once: true, margin: viewportMargin }}
-              className="group relative"
+              className="group relative will-change-transform"
+              style={{ transform: 'translateZ(0)' }}
               tabIndex={0}
               role="article"
               aria-label={`${feature.title} AI system`}
