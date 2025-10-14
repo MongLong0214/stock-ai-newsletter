@@ -241,6 +241,21 @@ function parseAndFormatAnalysis(jsonString: string): string {
     `;
   }
 
+  // JSON 형식이 아닌 경우 (에러 메시지 또는 일반 텍스트)
+  const trimmed = jsonString.trim();
+  if (!trimmed.startsWith('[') && !trimmed.startsWith('{')) {
+    console.warn('비-JSON 응답 감지:', trimmed.substring(0, 100));
+    return `
+      <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+        <tr>
+          <td style="padding: 32px 20px; text-align: center; background-color: #F8FAFC; border-radius: 8px;">
+            <p style="margin: 0; padding: 0; font-size: 14px; font-weight: 500; color: #64748B;">서비스 준비 중입니다.</p>
+          </td>
+        </tr>
+      </table>
+    `;
+  }
+
   try {
     const stocks = JSON.parse(jsonString);
 
