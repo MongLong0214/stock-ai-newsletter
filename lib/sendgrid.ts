@@ -101,6 +101,7 @@ function generateNewsletterHTML(data: StockNewsletterData, email: string): strin
               <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
                 <tr>
                   <td style="text-align: center;">
+                    <p style="margin: 0 0 12px 0; padding: 0; font-size: 13px; font-weight: 600; color: #10B981; letter-spacing: 0.05em; text-transform: uppercase; line-height: 1;">Stock Matrix</p>
                     <h1 style="margin: 0 0 8px 0; padding: 0; font-size: 26px; font-weight: 700; letter-spacing: -0.03em; color: #FFFFFF; line-height: 1.2;">오늘의 AI 추천 종목</h1>
                     <p style="margin: 0 0 12px 0; padding: 0; font-size: 14px; font-weight: 400; color: #94A3B8; letter-spacing: 0.02em; line-height: 1.5;">3개 AI, 각 3종목씩 총 9개</p>
                     <div style="display: inline-block; padding: 6px 16px; background-color: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 6px;">
@@ -194,8 +195,11 @@ function generateNewsletterHTML(data: StockNewsletterData, email: string): strin
               <!-- Disclaimer -->
               <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin: 32px 0;">
                 <tr>
-                  <td style="padding: 16px 20px; background-color: #F8FAFC; border-radius: 4px;">
-                    <p style="margin: 0; padding: 0; font-size: 11px; font-weight: 400; color: #64748B; line-height: 1.6;">투자 권유가 아닙니다. 투자 판단과 손실 책임은 본인에게 있습니다.</p>
+                  <td style="padding: 16px 20px; background-color: #FEF2F2; border: 1px solid #FECACA; border-radius: 6px;">
+                    <p style="margin: 0 0 8px 0; padding: 0; font-size: 11px; font-weight: 600; color: #DC2626; line-height: 1.6;">⚠️ 투자 유의사항</p>
+                    <p style="margin: 0 0 6px 0; padding: 0; font-size: 11px; font-weight: 400; color: #64748B; line-height: 1.6;">• 본 정보는 AI가 생성한 참고 자료이며, 투자 권유 및 매매 추천이 아닙니다.</p>
+                    <p style="margin: 0 0 6px 0; padding: 0; font-size: 11px; font-weight: 400; color: #64748B; line-height: 1.6;">• 투자의 최종 결정과 그에 따른 손익은 투자자 본인에게 귀속됩니다.</p>
+                    <p style="margin: 0; padding: 0; font-size: 11px; font-weight: 400; color: #64748B; line-height: 1.6;">• 과거 데이터 및 AI 분석 결과가 미래 수익을 보장하지 않습니다.</p>
                   </td>
                 </tr>
               </table>
@@ -206,7 +210,7 @@ function generateNewsletterHTML(data: StockNewsletterData, email: string): strin
           <!-- Footer -->
           <tr>
             <td style="padding: 32px 40px; background-color: #F8FAFC; border-radius: 0 0 8px 8px; text-align: center;">
-              <p style="margin: 0 0 16px 0; padding: 0; font-size: 12px; font-weight: 400; color: #94A3B8; line-height: 1.5;">GPT • CLAUDE • GEMINI</p>
+              <p style="margin: 0 0 16px 0; padding: 0; font-size: 12px; font-weight: 400; color: #94A3B8; line-height: 1.5;">Stock Matrix</p>
               <a href="${process.env.NEXT_PUBLIC_APP_URL}/unsubscribe?email=${encodeURIComponent(email)}" style="display: inline-block; padding: 8px 16px; font-size: 12px; font-weight: 500; color: #64748B; text-decoration: none; border: 1px solid #E2E8F0; border-radius: 6px; transition: all 0.2s;">수신거부</a>
             </td>
           </tr>
