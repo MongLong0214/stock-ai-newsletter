@@ -19,16 +19,16 @@ export default function Icon() {
           alignItems: 'center',
           justifyContent: 'center',
           backgroundColor: '#000',
-          backgroundImage: 'linear-gradient(135deg, #000 0%, #001a00 100%)',
+          backgroundImage: 'linear-gradient(135deg, #000 0%, #001210 100%)',
         }}
       >
         <div
           style={{
             fontSize: '72px',
             fontWeight: 'bold',
-            color: '#00ff41',
+            color: '#10b981',
             letterSpacing: '4px',
-            textShadow: '0 0 20px #00ff41',
+            textShadow: '0 0 20px #10b981',
             display: 'flex',
           }}
         >
@@ -37,7 +37,7 @@ export default function Icon() {
         <div
           style={{
             fontSize: '16px',
-            color: '#00ff41',
+            color: '#10b981',
             marginTop: '8px',
             opacity: 0.8,
             display: 'flex',

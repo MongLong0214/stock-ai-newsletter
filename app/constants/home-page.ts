@@ -2,12 +2,12 @@ export const FEATURES_DATA = [
   {
     title: "GPT-5",
     description: "OpenAI • 현 시점 LLM 종합 성능 평가 1위",
-    gradient: "from-green-500/10 via-emerald-500/5 to-transparent",
+    gradient: "from-emerald-500/10 via-emerald-500/5 to-transparent",
   },
   {
     title: "Claude Opus 4.1",
     description: "Anthropic • 복잡한 추론 및 데이터 분석 특화",
-    gradient: "from-lime-500/10 via-green-500/5 to-transparent",
+    gradient: "from-emerald-500/10 via-emerald-500/5 to-transparent",
   },
   {
     title: "Gemini-2.5 Pro",
@@ -26,7 +26,7 @@ export const TECHNICAL_INDICATORS_DATA = [
       "MACD, ROC, VWAP",
       "캔들 패턴 분석"
     ],
-    gradient: "from-green-500/10 via-emerald-500/5 to-transparent",
+    gradient: "from-emerald-500/10 via-emerald-500/5 to-transparent",
   },
   {
     title: "거래량",
@@ -37,7 +37,7 @@ export const TECHNICAL_INDICATORS_DATA = [
       "CMF (자금흐름)",
       "MFI (자금유입강도)"
     ],
-    gradient: "from-lime-500/10 via-green-500/5 to-transparent",
+    gradient: "from-emerald-500/10 via-emerald-500/5 to-transparent",
   },
   {
     title: "변동성",

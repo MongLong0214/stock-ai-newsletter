@@ -15,10 +15,10 @@ function PhilosophySection({ longAnimationDuration, viewportMargin }: Philosophy
           transition={{ duration: longAnimationDuration, ease: [0.19, 1, 0.22, 1] }}
           viewport={{ once: true, margin: viewportMargin }}
         >
-          <h2 id="philosophy-heading" className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl xl:text-8xl font-extralight mb-8 lg:mb-10 text-green-400/90 tracking-tight leading-tight">
-            오로지 <span className="font-normal text-green-300">숫자</span>와 <span className="font-normal text-green-300">차트</span>로만
+          <h2 id="philosophy-heading" className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl xl:text-8xl font-extralight mb-8 lg:mb-10 text-emerald-500/80 tracking-tight leading-tight">
+            오로지 <span className="font-normal text-emerald-300">숫자</span>와 <span className="font-normal text-emerald-300">차트</span>로만
           </h2>
-          <p className="text-lg sm:text-xl md:text-2xl lg:text-3xl text-green-200/60 font-light leading-relaxed tracking-wide">
+          <p className="text-lg sm:text-xl md:text-2xl lg:text-3xl text-slate-300 font-light leading-relaxed tracking-wide">
             감이 아닌 데이터, 추측이 아닌 신호
           </p>
         </motion.div>
