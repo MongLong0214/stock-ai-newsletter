@@ -22,6 +22,23 @@ export interface StockNewsletterData {
   date: string;
 }
 
+interface StockLevels {
+  entry1: number;
+  sl1: number;
+  entry2: number;
+  sl2: number;
+  entry3: number;
+  sl3: number;
+}
+
+interface StockData {
+  name: string;
+  ticker: string;
+  close_price: number;
+  rationale: string;
+  levels: StockLevels;
+}
+
 /**
  * SendGrid로 주식 뉴스레터 이메일 전송
  */
@@ -238,7 +255,7 @@ function parseAndFormatAnalysis(jsonString: string): string {
 
     return stocks
       .map(
-        (stock: any) => `
+        (stock: StockData) => `
         <!-- Stock Card -->
         <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin-bottom: 12px; background-color: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 8px; overflow: hidden;">
           <tr>

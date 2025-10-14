@@ -32,7 +32,7 @@ export async function getClaudeRecommendation(): Promise<string> {
     });
 
     const result = await retry(async () => {
-      let conversationMessages: Anthropic.MessageParam[] = [
+      const conversationMessages: Anthropic.MessageParam[] = [
         { role: 'user', content: STOCK_ANALYSIS_PROMPT },
       ];
 
