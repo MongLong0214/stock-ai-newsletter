@@ -6,9 +6,8 @@ const envSchema = z.object({
   OPENAI_API_KEY: z.string().startsWith('sk-').optional(),
   ANTHROPIC_API_KEY: z.string().startsWith('sk-ant-').optional(),
   GEMINI_API_KEY: z.string().min(1),
-  SENDGRID_API_KEY: z.string().min(1),
-  SENDGRID_FROM_EMAIL: z.string().email(),
-  CRON_SECRET: z.string().min(32),
+  SENDGRID_API_KEY: z.string().min(1).optional(),
+  SENDGRID_FROM_EMAIL: z.string().email().optional(),
   NEXT_PUBLIC_APP_URL: z.string().url(),
 });
 
@@ -22,7 +21,6 @@ export function validateEnv() {
       GEMINI_API_KEY: process.env.GEMINI_API_KEY,
       SENDGRID_API_KEY: process.env.SENDGRID_API_KEY,
       SENDGRID_FROM_EMAIL: process.env.SENDGRID_FROM_EMAIL,
-      CRON_SECRET: process.env.CRON_SECRET,
       NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
     });
   } catch (error) {
