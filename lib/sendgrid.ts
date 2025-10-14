@@ -211,7 +211,7 @@ function generateNewsletterHTML(data: StockNewsletterData, email: string): strin
           <tr>
             <td style="padding: 32px 40px; background-color: #F8FAFC; border-radius: 0 0 8px 8px; text-align: center;">
               <p style="margin: 0 0 16px 0; padding: 0; font-size: 12px; font-weight: 400; color: #94A3B8; line-height: 1.5;">Stock Matrix</p>
-              <a href="${process.env.NEXT_PUBLIC_APP_URL}/unsubscribe?email=${encodeURIComponent(email)}" style="display: inline-block; padding: 8px 16px; font-size: 12px; font-weight: 500; color: #64748B; text-decoration: none; border: 1px solid #E2E8F0; border-radius: 6px; transition: all 0.2s;">수신거부</a>
+              <a href="${process.env.NEXT_PUBLIC_APP_URL}/unsubscribe?email=${encodeURIComponent(email)}" style="display: inline-block; padding: 8px 16px; font-size: 12px; font-weight: 500; color: #64748B; text-decoration: none; border: 1px solid #E2E8F0; border-radius: 6px; transition: all 0.2s;">구독 취소</a>
             </td>
           </tr>
 
