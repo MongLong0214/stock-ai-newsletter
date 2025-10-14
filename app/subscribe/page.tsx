@@ -38,20 +38,42 @@ export default function SubscribePage() {
         name: name.trim() || undefined,
       });
 
-      const { error } = await supabase.from('subscribers').insert({
-        email: validated.email,
-        name: validated.name || null,
-      });
+      // 1. 먼저 기존 구독자 확인
+      const { data: existing } = await supabase
+        .from('subscribers')
+        .select('*')
+        .eq('email', validated.email)
+        .single();
 
-      if (error) {
-        if (error.code === '23505') {
-          setMessage('이미 등록된 이메일 주소입니다.');
-        } else {
-          console.error('Subscribe error:', error);
+      if (existing) {
+        // 기존 구독자가 있으면 is_active를 true로 업데이트 (재구독)
+        const { error: updateError } = await supabase
+          .from('subscribers')
+          .update({
+            is_active: true,
+            name: validated.name || existing.name,
+          })
+          .eq('email', validated.email);
+
+        if (updateError) {
+          console.error('Resubscribe error:', updateError);
           setMessage('구독 처리 중 오류가 발생했습니다. 다시 시도해주세요.');
+          setStatus('error');
+          return;
         }
-        setStatus('error');
-        return;
+      } else {
+        // 신규 구독자는 INSERT
+        const { error: insertError } = await supabase.from('subscribers').insert({
+          email: validated.email,
+          name: validated.name || null,
+        });
+
+        if (insertError) {
+          console.error('Subscribe error:', insertError);
+          setMessage('구독 처리 중 오류가 발생했습니다. 다시 시도해주세요.');
+          setStatus('error');
+          return;
+        }
       }
 
       setMessage('구독이 완료되었습니다! 매일 오전 8시 50분에 이메일을 받으실 수 있습니다.');
