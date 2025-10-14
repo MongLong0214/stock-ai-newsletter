@@ -101,9 +101,16 @@ export default function RootLayout({
         url: 'https://stockmatrix.co.kr',
         logo: {
           '@type': 'ImageObject',
-          url: 'https://stockmatrix.co.kr/og-image.png',
-          width: 1200,
-          height: 630,
+          url: 'https://stockmatrix.co.kr/apple-icon.png',
+          width: 512,
+          height: 512,
+          caption: 'Stock Matrix Logo',
+        },
+        image: {
+          '@type': 'ImageObject',
+          url: 'https://stockmatrix.co.kr/apple-icon.png',
+          width: 512,
+          height: 512,
         },
         sameAs: ['https://twitter.com/stockmatrix'],
         contactPoint: {
