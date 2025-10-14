@@ -6,7 +6,7 @@ import {
   getClaudeRecommendation,
   getGeminiRecommendation,
 } from '@/lib/ai-recommendations';
-import { sendStockEmail } from '@/lib/email';
+import { sendStockNewsletter } from '@/lib/sendgrid';
 import { validateEnv } from '@/lib/env';
 
 export const dynamic = 'force-dynamic';
@@ -53,11 +53,9 @@ export async function GET(request: NextRequest) {
       getGeminiRecommendation(),
     ]);
 
-    const recommendations = {
-      gpt: gptRec.status === 'fulfilled' ? gptRec.value : '⚠️ 추천을 가져올 수 없습니다.',
-      claude: claudeRec.status === 'fulfilled' ? claudeRec.value : '⚠️ 추천을 가져올 수 없습니다.',
-      gemini: geminiRec.status === 'fulfilled' ? geminiRec.value : '⚠️ 추천을 가져올 수 없습니다.',
-    };
+    const gptAnalysis = gptRec.status === 'fulfilled' ? gptRec.value : '⚠️ 추천을 가져올 수 없습니다.';
+    const claudeAnalysis = claudeRec.status === 'fulfilled' ? claudeRec.value : '⚠️ 추천을 가져올 수 없습니다.';
+    const geminiAnalysis = geminiRec.status === 'fulfilled' ? geminiRec.value : '⚠️ 추천을 가져올 수 없습니다.';
 
     console.log('✅ AI recommendations fetched');
 
@@ -84,62 +82,69 @@ export async function GET(request: NextRequest) {
 
     console.log(`📧 Sending to ${subscribers.length} subscribers...`);
 
-    const batchSize = 50;
-    let successCount = 0;
-    let failCount = 0;
-    const failedEmails: string[] = [];
+    const newsletterData = {
+      gptAnalysis,
+      claudeAnalysis,
+      geminiAnalysis,
+      date: new Date().toLocaleDateString('ko-KR', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+      }),
+    };
 
-    for (let i = 0; i < subscribers.length; i += batchSize) {
-      const batch = subscribers.slice(i, i + batchSize);
-
-      const results = await Promise.allSettled(
-        batch.map((subscriber: Subscriber) =>
-          sendStockEmail(subscriber.email, subscriber.name, recommendations)
-        )
+    try {
+      await sendStockNewsletter(
+        subscribers.map((s: Subscriber) => ({ email: s.email, name: s.name || undefined })),
+        newsletterData
       );
 
-      results.forEach((result, index) => {
-        if (result.status === 'fulfilled' && result.value.success) {
-          successCount++;
-        } else {
-          failCount++;
-          failedEmails.push(batch[index].email);
-        }
+      const successCount = subscribers.length;
+      const failCount = 0;
+
+      const { error: logError } = await supabase.from('email_logs').insert({
+        subscriber_count: subscribers.length,
+        success_count: successCount,
+        fail_count: failCount,
+        gpt_recommendation: gptAnalysis.substring(0, 5000),
+        claude_recommendation: claudeAnalysis.substring(0, 5000),
+        gemini_recommendation: geminiAnalysis.substring(0, 5000),
       });
 
-      if (i + batchSize < subscribers.length) {
-        await new Promise((resolve) => setTimeout(resolve, 1000));
+      if (logError) {
+        console.error('⚠️ Failed to save email log:', logError);
       }
+
+      const duration = Date.now() - startTime;
+      console.log(`✅ Job completed in ${duration}ms: ${successCount} sent`);
+
+      return NextResponse.json({
+        success: true,
+        message: '메일 발송 완료',
+        subscribers: subscribers.length,
+        sent: successCount,
+        failed: failCount,
+        duration,
+      });
+    } catch (emailError) {
+      const failCount = subscribers.length;
+      console.error('❌ SendGrid email error:', emailError);
+
+      const { error: logError } = await supabase.from('email_logs').insert({
+        subscriber_count: subscribers.length,
+        success_count: 0,
+        fail_count: failCount,
+        gpt_recommendation: gptAnalysis.substring(0, 5000),
+        claude_recommendation: claudeAnalysis.substring(0, 5000),
+        gemini_recommendation: geminiAnalysis.substring(0, 5000),
+      });
+
+      if (logError) {
+        console.error('⚠️ Failed to save email log:', logError);
+      }
+
+      throw emailError;
     }
-
-    const { error: logError } = await supabase.from('email_logs').insert({
-      subscriber_count: subscribers.length,
-      success_count: successCount,
-      fail_count: failCount,
-      gpt_recommendation: recommendations.gpt.substring(0, 5000),
-      claude_recommendation: recommendations.claude.substring(0, 5000),
-      gemini_recommendation: recommendations.gemini.substring(0, 5000),
-    });
-
-    if (logError) {
-      console.error('⚠️ Failed to save email log:', logError);
-    }
-
-    const duration = Date.now() - startTime;
-    console.log(`✅ Job completed in ${duration}ms: ${successCount} sent, ${failCount} failed`);
-
-    if (failedEmails.length > 0) {
-      console.error('❌ Failed emails:', failedEmails);
-    }
-
-    return NextResponse.json({
-      success: true,
-      message: '메일 발송 완료',
-      subscribers: subscribers.length,
-      sent: successCount,
-      failed: failCount,
-      duration,
-    });
   } catch (error) {
     const duration = Date.now() - startTime;
     console.error('❌ Cron job error:', error);
