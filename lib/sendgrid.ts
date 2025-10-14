@@ -49,7 +49,7 @@ export async function sendStockNewsletter(
   // SendGrid 초기화
   initSendGrid();
 
-  const subject = `[주식 AI 뉴스레터] ${data.date} 추천 종목 분석`;
+  const subject = `[Stock Matrix] ${data.date} 추천 종목 분석`;
 
   try {
     // 각 수신자별로 개별 이메일 전송 (수신거부 링크 개인화)
