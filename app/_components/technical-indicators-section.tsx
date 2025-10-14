@@ -43,15 +43,16 @@ function TechnicalIndicatorsSection({
           {indicators.map((category, index) => (
             <motion.div
               key={index}
-              initial={{ opacity: 0, y: 60 }}
+              initial={{ opacity: 0, y: isMobile ? 30 : 60 }}
               whileInView={{ opacity: 1, y: 0 }}
               transition={{
                 duration: animationDuration,
                 delay: getDelay(index),
-                ease: [0.19, 1, 0.22, 1]
+                ease: [0.16, 1, 0.3, 1]
               }}
               viewport={{ once: true, margin: viewportMargin }}
-              className="group relative"
+              className="group relative will-change-transform"
+              style={{ transform: 'translateZ(0)' }}
             >
               <div className="relative p-6 lg:p-8 rounded-3xl glass-morphism border border-emerald-500/20 transition-all duration-700 ease-out-expo group-hover:border-emerald-500/40 group-hover:shadow-[0_0_40px_rgba(16,185,129,0.1)] overflow-hidden h-full">
                 <div className={`absolute inset-0 bg-gradient-to-br ${category.gradient} opacity-0 group-hover:opacity-100 transition-opacity duration-700 ease-out-expo`} aria-hidden="true" />
