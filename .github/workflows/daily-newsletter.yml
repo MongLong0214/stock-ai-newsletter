@@ -51,4 +51,4 @@ jobs:
 
       - name: Notify on failure
         if: failure()
-        run: echo "❌ Newsletter sending failed!"
+        run: echo "❌ Newsletter sending failed!!"
