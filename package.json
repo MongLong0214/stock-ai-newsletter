@@ -10,9 +10,9 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.65.0",
-    "@aws-sdk/client-sesv2": "^3.907.0",
     "@google/genai": "^1.23.0",
     "@radix-ui/react-slot": "^1.2.3",
+    "@sendgrid/mail": "^8.1.6",
     "@supabase/supabase-js": "^2.75.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
