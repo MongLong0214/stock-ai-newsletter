@@ -316,8 +316,10 @@ export default function SubscribePage() {
             role="note"
           >
             <div className="text-sm text-green-300/40 font-light leading-relaxed tracking-wide space-y-2">
-              <p>본 정보는 AI가 생성한 참고 자료이며, 투자 권유가 아닙니다.</p>
-              <p>투자의 최종 결정은 본인의 판단과 책임 하에 이루어져야 합니다.</p>
+              <p className="font-semibold text-green-400/60">⚠️ 투자 유의사항</p>
+              <p>본 정보는 AI가 생성한 참고 자료이며, 투자 권유 및 매매 추천이 아닙니다.</p>
+              <p>투자의 최종 결정과 그에 따른 손익은 투자자 본인에게 귀속됩니다.</p>
+              <p>과거 데이터 및 AI 분석 결과가 미래 수익을 보장하지 않습니다.</p>
             </div>
           </motion.div>
         </motion.div>
