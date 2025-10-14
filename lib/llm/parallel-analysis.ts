@@ -1,5 +1,3 @@
-import { getGPTRecommendation } from './gpt';
-import { getClaudeRecommendation } from './claude';
 import { getGeminiRecommendation } from './gemini';
 
 export interface ParallelAnalysisResult {
