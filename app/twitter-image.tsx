@@ -20,7 +20,7 @@ export default async function Image() {
           alignItems: 'center',
           justifyContent: 'center',
           backgroundColor: '#000',
-          backgroundImage: 'linear-gradient(135deg, #000 0%, #001a00 100%)',
+          backgroundImage: 'linear-gradient(135deg, #000 0%, #001210 100%)',
           position: 'relative',
         }}
       >
@@ -33,7 +33,7 @@ export default async function Image() {
             right: 0,
             bottom: 0,
             opacity: 0.05,
-            background: 'repeating-linear-gradient(0deg, transparent, transparent 2px, #00ff41 2px, #00ff41 4px)',
+            background: 'repeating-linear-gradient(0deg, transparent, transparent 2px, #10b981 2px, #10b981 4px)',
             display: 'flex',
           }}
         />
@@ -53,10 +53,10 @@ export default async function Image() {
             style={{
               fontSize: '90px',
               fontWeight: 'bold',
-              color: '#00ff41',
+              color: '#10b981',
               letterSpacing: '10px',
               marginBottom: '30px',
-              textShadow: '0 0 30px #00ff41',
+              textShadow: '0 0 30px #10b981',
               display: 'flex',
             }}
           >
@@ -66,10 +66,10 @@ export default async function Image() {
             style={{
               fontSize: '90px',
               fontWeight: 'bold',
-              color: '#00ff41',
+              color: '#10b981',
               letterSpacing: '10px',
               marginBottom: '40px',
-              textShadow: '0 0 30px #00ff41',
+              textShadow: '0 0 30px #10b981',
               display: 'flex',
             }}
           >
@@ -106,7 +106,7 @@ export default async function Image() {
               <div
                 style={{
                   fontSize: '48px',
-                  color: '#00ff41',
+                  color: '#10b981',
                   fontWeight: 'bold',
                   display: 'flex',
                 }}
@@ -128,7 +128,7 @@ export default async function Image() {
               style={{
                 width: '2px',
                 height: '80px',
-                background: '#00ff41',
+                background: '#10b981',
                 opacity: 0.3,
                 display: 'flex',
               }}
@@ -144,7 +144,7 @@ export default async function Image() {
               <div
                 style={{
                   fontSize: '48px',
-                  color: '#00ff41',
+                  color: '#10b981',
                   fontWeight: 'bold',
                   display: 'flex',
                 }}
@@ -166,7 +166,7 @@ export default async function Image() {
               style={{
                 width: '2px',
                 height: '80px',
-                background: '#00ff41',
+                background: '#10b981',
                 opacity: 0.3,
                 display: 'flex',
               }}
@@ -182,7 +182,7 @@ export default async function Image() {
               <div
                 style={{
                   fontSize: '48px',
-                  color: '#00ff41',
+                  color: '#10b981',
                   fontWeight: 'bold',
                   display: 'flex',
                 }}

@@ -20,7 +20,7 @@ export default async function Image() {
           alignItems: 'center',
           justifyContent: 'center',
           backgroundColor: '#000',
-          backgroundImage: 'linear-gradient(to bottom, #000, #001a00)',
+          backgroundImage: 'linear-gradient(to bottom, #000, #001210)',
           position: 'relative',
         }}
       >
@@ -34,7 +34,7 @@ export default async function Image() {
             bottom: 0,
             opacity: 0.1,
             fontSize: '20px',
-            color: '#00ff41',
+            color: '#10b981',
             display: 'flex',
             flexWrap: 'wrap',
             overflow: 'hidden',
@@ -52,7 +52,7 @@ export default async function Image() {
             justifyContent: 'center',
             zIndex: 10,
             padding: '60px',
-            border: '2px solid #00ff41',
+            border: '2px solid #10b981',
             borderRadius: '20px',
             backgroundColor: 'rgba(0, 0, 0, 0.8)',
           }}
@@ -62,10 +62,10 @@ export default async function Image() {
             style={{
               fontSize: '80px',
               fontWeight: 'bold',
-              color: '#00ff41',
+              color: '#10b981',
               letterSpacing: '8px',
               marginBottom: '20px',
-              textShadow: '0 0 20px #00ff41, 0 0 40px #00ff41',
+              textShadow: '0 0 20px #10b981, 0 0 40px #10b981',
               display: 'flex',
             }}
           >
@@ -77,7 +77,7 @@ export default async function Image() {
             style={{
               width: '600px',
               height: '2px',
-              background: 'linear-gradient(to right, transparent, #00ff41, transparent)',
+              background: 'linear-gradient(to right, transparent, #10b981, transparent)',
               marginBottom: '30px',
               display: 'flex',
             }}
@@ -99,7 +99,7 @@ export default async function Image() {
           <div
             style={{
               fontSize: '32px',
-              color: '#00ff41',
+              color: '#10b981',
               display: 'flex',
               alignItems: 'center',
             }}
@@ -115,7 +115,7 @@ export default async function Image() {
             position: 'absolute',
             bottom: '40px',
             fontSize: '28px',
-            color: '#00ff41',
+            color: '#10b981',
             opacity: 0.8,
             display: 'flex',
           }}
