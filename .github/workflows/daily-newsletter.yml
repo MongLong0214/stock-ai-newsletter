@@ -1,0 +1,54 @@
+name: Daily Stock Newsletter
+
+  on:
+    schedule:
+      # 매일 오전 7:30 KST (UTC 22:30 전날)
+      - cron: '30 22 * * *'
+    workflow_dispatch: # 수동 실행 가능
+
+  jobs:
+    send-newsletter:
+      runs-on: ubuntu-latest
+
+      steps:
+        - name: Checkout code
+          uses: actions/checkout@v4
+
+        - name: Setup Node.js
+          uses: actions/setup-node@v4
+          with:
+            node-version: '20'
+            cache: 'npm'
+
+        - name: Install dependencies
+          run: npm ci
+
+        - name: Send Newsletter
+          env:
+            # API Keys
+            OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+            ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+            GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+
+            # Supabase
+            NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+            NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+
+            # SendGrid
+            SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY }}
+            SENDGRID_FROM_EMAIL: ${{ secrets.SENDGRID_FROM_EMAIL }}
+            SENDGRID_FROM_NAME: ${{ secrets.SENDGRID_FROM_NAME }}
+
+            # Application
+            NEXT_PUBLIC_APP_URL: ${{ secrets.NEXT_PUBLIC_APP_URL }}
+          run: |
+            echo "🚀 Starting newsletter generation and sending..."
+            npx tsx scripts/send-newsletter.ts
+
+        - name: Notify on success
+          if: success()
+          run: echo "✅ Newsletter sent successfully!"
+
+        - name: Notify on failure
+          if: failure()
+          run: echo "❌ Newsletter sending failed!"
