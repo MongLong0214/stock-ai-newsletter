@@ -81,7 +81,7 @@ function validateStockData(data: unknown): boolean {
 async function callGeminiAPI(genAI: GoogleGenAI): Promise<string> {
   const response = await withTimeout(
     genAI.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-2.5-pro',
       contents: [
         {
           role: 'user',
@@ -92,6 +92,9 @@ async function callGeminiAPI(genAI: GoogleGenAI): Promise<string> {
         tools: [{ googleSearch: {} }],
         maxOutputTokens: 8192,
         temperature: 0.3,
+        thinkingConfig: {
+          thinkingBudget: 10000,
+        },
       },
     }),
     API_TIMEOUT
