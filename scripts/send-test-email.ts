@@ -1,0 +1,71 @@
+// 환경변수를 가장 먼저 로드
+import { config } from 'dotenv';
+import { resolve } from 'path';
+import { existsSync } from 'fs';
+
+// 로컬 환경에서만 .env.local 로드
+const envPath = resolve(process.cwd(), '.env.local');
+if (existsSync(envPath)) {
+  config({ path: envPath });
+}
+
+import { sendStockNewsletter } from '../lib/sendgrid';
+import { getGeminiRecommendation } from '../lib/llm/gemini';
+
+async function sendTestEmail() {
+  console.log('🚀 테스트 이메일 발송 시작...\n');
+
+  try {
+    // 테스트 수신자
+    const testRecipient = {
+      email: 'chowonil0214@naver.com',
+      name: '테스트',
+    };
+
+    console.log(`📧 수신자: ${testRecipient.email}\n`);
+
+    // Gemini AI 분석 실행
+    console.log('🤖 Gemini 분석 실행 중...\n');
+    const geminiAnalysis = await getGeminiRecommendation();
+
+    // GPT, Claude는 서비스 준비 중 (빈 문자열)
+    const gptAnalysis = '';
+    const claudeAnalysis = '';
+
+    // 뉴스레터 데이터 생성
+    const newsletterData = {
+      gptAnalysis,
+      claudeAnalysis,
+      geminiAnalysis,
+      date: new Date().toLocaleDateString('ko-KR', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        timeZone: 'Asia/Seoul',
+      }),
+    };
+
+    console.log(`📅 발송 날짜: ${newsletterData.date}\n`);
+    console.log('📧 이메일 발송 중...\n');
+
+    // SendGrid로 뉴스레터 전송
+    await sendStockNewsletter([testRecipient], newsletterData);
+
+    console.log('\n━'.repeat(80));
+    console.log('✨ 테스트 이메일 발송 완료!');
+    console.log('━'.repeat(80));
+    console.log(`\n📬 ${testRecipient.email}로 뉴스레터 발송 완료`);
+    console.log(`📅 발송 날짜: ${newsletterData.date}`);
+    console.log('\n분석 결과:');
+    console.log(`  • GPT: ${gptAnalysis.startsWith('⚠️') ? '❌ 실패' : '✅ 성공'}`);
+    console.log(`  • Claude: ${claudeAnalysis.startsWith('⚠️') ? '❌ 실패' : '✅ 성공'}`);
+    console.log(`  • Gemini: ${geminiAnalysis.startsWith('⚠️') ? '❌ 실패' : '✅ 성공'}`);
+
+    process.exit(0);
+  } catch (error) {
+    console.error('❌ 테스트 이메일 발송 실패:', error);
+    process.exit(1);
+  }
+}
+
+sendTestEmail();
