@@ -48,7 +48,7 @@ export const metadata: Metadata = {
     siteName: 'Stock Matrix',
     images: [
       {
-        url: '/og-image.png',
+        url: '/opengraph-image',
         width: 1200,
         height: 630,
         alt: 'Stock Matrix - 3개 AI 주식 분석 뉴스레터',
@@ -60,7 +60,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'STOCK MATRIX - AI 주식 분석 뉴스레터',
     description: 'GPT, Claude, Gemini 3개 AI가 분석한 KOSPI·KOSDAQ 9개 종목을 매일 무료로',
-    images: ['/og-image.png'],
+    images: ['/twitter-image'],
     creator: '@stockmatrix',
     site: '@stockmatrix',
   },
@@ -101,14 +101,14 @@ export default function RootLayout({
         url: 'https://stockmatrix.co.kr',
         logo: {
           '@type': 'ImageObject',
-          url: 'https://stockmatrix.co.kr/apple-icon.png',
+          url: 'https://stockmatrix.co.kr/apple-icon',
           width: 512,
           height: 512,
           caption: 'Stock Matrix Logo',
         },
         image: {
           '@type': 'ImageObject',
-          url: 'https://stockmatrix.co.kr/apple-icon.png',
+          url: 'https://stockmatrix.co.kr/apple-icon',
           width: 512,
           height: 512,
         },
