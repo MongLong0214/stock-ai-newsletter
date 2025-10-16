@@ -1,12 +1,10 @@
 function Footer() {
   return (
     <footer className="border-t border-slate-700/50 py-12 px-6 lg:px-8 relative" role="contentinfo">
-      <div className="max-w-7xl mx-auto text-center">
-        <div className="text-sm text-slate-400 leading-relaxed font-light tracking-wide space-y-2">
-          <p className="font-semibold text-emerald-500/60">⚠️ 투자 유의사항</p>
-          <p>본 정보는 AI가 생성한 참고 자료이며, 투자 권유 및 매매 추천이 아닙니다.</p>
-          <p>투자의 최종 결정과 그에 따른 손익은 투자자 본인에게 귀속됩니다.</p>
-          <p>과거 데이터 및 AI 분석 결과가 미래 수익을 보장하지 않습니다.</p>
+      <div className="max-w-7xl mx-auto">
+        <div className="text-sm text-slate-400 leading-relaxed font-light tracking-wide">
+          <p className="font-semibold text-emerald-500/60 mb-3 text-center">⚠️ 법적 고지 및 투자 유의사항</p>
+          <p className="text-justify">본 서비스는 인공지능(AI)을 활용하여 기술적 지표를 수집·분석한 참고 자료를 제공하는 정보 제공 서비스로서, 자본시장과 금융투자업에 관한 법률 제6조에 따른 투자권유, 투자자문, 투자일임 등 어떠한 형태의 금융투자업 행위도 아니며, 특정 종목의 매수·매도·보유를 권유하거나 추천하지 않습니다. 제공되는 모든 정보는 교육 및 정보 제공 목적으로만 사용되어야 하며, 투자 판단 및 최종 의사결정에 대한 책임은 전적으로 이용자 본인에게 있습니다. 본 서비스는 구체적인 매수가격, 매도가격, 손절가, 목표가격 등 거래 실행과 관련된 어떠한 정보도 제시하지 않으며, 모든 매매 시점, 수량, 가격 결정은 투자자 본인의 독립적인 판단에 따라 이루어져야 합니다. AI 분석 결과 및 과거 데이터는 미래의 투자 수익률을 보장하지 않으며, 주식 투자에는 원금 손실의 위험이 항상 존재합니다. 시장 상황, 경제 지표, 기업 실적, 정치적 요인 등 다양한 변수에 따라 주가는 예측과 다르게 변동할 수 있으며, 투자 손실에 대한 모든 책임은 투자자 본인에게 귀속됩니다. 본 서비스의 운영자 및 정보 제공자는 본 정보의 정확성, 완전성, 적시성을 보장하지 않으며, 본 정보를 이용하여 발생한 투자 손실, 기회 손실, 데이터 오류, 시스템 장애 등 어떠한 직접적·간접적·부수적·파생적 손해에 대해서도 법적 책임을 지지 않습니다. 투자자는 본인의 투자 목적, 재무 상태, 위험 감수 능력을 충분히 고려하여 신중하게 투자 결정을 내려야 하며, 필요한 경우 금융 전문가와 상담할 것을 권장합니다.</p>
         </div>
       </div>
     </footer>

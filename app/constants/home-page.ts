@@ -1,20 +1,3 @@
-export const FEATURES_DATA = [
-  {
-    title: "GPT-5",
-    description: "OpenAI • 현 시점 LLM 종합 성능 평가 1위",
-    gradient: "from-emerald-500/10 via-emerald-500/5 to-transparent",
-  },
-  {
-    title: "Claude Opus 4.1",
-    description: "Anthropic • 복잡한 추론 및 데이터 분석 특화",
-    gradient: "from-emerald-500/10 via-emerald-500/5 to-transparent",
-  },
-  {
-    title: "Gemini-2.5 Pro",
-    description: "Google • 대용량 컨텍스트 처리 특화",
-    gradient: "from-emerald-500/10 via-teal-500/5 to-transparent",
-  },
-] as const;
 
 export const TECHNICAL_INDICATORS_DATA = [
   {
@@ -79,7 +62,7 @@ export const TECHNICAL_INDICATORS_DATA = [
       "지지/저항선 확인",
       "신호 강도 계산",
       "리스크/리워드 비율",
-      "최적 진입 타이밍"
+      "종합 점수 산출"
     ],
     gradient: "from-sky-500/10 via-blue-500/5 to-transparent",
   },

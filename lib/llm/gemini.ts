@@ -62,16 +62,22 @@ function validateStockData(data: unknown): boolean {
   return data.every((item) => {
     if (!item || typeof item !== 'object') return false;
 
-    const { ticker, name, close_price, rationale, levels } = item;
+    const { ticker, name, close_price, rationale, signals } = item;
 
     // 필수 필드 존재 확인
-    if (!ticker || !name || !close_price || !rationale || !levels) {
+    if (!ticker || !name || !close_price || !rationale || !signals) {
       return false;
     }
 
-    // levels 하위 필드 확인
-    const { entry1, entry2, entry3, sl1, sl2, sl3 } = levels;
-    return !!(entry1 && entry2 && entry3 && sl1 && sl2 && sl3);
+    // signals 하위 필드 확인
+    const { trend_score, momentum_score, volume_score, volatility_score, overall_score } = signals;
+    return (
+        typeof trend_score === 'number' &&
+        typeof momentum_score === 'number' &&
+        typeof volume_score === 'number' &&
+        typeof volatility_score === 'number' &&
+        typeof overall_score === 'number'
+    );
   });
 }
 
