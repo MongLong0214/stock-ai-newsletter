@@ -1,6 +1,6 @@
 import { GoogleGenAI } from '@google/genai';
 import { CircuitBreaker } from './circuit-breaker';
-import { STOCK_ANALYSIS_PROMPT, SYSTEM_MESSAGE } from '../prompts/stock-analysis-prompt';
+import { STOCK_ANALYSIS_PROMPT } from '../prompts/stock-analysis-prompt';
 
 const geminiBreaker = new CircuitBreaker();
 const MAX_RETRY = 5;
@@ -82,7 +82,7 @@ function validateStockData(data: unknown): boolean {
 }
 
 /**
- * Gemini API 호출
+ * Gemini API 호출 (최적화된 설정)
  */
 async function callGeminiAPI(genAI: GoogleGenAI): Promise<string> {
   const response = await withTimeout(
@@ -91,13 +91,16 @@ async function callGeminiAPI(genAI: GoogleGenAI): Promise<string> {
       contents: [
         {
           role: 'user',
-          parts: [{ text: `${SYSTEM_MESSAGE}\n\n${STOCK_ANALYSIS_PROMPT}` }],
+          parts: [{ text: STOCK_ANALYSIS_PROMPT }],
         },
       ],
       config: {
         tools: [{ googleSearch: {} }],
         maxOutputTokens: 8192,
         temperature: 0.3,
+        topP: 0.95,
+        topK: 40,
+        responseMimeType: 'text/plain',
         thinkingConfig: {
           thinkingBudget: 10000,
         },

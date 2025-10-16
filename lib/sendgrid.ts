@@ -100,7 +100,7 @@ function generateNewsletterHTML(data: StockNewsletterData, email: string): strin
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>오늘의 추천 종목 분석</title>
+  <title>AI 기술적 지표 분석 데이터</title>
 </head>
 <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Noto Sans KR', 'Helvetica Neue', Arial, sans-serif; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; background-color: #F8FAFC;">
   <!-- Email Wrapper -->
@@ -371,30 +371,5 @@ function parseAndFormatAnalysis(jsonString: string): string {
         </tr>
       </table>
     `;
-  }
-}
-
-/**
- * 테스트 이메일 전송
- */
-export async function sendTestEmail(to: string): Promise<void> {
-  // SendGrid 초기화
-  initSendGrid();
-
-  try {
-    await sgMail.send({
-      to,
-      from: {
-        email: process.env.SENDGRID_FROM_EMAIL!,
-        name: process.env.SENDGRID_FROM_NAME!,
-      },
-      subject: '[테스트] 주식 AI 뉴스레터',
-      html: '<h1>SendGrid 연동 테스트 성공!</h1><p>주식 AI 뉴스레터가 정상적으로 작동합니다.</p>',
-    });
-
-    console.log('✅ 테스트 이메일 전송 완료');
-  } catch (error) {
-    console.error('❌ 테스트 이메일 전송 실패:', error);
-    throw error;
   }
 }

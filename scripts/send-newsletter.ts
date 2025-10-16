@@ -55,12 +55,10 @@ async function sendNewsletter() {
     console.log(`✅ ${subscribers.length}명의 구독자 발견\n`);
 
     // 2. AI 분석 실행 (Gemini만 활성화)
-    const { gptAnalysis, claudeAnalysis, geminiAnalysis } = await getParallelAnalysis();
+    const { geminiAnalysis } = await getParallelAnalysis();
 
     // 3. 뉴스레터 데이터 생성
     const newsletterData = {
-      gptAnalysis,
-      claudeAnalysis,
       geminiAnalysis,
       date: new Date().toLocaleDateString('ko-KR', {
         year: 'numeric',
