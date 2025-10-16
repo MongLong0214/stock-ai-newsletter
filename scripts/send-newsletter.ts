@@ -10,8 +10,8 @@ if (existsSync(envPath)) {
 }
 
 import { createClient } from '@supabase/supabase-js';
-import { sendStockNewsletter } from '../lib/sendgrid';
-import { getParallelAnalysis } from '../lib/llm/parallel-analysis';
+import { sendStockNewsletter } from '@/lib/sendgrid';
+import { getParallelAnalysis } from '@/lib/llm/parallel-analysis';
 
 // 환경변수 검증
 if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
