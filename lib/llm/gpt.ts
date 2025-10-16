@@ -1,6 +1,6 @@
 import OpenAI from 'openai';
 import { CircuitBreaker } from './circuit-breaker';
-import { STOCK_ANALYSIS_PROMPT } from '../prompts/stock-analysis-prompt';
+import { STOCK_ANALYSIS_PROMPT, SYSTEM_MESSAGE } from '../prompts/stock-analysis-prompt';
 
 const gptBreaker = new CircuitBreaker();
 

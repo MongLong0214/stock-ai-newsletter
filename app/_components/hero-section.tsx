@@ -28,10 +28,10 @@ function HeroSection({ formatted }: HeroSectionProps) {
             id="hero-heading"
             className="font-extralight mb-6 lg:mb-8 tracking-[-0.02em] leading-[0.95]"
           >
-            <span className="block text-4xl sm:text-5xl md:text-6xl lg:text-7xl xl:text-8xl text-emerald-500/80">3개의 AI가 분석</span>
+            <span className="block text-4xl sm:text-5xl md:text-6xl lg:text-7xl xl:text-8xl text-emerald-500/80">AI가 분석한</span>
             <br />
             <span className="block text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-normal bg-clip-text text-transparent bg-gradient-to-r from-emerald-400 via-teal-400 to-emerald-400">
-              1주 10% 수익 목표
+              기술적 지표 데이터
             </span>
           </h1>
         </motion.div>
@@ -46,7 +46,7 @@ function HeroSection({ formatted }: HeroSectionProps) {
             매일 프리마켓 개장 10분 전 <span className="text-[10px] sm:text-xs md:text-sm lg:text-base text-slate-400">(7시 50분)</span>
           </p>
           <p className="text-base sm:text-lg md:text-xl lg:text-2xl text-slate-300 font-light leading-relaxed tracking-wide mb-2">
-            코스피·코스닥 종목 9개
+            코스피·코스닥 종목 5개
           </p>
           <p className="text-xs sm:text-sm md:text-base text-slate-400 font-light tracking-wide">
             5초 구독 • 광고 없음 • 완전 무료
