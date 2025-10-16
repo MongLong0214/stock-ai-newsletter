@@ -92,7 +92,7 @@ export default async function Image() {
               display: 'flex',
             }}
           >
-            3개의 AI가 분석한 주간 급등 종목 추천
+            AI 기반 기술적 분석 데이터
           </div>
 
           {/* Target */}
@@ -104,8 +104,8 @@ export default async function Image() {
               alignItems: 'center',
             }}
           >
-            <span style={{ marginRight: '10px' }}>📈</span>
-            매주 10% 수익 목표
+            <span style={{ marginRight: '10px' }}>📊</span>
+            매일 오전 7시 50분 발송
           </div>
         </div>
 

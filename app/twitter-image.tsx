@@ -85,7 +85,7 @@ export default async function Image() {
               display: 'flex',
             }}
           >
-            AI 주식 분석 뉴스레터
+            AI 기술적 분석 데이터
           </div>
 
           {/* Stats */}
@@ -149,7 +149,7 @@ export default async function Image() {
                   display: 'flex',
                 }}
               >
-                7일
+                5개
               </div>
               <div
                 style={{
@@ -158,7 +158,7 @@ export default async function Image() {
                   display: 'flex',
                 }}
               >
-                주간 추천
+                종목 데이터
               </div>
             </div>
 
@@ -187,7 +187,7 @@ export default async function Image() {
                   display: 'flex',
                 }}
               >
-                10%
+                무료
               </div>
               <div
                 style={{
@@ -196,7 +196,7 @@ export default async function Image() {
                   display: 'flex',
                 }}
               >
-                수익 목표
+                매일 발송
               </div>
             </div>
           </div>
