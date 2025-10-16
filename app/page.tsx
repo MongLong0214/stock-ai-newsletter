@@ -54,14 +54,13 @@ export default function HomePage() {
         indicators={TECHNICAL_INDICATORS_DATA}
       />
 
-      {/* Mid CTA Section */}
+      {/* CTA Section */}
       <CTASection
         formatted={formatted}
         longAnimationDuration={longAnimationDuration}
         animationDuration={animationDuration}
         viewportMargin={viewportMargin}
         isMobile={isMobile}
-        variant="mid"
       />
 
 
