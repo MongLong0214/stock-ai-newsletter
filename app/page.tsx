@@ -4,14 +4,13 @@ import React from "react";
 import AnimatedBackground from "@/components/animated-background";
 import { useCountdownToTomorrow } from "@/hooks/use-countdown-to-tomorrow";
 import { useIsMobile } from "@/hooks/use-is-mobile";
-import { FEATURES_DATA, TECHNICAL_INDICATORS_DATA } from "./constants/home-page";
+import {  TECHNICAL_INDICATORS_DATA } from "./constants/home-page";
 import Navigation from "./_components/navigation";
 import Footer from "./_components/footer";
 import HeroSection from "./_components/hero-section";
 import EmailPreviewSection from "./_components/email-preview-section";
 import PhilosophySection from "./_components/philosophy-section";
 import TechnicalIndicatorsSection from "./_components/technical-indicators-section";
-import FeaturesSection from "./_components/features-section";
 import CTASection from "./_components/cta-section";
 
 export default function HomePage() {
@@ -65,23 +64,6 @@ export default function HomePage() {
         variant="mid"
       />
 
-      {/* Features Grid */}
-      <FeaturesSection
-        animationDuration={animationDuration}
-        viewportMargin={viewportMargin}
-        isMobile={isMobile}
-        features={FEATURES_DATA}
-      />
-
-      {/* Final CTA Section */}
-      <CTASection
-        formatted={formatted}
-        longAnimationDuration={longAnimationDuration}
-        animationDuration={animationDuration}
-        viewportMargin={viewportMargin}
-        isMobile={isMobile}
-        variant="final"
-      />
 
       {/* Footer */}
       <Footer />

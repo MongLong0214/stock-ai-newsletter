@@ -2,17 +2,30 @@ import { motion } from "framer-motion";
 
 // 예시 데이터 (실제 이메일 템플릿과 동일한 구조)
 const SAMPLE_STOCK = {
-  name: "SK하이닉스",
-  ticker: "000660",
-  close_price: 428000,
-  rationale: "[분산진입] 428,000원 중심 양방향 대응|20일 이평선 지지 확인|RSI 55 중립 상승|MACD 양전환 신호|거래량 평균 대비 145% 증가|ADX 25 추세 형성 단계|SuperTrend 매수 전환",
-  levels: {
-    entry1: 426000,
-    entry2: 428000,
-    entry3: 430000,
-    sl1: 418000,
-    sl2: 410000,
-    sl3: 402000,
+  name: "삼성전자",
+  ticker: "KOSPI:005930",
+  close_price: 75300,
+  rationale: "SMA 완전정배열|EMA 골든크로스|RSI 58 강세권|MACD 양전환|거래량 165% 급증|볼린저 중상단|ATR 3.2% 적정|ADX 28 강한추세|OBV 지속상승|스토캐스틱 상승전환|SuperTrend 매수|52주 상위 72%",
+  signals: {
+    trend_score: 88,
+    momentum_score: 85,
+    volume_score: 90,
+    volatility_score: 82,
+    pattern_score: 87,
+    sentiment_score: 84,
+    overall_score: 86,
+  },
+  analysis_depth: {
+    indicators_collected: 30,
+    tier1_success: "10/10",
+    tier2_success: "10/10",
+    tier3_success: "10/10",
+    data_quality: "100%",
+  },
+  evidence: {
+    verification_sources: 5,
+    golden_crosses: ["EMA 5x20", "MACD", "Stochastic"],
+    technical_pattern: "상승 삼각수렴",
   },
 };
 
@@ -33,11 +46,8 @@ function EmailPreviewSection() {
           <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-white mb-4 leading-snug">
             매일 아침 받는
             <br />
-            <span className="text-emerald-400">투자 인사이트</span>
+            <span className="text-emerald-400">기술적 분석 데이터</span>
           </h2>
-          <p className="text-lg text-slate-400">
-            AI 3개가 분석한 총 9개 종목 중 1개 예시
-          </p>
         </motion.div>
 
         {/* Email Card Preview */}
@@ -48,13 +58,6 @@ function EmailPreviewSection() {
           className="bg-slate-900/90 rounded-xl shadow-xl overflow-hidden border border-emerald-500/20 will-change-transform"
           style={{ transform: 'translateZ(0)' }}
         >
-          {/* AI Badge */}
-          <div className="px-6 pt-6 pb-4 border-b border-slate-700/50">
-            <span className="inline-block px-4 py-2 bg-emerald-600 text-white text-xs font-semibold tracking-wider rounded-md">
-              Gemini
-            </span>
-          </div>
-
           {/* Stock Card Content */}
           <div className="p-6">
             {/* Stock Header */}
@@ -80,98 +83,128 @@ function EmailPreviewSection() {
             </div>
 
             {/* Rationale */}
-            <div className="mb-8">
+            <div className="mb-6">
               {SAMPLE_STOCK.rationale.split("|").map((reason, index) => (
                 <div key={index} className="flex items-start gap-3 mb-3">
-                  <span className="flex-shrink-0 w-1.5 h-1.5 bg-emerald-500 rounded-full mt-2" />
-                  <p className="text-base text-slate-300 leading-relaxed">
+                  <span className="flex-shrink-0 w-1.5 h-1.5 bg-sky-500 rounded-full mt-2" />
+                  <p className="text-sm text-slate-300 leading-relaxed">
                     {reason.trim()}
                   </p>
                 </div>
               ))}
             </div>
 
-            {/* Entry & Stop-Loss Levels */}
-            <div className="pt-6 border-t border-slate-700/50">
-              {/* Entry Levels */}
-              <div className="mb-6">
-                <p className="text-xs font-semibold text-emerald-500 uppercase tracking-wider mb-3">
-                  진입 기회
-                </p>
-                <div className="grid grid-cols-3 gap-2">
-                  {[
-                    { level: "1단계", price: SAMPLE_STOCK.levels.entry1 },
-                    { level: "2단계", price: SAMPLE_STOCK.levels.entry2 },
-                    { level: "3단계", price: SAMPLE_STOCK.levels.entry3 },
-                  ].map((entry) => (
-                    <div
-                      key={entry.level}
-                      className="bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-3 text-center"
-                    >
-                      <p className="text-[10px] font-semibold text-emerald-400 uppercase tracking-wider mb-2">
-                        {entry.level}
-                      </p>
-                      <p className="text-lg font-bold text-emerald-300 tabular-nums">
-                        {entry.price.toLocaleString()}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              </div>
+            {/* Technical Signals Scores */}
+            <div className="pt-6 border-t border-slate-700/50 mb-6">
+              <p className="text-xs font-semibold text-sky-500 uppercase tracking-wider mb-4">
+                기술적 신호 점수
+              </p>
 
-              {/* Stop-Loss Levels */}
-              <div>
-                <p className="text-xs font-semibold text-red-400 uppercase tracking-wider mb-3">
-                  손절 라인
-                </p>
-                <div className="grid grid-cols-3 gap-2">
-                  {[
-                    { level: "1단계", price: SAMPLE_STOCK.levels.sl1 },
-                    { level: "2단계", price: SAMPLE_STOCK.levels.sl2 },
-                    { level: "3단계", price: SAMPLE_STOCK.levels.sl3 },
-                  ].map((sl) => (
-                    <div
-                      key={sl.level}
-                      className="bg-red-500/10 border border-red-500/30 rounded-lg p-3 text-center"
-                    >
-                      <p className="text-[10px] font-semibold text-red-400 uppercase tracking-wider mb-2">
-                        {sl.level}
-                      </p>
-                      <p className="text-lg font-bold text-red-300 tabular-nums">
-                        {sl.price.toLocaleString()}
-                      </p>
-                    </div>
-                  ))}
+              <div className="space-y-3">
+                {/* Trend Score */}
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-slate-400">추세 점수</span>
+                  <span className={`px-3 py-1 rounded-md text-sm font-bold ${
+                    SAMPLE_STOCK.signals.trend_score >= 70
+                      ? 'bg-green-500/20 text-green-400'
+                      : SAMPLE_STOCK.signals.trend_score >= 40
+                      ? 'bg-yellow-500/20 text-yellow-400'
+                      : 'bg-red-500/20 text-red-400'
+                  }`}>
+                    {SAMPLE_STOCK.signals.trend_score}점
+                  </span>
+                </div>
+
+                {/* Momentum Score */}
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-slate-400">모멘텀 점수</span>
+                  <span className={`px-3 py-1 rounded-md text-sm font-bold ${
+                    SAMPLE_STOCK.signals.momentum_score >= 70
+                      ? 'bg-green-500/20 text-green-400'
+                      : SAMPLE_STOCK.signals.momentum_score >= 40
+                      ? 'bg-yellow-500/20 text-yellow-400'
+                      : 'bg-red-500/20 text-red-400'
+                  }`}>
+                    {SAMPLE_STOCK.signals.momentum_score}점
+                  </span>
+                </div>
+
+                {/* Volume Score */}
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-slate-400">거래량 점수</span>
+                  <span className={`px-3 py-1 rounded-md text-sm font-bold ${
+                    SAMPLE_STOCK.signals.volume_score >= 70
+                      ? 'bg-green-500/20 text-green-400'
+                      : SAMPLE_STOCK.signals.volume_score >= 40
+                      ? 'bg-yellow-500/20 text-yellow-400'
+                      : 'bg-red-500/20 text-red-400'
+                  }`}>
+                    {SAMPLE_STOCK.signals.volume_score}점
+                  </span>
+                </div>
+
+                {/* Volatility Score */}
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-slate-400">변동성 점수</span>
+                  <span className={`px-3 py-1 rounded-md text-sm font-bold ${
+                    SAMPLE_STOCK.signals.volatility_score >= 70
+                      ? 'bg-green-500/20 text-green-400'
+                      : SAMPLE_STOCK.signals.volatility_score >= 40
+                      ? 'bg-yellow-500/20 text-yellow-400'
+                      : 'bg-red-500/20 text-red-400'
+                  }`}>
+                    {SAMPLE_STOCK.signals.volatility_score}점
+                  </span>
+                </div>
+
+                {/* Pattern Score */}
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-slate-400">패턴 점수</span>
+                  <span className={`px-3 py-1 rounded-md text-sm font-bold ${
+                    SAMPLE_STOCK.signals.pattern_score >= 70
+                      ? 'bg-green-500/20 text-green-400'
+                      : SAMPLE_STOCK.signals.pattern_score >= 40
+                      ? 'bg-yellow-500/20 text-yellow-400'
+                      : 'bg-red-500/20 text-red-400'
+                  }`}>
+                    {SAMPLE_STOCK.signals.pattern_score}점
+                  </span>
+                </div>
+
+                {/* Sentiment Score */}
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-slate-400">심리 점수</span>
+                  <span className={`px-3 py-1 rounded-md text-sm font-bold ${
+                    SAMPLE_STOCK.signals.sentiment_score >= 70
+                      ? 'bg-green-500/20 text-green-400'
+                      : SAMPLE_STOCK.signals.sentiment_score >= 40
+                      ? 'bg-yellow-500/20 text-yellow-400'
+                      : 'bg-red-500/20 text-red-400'
+                  }`}>
+                    {SAMPLE_STOCK.signals.sentiment_score}점
+                  </span>
+                </div>
+
+                {/* Overall Score */}
+                <div className="flex justify-between items-center pt-10 border-t border-slate-700/50">
+                  <span className="text-base font-semibold text-white leading-none">종합 점수</span>
+                  <span className={`inline-flex items-center justify-center px-4 py-2 rounded-lg text-base font-bold leading-none ${
+                    SAMPLE_STOCK.signals.overall_score >= 70
+                      ? 'bg-green-600 text-white'
+                      : SAMPLE_STOCK.signals.overall_score >= 40
+                      ? 'bg-yellow-600 text-white'
+                      : 'bg-red-600 text-white'
+                  }`}>
+                    {SAMPLE_STOCK.signals.overall_score}점
+                  </span>
                 </div>
               </div>
             </div>
+
           </div>
         </motion.div>
 
-        {/* Additional Info with Beta Badge */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.5, delay: 1.0, ease: [0.16, 1, 0.3, 1] }}
-          className="mt-8 flex flex-col items-center gap-4"
-        >
-          {/* Beta Badge */}
-          <div className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-500/10 border border-emerald-500/30 rounded-full">
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-            </span>
-            <span className="text-xs font-medium text-emerald-400">
-              베타 테스트 진행 중 • 무료 구독자 모집
-            </span>
-          </div>
 
-          {/* Service Info */}
-          <p className="text-sm text-slate-400 text-center">
-            현재 <span className="text-emerald-400 font-semibold">Gemini</span> 3종목 제공 중{" "}
-            <span className="text-slate-500">· GPT, Claude 추가 예정</span>
-          </p>
-        </motion.div>
       </div>
     </section>
   );

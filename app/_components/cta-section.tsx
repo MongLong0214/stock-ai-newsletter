@@ -33,7 +33,7 @@ function CTASection({
             style={{ transform: 'translateZ(0)' }}
           >
             <h3 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-extralight mb-6 lg:mb-8 text-emerald-500/80 tracking-tight leading-tight">
-              이 모든 지표를 분석한 결과를
+              이 모든 지표의 분석 데이터를
               <br />
               <span className="font-light text-emerald-300">매일 아침 7시 50분</span>에 받아보세요
             </h3>
@@ -99,16 +99,16 @@ function CTASection({
             className="mb-8 lg:mb-10"
           >
             <p className="text-lg sm:text-xl md:text-2xl lg:text-3xl text-slate-300 font-light leading-relaxed tracking-wide mb-8">
-              <span className="text-emerald-300/90">GPT-5</span>가 선택한 3개
+              <span className="text-emerald-300/90">GPT-5</span>가 분석한 3개
               <br />
-              <span className="text-emerald-300/90">Claude</span>가 선택한 3개
+              <span className="text-emerald-300/90">Claude</span>가 분석한 3개
               <br />
-              <span className="text-emerald-300/90">Gemini</span>가 선택한 3개
+              <span className="text-emerald-300/90">Gemini</span>가 분석한 3개
             </p>
             <p className="text-base sm:text-lg md:text-xl text-slate-300 font-light tracking-wide leading-relaxed mb-6">
-              하나의 정답을 강요하지 않습니다
+              하나의 정답을 제시하지 않습니다
               <br />
-              <span className="text-emerald-300/80">세 가지 시각, 아홉 가지 가능성</span>
+              <span className="text-emerald-300/80">세 가지 시각, 아홉 가지 데이터</span>
             </p>
             <p className="text-sm sm:text-base md:text-lg text-slate-400 font-light tracking-wide">
               5초 구독 • 광고 없음 • 완전 무료
