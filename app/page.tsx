@@ -9,7 +9,6 @@ import Navigation from "./_components/navigation";
 import Footer from "./_components/footer";
 import HeroSection from "./_components/hero-section";
 import EmailPreviewSection from "./_components/email-preview-section";
-import PhilosophySection from "./_components/philosophy-section";
 import TechnicalIndicatorsSection from "./_components/technical-indicators-section";
 import CTASection from "./_components/cta-section";
 
@@ -39,12 +38,6 @@ export default function HomePage() {
 
       {/* Email Preview Section */}
       <EmailPreviewSection />
-
-      {/* Core Philosophy Section */}
-      <PhilosophySection
-        longAnimationDuration={longAnimationDuration}
-        viewportMargin={viewportMargin}
-      />
 
       {/* Technical Indicators Section */}
       <TechnicalIndicatorsSection
