@@ -1,11 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { timingSafeEqual } from 'crypto';
 import { supabase, type Subscriber } from '@/lib/supabase';
-import {
-  getGPTRecommendation,
-  getClaudeRecommendation,
-  getGeminiRecommendation,
-} from '@/lib/ai-recommendations';
+import { getGeminiRecommendation } from '@/lib/ai-recommendations';
 import { sendStockNewsletter } from '@/lib/sendgrid';
 import { validateEnv } from '@/lib/env';
 
@@ -47,17 +43,9 @@ export async function GET(request: NextRequest) {
 
     console.log('🚀 Starting stock recommendations job...');
 
-    const [gptRec, claudeRec, geminiRec] = await Promise.allSettled([
-      getGPTRecommendation(),
-      getClaudeRecommendation(),
-      getGeminiRecommendation(),
-    ]);
+    const geminiAnalysis = await getGeminiRecommendation();
 
-    const gptAnalysis = gptRec.status === 'fulfilled' ? gptRec.value : '⚠️ 추천을 가져올 수 없습니다.';
-    const claudeAnalysis = claudeRec.status === 'fulfilled' ? claudeRec.value : '⚠️ 추천을 가져올 수 없습니다.';
-    const geminiAnalysis = geminiRec.status === 'fulfilled' ? geminiRec.value : '⚠️ 추천을 가져올 수 없습니다.';
-
-    console.log('✅ AI recommendations fetched');
+    console.log('✅ Gemini recommendations fetched');
 
     const { data: subscribers, error: dbError } = await supabase
       .from('subscribers')
@@ -83,8 +71,6 @@ export async function GET(request: NextRequest) {
     console.log(`📧 Sending to ${subscribers.length} subscribers...`);
 
     const newsletterData = {
-      gptAnalysis,
-      claudeAnalysis,
       geminiAnalysis,
       date: new Date().toLocaleDateString('ko-KR', {
         year: 'numeric',
@@ -106,8 +92,6 @@ export async function GET(request: NextRequest) {
         subscriber_count: subscribers.length,
         success_count: successCount,
         fail_count: failCount,
-        gpt_recommendation: gptAnalysis.substring(0, 5000),
-        claude_recommendation: claudeAnalysis.substring(0, 5000),
         gemini_recommendation: geminiAnalysis.substring(0, 5000),
       });
 
@@ -134,8 +118,6 @@ export async function GET(request: NextRequest) {
         subscriber_count: subscribers.length,
         success_count: 0,
         fail_count: failCount,
-        gpt_recommendation: gptAnalysis.substring(0, 5000),
-        claude_recommendation: claudeAnalysis.substring(0, 5000),
         gemini_recommendation: geminiAnalysis.substring(0, 5000),
       });
 
