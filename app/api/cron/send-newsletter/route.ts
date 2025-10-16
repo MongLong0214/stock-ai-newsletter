@@ -47,13 +47,11 @@ export async function POST(request: NextRequest) {
 
     console.log(`✅ ${subscribers.length}명의 구독자 발견\n`);
 
-    // 2. 3개 LLM 병렬 분석 실행
-    const { gptAnalysis, claudeAnalysis, geminiAnalysis } = await getParallelAnalysis();
+    // 2. Gemini 분석 실행
+    const { geminiAnalysis } = await getParallelAnalysis();
 
     // 3. 뉴스레터 데이터 생성
     const newsletterData = {
-      gptAnalysis,
-      claudeAnalysis,
       geminiAnalysis,
       date: new Date().toLocaleDateString('ko-KR', {
         year: 'numeric',
@@ -79,8 +77,6 @@ export async function POST(request: NextRequest) {
         message: '뉴스레터 발송 완료',
         subscriberCount: subscribers.length,
         results: {
-          gpt: gptAnalysis.startsWith('⚠️') ? 'failed' : 'success',
-          claude: claudeAnalysis.startsWith('⚠️') ? 'failed' : 'success',
           gemini: geminiAnalysis.startsWith('⚠️') ? 'failed' : 'success',
         },
       },
