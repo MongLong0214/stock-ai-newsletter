@@ -25,7 +25,7 @@ function CTASection({
   const [displayText2, setDisplayText2] = useState('');
   const [showCursor1, setShowCursor1] = useState(true);
   const [showCursor2, setShowCursor2] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
+  const [, setIsDeleting] = useState(false);
 
   const text1 = '개장 10분 전';
   const text2 = '모든 분석 완료';
