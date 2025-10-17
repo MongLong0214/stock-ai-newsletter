@@ -69,6 +69,13 @@ export const metadata: Metadata = {
         alt: 'Stock Matrix - AI 기술적 분석 데이터',
         type: 'image/png',
       },
+      {
+        url: 'https://stockmatrix.co.kr/apple-icon',
+        width: 512,
+        height: 512,
+        alt: 'Stock Matrix Logo',
+        type: 'image/png',
+      },
     ],
   },
   twitter: {
@@ -116,14 +123,14 @@ export default function RootLayout({
         url: 'https://stockmatrix.co.kr',
         logo: {
           '@type': 'ImageObject',
-          url: 'https://stockmatrix.co.kr/apple-icon',
+          url: 'https://stockmatrix.co.kr/logo-512.png',
           width: 512,
           height: 512,
           caption: 'Stock Matrix Logo',
         },
         image: {
           '@type': 'ImageObject',
-          url: 'https://stockmatrix.co.kr/apple-icon',
+          url: 'https://stockmatrix.co.kr/logo-512.png',
           width: 512,
           height: 512,
         },
