@@ -12,6 +12,7 @@ if (existsSync(envPath)) {
 import { createClient } from '@supabase/supabase-js';
 import { sendStockNewsletter } from '@/lib/sendgrid';
 import { getParallelAnalysis } from '@/lib/llm/parallel-analysis';
+import { postNewsletterToTwitter } from '@/lib/twitter';
 
 // 환경변수 검증
 if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
@@ -84,6 +85,24 @@ async function sendNewsletter() {
     subscribers.forEach((sub, index) => {
       console.log(`  ${index + 1}. ${sub.email}${sub.name ? ` (${sub.name})` : ''}`);
     });
+
+    // 5. X(Twitter) 자동 게시
+    try {
+      console.log('\n━'.repeat(80));
+      console.log('🐦 X(Twitter) 자동 게시 시작...');
+      console.log('━'.repeat(80) + '\n');
+
+      // Gemini 분석 결과 파싱
+      const analysisData = JSON.parse(geminiAnalysis);
+
+      // 단일 트윗 게시 (useThread: false)
+      await postNewsletterToTwitter(analysisData, false);
+
+      console.log('✅ X(Twitter) 자동 게시 완료!\n');
+    } catch (twitterError) {
+      console.error('⚠️ X(Twitter) 게시 실패 (뉴스레터는 정상 발송됨):', twitterError);
+      // 트위터 실패해도 프로세스는 성공으로 처리
+    }
 
     process.exit(0);
   } catch (error) {
