@@ -2,8 +2,8 @@ name: Daily Stock Newsletter
 
 on:
   schedule:
-    # 평일 오전 7:48 KST (UTC 22:48 전날, 월-금요일만)
-    - cron: '48 22 * * 1-5'
+    # 평일 오전 7:46 KST (UTC 22:46 전날, 월-금요일만)
+    - cron: '46 22 * * 1-5'
   workflow_dispatch: # 수동 실행 가능
 
 jobs:
@@ -38,6 +38,12 @@ jobs:
           SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY }}
           SENDGRID_FROM_EMAIL: ${{ secrets.SENDGRID_FROM_EMAIL }}
           SENDGRID_FROM_NAME: ${{ secrets.SENDGRID_FROM_NAME }}
+
+          # Twitter/X API
+          TWITTER_API_KEY: ${{ secrets.TWITTER_API_KEY }}
+          TWITTER_API_SECRET: ${{ secrets.TWITTER_API_SECRET }}
+          TWITTER_ACCESS_TOKEN: ${{ secrets.TWITTER_ACCESS_TOKEN }}
+          TWITTER_ACCESS_SECRET: ${{ secrets.TWITTER_ACCESS_SECRET }}
 
           # Application
           NEXT_PUBLIC_APP_URL: ${{ secrets.NEXT_PUBLIC_APP_URL }}
