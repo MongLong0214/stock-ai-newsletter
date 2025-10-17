@@ -1,7 +1,0 @@
-# stockmatrix.co.kr robots.txt
-User-agent: *
-Allow: /
-Disallow: /api/
-Disallow: /unsubscribe/
-
-Sitemap: https://stockmatrix.co.kr/sitemap.xml

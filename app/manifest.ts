@@ -12,16 +12,22 @@ export default function manifest(): MetadataRoute.Manifest {
     orientation: 'portrait-primary',
     icons: [
       {
-        src: 'https://stockmatrix.co.kr/logo-192.png',
+        src: '/icon.png',
         sizes: '192x192',
         type: 'image/png',
-        purpose: 'maskable',
+        purpose: 'any',
       },
       {
-        src: 'https://stockmatrix.co.kr/logo-512.png',
+        src: '/icon1.png',
         sizes: '512x512',
         type: 'image/png',
         purpose: 'any',
+      },
+      {
+        src: '/apple-icon',
+        sizes: '512x512',
+        type: 'image/png',
+        purpose: 'maskable',
       },
     ],
     categories: ['finance', 'business', 'productivity'],

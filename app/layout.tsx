@@ -32,14 +32,6 @@ export const metadata: Metadata = {
   alternates: {
     canonical: '/',
   },
-  icons: {
-    icon: [
-      { url: '/icon.png', sizes: '192x192', type: 'image/png' },
-      { url: '/logo-512.png', sizes: '512x512', type: 'image/png' },
-    ],
-    shortcut: '/icon.png',
-    apple: '/logo-512.png',
-  },
   openGraph: {
     type: 'website',
     locale: 'ko_KR',
@@ -47,28 +39,11 @@ export const metadata: Metadata = {
     title: 'STOCK MATRIX - AI 기술적 분석 뉴스레터',
     description: 'KOSPI·KOSDAQ 5개 종목, AI 기술적 분석 뉴스레터 무료 발송',
     siteName: 'Stock Matrix',
-    images: [
-      {
-        url: 'https://stockmatrix.co.kr/opengraph-image',
-        width: 1200,
-        height: 630,
-        alt: 'Stock Matrix - AI 기술적 분석 데이터',
-        type: 'image/png',
-      },
-      {
-        url: 'https://stockmatrix.co.kr/apple-icon',
-        width: 512,
-        height: 512,
-        alt: 'Stock Matrix Logo',
-        type: 'image/png',
-      },
-    ],
   },
   twitter: {
     card: 'summary_large_image',
     title: 'STOCK MATRIX - AI 기술적 분석 뉴스레터',
     description: 'KOSPI·KOSDAQ 5개 종목, AI 기술적 분석 뉴스레터 무료 발송',
-    images: ['https://stockmatrix.co.kr/twitter-image'],
     creator: '@stockmatrix',
     site: '@stockmatrix',
   },
@@ -109,16 +84,16 @@ export default function RootLayout({
         url: 'https://stockmatrix.co.kr',
         logo: {
           '@type': 'ImageObject',
-          url: 'https://stockmatrix.co.kr/logo-512.png',
-          width: 512,
-          height: 512,
+          url: 'https://stockmatrix.co.kr/icon',
+          width: 192,
+          height: 192,
           caption: 'Stock Matrix Logo',
         },
         image: {
           '@type': 'ImageObject',
-          url: 'https://stockmatrix.co.kr/logo-512.png',
-          width: 512,
-          height: 512,
+          url: 'https://stockmatrix.co.kr/icon',
+          width: 192,
+          height: 192,
         },
         sameAs: ['https://twitter.com/stockmatrix'],
         contactPoint: {
