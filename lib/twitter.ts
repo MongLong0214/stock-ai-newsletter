@@ -170,7 +170,10 @@ export async function postTweetThread(tweets: string[]): Promise<string[]> {
     let previousTweetId: string | undefined;
 
     for (const tweetContent of tweets) {
-      const tweetOptions: any = { text: tweetContent };
+      const tweetOptions: {
+        text: string;
+        reply?: { in_reply_to_tweet_id: string };
+      } = { text: tweetContent };
 
       // 이전 트윗에 대한 답글로 게시 (스레드 형성)
       if (previousTweetId) {

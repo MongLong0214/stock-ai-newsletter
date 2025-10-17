@@ -91,15 +91,6 @@ export default function SubscribePage() {
     }
   };
 
-  const features = [
-    '3개 AI 독립 분석',
-      '총 9개의 종목 추천',
-    '매일 오전 7:50 발송',
-    '진입가 & 손절가 포함',
-    '완전 무료',
-
-  ];
-
   return (
     <div className="min-h-screen bg-black text-white relative overflow-hidden">
       <AnimatedBackground />
