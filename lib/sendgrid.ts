@@ -239,9 +239,9 @@ function parseAndFormatAnalysis(jsonString: string): string {
                   </td>
                   <td style="vertical-align: top; width: 40%; text-align: right;">
                     <p style="margin: 0 0 6px 0; padding: 0; font-size: 11px; font-weight: 500; color: #94A3B8; text-align: right;">전일 종가</p>
-                    <div style="display: inline-block; padding: 8px 12px; background-color: #F8FAFC; border-radius: 6px;">
-                      <span style="font-size: 18px; font-weight: 700; color: #0F172A; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; line-height: 1;">${stock.close_price.toLocaleString()}</span>
-                      <span style="font-size: 12px; font-weight: 500; color: #64748B;">원</span>
+                    <div style="display: inline-block; padding: 6px 10px; background-color: #F8FAFC; border-radius: 6px; white-space: nowrap;">
+                      <span style="font-size: 15px; font-weight: 700; color: #0F172A; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; line-height: 1;">${stock.close_price.toLocaleString()}</span>
+                      <span style="font-size: 11px; font-weight: 500; color: #64748B;">원</span>
                     </div>
                   </td>
                 </tr>
