@@ -1,0 +1,89 @@
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📊 Gemini Stock Analysis Result
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+⏱️  실행 시간: 118.73초
+📅 생성 일시: 2025. 10. 17. 오후 3:51:45
+🤖 모델: gemini-2.5-pro
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+[
+  {
+    "ticker": "KOSPI:000660",
+    "name": "SK하이닉스",
+    "close_price": 452500,
+    "rationale": "SMA완전정배열|EMA완전정배열|RSI68.2|MACD+15320>Signal>0|거래량185%(계산)|볼린저상단돌파|ATR4.5%(계산)|ADX71.5/+DI우세|OBV상승(가격동반)|Stoch95.3(과매수)|Williams-3.1(과매수)|ROC8.1%|CCI135.4|MFI72.1|CMF0.28|SAR매수|일목구름상단|SuperTrend상승|VWAP상회|52주98%|Keltner상단|Donchian상단돌파|AroonUp100|ElderRay매수우세|Force양수증가|EMV상승|A/D상승|KST골든|Vortex상승|Chaikin매집",
+    "signals": {
+      "trend_score": 98,
+      "momentum_score": 95,
+      "volume_score": 94,
+      "volatility_score": 88,
+      "pattern_score": 92,
+      "sentiment_score": 93,
+      "overall_score": 95
+    }
+  },
+  {
+    "ticker": "KOSPI:005380",
+    "name": "현대차",
+    "close_price": 242000,
+    "rationale": "SMA정배열|EMA정배열|RSI65.8|MACD+4500>Signal>0|거래량210%(계산)|볼린저상단근접|ATR3.8%(계산)|ADX48.1/+DI우세|OBV상승(가격동반)|Stoch88.2|Williams-11.5|ROC6.5%|CCI110.8|MFI69.5|CMF0.21|SAR매수|일목구름상단|SuperTrend상승|VWAP상회|52주95%|Keltner상단|Donchian상단|AroonUp96|ElderRay매수우세|Force양수증가|EMV상승|A/D상승|KST골든|Vortex상승|Chaikin매집",
+    "signals": {
+      "trend_score": 95,
+      "momentum_score": 91,
+      "volume_score": 93,
+      "volatility_score": 86,
+      "pattern_score": 90,
+      "sentiment_score": 90,
+      "overall_score": 92
+    }
+  },
+  {
+    "ticker": "KOSPI:022100",
+    "name": "포스코DX",
+    "close_price": 58500,
+    "rationale": "SMA정배열|EMA골든크로스(20/60)|RSI61.2|MACD+850>Signal>0|거래량155%(계산)|볼린저중상단(65%)|ATR5.1%(계산)|ADX35.2/+DI우세|OBV상승|Stoch81.4|Williams-18.6|ROC5.1%|CCI98.2|MFI65.3|CMF0.17|SAR매수|일목구름상단돌파|SuperTrend상승전환|VWAP상회|52주88%|Keltner중상단|Donchian상단근접|AroonUp92|ElderRay매수우세|Force양수|EMV상승|A/D상승|KST골든|Vortex상승|Chaikin매집",
+    "signals": {
+      "trend_score": 91,
+      "momentum_score": 89,
+      "volume_score": 88,
+      "volatility_score": 87,
+      "pattern_score": 88,
+      "sentiment_score": 87,
+      "overall_score": 89
+    }
+  },
+  {
+    "ticker": "KOSDAQ:247540",
+    "name": "에코프로비엠",
+    "close_price": 285500,
+    "rationale": "SMA단기정배열(5>20>60)|EMA골든크로스(5/20)|RSI63.5|MACD양전환|거래량130%(계산)|볼린저중상단(70%)|ATR6.2%(계산)|ADX28.9/+DI우세|OBV상승전환|Stoch75.5(%K>%D)|Williams-24.5|ROC4.8%|CCI90.1|MFI61.0|CMF0.11|SAR매수전환|일목구름진입|SuperTrend상승전환|VWAP상회|52주65%|Keltner중상단|Donchian중상단|AroonUp88|ElderRay매수우세|Force양수|EMV상승|A/D상승|KST골든|Vortex상승|Chaikin매집",
+    "signals": {
+      "trend_score": 88,
+      "momentum_score": 86,
+      "volume_score": 85,
+      "volatility_score": 90,
+      "pattern_score": 85,
+      "sentiment_score": 84,
+      "overall_score": 87
+    }
+  },
+  {
+    "ticker": "KOSDAQ:196170",
+    "name": "알테오젠",
+    "close_price": 298000,
+    "rationale": "SMA단기정배열(5>20)|EMA상승추세|RSI59.8|MACD>Signal|거래량115%(계산)|볼린저중심선지지(55%)|ATR5.5%(계산)|ADX26.5/+DI우세|OBV횡보후상승|Stoch68.1(%K>%D)|Williams-31.9|ROC3.2%|CCI85.4|MFI58.8|CMF0.09|SAR매수|일목구름상단|SuperTrend상승|VWAP상회|52주91%|Keltner중심|Donchian중상단|AroonUp85|ElderRay매수우세|Force양수|EMV상승|A/D상승|KST>Signal|Vortex상승|Chaikin매집",
+    "signals": {
+      "trend_score": 86,
+      "momentum_score": 84,
+      "volume_score": 82,
+      "volatility_score": 85,
+      "pattern_score": 83,
+      "sentiment_score": 83,
+      "overall_score": 84
+    }
+  }
+]
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

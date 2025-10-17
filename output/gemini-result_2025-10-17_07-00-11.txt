@@ -1,0 +1,89 @@
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📊 Gemini Stock Analysis Result
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+⏱️  실행 시간: 52.70초
+📅 생성 일시: 2025. 10. 17. 오후 4:00:11
+🤖 모델: gemini-2.5-pro
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+[
+  {
+    "ticker": "KOSPI:005930",
+    "name": "삼성전자",
+    "close_price": 97700,
+    "rationale": "SMA 정배열 초기|EMA 골든크로스 발생|RSI 68 과열 직전|MACD 기준선 상향돌파|거래량 평균 상회|볼린저밴드 상단 터치|ATR 변동성 확대|ADX 31 상승추세 강화|OBV 주가와 동반상승|스토캐스틱 80 이상|SuperTrend 매수 신호|52주 최고가 경신",
+    "signals": {
+      "trend_score": 92,
+      "momentum_score": 88,
+      "volume_score": 85,
+      "volatility_score": 78,
+      "pattern_score": 90,
+      "sentiment_score": 86,
+      "overall_score": 88
+    }
+  },
+  {
+    "ticker": "KOSPI:000660",
+    "name": "SK하이닉스",
+    "close_price": 452500,
+    "rationale": "SMA 완전 정배열|EMA 단기 이평선 급등|RSI 71 과매수 진입|MACD 시그널 상향돌파|거래량 20일 평균 150%|볼린저밴드 상단 돌파|ATR 4.5% 높은 변동성|ADX 35 매우 강한 추세|OBV 급격한 상승|스토캐스틱 과매수권 유지|SuperTrend 상승추세 지속|52주 최고가 돌파",
+    "signals": {
+      "trend_score": 95,
+      "momentum_score": 91,
+      "volume_score": 88,
+      "volatility_score": 85,
+      "pattern_score": 92,
+      "sentiment_score": 89,
+      "overall_score": 91
+    }
+  },
+  {
+    "ticker": "KOSPI:373220",
+    "name": "LG에너지솔루션",
+    "close_price": 420500,
+    "rationale": "현재가>SMA20,60|EMA 단기 골든크로스|RSI 57 중립 상단|MACD 0선 돌파 시도|거래량 20일 평균 250% 폭증|볼린저밴드 상단 돌파 시도|ATR 5.1% 변동성 급증|ADX 22 상승추세 전환|OBV 거래량 동반 상승|스토캐스틱 50 상향돌파|Parabolic SAR 상승 전환|VWAP 상회",
+    "signals": {
+      "trend_score": 85,
+      "momentum_score": 82,
+      "volume_score": 94,
+      "volatility_score": 88,
+      "pattern_score": 85,
+      "sentiment_score": 80,
+      "overall_score": 85
+    }
+  },
+  {
+    "ticker": "KOSPI:005380",
+    "name": "현대차",
+    "close_price": 242000,
+    "rationale": "SMA 단기 정배열 전환|EMA 골든크로스 임박|RSI 65 강세 영역|MACD 시그널 상향돌파|거래량 20일 평균 200%|볼린저밴드 중상단 위치|ATR 3.8% 변동성 증가|ADX 26 추세 강화|OBV 주가와 동반 상승|스토캐스틱 70 상회|Ichimoku 구름대 상단 돌파|52주 고가 근접",
+    "signals": {
+      "trend_score": 89,
+      "momentum_score": 86,
+      "volume_score": 91,
+      "volatility_score": 81,
+      "pattern_score": 88,
+      "sentiment_score": 85,
+      "overall_score": 87
+    }
+  },
+  {
+    "ticker": "KOSPI:068270",
+    "name": "셀트리온",
+    "close_price": 176000,
+    "rationale": "현재가>SMA20,60 상회|EMA 정배열 초기|RSI 66.9 매수 우위|MACD 양수 전환 및 확장|거래량 점진적 증가|볼린저밴드 중상단 안정적 상승|ATR 2.9% 적정 변동성|ADX 24 상승추세 진입|OBV 우상향 지속|스토캐스틱 60 이상 유지|CMF 0 이상 자금유입|ROC 양수 전환",
+    "signals": {
+      "trend_score": 87,
+      "momentum_score": 84,
+      "volume_score": 82,
+      "volatility_score": 79,
+      "pattern_score": 83,
+      "sentiment_score": 81,
+      "overall_score": 84
+    }
+  }
+]
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
