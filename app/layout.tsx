@@ -39,6 +39,14 @@ export const metadata: Metadata = {
     title: 'STOCK MATRIX - AI 기술적 분석 뉴스레터',
     description: 'KOSPI·KOSDAQ 5개 종목, AI 기술적 분석 뉴스레터 무료 발송',
     siteName: 'Stock Matrix',
+    images: [
+      {
+        url: '/opengraph-image',
+        width: 1200,
+        height: 630,
+        alt: 'Stock Matrix - AI 주식 분석',
+      },
+    ],
   },
   twitter: {
     card: 'summary_large_image',
@@ -46,6 +54,7 @@ export const metadata: Metadata = {
     description: 'KOSPI·KOSDAQ 5개 종목, AI 기술적 분석 뉴스레터 무료 발송',
     creator: '@stockmatrix',
     site: '@stockmatrix',
+    images: ['/twitter-image'],
   },
   robots: {
     index: true,
