@@ -1,0 +1,89 @@
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📊 Gemini Stock Analysis Result
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+⏱️  실행 시간: 123.44초
+📅 생성 일시: 2025. 10. 17. 오후 4:11:29
+🤖 모델: gemini-2.5-pro
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+[
+  {
+    "ticker": "KOSPI:005930",
+    "name": "삼성전자",
+    "close_price": 95000,
+    "rationale": "SMA 정배열 초기|EMA 골든크로스 임박|RSI 65.5 강세|MACD 0선 상향 돌파|거래량 평균 상회|볼린저밴드 상단 터치|ATR 변동성 확대|ADX 25 이상 상승추세|OBV 상승세 유지|스토캐스틱 과매수 진입|SuperTrend 상승 전환|52주 신고가 근접",
+    "signals": {
+      "trend_score": 89,
+      "momentum_score": 86,
+      "volume_score": 91,
+      "volatility_score": 83,
+      "pattern_score": 88,
+      "sentiment_score": 85,
+      "overall_score": 87
+    }
+  },
+  {
+    "ticker": "KOSPI:000660",
+    "name": "SK하이닉스",
+    "close_price": 422500,
+    "rationale": "SMA 완전 정배열|EMA 가파른 상승|RSI 70 과매수 근접|MACD 히스토그램 확장|거래량 급증|볼린저밴드 상단 돌파|ATR 변동성 최고 수준|ADX 30 이상 강한 상승추세|OBV 전고점 돌파|스토캐스틱 상승 다이버전스|Parabolic SAR 상승 가속|52주 신고가 경신",
+    "signals": {
+      "trend_score": 95,
+      "momentum_score": 92,
+      "volume_score": 94,
+      "volatility_score": 88,
+      "pattern_score": 91,
+      "sentiment_score": 90,
+      "overall_score": 92
+    }
+  },
+  {
+    "ticker": "KOSPI:373220",
+    "name": "LG에너지솔루션",
+    "close_price": 386500,
+    "rationale": "SMA 20일선 지지|EMA 단기 이평선 수렴|RSI 50 중립|MACD 0선 근접|거래량 점진적 증가|볼린저밴드 폭 축소|ATR 변동성 최저 수준|ADX 추세 없음|OBV 바닥 형성|스토캐스틱 과매도 탈출 시도|Ichimoku 구름대 하단|VWAP 근접",
+    "signals": {
+      "trend_score": 78,
+      "momentum_score": 81,
+      "volume_score": 84,
+      "volatility_score": 79,
+      "pattern_score": 82,
+      "sentiment_score": 80,
+      "overall_score": 81
+    }
+  },
+  {
+    "ticker": "KOSPI:207940",
+    "name": "삼성바이오로직스",
+    "close_price": 1127000,
+    "rationale": "SMA 60일선 돌파|EMA 정배열 초기|RSI 60 상회|MACD 골든크로스|거래량 동반 상승|볼린저밴드 중심선 지지|ATR 변동성 증가 시작|ADX 상승추세 전환|OBV 상승 반전|스토캐스틱 %K, %D 상향 돌파|CMF 0선 상회|52주 고점 돌파 시도",
+    "signals": {
+      "trend_score": 85,
+      "momentum_score": 88,
+      "volume_score": 89,
+      "volatility_score": 81,
+      "pattern_score": 86,
+      "sentiment_score": 87,
+      "overall_score": 86
+    }
+  },
+  {
+    "ticker": "KOSPI:003670",
+    "name": "POSCO FUTURE M",
+    "close_price": 191500,
+    "rationale": "SMA 20일선 저항|EMA 역배열 지속|RSI 45 중립 하회|MACD 데드크로스 유지|거래량 평균 하회|볼린저밴드 하단 근접|ATR 변동성 축소|ADX 하락추세 지속|OBV 하락세|스토캐스틱 과매도 구간|Donchian Channel 하단 터치|ROC 마이너스",
+    "signals": {
+      "trend_score": 65,
+      "momentum_score": 72,
+      "volume_score": 75,
+      "volatility_score": 70,
+      "pattern_score": 68,
+      "sentiment_score": 71,
+      "overall_score": 70
+    }
+  }
+]
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

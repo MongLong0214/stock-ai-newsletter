@@ -9,8 +9,8 @@ if (existsSync(envPath)) {
   config({ path: envPath });
 }
 
-import { sendStockNewsletter } from '../lib/sendgrid';
-import { getGeminiRecommendation } from '../lib/llm/gemini';
+import { sendStockNewsletter } from '@/lib/sendgrid';
+import { getGeminiRecommendation } from '@/lib/llm/gemini';
 
 async function sendTestEmail() {
   console.log('🚀 테스트 이메일 발송 시작...\n');
@@ -56,10 +56,6 @@ async function sendTestEmail() {
     console.log('━'.repeat(80));
     console.log(`\n📬 ${testRecipient.email}로 뉴스레터 발송 완료`);
     console.log(`📅 발송 날짜: ${newsletterData.date}`);
-    console.log('\n분석 결과:');
-    console.log(`  • GPT: ${gptAnalysis.startsWith('⚠️') ? '❌ 실패' : '✅ 성공'}`);
-    console.log(`  • Claude: ${claudeAnalysis.startsWith('⚠️') ? '❌ 실패' : '✅ 성공'}`);
-    console.log(`  • Gemini: ${geminiAnalysis.startsWith('⚠️') ? '❌ 실패' : '✅ 성공'}`);
 
     process.exit(0);
   } catch (error) {
