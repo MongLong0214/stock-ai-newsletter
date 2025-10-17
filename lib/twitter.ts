@@ -40,7 +40,6 @@ interface StockAnalysis {
  */
 export function formatTweetContent(analysis: StockAnalysis[]): string {
   const today = new Date().toLocaleDateString('ko-KR', {
-    year: 'numeric',
     month: 'long',
     day: 'numeric',
     timeZone: 'Asia/Seoul',
