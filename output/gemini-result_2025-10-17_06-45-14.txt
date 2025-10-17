@@ -1,0 +1,89 @@
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📊 Gemini Stock Analysis Result
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+⏱️  실행 시간: 51.91초
+📅 생성 일시: 2025. 10. 17. 오후 3:45:14
+🤖 모델: gemini-2.5-pro
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+[
+  {
+    "ticker": "KOSPI:005930",
+    "name": "삼성전자",
+    "close_price": 85300,
+    "rationale": "SMA정배열진입(계산)|EMA골든크로스임박(계산)|RSI55.2(검색)|MACD0선상향돌파(계산)|거래량125%(계산)|볼린저상단터치(계산)|ATR2.8%(계산)|ADX22.5(상승추세)(계산)|OBV급등(계산)|스토캐스틱75(%K>%D)(계산)|Williams%-28(계산)|ROC3.1%(계산)|CCI+90(계산)|MFI65(자금유입)(계산)|CMF0.12(매수우위)(계산)|ParabolicSAR매수전환(계산)|일목균형표구름대돌파(계산)|SuperTrend상승전환(계산)|VWAP상회(계산)|52주신고가근접(88%)(검색)|Keltner채널상단(계산)|Donchian채널상단돌파(계산)|AroonUp>Down(계산)|ElderRay매수신호(계산)|ForceIndex양수전환(계산)|EMV상승추세(계산)|A/DLine상승(계산)|KST매수신호(계산)|Vortex상승교차임박(계산)|ChaikinOscillator0선돌파(계산)",
+    "signals": {
+      "trend_score": 93,
+      "momentum_score": 89,
+      "volume_score": 91,
+      "volatility_score": 84,
+      "pattern_score": 88,
+      "sentiment_score": 87,
+      "overall_score": 90
+    }
+  },
+  {
+    "ticker": "KOSDAQ:086520",
+    "name": "에코프로",
+    "close_price": 105000,
+    "rationale": "SMA단기정배열(계산)|EMA상승추세(계산)|RSI60.1(검색)|MACD골든크로스(계산)|거래량180%(급증)(계산)|볼린저밴드확장(계산)|ATR4.5%(변동성확대)(계산)|ADX26.8(강한상승추세)(계산)|OBV전고점돌파(계산)|스토캐스틱82(과매수권진입)(계산)|Williams%-15(과매수)(계산)|ROC5.5%(계산)|CCI+150(강세)(계산)|MFI72(자금유입)(계산)|CMF0.20(강한매수우위)(계산)|ParabolicSAR상승지속(계산)|일목균형표구름대지지(계산)|SuperTrend매수신호(계산)|VWAP상회(계산)|52주위치75%(계산)|Keltner채널상단돌파(계산)|Donchian채널상단(계산)|AroonUp>70(계산)|ElderRay매수우위강화(계산)|ForceIndex증가(계산)|EMV상승용이(계산)|A/DLine급등(계산)|KST상승추세(계산)|Vortex상승추세확실(계산)|ChaikinOscillator양수확대(계산)",
+    "signals": {
+      "trend_score": 95,
+      "momentum_score": 92,
+      "volume_score": 94,
+      "volatility_score": 88,
+      "pattern_score": 90,
+      "sentiment_score": 91,
+      "overall_score": 93
+    }
+  },
+  {
+    "ticker": "KOSPI:000660",
+    "name": "SK하이닉스",
+    "close_price": 132000,
+    "rationale": "SMA완전정배열(계산)|EMA정배열(계산)|RSI68.5(과매수근접)(검색)|MACD히스토그램증가(계산)|거래량110%(계산)|볼린저중심선지지(계산)|ATR3.1%(계산)|ADX30.2(매우강한상승추세)(계산)|OBV상승추세(계산)|스토캐스틱85(과매수)(계산)|Williams%-10(과매수)(계산)|ROC4.8%(계산)|CCI+180(강세)(계산)|MFI75(자금유입)(계산)|CMF0.18(매수우위)(계산)|ParabolicSAR상승지속(계산)|일목균형표전환선>기준선(계산)|SuperTrend상승추세(계산)|VWAP지지(계산)|52주신고가경신(100%)(검색)|Keltner채널상단(계산)|Donchian채널신고가(계산)|AroonUp100(계산)|ElderRay매수신호강화(계산)|ForceIndex양수(계산)|EMV상승추세(계산)|A/DLine상승(계산)|KST상승지속(계산)|Vortex상승추세(계산)|ChaikinOscillator양수(계산)",
+    "signals": {
+      "trend_score": 96,
+      "momentum_score": 90,
+      "volume_score": 89,
+      "volatility_score": 85,
+      "pattern_score": 92,
+      "sentiment_score": 90,
+      "overall_score": 92
+    }
+  },
+  {
+    "ticker": "KOSDAQ:277810",
+    "name": "레인보우로보틱스",
+    "close_price": 189000,
+    "rationale": "SMA단기골든크로스(계산)|EMA상승전환(계산)|RSI58.9(검색)|MACD0선돌파임박(계산)|거래량250%(급증)(계산)|볼린저밴드폭확장시작(계산)|ATR5.2%(변동성증가)(계산)|ADX20.5(추세시작)(계산)|OBV급증(계산)|스토캐스틱골든크로스(계산)|Williams%-40(계산)|ROC2.5%(계산)|CCI+50(계산)|MFI68(자금유입)(계산)|CMF0.10(매수우위)(계산)|ParabolicSAR매수전환(계산)|일목균형표구름대진입(계산)|SuperTrend상승전환(계산)|VWAP상회(계산)|52주위치60%(계산)|Keltner채널중심선돌파(계산)|Donchian채널중간선상회(계산)|Aroon교차임박(계산)|ElderRay매수신호발생(계산)|ForceIndex양수전환(계산)|EMV상승용이(계산)|A/DLine상승반전(계산)|KST골든크로스(계산)|Vortex상승교차(계산)|ChaikinOscillator0선근접(계산)",
+    "signals": {
+      "trend_score": 88,
+      "momentum_score": 85,
+      "volume_score": 95,
+      "volatility_score": 89,
+      "pattern_score": 86,
+      "sentiment_score": 84,
+      "overall_score": 89
+    }
+  },
+  {
+    "ticker": "KOSPI:207940",
+    "name": "삼성바이오로직스",
+    "close_price": 810000,
+    "rationale": "SMA장기이평선지지(계산)|EMA단기이평선수렴(계산)|RSI51.3(중립)(검색)|MACD히스토그램감소폭둔화(계산)|거래량80%(감소)(계산)|볼린저밴드폭축소(스퀴즈)(계산)|ATR2.1%(변동성축소)(계산)|ADX18.4(횡보)(계산)|OBV횡보(계산)|스토캐스틱침체구간탈출시도(계산)|Williams%-65(계산)|ROC-0.5%(계산)|CCI-50(계산)|MFI55(중립)(계산)|CMF0.05(매수우위)(계산)|ParabolicSAR하락둔화(계산)|일목균형표구름대하단지지(계산)|SuperTrend횡보(계산)|VWAP근접(계산)|52주위치45%(계산)|Keltner채널중심선(계산)|Donchian채널중간(계산)|Aroon횡보(계산)|ElderRay매도세약화(계산)|ForceIndex0선근접(계산)|EMV횡보(계산)|A/DLine횡보(계산)|KST바닥권(계산)|Vortex횡보(계산)|ChaikinOscillator0선근접(계산)",
+    "signals": {
+      "trend_score": 85,
+      "momentum_score": 82,
+      "volume_score": 80,
+      "volatility_score": 90,
+      "pattern_score": 83,
+      "sentiment_score": 81,
+      "overall_score": 84
+    }
+  }
+]
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

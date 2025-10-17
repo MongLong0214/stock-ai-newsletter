@@ -94,17 +94,17 @@ async function callGeminiAPI(genAI: GoogleGenAI): Promise<string> {
           parts: [{ text: STOCK_ANALYSIS_PROMPT }],
         },
       ],
-      config: {
-        tools: [{ googleSearch: {} }],
-        maxOutputTokens: 8192,
-        temperature: 0.3,
-        topP: 0.95,
-        topK: 40,
-        responseMimeType: 'text/plain',
-        thinkingConfig: {
-          thinkingBudget: 10000,
+        config: {
+            tools: [{ googleSearch: {} }],
+            maxOutputTokens: 32768,
+            temperature: 0.5,
+            topP: 0.95,
+            topK: 40,
+            responseMimeType: 'text/plain',
+            thinkingConfig: {
+                thinkingBudget: 22000,
+            },
         },
-      },
     }),
     API_TIMEOUT
   );
