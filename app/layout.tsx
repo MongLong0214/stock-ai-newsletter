@@ -12,40 +12,18 @@ export const metadata: Metadata = {
   },
   description: 'KOSPI·KOSDAQ 5개 종목, AI 기술적 분석 뉴스레터 무료 발송',
   keywords: [
-    // 핵심 키워드
-    'AI 주식 분석',
-    '무료 주식 뉴스레터',
-    '기술적 분석 뉴스레터',
-    '주식 데이터 뉴스레터',
-
-    // 기술적 지표
+    'AI주식분석',
+    '무료주식뉴스레터',
+    '기술적분석',
+    '무료 주식 추천',
+    '매일 주식 정보',
+    '아침 주식 분석',
+    '코스피 종목 추천',
+    '주식 기술적 분석 사이트',
+    '무료 주식 AI',
     'RSI 분석',
     'MACD 분석',
-    '볼린저밴드 분석',
-    '이동평균선 분석',
-    '주식 기술적 지표',
-    '기술적 분석 데이터',
-
-    // 시장 관련
-    'KOSPI 종목 분석',
-    'KOSDAQ 종목 분석',
-    '한국 주식 분석',
-    '국내 주식 데이터',
-
-    // 서비스 특징
-    '무료 주식 데이터',
-    '매일 주식 분석',
-    '아침 주식 뉴스레터',
-    '주식 이메일 뉴스레터',
-
-    // 브랜드
     'Stock Matrix',
-    'stockmatrix',
-
-    // 롱테일 키워드
-    'AI 기술적 분석',
-    '주식 기술적 분석 무료',
-    '매일 주식 정보',
   ],
   authors: [{ name: 'Stock Matrix', url: 'https://stockmatrix.co.kr' }],
   creator: 'Stock Matrix',
@@ -53,6 +31,14 @@ export const metadata: Metadata = {
   metadataBase: new URL('https://stockmatrix.co.kr'),
   alternates: {
     canonical: '/',
+  },
+  icons: {
+    icon: [
+      { url: '/icon.png', sizes: '192x192', type: 'image/png' },
+      { url: '/logo-512.png', sizes: '512x512', type: 'image/png' },
+    ],
+    shortcut: '/icon.png',
+    apple: '/logo-512.png',
   },
   openGraph: {
     type: 'website',
