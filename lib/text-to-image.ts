@@ -1,4 +1,4 @@
-import { createCanvas } from 'canvas';
+import { createCanvas, CanvasRenderingContext2D } from 'canvas';
 
 interface StockSignals {
   trend_score: number;
@@ -76,7 +76,7 @@ export async function textToImage(jsonData: string): Promise<Buffer> {
 /**
  * 헤더 그리기
  */
-function drawHeader(ctx: any, width: number, startY: number): number {
+function drawHeader(ctx: CanvasRenderingContext2D, width: number, startY: number): number {
   const centerX = width / 2;
   let y = startY + 45;
 
@@ -129,7 +129,7 @@ function drawHeader(ctx: any, width: number, startY: number): number {
  * 종목 카드 그리기 - 고정 높이 레이아웃 (세로 중앙 정렬)
  */
 function drawStockCard(
-  ctx: any,
+  ctx: CanvasRenderingContext2D,
   stock: StockAnalysis,
   rank: number,
   width: number,
@@ -315,7 +315,7 @@ function drawStockCard(
 /**
  * 푸터 그리기
  */
-function drawFooter(ctx: any, width: number, startY: number, totalHeight: number): void {
+function drawFooter(ctx: CanvasRenderingContext2D, width: number, startY: number, totalHeight: number): void {
   const centerX = width / 2;
   const y = totalHeight - 40;
 
@@ -333,7 +333,7 @@ function drawFooter(ctx: any, width: number, startY: number, totalHeight: number
  * 둥근 사각형 그리기
  */
 function roundRect(
-  ctx: any,
+  ctx: CanvasRenderingContext2D,
   x: number,
   y: number,
   width: number,
