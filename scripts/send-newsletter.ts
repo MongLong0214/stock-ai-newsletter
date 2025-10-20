@@ -95,8 +95,8 @@ async function sendNewsletter() {
       // Gemini 분석 결과 파싱
       const analysisData = JSON.parse(geminiAnalysis);
 
-      // 단일 트윗 게시 (useThread: false)
-      await postNewsletterToTwitter(analysisData, false);
+      // 트윗 게시 (이미지 + 텍스트)
+      await postNewsletterToTwitter(analysisData);
 
       console.log('✅ X(Twitter) 자동 게시 완료!\n');
     } catch (twitterError) {
