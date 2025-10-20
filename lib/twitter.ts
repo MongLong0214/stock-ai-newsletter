@@ -68,7 +68,7 @@ export async function postTweetWithImage(analysis: StockAnalysis[]): Promise<str
     });
 
     const tweet = await rwClient.v2.tweet({
-      text: `📊 ${today} AI 주식 분석\n\n매일 5개 종목의 더 자세한 분석 데이터를 메일로 받아보고 싶으면\n👉 https://stockmatrix.co.kr\n\n#주식 #코스피 #AI주식분석`,
+      text: `📊 ${today} AI 주식 분석\n\n매일 개장 10분 전, 5개 종목의 더 자세한 기술적 분석 데이터를 메일로 받아보세요(For Free).\n👉 https://stockmatrix.co.kr\n\n#주식 #코스피 #AI주식분석`,
       media: { media_ids: [mediaId] },
     });
 
