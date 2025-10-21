@@ -7,7 +7,7 @@ const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
   title: {
-    default: 'STOCK MATRIX - AI 주식 분석 뉴스레터 | 매일 무료',
+    default: 'STOCK MATRIX - AI 주식 분석 무료 뉴스레터 | 코스피 · 코스닥 5개 종목 기술적 분석',
     template: '%s | STOCK MATRIX',
   },
   description: 'KOSPI·KOSDAQ 5개 종목, AI 기술적 분석 뉴스레터 무료 발송',
@@ -15,10 +15,11 @@ export const metadata: Metadata = {
     'AI주식분석',
     '무료주식뉴스레터',
     '기술적분석',
-    '무료 주식 추천',
+    '주식 분석',
     '매일 주식 정보',
     '아침 주식 분석',
-    '코스피 종목 추천',
+    '코스피',
+    '코스닥',
     '주식 기술적 분석 사이트',
     '무료 주식 AI',
     'RSI 분석',
@@ -76,6 +77,15 @@ export const metadata: Metadata = {
   category: 'finance',
   classification: 'Business',
   referrer: 'origin-when-cross-origin',
+  icons: {
+    icon: [
+      { url: '/icon', sizes: '512x512', type: 'image/png' },
+      { url: '/favicon.ico', sizes: 'any' },
+    ],
+    apple: [
+      { url: '/apple-icon', sizes: '512x512', type: 'image/png' },
+    ],
+  },
 };
 
 export default function RootLayout({
@@ -94,15 +104,15 @@ export default function RootLayout({
         logo: {
           '@type': 'ImageObject',
           url: 'https://stockmatrix.co.kr/icon',
-          width: 192,
-          height: 192,
+          width: 512,
+          height: 512,
           caption: 'Stock Matrix Logo',
         },
         image: {
           '@type': 'ImageObject',
           url: 'https://stockmatrix.co.kr/icon',
-          width: 192,
-          height: 192,
+          width: 512,
+          height: 512,
         },
         sameAs: ['https://twitter.com/stockmatrix'],
         contactPoint: {
