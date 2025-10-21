@@ -1,0 +1,43 @@
+name: Test Twitter Upload
+
+on:
+  workflow_dispatch: # 수동 실행만 가능
+
+jobs:
+  test-twitter:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Test Twitter Upload
+        env:
+          # AI API
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+
+          # Twitter/X API
+          TWITTER_API_KEY: ${{ secrets.TWITTER_API_KEY }}
+          TWITTER_API_SECRET: ${{ secrets.TWITTER_API_SECRET }}
+          TWITTER_ACCESS_TOKEN: ${{ secrets.TWITTER_ACCESS_TOKEN }}
+          TWITTER_ACCESS_SECRET: ${{ secrets.TWITTER_ACCESS_SECRET }}
+        run: |
+          echo "🐦 Testing Twitter upload..."
+          npx tsx scripts/test-twitter.ts
+
+      - name: Notify on success
+        if: success()
+        run: echo "✅ Twitter upload test successful!"
+
+      - name: Notify on failure
+        if: failure()
+        run: echo "❌ Twitter upload test failed!"
