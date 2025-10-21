@@ -45,7 +45,7 @@ export async function textToImage(jsonData: string): Promise<Buffer> {
   // 캔버스 크기 - 고정 높이로 레이아웃 시프트 제거
   const width = 1200;
   const cardHeight = 420; // 각 종목 카드 고정 높이 (450 → 420)
-  const margin = 40; // 상하단 여백 통일
+  const margin = 30; // 상하단 여백 통일 (40 → 30)
   const headerHeight = 200;
   const spacing = 20;
   const height = margin + headerHeight + (cardHeight + spacing) * 3 + spacing + margin;
