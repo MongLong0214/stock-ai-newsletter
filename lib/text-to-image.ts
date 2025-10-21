@@ -1,4 +1,9 @@
-import { createCanvas, CanvasRenderingContext2D } from 'canvas';
+import { createCanvas, CanvasRenderingContext2D, registerFont } from 'canvas';
+import { resolve } from 'path';
+
+// 프로젝트 내 한글 폰트 사용 (100% 성공 보장)
+const fontPath = resolve(process.cwd(), 'fonts/AppleSDGothicNeo.ttc');
+registerFont(fontPath, { family: 'Sans' });
 
 interface StockSignals {
   trend_score: number;
@@ -39,11 +44,11 @@ export async function textToImage(jsonData: string): Promise<Buffer> {
 
   // 캔버스 크기 - 고정 높이로 레이아웃 시프트 제거
   const width = 1200;
-  const cardHeight = 450; // 각 종목 카드 고정 높이
+  const cardHeight = 420; // 각 종목 카드 고정 높이 (450 → 420)
+  const margin = 40; // 상하단 여백 통일
   const headerHeight = 200;
-  const footerHeight = 100;
   const spacing = 20;
-  const height = headerHeight + (cardHeight + spacing) * 3 + footerHeight; // 3개 고정
+  const height = margin + headerHeight + (cardHeight + spacing) * 3 + spacing + margin;
 
   const canvas = createCanvas(width, height);
   const ctx = canvas.getContext('2d');
@@ -55,7 +60,7 @@ export async function textToImage(jsonData: string): Promise<Buffer> {
   ctx.fillStyle = bgGradient;
   ctx.fillRect(0, 0, width, height);
 
-  let currentY = 0;
+  let currentY = margin; // 상단 여백부터 시작
 
   // ============ HEADER ============
   currentY = drawHeader(ctx, width, currentY);
@@ -66,10 +71,6 @@ export async function textToImage(jsonData: string): Promise<Buffer> {
     currentY = drawStockCard(ctx, stock, index + 1, width, currentY);
   });
 
-  // ============ FOOTER ============
-  currentY += spacing * 2;
-  drawFooter(ctx, width, currentY, height);
-
   return canvas.toBuffer('image/png');
 }
 
@@ -78,24 +79,24 @@ export async function textToImage(jsonData: string): Promise<Buffer> {
  */
 function drawHeader(ctx: CanvasRenderingContext2D, width: number, startY: number): number {
   const centerX = width / 2;
-  let y = startY + 45;
+  let y = startY + 20;
 
   // "Stock Matrix" 로고
   ctx.fillStyle = '#10B981';
-  ctx.font = 'bold 22px Arial';
+  ctx.font = 'bold 22px Sans';
   ctx.textAlign = 'center';
   ctx.fillText('STOCK MATRIX', centerX, y);
   y += 50; // 35 → 50
 
   // 메인 타이틀
   ctx.fillStyle = '#FFFFFF';
-  ctx.font = 'bold 44px Arial';
+  ctx.font = 'bold 44px Sans';
   ctx.fillText('오늘의 AI 기술적 분석', centerX, y);
   y += 45; // 35 → 45
 
   // 서브타이틀
   ctx.fillStyle = '#94A3B8';
-  ctx.font = '20px Arial';
+  ctx.font = '20px Sans';
   ctx.fillText('30개 기술 지표 분석 - 상위 3개 종목', centerX, y);
   y += 50; // 45 → 50
 
@@ -119,7 +120,7 @@ function drawHeader(ctx: CanvasRenderingContext2D, width: number, startY: number
   ctx.stroke();
 
   ctx.fillStyle = '#E2E8F0';
-  ctx.font = '18px Arial';
+  ctx.font = '18px Sans';
   ctx.fillText(today, centerX, y);
 
   return y + 35; // 30 → 35
@@ -138,7 +139,7 @@ function drawStockCard(
   const cardPadding = 40;
   const cardWidth = width - cardPadding * 2;
   const cardX = cardPadding;
-  const cardHeight = 450; // 고정 높이
+  const cardHeight = 420; // 고정 높이 (450 → 420)
 
   // 카드 배경
   ctx.fillStyle = '#1E293B';
@@ -153,23 +154,23 @@ function drawStockCard(
 
   // 왼쪽: 순위 + 종목명 (세로 중앙)
   ctx.fillStyle = '#10B981';
-  ctx.font = 'bold 26px Arial';
+  ctx.font = 'bold 26px Sans';
   ctx.textAlign = 'left';
   ctx.textBaseline = 'middle';
   ctx.fillText(`${rank}위`, cardX + 30, section1Y);
 
   ctx.fillStyle = '#FFFFFF';
-  ctx.font = 'bold 30px Arial';
+  ctx.font = 'bold 30px Sans';
   ctx.fillText(stock.name, cardX + 85, section1Y);
 
   // 오른쪽: 티커 + 종가 (세로 중앙)
   ctx.fillStyle = '#64748B';
-  ctx.font = '16px Arial';
+  ctx.font = '16px Sans';
   ctx.textAlign = 'right';
   ctx.fillText(stock.ticker, cardX + cardWidth - 30, section1Y - 12);
 
   ctx.fillStyle = '#FFFFFF';
-  ctx.font = 'bold 26px Arial';
+  ctx.font = 'bold 26px Sans';
   ctx.fillText(`${stock.close_price.toLocaleString()}원`, cardX + cardWidth - 30, section1Y + 15);
 
   // 구분선
@@ -182,17 +183,17 @@ function drawStockCard(
   ctx.stroke();
 
   // === 섹션 2: 주요 지표 (고정 3줄, 완벽한 세로 중앙 정렬) ===
-  const section2TotalHeight = 26 * 3; // 3줄 총 높이 = 78px
+  const section2TotalHeight = 30 * 3; // 3줄 총 높이 = 90px (26→30)
   const section2AreaHeight = 98; // 구분선 1 → 구분선 2 영역 (고정)
-  const section2CenterOffset = (section2AreaHeight - section2TotalHeight) / 2; // (98 - 78) / 2 = 10px
+  const section2CenterOffset = (section2AreaHeight - section2TotalHeight) / 2; // (98 - 90) / 2 = 4px
 
   // 첫 번째 줄의 중심 위치
-  const section2StartY = divider1Y + section2CenterOffset + 13; // 13px = 26px(한 줄 높이) / 2
+  const section2StartY = divider1Y + section2CenterOffset + 15; // 15px = 30px(한 줄 높이) / 2
 
   let indicatorY = section2StartY;
 
   ctx.fillStyle = '#E2E8F0';
-  ctx.font = '17px Arial';
+  ctx.font = '19px Sans'; // 17px → 19px
   ctx.textAlign = 'left';
   ctx.textBaseline = 'middle';
 
@@ -201,13 +202,13 @@ function drawStockCard(
     // 불릿 포인트 (텍스트 중앙 기준)
     ctx.fillStyle = '#0EA5E9';
     ctx.beginPath();
-    ctx.arc(cardX + 35, indicatorY, 4, 0, Math.PI * 2);
+    ctx.arc(cardX + 35, indicatorY, 5, 0, Math.PI * 2); // 4px → 5px
     ctx.fill();
 
     // 텍스트 (세로 중앙 정렬)
     ctx.fillStyle = '#E2E8F0';
     ctx.fillText(indicator.trim(), cardX + 55, indicatorY);
-    indicatorY += 26;
+    indicatorY += 30; // 26px → 30px
   });
 
   // 구분선
@@ -222,13 +223,13 @@ function drawStockCard(
   // === 섹션 3: 기술적 신호 점수 (타이틀) ===
   const section3TitleY = divider2Y + 25;
   ctx.fillStyle = '#0EA5E9';
-  ctx.font = 'bold 15px Arial';
+  ctx.font = 'bold 17px Sans'; // 15px → 17px
   ctx.textAlign = 'left';
   ctx.textBaseline = 'middle';
   ctx.fillText('기술적 신호 점수', cardX + 30, section3TitleY);
 
   // === 섹션 3: 점수 그리드 (2열 3행) ===
-  const scoresStartY = section3TitleY + 25;
+  const scoresStartY = section3TitleY + 28; // 25 → 28
   const scores = [
     { label: '추세', value: stock.signals.trend_score },
     { label: '모멘텀', value: stock.signals.momentum_score },
@@ -239,7 +240,7 @@ function drawStockCard(
   ];
 
   const colWidth = (cardWidth - 60) / 2;
-  const rowHeight = 32;
+  const rowHeight = 36; // 32px → 36px
   const scoreStartX = cardX + 30;
 
   scores.forEach((score, index) => {
@@ -250,25 +251,25 @@ function drawStockCard(
 
     // 라벨 (세로 중앙)
     ctx.fillStyle = '#94A3B8';
-    ctx.font = '15px Arial';
+    ctx.font = '17px Sans'; // 15px → 17px
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
     ctx.fillText(score.label, x, scoreY);
 
     // 점수 배지 (세로 중앙)
     const badgeColor = score.value >= 70 ? '#10B981' : score.value >= 40 ? '#F59E0B' : '#EF4444';
-    const badgeHeight = 26;
+    const badgeHeight = 30; // 26px → 30px
     const badgeY = scoreY - badgeHeight / 2;
 
     ctx.fillStyle = badgeColor;
-    roundRect(ctx, x + 85, badgeY, 65, badgeHeight, 6);
+    roundRect(ctx, x + 85, badgeY, 70, badgeHeight, 6); // 65 → 70
     ctx.fill();
 
     ctx.fillStyle = '#FFFFFF';
-    ctx.font = 'bold 16px Arial';
+    ctx.font = 'bold 18px Sans'; // 16px → 18px
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(`${score.value}점`, x + 117.5, scoreY);
+    ctx.fillText(`${score.value}점`, x + 120, scoreY); // 117.5 → 120
   });
 
   // 구분선
@@ -288,7 +289,7 @@ function drawStockCard(
 
   // 왼쪽 라벨 (세로 중앙)
   ctx.fillStyle = '#FFFFFF';
-  ctx.font = 'bold 20px Arial';
+  ctx.font = 'bold 20px Sans';
   ctx.textAlign = 'left';
   ctx.textBaseline = 'middle';
   ctx.fillText('종합 점수', cardX + 30, section4Y);
@@ -304,29 +305,12 @@ function drawStockCard(
   ctx.fill();
 
   ctx.fillStyle = '#FFFFFF';
-  ctx.font = 'bold 25px Arial';
+  ctx.font = 'bold 25px Sans';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillText(`${stock.signals.overall_score}점`, cardX + cardWidth - 85, section4Y);
 
   return startY + cardHeight;
-}
-
-/**
- * 푸터 그리기
- */
-function drawFooter(ctx: CanvasRenderingContext2D, width: number, startY: number, totalHeight: number): void {
-  const centerX = width / 2;
-  const y = totalHeight - 40;
-
-  ctx.fillStyle = '#10B981';
-  ctx.font = 'bold 22px Arial';
-  ctx.textAlign = 'center';
-  ctx.fillText('StockMatrix AI Analysis', centerX, y);
-
-  ctx.fillStyle = '#64748B';
-  ctx.font = '16px Arial';
-  ctx.fillText('stockmatrix.co.kr', centerX, y + 25);
 }
 
 /**
@@ -371,7 +355,7 @@ function createSimpleTextImage(text: string): Buffer {
 
   // 텍스트
   ctx.fillStyle = '#FFFFFF';
-  ctx.font = '28px Arial';
+  ctx.font = '28px Sans';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
 
