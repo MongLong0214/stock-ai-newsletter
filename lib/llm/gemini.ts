@@ -3,9 +3,9 @@ import { CircuitBreaker } from './circuit-breaker';
 import { STOCK_ANALYSIS_PROMPT } from '../prompts/stock-analysis-prompt';
 
 const geminiBreaker = new CircuitBreaker();
-const MAX_RETRY = 5;
-const RETRY_DELAY = 2000;
-const API_TIMEOUT = 600000; // 10분
+const MAX_RETRY = 10; // 5 → 10으로 증가
+const RETRY_DELAY = 3000; // 2초 → 3초로 증가
+const API_TIMEOUT = 900000; // 10분 → 15분으로 증가
 
 /**
  * Promise에 타임아웃 적용
@@ -97,12 +97,12 @@ async function callGeminiAPI(genAI: GoogleGenAI): Promise<string> {
         config: {
             tools: [{ googleSearch: {} }],
             maxOutputTokens: 32768,
-            temperature: 0.5,
-            topP: 0.95,
+            temperature: 0.3, // 0.5 → 0.3 더 집중된 응답
+            topP: 0.9, // 0.95 → 0.9 더 결정적
             topK: 40,
             responseMimeType: 'text/plain',
             thinkingConfig: {
-                thinkingBudget: 22000,
+                thinkingBudget: 8000, // 22000 → 8000 분석 마비 방지
             },
         },
     }),
