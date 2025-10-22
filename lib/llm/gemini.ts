@@ -97,12 +97,12 @@ async function callGeminiAPI(genAI: GoogleGenAI): Promise<string> {
         config: {
             tools: [{ googleSearch: {} }],
             maxOutputTokens: 32768,
-            temperature: 0.3, // 0.5 → 0.3 더 집중된 응답
-            topP: 0.9, // 0.95 → 0.9 더 결정적
+            temperature: 0.5,
+            topP: 0.95,
             topK: 40,
             responseMimeType: 'text/plain',
             thinkingConfig: {
-                thinkingBudget: 8000, // 22000 → 8000 분석 마비 방지
+                thinkingBudget: 18000,
             },
         },
     }),
