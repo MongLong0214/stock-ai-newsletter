@@ -29,7 +29,7 @@ jobs:
         env:
           # Google Cloud (Vertex AI)
           GOOGLE_CLOUD_PROJECT: ${{ secrets.GOOGLE_CLOUD_PROJECT }}
-          GOOGLE_CLOUD_LOCATION: us
+          GOOGLE_CLOUD_LOCATION: us-central1
 
           # SendGrid
           SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY }}
