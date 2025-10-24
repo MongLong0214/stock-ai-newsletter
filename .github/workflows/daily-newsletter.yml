@@ -37,7 +37,7 @@ jobs:
 
           # Google Cloud (Vertex AI) - Gemini 전용
           GOOGLE_CLOUD_PROJECT: ${{ secrets.GOOGLE_CLOUD_PROJECT }}
-          GOOGLE_CLOUD_LOCATION: us
+          GOOGLE_CLOUD_LOCATION: us-central1
 
           # Supabase
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
