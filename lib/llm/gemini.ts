@@ -8,7 +8,7 @@ const BASE_RETRY_DELAY = 2000; // 기본 지연 시간 (Exponential Backoff 용)
 const API_TIMEOUT = 900000; // 15분
 
 // 글로벌 엔드포인트로 429 에러 완화
-const VERTEX_AI_LOCATION = 'us'; // 'us-central1' → 'us' (글로벌 엔드포인트)
+const VERTEX_AI_LOCATION = 'us-central1'; // 리전 엔드포인트 (안정성 우선)
 
 /**
  * Promise에 타임아웃 적용
@@ -20,6 +20,16 @@ async function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
       setTimeout(() => reject(new Error('Request timeout')), ms)
     ),
   ]);
+}
+
+/**
+ * JSON 문자열에서 제어 문자 제거
+ * @param str - 원본 문자열
+ * @returns 제어 문자가 제거된 문자열
+ */
+function removeControlCharacters(str: string): string {
+  // ASCII 제어 문자 (0x00-0x1F) 제거, 단 \n, \r, \t는 유지
+  return str.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
 }
 
 /**
@@ -40,7 +50,11 @@ function extractAndValidateJSON(text: string): string | null {
     }
 
     // JSON 부분 추출
-    const jsonStr = trimmed.substring(startIdx, endIdx + 1);
+    let jsonStr = trimmed.substring(startIdx, endIdx + 1);
+
+    // 제어 문자 제거
+    jsonStr = removeControlCharacters(jsonStr);
+
     const parsed = JSON.parse(jsonStr);
 
     // 데이터 구조 검증
@@ -147,8 +161,8 @@ export async function getGeminiRecommendation(): Promise<string> {
   }
 
   try {
-    // GoogleGenAI 초기화 (Vertex AI 글로벌 엔드포인트)
-    console.log(`[Gemini] Vertex AI Location: ${VERTEX_AI_LOCATION} (글로벌 엔드포인트)`);
+    // GoogleGenAI 초기화 (Vertex AI)
+    console.log(`[Gemini] Vertex AI Location: ${VERTEX_AI_LOCATION}`);
 
     const genAI = new GoogleGenAI({
       vertexai: true,
