@@ -120,29 +120,38 @@ function validateStockData(data: unknown): boolean {
  * Gemini API 호출 (최적화된 설정)
  */
 async function callGeminiAPI(genAI: GoogleGenAI): Promise<string> {
-  const response = await withTimeout(
-    genAI.models.generateContent({
-      model: 'gemini-2.5-pro',
-      contents: [
-        {
-          role: 'user',
-          parts: [{ text: STOCK_ANALYSIS_PROMPT }],
-        },
-      ],
+  console.log('[API 호출 시작] generateContent 요청 중...');
+
+  let response;
+  try {
+    response = await withTimeout(
+      genAI.models.generateContent({
+        model: 'gemini-2.5-pro',
+        contents: [
+          {
+            role: 'user',
+            parts: [{ text: STOCK_ANALYSIS_PROMPT }],
+          },
+        ],
         config: {
-            tools: [{ googleSearch: {} }],
-            maxOutputTokens: 32768,
-            temperature: 0.5,
-            topP: 0.95,
-            topK: 40,
-            responseMimeType: 'text/plain',
-            thinkingConfig: {
-                thinkingBudget: 25000,
-            },
+          tools: [{ googleSearch: {} }],
+          maxOutputTokens: 32768,
+          temperature: 0.5,
+          topP: 0.95,
+          topK: 40,
+          responseMimeType: 'text/plain',
+          thinkingConfig: {
+            thinkingBudget: 25000,
+          },
         },
-    }),
-    API_TIMEOUT
-  );
+      }),
+      API_TIMEOUT
+    );
+    console.log('[API 호출 성공] 응답 수신 완료');
+  } catch (error) {
+    console.error('[API 호출 실패]', error);
+    throw error;
+  }
 
   // 응답 타입 확인 (디버깅용)
   console.log(`[Response Type] typeof response: ${typeof response}`);
