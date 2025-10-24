@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
 import Script from 'next/script';
+import { Analytics } from '@vercel/analytics/next';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -14,16 +15,25 @@ export const metadata: Metadata = {
   description: 'AI가 분석한 KOSPI·KOSDAQ 종목 5개를 매일 오전 7시 50분 무료로 받아보세요.',
   keywords: [
     'AI 주식 분석',
-    '무료 뉴스레터',
-    '기술적 분석',
-    'KOSPI',
-    'KOSDAQ',
-    '주식 뉴스',
-    'RSI 분석',
+    'GPT 주식',
+    'Claude AI 주식',
+    'Gemini AI',
+    '무료 주식 뉴스레터',
+    'KOSPI 분석',
+    'KOSDAQ 추천',
+    'RSI 지표',
     'MACD 분석',
-    'StockMatrix',
-    '주식 기술적 분석',
+    '볼린저밴드',
+    '기술적 분석',
+    '주식 기술지표',
     '무료 주식 정보',
+    '주식 이메일',
+    'StockMatrix',
+    '스탁매트릭스',
+    '주식 투자',
+    '주식 공부',
+    '30개 기술지표',
+    '오전 7시 50분',
   ],
   authors: [{ name: 'Stock Matrix', url: 'https://stockmatrix.co.kr' }],
   creator: 'Stock Matrix',
@@ -51,13 +61,16 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'STOCK MATRIX - AI 기술적 분석 뉴스레터',
     description: 'KOSPI·KOSDAQ 5개 종목, AI 기술적 분석 뉴스레터 무료 발송',
-    creator: '@stockmatrix',
-    site: '@stockmatrix',
+    creator: '@aistockmatrix',
+    site: '@aistockmatrix',
     images: ['/twitter-image'],
   },
   robots: {
     index: true,
     follow: true,
+    'max-image-preview': 'large',
+    'max-snippet': -1,
+    'max-video-preview': -1,
     googleBot: {
       index: true,
       follow: true,
@@ -112,7 +125,11 @@ export default function RootLayout({
           width: 512,
           height: 512,
         },
-        sameAs: ['https://twitter.com/stockmatrix'],
+        sameAs: [
+          'https://x.com/aistockmatrix',
+          'https://www.instagram.com/aistockmatrix/',
+          'https://www.threads.net/@aistockmatrix',
+        ],
         contactPoint: {
           '@type': 'ContactPoint',
           contactType: 'Customer Service',
@@ -170,6 +187,7 @@ export default function RootLayout({
       </head>
       <body className={inter.className} suppressHydrationWarning>
         {children}
+        <Analytics />
       </body>
     </html>
   );
