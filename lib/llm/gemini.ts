@@ -4,8 +4,11 @@ import { STOCK_ANALYSIS_PROMPT } from '../prompts/stock-analysis-prompt';
 
 const geminiBreaker = new CircuitBreaker();
 const MAX_RETRY = 10; // 5 → 10으로 증가
-const RETRY_DELAY = 3000; // 2초 → 3초로 증가
-const API_TIMEOUT = 900000; // 10분 → 15분으로 증가
+const BASE_RETRY_DELAY = 2000; // 기본 지연 시간 (Exponential Backoff 용)
+const API_TIMEOUT = 900000; // 15분
+
+// 글로벌 엔드포인트로 429 에러 완화
+const VERTEX_AI_LOCATION = 'us'; // 'us-central1' → 'us' (글로벌 엔드포인트)
 
 /**
  * Promise에 타임아웃 적용
@@ -144,14 +147,19 @@ export async function getGeminiRecommendation(): Promise<string> {
   }
 
   try {
-    // GoogleGenAI 초기화 (Vertex AI 전용)
+    // GoogleGenAI 초기화 (Vertex AI 글로벌 엔드포인트)
+    console.log(`[Gemini] Vertex AI Location: ${VERTEX_AI_LOCATION} (글로벌 엔드포인트)`);
+
     const genAI = new GoogleGenAI({
       vertexai: true,
       project: process.env.GOOGLE_CLOUD_PROJECT,
-      location: process.env.GOOGLE_CLOUD_LOCATION || 'us-central1',
+      location: VERTEX_AI_LOCATION,
     });
 
     for (let attempt = 1; attempt <= MAX_RETRY; attempt++) {
+      // Exponential Backoff: 2초 → 4초 → 8초 → 16초 (최대 32초)
+      const retryDelay = Math.min(BASE_RETRY_DELAY * Math.pow(2, attempt - 1), 32000);
+
       console.log(`[Gemini] 시도 ${attempt}/${MAX_RETRY}`);
 
       try {
@@ -184,17 +192,23 @@ export async function getGeminiRecommendation(): Promise<string> {
         console.warn(`⚠️ [Gemini] JSON 검증 실패 (${attempt}/${MAX_RETRY})`);
 
         if (attempt < MAX_RETRY) {
-          console.log(`🔄 [Gemini] ${RETRY_DELAY / 1000}초 후 재시도...`);
-          await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY));
+          console.log(`🔄 [Gemini] ${retryDelay / 1000}초 후 재시도... (Exponential Backoff)`);
+          await new Promise((resolve) => setTimeout(resolve, retryDelay));
         }
 
       } catch (apiError) {
         const errorMsg = apiError instanceof Error ? apiError.message : String(apiError);
+        const is429Error = errorMsg.includes('429') || errorMsg.includes('RESOURCE_EXHAUSTED');
+
         console.warn(`⚠️ [Gemini] API 오류 (${attempt}/${MAX_RETRY}): ${errorMsg}`);
 
+        if (is429Error) {
+          console.log(`🔍 [429 Error] Quota 초과 감지 - Exponential Backoff 적용`);
+        }
+
         if (attempt < MAX_RETRY) {
-          console.log(`🔄 [Gemini] ${RETRY_DELAY / 1000}초 후 재시도...`);
-          await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY));
+          console.log(`🔄 [Gemini] ${retryDelay / 1000}초 후 재시도... (Exponential Backoff)`);
+          await new Promise((resolve) => setTimeout(resolve, retryDelay));
         } else {
           throw apiError;
         }
