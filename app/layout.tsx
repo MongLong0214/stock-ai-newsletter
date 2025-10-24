@@ -6,32 +6,30 @@ import Script from 'next/script';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
+  metadataBase: new URL('https://stockmatrix.co.kr'),
   title: {
-    default: 'STOCK MATRIX - AI 주식 분석 무료 뉴스레터 | 코스피 · 코스닥 5개 종목 기술적 분석',
-    template: '%s | STOCK MATRIX',
+    default: 'STOCK MATRIX - AI 주식 분석 무료 뉴스레터',
+    template: '%s | StockMatrix',
   },
-  description: 'KOSPI·KOSDAQ 5개 종목, AI 기술적 분석 뉴스레터 무료 발송',
+  description: 'AI가 분석한 KOSPI·KOSDAQ 종목 5개를 매일 오전 7시 50분 무료로 받아보세요.',
   keywords: [
-    'AI주식분석',
-    '무료주식뉴스레터',
-    '기술적분석',
-    '주식 분석',
-    '매일 주식 정보',
-    '아침 주식 분석',
-    '코스피',
-    '코스닥',
-    '주식 기술적 분석 사이트',
-    '무료 주식 AI',
+    'AI 주식 분석',
+    '무료 뉴스레터',
+    '기술적 분석',
+    'KOSPI',
+    'KOSDAQ',
+    '주식 뉴스',
     'RSI 분석',
     'MACD 분석',
-    'Stock Matrix',
+    'StockMatrix',
+    '주식 기술적 분석',
+    '무료 주식 정보',
   ],
   authors: [{ name: 'Stock Matrix', url: 'https://stockmatrix.co.kr' }],
   creator: 'Stock Matrix',
   publisher: 'Stock Matrix',
-  metadataBase: new URL('https://stockmatrix.co.kr'),
   alternates: {
-    canonical: '/',
+    canonical: 'https://stockmatrix.co.kr',
   },
   openGraph: {
     type: 'website',
@@ -77,14 +75,14 @@ export const metadata: Metadata = {
   category: 'finance',
   classification: 'Business',
   referrer: 'origin-when-cross-origin',
+  manifest: '/manifest.webmanifest',
   icons: {
     icon: [
-      { url: '/icon', sizes: '512x512', type: 'image/png' },
-      { url: '/favicon.ico', sizes: 'any' },
+      { url: '/favicon.ico', type: 'image/x-icon' },
+      { url: '/icon-192.png', sizes: '192x192', type: 'image/png' },
+      { url: '/icon-512.png', sizes: '512x512', type: 'image/png' },
     ],
-    apple: [
-      { url: '/apple-icon', sizes: '512x512', type: 'image/png' },
-    ],
+    apple: { url: '/apple-touch-icon.png', sizes: '180x180' },
   },
 };
 
