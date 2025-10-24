@@ -7,7 +7,7 @@ export const size = {
 };
 export const contentType = 'image/png';
 
-export default function Icon() {
+export default function Icon512() {
   return new ImageResponse(
     (
       <div
@@ -35,14 +35,12 @@ export default function Icon() {
 
           <rect width="512" height="512" fill="#000000" />
 
-          {/* Chart area fill */}
           <path
             d="M 80 384 L 128 320 L 176 368 L 224 256 L 272 304 L 320 176 L 368 224 L 432 112 L 432 432 L 80 432 Z"
             fill="url(#grad)"
             opacity="0.15"
           />
 
-          {/* Main bold chart line */}
           <path
             d="M 80 384 L 128 320 L 176 368 L 224 256 L 272 304 L 320 176 L 368 224 L 432 112"
             stroke="url(#grad)"
@@ -52,7 +50,6 @@ export default function Icon() {
             strokeLinejoin="round"
           />
 
-          {/* End point indicator */}
           <circle cx="432" cy="112" r="40" fill="#00FF41" opacity="1" />
           <circle cx="432" cy="112" r="64" fill="none" stroke="#00FF41" strokeWidth="12" opacity="0.4" />
         </svg>
