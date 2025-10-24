@@ -46,6 +46,7 @@ function extractAndValidateJSON(text: string): string | null {
     const endIdx = trimmed.lastIndexOf(']');
 
     if (startIdx === -1 || endIdx === -1 || startIdx >= endIdx) {
+      console.warn('[JSON 추출] JSON 배열 구조를 찾을 수 없음');
       return null;
     }
 
@@ -62,8 +63,25 @@ function extractAndValidateJSON(text: string): string | null {
       return jsonStr;
     }
 
+    console.warn('[JSON 검증] 데이터 구조 검증 실패');
     return null;
-  } catch {
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    console.error(`[JSON 파싱 에러] ${errorMsg}`);
+
+    // 디버깅을 위해 문제가 되는 부분 출력 (앞뒤 100자)
+    try {
+      const trimmed = text.trim();
+      const startIdx = trimmed.indexOf('[');
+      if (startIdx !== -1) {
+        const jsonStr = trimmed.substring(startIdx);
+        const problemArea = jsonStr.substring(Math.max(0, 452 - 50), Math.min(jsonStr.length, 452 + 50));
+        console.error(`[문제 영역] position 452 주변:\n${problemArea}`);
+      }
+    } catch {
+      // 디버깅 출력 실패 시 무시
+    }
+
     return null;
   }
 }
@@ -126,7 +144,31 @@ async function callGeminiAPI(genAI: GoogleGenAI): Promise<string> {
     API_TIMEOUT
   );
 
-  return response.text || '';
+  // 응답 타입 확인 (디버깅용)
+  console.log(`[Response Type] typeof response: ${typeof response}`);
+  console.log(`[Response Keys] ${Object.keys(response || {}).join(', ')}`);
+
+  // response.text 접근 시도
+  try {
+    const text = response.text;
+    console.log(`[Response Text Type] typeof response.text: ${typeof text}`);
+    console.log(`[Response Text Length] ${text ? String(text).length : 0}`);
+
+    if (text && typeof text === 'string') {
+      return text;
+    }
+
+    // text가 객체인 경우 (Gemini 응답이 객체일 수 있음)
+    if (text && typeof text === 'object') {
+      return JSON.stringify(text);
+    }
+  } catch (error) {
+    console.error(`[Response Text Access Error] ${error}`);
+  }
+
+  // 전체 response를 JSON으로 반환 (최후의 수단)
+  console.warn('[Warning] response.text 접근 실패, 전체 response 반환');
+  return JSON.stringify(response);
 }
 
 /**
