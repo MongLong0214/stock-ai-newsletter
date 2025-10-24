@@ -1,0 +1,60 @@
+name: Test Gemini + Email
+
+on:
+  workflow_dispatch: # 수동 실행 전용
+
+jobs:
+  test-gemini-email:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Setup Google Cloud credentials
+        run: |
+          echo '${{ secrets.GOOGLE_CLOUD_CREDENTIALS }}' > $HOME/gcloud-key.json
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$HOME/gcloud-key.json" >> $GITHUB_ENV
+
+      - name: Run Gemini + Email Test
+        env:
+          # Google Cloud (Vertex AI)
+          GOOGLE_CLOUD_PROJECT: ${{ secrets.GOOGLE_CLOUD_PROJECT }}
+          GOOGLE_CLOUD_LOCATION: us-central1
+
+          # SendGrid
+          SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY }}
+          SENDGRID_FROM_EMAIL: ${{ secrets.SENDGRID_FROM_EMAIL }}
+          SENDGRID_FROM_NAME: ${{ secrets.SENDGRID_FROM_NAME }}
+
+          # Supabase (뉴스레터 템플릿용)
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+        run: |
+          echo "🧪 Gemini + Email 테스트 시작..."
+          npx tsx scripts/send-test-email.ts
+
+      - name: Cleanup
+        if: always()
+        run: rm -f $HOME/gcloud-key.json
+
+      - name: Notify on success
+        if: success()
+        run: |
+          echo "✅ 테스트 성공!"
+          echo "📬 chowonil0214@naver.com 으로 이메일이 발송되었습니다."
+
+      - name: Notify on failure
+        if: failure()
+        run: |
+          echo "❌ 테스트 실패!"
+          echo "로그를 확인해주세요."
