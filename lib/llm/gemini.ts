@@ -102,7 +102,7 @@ async function callGeminiAPI(genAI: GoogleGenAI): Promise<string> {
             topK: 40,
             responseMimeType: 'text/plain',
             thinkingConfig: {
-                thinkingBudget: 18000,
+                thinkingBudget: 25000,
             },
         },
     }),
@@ -128,12 +128,15 @@ function formatErrorMessage(error: unknown): string {
 }
 
 /**
- * Gemini 주식 추천 분석 실행
+ * Gemini 주식 추천 분석 실행 (Vertex AI)
  */
 export async function getGeminiRecommendation(): Promise<string> {
-  if (!process.env.GEMINI_API_KEY) {
-    return '⚠️ Gemini API 키가 설정되지 않았습니다.';
+  // 환경 변수 검증
+  if (!process.env.GOOGLE_CLOUD_PROJECT) {
+    return '⚠️ GOOGLE_CLOUD_PROJECT 환경 변수가 설정되지 않았습니다.';
   }
+
+  console.log(`[Gemini] Using Vertex AI (Project: ${process.env.GOOGLE_CLOUD_PROJECT})`);
 
   if (geminiBreaker.isOpen()) {
     console.warn('[Gemini] Circuit breaker open');
@@ -141,7 +144,12 @@ export async function getGeminiRecommendation(): Promise<string> {
   }
 
   try {
-    const genAI = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+    // GoogleGenAI 초기화 (Vertex AI 전용)
+    const genAI = new GoogleGenAI({
+      vertexai: true,
+      project: process.env.GOOGLE_CLOUD_PROJECT,
+      location: process.env.GOOGLE_CLOUD_LOCATION || 'us-central1',
+    });
 
     for (let attempt = 1; attempt <= MAX_RETRY; attempt++) {
       console.log(`[Gemini] 시도 ${attempt}/${MAX_RETRY}`);
