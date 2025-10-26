@@ -37,10 +37,10 @@ export async function textToImage(jsonData: string): Promise<Buffer> {
     return createSimpleTextImage(jsonData);
   }
 
-  // 종합점수 내림차순 정렬 후 상위 3개
+  // 종합점수 내림차순 정렬 후 상위 2개
   const topStocks = stocks
     .sort((a, b) => b.signals.overall_score - a.signals.overall_score)
-    .slice(0, 3);
+    .slice(0, 2);
 
   // 캔버스 크기 - 고정 높이로 레이아웃 시프트 제거
   const width = 1200;
@@ -48,7 +48,7 @@ export async function textToImage(jsonData: string): Promise<Buffer> {
   const margin = 30; // 상하단 여백 통일 (40 → 30)
   const headerHeight = 200;
   const spacing = 20;
-  const height = margin + headerHeight + (cardHeight + spacing) * 3 + spacing + margin;
+  const height = margin + headerHeight + (cardHeight + spacing) * 2 + spacing + margin;
 
   const canvas = createCanvas(width, height);
   const ctx = canvas.getContext('2d');
