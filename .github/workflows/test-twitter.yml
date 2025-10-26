@@ -24,6 +24,7 @@ jobs:
         env:
           # AI API
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GOOGLE_CLOUD_PROJECT: ${{ secrets.GOOGLE_CLOUD_PROJECT }}
 
           # Twitter/X API
           TWITTER_API_KEY: ${{ secrets.TWITTER_API_KEY }}
