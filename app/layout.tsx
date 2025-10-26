@@ -46,7 +46,7 @@ export const metadata: Metadata = {
     locale: 'ko_KR',
     url: 'https://stockmatrix.co.kr',
     title: 'STOCK MATRIX - AI 기술적 분석 뉴스레터',
-    description: 'KOSPI·KOSDAQ 5개 종목, AI 기술적 분석 뉴스레터 무료 발송',
+    description: 'KOSPI·KOSDAQ 3개 종목, AI 기술적 분석 뉴스레터 무료 발송',
     siteName: 'Stock Matrix',
     images: [
       {
@@ -60,7 +60,7 @@ export const metadata: Metadata = {
   twitter: {
     card: 'summary_large_image',
     title: 'STOCK MATRIX - AI 기술적 분석 뉴스레터',
-    description: 'KOSPI·KOSDAQ 5개 종목, AI 기술적 분석 뉴스레터 무료 발송',
+    description: 'KOSPI·KOSDAQ 3개 종목, AI 기술적 분석 뉴스레터 무료 발송',
     creator: '@aistockmatrix',
     site: '@aistockmatrix',
     images: ['/twitter-image'],
@@ -141,7 +141,7 @@ export default function RootLayout({
         '@id': 'https://stockmatrix.co.kr/#website',
         url: 'https://stockmatrix.co.kr',
         name: 'Stock Matrix',
-        description: 'AI가 RSI, MACD, 볼린저밴드 등 기술적 지표로 분석한 KOSPI·KOSDAQ 5개 종목의 참고용 데이터를 매일 오전 7시 50분 무료로 받아보세요. 투자 권유가 아닌 기술적 분석 뉴스레터',
+        description: 'AI가 RSI, MACD, 볼린저밴드 등 기술적 지표로 분석한 KOSPI·KOSDAQ 3개 종목의 참고용 데이터를 매일 오전 7시 50분 무료로 받아보세요. 투자 권유가 아닌 기술적 분석 뉴스레터',
         publisher: {
           '@id': 'https://stockmatrix.co.kr/#organization',
         },
@@ -151,7 +151,7 @@ export default function RootLayout({
         '@type': 'Service',
         '@id': 'https://stockmatrix.co.kr/#service',
         name: 'Stock Matrix - AI 주식 기술적 분석 뉴스레터',
-        description: 'AI가 RSI(상대강도지수), MACD(이동평균수렴확산), 볼린저밴드, 이동평균선 등 30개 기술적 지표로 분석한 KOSPI·KOSDAQ 5개 종목의 참고용 데이터를 매일 오전 7시 50분 무료 이메일 발송. 투자 권유나 매매 추천이 아닌 기술적 분석 정보만 제공하는 뉴스레터.',
+        description: 'AI가 RSI(상대강도지수), MACD(이동평균수렴확산), 볼린저밴드, 이동평균선 등 30개 기술적 지표로 분석한 KOSPI·KOSDAQ 3개 종목의 참고용 데이터를 매일 오전 7시 50분 무료 이메일 발송. 투자 권유나 매매 추천이 아닌 기술적 분석 정보만 제공하는 뉴스레터.',
         provider: {
           '@id': 'https://stockmatrix.co.kr/#organization',
         },
