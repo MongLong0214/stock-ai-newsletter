@@ -118,7 +118,7 @@ function generateNewsletterHTML(data: StockNewsletterData, email: string): strin
                   <td style="text-align: center;">
                     <p style="margin: 0 0 12px 0; padding: 0; font-size: 13px; font-weight: 600; color: #10B981; letter-spacing: 0.05em; text-transform: uppercase; line-height: 1;">Stock Matrix</p>
                     <h1 style="margin: 0 0 8px 0; padding: 0; font-size: 26px; font-weight: 700; letter-spacing: -0.03em; color: #FFFFFF; line-height: 1.2;">오늘의 AI 기술적 분석</h1>
-                    <p style="margin: 0 0 12px 0; padding: 0; font-size: 14px; font-weight: 400; color: #94A3B8; letter-spacing: 0.02em; line-height: 1.5;">기술적 지표 기반 5개 종목 분석</p>
+                    <p style="margin: 0 0 12px 0; padding: 0; font-size: 14px; font-weight: 400; color: #94A3B8; letter-spacing: 0.02em; line-height: 1.5;">기술적 지표 기반 3개 종목 분석</p>
                     <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin: 0 auto;">
                       <tr>
                         <td style="padding: 6px 16px; background-color: #1E293B; border: 1px solid #334155; border-radius: 6px;">
