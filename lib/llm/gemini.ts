@@ -141,7 +141,7 @@ async function callGeminiAPI(genAI: GoogleGenAI): Promise<string> {
           topK: 40,
           responseMimeType: 'text/plain',
           thinkingConfig: {
-            thinkingBudget: 25000,
+            thinkingBudget: 28000,
           },
         },
       }),
