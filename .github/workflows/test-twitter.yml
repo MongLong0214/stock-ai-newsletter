@@ -24,7 +24,9 @@ jobs:
         env:
           # AI API
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          # Google Cloud (Vertex AI)
           GOOGLE_CLOUD_PROJECT: ${{ secrets.GOOGLE_CLOUD_PROJECT }}
+          GOOGLE_CLOUD_LOCATION: us-central1
 
           # Twitter/X API
           TWITTER_API_KEY: ${{ secrets.TWITTER_API_KEY }}
