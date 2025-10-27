@@ -134,14 +134,14 @@ async function callGeminiAPI(genAI: GoogleGenAI): Promise<string> {
           },
         ],
         config: {
-          tools: [{ googleSearch: {} }],
-          maxOutputTokens: 32768,
-          temperature: 0.3,
-          topP: 0.6,
-          topK: 20,
-          responseMimeType: 'text/plain',
+          tools: [{ googleSearch: {} }],  // 실시간 주식 데이터 검색
+          maxOutputTokens: 32768,          // 최대 출력 토큰
+          temperature: 0.1,                // 최고 정확성 (거의 결정론적)
+          topP: 0.7,                       // 보수적 설정 (정확성 우선)
+          topK: 30,                        // 제한적 토큰 선택 (정확성 우선)
+          responseMimeType: 'text/plain',  // JSON 문자열 반환
           thinkingConfig: {
-            thinkingBudget: 25000,
+            thinkingBudget: 27000,         // 깊은 사고 과정
           },
         },
       }),
