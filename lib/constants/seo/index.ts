@@ -41,3 +41,16 @@ export { schemaConfig } from './schema';
 
 /** SEO 키워드 (카테고리별 70개) */
 export { keywordsByCategory, allKeywords } from './keywords';
+
+// ============================================================================
+// FAQ 데이터 및 유틸리티
+// ============================================================================
+
+/** FAQ 데이터 (SEO 최적화된 10개 질문/답변) */
+export {
+  faqData,
+  generateFAQSchema,
+  calculateTotalCharacters,
+  analyzeKeywordDensity,
+  type FAQItem,
+} from './faq-data';

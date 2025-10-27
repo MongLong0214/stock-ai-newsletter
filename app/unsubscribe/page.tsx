@@ -3,7 +3,7 @@
 import { useState, useEffect, Suspense } from 'react';
 import { motion } from 'framer-motion';
 import { useSearchParams } from 'next/navigation';
-import { ArrowLeft, CheckCircle, XCircle, Loader2, AlertCircle } from 'lucide-react';
+import { CheckCircle, XCircle, Loader2, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { z } from 'zod';
@@ -274,22 +274,8 @@ export default function UnsubscribePage() {
         <div className="absolute inset-0 bg-[linear-gradient(transparent_50%,rgba(16,185,129,0.04)_50%)] bg-[length:100%_4px] animate-[matrix-scan_8s_linear_infinite]" aria-hidden="true" />
       </div>
 
-      {/* Navigation */}
-      <nav className="fixed top-0 w-full z-50 glass-morphism-strong" role="navigation" aria-label="Main navigation">
-        <div className="max-w-7xl mx-auto px-6 lg:px-8 py-5">
-          <Link
-            href="/"
-            className="group inline-flex items-center gap-2 text-emerald-400/70 hover:text-emerald-400 transition-all duration-300 ease-out-expo focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:ring-offset-2 focus:ring-offset-black rounded-lg px-3 py-2 -mx-3 -my-2"
-            aria-label="Back to home"
-          >
-            <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform duration-300 ease-out-expo" aria-hidden="true" />
-            <span className="text-sm font-light tracking-wide">Back to Home</span>
-          </Link>
-        </div>
-      </nav>
-
       {/* Main Content */}
-      <main className="pt-32 pb-24 px-6 lg:px-8 flex items-center min-h-screen relative z-10">
+      <main className="pt-20 pb-24 px-6 lg:px-8 flex items-center min-h-screen relative z-10">
         <Suspense
           fallback={
             <motion.div

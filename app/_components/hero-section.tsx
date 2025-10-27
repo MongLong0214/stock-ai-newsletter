@@ -46,7 +46,7 @@ function HeroSection({ formatted }: HeroSectionProps) {
             매일 프리마켓 개장 10분 전 <span className="text-[10px] sm:text-xs md:text-sm lg:text-base text-slate-400">(7시 50분)</span>
           </p>
           <p className="text-base sm:text-lg md:text-xl lg:text-2xl text-slate-300 font-light leading-relaxed tracking-wide mb-2">
-            코스피·코스닥 종목 5개
+            코스피·코스닥 종목 3개
           </p>
           <p className="text-xs sm:text-sm md:text-base text-slate-400 font-light tracking-wide">
             5초 구독 • 광고 없음 • 완전 무료
