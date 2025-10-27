@@ -149,7 +149,7 @@ export default async function Image() {
                   display: 'flex',
                 }}
               >
-                5개
+                3개
               </div>
               <div
                 style={{

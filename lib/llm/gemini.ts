@@ -136,12 +136,12 @@ async function callGeminiAPI(genAI: GoogleGenAI): Promise<string> {
         config: {
           tools: [{ googleSearch: {} }],
           maxOutputTokens: 32768,
-          temperature: 0.35,
-          topP: 0.65,
+          temperature: 0.3,
+          topP: 0.6,
           topK: 20,
           responseMimeType: 'text/plain',
           thinkingConfig: {
-            thinkingBudget: 30000,
+            thinkingBudget: 25000,
           },
         },
       }),
