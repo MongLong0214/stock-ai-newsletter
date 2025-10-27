@@ -3,6 +3,8 @@ import { Inter } from 'next/font/google';
 import './globals.css';
 import Script from 'next/script';
 import { Analytics } from '@vercel/analytics/next';
+import Navigation from './_components/navigation';
+import Footer from './_components/footer';
 import {
   siteConfig,
   metadataConfig,
@@ -172,7 +174,9 @@ export default function RootLayout({
         />
       </head>
       <body className={inter.className} suppressHydrationWarning>
+        <Navigation />
         {children}
+        <Footer />
         <Analytics />
       </body>
     </html>
