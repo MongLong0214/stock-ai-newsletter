@@ -17,6 +17,39 @@ export default function sitemap(): MetadataRoute.Sitemap {
       },
     },
     {
+      url: `${baseUrl}/about`,
+      lastModified: currentDate,
+      changeFrequency: 'monthly',
+      priority: 0.8,
+      alternates: {
+        languages: {
+          ko: `${baseUrl}/about`,
+        },
+      },
+    },
+    {
+      url: `${baseUrl}/faq`,
+      lastModified: currentDate,
+      changeFrequency: 'monthly',
+      priority: 0.8,
+      alternates: {
+        languages: {
+          ko: `${baseUrl}/faq`,
+        },
+      },
+    },
+    {
+      url: `${baseUrl}/technical-indicators`,
+      lastModified: currentDate,
+      changeFrequency: 'monthly',
+      priority: 0.9,
+      alternates: {
+        languages: {
+          ko: `${baseUrl}/technical-indicators`,
+        },
+      },
+    },
+    {
       url: `${baseUrl}/subscribe`,
       lastModified: currentDate,
       changeFrequency: 'weekly',
