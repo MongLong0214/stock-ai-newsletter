@@ -5,8 +5,6 @@ import AnimatedBackground from "@/components/animated-background";
 import { useCountdownToTomorrow } from "@/hooks/use-countdown-to-tomorrow";
 import { useIsMobile } from "@/hooks/use-is-mobile";
 import {  TECHNICAL_INDICATORS_DATA } from "./constants/home-page";
-import Navigation from "./_components/navigation";
-import Footer from "./_components/footer";
 import HeroSection from "./_components/hero-section";
 import EmailPreviewSection from "./_components/email-preview-section";
 import TechnicalIndicatorsSection from "./_components/technical-indicators-section";
@@ -30,9 +28,6 @@ export default function HomePage() {
         <div className="absolute inset-0 bg-[linear-gradient(transparent_50%,rgba(16,185,129,0.04)_50%)] bg-[length:100%_4px] animate-[matrix-scan_8s_linear_infinite]" aria-hidden="true" />
       </div>
 
-      {/* Navigation */}
-      <Navigation />
-
       {/* Hero Section */}
       <HeroSection formatted={formatted} />
 
@@ -55,10 +50,6 @@ export default function HomePage() {
         viewportMargin={viewportMargin}
         isMobile={isMobile}
       />
-
-
-      {/* Footer */}
-      <Footer />
     </div>
   );
 }
