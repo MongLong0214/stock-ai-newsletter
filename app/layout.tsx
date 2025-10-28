@@ -123,7 +123,18 @@ export default function RootLayout({
           '@type': 'ContactPoint',
           contactType: 'Customer Service',
           availableLanguage: ['Korean'],
+          email: 'aistockmatrix@gmail.com',
         },
+        foundingDate: '2024',
+        description: schemaConfig.serviceDesc,
+        knowsAbout: [
+          '주식 기술적 분석',
+          'AI 투자 분석',
+          'RSI 지표',
+          'MACD 분석',
+          '볼린저밴드',
+          '이동평균선',
+        ],
       },
       {
         '@type': 'WebSite',
@@ -135,6 +146,14 @@ export default function RootLayout({
           '@id': `${siteConfig.domain}/#organization`,
         },
         inLanguage: 'ko-KR',
+        potentialAction: {
+          '@type': 'SearchAction',
+          target: {
+            '@type': 'EntryPoint',
+            urlTemplate: `${siteConfig.domain}/?s={search_term_string}`,
+          },
+          'query-input': 'required name=search_term_string',
+        },
       },
       {
         '@type': 'Service',
@@ -159,6 +178,47 @@ export default function RootLayout({
         audience: {
           '@type': 'Audience',
           audienceType: '주식 관심자',
+        },
+        hoursAvailable: {
+          '@type': 'OpeningHoursSpecification',
+          dayOfWeek: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'],
+          opens: '07:50',
+          closes: '07:50',
+        },
+        availableChannel: {
+          '@type': 'ServiceChannel',
+          serviceType: 'Email Newsletter',
+          availableLanguage: 'Korean',
+        },
+      },
+      {
+        '@type': 'LocalBusiness',
+        '@id': `${siteConfig.domain}/#localbusiness`,
+        name: siteConfig.serviceName,
+        image: `${siteConfig.domain}/icon-512.png`,
+        url: siteConfig.domain,
+        email: 'aistockmatrix@gmail.com',
+        address: {
+          '@type': 'PostalAddress',
+          addressCountry: 'KR',
+          addressLocality: '대한민국',
+        },
+        geo: {
+          '@type': 'GeoCoordinates',
+          addressCountry: 'KR',
+        },
+        priceRange: '무료',
+        openingHoursSpecification: {
+          '@type': 'OpeningHoursSpecification',
+          dayOfWeek: [
+            'Monday',
+            'Tuesday',
+            'Wednesday',
+            'Thursday',
+            'Friday',
+          ],
+          opens: '07:50',
+          closes: '08:00',
         },
       },
     ],

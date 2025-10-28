@@ -20,6 +20,7 @@ export const technicalIndicatorsContent = {
     heading: "Stock Matrix가 활용하는 핵심 기술적 지표",
     indicators: [
       {
+        id: "rsi",
         name: "RSI (상대강도지수)",
         keyword: "RSI 지표란",
         description: `<strong>RSI</strong>는 0~100 사이의 값으로 주식의 과매수·과매도 상태를 판단합니다.
@@ -29,6 +30,7 @@ export const technicalIndicatorsContent = {
         usage: "과열·침체 판단, 매수·매도 타이밍 포착"
       },
       {
+        id: "macd",
         name: "MACD (이동평균 수렴·확산)",
         keyword: "MACD 골든크로스",
         description: `<strong>MACD</strong>는 단기(12일)와 장기(26일) 이동평균선의 차이를 분석하는 추세 지표입니다.
@@ -38,6 +40,7 @@ export const technicalIndicatorsContent = {
         usage: "추세 전환 시점 파악, 매매 신호 확인"
       },
       {
+        id: "bollinger",
         name: "볼린저 밴드 (Bollinger Bands)",
         keyword: "볼린저밴드 활용",
         description: `<strong>볼린저밴드</strong>는 이동평균선을 중심으로 표준편차를 이용한 상·하한선을 그린 지표입니다.
@@ -47,6 +50,7 @@ export const technicalIndicatorsContent = {
         usage: "변동성 측정, 가격 범위 예측"
       },
       {
+        id: "ma",
         name: "이동평균선 (Moving Average)",
         keyword: "이동평균선 골든크로스",
         description: `<strong>이동평균선</strong>은 일정 기간 주가의 평균값을 선으로 연결한 가장 기본적인 추세 지표입니다.
@@ -56,6 +60,7 @@ export const technicalIndicatorsContent = {
         usage: "추세 방향 확인, 지지·저항 레벨 식별"
       },
       {
+        id: "stochastic",
         name: "스토캐스틱 (Stochastic Oscillator)",
         keyword: "스토캐스틱 지표",
         description: `<strong>스토캐스틱</strong>은 일정 기간 최고가와 최저가 대비 현재가의 위치를 %로 나타내는 모멘텀 지표입니다.
@@ -64,6 +69,7 @@ export const technicalIndicatorsContent = {
         usage: "모멘텀 분석, 단기 매매 타이밍"
       },
       {
+        id: "cci",
         name: "CCI (상품채널지수)",
         keyword: "CCI 지표",
         description: `<strong>CCI</strong>는 현재 가격이 평균 가격에서 얼마나 벗어났는지를 측정하는 지표입니다.
@@ -72,6 +78,7 @@ export const technicalIndicatorsContent = {
         usage: "추세 강도 측정, 과열 구간 포착"
       },
       {
+        id: "obv",
         name: "거래량 지표 (Volume Indicators)",
         keyword: "OBV 거래량",
         description: `<strong>OBV(On Balance Volume)</strong> 등 거래량 지표는 가격 움직임과 거래량의 상관관계를 분석합니다.
@@ -80,6 +87,7 @@ export const technicalIndicatorsContent = {
         usage: "추세 확인, 가격 움직임 검증"
       },
       {
+        id: "adx",
         name: "ADX (평균방향성지수)",
         keyword: "ADX 추세 강도",
         description: `<strong>ADX</strong>는 추세의 강도를 0~100 사이의 값으로 나타내는 지표입니다.
@@ -89,6 +97,7 @@ export const technicalIndicatorsContent = {
         usage: "추세 강도 측정, 추세 확인"
       },
       {
+        id: "ichimoku",
         name: "일목균형표 (Ichimoku Cloud)",
         keyword: "일목균형표 활용",
         description: `<strong>일목균형표</strong>는 전환선, 기준선, 선행스팬1·2, 후행스팬으로 구성된 종합 추세 지표입니다.

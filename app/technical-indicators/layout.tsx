@@ -1,30 +1,47 @@
 import type { Metadata } from 'next';
+import { siteConfig, keywordsByCategory } from '@/lib/constants/seo';
 
 export const metadata: Metadata = {
-  title:
-    '기술적 지표 완벽 가이드 | RSI, MACD, 볼린저밴드 활용법 - Stock Matrix',
+  title: '기술적 지표 완벽 가이드 - RSI·MACD·볼린저밴드 | Stock Matrix',
   description:
-    'RSI, MACD, 볼린저밴드 등 30가지 기술적 지표를 AI로 종합 분석하는 방법. 이동평균선 골든크로스, 스토캐스틱 매매 타이밍까지 완벽 정리',
+    'RSI(상대강도지수), MACD 골든크로스, 볼린저밴드, 이동평균선, 스토캐스틱 등 30가지 기술적 분석 지표의 의미와 활용법. AI 주식 분석에 사용되는 핵심 지표 완벽 정리.',
   keywords: [
-    '기술적 지표',
+    ...keywordsByCategory.indicator,
+    ...keywordsByCategory.analysis,
     'RSI 지표란',
     'MACD 골든크로스',
-    '볼린저밴드 활용',
-    '이동평균선',
-    '스토캐스틱 지표',
-    '기술적 분석',
-    '주식 기술적 지표',
-    'AI 주식 분석',
+    '볼린저밴드 활용법',
+    '이동평균선 정배열',
+    '스토캐스틱 과매도',
     'CCI 지표',
-    'OBV 거래량',
-    '차트 분석',
+    'ADX 추세 강도',
+    '기술적 지표 교육',
+    '주식 차트 분석',
   ],
+  alternates: {
+    canonical: `${siteConfig.domain}/technical-indicators`,
+  },
   openGraph: {
-    title: '30가지 기술적 지표로 분석하는 AI 주식 투자 전략',
+    title: '30가지 기술적 지표 완벽 가이드 - Stock Matrix',
     description:
-      'RSI·MACD·볼린저밴드를 포함한 30개 기술적 지표를 AI가 실시간 분석. 골든크로스부터 과매수·과매도 구간까지 자동 포착',
+      'RSI, MACD, 볼린저밴드 등 AI가 활용하는 30개 기술지표의 의미와 매매 시그널 해석법',
+    url: `${siteConfig.domain}/technical-indicators`,
+    siteName: siteConfig.serviceName,
+    locale: 'ko_KR',
     type: 'article',
-    url: 'https://stockmatrix.co.kr/technical-indicators',
+    images: [
+      {
+        url: `${siteConfig.domain}/opengraph-image`,
+        width: 1200,
+        height: 630,
+        alt: '기술적 지표 가이드 - Stock Matrix',
+      },
+    ],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'RSI·MACD·볼린저밴드 등 30개 기술지표 완벽 가이드',
+    description: 'AI 주식 분석에 사용되는 핵심 기술적 지표 총정리',
   },
 };
 
