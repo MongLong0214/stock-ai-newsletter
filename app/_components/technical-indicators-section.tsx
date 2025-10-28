@@ -1,4 +1,8 @@
-import { motion } from "framer-motion";
+'use client';
+
+import { motion, useScroll, useTransform } from "framer-motion";
+import { useStaggerReveal } from "@/hooks/use-reveal";
+import { useRef } from "react";
 
 interface TechnicalIndicator {
   title: string;
@@ -7,50 +11,75 @@ interface TechnicalIndicator {
 }
 
 interface TechnicalIndicatorsSectionProps {
-  animationDuration: number;
-  viewportMargin: string;
   isMobile: boolean;
   indicators: readonly TechnicalIndicator[];
 }
 
 function TechnicalIndicatorsSection({
-  animationDuration,
-  viewportMargin,
   isMobile,
   indicators
 }: TechnicalIndicatorsSectionProps) {
-  const getDelay = (index: number) => {
-    const delays = [0, 0.1, 0.2, 0.3, 0.4, 0.5];
-    const mobileDelays = [0, 0.05, 0.1, 0.15, 0.2, 0.25];
-    return isMobile ? mobileDelays[index] : delays[index];
-  };
+  const { ref, isInView, getDelay } = useStaggerReveal<HTMLDivElement>({
+    once: true,
+    amount: 0.2,
+    staggerDelay: isMobile ? 50 : 100,
+  });
+
+  const parallaxRef = useRef(null);
+  const { scrollYProgress } = useScroll({
+    target: parallaxRef,
+    offset: ["start end", "end start"]
+  });
+
+  // Parallax for heading - Simple and smooth
+  const headingY = useTransform(scrollYProgress, [0, 1], [40, -40]);
 
   return (
-    <section className="py-20 lg:py-24 px-6 lg:px-8 relative" aria-labelledby="indicators-heading">
-      <div className="max-w-7xl mx-auto">
+    <section ref={parallaxRef} className="py-20 lg:py-24 px-6 lg:px-8 relative" aria-labelledby="indicators-heading">
+      <div ref={ref} className="max-w-7xl mx-auto">
         <motion.h2
           id="indicators-heading"
-          initial={{ opacity: 0, y: 30 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          transition={{ duration: animationDuration, ease: [0.19, 1, 0.22, 1] }}
-          viewport={{ once: true, margin: viewportMargin }}
-          className="text-3xl sm:text-4xl md:text-5xl font-extralight mb-12 lg:mb-16 text-center text-emerald-500/80 tracking-tight"
+          initial={{ opacity: 0 }}
+          animate={isInView ? { opacity: 1 } : {}}
+          transition={{ duration: 0.8, ease: [0.19, 1, 0.22, 1] }}
+          style={{
+            y: headingY
+          }}
+          className="text-3xl sm:text-4xl md:text-5xl font-extralight mb-12 lg:mb-16 text-center text-emerald-500/80 tracking-tight relative z-20"
         >
-          AI가 분석하는 기술적 지표
+          <span className="relative inline-block">
+            <span className="relative z-10">AI가 분석하는 기술적 지표</span>
+            {/* Glow effect layer */}
+            <motion.span
+              className="absolute inset-0 blur-xl opacity-50"
+              style={{
+                background: 'radial-gradient(ellipse at center, rgba(16, 185, 129, 0.4) 0%, transparent 70%)',
+              }}
+              animate={{
+                scale: [1, 1.1, 1],
+                opacity: [0.3, 0.5, 0.3],
+              }}
+              transition={{
+                duration: 3,
+                repeat: Infinity,
+                ease: "easeInOut"
+              }}
+              aria-hidden="true"
+            />
+          </span>
         </motion.h2>
 
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
           {indicators.map((category, index) => (
             <motion.div
               key={index}
-              initial={{ opacity: 0, y: isMobile ? 30 : 60 }}
-              whileInView={{ opacity: 1, y: 0 }}
+              initial={{ opacity: 0, y: 60, scale: 0.95 }}
+              animate={isInView ? { opacity: 1, y: 0, scale: 1 } : {}}
               transition={{
-                duration: animationDuration,
+                duration: 0.8,
                 delay: getDelay(index),
-                ease: [0.16, 1, 0.3, 1]
+                ease: [0.19, 1, 0.22, 1]
               }}
-              viewport={{ once: true, margin: viewportMargin }}
               className="group relative will-change-transform"
               style={{ transform: 'translateZ(0)' }}
             >

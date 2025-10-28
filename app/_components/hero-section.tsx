@@ -1,22 +1,41 @@
-import { motion } from "framer-motion";
+'use client';
+
+import { motion, useScroll, useTransform } from "framer-motion";
 import { ArrowRight } from "lucide-react";
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
+import { useRef } from "react";
 
 interface HeroSectionProps {
   formatted: string;
 }
 
 function HeroSection({ formatted }: HeroSectionProps) {
+  const ref = useRef(null);
+  const { scrollYProgress } = useScroll({
+    target: ref,
+    offset: ["start start", "end start"]
+  });
+
+  // Parallax effects - Enhanced for visibility
+  const y = useTransform(scrollYProgress, [0, 1], [0, 400]); // 150 → 400px for dramatic movement
+  const opacity = useTransform(scrollYProgress, [0, 0.6], [1, 0]); // Slower fade
+  const scale = useTransform(scrollYProgress, [0, 0.6], [1, 0.85]); // 0.95 → 0.85 for more noticeable shrink
+  const blur = useTransform(scrollYProgress, [0, 0.6], [0, 10]); // Add blur effect
+
   return (
-    <section className="relative pt-32 pb-16 lg:pb-24 flex items-center justify-center px-6 lg:px-8" aria-labelledby="hero-heading">
-      {/* Subtle gradient overlay */}
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(16,185,129,0.04)_0%,transparent_60%)] pointer-events-none" aria-hidden="true" />
+    <section ref={ref} className="relative pt-32 pb-16 lg:pb-24 flex items-center justify-center px-6 lg:px-8" aria-labelledby="hero-heading">
+      {/* Subtle gradient overlay with parallax - Enhanced movement */}
+      <motion.div
+        className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(16,185,129,0.04)_0%,transparent_60%)] pointer-events-none"
+        style={{ y: useTransform(scrollYProgress, [0, 1], [0, -150]) }} // -50 → -150px for more dramatic upward movement
+        aria-hidden="true"
+      />
 
       <motion.div
         initial={{ opacity: 0, y: 60 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.8, ease: [0.19, 1, 0.22, 1] }}
+        style={{ y, opacity, scale, filter: `blur(${blur}px)` }}
         className="max-w-5xl mx-auto text-center relative z-10"
       >
         <motion.div
@@ -59,16 +78,92 @@ function HeroSection({ formatted }: HeroSectionProps) {
           transition={{ duration: 0.8, delay: 0.4, ease: [0.19, 1, 0.22, 1] }}
         >
           <Link href="/subscribe">
-            <Button
-              size="lg"
-              className="group relative overflow-hidden bg-emerald-600 text-black hover:bg-emerald-500 text-base font-semibold px-10 py-6 rounded-lg transition-all duration-300 shadow-lg hover:shadow-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/50 tracking-wide cursor-pointer"
+            <motion.button
+              className="relative overflow-hidden bg-emerald-600 text-black text-base font-semibold px-10 py-6 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/50 tracking-wide cursor-pointer border-0"
               aria-label="Get started with AI stock intelligence"
+              initial="rest"
+              whileHover="hover"
+              whileTap="tap"
+              variants={{
+                rest: {
+                  scale: 1,
+                  boxShadow: '0 10px 30px rgba(0, 0, 0, 0.3)',
+                },
+                hover: {
+                  scale: 1.05,
+                  boxShadow: '0 20px 60px rgba(16, 185, 129, 0.4), 0 0 40px rgba(16, 185, 129, 0.2)',
+                  transition: {
+                    duration: 0.3,
+                    ease: [0.19, 1, 0.22, 1],
+                  },
+                },
+                tap: {
+                  scale: 0.98,
+                  boxShadow: '0 5px 15px rgba(0, 0, 0, 0.2)',
+                  transition: {
+                    duration: 0.1,
+                  },
+                },
+              }}
             >
-              <span className="relative z-10 flex items-center gap-2">
+              <motion.span
+                className="relative z-10 flex items-center gap-2"
+                variants={{
+                  rest: {},
+                  hover: {},
+                }}
+              >
                 {formatted} 후 메일 받기
-                <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform duration-300" aria-hidden="true" />
-              </span>
-            </Button>
+                <motion.span
+                  variants={{
+                    rest: { x: 0 },
+                    hover: {
+                      x: 4,
+                      transition: {
+                        type: 'spring',
+                        stiffness: 400,
+                        damping: 30,
+                      },
+                    },
+                  }}
+                >
+                  <ArrowRight className="w-5 h-5" aria-hidden="true" />
+                </motion.span>
+              </motion.span>
+
+              {/* Animated Background Gradient */}
+              <motion.span
+                className="absolute inset-0 bg-gradient-to-r from-emerald-500 via-emerald-400 to-emerald-500 rounded-lg"
+                variants={{
+                  rest: { opacity: 0 },
+                  hover: {
+                    opacity: 1,
+                    transition: {
+                      duration: 0.3,
+                      ease: 'easeOut',
+                    },
+                  },
+                }}
+                aria-hidden="true"
+              />
+
+              {/* Glow Effect Layer */}
+              <motion.span
+                className="absolute inset-0 rounded-lg"
+                variants={{
+                  rest: {
+                    boxShadow: '0 0 0px rgba(16, 185, 129, 0)',
+                  },
+                  hover: {
+                    boxShadow: 'inset 0 0 20px rgba(255, 255, 255, 0.2)',
+                    transition: {
+                      duration: 0.3,
+                    },
+                  },
+                }}
+                aria-hidden="true"
+              />
+            </motion.button>
           </Link>
         </motion.div>
       </motion.div>

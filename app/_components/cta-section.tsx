@@ -4,23 +4,18 @@ import { motion } from "framer-motion";
 import { ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { Button } from "@/components/ui/button";
+import { useReveal } from "@/hooks/use-reveal";
 
 interface CTASectionProps {
   formatted: string;
-  longAnimationDuration: number;
-  animationDuration: number;
-  viewportMargin: string;
-  isMobile: boolean;
 }
 
-function CTASection({
-  formatted,
-  longAnimationDuration,
-  animationDuration,
-  viewportMargin,
-  isMobile
-}: CTASectionProps) {
+function CTASection({ formatted }: CTASectionProps) {
+  const { ref, isInView } = useReveal<HTMLElement>({
+    once: true,
+    amount: 0.3,
+  });
+
   const [displayText1, setDisplayText1] = useState('');
   const [displayText2, setDisplayText2] = useState('');
   const [showCursor1, setShowCursor1] = useState(true);
@@ -105,13 +100,12 @@ function CTASection({
   }, []);
 
   return (
-    <section className="py-20 lg:py-24 px-6 lg:px-8 relative">
+    <section ref={ref} className="py-20 lg:py-24 px-6 lg:px-8 relative">
       <div className="max-w-5xl mx-auto text-center relative z-10">
         <motion.div
-          initial={{ opacity: 0, y: 40 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          transition={{ duration: longAnimationDuration, ease: [0.16, 1, 0.3, 1] }}
-          viewport={{ once: true, margin: viewportMargin }}
+          initial={{ opacity: 0, y: 60 }}
+          animate={isInView ? { opacity: 1, y: 0 } : {}}
+          transition={{ duration: 0.8, ease: [0.19, 1, 0.22, 1] }}
           className="will-change-transform"
           style={{ transform: 'translateZ(0)' }}
         >
@@ -138,9 +132,8 @@ function CTASection({
 
           <motion.div
             initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            transition={{ duration: animationDuration, delay: isMobile ? 0.1 : 0.2, ease: [0.19, 1, 0.22, 1] }}
-            viewport={{ once: true }}
+            animate={isInView ? { opacity: 1, y: 0 } : {}}
+            transition={{ duration: 0.8, delay: 0.2, ease: [0.19, 1, 0.22, 1] }}
             className="mb-8"
           >
             <p className="text-sm sm:text-base md:text-lg text-slate-400 font-light tracking-wide">
@@ -150,22 +143,96 @@ function CTASection({
 
           <motion.div
             initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            transition={{ duration: animationDuration, delay: isMobile ? 0.15 : 0.3, ease: [0.19, 1, 0.22, 1] }}
-            viewport={{ once: true }}
+            animate={isInView ? { opacity: 1, y: 0 } : {}}
+            transition={{ duration: 0.8, delay: 0.4, ease: [0.19, 1, 0.22, 1] }}
           >
             <Link href="/subscribe">
-              <Button
-                size="lg"
-                className="group relative overflow-hidden bg-emerald-600 text-black hover:bg-emerald-500 text-lg font-semibold px-12 py-7 rounded-lg transition-all duration-700 ease-out-expo shadow-lg hover:shadow-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/50 tracking-wide cursor-pointer"
+              <motion.button
+                className="relative overflow-hidden bg-emerald-600 text-black text-lg font-semibold px-12 py-7 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/50 tracking-wide cursor-pointer border-0"
                 aria-label="매일 아침 7시 50분 분석 받기"
+                initial="rest"
+                whileHover="hover"
+                whileTap="tap"
+                variants={{
+                  rest: {
+                    scale: 1,
+                    boxShadow: '0 10px 30px rgba(0, 0, 0, 0.3)',
+                  },
+                  hover: {
+                    scale: 1.05,
+                    boxShadow: '0 20px 60px rgba(16, 185, 129, 0.4), 0 0 40px rgba(16, 185, 129, 0.2)',
+                    transition: {
+                      duration: 0.3,
+                      ease: [0.19, 1, 0.22, 1],
+                    },
+                  },
+                  tap: {
+                    scale: 0.98,
+                    boxShadow: '0 5px 15px rgba(0, 0, 0, 0.2)',
+                    transition: {
+                      duration: 0.1,
+                    },
+                  },
+                }}
               >
-                <span className="relative z-10 flex items-center gap-3">
+                <motion.span
+                  className="relative z-10 flex items-center gap-3"
+                  variants={{
+                    rest: {},
+                    hover: {},
+                  }}
+                >
                   {formatted} 후 메일 받기
-                  <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform duration-300 ease-out-expo" aria-hidden="true" />
-                </span>
-                <span className="absolute inset-0 bg-gradient-to-r from-emerald-400 via-emerald-300 to-emerald-400 opacity-0 group-hover:opacity-100 transition-opacity duration-700" aria-hidden="true" />
-              </Button>
+                  <motion.span
+                    variants={{
+                      rest: { x: 0 },
+                      hover: {
+                        x: 4,
+                        transition: {
+                          type: 'spring',
+                          stiffness: 400,
+                          damping: 30,
+                        },
+                      },
+                    }}
+                  >
+                    <ArrowRight className="w-5 h-5" aria-hidden="true" />
+                  </motion.span>
+                </motion.span>
+
+                {/* Animated Background Gradient */}
+                <motion.span
+                  className="absolute inset-0 bg-gradient-to-r from-emerald-500 via-emerald-400 to-emerald-500 rounded-lg"
+                  variants={{
+                    rest: { opacity: 0 },
+                    hover: {
+                      opacity: 1,
+                      transition: {
+                        duration: 0.3,
+                        ease: 'easeOut',
+                      },
+                    },
+                  }}
+                  aria-hidden="true"
+                />
+
+                {/* Glow Effect Layer */}
+                <motion.span
+                  className="absolute inset-0 rounded-lg"
+                  variants={{
+                    rest: {
+                      boxShadow: '0 0 0px rgba(16, 185, 129, 0)',
+                    },
+                    hover: {
+                      boxShadow: 'inset 0 0 20px rgba(255, 255, 255, 0.2)',
+                      transition: {
+                        duration: 0.3,
+                      },
+                    },
+                  }}
+                  aria-hidden="true"
+                />
+              </motion.button>
             </Link>
           </motion.div>
         </motion.div>

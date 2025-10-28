@@ -1,4 +1,7 @@
+'use client';
+
 import { motion } from "framer-motion";
+import { useReveal } from "@/hooks/use-reveal";
 
 // 예시 데이터 (실제 이메일 템플릿과 동일한 구조)
 const SAMPLE_STOCK = {
@@ -30,14 +33,25 @@ const SAMPLE_STOCK = {
 };
 
 function EmailPreviewSection() {
+  const { ref: headerRef, isInView: headerInView } = useReveal<HTMLDivElement>({
+    once: true,
+    amount: 0.3,
+  });
+
+  const { ref: cardRef, isInView: cardInView } = useReveal<HTMLDivElement>({
+    once: true,
+    amount: 0.2,
+  });
+
   return (
     <section id="sample" className="relative py-16 lg:py-20 px-6 lg:px-8 scroll-mt-24">
       <div className="max-w-4xl mx-auto relative z-10">
         {/* Simple Text Header - outside card */}
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.6, ease: [0.16, 1, 0.3, 1] }}
+          ref={headerRef}
+          initial={{ opacity: 0, y: 40 }}
+          animate={headerInView ? { opacity: 1, y: 0 } : {}}
+          transition={{ duration: 0.8, ease: [0.19, 1, 0.22, 1] }}
           className="text-center mb-8"
         >
           <p className="text-sm text-emerald-500 uppercase tracking-wider mb-4 font-medium">
@@ -52,9 +66,10 @@ function EmailPreviewSection() {
 
         {/* Email Card Preview */}
         <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.8, ease: [0.16, 1, 0.3, 1] }}
+          ref={cardRef}
+          initial={{ opacity: 0, y: 60 }}
+          animate={cardInView ? { opacity: 1, y: 0 } : {}}
+          transition={{ duration: 0.8, delay: 0.2, ease: [0.19, 1, 0.22, 1] }}
           className="bg-slate-900/90 rounded-xl shadow-xl overflow-hidden border border-emerald-500/20 will-change-transform"
           style={{ transform: 'translateZ(0)' }}
         >
