@@ -51,11 +51,7 @@ function FAQSection() {
         </div>
 
         {/* FAQ Accordion */}
-        <div
-          className="space-y-4"
-          itemScope
-          itemType="https://schema.org/FAQPage"
-        >
+        <div className="space-y-4">
           {faqData.map((faq, index) => (
             <FAQAccordionItem
               key={index}
