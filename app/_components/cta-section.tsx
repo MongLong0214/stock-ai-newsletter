@@ -1,7 +1,6 @@
 'use client';
 
 import { motion } from "framer-motion";
-import { ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useReveal } from "@/hooks/use-reveal";
@@ -176,28 +175,13 @@ function CTASection({ formatted }: CTASectionProps) {
                 }}
               >
                 <motion.span
-                  className="relative z-10 flex items-center gap-3"
+                  className="relative z-10"
                   variants={{
                     rest: {},
                     hover: {},
                   }}
                 >
                   {formatted} 후 메일 받기
-                  <motion.span
-                    variants={{
-                      rest: { x: 0 },
-                      hover: {
-                        x: 4,
-                        transition: {
-                          type: 'spring',
-                          stiffness: 400,
-                          damping: 30,
-                        },
-                      },
-                    }}
-                  >
-                    <ArrowRight className="w-5 h-5" aria-hidden="true" />
-                  </motion.span>
                 </motion.span>
 
                 {/* Animated Background Gradient */}

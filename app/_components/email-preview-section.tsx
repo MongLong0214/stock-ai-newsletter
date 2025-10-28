@@ -44,7 +44,7 @@ function EmailPreviewSection() {
   });
 
   return (
-    <section id="sample" className="relative py-16 lg:py-20 px-6 lg:px-8 scroll-mt-24">
+    <section id="sample" className="relative py-12 lg:py-16 px-6 lg:px-8 scroll-mt-24">
       <div className="max-w-4xl mx-auto relative z-10">
         {/* Simple Text Header - outside card */}
         <motion.div

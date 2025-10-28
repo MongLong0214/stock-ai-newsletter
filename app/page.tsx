@@ -1,6 +1,6 @@
 'use client';
 
-import React from "react";
+import React, { useEffect } from "react";
 import Script from "next/script";
 import AnimatedBackground from "@/components/animated-background";
 import { useCountdownToTomorrow } from "@/hooks/use-countdown-to-tomorrow";
@@ -14,6 +14,17 @@ import CTASection from "./_components/cta-section";
 export default function HomePage() {
   const { formatted } = useCountdownToTomorrow();
   const isMobile = useIsMobile();
+
+  // 페이지 로드 시 스크롤을 최상단으로 강제
+  useEffect(() => {
+    // 히스토리 스크롤 복원 비활성화
+    if ('scrollRestoration' in window.history) {
+      window.history.scrollRestoration = 'manual';
+    }
+
+    // 스크롤을 최상단으로 이동
+    window.scrollTo(0, 0);
+  }, []);
 
   return (
     <div className="min-h-screen bg-black text-white relative overflow-hidden">
