@@ -34,12 +34,7 @@ function FAQAccordionItem({
   };
 
   return (
-    <article
-      itemScope
-      itemProp="mainEntity"
-      itemType="https://schema.org/Question"
-      className="group bg-slate-800/50 border border-emerald-500/20 rounded-3xl overflow-hidden transition-all duration-700 hover:border-emerald-500/40 hover:shadow-lg hover:shadow-emerald-500/10"
-    >
+    <article className="group bg-slate-800/50 border border-emerald-500/20 rounded-3xl overflow-hidden transition-all duration-700 hover:border-emerald-500/40 hover:shadow-lg hover:shadow-emerald-500/10">
       {/* Question Button */}
       <button
         onClick={onToggle}
@@ -48,10 +43,7 @@ function FAQAccordionItem({
         aria-controls={`faq-answer-${index}`}
         className="relative w-full px-6 py-5 flex items-center justify-between text-left transition-colors duration-700 hover:bg-slate-800/70 focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500"
       >
-        <h3
-          itemProp="name"
-          className="text-base md:text-lg font-light text-white pr-4 leading-relaxed tracking-wide"
-        >
+        <h3 className="text-base md:text-lg font-light text-white pr-4 leading-relaxed tracking-wide">
           {question}
         </h3>
         <div
@@ -82,16 +74,10 @@ function FAQAccordionItem({
         className={`grid transition-all duration-500 ease-out-expo ${
           isOpen ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'
         }`}
-        itemScope
-        itemProp="acceptedAnswer"
-        itemType="https://schema.org/Answer"
       >
         <div className="overflow-hidden">
           <div className="px-6 pb-5 pt-2">
-            <p
-              itemProp="text"
-              className="text-slate-300 font-light leading-relaxed tracking-wide text-sm md:text-base"
-            >
+            <p className="text-slate-300 font-light leading-relaxed tracking-wide text-sm md:text-base">
               {answer}
             </p>
           </div>
