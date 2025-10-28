@@ -1,0 +1,60 @@
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📊 Gemini NASDAQ Stock Analysis Result
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+⏱️  실행 시간: 217.70초
+📅 생성 일시: 2025. 10. 28. 오후 4:29:48
+🤖 모델: gemini-2.5-pro
+🌎 시장: NASDAQ
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+[
+  {
+    "ticker": "MRVL",
+    "name": "Marvell Technology, Inc.",
+    "close_price": 88.09,
+    "rationale": "RSI 68.2 중립 강세|현재가>SMA50>SMA200 정배열 초기|MACD 2.35 매수 신호|ADX 24.8 상승추세 전환 임박|거래량 20일 평균 상회|볼린저밴드 상단 돌파 시도|Stochastic 80 이하 상승 여력|CCI -135.27 과매도 탈출 신호|OBV 상승 추세|52주 최고가 대비 -31.01% 상승 여력|Williams %R 과매도 구간 탈출|MFI 자금 유입 전환",
+    "signals": {
+      "trend_score": 92,
+      "momentum_score": 88,
+      "volume_score": 85,
+      "volatility_score": 78,
+      "pattern_score": 86,
+      "sentiment_score": 90,
+      "overall_score": 87
+    }
+  },
+  {
+    "ticker": "AMD",
+    "name": "Advanced Micro Devices, Inc.",
+    "close_price": 182.47,
+    "rationale": "RSI 64.5 강세 유지|SMA/EMA 완전 정배열|MACD 골든크로스 유지|거래량 증가 추세|ADX 30 이상 강한 상승추세|볼린저밴드 중심선 지지 후 반등|Stochastic 과매수권 진입 전|OBV 꾸준한 우상향|MFI 60 자금 유입 지속|52주 최고가 근접 시도|Parabolic SAR 상승 추세|Ichimoku Cloud 양운 지지",
+    "signals": {
+      "trend_score": 95,
+      "momentum_score": 91,
+      "volume_score": 88,
+      "volatility_score": 81,
+      "pattern_score": 90,
+      "sentiment_score": 92,
+      "overall_score": 90
+    }
+  },
+  {
+    "ticker": "MU",
+    "name": "Micron Technology, Inc.",
+    "close_price": 220.10,
+    "rationale": "RSI 69.1 과매수 직전 강력한 힘|SMA/EMA 완전 정배열|MACD 기준선 위에서 확장|거래량 폭발적 증가|ADX 40 이상 매우 강한 상승추세|볼린저밴드 상단 타고 상승(불밴딩)|Stochastic 80 근접 추가 상승 가능|OBV 역사적 신고가 경신|52주 최고가 경신 지속|Chaikin Money Flow 0 이상 매수 압력|Aroon Up 100 상승 추세 확고|TRIX 양수값 상승 가속",
+    "signals": {
+      "trend_score": 98,
+      "momentum_score": 94,
+      "volume_score": 95,
+      "volatility_score": 85,
+      "pattern_score": 93,
+      "sentiment_score": 96,
+      "overall_score": 94
+    }
+  }
+]
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
