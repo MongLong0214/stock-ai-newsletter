@@ -14,7 +14,6 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { z } from 'zod';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import AnimatedBackground from '@/components/animated-background';
 import { useCountdownToTomorrow } from '@/hooks/use-countdown-to-tomorrow';
@@ -226,11 +225,35 @@ export default function SubscribePage() {
                 </div>
 
                 {/* Submit Button */}
-                <Button
+                <motion.button
                   type="submit"
                   disabled={status === 'loading' || status === 'success'}
-                  className="w-full py-3.5 px-8 group relative overflow-hidden bg-emerald-600 text-white hover:bg-emerald-500 disabled:bg-emerald-500/50 disabled:cursor-not-allowed text-base font-medium rounded-xl shadow-[0_10px_30px_rgba(0,0,0,0.3)] hover:shadow-[0_20px_60px_rgba(16,185,129,0.4),0_0_40px_rgba(16,185,129,0.2)] transition-all duration-300 focus:ring-2 focus:ring-emerald-500/50 focus:ring-offset-4 focus:ring-offset-black tracking-wide cursor-pointer"
+                  className="w-full py-3.5 px-4 sm:px-8 relative overflow-hidden bg-emerald-600 text-slate-50 disabled:bg-emerald-500/50 disabled:cursor-not-allowed text-sm sm:text-base font-medium rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/50 tracking-wide cursor-pointer border-0 whitespace-nowrap"
                   aria-label="Subscribe to newsletter"
+                  initial="rest"
+                  whileHover="hover"
+                  whileTap="tap"
+                  variants={{
+                    rest: {
+                      scale: 1,
+                      boxShadow: '0 10px 30px rgba(0, 0, 0, 0.3)',
+                    },
+                    hover: {
+                      scale: 1.02,
+                      boxShadow: '0 15px 40px rgba(16, 185, 129, 0.25), 0 0 20px rgba(16, 185, 129, 0.15)',
+                      transition: {
+                        duration: 0.3,
+                        ease: [0.19, 1, 0.22, 1],
+                      },
+                    },
+                    tap: {
+                      scale: 0.98,
+                      boxShadow: '0 5px 15px rgba(0, 0, 0, 0.2)',
+                      transition: {
+                        duration: 0.1,
+                      },
+                    },
+                  }}
                 >
                   <span className="relative z-10 flex items-center justify-center gap-2">
                     {status === 'loading' ? (
@@ -242,9 +265,76 @@ export default function SubscribePage() {
                       `${formatted} 후 메일 받기`
                     )}
                   </span>
-                  <span className="absolute inset-0 bg-gradient-to-r from-emerald-500 via-emerald-400 to-emerald-500 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300" aria-hidden="true" />
-                  <span className="absolute inset-0 rounded-xl opacity-0 group-hover:shadow-[inset_0_0_20px_rgba(255,255,255,0.2)] group-hover:opacity-100 transition-all duration-300" aria-hidden="true" />
-                </Button>
+
+                  {/* Continuous Flowing Gradient - Always Active */}
+                  <motion.span
+                    className="absolute inset-0 bg-gradient-to-r from-emerald-600 via-emerald-400 to-emerald-600 rounded-xl"
+                    animate={{
+                      backgroundPosition: ['0% 50%', '100% 50%', '0% 50%'],
+                      opacity: [0.5, 0.7, 0.5],
+                    }}
+                    transition={{
+                      duration: 3,
+                      ease: 'easeInOut',
+                      repeat: Infinity,
+                    }}
+                    style={{
+                      backgroundSize: '200% 100%',
+                    }}
+                    aria-hidden="true"
+                  />
+
+                  {/* Subtle Pulse Glow - Always Active */}
+                  <motion.span
+                    className="absolute inset-0 rounded-xl"
+                    animate={{
+                      boxShadow: [
+                        '0 0 20px rgba(16, 185, 129, 0.3)',
+                        '0 0 30px rgba(16, 185, 129, 0.5)',
+                        '0 0 20px rgba(16, 185, 129, 0.3)',
+                      ],
+                    }}
+                    transition={{
+                      duration: 2,
+                      ease: 'easeInOut',
+                      repeat: Infinity,
+                    }}
+                    aria-hidden="true"
+                  />
+
+                  {/* Hover Gradient Overlay */}
+                  <motion.span
+                    className="absolute inset-0 bg-gradient-to-r from-emerald-500 via-emerald-400 to-emerald-500 rounded-xl"
+                    variants={{
+                      rest: { opacity: 0 },
+                      hover: {
+                        opacity: 0.4,
+                        transition: {
+                          duration: 0.3,
+                          ease: 'easeOut',
+                        },
+                      },
+                    }}
+                    aria-hidden="true"
+                  />
+
+                  {/* Glow Effect Layer */}
+                  <motion.span
+                    className="absolute inset-0 rounded-xl"
+                    variants={{
+                      rest: {
+                        boxShadow: '0 0 0px rgba(16, 185, 129, 0)',
+                      },
+                      hover: {
+                        boxShadow: 'inset 0 0 20px rgba(255, 255, 255, 0.2)',
+                        transition: {
+                          duration: 0.3,
+                        },
+                      },
+                    }}
+                    aria-hidden="true"
+                  />
+                </motion.button>
               </form>
 
               {/* Status Message */}
