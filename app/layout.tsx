@@ -159,7 +159,6 @@ export default function RootLayout({
           '@type': 'Audience',
           audienceType: '주식 관심자',
         },
-        category: 'Financial Data Services',
       },
     ],
   };
