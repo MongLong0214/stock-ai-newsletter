@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { faqData, generateFAQSchema } from '@/lib/constants/seo/faq-data';
+import { faqData } from '@/lib/constants/seo/faq-data';
 import FAQAccordionItem from './faq-accordion-item';
 
 /**
@@ -101,14 +101,6 @@ function FAQSection() {
           </div>
         </div>
       </div>
-
-      {/* Schema.org Structured Data for SEO */}
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{
-          __html: JSON.stringify(generateFAQSchema()),
-        }}
-      />
     </section>
   );
 }
