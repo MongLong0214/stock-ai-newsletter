@@ -21,8 +21,8 @@ function TechnicalIndicatorsSection({
 }: TechnicalIndicatorsSectionProps) {
   const { ref, isInView, getDelay } = useStaggerReveal<HTMLDivElement>({
     once: true,
-    amount: 0.2,
-    staggerDelay: isMobile ? 50 : 100,
+    amount: isMobile ? 0.1 : 0.2,
+    staggerDelay: isMobile ? 40 : 100,
   });
 
   const parallaxRef = useRef(null);
@@ -35,13 +35,13 @@ function TechnicalIndicatorsSection({
   const headingY = useTransform(scrollYProgress, [0, 1], [40, -40]);
 
   return (
-    <section ref={parallaxRef} className="py-20 lg:py-24 px-6 lg:px-8 relative" aria-labelledby="indicators-heading">
+    <section ref={parallaxRef} className="py-12 lg:py-16 px-6 lg:px-8 relative" aria-labelledby="indicators-heading">
       <div ref={ref} className="max-w-7xl mx-auto">
         <motion.h2
           id="indicators-heading"
           initial={{ opacity: 0 }}
           animate={isInView ? { opacity: 1 } : {}}
-          transition={{ duration: 0.8, ease: [0.19, 1, 0.22, 1] }}
+          transition={{ duration: isMobile ? 0.5 : 0.8, ease: [0.19, 1, 0.22, 1] }}
           style={{
             y: headingY
           }}
@@ -73,10 +73,10 @@ function TechnicalIndicatorsSection({
           {indicators.map((category, index) => (
             <motion.div
               key={index}
-              initial={{ opacity: 0, y: 60, scale: 0.95 }}
+              initial={{ opacity: 0, y: isMobile ? 40 : 60, scale: 0.95 }}
               animate={isInView ? { opacity: 1, y: 0, scale: 1 } : {}}
               transition={{
-                duration: 0.8,
+                duration: isMobile ? 0.5 : 0.8,
                 delay: getDelay(index),
                 ease: [0.19, 1, 0.22, 1]
               }}
