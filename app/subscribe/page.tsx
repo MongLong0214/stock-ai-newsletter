@@ -229,7 +229,7 @@ export default function SubscribePage() {
                 <Button
                   type="submit"
                   disabled={status === 'loading' || status === 'success'}
-                  className="w-full h-14 lg:h-16 group relative overflow-hidden bg-emerald-600 text-black hover:bg-emerald-500 disabled:bg-emerald-500/50 disabled:cursor-not-allowed text-lg font-semibold rounded-2xl transition-all duration-700 ease-out-expo shadow-lg hover:shadow-xl focus:ring-2 focus:ring-emerald-500/50 focus:ring-offset-4 focus:ring-offset-black tracking-wide cursor-pointer"
+                  className="w-full py-3.5 px-8 group relative overflow-hidden bg-emerald-600 text-white hover:bg-emerald-500 disabled:bg-emerald-500/50 disabled:cursor-not-allowed text-base font-medium rounded-xl shadow-[0_10px_30px_rgba(0,0,0,0.3)] hover:shadow-[0_20px_60px_rgba(16,185,129,0.4),0_0_40px_rgba(16,185,129,0.2)] transition-all duration-300 focus:ring-2 focus:ring-emerald-500/50 focus:ring-offset-4 focus:ring-offset-black tracking-wide cursor-pointer"
                   aria-label="Subscribe to newsletter"
                 >
                   <span className="relative z-10 flex items-center justify-center gap-2">
@@ -242,7 +242,8 @@ export default function SubscribePage() {
                       `${formatted} 후 메일 받기`
                     )}
                   </span>
-                  <span className="absolute inset-0 bg-gradient-to-r from-emerald-400 via-emerald-300 to-emerald-400 opacity-0 group-hover:opacity-100 transition-opacity duration-700" aria-hidden="true" />
+                  <span className="absolute inset-0 bg-gradient-to-r from-emerald-500 via-emerald-400 to-emerald-500 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300" aria-hidden="true" />
+                  <span className="absolute inset-0 rounded-xl opacity-0 group-hover:shadow-[inset_0_0_20px_rgba(255,255,255,0.2)] group-hover:opacity-100 transition-all duration-300" aria-hidden="true" />
                 </Button>
               </form>
 

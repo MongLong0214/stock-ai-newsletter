@@ -56,8 +56,8 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-family-sans: "__Noto_Sans_KR_dc8e80", "__Noto_Sans_KR_Fallback_dc8e80", "__Inter_a64ecd", "__Inter_Fallback_a64ecd", system-ui, -apple-system, sans-serif;
+  --font-mono: ui-monospace, monospace;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -78,8 +78,8 @@ html {
 body {
   background: var(--matrix-black);
   color: var(--foreground);
-  font-family: var(--font-sans), -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
   overflow-x: hidden;
+  font-family: var(--font-noto-sans-kr), var(--font-inter), system-ui, -apple-system, sans-serif;
 }
 
 /* Custom selection styling */
