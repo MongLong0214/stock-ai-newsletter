@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { Inter } from 'next/font/google';
+import { Noto_Sans_KR } from 'next/font/google';
 import './globals.css';
 import Script from 'next/script';
 import { Analytics } from '@vercel/analytics/next';
@@ -14,7 +14,11 @@ import {
   allKeywords,
 } from '@/lib/constants/seo';
 
-const inter = Inter({ subsets: ['latin'] });
+const notoSansKR = Noto_Sans_KR({
+  subsets: ['latin'],
+  weight: ['100', '300', '400', '500', '700', '900'],
+  display: 'swap',
+});
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteConfig.domain),
@@ -233,7 +237,7 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
         />
       </head>
-      <body className={inter.className} suppressHydrationWarning>
+      <body className={notoSansKR.className} suppressHydrationWarning>
         <Navigation />
         {children}
         <Footer />
