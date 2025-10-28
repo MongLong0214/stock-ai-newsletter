@@ -54,3 +54,25 @@ export {
   analyzeKeywordDensity,
   type FAQItem,
 } from './faq-data';
+
+// ============================================================================
+// Breadcrumb Schema 유틸리티
+// ============================================================================
+
+/** Breadcrumb Schema 생성 유틸리티 (사이트 계층 구조 표현) */
+export {
+  generateBreadcrumbSchema,
+  breadcrumbPatterns,
+  type BreadcrumbItem,
+} from './breadcrumb-schema';
+
+// ============================================================================
+// Internal Links 설정
+// ============================================================================
+
+/** 내부 링크 전략 설정 (SEO 링크 분배 및 크롤링 최적화) */
+export {
+  internalLinks,
+  generateInternalLinkHTML,
+  type InternalLink,
+} from './internal-links';

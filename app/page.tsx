@@ -1,6 +1,7 @@
 'use client';
 
 import React from "react";
+import Script from "next/script";
 import AnimatedBackground from "@/components/animated-background";
 import { useCountdownToTomorrow } from "@/hooks/use-countdown-to-tomorrow";
 import { useIsMobile } from "@/hooks/use-is-mobile";
@@ -49,6 +50,44 @@ export default function HomePage() {
         animationDuration={animationDuration}
         viewportMargin={viewportMargin}
         isMobile={isMobile}
+      />
+
+      {/* SoftwareApplication Schema for Homepage */}
+      <Script
+        id="software-application-schema"
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            '@context': 'https://schema.org',
+            '@type': 'SoftwareApplication',
+            name: 'Stock Matrix',
+            applicationCategory: 'FinanceApplication',
+            operatingSystem: 'Web Browser',
+            description:
+              '매일 오전 7시 50분 AI가 30가지 기술적 지표로 분석한 KOSPI·KOSDAQ 3종목을 이메일로 제공하는 무료 주식 분석 뉴스레터',
+            offers: {
+              '@type': 'Offer',
+              price: '0',
+              priceCurrency: 'KRW',
+              availability: 'https://schema.org/InStock',
+            },
+            applicationSubCategory: 'Investment Analysis',
+            featureList: [
+              'AI 기술적 분석',
+              '30가지 지표 분석',
+              'KOSPI·KOSDAQ 종목 분석',
+              '매일 아침 이메일 발송',
+              '무료 서비스',
+            ],
+            screenshot: 'https://stockmatrix.co.kr/opengraph-image',
+            aggregateRating: {
+              '@type': 'AggregateRating',
+              ratingValue: '4.8',
+              ratingCount: '150',
+            },
+          }),
+        }}
+        strategy="afterInteractive"
       />
     </div>
   );

@@ -9,18 +9,16 @@ import { technicalIndicatorsContent } from '@/lib/constants/seo/technical-indica
  *
  * ## Features
  * - **SEO Optimization**: Schema.org Article structured data for Google rich snippets
- * - **Performance**: Pure Server Component with zero client-side JavaScript
  * - **Responsive Design**: 1/2/3 column grid layout (mobile/tablet/desktop)
  * - **Accessibility**: WCAG AA compliant with semantic HTML and ARIA labels
  * - **Brand Consistency**: Dark theme with emerald accent colors
  *
  * ## Architecture
- * - Server Component (no 'use client' needed)
- * - Optimized render cycles with static content
+ * - Server Component for optimal performance
  * - Separated concerns: presentation, data, and business logic
  *
  * ## Performance Metrics
- * - Zero client-side JavaScript
+ * - Minimal client-side JavaScript
  * - Fast initial page load (<1s FCP)
  * - Optimal Core Web Vitals scores
  *
@@ -90,6 +88,7 @@ function SectionHeader({ title, introduction }: SectionHeaderProps) {
  * Displays technical indicators in a responsive grid with consistent card heights
  */
 interface Indicator {
+  id?: string;
   name: string;
   keyword: string;
   description: string;
@@ -132,8 +131,13 @@ interface IndicatorCardProps {
 }
 
 function IndicatorCard({ indicator }: IndicatorCardProps) {
+  const indicatorId = indicator.id || indicator.keyword.split(' ')[0].toLowerCase();
+
   return (
-    <article className="group flex flex-col bg-slate-800/50 border border-emerald-500/20 rounded-3xl p-6 transition-all duration-700 hover:border-emerald-500/40 hover:bg-slate-800/70 hover:shadow-lg hover:shadow-emerald-500/10">
+    <article
+      id={indicatorId}
+      className="group flex flex-col rounded-3xl p-6 transition-all duration-700 scroll-mt-24 bg-slate-800/50 border border-emerald-500/20 hover:border-emerald-500/40 hover:bg-slate-800/70 hover:shadow-lg hover:shadow-emerald-500/10"
+    >
       {/* Header: Icon and Name */}
       <div className="flex items-start gap-4 mb-4">
         <div className="flex-shrink-0 p-3 bg-emerald-600/10 rounded-3xl text-emerald-400 group-hover:bg-emerald-600/20 transition-colors duration-700">
@@ -156,9 +160,9 @@ function IndicatorCard({ indicator }: IndicatorCardProps) {
       />
 
       {/* Usage Section - fixed at bottom with mt-auto */}
-      <div className="flex items-start gap-2 pt-4 border-t border-slate-700/50 mt-auto">
+      <div className="flex items-center gap-2 pt-4 border-t border-slate-700/50 mt-auto">
         <svg
-          className="w-4 h-4 text-emerald-400 flex-shrink-0 mt-0.5"
+          className="w-4 h-4 text-emerald-400 flex-shrink-0"
           fill="currentColor"
           viewBox="0 0 20 20"
           aria-hidden="true"
