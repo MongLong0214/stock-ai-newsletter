@@ -1,6 +1,5 @@
 import Link from 'next/link';
 import { technicalIndicatorsContent } from '@/lib/constants/seo/technical-indicators-content';
-import {JSX} from "react";
 
 /**
  * Technical Indicators Explanation Section
