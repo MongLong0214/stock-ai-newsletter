@@ -21,7 +21,7 @@ export default function HomePage() {
   const viewportMargin = isMobile ? '0px' : '-100px';
 
   return (
-    <div className="min-h-screen bg-black text-white relative overflow-hidden">
+    <div className="min-h-screen bg-black text-white relative overflow-x-hidden">
       {/* Animated Background */}
       <AnimatedBackground />
 

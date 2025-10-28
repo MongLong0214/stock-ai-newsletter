@@ -266,7 +266,7 @@ function UnsubscribeContent() {
 
 export default function UnsubscribePage() {
   return (
-    <div className="min-h-screen bg-black text-white relative overflow-hidden">
+    <div className="min-h-screen bg-black text-white relative overflow-x-hidden">
       <AnimatedBackground />
 
       {/* Scanline Effect */}
