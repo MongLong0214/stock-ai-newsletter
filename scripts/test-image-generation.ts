@@ -38,7 +38,15 @@ async function testImageGeneration() {
     console.log('━'.repeat(80));
     console.log('📈 분석된 종목 목록:');
     console.log('━'.repeat(80));
-    analysisData.forEach((stock: any, index: number) => {
+
+    interface StockAnalysis {
+      name: string;
+      ticker: string;
+      close_price: number;
+      signals: { overall_score: number };
+    }
+
+    (analysisData as StockAnalysis[]).forEach((stock, index: number) => {
       console.log(`${index + 1}. ${stock.name} (${stock.ticker})`);
       console.log(`   전일종가: ${stock.close_price.toLocaleString()}원`);
       console.log(`   종합점수: ${stock.signals.overall_score}점`);
