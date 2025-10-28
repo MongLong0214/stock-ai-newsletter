@@ -2,7 +2,16 @@
 
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Loader2, CheckCircle, XCircle, Mail, User } from 'lucide-react';
+import {
+  Loader2,
+  CheckCircle,
+  XCircle,
+  Mail,
+  User,
+  Shield,
+  Clock,
+  TrendingUp,
+} from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { z } from 'zod';
 import { Button } from '@/components/ui/button';
@@ -108,17 +117,37 @@ export default function SubscribePage() {
           className="max-w-2xl mx-auto"
         >
           {/* Title Section */}
-          <div className="text-center mb-16 lg:mb-20">
+          <div className="text-center mb-12">
             <motion.div
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.8, delay: 0.2, ease: [0.19, 1, 0.22, 1] }}
             >
               <h1 className="text-6xl sm:text-7xl md:text-8xl font-extralight mb-6 lg:mb-8 text-emerald-500/80 leading-tight tracking-tight">
-                메일 받기
+                무료 구독하기
               </h1>
 
+              {/* Subheading with value proposition */}
+              <h2 className="text-xl sm:text-2xl text-slate-300 mb-8 font-light">
+                매일 아침 7:50, AI가 분석한 KOSPI·KOSDAQ 3종목 정보를 이메일로
+                받아보세요
+              </h2>
 
+              {/* Trust signals */}
+              <div className="flex flex-wrap justify-center gap-6 mb-8">
+                <div className="flex items-center gap-2 text-emerald-400/80">
+                  <Shield className="w-5 h-5" aria-hidden="true" />
+                  <span className="text-sm">100% 무료</span>
+                </div>
+                <div className="flex items-center gap-2 text-emerald-400/80">
+                  <Clock className="w-5 h-5" aria-hidden="true" />
+                  <span className="text-sm">매일 7:50 발송</span>
+                </div>
+                <div className="flex items-center gap-2 text-emerald-400/80">
+                  <TrendingUp className="w-5 h-5" aria-hidden="true" />
+                  <span className="text-sm">30개 지표 AI 분석</span>
+                </div>
+              </div>
             </motion.div>
           </div>
 
@@ -246,10 +275,6 @@ export default function SubscribePage() {
               )}
             </div>
           </motion.div>
-
-
-
-
         </motion.div>
       </main>
     </div>

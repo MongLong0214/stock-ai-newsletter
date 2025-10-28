@@ -85,10 +85,10 @@ function Navigation() {
               aria-label={isMobileMenuOpen ? 'Close menu' : 'Open menu'}
               aria-expanded={isMobileMenuOpen}
             >
-              <div className="w-6 h-5 flex flex-col justify-between">
+              <div className="w-6 h-5 relative flex flex-col justify-between">
                 <span
                   className={`block h-0.5 w-full bg-current transition-all duration-700 ease-out-expo ${
-                    isMobileMenuOpen ? 'rotate-45 translate-y-2' : ''
+                    isMobileMenuOpen ? 'absolute top-1/2 -translate-y-1/2 rotate-45' : ''
                   }`}
                 />
                 <span
@@ -98,7 +98,7 @@ function Navigation() {
                 />
                 <span
                   className={`block h-0.5 w-full bg-current transition-all duration-700 ease-out-expo ${
-                    isMobileMenuOpen ? '-rotate-45 -translate-y-2' : ''
+                    isMobileMenuOpen ? 'absolute top-1/2 -translate-y-1/2 -rotate-45' : ''
                   }`}
                 />
               </div>
