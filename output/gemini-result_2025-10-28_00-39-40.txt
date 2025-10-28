@@ -1,0 +1,59 @@
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📊 Gemini Stock Analysis Result
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+⏱️  실행 시간: 73.17초
+📅 생성 일시: 2025. 10. 28. 오전 9:39:40
+🤖 모델: gemini-2.5-pro
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+[
+  {
+    "ticker": "KOSDAQ:262260",
+    "name": "알테오젠",
+    "close_price": 348000,
+    "rationale": "SMA 완전정배열|EMA 골든크로스 유지|RSI 64.8 강세권|MACD 0선 위 상승 지속|거래량비율 145%|볼린저 상단 근접|ADX 35 강한 상승추세|OBV 우상향|스토캐스틱 70 이상|CMF 0.18 자금유입|Parabolic SAR 상승추세|52주 신고가 근접",
+    "signals": {
+      "trend_score": 95,
+      "momentum_score": 89,
+      "volume_score": 91,
+      "volatility_score": 84,
+      "pattern_score": 88,
+      "sentiment_score": 92,
+      "overall_score": 91
+    }
+  },
+  {
+    "ticker": "KOSPI:267260",
+    "name": "HD현대일렉트릭",
+    "close_price": 820000,
+    "rationale": "SMA 정배열 초기|EMA 단기>장기 교차|RSI 61.2 중립강세|MACD 히스토그램 양전환|거래량 20일 평균 상회|볼린저밴드 중심선 지지|ATR 4.5% 적정 변동성|ADX 26 상승추세 시작|OBV 상승 전환|VWAP 상회 마감|52주 고점 81% 위치|SuperTrend 매수 신호",
+    "signals": {
+      "trend_score": 91,
+      "momentum_score": 86,
+      "volume_score": 88,
+      "volatility_score": 81,
+      "pattern_score": 85,
+      "sentiment_score": 87,
+      "overall_score": 87
+    }
+  },
+  {
+    "ticker": "KOSDAQ:195870",
+    "name": "해성디에스",
+    "close_price": 145000,
+    "rationale": "SMA 20일선 지지 후 반등|EMA 정배열 유지|RSI 58.5 상승 여력 보유|MACD Signal선 상향 돌파 임박|거래량 점진적 증가|볼린저밴드 폭 수축 후 확장 시작|ADX 22 상승추세 전환|OBV 저점 상승|Stochastic 과매도 탈출|CMF 0.12 자금유입|Ichimoku 구름대 상단 지지",
+    "signals": {
+      "trend_score": 88,
+      "momentum_score": 84,
+      "volume_score": 85,
+      "volatility_score": 83,
+      "pattern_score": 86,
+      "sentiment_score": 84,
+      "overall_score": 85
+    }
+  }
+]
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

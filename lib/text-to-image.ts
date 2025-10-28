@@ -97,7 +97,7 @@ function drawHeader(ctx: CanvasRenderingContext2D, width: number, startY: number
   // 서브타이틀
   ctx.fillStyle = '#94A3B8';
   ctx.font = '20px Sans';
-  ctx.fillText('30개 기술 지표 분석 - 상위 3개 종목', centerX, y);
+  ctx.fillText('30개 기술 지표 분석 - 상위 2개 종목', centerX, y);
   y += 50; // 45 → 50
 
   // 날짜 배지
