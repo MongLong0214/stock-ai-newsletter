@@ -15,10 +15,6 @@ export default function HomePage() {
   const { formatted } = useCountdownToTomorrow();
   const isMobile = useIsMobile();
 
-  const animationDuration = isMobile ? 0.15 : 0.8;
-  const longAnimationDuration = isMobile ? 0.2 : 0.9;
-  const viewportMargin = isMobile ? '0px' : '-100px';
-
   return (
     <div className="min-h-screen bg-black text-white relative overflow-hidden">
       {/* Animated Background */}
@@ -37,20 +33,12 @@ export default function HomePage() {
 
       {/* Technical Indicators Section */}
       <TechnicalIndicatorsSection
-        animationDuration={animationDuration}
-        viewportMargin={viewportMargin}
         isMobile={isMobile}
         indicators={TECHNICAL_INDICATORS_DATA}
       />
 
       {/* CTA Section */}
-      <CTASection
-        formatted={formatted}
-        longAnimationDuration={longAnimationDuration}
-        animationDuration={animationDuration}
-        viewportMargin={viewportMargin}
-        isMobile={isMobile}
-      />
+      <CTASection formatted={formatted} />
 
       {/* SoftwareApplication Schema for Homepage */}
       <Script

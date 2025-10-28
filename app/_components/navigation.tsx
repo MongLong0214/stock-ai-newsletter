@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 
 function Navigation() {
@@ -49,13 +50,68 @@ function Navigation() {
                 <Link
                   key={link.href}
                   href={link.href}
-                  className="group relative px-4 py-2 text-sm font-light tracking-wide text-slate-300 hover:text-emerald-400 transition-colors duration-700 ease-out-expo focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500 rounded-3xl"
+                  className="relative"
                 >
-                  <span className="relative z-10">{link.label}</span>
-                  <span
-                    className="absolute inset-0 rounded-3xl bg-emerald-500/5 scale-0 group-hover:scale-100 transition-transform duration-700 ease-out-expo"
-                    aria-hidden="true"
-                  />
+                  <motion.div
+                    className="relative px-4 py-2 text-sm font-light tracking-wide focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500 rounded-3xl"
+                    initial="rest"
+                    whileHover="hover"
+                    whileTap="tap"
+                    variants={{
+                      rest: {
+                        scale: 1,
+                      },
+                      hover: {
+                        scale: 1.05,
+                        transition: {
+                          duration: 0.3,
+                          ease: [0.19, 1, 0.22, 1],
+                        },
+                      },
+                      tap: {
+                        scale: 0.98,
+                        transition: {
+                          duration: 0.1,
+                        },
+                      },
+                    }}
+                  >
+                    <motion.span
+                      className="relative z-10"
+                      variants={{
+                        rest: { color: 'rgb(203, 213, 225)' },
+                        hover: {
+                          color: 'rgb(52, 211, 153)',
+                          transition: {
+                            duration: 0.3,
+                            ease: [0.19, 1, 0.22, 1],
+                          },
+                        },
+                      }}
+                    >
+                      {link.label}
+                    </motion.span>
+                    <motion.span
+                      className="absolute inset-0 rounded-3xl bg-emerald-500/5"
+                      variants={{
+                        rest: {
+                          scale: 0,
+                          opacity: 0,
+                          boxShadow: '0 0 0px rgba(16, 185, 129, 0)',
+                        },
+                        hover: {
+                          scale: 1,
+                          opacity: 1,
+                          boxShadow: '0 0 20px rgba(16, 185, 129, 0.2)',
+                          transition: {
+                            duration: 0.3,
+                            ease: [0.19, 1, 0.22, 1],
+                          },
+                        },
+                      }}
+                      aria-hidden="true"
+                    />
+                  </motion.div>
                 </Link>
               ))}
             </div>
@@ -63,18 +119,61 @@ function Navigation() {
             {/* Desktop Subscribe Button */}
             <div className="hidden md:block">
               <Link href="/subscribe">
-                <Button
-                  variant="outline"
-                  className="relative group overflow-hidden bg-black/50 border-emerald-500/30 text-emerald-400 hover:text-black hover:border-emerald-400 transition-all duration-700 ease-out-expo focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 focus-visible:ring-offset-black px-6 py-2.5 rounded-3xl cursor-pointer"
+                <motion.button
+                  className="relative overflow-hidden bg-black/50 border border-emerald-500/30 text-emerald-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 focus-visible:ring-offset-black px-6 py-2.5 rounded-3xl cursor-pointer"
+                  initial="rest"
+                  whileHover="hover"
+                  whileTap="tap"
+                  variants={{
+                    rest: {
+                      scale: 1,
+                      boxShadow: '0 0 0px rgba(16, 185, 129, 0)',
+                    },
+                    hover: {
+                      scale: 1.05,
+                      boxShadow: '0 0 20px rgba(16, 185, 129, 0.3)',
+                      transition: {
+                        duration: 0.3,
+                        ease: [0.19, 1, 0.22, 1],
+                      },
+                    },
+                    tap: {
+                      scale: 0.98,
+                      transition: {
+                        duration: 0.1,
+                      },
+                    },
+                  }}
                 >
-                  <span className="relative z-10 font-medium tracking-wide">
+                  <motion.span
+                    className="relative z-10 font-medium tracking-wide"
+                    variants={{
+                      rest: { color: 'rgb(52, 211, 153)' },
+                      hover: {
+                        color: 'rgb(0, 0, 0)',
+                        transition: {
+                          duration: 0.3,
+                        },
+                      },
+                    }}
+                  >
                     무료 메일받기
-                  </span>
-                  <span
-                    className="absolute inset-0 bg-emerald-600 scale-x-0 group-hover:scale-x-100 transition-transform duration-700 ease-out-expo origin-left"
+                  </motion.span>
+                  <motion.span
+                    className="absolute inset-0 bg-emerald-600 rounded-3xl"
+                    variants={{
+                      rest: { scaleX: 0, transformOrigin: 'left' },
+                      hover: {
+                        scaleX: 1,
+                        transition: {
+                          duration: 0.3,
+                          ease: [0.19, 1, 0.22, 1],
+                        },
+                      },
+                    }}
                     aria-hidden="true"
                   />
-                </Button>
+                </motion.button>
               </Link>
             </div>
 
