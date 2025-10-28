@@ -119,8 +119,8 @@ function Navigation() {
             {/* Desktop Subscribe Button */}
             <div className="hidden md:block">
               <Link href="/subscribe">
-                <motion.button
-                  className="relative overflow-hidden bg-black/50 border border-emerald-500/30 text-emerald-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 focus-visible:ring-offset-black px-6 py-2.5 rounded-3xl cursor-pointer"
+                <motion.div
+                  className="relative px-5 py-2 text-sm font-medium tracking-wide focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500 rounded-3xl border border-emerald-500/40 bg-emerald-500/10"
                   initial="rest"
                   whileHover="hover"
                   whileTap="tap"
@@ -131,7 +131,7 @@ function Navigation() {
                     },
                     hover: {
                       scale: 1.05,
-                      boxShadow: '0 0 20px rgba(16, 185, 129, 0.3)',
+                      boxShadow: '0 0 30px rgba(16, 185, 129, 0.3)',
                       transition: {
                         duration: 0.3,
                         ease: [0.19, 1, 0.22, 1],
@@ -139,6 +139,7 @@ function Navigation() {
                     },
                     tap: {
                       scale: 0.98,
+                      boxShadow: '0 0 15px rgba(16, 185, 129, 0.2)',
                       transition: {
                         duration: 0.1,
                       },
@@ -146,13 +147,14 @@ function Navigation() {
                   }}
                 >
                   <motion.span
-                    className="relative z-10 font-medium tracking-wide"
+                    className="relative z-10"
                     variants={{
                       rest: { color: 'rgb(52, 211, 153)' },
                       hover: {
-                        color: 'rgb(0, 0, 0)',
+                        color: 'rgb(167, 243, 208)',
                         transition: {
                           duration: 0.3,
+                          ease: [0.19, 1, 0.22, 1],
                         },
                       },
                     }}
@@ -160,11 +162,13 @@ function Navigation() {
                     무료 메일받기
                   </motion.span>
                   <motion.span
-                    className="absolute inset-0 bg-emerald-600 rounded-3xl"
+                    className="absolute inset-0 rounded-3xl bg-emerald-500/20"
                     variants={{
-                      rest: { scaleX: 0, transformOrigin: 'left' },
+                      rest: {
+                        opacity: 0,
+                      },
                       hover: {
-                        scaleX: 1,
+                        opacity: 1,
                         transition: {
                           duration: 0.3,
                           ease: [0.19, 1, 0.22, 1],
@@ -173,7 +177,7 @@ function Navigation() {
                     }}
                     aria-hidden="true"
                   />
-                </motion.button>
+                </motion.div>
               </Link>
             </div>
 
