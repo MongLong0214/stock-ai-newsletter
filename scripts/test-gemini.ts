@@ -34,7 +34,7 @@ async function main() {
     const outputDir = join(process.cwd(), 'output');
     try {
       mkdirSync(outputDir, { recursive: true });
-    } catch (err) {
+    } catch {
       // 디렉토리가 이미 존재하는 경우 무시
     }
 
@@ -63,9 +63,9 @@ ${result}
 
     // JSON 파싱 시도
     try {
-      const parsed = JSON.parse(result);
+      const parsed = JSON.parse(result) as Array<{ name: string; ticker: string }>;
       console.log(`📦 추천 종목 수: ${parsed.length}개`);
-      parsed.forEach((stock: any, idx: number) => {
+      parsed.forEach((stock, idx: number) => {
         console.log(`  ${idx + 1}. ${stock.name} (${stock.ticker})`);
       });
     } catch {
