@@ -2,8 +2,8 @@ name: Daily Stock Newsletter
 
 on:
   schedule:
-    # 평일 오전 7:42 KST (UTC 22:42 전날, 월-금요일만)
-    - cron: '42 22 * * 0-4'
+    # 평일 오전 7:50 KST (UTC 22:50 전날, 월-금요일만)
+    - cron: '50 22 * * 0-4'
   workflow_dispatch: # 수동 실행 가능
 
 jobs:
@@ -57,7 +57,7 @@ jobs:
           # Application
           NEXT_PUBLIC_APP_URL: ${{ secrets.NEXT_PUBLIC_APP_URL }}
         run: |
-          echo "🚀 Starting newsletter generation and sending..."
+          echo "📧 Starting newsletter sending from prepared content..."
           npx tsx scripts/send-newsletter.ts
 
       - name: Cleanup credentials
