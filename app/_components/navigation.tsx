@@ -245,24 +245,6 @@ function Navigation() {
               </Link>
             ))}
           </nav>
-
-          {/* Mobile Subscribe Button */}
-          <div className="mt-auto pt-6 border-t border-emerald-500/20">
-            <Link href="/subscribe" onClick={() => setIsMobileMenuOpen(false)}>
-              <Button
-                variant="outline"
-                className="w-full relative group overflow-hidden bg-black/50 border-emerald-500/30 text-emerald-400 hover:text-black hover:border-emerald-400 transition-all duration-700 ease-out-expo focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 px-6 py-4 rounded-3xl cursor-pointer text-lg"
-              >
-                <span className="relative z-10 font-medium tracking-wide">
-                  무료 메일받기
-                </span>
-                <span
-                  className="absolute inset-0 bg-emerald-600 scale-x-0 group-hover:scale-x-100 transition-transform duration-700 ease-out-expo origin-left"
-                  aria-hidden="true"
-                />
-              </Button>
-            </Link>
-          </div>
         </div>
       </div>
     </>
