@@ -2,8 +2,8 @@ name: Prepare Stock Newsletter
 
 on:
   schedule:
-    # 평일 오전 7:30 KST (UTC 22:30 전날, 월-금요일만)
-    - cron: '30 22 * * 0-4'
+    # 평일 오전 7:00 KST (UTC 22:00 전날, 월-금요일만)
+    - cron: '0 22 * * 0-4'
   workflow_dispatch: # 수동 실행 가능
 
 jobs:
