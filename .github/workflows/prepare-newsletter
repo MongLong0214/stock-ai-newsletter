@@ -1,0 +1,58 @@
+name: Prepare Stock Newsletter
+
+on:
+  schedule:
+    # 평일 오전 7:30 KST (UTC 22:30 전날, 월-금요일만)
+    - cron: '30 22 * * 0-4'
+  workflow_dispatch: # 수동 실행 가능
+
+jobs:
+  prepare-newsletter:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Setup Google Cloud credentials
+        run: |
+          echo '${{ secrets.GOOGLE_CLOUD_CREDENTIALS }}' > $HOME/gcloud-key.json
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$HOME/gcloud-key.json" >> $GITHUB_ENV
+
+      - name: Prepare Newsletter (AI Analysis)
+        env:
+          # API Keys
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+
+          # Google Cloud (Vertex AI) - Gemini 전용
+          GOOGLE_CLOUD_PROJECT: ${{ secrets.GOOGLE_CLOUD_PROJECT }}
+          GOOGLE_CLOUD_LOCATION: us-central1
+
+          # Supabase
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+        run: |
+          echo "🚀 Starting AI analysis and content preparation..."
+          npx tsx scripts/prepare-newsletter.ts
+
+      - name: Cleanup credentials
+        if: always()
+        run: rm -f $HOME/gcloud-key.json
+
+      - name: Notify on success
+        if: success()
+        run: echo "✅ Newsletter content prepared successfully! Ready for 07:50 KST sending."
+
+      - name: Notify on failure
+        if: failure()
+        run: echo "❌ Newsletter preparation failed!!"
