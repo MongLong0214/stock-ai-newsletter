@@ -11,7 +11,6 @@ if (existsSync(envPath)) {
 
 import { createClient } from '@supabase/supabase-js';
 import { sendStockNewsletter } from '@/lib/sendgrid';
-import { getParallelAnalysis } from '@/lib/llm/parallel-analysis';
 import { postNewsletterToTwitter } from '@/lib/twitter';
 
 // 환경변수 검증
@@ -55,8 +54,30 @@ async function sendNewsletter() {
 
     console.log(`✅ ${subscribers.length}명의 구독자 발견\n`);
 
-    // 2. AI 분석 실행 (Gemini만 활성화)
-    const { geminiAnalysis } = await getParallelAnalysis();
+    // 2. DB에서 준비된 뉴스레터 가져오기
+    const today = new Date().toLocaleDateString('en-CA', {
+      timeZone: 'Asia/Seoul',
+    });
+
+    console.log(`📅 ${today} 뉴스레터 조회 중...`);
+
+    const { data: newsletterContent, error: contentError } = await supabase
+      .from('newsletter_content')
+      .select('*')
+      .eq('newsletter_date', today)
+      .eq('is_sent', false)
+      .single();
+
+    if (contentError || !newsletterContent) {
+      console.error('❌ Newsletter content not found:', contentError);
+      throw new Error(
+        `Newsletter content for ${today} not found. Please run prepare-newsletter first.`
+      );
+    }
+
+    console.log('✅ 뉴스레터 콘텐츠 로드 완료\n');
+
+    const geminiAnalysis = newsletterContent.gemini_analysis;
 
     // 3. 뉴스레터 데이터 생성
     const newsletterData = {
@@ -86,7 +107,21 @@ async function sendNewsletter() {
       console.log(`  ${index + 1}. ${sub.email}${sub.name ? ` (${sub.name})` : ''}`);
     });
 
-    // 5. X(Twitter) 자동 게시
+    // 5. DB 업데이트 (발송 완료 표시)
+    const { error: updateError } = await supabase
+      .from('newsletter_content')
+      .update({
+        is_sent: true,
+        sent_at: new Date().toISOString(),
+        subscriber_count: subscribers.length,
+      })
+      .eq('newsletter_date', today);
+
+    if (updateError) {
+      console.error('⚠️ DB 업데이트 실패 (뉴스레터는 정상 발송됨):', updateError);
+    }
+
+    // 6. X(Twitter) 자동 게시
     try {
       console.log('\n━'.repeat(80));
       console.log('🐦 X(Twitter) 자동 게시 시작...');
