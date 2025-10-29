@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { sendStockNewsletter } from '@/lib/sendgrid';
-import { getParallelAnalysis } from '@/lib/llm/parallel-analysis';
+import { getStockAnalysis } from '@/lib/llm/stock-analysis';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
     console.log(`✅ ${subscribers.length}명의 구독자 발견\n`);
 
     // 2. Gemini 분석 실행
-    const { geminiAnalysis } = await getParallelAnalysis();
+    const { geminiAnalysis } = await getStockAnalysis();
 
     // 3. 뉴스레터 데이터 생성
     const newsletterData = {
