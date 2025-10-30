@@ -9,9 +9,8 @@ import { isValidDateFormat } from '@/app/archive/_utils/date-formatting';
  * ISR 캐싱과 함께 특정 날짜의 뉴스레터 콘텐츠 반환
  *
  * 캐시 전략:
- * - 재검증: 86400초 (24시간)
- * - 발행된 뉴스레터 콘텐츠는 불변
- * - 더 나은 성능을 위한 적극적인 캐싱
+ * - 재검증: 3600초 (1시간)
+ * - 오전 8시 발송 후 최대 1시간 이내 아카이브 반영
  */
 export async function GET(
   request: NextRequest,
@@ -67,8 +66,8 @@ export async function GET(
       { newsletter },
       {
         headers: {
-          // 적극적인 캐싱: 24시간, 12시간 stale-while-revalidate
-          'Cache-Control': 'public, s-maxage=86400, stale-while-revalidate=43200',
+          // 1시간 캐싱
+          'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=1800',
         },
       }
     );
@@ -166,5 +165,5 @@ function parseAndValidateStocks(jsonString: string): { stocks: StockData[] | nul
   }
 }
 
-// 24시간 재검증으로 ISR 활성화
-export const revalidate = 86400; // 24시간 (초 단위)
+// 1시간 재검증으로 ISR 활성화
+export const revalidate = 3600; // 1시간 (초 단위)

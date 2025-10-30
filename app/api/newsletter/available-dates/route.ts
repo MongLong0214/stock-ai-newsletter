@@ -7,9 +7,8 @@ import { supabase } from '@/lib/supabase';
  * ISR 캐싱과 함께 사용 가능한 모든 뉴스레터 날짜 반환
  *
  * 캐시 전략:
- * - 재검증: 86400초 (24시간)
- * - 한국 시간 오전 8시 = UTC 전날 오후 11시
- * - 다음 재검증은 자정 UTC 이후 발생
+ * - 재검증: 3600초 (1시간)
+ * - 오전 8시 발송 후 최대 1시간 이내 아카이브 반영
  */
 export async function GET() {
   try {
@@ -33,7 +32,7 @@ export async function GET() {
       { dates },
       {
         headers: {
-          'Cache-Control': 'public, s-maxage=86400, stale-while-revalidate=43200',
+          'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=1800',
         },
       }
     );
@@ -46,5 +45,5 @@ export async function GET() {
   }
 }
 
-// 24시간 재검증으로 ISR 활성화
-export const revalidate = 86400; // 24시간 (초 단위)
+// 1시간 재검증으로 ISR 활성화
+export const revalidate = 3600; // 1시간 (초 단위)
