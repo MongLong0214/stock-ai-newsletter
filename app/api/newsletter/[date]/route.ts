@@ -124,7 +124,9 @@ function parseAndValidateStocks(jsonString: string): { stocks: StockData[] | nul
         return { stocks: null, error: errorMsg };
       }
 
-      if ('__proto__' in stock || 'constructor' in stock) {
+      // 보안: 프로토타입 오염 방어 - 객체가 직접 소유한 속성인지 확인
+      // 'in' 연산자는 프로토타입 체인도 검사하므로 hasOwn 사용
+      if (Object.hasOwn(stock, '__proto__') || Object.hasOwn(stock, 'constructor') || Object.hasOwn(stock, 'prototype')) {
         const errorMsg = `stocks[${i}]에 위험한 프로토타입 속성이 있습니다`;
         console.error('[API]', errorMsg);
         return { stocks: null, error: errorMsg };
