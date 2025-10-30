@@ -73,16 +73,29 @@ function parseAndValidateStocks(jsonString: string): StockData[] | null {
  * - 클라이언트 컴포넌트에 props로 전달
  */
 export default async function ArchivePage() {
-  // Supabase에서 발송된 모든 뉴스레터 가져오기
-  const { data, error } = await supabase
+  // 개발 환경에서는 is_sent = false인 뉴스레터도 표시
+  const isDevelopment = process.env.NODE_ENV === 'development';
+
+  console.log('[Archive Server] Fetching newsletters, isDevelopment:', isDevelopment);
+
+  // Supabase에서 뉴스레터 가져오기
+  let query = supabase
     .from('newsletter_content')
     .select('*')
-    .eq('is_sent', true)
     .order('newsletter_date', { ascending: false });
 
-  if (error) {
-    console.error('[Archive] Failed to fetch newsletters:', error);
+  // 프로덕션에서는 발송된 뉴스레터만 표시
+  if (!isDevelopment) {
+    query = query.eq('is_sent', true);
   }
+
+  const { data, error } = await query;
+
+  if (error) {
+    console.error('[Archive Server] Failed to fetch newsletters:', error);
+  }
+
+  console.log('[Archive Server] Fetched', data?.length || 0, 'newsletters');
 
   // 날짜별로 뉴스레터 매핑
   const newsletters: Record<string, NewsletterArchive> = {};
@@ -90,6 +103,7 @@ export default async function ArchivePage() {
 
   if (data) {
     for (const row of data) {
+      console.log('[Archive Server] Processing newsletter:', row.newsletter_date);
       const stocks = parseAndValidateStocks(row.gemini_analysis);
 
       if (stocks) {
@@ -102,9 +116,14 @@ export default async function ArchivePage() {
 
         newsletters[row.newsletter_date] = newsletter;
         availableDates.push(row.newsletter_date as DateString);
+        console.log('[Archive Server] ✓ Newsletter added:', row.newsletter_date, 'with', stocks.length, 'stocks');
+      } else {
+        console.error('[Archive Server] ✗ Failed to parse newsletter:', row.newsletter_date);
       }
     }
   }
+
+  console.log('[Archive Server] Total available dates:', availableDates.length);
 
   return <ArchiveClient initialNewsletters={newsletters} availableDates={availableDates} />;
 }
