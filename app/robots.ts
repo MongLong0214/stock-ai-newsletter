@@ -1,5 +1,7 @@
 import { MetadataRoute } from 'next';
 
+// #DaumWebMasterTool:4b0564f4ab4eddd8aeccac8c9b10fbcc6f1b5ed93990d9bc29bb5f246b12bb35:nFArT0OIkE5+7VCbwTnXuA==
+
 export default function robots(): MetadataRoute.Robots {
     const baseUrl = 'https://stockmatrix.co.kr';
 
