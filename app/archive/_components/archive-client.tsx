@@ -30,11 +30,24 @@ import { formatDisplayDate } from '../_utils/date-formatting';
  */
 
 interface ArchiveClientProps {
-  initialNewsletters: Record<string, NewsletterArchive>;
-  availableDates: DateString[];
+  newsletters: NewsletterArchive[];
 }
 
-export default function ArchiveClient({ initialNewsletters, availableDates }: ArchiveClientProps) {
+export default function ArchiveClient({ newsletters }: ArchiveClientProps) {
+  // 뉴스레터를 날짜별로 매핑 (클라이언트에서)
+  const newslettersByDate = useMemo(() => {
+    const map: Record<string, NewsletterArchive> = {};
+    newsletters.forEach(newsletter => {
+      map[newsletter.date] = newsletter;
+    });
+    return map;
+  }, [newsletters]);
+
+  // 사용 가능한 날짜 목록
+  const availableDates = useMemo(() => {
+    return newsletters.map(n => n.date);
+  }, [newsletters]);
+
   // 캘린더 상태 관리
   const [calendarState, setCalendarState] = useState({
     year: new Date().getFullYear(),
@@ -46,7 +59,7 @@ export default function ArchiveClient({ initialNewsletters, availableDates }: Ar
   const calendarButtonRef = useRef<HTMLButtonElement>(null);
 
   // 선택된 날짜의 뉴스레터 가져오기
-  const newsletter = selectedDate ? initialNewsletters[selectedDate] : null;
+  const newsletter = selectedDate ? newslettersByDate[selectedDate] : null;
   const isLoading = false;
   const error = null;
 

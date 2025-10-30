@@ -97,9 +97,8 @@ export default async function ArchivePage() {
 
   console.log('[Archive Server] Fetched', data?.length || 0, 'newsletters');
 
-  // 날짜별로 뉴스레터 매핑
-  const newsletters: Record<string, NewsletterArchive> = {};
-  const availableDates: DateString[] = [];
+  // 날짜별로 뉴스레터 배열로 수집
+  const newsletters: NewsletterArchive[] = [];
 
   if (data) {
     for (const row of data) {
@@ -114,8 +113,7 @@ export default async function ArchivePage() {
           subscriberCount: row.subscriber_count ?? 0,
         };
 
-        newsletters[row.newsletter_date] = newsletter;
-        availableDates.push(row.newsletter_date as DateString);
+        newsletters.push(newsletter);
         console.log('[Archive Server] ✓ Newsletter added:', row.newsletter_date, 'with', stocks.length, 'stocks');
       } else {
         console.error('[Archive Server] ✗ Failed to parse newsletter:', row.newsletter_date);
@@ -123,7 +121,7 @@ export default async function ArchivePage() {
     }
   }
 
-  console.log('[Archive Server] Total available dates:', availableDates.length);
+  console.log('[Archive Server] Total newsletters:', newsletters.length);
 
-  return <ArchiveClient initialNewsletters={newsletters} availableDates={availableDates} />;
+  return <ArchiveClient newsletters={newsletters} />;
 }
