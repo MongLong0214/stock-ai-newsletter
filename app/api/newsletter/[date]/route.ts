@@ -151,5 +151,5 @@ function parseAndValidateStocks(jsonString: string): StockData[] | null {
   }
 }
 
-// 24시간 재검증으로 ISR 활성화
-export const revalidate = 86400; // 24시간 (초 단위)
+// 60초 재검증으로 ISR 활성화 (개발/테스트용)
+export const revalidate = 60;
