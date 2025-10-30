@@ -15,11 +15,9 @@ import { isValidDateFormat } from '@/app/archive/_utils/date-formatting';
  */
 export async function GET(
   request: NextRequest,
-  context: { params: { date: string } | Promise<{ date: string }> }
+  { params }: { params: Promise<{ date: string }> }
 ) {
-  // Next.js 15: Route Handler params는 Promise가 아닐 수 있음
-  const params = context.params instanceof Promise ? await context.params : context.params;
-  const { date } = params;
+  const { date } = await params;
 
   // 보안: 날짜 형식 검증 (YYYY-MM-DD)
   if (!isValidDateFormat(date)) {
