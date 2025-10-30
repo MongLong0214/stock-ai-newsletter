@@ -1,0 +1,59 @@
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📊 Gemini Stock Analysis Result
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+⏱️  실행 시간: 1252.17초
+📅 생성 일시: 2025. 10. 29. 오후 4:56:25
+🤖 모델: gemini-2.5-pro
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+[
+  {
+    "ticker": "KOSDAQ:088800",
+    "name": "에이스테크",
+    "close_price": 2190,
+    "rationale": "SMA 단기 골든크로스 임박|RSI 48 중립권|MACD 상승 전환 초기|볼린저밴드 밴드폭 축소(스퀴즈)|Stochastic 침체 탈출 신호|Parabolic SAR 상승 전환|VWAP 현재가 상회|52주 위치 32% 바닥권|CCI 정상 범위|Force Index 매수 압력 발생|EMV 상승 용이|거래량 평균 하회",
+    "signals": {
+      "trend_score": 73,
+      "momentum_score": 84,
+      "volume_score": 79,
+      "volatility_score": 100,
+      "pattern_score": 62,
+      "sentiment_score": 89,
+      "overall_score": 91
+    }
+  },
+  {
+    "ticker": "KOSDAQ:258830",
+    "name": "세종메디칼",
+    "close_price": 412,
+    "rationale": "거래량 급증 동반 장대양봉|SMA 정배열 초기 진입|RSI 65 강세권 진입|MACD 골든크로스 발생|볼린저밴드 상단 돌파|Stochastic 과매수권 진입|OBV 급등|CCI 과매수권 진입|SuperTrend 매수 전환|52주 상위 85%|ADX 상승 추세 시작|ATR 변동성 확대",
+    "signals": {
+      "trend_score": 85,
+      "momentum_score": 92,
+      "volume_score": 95,
+      "volatility_score": 88,
+      "pattern_score": 80,
+      "sentiment_score": 91,
+      "overall_score": 90
+    }
+  },
+  {
+    "ticker": "KOSPI:000490",
+    "name": "대동",
+    "close_price": 9980,
+    "rationale": "기관/외국인 동시 순매수|5일선-20일선 골든크로스|RSI 55 상승 추세|MACD 0선 상향 돌파 임박|볼린저밴드 중단 지지 후 반등|Stochastic 상승 신호 유지|OBV 점진적 우상향|ADX 추세 강화 조짐|Parabolic SAR 상승 추세 유지|52주 상위 50%|MFI 자금 유입 지속|DMI 상승 압력 우위",
+    "signals": {
+      "trend_score": 88,
+      "momentum_score": 86,
+      "volume_score": 82,
+      "volatility_score": 75,
+      "pattern_score": 85,
+      "sentiment_score": 93,
+      "overall_score": 88
+    }
+  }
+]
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
