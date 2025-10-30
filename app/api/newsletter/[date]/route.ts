@@ -46,11 +46,12 @@ export async function GET(
     }
 
     // 보안: 검증을 통한 안전한 JSON 파싱
-    const stocks = parseAndValidateStocks(data.gemini_analysis);
+    const { stocks, error: validationError } = parseAndValidateStocks(data.gemini_analysis);
 
-    if (!stocks) {
+    if (!stocks || validationError) {
+      console.error('[API] Newsletter data validation failed:', validationError);
       return NextResponse.json(
-        { error: 'Invalid newsletter data format' },
+        { error: `Invalid newsletter data format: ${validationError}` },
         { status: 500 }
       );
     }
@@ -85,14 +86,15 @@ export async function GET(
  * JSON Bomb 공격 방지 및 프로토타입 오염 방어 포함
  *
  * @param jsonString - 파싱할 JSON 문자열
- * @returns 검증된 주식 데이터 배열 또는 null
+ * @returns 검증된 주식 데이터 배열 또는 에러 정보
  */
-function parseAndValidateStocks(jsonString: string): StockData[] | null {
+function parseAndValidateStocks(jsonString: string): { stocks: StockData[] | null; error: string | null } {
   // 보안: JSON Bomb 방지 - 크기 제한 체크
   const MAX_JSON_SIZE = 1024 * 1024; // 1MB
   if (jsonString.length > MAX_JSON_SIZE) {
-    console.error('[API] JSON too large:', jsonString.length);
-    return null;
+    const errorMsg = `JSON 크기가 너무 큽니다: ${jsonString.length} bytes (최대: ${MAX_JSON_SIZE} bytes)`;
+    console.error('[API]', errorMsg);
+    return { stocks: null, error: errorMsg };
   }
 
   try {
@@ -100,52 +102,65 @@ function parseAndValidateStocks(jsonString: string): StockData[] | null {
 
     // 검증: 배열이어야 함
     if (!Array.isArray(stocks)) {
-      console.error('[API] Invalid data: not an array');
-      return null;
+      const errorMsg = `데이터가 배열이 아닙니다. 타입: ${typeof stocks}, 값: ${JSON.stringify(stocks).substring(0, 200)}`;
+      console.error('[API]', errorMsg);
+      return { stocks: null, error: errorMsg };
     }
 
     // 검증: 배열 크기 제한 (최대 100개)
     if (stocks.length === 0 || stocks.length > 100) {
-      console.error('[API] Invalid array size:', stocks.length);
-      return null;
+      const errorMsg = `배열 크기가 잘못되었습니다: ${stocks.length} (허용 범위: 1-100)`;
+      console.error('[API]', errorMsg);
+      return { stocks: null, error: errorMsg };
     }
 
     // 검증: 각 주식은 필수 필드를 가져야 함
-    const isValid = stocks.every((stock) => {
-      return (
-        stock &&
-        typeof stock === 'object' &&
-        !('__proto__' in stock) && // 프로토타입 오염 방지
-        !('constructor' in stock) &&
-        typeof stock.ticker === 'string' &&
-        stock.ticker.length > 0 &&
-        typeof stock.name === 'string' &&
-        stock.name.length > 0 &&
-        typeof stock.close_price === 'number' &&
-        stock.close_price > 0 &&
-        typeof stock.rationale === 'string' &&
-        stock.rationale.length > 0 &&
-        stock.signals &&
-        typeof stock.signals === 'object' &&
-        typeof stock.signals.trend_score === 'number' &&
-        typeof stock.signals.momentum_score === 'number' &&
-        typeof stock.signals.volume_score === 'number' &&
-        typeof stock.signals.volatility_score === 'number' &&
-        typeof stock.signals.pattern_score === 'number' &&
-        typeof stock.signals.sentiment_score === 'number' &&
-        typeof stock.signals.overall_score === 'number'
-      );
-    });
+    for (let i = 0; i < stocks.length; i++) {
+      const stock = stocks[i];
 
-    if (!isValid) {
-      console.error('[API] Invalid data: missing required fields');
-      return null;
+      if (!stock || typeof stock !== 'object') {
+        const errorMsg = `stocks[${i}]이(가) 객체가 아닙니다: ${JSON.stringify(stock)}`;
+        console.error('[API]', errorMsg);
+        return { stocks: null, error: errorMsg };
+      }
+
+      if ('__proto__' in stock || 'constructor' in stock) {
+        const errorMsg = `stocks[${i}]에 위험한 프로토타입 속성이 있습니다`;
+        console.error('[API]', errorMsg);
+        return { stocks: null, error: errorMsg };
+      }
+
+      const missingFields: string[] = [];
+
+      if (typeof stock.ticker !== 'string' || stock.ticker.length === 0) missingFields.push('ticker');
+      if (typeof stock.name !== 'string' || stock.name.length === 0) missingFields.push('name');
+      if (typeof stock.close_price !== 'number' || stock.close_price <= 0) missingFields.push('close_price');
+      if (typeof stock.rationale !== 'string' || stock.rationale.length === 0) missingFields.push('rationale');
+
+      if (!stock.signals || typeof stock.signals !== 'object') {
+        missingFields.push('signals');
+      } else {
+        if (typeof stock.signals.trend_score !== 'number') missingFields.push('signals.trend_score');
+        if (typeof stock.signals.momentum_score !== 'number') missingFields.push('signals.momentum_score');
+        if (typeof stock.signals.volume_score !== 'number') missingFields.push('signals.volume_score');
+        if (typeof stock.signals.volatility_score !== 'number') missingFields.push('signals.volatility_score');
+        if (typeof stock.signals.pattern_score !== 'number') missingFields.push('signals.pattern_score');
+        if (typeof stock.signals.sentiment_score !== 'number') missingFields.push('signals.sentiment_score');
+        if (typeof stock.signals.overall_score !== 'number') missingFields.push('signals.overall_score');
+      }
+
+      if (missingFields.length > 0) {
+        const errorMsg = `stocks[${i}] (ticker: ${stock.ticker || 'unknown'})에 필수 필드가 없거나 잘못되었습니다: ${missingFields.join(', ')}\n데이터: ${JSON.stringify(stock).substring(0, 300)}`;
+        console.error('[API]', errorMsg);
+        return { stocks: null, error: errorMsg };
+      }
     }
 
-    return stocks as StockData[];
+    return { stocks: stocks as StockData[], error: null };
   } catch (err) {
-    console.error('[API] JSON parse error:', err instanceof Error ? err.message : 'Unknown error');
-    return null;
+    const errorMsg = `JSON 파싱 오류: ${err instanceof Error ? err.message : String(err)}\nJSON 샘플: ${jsonString.substring(0, 200)}...`;
+    console.error('[API]', errorMsg);
+    return { stocks: null, error: errorMsg };
   }
 }
 
