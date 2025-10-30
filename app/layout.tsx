@@ -76,7 +76,6 @@ export const metadata: Metadata = {
     google: '3SavpxZkoJOuLHdnV94F9xjHNL7rPyyTJjQGbfttv5g',
     other: {
       'naver-site-verification': '5ce857b8cfd4c2e2b15181ee3029b6fce6590c18',
-      'daum-site-verification': '4b0564f4ab4eddd8aeccac8c9b10fbcc6f1b5ed93990d9bc29bb5f246b12bb35:nFArT0OIkE5+7VCbwTnXuA==',
     },
   },
   category: 'finance',
