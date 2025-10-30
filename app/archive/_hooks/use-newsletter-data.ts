@@ -91,11 +91,16 @@ function useNewsletterData(selectedDate: DateString | null): UseNewsletterDataRe
         if (abortController.signal.aborted) return;
 
         if (!response.ok) {
-          if (response.status === 404) {
-            setError('해당 날짜의 뉴스레터가 없습니다.');
-          } else {
-            throw new Error('Failed to fetch newsletter');
+          // 서버에서 반환한 에러 메시지를 읽어서 표시
+          let errorMessage = `HTTP ${response.status}: `;
+          try {
+            const errorData = await response.json();
+            errorMessage += errorData.error || response.statusText;
+          } catch {
+            errorMessage += response.statusText || '알 수 없는 오류';
           }
+
+          setError(errorMessage);
           setNewsletter(null);
           setIsLoading(false);
           return;
@@ -120,7 +125,21 @@ function useNewsletterData(selectedDate: DateString | null): UseNewsletterDataRe
         }
 
         console.error('[Archive] Failed to fetch newsletter:', err);
-        setError('뉴스레터를 불러오는데 실패했습니다.');
+
+        // 실제 에러 메시지 추출 및 표시
+        let errorMessage = '뉴스레터를 불러오는데 실패했습니다.';
+        if (err instanceof Error) {
+          errorMessage += `\n\n[디버그 정보]\n에러: ${err.name}\n메시지: ${err.message}`;
+          if (err.stack) {
+            // 스택의 첫 몇 줄만 표시
+            const stackLines = err.stack.split('\n').slice(0, 3).join('\n');
+            errorMessage += `\n스택: ${stackLines}`;
+          }
+        } else {
+          errorMessage += `\n\n[디버그 정보]\n알 수 없는 에러: ${String(err)}`;
+        }
+
+        setError(errorMessage);
         setNewsletter(null);
         setIsLoading(false);
       }

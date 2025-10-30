@@ -359,17 +359,21 @@ export default function ArchivePage() {
                     className="
                       rounded-2xl border border-red-500/30
                       bg-red-500/10 backdrop-blur-xl
-                      p-8 text-center
+                      p-8
                       shadow-[0_0_30px_rgba(239,68,68,0.2)]
                     "
                   >
-                    <p className="text-lg text-red-400 font-medium mb-4">{error}</p>
-                    <button
-                      onClick={() => window.location.reload()}
-                      className="px-4 py-2 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-300 font-medium transition-colors"
-                    >
-                      다시 시도
-                    </button>
+                    <p className="text-lg text-red-400 font-medium mb-4 whitespace-pre-line text-left font-mono text-sm">
+                      {error}
+                    </p>
+                    <div className="text-center mt-6">
+                      <button
+                        onClick={() => window.location.reload()}
+                        className="px-4 py-2 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-300 font-medium transition-colors"
+                      >
+                        다시 시도
+                      </button>
+                    </div>
                   </motion.div>
                 )}
 
