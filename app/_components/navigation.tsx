@@ -22,6 +22,7 @@ function Navigation() {
   const navigationLinks = [
     { href: '/', label: '홈' },
     { href: '/about', label: '서비스 소개' },
+    { href: '/archive', label: '아카이브' },
     { href: '/technical-indicators', label: '기술 지표 가이드' },
     { href: '/faq', label: 'FAQ' },
   ];
