@@ -1,0 +1,59 @@
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📊 Gemini Stock Analysis Result
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+⏱️  실행 시간: 534.76초
+📅 생성 일시: 2025. 10. 29. 오후 3:34:54
+🤖 모델: gemini-2.5-pro
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+[
+  {
+    "ticker": "KOSPI:005930",
+    "name": "삼성전자",
+    "close_price": 99500,
+    "rationale": "SMA 완전정배열추정|EMA 골든크로스추정|RSI 58.3 중립 강세권|MACD 양전환|거래량비율 155% 건전한증가|볼린저밴드 상단접근|ADX 26 강한상승추세|OBV 지속상승|Stochastic 상승전환|Williams %R -32 중립강세|CCI 130 상승모멘텀|Parabolic SAR 매수신호|Ichimoku 호전|Aroon Up:92 Down:16 강한상승",
+    "signals": {
+      "trend_score": 100,
+      "momentum_score": 94,
+      "volume_score": 100,
+      "volatility_score": 90,
+      "pattern_score": 80,
+      "sentiment_score": 92,
+      "overall_score": 95
+    }
+  },
+  {
+    "ticker": "KOSPI:000660",
+    "name": "SK하이닉스",
+    "close_price": 521000,
+    "rationale": "SMA 완전정배열|EMA 골든크로스|RSI 62.5 강세권 진입|MACD 양전환|거래량비율 180% 건전한증가|볼린저밴드 상단접근|ADX 29 강한상승추세|OBV 지속상승|Stochastic 상승전환|ROC 5.5% 강한상승|CCI 150 상승모멘텀|MFI 68 자금 유입|Parabolic SAR 매수신호|Aroon Up:96 Down:8 강한상승",
+    "signals": {
+      "trend_score": 100,
+      "momentum_score": 89,
+      "volume_score": 100,
+      "volatility_score": 81,
+      "pattern_score": 55,
+      "sentiment_score": 91,
+      "overall_score": 89
+    }
+  },
+  {
+    "ticker": "KOSPI:034020",
+    "name": "두산에너빌리티",
+    "close_price": 86400,
+    "rationale": "SMA 정배열|EMA 정배열상태|RSI 68.0 상승추세 지속|MACD 양전환|거래량비율 250% 단기급증|볼린저밴드 상단돌파|ADX 35 강한상승추세|OBV 급격상승|Donchian 신고가돌파|Aroon Up:100 Down:0 강한상승|Elder Ray 강한매수세|Force Index 강한매수압력|Vortex 상승추세",
+    "signals": {
+      "trend_score": 100,
+      "momentum_score": 69,
+      "volume_score": 92,
+      "volatility_score": 69,
+      "pattern_score": 80,
+      "sentiment_score": 79,
+      "overall_score": 83
+    }
+  }
+]
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
