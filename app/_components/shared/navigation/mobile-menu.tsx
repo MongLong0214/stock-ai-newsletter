@@ -15,25 +15,48 @@ function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
 
   return (
     <>
-      {/* Backdrop - 완전 불투명 */}
-      <div
+      {/* Backdrop - 완전 불투명, 네비게이션 영역 제외 */}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{
+          duration: 0.35,
+          ease: 'easeInOut',
+          exit: { duration: 0.45, ease: 'easeIn' }
+        }}
         className="fixed inset-0 bg-black z-40 lg:hidden"
+        style={{ top: '64px' }}
         onClick={onClose}
       />
 
       {/* Menu Panel - 최고 성능 슬라이드 */}
       <motion.div
-        initial={{ x: '100%' }}
-        animate={{ x: 0 }}
-        exit={{ x: '100%' }}
+        initial={{ x: '100%', opacity: 0 }}
+        animate={{ x: 0, opacity: 1 }}
+        exit={{ x: '100%', opacity: 0 }}
         transition={{
-          type: 'tween',
-          duration: 0.25,
-          ease: [0.32, 0.72, 0, 1], // iOS native ease
+          x: {
+            type: 'spring',
+            damping: 35,
+            stiffness: 250,
+            mass: 1,
+          },
+          opacity: { duration: 0.3 },
+          exit: {
+            x: {
+              type: 'spring',
+              damping: 40,
+              stiffness: 200,
+              mass: 1.2,
+            },
+            opacity: { duration: 0.4 }
+          }
         }}
-        className="fixed top-0 right-0 bottom-0 w-[85%] max-w-sm bg-black border-l border-emerald-500/20 z-50 lg:hidden overflow-hidden"
+        className="fixed right-0 bottom-0 w-full max-w-md bg-black z-50 lg:hidden overflow-hidden"
         style={{
-          willChange: 'transform',
+          top: '64px',
+          willChange: 'transform, opacity',
           transform: 'translate3d(0, 0, 0)',
           WebkitBackfaceVisibility: 'hidden',
           WebkitTransform: 'translate3d(0, 0, 0)',
@@ -45,35 +68,7 @@ function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
 
         {/* Scrollable content */}
         <div className="relative h-full overflow-y-auto">
-          <div className="relative flex flex-col h-full p-6">
-          {/* Header - 정적 렌더링 */}
-          <div className="flex items-center justify-between mb-8 pt-12">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-emerald-500/20 to-emerald-600/10 border border-emerald-500/30 flex items-center justify-center">
-                <svg
-                  className="w-6 h-6 text-emerald-400"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <polyline points="3 17 7 13 11 15 17 9 21 4" />
-                  <circle cx="21" cy="4" r="1.5" fill="currentColor" />
-                </svg>
-              </div>
-              <div className="flex flex-col">
-                <span className="text-lg font-bold text-emerald-400">
-                  Stock Matrix
-                </span>
-                <span className="text-[10px] text-emerald-500/60 tracking-widest">
-                  AI ANALYSIS
-                </span>
-              </div>
-            </div>
-          </div>
-
+          <div className="relative flex flex-col h-full p-6 pt-8">
           {/* Navigation Links - 진입 시만 애니메이션 */}
           <nav className="flex flex-col gap-2 mb-8">
             {NAVIGATION_LINKS.map((link, index) => {
@@ -83,14 +78,16 @@ function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
               return (
                 <motion.div
                   key={link.href}
-                  initial={{ opacity: 0, x: 20 }}
+                  initial={{ opacity: 0, x: 30 }}
                   animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 20 }}
                   transition={{
-                    delay: index * 0.05,
-                    duration: 0.2,
-                    ease: 'easeOut',
+                    type: 'spring',
+                    damping: 25,
+                    stiffness: 300,
+                    delay: index * 0.04,
                   }}
-                  style={{ willChange: 'auto' }}
+                  style={{ willChange: 'transform, opacity' }}
                 >
                   <Link
                     href={link.href}
@@ -132,21 +129,27 @@ function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
 
           {/* Mobile Subscribe Button */}
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 20 }}
             transition={{
-              delay: 0.3,
-              duration: 0.2,
-              ease: 'easeOut',
+              type: 'spring',
+              damping: 25,
+              stiffness: 300,
+              delay: 0.25,
             }}
-            style={{ willChange: 'auto' }}
+            style={{ willChange: 'transform, opacity' }}
             className="mt-auto"
           >
             <Link href="/subscribe" onClick={onClose}>
               <motion.div
                 className="group relative px-6 py-4 rounded-xl overflow-hidden border border-emerald-500/30 bg-emerald-500/10"
-                whileTap={{ scale: 0.97 }}
-                transition={{ duration: 0.2 }}
+                whileTap={{ scale: 0.96 }}
+                transition={{
+                  type: 'spring',
+                  damping: 20,
+                  stiffness: 400,
+                }}
               >
                 {/* Glow effect */}
                 <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/20 to-emerald-400/20 rounded-xl opacity-0 group-active:opacity-100 transition-opacity duration-300" />
