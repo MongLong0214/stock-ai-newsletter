@@ -2,10 +2,12 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { motion } from 'framer-motion';
 
 function Navigation() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const pathname = usePathname();
 
   // Body scroll lock when mobile menu is open
   useEffect(() => {
@@ -20,11 +22,11 @@ function Navigation() {
   }, [isMobileMenuOpen]);
 
   const navigationLinks = [
-    { href: '/', label: '홈' },
-    { href: '/about', label: '서비스 소개' },
-    { href: '/archive', label: '아카이브' },
-    { href: '/technical-indicators', label: '기술 지표 가이드' },
-    { href: '/faq', label: 'FAQ' },
+    { href: '/', label: '홈', highlighted: false },
+    { href: '/archive', label: '아카이브', highlighted: true },
+    { href: '/about', label: '서비스 소개', highlighted: false },
+    { href: '/technical-indicators', label: '기술 지표 가이드', highlighted: false },
+    { href: '/faq', label: 'FAQ', highlighted: false },
   ];
 
   return (
@@ -46,60 +48,83 @@ function Navigation() {
 
             {/* Desktop Navigation */}
             <div className="hidden md:flex items-center gap-2">
-              {navigationLinks.map((link) => (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  className="relative"
-                >
-                  <motion.div
-                    className="relative px-4 py-2 text-sm font-light tracking-wide focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500 rounded-3xl"
-                    initial="rest"
-                    whileHover="hover"
-                    whileTap="tap"
-                    variants={{
-                      rest: {
-                        scale: 1,
-                      },
-                      hover: {
-                        scale: 1.05,
-                        transition: {
-                          duration: 0.3,
-                          ease: [0.19, 1, 0.22, 1],
-                        },
-                      },
-                      tap: {
-                        scale: 0.98,
-                        transition: {
-                          duration: 0.1,
-                        },
-                      },
-                    }}
+              {navigationLinks.map((link) => {
+                const isActive = link.href === '/'
+                  ? pathname === '/'
+                  : pathname === link.href || pathname.startsWith(link.href + '/');
+
+                return (
+                  <Link
+                    key={link.href}
+                    href={link.href}
+                    className="relative"
                   >
-                    <motion.span
-                      className="relative z-10"
+                    <motion.div
+                      className={`relative px-4 py-2 text-sm tracking-wide focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500 rounded-3xl ${
+                        isActive
+                          ? 'font-semibold'
+                          : link.highlighted
+                          ? 'font-bold'
+                          : 'font-light'
+                      }`}
+                      initial="rest"
+                      whileHover="hover"
+                      whileTap="tap"
                       variants={{
-                        rest: { color: 'rgb(203, 213, 225)' },
+                        rest: {
+                          scale: 1,
+                          boxShadow: '0 0 0px rgba(16, 185, 129, 0)',
+                        },
                         hover: {
-                          color: 'rgb(52, 211, 153)',
+                          scale: 1.05,
+                          boxShadow: link.highlighted ? '0 0 25px rgba(16, 185, 129, 0.35)' : '0 0 20px rgba(16, 185, 129, 0.2)',
                           transition: {
                             duration: 0.3,
                             ease: [0.19, 1, 0.22, 1],
                           },
                         },
+                        tap: {
+                          scale: 0.98,
+                          transition: {
+                            duration: 0.1,
+                          },
+                        },
                       }}
                     >
-                      {link.label}
-                    </motion.span>
-                    <motion.span
-                      className="absolute inset-0 rounded-3xl bg-emerald-500/5"
-                      variants={{
-                        rest: {
-                          scale: 0,
-                          opacity: 0,
-                          boxShadow: '0 0 0px rgba(16, 185, 129, 0)',
-                        },
-                        hover: {
+                      <motion.span
+                        className="relative z-10"
+                        variants={{
+                          rest: {
+                            color: isActive
+                              ? 'rgb(255, 255, 255)'
+                              : link.highlighted
+                              ? 'rgb(52, 211, 153)'
+                              : 'rgb(203, 213, 225)'
+                          },
+                          hover: {
+                            color: 'rgb(167, 243, 208)',
+                            transition: {
+                              duration: 0.3,
+                              ease: [0.19, 1, 0.22, 1],
+                            },
+                          },
+                        }}
+                      >
+                        {link.label}
+                      </motion.span>
+                      <motion.span
+                        className={`absolute inset-0 rounded-3xl ${
+                          isActive ? 'bg-emerald-500/20' : 'bg-emerald-500/5'
+                        }`}
+                        initial={{
+                          scale: isActive ? 1 : 0,
+                          opacity: isActive ? 1 : 0,
+                        }}
+                        animate={{
+                          scale: isActive ? 1 : 0,
+                          opacity: isActive ? 1 : 0,
+                        }}
+                        whileHover={{
                           scale: 1,
                           opacity: 1,
                           boxShadow: '0 0 20px rgba(16, 185, 129, 0.2)',
@@ -107,13 +132,26 @@ function Navigation() {
                             duration: 0.3,
                             ease: [0.19, 1, 0.22, 1],
                           },
-                        },
-                      }}
-                      aria-hidden="true"
-                    />
-                  </motion.div>
-                </Link>
-              ))}
+                        }}
+                        transition={{
+                          duration: 0.3,
+                          ease: [0.19, 1, 0.22, 1],
+                        }}
+                        aria-hidden="true"
+                      />
+                      {isActive && (
+                        <motion.span
+                          className="absolute -bottom-2.5 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-emerald-400"
+                          initial={{ scale: 0, opacity: 0 }}
+                          animate={{ scale: 1, opacity: 1 }}
+                          transition={{ duration: 0.3, ease: [0.19, 1, 0.22, 1] }}
+                          aria-hidden="true"
+                        />
+                      )}
+                    </motion.div>
+                  </Link>
+                );
+              })}
             </div>
 
             {/* Desktop Subscribe Button */}
@@ -223,27 +261,53 @@ function Navigation() {
 
       {/* Mobile Menu Panel */}
       <div
-        className={`fixed top-0 left-0 w-full h-screen bg-slate-900/95 backdrop-blur-xl border-b border-emerald-500/20 z-40 md:hidden transition-transform duration-700 ease-out-expo ${
+        className={`fixed top-0 left-0 w-full h-screen bg-gradient-to-b from-slate-950/98 to-slate-900/98 backdrop-blur-2xl z-40 md:hidden transition-transform duration-700 ease-out-expo ${
           isMobileMenuOpen ? 'translate-y-0' : '-translate-y-full'
         }`}
       >
-        <div className="flex flex-col h-full pt-24 px-6 pb-6">
+        <div className="flex flex-col h-full pt-24 px-6 pb-8">
           {/* Mobile Navigation Links */}
           <nav className="flex flex-col gap-2">
-            {navigationLinks.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                onClick={() => setIsMobileMenuOpen(false)}
-                className="group relative px-6 py-4 text-lg font-light tracking-wide text-slate-300 hover:text-emerald-400 transition-colors duration-700 ease-out-expo focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500 rounded-3xl"
-              >
-                <span className="relative z-10">{link.label}</span>
-                <span
-                  className="absolute inset-0 rounded-3xl bg-emerald-500/5 scale-0 group-hover:scale-100 transition-transform duration-700 ease-out-expo"
-                  aria-hidden="true"
-                />
-              </Link>
-            ))}
+            {navigationLinks.map((link) => {
+              const isActive = pathname === link.href;
+
+              return (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className={`group relative px-5 py-3.5 text-base tracking-wide transition-all duration-500 ease-out-expo focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500 rounded-xl ${
+                    isActive
+                      ? 'font-semibold text-white'
+                      : link.highlighted
+                      ? 'font-bold text-emerald-400'
+                      : 'font-light text-slate-400'
+                  }`}
+                >
+                  <span className="relative z-10 flex items-center justify-between">
+                    <span className="flex items-center gap-3">
+                      {link.label}
+                      {link.highlighted && !isActive && (
+                        <span className="text-[9px] font-bold text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/30">
+                          NEW
+                        </span>
+                      )}
+                    </span>
+                    {isActive && (
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(16,185,129,0.8)]" />
+                    )}
+                  </span>
+                  <span
+                    className={`absolute inset-0 rounded-xl transition-all duration-500 ease-out-expo ${
+                      isActive
+                        ? 'bg-gradient-to-r from-emerald-500/15 to-emerald-500/5 scale-100 border border-emerald-500/20'
+                        : 'bg-slate-800/30 scale-0 group-hover:scale-100 border border-transparent group-hover:border-slate-700/50'
+                    }`}
+                    aria-hidden="true"
+                  />
+                </Link>
+              );
+            })}
           </nav>
         </div>
       </div>
