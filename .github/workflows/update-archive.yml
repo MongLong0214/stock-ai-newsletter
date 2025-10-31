@@ -17,6 +17,8 @@ on:
 jobs:
   update-archive:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     # daily-newsletter가 성공했을 때만 실행 (workflow_run 트리거인 경우)
     if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
@@ -47,8 +49,7 @@ jobs:
       - name: Check for changes
         id: check_changes
         run: |
-          git add app/archive/_archive-data/archives.json
-          if git diff --cached --quiet app/archive/_archive-data/archives.json; then
+          if git diff --quiet app/archive/_archive-data/archives.json; then
             echo "changed=false" >> $GITHUB_OUTPUT
             echo "ℹ️  변경 사항 없음"
           else
