@@ -195,12 +195,12 @@ function parseAndValidateStocks(jsonString: string): StockData[] | null {
  * @param data - 저장할 데이터
  */
 function saveToFile(data: unknown) {
-  const outputDir = resolve(process.cwd(), 'app/data');
+  const outputDir = resolve(process.cwd(), 'app/archive/_archive-data');
   const outputPath = resolve(outputDir, 'archives.json');
 
   // 디렉토리가 없으면 생성
   if (!existsSync(outputDir)) {
-    console.log('📁 app/data 디렉토리 생성 중...');
+    console.log('📁 app/archive/_archive-data 디렉토리 생성 중...');
     mkdirSync(outputDir, { recursive: true });
   }
 

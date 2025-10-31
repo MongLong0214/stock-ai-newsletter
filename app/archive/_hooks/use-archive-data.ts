@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import archiveData from '@/app/data/archives.json';
+import archiveData from '../_archive-data/archives.json';
 import type { NewsletterArchive, DateString } from '../_types/archive.types';
 
 interface UseArchiveDataReturn {
