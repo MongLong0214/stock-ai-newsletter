@@ -153,7 +153,7 @@ function Navigation() {
             {/* Mobile Menu Button */}
             <motion.button
               onClick={toggleMobileMenu}
-              className="lg:hidden relative p-2 text-emerald-400 hover:text-emerald-300 transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 focus:ring-offset-black rounded-lg"
+              className="lg:hidden relative p-2 text-emerald-400 hover:text-emerald-300 transition-colors duration-300 focus:outline-none focus:ring-offset-black rounded-lg"
               whileTap={{ scale: 0.9 }}
             >
               <div className="w-6 h-5 relative flex flex-col justify-between">

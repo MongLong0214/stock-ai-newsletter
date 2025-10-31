@@ -7,7 +7,7 @@ import { motion } from 'framer-motion';
 function ServiceIntroSection(): JSX.Element {
   return (
     <section
-      className="relative py-16 lg:py-20 px-6 lg:px-8"
+      className="relative py-8 lg:py-20 px-6 lg:px-8"
       aria-labelledby="service-intro-heading"
     >
       <div className="max-w-4xl mx-auto relative z-10">
