@@ -2,18 +2,19 @@
 
 import { memo, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { TrendingUp, DollarSign } from 'lucide-react';
+import { TrendingUp } from 'lucide-react';
 import ScoreBadge from './score-badge';
-import type { StockData } from '../_types/archive.types';
+import type { StockData, DateString } from '../_types/archive.types';
 import { formatPrice } from '../_utils/price-formatting';
 import { getOverallScoreColor } from '../_utils/score-formatting';
-import { DURATION, EASING, getStaggerDelay, SPRING } from '../_constants/animation';
+import { DURATION, EASING, getStaggerDelay } from '../_constants/animation';
 import { useReducedMotion } from '../_hooks/use-reduced-motion';
 
 interface NewsletterCardProps {
   stock: StockData;
   index: number;
   maxRationaleItems: number;
+  newsletterDate: DateString;
 }
 
 /**
@@ -46,7 +47,7 @@ interface NewsletterCardProps {
  * - aria-hidden="true"가 적용된 장식용 아이콘
  * - 키보드 네비게이션을 위한 focus-visible ring
  */
-const NewsletterCard = memo(function NewsletterCard({ stock, index, maxRationaleItems }: NewsletterCardProps) {
+const NewsletterCard = memo(function NewsletterCard({ stock, index, maxRationaleItems, newsletterDate }: NewsletterCardProps) {
   const { ticker, name, close_price, rationale, signals } = stock;
   const shouldReduceMotion = useReducedMotion();
 
@@ -57,6 +58,18 @@ const NewsletterCard = memo(function NewsletterCard({ stock, index, maxRationale
   );
 
   const formattedPrice = useMemo(() => formatPrice(close_price), [close_price]);
+
+  // 전일 영업일 날짜 계산 (주말 건너뛰기)
+  const previousDate = useMemo(() => {
+    const date = new Date(newsletterDate);
+    const dayOfWeek = date.getDay(); // 0: 일요일, 1: 월요일, ..., 6: 토요일
+
+    // 월요일(1)이면 3일 전(금요일), 그 외는 1일 전
+    const daysToSubtract = dayOfWeek === 1 ? 3 : 1;
+
+    date.setDate(date.getDate() - daysToSubtract);
+    return `${date.getMonth() + 1}월 ${date.getDate()}일`;
+  }, [newsletterDate]);
 
   // rationale 아이템 분리
   const rationaleItems = useMemo(() => rationale.split('|'), [rationale]);
@@ -152,12 +165,16 @@ const NewsletterCard = memo(function NewsletterCard({ stock, index, maxRationale
           duration: DURATION.normal,
           delay: getStaggerDelay(index, 0.3),
         }}
-        className="flex items-center gap-2 mb-6 h-[40px]"
+        className="flex justify-end items-center gap-2 mb-6 h-[40px]"
       >
-        <DollarSign className="w-5 h-5 text-emerald-400" aria-hidden="true" />
-        <span className="text-2xl font-bold text-white font-mono tabular-nums">
-          {formattedPrice}
-        </span>
+        <div className="flex flex-col gap-0.5 items-end">
+          <span className="text-2xl font-bold text-white font-mono tabular-nums">
+            {formattedPrice}
+          </span>
+          <span className="text-[10px] text-slate-500 font-normal">
+            ({previousDate} 종가 기준)
+          </span>
+        </div>
       </motion.div>
 
       {/* 추천 근거 - 동적 높이로 일관성 유지 */}

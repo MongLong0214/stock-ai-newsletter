@@ -105,9 +105,7 @@ const MiniCalendar = memo(function MiniCalendar({
             text-slate-400 hover:text-emerald-400
             hover:bg-emerald-500/10
             transition-all duration-200
-            focus-visible:outline-none focus-visible:ring-2
-            focus-visible:ring-emerald-500 focus-visible:ring-offset-2
-            focus-visible:ring-offset-black
+            focus-visible:outline-none
           "
         >
           <ChevronLeft className="w-5 h-5" aria-hidden="true" />
@@ -125,9 +123,7 @@ const MiniCalendar = memo(function MiniCalendar({
             text-slate-400 hover:text-emerald-400
             hover:bg-emerald-500/10
             transition-all duration-200
-            focus-visible:outline-none focus-visible:ring-2
-            focus-visible:ring-emerald-500 focus-visible:ring-offset-2
-            focus-visible:ring-offset-black
+            focus-visible:outline-none
           "
         >
           <ChevronRight className="w-5 h-5" aria-hidden="true" />
