@@ -110,11 +110,11 @@ function Footer() {
                     </li>
                     <li>
                       <Link
-                        href="/#sample"
+                        href="/archive"
                         className="text-slate-400 hover:text-emerald-400 text-sm transition-colors duration-200 block"
-                        title="샘플 뉴스레터 보기"
+                        title="과거 뉴스레터 보기"
                       >
-                        샘플 보기
+                        아카이브
                       </Link>
                     </li>
                   </ul>
@@ -155,6 +155,15 @@ function Footer() {
                     지원
                   </h3>
                   <ul className="space-y-3">
+                    <li>
+                      <Link
+                        href="/faq"
+                        className="text-slate-400 hover:text-emerald-400 text-sm transition-colors duration-200 block"
+                        title="자주 묻는 질문"
+                      >
+                        FAQ
+                      </Link>
+                    </li>
                     <li>
                       <a
                         href="mailto:aistockmatrix@gmail.com"

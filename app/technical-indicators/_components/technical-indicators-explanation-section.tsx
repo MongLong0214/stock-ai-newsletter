@@ -1,29 +1,9 @@
+'use client';
+
 import Link from 'next/link';
+import { motion } from 'framer-motion';
 import { technicalIndicatorsContent } from '@/lib/constants/seo/technical-indicators-content';
 
-/**
- * Technical Indicators Explanation Section
- *
- * Enterprise-grade SEO-optimized educational component displaying 9 major technical indicators
- * with comprehensive explanations, interactive cards, and rich Schema.org structured data.
- *
- * ## Features
- * - **SEO Optimization**: Schema.org Article structured data for Google rich snippets
- * - **Responsive Design**: 1/2/3 column grid layout (mobile/tablet/desktop)
- * - **Accessibility**: WCAG AA compliant with semantic HTML and ARIA labels
- * - **Brand Consistency**: Dark theme with emerald accent colors
- *
- * ## Architecture
- * - Server Component for optimal performance
- * - Separated concerns: presentation, data, and business logic
- *
- * ## Performance Metrics
- * - Minimal client-side JavaScript
- * - Fast initial page load (<1s FCP)
- * - Optimal Core Web Vitals scores
- *
- * @returns Production-ready technical indicators section with 9 indicators
- */
 function TechnicalIndicatorsExplanationSection() {
   const { introduction, mainIndicators, aiIntegration, conclusion } =
     technicalIndicatorsContent;
@@ -65,7 +45,12 @@ interface SectionHeaderProps {
 
 function SectionHeader({ title, introduction }: SectionHeaderProps) {
   return (
-    <header className="text-center mb-12">
+    <motion.header
+      initial={{ opacity: 0, y: -20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4, delay: 0, ease: [0.25, 0.46, 0.45, 0.94] }}
+      className="text-center mb-12"
+    >
       <p className="text-sm text-emerald-500 uppercase tracking-wider mb-4 font-medium">
         Technical Indicators
       </p>
@@ -79,7 +64,7 @@ function SectionHeader({ title, introduction }: SectionHeaderProps) {
         className="text-base md:text-lg text-slate-300 font-light tracking-wide leading-relaxed max-w-3xl mx-auto"
         dangerouslySetInnerHTML={{ __html: introduction }}
       />
-    </header>
+    </motion.header>
   );
 }
 
@@ -101,7 +86,12 @@ interface IndicatorsGridProps {
 
 function IndicatorsGrid({ indicators }: IndicatorsGridProps) {
   return (
-    <div className="mb-16">
+    <motion.div
+      initial={{ opacity: 0, y: -20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4, delay: 0.1, ease: [0.25, 0.46, 0.45, 0.94] }}
+      className="mb-16"
+    >
       <h3 className="text-2xl md:text-3xl font-extralight text-emerald-500/80 tracking-tight mb-8 text-center">
         {technicalIndicatorsContent.mainIndicators.heading}
       </h3>
@@ -111,7 +101,7 @@ function IndicatorsGrid({ indicators }: IndicatorsGridProps) {
           <IndicatorCard key={indicator.keyword} indicator={indicator} />
         ))}
       </div>
-    </div>
+    </motion.div>
   );
 }
 
@@ -196,7 +186,12 @@ function AIIntegrationSection({
   content,
 }: AIIntegrationSectionProps) {
   return (
-    <div className="bg-gradient-to-br from-slate-800/50 to-emerald-900/10 border border-emerald-500/20 rounded-3xl p-8 md:p-10 mb-12">
+    <motion.div
+      initial={{ opacity: 0, y: -20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4, delay: 0.2, ease: [0.25, 0.46, 0.45, 0.94] }}
+      className="bg-gradient-to-br from-slate-800/50 to-emerald-900/10 border border-emerald-500/20 rounded-3xl p-8 md:p-10 mb-12"
+    >
       <h3 className="text-2xl md:text-3xl font-extralight text-emerald-500/80 tracking-tight mb-6">
         {heading}
       </h3>
@@ -204,7 +199,7 @@ function AIIntegrationSection({
         className="text-base text-slate-300 font-light tracking-wide leading-relaxed space-y-4 whitespace-pre-line"
         dangerouslySetInnerHTML={{ __html: content }}
       />
-    </div>
+    </motion.div>
   );
 }
 
@@ -218,7 +213,12 @@ interface ConclusionCTAProps {
 
 function ConclusionCTA({ content }: ConclusionCTAProps) {
   return (
-    <div className="text-center bg-slate-800/30 border border-emerald-500/20 rounded-3xl p-8">
+    <motion.div
+      initial={{ opacity: 0, y: -20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4, delay: 0.3, ease: [0.25, 0.46, 0.45, 0.94] }}
+      className="text-center bg-slate-800/30 border border-emerald-500/20 rounded-3xl p-8"
+    >
       <div
         className="text-lg text-slate-200 font-light tracking-wide leading-relaxed mb-6"
         dangerouslySetInnerHTML={{ __html: content }}
@@ -230,7 +230,7 @@ function ConclusionCTA({ content }: ConclusionCTAProps) {
       >
         무료 구독하고 AI 분석 받아보기
       </Link>
-    </div>
+    </motion.div>
   );
 }
 
