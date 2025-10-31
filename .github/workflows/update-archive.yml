@@ -47,7 +47,7 @@ jobs:
       - name: Check for changes
         id: check_changes
         run: |
-          if git diff --quiet app/data/archives.json; then
+          if git diff --quiet app/archive/_archive-data/archives.json; then
             echo "changed=false" >> $GITHUB_OUTPUT
             echo "ℹ️  변경 사항 없음"
           else
@@ -60,7 +60,7 @@ jobs:
         run: |
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
-          git add app/data/archives.json
+          git add app/archive/_archive-data/archives.json
           git commit -m "chore: update archive data [skip ci]
 
           📅 Updated at: $(TZ=Asia/Seoul date '+%Y-%m-%d %H:%M:%S %Z')
