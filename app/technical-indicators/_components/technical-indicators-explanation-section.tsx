@@ -30,7 +30,7 @@ function TechnicalIndicatorsExplanationSection() {
 
   return (
     <section
-      className="relative py-16 lg:py-20 px-6 lg:px-8 bg-slate-900/30"
+      className="relative py-16 lg:py-20 px-6 lg:px-8"
       aria-labelledby="technical-indicators-heading"
     >
       <div className="max-w-6xl mx-auto relative z-10">

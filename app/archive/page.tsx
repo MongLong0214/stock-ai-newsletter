@@ -11,44 +11,35 @@ import type { DateString } from './_types/archive.types';
 import { formatDisplayDate } from './_utils/date-formatting';
 
 /**
- * 뉴스레터 아카이브 페이지 (Matrix 테마 - S++ 엔터프라이즈급)
- *
- * 정적 JSON 파일 기반 초고속 로딩:
- * - 빌드 타임에 데이터 번들링
- * - API 호출 제로 (완전 정적)
- * - CDN 캐싱 최적화
- * - 초당 응답 (ISR 대비 10-100배 빠름)
+ * 뉴스레터 아카이브 페이지
  */
 export default function ArchivePage() {
+  // 초기 데이터를 먼저 가져오기
+  const { availableDates, allNewsletters } = useArchiveData(null);
+
+  // 가장 최근 날짜로 초기화
+  const mostRecentDate = availableDates[0] || null;
+  const initialDate = mostRecentDate ? new Date(mostRecentDate) : new Date();
+
   const [calendarState, setCalendarState] = useState({
-    year: new Date().getFullYear(),
-    month: new Date().getMonth(),
+    year: initialDate.getFullYear(),
+    month: initialDate.getMonth(),
   });
 
-  const [selectedDate, setSelectedDate] = useState<DateString | null>(null);
+  const [selectedDate, setSelectedDate] = useState<DateString | null>(mostRecentDate);
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const calendarButtonRef = useRef<HTMLButtonElement>(null);
 
-  const { newsletter, availableDates } = useArchiveData(selectedDate);
+  // 선택된 날짜의 뉴스레터 가져오기
+  const newsletter = useMemo(() => {
+    if (!selectedDate) return null;
+    return allNewsletters.find((n) => n.date === selectedDate) || null;
+  }, [selectedDate, allNewsletters]);
 
   const availableDatesSet = useMemo(
     () => new Set(availableDates),
     [availableDates]
   );
-
-  // 마운트 시 가장 최근 날짜 자동 선택
-  useEffect(() => {
-    if (availableDates.length > 0 && !selectedDate) {
-      const mostRecent = availableDates[0];
-      setSelectedDate(mostRecent);
-
-      const date = new Date(mostRecent);
-      setCalendarState({
-        year: date.getFullYear(),
-        month: date.getMonth(),
-      });
-    }
-  }, [availableDates, selectedDate]);
 
   const handlePrevMonth = useCallback(() => {
     setCalendarState(prev => ({
@@ -140,27 +131,26 @@ export default function ArchivePage() {
       <main className="relative z-10 py-16 lg:py-20">
         <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8 lg:py-16">
           <motion.header
-            initial={{ opacity: 0, y: -30 }}
+            initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, ease: [0.19, 1, 0.22, 1] }}
+            transition={{ duration: 0.4, delay: 0, ease: [0.25, 0.46, 0.45, 0.94] }}
             className="mb-12 text-center lg:text-left"
           >
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.6, delay: 0.1 }}
+            <motion.h1
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4, delay: 0.1, ease: [0.25, 0.46, 0.45, 0.94] }}
+              className="mb-4 text-4xl sm:text-5xl lg:text-6xl font-extralight tracking-tight leading-[0.95]"
             >
-              <h1 className="mb-4 text-4xl sm:text-5xl lg:text-6xl font-extralight tracking-tight leading-[0.95]">
-                <span className="block text-emerald-500/90 mb-2">Newsletter</span>
-                <span className="block font-normal bg-clip-text text-transparent bg-gradient-to-r from-emerald-400 via-teal-400 to-emerald-400">
-                  Archive
-                </span>
-              </h1>
-            </motion.div>
+              <span className="block text-emerald-500/90 mb-2">Newsletter</span>
+              <span className="block font-normal bg-clip-text text-transparent bg-gradient-to-r from-emerald-400 via-teal-400 to-emerald-400">
+                Archive
+              </span>
+            </motion.h1>
             <motion.p
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.6, delay: 0.3 }}
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4, delay: 0.2, ease: [0.25, 0.46, 0.45, 0.94] }}
               className="text-lg text-white font-light leading-relaxed"
             >
               과거 발송된 AI 주식 분석 뉴스레터를 날짜별로 확인하세요
@@ -170,9 +160,9 @@ export default function ArchivePage() {
           <div className="flex flex-col gap-8 lg:flex-row lg:items-start">
             {/* 데스크톱 캘린더 */}
             <motion.aside
-              initial={{ opacity: 0, x: -40 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.8, delay: 0.2, ease: [0.19, 1, 0.22, 1] }}
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4, delay: 0.3, ease: [0.25, 0.46, 0.45, 0.94] }}
               className="hidden lg:block lg:w-[340px] lg:flex-shrink-0"
             >
               <div className="sticky top-8 space-y-6">
@@ -216,9 +206,9 @@ export default function ArchivePage() {
 
             {/* 모바일 캘린더 */}
             <motion.div
-              initial={{ opacity: 0, y: 20 }}
+              initial={{ opacity: 0, y: -20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.3 }}
+              transition={{ duration: 0.4, delay: 0.3, ease: [0.25, 0.46, 0.45, 0.94] }}
               className="lg:hidden"
             >
               <button
@@ -272,68 +262,64 @@ export default function ArchivePage() {
 
             {/* 콘텐츠 영역 */}
             <motion.section
-              initial={{ opacity: 0, x: 40 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.8, delay: 0.4, ease: [0.19, 1, 0.22, 1] }}
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4, delay: 0.4, ease: [0.25, 0.46, 0.45, 0.94] }}
               className="flex-1 min-w-0"
               aria-live="polite"
             >
-              <AnimatePresence mode="sync">
-                {!newsletter && (
-                  <motion.div
-                    key="empty"
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.95 }}
-                    transition={{ duration: 0.3 }}
-                    className="rounded-2xl border border-emerald-500/20 bg-slate-900/60 backdrop-blur-xl p-12 text-center shadow-2xl"
+              {!newsletter && (
+                <div className="rounded-2xl border border-emerald-500/20 bg-slate-900/60 backdrop-blur-xl p-12 text-center shadow-2xl">
+                  <Calendar
+                    className="mx-auto mb-6 h-12 w-12 sm:h-16 sm:w-16 text-slate-600"
+                    aria-hidden="true"
+                  />
+                  <h2 className="mb-3 text-2xl font-bold text-white">
+                    날짜를 선택해주세요
+                  </h2>
+                  <p className="text-slate-300 leading-relaxed">
+                    {availableDates.length > 0
+                      ? '캘린더에서 날짜를 선택하면 해당 날짜의 뉴스레터를 확인할 수 있습니다'
+                      : '아직 발송된 뉴스레터가 없습니다'}
+                  </p>
+                </div>
+              )}
+
+              {newsletter && (() => {
+                const maxRationaleItems = Math.max(
+                  ...newsletter.stocks.map((stock) => stock.rationale.split('|').length)
+                );
+
+                const sortedStocks = [...newsletter.stocks].sort(
+                  (a, b) => b.signals.overall_score - a.signals.overall_score
+                );
+
+                return (
+                  <div
+                    key={newsletter.date}
+                    className="grid gap-8 md:grid-cols-2 xl:grid-cols-3"
                   >
-                    <Calendar
-                      className="mx-auto mb-6 h-12 w-12 sm:h-16 sm:w-16 text-slate-600"
-                      aria-hidden="true"
-                    />
-                    <h2 className="mb-3 text-2xl font-bold text-white">
-                      날짜를 선택해주세요
-                    </h2>
-                    <p className="text-slate-300 leading-relaxed">
-                      {availableDates.length > 0
-                        ? '캘린더에서 날짜를 선택하면 해당 날짜의 뉴스레터를 확인할 수 있습니다'
-                        : '아직 발송된 뉴스레터가 없습니다'}
-                    </p>
-                  </motion.div>
-                )}
-
-                {newsletter && (() => {
-                  const maxRationaleItems = Math.max(
-                    ...newsletter.stocks.map((stock) => stock.rationale.split('|').length)
-                  );
-
-                  const sortedStocks = [...newsletter.stocks].sort(
-                    (a, b) => b.signals.overall_score - a.signals.overall_score
-                  );
-
-                  return (
-                    <motion.div
-                      key={newsletter.date}
-                      initial={{ opacity: 0, y: 30 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -30 }}
-                      transition={{ duration: 0.5, ease: [0.19, 1, 0.22, 1] }}
-                      className="grid gap-8 md:grid-cols-2 xl:grid-cols-3"
-                    >
-                      {sortedStocks.map((stock, index) => (
+                    {sortedStocks?.map((stock, index) => (
+                      <motion.div
+                        key={stock.ticker}
+                        initial={{ opacity: 0, y: -20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{
+                          duration: 0.3,
+                          delay: 0.3 + index * 0.1,
+                          ease: [0.25, 0.46, 0.45, 0.94],
+                        }}
+                      >
                         <NewsletterCard
-                          key={stock.ticker}
                           stock={stock}
-                          index={index}
                           maxRationaleItems={maxRationaleItems}
                           newsletterDate={newsletter.date}
                         />
-                      ))}
-                    </motion.div>
-                  );
-                })()}
-              </AnimatePresence>
+                      </motion.div>
+                    ))}
+                  </div>
+                );
+              })()}
             </motion.section>
           </div>
         </div>
