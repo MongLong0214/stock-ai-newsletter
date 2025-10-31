@@ -1,29 +1,9 @@
-import React, {JSX} from 'react';
+'use client';
 
-/**
- * Service Introduction Section - Enterprise-grade SEO-optimized service description
- *
- * Features:
- * - Comprehensive overview of Stock Matrix AI newsletter service
- * - SEO keyword integration: AI 주식 분석, RSI, MACD, 볼린저밴드, KOSPI, KOSDAQ
- * - Feature highlights with visual checkmarks
- * - Dark theme matching Stock Matrix brand identity
- * - Pure Server Component for optimal performance
- *
- * Performance:
- * - Zero client-side JavaScript
- * - Server-rendered HTML for instant display
- * - Minimal DOM nodes for fast rendering
- * - No animation overhead
- *
- * Accessibility:
- * - Semantic HTML structure with proper heading hierarchy
- * - WCAG AA compliant color contrast
- * - Screen-reader friendly content structure
- * - Clear visual hierarchy for scannability
- *
- * @returns {JSX.Element} Production-ready service introduction section
- */
+import React, {JSX} from 'react';
+import { motion } from 'framer-motion';
+
+
 function ServiceIntroSection(): JSX.Element {
   return (
     <section
@@ -32,7 +12,12 @@ function ServiceIntroSection(): JSX.Element {
     >
       <div className="max-w-4xl mx-auto relative z-10">
         {/* Section Header */}
-        <div className="text-center mb-12">
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0, ease: [0.25, 0.46, 0.45, 0.94] }}
+          className="text-center mb-12"
+        >
           <p className="text-sm text-emerald-500 uppercase tracking-wider mb-4 font-medium">
             About Service
           </p>
@@ -45,10 +30,15 @@ function ServiceIntroSection(): JSX.Element {
           <p className="text-lg text-slate-300 font-light tracking-wide leading-relaxed">
             매일 아침 받는 기술적 분석 데이터로 투자 인사이트를 얻으세요
           </p>
-        </div>
+        </motion.div>
 
         {/* Main Content */}
-        <div className="space-y-6 text-slate-300 font-light tracking-wide leading-relaxed">
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.1, ease: [0.25, 0.46, 0.45, 0.94] }}
+          className="space-y-6 text-slate-300 font-light tracking-wide leading-relaxed"
+        >
           <p className="text-base md:text-lg">
             <strong className="text-emerald-400 font-normal">Stock Matrix</strong>는{' '}
             <strong className="font-normal">AI 주식 분석</strong> 전문 무료 뉴스레터입니다.{' '}
@@ -86,9 +76,9 @@ function ServiceIntroSection(): JSX.Element {
               주요 특징
             </h3>
             <ul className="space-y-3" role="list">
-              <li className="flex items-start">
+              <li className="flex items-center">
                 <svg
-                  className="w-5 h-5 text-emerald-400 mr-3 flex-shrink-0 mt-0.5"
+                  className="w-5 h-5 text-emerald-400 mr-3 flex-shrink-0"
                   fill="currentColor"
                   viewBox="0 0 20 20"
                   aria-hidden="true"
@@ -104,9 +94,9 @@ function ServiceIntroSection(): JSX.Element {
                   비용 없이 영구적으로 무료로 제공
                 </span>
               </li>
-              <li className="flex items-start">
+              <li className="flex items-center">
                 <svg
-                  className="w-5 h-5 text-emerald-400 mr-3 flex-shrink-0 mt-0.5"
+                  className="w-5 h-5 text-emerald-400 mr-3 flex-shrink-0"
                   fill="currentColor"
                   viewBox="0 0 20 20"
                   aria-hidden="true"
@@ -122,9 +112,9 @@ function ServiceIntroSection(): JSX.Element {
                   RSI, MACD, 볼린저밴드 등 종합적인 기술적 분석
                 </span>
               </li>
-              <li className="flex items-start">
+              <li className="flex items-center">
                 <svg
-                  className="w-5 h-5 text-emerald-400 mr-3 flex-shrink-0 mt-0.5"
+                  className="w-5 h-5 text-emerald-400 mr-3 flex-shrink-0"
                   fill="currentColor"
                   viewBox="0 0 20 20"
                   aria-hidden="true"
@@ -142,9 +132,9 @@ function ServiceIntroSection(): JSX.Element {
                   : 장 시작 전 최신 분석 데이터 제공
                 </span>
               </li>
-              <li className="flex items-start">
+              <li className="flex items-center">
                 <svg
-                  className="w-5 h-5 text-emerald-400 mr-3 flex-shrink-0 mt-0.5"
+                  className="w-5 h-5 text-emerald-400 mr-3 flex-shrink-0"
                   fill="currentColor"
                   viewBox="0 0 20 20"
                   aria-hidden="true"
@@ -160,9 +150,9 @@ function ServiceIntroSection(): JSX.Element {
                   한국 주식시장 주요 종목 선별 분석
                 </span>
               </li>
-              <li className="flex items-start">
+              <li className="flex items-center">
                 <svg
-                  className="w-5 h-5 text-emerald-400 mr-3 flex-shrink-0 mt-0.5"
+                  className="w-5 h-5 text-emerald-400 mr-3 flex-shrink-0"
                   fill="currentColor"
                   viewBox="0 0 20 20"
                   aria-hidden="true"
@@ -204,7 +194,7 @@ function ServiceIntroSection(): JSX.Element {
               본인의 책임입니다.
             </p>
           </div>
-        </div>
+        </motion.div>
       </div>
 
       <SchemaOrgStructuredData />

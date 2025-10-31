@@ -1,26 +1,10 @@
 'use client';
 
 import { useState } from 'react';
+import { motion } from 'framer-motion';
 import { faqData } from '@/lib/constants/seo/faq-data';
 import FAQAccordionItem from './faq-accordion-item';
 
-/**
- * FAQ Section Component - Enterprise-grade SEO-optimized FAQ section
- *
- * Features:
- * - Schema.org FAQPage structured data for Google rich snippets
- * - Accordion behavior: only one FAQ open at a time for better UX
- * - Mobile-first responsive design with accessibility features
- * - Dark theme matching Stock Matrix brand identity
- * - Keyboard navigation support (Space/Enter to toggle)
- *
- * Performance:
- * - Minimal client JS (only accordion state management)
- * - Optimized for Core Web Vitals
- * - Fast initial page load
- *
- * @returns Production-ready FAQ section component
- */
 function FAQSection() {
   const [openIndex, setOpenIndex] = useState<number | null>(null);
 
@@ -35,7 +19,12 @@ function FAQSection() {
     >
       <div className="max-w-4xl mx-auto relative z-10">
         {/* Section Header */}
-        <div className="text-center mb-12">
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0, ease: [0.25, 0.46, 0.45, 0.94] }}
+          className="text-center mb-12"
+        >
           <p className="text-sm text-emerald-500 uppercase tracking-wider mb-4 font-medium">
             FAQ
           </p>
@@ -48,10 +37,15 @@ function FAQSection() {
           <p className="text-lg text-slate-300 font-light tracking-wide">
             Stock Matrix AI 주식 분석 뉴스레터에 대한 궁금증을 해결해드립니다
           </p>
-        </div>
+        </motion.div>
 
         {/* FAQ Accordion */}
-        <div className="space-y-4">
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.1, ease: [0.25, 0.46, 0.45, 0.94] }}
+          className="space-y-4"
+        >
           {faqData.map((faq, index) => (
             <FAQAccordionItem
               key={index}
@@ -62,10 +56,15 @@ function FAQSection() {
               onToggle={() => handleToggle(index)}
             />
           ))}
-        </div>
+        </motion.div>
 
         {/* CTA Footer */}
-        <div className="mt-12 text-center">
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.2, ease: [0.25, 0.46, 0.45, 0.94] }}
+          className="mt-12 text-center"
+        >
           <div className="bg-slate-800/30 border border-emerald-500/20 rounded-3xl p-6 md:p-8">
             <h3 className="text-xl md:text-2xl font-extralight text-emerald-500/80 tracking-tight mb-3">
               아직 궁금한 점이 있으신가요?
@@ -95,7 +94,7 @@ function FAQSection() {
               이메일로 문의하기
             </a>
           </div>
-        </div>
+        </motion.div>
       </div>
     </section>
   );
