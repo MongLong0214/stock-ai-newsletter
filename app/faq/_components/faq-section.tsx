@@ -30,7 +30,7 @@ function FAQSection() {
 
   return (
     <section
-      className="relative py-16 lg:py-20 px-6 lg:px-8 bg-slate-900"
+      className="relative py-16 lg:py-20 px-6 lg:px-8"
       aria-labelledby="faq-heading"
     >
       <div className="max-w-4xl mx-auto relative z-10">

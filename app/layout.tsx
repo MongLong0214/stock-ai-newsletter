@@ -4,8 +4,8 @@ import './globals.css';
 import Script from 'next/script';
 import { Analytics } from '@vercel/analytics/next';
 import { SpeedInsights } from '@vercel/speed-insights/next';
-import Navigation from './_components/navigation';
-import Footer from './_components/footer';
+import Navigation from './_components/shared/navigation';
+import Footer from './_components/shared/footer';
 import {
   siteConfig,
   metadataConfig,
