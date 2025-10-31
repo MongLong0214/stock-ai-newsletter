@@ -1,10 +1,13 @@
+'use client';
+
 import Script from 'next/script';
+import AnimatedBackground from '@/components/animated-background';
 import { siteConfig } from '@/lib/constants/seo';
 import {
   generateBreadcrumbSchema,
   breadcrumbPatterns,
 } from '@/lib/constants/seo/breadcrumb-schema';
-import TechnicalIndicatorsExplanationSection from '../_components/technical-indicators-explanation-section';
+import TechnicalIndicatorsExplanationSection from './_components/technical-indicators-explanation-section';
 
 export default function TechnicalIndicatorsPage() {
   const breadcrumbSchema = generateBreadcrumbSchema(
@@ -89,7 +92,13 @@ export default function TechnicalIndicatorsPage() {
   };
 
   return (
-    <>
+    <div className="min-h-screen bg-black text-white relative overflow-hidden">
+      <AnimatedBackground />
+
+      <div className="fixed inset-0 pointer-events-none z-[1] opacity-[0.04]">
+        <div className="absolute inset-0 bg-[linear-gradient(transparent_50%,rgba(16,185,129,0.04)_50%)] bg-[length:100%_4px] animate-[matrix-scan_8s_linear_infinite]" aria-hidden="true" />
+      </div>
+
       <TechnicalIndicatorsExplanationSection />
 
       {/* Breadcrumb Schema */}
@@ -115,6 +124,6 @@ export default function TechnicalIndicatorsPage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(howToSchema) }}
         strategy="afterInteractive"
       />
-    </>
+    </div>
   );
 }

@@ -1,20 +1,20 @@
-import FAQSection from '../_components/faq-section';
-import { generateFAQSchema } from '@/lib/constants/seo/faq-data';
-import type { Metadata } from 'next';
+'use client';
 
-export const metadata: Metadata = {
-  title: '자주 묻는 질문 - Stock Matrix AI 주식 분석',
-  description:
-    'Stock Matrix AI 주식 분석 뉴스레터에 대한 자주 묻는 질문과 답변. 무료 AI 기술적 분석, RSI, MACD, 볼린저밴드 등 30가지 지표 활용.',
-  alternates: {
-    canonical: 'https://stockmatrix.co.kr/faq',
-  },
-};
+import AnimatedBackground from '@/components/animated-background';
+import FAQSection from './_components/faq-section';
+import { generateFAQSchema } from '@/lib/constants/seo/faq-data';
 
 export default function FAQPage() {
   return (
-    <>
+    <div className="min-h-screen bg-black text-white relative overflow-hidden">
+      <AnimatedBackground />
+
+      <div className="fixed inset-0 pointer-events-none z-[1] opacity-[0.04]">
+        <div className="absolute inset-0 bg-[linear-gradient(transparent_50%,rgba(16,185,129,0.04)_50%)] bg-[length:100%_4px] animate-[matrix-scan_8s_linear_infinite]" aria-hidden="true" />
+      </div>
+
       <FAQSection />
+
       {/* Schema.org Structured Data for SEO - Only on FAQ page */}
       <script
         type="application/ld+json"
@@ -22,6 +22,6 @@ export default function FAQPage() {
           __html: JSON.stringify(generateFAQSchema()),
         }}
       />
-    </>
+    </div>
   );
 }

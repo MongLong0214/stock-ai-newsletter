@@ -6,10 +6,10 @@ import AnimatedBackground from "@/components/animated-background";
 import { useCountdownToTomorrow } from "@/hooks/use-countdown-to-tomorrow";
 import { useIsMobile } from "@/hooks/use-is-mobile";
 import {  TECHNICAL_INDICATORS_DATA } from "./constants/home-page";
-import HeroSection from "./_components/hero-section";
-import EmailPreviewSection from "./_components/email-preview-section";
-import TechnicalIndicatorsSection from "./_components/technical-indicators-section";
-import CTASection from "./_components/cta-section";
+import HeroSection from "./_components/home/hero-section";
+import EmailPreviewSection from "./_components/home/email-preview-section";
+import TechnicalIndicatorsSection from "./_components/home/technical-indicators-section";
+import CTASection from "./_components/home/cta-section";
 
 export default function HomePage() {
   const { formatted } = useCountdownToTomorrow();
