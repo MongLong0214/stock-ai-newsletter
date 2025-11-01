@@ -1,6 +1,7 @@
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
+import { useEffect, useRef } from 'react';
 import { NAVIGATION_LINKS } from './_constants';
 
 interface MobileMenuProps {
@@ -10,6 +11,53 @@ interface MobileMenuProps {
 
 function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
   const pathname = usePathname();
+  const menuRef = useRef<HTMLDivElement>(null);
+  const firstLinkRef = useRef<HTMLAnchorElement>(null);
+
+  // Focus trap implementation
+  useEffect(() => {
+    if (!isOpen) return;
+
+    // Store previously focused element
+    const previouslyFocused = document.activeElement as HTMLElement;
+
+    // Focus first link when menu opens
+    setTimeout(() => {
+      firstLinkRef.current?.focus();
+    }, 100);
+
+    // Focus trap handler
+    const handleTab = (e: KeyboardEvent) => {
+      if (e.key !== 'Tab' || !menuRef.current) return;
+
+      const focusableElements = menuRef.current.querySelectorAll<HTMLElement>(
+        'a[href], button:not([disabled])'
+      );
+
+      if (focusableElements.length === 0) return;
+
+      const firstElement = focusableElements[0];
+      const lastElement = focusableElements[focusableElements.length - 1];
+
+      if (e.shiftKey && document.activeElement === firstElement) {
+        e.preventDefault();
+        lastElement.focus();
+      } else if (!e.shiftKey && document.activeElement === lastElement) {
+        e.preventDefault();
+        firstElement.focus();
+      }
+    };
+
+    document.addEventListener('keydown', handleTab);
+
+    return () => {
+      document.removeEventListener('keydown', handleTab);
+      // Restore focus when menu closes
+      if (previouslyFocused) {
+        previouslyFocused.focus();
+      }
+    };
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -31,6 +79,11 @@ function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
 
       {/* Menu Panel - 최고 성능 슬라이드 */}
       <motion.div
+        ref={menuRef}
+        id="mobile-menu"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Mobile navigation menu"
         initial={{ x: '100%' }}
         animate={{ x: 0 }}
         exit={{ x: '100%' }}
@@ -65,6 +118,7 @@ function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
                   }}
                 >
                   <Link
+                    ref={index === 0 ? firstLinkRef : null}
                     href={link.href}
                     onClick={onClose}
                     className="group relative block"
