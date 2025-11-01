@@ -22,8 +22,7 @@ function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
         exit={{ opacity: 0 }}
         transition={{
           duration: 0.35,
-          ease: 'easeInOut',
-          exit: { duration: 0.45, ease: 'easeIn' }
+          ease: 'easeInOut'
         }}
         className="fixed inset-0 bg-black z-40 lg:hidden"
         style={{ top: '64px' }}
@@ -42,16 +41,7 @@ function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
             stiffness: 250,
             mass: 1,
           },
-          opacity: { duration: 0.3 },
-          exit: {
-            x: {
-              type: 'spring',
-              damping: 40,
-              stiffness: 200,
-              mass: 1.2,
-            },
-            opacity: { duration: 0.4 }
-          }
+          opacity: { duration: 0.3 }
         }}
         className="fixed right-0 bottom-0 w-full max-w-md bg-black z-50 lg:hidden overflow-hidden"
         style={{
