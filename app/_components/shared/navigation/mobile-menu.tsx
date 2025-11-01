@@ -1,7 +1,7 @@
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { EASING, NAVIGATION_LINKS } from './_constants';
+import { NAVIGATION_LINKS } from './_constants';
 
 interface MobileMenuProps {
   isOpen: boolean;
@@ -41,14 +41,8 @@ function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
         className="fixed right-0 bottom-0 w-full max-w-md bg-black z-50 lg:hidden overflow-hidden"
         style={{
           top: '64px',
-          willChange: 'transform',
-          backfaceVisibility: 'hidden',
         }}
       >
-        {/* Subtle decorative elements */}
-        <div className="absolute top-0 right-0 w-72 h-72 bg-emerald-500/5 rounded-full blur-3xl" />
-        <div className="absolute bottom-0 left-0 w-56 h-56 bg-emerald-600/5 rounded-full blur-3xl" />
-
         {/* Scrollable content */}
         <div className="relative h-full overflow-y-auto">
           <div className="relative flex flex-col h-full p-6 pt-8">
@@ -80,8 +74,10 @@ function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
                         <motion.div
                           layoutId="activeMobileNav"
                           className="absolute inset-0 bg-gradient-to-r from-emerald-500/20 to-emerald-600/10 border border-emerald-500/30 rounded-xl"
-                          transition={EASING.spring}
-                          style={{ willChange: 'auto' }}
+                          transition={{
+                            duration: 0.2,
+                            ease: [0.4, 0, 0.2, 1]
+                          }}
                         />
                       )}
 
