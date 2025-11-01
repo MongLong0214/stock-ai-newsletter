@@ -115,7 +115,7 @@ const NewsletterCard = memo(function NewsletterCard({ stock, maxRationaleItems, 
         <div className="flex items-center gap-2 mb-3">
           <TrendingUp className="w-4 h-4 text-emerald-400 flex-shrink-0" aria-hidden="true" />
           <h4 className="text-sm font-semibold text-slate-300 uppercase tracking-wider">
-            추천 이유
+            분석 Summary
           </h4>
         </div>
         <div
