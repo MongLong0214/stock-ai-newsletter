@@ -1,7 +1,8 @@
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { EASING, NAVIGATION_LINKS } from './_constants';
+import { useEffect, useRef } from 'react';
+import { NAVIGATION_LINKS } from './_constants';
 
 interface MobileMenuProps {
   isOpen: boolean;
@@ -10,6 +11,53 @@ interface MobileMenuProps {
 
 function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
   const pathname = usePathname();
+  const menuRef = useRef<HTMLDivElement>(null);
+  const firstLinkRef = useRef<HTMLAnchorElement>(null);
+
+  // Focus trap implementation
+  useEffect(() => {
+    if (!isOpen) return;
+
+    // Store previously focused element
+    const previouslyFocused = document.activeElement as HTMLElement;
+
+    // Focus first link when menu opens
+    setTimeout(() => {
+      firstLinkRef.current?.focus();
+    }, 100);
+
+    // Focus trap handler
+    const handleTab = (e: KeyboardEvent) => {
+      if (e.key !== 'Tab' || !menuRef.current) return;
+
+      const focusableElements = menuRef.current.querySelectorAll<HTMLElement>(
+        'a[href], button:not([disabled])'
+      );
+
+      if (focusableElements.length === 0) return;
+
+      const firstElement = focusableElements[0];
+      const lastElement = focusableElements[focusableElements.length - 1];
+
+      if (e.shiftKey && document.activeElement === firstElement) {
+        e.preventDefault();
+        lastElement.focus();
+      } else if (!e.shiftKey && document.activeElement === lastElement) {
+        e.preventDefault();
+        firstElement.focus();
+      }
+    };
+
+    document.addEventListener('keydown', handleTab);
+
+    return () => {
+      document.removeEventListener('keydown', handleTab);
+      // Restore focus when menu closes
+      if (previouslyFocused) {
+        previouslyFocused.focus();
+      }
+    };
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -21,8 +69,8 @@ function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         transition={{
-          duration: 0.35,
-          ease: 'easeInOut'
+          duration: 0.2,
+          ease: [0.4, 0, 0.2, 1]
         }}
         className="fixed inset-0 bg-black z-40 lg:hidden"
         style={{ top: '64px' }}
@@ -31,31 +79,23 @@ function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
 
       {/* Menu Panel - 최고 성능 슬라이드 */}
       <motion.div
-        initial={{ x: '100%', opacity: 0 }}
-        animate={{ x: 0, opacity: 1 }}
-        exit={{ x: '100%', opacity: 0 }}
+        ref={menuRef}
+        id="mobile-menu"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Mobile navigation menu"
+        initial={{ x: '100%' }}
+        animate={{ x: 0 }}
+        exit={{ x: '100%' }}
         transition={{
-          x: {
-            type: 'spring',
-            damping: 35,
-            stiffness: 250,
-            mass: 1,
-          },
-          opacity: { duration: 0.3 }
+          duration: 0.3,
+          ease: [0.4, 0, 0.2, 1]
         }}
         className="fixed right-0 bottom-0 w-full max-w-md bg-black z-50 lg:hidden overflow-hidden"
         style={{
           top: '64px',
-          willChange: 'transform, opacity',
-          transform: 'translate3d(0, 0, 0)',
-          WebkitBackfaceVisibility: 'hidden',
-          WebkitTransform: 'translate3d(0, 0, 0)',
         }}
       >
-        {/* Subtle decorative elements */}
-        <div className="absolute top-0 right-0 w-72 h-72 bg-emerald-500/5 rounded-full blur-3xl" />
-        <div className="absolute bottom-0 left-0 w-56 h-56 bg-emerald-600/5 rounded-full blur-3xl" />
-
         {/* Scrollable content */}
         <div className="relative h-full overflow-y-auto">
           <div className="relative flex flex-col h-full p-6 pt-8">
@@ -68,18 +108,17 @@ function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
               return (
                 <motion.div
                   key={link.href}
-                  initial={{ opacity: 0, x: 30 }}
+                  initial={{ opacity: 0, x: 20 }}
                   animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: 20 }}
+                  exit={{ opacity: 0 }}
                   transition={{
-                    type: 'spring',
-                    damping: 25,
-                    stiffness: 300,
-                    delay: index * 0.04,
+                    duration: 0.2,
+                    ease: [0.4, 0, 0.2, 1],
+                    delay: index * 0.03,
                   }}
-                  style={{ willChange: 'transform, opacity' }}
                 >
                   <Link
+                    ref={index === 0 ? firstLinkRef : null}
                     href={link.href}
                     onClick={onClose}
                     className="group relative block"
@@ -89,8 +128,10 @@ function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
                         <motion.div
                           layoutId="activeMobileNav"
                           className="absolute inset-0 bg-gradient-to-r from-emerald-500/20 to-emerald-600/10 border border-emerald-500/30 rounded-xl"
-                          transition={EASING.spring}
-                          style={{ willChange: 'auto' }}
+                          transition={{
+                            duration: 0.2,
+                            ease: [0.4, 0, 0.2, 1]
+                          }}
                         />
                       )}
 
@@ -119,26 +160,23 @@ function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
 
           {/* Mobile Subscribe Button */}
           <motion.div
-            initial={{ opacity: 0, y: 30 }}
+            initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 20 }}
+            exit={{ opacity: 0 }}
             transition={{
-              type: 'spring',
-              damping: 25,
-              stiffness: 300,
-              delay: 0.25,
+              duration: 0.25,
+              ease: [0.4, 0, 0.2, 1],
+              delay: 0.15,
             }}
-            style={{ willChange: 'transform, opacity' }}
             className="mt-auto"
           >
             <Link href="/subscribe" onClick={onClose}>
               <motion.div
                 className="group relative px-6 py-4 rounded-xl overflow-hidden border border-emerald-500/30 bg-emerald-500/10"
-                whileTap={{ scale: 0.96 }}
+                whileTap={{ scale: 0.97 }}
                 transition={{
-                  type: 'spring',
-                  damping: 20,
-                  stiffness: 400,
+                  duration: 0.1,
+                  ease: [0.4, 0, 0.2, 1]
                 }}
               >
                 {/* Glow effect */}
