@@ -73,10 +73,10 @@ function Navigation() {
           backfaceVisibility: 'hidden',
           perspective: 1000,
         }}
-        className={`fixed top-0 w-full z-50 overflow-hidden transition-[background-color,backdrop-filter,box-shadow] duration-700 ${
+        className={`fixed top-0 w-full z-50 overflow-hidden transition-[background-color,box-shadow] duration-700 ${
           scrolled
-            ? 'bg-black/40 backdrop-blur-2xl border-b border-emerald-500/10 shadow-[0_8px_32px_rgba(0,0,0,0.4)]'
-            : 'bg-black/20 backdrop-blur-md border-b border-transparent'
+            ? 'bg-black/95 border-b border-emerald-500/10 shadow-[0_8px_32px_rgba(0,0,0,0.4)]'
+            : 'bg-black/80 border-b border-transparent'
         }`}
       >
         {/* Animated background - performance optimized */}
@@ -99,7 +99,7 @@ function Navigation() {
 
           <div className="absolute inset-0">
             <div
-              className="absolute top-1/2 left-1/2 -translate-x-1/2 w-48 h-48 bg-emerald-500/8 rounded-full blur-3xl"
+              className="absolute top-1/2 left-1/2 -translate-x-1/2 w-48 h-48 bg-emerald-500/5 rounded-full"
               style={{
                 animation: 'pulse-glow 6s ease-in-out infinite',
                 willChange: 'auto',
@@ -153,6 +153,9 @@ function Navigation() {
             {/* Mobile Menu Button */}
             <motion.button
               onClick={toggleMobileMenu}
+              aria-expanded={isMobileMenuOpen}
+              aria-label="Toggle mobile navigation menu"
+              aria-controls="mobile-menu"
               className="lg:hidden relative p-2 text-emerald-400 hover:text-emerald-300 transition-colors duration-300 focus:outline-none focus:ring-offset-black rounded-lg"
               whileTap={{ scale: 0.9 }}
             >
