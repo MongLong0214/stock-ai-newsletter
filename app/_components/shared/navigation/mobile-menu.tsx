@@ -21,8 +21,8 @@ function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         transition={{
-          duration: 0.35,
-          ease: 'easeInOut'
+          duration: 0.2,
+          ease: [0.4, 0, 0.2, 1]
         }}
         className="fixed inset-0 bg-black z-40 lg:hidden"
         style={{ top: '64px' }}
@@ -31,25 +31,18 @@ function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
 
       {/* Menu Panel - 최고 성능 슬라이드 */}
       <motion.div
-        initial={{ x: '100%', opacity: 0 }}
-        animate={{ x: 0, opacity: 1 }}
-        exit={{ x: '100%', opacity: 0 }}
+        initial={{ x: '100%' }}
+        animate={{ x: 0 }}
+        exit={{ x: '100%' }}
         transition={{
-          x: {
-            type: 'spring',
-            damping: 35,
-            stiffness: 250,
-            mass: 1,
-          },
-          opacity: { duration: 0.3 }
+          duration: 0.3,
+          ease: [0.4, 0, 0.2, 1]
         }}
         className="fixed right-0 bottom-0 w-full max-w-md bg-black z-50 lg:hidden overflow-hidden"
         style={{
           top: '64px',
-          willChange: 'transform, opacity',
-          transform: 'translate3d(0, 0, 0)',
-          WebkitBackfaceVisibility: 'hidden',
-          WebkitTransform: 'translate3d(0, 0, 0)',
+          willChange: 'transform',
+          backfaceVisibility: 'hidden',
         }}
       >
         {/* Subtle decorative elements */}
@@ -68,16 +61,14 @@ function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
               return (
                 <motion.div
                   key={link.href}
-                  initial={{ opacity: 0, x: 30 }}
+                  initial={{ opacity: 0, x: 20 }}
                   animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: 20 }}
+                  exit={{ opacity: 0 }}
                   transition={{
-                    type: 'spring',
-                    damping: 25,
-                    stiffness: 300,
-                    delay: index * 0.04,
+                    duration: 0.2,
+                    ease: [0.4, 0, 0.2, 1],
+                    delay: index * 0.03,
                   }}
-                  style={{ willChange: 'transform, opacity' }}
                 >
                   <Link
                     href={link.href}
@@ -119,26 +110,23 @@ function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
 
           {/* Mobile Subscribe Button */}
           <motion.div
-            initial={{ opacity: 0, y: 30 }}
+            initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 20 }}
+            exit={{ opacity: 0 }}
             transition={{
-              type: 'spring',
-              damping: 25,
-              stiffness: 300,
-              delay: 0.25,
+              duration: 0.25,
+              ease: [0.4, 0, 0.2, 1],
+              delay: 0.15,
             }}
-            style={{ willChange: 'transform, opacity' }}
             className="mt-auto"
           >
             <Link href="/subscribe" onClick={onClose}>
               <motion.div
                 className="group relative px-6 py-4 rounded-xl overflow-hidden border border-emerald-500/30 bg-emerald-500/10"
-                whileTap={{ scale: 0.96 }}
+                whileTap={{ scale: 0.97 }}
                 transition={{
-                  type: 'spring',
-                  damping: 20,
-                  stiffness: 400,
+                  duration: 0.1,
+                  ease: [0.4, 0, 0.2, 1]
                 }}
               >
                 {/* Glow effect */}
