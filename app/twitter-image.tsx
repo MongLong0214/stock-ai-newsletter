@@ -1,7 +1,7 @@
 import { ImageResponse } from 'next/og';
 
 export const runtime = 'edge';
-export const alt = 'STOCK MATRIX - AI 주식 분석';
+export const alt = 'STOCK MATRIX - AI 주식 분석 뉴스레터';
 export const size = {
   width: 1200,
   height: 630,
@@ -20,11 +20,11 @@ export default async function Image() {
           alignItems: 'center',
           justifyContent: 'center',
           backgroundColor: '#000',
-          backgroundImage: 'linear-gradient(135deg, #000 0%, #001210 100%)',
+          backgroundImage: 'linear-gradient(to bottom, #000, #001210)',
           position: 'relative',
         }}
       >
-        {/* Scanline effect */}
+        {/* Matrix rain effect background */}
         <div
           style={{
             position: 'absolute',
@@ -32,11 +32,16 @@ export default async function Image() {
             left: 0,
             right: 0,
             bottom: 0,
-            opacity: 0.05,
-            background: 'repeating-linear-gradient(0deg, transparent, transparent 2px, #10b981 2px, #10b981 4px)',
+            opacity: 0.1,
+            fontSize: '20px',
+            color: '#10b981',
             display: 'flex',
+            flexWrap: 'wrap',
+            overflow: 'hidden',
           }}
-        />
+        >
+          {'01010101010101010101010101010101010101010101'.repeat(30)}
+        </div>
 
         {/* Main content */}
         <div
@@ -46,160 +51,76 @@ export default async function Image() {
             alignItems: 'center',
             justifyContent: 'center',
             zIndex: 10,
+            padding: '60px',
+            border: '2px solid #10b981',
+            borderRadius: '20px',
+            backgroundColor: 'rgba(0, 0, 0, 0.8)',
           }}
         >
-          {/* Logo */}
+          {/* Logo/Title */}
           <div
             style={{
-              fontSize: '90px',
+              fontSize: '80px',
               fontWeight: 'bold',
               color: '#10b981',
-              letterSpacing: '10px',
+              letterSpacing: '8px',
+              marginBottom: '20px',
+              textShadow: '0 0 20px #10b981, 0 0 40px #10b981',
+              display: 'flex',
+            }}
+          >
+            STOCK MATRIX
+          </div>
+
+          {/* Divider */}
+          <div
+            style={{
+              width: '600px',
+              height: '2px',
+              background: 'linear-gradient(to right, transparent, #10b981, transparent)',
               marginBottom: '30px',
-              textShadow: '0 0 30px #10b981',
               display: 'flex',
             }}
-          >
-            STOCK
-          </div>
-          <div
-            style={{
-              fontSize: '90px',
-              fontWeight: 'bold',
-              color: '#10b981',
-              letterSpacing: '10px',
-              marginBottom: '40px',
-              textShadow: '0 0 30px #10b981',
-              display: 'flex',
-            }}
-          >
-            MATRIX
-          </div>
+          />
 
           {/* Description */}
           <div
             style={{
-              fontSize: '38px',
+              fontSize: '36px',
               color: '#fff',
-              marginBottom: '20px',
+              marginBottom: '15px',
               display: 'flex',
             }}
           >
-            AI 기술적 분석 데이터
+            AI 기반 기술적 분석 데이터
           </div>
 
-          {/* Stats */}
+          {/* Target */}
           <div
             style={{
+              fontSize: '32px',
+              color: '#10b981',
               display: 'flex',
-              gap: '40px',
-              marginTop: '20px',
+              alignItems: 'center',
             }}
           >
-            <div
-              style={{
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-              }}
-            >
-              <div
-                style={{
-                  fontSize: '48px',
-                  color: '#10b981',
-                  fontWeight: 'bold',
-                  display: 'flex',
-                }}
-              >
-                3
-              </div>
-              <div
-                style={{
-                  fontSize: '24px',
-                  color: '#fff',
-                  display: 'flex',
-                }}
-              >
-                AI 분석
-              </div>
-            </div>
-
-            <div
-              style={{
-                width: '2px',
-                height: '80px',
-                background: '#10b981',
-                opacity: 0.3,
-                display: 'flex',
-              }}
-            />
-
-            <div
-              style={{
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-              }}
-            >
-              <div
-                style={{
-                  fontSize: '48px',
-                  color: '#10b981',
-                  fontWeight: 'bold',
-                  display: 'flex',
-                }}
-              >
-                3개
-              </div>
-              <div
-                style={{
-                  fontSize: '24px',
-                  color: '#fff',
-                  display: 'flex',
-                }}
-              >
-                종목 데이터
-              </div>
-            </div>
-
-            <div
-              style={{
-                width: '2px',
-                height: '80px',
-                background: '#10b981',
-                opacity: 0.3,
-                display: 'flex',
-              }}
-            />
-
-            <div
-              style={{
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-              }}
-            >
-              <div
-                style={{
-                  fontSize: '48px',
-                  color: '#10b981',
-                  fontWeight: 'bold',
-                  display: 'flex',
-                }}
-              >
-                무료
-              </div>
-              <div
-                style={{
-                  fontSize: '24px',
-                  color: '#fff',
-                  display: 'flex',
-                }}
-              >
-                매일 발송
-              </div>
-            </div>
+            <span style={{ marginRight: '10px' }}>📊</span>
+            매일 오전 7시 50분 발송
           </div>
+        </div>
+
+        {/* Bottom domain */}
+        <div
+          style={{
+            position: 'absolute',
+            bottom: '40px',
+            fontSize: '28px',
+            color: '#10b981',
+            opacity: 0.8,
+            display: 'flex',
+          }}
+        >
+          stockmatrix.co.kr
         </div>
       </div>
     ),
