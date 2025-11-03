@@ -38,6 +38,7 @@ const nextConfig: NextConfig = {
               "img-src 'self' data: https:",
               "font-src 'self' data:",
               "connect-src 'self' https://*.supabase.co https://vitals.vercel-insights.com",
+              "frame-src https://vercel.live",
               "frame-ancestors 'none'",
             ].join('; '),
           },
