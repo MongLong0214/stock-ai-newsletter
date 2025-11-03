@@ -29,6 +29,8 @@ interface NewsletterCardProps {
   newsletterDate: DateString;
   /** 실시간 시세 (선택) */
   currentPrice?: StockPrice;
+  /** 실시간 시세 로딩 상태 */
+  isLoadingPrice?: boolean;
 }
 
 /** 가격 변동 정보 */
@@ -60,7 +62,8 @@ const NewsletterCard = memo(function NewsletterCard({
   stock,
   maxRationaleItems,
   newsletterDate,
-  currentPrice
+  currentPrice,
+  isLoadingPrice = false
 }: NewsletterCardProps) {
   const { ticker, name, close_price, rationale, signals } = stock;
 
@@ -99,6 +102,32 @@ const NewsletterCard = memo(function NewsletterCard({
     RATIONALE_LAYOUT.BOTTOM_PADDING;
 
   const renderPriceSection = () => {
+    // 로딩 중: 스켈레톤 UI
+    if (isLoadingPrice) {
+      return (
+        <div className="h-[168px] space-y-5">
+          {/* 현재가 스켈레톤 */}
+          <div className="h-[72px]">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="h-3 w-12 bg-slate-700/50 rounded animate-pulse" />
+              <div className="h-4 w-10 bg-slate-700/50 rounded animate-pulse" />
+            </div>
+            <div className="h-9 w-32 bg-slate-700/50 rounded animate-pulse" />
+          </div>
+
+          {/* 수익률 스켈레톤 */}
+          <div className="h-[72px]">
+            <div className="flex items-center gap-1.5 mb-3">
+              <div className="h-3.5 w-3.5 bg-slate-700/50 rounded animate-pulse" />
+              <div className="h-3 w-12 bg-slate-700/50 rounded animate-pulse" />
+            </div>
+            <div className="h-9 w-28 bg-slate-700/50 rounded animate-pulse mb-1" />
+            <div className="h-5 w-24 bg-slate-700/50 rounded animate-pulse" />
+          </div>
+        </div>
+      );
+    }
+
     // 실시간 시세 없음 (통신 실패 또는 영업일 경과)
     if (!currentPrice || !priceChange) {
       return (
