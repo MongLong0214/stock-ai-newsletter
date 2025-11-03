@@ -7,6 +7,7 @@ import AnimatedBackground from '@/components/animated-background';
 import MiniCalendar from './_components/mini-calendar';
 import NewsletterCard from './_components/newsletter-card';
 import useArchiveData from './_hooks/use-archive-data';
+import useStockPrices from './_hooks/use-stock-prices';
 import type { DateString } from './_types/archive.types';
 import { formatDisplayDate } from './_utils/date-formatting';
 
@@ -35,6 +36,15 @@ export default function ArchivePage() {
     if (!selectedDate) return null;
     return allNewsletters.find((n) => n.date === selectedDate) || null;
   }, [selectedDate, allNewsletters]);
+
+  // 뉴스레터의 모든 티커 추출
+  const tickers = useMemo(() => {
+    if (!newsletter) return [];
+    return newsletter.stocks.map((stock) => stock.ticker);
+  }, [newsletter]);
+
+  // 실시간 주식 시세 조회 (영업일 체크 포함)
+  const { prices: stockPrices } = useStockPrices(tickers, selectedDate);
 
   const availableDatesSet = useMemo(
     () => new Set(availableDates),
@@ -314,6 +324,7 @@ export default function ArchivePage() {
                           stock={stock}
                           maxRationaleItems={maxRationaleItems}
                           newsletterDate={newsletter.date}
+                          currentPrice={stockPrices.get(stock.ticker)}
                         />
                       </motion.div>
                     ))}
