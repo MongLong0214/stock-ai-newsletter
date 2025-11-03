@@ -4,17 +4,61 @@
  * 기능:
  * - OAuth2 토큰 발급 및 자동 갱신
  * - 국내 주식 현재가 조회 (KOSPI/KOSDAQ)
- * - Vercel KV를 통한 영구 토큰 캐싱 (SMS 알림 최소화)
+ * - Supabase를 통한 영구 토큰 캐싱 (SMS 알림 최소화)
  * - 메모리 캐싱 fallback (로컬 개발 환경 대응)
  */
 
-import { kv } from '@vercel/kv';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { validateKisEnv } from './env-validator';
+
+/** Supabase Database 스키마 정의 */
+type Database = {
+  public: {
+    Tables: {
+      kis_tokens: {
+        Row: {
+          id: string;
+          access_token: string;
+          expires_at: number;
+          updated_at: string;
+        };
+        Insert: {
+          id: string;
+          access_token: string;
+          expires_at: number;
+          updated_at: string;
+        };
+        Update: {
+          id?: string;
+          access_token?: string;
+          expires_at?: number;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+    };
+    Views: {
+      [_ in never]: never;
+    };
+    Functions: {
+      [_ in never]: never;
+    };
+    Enums: {
+      [_ in never]: never;
+    };
+    CompositeTypes: {
+      [_ in never]: never;
+    };
+  };
+};
 
 interface KisToken {
   access_token: string;
   expires_at: number; // Unix timestamp
 }
+
+type KisTokenRow = Database['public']['Tables']['kis_tokens']['Row'];
+type KisTokenInsert = Database['public']['Tables']['kis_tokens']['Insert'];
 
 interface KisStockPrice {
   ticker: string;
@@ -48,6 +92,26 @@ const rateLimitTracker = {
 
 // 환경 변수 캐시 (런타임에 로드)
 let configCache: ReturnType<typeof validateKisEnv> | null = null;
+
+// Supabase 클라이언트 (lazy initialization)
+let supabaseClient: SupabaseClient<Database> | null = null;
+
+function getSupabase(): SupabaseClient<Database> {
+  if (!supabaseClient) {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+    if (!supabaseUrl || !supabaseKey) {
+      throw new Error(
+        'Supabase credentials not configured. ' +
+        'Please set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY environment variables.'
+      );
+    }
+
+    supabaseClient = createClient<Database>(supabaseUrl, supabaseKey);
+  }
+  return supabaseClient;
+}
 
 /**
  * KIS 설정 가져오기 (런타임에 환경 변수 로드)
@@ -109,27 +173,38 @@ function checkRateLimit(type: 'token' | 'price'): void {
 }
 
 /**
- * 접근 토큰 발급 (Vercel KV + 메모리 캐싱)
+ * 접근 토큰 발급 (Supabase + 메모리 캐싱)
  */
 async function getAccessToken(): Promise<string> {
   const now = Date.now();
-  const KV_KEY = 'kis_access_token';
 
-  // 1. Vercel KV에서 먼저 조회 (프로덕션 환경)
-  try {
-    const kvToken = await kv.get<KisToken>(KV_KEY);
-    if (kvToken && kvToken.expires_at > now) {
-      // 메모리 캐시도 업데이트
-      tokenCache.token = kvToken;
-      return kvToken.access_token;
-    }
-  } catch (error) {
-    // KV 사용 불가 (로컬 개발 환경 등) - 메모리 캐시로 fallback
-  }
-
-  // 2. 메모리 캐시 확인 (로컬 개발 환경 fallback)
+  // 1. 메모리 캐시 확인 (가장 빠름)
   if (tokenCache.token && tokenCache.token.expires_at > now) {
     return tokenCache.token.access_token;
+  }
+
+  // 2. Supabase에서 조회
+  try {
+    const supabase = getSupabase();
+    const { data: tokenData } = await supabase
+      .from('kis_tokens')
+      .select('*')
+      .eq('id', 'kis_access_token')
+      .single();
+
+    if (tokenData) {
+      const row = tokenData as KisTokenRow;
+      if (row.expires_at > now) {
+        // 메모리 캐시도 업데이트
+        tokenCache.token = {
+          access_token: row.access_token,
+          expires_at: row.expires_at,
+        };
+        return row.access_token;
+      }
+    }
+  } catch {
+    // Supabase 조회 실패 시 계속 진행 (새 토큰 발급)
   }
 
   // 3. 이미 토큰 발급 요청 중이면 대기
@@ -143,10 +218,8 @@ async function getAccessToken(): Promise<string> {
   // 5. 토큰 발급 Promise 생성 및 캐싱
   tokenRequestPromise = (async () => {
     try {
-      // 런타임 설정 로드
       const config = getKisConfig();
 
-      // 환경 변수 재검증
       if (!config.KIS_APP_KEY || !config.KIS_APP_SECRET) {
         throw new Error('KIS API credentials not configured');
       }
@@ -186,7 +259,6 @@ async function getAccessToken(): Promise<string> {
 
       const data = await response.json();
 
-      // 응답 검증
       if (!data.access_token) {
         console.error('[KIS] Invalid token response:', data);
         throw new Error('Invalid token response: missing access_token');
@@ -200,11 +272,18 @@ async function getAccessToken(): Promise<string> {
         expires_at: now + 23 * 60 * 60 * 1000,
       };
 
-      // 6. Vercel KV에 저장 (23시간 TTL)
+      // 6. Supabase에 저장 (upsert)
       try {
-        await kv.set(KV_KEY, newToken, { ex: 23 * 60 * 60 });
-      } catch (error) {
-        // KV 저장 실패해도 계속 진행 (메모리 캐시 사용)
+        const supabase = getSupabase();
+        const tokenRow: KisTokenInsert = {
+          id: 'kis_access_token',
+          access_token: newToken.access_token,
+          expires_at: newToken.expires_at,
+          updated_at: new Date().toISOString(),
+        };
+        await supabase.from('kis_tokens').upsert(tokenRow);
+      } catch {
+        // Supabase 저장 실패해도 계속 진행 (메모리 캐시 사용)
       }
 
       // 7. 메모리 캐시에도 저장
@@ -215,7 +294,6 @@ async function getAccessToken(): Promise<string> {
       console.error('[KIS] Token request error:', error);
       throw error;
     } finally {
-      // Promise 캐시 초기화
       tokenRequestPromise = null;
     }
   })();
