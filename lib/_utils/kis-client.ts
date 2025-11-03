@@ -1,13 +1,14 @@
 /**
- * 한국투자증권 OpenAPI 클라이언트
+ * 한국투자증권 OpenAPI 클라이언트 (국내 주식 전용)
  *
  * 기능:
  * - OAuth2 토큰 발급 및 자동 갱신
- * - 국내/해외 주식 현재가 조회
- * - 메모리 캐싱으로 API 호출 최적화
- * - 프로덕션급 에러 핸들링 및 로깅
+ * - 국내 주식 현재가 조회 (KOSPI/KOSDAQ)
+ * - Vercel KV를 통한 영구 토큰 캐싱 (SMS 알림 최소화)
+ * - 메모리 캐싱 fallback (로컬 개발 환경 대응)
  */
 
+import { kv } from '@vercel/kv';
 import { validateKisEnv } from './env-validator';
 
 interface KisToken {
@@ -108,29 +109,38 @@ function checkRateLimit(type: 'token' | 'price'): void {
 }
 
 /**
- * 접근 토큰 발급
+ * 접근 토큰 발급 (Vercel KV + 메모리 캐싱)
  */
 async function getAccessToken(): Promise<string> {
   const now = Date.now();
+  const KV_KEY = 'kis_access_token';
 
-  // 캐시된 토큰이 유효하면 반환
+  // 1. Vercel KV에서 먼저 조회 (프로덕션 환경)
+  try {
+    const kvToken = await kv.get<KisToken>(KV_KEY);
+    if (kvToken && kvToken.expires_at > now) {
+      // 메모리 캐시도 업데이트
+      tokenCache.token = kvToken;
+      return kvToken.access_token;
+    }
+  } catch (error) {
+    // KV 사용 불가 (로컬 개발 환경 등) - 메모리 캐시로 fallback
+  }
+
+  // 2. 메모리 캐시 확인 (로컬 개발 환경 fallback)
   if (tokenCache.token && tokenCache.token.expires_at > now) {
-    console.log('[KIS] Using cached token (valid until', new Date(tokenCache.token.expires_at).toISOString() + ')');
     return tokenCache.token.access_token;
   }
 
-  // 이미 토큰 발급 요청 중이면 대기
+  // 3. 이미 토큰 발급 요청 중이면 대기
   if (tokenRequestPromise) {
-    console.log('[KIS] Waiting for existing token request...');
     return tokenRequestPromise;
   }
 
-  // Rate limit 체크
+  // 4. Rate limit 체크
   checkRateLimit('token');
 
-  console.log('[KIS] Requesting new token...');
-
-  // 토큰 발급 Promise 생성 및 캐싱
+  // 5. 토큰 발급 Promise 생성 및 캐싱
   tokenRequestPromise = (async () => {
     try {
       // 런타임 설정 로드
@@ -182,15 +192,23 @@ async function getAccessToken(): Promise<string> {
         throw new Error('Invalid token response: missing access_token');
       }
 
-      console.log('[KIS] Token received successfully (requests today:', rateLimitTracker.tokenRequestCount + ')');
-
       const now = Date.now();
 
-      // 토큰 캐싱 (유효기간 24시간, 안전을 위해 23시간으로 설정)
-      tokenCache.token = {
+      // 토큰 객체 생성 (유효기간 24시간, 안전을 위해 23시간으로 설정)
+      const newToken: KisToken = {
         access_token: data.access_token,
         expires_at: now + 23 * 60 * 60 * 1000,
       };
+
+      // 6. Vercel KV에 저장 (23시간 TTL)
+      try {
+        await kv.set(KV_KEY, newToken, { ex: 23 * 60 * 60 });
+      } catch (error) {
+        // KV 저장 실패해도 계속 진행 (메모리 캐시 사용)
+      }
+
+      // 7. 메모리 캐시에도 저장
+      tokenCache.token = newToken;
 
       return data.access_token;
     } catch (error) {
@@ -206,14 +224,30 @@ async function getAccessToken(): Promise<string> {
 }
 
 /**
- * 국내 주식 현재가 조회
+ * 티커에서 거래소 접두사 제거 (KOSPI/KOSDAQ만)
  */
-async function getDomesticStockPrice(ticker: string): Promise<KisStockPrice> {
+function cleanTicker(ticker: string): string {
+  return ticker.replace(/^(KOSPI|KOSDAQ):/i, '');
+}
+
+/**
+ * 국내 주식 현재가 조회 (KOSPI/KOSDAQ)
+ */
+export async function getStockPrice(ticker: string): Promise<KisStockPrice> {
+  const cacheKey = ticker;
+  const now = Date.now();
+  const CACHE_TTL = 60 * 1000; // 1분 캐시
+
+  // 캐시 확인
+  const cached = priceCache.get(cacheKey);
+  if (cached && cached.expires > now) {
+    return cached.data;
+  }
+
+  // API 호출
   const token = await getAccessToken();
   const cleanedTicker = cleanTicker(ticker);
   const config = getKisConfig();
-
-  console.log(`[KIS] Fetching domestic stock price for ${ticker} (cleaned: ${cleanedTicker})...`);
 
   const response = await fetch(
     `${config.KIS_BASE_URL}/uapi/domestic-stock/v1/quotations/inquire-price?` +
@@ -234,121 +268,21 @@ async function getDomesticStockPrice(ticker: string): Promise<KisStockPrice> {
 
   if (!response.ok) {
     const errorText = await response.text();
-    console.error(`[KIS] Domestic stock price request failed for ${ticker}:`, response.status, errorText);
+    console.error(`[KIS] Stock price request failed for ${ticker}:`, response.status, errorText);
     throw new Error(`Failed to get stock price: ${response.statusText}`);
   }
 
   const data = await response.json();
-  console.log(`[KIS] Domestic stock price response for ${ticker}:`, data);
-
   const output = data.output;
 
-  return {
+  const price: KisStockPrice = {
     ticker,
     currentPrice: parseInt(output.stck_prpr),
     previousClose: parseInt(output.stck_sdpr),
     changeRate: parseFloat(output.prdy_ctrt),
     volume: parseInt(output.acml_vol),
-    timestamp: Date.now(),
+    timestamp: now,
   };
-}
-
-/**
- * 해외 주식 현재가 조회 (미국)
- */
-async function getOverseasStockPrice(ticker: string): Promise<KisStockPrice> {
-  const token = await getAccessToken();
-  const cleanedTicker = cleanTicker(ticker);
-  const config = getKisConfig();
-
-  // 거래소 코드 결정
-  let exchangeCode = 'NAS'; // 기본값 NASDAQ
-  if (ticker.match(/^NYSE:/i)) {
-    exchangeCode = 'NYS';
-  } else if (ticker.match(/^AMEX:/i)) {
-    exchangeCode = 'AMS';
-  }
-
-  console.log(`[KIS] Fetching overseas stock price for ${ticker} (exchange: ${exchangeCode}, symbol: ${cleanedTicker})...`);
-
-  const response = await fetch(
-    `${config.KIS_BASE_URL}/uapi/overseas-price/v1/quotations/price?` +
-      new URLSearchParams({
-        AUTH: '',
-        EXCD: exchangeCode,
-        SYMB: cleanedTicker,
-      }),
-    {
-      headers: {
-        'Content-Type': 'application/json',
-        authorization: `Bearer ${token}`,
-        appkey: config.KIS_APP_KEY,
-        appsecret: config.KIS_APP_SECRET,
-        tr_id: 'HHDFS00000300',
-      },
-    }
-  );
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error(`[KIS] Overseas stock price request failed for ${ticker}:`, response.status, errorText);
-    throw new Error(`Failed to get overseas stock price: ${response.statusText}`);
-  }
-
-  const data = await response.json();
-  console.log(`[KIS] Overseas stock price response for ${ticker}:`, data);
-
-  const output = data.output;
-
-  return {
-    ticker,
-    currentPrice: parseFloat(output.last),
-    previousClose: parseFloat(output.base),
-    changeRate: parseFloat(output.rate),
-    volume: parseInt(output.tvol),
-    timestamp: Date.now(),
-  };
-}
-
-/**
- * 티커에서 거래소 접두사 제거
- */
-function cleanTicker(ticker: string): string {
-  // KOSPI:000660 → 000660
-  // KOSDAQ:196170 → 196170
-  return ticker.replace(/^(KOSPI|KOSDAQ|NYSE|NASDAQ|AMEX):/i, '');
-}
-
-/**
- * 티커가 국내 주식인지 판단
- */
-function isDomesticTicker(ticker: string): boolean {
-  // KOSPI: 또는 KOSDAQ: 접두사가 있거나, 6자리 숫자면 국내 주식
-  if (ticker.match(/^(KOSPI|KOSDAQ):/i)) return true;
-
-  const cleaned = cleanTicker(ticker);
-  return /^\d{6}$/.test(cleaned);
-}
-
-/**
- * 주식 현재가 조회 (캐싱 적용)
- */
-export async function getStockPrice(ticker: string): Promise<KisStockPrice> {
-  const cacheKey = ticker;
-  const now = Date.now();
-  const CACHE_TTL = 60 * 1000; // 1분 캐시
-
-  // 캐시 확인
-  const cached = priceCache.get(cacheKey);
-  if (cached && cached.expires > now) {
-    return cached.data;
-  }
-
-  // API 호출
-  const isDomestic = isDomesticTicker(ticker);
-  const price = isDomestic
-    ? await getDomesticStockPrice(ticker)
-    : await getOverseasStockPrice(ticker);
 
   // 캐싱
   priceCache.set(cacheKey, {
