@@ -44,7 +44,7 @@ export default function ArchivePage() {
   }, [newsletter]);
 
   // 실시간 주식 시세 조회 (영업일 체크 포함)
-  const { prices: stockPrices } = useStockPrices(tickers, selectedDate);
+  const { prices: stockPrices, loading: isPriceLoading } = useStockPrices(tickers, selectedDate);
 
   const availableDatesSet = useMemo(
     () => new Set(availableDates),
@@ -325,6 +325,7 @@ export default function ArchivePage() {
                           maxRationaleItems={maxRationaleItems}
                           newsletterDate={newsletter.date}
                           currentPrice={stockPrices.get(stock.ticker)}
+                          isLoadingPrice={isPriceLoading}
                         />
                       </motion.div>
                     ))}
