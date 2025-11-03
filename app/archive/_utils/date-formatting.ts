@@ -6,6 +6,12 @@
  */
 
 /**
+ * 실시간 시세 추적 최대 영업일 수
+ * 추천일로부터 이 일수가 지나면 실시간 시세 추적 종료
+ */
+export const MAX_BUSINESS_DAYS = 7;
+
+/**
  * 특정 월의 일수를 계산
  *
  * @param year - 연도 (예: 2024)
@@ -142,4 +148,31 @@ export function getKoreanMonthNames(): readonly string[] {
  */
 export function getKoreanDayNames(): readonly string[] {
   return ['일', '월', '화', '수', '목', '금', '토'] as const;
+}
+
+/**
+ * 두 날짜 사이의 영업일 수 계산 (주말 제외)
+ *
+ * @param startDate - 시작 날짜
+ * @param endDate - 종료 날짜
+ * @returns 영업일 수 (토요일, 일요일 제외)
+ *
+ * @example
+ * calculateBusinessDays(new Date('2024-01-01'), new Date('2024-01-05'))
+ * // Returns 영업일 수 (주말 제외)
+ */
+export function calculateBusinessDays(startDate: Date, endDate: Date): number {
+  let count = 0;
+  const current = new Date(startDate);
+
+  while (current <= endDate) {
+    const dayOfWeek = current.getDay();
+    // 토요일(6), 일요일(0) 제외
+    if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+      count++;
+    }
+    current.setDate(current.getDate() + 1);
+  }
+
+  return count;
 }

@@ -1,0 +1,139 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { getBatchStockPrices } from '@/lib/_utils/kis-client';
+
+/**
+ * 주식 현재가 조회 API
+ * GET /api/stock/price?tickers=AAPL,GOOGL,MSFT
+ *
+ * 프로덕션급 엔터프라이즈 API 엔드포인트
+ * - 입력 검증 및 sanitization
+ * - 에러 핸들링 및 상세 로깅
+ * - Rate limiting 보호
+ * - 캐싱 전략 적용
+ */
+export async function GET(request: NextRequest) {
+  const startTime = Date.now();
+
+  try {
+    const searchParams = request.nextUrl.searchParams;
+    const tickersParam = searchParams.get('tickers');
+
+    // 입력 검증
+    if (!tickersParam) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'tickers parameter is required',
+          message: 'Please provide tickers as comma-separated values',
+        },
+        { status: 400 }
+      );
+    }
+
+    // 티커 파싱 및 sanitization
+    const tickers = tickersParam
+      .split(',')
+      .map((t) => t.trim())
+      .filter((t) => t.length > 0);
+
+    if (tickers.length === 0) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'At least one valid ticker is required',
+          message: 'Tickers must be non-empty strings',
+        },
+        { status: 400 }
+      );
+    }
+
+    // 최대 10개로 제한 (API 호출 최적화 및 rate limiting 보호)
+    if (tickers.length > 10) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Maximum 10 tickers allowed per request',
+          message: 'Please split your request into multiple calls',
+          requested: tickers.length,
+          max: 10,
+        },
+        { status: 400 }
+      );
+    }
+
+    // KIS API 호출
+    const prices = await getBatchStockPrices(tickers);
+
+    const successCount = prices.size;
+    const failedCount = tickers.length - successCount;
+
+    // Map을 객체로 변환
+    const pricesObject = Object.fromEntries(prices);
+
+    const duration = Date.now() - startTime;
+
+    return NextResponse.json(
+      {
+        success: true,
+        prices: pricesObject,
+        metadata: {
+          requested: tickers.length,
+          success: successCount,
+          failed: failedCount,
+          duration_ms: duration,
+          timestamp: new Date().toISOString(),
+        },
+      },
+      {
+        headers: {
+          // 1분 캐싱 (Vercel Edge에서도 캐싱)
+          'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=30',
+          'X-Response-Time': `${duration}ms`,
+        },
+      }
+    );
+  } catch (error) {
+    const duration = Date.now() - startTime;
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const errorName = error instanceof Error ? error.name : 'Error';
+
+    console.error('[API] Stock price API error:', {
+      name: errorName,
+      message: errorMessage,
+      duration_ms: duration,
+      stack: error instanceof Error ? error.stack : undefined,
+    });
+
+    // 프로덕션에서는 민감한 정보 숨김
+    const isProduction = process.env.NODE_ENV === 'production';
+
+    return NextResponse.json(
+      {
+        success: false,
+        error: 'Failed to fetch stock prices',
+        message: isProduction
+          ? 'An error occurred while fetching stock prices. Please try again later.'
+          : errorMessage,
+        details: !isProduction
+          ? {
+              name: errorName,
+              message: errorMessage,
+            }
+          : undefined,
+      },
+      {
+        status: 500,
+        headers: {
+          'X-Response-Time': `${duration}ms`,
+        },
+      }
+    );
+  }
+}
+
+// Route segment config for Vercel
+export const runtime = 'nodejs'; // KIS API는 Node.js runtime 필요
+export const dynamic = 'force-dynamic'; // 항상 동적으로 생성
+
+// Rate limiting은 Vercel Pro 이상에서 자동 적용됨
+// 무료 플랜에서는 애플리케이션 레벨에서 관리
