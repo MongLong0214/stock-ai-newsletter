@@ -1,22 +1,67 @@
 'use client';
 
 import { memo, useMemo } from 'react';
-import { TrendingUp } from 'lucide-react';
+import { TrendingUp, TrendingDown } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import ScoreBadge from './score-badge';
 import type { StockData, DateString } from '../_types/archive.types';
 import { formatPrice } from '../_utils/price-formatting';
 import { getOverallScoreColor } from '../_utils/score-formatting';
+import { MAX_BUSINESS_DAYS } from '../_utils/date-formatting';
 
-interface NewsletterCardProps {
-  stock: StockData;
-  maxRationaleItems: number;
-  newsletterDate: DateString;
+/** 실시간 주식 시세 정보 */
+interface StockPrice {
+  ticker: string;
+  currentPrice: number;
+  previousClose: number;
+  changeRate: number;
+  volume: number;
+  timestamp: number;
 }
+
+/** 뉴스레터 카드 Props */
+interface NewsletterCardProps {
+  /** 주식 데이터 */
+  stock: StockData;
+  /** 표시할 최대 분석 근거 개수 */
+  maxRationaleItems: number;
+  /** 뉴스레터 발행일 */
+  newsletterDate: DateString;
+  /** 실시간 시세 (선택) */
+  currentPrice?: StockPrice;
+}
+
+/** 가격 변동 정보 */
+interface PriceChangeInfo {
+  amount: number;
+  percent: string;
+  isPositive: boolean;
+}
+
+const RATIONALE_LAYOUT = {
+  ITEM_HEIGHT: 42,
+  HEADER_HEIGHT: 32,
+  BOTTOM_PADDING: 24,
+  CONTENT_OFFSET: 50,
+} as const;
+
+const DATE_CALC = {
+  MONDAY: 1,
+  WEEKEND_OFFSET: 3,
+  WEEKDAY_OFFSET: 1,
+} as const;
 
 /**
  * 뉴스레터 카드 컴포넌트
+ *
+ * 주식 추천 정보와 실시간 시세를 표시하는 카드
  */
-const NewsletterCard = memo(function NewsletterCard({ stock, maxRationaleItems, newsletterDate }: NewsletterCardProps) {
+const NewsletterCard = memo(function NewsletterCard({
+  stock,
+  maxRationaleItems,
+  newsletterDate,
+  currentPrice
+}: NewsletterCardProps) {
   const { ticker, name, close_price, rationale, signals } = stock;
 
   const overallGradient = useMemo(
@@ -24,22 +69,98 @@ const NewsletterCard = memo(function NewsletterCard({ stock, maxRationaleItems, 
     [signals.overall_score]
   );
 
-  const formattedPrice = useMemo(() => formatPrice(close_price), [close_price]);
+  const priceChange = useMemo((): PriceChangeInfo | null => {
+    if (!currentPrice) return null;
+
+    const change = currentPrice.currentPrice - close_price;
+    const changePercent = ((change / close_price) * 100).toFixed(2);
+    const isPositive = change >= 0;
+
+    return {
+      amount: Math.abs(change),
+      percent: changePercent,
+      isPositive,
+    };
+  }, [currentPrice, close_price]);
 
   const previousDate = useMemo(() => {
     const date = new Date(newsletterDate);
     const dayOfWeek = date.getDay();
-    const daysToSubtract = dayOfWeek === 1 ? 3 : 1;
+    const daysToSubtract = dayOfWeek === DATE_CALC.MONDAY ? DATE_CALC.WEEKEND_OFFSET : DATE_CALC.WEEKDAY_OFFSET;
     date.setDate(date.getDate() - daysToSubtract);
     return `${date.getMonth() + 1}월 ${date.getDate()}일`;
   }, [newsletterDate]);
 
   const rationaleItems = useMemo(() => rationale.split('|'), [rationale]);
 
-  const itemHeight = 42;
-  const headerHeight = 32;
-  const bottomPadding = 24;
-  const rationaleHeight = maxRationaleItems * itemHeight + headerHeight + bottomPadding;
+  const rationaleHeight =
+    maxRationaleItems * RATIONALE_LAYOUT.ITEM_HEIGHT +
+    RATIONALE_LAYOUT.HEADER_HEIGHT +
+    RATIONALE_LAYOUT.BOTTOM_PADDING;
+
+  const renderPriceSection = () => {
+    // 실시간 시세 없음 (통신 실패 또는 영업일 경과)
+    if (!currentPrice || !priceChange) {
+      return (
+        <div className="relative overflow-hidden rounded-xl border border-slate-700/30 bg-gradient-to-br from-slate-900/40 via-slate-900/20 to-slate-800/40 backdrop-blur-sm">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_120%,rgba(100,116,139,0.1),transparent)]" />
+          <div className="relative px-6 py-10 flex flex-col items-center justify-center gap-4">
+            <div className="flex flex-col items-center gap-2">
+              <div className="text-sm font-medium text-slate-300/90 text-center tracking-wide">
+                추천일로부터 {MAX_BUSINESS_DAYS}영업일이 경과하여
+              </div>
+              <div className="text-sm text-slate-400/80 text-center font-light">
+                실시간 시세 추적이 종료되었습니다
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // 정상: 실시간 시세 표시
+    return (
+      <div className="h-[168px] space-y-5">
+        {/* 현재가 */}
+        <div className="h-[72px]">
+          <div className="flex items-center gap-2 mb-3">
+            <span className="text-xs font-medium text-slate-400">현재가</span>
+            <span className="px-2 py-0.5 text-[10px] font-medium text-emerald-400 bg-emerald-500/10 rounded">
+              LIVE
+            </span>
+          </div>
+          <div className="text-3xl font-bold text-white font-mono tabular-nums">
+            {formatPrice(currentPrice.currentPrice)}
+            <span className="text-base text-slate-500 ml-2 font-normal">원</span>
+          </div>
+        </div>
+
+        {/* 수익률 */}
+        <div className="h-[72px]">
+          <div className="flex items-center gap-1.5 mb-3">
+            {priceChange.isPositive ? (
+              <TrendingUp className="w-3.5 h-3.5 text-rose-400" />
+            ) : (
+              <TrendingDown className="w-3.5 h-3.5 text-blue-400" />
+            )}
+            <span className="text-xs font-medium text-slate-400">수익률</span>
+          </div>
+          <div className={cn(
+            'text-3xl font-bold font-mono tabular-nums',
+            priceChange.isPositive ? 'text-rose-400' : 'text-blue-400'
+          )}>
+            {priceChange.isPositive ? '+' : ''}{priceChange.percent}%
+          </div>
+          <div className={cn(
+            'text-sm font-mono tabular-nums mt-1',
+            priceChange.isPositive ? 'text-rose-400/50' : 'text-blue-400/50'
+          )}>
+            {priceChange.isPositive ? '+' : ''}{formatPrice(priceChange.amount)}원
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   return (
     <article
@@ -95,16 +216,26 @@ const NewsletterCard = memo(function NewsletterCard({ stock, maxRationaleItems, 
         </div>
       </div>
 
-      {/* 가격 - 고정 높이 */}
-      <div className="flex justify-end items-center gap-2 mb-6 h-[40px]">
-        <div className="flex flex-col gap-0.5 items-end">
-          <span className="text-2xl font-bold text-white font-mono tabular-nums">
-            {formattedPrice}
-          </span>
-          <span className="text-[10px] text-slate-500 font-normal">
-            ({previousDate} 종가 기준)
-          </span>
+      {/* 가격 정보 - 고급스러운 디자인 */}
+      <div className="mb-8">
+        {/* 추천일 기준 전일 종가 (핵심 정보) */}
+        <div className="mb-5 pb-5 border-b border-slate-700/30">
+          <div className="flex items-baseline justify-between mb-3">
+            <h4 className="text-xs font-medium text-emerald-400/80 tracking-wide">
+              추천일 전일 종가
+            </h4>
+            <span className="text-xs text-slate-500 font-light">
+              {previousDate}
+            </span>
+          </div>
+          <div className="text-3xl font-bold text-white font-mono tabular-nums">
+            {formatPrice(close_price)}
+            <span className="text-base text-slate-500 ml-2 font-normal">원</span>
+          </div>
         </div>
+
+        {/* 현재가 및 수익률 - 세로 배치 */}
+        {renderPriceSection()}
       </div>
 
       {/* 추천 근거 - 동적 높이로 일관성 유지 */}
@@ -119,7 +250,7 @@ const NewsletterCard = memo(function NewsletterCard({ stock, maxRationaleItems, 
           </h4>
         </div>
         <div
-          style={{ height: `${rationaleHeight - 50}px` }}
+          style={{ height: `${rationaleHeight - RATIONALE_LAYOUT.CONTENT_OFFSET}px` }}
           className="flex flex-col gap-2 overflow-hidden"
         >
           {rationaleItems.map((item, idx) => (
