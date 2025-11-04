@@ -59,6 +59,12 @@ export interface KisStockPrice {
   timestamp: number;
 }
 
+/** KIS 배치 가격 조회 결과 */
+export interface BatchPriceResult {
+  prices: Map<string, KisStockPrice>;
+  failures: Map<string, string>; // ticker → error message
+}
+
 /** KIS API 에러 응답 */
 export interface KisErrorResponse {
   rt_cd?: string;
