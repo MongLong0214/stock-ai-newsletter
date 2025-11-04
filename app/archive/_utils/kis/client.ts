@@ -9,7 +9,7 @@
  */
 
 import { validateKisEnv } from '@/lib/_utils/env-validator';
-import { getTokenFromStorage, saveTokenToStorage } from './token-storage';
+import { getTokenFromStorage, saveTokenToStorage, deleteTokenFromStorage } from './token-storage';
 import { checkRateLimit } from './rate-limiter';
 import type { KisToken, KisStockPrice, KisErrorResponse, KisConfig } from './types';
 
@@ -176,11 +176,13 @@ function cleanTicker(ticker: string): string {
 
 /**
  * 국내 주식 현재가 조회 (KOSPI/KOSDAQ)
+ * 토큰 만료 시 자동 재발급 및 재시도
  */
-export async function getStockPrice(ticker: string): Promise<KisStockPrice> {
+export async function getStockPrice(ticker: string, retryCount = 0): Promise<KisStockPrice> {
   const cacheKey = ticker;
   const now = Date.now();
   const CACHE_TTL = 60 * 1000; // 1분 캐시
+  const MAX_RETRIES = 1;
 
   // 캐시 확인
   const cached = priceCache.get(cacheKey);
@@ -213,6 +215,23 @@ export async function getStockPrice(ticker: string): Promise<KisStockPrice> {
   if (!response.ok) {
     const errorText = await response.text();
     console.error(`[KIS] Stock price request failed for ${ticker}:`, response.status, errorText);
+
+    // 토큰 만료 에러 감지 (EGW00123)
+    const isTokenExpired = errorText.includes('EGW00123') || errorText.includes('만료된 token');
+
+    if (isTokenExpired && retryCount < MAX_RETRIES) {
+      console.log(`[KIS] Token expired, invalidating all caches and retrying...`);
+
+      // 메모리 캐시 무효화
+      tokenCache.token = null;
+
+      // Supabase 캐시도 삭제 (비동기, 대기 필요)
+      await deleteTokenFromStorage();
+
+      // 재시도 (새 토큰 발급됨)
+      return getStockPrice(ticker, retryCount + 1);
+    }
+
     throw new Error(`Failed to get stock price: ${response.statusText}`);
   }
 
