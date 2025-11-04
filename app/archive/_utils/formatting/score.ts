@@ -5,7 +5,7 @@
  * 컴포넌트 전체에 일관된 Matrix/사이버펑크 미학 구현
  */
 
-import type { ScoreLevel, ScoreColorConfig } from '../_types/archive.types';
+import type { ScoreLevel, ScoreColorConfig } from '../../_types/archive.types';
 
 /**
  * 숫자 값을 기반으로 점수 레벨 결정

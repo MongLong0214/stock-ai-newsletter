@@ -1,7 +1,7 @@
 'use client';
 
 import { memo, useMemo } from 'react';
-import { getScoreBadgeColors } from '../_utils/score-formatting';
+import { getScoreBadgeColors } from '../../_utils/formatting/score';
 
 interface ScoreBadgeProps {
   label: string;

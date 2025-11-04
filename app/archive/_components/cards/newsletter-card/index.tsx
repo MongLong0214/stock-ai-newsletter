@@ -8,9 +8,9 @@
 
 import { memo, useMemo } from 'react';
 import { TrendingUp } from 'lucide-react';
-import ScoreBadge from '../score-badge';
-import { formatPrice } from '../../_utils/price-formatting';
-import { getOverallScoreColor } from '../../_utils/score-formatting';
+import ScoreBadge from '../../ui/score-badge';
+import { formatPrice } from '../../../_utils/formatting/price';
+import { getOverallScoreColor } from '../../../_utils/formatting/score';
 import PriceSection from './price-section';
 import { calculatePriceChange, getPreviousDate } from './utils';
 import { RATIONALE_LAYOUT, SIGNAL_BADGES } from './constants';
@@ -147,7 +147,7 @@ const NewsletterCard = memo(function NewsletterCard({
           style={{ height: `${rationaleHeight - RATIONALE_LAYOUT.CONTENT_OFFSET}px` }}
           className="flex flex-col gap-2 overflow-hidden"
         >
-          {rationaleItems.map((item, idx) => (
+          {rationaleItems.map((item: string, idx: number) => (
             <div
               key={idx}
               className="
