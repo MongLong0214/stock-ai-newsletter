@@ -1,11 +1,5 @@
 /**
  * 주식 가격 Supabase 캐시 저장/조회 서비스
- *
- * 패턴:
- * - Lazy initialization (Supabase 클라이언트)
- * - Upsert 패턴 (충돌 방지)
- * - expires_at 기반 TTL 관리
- * - Batch operations (성능 최적화)
  */
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
@@ -16,39 +10,21 @@ import type {
   StockPriceCacheInsert,
 } from './stock-price-cache-types';
 
-// Validation constants
-const CLOCK_SKEW_TOLERANCE = 60_000; // 1분 (서버-클라이언트 시간 차이 허용)
-
 let supabaseClient: SupabaseClient<StockPriceCacheDatabase> | null = null;
 
 /**
- * 개발 환경에서만 캐시 에러 로깅
+ * 캐시 에러 로깅 (프로덕션 관찰성 확보)
  */
 function logCacheError(message: string, error: unknown): void {
-  if (process.env.NODE_ENV === 'development') {
-    console.warn(`[StockPriceCache] ${message}:`, error);
-  }
+  console.error(`[StockPriceCache] ${message}:`, error);
 }
 
 /**
- * 주식 가격 데이터 유효성 검증
- *
- * @throws {Error} 유효하지 않은 데이터 발견 시
+ * 주식 가격 데이터 기본 검증
  */
 function validateStockPrice(price: StockPriceCache): void {
-  const errors: string[] = [];
-  const now = Date.now();
-
-  if (!price.ticker) errors.push('Empty ticker');
-  if (price.timestamp <= 0) errors.push(`Invalid timestamp: ${price.timestamp}`);
-  if (price.timestamp > now + CLOCK_SKEW_TOLERANCE) errors.push('Future timestamp');
-  if (price.expires_at <= price.timestamp) errors.push('Invalid expiry');
-  if (price.currentPrice <= 0) errors.push('Invalid current price');
-  if (price.previousClose <= 0) errors.push('Invalid previous close');
-  if (price.volume < 0) errors.push('Negative volume');
-
-  if (errors.length > 0) {
-    throw new Error(`Invalid stock price for ${price.ticker}: ${errors.join(', ')}`);
+  if (!price.ticker || price.currentPrice <= 0 || price.previousClose <= 0) {
+    throw new Error(`Invalid stock price for ${price.ticker}`);
   }
 }
 

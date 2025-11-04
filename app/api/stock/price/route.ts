@@ -62,13 +62,14 @@ export async function GET(request: NextRequest) {
     }
 
     // KIS API 호출
-    const prices = await getBatchStockPrices(tickers);
+    const result = await getBatchStockPrices(tickers);
 
-    const successCount = prices.size;
-    const failedCount = tickers.length - successCount;
+    const successCount = result.prices.size;
+    const failedCount = result.failures.size;
 
     // Map을 객체로 변환
-    const pricesObject = Object.fromEntries(prices);
+    const pricesObject = Object.fromEntries(result.prices);
+    const failuresObject = Object.fromEntries(result.failures);
 
     const duration = Date.now() - startTime;
 
@@ -76,6 +77,7 @@ export async function GET(request: NextRequest) {
       {
         success: true,
         prices: pricesObject,
+        failures: failedCount > 0 ? failuresObject : undefined,
         metadata: {
           requested: tickers.length,
           success: successCount,

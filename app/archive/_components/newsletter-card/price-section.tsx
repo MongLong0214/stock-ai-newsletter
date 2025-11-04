@@ -2,6 +2,7 @@
  * 가격 섹션 컴포넌트 (스켈레톤, 영업일 경과, 실시간 시세)
  */
 
+import { format } from 'date-fns';
 import { TrendingUp, TrendingDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatPrice } from '../../_utils/price-formatting';
@@ -67,12 +68,14 @@ function renderExpiredMessage() {
  * 현재가 섹션 렌더링
  */
 function renderCurrentPrice(currentPrice: StockPrice) {
+  const today = format(new Date(), 'M월 d일');
+
   return (
     <div className="h-[72px]">
       <div className="flex items-center gap-2 mb-3">
         <span className="text-xs font-medium text-slate-400">현재가</span>
         <span className="px-2 py-0.5 text-[10px] font-medium text-emerald-400 bg-emerald-500/10 rounded">
-          LIVE
+          {today}
         </span>
       </div>
       <div className="text-3xl font-bold text-white font-mono tabular-nums">

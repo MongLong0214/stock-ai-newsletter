@@ -5,20 +5,15 @@
  * - OAuth2 토큰 발급 및 자동 갱신
  * - 국내 주식 현재가 조회 (KOSPI/KOSDAQ)
  * - Supabase를 통한 영구 토큰 캐싱 (SMS 알림 최소화)
- * - 메모리 캐싱 fallback (로컬 개발 환경 대응)
  */
 
 import { validateKisEnv } from '@/lib/_utils/env-validator';
-import { getTokenFromStorage, saveTokenToStorage, deleteTokenFromStorage } from './token-storage';
+import { getTokenFromStorage, saveTokenToStorage } from './token-storage';
 import { checkRateLimit } from './rate-limiter';
-import type { KisToken, KisStockPrice, KisErrorResponse, KisConfig } from './types';
+import type { KisToken, KisStockPrice, KisErrorResponse, KisConfig, BatchPriceResult } from './types';
 
 // 메모리 캐시
 const tokenCache: { token: KisToken | null } = { token: null };
-const priceCache = new Map<string, { data: KisStockPrice; expires: number }>();
-
-// 토큰 발급 Promise 캐시 (동시 요청 방지)
-let tokenRequestPromise: Promise<string> | null = null;
 
 // 환경 변수 캐시 (런타임에 로드)
 let configCache: KisConfig | null = null;
@@ -118,12 +113,12 @@ async function issueNewToken(): Promise<KisToken> {
 }
 
 /**
- * 접근 토큰 발급 (3-tier 캐싱: 메모리 → Supabase → KIS API)
+ * 접근 토큰 발급 (2-tier 캐싱: 메모리 → Supabase)
  */
 async function getAccessToken(): Promise<string> {
   const now = Date.now();
 
-  // 1. 메모리 캐시 확인 (가장 빠름)
+  // 1. 메모리 캐시 확인
   if (tokenCache.token && tokenCache.token.expires_at > now) {
     return tokenCache.token.access_token;
   }
@@ -131,40 +126,19 @@ async function getAccessToken(): Promise<string> {
   // 2. Supabase에서 조회
   const storedToken = await getTokenFromStorage();
   if (storedToken) {
-    // 메모리 캐시도 업데이트
     tokenCache.token = storedToken;
     return storedToken.access_token;
   }
 
-  // 3. 이미 토큰 발급 요청 중이면 대기
-  if (tokenRequestPromise) {
-    return tokenRequestPromise;
-  }
-
-  // 4. Rate limit 체크
+  // 3. 새 토큰 발급
   checkRateLimit('token');
+  const newToken = await issueNewToken();
 
-  // 5. 토큰 발급 Promise 생성 및 캐싱
-  tokenRequestPromise = (async () => {
-    try {
-      const newToken = await issueNewToken();
+  // 메모리 및 Supabase에 저장
+  tokenCache.token = newToken;
+  saveTokenToStorage(newToken).catch(() => {}); // 실패해도 무시
 
-      // Supabase에 저장 (비동기, 실패해도 무시)
-      await saveTokenToStorage(newToken);
-
-      // 메모리 캐시에 저장
-      tokenCache.token = newToken;
-
-      return newToken.access_token;
-    } catch (error) {
-      console.error('[KIS] Token request error:', error);
-      throw error;
-    } finally {
-      tokenRequestPromise = null;
-    }
-  })();
-
-  return tokenRequestPromise;
+  return newToken.access_token;
 }
 
 /**
@@ -175,22 +149,9 @@ function cleanTicker(ticker: string): string {
 }
 
 /**
- * 국내 주식 현재가 조회 (KOSPI/KOSDAQ)
- * 토큰 만료 시 자동 재발급 및 재시도
+ * 국내 주식 현재가 조회
  */
-export async function getStockPrice(ticker: string, retryCount = 0): Promise<KisStockPrice> {
-  const cacheKey = ticker;
-  const now = Date.now();
-  const CACHE_TTL = 60 * 1000; // 1분 캐시
-  const MAX_RETRIES = 1;
-
-  // 캐시 확인
-  const cached = priceCache.get(cacheKey);
-  if (cached && cached.expires > now) {
-    return cached.data;
-  }
-
-  // API 호출
+export async function getStockPrice(ticker: string): Promise<KisStockPrice> {
   const token = await getAccessToken();
   const cleanedTicker = cleanTicker(ticker);
   const config = getKisConfig();
@@ -213,68 +174,40 @@ export async function getStockPrice(ticker: string, retryCount = 0): Promise<Kis
   );
 
   if (!response.ok) {
-    const errorText = await response.text();
-    console.error(`[KIS] Stock price request failed for ${ticker}:`, response.status, errorText);
-
-    // 토큰 만료 에러 감지 (EGW00123)
-    const isTokenExpired = errorText.includes('EGW00123') || errorText.includes('만료된 token');
-
-    if (isTokenExpired && retryCount < MAX_RETRIES) {
-      console.log(`[KIS] Token expired, invalidating all caches and retrying...`);
-
-      // 메모리 캐시 무효화
-      tokenCache.token = null;
-
-      // Supabase 캐시도 삭제 (비동기, 대기 필요)
-      await deleteTokenFromStorage();
-
-      // 재시도 (새 토큰 발급됨)
-      return getStockPrice(ticker, retryCount + 1);
-    }
-
-    throw new Error(`Failed to get stock price: ${response.statusText}`);
+    throw new Error(`Failed to get stock price for ${ticker}`);
   }
 
   const data = await response.json();
   const output = data.output;
 
-  const price: KisStockPrice = {
+  return {
     ticker,
     currentPrice: parseInt(output.stck_prpr),
     previousClose: parseInt(output.stck_sdpr),
     changeRate: parseFloat(output.prdy_ctrt),
     volume: parseInt(output.acml_vol),
-    timestamp: now,
+    timestamp: Date.now(),
   };
-
-  // 캐싱
-  priceCache.set(cacheKey, {
-    data: price,
-    expires: now + CACHE_TTL,
-  });
-
-  return price;
 }
 
 /**
  * 여러 주식 현재가 일괄 조회
  */
-export async function getBatchStockPrices(
-  tickers: string[]
-): Promise<Map<string, KisStockPrice>> {
-  const results = new Map<string, KisStockPrice>();
+export async function getBatchStockPrices(tickers: string[]): Promise<BatchPriceResult> {
+  const prices = new Map<string, KisStockPrice>();
+  const failures = new Map<string, string>();
 
-  // 병렬로 조회하되, 에러는 무시
-  await Promise.allSettled(
-    tickers.map(async (ticker) => {
-      try {
-        const price = await getStockPrice(ticker);
-        results.set(ticker, price);
-      } catch (error) {
-        console.error(`Failed to get price for ${ticker}:`, error);
-      }
-    })
-  );
+  const results = await Promise.allSettled(tickers.map((ticker) => getStockPrice(ticker)));
 
-  return results;
+  results.forEach((result, index) => {
+    if (result.status === 'fulfilled') {
+      prices.set(result.value.ticker, result.value);
+    } else {
+      const ticker = tickers[index];
+      const errorMsg = result.reason instanceof Error ? result.reason.message : 'Unknown error';
+      failures.set(ticker, errorMsg);
+    }
+  });
+
+  return { prices, failures };
 }

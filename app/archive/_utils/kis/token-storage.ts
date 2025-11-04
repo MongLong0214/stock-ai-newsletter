@@ -57,8 +57,9 @@ export async function getTokenFromStorage(): Promise<KisToken | null> {
       access_token: row.access_token,
       expires_at: row.expires_at,
     };
-  } catch {
-    // Supabase 조회 실패 시 null 반환
+  } catch (error) {
+    // Supabase 조회 실패 시 null 반환 (캐시 미스로 처리)
+    console.error('[KIS Token Storage] Failed to get token from Supabase:', error);
     return null;
   }
 }
@@ -76,8 +77,9 @@ export async function saveTokenToStorage(token: KisToken): Promise<void> {
       updated_at: new Date().toISOString(),
     };
     await supabase.from('kis_tokens').upsert(tokenRow);
-  } catch {
+  } catch (error) {
     // Supabase 저장 실패해도 계속 진행 (메모리 캐시 사용)
+    console.error('[KIS Token Storage] Failed to save token to Supabase:', error);
   }
 }
 
@@ -88,7 +90,8 @@ export async function deleteTokenFromStorage(): Promise<void> {
   try {
     const supabase = getSupabase();
     await supabase.from('kis_tokens').delete().eq('id', TOKEN_ID);
-  } catch {
-    // 삭제 실패해도 무시
+  } catch (error) {
+    // 삭제 실패해도 무시 (토큰 만료로 자동 정리됨)
+    console.error('[KIS Token Storage] Failed to delete token from Supabase:', error);
   }
 }
