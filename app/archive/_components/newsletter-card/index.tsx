@@ -79,7 +79,7 @@ const NewsletterCard = memo(function NewsletterCard({
           <div className="flex-1 min-w-0 flex flex-col justify-between min-h-[110px] py-1">
             <h3
               id={`stock-${ticker}-title`}
-              className="text-xl sm:text-2xl font-bold text-white tracking-tight line-clamp-4 leading-tight"
+              className="text-xl sm:text-2xl font-bold text-white tracking-tight leading-tight"
             >
               {name}
             </h3>
