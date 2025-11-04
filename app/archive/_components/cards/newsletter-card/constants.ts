@@ -2,7 +2,7 @@
  * NewsletterCard 컴포넌트 상수
  */
 
-import type { StockSignals } from '../../_types/archive.types';
+import type { StockSignals } from '../../../_types/archive.types';
 
 /** 추천 근거 레이아웃 설정 */
 export const RATIONALE_LAYOUT = {

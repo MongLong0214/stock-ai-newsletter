@@ -2,7 +2,7 @@
  * NewsletterCard 유틸리티 함수
  */
 
-import type { DateString } from '../../_types/archive.types';
+import type { DateString } from '../../../_types/archive.types';
 import type { StockPrice, PriceChangeInfo } from './types';
 import { DATE_CALC } from './constants';
 

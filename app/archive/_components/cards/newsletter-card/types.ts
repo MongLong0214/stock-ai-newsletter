@@ -2,7 +2,7 @@
  * NewsletterCard 컴포넌트 타입 정의
  */
 
-import type { StockData, DateString } from '../../_types/archive.types';
+import type { StockData, DateString } from '../../../_types/archive.types';
 
 /** 실시간 주식 시세 정보 */
 export interface StockPrice {

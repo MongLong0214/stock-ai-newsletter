@@ -8,7 +8,7 @@ import type {
   StockPriceCache,
   StockPriceCacheRow,
   StockPriceCacheInsert,
-} from './stock-price-cache-types';
+} from './types';
 
 let supabaseClient: SupabaseClient<StockPriceCacheDatabase> | null = null;
 
