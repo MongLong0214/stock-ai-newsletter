@@ -11,7 +11,7 @@ import {
   getKoreanDayNames,
 } from '../_utils/date-formatting';
 import type { DateString } from '../_types/archive.types';
-import { DURATION, EASING, getStaggerDelay } from '../_constants/animation';
+import { DURATION, EASING } from '../_constants/animation';
 import { useReducedMotion } from '../_hooks/use-reduced-motion';
 
 interface MiniCalendarProps {
@@ -25,35 +25,7 @@ interface MiniCalendarProps {
 }
 
 /**
- * 미니 캘린더 컴포넌트 (S++ 엔터프라이즈급 - Matrix 테마)
- *
- * Matrix 사이버펑크 미학의 고성능 캘린더 인터페이스
- *
- * 기능:
- * - Matrix 그린 악센트 색상 (emerald-500)
- * - 데이터 가용성 표시기 (점 + 배경)
- * - 글로우가 적용된 선택된 날짜 강조
- * - 모션 감소 지원이 적용된 부드러운 애니메이션
- * - ARIA grid 의미론적 구조의 완전한 키보드 접근성
- * - 반응형 레이아웃 (44px 최소 터치 타겟 - WCAG AAA)
- * - 유틸리티 함수 추출로 최적화된 성능
- * - 브랜드 DateString 타입으로 타입 안전성
- * - 커스텀 비교를 통한 React.memo
- * - Set을 사용한 O(1) 날짜 조회
- *
- * 접근성:
- * - 스크린 리더를 위한 role="grid" 의미론
- * - 요일 이름을 위한 role="columnheader"
- * - 날짜 버튼을 위한 role="gridcell"
- * - 각 날짜에 대한 설명적 aria-label
- * - 선택 상태를 위한 aria-pressed
- * - 사용 불가 날짜를 위한 aria-disabled
- *
- * 성능:
- * - 유틸리티 함수를 통한 메모이제이션된 계산
- * - 상수를 사용한 스태거 애니메이션
- * - 모션 감소 지원
- * - Set을 사용한 O(1) availableDates 조회
+ * 미니 캘린더 컴포넌트
  */
 const MiniCalendar = memo(function MiniCalendar({
   year,
@@ -156,7 +128,7 @@ const MiniCalendar = memo(function MiniCalendar({
           animate={shouldReduceMotion ? undefined : { opacity: 1, scale: 1 }}
           exit={shouldReduceMotion ? undefined : { opacity: 0, scale: 0.95 }}
           transition={{ duration: DURATION.fast }}
-          className="grid grid-cols-7 gap-2"
+          className="grid grid-cols-7 gap-3"
         >
           {calendarDays.map((day, index) => {
             if (day === null) {
@@ -177,8 +149,8 @@ const MiniCalendar = memo(function MiniCalendar({
                 whileHover={!shouldReduceMotion && hasData ? { scale: 1.05 } : undefined}
                 whileTap={!shouldReduceMotion && hasData ? { scale: 0.95 } : undefined}
                 className={`
-                  relative aspect-square rounded-lg min-h-[44px]
-                  text-sm font-mono tabular-nums
+                  relative aspect-square rounded-lg min-h-[36px]
+                  text-xs font-mono tabular-nums
                   transition-all duration-200
                   focus-visible:outline-none focus-visible:ring-2
                   focus-visible:ring-emerald-500 focus-visible:ring-offset-2
@@ -197,47 +169,11 @@ const MiniCalendar = memo(function MiniCalendar({
                 aria-disabled={!hasData}
               >
                 <span className="absolute inset-0 flex items-center justify-center">{day}</span>
-
-                {/* 데이터 표시 점 */}
-                {hasData && !isSelected && (
-                  <motion.span
-                    initial={shouldReduceMotion ? false : { scale: 0, opacity: 0 }}
-                    animate={shouldReduceMotion ? false : { scale: 1, opacity: 1 }}
-                    transition={{
-                      delay: shouldReduceMotion ? 0 : getStaggerDelay(index, 0.01),
-                      duration: DURATION.normal,
-                    }}
-                    className="
-                      absolute bottom-1 left-1/2 -translate-x-1/2
-                      w-1 h-1 rounded-full
-                      bg-emerald-400
-                      shadow-[0_0_6px_rgba(16,185,129,0.8)]
-                    "
-                    aria-hidden="true"
-                  />
-                )}
               </motion.button>
             );
           })}
         </motion.div>
       </AnimatePresence>
-
-      {/* 범례 */}
-      <div className="mt-6 pt-4 border-t border-slate-700/50">
-        <div className="flex items-center justify-center gap-4 text-xs">
-          <div className="flex items-center gap-2">
-            <div
-              className="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(16,185,129,0.8)]"
-              aria-hidden="true"
-            />
-            <span className="text-slate-300">데이터 있음</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-slate-600" aria-hidden="true" />
-            <span className="text-slate-300">데이터 없음</span>
-          </div>
-        </div>
-      </div>
     </motion.div>
   );
 }, (prevProps, nextProps) => {
