@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getBatchStockPrices } from '@/app/archive/_utils/kis/client';
+import { getBatchStockPrices } from '@/app/archive/_utils/api/kis/client';
 
 /**
  * 주식 현재가 조회 API

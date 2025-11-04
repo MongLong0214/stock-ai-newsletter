@@ -77,7 +77,7 @@ function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
         onClick={onClose}
       />
 
-      {/* Menu Panel - 최고 성능 슬라이드 */}
+      {/* Menu Panel - 전체 화면 */}
       <motion.div
         ref={menuRef}
         id="mobile-menu"
@@ -91,7 +91,7 @@ function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
           duration: 0.3,
           ease: [0.4, 0, 0.2, 1]
         }}
-        className="fixed right-0 bottom-0 w-full max-w-md bg-black z-50 lg:hidden overflow-hidden"
+        className="fixed right-0 bottom-0 w-full bg-black z-50 lg:hidden overflow-hidden"
         style={{
           top: '64px',
         }}

@@ -10,7 +10,7 @@ if (existsSync(envPath)) {
 }
 
 import { createClient } from '@supabase/supabase-js';
-import type { NewsletterArchive, StockData, DateString, ISODateTime } from '@/app/archive/_types/archive.types';
+import type { NewsletterArchive, StockData, DateString } from '@/app/archive/_types/archive.types';
 
 // 환경변수 검증
 if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
@@ -86,7 +86,7 @@ async function updateArchiveData() {
         archiveData.push({
           date: newsletter.newsletter_date as DateString,
           stocks,
-          sentAt: newsletter.sent_at as ISODateTime | null,
+          sentAt: newsletter.sent_at as string | null,
           subscriberCount: newsletter.subscriber_count ?? 0,
         });
 

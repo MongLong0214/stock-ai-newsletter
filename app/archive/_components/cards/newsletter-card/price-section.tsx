@@ -5,8 +5,8 @@
 import { format } from 'date-fns';
 import { TrendingUp, TrendingDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { formatPrice } from '../../_utils/price-formatting';
-import { MAX_BUSINESS_DAYS } from '../../_utils/date-formatting';
+import { formatPrice } from '../../../_utils/formatting/price';
+import { MAX_BUSINESS_DAYS } from '../../../_utils/formatting/date';
 import type { StockPrice, PriceChangeInfo } from './types';
 
 interface PriceSectionProps {
