@@ -80,3 +80,15 @@ export async function saveTokenToStorage(token: KisToken): Promise<void> {
     // Supabase 저장 실패해도 계속 진행 (메모리 캐시 사용)
   }
 }
+
+/**
+ * Supabase에서 토큰 삭제
+ */
+export async function deleteTokenFromStorage(): Promise<void> {
+  try {
+    const supabase = getSupabase();
+    await supabase.from('kis_tokens').delete().eq('id', TOKEN_ID);
+  } catch {
+    // 삭제 실패해도 무시
+  }
+}
