@@ -1,5 +1,4 @@
 import { useState, useEffect, useMemo } from 'react';
-import { LRUCache } from 'lru-cache';
 import { calculateBusinessDays, MAX_BUSINESS_DAYS } from '../_utils/date-formatting';
 import { getStockPriceCacheExpiry } from '../_utils/market-hours';
 import { getBatchPricesFromCache, saveBatchPricesToCache } from '../_utils/stock-price-cache';
@@ -23,33 +22,6 @@ interface UseStockPricesResult {
   error: string | null;
 }
 
-/** 메모리 캐시 엔트리 */
-interface CacheEntry {
-  data: StockPrice;
-  expires: number;
-}
-
-// 캐시 설정 상수
-const CACHE_CONFIG = {
-  MAX_ITEMS: 1000,
-  MAX_SIZE_BYTES: 5_000_000, // 5MB
-  DEFAULT_TTL_MS: 300_000, // 5분
-} as const;
-
-/**
- * LRU 메모리 캐시 (3-tier 캐싱의 첫 번째 계층)
- * - 최대 1000개 티커
- * - 5MB 크기 제한
- * - 자동 만료 및 LRU 기반 제거
- */
-const memoryCache = new LRUCache<string, CacheEntry>({
-  max: CACHE_CONFIG.MAX_ITEMS,
-  maxSize: CACHE_CONFIG.MAX_SIZE_BYTES,
-  sizeCalculation: (value) => JSON.stringify(value).length,
-  ttl: CACHE_CONFIG.DEFAULT_TTL_MS,
-  updateAgeOnGet: true, // 조회 시 TTL 갱신 (자주 사용되는 캐시 유지)
-  updateAgeOnHas: false, // has() 호출 시 TTL 갱신 안함
-});
 
 /**
  * 주식 가격 데이터 타입 가드
@@ -87,26 +59,11 @@ function isValidAPIResponse(data: unknown): data is { success: true; prices: Rec
 }
 
 /**
- * Supabase 캐시를 StockPrice로 변환
- */
-function mapCacheToStockPrice(cache: StockPriceCache): StockPrice {
-  return {
-    ticker: cache.ticker,
-    currentPrice: cache.currentPrice,
-    previousClose: cache.previousClose,
-    changeRate: cache.changeRate,
-    volume: cache.volume,
-    timestamp: cache.timestamp,
-  };
-}
-
-/**
- * 실시간 주식 시세 조회 훅 (3-tier 캐싱 적용)
+ * 실시간 주식 시세 조회 훅 (2-tier 캐싱)
  *
  * 캐싱 전략:
- * 1. 메모리 캐시 (가장 빠름, LRU 기반)
- * 2. Supabase 캐시 (세션 간 공유)
- * 3. API 호출 (최후의 수단)
+ * 1. Supabase 캐시 (세션 간 공유, ~50ms)
+ * 2. KIS API 호출 (캐시 미스 시)
  *
  * 시장 개장 시간 기반 TTL:
  * - 장 중: 1분 캐시
@@ -157,56 +114,34 @@ export default function useStockPrices(
     let isMounted = true;
     const controller = new AbortController();
 
-    async function fetchPricesWithCache() {
-      const apiTickers: string[] = [];
-
+    async function fetchPrices() {
       try {
         setLoading(true);
         setError(null);
 
-        const now = Date.now();
         const results = new Map<string, StockPrice>();
-        const missingTickers: string[] = [];
 
-        // 1단계: 메모리 캐시에서 조회
+        // Supabase 캐시 조회
+        const cached = await getBatchPricesFromCache(tickers);
+        const apiTickers: string[] = [];
+
         tickers.forEach((ticker) => {
-          const cached = memoryCache.get(ticker);
-          if (cached && cached.expires > now) {
-            results.set(ticker, cached.data);
-          } else {
-            missingTickers.push(ticker);
-          }
-        });
-
-        // 모든 티커가 메모리 캐시에 있으면 즉시 반환
-        if (missingTickers.length === 0) {
-          if (isMounted) {
-            setPrices(results);
-            setLoading(false);
-          }
-          return;
-        }
-
-        // 2단계: Supabase 캐시에서 조회
-        const supabaseCached = await getBatchPricesFromCache(missingTickers);
-
-        missingTickers.forEach((ticker) => {
-          const cached = supabaseCached.get(ticker);
-          if (cached) {
-            const price = mapCacheToStockPrice(cached);
-            results.set(ticker, price);
-
-            // 메모리 캐시에도 저장
-            memoryCache.set(ticker, {
-              data: price,
-              expires: cached.expires_at,
+          const cachedPrice = cached.get(ticker);
+          if (cachedPrice) {
+            results.set(ticker, {
+              ticker: cachedPrice.ticker,
+              currentPrice: cachedPrice.currentPrice,
+              previousClose: cachedPrice.previousClose,
+              changeRate: cachedPrice.changeRate,
+              volume: cachedPrice.volume,
+              timestamp: cachedPrice.timestamp,
             });
           } else {
             apiTickers.push(ticker);
           }
         });
 
-        // 모든 티커를 캐시에서 찾았으면 반환
+        // 전부 캐시 히트
         if (apiTickers.length === 0) {
           if (isMounted) {
             setPrices(results);
@@ -215,75 +150,41 @@ export default function useStockPrices(
           return;
         }
 
-        // 3단계: API 호출
-        const tickersParam = encodeURIComponent(apiTickers.join(','));
-        const response = await fetch(`/api/stock/price?tickers=${tickersParam}`, {
+        // API 호출
+        const response = await fetch(`/api/stock/price?tickers=${apiTickers.join(',')}`, {
           signal: controller.signal,
-          cache: 'no-store', // 3-tier 캐싱 사용하므로 HTTP 캐시 비활성화
         });
 
         if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-          type ErrorResponse = { message?: string; error?: string };
-          const errorResponse = errorData as ErrorResponse;
-          const errorMessage =
-            errorResponse.message || errorResponse.error || 'Failed to fetch stock prices';
-          throw new Error(errorMessage);
+          throw new Error('Failed to fetch stock prices');
         }
 
-        const rawData: unknown = await response.json();
-
-        if (!isValidAPIResponse(rawData)) {
-          throw new Error('Invalid API response format');
+        const data: unknown = await response.json();
+        if (!isValidAPIResponse(data)) {
+          throw new Error('Invalid API response');
         }
 
-        // API 응답 처리 및 캐싱
+        // 결과 처리 및 캐싱
         const expiresAt = getStockPriceCacheExpiry();
         const cachePrices: StockPriceCache[] = [];
 
-        Object.entries(rawData.prices).forEach(([ticker, apiPrice]) => {
-          if (!isValidStockPrice(apiPrice)) {
-            console.warn(`[useStockPrices] Invalid price data for ${ticker}`, apiPrice);
-            return;
-          }
+        Object.values(data.prices).forEach((price) => {
+          if (!isValidStockPrice(price)) return;
 
-          results.set(ticker, apiPrice);
-
-          // 메모리 캐시에 저장
-          memoryCache.set(ticker, {
-            data: apiPrice,
-            expires: expiresAt,
-          });
-
-          // Supabase 캐시용 데이터 준비
-          cachePrices.push({
-            ticker: apiPrice.ticker,
-            currentPrice: apiPrice.currentPrice,
-            previousClose: apiPrice.previousClose,
-            changeRate: apiPrice.changeRate,
-            volume: apiPrice.volume,
-            timestamp: apiPrice.timestamp,
-            expires_at: expiresAt,
-          });
+          results.set(price.ticker, price);
+          cachePrices.push({ ...price, expires_at: expiresAt });
         });
 
-        // Supabase에 비동기 저장 (실패해도 무시)
-        saveBatchPricesToCache(cachePrices).catch((err) => {
-          console.warn('[useStockPrices] Failed to save to Supabase cache:', err);
-        });
+        saveBatchPricesToCache(cachePrices).catch(() => {});
 
         if (isMounted) {
           setPrices(results);
         }
       } catch (err) {
-        if (err instanceof Error && err.name === 'AbortError') {
-          return;
-        }
+        if (err instanceof Error && err.name === 'AbortError') return;
 
         if (isMounted) {
-          const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-          console.error('[useStockPrices] Failed to fetch prices:', err);
-          setError(errorMessage);
+          setError(err instanceof Error ? err.message : 'Unknown error');
         }
       } finally {
         if (isMounted) {
@@ -292,7 +193,7 @@ export default function useStockPrices(
       }
     }
 
-    void fetchPricesWithCache();
+    void fetchPrices();
 
     return () => {
       isMounted = false;
