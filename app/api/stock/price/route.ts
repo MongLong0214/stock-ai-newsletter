@@ -135,7 +135,12 @@ export async function GET(request: NextRequest) {
 
 // Route segment config for Vercel
 export const runtime = 'nodejs'; // KIS API는 Node.js runtime 필요
-export const dynamic = 'force-dynamic'; // 항상 동적으로 생성
+
+// 🔧 캐싱 전략:
+// - force-dynamic 제거: Cache-Control 헤더가 제대로 작동하도록 함
+// - 장 중: 1분 캐싱 (실시간성 유지)
+// - 장 마감 후: Supabase 캐시가 다음 영업일 09:00까지 유지됨
+// - CDN 캐싱: s-maxage=60으로 Vercel Edge에서 1분간 캐시
 
 // Rate limiting은 Vercel Pro 이상에서 자동 적용됨
 // 무료 플랜에서는 애플리케이션 레벨에서 관리
