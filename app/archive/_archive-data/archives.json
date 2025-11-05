@@ -1,6 +1,58 @@
 {
   "newsletters": [
     {
+      "date": "2025-11-06",
+      "stocks": [
+        {
+          "ticker": "KOSPI:000660",
+          "name": "SK하이닉스",
+          "close_price": 579000,
+          "rationale": "SMA 정배열|EMA 골든크로스 발생|MACD 양수권 및 매수 신호|ADX 30 이상 상승추세|OBV 추세적 상승|거래량 20일 평균 상회|볼린저밴드 상단 돌파 시도|RSI 50 이상 강세권|Stochastic 과열권 진입|SuperTrend 매수 신호 유지|Ichimoku 구름대 상단 돌파|Parabolic SAR 상승 추세",
+          "signals": {
+            "trend_score": 92,
+            "momentum_score": 83,
+            "volume_score": 85,
+            "volatility_score": 80,
+            "pattern_score": 90,
+            "sentiment_score": 81,
+            "overall_score": 85
+          }
+        },
+        {
+          "ticker": "KOSPI:035420",
+          "name": "NAVER",
+          "close_price": 278500,
+          "rationale": "SMA 단기/중기 정배열|EMA 상승 추세|RSI 60 근접 강세 전환|MACD 0선 상향 돌파 임박|거래량 점진적 증가|볼린저밴드 중상단 움직임|ADX 추세강화 초기 국면|Stochastic 상승 전환|Vortex 상승 교차 임박|CMF 플러스 전환|Ichimoku 구름대 돌파 시도|견조한 지지선 확인",
+          "signals": {
+            "trend_score": 85,
+            "momentum_score": 88,
+            "volume_score": 81,
+            "volatility_score": 78,
+            "pattern_score": 82,
+            "sentiment_score": 86,
+            "overall_score": 84
+          }
+        },
+        {
+          "ticker": "KOSPI:005930",
+          "name": "삼성전자",
+          "close_price": 100600,
+          "rationale": "RSI 30대 과매도 구간 진입|Stochastic 과매도 후 반등 시도|볼린저밴드 하단 터치|ATR 변동성 최고조|MACD 하락세 둔화|거래량 급증 후 매물 소화 과정|Williams %R 과매도 탈출 시도|CCI -100 이하 과매도|ADX 47 강한 추세(하락)|SMA 역배열 상태|EMA 데드크로스 발생|OBV 하락 추세",
+          "signals": {
+            "trend_score": 25,
+            "momentum_score": 65,
+            "volume_score": 70,
+            "volatility_score": 88,
+            "pattern_score": 40,
+            "sentiment_score": 60,
+            "overall_score": 58
+          }
+        }
+      ],
+      "sentAt": "2025-11-05T22:50:08.299+00:00",
+      "subscriberCount": 25
+    },
+    {
       "date": "2025-11-05",
       "stocks": [
         {
@@ -261,5 +313,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2025-11-04T23:01:48.868Z"
+  "lastUpdated": "2025-11-05T22:50:36.219Z"
 }
