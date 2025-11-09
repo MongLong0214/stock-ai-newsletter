@@ -1,6 +1,58 @@
 {
   "newsletters": [
     {
+      "date": "2025-11-10",
+      "stocks": [
+        {
+          "ticker": "KOSDAQ:028300",
+          "name": "HLB",
+          "close_price": 47600,
+          "rationale": "정배열 상승추세|골든크로스 발생|현재가>MA5|현재가>MA200|MACD -993 약세|신약 기대감으로 급등|거래량 동반 상승|변동성 8.09% 매우 높음|기술지표 종합 매수 우위|52주 최고가 대비 조정 후 반등 시도",
+          "signals": {
+            "trend_score": 85,
+            "momentum_score": 75,
+            "volume_score": 80,
+            "volatility_score": 85,
+            "pattern_score": 70,
+            "sentiment_score": 75,
+            "overall_score": 79
+          }
+        },
+        {
+          "ticker": "KOSPI:012450",
+          "name": "한화에어로스페이스",
+          "close_price": 923000,
+          "rationale": "RSI 38.1 약세|MACD -20041 매도신호|ADX 33.4 강한추세|Stochastic 93.2 과매수|Williams %R -7.4 과매수|CCI -55.7 매도|중장기 정배열 유지|현재가<20일선 단기조정|ATR 18571 높은 변동성|기술지표 종합 적극매도 우위|52주 최고가 대비 조정",
+          "signals": {
+            "trend_score": 55,
+            "momentum_score": 45,
+            "volume_score": 60,
+            "volatility_score": 75,
+            "pattern_score": 40,
+            "sentiment_score": 35,
+            "overall_score": 52
+          }
+        },
+        {
+          "ticker": "KOSPI:034020",
+          "name": "두산에너빌리티",
+          "close_price": 77900,
+          "rationale": "RSI 34.7 약세|MACD -2665 매도신호|ADX 32.5 강한추세|Stochastic 92.5 과매수|Williams %R -12.2 과매수|CCI -59.4 매도|현재가<MA50|현재가<MA200|ATR 1957 낮은 변동성|이동평균 종합 매도 우위|기술지표 종합 매도 우위|52주 최고가 대비 하락",
+          "signals": {
+            "trend_score": 35,
+            "momentum_score": 40,
+            "volume_score": 50,
+            "volatility_score": 60,
+            "pattern_score": 20,
+            "sentiment_score": 30,
+            "overall_score": 38
+          }
+        }
+      ],
+      "sentAt": "2025-11-09T22:50:25.976+00:00",
+      "subscriberCount": 25
+    },
+    {
       "date": "2025-11-07",
       "stocks": [
         {
@@ -365,5 +417,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2025-11-06T23:02:01.694Z"
+  "lastUpdated": "2025-11-09T22:50:55.542Z"
 }
