@@ -1,6 +1,58 @@
 {
   "newsletters": [
     {
+      "date": "2025-11-11",
+      "stocks": [
+        {
+          "ticker": "KOSPI:006660",
+          "name": "삼성공조",
+          "close_price": 16080,
+          "rationale": "SMA 단기 골든크로스|거래량 전일 대비 10배 급증|주요 저항선 돌파|장대양봉 연속 출현|상승 추세 지속|MACD 골든크로스 추정|RSI 과매수 진입|OBV 급등 추정|Parabolic SAR 상승 신호|일목균형표 호전 추정|ADX 강한 추세|Stochastic 과매수",
+          "signals": {
+            "trend_score": 100,
+            "momentum_score": 88,
+            "volume_score": 99,
+            "volatility_score": 80,
+            "pattern_score": 60,
+            "sentiment_score": 90,
+            "overall_score": 89
+          }
+        },
+        {
+          "ticker": "KOSDAQ:277810",
+          "name": "레인보우로보틱스",
+          "close_price": 404500,
+          "rationale": "AI/로봇 주도 섹터|거래량 급증 동반 상승|삼성전자 최대주주 모멘텀|이동평균선 매수 시그널|52주 신고가 근접|기관 및 외국인 순매수세 유입|MACD 매수 신호|RSI 강세권 유지|ADX 추세 상승 전환|OBV 우상향|Stochastic 상승 신호|볼린저밴드 확장",
+          "signals": {
+            "trend_score": 92,
+            "momentum_score": 89,
+            "volume_score": 95,
+            "volatility_score": 85,
+            "pattern_score": 80,
+            "sentiment_score": 93,
+            "overall_score": 90
+          }
+        },
+        {
+          "ticker": "KOSPI:000230",
+          "name": "일동홀딩스",
+          "close_price": 12250,
+          "rationale": "SMA 단기 골든크로스|상한가 기록 후 조정|강한 추세 전환 신호|거래량 급증 후 유지|제약/바이오 섹터 순환매 기대|이전 매물대 소화 과정|RSI 과매수권 진입 후 조정|MACD 0선 상향 돌파|Stochastic 골든크로스|볼린저밴드 상단 터치|OBV 상승 추세|단기 급등에 따른 변동성 확대",
+          "signals": {
+            "trend_score": 95,
+            "momentum_score": 91,
+            "volume_score": 94,
+            "volatility_score": 88,
+            "pattern_score": 82,
+            "sentiment_score": 85,
+            "overall_score": 91
+          }
+        }
+      ],
+      "sentAt": "2025-11-10T22:50:54.378+00:00",
+      "subscriberCount": 26
+    },
+    {
       "date": "2025-11-10",
       "stocks": [
         {
@@ -417,5 +469,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2025-11-09T23:01:43.172Z"
+  "lastUpdated": "2025-11-10T22:51:27.172Z"
 }
