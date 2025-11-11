@@ -1,6 +1,58 @@
 {
   "newsletters": [
     {
+      "date": "2025-11-12",
+      "stocks": [
+        {
+          "ticker": "KOSPI:042700",
+          "name": "한미반도체",
+          "close_price": 129600,
+          "rationale": "SMA 정배열 초기|EMA 골든크로스 유지|RSI 중립(47) 후 상승전환 시도|MACD 단기 조정 후 반등 모색|거래량 평균 상회|볼린저밴드 중심선 지지|HBM 시장 성장 기대감|외국인/기관 순매수 유입|52주 신고가 근접|N자형 상승 파동|SuperTrend 매수 신호|ADX 추세강화 구간 진입",
+          "signals": {
+            "trend_score": 92,
+            "momentum_score": 85,
+            "volume_score": 88,
+            "volatility_score": 78,
+            "pattern_score": 90,
+            "sentiment_score": 89,
+            "overall_score": 87
+          }
+        },
+        {
+          "ticker": "KOSPI:007660",
+          "name": "이수페타시스",
+          "close_price": 117100,
+          "rationale": "5일선 지지 상승|EMA 완전정배열|RSI 과열권 진입(70)|MACD 오실레이터 확장|거래대금 상위권 유지|볼린저밴드 상단 돌파 시도|AI 가속기 MLB 수요 폭증|기관 순매수 강화|전고점 돌파 패턴|상승 깃발형 패턴|OBV 급등|A/D Line 동반 상승",
+          "signals": {
+            "trend_score": 95,
+            "momentum_score": 93,
+            "volume_score": 94,
+            "volatility_score": 85,
+            "pattern_score": 91,
+            "sentiment_score": 92,
+            "overall_score": 92
+          }
+        },
+        {
+          "ticker": "KOSDAQ:098460",
+          "name": "고영",
+          "close_price": 20350,
+          "rationale": "장기 박스권 상단 돌파|SMA 골든크로스 발생|RSI 강세 전환(65)|MACD 0선 상향 돌파|거래량 폭발적 증가(전일비 300% 이상)|볼린저밴드 확장 시작|AI 서버 투자 수혜|의료용 로봇 FDA 승인 모멘텀|기관 대량 순매수|장대양봉 출현|Stochastic 과매수권 진입|CCI +100 돌파",
+          "signals": {
+            "trend_score": 89,
+            "momentum_score": 91,
+            "volume_score": 96,
+            "volatility_score": 88,
+            "pattern_score": 93,
+            "sentiment_score": 90,
+            "overall_score": 91
+          }
+        }
+      ],
+      "sentAt": "2025-11-11T22:50:34.299+00:00",
+      "subscriberCount": 27
+    },
+    {
       "date": "2025-11-11",
       "stocks": [
         {
@@ -469,5 +521,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2025-11-10T23:01:44.725Z"
+  "lastUpdated": "2025-11-11T22:51:06.471Z"
 }
