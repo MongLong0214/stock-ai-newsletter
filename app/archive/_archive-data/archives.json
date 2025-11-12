@@ -1,6 +1,58 @@
 {
   "newsletters": [
     {
+      "date": "2025-11-13",
+      "stocks": [
+        {
+          "ticker": "KOSDAQ:196170",
+          "name": "알테오젠",
+          "close_price": 510000,
+          "rationale": "52주 신고가 경신|SMA 정배열 초기 진입|EMA 골든크로스 발생|MACD 양전환 및 0선 상향돌파|거래량 20일 평균 상회|RSI 65 강세 국면|OBV 급격한 상승 전환|Stochastic 골든크로스|CCI +120 강세 추세|주요 저항선 돌파|볼린저밴드 상단 돌파 시도|기관/외국인 동시 순매수 포착",
+          "signals": {
+            "trend_score": 92,
+            "momentum_score": 90,
+            "volume_score": 88,
+            "volatility_score": 85,
+            "pattern_score": 95,
+            "sentiment_score": 91,
+            "overall_score": 91
+          }
+        },
+        {
+          "ticker": "KOSPI:000660",
+          "name": "SK하이닉스",
+          "close_price": 619000,
+          "rationale": "SMA 완전정배열 유지|EMA 상승 추세 지속|RSI 70 이상 과매수권 진입|MACD 0선 이상 강세 유지|OBV 꾸준한 우상향|거래량 증가하며 전고점 돌파|볼린저밴드 상단 터치 및 확장|ADX 35 강한 상승 추세|기관 순매수세 유입|SuperTrend 매수 신호 유지|52주 신고가 랠리 지속",
+          "signals": {
+            "trend_score": 95,
+            "momentum_score": 88,
+            "volume_score": 85,
+            "volatility_score": 83,
+            "pattern_score": 90,
+            "sentiment_score": 89,
+            "overall_score": 89
+          }
+        },
+        {
+          "ticker": "KOSPI:005930",
+          "name": "삼성전자",
+          "close_price": 103500,
+          "rationale": "장기 이평선(120, 200일) 상향 돌파|SMA 정배열 전환 시작|EMA 골든크로스 임박|MACD 0선 돌파 직전|거래량 점진적 증가|RSI 54 중립 이상 강세 전환|OBV 바닥 다지고 상승 전환|Stochastic 상승 반전 신호|CCI 0선 상향 돌파|박스권 상단 돌파 움직임|외국인 순매수 지속",
+          "signals": {
+            "trend_score": 85,
+            "momentum_score": 82,
+            "volume_score": 80,
+            "volatility_score": 78,
+            "pattern_score": 88,
+            "sentiment_score": 83,
+            "overall_score": 84
+          }
+        }
+      ],
+      "sentAt": "2025-11-12T22:50:45.476+00:00",
+      "subscriberCount": 27
+    },
+    {
       "date": "2025-11-12",
       "stocks": [
         {
@@ -521,5 +573,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2025-11-11T23:01:57.545Z"
+  "lastUpdated": "2025-11-12T22:51:18.431Z"
 }
