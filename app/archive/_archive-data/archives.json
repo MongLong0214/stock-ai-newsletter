@@ -1,6 +1,58 @@
 {
   "newsletters": [
     {
+      "date": "2025-11-17",
+      "stocks": [
+        {
+          "ticker": "KOSDAQ:098460",
+          "name": "고영",
+          "close_price": 19300,
+          "rationale": "SMA 완전정배열|EMA 완전정배열|RSI>65 강세|MACD>0 골든크로스|거래량 140% 평균상회|볼린저밴드 상단근접|ADX>25 강한상승추세|OBV 가격동반상승|Parabolic SAR 상승추세|Ichimoku 호전|SuperTrend 매수|52주 상위 87%",
+          "signals": {
+            "trend_score": 94,
+            "momentum_score": 88,
+            "volume_score": 89,
+            "volatility_score": 86,
+            "pattern_score": 94,
+            "sentiment_score": 86,
+            "overall_score": 90
+          }
+        },
+        {
+          "ticker": "KOSDAQ:399720",
+          "name": "가온칩스",
+          "close_price": 47200,
+          "rationale": "RSI 53.9 중립강세|스토캐스틱 17.2 과매도탈출|볼린저밴드 하단근접 과매도|OBV 상승 다이버전스|ADX 28.2 강한하락추세|MACD 음수전환|Parabolic SAR 하락추세|Aroon Down 88.0 강한하락|현재가<50일선 약세조정|거래량 61% 평균이하|Williams %R -82.8 과매도|CCI -101.0 과매도권 진입",
+          "signals": {
+            "trend_score": 39,
+            "momentum_score": 75,
+            "volume_score": 70,
+            "volatility_score": 63,
+            "pattern_score": 38,
+            "sentiment_score": 71,
+            "overall_score": 69
+          }
+        },
+        {
+          "ticker": "KOSPI:000660",
+          "name": "SK하이닉스",
+          "close_price": 560000,
+          "rationale": "RSI 25.9 과매도|CCI -110.2 과매도|볼린저밴드 하단이탈|ADX 52.9 강한하락추세|MACD -10427 매도|이동평균 적극매도|가격급락+대량거래(투매)|OBV 급락|Parabolic SAR 하락추세|Ichimoku 역전|SuperTrend 매도|STOCH 91.8 과매수(이상신호)",
+          "signals": {
+            "trend_score": 24,
+            "momentum_score": 37,
+            "volume_score": 21,
+            "volatility_score": 22,
+            "pattern_score": 31,
+            "sentiment_score": 34,
+            "overall_score": 28
+          }
+        }
+      ],
+      "sentAt": "2025-11-16T22:50:46.123+00:00",
+      "subscriberCount": 27
+    },
+    {
       "date": "2025-11-14",
       "stocks": [
         {
@@ -625,5 +677,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2025-11-13T23:02:02.484Z"
+  "lastUpdated": "2025-11-16T22:51:15.830Z"
 }
