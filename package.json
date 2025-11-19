@@ -11,7 +11,7 @@
     "test-twitter": "tsx scripts/test-twitter.ts"
   },
   "dependencies": {
-    "@google/genai": "^1.23.0",
+    "@google/genai": "^1.30.0",
     "@radix-ui/react-slot": "^1.2.3",
     "@sendgrid/mail": "^8.1.6",
     "@supabase/supabase-js": "^2.75.0",
