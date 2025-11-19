@@ -2,8 +2,8 @@ name: Prepare Stock Newsletter
 
 on:
   schedule:
-    # 평일 오전 7:00 KST (UTC 22:00 전날, 월-금요일만)
-    - cron: '0 22 * * 0-4'
+    # 평일 오전 6:00 KST (UTC 21:00 전날, 월-금요일만)
+    - cron: '0 21 * * 0-4'
   workflow_dispatch: # 수동 실행 가능
 
 jobs:
@@ -51,7 +51,7 @@ jobs:
 
       - name: Notify on success
         if: success()
-        run: echo "✅ Newsletter content prepared successfully! Ready for 07:50 KST sending."
+        run: echo "✅ Newsletter content prepared successfully! Ready for 06:50 KST sending."
 
       - name: Notify on failure
         if: failure()
