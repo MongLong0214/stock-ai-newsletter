@@ -67,9 +67,9 @@ export const PIPELINE_CONFIG = {
 
   /**
    * Vertex AI 리전
-   * us-central1: Google 공식 권장 리전
+   * global: Gemini 3 Pro Preview는 Global 리전 전용
    */
-  VERTEX_AI_LOCATION: 'us-central1' as const,
+  VERTEX_AI_LOCATION: 'global' as const,
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   // Validation Configuration
@@ -85,46 +85,52 @@ export const PIPELINE_CONFIG = {
 /**
  * Gemini API 호출 설정
  *
- * gemini-2.5-pro 모델 최적 파라미터
+ * gemini-3-pro-preview 모델 최적 파라미터
  */
 export const GEMINI_API_CONFIG = {
   /**
    * 사용 모델
-   * gemini-2.5-pro: 최신 프로덕션 모델 (2025 Q1)
+   * gemini-3-pro-preview: Gemini 3.0 Pro Preview
+   * - 1M 토큰 입력 컨텍스트 윈도우
+   * - 최대 64K 출력 토큰
+   * - Dynamic thinking 기본 활성화 (thinking_level: high가 기본값)
+   * - 지식 기준: 2025년 1월
    */
-  MODEL: 'gemini-2.5-pro' as const,
+  MODEL: 'gemini-3-pro-preview' as const,
 
   /**
    * 최대 출력 토큰 수
-   * 32768: gemini-2.5-pro 최대값
+   * 64000: gemini-3-pro 최대값 (gemini-2.5-pro의 2배)
    */
-  MAX_OUTPUT_TOKENS: 32768,
+  MAX_OUTPUT_TOKENS: 64000,
 
   /**
    * Temperature 설정
-   * 0.15: S grade - 최대 일관성 및 JSON 형식 안정성 확보 (Production 최적화)
+   * ⚠️ Gemini 3 공식 권장: 1.0 유지 (기본값)
+   * - 범위: 0.0 ~ 2.0
+   * - 1.0 미만 설정 시 복잡한 수학/추론 작업에서 루핑이나 성능 저하 발생 가능
+   * - Dynamic thinking과 함께 최적의 추론 성능 제공
    */
-  TEMPERATURE: 0.15,
+  TEMPERATURE: 1.0,
 
   /**
    * Top-P (nucleus sampling)
-   * 0.9: Google 공식 권장값
+   * 0.95: Gemini 3 Pro 공식 기본값
+   * - 범위: 0.0 ~ 1.0
+   * - 누적 확률 95%까지의 토큰만 고려
    */
-  TOP_P: 0.9,
+  TOP_P: 0.95,
 
   /**
    * Top-K (top-k sampling)
+   * 64: Gemini 3 Pro 고정값 (변경 불가)
+   * - 상위 64개 토큰 중에서 선택
    */
-  TOP_K: 35,
+  TOP_K: 64,
 
   /**
    * Response MIME Type
    * text/plain: Google Search tool 호환 모드
    */
   RESPONSE_MIME_TYPE: 'text/plain' as const,
-
-  /**
-   * Thinking Budget (Extended Thinking)
-   */
-  THINKING_BUDGET: 31000,
 } as const;
