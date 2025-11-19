@@ -1,0 +1,59 @@
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📊 Gemini Stock Analysis Result
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+⏱️  실행 시간: 1083.81초
+📅 생성 일시: 2025. 11. 19. 오후 5:18:08
+🤖 모델: gemini-2.5-pro
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+[
+  {
+    "ticker": "KOSDAQ:141080",
+    "name": "리가켐바이오",
+    "close_price": 173400,
+    "rationale": "52주 신고가 183,100원 임박|SMA 완전정배열 지속|기관 투자자 대량 매수|RSI 72 강세권 진입|MACD 매수신호 유지|볼린저밴드 상단 확장|ADC 기술이전 모멘텀 지속|외국인 지분율 11.4%|단기 골든크로스 발생|거래량 전일대비 증가|파라볼릭 SAR 매수|일목균형표 구름대 상단 지지",
+    "signals": {
+      "trend_score": 96,
+      "momentum_score": 90,
+      "volume_score": 92,
+      "volatility_score": 85,
+      "pattern_score": 94,
+      "sentiment_score": 88,
+      "overall_score": 93
+    }
+  },
+  {
+    "ticker": "KOSDAQ:056080",
+    "name": "유진로봇",
+    "close_price": 11200,
+    "rationale": "주요 지지선 11,000원 검증 완료|RSI 42 과매도권 반등 시도|스토캐스틱 골든크로스 임박|볼린저밴드 하단 지지|거래량 감소로 매도세 진정|MACD 히스토그램 축소|자율주행 로봇 모멘텀|단기 이격도 95% 과낙폭|엔벨로프 하단 터치|매물대 소화 과정 진행|CCI 침체권 탈출 시도",
+    "signals": {
+      "trend_score": 80,
+      "momentum_score": 86,
+      "volume_score": 84,
+      "volatility_score": 88,
+      "pattern_score": 85,
+      "sentiment_score": 83,
+      "overall_score": 86
+    }
+  },
+  {
+    "ticker": "KOSDAQ:090710",
+    "name": "휴림로봇",
+    "close_price": 5460,
+    "rationale": "5,500원 지지선 테스트 및 아래꼬리 발생|Stochastic Slow 20이하 과매도|RSI 38 저점 다지기|낙폭과대 기술적 반등 구간|볼린저밴드 하단 수축|거래량 급감 후 안정화|OBV 바닥권 횡보|ATR 변동성 축소|심리도 25 바닥권|VWAP 하단 지지|로봇 섹터 순환매 기대",
+    "signals": {
+      "trend_score": 78,
+      "momentum_score": 87,
+      "volume_score": 84,
+      "volatility_score": 82,
+      "pattern_score": 83,
+      "sentiment_score": 80,
+      "overall_score": 83
+    }
+  }
+]
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
