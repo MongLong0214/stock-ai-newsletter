@@ -51,7 +51,7 @@ jobs:
 
       - name: Notify on success
         if: success()
-        run: echo "✅ Newsletter content prepared successfully! Ready for 06:50 KST sending."
+        run: echo "✅ Newsletter content prepared successfully! Ready for 07:48 KST sending."
 
       - name: Notify on failure
         if: failure()
