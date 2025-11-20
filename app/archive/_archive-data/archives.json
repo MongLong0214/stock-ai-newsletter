@@ -1,6 +1,58 @@
 {
   "newsletters": [
     {
+      "date": "2025-11-21",
+      "stocks": [
+        {
+          "ticker": "KOSDAQ:196170",
+          "name": "알테오젠",
+          "close_price": 557000,
+          "rationale": "SMA 완전정배열 유지 | RSI 65.2 강세권 | 52주 신고가(569,000) 근접 | 유럽 키트루다 SC 승인 모멘텀 | ADX 32 강한추세 | 외국인/기관 수급 지속 | 볼린저밴드 상단 지지 | 일목균형표 구름대 상단 | 파라볼릭 SAR 매수 유지 | 거래대금 최상위",
+          "signals": {
+            "trend_score": 96,
+            "momentum_score": 93,
+            "volume_score": 91,
+            "volatility_score": 88,
+            "pattern_score": 94,
+            "sentiment_score": 95,
+            "overall_score": 94
+          }
+        },
+        {
+          "ticker": "KOSDAQ:087010",
+          "name": "펩트론",
+          "close_price": 386000,
+          "rationale": "전일 대비 급등세 지속 | 52주 신고가 영역 | RSI 78.5 과열권(강한 모멘텀) | MACD 강력 매수 신호 | 비만치료제 글로벌 기술이전 기대 | 거래량 폭증 | 이동평균선 정배열 확장 | CCI 250 매수신호 | 스토캐스틱 90 초강세 | 매물대 완전 소화",
+          "signals": {
+            "trend_score": 99,
+            "momentum_score": 98,
+            "volume_score": 99,
+            "volatility_score": 95,
+            "pattern_score": 97,
+            "sentiment_score": 98,
+            "overall_score": 98
+          }
+        },
+        {
+          "ticker": "KOSPI:012450",
+          "name": "한화에어로스페이스",
+          "close_price": 916000,
+          "rationale": "RSI 32.1 과매도권 진입 | 주요 지지선(900,000) 테스트 | 기술적 반등(Dead Cat Bounce) 기대 | 방산 섹터 수주 모멘텀 유효 | 볼린저밴드 하단 이탈 후 회귀 시도 | MACD 하락폭 과다 | 이격도 과매도 해소 국면 | 기관 저가 매수세 유입 | ATR 변동성 확대 | 단기 낙폭 과대",
+          "signals": {
+            "trend_score": 45,
+            "momentum_score": 85,
+            "volume_score": 70,
+            "volatility_score": 65,
+            "pattern_score": 82,
+            "sentiment_score": 80,
+            "overall_score": 72
+          }
+        }
+      ],
+      "sentAt": "2025-11-20T22:50:29.934+00:00",
+      "subscriberCount": 27
+    },
+    {
       "date": "2025-11-20",
       "stocks": [
         {
@@ -833,5 +885,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2025-11-19T23:01:48.732Z"
+  "lastUpdated": "2025-11-20T22:50:58.733Z"
 }
