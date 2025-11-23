@@ -1,6 +1,58 @@
 {
   "newsletters": [
     {
+      "date": "2025-11-24",
+      "stocks": [
+        {
+          "ticker": "KOSDAQ:087010",
+          "name": "펩트론",
+          "close_price": 369000,
+          "rationale": "RSI 64.7 강세권(조정됨)|MA 정배열 지속|MACD 13596 매수우위|이동평균 요약 적극매수(10:2)|볼린저 밴드 상단 지지|ATR 고변동성 유지|거래량 견고|비만치료제 모멘텀 유효|52주 신고가 갱신 후 숨고르기|기술수출 기대감 지속",
+          "signals": {
+            "trend_score": 97,
+            "momentum_score": 96,
+            "volume_score": 98,
+            "volatility_score": 95,
+            "pattern_score": 96,
+            "sentiment_score": 96,
+            "overall_score": 96
+          }
+        },
+        {
+          "ticker": "KOSDAQ:196170",
+          "name": "알테오젠",
+          "close_price": 541000,
+          "rationale": "단기 조정 -2.87%|중장기 SMA 정배열 유지|RSI 50-55 구간 추정(중립)|MACD 상승 추세 유효|기관/외국인 수급 지속|바이오 섹터 주도주|52주 고가권(569,000) 근접|지지선 535,000원 확인|테르가제 출시 모멘텀|애널리스트 목표가 상향",
+          "signals": {
+            "trend_score": 95,
+            "momentum_score": 94,
+            "volume_score": 95,
+            "volatility_score": 94,
+            "pattern_score": 96,
+            "sentiment_score": 97,
+            "overall_score": 95
+          }
+        },
+        {
+          "ticker": "KOSDAQ:257720",
+          "name": "실리콘투",
+          "close_price": 45900,
+          "rationale": "SMA 골든크로스 후 숨고르기(-1.71%)|RSI 중립-강세권 유지|최근 3일 변동성 확대|K-Beauty 수출 데이터 호조|저점 매수 유효 구간|기관 수급 개선|볼린저 밴드 수축 후 발산 시도|단기 지지선 44,000원|글로벌 확장성 유효|트레이딩 관점 접근",
+          "signals": {
+            "trend_score": 93,
+            "momentum_score": 92,
+            "volume_score": 94,
+            "volatility_score": 92,
+            "pattern_score": 93,
+            "sentiment_score": 94,
+            "overall_score": 93
+          }
+        }
+      ],
+      "sentAt": "2025-11-23T22:50:10.236+00:00",
+      "subscriberCount": 27
+    },
+    {
       "date": "2025-11-21",
       "stocks": [
         {
@@ -885,5 +937,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2025-11-20T23:01:52.740Z"
+  "lastUpdated": "2025-11-23T22:50:41.471Z"
 }
