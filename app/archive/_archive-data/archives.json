@@ -1,6 +1,58 @@
 {
   "newsletters": [
     {
+      "date": "2025-11-25",
+      "stocks": [
+        {
+          "ticker": "KOSPI:272210",
+          "name": "한화시스템",
+          "close_price": 47400,
+          "rationale": "미국 사업 확장 및 유상증자 모멘텀(11/24)|RSI 33.9 침체권 반등 시그널|볼린저밴드 하단 지지선(47000원) 확보|방산/ICT 부문 실적 호조|MACD 히스토그램 상승 다이버전스|기관/외국인 수급 변곡점|K-방산 수출 포트폴리오 다변화|단기 이격도 92% 과매도 해소 구간|목표가 61000원(상승여력 30%)|거래량 점진적 증가세",
+          "signals": {
+            "trend_score": 48,
+            "momentum_score": 86,
+            "volume_score": 90,
+            "volatility_score": 88,
+            "pattern_score": 89,
+            "sentiment_score": 92,
+            "overall_score": 83
+          }
+        },
+        {
+          "ticker": "KOSPI:064350",
+          "name": "현대로템",
+          "close_price": 175000,
+          "rationale": "폴란드 K2 2차 계약 체결 임박(키움증권)|RSI 29 과매도 구간 진입(저점 매수 기회)|전일 대비 투매로 인한 가격 메리트 발생|루마니아/모로코 수출 협상 진행 중|증권가 목표가 26만원 상향 조정|Trend Reversal V자 반등 패턴 기대|하반기 실적 서프라이즈 전망|20일 이격도 하단 터치|외국인 대량 매도 후 재진입 포착|방산주 슈퍼사이클 지속",
+          "signals": {
+            "trend_score": 40,
+            "momentum_score": 75,
+            "volume_score": 82,
+            "volatility_score": 85,
+            "pattern_score": 94,
+            "sentiment_score": 89,
+            "overall_score": 78
+          }
+        },
+        {
+          "ticker": "KOSPI:000660",
+          "name": "SK하이닉스",
+          "close_price": 520000,
+          "rationale": "증권가 목표가 87만원 상향 리포트(KB)|AI 반도체/HBM 시장 독점적 지위(60%)|RSI 45 중립 구간 내 상승 여력 충분|2026-27년 메모리 슈퍼사이클 진입|DRAM 공급 부족(수요 3배 초과)|MACD 매수 시그널 유효|외국인/기관 동반 매수세 유입|520,000원 강력한 지지선 구축|PER 밴드 저평가 구간|미국 빅테크 CAPEX 확대 수혜",
+          "signals": {
+            "trend_score": 92,
+            "momentum_score": 80,
+            "volume_score": 85,
+            "volatility_score": 78,
+            "pattern_score": 82,
+            "sentiment_score": 96,
+            "overall_score": 87
+          }
+        }
+      ],
+      "sentAt": "2025-11-24T22:50:36.158+00:00",
+      "subscriberCount": 27
+    },
+    {
       "date": "2025-11-24",
       "stocks": [
         {
@@ -937,5 +989,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2025-11-23T23:01:53.936Z"
+  "lastUpdated": "2025-11-24T22:51:10.570Z"
 }
