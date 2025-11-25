@@ -1,6 +1,58 @@
 {
   "newsletters": [
     {
+      "date": "2025-11-26",
+      "stocks": [
+        {
+          "ticker": "KOSDAQ:141080",
+          "name": "리가켐바이오",
+          "close_price": 172900,
+          "rationale": "11월 13일 신고가 178,000원 달성 후 건전한 조정 | 현재가 172,900원 | RSI 65 강세권 유지 | ADX 30 강한 추세 지속 | JP모건 헬스케어 컨퍼런스 기대감 | LCB84 등 파이프라인 가치 부각 | 기관 수급 지속 유입 | 2025년 흑자전환 기대 | 5일선 지지력 확보 | 단기 매물 소화 완료",
+          "signals": {
+            "trend_score": 96,
+            "momentum_score": 92,
+            "volume_score": 88,
+            "volatility_score": 85,
+            "pattern_score": 94,
+            "sentiment_score": 95,
+            "overall_score": 92
+          }
+        },
+        {
+          "ticker": "KOSDAQ:196170",
+          "name": "알테오젠",
+          "close_price": 518000,
+          "rationale": "11월 23일 기준 518,000원 지지선 구축 | 애널리스트 목표가 730,000원(상승여력 충분) | 투자의견 '매수' 우세 | RSI 40.8 과매도권 진입으로 반등 임박 | 키트루다 SC 변경 승인 모멘텀 | 외국인 매수세 재유입 포착 | 볼린저밴드 하단 지지 | 스토캐스틱 골든크로스 예상 | 단기 낙폭 과대에 따른 저가 매수 유효 | 20일선 회복 시도",
+          "signals": {
+            "trend_score": 78,
+            "momentum_score": 85,
+            "volume_score": 82,
+            "volatility_score": 88,
+            "pattern_score": 80,
+            "sentiment_score": 92,
+            "overall_score": 84
+          }
+        },
+        {
+          "ticker": "KOSPI:012450",
+          "name": "한화에어로스페이스",
+          "close_price": 859000,
+          "rationale": "7월 고점 996,000원 대비 과도한 조정(현재 859,000원) | 증권가 목표가 1,300,000원 상향(교보증권) | RSI 38 침체권으로 기술적 반등 구간 | 폴란드 및 루마니아 수주 잔고 22조원 확보 | 4분기 지상방산 실적 서프라이즈 전망 | 해외 수주 모멘텀 지속 | 기관/외국인 동반 매수 전환 기대 | MACD 하락폭 축소 | 120일선 강력 지지 | 방산 섹터 주도주 복귀 예상",
+          "signals": {
+            "trend_score": 82,
+            "momentum_score": 88,
+            "volume_score": 90,
+            "volatility_score": 85,
+            "pattern_score": 85,
+            "sentiment_score": 96,
+            "overall_score": 88
+          }
+        }
+      ],
+      "sentAt": "2025-11-25T22:50:01.427+00:00",
+      "subscriberCount": 27
+    },
+    {
       "date": "2025-11-25",
       "stocks": [
         {
@@ -989,5 +1041,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2025-11-24T23:01:43.307Z"
+  "lastUpdated": "2025-11-25T22:50:29.022Z"
 }
