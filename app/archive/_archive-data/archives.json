@@ -1,6 +1,58 @@
 {
   "newsletters": [
     {
+      "date": "2025-11-27",
+      "stocks": [
+        {
+          "ticker": "KOSDAQ:196170",
+          "name": "알테오젠",
+          "close_price": 530000,
+          "rationale": "바이오 대장주 지위 공고|SMA 20일선 강력 지지 확인|52주 신고가 56.9만원 턱밑 추격|외국인 지분율 14.88% 유지|RSI 58 강세권 안착|MACD 양전환 시도|볼린저 밴드 상단 재돌파형|ATR 4.9% 높은 변동성|ADX 32 추세 강화 국면|기관/외국인 쌍끌이 매수세 유입|단기 이평선 정배열 완성|파라볼릭 SAR 매수 시그널 유지|Vortex 긍정적 확산",
+          "signals": {
+            "trend_score": 90,
+            "momentum_score": 86,
+            "volume_score": 86,
+            "volatility_score": 89,
+            "pattern_score": 88,
+            "sentiment_score": 92,
+            "overall_score": 89
+          }
+        },
+        {
+          "ticker": "KOSPI:035420",
+          "name": "NAVER",
+          "close_price": 266750,
+          "rationale": "두나무(업비트) 합병 공식화 이슈 확인|기업가치 20조 메가 핀테크 기대감|SMA 120일선 돌파 후 지지|거래량 전일 대비 160% 급증|RSI 69 강한 매수세 유입|MACD 강력한 상승 다이버전스|주봉상 역헤드앤숄더 패턴 완성|볼린저 밴드 상단 개방|외국인 대량 순매수 포착|ADX 38 강력한 추세장 진입|일목균형표 구름대 상향 돌파|단기 목표가 상향 리포트 지속",
+          "signals": {
+            "trend_score": 95,
+            "momentum_score": 97,
+            "volume_score": 96,
+            "volatility_score": 90,
+            "pattern_score": 94,
+            "sentiment_score": 96,
+            "overall_score": 95
+          }
+        },
+        {
+          "ticker": "KOSPI:034020",
+          "name": "두산에너빌리티",
+          "close_price": 77700,
+          "rationale": "AI 데이터센터 전력 공급 핵심 수혜|체코 원전 및 SMR 수주 모멘텀|RSI 62.5 건전한 강세권(과열 해소)|SMA 5일>20일>60일 정배열 확정|MACD 히스토그램 확장세 지속|50일 이평선(7.5만) 강력 지지|외국인/기관 수급 동반 유입|ATR 3.1% 적정 변동성|볼린저 밴드 밴드워크형 상승|ADX 42 매우 강한 추세|일봉상 삼각수렴 상단 돌파|주봉 20주선 안착",
+          "signals": {
+            "trend_score": 92,
+            "momentum_score": 90,
+            "volume_score": 91,
+            "volatility_score": 86,
+            "pattern_score": 90,
+            "sentiment_score": 93,
+            "overall_score": 91
+          }
+        }
+      ],
+      "sentAt": "2025-11-26T22:50:15.15+00:00",
+      "subscriberCount": 28
+    },
+    {
       "date": "2025-11-26",
       "stocks": [
         {
@@ -1041,5 +1093,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2025-11-25T23:01:46.922Z"
+  "lastUpdated": "2025-11-26T22:50:41.196Z"
 }
