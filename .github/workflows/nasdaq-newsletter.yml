@@ -1,0 +1,63 @@
+name: NASDAQ Newsletter (Daily)
+
+on:
+  schedule:
+    # 평일 오후 10시 KST (UTC 13:00, 월-금요일만)
+    # KST = UTC + 9, 따라서 KST 22:00 = UTC 13:00
+    - cron: '0 13 * * 1-5'
+  workflow_dispatch: # 수동 실행 가능
+
+jobs:
+  send-nasdaq-newsletter:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Setup Google Cloud credentials
+        run: |
+          echo '${{ secrets.GOOGLE_CLOUD_CREDENTIALS }}' > $HOME/gcloud-key.json
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$HOME/gcloud-key.json" >> $GITHUB_ENV
+
+      - name: Send NASDAQ Newsletter
+        env:
+          # Google Cloud (Vertex AI) - Gemini
+          GOOGLE_CLOUD_PROJECT: ${{ secrets.GOOGLE_CLOUD_PROJECT }}
+          GOOGLE_CLOUD_LOCATION: us-central1
+
+          # Supabase
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+
+          # SendGrid
+          SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY }}
+          SENDGRID_FROM_EMAIL: ${{ secrets.SENDGRID_FROM_EMAIL }}
+          SENDGRID_FROM_NAME: ${{ secrets.SENDGRID_FROM_NAME }}
+
+          # Application
+          NEXT_PUBLIC_APP_URL: ${{ secrets.NEXT_PUBLIC_APP_URL }}
+        run: |
+          echo "🇺🇸 Starting NASDAQ newsletter..."
+          npx tsx scripts/send-email-to-me.ts
+
+      - name: Cleanup credentials
+        if: always()
+        run: rm -f $HOME/gcloud-key.json
+
+      - name: Notify on success
+        if: success()
+        run: echo "✅ NASDAQ Newsletter sent successfully!"
+
+      - name: Notify on failure
+        if: failure()
+        run: echo "❌ NASDAQ Newsletter sending failed!"
