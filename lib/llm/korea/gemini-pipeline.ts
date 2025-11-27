@@ -1,6 +1,6 @@
 import { GoogleGenAI } from '@google/genai';
-import { STOCK_ANALYSIS_PROMPT } from '../prompts/stock-analysis';
-import { PIPELINE_CONFIG, GEMINI_API_CONFIG } from './_config/pipeline-config';
+import { STOCK_ANALYSIS_PROMPT } from '../../prompts/korea';
+import { PIPELINE_CONFIG, GEMINI_API_CONFIG } from '../_config/pipeline-config';
 
 /**
  * 단일 Stage 프롬프트 정보
