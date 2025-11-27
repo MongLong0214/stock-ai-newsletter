@@ -1,5 +1,5 @@
 import { config } from 'dotenv';
-import { getGeminiRecommendation } from '../lib/llm/gemini';
+import { getGeminiRecommendation } from '../lib/llm/korea/gemini';
 import { writeFileSync } from 'fs';
 import { join } from 'path';
 
