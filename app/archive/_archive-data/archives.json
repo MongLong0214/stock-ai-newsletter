@@ -1,6 +1,58 @@
 {
   "newsletters": [
     {
+      "date": "2025-11-28",
+      "stocks": [
+        {
+          "ticker": "KOSPI:000660",
+          "name": "SK하이닉스",
+          "close_price": 544000,
+          "rationale": "AI 메모리 슈퍼사이클 지속 | HBM4 조기 양산 기대감 | 외국인 대량 순매수 지속 | 5일/20일/50일 이동평균선 정배열 유지 | 볼린저밴드 상단 지지력 테스트 | RSI 56.2 매수 우위 | MACD 1504 매수 신호 유지 | 주봉상 상승 추세 견고 | 55만원 라인 안착 시도 | 엔비디아 강세 연동 | 반도체 섹터 주도주 위상 강화 | 스토캐스틱 과매수권 진입",
+          "signals": {
+            "trend_score": 96,
+            "momentum_score": 89,
+            "volume_score": 92,
+            "volatility_score": 88,
+            "pattern_score": 95,
+            "sentiment_score": 98,
+            "overall_score": 93
+          }
+        },
+        {
+          "ticker": "KOSDAQ:196170",
+          "name": "알테오젠",
+          "close_price": 521000,
+          "rationale": "머크(Merck) 마일스톤 1500만불 수령 확정 | 코스닥 시총 1위 대장주 | 20일 이평선 일시 이탈 후 회복 시도 | RSI 중립권 안정화 | 외국인/기관 수급 공방 | 키트루다 SC 독점 계약 가치 부각 | 볼린저밴드 하단 지지 확보 | 스토캐스틱 반등 시도 | 바이오 섹터 투자심리 개선 | 52주 신고가 대비 건전한 조정 | 하방 경직성 50만원대 확보 | 단기 낙폭 과대 매력",
+          "signals": {
+            "trend_score": 90,
+            "momentum_score": 85,
+            "volume_score": 88,
+            "volatility_score": 85,
+            "pattern_score": 94,
+            "sentiment_score": 96,
+            "overall_score": 90
+          }
+        },
+        {
+          "ticker": "KOSDAQ:277810",
+          "name": "레인보우로보틱스",
+          "close_price": 383500,
+          "rationale": "삼성전자 AI 로봇 협력 가시화 | 휴머노이드 상용화 기대감 | 200일 장기 이평선(38.3만) 강력 지지 | 5일/20일 이평선 수렴 구간 | MACD 0선 돌파 임박 | RSI 50 중립 상향 시도 | 매물대 소화 과정 진행 중 | 외국인 매수세 유입 | 로봇 섹터 순환매 기대 | 40만원 라운드피겨 돌파 시도 | 거래량 점진적 증가세 | 단기 바닥 다지기 완료",
+          "signals": {
+            "trend_score": 91,
+            "momentum_score": 88,
+            "volume_score": 89,
+            "volatility_score": 90,
+            "pattern_score": 90,
+            "sentiment_score": 92,
+            "overall_score": 90
+          }
+        }
+      ],
+      "sentAt": "2025-11-27T22:50:26.963+00:00",
+      "subscriberCount": 28
+    },
+    {
       "date": "2025-11-27",
       "stocks": [
         {
@@ -1093,5 +1145,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2025-11-26T23:01:39.483Z"
+  "lastUpdated": "2025-11-27T22:50:53.655Z"
 }
