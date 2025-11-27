@@ -1,6 +1,6 @@
 import { executeGeminiPipeline } from './gemini-pipeline';
-import { PIPELINE_CONFIG } from './_config/pipeline-config';
-import type { StockDataArray, StockData, StockSignals } from './_types/stock-data';
+import { PIPELINE_CONFIG } from '../_config/pipeline-config';
+import type { StockDataArray, StockData, StockSignals } from '../_types/stock-data';
 
 /**
  * 주식 신호 데이터 검증 (Type Guard)

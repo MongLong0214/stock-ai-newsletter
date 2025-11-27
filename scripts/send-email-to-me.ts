@@ -10,13 +10,13 @@ if (existsSync(envPath)) {
 }
 
 import { sendStockNewsletter } from '@/lib/sendgrid';
-import { getGeminiRecommendation } from '@/lib/llm/korea/gemini';
+import { getNasdaqGeminiRecommendation } from '@/lib/llm/nasdaq/gemini';
 
-async function sendTestEmail() {
-  console.log('🚀 테스트 이메일 발송 시작...\n');
+async function sendNasdaqEmailToMe() {
+  console.log('🇺🇸 NASDAQ 뉴스레터 테스트 이메일 발송 시작...\n');
 
   try {
-    // 테스트 수신자
+    // 테스트 수신자 (본인 이메일)
     const testRecipient = {
       email: 'chowonil0214@naver.com',
       name: '테스트',
@@ -24,9 +24,9 @@ async function sendTestEmail() {
 
     console.log(`📧 수신자: ${testRecipient.email}\n`);
 
-    // Gemini AI 분석 실행
-    console.log('🤖 Gemini 분석 실행 중...\n');
-    const geminiAnalysis = await getGeminiRecommendation();
+    // NASDAQ Gemini AI 분석 실행
+    console.log('🤖 NASDAQ Gemini 분석 실행 중...\n');
+    const geminiAnalysis = await getNasdaqGeminiRecommendation();
 
     // GPT, Claude는 서비스 준비 중 (빈 문자열)
     const gptAnalysis = '';
@@ -52,16 +52,16 @@ async function sendTestEmail() {
     await sendStockNewsletter([testRecipient], newsletterData);
 
     console.log('\n━'.repeat(80));
-    console.log('✨ 테스트 이메일 발송 완료!');
+    console.log('✨ NASDAQ 테스트 이메일 발송 완료!');
     console.log('━'.repeat(80));
-    console.log(`\n📬 ${testRecipient.email}로 뉴스레터 발송 완료`);
+    console.log(`\n📬 ${testRecipient.email}로 NASDAQ 뉴스레터 발송 완료`);
     console.log(`📅 발송 날짜: ${newsletterData.date}`);
 
     process.exit(0);
   } catch (error) {
-    console.error('❌ 테스트 이메일 발송 실패:', error);
+    console.error('❌ NASDAQ 테스트 이메일 발송 실패:', error);
     process.exit(1);
   }
 }
 
-sendTestEmail();
+sendNasdaqEmailToMe();

@@ -1,4 +1,4 @@
-import { getGeminiRecommendation } from './gemini';
+import { getGeminiRecommendation } from './korea/gemini';
 
 /**
  * 주식 분석 결과

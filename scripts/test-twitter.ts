@@ -2,7 +2,7 @@ import { config } from 'dotenv';
 import { resolve } from 'path';
 import { existsSync, writeFileSync } from 'fs';
 import { textToImage } from '@/lib/text-to-image';
-import { getGeminiRecommendation } from '@/lib/llm/gemini';
+import { getGeminiRecommendation } from '@/lib/llm/korea/gemini';
 import { postTweetWithImage } from '@/lib/twitter';
 
 const envPath = resolve(process.cwd(), '.env.local');
