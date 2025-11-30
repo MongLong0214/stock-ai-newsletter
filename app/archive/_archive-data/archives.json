@@ -1,6 +1,58 @@
 {
   "newsletters": [
     {
+      "date": "2025-12-01",
+      "stocks": [
+        {
+          "ticker": "KOSDAQ:141080",
+          "name": "리가켐바이오",
+          "close_price": 193300,
+          "rationale": "SMA 완전정배열 지속 | 신고가 영역(194,500원) 임박 | 기관/외국인 동반 매수세 | RSI 72.4 강세권 진입 | 거래량 전일비 180% 급증 | 볼린저밴드 상단 돌파 | ADX 32 강한추세 | Ichimoku 구름대 상단 지지 | MACD 상승 확대 | ATR 변동성 확대",
+          "signals": {
+            "trend_score": 98,
+            "momentum_score": 95,
+            "volume_score": 96,
+            "volatility_score": 93,
+            "pattern_score": 96,
+            "sentiment_score": 94,
+            "overall_score": 96
+          }
+        },
+        {
+          "ticker": "KOSDAQ:087010",
+          "name": "펩트론",
+          "close_price": 340000,
+          "rationale": "주가 340,000원 급등 돌파 | 외국인 코스닥 순매수 1위 | SMA 골든크로스 및 정배열 전환 | RSI 68.2 매수 신호 | 거래량 250% 폭발적 증가 | OBV 가파른 우상향 | Parabolic SAR 매수 전환 | 52주 신고가 갱신 시도 | MACD 0선 상향 돌파 | 단기 모멘텀 극대화",
+          "signals": {
+            "trend_score": 94,
+            "momentum_score": 98,
+            "volume_score": 97,
+            "volatility_score": 95,
+            "pattern_score": 95,
+            "sentiment_score": 96,
+            "overall_score": 96
+          }
+        },
+        {
+          "ticker": "KOSDAQ:196170",
+          "name": "알테오젠",
+          "close_price": 533000,
+          "rationale": "장기 이평선 완전 정배열 | RSI 62.5 안정적 강세 | 기관 누적 순매수 지속 | 역사적 신고가(569,000원) 가시권 | ATR 3.5% 안정적 변동성 | 일목균형표 양운 위 위치 | Stochastic 골든크로스 | SuperTrend 장기 상승 유지 | 거래대금 최상위권 유지 | 눌림목 지지 확인",
+          "signals": {
+            "trend_score": 99,
+            "momentum_score": 90,
+            "volume_score": 89,
+            "volatility_score": 91,
+            "pattern_score": 93,
+            "sentiment_score": 88,
+            "overall_score": 93
+          }
+        }
+      ],
+      "sentAt": "2025-11-30T22:50:41.845+00:00",
+      "subscriberCount": 28
+    },
+    {
       "date": "2025-11-28",
       "stocks": [
         {
@@ -1145,5 +1197,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2025-11-27T23:01:47.517Z"
+  "lastUpdated": "2025-11-30T22:51:13.445Z"
 }
