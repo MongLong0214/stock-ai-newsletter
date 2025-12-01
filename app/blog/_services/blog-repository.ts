@@ -64,15 +64,23 @@ export async function saveBlogPost(
   // Schema.org 구조화 데이터 생성 (schema-generator.ts에서 통합 관리)
   const schemaData = createBlogPostingSchema(input, input.slug);
 
+  // 상태 결정 (기본값: draft)
+  const status = input.status || 'draft';
+
   // 저장할 데이터 준비
-  // - 입력 데이터에 schema_data, competitor_count, status 추가
+  // - 입력 데이터에 schema_data, competitor_count, status, published_at 추가
   const postData = {
     ...input,
     schema_data: schemaData,
     // 경쟁사 URL 수 (분석에 사용된 경쟁사 개수)
     competitor_count: input.competitor_urls?.length || 0,
-    // 기본 상태: 초안 (draft)
-    status: input.status || 'draft',
+    // 포스트 상태
+    status,
+    // published 상태일 때 published_at 필수 (DB 제약 조건)
+    // 입력에 published_at이 있으면 사용, 없으면 현재 시간 설정
+    ...(status === 'published' && {
+      published_at: input.published_at || new Date().toISOString(),
+    }),
   };
 
   // Supabase에 upsert 실행
