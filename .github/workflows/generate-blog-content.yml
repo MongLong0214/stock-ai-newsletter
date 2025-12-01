@@ -1,0 +1,47 @@
+name: Generate Blog Content
+
+on:
+  # 평일 오전 9:00 KST 자동 실행 (UTC 22:00 전날, 월-금요일)
+  schedule:
+    - cron: '0 22 * * 0-4'
+
+  # 수동 실행 가능
+  workflow_dispatch:
+
+jobs:
+  generate-blog:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Setup Google Cloud credentials
+        run: |
+          echo '${{ secrets.GOOGLE_CLOUD_CREDENTIALS }}' > /tmp/service-account.json
+          echo "GOOGLE_APPLICATION_CREDENTIALS=/tmp/service-account.json" >> $GITHUB_ENV
+
+      - name: Generate blog content (AI Dynamic Keywords)
+        env:
+          SERP_API_KEY: ${{ secrets.SERP_API_KEY }}
+          GOOGLE_CLOUD_PROJECT: ${{ secrets.GOOGLE_CLOUD_PROJECT }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          echo "🤖 AI 동적 키워드 5개 생성"
+          npx tsx scripts/generate-blog-post.ts
+
+      - name: Cleanup credentials
+        if: always()
+        run: rm -f /tmp/service-account.json

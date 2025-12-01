@@ -1,13 +1,13 @@
 -- Create newsletter_content table for storing prepared newsletter data
 CREATE TABLE IF NOT EXISTS newsletter_content (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
-  newsletter_date DATE NOT NULL UNIQUE,
-  gemini_analysis TEXT NOT NULL,
-  is_sent BOOLEAN DEFAULT false NOT NULL,
-  sent_at TIMESTAMP WITH TIME ZONE,
-  subscriber_count INTEGER DEFAULT 0
-);
+                                                  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    newsletter_date DATE NOT NULL UNIQUE,
+    gemini_analysis TEXT NOT NULL,
+    is_sent BOOLEAN DEFAULT false NOT NULL,
+    sent_at TIMESTAMP WITH TIME ZONE,
+                             subscriber_count INTEGER DEFAULT 0
+                             );
 
 -- Create index on newsletter_date for faster lookups
 CREATE INDEX IF NOT EXISTS idx_newsletter_date ON newsletter_content(newsletter_date);
