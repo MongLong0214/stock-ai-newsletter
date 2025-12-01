@@ -1,9 +1,9 @@
 name: Generate Blog Content
 
 on:
-  # 주 2회 자동 실행 (월/목 09:00 KST = 00:00 UTC)
+  # 평일 오전 9:00 KST 자동 실행 (UTC 22:00 전날, 월-금요일)
   schedule:
-    - cron: '0 0 * * 1,4'
+    - cron: '0 22 * * 0-4'
 
   # 수동 실행 가능
   workflow_dispatch:
@@ -53,7 +53,7 @@ jobs:
 
       - name: Setup Google Cloud credentials
         run: |
-          echo '${{ secrets.GOOGLE_APPLICATION_CREDENTIALS_JSON }}' > /tmp/service-account.json
+          echo '${{ secrets.GOOGLE_CLOUD_CREDENTIALS }}' > /tmp/service-account.json
           echo "GOOGLE_APPLICATION_CREDENTIALS=/tmp/service-account.json" >> $GITHUB_ENV
 
       - name: Generate blog content (Single keyword)
