@@ -8,28 +8,48 @@ import isValidBlogPost from './_utils/type-guards';
 import type { BlogPostListItem } from './_types/blog';
 
 async function getPublishedPosts(): Promise<BlogPostListItem[]> {
-  const supabase = getServerSupabaseClient();
+  try {
+    const supabase = getServerSupabaseClient();
 
-  const { data, error } = await supabase
-    .from('blog_posts')
-    .select(
-      'slug, title, description, target_keyword, category, tags, published_at, view_count'
-    )
-    .eq('status', 'published')
-    .order('published_at', { ascending: false })
-    .limit(20);
+    console.log('[Blog] Fetching published posts...');
 
-  if (error) {
-    console.error('[Blog] Failed to fetch posts:', error);
+    const { data, error, count } = await supabase
+      .from('blog_posts')
+      .select(
+        'slug, title, description, target_keyword, category, tags, published_at, view_count',
+        { count: 'exact' }
+      )
+      .eq('status', 'published')
+      .order('published_at', { ascending: false })
+      .limit(20);
+
+    if (error) {
+      console.error('[Blog] Failed to fetch posts:', {
+        message: error.message,
+        code: error.code,
+        details: error.details,
+        hint: error.hint,
+      });
+      return [];
+    }
+
+    console.log(`[Blog] Query result: ${count ?? 0} posts found`);
+
+    if (!Array.isArray(data)) {
+      console.error('[Blog] Invalid data format received:', typeof data);
+      return [];
+    }
+
+    const validPosts = data.filter(isValidBlogPost);
+    console.log(
+      `[Blog] Valid posts after filtering: ${validPosts.length}/${data.length}`
+    );
+
+    return validPosts;
+  } catch (err) {
+    console.error('[Blog] Exception in getPublishedPosts:', err);
     return [];
   }
-
-  if (!Array.isArray(data)) {
-    console.error('[Blog] Invalid data format received');
-    return [];
-  }
-
-  return data.filter(isValidBlogPost);
 }
 
 async function BlogPage() {
