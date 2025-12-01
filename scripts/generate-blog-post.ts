@@ -24,42 +24,85 @@ import {
 } from '@/app/blog/pipeline';
 import { checkApiUsage } from '@/app/blog/_services/serp-api';
 
-// CLI 인자 파싱
-function parseArgs(): {
+/**
+ * 유효한 콘텐츠 타입 목록
+ * - comparison: 비교 글
+ * - guide: 가이드 글
+ * - listicle: 리스트 글
+ * - review: 리뷰 글
+ */
+const VALID_CONTENT_TYPES = ['comparison', 'guide', 'listicle', 'review'] as const;
+type ContentType = (typeof VALID_CONTENT_TYPES)[number];
+
+/**
+ * CLI 인자 파싱 결과 타입
+ */
+interface ParsedArgs {
   keyword?: string;
-  type: 'comparison' | 'guide' | 'listicle' | 'review';
+  type: ContentType;
   publish: boolean;
   batch: boolean;
   limit?: number;
   priority?: number;
   checkUsage: boolean;
-} {
+}
+
+/**
+ * 값이 유효한 콘텐츠 타입인지 확인하는 타입 가드
+ */
+function isValidContentType(value: string | undefined): value is ContentType {
+  return value !== undefined && VALID_CONTENT_TYPES.includes(value as ContentType);
+}
+
+/**
+ * CLI 인자를 파싱하여 구조화된 객체로 반환
+ *
+ * [지원하는 옵션]
+ * - --keyword, -k: 타겟 키워드
+ * - --type, -t: 콘텐츠 타입
+ * - --publish, -p: 발행 여부
+ * - --batch, -b: 배치 모드
+ * - --limit, -l: 배치 제한
+ * - --priority: 우선순위 필터
+ * - --check-usage, -u: API 사용량 확인
+ * - --help, -h: 도움말
+ */
+function parseArgs(): ParsedArgs {
   const args = process.argv.slice(2);
-  const result = {
-    keyword: undefined as string | undefined,
-    type: 'guide' as 'comparison' | 'guide' | 'listicle' | 'review',
+  const result: ParsedArgs = {
+    keyword: undefined,
+    type: 'guide',
     publish: false,
     batch: false,
-    limit: undefined as number | undefined,
-    priority: undefined as number | undefined,
+    limit: undefined,
+    priority: undefined,
     checkUsage: false,
   };
 
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];
-    const nextArg = args[i + 1];
+    const nextArg: string | undefined = args[i + 1];
 
     switch (arg) {
       case '--keyword':
       case '-k':
+        // nextArg 유효성 검증: undefined이거나 다른 플래그인 경우 에러
+        if (nextArg === undefined || nextArg.startsWith('-')) {
+          console.error('❌ --keyword 옵션에 값이 필요합니다.');
+          process.exit(1);
+        }
         result.keyword = nextArg;
         i++;
         break;
       case '--type':
       case '-t':
-        if (['comparison', 'guide', 'listicle', 'review'].includes(nextArg)) {
-          result.type = nextArg as typeof result.type;
+        // 타입 가드를 사용한 안전한 타입 검증
+        if (!isValidContentType(nextArg)) {
+          console.error(`❌ 유효하지 않은 타입: ${nextArg ?? '(없음)'}`);
+          console.error(`   유효한 타입: ${VALID_CONTENT_TYPES.join(', ')}`);
+          process.exit(1);
         }
+        result.type = nextArg;
         i++;
         break;
       case '--publish':
@@ -71,14 +114,36 @@ function parseArgs(): {
         result.batch = true;
         break;
       case '--limit':
-      case '-l':
-        result.limit = parseInt(nextArg, 10);
+      case '-l': {
+        // nextArg 유효성 검증
+        if (nextArg === undefined || nextArg.startsWith('-')) {
+          console.error('❌ --limit 옵션에 숫자 값이 필요합니다.');
+          process.exit(1);
+        }
+        const limitValue = parseInt(nextArg, 10);
+        if (Number.isNaN(limitValue) || limitValue < 1) {
+          console.error(`❌ --limit 값이 유효하지 않습니다: ${nextArg}`);
+          process.exit(1);
+        }
+        result.limit = limitValue;
         i++;
         break;
-      case '--priority':
-        result.priority = parseInt(nextArg, 10);
+      }
+      case '--priority': {
+        // nextArg 유효성 검증
+        if (nextArg === undefined || nextArg.startsWith('-')) {
+          console.error('❌ --priority 옵션에 숫자 값이 필요합니다.');
+          process.exit(1);
+        }
+        const priorityValue = parseInt(nextArg, 10);
+        if (Number.isNaN(priorityValue) || priorityValue < 1 || priorityValue > 3) {
+          console.error(`❌ --priority 값은 1-3 사이여야 합니다: ${nextArg}`);
+          process.exit(1);
+        }
+        result.priority = priorityValue;
         i++;
         break;
+      }
       case '--check-usage':
       case '-u':
         result.checkUsage = true;

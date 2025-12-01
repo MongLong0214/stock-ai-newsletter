@@ -1,93 +1,123 @@
 /**
  * 블로그 콘텐츠 자동화 파이프라인 설정
- * Enterprise-grade configuration
+ *
+ * [이 파일의 역할]
+ * - 블로그 자동 생성 시스템의 모든 설정값을 중앙에서 관리
+ * - 다른 파일에서 import하여 설정값을 사용
+ *
+ * [왜 설정을 분리하는가?]
+ * - 설정값 변경 시 이 파일만 수정하면 됨 (유지보수 용이)
+ * - 하드코딩 방지로 코드 품질 향상
+ * - 환경별(개발/운영) 다른 설정 적용 가능
  */
 
 import type { PipelineConfig } from '../_types/blog';
+import { siteConfig } from '@/lib/constants/seo/config';
 
-/** 파이프라인 기본 설정 */
+/**
+ * 파이프라인 기본 설정
+ *
+ * 블로그 콘텐츠 생성 시 사용되는 핵심 설정값들
+ * 'as const'를 붙이면 값이 변경 불가능한 상수가 됨 (타입 안정성 향상)
+ */
 export const PIPELINE_CONFIG: PipelineConfig = {
-  /** 분석할 경쟁사 수 (SerpApi 무료 플랜 최적화) */
+  /** 분석할 경쟁사 수 - SerpApi 무료 플랜이 월 250회 제한이라 5개로 설정 */
   maxCompetitors: 5,
 
-  /** 생성할 콘텐츠 최소 단어 수 */
+  /** 생성할 콘텐츠 최소 단어 수 - SEO에 최소 1500단어 권장 */
   minWordCount: 1500,
 
-  /** 생성할 콘텐츠 최대 단어 수 */
+  /** 생성할 콘텐츠 최대 단어 수 - 너무 길면 이탈률 증가 */
   maxWordCount: 3000,
 
-  /** HTTP 요청 타임아웃 (ms) */
+  /** HTTP 요청 타임아웃 (ms) - 30초 후 요청 취소 */
   requestTimeout: 30000,
 
-  /** 재시도 횟수 */
+  /** API 호출 실패 시 재시도 횟수 */
   retryAttempts: 3,
 
-  /** 재시도 대기 시간 (ms) */
+  /** 재시도 전 대기 시간 (ms) - 2초 후 재시도 */
   retryDelay: 2000,
 } as const;
 
-/** SerpApi 설정 */
+/**
+ * SerpApi 설정
+ *
+ * [SerpApi란?]
+ * - Google 검색 결과를 API로 가져올 수 있는 서비스
+ * - 경쟁사 블로그 URL을 수집하는 데 사용
+ * - 무료 플랜: 월 100회 제한
+ */
 export const SERP_API_CONFIG = {
-  /** API 엔드포인트 */
+  /** API 호출 URL */
   baseUrl: 'https://serpapi.com/search.json',
 
-  /** 검색 엔진 */
+  /** 검색 엔진 - Google 사용 */
   engine: 'google',
 
-  /** 검색 지역 (한국) */
+  /** 검색 지역 - 한국 검색 결과를 가져오기 위함 */
   location: 'South Korea',
 
-  /** 언어 */
+  /** 검색 결과 언어 - 한국어 */
   hl: 'ko',
 
-  /** 국가 */
+  /** 검색 대상 국가 - 한국 */
   gl: 'kr',
 
-  /** Google 도메인 */
+  /** Google 한국 도메인 사용 */
   googleDomain: 'google.co.kr',
 
-  /** 검색 결과 수 */
+  /** 가져올 검색 결과 개수 */
   num: 10,
 } as const;
 
-/** Gemini 콘텐츠 생성 설정 */
-export const GEMINI_CONTENT_CONFIG = {
-  /** 사용할 모델 */
-  model: 'gemini-2.0-flash',
+/**
+ * Gemini AI 설정
+ *
+ * [중요]
+ * Gemini API 설정은 lib/llm/_config/pipeline-config.ts에서 중앙 관리합니다.
+ * - GEMINI_API_CONFIG.MODEL: gemini-3-pro-preview
+ * - GEMINI_API_CONFIG.MAX_OUTPUT_TOKENS: 64000
+ * - GEMINI_API_CONFIG.TEMPERATURE: 1.0 (Gemini 3 권장)
+ * - GEMINI_API_CONFIG.TOP_P: 0.95
+ * - GEMINI_API_CONFIG.TOP_K: 64
+ *
+ * 블로그 콘텐츠 생성 서비스(content-generator.ts)에서
+ * lib/llm/_config/pipeline-config.ts의 GEMINI_API_CONFIG를 직접 import하여 사용합니다.
+ */
 
-  /** 최대 출력 토큰 */
-  maxOutputTokens: 8192,
-
-  /** Temperature (창의성) - SEO 콘텐츠는 낮게 */
-  temperature: 0.7,
-
-  /** Top P */
-  topP: 0.9,
-
-  /** Top K */
-  topK: 40,
-} as const;
-
-/** 콘텐츠 타입별 설정 */
+/**
+ * 콘텐츠 타입별 설정
+ *
+ * [콘텐츠 타입 설명]
+ * - comparison: 비교 글 (예: "A vs B 뭐가 좋을까?")
+ * - guide: 가이드 글 (예: "초보자를 위한 주식 투자 방법")
+ * - listicle: 리스트 글 (예: "추천 주식 앱 TOP 10")
+ * - review: 리뷰 글 (예: "Stock Matrix 사용 후기")
+ */
 export const CONTENT_TYPE_CONFIG = {
+  /** 비교 글 - 가장 긴 형식, FAQ 5개 필요 */
   comparison: {
     minWordCount: 2000,
     maxWordCount: 3500,
     faqCount: 5,
     requiredSections: ['intro', 'comparison-table', 'detailed-analysis', 'conclusion'],
   },
+  /** 가이드 글 - 단계별 설명 포함 */
   guide: {
     minWordCount: 1500,
     maxWordCount: 3000,
     faqCount: 4,
     requiredSections: ['intro', 'step-by-step', 'tips', 'conclusion'],
   },
+  /** 리스트 글 - 짧고 읽기 쉬운 형식 */
   listicle: {
     minWordCount: 1200,
     maxWordCount: 2500,
     faqCount: 3,
     requiredSections: ['intro', 'list-items', 'conclusion'],
   },
+  /** 리뷰 글 - 장단점 분석 포함 */
   review: {
     minWordCount: 1800,
     maxWordCount: 3000,
@@ -96,12 +126,19 @@ export const CONTENT_TYPE_CONFIG = {
   },
 } as const;
 
-/** SEO 타겟 키워드 목록 */
+/**
+ * SEO 타겟 키워드 목록
+ *
+ * [사용 목적]
+ * - 검색엔진 상위 노출을 목표로 하는 키워드들
+ * - priority 1이 가장 중요, 3이 가장 덜 중요
+ * - type은 해당 키워드에 맞는 콘텐츠 형식
+ */
 export const TARGET_KEYWORDS = [
   {
     keyword: '주식 뉴스레터 추천',
     type: 'listicle' as const,
-    priority: 1,
+    priority: 1, // 최우선 키워드
   },
   {
     keyword: 'AI 주식 분석',
@@ -111,7 +148,7 @@ export const TARGET_KEYWORDS = [
   {
     keyword: '무료 주식 뉴스레터',
     type: 'comparison' as const,
-    priority: 1,
+    priority: 1, // 최우선 키워드
   },
   {
     keyword: '주식 투자 정보 사이트',
@@ -131,7 +168,7 @@ export const TARGET_KEYWORDS = [
   {
     keyword: 'AI 주식 추천',
     type: 'review' as const,
-    priority: 1,
+    priority: 1, // 최우선 키워드
   },
   {
     keyword: '주식 분석 뉴스레터',
@@ -150,11 +187,24 @@ export const TARGET_KEYWORDS = [
   },
 ] as const;
 
-/** 사이트 정보 (콘텐츠 생성 시 사용) */
+/**
+ * 우리 사이트(Stock Matrix) 정보
+ *
+ * [사용 목적]
+ * - AI가 콘텐츠 생성 시 우리 서비스를 자연스럽게 홍보하도록 함
+ * - features: 주요 기능 설명
+ * - uniqueSellingPoints: 경쟁사 대비 차별점
+ *
+ * [주의]
+ * - domain, name은 siteConfig (lib/constants/seo/config.ts)를 Single Source of Truth로 사용
+ * - Schema.org 생성은 _utils/schema-generator.ts에서 통합 처리
+ */
 export const SITE_INFO = {
-  name: 'Stock Matrix',
-  nameKo: '스탁매트릭스',
-  domain: 'https://stockmatrix.co.kr',
+  /** siteConfig에서 가져온 도메인 (중복 방지) */
+  name: siteConfig.serviceName,
+  nameKo: siteConfig.serviceNameKo,
+  domain: siteConfig.domain,
+  /** 우리 서비스의 주요 기능들 */
   features: [
     'AI 기반 기술적 분석',
     '30가지 지표 분석 (RSI, MACD, 볼린저밴드 등)',
@@ -162,6 +212,7 @@ export const SITE_INFO = {
     '매일 오전 7:50 이메일 발송',
     '완전 무료 서비스',
   ],
+  /** 경쟁사 대비 우리만의 강점 */
   uniqueSellingPoints: [
     '30가지 기술적 지표 종합 분석',
     '매일 아침 자동 이메일 발송',
@@ -170,7 +221,13 @@ export const SITE_INFO = {
   ],
 } as const;
 
-/** 경쟁사 대비 콘텐츠 차별화 포인트 */
+/**
+ * 콘텐츠 차별화 포인트
+ *
+ * [사용 목적]
+ * - 경쟁사 콘텐츠에서 부족한 부분을 채우기 위함
+ * - AI가 콘텐츠 생성 시 이 포인트들을 강조하도록 함
+ */
 export const CONTENT_GAPS = [
   'AI 기반 자동 분석',
   '30가지 기술적 지표',

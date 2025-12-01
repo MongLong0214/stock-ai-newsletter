@@ -1,52 +1,96 @@
+/**
+ * 블로그 상세 페이지 (/blog/[slug])
+ *
+ * [이 파일의 역할]
+ * - 개별 블로그 포스트 상세 내용 표시
+ * - 동적 메타데이터 생성 (SEO)
+ * - Schema.org 구조화 데이터 삽입
+ * - 관련 포스트 표시
+ *
+ * [Next.js 동적 라우팅]
+ * - [slug] 폴더는 동적 세그먼트를 의미
+ * - /blog/best-stock-newsletter → slug = 'best-stock-newsletter'
+ * - params.slug로 URL 파라미터 접근
+ *
+ * [데이터 페칭]
+ * - 서버 컴포넌트에서 직접 Supabase 쿼리
+ * - ISR 적용 (5분마다 재생성)
+ */
+
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import Script from 'next/script';
 import type { Metadata } from 'next';
+// lucide-react: 아이콘 라이브러리
+import { ArrowLeft, ArrowRight, Eye } from 'lucide-react';
 import { siteConfig } from '@/lib/constants/seo/config';
 import { getServerSupabaseClient } from '@/lib/supabase/server-client';
 import { parseMarkdown } from '../_utils/markdown-parser';
 import { formatDateKo, calculateReadTime } from '../_utils/date-formatter';
-import type { BlogPost, FAQItem } from '../_types/blog';
+import { createArticleSchema, createFAQSchema, createBreadcrumbSchema } from '../_utils/schema-generator';
+import type { BlogPost } from '../_types/blog';
 
+/**
+ * 페이지 Props 타입
+ *
+ * [Next.js 15+ 변경사항]
+ * - params가 Promise로 변경됨
+ * - await params로 접근해야 함
+ */
 interface PageProps {
+  /** URL 파라미터 (Promise) */
   params: Promise<{ slug: string }>;
 }
 
 /**
  * 블로그 포스트 조회
+ *
+ * [조건]
+ * - 해당 slug의 포스트
+ * - status가 'published'인 포스트만
+ *
+ * @param slug - URL 슬러그
+ * @returns 블로그 포스트 또는 null (없거나 비공개)
  */
 async function getBlogPost(slug: string): Promise<BlogPost | null> {
   const supabase = getServerSupabaseClient();
 
   const { data, error } = await supabase
     .from('blog_posts')
-    .select('*')
+    .select('*') // 모든 필드 조회 (상세 페이지용)
     .eq('slug', slug)
-    .eq('status', 'published')
-    .single();
+    .eq('status', 'published') // 발행된 포스트만
+    .single(); // 단일 결과 반환
 
-  if (error || !data) {
-    return null;
-  }
-
-  return data as BlogPost;
+  // 에러 또는 데이터 없음 → null
+  return error || !data ? null : (data as BlogPost);
 }
 
 /**
  * 관련 포스트 조회
+ *
+ * [조건]
+ * - 같은 태그를 가진 포스트
+ * - 현재 포스트 제외
+ * - 최대 3개
+ *
+ * [overlaps 연산자]
+ * - PostgreSQL 배열 연산자
+ * - 두 배열에 공통 요소가 있으면 true
+ *
+ * @param currentSlug - 현재 포스트 슬러그 (제외용)
+ * @param tags - 현재 포스트의 태그 배열
+ * @returns 관련 포스트 배열 (slug, title만)
  */
-async function getRelatedPosts(
-  currentSlug: string,
-  tags: string[]
-): Promise<{ slug: string; title: string }[]> {
+async function getRelatedPosts(currentSlug: string, tags: string[]): Promise<{ slug: string; title: string }[]> {
   const supabase = getServerSupabaseClient();
 
   const { data } = await supabase
     .from('blog_posts')
-    .select('slug, title')
+    .select('slug, title') // 필요한 필드만
     .eq('status', 'published')
-    .neq('slug', currentSlug)
-    .overlaps('tags', tags)
+    .neq('slug', currentSlug) // 현재 포스트 제외
+    .overlaps('tags', tags) // 태그 겹치는 포스트
     .limit(3);
 
   return data || [];
@@ -54,263 +98,185 @@ async function getRelatedPosts(
 
 /**
  * 동적 메타데이터 생성
+ *
+ * [Next.js generateMetadata]
+ * - 서버에서 메타데이터를 동적으로 생성
+ * - params에 접근하여 포스트별 메타데이터 생성
+ * - layout.tsx의 기본 메타데이터를 오버라이드
+ *
+ * [반환 항목]
+ * - title: 브라우저 탭 제목
+ * - description: 검색 결과 설명
+ * - keywords: SEO 키워드
+ * - openGraph: 소셜 공유 정보
+ * - twitter: 트위터 카드
+ * - alternates.canonical: 정규 URL
+ *
+ * @param params - URL 파라미터
+ * @returns 메타데이터 객체
  */
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  // Next.js 15+: params가 Promise
   const { slug } = await params;
   const post = await getBlogPost(slug);
 
-  if (!post) {
-    return {
-      title: '페이지를 찾을 수 없습니다',
-    };
-  }
+  // 포스트가 없으면 기본 메타데이터
+  if (!post) return { title: '페이지를 찾을 수 없습니다' };
+
+  // 메타 제목/설명 (없으면 일반 제목/설명 사용)
+  const title = post.meta_title || post.title;
+  const description = post.meta_description || post.description;
+  const url = `${siteConfig.domain}/blog/${slug}`;
 
   return {
-    title: post.meta_title || post.title,
-    description: post.meta_description || post.description,
+    title,
+    description,
+    // 키워드: 타겟 키워드 + 보조 키워드
     keywords: [post.target_keyword, ...(post.secondary_keywords || [])].join(', '),
+    // Open Graph (Facebook, LinkedIn 등)
     openGraph: {
-      title: post.meta_title || post.title,
-      description: post.meta_description || post.description,
-      url: `${siteConfig.domain}/blog/${slug}`,
+      title,
+      description,
+      url,
       siteName: siteConfig.serviceName,
-      type: 'article',
+      type: 'article', // 블로그 글은 article 타입
       locale: 'ko_KR',
-      publishedTime: post.published_at || undefined,
-      modifiedTime: post.updated_at,
+      publishedTime: post.published_at || undefined, // 발행일
+      modifiedTime: post.updated_at, // 수정일
       authors: [siteConfig.serviceName],
     },
-    twitter: {
-      card: 'summary_large_image',
-      title: post.meta_title || post.title,
-      description: post.meta_description || post.description,
-    },
-    alternates: {
-      canonical: `${siteConfig.domain}/blog/${slug}`,
-    },
+    // Twitter 카드
+    twitter: { card: 'summary_large_image', title, description },
+    // 정규 URL
+    alternates: { canonical: url },
   };
 }
 
-
 /**
- * 블로그 상세 페이지
+ * 블로그 상세 페이지 컴포넌트
+ *
+ * [렌더링 구조]
+ * 1. Schema.org 스크립트 (Article, FAQ, Breadcrumb)
+ * 2. 브레드크럼 네비게이션
+ * 3. 아티클 헤더 (카테고리, 제목, 메타 정보)
+ * 4. 본문 (Markdown → HTML 변환)
+ * 5. 태그 목록
+ * 6. 관련 포스트
+ * 7. CTA 섹션 (뉴스레터 구독)
  */
 async function BlogPostPage({ params }: PageProps) {
+  // URL 파라미터 추출
   const { slug } = await params;
+  // 포스트 조회
   const post = await getBlogPost(slug);
 
-  if (!post) {
-    notFound();
-  }
+  // 포스트가 없으면 404 페이지
+  if (!post) notFound();
 
-  const relatedPosts = await getRelatedPosts(slug, post.tags || []);
+  // 병렬로 데이터 처리 (성능 최적화)
+  const [relatedPosts, htmlContent] = await Promise.all([
+    // 관련 포스트 조회
+    getRelatedPosts(slug, post.tags || []),
+    // Markdown → HTML 변환
+    parseMarkdown(post.content),
+  ]);
+
+  // 읽기 시간 계산 (분 단위)
   const readTime = calculateReadTime(post.content);
 
-  // Article Schema
-  const articleSchema = {
-    '@context': 'https://schema.org',
-    '@type': 'Article',
-    headline: post.title,
-    description: post.description,
-    author: {
-      '@type': 'Organization',
-      name: siteConfig.serviceName,
-      url: siteConfig.domain,
-    },
-    publisher: {
-      '@type': 'Organization',
-      name: siteConfig.serviceName,
-      logo: {
-        '@type': 'ImageObject',
-        url: `${siteConfig.domain}/logo.png`,
-      },
-    },
-    datePublished: post.published_at,
-    dateModified: post.updated_at,
-    mainEntityOfPage: {
-      '@type': 'WebPage',
-      '@id': `${siteConfig.domain}/blog/${slug}`,
-    },
-    keywords: [post.target_keyword, ...(post.secondary_keywords || [])].join(', '),
-  };
-
-  // FAQ Schema
-  const faqSchema =
-    post.faq_items && post.faq_items.length > 0
-      ? {
-          '@context': 'https://schema.org',
-          '@type': 'FAQPage',
-          mainEntity: post.faq_items.map((faq: FAQItem) => ({
-            '@type': 'Question',
-            name: faq.question,
-            acceptedAnswer: {
-              '@type': 'Answer',
-              text: faq.answer,
-            },
-          })),
-        }
-      : null;
-
-  // BreadcrumbList Schema
-  const breadcrumbSchema = {
-    '@context': 'https://schema.org',
-    '@type': 'BreadcrumbList',
-    itemListElement: [
-      {
-        '@type': 'ListItem',
-        position: 1,
-        name: 'Stock Matrix',
-        item: siteConfig.domain,
-      },
-      {
-        '@type': 'ListItem',
-        position: 2,
-        name: '블로그',
-        item: `${siteConfig.domain}/blog`,
-      },
-      {
-        '@type': 'ListItem',
-        position: 3,
-        name: post.title,
-        item: `${siteConfig.domain}/blog/${slug}`,
-      },
-    ],
-  };
+  // Schema.org 구조화 데이터 생성
+  const articleSchema = createArticleSchema(post, slug); // Article Schema
+  const faqSchema = createFAQSchema(post.faq_items || []); // FAQ Schema (있는 경우만)
+  const breadcrumbSchema = createBreadcrumbSchema(post.title, slug); // Breadcrumb Schema
 
   return (
     <>
-      {/* Schema.org */}
-      <Script
-        id="article-schema"
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(articleSchema) }}
-        strategy="afterInteractive"
-      />
+      {/* Article Schema: 블로그 글 정보 */}
+      <Script id="article-schema" type="application/ld+json" strategy="afterInteractive">
+        {JSON.stringify(articleSchema)}
+      </Script>
+
+      {/* FAQ Schema: 자주 묻는 질문 (있는 경우만) */}
       {faqSchema && (
-        <Script
-          id="faq-schema"
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }}
-          strategy="afterInteractive"
-        />
+        <Script id="faq-schema" type="application/ld+json" strategy="afterInteractive">
+          {JSON.stringify(faqSchema)}
+        </Script>
       )}
-      <Script
-        id="breadcrumb-schema"
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }}
-        strategy="afterInteractive"
-      />
 
-      <div className="min-h-screen bg-black text-white">
-        {/* 헤더 */}
-        <header className="border-b border-gray-800 sticky top-0 bg-black/80 backdrop-blur-sm z-50">
-          <div className="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between">
-            <Link
-              href="/blog"
-              className="text-gray-400 hover:text-emerald-400 transition-colors flex items-center gap-2 text-sm"
-            >
-              <svg
-                className="w-4 h-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M10 19l-7-7m0 0l7-7m-7 7h18"
-                />
-              </svg>
-              블로그 목록
-            </Link>
+      {/* Breadcrumb Schema: 페이지 경로 */}
+      <Script id="breadcrumb-schema" type="application/ld+json" strategy="afterInteractive">
+        {JSON.stringify(breadcrumbSchema)}
+      </Script>
 
-            <Link
-              href="/subscribe"
-              className="px-4 py-2 text-sm font-medium rounded-lg bg-emerald-500 hover:bg-emerald-600 text-black transition-colors"
-            >
-              무료 구독
-            </Link>
-          </div>
-        </header>
+      <div className="min-h-screen pt-20 pb-16">
+        {/* 브레드크럼 네비게이션: 블로그 목록으로 돌아가기 */}
+        <div className="max-w-4xl mx-auto px-4 mb-8">
+          <Link
+            href="/blog"
+            className="inline-flex items-center gap-2 text-sm text-slate-400 hover:text-emerald-400 transition-colors"
+          >
+            {/* ArrowLeft: lucide-react 아이콘 */}
+            <ArrowLeft className="w-4 h-4" />
+            블로그 목록
+          </Link>
+        </div>
 
-        {/* 메인 콘텐츠 */}
-        <main className="max-w-4xl mx-auto px-4 py-12">
-          {/* 아티클 헤더 */}
+        <main className="max-w-4xl mx-auto px-4">
           <article>
+            {/* 아티클 헤더 */}
             <header className="mb-8">
-              {/* 카테고리 */}
-              <div className="flex items-center gap-3 mb-4">
-                <span className="px-3 py-1 text-sm font-medium rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                  {post.category || '주식 뉴스레터'}
-                </span>
-              </div>
+              {/* 카테고리 뱃지 */}
+              <span className="inline-block px-3 py-1 mb-4 text-sm font-medium rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                {post.category || '주식 뉴스레터'}
+              </span>
 
               {/* 제목 */}
-              <h1 className="text-3xl md:text-4xl font-bold mb-4 leading-tight">
-                {post.title}
-              </h1>
+              <h1 className="text-3xl md:text-4xl font-bold mb-4 leading-tight text-white">{post.title}</h1>
 
-              {/* 메타 정보 */}
-              <div className="flex flex-wrap items-center gap-4 text-sm text-gray-400">
+              {/* 메타 정보: 발행일 · 읽기 시간 · 조회수 */}
+              <div className="flex flex-wrap items-center gap-4 text-sm text-slate-400">
+                {/* 발행일 */}
                 <span>{formatDateKo(post.published_at)}</span>
-                <span>·</span>
+                <span className="text-slate-600">·</span>
+                {/* 읽기 시간 */}
                 <span>{readTime}분 읽기</span>
-                <span>·</span>
+                <span className="text-slate-600">·</span>
+                {/* 조회수 (Eye 아이콘) */}
                 <span className="flex items-center gap-1">
-                  <svg
-                    className="w-4 h-4"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                    />
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
-                    />
-                  </svg>
+                  <Eye className="w-4 h-4" />
                   {post.view_count.toLocaleString()}
                 </span>
               </div>
             </header>
 
-            {/* 본문 */}
+            {/* 본문 (Markdown → HTML 렌더링) */}
+            {/* dangerouslySetInnerHTML: HTML 문자열을 직접 렌더링 */}
+            {/* XSS 방지: parseMarkdown에서 sanitize 적용됨 */}
             <div
               className="prose prose-invert prose-emerald max-w-none
                 prose-headings:font-bold prose-headings:text-white
                 prose-h2:text-2xl prose-h2:mt-10 prose-h2:mb-4
                 prose-h3:text-xl prose-h3:mt-8 prose-h3:mb-3
-                prose-p:text-gray-300 prose-p:leading-relaxed
+                prose-p:text-slate-300 prose-p:leading-relaxed
                 prose-a:text-emerald-400 prose-a:no-underline hover:prose-a:underline
                 prose-strong:text-white prose-strong:font-semibold
-                prose-ul:text-gray-300 prose-ol:text-gray-300
+                prose-ul:text-slate-300 prose-ol:text-slate-300
                 prose-li:marker:text-emerald-500
-                prose-blockquote:border-emerald-500 prose-blockquote:text-gray-400
-                prose-code:text-emerald-300 prose-code:bg-gray-800 prose-code:px-1 prose-code:py-0.5 prose-code:rounded
-                prose-pre:bg-gray-900 prose-pre:border prose-pre:border-gray-800
-                prose-table:border-collapse prose-table:border prose-table:border-gray-700
-                prose-th:bg-gray-800 prose-th:text-white prose-th:p-3
-                prose-td:border prose-td:border-gray-700 prose-td:p-3"
-              dangerouslySetInnerHTML={{ __html: await parseMarkdown(post.content) }}
+                prose-blockquote:border-emerald-500 prose-blockquote:text-slate-400
+                prose-code:text-emerald-300 prose-code:bg-slate-800 prose-code:px-1 prose-code:py-0.5 prose-code:rounded
+                prose-pre:bg-slate-900 prose-pre:border prose-pre:border-slate-800
+                prose-table:border-collapse prose-table:border prose-table:border-slate-700
+                prose-th:bg-slate-800 prose-th:text-white prose-th:p-3
+                prose-td:border prose-td:border-slate-700 prose-td:p-3"
+              dangerouslySetInnerHTML={{ __html: htmlContent }}
             />
 
-            {/* 태그 */}
+            {/* 태그 목록 (있는 경우만) */}
             {post.tags && post.tags.length > 0 && (
-              <div className="mt-10 pt-6 border-t border-gray-800">
+              <div className="mt-10 pt-6 border-t border-slate-800">
                 <div className="flex flex-wrap gap-2">
                   {post.tags.map((tag) => (
-                    <span
-                      key={tag}
-                      className="text-sm text-gray-400 bg-gray-800 px-3 py-1 rounded-full"
-                    >
+                    <span key={tag} className="text-sm text-slate-400 bg-slate-800 px-3 py-1 rounded-full">
                       #{tag}
                     </span>
                   ))}
@@ -319,33 +285,32 @@ async function BlogPostPage({ params }: PageProps) {
             )}
           </article>
 
-          {/* 관련 포스트 */}
+          {/* 관련 포스트 섹션 (있는 경우만) */}
           {relatedPosts.length > 0 && (
             <section className="mt-16">
-              <h2 className="text-xl font-bold mb-6">관련 글</h2>
+              <h2 className="text-xl font-bold mb-6 text-white">관련 글</h2>
+              {/* 반응형: 모바일 1열, 데스크톱 3열 */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {relatedPosts.map((related) => (
                   <Link
                     key={related.slug}
                     href={`/blog/${related.slug}`}
-                    className="p-4 rounded-lg border border-gray-800 hover:border-emerald-500/50 hover:bg-gray-900/50 transition-all"
+                    className="p-4 rounded-lg border border-slate-800 hover:border-emerald-500/50 hover:bg-slate-900/50 transition-all"
                   >
-                    <h3 className="font-medium text-white line-clamp-2">
-                      {related.title}
-                    </h3>
+                    {/* line-clamp-2: 최대 2줄 */}
+                    <h3 className="font-medium text-white line-clamp-2">{related.title}</h3>
                   </Link>
                 ))}
               </div>
             </section>
           )}
 
-          {/* CTA 섹션 */}
+          {/* CTA 섹션: 뉴스레터 구독 유도 */}
           <section className="mt-16 p-8 rounded-2xl bg-gradient-to-r from-emerald-500/10 to-blue-500/10 border border-emerald-500/20 text-center">
-            <h2 className="text-2xl font-bold mb-3">
-              매일 아침 AI 주식 분석을 받아보세요
-            </h2>
-            <p className="text-gray-400 mb-6">
-              30가지 기술적 지표로 분석한 KOSPI·KOSDAQ 종목을 <br className="hidden md:block" />
+            <h2 className="text-2xl font-bold mb-3 text-white">매일 아침 AI 주식 분석을 받아보세요</h2>
+            <p className="text-slate-400 mb-6">
+              30가지 기술적 지표로 분석한 KOSPI/KOSDAQ 종목을
+              <br className="hidden md:block" />
               매일 오전 7:50에 무료로 이메일 발송해드립니다.
             </p>
             <Link
@@ -353,29 +318,11 @@ async function BlogPostPage({ params }: PageProps) {
               className="inline-flex items-center gap-2 px-8 py-3 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-black font-semibold transition-colors"
             >
               무료 구독하기
-              <svg
-                className="w-5 h-5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M14 5l7 7m0 0l-7 7m7-7H3"
-                />
-              </svg>
+              {/* ArrowRight: lucide-react 아이콘 */}
+              <ArrowRight className="w-5 h-5" />
             </Link>
           </section>
         </main>
-
-        {/* 푸터 */}
-        <footer className="border-t border-gray-800 py-8 mt-16">
-          <div className="max-w-4xl mx-auto px-4 text-center text-sm text-gray-500">
-            <p>© {new Date().getFullYear()} Stock Matrix. All rights reserved.</p>
-          </div>
-        </footer>
       </div>
     </>
   );
@@ -383,5 +330,16 @@ async function BlogPostPage({ params }: PageProps) {
 
 export default BlogPostPage;
 
-// ISR: 5분마다 재생성
+/**
+ * ISR (Incremental Static Regeneration) 설정
+ *
+ * [상세 페이지 ISR]
+ * - 각 slug별로 독립적으로 캐시 및 재생성
+ * - 5분마다 해당 페이지만 재생성
+ * - 다른 페이지에 영향 없음
+ *
+ * [SEO 최적화]
+ * - 정적 페이지처럼 빠른 로딩
+ * - 콘텐츠 업데이트 시 자동 반영 (최대 5분 지연)
+ */
 export const revalidate = 300;
