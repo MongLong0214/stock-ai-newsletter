@@ -5,7 +5,7 @@ import { Agent, fetch as undiciFetch } from 'undici';
 import { chromium, type Browser, type Page } from 'playwright';
 import { PIPELINE_CONFIG, CONTENT_GAPS } from '../_config/pipeline-config';
 import type { ScrapedContent, CompetitorAnalysis, SerpSearchResult } from '../_types/blog';
-import type { Element } from 'domhandler';
+import type { AnyNode } from 'domhandler';
 
 // ============================================================================
 // 설정 상수
@@ -306,13 +306,13 @@ function calculateJitter(baseDelay: number): number {
 // ============================================================================
 
 interface ContentBlock {
-  element: cheerio.Cheerio<Element>;
+  element: cheerio.Cheerio<AnyNode>;
   text: string;
   score: number;
   wordCount: number;
 }
 
-function calculateReadabilityScore($element: cheerio.Cheerio<Element>): number {
+function calculateReadabilityScore($element: cheerio.Cheerio<AnyNode>): number {
   let score = 0;
   const text = $element.text();
   const wordCount = countWords(text);
@@ -343,7 +343,7 @@ function calculateReadabilityScore($element: cheerio.Cheerio<Element>): number {
   return score;
 }
 
-function findBestContentBlock($: cheerio.CheerioAPI): cheerio.Cheerio<Element> | null {
+function findBestContentBlock($: cheerio.CheerioAPI): cheerio.Cheerio<AnyNode> | null {
   const candidates: ContentBlock[] = [];
 
   $('article, main, [role="main"], .post-content, .entry-content, .article-content, .content, #content').each((_, el) => {
@@ -573,15 +573,12 @@ function extractContent(
   });
 
   // Use custom selector or find best content block
-  let $mainContent: cheerio.Cheerio<Element> | null = null;
+  let $mainContent: cheerio.Cheerio<AnyNode> | null = null;
 
     if (customContentSelector) {
-        const selected = $(customContentSelector).first();
-        if (selected.length > 0) {
-            // ✅ 타입 단언 추가
-            $mainContent = selected as unknown as cheerio.Cheerio<Element>;
-        } else {
-            console.log(`   ⚠️ Custom selector not found: ${customContentSelector}`);
+        $mainContent = $(customContentSelector).first();
+        if ($mainContent.length === 0) {
+            console.log(` ⚠️ Custom selector not found: ${customContentSelector}`);
             $mainContent = null;
         }
     }
