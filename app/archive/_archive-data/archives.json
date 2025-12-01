@@ -1,6 +1,58 @@
 {
   "newsletters": [
     {
+      "date": "2025-12-02",
+      "stocks": [
+        {
+          "ticker": "KOSDAQ:196170",
+          "name": "알테오젠",
+          "close_price": 542000,
+          "rationale": "RSI 58.4 건전조정(검증됨) | SMA 정배열 유지 | MACD 매수신호 지속 | 주가 542,000원 신고가권 | 기관/외국인 순매수 유입 | ADX 45 강한추세 | 볼린저밴드 상단 지지 | 목표가 상향 지속 | 바이오 섹터 대장주 | 기술적 조정 후 재상승 구간",
+          "signals": {
+            "trend_score": 95,
+            "momentum_score": 88,
+            "volume_score": 92,
+            "volatility_score": 85,
+            "pattern_score": 95,
+            "sentiment_score": 94,
+            "overall_score": 93
+          }
+        },
+        {
+          "ticker": "KOSDAQ:141080",
+          "name": "리가켐바이오",
+          "close_price": 195800,
+          "rationale": "52주 신고가 돌파(검증됨) | RSI 72.5 강세권(추정) | 거래량 전일대비 급증 | 기관 매수세 집중 | MACD 상승확대 | 이동평균선 완전정배열 | 바이오 주도주 부상 | 상승 모멘텀 최고조 | 단기 급등 가능성 확대 | 매물대 소화 완료",
+          "signals": {
+            "trend_score": 98,
+            "momentum_score": 96,
+            "volume_score": 95,
+            "volatility_score": 92,
+            "pattern_score": 97,
+            "sentiment_score": 95,
+            "overall_score": 96
+          }
+        },
+        {
+          "ticker": "KOSPI:012450",
+          "name": "한화에어로스페이스",
+          "close_price": 813000,
+          "rationale": "RSI 31.4 과매도권(검증됨) | 기술적 반등 임박 | 애널리스트 목표가 131만원(괴리율 61%) | 80만원 지지선 테스트 | 낙폭과대 메리트 | 펀더멘털(수주) 이상무 | 볼린저밴드 하단 터치 | 단기 10% 반등 유력 | MACD 하락폭 둔화 | 저점 매수 기회",
+          "signals": {
+            "trend_score": 45,
+            "momentum_score": 85,
+            "volume_score": 80,
+            "volatility_score": 90,
+            "pattern_score": 85,
+            "sentiment_score": 92,
+            "overall_score": 82
+          }
+        }
+      ],
+      "sentAt": "2025-12-01T22:51:08.466+00:00",
+      "subscriberCount": 28
+    },
+    {
       "date": "2025-12-01",
       "stocks": [
         {
@@ -1197,5 +1249,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2025-11-30T23:01:46.016Z"
+  "lastUpdated": "2025-12-01T22:51:42.814Z"
 }
