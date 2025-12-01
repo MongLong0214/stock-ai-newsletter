@@ -201,6 +201,8 @@ export interface BlogPostCreateInput {
   generation_prompt?: string;
   /** 상태 (선택, 기본값: draft) */
   status?: BlogPostStatus;
+  /** 발행일 (선택, status가 published일 때 자동 설정됨) */
+  published_at?: string;
   /** Schema.org 데이터 (선택) */
   schema_data?: SchemaData;
   /** FAQ 아이템 배열 (선택) */
