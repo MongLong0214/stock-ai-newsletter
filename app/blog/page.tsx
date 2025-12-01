@@ -115,4 +115,16 @@ async function BlogPage() {
 
 export default BlogPage;
 
-export const revalidate = 300;
+/**
+ * ISR (Incremental Static Regeneration) 설정
+ *
+ * [블로그 목록 페이지 갱신 패턴]
+ * - 하루 1회 새 블로그 추가 (평일 오전 9~12시)
+ * - 목록은 변경이 적음 (제목, 설명 수정은 드묾)
+ * - 1시간 revalidate = 새 블로그가 1시간 내 목록에 표시
+ *
+ * [비용 절감]
+ * - 5분(300초): 하루 288회 재검증
+ * - 1시간(3600초): 하루 24회 재검증 → 95% 비용 절감
+ */
+export const revalidate = 3600; // 1시간
