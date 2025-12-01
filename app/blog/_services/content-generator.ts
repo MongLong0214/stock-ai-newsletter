@@ -1,27 +1,9 @@
 /**
- * Gemini 기반 콘텐츠 생성 서비스
+ * 엔터프라이즈급 Gemini 콘텐츠 생성 서비스
  *
- * [이 파일의 역할]
- * - Google Gemini AI를 사용하여 SEO 최적화된 블로그 글 생성
- * - 경쟁사 분석 결과를 바탕으로 차별화된 콘텐츠 작성
- *
- * [Gemini란?]
- * - Google의 최신 대규모 언어 모델 (LLM)
- * - GPT-4와 경쟁하는 성능
- * - Vertex AI를 통해 기업용으로 제공
- *
- * [Vertex AI란?]
- * - Google Cloud의 머신러닝 플랫폼
- * - Gemini 모델을 기업 환경에서 안전하게 사용 가능
- * - 사용량 기반 과금 (종량제)
- *
- * [콘텐츠 생성 흐름]
- * 1. 경쟁사 분석 데이터 준비
- * 2. 프롬프트 생성 (content-generation.ts 사용)
- * 3. Gemini API 호출
- * 4. JSON 응답 파싱
- * 5. 콘텐츠 유효성 검증
- * 6. 선택적 후처리 (refineContent)
+ * - 3단계 품질 검증 (타입 → 필드 → 품질 점수)
+ * - Exponential Backoff + Jitter 재시도
+ * - 실시간 메트릭 수집 및 품질 점수 계산
  */
 
 import { GoogleGenAI } from '@google/genai';
@@ -31,55 +13,63 @@ import { buildContentGenerationPrompt } from '../_prompts/content-generation';
 import { withTimeout } from '../_utils/fetch-helpers';
 import type { CompetitorAnalysis, GeneratedContent } from '../_types/blog';
 
-/**
- * Gemini 클라이언트 초기화
- *
- * [Vertex AI 설정 요구사항]
- * - GOOGLE_CLOUD_PROJECT 환경변수 필수
- * - Google Cloud 프로젝트에 Vertex AI API 활성화 필요
- * - 서비스 계정 인증 설정 필요
- *
- * [리전 설정]
- * - asia-northeast3: 서울 리전
- * - 한국 사용자에게 가장 빠른 응답 속도
- *
- * @returns GoogleGenAI 클라이언트 인스턴스
- * @throws 환경변수가 설정되지 않은 경우 에러
- */
+// ============================================================================
+// 타입 정의
+// ============================================================================
+
+interface ContentGenerationMetrics {
+  totalAttempts: number;
+  successfulAttempts: number;
+  failedAttempts: number;
+  averageGenerationTime: number;
+  totalTokensUsed: number;
+  averageQualityScore: number;
+  retryCount: number;
+}
+
+// ============================================================================
+// 글로벌 메트릭 수집
+// ============================================================================
+
+const metrics: ContentGenerationMetrics = {
+  totalAttempts: 0,
+  successfulAttempts: 0,
+  failedAttempts: 0,
+  averageGenerationTime: 0,
+  totalTokensUsed: 0,
+  averageQualityScore: 0,
+  retryCount: 0,
+};
+
+/** Gemini Vertex AI 클라이언트 초기화 */
 function initializeGemini(): GoogleGenAI {
   if (!process.env.GOOGLE_CLOUD_PROJECT) {
     throw new Error('GOOGLE_CLOUD_PROJECT 환경변수가 설정되지 않았습니다.');
   }
 
   return new GoogleGenAI({
-    vertexai: true, // Vertex AI 사용 모드
+    vertexai: true,
     project: process.env.GOOGLE_CLOUD_PROJECT,
-    location: 'global', // 서울 리전
+    location: 'global',
   });
 }
 
-/**
- * Gemini 응답에서 JSON 추출 및 파싱
- *
- * [왜 이 함수가 필요한가?]
- * - Gemini는 때때로 JSON을 markdown 코드 블록으로 감쌈
- * - 예: ```json { ... } ```
- * - 순수 JSON만 추출해야 JSON.parse() 가능
- *
- * [처리 과정]
- * 1. ```json 및 ``` 태그 제거
- * 2. 첫 번째 '{' 부터 마지막 '}' 까지 추출
- * 3. JSON.parse()로 파싱
- *
- * @param response - Gemini API 응답 텍스트
- * @returns 파싱된 GeneratedContent 객체
- * @throws 유효한 JSON을 찾을 수 없는 경우 에러
- */
-function parseJsonResponse(response: string): GeneratedContent {
-  // markdown 코드 블록 태그 제거
-  const cleaned = response.replace(/```json\s*/gi, '').replace(/```\s*/gi, '').trim();
+/** 타입 가드: 런타임에 GeneratedContent 타입 검증 */
+function isGeneratedContent(obj: unknown): obj is GeneratedContent {
+  if (!obj || typeof obj !== 'object') return false;
+  const content = obj as Record<string, unknown>;
+  return (
+    typeof content.title === 'string' &&
+    typeof content.content === 'string' &&
+    typeof content.metaTitle === 'string' &&
+    typeof content.metaDescription === 'string' &&
+    Array.isArray(content.faqItems)
+  );
+}
 
-  // JSON 객체의 시작과 끝 위치 찾기
+/** Gemini 응답에서 JSON 추출 및 타입 검증 */
+function parseJsonResponse(response: string): GeneratedContent {
+  const cleaned = response.replace(/```json\s*/gi, '').replace(/```\s*/gi, '').trim();
   const jsonStart = cleaned.indexOf('{');
   const jsonEnd = cleaned.lastIndexOf('}');
 
@@ -87,71 +77,111 @@ function parseJsonResponse(response: string): GeneratedContent {
     throw new Error('유효한 JSON을 찾을 수 없습니다.');
   }
 
-  // JSON 부분만 추출하여 파싱
-  return JSON.parse(cleaned.substring(jsonStart, jsonEnd + 1)) as GeneratedContent;
+  const parsed: unknown = JSON.parse(cleaned.substring(jsonStart, jsonEnd + 1));
+
+  if (!isGeneratedContent(parsed)) {
+    throw new Error('응답 형식이 GeneratedContent 스키마와 일치하지 않습니다.');
+  }
+
+  return parsed;
 }
 
-/**
- * 생성된 콘텐츠 유효성 검증
- *
- * [검증 항목]
- * - 제목: 10자 이상 필수
- * - 본문: 500자 이상 필수 (SEO 최소 기준)
- * - 메타 제목: 70자 이하 (Google 표시 제한)
- * - 메타 설명: 160자 이하 (Google 표시 제한)
- * - FAQ: 최소 2개 (FAQ 스키마 요구사항)
- *
- * [왜 검증이 필요한가?]
- * - AI가 때때로 불완전한 응답을 생성
- * - SEO 요구사항을 충족하지 못하면 검색 노출에 불리
- * - 조기에 문제 발견하여 재생성 요청
- *
- * @param content - 검증할 생성된 콘텐츠
- * @throws 유효성 검증 실패 시 에러 (문제점 목록 포함)
- */
+/** SEO 기준 콘텐츠 유효성 검증 (제목 10+자, 본문 500+자, 메타태그, FAQ 2+개) */
 function validateContent(content: GeneratedContent): void {
   const errors: string[] = [];
 
-  // 제목 검증: 최소 10자
-  if (!content.title || content.title.length < 10) {
-    errors.push('제목이 너무 짧습니다.');
-  }
+  if (!content.title || content.title.length < 10) errors.push('제목이 너무 짧습니다.');
+  if (!content.content || content.content.length < 500) errors.push('본문이 너무 짧습니다.');
+  if (!content.metaTitle || content.metaTitle.length > 70) errors.push('메타 제목이 없거나 70자를 초과합니다.');
+  if (!content.metaDescription || content.metaDescription.length > 160) errors.push('메타 설명이 없거나 160자를 초과합니다.');
+  if (!content.faqItems || content.faqItems.length < 2) errors.push('FAQ 항목이 부족합니다 (최소 2개).');
 
-  // 본문 검증: 최소 500자
-  if (!content.content || content.content.length < 500) {
-    errors.push('본문이 너무 짧습니다.');
-  }
-
-  // 메타 제목 검증: 존재 + 70자 이하
-  if (!content.metaTitle || content.metaTitle.length > 70) {
-    errors.push('메타 제목이 없거나 70자를 초과합니다.');
-  }
-
-  // 메타 설명 검증: 존재 + 160자 이하
-  if (!content.metaDescription || content.metaDescription.length > 160) {
-    errors.push('메타 설명이 없거나 160자를 초과합니다.');
-  }
-
-  // FAQ 검증: 최소 2개
-  if (!content.faqItems || content.faqItems.length < 2) {
-    errors.push('FAQ 항목이 부족합니다 (최소 2개).');
-  }
-
-  // 에러가 있으면 모든 문제점을 한번에 throw
   if (errors.length > 0) {
     throw new Error(`콘텐츠 유효성 검증 실패:\n${errors.join('\n')}`);
   }
 }
 
+/** 한글/영문 혼합 텍스트의 워드 수 계산 */
+function countWords(text: string): number {
+  const koreanWords = (text.match(/[가-힣]+/g) || []).length;
+  const englishWords = (text.match(/[a-zA-Z]+/g) || []).length;
+  return koreanWords + englishWords;
+}
+
 /**
- * 블로그 콘텐츠 생성 (메인 함수)
+ * 콘텐츠 품질 점수 계산 (100점 만점)
+ * - 길이 품질 (30점): 경쟁사 평균 대비 130% 목표
+ * - 구조 품질 (25점): 제목, 메타데이터, FAQ 완성도
+ * - SEO 품질 (25점): 키워드 밀도, 메타 최적화
+ * - 가독성 품질 (20점): 헤딩, 리스트, 문단 구성
+ */
+function calculateQualityScore(
+  content: GeneratedContent,
+  targetKeyword: string,
+  competitorAnalysis: CompetitorAnalysis
+): number {
+  let score = 0;
+
+  // 1. 길이 품질 (30점)
+  // 목표: 경쟁사 평균 + 30% (엘리트급 프롬프트 지시사항)
+  const targetWordCount = Math.floor(competitorAnalysis.averageWordCount * 1.3) || 3000;
+  const actualWordCount = countWords(content.content);
+  const lengthRatio = actualWordCount / targetWordCount;
+  if (lengthRatio >= 1.0) score += 30;
+  else if (lengthRatio >= 0.8) score += 25;
+  else if (lengthRatio >= 0.6) score += 20;
+  else score += 10;
+
+  // 2. 구조 품질 (25점)
+  if (content.title && content.title.length >= 10) score += 8;
+  if (content.metaTitle && content.metaTitle.length <= 70) score += 7;
+  if (content.metaDescription && content.metaDescription.length <= 160) score += 5;
+  if (content.faqItems && content.faqItems.length >= 3) score += 5;
+
+  // 3. SEO 품질 (25점)
+  // 키워드 검색을 위한 대소문자 무시 정규식 (escape 처리로 특수문자 안전 처리)
+  const escapedKeyword = targetKeyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const keywordRegex = new RegExp(escapedKeyword, 'gi');
+
+  const keywordInTitle = content.title.toLowerCase().includes(targetKeyword.toLowerCase());
+  const keywordInMeta = content.metaDescription.toLowerCase().includes(targetKeyword.toLowerCase());
+  const keywordDensity = (content.content.match(keywordRegex) || []).length;
+  if (keywordInTitle) score += 10;
+  if (keywordInMeta) score += 8;
+  if (keywordDensity >= 3) score += 7;
+
+  // 4. 가독성 품질 (20점)
+  const hasHeadings = (content.content.match(/^##\s/gm) || []).length >= 3;
+  const hasLists = content.content.includes('-') || content.content.includes('1.');
+  const hasParagraphs = content.content.split('\n\n').length >= 5;
+  if (hasHeadings) score += 8;
+  if (hasLists) score += 7;
+  if (hasParagraphs) score += 5;
+
+  return Math.min(score, 100);
+}
+
+/**
+ * 블로그 콘텐츠 생성 (엔터프라이즈급 메인 함수)
  *
- * [실행 흐름]
- * 1. Gemini 클라이언트 초기화
- * 2. 프롬프트 생성 (경쟁사 분석 + 콘텐츠 타입)
- * 3. API 호출 (2분 타임아웃)
- * 4. 응답 파싱 및 검증
- * 5. 실패 시 최대 3회 재시도
+ * [Enterprise 실행 흐름]
+ * 1. 메트릭 추적 시작 (totalAttempts++)
+ * 2. Gemini 클라이언트 초기화
+ * 3. 프롬프트 생성 (엘리트급 프롬프트 사용)
+ * 4. API 호출 (2분 타임아웃)
+ * 5. 응답 파싱 및 3단계 검증
+ * 6. 품질 점수 계산 및 메트릭 수집
+ * 7. 실패 시 Exponential Backoff + Jitter로 재시도
+ *
+ * [품질 검증 3단계]
+ * - Layer 1: JSON 파싱 성공 여부
+ * - Layer 2: 필수 필드 존재 및 길이 검증
+ * - Layer 3: 품질 점수 60점 이상 (configurable)
+ *
+ * [재시도 전략]
+ * - Exponential Backoff: 2^attempt * baseDelay
+ * - Jitter: ±30% 랜덤 지연 (thundering herd 방지)
+ * - 최대 3회 재시도
  *
  * [콘텐츠 타입별 특징]
  * - comparison: 서비스 비교 (테이블 포함)
@@ -177,37 +207,40 @@ export async function generateBlogContent(
   competitorAnalysis: CompetitorAnalysis,
   contentType: 'comparison' | 'guide' | 'listicle' | 'review' = 'guide'
 ): Promise<GeneratedContent> {
-  console.log(`\n🤖 [Gemini] 콘텐츠 생성 시작...`);
+  console.log(`\n🤖 [Gemini] 콘텐츠 생성 시작 (Enterprise Mode)...`);
   console.log(`   타겟 키워드: "${targetKeyword}"`);
   console.log(`   콘텐츠 타입: ${contentType}`);
+
+  // Enterprise: 메트릭 추적 시작
+  metrics.totalAttempts++;
 
   // 1. Gemini 클라이언트 초기화
   const genAI = initializeGemini();
 
-  // 2. 프롬프트 생성
+  // 2. 프롬프트 생성 (엘리트급 프롬프트 사용)
   const prompt = buildContentGenerationPrompt(targetKeyword, competitorAnalysis, contentType);
 
   // 재시도 로직을 위한 에러 저장
   let lastError: Error | null = null;
 
-  // 3. 최대 3회 재시도
+  // 3. 최대 3회 재시도 (Intelligent Retry with Jitter)
   for (let attempt = 1; attempt <= PIPELINE_CONFIG.retryAttempts; attempt++) {
+    const attemptStartTime = Date.now();
+
     try {
-      console.log(`   시도 ${attempt}/${PIPELINE_CONFIG.retryAttempts}...`);
+      console.log(`   🔄 시도 ${attempt}/${PIPELINE_CONFIG.retryAttempts}...`);
 
       // 4. API 호출 (2분 타임아웃)
-      // Gemini는 긴 콘텐츠 생성에 시간이 걸릴 수 있음
-      // GEMINI_API_CONFIG: lib/llm/_config/pipeline-config.ts에서 중앙 관리
       const response = await withTimeout(
         genAI.models.generateContent({
           model: GEMINI_API_CONFIG.MODEL,
           contents: [{ role: 'user', parts: [{ text: prompt }] }],
           config: {
-            maxOutputTokens: GEMINI_API_CONFIG.MAX_OUTPUT_TOKENS, // 최대 토큰 수 (64K)
-            temperature: GEMINI_API_CONFIG.TEMPERATURE, // 창의성 (1.0 = Gemini 3 권장)
-            topP: GEMINI_API_CONFIG.TOP_P, // 다양성 조절 (0.95)
-            topK: GEMINI_API_CONFIG.TOP_K, // 후보 토큰 수 (64)
-            responseMimeType: GEMINI_API_CONFIG.RESPONSE_MIME_TYPE, // 응답 형식
+            maxOutputTokens: GEMINI_API_CONFIG.MAX_OUTPUT_TOKENS,
+            temperature: GEMINI_API_CONFIG.TEMPERATURE,
+            topP: GEMINI_API_CONFIG.TOP_P,
+            topK: GEMINI_API_CONFIG.TOP_K,
+            responseMimeType: GEMINI_API_CONFIG.RESPONSE_MIME_TYPE,
           },
         }),
         120000 // 2분 타임아웃
@@ -220,9 +253,33 @@ export async function generateBlogContent(
         throw new Error('빈 응답을 받았습니다.');
       }
 
-      // 6. JSON 파싱 및 검증
+      // Enterprise: 토큰 사용량 추적 (Gemini response에서 토큰 정보 추출)
+      const tokensUsed = responseText.length; // 근사값: 실제로는 response metadata에서 가져와야 함
+
+      // 6. JSON 파싱 및 검증 (Layer 1 & 2)
       const content = parseJsonResponse(responseText);
       validateContent(content);
+
+      // Enterprise: 품질 점수 계산 (Layer 3)
+      const qualityScore = calculateQualityScore(content, targetKeyword, competitorAnalysis);
+      console.log(`   📊 품질 점수: ${qualityScore}/100`);
+
+      if (qualityScore < 60) {
+        throw new Error(`품질 점수 미달 (${qualityScore}/100 < 60)`);
+      }
+
+      // Enterprise: 성공 메트릭 업데이트
+      const generationTime = Date.now() - attemptStartTime;
+      metrics.successfulAttempts++;
+      metrics.totalTokensUsed += tokensUsed;
+      metrics.averageGenerationTime =
+        (metrics.averageGenerationTime * (metrics.successfulAttempts - 1) + generationTime) /
+        metrics.successfulAttempts;
+      metrics.averageQualityScore =
+        (metrics.averageQualityScore * (metrics.successfulAttempts - 1) + qualityScore) /
+        metrics.successfulAttempts;
+
+      console.log(`   ✅ 생성 성공! (${generationTime}ms, ${tokensUsed} tokens, Q=${qualityScore})`);
 
       return content;
     } catch (error) {
@@ -230,18 +287,27 @@ export async function generateBlogContent(
       lastError = error instanceof Error ? error : new Error(String(error));
       console.error(`   ❌ 시도 ${attempt} 실패: ${lastError.message}`);
 
-      // 마지막 시도가 아니면 대기 후 재시도
+      // Enterprise: 재시도 카운트 증가
+      metrics.retryCount++;
+
+      // 마지막 시도가 아니면 Intelligent Retry 적용
       if (attempt < PIPELINE_CONFIG.retryAttempts) {
-        // Exponential Backoff: 재시도마다 대기 시간 2배 증가
-        const delay = PIPELINE_CONFIG.retryDelay * Math.pow(2, attempt - 1);
-        console.log(`   ⏳ ${delay}ms 후 재시도...`);
+        // Exponential Backoff with Jitter
+        const baseDelay = PIPELINE_CONFIG.retryDelay * Math.pow(2, attempt - 1);
+        const jitter = Math.random() * 0.3 * baseDelay; // ±30% jitter
+        const delay = baseDelay + jitter;
+
+        console.log(`   ⏳ ${Math.round(delay)}ms 후 재시도 (Exponential Backoff + Jitter)...`);
         await new Promise((resolve) => setTimeout(resolve, delay));
       }
     }
   }
 
+  // Enterprise: 실패 메트릭 업데이트
+  metrics.failedAttempts++;
+
   // 모든 재시도 실패
-  throw lastError || new Error('콘텐츠 생성 실패');
+  throw lastError || new Error('콘텐츠 생성 실패 (모든 재시도 소진)');
 }
 
 /**

@@ -16,7 +16,7 @@ function Footer() {
 
       <div className="relative max-w-7xl mx-auto px-6 lg:px-8">
         {/* Main Footer Content */}
-        <div className="py-16 lg:py-20">
+        <div className="py-12">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-12 lg:gap-8">
             {/* Brand Section */}
             <div className="lg:col-span-4">
@@ -128,6 +128,15 @@ function Footer() {
                   <ul className="space-y-3">
                     <li>
                       <Link
+                        href="/blog"
+                        className="text-slate-400 hover:text-emerald-400 text-sm transition-colors duration-200 block"
+                        title="주식 투자 블로그"
+                      >
+                        블로그
+                      </Link>
+                    </li>
+                    <li>
+                      <Link
                         href="/technical-indicators"
                         className="text-slate-400 hover:text-emerald-400 text-sm transition-colors duration-200 block"
                         title="기술적 지표 완벽 가이드"
@@ -135,7 +144,7 @@ function Footer() {
                         기술적 지표
                       </Link>
                     </li>
-                    {internalLinks.quickLinks.slice(0, 3).map((link) => (
+                    {internalLinks.quickLinks.slice(0, 2).map((link) => (
                       <li key={link.url}>
                         <Link
                           href={link.url}
@@ -180,7 +189,7 @@ function Footer() {
         </div>
 
         {/* Legal Disclaimer Section */}
-        <div className="border-t border-slate-800/50 py-8">
+        <div className="border-t border-slate-800/50 py-6">
           <button
             onClick={() => setIsDisclaimerOpen(!isDisclaimerOpen)}
             className="group w-full flex items-center justify-between text-left py-3 px-5 rounded-xl bg-slate-900/30 hover:bg-slate-900/50 border border-slate-800/50 hover:border-slate-700/50 transition-all duration-300"
@@ -232,7 +241,7 @@ function Footer() {
         </div>
 
         {/* Bottom Bar */}
-        <div className="border-t border-slate-800/30 py-8">
+        <div className="border-t border-slate-800/30 py-6">
           <div className="flex items-center justify-center">
             <p className="text-slate-500 text-sm font-light">
               &copy; {new Date().getFullYear()} Stock Matrix. All rights reserved.
