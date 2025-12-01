@@ -1,13 +1,28 @@
 /**
  * 블로그 콘텐츠 생성 프롬프트
- * 경쟁사 분석 기반 SEO 최적화 콘텐츠 생성
+ *
+ * [이 파일의 역할]
+ * - Gemini AI에게 전달할 프롬프트(지시문)를 생성
+ * - 경쟁사 분석 결과를 바탕으로 더 나은 콘텐츠를 만들도록 안내
+ *
+ * [프롬프트 엔지니어링이란?]
+ * - AI에게 원하는 결과물을 얻기 위해 지시문을 잘 작성하는 기술
+ * - 구체적인 요구사항, 예시, 형식 등을 포함하면 더 좋은 결과물 생성
+ *
+ * [사용 흐름]
+ * 1. 경쟁사 콘텐츠 분석 결과 입력
+ * 2. 콘텐츠 타입(비교/가이드/리스트/리뷰) 선택
+ * 3. AI에게 전달할 상세 프롬프트 생성
  */
 
 import { SITE_INFO, CONTENT_TYPE_CONFIG } from '../_config/pipeline-config';
 import type { CompetitorAnalysis } from '../_types/blog';
 
 /**
- * 경쟁사 분석 요약 생성
+ * 경쟁사 분석 결과를 AI가 이해하기 쉬운 텍스트로 변환
+ *
+ * @param analysis - 경쟁사 웹사이트에서 수집한 정보
+ * @returns AI에게 전달할 경쟁사 요약 텍스트
  */
 function summarizeCompetitorAnalysis(analysis: CompetitorAnalysis): string {
   const { scrapedContents, commonTopics, averageWordCount } = analysis;
@@ -43,7 +58,15 @@ ${competitorSummaries}
 }
 
 /**
- * 콘텐츠 타입별 구조 가이드
+ * 콘텐츠 타입별 글 구조 템플릿 반환
+ *
+ * [왜 구조 가이드가 필요한가?]
+ * - AI가 일관된 형식의 글을 작성하도록 유도
+ * - SEO에 최적화된 구조로 검색 순위 향상
+ * - 독자가 읽기 쉬운 형태로 구성
+ *
+ * @param contentType - 콘텐츠 타입 (comparison/guide/listicle/review)
+ * @returns 해당 타입에 맞는 구조 가이드 텍스트
  */
 function getContentStructureGuide(
   contentType: 'comparison' | 'guide' | 'listicle' | 'review'
@@ -156,7 +179,25 @@ function getContentStructureGuide(
 }
 
 /**
- * 메인 콘텐츠 생성 프롬프트
+ * 메인 콘텐츠 생성 프롬프트 빌더
+ *
+ * [이 함수가 하는 일]
+ * 1. 경쟁사 분석 결과를 요약
+ * 2. 콘텐츠 타입에 맞는 구조 가이드 선택
+ * 3. 모든 정보를 조합하여 완성된 프롬프트 생성
+ *
+ * [프롬프트에 포함되는 내용]
+ * - 타겟 키워드 (SEO 목표)
+ * - 우리 서비스 정보 (홍보용)
+ * - 경쟁사 분석 요약 (차별화 전략)
+ * - 글 구조 가이드 (형식 통일)
+ * - SEO 요구사항 (검색 최적화)
+ * - 출력 형식 (JSON)
+ *
+ * @param targetKeyword - SEO 목표 키워드 (예: "주식 뉴스레터 추천")
+ * @param competitorAnalysis - 경쟁사 분석 결과
+ * @param contentType - 생성할 콘텐츠 타입
+ * @returns Gemini AI에게 전달할 완성된 프롬프트 문자열
  */
 export function buildContentGenerationPrompt(
   targetKeyword: string,

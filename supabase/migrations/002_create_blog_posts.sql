@@ -4,7 +4,11 @@
 -- ============================================================================
 
 -- Create enum for post status
-CREATE TYPE blog_post_status AS ENUM ('draft', 'published', 'archived');
+DO $$ BEGIN
+  CREATE TYPE blog_post_status AS ENUM ('draft', 'published', 'archived');
+EXCEPTION
+  WHEN duplicate_object THEN null;
+END $$;
 
 -- Create blog_posts table
 CREATE TABLE IF NOT EXISTS blog_posts (
@@ -24,14 +28,14 @@ CREATE TABLE IF NOT EXISTS blog_posts (
 
   -- Categorization
   target_keyword VARCHAR(255) NOT NULL,
-  secondary_keywords TEXT[], -- Array of related keywords
+  secondary_keywords TEXT[],
   category VARCHAR(100) DEFAULT 'stock-newsletter',
   tags TEXT[],
 
   -- Content Generation Metadata
-  competitor_urls TEXT[], -- URLs analyzed for content generation
+  competitor_urls TEXT[],
   competitor_count INTEGER DEFAULT 0,
-  generation_prompt TEXT, -- Prompt used for generation
+  generation_prompt TEXT,
 
   -- Publishing
   status blog_post_status DEFAULT 'draft' NOT NULL,
@@ -44,14 +48,19 @@ CREATE TABLE IF NOT EXISTS blog_posts (
   schema_data JSONB,
 
   -- FAQ Section (for FAQ Schema)
-  faq_items JSONB, -- [{question: string, answer: string}]
+  faq_items JSONB,
 
   -- Internal Linking
   related_posts UUID[],
 
   -- Timestamps
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+
+  -- Data Integrity Constraints
+  CONSTRAINT published_at_required_when_published CHECK (status != 'published' OR published_at IS NOT NULL),
+  CONSTRAINT view_count_non_negative CHECK (view_count >= 0),
+  CONSTRAINT competitor_count_non_negative CHECK (competitor_count >= 0)
 );
 
 -- ============================================================================
@@ -67,7 +76,7 @@ CREATE INDEX IF NOT EXISTS idx_blog_posts_published_at ON blog_posts(published_a
 CREATE INDEX IF NOT EXISTS idx_blog_posts_target_keyword ON blog_posts(target_keyword);
 CREATE INDEX IF NOT EXISTS idx_blog_posts_category ON blog_posts(category);
 
--- Full-text search index (Korean + English)
+-- Full-text search index (simple analyzer for Korean + English mixed content)
 CREATE INDEX IF NOT EXISTS idx_blog_posts_fts ON blog_posts
   USING gin(to_tsvector('simple', coalesce(title, '') || ' ' || coalesce(description, '') || ' ' || coalesce(content, '')));
 
@@ -75,7 +84,7 @@ CREATE INDEX IF NOT EXISTS idx_blog_posts_fts ON blog_posts
 CREATE INDEX IF NOT EXISTS idx_blog_posts_tags ON blog_posts USING gin(tags);
 CREATE INDEX IF NOT EXISTS idx_blog_posts_secondary_keywords ON blog_posts USING gin(secondary_keywords);
 
--- Composite index for common queries
+-- Composite index for common queries (published posts list)
 CREATE INDEX IF NOT EXISTS idx_blog_posts_status_published ON blog_posts(status, published_at DESC)
   WHERE status = 'published';
 
@@ -99,13 +108,28 @@ CREATE TRIGGER trigger_blog_posts_updated_at
   FOR EACH ROW
   EXECUTE FUNCTION update_blog_posts_updated_at();
 
--- Function to increment view count (atomic)
+-- Function to increment view count (atomic, secure)
 CREATE OR REPLACE FUNCTION increment_blog_view_count(post_slug VARCHAR)
-RETURNS void AS $$
+RETURNS BOOLEAN
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  rows_affected INTEGER;
 BEGIN
+  -- Validate input
+  IF post_slug IS NULL OR post_slug = '' THEN
+    RETURN false;
+  END IF;
+
+  -- Only increment for published posts
   UPDATE blog_posts
   SET view_count = view_count + 1
-  WHERE slug = post_slug;
+  WHERE slug = post_slug
+    AND status = 'published';
+
+  GET DIAGNOSTICS rows_affected = ROW_COUNT;
+  RETURN rows_affected > 0;
 END;
 $$ LANGUAGE plpgsql;
 
@@ -115,7 +139,7 @@ $$ LANGUAGE plpgsql;
 
 ALTER TABLE blog_posts ENABLE ROW LEVEL SECURITY;
 
--- Public can read published posts
+-- Public can read published posts only
 CREATE POLICY "Public can read published posts" ON blog_posts
   FOR SELECT
   USING (status = 'published');
@@ -135,4 +159,6 @@ COMMENT ON COLUMN blog_posts.target_keyword IS 'Primary SEO keyword for this pos
 COMMENT ON COLUMN blog_posts.secondary_keywords IS 'Related keywords for LSI SEO';
 COMMENT ON COLUMN blog_posts.competitor_urls IS 'Source URLs analyzed during content generation';
 COMMENT ON COLUMN blog_posts.schema_data IS 'Schema.org structured data for rich snippets';
-COMMENT ON COLUMN blog_posts.faq_items IS 'FAQ items for FAQ Schema markup';
+COMMENT ON COLUMN blog_posts.faq_items IS 'FAQ items for FAQ Schema markup [{question, answer}]';
+COMMENT ON COLUMN blog_posts.view_count IS 'Page view count (non-negative, updated atomically)';
+COMMENT ON FUNCTION increment_blog_view_count IS 'Atomically increment view count for published posts only';
