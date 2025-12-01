@@ -10,6 +10,18 @@ import type { BlogPostListItem } from './_types/blog';
 async function getPublishedPosts(): Promise<BlogPostListItem[]> {
   const supabase = getServerSupabaseClient();
 
+  // 디버깅: 전체 포스트 수 확인
+  const { count: totalCount } = await supabase
+    .from('blog_posts')
+    .select('*', { count: 'exact', head: true });
+
+  const { count: publishedCount } = await supabase
+    .from('blog_posts')
+    .select('*', { count: 'exact', head: true })
+    .eq('status', 'published');
+
+  console.log(`[Blog] DB 전체 포스트: ${totalCount}개, published: ${publishedCount}개`);
+
   const { data, error } = await supabase
     .from('blog_posts')
     .select(
@@ -23,6 +35,8 @@ async function getPublishedPosts(): Promise<BlogPostListItem[]> {
     console.error('[Blog] Failed to fetch posts:', error);
     return [];
   }
+
+  console.log(`[Blog] 쿼리 결과: ${data?.length || 0}개`);
 
   if (!Array.isArray(data)) {
     console.error('[Blog] Invalid data format received');
@@ -119,12 +133,7 @@ export default BlogPage;
  * ISR (Incremental Static Regeneration) 설정
  *
  * [블로그 목록 페이지 갱신 패턴]
- * - 하루 1회 새 블로그 추가 (평일 오전 9~12시)
- * - 목록은 변경이 적음 (제목, 설명 수정은 드묾)
- * - 1시간 revalidate = 새 블로그가 1시간 내 목록에 표시
- *
- * [비용 절감]
- * - 5분(300초): 하루 288회 재검증
- * - 1시간(3600초): 하루 24회 재검증 → 95% 비용 절감
+ * - 새 블로그 포스트가 즉시 반영되도록 짧은 revalidate 시간 설정
+ * - 0 = 매 요청마다 재검증 (개발/디버깅 시 유용)
  */
-export const revalidate = 3600; // 1시간
+export const revalidate = 0; // 매 요청마다 재검증 (디버깅용)
