@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "send-newsletter": "tsx scripts/send-newsletter.ts",
-    "test-twitter": "tsx scripts/test-twitter.ts"
+    "test-twitter": "tsx scripts/test-twitter.ts",
+    "generate-blog": "tsx scripts/generate-blog-post.ts"
   },
   "dependencies": {
     "@google/genai": "^1.30.0",
@@ -28,6 +29,7 @@
     "framer-motion": "^12.23.22",
     "lucide-react": "^0.545.0",
     "next": "15.5.4",
+    "playwright": "^1.57.0",
     "react": "19.1.0",
     "react-dom": "19.1.0",
     "rehype-sanitize": "^6.0.0",

@@ -1,13 +1,14 @@
-/** 웹 스크래핑 및 경쟁사 분석 서비스 */
+/** 엔터프라이즈급 웹 스크래핑 서비스 */
 
 import * as cheerio from 'cheerio';
 import { Agent, fetch as undiciFetch } from 'undici';
-import { execFile } from 'child_process';
-import { promisify } from 'util';
+import { chromium, type Browser, type Page } from 'playwright';
 import { PIPELINE_CONFIG, CONTENT_GAPS } from '../_config/pipeline-config';
 import type { ScrapedContent, CompetitorAnalysis, SerpSearchResult } from '../_types/blog';
 
-const execFileAsync = promisify(execFile);
+// ============================================================================
+// 설정 상수
+// ============================================================================
 
 const LIMITS = {
   MIN_PARAGRAPH: 30,
@@ -17,35 +18,69 @@ const LIMITS = {
   MAX_HEADING: 200,
   MAX_PARAGRAPHS: 50,
   SCRAPE_DELAY: 800,
+  MIN_CONTENT_SCORE: 100,
+  BROWSER_NAVIGATION_TIMEOUT: 30000,
 } as const;
 
 const USER_AGENTS = [
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:121.0) Gecko/20100101 Firefox/121.0',
-  'Mozilla/5.0 (Linux; Android 14; SM-S918B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36',
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.1 Safari/605.1.15',
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Edg/120.0.0.0',
 ];
 
 const REMOVE_SELECTORS = [
   'script', 'style', 'noscript', 'nav', 'header', 'footer', 'aside', 'iframe', 'form',
   'button', 'input', 'select', 'textarea', 'svg', 'canvas', 'video', 'audio',
   '.ad', '.ads', '.advertisement', '.sidebar', '.menu', '.comment', '.comments',
-  '[role="navigation"]', '[role="banner"]', '[role="contentinfo"]',
+  '[role="navigation"]', '[role="banner"]', '[role="contentinfo"]', '[aria-label*="광고"]',
 ];
 
 interface DomainConfig {
   extraDelay?: number;
   contentSelector?: string;
-  skip?: boolean;
+  useBrowser?: boolean;
+  waitForSelector?: string;
   skipReason?: string;
+  maxRetries?: number;
 }
 
 const DOMAIN_CONFIGS: Record<string, DomainConfig> = {
-  'brunch.co.kr': { extraDelay: 1000, contentSelector: '.wrap_body' },
-  'blog.naver.com': { skip: true, skipReason: 'iframe 구조' },
-  'm.blog.naver.com': { skip: true, skipReason: 'iframe 구조' },
-  'medium.com': { extraDelay: 500, contentSelector: 'article' },
-  'velog.io': { contentSelector: '.atom-one' },
+  'brunch.co.kr': {
+    extraDelay: 1500,
+    contentSelector: '.wrap_body',
+    useBrowser: true,
+    waitForSelector: '.wrap_body',
+    maxRetries: 2,
+  },
+  'blog.naver.com': {
+    useBrowser: true,
+    waitForSelector: 'iframe#mainFrame',
+    contentSelector: '.se-main-container, #postViewArea, .post-view',
+    extraDelay: 3000,
+    maxRetries: 2,
+  },
+  'm.blog.naver.com': {
+    useBrowser: true,
+    waitForSelector: '.post_ct, #content',
+    contentSelector: '.post_ct, #content, .post-view',
+    extraDelay: 2000,
+  },
+  'medium.com': {
+    extraDelay: 1000,
+    contentSelector: 'article',
+    waitForSelector: 'article',
+  },
+  'velog.io': {
+    contentSelector: '.atom-one',
+    useBrowser: true,
+    waitForSelector: '.atom-one',
+  },
+  'tistory.com': {
+    contentSelector: '.entry-content, .tt_article_useless_p_margin',
+    extraDelay: 1000,
+  },
 };
 
 interface ScrapeOptions {
@@ -53,19 +88,174 @@ interface ScrapeOptions {
   retries?: number;
   retryDelay?: number;
   referer?: string;
+  forceBrowser?: boolean;
 }
+
+interface CircuitBreakerState {
+  failures: number;
+  lastFailure: number;
+  state: 'closed' | 'open' | 'half-open';
+}
+
+interface RateLimitState {
+  requests: number[];
+  lastRequest: number;
+}
+
+interface ScrapingMetrics {
+  totalAttempts: number;
+  successCount: number;
+  failureCount: number;
+  browserFallbackCount: number;
+  circuitBreakerTrips: number;
+  averageResponseTime: number;
+  domainStats: Record<string, {
+    attempts: number;
+    successes: number;
+    failures: number;
+    avgResponseTime: number;
+  }>;
+}
+
+// ============================================================================
+// 글로벌 상태 관리
+// ============================================================================
+
+const circuitBreakers = new Map<string, CircuitBreakerState>();
+const rateLimits = new Map<string, RateLimitState>();
+const metrics: ScrapingMetrics = {
+  totalAttempts: 0,
+  successCount: 0,
+  failureCount: 0,
+  browserFallbackCount: 0,
+  circuitBreakerTrips: 0,
+  averageResponseTime: 0,
+  domainStats: {},
+};
+
+let browserInstance: Browser | null = null;
+
+// ============================================================================
+// Circuit Breaker 패턴
+// ============================================================================
+
+const CIRCUIT_BREAKER_CONFIG = {
+  FAILURE_THRESHOLD: 3,
+  TIMEOUT: 60000, // 1분
+  HALF_OPEN_REQUESTS: 1,
+};
+
+function getCircuitBreaker(domain: string): CircuitBreakerState {
+  if (!circuitBreakers.has(domain)) {
+    circuitBreakers.set(domain, {
+      failures: 0,
+      lastFailure: 0,
+      state: 'closed',
+    });
+  }
+  return circuitBreakers.get(domain)!;
+}
+
+function canAttemptRequest(domain: string): boolean {
+  const breaker = getCircuitBreaker(domain);
+  const now = Date.now();
+
+  if (breaker.state === 'closed') {
+    return true;
+  }
+
+  if (breaker.state === 'open') {
+    if (now - breaker.lastFailure > CIRCUIT_BREAKER_CONFIG.TIMEOUT) {
+      breaker.state = 'half-open';
+      return true;
+    }
+    return false;
+  }
+
+  return true; // half-open
+}
+
+function recordSuccess(domain: string): void {
+  const breaker = getCircuitBreaker(domain);
+  breaker.failures = 0;
+  breaker.state = 'closed';
+}
+
+function recordFailure(domain: string): void {
+  const breaker = getCircuitBreaker(domain);
+  breaker.failures++;
+  breaker.lastFailure = Date.now();
+
+  if (breaker.failures >= CIRCUIT_BREAKER_CONFIG.FAILURE_THRESHOLD) {
+    breaker.state = 'open';
+    metrics.circuitBreakerTrips++;
+    console.log(`   🚨 Circuit breaker OPEN for ${domain} (${breaker.failures} failures)`);
+  }
+}
+
+// ============================================================================
+// Rate Limiting
+// ============================================================================
+
+const RATE_LIMIT_CONFIG = {
+  MAX_REQUESTS_PER_MINUTE: 10,
+  MIN_REQUEST_INTERVAL: 500, // ms
+};
+
+async function enforceRateLimit(domain: string): Promise<void> {
+  const now = Date.now();
+
+  if (!rateLimits.has(domain)) {
+    rateLimits.set(domain, { requests: [], lastRequest: 0 });
+  }
+
+  const state = rateLimits.get(domain)!;
+
+  // Clean old requests (>1 minute)
+  state.requests = state.requests.filter(t => now - t < 60000);
+
+  // Check rate limit
+  if (state.requests.length >= RATE_LIMIT_CONFIG.MAX_REQUESTS_PER_MINUTE) {
+    const oldestRequest = state.requests[0];
+    const waitTime = 60000 - (now - oldestRequest);
+    if (waitTime > 0) {
+      console.log(`   ⏳ Rate limit: waiting ${Math.round(waitTime / 1000)}s for ${domain}`);
+      await sleep(waitTime);
+    }
+  }
+
+  // Enforce minimum interval
+  const timeSinceLastRequest = now - state.lastRequest;
+  if (timeSinceLastRequest < RATE_LIMIT_CONFIG.MIN_REQUEST_INTERVAL) {
+    const waitTime = RATE_LIMIT_CONFIG.MIN_REQUEST_INTERVAL - timeSinceLastRequest;
+    await sleep(waitTime);
+  }
+
+  // Record request
+  state.requests.push(now);
+  state.lastRequest = now;
+}
+
+// ============================================================================
+// 유틸리티 함수
+// ============================================================================
 
 function getRandomUserAgent(): string {
   return USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)];
 }
 
-function createBrowserHeaders(referer?: string): HeadersInit {
+function createBrowserHeaders(referer?: string): Record<string, string> {
   return {
     'User-Agent': getRandomUserAgent(),
     'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
     'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8',
+    'Accept-Encoding': 'gzip, deflate, br',
     'Referer': referer || 'https://www.google.com/',
     'Connection': 'keep-alive',
+    'Upgrade-Insecure-Requests': '1',
+    'Sec-Fetch-Dest': 'document',
+    'Sec-Fetch-Mode': 'navigate',
+    'Sec-Fetch-Site': 'cross-site',
   };
 }
 
@@ -79,10 +269,11 @@ function extractDomain(url: string): string {
 
 function getDomainConfig(url: string): DomainConfig {
   const domain = extractDomain(url);
-  if (DOMAIN_CONFIGS[domain]) return DOMAIN_CONFIGS[domain];
 
   for (const [configDomain, config] of Object.entries(DOMAIN_CONFIGS)) {
-    if (domain.endsWith(configDomain)) return config;
+    if (domain.includes(configDomain) || configDomain.includes(domain)) {
+      return config;
+    }
   }
 
   return {};
@@ -103,6 +294,103 @@ function countWords(text: string): number {
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
+
+function calculateJitter(baseDelay: number): number {
+  const jitter = Math.random() * 0.3 * baseDelay;
+  return baseDelay + jitter;
+}
+
+// ============================================================================
+// Readability Score (콘텐츠 품질 평가)
+// ============================================================================
+
+interface ContentBlock {
+  element: cheerio.Cheerio<any>;
+  text: string;
+  score: number;
+  wordCount: number;
+}
+
+function calculateReadabilityScore($element: cheerio.Cheerio<any>): number {
+  let score = 0;
+  const text = $element.text();
+  const wordCount = countWords(text);
+
+  // Word count scoring
+  if (wordCount > 100) score += 25;
+  if (wordCount > 200) score += 25;
+  if (wordCount > 300) score += 25;
+
+  // Paragraph count
+  const paragraphCount = $element.find('p').length;
+  score += Math.min(paragraphCount * 3, 30);
+
+  // Link density (lower is better for content)
+  const linkText = $element.find('a').text().length;
+  const linkDensity = text.length > 0 ? linkText / text.length : 0;
+  if (linkDensity < 0.2) score += 15;
+  else if (linkDensity < 0.4) score += 10;
+
+  // Positive indicators
+  if ($element.find('p').length > 3) score += 10;
+  if ($element.find('h2, h3').length > 0) score += 10;
+
+  // Negative indicators
+  if ($element.attr('class')?.match(/comment|sidebar|nav|footer|header/i)) score -= 50;
+  if ($element.attr('id')?.match(/comment|sidebar|nav|footer|header/i)) score -= 50;
+
+  return score;
+}
+
+function findBestContentBlock($: cheerio.CheerioAPI): cheerio.Cheerio<any> | null {
+  const candidates: ContentBlock[] = [];
+
+  $('article, main, [role="main"], .post-content, .entry-content, .article-content, .content, #content').each((_, el) => {
+    const $el = $(el);
+    const text = $el.text();
+    const wordCount = countWords(text);
+
+    if (wordCount > 50) {
+      candidates.push({
+        element: $el,
+        text,
+        score: calculateReadabilityScore($el),
+        wordCount,
+      });
+    }
+  });
+
+  // Fallback: score all divs
+  if (candidates.length === 0) {
+    $('div').each((_, el) => {
+      const $el = $(el);
+      const text = $el.text();
+      const wordCount = countWords(text);
+
+      if (wordCount > 100) {
+        candidates.push({
+          element: $el,
+          text,
+          score: calculateReadabilityScore($el),
+          wordCount,
+        });
+      }
+    });
+  }
+
+  if (candidates.length === 0) return null;
+
+  // Sort by score, return best
+  candidates.sort((a, b) => b.score - a.score);
+
+  console.log(`   📊 Best content: ${candidates[0].wordCount} words (score: ${candidates[0].score})`);
+
+  return candidates[0].score >= LIMITS.MIN_CONTENT_SCORE ? candidates[0].element : null;
+}
+
+// ============================================================================
+// HTTP 가져오기
+// ============================================================================
 
 async function fetchWithUndici(url: string, timeout: number, referer?: string): Promise<string> {
   const agent = new Agent({
@@ -139,50 +427,122 @@ async function fetchWithUndici(url: string, timeout: number, referer?: string): 
   }
 }
 
-function sanitizeReferer(referer?: string): string {
-  if (!referer) return 'https://www.google.com/';
+async function fetchHtml(url: string, timeout: number, referer?: string): Promise<string> {
+  const startTime = Date.now();
+
   try {
-    const url = new URL(referer);
-    return ['http:', 'https:'].includes(url.protocol) ? referer : 'https://www.google.com/';
-  } catch {
-    return 'https://www.google.com/';
+    const html = await fetchWithUndici(url, timeout, referer);
+
+    const responseTime = Date.now() - startTime;
+    updateMetrics(extractDomain(url), true, responseTime);
+
+    return html;
+  } catch (error) {
+    const responseTime = Date.now() - startTime;
+    updateMetrics(extractDomain(url), false, responseTime);
+
+    throw error;
   }
 }
 
-async function fetchWithCurl(url: string, timeout: number, referer?: string): Promise<string> {
-  const userAgent = getRandomUserAgent();
-  const timeoutSecs = Math.ceil(timeout / 1000);
-  const safeReferer = sanitizeReferer(referer);
+// ============================================================================
+// Playwright 브라우저 자동화
+// ============================================================================
 
-  const args = [
-    '-s', '-L', '--compressed',
-    '--max-time', String(timeoutSecs),
-    '-A', userAgent,
-    '-H', `Referer: ${safeReferer}`,
-    url,
-  ];
+async function getBrowser(): Promise<Browser> {
+  if (!browserInstance) {
+    console.log('   🌐 Starting browser...');
+    browserInstance = await chromium.launch({
+      headless: true,
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-gpu',
+      ],
+    });
+  }
+  return browserInstance;
+}
 
-  const { stdout, stderr } = await execFileAsync('curl', args, {
-    maxBuffer: 10 * 1024 * 1024,
-    timeout: timeout + 5000,
+export async function closeBrowser(): Promise<void> {
+  if (browserInstance) {
+    await browserInstance.close();
+    browserInstance = null;
+    console.log('   🌐 Browser closed');
+  }
+}
+
+async function fetchWithBrowser(url: string, timeout: number, domainConfig: DomainConfig): Promise<string> {
+  const browser = await getBrowser();
+  const context = await browser.newContext({
+    userAgent: getRandomUserAgent(),
+    viewport: { width: 1920, height: 1080 },
+    locale: 'ko-KR',
   });
 
-  if (stderr && stderr.includes('curl:')) {
-    throw new Error(`curl error: ${stderr}`);
-  }
+  let page: Page | null = null;
 
-  return stdout;
-}
-
-async function fetchHtml(url: string, timeout: number, referer?: string): Promise<string> {
   try {
-    return await fetchWithUndici(url, timeout, referer);
-  } catch (error) {
-    const reason = error instanceof Error ? error.message : 'unknown';
-    console.log(`   ⚡ curl 폴백 (${reason})...`);
-    return await fetchWithCurl(url, timeout, referer);
+    page = await context.newPage();
+
+    await page.goto(url, {
+      waitUntil: 'domcontentloaded',
+      timeout: LIMITS.BROWSER_NAVIGATION_TIMEOUT,
+    });
+
+    // Extra delay for dynamic content
+    if (domainConfig.extraDelay) {
+      await sleep(domainConfig.extraDelay);
+    }
+
+    // Handle Naver blog iframe structure
+    if (url.includes('blog.naver.com')) {
+      try {
+        // Wait for iframe
+        await page.waitForSelector('iframe#mainFrame', { timeout: 5000, state: 'attached' });
+
+        // Get iframe and its content
+        const frame = page.frame({ name: 'mainFrame' }) || page.frames().find(f => f.url().includes('blog.naver.com'));
+
+        if (frame) {
+          // Wait for content inside iframe
+          await frame.waitForSelector('body', { timeout: 5000 });
+          await sleep(1000);
+
+          // Get HTML from iframe
+          const iframeContent = await frame.content();
+          return iframeContent;
+        }
+      } catch (error) {
+        console.log(`   ⚠️ iframe 처리 실패: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    }
+
+    // Wait for content selector if specified (non-iframe case)
+    if (domainConfig.waitForSelector && !url.includes('blog.naver.com')) {
+      try {
+        await page.waitForSelector(domainConfig.waitForSelector, {
+          timeout: 10000,
+          state: 'visible',
+        });
+      } catch {
+        console.log(`   ⚠️ Selector not found: ${domainConfig.waitForSelector}`);
+      }
+    }
+
+    // Get HTML from main page
+    const html = await page.content();
+    return html;
+  } finally {
+    if (page) await page.close();
+    await context.close();
   }
 }
+
+// ============================================================================
+// 콘텐츠 추출
+// ============================================================================
 
 function extractContent(
   $: cheerio.CheerioAPI,
@@ -211,38 +571,41 @@ function extractContent(
     });
   });
 
-  const contentSelectors = customContentSelector
-    ? [customContentSelector]
-    : [
-        'article', 'main', '[role="main"]', '.post-content', '.entry-content',
-        '.article-content', '.content', '#content', '.wrap_body', '.atom-one',
-      ];
+  // Use custom selector or find best content block
+  let $mainContent: cheerio.Cheerio<any> | null = null;
 
-  let mainContent = '';
-  for (const selector of contentSelectors) {
-    const found = $(selector).first().html();
-    if (found && found.length > mainContent.length) {
-      mainContent = found;
+  if (customContentSelector) {
+    $mainContent = $(customContentSelector).first();
+    if ($mainContent.length === 0) {
+      console.log(`   ⚠️ Custom selector not found: ${customContentSelector}`);
+      $mainContent = null;
     }
   }
 
-  if (!mainContent || mainContent.length < 100) {
-    mainContent = $('body').html() || '';
+  if (!$mainContent) {
+    $mainContent = findBestContentBlock($);
   }
 
-  const paragraphs: string[] = [];
-  const $main = cheerio.load(mainContent);
+  if (!$mainContent || $mainContent.length === 0) {
+    console.log(`   ⚠️ Using body fallback`);
+    $mainContent = $('body');
+  }
 
-  $main('p').each((_, el) => {
-    const text = normalizeText($main(el).text());
+  // Extract paragraphs
+  const paragraphs: string[] = [];
+  const $content = cheerio.load($mainContent.html() || '');
+
+  $content('p').each((_, el) => {
+    const text = normalizeText($content(el).text());
     if (text.length >= LIMITS.MIN_PARAGRAPH && text.length <= LIMITS.MAX_PARAGRAPH) {
       paragraphs.push(text);
     }
   });
 
+  // Fallback: extract from divs if not enough paragraphs
   if (paragraphs.length < 3) {
-    $main('div').each((_, el) => {
-      const text = normalizeText($main(el).text());
+    $content('div').each((_, el) => {
+      const text = normalizeText($content(el).text());
       if (text.length >= LIMITS.MIN_DIV && text.length <= LIMITS.MAX_PARAGRAPH) {
         const isDuplicate = paragraphs.some((p) => p.includes(text) || text.includes(p));
         if (!isDuplicate) paragraphs.push(text);
@@ -263,6 +626,66 @@ function extractContent(
   };
 }
 
+// ============================================================================
+// 메트릭 수집
+// ============================================================================
+
+function updateMetrics(domain: string, success: boolean, responseTime: number): void {
+  metrics.totalAttempts++;
+
+  if (success) {
+    metrics.successCount++;
+  } else {
+    metrics.failureCount++;
+  }
+
+  // Update average response time
+  const totalResponseTime = metrics.averageResponseTime * (metrics.totalAttempts - 1) + responseTime;
+  metrics.averageResponseTime = totalResponseTime / metrics.totalAttempts;
+
+  // Update domain stats
+  if (!metrics.domainStats[domain]) {
+    metrics.domainStats[domain] = {
+      attempts: 0,
+      successes: 0,
+      failures: 0,
+      avgResponseTime: 0,
+    };
+  }
+
+  const domainStats = metrics.domainStats[domain];
+  domainStats.attempts++;
+
+  if (success) {
+    domainStats.successes++;
+  } else {
+    domainStats.failures++;
+  }
+
+  const totalDomainTime = domainStats.avgResponseTime * (domainStats.attempts - 1) + responseTime;
+  domainStats.avgResponseTime = totalDomainTime / domainStats.attempts;
+}
+
+export function getMetrics(): ScrapingMetrics {
+  return { ...metrics };
+}
+
+export function resetMetrics(): void {
+  metrics.totalAttempts = 0;
+  metrics.successCount = 0;
+  metrics.failureCount = 0;
+  metrics.browserFallbackCount = 0;
+  metrics.circuitBreakerTrips = 0;
+  metrics.averageResponseTime = 0;
+  metrics.domainStats = {};
+  circuitBreakers.clear();
+  rateLimits.clear();
+}
+
+// ============================================================================
+// 메인 스크래핑 함수
+// ============================================================================
+
 export async function scrapeUrl(
   url: string,
   options: ScrapeOptions = {}
@@ -272,22 +695,52 @@ export async function scrapeUrl(
     retries = 3,
     retryDelay = 1000,
     referer,
+    forceBrowser = false,
   } = options;
 
+  const domain = extractDomain(url);
   const domainConfig = getDomainConfig(url);
 
-  if (domainConfig.skip) {
-    console.log(`   ⏭️ 스킵 (${extractDomain(url)}): ${domainConfig.skipReason}`);
+  // Check circuit breaker
+  if (!canAttemptRequest(domain)) {
+    console.log(`   🚨 Circuit breaker OPEN for ${domain}, skipping`);
     return null;
   }
 
-  for (let attempt = 1; attempt <= retries; attempt++) {
-    try {
-      if (domainConfig.extraDelay && attempt > 1) {
-        await sleep(domainConfig.extraDelay);
-      }
+  // Enforce rate limiting
+  await enforceRateLimit(domain);
 
-      const html = await fetchHtml(url, timeout, referer);
+  // Skip if configured
+  if (domainConfig.skipReason) {
+    console.log(`   ⏭️ 스킵 (${domain}): ${domainConfig.skipReason}`);
+    return null;
+  }
+
+  const maxRetries = domainConfig.maxRetries ?? retries;
+  const useBrowser = forceBrowser || domainConfig.useBrowser || false;
+
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      let html: string;
+
+      if (useBrowser) {
+        console.log(`   🌐 Browser mode for ${domain}`);
+        html = await fetchWithBrowser(url, timeout, domainConfig);
+        metrics.browserFallbackCount++;
+      } else {
+        try {
+          html = await fetchHtml(url, timeout, referer);
+        } catch (httpError) {
+          // HTTP failed, try browser as fallback
+          if (attempt === maxRetries) {
+            console.log(`   🌐 Trying browser fallback...`);
+            html = await fetchWithBrowser(url, timeout, domainConfig);
+            metrics.browserFallbackCount++;
+          } else {
+            throw httpError;
+          }
+        }
+      }
 
       if (!html || html.length < LIMITS.MIN_HTML) {
         throw new Error('응답이 너무 짧음');
@@ -296,15 +749,26 @@ export async function scrapeUrl(
       const $ = cheerio.load(html);
       cleanHtml($);
 
-      return extractContent($, url, domainConfig.contentSelector);
+      const content = extractContent($, url, domainConfig.contentSelector);
+
+      // Validate content quality
+      if (content.wordCount < 50) {
+        throw new Error(`콘텐츠 너무 짧음 (${content.wordCount} words)`);
+      }
+
+      recordSuccess(domain);
+      return content;
     } catch (error) {
-      if (attempt < retries) {
-        const delay = retryDelay * Math.pow(2, attempt - 1);
-        console.log(`   🔄 재시도 ${attempt}/${retries} (${delay}ms 후)...`);
+      const isLastAttempt = attempt === maxRetries;
+
+      if (!isLastAttempt) {
+        const delay = calculateJitter(retryDelay * Math.pow(2, attempt - 1));
+        console.log(`   🔄 재시도 ${attempt}/${maxRetries} (${Math.round(delay)}ms 후)...`);
         await sleep(delay);
       } else {
         const message = error instanceof Error ? error.message : String(error);
         console.warn(`   ⚠️ 실패 (${url}): ${message}`);
+        recordFailure(domain);
       }
     }
   }
@@ -344,6 +808,7 @@ export async function scrapeSearchResults(
 
   const successRate = ((succeeded / total) * 100).toFixed(0);
   console.log(`   📊 완료: ${succeeded}/${total} (${successRate}%)`);
+  console.log(`   📈 메트릭: 브라우저 폴백 ${metrics.browserFallbackCount}회, 평균 응답시간 ${Math.round(metrics.averageResponseTime)}ms`);
 
   return scrapedContents;
 }

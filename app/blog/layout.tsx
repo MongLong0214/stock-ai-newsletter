@@ -78,19 +78,8 @@ interface BlogLayoutProps {
 /**
  * 블로그 레이아웃 컴포넌트
  *
- * [역할]
- * - 블로그 전체에 적용되는 공통 레이아웃
- * - 현재는 검은 배경만 적용
- * - 향후 네비게이션, 사이드바 등 추가 가능
- *
- * @param children - 하위 페이지 컴포넌트
+ * SEO 랜딩 페이지로 동작하며 Navigation/Footer를 제거하여 콘텐츠에 집중
  */
 export default function BlogLayout({ children }: BlogLayoutProps) {
-  return (
-    // min-h-screen: 최소 높이를 뷰포트 전체로
-    // bg-black: 검은 배경
-    <div className="min-h-screen bg-black">
-      {children}
-    </div>
-  );
+  return <div className="min-h-screen bg-black">{children}</div>;
 }

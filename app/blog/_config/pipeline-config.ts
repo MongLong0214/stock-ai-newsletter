@@ -87,104 +87,26 @@ export const SERP_API_CONFIG = {
  */
 
 /**
- * 콘텐츠 타입별 설정
- *
- * [콘텐츠 타입 설명]
- * - comparison: 비교 글 (예: "A vs B 뭐가 좋을까?")
- * - guide: 가이드 글 (예: "초보자를 위한 주식 투자 방법")
- * - listicle: 리스트 글 (예: "추천 주식 앱 TOP 10")
- * - review: 리뷰 글 (예: "Stock Matrix 사용 후기")
+ * 콘텐츠 타입별 기본 설정
+ * AI가 키워드에 맞는 콘텐츠 형식을 자동으로 선택하여 적용
  */
 export const CONTENT_TYPE_CONFIG = {
-  /** 비교 글 - 가장 긴 형식, FAQ 5개 필요 */
-  comparison: {
-    minWordCount: 2000,
-    maxWordCount: 3500,
-    faqCount: 5,
-    requiredSections: ['intro', 'comparison-table', 'detailed-analysis', 'conclusion'],
-  },
-  /** 가이드 글 - 단계별 설명 포함 */
   guide: {
     minWordCount: 1500,
     maxWordCount: 3000,
     faqCount: 4,
-    requiredSections: ['intro', 'step-by-step', 'tips', 'conclusion'],
-  },
-  /** 리스트 글 - 짧고 읽기 쉬운 형식 */
-  listicle: {
-    minWordCount: 1200,
-    maxWordCount: 2500,
-    faqCount: 3,
-    requiredSections: ['intro', 'list-items', 'conclusion'],
-  },
-  /** 리뷰 글 - 장단점 분석 포함 */
-  review: {
-    minWordCount: 1800,
-    maxWordCount: 3000,
-    faqCount: 4,
-    requiredSections: ['intro', 'features', 'pros-cons', 'verdict'],
   },
 } as const;
-
-/**
- * SEO 타겟 키워드 목록
- *
- * [사용 목적]
- * - 검색엔진 상위 노출을 목표로 하는 키워드들
- * - priority 1이 가장 중요, 3이 가장 덜 중요
- * - type은 해당 키워드에 맞는 콘텐츠 형식
- */
+/** SEO 타겟 키워드 목록 (우선순위 순) */
 export const TARGET_KEYWORDS = [
-  {
-    keyword: '주식 뉴스레터 추천',
-    type: 'listicle' as const,
-    priority: 1, // 최우선 키워드
-  },
-  {
-    keyword: 'AI 주식 분석',
-    type: 'guide' as const,
-    priority: 2,
-  },
-  {
-    keyword: '무료 주식 뉴스레터',
-    type: 'comparison' as const,
-    priority: 1, // 최우선 키워드
-  },
-  {
-    keyword: '주식 투자 정보 사이트',
-    type: 'listicle' as const,
-    priority: 3,
-  },
-  {
-    keyword: '주식 기술적 분석 사이트',
-    type: 'guide' as const,
-    priority: 2,
-  },
-  {
-    keyword: '주식 종목 추천 서비스',
-    type: 'comparison' as const,
-    priority: 2,
-  },
-  {
-    keyword: 'AI 주식 추천',
-    type: 'review' as const,
-    priority: 1, // 최우선 키워드
-  },
-  {
-    keyword: '주식 분석 뉴스레터',
-    type: 'guide' as const,
-    priority: 2,
-  },
-  {
-    keyword: '코스피 종목 추천',
-    type: 'listicle' as const,
-    priority: 3,
-  },
-  {
-    keyword: '주식 투자 뉴스레터',
-    type: 'comparison' as const,
-    priority: 2,
-  },
+  'AI 주식 분석',
+  '무료 주식 뉴스레터',
+  '주식 뉴스레터 추천',
+  '주식 뉴스레터',
+  '주식 기술적 분석',
+  '기술적 지표',
+  '주식 분석 사이트',
+  'macd 활용법',
 ] as const;
 
 /**
