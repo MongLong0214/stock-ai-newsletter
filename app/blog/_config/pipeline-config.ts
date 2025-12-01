@@ -97,17 +97,6 @@ export const CONTENT_TYPE_CONFIG = {
     faqCount: 4,
   },
 } as const;
-/** SEO 타겟 키워드 목록 (우선순위 순) */
-export const TARGET_KEYWORDS = [
-  'AI 주식 분석',
-  '무료 주식 뉴스레터',
-  '주식 뉴스레터 추천',
-  '주식 뉴스레터',
-  '주식 기술적 분석',
-  '기술적 지표',
-  '주식 분석 사이트',
-  'macd 활용법',
-] as const;
 
 /**
  * 우리 사이트(Stock Matrix) 정보

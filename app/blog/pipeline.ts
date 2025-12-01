@@ -17,7 +17,7 @@ import {
   refineContent,
 } from './_services/content-generator';
 import { saveBlogPost, publishBlogPost } from './_services/blog-repository';
-import { TARGET_KEYWORDS } from './_config/pipeline-config';
+import { generateKeywords } from './_services/keyword-generator';
 import type {
   BlogPostCreateInput,
   PipelineResult,
@@ -222,26 +222,52 @@ export async function generateBlogPostsBatch(
 }
 
 /**
- * 사전 정의된 타겟 키워드로 블로그 생성
+ * AI 기반 동적 키워드 생성 및 블로그 포스트 생성
+ *
+ * [동작 방식]
+ * 1. Gemini AI가 실시간으로 SEO 최적화 키워드 생성
+ * 2. Supabase에서 중복 키워드 자동 필터링
+ * 3. 키워드 품질 점수 기반 우선순위 선택
+ * 4. 각 키워드에 맞는 콘텐츠 타입 자동 매칭
+ * 5. 블로그 포스트 생성 파이프라인 실행
  */
-export async function generateFromTargetKeywords(
+export async function generateWithDynamicKeywords(
   options: {
     publish?: boolean;
-    limit?: number;
+    count?: number;
+    minRelevanceScore?: number;
   } = {}
 ): Promise<PipelineResult[]> {
-  const { publish = false, limit } = options;
+  const { publish = false, count = 5, minRelevanceScore = 7.5 } = options;
 
-  let keywords = [...TARGET_KEYWORDS];
+  console.log(`\n${'#'.repeat(80)}`);
+  console.log(`🤖 AI 기반 동적 키워드 블로그 생성 시작`);
+  console.log(`   생성 개수: ${count}개`);
+  console.log(`   최소 관련성 점수: ${minRelevanceScore}`);
+  console.log(`${'#'.repeat(80)}\n`);
 
-  if (limit !== undefined) {
-    keywords = keywords.slice(0, limit);
+  try {
+    // Step 1: AI 키워드 생성
+    const keywordResult = await generateKeywords(count, { minRelevanceScore });
+
+    if (!keywordResult.success || keywordResult.keywords.length === 0) {
+      console.error(`❌ 키워드 생성 실패: ${keywordResult.error || '키워드 없음'}`);
+      return [];
+    }
+
+    // Step 2: 키워드 → 블로그 포스트 매핑
+    const keywordInputs = keywordResult.keywords.map((kw) => ({
+      keyword: kw.keyword,
+      type: kw.contentType,
+    }));
+
+    // Step 3: 배치 블로그 생성
+    const results = await generateBlogPostsBatch(keywordInputs, { publish });
+
+    return results;
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error(`\n❌ 동적 키워드 블로그 생성 실패: ${errorMessage}`);
+    return [];
   }
-
-  const keywordInputs = keywords.map((keyword) => ({
-    keyword,
-    type: 'guide' as const,
-  }));
-
-  return generateBlogPostsBatch(keywordInputs, { publish });
 }

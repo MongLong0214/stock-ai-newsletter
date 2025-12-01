@@ -2,8 +2,14 @@
 /**
  * 블로그 포스트 자동 생성 스크립트
  *
- * 사용법:
- *   npm run generate-blog
+ * [사용법]
+ *   npm run generate-blog                    # AI 동적 키워드 5개 생성 (기본)
+ *
+ * [특징]
+ *   - Gemini AI가 매일 새로운 키워드 자동 생성
+ *   - Supabase 중복 체크로 중복 방지
+ *   - 키워드 품질 점수 기반 선택
+ *   - 항상 5개 블로그 생성
  */
 
 import { config } from 'dotenv';
@@ -15,19 +21,22 @@ if (existsSync(envPath)) {
   config({ path: envPath });
 }
 
-import { generateFromTargetKeywords } from '@/app/blog/pipeline';
+import { generateWithDynamicKeywords } from '@/app/blog/pipeline';
 
 async function main(): Promise<void> {
   console.log(`
 ╔════════════════════════════════════════════════════════════════════╗
-║            🚀 Stock Matrix 블로그 콘텐츠 자동화 시스템             ║
+║            🚀 Stock Matrix 블로그 자동 생성 시스템                 ║
+║                   AI 동적 키워드 5개 생성                          ║
 ╚════════════════════════════════════════════════════════════════════╝
 `);
 
+  // 필수 환경변수 확인
   const requiredEnvVars = [
     'SERP_API_KEY',
     'GOOGLE_CLOUD_PROJECT',
     'NEXT_PUBLIC_SUPABASE_URL',
+    'SUPABASE_SERVICE_ROLE_KEY',
   ];
 
   const missingEnvVars = requiredEnvVars.filter(
@@ -41,10 +50,14 @@ async function main(): Promise<void> {
   }
 
   try {
-    const results = await generateFromTargetKeywords({
+    // AI 동적 키워드 5개 생성
+    const results = await generateWithDynamicKeywords({
       publish: false,
+      count: 5,
+      minRelevanceScore: 7.5,
     });
 
+    // 결과 출력
     const successful = results.filter((r) => r.success);
     const failed = results.filter((r) => !r.success);
 
@@ -55,8 +68,20 @@ async function main(): Promise<void> {
     console.log(`   ❌ 실패: ${failed.length}개`);
 
     if (failed.length > 0) {
-      console.log(`\n실패한 키워드:`);
+      console.log(`\n실패한 항목:`);
       failed.forEach((r) => console.log(`   - ${r.error}`));
+    }
+
+    if (successful.length > 0) {
+      console.log(`\n✅ 생성된 블로그:`);
+      successful.forEach((r, idx) => {
+        if (r.blogPost) {
+          console.log(`\n${idx + 1}. ${r.blogPost.title}`);
+          console.log(`   키워드: ${r.blogPost.target_keyword}`);
+          console.log(`   슬러그: /blog/${r.blogPost.slug}`);
+          console.log(`   상태: ${r.blogPost.status}`);
+        }
+      });
     }
 
     process.exit(failed.length > 0 ? 1 : 0);
