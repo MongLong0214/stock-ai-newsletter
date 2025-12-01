@@ -52,7 +52,7 @@ async function main(): Promise<void> {
   try {
     // AI 동적 키워드 5개 생성
     const results = await generateWithDynamicKeywords({
-      publish: false,
+      publish: true,
       count: 5,
       minRelevanceScore: 7.5,
     });
