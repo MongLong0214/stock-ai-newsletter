@@ -304,7 +304,7 @@ function getContentStructureGuide(
  * Few-Shot 예시 생성 (우수 vs 미흡 콘텐츠)
  * Chain of Thought를 유도하는 대조적 예시 제공
  */
-function getFewShotExamples(contentType: string): string {
+function getFewShotExamples(): string {
   return `
 <few_shot_examples>
   <example type="excellent" label="우수한 콘텐츠 예시">
@@ -551,7 +551,7 @@ export function buildContentGenerationPrompt(
   const config = CONTENT_TYPE_CONFIG.guide;
   const competitorSummary = summarizeCompetitorAnalysis(competitorAnalysis);
   const structureGuide = getContentStructureGuide(contentType);
-  const fewShotExamples = getFewShotExamples(contentType);
+  const fewShotExamples = getFewShotExamples();
   const koreanSeoGuide = getKoreanSeoGuidelines();
   const cotGuide = getChainOfThoughtGuide(targetKeyword);
   const qualityChecklist = getQualityChecklist(config, targetKeyword);
