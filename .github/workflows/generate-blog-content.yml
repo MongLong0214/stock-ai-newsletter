@@ -7,36 +7,11 @@ on:
 
   # 수동 실행 가능
   workflow_dispatch:
-    inputs:
-      keyword:
-        description: '타겟 키워드 (비워두면 배치 모드)'
-        required: false
-        type: string
-      content_type:
-        description: '콘텐츠 타입'
-        required: false
-        default: 'guide'
-        type: choice
-        options:
-          - comparison
-          - guide
-          - listicle
-          - review
-      publish:
-        description: '바로 발행 여부'
-        required: false
-        default: false
-        type: boolean
-      batch_limit:
-        description: '배치 모드 최대 생성 수'
-        required: false
-        default: '2'
-        type: string
 
 jobs:
   generate-blog:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
 
     steps:
       - name: Checkout repository
@@ -56,8 +31,7 @@ jobs:
           echo '${{ secrets.GOOGLE_CLOUD_CREDENTIALS }}' > /tmp/service-account.json
           echo "GOOGLE_APPLICATION_CREDENTIALS=/tmp/service-account.json" >> $GITHUB_ENV
 
-      - name: Generate blog content (Single keyword)
-        if: ${{ github.event.inputs.keyword != '' }}
+      - name: Generate blog content (AI Dynamic Keywords)
         env:
           SERP_API_KEY: ${{ secrets.SERP_API_KEY }}
           GOOGLE_CLOUD_PROJECT: ${{ secrets.GOOGLE_CLOUD_PROJECT }}
@@ -65,35 +39,8 @@ jobs:
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: |
-          echo "🚀 단일 키워드 모드: ${{ github.event.inputs.keyword }}"
-          npx tsx scripts/generate-blog-post.ts \
-            --keyword "${{ github.event.inputs.keyword }}" \
-            --type ${{ github.event.inputs.content_type }} \
-            ${{ github.event.inputs.publish == 'true' && '--publish' || '' }}
-
-      - name: Generate blog content (Batch mode)
-        if: ${{ github.event.inputs.keyword == '' || github.event_name == 'schedule' }}
-        env:
-          SERP_API_KEY: ${{ secrets.SERP_API_KEY }}
-          GOOGLE_CLOUD_PROJECT: ${{ secrets.GOOGLE_CLOUD_PROJECT }}
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-        run: |
-          echo "📦 배치 모드 실행"
-          npx tsx scripts/generate-blog-post.ts \
-            --batch \
-            --limit ${{ github.event.inputs.batch_limit || '2' }} \
-            --priority 1 \
-            ${{ github.event.inputs.publish == 'true' && '--publish' || '' }}
-
-      - name: Check SerpApi usage
-        if: always()
-        env:
-          SERP_API_KEY: ${{ secrets.SERP_API_KEY }}
-        run: |
-          echo "📊 SerpApi 사용량 확인"
-          npx tsx scripts/generate-blog-post.ts --check-usage
+          echo "🤖 AI 동적 키워드 5개 생성"
+          npx tsx scripts/generate-blog-post.ts
 
       - name: Cleanup credentials
         if: always()
