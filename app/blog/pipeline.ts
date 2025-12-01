@@ -4,7 +4,13 @@
  */
 
 import { searchGoogle, checkApiUsage } from './_services/serp-api';
-import { scrapeSearchResults, analyzeCompetitors } from './_services/web-scraper';
+import {
+  scrapeSearchResults,
+  analyzeCompetitors,
+  closeBrowser,
+  getMetrics,
+  resetMetrics,
+} from './_services/web-scraper';
 import {
   generateBlogContent,
   generateSlug,
@@ -73,8 +79,13 @@ export async function generateBlogPost(
 
     // Stage 2: 웹 스크래핑
     logProgress({ stage: 'scrape', progress: 30, message: '경쟁사 페이지 스크래핑 중...' });
+    resetMetrics(); // 메트릭 초기화
     const scrapedContents = await scrapeSearchResults(searchResults);
     metrics.pagesScraped = scrapedContents.length;
+
+    // 스크래핑 메트릭 출력
+    const scrapingMetrics = getMetrics();
+    console.log(`   📊 스크래핑 메트릭: 성공률 ${((scrapingMetrics.successCount / scrapingMetrics.totalAttempts) * 100).toFixed(0)}%, 브라우저 폴백 ${scrapingMetrics.browserFallbackCount}회`);
 
     if (scrapedContents.length === 0) {
       throw new Error('스크래핑된 콘텐츠가 없습니다.');
@@ -194,6 +205,9 @@ export async function generateBlogPostsBatch(
     }
   }
 
+  // 브라우저 정리
+  await closeBrowser();
+
   // 결과 요약
   const successful = results.filter((r) => r.success).length;
   const failed = results.filter((r) => !r.success).length;
@@ -213,27 +227,20 @@ export async function generateBlogPostsBatch(
 export async function generateFromTargetKeywords(
   options: {
     publish?: boolean;
-    priorityFilter?: number;
     limit?: number;
   } = {}
 ): Promise<PipelineResult[]> {
-  const { publish = false, priorityFilter, limit } = options;
+  const { publish = false, limit } = options;
 
   let keywords = [...TARGET_KEYWORDS];
 
-  // 우선순위 필터
-  if (priorityFilter !== undefined) {
-    keywords = keywords.filter((k) => k.priority <= priorityFilter);
-  }
-
-  // 개수 제한
   if (limit !== undefined) {
     keywords = keywords.slice(0, limit);
   }
 
-  const keywordInputs = keywords.map((k) => ({
-    keyword: k.keyword,
-    type: k.type,
+  const keywordInputs = keywords.map((keyword) => ({
+    keyword,
+    type: 'guide' as const,
   }));
 
   return generateBlogPostsBatch(keywordInputs, { publish });
