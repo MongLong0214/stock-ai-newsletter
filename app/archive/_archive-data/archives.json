@@ -1,6 +1,58 @@
 {
   "newsletters": [
     {
+      "date": "2025-12-03",
+      "stocks": [
+        {
+          "ticker": "KOSDAQ:025950",
+          "name": "동신건설",
+          "close_price": 13790,
+          "rationale": "52주신저가(13320원) 근접 | 낙폭과대 기술적반등 | RSI 28 과매도권 | 이격도 과다 하락 | 볼린저밴드 하단 터치 | 단기 매도 클라이막스 | ATR 5.8% 고변동성 | 저점 매수 유입 | 추세 역전 기대 | 기술적 지지선 구축",
+          "signals": {
+            "trend_score": 35,
+            "momentum_score": 40,
+            "volume_score": 60,
+            "volatility_score": 95,
+            "pattern_score": 85,
+            "sentiment_score": 45,
+            "overall_score": 60
+          }
+        },
+        {
+          "ticker": "KOSDAQ:041190",
+          "name": "우리기술투자",
+          "close_price": 8230,
+          "rationale": "주간 12.8% 급등세 | 6개월 24% 상승 추세 | RSI 72 과열권 진입 | MACD 강력한 매수신호 | 비트코인 테마 연동 | 5일 이평선 지지 | 거래량 회전율 증가 | 신고가 돌파 시도 | 모멘텀 최상위 | 단기 급등 패턴 완성",
+          "signals": {
+            "trend_score": 96,
+            "momentum_score": 98,
+            "volume_score": 92,
+            "volatility_score": 94,
+            "pattern_score": 95,
+            "sentiment_score": 90,
+            "overall_score": 94
+          }
+        },
+        {
+          "ticker": "KOSDAQ:045660",
+          "name": "에이텍",
+          "close_price": 10330,
+          "rationale": "전일 대비 소폭 상승 | 이재명 테마주 부각 | RSI 62 안정적 강세 | 이평선 정배열 초기 | 거래량 안정화 | 매물대 소화 과정 | 눌림목 매수 기회 | 단기 저항선 테스트 | 수급 개선세 | 추세 지속형 패턴",
+          "signals": {
+            "trend_score": 85,
+            "momentum_score": 82,
+            "volume_score": 78,
+            "volatility_score": 75,
+            "pattern_score": 88,
+            "sentiment_score": 85,
+            "overall_score": 82
+          }
+        }
+      ],
+      "sentAt": "2025-12-02T22:50:48.352+00:00",
+      "subscriberCount": 28
+    },
+    {
       "date": "2025-12-02",
       "stocks": [
         {
@@ -1249,5 +1301,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2025-12-01T23:01:49.643Z"
+  "lastUpdated": "2025-12-02T22:51:20.009Z"
 }
