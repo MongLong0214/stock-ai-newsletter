@@ -1,8 +1,5 @@
 /**
  * 블로그 콘텐츠 자동화 파이프라인 (엔터프라이즈급)
- * - 스크래핑 실패해도 계속 진행
- * - 개별 키워드 실패해도 다음 처리
- * - 단계별 타임아웃
  */
 
 import { searchGoogle, checkApiUsage } from './_services/serp-api';
@@ -10,19 +7,20 @@ import { scrapeSearchResults, analyzeCompetitors, closeBrowser, getMetrics, rese
 import { generateBlogContent, generateSlug } from './_services/content-generator';
 import { saveBlogPost, publishBlogPost } from './_services/blog-repository';
 import { generateKeywords } from './_services/keyword-generator';
-import type { BlogPostCreateInput, PipelineResult, PipelineProgress } from './_types/blog';
+import type { BlogPostCreateInput, PipelineResult } from './_types/blog';
 
-const STAGE_TIMEOUT = 60000; // 60초
+const TIMEOUTS = { search: 60000, scrape: 120000, generate: 180000, save: 30000, keyword: 90000 };
 
 function log(stage: string, msg: string, pct: number): void {
-  const emoji: Record<string, string> = { search: '🔍', scrape: '🕷️', analyze: '📊', generate: '🤖', validate: '✅', save: '💾' };
+  const emoji: Record<string, string> = { search: '🔍', scrape: '🕷️', analyze: '📊', generate: '🤖', save: '💾' };
   console.log(`${emoji[stage] || '📝'} [${stage.toUpperCase()}] ${msg} (${pct}%)`);
 }
 
-async function withTimeout<T>(promise: Promise<T>, ms: number, fallback: T): Promise<T> {
+async function withTimeout<T>(promise: Promise<T>, ms: number, fallback: T, label?: string): Promise<T> {
+  let tid: NodeJS.Timeout;
   return Promise.race([
-    promise,
-    new Promise<T>(resolve => setTimeout(() => resolve(fallback), ms))
+    promise.then(v => { clearTimeout(tid); return v; }),
+    new Promise<T>(r => { tid = setTimeout(() => { console.warn(`⏰ ${label || 'Timeout'} (${ms}ms)`); r(fallback); }, ms); })
   ]);
 }
 
@@ -38,35 +36,35 @@ export async function generateBlogPost(
   console.log(`\n${'='.repeat(60)}\n🚀 "${targetKeyword}" (${contentType})\n${'='.repeat(60)}`);
 
   try {
-    // Stage 1: 검색
+    // 1. 검색
     log('search', '구글 검색 중...', 10);
-    const searchResults = await withTimeout(searchGoogle(targetKeyword, maxCompetitors), STAGE_TIMEOUT, []);
+    const searchResults = await withTimeout(searchGoogle(targetKeyword, maxCompetitors), TIMEOUTS.search, [], 'Search');
     metrics.serpApiCalls = 1;
+    if (!searchResults.length) console.log('   ⚠️ 검색 결과 없음 - 기본 분석으로 진행');
 
-    if (searchResults.length === 0) {
-      console.log('   ⚠️ 검색 결과 없음 - 기본 분석으로 진행');
-    }
-
-    // Stage 2: 스크래핑 (실패해도 계속)
+    // 2. 스크래핑
     log('scrape', '페이지 스크래핑 중...', 30);
     resetMetrics();
-    const scrapedContents = await withTimeout(scrapeSearchResults(searchResults), STAGE_TIMEOUT * 2, []);
+    const scrapedContents = await withTimeout(scrapeSearchResults(searchResults), TIMEOUTS.scrape, [], 'Scrape');
     metrics.pagesScraped = scrapedContents.length;
+    const m = getMetrics();
+    if (m.totalAttempts > 0) console.log(`   📊 스크래핑: ${m.successCount}/${m.totalAttempts} 성공`);
 
-    const scrapingMetrics = getMetrics();
-    if (scrapingMetrics.totalAttempts > 0) {
-      console.log(`   📊 스크래핑: ${scrapingMetrics.successCount}/${scrapingMetrics.totalAttempts} 성공`);
-    }
-
-    // Stage 3: 분석 (스크래핑 0개여도 기본값으로 진행)
+    // 3. 분석
     log('analyze', '콘텐츠 분석 중...', 50);
     const competitorAnalysis = analyzeCompetitors(scrapedContents, targetKeyword);
 
-    // Stage 4: AI 콘텐츠 생성
+    // 4. AI 생성 (가장 오래 걸림 - 3분 타임아웃)
     log('generate', 'AI 콘텐츠 생성 중...', 70);
-    const generatedContent = await generateBlogContent(targetKeyword, competitorAnalysis, contentType);
+    const generatedContent = await withTimeout(
+      generateBlogContent(targetKeyword, competitorAnalysis, contentType),
+      TIMEOUTS.generate,
+      null as any,
+      'AI Generate'
+    );
+    if (!generatedContent) throw new Error('AI 콘텐츠 생성 타임아웃');
 
-    // Stage 5: 저장
+    // 5. 저장
     log('save', 'DB 저장 중...', 90);
     const slug = generateSlug(generatedContent.title);
     const blogPostInput: BlogPostCreateInput = {
@@ -86,12 +84,13 @@ export async function generateBlogPost(
       status: publish ? 'published' : 'draft',
     };
 
-    const savedPost = await saveBlogPost(blogPostInput);
+    const savedPost = await withTimeout(saveBlogPost(blogPostInput), TIMEOUTS.save, null as any, 'DB Save');
+    if (!savedPost) throw new Error('DB 저장 타임아웃');
+
     if (publish) await publishBlogPost(savedPost.slug).catch(() => {});
 
     metrics.totalTime = Date.now() - startTime;
     console.log(`✅ 완료: ${savedPost.slug} (${(metrics.totalTime / 1000).toFixed(1)}초)`);
-
     return { success: true, blogPost: blogPostInput, metrics };
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
@@ -110,23 +109,21 @@ export async function generateBlogPostsBatch(
 
   console.log(`\n${'#'.repeat(60)}\n📦 배치 생성: ${keywords.length}개 키워드\n${'#'.repeat(60)}`);
 
-  // API 사용량 체크
   try {
-    const usage = await checkApiUsage();
+    const usage = await withTimeout(checkApiUsage(), 10000, { used: 0, limit: 100, remaining: 100 }, 'API Check');
     console.log(`📊 SerpApi: ${usage.used}/${usage.limit} (잔여: ${usage.remaining})`);
     if (usage.remaining < keywords.length) {
       console.warn(`⚠️ API 부족 - ${usage.remaining}개만 처리`);
-      keywords = keywords.slice(0, usage.remaining);
+      keywords = keywords.slice(0, Math.max(usage.remaining, 1));
     }
-  } catch { console.log('⚠️ API 사용량 체크 실패 - 계속 진행'); }
+  } catch { console.log('⚠️ API 체크 실패 - 계속 진행'); }
 
   for (let i = 0; i < keywords.length; i++) {
     const { keyword, type } = keywords[i];
     console.log(`\n📝 [${i + 1}/${keywords.length}] "${keyword}"`);
 
     try {
-      const result = await generateBlogPost(keyword, type, { publish });
-      results.push(result);
+      results.push(await generateBlogPost(keyword, type, { publish }));
     } catch (error) {
       console.error(`❌ 예외: ${error instanceof Error ? error.message : error}`);
       results.push({ success: false, error: String(error), metrics: { totalTime: 0, serpApiCalls: 0, pagesScraped: 0, tokensUsed: 0 } });
@@ -139,7 +136,6 @@ export async function generateBlogPostsBatch(
 
   const ok = results.filter(r => r.success).length;
   console.log(`\n${'#'.repeat(60)}\n📊 배치 완료: ✅ ${ok}개 성공, ❌ ${results.length - ok}개 실패\n${'#'.repeat(60)}`);
-
   return results;
 }
 
@@ -151,17 +147,20 @@ export async function generateWithDynamicKeywords(
   console.log(`\n${'#'.repeat(60)}\n🤖 AI 동적 키워드 블로그 생성\n   개수: ${count}, 최소점수: ${minRelevanceScore}\n${'#'.repeat(60)}`);
 
   try {
-    const keywordResult = await withTimeout(generateKeywords(count, { minRelevanceScore }), STAGE_TIMEOUT, { success: false, keywords: [], error: 'timeout' });
+    const keywordResult = await withTimeout(
+      generateKeywords(count, { minRelevanceScore }),
+      TIMEOUTS.keyword,
+      { success: false, keywords: [], totalGenerated: 0, totalFiltered: 0, error: 'timeout' },
+      'Keyword Gen'
+    );
 
-    if (!keywordResult.success || keywordResult.keywords.length === 0) {
+    if (!keywordResult.success || !keywordResult.keywords.length) {
       console.error(`❌ 키워드 생성 실패: ${keywordResult.error || '없음'}`);
       return [];
     }
 
     console.log(`✅ ${keywordResult.keywords.length}개 키워드 생성됨`);
-
-    const keywordInputs = keywordResult.keywords.map(kw => ({ keyword: kw.keyword, type: kw.contentType }));
-    return await generateBlogPostsBatch(keywordInputs, { publish });
+    return await generateBlogPostsBatch(keywordResult.keywords.map(kw => ({ keyword: kw.keyword, type: kw.contentType })), { publish });
   } catch (error) {
     console.error(`❌ 동적 키워드 생성 실패: ${error instanceof Error ? error.message : error}`);
     return [];
