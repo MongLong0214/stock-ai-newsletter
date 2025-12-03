@@ -45,6 +45,7 @@ interface DomainConfig {
   waitForSelector?: string;
   skipReason?: string;
   maxRetries?: number;
+  timeout?: number;
 }
 
 const DOMAIN_CONFIGS: Record<string, DomainConfig> = {
@@ -81,6 +82,22 @@ const DOMAIN_CONFIGS: Record<string, DomainConfig> = {
   'tistory.com': {
     contentSelector: '.entry-content, .tt_article_useless_p_margin',
     extraDelay: 1000,
+  },
+  'translate.google.com': {
+    skipReason: 'Google Translate는 스크래핑 불가능',
+    timeout: 5000,
+  },
+  'google.com': {
+    skipReason: 'Google 서비스는 스크래핑 불가능',
+    timeout: 5000,
+  },
+  'youtube.com': {
+    skipReason: 'YouTube는 스크래핑 불가능',
+    timeout: 5000,
+  },
+  'facebook.com': {
+    skipReason: 'Facebook은 스크래핑 불가능',
+    timeout: 5000,
   },
 };
 
@@ -743,16 +760,16 @@ export async function scrapeUrl(
   url: string,
   options: ScrapeOptions = {}
 ): Promise<ScrapedContent | null> {
+  const domain = extractDomain(url);
+  const domainConfig = getDomainConfig(url);
+
   const {
-    timeout = PIPELINE_CONFIG.requestTimeout,
+    timeout = domainConfig.timeout ?? PIPELINE_CONFIG.requestTimeout,
     retries = 3,
     retryDelay = 1000,
     referer,
     forceBrowser = false,
   } = options;
-
-  const domain = extractDomain(url);
-  const domainConfig = getDomainConfig(url);
 
   // Check circuit breaker
   if (!canAttemptRequest(domain)) {
