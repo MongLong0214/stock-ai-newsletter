@@ -1,6 +1,8 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import Script from 'next/script';
 import { getServerSupabaseClient } from '@/lib/supabase/server-client';
+import { siteConfig } from '@/lib/constants/seo/config';
 import BlogCard from './_components/blog-card';
 import ArrowRightIcon from './_components/icons/arrow-right-icon';
 import createCollectionPageSchema from './_utils/schema-generator-list';
@@ -8,48 +10,18 @@ import isValidBlogPost from './_utils/type-guards';
 import type { BlogPostListItem } from './_types/blog';
 
 async function getPublishedPosts(): Promise<BlogPostListItem[]> {
-  try {
-    const supabase = getServerSupabaseClient();
+  const supabase = getServerSupabaseClient();
 
-    console.log('[Blog] Fetching published posts...');
+  const { data, error } = await supabase
+    .from('blog_posts')
+    .select('slug, title, description, target_keyword, category, tags, published_at, view_count')
+    .eq('status', 'published')
+    .order('published_at', { ascending: false })
+    .limit(20);
 
-    const { data, error, count } = await supabase
-      .from('blog_posts')
-      .select(
-        'slug, title, description, target_keyword, category, tags, published_at, view_count',
-        { count: 'exact' }
-      )
-      .eq('status', 'published')
-      .order('published_at', { ascending: false })
-      .limit(20);
+  if (error || !Array.isArray(data)) return [];
 
-    if (error) {
-      console.error('[Blog] Failed to fetch posts:', {
-        message: error.message,
-        code: error.code,
-        details: error.details,
-        hint: error.hint,
-      });
-      return [];
-    }
-
-    console.log(`[Blog] Query result: ${count ?? 0} posts found`);
-
-    if (!Array.isArray(data)) {
-      console.error('[Blog] Invalid data format received:', typeof data);
-      return [];
-    }
-
-    const validPosts = data.filter(isValidBlogPost);
-    console.log(
-      `[Blog] Valid posts after filtering: ${validPosts.length}/${data.length}`
-    );
-
-    return validPosts;
-  } catch (err) {
-    console.error('[Blog] Exception in getPublishedPosts:', err);
-    return [];
-  }
+  return data.filter(isValidBlogPost);
 }
 
 async function BlogPage() {
@@ -67,7 +39,7 @@ async function BlogPage() {
 
       <main className="bg-black text-white pt-20 pb-16">
         <div className="max-w-6xl mx-auto px-4 py-12">
-          <div className="text-center mb-12">
+          <header className="text-center mb-12">
             <h1 className="text-3xl md:text-4xl font-bold mb-4">
               주식 투자 <span className="text-emerald-400">블로그</span>
             </h1>
@@ -75,16 +47,18 @@ async function BlogPage() {
               AI 주식 분석, 뉴스레터 추천, 기술적 분석 가이드 등 <br className="hidden md:block" />
               주식 투자에 필요한 모든 정보를 제공합니다.
             </p>
-          </div>
+          </header>
 
           {posts.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {posts.map((post, index) => (
-                <BlogCard key={post.slug} post={post} index={index} />
-              ))}
-            </div>
+            <section aria-label="블로그 글 목록">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {posts.map((post, index) => (
+                  <BlogCard key={post.slug} post={post} index={index} />
+                ))}
+              </div>
+            </section>
           ) : (
-            <div className="text-center py-20">
+            <section aria-label="빈 블로그 목록" className="text-center py-20">
               <div className="text-6xl mb-4" role="img" aria-label="문서 아이콘">
                 📝
               </div>
@@ -102,7 +76,7 @@ async function BlogPage() {
                 뉴스레터 구독하기
                 <ArrowRightIcon className="w-4 h-4" />
               </Link>
-            </div>
+            </section>
           )}
 
 
@@ -114,16 +88,37 @@ async function BlogPage() {
 
 export default BlogPage;
 
-/**
- * ISR (Incremental Static Regeneration) 설정
- *
- * [블로그 목록 페이지 갱신 패턴]
- * - 하루 1회 새 블로그 추가 (평일 오전 9~12시)
- * - 목록은 변경이 적음 (제목, 설명 수정은 드묾)
- * - 1시간 revalidate = 새 블로그가 1시간 내 목록에 표시
- *
- * [비용 절감]
- * - 5분(300초): 하루 288회 재검증
- * - 1시간(3600초): 하루 24회 재검증 → 95% 비용 절감
- */
-export const revalidate = 3600; // 1시간
+export const metadata: Metadata = {
+  title: 'AI 주식 분석 블로그 - Stock Matrix',
+  description: 'AI 주식 분석, 뉴스레터 추천, 기술적 분석 가이드 등 주식 투자에 필요한 모든 정보를 제공합니다.',
+  keywords: '주식 블로그, AI 주식 분석, 기술적 분석, 주식 투자, 뉴스레터 추천',
+  openGraph: {
+    title: 'AI 주식 분석 블로그 - Stock Matrix',
+    description: 'AI 주식 분석, 뉴스레터 추천, 기술적 분석 가이드 등 주식 투자에 필요한 모든 정보를 제공합니다.',
+    url: `${siteConfig.domain}/blog`,
+    siteName: siteConfig.serviceName,
+    type: 'website',
+    locale: 'ko_KR',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'AI 주식 분석 블로그 - Stock Matrix',
+    description: 'AI 주식 분석, 뉴스레터 추천, 기술적 분석 가이드 등 주식 투자에 필요한 모든 정보를 제공합니다.',
+  },
+  alternates: {
+    canonical: `${siteConfig.domain}/blog`,
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      'max-video-preview': -1,
+      'max-image-preview': 'large',
+      'max-snippet': -1,
+    },
+  },
+};
+
+export const revalidate = 3600;

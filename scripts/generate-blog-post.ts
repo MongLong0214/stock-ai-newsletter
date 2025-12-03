@@ -49,6 +49,9 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
+  console.log('\n🔍 브라우저 가용성 자동 체크...');
+  console.log('   ℹ️ 브라우저 미설치 시 HTTP 모드로 자동 전환됩니다.\n');
+
   try {
     // AI 동적 키워드 5개 생성
     const results = await generateWithDynamicKeywords({
