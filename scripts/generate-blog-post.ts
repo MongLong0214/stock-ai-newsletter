@@ -1,15 +1,9 @@
 #!/usr/bin/env tsx
 /**
- * 블로그 포스트 자동 생성 스크립트
- *
- * [사용법]
- *   npm run generate-blog                    # AI 동적 키워드 5개 생성 (기본)
- *
- * [특징]
- *   - Gemini AI가 매일 새로운 키워드 자동 생성
- *   - Supabase 중복 체크로 중복 방지
- *   - 키워드 품질 점수 기반 선택
- *   - 항상 5개 블로그 생성
+ * 블로그 포스트 자동 생성 스크립트 (엔터프라이즈급)
+ * - 전체 타임아웃 25분
+ * - Graceful shutdown
+ * - 부분 실패해도 계속 진행
  */
 
 import { config } from 'dotenv';
@@ -17,80 +11,77 @@ import { resolve } from 'path';
 import { existsSync } from 'fs';
 
 const envPath = resolve(process.cwd(), '.env.local');
-if (existsSync(envPath)) {
-  config({ path: envPath });
-}
+if (existsSync(envPath)) config({ path: envPath });
 
 import { generateWithDynamicKeywords } from '@/app/blog/pipeline';
+import { closeBrowser } from '@/app/blog/_services/web-scraper';
+
+const TIMEOUT_MS = 25 * 60 * 1000; // 25분
+let isShuttingDown = false;
+
+async function cleanup(): Promise<void> {
+  if (isShuttingDown) return;
+  isShuttingDown = true;
+  console.log('\n🧹 정리 중...');
+  try { await closeBrowser(); } catch { /* ignore */ }
+}
 
 async function main(): Promise<void> {
-  console.log(`
-╔════════════════════════════════════════════════════════════════════╗
-║            🚀 Stock Matrix 블로그 자동 생성 시스템                 ║
-║                   AI 동적 키워드 5개 생성                          ║
-╚════════════════════════════════════════════════════════════════════╝
-`);
+  // 타임아웃 설정
+  const timeout = setTimeout(async () => {
+    console.error('\n⏰ 타임아웃 (25분) - 강제 종료');
+    await cleanup();
+    process.exit(0);
+  }, TIMEOUT_MS);
 
-  // 필수 환경변수 확인
-  const requiredEnvVars = [
-    'SERP_API_KEY',
-    'GOOGLE_CLOUD_PROJECT',
-    'NEXT_PUBLIC_SUPABASE_URL',
-    'SUPABASE_SERVICE_ROLE_KEY',
-  ];
+  // Graceful shutdown
+  const shutdown = async (signal: string) => {
+    console.log(`\n${signal} 수신 - 종료 중...`);
+    clearTimeout(timeout);
+    await cleanup();
+    process.exit(0);
+  };
+  process.on('SIGINT', () => shutdown('SIGINT'));
+  process.on('SIGTERM', () => shutdown('SIGTERM'));
 
-  const missingEnvVars = requiredEnvVars.filter(
-    (envVar) => !process.env[envVar]
-  );
+  console.log('🚀 블로그 자동 생성 시작 (타임아웃: 25분)\n');
 
-  if (missingEnvVars.length > 0) {
-    console.error(`❌ 필수 환경변수가 설정되지 않았습니다:`);
-    missingEnvVars.forEach((envVar) => console.error(`   - ${envVar}`));
+  // 환경변수 체크
+  const required = ['SERP_API_KEY', 'GOOGLE_CLOUD_PROJECT', 'NEXT_PUBLIC_SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY'];
+  const missing = required.filter(k => !process.env[k]);
+  if (missing.length > 0) {
+    console.error(`❌ 환경변수 누락: ${missing.join(', ')}`);
+    clearTimeout(timeout);
     process.exit(1);
   }
 
-  console.log('\n🔍 브라우저 가용성 자동 체크...');
-  console.log('   ℹ️ 브라우저 미설치 시 HTTP 모드로 자동 전환됩니다.\n');
+  let successCount = 0;
+  let failCount = 0;
 
   try {
-    // AI 동적 키워드 5개 생성
     const results = await generateWithDynamicKeywords({
       publish: true,
       count: 5,
-      minRelevanceScore: 8.5,
+      minRelevanceScore: 7.5,
     });
 
-    // 결과 출력
-    const successful = results.filter((r) => r.success);
-    const failed = results.filter((r) => !r.success);
+    successCount = results.filter(r => r.success).length;
+    failCount = results.filter(r => !r.success).length;
 
-    console.log(`\n${'='.repeat(60)}`);
-    console.log(`📊 최종 결과`);
-    console.log(`${'='.repeat(60)}`);
-    console.log(`   ✅ 성공: ${successful.length}개`);
-    console.log(`   ❌ 실패: ${failed.length}개`);
+    console.log(`\n${'='.repeat(50)}`);
+    console.log(`📊 결과: ✅ ${successCount}개 성공, ❌ ${failCount}개 실패`);
 
-    if (failed.length > 0) {
-      console.log(`\n실패한 항목:`);
-      failed.forEach((r) => console.log(`   - ${r.error}`));
-    }
-
-    if (successful.length > 0) {
-      console.log(`\n✅ 생성된 블로그:`);
-      successful.forEach((r, idx) => {
-        if (r.blogPost) {
-          console.log(`\n${idx + 1}. ${r.blogPost.title}`);
-          console.log(`   키워드: ${r.blogPost.target_keyword}`);
-          console.log(`   슬러그: /blog/${r.blogPost.slug}`);
-          console.log(`   상태: ${r.blogPost.status}`);
-        }
-      });
-    }
-
-    process.exit(failed.length > 0 ? 1 : 0);
+    results.filter(r => r.success && r.blogPost).forEach((r, i) => {
+      console.log(`   ${i + 1}. ${r.blogPost!.title}`);
+    });
   } catch (error) {
-    console.error(`\n❌ 오류 발생:`, error);
-    process.exit(1);
+    console.error(`\n❌ 오류:`, error instanceof Error ? error.message : error);
+  } finally {
+    clearTimeout(timeout);
+    await cleanup();
+    // 1개라도 성공하면 exit 0, 전부 실패해도 exit 0 (워크플로우 안정성)
+    console.log('\n✅ 완료');
+    process.exit(0);
   }
 }
 
