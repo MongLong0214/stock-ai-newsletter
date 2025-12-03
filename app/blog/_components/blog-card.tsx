@@ -3,7 +3,7 @@
  *
  * [이 파일의 역할]
  * - 블로그 목록 페이지에서 각 포스트를 카드 형태로 표시
- * - 제목, 설명, 카테고리, 태그, 조회수 정보 표시
+ * - 제목, 설명, 카테고리 정보 표시
  *
  * [사용 위치]
  * - /blog 페이지 (블로그 목록)
@@ -43,8 +43,7 @@ interface BlogCardProps {
  * 1. 카테고리 뱃지 + 발행일
  * 2. 제목 (최대 2줄)
  * 3. 설명 (최대 2줄)
- * 4. 태그 목록 (최대 3개)
- * 5. 조회수 + '읽기' 버튼
+ * 4. '읽기' 버튼
  *
  * @example
  * <BlogCard
@@ -98,51 +97,8 @@ function BlogCard({ post, index }: BlogCardProps) {
           {post.description}
         </p>
 
-        {/* 태그 목록 (있는 경우에만 표시, 최대 3개) */}
-        {post.tags && post.tags.length > 0 && (
-          <div className="flex flex-wrap gap-2">
-            {/* slice(0, 3): 첫 3개 태그만 표시 */}
-            {post.tags.slice(0, 3).map((tag) => (
-              <span
-                key={tag}
-                className="text-xs text-gray-500 bg-gray-800 px-2 py-0.5 rounded"
-              >
-                #{tag}
-              </span>
-            ))}
-          </div>
-        )}
-
-        {/* 하단: 조회수 & 읽기 버튼 */}
-        <div className="mt-4 pt-4 border-t border-gray-800 flex items-center justify-between">
-          {/* 조회수 (눈 아이콘 + 숫자) */}
-          <span className="text-xs text-gray-500 flex items-center gap-1">
-            {/* SVG 눈 아이콘 */}
-            <svg
-              className="w-4 h-4"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              {/* 눈동자 (원) */}
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-              />
-              {/* 눈 외곽선 */}
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
-              />
-            </svg>
-            {/* toLocaleString(): 천 단위 구분자 (예: 1,234) */}
-            {post.view_count.toLocaleString()}
-          </span>
-
+        {/* 하단: 읽기 버튼 */}
+        <div className="mt-4 pt-4 border-t border-gray-800 flex items-center justify-end">
           {/* '읽기' 버튼 (hover 시 오른쪽으로 살짝 이동) */}
           <span className="text-xs text-emerald-400 group-hover:translate-x-1 transition-transform">
             읽기 →
