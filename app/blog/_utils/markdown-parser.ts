@@ -1,27 +1,19 @@
 /**
  * Markdown to HTML 파서
  *
- * [이 파일의 역할]
+ * 주요 기능:
  * - Markdown 형식 텍스트를 HTML로 변환
- * - XSS(크로스 사이트 스크립팅) 공격 방지
+ * - GitHub Flavored Markdown (GFM) 지원: 테이블, 취소선 등
  * - Heading에 자동으로 ID 추가 (목차 링크용)
  *
- * [Markdown이란?]
- * - 텍스트를 꾸밀 수 있는 간단한 문법
- * - 예: **굵게**, *기울임*, # 제목
- * - GitHub, 블로그 등에서 널리 사용
- *
- * [XSS 공격이란?]
- * - 악성 스크립트를 삽입하여 사용자 정보 탈취
- * - 예: <script>alert('해킹!')</script>
- * - sanitize: true로 악성 코드 제거
- *
- * [사용 라이브러리]
+ * 사용 라이브러리:
  * - remark: Markdown 처리 라이브러리
+ * - remark-gfm: GitHub Flavored Markdown 플러그인 (테이블, 취소선 등)
  * - remark-html: Markdown → HTML 변환 플러그인
  */
 
 import { remark } from 'remark';
+import remarkGfm from 'remark-gfm';
 import html from 'remark-html';
 
 /**
@@ -59,14 +51,15 @@ function addHeadingIds(html: string): string {
 }
 
 /**
- * Markdown을 안전한 HTML로 변환
+ * Markdown을 HTML로 변환
  *
- * [변환 과정]
+ * 변환 과정:
  * 1. Markdown 텍스트 입력
  * 2. remark로 Markdown 파싱
- * 3. remark-html로 HTML 변환 (sanitize로 악성 코드 제거)
- * 4. Heading에 ID 추가
- * 5. HTML 문자열 반환
+ * 3. remark-gfm으로 테이블, 취소선 등 GFM 기능 지원
+ * 4. remark-html로 HTML 변환
+ * 5. Heading에 ID 추가 (목차용)
+ * 6. HTML 문자열 반환
  *
  * @param markdown - 변환할 Markdown 텍스트
  * @returns 변환된 HTML 문자열
@@ -77,7 +70,8 @@ function addHeadingIds(html: string): string {
  */
 export async function parseMarkdown(markdown: string): Promise<string> {
   const result = await remark()
-    .use(html, { sanitize: true }) // sanitize: XSS 방지를 위해 위험한 태그 제거
+    .use(remarkGfm) // GitHub Flavored Markdown: 테이블, 취소선 등 지원
+    .use(html)
     .process(markdown);
 
   return addHeadingIds(result.toString());
