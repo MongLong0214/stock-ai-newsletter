@@ -57,7 +57,7 @@ async function main(): Promise<void> {
     const results = await generateWithDynamicKeywords({
       publish: true,
       count: 5,
-      minRelevanceScore: 8.0,
+      minRelevanceScore: 8.5,
     });
 
     // 결과 출력
