@@ -26,12 +26,10 @@ import { formatDateKo } from '../_utils/date-formatter';
 import { createArticleSchema, createFAQSchema, createBreadcrumbSchema } from '../_utils/schema-generator';
 import type { BlogPost } from '../_types/blog';
 
-import {
-  ReadingProgress,
-  TableOfContents,
-  FAQAccordion,
-  CTASection,
-} from './_components';
+import { ReadingProgress } from './_components/reading-progress';
+import { TableOfContents } from './_components/table-of-contents';
+import { FAQAccordion } from './_components/faq-accordion';
+import { CTASection } from './_components/cta-section';
 import { extractTOCItems } from '../_utils/toc-extractor';
 
 interface PageProps {
@@ -83,11 +81,13 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const title = post.meta_title || post.title;
   const description = post.meta_description || post.description;
   const url = `${siteConfig.domain}/blog/${slug}`;
+  const ogImageUrl = `${siteConfig.domain}/blog/${slug}/opengraph-image`;
 
   return {
     title,
     description,
     keywords: [post.target_keyword, ...(post.secondary_keywords || [])].join(', '),
+    authors: [{ name: siteConfig.serviceName }],
     openGraph: {
       title,
       description,
@@ -98,9 +98,34 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       publishedTime: post.published_at || undefined,
       modifiedTime: post.updated_at,
       authors: [siteConfig.serviceName],
+      images: [
+        {
+          url: ogImageUrl,
+          width: 1200,
+          height: 630,
+          alt: title,
+          type: 'image/png',
+        },
+      ],
     },
-    twitter: { card: 'summary_large_image', title, description },
+    twitter: {
+      card: 'summary_large_image',
+      title,
+      description,
+      images: [ogImageUrl],
+    },
     alternates: { canonical: url },
+    robots: {
+      index: true,
+      follow: true,
+      googleBot: {
+        index: true,
+        follow: true,
+        'max-video-preview': -1,
+        'max-image-preview': 'large',
+        'max-snippet': -1,
+      },
+    },
   };
 }
 
@@ -250,7 +275,29 @@ async function BlogPostPage({ params }: PageProps) {
 
 export default BlogPostPage;
 
-/**
- * ISR 설정 (1시간)
- */
 export const revalidate = 3600;
+
+export async function generateStaticParams() {
+  const BUILD_TIME_STATIC_PAGES = Number(process.env.BLOG_STATIC_PAGES) || 50;
+
+  try {
+    const supabase = getServerSupabaseClient();
+
+    const { data, error } = await supabase
+      .from('blog_posts')
+      .select('slug')
+      .eq('status', 'published')
+      .order('published_at', { ascending: false })
+      .limit(BUILD_TIME_STATIC_PAGES);
+
+    if (error) {
+      console.error('[generateStaticParams] Database query failed:', error);
+      return [];
+    }
+
+    return data?.map((post) => ({ slug: post.slug })) || [];
+  } catch (error) {
+    console.error('[generateStaticParams] Unexpected error:', error);
+    return [];
+  }
+}

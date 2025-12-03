@@ -14,7 +14,6 @@ import {
 import {
   generateBlogContent,
   generateSlug,
-  refineContent,
 } from './_services/content-generator';
 import { saveBlogPost, publishBlogPost } from './_services/blog-repository';
 import { generateKeywords } from './_services/keyword-generator';
@@ -97,14 +96,11 @@ export async function generateBlogPost(
 
     // Stage 4: 콘텐츠 생성
     logProgress({ stage: 'generate', progress: 70, message: 'AI 콘텐츠 생성 중...' });
-    let generatedContent = await generateBlogContent(
+    const generatedContent = await generateBlogContent(
       targetKeyword,
       competitorAnalysis,
       contentType
     );
-
-    // Stage 4.5: 콘텐츠 개선
-    generatedContent = await refineContent(generatedContent);
 
     // Stage 5: 유효성 검증
     logProgress({ stage: 'validate', progress: 85, message: '콘텐츠 검증 중...' });

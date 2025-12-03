@@ -9,16 +9,7 @@ import {
   validateKeywordMetadata,
   calculateSEOScore,
 } from '../_prompts/keyword-generation';
-
-interface KeywordMetadata {
-  keyword: string;
-  searchIntent: 'informational' | 'commercial' | 'transactional' | 'navigational';
-  difficulty: 'low' | 'medium' | 'high';
-  estimatedSearchVolume: number;
-  relevanceScore: number;
-  contentType: 'comparison' | 'guide' | 'listicle' | 'review';
-  reasoning: string;
-}
+import type { KeywordMetadata } from '../_types/blog';
 
 interface KeywordGenerationResult {
   success: boolean;

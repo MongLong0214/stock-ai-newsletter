@@ -15,6 +15,7 @@
 import { remark } from 'remark';
 import remarkGfm from 'remark-gfm';
 import html from 'remark-html';
+import DOMPurify from 'isomorphic-dompurify';
 
 /**
  * 텍스트를 URL-safe slug로 변환
@@ -51,28 +52,42 @@ function addHeadingIds(html: string): string {
 }
 
 /**
- * Markdown을 HTML로 변환
+ * Markdown을 안전한 HTML로 변환 (XSS 방지)
  *
  * 변환 과정:
- * 1. Markdown 텍스트 입력
- * 2. remark로 Markdown 파싱
- * 3. remark-gfm으로 테이블, 취소선 등 GFM 기능 지원
- * 4. remark-html로 HTML 변환
- * 5. Heading에 ID 추가 (목차용)
- * 6. HTML 문자열 반환
+ * 1. Markdown → HTML 변환 (remark + GFM)
+ * 2. Heading에 ID 추가 (목차용)
+ * 3. DOMPurify로 XSS 위험 제거
  *
  * @param markdown - 변환할 Markdown 텍스트
- * @returns 변환된 HTML 문자열
- *
- * @example
- * const html = await parseMarkdown('# 제목\n**굵은 텍스트**');
- * // 결과: '<h1>제목</h1>\n<p><strong>굵은 텍스트</strong></p>'
+ * @returns 안전하게 sanitize된 HTML 문자열
  */
 export async function parseMarkdown(markdown: string): Promise<string> {
   const result = await remark()
-    .use(remarkGfm) // GitHub Flavored Markdown: 테이블, 취소선 등 지원
+    .use(remarkGfm)
     .use(html)
     .process(markdown);
 
-  return addHeadingIds(result.toString());
+  const htmlWithIds = addHeadingIds(result.toString());
+
+  return DOMPurify.sanitize(htmlWithIds, {
+    ALLOWED_TAGS: [
+      'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+      'p', 'br', 'hr',
+      'strong', 'em', 'u', 's', 'code', 'del',
+      'ul', 'ol', 'li',
+      'blockquote', 'pre',
+      'a', 'img',
+      'table', 'thead', 'tbody', 'tr', 'th', 'td',
+      'div', 'span',
+    ],
+    ALLOWED_ATTR: ['href', 'src', 'alt', 'title', 'class', 'id', 'target', 'rel'],
+    FORBID_TAGS: ['script', 'iframe', 'object', 'embed', 'style', 'form', 'input', 'button'],
+    FORBID_ATTR: ['onerror', 'onload', 'onclick', 'onmouseover'],
+    ALLOW_DATA_ATTR: false,
+    ALLOWED_URI_REGEXP: /^(?:(?:https?):\/\/|mailto:|tel:|#|\/)/i,
+    SAFE_FOR_TEMPLATES: true,
+    ADD_ATTR: ['target'],
+    ADD_URI_SAFE_ATTR: ['href', 'src'],
+  });
 }

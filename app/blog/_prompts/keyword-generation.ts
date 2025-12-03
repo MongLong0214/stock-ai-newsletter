@@ -14,29 +14,12 @@
  * Domain: Korean Stock Market SEO (KOSPI, KOSDAQ, AI Newsletter)
  */
 
-// ============================================================================
-// Type Definitions
-// ============================================================================
-
-/** Search intent classification with SEO weight multipliers */
-type SearchIntent = 'informational' | 'commercial' | 'transactional' | 'navigational';
-
-/** Keyword difficulty classification */
-type KeywordDifficulty = 'low' | 'medium' | 'high';
-
-/** Content type matched to keyword characteristics */
-type ContentType = 'comparison' | 'guide' | 'listicle' | 'review';
-
-/** Complete keyword metadata structure */
-interface KeywordMetadata {
-  keyword: string;
-  searchIntent: SearchIntent;
-  difficulty: KeywordDifficulty;
-  estimatedSearchVolume: number;
-  relevanceScore: number;
-  contentType: ContentType;
-  reasoning: string;
-}
+import type {
+  KeywordMetadata,
+  SearchIntent,
+  KeywordDifficulty,
+  ContentType,
+} from '../_types/blog';
 
 // ============================================================================
 // Prompt Constants
