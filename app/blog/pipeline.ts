@@ -1,269 +1,111 @@
-/**
- * 블로그 콘텐츠 자동화 파이프라인
- * 전체 워크플로우 오케스트레이션
- */
-
 import { searchGoogle, checkApiUsage } from './_services/serp-api';
-import {
-  scrapeSearchResults,
-  analyzeCompetitors,
-  closeBrowser,
-  getMetrics,
-  resetMetrics,
-} from './_services/web-scraper';
-import {
-  generateBlogContent,
-  generateSlug,
-} from './_services/content-generator';
+import { scrapeSearchResults, analyzeCompetitors, closeBrowser, getMetrics, resetMetrics } from './_services/web-scraper';
+import { generateBlogContent, generateSlug } from './_services/content-generator';
 import { saveBlogPost, publishBlogPost } from './_services/blog-repository';
 import { generateKeywords } from './_services/keyword-generator';
-import type {
-  BlogPostCreateInput,
-  PipelineResult,
-  PipelineProgress,
-} from './_types/blog';
+import type { BlogPostCreateInput, PipelineResult } from './_types/blog';
 
-/**
- * 진행 상태 로깅
- */
-function logProgress(progress: PipelineProgress): void {
-  const stageEmojis: Record<string, string> = {
-    search: '🔍',
-    scrape: '🕷️',
-    analyze: '📊',
-    generate: '🤖',
-    validate: '✅',
-    save: '💾',
-  };
+const T = { search: 60000, scrape: 120000, generate: 180000, save: 30000, keyword: 90000 };
+const err = (e: unknown) => e instanceof Error ? e.message : String(e);
 
-  const emoji = stageEmojis[progress.stage] || '📝';
-  console.log(`${emoji} [${progress.stage.toUpperCase()}] ${progress.message} (${progress.progress}%)`);
+async function withTimeout<T>(p: Promise<T>, ms: number, fallback: T, label: string): Promise<T> {
+  let t: NodeJS.Timeout;
+  return Promise.race([p.then(v => { clearTimeout(t); return v; }), new Promise<T>(r => { t = setTimeout(() => { console.warn(`⏰ ${label} 타임아웃`); r(fallback); }, ms); })]);
 }
 
-/**
- * 단일 키워드에 대한 블로그 포스트 생성
- */
-export async function generateBlogPost(
-  targetKeyword: string,
-  contentType: 'comparison' | 'guide' | 'listicle' | 'review' = 'guide',
-  options: {
-    publish?: boolean;
-    maxCompetitors?: number;
-  } = {}
-): Promise<PipelineResult> {
-  const { publish = false, maxCompetitors = 5 } = options;
-  const startTime = Date.now();
-  const metrics = {
-    totalTime: 0,
-    serpApiCalls: 0,
-    pagesScraped: 0,
-    tokensUsed: 0,
-  };
+export async function generateBlogPost(keyword: string, type: 'comparison' | 'guide' | 'listicle' | 'review' = 'guide', publish = false): Promise<PipelineResult> {
+  const start = Date.now();
+  const metrics = { totalTime: 0, serpApiCalls: 1, pagesScraped: 0, tokensUsed: 0 };
 
-  console.log(`\n${'='.repeat(80)}`);
-  console.log(`🚀 블로그 콘텐츠 생성 파이프라인 시작`);
-  console.log(`   키워드: "${targetKeyword}"`);
-  console.log(`   콘텐츠 타입: ${contentType}`);
-  console.log(`${'='.repeat(80)}\n`);
+  console.log(`\n${'='.repeat(50)}\n🚀 "${keyword}" (${type})\n${'='.repeat(50)}`);
 
   try {
-    // Stage 1: SerpApi 검색
-    logProgress({ stage: 'search', progress: 10, message: '구글 검색 결과 수집 중...' });
-    const searchResults = await searchGoogle(targetKeyword, maxCompetitors);
-    metrics.serpApiCalls = 1;
+    // 1. 검색 + 스크래핑
+    const searchResults = await withTimeout(searchGoogle(keyword, 5), T.search, [], 'Search');
+    if (!searchResults.length) console.log('⚠️ 검색 결과 없음');
 
-    if (searchResults.length === 0) {
-      throw new Error('검색 결과가 없습니다.');
-    }
+    resetMetrics();
+    const scraped = await withTimeout(scrapeSearchResults(searchResults), T.scrape, [], 'Scrape');
+    metrics.pagesScraped = scraped.length;
+    const m = getMetrics();
+    if (m.totalAttempts) console.log(`📊 스크래핑: ${m.successCount}/${m.totalAttempts}`);
 
-    // Stage 2: 웹 스크래핑
-    logProgress({ stage: 'scrape', progress: 30, message: '경쟁사 페이지 스크래핑 중...' });
-    resetMetrics(); // 메트릭 초기화
-    const scrapedContents = await scrapeSearchResults(searchResults);
-    metrics.pagesScraped = scrapedContents.length;
+    // 2. 분석 + AI 생성
+    const analysis = analyzeCompetitors(scraped, keyword);
+    const content = await withTimeout(generateBlogContent(keyword, analysis, type), T.generate, null as any, 'AI');
+    if (!content) throw new Error('AI 타임아웃');
 
-    // 스크래핑 메트릭 출력
-    const scrapingMetrics = getMetrics();
-    console.log(`   📊 스크래핑 메트릭: 성공률 ${((scrapingMetrics.successCount / scrapingMetrics.totalAttempts) * 100).toFixed(0)}%, 브라우저 폴백 ${scrapingMetrics.browserFallbackCount}회`);
-
-    if (scrapedContents.length === 0) {
-      throw new Error('스크래핑된 콘텐츠가 없습니다.');
-    }
-
-    // Stage 3: 경쟁사 분석
-    logProgress({ stage: 'analyze', progress: 50, message: '경쟁사 콘텐츠 분석 중...' });
-    const competitorAnalysis = analyzeCompetitors(scrapedContents, targetKeyword);
-
-    // Stage 4: 콘텐츠 생성
-    logProgress({ stage: 'generate', progress: 70, message: 'AI 콘텐츠 생성 중...' });
-    const generatedContent = await generateBlogContent(
-      targetKeyword,
-      competitorAnalysis,
-      contentType
-    );
-
-    // Stage 5: 유효성 검증
-    logProgress({ stage: 'validate', progress: 85, message: '콘텐츠 검증 중...' });
-    const slug = generateSlug(generatedContent.title);
-
-    // BlogPostCreateInput 생성
-    const blogPostInput: BlogPostCreateInput = {
-      slug,
-      title: generatedContent.title,
-      description: generatedContent.description,
-      content: generatedContent.content,
-      meta_title: generatedContent.metaTitle,
-      meta_description: generatedContent.metaDescription,
-      target_keyword: targetKeyword,
-      secondary_keywords: generatedContent.suggestedTags,
+    // 3. 저장
+    const post: BlogPostCreateInput = {
+      slug: generateSlug(content.title),
+      title: content.title,
+      description: content.description,
+      content: content.content,
+      meta_title: content.metaTitle,
+      meta_description: content.metaDescription,
+      target_keyword: keyword,
+      secondary_keywords: content.suggestedTags,
       category: 'stock-newsletter',
-      tags: generatedContent.suggestedTags,
-      competitor_urls: searchResults.map((r) => r.link),
-      competitor_count: scrapedContents.length,
-      faq_items: generatedContent.faqItems,
+      tags: content.suggestedTags,
+      competitor_urls: searchResults.map(r => r.link),
+      competitor_count: scraped.length,
+      faq_items: content.faqItems,
       status: publish ? 'published' : 'draft',
     };
 
-    // Stage 6: 저장
-    logProgress({ stage: 'save', progress: 95, message: 'DB에 저장 중...' });
-    const savedPost = await saveBlogPost(blogPostInput);
+    const saved = await withTimeout(saveBlogPost(post), T.save, null as any, 'DB');
+    if (!saved) throw new Error('DB 타임아웃');
+    if (publish) await publishBlogPost(saved.slug).catch(() => {});
 
-    // 발행 옵션
-    if (publish) {
-      await publishBlogPost(savedPost.slug);
-    }
-
-    metrics.totalTime = Date.now() - startTime;
-
-    console.log(`\n${'='.repeat(80)}`);
-    console.log(`🎉 파이프라인 완료!`);
-    console.log(`   슬러그: ${savedPost.slug}`);
-    console.log(`   상태: ${publish ? 'published' : 'draft'}`);
-    console.log(`   소요 시간: ${(metrics.totalTime / 1000).toFixed(1)}초`);
-    console.log(`${'='.repeat(80)}\n`);
-
-    return {
-      success: true,
-      blogPost: blogPostInput,
-      metrics,
-    };
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    console.error(`\n❌ 파이프라인 실패: ${errorMessage}`);
-
-    metrics.totalTime = Date.now() - startTime;
-
-    return {
-      success: false,
-      error: errorMessage,
-      metrics,
-    };
+    metrics.totalTime = Date.now() - start;
+    console.log(`✅ ${saved.slug} (${(metrics.totalTime / 1000).toFixed(1)}초)`);
+    return { success: true, blogPost: post, metrics };
+  } catch (e) {
+    console.error(`❌ ${err(e)}`);
+    metrics.totalTime = Date.now() - start;
+    return { success: false, error: err(e), metrics };
   }
 }
 
-/**
- * 배치 블로그 포스트 생성 (여러 키워드)
- */
-export async function generateBlogPostsBatch(
-  keywords: Array<{ keyword: string; type: 'comparison' | 'guide' | 'listicle' | 'review' }>,
-  options: {
-    publish?: boolean;
-    delayBetweenPosts?: number;
-  } = {}
-): Promise<PipelineResult[]> {
-  const { publish = false, delayBetweenPosts = 5000 } = options;
+export async function generateBlogPostsBatch(keywords: Array<{ keyword: string; type: 'comparison' | 'guide' | 'listicle' | 'review' }>, publish = false): Promise<PipelineResult[]> {
   const results: PipelineResult[] = [];
 
-  console.log(`\n${'#'.repeat(80)}`);
-  console.log(`📦 배치 블로그 생성 시작 (${keywords.length}개 키워드)`);
-  console.log(`${'#'.repeat(80)}\n`);
+  console.log(`\n${'#'.repeat(50)}\n📦 배치: ${keywords.length}개\n${'#'.repeat(50)}`);
 
-  // API 사용량 확인
-  const usage = await checkApiUsage();
-  console.log(`📊 SerpApi 사용량: ${usage.used}/${usage.limit} (잔여: ${usage.remaining})`);
-
-  if (usage.remaining < keywords.length) {
-    console.warn(`⚠️ 잔여 API 호출 수가 부족합니다. ${usage.remaining}개만 처리합니다.`);
-    keywords = keywords.slice(0, usage.remaining);
-  }
+  try {
+    const usage = await withTimeout(checkApiUsage(), 10000, { used: 0, limit: 100, remaining: 100 }, 'API');
+    console.log(`SerpApi: ${usage.remaining}개 남음`);
+    if (usage.remaining < keywords.length) keywords = keywords.slice(0, Math.max(usage.remaining, 1));
+  } catch {}
 
   for (let i = 0; i < keywords.length; i++) {
-    const { keyword, type } = keywords[i];
-    console.log(`\n📝 [${i + 1}/${keywords.length}] "${keyword}" 처리 중...`);
-
-    const result = await generateBlogPost(keyword, type, { publish });
-    results.push(result);
-
-    // 다음 키워드 전 딜레이 (마지막 제외)
-    if (i < keywords.length - 1) {
-      console.log(`⏳ ${delayBetweenPosts / 1000}초 대기 중...`);
-      await new Promise((resolve) => setTimeout(resolve, delayBetweenPosts));
+    console.log(`\n[${i + 1}/${keywords.length}] "${keywords[i].keyword}"`);
+    try {
+      results.push(await generateBlogPost(keywords[i].keyword, keywords[i].type, publish));
+    } catch (e) {
+      results.push({ success: false, error: err(e), metrics: { totalTime: 0, serpApiCalls: 0, pagesScraped: 0, tokensUsed: 0 } });
     }
+    if (i < keywords.length - 1) await new Promise(r => setTimeout(r, 3000));
   }
 
-  // 브라우저 정리
-  await closeBrowser();
-
-  // 결과 요약
-  const successful = results.filter((r) => r.success).length;
-  const failed = results.filter((r) => !r.success).length;
-
-  console.log(`\n${'#'.repeat(80)}`);
-  console.log(`📊 배치 완료 결과`);
-  console.log(`   성공: ${successful}개`);
-  console.log(`   실패: ${failed}개`);
-  console.log(`${'#'.repeat(80)}\n`);
-
+  await closeBrowser().catch(() => {});
+  const ok = results.filter(r => r.success).length;
+  console.log(`\n${'#'.repeat(50)}\n📊 완료: ✅${ok} ❌${results.length - ok}\n${'#'.repeat(50)}`);
   return results;
 }
 
-/**
- * AI 기반 동적 키워드 생성 및 블로그 포스트 생성
- *
- * [동작 방식]
- * 1. Gemini AI가 실시간으로 SEO 최적화 키워드 생성
- * 2. Supabase에서 중복 키워드 자동 필터링
- * 3. 키워드 품질 점수 기반 우선순위 선택
- * 4. 각 키워드에 맞는 콘텐츠 타입 자동 매칭
- * 5. 블로그 포스트 생성 파이프라인 실행
- */
-export async function generateWithDynamicKeywords(
-  options: {
-    publish?: boolean;
-    count?: number;
-    minRelevanceScore?: number;
-  } = {}
-): Promise<PipelineResult[]> {
+export async function generateWithDynamicKeywords(options: { publish?: boolean; count?: number; minRelevanceScore?: number } = {}): Promise<PipelineResult[]> {
   const { publish = false, count = 5, minRelevanceScore = 7.5 } = options;
 
-  console.log(`\n${'#'.repeat(80)}`);
-  console.log(`🤖 AI 기반 동적 키워드 블로그 생성 시작`);
-  console.log(`   생성 개수: ${count}개`);
-  console.log(`   최소 관련성 점수: ${minRelevanceScore}`);
-  console.log(`${'#'.repeat(80)}\n`);
+  console.log(`\n${'#'.repeat(50)}\n🤖 AI 키워드 생성 (${count}개, 최소${minRelevanceScore}점)\n${'#'.repeat(50)}`);
 
   try {
-    // Step 1: AI 키워드 생성
-    const keywordResult = await generateKeywords(count, { minRelevanceScore });
-
-    if (!keywordResult.success || keywordResult.keywords.length === 0) {
-      console.error(`❌ 키워드 생성 실패: ${keywordResult.error || '키워드 없음'}`);
-      return [];
-    }
-
-    // Step 2: 키워드 → 블로그 포스트 매핑
-    const keywordInputs = keywordResult.keywords.map((kw) => ({
-      keyword: kw.keyword,
-      type: kw.contentType,
-    }));
-
-    // Step 3: 배치 블로그 생성
-    const results = await generateBlogPostsBatch(keywordInputs, { publish });
-
-    return results;
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    console.error(`\n❌ 동적 키워드 블로그 생성 실패: ${errorMessage}`);
+    const result = await withTimeout(generateKeywords(count, { minRelevanceScore }), T.keyword, { success: false, keywords: [], totalGenerated: 0, totalFiltered: 0, error: 'timeout' }, 'Keyword');
+    if (!result.success || !result.keywords.length) { console.error(`❌ ${result.error || '키워드 없음'}`); return []; }
+    console.log(`✅ ${result.keywords.length}개 생성`);
+    return generateBlogPostsBatch(result.keywords.map(k => ({ keyword: k.keyword, type: k.contentType })), publish);
+  } catch (e) {
+    console.error(`❌ ${err(e)}`);
     return [];
   }
 }
