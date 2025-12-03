@@ -26,12 +26,23 @@
 
 /**
  * 블로그 포스트 상태
- *
- * - draft: 초안 (비공개)
- * - published: 발행됨 (공개)
- * - archived: 보관됨 (숨김)
  */
 export type BlogPostStatus = 'draft' | 'published' | 'archived';
+
+/**
+ * 키워드 검색 의도
+ */
+export type SearchIntent = 'informational' | 'commercial' | 'transactional' | 'navigational';
+
+/**
+ * 키워드 난이도
+ */
+export type KeywordDifficulty = 'low' | 'medium' | 'high';
+
+/**
+ * 콘텐츠 타입
+ */
+export type ContentType = 'comparison' | 'guide' | 'listicle' | 'review';
 
 /**
  * FAQ 아이템 (자주 묻는 질문)
@@ -362,6 +373,24 @@ export interface CompetitorAnalysis {
 }
 
 // ============================================================================
+// Keyword Generation Types
+// AI 키워드 생성 관련 타입
+// ============================================================================
+
+/**
+ * 키워드 메타데이터
+ */
+export interface KeywordMetadata {
+  keyword: string;
+  searchIntent: SearchIntent;
+  difficulty: KeywordDifficulty;
+  estimatedSearchVolume: number;
+  relevanceScore: number;
+  contentType: ContentType;
+  reasoning: string;
+}
+
+// ============================================================================
 // Content Generation Types
 // AI 콘텐츠 생성 결과 타입
 // ============================================================================
@@ -397,8 +426,6 @@ export interface GeneratedContent {
   faqItems: FAQItem[];
   /** 추천 태그 배열 */
   suggestedTags: string[];
-  /** 예상 읽기 시간 (분) */
-  estimatedReadTime: number;
 }
 
 // ============================================================================

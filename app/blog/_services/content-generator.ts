@@ -10,36 +10,8 @@ import { GoogleGenAI } from '@google/genai';
 import { GEMINI_API_CONFIG } from '@/lib/llm/_config/pipeline-config';
 import { PIPELINE_CONFIG } from '../_config/pipeline-config';
 import { buildContentGenerationPrompt } from '../_prompts/content-generation';
-import { withTimeout } from '../_utils/fetch-helpers';
 import type { CompetitorAnalysis, GeneratedContent } from '../_types/blog';
 
-// ============================================================================
-// 타입 정의
-// ============================================================================
-
-interface ContentGenerationMetrics {
-  totalAttempts: number;
-  successfulAttempts: number;
-  failedAttempts: number;
-  averageGenerationTime: number;
-  totalTokensUsed: number;
-  averageQualityScore: number;
-  retryCount: number;
-}
-
-// ============================================================================
-// 글로벌 메트릭 수집
-// ============================================================================
-
-const metrics: ContentGenerationMetrics = {
-  totalAttempts: 0,
-  successfulAttempts: 0,
-  failedAttempts: 0,
-  averageGenerationTime: 0,
-  totalTokensUsed: 0,
-  averageQualityScore: 0,
-  retryCount: 0,
-};
 
 /** Gemini Vertex AI 클라이언트 초기화 */
 function initializeGemini(): GoogleGenAI {
@@ -207,12 +179,9 @@ export async function generateBlogContent(
   competitorAnalysis: CompetitorAnalysis,
   contentType: 'comparison' | 'guide' | 'listicle' | 'review' = 'guide'
 ): Promise<GeneratedContent> {
-  console.log(`\n🤖 [Gemini] 콘텐츠 생성 시작 (Enterprise Mode)...`);
+  console.log(`\n🤖 [Gemini] 콘텐츠 생성 시작...`);
   console.log(`   타겟 키워드: "${targetKeyword}"`);
   console.log(`   콘텐츠 타입: ${contentType}`);
-
-  // Enterprise: 메트릭 추적 시작
-  metrics.totalAttempts++;
 
   // 1. Gemini 클라이언트 초기화
   const genAI = initializeGemini();
@@ -231,7 +200,7 @@ export async function generateBlogContent(
       console.log(`   🔄 시도 ${attempt}/${PIPELINE_CONFIG.retryAttempts}...`);
 
       // 4. API 호출 (2분 타임아웃)
-      const response = await withTimeout(
+      const response = await Promise.race([
         genAI.models.generateContent({
           model: GEMINI_API_CONFIG.MODEL,
           contents: [{ role: 'user', parts: [{ text: prompt }] }],
@@ -243,8 +212,10 @@ export async function generateBlogContent(
             responseMimeType: GEMINI_API_CONFIG.RESPONSE_MIME_TYPE,
           },
         }),
-        120000 // 2분 타임아웃
-      );
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('Timeout after 120000ms')), 120000)
+        ),
+      ]);
 
       // 5. 응답 텍스트 추출
       const responseText = response.text || '';
@@ -253,14 +224,11 @@ export async function generateBlogContent(
         throw new Error('빈 응답을 받았습니다.');
       }
 
-      // Enterprise: 토큰 사용량 추적 (Gemini response에서 토큰 정보 추출)
-      const tokensUsed = responseText.length; // 근사값: 실제로는 response metadata에서 가져와야 함
-
       // 6. JSON 파싱 및 검증 (Layer 1 & 2)
       const content = parseJsonResponse(responseText);
       validateContent(content);
 
-      // Enterprise: 품질 점수 계산 (Layer 3)
+      // 품질 점수 계산 (Layer 3)
       const qualityScore = calculateQualityScore(content, targetKeyword, competitorAnalysis);
       console.log(`   📊 품질 점수: ${qualityScore}/100`);
 
@@ -268,27 +236,14 @@ export async function generateBlogContent(
         throw new Error(`품질 점수 미달 (${qualityScore}/100 < 60)`);
       }
 
-      // Enterprise: 성공 메트릭 업데이트
       const generationTime = Date.now() - attemptStartTime;
-      metrics.successfulAttempts++;
-      metrics.totalTokensUsed += tokensUsed;
-      metrics.averageGenerationTime =
-        (metrics.averageGenerationTime * (metrics.successfulAttempts - 1) + generationTime) /
-        metrics.successfulAttempts;
-      metrics.averageQualityScore =
-        (metrics.averageQualityScore * (metrics.successfulAttempts - 1) + qualityScore) /
-        metrics.successfulAttempts;
-
-      console.log(`   ✅ 생성 성공! (${generationTime}ms, ${tokensUsed} tokens, Q=${qualityScore})`);
+      console.log(`   ✅ 생성 성공! (${generationTime}ms, Q=${qualityScore})`);
 
       return content;
     } catch (error) {
       // 에러 저장 및 로깅
       lastError = error instanceof Error ? error : new Error(String(error));
       console.error(`   ❌ 시도 ${attempt} 실패: ${lastError.message}`);
-
-      // Enterprise: 재시도 카운트 증가
-      metrics.retryCount++;
 
       // 마지막 시도가 아니면 Intelligent Retry 적용
       if (attempt < PIPELINE_CONFIG.retryAttempts) {
@@ -302,9 +257,6 @@ export async function generateBlogContent(
       }
     }
   }
-
-  // Enterprise: 실패 메트릭 업데이트
-  metrics.failedAttempts++;
 
   // 모든 재시도 실패
   throw lastError || new Error('콘텐츠 생성 실패 (모든 재시도 소진)');
@@ -372,69 +324,4 @@ export function generateSlug(title: string): string {
   slug = `${slug}-${date}`;
 
   return slug;
-}
-
-/**
- * 콘텐츠 후처리 (선택적 개선)
- *
- * [수행하는 작업]
- * 1. 메타 제목 길이 조정 (60자 초과 시 자르기)
- * 2. 메타 설명 길이 조정 (155자 초과 시 자르기)
- * 3. Stock Matrix CTA 링크 삽입 (없는 경우)
- *
- * [CTA (Call To Action)란?]
- * - 사용자의 행동을 유도하는 문구/버튼
- * - 예: "지금 바로 무료로 시작하세요!"
- * - 블로그 글에서 서비스 홍보에 활용
- *
- * @param content - 원본 생성 콘텐츠
- * @returns 개선된 콘텐츠
- *
- * @example
- * const refined = await refineContent(originalContent);
- */
-export async function refineContent(
-  content: GeneratedContent
-): Promise<GeneratedContent> {
-  console.log(`\n🔄 [Gemini] 콘텐츠 개선 시작...`);
-
-  // 원본을 수정하지 않고 복사본 생성 (불변성)
-  const refined = { ...content };
-
-  // 1. 메타 제목 길이 조정
-  // Google 검색 결과에서 60자 이후는 잘림
-  if (refined.metaTitle.length > 60) {
-    refined.metaTitle = refined.metaTitle.slice(0, 57) + '...';
-  }
-
-  // 2. 메타 설명 길이 조정
-  // Google 검색 결과에서 155자 이후는 잘림
-  if (refined.metaDescription.length > 155) {
-    refined.metaDescription = refined.metaDescription.slice(0, 152) + '...';
-  }
-
-  // 3. Stock Matrix CTA 삽입 (없는 경우에만)
-  if (!refined.content.includes('stockmatrix.co.kr')) {
-    const ctaSection = `
-
----
-
-**💡 지금 바로 [Stock Matrix](https://stockmatrix.co.kr)에서 무료로 AI 주식 분석을 받아보세요!**
-
-`;
-    // 결론 섹션(마지막 H2) 앞에 CTA 삽입
-    const conclusionIndex = refined.content.lastIndexOf('## ');
-    if (conclusionIndex > 0) {
-      refined.content =
-        refined.content.slice(0, conclusionIndex) +
-        ctaSection +
-        refined.content.slice(conclusionIndex);
-    } else {
-      // 결론 섹션을 찾지 못하면 맨 끝에 추가
-      refined.content += ctaSection;
-    }
-  }
-
-  console.log(`✅ [Gemini] 콘텐츠 개선 완료`);
-  return refined;
 }

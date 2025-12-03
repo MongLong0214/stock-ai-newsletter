@@ -135,6 +135,19 @@ const metrics: ScrapingMetrics = {
 };
 
 let browserInstance: Browser | null = null;
+let browserAvailable: boolean | null = null;
+let browserCheckAttempted = false;
+let lastBrowserCheckTime = 0;
+
+const BROWSER_CHECK_TIMEOUT = 5000;
+const BROWSER_RECHECK_INTERVAL = 5 * 60 * 1000; // 5분
+
+interface NodeSystemError extends Error {
+  code?: string;
+  errno?: number;
+  syscall?: string;
+  path?: string;
+}
 
 // ============================================================================
 // Circuit Breaker 패턴
@@ -450,6 +463,46 @@ async function fetchHtml(url: string, timeout: number, referer?: string): Promis
 // Playwright 브라우저 자동화
 // ============================================================================
 
+async function checkBrowserAvailability(): Promise<boolean> {
+  const now = Date.now();
+
+  if (browserCheckAttempted && now - lastBrowserCheckTime < BROWSER_RECHECK_INTERVAL) {
+    return browserAvailable === true;
+  }
+
+  browserCheckAttempted = true;
+  lastBrowserCheckTime = now;
+
+  try {
+    const testBrowser = await chromium.launch({
+      headless: true,
+      args: ['--no-sandbox', '--disable-setuid-sandbox'],
+      timeout: BROWSER_CHECK_TIMEOUT,
+    });
+    await testBrowser.close();
+    browserAvailable = true;
+    return true;
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorCode = (error as NodeSystemError)?.code;
+
+    const isInstallError =
+      errorMessage.includes('Executable') ||
+      errorMessage.includes('playwright install') ||
+      errorCode === 'ENOENT';
+
+    if (isInstallError) {
+      console.log('   ⚠️ Playwright browsers not installed. Browser mode disabled.');
+      console.log('   ℹ️ To enable browser mode, run: npx playwright install chromium');
+    } else {
+      console.log(`   ⚠️ Browser check failed: ${errorMessage}`);
+    }
+
+    browserAvailable = false;
+    return false;
+  }
+}
+
 async function getBrowser(): Promise<Browser> {
   if (!browserInstance) {
     console.log('   🌐 Starting browser...');
@@ -717,7 +770,16 @@ export async function scrapeUrl(
   }
 
   const maxRetries = domainConfig.maxRetries ?? retries;
-  const useBrowser = forceBrowser || domainConfig.useBrowser || false;
+  let useBrowser = forceBrowser || domainConfig.useBrowser || false;
+
+  // Check browser availability before attempting to use it
+  if (useBrowser) {
+    const browserAvailableNow = await checkBrowserAvailability();
+    if (!browserAvailableNow) {
+      console.log(`   ⚠️ Browser requested but not available for ${domain}, falling back to HTTP`);
+      useBrowser = false;
+    }
+  }
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
@@ -731,11 +793,16 @@ export async function scrapeUrl(
         try {
           html = await fetchHtml(url, timeout, referer);
         } catch (httpError) {
-          // HTTP failed, try browser as fallback
+          // HTTP failed, try browser as fallback (only if browser is available)
           if (attempt === maxRetries) {
-            console.log(`   🌐 Trying browser fallback...`);
-            html = await fetchWithBrowser(url, timeout, domainConfig);
-            metrics.browserFallbackCount++;
+            const browserAvailableNow = await checkBrowserAvailability();
+            if (browserAvailableNow) {
+              console.log(`   🌐 Trying browser fallback...`);
+              html = await fetchWithBrowser(url, timeout, domainConfig);
+              metrics.browserFallbackCount++;
+            } else {
+              throw httpError;
+            }
           } else {
             throw httpError;
           }

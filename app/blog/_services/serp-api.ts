@@ -23,7 +23,6 @@
  */
 
 import { SERP_API_CONFIG, PIPELINE_CONFIG } from '../_config/pipeline-config';
-import { fetchWithTimeout, withRetry } from '../_utils/fetch-helpers';
 import type { SerpApiResponse, SerpSearchResult } from '../_types/blog';
 
 /**
@@ -155,28 +154,50 @@ export async function searchGoogle(
   const url = buildSearchUrl(keyword, apiKey);
 
   // 3. API 호출 (재시도 로직 포함)
-  // withRetry: 실패 시 exponential backoff로 재시도
-  const response = await withRetry(
-    async () => {
-      // fetchWithTimeout: 타임아웃 적용된 fetch
-      const res = await fetchWithTimeout(
-        url,
-        { method: 'GET' },
-        PIPELINE_CONFIG.requestTimeout
-      );
+  let lastError: Error | null = null;
+  let response: SerpApiResponse | null = null;
 
-      // HTTP 상태 코드 확인
-      if (!res.ok) {
-        const errorBody = await res.text();
-        throw new Error(`SerpApi 오류 (${res.status}): ${errorBody}`);
+  for (let attempt = 1; attempt <= PIPELINE_CONFIG.retryAttempts; attempt++) {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), PIPELINE_CONFIG.requestTimeout);
+
+      try {
+        const res = await fetch(url, {
+          method: 'GET',
+          signal: controller.signal,
+        });
+        clearTimeout(timeoutId);
+
+        if (!res.ok) {
+          const errorBody = await res.text();
+          throw new Error(`SerpApi 오류 (${res.status}): ${errorBody}`);
+        }
+
+        response = await res.json() as SerpApiResponse;
+
+        // 성공하면 break
+        if (attempt > 1) {
+          console.log(`✅ 재시도 성공 (${attempt}/${PIPELINE_CONFIG.retryAttempts})`);
+        }
+        break;
+      } finally {
+        clearTimeout(timeoutId);
       }
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
 
-      // JSON 파싱
-      return await res.json() as Promise<SerpApiResponse>;
-    },
-    PIPELINE_CONFIG.retryAttempts, // 재시도 횟수 (기본 3회)
-    PIPELINE_CONFIG.retryDelay // 재시도 간격 (기본 2초)
-  );
+      if (attempt < PIPELINE_CONFIG.retryAttempts) {
+        const delay = PIPELINE_CONFIG.retryDelay * Math.pow(2, attempt - 1);
+        console.log(`⏳ ${delay}ms 후 재시도 (${attempt + 1}/${PIPELINE_CONFIG.retryAttempts})...`);
+        await new Promise((resolve) => setTimeout(resolve, delay));
+      }
+    }
+  }
+
+  if (!response) {
+    throw lastError || new Error('SerpApi 호출 실패');
+  }
 
   // 4. 검색 결과 확인
   if (!response.organic_results || response.organic_results.length === 0) {
@@ -191,7 +212,6 @@ export async function searchGoogle(
   // 6. 결과 로깅
   console.log(`✅ [SerpApi] ${limitedResults.length}개 결과 수집 완료`);
   limitedResults.forEach((result, idx) => {
-    // 제목이 너무 길면 50자까지만 표시
     console.log(`   ${idx + 1}. ${result.title.slice(0, 50)}...`);
   });
 

@@ -1,18 +1,8 @@
 /**
- * 블로그 콘텐츠 생성 프롬프트 (Elite-Level Prompt Engineering)
+ * Elite-level content generation prompt for Gemini 3 Pro
  *
- * [프롬프트 엔지니어링 기법]
- * - Role-Based Prompting: 전문가 페르소나 설정
- * - Chain of Thought (CoT): 단계별 사고 과정 유도
- * - Few-Shot Learning: 우수/미흡 예시 제공
- * - Constraint Setting: 명확한 품질 기준 및 제약 조건
- * - Self-Evaluation: 자가 검증 체크리스트
- * - Output Specification: 정밀한 출력 형식 정의
- *
- * [최적화 대상]
- * - Gemini 3 Pro (temperature 1.0, creative mode)
- * - 한국어 SEO 콘텐츠 생성
- * - Stock Matrix 자연스러운 홍보 통합
+ * Techniques: Role-Based, CoT, Few-Shot, Constitutional AI
+ * Target: Korean SEO content with Stock Matrix integration
  */
 
 import { SITE_INFO, CONTENT_TYPE_CONFIG } from '../_config/pipeline-config';
@@ -642,14 +632,7 @@ ${qualityChecklist}
       "answer": "구체적이고 유용한 답변 (2-4문장)"
     }
   ],
-  "suggestedTags": ["태그1", "태그2", "태그3", "태그4", "태그5"],
-  "estimatedReadTime": 분단위_숫자,
-  "qualityScore": {
-    "keywordOptimization": "자가 평가 (1-10)",
-    "contentDepth": "자가 평가 (1-10)",
-    "differentiation": "자가 평가 (1-10)",
-    "naturalPromotion": "자가 평가 (1-10)"
-  }
+  "suggestedTags": ["태그1", "태그2", "태그3", "태그4", "태그5"]
 }
 \`\`\`
 </output_specification>
