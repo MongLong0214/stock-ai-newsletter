@@ -213,6 +213,44 @@ const FEW_SHOT_EXAMPLES = `
       }
     </output>
   </example>
+
+  <example id="4" quality="excellent">
+    <keyword>RSI 과매수 과매도 신호 활용 단기 매매 전략</keyword>
+    <analysis>
+      <step name="intent-analysis">
+        RSI 지표를 활용한 실전 매매 전략을 배우려는 의도
+        → "활용", "전략" 트리거 → informational intent (실전 교육)
+      </step>
+      <step name="difficulty-assessment">
+        "RSI" + "과매수" + "과매도" + "신호" + "활용" + "단기" + "매매" + "전략" = 8개 수식어
+        → 초롱테일 키워드로 경쟁도 매우 낮음 → difficulty: low
+      </step>
+      <step name="volume-estimation">
+        RSI는 가장 대중적 지표, 단기 매매 수요 높음
+        → 월간 검색량 추정: 800-1200 (optimal zone)
+      </step>
+      <step name="content-type-matching">
+        "활용", "전략" 트리거 → guide 타입
+        단계별 전략 설명이 필요한 실전 가이드에 적합
+      </step>
+      <step name="relevance-scoring">
+        핵심 기술적 지표 RSI + 기술적 분석 + 초보-중급 타겟
+        → AI/기술적 분석 +2점, 기술적 지표 +1.5점, 초보-중급 +0.5점
+        → relevanceScore: 9.0/10
+      </step>
+    </analysis>
+    <output>
+      {
+        "keyword": "RSI 과매수 과매도 신호 활용 단기 매매 전략",
+        "searchIntent": "informational",
+        "difficulty": "low",
+        "estimatedSearchVolume": 980,
+        "relevanceScore": 9.0,
+        "contentType": "guide",
+        "reasoning": "Stock Matrix의 핵심 기술적 지표인 RSI 활용법을 알려주는 실전 가이드. AI 기술적 분석 역량을 보여주고 뉴스레터 구독을 유도할 수 있는 고가치 키워드."
+      }
+    </output>
+  </example>
 </few-shot-examples>`;
 
 // ============================================================================
@@ -262,6 +300,7 @@ export function buildKeywordGenerationPrompt(count: number, usedKeywords: string
 핵심 가치: AI 기술적 분석, 무료 제공, 일일 인사이트
 타겟 오디언스: 한국 주식 투자자 (초보~중급)
 콘텐츠 영역: 기술적 분석, AI 예측, 시장 동향, 투자 교육
+핵심 기술적 지표: RSI, MACD, 볼린저밴드, 이동평균선, 스토캐스틱, CCI, OBV, 일목균형표
 </service-context>
 </system>
 
@@ -302,10 +341,16 @@ ${CONTENT_TYPE_RULES}
 - 최소 기준: 7.5점 이상만 생성
 - 평가 기준:
   - AI/기술적 분석 연관: +2점
+  - 기술적 지표 포함 (RSI, MACD, 볼린저밴드 등): +1.5점
   - 무료 서비스 연관: +1.5점
   - 뉴스레터 구독 유도 가능: +1점
   - 한국 시장 특화: +1점
   - 초보-중급 투자자 타겟: +0.5점
+
+**기술적 지표 키워드 우선 생성**:
+- RSI, MACD, 볼린저밴드, 이동평균선, 스토캐스틱, CCI, OBV, 일목균형표 중
+  최소 30%는 이러한 지표를 포함한 키워드여야 함
+- 예: "RSI 과매수 과매도 보는법", "MACD 골든크로스 데드크로스", "볼린저밴드 돌파 전략"
 </analysis-framework>
 
 <few-shot-learning>
