@@ -105,28 +105,7 @@ async function BlogPage() {
             </div>
           )}
 
-          {posts.length > 0 && (
-            <section
-              className="mt-16 p-8 rounded-2xl bg-gradient-to-r from-emerald-500/10 to-blue-500/10 border border-emerald-500/20 text-center"
-              aria-labelledby="cta-heading"
-            >
-              <h2 id="cta-heading" className="text-2xl font-bold mb-3">
-                매일 아침, AI가 분석한 주식 추천을 받아보세요
-              </h2>
-              <p className="text-gray-400 mb-6">
-                30가지 기술적 지표로 분석한 KOSPI·KOSDAQ 종목을 <br className="hidden md:block" />
-                매일 오전 7:50에 무료로 이메일 발송해드립니다.
-              </p>
-              <Link
-                href="/subscribe"
-                className="inline-flex items-center gap-2 px-8 py-3 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-black font-semibold transition-colors"
-                aria-label="무료 뉴스레터 구독하기"
-              >
-                무료 구독하기
-                <ArrowRightIcon />
-              </Link>
-            </section>
-          )}
+
         </div>
       </main>
     </>

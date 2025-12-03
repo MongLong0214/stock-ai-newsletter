@@ -4,6 +4,7 @@
  * [이 파일의 역할]
  * - Markdown 형식 텍스트를 HTML로 변환
  * - XSS(크로스 사이트 스크립팅) 공격 방지
+ * - Heading에 자동으로 ID 추가 (목차 링크용)
  *
  * [Markdown이란?]
  * - 텍스트를 꾸밀 수 있는 간단한 문법
@@ -24,13 +25,48 @@ import { remark } from 'remark';
 import html from 'remark-html';
 
 /**
+ * 텍스트를 URL-safe slug로 변환
+ */
+function slugify(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/[^a-z0-9가-힣\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .trim();
+}
+
+/**
+ * Heading 태그에 ID 속성 추가
+ */
+function addHeadingIds(html: string): string {
+  const idCounts: Record<string, number> = {};
+
+  return html.replace(/<h([23])>([^<]+)<\/h[23]>/gi, (match, level, content) => {
+    const text = content.trim();
+    let id = slugify(text);
+
+    // 중복 ID 처리
+    if (idCounts[id]) {
+      idCounts[id]++;
+      id = `${id}-${idCounts[id]}`;
+    } else {
+      idCounts[id] = 1;
+    }
+
+    return `<h${level} id="${id}">${text}</h${level}>`;
+  });
+}
+
+/**
  * Markdown을 안전한 HTML로 변환
  *
  * [변환 과정]
  * 1. Markdown 텍스트 입력
  * 2. remark로 Markdown 파싱
  * 3. remark-html로 HTML 변환 (sanitize로 악성 코드 제거)
- * 4. HTML 문자열 반환
+ * 4. Heading에 ID 추가
+ * 5. HTML 문자열 반환
  *
  * @param markdown - 변환할 Markdown 텍스트
  * @returns 변환된 HTML 문자열
@@ -44,5 +80,5 @@ export async function parseMarkdown(markdown: string): Promise<string> {
     .use(html, { sanitize: true }) // sanitize: XSS 방지를 위해 위험한 태그 제거
     .process(markdown);
 
-  return result.toString();
+  return addHeadingIds(result.toString());
 }
