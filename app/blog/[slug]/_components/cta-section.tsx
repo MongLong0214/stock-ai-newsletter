@@ -24,17 +24,17 @@ export function CTASection() {
           무료로 구독하고 데이터 기반 투자를 시작하세요.
         </p>
 
-        <div className="flex flex-wrap gap-3">
+        <div className="flex flex-col sm:flex-row gap-3">
           <Link
             href="/subscribe"
-            className="inline-flex items-center gap-2 px-6 py-3 bg-emerald-500 hover:bg-emerald-400 text-black font-semibold rounded-lg transition-colors"
+            className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-emerald-500 hover:bg-emerald-400 text-black font-semibold rounded-lg transition-colors"
           >
             무료 구독하기
             <ArrowRight className="w-4 h-4" />
           </Link>
           <Link
             href="/archive"
-            className="inline-flex items-center gap-2 px-6 py-3 border border-slate-700 hover:border-slate-600 text-slate-300 hover:text-white rounded-lg transition-colors"
+            className="inline-flex items-center justify-center gap-2 px-6 py-3 border border-slate-700 hover:border-slate-600 text-slate-300 hover:text-white rounded-lg transition-colors"
           >
             지난 분석 보기
           </Link>

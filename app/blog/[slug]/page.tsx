@@ -1,15 +1,16 @@
 /**
  * 블로그 상세 페이지 (/blog/[slug])
  *
- * [이 파일의 역할]
- * - 개별 블로그 포스트 상세 내용 표시
- * - 동적 메타데이터 생성 (SEO)
- * - Schema.org 구조화 데이터 삽입
- * - 목차, 읽기 진행도, FAQ 등 고급 UX 기능
+ * 개별 블로그 포스트의 상세 내용을 표시하는 페이지
  *
- * [Next.js 동적 라우팅]
+ * 주요 기능:
+ * - 동적 메타데이터 생성 (SEO 최적화)
+ * - Schema.org 구조화 데이터 삽입 (검색 엔진 최적화)
+ * - 목차(TOC), 읽기 진행도, FAQ 등 고급 UX 기능
+ *
+ * Next.js 동적 라우팅:
  * - [slug] 폴더는 동적 세그먼트를 의미
- * - /blog/best-stock-newsletter → slug = 'best-stock-newsletter'
+ * - 예: /blog/best-stock-newsletter → slug = 'best-stock-newsletter'
  */
 
 import { notFound } from 'next/navigation';
@@ -117,17 +118,17 @@ async function BlogPostPage({ params }: PageProps) {
     parseMarkdown(post.content),
   ]);
 
-  // TOC 아이템 추출
+  // 목차 아이템 추출
   const tocItems = extractTOCItems(htmlContent);
 
-  // Schema.org
+  // Schema.org 구조화 데이터 생성
   const articleSchema = createArticleSchema(post, slug);
   const faqSchema = createFAQSchema(post.faq_items || []);
   const breadcrumbSchema = createBreadcrumbSchema(post.title, slug);
 
   return (
     <>
-      {/* Schema.org */}
+      {/* Schema.org JSON-LD 삽입 */}
       <Script id="article-schema" type="application/ld+json" strategy="afterInteractive">
         {JSON.stringify(articleSchema)}
       </Script>
@@ -140,12 +141,12 @@ async function BlogPostPage({ params }: PageProps) {
         {JSON.stringify(breadcrumbSchema)}
       </Script>
 
-      {/* Reading Progress Bar */}
+      {/* 읽기 진행도 바 */}
       <ReadingProgress />
 
       <div className="min-h-screen pt-20 pb-16">
-        {/* Breadcrumb */}
-        <div className="max-w-7xl mx-auto px-4 mb-8">
+        {/* 브레드크럼 네비게이션 */}
+        <div className="max-w-7xl mx-auto px-5 md:px-6 lg:px-4 mb-8">
           <Link
             href="/blog"
             className="inline-flex items-center gap-2 text-sm text-slate-400 hover:text-emerald-400 transition-colors"
@@ -155,25 +156,25 @@ async function BlogPostPage({ params }: PageProps) {
           </Link>
         </div>
 
-        {/* Main Layout: Content + TOC Sidebar */}
-        <div className="max-w-7xl mx-auto px-4">
-          <div className="lg:grid lg:grid-cols-[1fr_240px] lg:gap-12">
-            {/* Main Content */}
+        {/* 메인 레이아웃: 콘텐츠 + 목차 사이드바 */}
+        <div className="max-w-7xl mx-auto px-5 md:px-6 lg:px-4">
+          <div className="lg:grid lg:grid-cols-[1fr_280px] lg:gap-16 xl:gap-20">
+            {/* 메인 콘텐츠 */}
             <main>
               <article>
-                {/* Article Header */}
+                {/* 글 헤더 */}
                 <header className="mb-10">
-                  {/* Category Badge */}
+                  {/* 카테고리 뱃지 */}
                   <span className="inline-block px-3 py-1 mb-4 text-sm font-medium rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
                     {post.category || '주식 뉴스레터'}
                   </span>
 
-                  {/* Title */}
+                  {/* 제목 */}
                   <h1 className="text-3xl md:text-4xl lg:text-[2.5rem] font-bold mb-6 leading-tight text-white">
                     {post.title}
                   </h1>
 
-                  {/* Meta Info */}
+                  {/* 메타 정보 (날짜) */}
                   <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-slate-400 mb-6">
                     <span className="flex items-center gap-1.5">
                       <Calendar className="w-4 h-4" />
@@ -181,7 +182,7 @@ async function BlogPostPage({ params }: PageProps) {
                     </span>
                   </div>
 
-                  {/* Tags (눈에 띄게 배치) */}
+                  {/* 태그 */}
                   {post.tags && post.tags.length > 0 && (
                     <div className="flex flex-wrap gap-2">
                       {post.tags.map((tag) => (
@@ -197,37 +198,24 @@ async function BlogPostPage({ params }: PageProps) {
                   )}
                 </header>
 
-                {/* Mobile TOC */}
-                <TableOfContents items={tocItems} />
+                {/* 모바일 목차 (lg 미만에서만 표시) */}
+                <div className="lg:hidden">
+                  <TableOfContents items={tocItems} variant="mobile" />
+                </div>
 
-                {/* Article Content */}
+                {/* 글 본문 */}
                 <div
-                  className="mt-10 prose prose-invert prose-emerald max-w-none
-                    prose-headings:font-bold prose-headings:text-white prose-headings:scroll-mt-24
-                    prose-h2:text-2xl prose-h2:mt-12 prose-h2:mb-5 prose-h2:pb-3 prose-h2:border-b prose-h2:border-slate-800/50
-                    prose-h3:text-xl prose-h3:mt-8 prose-h3:mb-4
-                    prose-p:text-slate-300 prose-p:leading-[1.8] prose-p:mb-5
-                    prose-a:text-emerald-400 prose-a:no-underline hover:prose-a:underline
-                    prose-strong:text-white prose-strong:font-semibold
-                    prose-ul:text-slate-300 prose-ol:text-slate-300 prose-ul:my-5 prose-ol:my-5
-                    prose-li:marker:text-emerald-500 prose-li:mb-2
-                    prose-blockquote:border-emerald-500 prose-blockquote:text-slate-400 prose-blockquote:bg-slate-900/30 prose-blockquote:py-1 prose-blockquote:rounded-r-lg
-                    prose-code:text-emerald-300 prose-code:bg-slate-800 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-code:before:content-none prose-code:after:content-none
-                    prose-pre:bg-slate-900 prose-pre:border prose-pre:border-slate-800 prose-pre:rounded-lg
-                    prose-table:border-collapse
-                    prose-th:bg-slate-800 prose-th:text-white prose-th:p-3 prose-th:text-left prose-th:border prose-th:border-slate-700
-                    prose-td:border prose-td:border-slate-700 prose-td:p-3
-                    prose-hr:border-slate-800"
+                  className="prose-article"
                   dangerouslySetInnerHTML={{ __html: htmlContent }}
                 />
 
-                {/* FAQ Section */}
+                {/* FAQ 섹션 */}
                 <FAQAccordion items={post.faq_items || []} />
 
-                {/* CTA Section */}
+                {/* CTA 섹션 */}
                 <CTASection />
 
-                {/* Related Posts */}
+                {/* 관련 글 */}
                 {relatedPosts.length > 0 && (
                   <section className="mt-16 pt-10 border-t border-slate-800">
                     <h2 className="text-xl font-bold mb-6 text-white">관련 글</h2>
@@ -249,8 +237,10 @@ async function BlogPostPage({ params }: PageProps) {
               </article>
             </main>
 
-            {/* Desktop TOC Sidebar */}
-            <TableOfContents items={tocItems} />
+            {/* 데스크톱 목차 사이드바 (lg 이상에서만 표시) */}
+            <aside className="hidden lg:block">
+              <TableOfContents items={tocItems} variant="desktop" />
+            </aside>
           </div>
         </div>
       </div>
