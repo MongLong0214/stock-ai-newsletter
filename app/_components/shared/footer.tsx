@@ -128,6 +128,15 @@ function Footer() {
                   <ul className="space-y-3">
                     <li>
                       <Link
+                        href="/blog"
+                        className="text-slate-400 hover:text-emerald-400 text-sm transition-colors duration-200 block"
+                        title="투자 인사이트 블로그"
+                      >
+                        블로그
+                      </Link>
+                    </li>
+                    <li>
+                      <Link
                         href="/technical-indicators"
                         className="text-slate-400 hover:text-emerald-400 text-sm transition-colors duration-200 block"
                         title="기술적 지표 완벽 가이드"
@@ -135,7 +144,7 @@ function Footer() {
                         기술적 지표
                       </Link>
                     </li>
-                    {internalLinks.quickLinks.slice(0, 3).map((link) => (
+                    {internalLinks.quickLinks.slice(0, 2).map((link) => (
                       <li key={link.url}>
                         <Link
                           href={link.url}
