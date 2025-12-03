@@ -1,6 +1,58 @@
 {
   "newsletters": [
     {
+      "date": "2025-12-04",
+      "stocks": [
+        {
+          "ticker": "KOSPI:012450",
+          "name": "한화에어로스페이스",
+          "close_price": 873000,
+          "rationale": "RSI 68.2 강세권 유지 | 5일/20일 이동평균선 정배열 | 스페인 K9 자주포 수출 모멘텀 | 외국인 소진율 43.75% | MACD 상승지속 | 볼린저밴드 상단 돌파 시도 | 거래량 전일대비 안정적 | 연기금 지속 매수세 | 방산 섹터 주도주 | 52주 신고가 경신 임박 | ADX 35 상승추세 강화 | 일목균형표 양운 위 | Parabolic SAR 매수 유지 | OBV 우상향 | CCI 100 이상 과매수권",
+          "signals": {
+            "trend_score": 98,
+            "momentum_score": 97,
+            "volume_score": 95,
+            "volatility_score": 92,
+            "pattern_score": 96,
+            "sentiment_score": 98,
+            "overall_score": 97
+          }
+        },
+        {
+          "ticker": "KOSDAQ:196170",
+          "name": "알테오젠",
+          "close_price": 522000,
+          "rationale": "외국인 지분율 14.93% 견고 | 코스닥 시총 1위 수급 쏠림 | 20일선 지지 테스트 중 | RSI 58.5 중립-강세권 조정 | MACD Signal 근접 | 주봉상 상승 추세 유지 | 52주 최고가(569,000원) 대비 눌림목 | 기관/외국인 양매수 유입 | 바이오 섹터 대장주 | 거래대금 최상위권 유지 | ATR 변동성 축소 | 스토캐스틱 과매도권 진입 시도 | 볼린저밴드 중심선 지지 | 일목균형표 기준선 지지 | 장기 이평선 정배열 지속",
+          "signals": {
+            "trend_score": 92,
+            "momentum_score": 90,
+            "volume_score": 94,
+            "volatility_score": 85,
+            "pattern_score": 93,
+            "sentiment_score": 96,
+            "overall_score": 92
+          }
+        },
+        {
+          "ticker": "KOSPI:062040",
+          "name": "산일전기",
+          "close_price": 147400,
+          "rationale": "전일 대비 거래량 급증 후 숨고르기 | RSI 65.4 상승 탄력 유지 | 5일선 위 안착 | 미국 전력망 교체 수혜 | 외국인/기관 동반 매수세 | 역사적 신고가 영역 도전 | MACD 0선 상향 돌파 | 볼린저밴드 상단 확장 | ADX 30 추세 강화 | OBV 신고가 경신 | 일목균형표 구름대 상단 지지 | CCI 우상향 | 단기 골든크로스 완성 | 변동성 완화(ATR 하락) | 수급 주도 상승 패턴",
+          "signals": {
+            "trend_score": 95,
+            "momentum_score": 96,
+            "volume_score": 98,
+            "volatility_score": 93,
+            "pattern_score": 94,
+            "sentiment_score": 92,
+            "overall_score": 95
+          }
+        }
+      ],
+      "sentAt": "2025-12-03T22:51:25.782+00:00",
+      "subscriberCount": 29
+    },
+    {
       "date": "2025-12-03",
       "stocks": [
         {
@@ -1301,5 +1353,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2025-12-02T23:01:43.272Z"
+  "lastUpdated": "2025-12-03T22:52:03.170Z"
 }
