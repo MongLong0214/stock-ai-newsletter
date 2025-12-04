@@ -1,6 +1,58 @@
 {
   "newsletters": [
     {
+      "date": "2025-12-05",
+      "stocks": [
+        {
+          "ticker": "KOSDAQ:277810",
+          "name": "레인보우로보틱스",
+          "close_price": 472500,
+          "rationale": "SMA 5일/50일/200일 완전정배열 확립|RSI 67.13 매수 강세권 진입|MACD 11556.86 강력 매수 신호|5일 이동평균 442,400원 지지선 확보|전일 대비 6.3% 상승 모멘텀|휴머노이드 로봇 상용화 기대감|외국인 순매수세 유입 확인|볼린저밴드 상단 밴드워크 진행|ATR 변동성 지표 확대|CCI +120 과매수권 안착|일목균형표 양운 위 주가 위치|거래량 전일 대비 150% 수준 증가",
+          "signals": {
+            "trend_score": 99,
+            "momentum_score": 96,
+            "volume_score": 95,
+            "volatility_score": 93,
+            "pattern_score": 98,
+            "sentiment_score": 97,
+            "overall_score": 97
+          }
+        },
+        {
+          "ticker": "KOSDAQ:196170",
+          "name": "알테오젠",
+          "close_price": 519000,
+          "rationale": "역사적 신고가 519,000원 경신|52주 신고가 돌파 모멘텀|RSI 62.5 상승 추세 지속|MACD 오실레이터 양봉 확장|머크(Merck)사 독점 계약 모멘텀 부각|기관 누적 순매수 지속|단기 조정 후 V자 반등 성공|이동평균선 확산형 정배열|볼린저밴드 상단 이탈 후 안착 시도|ADX 38 강한 추세 형성|OBV 거래량 지표 우상향|2025년 실적 턴어라운드 전망",
+          "signals": {
+            "trend_score": 98,
+            "momentum_score": 97,
+            "volume_score": 94,
+            "volatility_score": 95,
+            "pattern_score": 96,
+            "sentiment_score": 96,
+            "overall_score": 96
+          }
+        },
+        {
+          "ticker": "KOSDAQ:015750",
+          "name": "성우하이텍",
+          "close_price": 7530,
+          "rationale": "AI 알고리즘 골든크로스 포착|5일/20일 이동평균선 교차 발생|RSI 50선 상향 돌파|MACD 시그널 매수 전환|배터리 시스템 부품(BSA) 모멘텀|볼린저밴드 중심선(20일선) 돌파|주봉 차트 상승 반전 신호|스토캐스틱 침체권 탈출|거래량 전일 대비 200% 급증|파라볼릭 SAR 매수 시그널|외국인 저점 매수세 유입|가격 메리트 및 밸류에이션 매력",
+          "signals": {
+            "trend_score": 93,
+            "momentum_score": 94,
+            "volume_score": 96,
+            "volatility_score": 89,
+            "pattern_score": 95,
+            "sentiment_score": 91,
+            "overall_score": 93
+          }
+        }
+      ],
+      "sentAt": "2025-12-04T22:50:49.662+00:00",
+      "subscriberCount": 30
+    },
+    {
       "date": "2025-12-04",
       "stocks": [
         {
@@ -1353,5 +1405,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2025-12-03T23:01:49.999Z"
+  "lastUpdated": "2025-12-04T22:51:28.189Z"
 }
