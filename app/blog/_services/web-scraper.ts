@@ -897,6 +897,25 @@ export async function scrapeSearchResults(
   return scrapedContents;
 }
 
+/** 텍스트에서 유효한 2-4어절 키워드 추출 */
+function extractKeywords(text: string): string[] {
+  const SUFFIX = /(은|는|이|가|을|를|의|에|에서|으로|로|와|과|도|만|까지|부터|라고|하는|한|된|되는|있는|없는|같은|대한|위한|통한)$/;
+  const STOP = /있습니다|합니다|됩니다|입니다|그리고|하지만|그래서|따라서|이것|그것|우리|여기/;
+
+  const words = text.replace(/[^\w\s가-힣]/g, ' ').split(/\s+/).filter(w => w.length >= 2);
+  const results: string[] = [];
+
+  for (let n = 2; n <= 4; n++) {
+    for (let i = 0; i <= words.length - n; i++) {
+      const phrase = words.slice(i, i + n).join(' ').replace(SUFFIX, '').trim();
+      if (phrase.length >= 4 && phrase.length <= 25 && /[가-힣a-zA-Z]/.test(phrase) && !STOP.test(phrase)) {
+        results.push(phrase);
+      }
+    }
+  }
+  return results;
+}
+
 export function analyzeCompetitors(
   scrapedContents: ScrapedContent[],
   targetKeyword: string
@@ -910,11 +929,12 @@ export function analyzeCompetitors(
       keywordDensity: {},
       contentGaps: [...CONTENT_GAPS],
       scrapedContents: [],
+      competitorKeywords: [],
     };
   }
 
+  // 1. H2 헤딩 기반 공통 토픽 분석
   const topicCounts = new Map<string, number>();
-
   scrapedContents.forEach((content) => {
     content.headings.h2.forEach((heading) => {
       const normalized = heading.toLowerCase();
@@ -929,12 +949,14 @@ export function analyzeCompetitors(
     .slice(0, 10)
     .map(([topic]) => topic);
 
+  // 2. 평균 단어 수 계산
   const validContents = scrapedContents.filter((c) => c.wordCount > 100);
   const totalWords = validContents.reduce((sum, c) => sum + c.wordCount, 0);
   const averageWordCount = validContents.length > 0
     ? Math.round(totalWords / validContents.length)
     : 1500;
 
+  // 3. 타겟 키워드 밀도 분석
   const keywordDensity: Record<string, number> = {};
   const relatedKeywords = targetKeyword.toLowerCase().split(' ').filter((k) => k.length >= 2);
   const regexCache = new Map<string, RegExp>();
@@ -953,6 +975,32 @@ export function analyzeCompetitors(
     });
   });
 
+  // 4. 경쟁사 키워드 추출 (제목/헤딩만 - 노이즈 최소화)
+  const keywordMap = new Map<string, { count: number; sources: Set<string> }>();
+
+  const addKeyword = (kw: string, url: string, weight: number) => {
+    const entry = keywordMap.get(kw) || { count: 0, sources: new Set<string>() };
+    entry.count += weight;
+    entry.sources.add(url);
+    keywordMap.set(kw, entry);
+  };
+
+  scrapedContents.forEach(({ url, title, headings }) => {
+    extractKeywords(title).forEach(kw => addKeyword(kw, url, 3));
+    [...headings.h1, ...headings.h2].forEach(h =>
+      extractKeywords(h).forEach(kw => addKeyword(kw, url, 2))
+    );
+  });
+
+  const competitorKeywords = Array.from(keywordMap.entries())
+    .map(([keyword, { count, sources }]) => ({ keyword, count, sources: Array.from(sources) }))
+    .sort((a, b) => b.sources.length - a.sources.length || b.count - a.count)
+    .slice(0, 20);
+
+  if (competitorKeywords.length > 0) {
+    console.log(`   🔍 경쟁사 키워드: ${competitorKeywords.slice(0, 5).map(k => k.keyword).join(', ')}`);
+  }
+
   return {
     totalCompetitors: scrapedContents.length,
     commonTopics,
@@ -960,5 +1008,6 @@ export function analyzeCompetitors(
     keywordDensity,
     contentGaps: [...CONTENT_GAPS],
     scrapedContents,
+    competitorKeywords,
   };
 }
