@@ -59,7 +59,6 @@ async function generateKeywordsWithAI(
         kw.searchIntent &&
         kw.difficulty &&
         kw.contentType &&
-        kw.relevanceScore >= 7.0 &&
         !usedKeywords.includes(kw.keyword.toLowerCase().trim())
     );
 
@@ -72,19 +71,14 @@ async function generateKeywordsWithAI(
   }
 }
 
-function scoreKeyword(keyword: KeywordMetadata): number {
-  // 엔터프라이즈 SEO 점수 계산 (프롬프트와 동일한 로직)
-  return calculateSEOScore(keyword);
-}
-
 export async function generateKeywords(
   requestedCount: number = 5,
-  options: { minRelevanceScore?: number; maxRetries?: number } = {}
+  options: { maxRetries?: number } = {}
 ): Promise<KeywordGenerationResult> {
-  const { minRelevanceScore = 7.5, maxRetries = 3 } = options;
+  const { maxRetries = 3 } = options;
 
   console.log(`\n${'='.repeat(80)}`);
-  console.log(`🎯 AI 키워드 생성: ${requestedCount}개 (최소 점수: ${minRelevanceScore})`);
+  console.log(`🎯 AI 키워드 생성: ${requestedCount}개`);
   console.log(`${'='.repeat(80)}\n`);
 
   try {
@@ -111,14 +105,10 @@ export async function generateKeywords(
     }
 
     const scoredKeywords = allKeywords
-      .map((kw) => ({ ...kw, finalScore: scoreKeyword(kw) }))
+      .map((kw) => ({ ...kw, finalScore: calculateSEOScore(kw) }))
       .sort((a, b) => b.finalScore - a.finalScore);
 
-    const filteredKeywords = scoredKeywords.filter(
-      (kw) => kw.relevanceScore >= minRelevanceScore
-    );
-
-    const selectedKeywords = filteredKeywords.slice(0, requestedCount);
+    const selectedKeywords = scoredKeywords.slice(0, requestedCount);
 
     console.log(`\n${'='.repeat(80)}`);
     console.log(`✅ 완료: 생성 ${allKeywords.length}개 → 선택 ${selectedKeywords.length}개`);
@@ -134,7 +124,7 @@ export async function generateKeywords(
       success: true,
       keywords: selectedKeywords,
       totalGenerated: allKeywords.length,
-      totalFiltered: filteredKeywords.length,
+      totalFiltered: selectedKeywords.length,
     };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
