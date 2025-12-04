@@ -356,6 +356,7 @@ export interface ScrapedContent {
  * - 평균 단어 수: 콘텐츠 길이 목표 설정에 활용
  * - 키워드 밀도: 키워드 출현 빈도
  * - 콘텐츠 갭: 경쟁사가 다루지 않는 우리만의 차별점
+ * - 경쟁사 키워드: 경쟁사 콘텐츠에서 추출한 키워드
  */
 export interface CompetitorAnalysis {
   /** 분석한 경쟁사 수 */
@@ -370,6 +371,8 @@ export interface CompetitorAnalysis {
   contentGaps: string[];
   /** 원본 스크래핑 데이터 */
   scrapedContents: ScrapedContent[];
+  /** 경쟁사 콘텐츠에서 추출한 키워드 (출현 빈도순) */
+  competitorKeywords: Array<{ keyword: string; count: number; sources: string[] }>;
 }
 
 // ============================================================================

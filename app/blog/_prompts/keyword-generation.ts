@@ -47,7 +47,6 @@ const SEO_SCORING_WEIGHTS = {
     low: { max: 100, weight: 0.6 },
     high: { min: 3000, weight: 0.8 },
   },
-  minimumRelevanceScore: 7.5,
 } as const;
 
 /**
@@ -103,151 +102,291 @@ const CONTENT_TYPE_RULES = `
  */
 const FEW_SHOT_EXAMPLES = `
 <few-shot-examples>
-  <example id="1" quality="excellent">
-    <keyword>AI 주식 분석 무료 서비스 비교</keyword>
+  <example id="1" quality="excellent" category="가치투자">
+    <keyword>PER PBR 낮은 저평가 주식 찾는 방법</keyword>
     <analysis>
       <step name="intent-analysis">
-        사용자가 여러 AI 주식 분석 서비스를 비교하려는 의도
-        → "비교" 트리거 존재 → commercial intent (구매/선택 전 정보 수집)
+        가치투자를 위해 저평가 주식 발굴 방법을 배우려는 의도
+        → "방법", "찾는" 트리거 → informational intent
       </step>
       <step name="difficulty-assessment">
-        "AI 주식 분석" + "무료" + "서비스" + "비교" = 4개 수식어
-        → 롱테일 키워드로 경쟁도 낮음 → difficulty: low
-      </step>
-      <step name="volume-estimation">
-        AI 투자 트렌드 상승 + 무료 서비스 수요 높음
-        → 월간 검색량 추정: 800-1200 (optimal zone)
-      </step>
-      <step name="content-type-matching">
-        "비교" 트리거 명확 → comparison 타입
-        여러 서비스를 표/차트로 비교하는 콘텐츠에 적합
-      </step>
-      <step name="relevance-scoring">
-        Stock Matrix 서비스와 직접 연관 (AI + 무료 + 주식)
-        → relevanceScore: 9.5/10
-      </step>
-    </analysis>
-    <output>
-      {
-        "keyword": "AI 주식 분석 무료 서비스 비교",
-        "searchIntent": "commercial",
-        "difficulty": "low",
-        "estimatedSearchVolume": 950,
-        "relevanceScore": 9.5,
-        "contentType": "comparison",
-        "reasoning": "AI 투자 서비스 선택 전 비교 분석 수요. Stock Matrix의 무료 AI 분석 강점을 부각할 수 있는 고가치 키워드."
-      }
-    </output>
-  </example>
-
-  <example id="2" quality="excellent">
-    <keyword>주식 기술적 분석 지표 보는 방법 초보</keyword>
-    <analysis>
-      <step name="intent-analysis">
-        초보자가 기술적 분석을 배우려는 교육적 의도
-        → "방법", "초보" 트리거 → informational intent
-      </step>
-      <step name="difficulty-assessment">
-        6개 키워드 조합 = 매우 구체적인 롱테일
+        "PER PBR" + "낮은" + "저평가" + "주식" + "찾는 방법" = 구체적 롱테일
         → 경쟁도 낮음 → difficulty: low
       </step>
       <step name="volume-estimation">
-        주식 입문자 상시 수요 + 기술적 분석 관심 증가
-        → 월간 검색량 추정: 600-900
-      </step>
-      <step name="content-type-matching">
-        "방법", "초보" 트리거 → guide 타입
-        단계별 설명이 필요한 교육 콘텐츠에 적합
-      </step>
-      <step name="relevance-scoring">
-        뉴스레터의 기술적 분석 콘텐츠와 연관
-        → relevanceScore: 8.8/10
-      </step>
-    </analysis>
-    <output>
-      {
-        "keyword": "주식 기술적 분석 지표 보는 방법 초보",
-        "searchIntent": "informational",
-        "difficulty": "low",
-        "estimatedSearchVolume": 720,
-        "relevanceScore": 8.8,
-        "contentType": "guide",
-        "reasoning": "초보 투자자 대상 기술적 분석 교육 콘텐츠. 뉴스레터 구독 유도를 위한 입문 가이드로 활용 가능."
-      }
-    </output>
-  </example>
-
-  <example id="3" quality="excellent">
-    <keyword>2024년 코스피 저평가 우량주 TOP 10</keyword>
-    <analysis>
-      <step name="intent-analysis">
-        투자 대상 종목 리스트를 원하는 의도
-        → "TOP 10" 트리거 → commercial intent (투자 결정 참고)
-      </step>
-      <step name="difficulty-assessment">
-        연도 특정 + "저평가" + "우량주" + 숫자 = 구체적 롱테일
-        → 중간 경쟁도 (시즈널 키워드) → difficulty: medium
-      </step>
-      <step name="volume-estimation">
-        연초/분기별 검색 급증 패턴
-        → 월간 검색량 추정: 1200-1800 (시즌별 변동)
-      </step>
-      <step name="content-type-matching">
-        "TOP 10" 트리거 명확 → listicle 타입
-        순위 기반 큐레이션 콘텐츠에 적합
-      </step>
-      <step name="relevance-scoring">
-        AI 분석 기반 종목 추천과 직접 연관
-        → relevanceScore: 9.2/10
-      </step>
-    </analysis>
-    <output>
-      {
-        "keyword": "2024년 코스피 저평가 우량주 TOP 10",
-        "searchIntent": "commercial",
-        "difficulty": "medium",
-        "estimatedSearchVolume": 1450,
-        "relevanceScore": 9.2,
-        "contentType": "listicle",
-        "reasoning": "AI 분석 기반 종목 추천 역량을 보여주는 핵심 키워드. 시즌별 업데이트로 지속적 트래픽 확보 가능."
-      }
-    </output>
-  </example>
-
-  <example id="4" quality="excellent">
-    <keyword>RSI 과매수 과매도 신호 활용 단기 매매 전략</keyword>
-    <analysis>
-      <step name="intent-analysis">
-        RSI 지표를 활용한 실전 매매 전략을 배우려는 의도
-        → "활용", "전략" 트리거 → informational intent (실전 교육)
-      </step>
-      <step name="difficulty-assessment">
-        "RSI" + "과매수" + "과매도" + "신호" + "활용" + "단기" + "매매" + "전략" = 8개 수식어
-        → 초롱테일 키워드로 경쟁도 매우 낮음 → difficulty: low
-      </step>
-      <step name="volume-estimation">
-        RSI는 가장 대중적 지표, 단기 매매 수요 높음
+        가치투자 관심 지속적, 투자 입문자 검색 다수
         → 월간 검색량 추정: 800-1200 (optimal zone)
       </step>
       <step name="content-type-matching">
-        "활용", "전략" 트리거 → guide 타입
-        단계별 전략 설명이 필요한 실전 가이드에 적합
+        "방법", "찾는" 트리거 → guide 타입
+        단계별 스크리닝 방법 설명에 적합
       </step>
       <step name="relevance-scoring">
-        핵심 기술적 지표 RSI + 기술적 분석 + 초보-중급 타겟
-        → AI/기술적 분석 +2점, 기술적 지표 +1.5점, 초보-중급 +0.5점
+        실용적 투자 정보 + 한국 시장 + 초보-중급 타겟
         → relevanceScore: 9.0/10
       </step>
     </analysis>
     <output>
       {
-        "keyword": "RSI 과매수 과매도 신호 활용 단기 매매 전략",
+        "keyword": "PER PBR 낮은 저평가 주식 찾는 방법",
         "searchIntent": "informational",
         "difficulty": "low",
-        "estimatedSearchVolume": 980,
+        "estimatedSearchVolume": 950,
         "relevanceScore": 9.0,
         "contentType": "guide",
-        "reasoning": "Stock Matrix의 핵심 기술적 지표인 RSI 활용법을 알려주는 실전 가이드. AI 기술적 분석 역량을 보여주고 뉴스레터 구독을 유도할 수 있는 고가치 키워드."
+        "reasoning": "가치투자 핵심 지표인 PER/PBR 활용법을 알려주는 실용 가이드. 초보 투자자들의 검색 수요가 높은 주제."
+      }
+    </output>
+  </example>
+
+  <example id="2" quality="excellent" category="투자전략">
+    <keyword>주식 분할매수 방법 몇 번 나눠서 사야</keyword>
+    <analysis>
+      <step name="intent-analysis">
+        분할매수 전략의 구체적 실행 방법을 알고 싶은 의도
+        → "방법" 트리거 → informational intent
+      </step>
+      <step name="difficulty-assessment">
+        구어체 롱테일 키워드로 경쟁도 낮음
+        → difficulty: low
+      </step>
+      <step name="volume-estimation">
+        실전 투자 전략에 대한 꾸준한 검색 수요
+        → 월간 검색량 추정: 600-900
+      </step>
+      <step name="content-type-matching">
+        "방법" 트리거 + 실전 전략 → guide 타입
+      </step>
+      <step name="relevance-scoring">
+        실용적 투자 전략 + 초보 타겟
+        → relevanceScore: 8.5/10
+      </step>
+    </analysis>
+    <output>
+      {
+        "keyword": "주식 분할매수 방법 몇 번 나눠서 사야",
+        "searchIntent": "informational",
+        "difficulty": "low",
+        "estimatedSearchVolume": 720,
+        "relevanceScore": 8.5,
+        "contentType": "guide",
+        "reasoning": "실전 투자자들이 자주 검색하는 분할매수 전략 가이드. 구어체 롱테일로 검색 의도가 명확함."
+      }
+    </output>
+  </example>
+
+  <example id="3" quality="excellent" category="종목발굴">
+    <keyword>2024년 고배당주 추천 목록 TOP 10</keyword>
+    <analysis>
+      <step name="intent-analysis">
+        배당 투자를 위한 종목 리스트를 원하는 의도
+        → "TOP 10", "추천" 트리거 → commercial intent
+      </step>
+      <step name="difficulty-assessment">
+        연도 특정 + 숫자 목록 = 시즈널 롱테일
+        → difficulty: medium
+      </step>
+      <step name="volume-estimation">
+        배당 시즌 전후 검색 급증
+        → 월간 검색량 추정: 1200-1800
+      </step>
+      <step name="content-type-matching">
+        "TOP 10", "목록" 트리거 → listicle 타입
+      </step>
+      <step name="relevance-scoring">
+        종목 추천 + 한국 시장 + 실용적 정보
+        → relevanceScore: 9.2/10
+      </step>
+    </analysis>
+    <output>
+      {
+        "keyword": "2024년 고배당주 추천 목록 TOP 10",
+        "searchIntent": "commercial",
+        "difficulty": "medium",
+        "estimatedSearchVolume": 1450,
+        "relevanceScore": 9.2,
+        "contentType": "listicle",
+        "reasoning": "배당 투자자들의 핵심 검색어. 시즌별 업데이트로 지속적 트래픽 확보 가능한 키워드."
+      }
+    </output>
+  </example>
+
+  <example id="4" quality="excellent" category="투자심리">
+    <keyword>주식 손절 못하는 이유 심리 극복 방법</keyword>
+    <analysis>
+      <step name="intent-analysis">
+        투자 심리 문제 해결을 원하는 의도
+        → "방법", "극복" 트리거 → informational intent
+      </step>
+      <step name="difficulty-assessment">
+        감성적 롱테일 키워드로 경쟁도 낮음
+        → difficulty: low
+      </step>
+      <step name="volume-estimation">
+        투자 실패 후 검색 패턴, 꾸준한 수요
+        → 월간 검색량 추정: 500-800
+      </step>
+      <step name="content-type-matching">
+        "방법", "극복" 트리거 → guide 타입
+      </step>
+      <step name="relevance-scoring">
+        투자 교육 + 실용적 정보 + 공감 콘텐츠
+        → relevanceScore: 8.0/10
+      </step>
+    </analysis>
+    <output>
+      {
+        "keyword": "주식 손절 못하는 이유 심리 극복 방법",
+        "searchIntent": "informational",
+        "difficulty": "low",
+        "estimatedSearchVolume": 650,
+        "relevanceScore": 8.0,
+        "contentType": "guide",
+        "reasoning": "투자자들의 공감을 얻을 수 있는 심리 관련 키워드. 손실 회피 심리 극복 가이드로 높은 체류 시간 기대."
+      }
+    </output>
+  </example>
+
+  <example id="5" quality="excellent" category="시장분석">
+    <keyword>금리 인상 주식시장 영향 어떤 업종 유리</keyword>
+    <analysis>
+      <step name="intent-analysis">
+        거시경제와 주식시장 관계를 이해하려는 의도
+        → "영향", "유리" 트리거 → informational intent
+      </step>
+      <step name="difficulty-assessment">
+        구어체 + 복합 질문 = 롱테일
+        → difficulty: medium
+      </step>
+      <step name="volume-estimation">
+        금리 변동기 검색 급증, 경제 뉴스 연동
+        → 월간 검색량 추정: 800-1200
+      </step>
+      <step name="content-type-matching">
+        분석 요청 + 업종 비교 → guide/comparison 혼합 → guide 선택
+      </step>
+      <step name="relevance-scoring">
+        시장 분석 + 실용적 정보 + 검색 수요 높음
+        → relevanceScore: 8.5/10
+      </step>
+    </analysis>
+    <output>
+      {
+        "keyword": "금리 인상 주식시장 영향 어떤 업종 유리",
+        "searchIntent": "informational",
+        "difficulty": "medium",
+        "estimatedSearchVolume": 980,
+        "relevanceScore": 8.5,
+        "contentType": "guide",
+        "reasoning": "거시경제 이해를 돕는 시장 분석 콘텐츠. 뉴스 이슈와 연동되어 트래픽 급증 가능성 높음."
+      }
+    </output>
+  </example>
+
+  <example id="6" quality="excellent" category="투자교육">
+    <keyword>증권사 수수료 비교 2024 어디가 싼지</keyword>
+    <analysis>
+      <step name="intent-analysis">
+        증권사 선택을 위한 비교 정보를 원하는 의도
+        → "비교", "어디가" 트리거 → commercial intent
+      </step>
+      <step name="difficulty-assessment">
+        연도 특정 + 구어체 = 틈새 롱테일
+        → difficulty: low
+      </step>
+      <step name="volume-estimation">
+        신규 투자자 유입 시 검색 급증
+        → 월간 검색량 추정: 1000-1500
+      </step>
+      <step name="content-type-matching">
+        "비교" 트리거 명확 → comparison 타입
+      </step>
+      <step name="relevance-scoring">
+        투자 입문 + 실용적 정보 + 검색 수요 높음
+        → relevanceScore: 9.0/10
+      </step>
+    </analysis>
+    <output>
+      {
+        "keyword": "증권사 수수료 비교 2024 어디가 싼지",
+        "searchIntent": "commercial",
+        "difficulty": "low",
+        "estimatedSearchVolume": 1200,
+        "relevanceScore": 9.0,
+        "contentType": "comparison",
+        "reasoning": "주식 입문자들의 필수 검색어. 표로 정리된 비교 콘텐츠로 높은 공유율 기대."
+      }
+    </output>
+  </example>
+
+  <example id="7" quality="excellent" category="기술적분석">
+    <keyword>이동평균선 골든크로스 데드크로스 매매 신호</keyword>
+    <analysis>
+      <step name="intent-analysis">
+        기술적 분석 신호 해석을 배우려는 의도
+        → informational intent
+      </step>
+      <step name="difficulty-assessment">
+        전문 용어 조합 롱테일
+        → difficulty: low
+      </step>
+      <step name="volume-estimation">
+        기술적 분석 학습자 꾸준한 수요
+        → 월간 검색량 추정: 700-1000
+      </step>
+      <step name="content-type-matching">
+        교육 콘텐츠 → guide 타입
+      </step>
+      <step name="relevance-scoring">
+        기술적 분석 핵심 주제 + 실용적 정보
+        → relevanceScore: 9.0/10
+      </step>
+    </analysis>
+    <output>
+      {
+        "keyword": "이동평균선 골든크로스 데드크로스 매매 신호",
+        "searchIntent": "informational",
+        "difficulty": "low",
+        "estimatedSearchVolume": 850,
+        "relevanceScore": 9.0,
+        "contentType": "guide",
+        "reasoning": "기술적 분석의 기본인 이동평균선 활용법. 차트와 함께 설명하면 높은 교육 가치."
+      }
+    </output>
+  </example>
+
+  <example id="8" quality="excellent" category="실전투자">
+    <keyword>주식 호가창 보는법 매수매도 잔량 의미</keyword>
+    <analysis>
+      <step name="intent-analysis">
+        실전 매매를 위한 기초 지식을 배우려는 의도
+        → "보는법", "의미" 트리거 → informational intent
+      </step>
+      <step name="difficulty-assessment">
+        초보자 대상 구체적 롱테일
+        → difficulty: low
+      </step>
+      <step name="volume-estimation">
+        HTS/MTS 입문자 상시 검색
+        → 월간 검색량 추정: 600-900
+      </step>
+      <step name="content-type-matching">
+        "보는법" 트리거 → guide 타입
+      </step>
+      <step name="relevance-scoring">
+        실전 투자 기초 + 초보 타겟
+        → relevanceScore: 8.5/10
+      </step>
+    </analysis>
+    <output>
+      {
+        "keyword": "주식 호가창 보는법 매수매도 잔량 의미",
+        "searchIntent": "informational",
+        "difficulty": "low",
+        "estimatedSearchVolume": 780,
+        "relevanceScore": 8.5,
+        "contentType": "guide",
+        "reasoning": "주식 입문자들이 반드시 검색하는 기초 콘텐츠. 스크린샷과 함께 설명하면 완성도 높음."
       }
     </output>
   </example>
@@ -257,22 +396,18 @@ const FEW_SHOT_EXAMPLES = `
 // Main Prompt Builder
 // ============================================================================
 
-/**
- * Builds enterprise-grade keyword generation prompt for Gemini 3 Pro Preview
- *
- * @param count - Number of keywords to generate (recommended: 5-15)
- * @param usedKeywords - Previously used keywords to exclude (deduplication)
- * @returns Optimized prompt string for AI keyword generation
- *
- * Prompt Engineering Techniques:
- * - Persona Definition: Expert role with specific domain knowledge
- * - Chain-of-Thought: 5-step systematic analysis framework
- * - Few-Shot Learning: 3 high-quality examples with reasoning
- * - Constraint Anchoring: Explicit rules with validation criteria
- * - Constitutional AI: Self-check requirements before output
- * - Output Schema Enforcement: Strict JSON structure specification
- */
-export function buildKeywordGenerationPrompt(count: number, usedKeywords: string[]): string {
+interface CompetitorKeyword {
+  keyword: string;
+  count: number;
+  sources: string[];
+}
+
+/** AI 키워드 생성 프롬프트 빌더 */
+export function buildKeywordGenerationPrompt(
+  count: number,
+  usedKeywords: string[],
+  competitorKeywords?: CompetitorKeyword[]
+): string {
   // Prepare excluded keywords list (limit to 50 for context efficiency)
   const excludedKeywordsList = usedKeywords.length > 0
     ? usedKeywords.slice(0, 50).map((kw, i) => `${i + 1}. ${kw}`).join('\n')
@@ -282,6 +417,24 @@ export function buildKeywordGenerationPrompt(count: number, usedKeywords: string
   const diversityRequirement = count >= 5
     ? `최소 ${Math.ceil(count * 0.6)}개는 서로 다른 contentType을 가져야 합니다.`
     : '가능한 다양한 contentType을 포함하세요.';
+
+  // Prepare competitor keywords section
+  const competitorKeywordsSection = competitorKeywords && competitorKeywords.length > 0
+    ? `
+<competitor-keywords-analysis>
+## 경쟁사 콘텐츠에서 발견된 키워드
+다음은 경쟁사 블로그/콘텐츠에서 추출한 상위 키워드입니다.
+이 키워드들을 참고하여 비슷하지만 더 구체적이고 차별화된 롱테일 키워드를 생성하세요.
+
+${competitorKeywords.slice(0, 15).map((kw, i) => `${i + 1}. "${kw.keyword}" (${kw.sources.length}개 소스)`).join('\n')}
+
+**활용 방법**:
+- 위 키워드를 그대로 사용하지 말고, 이를 기반으로 더 구체적인 변형을 만드세요
+- 예: "주식 분석" → "주식 기술적 분석 초보자 가이드", "AI 주식 분석 무료 서비스"
+- 경쟁사가 놓친 세부 주제나 롱테일 키워드를 발굴하세요
+- 유사 키워드가 많이 등장한 주제는 검색 수요가 높다는 의미입니다
+</competitor-keywords-analysis>`
+    : '';
 
   return `<system>
 당신은 한국 주식 시장 SEO 전문가이자 콘텐츠 전략가입니다.
@@ -296,11 +449,18 @@ export function buildKeywordGenerationPrompt(count: number, usedKeywords: string
 
 <service-context>
 서비스명: Stock Matrix (스톡 매트릭스)
-서비스 유형: AI 기반 무료 주식 뉴스레터
-핵심 가치: AI 기술적 분석, 무료 제공, 일일 인사이트
+서비스 유형: 주식 투자 정보 블로그
 타겟 오디언스: 한국 주식 투자자 (초보~중급)
-콘텐츠 영역: 기술적 분석, AI 예측, 시장 동향, 투자 교육
-핵심 기술적 지표: RSI, MACD, 볼린저밴드, 이동평균선, 스토캐스틱, CCI, OBV, 일목균형표
+
+**다양한 콘텐츠 영역** (반드시 여러 영역에서 키워드 생성):
+1. 기술적 분석: RSI, MACD, 볼린저밴드, 이동평균선, 차트 패턴
+2. 가치투자: PER, PBR, ROE, 재무제표 분석, 내재가치
+3. 투자 전략: 분할매수, 손절/익절, 포트폴리오 구성, 리밸런싱
+4. 시장 분석: 코스피/코스닥, 업종 분석, 경제 지표, 금리/환율
+5. 종목 발굴: 테마주, 성장주, 배당주, ETF, 신규 상장주
+6. 투자 심리: 공포와 탐욕, 손실 회피, 투자 멘탈 관리
+7. 투자 교육: 주식 입문, 계좌 개설, 세금, 증권사 비교
+8. 실전 투자: 매매 타이밍, 호가창 보기, 단타/스윙/장기투자
 </service-context>
 </system>
 
@@ -337,20 +497,18 @@ Stock Matrix 블로그를 위한 고품질 SEO 키워드 ${count}개를 생성�
 ${CONTENT_TYPE_RULES}
 
 ## Step 5: 관련성 점수 산정 (Relevance Scoring)
-- Stock Matrix 서비스와의 연관성 (0-10점)
-- 최소 기준: 7.5점 이상만 생성
+- 주식 투자/분석과의 연관성 (0-10점)
 - 평가 기준:
-  - AI/기술적 분석 연관: +2점
-  - 기술적 지표 포함 (RSI, MACD, 볼린저밴드 등): +1.5점
-  - 무료 서비스 연관: +1.5점
-  - 뉴스레터 구독 유도 가능: +1점
-  - 한국 시장 특화: +1점
-  - 초보-중급 투자자 타겟: +0.5점
+  - 주식 투자/분석 관련: +3점
+  - 실용적 정보 제공: +2점
+  - 한국 시장 관련: +2점
+  - 검색 수요 높음: +2점
+  - 초보-중급 투자자 타겟: +1점
 
-**기술적 지표 키워드 우선 생성**:
-- RSI, MACD, 볼린저밴드, 이동평균선, 스토캐스틱, CCI, OBV, 일목균형표 중
-  최소 30%는 이러한 지표를 포함한 키워드여야 함
-- 예: "RSI 과매수 과매도 보는법", "MACD 골든크로스 데드크로스", "볼린저밴드 돌파 전략"
+**키워드 다양성 필수**:
+- 다양한 주제 영역에서 키워드를 생성해야 함
+- 기술적 분석, 가치투자, 시장 분석, 종목 발굴, 투자 심리, 포트폴리오 관리 등
+- 특정 주제에 편중되지 않도록 주의
 </analysis-framework>
 
 <few-shot-learning>
@@ -361,10 +519,10 @@ ${FEW_SHOT_EXAMPLES}
 <constraints>
 ## 필수 준수 사항 (Mandatory)
 1. 정확히 ${count}개의 키워드를 생성할 것
-2. 모든 키워드의 relevanceScore >= 7.5
-3. 모든 키워드는 한국어 기반 (영문 약어 허용: AI, RSI, PER 등)
-4. JSON 배열 형식만 출력 (설명 텍스트 없음)
-5. ${diversityRequirement}
+2. 모든 키워드는 한국어 기반 (영문 약어 허용: AI, RSI, PER 등)
+3. JSON 배열 형식만 출력 (설명 텍스트 없음)
+4. ${diversityRequirement}
+5. **다양한 주제 영역**에서 키워드 생성 (기술적 분석에만 편중 금지)
 
 ## 금지 사항 (Prohibited)
 1. 아래 제외 키워드와 동일하거나 유사한 키워드 생성 금지
@@ -372,17 +530,20 @@ ${FEW_SHOT_EXAMPLES}
 3. 브랜드명 단독 사용 금지 (삼성전자만, 네이버만 등)
 4. 검색량 100 미만 추정 키워드 금지
 5. 추상적/모호한 키워드 금지
+6. 동일한 주제 영역의 키워드만 생성 금지
 
 ## 품질 기준 (Quality Gates)
 - 롱테일 비율: 70% 이상 (3개+ 단어 조합)
 - 검색 의도 명확성: 각 키워드에서 의도 추론 가능해야 함
 - contentType 근거: 트리거 단어 기반 매칭 필수
+- **주제 다양성**: 최소 3개 이상의 다른 주제 영역 포함
 </constraints>
 
 <excluded-keywords>
 다음 키워드들은 이미 사용되었으므로 제외하세요:
 ${excludedKeywordsList}
 </excluded-keywords>
+${competitorKeywordsSection}
 
 <output-schema>
 반드시 다음 JSON 스키마를 준수하세요:
@@ -411,12 +572,12 @@ interface KeywordMetadata {
 <self-validation>
 출력 전 다음을 확인하세요:
 ☐ 정확히 ${count}개의 키워드가 있는가?
-☐ 모든 relevanceScore가 7.5 이상인가?
 ☐ 제외 키워드와 중복되는 것이 없는가?
 ☐ 각 contentType에 매칭 근거(트리거)가 있는가?
 ☐ estimatedSearchVolume이 100-3000 범위인가?
 ☐ reasoning이 구체적이고 50자 이상인가?
 ☐ JSON 형식이 올바른가?
+☐ 키워드들이 다양한 주제 영역을 포함하는가?
 </self-validation>
 
 **JSON 배열만 출력하세요. 다른 텍스트는 포함하지 마세요.**`;
@@ -439,11 +600,6 @@ export function validateKeywordMetadata(keywords: KeywordMetadata[]): {
   const errors: string[] = [];
 
   keywords.forEach((kw, index) => {
-    // Check relevance score minimum
-    if (kw.relevanceScore < SEO_SCORING_WEIGHTS.minimumRelevanceScore) {
-      errors.push(`키워드 ${index + 1}: relevanceScore ${kw.relevanceScore} < 최소 기준 ${SEO_SCORING_WEIGHTS.minimumRelevanceScore}`);
-    }
-
     // Check search volume range
     if (kw.estimatedSearchVolume < 100 || kw.estimatedSearchVolume > 5000) {
       errors.push(`키워드 ${index + 1}: 검색량 ${kw.estimatedSearchVolume}이 유효 범위(100-5000) 벗어남`);
