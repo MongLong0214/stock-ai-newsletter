@@ -99,13 +99,13 @@ export async function generateBlogPostsBatch(keywords: Array<{ keyword: string; 
   return results;
 }
 
-export async function generateWithDynamicKeywords(options: { publish?: boolean; count?: number; minRelevanceScore?: number } = {}): Promise<PipelineResult[]> {
-  const { publish = false, count = 5, minRelevanceScore = 7.5 } = options;
+export async function generateWithDynamicKeywords(options: { publish?: boolean; count?: number } = {}): Promise<PipelineResult[]> {
+  const { publish = false, count = 5 } = options;
 
-  console.log(`\n${'#'.repeat(50)}\n🤖 AI 키워드 생성 (${count}개, 최소${minRelevanceScore}점)\n${'#'.repeat(50)}`);
+  console.log(`\n${'#'.repeat(50)}\n🤖 AI 키워드 생성 (${count}개)\n${'#'.repeat(50)}`);
 
   try {
-    const result = await withTimeoutFallback(generateKeywords(count, { minRelevanceScore }), T.keyword, { success: false, keywords: [], totalGenerated: 0, totalFiltered: 0, error: 'timeout' }, 'Keyword');
+    const result = await withTimeoutFallback(generateKeywords(count), T.keyword, { success: false, keywords: [], totalGenerated: 0, totalFiltered: 0, error: 'timeout' }, 'Keyword');
     if (!result.success || !result.keywords.length) { console.error(`❌ ${result.error || '키워드 없음'}`); return []; }
     console.log(`✅ ${result.keywords.length}개 생성`);
     return generateBlogPostsBatch(result.keywords.map(k => ({ keyword: k.keyword, type: k.contentType })), publish);
