@@ -25,7 +25,7 @@ setTimeout(() => { console.error('\n⏰ 타임아웃 (25분)'); exit(0); }, 25 *
   if (missing.length) { console.error(`❌ 환경변수 누락: ${missing.join(', ')}`); return exit(1); }
 
   try {
-    const results = await generateWithDynamicKeywords({ publish: true, count: 5, minRelevanceScore: 7.5 });
+    const results = await generateWithDynamicKeywords({ publish: true, count: 5 });
     const ok = results.filter(r => r.success).length;
     console.log(`\n📊 결과: ✅ ${ok}개 성공, ❌ ${results.length - ok}개 실패`);
     results.filter(r => r.success && r.blogPost).forEach((r, i) => console.log(`   ${i + 1}. ${r.blogPost!.title}`));

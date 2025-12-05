@@ -6,17 +6,11 @@
 import type { MetadataConfig } from './types';
 import { siteConfig } from './config';
 
-const {
-  deliveryTimeShort,
-  indicatorCount,
-  markets,
-  stockCount,
-  deliveryTime,
-} = siteConfig;
+const { indicatorCount, markets, stockCount, deliveryTime } = siteConfig;
 
 export const metadataConfig: MetadataConfig = {
-  title: `매일 ${deliveryTimeShort} AI 주식분석 무료 | StockMatrix`,
+  title: `StockMatrix — 한국 주식 무료 투자 뉴스레터`,
   titleTemplate: '%s | StockMatrix',
-  description: `RSI·MACD·볼린저밴드·이동평균선·스토캐스틱 등 ${indicatorCount}개 지표로 AI가 분석한 ${markets} ${stockCount}종목을 매일 ${deliveryTime} 무료 이메일 발송. 투자 참고용 기술적 분석 뉴스레터. 지금 무료 구독하세요.`,
-  descriptionShort: `${markets} ${stockCount}개 종목, AI 기술적 분석 뉴스레터 무료 발송`,
+  description: `한국 주식 투자자를 위한 무료 뉴스레터 서비스 — StockMatrix. 매일 ${deliveryTime} 시장 분석과 종목 인사이트를 이메일로 받아보는 투자 뉴스레터. AI가 ${indicatorCount}개 기술적 지표로 분석한 ${markets} ${stockCount}종목 정보를 무료 제공.`,
+  descriptionShort: `종목 분석·시장 전망·경제지표 업데이트를 이메일 뉴스레터로 전달하는 투자 의사결정 지원 서비스`,
 } as const;
