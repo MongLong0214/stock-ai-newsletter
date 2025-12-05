@@ -199,8 +199,10 @@ export function TagFilter({ tags, selectedTags, onToggle }: TagFilterProps) {
               'bg-gradient-to-br from-gray-800/60 to-gray-800/40 backdrop-blur-sm border border-gray-700/50',
               'hover:from-gray-800/80 hover:to-gray-800/60 hover:border-emerald-500/30 hover:shadow-lg hover:shadow-emerald-500/5',
               'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-black',
-              'transition-all duration-300'
+              'transition-all duration-300',
+              'animate-fade-in-up'
             )}
+            style={{ animationDelay: '200ms' }}
           >
             {/* 호버 글로우 효과 */}
             <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/0 via-emerald-500/5 to-emerald-500/0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />

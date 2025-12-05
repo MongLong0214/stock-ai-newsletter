@@ -169,17 +169,28 @@ body {
 @keyframes fade-in-up {
   0% {
     opacity: 0;
-    transform: translateY(20px);
+    transform: translate3d(0, 20px, 0); /* GPU 가속 */
   }
   100% {
     opacity: 1;
-    transform: translateY(0);
+    transform: translate3d(0, 0, 0); /* GPU 가속 */
   }
 }
 
 .animate-fade-in-up {
-  animation: fade-in-up 0.5s ease-out forwards;
+  animation: fade-in-up 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
   opacity: 0;
+  will-change: transform, opacity; /* GPU 가속 활성화 */
+}
+
+/* 애니메이션 완료 후 will-change 제거를 위한 최적화 */
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-in-up {
+    animation: none;
+    opacity: 1;
+    transform: none;
+    will-change: auto;
+  }
 }
 
 @keyframes pulse-glow {
