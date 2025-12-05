@@ -3,6 +3,7 @@ import { formatDateKo } from '../../_utils/date-formatter';
 import type { BlogPostListItem } from '../../_types/blog';
 
 const ANIMATION_STAGGER_MS = 60;
+const ANIMATION_BASE_DELAY_MS = 250;
 const MAX_VISIBLE_TAGS = 4;
 
 interface BlogCardProps {
@@ -14,7 +15,9 @@ function BlogCard({ post, index }: BlogCardProps) {
   return (
     <article
       className="group animate-fade-in-up h-full"
-      style={{ animationDelay: `${index * ANIMATION_STAGGER_MS}ms` }}
+      style={{
+        animationDelay: `${ANIMATION_BASE_DELAY_MS + index * ANIMATION_STAGGER_MS}ms`
+      }}
     >
       <Link
         href={`/blog/${post.slug}`}

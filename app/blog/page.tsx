@@ -11,14 +11,11 @@ import type { BlogPostListItem } from './_types/blog';
 async function getPublishedPosts(): Promise<BlogPostListItem[]> {
   const supabase = getServerSupabaseClient();
 
-  // 먼저 간단한 쿼리로 테스트
   const { data, error } = await supabase
     .from('blog_posts')
-    .select('*')
+    .select('slug, title, description, target_keyword, category, tags, published_at, view_count')
     .eq('status', 'published')
     .order('published_at', { ascending: false });
-
-  console.log('Query result:', { hasData: !!data, error, count: data?.length });
 
   if (error || !Array.isArray(data)) return [];
 
@@ -57,13 +54,6 @@ async function BlogPage() {
                 </span>
               </h1>
 
-              <p className="text-base leading-relaxed text-gray-400 max-w-2xl mx-auto sm:text-lg md:text-xl md:leading-relaxed">
-                AI 주식 분석, 뉴스레터 추천,
-                <br />
-                기술적 분석 가이드 등 주식 투자에
-                <br className="sm:hidden" />
-                필요한 모든 정보를 제공합니다.
-              </p>
             </header>
           </div>
         </section>
