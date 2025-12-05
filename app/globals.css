@@ -93,10 +93,10 @@ body {
   color: var(--matrix-black);
 }
 
-/* Premium focus states */
-*:focus-visible {
-  outline: 2px solid var(--matrix-green-primary);
-  outline-offset: 2px;
+/* Premium focus states - 폼 요소 제외 */
+*:focus-visible:not(input):not(textarea):not(select) {
+  outline: 1px solid var(--matrix-green-primary);
+  outline-offset: 1px;
 }
 
 /* Sophisticated animations */
