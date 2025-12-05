@@ -16,9 +16,9 @@ async function getPublishedPosts(): Promise<BlogPostListItem[]> {
     .from('blog_posts')
     .select('slug, title, description, target_keyword, category, tags, published_at, view_count')
     .eq('status', 'published')
-    .order('published_at', { ascending: false })
-    .limit(20);
+    .order('published_at', { ascending: false });
 
+  console.log(data)
   if (error || !Array.isArray(data)) return [];
 
   return data.filter(isValidBlogPost);

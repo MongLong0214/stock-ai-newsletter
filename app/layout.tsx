@@ -196,6 +196,28 @@ export default function RootLayout({
         },
       },
       {
+        '@type': ['Service', 'NewsMediaOrganization'],
+        '@id': `${siteConfig.domain}/#newsletter`,
+        name: 'StockMatrix 주식 뉴스레터',
+        alternateName: '스탁매트릭스 투자 뉴스레터',
+        description: '한국 주식 투자자를 위한 무료 이메일 뉴스레터 서비스. AI가 분석한 시장 인사이트와 종목 정보를 매일 오전 7시 50분 제공.',
+        publisher: {
+          '@id': `${siteConfig.domain}/#organization`,
+        },
+        inLanguage: 'ko-KR',
+        about: ['주식 투자', '시장 분석', '기술적 지표', '종목 인사이트', '경제 뉴스'],
+        audience: {
+          '@type': 'Audience',
+          audienceType: ['개인 투자자', '주식 초보자', '기술적 분석 관심자'],
+          geographicArea: {
+            '@type': 'Country',
+            name: '대한민국',
+          },
+        },
+        isAccessibleForFree: true,
+        publishingPrinciples: `${siteConfig.domain}/about`,
+      },
+      {
         '@type': 'LocalBusiness',
         '@id': `${siteConfig.domain}/#localbusiness`,
         name: siteConfig.serviceName,

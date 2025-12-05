@@ -7,6 +7,7 @@ import { useCountdownToTomorrow } from "@/hooks/use-countdown-to-tomorrow";
 import { useIsMobile } from "@/hooks/use-is-mobile";
 import {  TECHNICAL_INDICATORS_DATA } from "./constants/home-page";
 import HeroSection from "./_components/home/hero-section";
+import ServiceDefinitionSection from "./_components/home/service-definition-section";
 import EmailPreviewSection from "./_components/home/email-preview-section";
 import TechnicalIndicatorsSection from "./_components/home/technical-indicators-section";
 import CTASection from "./_components/home/cta-section";
@@ -39,6 +40,7 @@ export default function HomePage() {
       {/* Hero Section */}
       <HeroSection formatted={formatted} />
 
+
       {/* Email Preview Section */}
       <EmailPreviewSection />
 
@@ -48,9 +50,12 @@ export default function HomePage() {
         indicators={TECHNICAL_INDICATORS_DATA}
       />
 
+
       {/* CTA Section */}
       <CTASection formatted={formatted} />
 
+        {/* Service Definition Section - AI 검색 최적화 */}
+        <ServiceDefinitionSection />
       {/* SoftwareApplication Schema for Homepage */}
       <Script
         id="software-application-schema"
