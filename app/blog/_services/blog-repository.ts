@@ -87,18 +87,23 @@ export async function saveBlogPost(
   // - upsert: slug가 같은 데이터가 있으면 업데이트, 없으면 새로 생성
   // - select(): 저장 후 데이터 반환 요청
   // - single(): 단일 객체로 반환 (배열이 아닌)
+  //
+  // [타입 안전성]
+  // - 제네릭 타입으로 BlogPost 타입 명시
+  // - 타입 단언(as) 없이도 타입 추론 가능
   const { data, error } = await supabase
     .from('blog_posts')
     .upsert(postData, { onConflict: 'slug' })
     .select()
-    .single();
+    .single<BlogPost>();
 
   // 에러 처리
   if (error) {
     throw new Error(`블로그 포스트 저장 실패: ${error.message}`);
   }
 
-  return data as BlogPost;
+  // data는 이미 BlogPost 타입으로 추론됨 (타입 단언 불필요)
+  return data;
 }
 
 /**
@@ -122,6 +127,10 @@ export async function publishBlogPost(slug: string): Promise<BlogPost> {
   const supabase = getServerSupabaseClient();
 
   // 발행 상태로 업데이트
+  //
+  // [타입 안전성]
+  // - 제네릭 타입으로 BlogPost 타입 명시
+  // - 타입 단언(as) 없이도 타입 추론 가능
   const { data, error } = await supabase
     .from('blog_posts')
     .update({
@@ -132,12 +141,51 @@ export async function publishBlogPost(slug: string): Promise<BlogPost> {
     // slug로 해당 포스트 찾기
     .eq('slug', slug)
     .select()
-    .single();
+    .single<BlogPost>();
 
   // 에러 처리
   if (error) {
     throw new Error(`발행 실패: ${error.message}`);
   }
 
-  return data as BlogPost;
+  // data는 이미 BlogPost 타입으로 추론됨 (타입 단언 불필요)
+  return data;
+}
+
+/**
+ * 블로그 포스트 조회수 증가
+ *
+ * [조회수 처리]
+ * - 페이지 방문 시마다 view_count를 1씩 증가
+ * - RPC 함수 사용으로 원자적 연산 보장 (동시성 이슈 방지)
+ * - 에러 발생해도 페이지 렌더링에는 영향 없음
+ *
+ * @param slug - 조회수를 증가시킬 포스트의 슬러그
+ *
+ * @example
+ * await incrementViewCount('best-stock-newsletter-2024');
+ */
+export async function incrementViewCount(slug: string): Promise<void> {
+  const supabase = getServerSupabaseClient();
+
+  // RPC 함수 사용 시도
+  const { error } = await supabase.rpc('increment_blog_view_count', { post_slug: slug });
+
+  // RPC 함수가 없으면 fallback으로 일반 업데이트 사용
+  if (error?.code === '42883') {
+    const { data: currentPost } = await supabase
+      .from('blog_posts')
+      .select('view_count')
+      .eq('slug', slug)
+      .single();
+
+    if (currentPost) {
+      await supabase
+        .from('blog_posts')
+        .update({ view_count: (currentPost.view_count || 0) + 1 })
+        .eq('slug', slug);
+    }
+  } else if (error) {
+    console.error('조회수 증가 실패:', error.message);
+  }
 }

@@ -51,7 +51,6 @@ export async function generateBlogPost(keyword: string, type: 'comparison' | 'gu
       meta_description: content.metaDescription,
       target_keyword: keyword,
       secondary_keywords: content.suggestedTags,
-      category: 'stock-newsletter',
       tags: content.suggestedTags,
       competitor_urls: searchResults.map(r => r.link),
       competitor_count: scraped.length,

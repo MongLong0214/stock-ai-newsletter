@@ -231,6 +231,10 @@ export interface BlogPostCreateInput {
  * [사용 위치]
  * - /blog 목록 페이지
  * - BlogCard 컴포넌트
+ *
+ * [중요 - category 필드]
+ * - optional 타입으로 설정 (DB 쿼리에서 항상 SELECT하지 않을 수 있음)
+ * - 타입 안전성을 위해 런타임 null/undefined 체크 필수
  */
 export interface BlogPostListItem {
   /** URL 슬러그 */
@@ -241,8 +245,8 @@ export interface BlogPostListItem {
   description: string;
   /** SEO 타겟 키워드 */
   target_keyword: string;
-  /** 카테고리 */
-  category: string;
+  /** 카테고리 (선택적 - DB 쿼리에서 생략 가능) */
+  category?: string;
   /** 태그 배열 */
   tags: string[] | null;
   /** 발행일 */
