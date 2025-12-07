@@ -6,18 +6,11 @@ const ANIMATION_STAGGER_MS = 60;
 const ANIMATION_BASE_DELAY_MS = 250;
 const MAX_VISIBLE_TAGS = 4;
 
-interface BlogCardProps {
-  post: BlogPostListItem;
-  index: number;
-}
-
-function BlogCard({ post, index }: BlogCardProps) {
+function BlogCard({ post, index }: { post: BlogPostListItem; index: number }) {
   return (
     <article
       className="group animate-fade-in-up h-full"
-      style={{
-        animationDelay: `${ANIMATION_BASE_DELAY_MS + index * ANIMATION_STAGGER_MS}ms`
-      }}
+      style={{ animationDelay: `${ANIMATION_BASE_DELAY_MS + index * ANIMATION_STAGGER_MS}ms` }}
     >
       <Link
         href={`/blog/${post.slug}`}
