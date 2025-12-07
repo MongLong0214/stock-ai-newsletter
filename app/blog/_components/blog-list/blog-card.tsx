@@ -4,9 +4,12 @@ import type { BlogPostListItem } from '../../_types/blog';
 
 const MAX_VISIBLE_TAGS = 4;
 
-function BlogCard({ post }: { post: BlogPostListItem }) {
+function BlogCard({ post, index }: { post: BlogPostListItem; index: number }) {
   return (
-    <article className="group animate-fade-in-up h-full">
+    <article
+      className="group animate-fade-in-up h-full"
+      style={{ animationDelay: `${index * 50}ms` }}
+    >
       <Link
         href={`/blog/${post.slug}`}
         className="relative flex flex-col h-full p-7 rounded-2xl border border-gray-800/50 bg-gradient-to-br from-gray-900/90 to-gray-950/90 backdrop-blur-md overflow-hidden transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] hover:border-emerald-500/40 hover:shadow-2xl hover:shadow-emerald-500/20 hover:scale-[1.02] hover:-translate-y-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-950 will-change-transform"

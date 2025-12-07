@@ -114,8 +114,8 @@ export default function BlogListClient({ posts }: BlogListClientProps) {
           <EmptyState />
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {filteredPosts.map((post) => (
-              <BlogCard key={post.slug} post={post} />
+            {filteredPosts.map((post, index) => (
+              <BlogCard key={post.slug} post={post} index={index} />
             ))}
           </div>
         )}
