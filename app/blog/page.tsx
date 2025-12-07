@@ -42,7 +42,7 @@ async function BlogPage() {
         <section className="relative overflow-hidden pt-24 pb-12 px-6 sm:pt-28 sm:pb-16 md:pt-32 md:pb-20 lg:px-8">
           <div className="relative max-w-6xl mx-auto">
             <header className="text-center space-y-6 sm:space-y-8">
-              <h1 className="text-4xl leading-[1.15] font-extrabold tracking-tight sm:text-5xl md:text-6xl lg:text-7xl">
+              <h1 className="text-4xl leading-[1.15] font-extrabold tracking-tight sm:text-5xl md:text-6xl lg:text-7xl animate-fade-in-up" style={{ animationDelay: '0ms' }}>
                 <span className="block sm:inline">Stock Matrix</span>
                 <span className="inline-block ml-2 sm:ml-3">
                   <span className="relative inline-block">
