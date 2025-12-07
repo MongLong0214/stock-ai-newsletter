@@ -1,6 +1,3 @@
-'use client';
-
-import { useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { formatDateKo } from '../../_utils/date-formatter';
 import type { BlogPostListItem } from '../../_types/blog';
@@ -8,32 +5,8 @@ import type { BlogPostListItem } from '../../_types/blog';
 const MAX_VISIBLE_TAGS = 4;
 
 function BlogCard({ post }: { post: BlogPostListItem }) {
-  const ref = useRef<HTMLElement>(null);
-
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-
-    // 뷰포트 밖 카드만 처리 (뷰포트 안은 SSR 상태 그대로 유지)
-    if (el.getBoundingClientRect().top >= window.innerHeight) {
-      el.classList.add('opacity-0');
-      const obs = new IntersectionObserver(
-        ([e]) => {
-          if (e.isIntersecting) {
-            el.classList.remove('opacity-0');
-            el.classList.add('animate-fade-in-up');
-            obs.disconnect();
-          }
-        },
-        { threshold: 0.1 }
-      );
-      obs.observe(el);
-      return () => obs.disconnect();
-    }
-  }, []);
-
   return (
-    <article ref={ref} className="group h-full">
+    <article className="group animate-fade-in-up h-full">
       <Link
         href={`/blog/${post.slug}`}
         className="relative flex flex-col h-full p-7 rounded-2xl border border-gray-800/50 bg-gradient-to-br from-gray-900/90 to-gray-950/90 backdrop-blur-md overflow-hidden transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] hover:border-emerald-500/40 hover:shadow-2xl hover:shadow-emerald-500/20 hover:scale-[1.02] hover:-translate-y-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-950 will-change-transform"
