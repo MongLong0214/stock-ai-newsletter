@@ -9,13 +9,16 @@
  * 사용 라이브러리:
  * - remark: Markdown 처리 라이브러리
  * - remark-gfm: GitHub Flavored Markdown 플러그인 (테이블, 취소선 등)
- * - remark-html: Markdown → HTML 변환 플러그인
+ * - remark-rehype: Markdown AST → HTML AST 변환
+ * - rehype-sanitize: XSS 방지를 위한 HTML 정화
+ * - rehype-stringify: HTML AST → 문자열 변환
  */
 
 import { remark } from 'remark';
 import remarkGfm from 'remark-gfm';
-import html from 'remark-html';
-import DOMPurify from 'isomorphic-dompurify';
+import remarkRehype from 'remark-rehype';
+import rehypeSanitize, { defaultSchema } from 'rehype-sanitize';
+import rehypeStringify from 'rehype-stringify';
 
 /**
  * 텍스트를 URL-safe slug로 변환
@@ -51,13 +54,35 @@ function addHeadingIds(html: string): string {
   });
 }
 
+// rehype-sanitize용 커스텀 스키마 (기본 스키마 확장)
+const sanitizeSchema = {
+  ...defaultSchema,
+  tagNames: [
+    ...(defaultSchema.tagNames || []),
+    'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+    'p', 'br', 'hr',
+    'strong', 'em', 'u', 's', 'code', 'del',
+    'ul', 'ol', 'li',
+    'blockquote', 'pre',
+    'a', 'img',
+    'table', 'thead', 'tbody', 'tr', 'th', 'td',
+    'div', 'span',
+  ],
+  attributes: {
+    ...defaultSchema.attributes,
+    '*': ['className', 'id'],
+    a: ['href', 'title', 'target', 'rel'],
+    img: ['src', 'alt', 'title'],
+  },
+};
+
 /**
  * Markdown을 안전한 HTML로 변환 (XSS 방지)
  *
  * 변환 과정:
  * 1. Markdown → HTML 변환 (remark + GFM)
- * 2. Heading에 ID 추가 (목차용)
- * 3. DOMPurify로 XSS 위험 제거
+ * 2. rehype-sanitize로 XSS 위험 제거
+ * 3. Heading에 ID 추가 (목차용)
  *
  * @param markdown - 변환할 Markdown 텍스트
  * @returns 안전하게 sanitize된 HTML 문자열
@@ -65,29 +90,10 @@ function addHeadingIds(html: string): string {
 export async function parseMarkdown(markdown: string): Promise<string> {
   const result = await remark()
     .use(remarkGfm)
-    .use(html)
+    .use(remarkRehype)
+    .use(rehypeSanitize, sanitizeSchema)
+    .use(rehypeStringify)
     .process(markdown);
 
-  const htmlWithIds = addHeadingIds(result.toString());
-
-  return DOMPurify.sanitize(htmlWithIds, {
-    ALLOWED_TAGS: [
-      'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
-      'p', 'br', 'hr',
-      'strong', 'em', 'u', 's', 'code', 'del',
-      'ul', 'ol', 'li',
-      'blockquote', 'pre',
-      'a', 'img',
-      'table', 'thead', 'tbody', 'tr', 'th', 'td',
-      'div', 'span',
-    ],
-    ALLOWED_ATTR: ['href', 'src', 'alt', 'title', 'class', 'id', 'target', 'rel'],
-    FORBID_TAGS: ['script', 'iframe', 'object', 'embed', 'style', 'form', 'input', 'button'],
-    FORBID_ATTR: ['onerror', 'onload', 'onclick', 'onmouseover'],
-    ALLOW_DATA_ATTR: false,
-    ALLOWED_URI_REGEXP: /^(?:(?:https?):\/\/|mailto:|tel:|#|\/)/i,
-    SAFE_FOR_TEMPLATES: true,
-    ADD_ATTR: ['target'],
-    ADD_URI_SAFE_ATTR: ['href', 'src'],
-  });
+  return addHeadingIds(result.toString());
 }
