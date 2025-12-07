@@ -4,16 +4,13 @@ import type { BlogPostListItem } from '../../_types/blog';
 
 const ANIMATION_STAGGER_MS = 60;
 const ANIMATION_BASE_DELAY_MS = 250;
-const ANIMATION_MAX_DELAY_MS = 400; // 모바일 빈화면 방지
 const MAX_VISIBLE_TAGS = 4;
 
 function BlogCard({ post, index }: { post: BlogPostListItem; index: number }) {
-  const delay = Math.min(ANIMATION_BASE_DELAY_MS + index * ANIMATION_STAGGER_MS, ANIMATION_MAX_DELAY_MS);
-
   return (
     <article
       className="group animate-fade-in-up h-full"
-      style={{ animationDelay: `${delay}ms` }}
+      style={{ animationDelay: `${ANIMATION_BASE_DELAY_MS + index * ANIMATION_STAGGER_MS}ms` }}
     >
       <Link
         href={`/blog/${post.slug}`}
