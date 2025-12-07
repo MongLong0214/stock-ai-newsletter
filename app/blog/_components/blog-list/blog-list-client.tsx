@@ -10,6 +10,7 @@ import { SearchBar } from '../filters/search-bar';
 import { TagFilter } from '../filters/tag-filter';
 import { ActiveFilters } from '../filters/active-filters';
 import { useDebounce } from '../../_hooks/use-debounce';
+import { useSkipAnimation } from '../../_hooks/use-skip-animation';
 import type { BlogPostListItem } from '../../_types/blog';
 
 /** 검색어 입력 Debounce 시간 (밀리초) */
@@ -21,6 +22,9 @@ interface BlogListClientProps {
 }
 
 export default function BlogListClient({ posts }: BlogListClientProps) {
+  // 뒤로가기/재방문 시 애니메이션 건너뛰기
+  const skipAnimation = useSkipAnimation();
+
   // State
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTags, setSelectedTags] = useState<Set<string>>(new Set());
@@ -115,7 +119,7 @@ export default function BlogListClient({ posts }: BlogListClientProps) {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {filteredPosts.map((post, index) => (
-              <BlogCard key={post.slug} post={post} index={index} />
+              <BlogCard key={post.slug} post={post} index={index} skipAnimation={skipAnimation} />
             ))}
           </div>
         )}

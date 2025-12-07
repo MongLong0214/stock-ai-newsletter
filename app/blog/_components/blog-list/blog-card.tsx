@@ -9,13 +9,15 @@ const MAX_VISIBLE_TAGS = 4;
 interface BlogCardProps {
   post: BlogPostListItem;
   index: number;
+  /** 뒤로가기/재방문 시 애니메이션 건너뛰기 */
+  skipAnimation?: boolean;
 }
 
-function BlogCard({ post, index }: BlogCardProps) {
+function BlogCard({ post, index, skipAnimation = false }: BlogCardProps) {
   return (
     <article
-      className="group animate-fade-in-up h-full"
-      style={{
+      className={`group h-full ${skipAnimation ? '' : 'animate-fade-in-up'}`}
+      style={skipAnimation ? undefined : {
         animationDelay: `${ANIMATION_BASE_DELAY_MS + index * ANIMATION_STAGGER_MS}ms`
       }}
     >
