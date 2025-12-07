@@ -21,7 +21,7 @@ function BlogCard({ post, index }: BlogCardProps) {
     >
       <Link
         href={`/blog/${post.slug}`}
-        className="relative flex flex-col h-full p-7 rounded-2xl border border-gray-800/50 bg-gradient-to-br from-gray-900/90 to-gray-950/90 backdrop-blur-md overflow-hidden transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] hover:border-emerald-500/40 hover:shadow-2xl hover:shadow-emerald-500/20 hover:scale-[1.02] hover:-translate-y-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-950 will-change-transform"
+        className="blog-card-link relative flex flex-col h-full p-7 rounded-2xl border border-gray-800/50 bg-gradient-to-br from-gray-900/90 to-gray-950/90 backdrop-blur-md overflow-hidden transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] hover:border-emerald-500/40 hover:shadow-2xl hover:shadow-emerald-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-950 will-change-transform"
       >
         <div
           className="absolute inset-0 bg-gradient-to-br from-emerald-500/[0.03] via-teal-500/[0.02] to-emerald-500/[0.06] opacity-0 group-hover:opacity-100 transition-opacity duration-700"
