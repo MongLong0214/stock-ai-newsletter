@@ -3,7 +3,7 @@
  */
 'use client';
 
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import BlogCard from './blog-card';
 import { EmptyState } from './empty-state';
 import { SearchBar } from '../filters/search-bar';
@@ -24,6 +24,25 @@ export default function BlogListClient({ posts }: BlogListClientProps) {
   // State
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTags, setSelectedTags] = useState<Set<string>>(new Set());
+  // bfcache 복원 시 애니메이션 재트리거를 위한 key
+  const [animationKey, setAnimationKey] = useState(0);
+
+  /**
+   * bfcache(back-forward cache)에서 페이지 복원 시 애니메이션 재트리거
+   * - 모바일 브라우저에서 뒤로가기 시 bfcache에서 페이지를 복원하면
+   *   CSS 애니메이션이 재실행되지 않아 카드들이 보이지 않는 문제 해결
+   */
+  useEffect(() => {
+    const handlePageShow = (event: PageTransitionEvent) => {
+      // persisted가 true면 bfcache에서 복원된 것
+      if (event.persisted) {
+        setAnimationKey((prev) => prev + 1);
+      }
+    };
+
+    window.addEventListener('pageshow', handlePageShow);
+    return () => window.removeEventListener('pageshow', handlePageShow);
+  }, []);
 
   // Debounced 검색
   const debouncedSearch = useDebounce(searchQuery, DEBOUNCE_MS);
@@ -115,7 +134,7 @@ export default function BlogListClient({ posts }: BlogListClientProps) {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {filteredPosts.map((post, index) => (
-              <BlogCard key={post.slug} post={post} index={index} />
+              <BlogCard key={`${post.slug}-${animationKey}`} post={post} index={index} />
             ))}
           </div>
         )}
