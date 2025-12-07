@@ -9,8 +9,9 @@
  * 사용 라이브러리:
  * - remark: Markdown 처리 라이브러리
  * - remark-gfm: GitHub Flavored Markdown 플러그인 (테이블, 취소선 등)
- * - remark-html: Markdown → HTML 변환 플러그인
+ * - remark-rehype: Markdown AST → HTML AST 변환
  * - rehype-sanitize: XSS 방지를 위한 HTML 정화
+ * - rehype-stringify: HTML AST → 문자열 변환
  */
 
 import { remark } from 'remark';
