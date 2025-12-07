@@ -13,15 +13,21 @@ function BlogCard({ post }: { post: BlogPostListItem }) {
 
   useEffect(() => {
     const el = ref.current;
-    if (!el || el.getBoundingClientRect().top < window.innerHeight) return;
+    if (!el) return;
 
-    setCls('group h-full opacity-0');
-    const obs = new IntersectionObserver(
-      ([e]) => e.isIntersecting && (setCls('group h-full animate-fade-in-up'), obs.disconnect()),
-      { threshold: 0.1 }
-    );
-    obs.observe(el);
-    return () => obs.disconnect();
+    if (el.getBoundingClientRect().top < window.innerHeight) {
+      // 뷰포트 안: 바로 애니메이션 시작
+      setCls('group h-full animate-fade-in-up');
+    } else {
+      // 뷰포트 밖: 숨기고 스크롤 진입 시 애니메이션
+      setCls('group h-full opacity-0');
+      const obs = new IntersectionObserver(
+        ([e]) => e.isIntersecting && (setCls('group h-full animate-fade-in-up'), obs.disconnect()),
+        { threshold: 0.1 }
+      );
+      obs.observe(el);
+      return () => obs.disconnect();
+    }
   }, []);
 
   return (
