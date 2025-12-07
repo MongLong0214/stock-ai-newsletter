@@ -2,15 +2,15 @@ import Link from 'next/link';
 import { formatDateKo } from '../../_utils/date-formatter';
 import type { BlogPostListItem } from '../../_types/blog';
 
+const ANIMATION_STAGGER_MS = 60;
+const ANIMATION_BASE_DELAY_MS = 250;
 const MAX_VISIBLE_TAGS = 4;
 
 function BlogCard({ post, index }: { post: BlogPostListItem; index: number }) {
-  const delay = Math.min(index * 50, 300); // 최대 300ms
-
   return (
     <article
       className="group animate-fade-in-up h-full"
-      style={{ animationDelay: `${delay}ms` }}
+      style={{ animationDelay: `${ANIMATION_BASE_DELAY_MS + index * ANIMATION_STAGGER_MS}ms` }}
     >
       <Link
         href={`/blog/${post.slug}`}
