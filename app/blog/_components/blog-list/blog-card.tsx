@@ -1,9 +1,10 @@
+'use client';
+
+import { useRef, useState, useEffect } from 'react';
 import Link from 'next/link';
 import { formatDateKo } from '../../_utils/date-formatter';
 import type { BlogPostListItem } from '../../_types/blog';
 
-const ANIMATION_STAGGER_MS = 60;
-const ANIMATION_BASE_DELAY_MS = 250;
 const MAX_VISIBLE_TAGS = 4;
 
 interface BlogCardProps {
@@ -11,14 +12,60 @@ interface BlogCardProps {
   index: number;
 }
 
-function BlogCard({ post, index }: BlogCardProps) {
+function BlogCard({ post }: BlogCardProps) {
+  const cardRef = useRef<HTMLElement>(null);
+  // SSR에서 바로 보이도록 'visible' 상태로 시작
+  // 'visible': 애니메이션 없이 바로 보임
+  // 'hidden': 뷰포트 밖 (투명)
+  // 'animating': 뷰포트에 진입하여 애니메이션 적용
+  const [visibility, setVisibility] = useState<'visible' | 'hidden' | 'animating'>('visible');
+  const hasInitialized = useRef(false);
+
+  useEffect(() => {
+    const element = cardRef.current;
+    if (!element || hasInitialized.current) return;
+    hasInitialized.current = true;
+
+    const rect = element.getBoundingClientRect();
+    const isInViewport = rect.top < window.innerHeight && rect.bottom > 0;
+
+    if (isInViewport) {
+      // 이미 뷰포트에 있으면 바로 보이게 유지 (애니메이션 없음)
+      setVisibility('visible');
+    } else {
+      // 뷰포트 밖이면 숨기고 IntersectionObserver로 감시
+      setVisibility('hidden');
+
+      const observer = new IntersectionObserver(
+        ([entry]) => {
+          if (entry.isIntersecting) {
+            setVisibility('animating');
+            observer.disconnect();
+          }
+        },
+        { threshold: 0.1 }
+      );
+
+      observer.observe(element);
+
+      return () => observer.disconnect();
+    }
+  }, []);
+
+  const getClassName = () => {
+    switch (visibility) {
+      case 'hidden':
+        return 'group h-full opacity-0';
+      case 'animating':
+        return 'group h-full animate-fade-in-up';
+      case 'visible':
+      default:
+        return 'group h-full';
+    }
+  };
+
   return (
-    <article
-      className="group animate-fade-in-up h-full"
-      style={{
-        animationDelay: `${ANIMATION_BASE_DELAY_MS + index * ANIMATION_STAGGER_MS}ms`
-      }}
-    >
+    <article ref={cardRef} className={getClassName()}>
       <Link
         href={`/blog/${post.slug}`}
         className="relative flex flex-col h-full p-7 rounded-2xl border border-gray-800/50 bg-gradient-to-br from-gray-900/90 to-gray-950/90 backdrop-blur-md overflow-hidden transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] hover:border-emerald-500/40 hover:shadow-2xl hover:shadow-emerald-500/20 hover:scale-[1.02] hover:-translate-y-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-950 will-change-transform"
