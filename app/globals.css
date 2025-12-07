@@ -183,13 +183,6 @@ body {
   will-change: transform, opacity; /* GPU 가속 활성화 */
 }
 
-/* 모바일: 딜레이만 제거 (애니메이션은 유지) */
-@media (max-width: 767px) {
-  .animate-fade-in-up[style] {
-    animation-delay: 0s !important;
-  }
-}
-
 /* 애니메이션 완료 후 will-change 제거를 위한 최적화 */
 @media (prefers-reduced-motion: reduce) {
   .animate-fade-in-up {
