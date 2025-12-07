@@ -1,6 +1,58 @@
 {
   "newsletters": [
     {
+      "date": "2025-12-08",
+      "stocks": [
+        {
+          "ticker": "KOSPI:007660",
+          "name": "이수페타시스",
+          "close_price": 135200,
+          "rationale": "SMA 정배열초기|EMA 매수우위|RSI 65.2 강세권|MACD 양전환|거래량 전일대비 1.5배|볼린저 중심선돌파|ATR 3.5% 확대|ADX 28 추세형성|OBV 반등세|스토캐스틱 골든크로스|SuperTrend 매수|Williams%R -30 적정|CCI +110 상승|MFI 62 자금유입|CMF 0.12 매집|Parabolic SAR 매수전환",
+          "signals": {
+            "trend_score": 95,
+            "momentum_score": 98,
+            "volume_score": 96,
+            "volatility_score": 97,
+            "pattern_score": 98,
+            "sentiment_score": 95,
+            "overall_score": 97
+          }
+        },
+        {
+          "ticker": "KOSPI:010120",
+          "name": "LS ELECTRIC",
+          "close_price": 515000,
+          "rationale": "SMA 완전정배열|EMA 상승확장|RSI 66.0 강세권|MACD 6886 상승지속|거래량 전일대비 2.5배|볼린저 밴드상단|ATR 4.1% 고변동성|ADX 42 강한추세|OBV 우상향|스토캐스틱 85 과열권|SuperTrend 매수|52주 신고가근접|Williams%R -10 매수세|CCI +180 과매수|MFI 75 강한유입|Ichimoku 강세",
+          "signals": {
+            "trend_score": 99,
+            "momentum_score": 92,
+            "volume_score": 99,
+            "volatility_score": 96,
+            "pattern_score": 95,
+            "sentiment_score": 90,
+            "overall_score": 96
+          }
+        },
+        {
+          "ticker": "KOSPI:005930",
+          "name": "삼성전자",
+          "close_price": 108400,
+          "rationale": "SMA 완전정배열|EMA 골든크로스|RSI 78.2 과매수권|MACD 1250 강한매수|거래량 전일대비 1.8배|볼린저 상단돌파|ATR 2.5% 적정|ADX 36 강한추세|OBV 신고가|스토캐스틱 98.9 초과매수|SuperTrend 매수|52주 신고가|Williams%R -5.2 압도적|CCI +130 가속화|CMF 0.22 강력매집|Aroon Up 100",
+          "signals": {
+            "trend_score": 98,
+            "momentum_score": 88,
+            "volume_score": 97,
+            "volatility_score": 92,
+            "pattern_score": 94,
+            "sentiment_score": 88,
+            "overall_score": 94
+          }
+        }
+      ],
+      "sentAt": "2025-12-07T22:50:37.742+00:00",
+      "subscriberCount": 30
+    },
+    {
       "date": "2025-12-05",
       "stocks": [
         {
@@ -1405,5 +1457,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2025-12-04T23:02:01.053Z"
+  "lastUpdated": "2025-12-07T22:51:08.988Z"
 }
