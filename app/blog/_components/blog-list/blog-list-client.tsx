@@ -15,6 +15,12 @@ import type { BlogPostListItem } from '../../_types/blog';
 /** 검색어 입력 Debounce 시간 (밀리초) */
 const DEBOUNCE_MS = 300;
 
+/** 헤더 애니메이션 딜레이 설정 (밀리초) */
+const HEADER_ANIMATION = {
+  SEARCH_BAR_DELAY: 100,
+  TAG_FILTER_DELAY: 200,
+} as const;
+
 interface BlogListClientProps {
   /** 서버에서 전달받은 블로그 포스트 목록 */
   posts: BlogPostListItem[];
@@ -103,8 +109,12 @@ export default function BlogListClient({ posts }: BlogListClientProps) {
     <div className="space-y-12">
       {/* 필터 영역 */}
       <div className="space-y-6">
-        <SearchBar value={searchQuery} onChange={setSearchQuery} isSearching={isSearching} />
-        <TagFilter tags={allTags} selectedTags={selectedTags} onToggle={handleTagToggle} />
+        <div className="animate-fade-in-up" style={{ animationDelay: `${HEADER_ANIMATION.SEARCH_BAR_DELAY}ms` }}>
+          <SearchBar value={searchQuery} onChange={setSearchQuery} isSearching={isSearching} />
+        </div>
+        <div className="animate-fade-in-up" style={{ animationDelay: `${HEADER_ANIMATION.TAG_FILTER_DELAY}ms` }}>
+          <TagFilter tags={allTags} selectedTags={selectedTags} onToggle={handleTagToggle} />
+        </div>
         {hasActiveFilters && <ActiveFilters resultCount={filteredPosts.length} onClear={handleClearFilters} />}
       </div>
 
