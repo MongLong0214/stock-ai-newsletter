@@ -5,14 +5,10 @@ import type { BlogPostListItem } from '../../_types/blog';
 const MAX_VISIBLE_TAGS = 4;
 
 function BlogCard({ post, index }: { post: BlogPostListItem; index: number }) {
-  // 모바일(1열): 행 기준, 데스크톱(3열): index 기준
-  const row = Math.floor(index / 3);
-  const delay = row * 50;
-
   return (
     <article
       className="group animate-fade-in-up h-full"
-      style={{ animationDelay: `${delay}ms` }}
+      style={{ animationDelay: `${index * 50}ms` }}
     >
       <Link
         href={`/blog/${post.slug}`}
