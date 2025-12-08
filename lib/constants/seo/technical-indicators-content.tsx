@@ -127,18 +127,6 @@ export const technicalIndicatorsContent = {
     개인 투자자도 전문가 수준의 기술적 분석 인사이트를 얻을 수 있습니다.`
   },
 
-  conclusion: {
-    content: `Stock Matrix는 매일 오전 30가지 기술적 지표를 종합 분석한
-    <strong>AI 주식 투자 리포트</strong>를 이메일로 발송합니다.
-    복잡한 기술적 분석 공부 없이도 AI가 선별한 투자 아이디어를 받아보세요.`
-  },
-
-  cta: {
-    text: "지금 무료 구독하고 AI 기술적 분석 리포트 받아보기",
-    email: "aistockmatrix@gmail.com",
-    website: "stockmatrix.co.kr"
-  },
-
   // SEO Metadata
   seo: {
     title: "기술적 지표 완벽 가이드 | RSI, MACD, 볼린저밴드 활용법 - Stock Matrix",
@@ -165,7 +153,7 @@ export const technicalIndicatorsContent = {
 
 // React Component for rendering the content
 export function TechnicalIndicatorsContent() {
-  const { introduction, mainIndicators, aiIntegration, conclusion, cta } = technicalIndicatorsContent
+  const { introduction, mainIndicators, aiIntegration } = technicalIndicatorsContent
 
   return (
     <article className="technical-indicators-content prose prose-lg max-w-4xl mx-auto px-4 py-8">
@@ -221,27 +209,6 @@ export function TechnicalIndicatorsContent() {
           className="text-gray-700 leading-relaxed space-y-4 whitespace-pre-line"
           dangerouslySetInnerHTML={{ __html: aiIntegration.content }}
         />
-      </section>
-
-      {/* Conclusion Section */}
-      <section className="mb-8">
-        <div
-          className="text-gray-700 leading-relaxed text-center text-lg"
-          dangerouslySetInnerHTML={{ __html: conclusion.content }}
-        />
-      </section>
-
-      {/* CTA Section */}
-      <section className="text-center py-8 bg-blue-600 rounded-xl text-white">
-        <p className="text-xl font-bold mb-4">{cta.text}</p>
-        <div className="space-y-2">
-          <p className="text-blue-100">
-            <strong>이메일:</strong> {cta.email}
-          </p>
-          <p className="text-blue-100">
-            <strong>웹사이트:</strong> {cta.website}
-          </p>
-        </div>
       </section>
 
       {/* Schema.org structured data for SEO */}

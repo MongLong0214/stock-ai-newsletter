@@ -7,7 +7,6 @@
  * - SectionHeader: 페이지 제목 및 소개
  * - IndicatorsGrid: 주요 지표 9개 카드 그리드
  * - AIIntegrationSection: AI 분석 방식 설명
- * - ConclusionCTA: 구독 유도
  * - SchemaOrgStructuredData: SEO 구조화 데이터
  */
 
@@ -17,11 +16,10 @@ import { technicalIndicatorsContent } from '@/lib/constants/seo/technical-indica
 import SectionHeader from './sections/section-header';
 import IndicatorsGrid from './sections/indicators-grid';
 import AIIntegrationSection from './sections/ai-integration-section';
-import ConclusionCTA from './sections/conclusion-cta';
 import SchemaOrgStructuredData from './seo/schema-org-structured-data';
 
 function TechnicalIndicatorsExplanationSection() {
-  const { introduction, mainIndicators, aiIntegration, conclusion } =
+  const { introduction, mainIndicators, aiIntegration } =
     technicalIndicatorsContent;
 
   return (
@@ -41,8 +39,6 @@ function TechnicalIndicatorsExplanationSection() {
           heading={aiIntegration.heading}
           content={aiIntegration.content}
         />
-
-        <ConclusionCTA content={conclusion.content} />
       </div>
 
       <SchemaOrgStructuredData />
