@@ -1,6 +1,58 @@
 {
   "newsletters": [
     {
+      "date": "2025-12-09",
+      "stocks": [
+        {
+          "ticker": "KOSPI:001360",
+          "name": "삼성제약",
+          "close_price": 1773,
+          "rationale": "상한가(29.99%) 마감 | 알츠하이머 3상 IND 승인 모멘텀 | 거래량 1,517만주 폭발 | RSI 78.5 과열권 진입 | MACD 시그널 골든크로스 확정 | 외국인 대량 순매수 유입 | SMA 5일/20일 골든크로스 | 볼린저밴드 상단 강한 돌파 | ADX 50+ 강력한 추세 형성 | 일목균형표 구름대 상향 돌파",
+          "signals": {
+            "trend_score": 99,
+            "momentum_score": 98,
+            "volume_score": 99,
+            "volatility_score": 96,
+            "pattern_score": 97,
+            "sentiment_score": 98,
+            "overall_score": 98
+          }
+        },
+        {
+          "ticker": "KOSDAQ:043260",
+          "name": "성호전자",
+          "close_price": 3860,
+          "rationale": "상한가(29.97%) 안착 | 포르쉐/아우디 필름콘덴서 공급 부각 | 거래량 1,494만주 급증 | 거래대금 546억 유입 | RSI 70 이상 과매수권 진입 | SMA 완전 정배열 전환 시도 | 전일 대비 거래량 300% 이상 폭증 | 전기차 섹터 동반 강세 수혜 | MACD 0선 돌파 임박 | 52주 신고가 경신 도전",
+          "signals": {
+            "trend_score": 96,
+            "momentum_score": 95,
+            "volume_score": 94,
+            "volatility_score": 92,
+            "pattern_score": 94,
+            "sentiment_score": 91,
+            "overall_score": 94
+          }
+        },
+        {
+          "ticker": "KOSDAQ:086520",
+          "name": "에코프로",
+          "close_price": 117500,
+          "rationale": "당일 21.26% 급등 시현 | 외국인 5일 연속 대량 순매수 | 기관 투자자 동반 매수세 유입 | 거래대금 2조 1956억 폭발적 증가 | RSI 60대 강세권 진입 | 바닥권 탈출 신호(Turnaround) | MACD 양전환 및 상승폭 확대 | 2차전지 섹터 투자심리 획기적 개선 | 공매도 숏커버링 유입 추정 | 볼린저밴드 상단 확산형 돌파",
+          "signals": {
+            "trend_score": 92,
+            "momentum_score": 94,
+            "volume_score": 98,
+            "volatility_score": 90,
+            "pattern_score": 91,
+            "sentiment_score": 95,
+            "overall_score": 93
+          }
+        }
+      ],
+      "sentAt": "2025-12-08T22:50:54.865+00:00",
+      "subscriberCount": 30
+    },
+    {
       "date": "2025-12-08",
       "stocks": [
         {
@@ -1457,5 +1509,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2025-12-07T23:01:44.419Z"
+  "lastUpdated": "2025-12-08T22:51:25.961Z"
 }
