@@ -90,8 +90,8 @@ const NewsletterCard = memo(function NewsletterCard({
 
           {/* 전체 점수 (강조) - 고정 너비 */}
           <div className="flex flex-col items-end justify-between flex-shrink-0 w-[90px] min-h-[110px] py-1">
-            <span className="text-[9px] uppercase tracking-widest text-slate-500 font-mono whitespace-nowrap">
-              Overall
+            <span className="text-[11px] uppercase tracking-widest text-slate-200 font-mono whitespace-nowrap">
+              종합 점수
             </span>
             <div
               className={`
@@ -169,7 +169,7 @@ const NewsletterCard = memo(function NewsletterCard({
       {/* 시그널 점수 */}
       <div className="space-y-3">
         <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-4 font-mono">
-          Technical Signals
+          기술 시그널
         </h4>
 
         {SIGNAL_BADGES?.map(({ label, key }) => (
