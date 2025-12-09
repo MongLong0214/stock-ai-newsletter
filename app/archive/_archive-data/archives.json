@@ -1,6 +1,58 @@
 {
   "newsletters": [
     {
+      "date": "2025-12-10",
+      "stocks": [
+        {
+          "ticker": "KOSPI:064350",
+          "name": "현대로템",
+          "close_price": 192200,
+          "rationale": "SMA 장기이평지지 | RSI 66.4 강세지속 | MACD 4389 매수신호 | 거래량 32.9만주 회복 | PBR 10.2배 고평가영역 | 볼린저 상단 재진입시도 | ATR 적정수준 | ADX 32 상승추세 | 외인비율 양호 | 선행 EPS 3728원 | Ichimoku 구름대 상단 | 52주 신고가 근접",
+          "signals": {
+            "trend_score": 92,
+            "momentum_score": 85,
+            "volume_score": 88,
+            "volatility_score": 90,
+            "pattern_score": 94,
+            "sentiment_score": 95,
+            "overall_score": 91
+          }
+        },
+        {
+          "ticker": "KOSPI:307950",
+          "name": "현대오토에버",
+          "close_price": 301500,
+          "rationale": "SMA 완전정배열 완성 | RSI 82.5 초강세권 | 52주 신고가 경신 | 거래량 25.6만주 견조 | MACD 확산형 상승 | 볼린저 밴드 상단돌파 | 디지털전환 수혜주 | 기관 수급 지속유입 | 엘리어트 파동 상승3파 | ADX 45 강력추세 | OBV 우상향 | 이격도 과열권",
+          "signals": {
+            "trend_score": 99,
+            "momentum_score": 92,
+            "volume_score": 94,
+            "volatility_score": 91,
+            "pattern_score": 96,
+            "sentiment_score": 88,
+            "overall_score": 94
+          }
+        },
+        {
+          "ticker": "KOSDAQ:086520",
+          "name": "에코프로",
+          "close_price": 117800,
+          "rationale": "SMA 정배열 진입 | RSI 78.6 과매수권 | MACD 3103 매수우위 | 거래량 758만주 급증 | 캔들 단기조정신호(장악형) | 일목균형표 양운지지 | 볼린저 상단 확장국면 | 스토캐스틱 90 이상 과열 | CCI +180 강세 | Chaikin 자금유입 | 단기 변동성 확대주의 | 120일선 돌파안착",
+          "signals": {
+            "trend_score": 95,
+            "momentum_score": 88,
+            "volume_score": 98,
+            "volatility_score": 95,
+            "pattern_score": 82,
+            "sentiment_score": 85,
+            "overall_score": 91
+          }
+        }
+      ],
+      "sentAt": "2025-12-09T22:50:47.829+00:00",
+      "subscriberCount": 43
+    },
+    {
       "date": "2025-12-09",
       "stocks": [
         {
@@ -1509,5 +1561,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2025-12-08T23:01:47.186Z"
+  "lastUpdated": "2025-12-09T22:51:20.264Z"
 }
