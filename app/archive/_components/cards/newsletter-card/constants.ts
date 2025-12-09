@@ -30,10 +30,10 @@ interface SignalBadgeConfig {
 
 /** 시그널 점수 배지 설정 */
 export const SIGNAL_BADGES: readonly SignalBadgeConfig[] = [
-  { label: 'Trend', key: 'trend_score' },
-  { label: 'Momentum', key: 'momentum_score' },
-  { label: 'Volume', key: 'volume_score' },
-  { label: 'Volatility', key: 'volatility_score' },
-  { label: 'Pattern', key: 'pattern_score' },
-  { label: 'Sentiment', key: 'sentiment_score' },
+  { label: '추세', key: 'trend_score' },
+  { label: '모멘텀', key: 'momentum_score' },
+  { label: '거래량', key: 'volume_score' },
+  { label: '변동성', key: 'volatility_score' },
+  { label: '패턴', key: 'pattern_score' },
+  { label: '심리', key: 'sentiment_score' },
 ];
