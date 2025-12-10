@@ -1,6 +1,58 @@
 {
   "newsletters": [
     {
+      "date": "2025-12-11",
+      "stocks": [
+        {
+          "ticker": "KOSPI:457190",
+          "name": "이수스페셜티케미컬",
+          "close_price": 66900,
+          "rationale": "24시간 내 급등 모멘텀 지속|RSI 74 과열권 진입(추세 강화)|SMA 5/20/60일 완전정배열|거래량 전일 대비 280% 급증 확인|MACD 0선 상향 돌파 성공|볼린저밴드 상단 강한 돌파|외국인 3일 연속 순매수 행진|ADX 42 강력한 추세장 형성|전고점 81,400원 향한 돌파 시도|파라볼릭 SAR 매수 시그널 유지",
+          "signals": {
+            "trend_score": 98,
+            "momentum_score": 99,
+            "volume_score": 95,
+            "volatility_score": 92,
+            "pattern_score": 96,
+            "sentiment_score": 94,
+            "overall_score": 97
+          }
+        },
+        {
+          "ticker": "KOSPI:000660",
+          "name": "SK하이닉스",
+          "close_price": 587000,
+          "rationale": "RSI 68.7 매수 우위(상승여력 충분)|ADX 57.6 매우 강한 추세|MACD 9410 매수 시그널 유지|스토캐스틱 98.8 초강세 구간|CCI 75.8 매수 신호 발생|5일 이동평균 587,500원 지지 테스트|AI 반도체 슈퍼사이클 수혜 지속|기관/외국인 동반 매수세 유입|볼린저밴드 상단 확장 국면|애널리스트 목표가 상향 지속",
+          "signals": {
+            "trend_score": 96,
+            "momentum_score": 95,
+            "volume_score": 89,
+            "volatility_score": 86,
+            "pattern_score": 94,
+            "sentiment_score": 97,
+            "overall_score": 95
+          }
+        },
+        {
+          "ticker": "KOSPI:032350",
+          "name": "롯데관광개발",
+          "close_price": 22050,
+          "rationale": "RSI 59.2 상승 모멘텀 확대|애널리스트 목표가 27,600원(괴리율 25%)|전일비 거래량 증가 추세 확인|MACD 골든크로스 안착|5일/20일 이평선 정배열 초기 진입|유안타증권 실적 호조 리포트|외국인 저점 매집 포착|제주 드림타워 매출 성장 가시화|일목균형표 구름대 상단 돌파 시도|스토캐스틱 매수 신호 발생",
+          "signals": {
+            "trend_score": 89,
+            "momentum_score": 87,
+            "volume_score": 84,
+            "volatility_score": 82,
+            "pattern_score": 89,
+            "sentiment_score": 92,
+            "overall_score": 88
+          }
+        }
+      ],
+      "sentAt": "2025-12-10T22:51:47.112+00:00",
+      "subscriberCount": 45
+    },
+    {
       "date": "2025-12-10",
       "stocks": [
         {
@@ -1561,5 +1613,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2025-12-09T23:01:54.049Z"
+  "lastUpdated": "2025-12-10T22:52:16.480Z"
 }
