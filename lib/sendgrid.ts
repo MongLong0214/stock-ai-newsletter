@@ -2,11 +2,24 @@ import sgMail from '@sendgrid/mail';
 
 // API 키 초기화 함수
 function initSendGrid() {
-  const apiKey = process.env.SENDGRID_API_KEY;
-  if (!apiKey) {
+  const rawApiKey = process.env.SENDGRID_API_KEY;
+  if (!rawApiKey) {
     throw new Error('SENDGRID_API_KEY is required');
   }
+
+  // Trim whitespace and newlines that might be in the secret
+  const apiKey = rawApiKey.trim();
+
+  // Validate SendGrid API key format (should start with 'SG.')
+  if (!apiKey.startsWith('SG.')) {
+    console.error('❌ SendGrid API key format validation failed');
+    console.error(`   Key length: ${apiKey.length} characters`);
+    console.error(`   Key prefix: ${apiKey.substring(0, 5)}...`);
+    throw new Error('Invalid SendGrid API key format. API key should start with "SG."');
+  }
+
   sgMail.setApiKey(apiKey);
+  console.log(`✅ SendGrid initialized (key length: ${apiKey.length} chars)`);
   return true;
 }
 
@@ -84,8 +97,29 @@ export async function sendStockNewsletter(
     );
 
     console.log(`✅ 이메일 전송 완료: ${recipients.length}명`);
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('❌ SendGrid 이메일 전송 실패:', error);
+
+    // Provide more diagnostic information for common errors
+    if (error && typeof error === 'object' && 'code' in error) {
+      const errorCode = (error as { code: number }).code;
+      if (errorCode === 401) {
+        console.error('\n⚠️ 인증 오류 (401 Unauthorized)');
+        console.error('   가능한 원인:');
+        console.error('   1. SendGrid API 키가 만료되었거나 취소됨');
+        console.error('   2. API 키에 "Mail Send" 권한이 없음');
+        console.error('   3. API 키 형식이 올바르지 않음');
+        console.error('\n💡 해결 방법:');
+        console.error('   1. SendGrid 대시보드에서 새 API 키 생성');
+        console.error('   2. GitHub Secrets에서 SENDGRID_API_KEY 업데이트');
+        console.error('   3. API 키에 "Mail Send" 권한이 있는지 확인\n');
+      } else if (errorCode === 403) {
+        console.error('\n⚠️ 권한 오류 (403 Forbidden)');
+        console.error('   발신자 이메일이 SendGrid에서 인증되지 않았을 수 있습니다.');
+        console.error('   SendGrid 대시보드에서 발신자 인증을 확인하세요.\n');
+      }
+    }
+
     throw error;
   }
 }
