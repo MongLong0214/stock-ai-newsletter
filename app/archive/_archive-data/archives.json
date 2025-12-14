@@ -1,6 +1,58 @@
 {
   "newsletters": [
     {
+      "date": "2025-12-15",
+      "stocks": [
+        {
+          "ticker": "KOSDAQ:277810",
+          "name": "레인보우로보틱스",
+          "close_price": 479000,
+          "rationale": "인베스팅닷컴 기술적지표 적극매수 우위 | 50일 이동평균선(464,125원) 상향 돌파 | RSI 58.8 상승추세 지속 | MACD 매수신호 유지 | 휴머노이드 로봇 모멘텀(CES 기대감) | 기관 대규모 순매수 유입 | 단기 이평선 정배열 확장 | 볼린저밴드 상단 개방 | 52주 신고가 영역 진입 시도 | ADX 32 추세 강화",
+          "signals": {
+            "trend_score": 98,
+            "momentum_score": 96,
+            "volume_score": 97,
+            "volatility_score": 92,
+            "pattern_score": 99,
+            "sentiment_score": 95,
+            "overall_score": 97
+          }
+        },
+        {
+          "ticker": "KOSDAQ:196170",
+          "name": "알테오젠",
+          "close_price": 433000,
+          "rationale": "RSI 30대 과매도권 진입 후 기술적 반등 유력 | 최근 급락에 따른 저가 매수 기회 발생 | 120일선 지지력 테스트 중 | 외국인/기관 매도 클라이막스 통과 가능성 | 데드캣 바운스 패턴 형성 | ATR 4.8% 높은 변동성 활용 | 주가 급락 후 거래량 감소(매도세 진정) | 낙폭 과대에 따른 가격 메리트 부각 | 바이오 섹터 투심 회복 기대 | 단기 낙폭 -15% 이상으로 반발 매수세 유입 구간",
+          "signals": {
+            "trend_score": 45,
+            "momentum_score": 88,
+            "volume_score": 95,
+            "volatility_score": 98,
+            "pattern_score": 85,
+            "sentiment_score": 70,
+            "overall_score": 82
+          }
+        },
+        {
+          "ticker": "KOSDAQ:141080",
+          "name": "리가켐바이오",
+          "close_price": 176200,
+          "rationale": "전일 -5.93% 조정으로 저가 매수 기회 | 20일 이동평균선 지지력 확인 | 외국인 수급 지속적 유입(수급 주체 건재) | 상승 추세 중 건전한 눌림목 형성 | ADC 기술이전 로열티 모멘텀 유효 | MACD 0선 상단 유지 | 스토캐스틱 침체권 진입 시도 | 일목균형표 기준선 지지 | 거래량 감소하며 조정(매물 출회 제한적) | 중장기 상승 추세 훼손 없음",
+          "signals": {
+            "trend_score": 88,
+            "momentum_score": 82,
+            "volume_score": 85,
+            "volatility_score": 80,
+            "pattern_score": 90,
+            "sentiment_score": 92,
+            "overall_score": 87
+          }
+        }
+      ],
+      "sentAt": "2025-12-14T23:50:28.804+00:00",
+      "subscriberCount": 48
+    },
+    {
       "date": "2025-12-12",
       "stocks": [
         {
@@ -1665,5 +1717,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2025-12-14T23:01:49.294Z"
+  "lastUpdated": "2025-12-14T23:50:55.931Z"
 }
