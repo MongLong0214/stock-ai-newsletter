@@ -1,6 +1,58 @@
 {
   "newsletters": [
     {
+      "date": "2025-12-16",
+      "stocks": [
+        {
+          "ticker": "KOSPI:012450",
+          "name": "한화에어로스페이스",
+          "close_price": 908000,
+          "rationale": "SMA 5일선 912600원 하회 | RSI 40.2 약세진입 | MACD -2777 매도신호 | 52주 고가 대비 하락 | 거래량 14만주 부진 | 이동평균 역배열 전환 | 지지선 90만원 테스트 | 단기 조정 국면 | 외국인 보유비중 46.8% | 스토캐스틱 하락추세",
+          "signals": {
+            "trend_score": 30,
+            "momentum_score": 40,
+            "volume_score": 45,
+            "volatility_score": 60,
+            "pattern_score": 35,
+            "sentiment_score": 50,
+            "overall_score": 41
+          }
+        },
+        {
+          "ticker": "KOSPI:034020",
+          "name": "두산에너빌리티",
+          "close_price": 76900,
+          "rationale": "주가 76900원 약보합 | 거래량 319만주 급감 | 5일선 76940원 이탈 | RSI 중립구간 | 볼린저밴드 하단 근접 | 상승모멘텀 부족 | 외국인 매도세 | MACD 하락추세 | 이동평균 혼조세 | 단기 하방 압력",
+          "signals": {
+            "trend_score": 35,
+            "momentum_score": 45,
+            "volume_score": 30,
+            "volatility_score": 50,
+            "pattern_score": 40,
+            "sentiment_score": 40,
+            "overall_score": 40
+          }
+        },
+        {
+          "ticker": "KOSPI:000660",
+          "name": "SK하이닉스",
+          "close_price": 571000,
+          "rationale": "주가 571000원 횡보 | 5일/20일 데드크로스 심화 | RSI 56.2 중립 | MACD -2200 하락추세 | 거래량 260만주 | 상승탄력 둔화 | 단기 조정 지속 | 52주 신고가 646000원 대비 조정 | 이동평균 매도신호 | 차익실현 매물 소화",
+          "signals": {
+            "trend_score": 40,
+            "momentum_score": 55,
+            "volume_score": 50,
+            "volatility_score": 50,
+            "pattern_score": 40,
+            "sentiment_score": 50,
+            "overall_score": 47
+          }
+        }
+      ],
+      "sentAt": "2025-12-15T22:51:40.63+00:00",
+      "subscriberCount": 49
+    },
+    {
       "date": "2025-12-15",
       "stocks": [
         {
@@ -1717,5 +1769,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2025-12-14T23:50:55.931Z"
+  "lastUpdated": "2025-12-15T22:52:10.019Z"
 }
