@@ -1,6 +1,58 @@
 {
   "newsletters": [
     {
+      "date": "2025-12-18",
+      "stocks": [
+        {
+          "ticker": "KOSPI:005930",
+          "name": "삼성전자",
+          "close_price": 107900,
+          "rationale": "MA 완전정배열 확인 | RSI 63.3 강세권 | MACD 상승확대 | 스토캐스틱 68.0 매수신호 | 볼린저밴드 상단 확장 | 외국인 수급 변동성 | CCI +104 우상향 | 20일선 104,800원 지지 | 상승 모멘텀 지속 | ROC 2.95 매수우위",
+          "signals": {
+            "trend_score": 98,
+            "momentum_score": 92,
+            "volume_score": 88,
+            "volatility_score": 85,
+            "pattern_score": 94,
+            "sentiment_score": 82,
+            "overall_score": 91
+          }
+        },
+        {
+          "ticker": "KOSPI:000660",
+          "name": "SK하이닉스",
+          "close_price": 530000,
+          "rationale": "외국인 순매수 전환 1위 | RSI 52.1 중립권 | 스토캐스틱 97.8 과열권 | 단기 숨고르기 조정 | 60일선 지지 테스트 | HBM 시장 독점력 부각 | MACD 약세 다이버전스 | 거래량 328만주 안정 | 52주 신고가 갱신 후 조정 | 상승 추세 유효",
+          "signals": {
+            "trend_score": 85,
+            "momentum_score": 78,
+            "volume_score": 94,
+            "volatility_score": 82,
+            "pattern_score": 80,
+            "sentiment_score": 96,
+            "overall_score": 86
+          }
+        },
+        {
+          "ticker": "KOSDAQ:196170",
+          "name": "알테오젠",
+          "close_price": 421000,
+          "rationale": "RSI 25.0 초과매도 | 기술적 낙폭과대 진입 | 투매 클라이막스구간 | 볼린저밴드 하단 이탈 | CCI -200 침체권 | 단기 기술적 반등 유력 | 120일선 하향 이탈 | 거래량 실린 음봉 마감 | 저가 매수 유입 기대 | 변동성 극대화 구간",
+          "signals": {
+            "trend_score": 35,
+            "momentum_score": 96,
+            "volume_score": 90,
+            "volatility_score": 99,
+            "pattern_score": 88,
+            "sentiment_score": 75,
+            "overall_score": 83
+          }
+        }
+      ],
+      "sentAt": "2025-12-17T22:51:48.037+00:00",
+      "subscriberCount": 49
+    },
+    {
       "date": "2025-12-17",
       "stocks": [
         {
@@ -1821,5 +1873,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2025-12-16T23:01:49.413Z"
+  "lastUpdated": "2025-12-17T22:52:18.179Z"
 }
