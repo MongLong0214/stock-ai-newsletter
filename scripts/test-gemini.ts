@@ -2,12 +2,25 @@ import { config } from 'dotenv';
 import { getGeminiRecommendation } from '../lib/llm/korea/gemini';
 import { writeFileSync } from 'fs';
 import { join } from 'path';
+import { GEMINI_API_CONFIG, PIPELINE_CONFIG } from '../lib/llm/_config/pipeline-config';
 
 // .env.local 파일 로드
 config({ path: join(process.cwd(), '.env.local') });
 
 async function main() {
   console.log('🚀 Gemini API 테스트 시작...\n');
+
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  console.log('⚙️  Model Configuration');
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  console.log(`  MODEL: ${GEMINI_API_CONFIG.MODEL}`);
+  console.log(`  MAX_OUTPUT_TOKENS: ${GEMINI_API_CONFIG.MAX_OUTPUT_TOKENS}`);
+  console.log(`  TEMPERATURE: ${GEMINI_API_CONFIG.TEMPERATURE}`);
+  console.log(`  TOP_P: ${GEMINI_API_CONFIG.TOP_P}`);
+  console.log(`  TOP_K: ${GEMINI_API_CONFIG.TOP_K}`);
+  console.log(`  LOCATION: ${PIPELINE_CONFIG.VERTEX_AI_LOCATION}`);
+  console.log(`  THINKING_LEVEL: HIGH`);
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
 
   const startTime = Date.now();
 
@@ -46,7 +59,7 @@ async function main() {
 
 ⏱️  실행 시간: ${duration}초
 📅 생성 일시: ${now.toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })}
-🤖 모델: gemini-2.5-pro
+🤖 모델: ${GEMINI_API_CONFIG.MODEL}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
