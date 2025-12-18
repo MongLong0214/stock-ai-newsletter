@@ -2,7 +2,7 @@
  * 재사용 가능한 Gemini 클라이언트 래퍼
  */
 
-import { GoogleGenAI } from '@google/genai';
+import { GoogleGenAI, ThinkingLevel } from '@google/genai';
 import { GEMINI_API_CONFIG, PIPELINE_CONFIG } from '@/lib/llm/_config/pipeline-config';
 
 interface GenerateTextOptions {
@@ -14,6 +14,7 @@ interface GenerateTextOptions {
     topP?: number;
     topK?: number;
     responseMimeType?: string;
+    thinkingLevel?: ThinkingLevel;
   };
   timeout?: number;
 }
@@ -56,6 +57,9 @@ export async function generateText(options: GenerateTextOptions): Promise<string
         topP: config.topP ?? GEMINI_API_CONFIG.TOP_P,
         topK: config.topK ?? GEMINI_API_CONFIG.TOP_K,
         responseMimeType: config.responseMimeType || GEMINI_API_CONFIG.RESPONSE_MIME_TYPE,
+        thinkingConfig: {
+          thinkingLevel: config.thinkingLevel || ThinkingLevel.HIGH,
+        },
       },
     }),
     timeout

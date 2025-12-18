@@ -85,24 +85,24 @@ export const PIPELINE_CONFIG = {
 /**
  * Gemini API 호출 설정
  *
- * gemini-3-pro-preview 모델 최적 파라미터
+ * gemini-3-flash-preview 모델 최적 파라미터
  */
 export const GEMINI_API_CONFIG = {
   /**
    * 사용 모델
-   * gemini-3-pro-preview: Gemini 3.0 Pro Preview
+   * gemini-3-flash-preview: Gemini 3.0 Flash Preview
+   * - Gemini 3 Pro의 추론 능력 + Flash의 낮은 지연시간/비용 효율성
    * - 1M 토큰 입력 컨텍스트 윈도우
-   * - 최대 64K 출력 토큰
-   * - Dynamic thinking 기본 활성화 (thinking_level: high가 기본값)
-   * - 지식 기준: 2025년 1월
+   * - 최대 65K 출력 토큰
+   * - thinking_level 파라미터로 추론 수준 조절 가능 (minimal, low, medium, high)
    */
-  MODEL: 'gemini-3-pro-preview' as const,
+  MODEL: 'gemini-3-flash-preview' as const,
 
   /**
    * 최대 출력 토큰 수
-   * 64000: gemini-3-pro 최대값 (gemini-2.5-pro의 2배)
+   * 65536: gemini-3-flash 최대값
    */
-  MAX_OUTPUT_TOKENS: 64000,
+  MAX_OUTPUT_TOKENS: 65536,
 
   /**
    * Temperature 설정
