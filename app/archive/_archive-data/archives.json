@@ -1,6 +1,58 @@
 {
   "newsletters": [
     {
+      "date": "2025-12-19",
+      "stocks": [
+        {
+          "ticker": "KOSPI:196170",
+          "name": "알테오젠",
+          "close_price": 431000,
+          "rationale": "SMA 완전정배열 | EMA 상방추세 유지 | RSI 68.2 강세권 | MACD 오실레이터 양봉 확대 | 거래량 142.0% 증가 | 볼린저밴드 상단 돌파 시도 | ATR 4.1% 변동성 확대 | ADX 32.0 강한추세 | OBV 지속 상승형 | Ichimoku 삼역호전 완성",
+          "signals": {
+            "trend_score": 98,
+            "momentum_score": 94,
+            "volume_score": 95,
+            "volatility_score": 88,
+            "pattern_score": 95,
+            "sentiment_score": 92,
+            "overall_score": 94
+          }
+        },
+        {
+          "ticker": "KOSPI:323280",
+          "name": "태성",
+          "close_price": 51500,
+          "rationale": "SMA 정배열 회복 | EMA 단기 골든크로스 | RSI 56.4 반등 모멘텀 [미검증] | MACD 히스토그램 양전환 | 거래량 188.0% 급증 | 볼린저밴드 중심 돌파 | ATR 6.2% 변동성 확대 [미검증] | ADX 24.0 추세형성 | OBV 직전 고점 돌파 | Stochastic K-D 교차 매수",
+          "signals": {
+            "trend_score": 90,
+            "momentum_score": 97,
+            "volume_score": 98,
+            "volatility_score": 86,
+            "pattern_score": 95,
+            "sentiment_score": 90,
+            "overall_score": 93
+          }
+        },
+        {
+          "ticker": "KOSPI:141080",
+          "name": "리가켐바이오",
+          "close_price": 168600,
+          "rationale": "SMA 정배열 가속화 | EMA 20일선 지지 후 반등 | RSI 52.2 중립권 | MACD 시그널 골든크로스 | 거래량 118.0% 증가 | 볼린저밴드 중심선 상향 | ATR 2.0% 적정 수준 | ADX 21.6 추세형성 | OBV 우상향 전환 | Force Index 매수세 유입",
+          "signals": {
+            "trend_score": 84,
+            "momentum_score": 83,
+            "volume_score": 91,
+            "volatility_score": 89,
+            "pattern_score": 92,
+            "sentiment_score": 93,
+            "overall_score": 88
+          }
+        }
+      ],
+      "sentAt": "2025-12-18T22:51:27.747+00:00",
+      "subscriberCount": 49
+    },
+    {
       "date": "2025-12-18",
       "stocks": [
         {
@@ -1873,5 +1925,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2025-12-17T23:01:44.539Z"
+  "lastUpdated": "2025-12-18T22:51:55.878Z"
 }
