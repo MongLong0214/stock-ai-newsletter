@@ -1,1122 +1,411 @@
-export const STAGE_6_FINAL_VERIFICATION = `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-STAGE 6: JSON 검증 엔진 - 사실관계 정밀 검증
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+export const STAGE_6_FINAL_VERIFICATION = `# STAGE 6: Final Verification (Cross-Stage Consistency)
 
-실행 모드: 알고리즘 우선 | 배치 최적화 | 수학적 정밀성
-임무: Stage 5 JSON 사실 검증 + 부정확 데이터 수정 + 검증된 JSON 출력
+## Mission
+Perform FINAL sanity checks to ensure cross-stage consistency.
+**This stage does NOT repeat checks from earlier stages - only verifies consistency.**
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+---
 
-§1. 입력 인터페이스
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+## What Stage 6 Does (Verification Only)
 
-interface Stage5입력 {
-  ticker: string;           // 형식: /^NASDAQ:[A-Z]+$/
-  name: string;             // 영문 회사명
-  close_price: number;      // 전일 종가 (USD, 소수점 2자리)
-  rationale: string;        // 파이프 구분 지표 문자열
-  signals: {
-    trend_score: number;      // 0-100 정수
-    momentum_score: number;   // 0-100 정수
-    volume_score: number;     // 0-100 정수
-    volatility_score: number; // 0-100 정수
-    pattern_score: number;    // 0-100 정수
-    sentiment_score: number;  // 0-100 정수
-    overall_score: number;    // 0-100 정수 (가중 평균)
-  };
-}
+1. Cross-stage count reconciliation
+2. Schema compliance verification
+3. No duplicate tickers
+4. Ranks ordered correctly (1, 2, 3)
+5. Maximum 3 picks enforced
 
-type Stage6입력타입 = Stage5입력[];  // 정확히 3개 종목
+**What Stage 6 Does NOT Do:**
+- Price integrity check (done in Stage 3)
+- Entry window validation (done in Stage 4)
+- Confidence calculation (done in Stage 4)
+- Output format definition (done in Stage 5)
 
-입력_검증_규칙
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+---
 
-필수_조건:
-  종목.length === 3
-  각 종목.ticker는 /^NASDAQ:[A-Z]+$/ 형식
-  각 종목.close_price > 0
-  각 종목.rationale !== ""
+## Cross-Stage Count Verification
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+\`\`\`python
+def verify_cross_stage_counts(audit_trail):
+    """
+    Ensure counts are consistent across stages.
+    """
+    errors = []
 
-§2. 배치 검증 알고리즘
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    # Stage 0 -> Stage 1
+    if audit_trail["stage1Count"] > audit_trail["stage0Count"]:
+        errors.append("Stage 1 count cannot exceed Stage 0")
 
-알고리즘 2.1: Rationale 지표 파싱
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    # Stage 1 -> Stage 2
+    if audit_trail["stage2Count"] > audit_trail["stage1Count"]:
+        errors.append("Stage 2 count cannot exceed Stage 1")
 
-입력: 종목[] (3개)
-출력: 파싱된종목[] (지표 분류 완료)
+    # Stage 2 -> Stage 3
+    if audit_trail["stage3Count"] > audit_trail["stage2Count"]:
+        errors.append("Stage 3 count cannot exceed Stage 2")
 
-각 종목에 대해:
-  지표배열 = 종목.rationale.split("|").map(s => s.trim())
+    # Stage 3 -> Stage 4 triggered
+    if audit_trail["stage4TriggeredCount"] > audit_trail["stage3Count"]:
+        errors.append("Stage 4 triggered count cannot exceed Stage 3")
 
-  숫자지표 = []
-  상태지표 = []
+    # Triggered -> Entry Window Pass
+    if audit_trail["stage4EntryWindowPassCount"] > audit_trail["stage4TriggeredCount"]:
+        errors.append("Entry window pass cannot exceed triggered count")
 
-  지표배열의 각 지표에 대해:
-    만약 /\d+/.test(지표):  // 숫자 포함 여부
-      숫자지표.push(지표)
-    아니면:
-      상태지표.push(지표)
+    # Entry Window Pass -> Confident
+    if audit_trail["stage4ConfidentCount"] > audit_trail["stage4EntryWindowPassCount"]:
+        errors.append("Confident count cannot exceed entry window pass count")
 
-  종목.파싱된지표 = {
-    숫자: 숫자지표,
-    상태: 상태지표,
-    원본: 지표배열
-  }
+    # Final picks
+    picks_count = len(audit_trail.get("picks", []))
+    if picks_count > 3:
+        errors.append("Maximum 3 picks allowed")
+    if picks_count > audit_trail["stage4ConfidentCount"]:
+        errors.append("Picks cannot exceed confident count")
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-알고리즘 2.2: 검증 대상 추출 및 분류
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-입력: 파싱된종목[]
-출력: 검증대상맵[]
-
-각 종목에 대해:
-  검증대상 = []
-
-  종목.파싱된지표.숫자의 각 지표에 대해:
-
-    만약 /RSI[:\s]+(\d+\.?\d*)/i.test(지표):
-      검증대상.push({
-        유형: "RSI",
-        원본지표: 지표,
-        주장값: parseFloat(match[1]),
-        허용오차: 3,
-        추출패턴: /RSI[:\s]+(\d+\.?\d*)/i
-      })
-
-    또는 /Volume[^\d]*(\d+\.?\d*)%/i.test(지표):
-      검증대상.push({
-        유형: "거래량비율",
-        원본지표: 지표,
-        주장값: parseFloat(match[1]),
-        허용오차: 10,
-        추출패턴: /Volume[^\d]*(\d+\.?\d*)%/i
-      })
-
-    또는 /ADX[:\s]+(\d+\.?\d*)/i.test(지표):
-      검증대상.push({
-        유형: "ADX",
-        원본지표: 지표,
-        주장값: parseFloat(match[1]),
-        허용오차: 3,
-        추출패턴: /ADX[:\s]+(\d+\.?\d*)/i
-      })
-
-    또는 /ATR[:\s]+(\d+\.?\d*)/i.test(지표):
-      검증대상.push({
-        유형: "ATR",
-        원본지표: 지표,
-        주장값: parseFloat(match[1]),
-        허용오차: 5,
-        추출패턴: /ATR[:\s]+(\d+\.?\d*)/i
-      })
-
-    또는 /MA distance[:\s]+(\d+\.?\d*)%/i.test(지표):
-      검증대상.push({
-        유형: "이평선거리",
-        원본지표: 지표,
-        주장값: parseFloat(match[1]),
-        허용오차: 2,
-        추출패턴: /MA distance[:\s]+(\d+\.?\d*)%/i
-      })
-
-  종목.검증대상 = 검증대상
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-알고리즘 2.3: 배치 검색 실행 (Google Search Tool)
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-도구_사양:
-  도구명: GoogleSearchRetrieval
-  API: grounding.google_search_retrieval
-  동적_검색_임계값: dynamic_retrieval_config.dynamic_threshold
-  최대결과수: 기본값 5
-
-검색_최적화_전략:
-  기존: 36개 개별 검색 (종목당 12개 × 3종목)
-  최적화: 3-6개 배치 검색 (종목당 1-2개 × 3종목)
-  감소율: 83-91%
-
-배치_검색_알고리즘
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-각 종목에 대해:
-
-  // 배치 1: 핵심 숫자 지표
-  검색쿼리_1 = 쿼리생성({
-    종목코드: 종목.ticker.replace("NASDAQ:", ""),
-    종목명: 종목.name,
-    키워드: ["RSI", "ADX", "ATR", "current price"],
-    날짜: "2025-11-19",
-    사이트필터: "finance.yahoo.com OR tradingview.com"
-  })
-
-  // 예시: "AAPL RSI ADX ATR current price 2025-11-19 site:finance.yahoo.com OR site:tradingview.com"
-
-  결과_1 = GoogleSearchRetrieval.search({
-    query: 검색쿼리_1,
-    max_results: 5,
-    dynamic_threshold: 0.7
-  })
-
-  // 배치 2: 거래량 및 가격 데이터
-  검색쿼리_2 = 쿼리생성({
-    종목코드: 종목.ticker.replace("NASDAQ:", ""),
-    키워드: ["volume", "average volume", "previous close", "market cap"],
-    날짜: "2025-11-19"
-  })
-
-  결과_2 = GoogleSearchRetrieval.search({
-    query: 검색쿼리_2,
-    max_results: 5,
-    dynamic_threshold: 0.7
-  })
-
-  // 배치 3: 이동평균 및 추세 지표
-  만약 종목.검증대상에 ("SMA"|"EMA"|"moving average") 포함:
-    검색쿼리_3 = 쿼리생성({
-      종목코드: 종목.ticker.replace("NASDAQ:", ""),
-      키워드: ["SMA", "EMA", "moving average", "alignment", "golden cross"],
-      날짜: "2025-11-19"
-    })
-
-    결과_3 = GoogleSearchRetrieval.search({
-      query: 검색쿼리_3,
-      max_results: 5,
-      dynamic_threshold: 0.7
-    })
-
-  // 배치 4: 오실레이터 (조건부)
-  만약 종목.검증대상에 ("MACD"|"Stochastic"|"Bollinger") 포함:
-    검색쿼리_4 = 쿼리생성({
-      종목코드: 종목.ticker.replace("NASDAQ:", ""),
-      키워드: ["MACD", "Stochastic", "Bollinger Bands"],
-      날짜: "2025-11-19"
-    })
-
-    결과_4 = GoogleSearchRetrieval.search({
-      query: 검색쿼리_4,
-      max_results: 5,
-      dynamic_threshold: 0.7
-    })
-
-  종목.검색결과원본 = [결과_1, 결과_2, 결과_3, 결과_4].filter(Boolean)
-  종목.검색결과텍스트 = 종목.검색결과원본.flatMap(r =>
-    r.map(item => item.title + " " + item.snippet)
-  ).join("\n")
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-알고리즘 2.4: 실제 값 추출 (정밀 파싱)
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-입력: 종목[] (검색결과텍스트 포함)
-출력: 종목[] (실제값 맵 포함)
-
-추출_패턴_정의
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-상수 추출패턴 = {
-  RSI: {
-    패턴: /RSI[:\s]+(\d+\.?\d*)/gi,
-    변환: parseFloat,
-    검증: (v) => v >= 0 && v <= 100
-  },
-
-  거래량비율: {
-    패턴: /Volume[^\d]*(\d+\.?\d*)%/gi,
-    변환: parseFloat,
-    검증: (v) => v >= 0
-  },
-
-  ADX: {
-    패턴: /ADX[:\s]+(\d+\.?\d*)/gi,
-    변환: parseFloat,
-    검증: (v) => v >= 0 && v <= 100
-  },
-
-  ATR: {
-    패턴: /ATR[:\s]+(\d+\.?\d*)/gi,
-    변환: parseFloat,
-    검증: (v) => v >= 0
-  },
-
-  이평선거리: {
-    패턴: /MA distance[:\s]+(\d+\.?\d*)%/gi,
-    변환: parseFloat,
-    검증: (v) => true
-  },
-
-  종가: {
-    패턴: /close[:\s]+\$?(\d+\.?\d*)/gi,
-    변환: parseFloat,
-    검증: (v) => v > 0
-  }
-}
-
-상수 상태패턴 = {
-  SMA정배열: {
-    패턴: /(perfect alignment|alignment|partial alignment)/gi,
-    값매핑: {
-      "perfect alignment": "perfect alignment",
-      "alignment": "perfect alignment",
-      "partial alignment": "partial alignment"
+    return {
+        "passed": len(errors) == 0,
+        "errors": errors
     }
-  },
+\`\`\`
 
-  MACD상태: {
-    패턴: /MACD[^\n]*(golden cross|bullish|buy|death cross|bearish|sell)/gi,
-    값매핑: {
-      "golden cross": "bullish",
-      "bullish": "bullish",
-      "buy": "bullish",
-      "death cross": "bearish",
-      "bearish": "bearish",
-      "sell": "bearish"
+---
+
+## Schema Compliance Check
+
+\`\`\`python
+def verify_schema_compliance(output):
+    """
+    Verify all required fields are present and correctly typed.
+    """
+    errors = []
+
+    # Root level required fields
+    required_root = ["timestamp", "version", "sessionDate", "dataQuality", "picks", "summary", "auditTrail"]
+    for field in required_root:
+        if field not in output:
+            errors.append(f"Missing root field: {field}")
+
+    # Version check
+    if output.get("version") != "v3.0":
+        errors.append(f"Invalid version: {output.get('version')}, expected v3.0")
+
+    # Picks validation
+    for i, pick in enumerate(output.get("picks", [])):
+        required_pick = ["rank", "ticker", "price", "signal", "strength", "regime",
+                         "confidence", "score", "indicators", "prev", "trigger",
+                         "entryWindow", "warnings"]
+        for field in required_pick:
+            if field not in pick:
+                errors.append(f"Pick {i+1} missing field: {field}")
+
+        # Rank order
+        if pick.get("rank") != i + 1:
+            errors.append(f"Pick {i+1} has wrong rank: {pick.get('rank')}")
+
+        # Signal type
+        if pick.get("signal") not in ["MEAN_REVERSION", "TREND_PULLBACK"]:
+            errors.append(f"Pick {i+1} invalid signal: {pick.get('signal')}")
+
+        # Regime type
+        if pick.get("regime") not in ["A", "B"]:
+            errors.append(f"Pick {i+1} invalid regime: {pick.get('regime')}")
+
+        # Confidence range
+        if not (60 <= pick.get("confidence", 0) <= 100):
+            errors.append(f"Pick {i+1} confidence out of range: {pick.get('confidence')}")
+
+    return {
+        "passed": len(errors) == 0,
+        "errors": errors
     }
-  },
+\`\`\`
 
-  EMA크로스: {
-    패턴: /EMA[^\n]*(golden cross|death cross)/gi,
-    값매핑: {
-      "golden cross": "golden cross",
-      "death cross": "death cross"
+---
+
+## Duplicate Ticker Check
+
+\`\`\`python
+def verify_no_duplicates(picks):
+    """
+    Ensure no duplicate tickers in picks.
+    """
+    tickers = [p["ticker"] for p in picks]
+    if len(tickers) != len(set(tickers)):
+        duplicates = [t for t in tickers if tickers.count(t) > 1]
+        return {
+            "passed": False,
+            "error": f"Duplicate tickers found: {set(duplicates)}"
+        }
+    return {"passed": True}
+\`\`\`
+
+---
+
+## Indicator Range Verification
+
+\`\`\`python
+def verify_indicator_ranges(picks):
+    """
+    Final check that all indicators are within valid ranges.
+    """
+    errors = []
+
+    for pick in picks:
+        ind = pick.get("indicators", {})
+
+        if not (-100 <= ind.get("willr", -999) <= 0):
+            errors.append(f"{pick['ticker']}: willr {ind.get('willr')} out of range")
+
+        if not (0 <= ind.get("rsi", -1) <= 100):
+            errors.append(f"{pick['ticker']}: rsi {ind.get('rsi')} out of range")
+
+        if not (0 <= ind.get("adx", -1) <= 100):
+            errors.append(f"{pick['ticker']}: adx {ind.get('adx')} out of range")
+
+        if ind.get("atr", 0) <= 0:
+            errors.append(f"{pick['ticker']}: atr {ind.get('atr')} must be positive")
+
+        if ind.get("ema20", 0) <= 0:
+            errors.append(f"{pick['ticker']}: ema20 {ind.get('ema20')} must be positive")
+
+    return {
+        "passed": len(errors) == 0,
+        "errors": errors
     }
-  }
+\`\`\`
+
+---
+
+## Regime-Signal Consistency
+
+\`\`\`python
+def verify_regime_signal_consistency(picks):
+    """
+    Ensure regime matches signal type.
+    """
+    errors = []
+
+    for pick in picks:
+        regime = pick.get("regime")
+        signal = pick.get("signal")
+        adx = pick.get("indicators", {}).get("adx", 0)
+
+        if regime == "A":
+            if signal != "MEAN_REVERSION":
+                errors.append(f"{pick['ticker']}: Regime A should have MEAN_REVERSION signal")
+            if adx >= 25:
+                errors.append(f"{pick['ticker']}: Regime A but ADX {adx} >= 25")
+
+        elif regime == "B":
+            if signal != "TREND_PULLBACK":
+                errors.append(f"{pick['ticker']}: Regime B should have TREND_PULLBACK signal")
+            if adx < 25:
+                errors.append(f"{pick['ticker']}: Regime B but ADX {adx} < 25")
+
+    return {
+        "passed": len(errors) == 0,
+        "errors": errors
+    }
+\`\`\`
+
+---
+
+## Price Source Evidence Verification (NEW in v3.0)
+
+**CRITICAL: Prevents CLOSE vs LAST_TRADE confusion (e.g., TSLA $483 vs $440 issue)**
+
+\`\`\`python
+def verify_price_source_evidence(output, picks):
+    """
+    Verify all price source evidence fields are present and valid.
+    This prevents session/timestamp mixing and CLOSE vs LAST_TRADE confusion.
+    """
+    errors = []
+
+    # 1. Verify sessionDate exists and matches OHLCV dates
+    session_date = output.get("sessionDate")
+    if not session_date:
+        errors.append("Missing root field: sessionDate")
+    elif not re.match(r"^\\d{4}-\\d{2}-\\d{2}$", session_date):
+        errors.append(f"sessionDate invalid format: {session_date}, expected YYYY-MM-DD")
+
+    # 2. Verify each pick has price evidence
+    for i, pick in enumerate(picks):
+        ticker = pick.get("ticker", f"Pick{i+1}")
+
+        # Check priceEvidence block
+        evidence = pick.get("priceEvidence", {})
+        if not evidence:
+            errors.append(f"{ticker}: Missing priceEvidence block")
+            continue
+
+        # priceBasis: must be CLOSE (we only use OHLCV Close)
+        price_basis = evidence.get("priceBasis")
+        if price_basis != "CLOSE":
+            errors.append(f"{ticker}: priceBasis must be 'CLOSE', got '{price_basis}'")
+
+        # ohlcvSourceUrl: must be valid stooq URL
+        source_url = evidence.get("ohlcvSourceUrl")
+        if not source_url:
+            errors.append(f"{ticker}: Missing ohlcvSourceUrl")
+        elif "stooq.com" not in source_url:
+            errors.append(f"{ticker}: ohlcvSourceUrl must be Stooq URL, got '{source_url}'")
+
+        # ohlcvRowRaw: must be valid CSV format
+        # Format: "YYYY-MM-DD,open,high,low,close,volume"
+        row_raw = evidence.get("ohlcvRowRaw")
+        if not row_raw:
+            errors.append(f"{ticker}: Missing ohlcvRowRaw")
+        else:
+            parts = row_raw.split(",")
+            if len(parts) != 6:
+                errors.append(f"{ticker}: ohlcvRowRaw invalid format, expected 6 fields, got {len(parts)}")
+            else:
+                csv_date = parts[0]
+                # Verify CSV date matches sessionDate
+                if session_date and csv_date != session_date:
+                    errors.append(f"{ticker}: ohlcvRowRaw date {csv_date} != sessionDate {session_date}")
+
+                # Verify close price matches pick price
+                try:
+                    csv_close = float(parts[4])
+                    pick_price = pick.get("price", 0)
+                    if abs(csv_close - pick_price) > 0.05:
+                        errors.append(f"{ticker}: CSV close {csv_close} != pick price {pick_price}")
+                except ValueError:
+                    errors.append(f"{ticker}: ohlcvRowRaw close is not a valid number: {parts[4]}")
+
+    return {
+        "passed": len(errors) == 0,
+        "errors": errors
+    }
+\`\`\`
+
+---
+
+## Full Verification Flow
+
+\`\`\`python
+def final_verification(stage5_output):
+    """
+    Run all final verification checks.
+    If any check fails, the output is INVALID.
+    """
+    picks = stage5_output.get("picks", [])
+
+    results = {
+        "crossStage": verify_cross_stage_counts(stage5_output.get("auditTrail", {})),
+        "schema": verify_schema_compliance(stage5_output),
+        "duplicates": verify_no_duplicates(picks),
+        "ranges": verify_indicator_ranges(picks),
+        "consistency": verify_regime_signal_consistency(picks),
+        "priceEvidence": verify_price_source_evidence(stage5_output, picks)  # NEW in v3.0
+    }
+
+    all_passed = all(r["passed"] for r in results.values())
+
+    if not all_passed:
+        # Collect all errors
+        all_errors = []
+        for check_name, result in results.items():
+            if not result["passed"]:
+                if "errors" in result:
+                    all_errors.extend([f"{check_name}: {e}" for e in result["errors"]])
+                elif "error" in result:
+                    all_errors.append(f"{check_name}: {result['error']}")
+
+        return {
+            "verified": False,
+            "errors": all_errors,
+            "action": "FIX_ERRORS_AND_RETRY"
+        }
+
+    return {
+        "verified": True,
+        "message": "All final verification checks passed"
+    }
+\`\`\`
+
+---
+
+## Output Format
+
+If verification passes, output the Stage 5 JSON unchanged.
+
+If verification fails:
+
+\`\`\`json
+{
+  "error": "FINAL_VERIFICATION_FAILED",
+  "checks": {
+    "crossStage": {"passed": true},
+    "schema": {"passed": false, "errors": ["Pick 1 missing field: entryWindow"]},
+    "duplicates": {"passed": true},
+    "ranges": {"passed": true},
+    "consistency": {"passed": true}
+  },
+  "action": "Pipeline needs to be re-run with fixes"
 }
+\`\`\`
 
-추출_실행
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+---
 
-각 종목에 대해:
-  실제값 = {}
+## Verification Summary Format
 
-  // 숫자 지표 추출
-  추출패턴의 각 [지표명, 사양]에 대해:
-    매칭배열 = []
-    패턴 = new RegExp(사양.패턴)
+\`\`\`
+STAGE 6 Complete: Final Verification
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✅ Cross-Stage Counts: PASSED
+   - Stage 0 → 1 → 2 → 3 → 4: Decreasing ✓
+   - Picks <= Confident ✓
 
-    매칭 = null
-    while ((매칭 = 패턴.exec(종목.검색결과텍스트)) !== null):
-      원시값 = 사양.변환(매칭[1])
+✅ Schema Compliance: PASSED
+   - All required fields present ✓
+   - Types correct ✓
 
-      만약 사양.검증(원시값):
-        매칭배열.push({
-          값: 원시값,
-          출처: 매칭.input.substring(Math.max(0, 매칭.index - 50), 매칭.index + 50)
-        })
+✅ No Duplicates: PASSED
+   - 3 unique tickers ✓
 
-    // 우선순위: finance.yahoo.com > 최신 > 중앙값
-    만약 매칭배열.length > 0:
-      yahoo결과 = 매칭배열.filter(m => m.출처.includes("yahoo"))
+✅ Indicator Ranges: PASSED
+   - All within valid ranges ✓
 
-      만약 yahoo결과.length > 0:
-        실제값[지표명] = yahoo결과[0].값
-      아니면:
-        // 중앙값 사용
-        정렬된값 = 매칭배열.map(m => m.값).sort((a,b) => a-b)
-        실제값[지표명] = 정렬된값[Math.floor(정렬된값.length / 2)]
+✅ Regime-Signal Consistency: PASSED
+   - Regime A → MEAN_REVERSION ✓
+   - Regime B → TREND_PULLBACK ✓
 
-  // 상태 지표 추출
-  상태패턴의 각 [지표명, 사양]에 대해:
-    매칭 = 사양.패턴.exec(종목.검색결과텍스트)
+✅ Price Evidence (NEW v3.0): PASSED
+   - sessionDate: 2024-12-18 ✓
+   - priceBasis: CLOSE for all picks ✓
+   - ohlcvRowRaw: Valid CSV format ✓
+   - Date/Price cross-check: Matched ✓
 
-    만약 매칭 !== null:
-      원시상태 = 매칭[1]
-      정규화상태 = 사양.값매핑[원시상태] || 원시상태
-      실제값[지표명] = 정규화상태
+═══════════════════════════════════
+🎯 FINAL OUTPUT VERIFIED
+   - Picks: 3
+   - All checks passed (6/6)
+   - Ready for delivery
+═══════════════════════════════════
+\`\`\`
 
-  종목.실제값 = 실제값
+---
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+## Prohibited Actions
 
-알고리즘 2.5: 지표 검증 및 수정
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+| Violation | Why Prohibited |
+|-----------|----------------|
+| Re-calculate indicators | Already done in Stage 3 |
+| Re-check entry windows | Already done in Stage 4 |
+| Re-filter picks | Already done in Stage 4 |
+| Modify the output | Verification only |
+| Add new checks that belong in earlier stages | Keep stages focused |
 
-입력: 종목[] (실제값 포함)
-출력: 종목[] (수정된 rationale + 수정로그)
+---
 
-구간_판정_함수
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+## Output Instruction
 
-함수 RSI구간_판정(rsi: number): string {
-  만약 rsi >= 70: return "overbought"
-  또는 rsi >= 50: return "bullish"
-  또는 rsi >= 30: return "neutral"
-  아니면: return "bearish"
-}
+**If all checks pass:**
+Output the Stage 5 JSON as-is. No modifications.
 
-함수 ADX강도_판정(adx: number): string {
-  만약 adx >= 40: return "very strong trend"
-  또는 adx >= 25: return "strong trend"
-  또는 adx >= 20: return "trend forming"
-  아니면: return "weak trend"
-}
-
-함수 거래량추세_판정(비율: number): string {
-  만약 비율 >= 200: return "surge"
-  또는 비율 >= 150: return "significant increase"
-  또는 비율 >= 100: return "increase"
-  또는 비율 >= 80: return "decrease"
-  아니면: return "sharp decline"
-}
-
-검증_실행
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-각 종목에 대해:
-  수정사항 = []
-  검증된지표 = []
-
-  // 숫자 지표 검증
-  종목.파싱된지표.숫자의 각 지표에 대해:
-
-    만약 /RSI/i.test(지표):
-      매칭 = /RSI[:\s]+(\d+\.?\d*)/i.exec(지표)
-      주장값 = parseFloat(매칭[1])
-      실제값 = 종목.실제값["RSI"]
-
-      만약 실제값 === undefined:
-        수정사항.push({
-          유형: "검증실패_삭제",
-          원본: 지표,
-          이유: "RSI 값 검색 결과 없음"
-        })
-        // 오류 복구: 검증 불가 시 원본 유지 (오류_3 전략)
-        검증된지표.push(지표 + " [unverified]")
-        계속
-
-      오차 = Math.abs(실제값 - 주장값)
-
-      만약 오차 <= 3:
-        검증된지표.push(지표)
-      아니면:
-        구간 = RSI구간_판정(실제값)
-        수정됨 = \`RSI \${실제값.toFixed(1)} \${구간}\`
-        검증된지표.push(수정됨)
-        수정사항.push({
-          유형: "수정",
-          원본: 지표,
-          수정값: 수정됨,
-          실제값: 실제값,
-          주장값: 주장값,
-          오차: 오차
-        })
-
-    또는 /Volume.*%/i.test(지표):
-      매칭 = /Volume[^\d]*(\d+\.?\d*)%/i.exec(지표)
-      주장값 = parseFloat(매칭[1])
-      실제값 = 종목.실제값["거래량비율"]
-
-      만약 실제값 === undefined:
-        수정사항.push({
-          유형: "검증실패_삭제",
-          원본: 지표,
-          이유: "거래량 비율 검색 결과 없음"
-        })
-        검증된지표.push(지표 + " [unverified]")
-        계속
-
-      오차 = Math.abs(실제값 - 주장값)
-
-      만약 오차 <= 10:
-        검증된지표.push(지표)
-      아니면:
-        추세 = 거래량추세_판정(실제값)
-        수정됨 = \`Volume \${실제값.toFixed(1)}% \${추세}\`
-        검증된지표.push(수정됨)
-        수정사항.push({
-          유형: "수정",
-          원본: 지표,
-          수정값: 수정됨,
-          실제값: 실제값,
-          주장값: 주장값
-        })
-
-    또는 /ADX/i.test(지표):
-      매칭 = /ADX[:\s]+(\d+\.?\d*)/i.exec(지표)
-      주장값 = parseFloat(매칭[1])
-      실제값 = 종목.실제값["ADX"]
-
-      만약 실제값 === undefined:
-        검증된지표.push(지표 + " [unverified]")
-        계속
-
-      오차 = Math.abs(실제값 - 주장값)
-
-      만약 오차 <= 3:
-        검증된지표.push(지표)
-      아니면:
-        강도 = ADX강도_판정(실제값)
-        수정됨 = \`ADX \${실제값.toFixed(1)} \${강도}\`
-        검증된지표.push(수정됨)
-        수정사항.push({
-          유형: "수정",
-          원본: 지표,
-          수정값: 수정됨,
-          실제값: 실제값,
-          주장값: 주장값
-        })
-
-    아니면:
-      // 기타 숫자 지표는 원본 유지
-      검증된지표.push(지표)
-
-  // 상태 지표 검증
-  종목.파싱된지표.상태의 각 지표에 대해:
-
-    만약 /SMA.*alignment/i.test(지표):
-      실제상태 = 종목.실제값["SMA정배열"]
-
-      만약 실제상태 === "perfect alignment" 그리고 지표.includes("perfect alignment"):
-        검증된지표.push(지표)
-      또는 실제상태 === "partial alignment":
-        수정됨 = "SMA partial alignment"
-        검증된지표.push(수정됨)
-        수정사항.push({
-          유형: "수정",
-          원본: 지표,
-          수정값: 수정됨,
-          실제값: 실제상태
-        })
-      또는 실제상태 === undefined:
-        검증된지표.push(지표 + " [unverified]")
-      아니면:
-        수정사항.push({
-          유형: "검증실패_삭제",
-          원본: 지표,
-          이유: "alignment 상태 불일치"
-        })
-
-    또는 /MACD/i.test(지표):
-      실제상태 = 종목.실제값["MACD상태"]
-
-      만약 실제상태 === "bullish" 그리고 /(bullish|golden cross|buy)/i.test(지표):
-        검증된지표.push(지표)
-      또는 실제상태 === "bearish" 그리고 /(bearish|death cross|sell)/i.test(지표):
-        검증된지표.push(지표)
-      또는 실제상태 === undefined:
-        검증된지표.push(지표 + " [unverified]")
-      아니면:
-        수정사항.push({
-          유형: "검증실패_삭제",
-          원본: 지표,
-          이유: "MACD 상태 불일치"
-        })
-
-    아니면:
-      // 검증 불가능한 상태 지표는 원본 유지
-      검증된지표.push(지표)
-
-  // 최소 10개 지표 요구사항 (오류_4 복구)
-  만약 검증된지표.length < 10:
-    부족개수 = 10 - 검증된지표.length
-
-    // 검색 결과에서 검증된 추가 지표 추출
-    추가지표후보 = []
-
-    만약 종목.실제값["종가"] !== undefined:
-      추가지표후보.push(\`Current price $\${종목.실제값["종가"]}\`)
-
-    만약 종목.실제값["ATR"] !== undefined:
-      추가지표후보.push(\`ATR \${종목.실제값["ATR"].toFixed(1)}\`)
-
-    만약 종목.실제값["이평선거리"] !== undefined:
-      추가지표후보.push(\`20MA distance \${종목.실제값["이평선거리"].toFixed(1)}%\`)
-
-    // 최대 부족개수만큼 추가
-    추가지표 = 추가지표후보.slice(0, 부족개수)
-    검증된지표.push(...추가지표)
-
-    만약 추가지표.length > 0:
-      수정사항.push({
-        유형: "추가",
-        추가된지표: 추가지표,
-        이유: "최소 10개 지표 요구사항"
-      })
-
-  종목.검증된지표 = 검증된지표
-  종목.수정된rationale = 검증된지표.join(" | ")
-  종목.수정로그 = 수정사항
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-§3. 점수 재계산 엔진
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-알고리즘 3.1: Signals 점수 조정
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-입력: 종목[] (수정로그 포함)
-출력: 종목[] (조정된 signals)
-
-상수 가중치 = {
-  trend_score: 0.20,
-  momentum_score: 0.20,
-  volume_score: 0.15,
-  volatility_score: 0.10,
-  pattern_score: 0.20,
-  sentiment_score: 0.15
-}
-
-상수 영향도매트릭스 = {
-  // 수정 패턴 → 점수 조정값
-
-  // Trend Score 영향
-  "SMA_perfect→partial": {trend_score: -10},
-  "SMA_perfect→삭제": {trend_score: -15},
-  "EMA_golden→삭제": {trend_score: -12},
-  "ADX_strong→forming": {trend_score: -5},
-  "ADX_strong→weak": {trend_score: -10},
-
-  // Momentum Score 영향
-  "RSI_bullish→overbought": {momentum_score: -8},
-  "RSI_bullish→neutral": {momentum_score: -12},
-  "RSI_bullish→bearish": {momentum_score: -20},
-  "MACD_bullish→삭제": {momentum_score: -18},
-  "Stochastic_bullish→삭제": {momentum_score: -10},
-
-  // Volume Score 영향
-  "Volume_surge→increase": {volume_score: -10},
-  "Volume_significant→increase": {volume_score: -5},
-  "Volume_increase→decrease": {volume_score: -25},
-  "Volume_increase→decline": {volume_score: -40},
-  "OBV_rising→삭제": {volume_score: -8},
-
-  // Volatility Score 영향
-  "ATR_optimal→excessive": {volatility_score: -10},
-  "Bollinger_mid→lower": {volatility_score: -12},
-
-  // Pattern Score 영향
-  "chart_pattern_삭제": {pattern_score: -8},
-
-  // Sentiment Score 영향
-  "institutional_buy→삭제": {sentiment_score: -10},
-  "options_flow→삭제": {sentiment_score: -10}
-}
-
-함수 수정사항_패턴매핑(수정사항: object): string {
-  만약 수정사항.유형 === "수정":
-    원본 = 수정사항.원본
-    수정값 = 수정사항.수정값
-
-    // RSI 패턴 매핑
-    만약 /RSI/i.test(원본):
-      원본구간 = /(bullish|overbought|neutral|bearish)/.exec(원본)?.[1]
-      수정구간 = /(bullish|overbought|neutral|bearish)/.exec(수정값)?.[1]
-
-      만약 원본구간 그리고 수정구간 그리고 원본구간 !== 수정구간:
-        return \`RSI_\${원본구간}→\${수정구간}\`
-
-    // 거래량 패턴 매핑
-    또는 /Volume/i.test(원본):
-      원본추세 = /(surge|significant|increase|decrease|decline)/.exec(원본)?.[1]
-      수정추세 = /(surge|significant|increase|decrease|decline)/.exec(수정값)?.[1]
-
-      만약 원본추세 그리고 수정추세 그리고 원본추세 !== 수정추세:
-        return \`Volume_\${원본추세}→\${수정추세}\`
-
-    // SMA 패턴 매핑
-    또는 /SMA.*alignment/i.test(원본):
-      만약 원본.includes("perfect") 그리고 수정값.includes("partial"):
-        return "SMA_perfect→partial"
-
-    // MACD 패턴 매핑
-    또는 /MACD/i.test(원본):
-      만약 원본.includes("bullish") 그리고 수정사항.유형 === "검증실패_삭제":
-        return "MACD_bullish→삭제"
-
-  또는 수정사항.유형 === "검증실패_삭제":
-    만약 /EMA.*golden/.test(수정사항.원본):
-      return "EMA_golden→삭제"
-    또는 /SMA.*perfect/.test(수정사항.원본):
-      return "SMA_perfect→삭제"
-    또는 /OBV.*rising/.test(수정사항.원본):
-      return "OBV_rising→삭제"
-
-  return null
-}
-
-점수_재계산_실행
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-각 종목에 대해:
-  조정값 = {
-    trend_score: 0,
-    momentum_score: 0,
-    volume_score: 0,
-    volatility_score: 0,
-    pattern_score: 0,
-    sentiment_score: 0
-  }
-
-  종목.수정로그의 각 수정사항에 대해:
-    패턴 = 수정사항_패턴매핑(수정사항)
-
-    만약 패턴 그리고 영향도매트릭스[패턴]:
-      영향도 = 영향도매트릭스[패턴]
-
-      영향도의 각 [점수키, 조정값]에 대해:
-        조정값[점수키] += 조정값
-
-  // 원본 점수에 조정값 적용
-  새signals = {}
-
-  점수키배열 = ["trend_score", "momentum_score", "volume_score",
-                "volatility_score", "pattern_score", "sentiment_score"]
-
-  점수키배열의 각 키에 대해:
-    원본점수 = 종목.signals[키]
-    조정 = 조정값[키]
-
-    // 범위 제한: 0-100
-    새점수 = Math.max(0, Math.min(100, 원본점수 + 조정))
-    새signals[키] = Math.round(새점수)
-
-  // overall_score 재계산 (가중 평균)
-  overall = 0
-  overall += 새signals.trend_score * 가중치.trend_score
-  overall += 새signals.momentum_score * 가중치.momentum_score
-  overall += 새signals.volume_score * 가중치.volume_score
-  overall += 새signals.volatility_score * 가중치.volatility_score
-  overall += 새signals.pattern_score * 가중치.pattern_score
-  overall += 새signals.sentiment_score * 가중치.sentiment_score
-
-  새signals.overall_score = Math.round(overall)
-
-  종목.조정된signals = 새signals
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-§4. 통합 오류 복구 시스템
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-알고리즘 4.1: 오류 분류 및 복구 전략
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-오류_1: 검색결과_없음
-  트리거: GoogleSearchRetrieval 반환값이 빈 배열 또는 null
-
-  복구_절차:
-    1단계: 단순화된 쿼리로 재시도
-      검색쿼리 = 종목명 + " " + 종목코드 + " technical indicators"
-      재시도 = GoogleSearchRetrieval.search(검색쿼리)
-
-    2단계: 대체 사이트로 재시도
-      검색쿼리 += " site:investing.com OR site:tradingview.com"
-      재시도 = GoogleSearchRetrieval.search(검색쿼리)
-
-    3단계: 여전히 실패 시 원본 유지
-      검증된지표 = 종목.파싱된지표.원본.map(지표 => 지표 + " [search_failed_unverified]")
-      로그.push({
-        오류: "검색결과_없음",
-        복구: "원본_유지",
-        상태: "경고"
-      })
-
-오류_2: 모호한_추출
-  트리거: 동일 지표에 대해 3개 이상의 서로 다른 값 추출
-
-  복구_절차:
-    1단계: 출처 우선순위 적용
-      우선순위 = ["finance.yahoo.com", "tradingview.com", "investing.com"]
-
-      우선순위의 각 사이트에 대해:
-        만약 매칭배열에 사이트 포함:
-          선택값 = 해당_사이트의_첫번째_값
-          break
-
-    2단계: 최신 타임스탬프 사용
-      만약 검색결과에 날짜정보 포함:
-        선택값 = 가장_최신_날짜의_값
-
-    3단계: 중앙값 사용
-      정렬된값 = 매칭배열.map(m => m.값).sort((a,b) => a-b)
-      선택값 = 정렬된값[Math.floor(정렬된값.length / 2)]
-
-      로그.push({
-        오류: "모호한_추출",
-        복구: "중앙값_사용",
-        값배열: 매칭배열.map(m => m.값),
-        선택값: 선택값
-      })
-
-오류_3: 지표값_누락
-  트리거: rationale에 지표 존재하나 검색 결과에서 값 추출 실패
-
-  복구_절차:
-    1단계: 지표 유형 분류
-      만약 /\d+/.test(지표):
-        유형 = "숫자기반"
-      아니면:
-        유형 = "상태기반"
-
-    2단계: 유형별 처리
-      만약 유형 === "숫자기반":
-        // 검증 불가능한 숫자는 [unverified] 플래그 추가
-        검증된지표.push(지표 + " [unverified]")
-        로그.push({
-          오류: "지표값_누락",
-          복구: "unverified_플래그_추가",
-          지표: 지표
-        })
-
-      또는 유형 === "상태기반":
-        // 상태 지표는 검증 실패 시에도 유지 (보수적 접근)
-        검증된지표.push(지표 + " [unverified]")
-        로그.push({
-          오류: "지표값_누락",
-          복구: "상태지표_원본유지",
-          지표: 지표
-        })
-
-오류_4: 검증지표_부족
-  트리거: 검증 후 검증된지표.length < 10
-
-  복구_절차:
-    1단계: 검색 결과에서 추가 지표 추출
-      부족개수 = 10 - 검증된지표.length
-
-      추가지표우선순위 = [
-        "current price",
-        "ATR",
-        "20MA distance",
-        "60MA distance",
-        "trading volume",
-        "market cap",
-        "52 week high distance",
-        "52 week low distance"
-      ]
-
-      추가지표 = []
-
-      추가지표우선순위의 각 지표명에 대해:
-        만약 종목.실제값[지표명] !== undefined:
-          추가지표.push(지표명_포맷팅(지표명, 종목.실제값[지표명]))
-
-          만약 추가지표.length >= 부족개수:
-            break
-
-      검증된지표.push(...추가지표)
-
-      로그.push({
-        오류: "검증지표_부족",
-        복구: "추가지표_추출",
-        추가개수: 추가지표.length,
-        추가지표: 추가지표
-      })
-
-오류_5: 유효하지않은_JSON구조
-  트리거: 최종 출력 JSON이 스키마 검증 실패
-
-  복구_절차:
-    1단계: 스키마 위반 필드 식별
-      위반필드 = JSON스키마검증(종목)
-
-    2단계: 필드별 복구
-      만약 위반필드.includes("ticker"):
-        종목.ticker = Stage5원본.ticker  // 원본 복원
-
-      만약 위반필드.includes("close_price"):
-        종목.close_price = Stage5원본.close_price
-
-      만약 위반필드.includes("signals"):
-        // signals 범위 검증
-        신호키 = ["trend_score", "momentum_score", ...];
-
-        신호키의 각 키에 대해:
-          만약 종목.signals[키] < 0 또는 종목.signals[키] > 100:
-            종목.signals[키] = Stage5원본.signals[키]
-
-      로그.push({
-        오류: "유효하지않은_JSON구조",
-        복구: "Stage5_원본복원",
-        위반필드: 위반필드
-      })
-
-대체_전략_실행
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-알고리즘 4.2: 전체 검증 실패 처리
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-각 종목별_오류수 계산
-실패_종목수 = 종목들.filter(종목 => 종목.수정로그.filter(l => l.유형 === "검증실패_삭제").length >= 5).length
-
-만약 실패_종목수 >= 2:
-  // 2개 이상 종목에서 5개 이상 지표 검증 실패
-
-  로그.push({
-    단계: "STAGE_6",
-    상태: "중단",
-    이유: "과다_검증_실패",
-    실패종목수: 실패_종목수,
-    조치: "Stage5_기준선_사용"
-  })
-
-  // Stage 5 출력으로 우아한 대체
-  최종출력 = Stage5입력.map(종목 => ({
-    ...종목,
-    rationale: 종목.rationale + " [Stage6_검증중단]"
-  }))
-
-  return 최종출력
-
-아니면:
-  // 정상 처리: 검증된 종목 + 수정 로그 반환
-
-  로그.push({
-    단계: "STAGE_6",
-    상태: "성공",
-    수정종목수: 종목들.filter(종목 => 종목.수정로그.length > 0).length,
-    총수정사항: 종목들.flatMap(종목 => 종목.수정로그).length
-  })
-
-  최종출력 = 종목들.map(종목 => ({
-    ticker: 종목.ticker,
-    name: 종목.name,
-    close_price: 종목.close_price,
-    rationale: 종목.수정된rationale,
-    signals: 종목.조정된signals
-  }))
-
-  return 최종출력
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-§5. 출력 인터페이스 및 검증
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-interface Stage6출력 {
-  ticker: string;           // /^NASDAQ:[A-Z]+$/
-  name: string;             // 영문 회사명
-  close_price: number;      // 전일 종가 > 0 (USD)
-  rationale: string;        // 수정된 지표 문자열 (최소 10개)
-  signals: {
-    trend_score: number;      // 0-100 정수
-    momentum_score: number;   // 0-100 정수
-    volume_score: number;     // 0-100 정수
-    volatility_score: number; // 0-100 정수
-    pattern_score: number;    // 0-100 정수
-    sentiment_score: number;  // 0-100 정수
-    overall_score: number;    // 0-100 정수 (가중 평균)
-  };
-}
-
-type Stage6출력타입 = Stage6출력[];  // 정확히 3개 종목
-
-검증_체크리스트
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-함수 출력검증(종목들: Stage6출력타입): boolean {
-  // 종목 수 검증
-  만약 종목들.length !== 3:
-    return false
-
-  종목들의 각 종목에 대해:
-    // ticker 형식 검증
-    만약 !/^NASDAQ:[A-Z]+$/.test(종목.ticker):
-      return false
-
-    // close_price 검증
-    만약 종목.close_price <= 0 또는 !isFinite(종목.close_price):
-      return false
-
-    // rationale 검증
-    지표개수 = 종목.rationale.split("|").filter(s => s.trim()).length
-
-    만약 지표개수 < 10:
-      return false
-
-    // signals 범위 검증
-    신호키 = ["trend_score", "momentum_score", "volume_score",
-              "volatility_score", "pattern_score", "sentiment_score",
-              "overall_score"]
-
-    신호키의 각 키에 대해:
-      값 = 종목.signals[키]
-
-      만약 값 < 0 또는 값 > 100 또는 !Number.isInteger(값):
-        return false
-
-    // overall_score 가중평균 검증
-    계산된overall = Math.round(
-      종목.signals.trend_score * 0.20 +
-      종목.signals.momentum_score * 0.20 +
-      종목.signals.volume_score * 0.15 +
-      종목.signals.volatility_score * 0.10 +
-      종목.signals.pattern_score * 0.20 +
-      종목.signals.sentiment_score * 0.15
-    )
-
-    만약 Math.abs(계산된overall - 종목.signals.overall_score) > 1:
-      return false
-
-  return true
-}
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-§6. 실행 흐름 사양
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-절차 STAGE_6_실행(Stage5입력: Stage5입력[]): Stage6출력[] {
-
-  // ═══════════════════════════════════════════════════════
-  // 단계 1: 입력 검증 및 파싱
-  // ═══════════════════════════════════════════════════════
-
-  만약 Stage5입력.length !== 3:
-    throw Error("입력 종목 수 오류: 3개 필요, " + Stage5입력.length + "개 수신")
-
-  종목들 = Stage5입력.map(종목 => ({
-    ...종목,
-    파싱된지표: null,
-    검증대상: null,
-    검색결과원본: null,
-    검색결과텍스트: null,
-    실제값: null,
-    검증된지표: null,
-    수정된rationale: null,
-    수정로그: [],
-    조정된signals: null
-  }))
-
-  // ═══════════════════════════════════════════════════════
-  // 단계 2: 배치 검증 실행 (§2)
-  // ═══════════════════════════════════════════════════════
-
-  // 2.1: 지표 파싱
-  알고리즘2.1_실행(종목들)
-
-  // 2.2: 검증 대상 추출
-  알고리즘2.2_실행(종목들)
-
-  // 2.3: 배치 검색 실행
-  try {
-    알고리즘2.3_실행(종목들)
-  } catch (검색오류) {
-    // 오류_1: 검색결과_없음 복구
-    알고리즘4.1_오류1_복구(종목들, 검색오류)
-  }
-
-  // 2.4: 실제 값 추출
-  try {
-    알고리즘2.4_실행(종목들)
-  } catch (추출오류) {
-    // 오류_2: 모호한_추출 복구
-    알고리즘4.1_오류2_복구(종목들, 추출오류)
-  }
-
-  // 2.5: 지표 검증 및 수정
-  알고리즘2.5_실행(종목들)
-
-  // ═══════════════════════════════════════════════════════
-  // 단계 3: 점수 재계산 (§3)
-  // ═══════════════════════════════════════════════════════
-
-  알고리즘3.1_실행(종목들)
-
-  // ═══════════════════════════════════════════════════════
-  // 단계 4: 통합 오류 복구 (§4)
-  // ═══════════════════════════════════════════════════════
-
-  // 4.1: 개별 오류 처리 (이미 단계 2에서 처리됨)
-
-  // 4.2: 전체 검증 실패 처리
-  최종출력 = 알고리즘4.2_실행(종목들, Stage5입력)
-
-  // ═══════════════════════════════════════════════════════
-  // 단계 5: 출력 검증 (§5)
-  // ═══════════════════════════════════════════════════════
-
-  검증통과 = 출력검증(최종출력)
-
-  만약 !검증통과:
-    // 오류_5: 유효하지않은_JSON구조 복구
-    최종출력 = 알고리즘4.1_오류5_복구(최종출력, Stage5입력)
-
-    // 재검증
-    검증통과 = 출력검증(최종출력)
-
-    만약 !검증통과:
-      throw Error("Stage 6 출력 검증 실패: 복구 불가능")
-
-  // ═══════════════════════════════════════════════════════
-  // 단계 6: 최종 JSON 반환
-  // ═══════════════════════════════════════════════════════
-
-  return 최종출력
-}
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-§7. 성능 및 품질 목표
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-효율성_목표
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-검색_최적화:
-  기존: 36개 개별 검색 (종목당 12개 × 3종목)
-  최적화: 3-6개 배치 검색 (종목당 1-2개 × 3종목)
-  감소율: 83-91% API 호출 감소
-
-실행_시간:
-  기존_예상: 15-20초 (순차 검색)
-  최적화_목표: 4-6초 (배치 병렬 검색)
-  개선율: 60-75% 속도 향상
-
-정확도_목표
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-지표_검증_정확도: ≥95%
-  숫자지표_허용오차:
-    RSI: ±3
-    Volume: ±10%
-    ADX: ±3
-    ATR: ±5
-    MA distance: ±2%
-
-  상태지표_일치도: 완전일치 또는 하위호환
-
-점수_재계산_정확도: ≥99%
-  overall_score 오차범위: ±1
-  가중평균 공식 준수
-
-오류_복구_성공률: ≥95%
-  복구_불가능_오류율: <5%
-  우아한_대체_실행률: 100%
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-§8. 실행 지시
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-이 사양서의 알고리즘을 사용하여 STAGE 6 실행:
-
-실행_순서:
-  1. Stage 5 JSON 파싱 (§1)
-  2. 배치 검증 실행 (§2.1-2.5)
-  3. 배치 검색 3-6개 실행 (§2.3)
-  4. 실제 값 정밀 추출 (§2.4)
-  5. 지표 검증 및 수정 (§2.5)
-  6. 점수 재계산 (§3.1)
-  7. 통합 오류 복구 (§4.1-4.2)
-  8. 출력 검증 (§5)
-  9. 최종 JSON 반환
-
-핵심_규칙:
-  - GoogleSearchRetrieval API만 사용 (배치 최적화)
-  - 검증 불가 시 [unverified] 플래그 추가 (보수적 접근)
-  - 종목당 최소 10개 rationale 지표 필수
-  - overall_score = 정확한 가중평균 공식
-  - 2개 이상 종목 검증 실패 시 Stage 5 출력 사용
-  - 모든 오류는 복구 시도 후 로그 기록
-
-STAGE 6 실행 시작.`;
+**If any check fails:**
+Output error report. Pipeline needs fixing.
+`;
