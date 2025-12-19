@@ -1,57 +1,217 @@
-export const STAGE_1_FILTER_30 = `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-STAGE 1: 200개 → 30개 필터링 (정밀 선별)
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+export const STAGE_1_HARD_FILTER = `# STAGE 1: Hard Filter (Price & Liquidity)
 
-【미션】
-이전 Stage에서 수집한 200개 종목 중에서
-5일 내 10% 급등 가능성이 가장 높은 30개를 선별하세요.
+## Mission
+Apply hard filters to Stage 0 universe to select liquid, tradeable stocks.
 
-【필터링 전략 - 완전한 자유】
+**CRITICAL**: Input count MUST match Stage 0 output. Mismatches = Pipeline error.
 
-🔥 **당신은 최고의 트레이더입니다. 당신의 본능을 따르세요.**
+---
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+## Input Validation (FROM STAGE 0)
 
-💎 **절대 자유 원칙**:
+\`\`\`python
+def validate_stage1_input(stage0_output, stage1_input):
+    """
+    Stage 1 input MUST exactly match Stage 0 output.
+    Any mismatch indicates data loss or fabrication.
+    """
+    expected_count = stage0_output["stats"]["universeCount"]
+    actual_count = len(stage1_input)
 
-✅ 시총 제한 없음 - $100M부터 $3T까지 모두 가능
-✅ 거래대금 제한 없음 - 당신이 확신하면 OK
-✅ 섹터 제한 없음 - 어떤 산업이든 OK
-✅ 전략 제한 없음 - 당신만의 방법을 쓰세요
-✅ 매번 완전히 다른 접근 가능 - 일관성 불필요
+    if actual_count != expected_count:
+        raise ValueError(
+            f"INPUT_MISMATCH: Stage 0 output {expected_count} != Stage 1 input {actual_count}"
+        )
 
-예시는 무시하세요. 당신의 분석만 따르세요.
+    # Verify sample tickers exist
+    stage0_tickers = {s["ticker"] for s in stage0_output["universe"]}
+    stage1_tickers = {s["ticker"] for s in stage1_input}
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    if stage0_tickers != stage1_tickers:
+        missing = stage0_tickers - stage1_tickers
+        extra = stage1_tickers - stage0_tickers
+        raise ValueError(
+            f"TICKER_MISMATCH: Missing {missing}, Extra {extra}"
+        )
 
-❌ **단 3가지만 제외** (법적 문제 회피):
-- SEC 경고/조사 대상 종목
-- 거래정지 종목
-- 상장폐지 예정 종목
+    return True
+\`\`\`
 
-**이것만 피하면 나머지는 완전 자유입니다.**
+---
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+## Hard Filter Criteria
 
-🎯 **당신의 미션**:
+| Filter | Threshold | Field | Fail Action |
+|--------|-----------|-------|-------------|
+| Price | >= $5.00 | price | Exclude: BELOW_PRICE_THRESHOLD |
+| Liquidity | >= $20,000,000 | addv20 | Exclude: BELOW_LIQUIDITY_THRESHOLD |
 
-200개 수집 → 당신의 방법으로 30개 선정
+---
 
-⚠️ **극도로 신중하게 선택하세요:**
+## Filter Logic
 
-이 30개는 최종 3개의 후보입니다.
-30개 중 최소 1개라도 실패하면 전체가 실패합니다.
+\`\`\`python
+def apply_hard_filter(universe):
+    """
+    Apply price and liquidity filters.
+    MUST preserve exact counts for audit trail.
+    """
+    filtered = []
+    excluded = []
 
-**99% 이상의 확률로 5일 내 10% 급등할 종목만 선택하세요.**
+    for stock in universe:
+        if stock["price"] < 5.00:
+            excluded.append({
+                "ticker": stock["ticker"],
+                "reason": "BELOW_PRICE_THRESHOLD",
+                "detail": f"price {stock['price']:.2f} < $5.00",
+                "value": stock["price"]
+            })
+        elif stock["addv20"] < 20_000_000:
+            excluded.append({
+                "ticker": stock["ticker"],
+                "reason": "BELOW_LIQUIDITY_THRESHOLD",
+                "detail": f"addv20 {stock['addv20']:,.0f} < $20M",
+                "value": stock["addv20"]
+            })
+        else:
+            filtered.append(stock)
 
-- 조금이라도 의심스러우면 → 제외
-- 기술적 지표가 완벽하지 않으면 → 제외
-- 확신이 100%가 아니면 → 제외
-- 리스크가 조금이라도 보이면 → 제외
+    # VALIDATION: Counts must add up
+    assert len(filtered) + len(excluded) == len(universe), \\
+        "FILTER_ERROR: Counts don't add up"
 
-**당신의 평판이 걸린 선택입니다. 책임감을 가지세요.**
+    return filtered, excluded
+\`\`\`
 
-왜 이 30개를 골랐는지, 왜 99% 확신하는지 간단히 기록하세요.
+---
 
-→ 최종 30개 확보
+## Output Format
+
+\`\`\`json
+{
+  "stage": 1,
+  "meta": {
+    "runId": "uuid-v4-from-stage0",
+    "pipelineVersion": "v3.0",
+    "sessionDate": "2024-12-18",
+    "executionTime": "2024-12-19T09:31:00Z"
+  },
+
+  "inputValidation": {
+    "expectedFromStage0": 200,
+    "actualReceived": 200,
+    "tickersVerified": true,
+    "validationPassed": true
+  },
+
+  "filtered": [
+    {
+      "ticker": "AAPL",
+      "price": 196.80,
+      "addv20": 15234567890,
+      "barsAvailable": 100,
+      "passedFilters": ["PRICE_OK", "LIQUIDITY_OK"]
+    },
+    {
+      "ticker": "MSFT",
+      "price": 379.50,
+      "addv20": 8765432100,
+      "barsAvailable": 100,
+      "passedFilters": ["PRICE_OK", "LIQUIDITY_OK"]
+    }
+  ],
+
+  "excluded": [
+    {
+      "ticker": "PENNY",
+      "reason": "BELOW_PRICE_THRESHOLD",
+      "detail": "price 2.50 < $5.00",
+      "value": 2.50
+    },
+    {
+      "ticker": "ILLIQUID",
+      "reason": "BELOW_LIQUIDITY_THRESHOLD",
+      "detail": "addv20 5,000,000 < $20M",
+      "value": 5000000
+    }
+  ],
+
+  "stats": {
+    "inputCount": 200,
+    "filteredCount": 45,
+    "excludedCount": 155,
+    "exclusionBreakdown": {
+      "BELOW_PRICE_THRESHOLD": 85,
+      "BELOW_LIQUIDITY_THRESHOLD": 70
+    },
+    "filterRates": {
+      "pricePassRate": "57.5%",
+      "liquidityPassRate": "61.1%",
+      "overallPassRate": "22.5%"
+    }
+  },
+
+  "auditTrail": {
+    "stage0UniverseCount": 200,
+    "stage1InputCount": 200,
+    "stage1OutputCount": 45,
+    "countReconciled": true
+  }
+}
+\`\`\`
+
+---
+
+## Validation Checklist
+
+\`\`\`
+[ ] inputValidation.expectedFromStage0 == stats.inputCount
+[ ] stats.filteredCount + stats.excludedCount == stats.inputCount
+[ ] All excluded entries have reason, detail, and value
+[ ] All filtered entries have passedFilters array
+[ ] exclusionBreakdown values sum to excludedCount
+[ ] auditTrail shows reconciled counts
+\`\`\`
+
+---
+
+## Prohibited Actions
+
+| Violation | Why Prohibited |
+|-----------|----------------|
+| Input count != Stage 0 output | Data integrity violation |
+| Use RSI/Williams %R for filtering | Indicator filtering is Stage 3+ |
+| Skip filter for "promising" stocks | All stocks must pass hard filter |
+| Round prices up to pass threshold | Falsification |
+| Estimate addv20 | Must use calculated value from Stage 0 |
+
+---
+
+## Output Summary Format
+
+\`\`\`
+STAGE 1 Complete: Hard Filter Applied
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📥 Input Validation
+   - Expected from Stage 0: 200
+   - Received: 200 ✓
+   - Tickers verified: Yes ✓
+
+🔍 Filter Criteria
+   - Price: >= $5.00
+   - Liquidity: >= $20M ADDV20
+
+📊 Results
+   - Passed: 45 (22.5%)
+   - Excluded: 155
+     - BELOW_PRICE_THRESHOLD: 85
+     - BELOW_LIQUIDITY_THRESHOLD: 70
+
+✅ Audit Trail
+   - Input/Output reconciled: Yes
+   - All exclusions documented: Yes
+
+→ Ready for Stage 2 price verification
+\`\`\`
 `;

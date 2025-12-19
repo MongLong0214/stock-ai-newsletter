@@ -9,8 +9,8 @@ if (existsSync(envPath)) {
   config({ path: envPath });
 }
 
-import { sendStockNewsletter } from '@/lib/sendgrid';
-import { getNasdaqGeminiRecommendation } from '@/lib/llm/nasdaq/gemini';
+import { sendNasdaqNewsletter } from '@/lib/sendgrid-nasdaq';
+import { getNasdaqGeminiRecommendation } from '@/lib/llm/nasdaq/nasdaq-gemini';
 
 async function sendNasdaqEmailToMe() {
   console.log('🇺🇸 NASDAQ 뉴스레터 테스트 이메일 발송 시작...\n');
@@ -28,14 +28,8 @@ async function sendNasdaqEmailToMe() {
     console.log('🤖 NASDAQ Gemini 분석 실행 중...\n');
     const geminiAnalysis = await getNasdaqGeminiRecommendation();
 
-    // GPT, Claude는 서비스 준비 중 (빈 문자열)
-    const gptAnalysis = '';
-    const claudeAnalysis = '';
-
-    // 뉴스레터 데이터 생성
+    // 뉴스레터 데이터 생성 (NASDAQ 전용 포맷)
     const newsletterData = {
-      gptAnalysis,
-      claudeAnalysis,
       geminiAnalysis,
       date: new Date().toLocaleDateString('ko-KR', {
         year: 'numeric',
@@ -48,8 +42,8 @@ async function sendNasdaqEmailToMe() {
     console.log(`📅 발송 날짜: ${newsletterData.date}\n`);
     console.log('📧 이메일 발송 중...\n');
 
-    // SendGrid로 뉴스레터 전송
-    await sendStockNewsletter([testRecipient], newsletterData);
+    // SendGrid로 NASDAQ 뉴스레터 전송
+    await sendNasdaqNewsletter([testRecipient], newsletterData);
 
     console.log('\n━'.repeat(80));
     console.log('✨ NASDAQ 테스트 이메일 발송 완료!');
