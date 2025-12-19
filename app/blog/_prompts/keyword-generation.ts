@@ -86,7 +86,7 @@ const CONTENT_TYPE_RULES = `
   </rule>
 
   <rule type="review">
-    <triggers>후기, 리뷰, 사용기, 경험, 실제, 평가, 분석</triggers>
+    <triggers>후기, 리뷰, 사용기, 경험, 실제, 평가, 분석, 장단점</triggers>
     <patterns>
       - 특정 서비스/상품 평가 쿼리
       - 실사용 경험 요청 쿼리
@@ -409,14 +409,23 @@ export function buildKeywordGenerationPrompt(
   competitorKeywords?: CompetitorKeyword[]
 ): string {
   // Prepare excluded keywords list (limit to 50 for context efficiency)
+  // NOTE: Use the most recent keywords to reduce near-duplicate drift in iterative generation.
   const excludedKeywordsList = usedKeywords.length > 0
-    ? usedKeywords.slice(0, 50).map((kw, i) => `${i + 1}. ${kw}`).join('\n')
+    ? usedKeywords.slice(-50).map((kw, i) => `${i + 1}. ${kw}`).join('\n')
     : '(없음 - 첫 생성)';
 
   // Calculate dynamic constraints based on count
+  // contentType diversity + topicArea diversity must be enforced to avoid repetitive generations.
+  const minDistinctContentTypes = count >= 5 ? Math.min(4, Math.ceil(count * 0.6)) : 2;
+  const minDistinctTopicAreas = count >= 5 ? Math.min(6, Math.ceil(count * 0.8)) : 3;
+
   const diversityRequirement = count >= 5
-    ? `최소 ${Math.ceil(count * 0.6)}개는 서로 다른 contentType을 가져야 합니다.`
-    : '가능한 다양한 contentType을 포함하세요.';
+    ? [
+        `최소 ${minDistinctContentTypes}개는 서로 다른 contentType을 가져야 합니다.`,
+        `최소 ${minDistinctTopicAreas}개는 서로 다른 topicArea를 가져야 합니다.`,
+        `가능하면 (기술적 분석/가치투자/투자전략/시장분석/종목발굴/투자심리/투자교육/실전투자)에서 고르게 분산하세요.`,
+      ].join(' ')
+    : '가능한 다양한 contentType과 topicArea를 포함하세요.';
 
   // Prepare competitor keywords section
   const competitorKeywordsSection = competitorKeywords && competitorKeywords.length > 0
@@ -452,21 +461,75 @@ ${competitorKeywords.slice(0, 15).map((kw, i) => `${i + 1}. "${kw.keyword}" (${k
 서비스 유형: 주식 투자 정보 블로그
 타겟 오디언스: 한국 주식 투자자 (초보~중급)
 
-**다양한 콘텐츠 영역** (반드시 여러 영역에서 키워드 생성):
-1. 기술적 분석: RSI, MACD, 볼린저밴드, 이동평균선, 차트 패턴
-2. 가치투자: PER, PBR, ROE, 재무제표 분석, 내재가치
-3. 투자 전략: 분할매수, 손절/익절, 포트폴리오 구성, 리밸런싱
-4. 시장 분석: 코스피/코스닥, 업종 분석, 경제 지표, 금리/환율
-5. 종목 발굴: 테마주, 성장주, 배당주, ETF, 신규 상장주
-6. 투자 심리: 공포와 탐욕, 손실 회피, 투자 멘탈 관리
-7. 투자 교육: 주식 입문, 계좌 개설, 세금, 증권사 비교
-8. 실전 투자: 매매 타이밍, 호가창 보기, 단타/스윙/장기투자
+**주제 버킷(topicArea) 정의** (반드시 여러 버킷에서 키워드 생성 + 출력에 topicArea 필드로 명시):
+1. technical: 기술적 분석
+   - 지표: RSI, MACD, 스토캐스틱, Williams %R, ADX, ATR, OBV, VWAP, MFI
+   - 패턴/구조: 캔들(장악형/망치/도지), 추세(HH/HL, LH/LL), 박스권 돌파/이탈
+   - 밴드/채널: 볼린저밴드 스퀴즈·밴드워크, 돈치안/켈트너 채널
+   - 신호/전략: 골든크로스/데드크로스, 다이버전스(가격 vs RSI/MACD/OBV), 거래량 동반 확인
+   - 예시 키워드 결: "RSI 다이버전스 매수 타이밍", "볼린저밴드 스퀴즈 이후 돌파 기준"
+
+2. value: 가치투자
+   - 밸류에이션: PER, PBR, PSR, EV/EBITDA, PEG
+   - 수익성/효율: ROE, ROA, 영업이익률, 매출총이익률, 자산회전율
+   - 재무안정성: 부채비율, 유동비율, 이자보상배율, 순현금/순차입
+   - 현금흐름/배당: FCF, 배당성향, 배당수익률, 자사주 매입
+   - 예시 키워드 결: "FCF로 배당 여력 확인", "저PBR인데 ROE 높은 기업 찾는 법"
+
+3. strategy: 투자 전략
+   - 매수/매도: 분할매수(몇 번/비율), 분할매도, 물타기 vs 불타기
+   - 리스크 관리: 손절선 설정, 익절 기준, 포지션 사이징, R:R(손익비)
+   - 운영/루틴: 매매일지, 체크리스트, 규칙 기반 진입/이탈
+   - 포트폴리오: 분산/집중, 리밸런싱 주기, 현금 비중 조절
+   - 예시 키워드 결: "3차 분할매수 비율", "손절선 잡는 공식(ATR)"
+
+4. market: 시장 분석
+   - 지수/섹터: 코스피/코스닥, 업종 순환(섹터 로테이션), 대형주/중소형주 강세 구간
+   - 거시 변수: 금리, 환율(달러-원), 유가, CPI/물가, 경기선행지수
+   - 수급/자금: 외국인/기관/개인 수급, 프로그램 매매, 공매도/대차잔고
+   - 이벤트: FOMC, 실적 시즌, 옵션 만기일, MSCI 리밸런싱
+   - 예시 키워드 결: "금리 인상기 유리한 업종", "외국인 수급 보는 법"
+
+5. discovery: 종목 발굴
+   - 성장/모멘텀: 실적 턴어라운드, 매출/이익 성장률, 신고가 돌파, 거래대금 급증
+   - 테마/이슈: 정책 수혜, 산업 트렌드, 공급망 이슈, 신사업/신제품
+   - 배당/방어: 고배당주, 배당 성장주, 리츠/인컴 전략, 우선주
+   - ETF: 지수/섹터 ETF, 레버리지/인버스 이해, 분배금/세금
+   - 예시 키워드 결: "거래대금 급증 종목 찾는 법", "배당 성장주 스크리닝"
+
+6. psychology: 투자 심리
+   - 대표 이슈: 뇌동매매, FOMO, 손실회피, 확증편향, 복수매매
+   - 루틴/교정: 감정 체크, 매매 규칙 강화, 손실 이후 회복 프로세스
+   - 멘탈 관리: 연속 손실 대처, 과신 방지, 수면/컨디션과 매매 성과
+   - 습관화: 매매일지 작성법, 실수 리스트, 사후복기 템플릿
+   - 예시 키워드 결: "뇌동매매 고치는 법", "손절 못하는 심리 극복"
+
+7. education: 투자 교육
+   - 입문: 계좌 개설, 주문 유형(시장가/지정가), 호가 단위, 거래 시간
+   - 용어: 시가총액, EPS, BPS, PER/PBR, 유상증자/무상증자, 액면분할
+   - 세금/제도: 배당소득세, 양도세(해외/국내 차이), ISA/연금 계좌, 공매도
+   - 증권사/도구: MTS/HTS 비교, 수수료/환전, 알림/조건검색 활용
+   - 예시 키워드 결: "주식 용어 초보 가이드", "증권사 수수료 비교 표"
+
+8. execution: 실전 투자
+   - 매매 방식: 단타/스윙/중장기, 추세추종 vs 역추세, 눌림목 매매
+   - 체결/호가: 호가창 잔량, 체결강도, 거래대금, 분봉/일봉 해석
+   - 타이밍: 진입 조건, 추가매수 조건, 손절/익절 실행, 갭상승 대응
+   - 실수 방지: 슬리피지, 과도한 레버리지, 뉴스 반응 매매 주의
+   - 예시 키워드 결: "호가창 보는 법", "눌림목 매수 타이밍 체크리스트"
+
+
+**버킷 분산 규칙(최우선)**:
+- ${count}개 생성 시, 가능한 한 서로 다른 topicArea에서 뽑히도록 설계
+- 동일 topicArea는 최대 2개까지만 허용 (count가 5 이상인 경우)
+- 기술적 분석에 편중 금지 (count가 5 이상인 경우 technical은 최대 1개 권장)
 </service-context>
 </system>
 
 <task>
 Stock Matrix 블로그를 위한 고품질 SEO 키워드 ${count}개를 생성하세요.
-각 키워드는 체계적인 분석 프레임워크를 거쳐 생성되어야 합니다.
+목표는 "검색 유입"이며, 각 키워드는 클릭을 유도할 수 있는 **후킹(hooking) 요소**를 반드시 포함해야 합니다.
+단, 과장/낚시성 표현이 아니라 사용자가 실제로 얻을 수 있는 정보가 명확한 "정직한 후킹"이어야 합니다.
 </task>
 
 <analysis-framework>
@@ -505,10 +568,23 @@ ${CONTENT_TYPE_RULES}
   - 검색 수요 높음: +2점
   - 초보-중급 투자자 타겟: +1점
 
-**키워드 다양성 필수**:
-- 다양한 주제 영역에서 키워드를 생성해야 함
-- 기술적 분석, 가치투자, 시장 분석, 종목 발굴, 투자 심리, 포트폴리오 관리 등
-- 특정 주제에 편중되지 않도록 주의
+**키워드 다양성 + 후킹 필수(가장 중요)**:
+- 다양한 주제 영역에서 키워드를 생성해야 함 (특정 주제 편중 금지)
+- 각 키워드는 반드시 아래 "후킹 트리거" 중 1개 이상을 포함해야 함
+
+## 후킹 트리거 (Hooking Triggers)
+다음 트리거는 검색 결과에서 클릭을 유도하기 위한 표현 패턴입니다.
+키워드에 자연스럽게 포함하되, 내용이 실제로 제공 가능해야 합니다.
+
+1) 질문형/의사결정형: 왜, 언제, 어떻게, 어떤게, 뭐가, 맞을까, 정답, 기준
+2) 숫자/구체화: 3가지, 5단계, TOP 10, 체크리스트, 표로 정리
+3) 실수/리스크: 하면 안 되는, 흔한 실수, 손절, 익절, 리스크, 실패, 피해야
+4) 타이밍/조건: 매수 타이밍, 매도 타이밍, 진입/이탈, 조건, 신호, 기준
+5) 비교/선택: A vs B, 장단점, 추천, 뭐가 유리, 비용/수수료
+
+**정직한 후킹 규칙**:
+- 키워드에 포함된 후킹 요소는 본문에서 실제로 "근거/예시/수치/절차"로 해소 가능해야 함
+- 모호한 단정/과장/확정 수익 보장 금지
 </analysis-framework>
 
 <few-shot-learning>
@@ -521,11 +597,16 @@ ${FEW_SHOT_EXAMPLES}
 1. 정확히 ${count}개의 키워드를 생성할 것
 2. 모든 키워드는 한국어 기반 (영문 약어 허용: AI, RSI, PER 등)
 3. JSON 배열 형식만 출력 (설명 텍스트 없음)
-4. ${diversityRequirement}
-5. **다양한 주제 영역**에서 키워드 생성 (기술적 분석에만 편중 금지)
+4. 모든 항목에 topicArea를 반드시 포함할 것 (아래 스키마 참조)
+5. 생성된 ${count}개는 topicArea가 가능한 한 서로 달라야 하며, 동일 topicArea는 최대 2개까지만 허용 (count가 5 이상인 경우)
+6. 서로 유사한 문장(표현만 바꾼 반복) 금지: 기존 제외 키워드 및 이번 배치 내 키워드와 의미 유사도가 높으면 탈락
+6-1. 각 키워드는 후킹 트리거 1개 이상 포함 (질문형/숫자/실수/타이밍/비교 중 택1+)
+7. ${diversityRequirement}
+8. **다양한 주제 영역**에서 키워드 생성 (특정 주제에 편중 금지)
 
 ## 금지 사항 (Prohibited)
-1. 아래 제외 키워드와 동일하거나 유사한 키워드 생성 금지
+1. 아래 제외 키워드와 동일/유사(의미상 유사 포함)한 키워드 생성 금지
+   - 예: "FCF 뜻" ↔ "잉여현금흐름 의미" 처럼 표현만 바꾼 반복도 금지
 2. 단일 단어 키워드 금지 (최소 2개 이상 조합)
 3. 브랜드명 단독 사용 금지 (삼성전자만, 네이버만 등)
 4. 검색량 100 미만 추정 키워드 금지
@@ -537,6 +618,8 @@ ${FEW_SHOT_EXAMPLES}
 - 검색 의도 명확성: 각 키워드에서 의도 추론 가능해야 함
 - contentType 근거: 트리거 단어 기반 매칭 필수
 - **주제 다양성**: 최소 3개 이상의 다른 주제 영역 포함
+- **후킹 요소**: 각 키워드에 후킹 트리거 1개 이상 포함 (질문형/숫자/실수/타이밍/비교)
+- **클릭 기대도**: 제목만 봐도 "궁금증" 또는 "결정 도움"이 생기는 구조
 </constraints>
 
 <excluded-keywords>
@@ -556,6 +639,7 @@ interface KeywordMetadata {
   estimatedSearchVolume: number;  // 100-3000 범위
   relevanceScore: number;         // 7.5-10.0 범위
   contentType: 'comparison' | 'guide' | 'listicle' | 'review';
+  topicArea: 'technical' | 'value' | 'strategy' | 'market' | 'discovery' | 'psychology' | 'education' | 'execution';
   reasoning: string;              // 50자 이상 근거 설명
 }
 \`\`\`
@@ -578,6 +662,9 @@ interface KeywordMetadata {
 ☐ reasoning이 구체적이고 50자 이상인가?
 ☐ JSON 형식이 올바른가?
 ☐ 키워드들이 다양한 주제 영역을 포함하는가?
+☐ 각 키워드에 후킹 트리거가 1개 이상 포함되어 있는가?
+☐ 후킹 요소가 과장/낚시가 아니라 본문에서 실제로 해소 가능한가?
+☐ topicArea가 누락되지 않았는가?
 </self-validation>
 
 **JSON 배열만 출력하세요. 다른 텍스트는 포함하지 마세요.**`;
