@@ -48,7 +48,7 @@ jobs:
           NEXT_PUBLIC_APP_URL: ${{ secrets.NEXT_PUBLIC_APP_URL }}
         run: |
           echo "🇺🇸 Starting NASDAQ newsletter..."
-          npx tsx scripts/send-email-to-me.ts
+          npx tsx scripts/send-nasdaq-email-to-me.ts
 
       - name: Cleanup credentials
         if: always()
