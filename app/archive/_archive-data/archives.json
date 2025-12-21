@@ -1,6 +1,58 @@
 {
   "newsletters": [
     {
+      "date": "2025-12-22",
+      "stocks": [
+        {
+          "ticker": "KOSPI:272210",
+          "name": "한화시스템",
+          "close_price": 29150,
+          "rationale": "SMA 5/20/60/120 정배열 | EMA 단기 가중 이동평균 골든크로스 | RSI 64.2 강세권 | MACD 시그널선 상향 돌파 유지 | 거래량 165.0% 증가 | 볼린저밴드 상단 저항 돌파 시도 | ATR 3.8% 적정 변동성 확대 | ADX 28.5 강한추세 형성 | OBV 지표 우상향 지속 | 현재가 29150원 | 20일선대비거리 4.2% [검증완료] | 외국인/기관 동반 순매수세 확인",
+          "signals": {
+            "trend_score": 95,
+            "momentum_score": 92,
+            "volume_score": 94,
+            "volatility_score": 88,
+            "pattern_score": 96,
+            "sentiment_score": 90,
+            "overall_score": 93
+          }
+        },
+        {
+          "ticker": "KOSPI:475830",
+          "name": "오름테라퓨틱",
+          "close_price": 87400,
+          "rationale": "SMA 정배열 전환 및 발산 초기 | EMA 20일선 지지 후 가파른 상승 | RSI 71.5 과열권 진입 | MACD 양의 영역 확장세 | 거래량 250.0% 급증 | 볼린저밴드 상단 밴드 라이딩 구간 | ATR 7.5% 고변동성 에너지 포착 | ADX 41.0 매우강한추세 증명 | OBV 급경사 상승으로 매집 확인 | 현재가 87400원 | 52주 신고가 영역 근접 [검증완료] | Vortex VI+ 1.45 추세 지속성 높음",
+          "signals": {
+            "trend_score": 98,
+            "momentum_score": 94,
+            "volume_score": 96,
+            "volatility_score": 82,
+            "pattern_score": 97,
+            "sentiment_score": 88,
+            "overall_score": 94
+          }
+        },
+        {
+          "ticker": "KOSPI:010140",
+          "name": "삼성중공업",
+          "close_price": 11920,
+          "rationale": "SMA 20일선 지지 및 5일선 재돌파 | EMA 단기 이평선 수렴 후 확산 | RSI 57.1 중립권 상단 | MACD 히스토그램 플러스 전환 | 거래량 155.2% 증가 | 볼린저밴드 중상단 안착 시도 | ATR 4.1% 변동성 수축 국면 | ADX 21.4 추세형성 단계 | OBV 우상향 유지로 수급 확인 | 현재가 11920원 | 60일선대비거리 5.8% [검증완료] | 외국인 매수세 점진적 유입",
+          "signals": {
+            "trend_score": 90,
+            "momentum_score": 88,
+            "volume_score": 92,
+            "volatility_score": 94,
+            "pattern_score": 92,
+            "sentiment_score": 91,
+            "overall_score": 91
+          }
+        }
+      ],
+      "sentAt": "2025-12-21T22:50:52.206+00:00",
+      "subscriberCount": 49
+    },
+    {
       "date": "2025-12-19",
       "stocks": [
         {
@@ -1925,5 +1977,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2025-12-18T23:01:46.071Z"
+  "lastUpdated": "2025-12-21T22:51:18.655Z"
 }
