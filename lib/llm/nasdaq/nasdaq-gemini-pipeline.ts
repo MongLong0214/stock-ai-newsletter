@@ -1,11 +1,11 @@
 import { GoogleGenAI } from '@google/genai';
 import { COMMON_PRINCIPLES } from '../../prompts/nasdaq/common-principles';
-import { STAGE_0_COLLECT_CANDIDATES } from '../../prompts/nasdaq/stage-0-collect-200';
-import { STAGE_1_SCREENING_50 } from '../../prompts/nasdaq/stage-1-filter-30';
+import { STAGE_0_COLLECT_UNIVERSE } from '../../prompts/nasdaq/stage-0-collect-200';
+import { STAGE_1_HARD_FILTER } from '../../prompts/nasdaq/stage-1-filter-30';
 import { STAGE_2_VERIFY_PRICE } from '../../prompts/nasdaq/stage-2-verify-price';
-import { STAGE_3_PROCESS_CLASSIFICATION } from '../../prompts/nasdaq/stage-3-collect-indicators';
-import { STAGE_4_STOPLOSS_AND_FINAL } from '../../prompts/nasdaq/stage-4-calculate-scores';
-import { STAGE_5_JSON_OUTPUT } from '../../prompts/nasdaq/stage-5-json-output';
+import { STAGE_3_CALCULATE_INDICATORS } from '../../prompts/nasdaq/stage-3-collect-indicators';
+import { STAGE_4_SCORE_AND_RANK } from '../../prompts/nasdaq/stage-4-calculate-scores';
+import { STAGE_5_FORMAT_OUTPUT } from '../../prompts/nasdaq/stage-5-json-output';
 import { STAGE_6_FINAL_VERIFICATION } from '../../prompts/nasdaq/stage-6-final-verification';
 import { PIPELINE_CONFIG, GEMINI_API_CONFIG } from '../_config/pipeline-config';
 
@@ -108,14 +108,14 @@ function getStagePrompts(): StagePrompt[] {
       stageNumber: 0,
       stageName: 'Collect Universe',
       shortDesc: 'Fetching NASDAQ symbols & OHLCV data',
-      prompt: `${COMMON_PRINCIPLES}\n\n${STAGE_0_COLLECT_CANDIDATES}`,
+      prompt: `${COMMON_PRINCIPLES}\n\n${STAGE_0_COLLECT_UNIVERSE}`,
       requiresPreviousOutput: false,
     },
     {
       stageNumber: 1,
       stageName: 'Filter Candidates',
       shortDesc: 'Applying price & liquidity filters',
-      prompt: `${COMMON_PRINCIPLES}\n\n${STAGE_1_SCREENING_50}`,
+      prompt: `${COMMON_PRINCIPLES}\n\n${STAGE_1_HARD_FILTER}`,
       requiresPreviousOutput: true,
     },
     {
@@ -129,21 +129,21 @@ function getStagePrompts(): StagePrompt[] {
       stageNumber: 3,
       stageName: 'Calculate Indicators',
       shortDesc: 'Computing WillR, RSI, ADX, ATR, EMA20',
-      prompt: `${COMMON_PRINCIPLES}\n\n${STAGE_3_PROCESS_CLASSIFICATION}`,
+      prompt: `${COMMON_PRINCIPLES}\n\n${STAGE_3_CALCULATE_INDICATORS}`,
       requiresPreviousOutput: true,
     },
     {
       stageNumber: 4,
       stageName: 'Score & Rank',
       shortDesc: 'Applying trigger logic & confidence scoring',
-      prompt: `${COMMON_PRINCIPLES}\n\n${STAGE_4_STOPLOSS_AND_FINAL}`,
+      prompt: `${COMMON_PRINCIPLES}\n\n${STAGE_4_SCORE_AND_RANK}`,
       requiresPreviousOutput: true,
     },
     {
       stageNumber: 5,
       stageName: 'Format Output',
       shortDesc: 'Generating compact trader JSON',
-      prompt: `${COMMON_PRINCIPLES}\n\n${STAGE_5_JSON_OUTPUT}`,
+      prompt: `${COMMON_PRINCIPLES}\n\n${STAGE_5_FORMAT_OUTPUT}`,
       requiresPreviousOutput: true,
     },
     {

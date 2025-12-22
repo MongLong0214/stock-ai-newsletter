@@ -1,4 +1,4 @@
-import { searchGoogle, checkApiUsage } from './_services/serp-api';
+import { searchGoogle } from './_services/serp-api';
 import { scrapeSearchResults, analyzeCompetitors, closeBrowser, getMetrics, resetMetrics } from './_services/web-scraper';
 import { generateBlogContent, generateSlug } from './_services/content-generator';
 import { saveBlogPost, publishBlogPost } from './_services/blog-repository';
@@ -75,12 +75,6 @@ export async function generateBlogPostsBatch(keywords: Array<{ keyword: string; 
   const results: PipelineResult[] = [];
 
   console.log(`\n${'#'.repeat(50)}\n📦 배치: ${keywords.length}개\n${'#'.repeat(50)}`);
-
-  try {
-    const usage = await withTimeoutFallback(checkApiUsage(), 10000, { used: 0, limit: 100, remaining: 100 }, 'API');
-    console.log(`SerpApi: ${usage.remaining}개 남음`);
-    if (usage.remaining < keywords.length) keywords = keywords.slice(0, Math.max(usage.remaining, 1));
-  } catch {}
 
   for (let i = 0; i < keywords.length; i++) {
     console.log(`\n[${i + 1}/${keywords.length}] "${keywords[i].keyword}"`);
