@@ -1,6 +1,58 @@
 {
   "newsletters": [
     {
+      "date": "2025-12-23",
+      "stocks": [
+        {
+          "ticker": "KOSPI:000660",
+          "name": "SK하이닉스",
+          "close_price": 576000,
+          "rationale": "SMA 5/10/20/50/100/200 완전 정배열 확인 | RSI 62.8 건전한 강세 구간 | MACD 6301.4 강력 매수 신호 | ADX 35.0 추세 강도 심화 | EMA 20일선 지지력 검증 완료 | ATR 2.5% 안정적 변동성 유지 | OBV 우상향 매집 지속 포착 | 스토캐스틱 68.5 상승 모멘텀 확보 | Aroon Up 100 최상위권 상승 동력 | Williams %R -15 과매수 미달 매수 신호 | VWAP 상단 위치 강세 흐름 지지",
+          "signals": {
+            "trend_score": 96,
+            "momentum_score": 94,
+            "volume_score": 92,
+            "volatility_score": 88,
+            "pattern_score": 95,
+            "sentiment_score": 95,
+            "overall_score": 94
+          }
+        },
+        {
+          "ticker": "KOSPI:034020",
+          "name": "두산에너빌리티",
+          "close_price": 78000,
+          "rationale": "SMA 5/20/60/200 정배열 추세 유지 | 주가 78,000원 200일 이평선(76,906) 상회 지지 | RSI 58.46 중립 강세권 안착 | MACD 527.1 양전환 교차 확인 | ADX 26.5 추세 형성 초기 진입 | ATR 3.9% 적정 변동성 범위 내 거래 | 거래량 5.7M Institutional 매집 신호 | OBV 상승 다이버전스 발생 | 스토캐스틱 74.2 우상향 유지 | CCI +82.5 모멘텀 가속 구간 | 일목균형표 선행스팬 상단 돌파 지지",
+          "signals": {
+            "trend_score": 95,
+            "momentum_score": 90,
+            "volume_score": 92,
+            "volatility_score": 86,
+            "pattern_score": 92,
+            "sentiment_score": 88,
+            "overall_score": 91
+          }
+        },
+        {
+          "ticker": "KOSPI:005380",
+          "name": "현대차",
+          "close_price": 288000,
+          "rationale": "RSI 57.26 강세 센터 라인 안착 | ADX 50.19 매우 강력한 추세 강도 | MACD 106.8 매수 시그널 유지 | SMA 5일선(288,750) 200일선 골든크로스 대기 | 주가 288,000원 장기 이평선(278,420) 상향 지지 | ATR 2553 안정적 주가 흐름 확인 | OBV 꾸준한 상승세 매집 확인 | Williams %R -12 강한 탄력성 유지 | 스토캐스틱 82.5 모멘텀 강화 지속 | EMA 10일선 지지 확인 | 볼린저밴드 중심선 상단 안착 흐름",
+          "signals": {
+            "trend_score": 92,
+            "momentum_score": 91,
+            "volume_score": 90,
+            "volatility_score": 88,
+            "pattern_score": 92,
+            "sentiment_score": 93,
+            "overall_score": 91
+          }
+        }
+      ],
+      "sentAt": "2025-12-22T22:51:53.095+00:00",
+      "subscriberCount": 49
+    },
+    {
       "date": "2025-12-22",
       "stocks": [
         {
@@ -1977,5 +2029,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2025-12-21T23:01:47.223Z"
+  "lastUpdated": "2025-12-22T22:52:24.460Z"
 }
