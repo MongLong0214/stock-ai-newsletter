@@ -222,7 +222,6 @@ export async function getDailyClosePrice(ticker: string, date: string): Promise<
       { headers: { 'Content-Type': 'application/json', authorization: `Bearer ${await getAccessToken()}`, appkey: config.KIS_APP_KEY, appsecret: config.KIS_APP_SECRET, tr_id: 'FHKST03010100' } }
     );
     const data = await res.json();
-    console.log('[KIS Daily]', ticker, date, 'rt_cd:', data.rt_cd, 'msg:', data.msg1, 'output2[0]:', JSON.stringify(data.output2?.[0]));
     if (!res.ok || data.rt_cd !== '0' || !data.output2?.[0]) return null;
     return parseInt(data.output2[0].stck_clpr);
   } catch {
