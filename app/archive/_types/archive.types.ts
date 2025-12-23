@@ -56,6 +56,8 @@ export interface StockData {
   name: string;
   /** 원화 종가 */
   close_price: number;
+  /** 종가 기준 날짜 (YYYY-MM-DD) */
+  close_price_date?: string;
   /** AI 생성 추천 근거 */
   rationale: string;
   /** 기술적 분석 시그널 */
