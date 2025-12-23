@@ -41,8 +41,8 @@ export default function ArchivePage() {
   // 선택된 뉴스레터 및 티커
   const { newsletter, tickers } = useNewsletterData(selectedDate, allNewsletters);
 
-  // 실시간 주식 시세
-  const { prices: stockPrices, loading: isPriceLoading } = useStockPrices(tickers, selectedDate);
+  // 실시간 주식 시세 및 추천일 전일 종가
+  const { prices: stockPrices, historicalClosePrices, loading: isPriceLoading } = useStockPrices(tickers, selectedDate);
 
   // 모바일 캘린더 상태
   const { isCalendarOpen, calendarButtonRef, toggleCalendar, closeCalendar } = useMobileCalendar();
@@ -125,6 +125,7 @@ export default function ArchivePage() {
                   key={newsletter.date}
                   newsletter={newsletter}
                   stockPrices={stockPrices}
+                  historicalClosePrices={historicalClosePrices}
                   isLoadingPrice={isPriceLoading}
                 />
               )}
