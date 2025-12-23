@@ -18,6 +18,7 @@ interface StockPrice {
 /** 훅 반환 타입 */
 interface UseStockPricesResult {
   prices: Map<string, StockPrice>;
+  historicalClosePrices: Map<string, number>;
   loading: boolean;
   error: string | null;
 }
@@ -58,6 +59,13 @@ function isValidAPIResponse(data: unknown): data is { success: true; prices: Rec
   );
 }
 
+/** 추천일 전 영업일 (YYYYMMDD) */
+function getPreviousBusinessDate(s: string): string {
+  const d = new Date(s);
+  d.setDate(d.getDate() - (d.getDay() === 1 ? 3 : 1));
+  return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
+}
+
 /**
  * 실시간 주식 시세 조회 훅 (2-tier 캐싱)
  *
@@ -77,6 +85,7 @@ export default function useStockPrices(
   newsletterDate: DateString | null
 ): UseStockPricesResult {
   const [prices, setPrices] = useState<Map<string, StockPrice>>(new Map());
+  const [historicalClosePrices, setHistoricalClosePrices] = useState<Map<string, number>>(new Map());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -84,14 +93,7 @@ export default function useStockPrices(
   const tickersKey = useMemo(() => tickers.join(','), [tickers]);
 
   useEffect(() => {
-    // 티커가 없으면 즉시 종료
-    if (tickers.length === 0) {
-      setLoading(false);
-      return;
-    }
-
-    // 뉴스레터 날짜가 없으면 즉시 종료
-    if (!newsletterDate) {
+    if (tickers.length === 0 || !newsletterDate) {
       setLoading(false);
       return;
     }
@@ -99,17 +101,9 @@ export default function useStockPrices(
     // 영업일 체크: 추천일로부터 MAX_BUSINESS_DAYS 이내인지 확인
     const recommendDate = new Date(newsletterDate);
     recommendDate.setHours(0, 0, 0, 0);
-
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-
-    const businessDays = calculateBusinessDays(recommendDate, today);
-
-    if (businessDays > MAX_BUSINESS_DAYS) {
-      // 영업일이 지났으면 API 호출하지 않음
-      setLoading(false);
-      return;
-    }
+    const shouldFetchCurrentPrices = calculateBusinessDays(recommendDate, today) <= MAX_BUSINESS_DAYS;
 
     let isMounted = true;
     const controller = new AbortController();
@@ -119,29 +113,38 @@ export default function useStockPrices(
         setLoading(true);
         setError(null);
 
-        const results = new Map<string, StockPrice>();
+        // 추천일 전일 종가 조회 (항상 실행)
+        const prevDate = getPreviousBusinessDate(newsletterDate);
+        const historicalResponse = await fetch(
+          `/api/stock/daily-close?tickers=${tickers.join(',')}&date=${prevDate}`,
+          { signal: controller.signal }
+        );
+        if (historicalResponse.ok) {
+          const histData = await historicalResponse.json();
+          if (histData.success && histData.prices && isMounted) {
+            setHistoricalClosePrices(new Map(Object.entries(histData.prices) as [string, number][]));
+          }
+        }
 
-        // Supabase 캐시 조회
+        // 현재가는 MAX_BUSINESS_DAYS 이내일 때만 조회
+        if (!shouldFetchCurrentPrices) {
+          if (isMounted) setLoading(false);
+          return;
+        }
+
+        const results = new Map<string, StockPrice>();
         const cached = await getBatchPricesFromCache(tickers);
         const apiTickers: string[] = [];
 
         tickers.forEach((ticker) => {
           const cachedPrice = cached.get(ticker);
           if (cachedPrice) {
-            results.set(ticker, {
-              ticker: cachedPrice.ticker,
-              currentPrice: cachedPrice.currentPrice,
-              previousClose: cachedPrice.previousClose,
-              changeRate: cachedPrice.changeRate,
-              volume: cachedPrice.volume,
-              timestamp: cachedPrice.timestamp,
-            });
+            results.set(ticker, cachedPrice);
           } else {
             apiTickers.push(ticker);
           }
         });
 
-        // 전부 캐시 히트
         if (apiTickers.length === 0) {
           if (isMounted) {
             setPrices(results);
@@ -150,46 +153,31 @@ export default function useStockPrices(
           return;
         }
 
-        // API 호출
         const response = await fetch(`/api/stock/price?tickers=${apiTickers.join(',')}`, {
           signal: controller.signal,
         });
 
-        if (!response.ok) {
-          throw new Error('Failed to fetch stock prices');
-        }
+        if (!response.ok) throw new Error('Failed to fetch stock prices');
 
         const data: unknown = await response.json();
-        if (!isValidAPIResponse(data)) {
-          throw new Error('Invalid API response');
-        }
+        if (!isValidAPIResponse(data)) throw new Error('Invalid API response');
 
-        // 결과 처리 및 캐싱
         const expiresAt = getStockPriceCacheExpiry();
         const cachePrices: StockPriceCache[] = [];
 
         Object.values(data.prices).forEach((price) => {
           if (!isValidStockPrice(price)) return;
-
           results.set(price.ticker, price);
           cachePrices.push({ ...price, expires_at: expiresAt });
         });
 
         saveBatchPricesToCache(cachePrices).catch(() => {});
-
-        if (isMounted) {
-          setPrices(results);
-        }
+        if (isMounted) setPrices(results);
       } catch (err) {
         if (err instanceof Error && err.name === 'AbortError') return;
-
-        if (isMounted) {
-          setError(err instanceof Error ? err.message : 'Unknown error');
-        }
+        if (isMounted) setError(err instanceof Error ? err.message : 'Unknown error');
       } finally {
-        if (isMounted) {
-          setLoading(false);
-        }
+        if (isMounted) setLoading(false);
       }
     }
 
@@ -199,10 +187,7 @@ export default function useStockPrices(
       isMounted = false;
       controller.abort();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [newsletterDate, tickersKey]);
-  // Note: 'tickers' 배열 대신 'tickersKey' 문자열 사용으로 불필요한 재실행 방지
-  // tickers 배열이 변경되면 tickersKey도 변경되므로 의존성 배열에서 제외
+  }, [newsletterDate, tickersKey]); // tickers는 tickersKey에서 파생되므로 제외
 
-  return { prices, loading, error };
+  return { prices, historicalClosePrices, loading, error };
 }
