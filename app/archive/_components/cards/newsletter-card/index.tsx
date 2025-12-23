@@ -12,7 +12,7 @@ import ScoreBadge from '../../ui/score-badge';
 import { formatPrice } from '../../../_utils/formatting/price';
 import { getOverallScoreColor } from '../../../_utils/formatting/score';
 import PriceSection from './price-section';
-import { calculatePriceChange, getClosePriceDateDisplay } from './utils';
+import { calculatePriceChange, getPreviousDate } from './utils';
 import { RATIONALE_LAYOUT, SIGNAL_BADGES } from './constants';
 import type { NewsletterCardProps } from './types';
 
@@ -26,7 +26,7 @@ const NewsletterCard = memo(function NewsletterCard({
   currentPrice,
   isLoadingPrice = false,
 }: NewsletterCardProps) {
-  const { ticker, name, close_price, close_price_date, rationale, signals } = stock;
+  const { ticker, name, close_price, rationale, signals } = stock;
 
   // 전체 점수 그라데이션
   const overallGradient = useMemo(
@@ -40,11 +40,8 @@ const NewsletterCard = memo(function NewsletterCard({
     [currentPrice, close_price]
   );
 
-  // 종가 기준 날짜 (close_price_date가 있으면 사용, 없으면 newsletterDate 기반 계산)
-  const closePriceDateDisplay = useMemo(
-    () => getClosePriceDateDisplay(close_price_date, newsletterDate),
-    [close_price_date, newsletterDate]
-  );
+  // 추천일 전일 날짜
+  const previousDate = useMemo(() => getPreviousDate(newsletterDate), [newsletterDate]);
 
   // 추천 근거 분리
   const rationaleItems = useMemo(() => rationale.split('|'), [rationale]);
@@ -119,7 +116,7 @@ const NewsletterCard = memo(function NewsletterCard({
             <h4 className="text-xs font-medium text-emerald-400/80 tracking-wide">
               추천일 전일 종가
             </h4>
-            <span className="text-xs text-slate-500 font-light">{closePriceDateDisplay}</span>
+            <span className="text-xs text-slate-500 font-light">{previousDate}</span>
           </div>
           <div className="text-3xl font-bold text-white font-mono tabular-nums">
             {formatPrice(close_price)}

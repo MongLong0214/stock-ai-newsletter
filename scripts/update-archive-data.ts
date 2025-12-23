@@ -163,11 +163,6 @@ function parseAndValidateStocks(jsonString: string): StockData[] | null {
         hasTicker: typeof stock.ticker === 'string' && stock.ticker.length > 0,
         hasName: typeof stock.name === 'string' && stock.name.length > 0,
         hasPrice: typeof stock.close_price === 'number' && stock.close_price > 0,
-        // close_price_date는 선택적 필드 (있으면 YYYY-MM-DD 형식)
-        hasValidPriceDate:
-          stock.close_price_date === undefined ||
-          (typeof stock.close_price_date === 'string' &&
-            /^\d{4}-\d{2}-\d{2}$/.test(stock.close_price_date)),
         hasRationale: typeof stock.rationale === 'string' && stock.rationale.length > 0,
         hasSignals: stock.signals && typeof stock.signals === 'object',
         hasTrendScore: typeof stock.signals?.trend_score === 'number',
