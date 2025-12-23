@@ -66,13 +66,21 @@ function validateStockData(data: unknown): data is StockDataArray {
     if (!item || typeof item !== 'object') return false;
 
     const candidate = item as Record<string, unknown>;
-    const { ticker, name, close_price, rationale, signals } = candidate;
+    const { ticker, name, close_price, close_price_date, rationale, signals } = candidate;
 
     // 필수 필드 및 타입 검증
     if (typeof ticker !== 'string' || !/^KOS(PI|DAQ):\d{6}$/.test(ticker)) return false;
     if (typeof name !== 'string' || name.length === 0) return false;
     if (typeof close_price !== 'number' || close_price <= 0) return false;
     if (typeof rationale !== 'string' || rationale.length < 50) return false;
+
+    // close_price_date 검증 (선택적 필드, 있으면 YYYY-MM-DD 형식)
+    if (close_price_date !== undefined) {
+      if (typeof close_price_date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(close_price_date)) {
+        console.warn(`[검증 경고] close_price_date 형식 오류: ${close_price_date}`);
+        // 형식이 틀려도 통과시키되 경고만 출력 (기존 데이터 호환성)
+      }
+    }
 
     // signals 점수 검증
     return isValidStockSignals(signals);
