@@ -1,6 +1,58 @@
 {
   "newsletters": [
     {
+      "date": "2025-12-24",
+      "stocks": [
+        {
+          "ticker": "KOSDAQ:196170",
+          "name": "알테오젠",
+          "close_price": 448000,
+          "rationale": "MA20 상향 돌파 | EMA 완전정배열 | RSI 60.9 강세진입 | MACD 양전환 골든크로스 | 거래량비율 132% 건전증가 | 볼린저밴드 위치 58% 안정권 | ATR 4.2% 적정 변동성 | ADX 22 추세 강화 시작 | OBV 상승전환 | 스토캐스틱 %K 62 상승 | Williams %R -38.2 과매수아님 | CCI 95 정상범위 | MFI 58 자금유입 | Ichimoku 구름대 상단지지 | Vortex VI+ 1.15 상승확장",
+          "signals": {
+            "trend_score": 88,
+            "momentum_score": 90,
+            "volume_score": 92,
+            "volatility_score": 85,
+            "pattern_score": 89,
+            "sentiment_score": 84,
+            "overall_score": 88
+          }
+        },
+        {
+          "ticker": "KOSPI:000270",
+          "name": "기아",
+          "close_price": 128500,
+          "rationale": "SMA 5일선 지지 및 정배열 | EMA 단기 골든크로스 | RSI 59.2 강세권 | MACD 오실레이터 양전환 | 거래량 118% 점진적 상승 | 볼린저밴드 중단 지지후 반등 | ATR 2.1% 낮은 리스크 | ADX 24 추세 형성중 | OBV 우상향 유지 | 스토캐스틱 68 매수구간 | Williams %R -32.5 적정 | CCI 88 과매수 미진입 | MFI 64 안정적 유입 | SuperTrend 매수신호 | Force Index 상승전환",
+          "signals": {
+            "trend_score": 85,
+            "momentum_score": 83,
+            "volume_score": 86,
+            "volatility_score": 82,
+            "pattern_score": 87,
+            "sentiment_score": 81,
+            "overall_score": 84
+          }
+        },
+        {
+          "ticker": "KOSPI:267260",
+          "name": "HD현대일렉트릭",
+          "close_price": 312000,
+          "rationale": "SMA 완전정배열 지속 | EMA 20일선 지지 | RSI 58.6 강세권 안착 | MACD 시그널 상향돌파 | 거래량 128% 증가 | 볼린저밴드 상단 향한 확산 | ATR 3.5% 적정 | ADX 29 강한 상승추세 | OBV 신고가 동반 | 스토캐스틱 72 상승탄력 | Williams %R -28.4 안정 | CCI 92 모멘텀 강화 | MFI 71 자금 집중 | Ichimoku 호전양상 | Vortex VI+ 1.21 강세",
+          "signals": {
+            "trend_score": 92,
+            "momentum_score": 84,
+            "volume_score": 90,
+            "volatility_score": 80,
+            "pattern_score": 91,
+            "sentiment_score": 88,
+            "overall_score": 88
+          }
+        }
+      ],
+      "sentAt": "2025-12-23T22:51:07.718+00:00",
+      "subscriberCount": 49
+    },
+    {
       "date": "2025-12-23",
       "stocks": [
         {
@@ -2029,5 +2081,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2025-12-22T23:01:49.097Z"
+  "lastUpdated": "2025-12-23T22:51:35.124Z"
 }
