@@ -217,17 +217,14 @@ export async function getDailyClosePrice(ticker: string, date: string): Promise<
   try {
     const config = getKisConfig();
     const res = await fetch(
-      `${config.KIS_BASE_URL}/uapi/domestic-stock/v1/quotations/inquire-daily-price?` +
-        new URLSearchParams({ FID_COND_MRKT_DIV_CODE: 'J', FID_INPUT_ISCD: cleanTicker(ticker), FID_PERIOD_DIV_CODE: 'D', FID_ORG_ADJ_PRC: '0' }),
+      `${config.KIS_BASE_URL}/uapi/domestic-stock/v1/quotations/inquire-daily-itemchartprice?` +
+        new URLSearchParams({ FID_COND_MRKT_DIV_CODE: 'J', FID_INPUT_ISCD: cleanTicker(ticker), FID_INPUT_DATE_1: date, FID_INPUT_DATE_2: date, FID_PERIOD_DIV_CODE: 'D', FID_ORG_ADJ_PRC: '0' }),
       { headers: { 'Content-Type': 'application/json', authorization: `Bearer ${await getAccessToken()}`, appkey: config.KIS_APP_KEY, appsecret: config.KIS_APP_SECRET, tr_id: 'FHKST03010100' } }
     );
     const data = await res.json();
-    console.log('[KIS Daily]', ticker, date, 'rt_cd:', data.rt_cd, 'msg:', data.msg1, 'output:', data.output?.length);
-    if (!res.ok || !Array.isArray(data.output)) return null;
-    const day = data.output.find((d: { stck_bsop_date: string }) => d.stck_bsop_date === date);
-    return day ? parseInt(day.stck_clpr) : null;
-  } catch (e) {
-    console.error('[KIS Daily] error:', e);
+    if (!res.ok || data.rt_cd !== '0' || !data.output2?.[0]) return null;
+    return parseInt(data.output2[0].stck_clpr);
+  } catch {
     return null;
   }
 }
