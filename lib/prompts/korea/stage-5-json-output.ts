@@ -17,19 +17,16 @@ STAGE 5: 최종 JSON 출력 및 3대 핵심 검증
 - ticker: (예: KOSPI:005930)
 - name: (예: 삼성전자)
 - close_price: (예: 75300)
-- close_price_date: (예: 2024-12-19) ← 종가 기준 날짜
 
 종목 2:
 - ticker: (예: KOSPI:000660)
 - name: (예: SK하이닉스)
 - close_price: (예: 142500)
-- close_price_date: (예: 2024-12-19) ← 종가 기준 날짜
 
 종목 3:
 - ticker: (예: KOSPI:035420)
 - name: (예: NAVER)
 - close_price: (예: 215000)
-- close_price_date: (예: 2024-12-19) ← 종가 기준 날짜
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -307,11 +304,10 @@ IF 최대 10회 교체 시도 후에도 3개 확보 실패:
 JSON 생성 전 체크리스트:
 
 ✅ 정확히 3개 종목 (더 많거나 적으면 안 됨)
-✅ 각 종목마다 필수 필드 6개 존재:
+✅ 각 종목마다 필수 필드 5개 존재:
    - ticker (문자열)
    - name (문자열)
    - close_price (정수)
-   - close_price_date (문자열, YYYY-MM-DD 형식, 종가 기준 날짜)
    - rationale (문자열, "|" 구분, 최소 12개 지표)
    - signals (객체, 7개 점수 모두 0-100 정수)
 
@@ -345,7 +341,6 @@ JSON 생성 전 체크리스트:
     "ticker": "KOSPI:005930",
     "name": "삼성전자",
     "close_price": 75300,
-    "close_price_date": "2024-12-19",
     "rationale": "SMA 완전정배열|EMA 골든크로스|RSI 58 강세권|MACD 양전환|거래량 165% 급증|볼린저 중상단|ATR 3.2% 적정|ADX 28 강한추세|OBV 지속상승|스토캐스틱 상승전환|SuperTrend 매수|52주 상위 72%",
     "signals": {
       "trend_score": 88,
@@ -361,7 +356,6 @@ JSON 생성 전 체크리스트:
     "ticker": "KOSPI:000660",
     "name": "SK하이닉스",
     "close_price": 142500,
-    "close_price_date": "2024-12-19",
     "rationale": "...",
     "signals": { ... }
   },
@@ -369,7 +363,6 @@ JSON 생성 전 체크리스트:
     "ticker": "KOSPI:035420",
     "name": "NAVER",
     "close_price": 215000,
-    "close_price_date": "2024-12-19",
     "rationale": "...",
     "signals": { ... }
   }
