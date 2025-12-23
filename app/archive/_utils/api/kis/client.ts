@@ -212,19 +212,20 @@ export async function getBatchStockPrices(tickers: string[]): Promise<BatchPrice
   return { prices, failures };
 }
 
-/** 특정 날짜 종가 조회 (FHKST03010400) */
+/** 특정 날짜 종가 조회 (FHKST03010100) */
 export async function getDailyClosePrice(ticker: string, date: string): Promise<number | null> {
   try {
     const config = getKisConfig();
     const res = await fetch(
-      `${config.KIS_BASE_URL}/uapi/domestic-stock/v1/quotations/inquire-daily-itemchartprice?` +
-        new URLSearchParams({ FID_COND_MRKT_DIV_CODE: 'J', FID_INPUT_ISCD: cleanTicker(ticker), FID_INPUT_DATE_1: date, FID_INPUT_DATE_2: date, FID_PERIOD_DIV_CODE: 'D', FID_ORG_ADJ_PRC: '0' }),
-      { headers: { 'Content-Type': 'application/json', authorization: `Bearer ${await getAccessToken()}`, appkey: config.KIS_APP_KEY, appsecret: config.KIS_APP_SECRET, tr_id: 'FHKST03010400' } }
+      `${config.KIS_BASE_URL}/uapi/domestic-stock/v1/quotations/inquire-daily-price?` +
+        new URLSearchParams({ FID_COND_MRKT_DIV_CODE: 'J', FID_INPUT_ISCD: cleanTicker(ticker), FID_PERIOD_DIV_CODE: 'D', FID_ORG_ADJ_PRC: '0' }),
+      { headers: { 'Content-Type': 'application/json', authorization: `Bearer ${await getAccessToken()}`, appkey: config.KIS_APP_KEY, appsecret: config.KIS_APP_SECRET, tr_id: 'FHKST03010100' } }
     );
     const data = await res.json();
-    console.log('[KIS Daily] ticker:', ticker, 'date:', date, 'res:', JSON.stringify(data));
-    if (!res.ok || !data.output2?.[0]) return null;
-    return parseInt(data.output2[0].stck_clpr);
+    console.log('[KIS Daily] ticker:', ticker, 'date:', date, 'output[0]:', JSON.stringify(data.output?.[0]));
+    if (!res.ok || !Array.isArray(data.output)) return null;
+    const day = data.output.find((d: { stck_bsop_date: string }) => d.stck_bsop_date === date);
+    return day ? parseInt(day.stck_clpr) : null;
   } catch (e) {
     console.error('[KIS Daily] error:', e);
     return null;
