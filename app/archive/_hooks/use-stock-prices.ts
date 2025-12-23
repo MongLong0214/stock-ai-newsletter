@@ -114,7 +114,8 @@ export default function useStockPrices(
         setError(null);
 
         // 추천일 전일 종가 조회 (항상 실행)
-        const prevDate = getPreviousBusinessDate(newsletterDate);
+        // newsletterDate is guaranteed non-null (checked at line 96)
+        const prevDate = getPreviousBusinessDate(newsletterDate!);
         const historicalResponse = await fetch(
           `/api/stock/daily-close?tickers=${tickers.join(',')}&date=${prevDate}`,
           { signal: controller.signal }
