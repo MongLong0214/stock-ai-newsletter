@@ -29,6 +29,7 @@ export interface StockSignals {
  * @property ticker - 종목 코드 (형식: "KOSPI:005930" 또는 "KOSDAQ:035420")
  * @property name - 종목명 (예: "삼성전자", "SK하이닉스")
  * @property close_price - 전일 종가 (정수, 양수)
+ * @property close_price_date - 종가 기준 날짜 (형식: "YYYY-MM-DD")
  * @property rationale - 선정 근거 ("|" 구분, 최소 12개 지표, 최소 50자)
  * @property signals - 7개 카테고리 점수 (0-100)
  *
@@ -38,6 +39,7 @@ export interface StockSignals {
  *   ticker: "KOSPI:005930",
  *   name: "삼성전자",
  *   close_price: 75300,
+ *   close_price_date: "2025-12-22",
  *   rationale: "SMA 완전정배열|EMA 골든크로스|RSI 58 강세권|MACD 양전환|거래량 165% 급증|볼린저 중상단|ATR 3.2% 적정|ADX 28 강한추세|OBV 지속상승|스토캐스틱 상승전환|SuperTrend 매수|52주 상위 72%",
  *   signals: {
  *     trend_score: 88,
@@ -55,6 +57,7 @@ export interface StockData {
   ticker: string;
   name: string;
   close_price: number;
+  close_price_date?: string;
   rationale: string;
   signals: StockSignals;
 }
