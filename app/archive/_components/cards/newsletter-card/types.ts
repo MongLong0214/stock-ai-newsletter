@@ -24,6 +24,8 @@ export interface NewsletterCardProps {
   newsletterDate: DateString;
   /** 실시간 시세 (선택) */
   currentPrice?: StockPrice;
+  /** 추천일 전일 종가 (KIS API에서 조회) */
+  historicalClosePrice?: number;
   /** 실시간 시세 로딩 상태 */
   isLoadingPrice?: boolean;
 }
