@@ -28,6 +28,9 @@ const NewsletterCard = memo(function NewsletterCard({
 }: NewsletterCardProps) {
   const { ticker, name, close_price, rationale, signals } = stock;
 
+  // KIS API 종가 우선, 없으면 Gemini 값 사용
+  const previousClose = currentPrice?.previousClose ?? close_price;
+
   // 전체 점수 그라데이션
   const overallGradient = useMemo(
     () => getOverallScoreColor(signals.overall_score),
@@ -36,8 +39,8 @@ const NewsletterCard = memo(function NewsletterCard({
 
   // 가격 변동 정보 계산
   const priceChange = useMemo(
-    () => calculatePriceChange(currentPrice, close_price),
-    [currentPrice, close_price]
+    () => calculatePriceChange(currentPrice, previousClose),
+    [currentPrice, previousClose]
   );
 
   // 추천일 전일 날짜
@@ -119,7 +122,7 @@ const NewsletterCard = memo(function NewsletterCard({
             <span className="text-xs text-slate-500 font-light">{previousDate}</span>
           </div>
           <div className="text-3xl font-bold text-white font-mono tabular-nums">
-            {formatPrice(close_price)}
+            {formatPrice(previousClose)}
             <span className="text-base text-slate-500 ml-2 font-normal">원</span>
           </div>
         </div>
