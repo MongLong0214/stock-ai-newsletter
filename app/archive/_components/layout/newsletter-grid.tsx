@@ -16,6 +16,8 @@ interface NewsletterGridProps {
   newsletter: Newsletter;
   /** 각 종목의 현재가 정보 (티커 → 가격 정보) */
   stockPrices: Map<string, StockPrice>;
+  /** 추천일 전일 종가 (티커 → 종가) */
+  historicalClosePrices: Map<string, number>;
   /** 가격 로딩 상태 */
   isLoadingPrice: boolean;
 }
@@ -23,6 +25,7 @@ interface NewsletterGridProps {
 function NewsletterGrid({
   newsletter,
   stockPrices,
+  historicalClosePrices,
   isLoadingPrice,
 }: NewsletterGridProps) {
   // rationale 항목 최대 개수 계산 (카드 높이 균일화용)
@@ -47,6 +50,7 @@ function NewsletterGrid({
             maxRationaleItems={maxRationaleItems}
             newsletterDate={newsletter.date}
             currentPrice={stockPrices.get(stock.ticker)}
+            historicalClosePrice={historicalClosePrices.get(stock.ticker)}
             isLoadingPrice={isLoadingPrice}
           />
         </motion.div>
