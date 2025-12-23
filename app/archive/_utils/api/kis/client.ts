@@ -212,18 +212,17 @@ export async function getBatchStockPrices(tickers: string[]): Promise<BatchPrice
   return { prices, failures };
 }
 
-/** 특정 날짜 종가 조회 (FHKST03010100) */
+/** 특정 날짜 종가 조회 (FHKST03010400) */
 export async function getDailyClosePrice(ticker: string, date: string): Promise<number | null> {
   const config = getKisConfig();
   const res = await fetch(
-    `${config.KIS_BASE_URL}/uapi/domestic-stock/v1/quotations/inquire-daily-price?` +
-      new URLSearchParams({ FID_COND_MRKT_DIV_CODE: 'J', FID_INPUT_ISCD: cleanTicker(ticker), FID_PERIOD_DIV_CODE: 'D', FID_ORG_ADJ_PRC: '0' }),
-    { headers: { 'Content-Type': 'application/json', authorization: `Bearer ${await getAccessToken()}`, appkey: config.KIS_APP_KEY, appsecret: config.KIS_APP_SECRET, tr_id: 'FHKST03010100' } }
+    `${config.KIS_BASE_URL}/uapi/domestic-stock/v1/quotations/inquire-daily-itemchartprice?` +
+      new URLSearchParams({ FID_COND_MRKT_DIV_CODE: 'J', FID_INPUT_ISCD: cleanTicker(ticker), FID_INPUT_DATE_1: date, FID_INPUT_DATE_2: date, FID_PERIOD_DIV_CODE: 'D', FID_ORG_ADJ_PRC: '0' }),
+    { headers: { 'Content-Type': 'application/json', authorization: `Bearer ${await getAccessToken()}`, appkey: config.KIS_APP_KEY, appsecret: config.KIS_APP_SECRET, tr_id: 'FHKST03010400' } }
   );
   if (!res.ok) return null;
-  const output = (await res.json()).output;
-  const day = Array.isArray(output) && output.find((i: { stck_bsop_date: string }) => i.stck_bsop_date === date);
-  return day ? parseInt(day.stck_clpr) : null;
+  const output2 = (await res.json()).output2;
+  return Array.isArray(output2) && output2[0] ? parseInt(output2[0].stck_clpr) : null;
 }
 
 /** 여러 종목 특정 날짜 종가 일괄 조회 */
