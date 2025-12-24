@@ -1,6 +1,58 @@
 {
   "newsletters": [
     {
+      "date": "2025-12-25",
+      "stocks": [
+        {
+          "ticker": "KOSPI:005380",
+          "name": "현대차",
+          "close_price": 289000,
+          "rationale": "SMA 50일선 지지 확인 | EMA 단기 정배열 전환 시도 | RSI 50.5 중립강세 | MACD 시그널 양전환 유지 | 거래량 115% 점진적 상승 | 볼린저밴드 수축 후 확산 초기 | ATR 2.2% 저변동성 리스크 | ADX 24 추세 형성 단계 | OBV 바닥권 탈출 시그널 | Stochastic %K 58 안정적 안착 | 현재가 289,000원 [검증완료] | 200일 장기 이평선 상회 적극매수 신호",
+          "signals": {
+            "trend_score": 88,
+            "momentum_score": 85,
+            "volume_score": 85,
+            "volatility_score": 89,
+            "pattern_score": 93,
+            "sentiment_score": 85,
+            "overall_score": 88
+          }
+        },
+        {
+          "ticker": "KOSPI:086520",
+          "name": "에코프로",
+          "close_price": 97300,
+          "rationale": "SMA 200일선 지지력 테스트 | EMA 5일선 지지 반등 성공 | RSI 51.2 중립 구간 | MACD 0선 하회 [미검증] | 거래량 178만주 활발한 유입 | 볼린저밴드 하단 이격 과다 해소 | ATR 3.8% 변동성 확대 초기 | ADX 22 단기 추세 부재 | OBV 매집 포착 [미검증] | Stochastic %K 48 중립 회복 | 현재가 97,300원 [검증완료] | 52주 최저가 대비 기술적 반등 구간",
+          "signals": {
+            "trend_score": 75,
+            "momentum_score": 78,
+            "volume_score": 95,
+            "volatility_score": 80,
+            "pattern_score": 82,
+            "sentiment_score": 89,
+            "overall_score": 83
+          }
+        },
+        {
+          "ticker": "KOSPI:012450",
+          "name": "한화에어로스페이스",
+          "close_price": 878000,
+          "rationale": "SMA 5일선 하향 이탈 [수정] | RSI 42.3 중립약세 진입 | MACD -104.2 음전환 확대 | 거래량 120% 수준 유지 [미검증] | 볼린저밴드 중심선 하회 시도 | ATR 4.1% 변동성 확대 | ADX 28 상승 추세 약화 | OBV 우하향 지속 [수정] | Stochastic %K 35 과매도 영역 접근 | 현재가 878,000원 [검증완료] | 일목균형표 기준선 이탈 | 기술적 지표 적극 매도 우위 전환",
+          "signals": {
+            "trend_score": 45,
+            "momentum_score": 40,
+            "volume_score": 70,
+            "volatility_score": 85,
+            "pattern_score": 50,
+            "sentiment_score": 60,
+            "overall_score": 55
+          }
+        }
+      ],
+      "sentAt": "2025-12-24T22:51:35.103+00:00",
+      "subscriberCount": 49
+    },
+    {
       "date": "2025-12-24",
       "stocks": [
         {
@@ -2081,5 +2133,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2025-12-23T23:01:53.677Z"
+  "lastUpdated": "2025-12-24T22:52:02.767Z"
 }
