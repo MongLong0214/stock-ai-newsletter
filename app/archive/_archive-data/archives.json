@@ -1,6 +1,58 @@
 {
   "newsletters": [
     {
+      "date": "2025-12-26",
+      "stocks": [
+        {
+          "ticker": "KOSPI:141080",
+          "name": "리가켐바이오",
+          "close_price": 172500,
+          "rationale": "SMA 5/20/60 정배열 지지 [미검증] | EMA 단기 골든크로스 [미검증] | RSI 48.4 중립권 | MACD 오실레이터 약세 전환 [미검증] | 거래량비율 142.0% 증가 | 볼린저밴드 중심선 지지 [미검증] | ATR 3.8% 적정 변동성 | ADX 28.0 추세형성 | OBV 매집 추세 유지 [미검증] | 52주 최고가 대비 84.7% 지점 위치 | 현재가 172,500원 [검증됨]",
+          "signals": {
+            "trend_score": 92,
+            "momentum_score": 80,
+            "volume_score": 90,
+            "volatility_score": 88,
+            "pattern_score": 95,
+            "sentiment_score": 92,
+            "overall_score": 90
+          }
+        },
+        {
+          "ticker": "KOSPI:012450",
+          "name": "한화에어로스페이스",
+          "close_price": 878000,
+          "rationale": "SMA 20일선 하향 돌파 [수정됨] | EMA 12/26 데드크로스 위험 [미검증] | RSI 42.3 중립권 | MACD 0선 하회 및 음전환 [수정됨] | 외국인 및 기관 수급 유입 [검증됨] | 볼린저밴드 하단 지지력 테스트 [미검증] | ATR 3.5% 추세 추종 적합 | ADX 35.0 매우강한추세 | 52주 최고가(1,127,000) 대비 조정 구간 | Aroon Up 추세 약화 [미검증] | 현재가 878,000원 [검증됨]",
+          "signals": {
+            "trend_score": 85,
+            "momentum_score": 70,
+            "volume_score": 93,
+            "volatility_score": 85,
+            "pattern_score": 90,
+            "sentiment_score": 90,
+            "overall_score": 85
+          }
+        },
+        {
+          "ticker": "KOSPI:079550",
+          "name": "LIG넥스원",
+          "close_price": 414000,
+          "rationale": "SMA 5/10/20/50/100/200 완전정배열 | EMA 상승 추세 강력 지지 | RSI 64.8 강세권 | MACD Signal 선 상단 양전환 확장 | 거래량 가중 평균가(VWAP) 상회 [미검증] | 볼린저밴드 상단 돌파 시도 | ATR 3.2% 변동성 확대 시작 | ADX 31.0 강한추세 | OBV 전고점 돌파 매집 패턴 | 스토캐스틱 골든크로스 발생 [미검증] | 현재가 414,000원 [검증됨]",
+          "signals": {
+            "trend_score": 92,
+            "momentum_score": 90,
+            "volume_score": 95,
+            "volatility_score": 84,
+            "pattern_score": 91,
+            "sentiment_score": 88,
+            "overall_score": 90
+          }
+        }
+      ],
+      "sentAt": "2025-12-25T22:51:37.868+00:00",
+      "subscriberCount": 49
+    },
+    {
       "date": "2025-12-25",
       "stocks": [
         {
@@ -2133,5 +2185,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2025-12-24T23:01:51.189Z"
+  "lastUpdated": "2025-12-25T22:52:09.880Z"
 }
