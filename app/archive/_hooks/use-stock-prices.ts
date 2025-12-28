@@ -190,7 +190,8 @@ export default function useStockPrices(
         saveBatchPricesToCache(cachePrices).catch(() => {});
         if (isMounted) setPrices(results);
       } catch (err) {
-        if (err instanceof Error && err.name === 'AbortError') return;
+        // AbortError: Error 또는 DOMException 타입 모두 처리
+        if ((err instanceof Error || err instanceof DOMException) && err.name === 'AbortError') return;
         if (isMounted) setError(err instanceof Error ? err.message : 'Unknown error');
       } finally {
         if (isMounted) setLoading(false);
