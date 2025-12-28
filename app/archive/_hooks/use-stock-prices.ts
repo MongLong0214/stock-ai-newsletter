@@ -121,9 +121,24 @@ export default function useStockPrices(
           { signal: controller.signal }
         );
         if (historicalResponse.ok) {
-          const histData = await historicalResponse.json();
-          if (histData.success && histData.prices && isMounted) {
-            setHistoricalClosePrices(new Map(Object.entries(histData.prices) as [string, number][]));
+          const histData: unknown = await historicalResponse.json();
+          if (
+            histData &&
+            typeof histData === 'object' &&
+            'success' in histData &&
+            histData.success === true &&
+            'prices' in histData &&
+            histData.prices &&
+            typeof histData.prices === 'object' &&
+            isMounted
+          ) {
+            const priceMap = new Map<string, number>();
+            for (const [ticker, price] of Object.entries(histData.prices)) {
+              if (typeof price === 'number' && price > 0) {
+                priceMap.set(ticker, price);
+              }
+            }
+            setHistoricalClosePrices(priceMap);
           }
         }
 
