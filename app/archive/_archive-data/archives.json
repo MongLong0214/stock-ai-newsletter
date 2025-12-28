@@ -1,6 +1,58 @@
 {
   "newsletters": [
     {
+      "date": "2025-12-29",
+      "stocks": [
+        {
+          "ticker": "KOSPI:042700",
+          "name": "한미반도체",
+          "close_price": 132960,
+          "rationale": "RSI 67.6 강세 권역 안착 | Williams %R -42.1 매수 적정 구간 | ADX 28.1 상승 추세 본격화 | ATR 4.2% 적정 변동성 유지 | SMA 5-20-60일선 정배열 초입 진입 | MACD 시그널선 골든크로스 발생 | CCI 125 돌파로 단기 모멘텀 강화 | Stochastic 64%K 우상향 신호 | 거래량 전일 대비 145% 증가 | 볼린저밴드 상단 확장형 패턴 | 일목균형표 전환선이 기준선을 상회하는 호전 발생 | OBV 지표 전고점 돌파하며 매집 세력 강화 확인 | 52주 신고가 부근 매물 소화 후 전고점 돌파 시도",
+          "signals": {
+            "trend_score": 92,
+            "momentum_score": 88,
+            "volume_score": 85,
+            "volatility_score": 80,
+            "pattern_score": 90,
+            "sentiment_score": 88,
+            "overall_score": 88
+          }
+        },
+        {
+          "ticker": "KOSPI:047810",
+          "name": "한국항공우주",
+          "close_price": 64000,
+          "rationale": "RSI 52.4 중립 이상의 매수 강세 | Williams %R -48.2 중심선 회복 | ADX 24.5 추세 가속화 단계 | ATR 3.1% 안정적 변동성 속 우상향 | SMA 20일 이동평균선 돌파 및 안착 성공 | MACD 히스토그램 양전환으로 추세 반전 | CCI 85 상향 돌파 시도 | Stochastic 42%K 과매도권 탈출 신호 | 수주 공시 동반하며 거래량 210% 급증 | 볼린저밴드 중심선 지지 후 상단 타격 | 파라볼릭 SAR 매수 전환 시그널 발생 | 일목균형표 의운(구름대) 돌파 시도로 저항 제거 | OBV 지표의 가파른 상승으로 스마트 머니 유입 확인",
+          "signals": {
+            "trend_score": 90,
+            "momentum_score": 84,
+            "volume_score": 92,
+            "volatility_score": 78,
+            "pattern_score": 91,
+            "sentiment_score": 95,
+            "overall_score": 89
+          }
+        },
+        {
+          "ticker": "KOSPI:035420",
+          "name": "NAVER",
+          "close_price": 232200,
+          "rationale": "RSI 35.2 과매도권 회복 초기 단계 | Williams %R -82.5 바닥권 탈출 신호 | ADX 47.3 강력한 추세 반전 강도 | ATR 2.5% 변동성 수렴 후 확대 전조 | SMA 5일선이 20일선을 상향 돌파하는 골든크로스 | MACD 마이너스 폭 축소 및 시그널선 수렴 | CCI -115에서 급반등하며 추세 반전 가시화 | Stochastic 22%K 과매도권 골든크로스 | 거래량 118% 수준의 점진적 증가세 | 볼린저밴드 하단 지지 후 밴드 내 재진입 성공 | 일목균형표 기준선 근접하며 강력한 저항 돌파 시도 | OBV 하락 추세 멈춤 및 횡보 전환 | W-패턴 이중바닥 완성 후 넥라인 돌파 시점",
+          "signals": {
+            "trend_score": 78,
+            "momentum_score": 92,
+            "volume_score": 82,
+            "volatility_score": 70,
+            "pattern_score": 94,
+            "sentiment_score": 86,
+            "overall_score": 85
+          }
+        }
+      ],
+      "sentAt": "2025-12-28T22:51:31.19+00:00",
+      "subscriberCount": 49
+    },
+    {
       "date": "2025-12-26",
       "stocks": [
         {
@@ -2185,5 +2237,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2025-12-25T23:01:45.892Z"
+  "lastUpdated": "2025-12-28T22:52:04.016Z"
 }
