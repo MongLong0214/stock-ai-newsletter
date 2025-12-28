@@ -173,37 +173,23 @@ export default function useStockPrices(
           signal: controller.signal,
         });
 
-        console.log('[useStockPrices] Current price response:', { ok: response.ok, status: response.status });
-
         if (!response.ok) throw new Error('Failed to fetch stock prices');
 
         const data: unknown = await response.json();
-        console.log('[useStockPrices] Current price data:', data);
-
         if (!isValidAPIResponse(data)) throw new Error('Invalid API response');
 
         const expiresAt = getStockPriceCacheExpiry();
         const cachePrices: StockPriceCache[] = [];
 
         Object.values(data.prices).forEach((price) => {
-          const valid = isValidStockPrice(price);
-          console.log('[useStockPrices] Price validation:', { price, valid });
-          if (!valid) return;
+          if (!isValidStockPrice(price)) return;
           results.set(price.ticker, price);
           cachePrices.push({ ...price, expires_at: expiresAt });
         });
 
-        console.log('[useStockPrices] Final results:', { results: [...results.entries()], cachePrices });
         saveBatchPricesToCache(cachePrices).catch(() => {});
         if (isMounted) setPrices(results);
       } catch (err) {
-        // 디버깅용 로그
-        console.error('[useStockPrices] Error:', {
-          name: err instanceof Error ? err.name : 'unknown',
-          message: err instanceof Error ? err.message : String(err),
-          type: err?.constructor?.name,
-          err,
-        });
         // AbortError: Error 또는 DOMException 타입 모두 처리
         if ((err instanceof Error || err instanceof DOMException) && err.name === 'AbortError') return;
         if (isMounted) setError(err instanceof Error ? err.message : 'Unknown error');
