@@ -1,6 +1,58 @@
 {
   "newsletters": [
     {
+      "date": "2025-12-30",
+      "stocks": [
+        {
+          "ticker": "KOSPI:034020",
+          "name": "두산에너빌리티",
+          "close_price": 76500,
+          "rationale": "SMA 5/10/20/50일선 정배열 안착 | RSI 57.0 강세권 진입 | MACD -35.18 음전환 회복세 | 거래량 301.6만주 유입 | 볼린저밴드 상단 밴드 상향 발산 | ATR 2.9% 안정적 변동성 유지 | ADX 22.0 신규 추세 형성 [미검증] | 52주 최고가 97400원 대비 회복구간 | VWAP 현재가 상단 위치 [미검증] | 외국인 매수세 지속 유입 | 체코 원전 수주 모멘텀 강화 | 현재가 76500원 지지력 확인",
+          "signals": {
+            "trend_score": 98,
+            "momentum_score": 92,
+            "volume_score": 100,
+            "volatility_score": 95,
+            "pattern_score": 96,
+            "sentiment_score": 94,
+            "overall_score": 96
+          }
+        },
+        {
+          "ticker": "KOSPI:000660",
+          "name": "SK하이닉스",
+          "close_price": 630000,
+          "rationale": "코스피 사상 최고치 견인 주도주 | SMA 5/20/60일선 완전정배열 | RSI 64.2 강세 모멘텀 | MACD 영선 위 상향 돌파 시연 | 거래량비율 242.0% 폭발적 가속 | 볼린저밴드 상단 돌파 및 밴드 확장 | ATR 3.8% 높은 가격 탄력성 | ADX 32.0 강력한 상승 추세 | Williams %R -28.0 중립 강세 | 스토캐스틱 80선 진입 시도 | 외국인 및 기관 동반 대량 순매수 | 63만 닉스 돌파 신고가 랠리",
+          "signals": {
+            "trend_score": 96,
+            "momentum_score": 94,
+            "volume_score": 98,
+            "volatility_score": 90,
+            "pattern_score": 95,
+            "sentiment_score": 97,
+            "overall_score": 95
+          }
+        },
+        {
+          "ticker": "KOSPI:196170",
+          "name": "알테오젠",
+          "close_price": 455000,
+          "rationale": "SMA 20일선 지지 후 반등 성공 | 거래량 215.3% 급증하며 매물 소화 | RSI 52.8 중립 강세권 [미검증] | MACD 데드크로스 탈피 시도 | 52주 최고가 569000원 타겟팅 | ATR 5.8% 고탄력 변동성 유지 | ADX 18.0 횡보 구간 탈출 시도 [미검증] | 애널리스트 평균 목표가 522000원 상향 | OBV 장기 우상향 추세 유지 [미검증] | 스토캐스틱 %K/%D 골든크로스 대기 | MFI 54.0 자금 흐름 안정 | Williams %R -48.0 중심권 회복",
+          "signals": {
+            "trend_score": 82,
+            "momentum_score": 88,
+            "volume_score": 95,
+            "volatility_score": 80,
+            "pattern_score": 84,
+            "sentiment_score": 82,
+            "overall_score": 85
+          }
+        }
+      ],
+      "sentAt": "2025-12-29T22:51:23.808+00:00",
+      "subscriberCount": 50
+    },
+    {
       "date": "2025-12-29",
       "stocks": [
         {
@@ -2237,5 +2289,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2025-12-28T23:01:52.951Z"
+  "lastUpdated": "2025-12-29T22:51:50.666Z"
 }
