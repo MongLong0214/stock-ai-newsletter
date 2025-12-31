@@ -1,6 +1,58 @@
 {
   "newsletters": [
     {
+      "date": "2026-01-01",
+      "stocks": [
+        {
+          "ticker": "KOSPI:035420",
+          "name": "NAVER",
+          "close_price": 242500,
+          "rationale": "현재가 242,500원 [검증] | RSI 62.7 강세권 [수정] | ADX 37.8 강한추세 [수정] | MACD 1910 매수신호 [수정] | SMA 20/50 정배열유지 [검증] | ATR 2464 낮은변동성 [수정] | Stochastic 99 과매수주의 [수정] | CCI 76.5 매수신호 [수정] | Williams %R -0.8 과매수구간 [수정] | 거래량비율 105% 정상 [수정]",
+          "signals": {
+            "trend_score": 92,
+            "momentum_score": 90,
+            "volume_score": 84,
+            "volatility_score": 82,
+            "pattern_score": 85,
+            "sentiment_score": 85,
+            "overall_score": 87
+          }
+        },
+        {
+          "ticker": "KOSPI:373220",
+          "name": "LG에너지솔루션",
+          "close_price": 368500,
+          "rationale": "RSI 31.5 과매도권 [수정] | ADX 33.5 강한추세 [수정] | ATR 3607 변동성높음 [수정] | SMA 역배열상태 [수정] | MACD 매도신호 [수정] | 거래량비율 82% 감소 [수정] | Stochastic 45 중립 | Williams %R -4.1 과매수 | CCI -199 과매도 | 현재가 368,500원 [검증]",
+          "signals": {
+            "trend_score": 60,
+            "momentum_score": 55,
+            "volume_score": 65,
+            "volatility_score": 80,
+            "pattern_score": 70,
+            "sentiment_score": 80,
+            "overall_score": 67
+          }
+        },
+        {
+          "ticker": "KOSPI:278280",
+          "name": "천보",
+          "close_price": 49150,
+          "rationale": "현재가 49,150원 [검증] | RSI 42.0 중립 [수정] | 거래량비율 45% 급감 [수정] | SMA 20일선 저항 [수정] | MACD 시그널 하향 [수정] | ATR 5.8% 변동성 [검증] | 목표주가 64,428원 평균 [추가] | 외인지분율 1.84% [추가] | 시가총액 4,880억 [추가] | 52주 최저가 대비 반등 [추가]",
+          "signals": {
+            "trend_score": 55,
+            "momentum_score": 60,
+            "volume_score": 50,
+            "volatility_score": 85,
+            "pattern_score": 65,
+            "sentiment_score": 70,
+            "overall_score": 63
+          }
+        }
+      ],
+      "sentAt": "2025-12-31T22:51:37.775+00:00",
+      "subscriberCount": 53
+    },
+    {
       "date": "2025-12-31",
       "stocks": [
         {
@@ -2341,5 +2393,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2025-12-30T23:01:52.049Z"
+  "lastUpdated": "2025-12-31T22:52:04.812Z"
 }
