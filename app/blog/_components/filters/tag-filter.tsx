@@ -7,7 +7,7 @@
  */
 'use client';
 
-import { useMemo, useId, useCallback, type MouseEvent } from 'react';
+import { useMemo, useId, useCallback, useRef, useEffect, type MouseEvent } from 'react';
 import { cn } from '@/lib/utils';
 import { Icons } from '../shared/icons';
 import { TagButton } from './tag-button';
@@ -93,7 +93,8 @@ function CollapseButton({
         'group inline-flex items-center gap-1.5 px-4 py-2 text-xs font-medium rounded-lg',
         'text-gray-500 hover:text-emerald-400 active:text-emerald-500',
         'hover:bg-gray-800/40 active:bg-gray-800/60',
-        'transition-all duration-200'
+        'transition-all duration-200',
+        'touch-manipulation'
       )}
       aria-expanded={isExpanded}
       aria-controls={controlsId}
@@ -115,20 +116,29 @@ function ExpandButton({
   controlsId,
   nextCount,
   remainingCount,
-  disabled,
 }: {
   onClick: () => void;
   isExpanded: boolean;
   controlsId: string;
   nextCount: number;
   remainingCount: number;
-  disabled?: boolean;
 }) {
+  const buttonRef = useRef<HTMLButtonElement>(null);
+
+  // Native event listener로 hydration 이슈 우회
+  useEffect(() => {
+    const button = buttonRef.current;
+    if (!button) return;
+
+    const handleClick = () => onClick();
+    button.addEventListener('click', handleClick);
+    return () => button.removeEventListener('click', handleClick);
+  }, [onClick]);
+
   return (
     <button
+      ref={buttonRef}
       type="button"
-      onClick={onClick}
-      disabled={disabled}
       aria-expanded={isExpanded}
       aria-controls={controlsId}
       aria-label={`${nextCount}개 태그 더 보기 (전체 ${remainingCount}개 남음)`}
@@ -142,7 +152,7 @@ function ExpandButton({
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/50',
         'focus-visible:ring-offset-2 focus-visible:ring-offset-black',
         'transition-all duration-200',
-        disabled && 'opacity-50 cursor-not-allowed'
+        'touch-manipulation'
       )}
     >
       <div
@@ -186,7 +196,6 @@ export function TagFilter({ tags, selectedTags, onToggle }: TagFilterProps) {
     displayCount,
     prevDisplayCount,
     isExpanded,
-    isReady,
     searchQuery,
     debouncedSearchQuery,
     loadMoreCount,
@@ -321,7 +330,7 @@ export function TagFilter({ tags, selectedTags, onToggle }: TagFilterProps) {
               controlsId={tagListId}
             />
           )}
-          {hasMoreFiltered && isReady && (
+          {hasMoreFiltered && (
             <ExpandButton
               onClick={expand}
               isExpanded={isExpanded}
