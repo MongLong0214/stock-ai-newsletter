@@ -42,7 +42,6 @@ interface UseTagExpansionReturn {
   displayCount: number;
   prevDisplayCount: number;
   isExpanded: boolean;
-  isReady: boolean;
   searchQuery: string;
   debouncedSearchQuery: string;
   loadMoreCount: number;
@@ -78,12 +77,11 @@ export function useTagExpansion({
   // 상태
   const [level, setLevel] = useState(0);
   const [searchQuery, setSearchQueryState] = useState('');
-  const [isReady, setIsReady] = useState(false);
 
-  // Hydration 완료 감지
+  // 반응형 breakpoint 변경 시 level 리셋
   useEffect(() => {
-    setIsReady(true);
-  }, []);
+    setLevel(0);
+  }, [initialCount]);
 
   // 검색어 debounce (150ms)
   const debouncedSearchQuery = useDebounce(
@@ -107,38 +105,28 @@ export function useTagExpansion({
 
   // 핸들러들 - 모두 useCallback으로 안정화
   const expand = useCallback(() => {
-    // setTimeout으로 다음 틱에서 실행하여 React 배칭 이슈 방지
-    setTimeout(() => {
-      setLevel((prev) => prev + 1);
-    }, 0);
+    setLevel((prev) => prev + 1);
   }, []);
 
   const collapse = useCallback(() => {
-    setTimeout(() => {
-      setLevel(0);
-      setSearchQueryState('');
-    }, 0);
+    setLevel(0);
+    setSearchQueryState('');
   }, []);
 
   const setSearchQuery = useCallback((query: string) => {
-    setTimeout(() => {
-      setSearchQueryState(query);
-      setLevel(0);
-    }, 0);
+    setSearchQueryState(query);
+    setLevel(0);
   }, []);
 
   const clearSearch = useCallback(() => {
-    setTimeout(() => {
-      setSearchQueryState('');
-      setLevel(0);
-    }, 0);
+    setSearchQueryState('');
+    setLevel(0);
   }, []);
 
   return {
     displayCount,
     prevDisplayCount,
     isExpanded,
-    isReady,
     searchQuery,
     debouncedSearchQuery,
     loadMoreCount,
