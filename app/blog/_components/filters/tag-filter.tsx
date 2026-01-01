@@ -1,15 +1,16 @@
 /**
  * 태그 필터 컴포넌트
- * - 태그 검색, 선택, 더보기 기능 제공
- * - 반응형 레이아웃 (모바일/데스크톱)
+ * - 500+ 태그 환경에서 최적화됨
+ * - 검색 debounce (150ms)
+ * - Event delegation으로 클릭 핸들러 최적화
  * - 접근성(A11y) 준수
  */
 'use client';
 
-import { useMemo, useId, useCallback } from 'react';
+import { useMemo, useId, useCallback, type MouseEvent } from 'react';
 import { cn } from '@/lib/utils';
 import { Icons } from '../shared/icons';
-import { TagButton } from './tag-button';
+import { TagButton, getTagFromEvent } from './tag-button';
 import { TagSearchInput } from './tag-search-input';
 import { useTagExpansion, TAG_EXPANSION_CONFIG } from '../../_hooks/use-tag-expansion';
 import { partitionTags, filterTagsByQuery, type TagData } from '../../_utils/tag-utils';
@@ -23,12 +24,21 @@ interface TagFilterProps {
   tags: TagData[];
   /** 선택된 태그 Set */
   selectedTags: Set<string>;
-  /** 태그 선택/해제 핸들러 */
+  /** 태그 선택/해제 핸들러 - useCallback으로 안정화 권장 */
   onToggle: (tag: string) => void;
 }
 
 // ============================================================================
-// 서브 컴포넌트 (inline - memo 불필요)
+// 타입: 애니메이션 데이터
+// ============================================================================
+
+interface DisplayTagData extends TagData {
+  isNewlyAdded: boolean;
+  animationDelay: number;
+}
+
+// ============================================================================
+// 서브 컴포넌트
 // ============================================================================
 
 /** 선택된 태그 개수 배지 */
@@ -140,12 +150,10 @@ function ExpandButton({
         'transition-all duration-200'
       )}
     >
-      {/* 호버 글로우 효과 */}
       <div
         className="absolute inset-0 pointer-events-none bg-gradient-to-r from-emerald-500/0 via-emerald-500/5 to-emerald-500/0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000"
         aria-hidden="true"
       />
-
       <div className="relative flex items-center gap-2">
         <Icons.ChevronDown
           className="w-3.5 h-3.5 text-gray-400 group-hover:text-emerald-400 transition-colors"
@@ -172,57 +180,94 @@ export function TagFilter({ tags, selectedTags, onToggle }: TagFilterProps) {
   // 접근성을 위한 고유 ID
   const tagListId = useId();
 
-  // 태그가 없으면 렌더링하지 않음
-  if (tags.length === 0) return null;
-
-  // 선택/미선택 태그 분리
+  // 선택/미선택 태그 분리 - 훅보다 먼저 early return 금지!
   const { selected, unselected } = useMemo(
     () => partitionTags(tags, selectedTags),
     [tags, selectedTags]
   );
 
-  // 확장 상태 관리
+  // 확장 상태 관리 (debounce 포함)
   const {
     displayCount,
-    hasMore,
     isExpanded,
     searchQuery,
+    debouncedSearchQuery,
     loadMoreCount,
     expand,
     collapse,
     setSearchQuery,
+    clearSearch,
   } = useTagExpansion({ totalCount: unselected.length });
 
-  // 검색 필터링 (한 번만 수행)
+  // 검색 필터링 (debounce된 검색어 사용)
   const filteredTags = useMemo(
-    () => filterTagsByQuery(unselected, searchQuery),
-    [unselected, searchQuery]
+    () => filterTagsByQuery(unselected, debouncedSearchQuery),
+    [unselected, debouncedSearchQuery]
   );
 
-  // 표시할 태그 (500+ 태그 최적화)
-  const displayedTags = useMemo(
-    () => filteredTags.slice(0, displayCount),
-    [filteredTags, displayCount]
-  );
+  // 표시할 태그 + 애니메이션 데이터 미리 계산
+  const displayedTags = useMemo<DisplayTagData[]>(() => {
+    const sliced = filteredTags.slice(0, displayCount);
+    const animationStartIndex = displayCount - loadMoreCount;
 
-  // onClear 핸들러 안정화
-  const handleClearSearch = useCallback(() => {
-    setSearchQuery('');
-  }, [setSearchQuery]);
+    return sliced.map((item, index) => ({
+      ...item,
+      isNewlyAdded: isExpanded && index >= animationStartIndex && index < displayCount,
+      animationDelay:
+        isExpanded && index >= animationStartIndex
+          ? (index - animationStartIndex) * TAG_EXPANSION_CONFIG.ANIMATION_STAGGER_MS
+          : 0,
+    }));
+  }, [filteredTags, displayCount, loadMoreCount, isExpanded]);
 
-  // 더 표시할 태그가 있는지 (필터링된 결과 기준)
+  // 더 표시할 태그가 있는지
   const hasMoreFiltered = displayCount < filteredTags.length;
 
-  // 다음 로드 개수 & 남은 개수
-  const nextLoadCount = Math.min(loadMoreCount, filteredTags.length - displayCount);
-  const remainingCount = filteredTags.length - displayCount;
+  // 다음 로드 개수 & 남은 개수 (조건부 렌더링에서만 사용)
+  const nextLoadCount = hasMoreFiltered
+    ? Math.min(loadMoreCount, filteredTags.length - displayCount)
+    : 0;
+  const remainingCount = hasMoreFiltered
+    ? filteredTags.length - displayCount
+    : 0;
+
+  // Event delegation: 컨테이너에서 클릭 처리
+  const handleTagClick = useCallback(
+    (e: MouseEvent<HTMLDivElement>) => {
+      const target = e.target as HTMLElement;
+      const button = target.closest('button[data-tag]') as HTMLButtonElement | null;
+      if (button) {
+        const tag = getTagFromEvent(e as unknown as MouseEvent<HTMLButtonElement>);
+        if (tag) {
+          onToggle(tag);
+        }
+      }
+    },
+    [onToggle]
+  );
+
+  // 키보드 핸들러 (접근성)
+  const handleTagKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLDivElement>) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        const target = e.target as HTMLElement;
+        if (target.tagName === 'BUTTON' && target.dataset.tag) {
+          e.preventDefault();
+          onToggle(target.dataset.tag);
+        }
+      }
+    },
+    [onToggle]
+  );
+
+  // 태그가 없으면 렌더링하지 않음 (훅 호출 이후!)
+  if (tags.length === 0) return null;
 
   return (
     <div className="space-y-4">
       {/* 헤더 */}
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          {/* 태그 아이콘 */}
           <div className="flex items-center gap-2 text-sm">
             <div className="p-1.5 rounded-lg bg-gradient-to-br from-emerald-500/10 to-emerald-500/5 border border-emerald-500/20">
               <Icons.Tag className="w-3.5 h-3.5 text-emerald-400" aria-hidden="true" />
@@ -246,12 +291,12 @@ export function TagFilter({ tags, selectedTags, onToggle }: TagFilterProps) {
         <TagSearchInput
           value={searchQuery}
           onChange={setSearchQuery}
-          onClear={handleClearSearch}
+          onClear={clearSearch}
         />
       </div>
 
-      {/* 태그 영역 */}
-      <div className="space-y-3">
+      {/* 태그 영역 - Event Delegation */}
+      <div className="space-y-3" onClick={handleTagClick} onKeyDown={handleTagKeyDown}>
         {/* 선택된 태그 */}
         {selected.length > 0 && (
           <div
@@ -265,7 +310,6 @@ export function TagFilter({ tags, selectedTags, onToggle }: TagFilterProps) {
                 tag={tag}
                 count={count}
                 isSelected
-                onToggle={onToggle}
               />
             ))}
           </div>
@@ -278,30 +322,20 @@ export function TagFilter({ tags, selectedTags, onToggle }: TagFilterProps) {
           role="group"
           aria-label="태그 필터"
         >
-          {displayedTags.map(({ tag, count }, index) => {
-            // 새로 추가된 태그인지 판별 (애니메이션용)
-            const isNewlyAdded =
-              isExpanded && index >= displayCount - loadMoreCount && index < displayCount;
-            const animationDelay = isNewlyAdded
-              ? (index - (displayCount - loadMoreCount)) * TAG_EXPANSION_CONFIG.ANIMATION_STAGGER_MS
-              : 0;
-
-            return (
-              <TagButton
-                key={tag}
-                tag={tag}
-                count={count}
-                isSelected={false}
-                onToggle={onToggle}
-                isNewlyAdded={isNewlyAdded}
-                animationDelay={animationDelay}
-              />
-            );
-          })}
+          {displayedTags.map(({ tag, count, isNewlyAdded, animationDelay }) => (
+            <TagButton
+              key={tag}
+              tag={tag}
+              count={count}
+              isSelected={false}
+              isNewlyAdded={isNewlyAdded}
+              animationDelay={animationDelay}
+            />
+          ))}
         </div>
 
         {/* 검색 결과 없음 */}
-        {displayedTags.length === 0 && searchQuery && <EmptySearchResult />}
+        {displayedTags.length === 0 && debouncedSearchQuery && <EmptySearchResult />}
       </div>
 
       {/* 더보기/접기 버튼 */}
