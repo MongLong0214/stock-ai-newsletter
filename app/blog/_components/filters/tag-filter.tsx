@@ -93,7 +93,8 @@ function CollapseButton({
         'group inline-flex items-center gap-1.5 px-4 py-2 text-xs font-medium rounded-lg',
         'text-gray-500 hover:text-emerald-400 active:text-emerald-500',
         'hover:bg-gray-800/40 active:bg-gray-800/60',
-        'transition-all duration-200'
+        'transition-all duration-200',
+        'touch-manipulation'
       )}
       aria-expanded={isExpanded}
       aria-controls={controlsId}
@@ -138,7 +139,8 @@ function ExpandButton({
         'active:from-gray-800/90 active:to-gray-800/70 active:border-emerald-500/40',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/50',
         'focus-visible:ring-offset-2 focus-visible:ring-offset-black',
-        'transition-all duration-200'
+        'transition-all duration-200',
+        'touch-manipulation'
       )}
     >
       <div
