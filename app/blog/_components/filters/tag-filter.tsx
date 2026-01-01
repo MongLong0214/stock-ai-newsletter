@@ -115,17 +115,20 @@ function ExpandButton({
   controlsId,
   nextCount,
   remainingCount,
+  disabled,
 }: {
   onClick: () => void;
   isExpanded: boolean;
   controlsId: string;
   nextCount: number;
   remainingCount: number;
+  disabled?: boolean;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
+      disabled={disabled}
       aria-expanded={isExpanded}
       aria-controls={controlsId}
       aria-label={`${nextCount}개 태그 더 보기 (전체 ${remainingCount}개 남음)`}
@@ -138,7 +141,8 @@ function ExpandButton({
         'active:from-gray-800/90 active:to-gray-800/70 active:border-emerald-500/40',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/50',
         'focus-visible:ring-offset-2 focus-visible:ring-offset-black',
-        'transition-all duration-200'
+        'transition-all duration-200',
+        disabled && 'opacity-50 cursor-not-allowed'
       )}
     >
       <div
@@ -182,6 +186,7 @@ export function TagFilter({ tags, selectedTags, onToggle }: TagFilterProps) {
     displayCount,
     prevDisplayCount,
     isExpanded,
+    isReady,
     searchQuery,
     debouncedSearchQuery,
     loadMoreCount,
@@ -323,6 +328,7 @@ export function TagFilter({ tags, selectedTags, onToggle }: TagFilterProps) {
               controlsId={tagListId}
               nextCount={nextLoadCount}
               remainingCount={remainingCount}
+              disabled={!isReady}
             />
           )}
         </div>
