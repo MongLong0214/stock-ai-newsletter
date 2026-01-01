@@ -6,7 +6,7 @@
  */
 'use client';
 
-import { useMemo, useId } from 'react';
+import { useMemo, useId, useCallback } from 'react';
 import { cn } from '@/lib/utils';
 import { Icons } from '../shared/icons';
 import { TagButton } from './tag-button';
@@ -199,8 +199,16 @@ export function TagFilter({ tags, selectedTags, onToggle }: TagFilterProps) {
     [unselected, searchQuery]
   );
 
-  // 표시할 태그
-  const displayedTags = filteredTags.slice(0, displayCount);
+  // 표시할 태그 (500+ 태그 최적화)
+  const displayedTags = useMemo(
+    () => filteredTags.slice(0, displayCount),
+    [filteredTags, displayCount]
+  );
+
+  // onClear 핸들러 안정화
+  const handleClearSearch = useCallback(() => {
+    setSearchQuery('');
+  }, [setSearchQuery]);
 
   // 더 표시할 태그가 있는지 (필터링된 결과 기준)
   const hasMoreFiltered = displayCount < filteredTags.length;
@@ -238,7 +246,7 @@ export function TagFilter({ tags, selectedTags, onToggle }: TagFilterProps) {
         <TagSearchInput
           value={searchQuery}
           onChange={setSearchQuery}
-          onClear={() => setSearchQuery('')}
+          onClear={handleClearSearch}
         />
       </div>
 
@@ -257,7 +265,7 @@ export function TagFilter({ tags, selectedTags, onToggle }: TagFilterProps) {
                 tag={tag}
                 count={count}
                 isSelected
-                onClick={() => onToggle(tag)}
+                onToggle={onToggle}
               />
             ))}
           </div>
@@ -284,7 +292,7 @@ export function TagFilter({ tags, selectedTags, onToggle }: TagFilterProps) {
                 tag={tag}
                 count={count}
                 isSelected={false}
-                onClick={() => onToggle(tag)}
+                onToggle={onToggle}
                 isNewlyAdded={isNewlyAdded}
                 animationDelay={animationDelay}
               />
