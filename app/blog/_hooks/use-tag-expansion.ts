@@ -4,7 +4,7 @@
  * - 검색어 debounce로 성능 최적화
  * - SSR-safe hydration
  */
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import { useResponsiveValue } from './use-media-query';
 import { useDebounce } from './use-debounce';
 import { calculateDisplayCount } from '../_utils/tag-utils';
@@ -42,6 +42,7 @@ interface UseTagExpansionReturn {
   displayCount: number;
   prevDisplayCount: number;
   isExpanded: boolean;
+  isReady: boolean;
   searchQuery: string;
   debouncedSearchQuery: string;
   loadMoreCount: number;
@@ -77,6 +78,12 @@ export function useTagExpansion({
   // 상태
   const [level, setLevel] = useState(0);
   const [searchQuery, setSearchQueryState] = useState('');
+  const [isReady, setIsReady] = useState(false);
+
+  // Hydration 완료 감지
+  useEffect(() => {
+    setIsReady(true);
+  }, []);
 
   // 검색어 debounce (150ms)
   const debouncedSearchQuery = useDebounce(
@@ -100,28 +107,38 @@ export function useTagExpansion({
 
   // 핸들러들 - 모두 useCallback으로 안정화
   const expand = useCallback(() => {
-    setLevel((prev) => prev + 1);
+    // setTimeout으로 다음 틱에서 실행하여 React 배칭 이슈 방지
+    setTimeout(() => {
+      setLevel((prev) => prev + 1);
+    }, 0);
   }, []);
 
   const collapse = useCallback(() => {
-    setLevel(0);
-    setSearchQueryState('');
+    setTimeout(() => {
+      setLevel(0);
+      setSearchQueryState('');
+    }, 0);
   }, []);
 
   const setSearchQuery = useCallback((query: string) => {
-    setSearchQueryState(query);
-    setLevel(0);
+    setTimeout(() => {
+      setSearchQueryState(query);
+      setLevel(0);
+    }, 0);
   }, []);
 
   const clearSearch = useCallback(() => {
-    setSearchQueryState('');
-    setLevel(0);
+    setTimeout(() => {
+      setSearchQueryState('');
+      setLevel(0);
+    }, 0);
   }, []);
 
   return {
     displayCount,
     prevDisplayCount,
     isExpanded,
+    isReady,
     searchQuery,
     debouncedSearchQuery,
     loadMoreCount,
