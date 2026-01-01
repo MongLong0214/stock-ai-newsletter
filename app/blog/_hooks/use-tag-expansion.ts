@@ -39,27 +39,14 @@ interface UseTagExpansionOptions {
 }
 
 interface UseTagExpansionReturn {
-  /** 현재 표시할 태그 개수 */
   displayCount: number;
-  /** 더 표시할 태그가 있는지 */
-  hasMore: boolean;
-  /** 확장되었는지 (접기 버튼 표시 여부) */
   isExpanded: boolean;
-  /** 현재 검색어 (입력값) */
   searchQuery: string;
-  /** debounce된 검색어 (필터링에 사용) */
   debouncedSearchQuery: string;
-  /** 초기 표시 개수 (반응형) */
-  initialCount: number;
-  /** 더보기 추가 개수 (반응형) */
   loadMoreCount: number;
-  /** 더보기 클릭 핸들러 */
   expand: () => void;
-  /** 접기 클릭 핸들러 (검색어도 초기화) */
   collapse: () => void;
-  /** 검색어 변경 핸들러 (확장 상태 초기화) */
   setSearchQuery: (query: string) => void;
-  /** 검색어 초기화 핸들러 */
   clearSearch: () => void;
 }
 
@@ -107,8 +94,6 @@ export function useTagExpansion({
     [level, initialCount, loadMoreCount, totalCount]
   );
 
-  // 파생 상태
-  const hasMore = displayCount < totalCount;
   const isExpanded = level > 0;
 
   // 핸들러들 - 모두 useCallback으로 안정화
@@ -133,11 +118,9 @@ export function useTagExpansion({
 
   return {
     displayCount,
-    hasMore,
     isExpanded,
     searchQuery,
     debouncedSearchQuery,
-    initialCount,
     loadMoreCount,
     expand,
     collapse,
