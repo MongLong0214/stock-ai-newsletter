@@ -4,12 +4,11 @@
  */
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { cn } from '@/lib/utils';
 import { Icons } from '../shared/icons';
 import { TagButton } from './tag-button';
 import { TagSearchInput } from './tag-search-input';
-import { useResponsiveValue } from '../../_hooks/use-media-query';
 
 /** 모바일 초기 표시 태그 개수 */
 const MOBILE_INITIAL_COUNT = 6;
@@ -34,27 +33,10 @@ interface TagFilterProps {
 export function TagFilter({ tags, selectedTags, onToggle }: TagFilterProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [displayCount, setDisplayCount] = useState(MOBILE_INITIAL_COUNT);
-  /** 사용자가 더보기/접기를 클릭했는지 추적 (hydration 리셋 방지) */
-  const [hasUserInteracted, setHasUserInteracted] = useState(false);
 
-  /** 반응형 초기 표시 개수 (SSR-safe, hydration mismatch 방지) */
-  const initialCount = useResponsiveValue('md', {
-    mobile: MOBILE_INITIAL_COUNT,
-    desktop: DESKTOP_INITIAL_COUNT,
-  });
-
-  /** 반응형 더보기 개수 */
-  const loadMoreCount = useResponsiveValue('md', {
-    mobile: MOBILE_LOAD_MORE_COUNT,
-    desktop: DESKTOP_LOAD_MORE_COUNT,
-  });
-
-  /** Breakpoint 변경 시 displayCount를 initialCount와 동기화 (사용자 상호작용 없을 때만) */
-  useEffect(() => {
-    if (!hasUserInteracted) {
-      setDisplayCount(initialCount);
-    }
-  }, [initialCount, hasUserInteracted]);
+  /** 고정 값 사용 (테스트용) */
+  const initialCount = MOBILE_INITIAL_COUNT;
+  const loadMoreCount = MOBILE_LOAD_MORE_COUNT;
 
   /**
    * 선택된 태그와 미선택 태그 분리
@@ -94,18 +76,15 @@ export function TagFilter({ tags, selectedTags, onToggle }: TagFilterProps) {
 
   /** 더보기 */
   const handleLoadMore = () => {
-    setHasUserInteracted(true);
     setDisplayCount((prev) => Math.min(prev + loadMoreCount, filteredUnselectedTags.length));
   };
   /** 접기 + 검색어 초기화 */
   const handleReset = () => {
-    setHasUserInteracted(false);
     setDisplayCount(initialCount);
     setSearchQuery('');
   };
   /** 검색어 변경 */
   const handleSearchChange = (value: string) => {
-    setHasUserInteracted(false);
     setSearchQuery(value);
     setDisplayCount(initialCount);
   };
