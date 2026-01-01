@@ -40,6 +40,7 @@ interface UseTagExpansionOptions {
 
 interface UseTagExpansionReturn {
   displayCount: number;
+  prevDisplayCount: number;
   isExpanded: boolean;
   searchQuery: string;
   debouncedSearchQuery: string;
@@ -94,6 +95,12 @@ export function useTagExpansion({
     [level, initialCount, loadMoreCount, totalCount]
   );
 
+  // 이전 레벨의 표시 개수 (애니메이션 시작점)
+  const prevDisplayCount = useMemo(
+    () => level > 0 ? calculateDisplayCount(level - 1, initialCount, loadMoreCount, totalCount) : 0,
+    [level, initialCount, loadMoreCount, totalCount]
+  );
+
   const isExpanded = level > 0;
 
   // 핸들러들 - 모두 useCallback으로 안정화
@@ -118,6 +125,7 @@ export function useTagExpansion({
 
   return {
     displayCount,
+    prevDisplayCount,
     isExpanded,
     searchQuery,
     debouncedSearchQuery,
