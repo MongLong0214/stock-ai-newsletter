@@ -610,7 +610,7 @@ ${koreanSeoGuide}
   <faq_count>${config.faqCount}</faq_count>
   <language>한국어 (자연스러운 구어체, 존칭 사용)</language>
   <tone>전문적이면서도 친근한, 신뢰감 있는 톤</tone>
-  <current_year>2025</current_year>
+  <current_year>${new Date().getFullYear()}</current_year>
 </content_requirements>
 
 ${qualityChecklist}
