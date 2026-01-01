@@ -85,10 +85,14 @@ function CollapseButton({
   isExpanded: boolean;
   controlsId: string;
 }) {
+  const handlePointerDown = useCallback(() => {
+    onClick();
+  }, [onClick]);
+
   return (
     <button
       type="button"
-      onClick={onClick}
+      onPointerDown={handlePointerDown}
       className={cn(
         'group inline-flex items-center gap-1.5 px-4 py-2 text-xs font-medium rounded-lg',
         'text-gray-500 hover:text-emerald-400 active:text-emerald-500',
