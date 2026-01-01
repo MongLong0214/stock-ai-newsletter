@@ -4,7 +4,7 @@
  */
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import { Icons } from '../shared/icons';
 import { TagButton } from './tag-button';
@@ -33,8 +33,7 @@ interface TagFilterProps {
 
 export function TagFilter({ tags, selectedTags, onToggle }: TagFilterProps) {
   const [searchQuery, setSearchQuery] = useState('');
-  /** 사용자가 명시적으로 설정한 표시 개수 (null이면 초기값 사용) */
-  const [userExpandedCount, setUserExpandedCount] = useState<number | null>(null);
+  const [displayCount, setDisplayCount] = useState(MOBILE_INITIAL_COUNT);
 
   /** 반응형 초기 표시 개수 (SSR-safe, hydration mismatch 방지) */
   const initialCount = useResponsiveValue('md', {
@@ -48,8 +47,10 @@ export function TagFilter({ tags, selectedTags, onToggle }: TagFilterProps) {
     desktop: DESKTOP_LOAD_MORE_COUNT,
   });
 
-  /** 실제 표시 개수: 사용자가 설정했으면 그 값, 아니면 initialCount */
-  const displayCount = userExpandedCount ?? initialCount;
+  /** Breakpoint 변경 시 displayCount를 initialCount와 동기화 */
+  useEffect(() => {
+    setDisplayCount(initialCount);
+  }, [initialCount]);
 
   /**
    * 선택된 태그와 미선택 태그 분리
@@ -88,14 +89,11 @@ export function TagFilter({ tags, selectedTags, onToggle }: TagFilterProps) {
   const remainingCount = filteredUnselectedTags.length - displayCount;
 
   /** 더보기 */
-  const handleLoadMore = () => {
-    const currentCount = userExpandedCount ?? initialCount;
-    setUserExpandedCount(Math.min(currentCount + loadMoreCount, filteredUnselectedTags.length));
-  };
+  const handleLoadMore = () => setDisplayCount((prev) => Math.min(prev + loadMoreCount, filteredUnselectedTags.length));
   /** 접기 + 검색어 초기화 */
-  const handleReset = () => { setUserExpandedCount(null); setSearchQuery(''); };
+  const handleReset = () => { setDisplayCount(initialCount); setSearchQuery(''); };
   /** 검색어 변경 */
-  const handleSearchChange = (value: string) => { setSearchQuery(value); setUserExpandedCount(null); };
+  const handleSearchChange = (value: string) => { setSearchQuery(value); setDisplayCount(initialCount); };
 
   return (
     <div className="space-y-4">
