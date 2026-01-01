@@ -4,7 +4,7 @@
  * - 검색어 debounce로 성능 최적화
  * - SSR-safe hydration
  */
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import { useResponsiveValue } from './use-media-query';
 import { useDebounce } from './use-debounce';
 import { calculateDisplayCount } from '../_utils/tag-utils';
@@ -42,6 +42,7 @@ interface UseTagExpansionReturn {
   displayCount: number;
   prevDisplayCount: number;
   isExpanded: boolean;
+  isReady: boolean;
   searchQuery: string;
   debouncedSearchQuery: string;
   loadMoreCount: number;
@@ -77,6 +78,12 @@ export function useTagExpansion({
   // 상태
   const [level, setLevel] = useState(0);
   const [searchQuery, setSearchQueryState] = useState('');
+  const [isReady, setIsReady] = useState(false);
+
+  // Hydration 완료 감지
+  useEffect(() => {
+    setIsReady(true);
+  }, []);
 
   // 검색어 debounce (150ms)
   const debouncedSearchQuery = useDebounce(
@@ -122,6 +129,7 @@ export function useTagExpansion({
     displayCount,
     prevDisplayCount,
     isExpanded,
+    isReady,
     searchQuery,
     debouncedSearchQuery,
     loadMoreCount,
