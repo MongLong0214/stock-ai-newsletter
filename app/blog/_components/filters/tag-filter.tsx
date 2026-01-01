@@ -28,14 +28,6 @@ interface TagFilterProps {
   onToggle: (tag: string) => void;
 }
 
-// ============================================================================
-// 타입: 애니메이션 데이터
-// ============================================================================
-
-interface DisplayTagData extends TagData {
-  isNewlyAdded: boolean;
-  animationDelay: number;
-}
 
 // ============================================================================
 // 서브 컴포넌트
@@ -205,20 +197,14 @@ export function TagFilter({ tags, selectedTags, onToggle }: TagFilterProps) {
     [unselected, debouncedSearchQuery]
   );
 
-  // 표시할 태그 + 애니메이션 데이터 미리 계산
-  const displayedTags = useMemo<DisplayTagData[]>(() => {
-    const sliced = filteredTags.slice(0, displayCount);
-    const animationStartIndex = displayCount - loadMoreCount;
+  // 표시할 태그 (slice만 수행, 애니메이션은 렌더 시 계산)
+  const displayedTags = useMemo(
+    () => filteredTags.slice(0, displayCount),
+    [filteredTags, displayCount]
+  );
 
-    return sliced.map((item, index) => ({
-      ...item,
-      isNewlyAdded: isExpanded && index >= animationStartIndex && index < displayCount,
-      animationDelay:
-        isExpanded && index >= animationStartIndex
-          ? (index - animationStartIndex) * TAG_EXPANSION_CONFIG.ANIMATION_STAGGER_MS
-          : 0,
-    }));
-  }, [filteredTags, displayCount, loadMoreCount, isExpanded]);
+  // 애니메이션 시작 인덱스 (더보기로 추가된 태그부터)
+  const animationStartIndex = displayCount - loadMoreCount;
 
   // 더 표시할 태그가 있는지
   const hasMoreFiltered = displayCount < filteredTags.length;
@@ -237,20 +223,6 @@ export function TagFilter({ tags, selectedTags, onToggle }: TagFilterProps) {
       const button = (e.target as HTMLElement).closest('button[data-tag]');
       if (button instanceof HTMLButtonElement && button.dataset.tag) {
         onToggle(button.dataset.tag);
-      }
-    },
-    [onToggle]
-  );
-
-  // 키보드 핸들러 (접근성)
-  const handleTagKeyDown = useCallback(
-    (e: React.KeyboardEvent<HTMLDivElement>) => {
-      if (e.key === 'Enter' || e.key === ' ') {
-        const target = e.target as HTMLElement;
-        if (target.tagName === 'BUTTON' && target.dataset.tag) {
-          e.preventDefault();
-          onToggle(target.dataset.tag);
-        }
       }
     },
     [onToggle]
@@ -292,7 +264,7 @@ export function TagFilter({ tags, selectedTags, onToggle }: TagFilterProps) {
       </div>
 
       {/* 태그 영역 - Event Delegation */}
-      <div className="space-y-3" onClick={handleTagClick} onKeyDown={handleTagKeyDown}>
+      <div className="space-y-3" onClick={handleTagClick}>
         {/* 선택된 태그 */}
         {selected.length > 0 && (
           <div
@@ -318,16 +290,19 @@ export function TagFilter({ tags, selectedTags, onToggle }: TagFilterProps) {
           role="group"
           aria-label="태그 필터"
         >
-          {displayedTags.map(({ tag, count, isNewlyAdded, animationDelay }) => (
-            <TagButton
-              key={tag}
-              tag={tag}
-              count={count}
-              isSelected={false}
-              isNewlyAdded={isNewlyAdded}
-              animationDelay={animationDelay}
-            />
-          ))}
+          {displayedTags.map(({ tag, count }, index) => {
+            const isNewlyAdded = isExpanded && index >= animationStartIndex;
+            return (
+              <TagButton
+                key={tag}
+                tag={tag}
+                count={count}
+                isSelected={false}
+                isNewlyAdded={isNewlyAdded}
+                animationDelay={isNewlyAdded ? (index - animationStartIndex) * TAG_EXPANSION_CONFIG.ANIMATION_STAGGER_MS : 0}
+              />
+            );
+          })}
         </div>
 
         {/* 검색 결과 없음 */}
