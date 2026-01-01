@@ -4,11 +4,12 @@
  */
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import { Icons } from '../shared/icons';
 import { TagButton } from './tag-button';
 import { TagSearchInput } from './tag-search-input';
+import { useResponsiveValue } from '../../_hooks/use-media-query';
 
 /** 모바일 초기 표시 태그 개수 */
 const MOBILE_INITIAL_COUNT = 6;
@@ -34,9 +35,22 @@ export function TagFilter({ tags, selectedTags, onToggle }: TagFilterProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [displayCount, setDisplayCount] = useState(MOBILE_INITIAL_COUNT);
 
-  /** 고정 값 사용 (테스트용) */
-  const initialCount = MOBILE_INITIAL_COUNT;
-  const loadMoreCount = MOBILE_LOAD_MORE_COUNT;
+  /** 반응형 초기 표시 개수 (SSR-safe, hydration mismatch 방지) */
+  const initialCount = useResponsiveValue('md', {
+    mobile: MOBILE_INITIAL_COUNT,
+    desktop: DESKTOP_INITIAL_COUNT,
+  });
+
+  /** 반응형 더보기 개수 */
+  const loadMoreCount = useResponsiveValue('md', {
+    mobile: MOBILE_LOAD_MORE_COUNT,
+    desktop: DESKTOP_LOAD_MORE_COUNT,
+  });
+
+  /** Breakpoint 변경 시 displayCount를 initialCount와 동기화 */
+  useEffect(() => {
+    setDisplayCount(initialCount);
+  }, [initialCount]);
 
   /**
    * 선택된 태그와 미선택 태그 분리
@@ -75,19 +89,11 @@ export function TagFilter({ tags, selectedTags, onToggle }: TagFilterProps) {
   const remainingCount = filteredUnselectedTags.length - displayCount;
 
   /** 더보기 */
-  const handleLoadMore = () => {
-    setDisplayCount((prev) => Math.min(prev + loadMoreCount, filteredUnselectedTags.length));
-  };
+  const handleLoadMore = () => setDisplayCount((prev) => Math.min(prev + loadMoreCount, filteredUnselectedTags.length));
   /** 접기 + 검색어 초기화 */
-  const handleReset = () => {
-    setDisplayCount(initialCount);
-    setSearchQuery('');
-  };
+  const handleReset = () => { setDisplayCount(initialCount); setSearchQuery(''); };
   /** 검색어 변경 */
-  const handleSearchChange = (value: string) => {
-    setSearchQuery(value);
-    setDisplayCount(initialCount);
-  };
+  const handleSearchChange = (value: string) => { setSearchQuery(value); setDisplayCount(initialCount); };
 
   return (
     <div className="space-y-4">
@@ -168,13 +174,13 @@ export function TagFilter({ tags, selectedTags, onToggle }: TagFilterProps) {
       </div>
 
       {/* 하단: 접기 + 더보기 버튼 */}
-      <div className="flex items-center justify-center gap-4 pt-2">
+      <div className="flex items-center justify-center gap-3 pt-2">
         {/* 접기 버튼 */}
         {displayCount > initialCount && (
           <button
             type="button"
             onClick={handleReset}
-            className="group inline-flex items-center justify-center gap-1.5 min-h-[44px] min-w-[44px] px-4 py-2.5 text-xs font-medium text-gray-500 hover:text-emerald-400 active:text-emerald-500 transition-all rounded-xl hover:bg-gray-800/40 active:bg-gray-800/60"
+            className="group inline-flex items-center gap-1.5 px-4 py-2 text-xs font-medium text-gray-500 hover:text-emerald-400 active:text-emerald-500 transition-all"
             aria-label="태그 목록 접기"
           >
             <span>접기</span>
@@ -182,17 +188,38 @@ export function TagFilter({ tags, selectedTags, onToggle }: TagFilterProps) {
           </button>
         )}
 
-        {/* 더보기 버튼 */}
+        {/* 더보기 버튼 - 개선된 UX */}
         {hasMore && (
           <button
             type="button"
             onClick={handleLoadMore}
-            className="min-h-[44px] px-5 py-3 text-xs font-medium rounded-xl bg-gradient-to-br from-gray-800/60 to-gray-800/40 backdrop-blur-sm border border-gray-700/50 hover:from-gray-800/80 hover:to-gray-800/60 hover:border-emerald-500/30 hover:shadow-lg hover:shadow-emerald-500/5 active:from-gray-800/90 active:to-gray-800/70 active:border-emerald-500/40 transition-all"
+            aria-label={`${nextLoadCount}개 태그 더 보기 (전체 ${remainingCount}개 남음)`}
+            className={cn(
+              'group relative px-5 py-2.5 text-xs font-medium rounded-xl overflow-hidden',
+              'bg-gradient-to-br from-gray-800/60 to-gray-800/40 backdrop-blur-sm border border-gray-700/50',
+              'hover:from-gray-800/80 hover:to-gray-800/60 hover:border-emerald-500/30 hover:shadow-lg hover:shadow-emerald-500/5',
+              'active:from-gray-800/90 active:to-gray-800/70 active:border-emerald-500/40',
+              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-black',
+              'transition-all duration-300',
+              'animate-fade-in-up'
+            )}
+            style={{ animationDelay: '200ms' }}
           >
-            <span className="flex items-center gap-2">
-              <Icons.ChevronDown className="w-3.5 h-3.5 text-gray-400" />
-              <span className="text-gray-400">{nextLoadCount}개 더 보기</span>
-            </span>
+            {/* 호버 글로우 효과 */}
+            <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/0 via-emerald-500/5 to-emerald-500/0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
+
+            {/* 버튼 내용 */}
+            <div className="relative flex items-center gap-2">
+              <Icons.ChevronDown className="w-3.5 h-3.5 text-gray-400 group-hover:text-emerald-400 transition-colors" />
+              <div className="flex flex-col items-start">
+                <span className="text-gray-400 group-hover:text-emerald-400 transition-colors font-semibold">
+                  {nextLoadCount}개 더 보기
+                </span>
+                <span className="text-[10px] text-gray-600 group-hover:text-gray-500 transition-colors">
+                  전체 {remainingCount}개 남음
+                </span>
+              </div>
+            </div>
           </button>
         )}
       </div>
