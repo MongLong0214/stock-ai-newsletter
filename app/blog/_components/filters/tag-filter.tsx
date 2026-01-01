@@ -10,7 +10,7 @@
 import { useMemo, useId, useCallback, type MouseEvent } from 'react';
 import { cn } from '@/lib/utils';
 import { Icons } from '../shared/icons';
-import { TagButton, getTagFromEvent } from './tag-button';
+import { TagButton } from './tag-button';
 import { TagSearchInput } from './tag-search-input';
 import { useTagExpansion, TAG_EXPANSION_CONFIG } from '../../_hooks/use-tag-expansion';
 import { partitionTags, filterTagsByQuery, type TagData } from '../../_utils/tag-utils';
@@ -231,16 +231,12 @@ export function TagFilter({ tags, selectedTags, onToggle }: TagFilterProps) {
     ? filteredTags.length - displayCount
     : 0;
 
-  // Event delegation: 컨테이너에서 클릭 처리
+  // Event delegation: 컨테이너에서 클릭 처리 (500+ 버튼에 단일 핸들러)
   const handleTagClick = useCallback(
     (e: MouseEvent<HTMLDivElement>) => {
-      const target = e.target as HTMLElement;
-      const button = target.closest('button[data-tag]') as HTMLButtonElement | null;
-      if (button) {
-        const tag = getTagFromEvent(e as unknown as MouseEvent<HTMLButtonElement>);
-        if (tag) {
-          onToggle(tag);
-        }
+      const button = (e.target as HTMLElement).closest('button[data-tag]');
+      if (button instanceof HTMLButtonElement && button.dataset.tag) {
+        onToggle(button.dataset.tag);
       }
     },
     [onToggle]
