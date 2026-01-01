@@ -107,22 +107,31 @@ export function useTagExpansion({
 
   // 핸들러들 - 모두 useCallback으로 안정화
   const expand = useCallback(() => {
-    setLevel((prev) => prev + 1);
+    // setTimeout으로 다음 틱에서 실행하여 React 배칭 이슈 방지
+    setTimeout(() => {
+      setLevel((prev) => prev + 1);
+    }, 0);
   }, []);
 
   const collapse = useCallback(() => {
-    setLevel(0);
-    setSearchQueryState('');
+    setTimeout(() => {
+      setLevel(0);
+      setSearchQueryState('');
+    }, 0);
   }, []);
 
   const setSearchQuery = useCallback((query: string) => {
-    setSearchQueryState(query);
-    setLevel(0);
+    setTimeout(() => {
+      setSearchQueryState(query);
+      setLevel(0);
+    }, 0);
   }, []);
 
   const clearSearch = useCallback(() => {
-    setSearchQueryState('');
-    setLevel(0);
+    setTimeout(() => {
+      setSearchQueryState('');
+      setLevel(0);
+    }, 0);
   }, []);
 
   return {
