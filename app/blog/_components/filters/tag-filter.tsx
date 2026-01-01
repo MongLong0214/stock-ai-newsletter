@@ -34,6 +34,8 @@ interface TagFilterProps {
 export function TagFilter({ tags, selectedTags, onToggle }: TagFilterProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [displayCount, setDisplayCount] = useState(MOBILE_INITIAL_COUNT);
+  /** 사용자가 더보기/접기를 클릭했는지 추적 (hydration 리셋 방지) */
+  const [hasUserInteracted, setHasUserInteracted] = useState(false);
 
   /** 반응형 초기 표시 개수 (SSR-safe, hydration mismatch 방지) */
   const initialCount = useResponsiveValue('md', {
@@ -47,10 +49,12 @@ export function TagFilter({ tags, selectedTags, onToggle }: TagFilterProps) {
     desktop: DESKTOP_LOAD_MORE_COUNT,
   });
 
-  /** Breakpoint 변경 시 displayCount를 initialCount와 동기화 */
+  /** Breakpoint 변경 시 displayCount를 initialCount와 동기화 (사용자 상호작용 없을 때만) */
   useEffect(() => {
-    setDisplayCount(initialCount);
-  }, [initialCount]);
+    if (!hasUserInteracted) {
+      setDisplayCount(initialCount);
+    }
+  }, [initialCount, hasUserInteracted]);
 
   /**
    * 선택된 태그와 미선택 태그 분리
@@ -89,11 +93,22 @@ export function TagFilter({ tags, selectedTags, onToggle }: TagFilterProps) {
   const remainingCount = filteredUnselectedTags.length - displayCount;
 
   /** 더보기 */
-  const handleLoadMore = () => setDisplayCount((prev) => Math.min(prev + loadMoreCount, filteredUnselectedTags.length));
+  const handleLoadMore = () => {
+    setHasUserInteracted(true);
+    setDisplayCount((prev) => Math.min(prev + loadMoreCount, filteredUnselectedTags.length));
+  };
   /** 접기 + 검색어 초기화 */
-  const handleReset = () => { setDisplayCount(initialCount); setSearchQuery(''); };
+  const handleReset = () => {
+    setHasUserInteracted(false);
+    setDisplayCount(initialCount);
+    setSearchQuery('');
+  };
   /** 검색어 변경 */
-  const handleSearchChange = (value: string) => { setSearchQuery(value); setDisplayCount(initialCount); };
+  const handleSearchChange = (value: string) => {
+    setHasUserInteracted(false);
+    setSearchQuery(value);
+    setDisplayCount(initialCount);
+  };
 
   return (
     <div className="space-y-4">
@@ -174,13 +189,13 @@ export function TagFilter({ tags, selectedTags, onToggle }: TagFilterProps) {
       </div>
 
       {/* 하단: 접기 + 더보기 버튼 */}
-      <div className="flex items-center justify-center gap-3 pt-2">
+      <div className="flex items-center justify-center gap-4 pt-2">
         {/* 접기 버튼 */}
         {displayCount > initialCount && (
           <button
             type="button"
             onClick={handleReset}
-            className="group inline-flex items-center gap-1.5 px-4 py-2 text-xs font-medium text-gray-500 hover:text-emerald-400 transition-all"
+            className="group inline-flex items-center justify-center gap-1.5 min-h-[44px] min-w-[44px] px-4 py-2.5 text-xs font-medium text-gray-500 hover:text-emerald-400 active:text-emerald-500 transition-all rounded-xl hover:bg-gray-800/40 active:bg-gray-800/60"
             aria-label="태그 목록 접기"
           >
             <span>접기</span>
@@ -188,16 +203,17 @@ export function TagFilter({ tags, selectedTags, onToggle }: TagFilterProps) {
           </button>
         )}
 
-        {/* 더보기 버튼 - 개선된 UX */}
+        {/* 더보기 버튼 */}
         {hasMore && (
           <button
             type="button"
             onClick={handleLoadMore}
             aria-label={`${nextLoadCount}개 태그 더 보기 (전체 ${remainingCount}개 남음)`}
             className={cn(
-              'group relative px-5 py-2.5 text-xs font-medium rounded-xl overflow-hidden',
+              'group relative min-h-[44px] px-5 py-3 text-xs font-medium rounded-xl overflow-hidden',
               'bg-gradient-to-br from-gray-800/60 to-gray-800/40 backdrop-blur-sm border border-gray-700/50',
               'hover:from-gray-800/80 hover:to-gray-800/60 hover:border-emerald-500/30 hover:shadow-lg hover:shadow-emerald-500/5',
+              'active:from-gray-800/90 active:to-gray-800/70 active:border-emerald-500/40',
               'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-black',
               'transition-all duration-300',
               'animate-fade-in-up'
