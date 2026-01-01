@@ -4,7 +4,7 @@
  * - 검색어 debounce로 성능 최적화
  * - SSR-safe hydration
  */
-import { useState, useCallback, useEffect, useMemo } from 'react';
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useResponsiveValue } from './use-media-query';
 import { useDebounce } from './use-debounce';
 import { calculateDisplayCount } from '../_utils/tag-utils';
@@ -84,8 +84,13 @@ export function useTagExpansion({
     TAG_EXPANSION_CONFIG.SEARCH_DEBOUNCE_MS
   );
 
-  // 브레이크포인트 변경 시 레벨 리셋
+  // 브레이크포인트 변경 시 레벨 리셋 (hydration 시 리셋 방지)
+  const isHydrated = useRef(false);
   useEffect(() => {
+    if (!isHydrated.current) {
+      isHydrated.current = true;
+      return;
+    }
     setLevel(0);
   }, [initialCount]);
 
