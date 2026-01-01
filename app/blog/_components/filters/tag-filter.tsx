@@ -28,7 +28,6 @@ interface TagFilterProps {
   onToggle: (tag: string) => void;
 }
 
-
 // ============================================================================
 // 서브 컴포넌트
 // ============================================================================
@@ -181,6 +180,7 @@ export function TagFilter({ tags, selectedTags, onToggle }: TagFilterProps) {
   // 확장 상태 관리 (debounce 포함)
   const {
     displayCount,
+    prevDisplayCount,
     isExpanded,
     searchQuery,
     debouncedSearchQuery,
@@ -197,14 +197,11 @@ export function TagFilter({ tags, selectedTags, onToggle }: TagFilterProps) {
     [unselected, debouncedSearchQuery]
   );
 
-  // 표시할 태그 (slice만 수행, 애니메이션은 렌더 시 계산)
+  // 표시할 태그
   const displayedTags = useMemo(
     () => filteredTags.slice(0, displayCount),
     [filteredTags, displayCount]
   );
-
-  // 애니메이션 시작 인덱스 (더보기로 추가된 태그부터)
-  const animationStartIndex = displayCount - loadMoreCount;
 
   // 더 표시할 태그가 있는지
   const hasMoreFiltered = displayCount < filteredTags.length;
@@ -291,7 +288,7 @@ export function TagFilter({ tags, selectedTags, onToggle }: TagFilterProps) {
           aria-label="태그 필터"
         >
           {displayedTags.map(({ tag, count }, index) => {
-            const isNewlyAdded = isExpanded && index >= animationStartIndex;
+            const isNewlyAdded = isExpanded && index >= prevDisplayCount;
             return (
               <TagButton
                 key={tag}
@@ -299,7 +296,7 @@ export function TagFilter({ tags, selectedTags, onToggle }: TagFilterProps) {
                 count={count}
                 isSelected={false}
                 isNewlyAdded={isNewlyAdded}
-                animationDelay={isNewlyAdded ? (index - animationStartIndex) * TAG_EXPANSION_CONFIG.ANIMATION_STAGGER_MS : 0}
+                animationDelay={isNewlyAdded ? (index - prevDisplayCount) * TAG_EXPANSION_CONFIG.ANIMATION_STAGGER_MS : 0}
               />
             );
           })}
