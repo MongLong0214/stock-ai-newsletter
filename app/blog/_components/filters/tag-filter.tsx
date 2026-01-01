@@ -208,11 +208,11 @@ export function TagFilter({ tags, selectedTags, onToggle }: TagFilterProps) {
           <button
             type="button"
             onClick={handleLoadMore}
-            className="min-h-[44px] px-5 py-3 text-xs font-medium rounded-xl bg-gray-800/60 border border-gray-700/50 text-gray-400 hover:text-emerald-400 hover:border-emerald-500/30 active:bg-gray-800/80 transition-colors"
+            className="min-h-[44px] px-5 py-3 text-xs font-medium rounded-xl bg-gradient-to-br from-gray-800/60 to-gray-800/40 backdrop-blur-sm border border-gray-700/50 hover:from-gray-800/80 hover:to-gray-800/60 hover:border-emerald-500/30 hover:shadow-lg hover:shadow-emerald-500/5 active:from-gray-800/90 active:to-gray-800/70 active:border-emerald-500/40 transition-all"
           >
             <span className="flex items-center gap-2">
-              <Icons.ChevronDown className="w-3.5 h-3.5" />
-              <span>{nextLoadCount}개 더 보기</span>
+              <Icons.ChevronDown className="w-3.5 h-3.5 text-gray-400" />
+              <span className="text-gray-400">{nextLoadCount}개 더 보기</span>
             </span>
           </button>
         )}
