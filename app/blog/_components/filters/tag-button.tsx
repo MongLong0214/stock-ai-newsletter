@@ -1,10 +1,12 @@
 /**
  * 태그 버튼 컴포넌트
  * - 선택/미선택 상태에 따라 다른 스타일 적용
- * - 재사용 가능한 공통 버튼
+ * - React.memo로 불필요한 리렌더 방지
+ * - 500+ 태그 환경에서 최적화됨
  */
 'use client';
 
+import { memo, useCallback } from 'react';
 import { cn } from '@/lib/utils';
 import { Icons } from '../shared/icons';
 
@@ -19,8 +21,8 @@ interface TagButtonProps {
   count: number;
   /** 선택 상태 */
   isSelected: boolean;
-  /** 클릭 핸들러 */
-  onClick: () => void;
+  /** 클릭 핸들러 - 안정적인 참조 필요 (useCallback) */
+  onToggle: (tag: string) => void;
   /** 애니메이션 지연 (밀리초) - 미선택 태그 더보기 시 사용 */
   animationDelay?: number;
   /** 새로 추가된 태그 여부 (애니메이션 적용) */
@@ -31,24 +33,29 @@ interface TagButtonProps {
 // 컴포넌트
 // ============================================================================
 
-export function TagButton({
+export const TagButton = memo(function TagButton({
   tag,
   count,
   isSelected,
-  onClick,
+  onToggle,
   animationDelay = 0,
   isNewlyAdded = false,
 }: TagButtonProps) {
-  /**
-   * 키보드 이벤트 핸들러
-   * - Enter/Space: 태그 선택/해제
-   */
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>) => {
-    if (e.key === 'Enter' || e.key === ' ') {
-      e.preventDefault();
-      onClick();
-    }
-  };
+  // 클릭 핸들러 - tag와 onToggle이 바뀌지 않으면 동일 참조 유지
+  const handleClick = useCallback(() => {
+    onToggle(tag);
+  }, [onToggle, tag]);
+
+  // 키보드 이벤트 핸들러
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLButtonElement>) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        onToggle(tag);
+      }
+    },
+    [onToggle, tag]
+  );
 
   // --------------------------------------------------------------------------
   // 선택된 태그 스타일
@@ -57,7 +64,7 @@ export function TagButton({
     return (
       <button
         type="button"
-        onClick={onClick}
+        onClick={handleClick}
         onKeyDown={handleKeyDown}
         aria-pressed={true}
         aria-label={`${tag} 태그 선택 해제 (${count}개 글)`}
@@ -91,7 +98,7 @@ export function TagButton({
   return (
     <button
       type="button"
-      onClick={onClick}
+      onClick={handleClick}
       onKeyDown={handleKeyDown}
       aria-pressed={false}
       aria-label={`${tag} 태그 선택 (${count}개 글)`}
@@ -121,4 +128,4 @@ export function TagButton({
       </span>
     </button>
   );
-}
+});
