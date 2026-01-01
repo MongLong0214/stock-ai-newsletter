@@ -1,10 +1,12 @@
 /**
  * 태그 검색 입력 컴포넌트
+ * - React.memo로 불필요한 리렌더 방지
  * - 글로우 효과가 있는 검색 입력
  * - 검색어 지우기 버튼 포함
  */
 'use client';
 
+import { memo, type ChangeEvent } from 'react';
 import { cn } from '@/lib/utils';
 import { Icons } from '../shared/icons';
 
@@ -15,9 +17,9 @@ import { Icons } from '../shared/icons';
 interface TagSearchInputProps {
   /** 검색어 */
   value: string;
-  /** 검색어 변경 핸들러 */
+  /** 검색어 변경 핸들러 - useCallback으로 안정화 필요 */
   onChange: (value: string) => void;
-  /** 검색어 초기화 핸들러 */
+  /** 검색어 초기화 핸들러 - useCallback으로 안정화 필요 */
   onClear: () => void;
 }
 
@@ -25,7 +27,16 @@ interface TagSearchInputProps {
 // 컴포넌트
 // ============================================================================
 
-export function TagSearchInput({ value, onChange, onClear }: TagSearchInputProps) {
+export const TagSearchInput = memo(function TagSearchInput({
+  value,
+  onChange,
+  onClear,
+}: TagSearchInputProps) {
+  // 입력 변경 핸들러 - 인라인으로 처리 (이벤트 객체 필요)
+  const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
+    onChange(e.target.value);
+  };
+
   return (
     <div className="relative group">
       {/* 포커스 글로우 효과 */}
@@ -39,7 +50,7 @@ export function TagSearchInput({ value, onChange, onClear }: TagSearchInputProps
         type="search"
         placeholder="태그 검색..."
         value={value}
-        onChange={(e) => onChange(e.target.value)}
+        onChange={handleChange}
         aria-label="태그 검색"
         className={cn(
           'relative w-36 pl-3 pr-8 py-2 text-xs rounded-lg',
@@ -68,4 +79,4 @@ export function TagSearchInput({ value, onChange, onClear }: TagSearchInputProps
       )}
     </div>
   );
-}
+});
