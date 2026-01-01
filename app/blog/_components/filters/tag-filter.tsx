@@ -4,12 +4,11 @@
  */
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { cn } from '@/lib/utils';
 import { Icons } from '../shared/icons';
 import { TagButton } from './tag-button';
 import { TagSearchInput } from './tag-search-input';
-import { useResponsiveValue } from '../../_hooks/use-media-query';
 
 /** 모바일 초기 표시 태그 개수 */
 const MOBILE_INITIAL_COUNT = 6;
@@ -34,27 +33,10 @@ interface TagFilterProps {
 export function TagFilter({ tags, selectedTags, onToggle }: TagFilterProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [displayCount, setDisplayCount] = useState(MOBILE_INITIAL_COUNT);
-  /** 사용자가 더보기/접기를 클릭했는지 추적 (hydration 리셋 방지) */
-  const [hasUserInteracted, setHasUserInteracted] = useState(false);
 
-  /** 반응형 초기 표시 개수 (SSR-safe, hydration mismatch 방지) */
-  const initialCount = useResponsiveValue('md', {
-    mobile: MOBILE_INITIAL_COUNT,
-    desktop: DESKTOP_INITIAL_COUNT,
-  });
-
-  /** 반응형 더보기 개수 */
-  const loadMoreCount = useResponsiveValue('md', {
-    mobile: MOBILE_LOAD_MORE_COUNT,
-    desktop: DESKTOP_LOAD_MORE_COUNT,
-  });
-
-  /** Breakpoint 변경 시 displayCount를 initialCount와 동기화 (사용자 상호작용 없을 때만) */
-  useEffect(() => {
-    if (!hasUserInteracted) {
-      setDisplayCount(initialCount);
-    }
-  }, [initialCount, hasUserInteracted]);
+  /** 고정 값 사용 (테스트용) */
+  const initialCount = MOBILE_INITIAL_COUNT;
+  const loadMoreCount = MOBILE_LOAD_MORE_COUNT;
 
   /**
    * 선택된 태그와 미선택 태그 분리
@@ -94,18 +76,15 @@ export function TagFilter({ tags, selectedTags, onToggle }: TagFilterProps) {
 
   /** 더보기 */
   const handleLoadMore = () => {
-    setHasUserInteracted(true);
     setDisplayCount((prev) => Math.min(prev + loadMoreCount, filteredUnselectedTags.length));
   };
   /** 접기 + 검색어 초기화 */
   const handleReset = () => {
-    setHasUserInteracted(false);
     setDisplayCount(initialCount);
     setSearchQuery('');
   };
   /** 검색어 변경 */
   const handleSearchChange = (value: string) => {
-    setHasUserInteracted(false);
     setSearchQuery(value);
     setDisplayCount(initialCount);
   };
@@ -208,33 +187,12 @@ export function TagFilter({ tags, selectedTags, onToggle }: TagFilterProps) {
           <button
             type="button"
             onClick={handleLoadMore}
-            aria-label={`${nextLoadCount}개 태그 더 보기 (전체 ${remainingCount}개 남음)`}
-            className={cn(
-              'group relative min-h-[44px] px-5 py-3 text-xs font-medium rounded-xl overflow-hidden',
-              'bg-gradient-to-br from-gray-800/60 to-gray-800/40 backdrop-blur-sm border border-gray-700/50',
-              'hover:from-gray-800/80 hover:to-gray-800/60 hover:border-emerald-500/30 hover:shadow-lg hover:shadow-emerald-500/5',
-              'active:from-gray-800/90 active:to-gray-800/70 active:border-emerald-500/40',
-              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-black',
-              'transition-all duration-300',
-              'animate-fade-in-up'
-            )}
-            style={{ animationDelay: '200ms' }}
+            className="min-h-[44px] px-5 py-3 text-xs font-medium rounded-xl bg-gradient-to-br from-gray-800/60 to-gray-800/40 backdrop-blur-sm border border-gray-700/50 hover:from-gray-800/80 hover:to-gray-800/60 hover:border-emerald-500/30 hover:shadow-lg hover:shadow-emerald-500/5 active:from-gray-800/90 active:to-gray-800/70 active:border-emerald-500/40 transition-all"
           >
-            {/* 호버 글로우 효과 */}
-            <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/0 via-emerald-500/5 to-emerald-500/0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
-
-            {/* 버튼 내용 */}
-            <div className="relative flex items-center gap-2">
-              <Icons.ChevronDown className="w-3.5 h-3.5 text-gray-400 group-hover:text-emerald-400 transition-colors" />
-              <div className="flex flex-col items-start">
-                <span className="text-gray-400 group-hover:text-emerald-400 transition-colors font-semibold">
-                  {nextLoadCount}개 더 보기
-                </span>
-                <span className="text-[10px] text-gray-600 group-hover:text-gray-500 transition-colors">
-                  전체 {remainingCount}개 남음
-                </span>
-              </div>
-            </div>
+            <span className="flex items-center gap-2">
+              <Icons.ChevronDown className="w-3.5 h-3.5 text-gray-400" />
+              <span className="text-gray-400">{nextLoadCount}개 더 보기</span>
+            </span>
           </button>
         )}
       </div>
