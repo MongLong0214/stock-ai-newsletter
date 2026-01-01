@@ -4,7 +4,7 @@
  * - 검색어 debounce로 성능 최적화
  * - SSR-safe hydration
  */
-import { useState, useCallback, useEffect, useMemo } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { useResponsiveValue } from './use-media-query';
 import { useDebounce } from './use-debounce';
 import { calculateDisplayCount } from '../_utils/tag-utils';
@@ -83,11 +83,6 @@ export function useTagExpansion({
     searchQuery,
     TAG_EXPANSION_CONFIG.SEARCH_DEBOUNCE_MS
   );
-
-  // 브레이크포인트 변경 시 레벨 리셋
-  useEffect(() => {
-    setLevel(0);
-  }, [initialCount]);
 
   // 표시할 태그 개수 계산
   const displayCount = useMemo(
