@@ -208,33 +208,12 @@ export function TagFilter({ tags, selectedTags, onToggle }: TagFilterProps) {
           <button
             type="button"
             onClick={handleLoadMore}
-            aria-label={`${nextLoadCount}개 태그 더 보기 (전체 ${remainingCount}개 남음)`}
-            className={cn(
-              'group relative min-h-[44px] px-5 py-3 text-xs font-medium rounded-xl overflow-hidden',
-              'bg-gradient-to-br from-gray-800/60 to-gray-800/40 backdrop-blur-sm border border-gray-700/50',
-              'hover:from-gray-800/80 hover:to-gray-800/60 hover:border-emerald-500/30 hover:shadow-lg hover:shadow-emerald-500/5',
-              'active:from-gray-800/90 active:to-gray-800/70 active:border-emerald-500/40',
-              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-black',
-              'transition-all duration-300',
-              'animate-fade-in-up'
-            )}
-            style={{ animationDelay: '200ms' }}
+            className="min-h-[44px] px-5 py-3 text-xs font-medium rounded-xl bg-gray-800/60 border border-gray-700/50 text-gray-400 hover:text-emerald-400 hover:border-emerald-500/30 active:bg-gray-800/80 transition-colors"
           >
-            {/* 호버 글로우 효과 */}
-            <div className="absolute inset-0 pointer-events-none bg-gradient-to-r from-emerald-500/0 via-emerald-500/5 to-emerald-500/0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
-
-            {/* 버튼 내용 */}
-            <div className="relative flex items-center gap-2">
-              <Icons.ChevronDown className="w-3.5 h-3.5 text-gray-400 group-hover:text-emerald-400 transition-colors" />
-              <div className="flex flex-col items-start">
-                <span className="text-gray-400 group-hover:text-emerald-400 transition-colors font-semibold">
-                  {nextLoadCount}개 더 보기
-                </span>
-                <span className="text-[10px] text-gray-600 group-hover:text-gray-500 transition-colors">
-                  전체 {remainingCount}개 남음
-                </span>
-              </div>
-            </div>
+            <span className="flex items-center gap-2">
+              <Icons.ChevronDown className="w-3.5 h-3.5" />
+              <span>{nextLoadCount}개 더 보기</span>
+            </span>
           </button>
         )}
       </div>
