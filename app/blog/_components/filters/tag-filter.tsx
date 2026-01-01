@@ -221,7 +221,7 @@ export function TagFilter({ tags, selectedTags, onToggle }: TagFilterProps) {
             style={{ animationDelay: '200ms' }}
           >
             {/* 호버 글로우 효과 */}
-            <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/0 via-emerald-500/5 to-emerald-500/0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
+            <div className="absolute inset-0 pointer-events-none bg-gradient-to-r from-emerald-500/0 via-emerald-500/5 to-emerald-500/0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
 
             {/* 버튼 내용 */}
             <div className="relative flex items-center gap-2">
