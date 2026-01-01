@@ -112,7 +112,7 @@ export default function BlogListClient({ posts }: BlogListClientProps) {
         <div className="animate-fade-in-up" style={{ animationDelay: `${HEADER_ANIMATION.SEARCH_BAR_DELAY}ms` }}>
           <SearchBar value={searchQuery} onChange={setSearchQuery} isSearching={isSearching} />
         </div>
-        <div className="animate-fade-in-up" style={{ animationDelay: `${HEADER_ANIMATION.TAG_FILTER_DELAY}ms` }}>
+        <div>
           <TagFilter tags={allTags} selectedTags={selectedTags} onToggle={handleTagToggle} />
         </div>
         {hasActiveFilters && <ActiveFilters resultCount={filteredPosts.length} onClear={handleClearFilters} />}
