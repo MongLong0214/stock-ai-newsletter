@@ -4,7 +4,7 @@
  */
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { cn } from '@/lib/utils';
 import { Icons } from '../shared/icons';
 import { TagButton } from './tag-button';
@@ -33,7 +33,8 @@ interface TagFilterProps {
 
 export function TagFilter({ tags, selectedTags, onToggle }: TagFilterProps) {
   const [searchQuery, setSearchQuery] = useState('');
-  const [displayCount, setDisplayCount] = useState(MOBILE_INITIAL_COUNT);
+  /** 사용자가 명시적으로 설정한 표시 개수 (null이면 초기값 사용) */
+  const [userExpandedCount, setUserExpandedCount] = useState<number | null>(null);
 
   /** 반응형 초기 표시 개수 (SSR-safe, hydration mismatch 방지) */
   const initialCount = useResponsiveValue('md', {
@@ -47,10 +48,8 @@ export function TagFilter({ tags, selectedTags, onToggle }: TagFilterProps) {
     desktop: DESKTOP_LOAD_MORE_COUNT,
   });
 
-  /** Breakpoint 변경 시 displayCount를 initialCount와 동기화 */
-  useEffect(() => {
-    setDisplayCount(initialCount);
-  }, [initialCount]);
+  /** 실제 표시 개수: 사용자가 설정했으면 그 값, 아니면 initialCount */
+  const displayCount = userExpandedCount ?? initialCount;
 
   /**
    * 선택된 태그와 미선택 태그 분리
@@ -89,11 +88,14 @@ export function TagFilter({ tags, selectedTags, onToggle }: TagFilterProps) {
   const remainingCount = filteredUnselectedTags.length - displayCount;
 
   /** 더보기 */
-  const handleLoadMore = () => setDisplayCount((prev) => Math.min(prev + loadMoreCount, filteredUnselectedTags.length));
+  const handleLoadMore = () => {
+    const currentCount = userExpandedCount ?? initialCount;
+    setUserExpandedCount(Math.min(currentCount + loadMoreCount, filteredUnselectedTags.length));
+  };
   /** 접기 + 검색어 초기화 */
-  const handleReset = () => { setDisplayCount(initialCount); setSearchQuery(''); };
+  const handleReset = () => { setUserExpandedCount(null); setSearchQuery(''); };
   /** 검색어 변경 */
-  const handleSearchChange = (value: string) => { setSearchQuery(value); setDisplayCount(initialCount); };
+  const handleSearchChange = (value: string) => { setSearchQuery(value); setUserExpandedCount(null); };
 
   return (
     <div className="space-y-4">
@@ -174,13 +176,13 @@ export function TagFilter({ tags, selectedTags, onToggle }: TagFilterProps) {
       </div>
 
       {/* 하단: 접기 + 더보기 버튼 */}
-      <div className="flex items-center justify-center gap-4 pt-2">
-        {/* 접기 버튼 - 모바일 터치 타겟 최소 44px 확보 */}
+      <div className="flex items-center justify-center gap-3 pt-2">
+        {/* 접기 버튼 */}
         {displayCount > initialCount && (
           <button
             type="button"
             onClick={handleReset}
-            className="group inline-flex items-center justify-center gap-1.5 min-h-[44px] min-w-[44px] px-4 py-2.5 text-xs font-medium text-gray-500 hover:text-emerald-400 active:text-emerald-500 transition-all rounded-xl hover:bg-gray-800/40 active:bg-gray-800/60"
+            className="group inline-flex items-center gap-1.5 px-4 py-2 text-xs font-medium text-gray-500 hover:text-emerald-400 transition-all"
             aria-label="태그 목록 접기"
           >
             <span>접기</span>
@@ -188,17 +190,16 @@ export function TagFilter({ tags, selectedTags, onToggle }: TagFilterProps) {
           </button>
         )}
 
-        {/* 더보기 버튼 - 모바일 터치 타겟 최소 44px 확보 */}
+        {/* 더보기 버튼 - 개선된 UX */}
         {hasMore && (
           <button
             type="button"
             onClick={handleLoadMore}
             aria-label={`${nextLoadCount}개 태그 더 보기 (전체 ${remainingCount}개 남음)`}
             className={cn(
-              'group relative min-h-[44px] px-5 py-3 text-xs font-medium rounded-xl overflow-hidden',
+              'group relative px-5 py-2.5 text-xs font-medium rounded-xl overflow-hidden',
               'bg-gradient-to-br from-gray-800/60 to-gray-800/40 backdrop-blur-sm border border-gray-700/50',
               'hover:from-gray-800/80 hover:to-gray-800/60 hover:border-emerald-500/30 hover:shadow-lg hover:shadow-emerald-500/5',
-              'active:from-gray-800/90 active:to-gray-800/70 active:border-emerald-500/40',
               'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-black',
               'transition-all duration-300',
               'animate-fade-in-up'
