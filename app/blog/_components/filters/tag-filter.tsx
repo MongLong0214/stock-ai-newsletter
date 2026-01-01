@@ -7,7 +7,7 @@
  */
 'use client';
 
-import { useMemo, useId, useCallback, useRef, useEffect, type MouseEvent } from 'react';
+import { useMemo, useId, useCallback, type MouseEvent } from 'react';
 import { cn } from '@/lib/utils';
 import { Icons } from '../shared/icons';
 import { TagButton } from './tag-button';
@@ -123,22 +123,15 @@ function ExpandButton({
   nextCount: number;
   remainingCount: number;
 }) {
-  const buttonRef = useRef<HTMLButtonElement>(null);
-
-  // Native event listener로 hydration 이슈 우회
-  useEffect(() => {
-    const button = buttonRef.current;
-    if (!button) return;
-
-    const handleClick = () => onClick();
-    button.addEventListener('click', handleClick);
-    return () => button.removeEventListener('click', handleClick);
+  // onPointerDown은 hydration 전에도 동작
+  const handlePointerDown = useCallback(() => {
+    onClick();
   }, [onClick]);
 
   return (
     <button
-      ref={buttonRef}
       type="button"
+      onPointerDown={handlePointerDown}
       aria-expanded={isExpanded}
       aria-controls={controlsId}
       aria-label={`${nextCount}개 태그 더 보기 (전체 ${remainingCount}개 남음)`}
