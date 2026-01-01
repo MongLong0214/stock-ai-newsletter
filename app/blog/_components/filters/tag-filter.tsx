@@ -180,7 +180,7 @@ export function TagFilter({ tags, selectedTags, onToggle }: TagFilterProps) {
           <button
             type="button"
             onClick={handleReset}
-            className="group inline-flex items-center gap-1.5 px-4 py-2 text-xs font-medium text-gray-500 hover:text-emerald-400 transition-all"
+            className="group inline-flex items-center gap-1.5 px-4 py-2 text-xs font-medium text-gray-500 hover:text-emerald-400 active:text-emerald-500 transition-all"
             aria-label="태그 목록 접기"
           >
             <span>접기</span>
@@ -198,6 +198,7 @@ export function TagFilter({ tags, selectedTags, onToggle }: TagFilterProps) {
               'group relative px-5 py-2.5 text-xs font-medium rounded-xl overflow-hidden',
               'bg-gradient-to-br from-gray-800/60 to-gray-800/40 backdrop-blur-sm border border-gray-700/50',
               'hover:from-gray-800/80 hover:to-gray-800/60 hover:border-emerald-500/30 hover:shadow-lg hover:shadow-emerald-500/5',
+              'active:from-gray-800/90 active:to-gray-800/70 active:border-emerald-500/40',
               'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-black',
               'transition-all duration-300',
               'animate-fade-in-up'
