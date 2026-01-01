@@ -6,7 +6,7 @@
  */
 'use client';
 
-import { memo, type MouseEvent, type KeyboardEvent } from 'react';
+import { memo } from 'react';
 import { cn } from '@/lib/utils';
 import { Icons } from '../shared/icons';
 
@@ -25,20 +25,6 @@ interface TagButtonProps {
   animationDelay?: number;
   /** 새로 추가된 태그 여부 */
   isNewlyAdded?: boolean;
-}
-
-// ============================================================================
-// 이벤트 핸들러 (컴포넌트 외부에서 정의 - 재생성 없음)
-// ============================================================================
-
-/**
- * 태그 클릭 이벤트에서 tag 값 추출
- * data-tag attribute 사용
- */
-export function getTagFromEvent(
-  e: MouseEvent<HTMLButtonElement> | KeyboardEvent<HTMLButtonElement>
-): string | null {
-  return e.currentTarget.dataset.tag ?? null;
 }
 
 // ============================================================================
