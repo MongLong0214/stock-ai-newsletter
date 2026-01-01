@@ -321,14 +321,13 @@ export function TagFilter({ tags, selectedTags, onToggle }: TagFilterProps) {
               controlsId={tagListId}
             />
           )}
-          {hasMoreFiltered && (
+          {hasMoreFiltered && isReady && (
             <ExpandButton
               onClick={expand}
               isExpanded={isExpanded}
               controlsId={tagListId}
               nextCount={nextLoadCount}
               remainingCount={remainingCount}
-              disabled={!isReady}
             />
           )}
         </div>
