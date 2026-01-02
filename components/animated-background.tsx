@@ -50,12 +50,12 @@ const codeSnippets = [
 
 const generateColumns = (isMobileDevice: boolean) => {
   const newColumns: Column[] = [];
-  const columnCount = isMobileDevice ? 10 : 50;  // Mobile: 10 columns
+  const columnCount = isMobileDevice ? 12 : 50;  // Mobile: 12 columns (+20%)
 
   for (let i = 0; i < columnCount; i++) {
     const columnChars = [];
     const charCount = isMobileDevice
-      ? Math.floor(Math.random() * 2) + 3  // Mobile: 3-5 characters
+      ? Math.floor(Math.random() * 3) + 4  // Mobile: 4-6 characters (+20%)
       : Math.floor(Math.random() * 15) + 8;
 
     for (let j = 0; j < charCount; j++) {
@@ -69,7 +69,7 @@ const generateColumns = (isMobileDevice: boolean) => {
       speed: isMobileDevice
         ? 2 + Math.random() * 3  // Mobile: 2-5초
         : 5 + Math.random() * 7,
-      delay: Math.random() * (isMobileDevice ? 2 : 0.5),
+      delay: Math.random() * 0.3,
       opacity: isMobileDevice
         ? 0.05 + Math.random() * 0.10  // Mobile: 0.05-0.15
         : 0.12 + Math.random() * 0.10,
