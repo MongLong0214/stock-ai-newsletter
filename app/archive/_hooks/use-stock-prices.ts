@@ -130,6 +130,43 @@ export default function useStockPrices(
     let isMounted = true;
     const controller = new AbortController();
 
+    // 재시도 로직을 포함한 fetch 함수
+    async function fetchWithRetry(
+      url: string,
+      options: RequestInit,
+      maxRetries = 3,
+      baseDelay = 300
+    ): Promise<Response> {
+      let lastError: Error | null = null;
+
+      for (let attempt = 0; attempt <= maxRetries; attempt++) {
+        try {
+          const response = await fetch(url, options);
+          if (response.ok) return response;
+
+          // 4xx 에러는 재시도하지 않음 (클라이언트 오류)
+          if (response.status >= 400 && response.status < 500) {
+            throw new Error(`Client error: ${response.status}`);
+          }
+
+          // 5xx 에러는 재시도
+          lastError = new Error(`Server error: ${response.status}`);
+        } catch (err) {
+          if (err instanceof Error && err.name === 'AbortError') throw err;
+          if (err instanceof DOMException && err.name === 'AbortError') throw err;
+          lastError = err instanceof Error ? err : new Error('Unknown error');
+        }
+
+        // 마지막 시도가 아니면 대기 후 재시도
+        if (attempt < maxRetries) {
+          const delay = baseDelay * Math.pow(2, attempt); // 지수 백오프: 300ms, 600ms, 1200ms
+          await new Promise((resolve) => setTimeout(resolve, delay));
+        }
+      }
+
+      throw lastError ?? new Error('Failed after retries');
+    }
+
     async function fetchPrices() {
       try {
         setLoading(true);
@@ -188,11 +225,13 @@ export default function useStockPrices(
           return;
         }
 
-        // API 호출
-        const response = await fetch(`/api/stock/price?tickers=${uncachedTickers.join(',')}`, {
-          signal: controller.signal,
-        });
-        if (!response.ok) throw new Error('Failed to fetch stock prices');
+        // API 호출 (재시도 로직 적용)
+        const response = await fetchWithRetry(
+          `/api/stock/price?tickers=${uncachedTickers.join(',')}`,
+          { signal: controller.signal },
+          3,  // 최대 3회 재시도
+          300 // 기본 대기 시간 300ms
+        );
 
         const data: unknown = await response.json();
         if (!isStockPriceAPIResponse(data)) throw new Error('Invalid API response');
