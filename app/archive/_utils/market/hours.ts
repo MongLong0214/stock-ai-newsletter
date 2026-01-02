@@ -56,10 +56,8 @@ function toUTC(kstDate: Date): Date {
 }
 
 /**
- * Date를 YYYY-MM-DD 형식 문자열로 변환
- *
+ * Date를 YYYY-MM-DD 형식으로 변환
  * @param kstDate - KST Date 객체
- * @returns YYYY-MM-DD 형식 문자열
  */
 function formatDateToYYYYMMDD(kstDate: Date): string {
   const year = kstDate.getFullYear();
@@ -69,9 +67,8 @@ function formatDateToYYYYMMDD(kstDate: Date): string {
 }
 
 /**
- * KST 기준 주말 여부 확인
- *
- * @param kstDate - KST Date 객체 (toKST로 변환된 값)
+ * 주말 여부 확인 (KST 기준)
+ * @param kstDate - KST Date 객체
  */
 function isWeekendKST(kstDate: Date): boolean {
   const day = kstDate.getDay();
@@ -79,16 +76,14 @@ function isWeekendKST(kstDate: Date): boolean {
 }
 
 /**
- * 한국 증시 공휴일 여부 확인
- *
+ * 공휴일 여부 확인 (KST 기준)
+ * 연도별 데이터가 없으면 경고 출력 (한 번만)
  * @param kstDate - KST Date 객체
- * @returns 공휴일이면 true
  */
 function isKoreanHoliday(kstDate: Date): boolean {
   const year = kstDate.getFullYear();
   const holidays = KOREAN_MARKET_HOLIDAYS_BY_YEAR[year];
 
-  // 연도별 데이터가 없으면 경고 출력 (한 번만)
   if (!holidays) {
     if (!warnedYears.has(year)) {
       console.warn(
@@ -99,7 +94,7 @@ function isKoreanHoliday(kstDate: Date): boolean {
       );
       warnedYears.add(year);
     }
-    return false; // 공휴일 데이터 없으면 false (주말만 체크)
+    return false;
   }
 
   const dateString = formatDateToYYYYMMDD(kstDate);
@@ -107,10 +102,8 @@ function isKoreanHoliday(kstDate: Date): boolean {
 }
 
 /**
- * 시장 휴장일 여부 확인 (주말 또는 공휴일)
- *
+ * 시장 휴장일 여부 확인 (주말 + 공휴일)
  * @param kstDate - KST Date 객체
- * @returns 주말 또는 공휴일이면 true
  */
 function isMarketClosed(kstDate: Date): boolean {
   return isWeekendKST(kstDate) || isKoreanHoliday(kstDate);
@@ -194,4 +187,90 @@ export function getStockPriceCacheExpiry(now: Date = new Date()): number {
   }
 
   return getNextMarketOpen(now).getTime();
+}
+
+/**
+ * 오늘이 시장 휴장일인지 확인 (주말 또는 공휴일)
+ *
+ * @param now - 기준 시간 (기본값: 현재 시간)
+ * @returns 휴장일이면 true
+ */
+export function isTodayMarketClosed(now: Date = new Date()): boolean {
+  const kstDate = toKST(now);
+  return isMarketClosed(kstDate);
+}
+
+/**
+ * 이전 영업일 Date 객체 계산 (주말 + 공휴일 스킵)
+ * @param dateString - YYYY-MM-DD 형식
+ */
+function getPreviousBusinessDateObj(dateString: string): Date {
+  const date = new Date(dateString);
+  date.setHours(12, 0, 0, 0);
+
+  date.setDate(date.getDate() - 1);
+
+  // 최대 10일까지 역산 (긴 연휴 대비)
+  let attempts = 0;
+  while (isMarketClosed(date) && attempts < 10) {
+    date.setDate(date.getDate() - 1);
+    attempts++;
+  }
+
+  return date;
+}
+
+/**
+ * 이전 영업일 날짜 계산 (주말 + 공휴일 스킵)
+ *
+ * @param dateString - YYYY-MM-DD 형식의 날짜 문자열
+ * @returns YYYYMMDD 형식의 이전 영업일 (KIS API 형식)
+ *
+ * @example
+ * getPreviousBusinessDate('2026-01-02') // 2026-01-01이 신정이면 -> '20251231'
+ */
+export function getPreviousBusinessDate(dateString: string): string {
+  const date = getPreviousBusinessDateObj(dateString);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}${month}${day}`;
+}
+
+/**
+ * 이전 영업일을 한국어 형식으로 반환 (UI 표시용)
+ * @param dateString - YYYY-MM-DD 형식
+ * @example getPreviousBusinessDateDisplay('2026-01-02') // '12월 31일'
+ */
+export function getPreviousBusinessDateDisplay(dateString: string): string {
+  const date = getPreviousBusinessDateObj(dateString);
+  return `${date.getMonth() + 1}월 ${date.getDate()}일`;
+}
+
+/**
+ * 두 날짜 사이의 영업일 수 계산
+ * @param startDate - 시작일 (제외)
+ * @param endDate - 종료일 (포함)
+ * @example calculateBusinessDays('2026-01-02', '2026-01-05') // 금요일만 영업일 → 1
+ */
+export function calculateBusinessDays(startDate: Date, endDate: Date): number {
+  const start = new Date(startDate);
+  start.setHours(0, 0, 0, 0);
+  const end = new Date(endDate);
+  end.setHours(0, 0, 0, 0);
+
+  if (start.getTime() === end.getTime()) return 0;
+
+  let count = 0;
+  const current = new Date(start);
+  current.setDate(current.getDate() + 1);
+
+  while (current <= end) {
+    if (!isMarketClosed(current)) {
+      count++;
+    }
+    current.setDate(current.getDate() + 1);
+  }
+
+  return count;
 }

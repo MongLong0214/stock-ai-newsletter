@@ -119,60 +119,21 @@ export function isValidDateFormat(dateString: string): boolean {
   );
 }
 
-/**
- * 한국어 월 이름 반환
- *
- * @returns 한국어 월 이름 배열 (1월 ~ 12월)
- */
+/** 한국어 월 이름 (1월 ~ 12월) */
+const KOREAN_MONTH_NAMES = [
+  '1월', '2월', '3월', '4월', '5월', '6월',
+  '7월', '8월', '9월', '10월', '11월', '12월',
+] as const;
+
+/** 한국어 요일 이름 (일 ~ 토) */
+const KOREAN_DAY_NAMES = ['일', '월', '화', '수', '목', '금', '토'] as const;
+
+/** 한국어 월 이름 반환 */
 export function getKoreanMonthNames(): readonly string[] {
-  return [
-    '1월',
-    '2월',
-    '3월',
-    '4월',
-    '5월',
-    '6월',
-    '7월',
-    '8월',
-    '9월',
-    '10월',
-    '11월',
-    '12월',
-  ] as const;
+  return KOREAN_MONTH_NAMES;
 }
 
-/**
- * 한국어 요일 이름 반환 (축약형)
- *
- * @returns 한국어 요일 이름 배열 (일 ~ 토)
- */
+/** 한국어 요일 이름 반환 (축약형) */
 export function getKoreanDayNames(): readonly string[] {
-  return ['일', '월', '화', '수', '목', '금', '토'] as const;
-}
-
-/**
- * 두 날짜 사이의 영업일 수 계산 (주말 제외)
- *
- * @param startDate - 시작 날짜
- * @param endDate - 종료 날짜
- * @returns 영업일 수 (토요일, 일요일 제외)
- *
- * @example
- * calculateBusinessDays(new Date('2024-01-01'), new Date('2024-01-05'))
- * // Returns 영업일 수 (주말 제외)
- */
-export function calculateBusinessDays(startDate: Date, endDate: Date): number {
-  let count = 0;
-  const current = new Date(startDate);
-
-  while (current <= endDate) {
-    const dayOfWeek = current.getDay();
-    // 토요일(6), 일요일(0) 제외
-    if (dayOfWeek !== 0 && dayOfWeek !== 6) {
-      count++;
-    }
-    current.setDate(current.getDate() + 1);
-  }
-
-  return count;
+  return KOREAN_DAY_NAMES;
 }
