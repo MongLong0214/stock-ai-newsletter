@@ -3,6 +3,7 @@
  */
 
 import type { StockData, DateString } from '../../../_types/archive.types';
+import type { PriceUnavailableReason } from '../../../_hooks/use-stock-prices';
 
 /** 실시간 주식 시세 정보 */
 export interface StockPrice {
@@ -28,6 +29,8 @@ export interface NewsletterCardProps {
   historicalClosePrice?: number;
   /** 실시간 시세 로딩 상태 */
   isLoadingPrice?: boolean;
+  /** 현재가 조회 불가 사유 */
+  unavailableReason?: PriceUnavailableReason | null;
 }
 
 /** 가격 변동 정보 */

@@ -212,28 +212,64 @@ export async function getBatchStockPrices(tickers: string[]): Promise<BatchPrice
   return { prices, failures };
 }
 
-/** 특정 날짜 종가 조회 (FHKST03010100) */
+/**
+ * 특정 날짜 종가 조회
+ * @param ticker - 종목코드 (예: KOSPI:005930)
+ * @param date - 조회일 (YYYYMMDD)
+ */
 export async function getDailyClosePrice(ticker: string, date: string): Promise<number | null> {
   try {
     const config = getKisConfig();
+    const token = await getAccessToken();
+
+    const params = new URLSearchParams({
+      FID_COND_MRKT_DIV_CODE: 'J',
+      FID_INPUT_ISCD: cleanTicker(ticker),
+      FID_INPUT_DATE_1: date,
+      FID_INPUT_DATE_2: date,
+      FID_PERIOD_DIV_CODE: 'D',
+      FID_ORG_ADJ_PRC: '0',
+    });
+
     const res = await fetch(
-      `${config.KIS_BASE_URL}/uapi/domestic-stock/v1/quotations/inquire-daily-itemchartprice?` +
-        new URLSearchParams({ FID_COND_MRKT_DIV_CODE: 'J', FID_INPUT_ISCD: cleanTicker(ticker), FID_INPUT_DATE_1: date, FID_INPUT_DATE_2: date, FID_PERIOD_DIV_CODE: 'D', FID_ORG_ADJ_PRC: '0' }),
-      { headers: { 'Content-Type': 'application/json', authorization: `Bearer ${await getAccessToken()}`, appkey: config.KIS_APP_KEY, appsecret: config.KIS_APP_SECRET, tr_id: 'FHKST03010100' } }
+      `${config.KIS_BASE_URL}/uapi/domestic-stock/v1/quotations/inquire-daily-itemchartprice?${params}`,
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          authorization: `Bearer ${token}`,
+          appkey: config.KIS_APP_KEY,
+          appsecret: config.KIS_APP_SECRET,
+          tr_id: 'FHKST03010100',
+        },
+      }
     );
+
     const data = await res.json();
     if (!res.ok || data.rt_cd !== '0' || !data.output2?.[0]) return null;
+
     return parseInt(data.output2[0].stck_clpr);
   } catch {
     return null;
   }
 }
 
-/** 여러 종목 특정 날짜 종가 일괄 조회 */
-export async function getBatchDailyClosePrices(tickers: string[], date: string): Promise<Map<string, number>> {
+/**
+ * 여러 종목 특정 날짜 종가 일괄 조회
+ */
+export async function getBatchDailyClosePrices(
+  tickers: string[],
+  date: string
+): Promise<Map<string, number>> {
   const results = new Map<string, number>();
-  (await Promise.allSettled(tickers.map((t) => getDailyClosePrice(t, date)))).forEach((r, i) => {
-    if (r.status === 'fulfilled' && r.value) results.set(tickers[i], r.value);
+  const settled = await Promise.allSettled(
+    tickers.map((ticker) => getDailyClosePrice(ticker, date))
+  );
+
+  settled.forEach((result, index) => {
+    if (result.status === 'fulfilled' && result.value !== null) {
+      results.set(tickers[index], result.value);
+    }
   });
+
   return results;
 }

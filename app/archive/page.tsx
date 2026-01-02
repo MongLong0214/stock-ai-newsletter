@@ -4,12 +4,14 @@
  * 과거 발송된 AI 주식 분석 뉴스레터를 날짜별로 조회합니다.
  * - 캘린더에서 날짜 선택
  * - 선택된 날짜의 뉴스레터와 실시간 주가 표시
- * - 키보드 단축키 지원 (Cmd/Ctrl + ←/→: 월 이동, Esc: 캘린더 닫기)
+ * - URL로 날짜 공유 가능 (?date=YYYY-MM-DD)
+ * - 키보드 단축키 지원 (Cmd/Ctrl + 좌우: 월 이동, Esc: 캘린더 닫기)
  */
 
 'use client';
 
-import { useState, useCallback, useMemo } from 'react';
+import { Suspense, useMemo, useEffect } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import AnimatedBackground from '@/components/animated-background';
 import PageHeader from './_components/layout/page-header';
@@ -24,37 +26,75 @@ import useMobileCalendar from './_hooks/use-mobile-calendar';
 import useStockPrices from './_hooks/use-stock-prices';
 import useKeyboardShortcuts from './_hooks/use-keyboard-shortcuts';
 import useFocusTrap from './_hooks/use-focus-trap';
-import type { DateString } from './_types/archive.types';
+import { isDateString, type DateString } from './_types/archive.types';
 import { createFadeInUpVariant, STAGGER_DELAYS } from './_constants/animations';
 
-export default function ArchivePage() {
-  // 아카이브 데이터 조회
-  const { availableDates, allNewsletters } = useArchiveData(null);
+/** 로딩 스켈레톤 */
+function ArchiveLoading() {
+  return (
+    <div className="min-h-screen bg-black flex items-center justify-center">
+      <div className="animate-pulse text-emerald-500">Loading...</div>
+    </div>
+  );
+}
 
-  // 초기 선택 날짜 (가장 최근)
-  const initialDate = availableDates[0] || null;
-  const [selectedDate, setSelectedDate] = useState<DateString | null>(initialDate);
+/** 메인 아카이브 콘텐츠 (useSearchParams 사용) */
+function ArchiveContent() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  // 아카이브 데이터 조회
+  const { availableDates, allNewsletters } = useArchiveData();
+
+  // 사용 가능한 날짜 Set (참조 안정성을 위해 useMemo 사용)
+  const availableDatesSet = useMemo(() => new Set(availableDates), [availableDates]);
+
+  // URL에서 날짜 추출 (단일 진실 소스)
+  const urlDate = searchParams.get('date');
+  const selectedDate = useMemo(() => {
+    if (urlDate && isDateString(urlDate) && availableDatesSet.has(urlDate)) {
+      return urlDate;
+    }
+    return availableDates[0] || null;
+  }, [urlDate, availableDatesSet, availableDates]);
 
   // 캘린더 상태 관리
-  const { calendarState, handlePrevMonth, handleNextMonth } = useCalendarState(initialDate);
+  const { calendarState, handlePrevMonth, handleNextMonth, navigateToDate } =
+    useCalendarState(selectedDate);
+
+  // URL의 날짜가 유효하지 않으면 수정
+  useEffect(() => {
+    if (urlDate && urlDate !== selectedDate && selectedDate) {
+      router.replace(`/archive?date=${selectedDate}`, { scroll: false });
+    }
+  }, [urlDate, selectedDate, router]);
+
+  // URL 변경 시 캘린더 월 동기화
+  useEffect(() => {
+    if (selectedDate) {
+      navigateToDate(selectedDate);
+    }
+  }, [selectedDate, navigateToDate]);
 
   // 선택된 뉴스레터 및 티커
   const { newsletter, tickers } = useNewsletterData(selectedDate, allNewsletters);
 
   // 실시간 주식 시세 및 추천일 전일 종가
-  const { prices: stockPrices, historicalClosePrices, loading: isPriceLoading } = useStockPrices(tickers, selectedDate);
+  const {
+    prices: stockPrices,
+    historicalClosePrices,
+    loading: isPriceLoading,
+    unavailableReason,
+  } = useStockPrices(tickers, selectedDate);
 
   // 모바일 캘린더 상태
   const { isCalendarOpen, calendarButtonRef, toggleCalendar, closeCalendar } = useMobileCalendar();
 
-  // 사용 가능한 날짜 Set 변환
-  const availableDatesSet = useMemo(() => new Set(availableDates), [availableDates]);
-
-  // 날짜 선택 핸들러
-  const handleDateSelect = useCallback((dateString: DateString) => {
-    setSelectedDate(dateString);
+  // 날짜 선택 핸들러 (URL만 업데이트, 상태는 URL에서 파생)
+  function handleDateSelect(dateString: DateString) {
+    router.push(`/archive?date=${dateString}`, { scroll: false });
     closeCalendar();
-  }, [closeCalendar]);
+  }
 
   // 키보드 단축키
   useKeyboardShortcuts({
@@ -88,9 +128,9 @@ export default function ArchivePage() {
       <AnimatedBackground />
 
       {/* 스캔라인 효과 */}
-      <div className="fixed inset-0 pointer-events-none z-[1] opacity-[0.04]">
+      <div className="fixed inset-0 pointer-events-none z-1 opacity-[0.04]">
         <div
-          className="absolute inset-0 bg-[linear-gradient(transparent_50%,rgba(16,185,129,0.04)_50%)] bg-[length:100%_4px] animate-[matrix-scan_8s_linear_infinite]"
+          className="absolute inset-0 bg-[linear-gradient(transparent_50%,rgba(16,185,129,0.04)_50%)] bg-size-[100%_4px] animate-[matrix-scan_8s_linear_infinite]"
           aria-hidden="true"
         />
       </div>
@@ -127,6 +167,7 @@ export default function ArchivePage() {
                   stockPrices={stockPrices}
                   historicalClosePrices={historicalClosePrices}
                   isLoadingPrice={isPriceLoading}
+                  unavailableReason={unavailableReason}
                 />
               )}
             </motion.section>
@@ -134,5 +175,14 @@ export default function ArchivePage() {
         </div>
       </main>
     </div>
+  );
+}
+
+/** 페이지 엔트리포인트 (Suspense 경계) */
+export default function ArchivePage() {
+  return (
+    <Suspense fallback={<ArchiveLoading />}>
+      <ArchiveContent />
+    </Suspense>
   );
 }

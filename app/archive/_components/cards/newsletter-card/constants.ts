@@ -12,13 +12,6 @@ export const RATIONALE_LAYOUT = {
   CONTENT_OFFSET: 50,
 } as const;
 
-/** 날짜 계산 상수 */
-export const DATE_CALC = {
-  MONDAY: 1,
-  WEEKEND_OFFSET: 3,
-  WEEKDAY_OFFSET: 1,
-} as const;
-
 /** 시그널 점수 키 타입 (overall_score 제외) */
 type SignalKey = keyof Omit<StockSignals, 'overall_score'>;
 
