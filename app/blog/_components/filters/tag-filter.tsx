@@ -1,9 +1,7 @@
 /**
  * 태그 필터 컴포넌트
- * - 500+ 태그 환경에서 최적화됨
- * - 검색 debounce (150ms)
- * - Event delegation으로 클릭 핸들러 최적화
- * - 접근성(A11y) 준수
+ * - 500+ 태그 환경 최적화 (Event delegation)
+ * - 검색 debounce 150ms
  */
 'use client';
 
@@ -15,168 +13,11 @@ import { TagSearchInput } from './tag-search-input';
 import { useTagExpansion, TAG_EXPANSION_CONFIG } from '../../_hooks/use-tag-expansion';
 import { partitionTags, filterTagsByQuery, type TagData } from '../../_utils/tag-utils';
 
-// ============================================================================
-// 타입
-// ============================================================================
-
 interface TagFilterProps {
-  /** 모든 태그와 출현 횟수 (출현 빈도순 정렬됨) */
   tags: TagData[];
-  /** 선택된 태그 Set */
   selectedTags: Set<string>;
-  /** 태그 선택/해제 핸들러 - useCallback으로 안정화 권장 */
   onToggle: (tag: string) => void;
 }
-
-// ============================================================================
-// 서브 컴포넌트
-// ============================================================================
-
-/** 선택된 태그 개수 배지 */
-function SelectedBadge({ count }: { count: number }) {
-  if (count === 0) return null;
-
-  return (
-    <div
-      className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-gradient-to-r from-emerald-500/20 to-emerald-400/20 border border-emerald-500/30 shadow-lg shadow-emerald-500/10"
-      role="status"
-      aria-live="polite"
-    >
-      <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" aria-hidden="true" />
-      <span className="text-xs font-semibold text-emerald-400 tabular-nums">{count}</span>
-    </div>
-  );
-}
-
-/** 진행률 표시 */
-function ProgressIndicator({ current, total }: { current: number; total: number }) {
-  if (current >= total) return null;
-
-  return (
-    <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-gray-800/40 border border-gray-700/30">
-      <span className="text-xs text-gray-500 tabular-nums">
-        {current}/{total}
-      </span>
-    </div>
-  );
-}
-
-/** 검색 결과 없음 */
-function EmptySearchResult() {
-  return (
-    <div className="py-12 text-center" role="status" aria-live="polite">
-      <div className="inline-flex flex-col items-center gap-3">
-        <div className="p-3 rounded-2xl bg-gray-800/50 border border-gray-700/50">
-          <Icons.Search className="w-6 h-6 text-gray-600" aria-hidden="true" />
-        </div>
-        <p className="text-sm font-medium text-gray-400">검색 결과 없음</p>
-      </div>
-    </div>
-  );
-}
-
-/** 접기 버튼 */
-function CollapseButton({
-  onClick,
-  isExpanded,
-  controlsId,
-}: {
-  onClick: () => void;
-  isExpanded: boolean;
-  controlsId: string;
-}) {
-  const handlePointerDown = useCallback(() => {
-    onClick();
-  }, [onClick]);
-
-  return (
-    <button
-      type="button"
-      onPointerDown={handlePointerDown}
-      className={cn(
-        'group inline-flex items-center gap-1.5 px-4 py-2 text-xs font-medium rounded-lg',
-        'text-gray-500 hover:text-emerald-400 active:text-emerald-500',
-        'hover:bg-gray-800/40 active:bg-gray-800/60',
-        'transition-all duration-200',
-        'touch-manipulation'
-      )}
-      aria-expanded={isExpanded}
-      aria-controls={controlsId}
-      aria-label="태그 목록 접기"
-    >
-      <span>접기</span>
-      <Icons.ChevronDown
-        className="w-3.5 h-3.5 rotate-180 group-hover:-translate-y-0.5 transition-transform"
-        aria-hidden="true"
-      />
-    </button>
-  );
-}
-
-/** 더보기 버튼 */
-function ExpandButton({
-  onClick,
-  isExpanded,
-  controlsId,
-  nextCount,
-  remainingCount,
-}: {
-  onClick: () => void;
-  isExpanded: boolean;
-  controlsId: string;
-  nextCount: number;
-  remainingCount: number;
-}) {
-  // onPointerDown은 hydration 전에도 동작
-  const handlePointerDown = useCallback(() => {
-    onClick();
-  }, [onClick]);
-
-  return (
-    <button
-      type="button"
-      onPointerDown={handlePointerDown}
-      aria-expanded={isExpanded}
-      aria-controls={controlsId}
-      aria-label={`${nextCount}개 태그 더 보기 (전체 ${remainingCount}개 남음)`}
-      className={cn(
-        'group relative px-5 py-2.5 text-xs font-medium rounded-xl overflow-hidden',
-        'bg-gradient-to-br from-gray-800/60 to-gray-800/40 backdrop-blur-sm',
-        'border border-gray-700/50',
-        'hover:from-gray-800/80 hover:to-gray-800/60 hover:border-emerald-500/30',
-        'hover:shadow-lg hover:shadow-emerald-500/5',
-        'active:from-gray-800/90 active:to-gray-800/70 active:border-emerald-500/40',
-        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/50',
-        'focus-visible:ring-offset-2 focus-visible:ring-offset-black',
-        'transition-all duration-200',
-        'touch-manipulation'
-      )}
-    >
-      <div
-        className="absolute inset-0 pointer-events-none bg-gradient-to-r from-emerald-500/0 via-emerald-500/5 to-emerald-500/0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000"
-        aria-hidden="true"
-      />
-      <div className="relative flex items-center gap-2">
-        <Icons.ChevronDown
-          className="w-3.5 h-3.5 text-gray-400 group-hover:text-emerald-400 transition-colors"
-          aria-hidden="true"
-        />
-        <div className="flex flex-col items-start">
-          <span className="text-gray-400 group-hover:text-emerald-400 transition-colors font-semibold">
-            {nextCount}개 더 보기
-          </span>
-          <span className="text-[10px] text-gray-600 group-hover:text-gray-500 transition-colors">
-            전체 {remainingCount}개 남음
-          </span>
-        </div>
-      </div>
-    </button>
-  );
-}
-
-// ============================================================================
-// 메인 컴포넌트
-// ============================================================================
 
 export function TagFilter({ tags, selectedTags, onToggle }: TagFilterProps) {
   // 접근성을 위한 고유 ID
@@ -321,23 +162,88 @@ export function TagFilter({ tags, selectedTags, onToggle }: TagFilterProps) {
       {(isExpanded || hasMoreFiltered) && (
         <div className="flex items-center justify-center gap-3 pt-2">
           {isExpanded && (
-            <CollapseButton
-              onClick={collapse}
-              isExpanded={isExpanded}
-              controlsId={tagListId}
-            />
+            <button
+              type="button"
+              onClick={(e) => { e.preventDefault(); collapse(); }}
+              className={cn(
+                'group inline-flex items-center gap-1.5 px-4 py-2 text-xs font-medium rounded-lg',
+                'text-gray-500 hover:text-emerald-400 hover:bg-gray-800/40',
+                'transition-all duration-200 touch-manipulation'
+              )}
+              aria-expanded={isExpanded}
+              aria-controls={tagListId}
+              aria-label="태그 목록 접기"
+            >
+              <span>접기</span>
+              <Icons.ChevronDown className="w-3.5 h-3.5 rotate-180" aria-hidden="true" />
+            </button>
           )}
           {hasMoreFiltered && (
-            <ExpandButton
-              onClick={expand}
-              isExpanded={isExpanded}
-              controlsId={tagListId}
-              nextCount={nextLoadCount}
-              remainingCount={remainingCount}
-            />
+            <button
+              type="button"
+              onClick={(e) => { e.preventDefault(); expand(); }}
+              className={cn(
+                'group px-5 py-2.5 text-xs font-medium rounded-xl',
+                'bg-gray-800/50 border border-gray-700/50',
+                'hover:border-emerald-500/30 hover:shadow-lg hover:shadow-emerald-500/5',
+                'transition-all duration-200 touch-manipulation'
+              )}
+              aria-expanded={isExpanded}
+              aria-controls={tagListId}
+              aria-label={`${nextLoadCount}개 태그 더 보기 (전체 ${remainingCount}개 남음)`}
+            >
+              <div className="flex items-center gap-2">
+                <Icons.ChevronDown className="w-3.5 h-3.5 text-gray-400 group-hover:text-emerald-400" aria-hidden="true" />
+                <div className="flex flex-col items-start">
+                  <span className="text-gray-400 group-hover:text-emerald-400 font-semibold">
+                    {nextLoadCount}개 더 보기
+                  </span>
+                  <span className="text-[10px] text-gray-600">{remainingCount}개 남음</span>
+                </div>
+              </div>
+            </button>
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+/** 선택된 태그 배지 - 스크린리더에 실시간 알림 */
+function SelectedBadge({ count }: { count: number }) {
+  if (count === 0) return null;
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30"
+    >
+      <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" aria-hidden="true" />
+      <span className="text-xs font-semibold text-emerald-400 tabular-nums">{count}</span>
+    </div>
+  );
+}
+
+/** 진행률 */
+function ProgressIndicator({ current, total }: { current: number; total: number }) {
+  if (current >= total) return null;
+  return (
+    <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-gray-800/40 border border-gray-700/30">
+      <span className="text-xs text-gray-500 tabular-nums">{current}/{total}</span>
+    </div>
+  );
+}
+
+/** 검색 결과 없음 - 스크린리더에 알림 */
+function EmptySearchResult() {
+  return (
+    <div role="status" aria-live="polite" className="py-12 text-center">
+      <div className="inline-flex flex-col items-center gap-3">
+        <div className="p-3 rounded-2xl bg-gray-800/50 border border-gray-700/50">
+          <Icons.Search className="w-6 h-6 text-gray-600" aria-hidden="true" />
+        </div>
+        <p className="text-sm text-gray-400">검색 결과 없음</p>
+      </div>
     </div>
   );
 }
