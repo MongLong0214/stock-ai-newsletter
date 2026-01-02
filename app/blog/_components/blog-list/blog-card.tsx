@@ -1,27 +1,46 @@
+'use client';
+
 import Link from 'next/link';
+import { cn } from '@/lib/utils';
 import { formatDateKo } from '../../_utils/date-formatter';
 import type { BlogPostListItem } from '../../_types/blog';
 
 const MAX_VISIBLE_TAGS = 4;
 const MAX_ANIMATED_CARDS = 12;
 
+/**
+ * 블로그 카드 컴포넌트
+ * - iOS Safari :active 지원을 위해 onTouchStart 필요
+ */
 function BlogCard({ post, index }: { post: BlogPostListItem; index: number }) {
-  // Only animate first batch to prevent animation cascade
   const shouldAnimate = index < MAX_ANIMATED_CARDS;
   const animationDelay = shouldAnimate ? `${100 + index * 50}ms` : '0ms';
 
   return (
     <article
-      className={`group h-full ${shouldAnimate ? 'animate-fade-in-up' : ''}`}
+      className={cn('group h-full', shouldAnimate && 'animate-fade-in-up')}
       style={shouldAnimate ? { animationDelay } : undefined}
     >
       <Link
         href={`/blog/${post.slug}`}
-        className="relative flex flex-col h-full p-7 rounded-2xl border border-gray-800/50 bg-gradient-to-br from-gray-900/90 to-gray-950/90 overflow-hidden transition-all duration-300 hover:border-emerald-500/40 hover:shadow-xl hover:shadow-emerald-500/10 hover:scale-[1.02] hover:-translate-y-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/50"
+        // iOS Safari에서 :active 작동시키려면 빈 onTouchStart 필요
+        onTouchStart={() => {}}
+        className={cn(
+          'relative flex flex-col h-full p-7 rounded-2xl overflow-hidden',
+          'border border-gray-800/50 bg-gradient-to-br from-gray-900/90 to-gray-950/90',
+          'transition-all duration-200',
+          // Hover (데스크톱)
+          'hover:border-emerald-500/40 hover:shadow-xl hover:shadow-emerald-500/10',
+          'hover:scale-[1.02] hover:-translate-y-1',
+          // Active (은은한 피드백)
+          'active:scale-[0.995] active:opacity-80',
+          // Focus
+          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/50'
+        )}
       >
-        {/* Hover gradient - simplified */}
+        {/* Hover gradient */}
         <div
-          className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+          className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 to-transparent opacity-0 group-hover:opacity-100 group-active:opacity-100 transition-opacity duration-200"
           aria-hidden="true"
         />
 
