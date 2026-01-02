@@ -2,11 +2,11 @@
  * 뉴스레터 카드 컴포넌트
  *
  * 주식 추천 정보와 실시간 시세를 표시하는 카드
+ * React 19 자동 최적화로 memo/useMemo 불필요
  */
 
 'use client';
 
-import { memo, useMemo } from 'react';
 import { TrendingUp } from 'lucide-react';
 import ScoreBadge from '../../ui/score-badge';
 import { formatPrice } from '../../../_utils/formatting/price';
@@ -19,13 +19,14 @@ import type { NewsletterCardProps } from './types';
 /**
  * 뉴스레터 카드 메인 컴포넌트
  */
-const NewsletterCard = memo(function NewsletterCard({
+export default function NewsletterCard({
   stock,
   maxRationaleItems,
   newsletterDate,
   currentPrice,
   historicalClosePrice,
   isLoadingPrice = false,
+  unavailableReason,
 }: NewsletterCardProps) {
   const { ticker, name, close_price, rationale, signals } = stock;
 
@@ -33,22 +34,16 @@ const NewsletterCard = memo(function NewsletterCard({
   const displayClosePrice = historicalClosePrice ?? close_price;
 
   // 전체 점수 그라데이션
-  const overallGradient = useMemo(
-    () => getOverallScoreColor(signals.overall_score),
-    [signals.overall_score]
-  );
+  const overallGradient = getOverallScoreColor(signals.overall_score);
 
   // 가격 변동 정보 계산
-  const priceChange = useMemo(
-    () => calculatePriceChange(currentPrice, displayClosePrice),
-    [currentPrice, displayClosePrice]
-  );
+  const priceChange = calculatePriceChange(currentPrice, displayClosePrice);
 
   // 추천일 전일 날짜
-  const previousDate = useMemo(() => getPreviousDate(newsletterDate), [newsletterDate]);
+  const previousDate = getPreviousDate(newsletterDate);
 
   // 추천 근거 분리
-  const rationaleItems = useMemo(() => rationale.split('|'), [rationale]);
+  const rationaleItems = rationale.split('|');
 
   // 추천 근거 영역 높이 계산
   const rationaleHeight =
@@ -133,6 +128,7 @@ const NewsletterCard = memo(function NewsletterCard({
           isLoadingPrice={isLoadingPrice}
           currentPrice={currentPrice}
           priceChange={priceChange}
+          unavailableReason={unavailableReason}
         />
       </div>
 
@@ -193,6 +189,4 @@ const NewsletterCard = memo(function NewsletterCard({
       />
     </article>
   );
-});
-
-export default NewsletterCard;
+}

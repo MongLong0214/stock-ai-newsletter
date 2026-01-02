@@ -9,6 +9,7 @@ import { motion } from 'framer-motion';
 import NewsletterCard from '../cards/newsletter-card';
 import type { Newsletter } from '../../_types/archive.types';
 import type { StockPrice } from '../cards/newsletter-card/types';
+import type { PriceUnavailableReason } from '../../_hooks/use-stock-prices';
 import { createFadeInUpVariant, calculateCardDelay } from '../../_constants/animations';
 
 interface NewsletterGridProps {
@@ -20,6 +21,8 @@ interface NewsletterGridProps {
   historicalClosePrices: Map<string, number>;
   /** 가격 로딩 상태 */
   isLoadingPrice: boolean;
+  /** 현재가 조회 불가 사유 */
+  unavailableReason: PriceUnavailableReason | null;
 }
 
 function NewsletterGrid({
@@ -27,6 +30,7 @@ function NewsletterGrid({
   stockPrices,
   historicalClosePrices,
   isLoadingPrice,
+  unavailableReason,
 }: NewsletterGridProps) {
   // rationale 항목 최대 개수 계산 (카드 높이 균일화용)
   const maxRationaleItems = Math.max(
@@ -52,6 +56,7 @@ function NewsletterGrid({
             currentPrice={stockPrices.get(stock.ticker)}
             historicalClosePrice={historicalClosePrices.get(stock.ticker)}
             isLoadingPrice={isLoadingPrice}
+            unavailableReason={unavailableReason}
           />
         </motion.div>
       ))}

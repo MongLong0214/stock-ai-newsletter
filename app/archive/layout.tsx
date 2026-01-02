@@ -119,27 +119,15 @@ export default function ArchiveLayout({
 
   return (
     <>
-      <Script
-        id="breadcrumb-schema"
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{
-          __html: JSON.stringify(breadcrumbSchema),
-        }}
-      />
-      <Script
-        id="collection-page-schema"
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{
-          __html: JSON.stringify(collectionPageSchema),
-        }}
-      />
-      <Script
-        id="website-schema"
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{
-          __html: JSON.stringify(websiteSchema),
-        }}
-      />
+      <Script id="breadcrumb-schema" type="application/ld+json">
+        {JSON.stringify(breadcrumbSchema)}
+      </Script>
+      <Script id="collection-page-schema" type="application/ld+json">
+        {JSON.stringify(collectionPageSchema)}
+      </Script>
+      <Script id="website-schema" type="application/ld+json">
+        {JSON.stringify(websiteSchema)}
+      </Script>
       {children}
     </>
   );

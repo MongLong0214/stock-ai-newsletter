@@ -2,9 +2,10 @@
  * 모바일 캘린더 상태 관리 훅
  *
  * 모바일 캘린더 열림/닫힘 상태와 핸들러를 제공합니다.
+ * React 19 자동 최적화로 useCallback 불필요
  */
 
-import { useState, useCallback, useRef } from 'react';
+import { useState, useRef } from 'react';
 
 interface UseMobileCalendarResult {
   /** 캘린더 열림 상태 */
@@ -20,17 +21,17 @@ interface UseMobileCalendarResult {
 /**
  * 모바일 캘린더 상태 관리
  */
-function useMobileCalendar(): UseMobileCalendarResult {
+export default function useMobileCalendar(): UseMobileCalendarResult {
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const calendarButtonRef = useRef<HTMLButtonElement>(null);
 
-  const toggleCalendar = useCallback(() => {
+  function toggleCalendar() {
     setIsCalendarOpen((prev) => !prev);
-  }, []);
+  }
 
-  const closeCalendar = useCallback(() => {
+  function closeCalendar() {
     setIsCalendarOpen(false);
-  }, []);
+  }
 
   return {
     isCalendarOpen,
@@ -39,5 +40,3 @@ function useMobileCalendar(): UseMobileCalendarResult {
     closeCalendar,
   };
 }
-
-export default useMobileCalendar;

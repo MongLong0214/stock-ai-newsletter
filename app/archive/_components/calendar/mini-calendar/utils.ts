@@ -31,30 +31,31 @@ export function buildCalendarGrid(year: number, month: number): (number | null)[
   return grid;
 }
 
+/** 날짜 셀 기본 스타일 */
+const BASE_CELL_CLASSES = [
+  'relative aspect-square rounded-lg min-h-[36px]',
+  'text-xs font-mono tabular-nums',
+  'transition-all duration-200',
+  'focus-visible:outline-none focus-visible:ring-2',
+  'focus-visible:ring-emerald-500 focus-visible:ring-offset-2',
+  'focus-visible:ring-offset-slate-900',
+].join(' ');
+
+/** 날짜 셀 상태별 스타일 */
+const CELL_STATE_CLASSES = {
+  selected:
+    'bg-emerald-500/20 text-white border-2 border-emerald-500 shadow-[0_0_20px_rgba(16,185,129,0.4)]',
+  hasData:
+    'bg-emerald-500/5 text-slate-300 border border-emerald-500/20 hover:bg-emerald-500/10 hover:border-emerald-500/40',
+  disabled: 'bg-transparent text-slate-600 border border-transparent cursor-not-allowed',
+} as const;
+
 /**
  * 날짜 셀 스타일 클래스 계산
- *
- * 선택/활성/비활성 상태에 따라 적절한 Tailwind 클래스 반환
  */
 export function getDateCellClassName(isSelected: boolean, hasData: boolean): string {
-  const baseClasses = `
-    relative aspect-square rounded-lg min-h-[36px]
-    text-xs font-mono tabular-nums
-    transition-all duration-200
-    focus-visible:outline-none focus-visible:ring-2
-    focus-visible:ring-emerald-500 focus-visible:ring-offset-2
-    focus-visible:ring-offset-slate-900
-  `;
-
-  if (isSelected) {
-    return `${baseClasses} bg-emerald-500/20 text-white border-2 border-emerald-500 shadow-[0_0_20px_rgba(16,185,129,0.4)]`;
-  }
-
-  if (hasData) {
-    return `${baseClasses} bg-emerald-500/5 text-slate-300 border border-emerald-500/20 hover:bg-emerald-500/10 hover:border-emerald-500/40`;
-  }
-
-  return `${baseClasses} bg-transparent text-slate-600 border border-transparent cursor-not-allowed`;
+  const state = isSelected ? 'selected' : hasData ? 'hasData' : 'disabled';
+  return `${BASE_CELL_CLASSES} ${CELL_STATE_CLASSES[state]}`;
 }
 
 /**
