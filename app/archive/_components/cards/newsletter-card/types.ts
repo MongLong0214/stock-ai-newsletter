@@ -31,6 +31,8 @@ export interface NewsletterCardProps {
   isLoadingPrice?: boolean;
   /** 현재가 조회 불가 사유 */
   unavailableReason?: PriceUnavailableReason | null;
+  /** 오늘이 휴장일인지 여부 */
+  isMarketClosed?: boolean;
 }
 
 /** 가격 변동 정보 */

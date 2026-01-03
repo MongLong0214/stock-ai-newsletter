@@ -85,6 +85,7 @@ function ArchiveContent() {
     historicalClosePrices,
     loading: isPriceLoading,
     unavailableReason,
+    isMarketClosed,
   } = useStockPrices(tickers, selectedDate);
 
   // 모바일 캘린더 상태
@@ -168,6 +169,7 @@ function ArchiveContent() {
                   historicalClosePrices={historicalClosePrices}
                   isLoadingPrice={isPriceLoading}
                   unavailableReason={unavailableReason}
+                  isMarketClosed={isMarketClosed}
                 />
               )}
             </motion.section>
