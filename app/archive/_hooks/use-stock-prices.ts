@@ -22,7 +22,6 @@ interface StockPrice {
 
 /** 가격 조회 불가 사유 */
 export type PriceUnavailableReason =
-  | 'market_closed' // 오늘 휴장일
   | 'tracking_expired' // 7영업일 경과
   | 'api_error'; // API 호출 실패
 
@@ -32,6 +31,8 @@ interface UseStockPricesResult {
   historicalClosePrices: Map<string, number>;
   loading: boolean;
   unavailableReason: PriceUnavailableReason | null;
+  /** 오늘이 휴장일인지 여부 (직전 개장일 종가 표시용) */
+  isMarketClosed: boolean;
 }
 
 /** API 응답 타입 */
@@ -78,10 +79,6 @@ function isHistoricalPriceAPIResponse(data: unknown): data is HistoricalPriceAPI
  * @returns null (조회 가능) | 사유 (조회 불가)
  */
 function checkPriceAvailability(newsletterDate: DateString): PriceUnavailableReason | null {
-  if (isTodayMarketClosed()) {
-    return 'market_closed';
-  }
-
   const recommendDate = new Date(newsletterDate);
   recommendDate.setHours(0, 0, 0, 0);
   const today = new Date();
@@ -116,6 +113,7 @@ export default function useStockPrices(
   );
   const [loading, setLoading] = useState(true);
   const [unavailableReason, setUnavailableReason] = useState<PriceUnavailableReason | null>(null);
+  const [isMarketClosed, setIsMarketClosed] = useState(false);
 
   // React 19: 단순 연산은 useMemo 불필요
   const tickersKey = tickers.join(',');
@@ -171,6 +169,7 @@ export default function useStockPrices(
       try {
         setLoading(true);
         setUnavailableReason(null);
+        setIsMarketClosed(isTodayMarketClosed());
 
         // 추천일 전일 종가 조회 (항상 수행)
         const prevDate = getPreviousBusinessDate(currentDate);
@@ -267,5 +266,5 @@ export default function useStockPrices(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [newsletterDate, tickersKey]);
 
-  return { prices, historicalClosePrices, loading, unavailableReason };
+  return { prices, historicalClosePrices, loading, unavailableReason, isMarketClosed };
 }
