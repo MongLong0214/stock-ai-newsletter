@@ -27,6 +27,7 @@ export default function NewsletterCard({
   historicalClosePrice,
   isLoadingPrice = false,
   unavailableReason,
+  isMarketClosed = false,
 }: NewsletterCardProps) {
   const { ticker, name, close_price, rationale, signals } = stock;
 
@@ -129,6 +130,7 @@ export default function NewsletterCard({
           currentPrice={currentPrice}
           priceChange={priceChange}
           unavailableReason={unavailableReason}
+          isMarketClosed={isMarketClosed}
         />
       </div>
 
