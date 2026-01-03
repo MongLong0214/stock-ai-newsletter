@@ -120,28 +120,148 @@ async function getTopicStats(): Promise<TopicAreaStats> {
 // ============================================================================
 
 const STOP_WORDS = new Set([
-  '은', '는', '이', '가', '을', '를', '의', '에', '로', '와', '과',
-  '하는', '하기', '위한', '대한', '방법', '가이드', '추천', '비교', '분석',
+  // 조사
+  '은', '는', '이', '가', '을', '를', '의', '에', '로', '와', '과', '도', '만', '까지', '부터',
+  // 동사형 어미
+  '하는', '하기', '위한', '대한', '있는', '없는', '되는', '보는', '알아보는',
+  // 일반적인 수식어
+  '방법', '가이드', '추천', '비교', '분석', '정리', '완벽', '총정리', '핵심', '필수',
+  '실전', '쉬운', '간단한', '자세한', '상세', '기초', '기본', '중요한', '꼭',
+  // 숫자 관련
+  '가지', '단계', '개', '초', '분', '위', '선',
 ]);
 
-/** 중복 키워드 검사 (유사도 50% 기준) */
-function isDuplicate(newKw: string, existingKws: string[]): boolean {
-  const normalize = (s: string) =>
-    new Set(s.toLowerCase().split(/\s+/).filter((w) => w.length > 1 && !STOP_WORDS.has(w)));
+/** 핵심 단어 추출 (명사/지표/전략 등) */
+function extractCoreTerms(keyword: string): string[] {
+  const normalized = keyword.toLowerCase().trim();
+  // 공백 분리 + 숫자 제거 + 스탑워드 제거
+  const words = normalized
+    .split(/\s+/)
+    .map((w) => w.replace(/\d+/g, '').trim())
+    .filter((w) => w.length >= 2 && !STOP_WORDS.has(w));
+  return words;
+}
 
-  const words1 = normalize(newKw);
-  if (words1.size === 0) return false;
+/** 2-gram 생성 */
+function generateNgrams(text: string, n: number = 2): Set<string> {
+  const cleaned = text.toLowerCase().replace(/\s+/g, '');
+  const ngrams = new Set<string>();
+  for (let i = 0; i <= cleaned.length - n; i++) {
+    ngrams.add(cleaned.slice(i, i + n));
+  }
+  return ngrams;
+}
+
+/** 핵심 지표/개념 추출 (가장 중요한 단어만) */
+function extractKeyIndicators(keyword: string): Set<string> {
+  const indicators = new Set<string>();
+  const text = keyword.toLowerCase();
+
+  // 기술적 지표
+  const technicalPatterns = [
+    /rsi/g, /macd/g, /볼린저/g, /스토캐스틱/g, /이동평균/g, /골든크로스/g, /데드크로스/g,
+    /다이버전스/g, /obv/g, /adx/g, /atr/g, /캔들/g, /패턴/g, /피보나치/g,
+  ];
+  // 가치 지표
+  const valuePatterns = [
+    /per/g, /pbr/g, /psr/g, /roe/g, /roa/g, /배당/g, /저평가/g, /고평가/g, /밸류에이션/g,
+  ];
+  // 전략
+  const strategyPatterns = [
+    /분할매수/g, /분할매도/g, /물타기/g, /불타기/g, /손절/g, /익절/g, /리밸런싱/g,
+  ];
+  // 시장
+  const marketPatterns = [
+    /코스피/g, /코스닥/g, /외국인/g, /기관/g, /수급/g, /공매도/g, /금리/g, /환율/g,
+  ];
+  // 심리
+  const psychPatterns = [
+    /fomo/g, /뇌동매매/g, /멘탈/g, /감정매매/g, /손실회피/g, /공포/g, /탐욕/g,
+  ];
+  // 실행
+  const execPatterns = [
+    /단타/g, /스윙/g, /호가창/g, /체결/g, /돌파/g, /눌림목/g, /추세/g,
+  ];
+
+  const allPatterns = [
+    ...technicalPatterns, ...valuePatterns, ...strategyPatterns,
+    ...marketPatterns, ...psychPatterns, ...execPatterns,
+  ];
+
+  for (const pattern of allPatterns) {
+    const matches = text.match(pattern);
+    if (matches) {
+      matches.forEach((m) => indicators.add(m));
+    }
+  }
+
+  return indicators;
+}
+
+/** 중복 키워드 검사 (5중 검사: 완전일치 + 부분포함 + 핵심지표 + 단어유사도 + n-gram) */
+function isDuplicate(newKw: string, existingKws: string[]): boolean {
+  const newKwLower = newKw.toLowerCase().trim();
+  const newTerms = new Set(extractCoreTerms(newKw));
+  const newNgrams = generateNgrams(newKw);
+  const newIndicators = extractKeyIndicators(newKw);
+
+  if (newTerms.size === 0) return false;
 
   for (const existing of existingKws) {
-    if (existing === newKw.toLowerCase()) return true;
+    const existingLower = existing.toLowerCase().trim();
 
-    const words2 = normalize(existing);
-    if (words2.size === 0) continue;
-
-    const intersection = [...words1].filter((w) => words2.has(w)).length;
-    if (intersection / Math.max(words1.size, words2.size) >= 0.5) {
-      console.log(`  ⚠️ 중복: "${newKw}" ↔ "${existing}"`);
+    // 1. 완전 일치
+    if (existingLower === newKwLower) {
+      console.log(`  🚫 완전일치: "${newKw}" = "${existing}"`);
       return true;
+    }
+
+    // 2. 부분 문자열 포함 (한쪽이 다른 쪽을 포함)
+    const newNoSpace = newKwLower.replace(/\s+/g, '');
+    const existNoSpace = existingLower.replace(/\s+/g, '');
+    if (existNoSpace.includes(newNoSpace) || newNoSpace.includes(existNoSpace)) {
+      if (Math.min(newNoSpace.length, existNoSpace.length) >= 4) {
+        console.log(`  🚫 부분포함: "${newKw}" ⊃⊂ "${existing}"`);
+        return true;
+      }
+    }
+
+    // 3. 핵심 지표 일치 (동일 지표가 있으면 중복 가능성 높음)
+    const existingIndicators = extractKeyIndicators(existing);
+    if (newIndicators.size > 0 && existingIndicators.size > 0) {
+      const indicatorOverlap = [...newIndicators].filter((i) => existingIndicators.has(i));
+      if (indicatorOverlap.length >= 1) {
+        // 동일 지표가 있으면 추가 검사 필요
+        const existingTerms = new Set(extractCoreTerms(existing));
+        const termOverlap = [...newTerms].filter((t) => existingTerms.has(t)).length;
+        // 핵심 지표가 같고, 다른 단어도 25% 이상 겹치면 중복
+        if (existingTerms.size > 0 && termOverlap / Math.min(newTerms.size, existingTerms.size) >= 0.25) {
+          console.log(`  🚫 동일지표+유사(${indicatorOverlap.join(',')}): "${newKw}" ↔ "${existing}"`);
+          return true;
+        }
+      }
+    }
+
+    // 4. 핵심 단어 유사도 (30% 이상이면 중복) - 더 엄격하게
+    const existingTerms = new Set(extractCoreTerms(existing));
+    if (existingTerms.size > 0 && newTerms.size > 0) {
+      const intersection = [...newTerms].filter((t) => existingTerms.has(t)).length;
+      const similarity = intersection / Math.min(newTerms.size, existingTerms.size);
+      if (similarity >= 0.30) {
+        console.log(`  🚫 단어유사(${Math.round(similarity * 100)}%): "${newKw}" ↔ "${existing}"`);
+        return true;
+      }
+    }
+
+    // 5. N-gram 유사도 (40% 이상이면 중복) - 더 엄격하게
+    const existingNgrams = generateNgrams(existing);
+    if (existingNgrams.size > 0 && newNgrams.size > 0) {
+      const ngramIntersection = [...newNgrams].filter((ng) => existingNgrams.has(ng)).length;
+      const ngramSimilarity = ngramIntersection / Math.min(newNgrams.size, existingNgrams.size);
+      if (ngramSimilarity >= 0.40) {
+        console.log(`  🚫 n-gram유사(${Math.round(ngramSimilarity * 100)}%): "${newKw}" ↔ "${existing}"`);
+        return true;
+      }
     }
   }
   return false;
