@@ -3,7 +3,7 @@
  */
 
 import { format } from 'date-fns';
-import { TrendingUp, TrendingDown, Calendar, Clock, AlertCircle } from 'lucide-react';
+import { TrendingUp, TrendingDown, Clock, AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatPrice } from '../../../_utils/formatting/price';
 import { MAX_BUSINESS_DAYS } from '../../../_utils/formatting/date';
@@ -16,18 +16,15 @@ interface PriceSectionProps {
   priceChange: PriceChangeInfo | null;
   /** 현재가 조회 불가 사유 */
   unavailableReason?: PriceUnavailableReason | null;
+  /** 오늘이 휴장일인지 여부 */
+  isMarketClosed?: boolean;
 }
 
 /** 상태별 메시지 */
 const STATUS_MESSAGES: Record<
   PriceUnavailableReason,
-  { icon: typeof Calendar; title: string; subtitle: string }
+  { icon: typeof Clock; title: string; subtitle: string }
 > = {
-  market_closed: {
-    icon: Calendar,
-    title: '오늘은 휴장일입니다',
-    subtitle: '주말 또는 공휴일에는 시세가 제공되지 않습니다',
-  },
   tracking_expired: {
     icon: Clock,
     title: `${MAX_BUSINESS_DAYS}영업일 경과`,
@@ -84,15 +81,29 @@ function StatusMessage({ reason }: { reason: PriceUnavailableReason }) {
 }
 
 /** 현재가 섹션 */
-function CurrentPriceDisplay({ currentPrice }: { currentPrice: StockPrice }) {
+function CurrentPriceDisplay({
+  currentPrice,
+  isMarketClosed,
+}: {
+  currentPrice: StockPrice;
+  isMarketClosed: boolean;
+}) {
   const today = format(new Date(), 'M월 d일');
 
   return (
     <div className="h-[72px]">
       <div className="flex items-center gap-2 mb-3">
-        <span className="text-xs font-medium text-slate-400">현재가</span>
-        <span className="px-2 py-0.5 text-[10px] font-medium text-emerald-400 bg-emerald-500/10 rounded">
-          {today}
+        <span className="text-xs font-medium text-slate-400">
+          {isMarketClosed ? '직전 개장일 종가' : '현재가'}
+        </span>
+        <span
+          className={`px-2 py-0.5 text-[10px] font-medium rounded ${
+            isMarketClosed
+              ? 'text-amber-400 bg-amber-500/10'
+              : 'text-emerald-400 bg-emerald-500/10'
+          }`}
+        >
+          {isMarketClosed ? '휴장일' : today}
         </span>
       </div>
       <div className="text-3xl font-bold text-white font-mono tabular-nums">
@@ -136,6 +147,7 @@ function PriceSection({
   currentPrice,
   priceChange,
   unavailableReason,
+  isMarketClosed = false,
 }: PriceSectionProps) {
   if (isLoadingPrice) {
     return <LoadingSkeleton />;
@@ -151,7 +163,7 @@ function PriceSection({
 
   return (
     <div className="h-[168px] space-y-5">
-      <CurrentPriceDisplay currentPrice={currentPrice} />
+      <CurrentPriceDisplay currentPrice={currentPrice} isMarketClosed={isMarketClosed} />
       <ProfitDisplay priceChange={priceChange} />
     </div>
   );
