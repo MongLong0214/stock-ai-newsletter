@@ -385,6 +385,20 @@ export interface CompetitorAnalysis {
 // ============================================================================
 
 /**
+ * 주제 영역 (Topic Area)
+ * 키워드 다양성 확보를 위한 분류
+ */
+export type TopicArea =
+  | 'technical'   // 기술적 분석
+  | 'value'       // 가치투자
+  | 'strategy'    // 투자 전략
+  | 'market'      // 시장 분석
+  | 'discovery'   // 종목 발굴
+  | 'psychology'  // 투자 심리
+  | 'education'   // 투자 교육
+  | 'execution';  // 실전 투자
+
+/**
  * 키워드 메타데이터
  */
 export interface KeywordMetadata {
@@ -394,6 +408,7 @@ export interface KeywordMetadata {
   estimatedSearchVolume: number;
   relevanceScore: number;
   contentType: ContentType;
+  topicArea: TopicArea;
   reasoning: string;
 }
 
