@@ -74,32 +74,118 @@ async function getUsedContent(): Promise<UsedContent> {
   };
 }
 
+// 불용어 집합 (조사, 접속사 등)
+const STOP_WORDS = new Set([
+  '은', '는', '이', '가', '을', '를', '의', '에', '에서', '으로', '로', '와', '과', '하는', '하기',
+  '위한', '대한', '통한', '같은', '있는', '없는', '되는', '된', '할', '한', '수', '것', '때',
+  '더', '가장', '정말', '진짜', '완벽', '최고', '최신', '추천', '필수', '쉽게', '빠르게'
+]);
+
+// 핵심 주제어 추출 (지표, 전략, 개념 등)
+const CORE_TOPIC_WORDS = new Set([
+  // 기술적 지표
+  'rsi', 'macd', '볼린저밴드', '이동평균선', '스토캐스틱', 'obv', 'atr', 'adx', 'vwap', 'mfi',
+  '골든크로스', '데드크로스', '다이버전스', '캔들', '차트', '거래량', '호가창', '체결강도',
+  // 가치투자 지표
+  'per', 'pbr', 'psr', 'roe', 'roa', 'eps', 'bps', 'fcf', 'ev', 'ebitda', 'peg',
+  '배당', '저평가', '고평가', '시가총액', '영업이익', '순이익',
+  // 전략/방법
+  '분할매수', '물타기', '손절', '익절', '매수', '매도', '진입', '청산', '리밸런싱',
+  '단타', '스윙', '중장기', '추세', '역추세', '눌림목', '돌파',
+  // 시장/섹터
+  '금리', '환율', '유가', '외국인', '기관', '개인', '수급', '섹터', '업종', '코스피', '코스닥',
+  // 심리/교육
+  '심리', '뇌동매매', 'fomo', '손실회피', '멘탈', '매매일지'
+]);
+
 /**
- * 키워드 중복 검사
+ * 텍스트에서 핵심 주제어 추출
  */
-function isDuplicate(newKeyword: string, existingKeywords: string[]): boolean {
+function extractCoreTopics(text: string): Set<string> {
+  const normalized = text.toLowerCase().replace(/[^가-힣a-z0-9\s]/g, ' ');
+  const words = normalized.split(/\s+/).filter((w) => w.length > 1);
+
+  const topics = new Set<string>();
+
+  for (const word of words) {
+    // 불용어 제외
+    if (STOP_WORDS.has(word)) continue;
+
+    // 핵심 주제어 직접 매칭
+    if (CORE_TOPIC_WORDS.has(word)) {
+      topics.add(word);
+      continue;
+    }
+
+    // 부분 매칭 (예: "볼린저" → "볼린저밴드")
+    for (const coreTopic of CORE_TOPIC_WORDS) {
+      if (word.includes(coreTopic) || coreTopic.includes(word)) {
+        topics.add(coreTopic);
+      }
+    }
+
+    // 2자 이상의 일반 명사도 추가
+    if (word.length >= 2 && !STOP_WORDS.has(word)) {
+      topics.add(word);
+    }
+  }
+
+  return topics;
+}
+
+/**
+ * 키워드/제목 유사도 검사 (더 엄격한 기준)
+ */
+function isSimilar(newText: string, existingTexts: string[], threshold: number = 0.5): boolean {
+  const newTopics = extractCoreTopics(newText);
+  if (newTopics.size === 0) return false;
+
+  for (const existing of existingTexts) {
+    const existingTopics = extractCoreTopics(existing);
+    if (existingTopics.size === 0) continue;
+
+    // Jaccard Similarity
+    const intersection = new Set([...newTopics].filter((w) => existingTopics.has(w)));
+    const union = new Set([...newTopics, ...existingTopics]);
+    const jaccardSimilarity = intersection.size / union.size;
+
+    // 핵심 주제어 오버랩 체크 (더 엄격)
+    const coreOverlap = [...intersection].filter((w) => CORE_TOPIC_WORDS.has(w));
+    const hasCoreOverlap = coreOverlap.length >= 2; // 핵심 주제어 2개 이상 겹치면 중복
+
+    if (jaccardSimilarity >= threshold || hasCoreOverlap) {
+      console.log(`  ⚠️ 유사도 감지: "${newText.slice(0, 30)}..." ↔ "${existing.slice(0, 30)}..." (Jaccard: ${(jaccardSimilarity * 100).toFixed(0)}%, 핵심어: ${coreOverlap.join(', ')})`);
+      return true;
+    }
+  }
+
+  return false;
+}
+
+/**
+ * 키워드 중복 검사 (강화된 버전)
+ */
+function isDuplicate(
+  newKeyword: string,
+  existingKeywords: string[],
+  existingTitles: string[] = []
+): boolean {
   const normalized = newKeyword.toLowerCase().trim();
 
-  // 1. 완전 일치
-  if (existingKeywords.includes(normalized)) return true;
+  // 1. 키워드 완전 일치
+  if (existingKeywords.includes(normalized)) {
+    console.log(`  ❌ 완전 일치: "${newKeyword}"`);
+    return true;
+  }
 
-  // 2. 의미 유사도 (Jaccard Similarity ≥ 70%)
-  const stopWords = new Set(['은', '는', '이', '가', '을', '를', '의', '에']);
+  // 2. 키워드 유사도 검사 (50% 이상이면 중복)
+  if (isSimilar(newKeyword, existingKeywords, 0.5)) {
+    return true;
+  }
 
-  for (const existing of existingKeywords) {
-    const words1 = new Set(
-      normalized.split(/\s+/).filter((w) => w.length > 1 && !stopWords.has(w))
-    );
-    const words2 = new Set(
-      existing.split(/\s+/).filter((w) => w.length > 1 && !stopWords.has(w))
-    );
-
-    if (words1.size === 0 || words2.size === 0) continue;
-
-    const intersection = new Set([...words1].filter((w) => words2.has(w)));
-    const similarity = intersection.size / Math.max(words1.size, words2.size);
-
-    if (similarity >= 0.7) return true;
+  // 3. 기존 제목과의 유사도 검사 (40% 이상이면 중복 - 더 엄격)
+  if (existingTitles.length > 0 && isSimilar(newKeyword, existingTitles, 0.4)) {
+    return true;
   }
 
   return false;
@@ -125,16 +211,16 @@ async function generateKeywordsWithAI(
       console.warn('⚠️ 품질 검증 경고:', validation.errors.slice(0, 3).join(', '));
     }
 
-    // 중복 제거
+    // 중복 제거 (키워드 + 기존 제목 모두 검사)
     const validKeywords: KeywordMetadata[] = [];
-    const allExisting = [...usedKeywords];
+    const allExistingKeywords = [...usedKeywords];
 
     for (const kw of keywords) {
       if (!kw.keyword || !kw.searchIntent || !kw.difficulty || !kw.contentType) continue;
-      if (isDuplicate(kw.keyword, allExisting)) continue;
+      if (isDuplicate(kw.keyword, allExistingKeywords, existingTitles)) continue;
 
       validKeywords.push(kw);
-      allExisting.push(kw.keyword.toLowerCase().trim());
+      allExistingKeywords.push(kw.keyword.toLowerCase().trim());
     }
 
     console.log(`✅ 생성: ${keywords.length}개, 유효: ${validKeywords.length}개`);
