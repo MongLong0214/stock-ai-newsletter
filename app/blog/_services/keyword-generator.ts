@@ -19,22 +19,33 @@ interface KeywordGenerationResult {
   error?: string;
 }
 
-async function getUsedKeywords(): Promise<string[]> {
+interface UsedContent {
+  keywords: string[];
+  titles: string[];
+}
+
+async function getUsedContent(): Promise<UsedContent> {
   const supabase = getServerSupabaseClient();
   const { data, error } = await supabase
     .from('blog_posts')
-    .select('target_keyword, secondary_keywords, tags')
+    .select('title, target_keyword, secondary_keywords, tags')
     .not('target_keyword', 'is', null);
 
   if (error) {
     console.error('[KeywordGenerator] 조회 실패:', error);
-    return [];
+    return { keywords: [], titles: [] };
   }
 
   // target_keyword + secondary_keywords + tags를 모두 합침
   const allKeywords = new Set<string>();
+  const allTitles: string[] = [];
 
   data.forEach((post) => {
+    // 제목 추가 (중복 방지용)
+    if (post.title && typeof post.title === 'string') {
+      allTitles.push(post.title.trim());
+    }
+
     // target_keyword 추가
     allKeywords.add(post.target_keyword.toLowerCase().trim());
 
@@ -57,7 +68,10 @@ async function getUsedKeywords(): Promise<string[]> {
     }
   });
 
-  return Array.from(allKeywords);
+  return {
+    keywords: Array.from(allKeywords),
+    titles: allTitles,
+  };
 }
 
 /**
@@ -93,11 +107,12 @@ function isDuplicate(newKeyword: string, existingKeywords: string[]): boolean {
 
 async function generateKeywordsWithAI(
   count: number,
-  usedKeywords: string[]
+  usedKeywords: string[],
+  existingTitles: string[]
 ): Promise<KeywordMetadata[]> {
-  console.log(`🤖 AI 키워드 생성 중... (제외: ${usedKeywords.length}개)`);
+  console.log(`🤖 AI 키워드 생성 중... (제외 키워드: ${usedKeywords.length}개, 기존 글: ${existingTitles.length}개)`);
 
-  const prompt = buildKeywordGenerationPrompt(count, usedKeywords);
+  const prompt = buildKeywordGenerationPrompt(count, usedKeywords, undefined, existingTitles);
   const response = await generateText({ prompt });
 
   try {
@@ -143,8 +158,8 @@ export async function generateKeywords(
   console.log(`${'='.repeat(80)}\n`);
 
   try {
-    const usedKeywords = await getUsedKeywords();
-    console.log(`📊 기존 키워드: ${usedKeywords.length}개`);
+    const usedContent = await getUsedContent();
+    console.log(`📊 기존 키워드: ${usedContent.keywords.length}개, 기존 글: ${usedContent.titles.length}개`);
 
     let allKeywords: KeywordMetadata[] = [];
     let attempt = 0;
@@ -156,7 +171,8 @@ export async function generateKeywords(
 
       const newKeywords = await generateKeywordsWithAI(
         Math.ceil(remainingCount * 1.5),
-        usedKeywords
+        usedContent.keywords,
+        usedContent.titles
       );
 
       allKeywords.push(...newKeywords);
