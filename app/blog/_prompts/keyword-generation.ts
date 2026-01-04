@@ -414,9 +414,9 @@ export function buildKeywordGenerationPrompt(
     ? usedKeywords.slice(-100).map((kw, i) => `${i + 1}. ${kw}`).join('\n')
     : '(없음 - 첫 생성)';
 
-  // Prepare existing titles list (critical for avoiding topic overlap)
+  // Prepare existing titles list (critical for avoiding topic overlap) - 모든 제목 표시
   const existingTitlesList = existingTitles && existingTitles.length > 0
-    ? existingTitles.slice(-50).map((t, i) => `${i + 1}. ${t}`).join('\n')
+    ? existingTitles.map((t, i) => `${i + 1}. ${t}`).join('\n')
     : '(없음 - 첫 생성)';
 
   // Calculate dynamic constraints based on count
@@ -690,18 +690,36 @@ ${excludedKeywordsList}
 </excluded-keywords>
 
 <existing-blog-titles>
-⚠️ **절대 중복 금지** - 다음은 이미 작성된 블로그 글 제목입니다.
-아래 제목들과 **주제, 내용, 의미가 겹치는 키워드는 절대 생성하지 마세요.**
-표현만 바꾼 유사 주제도 금지입니다.
+🚫🚫🚫 **[최우선 규칙] 절대 중복 금지** 🚫🚫🚫
+
+아래는 이미 작성된 모든 블로그 글 제목입니다.
+**다음 제목들과 주제, 지표, 전략, 관점이 겹치는 키워드는 절대 생성하지 마세요.**
 
 ${existingTitlesList}
 
-**예시 - 금지되는 유사 키워드:**
-- 기존: "RSI 지표 보는 법" → 금지: "RSI 활용법", "RSI 매매 방법", "RSI 분석하는 법"
-- 기존: "볼린저밴드 매수 타이밍" → 금지: "볼린저밴드 매매 전략", "볼린저밴드 진입 시점"
-- 기존: "PER 낮은 주식 찾기" → 금지: "저PER 종목 발굴", "PER로 저평가주 찾는 법"
+**⛔ 중복 판정 기준 (하나라도 해당하면 탈락):**
+1. **같은 지표** 다루는 경우 (RSI, MACD, 볼린저밴드 등이 겹치면 무조건 중복)
+2. **같은 전략** 다루는 경우 (분할매수, 손절, 물타기 등이 겹치면 중복)
+3. **같은 관점** 다루는 경우 ("방법", "활용법", "보는법"은 같은 관점)
+4. **같은 대상** 다루는 경우 (같은 지표+같은 상황 = 중복)
 
-**완전히 새로운 주제, 새로운 관점, 새로운 지표/전략을 다루는 키워드만 생성하세요.**
+**❌ 금지 예시 (표현만 바꾼 것도 중복):**
+- 기존: "RSI 다이버전스 매수 신호"
+  → 금지: "RSI 다이버전스 활용법", "RSI로 매수 타이밍 잡기", "RSI 30 매수 전략"
+
+- 기존: "볼린저밴드 스퀴즈 돌파 전략"
+  → 금지: "볼린저밴드 매매법", "볼린저밴드 진입 시점", "볼린저밴드 활용 가이드"
+
+- 기존: "분할매수 몇 번 나눠서"
+  → 금지: "분할매수 비율", "분할매수 방법", "분할매수 전략"
+
+**✅ 허용되는 새로운 키워드 (완전히 다른 주제):**
+- 기존에 없는 새로운 지표: ADX, MFI, 윌리엄스 %R 등
+- 기존에 없는 새로운 전략: 섹터 로테이션, 모멘텀 스코어링 등
+- 기존에 없는 새로운 관점: 세금, 증권사 비교, 계좌 관리 등
+- 기존에 없는 새로운 조합: 완전히 새로운 지표 + 새로운 상황
+
+**⚠️ 이 규칙을 어기면 해당 키워드는 자동 탈락됩니다.**
 </existing-blog-titles>
 ${competitorKeywordsSection}
 
