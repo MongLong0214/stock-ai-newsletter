@@ -1,6 +1,58 @@
 {
   "newsletters": [
     {
+      "date": "2026-01-06",
+      "stocks": [
+        {
+          "ticker": "KOSPI:034020",
+          "name": "두산에너빌리티",
+          "close_price": 27900,
+          "rationale": "EMA 골든크로스 발생 | RSI 52.4 강세권 | MACD 양전환 확인 | 거래량 210.0% 급증 | 볼린저밴드 위치 58.0% 중심부 안착 | ATR 4.2 적정 | ADX 22.0 추세형성 | Ichimoku 구름대 상향 돌파 | SuperTrend 매수 신호 | VWAP 상단 지지 | Vortex VI+ 1.1 상승 우위 | Aroon Up 75.0 강세 형성",
+          "signals": {
+            "trend_score": 93,
+            "momentum_score": 94,
+            "volume_score": 79,
+            "volatility_score": 95,
+            "pattern_score": 100,
+            "sentiment_score": 92,
+            "overall_score": 93
+          }
+        },
+        {
+          "ticker": "KOSPI:403870",
+          "name": "HPSP",
+          "close_price": 61500,
+          "rationale": "MACD 시그널 골든크로스 | RSI 51.2 강세권 | 볼린저밴드 중심선 지지 | ATR 4.5 적정 | Stochastic %K 62.0 상승 전환 | Williams %R -45.0 중립 | MFI 54.0 자금 유입 | SuperTrend 매수 전환 | Donchian Channel 72% 위치 | Aroon Up 65.0 상승 우세 | Elder Ray Bull Power 양전환 | KST 시그널 상향 돌파",
+          "signals": {
+            "trend_score": 78,
+            "momentum_score": 86,
+            "volume_score": 90,
+            "volatility_score": 97,
+            "pattern_score": 68,
+            "sentiment_score": 92,
+            "overall_score": 83
+          }
+        },
+        {
+          "ticker": "KOSPI:047810",
+          "name": "한국항공우주",
+          "close_price": 71200,
+          "rationale": "SMA 정배열 초기 국면 | EMA5 상향 돌파 | RSI 48.2 중립권 | 거래량 140.0% 증가 | 볼린저밴드 위치 45.0% 안정 | ATR 2.8 적정 | Stochastic %K 바닥권 탈출 | ROC 1.5% 상승 모멘텀 | CMF 0.04 스마트머니 유입 | Force Index 양수 전환 | A/D Line 우상향 | Chaikin Osc 0선 돌파",
+          "signals": {
+            "trend_score": 69,
+            "momentum_score": 87,
+            "volume_score": 87,
+            "volatility_score": 94,
+            "pattern_score": 41,
+            "sentiment_score": 80,
+            "overall_score": 74
+          }
+        }
+      ],
+      "sentAt": "2026-01-05T22:52:25.995+00:00",
+      "subscriberCount": 60
+    },
+    {
       "date": "2026-01-05",
       "stocks": [
         {
@@ -160,7 +212,7 @@
       "date": "2025-12-31",
       "stocks": [
         {
-          "ticker": "KOSDAQ:478340",
+          "ticker": "KOSPI:461620",
           "name": "나라스페이스테크놀로지",
           "close_price": 15200,
           "rationale": "SMA MA20>60 정배열 진입 | EMA5>10 단기 급등 시그널 | RSI 56.5 강세권 | MACD 0선 돌파 및 양전환 | 거래량 105.2% 증가 | 볼린저밴드 55% 중심부 상향 돌파 | ADX 22.1 추세형성 | ATR 520.0 적정 | Williams %R -35.2 매수권 | CCI 92 상승 임계점 | OBV 지속 상승형 매집 | CMF 0.14 자금 유입 | 현재가 15200원 [검증완료]",
@@ -2497,5 +2549,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-01-04T23:01:54.729Z"
+  "lastUpdated": "2026-01-05T22:52:54.105Z"
 }
