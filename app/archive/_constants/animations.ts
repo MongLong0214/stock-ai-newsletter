@@ -39,14 +39,3 @@ export const STAGGER_DELAYS = {
   sidebar: 0.3,
   content: 0.4,
 } as const;
-
-/**
- * 카드 그리드 스태거 딜레이 계산
- *
- * @param index - 카드 인덱스
- * @param baseDelay - 기본 딜레이 (기본값: 0.3초)
- * @returns 계산된 딜레이 시간 (초)
- */
-export const calculateCardDelay = (index: number, baseDelay: number = 0.3) => {
-  return baseDelay + index * 0.1;
-};

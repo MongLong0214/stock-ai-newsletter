@@ -10,7 +10,7 @@ import NewsletterCard from '../cards/newsletter-card';
 import type { Newsletter } from '../../_types/archive.types';
 import type { StockPrice } from '../cards/newsletter-card/types';
 import type { PriceUnavailableReason } from '../../_hooks/use-stock-prices';
-import { createFadeInUpVariant, calculateCardDelay } from '../../_constants/animations';
+import { DURATION, EASE_OUT_CUBIC } from '../../_constants/animations';
 
 interface NewsletterGridProps {
   /** 표시할 뉴스레터 */
@@ -50,7 +50,14 @@ function NewsletterGrid({
       {sortedStocks.map((stock, index) => (
         <motion.div
           key={stock.ticker}
-          {...createFadeInUpVariant(calculateCardDelay(index))}
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: '-50px' }}
+          transition={{
+            duration: DURATION.normal,
+            delay: 0.3 + index * 0.1,
+            ease: EASE_OUT_CUBIC,
+          }}
         >
           <NewsletterCard
             stock={stock}
