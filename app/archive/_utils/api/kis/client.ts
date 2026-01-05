@@ -174,11 +174,15 @@ export async function getStockPrice(ticker: string): Promise<KisStockPrice> {
   );
 
   if (!response.ok) {
-    throw new Error(`Failed to get stock price for ${ticker}`);
+    throw new Error(`Failed to get stock price for ${ticker}: ${response.status}`);
   }
 
   const data = await response.json();
   const output = data.output;
+
+  if (!output || !output.stck_prpr) {
+    throw new Error(`No price data for ${ticker}`);
+  }
 
   return {
     ticker,
