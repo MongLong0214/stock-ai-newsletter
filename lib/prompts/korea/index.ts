@@ -14,7 +14,7 @@ import { STAGE_6_FINAL_VERIFICATION } from './stage-6-final-verification';
  * - 공통 원칙 (절대 원칙, 최종 목표)
  * - STAGE 0: 200개 종목 수집
  * - STAGE 1: 200개 → 30개 필터링
- * - STAGE 2: 전일종가 초정밀 검증
+ * - STAGE 2: 전일 종가 초정밀 검증
  * - STAGE 3: 30개 지표 수집
  * - STAGE 4: 7-카테고리 점수 산정
  * - STAGE 5: JSON 출력 + 최종 검증
