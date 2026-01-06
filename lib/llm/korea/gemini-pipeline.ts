@@ -1,5 +1,5 @@
 import { GoogleGenAI } from '@google/genai';
-import { STOCK_ANALYSIS_PROMPT } from '../../prompts/korea';
+import { createStockAnalysisPrompt } from '../../prompts/korea';
 import { PIPELINE_CONFIG, GEMINI_API_CONFIG } from '../_config/pipeline-config';
 
 /**
@@ -32,11 +32,14 @@ async function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
 /**
  * 전체 프롬프트를 Stage별로 파싱하여 분리
  *
- * STOCK_ANALYSIS_PROMPT를 정규식으로 파싱하여 각 Stage를 개별 프롬프트로 분리합니다.
- * 공통 원칙은 모든 Stage 프롬프트에 포함됩니다.
+ * 환각 방지를 위해 실행 시점에 createStockAnalysisPrompt()를 호출하여
+ * 정확한 날짜가 동적으로 주입된 프롬프트를 생성합니다.
+ *
+ * @param executionDate - 프롬프트 실행 시점 (기본값: 현재 시간)
  */
-function extractStagePrompts(): StagePrompt[] {
-    const fullPrompt = STOCK_ANALYSIS_PROMPT;
+function extractStagePrompts(executionDate: Date = new Date()): StagePrompt[] {
+    // 🔴 CRITICAL: 매 실행마다 새로운 프롬프트 생성 (날짜 동적 주입)
+    const fullPrompt = createStockAnalysisPrompt(executionDate);
 
     // Stage 헤더 패턴: "━━━\nSTAGE 0: 설명\n━━━"
     const stageRegex = /━+\nSTAGE (\d+): ([^\n]+)\n━+/g;

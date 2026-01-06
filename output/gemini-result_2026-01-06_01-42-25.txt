@@ -1,0 +1,59 @@
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📊 Gemini Stock Analysis Result
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+⏱️  실행 시간: 383.23초
+📅 생성 일시: 2026. 1. 6. 오전 10:42:25
+🤖 모델: gemini-3-flash-preview
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+[
+  {
+    "ticker": "KOSPI:005380",
+    "name": "현대차",
+    "close_price": 304500,
+    "rationale": "RSI 69.9 강세권진입 | ADX 75.7 매우강한추세 | MACD 3715 매수신호 | ATR 3178 변동성확대 | MA5 306100 지시선근접 | MA50 293700 상향지지 | MA200 275800 정배열 | Williams %R -1.8 과열주의 | CCI 56.5 상승모멘텀 | Bull/Bear Power 4094 매수우위 | Stochastic 98.6 골든크로스 | Ultimate Oscillator 55.8 매수강도확대 | ROC 2.6 안정적상승 | 전일 종가 304500원 유지",
+    "signals": {
+      "trend_score": 98,
+      "momentum_score": 94,
+      "volume_score": 90,
+      "volatility_score": 92,
+      "pattern_score": 95,
+      "sentiment_score": 93,
+      "overall_score": 94
+    }
+  },
+  {
+    "ticker": "KOSPI:000270",
+    "name": "기아",
+    "close_price": 122200,
+    "rationale": "RSI 59.1 이상적강세 | ADX 46.1 강한추세확립 | MACD 464 양전환확정 | ATR 921 적정변동성 | MA5 122540 단기정배열 | MA20 121590 지지확인 | MA50 120962 중기지지선상향 | MA200 119458 완전정배열 | Williams %R -0.5 상단돌파 | CCI 60.3 모멘텀확산 | STOCHRSI 71.8 상승여력충분 | Ultimate Oscillator 60.9 매수강도증가 | ROC 0.6 상승반전 | 전일 종가 122200원 기준",
+    "signals": {
+      "trend_score": 96,
+      "momentum_score": 92,
+      "volume_score": 88,
+      "volatility_score": 90,
+      "pattern_score": 94,
+      "sentiment_score": 91,
+      "overall_score": 92
+    }
+  },
+  {
+    "ticker": "KOSPI:105560",
+    "name": "KB금융",
+    "close_price": 126200,
+    "rationale": "RSI 62.7 중립이상강세 | ADX 31.1 추세형성초기 | MACD 305 매수신호지속 | ATR 1114 적정수준 | MA5 126100 상향돌파 | MA20 124840 생명선지지 | MA50 125206 중기정배열유지 | MA200 125592 장기정배열초입 | STOCHRSI 96.3 강세유지 | CCI 114.2 매수모멘텀강화 | Bull/Bear Power 1964 세력유입 | Ultimate Oscillator 53.1 점진적상승 | ROC 1.4 추세유지 | 전일 종가 126200원 확인",
+    "signals": {
+      "trend_score": 92,
+      "momentum_score": 90,
+      "volume_score": 86,
+      "volatility_score": 88,
+      "pattern_score": 90,
+      "sentiment_score": 89,
+      "overall_score": 90
+    }
+  }
+]
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
