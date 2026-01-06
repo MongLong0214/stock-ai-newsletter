@@ -295,6 +295,54 @@ for (const stage of stages) {
 - **배치 최적화 (STAGE 6)**: API 비용 절감, 실행 시간 60-75% 단축
 - **우아한 대체**: 최종 실패 시에도 빈 배열 반환 금지, Stage 5 출력 사용
 
+## 🆕 2026-01-06 업데이트 (v2.0 - 환각 방지 강화)
+
+### 주요 변경사항
+
+1. **동적 날짜 주입 시스템**
+   - `createDateContext(executionDate)` 팩토리 추가
+   - 모든 Stage 프롬프트가 함수 기반으로 변환
+   - `[target_date]` 플레이스홀더 → 실제 날짜로 런타임 대체
+
+2. **타임존 버그 수정**
+   - `toKoreaTime()` 함수 UTC+9 직접 계산으로 변경
+   - 서버 타임존 독립적 동작 보장
+
+3. **Pipeline 동적 프롬프트 적용**
+   - `gemini-pipeline.ts`가 `createStockAnalysisPrompt()` 사용
+   - 매 실행마다 새로운 날짜 컨텍스트 생성
+
+4. **격리 예시 시스템 개선**
+   - "절대 금지" → "의심 패턴 감지" 로 전환
+   - 교차검증 통과 시 사용 허용
+   - 출력 앵커링 패턴 추가
+
+### 새 파일 구조
+
+```
+lib/prompts/korea/
+├── types.ts                      # DateContext, QUARANTINED_EXAMPLES
+├── date-context-factory.ts       # createDateContext(), 날짜 유틸리티
+├── index.ts                      # createStockAnalysisPrompt(Date)
+├── common-principles.ts          # getCommonPrinciples(context)
+├── stage-2-verify-price.ts       # getStage2VerifyPrice(context)
+├── stage-3-collect-indicators.ts # getStage3CollectIndicators(context)
+├── stage-6-final-verification.ts # getStage6FinalVerification(context)
+└── (stage-0, 1, 4, 5는 정적 유지)
+```
+
+### 사용법 변경
+
+```typescript
+// 기존 (deprecated - 날짜 고정)
+import { STOCK_ANALYSIS_PROMPT } from './prompts/korea';
+
+// 신규 (권장 - 동적 날짜)
+import { createStockAnalysisPrompt } from './prompts/korea';
+const prompt = createStockAnalysisPrompt(); // 매 요청마다 호출
+```
+
+
 ## 🔄 업데이트 시 고려사항
 
 1. **공휴일 리스트**: 매년 업데이트 필요 (stage-2-verify-price.ts)

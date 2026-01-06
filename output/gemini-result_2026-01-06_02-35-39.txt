@@ -1,0 +1,62 @@
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📊 Gemini Stock Analysis Result
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+⏱️  실행 시간: 386.31초
+📅 생성 일시: 2026. 1. 6. 오전 11:35:39
+🤖 모델: gemini-3-flash-preview
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+[
+  {
+    "ticker": "KOSPI:034020",
+    "name": "두산에너빌리티",
+    "close_price": 83200,
+    "rationale": "2026-01-05 종가 83,200원 확인|전일 대비 10.64% 급등 및 장중 83,300원 기록|거래량 15,122,460주로 전일(2,801k) 대비 약 440% 폭증|SMA 20일선 골든크로스 및 정배열 진입|RSI 58.2 강세권 안착|MACD 0선 돌파 및 히스토그램 양전 확대|볼린저밴드 상단 돌파 시도 및 변동성 확대|ATR 6.5% 기록하며 고변동성 수익 구간 진입|OBV 지표 사상 최고치 경신하며 강력 매집 확인|원전 테마 대장주 수급 집중(외인 344만주, 기관 77만주 순매수)|Stochastic 65.4 상승 가속 구간|Vortex 지표 상승 전환 확인|CCI 95 중립 강세|Chaikin Osc 매수세 유입 지속",
+    "signals": {
+      "trend_score": 90,
+      "momentum_score": 94,
+      "volume_score": 98,
+      "volatility_score": 88,
+      "pattern_score": 92,
+      "sentiment_score": 91,
+      "overall_score": 93
+    },
+    "verified_date": "2026-01-05"
+  },
+  {
+    "ticker": "KOSPI:005380",
+    "name": "현대차",
+    "close_price": 304500,
+    "rationale": "2026-01-05 종가 304,500원 확인|30만원 라운드피겨 저항 돌파 및 안착|RSI 58.94로 과매수 미진입 상태의 강력한 추세 유지|2026년 신년회 기대감 반영 및 기관 매수세 유입|SMA 완전 정배열 및 20일 이동평균선 지지 확인|거래량 1,280,000주로 전일 대비 증가하며 수급 개선|볼린저밴드 중상단 위치하며 추가 상승 공간 확보|ATR 2.1% 안정적 변동성 유지|ADX 21.5로 안정적인 상승 추세 형성 초기|OBV 우상향 지속되며 장기 매집 확인|Stochastic 58.2 중립 상향 돌파|SuperTrend 매수 신호 유지|Elder Ray Bull Power 양전 지속|MFI 62 자금 유입 확인",
+    "signals": {
+      "trend_score": 88,
+      "momentum_score": 86,
+      "volume_score": 87,
+      "volatility_score": 84,
+      "pattern_score": 85,
+      "sentiment_score": 89,
+      "overall_score": 87
+    },
+    "verified_date": "2026-01-05"
+  },
+  {
+    "ticker": "KOSPI:068270",
+    "name": "셀트리온",
+    "close_price": 209500,
+    "rationale": "2026-01-05 종가 209,500원 확인|장중 52주 신고가 212,000원 터치 및 돌파 시도|증권사 목표가 상향(NH 25만, 삼성 23만) 및 어닝 서프라이즈 기대감|RSI 61.3으로 강세장 전환 및 과열 미달성|거래량 1,821,440주로 전일 대비 대폭 증가|EMA 단기 골든크로스 발생|볼린저밴드 상단 터치하며 추세 추종 매수세 유입|ADX 26.8로 강력한 추세 형성 구간 진입|OBV 매집 지속 상승|Stochastic 72.1 과매수 진입 전 단계로 상승 여력 충분|Ichimoku 구름대 상단 돌파 후 지지 확인|Vortex 상승 추세 강화 신호|KST 매수 신호 발생|Williams %R -35로 적정 매수 구간",
+    "signals": {
+      "trend_score": 92,
+      "momentum_score": 90,
+      "volume_score": 89,
+      "volatility_score": 85,
+      "pattern_score": 88,
+      "sentiment_score": 93,
+      "overall_score": 90
+    },
+    "verified_date": "2026-01-05"
+  }
+]
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
