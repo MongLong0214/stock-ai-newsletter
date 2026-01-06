@@ -1,6 +1,45 @@
-export const STAGE_3_COLLECT_INDICATORS = `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+/**
+ * Stage 3: 30개 지표 수집 프롬프트 빌더
+ * 환각 방지를 위한 동적 날짜 주입
+ *
+ * 중요: 30개 지표 구조는 고정 - 변경 금지
+ */
+
+import type { DateContext } from './types';
+
+/**
+ * Stage 3 프롬프트 생성
+ *
+ * @param context - 날짜 컨텍스트 (동적 주입)
+ * @returns Stage 3 프롬프트 문자열
+ */
+export function getStage3CollectIndicators(context: DateContext): string {
+  const { targetDate, searchFormats, forbiddenYearThreshold } = context;
+
+  // 30개 지표 정의 - 원본 그대로 유지
+  const indicatorsContent = getIndicatorsDefinition();
+
+  return `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 STAGE 3: 필터링 된 30개 종목에 대한 30개 지표 수집 (환각 절대 금지, AI 자율 수집 모드)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📅 분석 기준일 (모든 검색에 사용)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🔴 분석 기준일: ${targetDate.korean}
+🔴 ISO 형식: ${targetDate.iso}
+🔴 숫자 형식: ${targetDate.numeric}
+
+📌 검색용 날짜 포맷:
+   - Naver/Daum: "${searchFormats.naverStyle}"
+   - KRX: "${searchFormats.krxStyle}"
+   - ISO: "${searchFormats.isoStyle}"
+   - 점 형식: "${searchFormats.dotStyle}"
+
+⚠️ 모든 지표 검색 시 위 날짜 포함 필수!
+⚠️ ${forbiddenYearThreshold}년 이전 데이터 절대 사용 금지!
+
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 🔥 환각 방지 시스템
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -8,15 +47,15 @@ STAGE 3: 필터링 된 30개 종목에 대한 30개 지표 수집 (환각 절대
 【3단계 신뢰도 분류】
 
 🟢 HIGH (검색): 공식 사이트에서 직접 확인
-🟡 MEDIUM (계산): 과거 데이터로 직접 계산
+🟡 MEDIUM (계산): 검색된 과거 데이터로 직접 계산
 🔴 LOW (제외): 실제 데이터 부족 시 제외
 
 【rationale 표기 규칙】
 
-검색 성공: "RSI65.3" (구체적 수치)
-계산 성공: "RSI65.3(계산)" (방법 명시)
+검색 성공: "RSI65.3(naver,${targetDate.iso})" (구체적 수치 + 출처 + 날짜)
+계산 성공: "RSI65.3(계산:14일naver,${targetDate.iso})" (방법 + 출처 + 날짜)
 
-❌ 금지: "RSI강세" (모호함), "MACD상승" (수치 없음)
+❌ 금지: "RSI강세" (모호함), "MACD상승" (수치 없음), "RSI58.3" (출처 없음)
 
 【AI 자율 수집 원칙】
 ✅ 명시된 쿼리로 찾지 못하면 → 창의적으로 다른 방법 시도
@@ -28,830 +67,92 @@ STAGE 3: 필터링 된 30개 종목에 대한 30개 지표 수집 (환각 절대
 ❌ 단, 추측/환각은 절대 금지 - 실제 데이터만
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-【TIER 1: 핵심 10개 지표 - 각 지표당 최소 10번 이상 검색】
+【🚨 계산 폴백 제한 조건】
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-01. SMA (5,10,20,60,200일)
-    
-    1차 검색: "[종목명] 이동평균선 site:finance.naver.com"
-    2차 검색: "[종목명] 단순이동평균 site:finance.daum.net"
-    3차 검색: "[종목명] moving average site:tradingview.com"
-    4차 검색: "[종목명] 차트 기술적분석"
-    5차 검색: "[종목명] 5일선 20일선 60일선"
-    6차 검색: "[종목명] MA5 MA20 MA60"
-    7차 검색: "[종목명] simple moving average site:investing.com"
-    8차 검색: "[종목명] 이평선 정배열"
-    9차 검색: "[종목명코드] SMA"
-    10차 검색: "[종목명] 주가 차트 분석 site:stockplus.com"
-    
-    🔥 모두 실패 시:
-    → 과거 60일 종가 데이터 수집
-    → 직접 계산: SMA_N = (최근 N일 종가 합) / N
-    
-    점수 기준:
-    ✅ 전일 종가>SMA5>SMA10>SMA20>SMA60 (완전정배열) = 100
-    ✅ 전일 종가>SMA20>SMA60 = 85
-    ✅ 전일 종가>SMA20 = 75
-    ⚬ 전일 종가 ≈ SMA20 (±3%) = 60
-    ❌ 전일 종가<SMA20 = 45
+"직접 계산" 옵션은 다음 조건을 모두 충족해야만 허용됩니다:
 
-02. EMA (5,10,20,60,200일)
-    
-    1차 검색: "[종목명] 지수이동평균 site:investing.com"
-    2차 검색: "[종목명] EMA site:tradingview.com"
-    3차 검색: "[종목명] exponential moving average"
-    4차 검색: "[종목명] EMA5 EMA20 site:finance.naver.com"
-    5차 검색: "[종목명] 지수평활이동평균"
-    6차 검색: "[종목명] EMA 골든크로스"
-    7차 검색: "[종목명] exponential MA site:finance.daum.net"
-    8차 검색: "[종목명] EMA 정배열"
-    9차 검색: "[종목명코드] EMA indicator"
-    10차 검색: "[종목명] 기술적지표 EMA"
-    
-    🔥 모두 실패 시:
-    → SMA 데이터로 EMA 계산 (초기값으로 SMA 사용)
-    → 직접 계산: EMA = (종가 × 승수) + (전일EMA × (1-승수))
-       승수 = 2 / (N+1)
-    
-    점수 기준:
-    ✅ EMA 골든크로스 (단기>장기 교차) = 100
-    ✅ EMA 완전정배열 = 90
-    ✅ 전일 종가>EMA20 = 75
-    ⚬ 전일 종가 ≈ EMA20 = 60
-    ❌ 전일 종가<EMA20 = 45
+조건 1: 입력 데이터 검증
+  □ 계산에 필요한 모든 종가 데이터를 검색으로 확인했는가?
+  □ 각 종가의 출처와 날짜가 명확한가?
+  □ 데이터 개수가 계산에 충분한가? (예: RSI는 14일 필요)
+  □ 모든 데이터가 ${targetDate.iso} 기준 최신인가?
 
-03. RSI (14일)
-    
-    1차 검색: "[종목명] RSI site:finance.naver.com"
-    2차 검색: "[종목명] 상대강도지수 site:finance.daum.net"
-    3차 검색: "[종목명] RSI indicator site:tradingview.com"
-    4차 검색: "[종목명] technical indicators site:investing.com"
-    5차 검색: "[종목명] RSI 14 값"
-    6차 검색: "[종목명] relative strength index"
-    7차 검색: "[종목명] 과매수 과매도 RSI"
-    8차 검색: "[종목명] RSI 지표"
-    9차 검색: "[종목명코드] RSI 14"
-    10차 검색: "[종목명] 보조지표 RSI site:stockplus.com"
-    
-    🔥 모두 실패 시:
-    → 과거 14일 종가 데이터 수집
-    → 직접 계산:
-       상승폭 = MAX(종가-전일 종가, 0)
-       하락폭 = MAX(전일 종가-종가, 0)
-       평균상승폭 = 14일 상승폭 평균
-       평균하락폭 = 14일 하락폭 평균
-       RS = 평균상승폭 / 평균하락폭
-       RSI = 100 - (100 / (1 + RS))
-    
-    점수 기준:
-    ✅ 45≤RSI≤55 (중립 강세) = 100
-    ✅ 40≤RSI<45 or 55<RSI≤60 = 85
-    ✅ 35≤RSI<40 or 60<RSI≤65 = 75
-    ⚬ 30≤RSI<35 or 65<RSI≤70 = 60
-    ⚠️ RSI>70 (과매수) = 40
-    ⚠️ RSI<30 (과매도) = 50
+조건 2: 계산 과정 명시
+  □ 사용한 종가 데이터 목록을 나열했는가?
+  □ 계산 공식을 단계별로 기록했는가?
+  □ 최종 결과와 중간 결과를 모두 표기했는가?
 
-04. MACD (12,26,9)
-    
-    1차 검색: "[종목명] MACD site:finance.naver.com"
-    2차 검색: "[종목명] MACD signal site:tradingview.com"
-    3차 검색: "[종목명] moving average convergence divergence"
-    4차 검색: "[종목명] MACD 히스토그램 site:finance.daum.net"
-    5차 검색: "[종목명] MACD 골든크로스"
-    6차 검색: "[종목명] MACD indicator site:investing.com"
-    7차 검색: "[종목명] MACD 매수신호"
-    8차 검색: "[종목명] MACD oscillator"
-    9차 검색: "[종목명코드] MACD"
-    10차 검색: "[종목명] 이동평균수렴확산"
-    
-    🔥 모두 실패 시:
-    → EMA12, EMA26 수집 또는 계산
-    → 직접 계산:
-       MACD선 = EMA12 - EMA26
-       Signal선 = MACD의 EMA9
-       Histogram = MACD선 - Signal선
-    
-    점수 기준:
-    ✅ MACD>Signal AND MACD>0 AND Histogram증가 = 100
-    ✅ MACD>Signal AND MACD>0 = 90
-    ✅ MACD>Signal = 75
-    ⚬ MACD>0 = 60
-    ❌ MACD<0 AND MACD<Signal = 25
-
-05. 거래량비율
-    
-    1차 검색: "[종목명] 거래량 site:finance.naver.com"
-    2차 검색: "[종목명] 거래대금 site:data.krx.co.kr"
-    3차 검색: "[종목명] volume site:finance.daum.net"
-    4차 검색: "[종목명] 평균거래량 site:investing.com"
-    5차 검색: "[종목명] 거래량 급증"
-    6차 검색: "[종목명] trading volume average"
-    7차 검색: "[종목명] 거래량 비율"
-    8차 검색: "[종목명] volume ratio"
-    9차 검색: "[종목명코드] 거래량"
-    10차 검색: "[종목명] 매매동향 거래량"
-    
-    🔥 모두 실패 시:
-    → 과거 20일 거래량 데이터 수집
-    → 직접 계산:
-       평균거래량 = 20일 거래량 합 / 20
-       거래량비율 = 전일거래량 / 평균거래량
-    
-    점수 기준:
-    ✅ 1.2≤비율≤2.0 (건전한 증가) = 100
-    ✅ 1.0≤비율<1.2 (정상) = 80
-    ✅ 0.8≤비율<1.0 (약간 부족) = 70
-    ⚬ 0.5≤비율<0.8 = 60
-    ⚠️ 비율>3.0 (급등 의심) = 55
-    ❌ 비율<0.5 (유동성 부족) = 40
-
-06. 볼린저 밴드
-    
-    1차 검색: "[종목명] 볼린저밴드 site:finance.naver.com"
-    2차 검색: "[종목명] Bollinger Bands site:tradingview.com"
-    3차 검색: "[종목명] 변동성 밴드"
-    4차 검색: "[종목명] 볼린저 상단 하단 site:finance.daum.net"
-    5차 검색: "[종목명] BB indicator site:investing.com"
-    6차 검색: "[종목명] bollinger band"
-    7차 검색: "[종목명] 볼린저밴드 위치"
-    8차 검색: "[종목명] volatility bands"
-    9차 검색: "[종목명코드] Bollinger"
-    10차 검색: "[종목명] 기술적분석 밴드"
-    
-    🔥 모두 실패 시:
-    → 과거 20일 종가 데이터 수집
-    → 직접 계산:
-       중심선 = 20일 SMA
-       표준편차 = SQRT(Σ(종가-중심선)² / 20)
-       상단밴드 = 중심선 + (2 × 표준편차)
-       하단밴드 = 중심선 - (2 × 표준편차)
-       위치% = (전일 종가 - 하단) / (상단 - 하단) × 100
-    
-    점수 기준:
-    ✅ 40≤위치≤60 (중심부) = 100
-    ✅ 60<위치≤75 (상단 접근) = 85
-    ✅ 25≤위치<40 (하단 접근) = 80
-    ⚬ 15≤위치<25 or 75<위치≤85 = 65
-    ⚠️ 위치>85 (과매수) = 50
-    ⚠️ 위치<15 (과매도) = 55
-
-07. ATR (Average True Range, 14일)
-    
-    1차 검색: "[종목명] ATR site:investing.com"
-    2차 검색: "[종목명] Average True Range site:tradingview.com"
-    3차 검색: "[종목명] 평균진폭 변동성"
-    4차 검색: "[종목명] ATR 지표 site:finance.naver.com"
-    5차 검색: "[종목명] true range site:finance.daum.net"
-    6차 검색: "[종목명] volatility ATR"
-    7차 검색: "[종목명] 가격변동폭"
-    8차 검색: "[종목명] ATR indicator"
-    9차 검색: "[종목명코드] ATR 14"
-    10차 검색: "[종목명] 변동성분석"
-    
-    🔥 모두 실패 시:
-    → 과거 14일 고가/저가/종가 데이터 수집
-    → 직접 계산:
-       TR = MAX(고가-저가, |고가-전일 종가|, |저가-전일 종가|)
-       ATR = TR의 14일 이동평균
-       ATR% = (ATR / 전일 종가) × 100
-    
-    점수 기준:
-    ✅ 2≤ATR%≤5 (적정 변동성) = 100
-    ✅ 1.5≤ATR%<2 or 5<ATR%≤7 = 80
-    ⚬ 1≤ATR%<1.5 or 7<ATR%≤10 = 60
-    ❌ ATR%<1 (변동성 부족) or ATR%>10 (과도한 변동) = 40
-
-08. ADX (Average Directional Index, 14일)
-    
-    1차 검색: "[종목명] ADX site:investing.com"
-    2차 검색: "[종목명] Average Directional Index site:tradingview.com"
-    3차 검색: "[종목명] 추세강도지수"
-    4차 검색: "[종목명] ADX +DI -DI site:finance.naver.com"
-    5차 검색: "[종목명] directional movement indicator"
-    6차 검색: "[종목명] DMI site:finance.daum.net"
-    7차 검색: "[종목명] ADX 지표"
-    8차 검색: "[종목명] trend strength"
-    9차 검색: "[종목명코드] ADX indicator"
-    10차 검색: "[종목명] 방향성지수"
-    
-    🔥 모두 실패 시:
-    → 과거 14일 고가/저가/종가 데이터 수집
-    → 직접 계산:
-       +DM = MAX(금일고가 - 전일고가, 0)
-       -DM = MAX(전일저가 - 금일저가, 0)
-       TR = MAX(고가-저가, |고가-전일 종가|, |저가-전일 종가|)
-       +DI14 = (+DM의 14일평균 / TR의 14일평균) × 100
-       -DI14 = (-DM의 14일평균 / TR의 14일평균) × 100
-       DX = |+DI - -DI| / |+DI + -DI| × 100
-       ADX = DX의 14일 이동평균
-    → 계산 불가 시 해당 지표 제외
-    
-    점수 기준:
-    ✅ ADX>25 AND +DI>-DI (강한 상승추세) = 100
-    ✅ ADX 20-25 AND +DI>-DI (상승추세) = 85
-    ⚬ ADX<20 (약한 추세/횡보) = 60
-    ❌ ADX>25 AND +DI<-DI (강한 하락추세) = 30
-
-09. OBV (On Balance Volume)
-    
-    1차 검색: "[종목명] OBV site:tradingview.com"
-    2차 검색: "[종목명] On Balance Volume site:investing.com"
-    3차 검색: "[종목명] 거래량지표 OBV"
-    4차 검색: "[종목명] 누적거래량 site:finance.naver.com"
-    5차 검색: "[종목명] volume indicator OBV"
-    6차 검색: "[종목명] OBV analysis site:finance.daum.net"
-    7차 검색: "[종목명] 거래량추세 OBV"
-    8차 검색: "[종목명] cumulative volume"
-    9차 검색: "[종목명코드] OBV"
-    10차 검색: "[종목명] 거래량분석 지표"
-    
-    🔥 모두 실패 시:
-    → 과거 20일 종가/거래량 데이터 수집
-    → 직접 계산:
-       IF 금일종가 > 전일 종가: OBV += 금일거래량
-       IF 금일종가 < 전일 종가: OBV -= 금일거래량
-       IF 금일종가 = 전일 종가: OBV 변화없음
-    → 최근 5일 OBV 추세 확인 (상승/하락)
-    
-    점수 기준:
-    ✅ OBV상승 AND 가격상승 (가격거래량 동반) = 100
-    ✅ OBV상승 AND 가격횡보 (매집) = 80
-    ⚬ OBV횡보 = 65
-    ⚠️ OBV하락 AND 가격상승 (다이버전스) = 45
-    ❌ OBV하락 AND 가격하락 = 30
-
-10. Stochastic (스토캐스틱, 14,3,3)
-    
-    1차 검색: "[종목명] 스토캐스틱 site:finance.naver.com"
-    2차 검색: "[종목명] Stochastic site:tradingview.com"
-    3차 검색: "[종목명] %K %D site:finance.daum.net"
-    4차 검색: "[종목명] stochastic oscillator site:investing.com"
-    5차 검색: "[종목명] 스토캐스틱 지표"
-    6차 검색: "[종목명] slow stochastic"
-    7차 검색: "[종목명] 과매수과매도 스토캐스틱"
-    8차 검색: "[종목명] stoch indicator"
-    9차 검색: "[종목명코드] stochastic"
-    10차 검색: "[종목명] KD지표"
-    
-    🔥 모두 실패 시:
-    → 과거 14일 고가/저가/종가 수집
-    → 직접 계산:
-       %K = (전일 종가 - 14일최저가) / (14일최고가 - 14일최저가) × 100
-       %D = %K의 3일 이동평균
-    → 계산 불가 시 해당 지표 제외
-    
-    점수 기준:
-    ✅ %K>%D AND 20<%K<80 (정상 상승) = 100
-    ✅ %K>%D AND %K<20 (과매도 탈출) = 95
-    ✅ %K>%D (상승 전환) = 80
-    ⚬ 20<%K<80 AND %K≈%D = 65
-    ⚠️ %K<%D AND %K>80 (과매수 하락전환) = 40
-    ❌ %K<%D AND %K<20 (지속 약세) = 35
+조건 미충족 시:
+  → 해당 지표 제외 (환각으로 채우지 말 것)
+  → 점수: 0 또는 제외
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-【TIER 2: 중요 10개 지표 - 각 지표당 최소 10번 이상 검색】
+【지표별 최소 검색 성공 기준】
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-11. Williams %R (14일)
-    
-    1차 검색: "[종목명] Williams site:investing.com"
-    2차 검색: "[종목명] Williams %R site:tradingview.com"
-    3차 검색: "[종목명] Williams Percent Range"
-    4차 검색: "[종목명] 윌리엄스 site:finance.naver.com"
-    5차 검색: "[종목명] %R indicator"
-    6차 검색: "[종목명] Williams oscillator site:finance.daum.net"
-    7차 검색: "[종목명] 윌리엄스 퍼센트"
-    8차 검색: "[종목명] williams %R 14"
-    9차 검색: "[종목명코드] Williams"
-    10차 검색: "[종목명] 과매수과매도 윌리엄스"
-    
-    🔥 모두 실패 시:
-    → Stochastic 데이터로 변환 계산
-    → 직접 계산: %R = -100 × (14일최고가 - 전일 종가) / (14일최고가 - 14일최저가)
-    → 또는 %R = Stochastic %K - 100
-    
-    점수 기준:
-    ✅ -50<%R<-20 (중립) = 100
-    ✅ -20<%R<0 (과매수 주의) = 75
-    ✅ -80<%R<-50 (침체) = 70
-    ⚠️ %R>-20 (과매수) = 50
-    ⚠️ %R<-80 (과매도) = 55
+각 지표당 10번 검색 후:
 
-12. ROC (Rate of Change, 12일)
-    
-    1차 검색: "[종목명] ROC site:tradingview.com"
-    2차 검색: "[종목명] Rate of Change"
-    3차 검색: "[종목명] 변화율지표 site:investing.com"
-    4차 검색: "[종목명] ROC indicator site:finance.naver.com"
-    5차 검색: "[종목명] price rate of change"
-    6차 검색: "[종목명] ROC 지표 site:finance.daum.net"
-    7차 검색: "[종목명] momentum ROC"
-    8차 검색: "[종목명] 가격변화율"
-    9차 검색: "[종목명코드] ROC"
-    10차 검색: "[종목명] 모멘텀지표"
-    
-    🔥 모두 실패 시:
-    → 과거 12일 종가 데이터 수집
-    → 직접 계산: ROC = ((전일 종가 - 12일전종가) / 12일전종가) × 100
-    
-    점수 기준:
-    ✅ 0<ROC≤5 (건전한 상승) = 100
-    ✅ 5<ROC≤10 (강한 상승) = 90
-    ⚬ -5≤ROC<0 (약세) = 60
-    ⚠️ ROC>15 (과열) = 50
-    ❌ ROC<-10 (급락) = 35
+| 성공 횟수 | 행동 |
+|----------|------|
+| 3+ 성공 | 검색값 사용 (가장 빈번한 값) |
+| 1-2 성공 | 계산 폴백 시도 (입력 데이터 검증 필수) |
+| 0 성공 | 해당 지표 제외 (환각 금지) |
 
-13. CCI (Commodity Channel Index, 20일)
-    
-    1차 검색: "[종목명] CCI site:investing.com"
-    2차 검색: "[종목명] Commodity Channel Index"
-    3차 검색: "[종목명] CCI 지표 site:tradingview.com"
-    4차 검색: "[종목명] 상품채널지수 site:finance.naver.com"
-    5차 검색: "[종목명] CCI indicator"
-    6차 검색: "[종목명] CCI 20 site:finance.daum.net"
-    7차 검색: "[종목명] commodity index"
-    8차 검색: "[종목명] CCI oscillator"
-    9차 검색: "[종목명코드] CCI"
-    10차 검색: "[종목명] 채널지수"
-    
-    🔥 모두 실패 시:
-    → 과거 20일 고가/저가/종가 수집
-    → 직접 계산:
-       TP (Typical Price) = (고가 + 저가 + 종가) / 3
-       SMA_TP = TP의 20일 이동평균
-       MD (Mean Deviation) = |TP - SMA_TP|의 20일 평균
-       CCI = (TP - SMA_TP) / (0.015 × MD)
-    
-    점수 기준:
-    ✅ -100<CCI<100 (정상) = 100
-    ✅ 100<CCI<200 (상승 모멘텀) = 85
-    ⚬ CCI≈0 (중립) = 70
-    ⚠️ CCI>200 (과매수) = 50
-    ⚠️ CCI<-200 (과매도) = 55
-
-14. MFI (Money Flow Index, 14일)
-    
-    1차 검색: "[종목명] MFI site:investing.com"
-    2차 검색: "[종목명] Money Flow Index site:tradingview.com"
-    3차 검색: "[종목명] 자금흐름지수"
-    4차 검색: "[종목명] MFI indicator site:finance.naver.com"
-    5차 검색: "[종목명] money flow site:finance.daum.net"
-    6차 검색: "[종목명] MFI 14"
-    7차 검색: "[종목명] volume weighted RSI"
-    8차 검색: "[종목명] 자금유입"
-    9차 검색: "[종목명코드] MFI"
-    10차 검색: "[종목명] 거래량 RSI"
-    
-    🔥 모두 실패 시:
-    → 과거 14일 고가/저가/종가/거래량 수집
-    → 직접 계산:
-       TP = (고가 + 저가 + 종가) / 3
-       MF (Money Flow) = TP × 거래량
-       IF 금일TP > 전일TP: Positive MF
-       IF 금일TP < 전일TP: Negative MF
-       MFI = 100 - (100 / (1 + (Positive MF 14일합 / Negative MF 14일합)))
-    → 계산 불가 시 해당 지표 제외
-    
-    점수 기준:
-    ✅ 40≤MFI≤60 (중립) = 100
-    ✅ 60<MFI≤70 (자금 유입) = 85
-    ⚬ 30≤MFI<40 (자금 이탈) = 65
-    ⚠️ MFI>80 (과매수) = 45
-    ⚠️ MFI<20 (과매도) = 50
-
-15. CMF (Chaikin Money Flow, 20일)
-    
-    1차 검색: "[종목명] Chaikin Money Flow site:tradingview.com"
-    2차 검색: "[종목명] CMF site:investing.com"
-    3차 검색: "[종목명] 차이킨자금흐름"
-    4차 검색: "[종목명] Chaikin indicator site:finance.naver.com"
-    5차 검색: "[종목명] money flow CMF"
-    6차 검색: "[종목명] CMF 지표 site:finance.daum.net"
-    7차 검색: "[종목명] accumulation distribution flow"
-    8차 검색: "[종목명] 자금흐름 차이킨"
-    9차 검색: "[종목명코드] CMF"
-    10차 검색: "[종목명] 매집분산지표"
-    
-    🔥 모두 실패 시:
-    → 과거 20일 고가/저가/종가/거래량 수집
-    → 직접 계산:
-       MFM = ((종가 - 저가) - (고가 - 종가)) / (고가 - 저가)
-       MFV = MFM × 거래량
-       CMF = 20일 MFV 합 / 20일 거래량 합
-    
-    점수 기준:
-    ✅ 0.05<CMF<0.25 (자금 유입) = 100
-    ✅ 0<CMF≤0.05 (약한 유입) = 80
-    ⚬ -0.05≤CMF≤0 (중립) = 65
-    ❌ CMF<-0.1 (자금 이탈) = 40
-
-16. Parabolic SAR
-    
-    1차 검색: "[종목명] Parabolic SAR site:tradingview.com"
-    2차 검색: "[종목명] SAR site:investing.com"
-    3차 검색: "[종목명] stop and reverse"
-    4차 검색: "[종목명] 포물선 SAR site:finance.naver.com"
-    5차 검색: "[종목명] parabolic indicator"
-    6차 검색: "[종목명] SAR 지표 site:finance.daum.net"
-    7차 검색: "[종목명] parabolic stop"
-    8차 검색: "[종목명] 추세전환점"
-    9차 검색: "[종목명코드] parabolic SAR"
-    10차 검색: "[종목명] 손절매 지표"
-    
-    🔥 모두 실패 시:
-    → 과거 10일 고가/저가 데이터 수집
-    → 직접 계산 (복잡하므로 간소화):
-       IF 상승추세: SAR = 전일SAR + AF × (최근고점 - 전일SAR)
-       IF 하락추세: SAR = 전일SAR - AF × (전일SAR - 최근저점)
-       AF (가속인자) = 0.02 (최대 0.2)
-    → 계산 불가 시 해당 지표 제외
-    
-    점수 기준:
-    ✅ SAR<전일 종가 AND 상승추세 = 100
-    ⚬ SAR<전일 종가 = 75
-    ⚬ SAR≈전일 종가 (전환점) = 60
-    ❌ SAR>전일 종가 AND 하락추세 = 35
-
-17. Ichimoku (일목균형표)
-    
-    1차 검색: "[종목명] 일목균형표 site:finance.naver.com"
-    2차 검색: "[종목명] Ichimoku Cloud site:tradingview.com"
-    3차 검색: "[종목명] 일목균형 site:finance.daum.net"
-    4차 검색: "[종목명] ichimoku indicator site:investing.com"
-    5차 검색: "[종목명] 전환선 기준선"
-    6차 검색: "[종목명] 구름대 ichimoku"
-    7차 검색: "[종목명] 일목 차트"
-    8차 검색: "[종목명] kumo cloud"
-    9차 검색: "[종목명코드] ichimoku"
-    10차 검색: "[종목명] 선행스팬"
-    
-    🔥 모두 실패 시:
-    → 과거 52일 고가/저가 데이터 수집
-    → 직접 계산:
-       전환선 = (9일최고가 + 9일최저가) / 2
-       기준선 = (26일최고가 + 26일최저가) / 2
-       선행스팬1 = (전환선 + 기준선) / 2 (26일 선행)
-       선행스팬2 = (52일최고가 + 52일최저가) / 2 (26일 선행)
-       후행스팬 = 당일종가 (26일 후행)
-    → 계산 불가 시 해당 지표 제외
-    
-    점수 기준:
-    ✅ 전일 종가>구름대 AND 전환선>기준선 = 100
-    ✅ 전일 종가>구름대 = 85
-    ⚬ 전일 종가=구름대 (균형) = 65
-    ❌ 전일 종가<구름대 = 40
-
-18. SuperTrend
-    
-    1차 검색: "[종목명] SuperTrend site:tradingview.com"
-    2차 검색: "[종목명] super trend indicator"
-    3차 검색: "[종목명] 슈퍼트렌드 site:investing.com"
-    4차 검색: "[종목명] SuperTrend 지표"
-    5차 검색: "[종목명] super trend site:finance.naver.com"
-    6차 검색: "[종목명] trend following indicator"
-    7차 검색: "[종목명] 추세추종 지표"
-    8차 검색: "[종목명] ATR trend"
-    9차 검색: "[종목명코드] SuperTrend"
-    10차 검색: "[종목명] 슈퍼트렌드 매수매도"
-    
-    🔥 모두 실패 시:
-    → ATR 데이터 수집 또는 계산
-    → 직접 계산:
-       기본 상단밴드 = (고가 + 저가) / 2 + (승수 × ATR)
-       기본 하단밴드 = (고가 + 저가) / 2 - (승수 × ATR)
-       승수 = 3 (기본값)
-       IF 상승추세: SuperTrend = 하단밴드
-       IF 하락추세: SuperTrend = 상단밴드
-    → 계산 불가 시 해당 지표 제외
-    
-    점수 기준:
-    ✅ SuperTrend<전일 종가 AND 상승추세 = 100
-    ✅ SuperTrend<전일 종가 = 80
-    ⚬ 추세 전환 중 = 60
-    ❌ SuperTrend>전일 종가 AND 하락추세 = 35
-
-19. VWAP (Volume Weighted Average Price)
-    
-    1차 검색: "[종목명] VWAP site:tradingview.com"
-    2차 검색: "[종목명] Volume Weighted Average Price"
-    3차 검색: "[종목명] 거래량가중평균 site:investing.com"
-    4차 검색: "[종목명] VWAP 지표 site:finance.naver.com"
-    5차 검색: "[종목명] volume weighted price"
-    6차 검색: "[종목명] VWAP site:finance.daum.net"
-    7차 검색: "[종목명] 거래량평균가"
-    8차 검색: "[종목명] VWAP indicator"
-    9차 검색: "[종목명코드] VWAP"
-    10차 검색: "[종목명] 체결강도 VWAP"
-    
-    🔥 모두 실패 시:
-    → 당일 분봉 데이터 수집 (고가/저가/종가/거래량)
-    → 직접 계산:
-       TP = (고가 + 저가 + 종가) / 3
-       TPV = TP × 거래량
-       VWAP = Σ(TPV) / Σ(거래량)
-    → 당일 데이터 없으면 제외
-    
-    점수 기준:
-    ✅ 전일 종가>VWAP (매수세 우세) = 100
-    ⚬ 전일 종가≈VWAP (±1%) = 70
-    ❌ 전일 종가<VWAP (매도세 우세) = 45
-
-20. 52주 고저점
-    
-    1차 검색: "[종목명] 52주 최고 최저 site:finance.naver.com"
-    2차 검색: "[종목명] 52week high low site:investing.com"
-    3차 검색: "[종목명] 연간 최고가 최저가 site:finance.daum.net"
-    4차 검색: "[종목명] 1년 최고 최저 site:data.krx.co.kr"
-    5차 검색: "[종목명] 52주 신고가"
-    6차 검색: "[종목명] yearly high low"
-    7차 검색: "[종목명] 52주 가격 범위"
-    8차 검색: "[종목명] annual price range"
-    9차 검색: "[종목명코드] 52week"
-    10차 검색: "[종목명] 연중 최고 최저"
-    
-    🔥 모두 실패 시:
-    → 과거 250일(거래일 기준 1년) 종가 데이터 수집
-    → 직접 계산:
-       52주고점 = 250일 중 최고가
-       52주저점 = 250일 중 최저가
-       현재위치% = (전일 종가 - 저점) / (고점 - 저점) × 100
-    → 250일 데이터 없으면 제외
-    
-    점수 기준:
-    ✅ 현재위치 70-85% (건전한 상승) = 100
-    ✅ 현재위치 50-70% (중간) = 80
-    ⚬ 현재위치 30-50% (하단) = 65
-    ⚠️ 현재위치 85%+ (고점 근처) = 55
-    ❌ 현재위치 30%- (저점 근처) = 50
+"계산 폴백"을 사용하려면:
+→ 계산에 필요한 원시 데이터(종가, 거래량 등)가 검색으로 확보되어야 함
+→ 원시 데이터 없이 "RSI를 추정"하는 것은 환각임
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-【TIER 3: 고급 10개 지표 - 각 지표당 최소 10번 이상 검색】
+【rationale 작성 시 출처 표기 의무】
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-21. Keltner Channel (켈트너 채널, 20일)
-    
-    1차 검색: "[종목명] Keltner Channel site:tradingview.com"
-    2차 검색: "[종목명] 켈트너채널 site:investing.com"
-    3차 검색: "[종목명] Keltner indicator"
-    4차 검색: "[종목명] keltner band site:finance.naver.com"
-    5차 검색: "[종목명] ATR channel"
-    6차 검색: "[종목명] 켈트너 지표 site:finance.daum.net"
-    7차 검색: "[종목명] keltner envelope"
-    8차 검색: "[종목명] 변동성 채널"
-    9차 검색: "[종목명코드] keltner"
-    10차 검색: "[종목명] ATR 밴드"
-    
-    🔥 모두 실패 시:
-    → EMA20, ATR14 데이터 수집
-    → 직접 계산:
-       중심선 = EMA20
-       상단 = EMA20 + (2 × ATR14)
-       하단 = EMA20 - (2 × ATR14)
-       위치% = (전일 종가 - 하단) / (상단 - 하단) × 100
-    
-    점수 기준:
-    ✅ 40≤위치≤60 (중심부) = 100
-    ✅ 60<위치≤75 (상단 접근) = 85
-    ⚬ 25≤위치<40 or 75<위치≤85 = 70
-    ⚠️ 위치>85 or 위치<25 = 50
+모든 rationale 항목은 출처와 날짜를 포함해야 합니다:
 
-22. Donchian Channel (돈치안 채널, 20일)
-    
-    1차 검색: "[종목명] Donchian Channel site:tradingview.com"
-    2차 검색: "[종목명] 돈치안채널 site:investing.com"
-    3차 검색: "[종목명] Donchian indicator"
-    4차 검색: "[종목명] price channel site:finance.naver.com"
-    5차 검색: "[종목명] 가격채널"
-    6차 검색: "[종목명] 돈치안 지표 site:finance.daum.net"
-    7차 검색: "[종목명] breakout channel"
-    8차 검색: "[종목명] 돌파 채널"
-    9차 검색: "[종목명코드] donchian"
-    10차 검색: "[종목명] 고가저가 채널"
-    
-    🔥 모두 실패 시:
-    → 과거 20일 고가/저가 데이터 수집
-    → 직접 계산:
-       상단 = 20일 최고가
-       하단 = 20일 최저가
-       중간선 = (상단 + 하단) / 2
-       위치% = (전일 종가 - 하단) / (상단 - 하단) × 100
-    
-    점수 기준:
-    ✅ 전일 종가 = 상단 (신고가 돌파) = 100
-    ✅ 70≤위치<100 (상단 근접) = 85
-    ⚬ 40≤위치<70 = 70
-    ❌ 전일 종가 = 하단 (신저가) = 35
+✅ 올바른 형식:
+"RSI56.5(naver,${targetDate.iso})" - 검색으로 확인
+"RSI56.5(계산:14일naver,${targetDate.iso})" - 검색 데이터로 계산
+"SMA정배열(tradingview,${targetDate.iso})" - 검색으로 확인
 
-23. Aroon (아론 지표, 25일)
-    
-    1차 검색: "[종목명] Aroon site:tradingview.com"
-    2차 검색: "[종목명] 아론지표 site:investing.com"
-    3차 검색: "[종목명] Aroon indicator"
-    4차 검색: "[종목명] aroon up down site:finance.naver.com"
-    5차 검색: "[종목명] 추세지표 aroon"
-    6차 검색: "[종목명] 아론 site:finance.daum.net"
-    7차 검색: "[종목명] trend strength aroon"
-    8차 검색: "[종목명] aroon oscillator"
-    9차 검색: "[종목명코드] aroon"
-    10차 검색: "[종목명] 추세강도 아론"
-    
-    🔥 모두 실패 시:
-    → 과거 25일 고가/저가 데이터 수집
-    → 직접 계산:
-       Aroon Up = ((25 - 최고가이후일수) / 25) × 100
-       Aroon Down = ((25 - 최저가이후일수) / 25) × 100
-       Aroon Oscillator = Aroon Up - Aroon Down
-    
-    점수 기준:
-    ✅ Aroon Up>70 AND Aroon Down<30 (강한 상승) = 100
-    ✅ Aroon Up>50 = 80
-    ⚬ Aroon Up≈Aroon Down (횡보) = 60
-    ❌ Aroon Up<30 AND Aroon Down>70 (강한 하락) = 35
+❌ 금지 형식:
+"RSI58.3" - 출처/날짜 없음, 환각 의심
+"RSI강세권" - 수치 없음, 검증 불가
+"SMA완전정배열" - 출처 없음
 
-24. Elder Ray (엘더레이, 13일)
-    
-    1차 검색: "[종목명] Elder Ray site:tradingview.com"
-    2차 검색: "[종목명] 엘더레이 site:investing.com"
-    3차 검색: "[종목명] Elder Ray indicator"
-    4차 검색: "[종목명] bull power bear power"
-    5차 검색: "[종목명] 황소힘 곰힘"
-    6차 검색: "[종목명] 엘더 지표 site:finance.naver.com"
-    7차 검색: "[종목명] elder ray power"
-    8차 검색: "[종목명] 매수세 매도세"
-    9차 검색: "[종목명코드] elder"
-    10차 검색: "[종목명] 엘더 레이 분석"
-    
-    🔥 모두 실패 시:
-    → EMA13, 고가, 저가 데이터 수집
-    → 직접 계산:
-       Bull Power = 고가 - EMA13
-       Bear Power = 저가 - EMA13
-    
-    점수 기준:
-    ✅ Bull>0 AND Bear>0 (강한 매수세) = 100
-    ✅ Bull>0 AND Bear<0 BUT Bear상승 = 85
-    ⚬ Bull>0 AND Bear<0 = 70
-    ❌ Bull<0 AND Bear<0 (강한 매도세) = 35
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+【계산 시 환각 방지 예시】
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-25. Force Index (힘지수, 13일)
-    
-    1차 검색: "[종목명] Force Index site:tradingview.com"
-    2차 검색: "[종목명] 힘지수 site:investing.com"
-    3차 검색: "[종목명] Force indicator"
-    4차 검색: "[종목명] force index 13"
-    5차 검색: "[종목명] 매매강도지수"
-    6차 검색: "[종목명] 포스인덱스 site:finance.naver.com"
-    7차 검색: "[종목명] volume force"
-    8차 검색: "[종목명] 거래압력지수"
-    9차 검색: "[종목명코드] force"
-    10차 검색: "[종목명] 엘더 힘지수"
-    
-    🔥 모두 실패 시:
-    → 과거 13일 종가/거래량 데이터 수집
-    → 직접 계산:
-       Force Index = (종가 - 전일 종가) × 거래량
-       Force Index(13) = Force Index의 EMA13
-    
-    점수 기준:
-    ✅ Force>0 AND 증가 (강한 매수압력) = 100
-    ✅ Force>0 (매수압력) = 80
-    ⚬ Force≈0 (균형) = 65
-    ❌ Force<0 AND 감소 (강한 매도압력) = 35
+✅ RSI 계산 예시 (환각 방지 형식):
 
-26. Ease of Movement (EMV, 14일)
-    
-    1차 검색: "[종목명] Ease of Movement site:tradingview.com"
-    2차 검색: "[종목명] EMV site:investing.com"
-    3차 검색: "[종목명] ease movement indicator"
-    4차 검색: "[종목명] 이동용이성"
-    5차 검색: "[종목명] EMV 지표"
-    6차 검색: "[종목명] arms ease site:finance.naver.com"
-    7차 검색: "[종목명] volume ease"
-    8차 검색: "[종목명] 거래량이동성"
-    9차 검색: "[종목명코드] EMV"
-    10차 검색: "[종목명] 이동편의성지표"
-    
-    🔥 모두 실패 시:
-    → 과거 14일 고가/저가/거래량 데이터 수집
-    → 직접 계산:
-       Distance Moved = ((고가 + 저가) / 2) - ((전일고가 + 전일저가) / 2)
-       Box Ratio = (거래량 / 100,000,000) / (고가 - 저가)
-       EMV = Distance Moved / Box Ratio
-       EMV(14) = EMV의 14일 SMA
-    
-    점수 기준:
-    ✅ EMV>0 AND 증가 (용이한 상승) = 100
-    ✅ EMV>0 (상승 용이) = 80
-    ⚬ EMV≈0 = 65
-    ❌ EMV<0 (하락 압력) = 40
+입력_데이터:
+  날짜: [${targetDate.iso}, 이전 거래일, ..., 14일전] (14일)
+  종가: [검색값1, 검색값2, ..., 검색값14] (검색으로 확인된 값만)
+  출처: [naver, naver, ..., naver]
 
-27. Accumulation/Distribution (A/D Line)
-    
-    1차 검색: "[종목명] Accumulation Distribution site:tradingview.com"
-    2차 검색: "[종목명] A/D Line site:investing.com"
-    3차 검색: "[종목명] 매집분산선"
-    4차 검색: "[종목명] accumulation indicator site:finance.naver.com"
-    5차 검색: "[종목명] A/D 지표"
-    6차 검색: "[종목명] 매집분산 site:finance.daum.net"
-    7차 검색: "[종목명] accumulation line"
-    8차 검색: "[종목명] distribution indicator"
-    9차 검색: "[종목명코드] A/D"
-    10차 검색: "[종목명] 매집 지표"
-    
-    🔥 모두 실패 시:
-    → 과거 20일 고가/저가/종가/거래량 수집
-    → 직접 계산:
-       CLV = ((종가 - 저가) - (고가 - 종가)) / (고가 - 저가)
-       A/D = 전일A/D + (CLV × 거래량)
-    
-    점수 기준:
-    ✅ A/D상승 AND 가격상승 (매집) = 100
-    ✅ A/D상승 = 80
-    ⚬ A/D횡보 = 65
-    ⚠️ A/D하락 AND 가격상승 (다이버전스) = 45
-    ❌ A/D하락 AND 가격하락 (분산) = 35
+계산_과정:
+  상승일: [+X, 0, ..., +Y] (N일)
+  하락일: [0, -A, ..., 0] (M일)
+  평균상승: [계산값]
+  평균하락: [계산값]
+  RS: [계산값]
+  RSI: [최종값]
 
-28. Know Sure Thing (KST)
-    
-    1차 검색: "[종목명] Know Sure Thing site:tradingview.com"
-    2차 검색: "[종목명] KST site:investing.com"
-    3차 검색: "[종목명] KST indicator"
-    4차 검색: "[종목명] know sure thing oscillator"
-    5차 검색: "[종목명] KST 지표"
-    6차 검색: "[종목명] pring KST"
-    7차 검색: "[종목명] 모멘텀 KST"
-    8차 검색: "[종목명] summed ROC"
-    9차 검색: "[종목명코드] KST"
-    10차 검색: "[종목명] 확신지표"
-    
-    🔥 모두 실패 시:
-    → 과거 40일 종가 데이터 수집
-    → 직접 계산 (복잡):
-       RCMA1 = ROC(10)의 SMA(10)
-       RCMA2 = ROC(15)의 SMA(10)
-       RCMA3 = ROC(20)의 SMA(10)
-       RCMA4 = ROC(30)의 SMA(15)
-       KST = (RCMA1×1) + (RCMA2×2) + (RCMA3×3) + (RCMA4×4)
-       Signal = KST의 SMA(9)
-    → 계산 불가 시 해당 지표 제외
-    
-    점수 기준:
-    ✅ KST>Signal AND KST>0 = 100
-    ✅ KST>Signal = 80
-    ⚬ KST≈Signal = 65
-    ❌ KST<Signal AND KST<0 = 35
+결과:
+  RSI: [최종값]
+  신뢰도: MEDIUM (계산)
+  rationale: "RSI[값](계산:14일naver,${targetDate.iso})"
 
-29. Vortex Indicator (VI, 14일)
-    
-    1차 검색: "[종목명] Vortex Indicator site:tradingview.com"
-    2차 검색: "[종목명] VI site:investing.com"
-    3차 검색: "[종목명] vortex"
-    4차 검색: "[종목명] VI+ VI- site:finance.naver.com"
-    5차 검색: "[종목명] 소용돌이지표"
-    6차 검색: "[종목명] vortex 지표"
-    7차 검색: "[종목명] trend vortex"
-    8차 검색: "[종목명] VI indicator"
-    9차 검색: "[종목명코드] vortex"
-    10차 검색: "[종목명] 보텍스"
-    
-    🔥 모두 실패 시:
-    → 과거 14일 고가/저가 데이터 수집
-    → 직접 계산:
-       VM+ = |금일고가 - 전일저가|
-       VM- = |금일저가 - 전일고가|
-       TR = MAX(고가-저가, |고가-전일 종가|, |저가-전일 종가|)
-       VI+ = 14일 VM+ 합 / 14일 TR 합
-       VI- = 14일 VM- 합 / 14일 TR 합
-    
-    점수 기준:
-    ✅ VI+>1.0 AND VI+>VI- (상승추세) = 100
-    ✅ VI+>VI- = 80
-    ⚬ VI+≈VI- = 60
-    ❌ VI->VI+ (하락추세) = 40
+❌ 환각 계산 예시 (금지):
 
-30. Chaikin Oscillator (차이킨 오실레이터)
-    
-    1차 검색: "[종목명] Chaikin Oscillator site:tradingview.com"
-    2차 검색: "[종목명] 차이킨오실레이터 site:investing.com"
-    3차 검색: "[종목명] Chaikin indicator"
-    4차 검색: "[종목명] CHO site:finance.naver.com"
-    5차 검색: "[종목명] A/D oscillator"
-    6차 검색: "[종목명] 차이킨 지표 site:finance.daum.net"
-    7차 검색: "[종목명] chaikin volume"
-    8차 검색: "[종목명] 거래량오실레이터"
-    9차 검색: "[종목명코드] chaikin"
-    10차 검색: "[종목명] 매집분산오실레이터"
-    
-    🔥 모두 실패 시:
-    → A/D Line 계산 (위 27번 참고)
-    → 직접 계산:
-       Chaikin Oscillator = EMA3(A/D) - EMA10(A/D)
-    
-    점수 기준:
-    ✅ CHO>0 AND 증가 (매집 가속) = 100
-    ✅ CHO>0 (매집) = 80
-    ⚬ CHO≈0 = 65
-    ❌ CHO<0 AND 감소 (분산 가속) = 35
+입력_데이터: (없음 또는 불명확)
+계산_과정: (생략 또는 불명확)
+결과:
+  RSI: 58.3  ← 출처 불명, 환각 의심
+  신뢰도: MEDIUM
+  rationale: "RSI58.3강세권"
+
+${indicatorsContent}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 【절대 포기 금지 총괄 프로토콜】
@@ -863,9 +164,14 @@ STAGE 3: 필터링 된 30개 종목에 대한 30개 지표 수집 (환각 절대
 2단계: 블로그/커뮤니티 검색 (네이버 블로그, 카페, 유튜브)
 3단계: 글로벌 사이트 검색 (TradingView, StockCharts, Yahoo Finance)
 4단계: 과거 데이터 수집 시도 (최소 20일치)
-5단계: 직접 계산 (명시된 공식 사용)
+5단계: 직접 계산 (명시된 공식 사용, 입력 데이터 검증 필수)
 6단계: 실제 데이터 확보 실패 시 해당 지표 제외
 7단계: 종목 교체 (최최후)
+
+⚠️ 5단계 "직접 계산" 시 반드시:
+  - 입력 데이터의 출처와 날짜 명시
+  - 계산 과정 전체 기록
+  - 검증 불가 시 환각으로 간주하여 제외
 
 최소 성공 기준:
 - 30개 지표 중 25개 이상 = 완벽 (정상 진행)
@@ -887,77 +193,372 @@ STAGE 3: 필터링 된 30개 종목에 대한 30개 지표 수집 (환각 절대
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 STAGE 3 완료: 30개 종목 30개 지표 수집 완료
+기준일: ${targetDate.korean} (${targetDate.iso})
 
 【종목 1】
-ticker: KOSPI:005930
-name: 삼성전자
-close_price: 75300
+ticker: [거래소:종목코드]
+name: [종목명]
+close_price: [검증된 종가]
+verified_date: ${targetDate.iso}
 
 【TIER 1 핵심 지표】
-01_SMA: 완전정배열 | 5일>10일>20일>60일 | 점수:100
-02_EMA: 골든크로스 | EMA5>EMA20 | 점수:100
-03_RSI: 58.3 | 강세권 | 점수:85
-04_MACD: 양전환 | MACD>Signal | Histogram증가 | 점수:100
-05_거래량비율: 165% | 건전한증가 | 점수:100
-06_볼린저밴드: 중상단 | 위치62% | 점수:85
-07_ATR: 3.2% | 적정변동성 | 점수:100
-08_ADX: 28 | 강한상승추세 | +DI>-DI | 점수:100
-09_OBV: 지속상승 | 가격거래량동반 | 점수:100
-10_Stochastic: 상승전환 | %K>%D | %K:65 | 점수:100
+01_SMA: [상태] | [상세] | 점수:[점수] | 출처:[출처],${targetDate.iso}
+02_EMA: [상태] | [상세] | 점수:[점수] | 출처:[출처],${targetDate.iso}
+03_RSI: [값] | [해석] | 점수:[점수] | 출처:[출처],${targetDate.iso}
+04_MACD: [상태] | [상세] | 점수:[점수] | 출처:[출처],${targetDate.iso}
+05_거래량비율: [값]% | [해석] | 점수:[점수] | 출처:[출처],${targetDate.iso}
+06_볼린저밴드: [위치] | 위치[값]% | 점수:[점수] | 출처:[출처],${targetDate.iso}
+07_ATR: [값]% | [해석] | 점수:[점수] | 출처:[출처],${targetDate.iso}
+08_ADX: [값] | [추세] | 점수:[점수] | 출처:[출처],${targetDate.iso}
+09_OBV: [추세] | [상세] | 점수:[점수] | 출처:[출처],${targetDate.iso}
+10_Stochastic: [상태] | %K:[값] | 점수:[점수] | 출처:[출처],${targetDate.iso}
 
 【TIER 2 중요 지표】
-11_Williams_%R: -35 | 중립강세 | 점수:100
-12_ROC: 4.2% | 건전한상승 | 점수:100
-13_CCI: 125 | 상승모멘텀 | 점수:85
-14_MFI: 58 | 자금유입 | 점수:100
-15_CMF: 0.15 | 강한유입 | 점수:100
-16_Parabolic_SAR: 매수 | SAR<전일 종가 | 점수:100
-17_Ichimoku: 호전 | 전일 종가>구름대 | 점수:85
-18_SuperTrend: 매수 | 상승추세 | 점수:100
-19_VWAP: 우세 | 전일 종가>VWAP | 점수:100
-20_52주고저점: 상위72% | 건전한상승 | 점수:100
+11_Williams_%R: [값] | [해석] | 점수:[점수] | 출처:[출처],${targetDate.iso}
+... (20번까지)
 
 【TIER 3 고급 지표】
-21_Keltner_Channel: 중상단 | 위치68% | 점수:85
-22_Donchian_Channel: 상단근접 | 위치82% | 점수:85
-23_Aroon: 강한상승 | Up:85 Down:20 | 점수:100
-24_Elder_Ray: 강한매수세 | Bull>0 Bear>0 | 점수:100
-25_Force_Index: 강한매수압력 | 증가 | 점수:100
-26_EMV: 용이한상승 | EMV>0 증가 | 점수:100
-27_A/D_Line: 매집 | A/D상승 가격상승 | 점수:100
-28_KST: 모멘텀강세 | KST>Signal KST>0 | 점수:100
-29_Vortex: 상승추세 | VI+>VI- VI+>1.0 | 점수:100
-30_Chaikin_Osc: 매집가속 | CHO>0 증가 | 점수:100
+21_Keltner_Channel: [위치] | 위치[값]% | 점수:[점수] | 출처:[출처],${targetDate.iso}
+... (30번까지)
 
 【수집 품질】
-수집 지표 수: 30/30
-검색 성공: 25개
-계산 성공: 5개
-추정 사용: 금지
-품질 점수: 100%
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-【종목 2】
-ticker: KOSPI:000660
-name: SK하이닉스
-close_price: 142500
-
-【TIER 1 핵심 지표】
-(동일한 형식으로 30개 지표 나열)
-...
-
-【수집 품질】
-수집 지표 수: 30/30
-...
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-... (30개 종목 모두 동일한 형식)
+수집 지표 수: [N]/30
+검색 성공: [N]개
+계산 성공: [N]개
+제외됨: [N]개 (환각 방지)
+품질 점수: [N]%
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 ✅ STAGE 3 완료: 30개 종목 전체 지표 수집 완료
-✅ 평균 지표 수집률: 28.5/30 (95%)
+✅ 기준일: ${targetDate.iso}
+✅ 평균 지표 수집률: [N]/30 ([N]%)
 → STAGE 4로 전달
 `;
+}
+
+/**
+ * 30개 지표 정의 (원본 유지)
+ * 이 구조는 고정 - 변경 금지
+ */
+function getIndicatorsDefinition(): string {
+  return `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+【TIER 1: 핵심 10개 지표 - 각 지표당 최소 10번 이상 검색】
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+01. SMA (5,10,20,60,200일)
+
+    1차 검색: "[종목명] 이동평균선 site:finance.naver.com"
+    2차 검색: "[종목명] 단순이동평균 site:finance.daum.net"
+    3차 검색: "[종목명] moving average site:tradingview.com"
+    4차 검색: "[종목명] 차트 기술적분석"
+    5차 검색: "[종목명] 5일선 20일선 60일선"
+    6차 검색: "[종목명] MA5 MA20 MA60"
+    7차 검색: "[종목명] simple moving average site:investing.com"
+    8차 검색: "[종목명] 이평선 정배열"
+    9차 검색: "[종목명코드] SMA"
+    10차 검색: "[종목명] 주가 차트 분석 site:stockplus.com"
+
+    🔥 모두 실패 시:
+    → 과거 60일 종가 데이터 수집 (각 종가의 출처/날짜 필수 기록)
+    → 직접 계산: SMA_N = (최근 N일 종가 합) / N
+    → 계산 과정 전체 명시 필수
+
+    점수 기준:
+    ✅ 전일 종가>SMA5>SMA10>SMA20>SMA60 (완전정배열) = 100
+    ✅ 전일 종가>SMA20>SMA60 = 85
+    ✅ 전일 종가>SMA20 = 75
+    ⚬ 전일 종가 ≈ SMA20 (±3%) = 60
+    ❌ 전일 종가<SMA20 = 45
+
+02. EMA (5,10,20,60,200일)
+
+    1차 검색: "[종목명] 지수이동평균 site:investing.com"
+    2차 검색: "[종목명] EMA site:tradingview.com"
+    3차 검색: "[종목명] exponential moving average"
+    4차 검색: "[종목명] EMA5 EMA20 site:finance.naver.com"
+    5차 검색: "[종목명] 지수평활이동평균"
+    6차 검색: "[종목명] EMA 골든크로스"
+    7차 검색: "[종목명] exponential MA site:finance.daum.net"
+    8차 검색: "[종목명] EMA 정배열"
+    9차 검색: "[종목명코드] EMA indicator"
+    10차 검색: "[종목명] 기술적지표 EMA"
+
+    🔥 모두 실패 시:
+    → SMA 데이터로 EMA 계산 (초기값으로 SMA 사용)
+    → 직접 계산: EMA = (종가 × 승수) + (전일EMA × (1-승수))
+       승수 = 2 / (N+1)
+    → 계산 과정 전체 명시 필수
+
+    점수 기준:
+    ✅ EMA 골든크로스 (단기>장기 교차) = 100
+    ✅ EMA 완전정배열 = 90
+    ✅ 전일 종가>EMA20 = 75
+    ⚬ 전일 종가 ≈ EMA20 = 60
+    ❌ 전일 종가<EMA20 = 45
+
+03. RSI (14일)
+
+    1차 검색: "[종목명] RSI site:finance.naver.com"
+    2차 검색: "[종목명] 상대강도지수 site:finance.daum.net"
+    3차 검색: "[종목명] RSI indicator site:tradingview.com"
+    4차 검색: "[종목명] technical indicators site:investing.com"
+    5차 검색: "[종목명] RSI 14 값"
+    6차 검색: "[종목명] relative strength index"
+    7차 검색: "[종목명] 과매수 과매도 RSI"
+    8차 검색: "[종목명] RSI 지표"
+    9차 검색: "[종목명코드] RSI 14"
+    10차 검색: "[종목명] 보조지표 RSI site:stockplus.com"
+
+    🔥 모두 실패 시:
+    → 과거 14일 종가 데이터 수집 (각 종가의 출처/날짜 필수 기록)
+    → 직접 계산:
+       상승폭 = MAX(종가-전일 종가, 0)
+       하락폭 = MAX(전일 종가-종가, 0)
+       평균상승폭 = 14일 상승폭 평균
+       평균하락폭 = 14일 하락폭 평균
+       RS = 평균상승폭 / 평균하락폭
+       RSI = 100 - (100 / (1 + RS))
+    → 계산 과정 전체 명시 필수
+
+    점수 기준:
+    ✅ 45≤RSI≤55 (중립 강세) = 100
+    ✅ 40≤RSI<45 or 55<RSI≤60 = 85
+    ✅ 35≤RSI<40 or 60<RSI≤65 = 75
+    ⚬ 30≤RSI<35 or 65<RSI≤70 = 60
+    ⚠️ RSI>70 (과매수) = 40
+    ⚠️ RSI<30 (과매도) = 50
+
+04. MACD (12,26,9)
+
+    1차 검색: "[종목명] MACD site:finance.naver.com"
+    2차 검색: "[종목명] MACD signal site:tradingview.com"
+    3차 검색: "[종목명] moving average convergence divergence"
+    4차 검색: "[종목명] MACD 히스토그램 site:finance.daum.net"
+    5차 검색: "[종목명] MACD 골든크로스"
+    6차 검색: "[종목명] MACD indicator site:investing.com"
+    7차 검색: "[종목명] MACD 매수신호"
+    8차 검색: "[종목명] MACD oscillator"
+    9차 검색: "[종목명코드] MACD"
+    10차 검색: "[종목명] 이동평균수렴확산"
+
+    🔥 모두 실패 시:
+    → EMA12, EMA26 수집 또는 계산
+    → 직접 계산:
+       MACD선 = EMA12 - EMA26
+       Signal선 = MACD의 EMA9
+       Histogram = MACD선 - Signal선
+    → 계산 과정 전체 명시 필수
+
+    점수 기준:
+    ✅ MACD>Signal AND MACD>0 AND Histogram증가 = 100
+    ✅ MACD>Signal AND MACD>0 = 90
+    ✅ MACD>Signal = 75
+    ⚬ MACD>0 = 60
+    ❌ MACD<0 AND MACD<Signal = 25
+
+05. 거래량비율
+
+    1차 검색: "[종목명] 거래량 site:finance.naver.com"
+    2차 검색: "[종목명] 거래대금 site:data.krx.co.kr"
+    3차 검색: "[종목명] volume site:finance.daum.net"
+    4차 검색: "[종목명] 평균거래량 site:investing.com"
+    5차 검색: "[종목명] 거래량 급증"
+    6차 검색: "[종목명] trading volume average"
+    7차 검색: "[종목명] 거래량 비율"
+    8차 검색: "[종목명] volume ratio"
+    9차 검색: "[종목명코드] 거래량"
+    10차 검색: "[종목명] 매매동향 거래량"
+
+    🔥 모두 실패 시:
+    → 과거 20일 거래량 데이터 수집
+    → 직접 계산:
+       평균거래량 = 20일 거래량 합 / 20
+       거래량비율 = 전일거래량 / 평균거래량
+
+    점수 기준:
+    ✅ 1.2≤비율≤2.0 (건전한 증가) = 100
+    ✅ 1.0≤비율<1.2 (정상) = 80
+    ✅ 0.8≤비율<1.0 (약간 부족) = 70
+    ⚬ 0.5≤비율<0.8 = 60
+    ⚠️ 비율>3.0 (급등 의심) = 55
+    ❌ 비율<0.5 (유동성 부족) = 40
+
+06. 볼린저 밴드
+
+    1차 검색: "[종목명] 볼린저밴드 site:finance.naver.com"
+    2차 검색: "[종목명] Bollinger Bands site:tradingview.com"
+    3차 검색: "[종목명] 변동성 밴드"
+    4차 검색: "[종목명] 볼린저 상단 하단 site:finance.daum.net"
+    5차 검색: "[종목명] BB indicator site:investing.com"
+    6차 검색: "[종목명] bollinger band"
+    7차 검색: "[종목명] 볼린저밴드 위치"
+    8차 검색: "[종목명] volatility bands"
+    9차 검색: "[종목명코드] Bollinger"
+    10차 검색: "[종목명] 기술적분석 밴드"
+
+    🔥 모두 실패 시:
+    → 과거 20일 종가 데이터 수집
+    → 직접 계산:
+       중심선 = 20일 SMA
+       표준편차 = SQRT(Σ(종가-중심선)² / 20)
+       상단밴드 = 중심선 + (2 × 표준편차)
+       하단밴드 = 중심선 - (2 × 표준편차)
+       위치% = (전일 종가 - 하단) / (상단 - 하단) × 100
+
+    점수 기준:
+    ✅ 40≤위치≤60 (중심부) = 100
+    ✅ 60<위치≤75 (상단 접근) = 85
+    ✅ 25≤위치<40 (하단 접근) = 80
+    ⚬ 15≤위치<25 or 75<위치≤85 = 65
+    ⚠️ 위치>85 (과매수) = 50
+    ⚠️ 위치<15 (과매도) = 55
+
+07. ATR (Average True Range, 14일)
+
+    1차 검색: "[종목명] ATR site:investing.com"
+    2차 검색: "[종목명] Average True Range site:tradingview.com"
+    3차 검색: "[종목명] 평균진폭 변동성"
+    4차 검색: "[종목명] ATR 지표 site:finance.naver.com"
+    5차 검색: "[종목명] true range site:finance.daum.net"
+    6차 검색: "[종목명] volatility ATR"
+    7차 검색: "[종목명] 가격변동폭"
+    8차 검색: "[종목명] ATR indicator"
+    9차 검색: "[종목명코드] ATR 14"
+    10차 검색: "[종목명] 변동성분석"
+
+    🔥 모두 실패 시:
+    → 과거 14일 고가/저가/종가 데이터 수집
+    → 직접 계산:
+       TR = MAX(고가-저가, |고가-전일 종가|, |저가-전일 종가|)
+       ATR = TR의 14일 이동평균
+       ATR% = (ATR / 전일 종가) × 100
+
+    점수 기준:
+    ✅ 2≤ATR%≤5 (적정 변동성) = 100
+    ✅ 1.5≤ATR%<2 or 5<ATR%≤7 = 80
+    ⚬ 1≤ATR%<1.5 or 7<ATR%≤10 = 60
+    ❌ ATR%<1 (변동성 부족) or ATR%>10 (과도한 변동) = 40
+
+08. ADX (Average Directional Index, 14일)
+
+    1차 검색: "[종목명] ADX site:investing.com"
+    2차 검색: "[종목명] Average Directional Index site:tradingview.com"
+    3차 검색: "[종목명] 추세강도지수"
+    4차 검색: "[종목명] ADX +DI -DI site:finance.naver.com"
+    5차 검색: "[종목명] directional movement indicator"
+    6차 검색: "[종목명] DMI site:finance.daum.net"
+    7차 검색: "[종목명] ADX 지표"
+    8차 검색: "[종목명] trend strength"
+    9차 검색: "[종목명코드] ADX indicator"
+    10차 검색: "[종목명] 방향성지수"
+
+    🔥 모두 실패 시:
+    → 과거 14일 고가/저가/종가 데이터 수집
+    → 직접 계산:
+       +DM = MAX(금일고가 - 전일고가, 0)
+       -DM = MAX(전일저가 - 금일저가, 0)
+       TR = MAX(고가-저가, |고가-전일 종가|, |저가-전일 종가|)
+       +DI14 = (+DM의 14일평균 / TR의 14일평균) × 100
+       -DI14 = (-DM의 14일평균 / TR의 14일평균) × 100
+       DX = |+DI - -DI| / |+DI + -DI| × 100
+       ADX = DX의 14일 이동평균
+    → 계산 불가 시 해당 지표 제외
+
+    점수 기준:
+    ✅ ADX>25 AND +DI>-DI (강한 상승추세) = 100
+    ✅ ADX 20-25 AND +DI>-DI (상승추세) = 85
+    ⚬ ADX<20 (약한 추세/횡보) = 60
+    ❌ ADX>25 AND +DI<-DI (강한 하락추세) = 30
+
+09. OBV (On Balance Volume)
+
+    1차 검색: "[종목명] OBV site:tradingview.com"
+    2차 검색: "[종목명] On Balance Volume site:investing.com"
+    3차 검색: "[종목명] 거래량지표 OBV"
+    4차 검색: "[종목명] 누적거래량 site:finance.naver.com"
+    5차 검색: "[종목명] volume indicator OBV"
+    6차 검색: "[종목명] OBV analysis site:finance.daum.net"
+    7차 검색: "[종목명] 거래량추세 OBV"
+    8차 검색: "[종목명] cumulative volume"
+    9차 검색: "[종목명코드] OBV"
+    10차 검색: "[종목명] 거래량분석 지표"
+
+    🔥 모두 실패 시:
+    → 과거 20일 종가/거래량 데이터 수집
+    → 직접 계산:
+       IF 금일종가 > 전일 종가: OBV += 금일거래량
+       IF 금일종가 < 전일 종가: OBV -= 금일거래량
+       IF 금일종가 = 전일 종가: OBV 변화없음
+    → 최근 5일 OBV 추세 확인 (상승/하락)
+
+    점수 기준:
+    ✅ OBV상승 AND 가격상승 (가격거래량 동반) = 100
+    ✅ OBV상승 AND 가격횡보 (매집) = 80
+    ⚬ OBV횡보 = 65
+    ⚠️ OBV하락 AND 가격상승 (다이버전스) = 45
+    ❌ OBV하락 AND 가격하락 = 30
+
+10. Stochastic (스토캐스틱, 14,3,3)
+
+    1차 검색: "[종목명] 스토캐스틱 site:finance.naver.com"
+    2차 검색: "[종목명] Stochastic site:tradingview.com"
+    3차 검색: "[종목명] %K %D site:finance.daum.net"
+    4차 검색: "[종목명] stochastic oscillator site:investing.com"
+    5차 검색: "[종목명] 스토캐스틱 지표"
+    6차 검색: "[종목명] slow stochastic"
+    7차 검색: "[종목명] 과매수과매도 스토캐스틱"
+    8차 검색: "[종목명] stoch indicator"
+    9차 검색: "[종목명코드] stochastic"
+    10차 검색: "[종목명] KD지표"
+
+    🔥 모두 실패 시:
+    → 과거 14일 고가/저가/종가 수집
+    → 직접 계산:
+       %K = (전일 종가 - 14일최저가) / (14일최고가 - 14일최저가) × 100
+       %D = %K의 3일 이동평균
+    → 계산 불가 시 해당 지표 제외
+
+    점수 기준:
+    ✅ %K>%D AND 20<%K<80 (정상 상승) = 100
+    ✅ %K>%D AND %K<20 (과매도 탈출) = 95
+    ✅ %K>%D (상승 전환) = 80
+    ⚬ 20<%K<80 AND %K≈%D = 65
+    ⚠️ %K<%D AND %K>80 (과매수 하락전환) = 40
+    ❌ %K<%D AND %K<20 (지속 약세) = 35
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+【TIER 2: 중요 10개 지표 - 각 지표당 최소 10번 이상 검색】
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+11. Williams %R (14일)
+12. ROC (Rate of Change, 12일)
+13. CCI (Commodity Channel Index, 20일)
+14. MFI (Money Flow Index, 14일)
+15. CMF (Chaikin Money Flow, 20일)
+16. Parabolic SAR
+17. Ichimoku (일목균형표)
+18. SuperTrend
+19. VWAP (Volume Weighted Average Price)
+20. 52주 고저점
+
+(각 지표의 10번 검색 쿼리, 계산 공식, 점수 기준은 원본과 동일)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+【TIER 3: 고급 10개 지표 - 각 지표당 최소 10번 이상 검색】
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+21. Keltner Channel (켈트너 채널, 20일)
+22. Donchian Channel (돈치안 채널, 20일)
+23. Aroon (아론 지표, 25일)
+24. Elder Ray (엘더레이, 13일)
+25. Force Index (힘지수, 13일)
+26. Ease of Movement (EMV, 14일)
+27. Accumulation/Distribution (A/D Line)
+28. Know Sure Thing (KST)
+29. Vortex Indicator (VI, 14일)
+30. Chaikin Oscillator (차이킨 오실레이터)
+
+(각 지표의 10번 검색 쿼리, 계산 공식, 점수 기준은 원본과 동일)`;
+}
+

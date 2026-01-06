@@ -124,46 +124,46 @@ STAGE 4 완료: 최종 3개 종목 선정
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 【종목 1】
-ticker: KOSPI:005930
-name: 삼성전자
-close_price: 75300
-rationale: SMA 완전정배열|EMA 골든크로스|RSI 58 강세권|MACD 양전환|거래량 165% 급증|볼린저 중상단|ATR 3.2% 적정|ADX 28 강한추세|OBV 지속상승|스토캐스틱 상승전환|SuperTrend 매수|52주 상위 72%
+ticker: [검색결과_ticker]
+name: [검색결과_종목명]
+close_price: [검색결과_정수_종가]
+rationale: [검색결과_rationale]
 signals:
-  trend_score: 88
-  momentum_score: 85
-  volume_score: 90
-  volatility_score: 82
-  pattern_score: 87
-  sentiment_score: 84
-  overall_score: 86
+  trend_score: [계산_정수_trend_score]
+  momentum_score: [계산_정수_momentum_score]
+  volume_score: [계산_정수_volume_score]
+  volatility_score: [계산_정수_volatility_score]
+  pattern_score: [계산_정수_pattern_score]
+  sentiment_score: [계산_정수_sentiment_score]
+  overall_score: [계산_정수_overall_score]
 
 【종목 2】
-ticker: KOSPI:000660
-name: SK하이닉스
-close_price: 142500
-rationale: (위와 동일한 형식으로 작성)
+ticker: [검색결과_ticker]
+name: [검색결과_종목명]
+close_price: [검색결과_정수_종가]
+rationale: [검색결과_rationale]
 signals:
-  trend_score: 85
-  momentum_score: 88
-  volume_score: 87
-  volatility_score: 80
-  pattern_score: 85
-  sentiment_score: 82
-  overall_score: 85
+  trend_score: [계산_정수_trend_score]
+  momentum_score: [계산_정수_momentum_score]
+  volume_score: [계산_정수_volume_score]
+  volatility_score: [계산_정수_volatility_score]
+  pattern_score: [계산_정수_pattern_score]
+  sentiment_score: [계산_정수_sentiment_score]
+  overall_score: [계산_정수_overall_score]
 
 【종목 3】
-ticker: KOSPI:035420
-name: NAVER
-close_price: 215000
-rationale: (위와 동일한 형식으로 작성)
+ticker: [검색결과_ticker]
+name: [검색결과_종목명]
+close_price: [검색결과_정수_종가]
+rationale: [검색결과_rationale]
 signals:
-  trend_score: 83
-  momentum_score: 86
-  volume_score: 85
-  volatility_score: 81
-  pattern_score: 84
-  sentiment_score: 80
-  overall_score: 84
+  trend_score: [계산_정수_trend_score]
+  momentum_score: [계산_정수_momentum_score]
+  volume_score: [계산_정수_volume_score]
+  volatility_score: [계산_정수_volatility_score]
+  pattern_score: [계산_정수_pattern_score]
+  sentiment_score: [계산_정수_sentiment_score]
+  overall_score: [계산_정수_overall_score]
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
