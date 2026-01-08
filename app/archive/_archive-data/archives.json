@@ -1,6 +1,61 @@
 {
   "newsletters": [
     {
+      "date": "2026-01-09",
+      "stocks": [
+        {
+          "ticker": "KOSDAQ:399720",
+          "name": "가온칩스",
+          "close_price": 64300,
+          "rationale": "2026-01-08 종가 64,300원 확인(전일비 +20.63%)|삼성전자 4분기 어닝서프라이즈에 따른 파운드리 파트너 수혜|거래량 1,861,540주로 전일 대비 약 1100% 폭증|RSI 64.3으로 과매수 구간(70) 미진입한 강력한 상승 동력|SMA5/20/60 단기 정배열 초기 진입|MACD 히스토그램 양선 전환 및 시그널선 돌파 확인|52주 신고가 66,300원 돌파 시도 중인 매물대 소화 완료|OBV(거래량 온밸런스) 지표 신고가 경신으로 매집세 확인|볼린저밴드 상단 확장에 따른 변동성 돌파 구간 진입|ATR 지표 상승으로 단기 급등 변동성 확보",
+          "signals": {
+            "trend_score": 92,
+            "momentum_score": 89,
+            "volume_score": 96,
+            "volatility_score": 88,
+            "pattern_score": 90,
+            "sentiment_score": 93,
+            "overall_score": 91
+          },
+          "verified_date": "2026-01-08"
+        },
+        {
+          "ticker": "KOSDAQ:462350",
+          "name": "이노스페이스",
+          "close_price": 20600,
+          "rationale": "2026-01-08 종가 20,600원 확인(전일비 +16.73%)|유럽 내 첫 민간 발사장 확보 소식으로 인한 우주항공 테마 주도주 부상|장기 횡보 박스권 상단을 대량 거래로 돌파|RSI 58.5로 상승 여력이 충분한 무릎 구간 위치|거래량 120만 주 돌파하며 직전 20거래일 평균 대비 500% 증가|Williams %R -25로 강한 매수세 유입 신호|CCI 120 돌파로 추세 가속화 구간 진입 확인|우주항공산업 테마 내 순환매 집중 수혜|외국인 및 기관 동반 순매수 유입 확인|조정 후 첫 장대양봉 발생으로 기술적 반등 초기 단계",
+          "signals": {
+            "trend_score": 88,
+            "momentum_score": 91,
+            "volume_score": 92,
+            "volatility_score": 84,
+            "pattern_score": 89,
+            "sentiment_score": 95,
+            "overall_score": 90
+          },
+          "verified_date": "2026-01-08"
+        },
+        {
+          "ticker": "KOSDAQ:131400",
+          "name": "이브이첨단소재",
+          "close_price": 1812,
+          "rationale": "2026-01-08 종가 1,812원 확인(전일비 +12.15%)|CES 2026 전고체 배터리 혁신 기술 발표 모멘텀 선반영 시작|저가권에서 거래량 동반한 바닥 돌파형 캔들 형성|RSI 62.1로 과매수 경계선 하단에서 탄력 유지|볼린저밴드 상단(1,780원)을 돌파하며 밴드 확장형 추세 형성|ADX 28로 하락 추세 종료 및 상승 추세 전환 초기 확인|MFI(자금유입지표) 74로 스마트 머니 유입 신호 발생|Stochastic Fast %K가 %D를 골든크로스하며 단기 매수 적기 형성|전고체 배터리 테마의 업종 내 상대적 강세 지수(RS) 우위|Force Index 양수 전환으로 매수 세력의 통제력 강화",
+          "signals": {
+            "trend_score": 84,
+            "momentum_score": 86,
+            "volume_score": 94,
+            "volatility_score": 87,
+            "pattern_score": 85,
+            "sentiment_score": 82,
+            "overall_score": 86
+          },
+          "verified_date": "2026-01-08"
+        }
+      ],
+      "sentAt": "2026-01-08T22:52:34.484+00:00",
+      "subscriberCount": 71
+    },
+    {
       "date": "2026-01-08",
       "stocks": [
         {
@@ -2659,5 +2714,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-01-07T23:02:04.016Z"
+  "lastUpdated": "2026-01-08T22:53:04.126Z"
 }
