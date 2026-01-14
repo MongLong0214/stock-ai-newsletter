@@ -1,6 +1,61 @@
 {
   "newsletters": [
     {
+      "date": "2026-01-15",
+      "stocks": [
+        {
+          "ticker": "KOSPI:035720",
+          "name": "카카오",
+          "close_price": 58800,
+          "rationale": "2026-01-14 종가 58,800원 확인(investing.com)|RSI(14) 47.94로 과매도 구간 탈출 후 안정적 반등세|NH투자증권 2026년 AI 사업 확장 본격화 리포트 발표|MA200 54,897원 구간에서 강력한 하방 경직성 확보|MACD 히스토그램 3거래일 연속 막대 축소로 양전환 임박|거래량 1,569,392주로 전일 대비 안정적 유지([8])|52주 범위(35,700~71,600) 내 무릎 가격대 위치|본업 실적 개선 및 신규 AI 서비스 '카나나' 수익화 기대([10])|볼린저밴드 중심선(20일선) 상향 돌파 시도|외국인 지분율 30.0%대 유지하며 수급 개선 징후",
+          "signals": {
+            "trend_score": 84,
+            "momentum_score": 88,
+            "volume_score": 82,
+            "volatility_score": 79,
+            "pattern_score": 92,
+            "sentiment_score": 89,
+            "overall_score": 86
+          },
+          "verified_date": "2026-01-14"
+        },
+        {
+          "ticker": "KOSPI:373220",
+          "name": "LG에너지솔루션",
+          "close_price": 389500,
+          "rationale": "2026-01-14 종가 389,500원 확인(MoneyS)|RSI(14) 52.23 중립 상향 구간 진입([11])|2026년 ESS(에너지저장장치) 매출 150% 성장 전망(8.6조원, [17])|4분기 실적 우려 선반영 후 ESS 모멘텀으로 4.41% 반등 성공([15])|SMA 5/20일선 골든크로스 발생 직전 구간|ATR 3.08% 수준으로 변동성 확대되며 상방 압력 증가|미국 데이터센터 수요 폭증에 따른 ESS 수주 가속화 이슈|볼린저밴드 하단 이탈 후 중심선 안착 성공|거래량 268,260주로 바닥권 대비 점진적 우상향|2차전지 섹터 내 차별화된 실적 회복 가시성 확보",
+          "signals": {
+            "trend_score": 87,
+            "momentum_score": 83,
+            "volume_score": 80,
+            "volatility_score": 84,
+            "pattern_score": 89,
+            "sentiment_score": 85,
+            "overall_score": 85
+          },
+          "verified_date": "2026-01-14"
+        },
+        {
+          "ticker": "KOSPI:034020",
+          "name": "두산에너빌리티",
+          "close_price": 25450,
+          "rationale": "2026-01-14 종가 전일 대비 2.99% 상승 마감 확인([5])|KOSPI 4,700선 돌파 장세 속 핵심 주도주 역할([3])|RSI(14) 62.15로 과열권(70) 미만 강세 구간 위치|SMR(소형모듈원자로) 미국 뉴스케일 파워 협력 강화 모멘텀|14일 기관 6,505억원 순매수세 유입 종목군 포함([4])|정부 차세대 칩 및 배터리/원전 연구 프로젝트 2,351억 투자 수혜|주요 이동평균선(5, 20, 60, 120) 완전 정배열 형성|OBV 지표 직전 고점 돌파하며 매집 세력 강화 확인|K-원전 수출 최종 계약 임박설에 따른 기대 심리 최고조|거래대금 상위 10위권 랭크되며 시장 관심 집중([15])",
+          "signals": {
+            "trend_score": 94,
+            "momentum_score": 91,
+            "volume_score": 93,
+            "volatility_score": 82,
+            "pattern_score": 90,
+            "sentiment_score": 92,
+            "overall_score": 91
+          },
+          "verified_date": "2026-01-14"
+        }
+      ],
+      "sentAt": "2026-01-14T22:53:02.252+00:00",
+      "subscriberCount": 76
+    },
+    {
       "date": "2026-01-14",
       "stocks": [
         {
@@ -2879,5 +2934,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-01-13T23:03:02.331Z"
+  "lastUpdated": "2026-01-14T22:53:30.226Z"
 }
