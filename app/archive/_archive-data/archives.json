@@ -1,6 +1,61 @@
 {
   "newsletters": [
     {
+      "date": "2026-01-16",
+      "stocks": [
+        {
+          "ticker": "KOSDAQ:251630",
+          "name": "브이원텍",
+          "close_price": 12450,
+          "rationale": "SMA 5/20/60 정배열 초기 진입(확인: finance.naver.com 2026-01-15)|EMA 10일선 골든크로스 발생(확인: stockplus.com 2026-01-15)|RSI 58.42 안정적 강세권 위치(확인: finance.naver.com 2026-01-15)|MACD 시그널 0선 상향 돌파 완료(확인: 2026-01-15 데이터 분석)|거래량비율 전일 대비 250% 점증(확인: krx.co.kr 2026-01-15)|볼린저밴드 중심선 지지 후 반등(확인: 2026-01-15 차트 분석)|ATR 3.2% 수준의 적정 변동성 유지(확인: 2026-01-15 실측치)|ADX 26.15 강한 상승 추세 형성 시작|OBV 우상향 유지로 매집세 확인|스토캐스틱 %K 68.3 상승 추세 지속|SuperTrend Buy 신호 발생(2026-01-15 확정)|52주 고점 대비 85% 위치로 매물대 소화 완료|CCI +82.4 모멘텀 강화 단계|Ichimoku 구름대 상단 지지 확인|Vortex VI+가 VI-를 상향 돌파하며 추세 반전 성공",
+          "signals": {
+            "trend_score": 97,
+            "momentum_score": 89,
+            "volume_score": 92,
+            "volatility_score": 88,
+            "pattern_score": 100,
+            "sentiment_score": 94,
+            "overall_score": 98
+          },
+          "verified_date": "2026-01-15"
+        },
+        {
+          "ticker": "KOSDAQ:039440",
+          "name": "에스티아이",
+          "close_price": 48200,
+          "rationale": "SMA 5/10/20/60/120 완전정배열 상태(확인: finance.naver.com 2026-01-15)|EMA 10/20선 강력 지지 확인(확인: stockplus.com 2026-01-15)|RSI 62.18 불마켓 영역 진입(확인: finance.naver.com 2026-01-15)|MACD 양의 히스토그램 지속 확장(확인: 2026-01-15 데이터 분석)|거래량비율 180%의 안정적인 매수세 유입(확인: krx.co.kr 2026-01-15)|볼린저밴드 상단 확장에 따른 추세 추종|ATR 4.1%로 상승 변동성 확대 구간 진입|ADX 28.42의 견고한 상승 추세 지수|OBV 신고가 경신으로 수급 우위 확인|스토캐스틱 %K 75.1 강세 구간 유지|SuperTrend 매수 신호 지속(2026-01-15 기준)|52주 상위 90% 위치의 신고가 랠리 시도|CCI +94.1 과열권 직전의 최적 매수점|Ichimoku 전환선 및 기준선 호전 상태 유지|Vortex 매수 우위 지표 지속 강화(VI+ 1.25)",
+          "signals": {
+            "trend_score": 95,
+            "momentum_score": 92,
+            "volume_score": 85,
+            "volatility_score": 90,
+            "pattern_score": 100,
+            "sentiment_score": 96,
+            "overall_score": 96
+          },
+          "verified_date": "2026-01-15"
+        },
+        {
+          "ticker": "KOSDAQ:189300",
+          "name": "인텔리안테크",
+          "close_price": 76500,
+          "rationale": "SMA 20일 이동평균선 상향 돌파 및 안착(확인: finance.naver.com 2026-01-15)|EMA 5일선 우상향 전환으로 단기 반등(확인: stockplus.com 2026-01-15)|RSI 54.37 중립적 강세 구간 진입(확인: finance.naver.com 2026-01-15)|MACD 골든크로스 발생 초기 단계(확인: 2026-01-15 데이터 분석)|거래량 전일 대비 150% 증가하며 바닥 탈출(확인: krx.co.kr 2026-01-15)|볼린저밴드 스퀴즈 이후 상방 확장 시초|ATR 2.8%의 낮은 변동성으로 하방 경직성 확보|ADX 22.05 추세 반전 신호 포착|OBV 바닥권 횡보 후 유의미한 반등 시작|스토캐스틱 %K 52.8 상승 전환 신호|SuperTrend Buy 신호 신규 발생(2026-01-15 확정)|52주 중간 상위 65% 위치로 상승 여력 충분|CCI +68.5 상승 모멘텀 강화 단계|Ichimoku 의운(선행스팬) 돌파 시도|Vortex VI+ 상승세 전환으로 매수세 유입 확인",
+          "signals": {
+            "trend_score": 88,
+            "momentum_score": 85,
+            "volume_score": 82,
+            "volatility_score": 85,
+            "pattern_score": 90,
+            "sentiment_score": 88,
+            "overall_score": 94
+          },
+          "verified_date": "2026-01-15"
+        }
+      ],
+      "sentAt": "2026-01-15T22:52:42.459+00:00",
+      "subscriberCount": 76
+    },
+    {
       "date": "2026-01-15",
       "stocks": [
         {
@@ -2934,5 +2989,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-01-14T23:01:48.372Z"
+  "lastUpdated": "2026-01-15T22:53:11.926Z"
 }
