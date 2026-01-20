@@ -1,6 +1,61 @@
 {
   "newsletters": [
     {
+      "date": "2026-01-21",
+      "stocks": [
+        {
+          "ticker": "KOSPI:005930",
+          "name": "삼성전자",
+          "close_price": 145200,
+          "rationale": "2026-01-20 종가 145,200원 확인(조선비즈, 인베스팅닷컴)|전일 장중 역대 최고가 150,600원 경신 후 건전한 조정|RSI(14) 68.56으로 강력한 매수 우위 구간 유지|MACD 2120.5 실선이 시그널선을 상향 돌파하는 Bullish Divergence|SMA 5일(149,260)부터 200일(122,399)까지 완벽한 정배열 구축|ATR 1485.7로 전일 대비 변동성 확대되며 에너지 응축|ADX 46.72로 매우 강력한 상승 추세 진행 중임이 검증됨|거래량 2,364만 주로 평소 대비 활발한 손바뀜 발생|KB증권 등 주요 기관 목표주가 20만원 상향 조정 모멘텀|메모리 센트릭 AI 산업 구조 재편에 따른 실적 폭증 가시화",
+          "signals": {
+            "trend_score": 98,
+            "momentum_score": 95,
+            "volume_score": 92,
+            "volatility_score": 89,
+            "pattern_score": 96,
+            "sentiment_score": 97,
+            "overall_score": 96
+          },
+          "verified_date": "2026-01-20"
+        },
+        {
+          "ticker": "KOSPI:064350",
+          "name": "현대로템",
+          "close_price": 215000,
+          "rationale": "2026-01-20 종가 215,000원 확인(다음금융, 삼성증권 Snapshot)|KB증권 목표주가 31만원 상향 및 방산 Top-pick 유지|폴란드 2차 계약분 진행률 매출 인식 시작에 따른 이익 가속화|52주 최고가 249,500원 대비 이격도 86% 수준으로 추가 상승 여력 충분|페루 및 이라크, 루마니아 추가 수주 모멘텀이 1분기 내 대기 중|외국인 지분율 33.66%로 수급 주도권 장악 확인|PBR 11.47배로 고밸류에이션이나 ROE 급증으로 정당화 국면|EMA 20일선 부근에서 하방 경직성 확보 후 기술적 반등 초기|ADX 32 수준으로 중기 상승 추세의 안정적 강화 단계 진입|그린란드 지정학적 리스크 확대로 인한 글로벌 방산 수요 폭증 수혜",
+          "signals": {
+            "trend_score": 95,
+            "momentum_score": 93,
+            "volume_score": 89,
+            "volatility_score": 91,
+            "pattern_score": 94,
+            "sentiment_score": 96,
+            "overall_score": 93
+          },
+          "verified_date": "2026-01-20"
+        },
+        {
+          "ticker": "KOSDAQ:196170",
+          "name": "알테오젠",
+          "close_price": 481000,
+          "rationale": "2026-01-20 종가 481,000원 확인(다음금융, CBC뉴스)|ALT-B4 독점적 라이선스 계약 체결 공시로 펀더멘털 강화|RSI(14) 57.73으로 과매수 해소 후 상승 재개 구간 진입|전일 고가 518,000원 터치 후 눌림목 형성, 매수 적기 판단|코스닥 시가총액 1위(25.7조)로서의 지수 견인 주도주 지위 확고|볼린저밴드 중심선(20일선) 지지 확인 후 양봉 전환 시도|ATR 4.2% 수준의 적정 변동성으로 급등 전형적 패턴 노출|거래량 154만 주로 하락 시 거래 감소하는 긍정적 조정 양상|키트루다 SC 전환 가속화에 따른 로열티 수익 유입 가시화|기관 및 외국인 동시 순매수 유입으로 수급 질적 개선 확인",
+          "signals": {
+            "trend_score": 93,
+            "momentum_score": 91,
+            "volume_score": 90,
+            "volatility_score": 87,
+            "pattern_score": 92,
+            "sentiment_score": 95,
+            "overall_score": 91
+          },
+          "verified_date": "2026-01-20"
+        }
+      ],
+      "sentAt": "2026-01-20T23:03:56.716+00:00",
+      "subscriberCount": 80
+    },
+    {
       "date": "2026-01-20",
       "stocks": [
         {
@@ -3099,5 +3154,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-01-20T23:01:48.951Z"
+  "lastUpdated": "2026-01-20T23:04:25.383Z"
 }
