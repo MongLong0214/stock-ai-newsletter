@@ -1,6 +1,61 @@
 {
   "newsletters": [
     {
+      "date": "2026-01-22",
+      "stocks": [
+        {
+          "ticker": "KOSPI:160190",
+          "name": "하이젠알앤엠",
+          "close_price": 24500,
+          "rationale": "2026년 1월 21일 로봇 섹터 강세 속 SMA 20일선(23,850원) 안착 확인|EMA5(24,120원) 단기 골든크로스 발생|RSI 51.83으로 과매수 없이 상승 여력 확보|MACD 히스토그램 4거래일 연속 우상향|전일 대비 거래량 135.2% 급증하며 매수세 유입|볼린저밴드 중심선(24,050원) 상향 돌파 성공|ATR 1,102.5로 적정 변동성 유지|ADX 24.12로 상승 추세 강화 초기 진입|OBV 지표 저점 높이며 매집 신호 포착|스토캐스틱 %K 58.4%로 매수 시그널 발생",
+          "signals": {
+            "trend_score": 93,
+            "momentum_score": 96,
+            "volume_score": 95,
+            "volatility_score": 91,
+            "pattern_score": 94,
+            "sentiment_score": 93,
+            "overall_score": 94
+          },
+          "verified_date": "2026-01-21"
+        },
+        {
+          "ticker": "KOSPI:270660",
+          "name": "에브리봇",
+          "close_price": 22400,
+          "rationale": "2026년 1월 21일 코스닥 하락장 속 로봇주 방어세 확인|EMA 정배열 전환 초기 단계(EMA20 21,900원 상회)|RSI 58.41로 강세 중립 구간 유지|MACD 시그널 0선 상향 돌파 시도|거래량 1,420,000주 기록하며 전일비 142% 상승|볼린저 스퀴즈 구간 이후 상단 확장 국면|ATR 870.4로 변동성 응축 완료|ADX 22.51로 새로운 추세 형성 시작|MFI 64.25로 안정적인 자금 유입 확인|Vortex VI+ 1.15로 상승 모멘텀 우위",
+          "signals": {
+            "trend_score": 89,
+            "momentum_score": 92,
+            "volume_score": 93,
+            "volatility_score": 95,
+            "pattern_score": 90,
+            "sentiment_score": 91,
+            "overall_score": 91
+          },
+          "verified_date": "2026-01-21"
+        },
+        {
+          "ticker": "KOSPI:264450",
+          "name": "유비쿼스",
+          "close_price": 11930,
+          "rationale": "2026년 1월 21일 SMA 20/60일선 골든크로스 완성|EMA 20일선(11,750원) 지지 후 반등 흐름|RSI 48.72로 바닥권 탈출 후 상승 반전|MACD 시그널선 골든크로스 확정|거래량비율 112.4%로 안정적 수급 흐름|볼린저밴드 하단 터치 후 중심선 회복|ATR 285.5로 저변동성 구간 매집 확인|ADX 21.24로 추세 분출 대기 상태|스토캐스틱 45.1%로 상승 전환 시그널|Williams %R -45.23으로 중립 강세 진입",
+          "signals": {
+            "trend_score": 86,
+            "momentum_score": 88,
+            "volume_score": 84,
+            "volatility_score": 92,
+            "pattern_score": 85,
+            "sentiment_score": 84,
+            "overall_score": 87
+          },
+          "verified_date": "2026-01-21"
+        }
+      ],
+      "sentAt": "2026-01-21T22:55:13.434+00:00",
+      "subscriberCount": 83
+    },
+    {
       "date": "2026-01-21",
       "stocks": [
         {
@@ -3154,5 +3209,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-01-20T23:04:25.383Z"
+  "lastUpdated": "2026-01-21T22:55:43.805Z"
 }
