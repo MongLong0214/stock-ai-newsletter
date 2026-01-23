@@ -277,13 +277,42 @@ export async function generateBlogContent(
  * 5. 날짜 추가 (고유성 보장)
  *
  * @param title - 원본 제목
+ * @param fallbackKeyword - 제목이 비어있거나 숫자-only일 때 사용할 보조 키워드
  * @returns URL-friendly 슬러그
  *
  * @example
  * generateSlug('2024년 최고의 주식 뉴스레터 추천')
  * // 결과: 'stock-newsletter-recommend-2024-01-15'
  */
-export function generateSlug(title: string): string {
+function normalizeSlugBase(text: string, keywordMappings: Record<string, string>): string {
+  let slug = text.toLowerCase();
+
+  Object.entries(keywordMappings).forEach(([korean, english]) => {
+    slug = slug.replace(new RegExp(korean, 'g'), english);
+  });
+
+  return slug
+    .replace(/[^\w\s-]/g, '') // 영숫자, 공백, 하이픈만 유지
+    .replace(/\s+/g, '-') // 공백 → 하이픈
+    .replace(/-+/g, '-') // 연속 하이픈 → 단일 하이픈
+    .trim()
+    .replace(/^-|-$/g, ''); // 앞뒤 하이픈 제거
+}
+
+function hasAlpha(slug: string): boolean {
+  return /[a-z]/.test(slug);
+}
+
+function hashSlugSeed(input: string): string {
+  let hash = 0;
+  for (let i = 0; i < input.length; i += 1) {
+    hash = (hash << 5) - hash + input.charCodeAt(i);
+    hash |= 0;
+  }
+  return Math.abs(hash).toString(36).slice(0, 6);
+}
+
+export function generateSlug(title: string, fallbackKeyword?: string): string {
   // 한글 → 영문 키워드 매핑
   // SEO를 위해 영문 URL 사용
   const keywordMappings: Record<string, string> = {
@@ -302,26 +331,25 @@ export function generateSlug(title: string): string {
     'AI': 'ai',
   };
 
-  // 1. 소문자 변환
-  let slug = title.toLowerCase();
+  const baseFromTitle = normalizeSlugBase(title, keywordMappings);
+  let slugBase = baseFromTitle;
 
-  // 2. 한글 키워드를 영문으로 변환
-  Object.entries(keywordMappings).forEach(([korean, english]) => {
-    slug = slug.replace(new RegExp(korean, 'g'), english);
-  });
+  if (!slugBase || !hasAlpha(slugBase)) {
+    const fallbackBase = fallbackKeyword
+      ? normalizeSlugBase(fallbackKeyword, keywordMappings)
+      : '';
+    if (fallbackBase && hasAlpha(fallbackBase)) {
+      slugBase = fallbackBase;
+    }
+  }
 
-  // 3-4. 특수문자 제거 및 공백 → 하이픈 변환
-  slug = slug
-    .replace(/[^\w\s-]/g, '') // 영숫자, 공백, 하이픈만 유지
-    .replace(/\s+/g, '-') // 공백 → 하이픈
-    .replace(/-+/g, '-') // 연속 하이픈 → 단일 하이픈
-    .trim()
-    .replace(/^-|-$/g, ''); // 앞뒤 하이픈 제거
+  if (!slugBase) {
+    const seed = title || fallbackKeyword || 'stock-analysis';
+    slugBase = `stock-analysis-${hashSlugSeed(seed)}`;
+  }
 
   // 5. 날짜 추가 (고유성 보장)
   // 같은 제목의 글이 있어도 날짜가 다르면 다른 URL
   const date = new Date().toISOString().slice(0, 10); // 'YYYY-MM-DD'
-  slug = `${slug}-${date}`;
-
-  return slug;
+  return `${slugBase}-${date}`;
 }

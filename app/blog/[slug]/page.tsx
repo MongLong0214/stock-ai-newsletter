@@ -15,6 +15,7 @@ import { getServerSupabaseClient } from '@/lib/supabase/server-client';
 import { parseMarkdown } from '../_utils/markdown-parser';
 import { formatDateKo } from '../_utils/date-formatter';
 import { createArticleSchema, createFAQSchema, createBreadcrumbSchema } from '../_utils/schema-generator';
+import { isValidBlogSlug } from '../_utils/slug-validator';
 import type { BlogPost } from '../_types/blog';
 
 import { ReadingProgress } from './_components/reading-progress';
@@ -58,6 +59,9 @@ async function getRelatedPosts(currentSlug: string, tags: string[]) {
 /** 동적 메타데이터 생성 */
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { slug } = await params;
+  if (!isValidBlogSlug(slug)) {
+    return { title: '페이지를 찾을 수 없습니다', robots: { index: false, follow: false } };
+  }
   const post = await getBlogPost(slug);
 
   if (!post) return { title: '페이지를 찾을 수 없습니다' };
@@ -97,6 +101,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 /** 블로그 상세 페이지 컴포넌트 */
 async function BlogPostPage({ params }: PageProps) {
   const { slug } = await params;
+  if (!isValidBlogSlug(slug)) notFound();
   const post = await getBlogPost(slug);
 
   if (!post) notFound();
