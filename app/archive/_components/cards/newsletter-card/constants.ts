@@ -7,9 +7,10 @@ import type { StockSignals } from '../../../_types/archive.types';
 /** 추천 근거 레이아웃 설정 */
 export const RATIONALE_LAYOUT = {
   ITEM_HEIGHT: 42,
+  ITEM_GAP: 8,
   HEADER_HEIGHT: 32,
+  HEADER_MARGIN: 12,
   BOTTOM_PADDING: 24,
-  CONTENT_OFFSET: 50,
 } as const;
 
 /** 시그널 점수 키 타입 (overall_score 제외) */

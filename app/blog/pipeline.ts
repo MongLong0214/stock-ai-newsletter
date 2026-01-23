@@ -43,7 +43,7 @@ export async function generateBlogPost(keyword: string, type: 'comparison' | 'gu
 
     // 3. 저장
     const post: BlogPostCreateInput = {
-      slug: generateSlug(content.title),
+      slug: generateSlug(content.title, keyword),
       title: content.title,
       description: content.description,
       content: content.content,

@@ -84,11 +84,6 @@ export default function HomePage() {
               '무료 서비스',
             ],
             screenshot: 'https://stockmatrix.co.kr/opengraph-image',
-            aggregateRating: {
-              '@type': 'AggregateRating',
-              ratingValue: '4.8',
-              ratingCount: '150',
-            },
           }),
         }}
         strategy="afterInteractive"

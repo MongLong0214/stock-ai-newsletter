@@ -6,6 +6,7 @@ import AnimatedBackground from '@/components/animated-background';
 import BlogListClient from './_components/blog-list/blog-list-client';
 import createCollectionPageSchema from './_utils/schema-generator-list';
 import isValidBlogPost from './_utils/type-guards';
+import { isValidBlogSlug } from './_utils/slug-validator';
 import type { BlogPostListItem } from './_types/blog';
 
 async function getPublishedPosts(): Promise<BlogPostListItem[]> {
@@ -19,7 +20,7 @@ async function getPublishedPosts(): Promise<BlogPostListItem[]> {
 
   if (error || !Array.isArray(data)) return [];
 
-  return data.filter(isValidBlogPost);
+  return data.filter(isValidBlogPost).filter((post) => isValidBlogSlug(post.slug));
 }
 
 async function BlogPage() {
