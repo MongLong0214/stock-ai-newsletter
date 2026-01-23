@@ -107,14 +107,14 @@ export default function RootLayout({
         url: siteConfig.domain,
         logo: {
           '@type': 'ImageObject',
-          url: `${siteConfig.domain}/icon`,
+          url: `${siteConfig.domain}/icon-512.png`,
           width: 512,
           height: 512,
           caption: `${siteConfig.serviceName} Logo`,
         },
         image: {
           '@type': 'ImageObject',
-          url: `${siteConfig.domain}/icon`,
+          url: `${siteConfig.domain}/icon-512.png`,
           width: 512,
           height: 512,
         },
@@ -150,14 +150,6 @@ export default function RootLayout({
           '@id': `${siteConfig.domain}/#organization`,
         },
         inLanguage: 'ko-KR',
-        potentialAction: {
-          '@type': 'SearchAction',
-          target: {
-            '@type': 'EntryPoint',
-            urlTemplate: `${siteConfig.domain}/?s={search_term_string}`,
-          },
-          'query-input': 'required name=search_term_string',
-        },
       },
       {
         '@type': 'Service',
@@ -216,36 +208,6 @@ export default function RootLayout({
         },
         isAccessibleForFree: true,
         publishingPrinciples: `${siteConfig.domain}/about`,
-      },
-      {
-        '@type': 'LocalBusiness',
-        '@id': `${siteConfig.domain}/#localbusiness`,
-        name: siteConfig.serviceName,
-        image: `${siteConfig.domain}/icon-512.png`,
-        url: siteConfig.domain,
-        email: 'aistockmatrix@gmail.com',
-        address: {
-          '@type': 'PostalAddress',
-          addressCountry: 'KR',
-          addressLocality: '대한민국',
-        },
-        geo: {
-          '@type': 'GeoCoordinates',
-          addressCountry: 'KR',
-        },
-        priceRange: '무료',
-        openingHoursSpecification: {
-          '@type': 'OpeningHoursSpecification',
-          dayOfWeek: [
-            'Monday',
-            'Tuesday',
-            'Wednesday',
-            'Thursday',
-            'Friday',
-          ],
-          opens: '07:50',
-          closes: '08:00',
-        },
       },
     ],
   };

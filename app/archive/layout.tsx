@@ -107,14 +107,6 @@ export default function ArchiveLayout({
     '@type': 'WebSite',
     name: siteConfig.serviceName,
     url: siteConfig.domain,
-    potentialAction: {
-      '@type': 'SearchAction',
-      target: {
-        '@type': 'EntryPoint',
-        urlTemplate: `${siteConfig.domain}/archive?date={search_term_string}`,
-      },
-      'query-input': 'required name=search_term_string',
-    },
   };
 
   return (

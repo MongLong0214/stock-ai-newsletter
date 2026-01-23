@@ -1,5 +1,6 @@
 import { MetadataRoute } from 'next';
 import { createClient } from '@supabase/supabase-js';
+import { isValidBlogSlug } from './blog/_utils/slug-validator';
 
 /**
  * 발행된 블로그 슬러그 목록 조회
@@ -109,32 +110,23 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         },
       },
     },
-    {
-      url: `${baseUrl}/unsubscribe`,
-      lastModified: currentDate,
-      changeFrequency: 'yearly',
-      priority: 0.2,
-      alternates: {
-        languages: {
-          ko: `${baseUrl}/unsubscribe`,
-        },
-      },
-    },
   ];
 
   // 블로그 포스트 동적 페이지
   const blogPosts = await getPublishedBlogSlugs();
-  const blogPages: MetadataRoute.Sitemap = blogPosts.map((post) => ({
-    url: `${baseUrl}/blog/${post.slug}`,
-    lastModified: new Date(post.published_at),
-    changeFrequency: 'weekly',
-    priority: 0.7,
-    alternates: {
-      languages: {
-        ko: `${baseUrl}/blog/${post.slug}`,
+  const blogPages: MetadataRoute.Sitemap = blogPosts
+    .filter((post) => isValidBlogSlug(post.slug))
+    .map((post) => ({
+      url: `${baseUrl}/blog/${post.slug}`,
+      lastModified: new Date(post.published_at),
+      changeFrequency: 'weekly',
+      priority: 0.7,
+      alternates: {
+        languages: {
+          ko: `${baseUrl}/blog/${post.slug}`,
+        },
       },
-    },
-  }));
+    }));
 
   return [...staticPages, ...blogPages];
 }

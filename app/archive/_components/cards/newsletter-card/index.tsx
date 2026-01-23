@@ -47,9 +47,14 @@ export default function NewsletterCard({
   const rationaleItems = rationale.split('|');
 
   // 추천 근거 영역 높이 계산
-  const rationaleHeight =
+  const rationaleItemsHeight =
     maxRationaleItems * RATIONALE_LAYOUT.ITEM_HEIGHT +
+    Math.max(0, maxRationaleItems - 1) * RATIONALE_LAYOUT.ITEM_GAP;
+
+  const rationaleHeight =
+    rationaleItemsHeight +
     RATIONALE_LAYOUT.HEADER_HEIGHT +
+    RATIONALE_LAYOUT.HEADER_MARGIN +
     RATIONALE_LAYOUT.BOTTOM_PADDING;
 
   return (
@@ -136,7 +141,7 @@ export default function NewsletterCard({
 
       {/* 추천 근거 - 동적 높이로 일관성 유지 */}
       <div
-        style={{ height: `${rationaleHeight}px` }}
+        style={{ minHeight: `${rationaleHeight}px` }}
         className="mb-6 pb-6 border-b border-slate-700/50"
       >
         <div className="flex items-center gap-2 mb-3">
@@ -146,8 +151,8 @@ export default function NewsletterCard({
           </h4>
         </div>
         <div
-          style={{ height: `${rationaleHeight - RATIONALE_LAYOUT.CONTENT_OFFSET}px` }}
-          className="flex flex-col gap-2 overflow-hidden"
+          style={{ minHeight: `${rationaleItemsHeight}px` }}
+          className="flex flex-col gap-2"
         >
           {rationaleItems.map((item: string, idx: number) => (
             <div

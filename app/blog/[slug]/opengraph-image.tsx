@@ -1,6 +1,7 @@
 import { ImageResponse } from 'next/og';
 import { getServerSupabaseClient } from '@/lib/supabase/server-client';
 import { siteConfig } from '@/lib/constants/seo/config';
+import { isValidBlogSlug } from '../_utils/slug-validator';
 
 export const runtime = 'edge';
 export const alt = 'Stock Matrix 블로그';
@@ -29,6 +30,9 @@ async function getBlogPost(slug: string) {
  */
 export default async function Image({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
+  if (!isValidBlogSlug(slug)) {
+    return new Response('Not found', { status: 404 });
+  }
   const post = await getBlogPost(slug);
 
   if (!post) {
