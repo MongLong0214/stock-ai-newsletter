@@ -1,6 +1,61 @@
 {
   "newsletters": [
     {
+      "date": "2026-01-26",
+      "stocks": [
+        {
+          "ticker": "KOSPI:035420",
+          "name": "NAVER",
+          "close_price": 266000,
+          "rationale": "2026-01-23 종가 266,000원(+8.35%) 확인|외국인 주간 2,035억 순매수 집중 유입|SMA 5/20/60 완전정배열 상태 강화|RSI 61.27로 과매수 구간 진입 전 강력한 상승 탄력|거래량 전일 대비 320% 폭증하며 매수세 분출|볼린저밴드 상단 밴드 268,000원 상방 확장|ADX 24.58로 추세 강도 유의미한 증가세|OBV 지표 전고점 돌파하며 매집 신호 완성|이치모쿠 구름대 전환선이 기준선 상향 돌파 완료|최근 52주 최고가권 안착으로 상방 매물대 희소",
+          "signals": {
+            "trend_score": 96,
+            "momentum_score": 89,
+            "volume_score": 96,
+            "volatility_score": 86,
+            "pattern_score": 100,
+            "sentiment_score": 89,
+            "overall_score": 94
+          },
+          "verified_date": "2026-01-23"
+        },
+        {
+          "ticker": "KOSPI:006400",
+          "name": "삼성SDI",
+          "close_price": 373000,
+          "rationale": "2026-01-23 종가 373,000원(-2.99%) 장중 402,000원 신고가 터치 후 조정|전고체 배터리 2027 양산 로드맵 기반 로봇 테마 대장주 부각|RSI 58.32로 과매수 경계선 아래 건전한 조정 구간|MACD 히스토그램 양전환 유지 및 시그널선 지지|거래량 3,366,383주로 일평균 대비 높은 활동성 유지|볼린저밴드 중심선(20일선)인 358,000원 강력 지지 확인|ATR 2.84%로 변동성 수렴 후 재확산 준비 단계|ADX 22.15 추세 전환 확인|OBV 바닥권 탈출형 우상향 곡선 지속|Stochastic 62.47 K-D 교차 매수 시그널 유지",
+          "signals": {
+            "trend_score": 88,
+            "momentum_score": 82,
+            "volume_score": 85,
+            "volatility_score": 80,
+            "pattern_score": 90,
+            "sentiment_score": 84,
+            "overall_score": 85
+          },
+          "verified_date": "2026-01-23"
+        },
+        {
+          "ticker": "KOSPI:006800",
+          "name": "미래에셋증권",
+          "close_price": 34800,
+          "rationale": "2026-01-23 종가 34,800원(+16.58%) 급등 마감 확인|52주 신고가 35,500원 경신하며 기술적 저항선 완전 돌파|거래량 23,962,787주 폭발적 증가로 신규 추세 형성|SMA 5일선 상향 기울기 급격화(모멘텀 극대화)|RSI 64.29로 과매수(70) 직전의 강력한 홀딩 구간|ADX 31.25로 매우 강력한 추세 형성 지표 확인|Vortex VI+ 1.157 매수 압력이 매도 압력 압도|Aroon Up 90 이상 유지로 상승 사이클 정점 근접|Force Index 매수 압력 사상 최고치 경신|금융정보 컨센서스 매수 등급 및 목표가 상향 추세",
+          "signals": {
+            "trend_score": 92,
+            "momentum_score": 85,
+            "volume_score": 88,
+            "volatility_score": 78,
+            "pattern_score": 95,
+            "sentiment_score": 86,
+            "overall_score": 88
+          },
+          "verified_date": "2026-01-23"
+        }
+      ],
+      "sentAt": "2026-01-25T22:51:56.239+00:00",
+      "subscriberCount": 95
+    },
+    {
       "date": "2026-01-23",
       "stocks": [
         {
@@ -3264,5 +3319,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-01-22T23:01:50.073Z"
+  "lastUpdated": "2026-01-25T22:52:25.335Z"
 }
