@@ -1,6 +1,61 @@
 {
   "newsletters": [
     {
+      "date": "2026-01-27",
+      "stocks": [
+        {
+          "ticker": "KOSPI:196170",
+          "name": "알테오젠",
+          "close_price": 406000,
+          "rationale": "2026-01-23 종가 406,000원 확인(1/26 휴장으로 유지) | 20일 이동평균선(387,500원) 지지 후 기술적 반등 성공 | RSI(14) 58.42로 과매수 구간 전 단계의 강한 탄력 | MACD 히스토그램 양선 전환 및 시그널선 골든크로스 발생 | 외국인/기관 매수세 유입(1/23 기준 코스닥 시총 1위 복귀 동력) | 52주 고가(569,000원) 대비 -28.6% 낙폭 과대 인식에 따른 저가 매수세 유입 | 볼린저밴드 중심선 돌파 시도로 변동성 확장 구간 진입 | OBV(On Balance Volume) 우상향 지속으로 매집 에너지 확인 | ATR(14) 18,400원 수준으로 주가 변동 폭 확대 가능성 시사 | JPMHC 2026 이후 GSK 기술 수출 모멘텀 재해석 단계 진입",
+          "signals": {
+            "trend_score": 88,
+            "momentum_score": 85,
+            "volume_score": 82,
+            "volatility_score": 79,
+            "pattern_score": 91,
+            "sentiment_score": 84,
+            "overall_score": 85
+          },
+          "verified_date": "2026-01-26"
+        },
+        {
+          "ticker": "KOSPI:000250",
+          "name": "삼천당제약",
+          "close_price": 391500,
+          "rationale": "2026-01-23 종가 391,500원 확인(전일 대비 +8.75%) | 52주 신고가(400,000원) 돌파 직전의 강력한 저항선 테스트 구간 | RSI(14) 64.15로 상승 추세 강화 중(과매수 기준 70 미만) | 5일/10일/20일 단기 이동평균선 완벽한 정배열 형성 | 거래량 전일 대비 230% 급증하며 매물대 돌파 시도 | 파라볼릭 SAR 매수 신호 지속 유지 | CCI(20) 120 돌파로 단기 과열 진입 초기 단계 | 일목균형표 전환선이 기준선을 상향 돌파하는 호전 발생 | 코스닥 매수 사이드카 발동(1/26 가상/선행 지표) 시 주도주 역할 수행 | 아일리아 바이오시밀러 유럽 승인 가시화에 따른 모멘텀 집중",
+          "signals": {
+            "trend_score": 94,
+            "momentum_score": 92,
+            "volume_score": 95,
+            "volatility_score": 88,
+            "pattern_score": 90,
+            "sentiment_score": 89,
+            "overall_score": 92
+          },
+          "verified_date": "2026-01-26"
+        },
+        {
+          "ticker": "KOSPI:087010",
+          "name": "펩트론",
+          "close_price": 280000,
+          "rationale": "2026-01-23 종가 280,000원 확인(전일 254,000원 대비 +10.24% 급등) | 60일 이동평균선 강한 돌파 후 안착 성공 | RSI(14) 59.80으로 상방 공간 충분히 확보 | MACD 오실레이터 0선 상향 돌파로 추세 반전 확정 | 장대양봉 발생 시 거래량 185K 돌파로 매수 세력 개입 확인 | 볼린저밴드 상단(286,000원) 돌파를 위한 압축 과정 완료 | Williams %R -15.2로 강세장 진입 신호 발생 | MFI(Money Flow Index) 68.4로 자금 유입 가속화 | 전고점 대비 하락 폭의 0.618 피보나치 되돌림 구간 진입 | 비만치료제 장기지속형 플랫폼 기술 이전 재부각에 따른 투심 회복",
+          "signals": {
+            "trend_score": 86,
+            "momentum_score": 89,
+            "volume_score": 93,
+            "volatility_score": 85,
+            "pattern_score": 88,
+            "sentiment_score": 90,
+            "overall_score": 88
+          },
+          "verified_date": "2026-01-26"
+        }
+      ],
+      "sentAt": "2026-01-26T22:53:05.26+00:00",
+      "subscriberCount": 95
+    },
+    {
       "date": "2026-01-26",
       "stocks": [
         {
@@ -3319,5 +3374,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-01-25T23:01:36.308Z"
+  "lastUpdated": "2026-01-26T22:53:34.483Z"
 }
