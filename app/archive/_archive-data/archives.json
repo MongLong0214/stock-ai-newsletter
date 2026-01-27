@@ -1,6 +1,61 @@
 {
   "newsletters": [
     {
+      "date": "2026-01-28",
+      "stocks": [
+        {
+          "ticker": "KOSPI:316140",
+          "name": "우리금융지주",
+          "close_price": 30650,
+          "rationale": "2026-01-27 종가 30,650(+3.72%) 달성 및 52주 신고가 경신|거래량 2,047,330주로 전일 대비 약 21% 급증하며 매수세 확인|SMA 20일선 지지 후 전고점 돌파하는 전형적인 breakout 패턴|RSI 63.4로 강세 구간 진입하며 추가 상승 여력 확보|MACD Signal 상향 돌파(Golden Cross) 발생|볼린저밴드 상단 확장 구간 진입으로 변동성 기반 추세 강화|ATR 3.1%로 변동성 확대 초입 단계 진입|ADX 26으로 추세 형성의 신뢰도 상승|OBV 계단식 우상향으로 매집 에너지 축적|스토캐스틱 %K 75로 단기 상승 모멘텀 유지|SuperTrend 매수 신호 지속 및 지지선 상향|CCI 112로 강력한 추세 구간 진입|Ichimoku 구름대 및 기준선 완전 돌파|Vortex VI+ 1.18로 상승 에너지 우위 확인",
+          "signals": {
+            "trend_score": 92,
+            "momentum_score": 88,
+            "volume_score": 90,
+            "volatility_score": 85,
+            "pattern_score": 95,
+            "sentiment_score": 86,
+            "overall_score": 90
+          },
+          "verified_date": "2026-01-27"
+        },
+        {
+          "ticker": "KOSDAQ:196170",
+          "name": "알테오젠",
+          "close_price": 403500,
+          "rationale": "2026-01-27 종가 403,500(+4.13%)로 강한 반등세 시현|기관 1,535억 원 규모의 순매수 유입으로 수급 개선 확인|SMA 5일선 탈환 및 단기 정배열 복구 시도|RSI 59.8로 중립 구간에서 강세 구간으로 재진입|MACD 히스토그램 양선 전환 초입으로 모멘텀 반전|거래량비율 1.35로 바닥권 매집 흔적 노출|볼린저밴드 하단 지지 후 중심선 돌파하며 상단 타겟 설정|ATR 3.8%로 고변동성 장세 속 기술적 반등 힘 극대화|ADX 25로 하락 추세 종료 및 새로운 상승 추세 생성|OBV 전고점 부근 돌파 시도로 실질 매수 압력 증명|스토캐스틱 %K 68 골든크로스 발생으로 단기 매수 적기 신호|CCI 105로 강세 전환 확정|Ichimoku 전환선이 기준선을 상향 돌파하는 호전 발생|Vortex VI+ 1.08 회복으로 상승 우위 시장 재편",
+          "signals": {
+            "trend_score": 95,
+            "momentum_score": 91,
+            "volume_score": 84,
+            "volatility_score": 88,
+            "pattern_score": 90,
+            "sentiment_score": 89,
+            "overall_score": 90
+          },
+          "verified_date": "2026-01-27"
+        },
+        {
+          "ticker": "KOSPI:207940",
+          "name": "삼성바이오로직스",
+          "close_price": 1790000,
+          "rationale": "연간 영업이익 2조 원 돌파 뉴스에 따른 실적 모멘텀 반영|기관 436억 원 순매수 전환으로 하방 경직성 확보|SMA 60일선(1.7M) 부근에서 강력한 지지선 구축 완료|EMA 5/10/20일선 수렴 후 정배열 확산 초입|RSI 58.7로 안정적인 상승 가속 구간 진입|MACD 0선 위 안착하며 장기 추세 우상향 확정|거래량비율 1.55로 매집 시그널 포착 및 유동성 증가|볼린저밴드 스퀴즈 현상 후 상방 발산 임박|ATR 2.5%로 변동성 제어 상태에서의 질서 있는 상승|ADX 21로 완만한 상승 추세의 시작점 형성|OBV 우상향 반전되며 대형주 위주 매집세 지속|스토캐스틱 %K 62로 견조한 매수 우위 상태 유지|SuperTrend 매수 유지 신호 확산|Ichimoku 구름대 상단 돌파 시도로 저항 매물대 소화 중",
+          "signals": {
+            "trend_score": 88,
+            "momentum_score": 85,
+            "volume_score": 92,
+            "volatility_score": 90,
+            "pattern_score": 85,
+            "sentiment_score": 82,
+            "overall_score": 87
+          },
+          "verified_date": "2026-01-27"
+        }
+      ],
+      "sentAt": "2026-01-27T22:52:56.607+00:00",
+      "subscriberCount": 97
+    },
+    {
       "date": "2026-01-27",
       "stocks": [
         {
@@ -3374,5 +3429,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-01-26T23:01:47.238Z"
+  "lastUpdated": "2026-01-27T22:53:27.534Z"
 }
