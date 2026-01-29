@@ -1,6 +1,61 @@
 {
   "newsletters": [
     {
+      "date": "2026-01-30",
+      "stocks": [
+        {
+          "ticker": "KOSDAQ:095610",
+          "name": "테스",
+          "close_price": 72000,
+          "rationale": "2026년 1월 29일 종가 72,000원(+7.78%) 확인(finance.daum.net)|PECVD 및 식각장비의 삼성전자·SK하이닉스 공급 비중 확대|2026년 낸드(NAND) 전환 투자 가속화에 따른 수혜 직접화|하나증권 리서치 기준 목표주가 72,000원 도달 및 상향 가능성|수익률 상위 1% 초고수들의 순매수 1위 종목(2026-01-27 기준)|영업이익률 역대 최대 수익성 경신 전망|EMA 20일선 돌파 후 안착 시도|OBV 지표 사상 최고치 수준 우상향|거래량 전일 대비 1,992천 주로 폭증하며 매수세 유입|반도체 전공정 소부장 순환매의 핵심 타겟 확인",
+          "signals": {
+            "trend_score": 92,
+            "momentum_score": 94,
+            "volume_score": 96,
+            "volatility_score": 88,
+            "pattern_score": 91,
+            "sentiment_score": 95,
+            "overall_score": 93
+          },
+          "verified_date": "2026-01-29"
+        },
+        {
+          "ticker": "KOSPI:042700",
+          "name": "한미반도체",
+          "close_price": 203500,
+          "rationale": "2026년 1월 27일 종가 203,500원 확인(investing.com)|2026년 1월 29일 장중 11%대 급등하며 사상 최고가 경신(alphasquare)|HBM TC본더 글로벌 Top-tier 지위 및 마이크론 향 공급 확대|유진투자증권 기준 목표주가 230,000원으로 상향 조정(2026-01-27)|AI 반도체 랠리에 따른 수혜로 HANARO Fn K-반도체 ETF 순자산 1조 돌파 견인|52주 신고가 영역 진입으로 상단 매물 공백 상태|SMA 5-20-60 정배열 강화 구간|MACD 히스토그램 양의 영역 최대 확장|외국인 지분율 7.98% 유지 및 기관 동반 순매수 유입|AI 메모리 슈퍼사이클의 핵심 수혜주로서 기술적 과매열 해소 후 재반등",
+          "signals": {
+            "trend_score": 98,
+            "momentum_score": 97,
+            "volume_score": 92,
+            "volatility_score": 85,
+            "pattern_score": 96,
+            "sentiment_score": 98,
+            "overall_score": 95
+          },
+          "verified_date": "2026-01-29"
+        },
+        {
+          "ticker": "KOSPI:373220",
+          "name": "LG에너지솔루션",
+          "close_price": 416500,
+          "rationale": "2026년 1월 29일 종가 416,500원 확인(investing.com)|RSI(14) 49.656으로 중립 구간 내 매수 강도 강화(investing.com)|MACD 1183.3으로 강력한 매수 신호 발생|MA5 416,250원 상단 안착 및 지지선 구축|LG화학의 지분 70% 축소 타임라인 공개에 따른 유동화 재원 확보 기대(2026-01-29)|미국 테슬라 및 중국 휴머노이드 로봇 업체향 원통형 배터리 공급 협의|ATR 8642.8로 변동성 확대 국면 진입|영업이익 전년 대비 134% 증가한 1.34조 원 달성(2025년 기준)|코스피 5200 돌파 장세 속 2차전지 섹터 대장주 역할 수행|피봇 포인트 416,667원 근접으로 기술적 돌파 시도 중",
+          "signals": {
+            "trend_score": 87,
+            "momentum_score": 89,
+            "volume_score": 91,
+            "volatility_score": 94,
+            "pattern_score": 92,
+            "sentiment_score": 93,
+            "overall_score": 91
+          },
+          "verified_date": "2026-01-29"
+        }
+      ],
+      "sentAt": "2026-01-29T22:55:09.959+00:00",
+      "subscriberCount": 103
+    },
+    {
       "date": "2026-01-29",
       "stocks": [
         {
@@ -3484,5 +3539,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-01-28T23:04:07.127Z"
+  "lastUpdated": "2026-01-29T22:55:45.041Z"
 }
