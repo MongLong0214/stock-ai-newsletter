@@ -69,7 +69,7 @@ export default function SubscribePage() {
           return;
         }
       } else {
-        // 신규 구독자는 INSERT
+        // 신규 구독자 INSERT
         const { error: insertError } = await supabase.from('subscribers').insert({
           email: validated.email,
           name: validated.name || null,
