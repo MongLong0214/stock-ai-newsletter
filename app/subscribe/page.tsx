@@ -53,7 +53,7 @@ export default function SubscribePage() {
         .single();
 
       if (existing) {
-        // 기존 구독자가 있으면 is_active를 true로 업데이트 (재구독)
+        // 기존 구독자가 있으면 is_active를 true로 업데이트
         const { error: updateError } = await supabase
           .from('subscribers')
           .update({
