@@ -1,6 +1,61 @@
 {
   "newsletters": [
     {
+      "date": "2026-02-02",
+      "stocks": [
+        {
+          "ticker": "KOSPI:000660",
+          "name": "SK하이닉스",
+          "close_price": 909000,
+          "rationale": "RSI(14):69.74|MACD(12,26):32535.9|ADX(14):65.21|ATR(14):23142.8|4Q25_OP:19.2T(Beat)|HBM3e_ASP:상승지속|Target:1,300,000원(신한)|5일이평선:상향돌파|외국인수급:순매수지속|시장심리:AI사이클정점기대",
+          "signals": {
+            "trend_score": 98,
+            "momentum_score": 95,
+            "volume_score": 92,
+            "volatility_score": 85,
+            "pattern_score": 90,
+            "sentiment_score": 98,
+            "overall_score": 93
+          },
+          "verified_date": "2026-01-30"
+        },
+        {
+          "ticker": "KOSPI:012450",
+          "name": "한화에어로스페이스",
+          "close_price": 1300000,
+          "rationale": "RSI(14):54.77|MACD:6944.34|ADX:32.4|ATR:42000|52주신고가:돌파안착|수주잔고:폴란드/노르웨이확대|Target:1,500,000원(SK)|2026년OP전망:3.4T|수출비중:지속확대|이동평균:정배열초기",
+          "signals": {
+            "trend_score": 92,
+            "momentum_score": 88,
+            "volume_score": 85,
+            "volatility_score": 82,
+            "pattern_score": 90,
+            "sentiment_score": 92,
+            "overall_score": 88
+          },
+          "verified_date": "2026-01-30"
+        },
+        {
+          "ticker": "KOSPI:064350",
+          "name": "현대로템",
+          "close_price": 230500,
+          "rationale": "RSI(14):65.65|MACD:3547.17|ADX(14):31.43|ATR:6285.7|상승확률:85%(AI분석)|K2전차:수출모멘텀|Target:350,000원(Macquarie)|기관수급:6일연속순매수|거래량회전율:증가세|추세신호:StrongBuy",
+          "signals": {
+            "trend_score": 88,
+            "momentum_score": 85,
+            "volume_score": 82,
+            "volatility_score": 80,
+            "pattern_score": 88,
+            "sentiment_score": 90,
+            "overall_score": 85
+          },
+          "verified_date": "2026-01-30"
+        }
+      ],
+      "sentAt": "2026-02-01T22:55:21.437+00:00",
+      "subscriberCount": 111
+    },
+    {
       "date": "2026-01-30",
       "stocks": [
         {
@@ -3539,5 +3594,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-01-29T23:04:23.414Z"
+  "lastUpdated": "2026-02-01T22:55:52.315Z"
 }
