@@ -6,6 +6,7 @@ import { Analytics } from '@vercel/analytics/next';
 import { SpeedInsights } from '@vercel/speed-insights/next';
 import Navigation from './_components/shared/navigation';
 import Footer from './_components/shared/footer';
+import ScrollToTop from '@/components/scroll-to-top';
 import {
   siteConfig,
   metadataConfig,
@@ -225,6 +226,7 @@ export default function RootLayout({
         <Navigation />
         {children}
         <Footer />
+        <ScrollToTop />
         <Analytics />
         <SpeedInsights />
       </body>
