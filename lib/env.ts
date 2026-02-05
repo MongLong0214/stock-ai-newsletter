@@ -32,13 +32,17 @@ export function validateEnv() {
   }
 }
 
-// Build-time environment validation (production only)
-if (process.env.NODE_ENV === 'production' && typeof window === 'undefined') {
+// Runtime environment validation (skip during build/prerendering)
+if (
+  process.env.NODE_ENV === 'production' &&
+  typeof window === 'undefined' &&
+  process.env.NEXT_PHASE !== 'phase-production-build'
+) {
   try {
     validateEnv();
-    console.log('✅ Environment variables validated successfully at build time');
+    console.log('✅ Environment variables validated successfully');
   } catch (error) {
-    console.error('❌ Environment validation failed at build time');
+    console.error('❌ Environment validation failed');
     throw error;
   }
 }
