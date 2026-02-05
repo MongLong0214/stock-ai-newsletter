@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { MAX_BUSINESS_DAYS } from '../_utils/formatting/date';
 import {
   getStockPriceCacheExpiry,
@@ -117,6 +117,21 @@ export default function useStockPrices(
 
   // React 19: 단순 연산은 useMemo 불필요
   const tickersKey = tickers.join(',');
+
+  // ── 레이스 컨디션 방지: 의존성 변경 시 렌더 단계에서 즉시 loading 리셋 ──
+  // useEffect는 paint 이후 실행되므로, 의존성이 바뀐 첫 렌더에서
+  // loading=false(이전 값) + prices=이전Map 조합이 한 프레임 노출될 수 있다.
+  // useRef로 이전 의존성을 추적하고, 변경 감지 시 paint 전에 loading=true로 전환한다.
+  const prevDepsRef = useRef(`${newsletterDate}:${tickersKey}`);
+  const currentDeps = `${newsletterDate}:${tickersKey}`;
+
+  if (currentDeps !== prevDepsRef.current) {
+    prevDepsRef.current = currentDeps;
+    if (tickers.length > 0 && newsletterDate) {
+      setLoading(true);
+      setUnavailableReason(null);
+    }
+  }
 
   useEffect(() => {
     if (tickers.length === 0 || !newsletterDate) {
