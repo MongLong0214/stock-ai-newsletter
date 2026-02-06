@@ -44,4 +44,5 @@ export interface KeywordCategory {
   readonly free: readonly string[];
   readonly time: readonly string[];
   readonly longTail: readonly string[];
+  readonly theme: readonly string[];
 }

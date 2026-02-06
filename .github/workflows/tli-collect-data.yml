@@ -6,10 +6,16 @@ on:
     - cron: '0 17 * * *'
   workflow_dispatch:
 
+# 동시 실행 방지: 진행 중이면 대기 (cancel 대신 queue)
+concurrency:
+  group: tli-collect
+  cancel-in-progress: false
+
 jobs:
   collect-and-score:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # 일요일 테마 발견(~30분) + 데이터 수집(~15분) 고려
+    timeout-minutes: 60
 
     steps:
       - name: Checkout code
@@ -30,16 +36,4 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           NAVER_CLIENT_ID: ${{ secrets.NAVER_CLIENT_ID }}
           NAVER_CLIENT_SECRET: ${{ secrets.NAVER_CLIENT_SECRET }}
-          BIGKINDS_API_KEY: ${{ secrets.BIGKINDS_API_KEY }}
-          DART_API_KEY: ${{ secrets.DART_API_KEY }}
-        run: |
-          echo "🔄 Starting TLI data collection..."
-          npx tsx scripts/tli/collect-and-score.ts
-
-      - name: Notify on success
-        if: success()
-        run: echo "✅ TLI data collection completed!"
-
-      - name: Notify on failure
-        if: failure()
-        run: echo "❌ TLI data collection failed!"
+        run: npx tsx scripts/tli/collect-and-score.ts

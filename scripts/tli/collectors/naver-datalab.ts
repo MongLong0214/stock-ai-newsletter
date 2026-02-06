@@ -1,4 +1,6 @@
-import 'dotenv/config';
+import { config } from 'dotenv'
+config({ path: '.env.local' })
+import { sleep, withRetry } from '../utils';
 
 interface NaverDatalabRequest {
   startDate: string;
@@ -38,19 +40,13 @@ const NAVER_CLIENT_ID = process.env.NAVER_CLIENT_ID || '';
 const NAVER_CLIENT_SECRET = process.env.NAVER_CLIENT_SECRET || '';
 
 if (!NAVER_CLIENT_ID || !NAVER_CLIENT_SECRET) {
-  throw new Error('Missing NAVER_CLIENT_ID or NAVER_CLIENT_SECRET');
+  throw new Error('NAVER_CLIENT_ID 또는 NAVER_CLIENT_SECRET 환경변수가 누락되었습니다');
 }
 
-async function sleep(ms: number) {
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
-
-async function callNaverDatalab(
-  request: NaverDatalabRequest,
-  retries = 3
-): Promise<NaverDatalabResponse> {
-  for (let attempt = 1; attempt <= retries; attempt++) {
-    try {
+/** 네이버 DataLab API 호출 (재시도 포함) */
+async function callNaverDatalab(request: NaverDatalabRequest): Promise<NaverDatalabResponse> {
+  return withRetry(
+    async () => {
       const response = await fetch('https://openapi.naver.com/v1/datalab/search', {
         method: 'POST',
         headers: {
@@ -63,38 +59,32 @@ async function callNaverDatalab(
 
       if (!response.ok) {
         const errorText = await response.text();
-        throw new Error(`Naver API error (${response.status}): ${errorText}`);
+        throw new Error(`네이버 API 오류 (${response.status}): ${errorText}`);
       }
 
       return await response.json();
-    } catch (error) {
-      console.error(`   ⚠️ Attempt ${attempt}/${retries} failed:`, error);
-      if (attempt === retries) {
-        throw error;
-      }
-      // Exponential backoff
-      await sleep(1000 * Math.pow(2, attempt - 1));
-    }
-  }
-
-  throw new Error('All retry attempts failed');
+    },
+    3,
+    '네이버 DataLab API 호출'
+  );
 }
 
+/** 네이버 DataLab 관심도 데이터 수집 */
 export async function collectNaverDatalab(
   themes: Theme[],
   startDate: string,
   endDate: string
 ): Promise<InterestMetric[]> {
-  console.log('📊 Collecting Naver DataLab data...');
-  console.log(`   Date range: ${startDate} to ${endDate}`);
-  console.log(`   Themes: ${themes.length}`);
+  console.log('📊 네이버 DataLab 데이터 수집 중...');
+  console.log(`   기간: ${startDate} ~ ${endDate}`);
+  console.log(`   테마 수: ${themes.length}`);
 
   const metrics: InterestMetric[] = [];
 
-  // Process themes in batches of 5 (API limit)
+  // 배치 처리 (API 제한: 최대 5개)
   for (let i = 0; i < themes.length; i += 5) {
     const batch = themes.slice(i, i + 5);
-    console.log(`\n   Processing batch ${Math.floor(i / 5) + 1}/${Math.ceil(themes.length / 5)}`);
+    console.log(`\n   배치 처리 ${Math.floor(i / 5) + 1}/${Math.ceil(themes.length / 5)}`);
 
     const keywordGroups = batch
       .filter(theme => theme.naverKeywords.length > 0)
@@ -104,7 +94,7 @@ export async function collectNaverDatalab(
       }));
 
     if (keywordGroups.length === 0) {
-      console.log('   ⚠️ No themes with Naver keywords in this batch');
+      console.log('   ⚠️ 네이버 키워드가 있는 테마가 없음');
       continue;
     }
 
@@ -118,36 +108,39 @@ export async function collectNaverDatalab(
 
       const response = await callNaverDatalab(request);
 
-      // Process results
+      // 결과 처리: 테마별 자기 최댓값 기준 정규화
       for (const result of response.results) {
         const theme = batch.find(t => t.name === result.title);
         if (!theme) {
-          console.warn(`   ⚠️ No theme found for group: ${result.title}`);
+          console.warn(`   ⚠️ 그룹에 해당하는 테마 없음: ${result.title}`);
           continue;
         }
 
-        console.log(`   ✓ ${theme.name}: ${result.data.length} data points`);
+        // 테마 자체 최댓값 기준 정규화 (배치 구성 변경에 영향 없음)
+        const themeMax = Math.max(...result.data.map(d => d.ratio), 0);
+
+        console.log(`   ✓ ${theme.name}: ${result.data.length}개 데이터 포인트 (max: ${themeMax})`);
 
         for (const dataPoint of result.data) {
           metrics.push({
             themeId: theme.id,
             date: dataPoint.period,
             rawValue: dataPoint.ratio,
-            normalized: dataPoint.ratio, // Will be normalized later if needed
+            normalized: themeMax > 0 ? (dataPoint.ratio / themeMax) * 100 : 0,
           });
         }
       }
 
-      // Rate limiting: wait between batches
+      // API 호출 간 간격 제한
       if (i + 5 < themes.length) {
         await sleep(1000);
       }
     } catch (error) {
-      console.error(`   ❌ Error processing batch:`, error);
-      // Continue with next batch
+      console.error(`   ❌ 배치 처리 실패:`, error);
+      // 다음 배치 계속 처리
     }
   }
 
-  console.log(`\n   ✅ Collected ${metrics.length} interest metrics`);
+  console.log(`\n   ✅ ${metrics.length}개 관심도 메트릭 수집 완료`);
   return metrics;
 }
