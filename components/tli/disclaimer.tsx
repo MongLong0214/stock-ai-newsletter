@@ -26,7 +26,7 @@ export default function Disclaimer() {
           </div>
 
           <p className="text-xs text-slate-500 mt-1">
-            TLI는 테마의 생명주기를 나타내는 지표로, 투자 권유가 아닙니다
+            테마 점수는 테마의 생명주기를 나타내는 지표로, 투자 권유가 아닙니다
           </p>
         </div>
       </button>
@@ -43,7 +43,7 @@ export default function Disclaimer() {
             <div className="mt-4 pt-4 border-t border-amber-500/10 space-y-3">
               <div className="text-xs text-slate-500 space-y-2">
                 <p>
-                  <strong className="text-slate-400">TLI(Theme Lifecycle Index)란?</strong>
+                  <strong className="text-slate-400">테마 점수란?</strong>
                   <br />
                   테마의 관심도, 뉴스 모멘텀, 변동성, 성숙도를 종합하여 산출한 생명주기 지수입니다.
                 </p>

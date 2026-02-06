@@ -58,7 +58,7 @@ npx tsx scripts/tli/collect-and-score.ts
 **Pipeline Steps:**
 1. Load all active themes
 2. Collect Naver DataLab interest metrics (30 days)
-3. Collect BigKinds news article counts (14 days)
+3. Collect Naver News article counts (14 days)
 4. Collect Naver Finance theme stocks (weekly, Mondays only)
 5. Calculate lifecycle scores for each theme
 6. Generate theme comparisons
@@ -74,7 +74,6 @@ npx tsx scripts/tli/collect-and-score.ts
 - `SUPABASE_SERVICE_ROLE_KEY`
 - `NAVER_CLIENT_ID`
 - `NAVER_CLIENT_SECRET`
-- `BIGKINDS_API_KEY`
 
 ---
 
@@ -105,12 +104,12 @@ collectNaverDatalab(
 
 ---
 
-### `collectors/bigkinds.ts`
-Collects news article counts from BigKinds API.
+### `collectors/naver-news.ts`
+Collects news article counts from Naver News Search API.
 
 **Function:**
 ```typescript
-collectBigKinds(
+collectNaverNews(
   themes: Array<{id: string, keywords: string[]}>,
   startDate: string,
   endDate: string
@@ -121,12 +120,12 @@ collectBigKinds(
 - Daily article counts per theme
 - OR query logic (keyword1 OR keyword2 OR ...)
 - Automatic retry with exponential backoff (3 attempts)
-- Rate limiting (500ms between requests)
+- Rate limiting (200ms between requests)
 
 **API Details:**
-- Endpoint: `https://tools.kinds.or.kr/search/news`
-- Method: POST
-- Auth: API key in request body
+- Endpoint: `https://openapi.naver.com/v1/search/news.json`
+- Method: GET
+- Auth: Client ID/Secret headers
 
 ---
 
@@ -178,7 +177,7 @@ Stock collection is automatically handled within `collect-and-score.ts` based on
         │                   │                   │
         ▼                   ▼                   ▼
 ┌───────────────┐   ┌───────────────┐   ┌───────────────┐
-│ Naver DataLab │   │   BigKinds    │   │ Naver Finance │
+│ Naver DataLab │   │  Naver News   │   │ Naver Finance │
 │  (Interest)   │   │    (News)     │   │   (Stocks)    │
 └───────┬───────┘   └───────┬───────┘   └───────┬───────┘
         │                   │                   │
@@ -235,8 +234,8 @@ All collectors implement retry logic and rate limiting. If you encounter rate li
 # Test Naver DataLab
 npx tsx scripts/tli/collectors/naver-datalab.ts
 
-# Test BigKinds
-npx tsx scripts/tli/collectors/bigkinds.ts
+# Test Naver News
+npx tsx scripts/tli/collectors/naver-news.ts
 
 # Test Naver Finance
 npx tsx scripts/tli/collectors/naver-finance-themes.ts
@@ -261,7 +260,7 @@ Edit calculation logic in:
 Core theme metadata and configuration.
 
 ### `theme_keywords`
-Keywords per theme (general, naver, bigkinds sources).
+Keywords per theme (general, naver sources).
 
 ### `theme_stocks`
 Stock-theme mappings from Naver Finance.
@@ -270,7 +269,7 @@ Stock-theme mappings from Naver Finance.
 Daily search interest from Naver DataLab.
 
 ### `news_metrics`
-Daily article counts from BigKinds.
+Daily article counts from Naver News Search.
 
 ### `lifecycle_scores`
 Calculated scores, stages, and component breakdowns.

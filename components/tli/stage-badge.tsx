@@ -11,11 +11,11 @@ interface StageBadgeProps {
 
 const STAGE_ICONS = {
   Dormant: Minus,
-  Early: () => <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />,
+  Early: null,
   Growth: TrendingUp,
   Peak: Flame,
   Decay: TrendingDown,
-}
+} as const
 
 export default function StageBadge({
   stage,
@@ -41,15 +41,8 @@ export default function StageBadge({
         boxShadow: `0 0 12px ${config.color}20`
       }}
     >
-      {showIcon && (
-        <span className="flex items-center justify-center">
-          {stage === 'Early' ? (
-            <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-          ) : (
-            <Icon className={size === 'sm' ? 'w-3 h-3' : 'w-4 h-4'} />
-          )}
-        </span>
-      )}
+      {showIcon && Icon && <Icon className={size === 'sm' ? 'w-3 h-3' : 'w-4 h-4'} />}
+      {showIcon && stage === 'Early' && <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />}
       <span>{config.label}</span>
     </div>
   )

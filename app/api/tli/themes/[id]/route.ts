@@ -1,250 +1,244 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { supabase, isSupabasePlaceholder } from '@/lib/supabase';
-import { getStageKo } from '@/lib/tli/types';
-import type { Stage, ThemeDetail } from '@/lib/tli/types';
+import { NextRequest } from 'next/server'
+import { supabase } from '@/lib/supabase'
+import { getStageKo, toStage, isScoreComponents } from '@/lib/tli/types'
+import { apiError, apiSuccess, handleApiError, isTableNotFound, placeholderResponse } from '@/lib/tli/api-utils'
+import type { ThemeDetail } from '@/lib/tli/types'
 
-/**
- * TLI 테마 상세 조회 API
- * GET /api/tli/themes/[id]
- *
- * 특정 테마의 상세 정보, 점수 구성 요소, 관련 종목, 유사 테마 비교, 생명주기 곡선 반환
- */
+// 특정 테마의 상세 정보 조회 (배치 쿼리 최적화)
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const startTime = Date.now();
-
   try {
-    const { id } = await params;
+    // placeholder 환경 처리
+    const placeholder = placeholderResponse<null>(null)
+    if (placeholder) return placeholder
 
-    if (isSupabasePlaceholder) {
-      return NextResponse.json({
-        success: false,
-        error: { code: 'NOT_CONFIGURED', message: 'Supabase 환경변수가 설정되지 않았습니다.', statusCode: 503 },
-      }, { status: 503 });
-    }
+    const { id } = await params
 
-    // Fetch theme basic info
+    // 1) 테마 기본 정보 (first_spike_date 포함)
     const { data: theme, error: themeError } = await supabase
       .from('themes')
-      .select('id, name, name_en, description')
+      .select('id, name, name_en, description, first_spike_date')
       .eq('id', id)
       .eq('is_active', true)
-      .single();
+      .maybeSingle()
 
     if (themeError) {
-      console.error('[TLI API] Theme fetch error:', themeError);
-
-      // If tables don't exist yet (migration not run), return 404
-      if (themeError.code === '42P01' || themeError.message?.includes('relation') || themeError.message?.includes('does not exist')) {
-        console.warn('[TLI API] TLI tables not found');
-        return NextResponse.json(
-          {
-            success: false,
-            error: {
-              code: 'NOT_FOUND',
-              message: '테마를 찾을 수 없습니다.',
-              statusCode: 404,
-            },
-          },
-          { status: 404 }
-        );
+      if (isTableNotFound(themeError)) {
+        console.warn('[TLI API] TLI tables not found')
+        return apiError('테마를 찾을 수 없습니다.', 404)
       }
+      throw themeError
     }
 
     if (!theme) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: {
-            code: 'NOT_FOUND',
-            message: '테마를 찾을 수 없습니다.',
-            statusCode: 404,
-          },
-        },
-        { status: 404 }
-      );
+      return apiError('테마를 찾을 수 없습니다.', 404)
     }
 
-    // Fetch latest score with components
-    const { data: latestScore } = await supabase
-      .from('lifecycle_scores')
-      .select('score, stage, is_reigniting, calculated_at, components')
-      .eq('theme_id', id)
-      .order('calculated_at', { ascending: false })
-      .limit(1)
-      .single();
+    const oneDayAgo = new Date(Date.now() - 86400000).toISOString().split('T')[0]
+    const sevenDaysAgo = new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0]
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0]
 
-    // Get 24h change
-    const oneDayAgo = new Date(Date.now() - 86400000).toISOString().split('T')[0];
-    const { data: dayAgo } = await supabase
-      .from('lifecycle_scores')
-      .select('score')
-      .eq('theme_id', id)
-      .lte('calculated_at', oneDayAgo)
-      .order('calculated_at', { ascending: false })
-      .limit(1)
-      .single();
+    // 2) 병렬 배치 쿼리 7개
+    const [latestScoreRes, scoresRes, stocksRes, comparisonsRes, keywordsRes, newsRes, interestRes] =
+      await Promise.all([
+        // 최신 점수 1건 (날짜 제한 없음 - 배치 지연 시에도 유실 방지)
+        supabase
+          .from('lifecycle_scores')
+          .select('score, stage, is_reigniting, calculated_at, components')
+          .eq('theme_id', id)
+          .order('calculated_at', { ascending: false })
+          .limit(1),
+        // 30일 lifecycle_scores (곡선 + change 계산용)
+        supabase
+          .from('lifecycle_scores')
+          .select('score, stage, is_reigniting, calculated_at, components')
+          .eq('theme_id', id)
+          .gte('calculated_at', thirtyDaysAgo)
+          .order('calculated_at', { ascending: true }),
+        // 관련 종목
+        supabase
+          .from('theme_stocks')
+          .select('symbol, name, market')
+          .eq('theme_id', id)
+          .eq('is_active', true)
+          .order('relevance', { ascending: false }),
+        // 유사 테마 비교
+        supabase
+          .from('theme_comparisons')
+          .select('id, past_theme_id, similarity_score, current_day, past_peak_day, past_total_days, message')
+          .eq('current_theme_id', id)
+          .order('similarity_score', { ascending: false })
+          .limit(5),
+        // 키워드
+        supabase
+          .from('theme_keywords')
+          .select('keyword, source, is_primary')
+          .eq('theme_id', id),
+        // 뉴스 시계열 (30일)
+        supabase
+          .from('news_metrics')
+          .select('time, article_count')
+          .eq('theme_id', id)
+          .gte('time', thirtyDaysAgo)
+          .order('time', { ascending: true }),
+        // 관심도 시계열 (30일)
+        supabase
+          .from('interest_metrics')
+          .select('time, normalized')
+          .eq('theme_id', id)
+          .gte('time', thirtyDaysAgo)
+          .order('time', { ascending: true }),
+      ])
 
-    // Get 7-day change
-    const sevenDaysAgo = new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0];
-    const { data: weekAgo } = await supabase
-      .from('lifecycle_scores')
-      .select('score')
-      .eq('theme_id', id)
-      .lte('calculated_at', sevenDaysAgo)
-      .order('calculated_at', { ascending: false })
-      .limit(1)
-      .single();
+    const allScores = scoresRes.data || []
+    const stocks = stocksRes.data || []
+    const comparisons = comparisonsRes.data || []
+    const keywordsList = keywordsRes.data || []
+    const newsList = newsRes.data || []
+    const interestList = interestRes.data || []
 
-    // Fetch related stocks
-    const { data: stocks } = await supabase
-      .from('theme_stocks')
-      .select('symbol, name, market, source, relevance')
-      .eq('theme_id', id)
-      .eq('is_active', true)
-      .order('relevance', { ascending: false });
+    // --- 점수 파싱 ---
 
-    // Fetch theme comparisons
-    const { data: comparisons } = await supabase
-      .from('theme_comparisons')
-      .select(`
-        id,
-        past_theme_id,
-        similarity_score,
-        current_day,
-        past_peak_day,
-        past_total_days,
-        message
-      `)
-      .eq('current_theme_id', id)
-      .order('similarity_score', { ascending: false })
-      .limit(5);
+    // 최신 점수: 날짜 제한 없는 별도 쿼리 결과 사용 (30일 윈도우 밖이어도 유실 방지)
+    const latestScoreData = latestScoreRes.data || []
+    const latestScore = latestScoreData.length > 0 ? latestScoreData[0] : null
 
-    // Get past theme names
-    const comparisonResults = await Promise.all(
-      (comparisons || []).map(async (comp) => {
-        const { data: pastTheme } = await supabase
+    // 24시간 전 + 7일 전 점수: O(n) 단일 역순 패스 (배열 복사 제거)
+    let dayAgoScore: typeof latestScore = null
+    let weekAgoScore: typeof latestScore = null
+    for (let i = allScores.length - 1; i >= 0; i--) {
+      const dateStr = allScores[i].calculated_at.split('T')[0]
+      if (!dayAgoScore && dateStr <= oneDayAgo) dayAgoScore = allScores[i]
+      if (!weekAgoScore && dateStr <= sevenDaysAgo) weekAgoScore = allScores[i]
+      if (dayAgoScore && weekAgoScore) break
+    }
+
+    // --- 키워드 (is_primary + source='general' 우선) ---
+
+    keywordsList.sort((a, b) => {
+      if (a.is_primary !== b.is_primary) return b.is_primary ? 1 : -1
+      if (a.source !== b.source) return a.source === 'general' ? -1 : 1
+      return 0
+    })
+    const keywords = keywordsList.map((k) => k.keyword)
+
+    // --- 유사 테마: 이름 + lifecycleCurve 배치 조회 ---
+
+    const pastThemeIds = comparisons.map((c) => c.past_theme_id)
+    const pastThemeNames: Record<string, string> = {}
+    const pastThemeCurves: Record<string, Array<{ date: string; score: number }>> = {}
+
+    if (pastThemeIds.length > 0) {
+      const [namesRes, curvesRes] = await Promise.all([
+        supabase
           .from('themes')
-          .select('name')
-          .eq('id', comp.past_theme_id)
-          .single();
+          .select('id, name')
+          .in('id', pastThemeIds),
+        supabase
+          .from('lifecycle_scores')
+          .select('theme_id, calculated_at, score')
+          .in('theme_id', pastThemeIds)
+          .order('calculated_at', { ascending: true }),
+      ])
 
-        const estimatedDaysToPeak = comp.past_peak_day - comp.current_day;
-        const postPeakDecline = comp.current_day > comp.past_peak_day
-          ? ((comp.past_total_days - comp.current_day) / comp.past_total_days) * 100
-          : null;
+      for (const t of namesRes.data || []) {
+        pastThemeNames[t.id] = t.name
+      }
+      for (const s of curvesRes.data || []) {
+        if (!pastThemeCurves[s.theme_id]) pastThemeCurves[s.theme_id] = []
+        pastThemeCurves[s.theme_id].push({ date: s.calculated_at, score: s.score })
+      }
+    }
 
-        return {
-          pastTheme: pastTheme?.name ?? 'Unknown',
-          similarity: comp.similarity_score,
-          currentDay: comp.current_day,
-          pastPeakDay: comp.past_peak_day,
-          estimatedDaysToPeak,
-          postPeakDecline,
-          message: comp.message,
-        };
-      })
-    );
+    const comparisonResults = comparisons.map((comp) => {
+      const pastTotalDays = Math.min(comp.past_total_days, 365)
+      const estimatedDaysToPeak = Math.max(0, comp.past_peak_day - comp.current_day)
+      const postPeakDecline = comp.current_day > comp.past_peak_day
+        ? ((pastTotalDays - comp.current_day) / pastTotalDays) * 100
+        : null
 
-    // Fetch 30-day lifecycle curve
-    const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0];
-    const { data: historicalScores } = await supabase
-      .from('lifecycle_scores')
-      .select('calculated_at, score')
-      .eq('theme_id', id)
-      .gte('calculated_at', thirtyDaysAgo)
-      .order('calculated_at', { ascending: true });
+      return {
+        pastTheme: pastThemeNames[comp.past_theme_id] ?? 'Unknown',
+        pastThemeId: comp.past_theme_id,
+        similarity: comp.similarity_score,
+        currentDay: comp.current_day,
+        pastPeakDay: comp.past_peak_day,
+        pastTotalDays,
+        estimatedDaysToPeak,
+        postPeakDecline,
+        message: comp.message,
+        lifecycleCurve: pastThemeCurves[comp.past_theme_id] || [],
+      }
+    })
 
-    const components = latestScore?.components as Record<string, unknown>;
+    // --- components 파싱 ---
+
+    const rawComponents = latestScore?.components ?? null
+    const components = isScoreComponents(rawComponents) ? rawComponents : null
+
+    // --- 최종 응답 조합 ---
 
     const result: ThemeDetail = {
       id: theme.id,
       name: theme.name,
       nameEn: theme.name_en,
       description: theme.description,
+      firstSpikeDate: theme.first_spike_date,
+      keywords,
       score: {
         value: latestScore?.score ?? 0,
-        stage: (latestScore?.stage ?? 'Dormant') as Stage,
-        stageKo: getStageKo((latestScore?.stage ?? 'Dormant') as Stage),
+        stage: toStage(latestScore?.stage),
+        stageKo: getStageKo(toStage(latestScore?.stage)),
         updatedAt: latestScore?.calculated_at ?? new Date().toISOString(),
-        change24h: latestScore?.score && dayAgo?.score ? latestScore.score - dayAgo.score : 0,
-        change7d: latestScore?.score && weekAgo?.score ? latestScore.score - weekAgo.score : 0,
+        change24h: latestScore?.score != null && dayAgoScore?.score != null
+          ? latestScore.score - dayAgoScore.score
+          : 0,
+        change7d: latestScore?.score != null && weekAgoScore?.score != null
+          ? latestScore.score - weekAgoScore.score
+          : 0,
+        isReigniting: latestScore?.is_reigniting ?? false,
         components: {
-          interest: (components?.interest_score as number | undefined) ?? 0,
-          newsMomentum: (components?.news_momentum as number | undefined) ?? 0,
-          volatility: (components?.volatility_score as number | undefined) ?? 0,
-          maturity: (components?.maturity_ratio as number | undefined) ?? 0,
+          interest: components?.interest_score ?? 0,
+          newsMomentum: components?.news_momentum ?? 0,
+          volatility: components?.volatility_score ?? 0,
         },
+        raw: components?.raw
+          ? {
+              recent7dAvg: components.raw.recent_7d_avg,
+              baseline30dAvg: components.raw.baseline_30d_avg,
+              newsThisWeek: components.raw.news_this_week,
+              newsLastWeek: components.raw.news_last_week,
+              interestStddev: components.raw.interest_stddev,
+              activeDays: components.raw.active_days,
+            }
+          : null,
       },
-      stocks: (stocks || []).map((s) => ({
+      stocks: stocks.map((s) => ({
         symbol: s.symbol,
         name: s.name,
         market: s.market,
-        source: s.source,
-        relevance: s.relevance,
       })),
       comparisons: comparisonResults,
-      lifecycleCurve: (historicalScores || []).map((s) => ({
+      lifecycleCurve: allScores.map((s) => ({
         date: s.calculated_at,
         score: s.score,
       })),
-    };
+      newsTimeline: newsList.map((n) => ({
+        date: n.time,
+        count: n.article_count,
+      })),
+      interestTimeline: interestList.map((i) => ({
+        date: i.time,
+        value: i.normalized,
+      })),
+    }
 
-    const duration = Date.now() - startTime;
-
-    return NextResponse.json(
-      {
-        success: true,
-        data: result,
-        metadata: {
-          duration_ms: duration,
-          timestamp: new Date().toISOString(),
-        },
-      },
-      {
-        headers: {
-          'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=1800',
-          'X-Response-Time': `${duration}ms`,
-        },
-      }
-    );
+    return apiSuccess(result)
   } catch (error) {
-    const duration = Date.now() - startTime;
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    const errorCode = error && typeof error === 'object' && 'code' in error ? (error as { code: unknown }).code : undefined;
-    const errorDetails = error && typeof error === 'object' && 'details' in error ? (error as { details: unknown }).details : undefined;
-
-    console.error('[TLI API] Theme detail error:', {
-      message: errorMessage,
-      code: errorCode,
-      details: errorDetails,
-      duration_ms: duration,
-      stack: error instanceof Error ? error.stack : undefined,
-      fullError: error,
-    });
-
-    const isProduction = process.env.NODE_ENV === 'production';
-
-    return NextResponse.json(
-      {
-        success: false,
-        error: {
-          code: 'INTERNAL_ERROR',
-          message: '테마 상세 정보를 불러오는데 실패했습니다.',
-          details: !isProduction ? `${errorMessage}${errorCode ? ` (code: ${errorCode})` : ''}${errorDetails ? ` - ${errorDetails}` : ''}` : 'Unknown error',
-          statusCode: 500,
-        },
-      },
-      {
-        status: 500,
-        headers: {
-          'X-Response-Time': `${duration}ms`,
-        },
-      }
-    );
+    return handleApiError(error, '테마 상세 정보를 불러오는데 실패했습니다.')
   }
 }
 
-export const runtime = 'nodejs';
+export const runtime = 'nodejs'

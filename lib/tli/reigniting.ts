@@ -1,3 +1,5 @@
+/** 테마 재점화(Reigniting) 판별 모듈 */
+
 import { avg } from './normalize';
 import type { Stage, InterestMetric } from './types';
 

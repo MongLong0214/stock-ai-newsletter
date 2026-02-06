@@ -1,3 +1,5 @@
+/** 테마 라이프사이클 단계 결정 모듈 */
+
 import type { Stage, ScoreComponents } from './types';
 
 export function determineStage(score: number, components: ScoreComponents): Stage {
