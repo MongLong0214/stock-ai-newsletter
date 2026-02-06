@@ -5,8 +5,8 @@ import { useReveal } from "@/hooks/use-reveal";
 
 // 예시 데이터 (실제 이메일 템플릿과 동일한 구조)
 const SAMPLE_STOCK = {
-  name: "삼성전자",
-  ticker: "KOSPI:005930",
+  name: "오메가 정보통신",
+  ticker: "KOSPI:000000",
   close_price: 75300,
   rationale: "SMA 완전정배열|EMA 골든크로스|RSI 58 강세권|MACD 양전환|거래량 165% 급증|볼린저 중상단|ATR 3.2% 적정|ADX 28 강한추세|OBV 지속상승|스토캐스틱 상승전환|SuperTrend 매수|52주 상위 72%",
   signals: {
@@ -81,7 +81,7 @@ function EmailPreviewSection() {
                 <h3 className="text-2xl font-semibold text-white mb-1">
                   {SAMPLE_STOCK.name}
                 </h3>
-                <p className="text-sm font-medium text-slate-400 uppercase tracking-wide">KOSPI:{SAMPLE_STOCK.ticker}
+                <p className="text-sm font-medium text-slate-400 uppercase tracking-wide">{SAMPLE_STOCK.ticker}
                 </p>
               </div>
               <div className="text-right">
