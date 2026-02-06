@@ -1,5 +1,5 @@
-import 'dotenv/config';
 import * as cheerio from 'cheerio';
+import { sleep } from '../utils';
 
 interface Theme {
   id: string;
@@ -13,84 +13,76 @@ interface ThemeStock {
   market: string;
 }
 
-async function sleep(ms: number) {
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
-
-async function scrapeNaverFinanceTheme(
-  themeId: string,
-  naverThemeId: string
-): Promise<ThemeStock[]> {
+/** 네이버 금융 테마 페이지 스크래핑 */
+async function scrapeNaverFinanceTheme(themeId: string, naverThemeId: string): Promise<ThemeStock[]> {
   const url = `https://finance.naver.com/sise/sise_group_detail.naver?type=theme&no=${naverThemeId}`;
 
   try {
     const response = await fetch(url);
     if (!response.ok) {
-      throw new Error(`HTTP error ${response.status}`);
+      throw new Error(`HTTP 오류 ${response.status}`);
     }
 
-    const html = await response.text();
+    // 네이버 금융은 EUC-KR 인코딩 사용
+    const buffer = await response.arrayBuffer();
+    const html = new TextDecoder('euc-kr').decode(buffer);
     const $ = cheerio.load(html);
     const stocks: ThemeStock[] = [];
 
-    // Find the table with stock listings
+    // 종목 테이블 파싱 (종목 링크는 첫 번째 td의 .name_area 안에 있음)
     $('table.type_5 tbody tr').each((_, row) => {
       const $row = $(row);
-
-      // Extract stock code from href attribute
-      const href = $row.find('td:nth-child(2) a').attr('href') || '';
-      const stockCode = href.match(/code=(\d+)/)?.[1] || '';
+      const $link = $row.find('td:first-child .name_area a');
+      const href = $link.attr('href') || '';
+      const stockCode = href.match(/code=(\d{6})/)?.[1] || '';
       if (!stockCode) return;
 
-      const stockName = $row.find('td:nth-child(2) a').text().trim();
-
-      // Determine market (KOSPI or KOSDAQ) - usually can infer from stock code
-      // A-codes typically KOSPI, others KOSDAQ, but this is approximate
-      // More reliable would be to check another column if available
-      const market = stockCode.startsWith('0') ? 'KOSPI' : 'KOSDAQ';
+      const stockName = $link.text().trim();
+      if (!stockName) return;
 
       stocks.push({
         themeId,
         symbol: stockCode,
         name: stockName,
-        market,
+        market: parseInt(stockCode, 10) < 100000 ? 'KOSPI' : 'KOSDAQ',
       });
     });
 
     return stocks;
   } catch (error) {
-    console.error(`   ❌ Error scraping theme ${naverThemeId}:`, error);
+    console.error(`   ❌ 테마 ${naverThemeId} 스크래핑 실패:`, error);
     return [];
   }
 }
 
+/** 네이버 금융 테마 종목 수집 */
 export async function collectNaverFinanceStocks(themes: Theme[]): Promise<ThemeStock[]> {
-  console.log('📈 Collecting Naver Finance theme stocks...');
-  console.log(`   Themes to process: ${themes.filter(t => t.naverThemeId).length}`);
+  console.log('📈 네이버 금융 테마 종목 수집 중...');
+  console.log(`   처리할 테마: ${themes.filter(t => t.naverThemeId).length}개`);
 
   const allStocks: ThemeStock[] = [];
 
   for (const theme of themes) {
     if (!theme.naverThemeId) {
-      console.log(`   ⊘ Skipping theme ${theme.id}: no naverThemeId`);
+      console.log(`   ⊘ 테마 ${theme.id} 건너뜀: naverThemeId 없음`);
       continue;
     }
 
-    console.log(`\n   Processing theme ${theme.id} (Naver ID: ${theme.naverThemeId})`);
+    console.log(`\n   테마 ${theme.id} 처리 중 (네이버 ID: ${theme.naverThemeId})`);
 
     const stocks = await scrapeNaverFinanceTheme(theme.id, theme.naverThemeId);
 
     if (stocks.length > 0) {
-      console.log(`   ✓ Found ${stocks.length} stocks`);
+      console.log(`   ✓ ${stocks.length}개 종목 발견`);
       allStocks.push(...stocks);
     } else {
-      console.log(`   ⚠️ No stocks found`);
+      console.log(`   ⚠️ 종목 없음`);
     }
 
-    // Polite delay between requests
+    // 요청 간 정중한 지연
     await sleep(3000);
   }
 
-  console.log(`\n   ✅ Collected ${allStocks.length} theme-stock mappings`);
+  console.log(`\n   ✅ ${allStocks.length}개 테마-종목 매핑 수집 완료`);
   return allStocks;
 }

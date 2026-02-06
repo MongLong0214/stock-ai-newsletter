@@ -1,6 +1,0 @@
-export { default as LifecycleScore } from './lifecycle-score'
-export { default as StageBadge } from './stage-badge'
-export { default as LifecycleCurve } from './lifecycle-curve'
-export { default as ThemeCard } from './theme-card'
-export { default as ScoreBreakdown } from './score-breakdown'
-export { default as Disclaimer } from './disclaimer'
