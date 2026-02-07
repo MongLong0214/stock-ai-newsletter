@@ -1,6 +1,6 @@
 import { config } from 'dotenv'
 config({ path: '.env.local' })
-import { loadActiveThemes, upsertInterestMetrics, upsertNewsMetrics, upsertThemeStocks } from './data-ops';
+import { loadActiveThemes, upsertInterestMetrics, upsertNewsMetrics, upsertThemeStocks, upsertNewsArticles } from './data-ops';
 import { calculateAndSaveScores } from './calculate-scores';
 import { calculateThemeComparisons } from './calculate-comparisons';
 import { collectNaverDatalab } from './collectors/naver-datalab';
@@ -22,8 +22,8 @@ async function main() {
     if (dayOfWeek === 0) {
       try {
         await discoverAndManageThemes();
-      } catch (error) {
-        console.error('\n❌ 테마 발견 실패 (수집은 계속 진행):', error);
+      } catch (error: unknown) {
+        console.error('\n❌ 테마 발견 실패 (수집은 계속 진행):', error instanceof Error ? error.message : String(error));
       }
     } else {
       console.log('⊘ 테마 발견 생략 (일요일에만 실행)\n');
@@ -47,8 +47,8 @@ async function main() {
         endDate
       );
       await upsertInterestMetrics(interestMetrics);
-    } catch (error) {
-      console.error('\n❌ 네이버 DataLab 수집 실패:', error);
+    } catch (error: unknown) {
+      console.error('\n❌ 네이버 DataLab 수집 실패:', error instanceof Error ? error.message : String(error));
     }
 
     // 3단계: 네이버 뉴스 데이터 수집
@@ -58,14 +58,15 @@ async function main() {
 
     try {
       const newsStartDate = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-      const newsMetrics = await collectNaverNews(
+      const { metrics: newsMetrics, articles: newsArticles } = await collectNaverNews(
         themes.map(t => ({ id: t.id, keywords: t.keywords })),
         newsStartDate,
         endDate
       );
       await upsertNewsMetrics(newsMetrics);
-    } catch (error) {
-      console.error('\n❌ 네이버 뉴스 수집 실패:', error);
+      await upsertNewsArticles(newsArticles);
+    } catch (error: unknown) {
+      console.error('\n❌ 네이버 뉴스 수집 실패:', error instanceof Error ? error.message : String(error));
     }
 
     // 4단계: 네이버 금융 종목 수집 (주 2회 - 월/목)
@@ -79,8 +80,8 @@ async function main() {
           themes.map(t => ({ id: t.id, naverThemeId: t.naver_theme_id }))
         );
         await upsertThemeStocks(stocks);
-      } catch (error) {
-        console.error('\n❌ 종목 수집 실패:', error);
+      } catch (error: unknown) {
+        console.error('\n❌ 종목 수집 실패:', error instanceof Error ? error.message : String(error));
       }
     } else {
       console.log('\n⊘ 종목 수집 생략 (월/목에만 실행)');
@@ -93,8 +94,8 @@ async function main() {
 
     try {
       await calculateAndSaveScores(themes);
-    } catch (error) {
-      console.error('\n❌ 점수 계산 실패:', error);
+    } catch (error: unknown) {
+      console.error('\n❌ 점수 계산 실패:', error instanceof Error ? error.message : String(error));
     }
 
     // 6단계: 테마 비교 분석
@@ -104,8 +105,8 @@ async function main() {
 
     try {
       await calculateThemeComparisons(themes);
-    } catch (error) {
-      console.error('\n❌ 비교 분석 실패:', error);
+    } catch (error: unknown) {
+      console.error('\n❌ 비교 분석 실패:', error instanceof Error ? error.message : String(error));
     }
 
     // 요약
@@ -117,11 +118,11 @@ async function main() {
     console.log(`📊 처리된 테마: ${themes.length}개\n`);
 
     process.exit(0);
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('\n━'.repeat(80));
     console.error('❌ 치명적 오류');
     console.error('━'.repeat(80));
-    console.error(error);
+    console.error(error instanceof Error ? error.message : String(error));
     process.exit(1);
   }
 }

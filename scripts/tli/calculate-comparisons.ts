@@ -1,5 +1,6 @@
 import { supabaseAdmin } from './supabase-admin';
 import { normalizeTimeline, compareThemes } from '../../lib/tli/comparison';
+import { getKSTDate } from './utils';
 import type { ThemeWithKeywords } from './data-ops';
 
 /** 테마 비교 분석 계산 및 저장 */
@@ -34,7 +35,7 @@ export async function calculateThemeComparisons(themes: ThemeWithKeywords[]) {
   const metricsByTheme = new Map<string, Array<{ time: string; normalized: number }>>();
   for (const m of allPastMetrics || []) {
     if (!metricsByTheme.has(m.theme_id)) metricsByTheme.set(m.theme_id, []);
-    metricsByTheme.get(m.theme_id)!.push(m);
+    metricsByTheme.get(m.theme_id)?.push(m);
   }
 
   console.log(`   과거 테마 ${allPastThemes.length}개, 메트릭 ${allPastMetrics?.length ?? 0}건 로딩 완료`);
@@ -56,8 +57,14 @@ export async function calculateThemeComparisons(themes: ThemeWithKeywords[]) {
         .gte('time', currentTheme.first_spike_date)
         .order('time', { ascending: true });
 
-      if (currentError || !currentMetrics || currentMetrics.length < 7) {
-        console.log(`   ⊘ 데이터 부족`);
+      if (currentError) {
+        console.log(`   ❌ 데이터 조회 실패: ${currentError.message}`);
+        continue;
+      }
+
+      if (!currentMetrics || currentMetrics.length < 7) {
+        console.log(`   ⚠️ 데이터 부족: interest_metrics ${currentMetrics?.length || 0}일분 (최소 7일 필요)`);
+        console.log(`      → first_spike_date 이후 interest_metrics 수집이 필요합니다`);
         continue;
       }
 
@@ -66,7 +73,7 @@ export async function calculateThemeComparisons(themes: ThemeWithKeywords[]) {
         currentTheme.first_spike_date
       );
 
-      let bestMatch: {
+      const topMatches: Array<{
         pastThemeId: string;
         pastThemeName: string;
         similarity: number;
@@ -74,9 +81,11 @@ export async function calculateThemeComparisons(themes: ThemeWithKeywords[]) {
         pastPeakDay: number;
         pastTotalDays: number;
         message: string;
-      } | null = null;
+      }> = [];
 
       // 각 과거 테마와 비교 (메모리 조회, DB 호출 없음)
+      let skippedCount = 0;
+      let comparedCount = 0;
       for (const pastTheme of allPastThemes) {
         if (pastTheme.id === currentTheme.id) continue;
         if (!pastTheme.first_spike_date) continue;
@@ -86,7 +95,11 @@ export async function calculateThemeComparisons(themes: ThemeWithKeywords[]) {
 
         // first_spike_date 이후만 필터
         const pastMetrics = allMetrics.filter(m => m.time >= pastTheme.first_spike_date!);
-        if (pastMetrics.length < 30) continue;
+        if (pastMetrics.length < 7) {
+          skippedCount++;
+          continue;
+        }
+        comparedCount++;
 
         // 비정상적 장기 테마 제외 (365일 초과)
         const pastFirstDate = new Date(pastTheme.first_spike_date!).getTime();
@@ -101,46 +114,59 @@ export async function calculateThemeComparisons(themes: ThemeWithKeywords[]) {
 
         const comparison = compareThemes(currentTimeline, pastTimeline, pastTheme.name);
 
-        if (!bestMatch || comparison.similarity > bestMatch.similarity) {
-          bestMatch = {
+        if (comparison.similarity > 0.3) {
+          topMatches.push({
             pastThemeId: pastTheme.id,
             pastThemeName: pastTheme.name,
             ...comparison,
-          };
+          });
         }
       }
 
-      // 최적 매칭 저장
-      if (bestMatch && bestMatch.similarity > 0.7) {
-        const today = new Date().toISOString().split('T')[0];
-        const { error: compError } = await supabaseAdmin
+      // 상위 5개 매칭 저장
+      topMatches.sort((a, b) => b.similarity - a.similarity);
+      const finalMatches = topMatches.slice(0, 5);
+
+      console.log(`      비교 완료: ${comparedCount}개 테마 비교, ${skippedCount}개 스킵 (데이터 부족)`);
+      console.log(`      유사도 >= 0.5 매칭: ${topMatches.length}개`);
+
+      if (finalMatches.length > 0) {
+        const today = getKSTDate();
+        // 기존 비교 데이터 정리 (오늘 날짜 기준, 더 이상 매칭 안 되는 데이터 제거)
+        await supabaseAdmin
           .from('theme_comparisons')
-          .upsert(
-            {
-              current_theme_id: currentTheme.id,
-              past_theme_id: bestMatch.pastThemeId,
-              similarity_score: bestMatch.similarity,
-              current_day: bestMatch.currentDay,
-              past_peak_day: bestMatch.pastPeakDay,
-              past_total_days: bestMatch.pastTotalDays,
-              message: bestMatch.message,
-              calculated_at: today,
-            },
-            { onConflict: 'current_theme_id,past_theme_id,calculated_at' }
-          );
+          .delete()
+          .eq('current_theme_id', currentTheme.id)
+          .eq('calculated_at', today);
+        for (const match of finalMatches) {
+          const { error: compError } = await supabaseAdmin
+            .from('theme_comparisons')
+            .upsert(
+              {
+                current_theme_id: currentTheme.id,
+                past_theme_id: match.pastThemeId,
+                similarity_score: match.similarity,
+                current_day: match.currentDay,
+                past_peak_day: match.pastPeakDay,
+                past_total_days: match.pastTotalDays,
+                message: match.message,
+                calculated_at: today,
+              },
+              { onConflict: 'current_theme_id,past_theme_id,calculated_at' }
+            );
 
-        if (compError) {
-          console.error(`   ⚠️ 비교 결과 저장 실패:`, compError);
-        } else {
-          console.log(
-            `   ✅ 최적 매칭: ${bestMatch.pastThemeName} (${Math.round(bestMatch.similarity * 100)}%)`
-          );
+          if (compError) {
+            console.error(`   ⚠️ 비교 결과 저장 실패:`, compError);
+          }
         }
+        console.log(
+          `   ✅ ${finalMatches.length}개 매칭 저장 (최고: ${finalMatches[0].pastThemeName} ${Math.round(finalMatches[0].similarity * 100)}%)`
+        );
       } else {
-        console.log(`   ⊘ 강한 매칭 없음`);
+        console.log(`   ⊘ 유사 매칭 없음 (유사도 >= 0.5 기준)`);
       }
-    } catch (error) {
-      console.error(`   ❌ 테마 비교 실패:`, error);
+    } catch (error: unknown) {
+      console.error(`   ❌ 테마 비교 실패:`, error instanceof Error ? error.message : String(error));
     }
   }
 

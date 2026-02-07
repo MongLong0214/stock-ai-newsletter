@@ -1,7 +1,7 @@
 /** 통계 계산 및 정규화 유틸리티 */
 
 export function normalize(value: number, min: number, max: number): number {
-  if (max === min) return 0;
+  if (!isFinite(value) || max === min) return 0;
   return Math.max(0, Math.min(1, (value - min) / (max - min)));
 }
 
