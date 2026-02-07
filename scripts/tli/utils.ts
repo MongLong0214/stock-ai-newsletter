@@ -12,8 +12,8 @@ export async function withRetry<T>(
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
       return await fn()
-    } catch (error) {
-      console.error(`   ${context} 시도 ${attempt}/${retries} 실패:`, error)
+    } catch (error: unknown) {
+      console.error(`   ${context} 시도 ${attempt}/${retries} 실패:`, error instanceof Error ? error.message : String(error))
       if (attempt === retries) throw error
       await sleep(1000 * Math.pow(2, attempt - 1))
     }
@@ -21,12 +21,21 @@ export async function withRetry<T>(
   throw new Error(`${context}: 모든 재시도 실패`)
 }
 
-/** 오늘 날짜 (YYYY-MM-DD) */
-export function today(): string {
-  return new Date().toISOString().split('T')[0]
+/** KST 기준 현재 날짜 (YYYY-MM-DD) */
+export function getKSTDate(): string {
+  const now = new Date()
+  const kst = new Date(now.getTime() + 9 * 60 * 60 * 1000)
+  return kst.toISOString().split('T')[0]
 }
 
-/** N일 전 날짜 (YYYY-MM-DD) */
+/** 오늘 날짜 (YYYY-MM-DD, KST) */
+export function today(): string {
+  return getKSTDate()
+}
+
+/** N일 전 날짜 (YYYY-MM-DD, KST) */
 export function daysAgo(n: number): string {
-  return new Date(Date.now() - n * 86400000).toISOString().split('T')[0]
+  const now = new Date()
+  const kst = new Date(now.getTime() + 9 * 60 * 60 * 1000 - n * 86400000)
+  return kst.toISOString().split('T')[0]
 }

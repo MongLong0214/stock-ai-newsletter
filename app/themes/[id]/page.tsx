@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { createClient } from '@supabase/supabase-js'
 import { Suspense } from 'react'
 import DetailContent from './_components/detail-content'
+import { DetailLoading } from './_components/detail-states'
 
 /** 테마 메타데이터용 기본 정보 조회 */
 async function getThemeMeta(id: string) {
@@ -61,15 +62,6 @@ export async function generateMetadata({
       type: 'article',
     },
   }
-}
-
-/** 로딩 폴백 */
-function DetailLoading() {
-  return (
-    <div className="min-h-screen bg-black flex items-center justify-center">
-      <div className="animate-pulse text-emerald-500 font-mono">Loading Theme Data...</div>
-    </div>
-  )
 }
 
 /** 테마 상세 페이지 */

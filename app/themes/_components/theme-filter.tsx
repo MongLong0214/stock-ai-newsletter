@@ -81,7 +81,7 @@ function ThemeFilter({ onSearchChange, onStageFilter, onSortChange, activeStages
             {searchValue && (
               <button
                 onClick={clearSearch}
-                className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+                className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors"
               >
                 <X className="w-3 h-3 text-slate-400" />
               </button>
@@ -102,7 +102,7 @@ function ThemeFilter({ onSearchChange, onStageFilter, onSortChange, activeStages
                   key={stage}
                   onClick={() => toggleStage(stage)}
                   className={cn(
-                    'flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-medium transition-all duration-200',
+                    'flex items-center gap-1.5 px-3 py-1.5 min-h-[44px] rounded-full border text-xs font-medium transition-all duration-200',
                     isActive
                       ? cn(config.bg, config.border, config.text)
                       : 'bg-white/5 border-white/10 text-slate-500 hover:bg-white/10 hover:text-slate-300'

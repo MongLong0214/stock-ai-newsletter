@@ -11,6 +11,9 @@ interface ThemeStock {
   symbol: string;
   name: string;
   market: string;
+  currentPrice: number | null;
+  priceChangePct: number | null;
+  volume: number | null;
 }
 
 /** 네이버 금융 테마 페이지 스크래핑 */
@@ -40,17 +43,32 @@ async function scrapeNaverFinanceTheme(themeId: string, naverThemeId: string): P
       const stockName = $link.text().trim();
       if (!stockName) return;
 
+      // Parse additional columns: 현재가(2nd td), 전일비(3rd td), 등락률(4th td), 거래량(5th td)
+      const $tds = $row.find('td');
+      const parseNum = (text: string): number | null => {
+        const cleaned = text.replace(/[,%\s]/g, '');
+        const num = Number(cleaned);
+        return isFinite(num) ? num : null;
+      };
+
+      const currentPrice = parseNum($tds.eq(1).text());
+      const priceChangePct = parseNum($tds.eq(3).text());
+      const volume = parseNum($tds.eq(4).text());
+
       stocks.push({
         themeId,
         symbol: stockCode,
         name: stockName,
-        market: parseInt(stockCode, 10) < 100000 ? 'KOSPI' : 'KOSDAQ',
+        market: stockCode.startsWith('0') ? 'KOSPI' : 'KOSDAQ',
+        currentPrice,
+        priceChangePct,
+        volume,
       });
     });
 
     return stocks;
-  } catch (error) {
-    console.error(`   ❌ 테마 ${naverThemeId} 스크래핑 실패:`, error);
+  } catch (error: unknown) {
+    console.error(`   ❌ 테마 ${naverThemeId} 스크래핑 실패:`, error instanceof Error ? error.message : String(error));
     return [];
   }
 }

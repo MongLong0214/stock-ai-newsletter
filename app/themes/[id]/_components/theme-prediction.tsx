@@ -4,7 +4,7 @@ import { useMemo } from 'react'
 import { motion } from 'framer-motion'
 import { TrendingUp, Clock, Target, BarChart3 } from 'lucide-react'
 import { type Stage, STAGE_CONFIG } from '@/lib/tli/types'
-import { calculatePrediction } from '../_utils/calculate-prediction'
+import { calculatePrediction, type ConfidenceLevel } from '../_utils/calculate-prediction'
 
 interface Comparison {
   pastTheme: string
@@ -21,7 +21,13 @@ interface ThemePredictionProps {
   currentStage: Stage
 }
 
-/** 생명주기 예측 카드 컴포넌트 */
+const CONFIDENCE_CONFIG: Record<ConfidenceLevel, { label: string; bg: string; text: string; border: string }> = {
+  high: { label: '신뢰도: 높음', bg: 'bg-emerald-500/10', text: 'text-emerald-400', border: 'border-emerald-500/30' },
+  medium: { label: '신뢰도: 보통', bg: 'bg-amber-500/10', text: 'text-amber-400', border: 'border-amber-500/30' },
+  low: { label: '신뢰도: 낮음', bg: 'bg-red-500/10', text: 'text-red-400', border: 'border-red-500/30' },
+}
+
+/** 생명주기 참고 지표 카드 컴포넌트 */
 function ThemePrediction({
   firstSpikeDate,
   comparisons,
@@ -30,19 +36,11 @@ function ThemePrediction({
   const prediction = useMemo(() => calculatePrediction(firstSpikeDate, comparisons), [firstSpikeDate, comparisons])
 
   if (!prediction) {
-    return (
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, delay: 0.2 }}
-        className="rounded-2xl border border-slate-700/30 bg-slate-900/40 backdrop-blur-xl p-6"
-      >
-        <p className="text-sm text-slate-500 text-center">비교 데이터가 충분하지 않아 예측을 생성할 수 없습니다</p>
-      </motion.div>
-    )
+    return null
   }
 
   const stageConfig = STAGE_CONFIG[currentStage]
+  const confidenceConfig = CONFIDENCE_CONFIG[prediction.confidence]
 
   return (
     <motion.div
@@ -51,10 +49,15 @@ function ThemePrediction({
       transition={{ duration: 0.6, delay: 0.2 }}
       className="rounded-2xl border border-emerald-500/20 bg-slate-900/60 backdrop-blur-xl p-6"
     >
-      <h2 className="text-lg font-bold mb-5">
-        <span className="text-white">생명주기</span>
-        <span className="text-emerald-400 ml-1">예측</span>
-      </h2>
+      <div className="flex items-center justify-between mb-5">
+        <h2 className="text-lg font-bold">
+          <span className="text-white">생명주기</span>
+          <span className="text-emerald-400 ml-1">참고 지표</span>
+        </h2>
+        <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full border ${confidenceConfig.bg} ${confidenceConfig.text} ${confidenceConfig.border}`}>
+          {confidenceConfig.label}
+        </span>
+      </div>
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
         <MetricCard
           icon={<Clock className="w-4 h-4" />}
@@ -64,7 +67,7 @@ function ThemePrediction({
         />
         <MetricCard
           icon={<Target className="w-4 h-4" />}
-          label="피크까지"
+          label="유사 테마 평균 피크"
           value={prediction.avgDaysToPeak > 0 ? `~${prediction.avgDaysToPeak}일` : '도달'}
           color="#F59E0B"
         />
@@ -76,7 +79,7 @@ function ThemePrediction({
         />
         <MetricCard
           icon={<TrendingUp className="w-4 h-4" />}
-          label="평균 주기"
+          label="유사 테마 평균 주기"
           value={`${prediction.avgTotalDays}일`}
           color="#8B5CF6"
         />
@@ -140,6 +143,11 @@ function ThemePrediction({
           </span>
         </div>
       </div>
+
+      {/* 면책 조항 */}
+      <p className="text-[10px] font-mono text-slate-500 mt-3">
+        과거 유사 테마 기반 참고 정보이며, 실제 시장과 다를 수 있습니다
+      </p>
     </motion.div>
   )
 }

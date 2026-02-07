@@ -30,7 +30,7 @@ export async function loadActiveThemes(): Promise<ThemeWithKeywords[]> {
   for (const theme of themes) {
     const { data: keywords, error: keywordsError } = await supabaseAdmin
       .from('theme_keywords')
-      .select('keyword, source')
+      .select('keyword, source, is_primary')
       .eq('theme_id', theme.id);
 
     if (keywordsError) {
@@ -39,7 +39,15 @@ export async function loadActiveThemes(): Promise<ThemeWithKeywords[]> {
     }
 
     const allKeywords = keywords?.map(k => k.keyword) || [];
-    const naverKeywords = keywords?.filter(k => k.source === 'naver').map(k => k.keyword) || [];
+    const naverSourceKeywords = keywords?.filter(k => k.source === 'naver').map(k => k.keyword) || [];
+    const enrichedKeywords = keywords?.filter(k => k.source === 'auto_enriched').map(k => k.keyword) || [];
+    const primaryKeywords = keywords?.filter(k => k.is_primary).map(k => k.keyword) || [];
+    // 우선순위: naver+enriched > primary+enriched > enriched만
+    const naverKeywords = naverSourceKeywords.length > 0
+      ? [...naverSourceKeywords, ...enrichedKeywords]
+      : primaryKeywords.length > 0
+        ? [...primaryKeywords, ...enrichedKeywords]
+        : enrichedKeywords;
 
     themesWithKeywords.push({
       ...theme,
@@ -109,7 +117,15 @@ export async function upsertNewsMetrics(
 
 /** 테마-종목 매핑 저장 (배치 upsert) */
 export async function upsertThemeStocks(
-  stocks: Array<{ themeId: string; symbol: string; name: string; market: string }>
+  stocks: Array<{
+    themeId: string;
+    symbol: string;
+    name: string;
+    market: string;
+    currentPrice: number | null;
+    priceChangePct: number | null;
+    volume: number | null;
+  }>
 ) {
   console.log('\n💾 테마 종목 저장 중...');
 
@@ -122,6 +138,10 @@ export async function upsertThemeStocks(
     is_curated: false,
     relevance: 1.0,
     is_active: true,
+    current_price: s.currentPrice,
+    price_change_pct: s.priceChangePct,
+    volume: s.volume,
+    updated_at: new Date().toISOString(),
   }))
 
   for (let i = 0; i < rows.length; i += 500) {
@@ -136,4 +156,42 @@ export async function upsertThemeStocks(
   }
 
   console.log(`   ✅ ${stocks.length}개 테마 종목 저장 완료`);
+}
+
+/** 뉴스 기사 저장 (배치 upsert) */
+export async function upsertNewsArticles(
+  articles: Array<{
+    themeId: string;
+    title: string;
+    link: string;
+    source: string | null;
+    pubDate: string;
+    sentimentScore: number | null;
+  }>
+) {
+  if (articles.length === 0) return;
+
+  console.log('\n💾 뉴스 기사 저장 중...');
+
+  const rows = articles.map(a => ({
+    theme_id: a.themeId,
+    title: a.title,
+    link: a.link,
+    source: a.source,
+    pub_date: a.pubDate,
+    sentiment_score: a.sentimentScore,
+  }))
+
+  for (let i = 0; i < rows.length; i += 500) {
+    const batch = rows.slice(i, i + 500)
+    const { error } = await supabaseAdmin
+      .from('theme_news_articles')
+      .upsert(batch, { onConflict: 'theme_id,link' })
+
+    if (error) {
+      console.error(`   ⚠️ 배치 ${i}~${i + batch.length} 저장 실패:`, error.message)
+    }
+  }
+
+  console.log(`   ✅ ${articles.length}개 뉴스 기사 저장 완료`);
 }

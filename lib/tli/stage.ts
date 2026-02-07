@@ -3,9 +3,13 @@
 import type { Stage, ScoreComponents } from './types';
 
 export function determineStage(score: number, components: ScoreComponents): Stage {
-  const { interest_score, news_momentum, maturity_ratio } = components;
+  const { interest_score, news_momentum, sentiment_score, maturity_ratio } = components;
 
-  if (score >= 80 || (score >= 60 && interest_score > 0.8 && news_momentum > 0.7)) {
+  if (
+    score >= 80 ||
+    (score >= 60 && interest_score > 0.8 && news_momentum > 0.7) ||
+    (score >= 60 && interest_score > 0.8 && (sentiment_score ?? 0.5) > 0.7)
+  ) {
     return 'Peak';
   }
 
