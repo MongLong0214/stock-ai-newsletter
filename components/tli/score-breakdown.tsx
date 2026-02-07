@@ -10,12 +10,15 @@ interface ScoreRaw {
   newsLastWeek: number
   interestStddev: number
   activeDays: number
+  sentimentAvg?: number
+  sentimentArticleCount?: number
 }
 
 interface ScoreBreakdownProps {
   components: {
     interest: number
     newsMomentum: number
+    sentiment: number
     volatility: number
   }
   /** 각 항목의 raw 수치 (툴팁/상세 표시용) */
@@ -26,7 +29,7 @@ interface ScoreBreakdownProps {
 const COMPONENT_CONFIG = {
   interest: {
     label: '검색 관심',
-    weight: '50%',
+    weight: '40%',
     color: '#10B981',
     colorFrom: '#10B981',
     colorTo: '#059669',
@@ -35,12 +38,26 @@ const COMPONENT_CONFIG = {
   },
   newsMomentum: {
     label: '뉴스 모멘텀',
-    weight: '35%',
+    weight: '25%',
     color: '#F59E0B',
     colorFrom: '#F59E0B',
     colorTo: '#D97706',
     glow: 'rgba(245, 158, 11, 0.4)',
     rawLabel: (raw: ScoreRaw) => `이번주 ${raw.newsThisWeek}건 / 지난주 ${raw.newsLastWeek}건`,
+  },
+  sentiment: {
+    label: '뉴스 감성',
+    weight: '20%',
+    color: '#A855F7',
+    colorFrom: '#A855F7',
+    colorTo: '#9333EA',
+    glow: 'rgba(168, 85, 247, 0.4)',
+    rawLabel: (raw: ScoreRaw) => {
+      const avg = raw.sentimentAvg ?? 0
+      const count = raw.sentimentArticleCount ?? 0
+      const label = avg > 0.1 ? '긍정적' : avg < -0.1 ? '부정적' : '중립'
+      return `평균 감성: ${avg.toFixed(2)} (${label}) / ${count}건 분석`
+    },
   },
   volatility: {
     label: '변동성',

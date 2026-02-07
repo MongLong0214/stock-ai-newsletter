@@ -24,13 +24,19 @@ export function normalizeValues(data: TimeSeriesPoint[]): TimeSeriesPoint[] {
 
 export function pearsonCorrelation(x: number[], y: number[]): number {
   const n = Math.min(x.length, y.length);
-  if (n < 14) return 0; // 2주 미만 데이터로는 패턴 비교 불가
+  if (n < 7) return 0; // 1주 미만 데이터로는 패턴 비교 불가
 
   const xSlice = x.slice(0, n);
   const ySlice = y.slice(0, n);
 
   const avgX = xSlice.reduce((a, b) => a + b, 0) / n;
   const avgY = ySlice.reduce((a, b) => a + b, 0) / n;
+
+  // 상수 타임라인 스킵 (변동 없는 데이터는 상관분석 무의미)
+  // 값이 0-1 정규화 범위이므로 임계값도 그에 맞춤 (0.01 = 1% 이내 변동은 상수 취급)
+  const stdX = Math.sqrt(xSlice.reduce((s, v) => s + (v - avgX) ** 2, 0) / n);
+  const stdY = Math.sqrt(ySlice.reduce((s, v) => s + (v - avgY) ** 2, 0) / n);
+  if (stdX < 0.01 || stdY < 0.01) return 0;
 
   let num = 0;
   let denX = 0;
@@ -80,7 +86,7 @@ export function compareThemes(
 
   // 최소 공통 길이 사용 (짧은 쪽에 맞춤)
   const commonLength = Math.min(normalizedCurrent.length, normalizedPast.length);
-  if (commonLength < 14) {
+  if (commonLength < 7) {
     return { similarity: 0, currentDay: 0, pastPeakDay: 0, pastTotalDays: 0, estimatedDaysToPeak: 0, message: '' };
   }
 

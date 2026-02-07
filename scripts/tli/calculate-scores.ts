@@ -2,6 +2,7 @@ import { supabaseAdmin } from './supabase-admin';
 import { calculateLifecycleScore } from '../../lib/tli/calculator';
 import { determineStage } from '../../lib/tli/stage';
 import { checkReigniting } from '../../lib/tli/reigniting';
+import { getKSTDate } from './utils';
 import type { InterestMetric, NewsMetric, Stage } from '../../lib/tli/types';
 import type { ThemeWithKeywords } from './data-ops';
 
@@ -9,7 +10,7 @@ import type { ThemeWithKeywords } from './data-ops';
 export async function calculateAndSaveScores(themes: ThemeWithKeywords[]) {
   console.log('\n🧮 라이프사이클 점수 계산 중...');
 
-  const today = new Date().toISOString().split('T')[0];
+  const today = getKSTDate();
 
   for (const theme of themes) {
     try {
@@ -36,21 +37,35 @@ export async function calculateAndSaveScores(themes: ThemeWithKeywords[]) {
         .order('time', { ascending: false })
         .limit(14);
 
-      if (newsError || !newsMetrics || newsMetrics.length === 0) {
-        console.log(`   ⚠️ 뉴스 메트릭 없음`);
-        continue;
+      if (newsError) {
+        console.error(`   ⚠️ 뉴스 메트릭 조회 오류:`, newsError.message);
       }
+      const safeNewsMetrics = (newsMetrics || []) as NewsMetric[];
+
+      // 감성 점수 로드 (7일간)
+      const sevenDaysAgo = new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0];
+      const { data: recentArticles } = await supabaseAdmin
+        .from('theme_news_articles')
+        .select('sentiment_score')
+        .eq('theme_id', theme.id)
+        .gte('pub_date', sevenDaysAgo)
+        .not('sentiment_score', 'is', null);
+
+      const sentimentScores = (recentArticles || [])
+        .map(a => a.sentiment_score as number)
+        .filter(s => s !== null && s !== undefined);
 
       // 점수 계산 (최소 데이터 미달 시 null 반환)
       const result = calculateLifecycleScore({
         interestMetrics: interestMetrics as InterestMetric[],
-        newsMetrics: newsMetrics as NewsMetric[],
+        newsMetrics: safeNewsMetrics,
+        sentimentScores,
         firstSpikeDate: theme.first_spike_date,
         today,
       });
 
       if (!result) {
-        console.log(`   ⚠️ 최소 데이터 요건 미달 (관심도 ${interestMetrics.length}일, 뉴스 ${newsMetrics.length}일)`);
+        console.log(`   ⚠️ 최소 데이터 요건 미달 (관심도 ${interestMetrics.length}일, 뉴스 ${safeNewsMetrics.length}일)`);
         continue;
       }
 
@@ -96,8 +111,18 @@ export async function calculateAndSaveScores(themes: ThemeWithKeywords[]) {
       } else {
         console.log(`   ✅ 점수: ${score}, 스테이지: ${stage}${isReigniting ? ' (재점화!)' : ''}`);
       }
-    } catch (error) {
-      console.error(`   ❌ 테마 처리 실패:`, error);
+
+      // Backfill first_spike_date if not set
+      if (!theme.first_spike_date) {
+        await supabaseAdmin
+          .from('themes')
+          .update({ first_spike_date: today })
+          .eq('id', theme.id)
+          .is('first_spike_date', null);
+        console.log(`   📅 first_spike_date 설정: ${today}`)
+      }
+    } catch (error: unknown) {
+      console.error(`   ❌ 테마 처리 실패:`, error instanceof Error ? error.message : String(error));
     }
   }
 

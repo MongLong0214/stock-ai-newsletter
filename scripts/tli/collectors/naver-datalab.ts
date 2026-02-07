@@ -43,6 +43,31 @@ if (!NAVER_CLIENT_ID || !NAVER_CLIENT_SECRET) {
   throw new Error('NAVER_CLIENT_ID 또는 NAVER_CLIENT_SECRET 환경변수가 누락되었습니다');
 }
 
+/** 네이버 DataLab 검색에 최적화된 키워드 전처리 */
+function preprocessKeywords(keywords: string[]): string[] {
+  const processed = new Set<string>();
+
+  for (const kw of keywords) {
+    // 원본 추가
+    processed.add(kw);
+
+    // 괄호 안 내용 제거: "스페이스X(SpaceX)" → "스페이스X"
+    const withoutParens = kw.replace(/\s*\([^)]*\)\s*/g, '').trim();
+    if (withoutParens && withoutParens !== kw) {
+      processed.add(withoutParens);
+    }
+
+    // 한글만 추출: "AI반도체" → "반도체"
+    const koreanOnly = kw.replace(/[^가-힣\s]/g, '').trim();
+    if (koreanOnly && koreanOnly.length >= 2 && koreanOnly !== kw) {
+      processed.add(koreanOnly);
+    }
+  }
+
+  // DataLab API는 키워드 5개 제한
+  return Array.from(processed).slice(0, 5);
+}
+
 /** 네이버 DataLab API 호출 (재시도 포함) */
 async function callNaverDatalab(request: NaverDatalabRequest): Promise<NaverDatalabResponse> {
   return withRetry(
@@ -90,7 +115,7 @@ export async function collectNaverDatalab(
       .filter(theme => theme.naverKeywords.length > 0)
       .map(theme => ({
         groupName: theme.name,
-        keywords: theme.naverKeywords,
+        keywords: preprocessKeywords(theme.naverKeywords),
       }));
 
     if (keywordGroups.length === 0) {
@@ -131,13 +156,33 @@ export async function collectNaverDatalab(
         }
       }
 
+      // 배치 응답에서 누락된 테마 감지
+      const respondedNames = new Set(response.results.map(r => r.title));
+      const missingThemes = keywordGroups.filter(g => !respondedNames.has(g.groupName));
+      if (missingThemes.length > 0) {
+        console.warn(`   ⚠️ DataLab 응답 누락 (${missingThemes.length}개): ${missingThemes.map(t => t.groupName).join(', ')}`);
+      }
+
       // API 호출 간 간격 제한
       if (i + 5 < themes.length) {
         await sleep(1000);
       }
-    } catch (error) {
-      console.error(`   ❌ 배치 처리 실패:`, error);
+    } catch (error: unknown) {
+      console.error(`   ❌ 배치 처리 실패:`, error instanceof Error ? error.message : String(error));
       // 다음 배치 계속 처리
+    }
+  }
+
+  // 수집 성공률 요약
+  const themesWithData = new Set(metrics.map(m => m.themeId));
+  const themesWithoutData = themes.filter(t => !themesWithData.has(t.id));
+  if (themesWithoutData.length > 0) {
+    console.warn(`\n   ⚠️ DataLab 데이터 없는 테마 ${themesWithoutData.length}개:`);
+    for (const t of themesWithoutData.slice(0, 10)) {
+      console.warn(`      - ${t.name} (키워드: ${t.naverKeywords.join(', ')})`);
+    }
+    if (themesWithoutData.length > 10) {
+      console.warn(`      ... 외 ${themesWithoutData.length - 10}개`);
     }
   }
 

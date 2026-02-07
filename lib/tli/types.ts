@@ -40,6 +40,17 @@ export interface ThemeStock {
   is_curated: boolean;
   relevance: number;
   is_active: boolean;
+  current_price: number | null;
+  price_change_pct: number | null;
+  volume: number | null;
+}
+
+export interface NewsArticle {
+  title: string;
+  link: string;
+  source: string | null;
+  pubDate: string;
+  sentimentScore?: number | null;
 }
 
 export interface InterestMetric {
@@ -62,11 +73,13 @@ export interface NewsMetric {
 export interface ScoreComponents {
   interest_score: number;
   news_momentum: number;
+  sentiment_score: number;
   volatility_score: number;
   maturity_ratio: number;
   weights: {
     interest: number;
     news: number;
+    sentiment: number;
     volatility: number;
   };
   raw: {
@@ -76,6 +89,8 @@ export interface ScoreComponents {
     news_last_week: number;
     interest_stddev: number;
     active_days: number;
+    sentiment_avg: number;
+    sentiment_article_count: number;
   };
 }
 
@@ -144,6 +159,7 @@ export interface ThemeDetail {
     components: {
       interest: number;
       newsMomentum: number;
+      sentiment: number;
       volatility: number;
     };
     /** raw 수치 (툴팁/상세용) */
@@ -154,13 +170,19 @@ export interface ThemeDetail {
       newsLastWeek: number;
       interestStddev: number;
       activeDays: number;
+      sentimentAvg?: number;
+      sentimentArticleCount?: number;
     } | null;
   };
   stocks: Array<{
     symbol: string;
     name: string;
     market: string;
+    currentPrice: number | null;
+    priceChangePct: number | null;
+    volume: number | null;
   }>;
+  recentNews: NewsArticle[];
   comparisons: Array<{
     pastTheme: string;
     pastThemeId: string;

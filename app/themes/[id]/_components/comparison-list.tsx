@@ -29,6 +29,14 @@ function getSimilarityColor(similarity: number): string {
   return '#64748B'
 }
 
+/** 유사도 강도 뱃지 */
+function getSimilarityBadge(similarity: number): { label: string; bg: string; text: string; border: string } | null {
+  if (similarity >= 0.8) return { label: '매우 유사', bg: 'bg-emerald-500/10', text: 'text-emerald-400', border: 'border-emerald-500/30' }
+  if (similarity >= 0.65) return { label: '유사', bg: 'bg-sky-500/10', text: 'text-sky-400', border: 'border-sky-500/30' }
+  if (similarity >= 0.5) return { label: '약한 유사', bg: 'bg-slate-500/10', text: 'text-slate-400', border: 'border-slate-500/30' }
+  return null
+}
+
 /** 유사 패턴 리스트 컴포넌트 */
 function ComparisonList({
   comparisons,
@@ -44,16 +52,20 @@ function ComparisonList({
       transition={{ duration: 0.6, delay: 0.4 }}
       className="rounded-2xl border border-emerald-500/20 bg-slate-900/60 backdrop-blur-xl p-6"
     >
-      <h2 className="text-lg font-bold mb-4">
+      <h2 className="text-lg font-bold mb-1">
         <span className="text-white">유사</span>
         <span className="text-emerald-400 ml-1">패턴</span>
       </h2>
+      <p className="text-xs font-mono text-slate-500 mb-4">
+        {comparisons.length}개 과거 테마와 비교 분석
+      </p>
 
       <div className="space-y-3">
         {comparisons.map((comp, idx) => {
           const isSelected = selectedIndices.includes(idx)
           const simColor = getSimilarityColor(comp.similarity)
           const simPercent = Math.round(comp.similarity * 100)
+          const badge = getSimilarityBadge(comp.similarity)
           // 현재 위치가 과거 전체 주기 대비 %
           const progressPercent = comp.pastTotalDays > 0
             ? Math.min((comp.currentDay / comp.pastTotalDays) * 100, 100)
@@ -75,19 +87,26 @@ function ComparisonList({
               )}
               onClick={() => onToggleComparison?.(idx)}
             >
-              {/* 상단: 테마명 + 유사도 + 토글 */}
+              {/* 상단: 테마명 + 유사도 뱃지 + 퍼센트 */}
               <div className="flex items-center justify-between mb-3">
                 <span className="text-sm font-medium text-white">{comp.pastTheme}</span>
-                <span
-                  className="text-xs font-mono font-medium px-2 py-0.5 rounded-full"
-                  style={{
-                    color: simColor,
-                    backgroundColor: `${simColor}15`,
-                    border: `1px solid ${simColor}30`,
-                  }}
-                >
-                  {simPercent}%
-                </span>
+                <div className="flex items-center gap-1.5">
+                  {badge && (
+                    <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded-full border ${badge.bg} ${badge.text} ${badge.border}`}>
+                      {badge.label}
+                    </span>
+                  )}
+                  <span
+                    className="text-xs font-mono font-medium px-2 py-0.5 rounded-full"
+                    style={{
+                      color: simColor,
+                      backgroundColor: `${simColor}15`,
+                      border: `1px solid ${simColor}30`,
+                    }}
+                  >
+                    {simPercent}%
+                  </span>
+                </div>
               </div>
 
               {/* 유사도 바 */}
@@ -135,7 +154,7 @@ function ComparisonList({
               </div>
 
               {/* 메시지 */}
-              <p className="text-xs text-slate-400 leading-relaxed">{comp.message}</p>
+              <p className="text-xs text-slate-300 leading-relaxed">{comp.message}</p>
 
               {/* 예상 피크 */}
               {comp.estimatedDaysToPeak > 0 && (

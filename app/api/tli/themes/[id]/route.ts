@@ -40,8 +40,8 @@ export async function GET(
     const sevenDaysAgo = new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0]
     const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0]
 
-    // 2) 병렬 배치 쿼리 7개
-    const [latestScoreRes, scoresRes, stocksRes, comparisonsRes, keywordsRes, newsRes, interestRes] =
+    // 2) 병렬 배치 쿼리 8개
+    const [latestScoreRes, scoresRes, stocksRes, comparisonsRes, keywordsRes, newsRes, interestRes, newsArticlesRes] =
       await Promise.all([
         // 최신 점수 1건 (날짜 제한 없음 - 배치 지연 시에도 유실 방지)
         supabase
@@ -57,13 +57,34 @@ export async function GET(
           .eq('theme_id', id)
           .gte('calculated_at', thirtyDaysAgo)
           .order('calculated_at', { ascending: true }),
-        // 관련 종목
+        // 관련 종목 (가격/거래량 포함 — 컬럼 미존재 시 fallback)
         supabase
           .from('theme_stocks')
-          .select('symbol, name, market')
+          .select('symbol, name, market, current_price, price_change_pct, volume')
           .eq('theme_id', id)
           .eq('is_active', true)
-          .order('relevance', { ascending: false }),
+          .order('relevance', { ascending: false })
+          .then(async (res) => {
+            if (res.error) {
+              // 새 컬럼 미존재 시 기존 컬럼만 조회
+              const fallback = await supabase
+                .from('theme_stocks')
+                .select('symbol, name, market')
+                .eq('theme_id', id)
+                .eq('is_active', true)
+                .order('relevance', { ascending: false })
+              return {
+                ...fallback,
+                data: (fallback.data || []).map((s) => ({
+                  ...s,
+                  current_price: null,
+                  price_change_pct: null,
+                  volume: null,
+                })),
+              }
+            }
+            return res
+          }),
         // 유사 테마 비교
         supabase
           .from('theme_comparisons')
@@ -90,6 +111,13 @@ export async function GET(
           .eq('theme_id', id)
           .gte('time', thirtyDaysAgo)
           .order('time', { ascending: true }),
+        // 최근 뉴스 기사 (10건) — 테이블 미존재 시 graceful fallback
+        supabase
+          .from('theme_news_articles')
+          .select('title, link, source, pub_date, sentiment_score')
+          .eq('theme_id', id)
+          .order('pub_date', { ascending: false })
+          .limit(10),
       ])
 
     const allScores = scoresRes.data || []
@@ -98,6 +126,10 @@ export async function GET(
     const keywordsList = keywordsRes.data || []
     const newsList = newsRes.data || []
     const interestList = interestRes.data || []
+    // theme_news_articles 테이블 미존재 시 빈 배열 (42P01 graceful fallback)
+    const newsArticles = (newsArticlesRes.error && isTableNotFound(newsArticlesRes.error))
+      ? []
+      : (newsArticlesRes.data || [])
 
     // --- 점수 파싱 ---
 
@@ -202,6 +234,7 @@ export async function GET(
         components: {
           interest: components?.interest_score ?? 0,
           newsMomentum: components?.news_momentum ?? 0,
+          sentiment: components?.sentiment_score ?? 0.5,
           volatility: components?.volatility_score ?? 0,
         },
         raw: components?.raw
@@ -212,6 +245,8 @@ export async function GET(
               newsLastWeek: components.raw.news_last_week,
               interestStddev: components.raw.interest_stddev,
               activeDays: components.raw.active_days,
+              sentimentAvg: components.raw.sentiment_avg ?? 0,
+              sentimentArticleCount: components.raw.sentiment_article_count ?? 0,
             }
           : null,
       },
@@ -219,6 +254,16 @@ export async function GET(
         symbol: s.symbol,
         name: s.name,
         market: s.market,
+        currentPrice: s.current_price ?? null,
+        priceChangePct: s.price_change_pct ?? null,
+        volume: s.volume ?? null,
+      })),
+      recentNews: newsArticles.map((a: { title: string; link: string; source: string | null; pub_date: string; sentiment_score: number | null }) => ({
+        title: a.title,
+        link: a.link,
+        source: a.source,
+        pubDate: a.pub_date,
+        sentimentScore: a.sentiment_score ?? null,
       })),
       comparisons: comparisonResults,
       lifecycleCurve: allScores.map((s) => ({

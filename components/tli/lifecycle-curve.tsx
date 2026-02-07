@@ -114,6 +114,20 @@ export default function LifecycleCurve({
   interestTimeline,
   height = 350
 }: LifecycleCurveProps) {
+  const gradientId = useId()
+
+  // 데이터가 전혀 없는 경우에만 안내 표시
+  if (currentData.length === 0) {
+    return (
+      <div
+        className="flex items-center justify-center bg-slate-900/30 rounded-lg border border-slate-800"
+        style={{ height }}
+      >
+        <p className="text-slate-500 text-sm font-mono">데이터 없음</p>
+      </div>
+    )
+  }
+
   // 현재 데이터에서 최고점 찾기
   const peakIndex = currentData.reduce(
     (maxIdx, item, idx, arr) =>
@@ -180,8 +194,6 @@ export default function LifecycleCurve({
 
     return merged
   })
-
-  const gradientId = useId()
 
   return (
     <ChartContainer config={chartConfig} className="w-full" style={{ height }}>
