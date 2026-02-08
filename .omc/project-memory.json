@@ -228,8 +228,8 @@
   "hotPaths": [
     {
       "path": "",
-      "accessCount": 60,
-      "lastAccessed": 1770554413218,
+      "accessCount": 61,
+      "lastAccessed": 1770556426083,
       "type": "directory"
     },
     {
@@ -287,9 +287,33 @@
       "type": "file"
     },
     {
+      "path": "components/tli/theme-card.tsx",
+      "accessCount": 23,
+      "lastAccessed": 1770558926555,
+      "type": "file"
+    },
+    {
       "path": "lib/tli/comparison.ts",
       "accessCount": 22,
       "lastAccessed": 1770537859570,
+      "type": "file"
+    },
+    {
+      "path": "lib/tli/types/db.ts",
+      "accessCount": 22,
+      "lastAccessed": 1770556303422,
+      "type": "file"
+    },
+    {
+      "path": "lib/tli/types/index.ts",
+      "accessCount": 22,
+      "lastAccessed": 1770556935585,
+      "type": "file"
+    },
+    {
+      "path": "lib/tli/types/stage.ts",
+      "accessCount": 22,
+      "lastAccessed": 1770556982461,
       "type": "file"
     },
     {
@@ -299,15 +323,9 @@
       "type": "file"
     },
     {
-      "path": "lib/tli/types/db.ts",
-      "accessCount": 21,
-      "lastAccessed": 1770554407143,
-      "type": "file"
-    },
-    {
-      "path": "lib/tli/types/index.ts",
+      "path": "app/themes/[id]/_components/score-card.tsx",
       "accessCount": 20,
-      "lastAccessed": 1770554396762,
+      "lastAccessed": 1770557825286,
       "type": "file"
     },
     {
@@ -317,33 +335,15 @@
       "type": "file"
     },
     {
-      "path": "lib/tli/types/stage.ts",
+      "path": "app/themes/[id]/_components/news-headlines.tsx",
       "accessCount": 19,
-      "lastAccessed": 1770554407498,
-      "type": "file"
-    },
-    {
-      "path": "app/themes/[id]/_components/score-card.tsx",
-      "accessCount": 19,
-      "lastAccessed": 1770556042034,
-      "type": "file"
-    },
-    {
-      "path": "components/tli/theme-card.tsx",
-      "accessCount": 19,
-      "lastAccessed": 1770556176986,
+      "lastAccessed": 1770557825755,
       "type": "file"
     },
     {
       "path": "app/themes/[id]/_components/detail-content.tsx",
-      "accessCount": 18,
-      "lastAccessed": 1770556041431,
-      "type": "file"
-    },
-    {
-      "path": "app/themes/[id]/_components/news-headlines.tsx",
-      "accessCount": 18,
-      "lastAccessed": 1770556043322,
+      "accessCount": 19,
+      "lastAccessed": 1770557827314,
       "type": "file"
     },
     {
@@ -372,8 +372,8 @@
     },
     {
       "path": "app/themes/_components/stats-overview.tsx",
-      "accessCount": 14,
-      "lastAccessed": 1770556035218,
+      "accessCount": 16,
+      "lastAccessed": 1770557804279,
       "type": "file"
     },
     {
@@ -449,6 +449,12 @@
       "type": "file"
     },
     {
+      "path": "app",
+      "accessCount": 4,
+      "lastAccessed": 1770557378660,
+      "type": "directory"
+    },
+    {
       "path": "scripts/tli/collectors/naver-datalab.ts",
       "accessCount": 3,
       "lastAccessed": 1770529843244,
@@ -459,12 +465,6 @@
       "accessCount": 3,
       "lastAccessed": 1770531136390,
       "type": "file"
-    },
-    {
-      "path": "app",
-      "accessCount": 3,
-      "lastAccessed": 1770535006003,
-      "type": "directory"
     },
     {
       "path": "scripts/tli",

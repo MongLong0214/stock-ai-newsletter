@@ -140,7 +140,7 @@ html {
 body {
   background: var(--matrix-black);
   color: var(--foreground);
-  overflow-x: hidden;
+  overflow-x: clip;
   font-family: var(--font-noto-sans-kr), var(--font-inter), system-ui, -apple-system, sans-serif;
 }
 
@@ -690,3 +690,7 @@ body {
 .custom-scroll::-webkit-scrollbar-thumb { background: rgba(16,185,129,0.2); border-radius: 4px; }
 .custom-scroll::-webkit-scrollbar-thumb:hover { background: rgba(16,185,129,0.4); }
 .custom-scroll { scrollbar-width: thin; scrollbar-color: rgba(16,185,129,0.2) transparent; }
+
+/* 스크롤바 숨기기 유틸리티 */
+.scrollbar-hide::-webkit-scrollbar { display: none; }
+.scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }

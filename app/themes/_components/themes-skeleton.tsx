@@ -1,6 +1,5 @@
 import AnimatedBackground from '@/components/animated-background'
 
-/** 스켈레톤 카드 - 실제 ThemeCard 구조와 일치 */
 function SkeletonCard() {
   return (
     <div className="rounded-2xl border border-emerald-500/10 bg-slate-900/60 backdrop-blur-sm p-6 animate-pulse">
@@ -10,16 +9,23 @@ function SkeletonCard() {
           <div className="h-6 w-28 bg-slate-700/50 rounded-lg mb-1" />
           <div className="h-4 w-20 bg-slate-800/50 rounded-lg" />
         </div>
-        <div className="h-6 w-14 bg-slate-700/30 rounded-full" />
+        <div className="flex flex-col items-end gap-1.5 shrink-0">
+          <div className="h-6 w-14 bg-slate-700/30 rounded-full" />
+          <div className="h-5 w-14 bg-orange-500/10 rounded-full" />
+        </div>
       </div>
 
       {/* Score + Sparkline */}
       <div className="flex items-end justify-between gap-3 mb-4">
         <div className="flex items-end gap-2">
           <div className="h-12 w-14 bg-slate-700/50 rounded-lg" />
-          <div className="h-3 w-16 bg-slate-800/50 rounded mb-2" />
+          <div className="pb-2">
+            <div className="h-3 w-16 bg-slate-800/50 rounded" />
+          </div>
         </div>
-        <div className="h-6 w-[60px] bg-slate-700/50 rounded mb-2" />
+        <div className="pb-2">
+          <div className="h-6 w-[60px] bg-slate-700/50 rounded" />
+        </div>
       </div>
 
       {/* Change row with border-b */}
@@ -42,7 +48,7 @@ function SkeletonCard() {
       </div>
 
       {/* Top stock tags */}
-      <div className="flex items-center gap-1.5 mt-auto">
+      <div className="flex items-center gap-1.5 mt-auto flex-wrap">
         <div className="h-5 w-16 bg-emerald-500/10 rounded-full" />
         <div className="h-5 w-20 bg-emerald-500/10 rounded-full" />
         <div className="h-5 w-14 bg-emerald-500/10 rounded-full" />
@@ -51,13 +57,11 @@ function SkeletonCard() {
   )
 }
 
-/** 스켈레톤 로딩 UI - 실제 ThemesContent 구조와 일치 */
 function ThemesSkeleton() {
   return (
     <div className="min-h-screen bg-black text-white relative overflow-hidden">
       <AnimatedBackground />
 
-      {/* Scanline effect */}
       <div className="fixed inset-0 pointer-events-none z-1 opacity-[0.04]">
         <div
           className="absolute inset-0 bg-[linear-gradient(transparent_50%,rgba(16,185,129,0.04)_50%)] bg-size-[100%_4px] animate-[matrix-scan_8s_linear_infinite]"
@@ -67,7 +71,7 @@ function ThemesSkeleton() {
 
       <main className="relative z-10 py-16 lg:py-20">
         <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8 lg:py-16">
-          {/* 1. Header (matches themes-header.tsx) */}
+          {/* 1. Header */}
           <div className="mb-12 animate-pulse">
             <div className="flex items-center gap-3 mb-3">
               <div className="h-8 w-1 bg-emerald-500 rounded-full" />
@@ -82,7 +86,7 @@ function ThemesSkeleton() {
             </div>
           </div>
 
-          {/* 2. Stats Overview Bar (matches stats-overview.tsx) */}
+          {/* 2. Stats Overview Bar */}
           <div className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-xl p-5 shadow-[0_4px_30px_rgba(0,0,0,0.3)] mb-8 animate-pulse">
             <div className="flex flex-wrap items-center gap-4 lg:gap-6">
               {/* Total */}
@@ -94,17 +98,15 @@ function ThemesSkeleton() {
                 </div>
               </div>
 
-              {/* Divider */}
               <div className="hidden sm:block h-10 w-px bg-white/10" />
 
               {/* Stage pills */}
               <div className="flex items-center gap-3 flex-wrap">
-                {[1, 2, 3, 4, 5].map((i) => (
+                {[1, 2, 3, 4].map((i) => (
                   <div key={i} className="h-7 w-16 bg-slate-700/30 rounded-full" />
                 ))}
               </div>
 
-              {/* Divider */}
               <div className="hidden lg:block h-10 w-px bg-white/10" />
 
               {/* Hottest */}
@@ -116,7 +118,17 @@ function ThemesSkeleton() {
                 </div>
               </div>
 
-              {/* Divider */}
+              <div className="hidden lg:block h-10 w-px bg-white/10" />
+
+              {/* Surging */}
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 bg-emerald-500/15 rounded-lg" />
+                <div>
+                  <div className="h-3 w-12 bg-slate-800/50 rounded mb-1" />
+                  <div className="h-4 w-20 bg-slate-700/50 rounded" />
+                </div>
+              </div>
+
               <div className="hidden lg:block h-10 w-px bg-white/10" />
 
               {/* Avg Score */}
@@ -130,7 +142,7 @@ function ThemesSkeleton() {
             </div>
           </div>
 
-          {/* 3. Filter Bar (matches theme-filter.tsx) */}
+          {/* 3. Filter Bar */}
           <div className="mb-8 animate-pulse">
             {/* Desktop */}
             <div className="hidden sm:flex items-center gap-3 p-2 rounded-xl bg-slate-900/40 backdrop-blur-sm border border-slate-800/50">
@@ -152,9 +164,9 @@ function ThemesSkeleton() {
             {/* Mobile */}
             <div className="flex sm:hidden flex-col gap-2">
               <div className="h-9 w-full bg-slate-900/60 rounded-lg border border-slate-700/50" />
-              <div className="flex gap-1 overflow-x-auto">
+              <div className="flex gap-1 overflow-x-auto scrollbar-hide">
                 {[1, 2, 3, 4, 5].map((i) => (
-                  <div key={i} className="h-8 w-16 bg-slate-900/60 rounded-lg" />
+                  <div key={i} className="h-8 w-16 bg-slate-900/60 rounded-lg flex-shrink-0" />
                 ))}
               </div>
               <div className="flex gap-1">
@@ -165,13 +177,12 @@ function ThemesSkeleton() {
             </div>
           </div>
 
-          {/* 4. Stage Sections (show 2 sections) */}
+          {/* 4. Stage Sections */}
           {[1, 2].map((sectionIdx) => (
-            <div key={sectionIdx} className="mb-12">
-              {/* Section header */}
-              <div className="flex items-center gap-3 mb-6 animate-pulse">
-                <div className="h-6 w-1 bg-slate-700/50 rounded-full" />
-                <div>
+            <div key={sectionIdx} className="mb-10">
+              <div className="flex items-start gap-3.5 p-3.5 rounded-xl mb-5 animate-pulse">
+                <div className="w-1 h-6 bg-slate-700/50 rounded-full mt-0.5" />
+                <div className="flex-1">
                   <div className="flex items-center gap-2 mb-1">
                     <div className="h-6 w-28 bg-slate-700/50 rounded-lg" />
                     <div className="h-4 w-8 bg-slate-800/50 rounded" />
@@ -180,8 +191,7 @@ function ThemesSkeleton() {
                 </div>
               </div>
 
-              {/* Card grid */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 lg:gap-5">
                 {[1, 2, 3].map((i) => (
                   <SkeletonCard key={`${sectionIdx}-${i}`} />
                 ))}

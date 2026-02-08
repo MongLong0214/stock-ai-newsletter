@@ -2,7 +2,6 @@
 'use client'
 
 import { useState, useCallback } from 'react'
-import { motion } from 'framer-motion'
 import { Search, X } from 'lucide-react'
 import { STAGE_CONFIG } from '@/lib/tli/types'
 import type { DisplayStage } from '@/lib/tli/types'
@@ -50,7 +49,7 @@ function StageFilterPills({
             key={stage}
             onClick={() => onToggle(stage)}
             className={cn(
-              'flex items-center gap-1.5 text-[11px] font-mono font-medium transition-all duration-150',
+              'cursor-pointer flex items-center gap-1.5 text-[11px] font-mono font-medium transition-all duration-150',
               isDesktop
                 ? cn('px-2.5 py-1.5 rounded-lg', isActive ? 'bg-slate-800 text-white shadow-sm ring-1 ring-slate-700/50' : 'text-slate-600 hover:text-slate-400 hover:bg-slate-800/30')
                 : cn('flex-1 min-w-[60px] justify-center px-2 py-2 rounded-lg', isActive ? 'bg-slate-800 text-white shadow-sm' : 'bg-slate-900/60 border border-slate-700/50 text-slate-600 hover:text-slate-400'),
@@ -90,7 +89,7 @@ function SortPills({
           key={option.value}
           onClick={() => onSortChange(option.value)}
           className={cn(
-            'text-[11px] font-mono font-medium transition-all duration-150',
+            'cursor-pointer text-[11px] font-mono font-medium transition-all duration-150',
             isDesktop ? 'px-2.5 py-1.5 rounded-lg' : 'flex-1 px-3 py-2 rounded-lg',
             activeSort === option.value
               ? (isDesktop ? 'bg-emerald-500/15 text-emerald-400 shadow-sm ring-1 ring-emerald-500/20' : 'bg-emerald-500/15 text-emerald-400 shadow-sm')
@@ -130,12 +129,7 @@ function ThemeFilter({ onSearchChange, onStageFilter, onSortChange, activeStages
   }, [activeStages, onStageFilter])
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 15 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4, delay: 0.2 }}
-      className="mb-8"
-    >
+    <div className="mb-8">
       {/* Desktop */}
       <div className="hidden sm:flex items-center gap-3 p-2 rounded-xl bg-slate-900/40 backdrop-blur-sm border border-slate-800/50">
         <div className="relative flex-1">
@@ -148,7 +142,7 @@ function ThemeFilter({ onSearchChange, onStageFilter, onSortChange, activeStages
             className="w-full h-8 pl-9 pr-8 rounded-lg border border-slate-700/30 bg-slate-950/50 text-[13px] text-white placeholder:text-slate-600 font-mono focus:outline-none focus:ring-1 focus:ring-emerald-500/40 focus:border-emerald-500/30 transition-all"
           />
           {searchValue && (
-            <button onClick={clearSearch} className="absolute right-1.5 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center rounded-md hover:bg-slate-700/50 transition-colors">
+            <button onClick={clearSearch} className="cursor-pointer absolute right-1.5 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center rounded-md hover:bg-slate-700/50 transition-colors">
               <X className="w-3 h-3 text-slate-500" />
             </button>
           )}
@@ -169,7 +163,7 @@ function ThemeFilter({ onSearchChange, onStageFilter, onSortChange, activeStages
             className="w-full h-9 pl-9 pr-9 rounded-lg border border-slate-700/50 bg-slate-900/60 text-sm text-white placeholder:text-slate-600 font-mono focus:outline-none focus:ring-1 focus:ring-emerald-500/40 focus:border-emerald-500/30 transition-all"
           />
           {searchValue && (
-            <button onClick={clearSearch} className="absolute right-2 top-1/2 -translate-y-1/2 w-6 h-6 flex items-center justify-center rounded-md hover:bg-slate-700/50 transition-colors">
+            <button onClick={clearSearch} className="cursor-pointer absolute right-2 top-1/2 -translate-y-1/2 w-6 h-6 flex items-center justify-center rounded-md hover:bg-slate-700/50 transition-colors">
               <X className="w-3 h-3 text-slate-500" />
             </button>
           )}
@@ -177,7 +171,7 @@ function ThemeFilter({ onSearchChange, onStageFilter, onSortChange, activeStages
         <StageFilterPills stages={FILTERABLE_STAGES} activeStages={activeStages} onToggle={toggleStage} variant="mobile" />
         <SortPills options={SORT_OPTIONS} activeSort={activeSort} onSortChange={onSortChange} variant="mobile" />
       </div>
-    </motion.div>
+    </div>
   )
 }
 
