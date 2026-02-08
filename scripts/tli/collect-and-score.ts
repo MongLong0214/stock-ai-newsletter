@@ -9,52 +9,57 @@ import { collectNaverFinanceStocks } from './collectors/naver-finance-themes';
 import { discoverAndManageThemes } from './discover-themes';
 import { getKSTDate, daysAgo } from './utils';
 
+/** 실행 모드: full(전체 수집) / news-only(뉴스만) */
+type RunMode = 'full' | 'news-only'
+
 async function main() {
-  console.log('🚀 TLI 데이터 수집 및 점수 계산\n');
+  const mode: RunMode = (process.env.TLI_MODE === 'news-only') ? 'news-only' : 'full';
+  const kstNow = new Date(Date.now() + 9 * 60 * 60 * 1000);
+  const dayOfWeek = kstNow.getUTCDay(); // 0=일, 1=월, ..., 6=토
+
+  console.log(`🚀 TLI 데이터 수집 [${mode.toUpperCase()}]\n`);
   console.log('━'.repeat(80));
 
   const startTime = Date.now();
 
   try {
-    // 0단계: 테마 발견 파이프라인 (주간 - 일요일)
-    // KST(UTC+9) 기준 요일 판정 (cron이 KST 오전에 실행되므로)
-    const kstNow = new Date(Date.now() + 9 * 60 * 60 * 1000)
-    const dayOfWeek = kstNow.getUTCDay();
-    if (dayOfWeek === 0) {
+    // 0단계: 테마 발견 (주 2회 - 일/수, full 모드에서만)
+    if (mode === 'full' && (dayOfWeek === 0 || dayOfWeek === 3)) {
       try {
         await discoverAndManageThemes();
       } catch (error: unknown) {
         console.error('\n❌ 테마 발견 실패 (수집은 계속 진행):', error instanceof Error ? error.message : String(error));
       }
-    } else {
-      console.log('⊘ 테마 발견 생략 (일요일에만 실행)\n');
+    } else if (mode === 'full') {
+      console.log('⊘ 테마 발견 생략 (일/수에만 실행)\n');
     }
 
     // 1단계: 활성 테마 로딩
     const themes = await loadActiveThemes();
-
-    // 2단계: 네이버 DataLab 데이터 수집
     const endDate = getKSTDate();
-    const startDate = daysAgo(30);
 
-    console.log('\n━'.repeat(80));
-    console.log('📊 1단계: 네이버 DataLab 수집');
-    console.log('━'.repeat(80));
+    // 2단계: 네이버 DataLab 수집 (full 모드에서만)
+    if (mode === 'full') {
+      const startDate = daysAgo(30);
+      console.log('\n━'.repeat(80));
+      console.log('📊 1단계: 네이버 DataLab 수집');
+      console.log('━'.repeat(80));
 
-    try {
-      const interestMetrics = await collectNaverDatalab(
-        themes.map(t => ({ id: t.id, name: t.name, naverKeywords: t.naverKeywords })),
-        startDate,
-        endDate
-      );
-      await upsertInterestMetrics(interestMetrics);
-    } catch (error: unknown) {
-      console.error('\n❌ 네이버 DataLab 수집 실패:', error instanceof Error ? error.message : String(error));
+      try {
+        const interestMetrics = await collectNaverDatalab(
+          themes.map(t => ({ id: t.id, name: t.name, naverKeywords: t.naverKeywords })),
+          startDate,
+          endDate
+        );
+        await upsertInterestMetrics(interestMetrics);
+      } catch (error: unknown) {
+        console.error('\n❌ 네이버 DataLab 수집 실패:', error instanceof Error ? error.message : String(error));
+      }
     }
 
-    // 3단계: 네이버 뉴스 데이터 수집
+    // 3단계: 네이버 뉴스 수집 (모든 모드)
     console.log('\n━'.repeat(80));
-    console.log('📰 2단계: 네이버 뉴스 수집');
+    console.log(`📰 ${mode === 'news-only' ? '1' : '2'}단계: 네이버 뉴스 수집`);
     console.log('━'.repeat(80));
 
     try {
@@ -70,10 +75,10 @@ async function main() {
       console.error('\n❌ 네이버 뉴스 수집 실패:', error instanceof Error ? error.message : String(error));
     }
 
-    // 4단계: 네이버 금융 종목 수집 (주 2회 - 월/목)
-    if (dayOfWeek === 1 || dayOfWeek === 4) {
+    // 4단계: 종목 수집 (평일 full 모드 - 장 마감 후)
+    if (mode === 'full' && dayOfWeek >= 1 && dayOfWeek <= 5) {
       console.log('\n━'.repeat(80));
-      console.log('📈 3단계: 네이버 금융 종목 수집 (주 2회)');
+      console.log('📈 3단계: 네이버 금융 종목 수집');
       console.log('━'.repeat(80));
 
       try {
@@ -84,36 +89,38 @@ async function main() {
       } catch (error: unknown) {
         console.error('\n❌ 종목 수집 실패:', error instanceof Error ? error.message : String(error));
       }
-    } else {
-      console.log('\n⊘ 종목 수집 생략 (월/목에만 실행)');
+    } else if (mode === 'full') {
+      console.log('\n⊘ 종목 수집 생략 (주말)');
     }
 
-    // 5단계: 라이프사이클 점수 계산
-    console.log('\n━'.repeat(80));
-    console.log('🧮 4단계: 라이프사이클 점수 계산');
-    console.log('━'.repeat(80));
+    // 5단계: 점수 계산 (full 모드에서만)
+    if (mode === 'full') {
+      console.log('\n━'.repeat(80));
+      console.log('🧮 4단계: 라이프사이클 점수 계산');
+      console.log('━'.repeat(80));
 
-    try {
-      await calculateAndSaveScores(themes);
-    } catch (error: unknown) {
-      console.error('\n❌ 점수 계산 실패:', error instanceof Error ? error.message : String(error));
-    }
+      try {
+        await calculateAndSaveScores(themes);
+      } catch (error: unknown) {
+        console.error('\n❌ 점수 계산 실패:', error instanceof Error ? error.message : String(error));
+      }
 
-    // 6단계: 테마 비교 분석
-    console.log('\n━'.repeat(80));
-    console.log('🔍 5단계: 테마 비교 분석');
-    console.log('━'.repeat(80));
+      // 6단계: 비교 분석 (full 모드에서만)
+      console.log('\n━'.repeat(80));
+      console.log('🔍 5단계: 테마 비교 분석');
+      console.log('━'.repeat(80));
 
-    try {
-      await calculateThemeComparisons(themes);
-    } catch (error: unknown) {
-      console.error('\n❌ 비교 분석 실패:', error instanceof Error ? error.message : String(error));
+      try {
+        await calculateThemeComparisons(themes);
+      } catch (error: unknown) {
+        console.error('\n❌ 비교 분석 실패:', error instanceof Error ? error.message : String(error));
+      }
     }
 
     // 요약
     const duration = ((Date.now() - startTime) / 1000).toFixed(2);
     console.log('\n━'.repeat(80));
-    console.log('✨ TLI 수집 및 점수 계산 완료!');
+    console.log(`✨ TLI ${mode === 'news-only' ? '뉴스 수집' : '전체 수집 및 점수 계산'} 완료!`);
     console.log('━'.repeat(80));
     console.log(`\n⏱️  소요 시간: ${duration}초`);
     console.log(`📊 처리된 테마: ${themes.length}개\n`);

@@ -425,6 +425,12 @@
       "type": "file"
     },
     {
+      "path": "scripts/tli/collect-and-score.ts",
+      "accessCount": 9,
+      "lastAccessed": 1770538865911,
+      "type": "file"
+    },
+    {
       "path": "scripts/tli/data-ops.ts",
       "accessCount": 7,
       "lastAccessed": 1770537069562,
@@ -435,12 +441,6 @@
       "accessCount": 7,
       "lastAccessed": 1770538674251,
       "type": "directory"
-    },
-    {
-      "path": "scripts/tli/collect-and-score.ts",
-      "accessCount": 7,
-      "lastAccessed": 1770538725984,
-      "type": "file"
     },
     {
       "path": "lib/tli/types",
