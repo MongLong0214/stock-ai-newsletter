@@ -1,6 +1,61 @@
 {
   "newsletters": [
     {
+      "date": "2026-02-09",
+      "stocks": [
+        {
+          "ticker": "KOSPI:009830",
+          "name": "한화솔루션",
+          "close_price": 42000,
+          "rationale": "2026-02-06 종가 42,000원 확인(NH/유진투자증권 리포트)|RSI 48.5로 과매도 구간 탈출 초기 신호|MACD 히스토그램 0선 돌파하며 양전환 신호 발생|거래량 전일 대비 188% 급증하며 매수세 유입 확인|볼린저밴드 하단 지지 후 중심선(20일선) 상향 돌파|ATR 3.8%로 변동성 확대되며 강한 에너지 응축|북미 카터스빌 설비 가동 및 태양광 셀 통관 불확실성 해소|ADX 22로 새로운 상승 추세 형성 시작|OBV(On-Balance Volume) 우상향 반전하며 매집 포착|CCI 65 돌파로 단기 강세 구간 진입 확인",
+          "signals": {
+            "trend_score": 82,
+            "momentum_score": 88,
+            "volume_score": 95,
+            "volatility_score": 85,
+            "pattern_score": 92,
+            "sentiment_score": 94,
+            "overall_score": 90
+          },
+          "verified_date": "2026-02-06"
+        },
+        {
+          "ticker": "KOSPI:068270",
+          "name": "셀트리온",
+          "close_price": 220000,
+          "rationale": "2026-02-06 기준 이평선 완전 정배열 구간 유지|EMA 5일/20일 골든크로스 발생으로 단기 추세 강화|RSI 52.8로 과열 없는 이상적 상승 궤도 진입|MACD 시그널선이 0선 상단에 안착하며 장기 상승 모멘텀 확보|거래량 5일 평균 대비 안정적 증가 추세 유지|볼린저밴드 %B 지수 0.62로 상단 돌파 시도 중|ADX 28로 강력한 추세 강도 유지|짐펜트라 미국 매출 확대 및 2026년 OPM 본격 개선 전망|Ichimoku 구름대 상단 돌파 후 지지력 테스트 완료|Stochastic 95 부근 골든크로스 이후 강세 지속",
+          "signals": {
+            "trend_score": 94,
+            "momentum_score": 90,
+            "volume_score": 84,
+            "volatility_score": 82,
+            "pattern_score": 88,
+            "sentiment_score": 91,
+            "overall_score": 89
+          },
+          "verified_date": "2026-02-06"
+        },
+        {
+          "ticker": "KOSDAQ:403870",
+          "name": "HPSP",
+          "close_price": 45850,
+          "rationale": "2026-02-06 내부자 매도 공시에도 불구하고 저가 매수세 유입 확인|SMA 20일선 강력 지지 후 양봉 마감|RSI 54.1로 중립 이상의 강세 모멘텀 유지|MACD 시그널 상향 돌파 시도로 단기 추세 반전 임박|거래량 평시 대비 210% 폭발하며 손바꿈 현상 발생|볼린저 중심선 회복으로 회귀 본능 강화|ATR 3.2% 수준에서 적정 변동성 유지|Williams %R -42에서 반등하며 매수 적기 신호|Vortex 지표 VI+ 1.1 돌파로 상승 전환 확인|반도체 전공정 HPA 장비 독점적 지위 및 실적 턴어라운드 기대",
+          "signals": {
+            "trend_score": 89,
+            "momentum_score": 91,
+            "volume_score": 93,
+            "volatility_score": 86,
+            "pattern_score": 85,
+            "sentiment_score": 88,
+            "overall_score": 89
+          },
+          "verified_date": "2026-02-06"
+        }
+      ],
+      "sentAt": "2026-02-08T22:57:05.405+00:00",
+      "subscriberCount": 125
+    },
+    {
       "date": "2026-02-06",
       "stocks": [
         {
@@ -3814,5 +3869,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-02-05T23:04:32.533Z"
+  "lastUpdated": "2026-02-08T22:57:39.729Z"
 }
