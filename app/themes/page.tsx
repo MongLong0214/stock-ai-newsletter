@@ -1,5 +1,7 @@
 import type { Metadata } from 'next'
 import { Suspense } from 'react'
+import Script from 'next/script'
+import { createClient } from '@supabase/supabase-js'
 import ThemesContent from './_components/themes-content'
 import ThemesSkeleton from './_components/themes-skeleton'
 
@@ -30,11 +32,58 @@ export const metadata: Metadata = {
   },
 }
 
+/** 테마 목록 조회 (ItemList 스키마용) */
+async function getActiveThemes() {
+  try {
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co',
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-key',
+      { auth: { persistSession: false } }
+    )
+    const { data } = await supabase
+      .from('themes')
+      .select('id, name, description')
+      .eq('is_active', true)
+      .order('name')
+    return data || []
+  } catch {
+    return []
+  }
+}
+
 /** 테마 목록 페이지 */
-export default function ThemesPage() {
+export default async function ThemesPage() {
+  const themes = await getActiveThemes()
+
+  const itemListSchema = {
+    '@context': 'https://schema.org',
+    '@type': 'ItemList',
+    name: '주식 테마 생명주기 분석 목록',
+    description: 'AI가 분석하는 한국 주식시장 테마의 생명주기 점수와 단계',
+    numberOfItems: themes.length,
+    itemListElement: themes.map((theme, index) => ({
+      '@type': 'ListItem',
+      position: index + 1,
+      item: {
+        '@type': 'Thing',
+        '@id': `https://stockmatrix.co.kr/themes/${theme.id}`,
+        name: theme.name,
+        description: theme.description || `${theme.name} 테마 생명주기 분석`,
+        url: `https://stockmatrix.co.kr/themes/${theme.id}`,
+      },
+    })),
+  }
+
   return (
-    <Suspense fallback={<ThemesSkeleton />}>
-      <ThemesContent />
-    </Suspense>
+    <>
+      <Script
+        id="theme-list-schema"
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(itemListSchema) }}
+      />
+      <Suspense fallback={<ThemesSkeleton />}>
+        <ThemesContent />
+      </Suspense>
+    </>
   )
 }

@@ -80,6 +80,11 @@ export const metadata: Metadata = {
       'naver-site-verification': '5ce857b8cfd4c2e2b15181ee3029b6fce6590c18',
     },
   },
+  formatDetection: {
+    telephone: false,
+    email: false,
+    address: false,
+  },
   category: 'finance',
   classification: 'Business',
   referrer: 'origin-when-cross-origin',
