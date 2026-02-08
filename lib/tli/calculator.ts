@@ -2,15 +2,9 @@
 
 import { normalize, standardDeviation, avg, daysBetween } from './normalize';
 import { aggregateSentiment } from './sentiment';
+import { getKSTDateString } from './date-utils';
+import { SCORE_WEIGHTS } from './constants/score-config';
 import type { InterestMetric, NewsMetric, ScoreComponents } from './types';
-
-/** 3요소 가중치 (maturity는 stage 판정에만 사용, 점수에 미반영) */
-const WEIGHTS = {
-  interest: 0.40,
-  news: 0.25,
-  sentiment: 0.20,
-  volatility: 0.15,
-} as const;
 
 /** 최소 데이터 요건 */
 const MIN_INTEREST_DAYS = 3;
@@ -37,7 +31,7 @@ export function calculateLifecycleScore(input: CalculateScoreInput): {
   components: ScoreComponents;
 } | null {
   const { interestMetrics, newsMetrics, firstSpikeDate } = input;
-  const today = input.today || new Date().toISOString().split('T')[0];
+  const today = input.today || getKSTDateString();
 
   // 최소 데이터 요건 미달 시 점수 계산 스킵
   if (interestMetrics.length < MIN_INTEREST_DAYS) {
@@ -98,10 +92,10 @@ export function calculateLifecycleScore(input: CalculateScoreInput): {
   const sentimentScore = sentimentAgg.normalized;
 
   const rawScore =
-    interestScore * WEIGHTS.interest +
-    newsMomentum * WEIGHTS.news +
-    sentimentScore * WEIGHTS.sentiment +
-    volatilityScore * WEIGHTS.volatility;
+    interestScore * SCORE_WEIGHTS.interest +
+    newsMomentum * SCORE_WEIGHTS.newsMomentum +
+    sentimentScore * SCORE_WEIGHTS.sentiment +
+    volatilityScore * SCORE_WEIGHTS.volatility;
 
   const score = Math.round(rawScore * 100);
 
@@ -111,7 +105,12 @@ export function calculateLifecycleScore(input: CalculateScoreInput): {
     sentiment_score: sentimentScore,
     volatility_score: volatilityScore,
     maturity_ratio: maturityRatio,
-    weights: { ...WEIGHTS },
+    weights: {
+      interest: SCORE_WEIGHTS.interest,
+      news: SCORE_WEIGHTS.newsMomentum,
+      sentiment: SCORE_WEIGHTS.sentiment,
+      volatility: SCORE_WEIGHTS.volatility,
+    },
     raw: {
       recent_7d_avg: recent7dAvg,
       baseline_30d_avg: baselineAvg,

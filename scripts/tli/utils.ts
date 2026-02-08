@@ -21,7 +21,8 @@ export async function withRetry<T>(
   throw new Error(`${context}: 모든 재시도 실패`)
 }
 
-/** KST 기준 현재 날짜 (YYYY-MM-DD) */
+/** KST 기준 현재 날짜 (YYYY-MM-DD)
+ * NOTE: 정규 버전은 lib/tli/date-utils.ts — scripts는 빌드 설정 차이로 별도 유지 */
 export function getKSTDate(): string {
   const now = new Date()
   const kst = new Date(now.getTime() + 9 * 60 * 60 * 1000)

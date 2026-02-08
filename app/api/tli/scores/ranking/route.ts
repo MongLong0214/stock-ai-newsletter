@@ -1,5 +1,5 @@
 import { supabase } from '@/lib/supabase'
-import { getStageKo, toStage } from '@/lib/tli/types'
+import { getStageKo, toStage, isScoreComponents } from '@/lib/tli/types'
 import { apiSuccess, handleApiError, isTableNotFound, placeholderResponse } from '@/lib/tli/api-utils'
 import type { ThemeListItem, ThemeRanking } from '@/lib/tli/types'
 import { buildScoreMetaMap, buildCountMaps, calculateRankingSummary, batchLoadStockData, batchLoadNewsCounts } from './ranking-helpers'
@@ -86,10 +86,8 @@ export async function GET() {
       const weekAgoScore = meta?.weekAgoScore ?? null
 
       // Extract sentiment from latest score's components
-      const latestComponents = latest?.components as Record<string, unknown> | null
-      const sentimentScore = typeof latestComponents?.sentiment_score === 'number'
-        ? latestComponents.sentiment_score
-        : 0
+      const latestComponents = isScoreComponents(latest?.components) ? latest!.components : null
+      const sentimentScore = latestComponents?.sentiment_score ?? 0
 
       return {
         id: theme.id,

@@ -1,10 +1,8 @@
 import { NextRequest } from 'next/server'
 import { supabase } from '@/lib/supabase'
-import { apiError, apiSuccess, handleApiError, isTableNotFound, placeholderResponse } from '@/lib/tli/api-utils'
+import { apiError, apiSuccess, handleApiError, isTableNotFound, placeholderResponse, UUID_RE } from '@/lib/tli/api-utils'
 import { toStage } from '@/lib/tli/types'
 import { getKSTDateString } from '@/lib/tli/date-utils'
-
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 // 특정 테마의 30일 생명주기 점수 이력 조회
 export async function GET(
