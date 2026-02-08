@@ -228,8 +228,8 @@
   "hotPaths": [
     {
       "path": "",
-      "accessCount": 37,
-      "lastAccessed": 1770538079957,
+      "accessCount": 40,
+      "lastAccessed": 1770539109441,
       "type": "directory"
     },
     {
@@ -269,6 +269,12 @@
       "type": "file"
     },
     {
+      "path": "components/tli/lifecycle-curve.tsx",
+      "accessCount": 25,
+      "lastAccessed": 1770549100626,
+      "type": "file"
+    },
+    {
       "path": "app/themes/[id]/_utils/calculate-prediction.ts",
       "accessCount": 24,
       "lastAccessed": 1770538504573,
@@ -278,12 +284,6 @@
       "path": "lib/tli/comparison.ts",
       "accessCount": 22,
       "lastAccessed": 1770537859570,
-      "type": "file"
-    },
-    {
-      "path": "components/tli/lifecycle-curve.tsx",
-      "accessCount": 22,
-      "lastAccessed": 1770538556566,
       "type": "file"
     },
     {
@@ -306,8 +306,20 @@
     },
     {
       "path": "lib/tli/types/index.ts",
+      "accessCount": 19,
+      "lastAccessed": 1770539116419,
+      "type": "file"
+    },
+    {
+      "path": "lib/tli/types/stage.ts",
       "accessCount": 18,
-      "lastAccessed": 1770537974580,
+      "lastAccessed": 1770539130267,
+      "type": "file"
+    },
+    {
+      "path": "app/themes/[id]/_components/score-card.tsx",
+      "accessCount": 18,
+      "lastAccessed": 1770548931385,
       "type": "file"
     },
     {
@@ -323,21 +335,21 @@
       "type": "file"
     },
     {
+      "path": "app/themes/[id]/_components/news-headlines.tsx",
+      "accessCount": 17,
+      "lastAccessed": 1770539119838,
+      "type": "file"
+    },
+    {
+      "path": "app/themes/[id]/_components/detail-content.tsx",
+      "accessCount": 17,
+      "lastAccessed": 1770548936429,
+      "type": "file"
+    },
+    {
       "path": "scripts/tli/calculate-scores.ts",
       "accessCount": 16,
       "lastAccessed": 1770532493024,
-      "type": "file"
-    },
-    {
-      "path": "lib/tli/types/stage.ts",
-      "accessCount": 16,
-      "lastAccessed": 1770537016171,
-      "type": "file"
-    },
-    {
-      "path": "app/themes/[id]/_components/news-headlines.tsx",
-      "accessCount": 16,
-      "lastAccessed": 1770537902974,
       "type": "file"
     },
     {
@@ -347,15 +359,9 @@
       "type": "file"
     },
     {
-      "path": "app/themes/[id]/_components/detail-content.tsx",
+      "path": "components/tli/theme-card.tsx",
       "accessCount": 15,
-      "lastAccessed": 1770538207503,
-      "type": "file"
-    },
-    {
-      "path": "app/themes/[id]/_components/score-card.tsx",
-      "accessCount": 15,
-      "lastAccessed": 1770538229604,
+      "lastAccessed": 1770549101049,
       "type": "file"
     },
     {
@@ -377,27 +383,21 @@
       "type": "file"
     },
     {
-      "path": "components/tli/theme-card.tsx",
-      "accessCount": 12,
-      "lastAccessed": 1770536941799,
-      "type": "file"
-    },
-    {
       "path": "lib/tli/normalize.ts",
       "accessCount": 12,
       "lastAccessed": 1770537916780,
       "type": "file"
     },
     {
-      "path": "components/tli/lifecycle-curve-data.ts",
-      "accessCount": 11,
-      "lastAccessed": 1770536953611,
+      "path": "app/themes/_components/stats-overview.tsx",
+      "accessCount": 12,
+      "lastAccessed": 1770539120953,
       "type": "file"
     },
     {
-      "path": "app/themes/_components/stats-overview.tsx",
+      "path": "components/tli/lifecycle-curve-data.ts",
       "accessCount": 11,
-      "lastAccessed": 1770537708542,
+      "lastAccessed": 1770536953611,
       "type": "file"
     },
     {
@@ -431,21 +431,21 @@
       "type": "file"
     },
     {
+      "path": "lib/tli",
+      "accessCount": 8,
+      "lastAccessed": 1770548999531,
+      "type": "directory"
+    },
+    {
       "path": "scripts/tli/data-ops.ts",
       "accessCount": 7,
       "lastAccessed": 1770537069562,
       "type": "file"
     },
     {
-      "path": "lib/tli",
-      "accessCount": 7,
-      "lastAccessed": 1770538674251,
-      "type": "directory"
-    },
-    {
       "path": "lib/tli/types",
-      "accessCount": 5,
-      "lastAccessed": 1770538089025,
+      "accessCount": 7,
+      "lastAccessed": 1770549003941,
       "type": "directory"
     },
     {
