@@ -2,6 +2,7 @@
 'use client'
 
 import { useState, useCallback } from 'react'
+import { motion } from 'framer-motion'
 import { Search, X } from 'lucide-react'
 import { STAGE_CONFIG } from '@/lib/tli/types'
 import type { DisplayStage } from '@/lib/tli/types'
@@ -129,7 +130,12 @@ function ThemeFilter({ onSearchChange, onStageFilter, onSortChange, activeStages
   }, [activeStages, onStageFilter])
 
   return (
-    <div className="mb-8">
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5, ease: [0.4, 0, 0.2, 1] }}
+      className="mb-8"
+    >
       {/* Desktop */}
       <div className="hidden sm:flex items-center gap-3 p-2 rounded-xl bg-slate-900/40 backdrop-blur-sm border border-slate-800/50">
         <div className="relative flex-1">
@@ -171,7 +177,7 @@ function ThemeFilter({ onSearchChange, onStageFilter, onSortChange, activeStages
         <StageFilterPills stages={FILTERABLE_STAGES} activeStages={activeStages} onToggle={toggleStage} variant="mobile" />
         <SortPills options={SORT_OPTIONS} activeSort={activeSort} onSortChange={onSortChange} variant="mobile" />
       </div>
-    </div>
+    </motion.div>
   )
 }
 
