@@ -12,7 +12,7 @@ import ThemesSkeleton from './themes-skeleton'
 import { ThemesError, EmptySearchResult } from './themes-empty-states'
 import { useGetRanking } from '../_services/use-get-ranking'
 import { STAGE_ORDER } from '../_constants/stage-order'
-import type { Stage, ThemeListItem } from '@/lib/tli/types'
+import type { DisplayStage, ThemeListItem } from '@/lib/tli/types'
 
 /** 테마 목록 메인 컴포넌트 */
 function ThemesContent() {
@@ -20,7 +20,7 @@ function ThemesContent() {
 
   /** 필터 상태 */
   const [searchQuery, setSearchQuery] = useState('')
-  const [activeStages, setActiveStages] = useState<Stage[]>(['Early', 'Growth', 'Peak', 'Decay'])
+  const [activeStages, setActiveStages] = useState<DisplayStage[]>(['Early', 'Growth', 'Peak', 'Reigniting', 'Decay'])
   const [sortOption, setSortOption] = useState<SortOption>('score')
 
   /** 검색어 변경 핸들러 */
@@ -29,7 +29,7 @@ function ThemesContent() {
   }, [])
 
   /** 단계 필터 변경 핸들러 */
-  const handleStageFilter = useCallback((stages: Stage[]) => {
+  const handleStageFilter = useCallback((stages: DisplayStage[]) => {
     setActiveStages(stages)
   }, [])
 
@@ -77,9 +77,9 @@ function ThemesContent() {
     const themes = ranking?.[key]
     if (!themes || themes.length === 0) return null
 
-    // 단계 필터: reigniting은 Growth 단계이지만 별도로 처리
+    // 단계 필터: reigniting은 독립 필터로 처리
     const stageMatch = key === 'reigniting'
-      ? activeStages.includes('Growth')
+      ? activeStages.includes('Reigniting')
       : activeStages.includes(stage)
     if (!stageMatch) return null
 
