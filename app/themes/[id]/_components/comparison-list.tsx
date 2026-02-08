@@ -2,7 +2,6 @@
 
 import { motion } from 'framer-motion'
 import { cn } from '@/lib/utils'
-import { comparisonColors } from '@/components/tli/lifecycle-curve-data'
 
 interface Comparison {
   pastTheme: string
@@ -88,10 +87,7 @@ function ComparisonList({
             <motion.div
               key={comp.pastTheme}
               layout
-              style={{
-                borderLeftColor: comparisonColors[idx % comparisonColors.length],
-                borderLeftWidth: '3px',
-              }}
+              style={{}}
               className={cn(
                 'p-4 rounded-lg border transition-all cursor-pointer',
                 isSelected

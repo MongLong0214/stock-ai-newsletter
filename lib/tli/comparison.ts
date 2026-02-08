@@ -419,34 +419,68 @@ export function compositeCompare(params: {
   const pastTotalDays = Math.min(past.totalDays, MAX_LIFECYCLE_DAYS);
   const estimatedDaysToPeak = Math.max(0, pastPeakDay - currentDay);
 
-  // 유사 근거 설명 (지배적 신호별)
+  // 유사 근거 설명 (구체적 특성 기반)
   const simParts: string[] = [];
+
+  // Pillar 2: 곡선 유사도 (가장 강력한 신호)
   if (wCurve > 0 && curveSim >= 0.3) {
-    simParts.push(`곡선 형태 ${Math.round(curveSim * 100)}% 일치`);
+    simParts.push(`생명주기 곡선 ${Math.round(curveSim * 100)}% 일치`);
   }
+
+  // Pillar 1: 특성 벡터 — 어떤 특성이 유사한지 구체적으로 명시
   if (featureSim >= 0.3) {
-    simParts.push('성장·뉴스 패턴 유사');
+    const cF = current.features;
+    const pF = past.features;
+    const details: string[] = [];
+    if (Math.abs(cF.growthRate - pF.growthRate) < 0.2) details.push('성장 속도');
+    if (Math.abs(cF.newsIntensity - pF.newsIntensity) < 0.2) details.push('뉴스 집중도');
+    if (Math.abs(cF.volatility - pF.volatility) < 0.2) details.push('변동성');
+    if (Math.abs(cF.scoreLevel - pF.scoreLevel) < 0.2) details.push('점수 수준');
+    if (details.length > 0) {
+      simParts.push(`${details.join('·')} 패턴 유사`);
+    } else {
+      simParts.push(`종합 특성 유사도 ${Math.round(featureSim * 100)}%`);
+    }
   }
+
+  // Pillar 3: 키워드
   if (keywordSim > 0) {
-    simParts.push('관련 키워드 겹침');
+    const commonKws = current.keywords.filter(k =>
+      past.keywords.some(pk => pk.toLowerCase() === k.toLowerCase())
+    );
+    if (commonKws.length > 0) {
+      simParts.push(`공통 키워드: ${commonKws.slice(0, 3).join(', ')}`);
+    } else {
+      simParts.push('관련 키워드 겹침');
+    }
   }
+
+  // 섹터 매칭
+  if (!sectorMatch) {
+    simParts.push(`이종 섹터 (${current.sector}↔${past.sector})`);
+  }
+
   if (simParts.length === 0) {
     simParts.push('복합 지표 기반 약한 유사성');
   }
 
-  // 위치 분석
+  // 위치 분석 — 데이터 부족 시 분기 추가
   let positionMsg: string;
-  if (currentDay >= pastTotalDays && pastTotalDays > 0) {
-    positionMsg = '과거 테마의 전체 주기를 초과하여 새로운 패턴으로 전개 중.';
+  if (pastTotalDays <= 3) {
+    // 과거 데이터가 너무 짧으면 주기 비교 무의미
+    positionMsg = `과거 테마 데이터 ${pastTotalDays}일분으로 주기 비교 제한적.`;
+  } else if (currentDay >= pastTotalDays && pastTotalDays > 0) {
+    positionMsg = `과거 ${past.name} 주기(${pastTotalDays}일) 초과, 새로운 전개 국면.`;
   } else if (estimatedDaysToPeak > 0) {
-    positionMsg = `과거 테마 기준 피크까지 약 ${estimatedDaysToPeak}일 소요 예상.`;
+    const progress = pastTotalDays > 0 ? Math.round((currentDay / pastTotalDays) * 100) : 0;
+    positionMsg = `과거 기준 피크까지 ~${estimatedDaysToPeak}일 (진행률 ${progress}%).`;
   } else if (pastPeakDay > 0) {
-    positionMsg = '피크 구간 진입으로 추정. 하락 전환 모니터링 필요.';
+    positionMsg = '피크 구간 진입 추정, 하락 전환 모니터링 필요.';
   } else {
     positionMsg = '초기 단계로 추가 데이터 수집 필요.';
   }
 
-  const message = `${simParts.join(', ')}. ${positionMsg}`;
+  const message = `${simParts.join(' · ')}. ${positionMsg}`;
 
   return {
     similarity: finalSim,

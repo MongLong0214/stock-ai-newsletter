@@ -39,6 +39,8 @@ export interface ThemeDetail {
   description: string | null;
   /** 첫 급등일 */
   firstSpikeDate: string | null;
+  /** 관련 키워드 */
+  keywords: string[];
   score: {
     value: number;
     stage: Stage;

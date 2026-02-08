@@ -38,6 +38,7 @@ interface FetchThemeDataResult {
   newsRes: SupabaseRes<{ time: string; article_count: number }>
   interestRes: SupabaseRes<{ time: string; normalized: number }>
   newsArticlesRes: SupabaseRes<{ title: string; link: string; source: string | null; pub_date: string; sentiment_score: number | null }>
+  keywordsRes: SupabaseRes<{ keyword: string }>
   /** 종목/뉴스 기사 총 수 (카드와 동일 기준) */
   stockCount: number
   newsArticleCount: number
@@ -52,7 +53,7 @@ export async function fetchThemeData(
   const { id, thirtyDaysAgo } = params
   const threeDaysAgo = new Date(Date.now() + 9 * 60 * 60 * 1000 - 3 * 86400000).toISOString().split('T')[0]
 
-  const [latestScoreRes, scoresRes, stocksRes, comparisonsRes, newsRes, interestRes, newsArticlesRes, stockCountRes, newsArticleCountRes] =
+  const [latestScoreRes, scoresRes, stocksRes, comparisonsRes, newsRes, interestRes, newsArticlesRes, keywordsRes, stockCountRes, newsArticleCountRes] =
     await Promise.all([
       // 최신 점수 1건 (날짜 제한 없음 - 배치 지연 시에도 유실 방지)
       supabase
@@ -125,6 +126,12 @@ export async function fetchThemeData(
         .select('title, link, source, pub_date, sentiment_score')
         .eq('theme_id', id)
         .order('pub_date', { ascending: false }),
+      // 키워드 목록
+      supabase
+        .from('theme_keywords')
+        .select('keyword')
+        .eq('theme_id', id)
+        .order('keyword', { ascending: true }),
       // 종목 총 수 (head: true로 카운트만 가져옴)
       supabase
         .from('theme_stocks')
@@ -146,6 +153,7 @@ export async function fetchThemeData(
     newsRes,
     interestRes,
     newsArticlesRes,
+    keywordsRes,
     stockCount: stockCountRes.count ?? 0,
     newsArticleCount: newsArticleCountRes.count ?? 0,
   }
@@ -287,6 +295,7 @@ interface BuildThemeDetailParams {
     pub_date: string
     sentiment_score: number | null
   }>
+  keywords: string[]
   comparisonResults: ComparisonResult[]
   allScores: ScoreData[]
   newsList: Array<{ time: string; article_count: number }>
@@ -306,6 +315,7 @@ export function buildThemeDetailResponse(params: BuildThemeDetailParams): ThemeD
     stocks,
     newsCount,
     newsArticles,
+    keywords,
     comparisonResults,
     allScores,
     newsList,
@@ -321,6 +331,7 @@ export function buildThemeDetailResponse(params: BuildThemeDetailParams): ThemeD
     nameEn: theme.name_en,
     description: theme.description,
     firstSpikeDate: theme.first_spike_date,
+    keywords,
     score: {
       value: latestScore?.score ?? 0,
       stage: toStage(latestScore?.stage),

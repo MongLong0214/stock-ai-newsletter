@@ -47,7 +47,7 @@ export async function GET(
     const sevenDaysAgo = getKSTDateString(-7)
     const thirtyDaysAgo = getKSTDateString(-30)
 
-    // 2) 병렬 배치 쿼리 8개
+    // 2) 병렬 배치 쿼리 (keywords 포함)
     const {
       latestScoreRes,
       scoresRes,
@@ -56,6 +56,7 @@ export async function GET(
       newsRes,
       interestRes,
       newsArticlesRes,
+      keywordsRes,
       stockCount,
       newsArticleCount,
     } = await fetchThemeData({ id, thirtyDaysAgo })
@@ -69,6 +70,7 @@ export async function GET(
     const newsArticles = (newsArticlesRes.error && isTableNotFound(newsArticlesRes.error))
       ? []
       : (newsArticlesRes.data || [])
+    const keywords = (keywordsRes.data || []).map(k => k.keyword)
 
     // --- 점수 파싱 ---
 
@@ -101,6 +103,7 @@ export async function GET(
       stocks,
       newsCount: newsArticleCount,
       newsArticles,
+      keywords,
       comparisonResults,
       allScores,
       newsList,
