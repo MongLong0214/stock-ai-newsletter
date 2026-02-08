@@ -12,11 +12,15 @@ import ThemesSkeleton from './themes-skeleton'
 import { ThemesError, EmptySearchResult } from './themes-empty-states'
 import { useGetRanking } from '../_services/use-get-ranking'
 import { STAGE_ORDER } from '../_constants/stage-order'
-import type { DisplayStage, ThemeListItem } from '@/lib/tli/types'
+import type { DisplayStage, ThemeListItem, ThemeRanking } from '@/lib/tli/types'
+
+interface ThemesContentProps {
+  initialData?: ThemeRanking
+}
 
 /** 테마 목록 메인 컴포넌트 */
-function ThemesContent() {
-  const { data: ranking, isLoading, error } = useGetRanking()
+function ThemesContent({ initialData }: ThemesContentProps) {
+  const { data: ranking, isLoading, error } = useGetRanking(initialData)
 
   /** 필터 상태 */
   const [searchQuery, setSearchQuery] = useState('')

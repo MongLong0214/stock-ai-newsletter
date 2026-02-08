@@ -1,11 +1,11 @@
-import { supabase } from '@/lib/supabase'
+import { supabase, isSupabasePlaceholder } from '@/lib/supabase'
 import { getStageKo, toStage, isScoreComponents } from '@/lib/tli/types'
-import { apiSuccess, handleApiError, isTableNotFound, placeholderResponse } from '@/lib/tli/api-utils'
+import { isTableNotFound } from '@/lib/tli/api-utils'
 import type { ThemeListItem, ThemeRanking } from '@/lib/tli/types'
-import { buildScoreMetaMap, buildCountMaps, calculateRankingSummary, batchLoadStockData, batchLoadNewsCounts } from './ranking-helpers'
+import { buildScoreMetaMap, buildCountMaps, calculateRankingSummary, batchLoadStockData, batchLoadNewsCounts } from '@/app/api/tli/scores/ranking/ranking-helpers'
 import { getKSTDateString } from '@/lib/tli/date-utils'
 
-/** 빈 랭킹 응답 (placeholder / 에러 시 재사용) */
+/** 빈 랭킹 응답 */
 const EMPTY_RANKING: ThemeRanking = {
   early: [],
   growth: [],
@@ -21,12 +21,10 @@ const EMPTY_RANKING: ThemeRanking = {
   },
 }
 
-// 생명주기 단계별 랭킹 (배치 쿼리 최적화)
-export async function GET() {
+/** 서버 사이드 랭킹 데이터 조회 (API 라우트 경유 없이 직접 Supabase 호출) */
+export async function getRankingServer(): Promise<ThemeRanking> {
   try {
-    // placeholder 환경 처리
-    const placeholder = placeholderResponse<ThemeRanking>(EMPTY_RANKING)
-    if (placeholder) return placeholder
+    if (isSupabasePlaceholder) return EMPTY_RANKING
 
     // 1) 활성 테마 전체 조회
     const { data: themes, error: themesError } = await supabase
@@ -36,15 +34,13 @@ export async function GET() {
 
     if (themesError) {
       if (isTableNotFound(themesError)) {
-        console.warn('[TLI API] TLI tables not found - returning empty ranking')
-        return apiSuccess<ThemeRanking>(EMPTY_RANKING, undefined, 'short')
+        console.warn('[TLI] TLI tables not found - returning empty ranking')
+        return EMPTY_RANKING
       }
       throw themesError
     }
 
-    if (!themes?.length) {
-      return apiSuccess<ThemeRanking>(EMPTY_RANKING)
-    }
+    if (!themes?.length) return EMPTY_RANKING
 
     const themeIds = themes.map((t) => t.id)
     const sevenDaysAgo = getKSTDateString(-7)
@@ -58,11 +54,8 @@ export async function GET() {
     }
 
     const [stocksList, newsList, ...scoreBatches] = await Promise.all([
-      // 활성 종목 (배치 분할 — Supabase 1000행 제한 우회, 종목명 포함)
       batchLoadStockData(themeIds),
-      // 뉴스 기사 (배치 분할 — theme_news_articles 기준, 상세 페이지와 동일 소스)
       batchLoadNewsCounts(themeIds, sevenDaysAgo),
-      // lifecycle_scores 배치 조회 (병렬, 테마당 최대 90일)
       ...scoreChunks.map(async (chunk) => {
         const { data } = await supabase
           .from('lifecycle_scores')
@@ -77,19 +70,15 @@ export async function GET() {
 
     const scores: Array<{ theme_id: string; score: number; stage: string | null; is_reigniting: boolean; calculated_at: string; components: unknown }> = scoreBatches.flat()
 
-    // --- 맵 구성 (O(n) 단일 패스) ---
-
+    // --- 맵 구성 ---
     const scoreMetaByTheme = buildScoreMetaMap(scores, sevenDaysAgo)
     const { stockCountMap, stockNamesMap, newsCountMap } = buildCountMaps(stocksList, newsList)
 
     // --- ThemeListItem 조합 ---
-
     const themeData: ThemeListItem[] = themes.map((theme) => {
       const meta = scoreMetaByTheme.get(theme.id)
       const latest = meta?.latest ?? null
       const weekAgoScore = meta?.weekAgoScore ?? null
-
-      // Extract sentiment from latest score's components
       const latestComponents = isScoreComponents(latest?.components) ? latest!.components : null
       const sentimentScore = latestComponents?.sentiment_score ?? 0
 
@@ -114,7 +103,6 @@ export async function GET() {
     })
 
     // --- 단계별 그룹화 ---
-
     const early: ThemeListItem[] = []
     const growth: ThemeListItem[] = []
     const peak: ThemeListItem[] = []
@@ -122,7 +110,6 @@ export async function GET() {
     const reigniting: ThemeListItem[] = []
 
     for (const theme of themeData) {
-      // 품질 게이트: Dormant + 점수 0 이하 제거
       if (theme.stage === 'Dormant') continue
       if (theme.score <= 0) continue
 
@@ -138,31 +125,18 @@ export async function GET() {
       }
     }
 
-    // 정렬: Early는 오름차순(낮은 점수 = 새로운 기회), 나머지는 내림차순
     early.sort((a, b) => a.score - b.score)
     growth.sort((a, b) => b.score - a.score)
     peak.sort((a, b) => b.score - a.score)
     decay.sort((a, b) => b.score - a.score)
     reigniting.sort((a, b) => b.score - a.score)
 
-    // --- 요약 통계 (필터 통과한 테마 기준) ---
-
     const activeThemes = [...early, ...growth, ...peak, ...decay, ...reigniting]
     const summary = calculateRankingSummary(activeThemes)
 
-    const ranking: ThemeRanking = {
-      early,
-      growth,
-      peak,
-      decay,
-      reigniting,
-      summary,
-    }
-
-    return apiSuccess(ranking, undefined, 'medium')
+    return { early, growth, peak, decay, reigniting, summary }
   } catch (error) {
-    return handleApiError(error, '랭킹 정보를 불러오는데 실패했습니다.')
+    console.error('[TLI] 랭킹 서버 조회 실패:', error instanceof Error ? error.message : String(error))
+    return EMPTY_RANKING
   }
 }
-
-export const runtime = 'nodejs'

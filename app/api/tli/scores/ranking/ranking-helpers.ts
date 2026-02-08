@@ -6,53 +6,65 @@ import type { ThemeListItem } from '@/lib/tli/types'
 const BATCH_SIZE = 50
 const PAGE_SIZE = 1000
 
-/** theme_stocks 배치 로더 (is_active=true) — 종목명 포함 */
+/** theme_stocks 배치 로더 (is_active=true) — 종목명 포함, 병렬 배치 */
 export async function batchLoadStockData(
   themeIds: string[]
 ): Promise<Array<{ theme_id: string; name: string }>> {
-  const results: Array<{ theme_id: string; name: string }> = []
+  const chunks: string[][] = []
   for (let i = 0; i < themeIds.length; i += BATCH_SIZE) {
-    const chunk = themeIds.slice(i, i + BATCH_SIZE)
-    let from = 0
-    while (true) {
-      const { data } = await supabase
-        .from('theme_stocks')
-        .select('theme_id, name')
-        .in('theme_id', chunk)
-        .eq('is_active', true)
-        .range(from, from + PAGE_SIZE - 1)
-      if (!data || data.length === 0) break
-      results.push(...data)
-      if (data.length < PAGE_SIZE) break
-      from += PAGE_SIZE
-    }
+    chunks.push(themeIds.slice(i, i + BATCH_SIZE))
   }
-  return results
+  const batchResults = await Promise.all(
+    chunks.map(async (chunk) => {
+      const chunkResults: Array<{ theme_id: string; name: string }> = []
+      let from = 0
+      while (true) {
+        const { data } = await supabase
+          .from('theme_stocks')
+          .select('theme_id, name')
+          .in('theme_id', chunk)
+          .eq('is_active', true)
+          .range(from, from + PAGE_SIZE - 1)
+        if (!data || data.length === 0) break
+        chunkResults.push(...data)
+        if (data.length < PAGE_SIZE) break
+        from += PAGE_SIZE
+      }
+      return chunkResults
+    })
+  )
+  return batchResults.flat()
 }
 
-/** theme_news_articles 배치 카운트 로더 (날짜 필터 포함) */
+/** theme_news_articles 배치 카운트 로더 (날짜 필터 포함, 병렬 배치) */
 export async function batchLoadNewsCounts(
   themeIds: string[],
   since: string
 ): Promise<Array<{ theme_id: string }>> {
-  const results: Array<{ theme_id: string }> = []
+  const chunks: string[][] = []
   for (let i = 0; i < themeIds.length; i += BATCH_SIZE) {
-    const chunk = themeIds.slice(i, i + BATCH_SIZE)
-    let from = 0
-    while (true) {
-      const { data } = await supabase
-        .from('theme_news_articles')
-        .select('theme_id')
-        .in('theme_id', chunk)
-        .gte('pub_date', since)
-        .range(from, from + PAGE_SIZE - 1)
-      if (!data || data.length === 0) break
-      results.push(...data)
-      if (data.length < PAGE_SIZE) break
-      from += PAGE_SIZE
-    }
+    chunks.push(themeIds.slice(i, i + BATCH_SIZE))
   }
-  return results
+  const batchResults = await Promise.all(
+    chunks.map(async (chunk) => {
+      const chunkResults: Array<{ theme_id: string }> = []
+      let from = 0
+      while (true) {
+        const { data } = await supabase
+          .from('theme_news_articles')
+          .select('theme_id')
+          .in('theme_id', chunk)
+          .gte('pub_date', since)
+          .range(from, from + PAGE_SIZE - 1)
+        if (!data || data.length === 0) break
+        chunkResults.push(...data)
+        if (data.length < PAGE_SIZE) break
+        from += PAGE_SIZE
+      }
+      return chunkResults
+    })
+  )
+  return batchResults.flat()
 }
 
 /** 점수 메타 정보 (최신, 7일 전, 스파크라인) */
