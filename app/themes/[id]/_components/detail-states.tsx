@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { GlassCard } from '@/components/tli/glass-card'
 
 /** 로딩 상태 UI */
 export function DetailLoading() {
@@ -11,26 +12,19 @@ export function DetailLoading() {
         </div>
 
         {/* Header card skeleton */}
-        <div className="rounded-2xl border border-emerald-500/20 bg-slate-900/60 backdrop-blur-xl p-6 mb-8">
+        <GlassCard className="p-6 mb-8">
           <div className="flex items-start justify-between gap-6">
             <div className="flex-1">
-              {/* Title + badges row */}
               <div className="flex items-center gap-3 mb-4">
                 <div className="h-9 w-64 bg-slate-700/50 rounded animate-pulse" />
                 <div className="h-6 w-16 bg-emerald-500/10 rounded-full animate-pulse" />
                 <div className="h-6 w-20 bg-emerald-500/10 rounded-full animate-pulse" />
               </div>
-
-              {/* Subtitle */}
               <div className="h-5 w-48 bg-slate-700/50 rounded mb-3 animate-pulse" />
-
-              {/* Description lines */}
               <div className="space-y-2 mb-6">
                 <div className="h-4 w-full bg-slate-700/50 rounded animate-pulse" />
                 <div className="h-4 w-3/4 bg-slate-700/50 rounded animate-pulse" />
               </div>
-
-              {/* Summary stats row */}
               <div className="flex gap-6 mb-6">
                 <div className="flex flex-col gap-2">
                   <div className="h-3 w-16 bg-slate-700/50 rounded animate-pulse" />
@@ -45,8 +39,6 @@ export function DetailLoading() {
                   <div className="h-6 w-12 bg-emerald-500/10 rounded animate-pulse" />
                 </div>
               </div>
-
-              {/* Keyword tags */}
               <div className="flex flex-wrap gap-2">
                 <div className="h-6 w-16 bg-emerald-500/10 rounded-full animate-pulse" />
                 <div className="h-6 w-20 bg-emerald-500/10 rounded-full animate-pulse" />
@@ -54,61 +46,54 @@ export function DetailLoading() {
                 <div className="h-6 w-18 bg-emerald-500/10 rounded-full animate-pulse" />
               </div>
             </div>
-
-            {/* Score gauge skeleton */}
             <div className="flex-shrink-0">
               <div className="w-32 h-32 rounded-full border-4 border-slate-700/50 bg-slate-800/50 animate-pulse" />
             </div>
           </div>
-        </div>
+        </GlassCard>
 
         {/* Prediction card skeleton */}
-        <div className="rounded-2xl border border-emerald-500/20 bg-slate-900/60 backdrop-blur-xl p-6 mb-8">
+        <GlassCard className="p-6 mb-8">
           <div className="h-6 w-32 bg-slate-700/50 rounded mb-4 animate-pulse" />
           <div className="space-y-2">
             <div className="h-4 w-full bg-slate-700/50 rounded animate-pulse" />
             <div className="h-4 w-5/6 bg-slate-700/50 rounded animate-pulse" />
             <div className="h-4 w-4/6 bg-slate-700/50 rounded animate-pulse" />
           </div>
-        </div>
+        </GlassCard>
 
         {/* Lifecycle chart card skeleton */}
-        <div className="rounded-2xl border border-emerald-500/20 bg-slate-900/60 backdrop-blur-xl p-6 mb-8">
+        <GlassCard className="p-6 mb-8">
           <div className="h-6 w-40 bg-slate-700/50 rounded mb-4 animate-pulse" />
           <div className="h-[400px] bg-slate-800/30 rounded-lg animate-pulse" />
-        </div>
+        </GlassCard>
 
         {/* 3-column grid skeleton */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Card 1 */}
-          <div className="rounded-2xl border border-emerald-500/20 bg-slate-900/60 backdrop-blur-xl p-6">
+          <GlassCard className="p-6">
             <div className="h-6 w-32 bg-slate-700/50 rounded mb-4 animate-pulse" />
             <div className="space-y-3">
               <div className="h-4 w-full bg-slate-700/50 rounded animate-pulse" />
               <div className="h-4 w-full bg-slate-700/50 rounded animate-pulse" />
               <div className="h-4 w-3/4 bg-slate-700/50 rounded animate-pulse" />
             </div>
-          </div>
-
-          {/* Card 2 */}
-          <div className="rounded-2xl border border-emerald-500/20 bg-slate-900/60 backdrop-blur-xl p-6">
+          </GlassCard>
+          <GlassCard className="p-6">
             <div className="h-6 w-32 bg-slate-700/50 rounded mb-4 animate-pulse" />
             <div className="space-y-3">
               <div className="h-4 w-full bg-slate-700/50 rounded animate-pulse" />
               <div className="h-4 w-full bg-slate-700/50 rounded animate-pulse" />
               <div className="h-4 w-3/4 bg-slate-700/50 rounded animate-pulse" />
             </div>
-          </div>
-
-          {/* Card 3 */}
-          <div className="rounded-2xl border border-emerald-500/20 bg-slate-900/60 backdrop-blur-xl p-6">
+          </GlassCard>
+          <GlassCard className="p-6">
             <div className="h-6 w-32 bg-slate-700/50 rounded mb-4 animate-pulse" />
             <div className="space-y-3">
               <div className="h-4 w-full bg-slate-700/50 rounded animate-pulse" />
               <div className="h-4 w-full bg-slate-700/50 rounded animate-pulse" />
               <div className="h-4 w-3/4 bg-slate-700/50 rounded animate-pulse" />
             </div>
-          </div>
+          </GlassCard>
         </div>
       </main>
     </div>

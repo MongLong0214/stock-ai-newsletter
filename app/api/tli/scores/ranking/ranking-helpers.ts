@@ -80,7 +80,7 @@ export function buildScoreMetaMap(
       scoreMetaByTheme.set(s.theme_id, { latest: null, weekAgoScore: null, sparkline: [] })
     }
     const meta = scoreMetaByTheme.get(s.theme_id)!
-    const dateStr = s.calculated_at.split('T')[0]
+    const dateStr = s.calculated_at.includes('T') ? s.calculated_at.split('T')[0] : s.calculated_at
 
     // 최신 점수 (desc이므로 첫 번째 = latest)
     if (!meta.latest) meta.latest = s

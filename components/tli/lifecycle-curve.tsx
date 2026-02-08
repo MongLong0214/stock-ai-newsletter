@@ -10,7 +10,6 @@ import {
   CartesianGrid,
   ComposedChart,
   ReferenceLine,
-  Legend
 } from 'recharts'
 import { ChartContainer, ChartTooltip, ChartLegend, ChartLegendContent } from '@/components/ui/chart'
 import CustomTooltip from './lifecycle-curve-tooltip'
@@ -22,9 +21,21 @@ import {
   findPeakDate,
   getMaxNewsCount
 } from './lifecycle-curve-data'
+import { SCORE_COMPONENTS } from '@/lib/tli/constants/score-config'
 
 // 뉴스 바 차트가 차트 높이의 약 1/3만 차지하도록 도메인 확장
 const NEWS_BAR_HEIGHT_RATIO = 3
+
+// 차트 색상 (score-config.ts의 컴포넌트 색상 사용)
+const CHART_COLORS = {
+  currentTheme: SCORE_COMPONENTS[0].color,  // #10B981 (emerald - interest)
+  peak: SCORE_COMPONENTS[2].color,          // #F59E0B (amber - sentiment)
+  news: SCORE_COMPONENTS[2].color,          // #F59E0B (amber - sentiment)
+  interest: SCORE_COMPONENTS[3].color,      // #8B5CF6 (purple - volatility)
+  grid: '#1e293b',
+  axis: '#334155',
+  tick: '#64748b',
+} as const
 
 export default function LifecycleCurve({
   currentData,
@@ -56,37 +67,37 @@ export default function LifecycleCurve({
       <ComposedChart data={mergedData}>
         <defs>
           <linearGradient id={`currentGradient-${gradientId}`} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#10B981" stopOpacity={0.3} />
-            <stop offset="100%" stopColor="#10B981" stopOpacity={0} />
+            <stop offset="0%" stopColor={CHART_COLORS.currentTheme} stopOpacity={0.3} />
+            <stop offset="100%" stopColor={CHART_COLORS.currentTheme} stopOpacity={0} />
           </linearGradient>
         </defs>
 
         <CartesianGrid
           strokeDasharray="3 3"
-          stroke="#1e293b"
+          stroke={CHART_COLORS.grid}
           opacity={0.3}
           vertical={false}
         />
 
         <XAxis
           dataKey="date"
-          tick={{ fill: '#64748b', fontSize: 11 }}
-          tickLine={{ stroke: '#334155' }}
-          axisLine={{ stroke: '#334155' }}
+          tick={{ fill: CHART_COLORS.tick, fontSize: 11 }}
+          tickLine={{ stroke: CHART_COLORS.axis }}
+          axisLine={{ stroke: CHART_COLORS.axis }}
         />
 
         {/* 메인 Y축: 스코어 */}
         <YAxis
           yAxisId="score"
           domain={[0, 100]}
-          tick={{ fill: '#64748b', fontSize: 11 }}
-          tickLine={{ stroke: '#334155' }}
-          axisLine={{ stroke: '#334155' }}
+          tick={{ fill: CHART_COLORS.tick, fontSize: 11 }}
+          tickLine={{ stroke: CHART_COLORS.axis }}
+          axisLine={{ stroke: CHART_COLORS.axis }}
           label={{
             value: 'Score',
             angle: -90,
             position: 'insideLeft',
-            style: { fill: '#64748b', fontSize: 11 }
+            style: { fill: CHART_COLORS.tick, fontSize: 11 }
           }}
         />
 
@@ -108,7 +119,7 @@ export default function LifecycleCurve({
           <ReferenceLine
             x={peakDate}
             yAxisId="score"
-            stroke="#F59E0B"
+            stroke={CHART_COLORS.peak}
             strokeDasharray="3 3"
             strokeWidth={1}
             opacity={0.5}
@@ -120,9 +131,9 @@ export default function LifecycleCurve({
           <Bar
             dataKey="news"
             yAxisId="news"
-            fill="#F59E0B"
+            fill={CHART_COLORS.news}
             fillOpacity={0.15}
-            stroke="#F59E0B"
+            stroke={CHART_COLORS.news}
             strokeOpacity={0.3}
             strokeWidth={0.5}
             radius={[2, 2, 0, 0]}
@@ -135,7 +146,7 @@ export default function LifecycleCurve({
           type="monotone"
           dataKey="current"
           yAxisId="score"
-          stroke="#10B981"
+          stroke={CHART_COLORS.currentTheme}
           strokeWidth={2}
           fill={`url(#currentGradient-${gradientId})`}
           animationDuration={1500}
@@ -147,7 +158,7 @@ export default function LifecycleCurve({
             type="monotone"
             dataKey="interest"
             yAxisId="score"
-            stroke="#8B5CF6"
+            stroke={CHART_COLORS.interest}
             strokeWidth={1.5}
             strokeDasharray="4 4"
             dot={false}

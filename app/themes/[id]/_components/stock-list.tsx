@@ -5,11 +5,12 @@ import { TrendingUp, ChevronUp, ChevronDown, Minus as MinusIcon } from 'lucide-r
 import { motion } from 'framer-motion'
 import { cn } from '@/lib/utils'
 import { sortStocks, calculateStockStats, getMaxVolume } from './stock-list-utils'
-import type { Stock, SortField, SortDirection } from './stock-list-utils'
+import type { SortField, SortDirection } from './stock-list-utils'
+import type { ThemeStockItem } from '@/lib/tli/types'
 import { StockRow } from './stock-list-row'
 
 interface StockListProps {
-  stocks: Stock[]
+  stocks: ThemeStockItem[]
 }
 
 function StockList({ stocks }: StockListProps) {
@@ -44,7 +45,7 @@ function StockList({ stocks }: StockListProps) {
       <motion.div
         initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, delay: 0.3 }}
-        className="rounded-2xl border border-emerald-500/10 bg-slate-900/40 backdrop-blur-xl p-12 flex flex-col items-center justify-center"
+        className="rounded-2xl border border-emerald-500/10 bg-slate-900/40 p-12 flex flex-col items-center justify-center"
       >
         <div className="w-12 h-12 rounded-full bg-slate-800/50 border border-slate-700/30 flex items-center justify-center mb-4">
           <TrendingUp className="w-6 h-6 text-slate-600" />
@@ -71,7 +72,7 @@ function StockList({ stocks }: StockListProps) {
     <motion.div
       initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, delay: 0.3 }}
-      className="rounded-2xl border border-emerald-500/20 bg-slate-900/60 backdrop-blur-xl overflow-hidden flex flex-col h-full"
+      className="rounded-2xl border border-emerald-500/20 bg-slate-900/60 overflow-hidden flex flex-col h-full"
     >
       {/* 헤더 */}
       <div className="flex items-center justify-between px-4 py-3.5 border-b border-slate-800/50">

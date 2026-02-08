@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server'
 import { isSupabasePlaceholder } from '@/lib/supabase'
 
+/** UUID 형식 검증 정규식 */
+export const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
 /** 캐시 프리셋 */
 const CACHE = {
   short: 'public, s-maxage=60',

@@ -9,6 +9,62 @@ export interface ApiResponse<T> {
   error?: { message: string }
 }
 
+/** 종목 아이템 (상세 페이지용) */
+export interface ThemeStockItem {
+  symbol: string
+  name: string
+  market: string
+  currentPrice: number | null
+  priceChangePct: number | null
+  volume: number | null
+}
+
+/** 점수 raw 수치 (툴팁/상세용) */
+export interface ScoreRawData {
+  recent7dAvg: number
+  baseline30dAvg: number
+  newsThisWeek: number
+  newsLastWeek: number
+  interestStddev: number
+  activeDays: number
+  sentimentAvg?: number
+  sentimentArticleCount?: number
+}
+
+/** 생명주기 곡선 데이터 포인트 */
+export interface LifecycleCurvePoint {
+  date: string
+  score: number
+}
+
+/** 시계열 카운트 데이터 포인트 */
+export interface TimelinePoint {
+  date: string
+  count: number
+}
+
+/** 유사 테마 비교 결과 (comparison-list, theme-prediction, query-helpers 통합) */
+export interface ComparisonResult {
+  pastTheme: string
+  pastThemeId: string
+  similarity: number
+  currentDay: number
+  pastPeakDay: number
+  pastTotalDays: number
+  estimatedDaysToPeak: number
+  postPeakDecline: number | null
+  message: string
+  lifecycleCurve: LifecycleCurvePoint[]
+  /** 3-Pillar 분해 */
+  featureSim: number | null
+  curveSim: number | null
+  keywordSim: number | null
+  /** 과거 테마 결과 */
+  pastPeakScore: number | null
+  pastFinalStage: string | null
+  pastDeclineDays: number | null
+}
+
 /** 테마 목록 아이템 (카드 표시용) */
 export interface ThemeListItem {
   id: string;
