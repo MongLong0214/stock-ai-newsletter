@@ -102,3 +102,6 @@
 {"t":0,"agent":"a319900","agent_type":"architect","event":"agent_start","parent_mode":"none"}
 {"t":0,"agent":"a319900","agent_type":"architect","event":"agent_stop","success":true,"duration_ms":111997}
 {"t":0,"agent":"aada0ef","agent_type":"unknown","event":"agent_stop","success":true}
+{"t":0,"agent":"a95cf46","agent_type":"designer","event":"agent_start","parent_mode":"none"}
+{"t":0,"agent":"a95cf46","agent_type":"designer","event":"agent_stop","success":true,"duration_ms":123056}
+{"t":0,"agent":"ac636f2","agent_type":"unknown","event":"agent_stop","success":true}
