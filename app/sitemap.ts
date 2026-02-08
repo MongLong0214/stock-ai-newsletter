@@ -3,6 +3,28 @@ import { createClient } from '@supabase/supabase-js';
 import { isValidBlogSlug } from './blog/_utils/slug-validator';
 
 /**
+ * 활성 테마 ID 목록 조회
+ */
+async function getActiveThemeIds(): Promise<string[]> {
+  try {
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      { auth: { persistSession: false } }
+    );
+
+    const { data } = await supabase
+      .from('themes')
+      .select('id')
+      .eq('is_active', true);
+
+    return (data || []).map((t) => t.id);
+  } catch {
+    return [];
+  }
+}
+
+/**
  * 발행된 블로그 슬러그 목록 조회
  */
 async function getPublishedBlogSlugs(): Promise<
@@ -110,6 +132,17 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         },
       },
     },
+    {
+      url: `${baseUrl}/themes`,
+      lastModified: currentDate,
+      changeFrequency: 'daily',
+      priority: 0.9,
+      alternates: {
+        languages: {
+          ko: `${baseUrl}/themes`,
+        },
+      },
+    },
   ];
 
   // 블로그 포스트 동적 페이지
@@ -128,5 +161,19 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       },
     }));
 
-  return [...staticPages, ...blogPages];
+  // 테마 동적 페이지
+  const themeIds = await getActiveThemeIds();
+  const themePages: MetadataRoute.Sitemap = themeIds.map((id) => ({
+    url: `${baseUrl}/themes/${id}`,
+    lastModified: currentDate,
+    changeFrequency: 'daily',
+    priority: 0.7,
+    alternates: {
+      languages: {
+        ko: `${baseUrl}/themes/${id}`,
+      },
+    },
+  }));
+
+  return [...staticPages, ...blogPages, ...themePages];
 }

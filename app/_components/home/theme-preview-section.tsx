@@ -12,7 +12,11 @@ const STAGES = [
   { id: 'early', label: '초기', color: '#10B981', x: 75, y: 118 },
   { id: 'growth', label: '성장', color: '#0EA5E9', x: 185, y: 38 },
   { id: 'peak', label: '정점', color: '#F59E0B', x: 290, y: 14 },
+<<<<<<< HEAD
   { id: 'decay', label: '쇠퇴', color: '#EF4444', x: 475, y: 134 },
+=======
+  { id: 'decay', label: '쇠퇴', color: '#EF4444', x: 475, y: 142 },
+>>>>>>> e4e032b2fca6b25783eee610aec390b2c818fe05
 ];
 
 const MOCK_THEMES = [
@@ -49,7 +53,11 @@ function ThemePreviewSection({ isMobile = false }: ThemePreviewSectionProps) {
   });
 
   return (
+<<<<<<< HEAD
     <section className="relative py-16 lg:py-24 px-6 sm:px-8 lg:px-8 overflow-hidden">
+=======
+    <section className="relative py-16 lg:py-24 px-6 lg:px-8 overflow-hidden">
+>>>>>>> e4e032b2fca6b25783eee610aec390b2c818fe05
       {/* Ambient radial glow */}
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_50%_0%,rgba(16,185,129,0.04)_0%,transparent_50%)] pointer-events-none" />
 
@@ -67,15 +75,23 @@ function ThemePreviewSection({ isMobile = false }: ThemePreviewSectionProps) {
             initial={{ opacity: 0, y: 8 }}
             animate={headerInView ? { opacity: 1, y: 0 } : {}}
             transition={{ delay: 0.1, duration: 0.6, ease: [0.19, 1, 0.22, 1] }}
+<<<<<<< HEAD
             className="inline-block text-[11px] font-semibold tracking-[0.25em] uppercase text-emerald-400/70 mb-6"
+=======
+            className="inline-block text-[11px] font-semibold tracking-[0.25em] uppercase text-emerald-400/70 mb-5"
+>>>>>>> e4e032b2fca6b25783eee610aec390b2c818fe05
           >
             New
           </motion.span>
 
           <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extralight tracking-tight leading-[1.15] mb-4">
+<<<<<<< HEAD
             {'테마 라이프사이클'}
             <br className="sm:hidden" />
             {' '}
+=======
+            {'테마 라이프사이클 '}
+>>>>>>> e4e032b2fca6b25783eee610aec390b2c818fe05
             <span className="font-semibold bg-gradient-to-r from-emerald-400 to-sky-400 bg-clip-text text-transparent">
               인텔리전스
             </span>
@@ -97,12 +113,20 @@ function ThemePreviewSection({ isMobile = false }: ThemePreviewSectionProps) {
         >
           {/* Toolbar */}
           <div className="flex items-center justify-between px-5 lg:px-7 py-3.5 border-b border-white/[0.04]">
+<<<<<<< HEAD
             <div className="flex items-center gap-2.5">
+=======
+            <div className="flex items-center gap-2">
+>>>>>>> e4e032b2fca6b25783eee610aec390b2c818fe05
               <span className="relative flex h-1.5 w-1.5">
                 <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75 animate-ping" />
                 <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-500" />
               </span>
+<<<<<<< HEAD
               <span className="text-[10px] font-medium text-slate-500 tracking-wider uppercase">
+=======
+              <span className="text-[11px] font-medium text-slate-500 tracking-wider uppercase">
+>>>>>>> e4e032b2fca6b25783eee610aec390b2c818fe05
                 Theme Lifecycle
               </span>
             </div>
@@ -112,12 +136,19 @@ function ThemePreviewSection({ isMobile = false }: ThemePreviewSectionProps) {
           </div>
 
           {/* SVG Lifecycle Curve */}
+<<<<<<< HEAD
           <div className="px-5 lg:px-7 pt-6 lg:pt-8 pb-3">
+=======
+          <div className="px-3 lg:px-5 pt-6 lg:pt-8 pb-1">
+>>>>>>> e4e032b2fca6b25783eee610aec390b2c818fe05
             <svg
               viewBox="0 0 560 180"
               fill="none"
               className="w-full h-auto"
+<<<<<<< HEAD
               style={{ aspectRatio: '560 / 180' }}
+=======
+>>>>>>> e4e032b2fca6b25783eee610aec390b2c818fe05
               role="img"
               aria-label="테마 라이프사이클 곡선: 초기, 성장, 정점, 쇠퇴 단계를 보여주는 시각화"
             >
@@ -255,21 +286,31 @@ function ThemePreviewSection({ isMobile = false }: ThemePreviewSectionProps) {
           </div>
 
           {/* ── Theme Chips ── */}
+<<<<<<< HEAD
           <div className="px-5 lg:px-7 pb-5 lg:pb-6 pt-4">
+=======
+          <div className="px-5 lg:px-7 pb-5 lg:pb-6 pt-2">
+>>>>>>> e4e032b2fca6b25783eee610aec390b2c818fe05
             <p className="text-[10px] font-medium text-slate-600 uppercase tracking-[0.15em] mb-3">
               Active Themes
             </p>
 
             <div
               className={cn(
+<<<<<<< HEAD
                 'grid gap-2.5',
                 isMobile ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-3'
+=======
+                'grid gap-2',
+                isMobile ? 'grid-cols-1' : 'grid-cols-1 sm:grid-cols-3'
+>>>>>>> e4e032b2fca6b25783eee610aec390b2c818fe05
               )}
             >
               {MOCK_THEMES.map((theme, i) => {
                 const stageData = STAGES.find((s) => s.id === theme.stage);
 
                 return (
+<<<<<<< HEAD
                   <Link
                     key={theme.name}
                     href="/themes"
@@ -291,6 +332,25 @@ function ThemePreviewSection({ isMobile = false }: ThemePreviewSectionProps) {
                         'transition-all duration-500'
                       )}
                     >
+=======
+                  <motion.div
+                    key={theme.name}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={cardInView ? { opacity: 1, y: 0 } : {}}
+                    transition={{
+                      duration: 0.5,
+                      delay: 1.3 + i * 0.08,
+                      ease: [0.19, 1, 0.22, 1],
+                    }}
+                    className={cn(
+                      'group relative flex items-center justify-between',
+                      'px-3.5 py-2.5 rounded-lg',
+                      'bg-white/[0.02] border border-white/[0.04]',
+                      'hover:bg-white/[0.04] hover:border-white/[0.08]',
+                      'transition-all duration-500 cursor-pointer'
+                    )}
+                  >
+>>>>>>> e4e032b2fca6b25783eee610aec390b2c818fe05
                     {/* Left color accent bar */}
                     <div
                       className="absolute left-0 top-2.5 bottom-2.5 w-px rounded-full opacity-40 group-hover:opacity-90 transition-opacity duration-500"
@@ -318,7 +378,11 @@ function ThemePreviewSection({ isMobile = false }: ThemePreviewSectionProps) {
                       </span>
                     </div>
 
+<<<<<<< HEAD
                     <div className="relative flex items-baseline gap-2.5 flex-shrink-0 ml-3">
+=======
+                    <div className="relative flex items-center gap-2.5 flex-shrink-0 ml-3">
+>>>>>>> e4e032b2fca6b25783eee610aec390b2c818fe05
                       <span className="text-[11px] text-slate-500 tabular-nums font-mono">
                         {theme.score}
                       </span>
@@ -335,7 +399,10 @@ function ThemePreviewSection({ isMobile = false }: ThemePreviewSectionProps) {
                       </span>
                     </div>
                   </motion.div>
+<<<<<<< HEAD
                   </Link>
+=======
+>>>>>>> e4e032b2fca6b25783eee610aec390b2c818fe05
                 );
               })}
             </div>

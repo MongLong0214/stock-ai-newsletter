@@ -108,6 +108,18 @@ export const keywordsByCategory: KeywordCategory = {
     '장 시작 전',
   ],
 
+  // 테마 분석 키워드 (8개)
+  theme: [
+    '주식 테마',
+    '테마주 분석',
+    '테마 생명주기',
+    'AI 테마 분석',
+    '테마 트렌드',
+    '반도체 테마',
+    '2차전지 테마',
+    '테마주 추천',
+  ],
+
   // 롱테일 키워드 (11개)
   longTail: [
     '주식 투자 초보',
@@ -137,5 +149,6 @@ export const allKeywords: string[] = [
   ...keywordsByCategory.analysis,
   ...keywordsByCategory.free,
   ...keywordsByCategory.time,
+  ...keywordsByCategory.theme,
   ...keywordsByCategory.longTail,
 ];
