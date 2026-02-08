@@ -1,11 +1,9 @@
-export interface Stock {
-  symbol: string
-  name: string
-  market: string
-  currentPrice: number | null
-  priceChangePct: number | null
-  volume: number | null
-}
+/** 종목 리스트 유틸리티 — 정렬, 통계, 포맷 */
+
+import type { ThemeStockItem } from '@/lib/tli/types'
+import { formatPrice as sharedFormatPrice, formatVolume as sharedFormatVolume } from '@/lib/tli/format-utils'
+
+export type Stock = ThemeStockItem
 
 export type SortField = 'name' | 'price' | 'change' | 'volume'
 export type SortDirection = 'asc' | 'desc'
@@ -28,7 +26,7 @@ export const DEFAULT_MARKET_STYLE: MarketStyle = {
 
 /** 가격 포맷: 52300 → "52,300" */
 export function formatPrice(price: number): string {
-  return price.toLocaleString('ko-KR')
+  return sharedFormatPrice(price)
 }
 
 /** 변동률 포맷: 3.21 → "+3.21%", -1.5 → "-1.50%" */
@@ -37,11 +35,9 @@ export function formatChange(pct: number): string {
   return `${sign}${pct.toFixed(2)}%`
 }
 
-/** 거래량 축약: 1234567 → "123만", 12345 → "1.2만" */
+/** 거래량 축약 */
 export function formatVolume(vol: number): string {
-  if (vol >= 100_000_000) return `${(vol / 100_000_000).toFixed(1)}억`
-  if (vol >= 10_000) return `${(vol / 10_000).toFixed(vol >= 100_000 ? 0 : 1)}만`
-  return vol.toLocaleString('ko-KR')
+  return sharedFormatVolume(vol)
 }
 
 /** 종목 통계 계산 */
@@ -57,7 +53,7 @@ export function calculateStockStats(stocks: Stock[]) {
   return { rising, falling, flat, avgChange }
 }
 
-/** 최대 거래량 찾기 (.reduce로 스택 오버플로우 방지) */
+/** 최대 거래량 찾기 */
 export function getMaxVolume(stocks: Stock[]): number {
   return stocks.reduce((max, s) => {
     if (s.volume !== null && s.volume !== undefined && s.volume > max) {

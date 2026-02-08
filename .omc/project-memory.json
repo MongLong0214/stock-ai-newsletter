@@ -227,45 +227,99 @@
   },
   "hotPaths": [
     {
-      "path": "app/themes/[id]/_components/comparison-list.tsx",
-      "accessCount": 23,
-      "lastAccessed": 1770535044483,
+      "path": "",
+      "accessCount": 37,
+      "lastAccessed": 1770538079957,
+      "type": "directory"
+    },
+    {
+      "path": "app/themes/[id]/_components/detail-header.tsx",
+      "accessCount": 30,
+      "lastAccessed": 1770537892765,
       "type": "file"
     },
     {
       "path": "app/api/tli/themes/[id]/query-helpers.ts",
-      "accessCount": 23,
-      "lastAccessed": 1770535609639,
+      "accessCount": 28,
+      "lastAccessed": 1770537860129,
       "type": "file"
     },
     {
-      "path": "app/themes/[id]/_components/detail-header.tsx",
-      "accessCount": 23,
-      "lastAccessed": 1770535728421,
-      "type": "file"
-    },
-    {
-      "path": "app/api/tli/scores/ranking/ranking-helpers.ts",
-      "accessCount": 21,
-      "lastAccessed": 1770532515258,
+      "path": "app/themes/[id]/_components/comparison-list.tsx",
+      "accessCount": 27,
+      "lastAccessed": 1770537893693,
       "type": "file"
     },
     {
       "path": "lib/tli/types/api.ts",
-      "accessCount": 18,
-      "lastAccessed": 1770534843426,
+      "accessCount": 26,
+      "lastAccessed": 1770537896303,
       "type": "file"
     },
     {
-      "path": "lib/tli/sentiment.ts",
-      "accessCount": 17,
-      "lastAccessed": 1770532429244,
+      "path": "app/api/tli/scores/ranking/ranking-helpers.ts",
+      "accessCount": 26,
+      "lastAccessed": 1770538075568,
+      "type": "file"
+    },
+    {
+      "path": "lib/tli/calculator.ts",
+      "accessCount": 25,
+      "lastAccessed": 1770538063491,
+      "type": "file"
+    },
+    {
+      "path": "app/themes/[id]/_utils/calculate-prediction.ts",
+      "accessCount": 24,
+      "lastAccessed": 1770538504573,
       "type": "file"
     },
     {
       "path": "lib/tli/comparison.ts",
+      "accessCount": 22,
+      "lastAccessed": 1770537859570,
+      "type": "file"
+    },
+    {
+      "path": "components/tli/lifecycle-curve.tsx",
+      "accessCount": 22,
+      "lastAccessed": 1770538556566,
+      "type": "file"
+    },
+    {
+      "path": "lib/tli/sentiment.ts",
+      "accessCount": 21,
+      "lastAccessed": 1770537038495,
+      "type": "file"
+    },
+    {
+      "path": "app/api/tli/scores/ranking/route.ts",
+      "accessCount": 21,
+      "lastAccessed": 1770538097123,
+      "type": "file"
+    },
+    {
+      "path": "lib/tli/types/db.ts",
+      "accessCount": 20,
+      "lastAccessed": 1770537012745,
+      "type": "file"
+    },
+    {
+      "path": "lib/tli/types/index.ts",
+      "accessCount": 18,
+      "lastAccessed": 1770537974580,
+      "type": "file"
+    },
+    {
+      "path": "scripts/tli/calculate-comparisons.ts",
       "accessCount": 17,
-      "lastAccessed": 1770535643028,
+      "lastAccessed": 1770537869799,
+      "type": "file"
+    },
+    {
+      "path": "app/themes/[id]/_components/theme-prediction.tsx",
+      "accessCount": 17,
+      "lastAccessed": 1770537893167,
       "type": "file"
     },
     {
@@ -275,178 +329,130 @@
       "type": "file"
     },
     {
-      "path": "lib/tli/types/db.ts",
+      "path": "lib/tli/types/stage.ts",
       "accessCount": 16,
-      "lastAccessed": 1770535653891,
-      "type": "file"
-    },
-    {
-      "path": "scripts/tli/calculate-comparisons.ts",
-      "accessCount": 15,
-      "lastAccessed": 1770532496993,
-      "type": "file"
-    },
-    {
-      "path": "app/api/tli/scores/ranking/route.ts",
-      "accessCount": 15,
-      "lastAccessed": 1770532516004,
-      "type": "file"
-    },
-    {
-      "path": "app/themes/[id]/_utils/calculate-prediction.ts",
-      "accessCount": 15,
-      "lastAccessed": 1770532600675,
-      "type": "file"
-    },
-    {
-      "path": "lib/tli/calculator.ts",
-      "accessCount": 14,
-      "lastAccessed": 1770532336922,
-      "type": "file"
-    },
-    {
-      "path": "components/tli/lifecycle-curve.tsx",
-      "accessCount": 13,
-      "lastAccessed": 1770535449858,
-      "type": "file"
-    },
-    {
-      "path": "lib/tli/types/index.ts",
-      "accessCount": 12,
-      "lastAccessed": 1770532535654,
+      "lastAccessed": 1770537016171,
       "type": "file"
     },
     {
       "path": "app/themes/[id]/_components/news-headlines.tsx",
-      "accessCount": 12,
-      "lastAccessed": 1770535088820,
-      "type": "file"
-    },
-    {
-      "path": "app/themes/[id]/_components/theme-prediction.tsx",
-      "accessCount": 12,
-      "lastAccessed": 1770535449125,
-      "type": "file"
-    },
-    {
-      "path": "lib/tli/types/stage.ts",
-      "accessCount": 12,
-      "lastAccessed": 1770535954402,
-      "type": "file"
-    },
-    {
-      "path": "app/themes/[id]/_components/detail-content.tsx",
-      "accessCount": 11,
-      "lastAccessed": 1770532607159,
-      "type": "file"
-    },
-    {
-      "path": "components/tli/theme-card.tsx",
-      "accessCount": 10,
-      "lastAccessed": 1770532523988,
-      "type": "file"
-    },
-    {
-      "path": "app/themes/[id]/_components/score-card.tsx",
-      "accessCount": 10,
-      "lastAccessed": 1770535494009,
-      "type": "file"
-    },
-    {
-      "path": "lib/tli/stage.ts",
-      "accessCount": 9,
-      "lastAccessed": 1770532423473,
-      "type": "file"
-    },
-    {
-      "path": "components/tli/lifecycle-curve-data.ts",
-      "accessCount": 9,
-      "lastAccessed": 1770532561082,
-      "type": "file"
-    },
-    {
-      "path": "lib/tli/reigniting.ts",
-      "accessCount": 8,
-      "lastAccessed": 1770532448986,
+      "accessCount": 16,
+      "lastAccessed": 1770537902974,
       "type": "file"
     },
     {
       "path": "lib/tli/date-utils.ts",
-      "accessCount": 8,
-      "lastAccessed": 1770532536520,
+      "accessCount": 15,
+      "lastAccessed": 1770537896790,
       "type": "file"
     },
     {
-      "path": "app/themes/_components/stats-overview.tsx",
-      "accessCount": 8,
-      "lastAccessed": 1770534132655,
+      "path": "app/themes/[id]/_components/detail-content.tsx",
+      "accessCount": 15,
+      "lastAccessed": 1770538207503,
       "type": "file"
     },
     {
-      "path": "app/api/tli/themes/[id]/route.ts",
-      "accessCount": 8,
-      "lastAccessed": 1770534932113,
+      "path": "app/themes/[id]/_components/score-card.tsx",
+      "accessCount": 15,
+      "lastAccessed": 1770538229604,
       "type": "file"
     },
     {
-      "path": "",
-      "accessCount": 8,
-      "lastAccessed": 1770535608037,
-      "type": "directory"
-    },
-    {
-      "path": "components/tli/lifecycle-curve-tooltip.tsx",
-      "accessCount": 7,
-      "lastAccessed": 1770532510697,
-      "type": "file"
-    },
-    {
-      "path": "app/api/tli/themes/route.ts",
-      "accessCount": 7,
-      "lastAccessed": 1770532516791,
-      "type": "file"
-    },
-    {
-      "path": "components/tli/error-boundary.tsx",
-      "accessCount": 7,
-      "lastAccessed": 1770532518077,
-      "type": "file"
-    },
-    {
-      "path": "scripts/tli/data-ops.ts",
-      "accessCount": 6,
-      "lastAccessed": 1770530986241,
+      "path": "lib/tli/stage.ts",
+      "accessCount": 13,
+      "lastAccessed": 1770537018655,
       "type": "file"
     },
     {
       "path": "lib/tli/api-utils.ts",
-      "accessCount": 6,
-      "lastAccessed": 1770531020555,
+      "accessCount": 13,
+      "lastAccessed": 1770537867688,
+      "type": "file"
+    },
+    {
+      "path": "app/api/tli/themes/[id]/route.ts",
+      "accessCount": 13,
+      "lastAccessed": 1770538036811,
+      "type": "file"
+    },
+    {
+      "path": "components/tli/theme-card.tsx",
+      "accessCount": 12,
+      "lastAccessed": 1770536941799,
       "type": "file"
     },
     {
       "path": "lib/tli/normalize.ts",
-      "accessCount": 6,
-      "lastAccessed": 1770532339035,
+      "accessCount": 12,
+      "lastAccessed": 1770537916780,
       "type": "file"
     },
     {
-      "path": "scripts/tli/collect-and-score.ts",
-      "accessCount": 6,
-      "lastAccessed": 1770534223937,
+      "path": "components/tli/lifecycle-curve-data.ts",
+      "accessCount": 11,
+      "lastAccessed": 1770536953611,
       "type": "file"
+    },
+    {
+      "path": "app/themes/_components/stats-overview.tsx",
+      "accessCount": 11,
+      "lastAccessed": 1770537708542,
+      "type": "file"
+    },
+    {
+      "path": "lib/tli/reigniting.ts",
+      "accessCount": 10,
+      "lastAccessed": 1770537041328,
+      "type": "file"
+    },
+    {
+      "path": "app/api/tli/themes/route.ts",
+      "accessCount": 9,
+      "lastAccessed": 1770536941322,
+      "type": "file"
+    },
+    {
+      "path": "components/tli/error-boundary.tsx",
+      "accessCount": 9,
+      "lastAccessed": 1770536943475,
+      "type": "file"
+    },
+    {
+      "path": "components/tli/lifecycle-curve-tooltip.tsx",
+      "accessCount": 9,
+      "lastAccessed": 1770536954130,
+      "type": "file"
+    },
+    {
+      "path": "scripts/tli/data-ops.ts",
+      "accessCount": 7,
+      "lastAccessed": 1770537069562,
+      "type": "file"
+    },
+    {
+      "path": "lib/tli",
+      "accessCount": 7,
+      "lastAccessed": 1770538674251,
+      "type": "directory"
+    },
+    {
+      "path": "scripts/tli/collect-and-score.ts",
+      "accessCount": 7,
+      "lastAccessed": 1770538725984,
+      "type": "file"
+    },
+    {
+      "path": "lib/tli/types",
+      "accessCount": 5,
+      "lastAccessed": 1770538089025,
+      "type": "directory"
     },
     {
       "path": "scripts/tli/collectors/naver-datalab.ts",
       "accessCount": 3,
       "lastAccessed": 1770529843244,
       "type": "file"
-    },
-    {
-      "path": "lib/tli",
-      "accessCount": 3,
-      "lastAccessed": 1770531009920,
-      "type": "directory"
     },
     {
       "path": "supabase/migrations/006_add_comparison_pillar_scores.sql",
@@ -461,16 +467,16 @@
       "type": "directory"
     },
     {
+      "path": "scripts/tli",
+      "accessCount": 3,
+      "lastAccessed": 1770537057684,
+      "type": "directory"
+    },
+    {
       "path": "scripts/tli/collectors/naver-news.ts",
       "accessCount": 2,
       "lastAccessed": 1770529260559,
       "type": "file"
-    },
-    {
-      "path": "scripts/tli",
-      "accessCount": 2,
-      "lastAccessed": 1770529266981,
-      "type": "directory"
     },
     {
       "path": "docs/tli-improvements-2026-02-08.md",
@@ -488,12 +494,6 @@
       "path": "app/api/tli/themes/[id]",
       "accessCount": 2,
       "lastAccessed": 1770534809374,
-      "type": "directory"
-    },
-    {
-      "path": "lib/tli/types",
-      "accessCount": 2,
-      "lastAccessed": 1770535701723,
       "type": "directory"
     },
     {
