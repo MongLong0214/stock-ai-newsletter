@@ -7,6 +7,7 @@ import { collectNaverDatalab } from './collectors/naver-datalab';
 import { collectNaverNews } from './collectors/naver-news';
 import { collectNaverFinanceStocks } from './collectors/naver-finance-themes';
 import { discoverAndManageThemes } from './discover-themes';
+import { getKSTDate, daysAgo } from './utils';
 
 async function main() {
   console.log('🚀 TLI 데이터 수집 및 점수 계산\n');
@@ -33,8 +34,8 @@ async function main() {
     const themes = await loadActiveThemes();
 
     // 2단계: 네이버 DataLab 데이터 수집
-    const endDate = new Date().toISOString().split('T')[0];
-    const startDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    const endDate = getKSTDate();
+    const startDate = daysAgo(30);
 
     console.log('\n━'.repeat(80));
     console.log('📊 1단계: 네이버 DataLab 수집');
@@ -57,7 +58,7 @@ async function main() {
     console.log('━'.repeat(80));
 
     try {
-      const newsStartDate = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+      const newsStartDate = daysAgo(14);
       const { metrics: newsMetrics, articles: newsArticles } = await collectNaverNews(
         themes.map(t => ({ id: t.id, keywords: t.keywords })),
         newsStartDate,

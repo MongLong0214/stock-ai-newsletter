@@ -32,11 +32,48 @@ export function analyzeSentiment(title: string): SentimentResult {
   let positive = 0
   let negative = 0
 
-  for (const kw of POSITIVE_KEYWORDS) {
-    if (title.includes(kw)) positive++
+  // 긴 키워드부터 매칭하여 부분 문자열 중복 카운트 방지
+  const sortedPositive = [...POSITIVE_KEYWORDS].sort((a, b) => b.length - a.length)
+  const sortedNegative = [...NEGATIVE_KEYWORDS].sort((a, b) => b.length - a.length)
+  const matched = new Set<number>()
+
+  for (const kw of sortedPositive) {
+    let searchFrom = 0
+    while (searchFrom < title.length) {
+      const idx = title.indexOf(kw, searchFrom)
+      if (idx === -1) break
+      let overlaps = false
+      for (let i = idx; i < idx + kw.length; i++) {
+        if (matched.has(i)) {
+          overlaps = true
+          break
+        }
+      }
+      if (!overlaps) {
+        positive++
+        for (let i = idx; i < idx + kw.length; i++) matched.add(i)
+      }
+      searchFrom = idx + kw.length
+    }
   }
-  for (const kw of NEGATIVE_KEYWORDS) {
-    if (title.includes(kw)) negative++
+  for (const kw of sortedNegative) {
+    let searchFrom = 0
+    while (searchFrom < title.length) {
+      const idx = title.indexOf(kw, searchFrom)
+      if (idx === -1) break
+      let overlaps = false
+      for (let i = idx; i < idx + kw.length; i++) {
+        if (matched.has(i)) {
+          overlaps = true
+          break
+        }
+      }
+      if (!overlaps) {
+        negative++
+        for (let i = idx; i < idx + kw.length; i++) matched.add(i)
+      }
+      searchFrom = idx + kw.length
+    }
   }
 
   const total = positive + negative
@@ -46,12 +83,23 @@ export function analyzeSentiment(title: string): SentimentResult {
   return { score, positive, negative, label }
 }
 
+/** 정규식 특수문자 이스케이프 */
+function escapeRegex(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
 /**
  * 기사 제목이 테마 키워드와 관련있는지 확인.
- * 제목에 최소 1개 키워드가 포함되어야 관련 기사로 판정.
+ * 짧은 영문 키워드(≤3자)는 단어 경계 매칭으로 오탐 방지.
  */
 export function isRelevantArticle(title: string, keywords: string[]): boolean {
-  return keywords.some(keyword => title.includes(keyword))
+  return keywords.some(keyword => {
+    // 짧은 영문/숫자 키워드: 단어 경계(word boundary) 필수
+    if (keyword.length <= 3 && /^[A-Za-z0-9]+$/.test(keyword)) {
+      return new RegExp(`\\b${escapeRegex(keyword)}\\b`, 'i').test(title)
+    }
+    return title.includes(keyword)
+  })
 }
 
 /**
@@ -96,7 +144,7 @@ export function aggregateSentiment(scores: number[]): {
   label: '긍정' | '부정' | '중립'
 } {
   if (scores.length === 0) {
-    return { average: 0, normalized: 0.5, label: '중립' }
+    return { average: 0, normalized: 0, label: '중립' }
   }
   const average = scores.reduce((sum, s) => sum + s, 0) / scores.length
   const normalized = (average + 1) / 2 // [-1,1] → [0,1]

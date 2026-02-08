@@ -2,6 +2,8 @@ import { supabase } from '@/lib/supabase'
 import { getStageKo, toStage } from '@/lib/tli/types'
 import { apiSuccess, handleApiError, isTableNotFound, placeholderResponse } from '@/lib/tli/api-utils'
 import type { ThemeListItem, ThemeRanking } from '@/lib/tli/types'
+import { buildScoreMetaMap, buildCountMaps, calculateRankingSummary, batchLoadStockData, batchLoadNewsCounts } from './ranking-helpers'
+import { getKSTDateString } from '@/lib/tli/date-utils'
 
 /** 빈 랭킹 응답 (placeholder / 에러 시 재사용) */
 const EMPTY_RANKING: ThemeRanking = {
@@ -14,7 +16,7 @@ const EMPTY_RANKING: ThemeRanking = {
     totalThemes: 0,
     byStage: {},
     hottestTheme: null,
-    mostImproved: null,
+    surging: null,
     avgScore: 0,
   },
 }
@@ -45,102 +47,36 @@ export async function GET() {
     }
 
     const themeIds = themes.map((t) => t.id)
-    const sevenDaysAgo = new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0]
-    const ninetyDaysAgo = new Date(Date.now() - 90 * 86400000).toISOString().split('T')[0]
+    const sevenDaysAgo = getKSTDateString(-7)
+    const ninetyDaysAgo = getKSTDateString(-90)
 
-    // 2) 배치 쿼리 4개 병렬 실행
-    const [scoresRes, stocksRes, keywordsRes, newsRes] = await Promise.all([
-      // 최근 90일 점수 (배치 지연 시에도 최신 점수 유실 방지)
-      supabase
-        .from('lifecycle_scores')
-        .select('theme_id, score, stage, is_reigniting, calculated_at')
-        .in('theme_id', themeIds)
-        .gte('calculated_at', ninetyDaysAgo)
-        .order('calculated_at', { ascending: false }),
-      // 활성 종목 (카운트용)
-      supabase
-        .from('theme_stocks')
-        .select('theme_id')
-        .in('theme_id', themeIds)
-        .eq('is_active', true),
-      // 키워드 (source='general', is_primary 우선)
-      supabase
-        .from('theme_keywords')
-        .select('theme_id, keyword, source, is_primary')
-        .in('theme_id', themeIds),
-      // 뉴스 메트릭 (최근 7일 합계)
-      supabase
-        .from('news_metrics')
-        .select('theme_id, article_count')
-        .in('theme_id', themeIds)
-        .gte('time', sevenDaysAgo),
+    // 2) 배치 쿼리 병렬 실행 (stocks/news는 배치 분할로 1000행 제한 우회)
+    const [stocksList, newsList] = await Promise.all([
+      // 활성 종목 (배치 분할 — Supabase 1000행 제한 우회, 종목명 포함)
+      batchLoadStockData(themeIds),
+      // 뉴스 기사 (배치 분할 — theme_news_articles 기준, 상세 페이지와 동일 소스)
+      batchLoadNewsCounts(themeIds, sevenDaysAgo),
     ])
 
-    const scores = scoresRes.data || []
-    const stocksList = stocksRes.data || []
-    const keywordsList = keywordsRes.data || []
-    const newsList = newsRes.data || []
+    // 3) lifecycle_scores 배치 조회 (테마당 최대 90일, 1000행 제한 우회)
+    const scores: Array<{ theme_id: string; score: number; stage: string | null; is_reigniting: boolean; calculated_at: string; components: unknown }> = []
+    const SCORE_BATCH_SIZE = 10 // 테마당 90일 = 900행, 여유 있게 10개씩
+    for (let i = 0; i < themeIds.length; i += SCORE_BATCH_SIZE) {
+      const chunk = themeIds.slice(i, i + SCORE_BATCH_SIZE)
+      const { data } = await supabase
+        .from('lifecycle_scores')
+        .select('theme_id, score, stage, is_reigniting, calculated_at, components')
+        .in('theme_id', chunk)
+        .gte('calculated_at', ninetyDaysAgo)
+        .order('calculated_at', { ascending: false })
+        .limit(1000)
+      if (data) scores.push(...data)
+    }
 
     // --- 맵 구성 (O(n) 단일 패스) ---
 
-    // 점수를 theme_id별로 그룹화 + 사전 계산된 메타 정보
-    interface ThemeScoreMeta {
-      latest: typeof scores[0] | null
-      weekAgoScore: typeof scores[0] | null
-      sparkline: number[]
-    }
-    const scoreMetaByTheme = new Map<string, ThemeScoreMeta>()
-
-    // scores는 calculated_at desc 정렬 → 첫 번째가 최신
-    for (const s of scores) {
-      if (!scoreMetaByTheme.has(s.theme_id)) {
-        scoreMetaByTheme.set(s.theme_id, { latest: null, weekAgoScore: null, sparkline: [] })
-      }
-      const meta = scoreMetaByTheme.get(s.theme_id)!
-      const dateStr = s.calculated_at.split('T')[0]
-
-      // 최신 점수 (desc이므로 첫 번째 = latest)
-      if (!meta.latest) meta.latest = s
-
-      // 7일 전 점수: sevenDaysAgo 이하인 첫 번째 (desc이므로 가장 최근)
-      if (!meta.weekAgoScore && dateStr <= sevenDaysAgo) meta.weekAgoScore = s
-
-      // 스파크라인: 7일 이내 점수 수집 (나중에 reverse)
-      if (dateStr >= sevenDaysAgo) meta.sparkline.push(s.score)
-    }
-
-    // 스파크라인 정렬: desc → asc (오래된 순)
-    for (const meta of scoreMetaByTheme.values()) {
-      meta.sparkline.reverse()
-    }
-
-    // 종목 카운트 맵
-    const stockCountMap = new Map<string, number>()
-    for (const s of stocksList) {
-      stockCountMap.set(s.theme_id, (stockCountMap.get(s.theme_id) || 0) + 1)
-    }
-
-    // 키워드 맵: O(W) 단일 패스로 그룹화 후 정렬
-    const keywordsByThemeRaw = new Map<string, typeof keywordsList>()
-    for (const kw of keywordsList) {
-      if (!keywordsByThemeRaw.has(kw.theme_id)) keywordsByThemeRaw.set(kw.theme_id, [])
-      keywordsByThemeRaw.get(kw.theme_id)!.push(kw)
-    }
-    const keywordsByTheme = new Map<string, string[]>()
-    for (const [themeId, kws] of keywordsByThemeRaw) {
-      kws.sort((a, b) => {
-        if (a.is_primary !== b.is_primary) return b.is_primary ? 1 : -1
-        if (a.source !== b.source) return a.source === 'general' ? -1 : 1
-        return 0
-      })
-      keywordsByTheme.set(themeId, kws.slice(0, 3).map((k) => k.keyword))
-    }
-
-    // 뉴스 카운트 맵 (7일 합계)
-    const newsCountMap = new Map<string, number>()
-    for (const n of newsList) {
-      newsCountMap.set(n.theme_id, (newsCountMap.get(n.theme_id) || 0) + n.article_count)
-    }
+    const scoreMetaByTheme = buildScoreMetaMap(scores, sevenDaysAgo)
+    const { stockCountMap, stockNamesMap, newsCountMap } = buildCountMaps(stocksList, newsList)
 
     // --- ThemeListItem 조합 ---
 
@@ -148,6 +84,12 @@ export async function GET() {
       const meta = scoreMetaByTheme.get(theme.id)
       const latest = meta?.latest ?? null
       const weekAgoScore = meta?.weekAgoScore ?? null
+
+      // Extract sentiment from latest score's components
+      const latestComponents = latest?.components as Record<string, unknown> | null
+      const sentimentScore = typeof latestComponents?.sentiment_score === 'number'
+        ? latestComponents.sentiment_score
+        : 0
 
       return {
         id: theme.id,
@@ -160,11 +102,12 @@ export async function GET() {
           ? latest.score - weekAgoScore.score
           : 0,
         stockCount: stockCountMap.get(theme.id) ?? 0,
+        topStocks: stockNamesMap.get(theme.id) ?? [],
         isReigniting: latest?.is_reigniting ?? false,
         updatedAt: latest?.calculated_at ?? new Date().toISOString(),
         sparkline: meta?.sparkline ?? [],
-        keywords: keywordsByTheme.get(theme.id) ?? [],
         newsCount7d: newsCountMap.get(theme.id) ?? 0,
+        sentimentScore,
       }
     })
 
@@ -203,28 +146,7 @@ export async function GET() {
     // --- 요약 통계 (필터 통과한 테마 기준) ---
 
     const activeThemes = [...early, ...growth, ...peak, ...decay, ...reigniting]
-
-    const byStage: Record<string, number> = {}
-    for (const t of activeThemes) {
-      const key = t.isReigniting ? 'Reigniting' : t.stage
-      byStage[key] = (byStage[key] || 0) + 1
-    }
-
-    // hottestTheme: score >= 40 AND stockCount >= 3
-    const hottestCandidates = activeThemes.filter(t => t.score >= 40 && t.stockCount >= 3)
-    const hottestTheme = hottestCandidates.length > 0
-      ? hottestCandidates.reduce((max, t) => (t.score > max.score ? t : max))
-      : null
-
-    // mostImproved: change7d > 5 AND score >= 20 AND stockCount >= 3
-    const improvedCandidates = activeThemes.filter(t => t.change7d > 5 && t.score >= 20 && t.stockCount >= 3)
-    const mostImproved = improvedCandidates.length > 0
-      ? improvedCandidates.reduce((max, t) => (t.change7d > max.change7d ? t : max))
-      : null
-
-    const avgScore = activeThemes.length > 0
-      ? Math.round((activeThemes.reduce((sum, t) => sum + t.score, 0) / activeThemes.length) * 10) / 10
-      : 0
+    const summary = calculateRankingSummary(activeThemes)
 
     const ranking: ThemeRanking = {
       early,
@@ -232,17 +154,7 @@ export async function GET() {
       peak,
       decay,
       reigniting,
-      summary: {
-        totalThemes: activeThemes.length,
-        byStage,
-        hottestTheme: hottestTheme
-          ? { name: hottestTheme.name, score: hottestTheme.score, change7d: hottestTheme.change7d }
-          : null,
-        mostImproved: mostImproved && mostImproved.change7d > 0
-          ? { name: mostImproved.name, change7d: mostImproved.change7d }
-          : null,
-        avgScore,
-      },
+      summary,
     }
 
     return apiSuccess(ranking)

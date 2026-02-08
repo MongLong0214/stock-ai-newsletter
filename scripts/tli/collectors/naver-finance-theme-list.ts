@@ -14,7 +14,7 @@ async function scrapeThemeListPage(page: number): Promise<DiscoveredTheme[]> {
 
   const response = await withRetry(
     async () => {
-      const res = await fetch(url)
+      const res = await fetch(url, { signal: AbortSignal.timeout(30000) })
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       return res
     },
@@ -58,7 +58,7 @@ async function getTotalPages(): Promise<number> {
 
   const response = await withRetry(
     async () => {
-      const res = await fetch(url)
+      const res = await fetch(url, { signal: AbortSignal.timeout(30000) })
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       return res
     },

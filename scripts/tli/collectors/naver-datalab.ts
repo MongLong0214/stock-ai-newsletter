@@ -36,11 +36,13 @@ interface InterestMetric {
   normalized: number;
 }
 
-const NAVER_CLIENT_ID = process.env.NAVER_CLIENT_ID || '';
-const NAVER_CLIENT_SECRET = process.env.NAVER_CLIENT_SECRET || '';
-
-if (!NAVER_CLIENT_ID || !NAVER_CLIENT_SECRET) {
-  throw new Error('NAVER_CLIENT_ID 또는 NAVER_CLIENT_SECRET 환경변수가 누락되었습니다');
+function getNaverCredentials() {
+  const clientId = process.env.NAVER_CLIENT_ID
+  const clientSecret = process.env.NAVER_CLIENT_SECRET
+  if (!clientId || !clientSecret) {
+    throw new Error('NAVER_CLIENT_ID 또는 NAVER_CLIENT_SECRET 환경변수가 누락되었습니다')
+  }
+  return { clientId, clientSecret }
 }
 
 /** 네이버 DataLab 검색에 최적화된 키워드 전처리 */
@@ -70,16 +72,18 @@ function preprocessKeywords(keywords: string[]): string[] {
 
 /** 네이버 DataLab API 호출 (재시도 포함) */
 async function callNaverDatalab(request: NaverDatalabRequest): Promise<NaverDatalabResponse> {
+  const { clientId, clientSecret } = getNaverCredentials()
   return withRetry(
     async () => {
       const response = await fetch('https://openapi.naver.com/v1/datalab/search', {
         method: 'POST',
         headers: {
-          'X-Naver-Client-Id': NAVER_CLIENT_ID,
-          'X-Naver-Client-Secret': NAVER_CLIENT_SECRET,
+          'X-Naver-Client-Id': clientId,
+          'X-Naver-Client-Secret': clientSecret,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(request),
+        signal: AbortSignal.timeout(30000),
       });
 
       if (!response.ok) {

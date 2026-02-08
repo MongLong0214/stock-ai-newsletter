@@ -23,6 +23,7 @@ async function fetchAutocomplete(query: string): Promise<string[]> {
           'User-Agent': 'Mozilla/5.0 (compatible; TLI-Bot/1.0)',
           'Accept': 'application/json',
         },
+        signal: AbortSignal.timeout(15000),
       })
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       return res.json()
@@ -44,8 +45,8 @@ async function fetchAutocomplete(query: string): Promise<string[]> {
         }
       }
     }
-  } catch {
-    // 응답 구조가 다른 경우 무시
+  } catch (error: unknown) {
+    console.warn('   자동완성 응답 파싱 실패:', error instanceof Error ? error.message : String(error))
   }
 
   return items
