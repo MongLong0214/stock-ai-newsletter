@@ -8,7 +8,7 @@ export function determineStage(score: number, components: ScoreComponents): Stag
   if (
     score >= 80 ||
     (score >= 60 && interest_score > 0.8 && news_momentum > 0.7) ||
-    (score >= 60 && interest_score > 0.8 && (sentiment_score ?? 0.5) > 0.7)
+    (score >= 60 && interest_score > 0.8 && (sentiment_score ?? 0) > 0.7)
   ) {
     return 'Peak';
   }
@@ -21,7 +21,7 @@ export function determineStage(score: number, components: ScoreComponents): Stag
     return 'Early';
   }
 
-  if (score >= 20 || (maturity_ratio > 0.8 && interest_score < 0.3)) {
+  if (score >= 20 || (score >= 10 && maturity_ratio > 0.8 && interest_score < 0.3)) {
     return 'Decay';
   }
 

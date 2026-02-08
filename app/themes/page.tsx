@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { Suspense } from 'react'
 import ThemesContent from './_components/themes-content'
+import ThemesSkeleton from './_components/themes-skeleton'
 
 /** 테마 목록 페이지 메타데이터 */
 export const metadata: Metadata = {
@@ -29,19 +30,10 @@ export const metadata: Metadata = {
   },
 }
 
-/** 로딩 폴백 */
-function ThemesLoading() {
-  return (
-    <div className="min-h-screen bg-black flex items-center justify-center">
-      <div className="animate-pulse text-emerald-500 font-mono">Theme Data Loading...</div>
-    </div>
-  )
-}
-
 /** 테마 목록 페이지 */
 export default function ThemesPage() {
   return (
-    <Suspense fallback={<ThemesLoading />}>
+    <Suspense fallback={<ThemesSkeleton />}>
       <ThemesContent />
     </Suspense>
   )

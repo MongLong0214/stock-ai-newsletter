@@ -1,7 +1,7 @@
 'use client'
 
 import { motion } from 'framer-motion'
-import { Flame, TrendingUp, BarChart3, Layers } from 'lucide-react'
+import { Flame, Rocket, BarChart3, Layers } from 'lucide-react'
 import { STAGE_CONFIG } from '@/lib/tli/types'
 import type { ThemeRanking } from '@/lib/tli/types'
 import { cn } from '@/lib/utils'
@@ -68,7 +68,7 @@ function StatsOverview({ summary }: StatsOverviewProps) {
           {/* 구분선 */}
           <div className="hidden lg:block h-10 w-px bg-white/10" />
 
-          {/* 가장 뜨거운 테마 */}
+          {/* 주도 테마 */}
           {summary.hottestTheme && (
             <div className="flex items-center gap-2">
               <div
@@ -92,18 +92,21 @@ function StatsOverview({ summary }: StatsOverviewProps) {
           {/* 구분선 */}
           <div className="hidden lg:block h-10 w-px bg-white/10" />
 
-          {/* 가장 개선된 테마 */}
-          {summary.mostImproved && (
+          {/* 급상승 테마 */}
+          {summary.surging && (
             <div className="flex items-center gap-2">
-              <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-emerald-500/15 border border-emerald-500/20">
-                <TrendingUp className="w-4 h-4 text-emerald-400" />
+              <div
+                className="flex items-center justify-center w-8 h-8 rounded-lg bg-emerald-500/15 border border-emerald-500/20"
+                style={{ boxShadow: '0 0 12px rgba(16, 185, 129, 0.15)' }}
+              >
+                <Rocket className="w-4 h-4 text-emerald-400" />
               </div>
               <div>
-                <p className="text-xs text-slate-500 font-mono uppercase tracking-wider">Most Improved</p>
+                <p className="text-xs text-slate-500 font-mono uppercase tracking-wider">급상승</p>
                 <p className="text-sm font-bold text-emerald-400">
-                  {summary.mostImproved.name}
+                  {summary.surging.name}
                   <span className="ml-1.5 font-mono text-emerald-300">
-                    +{summary.mostImproved.change7d.toFixed(1)}
+                    +{summary.surging.change7d.toFixed(1)}
                   </span>
                 </p>
               </div>

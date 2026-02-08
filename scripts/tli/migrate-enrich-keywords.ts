@@ -2,73 +2,7 @@ import { config } from 'dotenv'
 config({ path: '.env.local' })
 
 import { supabaseAdmin } from './supabase-admin'
-
-/** 주식시장 영문→한글 매핑 */
-const ENGLISH_KOREAN_MAP: Record<string, string[]> = {
-  'AI': ['인공지능'],
-  'EV': ['전기차'],
-  'HBM': ['고대역폭메모리'],
-  'SpaceX': ['스페이스엑스'],
-  'ESG': ['친환경경영'],
-  'NFT': ['대체불가토큰'],
-  'IoT': ['사물인터넷'],
-  'UAM': ['도심항공모빌리티'],
-  'XR': ['확장현실'],
-  'AR': ['증강현실'],
-  'VR': ['가상현실'],
-  'OLED': ['유기발광다이오드'],
-  'SMR': ['소형모듈원전'],
-  'CXL': ['씨엑스엘'],
-  'Robot': ['로봇'],
-  'Robotics': ['로보틱스'],
-}
-
-/** 테마명에서 검색 최적화 키워드 자동 생성 */
-function enrichThemeKeywords(themeName: string): Array<{ keyword: string; source: string; isPrimary: boolean }> {
-  const enriched: Array<{ keyword: string; source: string; isPrimary: boolean }> = []
-  const seen = new Set<string>()
-
-  const addIfNew = (keyword: string, source: string, isPrimary: boolean) => {
-    const normalized = keyword.trim()
-    if (normalized.length >= 2 && !seen.has(normalized)) {
-      seen.add(normalized)
-      enriched.push({ keyword: normalized, source, isPrimary })
-    }
-  }
-
-  // 1) 원본 테마명
-  addIfNew(themeName, 'general', true)
-  addIfNew(themeName, 'naver', false)
-
-  // 2) 괄호 제거: "스페이스X(SpaceX)" → "스페이스X"
-  const withoutParens = themeName.replace(/\s*\([^)]*\)\s*/g, '').trim()
-  if (withoutParens !== themeName) {
-    addIfNew(withoutParens, 'naver', false)
-  }
-
-  // 3) 괄호 안 내용 추출: "스페이스X(SpaceX)" → "SpaceX"
-  const parenMatch = themeName.match(/\(([^)]+)\)/)
-  if (parenMatch) {
-    addIfNew(parenMatch[1], 'naver', false)
-  }
-
-  // 4) 한글만 추출: "AI반도체" → "반도체"
-  const koreanOnly = themeName.replace(/[^가-힣\s]/g, '').trim()
-  if (koreanOnly.length >= 2 && koreanOnly !== themeName) {
-    addIfNew(koreanOnly, 'naver', false)
-  }
-
-  // 5) 영문→한글 매핑
-  for (const [eng, koreans] of Object.entries(ENGLISH_KOREAN_MAP)) {
-    if (themeName.toUpperCase().includes(eng.toUpperCase())) {
-      for (const kr of koreans) {
-        addIfNew(kr, 'auto_enriched', false)
-      }
-    }
-  }
-
-  return enriched
-}
+import { enrichThemeKeywords } from './theme-keywords'
 
 /** 배치 upsert 헬퍼 */
 async function upsertBatch(

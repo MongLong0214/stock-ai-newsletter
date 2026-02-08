@@ -2,66 +2,157 @@ import { supabaseAdmin } from './supabase-admin';
 import { calculateLifecycleScore } from '../../lib/tli/calculator';
 import { determineStage } from '../../lib/tli/stage';
 import { checkReigniting } from '../../lib/tli/reigniting';
-import { getKSTDate } from './utils';
+import { getKSTDate, daysAgo } from './utils';
 import type { InterestMetric, NewsMetric, Stage } from '../../lib/tli/types';
 import type { ThemeWithKeywords } from './data-ops';
 
 /** 라이프사이클 점수 계산 및 저장 */
 export async function calculateAndSaveScores(themes: ThemeWithKeywords[]) {
   console.log('\n🧮 라이프사이클 점수 계산 중...');
-
   const today = getKSTDate();
 
+  // ─── Phase 1: Batch load interest metrics (eliminate N+1) ───
+  const interestCache = new Map<string, InterestMetric[]>();
+  const rawAvgMap = new Map<string, number>();
+
+  const themeIds = themes.map(t => t.id);
+  const allInterestMetrics: Array<InterestMetric & { theme_id: string }> = [];
+
+  // Batch query in chunks of 300 (Supabase .in() limit)
+  for (let i = 0; i < themeIds.length; i += 300) {
+    const chunk = themeIds.slice(i, i + 300);
+    const { data } = await supabaseAdmin
+      .from('interest_metrics')
+      .select('*')
+      .in('theme_id', chunk)
+      .order('time', { ascending: false });
+
+    if (data) {
+      allInterestMetrics.push(...(data as Array<InterestMetric & { theme_id: string }>));
+    }
+  }
+
+  // Group by theme_id and take top 30 per theme
+  const interestByTheme = new Map<string, Array<InterestMetric & { theme_id: string }>>();
+  for (const metric of allInterestMetrics) {
+    const arr = interestByTheme.get(metric.theme_id) || [];
+    arr.push(metric);
+    interestByTheme.set(metric.theme_id, arr);
+  }
+
+  for (const theme of themes) {
+    const metrics = interestByTheme.get(theme.id) || [];
+    if (metrics.length > 0) {
+      // Sort by time desc and take top 30
+      const sorted = metrics.sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime()).slice(0, 30);
+      interestCache.set(theme.id, sorted);
+      const raw7d = sorted.slice(0, 7).map(m => m.raw_value);
+      if (raw7d.length > 0) {
+        rawAvgMap.set(theme.id, raw7d.reduce((s, v) => s + v, 0) / raw7d.length);
+      }
+    }
+  }
+
+  // Cross-theme percentile distribution
+  const sortedRawAvgs = Array.from(rawAvgMap.values()).filter(v => v > 0).sort((a, b) => a - b);
+  function computePercentile(value: number): number {
+    if (sortedRawAvgs.length === 0 || value <= 0) return 0;
+    const below = sortedRawAvgs.filter(v => v <= value).length;
+    return below / sortedRawAvgs.length;
+  }
+
+  const medianRaw = sortedRawAvgs.length > 0 ? sortedRawAvgs[Math.floor(sortedRawAvgs.length / 2)] : 0;
+  console.log(`   📊 Cross-theme percentile: ${sortedRawAvgs.length}개 테마, median rawAvg=${medianRaw.toFixed(1)}`);
+
+  // ─── Phase 2: Batch load news metrics and sentiment scores (eliminate N+1) ───
+  const newsCache = new Map<string, NewsMetric[]>();
+  const sentimentCache = new Map<string, number[]>();
+  const sevenDaysAgo = daysAgo(7);
+
+  // Batch load news metrics
+  const allNewsMetrics: Array<NewsMetric & { theme_id: string }> = [];
+  for (let i = 0; i < themeIds.length; i += 300) {
+    const chunk = themeIds.slice(i, i + 300);
+    const { data } = await supabaseAdmin
+      .from('news_metrics')
+      .select('*')
+      .in('theme_id', chunk)
+      .order('time', { ascending: false });
+
+    if (data) {
+      allNewsMetrics.push(...(data as Array<NewsMetric & { theme_id: string }>));
+    }
+  }
+
+  // Group news metrics by theme_id and take top 14
+  const newsByTheme = new Map<string, Array<NewsMetric & { theme_id: string }>>();
+  for (const metric of allNewsMetrics) {
+    const arr = newsByTheme.get(metric.theme_id) || [];
+    arr.push(metric);
+    newsByTheme.set(metric.theme_id, arr);
+  }
+
+  for (const theme of themes) {
+    const metrics = newsByTheme.get(theme.id) || [];
+    if (metrics.length > 0) {
+      const sorted = metrics.sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime()).slice(0, 14);
+      newsCache.set(theme.id, sorted);
+    }
+  }
+
+  // Batch load sentiment scores
+  const allSentiments: Array<{ theme_id: string; sentiment_score: number }> = [];
+  for (let i = 0; i < themeIds.length; i += 300) {
+    const chunk = themeIds.slice(i, i + 300);
+    const { data } = await supabaseAdmin
+      .from('theme_news_articles')
+      .select('theme_id, sentiment_score')
+      .in('theme_id', chunk)
+      .gte('pub_date', sevenDaysAgo)
+      .not('sentiment_score', 'is', null);
+
+    if (data) {
+      allSentiments.push(...(data as Array<{ theme_id: string; sentiment_score: number }>));
+    }
+  }
+
+  // Group sentiment scores by theme_id
+  const sentimentsByTheme = new Map<string, number[]>();
+  for (const item of allSentiments) {
+    const arr = sentimentsByTheme.get(item.theme_id) || [];
+    arr.push(item.sentiment_score);
+    sentimentsByTheme.set(item.theme_id, arr);
+  }
+
+  for (const theme of themes) {
+    const scores = sentimentsByTheme.get(theme.id) || [];
+    sentimentCache.set(theme.id, scores.filter(s => s !== null && s !== undefined));
+  }
+
+  // ─── Phase 3: Score calculation with percentile ───
   for (const theme of themes) {
     try {
       console.log(`\n   처리 중: ${theme.name}`);
 
-      // 최근 30일 관심도 메트릭 로딩
-      const { data: interestMetrics, error: interestError } = await supabaseAdmin
-        .from('interest_metrics')
-        .select('*')
-        .eq('theme_id', theme.id)
-        .order('time', { ascending: false })
-        .limit(30);
-
-      if (interestError || !interestMetrics || interestMetrics.length === 0) {
+      const interestMetrics = interestCache.get(theme.id);
+      if (!interestMetrics || interestMetrics.length === 0) {
         console.log(`   ⚠️ 관심도 메트릭 없음`);
         continue;
       }
 
-      // 최근 14일 뉴스 메트릭 로딩
-      const { data: newsMetrics, error: newsError } = await supabaseAdmin
-        .from('news_metrics')
-        .select('*')
-        .eq('theme_id', theme.id)
-        .order('time', { ascending: false })
-        .limit(14);
+      const safeNewsMetrics = newsCache.get(theme.id) || [];
+      const sentimentScores = sentimentCache.get(theme.id) || [];
 
-      if (newsError) {
-        console.error(`   ⚠️ 뉴스 메트릭 조회 오류:`, newsError.message);
-      }
-      const safeNewsMetrics = (newsMetrics || []) as NewsMetric[];
-
-      // 감성 점수 로드 (7일간)
-      const sevenDaysAgo = new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0];
-      const { data: recentArticles } = await supabaseAdmin
-        .from('theme_news_articles')
-        .select('sentiment_score')
-        .eq('theme_id', theme.id)
-        .gte('pub_date', sevenDaysAgo)
-        .not('sentiment_score', 'is', null);
-
-      const sentimentScores = (recentArticles || [])
-        .map(a => a.sentiment_score as number)
-        .filter(s => s !== null && s !== undefined);
+      const rawPercentile = computePercentile(rawAvgMap.get(theme.id) ?? 0);
 
       // 점수 계산 (최소 데이터 미달 시 null 반환)
       const result = calculateLifecycleScore({
-        interestMetrics: interestMetrics as InterestMetric[],
+        interestMetrics,
         newsMetrics: safeNewsMetrics,
         sentimentScores,
         firstSpikeDate: theme.first_spike_date,
         today,
+        rawPercentile,
       });
 
       if (!result) {

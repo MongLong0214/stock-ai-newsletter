@@ -25,35 +25,52 @@ export async function loadActiveThemes(): Promise<ThemeWithKeywords[]> {
 
   console.log(`   ✅ ${themes.length}개 테마 로딩 완료\n`);
 
-  const themesWithKeywords: ThemeWithKeywords[] = [];
+  // Batch: 모든 키워드를 한 번에 로딩
+  const themeIds = themes.map(t => t.id)
+  const allKeywords: Array<{ theme_id: string; keyword: string; source: string; is_primary: boolean }> = []
+
+  // .in() 300개 제한 대응
+  for (let i = 0; i < themeIds.length; i += 300) {
+    const chunk = themeIds.slice(i, i + 300)
+    const { data, error: kwError } = await supabaseAdmin
+      .from('theme_keywords')
+      .select('theme_id, keyword, source, is_primary')
+      .in('theme_id', chunk)
+
+    if (kwError) {
+      console.error(`   ⚠️ 키워드 배치 로딩 실패:`, kwError.message)
+    }
+    if (data) allKeywords.push(...data)
+  }
+
+  // theme_id별 그룹화
+  const keywordsByTheme = new Map<string, typeof allKeywords>()
+  for (const kw of allKeywords) {
+    const arr = keywordsByTheme.get(kw.theme_id) || []
+    arr.push(kw)
+    keywordsByTheme.set(kw.theme_id, arr)
+  }
+
+  const themesWithKeywords: ThemeWithKeywords[] = []
 
   for (const theme of themes) {
-    const { data: keywords, error: keywordsError } = await supabaseAdmin
-      .from('theme_keywords')
-      .select('keyword, source, is_primary')
-      .eq('theme_id', theme.id);
+    const keywords = keywordsByTheme.get(theme.id) || []
 
-    if (keywordsError) {
-      console.error(`   ⚠️ 테마 ${theme.id}의 키워드 로딩 실패`);
-      continue;
-    }
-
-    const allKeywords = keywords?.map(k => k.keyword) || [];
-    const naverSourceKeywords = keywords?.filter(k => k.source === 'naver').map(k => k.keyword) || [];
-    const enrichedKeywords = keywords?.filter(k => k.source === 'auto_enriched').map(k => k.keyword) || [];
-    const primaryKeywords = keywords?.filter(k => k.is_primary).map(k => k.keyword) || [];
-    // 우선순위: naver+enriched > primary+enriched > enriched만
+    const allKw = keywords.map(k => k.keyword)
+    const naverSourceKeywords = keywords.filter(k => k.source === 'naver').map(k => k.keyword)
+    const enrichedKeywords = keywords.filter(k => k.source === 'auto_enriched').map(k => k.keyword)
+    const primaryKeywords = keywords.filter(k => k.is_primary).map(k => k.keyword)
     const naverKeywords = naverSourceKeywords.length > 0
       ? [...naverSourceKeywords, ...enrichedKeywords]
       : primaryKeywords.length > 0
         ? [...primaryKeywords, ...enrichedKeywords]
-        : enrichedKeywords;
+        : enrichedKeywords
 
     themesWithKeywords.push({
       ...theme,
-      keywords: allKeywords,
+      keywords: allKw,
       naverKeywords,
-    });
+    })
   }
 
   return themesWithKeywords;
@@ -69,7 +86,7 @@ export async function upsertInterestMetrics(
     theme_id: m.themeId,
     time: m.date,
     source: 'naver_datalab',
-    raw_value: Math.round(m.rawValue),
+    raw_value: Math.round(m.rawValue * 10) / 10,
     normalized: m.normalized,
   }))
 

@@ -48,8 +48,7 @@ function ThemesContent() {
       filtered = filtered.filter(
         (t) =>
           t.name.toLowerCase().includes(query) ||
-          (t.nameEn && t.nameEn.toLowerCase().includes(query)) ||
-          t.keywords.some((k) => k.toLowerCase().includes(query))
+          (t.nameEn && t.nameEn.toLowerCase().includes(query))
       )
     }
 
