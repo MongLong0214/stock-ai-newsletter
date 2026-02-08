@@ -34,6 +34,11 @@ export const internalLinks = {
       url: `${siteConfig.domain}/subscribe`,
       title: '매일 7:50 AI 주식분석 무료 이메일 구독',
     },
+    {
+      text: '테마 분석',
+      url: `${siteConfig.domain}/themes`,
+      title: 'AI 주식 테마 생명주기 분석',
+    },
   ],
 
   // Contextual links for content pages
@@ -101,6 +106,10 @@ export const internalLinks = {
     subscribe: [
       { text: '홈', url: siteConfig.domain },
       { text: '구독하기', url: `${siteConfig.domain}/subscribe` },
+    ],
+    themes: [
+      { text: '홈', url: siteConfig.domain },
+      { text: '테마 분석', url: `${siteConfig.domain}/themes` },
     ],
   },
 
