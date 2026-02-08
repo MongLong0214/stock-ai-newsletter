@@ -1,12 +1,12 @@
 'use client'
 
 import { useState, useCallback } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
 import AnimatedBackground from '@/components/animated-background'
 import Disclaimer from '@/components/tli/disclaimer'
 import ThemesHeader from './themes-header'
 import StatsOverview from './stats-overview'
 import ThemeFilter, { type SortOption } from './theme-filter'
+import StageNav from './stage-nav'
 import StageSection from './stage-section'
 import ThemesSkeleton from './themes-skeleton'
 import { ThemesError, EmptySearchResult } from './themes-empty-states'
@@ -98,8 +98,10 @@ function ThemesContent({ initialData }: ThemesContentProps) {
   const hasResults = filteredSections.length > 0
 
   return (
-    <div className="min-h-screen bg-black text-white relative overflow-hidden">
-      <AnimatedBackground />
+    <div className="min-h-screen bg-black text-white relative">
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <AnimatedBackground />
+      </div>
 
       {/* Scanline effect */}
       <div className="fixed inset-0 pointer-events-none z-1 opacity-[0.04]">
@@ -113,12 +115,10 @@ function ThemesContent({ initialData }: ThemesContentProps) {
         <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8 lg:py-16">
           <ThemesHeader summary={ranking?.summary ?? null} />
 
-          {/* 통계 요약 바 */}
           {ranking?.summary && (
             <StatsOverview summary={ranking.summary} />
           )}
 
-          {/* 검색/필터 */}
           <ThemeFilter
             onSearchChange={handleSearchChange}
             onStageFilter={handleStageFilter}
@@ -127,52 +127,42 @@ function ThemesContent({ initialData }: ThemesContentProps) {
             activeSort={sortOption}
           />
 
-          {/* 단계별 섹션 */}
-          <AnimatePresence mode="wait">
-            {hasResults ? (
-              <motion.div
-                key="results"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.3 }}
-              >
-                {filteredSections.map((section, sectionIdx) => {
-                  return (
-                    <StageSection
-                      key={section.key}
-                      stage={section.stage}
-                      title={section.title}
-                      subtitle={section.subtitle}
-                      themes={section.themes}
-                      index={sectionIdx}
-                    />
-                  )
-                })}
-              </motion.div>
-            ) : isSearchActive ? (
-              <EmptySearchResult key="empty" query={searchQuery} />
-            ) : (
-              <motion.div
-                key="no-filter"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="flex flex-col items-center justify-center py-20"
-              >
-                <p className="text-slate-500 text-sm">선택된 단계가 없습니다. 필터를 조정해 보세요.</p>
-              </motion.div>
-            )}
-          </AnimatePresence>
+          {hasResults && (
+            <StageNav
+              sections={filteredSections.map((section) => ({
+                key: section.key,
+                stage: section.stage,
+                title: section.title,
+                count: section.themes.length,
+              }))}
+            />
+          )}
 
-          {/* 면책 조항 */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.6, delay: 0.5 }}
-            className="mt-16"
-          >
+          {hasResults ? (
+            <div>
+              {filteredSections.map((section, sectionIdx) => (
+                <StageSection
+                  key={section.key}
+                  sectionKey={section.key}
+                  stage={section.stage}
+                  title={section.title}
+                  subtitle={section.subtitle}
+                  themes={section.themes}
+                  index={sectionIdx}
+                />
+              ))}
+            </div>
+          ) : isSearchActive ? (
+            <EmptySearchResult query={searchQuery} />
+          ) : (
+            <div className="flex flex-col items-center justify-center py-20">
+              <p className="text-slate-500 text-sm">선택된 단계가 없습니다. 필터를 조정해 보세요.</p>
+            </div>
+          )}
+
+          <div className="mt-16">
             <Disclaimer />
-          </motion.div>
+          </div>
         </div>
       </main>
     </div>
