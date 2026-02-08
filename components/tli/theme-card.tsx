@@ -87,14 +87,6 @@ export default function ThemeCard({ theme, href }: ThemeCardProps) {
       <article
         className="group relative h-full flex flex-col rounded-2xl border border-emerald-500/10 bg-slate-900/60 backdrop-blur-sm p-6 shadow-[0_2px_12px_rgba(0,0,0,0.3)] hover:border-emerald-500/30 hover:shadow-[0_4px_24px_rgba(16,185,129,0.15),0_0_0_1px_rgba(16,185,129,0.1)] transition-[border-color,box-shadow] duration-300 ease-out"
       >
-        {/* 재점화 표시 */}
-        {theme.isReigniting && (
-          <div className="absolute top-4 right-4 flex items-center gap-1.5 px-2 py-1 rounded-full bg-orange-500/20 border border-orange-500/30">
-            <div className="w-1.5 h-1.5 rounded-full bg-orange-400 animate-pulse" />
-            <span className="text-xs font-medium text-orange-400">재점화 감지</span>
-          </div>
-        )}
-
         {/* 헤더 */}
         <div className="flex items-start justify-between gap-3 mb-4">
           <div className="flex-1 min-w-0">
@@ -105,7 +97,15 @@ export default function ThemeCard({ theme, href }: ThemeCardProps) {
               <p className="text-sm text-slate-400 truncate">{theme.nameEn}</p>
             )}
           </div>
-          <StageBadge stage={theme.stage} showIcon size="sm" />
+          <div className="flex flex-col items-end gap-1.5 shrink-0">
+            <StageBadge stage={theme.stage} showIcon size="sm" />
+            {theme.isReigniting && (
+              <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-orange-500/20 border border-orange-500/30">
+                <div className="w-1.5 h-1.5 rounded-full bg-orange-400 animate-pulse" />
+                <span className="text-[11px] font-medium text-orange-400">재점화</span>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* 점수 + 스파크라인 */}
