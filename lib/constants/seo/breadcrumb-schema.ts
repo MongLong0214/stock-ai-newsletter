@@ -41,4 +41,13 @@ export const breadcrumbPatterns = {
     { name: '홈', url: siteConfig.domain },
     { name: '무료 구독', url: `${siteConfig.domain}/subscribe` },
   ],
+  themes: [
+    { name: '홈', url: siteConfig.domain },
+    { name: '테마 분석', url: `${siteConfig.domain}/themes` },
+  ],
+  themeDetail: (themeName: string, themeId: string) => [
+    { name: '홈', url: siteConfig.domain },
+    { name: '테마 분석', url: `${siteConfig.domain}/themes` },
+    { name: themeName, url: `${siteConfig.domain}/themes/${themeId}` },
+  ],
 } as const;

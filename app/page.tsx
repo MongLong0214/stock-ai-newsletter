@@ -9,6 +9,7 @@ import {  TECHNICAL_INDICATORS_DATA } from "./constants/home-page";
 import HeroSection from "./_components/home/hero-section";
 import ServiceDefinitionSection from "./_components/home/service-definition-section";
 import EmailPreviewSection from "./_components/home/email-preview-section";
+import ThemePreviewSection from "./_components/home/theme-preview-section";
 import TechnicalIndicatorsSection from "./_components/home/technical-indicators-section";
 import CTASection from "./_components/home/cta-section";
 
@@ -43,6 +44,9 @@ export default function HomePage() {
 
       {/* Email Preview Section */}
       <EmailPreviewSection />
+
+      {/* Theme Lifecycle Preview */}
+      <ThemePreviewSection isMobile={isMobile} />
 
       {/* Technical Indicators Section */}
       <TechnicalIndicatorsSection
