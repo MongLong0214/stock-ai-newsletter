@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useRef, useCallback } from 'react'
+import { motion } from 'framer-motion'
 import { STAGE_CONFIG, type DisplayStage } from '@/lib/tli/types'
 import { cn } from '@/lib/utils'
 
@@ -65,7 +66,12 @@ function StageNav({ sections }: StageNavProps) {
 
   return (
     <div className="sticky top-0 z-20 -mx-4 sm:-mx-6 lg:-mx-8 mb-6">
-      <div className="bg-black/80 backdrop-blur-xl border-b border-white/5">
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, ease: [0.4, 0, 0.2, 1] }}
+        className="bg-black/80 backdrop-blur-xl border-b border-white/5"
+      >
         <nav
           ref={navRef}
           role="tablist"
@@ -137,7 +143,7 @@ function StageNav({ sections }: StageNavProps) {
           })}
           <div className="hidden sm:block shrink-0 w-px" aria-hidden="true" />
         </nav>
-      </div>
+      </motion.div>
     </div>
   )
 }
