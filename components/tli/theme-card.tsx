@@ -16,9 +16,9 @@ interface ThemeCardProps {
     stageKo: string
     change7d: number
     stockCount: number
+    topStocks: string[]
     isReigniting: boolean
     sparkline: number[]
-    keywords: string[]
     newsCount7d: number
   }
   href?: string
@@ -131,19 +131,28 @@ export default function ThemeCard({ theme, href }: ThemeCardProps) {
 
         {/* 변화율 표시 */}
         <div className="flex items-center gap-2 mb-4 pb-4 border-b border-slate-700/50">
-          {isPositiveChange ? (
-            <ArrowUpRight className="w-4 h-4 text-emerald-400" />
+          {theme.change7d === 0 ? (
+            <>
+              <span className="text-sm font-mono font-medium text-slate-500">—</span>
+              <span className="text-xs text-slate-500">7일 변화</span>
+            </>
           ) : (
-            <ArrowDownRight className="w-4 h-4 text-red-400" />
+            <>
+              {isPositiveChange ? (
+                <ArrowUpRight className="w-4 h-4 text-emerald-400" />
+              ) : (
+                <ArrowDownRight className="w-4 h-4 text-red-400" />
+              )}
+              <span
+                className={`text-sm font-mono font-medium ${
+                  isPositiveChange ? 'text-emerald-400' : 'text-red-400'
+                }`}
+              >
+                {isPositiveChange ? '+' : ''}{theme.change7d.toFixed(1)}%
+              </span>
+              <span className="text-xs text-slate-500">7일 변화</span>
+            </>
           )}
-          <span
-            className={`text-sm font-mono font-medium ${
-              isPositiveChange ? 'text-emerald-400' : 'text-red-400'
-            }`}
-          >
-            {isPositiveChange ? '+' : ''}{theme.change7d.toFixed(1)}%
-          </span>
-          <span className="text-xs text-slate-500">7일 변화</span>
         </div>
 
         {/* 종목 수 + 뉴스 카운트 */}
@@ -164,17 +173,22 @@ export default function ThemeCard({ theme, href }: ThemeCardProps) {
           )}
         </div>
 
-        {/* 키워드 태그 */}
-        {theme.keywords && theme.keywords.length > 0 && (
+        {/* 대표 종목 태그 */}
+        {theme.topStocks.length > 0 && (
           <div className="flex items-center gap-1.5 mt-auto flex-wrap">
-            {theme.keywords.slice(0, 3).map((keyword, idx) => (
+            {theme.topStocks.slice(0, 4).map((name, idx) => (
               <span
-                key={`${keyword}-${idx}`}
-                className="bg-white/10 text-xs text-slate-300 rounded-full px-2 py-0.5 border border-white/5 truncate max-w-[120px]"
+                key={`${name}-${idx}`}
+                className="bg-emerald-500/8 text-[11px] text-emerald-300/80 rounded-full px-2 py-0.5 border border-emerald-500/15 truncate max-w-[110px] font-mono"
               >
-                {keyword}
+                {name}
               </span>
             ))}
+            {theme.stockCount > 4 && (
+              <span className="text-[10px] text-slate-500 font-mono">
+                +{theme.stockCount - 4}
+              </span>
+            )}
           </div>
         )}
       </article>

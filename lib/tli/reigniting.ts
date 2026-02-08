@@ -8,17 +8,18 @@ export function checkReigniting(
   twoWeekMetrics: InterestMetric[],
 ): boolean {
   if (currentStage !== 'Decay') return false;
-  if (twoWeekMetrics.length < 14) return false;
+  if (twoWeekMetrics.length < 7) return false;
 
   const sorted = [...twoWeekMetrics].sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime());
-  const firstWeekValues = sorted.slice(0, 7).map(m => m.normalized);
-  const secondWeekValues = sorted.slice(7, 14).map(m => m.normalized);
+  const midpoint = Math.floor(sorted.length / 2);
+  const olderValues = sorted.slice(0, midpoint).map(m => m.normalized);
+  const recentValues = sorted.slice(midpoint).map(m => m.normalized);
 
-  const firstWeekAvg = avg(firstWeekValues);
-  const secondWeekAvg = avg(secondWeekValues);
+  const olderAvg = avg(olderValues);
+  const recentAvg = avg(recentValues);
 
-  if (firstWeekAvg <= 0) return false;
+  if (olderAvg <= 0) return false;
 
-  const growthRate = (secondWeekAvg - firstWeekAvg) / firstWeekAvg;
+  const growthRate = (recentAvg - olderAvg) / olderAvg;
   return growthRate >= 0.30;
 }

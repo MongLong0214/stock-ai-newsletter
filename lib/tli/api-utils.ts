@@ -30,7 +30,7 @@ export function apiError(message: string, status = 500) {
 /** Supabase 미설정 시 빈 응답 */
 export function placeholderResponse<T>(emptyData: T) {
   if (!isSupabasePlaceholder) return null
-  return apiSuccess(emptyData)
+  return apiSuccess(emptyData, undefined, 'short')
 }
 
 /** Supabase 테이블 미존재 여부 체크 */
@@ -40,7 +40,6 @@ export function isTableNotFound(error: { code?: string; message?: string }) {
 
 /** API 라우트 에러 핸들러 */
 export function handleApiError(error: unknown, context: string) {
-  const message = error instanceof Error ? error.message : '알 수 없는 오류'
-  console.error(`[TLI API] ${context}:`, message)
+  console.error(`[TLI API] ${context}:`, error)
   return apiError(context)
 }

@@ -60,6 +60,7 @@ async function searchNews(query: string, display = 100, start = 1): Promise<Nave
           'X-Naver-Client-Id': clientId,
           'X-Naver-Client-Secret': clientSecret,
         },
+        signal: AbortSignal.timeout(30000),
       })
 
       if (!res.ok) {
@@ -74,8 +75,10 @@ async function searchNews(query: string, display = 100, start = 1): Promise<Nave
 }
 
 /** pubDate → YYYY-MM-DD 변환 */
-function parseDate(pubDate: string): string {
-  return new Date(pubDate).toISOString().split('T')[0]
+function parseDate(pubDate: string): string | null {
+  const d = new Date(pubDate)
+  if (isNaN(d.getTime())) return null
+  return d.toISOString().split('T')[0]
 }
 
 /** HTML 태그 제거 */
@@ -145,7 +148,7 @@ export async function collectNaverNews(
 
         for (const item of result.items) {
           const date = parseDate(item.pubDate)
-          if (date < startDate || date > endDate) continue
+          if (!date || date < startDate || date > endDate) continue
 
           const cleanTitle = stripHtml(item.title)
 

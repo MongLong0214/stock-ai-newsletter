@@ -13,7 +13,7 @@ function ScoreCard({ score }: ScoreCardProps) {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.6, delay: 0.2 }}
-      className="rounded-2xl border border-emerald-500/20 bg-slate-900/60 backdrop-blur-xl p-6"
+      className="rounded-2xl border border-emerald-500/20 bg-slate-900/60 backdrop-blur-xl p-6 h-full overflow-y-auto custom-scroll"
     >
       <h2 className="text-lg font-bold mb-4">
         <span className="text-white">점수</span>

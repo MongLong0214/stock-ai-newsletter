@@ -1,15 +1,23 @@
 import { NextRequest } from 'next/server'
 import { supabase } from '@/lib/supabase'
 import { apiError, apiSuccess, handleApiError, isTableNotFound, placeholderResponse } from '@/lib/tli/api-utils'
-import type { Stage } from '@/lib/tli/types'
+import { toStage } from '@/lib/tli/types'
+import { getKSTDateString } from '@/lib/tli/date-utils'
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 // 특정 테마의 30일 생명주기 점수 이력 조회
 export async function GET(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id } = await params
+
+    // UUID 검증
+    if (!UUID_RE.test(id)) {
+      return apiError('잘못된 테마 ID 형식입니다.', 400)
+    }
 
     // placeholder 환경 처리
     const placeholder = placeholderResponse([])
@@ -21,7 +29,7 @@ export async function GET(
       .select('id')
       .eq('id', id)
       .eq('is_active', true)
-      .single()
+      .maybeSingle()
 
     if (themeError) {
       if (isTableNotFound(themeError)) {
@@ -36,7 +44,7 @@ export async function GET(
     }
 
     // 30일 이력 조회
-    const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0]
+    const thirtyDaysAgo = getKSTDateString(-30)
     const { data: history, error: historyError } = await supabase
       .from('lifecycle_scores')
       .select('calculated_at, score, stage')
@@ -52,7 +60,7 @@ export async function GET(
     const results = (history || []).map((item) => ({
       date: item.calculated_at,
       score: item.score,
-      stage: item.stage as Stage,
+      stage: toStage(item.stage),
     }))
 
     return apiSuccess(results)

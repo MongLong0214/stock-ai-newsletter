@@ -1,5 +1,5 @@
 import * as cheerio from 'cheerio';
-import { sleep } from '../utils';
+import { sleep, withRetry } from '../utils';
 
 interface Theme {
   id: string;
@@ -21,10 +21,15 @@ async function scrapeNaverFinanceTheme(themeId: string, naverThemeId: string): P
   const url = `https://finance.naver.com/sise/sise_group_detail.naver?type=theme&no=${naverThemeId}`;
 
   try {
-    const response = await fetch(url);
-    if (!response.ok) {
-      throw new Error(`HTTP 오류 ${response.status}`);
-    }
+    const response = await withRetry(
+      async () => {
+        const res = await fetch(url, { signal: AbortSignal.timeout(30000) });
+        if (!res.ok) throw new Error(`HTTP 오류 ${res.status}`);
+        return res;
+      },
+      3,
+      `테마 ${naverThemeId} 종목 스크래핑`
+    );
 
     // 네이버 금융은 EUC-KR 인코딩 사용
     const buffer = await response.arrayBuffer();
@@ -43,17 +48,26 @@ async function scrapeNaverFinanceTheme(themeId: string, naverThemeId: string): P
       const stockName = $link.text().trim();
       if (!stockName) return;
 
-      // Parse additional columns: 현재가(2nd td), 전일비(3rd td), 등락률(4th td), 거래량(5th td)
+      // 테이블 컬럼 구조 (11 TDs):
+      // td[0]=종목명, td[1]=편입사유, td[2]=현재가, td[3]=전일비, td[4]=등락률,
+      // td[5]=매수호가, td[6]=매도호가, td[7]=거래량, td[8]=거래대금, td[9]=전일거래량, td[10]=토론
       const $tds = $row.find('td');
       const parseNum = (text: string): number | null => {
-        const cleaned = text.replace(/[,%\s]/g, '');
+        // 한글 prefix 제거 (상승, 하락, 상한가, 하한가 등) + 화살표 제거
+        const cleaned = text.replace(/[,%\s가-힣+▲▼△▽]/g, '');
         const num = Number(cleaned);
-        return isFinite(num) ? num : null;
+        return isFinite(num) && cleaned !== '' ? num : null;
       };
 
-      const currentPrice = parseNum($tds.eq(1).text());
-      const priceChangePct = parseNum($tds.eq(3).text());
-      const volume = parseNum($tds.eq(4).text());
+      const currentPrice = parseNum($tds.eq(2).text());
+      const priceChangeRaw = parseNum($tds.eq(4).text());
+      // 등락률 부호 감지: 하락 시 음수로 변환
+      const isNegative = $tds.eq(3).find('img[src*="ico_down"], .blind:contains("하락")').length > 0
+        || $tds.eq(4).text().includes('-');
+      const priceChangePct = priceChangeRaw !== null && isNegative && priceChangeRaw > 0
+        ? -priceChangeRaw
+        : priceChangeRaw;
+      const volume = parseNum($tds.eq(7).text());
 
       stocks.push({
         themeId,
