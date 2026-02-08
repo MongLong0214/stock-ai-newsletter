@@ -102,9 +102,9 @@ function NewsHeadlines({ articles }: NewsHeadlinesProps) {
 
   return (
     <div>
-      {/* 전체 감성 요약 */}
+      {/* 전체 기사 논조 요약 */}
       <div className="flex items-center justify-between px-3 sm:px-4 py-2.5 mb-2 rounded-lg bg-slate-800/30 border border-slate-700/30">
-        <span className="text-xs font-mono text-slate-500">전체 감성</span>
+        <span className="text-xs font-mono text-slate-500">기사 논조</span>
         <div className="flex items-center gap-2">
           <span className={`text-xs font-mono px-2 py-0.5 rounded ${sentimentSummary.config.bg} border ${sentimentSummary.config.border} ${sentimentSummary.config.text}`}>
             {sentimentSummary.config.label}
