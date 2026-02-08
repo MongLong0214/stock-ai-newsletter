@@ -1,9 +1,8 @@
 import type { Metadata } from 'next'
-import { Suspense } from 'react'
 import Script from 'next/script'
 import { createClient } from '@supabase/supabase-js'
 import ThemesContent from './_components/themes-content'
-import ThemesSkeleton from './_components/themes-skeleton'
+import { getRankingServer } from './_services/get-ranking-server'
 
 /** 테마 목록 페이지 메타데이터 */
 export const metadata: Metadata = {
@@ -53,7 +52,10 @@ async function getActiveThemes() {
 
 /** 테마 목록 페이지 */
 export default async function ThemesPage() {
-  const themes = await getActiveThemes()
+  const [themes, ranking] = await Promise.all([
+    getActiveThemes(),
+    getRankingServer(),
+  ])
 
   const itemListSchema = {
     '@context': 'https://schema.org',
@@ -81,9 +83,7 @@ export default async function ThemesPage() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(itemListSchema) }}
       />
-      <Suspense fallback={<ThemesSkeleton />}>
-        <ThemesContent />
-      </Suspense>
+      <ThemesContent initialData={ranking} />
     </>
   )
 }

@@ -98,3 +98,7 @@
 {"t":0,"agent":"af2c97c","agent_type":"unknown","event":"agent_stop","success":true}
 =======
 >>>>>>> e4e032b2fca6b25783eee610aec390b2c818fe05
+{"t":0,"agent":"ae62601","agent_type":"unknown","event":"agent_stop","success":true}
+{"t":0,"agent":"a319900","agent_type":"architect","event":"agent_start","parent_mode":"none"}
+{"t":0,"agent":"a319900","agent_type":"architect","event":"agent_stop","success":true,"duration_ms":111997}
+{"t":0,"agent":"aada0ef","agent_type":"unknown","event":"agent_stop","success":true}

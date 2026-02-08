@@ -7,6 +7,7 @@ export const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f
 /** 캐시 프리셋 */
 const CACHE = {
   short: 'public, s-maxage=60',
+  medium: 'public, s-maxage=300, stale-while-revalidate=600',
   long: 'public, s-maxage=3600, stale-while-revalidate=1800',
 } as const
 
