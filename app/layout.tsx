@@ -6,6 +6,8 @@ import { Analytics } from '@vercel/analytics/next';
 import { SpeedInsights } from '@vercel/speed-insights/next';
 import Navigation from './_components/shared/navigation';
 import Footer from './_components/shared/footer';
+import QueryProvider from './_components/shared/providers/query-provider';
+import ScrollToTop from '@/components/scroll-to-top';
 import {
   siteConfig,
   metadataConfig,
@@ -222,9 +224,14 @@ export default function RootLayout({
         />
       </head>
       <body className={notoSansKR.className} suppressHydrationWarning>
-        <Navigation />
-        {children}
-        <Footer />
+
+        <QueryProvider>
+          <Navigation />
+          {children}
+          <Footer />
+          <ScrollToTop />
+        </QueryProvider>
+
         <Analytics />
         <SpeedInsights />
       </body>
