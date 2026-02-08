@@ -60,6 +60,22 @@ export async function generateMetadata({
       description,
       url: `https://stockmatrix.co.kr/themes/${id}`,
       type: 'article',
+      locale: 'ko_KR',
+      siteName: 'StockMatrix',
+      images: [
+        {
+          url: `https://stockmatrix.co.kr/themes/${id}/opengraph-image`,
+          width: 1200,
+          height: 630,
+          alt: `${theme.name} 테마 생명주기 분석`,
+        },
+      ],
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: `${title} | StockMatrix`,
+      description,
+      images: [`https://stockmatrix.co.kr/themes/${id}/opengraph-image`],
     },
   }
 }
