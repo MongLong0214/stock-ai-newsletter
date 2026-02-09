@@ -25,22 +25,31 @@ export async function loadActiveThemes(): Promise<ThemeWithKeywords[]> {
 
   console.log(`   ✅ ${themes.length}개 테마 로딩 완료\n`);
 
-  // Batch: 모든 키워드를 한 번에 로딩
+  // Batch: 모든 키워드를 한 번에 로딩 (Supabase 1000행 limit 대응 페이지네이션)
   const themeIds = themes.map(t => t.id)
   const allKeywords: Array<{ theme_id: string; keyword: string; source: string; is_primary: boolean }> = []
+  const KW_PAGE_SIZE = 1000
 
   // .in() 300개 제한 대응
   for (let i = 0; i < themeIds.length; i += 300) {
     const chunk = themeIds.slice(i, i + 300)
-    const { data, error: kwError } = await supabaseAdmin
-      .from('theme_keywords')
-      .select('theme_id, keyword, source, is_primary')
-      .in('theme_id', chunk)
+    let from = 0
+    while (true) {
+      const { data, error: kwError } = await supabaseAdmin
+        .from('theme_keywords')
+        .select('theme_id, keyword, source, is_primary')
+        .in('theme_id', chunk)
+        .range(from, from + KW_PAGE_SIZE - 1)
 
-    if (kwError) {
-      console.error(`   ⚠️ 키워드 배치 로딩 실패:`, kwError.message)
+      if (kwError) {
+        console.error(`   ⚠️ 키워드 배치 로딩 실패:`, kwError.message)
+        break
+      }
+      if (!data || data.length === 0) break
+      allKeywords.push(...data)
+      if (data.length < KW_PAGE_SIZE) break
+      from += KW_PAGE_SIZE
     }
-    if (data) allKeywords.push(...data)
   }
 
   // theme_id별 그룹화
