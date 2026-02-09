@@ -146,6 +146,10 @@ export default function SubscribePage() {
                   <TrendingUp className="w-5 h-5" aria-hidden="true" />
                   <span className="text-sm">30개 지표 AI 분석</span>
                 </div>
+                <div className="flex items-center gap-2 text-emerald-400/80">
+                  <TrendingUp className="w-5 h-5" aria-hidden="true" />
+                  <span className="text-sm">250+ 테마 생명주기 추적</span>
+                </div>
               </div>
             </motion.div>
           </div>
