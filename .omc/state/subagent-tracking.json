@@ -53,10 +53,85 @@
       "status": "completed",
       "completed_at": "2026-02-08T13:39:47.589Z",
       "duration_ms": 188228
+    },
+    {
+      "agent_id": "a953404",
+      "agent_type": "db-investigator",
+      "started_at": "2026-02-09T12:13:34.985Z",
+      "parent_mode": "none",
+      "status": "completed",
+      "completed_at": "2026-02-09T12:16:58.899Z",
+      "duration_ms": 203914
+    },
+    {
+      "agent_id": "a4e4b01",
+      "agent_type": "pipeline-analyst",
+      "started_at": "2026-02-09T12:13:51.234Z",
+      "parent_mode": "none",
+      "status": "completed",
+      "completed_at": "2026-02-09T12:15:21.588Z",
+      "duration_ms": 90354
+    },
+    {
+      "agent_id": "aeb3dbd",
+      "agent_type": "ui-tracer",
+      "started_at": "2026-02-09T12:13:56.743Z",
+      "parent_mode": "none",
+      "status": "completed",
+      "completed_at": "2026-02-09T12:15:30.480Z",
+      "duration_ms": 93737
+    },
+    {
+      "agent_id": "afc6ca0",
+      "agent_type": "pipeline-analyst",
+      "started_at": "2026-02-09T12:15:21.717Z",
+      "parent_mode": "none",
+      "status": "completed",
+      "completed_at": "2026-02-09T12:15:34.004Z",
+      "duration_ms": 12287
+    },
+    {
+      "agent_id": "a63d67e",
+      "agent_type": "ui-tracer",
+      "started_at": "2026-02-09T12:15:30.617Z",
+      "parent_mode": "none",
+      "status": "completed",
+      "completed_at": "2026-02-09T12:15:45.863Z",
+      "duration_ms": 15246
+    },
+    {
+      "agent_id": "aaeb9b8",
+      "agent_type": "pipeline-analyst",
+      "started_at": "2026-02-09T12:16:05.824Z",
+      "parent_mode": "none",
+      "status": "running"
+    },
+    {
+      "agent_id": "a4c80a0",
+      "agent_type": "ui-tracer",
+      "started_at": "2026-02-09T12:16:06.660Z",
+      "parent_mode": "none",
+      "status": "running"
+    },
+    {
+      "agent_id": "ae2c62f",
+      "agent_type": "db-investigator",
+      "started_at": "2026-02-09T12:16:59.039Z",
+      "parent_mode": "none",
+      "status": "completed",
+      "completed_at": "2026-02-09T12:17:10.707Z",
+      "duration_ms": 11668
+    },
+    {
+      "agent_id": "ab32282",
+      "agent_type": "db-investigator",
+      "started_at": "2026-02-09T12:17:10.851Z",
+      "parent_mode": "none",
+      "status": "running"
     }
   ],
-  "total_spawned": 6,
-  "total_completed": 6,
+  "total_spawned": 15,
+  "total_completed": 12,
   "total_failed": 0,
-  "last_updated": "2026-02-08T14:12:26.769Z"
+  "last_updated": "2026-02-09T12:19:20.492Z"
 }
