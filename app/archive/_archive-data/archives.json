@@ -1,6 +1,61 @@
 {
   "newsletters": [
     {
+      "date": "2026-02-10",
+      "stocks": [
+        {
+          "ticker": "KOSPI:005930",
+          "name": "삼성전자",
+          "close_price": 166400,
+          "rationale": "2026-02-09 종가 166,400원(+4.92%) 확인|엔비디아향 HBM4 세계 최초 양산 출하 모멘텀|RSI(14) 63.03 강세장 안착|52주 신고가 169,400원 돌파 시도|외국인/기관 일일 순매수 400만 주 돌파|거래량 2,496만 주 기록하며 거래 대금 최상위|EMA 5일/20일선 이격도 확대되는 급등 패턴|볼린저밴드 상단 확장 구간 진입|ADX 28.5 추세 강도 급격한 우상향|OBV 신고가 경신하며 매집 매수세 확인|자사주 3.6조 원 매입 소식 수급 뒷받침|HBM4 독점 공급에 따른 이익 전망치 상향",
+          "signals": {
+            "trend_score": 92,
+            "momentum_score": 94,
+            "volume_score": 95,
+            "volatility_score": 88,
+            "pattern_score": 91,
+            "sentiment_score": 96,
+            "overall_score": 93
+          },
+          "verified_date": "2026-02-09"
+        },
+        {
+          "ticker": "KOSDAQ:196170",
+          "name": "알테오젠",
+          "close_price": 386000,
+          "rationale": "2026-02-09 종가 386,000원(+6.93%) 장마감 확인|월 1회 투여 비만치료제 동물실험 효과 검증 뉴스|RSI 65.8 과매수 구간 진입 전 강한 매수세|MACD 히스토그램 양선 확대 지속|거래량 41만 2천 주 돌파하며 전일 대비 급증|볼린저밴드 중심선 돌파 후 상단 지향|ATR 4.2% 변동성 확대되며 급등 초기 신호|ADX 24.2 강세 추세 형성 단계|EMA 5/20/60일선 정배열 완성형 차트|Stochastic %K 72 골든크로스 발생|독점적 SC 제형 플랫폼 기반 기술 수출 기대감|바이오 섹터 수급 유입에 따른 탄력성 극대화",
+          "signals": {
+            "trend_score": 88,
+            "momentum_score": 90,
+            "volume_score": 85,
+            "volatility_score": 82,
+            "pattern_score": 89,
+            "sentiment_score": 92,
+            "overall_score": 88
+          },
+          "verified_date": "2026-02-09"
+        },
+        {
+          "ticker": "KOSPI:034020",
+          "name": "두산에너빌리티",
+          "close_price": 95800,
+          "rationale": "2026-02-09 종가 95,800원(+7.64%) 마감 확인|하나증권 목표가 165,000원 상향 리포트 발행|외인/기관 쌍끌이 대량 매수세 유입|장중 최고가 96,900원 터치하며 강한 탄력|거래량 582만 주 돌파 및 수급 집중|RSI 64.2 안정적인 상승 추세선 유지|EMA 20일선 강력 지지 후 상향 돌파|Williams %R -28 과매도 탈출 후 상승 안착|ADX 26.8 추세 가속화 구간 진입|VWAP 상단선 상향 이탈하며 공격적 매수세 유입|원전 수주 기대감 및 실적 발표 전 선취매 성격|코스피 5300선 돌파에 따른 대형주 동반 상승",
+          "signals": {
+            "trend_score": 90,
+            "momentum_score": 92,
+            "volume_score": 91,
+            "volatility_score": 85,
+            "pattern_score": 88,
+            "sentiment_score": 94,
+            "overall_score": 90
+          },
+          "verified_date": "2026-02-09"
+        }
+      ],
+      "sentAt": "2026-02-09T22:52:13.824+00:00",
+      "subscriberCount": 134
+    },
+    {
       "date": "2026-02-09",
       "stocks": [
         {
@@ -3869,5 +3924,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-02-08T23:05:19.366Z"
+  "lastUpdated": "2026-02-09T22:52:48.561Z"
 }
