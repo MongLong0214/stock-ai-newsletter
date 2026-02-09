@@ -86,6 +86,7 @@ export default function HomePage() {
               'KOSPI·KOSDAQ 종목 분석',
               '매일 아침 이메일 발송',
               '무료 서비스',
+              '테마 생명주기 추적',
             ],
             screenshot: 'https://stockmatrix.co.kr/opengraph-image',
           }),
