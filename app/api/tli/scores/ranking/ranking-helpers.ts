@@ -145,8 +145,8 @@ export function buildCountMaps(
 /**
  * 랭킹 요약 통계 계산
  * - 단계별 집계
- * - 주도 테마: score >= 40 AND stockCount >= 5 AND newsCount7d >= 1 중 최고 점수
- * - 급상승: Early/Growth 단계, score >= 35, change7d > 5, newsCount7d >= 3, stockCount >= 5, sparkline >= 3, 비부정 감성 중 최대 change7d
+ * - 주도 테마: score >= 20 AND stockCount >= 3 중 최고 점수
+ * - 급상승: score >= 15, change7d > 2, newsCount7d >= 1, sparkline >= 2, 비부정 감성 중 최대 change7d
  * - 평균 점수
  */
 export function calculateRankingSummary(activeThemes: ThemeListItem[]) {
@@ -156,24 +156,22 @@ export function calculateRankingSummary(activeThemes: ThemeListItem[]) {
     byStage[key] = (byStage[key] || 0) + 1
   }
 
-  // hottestTheme (주도 테마): score >= 40, stockCount >= 5, 뉴스 활동 있음
+  // hottestTheme (주도 테마): score >= 20, stockCount >= 3
   const hottestCandidates = activeThemes.filter(
-    t => t.score >= 40 && t.stockCount >= 5 && t.newsCount7d >= 1
+    t => t.score >= 20 && t.stockCount >= 3
   )
   const hottestTheme = hottestCandidates.length > 0
     ? hottestCandidates.reduce((max, t) => (t.score > max.score ? t : max))
     : null
 
-  // surging (급상승): Early/Growth만, score >= 35, change7d > 5, 뉴스/종목 충분, 감성 비부정적
+  // surging (급상승): score >= 15, change7d > 2, 뉴스 있음, sparkline >= 2, 감성 비부정적
   const surgingCandidates = activeThemes.filter(
     t =>
-      (t.stage === 'Early' || t.stage === 'Growth') &&
-      t.score >= 35 &&
-      t.change7d > 5 &&
-      t.newsCount7d >= 3 &&
-      t.stockCount >= 5 &&
-      t.sparkline.length >= 3 &&
-      t.sentimentScore >= -0.1  // 명확한 부정 감성 테마만 제외
+      t.score >= 15 &&
+      t.change7d > 2 &&
+      t.newsCount7d >= 1 &&
+      t.sparkline.length >= 2 &&
+      t.sentimentScore >= -0.1
   )
   const surging = surgingCandidates.length > 0
     ? surgingCandidates.reduce((max, t) => (t.change7d > max.change7d ? t : max))
