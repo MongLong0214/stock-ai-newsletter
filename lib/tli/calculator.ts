@@ -60,11 +60,12 @@ export function calculateLifecycleScore(input: CalculateScoreInput): {
     : 1.0; // fallback when percentile not available
 
   // News-based dampening (secondary — no news = likely dead theme)
+  // 데이터 축적 초기에는 뉴스가 없을 수 있으므로 완화된 감쇠 적용
   const totalNews = newsThisWeek + newsLastWeek;
-  const newsDampening = totalNews >= 3 ? 1.0 : (totalNews > 0 ? 0.5 : 0.2);
+  const newsDampening = totalNews >= 3 ? 1.0 : (totalNews > 0 ? 0.7 : 0.4);
 
-  // Combined: use the stricter dampening
-  const dampening = Math.min(percentileDampening, newsDampening);
+  // Combined: 가중 평균 (percentile 60%, news 40%) — Math.min 대비 완화
+  const dampening = percentileDampening * 0.6 + newsDampening * 0.4;
 
   const interestScore = normalize(interestRatio, 0.5, 3.0) * dampening;
 
