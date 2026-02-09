@@ -58,6 +58,16 @@ function ServiceIntroSection(): JSX.Element {
             있도록 도와드립니다.
           </p>
 
+          <p className="text-base md:text-lg">
+            또한 <strong className="text-emerald-400 font-normal">테마 생명주기 분석(TLI)</strong> 기능을 통해
+            반도체, 2차전지, AI, 방산 등{' '}
+            <strong className="font-normal">250개 이상의 주식 테마</strong>를 실시간으로 추적합니다.
+            네이버 검색 관심도, 뉴스 빈도, 감성 분석, 주가 변동성을 종합하여{' '}
+            <strong className="font-normal">0~100점의 테마 점수</strong>를 산출하고,{' '}
+            <strong className="font-normal">초기 → 성장 → 정점 → 쇠퇴 → 휴면</strong>의
+            5단계 생명주기로 분류하여 시장 테마의 흐름을 한눈에 파악할 수 있습니다.
+          </p>
+
           {/* Feature Highlights Box */}
           <div className="bg-slate-800/50 border border-emerald-500/20 rounded-3xl p-6 md:p-8 my-8 transition-all duration-700 hover:border-emerald-500/40">
             <h3 className="text-xl md:text-2xl font-light text-white mb-6 flex items-center gap-2">
@@ -164,6 +174,24 @@ function ServiceIntroSection(): JSX.Element {
                   />
                 </svg>
                 <span>
+                  <strong className="text-white font-normal">테마 생명주기 분석</strong>:
+                  250+ 테마의 점수·단계·관련 종목을 무료 추적
+                </span>
+              </li>
+              <li className="flex items-center">
+                <svg
+                  className="w-5 h-5 text-emerald-400 mr-3 flex-shrink-0"
+                  fill="currentColor"
+                  viewBox="0 0 20 20"
+                  aria-hidden="true"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+                <span>
                   <strong className="text-white font-normal">참고용 데이터</strong>: 투자
                   권유가 아닌 기술적 분석 정보만 제공
                 </span>
@@ -252,6 +280,8 @@ function SchemaOrgStructuredData() {
       'KOSDAQ',
       '기술적 분석',
       '주식 투자',
+      '테마 생명주기',
+      '테마 분석',
     ],
   };
 
