@@ -2,7 +2,7 @@
 'use client'
 
 import { Activity } from 'lucide-react'
-import type { Momentum, Scenario } from '../../_utils/calculate-prediction'
+import type { Momentum, Scenario } from '@/lib/tli/prediction'
 import { MOMENTUM_CONFIG } from './config'
 
 /* ── StatCell ───────────────────────────────────────────────────── */
