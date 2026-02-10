@@ -1,7 +1,7 @@
 /** 테마 상세 메인 컨텐츠 */
 'use client'
 
-import { use, useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback } from 'react'
 import { motion, useReducedMotion } from 'framer-motion'
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
@@ -20,11 +20,10 @@ import { DetailLoading, DetailError } from './detail-states'
 import { useGetThemeDetail } from '../_services/use-get-theme-detail'
 
 interface DetailContentProps {
-  params: Promise<{ id: string }>
+  id: string
 }
 
-function DetailContent({ params }: DetailContentProps) {
-  const { id } = use(params)
+function DetailContent({ id }: DetailContentProps) {
   const shouldReduceMotion = useReducedMotion()
   const { data: theme, isLoading, error } = useGetThemeDetail(id)
 

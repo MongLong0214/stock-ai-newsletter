@@ -2,24 +2,8 @@ import { supabase, isSupabasePlaceholder } from '@/lib/supabase'
 import { getStageKo, toStage, isScoreComponents } from '@/lib/tli/types'
 import { isTableNotFound } from '@/lib/tli/api-utils'
 import type { ThemeListItem, ThemeRanking } from '@/lib/tli/types'
-import { buildScoreMetaMap, buildCountMaps, calculateRankingSummary, batchLoadStockData, batchLoadNewsCounts } from '@/app/api/tli/scores/ranking/ranking-helpers'
+import { EMPTY_RANKING, buildScoreMetaMap, buildCountMaps, calculateRankingSummary, batchLoadStockData, batchLoadNewsCounts } from '@/app/api/tli/scores/ranking/ranking-helpers'
 import { getKSTDateString } from '@/lib/tli/date-utils'
-
-/** 빈 랭킹 응답 */
-const EMPTY_RANKING: ThemeRanking = {
-  early: [],
-  growth: [],
-  peak: [],
-  decay: [],
-  reigniting: [],
-  summary: {
-    totalThemes: 0,
-    byStage: {},
-    hottestTheme: null,
-    surging: null,
-    avgScore: 0,
-  },
-}
 
 /** 서버 사이드 랭킹 데이터 조회 (API 라우트 경유 없이 직접 Supabase 호출) */
 export async function getRankingServer(): Promise<ThemeRanking> {

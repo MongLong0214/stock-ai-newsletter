@@ -1,5 +1,21 @@
 import { supabase } from '@/lib/supabase'
-import type { ThemeListItem } from '@/lib/tli/types'
+import type { ThemeListItem, ThemeRanking } from '@/lib/tli/types'
+
+/** 빈 랭킹 응답 (placeholder / 에러 시 재사용) */
+export const EMPTY_RANKING: ThemeRanking = {
+  early: [],
+  growth: [],
+  peak: [],
+  decay: [],
+  reigniting: [],
+  summary: {
+    totalThemes: 0,
+    byStage: {},
+    hottestTheme: null,
+    surging: null,
+    avgScore: 0,
+  },
+}
 
 // ─── Supabase 1000행 제한 우회용 배치 헬퍼 ─────────────────────────────────
 

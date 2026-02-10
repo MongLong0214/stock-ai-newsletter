@@ -19,20 +19,3 @@ export function formatScoreChange(value: number): string {
   if (value === 0) return '—'
   return `${value > 0 ? '+' : ''}${value.toFixed(1)}`
 }
-
-/** 상대 시간 포맷: "방금 전", "X분 전", "X시간 전", "X일 전", "X개월 전" */
-export function formatRelativeTime(dateStr: string): string {
-  const diffMs = Date.now() - new Date(dateStr).getTime()
-
-  if (isNaN(diffMs) || diffMs < 0) return '방금 전'
-
-  const minutes = Math.floor(diffMs / 60_000)
-  const hours = Math.floor(diffMs / 3_600_000)
-  const days = Math.floor(diffMs / 86_400_000)
-
-  if (minutes < 1) return '방금 전'
-  if (minutes < 60) return `${minutes}분 전`
-  if (hours < 24) return `${hours}시간 전`
-  if (days < 30) return `${days}일 전`
-  return `${Math.floor(days / 30)}개월 전`
-}

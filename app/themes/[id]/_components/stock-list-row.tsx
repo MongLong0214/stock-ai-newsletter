@@ -3,7 +3,8 @@
 import { ExternalLink, TrendingUp, TrendingDown, Minus } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { cn } from '@/lib/utils'
-import { MARKET_STYLE, DEFAULT_MARKET_STYLE, formatPrice, formatChange, formatVolume, getHeatBackground } from './stock-list-utils'
+import { formatPrice, formatVolume } from '@/lib/tli/format-utils'
+import { MARKET_STYLE, DEFAULT_MARKET_STYLE, formatChange, getHeatBackground } from './stock-list-utils'
 import type { Stock } from './stock-list-utils'
 
 const NAVER_FINANCE_URL = 'https://finance.naver.com/item/main.naver?code='
