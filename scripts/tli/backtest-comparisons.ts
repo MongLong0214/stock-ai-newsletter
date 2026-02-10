@@ -4,7 +4,7 @@ config({ path: '.env.local' })
 import { supabaseAdmin } from './supabase-admin'
 import { batchQuery, groupByThemeId } from './supabase-batch'
 import {
-  normalizeTimeline, findPeakDay, extractFeatures, compositeCompare, classifySector,
+  normalizeTimeline, findPeakDay, extractFeatures, featuresToArray, compositeCompare, classifySector,
   pearsonCorrelation, type TimeSeriesPoint, type FeaturePopulationStats,
 } from '../../lib/tli/comparison'
 
@@ -59,6 +59,7 @@ async function main() {
     const scores = (scoresByTheme.get(theme.id) || []).map(s => ({ score: s.score }))
     const totalDays = curve.length > 0 ? curve[curve.length - 1].day : 0
     const peakDay = findPeakDay(curve)
+    if (peakDay < 0) continue  // 피크 미확인 테마는 백테스트에서 제외
     const activeDays = totalDays
     const sector = classifySector(keywords)
     const interestValues = interest.map(m => m.normalized)
@@ -72,7 +73,7 @@ async function main() {
   // 모집단 통계
   const allFeatureVecs = enriched.map(t => {
     const f = extractFeatures({ scores: t.scores, interestValues: t.interestValues, totalNewsCount: 0, activeDays: t.activeDays })
-    return Object.values(f)
+    return featuresToArray(f)
   })
   const numDims = allFeatureVecs[0].length
   const means: number[] = [], stddevs: number[] = []
