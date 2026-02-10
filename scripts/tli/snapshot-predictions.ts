@@ -18,7 +18,7 @@ export async function snapshotPredictions(): Promise<void> {
   const today = getKSTDateString()
   console.log(`\n📸 예측 스냅샷 생성 [${today}]`)
 
-  // Load active themes with lifecycle scores
+  // 활성 테마 로딩
   const { data: themes, error: themesErr } = await supabaseAdmin
     .from('themes')
     .select('id, name, first_spike_date')
@@ -31,7 +31,7 @@ export async function snapshotPredictions(): Promise<void> {
 
   const themeIds = themes.map(t => t.id)
 
-  // Load comparisons
+  // 비교 데이터 로딩
   const comparisons = await batchQuery<ThemeComparison>(
     'theme_comparisons',
     'theme_id:current_theme_id, past_theme_id, similarity_score, current_day, past_peak_day, past_total_days',
@@ -40,11 +40,9 @@ export async function snapshotPredictions(): Promise<void> {
     'current_theme_id',
   )
 
-  const compsByTheme = groupByThemeId(
-    comparisons.map(c => ({ ...c, theme_id: c.theme_id })),
-  )
+  const compsByTheme = groupByThemeId(comparisons)
 
-  // Load past theme names for scenarios
+  // 과거 테마명 로딩 (시나리오용)
   const pastThemeIds = [...new Set(comparisons.map(c => c.past_theme_id))]
   const pastThemes = pastThemeIds.length > 0
     ? await batchQuery<{ id: string; name: string }>('themes', 'id, name', pastThemeIds, undefined, 'id')
@@ -94,7 +92,7 @@ export async function snapshotPredictions(): Promise<void> {
     return
   }
 
-  // Upsert snapshots
+  // 스냅샷 저장
   let failedCount = 0
   for (let i = 0; i < rows.length; i += 500) {
     const batch = rows.slice(i, i + 500)
