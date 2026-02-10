@@ -1,8 +1,8 @@
 import type { Metadata } from 'next'
 import Script from 'next/script'
 import { createClient } from '@supabase/supabase-js'
-import ThemesContent from './_components/themes-content'
-import { getRankingServer } from './_services/get-ranking-server'
+import ThemesContent from '../_components/themes-content'
+import { getRankingServer } from '../_services/get-ranking-server'
 
 /** 테마 목록 페이지 메타데이터 */
 export const metadata: Metadata = {
