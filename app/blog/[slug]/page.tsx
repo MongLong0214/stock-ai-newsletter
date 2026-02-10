@@ -226,18 +226,15 @@ export default BlogPostPage;
 
 export const revalidate = 3600;
 
-/** 빌드 시 정적 생성할 페이지 목록 */
+/** 빌드 시 전체 블로그 포스트 정적 생성 */
 export async function generateStaticParams() {
-  const limit = Number(process.env.BLOG_STATIC_PAGES) || 50;
-
   try {
     const supabase = getServerSupabaseClient();
     const { data, error } = await supabase
       .from('blog_posts')
       .select('slug')
       .eq('status', 'published')
-      .order('published_at', { ascending: false })
-      .limit(limit);
+      .order('published_at', { ascending: false });
 
     if (error) {
       console.error('[generateStaticParams] Database query failed:', error);

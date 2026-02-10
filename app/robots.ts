@@ -10,7 +10,7 @@ export default function robots(): MetadataRoute.Robots {
             // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
             // 🔍 주요 검색 엔진 (기본 crawlDelay: 1초)
             // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-            { userAgent: 'Googlebot', allow: '/', disallow: ['/api/', '/unsubscribe/'], crawlDelay: 1 },
+            { userAgent: 'Googlebot', allow: '/', disallow: ['/api/', '/unsubscribe/'] },
             { userAgent: 'Yeti', allow: '/', disallow: ['/api/', '/unsubscribe/'], crawlDelay: 1 }, // Naver
             { userAgent: 'Daumoa', allow: '/', disallow: ['/api/', '/unsubscribe/'], crawlDelay: 1 }, // Daum/Kakao
             { userAgent: 'Bingbot', allow: '/', disallow: ['/api/', '/unsubscribe/'], crawlDelay: 1 },

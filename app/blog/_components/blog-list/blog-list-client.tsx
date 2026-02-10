@@ -32,7 +32,10 @@ export default function BlogListClient({ posts }: BlogListClientProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTags, setSelectedTags] = useState<Set<string>>(new Set());
   const [visibleCount, setVisibleCount] = useState(INITIAL_RENDER_COUNT);
+  const [hydrated, setHydrated] = useState(false);
   const loadMoreRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => { setHydrated(true) }, []);
 
   const debouncedSearch = useDebounce(searchQuery, DEBOUNCE_MS);
   const isSearching = searchQuery !== debouncedSearch;
@@ -94,7 +97,7 @@ export default function BlogListClient({ posts }: BlogListClientProps) {
     return () => {
       if (target) observer.unobserve(target);
     };
-  }, [visibleCount, filteredPosts.length]);
+  }, [visibleCount, filteredPosts.length, hydrated]);
 
   const handleTagToggle = useCallback((tag: string) => {
     setSelectedTags((prev) => {
@@ -114,8 +117,8 @@ export default function BlogListClient({ posts }: BlogListClientProps) {
   }, []);
 
   const hasActiveFilters = debouncedSearch.trim() || selectedTags.size > 0;
-  const visiblePosts = filteredPosts.slice(0, visibleCount);
-  const hasMore = visibleCount < filteredPosts.length;
+  const visiblePosts = hydrated ? filteredPosts.slice(0, visibleCount) : filteredPosts;
+  const hasMore = hydrated && visibleCount < filteredPosts.length;
 
   return (
     <div className="space-y-12">
