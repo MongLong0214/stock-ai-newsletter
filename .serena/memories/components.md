@@ -116,7 +116,7 @@
 | stage-nav.tsx | 단계 탭 네비게이션 (Early/Growth/Peak/Decay/Reigniting) |
 | stage-section.tsx | 단계별 테마 카드 그리드 |
 | theme-filter.tsx | 검색 필터 |
-| stats-overview.tsx | 요약 통계 (총 테마 수, 평균 점수 등) |
+| stats-overview.tsx | 요약 통계 — **Hottest/급상승 클릭 시 `/themes/{id}` 상세 이동** (Next.js Link) |
 | themes-skeleton.tsx | 로딩 스켈레톤 |
 | themes-empty-states.tsx | 빈 상태 (단계별) |
 
@@ -140,8 +140,8 @@
 | score-card.tsx | 점수 카드 (24H/7D change, "—" 표시) |
 | stock-list.tsx | 종목 목록 테이블 |
 | stock-list-row.tsx | 종목 행 (가격 comma, 등락% 색상, 거래량 약어) |
-| stock-list-utils.ts | 포맷팅 유틸 |
-| news-headlines.tsx | 뉴스 헤드라인 목록 (출처, 날짜) |
+| stock-list-utils.ts | 포맷팅 유틸 (평균 등락률 = is_active 종목만) |
+| news-headlines.tsx | 뉴스 헤드라인 목록 (출처, 날짜, limit 50) |
 | comparison-list/index.tsx | 유사 테마 비교 목록 |
 | comparison-list/comparison-card.tsx | 비교 카드 (강도 뱃지) |
 | comparison-list/pillar-bars.tsx | 3-Pillar 유사도 바 |
@@ -154,8 +154,8 @@
 |------|------|
 | _services/use-get-theme-detail.ts | React Query 훅 |
 | _apis/index.ts | API 호출 함수 |
-| _utils/calculate-prediction.ts | re-export from lib/tli/prediction (2026-02-10 이동) |
-| _utils/calculate-prediction-helpers.ts | re-export from lib/tli/prediction-helpers (2026-02-10 이동) |
+| _utils/calculate-prediction.ts | re-export from lib/tli/prediction |
+| _utils/calculate-prediction-helpers.ts | re-export from lib/tli/prediction-helpers |
 
 ---
 
