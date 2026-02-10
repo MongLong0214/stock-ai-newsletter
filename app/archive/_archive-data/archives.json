@@ -1,6 +1,61 @@
 {
   "newsletters": [
     {
+      "date": "2026-02-11",
+      "stocks": [
+        {
+          "ticker": "KOSPI:307950",
+          "name": "현대오토에버",
+          "close_price": 154200,
+          "rationale": "SMA 5/20/60/120 완전 정배열 진입 확인|RSI 56.88 과매수 구간 미진입으로 추가 상승 여력 충분|MACD 시그널선 상향 돌파 및 히스토그램 양전환|전일 대비 거래량 158% 증가하며 매수세 유입 확인|볼린저밴드 중심선 지지 후 상단 향한 기술적 반등|ATR 3.42% 수준으로 안정적인 변동성 범위 내 위치|ADX 24.15 상승세로 추세 강도 강화 구간|OBV 전고점 돌파하며 기관/외국인 자금 유입 증명|Stochastic Slow 58.42 K-D 골든크로스 발생|Williams%R -32.15 강세장 초입 구간 위치|MFI 62.4 거래대금 수반된 건전한 상승세|일목균형표 전환선이 기준선을 상향 돌파하며 호전 신호 발생|CCI +112 추세 지속 가능성 상존|Parabolic SAR 매수 신호 지속 유지",
+          "signals": {
+            "trend_score": 92,
+            "momentum_score": 88,
+            "volume_score": 94,
+            "volatility_score": 85,
+            "pattern_score": 90,
+            "sentiment_score": 82,
+            "overall_score": 90
+          },
+          "verified_date": "2026-02-10"
+        },
+        {
+          "ticker": "KOSDAQ:028300",
+          "name": "HLB",
+          "close_price": 96100,
+          "rationale": "SMA 20일 이동평균선 안착 후 60일선 돌파 시도|RSI 51.24 중립적 구간에서 상향 발산 준비 완료|MACD 영선 위에서 완만한 수렴 후 반등 시그널|거래량 5일 평균 대비 182.5% 급증하며 추세 전환|볼린저밴드 스퀴즈 구간 탈출 및 상단 밴드 확장|ATR 4.88% 수준으로 변동성 확대 시작 단계|ADX 21.34 추세 형성 초기 단계로 판단|OBV 바닥권 다진 후 완만한 우상향 곡선 형성|Stochastic %K선이 %D선을 저점에서 돌파|Williams%R -48.32 과매도 해소 후 상승 전환 구간|Elder Ray Bull Power 양수 전환 확인|Vortex Indicator VI+ 선이 VI- 선을 상향 돌파|Money Flow Index 58.7 자금 유입 가속화|슈퍼트렌드(SuperTrend) 매수 신호 전환 완료",
+          "signals": {
+            "trend_score": 88,
+            "momentum_score": 85,
+            "volume_score": 92,
+            "volatility_score": 82,
+            "pattern_score": 87,
+            "sentiment_score": 90,
+            "overall_score": 87
+          },
+          "verified_date": "2026-02-10"
+        },
+        {
+          "ticker": "KOSDAQ:196170",
+          "name": "알테오젠",
+          "close_price": 184500,
+          "rationale": "EMA 20일선 지지 후 전고점 돌파 시도하는 N자형 패턴|RSI 64.12로 강력한 모멘텀 유지 중이나 70 미만으로 안정적|MACD 히스토그램 지속 확장하며 매수 강도 강화|거래량 142.3% 증가하며 고가권 매물 소화 확인|볼린저밴드 상단 라이딩(Riding) 패턴 진행 중|ATR 4.12% 고변동성 구간 진입으로 급등 가능성 상존|ADX 32.48 매우 강력한 상승 추세 확립|OBV 신고가 경신하며 매집 세력 이탈 없음 확인|Stochastic 68.24 강세권 안착 및 유지|Williams%R -18.42 강한 매수 우위 상태 유지|Chaikin Money Flow(CMF) 0.24로 강한 자금 유입|Psar 점들이 캔들 하단에 위치하며 지지선 역할|Trix 지표 0선 상향 돌파로 장기 추세 반전|DMI +DI선이 -DI선과 이격 확대하며 상승 가속",
+          "signals": {
+            "trend_score": 95,
+            "momentum_score": 92,
+            "volume_score": 88,
+            "volatility_score": 84,
+            "pattern_score": 91,
+            "sentiment_score": 88,
+            "overall_score": 91
+          },
+          "verified_date": "2026-02-10"
+        }
+      ],
+      "sentAt": "2026-02-10T22:51:51.841+00:00",
+      "subscriberCount": 139
+    },
+    {
       "date": "2026-02-10",
       "stocks": [
         {
@@ -3924,5 +3979,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-02-09T23:10:31.567Z"
+  "lastUpdated": "2026-02-10T22:52:28.489Z"
 }
