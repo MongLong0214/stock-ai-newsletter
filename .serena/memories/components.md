@@ -154,8 +154,8 @@
 |------|------|
 | _services/use-get-theme-detail.ts | React Query 훅 |
 | _apis/index.ts | API 호출 함수 |
-| _utils/calculate-prediction.ts | 유사도 가중 평균 예측 |
-| _utils/calculate-prediction-helpers.ts | 예측 헬퍼 |
+| _utils/calculate-prediction.ts | re-export from lib/tli/prediction (2026-02-10 이동) |
+| _utils/calculate-prediction-helpers.ts | re-export from lib/tli/prediction-helpers (2026-02-10 이동) |
 
 ---
 
