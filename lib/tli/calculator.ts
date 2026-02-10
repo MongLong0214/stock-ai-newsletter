@@ -22,7 +22,7 @@ interface CalculateScoreInput {
   today?: string;
   /** 최근 7일간 뉴스 기사 감성 점수 (-1 ~ +1) */
   sentimentScores?: number[];
-  /** Cross-theme raw interest percentile (0.0=lowest, 1.0=highest) */
+  /** 테마 간 raw interest 백분위 (0.0=최하위, 1.0=최상위) */
   rawPercentile?: number;
 }
 
@@ -52,30 +52,33 @@ export function calculateLifecycleScore(input: CalculateScoreInput): {
   const newsThisWeek = newsMetrics.slice(0, 7).reduce((sum, m) => sum + m.article_count, 0);
   const newsLastWeek = newsMetrics.slice(7, 14).reduce((sum, m) => sum + m.article_count, 0);
 
-  // Cross-theme percentile dampening (primary)
+  // 테마 간 백분위 감쇠 (주요)
   const percentileDampening = input.rawPercentile !== undefined
     ? (input.rawPercentile < 0.2
-      ? 0.1 + (input.rawPercentile / 0.2) * 0.9  // bottom 20% → 0.1~1.0
+      ? 0.1 + (input.rawPercentile / 0.2) * 0.9  // 하위 20% → 0.1~1.0
       : 1.0)
-    : 1.0; // fallback when percentile not available
+    : 1.0; // 백분위 미제공 시 폴백
 
-  // News-based dampening (secondary — no news = likely dead theme)
+  // 뉴스 기반 감쇠 (보조 — 뉴스 없음 = 비활성 테마 가능성)
   // 데이터 축적 초기에는 뉴스가 없을 수 있으므로 완화된 감쇠 적용
   const totalNews = newsThisWeek + newsLastWeek;
   const newsDampening = totalNews >= 3 ? 1.0 : (totalNews > 0 ? 0.7 : 0.4);
 
-  // Combined: 가중 평균 (percentile 60%, news 40%) — Math.min 대비 완화
-  const dampening = percentileDampening * 0.6 + newsDampening * 0.4;
+  // Combined: 가중 평균 (percentile 60%, news 40%) — 하한 0.5로 과도한 감쇠 방지
+  const dampening = Math.max(0.5, percentileDampening * 0.6 + newsDampening * 0.4);
 
   const interestScore = normalize(interestRatio, 0.5, 3.0) * dampening;
 
-  // 뉴스 모멘텀 안정화: 합계 5건 미만 OR 지난주 데이터 없으면 0
+  // 뉴스 모멘텀: 성장률 기반 + 기준선 부재 시 절대값 폴백
   let newsMomentum: number;
-  if (newsThisWeek + newsLastWeek < MIN_NEWS_FOR_MOMENTUM || newsLastWeek === 0) {
-    newsMomentum = 0;
-  } else {
+  if (newsLastWeek > 0 && newsThisWeek + newsLastWeek >= MIN_NEWS_FOR_MOMENTUM) {
     const newsGrowthRate = (newsThisWeek - newsLastWeek) / newsLastWeek;
     newsMomentum = normalize(newsGrowthRate, -0.5, 2.0);
+  } else if (newsThisWeek > 0) {
+    // 기준선 없을 때: 절대 기사 수 기반 half-strength 시그널
+    newsMomentum = normalize(newsThisWeek, 0, 15) * 0.5;
+  } else {
+    newsMomentum = 0;
   }
 
   const interestStdDev = standardDeviation(recent7d);
@@ -85,12 +88,13 @@ export function calculateLifecycleScore(input: CalculateScoreInput): {
   const volatilityScore = normalize(interestStdDev, 0, 50) * (isNoise ? 0.3 : 1);
 
   // maturity는 stage 판정용으로만 계산 (점수에 미반영)
-  const activeDays = firstSpikeDate ? daysBetween(firstSpikeDate, today) : 0;
+  const activeDays = firstSpikeDate ? Math.max(0, daysBetween(firstSpikeDate, today)) : 0;
   const maturityRatio = Math.min(activeDays / AVG_THEME_LIFESPAN, 1.5);
 
-  // 감성 분석 (데이터 없으면 0 = 기여 없음)
+  // 감성 분석 (데이터 없으면 중립 0.5 = 판단 보류)
   const sentimentAgg = aggregateSentiment(input.sentimentScores || []);
-  const sentimentScore = sentimentAgg.normalized;
+  const hasSentimentData = (input.sentimentScores || []).length > 0;
+  const sentimentScore = hasSentimentData ? sentimentAgg.normalized : 0.5;
 
   const rawScore =
     interestScore * SCORE_WEIGHTS.interest +

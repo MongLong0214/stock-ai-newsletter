@@ -1,4 +1,5 @@
-import { supabaseAdmin } from './supabase-admin';
+import { supabaseAdmin } from './supabase-admin'
+import { batchQuery, groupByThemeId } from './supabase-batch'
 import {
   normalizeTimeline,
   findPeakDay,
@@ -12,93 +13,7 @@ import {
 import { getKSTDate } from './utils';
 import type { ThemeWithKeywords } from './data-ops';
 
-// ─── Batch helpers ───────────────────────────────────────────────────────────
-
-/** 300-item chunk helper for Supabase `.in()` limit (simple version, no extra filters) */
-async function batchInSimple<T>(
-  tableName: string,
-  selectCols: string,
-  themeIds: string[],
-): Promise<T[]> {
-  const results: T[] = [];
-  for (let i = 0; i < themeIds.length; i += 300) {
-    const chunk = themeIds.slice(i, i + 300);
-    const { data } = await supabaseAdmin
-      .from(tableName)
-      .select(selectCols)
-      .in('theme_id', chunk);
-    if (data) results.push(...(data as T[]));
-  }
-  return results;
-}
-
-/** 300-item chunk loader for lifecycle_scores (with date filter + ordering) */
-async function batchLoadScores(
-  themeIds: string[],
-  sinceDate: string,
-): Promise<Array<{ theme_id: string; score: number; calculated_at: string }>> {
-  const results: Array<{ theme_id: string; score: number; calculated_at: string }> = [];
-  for (let i = 0; i < themeIds.length; i += 300) {
-    const chunk = themeIds.slice(i, i + 300);
-    const { data } = await supabaseAdmin
-      .from('lifecycle_scores')
-      .select('theme_id, score, calculated_at')
-      .in('theme_id', chunk)
-      .gte('calculated_at', sinceDate)
-      .order('calculated_at', { ascending: false });
-    if (data) results.push(...data);
-  }
-  return results;
-}
-
-/** 300-item chunk loader for news_metrics (with date filter) */
-async function batchLoadNews(
-  themeIds: string[],
-  sinceDate: string,
-): Promise<Array<{ theme_id: string; article_count: number }>> {
-  const results: Array<{ theme_id: string; article_count: number }> = [];
-  for (let i = 0; i < themeIds.length; i += 300) {
-    const chunk = themeIds.slice(i, i + 300);
-    const { data } = await supabaseAdmin
-      .from('news_metrics')
-      .select('theme_id, article_count')
-      .in('theme_id', chunk)
-      .gte('time', sinceDate);
-    if (data) results.push(...data);
-  }
-  return results;
-}
-
-/** 300-item chunk loader for interest_metrics (with date filter) */
-async function batchLoadInterest(
-  themeIds: string[],
-  sinceDate: string,
-): Promise<Array<{ theme_id: string; time: string; normalized: number }>> {
-  const results: Array<{ theme_id: string; time: string; normalized: number }> = [];
-  for (let i = 0; i < themeIds.length; i += 300) {
-    const chunk = themeIds.slice(i, i + 300);
-    const { data } = await supabaseAdmin
-      .from('interest_metrics')
-      .select('theme_id, time, normalized')
-      .in('theme_id', chunk)
-      .gte('time', sinceDate);
-    if (data) results.push(...data);
-  }
-  return results;
-}
-
-/** Group array items by theme_id */
-function groupByTheme<T extends { theme_id: string }>(items: T[]): Map<string, T[]> {
-  const map = new Map<string, T[]>();
-  for (const item of items) {
-    const arr = map.get(item.theme_id) || [];
-    arr.push(item);
-    map.set(item.theme_id, arr);
-  }
-  return map;
-}
-
-// ─── Enriched theme type ─────────────────────────────────────────────────────
+// ─── 보강된 테마 타입 ─────────────────────────────────────────────────────
 
 interface EnrichedTheme {
   id: string;
@@ -114,66 +29,78 @@ interface EnrichedTheme {
   sector: string;
 }
 
-// ─── Main pipeline ───────────────────────────────────────────────────────────
+// ─── 메인 파이프라인 ───────────────────────────────────────────────────────────
 
 /** 테마 비교 분석 계산 및 저장 (다중 시그널) */
 export async function calculateThemeComparisons(themes: ThemeWithKeywords[]) {
   console.log('\n🔍 테마 비교 분석 중 (다중 시그널)...');
 
-  // ═══ Phase 1: Batch data loading (ALL upfront, zero N+1) ═══
+  // ═══ Phase 1: 전체 테마 + 데이터 배치 로딩 (자동 페이지네이션) ═══
 
-  const { data: allThemes, error: allThemesError } = await supabaseAdmin
-    .from('themes')
-    .select('id, name, first_spike_date, created_at, is_active');
-
-  if (allThemesError || !allThemes?.length) {
-    console.log('   ⚠️ 테마 로딩 실패');
-    return;
+  // 전체 테마 페이지네이션 조회
+  const allThemes: Array<{ id: string; name: string; first_spike_date: string | null; created_at: string | null; is_active: boolean }> = []
+  let pageFrom = 0
+  while (true) {
+    const { data, error } = await supabaseAdmin
+      .from('themes')
+      .select('id, name, first_spike_date, created_at, is_active')
+      .order('id')
+      .range(pageFrom, pageFrom + 999)
+    if (error || !data?.length) break
+    allThemes.push(...data)
+    if (data.length < 1000) break
+    pageFrom += 1000
   }
 
-  const allThemeIds = allThemes.map(t => t.id);
+  if (allThemes.length === 0) {
+    console.log('   ⚠️ 테마 로딩 실패')
+    return
+  }
 
-  // KST date boundaries
-  const kstNow = new Date(Date.now() + 9 * 60 * 60 * 1000);
-  const ninetyDaysAgo = new Date(kstNow.getTime() - 90 * 86400000)
-    .toISOString()
-    .split('T')[0];
-  const oneEightyDaysAgo = new Date(kstNow.getTime() - 180 * 86400000)
-    .toISOString()
-    .split('T')[0];
-  const thirtyDaysAgo = new Date(kstNow.getTime() - 30 * 86400000)
-    .toISOString()
-    .split('T')[0];
+  const allThemeIds = allThemes.map(t => t.id)
 
-  // Parallel batch loading — 4 tables at once
+  // KST 날짜 경계
+  const kstNow = new Date(Date.now() + 9 * 60 * 60 * 1000)
+  const ninetyDaysAgo = new Date(kstNow.getTime() - 90 * 86400000).toISOString().split('T')[0]
+  const oneEightyDaysAgo = new Date(kstNow.getTime() - 180 * 86400000).toISOString().split('T')[0]
+  const thirtyDaysAgo = new Date(kstNow.getTime() - 30 * 86400000).toISOString().split('T')[0]
+
+  // 4개 테이블 병렬 배치 로딩 (자동 페이지네이션)
   const [interestAll, scoresAll, newsAll, keywordsAll] = await Promise.all([
-    batchLoadInterest(allThemeIds, oneEightyDaysAgo),
-    batchLoadScores(allThemeIds, ninetyDaysAgo),
-    batchLoadNews(allThemeIds, thirtyDaysAgo),
-    batchInSimple<{ theme_id: string; keyword: string }>(
-      'theme_keywords',
-      'theme_id, keyword',
-      allThemeIds,
+    batchQuery<{ theme_id: string; time: string; normalized: number }>(
+      'interest_metrics', 'theme_id, time, normalized', allThemeIds,
+      q => q.gte('time', oneEightyDaysAgo),
     ),
-  ]);
+    batchQuery<{ theme_id: string; score: number; calculated_at: string }>(
+      'lifecycle_scores', 'theme_id, score, calculated_at', allThemeIds,
+      q => q.gte('calculated_at', ninetyDaysAgo).order('calculated_at', { ascending: false }),
+    ),
+    batchQuery<{ theme_id: string; article_count: number }>(
+      'news_metrics', 'theme_id, article_count', allThemeIds,
+      q => q.gte('time', thirtyDaysAgo),
+    ),
+    batchQuery<{ theme_id: string; keyword: string }>(
+      'theme_keywords', 'theme_id, keyword', allThemeIds,
+    ),
+  ])
 
   console.log(
     `   데이터 로딩: 테마 ${allThemes.length}개, 관심도 ${interestAll.length}건, 점수 ${scoresAll.length}건, 뉴스 ${newsAll.length}건, 키워드 ${keywordsAll.length}건`,
-  );
+  )
 
-  // Group by theme_id
-  const interestByTheme = groupByTheme(interestAll);
-  const scoresByTheme = groupByTheme(scoresAll);
-  const newsByTheme = groupByTheme(newsAll);
-  const keywordsByTheme = groupByTheme(keywordsAll);
+  // 테마별 그룹화
+  const interestByTheme = groupByThemeId(interestAll)
+  const scoresByTheme = groupByThemeId(scoresAll)
+  const newsByTheme = groupByThemeId(newsAll)
+  const keywordsByTheme = groupByThemeId(keywordsAll)
 
-  // ═══ Phase 2: Auto-infer first_spike_date + build enriched theme map ═══
+  // ═══ Phase 2: first_spike_date 자동 추론 + 보강 테마 맵 구축 ═══
 
   const enrichedThemes: EnrichedTheme[] = [];
   let inferredCount = 0;
 
   for (const theme of allThemes) {
-    // Auto-infer first_spike_date when missing
+    // first_spike_date 누락 시 자동 추론
     let firstSpikeDate = theme.first_spike_date as string | null;
     if (!firstSpikeDate) {
       const interest = interestByTheme.get(theme.id);
@@ -185,18 +112,18 @@ export async function calculateThemeComparisons(themes: ThemeWithKeywords[]) {
         firstSpikeDate = new Date(theme.created_at as string).toISOString().split('T')[0];
         inferredCount++;
       } else {
-        // Truly no data — skip
+        // 데이터 없음 — 스킵
         continue;
       }
     }
 
-    // Gather per-theme data
+    // 테마별 데이터 수집
     const interest = interestByTheme.get(theme.id) || [];
     const scores = scoresByTheme.get(theme.id) || [];
     const news = newsByTheme.get(theme.id) || [];
     const keywords = (keywordsByTheme.get(theme.id) || []).map((k) => k.keyword);
 
-    // Interest curve from first_spike_date onward
+    // first_spike_date 이후 관심도 곡선
     const interestAfterSpike = interest
       .filter((m) => m.time >= firstSpikeDate!)
       .sort((a, b) => a.time.localeCompare(b.time));
@@ -206,28 +133,28 @@ export async function calculateThemeComparisons(themes: ThemeWithKeywords[]) {
       firstSpikeDate,
     );
 
-    // Active days since first spike
+    // first_spike 이후 활성 일수
     const activeDays = Math.max(
       0,
       Math.floor((kstNow.getTime() - new Date(firstSpikeDate).getTime()) / 86400000),
     );
 
-    // Total news count (last 30 days)
+    // 총 뉴스 건수 (최근 30일)
     const totalNewsCount = news.reduce((sum, n) => sum + n.article_count, 0);
 
-    // Extract multi-signal features
+    // 다중 시그널 피처 추출
     const features = extractFeatures({
-      scores: scores.map((s) => ({ score: s.score })), // already desc order from query
+      scores: scores.map((s) => ({ score: s.score })), // 쿼리에서 이미 desc 정렬됨
       interestValues: interestAfterSpike.map((m) => m.normalized),
       totalNewsCount,
       activeDays,
     });
 
-    // Peak day and total days
+    // 피크 일차 및 총 일수
     const peakDay = curve.length > 0 ? findPeakDay(curve) : 0;
     const totalDays = curve.length > 0 ? curve[curve.length - 1].day : activeDays;
 
-    // Sector classification
+    // 섹터 분류
     const sector = classifySector(keywords);
 
     enrichedThemes.push({
@@ -249,7 +176,12 @@ export async function calculateThemeComparisons(themes: ThemeWithKeywords[]) {
     `   테마 보강 완료: ${enrichedThemes.length}개 (first_spike_date 추론: ${inferredCount}개)`,
   );
 
-  // ═══ Phase 2.5: Compute population feature statistics for z-score ═══
+  if (enrichedThemes.length === 0) {
+    console.log('   ⚠️ 보강된 테마 없음 — 비교 분석 생략');
+    return;
+  }
+
+  // ═══ Phase 2.5: z-score용 모집단 피처 통계 계산 ═══
   const allFeatureVecs = enrichedThemes.map(t => Object.values(t.features));
   const numDims = allFeatureVecs[0]?.length ?? 0;
   const featureMeans: number[] = [];
@@ -262,12 +194,12 @@ export async function calculateThemeComparisons(themes: ThemeWithKeywords[]) {
     featureStddevs.push(Math.sqrt(variance));
   }
   const populationStats: FeaturePopulationStats = { means: featureMeans, stddevs: featureStddevs };
-  console.log(`   Feature population stats computed: ${numDims} dimensions, ${allFeatureVecs.length} themes`);
+  console.log(`   피처 모집단 통계: ${numDims}차원, ${allFeatureVecs.length}개 테마`);
 
-  // Build lookup map
+  // 조회용 맵 구축
   const enrichedMap = new Map(enrichedThemes.map((t) => [t.id, t]));
 
-  // ═══ Phase 3: Compare each active theme ═══
+  // ═══ Phase 3: 활성 테마별 비교 ═══
 
   const SIMILARITY_THRESHOLD = 0.40;
   let totalMatches = 0;
@@ -294,7 +226,7 @@ export async function calculateThemeComparisons(themes: ThemeWithKeywords[]) {
         keywordSim: number;
       }> = [];
 
-      // Compare against all other enriched themes
+      // 모든 보강 테마와 비교
       for (const past of enrichedThemes) {
         if (past.id === currentTheme.id) continue;
         // 최소 14일 곡선 데이터 필요 (lifecycle이 충분히 진행된 테마만 비교)
@@ -329,7 +261,7 @@ export async function calculateThemeComparisons(themes: ThemeWithKeywords[]) {
         }
       }
 
-      // Sort by similarity desc, keep top 3
+      // 유사도 내림차순 정렬, 상위 3개 선택
       topMatches.sort((a, b) => b.similarity - a.similarity);
       const finalMatches = topMatches.slice(0, 3);
 
@@ -339,9 +271,9 @@ export async function calculateThemeComparisons(themes: ThemeWithKeywords[]) {
 
         const today = getKSTDate();
 
-        // Upsert matches with pillar scores and outcome data
+        // 매칭 결과 저장 (필라 점수 + 결과 데이터)
         for (const match of finalMatches) {
-          // Compute outcome context for past theme
+          // 과거 테마의 결과 컨텍스트 계산
           const pastScores = scoresByTheme.get(match.pastThemeId) || [];
           const pastPeakScore = pastScores.length > 0
             ? Math.max(...pastScores.map(s => s.score))
@@ -379,7 +311,7 @@ export async function calculateThemeComparisons(themes: ThemeWithKeywords[]) {
           }
         }
 
-        // Delete stale entries for today that are not in the final matches
+        // 오늘 날짜의 최종 매칭에 없는 오래된 항목 삭제
         const currentMatchIds = finalMatches.map((m) => m.pastThemeId);
         await supabaseAdmin
           .from('theme_comparisons')
