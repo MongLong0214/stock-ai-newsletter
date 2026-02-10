@@ -111,27 +111,26 @@ export function calculatePrediction(
   comparisons: ComparisonInput[],
   today?: string,
 ): PredictionResult | null {
-  if (!comparisons.length) return null
-
-  // 품질 게이트: 모든 비교군이 2일 미만이면 거부
-  if (comparisons.every(c => c.pastTotalDays < 2)) return null
+  // 개별 비교군 품질 필터: pastTotalDays < 14 제외
+  const validComparisons = comparisons.filter(c => c.pastTotalDays >= 14)
+  if (!validComparisons.length) return null
 
   // today가 KST 날짜 문자열이면 그대로, 없으면 현재 KST 시각 사용
   const now = today ? new Date(today).getTime() : Date.now() + KST_OFFSET_MS
   const spike = firstSpikeDate ? new Date(firstSpikeDate).getTime() : 0
   const daysSinceSpike = firstSpikeDate
-    ? Math.max(0, Math.floor((now - spike) / 86_400_000))
+    ? Math.min(365, Math.max(0, Math.floor((now - spike) / 86_400_000)))
     : 0
 
-  const avgSimilarity = comparisons.reduce((s, c) => s + c.similarity, 0) / comparisons.length
+  const avgSimilarity = validComparisons.reduce((s, c) => s + c.similarity, 0) / validComparisons.length
 
-  const avgPeakDay = Math.round(weightedAvg(comparisons, c => c.pastPeakDay))
-  const avgTotalDays = Math.min(Math.round(weightedAvg(comparisons, c => c.pastTotalDays)), 365)
+  const avgPeakDay = Math.round(weightedAvg(validComparisons, c => c.pastPeakDay))
+  const avgTotalDays = Math.min(Math.round(weightedAvg(validComparisons, c => c.pastTotalDays)), 365)
 
   // 품질 게이트: 가중평균 주기가 너무 짧으면 거부
   if (avgTotalDays < 3) return null
 
-  const positivePeakComps = comparisons.filter(c => c.estimatedDaysToPeak > 0)
+  const positivePeakComps = validComparisons.filter(c => c.estimatedDaysToPeak > 0)
   const avgDaysToPeak = positivePeakComps.length > 0
     ? Math.round(weightedAvg(positivePeakComps, c => c.estimatedDaysToPeak))
     : 0
@@ -139,12 +138,12 @@ export function calculatePrediction(
   const currentProgress = avgTotalDays > 0 ? clamp((daysSinceSpike / avgTotalDays) * 100, 0, 100) : 0
   const peakProgress = avgTotalDays > 0 ? clamp((avgPeakDay / avgTotalDays) * 100, 0, 100) : 0
 
-  const comparisonCount = comparisons.length
+  const comparisonCount = validComparisons.length
   const confidence = deriveConfidence(comparisonCount, avgSimilarity)
   const phase = derivePhase(daysSinceSpike, avgPeakDay, avgTotalDays)
   const momentum = deriveMomentum(avgDaysToPeak, avgTotalDays)
   const riskLevel = deriveRisk(phase, confidence)
-  const scenarios = buildScenarios(comparisons)
+  const scenarios = buildScenarios(validComparisons)
 
   return {
     daysSinceSpike,

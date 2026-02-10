@@ -53,13 +53,13 @@ export default function PillarBars({ featureSim, curveSim, keywordSim, similarit
   return (
     <div className="space-y-1.5 mb-3">
       {featureSim !== null && (
-        <PillarRow label="특성" value={featureSim} color="bg-sky-500/70" delay={idx * 0.1} />
+        <PillarRow label="수치 유사" value={featureSim} color="bg-sky-500/70" delay={idx * 0.1} />
       )}
       {curveSim !== null && (curveSim ?? 0) > 0 && (
-        <PillarRow label="곡선" value={curveSim} color="bg-emerald-500/70" delay={idx * 0.1 + 0.05} />
+        <PillarRow label="흐름 유사" value={curveSim} color="bg-emerald-500/70" delay={idx * 0.1 + 0.05} />
       )}
       {keywordSim !== null && (keywordSim ?? 0) > 0 && (
-        <PillarRow label="키워드" value={keywordSim} color="bg-amber-500/70" delay={idx * 0.1 + 0.1} />
+        <PillarRow label="연관어" value={keywordSim} color="bg-amber-500/70" delay={idx * 0.1 + 0.1} />
       )}
       {/* Fallback: pillar 데이터 없으면 단일 바 */}
       {featureSim === null && (

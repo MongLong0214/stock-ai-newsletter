@@ -77,7 +77,7 @@ export default function MetricGrid({ theme, themeAge }: MetricGridProps) {
   return (
     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 mt-4">
       {themeAge != null && (
-        <MetricCard icon={<Calendar className="w-4 h-4" />} label="테마 나이" value={`D+${themeAge}`} color="emerald" />
+        <MetricCard icon={<Calendar className="w-4 h-4" />} label="테마 나이" value={themeAge > 365 ? '1년+' : `${themeAge}일`} color="emerald" />
       )}
       <MetricCard
         icon={theme.score.change24h >= 0 ? <ArrowUpRight className="w-4 h-4" /> : <ArrowDownRight className="w-4 h-4" />}

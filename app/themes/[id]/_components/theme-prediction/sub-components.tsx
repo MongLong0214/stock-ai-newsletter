@@ -79,8 +79,8 @@ export function ScenarioCard({
       </div>
       <p className="text-xs text-slate-300 truncate" title={scenario.themeName}>{scenario.themeName}</p>
       <div className="flex items-center justify-between text-[10px] text-slate-500">
-        <span>피크 D+{scenario.peakDay}</span>
-        <span>주기 {scenario.totalDays}일</span>
+        <span>피크 {scenario.peakDay}일차</span>
+        <span>주기 {scenario.totalDays > 365 ? '1년+' : `${scenario.totalDays}일`}</span>
       </div>
     </div>
   )

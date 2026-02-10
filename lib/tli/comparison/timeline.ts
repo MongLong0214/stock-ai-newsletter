@@ -30,20 +30,23 @@ export function normalizeTimeline(
 
 /** peak 값 기준으로 0-1 정규화 */
 export function normalizeValues(data: TimeSeriesPoint[]): TimeSeriesPoint[] {
-  const peak = Math.max(...data.map(d => d.value), 1)
+  let peak = 1
+  for (const d of data) {
+    if (d.value > peak) peak = d.value
+  }
   return data.map(d => ({ day: d.day, value: d.value / peak }))
 }
 
-/** 타임라인에서 최대값의 day를 반환 */
+/** 타임라인에서 최대값의 day를 반환. 데이터 없음 또는 모든 값 0이면 -1 반환 */
 export function findPeakDay(data: TimeSeriesPoint[]): number {
-  if (data.length === 0) return 0
+  if (data.length === 0) return -1
   let maxIdx = 0
   for (let i = 1; i < data.length; i++) {
     if (data[i].value > data[maxIdx].value) {
       maxIdx = i
     }
   }
-  if (data[maxIdx].value === 0) return 0
+  if (data[maxIdx].value === 0) return -1
   return data[maxIdx].day
 }
 

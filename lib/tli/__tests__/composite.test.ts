@@ -4,7 +4,7 @@ import type { ThemeFeatures } from '../comparison/features'
 import type { TimeSeriesPoint } from '../comparison/timeline'
 
 function makeFeatures(overrides?: Partial<ThemeFeatures>): ThemeFeatures {
-  return { growthRate: 0.5, volatility: 0.3, newsIntensity: 0.4, scoreLevel: 0.6, activeDaysNorm: 0.2, ...overrides }
+  return { growthRate: 0.5, volatility: 0.3, newsIntensity: 0.4, scoreLevel: 0.6, activeDaysNorm: 0.2, priceChangePct: 0.5, volumeIntensity: 0, ...overrides }
 }
 
 function makeCurve(length: number, valueFn: (i: number) => number = i => i * 10): TimeSeriesPoint[] {
@@ -141,7 +141,7 @@ describe('compositeCompare', () => {
   })
 
   it('uses populationStats for feature similarity when provided', () => {
-    const stats = { means: [0.5, 0.3, 0.4, 0.6, 0.2], stddevs: [0.1, 0.1, 0.1, 0.1, 0.1] }
+    const stats = { means: [0.5, 0.3, 0.4, 0.6, 0.2, 0.5, 0], stddevs: [0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1] }
     const result = compositeCompare({
       current: { features: makeFeatures(), curve: makeCurve(3), keywords: [], activeDays: 5, sector: 'etc' },
       past: { features: makeFeatures(), curve: makeCurve(3), keywords: [], peakDay: 10, totalDays: 30, name: 'test', sector: 'etc' },

@@ -54,7 +54,7 @@ export function compositeCompare(params: {
     ? zScoreEuclideanSimilarity(currentVec, pastVec, params.populationStats)
     : Math.max(0, cosineSimilarity(currentVec, pastVec))
 
-  // --- Pillar 2: 곡선 상관관계 (위상 정렬 기반) ---
+  // --- Pillar 2: 곡선 유사도 (RMSE + 미분 상관) ---
   let curveSim = 0
   const minCurveLen = Math.min(current.curve.length, past.curve.length)
   if (minCurveLen >= 7) {
@@ -62,8 +62,30 @@ export function compositeCompare(params: {
     const normPast = normalizeValues(past.curve)
     const currentResampled = resampleCurve(normCurrent)
     const pastResampled = resampleCurve(normPast)
-    const rawCorr = pearsonCorrelation(currentResampled, pastResampled)
-    curveSim = Math.max(0, rawCorr)
+
+    // 1. RMSE: 곡선 형태 직접 비교 (값이 클수록 다른 형태)
+    let sumSqDiff = 0
+    for (let i = 0; i < currentResampled.length; i++) {
+      sumSqDiff += (currentResampled[i] - pastResampled[i]) ** 2
+    }
+    const rmse = Math.sqrt(sumSqDiff / currentResampled.length)
+    const shapeSim = Math.max(0, 1 - rmse * 2.5)
+
+    // 2. 미분(변화율) 상관: 단조감소 곡선들을 구별하는 핵심
+    //    급락 vs 완만하락, 변곡점 위치 차이를 감지
+    const derivCurrent: number[] = []
+    const derivPast: number[] = []
+    for (let i = 1; i < currentResampled.length; i++) {
+      derivCurrent.push(currentResampled[i] - currentResampled[i - 1])
+      derivPast.push(pastResampled[i] - pastResampled[i - 1])
+    }
+    const derivCorr = derivCurrent.length >= 7
+      ? Math.max(0, pearsonCorrelation(derivCurrent, derivPast))
+      : 0
+
+    // 결합: shapeSim 60% + derivCorr 40%
+    // 모든 곡선이 하락해도 미분 패턴이 다르면 curveSim이 낮아짐
+    curveSim = shapeSim * 0.6 + derivCorr * 0.4
   }
 
   // --- Pillar 3: 키워드 유사도 ---
@@ -95,6 +117,9 @@ export function compositeCompare(params: {
     wCurve += wKeyword * (1 - ratio)
     wKeyword = 0
   }
+  // 가중치 상한: 단일 필러가 결과를 독점하지 않도록
+  wFeature = Math.min(wFeature, 0.65)
+  wCurve = Math.min(wCurve, 0.65)
 
   // 섹터 교차 패널티: 다른 섹터끼리 비교 시 30% 감쇄
   const sectorMatch = current.sector === past.sector || current.sector === 'etc' || past.sector === 'etc'
@@ -105,11 +130,11 @@ export function compositeCompare(params: {
   // 클램핑 및 소수점 3자리 반올림
   const finalSim = Math.round(Math.max(0, Math.min(1, similarity)) * 1000) / 1000
 
-  // Peak/day 계산
-  const currentDay = current.activeDays
-  const pastPeakDay = past.peakDay
+  // Peak/day 계산 — pastPeakDay는 pastTotalDays 이내로 캡 (타임라인 시각적 일관성)
+  const currentDay = Math.min(current.activeDays, MAX_LIFECYCLE_DAYS)
   const pastTotalDays = Math.min(past.totalDays, MAX_LIFECYCLE_DAYS)
-  const estimatedDaysToPeak = Math.max(0, pastPeakDay - currentDay)
+  const pastPeakDay = past.peakDay >= 0 ? Math.min(past.peakDay, pastTotalDays) : 0
+  const estimatedDaysToPeak = pastPeakDay > 0 ? Math.max(0, pastPeakDay - currentDay) : 0
 
   // 유사 근거 설명 (구체적 특성 기반)
   const simParts: string[] = []
@@ -122,14 +147,17 @@ export function compositeCompare(params: {
     const cF = current.features
     const pF = past.features
     const details: string[] = []
-    if (Math.abs(cF.growthRate - pF.growthRate) < 0.2) details.push('성장 속도')
-    if (Math.abs(cF.newsIntensity - pF.newsIntensity) < 0.2) details.push('뉴스 집중도')
-    if (Math.abs(cF.volatility - pF.volatility) < 0.2) details.push('변동성')
-    if (Math.abs(cF.scoreLevel - pF.scoreLevel) < 0.2) details.push('점수 수준')
+
+    if (Math.abs(cF.growthRate - pF.growthRate) < 0.15) details.push('성장세')
+    if (Math.abs(cF.scoreLevel - pF.scoreLevel) < 0.15) {
+      const scoreDiff = Math.round(Math.abs(cF.scoreLevel - pF.scoreLevel) * 100)
+      details.push(`점수 수준(차이 ${scoreDiff}p)`)
+    }
+    if (Math.abs(cF.priceChangePct - pF.priceChangePct) < 0.15) details.push('주가 흐름')
+    if (Math.abs(cF.volatility - pF.volatility) < 0.15) details.push('변동성')
+
     if (details.length > 0) {
-      simParts.push(`${details.join('·')} 패턴 유사`)
-    } else {
-      simParts.push(`종합 특성 유사도 ${Math.round(featureSim * 100)}%`)
+      simParts.push(`${details.join(' · ')} 유사`)
     }
   }
 
@@ -152,19 +180,20 @@ export function compositeCompare(params: {
     simParts.push('복합 지표 기반 약한 유사성')
   }
 
-  // 위치 분석
+  // 위치 분석 — 자연어 메시지 (D+ 표기 제거)
   let positionMsg: string
-  if (pastTotalDays <= 3) {
-    positionMsg = `과거 테마 데이터 ${pastTotalDays}일분으로 주기 비교 제한적.`
+  const daysToMonths = (d: number) => d >= 30 ? `${d}일(~${Math.round(d / 30)}개월)` : `${d}일`
+  if (pastTotalDays < 14) {
+    positionMsg = `과거 데이터 ${pastTotalDays}일로 비교 신뢰도 제한적`
   } else if (currentDay >= pastTotalDays && pastTotalDays > 0) {
-    positionMsg = `과거 ${past.name} 주기(${pastTotalDays}일) 초과, 새로운 전개 국면.`
+    positionMsg = `${past.name}은 ${daysToMonths(pastTotalDays)} 만에 쇠퇴했으나, 현재 테마는 더 오래 지속 중`
   } else if (estimatedDaysToPeak > 0) {
-    const progress = pastTotalDays > 0 ? Math.round((currentDay / pastTotalDays) * 100) : 0
-    positionMsg = `과거 기준 피크까지 ~${estimatedDaysToPeak}일 (진행률 ${progress}%).`
+    const progress = Math.round((currentDay / pastTotalDays) * 100)
+    positionMsg = `${past.name} 기준 진행률 ${progress}%, 피크까지 약 ${estimatedDaysToPeak}일 남음`
   } else if (pastPeakDay > 0) {
-    positionMsg = '피크 구간 진입 추정, 하락 전환 모니터링 필요.'
+    positionMsg = `${past.name} 피크(${pastPeakDay}일차) 부근 진입 추정`
   } else {
-    positionMsg = '초기 단계로 추가 데이터 수집 필요.'
+    positionMsg = '초기 단계, 추세 확인 중'
   }
 
   const message = `${simParts.join(' · ')}. ${positionMsg}`

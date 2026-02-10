@@ -136,7 +136,7 @@ describe('calculatePrediction', () => {
 
   it('clamps currentProgress and peakProgress to [0, 100]', () => {
     // daysSinceSpike가 avgTotalDays를 초과 → currentProgress 100으로 클램핑
-    const comps = [makeComparison({ pastTotalDays: 10, pastPeakDay: 5 })]
+    const comps = [makeComparison({ pastTotalDays: 20, pastPeakDay: 5 })]
     const result = calculatePrediction('2025-01-01', comps, '2026-01-10')
     expect(result).not.toBeNull()
     expect(result!.currentProgress).toBeLessThanOrEqual(100)

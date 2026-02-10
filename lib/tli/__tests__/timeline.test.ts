@@ -53,8 +53,8 @@ describe('normalizeValues', () => {
 })
 
 describe('findPeakDay', () => {
-  it('returns 0 for empty array', () => {
-    expect(findPeakDay([])).toBe(0)
+  it('returns -1 for empty array', () => {
+    expect(findPeakDay([])).toBe(-1)
   })
 
   it('returns day of maximum value', () => {
@@ -66,12 +66,12 @@ describe('findPeakDay', () => {
     expect(findPeakDay(data)).toBe(5)
   })
 
-  it('returns 0 when all values are 0', () => {
+  it('returns -1 when all values are 0', () => {
     const data: TimeSeriesPoint[] = [
       { day: 3, value: 0 },
       { day: 7, value: 0 },
     ]
-    expect(findPeakDay(data)).toBe(0)
+    expect(findPeakDay(data)).toBe(-1)
   })
 
   it('returns day of first peak when tied', () => {

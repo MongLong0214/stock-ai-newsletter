@@ -114,8 +114,8 @@ function ThemePrediction({ firstSpikeDate, comparisons }: ThemePredictionProps) 
 
         {/* 4. Stats Grid */}
         <motion.div variants={itemVariants} className="grid grid-cols-2 gap-3">
-          <StatCell icon={<Clock className="w-4 h-4" />} label="경과일" value={`D+${prediction.daysSinceSpike}`} color="#10B981" />
-          <StatCell icon={<Target className="w-4 h-4" />} label="예상 피크" value={prediction.avgDaysToPeak > 0 ? `~${prediction.avgDaysToPeak}일` : '도달'} color="#F59E0B" />
+          <StatCell icon={<Clock className="w-4 h-4" />} label="경과일" value={prediction.daysSinceSpike > 365 ? '1년+' : `${prediction.daysSinceSpike}일`} color="#10B981" />
+          <StatCell icon={<Target className="w-4 h-4" />} label="예상 피크" value={prediction.avgDaysToPeak > 0 ? `약 ${prediction.avgDaysToPeak}일 후` : '피크 도달'} color="#F59E0B" />
           <StatCell icon={<BarChart3 className="w-4 h-4" />} label="평균 유사도" value={`${Math.round(prediction.avgSimilarity * 100)}%`} color="#0EA5E9" />
           <MomentumCell momentum={prediction.momentum} />
         </motion.div>

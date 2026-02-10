@@ -52,7 +52,6 @@ export interface ComparisonResult {
   pastPeakDay: number
   pastTotalDays: number
   estimatedDaysToPeak: number
-  postPeakDecline: number | null
   message: string
   lifecycleCurve: LifecycleCurvePoint[]
   /** 3-Pillar 분해 */
@@ -148,7 +147,6 @@ export interface ThemeDetail {
     pastPeakDay: number;
     pastTotalDays: number;
     estimatedDaysToPeak: number;
-    postPeakDecline: number | null;
     message: string;
     /** 유사도 3-Pillar 분해 */
     featureSim: number | null;
