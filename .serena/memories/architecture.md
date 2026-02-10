@@ -12,7 +12,7 @@
 - **Hosting**: Vercel (Analytics, SpeedInsights 포함)
 - **CI/CD**: GitHub Actions (5개 워크플로우)
 - **Font**: Noto Sans KR (Google Fonts), AppleSDGothicNeo (OG 이미지용)
-- **Testing**: Vitest 4.0 (127 unit tests) — 2026-02-10 추가
+- **Testing**: Vitest 4.0 (132 unit tests, 10 files)
 
 ## 라우트 맵
 
@@ -76,8 +76,8 @@ tli-collect-data.yml
 full 모드 (8단계):
   0. 테마 발견 (일/수) → 네이버 금융 스크래핑 → DB 등록 → 키워드 생성 → 자동 활성화/비활성화
   1. 네이버 DataLab 관심도 수집 (30일)
-  2. 네이버 뉴스 수집 (14일, 감성 분석 포함)
-  3. 네이버 금융 종목 수집 (현재가, 등락률, 거래량)
+  2. 네이버 뉴스 수집 (14일, 감성 분석 포함, 배치 내 중복 제거)
+  3. 네이버 금융 종목 수집 (현재가, 등락률, 거래량) + 미출현 종목 자동 비활성화
   4. 라이프사이클 점수 계산 (4요소 가중합)
   5. 테마 비교 분석 (3-Pillar: feature+curve+keyword)
   6. 예측 스냅샷 (비교 기반 calculatePrediction → prediction_snapshots)
@@ -115,7 +115,7 @@ Client Component (Hydration)
 - `timeline.ts` — normalizeTimeline, normalizeValues, findPeakDay, resampleCurve
 - `features.ts` — extractFeatures, featuresToArray, classifySector
 
-### 예측 (2026-02-10 추가)
+### 예측
 - `prediction.ts` — calculatePrediction (서버/클라이언트 공용, today? 파라미터)
 - `prediction-helpers.ts` — buildRiskMessage, buildPhaseMessage, buildKeyInsight
 
@@ -149,3 +149,4 @@ Client Component (Hydration)
 - **애니메이션**: Framer Motion (reveal, hover, 스크롤)
 - **폰트**: Noto Sans KR, font-mono (코드 느낌)
 - **반응형**: mobile-first, useIsMobile 훅
+- **스크롤바**: body + .custom-scroll 클래스 모두에 에메랄드 커스텀 스크롤바 (4px, transparent track)
