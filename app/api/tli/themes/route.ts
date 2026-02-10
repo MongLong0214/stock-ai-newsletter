@@ -32,12 +32,25 @@ export async function GET() {
     const themeIds = themes.map((t) => t.id)
     const sevenDaysAgo = getKSTDateString(-7)
 
-    // 2) 활성 종목 수 배치 쿼리
-    const { data: stocksList } = await supabase
-      .from('theme_stocks')
-      .select('theme_id')
-      .in('theme_id', themeIds)
-      .eq('is_active', true)
+    // 2) 활성 종목 수 배치 쿼리 (.in() 300개 분할 + 1000행 페이지네이션)
+    const CHUNK_SIZE = 300
+    const stocksList: Array<{ theme_id: string }> = []
+    for (let ci = 0; ci < themeIds.length; ci += CHUNK_SIZE) {
+      const idChunk = themeIds.slice(ci, ci + CHUNK_SIZE)
+      let stocksFrom = 0
+      while (true) {
+        const { data } = await supabase
+          .from('theme_stocks')
+          .select('theme_id')
+          .in('theme_id', idChunk)
+          .eq('is_active', true)
+          .range(stocksFrom, stocksFrom + 999)
+        if (!data?.length) break
+        stocksList.push(...data)
+        if (data.length < 1000) break
+        stocksFrom += 1000
+      }
+    }
 
     // 3) lifecycle_scores 배치 조회 (테마당 최대 14일, 1000행 제한 우회)
     const SCORE_BATCH_SIZE = 70 // 테마당 14일 = 980행, 안전하게 70개씩

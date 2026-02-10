@@ -3,10 +3,14 @@ config({ path: '.env.local' })
 import { loadActiveThemes, upsertInterestMetrics, upsertNewsMetrics, upsertThemeStocks, upsertNewsArticles } from './data-ops';
 import { calculateAndSaveScores } from './calculate-scores';
 import { calculateThemeComparisons } from './calculate-comparisons';
+import { snapshotPredictions } from './snapshot-predictions';
+import { evaluatePredictions } from './evaluate-predictions';
 import { collectNaverDatalab } from './collectors/naver-datalab';
 import { collectNaverNews } from './collectors/naver-news';
 import { collectNaverFinanceStocks } from './collectors/naver-finance-themes';
 import { discoverAndManageThemes } from './discover-themes';
+import { autoActivate, autoDeactivate } from './theme-lifecycle';
+import { evaluateComparisonOutcomes } from './evaluate-comparisons';
 import { getKSTDate, daysAgo } from './utils';
 
 /** 실행 모드: full(전체 수집) / news-only(뉴스만) */
@@ -21,6 +25,7 @@ async function main() {
   console.log('━'.repeat(80));
 
   const startTime = Date.now();
+  let criticalFailures = 0;
 
   try {
     // 0단계: 테마 발견 (주 2회 - 일/수, full 모드에서만)
@@ -32,6 +37,14 @@ async function main() {
       }
     } else if (mode === 'full') {
       console.log('⊘ 테마 발견 생략 (일/수에만 실행)\n');
+      // 일/수 외 요일에도 생명주기 관리 실행
+      try {
+        console.log('\n🔄 생명주기 관리 실행 중...');
+        await autoActivate();
+        await autoDeactivate();
+      } catch (error: unknown) {
+        console.error('생명주기 관리 실패:', error instanceof Error ? error.message : String(error));
+      }
     }
 
     // 1단계: 활성 테마 로딩
@@ -53,6 +66,7 @@ async function main() {
         );
         await upsertInterestMetrics(interestMetrics);
       } catch (error: unknown) {
+        criticalFailures++;
         console.error('\n❌ 네이버 DataLab 수집 실패:', error instanceof Error ? error.message : String(error));
       }
     }
@@ -72,6 +86,7 @@ async function main() {
       await upsertNewsMetrics(newsMetrics);
       await upsertNewsArticles(newsArticles);
     } catch (error: unknown) {
+      criticalFailures++;
       console.error('\n❌ 네이버 뉴스 수집 실패:', error instanceof Error ? error.message : String(error));
     }
 
@@ -115,6 +130,39 @@ async function main() {
       } catch (error: unknown) {
         console.error('\n❌ 비교 분석 실패:', error instanceof Error ? error.message : String(error));
       }
+
+      // 7단계: 예측 스냅샷
+      console.log('\n━'.repeat(80));
+      console.log('📸 6단계: 예측 스냅샷');
+      console.log('━'.repeat(80));
+
+      try {
+        await snapshotPredictions();
+      } catch (error: unknown) {
+        console.error('\n❌ 예측 스냅샷 실패:', error instanceof Error ? error.message : String(error));
+      }
+
+      // 8단계: 예측 평가
+      console.log('\n━'.repeat(80));
+      console.log('📊 7단계: 예측 평가');
+      console.log('━'.repeat(80));
+
+      try {
+        await evaluatePredictions();
+      } catch (error: unknown) {
+        console.error('\n❌ 예측 평가 실패:', error instanceof Error ? error.message : String(error));
+      }
+
+      // 9단계: 비교 결과 검증
+      console.log('\n━'.repeat(80));
+      console.log('🔬 8단계: 비교 결과 검증');
+      console.log('━'.repeat(80));
+
+      try {
+        await evaluateComparisonOutcomes();
+      } catch (error: unknown) {
+        console.error('\n❌ 비교 결과 검증 실패:', error instanceof Error ? error.message : String(error));
+      }
     }
 
     // 요약
@@ -125,7 +173,7 @@ async function main() {
     console.log(`\n⏱️  소요 시간: ${duration}초`);
     console.log(`📊 처리된 테마: ${themes.length}개\n`);
 
-    process.exit(0);
+    process.exit(criticalFailures > 0 ? 1 : 0);
   } catch (error: unknown) {
     console.error('\n━'.repeat(80));
     console.error('❌ 치명적 오류');
