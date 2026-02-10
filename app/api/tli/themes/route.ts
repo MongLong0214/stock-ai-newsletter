@@ -52,22 +52,21 @@ export async function GET() {
       }
     }
 
-    // 3) lifecycle_scores 배치 조회 (테마당 최대 14일, 1000행 제한 우회)
-    const SCORE_BATCH_SIZE = 70 // 테마당 14일 = 980행, 안전하게 70개씩
-    const scores: Array<{ theme_id: string; score: number; stage: string | null; is_reigniting: boolean; calculated_at: string }> = []
-    const weekAgoScores: Array<{ theme_id: string; score: number }> = []
-
+    // 3) lifecycle_scores 배치 조회 (전체 병렬 실행)
+    const SCORE_BATCH_SIZE = 70
+    const scoreChunks: string[][] = []
     for (let i = 0; i < themeIds.length; i += SCORE_BATCH_SIZE) {
-      const chunk = themeIds.slice(i, i + SCORE_BATCH_SIZE)
-      const [latestRes, weekRes] = await Promise.all([
-        // 최신 점수
+      scoreChunks.push(themeIds.slice(i, i + SCORE_BATCH_SIZE))
+    }
+
+    const scoreResults = await Promise.all(
+      scoreChunks.flatMap(chunk => [
         supabase
           .from('lifecycle_scores')
           .select('theme_id, score, stage, is_reigniting, calculated_at')
           .in('theme_id', chunk)
           .order('calculated_at', { ascending: false })
           .limit(1000),
-        // 7일 전 점수
         supabase
           .from('lifecycle_scores')
           .select('theme_id, score')
@@ -76,8 +75,15 @@ export async function GET() {
           .order('calculated_at', { ascending: false })
           .limit(1000),
       ])
-      if (latestRes.data) scores.push(...latestRes.data)
-      if (weekRes.data) weekAgoScores.push(...weekRes.data)
+    )
+
+    const scores: Array<{ theme_id: string; score: number; stage: string | null; is_reigniting: boolean; calculated_at: string }> = []
+    const weekAgoScores: Array<{ theme_id: string; score: number }> = []
+    for (let i = 0; i < scoreResults.length; i++) {
+      const data = scoreResults[i].data
+      if (!data) continue
+      if (i % 2 === 0) scores.push(...(data as typeof scores))
+      else weekAgoScores.push(...(data as typeof weekAgoScores))
     }
 
     // 4) 인메모리 맵 구축 (O(n) 단일 패스)

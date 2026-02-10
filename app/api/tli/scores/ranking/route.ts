@@ -51,7 +51,7 @@ export async function GET() {
     const ninetyDaysAgo = getKSTDateString(-90)
 
     // 2) 모든 배치 쿼리 병렬 실행 (stocks + news + scores 동시)
-    const SCORE_BATCH_SIZE = 10
+    const SCORE_BATCH_SIZE = 50
     const scoreChunks: string[][] = []
     for (let i = 0; i < themeIds.length; i += SCORE_BATCH_SIZE) {
       scoreChunks.push(themeIds.slice(i, i + SCORE_BATCH_SIZE))

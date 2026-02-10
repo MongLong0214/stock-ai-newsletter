@@ -152,6 +152,34 @@ describe('calculateLifecycleScore', () => {
     expect(w.volatility).toBe(0.15)
   })
 
+  it('reduces volatility score when noise detected (high CV + low percentile)', () => {
+    // 노이즈 조건: coefficientOfVariation > 0.8 AND dampening < 1
+    // 높은 변동 관심도 (0과 100 반복 → stddev 높고 CV > 0.8) + 낮은 백분위
+    const noisyInterest = Array.from({ length: 14 }, (_, i) =>
+      makeInterestMetric(i, i % 2 === 0 ? 0 : 100)
+    )
+    const news = Array.from({ length: 14 }, (_, i) => makeNewsMetric(i, 1))
+
+    const noisy = calculateLifecycleScore({
+      interestMetrics: noisyInterest,
+      newsMetrics: news,
+      firstSpikeDate: '2025-12-01',
+      today: '2026-01-10',
+      rawPercentile: 0.05, // 낮은 백분위 → dampening < 1
+    })
+    const normal = calculateLifecycleScore({
+      interestMetrics: noisyInterest,
+      newsMetrics: news,
+      firstSpikeDate: '2025-12-01',
+      today: '2026-01-10',
+      rawPercentile: 1.0, // 높은 백분위 → dampening = 1 → 노이즈 미감지
+    })
+    expect(noisy).not.toBeNull()
+    expect(normal).not.toBeNull()
+    // 노이즈 감지 시 volatilityScore가 0.3배로 줄어듦
+    expect(noisy!.components.volatility_score).toBeLessThan(normal!.components.volatility_score)
+  })
+
   it('includes maturity_ratio from firstSpikeDate', () => {
     const interest = Array.from({ length: 5 }, (_, i) => makeInterestMetric(i, 50))
     const result = calculateLifecycleScore({
