@@ -1,16 +1,37 @@
 import type { Metadata } from 'next'
+import Script from 'next/script'
 import { createClient } from '@supabase/supabase-js'
 import DetailContent from './_components/detail-content'
+
+/** 10분마다 재검증 (ISR) */
+export const revalidate = 600
+
+/** Supabase 클라이언트 (페이지 내부용) */
+function getSupabase() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    { auth: { persistSession: false } }
+  )
+}
+
+/** 빌드 시 모든 활성 테마 ID 생성 (SSG) */
+export async function generateStaticParams() {
+  try {
+    const { data } = await getSupabase()
+      .from('themes')
+      .select('id')
+      .eq('is_active', true)
+    return (data || []).map(t => ({ id: t.id }))
+  } catch {
+    return []
+  }
+}
 
 /** 테마 메타데이터용 기본 정보 조회 */
 async function getThemeMeta(id: string) {
   try {
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      { auth: { persistSession: false } }
-    )
-    const { data } = await supabase
+    const { data } = await getSupabase()
       .from('themes')
       .select('name, name_en, description')
       .eq('id', id)
@@ -81,5 +102,45 @@ export async function generateMetadata({
 /** 테마 상세 페이지 */
 export default async function ThemeDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  return <DetailContent id={id} />
+  const theme = await getThemeMeta(id)
+
+  const schemas = theme ? [
+    {
+      '@context': 'https://schema.org',
+      '@type': 'Article',
+      headline: `${theme.name} 테마 분석 — 생명주기 점수 & 전망`,
+      description: theme.description || `${theme.name} 테마의 AI 생명주기 분석`,
+      author: { '@type': 'Organization', name: 'StockMatrix', url: 'https://stockmatrix.co.kr' },
+      publisher: {
+        '@type': 'Organization',
+        name: 'StockMatrix',
+        logo: { '@type': 'ImageObject', url: 'https://stockmatrix.co.kr/icon-512.png' },
+      },
+      image: `https://stockmatrix.co.kr/themes/${id}/opengraph-image`,
+      mainEntityOfPage: { '@type': 'WebPage', '@id': `https://stockmatrix.co.kr/themes/${id}` },
+    },
+    {
+      '@context': 'https://schema.org',
+      '@type': 'BreadcrumbList',
+      itemListElement: [
+        { '@type': 'ListItem', position: 1, name: 'Home', item: 'https://stockmatrix.co.kr' },
+        { '@type': 'ListItem', position: 2, name: '테마 분석', item: 'https://stockmatrix.co.kr/themes' },
+        { '@type': 'ListItem', position: 3, name: theme.name, item: `https://stockmatrix.co.kr/themes/${id}` },
+      ],
+    },
+  ] : []
+
+  return (
+    <>
+      {schemas.map((schema, i) => (
+        <Script
+          key={i}
+          id={`theme-schema-${i}`}
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
+        />
+      ))}
+      <DetailContent id={id} />
+    </>
+  )
 }
