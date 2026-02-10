@@ -12,6 +12,7 @@
 - **Hosting**: Vercel (Analytics, SpeedInsights 포함)
 - **CI/CD**: GitHub Actions (5개 워크플로우)
 - **Font**: Noto Sans KR (Google Fonts), AppleSDGothicNeo (OG 이미지용)
+- **Testing**: Vitest 4.0 (127 unit tests) — 2026-02-10 추가
 
 ## 라우트 맵
 
@@ -23,7 +24,7 @@
 | `/unsubscribe` | app/unsubscribe/page.tsx | Client | 구독 취소 (쿼리파라미터 email) |
 | `/archive` | app/archive/page.tsx | Client | 뉴스레터 아카이브 (캘린더, 실시간 시세) |
 | `/themes` | app/themes/page.tsx | Server→Client | TLI 테마 랭킹 (SSR 초기 데이터 + React Query) |
-| `/themes/[id]` | app/themes/[id]/page.tsx | Server→Client | 테마 상세 (점수, 차트, 종목, 뉴스, 비교분석) |
+| `/themes/[id]` | app/themes/[id]/page.tsx | Server→Client | 테마 상세 (점수, 차트, 종목, 뉴스, 비교분석, 예측) |
 | `/blog` | app/blog/page.tsx | Server | 블로그 목록 (Supabase에서 published 글 조회) |
 | `/blog/[slug]` | app/blog/[slug]/page.tsx | Server | 블로그 상세 (MDX 파싱, TOC, FAQ, Schema.org) |
 | `/about` | app/about/page.tsx | Server | 서비스 소개 |
@@ -72,13 +73,16 @@ tli-collect-data.yml
   ├─ 아침 (평일 09:00 KST) → news-only 모드
   └─ 주말 (일 02:00 KST) → full 모드
 
-full 모드:
+full 모드 (8단계):
   0. 테마 발견 (일/수) → 네이버 금융 스크래핑 → DB 등록 → 키워드 생성 → 자동 활성화/비활성화
   1. 네이버 DataLab 관심도 수집 (30일)
   2. 네이버 뉴스 수집 (14일, 감성 분석 포함)
   3. 네이버 금융 종목 수집 (현재가, 등락률, 거래량)
   4. 라이프사이클 점수 계산 (4요소 가중합)
-  5. 테마 비교 분석 (Pearson 상관, 특성 유사도, 키워드 유사도)
+  5. 테마 비교 분석 (3-Pillar: feature+curve+keyword)
+  6. 예측 스냅샷 (비교 기반 calculatePrediction → prediction_snapshots)
+  7. 예측 평가 (14일 경과 스냅샷 vs 실제 결과)
+  8. 비교 결과 검증 (궤적 상관 + 단계 일치 → comparison_calibration)
 
 news-only 모드:
   1. 네이버 뉴스 수집만 실행
@@ -95,6 +99,28 @@ Client Component (Hydration)
   → API 라우트 호출 (/api/tli/*)
   → 캐시: short(60s), medium(300s), long(3600s)
 ```
+
+## 핵심 라이브러리 구조 (lib/tli/)
+
+### 점수/단계 판정
+- `calculator.ts` — calculateLifecycleScore (4요소 가중합)
+- `stage.ts` — determineStage (점수→단계)
+- `reigniting.ts` — checkReigniting (재점화 감지)
+- `sentiment.ts` — analyzeSentiment, aggregateSentiment
+- `normalize.ts` — normalize, standardDeviation, avg, daysBetween
+
+### 비교 분석 (lib/tli/comparison/)
+- `composite.ts` — compositeCompare (3-Pillar 종합)
+- `similarity.ts` — pearsonCorrelation, cosineSimilarity, zScoreEuclidean, keywordJaccard
+- `timeline.ts` — normalizeTimeline, normalizeValues, findPeakDay, resampleCurve
+- `features.ts` — extractFeatures, featuresToArray, classifySector
+
+### 예측 (2026-02-10 추가)
+- `prediction.ts` — calculatePrediction (서버/클라이언트 공용, today? 파라미터)
+- `prediction-helpers.ts` — buildRiskMessage, buildPhaseMessage, buildKeyInsight
+
+### 타입
+- `types/db.ts` — 전체 DB 모델 인터페이스
 
 ## 외부 서비스 의존성
 | 서비스 | 용도 | 인증 |

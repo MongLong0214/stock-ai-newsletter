@@ -123,4 +123,27 @@ export interface ThemeComparison {
   past_peak_score: number | null;
   past_final_stage: string | null;
   past_decline_days: number | null;
+  /** 결과 검증 필드 */
+  outcome_verified?: boolean;
+  trajectory_correlation?: number | null;
+  stage_match?: boolean | null;
+  verified_at?: string | null;
+}
+
+export interface ComparisonCalibration {
+  id: string;
+  calculated_at: string;
+  total_verified: number;
+  avg_trajectory_corr: number | null;
+  stage_match_rate: number | null;
+  feature_corr_when_accurate: number | null;
+  curve_corr_when_accurate: number | null;
+  keyword_corr_when_accurate: number | null;
+  feature_corr_when_inaccurate: number | null;
+  curve_corr_when_inaccurate: number | null;
+  keyword_corr_when_inaccurate: number | null;
+  suggested_threshold: number | null;
+  suggested_sector_penalty: number | null;
+  details: Record<string, unknown> | null;
+  created_at: string;
 }

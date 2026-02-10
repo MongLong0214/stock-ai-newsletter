@@ -2,6 +2,7 @@ import { config } from 'dotenv'
 config({ path: '.env.local' })
 
 import { supabaseAdmin } from './supabase-admin'
+import { batchQuery } from './supabase-batch'
 import { daysAgo } from './utils'
 
 // ─────────────────────────────────────────────────────
@@ -79,17 +80,16 @@ export async function autoDeactivate() {
   const today = new Date(Date.now() + 9 * 60 * 60 * 1000)
   const cutoffDate = daysAgo(DEACTIVATION_CONFIG.lowScoreDays)
 
-  // Batch: 모든 활성 테마의 최근 점수를 한 번에 조회
+  // 모든 활성 테마의 최근 점수 배치 조회 (자동 페이지네이션)
   const themeIds = activeThemes.map(t => t.id)
-  const { data: allScores } = await supabaseAdmin
-    .from('lifecycle_scores')
-    .select('theme_id, score')
-    .in('theme_id', themeIds)
-    .gte('calculated_at', cutoffDate)
+  const allScores = await batchQuery<{ theme_id: string; score: number }>(
+    'lifecycle_scores', 'theme_id, score', themeIds,
+    q => q.gte('calculated_at', cutoffDate),
+  )
 
   // 테마별 점수 그룹화
   const scoresByTheme = new Map<string, number[]>()
-  for (const s of allScores || []) {
+  for (const s of allScores) {
     const arr = scoresByTheme.get(s.theme_id) || []
     arr.push(s.score)
     scoresByTheme.set(s.theme_id, arr)
@@ -106,9 +106,10 @@ export async function autoDeactivate() {
 
     if (notSeenDays < DEACTIVATION_CONFIG.notSeenDays) continue
 
-    // 조건 2: 최근 N일간 점수가 임계값 미만
+    // 조건 2: 최근 N일간 점수가 임계값 미만 (데이터 없으면 판단 보류)
     const scores = scoresByTheme.get(theme.id) || []
-    const allLow = scores.length === 0 || scores.every(s => s < DEACTIVATION_CONFIG.scoreThreshold)
+    if (scores.length === 0) continue
+    const allLow = scores.every(s => s < DEACTIVATION_CONFIG.scoreThreshold)
     if (!allLow) continue
 
     // 양쪽 조건 모두 충족 → 비활성화
