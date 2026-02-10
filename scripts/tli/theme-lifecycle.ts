@@ -24,9 +24,7 @@ export const DEACTIVATION_CONFIG = {
 // ─────────────────────────────────────────────────────
 
 export async function autoActivate() {
-  console.log('\n━'.repeat(80))
-  console.log('⚡ 3단계: 자동 활성화 판정')
-  console.log('━'.repeat(80))
+  console.log('\n⚡ 3단계: 자동 활성화 판정')
 
   // 비활성 테마 중 네이버에서 발견된 것 조회
   const { data: candidates, error } = await supabaseAdmin
@@ -62,9 +60,7 @@ export async function autoActivate() {
 // ─────────────────────────────────────────────────────
 
 export async function autoDeactivate() {
-  console.log('\n━'.repeat(80))
-  console.log('💤 4단계: 자동 비활성화 판정')
-  console.log('━'.repeat(80))
+  console.log('\n💤 4단계: 자동 비활성화 판정')
 
   const { data: activeThemes, error } = await supabaseAdmin
     .from('themes')
