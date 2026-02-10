@@ -79,6 +79,7 @@ export async function generateMetadata({
 }
 
 /** 테마 상세 페이지 */
-export default function ThemeDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  return <DetailContent params={params} />
+export default async function ThemeDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
+  return <DetailContent id={id} />
 }

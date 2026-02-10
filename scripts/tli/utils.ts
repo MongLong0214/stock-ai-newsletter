@@ -29,11 +29,6 @@ export function getKSTDate(): string {
   return kst.toISOString().split('T')[0]
 }
 
-/** 오늘 날짜 (YYYY-MM-DD, KST) */
-export function today(): string {
-  return getKSTDate()
-}
-
 /** N일 전 날짜 (YYYY-MM-DD, KST) */
 export function daysAgo(n: number): string {
   const now = new Date()

@@ -1,7 +1,6 @@
 /** 종목 리스트 유틸리티 — 정렬, 통계, 포맷 */
 
 import type { ThemeStockItem } from '@/lib/tli/types'
-import { formatPrice as sharedFormatPrice, formatVolume as sharedFormatVolume } from '@/lib/tli/format-utils'
 
 export type Stock = ThemeStockItem
 
@@ -24,20 +23,10 @@ export const DEFAULT_MARKET_STYLE: MarketStyle = {
   bg: 'bg-slate-800/30', border: 'border-slate-700/30', text: 'text-slate-500', dot: 'bg-slate-500',
 }
 
-/** 가격 포맷: 52300 → "52,300" */
-export function formatPrice(price: number): string {
-  return sharedFormatPrice(price)
-}
-
 /** 변동률 포맷: 3.21 → "+3.21%", -1.5 → "-1.50%" */
 export function formatChange(pct: number): string {
   const sign = pct > 0 ? '+' : ''
   return `${sign}${pct.toFixed(2)}%`
-}
-
-/** 거래량 축약 */
-export function formatVolume(vol: number): string {
-  return sharedFormatVolume(vol)
 }
 
 /** 종목 통계 계산 */

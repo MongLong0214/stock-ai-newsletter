@@ -12,8 +12,3 @@ export function getKSTDate(offsetDays = 0): Date {
 export function getKSTDateString(offsetDays = 0): string {
   return getKSTDate(offsetDays).toISOString().split('T')[0]
 }
-
-/** ISO 문자열에서 날짜 부분만 추출 (YYYY-MM-DD) */
-export function toDateString(isoStr: string): string {
-  return isoStr.split('T')[0]
-}
