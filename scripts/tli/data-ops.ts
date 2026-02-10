@@ -126,9 +126,15 @@ export async function upsertNewsArticles(
     sentimentScore: number | null;
   }>
 ) {
+  // (theme_id, link) 중복 제거 — 같은 배치 내 중복 시 PostgreSQL ON CONFLICT 에러 방지
+  const deduped = new Map<string, (typeof articles)[number]>()
+  for (const a of articles) {
+    deduped.set(`${a.themeId}|${a.link}`, a)
+  }
+
   return batchUpsert(
     'theme_news_articles',
-    articles.map(a => ({
+    [...deduped.values()].map(a => ({
       theme_id: a.themeId,
       title: a.title,
       link: a.link,

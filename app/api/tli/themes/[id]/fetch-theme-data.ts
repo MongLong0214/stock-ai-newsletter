@@ -120,12 +120,13 @@ export async function fetchThemeData(
         .eq('theme_id', id)
         .gte('time', thirtyDaysAgo)
         .order('time', { ascending: true }),
-      // 최근 뉴스 기사 (전체) — 테이블 미존재 시 graceful fallback
+      // 최근 뉴스 기사 (최신 50건) — 테이블 미존재 시 graceful fallback
       supabase
         .from('theme_news_articles')
         .select('title, link, source, pub_date, sentiment_score')
         .eq('theme_id', id)
-        .order('pub_date', { ascending: false }),
+        .order('pub_date', { ascending: false })
+        .limit(50),
       // 키워드 목록
       supabase
         .from('theme_keywords')

@@ -66,6 +66,38 @@ describe('calculatePrediction', () => {
     expect(result!.phase).toBe('pre-peak')
   })
 
+  it('determines phase correctly for near-peak', () => {
+    // daysSinceSpike=22, avgPeakDay~30 → 22 >= 30*0.7=21 AND 22 < 30*0.95=28.5 → near-peak
+    const comps = [makeComparison({ pastPeakDay: 30, pastTotalDays: 60 })]
+    const result = calculatePrediction('2026-01-01', comps, '2026-01-23')
+    expect(result).not.toBeNull()
+    expect(result!.phase).toBe('near-peak')
+  })
+
+  it('determines phase correctly for at-peak', () => {
+    // daysSinceSpike=29, avgPeakDay~30 → 29 >= 30*0.95=28.5 AND 29 <= 30*1.1=33 → at-peak
+    const comps = [makeComparison({ pastPeakDay: 30, pastTotalDays: 60 })]
+    const result = calculatePrediction('2026-01-01', comps, '2026-01-30')
+    expect(result).not.toBeNull()
+    expect(result!.phase).toBe('at-peak')
+  })
+
+  it('determines phase correctly for post-peak', () => {
+    // daysSinceSpike=40, avgPeakDay~30, avgTotalDays~60 → 40 > 30*1.1=33 AND 40 < 60*0.8=48 → post-peak
+    const comps = [makeComparison({ pastPeakDay: 30, pastTotalDays: 60 })]
+    const result = calculatePrediction('2026-01-01', comps, '2026-02-10')
+    expect(result).not.toBeNull()
+    expect(result!.phase).toBe('post-peak')
+  })
+
+  it('determines phase correctly for declining', () => {
+    // daysSinceSpike=50, avgTotalDays~60 → 50 >= 60*0.8=48 → declining
+    const comps = [makeComparison({ pastPeakDay: 30, pastTotalDays: 60 })]
+    const result = calculatePrediction('2026-01-01', comps, '2026-02-20')
+    expect(result).not.toBeNull()
+    expect(result!.phase).toBe('declining')
+  })
+
   it('determines confidence levels', () => {
     // 3 comps with avg similarity >= 0.55 → high
     const highComps = [
@@ -75,6 +107,14 @@ describe('calculatePrediction', () => {
     ]
     const highResult = calculatePrediction('2026-01-01', highComps, '2026-01-10')
     expect(highResult!.confidence).toBe('high')
+
+    // 2 comps with avg similarity >= 0.40 but < high threshold → medium
+    const medComps = [
+      makeComparison({ similarity: 0.45 }),
+      makeComparison({ similarity: 0.45 }),
+    ]
+    const medResult = calculatePrediction('2026-01-01', medComps, '2026-01-10')
+    expect(medResult!.confidence).toBe('medium')
 
     // 1 comp with low similarity → low
     const lowComps = [makeComparison({ similarity: 0.3 })]
