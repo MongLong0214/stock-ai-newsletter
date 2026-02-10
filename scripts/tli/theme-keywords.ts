@@ -89,9 +89,7 @@ export async function populateKeywords(
     return
   }
 
-  console.log('\n━'.repeat(80))
-  console.log(`🔑 2단계: ${newThemes.length}개 신규 테마 키워드 자동 생성`)
-  console.log('━'.repeat(80))
+  console.log(`\n🔑 2단계: ${newThemes.length}개 신규 테마 키워드 자동 생성`)
 
   for (const theme of newThemes) {
     // 1) 테마명 기반 자동 키워드 보강

@@ -23,9 +23,7 @@ async function upsertBatch(
 
 /** 메인 마이그레이션 로직 */
 export async function migrateEnrichKeywords() {
-  console.log('━'.repeat(80))
   console.log('🔄 테마 키워드 마이그레이션 시작')
-  console.log('━'.repeat(80))
 
   // 1) 모든 활성 테마 조회
   const { data: themes, error } = await supabaseAdmin
@@ -73,9 +71,7 @@ export async function migrateEnrichKeywords() {
   console.log(`\n💾 ${allKeywordRows.length}개 키워드 저장 중...`)
   await upsertBatch(allKeywordRows)
 
-  console.log('\n━'.repeat(80))
-  console.log(`✨ 마이그레이션 완료 (${themes.length}개 테마, ${allKeywordRows.length}개 키워드)`)
-  console.log('━'.repeat(80))
+  console.log(`\n✨ 마이그레이션 완료 (${themes.length}개 테마, ${allKeywordRows.length}개 키워드)`)
 }
 
 // 직접 실행 시
