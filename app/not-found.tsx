@@ -3,12 +3,79 @@
 import AnimatedBackground from '@/components/animated-background';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
+
+const GLITCH_CHARS = '!@#$%^&*()_+-=[]{}|;:<>?/~`0123456789ABCDEF';
+
+function useGlitchText(original: string, interval = 3000, duration = 150) {
+  const [text, setText] = useState(original);
+
+  useEffect(() => {
+    const glitch = () => {
+      const garbled = original
+        .split('')
+        .map((ch) =>
+          Math.random() < 0.6
+            ? GLITCH_CHARS[Math.floor(Math.random() * GLITCH_CHARS.length)]
+            : ch,
+        )
+        .join('');
+      setText(garbled);
+      setTimeout(() => {
+        // 두 번째 깨짐
+        const garbled2 = original
+          .split('')
+          .map((ch) =>
+            Math.random() < 0.3
+              ? GLITCH_CHARS[Math.floor(Math.random() * GLITCH_CHARS.length)]
+              : ch,
+          )
+          .join('');
+        setText(garbled2);
+        setTimeout(() => setText(original), duration / 2);
+      }, duration);
+    };
+
+    const id = setInterval(glitch, interval + Math.random() * 500);
+    return () => clearInterval(id);
+  }, [original, interval, duration]);
+
+  return text;
+}
 
 export default function NotFound() {
   const [displayedText, setDisplayedText] = useState('');
   const [pathname, setPathname] = useState('/unknown');
   const fullText = '이 페이지는 매트릭스에 존재하지 않습니다';
+  const glitched404 = useGlitchText('404', 800, 80);
+
+  // 랜덤 글리치 슬라이스 생성
+  const [sliceStyle, setSliceStyle] = useState<React.CSSProperties>({});
+  const triggerSlice = useCallback(() => {
+    const top = Math.random() * 80;
+    const height = 5 + Math.random() * 15;
+    const offset = (Math.random() - 0.5) * 40;
+    setSliceStyle({
+      clipPath: `inset(${top}% 0 ${100 - top - height}% 0)`,
+      transform: `translateX(${offset}px)`,
+      opacity: 1,
+    });
+    setTimeout(() => {
+      const offset2 = (Math.random() - 0.5) * 20;
+      setSliceStyle({
+        clipPath: `inset(${top + 2}% 0 ${100 - top - height + 4}% 0)`,
+        transform: `translateX(${offset2}px) skewX(${(Math.random() - 0.5) * 10}deg)`,
+        opacity: 1,
+      });
+      setTimeout(() => setSliceStyle({ opacity: 0 }), 80);
+    }, 60);
+  }, []);
+
+  useEffect(() => {
+    const id = setInterval(triggerSlice, 600 + Math.random() * 800);
+    triggerSlice(); // 초기 1회
+    return () => clearInterval(id);
+  }, [triggerSlice]);
 
   useEffect(() => {
     let i = 0;
@@ -20,7 +87,6 @@ export default function NotFound() {
         clearInterval(interval);
       }
     }, 50);
-
     return () => clearInterval(interval);
   }, []);
 
@@ -32,8 +98,15 @@ export default function NotFound() {
     <>
       <AnimatedBackground />
 
-      {/* Scanline overlay for CRT aesthetic */}
+      {/* Scanline overlay */}
       <div className="pointer-events-none fixed inset-0 z-[5] bg-[linear-gradient(transparent_50%,rgba(0,0,0,0.05)_50%)] bg-[length:100%_4px] opacity-30" />
+
+      {/* 글리치 플래시 (간헐적 화면 번쩍임) */}
+      <motion.div
+        className="pointer-events-none fixed inset-0 z-[6] bg-emerald-500/5"
+        animate={{ opacity: [0, 0, 0.15, 0, 0.1, 0, 0.2, 0] }}
+        transition={{ duration: 0.2, repeat: Infinity, repeatDelay: 1.5, ease: 'linear' }}
+      />
 
       <div className="relative z-10 flex min-h-screen flex-col items-center justify-center px-4">
         <motion.div
@@ -42,46 +115,70 @@ export default function NotFound() {
           transition={{ duration: 0.6 }}
           className="text-center"
         >
-          {/* 404 with subtle glitch effect */}
-          <div className="relative mb-8">
+          {/* 404 글리치 */}
+          <div className="relative mb-8 select-none">
+            {/* 메인 텍스트 */}
             <motion.h1
               animate={{
-                x: [0, -2, 2, 0],
-                opacity: [1, 0.9, 1],
+                x: [0, -3, 4, -1, 0],
+                y: [0, 1, -1, 0],
               }}
               transition={{
-                duration: 0.2,
+                duration: 0.15,
                 repeat: Infinity,
-                repeatDelay: 4,
+                repeatDelay: 1,
                 ease: 'easeInOut',
               }}
-              className="font-mono text-[140px] font-bold leading-none tracking-tighter text-emerald-500 sm:text-[200px] md:text-[240px]"
+              className="glitch-main font-mono text-[140px] font-bold leading-none tracking-tighter text-emerald-500 sm:text-[200px] md:text-[240px]"
             >
-              404
+              {glitched404}
             </motion.h1>
 
-            {/* Chromatic aberration effect (red/blue shift) */}
-            <div className="pointer-events-none absolute inset-0 opacity-40">
-              <h1
-                className="font-mono text-[140px] font-bold leading-none tracking-tighter text-red-500/30 sm:text-[200px] md:text-[240px]"
-                style={{ transform: 'translate(-2px, 0)' }}
-                aria-hidden="true"
-              >
-                404
+            {/* Red 채널 (chromatic aberration) */}
+            <motion.div
+              className="pointer-events-none absolute inset-0"
+              aria-hidden="true"
+              animate={{
+                x: [-3, -5, -2, -4, -3],
+                y: [0, 1, -1, 2, 0],
+                opacity: [0.4, 0.6, 0.3, 0.5, 0.4],
+              }}
+              transition={{ duration: 0.8, repeat: Infinity, ease: 'linear' }}
+            >
+              <h1 className="font-mono text-[140px] font-bold leading-none tracking-tighter text-red-500 mix-blend-multiply sm:text-[200px] md:text-[240px]">
+                {glitched404}
               </h1>
-            </div>
-            <div className="pointer-events-none absolute inset-0 opacity-40">
-              <h1
-                className="font-mono text-[140px] font-bold leading-none tracking-tighter text-cyan-500/30 sm:text-[200px] md:text-[240px]"
-                style={{ transform: 'translate(2px, 0)' }}
-                aria-hidden="true"
-              >
+            </motion.div>
+
+            {/* Cyan 채널 (chromatic aberration) */}
+            <motion.div
+              className="pointer-events-none absolute inset-0"
+              aria-hidden="true"
+              animate={{
+                x: [3, 5, 2, 4, 3],
+                y: [0, -1, 1, -2, 0],
+                opacity: [0.4, 0.3, 0.6, 0.5, 0.4],
+              }}
+              transition={{ duration: 0.9, repeat: Infinity, ease: 'linear' }}
+            >
+              <h1 className="font-mono text-[140px] font-bold leading-none tracking-tighter text-cyan-500 mix-blend-screen sm:text-[200px] md:text-[240px]">
+                {glitched404}
+              </h1>
+            </motion.div>
+
+            {/* 수평 슬라이스 글리치 레이어 */}
+            <div
+              className="pointer-events-none absolute inset-0 transition-none"
+              aria-hidden="true"
+              style={sliceStyle}
+            >
+              <h1 className="font-mono text-[140px] font-bold leading-none tracking-tighter text-emerald-400 sm:text-[200px] md:text-[240px]">
                 404
               </h1>
             </div>
           </div>
 
-          {/* Terminal-style typing message */}
+          {/* 타이핑 메시지 */}
           <div className="mb-6 min-h-[80px] sm:min-h-[60px]">
             <p className="font-mono text-lg text-emerald-400 sm:text-xl md:text-2xl">
               <span className="text-emerald-600">{'>'} </span>
@@ -95,7 +192,7 @@ export default function NotFound() {
             </p>
           </div>
 
-          {/* System error panel */}
+          {/* 시스템 에러 패널 */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -116,7 +213,7 @@ export default function NotFound() {
             </p>
           </motion.div>
 
-          {/* Terminal command button */}
+          {/* 터미널 버튼 */}
           <Link href="/">
             <motion.button
               whileHover={{ y: -2 }}
@@ -129,7 +226,7 @@ export default function NotFound() {
             </motion.button>
           </Link>
 
-          {/* Binary decoration */}
+          {/* 바이너리 장식 */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
