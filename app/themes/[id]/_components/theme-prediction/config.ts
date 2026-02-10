@@ -13,7 +13,7 @@ import type {
   Phase,
   RiskLevel,
   Momentum,
-} from '../../_utils/calculate-prediction'
+} from '@/lib/tli/prediction'
 
 export const CONFIDENCE_CONFIG: Record<ConfidenceLevel, { label: string; bg: string; text: string; border: string }> = {
   high:   { label: '신뢰도 높음', bg: 'bg-emerald-500/10', text: 'text-emerald-400', border: 'border-emerald-500/30' },
