@@ -188,9 +188,9 @@ export interface ThemeRanking {
   summary: {
     totalThemes: number;
     byStage: Record<string, number>;
-    hottestTheme: { name: string; score: number; stage: string; stockCount: number } | null;
+    hottestTheme: { id: string; name: string; score: number; stage: string; stockCount: number } | null;
     /** 급상승 테마 (Early/Growth 단계, 이번 주 최대 상승) */
-    surging: { name: string; score: number; change7d: number; stage: string } | null;
+    surging: { id: string; name: string; score: number; change7d: number; stage: string } | null;
     avgScore: number;
   };
 }

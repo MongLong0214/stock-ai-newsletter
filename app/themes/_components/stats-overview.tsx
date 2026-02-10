@@ -5,6 +5,7 @@ import { Flame, Rocket, BarChart3, Layers } from 'lucide-react'
 import { STAGE_CONFIG } from '@/lib/tli/types'
 import type { ThemeRanking } from '@/lib/tli/types'
 import { cn } from '@/lib/utils'
+import Link from 'next/link'
 
 interface StatsOverviewProps {
   summary: ThemeRanking['summary']
@@ -70,7 +71,7 @@ function StatsOverview({ summary }: StatsOverviewProps) {
 
           {/* 주도 테마 */}
           {summary.hottestTheme && (
-            <div className="flex items-center gap-2">
+            <Link href={`/themes/${summary.hottestTheme.id}`} className="flex items-center gap-2 hover:opacity-80 transition-opacity">
               <div
                 className="flex items-center justify-center w-8 h-8 rounded-lg bg-amber-500/15 border border-amber-500/20"
                 style={{ boxShadow: '0 0 12px rgba(245, 158, 11, 0.15)' }}
@@ -86,7 +87,7 @@ function StatsOverview({ summary }: StatsOverviewProps) {
                   </span>
                 </p>
               </div>
-            </div>
+            </Link>
           )}
 
           {/* 구분선 */}
@@ -94,7 +95,7 @@ function StatsOverview({ summary }: StatsOverviewProps) {
 
           {/* 급상승 테마 */}
           {summary.surging && (
-            <div className="flex items-center gap-2">
+            <Link href={`/themes/${summary.surging.id}`} className="flex items-center gap-2 hover:opacity-80 transition-opacity">
               <div
                 className="flex items-center justify-center w-8 h-8 rounded-lg bg-emerald-500/15 border border-emerald-500/20"
                 style={{ boxShadow: '0 0 12px rgba(16, 185, 129, 0.15)' }}
@@ -110,7 +111,7 @@ function StatsOverview({ summary }: StatsOverviewProps) {
                   </span>
                 </p>
               </div>
-            </div>
+            </Link>
           )}
 
           {/* 구분선 */}

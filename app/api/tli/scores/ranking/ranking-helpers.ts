@@ -164,14 +164,15 @@ export function calculateRankingSummary(activeThemes: ThemeListItem[]) {
     ? hottestCandidates.reduce((max, t) => (t.score > max.score ? t : max))
     : null
 
-  // surging (급상승): score >= 15, change7d > 2, 뉴스 있음, sparkline >= 2, 감성 비부정적
+  // surging (급상승): Early/Growth 단계, 의미있는 상승폭, 뉴스 뒷받침
   const surgingCandidates = activeThemes.filter(
     t =>
       t.score >= 15 &&
-      t.change7d > 2 &&
-      t.newsCount7d >= 1 &&
-      t.sparkline.length >= 2 &&
-      t.sentimentScore >= -0.1
+      (t.stage === 'Early' || t.stage === 'Growth') &&
+      t.change7d > 3 &&
+      t.newsCount7d >= 2 &&
+      t.sparkline.length >= 3 &&
+      t.sentimentScore >= 0.3
   )
   const surging = surgingCandidates.length > 0
     ? surgingCandidates.reduce((max, t) => (t.change7d > max.change7d ? t : max))
@@ -185,10 +186,10 @@ export function calculateRankingSummary(activeThemes: ThemeListItem[]) {
     totalThemes: activeThemes.length,
     byStage,
     hottestTheme: hottestTheme
-      ? { name: hottestTheme.name, score: hottestTheme.score, stage: hottestTheme.stage, stockCount: hottestTheme.stockCount }
+      ? { id: hottestTheme.id, name: hottestTheme.name, score: hottestTheme.score, stage: hottestTheme.stage, stockCount: hottestTheme.stockCount }
       : null,
     surging: surging
-      ? { name: surging.name, score: surging.score, change7d: surging.change7d, stage: surging.stage }
+      ? { id: surging.id, name: surging.name, score: surging.score, change7d: surging.change7d, stage: surging.stage }
       : null,
     avgScore,
   }
