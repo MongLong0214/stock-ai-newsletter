@@ -109,7 +109,7 @@
 
 **로직**:
 1. themes에서 기본 정보 + first_spike_date 조회
-2. 병렬 배치 쿼리 (fetchThemeData): latestScore, 30일 scores, stocks, comparisons, news, interest, newsArticles, keywords
+2. 병렬 배치 쿼리 (fetchThemeData): latestScore, 30일 scores, stocks, comparisons, news, interest, newsArticles(limit 50), keywords
 3. 최신/24H전/7일전 점수 O(n) 역순 패스 파싱
 4. buildComparisonResults: 유사 테마 이름 + lifecycle curve 배치 조회
 5. buildThemeDetailResponse: 최종 응답 조합
@@ -135,19 +135,32 @@
 {
   "early": [...], "growth": [...], "peak": [...],
   "decay": [...], "reigniting": [...],
-  "summary": { "totalThemes", "byStage", "hottestTheme", "surging", "avgScore" }
+  "summary": {
+    "totalThemes", "byStage",
+    "hottestTheme": { "id", "name", "score", "stage", "stockCount" },
+    "surging": { "id", "name", "score", "change7d", "stage" },
+    "avgScore"
+  }
 }
 ```
 
 **로직**:
 1. 활성 테마 전체 조회
-2. 병렬: batchLoadStockData, batchLoadNewsCounts(7일), lifecycle_scores(90일, 10개씩 chunking)
+2. 병렬: batchLoadStockData, batchLoadNewsCounts(7일), lifecycle_scores(90일, 10개씩 → Promise.all)
 3. O(n) 맵: scoreMetaMap (latest, weekAgo, sparkline), stockCountMap, stockNamesMap, newsCountMap
 4. ThemeListItem 조합 (score, stage, sparkline, newsCount7d, sentimentScore, topStocks)
 5. 품질 게이트: Dormant 제거, score <= 0 제거
 6. 단계별 분류: isReigniting이면 reigniting, 아니면 stage별
 7. 정렬: Early 오름차순 (새로운 기회), 나머지 내림차순
 8. calculateRankingSummary: hottestTheme, surging 감지
+
+**급상승(surging) 판정 조건** (2026-02-10 수정):
+- score >= 15
+- stage === 'Early' || 'Growth' (Peak/Decay/Dormant 제외)
+- change7d > 3
+- newsCount7d >= 2
+- sparkline.length >= 3
+- sentimentScore >= 0.3
 
 **캐시**: medium (300s)
 
