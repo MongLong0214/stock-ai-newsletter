@@ -5,7 +5,7 @@ import { useMemo } from 'react'
 import { motion } from 'framer-motion'
 import { Clock, Target, BarChart3, Lightbulb, ChevronRight } from 'lucide-react'
 import { GlassCard } from '@/components/tli/glass-card'
-import { calculatePrediction } from '../../_utils/calculate-prediction'
+import { calculatePrediction } from '@/lib/tli/prediction'
 import type { ComparisonResult } from '@/lib/tli/types'
 import {
   CONFIDENCE_CONFIG,
