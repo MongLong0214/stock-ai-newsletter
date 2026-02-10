@@ -142,7 +142,14 @@ body {
   color: var(--foreground);
   overflow-x: clip;
   font-family: var(--font-noto-sans-kr), var(--font-inter), system-ui, -apple-system, sans-serif;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(16,185,129,0.2) transparent;
 }
+
+body::-webkit-scrollbar { width: 4px; }
+body::-webkit-scrollbar-track { background: transparent; }
+body::-webkit-scrollbar-thumb { background: rgba(16,185,129,0.2); border-radius: 4px; }
+body::-webkit-scrollbar-thumb:hover { background: rgba(16,185,129,0.4); }
 
 /* Custom selection styling */
 ::selection {
