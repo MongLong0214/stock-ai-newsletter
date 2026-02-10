@@ -82,7 +82,7 @@ export async function upsertNewsMetrics(
   )
 }
 
-/** 테마-종목 매핑 저장 */
+/** 테마-종목 매핑 저장 + 미출현 종목 비활성화 */
 export async function upsertThemeStocks(
   stocks: Array<{
     themeId: string;
@@ -94,7 +94,7 @@ export async function upsertThemeStocks(
     volume: number | null;
   }>
 ) {
-  return batchUpsert(
+  const result = await batchUpsert(
     'theme_stocks',
     stocks.map(s => ({
       theme_id: s.themeId,
@@ -113,6 +113,46 @@ export async function upsertThemeStocks(
     'theme_id,symbol',
     '테마 종목',
   )
+
+  // 이번 수집에 없는 종목 비활성화 (테마별)
+  const symbolsByTheme = new Map<string, Set<string>>()
+  for (const s of stocks) {
+    const set = symbolsByTheme.get(s.themeId) ?? new Set()
+    set.add(s.symbol)
+    symbolsByTheme.set(s.themeId, set)
+  }
+
+  const themeIds = [...symbolsByTheme.keys()]
+  if (themeIds.length > 0) {
+    const existing = await batchQuery<{ theme_id: string; symbol: string }>(
+      'theme_stocks', 'theme_id, symbol', themeIds,
+      q => q.eq('is_active', true).eq('source', 'naver'),
+    )
+
+    const toDeactivate: Array<{ theme_id: string; symbol: string }> = []
+    for (const row of existing) {
+      const activeSymbols = symbolsByTheme.get(row.theme_id)
+      if (activeSymbols && !activeSymbols.has(row.symbol)) {
+        toDeactivate.push(row)
+      }
+    }
+
+    if (toDeactivate.length > 0) {
+      for (let i = 0; i < toDeactivate.length; i += 100) {
+        const batch = toDeactivate.slice(i, i + 100)
+        for (const item of batch) {
+          await supabaseAdmin
+            .from('theme_stocks')
+            .update({ is_active: false })
+            .eq('theme_id', item.theme_id)
+            .eq('symbol', item.symbol)
+        }
+      }
+      console.log(`   🔕 ${toDeactivate.length}개 미출현 종목 비활성화`)
+    }
+  }
+
+  return result
 }
 
 /** 뉴스 기사 저장 */
