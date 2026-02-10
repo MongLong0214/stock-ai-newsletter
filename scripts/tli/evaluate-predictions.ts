@@ -1,7 +1,7 @@
 import { supabaseAdmin } from './supabase-admin'
 import { getKSTDateString } from '../../lib/tli/date-utils'
 
-const EVALUATION_WINDOW = 14 // days
+const EVALUATION_WINDOW = 14 // 평가 대기 기간 (일)
 
 export async function evaluatePredictions(): Promise<void> {
   const today = getKSTDateString()
@@ -9,7 +9,7 @@ export async function evaluatePredictions(): Promise<void> {
 
   console.log(`\n📊 예측 평가 [cutoff: ${cutoffDate}]`)
 
-  // Load pending snapshots older than EVALUATION_WINDOW
+  // 평가 대기 기간이 지난 pending 스냅샷 로딩
   const { data: snapshots, error: snapErr } = await supabaseAdmin
     .from('prediction_snapshots')
     .select('id, theme_id, snapshot_date, phase, avg_peak_day, avg_total_days, days_since_spike')
@@ -27,7 +27,7 @@ export async function evaluatePredictions(): Promise<void> {
     return
   }
 
-  // Load current lifecycle scores for these themes
+  // 해당 테마들의 현재 점수 로딩
   const themeIds = [...new Set(snapshots.map(s => s.theme_id))]
   const { data: scores, error: scoresErr } = await supabaseAdmin
     .from('lifecycle_scores')
@@ -40,7 +40,7 @@ export async function evaluatePredictions(): Promise<void> {
     return
   }
 
-  // Get latest score per theme
+  // 테마별 최신 점수 추출
   const latestScores = new Map<string, { score: number; stage: string }>()
   for (const s of scores || []) {
     if (!latestScores.has(s.theme_id)) {
@@ -54,7 +54,7 @@ export async function evaluatePredictions(): Promise<void> {
     const current = latestScores.get(snapshot.theme_id)
     if (!current) continue
 
-    // Determine if phase prediction was correct
+    // 페이즈 예측 정확도 판정
     const phaseToStageMap: Record<string, string[]> = {
       'pre-peak': ['Early', 'Growth'],
       'near-peak': ['Growth'],
@@ -65,7 +65,7 @@ export async function evaluatePredictions(): Promise<void> {
     const expectedStages = phaseToStageMap[snapshot.phase] || []
     const phaseCorrect = expectedStages.includes(current.stage)
 
-    // Calculate peak timing error
+    // 피크 타이밍 오차 계산
     const daysSinceSnapshot = Math.floor(
       (new Date(today).getTime() - new Date(snapshot.snapshot_date).getTime()) / 86_400_000,
     )

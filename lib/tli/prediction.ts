@@ -98,7 +98,7 @@ function buildScenarios(comparisons: ComparisonInput[]): { best: Scenario; media
     totalDays: c.pastTotalDays,
     similarity: c.similarity,
   })
-  const midIdx = Math.floor((sorted.length - 1) / 2)
+  const midIdx = Math.floor(sorted.length / 2)
   return {
     best: toScenario(sorted[0]),
     median: toScenario(sorted[midIdx]),
@@ -113,14 +113,14 @@ export function calculatePrediction(
 ): PredictionResult | null {
   if (!comparisons.length) return null
 
-  // Quality gate: reject if all comparisons have trivially short cycles
+  // 품질 게이트: 모든 비교군이 2일 미만이면 거부
   if (comparisons.every(c => c.pastTotalDays < 2)) return null
 
-  // KST 보정 적용 (UTC+9)
-  const nowKST = today ? new Date(today).getTime() + KST_OFFSET_MS : Date.now() + KST_OFFSET_MS
-  const spikeKST = firstSpikeDate ? new Date(firstSpikeDate).getTime() + KST_OFFSET_MS : 0
+  // today가 KST 날짜 문자열이면 그대로, 없으면 현재 KST 시각 사용
+  const now = today ? new Date(today).getTime() : Date.now() + KST_OFFSET_MS
+  const spike = firstSpikeDate ? new Date(firstSpikeDate).getTime() : 0
   const daysSinceSpike = firstSpikeDate
-    ? Math.max(0, Math.floor((nowKST - spikeKST) / 86_400_000))
+    ? Math.max(0, Math.floor((now - spike) / 86_400_000))
     : 0
 
   const avgSimilarity = comparisons.reduce((s, c) => s + c.similarity, 0) / comparisons.length
@@ -128,7 +128,7 @@ export function calculatePrediction(
   const avgPeakDay = Math.round(weightedAvg(comparisons, c => c.pastPeakDay))
   const avgTotalDays = Math.min(Math.round(weightedAvg(comparisons, c => c.pastTotalDays)), 365)
 
-  // Quality gate: reject garbage predictions
+  // 품질 게이트: 가중평균 주기가 너무 짧으면 거부
   if (avgTotalDays < 3) return null
 
   const positivePeakComps = comparisons.filter(c => c.estimatedDaysToPeak > 0)

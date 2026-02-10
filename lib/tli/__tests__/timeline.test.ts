@@ -79,7 +79,7 @@ describe('findPeakDay', () => {
       { day: 1, value: 50 },
       { day: 2, value: 50 },
     ]
-    // first occurrence wins since > not >=
+    // > 연산자로 첫 번째 발생이 선택됨 (>= 아님)
     expect(findPeakDay(data)).toBe(1)
   })
 })

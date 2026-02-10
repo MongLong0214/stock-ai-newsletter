@@ -55,8 +55,8 @@ describe('checkReigniting', () => {
   })
 
   it('sorts by time before splitting halves', () => {
-    // Pass unsorted: recent values first, old values second
-    // After sorting, old (low) comes first, recent (high) comes second → should reignite
+    // 정렬 안 된 상태로 전달: 최근값 먼저, 과거값 나중
+    // 정렬 후 과거(낮음)→최근(높음) 순서 → 재점화 판정
     const metrics = [
       ...Array.from({ length: 7 }, (_, i) => makeMetric(i + 7, 20)), // recent but listed first
       ...Array.from({ length: 7 }, (_, i) => makeMetric(i, 10)),     // older but listed second

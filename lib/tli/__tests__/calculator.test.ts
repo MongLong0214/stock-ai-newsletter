@@ -46,7 +46,7 @@ describe('calculateLifecycleScore', () => {
   })
 
   it('score is clamped to [0, 100]', () => {
-    // High interest ratio + all components high → should be clamped at 100
+    // 높은 관심도 비율 + 전 컴포넌트 고점 → 100으로 클램핑
     const interest = [
       ...Array.from({ length: 7 }, (_, i) => makeInterestMetric(i, 90)),
       ...Array.from({ length: 23 }, (_, i) => makeInterestMetric(i + 7, 10)),
@@ -109,7 +109,7 @@ describe('calculateLifecycleScore', () => {
 
   it('uses fallback news momentum when no last week data', () => {
     const interest = Array.from({ length: 10 }, (_, i) => makeInterestMetric(i, 50))
-    // Only this week news, no last week → fallback formula
+    // 이번 주 뉴스만 존재, 지난 주 없음 → 폴백 공식
     const news = Array.from({ length: 7 }, (_, i) => makeNewsMetric(i, 3))
 
     const result = calculateLifecycleScore({
@@ -119,7 +119,7 @@ describe('calculateLifecycleScore', () => {
       today: '2026-01-10',
     })
     expect(result).not.toBeNull()
-    // Fallback: normalize(newsThisWeek=21, 0, 15) * 0.5 → capped at 0.5
+    // 폴백: normalize(newsThisWeek=21, 0, 15) * 0.5 → 최대 0.5
     expect(result!.components.news_momentum).toBeGreaterThan(0)
     expect(result!.components.news_momentum).toBeLessThanOrEqual(0.5)
   })

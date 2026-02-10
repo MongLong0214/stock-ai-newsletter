@@ -9,7 +9,7 @@ describe('extractFeatures', () => {
       totalNewsCount: 0,
       activeDays: 0,
     })
-    expect(result.growthRate).toBe(0.5) // (0+1)/2 = 0.5 when no growth
+    expect(result.growthRate).toBe(0.5) // 성장 없음: (0+1)/2 = 0.5
     expect(result.volatility).toBe(0)
     expect(result.newsIntensity).toBe(0)
     expect(result.scoreLevel).toBe(0)
@@ -27,7 +27,7 @@ describe('extractFeatures', () => {
   })
 
   it('clamps growthRate to [0, 1]', () => {
-    // Declining: recent=10, older=100 → rawGrowth=(10-100)/100=-0.9 → (-0.9+1)/2=0.05
+    // 하락: recent=10, older=100 → rawGrowth=(10-100)/100=-0.9 → (-0.9+1)/2=0.05
     const scores = [
       ...Array(7).fill({ score: 10 }),
       ...Array(7).fill({ score: 100 }),

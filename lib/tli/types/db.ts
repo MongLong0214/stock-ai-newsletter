@@ -1,4 +1,4 @@
-/** Database model interfaces */
+/** 데이터베이스 모델 인터페이스 */
 
 export type Stage = 'Dormant' | 'Early' | 'Growth' | 'Peak' | 'Decay';
 
