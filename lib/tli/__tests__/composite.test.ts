@@ -55,7 +55,7 @@ describe('compositeCompare', () => {
       current: { features, curve, keywords: [], activeDays: 10, sector: 'etc' },
       past: { features, curve, keywords: [], peakDay: 15, totalDays: 30, name: 'test', sector: '반도체' },
     })
-    // No 0.7 penalty applied
+    // 0.7 패널티 미적용
     const sameResult = compositeCompare({
       current: { features, curve, keywords: [], activeDays: 10, sector: '반도체' },
       past: { features, curve, keywords: [], peakDay: 15, totalDays: 30, name: 'test', sector: '반도체' },
@@ -69,7 +69,7 @@ describe('compositeCompare', () => {
         current: { features: makeFeatures(), curve: makeCurve(20), keywords: ['a'], activeDays: 10, sector: 'AI' },
         past: { features: makeFeatures(), curve: makeCurve(20), keywords: ['a'], peakDay: 15, totalDays: 30, name: 'test', sector: 'AI' },
       })
-      // curveSim should contribute significantly
+      // curveSim이 유의미하게 기여해야 함
       expect(result.curveSim).toBeGreaterThan(0)
     })
 
@@ -78,7 +78,7 @@ describe('compositeCompare', () => {
         current: { features: makeFeatures(), curve: makeCurve(3), keywords: ['a'], activeDays: 10, sector: 'AI' },
         past: { features: makeFeatures(), curve: makeCurve(3), keywords: ['a'], peakDay: 15, totalDays: 30, name: 'test', sector: 'AI' },
       })
-      // curveSim should be 0 since minCurveLen < 7
+      // minCurveLen < 7이면 curveSim = 0
       expect(result.curveSim).toBe(0)
     })
   })
@@ -92,7 +92,7 @@ describe('compositeCompare', () => {
       past: { features, curve, keywords: ['y'], peakDay: 15, totalDays: 30, name: 'test', sector: 'AI' },
     })
     expect(withKeywords.keywordSim).toBe(0)
-    // Result should still be non-zero due to feature+curve redistribution
+    // feature+curve 재분배로 결과가 0이 아니어야 함
     expect(withKeywords.similarity).toBeGreaterThan(0)
   })
 
@@ -147,7 +147,7 @@ describe('compositeCompare', () => {
       past: { features: makeFeatures(), curve: makeCurve(3), keywords: [], peakDay: 10, totalDays: 30, name: 'test', sector: 'etc' },
       populationStats: stats,
     })
-    // With identical features and matching stats, featureSim should be 1.0
+    // 동일 피처 + 일치하는 통계 → featureSim ≈ 1.0
     expect(result.featureSim).toBeCloseTo(1, 3)
   })
 

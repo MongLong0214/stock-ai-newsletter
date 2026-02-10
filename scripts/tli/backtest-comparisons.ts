@@ -11,7 +11,7 @@ import {
 async function main() {
   console.log('🔬 비교 알고리즘 백테스트\n')
 
-  // Load completed (inactive) themes with sufficient data
+  // 완료된(비활성) 테마 로딩
   const { data: themes } = await supabaseAdmin
     .from('themes')
     .select('id, name, first_spike_date, is_active')
@@ -21,7 +21,7 @@ async function main() {
 
   const themeIds = themes.map(t => t.id)
 
-  // Load all data
+  // 전체 데이터 로딩
   const [interestAll, scoresAll, keywordsAll] = await Promise.all([
     batchQuery<{ theme_id: string; time: string; normalized: number }>(
       'interest_metrics', 'theme_id, time, normalized', themeIds,
@@ -39,7 +39,7 @@ async function main() {
   const scoresByTheme = groupByThemeId(scoresAll)
   const keywordsByTheme = groupByThemeId(keywordsAll)
 
-  // Build enriched themes
+  // 보강된 테마 데이터 구성
   interface EnrichedTheme {
     id: string; name: string; firstSpikeDate: string;
     curve: TimeSeriesPoint[]; keywords: string[]; peakDay: number; totalDays: number;
@@ -69,7 +69,7 @@ async function main() {
   console.log(`📊 백테스트 대상: ${enriched.length}개 완료 테마\n`)
   if (enriched.length < 2) { console.log('❌ 최소 2개 테마 필요'); return }
 
-  // Population stats
+  // 모집단 통계
   const allFeatureVecs = enriched.map(t => {
     const f = extractFeatures({ scores: t.scores, interestValues: t.interestValues, totalNewsCount: 0, activeDays: t.activeDays })
     return Object.values(f)
@@ -84,7 +84,7 @@ async function main() {
   }
   const populationStats: FeaturePopulationStats = { means, stddevs }
 
-  // Threshold sweep
+  // 임계값 스윕
   const thresholds = [0.30, 0.35, 0.40, 0.45, 0.50, 0.55, 0.60]
   const thresholdResults: Array<{ threshold: number; matches: number; accurate: number; precision: string; recall: string }> = []
 
@@ -96,7 +96,7 @@ async function main() {
 
     for (let i = 0; i < enriched.length; i++) {
       const current = enriched[i]
-      // Use midpoint as "current" state
+      // 중간 지점을 "현재" 상태로 사용
       const midIdx = Math.floor(current.curve.length / 2)
       const halfCurve = current.curve.slice(0, midIdx)
       const remainingCurve = current.curve.slice(midIdx)
@@ -122,7 +122,7 @@ async function main() {
 
         if (result.similarity >= threshold) {
           matches++
-          // Check accuracy: does remaining curve correlate with past's corresponding segment?
+          // 정확도 검증: 나머지 곡선이 과거 테마의 대응 구간과 상관관계가 있는지 확인
           const remainingValues = remainingCurve.map(p => p.value)
           const pastRemaining = past.curve.slice(midIdx, midIdx + remainingValues.length).map(p => p.value)
           const minLen = Math.min(remainingValues.length, pastRemaining.length)
