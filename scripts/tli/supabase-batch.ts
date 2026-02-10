@@ -76,7 +76,9 @@ export async function batchUpsert(
     }
   }
 
-  if (failedCount > 0) {
+  if (failedCount === rows.length) {
+    throw new Error(`${label} 전량 저장 실패 (${failedCount}건)`)
+  } else if (failedCount > 0) {
     console.error(`   ❌ ${failedCount}/${rows.length}개 ${label} 저장 실패`)
   } else {
     console.log(`   ✅ ${rows.length}개 ${label} 저장 완료`)

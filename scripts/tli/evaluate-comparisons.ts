@@ -33,6 +33,15 @@ export async function evaluateComparisonOutcomes() {
   const pastIds = [...new Set(unverified.map(c => c.past_theme_id))]
   const allIds = [...new Set([...currentIds, ...pastIds])]
 
+  // 과거 테마의 first_spike_date 로딩 (궤적 라이프사이클 정렬용)
+  const pastThemesData = await batchQuery<{ id: string; first_spike_date: string | null }>(
+    'themes', 'id, first_spike_date', pastIds, undefined, 'id'
+  )
+  const firstSpikeDateByTheme = new Map<string, string>()
+  for (const t of pastThemesData) {
+    if (t.first_spike_date) firstSpikeDateByTheme.set(t.id, t.first_spike_date)
+  }
+
   // 궤적 비교용 관심도 데이터 로딩 (최근 180일)
   const oneEightyDaysAgo = new Date(new Date(today).getTime() - 180 * 86400000).toISOString().split('T')[0]
   const interestAll = await batchQuery<{ theme_id: string; time: string; normalized: number }>(
@@ -64,9 +73,13 @@ export async function evaluateComparisonOutcomes() {
       .filter(m => m.time > comp.calculated_at)
       .map(m => m.normalized)
 
-    // 과거 테마의 동일 구간 궤적
-    const pastValues = pastInterest
-      .slice(0, afterDate.length)
+    // 과거 테마의 동일 라이프사이클 위치 궤적 (first_spike_date 기준 정렬)
+    const pastFirstSpike = firstSpikeDateByTheme.get(comp.past_theme_id)
+    const alignedPastInterest = pastFirstSpike
+      ? pastInterest.filter(m => m.time >= pastFirstSpike)
+      : pastInterest
+    const pastValues = alignedPastInterest
+      .slice(comp.current_day, comp.current_day + afterDate.length)
       .map(m => m.normalized)
 
     const minLen = Math.min(afterDate.length, pastValues.length)

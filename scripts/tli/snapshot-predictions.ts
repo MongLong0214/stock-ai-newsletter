@@ -31,16 +31,27 @@ export async function snapshotPredictions(): Promise<void> {
 
   const themeIds = themes.map(t => t.id)
 
-  // 비교 데이터 로딩
-  const comparisons = await batchQuery<ThemeComparison>(
+  // 비교 데이터 로딩 (당일 기준, 중복 방지)
+  const comparisons = await batchQuery<ThemeComparison & { calculated_at: string }>(
     'theme_comparisons',
-    'theme_id:current_theme_id, past_theme_id, similarity_score, current_day, past_peak_day, past_total_days',
+    'theme_id:current_theme_id, past_theme_id, similarity_score, current_day, past_peak_day, past_total_days, calculated_at',
     themeIds,
-    undefined,
+    q => q.order('calculated_at', { ascending: false }),
     'current_theme_id',
   )
 
-  const compsByTheme = groupByThemeId(comparisons)
+  // (current_theme_id, past_theme_id) 기준 최신 1건만 유지
+  const dedupedComps: ThemeComparison[] = []
+  const seen = new Set<string>()
+  for (const c of comparisons) {
+    const key = `${c.theme_id}|${c.past_theme_id}`
+    if (!seen.has(key)) {
+      seen.add(key)
+      dedupedComps.push(c)
+    }
+  }
+
+  const compsByTheme = groupByThemeId(dedupedComps)
 
   // 과거 테마명 로딩 (시나리오용)
   const pastThemeIds = [...new Set(comparisons.map(c => c.past_theme_id))]
