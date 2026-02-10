@@ -60,88 +60,48 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       lastModified: currentDate,
       changeFrequency: 'daily',
       priority: 1.0,
-      alternates: {
-        languages: {
-          ko: baseUrl,
-        },
-      },
     },
     {
       url: `${baseUrl}/about`,
       lastModified: currentDate,
       changeFrequency: 'monthly',
       priority: 0.8,
-      alternates: {
-        languages: {
-          ko: `${baseUrl}/about`,
-        },
-      },
     },
     {
       url: `${baseUrl}/faq`,
       lastModified: currentDate,
       changeFrequency: 'monthly',
       priority: 0.8,
-      alternates: {
-        languages: {
-          ko: `${baseUrl}/faq`,
-        },
-      },
     },
     {
       url: `${baseUrl}/technical-indicators`,
       lastModified: currentDate,
       changeFrequency: 'monthly',
       priority: 0.9,
-      alternates: {
-        languages: {
-          ko: `${baseUrl}/technical-indicators`,
-        },
-      },
     },
     {
       url: `${baseUrl}/subscribe`,
       lastModified: currentDate,
       changeFrequency: 'weekly',
       priority: 0.9,
-      alternates: {
-        languages: {
-          ko: `${baseUrl}/subscribe`,
-        },
-      },
     },
     {
       url: `${baseUrl}/archive`,
       lastModified: currentDate,
       changeFrequency: 'daily',
       priority: 0.9,
-      alternates: {
-        languages: {
-          ko: `${baseUrl}/archive`,
-        },
-      },
     },
     {
       url: `${baseUrl}/blog`,
       lastModified: currentDate,
       changeFrequency: 'daily',
       priority: 0.9,
-      alternates: {
-        languages: {
-          ko: `${baseUrl}/blog`,
-        },
-      },
     },
     {
       url: `${baseUrl}/themes`,
       lastModified: currentDate,
       changeFrequency: 'daily',
       priority: 0.9,
-      alternates: {
-        languages: {
-          ko: `${baseUrl}/themes`,
-        },
-      },
     },
   ];
 
@@ -154,11 +114,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       lastModified: new Date(post.published_at),
       changeFrequency: 'weekly',
       priority: 0.7,
-      alternates: {
-        languages: {
-          ko: `${baseUrl}/blog/${post.slug}`,
-        },
-      },
     }));
 
   // 테마 동적 페이지
@@ -168,11 +123,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     lastModified: currentDate,
     changeFrequency: 'daily',
     priority: 0.7,
-    alternates: {
-      languages: {
-        ko: `${baseUrl}/themes/${id}`,
-      },
-    },
   }));
 
   return [...staticPages, ...blogPages, ...themePages];

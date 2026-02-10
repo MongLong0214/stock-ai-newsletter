@@ -33,7 +33,7 @@ async function BlogPage() {
         id="blog-collection-schema"
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(collectionSchema) }}
-        strategy="afterInteractive"
+        strategy="beforeInteractive"
       />
 
       {/* 배경 애니메이션 */}
