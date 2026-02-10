@@ -29,6 +29,12 @@ export const metadata: Metadata = {
     url: 'https://stockmatrix.co.kr/themes',
     type: 'website',
   },
+  twitter: {
+    card: 'summary_large_image',
+    title: '주식 테마 분석 — AI 테마 생명주기 추적 | StockMatrix',
+    description:
+      'AI가 분석하는 한국 주식시장 테마 트렌드. 주요 테마의 생명주기 점수와 단계를 실시간 추적합니다.',
+  },
 }
 
 /** 테마 목록 조회 (ItemList 스키마용) */
