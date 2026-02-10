@@ -12,9 +12,7 @@ import { getKSTDate } from './utils'
 // ─────────────────────────────────────────────────────
 
 async function discoverNewThemes(discovered: DiscoveredTheme[]) {
-  console.log('\n━'.repeat(80))
-  console.log('🆕 1단계: 신규 테마 발견 및 등록')
-  console.log('━'.repeat(80))
+  console.log('\n🆕 1단계: 신규 테마 발견 및 등록')
 
   // 기존 테마를 naverThemeId로 조회
   const { data: existingThemes, error } = await supabaseAdmin
@@ -128,9 +126,7 @@ export async function discoverAndManageThemes() {
   await autoDeactivate()
 
   const duration = ((Date.now() - startTime) / 1000).toFixed(2)
-  console.log('\n━'.repeat(80))
-  console.log(`✨ 테마 발견 파이프라인 완료 (${duration}초)`)
-  console.log('━'.repeat(80))
+  console.log(`\n✨ 테마 발견 파이프라인 완료 (${duration}초)`)
 }
 
 // 직접 실행 시
