@@ -101,6 +101,9 @@ importers:
       twitter-api-v2:
         specifier: ^1.27.0
         version: 1.29.0
+      undici:
+        specifier: ^7.21.0
+        version: 7.21.0
       unified:
         specifier: ^11.0.5
         version: 11.0.5
