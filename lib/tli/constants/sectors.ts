@@ -14,6 +14,3 @@ export const SECTOR_KEYWORDS: Readonly<Record<string, readonly string[]>> = {
   '건설부동산': ['건설', '부동산', '재건축', '리모델링', 'PF'],
   '금융': ['금융', '보험', '은행', '핀테크', '증권'],
 } as const
-
-/** 섹터 키 타입 */
-export type SectorKey = keyof typeof SECTOR_KEYWORDS
