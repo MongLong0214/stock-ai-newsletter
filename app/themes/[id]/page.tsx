@@ -1,8 +1,6 @@
 import type { Metadata } from 'next'
 import { createClient } from '@supabase/supabase-js'
-import { Suspense } from 'react'
 import DetailContent from './_components/detail-content'
-import { DetailLoading } from './_components/detail-states'
 
 /** 테마 메타데이터용 기본 정보 조회 */
 async function getThemeMeta(id: string) {
@@ -82,9 +80,5 @@ export async function generateMetadata({
 
 /** 테마 상세 페이지 */
 export default function ThemeDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  return (
-    <Suspense fallback={<DetailLoading />}>
-      <DetailContent params={params} />
-    </Suspense>
-  )
+  return <DetailContent params={params} />
 }
