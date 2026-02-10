@@ -104,7 +104,9 @@ export function zScoreEuclideanSimilarity(
     sumSqDiff += (zA - zB) ** 2
   }
   const distance = Math.sqrt(sumSqDiff / n)
-  return Math.exp(-distance)
+  // 감쇄 상수 0.7: distance=0→1.0, 0.5→0.70, 1.0→0.50, 2.0→0.25
+  // 기존 2.5는 distance=0.5→0.29로 과도하게 가파름 (모든 비교가 0-1%)
+  return Math.exp(-distance * 0.7)
 }
 
 // ---------------------------------------------------------------------------

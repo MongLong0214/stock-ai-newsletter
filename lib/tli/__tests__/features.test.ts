@@ -14,6 +14,8 @@ describe('extractFeatures', () => {
     expect(result.newsIntensity).toBe(0)
     expect(result.scoreLevel).toBe(0)
     expect(result.activeDaysNorm).toBe(0)
+    expect(result.priceChangePct).toBe(0.5) // 기본값 0 → (0+50)/100 = 0.5
+    expect(result.volumeIntensity).toBe(0)
   })
 
   it('calculates growthRate from recent vs older scores', () => {
@@ -104,8 +106,10 @@ describe('featuresToArray', () => {
       newsIntensity: 0.3,
       scoreLevel: 0.4,
       activeDaysNorm: 0.5,
+      priceChangePct: 0.5,
+      volumeIntensity: 0,
     }
-    expect(featuresToArray(features)).toEqual([0.1, 0.2, 0.3, 0.4, 0.5])
+    expect(featuresToArray(features)).toEqual([0.1, 0.2, 0.3, 0.4, 0.5, 0.5, 0])
   })
 })
 
