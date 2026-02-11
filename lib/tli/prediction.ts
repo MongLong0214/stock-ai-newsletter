@@ -1,7 +1,8 @@
 import { KST_OFFSET_MS } from './date-utils'
 import { buildPhaseMessage, buildKeyInsight } from './prediction-helpers'
+import type { ConfidenceLevel } from './types'
 
-export type ConfidenceLevel = 'high' | 'medium' | 'low'
+export type { ConfidenceLevel }
 export type Phase = 'pre-peak' | 'near-peak' | 'at-peak' | 'post-peak' | 'declining'
 export type RiskLevel = 'low' | 'moderate' | 'high' | 'critical'
 export type Momentum = 'accelerating' | 'stable' | 'decelerating'

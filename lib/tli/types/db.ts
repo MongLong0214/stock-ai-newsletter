@@ -66,6 +66,18 @@ export interface NewsMetric {
   growth_rate: number | null;
 }
 
+/** 신뢰도 레벨 */
+export type ConfidenceLevel = 'high' | 'medium' | 'low'
+
+/** Score Confidence — 점수 신뢰도 지표 */
+export interface ScoreConfidence {
+  level: ConfidenceLevel
+  dataAge: number
+  interestCoverage: number
+  newsCoverage: number
+  reason: string
+}
+
 export interface ScoreComponents {
   interest_score: number;
   news_momentum: number;
@@ -91,6 +103,7 @@ export interface ScoreComponents {
     dampening_factor?: number;
     raw_percentile?: number | null;
   };
+  confidence?: ScoreConfidence;
 }
 
 export interface LifecycleScore {

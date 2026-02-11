@@ -1,7 +1,7 @@
 'use client'
 
 import { motion } from 'framer-motion'
-import { STAGE_CONFIG, type Stage } from '@/lib/tli/types'
+import { STAGE_CONFIG, type Stage, type ConfidenceLevel } from '@/lib/tli/types'
 import { ArrowUp, ArrowDown } from 'lucide-react'
 
 interface LifecycleScoreProps {
@@ -9,6 +9,7 @@ interface LifecycleScoreProps {
   stage: Stage
   change24h?: number
   size?: 'sm' | 'md' | 'lg'
+  confidenceLevel?: ConfidenceLevel
 }
 
 const SIZE_CONFIG = {
@@ -23,6 +24,7 @@ export default function LifecycleScore({
   stage,
   change24h,
   size = 'md',
+  confidenceLevel,
 }: LifecycleScoreProps) {
   const config = SIZE_CONFIG[size]
   const stageConfig = STAGE_CONFIG[stage]
@@ -121,6 +123,15 @@ export default function LifecycleScore({
               {change24h > 0 ? '+' : ''}
               {change24h.toFixed(1)}
             </span>
+          </div>
+        )}
+        {confidenceLevel && confidenceLevel !== 'high' && (
+          <div className={`px-2 py-0.5 rounded-full text-xs font-mono ${
+            confidenceLevel === 'low'
+              ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+              : 'bg-slate-500/10 text-slate-400 border border-slate-500/20'
+          }`}>
+            {confidenceLevel === 'low' ? '데이터 부족' : '~'}
           </div>
         )}
       </div>

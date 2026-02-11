@@ -73,6 +73,7 @@ export function buildThemeDetailResponse(params: BuildThemeDetailParams): ThemeD
 
   const rawComponents = latestScore?.components ?? null
   const components = isScoreComponents(rawComponents) ? rawComponents : null
+  const stage = toStage(latestScore?.stage)
 
   return {
     id: theme.id,
@@ -83,8 +84,8 @@ export function buildThemeDetailResponse(params: BuildThemeDetailParams): ThemeD
     keywords,
     score: {
       value: latestScore?.score ?? 0,
-      stage: toStage(latestScore?.stage),
-      stageKo: getStageKo(toStage(latestScore?.stage)),
+      stage,
+      stageKo: getStageKo(stage),
       updatedAt: latestScore?.calculated_at ?? new Date().toISOString(),
       change24h: latestScore?.score != null && dayAgoScore?.score != null
         ? latestScore.score - dayAgoScore.score
@@ -109,6 +110,15 @@ export function buildThemeDetailResponse(params: BuildThemeDetailParams): ThemeD
             activeDays: components.raw.active_days,
             sentimentAvg: components.raw.sentiment_avg ?? 0,
             sentimentArticleCount: components.raw.sentiment_article_count ?? 0,
+          }
+        : null,
+      confidence: components?.confidence
+        ? {
+            level: components.confidence.level,
+            dataAge: components.confidence.dataAge,
+            interestCoverage: components.confidence.interestCoverage,
+            newsCoverage: components.confidence.newsCoverage,
+            reason: components.confidence.reason,
           }
         : null,
     },

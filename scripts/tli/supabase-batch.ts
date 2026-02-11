@@ -1,7 +1,11 @@
 import { supabaseAdmin } from './supabase-admin'
 
+function sleep(ms: number) { return new Promise(r => setTimeout(r, ms)) }
+
 const PAGE_SIZE = 1000
 const CHUNK_SIZE = 300
+const MAX_RETRIES = 3
+const BASE_DELAY_MS = 1000
 
 /**
  * Supabase 배치 쿼리
@@ -23,16 +27,33 @@ export async function batchQuery<T>(
     let from = 0
 
     while (true) {
-      let q = supabaseAdmin.from(table).select(select).in(column, chunk)
-      if (filters) q = filters(q)
-      const { data, error } = await q.range(from, from + PAGE_SIZE - 1)
+      let data: T[] | null = null
+      let lastError: string | null = null
 
-      if (error) {
-        console.error(`   ⚠️ batchQuery(${table}) 실패:`, error.message)
+      for (let retry = 0; retry < MAX_RETRIES; retry++) {
+        let q = supabaseAdmin.from(table).select(select).in(column, chunk)
+        if (filters) q = filters(q)
+        const result = await q.range(from, from + PAGE_SIZE - 1)
+
+        if (!result.error) {
+          data = result.data as T[] | null
+          lastError = null
+          break
+        }
+
+        lastError = result.error.message
+        if (retry < MAX_RETRIES - 1) {
+          console.warn(`   ⚠️ batchQuery(${table}) 재시도 ${retry + 1}/${MAX_RETRIES - 1}:`, lastError)
+          await sleep(BASE_DELAY_MS * Math.pow(2, retry))
+        }
+      }
+
+      if (lastError) {
+        console.error(`   ⚠️ batchQuery(${table}) ${MAX_RETRIES}회 시도 후 실패:`, lastError)
         break
       }
       if (!data?.length) break
-      results.push(...(data as T[]))
+      results.push(...data)
       if (data.length < PAGE_SIZE) break
       from += PAGE_SIZE
     }
@@ -66,13 +87,28 @@ export async function batchUpsert(
   let failedCount = 0
   for (let i = 0; i < rows.length; i += 500) {
     const batch = rows.slice(i, i + 500)
-    const { error } = await supabaseAdmin
-      .from(table)
-      .upsert(batch, { onConflict })
+    let upsertError: string | null = null
 
-    if (error) {
+    for (let retry = 0; retry < MAX_RETRIES; retry++) {
+      const { error } = await supabaseAdmin
+        .from(table)
+        .upsert(batch, { onConflict })
+
+      if (!error) {
+        upsertError = null
+        break
+      }
+
+      upsertError = error.message
+      if (retry < MAX_RETRIES - 1) {
+        console.warn(`   ⚠️ 배치 ${i}~${i + batch.length} 재시도 ${retry + 1}/${MAX_RETRIES - 1}:`, upsertError)
+        await sleep(BASE_DELAY_MS * Math.pow(2, retry))
+      }
+    }
+
+    if (upsertError) {
       failedCount += batch.length
-      console.error(`   ⚠️ 배치 ${i}~${i + batch.length} 저장 실패:`, error.message)
+      console.error(`   ⚠️ 배치 ${i}~${i + batch.length} ${MAX_RETRIES}회 시도 후 실패:`, upsertError)
     }
   }
 

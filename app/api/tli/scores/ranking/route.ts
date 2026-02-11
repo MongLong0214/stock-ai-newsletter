@@ -73,17 +73,19 @@ export async function GET() {
       const latest = meta?.latest ?? null
       const weekAgoScore = meta?.weekAgoScore ?? null
 
-      // Extract sentiment from latest score's components
+      // 최신 점수 컴포넌트에서 감성/신뢰도 추출
       const latestComponents = isScoreComponents(latest?.components) ? latest!.components : null
       const sentimentScore = latestComponents?.sentiment_score ?? 0
+      const confidenceLevel = latestComponents?.confidence?.level
+      const stage = toStage(latest?.stage)
 
       return {
         id: theme.id,
         name: theme.name,
         nameEn: theme.name_en,
         score: latest?.score ?? 0,
-        stage: toStage(latest?.stage),
-        stageKo: getStageKo(toStage(latest?.stage)),
+        stage,
+        stageKo: getStageKo(stage),
         change7d: latest?.score != null && weekAgoScore?.score != null
           ? latest.score - weekAgoScore.score
           : 0,
@@ -94,6 +96,7 @@ export async function GET() {
         sparkline: meta?.sparkline ?? [],
         newsCount7d: newsCountMap.get(theme.id) ?? 0,
         sentimentScore,
+        confidenceLevel,
       }
     })
 

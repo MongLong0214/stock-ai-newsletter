@@ -14,8 +14,8 @@ export async function calculateAndSaveScores(themes: ThemeWithKeywords[]) {
   const themeIds = themes.map(t => t.id)
   const sevenDaysAgo = daysAgo(7)
 
-  // ─── 데이터 배치 로딩 (4개 테이블 병렬, 자동 페이지네이션) ───
-  const [allInterest, allNews, allSentiments, allPrevScores] = await Promise.all([
+  // ─── 데이터 배치 로딩 (5개 테이블 병렬, 자동 페이지네이션) ───
+  const [allInterest, allNews, allSentiments, allPrevScores, allStockPrices] = await Promise.all([
     batchQuery<InterestMetric & { theme_id: string }>(
       'interest_metrics', '*', themeIds,
       q => q.order('time', { ascending: false }),
@@ -31,6 +31,10 @@ export async function calculateAndSaveScores(themes: ThemeWithKeywords[]) {
     batchQuery<{ theme_id: string; stage: string }>(
       'lifecycle_scores', 'theme_id, stage', themeIds,
       q => q.lt('calculated_at', today).order('calculated_at', { ascending: false }),
+    ),
+    batchQuery<{ theme_id: string; price_change_pct: number | null }>(
+      'theme_stocks', 'theme_id, price_change_pct', themeIds,
+      q => q.eq('is_active', true).not('price_change_pct', 'is', null),
     ),
   ])
 
@@ -91,6 +95,17 @@ export async function calculateAndSaveScores(themes: ThemeWithKeywords[]) {
     sentimentCache.set(theme.id, scores)
   }
 
+  // ─── 종목 주가 변동률 캐시 ──
+  const stockPriceByTheme = groupByThemeId(allStockPrices)
+  const avgPriceChangeMap = new Map<string, number>()
+  for (const theme of themes) {
+    const stocks = stockPriceByTheme.get(theme.id) || []
+    const prices = stocks.map(s => s.price_change_pct).filter((p): p is number => p !== null)
+    if (prices.length > 0) {
+      avgPriceChangeMap.set(theme.id, prices.reduce((s, v) => s + v, 0) / prices.length)
+    }
+  }
+
   // ─── 점수 계산 ───
   for (const theme of themes) {
     try {
@@ -109,6 +124,7 @@ export async function calculateAndSaveScores(themes: ThemeWithKeywords[]) {
         firstSpikeDate: theme.first_spike_date,
         today,
         rawPercentile: computePercentile(rawAvgMap.get(theme.id) ?? 0),
+        avgPriceChangePct: avgPriceChangeMap.get(theme.id),
       })
 
       if (!result) {
