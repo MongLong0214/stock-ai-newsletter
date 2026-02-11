@@ -7,8 +7,8 @@ import { getKSTDate } from './utils'
 const ACCURACY_THRESHOLD = 0.3
 const MIN_VERIFICATION_DAYS = 14
 /** 현재 기본 임계값 (캘리브레이션 데이터 축적 후 동적 조정 예정) */
-const DEFAULT_THRESHOLD = 0.40
-const DEFAULT_SECTOR_PENALTY = 0.7
+const DEFAULT_THRESHOLD = 0.30
+const DEFAULT_SECTOR_PENALTY = 0.85
 
 export async function evaluateComparisonOutcomes() {
   console.log('\n🔬 비교 결과 검증 중...')

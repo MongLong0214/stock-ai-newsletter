@@ -27,7 +27,7 @@ async function main() {
   let criticalFailures = 0;
 
   try {
-    // 0단계: 테마 발견 (주 2회 - 일/수, full 모드에서만)
+    // 사전단계: 테마 발견 (주 2회 - 일/수, full 모드에서만)
     if (mode === 'full' && (dayOfWeek === 0 || dayOfWeek === 3)) {
       try {
         await discoverAndManageThemes();
@@ -45,11 +45,11 @@ async function main() {
       }
     }
 
-    // 1단계: 활성 테마 로딩
+    // 사전단계: 활성 테마 로딩
     const themes = await loadActiveThemes();
     const endDate = getKSTDate();
 
-    // 2단계: 네이버 DataLab 수집 (full 모드에서만)
+    // 1단계: 네이버 DataLab 수집 (full 모드에서만)
     if (mode === 'full') {
       const startDate = daysAgo(30);
       console.log('\n📊 1단계: 네이버 DataLab 수집');
@@ -67,7 +67,7 @@ async function main() {
       }
     }
 
-    // 3단계: 네이버 뉴스 수집 (모든 모드)
+    // 2단계: 네이버 뉴스 수집 (모든 모드)
     console.log(`\n📰 ${mode === 'news-only' ? '1' : '2'}단계: 네이버 뉴스 수집`);
 
     try {
@@ -84,7 +84,7 @@ async function main() {
       console.error('❌ 네이버 뉴스 수집 실패:', error instanceof Error ? error.message : String(error));
     }
 
-    // 4단계: 종목 수집 (평일 full 모드 - 장 마감 후)
+    // 3단계: 종목 수집 (평일 full 모드 - 장 마감 후)
     if (mode === 'full' && dayOfWeek >= 1 && dayOfWeek <= 5) {
       console.log('\n📈 3단계: 네이버 금융 종목 수집');
 
@@ -100,7 +100,7 @@ async function main() {
       console.log('\n⊘ 종목 수집 생략 (주말)');
     }
 
-    // 5단계: 점수 계산 (full 모드에서만)
+    // 4단계: 점수 계산 (full 모드에서만)
     if (mode === 'full') {
       console.log('\n🧮 4단계: 라이프사이클 점수 계산');
 
@@ -110,7 +110,7 @@ async function main() {
         console.error('❌ 점수 계산 실패:', error instanceof Error ? error.message : String(error));
       }
 
-      // 6단계: 비교 분석
+      // 5단계: 비교 분석
       console.log('\n🔍 5단계: 테마 비교 분석');
 
       try {
@@ -119,7 +119,7 @@ async function main() {
         console.error('❌ 비교 분석 실패:', error instanceof Error ? error.message : String(error));
       }
 
-      // 7단계: 예측 스냅샷
+      // 6단계: 예측 스냅샷
       console.log('\n📸 6단계: 예측 스냅샷');
 
       try {
@@ -128,7 +128,7 @@ async function main() {
         console.error('❌ 예측 스냅샷 실패:', error instanceof Error ? error.message : String(error));
       }
 
-      // 8단계: 예측 평가
+      // 7단계: 예측 평가
       console.log('\n📊 7단계: 예측 평가');
 
       try {
@@ -137,7 +137,7 @@ async function main() {
         console.error('❌ 예측 평가 실패:', error instanceof Error ? error.message : String(error));
       }
 
-      // 9단계: 비교 결과 검증
+      // 8단계: 비교 결과 검증
       console.log('\n🔬 8단계: 비교 결과 검증');
 
       try {
