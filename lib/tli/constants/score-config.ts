@@ -2,11 +2,17 @@
 
 /** 점수 컴포넌트 가중치 */
 export const SCORE_WEIGHTS = {
-  interest: 0.40,
-  newsMomentum: 0.25,
-  sentiment: 0.20,
-  volatility: 0.15,
+  interest: 0.45,
+  newsMomentum: 0.30,
+  sentiment: 0.05,
+  volatility: 0.20,
 } as const
+
+// 가중치 합계 검증 (1.0이 아니면 즉시 에러)
+const _weightSum = Object.values(SCORE_WEIGHTS).reduce((s, w) => s + w, 0)
+if (Math.abs(_weightSum - 1.0) > 0.001) {
+  throw new Error(`SCORE_WEIGHTS 합계 ${_weightSum} ≠ 1.0`)
+}
 
 /** 점수 컴포넌트 키 타입 */
 export type ScoreComponentKey = keyof typeof SCORE_WEIGHTS
@@ -31,8 +37,8 @@ export const SCORE_COMPONENTS: readonly ScoreComponentConfig[] = [
   {
     key: 'interest',
     label: '검색 관심',
-    weight: 40,
-    weightLabel: '40%',
+    weight: Math.round(SCORE_WEIGHTS.interest * 100),
+    weightLabel: `${Math.round(SCORE_WEIGHTS.interest * 100)}%`,
     color: '#10B981',
     colorFrom: '#10B981',
     colorTo: '#059669',
@@ -44,8 +50,8 @@ export const SCORE_COMPONENTS: readonly ScoreComponentConfig[] = [
   {
     key: 'newsMomentum',
     label: '뉴스 모멘텀',
-    weight: 25,
-    weightLabel: '25%',
+    weight: Math.round(SCORE_WEIGHTS.newsMomentum * 100),
+    weightLabel: `${Math.round(SCORE_WEIGHTS.newsMomentum * 100)}%`,
     color: '#0EA5E9',
     colorFrom: '#0EA5E9',
     colorTo: '#0284C7',
@@ -57,8 +63,8 @@ export const SCORE_COMPONENTS: readonly ScoreComponentConfig[] = [
   {
     key: 'sentiment',
     label: '기사 논조',
-    weight: 20,
-    weightLabel: '20%',
+    weight: Math.round(SCORE_WEIGHTS.sentiment * 100),
+    weightLabel: `${Math.round(SCORE_WEIGHTS.sentiment * 100)}%`,
     color: '#F59E0B',
     colorFrom: '#F59E0B',
     colorTo: '#D97706',
@@ -70,8 +76,8 @@ export const SCORE_COMPONENTS: readonly ScoreComponentConfig[] = [
   {
     key: 'volatility',
     label: '변동성',
-    weight: 15,
-    weightLabel: '15%',
+    weight: Math.round(SCORE_WEIGHTS.volatility * 100),
+    weightLabel: `${Math.round(SCORE_WEIGHTS.volatility * 100)}%`,
     color: '#8B5CF6',
     colorFrom: '#8B5CF6',
     colorTo: '#7C3AED',
@@ -80,4 +86,4 @@ export const SCORE_COMPONENTS: readonly ScoreComponentConfig[] = [
     border: 'border-purple-500/20',
     rawLabel: 'interestStddev',
   },
-] as const
+]

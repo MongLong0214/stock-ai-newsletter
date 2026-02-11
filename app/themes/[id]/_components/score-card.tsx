@@ -73,6 +73,32 @@ function ScoreCard({ score }: ScoreCardProps) {
           </div>
         </motion.div>
 
+        {/* 신뢰도 표시 */}
+        {score.confidence && score.confidence.level !== 'high' && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.7 }}
+            className={`mb-6 rounded-xl border p-4 flex items-start gap-3 ${
+              score.confidence.level === 'low'
+                ? 'border-amber-500/20 bg-amber-500/5'
+                : 'border-slate-500/20 bg-slate-500/5'
+            }`}
+          >
+            <span className="text-sm">⚠️</span>
+            <div>
+              <p className={`text-xs font-mono mb-1 ${
+                score.confidence.level === 'low' ? 'text-amber-400' : 'text-slate-400'
+              }`}>
+                점수 신뢰도: {score.confidence.level === 'low' ? '낮음' : '보통'}
+              </p>
+              <p className="text-sm font-mono text-slate-400">
+                {score.confidence.reason}
+              </p>
+            </div>
+          </motion.div>
+        )}
+
         {/* 점수 구성 상세 */}
         <div className="mb-4">
           <h3 className="text-xs font-mono text-slate-500 uppercase tracking-wider mb-4">구성 요소 분석</h3>
