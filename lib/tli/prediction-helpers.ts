@@ -1,63 +1,53 @@
 /** 예측 계산 헬퍼 함수들 */
 
-import type { Phase, RiskLevel } from './prediction'
-
-export function buildRiskMessage(risk: RiskLevel): string {
-  const messages: Record<RiskLevel, string> = {
-    low: '현재 위험도가 낮은 구간입니다',
-    moderate: '주의가 필요한 구간에 진입하고 있습니다',
-    high: '높은 주의가 필요한 구간입니다',
-    critical: '매우 높은 위험 구간입니다. 신중한 판단이 필요합니다',
-  }
-  return messages[risk]
-}
+import type { Phase } from './prediction'
 
 export function buildPhaseMessage(phase: Phase, avgDaysToPeak: number, score?: number): string {
-  if (score !== undefined && score >= 75) return `점수 ${score}점 · 피크 구간 통과 중`
+  if (score !== undefined && score >= 75) return `점수 ${score}점 · 정점 구간 통과 중`
   if (score !== undefined && score >= 55) return `점수 ${score}점 · 성장 구간 진입`
 
   switch (phase) {
     case 'pre-peak':
       return avgDaysToPeak > 0
-        ? `피크까지 약 ${avgDaysToPeak}일 남음`
-        : '피크 이전 초기 성장 구간'
+        ? `정점까지 약 ${avgDaysToPeak}일 남음`
+        : '아직 초기 성장 구간이에요'
     case 'near-peak':
       return avgDaysToPeak > 0
-        ? `약 ${avgDaysToPeak}일 내 피크 도달 예상`
-        : '피크 구간에 근접 중'
+        ? `약 ${avgDaysToPeak}일 내 정점 도달 예상`
+        : '정점 구간에 가까워지고 있어요'
     case 'at-peak':
-      return '피크 구간 통과 중'
+      return '정점 구간을 지나고 있어요'
     case 'post-peak':
-      return '피크 이후 하락 전환 구간'
+      return '정점을 지나 하락 구간이에요'
     case 'declining':
-      return '하락 단계 진입'
+      return '하락 단계에 접어들었어요'
   }
 }
 
 export function buildKeyInsight(phase: Phase, avgDaysToPeak: number, score?: number): string {
   if (score !== undefined && score >= 75) {
-    return `현재 점수 ${score}점으로 과열 구간입니다. 이후 하락 전환에 유의하세요`
+    return `현재 점수 ${score}점으로 관심이 매우 높아요. 이후 하락 전환에 유의하세요`
   }
   if (score !== undefined && score >= 55) {
     return avgDaysToPeak > 0
-      ? `현재 점수 ${score}점으로 성장 구간입니다. 유사 테마 기준 피크까지 약 ${avgDaysToPeak}일 남은 것으로 추정됩니다`
-      : `현재 점수 ${score}점으로 성장 구간에 있습니다`
+      ? `현재 점수 ${score}점으로 성장 중이에요. 비슷한 테마 기준 정점까지 약 ${avgDaysToPeak}일 정도 남았어요`
+      : `현재 점수 ${score}점으로 성장 중이에요`
   }
   // 낮은 점수(< 55)는 상승/하락 구분 불가 → phase 기반 메시지로 위임
   switch (phase) {
     case 'pre-peak':
       return avgDaysToPeak > 0
-        ? `유사 테마 분석 기준, 성장 초기 단계로 피크까지 약 ${avgDaysToPeak}일 여유가 있습니다`
-        : '유사 테마 분석 기준, 성장 초기 단계로 피크까지 여유가 있습니다'
+        ? `비슷한 테마 기준, 초기 성장 단계로 정점까지 약 ${avgDaysToPeak}일 여유가 있어요`
+        : '비슷한 테마 기준, 초기 성장 단계로 정점까지 여유가 있어요'
     case 'near-peak':
       return avgDaysToPeak > 0
-        ? `피크 구간에 근접하고 있습니다. 약 ${avgDaysToPeak}일 내 정점 도달이 예상됩니다`
-        : '피크 구간에 근접하고 있습니다. 곧 정점 도달이 예상됩니다'
+        ? `정점 구간에 가까워지고 있어요. 약 ${avgDaysToPeak}일 내 정점 도달이 예상돼요`
+        : '정점 구간에 가까워지고 있어요. 곧 정점에 도달할 것으로 보여요'
     case 'at-peak':
-      return '현재 피크 구간으로 추정됩니다. 이후 하락 전환에 유의하세요'
+      return '현재 정점 구간으로 보여요. 이후 하락 전환에 유의하세요'
     case 'post-peak':
-      return '피크를 지난 것으로 보입니다. 하락세 전환 가능성이 높습니다'
+      return '정점을 지난 것으로 보여요. 하락 전환 가능성이 높아요'
     case 'declining':
-      return '하락 단계에 진입한 것으로 보입니다. 신중한 접근이 필요합니다'
+      return '하락 단계에 접어든 것으로 보여요. 신중한 접근이 필요해요'
   }
 }

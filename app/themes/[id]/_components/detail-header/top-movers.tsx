@@ -87,7 +87,7 @@ export default function TopMovers({ stocks }: TopMoversProps) {
       ) : (
         <div className="flex flex-col items-center justify-center h-32 rounded-xl bg-slate-800/20 border border-slate-700/20">
           <BarChart3 className="w-8 h-8 text-slate-700 mb-2" />
-          <p className="text-xs font-mono text-slate-600">시세 데이터 수집 중</p>
+          <p className="text-xs font-mono text-slate-600">시세 데이터를 준비하고 있어요</p>
         </div>
       )}
     </div>
