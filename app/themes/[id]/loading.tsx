@@ -1,4 +1,4 @@
-import { DetailLoading } from './_components/detail-states'
+import { DetailLoading } from './_components/detail-loading'
 
 export default function ThemeDetailLoading() {
   return <DetailLoading />

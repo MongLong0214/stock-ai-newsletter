@@ -102,7 +102,7 @@ function NewsHeadlines({ articles }: NewsHeadlinesProps) {
     return (
       <div className="flex flex-col items-center justify-center py-12 gap-3">
         <Newspaper className="w-8 h-8 text-slate-700" />
-        <p className="text-sm text-slate-500 font-mono">뉴스 데이터 수집 중</p>
+        <p className="text-sm text-slate-500 font-mono">뉴스 데이터를 준비하고 있어요</p>
       </div>
     )
   }
