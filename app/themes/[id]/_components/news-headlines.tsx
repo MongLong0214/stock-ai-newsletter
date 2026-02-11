@@ -17,9 +17,16 @@ interface NewsHeadlinesProps {
   articles: NewsArticle[]
 }
 
-/** HTML 태그 제거 */
+/** HTML 태그 제거 + 엔티티 디코딩 */
 function stripHtml(text: string): string {
-  return text.replace(/<[^>]*>/g, '')
+  return text
+    .replace(/<[^>]*>/g, '')
+    .replace(/&quot;/g, '"')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&apos;/g, "'")
+    .replace(/&#39;/g, "'")
 }
 
 /** URL 프로토콜 검증 (XSS 방지) */

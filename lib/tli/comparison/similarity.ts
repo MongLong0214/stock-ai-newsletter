@@ -78,14 +78,14 @@ export function cosineSimilarity(a: number[], b: number[]): number {
 // Z-score 유클리디안 유사도
 // ---------------------------------------------------------------------------
 
-/** Population statistics for feature dimensions */
+/** 피처 차원별 모집단 통계 */
 export interface FeaturePopulationStats {
   means: number[]
   stddevs: number[]
 }
 
 /**
- * Z-score Euclidean similarity: z-score normalization으로 모집단 대비 상대적 위치 비교.
+ * Z-score 유클리디안 유사도: z-score 정규화로 모집단 대비 상대적 위치를 비교한다.
  * 코사인 유사도와 달리 비음수 벡터에서도 높은 판별력을 제공한다.
  * 반환: [0, 1] — 동일하면 1.0, 멀수록 0에 수렴
  */
@@ -113,17 +113,17 @@ export function zScoreEuclideanSimilarity(
 // 키워드 자카드 유사도
 // ---------------------------------------------------------------------------
 
-/** 두 키워드 집합의 Jaccard 유사도 (교집합 / 합집합) */
-export function keywordJaccard(setA: string[], setB: string[]): number {
-  if (setA.length === 0 && setB.length === 0) return 0
+/** 두 키워드 집합의 Jaccard 유사도 (배열 또는 사전계산된 소문자 Set) */
+export function keywordJaccard(setA: string[] | Set<string>, setB: string[] | Set<string>): number {
+  const aSize = setA instanceof Set ? setA.size : setA.length
+  const bSize = setB instanceof Set ? setB.size : setB.length
+  if (aSize === 0 && bSize === 0) return 0
 
-  const a = new Set(setA.map(k => k.toLowerCase()))
-  const b = new Set(setB.map(k => k.toLowerCase()))
+  const a = setA instanceof Set ? setA : new Set(setA.map(k => k.toLowerCase()))
+  const b = setB instanceof Set ? setB : new Set(setB.map(k => k.toLowerCase()))
 
   let intersection = 0
-  a.forEach(k => {
-    if (b.has(k)) intersection++
-  })
+  a.forEach(k => { if (b.has(k)) intersection++ })
 
   const union = a.size + b.size - intersection
   return union === 0 ? 0 : intersection / union

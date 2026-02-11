@@ -17,8 +17,6 @@ import {
 } from './config'
 import { StatCell, MomentumCell, ScenarioCard } from './sub-components'
 
-/* ── 애니메이션 ─────────────────────────────────────────────────── */
-
 const containerVariants = {
   hidden: { opacity: 0, y: 24 },
   visible: {
@@ -32,14 +30,10 @@ const itemVariants = {
   visible: { opacity: 1, y: 0, transition: { duration: 0.4 } },
 }
 
-/* ── Props ──────────────────────────────────────────────────────── */
-
 interface ThemePredictionProps {
   firstSpikeDate: string | null
   comparisons: ComparisonResult[]
 }
-
-/* ── 메인 컴포넌트 ─────────────────────────────────────────────── */
 
 function ThemePrediction({ firstSpikeDate, comparisons }: ThemePredictionProps) {
   const prediction = useMemo(
@@ -52,6 +46,7 @@ function ThemePrediction({ firstSpikeDate, comparisons }: ThemePredictionProps) 
   const confidenceCfg = CONFIDENCE_CONFIG[prediction.confidence]
   const riskCfg = RISK_CONFIG[prediction.riskLevel]
   const RiskIcon = riskCfg.icon
+  const phaseColors = PHASE_COLORS[prediction.phase]
 
   return (
     <GlassCard className="p-5 sm:p-6">
@@ -79,7 +74,7 @@ function ThemePrediction({ firstSpikeDate, comparisons }: ThemePredictionProps) 
           <p className="text-sm font-mono text-slate-200 leading-relaxed">{prediction.keyInsight}</p>
         </motion.div>
 
-        {/* 3. Phase Timeline */}
+        {/* 3. Phase Timeline (5단계 이산) */}
         <motion.div variants={itemVariants} className="space-y-3">
           <div className="flex items-center gap-1.5">
             {PHASE_LABELS.map((phase, idx) => {
@@ -109,10 +104,42 @@ function ThemePrediction({ firstSpikeDate, comparisons }: ThemePredictionProps) 
               )
             })}
           </div>
-          <p className={`text-xs font-mono text-center ${PHASE_COLORS[prediction.phase].text}`}>{prediction.phaseMessage}</p>
+          <p className={`text-xs font-mono text-center ${phaseColors.text}`}>{prediction.phaseMessage}</p>
         </motion.div>
 
-        {/* 4. Stats Grid */}
+        {/* 4. 종합 진행률 (과거 유사 테마 평균 주기 대비 연속적 위치) */}
+        {prediction.avgTotalDays > 0 && (
+          <motion.div variants={itemVariants} className="space-y-1.5">
+            <div className="flex items-center justify-between text-[10px] font-mono text-slate-500">
+              <span>시작</span>
+              {prediction.peakProgress > 0 && <span>평균 피크 ({prediction.avgPeakDay}일)</span>}
+              <span>평균 종료 (~{prediction.avgTotalDays}일)</span>
+            </div>
+            <div className="relative h-2.5 rounded-full bg-slate-800">
+              {prediction.peakProgress > 0 && (
+                <div className="absolute top-0 h-full w-0.5 bg-amber-500/60 z-10" style={{ left: `${prediction.peakProgress}%` }} />
+              )}
+              <motion.div
+                className={`absolute top-0 h-full rounded-full ${phaseColors.bg} opacity-30`}
+                initial={{ width: 0 }}
+                animate={{ width: `${prediction.currentProgress}%` }}
+                transition={{ duration: 1, delay: 0.3 }}
+              />
+              <motion.div
+                className={`absolute top-1/2 -translate-y-1/2 w-3 h-3 rounded-full ${phaseColors.bg} border-2 border-slate-900 z-20`}
+                style={{ left: `${prediction.currentProgress}%`, marginLeft: '-6px' }}
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                transition={{ duration: 0.4, delay: 0.8 }}
+              />
+            </div>
+            <p className="text-[10px] font-mono text-slate-400 text-center">
+              과거 유사 테마 평균 주기 대비 {Math.round(prediction.currentProgress)}% 경과
+            </p>
+          </motion.div>
+        )}
+
+        {/* 5. Stats Grid */}
         <motion.div variants={itemVariants} className="grid grid-cols-2 gap-3">
           <StatCell icon={<Clock className="w-4 h-4" />} label="경과일" value={prediction.daysSinceSpike > 365 ? '1년+' : `${prediction.daysSinceSpike}일`} color="#10B981" />
           <StatCell icon={<Target className="w-4 h-4" />} label="예상 피크" value={prediction.avgDaysToPeak > 0 ? `약 ${prediction.avgDaysToPeak}일 후` : '피크 도달'} color="#F59E0B" />
@@ -120,14 +147,14 @@ function ThemePrediction({ firstSpikeDate, comparisons }: ThemePredictionProps) 
           <MomentumCell momentum={prediction.momentum} />
         </motion.div>
 
-        {/* 5. Scenario Cards */}
+        {/* 6. Scenario Cards */}
         <motion.div variants={itemVariants} className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <ScenarioCard label="낙관 시나리오" scenario={prediction.scenarios.best} accent="emerald" />
           <ScenarioCard label="기본 시나리오" scenario={prediction.scenarios.median} accent="slate" />
           <ScenarioCard label="비관 시나리오" scenario={prediction.scenarios.worst} accent="red" />
         </motion.div>
 
-        {/* 6. Disclaimer */}
+        {/* 7. Disclaimer */}
         <motion.p variants={itemVariants} className="text-[10px] font-mono text-slate-500 text-center pt-1">
           과거 유사 테마({prediction.comparisonCount}개) 기반 참고 정보이며, 실제 시장과 다를 수 있습니다
         </motion.p>
