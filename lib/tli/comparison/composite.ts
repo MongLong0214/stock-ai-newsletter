@@ -1,4 +1,4 @@
-/** 복합 비교 (3-Pillar) — 특성 벡터 · 곡선 · 키워드 결합 유사도 */
+/** 복합 비교 (2-Pillar) — 특성 벡터(Mutual Rank) · 곡선 유사도 + 키워드(표시용) */
 
 import type { TimeSeriesPoint } from './timeline'
 import { normalizeValues, resampleCurve } from './timeline'
@@ -41,6 +41,7 @@ export function compositeCompare(params: {
   current: CurrentInput
   past: PastInput
   populationStats?: FeaturePopulationStats
+  precomputedFeatureSim?: number
 }): {
   similarity: number
   currentDay: number
@@ -54,12 +55,12 @@ export function compositeCompare(params: {
 } {
   const { current, past } = params
 
-  // 특성 벡터 유사도 (z-score 우선, 폴백: 코사인)
-  const currentVec = featuresToArray(current.features)
-  const pastVec = featuresToArray(past.features)
-  const featureSim = params.populationStats
-    ? zScoreEuclideanSimilarity(currentVec, pastVec, params.populationStats)
-    : Math.max(0, cosineSimilarity(currentVec, pastVec))
+  // 특성 벡터 유사도 (Mutual Rank 우선 → z-score 폴백 → 코사인 폴백)
+  const featureSim = params.precomputedFeatureSim !== undefined
+    ? params.precomputedFeatureSim
+    : params.populationStats
+      ? zScoreEuclideanSimilarity(featuresToArray(current.features), featuresToArray(past.features), params.populationStats)
+      : Math.max(0, cosineSimilarity(featuresToArray(current.features), featuresToArray(past.features)))
 
   // 곡선 유사도 (RMSE 60% + 미분 상관 40%, 사전계산 캐시 활용)
   const { curveSim, minCurveLen } = computeCurveSim(

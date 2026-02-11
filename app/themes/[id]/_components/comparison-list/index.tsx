@@ -40,25 +40,33 @@ function ComparisonList({
   }
 
   const avgSim = Math.round(
-    validEntries.reduce((sum, { comp }) => sum + comp.similarity, 0) / validEntries.length * 100,
+    (validEntries.reduce((sum, { comp }) => sum + comp.similarity, 0) / validEntries.length) * 100,
   )
 
   return (
-    <GlassCard className="p-6 h-full overflow-y-auto custom-scroll">
+    <GlassCard className="h-full overflow-hidden flex flex-col">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6, delay: 0.4 }}
+        className="flex flex-col h-full"
       >
-        <h2 className="text-lg font-bold mb-1">
-          <span className="text-white">유사</span>
-          <span className="text-emerald-400 ml-1">패턴</span>
-        </h2>
-        <p className="text-xs font-mono text-slate-500 mb-4">
-          {validEntries.length}개 과거 테마 비교 · 평균 유사도 {avgSim}%
-        </p>
+        <div className="px-4 py-3.5 border-b border-slate-800/50">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-bold">
+              <span className="text-white">유사</span>
+              <span className="text-emerald-400 ml-1">패턴</span>
+            </h2>
+            <span className="text-xs font-mono text-emerald-400 px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 tabular-nums">
+              {validEntries.length}
+            </span>
+          </div>
+          <p className="text-xs font-mono text-slate-500 mt-1">
+            {validEntries.length}개 과거 테마 비교 · 평균 유사도 {avgSim}%
+          </p>
+        </div>
 
-        <div className="space-y-3">
+        <div className="flex-1 overflow-y-auto custom-scroll px-4 py-3 space-y-3">
           {validEntries.map(({ comp, originalIdx }, displayIdx) => (
             <ComparisonCard
               key={comp.pastThemeId}
