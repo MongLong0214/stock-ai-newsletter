@@ -1,6 +1,6 @@
 /** API response types */
 
-import type { Stage, NewsArticle } from './db'
+import type { Stage, NewsArticle, ConfidenceLevel } from './db'
 
 /** API 응답 공통 래퍼 */
 export interface ApiResponse<T> {
@@ -82,8 +82,10 @@ export interface ThemeListItem {
   sparkline: number[];
   /** 뉴스 기사 수 (theme_news_articles 총 건수) */
   newsCount7d: number;
-  /** 최근 감성 점수 (0=중립, >0=긍정, <0=부정) */
+  /** 최근 감성 점수 (0.5=중립, >0.5=긍정, <0.5=부정) */
   sentimentScore: number;
+  /** 점수 신뢰도 */
+  confidenceLevel?: ConfidenceLevel;
 }
 
 /** 테마 상세 정보 */
@@ -109,7 +111,7 @@ export interface ThemeDetail {
       interest: number;
       /** 뉴스 모멘텀 점수 (0~1 정규화) */
       newsMomentum: number;
-      /** 감성 점수 (0~1 정규화, 0 = 중립, >0 = 긍정, <0 = 부정) */
+      /** 감성 점수 (0~1, 0.5 = 중립, >0.5 = 긍정, <0.5 = 부정) */
       sentiment: number;
       /** 변동성 점수 (0~1 정규화) */
       volatility: number;
@@ -125,17 +127,18 @@ export interface ThemeDetail {
       sentimentAvg?: number;
       sentimentArticleCount?: number;
     } | null;
+    /** 점수 신뢰도 */
+    confidence: {
+      level: ConfidenceLevel;
+      dataAge: number;
+      interestCoverage: number;
+      newsCoverage: number;
+      reason: string;
+    } | null;
   };
   /** 관련 종목 총 수 (카드와 동일 기준) */
   stockCount: number;
-  stocks: Array<{
-    symbol: string;
-    name: string;
-    market: string;
-    currentPrice: number | null;
-    priceChangePct: number | null;
-    volume: number | null;
-  }>;
+  stocks: ThemeStockItem[];
   /** 뉴스 기사 총 수 (카드와 동일 기준) */
   newsCount: number;
   recentNews: NewsArticle[];

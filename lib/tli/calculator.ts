@@ -4,7 +4,7 @@ import { normalize, standardDeviation, avg, daysBetween } from './normalize';
 import { aggregateSentiment } from './sentiment';
 import { getKSTDateString } from './date-utils';
 import { SCORE_WEIGHTS } from './constants/score-config';
-import type { InterestMetric, NewsMetric, ScoreComponents } from './types';
+import type { InterestMetric, NewsMetric, ScoreComponents, ScoreConfidence } from './types';
 
 /** 최소 데이터 요건 */
 const MIN_INTEREST_DAYS = 3;
@@ -24,11 +24,14 @@ interface CalculateScoreInput {
   sentimentScores?: number[];
   /** 테마 간 raw interest 백분위 (0.0=최하위, 1.0=최상위) */
   rawPercentile?: number;
+  /** 테마 관련 종목의 평균 주가 변동률 (%) */
+  avgPriceChangePct?: number;
 }
 
 export function calculateLifecycleScore(input: CalculateScoreInput): {
   score: number;
   components: ScoreComponents;
+  confidence: ScoreConfidence;
 } | null {
   const { interestMetrics, newsMetrics, firstSpikeDate } = input;
   const today = input.today || getKSTDateString();
@@ -91,10 +94,20 @@ export function calculateLifecycleScore(input: CalculateScoreInput): {
   const activeDays = firstSpikeDate ? Math.max(0, daysBetween(firstSpikeDate, today)) : 0;
   const maturityRatio = Math.min(activeDays / AVG_THEME_LIFESPAN, 1.5);
 
-  // 감성 분석 (데이터 없으면 중립 0.5 = 판단 보류)
+  // 감성 분석: 1차 키워드 → 2차 주가 방향성 → 3차 중립
   const sentimentAgg = aggregateSentiment(input.sentimentScores || []);
   const hasSentimentData = (input.sentimentScores || []).length > 0;
-  const sentimentScore = hasSentimentData ? sentimentAgg.normalized : 0.5;
+  let sentimentScore: number;
+  if (hasSentimentData) {
+    sentimentScore = sentimentAgg.normalized;
+  } else if (input.avgPriceChangePct !== undefined) {
+    // 주가 방향성 대리 감성
+    sentimentScore = input.avgPriceChangePct > 2 ? 0.7
+      : input.avgPriceChangePct < -2 ? 0.3
+      : 0.5;
+  } else {
+    sentimentScore = 0.5;
+  }
 
   const rawScore =
     interestScore * SCORE_WEIGHTS.interest +
@@ -103,6 +116,38 @@ export function calculateLifecycleScore(input: CalculateScoreInput): {
     volatilityScore * SCORE_WEIGHTS.volatility;
 
   const score = Math.round(rawScore * 100);
+
+  // ── Confidence 계산 ──
+  const interestCoverage = Math.min(interestMetrics.length / 30, 1);
+  const newsDaysWithData = new Set(newsMetrics.filter(m => m.article_count > 0).map(m => m.time)).size;
+  const newsCoverage = Math.min(newsDaysWithData / 14, 1);
+  const coverageScore = interestCoverage * 0.6 + newsCoverage * 0.4;
+
+  let confidenceLevel: ScoreConfidence['level'];
+  let confidenceReason: string;
+
+  if (coverageScore >= 0.7 && interestMetrics.length >= 14) {
+    confidenceLevel = 'high';
+    confidenceReason = '충분한 데이터';
+  } else if (coverageScore >= 0.4 && interestMetrics.length >= 7) {
+    confidenceLevel = 'medium';
+    confidenceReason = interestMetrics.length < 14
+      ? `관심도 ${interestMetrics.length}일 (14일 미만)`
+      : newsDaysWithData < 7 ? '뉴스 데이터 부족' : '데이터 축적 중';
+  } else {
+    confidenceLevel = 'low';
+    confidenceReason = interestMetrics.length < 7
+      ? `관심도 ${interestMetrics.length}일 (7일 미만)`
+      : newsDaysWithData === 0 ? '뉴스 데이터 없음' : '데이터 부족';
+  }
+
+  const confidence: ScoreConfidence = {
+    level: confidenceLevel,
+    dataAge: interestMetrics.length,
+    interestCoverage,
+    newsCoverage,
+    reason: confidenceReason,
+  };
 
   const components: ScoreComponents = {
     interest_score: interestScore,
@@ -129,7 +174,8 @@ export function calculateLifecycleScore(input: CalculateScoreInput): {
       dampening_factor: dampening,
       raw_percentile: input.rawPercentile ?? null,
     },
+    confidence,
   };
 
-  return { score: Math.max(0, Math.min(100, score)), components };
+  return { score: Math.max(0, Math.min(100, score)), components, confidence };
 }
