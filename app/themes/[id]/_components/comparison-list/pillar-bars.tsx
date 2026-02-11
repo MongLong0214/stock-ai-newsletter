@@ -32,7 +32,7 @@ export function getSimilarityColor(similarity: number): string {
 export function getSimilarityBadge(similarity: number): { label: string; bg: string; text: string; border: string } {
   if (similarity >= 0.7) return { label: '매우 유사', bg: 'bg-emerald-500/10', text: 'text-emerald-400', border: 'border-emerald-500/30' }
   if (similarity >= 0.5) return { label: '유사', bg: 'bg-sky-500/10', text: 'text-sky-400', border: 'border-sky-500/30' }
-  if (similarity >= 0.35) return { label: '약한 유사', bg: 'bg-amber-500/10', text: 'text-amber-400', border: 'border-amber-500/30' }
+  if (similarity >= 0.25) return { label: '약한 유사', bg: 'bg-amber-500/10', text: 'text-amber-400', border: 'border-amber-500/30' }
   return { label: '참고', bg: 'bg-slate-500/10', text: 'text-slate-400', border: 'border-slate-500/30' }
 }
 
@@ -81,7 +81,7 @@ function PillarRow({ label, value, color, delay }: { label: string; value: numbe
   const pct = Math.round(value * 100)
   return (
     <div className="flex items-center gap-2">
-      <span className="text-[10px] font-mono text-slate-500 w-10 shrink-0">{label}</span>
+      <span className="text-[10px] font-mono text-slate-500 w-12 shrink-0 whitespace-nowrap">{label}</span>
       <div className="flex-1 h-1 rounded-full bg-slate-700/40 overflow-hidden">
         <motion.div
           className={`h-full rounded-full ${color}`}
