@@ -144,19 +144,21 @@ function resolveFirstSpikeDate(
 
 // ── 모집단 통계 ──────────────────────────────────────────────────────────────
 
-/** 피처 벡터의 모집단 평균/표준편차 (z-score 정규화용, 최소 3개 테마 필요) */
+/** 피처 벡터의 표본 평균/표준편차 (z-score 정규화용, 최소 3개 테마 필요) */
 export function computePopulationStats(themes: EnrichedTheme[]): FeaturePopulationStats {
   if (themes.length < 3) return { means: [], stddevs: [] }
   const vecs = themes.map(t => featuresToArray(t.features))
   const numDims = vecs[0]?.length ?? 0
+  const n = vecs.length
   const means: number[] = []
   const stddevs: number[] = []
 
   for (let d = 0; d < numDims; d++) {
     const vals = vecs.map(v => v[d])
-    const mean = vals.reduce((s, v) => s + v, 0) / vals.length
+    const mean = vals.reduce((s, v) => s + v, 0) / n
     means.push(mean)
-    stddevs.push(Math.sqrt(vals.reduce((s, v) => s + (v - mean) ** 2, 0) / vals.length))
+    // Bessel 보정: N-1로 나눠 표본 표준편차 사용 (모집단이 아닌 표본이므로)
+    stddevs.push(Math.sqrt(vals.reduce((s, v) => s + (v - mean) ** 2, 0) / (n - 1)))
   }
 
   return { means, stddevs }

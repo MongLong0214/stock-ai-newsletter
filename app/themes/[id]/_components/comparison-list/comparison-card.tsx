@@ -1,6 +1,7 @@
-/** 개별 비교 테마 카드 */
+/** 과거 유사 테마 비교 카드 */
 'use client'
 
+import type { ReactNode } from 'react'
 import { motion } from 'framer-motion'
 import { cn } from '@/lib/utils'
 import type { ComparisonResult } from '@/lib/tli/types'
@@ -18,20 +19,20 @@ export default function ComparisonCard({ comp, idx, isSelected, onToggle }: Comp
   const simColor = getSimilarityColor(comp.similarity)
   const simPercent = Math.round(comp.similarity * 100)
   const badge = getSimilarityBadge(comp.similarity)
-  const messageParts = comp.message.split('. ').filter(Boolean)
 
-  const displayCurrentDay = formatDays(comp.currentDay)
-  const displayPastTotalDays = formatDays(comp.pastTotalDays)
+  // "유사 근거. 위치 분석" 형식 분리 (첫 번째 '. '만 기준으로 분할)
+  const dotIdx = comp.message.indexOf('. ')
+  const basis = dotIdx >= 0 ? comp.message.slice(0, dotIdx) : comp.message
+  const position = dotIdx >= 0 ? comp.message.slice(dotIdx + 2) : undefined
 
-  const progressPercent = comp.pastTotalDays > 0
+  const progressPct = comp.pastTotalDays > 0
     ? Math.min((comp.currentDay / comp.pastTotalDays) * 100, 100) : 0
-  const peakPercent = comp.pastTotalDays > 0
+  const peakPct = comp.pastTotalDays > 0
     ? Math.min((comp.pastPeakDay / comp.pastTotalDays) * 100, 100) : 0
 
-  // 타임라인 표시: 충분한 데이터 + 유효한 피크
-  const showTimeline = comp.pastTotalDays >= 14 && comp.pastPeakDay > 0 && comp.pastPeakDay <= comp.pastTotalDays
-  // 주기 초과: 과거 테마 전체 기간보다 현재가 길고, 피크 도달 후
-  const isBeyondPastCycle = comp.pastTotalDays > 0 && comp.currentDay >= comp.pastTotalDays && comp.estimatedDaysToPeak === 0
+  const showTimeline = comp.pastTotalDays >= 14 && comp.pastPeakDay >= 3 && comp.pastPeakDay <= comp.pastTotalDays
+  // estimatedDaysToPeak === 0이면서 주기 초과 → 상호 배타적 (estimatedDaysToPeak > 0과 동시 불가)
+  const isBeyondCycle = comp.pastTotalDays > 0 && comp.currentDay >= comp.pastTotalDays && comp.estimatedDaysToPeak === 0
 
   return (
     <motion.div
@@ -40,31 +41,37 @@ export default function ComparisonCard({ comp, idx, isSelected, onToggle }: Comp
       tabIndex={0}
       aria-pressed={isSelected}
       className={cn(
-        'p-4 rounded-lg border transition-all cursor-pointer',
+        'p-5 rounded-xl border transition-colors cursor-pointer space-y-4',
         isSelected
-          ? 'bg-slate-800/70 border-emerald-500/40'
-          : 'bg-slate-800/50 border-slate-700/30 hover:border-slate-600/50',
+          ? 'bg-slate-800 border-emerald-500/50'
+          : 'bg-slate-800/40 border-slate-700/30 hover:border-slate-600/50',
       )}
       onClick={onToggle}
       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onToggle() } }}
     >
-      {/* 상단: 테마명 + 뱃지 */}
-      <div className="mb-3">
-        <span className="text-sm font-medium text-white block mb-1.5">{comp.pastTheme}</span>
-        <div className="flex items-center gap-1.5">
-          <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded-full border ${badge.bg} ${badge.text} ${badge.border}`}>
+      {/* 헤더: 테마명 + 종합 유사도 */}
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex-1 min-w-0">
+          <h3 className="text-[15px] font-semibold text-white truncate leading-snug">{comp.pastTheme}</h3>
+          <span className={cn(
+            'inline-block mt-2 text-[11px] font-mono px-2 py-0.5 rounded border',
+            badge.bg, badge.text, badge.border,
+          )}>
             {badge.label}
           </span>
-          <span
-            className="text-xs font-mono font-medium px-2 py-0.5 rounded-full"
-            style={{ color: simColor, backgroundColor: `${simColor}15`, border: `1px solid ${simColor}30` }}
-          >
-            {simPercent}%
-          </span>
+        </div>
+        <div className="flex flex-col items-end shrink-0">
+          <div className="flex items-baseline gap-0.5">
+            <span className="text-[28px] font-mono font-bold leading-none tabular-nums" style={{ color: simColor }}>
+              {simPercent}
+            </span>
+            <span className="text-sm font-mono text-slate-500">%</span>
+          </div>
+          <span className="text-[10px] font-mono text-slate-500 mt-1">종합 유사도</span>
         </div>
       </div>
 
-      {/* 3-Pillar 유사도 */}
+      {/* 세부 지표 바 */}
       <PillarBars
         featureSim={comp.featureSim}
         curveSim={comp.curveSim}
@@ -73,92 +80,99 @@ export default function ComparisonCard({ comp, idx, isSelected, onToggle }: Comp
         idx={idx}
       />
 
-      {/* 미니 타임라인 (과거 테마 주기 기준) */}
+      {/* 과거 주기 타임라인 */}
       {showTimeline ? (
-        <div className="mb-3">
-          <div className="text-[10px] font-mono text-slate-600 mb-1">과거 {comp.pastTheme} 주기 기준</div>
-          <div className="flex items-center justify-between text-[10px] font-mono text-slate-500 mb-1">
-            <span>시작</span>
-            <span>피크 {comp.pastPeakDay}일차</span>
-            <span>종료 {displayPastTotalDays}</span>
-          </div>
-          <div className="relative h-2 rounded-full bg-slate-700/30">
-            <div className="absolute top-0 h-2 w-0.5 bg-amber-500/60" style={{ left: `${peakPercent}%` }} />
+        <div className="space-y-2">
+          <div className="relative h-2 rounded-full bg-slate-700/40">
+            <div
+              className="absolute top-0 h-2 w-0.5 bg-amber-400/70 rounded-full"
+              style={{ left: `${peakPct}%` }}
+            />
             <motion.div
-              className="absolute top-0 h-2 rounded-full bg-emerald-500/30"
+              className="absolute top-0 h-2 rounded-full bg-emerald-500/25"
               initial={{ width: 0 }}
-              animate={{ width: `${progressPercent}%` }}
-              transition={{ duration: 0.8, delay: idx * 0.1 }}
+              animate={{ width: `${progressPct}%` }}
+              transition={{ duration: 0.7, delay: idx * 0.08 }}
             />
             <motion.div
-              className="absolute top-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full bg-emerald-400 border-2 border-slate-900"
-              style={{ left: `${progressPercent}%`, marginLeft: '-5px' }}
-              initial={{ scale: 0 }}
-              animate={{ scale: 1 }}
-              transition={{ duration: 0.4, delay: 0.5 + idx * 0.1 }}
+              className="absolute top-1/2 w-2.5 h-2.5 rounded-full bg-emerald-400 border-2 border-slate-900"
+              style={{ left: `${progressPct}%`, transform: 'translate(-50%, -50%)' }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.3, delay: 0.4 + idx * 0.08 }}
             />
           </div>
-          <span className="text-[10px] font-mono text-slate-400 mt-1 block">
-            현재 테마 {displayCurrentDay} 경과 · {comp.pastTheme}은 {displayPastTotalDays} 만에 쇠퇴
-          </span>
+          <div className="flex justify-between text-xs font-mono">
+            <span className="text-slate-500">D+0</span>
+            <span className="text-amber-400/80">피크 D+{comp.pastPeakDay}</span>
+            <span className="text-slate-500">D+{comp.pastTotalDays}</span>
+          </div>
+          <p className="text-xs font-mono text-slate-400">
+            현재 <span className="text-emerald-400">{formatDays(comp.currentDay)}</span> 경과 · 과거 주기의 {Math.round(progressPct)}% 지점
+          </p>
         </div>
       ) : (
-        <div className="mb-3 px-2 py-1.5 rounded bg-slate-800/50 text-center">
-          <span className="text-[10px] font-mono text-slate-500">타임라인 데이터 부족 (과거 주기 {comp.pastTotalDays}일)</span>
-        </div>
+        <p className="text-xs font-mono text-slate-600 text-center">
+          타임라인 데이터 부족 (과거 주기 {comp.pastTotalDays}일)
+        </p>
       )}
 
       {/* 유사 근거 + 위치 분석 */}
-      <div className="space-y-1">
-        {messageParts[0]?.trim() && <p className="text-[11px] font-mono text-slate-400">{messageParts[0].trim()}.</p>}
-        {messageParts[1]?.trim() && (
-          <p className="text-xs text-slate-300">
-            {messageParts[1].trim()}{messageParts[1].trim().endsWith('.') ? '' : '.'}
-          </p>
+      <div className="space-y-2.5">
+        {basis && <p className="text-sm font-mono text-slate-200 leading-relaxed">{basis}</p>}
+        {position && (
+          <div className="border-l-2 border-slate-700 pl-3">
+            <p className="text-xs font-mono text-slate-400 leading-relaxed">{position}</p>
+          </div>
         )}
       </div>
 
       {/* 과거 테마 결과 */}
       {comp.pastPeakScore !== null && (
-        <div className="mt-2 grid grid-cols-3 gap-1.5">
-          <div className="px-2 py-1 rounded bg-slate-800/80 text-center">
-            <div className="text-[10px] font-mono text-slate-500">최고 점수</div>
-            <div className="text-xs font-mono text-white font-medium">{comp.pastPeakScore}</div>
-          </div>
-          {comp.pastDeclineDays !== null && (
-            <div className="px-2 py-1 rounded bg-slate-800/80 text-center">
-              <div className="text-[10px] font-mono text-slate-500">하락 기간</div>
-              <div className="text-xs font-mono text-white font-medium">{comp.pastDeclineDays}일</div>
-            </div>
-          )}
-          {comp.pastFinalStage && (
-            <div className="px-2 py-1 rounded bg-slate-800/80 text-center">
-              <div className="text-[10px] font-mono text-slate-500">최종 상태</div>
-              <div className="text-xs font-mono text-slate-400">{comp.pastFinalStage}</div>
-            </div>
-          )}
+        <div className="flex gap-2">
+          <MetricCell label="최고 점수" value={String(comp.pastPeakScore)} />
+          {comp.pastDeclineDays !== null && <MetricCell label="하락 기간" value={`${comp.pastDeclineDays}일`} />}
+          {comp.pastFinalStage && <MetricCell label="최종 상태" value={comp.pastFinalStage} dim />}
         </div>
       )}
 
-      {/* 예상 피크 (과거 패턴 기준 추정치임을 명시) */}
+      {/* 상태 알림 (estimatedDaysToPeak > 0 과 isBeyondCycle은 상호 배타적) */}
       {comp.estimatedDaysToPeak > 0 && (
-        <div className="mt-2 flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-amber-500/5 border border-amber-500/15">
-          <div className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
-          <span className="text-xs text-amber-400 font-mono font-medium">
-            과거 패턴 기준, 피크까지 약 {comp.estimatedDaysToPeak}일 추정
-          </span>
-        </div>
+        <AlertRow color="amber">
+          과거 패턴 기준, 피크까지 약 <span className="font-medium">{comp.estimatedDaysToPeak}일</span> 추정
+        </AlertRow>
       )}
-
-      {/* 주기 초과 */}
-      {isBeyondPastCycle && (
-        <div className="mt-2 flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-purple-500/5 border border-purple-500/15">
-          <div className="w-1.5 h-1.5 rounded-full bg-purple-400" />
-          <span className="text-xs text-purple-400 font-mono font-medium">
-            {comp.pastTheme} 주기({displayPastTotalDays}) 초과 · 독자적 흐름 가능성
-          </span>
-        </div>
+      {isBeyondCycle && (
+        <AlertRow color="purple">
+          {comp.pastTheme} 주기({formatDays(comp.pastTotalDays)}) 초과 · 독자적 흐름 가능성
+        </AlertRow>
       )}
     </motion.div>
+  )
+}
+
+/* ── 서브 컴포넌트 ── */
+
+function MetricCell({ label, value, dim }: { label: string; value: string; dim?: boolean }) {
+  return (
+    <div className="flex-1 py-2 px-3 rounded-lg bg-slate-700/25">
+      <div className="text-[11px] font-mono text-slate-500 mb-0.5">{label}</div>
+      <div className={cn('text-sm font-mono font-medium', dim ? 'text-slate-400' : 'text-white')}>{value}</div>
+    </div>
+  )
+}
+
+const ALERT_STYLES = {
+  amber: { box: 'bg-amber-500/[0.07] border-amber-500/15 text-amber-300', dot: 'bg-amber-400' },
+  purple: { box: 'bg-purple-500/[0.07] border-purple-500/15 text-purple-300', dot: 'bg-purple-400' },
+} as const
+
+function AlertRow({ color, children }: { color: keyof typeof ALERT_STYLES; children: ReactNode }) {
+  const s = ALERT_STYLES[color]
+  return (
+    <div className={cn('flex items-center gap-2 py-2 px-3 rounded-lg border', s.box)}>
+      <span className={cn('w-1.5 h-1.5 rounded-full shrink-0', s.dot)} />
+      <span className="text-xs font-mono">{children}</span>
+    </div>
   )
 }
