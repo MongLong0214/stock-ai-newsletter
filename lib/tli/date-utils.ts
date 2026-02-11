@@ -12,3 +12,10 @@ export function getKSTDate(offsetDays = 0): Date {
 export function getKSTDateString(offsetDays = 0): string {
   return getKSTDate(offsetDays).toISOString().split('T')[0]
 }
+
+/** 일수 → 자연어 (30일 이상 개월 병기, 365일 초과 캡) */
+export function formatDays(d: number): string {
+  if (d > 365) return '1년+'
+  if (d >= 30) return `${d}일(~${Math.round(d / 30)}개월)`
+  return `${d}일`
+}
