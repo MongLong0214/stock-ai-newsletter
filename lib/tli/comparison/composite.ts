@@ -10,10 +10,10 @@ import { formatDays } from '../date-utils'
 
 const MAX_LIFECYCLE_DAYS = 365
 
-// 적응적 가중치 (곡선 데이터 가용량 기준)
-// 14일+ → feature:0.30 curve:0.45 keyword:0.25
-// 7-13일 → feature:0.40 curve:0.25 keyword:0.35
-// 7일 미만 → feature:0.55 curve:0.00 keyword:0.45
+// 2-Pillar 적응적 가중치 (곡선 데이터 가용량 기준)
+// 14일+ → feature:0.40 curve:0.60
+// 7-13일 → feature:0.60 curve:0.40
+// 7일 미만 → feature:1.00 curve:0.00
 
 interface CurrentInput {
   features: ThemeFeatures
@@ -66,38 +66,20 @@ export function compositeCompare(params: {
     current.curve, past.curve, current.resampledCurve, past.resampledCurve,
   )
 
-  // 키워드 자카드 유사도 (사전계산 Set 활용)
+  // 키워드 자카드 (표시용, 점수 미반영)
   const keywordSim = current.keywordsLower && past.keywordsLower
     ? keywordJaccard(current.keywordsLower, past.keywordsLower)
     : keywordJaccard(current.keywords, past.keywords)
 
-  // 적응적 가중치 결정
-  let wFeature: number, wCurve: number, wKeyword: number
-  if (minCurveLen >= 14)     { wFeature = 0.30; wCurve = 0.45; wKeyword = 0.25 }
-  else if (minCurveLen >= 7) { wFeature = 0.40; wCurve = 0.25; wKeyword = 0.35 }
-  else                       { wFeature = 0.55; wCurve = 0.00; wKeyword = 0.45 }
+  // 2-Pillar 적응적 가중치 (곡선 데이터 가용량 기준)
+  let wFeature: number, wCurve: number
+  if (minCurveLen >= 14)     { wFeature = 0.40; wCurve = 0.60 }
+  else if (minCurveLen >= 7) { wFeature = 0.60; wCurve = 0.40 }
+  else                       { wFeature = 1.00; wCurve = 0.00 }
 
-  // 키워드 데드웨이트 보정: keywordSim=0이면 나머지에 재분배
-  if (keywordSim === 0 && wKeyword > 0) {
-    const ratio = wCurve > 0 ? wFeature / (wFeature + wCurve) : 1
-    wFeature += wKeyword * ratio
-    wCurve += wKeyword * (1 - ratio)
-    wKeyword = 0
-  }
-
-  // 가중치 상한 (단일 필러 독점 방지, 최대 0.65) + 재정규화
-  wFeature = Math.min(wFeature, 0.65)
-  wCurve = Math.min(wCurve, 0.65)
-  const totalW = wFeature + wCurve + wKeyword
-  if (totalW > 0 && totalW !== 1) {
-    wFeature /= totalW
-    wCurve /= totalW
-    wKeyword /= totalW
-  }
-
-  // 섹터 교차 패널티 (이종 섹터 30% 감쇄)
+  // 섹터 교차 패널티 (이종 섹터 15% 감쇄)
   const sectorMatch = current.sector === past.sector || current.sector === 'etc' || past.sector === 'etc'
-  const rawSim = (wFeature * featureSim + wCurve * curveSim + wKeyword * keywordSim) * (sectorMatch ? 1.0 : 0.7)
+  const rawSim = (wFeature * featureSim + wCurve * curveSim) * (sectorMatch ? 1.0 : 0.85)
   const similarity = Math.round(Math.max(0, Math.min(1, rawSim)) * 1000) / 1000
 
   // 일수 캡핑

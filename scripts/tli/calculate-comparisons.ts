@@ -7,7 +7,7 @@ import { compositeCompare } from '../../lib/tli/comparison'
 import type { ThemeWithKeywords } from './data-ops'
 import { enrichThemes, computePopulationStats, type ThemeDataMaps, type EnrichedTheme } from './enrich-themes'
 
-const SIMILARITY_THRESHOLD = 0.30
+const SIMILARITY_THRESHOLD = 0.25
 const MAX_MATCHES_PER_THEME = 3
 
 interface MatchResult {
