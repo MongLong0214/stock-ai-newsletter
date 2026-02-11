@@ -6,6 +6,8 @@ import { motion } from 'framer-motion'
 import { cn } from '@/lib/utils'
 import type { ComparisonResult } from '@/lib/tli/types'
 import { formatDays } from '@/lib/tli/date-utils'
+import InfoTooltip from '@/components/tli/info-tooltip'
+import { TOOLTIP_TEXTS } from '@/lib/tli/constants/tooltip-texts'
 import PillarBars, { getSimilarityColor, getSimilarityBadge } from './pillar-bars'
 
 interface ComparisonCardProps {
@@ -36,7 +38,7 @@ export default function ComparisonCard({ comp, idx, isSelected, onToggle }: Comp
 
   return (
     <motion.div
-      layout
+      layout="position"
       role="button"
       tabIndex={0}
       aria-pressed={isSelected}
@@ -67,7 +69,10 @@ export default function ComparisonCard({ comp, idx, isSelected, onToggle }: Comp
             </span>
             <span className="text-sm font-mono text-slate-500">%</span>
           </div>
-          <span className="text-[10px] font-mono text-slate-500 mt-1">종합 유사도</span>
+          <span className="text-[10px] font-mono text-slate-500 mt-1 flex items-center gap-1">
+            종합 유사도
+            <InfoTooltip content={TOOLTIP_TEXTS.similarity} />
+          </span>
         </div>
       </div>
 
@@ -104,7 +109,7 @@ export default function ComparisonCard({ comp, idx, isSelected, onToggle }: Comp
           </div>
           <div className="flex justify-between text-xs font-mono">
             <span className="text-slate-500">D+0</span>
-            <span className="text-amber-400/80">피크 D+{comp.pastPeakDay}</span>
+            <span className="text-amber-400/80">정점 D+{comp.pastPeakDay}</span>
             <span className="text-slate-500">D+{comp.pastTotalDays}</span>
           </div>
           <p className="text-xs font-mono text-slate-400">
@@ -113,7 +118,7 @@ export default function ComparisonCard({ comp, idx, isSelected, onToggle }: Comp
         </div>
       ) : (
         <p className="text-xs font-mono text-slate-600 text-center">
-          타임라인 데이터 부족 (과거 주기 {comp.pastTotalDays}일)
+          비교 데이터가 부족해요 (과거 주기 {comp.pastTotalDays}일)
         </p>
       )}
 
@@ -139,12 +144,12 @@ export default function ComparisonCard({ comp, idx, isSelected, onToggle }: Comp
       {/* 상태 알림 (estimatedDaysToPeak > 0 과 isBeyondCycle은 상호 배타적) */}
       {comp.estimatedDaysToPeak > 0 && (
         <AlertRow color="amber">
-          과거 패턴 기준, 피크까지 약 <span className="font-medium">{comp.estimatedDaysToPeak}일</span> 추정
+          과거 패턴 기준, 정점까지 약 <span className="font-medium">{comp.estimatedDaysToPeak}일</span> 추정
         </AlertRow>
       )}
       {isBeyondCycle && (
         <AlertRow color="purple">
-          {comp.pastTheme} 주기({formatDays(comp.pastTotalDays)}) 초과 · 독자적 흐름 가능성
+          {comp.pastTheme} 주기({formatDays(comp.pastTotalDays)})를 넘었어요 · 독자적 흐름 가능성
         </AlertRow>
       )}
     </motion.div>

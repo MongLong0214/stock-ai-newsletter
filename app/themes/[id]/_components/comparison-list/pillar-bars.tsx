@@ -32,7 +32,7 @@ export function getSimilarityColor(similarity: number): string {
 export function getSimilarityBadge(similarity: number): { label: string; bg: string; text: string; border: string } {
   if (similarity >= 0.7) return { label: '매우 유사', bg: 'bg-emerald-500/10', text: 'text-emerald-400', border: 'border-emerald-500/30' }
   if (similarity >= 0.5) return { label: '유사', bg: 'bg-sky-500/10', text: 'text-sky-400', border: 'border-sky-500/30' }
-  if (similarity >= 0.25) return { label: '약한 유사', bg: 'bg-amber-500/10', text: 'text-amber-400', border: 'border-amber-500/30' }
+  if (similarity >= 0.25) return { label: '다소 비슷', bg: 'bg-amber-500/10', text: 'text-amber-400', border: 'border-amber-500/30' }
   return { label: '참고', bg: 'bg-slate-500/10', text: 'text-slate-400', border: 'border-slate-500/30' }
 }
 
@@ -47,33 +47,34 @@ interface PillarBarsProps {
 }
 
 export default function PillarBars({ featureSim, curveSim, keywordSim, similarity, idx }: PillarBarsProps) {
-  const simColor = getSimilarityColor(similarity)
-  const simPercent = Math.round(similarity * 100)
-
   return (
     <div className="space-y-1.5 mb-3">
       {/* featureSim: 0도 유의미하므로 항상 표시. curveSim/keywordSim: 0이면 데이터 부재 → 숨김 */}
       {featureSim !== null && (
-        <PillarRow label="특성 지표" value={featureSim} color="bg-sky-500/70" delay={idx * 0.1} />
+        <PillarRow label="핵심 지표" value={featureSim} color="bg-sky-500/70" delay={idx * 0.1} />
       )}
       {curveSim !== null && curveSim > 0 && (
-        <PillarRow label="곡선 흐름" value={curveSim} color="bg-emerald-500/70" delay={idx * 0.1 + 0.05} />
+        <PillarRow label="추세 흐름" value={curveSim} color="bg-emerald-500/70" delay={idx * 0.1 + 0.05} />
       )}
       {keywordSim !== null && keywordSim > 0 && (
         <PillarRow label="연관어" value={keywordSim} color="bg-amber-500/70" delay={idx * 0.1 + 0.1} />
       )}
       {/* Fallback: pillar 데이터 없으면 단일 바 */}
-      {featureSim === null && (
-        <div className="relative h-1.5 rounded-full bg-slate-700/40 overflow-hidden">
-          <motion.div
-            className="absolute inset-y-0 left-0 rounded-full"
-            style={{ backgroundColor: simColor }}
-            initial={{ width: 0 }}
-            animate={{ width: `${simPercent}%` }}
-            transition={{ duration: 0.8, delay: idx * 0.1 }}
-          />
-        </div>
-      )}
+      {featureSim === null && (() => {
+        const simColor = getSimilarityColor(similarity)
+        const simPercent = Math.round(similarity * 100)
+        return (
+          <div className="relative h-1.5 rounded-full bg-slate-700/40 overflow-hidden">
+            <motion.div
+              className="absolute inset-y-0 left-0 rounded-full"
+              style={{ backgroundColor: simColor }}
+              initial={{ width: 0 }}
+              animate={{ width: `${simPercent}%` }}
+              transition={{ duration: 0.8, delay: idx * 0.1 }}
+            />
+          </div>
+        )
+      })()}
     </div>
   )
 }

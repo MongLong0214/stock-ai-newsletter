@@ -43,7 +43,7 @@ export function MomentumCell({ momentum }: { momentum: Momentum }) {
     <div className="rounded-xl border border-slate-700/30 bg-slate-800/30 p-3.5 font-mono">
       <div className="flex items-center gap-2 mb-2">
         <Activity className="w-4 h-4 text-slate-500" />
-        <span className="text-[10px] text-slate-500 uppercase tracking-wider">모멘텀</span>
+        <span className="text-[10px] text-slate-500 uppercase tracking-wider">추세</span>
       </div>
       <div className={`flex items-center gap-2 text-lg font-bold ${cfg.color}`}>
         <Icon className="w-5 h-5" />
@@ -79,7 +79,7 @@ export function ScenarioCard({
       </div>
       <p className="text-xs text-slate-300 truncate" title={scenario.themeName}>{scenario.themeName}</p>
       <div className="flex items-center justify-between text-[10px] text-slate-500">
-        <span>피크 {scenario.peakDay}일차</span>
+        <span>정점 {scenario.peakDay}일차</span>
         <span>주기 {scenario.totalDays > 365 ? '1년+' : `${scenario.totalDays}일`}</span>
       </div>
     </div>

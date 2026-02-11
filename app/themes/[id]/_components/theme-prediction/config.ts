@@ -45,7 +45,7 @@ export const INSIGHT_ICON_COLOR: Record<RiskLevel, string> = {
 export const PHASE_LABELS: { id: Phase; label: string }[] = [
   { id: 'pre-peak',  label: '초기' },
   { id: 'near-peak', label: '성장' },
-  { id: 'at-peak',   label: '피크' },
+  { id: 'at-peak',   label: '정점' },
   { id: 'post-peak', label: '하락' },
   { id: 'declining', label: '종료' },
 ]
@@ -59,7 +59,7 @@ export const PHASE_COLORS: Record<Phase, { bg: string; ring: string; text: strin
 }
 
 export const MOMENTUM_CONFIG: Record<Momentum, { label: string; color: string; Icon: typeof TrendingUp }> = {
-  accelerating: { label: '가속 중',  color: 'text-emerald-400', Icon: TrendingUp },
+  accelerating: { label: '상승 중',  color: 'text-emerald-400', Icon: TrendingUp },
   stable:       { label: '안정',    color: 'text-slate-400',   Icon: Minus },
-  decelerating: { label: '감속 중',  color: 'text-amber-400',   Icon: TrendingDown },
+  decelerating: { label: '둔화 중',  color: 'text-amber-400',   Icon: TrendingDown },
 }

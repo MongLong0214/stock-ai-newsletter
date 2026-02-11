@@ -1,5 +1,5 @@
 import { KST_OFFSET_MS } from './date-utils'
-import { buildRiskMessage, buildPhaseMessage, buildKeyInsight } from './prediction-helpers'
+import { buildPhaseMessage, buildKeyInsight } from './prediction-helpers'
 
 export type ConfidenceLevel = 'high' | 'medium' | 'low'
 export type Phase = 'pre-peak' | 'near-peak' | 'at-peak' | 'post-peak' | 'declining'
@@ -36,8 +36,6 @@ export interface PredictionResult {
   phaseMessage: string
 
   riskLevel: RiskLevel
-  riskMessage: string
-
   keyInsight: string
 }
 
@@ -189,7 +187,6 @@ export function calculatePrediction(
     momentum,
     phaseMessage: buildPhaseMessage(phase, avgDaysToPeak, score),
     riskLevel,
-    riskMessage: buildRiskMessage(riskLevel),
     keyInsight: buildKeyInsight(phase, avgDaysToPeak, score),
   }
 }
