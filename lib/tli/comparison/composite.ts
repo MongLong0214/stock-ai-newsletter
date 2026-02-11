@@ -1,11 +1,4 @@
-/**
- * 복합 비교 (3-Pillar Composite) — 3가지 신호를 결합한 유사도 비교
- *
- * 가중치 (데이터 가용량에 따라 적응):
- *   - 14일+ 곡선: feature=0.30, curve=0.45, keyword=0.25
- *   - 7-13일 곡선: feature=0.40, curve=0.25, keyword=0.35
- *   - 7일 미만:    feature=0.55, curve=0.00, keyword=0.45
- */
+/** 복합 비교 (3-Pillar) — 특성 벡터 · 곡선 · 키워드 결합 유사도 */
 
 import type { TimeSeriesPoint } from './timeline'
 import { normalizeValues, resampleCurve } from './timeline'
@@ -13,26 +6,40 @@ import type { FeaturePopulationStats } from './similarity'
 import { pearsonCorrelation, cosineSimilarity, zScoreEuclideanSimilarity, keywordJaccard } from './similarity'
 import type { ThemeFeatures } from './features'
 import { featuresToArray } from './features'
+import { formatDays } from '../date-utils'
 
 const MAX_LIFECYCLE_DAYS = 365
 
+// 적응적 가중치 (곡선 데이터 가용량 기준)
+// 14일+ → feature:0.30 curve:0.45 keyword:0.25
+// 7-13일 → feature:0.40 curve:0.25 keyword:0.35
+// 7일 미만 → feature:0.55 curve:0.00 keyword:0.45
+
+interface CurrentInput {
+  features: ThemeFeatures
+  curve: TimeSeriesPoint[]
+  resampledCurve?: number[]
+  keywords: string[]
+  keywordsLower?: Set<string>
+  activeDays: number
+  sector: string
+}
+
+interface PastInput {
+  features: ThemeFeatures
+  curve: TimeSeriesPoint[]
+  resampledCurve?: number[]
+  keywords: string[]
+  keywordsLower?: Set<string>
+  peakDay: number
+  totalDays: number
+  name: string
+  sector: string
+}
+
 export function compositeCompare(params: {
-  current: {
-    features: ThemeFeatures
-    curve: TimeSeriesPoint[]
-    keywords: string[]
-    activeDays: number
-    sector: string
-  }
-  past: {
-    features: ThemeFeatures
-    curve: TimeSeriesPoint[]
-    keywords: string[]
-    peakDay: number
-    totalDays: number
-    name: string
-    sector: string
-  }
+  current: CurrentInput
+  past: PastInput
   populationStats?: FeaturePopulationStats
 }): {
   similarity: number
@@ -47,48 +54,30 @@ export function compositeCompare(params: {
 } {
   const { current, past } = params
 
-  // --- Pillar 1: 특성 벡터 유사도 ---
+  // 특성 벡터 유사도 (z-score 우선, 폴백: 코사인)
   const currentVec = featuresToArray(current.features)
   const pastVec = featuresToArray(past.features)
   const featureSim = params.populationStats
     ? zScoreEuclideanSimilarity(currentVec, pastVec, params.populationStats)
     : Math.max(0, cosineSimilarity(currentVec, pastVec))
 
-  // --- Pillar 2: 곡선 상관관계 (위상 정렬 기반) ---
-  let curveSim = 0
-  const minCurveLen = Math.min(current.curve.length, past.curve.length)
-  if (minCurveLen >= 7) {
-    const normCurrent = normalizeValues(current.curve)
-    const normPast = normalizeValues(past.curve)
-    const currentResampled = resampleCurve(normCurrent)
-    const pastResampled = resampleCurve(normPast)
-    const rawCorr = pearsonCorrelation(currentResampled, pastResampled)
-    curveSim = Math.max(0, rawCorr)
-  }
+  // 곡선 유사도 (RMSE 60% + 미분 상관 40%, 사전계산 캐시 활용)
+  const { curveSim, minCurveLen } = computeCurveSim(
+    current.curve, past.curve, current.resampledCurve, past.resampledCurve,
+  )
 
-  // --- Pillar 3: 키워드 유사도 ---
-  const keywordSim = keywordJaccard(current.keywords, past.keywords)
+  // 키워드 자카드 유사도 (사전계산 Set 활용)
+  const keywordSim = current.keywordsLower && past.keywordsLower
+    ? keywordJaccard(current.keywordsLower, past.keywordsLower)
+    : keywordJaccard(current.keywords, past.keywords)
 
-  // --- 적응적 가중치 ---
-  let wFeature: number
-  let wCurve: number
-  let wKeyword: number
+  // 적응적 가중치 결정
+  let wFeature: number, wCurve: number, wKeyword: number
+  if (minCurveLen >= 14)     { wFeature = 0.30; wCurve = 0.45; wKeyword = 0.25 }
+  else if (minCurveLen >= 7) { wFeature = 0.40; wCurve = 0.25; wKeyword = 0.35 }
+  else                       { wFeature = 0.55; wCurve = 0.00; wKeyword = 0.45 }
 
-  if (minCurveLen >= 14) {
-    wFeature = 0.30
-    wCurve = 0.45
-    wKeyword = 0.25
-  } else if (minCurveLen >= 7) {
-    wFeature = 0.40
-    wCurve = 0.25
-    wKeyword = 0.35
-  } else {
-    wFeature = 0.55
-    wCurve = 0.00
-    wKeyword = 0.45
-  }
-
-  // 키워드 dead weight 보정: keywordSim이 0이면 가중치를 feature+curve에 재분배
+  // 키워드 데드웨이트 보정: keywordSim=0이면 나머지에 재분배
   if (keywordSim === 0 && wKeyword > 0) {
     const ratio = wCurve > 0 ? wFeature / (wFeature + wCurve) : 1
     wFeature += wKeyword * ratio
@@ -96,88 +85,120 @@ export function compositeCompare(params: {
     wKeyword = 0
   }
 
-  // 섹터 교차 패널티: 다른 섹터끼리 비교 시 30% 감쇄
+  // 가중치 상한 (단일 필러 독점 방지, 최대 0.65) + 재정규화
+  wFeature = Math.min(wFeature, 0.65)
+  wCurve = Math.min(wCurve, 0.65)
+  const totalW = wFeature + wCurve + wKeyword
+  if (totalW > 0 && totalW !== 1) {
+    wFeature /= totalW
+    wCurve /= totalW
+    wKeyword /= totalW
+  }
+
+  // 섹터 교차 패널티 (이종 섹터 30% 감쇄)
   const sectorMatch = current.sector === past.sector || current.sector === 'etc' || past.sector === 'etc'
-  const sectorFactor = sectorMatch ? 1.0 : 0.7
+  const rawSim = (wFeature * featureSim + wCurve * curveSim + wKeyword * keywordSim) * (sectorMatch ? 1.0 : 0.7)
+  const similarity = Math.round(Math.max(0, Math.min(1, rawSim)) * 1000) / 1000
 
-  const similarity = (wFeature * featureSim + wCurve * curveSim + wKeyword * keywordSim) * sectorFactor
-
-  // 클램핑 및 소수점 3자리 반올림
-  const finalSim = Math.round(Math.max(0, Math.min(1, similarity)) * 1000) / 1000
-
-  // Peak/day 계산
-  const currentDay = current.activeDays
-  const pastPeakDay = past.peakDay
+  // 일수 캡핑
+  const currentDay = Math.min(current.activeDays, MAX_LIFECYCLE_DAYS)
   const pastTotalDays = Math.min(past.totalDays, MAX_LIFECYCLE_DAYS)
-  const estimatedDaysToPeak = Math.max(0, pastPeakDay - currentDay)
-
-  // 유사 근거 설명 (구체적 특성 기반)
-  const simParts: string[] = []
-
-  if (wCurve > 0 && curveSim >= 0.3) {
-    simParts.push(`생명주기 곡선 ${Math.round(curveSim * 100)}% 일치`)
-  }
-
-  if (featureSim >= 0.3) {
-    const cF = current.features
-    const pF = past.features
-    const details: string[] = []
-    if (Math.abs(cF.growthRate - pF.growthRate) < 0.2) details.push('성장 속도')
-    if (Math.abs(cF.newsIntensity - pF.newsIntensity) < 0.2) details.push('뉴스 집중도')
-    if (Math.abs(cF.volatility - pF.volatility) < 0.2) details.push('변동성')
-    if (Math.abs(cF.scoreLevel - pF.scoreLevel) < 0.2) details.push('점수 수준')
-    if (details.length > 0) {
-      simParts.push(`${details.join('·')} 패턴 유사`)
-    } else {
-      simParts.push(`종합 특성 유사도 ${Math.round(featureSim * 100)}%`)
-    }
-  }
-
-  if (keywordSim > 0) {
-    const commonKws = current.keywords.filter(k =>
-      past.keywords.some(pk => pk.toLowerCase() === k.toLowerCase()),
-    )
-    if (commonKws.length > 0) {
-      simParts.push(`공통 키워드: ${commonKws.slice(0, 3).join(', ')}`)
-    } else {
-      simParts.push('관련 키워드 겹침')
-    }
-  }
-
-  if (!sectorMatch) {
-    simParts.push(`이종 섹터 (${current.sector}↔${past.sector})`)
-  }
-
-  if (simParts.length === 0) {
-    simParts.push('복합 지표 기반 약한 유사성')
-  }
-
-  // 위치 분석
-  let positionMsg: string
-  if (pastTotalDays <= 3) {
-    positionMsg = `과거 테마 데이터 ${pastTotalDays}일분으로 주기 비교 제한적.`
-  } else if (currentDay >= pastTotalDays && pastTotalDays > 0) {
-    positionMsg = `과거 ${past.name} 주기(${pastTotalDays}일) 초과, 새로운 전개 국면.`
-  } else if (estimatedDaysToPeak > 0) {
-    const progress = pastTotalDays > 0 ? Math.round((currentDay / pastTotalDays) * 100) : 0
-    positionMsg = `과거 기준 피크까지 ~${estimatedDaysToPeak}일 (진행률 ${progress}%).`
-  } else if (pastPeakDay > 0) {
-    positionMsg = '피크 구간 진입 추정, 하락 전환 모니터링 필요.'
-  } else {
-    positionMsg = '초기 단계로 추가 데이터 수집 필요.'
-  }
-
-  const message = `${simParts.join(' · ')}. ${positionMsg}`
+  const pastPeakDay = past.peakDay >= 0 ? Math.min(past.peakDay, pastTotalDays) : 0
+  const estimatedDaysToPeak = pastPeakDay > 0 ? Math.max(0, pastPeakDay - currentDay) : 0
 
   return {
-    similarity: finalSim,
-    currentDay,
-    pastPeakDay,
-    pastTotalDays,
-    estimatedDaysToPeak,
-    message,
-    featureSim,
-    curveSim,
-    keywordSim,
+    similarity, currentDay, pastPeakDay, pastTotalDays, estimatedDaysToPeak,
+    message: buildMessage(current, past, {
+      featureSim, curveSim, keywordSim, wCurve, sectorMatch,
+      pastTotalDays, currentDay, pastPeakDay, estimatedDaysToPeak,
+    }),
+    featureSim, curveSim, keywordSim,
   }
+}
+
+// ── 곡선 유사도 계산 ─────────────────────────────────────────────────────────
+
+function computeCurveSim(
+  currentCurve: TimeSeriesPoint[],
+  pastCurve: TimeSeriesPoint[],
+  cachedCurrent?: number[],
+  cachedPast?: number[],
+): { curveSim: number; minCurveLen: number } {
+  const minCurveLen = Math.min(currentCurve.length, pastCurve.length)
+  if (minCurveLen < 7) return { curveSim: 0, minCurveLen }
+
+  const cR = cachedCurrent?.length ? cachedCurrent : resampleCurve(normalizeValues(currentCurve))
+  const pR = cachedPast?.length ? cachedPast : resampleCurve(normalizeValues(pastCurve))
+
+  // RMSE 형태 유사도
+  let sumSqDiff = 0
+  for (let i = 0; i < cR.length; i++) sumSqDiff += (cR[i] - pR[i]) ** 2
+  const shapeSim = Math.max(0, 1 - Math.sqrt(sumSqDiff / cR.length) * 2.5)
+
+  // 미분 상관: 변화율 패턴으로 단조감소 곡선 구별
+  const dC: number[] = [], dP: number[] = []
+  for (let i = 1; i < cR.length; i++) {
+    dC.push(cR[i] - cR[i - 1])
+    dP.push(pR[i] - pR[i - 1])
+  }
+  const derivCorr = dC.length >= 7 ? Math.max(0, pearsonCorrelation(dC, dP)) : 0
+
+  return { curveSim: shapeSim * 0.6 + derivCorr * 0.4, minCurveLen }
+}
+
+// ── 메시지 생성 ──────────────────────────────────────────────────────────────
+
+interface MessageCtx {
+  featureSim: number; curveSim: number; keywordSim: number
+  wCurve: number; sectorMatch: boolean
+  pastTotalDays: number; currentDay: number; pastPeakDay: number; estimatedDaysToPeak: number
+}
+
+function buildMessage(current: CurrentInput, past: PastInput, ctx: MessageCtx): string {
+  const parts: string[] = []
+
+  // 곡선 유사도 근거
+  if (ctx.wCurve > 0 && ctx.curveSim >= 0.3) {
+    parts.push(`생명주기 곡선 ${Math.round(ctx.curveSim * 100)}% 일치`)
+  }
+
+  // 특성 벡터 유사도 근거
+  if (ctx.featureSim >= 0.3) {
+    const cF = current.features, pF = past.features
+    const details: string[] = []
+    if (Math.abs(cF.growthRate - pF.growthRate) < 0.15) details.push('성장세')
+    if (Math.abs(cF.scoreLevel - pF.scoreLevel) < 0.15) {
+      details.push(`점수 수준(차이 ${Math.round(Math.abs(cF.scoreLevel - pF.scoreLevel) * 100)}p)`)
+    }
+    if (Math.abs(cF.priceChangePct - pF.priceChangePct) < 0.15) details.push('주가 흐름')
+    if (Math.abs(cF.volatility - pF.volatility) < 0.15) details.push('변동성')
+    if (details.length > 0) parts.push(`${details.join(' · ')} 유사`)
+  }
+
+  // 키워드 겹침 근거
+  if (ctx.keywordSim > 0) {
+    const common = current.keywords.filter(k =>
+      past.keywords.some(pk => pk.toLowerCase() === k.toLowerCase()),
+    )
+    parts.push(common.length > 0 ? `공통 키워드: ${common.slice(0, 3).join(', ')}` : '관련 키워드 겹침')
+  }
+
+  if (!ctx.sectorMatch) parts.push(`이종 섹터 (${current.sector}↔${past.sector})`)
+  if (parts.length === 0) parts.push('복합 지표 기반 약한 유사성')
+
+  // 위치 분석
+  let position: string
+  if (ctx.pastTotalDays < 14) {
+    position = `과거 데이터 ${ctx.pastTotalDays}일로 비교 신뢰도 제한적`
+  } else if (ctx.currentDay >= ctx.pastTotalDays && ctx.pastTotalDays > 0) {
+    position = `${past.name}은 ${formatDays(ctx.pastTotalDays)} 만에 쇠퇴했으나, 현재 테마는 더 오래 지속 중`
+  } else if (ctx.estimatedDaysToPeak > 0) {
+    position = `${past.name} 기준 진행률 ${Math.round((ctx.currentDay / ctx.pastTotalDays) * 100)}%, 피크까지 약 ${ctx.estimatedDaysToPeak}일 남음`
+  } else if (ctx.pastPeakDay > 0) {
+    position = `${past.name} 피크(${ctx.pastPeakDay}일차) 부근 진입 추정`
+  } else {
+    position = '초기 단계, 추세 확인 중'
+  }
+
+  return `${parts.join(' · ')}. ${position}`
 }

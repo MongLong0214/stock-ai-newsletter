@@ -56,20 +56,19 @@ export async function buildComparisonResults(
 
   return comparisons.map((comp) => {
     const pastTotalDays = Math.min(comp.past_total_days, 365)
-    const estimatedDaysToPeak = Math.max(0, comp.past_peak_day - comp.current_day)
-    const postPeakDecline = comp.current_day > comp.past_peak_day
-      ? Math.max(0, ((pastTotalDays - comp.current_day) / pastTotalDays) * 100)
-      : null
+    // DB에서 읽은 값도 캡 적용 (스크립트 재실행 전 기존 데이터 대응)
+    const currentDay = Math.min(comp.current_day, 365)
+    const pastPeakDay = Math.min(comp.past_peak_day, pastTotalDays)
+    const estimatedDaysToPeak = pastPeakDay > 0 ? Math.max(0, pastPeakDay - currentDay) : 0
 
     return {
       pastTheme: pastThemeNames[comp.past_theme_id] ?? 'Unknown',
       pastThemeId: comp.past_theme_id,
       similarity: comp.similarity_score,
-      currentDay: comp.current_day,
-      pastPeakDay: comp.past_peak_day,
+      currentDay,
+      pastPeakDay,
       pastTotalDays,
       estimatedDaysToPeak,
-      postPeakDecline,
       message: comp.message ?? '',
       lifecycleCurve: pastThemeCurves[comp.past_theme_id] || [],
       featureSim: comp.feature_sim ?? null,

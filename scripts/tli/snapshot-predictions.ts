@@ -66,13 +66,19 @@ export async function snapshotPredictions(): Promise<void> {
     const themeComps = compsByTheme.get(theme.id) || []
     if (themeComps.length === 0) continue
 
-    const inputs: ComparisonInput[] = themeComps.map(c => ({
-      pastTheme: pastThemeNames.get(c.past_theme_id) || c.past_theme_id,
-      similarity: c.similarity_score,
-      estimatedDaysToPeak: Math.max(0, c.past_peak_day - c.current_day),
-      pastPeakDay: c.past_peak_day,
-      pastTotalDays: c.past_total_days,
-    }))
+    const inputs: ComparisonInput[] = themeComps.map(c => {
+      // DB 값 방어적 캡핑 (스크립트 재실행 전 기존 데이터 대응)
+      const pastTotalDays = Math.min(c.past_total_days, 365)
+      const currentDay = Math.min(c.current_day, 365)
+      const pastPeakDay = Math.min(c.past_peak_day, pastTotalDays)
+      return {
+        pastTheme: pastThemeNames.get(c.past_theme_id) || c.past_theme_id,
+        similarity: c.similarity_score,
+        estimatedDaysToPeak: pastPeakDay > 0 ? Math.max(0, pastPeakDay - currentDay) : 0,
+        pastPeakDay,
+        pastTotalDays,
+      }
+    })
 
     const result = calculatePrediction(theme.first_spike_date, inputs, today)
     if (!result) continue

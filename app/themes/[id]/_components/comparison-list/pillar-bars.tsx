@@ -28,7 +28,7 @@ export function getSimilarityColor(similarity: number): string {
   return COLORS.slate
 }
 
-/** 유사도 강도 뱃지 */
+/** 유사도 강도 뱃지 (색상 임계값과 별도 — 뱃지는 더 세분화) */
 export function getSimilarityBadge(similarity: number): { label: string; bg: string; text: string; border: string } {
   if (similarity >= 0.7) return { label: '매우 유사', bg: 'bg-emerald-500/10', text: 'text-emerald-400', border: 'border-emerald-500/30' }
   if (similarity >= 0.5) return { label: '유사', bg: 'bg-sky-500/10', text: 'text-sky-400', border: 'border-sky-500/30' }
@@ -53,13 +53,13 @@ export default function PillarBars({ featureSim, curveSim, keywordSim, similarit
   return (
     <div className="space-y-1.5 mb-3">
       {featureSim !== null && (
-        <PillarRow label="특성" value={featureSim} color="bg-sky-500/70" delay={idx * 0.1} />
+        <PillarRow label="수치 유사" value={featureSim} color="bg-sky-500/70" delay={idx * 0.1} />
       )}
-      {curveSim !== null && (curveSim ?? 0) > 0 && (
-        <PillarRow label="곡선" value={curveSim} color="bg-emerald-500/70" delay={idx * 0.1 + 0.05} />
+      {curveSim !== null && curveSim > 0 && (
+        <PillarRow label="흐름 유사" value={curveSim} color="bg-emerald-500/70" delay={idx * 0.1 + 0.05} />
       )}
-      {keywordSim !== null && (keywordSim ?? 0) > 0 && (
-        <PillarRow label="키워드" value={keywordSim} color="bg-amber-500/70" delay={idx * 0.1 + 0.1} />
+      {keywordSim !== null && keywordSim > 0 && (
+        <PillarRow label="연관어" value={keywordSim} color="bg-amber-500/70" delay={idx * 0.1 + 0.1} />
       )}
       {/* Fallback: pillar 데이터 없으면 단일 바 */}
       {featureSim === null && (
@@ -78,7 +78,7 @@ export default function PillarBars({ featureSim, curveSim, keywordSim, similarit
 }
 
 function PillarRow({ label, value, color, delay }: { label: string; value: number; color: string; delay: number }) {
-  const pct = Math.round((value ?? 0) * 100)
+  const pct = Math.round(value * 100)
   return (
     <div className="flex items-center gap-2">
       <span className="text-[10px] font-mono text-slate-500 w-10 shrink-0">{label}</span>
