@@ -48,6 +48,6 @@ next-env.d.ts
 .agents
 .claude
 .codex
-.omc
+
 .opencode
 docs
