@@ -1,0 +1,14 @@
+{"t":0,"agent":"aa685d3","agent_type":"unknown","event":"agent_stop","success":true}
+{"t":0,"agent":"a11425e","agent_type":"unknown","event":"agent_stop","success":true}
+{"t":0,"agent":"a019016","agent_type":"unknown","event":"agent_stop","success":true}
+{"t":0,"agent":"a530eab","agent_type":"architect","event":"agent_start","parent_mode":"none"}
+{"t":0,"agent":"ab2cc2c","agent_type":"scientist","event":"agent_start","parent_mode":"none"}
+{"t":0,"agent":"adcb2dd","agent_type":"product-manager","event":"agent_start","parent_mode":"none"}
+{"t":0,"agent":"a424ac2","agent_type":"analyst","event":"agent_start","parent_mode":"none"}
+{"t":0,"agent":"adcb2dd","agent_type":"product-manager","event":"agent_stop","success":true,"duration_ms":156712}
+{"t":0,"agent":"a530eab","agent_type":"architect","event":"agent_stop","success":true,"duration_ms":207413}
+{"t":0,"agent":"a424ac2","agent_type":"analyst","event":"agent_stop","success":true,"duration_ms":205007}
+{"t":0,"agent":"ab2cc2c","agent_type":"scientist","event":"agent_stop","success":true,"duration_ms":532215}
+{"t":0,"agent":"a20950c","agent_type":"unknown","event":"agent_stop","success":true}
+{"t":0,"agent":"a1c37d5","agent_type":"unknown","event":"agent_stop","success":true}
+{"t":0,"agent":"a432457","agent_type":"unknown","event":"agent_stop","success":true}

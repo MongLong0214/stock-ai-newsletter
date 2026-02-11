@@ -1,0 +1,5 @@
+{"t":0,"agent":"a5e67aa","agent_type":"designer","event":"agent_start","parent_mode":"none"}
+{"t":0,"agent":"a5e67aa","agent_type":"designer","event":"agent_stop","success":true,"duration_ms":138253}
+{"t":0,"agent":"aed6399","agent_type":"unknown","event":"agent_stop","success":true}
+{"t":0,"agent":"a2da7ce","agent_type":"unknown","event":"agent_stop","success":true}
+{"t":0,"agent":"a04905b","agent_type":"unknown","event":"agent_stop","success":true}
