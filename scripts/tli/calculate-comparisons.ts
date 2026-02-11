@@ -4,7 +4,7 @@ import { supabaseAdmin } from './supabase-admin'
 import { batchQuery, groupByThemeId } from './supabase-batch'
 import { getKSTDate } from './utils'
 import { compositeCompare, featuresToArray } from '../../lib/tli/comparison'
-import { buildMutualRankIndex, type MutualRankIndex } from '../../lib/tli/comparison/mutual-rank'
+import { buildMutualRankIndex, buildCurveMutualRankIndex, type MutualRankIndex } from '../../lib/tli/comparison/mutual-rank'
 import type { ThemeWithKeywords } from './data-ops'
 import { enrichThemes, computePopulationStats, type ThemeDataMaps, type EnrichedTheme } from './enrich-themes'
 
@@ -42,7 +42,13 @@ export async function calculateThemeComparisons(themes: ThemeWithKeywords[]) {
     enrichedThemes.map(t => ({ id: t.id, featureVector: featuresToArray(t.features) })),
     populationStats,
   )
-  console.log(`   Mutual Rank 인덱스 구축 완료: ${enrichedThemes.length}개 테마`)
+
+  // Curve Mutual Rank 인덱스 (지수 커널 — hub dominance 방지)
+  const curveMRThemes = enrichedThemes.filter(t => t.resampledCurve.length > 0)
+  const curveMutualRankIndex = buildCurveMutualRankIndex(
+    curveMRThemes.map(t => ({ id: t.id, resampledCurve: t.resampledCurve })),
+  )
+  console.log(`   Mutual Rank 인덱스 구축 완료: Feature ${enrichedThemes.length}개, Curve ${curveMRThemes.length}개 테마`)
 
   const enrichedMap = new Map(enrichedThemes.map(t => [t.id, t]))
 
@@ -54,7 +60,7 @@ export async function calculateThemeComparisons(themes: ThemeWithKeywords[]) {
       const current = enrichedMap.get(currentTheme.id)
       if (!current) { console.log(`   ⊘ ${currentTheme.name}: 보강 데이터 없음`); continue }
 
-      const matches = findTopMatches(current, enrichedThemes, populationStats, mutualRankIndex)
+      const matches = findTopMatches(current, enrichedThemes, populationStats, mutualRankIndex, curveMutualRankIndex)
       if (matches.length === 0) {
         console.log(`   ⊘ ${currentTheme.name}: 유사 매칭 없음 (임계값 ${Math.round(SIMILARITY_THRESHOLD * 100)}%)`)
         continue
@@ -123,6 +129,7 @@ function findTopMatches(
   allThemes: EnrichedTheme[],
   populationStats: ReturnType<typeof computePopulationStats>,
   mutualRank: MutualRankIndex,
+  curveMutualRank: MutualRankIndex,
 ): MatchResult[] {
   const matches: MatchResult[] = []
 
@@ -131,7 +138,10 @@ function findTopMatches(
     if (past.totalDays < 14 || past.curve.length < 7) continue
 
     const precomputedFeatureSim = mutualRank.getSimilarity(current.id, past.id)
-    const result = compositeCompare({ current, past, populationStats, precomputedFeatureSim })
+    const curveMRSim = curveMutualRank.getSimilarity(current.id, past.id)
+    // Curve MR 인덱스에 없는 쌍(sim=0)은 rawCurveSim 폴백 (undefined)
+    const precomputedCurveSim = curveMRSim > 0 ? curveMRSim : undefined
+    const result = compositeCompare({ current, past, populationStats, precomputedFeatureSim, precomputedCurveSim })
     if (result.similarity >= SIMILARITY_THRESHOLD) {
       matches.push({ pastThemeId: past.id, pastThemeName: past.name, ...result })
     }

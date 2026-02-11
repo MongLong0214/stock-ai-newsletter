@@ -54,9 +54,9 @@ function ThemePrediction({ firstSpikeDate, comparisons, score }: ThemePrediction
       <motion.div variants={containerVariants} initial="hidden" animate="visible" className="space-y-5">
         {/* 1. 헤더 */}
         <motion.div variants={itemVariants} className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="text-lg font-bold font-mono">
+          <h2 className="text-lg font-bold font-mono flex gap-1">
             <span className="text-white">생명주기</span>
-            <span className="text-emerald-400 ml-1">참고 지표</span>
+            <span className="text-emerald-400">참고지표</span>
           </h2>
           <div className="flex items-center gap-2">
             <span className={`text-[10px] font-mono px-2.5 py-1 rounded-full border ${confidenceCfg.bg} ${confidenceCfg.text} ${confidenceCfg.border}`}>
@@ -143,17 +143,41 @@ function ThemePrediction({ firstSpikeDate, comparisons, score }: ThemePrediction
         {/* 5. 통계 그리드 */}
         <motion.div variants={itemVariants} className="grid grid-cols-2 gap-3">
           <StatCell icon={<Clock className="w-4 h-4" />} label="경과일" value={prediction.daysSinceSpike > 365 ? '1년+' : `${prediction.daysSinceSpike}일`} color="#10B981" />
-          <StatCell icon={<Target className="w-4 h-4" />} label="예상 피크" value={prediction.avgDaysToPeak > 0 ? `약 ${prediction.avgDaysToPeak}일 후` : '피크 도달'} color="#F59E0B" />
+          <StatCell icon={<Target className="w-4 h-4" />} label="예상 피크" value={prediction.avgDaysToPeak > 0 ? `약 ${prediction.avgDaysToPeak}일 후` : '피크 부근'} color="#F59E0B" />
           <StatCell icon={<BarChart3 className="w-4 h-4" />} label="평균 유사도" value={`${Math.round(prediction.avgSimilarity * 100)}%`} color="#0EA5E9" />
           <MomentumCell momentum={prediction.momentum} />
         </motion.div>
 
-        {/* 6. 시나리오 카드 */}
-        <motion.div variants={itemVariants} className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <ScenarioCard label="낙관 시나리오" scenario={prediction.scenarios.best} accent="emerald" />
-          <ScenarioCard label="기본 시나리오" scenario={prediction.scenarios.median} accent="slate" />
-          <ScenarioCard label="비관 시나리오" scenario={prediction.scenarios.worst} accent="red" />
-        </motion.div>
+        {/* 6. 시나리오 카드 (동일 테마 중복 시 축소) */}
+        {(() => {
+          const { best, median, worst } = prediction.scenarios
+          const allSame = best.themeName === median.themeName && median.themeName === worst.themeName
+          const bestMedianSame = best.themeName === median.themeName
+          const medianWorstSame = median.themeName === worst.themeName
+
+          if (allSame) {
+            return (
+              <motion.div variants={itemVariants} className="grid grid-cols-1 gap-3">
+                <ScenarioCard label="유일 참고 시나리오" scenario={median} accent="slate" />
+              </motion.div>
+            )
+          }
+          if (bestMedianSame || medianWorstSame) {
+            return (
+              <motion.div variants={itemVariants} className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <ScenarioCard label="낙관 시나리오" scenario={best} accent="emerald" />
+                <ScenarioCard label="비관 시나리오" scenario={worst} accent="red" />
+              </motion.div>
+            )
+          }
+          return (
+            <motion.div variants={itemVariants} className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <ScenarioCard label="낙관 시나리오" scenario={best} accent="emerald" />
+              <ScenarioCard label="기본 시나리오" scenario={median} accent="slate" />
+              <ScenarioCard label="비관 시나리오" scenario={worst} accent="red" />
+            </motion.div>
+          )
+        })()}
 
         {/* 7. 면책 조항 */}
         <motion.p variants={itemVariants} className="text-[10px] font-mono text-slate-500 text-center pt-1">
