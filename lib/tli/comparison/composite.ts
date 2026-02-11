@@ -42,6 +42,7 @@ export function compositeCompare(params: {
   past: PastInput
   populationStats?: FeaturePopulationStats
   precomputedFeatureSim?: number
+  precomputedCurveSim?: number
 }): {
   similarity: number
   currentDay: number
@@ -62,10 +63,13 @@ export function compositeCompare(params: {
       ? zScoreEuclideanSimilarity(featuresToArray(current.features), featuresToArray(past.features), params.populationStats)
       : Math.max(0, cosineSimilarity(featuresToArray(current.features), featuresToArray(past.features)))
 
-  // 곡선 유사도 (RMSE 60% + 미분 상관 40%, 사전계산 캐시 활용)
-  const { curveSim, minCurveLen } = computeCurveSim(
+  // 곡선 유사도 (Mutual Rank 우선 → RMSE+미분상관 폴백)
+  const { curveSim: rawCurveSim, minCurveLen } = computeCurveSim(
     current.curve, past.curve, current.resampledCurve, past.resampledCurve,
   )
+  const curveSim = params.precomputedCurveSim !== undefined
+    ? params.precomputedCurveSim
+    : rawCurveSim
 
   // 키워드 자카드 (표시용, 점수 미반영)
   const keywordSim = current.keywordsLower && past.keywordsLower
@@ -113,10 +117,12 @@ function computeCurveSim(
   const cR = cachedCurrent?.length ? cachedCurrent : resampleCurve(normalizeValues(currentCurve))
   const pR = cachedPast?.length ? cachedPast : resampleCurve(normalizeValues(pastCurve))
 
-  // RMSE 형태 유사도
+  // RMSE 형태 유사도 (캐시 길이 불일치 방어)
+  const len = Math.min(cR.length, pR.length)
+  if (len === 0) return { curveSim: 0, minCurveLen }
   let sumSqDiff = 0
-  for (let i = 0; i < cR.length; i++) sumSqDiff += (cR[i] - pR[i]) ** 2
-  const shapeSim = Math.max(0, 1 - Math.sqrt(sumSqDiff / cR.length) * 2.5)
+  for (let i = 0; i < len; i++) sumSqDiff += (cR[i] - pR[i]) ** 2
+  const shapeSim = Math.max(0, 1 - Math.sqrt(sumSqDiff / len) * 2.5)
 
   // 미분 상관: 변화율 패턴으로 단조감소 곡선 구별
   const dC: number[] = [], dP: number[] = []

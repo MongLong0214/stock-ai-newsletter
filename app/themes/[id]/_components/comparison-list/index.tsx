@@ -25,7 +25,7 @@ function ComparisonList({
   const validEntries = useMemo(
     () => comparisons
       .map((comp, originalIdx) => ({ comp, originalIdx }))
-      .filter(({ comp }) => comp.pastTotalDays >= MIN_PAST_TOTAL_DAYS),
+      .filter(({ comp }) => comp.pastTotalDays >= MIN_PAST_TOTAL_DAYS && comp.pastPeakDay >= 3),
     [comparisons],
   )
 

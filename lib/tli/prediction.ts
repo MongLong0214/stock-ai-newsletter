@@ -74,8 +74,8 @@ function derivePhase(daysSinceSpike: number, avgPeakDay: number, avgTotalDays: n
       if (avgPeakDay > 0 && daysSinceSpike > avgPeakDay) return 'declining'
       return 'pre-peak'
     }
-    // 중간 점수(25-54): 비교 데이터로 세분화
-    if (avgPeakDay > 0 && avgTotalDays > 0) {
+    // 중간 점수(25-54): 비교 데이터로 세분화 (peakDay 최소 3일 이상만 신뢰)
+    if (avgPeakDay >= 3 && avgTotalDays > 0) {
       if (daysSinceSpike > avgTotalDays * 0.8) return 'declining'
       if (daysSinceSpike > avgPeakDay) return 'post-peak'
       if (daysSinceSpike > avgPeakDay * 0.7) return 'near-peak'
@@ -139,9 +139,9 @@ export function calculatePrediction(
   today?: string,
   score?: number,
 ): PredictionResult | null {
-  // 개별 비교군 품질 필터: pastTotalDays < 14 제외
-  const validComparisons = comparisons.filter(c => c.pastTotalDays >= 14)
-  if (!validComparisons.length) return null
+  // 개별 비교군 품질 필터: pastTotalDays < 14 또는 pastPeakDay < 3 제외
+  const validComparisons = comparisons.filter(c => c.pastTotalDays >= 14 && c.pastPeakDay >= 3)
+  if (validComparisons.length < 2) return null
 
   // today가 KST 날짜 문자열이면 그대로, 없으면 현재 KST 시각 사용
   const now = today ? new Date(today).getTime() : Date.now() + KST_OFFSET_MS
@@ -151,6 +151,7 @@ export function calculatePrediction(
     : 0
 
   const avgSimilarity = validComparisons.reduce((s, c) => s + c.similarity, 0) / validComparisons.length
+  if (avgSimilarity < 0.40) return null
 
   const avgPeakDay = Math.round(weightedAvg(validComparisons, c => c.pastPeakDay))
   const avgTotalDays = Math.min(Math.round(weightedAvg(validComparisons, c => c.pastTotalDays)), 365)
