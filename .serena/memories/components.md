@@ -141,11 +141,11 @@
 | stock-list.tsx | 종목 목록 테이블 |
 | stock-list-row.tsx | 종목 행 (가격 comma, 등락% 색상, 거래량 약어) |
 | stock-list-utils.ts | 포맷팅 유틸 (평균 등락률 = is_active 종목만) |
-| news-headlines.tsx | 뉴스 헤드라인 목록 (출처, 날짜, limit 50) |
-| comparison-list/index.tsx | 유사 테마 비교 목록 |
-| comparison-list/comparison-card.tsx | 비교 카드 (강도 뱃지) |
+| news-headlines.tsx | 뉴스 헤드라인 목록 (HTML 엔티티 디코딩, 출처, 날짜, limit 50) |
+| comparison-list/index.tsx | 유사 테마 비교 목록 (품질필터 pastTotalDays≥14, 평균유사도 요약) |
+| comparison-list/comparison-card.tsx | 비교 카드 (접근성, 타임라인 주체 표시, 강도 뱃지) |
 | comparison-list/pillar-bars.tsx | 3-Pillar 유사도 바 |
-| theme-prediction/index.tsx | 생명주기 참고 지표 (비교 0이면 숨김) |
+| theme-prediction/index.tsx | 생명주기 참고 지표 (진행률 바, 피크 마커, 시나리오) |
 | theme-prediction/config.ts | 예측 설정 |
 | theme-prediction/sub-components.tsx | 예측 서브 컴포넌트 |
 

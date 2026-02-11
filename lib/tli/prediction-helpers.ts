@@ -16,16 +16,16 @@ export function buildPhaseMessage(phase: Phase, avgDaysToPeak: number): string {
   switch (phase) {
     case 'pre-peak':
       return avgDaysToPeak > 0
-        ? `Peak까지 약 ${avgDaysToPeak}일 남음`
-        : 'Peak 이전 초기 성장 구간'
+        ? `피크까지 약 ${avgDaysToPeak}일 남음`
+        : '피크 이전 초기 성장 구간'
     case 'near-peak':
       return avgDaysToPeak > 0
-        ? `약 ${avgDaysToPeak}일 내 Peak 도달 예상`
-        : 'Peak 구간에 근접 중'
+        ? `약 ${avgDaysToPeak}일 내 피크 도달 예상`
+        : '피크 구간에 근접 중'
     case 'at-peak':
-      return 'Peak 구간 통과 중'
+      return '피크 구간 통과 중'
     case 'post-peak':
-      return 'Peak 이후 하락 전환 구간'
+      return '피크 이후 하락 전환 구간'
     case 'declining':
       return '하락 단계 진입'
   }
