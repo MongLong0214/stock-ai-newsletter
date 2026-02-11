@@ -16,7 +16,8 @@ import ThemePrediction from './theme-prediction'
 import ScoreCard from './score-card'
 import NewsHeadlines from './news-headlines'
 import DetailHeader from './detail-header'
-import { DetailLoading, DetailError } from './detail-states'
+import { DetailLoading } from './detail-loading'
+import { DetailError } from './detail-error'
 import { useGetThemeDetail } from '../_services/use-get-theme-detail'
 
 interface DetailContentProps {
@@ -101,16 +102,16 @@ function DetailContent({ id }: DetailContentProps) {
             <GlassCard className="p-4 sm:p-6 mb-6 sm:mb-8">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-bold">
-                  <span className="text-white">생명주기</span>
-                  <span className="text-emerald-400 ml-1">곡선</span>
+                  <span className="text-white">점수</span>
+                  <span className="text-emerald-400 ml-1">추이</span>
                 </h2>
                 {comparisonData && (
-                  <span className="text-xs font-mono text-sky-400">{comparisonData.length}개 비교 오버레이</span>
+                  <span className="text-xs font-mono text-sky-400">{comparisonData.length}개 비교 중</span>
                 )}
               </div>
               {theme.lifecycleCurve.length === 0 ? (
                 <div className="flex items-center justify-center h-[400px] bg-slate-900/30 rounded-lg border border-slate-800">
-                  <p className="text-sm text-slate-500 font-mono">데이터 수집 중</p>
+                  <p className="text-sm text-slate-500 font-mono">데이터를 준비하고 있어요</p>
                 </div>
               ) : (
                 <ErrorBoundary>

@@ -50,7 +50,7 @@ function StockList({ stocks }: StockListProps) {
         <div className="w-12 h-12 rounded-full bg-slate-800/50 border border-slate-700/30 flex items-center justify-center mb-4">
           <TrendingUp className="w-6 h-6 text-slate-600" />
         </div>
-        <p className="text-sm text-slate-500 font-mono text-center">관련 종목 데이터가 아직 수집되지 않았습니다</p>
+        <p className="text-sm text-slate-500 font-mono text-center">관련 종목 데이터가 아직 없어요</p>
       </motion.div>
     )
   }

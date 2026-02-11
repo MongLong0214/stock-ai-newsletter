@@ -1,4 +1,5 @@
 import type { ChartConfig } from '@/components/ui/chart'
+import { COMPARISON_COLORS } from '@/lib/tli/constants/comparison-colors'
 
 export interface LifecycleCurveProps {
   currentData: Array<{ date: string; score: number }>
@@ -12,7 +13,7 @@ export interface LifecycleCurveProps {
   height?: number
 }
 
-export const comparisonColors = ['#0EA5E9', '#F59E0B', '#8B5CF6']
+export const comparisonColors = COMPARISON_COLORS
 
 export function prepareChartConfig(comparisonData?: LifecycleCurveProps['comparisonData']): ChartConfig {
   const chartConfig: ChartConfig = {
