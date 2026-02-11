@@ -33,12 +33,13 @@ const itemVariants = {
 interface ThemePredictionProps {
   firstSpikeDate: string | null
   comparisons: ComparisonResult[]
+  score?: number
 }
 
-function ThemePrediction({ firstSpikeDate, comparisons }: ThemePredictionProps) {
+function ThemePrediction({ firstSpikeDate, comparisons, score }: ThemePredictionProps) {
   const prediction = useMemo(
-    () => calculatePrediction(firstSpikeDate, comparisons),
-    [firstSpikeDate, comparisons],
+    () => calculatePrediction(firstSpikeDate, comparisons, undefined, score),
+    [firstSpikeDate, comparisons, score],
   )
 
   if (!prediction) return null
@@ -51,7 +52,7 @@ function ThemePrediction({ firstSpikeDate, comparisons }: ThemePredictionProps) 
   return (
     <GlassCard className="p-5 sm:p-6">
       <motion.div variants={containerVariants} initial="hidden" animate="visible" className="space-y-5">
-        {/* 1. Header */}
+        {/* 1. 헤더 */}
         <motion.div variants={itemVariants} className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-lg font-bold font-mono">
             <span className="text-white">생명주기</span>
@@ -68,7 +69,7 @@ function ThemePrediction({ firstSpikeDate, comparisons }: ThemePredictionProps) 
           </div>
         </motion.div>
 
-        {/* 2. Key Insight */}
+        {/* 2. 핵심 인사이트 */}
         <motion.div variants={itemVariants} className={`rounded-xl border p-4 flex items-start gap-3 ${INSIGHT_BG[prediction.riskLevel]}`}>
           <Lightbulb className={`w-5 h-5 mt-0.5 shrink-0 ${INSIGHT_ICON_COLOR[prediction.riskLevel]}`} />
           <p className="text-sm font-mono text-slate-200 leading-relaxed">{prediction.keyInsight}</p>
@@ -139,7 +140,7 @@ function ThemePrediction({ firstSpikeDate, comparisons }: ThemePredictionProps) 
           </motion.div>
         )}
 
-        {/* 5. Stats Grid */}
+        {/* 5. 통계 그리드 */}
         <motion.div variants={itemVariants} className="grid grid-cols-2 gap-3">
           <StatCell icon={<Clock className="w-4 h-4" />} label="경과일" value={prediction.daysSinceSpike > 365 ? '1년+' : `${prediction.daysSinceSpike}일`} color="#10B981" />
           <StatCell icon={<Target className="w-4 h-4" />} label="예상 피크" value={prediction.avgDaysToPeak > 0 ? `약 ${prediction.avgDaysToPeak}일 후` : '피크 도달'} color="#F59E0B" />
@@ -147,14 +148,14 @@ function ThemePrediction({ firstSpikeDate, comparisons }: ThemePredictionProps) 
           <MomentumCell momentum={prediction.momentum} />
         </motion.div>
 
-        {/* 6. Scenario Cards */}
+        {/* 6. 시나리오 카드 */}
         <motion.div variants={itemVariants} className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <ScenarioCard label="낙관 시나리오" scenario={prediction.scenarios.best} accent="emerald" />
           <ScenarioCard label="기본 시나리오" scenario={prediction.scenarios.median} accent="slate" />
           <ScenarioCard label="비관 시나리오" scenario={prediction.scenarios.worst} accent="red" />
         </motion.div>
 
-        {/* 7. Disclaimer */}
+        {/* 7. 면책 조항 */}
         <motion.p variants={itemVariants} className="text-[10px] font-mono text-slate-500 text-center pt-1">
           과거 유사 테마({prediction.comparisonCount}개) 기반 참고 정보이며, 실제 시장과 다를 수 있습니다
         </motion.p>

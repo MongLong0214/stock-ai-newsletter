@@ -38,7 +38,7 @@ function DetailContent({ id }: DetailContentProps) {
   const comparisonData = useMemo(() => {
     if (!theme) return undefined
     const selected = selectedComparisons
-      .filter(idx => idx < theme.comparisons.length)
+      .filter(idx => idx >= 0 && idx < theme.comparisons.length)
       .map(idx => {
         const comp = theme.comparisons[idx]
         return {
@@ -88,7 +88,7 @@ function DetailContent({ id }: DetailContentProps) {
 
           {theme.comparisons.length > 0 && (
             <div className="mb-8">
-              <ThemePrediction firstSpikeDate={theme.firstSpikeDate} comparisons={theme.comparisons} />
+              <ThemePrediction firstSpikeDate={theme.firstSpikeDate} comparisons={theme.comparisons} score={theme.score.value} />
             </div>
           )}
 
@@ -150,7 +150,7 @@ function DetailContent({ id }: DetailContentProps) {
             </GlassCard>
           </motion.div>
 
-          {/* 3 Column Grid */}
+          {/* 3열 그리드 */}
           <div className="grid grid-cols-1 lg:grid-cols-3 lg:grid-rows-[600px] gap-4 sm:gap-6">
             <ScoreCard score={theme.score} />
             <ComparisonList

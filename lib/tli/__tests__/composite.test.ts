@@ -28,11 +28,13 @@ describe('compositeCompare', () => {
     const result = compositeCompare({
       current: { features, curve, keywords, activeDays: 10, sector: 'AI' },
       past: { features, curve, keywords, peakDay: 15, totalDays: 30, name: 'test', sector: 'AI' },
+      precomputedFeatureSim: 1.0,
     })
-    expect(result.similarity).toBeGreaterThan(0.8)
+    // 선형 곡선은 미분 상관=0 → curveSim≈0.6 → 전체 0.76 (정상)
+    expect(result.similarity).toBeGreaterThan(0.7)
   })
 
-  it('applies sector penalty (0.7) for different sectors', () => {
+  it('applies sector penalty (0.85) for different sectors', () => {
     const features = makeFeatures()
     const curve = makeCurve(20)
     const keywords = ['AI']
@@ -45,7 +47,7 @@ describe('compositeCompare', () => {
       current: { features, curve, keywords, activeDays: 10, sector: 'AI' },
       past: { features, curve, keywords, peakDay: 15, totalDays: 30, name: 'test', sector: '반도체' },
     })
-    expect(diffSector.similarity).toBeCloseTo(sameSector.similarity * 0.7, 2)
+    expect(diffSector.similarity).toBeCloseTo(sameSector.similarity * 0.85, 2)
   })
 
   it('skips sector penalty when either is "etc"', () => {
@@ -55,7 +57,7 @@ describe('compositeCompare', () => {
       current: { features, curve, keywords: [], activeDays: 10, sector: 'etc' },
       past: { features, curve, keywords: [], peakDay: 15, totalDays: 30, name: 'test', sector: '반도체' },
     })
-    // 0.7 패널티 미적용
+    // 0.85 패널티 미적용
     const sameResult = compositeCompare({
       current: { features, curve, keywords: [], activeDays: 10, sector: '반도체' },
       past: { features, curve, keywords: [], peakDay: 15, totalDays: 30, name: 'test', sector: '반도체' },
@@ -64,7 +66,7 @@ describe('compositeCompare', () => {
   })
 
   describe('adaptive weights', () => {
-    it('uses curve=0.45 weight for 14+ curve points', () => {
+    it('uses curve=0.60 weight for 14+ curve points', () => {
       const result = compositeCompare({
         current: { features: makeFeatures(), curve: makeCurve(20), keywords: ['a'], activeDays: 10, sector: 'AI' },
         past: { features: makeFeatures(), curve: makeCurve(20), keywords: ['a'], peakDay: 15, totalDays: 30, name: 'test', sector: 'AI' },

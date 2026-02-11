@@ -65,7 +65,25 @@ function deriveConfidence(count: number, avgSimilarity: number): ConfidenceLevel
   return 'low'
 }
 
-function derivePhase(daysSinceSpike: number, avgPeakDay: number, avgTotalDays: number): Phase {
+function derivePhase(daysSinceSpike: number, avgPeakDay: number, avgTotalDays: number, score?: number): Phase {
+  // 점수가 있으면 1차 신호로 사용 (테마 자체 상태가 가장 정확)
+  if (score !== undefined && score > 0) {
+    if (score >= 75) return 'at-peak'
+    if (score >= 55) return 'near-peak'
+    if (score < 25) {
+      if (avgPeakDay > 0 && daysSinceSpike > avgPeakDay) return 'declining'
+      return 'pre-peak'
+    }
+    // 중간 점수(25-54): 비교 데이터로 세분화
+    if (avgPeakDay > 0 && avgTotalDays > 0) {
+      if (daysSinceSpike > avgTotalDays * 0.8) return 'declining'
+      if (daysSinceSpike > avgPeakDay) return 'post-peak'
+      if (daysSinceSpike > avgPeakDay * 0.7) return 'near-peak'
+    }
+    return 'pre-peak'
+  }
+
+  // 폴백: 비교 데이터만으로 추정
   if (avgPeakDay <= 0 || avgTotalDays <= 0) return 'pre-peak'
   if (daysSinceSpike < avgPeakDay * 0.7) return 'pre-peak'
   if (daysSinceSpike < avgPeakDay * 0.95) return 'near-peak'
@@ -74,7 +92,11 @@ function derivePhase(daysSinceSpike: number, avgPeakDay: number, avgTotalDays: n
   return 'declining'
 }
 
-function deriveMomentum(estimatedDaysToPeak: number, avgTotalDays: number): Momentum {
+function deriveMomentum(estimatedDaysToPeak: number, avgTotalDays: number, score?: number): Momentum {
+  // 점수 기반 (높은 점수만 — 낮은 점수는 방향 불명확하므로 비교 데이터 폴백)
+  if (score !== undefined && score >= 65) return 'accelerating'
+  if (score !== undefined && score >= 35) return 'stable'
+  // 낮은 점수(< 35) 또는 score 없음: 비교 데이터 기반 판단
   if (avgTotalDays <= 0) return 'stable'
   const ratio = estimatedDaysToPeak / avgTotalDays
   if (ratio > 0.3) return 'accelerating'
@@ -82,7 +104,12 @@ function deriveMomentum(estimatedDaysToPeak: number, avgTotalDays: number): Mome
   return 'decelerating'
 }
 
-function deriveRisk(phase: Phase, confidence: ConfidenceLevel): RiskLevel {
+function deriveRisk(phase: Phase, confidence: ConfidenceLevel, score?: number): RiskLevel {
+  // 점수 기반 (높은 점수만 — 낮은 점수는 상승/하락 구분 불가하므로 phase 폴백)
+  if (score !== undefined && score >= 80) return 'high'
+  if (score !== undefined && score >= 60) return 'moderate'
+  if (score !== undefined && score >= 35) return 'low'
+  // 낮은 점수(< 35) 또는 score 없음: phase 기반 판단
   if (phase === 'declining') return 'critical'
   if (phase === 'post-peak' || phase === 'at-peak') return 'high'
   if (phase === 'near-peak') return 'moderate'
@@ -110,6 +137,7 @@ export function calculatePrediction(
   firstSpikeDate: string | null,
   comparisons: ComparisonInput[],
   today?: string,
+  score?: number,
 ): PredictionResult | null {
   // 개별 비교군 품질 필터: pastTotalDays < 14 제외
   const validComparisons = comparisons.filter(c => c.pastTotalDays >= 14)
@@ -140,9 +168,9 @@ export function calculatePrediction(
 
   const comparisonCount = validComparisons.length
   const confidence = deriveConfidence(comparisonCount, avgSimilarity)
-  const phase = derivePhase(daysSinceSpike, avgPeakDay, avgTotalDays)
-  const momentum = deriveMomentum(avgDaysToPeak, avgTotalDays)
-  const riskLevel = deriveRisk(phase, confidence)
+  const phase = derivePhase(daysSinceSpike, avgPeakDay, avgTotalDays, score)
+  const momentum = deriveMomentum(avgDaysToPeak, avgTotalDays, score)
+  const riskLevel = deriveRisk(phase, confidence, score)
   const scenarios = buildScenarios(validComparisons)
 
   return {
@@ -158,9 +186,9 @@ export function calculatePrediction(
     scenarios,
     phase,
     momentum,
-    phaseMessage: buildPhaseMessage(phase, avgDaysToPeak),
+    phaseMessage: buildPhaseMessage(phase, avgDaysToPeak, score),
     riskLevel,
     riskMessage: buildRiskMessage(riskLevel),
-    keyInsight: buildKeyInsight(phase, avgDaysToPeak),
+    keyInsight: buildKeyInsight(phase, avgDaysToPeak, score),
   }
 }
