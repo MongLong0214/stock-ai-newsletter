@@ -81,9 +81,17 @@ function parseDate(pubDate: string): string | null {
   return d.toISOString().split('T')[0]
 }
 
-/** HTML 태그 제거 */
+/** HTML 태그 제거 + 엔티티 디코딩 */
 function stripHtml(text: string): string {
-  return text.replace(/<[^>]*>/g, '').trim()
+  return text
+    .replace(/<[^>]*>/g, '')
+    .replace(/&quot;/g, '"')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&apos;/g, "'")
+    .replace(/&#39;/g, "'")
+    .trim()
 }
 
 /** 링크에서 도메인(언론사) 추출 */

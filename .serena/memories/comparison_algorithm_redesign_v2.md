@@ -40,43 +40,63 @@ Branch: `compare`
 - Filters individual comparisons with `pastTotalDays < 14` instead of rejecting all
 - `daysSinceSpike` capped at 365
 
-### 7. UI Improvements
-- `comparison-card.tsx` — Timeline hidden when pastTotalDays < 14 or pastPeakDay <= 0
-- Days formatting: 365+ → "1년+", 30+ → "N일(~M개월)"
-- Past theme name included in wording for context
-- `pillar-bars.tsx` — Korean labels: 수치 유사, 흐름 유사, 연관어
+### 7. UI Enterprise Review Improvements (Feb 11)
 
-### 8. Types Cleanup
+#### comparison-list/index.tsx
+- Client-side quality filter `MIN_PAST_TOTAL_DAYS = 14` (defense-in-depth, matches pipeline)
+- Original index preserved for chart overlay selection
+- Average similarity summary in subtitle
+- Key changed to `comp.pastThemeId`
+- Empty state: "신뢰도 높은 비교 테마가 없습니다"
+
+#### comparison-card.tsx
+- Timeline subject label: "과거 {comp.pastTheme} 주기 기준"
+- Accessibility: `role="button"`, `tabIndex={0}`, `aria-pressed`, `onKeyDown`
+- Removed useMemo for simple `message.split('.')`
+- Extracted `isBeyondPastCycle` boolean
+- Consistent `formatDays` for displayCurrentDay
+- "현재 테마 N일 경과" prefix for clarity
+- "과거 패턴 기준, 피크까지 약 N일 추정" text
+
+#### pillar-bars.tsx
+- Fixed redundant null coalescing after null check
+
+#### theme-prediction/index.tsx
+- Added continuous progress bar (currentProgress / peakProgress)
+- Phase-colored fill bar with animated dot indicator
+- Amber peak marker line
+- Labels: "시작", "평균 피크 (N일)", "평균 종료 (~N일)"
+
+### 8. enrich-themes.ts Extraction
+- **File**: `scripts/tli/enrich-themes.ts` (new file, extracted from calculate-comparisons.ts)
+- Contains: `enrichThemes()`, `computePopulationStats()`, `resolveFirstSpikeDate()`
+- Types: `RawTheme`, `EnrichedTheme`, `ThemeDataMaps`
+- calculate-comparisons.ts trimmed to 197 lines (under 200-line limit)
+
+### 9. DB Garbage Cleanup (Feb 11)
+- Deleted 2,498/2,621 records with `past_total_days < 14` (garbage from INTEGER bug period 2/6-2/10)
+- Deleted 106 records with `past_peak_day > past_total_days` (uncapped peak data)
+- Final: 17 valid records remaining
+- Root cause: `data-ops.ts` INTEGER bug → interest data loss → empty curves → garbage comparisons
+
+### 10. Types Cleanup
 - `lib/tli/types/api.ts` — Removed `postPeakDecline` field from ComparisonResult
 - `build-comparisons.ts` — Added caps: currentDay <= 365, pastPeakDay <= pastTotalDays
 
-## Files Modified (19 total)
+## Files Modified (20+ total)
 - `lib/tli/comparison/composite.ts` — RMSE+deriv curveSim, weight cap, wording
 - `lib/tli/comparison/similarity.ts` — exp scaling 0.7
 - `lib/tli/comparison/features.ts` — 7D vector
 - `lib/tli/comparison/timeline.ts` — findPeakDay sentinel
 - `lib/tli/prediction.ts` — quality gate
 - `lib/tli/types/api.ts` — type cleanup
-- `scripts/tli/calculate-comparisons.ts` — totalDays filter, spike inference, stock loading
+- `scripts/tli/calculate-comparisons.ts` — totalDays filter, spike inference, stock loading (197 lines)
+- `scripts/tli/enrich-themes.ts` — NEW: extracted enrichment logic
 - `scripts/tli/backtest-comparisons.ts` — aligned with new API
 - `scripts/tli/snapshot-predictions.ts` — aligned
 - `app/api/tli/themes/[id]/build-comparisons.ts` — caps
-- `app/themes/[id]/_components/comparison-list/comparison-card.tsx` — UI
-- `app/themes/[id]/_components/comparison-list/pillar-bars.tsx` — labels
-- `app/themes/[id]/_components/theme-prediction/index.tsx` — display
-- `app/themes/[id]/_components/theme-prediction/sub-components.tsx`
-- `app/themes/[id]/_components/detail-header/metric-grid.tsx`
-- `lib/tli/__tests__/composite.test.ts` — 7D features
-- `lib/tli/__tests__/features.test.ts` — 7D features
-- `lib/tli/__tests__/prediction.test.ts` — quality gate
-- `lib/tli/__tests__/timeline.test.ts` — sentinel
-
-## SIMILARITY_THRESHOLD
-- Was 0.40, plan recommended lowering to 0.35 due to steeper exp
-- Final value in `calculate-comparisons.ts` should be verified after running pipeline
-
-## Important Decisions
-- exp scaling: 0.7 chosen over 2.5 (too aggressive) and 1.0 (original, no discrimination)
-- Volume max: 50M shares (Korean market appropriate)
-- Weight cap: 0.65 (not 0.60 — too aggressive for short-data themes)
-- DB stores peakDay as 0 (not -1), sentinel is internal pipeline only
+- `app/themes/[id]/_components/comparison-list/index.tsx` — quality filter, summary, empty state
+- `app/themes/[id]/_components/comparison-list/comparison-card.tsx` — accessibility, clarity, formatting
+- `app/themes/[id]/_components/comparison-list/pillar-bars.tsx` — null check fix
+- `app/themes/[id]/_components/theme-prediction/index.tsx` — progress bar
+- Tests: composite, features, prediction, timeline

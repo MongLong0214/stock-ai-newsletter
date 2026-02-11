@@ -1,10 +1,14 @@
-/** 유사 패턴 리스트 — 메인 컨테이너 */
+/** 유사 패턴 리스트 — 품질 필터 + 요약 통계 */
 'use client'
 
+import { useMemo } from 'react'
 import { motion } from 'framer-motion'
 import { GlassCard } from '@/components/tli/glass-card'
 import type { ComparisonResult } from '@/lib/tli/types'
 import ComparisonCard from './comparison-card'
+
+// 과거 주기 14일 미만은 비교 신뢰도 부족 (파이프라인 필터와 동일)
+const MIN_PAST_TOTAL_DAYS = 14
 
 interface ComparisonListProps {
   comparisons: ComparisonResult[]
@@ -17,7 +21,27 @@ function ComparisonList({
   selectedIndices = [],
   onToggleComparison,
 }: ComparisonListProps) {
-  if (comparisons.length === 0) return null
+  // 품질 필터 + 원본 인덱스 유지 (차트 오버레이 연동)
+  const validEntries = useMemo(
+    () => comparisons
+      .map((comp, originalIdx) => ({ comp, originalIdx }))
+      .filter(({ comp }) => comp.pastTotalDays >= MIN_PAST_TOTAL_DAYS),
+    [comparisons],
+  )
+
+  if (validEntries.length === 0) {
+    return (
+      <GlassCard className="p-6 h-full flex items-center justify-center">
+        <p className="text-sm font-mono text-slate-500 text-center">
+          신뢰도 높은 비교 테마가 없습니다
+        </p>
+      </GlassCard>
+    )
+  }
+
+  const avgSim = Math.round(
+    validEntries.reduce((sum, { comp }) => sum + comp.similarity, 0) / validEntries.length * 100,
+  )
 
   return (
     <GlassCard className="p-6 h-full overflow-y-auto custom-scroll">
@@ -31,17 +55,17 @@ function ComparisonList({
           <span className="text-emerald-400 ml-1">패턴</span>
         </h2>
         <p className="text-xs font-mono text-slate-500 mb-4">
-          {comparisons.length}개 과거 테마와 비교 분석
+          {validEntries.length}개 과거 테마 비교 · 평균 유사도 {avgSim}%
         </p>
 
         <div className="space-y-3">
-          {comparisons.map((comp, idx) => (
+          {validEntries.map(({ comp, originalIdx }, displayIdx) => (
             <ComparisonCard
-              key={comp.pastTheme}
+              key={comp.pastThemeId}
               comp={comp}
-              idx={idx}
-              isSelected={selectedIndices.includes(idx)}
-              onToggle={() => onToggleComparison?.(idx)}
+              idx={displayIdx}
+              isSelected={selectedIndices.includes(originalIdx)}
+              onToggle={() => onToggleComparison?.(originalIdx)}
             />
           ))}
         </div>

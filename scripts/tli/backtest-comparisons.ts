@@ -8,6 +8,13 @@ import {
   pearsonCorrelation, type TimeSeriesPoint, type FeaturePopulationStats,
 } from '../../lib/tli/comparison'
 
+interface EnrichedTheme {
+  id: string; name: string; firstSpikeDate: string
+  curve: TimeSeriesPoint[]; keywords: string[]; peakDay: number; totalDays: number
+  activeDays: number; sector: string; scores: Array<{ score: number }>
+  interestValues: number[]; avgPriceChangePct: number; avgVolume: number
+}
+
 async function main() {
   console.log('🔬 비교 알고리즘 백테스트\n')
 
@@ -21,8 +28,8 @@ async function main() {
 
   const themeIds = themes.map(t => t.id)
 
-  // 전체 데이터 로딩
-  const [interestAll, scoresAll, keywordsAll] = await Promise.all([
+  // 데이터 배치 로딩 (주가 포함)
+  const [interestAll, scoresAll, keywordsAll, stocksAll] = await Promise.all([
     batchQuery<{ theme_id: string; time: string; normalized: number }>(
       'interest_metrics', 'theme_id, time, normalized', themeIds,
     ),
@@ -33,20 +40,17 @@ async function main() {
     batchQuery<{ theme_id: string; keyword: string }>(
       'theme_keywords', 'theme_id, keyword', themeIds,
     ),
+    batchQuery<{ theme_id: string; price_change_pct: number | null; volume: number | null }>(
+      'theme_stocks', 'theme_id, price_change_pct, volume', themeIds,
+    ),
   ])
 
   const interestByTheme = groupByThemeId(interestAll)
   const scoresByTheme = groupByThemeId(scoresAll)
   const keywordsByTheme = groupByThemeId(keywordsAll)
+  const stocksByTheme = groupByThemeId(stocksAll)
 
-  // 보강된 테마 데이터 구성
-  interface EnrichedTheme {
-    id: string; name: string; firstSpikeDate: string;
-    curve: TimeSeriesPoint[]; keywords: string[]; peakDay: number; totalDays: number;
-    activeDays: number; sector: string; scores: Array<{ score: number }>;
-    interestValues: number[];
-  }
-
+  // 테마 보강
   const enriched: EnrichedTheme[] = []
   for (const theme of themes) {
     const fsd = theme.first_spike_date
@@ -57,22 +61,35 @@ async function main() {
     const curve = normalizeTimeline(interest.map(m => ({ date: m.time, value: m.normalized })), fsd)
     const keywords = (keywordsByTheme.get(theme.id) || []).map(k => k.keyword)
     const scores = (scoresByTheme.get(theme.id) || []).map(s => ({ score: s.score }))
-    const totalDays = curve.length > 0 ? curve[curve.length - 1].day : 0
     const peakDay = findPeakDay(curve)
-    if (peakDay < 0) continue  // 피크 미확인 테마는 백테스트에서 제외
+    if (peakDay < 0) continue
+    const totalDays = curve.length > 0 ? curve[curve.length - 1].day : 0
     const activeDays = totalDays
-    const sector = classifySector(keywords)
     const interestValues = interest.map(m => m.normalized)
 
-    enriched.push({ id: theme.id, name: theme.name, firstSpikeDate: fsd, curve, keywords, peakDay, totalDays, activeDays, sector, scores, interestValues })
+    // 주가/거래량 집계
+    const stocks = stocksByTheme.get(theme.id) || []
+    const validPrices = stocks.filter(s => s.price_change_pct !== null).map(s => s.price_change_pct!)
+    const validVolumes = stocks.filter(s => s.volume !== null).map(s => s.volume!)
+    const avgPriceChangePct = validPrices.length > 0 ? validPrices.reduce((a, b) => a + b, 0) / validPrices.length : 0
+    const avgVolume = validVolumes.length > 0 ? validVolumes.reduce((a, b) => a + b, 0) / validVolumes.length : 0
+
+    enriched.push({
+      id: theme.id, name: theme.name, firstSpikeDate: fsd,
+      curve, keywords, peakDay, totalDays, activeDays, sector: classifySector(keywords),
+      scores, interestValues, avgPriceChangePct, avgVolume,
+    })
   }
 
   console.log(`📊 백테스트 대상: ${enriched.length}개 완료 테마\n`)
   if (enriched.length < 2) { console.log('❌ 최소 2개 테마 필요'); return }
 
-  // 모집단 통계
+  // 모집단 통계 (7D 피처 포함)
   const allFeatureVecs = enriched.map(t => {
-    const f = extractFeatures({ scores: t.scores, interestValues: t.interestValues, totalNewsCount: 0, activeDays: t.activeDays })
+    const f = extractFeatures({
+      scores: t.scores, interestValues: t.interestValues, totalNewsCount: 0,
+      activeDays: t.activeDays, avgPriceChangePct: t.avgPriceChangePct, avgVolume: t.avgVolume,
+    })
     return featuresToArray(f)
   })
   const numDims = allFeatureVecs[0].length
@@ -88,26 +105,26 @@ async function main() {
   // 임계값 스윕
   const thresholds = [0.30, 0.35, 0.40, 0.45, 0.50, 0.55, 0.60]
   const thresholdResults: Array<{ threshold: number; matches: number; accurate: number; precision: string; recall: string }> = []
-
   let totalAccurateAtDefault = 0
 
   for (const threshold of thresholds) {
-    let matches = 0
-    let accurate = 0
+    let matches = 0, accurate = 0
 
     for (let i = 0; i < enriched.length; i++) {
       const current = enriched[i]
-      // 중간 지점을 "현재" 상태로 사용
       const midIdx = Math.floor(current.curve.length / 2)
       const halfCurve = current.curve.slice(0, midIdx)
       const remainingCurve = current.curve.slice(midIdx)
       if (halfCurve.length < 7) continue
 
+      // 절반 곡선 기준 피처 (주가/거래량 포함)
       const halfFeatures = extractFeatures({
         scores: current.scores.slice(0, Math.min(7, current.scores.length)),
         interestValues: current.interestValues.slice(0, midIdx),
         totalNewsCount: 0,
         activeDays: halfCurve[halfCurve.length - 1]?.day || 0,
+        avgPriceChangePct: current.avgPriceChangePct,
+        avgVolume: current.avgVolume,
       })
 
       for (let j = 0; j < enriched.length; j++) {
@@ -115,15 +132,20 @@ async function main() {
         const past = enriched[j]
         if (past.curve.length < 14) continue
 
+        const pastFeatures = extractFeatures({
+          scores: past.scores, interestValues: past.interestValues, totalNewsCount: 0,
+          activeDays: past.activeDays, avgPriceChangePct: past.avgPriceChangePct, avgVolume: past.avgVolume,
+        })
+
         const result = compositeCompare({
           current: { features: halfFeatures, curve: halfCurve, keywords: current.keywords, activeDays: halfCurve[halfCurve.length - 1]?.day || 0, sector: current.sector },
-          past: { features: extractFeatures({ scores: past.scores, interestValues: past.interestValues, totalNewsCount: 0, activeDays: past.activeDays }), curve: past.curve, keywords: past.keywords, peakDay: past.peakDay, totalDays: past.totalDays, name: past.name, sector: past.sector },
+          past: { features: pastFeatures, curve: past.curve, keywords: past.keywords, peakDay: past.peakDay, totalDays: past.totalDays, name: past.name, sector: past.sector },
           populationStats,
         })
 
         if (result.similarity >= threshold) {
           matches++
-          // 정확도 검증: 나머지 곡선이 과거 테마의 대응 구간과 상관관계가 있는지 확인
+          // 정확도 검증: 나머지 곡선과 과거 대응 구간의 상관관계
           const remainingValues = remainingCurve.map(p => p.value)
           const pastRemaining = past.curve.slice(midIdx, midIdx + remainingValues.length).map(p => p.value)
           const minLen = Math.min(remainingValues.length, pastRemaining.length)
@@ -137,9 +159,7 @@ async function main() {
 
     if (threshold === 0.40) totalAccurateAtDefault = accurate
     thresholdResults.push({
-      threshold,
-      matches,
-      accurate,
+      threshold, matches, accurate,
       precision: matches > 0 ? (accurate / matches * 100).toFixed(1) + '%' : 'N/A',
       recall: totalAccurateAtDefault > 0 ? (accurate / totalAccurateAtDefault * 100).toFixed(1) + '%' : 'N/A',
     })
@@ -147,7 +167,6 @@ async function main() {
 
   console.log('\n📊 임계값별 Precision/Recall:')
   console.table(thresholdResults)
-
   console.log('\n✅ 백테스트 완료')
 }
 
