@@ -1,11 +1,14 @@
-/** 유사 패턴 리스트 — 품질 필터 + 요약 통계 */
+/** 유사 패턴 리스트 — 품질 필터 + 요약 통계 + 키보드 탐색 */
 'use client'
 
 import { useMemo } from 'react'
 import { motion } from 'framer-motion'
 import { GlassCard } from '@/components/tli/glass-card'
 import type { ComparisonResult } from '@/lib/tli/types'
+import useRovingTabindex from '../../_hooks/use-roving-tabindex'
 import ComparisonCard from './comparison-card'
+import ComparisonEmpty from './empty-state'
+import { generateInsight } from './insight'
 
 // 과거 주기 14일 미만은 비교 신뢰도 부족 (파이프라인 필터와 동일)
 const MIN_PAST_TOTAL_DAYS = 14
@@ -21,6 +24,8 @@ function ComparisonList({
   selectedIndices = [],
   onToggleComparison,
 }: ComparisonListProps) {
+  const { containerRef, handleKeyDown } = useRovingTabindex()
+
   // 품질 필터 + 원본 인덱스 유지 (차트 오버레이 연동)
   const validEntries = useMemo(
     () => comparisons
@@ -30,18 +35,10 @@ function ComparisonList({
   )
 
   if (validEntries.length === 0) {
-    return (
-      <GlassCard className="p-6 h-full flex items-center justify-center">
-        <p className="text-sm font-mono text-slate-500 text-center">
-          유사한 과거 테마가 발견되지 않았습니다.
-        </p>
-      </GlassCard>
-    )
+    return <ComparisonEmpty hasRawData={comparisons.length > 0} />
   }
 
-  const avgSim = Math.round(
-    (validEntries.reduce((sum, { comp }) => sum + comp.similarity, 0) / validEntries.length) * 100,
-  )
+  const insight = generateInsight(validEntries.map(e => e.comp))
 
   return (
     <GlassCard className="h-full overflow-hidden flex flex-col">
@@ -61,12 +58,19 @@ function ComparisonList({
               {validEntries.length}
             </span>
           </div>
-          <p className="text-xs font-mono text-slate-500 mt-1">
-            {validEntries.length}개 과거 테마 비교 · 평균 유사도 {avgSim}%
-          </p>
+          {insight && (
+            <p className="text-xs font-mono text-slate-500 mt-1">{insight}</p>
+          )}
         </div>
 
-        <div className="flex-1 overflow-y-auto custom-scroll px-4 py-3 space-y-3">
+        {/* role="listbox" + roving tabindex로 키보드 탐색 지원 */}
+        <div
+          ref={containerRef}
+          role="group"
+          aria-label="유사 패턴 목록"
+          onKeyDown={handleKeyDown}
+          className="flex-1 overflow-y-auto custom-scroll px-4 py-3 space-y-3"
+        >
           {validEntries.map(({ comp, originalIdx }, displayIdx) => (
             <ComparisonCard
               key={comp.pastThemeId}
