@@ -50,12 +50,12 @@ export const PHASE_LABELS: { id: Phase; label: string }[] = [
   { id: 'declining', label: '종료' },
 ]
 
-export const PHASE_COLORS: Record<Phase, { bg: string; ring: string; text: string; dot: string }> = {
-  'pre-peak':  { bg: 'bg-emerald-500', ring: 'ring-emerald-500/30', text: 'text-emerald-400', dot: '#10B981' },
-  'near-peak': { bg: 'bg-amber-500',   ring: 'ring-amber-500/30',   text: 'text-amber-400',   dot: '#F59E0B' },
-  'at-peak':   { bg: 'bg-orange-500',  ring: 'ring-orange-500/30',  text: 'text-orange-400',  dot: '#F97316' },
-  'post-peak': { bg: 'bg-red-500',     ring: 'ring-red-500/30',     text: 'text-red-400',     dot: '#EF4444' },
-  'declining': { bg: 'bg-slate-500',   ring: 'ring-slate-500/30',   text: 'text-slate-400',   dot: '#64748B' },
+export const PHASE_COLORS: Record<Phase, { bg: string; ring: string; text: string }> = {
+  'pre-peak':  { bg: 'bg-emerald-500', ring: 'ring-emerald-500/30', text: 'text-emerald-400' },
+  'near-peak': { bg: 'bg-amber-500',   ring: 'ring-amber-500/30',   text: 'text-amber-400' },
+  'at-peak':   { bg: 'bg-orange-500',  ring: 'ring-orange-500/30',  text: 'text-orange-400' },
+  'post-peak': { bg: 'bg-red-500',     ring: 'ring-red-500/30',     text: 'text-red-400' },
+  'declining': { bg: 'bg-slate-500',   ring: 'ring-slate-500/30',   text: 'text-slate-400' },
 }
 
 export const MOMENTUM_CONFIG: Record<Momentum, { label: string; color: string; Icon: typeof TrendingUp }> = {

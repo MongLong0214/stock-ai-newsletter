@@ -12,7 +12,10 @@ export function buildRiskMessage(risk: RiskLevel): string {
   return messages[risk]
 }
 
-export function buildPhaseMessage(phase: Phase, avgDaysToPeak: number): string {
+export function buildPhaseMessage(phase: Phase, avgDaysToPeak: number, score?: number): string {
+  if (score !== undefined && score >= 75) return `점수 ${score}점 · 피크 구간 통과 중`
+  if (score !== undefined && score >= 55) return `점수 ${score}점 · 성장 구간 진입`
+
   switch (phase) {
     case 'pre-peak':
       return avgDaysToPeak > 0
@@ -31,7 +34,16 @@ export function buildPhaseMessage(phase: Phase, avgDaysToPeak: number): string {
   }
 }
 
-export function buildKeyInsight(phase: Phase, avgDaysToPeak: number): string {
+export function buildKeyInsight(phase: Phase, avgDaysToPeak: number, score?: number): string {
+  if (score !== undefined && score >= 75) {
+    return `현재 점수 ${score}점으로 과열 구간입니다. 이후 하락 전환에 유의하세요`
+  }
+  if (score !== undefined && score >= 55) {
+    return avgDaysToPeak > 0
+      ? `현재 점수 ${score}점으로 성장 구간입니다. 유사 테마 기준 피크까지 약 ${avgDaysToPeak}일 남은 것으로 추정됩니다`
+      : `현재 점수 ${score}점으로 성장 구간에 있습니다`
+  }
+  // 낮은 점수(< 55)는 상승/하락 구분 불가 → phase 기반 메시지로 위임
   switch (phase) {
     case 'pre-peak':
       return avgDaysToPeak > 0
