@@ -21,6 +21,10 @@ export interface ThemeFeatures {
   scoreLevel: number
   /** 활동 기간 (최대 365일 기준), 0-1 정규화 */
   activeDaysNorm: number
+  /** 평균 주가 등락률, 0-1 정규화 (기본값 0.5 = 중립) */
+  priceChangePct: number
+  /** 평균 거래량 강도, 0-1 정규화 (기본값 0) */
+  volumeIntensity: number
 }
 
 // ---------------------------------------------------------------------------
@@ -36,6 +40,8 @@ export function extractFeatures(params: {
   interestValues: number[]
   totalNewsCount: number
   activeDays: number
+  avgPriceChangePct?: number  // optional — 기본값 0
+  avgVolume?: number          // optional — 기본값 0
 }): ThemeFeatures {
   const { scores, interestValues, totalNewsCount, activeDays } = params
 
@@ -60,12 +66,20 @@ export function extractFeatures(params: {
   // activeDaysNorm: 최대 365일 기준
   const activeDaysNorm = Math.min(activeDays, 365) / 365
 
-  return { growthRate, volatility, newsIntensity, scoreLevel, activeDaysNorm }
+  // priceChangePct: [-50, +50] 범위를 [0, 1]로 정규화
+  const rawPricePct = params.avgPriceChangePct ?? 0
+  const priceChangePct = Math.max(0, Math.min(1, (rawPricePct + 50) / 100))
+
+  // volumeIntensity: 5천만주 기준 0-1 정규화
+  const VOLUME_MAX = 50_000_000
+  const volumeIntensity = Math.min((params.avgVolume ?? 0) / VOLUME_MAX, 1)
+
+  return { growthRate, volatility, newsIntensity, scoreLevel, activeDaysNorm, priceChangePct, volumeIntensity }
 }
 
 /** ThemeFeatures를 명시적 순서로 배열 변환 */
 export function featuresToArray(f: ThemeFeatures): number[] {
-  return [f.growthRate, f.volatility, f.newsIntensity, f.scoreLevel, f.activeDaysNorm]
+  return [f.growthRate, f.volatility, f.newsIntensity, f.scoreLevel, f.activeDaysNorm, f.priceChangePct, f.volumeIntensity]
 }
 
 // ---------------------------------------------------------------------------
