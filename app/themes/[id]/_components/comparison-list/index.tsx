@@ -33,7 +33,7 @@ function ComparisonList({
     return (
       <GlassCard className="p-6 h-full flex items-center justify-center">
         <p className="text-sm font-mono text-slate-500 text-center">
-          신뢰도 높은 비교 테마가 없습니다
+          신뢰도 높은 비교 테마가 없습니다.
         </p>
       </GlassCard>
     )
