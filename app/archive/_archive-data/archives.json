@@ -1,6 +1,61 @@
 {
   "newsletters": [
     {
+      "date": "2026-02-12",
+      "stocks": [
+        {
+          "ticker": "KOSPI:034020",
+          "name": "두산에너빌리티",
+          "close_price": 95500,
+          "rationale": "2026-02-11 종가 95,500원 확인(전일비 +1.48%)|거래량 5,915,111주로 전일 대비 약 150% 급증|SMA 20/60/120일선 완전 정배열 상태 유지|외국인 288,391주 순매수세 유입 확인|RSI 64.57로 과매수 구간(70) 직전의 강력한 상승 모멘텀|ADX 38.4로 매우 강한 추세 강도 진행 중|원전 및 셰일가스 대미 투자 모멘텀 부각|볼린저밴드 상단(96,500원) 돌파 시도 중|ATR 2,800원 수준으로 변동성 확대 구간 진입|OBV 지표 우상향으로 매집 에너지 강화 확인",
+          "signals": {
+            "trend_score": 93,
+            "momentum_score": 89,
+            "volume_score": 87,
+            "volatility_score": 82,
+            "pattern_score": 91,
+            "sentiment_score": 88,
+            "overall_score": 90
+          },
+          "verified_date": "2026-02-11"
+        },
+        {
+          "ticker": "KOSPI:066570",
+          "name": "LG전자",
+          "close_price": 127900,
+          "rationale": "2026-02-11 종가 127,900원 확인(당일 22.5% 급등 모멘텀 반영)|거래량 전일 대비 340% 폭증하며 밴드워크 시작|1Q26 영업이익 1.61조원 추정(컨센서스 17.5% 상회 예고)|피지컬 AI 및 로보틱스 포트폴리오 다각화 모멘텀|대신증권 목표주가 160,000원으로 상향 조정|RSI 68.20으로 급등에도 불구하고 과매수 한계선(70) 미만 유지|ADX 42.1로 극강의 추세 강도 형성|PBR 0.7배 수준으로 역사적 저점 탈피 초기 단계|Aroon Up 100%로 상승 추세 압도적 우위|외국인 중심의 공격적 매수세 집중 확인",
+          "signals": {
+            "trend_score": 96,
+            "momentum_score": 94,
+            "volume_score": 98,
+            "volatility_score": 75,
+            "pattern_score": 92,
+            "sentiment_score": 95,
+            "overall_score": 92
+          },
+          "verified_date": "2026-02-11"
+        },
+        {
+          "ticker": "KOSPI:105560",
+          "name": "KB금융",
+          "close_price": 164500,
+          "rationale": "2026-02-11 종가 164,500원 확인(전일비 +5.79%)|국내 금융지주 최초 시가총액 61.3조원 돌파|PBR 1.06배 도달로 은행주 리레이팅 시대 진입|2026년 상반기 자사주 1.2조원 소각 등 파격적 주주환원|RSI 62.83으로 안정적인 우상향 흐름 및 눌림목 탈출|거래량 1,962,224주로 점증적 우상향 패턴|52주 신고가(165,000원) 경신 직전의 강한 매수세|배당소득 분리과세 도입에 따른 고배당주 매력 부각|MACD 시그널선 골든크로스 및 양의 히스토그램 확장|Vortex VI+ 1.25 돌파로 상승 압력 가속화",
+          "signals": {
+            "trend_score": 91,
+            "momentum_score": 86,
+            "volume_score": 82,
+            "volatility_score": 88,
+            "pattern_score": 87,
+            "sentiment_score": 92,
+            "overall_score": 88
+          },
+          "verified_date": "2026-02-11"
+        }
+      ],
+      "sentAt": "2026-02-11T22:51:25.923+00:00",
+      "subscriberCount": 139
+    },
+    {
       "date": "2026-02-11",
       "stocks": [
         {
@@ -3979,5 +4034,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-02-10T23:12:15.380Z"
+  "lastUpdated": "2026-02-11T22:52:05.363Z"
 }
