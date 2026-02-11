@@ -67,7 +67,7 @@ function ScoreCard({ score }: ScoreCardProps) {
             <p className="text-xs font-mono text-emerald-400 mb-1">주도 요인</p>
             <p className="text-sm font-mono text-slate-200">
               <span className="font-bold text-emerald-300">{dominantComponent.label}</span>
-              이(가) 점수를 주도하고 있습니다
+              이(가) 점수를 주도하고 있어요
               <span className="text-slate-500 ml-1">(기여도 {dominantComponent.contribution.toFixed(1)}pt)</span>
             </p>
           </div>

@@ -54,9 +54,9 @@ function ThemePrediction({ firstSpikeDate, comparisons, score }: ThemePrediction
       <motion.div variants={containerVariants} initial="hidden" animate="visible" className="space-y-5">
         {/* 1. 헤더 */}
         <motion.div variants={itemVariants} className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="text-lg font-bold font-mono flex gap-1">
-            <span className="text-white">생명주기</span>
-            <span className="text-emerald-400">참고지표</span>
+          <h2 className="text-lg font-bold">
+            <span className="text-white">테마 흐름</span>
+            <span className="text-emerald-400 ml-1">분석</span>
           </h2>
           <div className="flex items-center gap-2">
             <span className={`text-[10px] font-mono px-2.5 py-1 rounded-full border ${confidenceCfg.bg} ${confidenceCfg.text} ${confidenceCfg.border}`}>
@@ -64,7 +64,7 @@ function ThemePrediction({ firstSpikeDate, comparisons, score }: ThemePrediction
             </span>
             <span className={`text-[10px] font-mono px-2.5 py-1 rounded-full border flex items-center gap-1 ${riskCfg.bg} ${riskCfg.text} ${riskCfg.border}`}>
               <RiskIcon className="w-3 h-3" />
-              위험 {riskCfg.label}
+              주의 {riskCfg.label}
             </span>
           </div>
         </motion.div>
@@ -113,7 +113,7 @@ function ThemePrediction({ firstSpikeDate, comparisons, score }: ThemePrediction
           <motion.div variants={itemVariants} className="space-y-1.5">
             <div className="flex items-center justify-between text-[10px] font-mono text-slate-500">
               <span>시작</span>
-              {prediction.peakProgress > 0 && <span>평균 피크 ({prediction.avgPeakDay}일)</span>}
+              {prediction.peakProgress > 0 && <span>평균 정점 ({prediction.avgPeakDay}일)</span>}
               <span>평균 종료 (~{prediction.avgTotalDays}일)</span>
             </div>
             <div className="relative h-2.5 rounded-full bg-slate-800">
@@ -135,7 +135,7 @@ function ThemePrediction({ firstSpikeDate, comparisons, score }: ThemePrediction
               />
             </div>
             <p className="text-[10px] font-mono text-slate-400 text-center">
-              과거 유사 테마 평균 주기 대비 {Math.round(prediction.currentProgress)}% 경과
+              비슷한 테마 평균 주기 대비 {Math.round(prediction.currentProgress)}% 경과
             </p>
           </motion.div>
         )}
@@ -143,7 +143,7 @@ function ThemePrediction({ firstSpikeDate, comparisons, score }: ThemePrediction
         {/* 5. 통계 그리드 */}
         <motion.div variants={itemVariants} className="grid grid-cols-2 gap-3">
           <StatCell icon={<Clock className="w-4 h-4" />} label="경과일" value={prediction.daysSinceSpike > 365 ? '1년+' : `${prediction.daysSinceSpike}일`} color="#10B981" />
-          <StatCell icon={<Target className="w-4 h-4" />} label="예상 피크" value={prediction.avgDaysToPeak > 0 ? `약 ${prediction.avgDaysToPeak}일 후` : '피크 부근'} color="#F59E0B" />
+          <StatCell icon={<Target className="w-4 h-4" />} label="예상 정점" value={prediction.avgDaysToPeak > 0 ? `약 ${prediction.avgDaysToPeak}일 후` : '정점 부근'} color="#F59E0B" />
           <StatCell icon={<BarChart3 className="w-4 h-4" />} label="평균 유사도" value={`${Math.round(prediction.avgSimilarity * 100)}%`} color="#0EA5E9" />
           <MomentumCell momentum={prediction.momentum} />
         </motion.div>
@@ -158,7 +158,7 @@ function ThemePrediction({ firstSpikeDate, comparisons, score }: ThemePrediction
           if (allSame) {
             return (
               <motion.div variants={itemVariants} className="grid grid-cols-1 gap-3">
-                <ScenarioCard label="유일 참고 시나리오" scenario={median} accent="slate" />
+                <ScenarioCard label="참고 시나리오" scenario={median} accent="slate" />
               </motion.div>
             )
           }
@@ -181,7 +181,7 @@ function ThemePrediction({ firstSpikeDate, comparisons, score }: ThemePrediction
 
         {/* 7. 면책 조항 */}
         <motion.p variants={itemVariants} className="text-[10px] font-mono text-slate-500 text-center pt-1">
-          과거 유사 테마({prediction.comparisonCount}개) 기반 참고 정보이며, 실제 시장과 다를 수 있습니다
+          비슷한 과거 테마({prediction.comparisonCount}개) 기반 참고 정보이며, 실제와 다를 수 있습니다
         </motion.p>
       </motion.div>
     </GlassCard>

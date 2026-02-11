@@ -126,7 +126,8 @@ function computeCurveSim(
 
   // 미분 상관: 변화율 패턴으로 단조감소 곡선 구별
   const dC: number[] = [], dP: number[] = []
-  for (let i = 1; i < cR.length; i++) {
+  const derivLen = Math.min(cR.length, pR.length)
+  for (let i = 1; i < derivLen; i++) {
     dC.push(cR[i] - cR[i - 1])
     dP.push(pR[i] - pR[i - 1])
   }
@@ -148,7 +149,7 @@ function buildMessage(current: CurrentInput, past: PastInput, ctx: MessageCtx): 
 
   // 곡선 유사도 근거
   if (ctx.wCurve > 0 && ctx.curveSim >= 0.3) {
-    parts.push(`생명주기 곡선 ${Math.round(ctx.curveSim * 100)}% 일치`)
+    parts.push(`추세 흐름 ${Math.round(ctx.curveSim * 100)}% 일치`)
   }
 
   // 특성 벡터 유사도 근거
@@ -173,18 +174,18 @@ function buildMessage(current: CurrentInput, past: PastInput, ctx: MessageCtx): 
   }
 
   if (!ctx.sectorMatch) parts.push(`이종 섹터 (${current.sector}↔${past.sector})`)
-  if (parts.length === 0) parts.push('복합 지표 기반 약한 유사성')
+  if (parts.length === 0) parts.push('종합 지표 기반 약한 유사성')
 
   // 위치 분석
   let position: string
   if (ctx.pastTotalDays < 14) {
-    position = `과거 데이터 ${ctx.pastTotalDays}일로 비교 신뢰도 제한적`
+    position = `과거 데이터 ${ctx.pastTotalDays}일로 비교 신뢰도가 낮아요`
   } else if (ctx.currentDay >= ctx.pastTotalDays && ctx.pastTotalDays > 0) {
-    position = `${past.name}은 ${formatDays(ctx.pastTotalDays)} 만에 쇠퇴했으나, 현재 테마는 더 오래 지속 중`
+    position = `${past.name}은 ${formatDays(ctx.pastTotalDays)} 만에 쇠퇴했지만, 현재 테마는 더 오래 지속 중이에요`
   } else if (ctx.estimatedDaysToPeak > 0) {
-    position = `${past.name} 기준 진행률 ${Math.round((ctx.currentDay / ctx.pastTotalDays) * 100)}%, 피크까지 약 ${ctx.estimatedDaysToPeak}일 남음`
+    position = `${past.name} 기준 진행률 ${Math.round((ctx.currentDay / ctx.pastTotalDays) * 100)}%, 정점까지 약 ${ctx.estimatedDaysToPeak}일 남음`
   } else if (ctx.pastPeakDay > 0) {
-    position = `${past.name} 피크(${ctx.pastPeakDay}일차) 부근 진입 추정`
+    position = `${past.name} 정점(${ctx.pastPeakDay}일차) 부근 진입 추정`
   } else {
     position = '초기 단계, 추세 확인 중'
   }
