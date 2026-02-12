@@ -1,0 +1,4 @@
+{"t":0,"agent":"system","event":"skill_invoked","skill_name":"oh-my-claudecode:team"}
+{"t":0,"agent":"ab76e73","agent_type":"unknown","event":"agent_stop","success":true}
+{"t":0,"agent":"a193be1","agent_type":"unknown","event":"agent_stop","success":true}
+{"t":0,"agent":"afe63b5","agent_type":"unknown","event":"agent_stop","success":true}

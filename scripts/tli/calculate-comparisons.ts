@@ -6,8 +6,7 @@ import { compositeCompare, featuresToArray } from '../../lib/tli/comparison'
 import { buildMutualRankIndex, buildCurveMutualRankIndex, type MutualRankIndex } from '../../lib/tli/comparison/mutual-rank'
 import type { ThemeWithKeywords } from './data-ops'
 import { enrichThemes, computePopulationStats, type ThemeDataMaps, type EnrichedTheme } from './enrich-themes'
-
-const SIMILARITY_THRESHOLD = 0.35
+import { DEFAULT_THRESHOLD } from './auto-tune'
 const MAX_MATCHES_PER_THEME = 3
 
 interface MatchResult {
@@ -16,8 +15,11 @@ interface MatchResult {
   message: string; featureSim: number; curveSim: number; keywordSim: number
 }
 
-export async function calculateThemeComparisons(themes: ThemeWithKeywords[]) {
+export async function calculateThemeComparisons(themes: ThemeWithKeywords[], thresholdOverride?: number) {
   console.log('\n🔍 테마 비교 분석 중 (다중 시그널)...')
+
+  // 유효 임계값 결정 (override 우선, 없으면 기본값)
+  const effectiveThreshold = thresholdOverride ?? DEFAULT_THRESHOLD
 
   // 1단계: 전체 테마 + 데이터 배치 로딩
   const allThemes = await loadAllThemes()
@@ -59,9 +61,9 @@ export async function calculateThemeComparisons(themes: ThemeWithKeywords[]) {
       const current = enrichedMap.get(currentTheme.id)
       if (!current) { console.log(`   ⊘ ${currentTheme.name}: 보강 데이터 없음`); continue }
 
-      const matches = findTopMatches(current, enrichedThemes, populationStats, mutualRankIndex, curveMutualRankIndex)
+      const matches = findTopMatches(current, enrichedThemes, populationStats, mutualRankIndex, curveMutualRankIndex, effectiveThreshold)
       if (matches.length === 0) {
-        console.log(`   ⊘ ${currentTheme.name}: 유사 매칭 없음 (임계값 ${Math.round(SIMILARITY_THRESHOLD * 100)}%)`)
+        console.log(`   ⊘ ${currentTheme.name}: 유사 매칭 없음 (임계값 ${Math.round(effectiveThreshold * 100)}%)`)
         continue
       }
 
@@ -78,7 +80,8 @@ export async function calculateThemeComparisons(themes: ThemeWithKeywords[]) {
 
   // 만료된 비교 결과 정리 (7일 이전)
   const sevenDaysAgo = new Date(kstNow.getTime() - 7 * 86400000).toISOString().split('T')[0]
-  const { data: deleted } = await supabaseAdmin.from('theme_comparisons').delete().lt('calculated_at', sevenDaysAgo).select('id')
+  const { data: deleted, error: deleteErr } = await supabaseAdmin.from('theme_comparisons').delete().lt('calculated_at', sevenDaysAgo).select('id')
+  if (deleteErr) console.warn('   ⚠️ stale 비교 삭제 실패:', deleteErr.message)
 
   console.log(`\n✅ 비교 분석 완료: ${themesWithMatches}/${themes.length} 테마에 총 ${totalMatches}건 매칭 (stale ${deleted?.length ?? 0}건 정리)`)
 }
@@ -127,6 +130,7 @@ function findTopMatches(
   populationStats: ReturnType<typeof computePopulationStats>,
   mutualRank: MutualRankIndex,
   curveMutualRank: MutualRankIndex,
+  threshold: number,
 ): MatchResult[] {
   const matches: MatchResult[] = []
 
@@ -139,7 +143,7 @@ function findTopMatches(
     // Curve MR 인덱스에 없는 쌍(sim=0)은 rawCurveSim 폴백 (undefined)
     const precomputedCurveSim = curveMRSim > 0 ? curveMRSim : undefined
     const result = compositeCompare({ current, past, populationStats, precomputedFeatureSim, precomputedCurveSim })
-    if (result.similarity >= SIMILARITY_THRESHOLD) {
+    if (result.similarity >= threshold) {
       matches.push({ pastThemeId: past.id, pastThemeName: past.name, ...result })
     }
   }

@@ -3,6 +3,7 @@ config({ path: '.env.local' })
 import { loadActiveThemes, upsertInterestMetrics, upsertNewsMetrics, upsertThemeStocks, upsertNewsArticles } from './data-ops';
 import { calculateAndSaveScores } from './calculate-scores';
 import { calculateThemeComparisons } from './calculate-comparisons';
+import { computeOptimalThreshold } from './auto-tune';
 import { snapshotPredictions } from './snapshot-predictions';
 import { evaluatePredictions } from './evaluate-predictions';
 import { collectNaverDatalab } from './collectors/naver-datalab';
@@ -138,11 +139,27 @@ async function main() {
           console.error('❌ 점수 계산 실패:', error instanceof Error ? error.message : String(error));
         }
 
+        // 4.5단계: 비교 임계값 자동 튜닝
+        console.log('\n🎯 4.5단계: 비교 임계값 자동 튜닝');
+
+        let tunedThreshold: number | undefined;
+        try {
+          const tuning = await computeOptimalThreshold();
+          if (tuning) {
+            tunedThreshold = tuning.threshold;
+            console.log(`   ✅ 자동 튜닝 임계값: ${tuning.threshold} (신뢰도: ${tuning.confidence}, 검증 ${tuning.sampleSize}건)`);
+          } else {
+            console.log('   ⊘ 검증 데이터 부족 — 기본 임계값 사용');
+          }
+        } catch (error: unknown) {
+          console.warn('   ⚠️ 자동 튜닝 실패 (기본 임계값 사용):', error instanceof Error ? error.message : String(error));
+        }
+
         // 5단계: 비교 분석
         console.log('\n🔍 5단계: 테마 비교 분석');
 
         try {
-          await calculateThemeComparisons(themes);
+          await calculateThemeComparisons(themes, tunedThreshold);
         } catch (error: unknown) {
           criticalFailures++;
           console.error('❌ 비교 분석 실패:', error instanceof Error ? error.message : String(error));
@@ -172,7 +189,7 @@ async function main() {
         console.log('\n🔬 8단계: 비교 결과 검증');
 
         try {
-          await evaluateComparisonOutcomes();
+          await evaluateComparisonOutcomes(tunedThreshold);
         } catch (error: unknown) {
           warningFailures++;
           console.error('❌ 비교 결과 검증 실패:', error instanceof Error ? error.message : String(error));
