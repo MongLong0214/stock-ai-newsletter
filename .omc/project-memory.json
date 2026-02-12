@@ -239,39 +239,51 @@
   },
   "hotPaths": [
     {
-      "path": "app/themes/[id]/_components/detail-header/score-components.tsx",
-      "accessCount": 12,
-      "lastAccessed": 1770859783218,
-      "type": "file"
-    },
-    {
       "path": "scripts/tli/calculate-scores.ts",
-      "accessCount": 8,
-      "lastAccessed": 1770858195717,
+      "accessCount": 18,
+      "lastAccessed": 1770874173717,
       "type": "file"
     },
     {
-      "path": "scripts/tli/collectors/naver-news.ts",
-      "accessCount": 7,
-      "lastAccessed": 1770858303301,
-      "type": "file"
-    },
-    {
-      "path": "app/themes/[id]/_components/news-headlines.tsx",
-      "accessCount": 7,
-      "lastAccessed": 1770858472570,
-      "type": "file"
-    },
-    {
-      "path": "lib/tli/__tests__/calculator.test.ts",
-      "accessCount": 7,
-      "lastAccessed": 1770858671286,
+      "path": "app/themes/[id]/_components/detail-header/score-components.tsx",
+      "accessCount": 13,
+      "lastAccessed": 1770873709462,
       "type": "file"
     },
     {
       "path": "lib/tli/calculator.ts",
+      "accessCount": 9,
+      "lastAccessed": 1770873699779,
+      "type": "file"
+    },
+    {
+      "path": "scripts/tli/collectors/naver-news.ts",
+      "accessCount": 9,
+      "lastAccessed": 1770873701028,
+      "type": "file"
+    },
+    {
+      "path": "lib/tli/__tests__/calculator.test.ts",
+      "accessCount": 9,
+      "lastAccessed": 1770873715286,
+      "type": "file"
+    },
+    {
+      "path": "app/themes/[id]/_components/news-headlines.tsx",
+      "accessCount": 8,
+      "lastAccessed": 1770873699323,
+      "type": "file"
+    },
+    {
+      "path": "lib/tli/types/api.ts",
       "accessCount": 7,
-      "lastAccessed": 1770859377812,
+      "lastAccessed": 1770873700222,
+      "type": "file"
+    },
+    {
+      "path": "lib/tli/constants/score-config.ts",
+      "accessCount": 7,
+      "lastAccessed": 1770873720527,
       "type": "file"
     },
     {
@@ -281,69 +293,63 @@
       "type": "file"
     },
     {
-      "path": "lib/tli/types/api.ts",
-      "accessCount": 5,
-      "lastAccessed": 1770858050203,
-      "type": "file"
-    },
-    {
       "path": "app/themes/_services/get-ranking-server.ts",
-      "accessCount": 5,
-      "lastAccessed": 1770858283528,
+      "accessCount": 6,
+      "lastAccessed": 1770873703466,
       "type": "file"
     },
     {
       "path": "app/api/tli/scores/ranking/route.ts",
-      "accessCount": 4,
-      "lastAccessed": 1770858175097,
-      "type": "file"
-    },
-    {
-      "path": "scripts/tli/data-ops.ts",
-      "accessCount": 4,
-      "lastAccessed": 1770858320867,
-      "type": "file"
-    },
-    {
-      "path": "components/tli/score-breakdown.tsx",
-      "accessCount": 4,
-      "lastAccessed": 1770858375718,
+      "accessCount": 6,
+      "lastAccessed": 1770873732695,
       "type": "file"
     },
     {
       "path": "lib/tli/__tests__/stage.test.ts",
-      "accessCount": 4,
-      "lastAccessed": 1770858607591,
-      "type": "file"
-    },
-    {
-      "path": "lib/tli/constants/score-config.ts",
-      "accessCount": 4,
-      "lastAccessed": 1770858733413,
+      "accessCount": 5,
+      "lastAccessed": 1770873699325,
       "type": "file"
     },
     {
       "path": "app/api/tli/themes/[id]/fetch-theme-data.ts",
-      "accessCount": 4,
-      "lastAccessed": 1770858754900,
+      "accessCount": 5,
+      "lastAccessed": 1770873700917,
+      "type": "file"
+    },
+    {
+      "path": "scripts/tli/data-ops.ts",
+      "accessCount": 5,
+      "lastAccessed": 1770873711350,
+      "type": "file"
+    },
+    {
+      "path": "components/tli/score-breakdown.tsx",
+      "accessCount": 5,
+      "lastAccessed": 1770873735630,
       "type": "file"
     },
     {
       "path": "lib/tli/types/db.ts",
-      "accessCount": 3,
-      "lastAccessed": 1770858029771,
+      "accessCount": 4,
+      "lastAccessed": 1770873695645,
       "type": "file"
     },
     {
       "path": "lib/tli/stage.ts",
-      "accessCount": 2,
-      "lastAccessed": 1770858067866,
+      "accessCount": 4,
+      "lastAccessed": 1770873700363,
+      "type": "file"
+    },
+    {
+      "path": "scripts/tli/supabase-batch.ts",
+      "accessCount": 3,
+      "lastAccessed": 1770873722093,
       "type": "file"
     },
     {
       "path": "lib/tli/types/stage.ts",
-      "accessCount": 2,
-      "lastAccessed": 1770858072976,
+      "accessCount": 3,
+      "lastAccessed": 1770873726524,
       "type": "file"
     },
     {
@@ -365,6 +371,18 @@
       "type": "file"
     },
     {
+      "path": "scripts/tli/collect-and-score.ts",
+      "accessCount": 2,
+      "lastAccessed": 1770873721349,
+      "type": "file"
+    },
+    {
+      "path": "app/themes/[id]/_components/score-card.tsx",
+      "accessCount": 2,
+      "lastAccessed": 1770873731215,
+      "type": "file"
+    },
+    {
       "path": "lib/tli/sentiment.ts",
       "accessCount": 1,
       "lastAccessed": 1770857814405,
@@ -380,6 +398,36 @@
       "path": "app/themes/[id]/_components/detail-header/top-movers.tsx",
       "accessCount": 1,
       "lastAccessed": 1770859530602,
+      "type": "file"
+    },
+    {
+      "path": "lib/supabase.ts",
+      "accessCount": 1,
+      "lastAccessed": 1770873723207,
+      "type": "file"
+    },
+    {
+      "path": "lib/tli/reigniting.ts",
+      "accessCount": 1,
+      "lastAccessed": 1770873727617,
+      "type": "file"
+    },
+    {
+      "path": "app/api/tli/themes/[id]/route.ts",
+      "accessCount": 1,
+      "lastAccessed": 1770873732115,
+      "type": "file"
+    },
+    {
+      "path": "next.config.ts",
+      "accessCount": 1,
+      "lastAccessed": 1770873742707,
+      "type": "file"
+    },
+    {
+      "path": "lib/tli/api-utils.ts",
+      "accessCount": 1,
+      "lastAccessed": 1770873751198,
       "type": "file"
     }
   ],
