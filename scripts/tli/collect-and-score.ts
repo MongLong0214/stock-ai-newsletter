@@ -185,12 +185,8 @@ async function main() {
     console.log(`\n✨ TLI ${mode === 'news-only' ? '뉴스 수집' : '전체 수집 및 점수 계산'} 완료!`);
     console.log(`⏱️  소요 시간: ${duration}초 | 📊 처리된 테마: ${themes.length}개`);
 
-    if (criticalFailures > 0) {
-      console.log(`⚠️  치명적 실패: ${criticalFailures}건`);
-    }
-    if (warningFailures > 0) {
-      console.log(`⚠️  경고 실패: ${warningFailures}건`);
-    }
+    if (criticalFailures > 0) console.log(`⚠️  치명적 실패: ${criticalFailures}건`);
+    if (warningFailures > 0) console.log(`⚠️  경고 실패: ${warningFailures}건`);
 
     process.exit(criticalFailures > 0 ? 1 : 0);
   } catch (error: unknown) {

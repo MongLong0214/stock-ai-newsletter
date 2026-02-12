@@ -29,9 +29,9 @@ const NEWS_BAR_HEIGHT_RATIO = 3
 // 차트 색상 (score-config.ts의 컴포넌트 색상 사용)
 const CHART_COLORS = {
   currentTheme: SCORE_COMPONENTS[0].color,  // #10B981 (emerald - interest)
-  peak: SCORE_COMPONENTS[2].color,          // #F59E0B (amber - sentiment)
-  news: SCORE_COMPONENTS[2].color,          // #F59E0B (amber - sentiment)
-  interest: SCORE_COMPONENTS[3].color,      // #8B5CF6 (purple - volatility)
+  peak: '#F59E0B',                          // amber (decorative)
+  news: SCORE_COMPONENTS[1].color,          // #0EA5E9 (sky - newsMomentum)
+  interest: SCORE_COMPONENTS[2].color,      // #8B5CF6 (purple - volatility)
   grid: '#1e293b',
   axis: '#334155',
   tick: '#64748b',

@@ -46,7 +46,6 @@ export interface NewsArticle {
   link: string;
   source: string | null;
   pubDate: string;
-  sentimentScore?: number | null;
 }
 
 export interface InterestMetric {
@@ -81,13 +80,11 @@ export interface ScoreConfidence {
 export interface ScoreComponents {
   interest_score: number;
   news_momentum: number;
-  sentiment_score: number;
   volatility_score: number;
   maturity_ratio: number;
   weights: {
     interest: number;
     news: number;
-    sentiment: number;
     volatility: number;
   };
   raw: {
@@ -97,8 +94,6 @@ export interface ScoreComponents {
     news_last_week: number;
     interest_stddev: number;
     active_days: number;
-    sentiment_avg?: number;
-    sentiment_article_count?: number;
     raw_interest_avg?: number;
     dampening_factor?: number;
     raw_percentile?: number | null;

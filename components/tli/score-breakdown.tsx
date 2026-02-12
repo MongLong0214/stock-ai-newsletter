@@ -6,13 +6,11 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { ChevronDown, Info } from 'lucide-react'
 import { SCORE_COMPONENTS } from '@/lib/tli/constants/score-config'
 import type { ScoreRawData } from '@/lib/tli/types'
-import { getSentimentConfig } from '@/lib/tli/sentiment'
 
 interface ScoreBreakdownProps {
   components: {
     interest: number
     newsMomentum: number
-    sentiment: number
     volatility: number
   }
   raw?: ScoreRawData | null
@@ -25,12 +23,6 @@ function getRawLabel(key: string, raw: ScoreRawData): string {
       return `최근7일 평균: ${raw.recent7dAvg.toFixed(1)} / 기준30일: ${raw.baseline30dAvg.toFixed(1)}`
     case 'newsMomentum':
       return `이번주 ${raw.newsThisWeek}건 / 지난주 ${raw.newsLastWeek}건`
-    case 'sentiment': {
-      const avg = raw.sentimentAvg ?? 0
-      const count = raw.sentimentArticleCount ?? 0
-      const config = getSentimentConfig(avg)
-      return `평균 논조: ${avg.toFixed(2)} (${config.label}) / ${count}건 분석`
-    }
     case 'volatility':
       return `표준편차: ${raw.interestStddev.toFixed(2)}`
     default:

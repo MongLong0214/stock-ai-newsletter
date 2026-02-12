@@ -1,5 +1,4 @@
 /** 테마 비교 분석 — 활성 테마와 전체 테마의 다중 시그널 비교 및 DB 저장 */
-
 import { supabaseAdmin } from './supabase-admin'
 import { batchQuery, groupByThemeId } from './supabase-batch'
 import { getKSTDate } from './utils'
@@ -117,10 +116,8 @@ async function loadThemeData(themeIds: string[], kstNow: Date): Promise<ThemeDat
     ),
   ])
 
-  return {
-    interest: groupByThemeId(interestAll), scores: groupByThemeId(scoresAll),
-    news: groupByThemeId(newsAll), keywords: groupByThemeId(keywordsAll), stocks: groupByThemeId(stocksAll),
-  }
+  return { interest: groupByThemeId(interestAll), scores: groupByThemeId(scoresAll),
+    news: groupByThemeId(newsAll), keywords: groupByThemeId(keywordsAll), stocks: groupByThemeId(stocksAll) }
 }
 
 /** 현재 테마와 모든 보강 테마를 비교, 유사도 상위 N개 반환 */
@@ -198,10 +195,7 @@ async function saveMatches(
 
   // 오늘 날짜의 실제 저장된 매칭에 없는 이전 항목 삭제
   if (savedIds.length === 0) return
-  await supabaseAdmin
-    .from('theme_comparisons')
-    .delete()
-    .eq('current_theme_id', currentThemeId)
-    .eq('calculated_at', today)
+  await supabaseAdmin.from('theme_comparisons').delete()
+    .eq('current_theme_id', currentThemeId).eq('calculated_at', today)
     .not('past_theme_id', 'in', `(${savedIds.join(',')})`)
 }

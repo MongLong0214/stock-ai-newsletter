@@ -163,7 +163,6 @@ export async function upsertNewsArticles(
     link: string;
     source: string | null;
     pubDate: string;
-    sentimentScore: number | null;
   }>
 ) {
   // (theme_id, link) 중복 제거 — 같은 배치 내 중복 시 PostgreSQL ON CONFLICT 에러 방지
@@ -180,7 +179,6 @@ export async function upsertNewsArticles(
       link: a.link,
       source: a.source,
       pub_date: a.pubDate,
-      sentiment_score: a.sentimentScore,
     })),
     'theme_id,link',
     '뉴스 기사',

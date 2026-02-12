@@ -2,9 +2,8 @@
 
 /** 점수 컴포넌트 가중치 */
 export const SCORE_WEIGHTS = {
-  interest: 0.45,
+  interest: 0.50,
   newsMomentum: 0.30,
-  sentiment: 0.05,
   volatility: 0.20,
 } as const
 
@@ -59,19 +58,6 @@ export const SCORE_COMPONENTS: readonly ScoreComponentConfig[] = [
     bg: 'bg-sky-500/5',
     border: 'border-sky-500/20',
     rawLabel: 'newsThisWeek,newsLastWeek',
-  },
-  {
-    key: 'sentiment',
-    label: '기사 논조',
-    weight: Math.round(SCORE_WEIGHTS.sentiment * 100),
-    weightLabel: `${Math.round(SCORE_WEIGHTS.sentiment * 100)}%`,
-    color: '#F59E0B',
-    colorFrom: '#F59E0B',
-    colorTo: '#D97706',
-    glow: 'rgba(245, 158, 11, 0.3)',
-    bg: 'bg-amber-500/5',
-    border: 'border-amber-500/20',
-    rawLabel: 'sentimentAvg,sentimentArticleCount',
   },
   {
     key: 'volatility',

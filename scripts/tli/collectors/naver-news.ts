@@ -1,5 +1,4 @@
 import { sleep, withRetry } from '../utils'
-import { analyzeSentiment, isRelevantArticle } from '../../../lib/tli/sentiment'
 
 interface Theme {
   id: string
@@ -18,7 +17,6 @@ export interface NewsArticle {
   link: string
   source: string | null
   pubDate: string
-  sentimentScore: number | null
 }
 
 interface NaverNewsItem {
@@ -94,6 +92,21 @@ function stripHtml(text: string): string {
     .trim()
 }
 
+/** 정규식 특수문자 이스케이프 */
+function escapeRegex(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+/** 기사 제목이 테마 키워드와 관련있는지 확인 */
+function isRelevantArticle(title: string, keywords: string[]): boolean {
+  return keywords.some(keyword => {
+    if (keyword.length <= 3 && /^[A-Za-z0-9]+$/.test(keyword)) {
+      return new RegExp(`\\b${escapeRegex(keyword)}\\b`, 'i').test(title)
+    }
+    return title.includes(keyword)
+  })
+}
+
 /** 링크에서 도메인(언론사) 추출 */
 function extractSource(link: string): string | null {
   try {
@@ -165,16 +178,12 @@ export async function collectNaverNews(
 
           dateCounts.set(date, (dateCounts.get(date) || 0) + 1)
 
-          // 감성 분석
-          const sentiment = analyzeSentiment(cleanTitle)
-
           themeArticles.push({
             themeId: theme.id,
             title: cleanTitle,
             link: item.originallink || item.link,
             source: extractSource(item.originallink || item.link),
             pubDate: date,
-            sentimentScore: sentiment.score,
           })
         }
 
@@ -199,10 +208,7 @@ export async function collectNaverNews(
     allArticles.push(...themeArticles.slice(0, 10))
 
     const totalArticles = [...dateCounts.values()].reduce((a, b) => a + b, 0)
-    const avgSentiment = themeArticles.length > 0
-      ? (themeArticles.reduce((s, a) => s + (a.sentimentScore ?? 0), 0) / themeArticles.length).toFixed(2)
-      : 'N/A'
-    console.log(`   ✓ ${theme.id}: ${totalArticles}건 (${dateCounts.size}일, 기사 ${Math.min(themeArticles.length, 10)}개, 감성 avg=${avgSentiment})`)
+    console.log(`   ✓ ${theme.id}: ${totalArticles}건 (${dateCounts.size}일, 기사 ${Math.min(themeArticles.length, 10)}개)`)
   }
 
   console.log(`\n   ✅ ${metrics.length}개 뉴스 메트릭, ${allArticles.length}개 기사 수집 완료`)

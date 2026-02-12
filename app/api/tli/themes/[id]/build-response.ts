@@ -42,7 +42,6 @@ interface BuildThemeDetailParams {
     link: string
     source: string | null
     pub_date: string
-    sentiment_score: number | null
   }>
   keywords: string[]
   comparisonResults: ComparisonResult[]
@@ -97,7 +96,6 @@ export function buildThemeDetailResponse(params: BuildThemeDetailParams): ThemeD
       components: {
         interest: components?.interest_score ?? 0,
         newsMomentum: components?.news_momentum ?? 0,
-        sentiment: components?.sentiment_score ?? 0,
         volatility: components?.volatility_score ?? 0,
       },
       raw: components?.raw
@@ -108,8 +106,6 @@ export function buildThemeDetailResponse(params: BuildThemeDetailParams): ThemeD
             newsLastWeek: components.raw.news_last_week,
             interestStddev: components.raw.interest_stddev,
             activeDays: components.raw.active_days,
-            sentimentAvg: components.raw.sentiment_avg ?? 0,
-            sentimentArticleCount: components.raw.sentiment_article_count ?? 0,
           }
         : null,
       confidence: components?.confidence
@@ -137,7 +133,6 @@ export function buildThemeDetailResponse(params: BuildThemeDetailParams): ThemeD
       link: a.link,
       source: a.source,
       pubDate: a.pub_date,
-      sentimentScore: a.sentiment_score ?? null,
     })),
     comparisons: comparisonResults,
     lifecycleCurve: allScores.map((s) => ({

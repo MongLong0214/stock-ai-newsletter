@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "lastScanned": 1770770217662,
+  "lastScanned": 1770857738264,
   "projectRoot": "/Users/isaac/WebstormProjects/stock-ai-newsletter",
   "techStack": {
     "languages": [
@@ -96,7 +96,7 @@
       "path": "app",
       "purpose": "Application code",
       "fileCount": 8,
-      "lastAccessed": 1770770217609,
+      "lastAccessed": 1770857738248,
       "keyFiles": [
         "globals.css",
         "layout.tsx",
@@ -109,7 +109,7 @@
       "path": "components",
       "purpose": "UI components",
       "fileCount": 2,
-      "lastAccessed": 1770770217609,
+      "lastAccessed": 1770857738248,
       "keyFiles": [
         "animated-background.tsx",
         "scroll-to-top.tsx"
@@ -119,7 +119,7 @@
       "path": "docs",
       "purpose": "Documentation",
       "fileCount": 5,
-      "lastAccessed": 1770770217624,
+      "lastAccessed": 1770857738251,
       "keyFiles": [
         "TLI-WORK-LOG.md",
         "TLI_FINAL_PRD.md",
@@ -132,7 +132,7 @@
       "path": "fonts",
       "purpose": null,
       "fileCount": 1,
-      "lastAccessed": 1770770217628,
+      "lastAccessed": 1770857738252,
       "keyFiles": [
         "AppleSDGothicNeo.ttc"
       ]
@@ -141,7 +141,7 @@
       "path": "hooks",
       "purpose": null,
       "fileCount": 3,
-      "lastAccessed": 1770770217629,
+      "lastAccessed": 1770857738252,
       "keyFiles": [
         "use-countdown-to-tomorrow.ts",
         "use-is-mobile.ts",
@@ -152,7 +152,7 @@
       "path": "lib",
       "purpose": "Library code",
       "fileCount": 7,
-      "lastAccessed": 1770770217630,
+      "lastAccessed": 1770857738252,
       "keyFiles": [
         "ai-recommendations.ts",
         "env.ts",
@@ -165,7 +165,7 @@
       "path": "output",
       "purpose": null,
       "fileCount": 6,
-      "lastAccessed": 1770770217632,
+      "lastAccessed": 1770857738253,
       "keyFiles": [
         "gemini-result_2025-11-19_01-34-50.txt",
         "gemini-result_2025-11-19_07-49-16.txt",
@@ -178,7 +178,7 @@
       "path": "public",
       "purpose": "Public files",
       "fileCount": 8,
-      "lastAccessed": 1770770217633,
+      "lastAccessed": 1770857738253,
       "keyFiles": [
         "apple-touch-icon.png",
         "favicon.ico",
@@ -191,7 +191,7 @@
       "path": "scripts",
       "purpose": "Build/utility scripts",
       "fileCount": 9,
-      "lastAccessed": 1770770217635,
+      "lastAccessed": 1770857738253,
       "keyFiles": [
         "generate-blog-post.ts",
         "prepare-newsletter.ts",
@@ -204,7 +204,7 @@
       "path": "supabase",
       "purpose": null,
       "fileCount": 2,
-      "lastAccessed": 1770770217636,
+      "lastAccessed": 1770857738253,
       "keyFiles": [
         "config.toml"
       ]
@@ -213,7 +213,7 @@
       "path": "types",
       "purpose": "Type definitions",
       "fileCount": 1,
-      "lastAccessed": 1770770217637,
+      "lastAccessed": 1770857738254,
       "keyFiles": [
         "newsletter.ts"
       ]
@@ -222,14 +222,14 @@
       "path": "app/api",
       "purpose": "API routes",
       "fileCount": 0,
-      "lastAccessed": 1770770217637,
+      "lastAccessed": 1770857738254,
       "keyFiles": []
     },
     "supabase/migrations": {
       "path": "supabase/migrations",
       "purpose": "Database migrations",
       "fileCount": 10,
-      "lastAccessed": 1770770217638,
+      "lastAccessed": 1770857738255,
       "keyFiles": [
         "001_create_newsletter_content.sql",
         "002_create_blog_posts.sql",
@@ -239,303 +239,147 @@
   },
   "hotPaths": [
     {
-      "path": "scripts/tli/calculate-comparisons.ts",
-      "accessCount": 74,
-      "lastAccessed": 1770812393854,
-      "type": "file"
-    },
-    {
-      "path": "lib/tli/comparison/composite.ts",
-      "accessCount": 69,
-      "lastAccessed": 1770800551506,
-      "type": "file"
-    },
-    {
-      "path": "app/themes/[id]/_components/comparison-list/comparison-card.tsx",
-      "accessCount": 62,
-      "lastAccessed": 1770799050046,
-      "type": "file"
-    },
-    {
-      "path": "lib/tli/prediction.ts",
-      "accessCount": 61,
-      "lastAccessed": 1770812644539,
-      "type": "file"
-    },
-    {
-      "path": "app/themes/[id]/_components/theme-prediction/index.tsx",
-      "accessCount": 50,
-      "lastAccessed": 1770800555496,
-      "type": "file"
-    },
-    {
-      "path": "app/themes/[id]/_components/comparison-list/index.tsx",
-      "accessCount": 46,
-      "lastAccessed": 1770800552432,
-      "type": "file"
-    },
-    {
-      "path": "lib/tli/types/api.ts",
-      "accessCount": 39,
-      "lastAccessed": 1770812636655,
-      "type": "file"
-    },
-    {
-      "path": "scripts/tli/enrich-themes.ts",
-      "accessCount": 38,
-      "lastAccessed": 1770800587690,
-      "type": "file"
-    },
-    {
-      "path": "app/themes/[id]/_components/comparison-list/pillar-bars.tsx",
-      "accessCount": 37,
-      "lastAccessed": 1770797532996,
-      "type": "file"
-    },
-    {
-      "path": "lib/tli/prediction-helpers.ts",
-      "accessCount": 34,
-      "lastAccessed": 1770797940732,
-      "type": "file"
-    },
-    {
-      "path": "app/themes/[id]/_components/detail-content.tsx",
-      "accessCount": 33,
-      "lastAccessed": 1770800551077,
-      "type": "file"
-    },
-    {
-      "path": "scripts/tli/collect-and-score.ts",
-      "accessCount": 33,
-      "lastAccessed": 1770812387399,
-      "type": "file"
-    },
-    {
-      "path": "lib/tli/comparison/similarity.ts",
-      "accessCount": 31,
-      "lastAccessed": 1770800552440,
-      "type": "file"
-    },
-    {
-      "path": "lib/tli/comparison/timeline.ts",
-      "accessCount": 26,
-      "lastAccessed": 1770800538919,
-      "type": "file"
-    },
-    {
-      "path": "lib/tli/comparison/features.ts",
-      "accessCount": 26,
-      "lastAccessed": 1770800552133,
-      "type": "file"
-    },
-    {
-      "path": "app/themes/[id]/_components/score-card.tsx",
-      "accessCount": 25,
-      "lastAccessed": 1770812426524,
-      "type": "file"
-    },
-    {
-      "path": "app/themes/[id]/_components/theme-prediction/config.ts",
-      "accessCount": 23,
-      "lastAccessed": 1770797535486,
-      "type": "file"
-    },
-    {
-      "path": "lib/tli/normalize.ts",
-      "accessCount": 23,
-      "lastAccessed": 1770812376743,
-      "type": "file"
-    },
-    {
-      "path": "scripts/tli/supabase-batch.ts",
-      "accessCount": 22,
-      "lastAccessed": 1770812387967,
-      "type": "file"
-    },
-    {
-      "path": "app/themes/[id]/_components/theme-prediction/sub-components.tsx",
-      "accessCount": 21,
-      "lastAccessed": 1770797536060,
-      "type": "file"
-    },
-    {
-      "path": "lib/tli/comparison/index.ts",
-      "accessCount": 21,
-      "lastAccessed": 1770800532862,
+      "path": "app/themes/[id]/_components/detail-header/score-components.tsx",
+      "accessCount": 12,
+      "lastAccessed": 1770859783218,
       "type": "file"
     },
     {
       "path": "scripts/tli/calculate-scores.ts",
-      "accessCount": 21,
-      "lastAccessed": 1770812394208,
-      "type": "file"
-    },
-    {
-      "path": "lib/tli/calculator.ts",
-      "accessCount": 20,
-      "lastAccessed": 1770812392714,
-      "type": "file"
-    },
-    {
-      "path": "lib/tli/date-utils.ts",
-      "accessCount": 18,
-      "lastAccessed": 1770811730012,
-      "type": "file"
-    },
-    {
-      "path": "components/tli/lifecycle-score.tsx",
-      "accessCount": 16,
-      "lastAccessed": 1770812639378,
-      "type": "file"
-    },
-    {
-      "path": "lib/tli/__tests__/composite.test.ts",
-      "accessCount": 12,
-      "lastAccessed": 1770791545982,
-      "type": "file"
-    },
-    {
-      "path": "app/themes/[id]/_components/news-headlines.tsx",
-      "accessCount": 11,
-      "lastAccessed": 1770800556049,
-      "type": "file"
-    },
-    {
-      "path": "app/themes/[id]/_components/detail-header/metric-grid.tsx",
-      "accessCount": 10,
-      "lastAccessed": 1770799296505,
-      "type": "file"
-    },
-    {
-      "path": "scripts/tli/evaluate-comparisons.ts",
-      "accessCount": 10,
-      "lastAccessed": 1770800575781,
-      "type": "file"
-    },
-    {
-      "path": "scripts/tli/utils.ts",
-      "accessCount": 9,
-      "lastAccessed": 1770811729525,
-      "type": "file"
-    },
-    {
-      "path": "scripts/tli/data-ops.ts",
-      "accessCount": 9,
-      "lastAccessed": 1770811746969,
-      "type": "file"
-    },
-    {
-      "path": "lib/tli/constants/sectors.ts",
       "accessCount": 8,
-      "lastAccessed": 1770780599052,
-      "type": "file"
-    },
-    {
-      "path": "scripts/tli/snapshot-predictions.ts",
-      "accessCount": 7,
-      "lastAccessed": 1770800574163,
-      "type": "file"
-    },
-    {
-      "path": "scripts/tli/backtest-comparisons.ts",
-      "accessCount": 7,
-      "lastAccessed": 1770800594728,
-      "type": "file"
-    },
-    {
-      "path": "lib/tli/__tests__/prediction.test.ts",
-      "accessCount": 6,
-      "lastAccessed": 1770791546467,
-      "type": "file"
-    },
-    {
-      "path": "app/api/tli/themes/[id]/fetch-theme-data.ts",
-      "accessCount": 5,
-      "lastAccessed": 1770793048730,
+      "lastAccessed": 1770858195717,
       "type": "file"
     },
     {
       "path": "scripts/tli/collectors/naver-news.ts",
+      "accessCount": 7,
+      "lastAccessed": 1770858303301,
+      "type": "file"
+    },
+    {
+      "path": "app/themes/[id]/_components/news-headlines.tsx",
+      "accessCount": 7,
+      "lastAccessed": 1770858472570,
+      "type": "file"
+    },
+    {
+      "path": "lib/tli/__tests__/calculator.test.ts",
+      "accessCount": 7,
+      "lastAccessed": 1770858671286,
+      "type": "file"
+    },
+    {
+      "path": "lib/tli/calculator.ts",
+      "accessCount": 7,
+      "lastAccessed": 1770859377812,
+      "type": "file"
+    },
+    {
+      "path": "app/themes/[id]/_components/detail-header/metric-grid.tsx",
+      "accessCount": 6,
+      "lastAccessed": 1770858398717,
+      "type": "file"
+    },
+    {
+      "path": "lib/tli/types/api.ts",
       "accessCount": 5,
-      "lastAccessed": 1770800567235,
+      "lastAccessed": 1770858050203,
       "type": "file"
     },
     {
-      "path": "lib/tli/__tests__/similarity.test.ts",
+      "path": "app/themes/_services/get-ranking-server.ts",
+      "accessCount": 5,
+      "lastAccessed": 1770858283528,
+      "type": "file"
+    },
+    {
+      "path": "app/api/tli/scores/ranking/route.ts",
+      "accessCount": 4,
+      "lastAccessed": 1770858175097,
+      "type": "file"
+    },
+    {
+      "path": "scripts/tli/data-ops.ts",
+      "accessCount": 4,
+      "lastAccessed": 1770858320867,
+      "type": "file"
+    },
+    {
+      "path": "components/tli/score-breakdown.tsx",
+      "accessCount": 4,
+      "lastAccessed": 1770858375718,
+      "type": "file"
+    },
+    {
+      "path": "lib/tli/__tests__/stage.test.ts",
+      "accessCount": 4,
+      "lastAccessed": 1770858607591,
+      "type": "file"
+    },
+    {
+      "path": "lib/tli/constants/score-config.ts",
+      "accessCount": 4,
+      "lastAccessed": 1770858733413,
+      "type": "file"
+    },
+    {
+      "path": "app/api/tli/themes/[id]/fetch-theme-data.ts",
+      "accessCount": 4,
+      "lastAccessed": 1770858754900,
+      "type": "file"
+    },
+    {
+      "path": "lib/tli/types/db.ts",
       "accessCount": 3,
-      "lastAccessed": 1770782211406,
+      "lastAccessed": 1770858029771,
       "type": "file"
     },
     {
-      "path": "app/api/tli/themes/[id]/route.ts",
-      "accessCount": 3,
-      "lastAccessed": 1770789150412,
-      "type": "file"
-    },
-    {
-      "path": "scripts/tli/run-comparisons.ts",
+      "path": "lib/tli/stage.ts",
       "accessCount": 2,
-      "lastAccessed": 1770778926381,
+      "lastAccessed": 1770858067866,
       "type": "file"
     },
     {
-      "path": "package.json",
+      "path": "lib/tli/types/stage.ts",
       "accessCount": 2,
-      "lastAccessed": 1770793818666,
+      "lastAccessed": 1770858072976,
       "type": "file"
     },
     {
-      "path": "lib/tli/__tests__/features.test.ts",
-      "accessCount": 1,
-      "lastAccessed": 1770770352864,
+      "path": "app/api/tli/scores/ranking/ranking-helpers.ts",
+      "accessCount": 2,
+      "lastAccessed": 1770858143930,
       "type": "file"
     },
     {
-      "path": "lib/tli/__tests__/timeline.test.ts",
-      "accessCount": 1,
-      "lastAccessed": 1770770354014,
+      "path": "app/themes/[id]/_components/comparison-list/pillar-bars.tsx",
+      "accessCount": 2,
+      "lastAccessed": 1770858760035,
       "type": "file"
     },
     {
-      "path": "tsconfig.json",
-      "accessCount": 1,
-      "lastAccessed": 1770774488518,
+      "path": "components/tli/lifecycle-curve.tsx",
+      "accessCount": 2,
+      "lastAccessed": 1770858765155,
       "type": "file"
     },
     {
-      "path": "eslint.config.mjs",
+      "path": "lib/tli/sentiment.ts",
       "accessCount": 1,
-      "lastAccessed": 1770774488522,
+      "lastAccessed": 1770857814405,
       "type": "file"
     },
     {
-      "path": "app/api/tli/stocks/[symbol]/theme/route.ts",
+      "path": "app/themes/[id]/_components/detail-header/index.tsx",
       "accessCount": 1,
-      "lastAccessed": 1770774533416,
+      "lastAccessed": 1770859529756,
       "type": "file"
     },
     {
-      "path": "app/api/tli/themes/route.ts",
+      "path": "app/themes/[id]/_components/detail-header/top-movers.tsx",
       "accessCount": 1,
-      "lastAccessed": 1770774533998,
-      "type": "file"
-    },
-    {
-      "path": "lib/tli/api-utils.ts",
-      "accessCount": 1,
-      "lastAccessed": 1770774544458,
-      "type": "file"
-    },
-    {
-      "path": "app/themes/(list)/page.tsx",
-      "accessCount": 1,
-      "lastAccessed": 1770774777476,
-      "type": "file"
-    },
-    {
-      "path": "app/themes/[id]/page.tsx",
-      "accessCount": 1,
-      "lastAccessed": 1770774777994,
+      "lastAccessed": 1770859530602,
       "type": "file"
     }
   ],

@@ -187,8 +187,7 @@ export function calculateRankingSummary(activeThemes: ThemeListItem[]) {
       (t.stage === 'Early' || t.stage === 'Growth') &&
       t.change7d > 3 &&
       t.newsCount7d >= 2 &&
-      t.sparkline.length >= 3 &&
-      t.sentimentScore >= 0.3
+      t.sparkline.length >= 3
   )
   const surging = surgingCandidates.length > 0
     ? surgingCandidates.reduce((max, t) => (t.change7d > max.change7d ? t : max))

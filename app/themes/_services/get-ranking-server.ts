@@ -1,5 +1,5 @@
 import { supabase, isSupabasePlaceholder } from '@/lib/supabase'
-import { getStageKo, toStage, isScoreComponents } from '@/lib/tli/types'
+import { getStageKo, toStage } from '@/lib/tli/types'
 import { isTableNotFound } from '@/lib/tli/api-utils'
 import type { ThemeListItem, ThemeRanking } from '@/lib/tli/types'
 import { EMPTY_RANKING, buildScoreMetaMap, buildCountMaps, calculateRankingSummary, batchLoadStockData, batchLoadNewsCounts } from '@/app/api/tli/scores/ranking/ranking-helpers'
@@ -63,9 +63,6 @@ export async function getRankingServer(): Promise<ThemeRanking> {
       const meta = scoreMetaByTheme.get(theme.id)
       const latest = meta?.latest ?? null
       const weekAgoScore = meta?.weekAgoScore ?? null
-      const latestComponents = isScoreComponents(latest?.components) ? latest!.components : null
-      const sentimentScore = latestComponents?.sentiment_score ?? 0
-
       return {
         id: theme.id,
         name: theme.name,
@@ -82,7 +79,6 @@ export async function getRankingServer(): Promise<ThemeRanking> {
         updatedAt: latest?.calculated_at ?? new Date().toISOString(),
         sparkline: meta?.sparkline ?? [],
         newsCount7d: newsCountMap.get(theme.id) ?? 0,
-        sentimentScore,
       }
     })
 
