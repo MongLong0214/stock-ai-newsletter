@@ -4,7 +4,7 @@ import { calculateLifecycleScore } from '../../lib/tli/calculator'
 import { determineStage } from '../../lib/tli/stage'
 import { checkReigniting } from '../../lib/tli/reigniting'
 import { getKSTDate } from './utils'
-import type { InterestMetric, NewsMetric, Stage } from '../../lib/tli/types'
+import type { InterestMetric, NewsMetric, Stage, ScoreComponents } from '../../lib/tli/types'
 import type { ThemeWithKeywords } from './data-ops'
 
 /** 라이프사이클 점수 계산 및 저장 */
@@ -61,7 +61,14 @@ export async function calculateAndSaveScores(themes: ThemeWithKeywords[]) {
   const sortedRawAvgs = Array.from(rawAvgMap.values()).filter(v => v > 0).sort((a, b) => a - b)
   function computePercentile(value: number): number {
     if (sortedRawAvgs.length === 0 || value <= 0) return 0
-    return sortedRawAvgs.filter(v => v <= value).length / sortedRawAvgs.length
+    // Binary search: upper bound of value in sorted array
+    let lo = 0, hi = sortedRawAvgs.length
+    while (lo < hi) {
+      const mid = (lo + hi) >>> 1
+      if (sortedRawAvgs[mid] <= value) lo = mid + 1
+      else hi = mid
+    }
+    return lo / sortedRawAvgs.length
   }
 
   const medianRaw = sortedRawAvgs.length > 0 ? sortedRawAvgs[Math.floor(sortedRawAvgs.length / 2)] : 0
@@ -79,7 +86,14 @@ export async function calculateAndSaveScores(themes: ThemeWithKeywords[]) {
     }
   }
 
-  // ─── 점수 계산 ───
+  // ─── 점수 계산 (결과 수집) ───
+  const scoreRows: {
+    theme_id: string; calculated_at: string; score: number; stage: string
+    is_reigniting: boolean; stage_changed: boolean; prev_stage: string | null
+    components: ScoreComponents
+  }[] = []
+  const spikeBackfillIds: string[] = []
+
   for (const theme of themes) {
     try {
       console.log(`\n   처리 중: ${theme.name}`)
@@ -109,36 +123,46 @@ export async function calculateAndSaveScores(themes: ThemeWithKeywords[]) {
       const prevStage = (prevStageMap.get(theme.id) as Stage) ?? null
       const stageChanged = prevStage !== null && prevStage !== stage
 
-      const { error: scoreError } = await supabaseAdmin
-        .from('lifecycle_scores')
-        .upsert({
-          theme_id: theme.id,
-          calculated_at: today,
-          score,
-          stage,
-          is_reigniting: isReigniting,
-          stage_changed: stageChanged,
-          prev_stage: prevStage,
-          components,
-        }, { onConflict: 'theme_id,calculated_at' })
+      scoreRows.push({
+        theme_id: theme.id,
+        calculated_at: today,
+        score, stage, is_reigniting: isReigniting,
+        stage_changed: stageChanged, prev_stage: prevStage,
+        components,
+      })
 
-      if (scoreError) {
-        console.error(`   ❌ 점수 저장 실패:`, scoreError)
-      } else {
-        console.log(`   ✅ 점수: ${score}, 스테이지: ${stage}${isReigniting ? ' (재점화!)' : ''}`)
-      }
+      console.log(`   ✅ 점수: ${score}, 스테이지: ${stage}${isReigniting ? ' (재점화!)' : ''}`)
 
-      // first_spike_date 백필
       if (!theme.first_spike_date) {
-        await supabaseAdmin
-          .from('themes')
-          .update({ first_spike_date: today })
-          .eq('id', theme.id)
-          .is('first_spike_date', null)
-        console.log(`   📅 first_spike_date 설정: ${today}`)
+        spikeBackfillIds.push(theme.id)
       }
     } catch (error: unknown) {
       console.error(`   ❌ 테마 처리 실패:`, error instanceof Error ? error.message : String(error))
+    }
+  }
+
+  // ─── 배치 저장 ───
+  if (scoreRows.length > 0) {
+    const { error } = await supabaseAdmin
+      .from('lifecycle_scores')
+      .upsert(scoreRows, { onConflict: 'theme_id,calculated_at' })
+    if (error) {
+      console.error(`   ❌ 점수 배치 저장 실패 (${scoreRows.length}건):`, error)
+    } else {
+      console.log(`\n   💾 점수 배치 저장 완료: ${scoreRows.length}건`)
+    }
+  }
+
+  if (spikeBackfillIds.length > 0) {
+    const { error } = await supabaseAdmin
+      .from('themes')
+      .update({ first_spike_date: today })
+      .in('id', spikeBackfillIds)
+      .is('first_spike_date', null)
+    if (error) {
+      console.error(`   ❌ first_spike_date 백필 실패:`, error)
+    } else {
+      console.log(`   📅 first_spike_date 백필 완료: ${spikeBackfillIds.length}건`)
     }
   }
 
