@@ -2,15 +2,16 @@ import { supabaseAdmin } from './supabase-admin'
 import { batchQuery, groupByThemeId } from './supabase-batch'
 import { pearsonCorrelation } from '../../lib/tli/comparison/similarity'
 import { getKSTDate } from './utils'
+import { DEFAULT_THRESHOLD as AUTO_TUNE_DEFAULT } from './auto-tune'
 
 /** 궤적 상관 >= 0.3이면 "정확한 비교"로 판정 */
 const ACCURACY_THRESHOLD = 0.3
 const MIN_VERIFICATION_DAYS = 14
-/** 현재 기본 임계값 (캘리브레이션 데이터 축적 후 동적 조정 예정) */
-const DEFAULT_THRESHOLD = 0.30
+/** auto-tune 폴백 임계값 (auto-tune.ts와 동일 값 사용) */
+const DEFAULT_THRESHOLD = AUTO_TUNE_DEFAULT
 const DEFAULT_SECTOR_PENALTY = 0.85
 
-export async function evaluateComparisonOutcomes() {
+export async function evaluateComparisonOutcomes(tunedThreshold?: number) {
   console.log('\n🔬 비교 결과 검증 중...')
   const today = getKSTDate()
   const cutoffDate = new Date(new Date(today).getTime() - MIN_VERIFICATION_DAYS * 86400000).toISOString().split('T')[0]
@@ -78,6 +79,10 @@ export async function evaluateComparisonOutcomes() {
     const alignedPastInterest = pastFirstSpike
       ? pastInterest.filter(m => m.time >= pastFirstSpike)
       : pastInterest
+
+    // C3: 인덱스 범위 초과 시 검증 불가 → 건너뜀
+    if (comp.current_day >= alignedPastInterest.length) continue
+
     const pastValues = alignedPastInterest
       .slice(comp.current_day, comp.current_day + afterDate.length)
       .map(m => m.normalized)
@@ -119,6 +124,9 @@ export async function evaluateComparisonOutcomes() {
     const avgCorr = results.reduce((s, r) => s + r.trajectoryCorr, 0) / results.length
     const stageMatchRate = results.filter(r => r.stageMatch).length / results.length
 
+    // 최적 임계값 결정 (파이프라인에서 전달받으면 재사용, 아니면 DEFAULT)
+    const computedThreshold = tunedThreshold ?? DEFAULT_THRESHOLD
+
     const avgPillar = (items: VerifiedResult[], key: 'featureSim' | 'curveSim' | 'keywordSim') => {
       const valid = items.filter(r => r[key] != null)
       return valid.length > 0 ? valid.reduce((s, r) => s + (r[key] ?? 0), 0) / valid.length : null
@@ -135,7 +143,7 @@ export async function evaluateComparisonOutcomes() {
       feature_corr_when_inaccurate: avgPillar(inaccurate, 'featureSim'),
       curve_corr_when_inaccurate: avgPillar(inaccurate, 'curveSim'),
       keyword_corr_when_inaccurate: avgPillar(inaccurate, 'keywordSim'),
-      suggested_threshold: DEFAULT_THRESHOLD,
+      suggested_threshold: computedThreshold,
       suggested_sector_penalty: DEFAULT_SECTOR_PENALTY,
       details: {
         accurate_count: accurate.length,
