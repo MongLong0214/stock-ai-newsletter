@@ -77,12 +77,14 @@ jobs:
         with:
           script: |
             const title = `🚨 TLI 파이프라인 실패 (${new Date().toISOString().split('T')[0]})`;
+            const rawMode = process.env.TLI_MODE || 'unknown';
+            const safeMode = ['full', 'news-only'].includes(rawMode) ? rawMode : 'unknown';
             const body = [
               `## 파이프라인 실패 알림`,
               ``,
               `| 항목 | 값 |`,
               `|------|-----|`,
-              `| **실행 모드** | \`${process.env.TLI_MODE || 'unknown'}\` |`,
+              `| **실행 모드** | \`${safeMode}\` |`,
               `| **트리거** | \`${context.eventName}\` |`,
               `| **실행 URL** | [링크](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}) |`,
               `| **시간 (UTC)** | ${new Date().toISOString()} |`,

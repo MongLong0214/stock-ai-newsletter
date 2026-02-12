@@ -27,8 +27,6 @@ export interface ScoreRawData {
   newsLastWeek: number
   interestStddev: number
   activeDays: number
-  sentimentAvg?: number
-  sentimentArticleCount?: number
 }
 
 /** 생명주기 곡선 데이터 포인트 */
@@ -82,8 +80,6 @@ export interface ThemeListItem {
   sparkline: number[];
   /** 뉴스 기사 수 (theme_news_articles 총 건수) */
   newsCount7d: number;
-  /** 최근 감성 점수 (0.5=중립, >0.5=긍정, <0.5=부정) */
-  sentimentScore: number;
   /** 점수 신뢰도 */
   confidenceLevel?: ConfidenceLevel;
 }
@@ -111,8 +107,6 @@ export interface ThemeDetail {
       interest: number;
       /** 뉴스 모멘텀 점수 (0~1 정규화) */
       newsMomentum: number;
-      /** 감성 점수 (0~1, 0.5 = 중립, >0.5 = 긍정, <0.5 = 부정) */
-      sentiment: number;
       /** 변동성 점수 (0~1 정규화) */
       volatility: number;
     };
@@ -124,8 +118,6 @@ export interface ThemeDetail {
       newsLastWeek: number;
       interestStddev: number;
       activeDays: number;
-      sentimentAvg?: number;
-      sentimentArticleCount?: number;
     } | null;
     /** 점수 신뢰도 */
     confidence: {

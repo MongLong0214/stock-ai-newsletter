@@ -26,7 +26,6 @@ export function isScoreComponents(value: unknown): value is ScoreComponents {
   return (
     typeof obj.interest_score === 'number' &&
     typeof obj.news_momentum === 'number' &&
-    typeof obj.sentiment_score === 'number' &&
     typeof obj.volatility_score === 'number' &&
     typeof obj.maturity_ratio === 'number'
   )

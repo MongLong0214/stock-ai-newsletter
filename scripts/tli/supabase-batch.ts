@@ -43,7 +43,7 @@ export async function batchQuery<T>(
 
         lastError = result.error.message
         if (retry < MAX_RETRIES - 1) {
-          console.warn(`   ⚠️ batchQuery(${table}) 재시도 ${retry + 1}/${MAX_RETRIES - 1}:`, lastError)
+          console.warn(`   ⚠️ batchQuery(${table}) 시도 ${retry + 2}/${MAX_RETRIES}:`, lastError)
           await sleep(BASE_DELAY_MS * Math.pow(2, retry))
         }
       }
@@ -101,7 +101,7 @@ export async function batchUpsert(
 
       upsertError = error.message
       if (retry < MAX_RETRIES - 1) {
-        console.warn(`   ⚠️ 배치 ${i}~${i + batch.length} 재시도 ${retry + 1}/${MAX_RETRIES - 1}:`, upsertError)
+        console.warn(`   ⚠️ 배치 ${i}~${i + batch.length} 시도 ${retry + 2}/${MAX_RETRIES}:`, upsertError)
         await sleep(BASE_DELAY_MS * Math.pow(2, retry))
       }
     }
