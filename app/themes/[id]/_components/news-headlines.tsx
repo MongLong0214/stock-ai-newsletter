@@ -1,16 +1,14 @@
 'use client'
 
-import { useMemo, useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { Newspaper, ExternalLink } from 'lucide-react'
 import { motion } from 'framer-motion'
-import { analyzeSentiment, getSentimentConfig } from '@/lib/tli/sentiment'
 
 interface NewsArticle {
   title: string
   link: string
   source: string | null
   pubDate: string
-  sentimentScore?: number | null
 }
 
 interface NewsHeadlinesProps {
@@ -77,26 +75,8 @@ function NewsHeadlines({ articles }: NewsHeadlinesProps) {
     setClientNow(Date.now())
   }, [])
 
-  const sorted = useMemo(() => {
-    return [...articles]
-      .sort((a, b) => new Date(b.pubDate).getTime() - new Date(a.pubDate).getTime())
-  }, [articles])
-
-  const sentimentMap = useMemo(() => {
-    const map = new Map<string, number>()
-    sorted.forEach(a => {
-      const score = a.sentimentScore ?? analyzeSentiment(a.title).score
-      map.set(a.link, score)
-    })
-    return map
-  }, [sorted])
-
-  const sentimentSummary = useMemo(() => {
-    const scores = Array.from(sentimentMap.values())
-    const avg = scores.length > 0 ? scores.reduce((s, v) => s + v, 0) / scores.length : 0
-    const config = getSentimentConfig(avg)
-    return { avg, config, count: scores.length }
-  }, [sentimentMap])
+  const sorted = [...articles]
+    .sort((a, b) => new Date(b.pubDate).getTime() - new Date(a.pubDate).getTime())
 
   if (sorted.length === 0) {
     return (
@@ -109,26 +89,9 @@ function NewsHeadlines({ articles }: NewsHeadlinesProps) {
 
   return (
     <div>
-      {/* 전체 기사 논조 요약 */}
-      <div className="flex items-center justify-between px-3 sm:px-4 py-2.5 mb-2 rounded-lg bg-slate-800/30 border border-slate-700/30">
-        <span className="text-xs font-mono text-slate-500">기사 논조</span>
-        <div className="flex items-center gap-2">
-          <span className={`text-xs font-mono px-2 py-0.5 rounded ${sentimentSummary.config.bg} border ${sentimentSummary.config.border} ${sentimentSummary.config.text}`}>
-            {sentimentSummary.config.label}
-          </span>
-          <span className="text-[11px] font-mono text-slate-600">
-            ({sentimentSummary.avg.toFixed(2)})
-          </span>
-        </div>
-      </div>
-
       {/* 기사 목록 */}
       <div className="divide-y divide-slate-800/60">
-      {sorted.map((article, idx) => {
-        const score = sentimentMap.get(article.link) ?? 0
-        const config = getSentimentConfig(score)
-
-        return (
+      {sorted.map((article, idx) => (
           <motion.a
             key={article.link}
             href={sanitizeUrl(article.link)}
@@ -158,9 +121,6 @@ function NewsHeadlines({ articles }: NewsHeadlinesProps) {
                   {article.source}
                 </span>
               )}
-              <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded ${config.bg} border ${config.border} ${config.text}`}>
-                {config.label}
-              </span>
               <span className="flex-1" />
               <span className="text-[11px] font-mono text-slate-600">
                 {clientNow !== null
@@ -169,8 +129,7 @@ function NewsHeadlines({ articles }: NewsHeadlinesProps) {
               </span>
             </div>
           </motion.a>
-        )
-      })}
+      ))}
       </div>
     </div>
   )

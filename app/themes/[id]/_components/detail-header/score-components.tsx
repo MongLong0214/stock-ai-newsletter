@@ -8,7 +8,6 @@ interface ScoreComponentsProps {
   components: {
     interest: number
     newsMomentum: number
-    sentiment: number
     volatility: number
   }
 }
@@ -20,7 +19,7 @@ export default function ScoreComponents({ components }: ScoreComponentsProps) {
         <h3 className="text-xs font-mono text-slate-400 uppercase tracking-wider">점수 구성 요소</h3>
         <span className="text-[10px] font-mono text-slate-600">가중치 적용됨</span>
       </div>
-      <div className="space-y-3">
+      <div className="space-y-12">
         {SCORE_COMPONENTS.map(({ key, label, color, weight }) => {
           const Icon = getComponentIcon(key)
           const value = components[key]
@@ -41,7 +40,7 @@ export default function ScoreComponents({ components }: ScoreComponentsProps) {
                   </span>
                 </div>
               </div>
-              <div className="relative h-3 rounded-full bg-slate-800/60 overflow-hidden border border-slate-700/40">
+              <div className="relative h-4 rounded-full bg-slate-800/60 overflow-hidden border border-slate-700/40">
                 <motion.div
                   className="absolute inset-0 rounded-full"
                   style={{ background: `linear-gradient(90deg, ${color}40 0%, ${color} 100%)` }}
@@ -67,10 +66,10 @@ export default function ScoreComponents({ components }: ScoreComponentsProps) {
 
 /* ── 아이콘 매핑 (score-config에는 아이콘 없음) ──────────────────── */
 
-import { Eye, Newspaper, MessageSquare, LineChart } from 'lucide-react'
+import { Eye, Newspaper, LineChart } from 'lucide-react'
 import type { ScoreComponentKey } from '@/lib/tli/constants/score-config'
 
 function getComponentIcon(key: ScoreComponentKey) {
-  const icons = { interest: Eye, newsMomentum: Newspaper, sentiment: MessageSquare, volatility: LineChart }
+  const icons = { interest: Eye, newsMomentum: Newspaper, volatility: LineChart }
   return icons[key]
 }

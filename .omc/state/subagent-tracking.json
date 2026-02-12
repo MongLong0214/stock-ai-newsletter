@@ -143,10 +143,64 @@
       "status": "completed",
       "completed_at": "2026-02-11T12:22:03.343Z",
       "duration_ms": 140500
+    },
+    {
+      "agent_id": "addcc19",
+      "agent_type": "oh-my-claudecode:quality-reviewer",
+      "started_at": "2026-02-12T00:34:26.193Z",
+      "parent_mode": "none",
+      "status": "completed",
+      "completed_at": "2026-02-12T00:37:08.890Z",
+      "duration_ms": 162697
+    },
+    {
+      "agent_id": "aa8b2de",
+      "agent_type": "oh-my-claudecode:security-reviewer",
+      "started_at": "2026-02-12T00:34:34.223Z",
+      "parent_mode": "none",
+      "status": "completed",
+      "completed_at": "2026-02-12T00:41:03.492Z",
+      "duration_ms": 389269
+    },
+    {
+      "agent_id": "a86317c",
+      "agent_type": "oh-my-claudecode:performance-reviewer",
+      "started_at": "2026-02-12T00:34:43.118Z",
+      "parent_mode": "none",
+      "status": "completed",
+      "completed_at": "2026-02-12T00:35:43.024Z",
+      "duration_ms": 59906
+    },
+    {
+      "agent_id": "a483d11",
+      "agent_type": "oh-my-claudecode:style-reviewer",
+      "started_at": "2026-02-12T00:34:54.137Z",
+      "parent_mode": "none",
+      "status": "completed",
+      "completed_at": "2026-02-12T00:39:16.184Z",
+      "duration_ms": 262047
+    },
+    {
+      "agent_id": "ae11346",
+      "agent_type": "oh-my-claudecode:api-reviewer",
+      "started_at": "2026-02-12T00:35:05.328Z",
+      "parent_mode": "none",
+      "status": "completed",
+      "completed_at": "2026-02-12T00:36:01.647Z",
+      "duration_ms": 56319
+    },
+    {
+      "agent_id": "af4b555",
+      "agent_type": "oh-my-claudecode:test-engineer",
+      "started_at": "2026-02-12T00:35:22.815Z",
+      "parent_mode": "none",
+      "status": "completed",
+      "completed_at": "2026-02-12T00:36:59.435Z",
+      "duration_ms": 96620
     }
   ],
-  "total_spawned": 16,
-  "total_completed": 16,
+  "total_spawned": 22,
+  "total_completed": 22,
   "total_failed": 0,
-  "last_updated": "2026-02-11T12:24:44.096Z"
+  "last_updated": "2026-02-12T01:29:54.270Z"
 }

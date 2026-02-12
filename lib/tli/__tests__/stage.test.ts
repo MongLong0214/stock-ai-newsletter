@@ -6,10 +6,9 @@ function makeComponents(overrides: Partial<ScoreComponents> = {}): ScoreComponen
   return {
     interest_score: 0.5,
     news_momentum: 0.5,
-    sentiment_score: 0.5,
     volatility_score: 0.5,
     maturity_ratio: 0.5,
-    weights: { interest: 0.4, news: 0.25, sentiment: 0.2, volatility: 0.15 },
+    weights: { interest: 0.5, news: 0.3, volatility: 0.2 },
     raw: {
       recent_7d_avg: 50, baseline_30d_avg: 40,
       news_this_week: 10, news_last_week: 8,
@@ -28,11 +27,6 @@ describe('determineStage', () => {
   it('returns Peak for score >= 60 with high interest + news', () => {
     const c = makeComponents({ interest_score: 0.9, news_momentum: 0.8 })
     expect(determineStage(65, c)).toBe('Peak')
-  })
-
-  it('returns Peak for score >= 60 with high interest + sentiment', () => {
-    const c = makeComponents({ interest_score: 0.9, sentiment_score: 0.8 })
-    expect(determineStage(60, c)).toBe('Peak')
   })
 
   it('returns Growth for score >= 60 without peak conditions', () => {

@@ -3,7 +3,7 @@ import { batchQuery, groupByThemeId } from './supabase-batch'
 import { calculateLifecycleScore } from '../../lib/tli/calculator'
 import { determineStage } from '../../lib/tli/stage'
 import { checkReigniting } from '../../lib/tli/reigniting'
-import { getKSTDate, daysAgo } from './utils'
+import { getKSTDate } from './utils'
 import type { InterestMetric, NewsMetric, Stage } from '../../lib/tli/types'
 import type { ThemeWithKeywords } from './data-ops'
 
@@ -12,10 +12,9 @@ export async function calculateAndSaveScores(themes: ThemeWithKeywords[]) {
   console.log('\n🧮 라이프사이클 점수 계산 중...')
   const today = getKSTDate()
   const themeIds = themes.map(t => t.id)
-  const sevenDaysAgo = daysAgo(7)
 
-  // ─── 데이터 배치 로딩 (5개 테이블 병렬, 자동 페이지네이션) ───
-  const [allInterest, allNews, allSentiments, allPrevScores, allStockPrices] = await Promise.all([
+  // ─── 데이터 배치 로딩 (병렬, 자동 페이지네이션) ───
+  const [allInterest, allNews, allPrevScores] = await Promise.all([
     batchQuery<InterestMetric & { theme_id: string }>(
       'interest_metrics', '*', themeIds,
       q => q.order('time', { ascending: false }),
@@ -24,24 +23,15 @@ export async function calculateAndSaveScores(themes: ThemeWithKeywords[]) {
       'news_metrics', '*', themeIds,
       q => q.order('time', { ascending: false }),
     ),
-    batchQuery<{ theme_id: string; sentiment_score: number }>(
-      'theme_news_articles', 'theme_id, sentiment_score', themeIds,
-      q => q.gte('pub_date', sevenDaysAgo).not('sentiment_score', 'is', null),
-    ),
     batchQuery<{ theme_id: string; stage: string }>(
       'lifecycle_scores', 'theme_id, stage', themeIds,
       q => q.lt('calculated_at', today).order('calculated_at', { ascending: false }),
-    ),
-    batchQuery<{ theme_id: string; price_change_pct: number | null }>(
-      'theme_stocks', 'theme_id, price_change_pct', themeIds,
-      q => q.eq('is_active', true).not('price_change_pct', 'is', null),
     ),
   ])
 
   // 테마별 그룹화
   const interestByTheme = groupByThemeId(allInterest)
   const newsByTheme = groupByThemeId(allNews)
-  const sentimentByTheme = groupByThemeId(allSentiments)
 
   // 이전 스테이지 맵 (테마당 최신 1건)
   const prevStageMap = new Map<string, string>()
@@ -77,9 +67,8 @@ export async function calculateAndSaveScores(themes: ThemeWithKeywords[]) {
   const medianRaw = sortedRawAvgs.length > 0 ? sortedRawAvgs[Math.floor(sortedRawAvgs.length / 2)] : 0
   console.log(`   📊 Cross-theme percentile: ${sortedRawAvgs.length}개 테마, median rawAvg=${medianRaw.toFixed(1)}`)
 
-  // ─── 뉴스 + 감성 캐시 ───
+  // ─── 뉴스 캐시 ───
   const newsCache = new Map<string, NewsMetric[]>()
-  const sentimentCache = new Map<string, number[]>()
 
   for (const theme of themes) {
     const newsMetrics = newsByTheme.get(theme.id) || []
@@ -87,22 +76,6 @@ export async function calculateAndSaveScores(themes: ThemeWithKeywords[]) {
       newsCache.set(theme.id, [...newsMetrics]
         .sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime())
         .slice(0, 14))
-    }
-
-    const scores = (sentimentByTheme.get(theme.id) || [])
-      .map(s => s.sentiment_score)
-      .filter(s => s !== null && s !== undefined)
-    sentimentCache.set(theme.id, scores)
-  }
-
-  // ─── 종목 주가 변동률 캐시 ──
-  const stockPriceByTheme = groupByThemeId(allStockPrices)
-  const avgPriceChangeMap = new Map<string, number>()
-  for (const theme of themes) {
-    const stocks = stockPriceByTheme.get(theme.id) || []
-    const prices = stocks.map(s => s.price_change_pct).filter((p): p is number => p !== null)
-    if (prices.length > 0) {
-      avgPriceChangeMap.set(theme.id, prices.reduce((s, v) => s + v, 0) / prices.length)
     }
   }
 
@@ -120,11 +93,9 @@ export async function calculateAndSaveScores(themes: ThemeWithKeywords[]) {
       const result = calculateLifecycleScore({
         interestMetrics,
         newsMetrics: newsCache.get(theme.id) || [],
-        sentimentScores: sentimentCache.get(theme.id) || [],
         firstSpikeDate: theme.first_spike_date,
         today,
         rawPercentile: computePercentile(rawAvgMap.get(theme.id) ?? 0),
-        avgPriceChangePct: avgPriceChangeMap.get(theme.id),
       })
 
       if (!result) {

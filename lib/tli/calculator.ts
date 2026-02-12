@@ -1,7 +1,6 @@
 /** TLI 점수 계산 모듈 */
 
 import { normalize, standardDeviation, avg, daysBetween } from './normalize';
-import { aggregateSentiment } from './sentiment';
 import { getKSTDateString } from './date-utils';
 import { SCORE_WEIGHTS } from './constants/score-config';
 import type { InterestMetric, NewsMetric, ScoreComponents, ScoreConfidence } from './types';
@@ -20,12 +19,8 @@ interface CalculateScoreInput {
   newsMetrics: NewsMetric[];
   firstSpikeDate: string | null;
   today?: string;
-  /** 최근 7일간 뉴스 기사 감성 점수 (-1 ~ +1) */
-  sentimentScores?: number[];
   /** 테마 간 raw interest 백분위 (0.0=최하위, 1.0=최상위) */
   rawPercentile?: number;
-  /** 테마 관련 종목의 평균 주가 변동률 (%) */
-  avgPriceChangePct?: number;
 }
 
 export function calculateLifecycleScore(input: CalculateScoreInput): {
@@ -94,25 +89,9 @@ export function calculateLifecycleScore(input: CalculateScoreInput): {
   const activeDays = firstSpikeDate ? Math.max(0, daysBetween(firstSpikeDate, today)) : 0;
   const maturityRatio = Math.min(activeDays / AVG_THEME_LIFESPAN, 1.5);
 
-  // 감성 분석: 1차 키워드 → 2차 주가 방향성 → 3차 중립
-  const sentimentAgg = aggregateSentiment(input.sentimentScores || []);
-  const hasSentimentData = (input.sentimentScores || []).length > 0;
-  let sentimentScore: number;
-  if (hasSentimentData) {
-    sentimentScore = sentimentAgg.normalized;
-  } else if (input.avgPriceChangePct !== undefined) {
-    // 주가 방향성 대리 감성
-    sentimentScore = input.avgPriceChangePct > 2 ? 0.7
-      : input.avgPriceChangePct < -2 ? 0.3
-      : 0.5;
-  } else {
-    sentimentScore = 0.5;
-  }
-
   const rawScore =
     interestScore * SCORE_WEIGHTS.interest +
     newsMomentum * SCORE_WEIGHTS.newsMomentum +
-    sentimentScore * SCORE_WEIGHTS.sentiment +
     volatilityScore * SCORE_WEIGHTS.volatility;
 
   const score = Math.round(rawScore * 100);
@@ -152,13 +131,11 @@ export function calculateLifecycleScore(input: CalculateScoreInput): {
   const components: ScoreComponents = {
     interest_score: interestScore,
     news_momentum: newsMomentum,
-    sentiment_score: sentimentScore,
     volatility_score: volatilityScore,
     maturity_ratio: maturityRatio,
     weights: {
       interest: SCORE_WEIGHTS.interest,
       news: SCORE_WEIGHTS.newsMomentum,
-      sentiment: SCORE_WEIGHTS.sentiment,
       volatility: SCORE_WEIGHTS.volatility,
     },
     raw: {
@@ -168,8 +145,6 @@ export function calculateLifecycleScore(input: CalculateScoreInput): {
       news_last_week: newsLastWeek,
       interest_stddev: interestStdDev,
       active_days: activeDays,
-      sentiment_avg: sentimentAgg.average,
-      sentiment_article_count: (input.sentimentScores || []).length,
       raw_interest_avg: rawAvg,
       dampening_factor: dampening,
       raw_percentile: input.rawPercentile ?? null,
