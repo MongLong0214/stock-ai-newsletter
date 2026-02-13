@@ -1,12 +1,35 @@
 /** TLI 데이터를 블로그 키워드 생성 프롬프트용으로 가공 */
 
 import { getServerSupabaseClient } from '@/lib/supabase/server-client';
+import { getKSTDateString } from '@/lib/tli/date-utils';
 import type { Stage } from '@/lib/tli/types/db';
 
-interface TLIThemeContext {
+/** Dormant 제외 활성 스테이지 */
+export type ActiveStage = Exclude<Stage, 'Dormant'>;
+
+export interface StageConfig {
+  priority: number;
+  limit: number;
+  label: string;
+}
+
+/** OCP: 새 스테이지 추가 시 이 1곳만 수정 */
+export const STAGE_CONFIG: Record<ActiveStage, StageConfig> = {
+  Growth: { priority: 1, limit: 5, label: '성장 중 - 키워드 최우선' },
+  Early: { priority: 2, limit: 3, label: '초기 포착 - 선점 기회' },
+  Peak: { priority: 3, limit: 3, label: '최고조 - 검색량 높음' },
+  Decay: { priority: 4, limit: 1, label: '하락세 - 제한적 사용' },
+};
+
+const VALID_ACTIVE_STAGES = Object.keys(STAGE_CONFIG) as ActiveStage[];
+
+const isActiveStage = (value: string): value is ActiveStage =>
+  (VALID_ACTIVE_STAGES as string[]).includes(value);
+
+export interface TLIThemeContext {
   name: string;
   score: number;
-  stage: Stage;
+  stage: ActiveStage;
   isReigniting: boolean;
   topStocks: string[];
   recentNews: string[];
@@ -19,23 +42,9 @@ export interface TLIContext {
   isEmpty: boolean;
 }
 
-const STAGE_PRIORITY: Record<string, number> = {
-  Growth: 1,
-  Early: 2,
-  Peak: 3,
-  Decay: 4,
-};
-
-const STAGE_LIMITS: Record<string, number> = {
-  Growth: 5,
-  Early: 3,
-  Peak: 3,
-  Decay: 1,
-};
-
 /** TLI DB에서 트렌딩 테마 데이터를 가져와 프롬프트용으로 가공 */
 export async function fetchTLIContext(): Promise<TLIContext> {
-  const now = new Date().toISOString().slice(0, 10);
+  const now = getKSTDateString();
 
   try {
     const supabase = getServerSupabaseClient();
@@ -53,7 +62,7 @@ export async function fetchTLIContext(): Promise<TLIContext> {
     const themeIds = themes.map((t) => t.id);
 
     // 2) 최신 점수 조회 (3일 이내)
-    const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    const threeDaysAgo = getKSTDateString(-3);
     const { data: scores } = await supabase
       .from('lifecycle_scores')
       .select('theme_id, score, stage, is_reigniting, calculated_at')
@@ -99,7 +108,7 @@ export async function fetchTLIContext(): Promise<TLIContext> {
         .from('theme_news_articles')
         .select('theme_id, title, pub_date')
         .in('theme_id', activeIds)
-        .gte('pub_date', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10))
+        .gte('pub_date', getKSTDateString(-7))
         .order('pub_date', { ascending: false }),
       supabase
         .from('theme_keywords')
@@ -113,19 +122,23 @@ export async function fetchTLIContext(): Promise<TLIContext> {
     const newsByTheme = groupBy(newsRes.data ?? [], 'theme_id');
     const keywordsByTheme = groupBy(keywordsRes.data ?? [], 'theme_id');
 
-    // 4) 테마별 컨텍스트 구성
-    const themeContexts: TLIThemeContext[] = activeThemes.map((t) => {
-      const s = latestScoreMap.get(t.id)!;
-      return {
+    // 4) 테마별 컨텍스트 구성 (런타임 stage 검증 + non-null 가드)
+    const themeContexts: TLIThemeContext[] = [];
+    for (const t of activeThemes) {
+      const s = latestScoreMap.get(t.id);
+      if (!s) continue;
+      if (!isActiveStage(s.stage)) continue;
+
+      themeContexts.push({
         name: t.name,
         score: s.score,
-        stage: s.stage as Stage,
+        stage: s.stage,
         isReigniting: s.is_reigniting,
         topStocks: (stocksByTheme[t.id] ?? []).slice(0, 3).map((st) => st.name),
         recentNews: (newsByTheme[t.id] ?? []).slice(0, 2).map((n) => n.title),
         keywords: (keywordsByTheme[t.id] ?? []).slice(0, 3).map((k) => k.keyword),
-      };
-    });
+      });
+    }
 
     // 5) 스테이지별 우선순위 정렬 + 제한
     const reigniting = themeContexts
@@ -138,8 +151,8 @@ export async function fetchTLIContext(): Promise<TLIContext> {
     const byStage = themeContexts
       .filter((t) => !t.isReigniting)
       .sort((a, b) => {
-        const pa = STAGE_PRIORITY[a.stage] ?? 99;
-        const pb = STAGE_PRIORITY[b.stage] ?? 99;
+        const pa = STAGE_CONFIG[a.stage]?.priority ?? 99;
+        const pb = STAGE_CONFIG[b.stage]?.priority ?? 99;
         if (pa !== pb) return pa - pb;
         return b.score - a.score;
       });
@@ -149,7 +162,7 @@ export async function fetchTLIContext(): Promise<TLIContext> {
 
     for (const t of byStage) {
       if (reignitingNames.has(t.name)) continue;
-      const limit = STAGE_LIMITS[t.stage] ?? 0;
+      const limit = STAGE_CONFIG[t.stage]?.limit ?? 0;
       const count = stageCounts[t.stage] ?? 0;
       if (count >= limit) continue;
       selected.push(t);
@@ -166,66 +179,9 @@ export async function fetchTLIContext(): Promise<TLIContext> {
   }
 }
 
-/** TLI 컨텍스트를 프롬프트 문자열로 변환 */
-export function formatTLIForPrompt(ctx: TLIContext): string {
-  if (ctx.isEmpty) return '';
-
-  const stageKo: Record<string, string> = {
-    Growth: '성장 중 - 키워드 최우선',
-    Early: '초기 포착',
-    Peak: '최고조',
-    Decay: '하락세',
-  };
-
-  const groups: Record<string, TLIThemeContext[]> = {};
-  const reigniting = ctx.themes.filter((t) => t.isReigniting);
-
-  for (const t of ctx.themes) {
-    if (t.isReigniting) continue;
-    const key = t.stage;
-    if (!groups[key]) groups[key] = [];
-    groups[key].push(t);
-  }
-
-  let result = `## 현재 시장 트렌드 (TLI 실시간 데이터, ${ctx.fetchedAt})\n\n`;
-
-  const stageOrder: Stage[] = ['Growth', 'Early', 'Peak', 'Decay'];
-
-  for (const stage of stageOrder) {
-    const themes = groups[stage];
-    if (!themes || themes.length === 0) continue;
-    result += `### ${stage} (${stageKo[stage]})\n`;
-    for (const t of themes) {
-      result += formatThemeLine(t);
-    }
-    result += '\n';
-  }
-
-  if (reigniting.length > 0) {
-    result += `### Reigniting (재점화 - 숨은 기회)\n`;
-    for (const t of reigniting) {
-      result += formatThemeLine(t);
-    }
-    result += '\n';
-  }
-
-  return result.trim();
-}
-
-function formatThemeLine(t: TLIThemeContext): string {
-  let line = `- **${t.name}** (점수: ${t.score})`;
-  if (t.topStocks.length > 0) {
-    line += `\n  종목: ${t.topStocks.join(', ')}`;
-  }
-  if (t.recentNews.length > 0) {
-    line += `\n  최신뉴스: ${t.recentNews.map((n) => `"${n}"`).join(', ')}`;
-  }
-  return line + '\n';
-}
-
 function groupBy<T extends Record<string, unknown>>(
   arr: T[],
-  key: string,
+  key: keyof T & string,
 ): Record<string, T[]> {
   const result: Record<string, T[]> = {};
   for (const item of arr) {

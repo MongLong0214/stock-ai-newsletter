@@ -162,6 +162,24 @@ export const SEARCH_QUERY_GUIDELINES = `
 4. 시의성 포함 권장 (연도, "최근", "올해")
 5. 실제 테마명/종목명 사용 우선`;
 
+/** 키워드 각도 다양화 가이드 (같은 테마에서 다른 관점의 키워드 생성) */
+export const KEYWORD_ANGLES = `
+<keyword-angles>
+같은 테마에서 다양한 각도로 키워드를 생성하세요:
+
+1. **전망/분석**: "[테마] 전망 2026", "[종목] 실적 분석"
+2. **관련주/수혜주**: "[테마] 관련주 정리", "[테마] 수혜주 대장주"
+3. **비교**: "[테마A] vs [테마B]", "[종목A] vs [종목B] 비교"
+4. **투자전략**: "[테마] 투자 방법", "[테마] ETF 추천"
+5. **종목분석**: "[종목] 목표가", "[종목] 재무제표 분석"
+6. **뉴스해석**: "[테마] 정책 영향", "[이슈] 수혜주"
+7. **초보가이드**: "[테마] 입문 가이드", "[테마] 기초 용어"
+
+같은 테마라도 각도가 다르면 별개 키워드입니다.
+예: "2차전지 관련주 전망" ≠ "2차전지 ETF 비교" ≠ "에코프로비엠 목표가"
+</keyword-angles>
+`;
+
 /** Few-Shot 예시 (분석 패턴 + 출력 품질 참고용) */
 export const FEW_SHOT_EXAMPLES = `
 <few-shot-examples>
@@ -197,6 +215,7 @@ export const FEW_SHOT_EXAMPLES = `
         "estimatedSearchVolume": 950,
         "relevanceScore": 9.0,
         "contentType": "guide",
+        "topicArea": "value",
         "reasoning": "가치투자 핵심 지표인 PER/PBR 활용법을 알려주는 실용 가이드. 초보 투자자들의 검색 수요가 높은 주제."
       }
     </output>
@@ -307,6 +326,7 @@ export const FEW_SHOT_EXAMPLES = `
         "estimatedSearchVolume": 650,
         "relevanceScore": 8.0,
         "contentType": "guide",
+        "topicArea": "psychology",
         "reasoning": "투자자들의 공감을 얻을 수 있는 심리 관련 키워드. 손실 회피 심리 극복 가이드로 높은 체류 시간 기대."
       }
     </output>
@@ -456,6 +476,80 @@ export const FEW_SHOT_EXAMPLES = `
         "contentType": "review",
         "topicArea": "theme",
         "reasoning": "2차전지 테마 대장주. 실적 시즌 전후 검색량 급증하며, 목표가 분석은 투자자 관심이 높은 키워드."
+      }
+    </output>
+  </example>
+
+  <example id="9" quality="excellent" category="테마/이슈 - 각도: 투자전략">
+    <keyword>2차전지 ETF 비교 추천 2026</keyword>
+    <analysis>
+      <step name="intent-analysis">
+        2차전지 테마에 ETF로 투자하려는 의도
+        -> "ETF", "비교", "추천" 트리거 -> commercial intent
+      </step>
+      <step name="difficulty-assessment">
+        테마명 + ETF + 비교 = 구체적 투자전략 롱테일
+        -> difficulty: low
+      </step>
+      <step name="volume-estimation">
+        ETF 투자 관심 증가 + 테마 ETF 검색 수요
+        -> 월간 검색량 추정: 700-1200
+      </step>
+      <step name="content-type-matching">
+        "비교", "추천" 트리거 -> comparison 타입
+      </step>
+      <step name="relevance-scoring">
+        트렌딩 테마 + ETF 전략 + 실용적 비교 정보
+        -> relevanceScore: 9.0/10
+      </step>
+    </analysis>
+    <output>
+      {
+        "keyword": "2차전지 ETF 비교 추천 2026",
+        "searchIntent": "commercial",
+        "difficulty": "low",
+        "estimatedSearchVolume": 950,
+        "relevanceScore": 9.0,
+        "contentType": "comparison",
+        "topicArea": "theme",
+        "reasoning": "2차전지 테마를 '투자전략' 각도로 접근. '관련주 전망'과 같은 테마지만 ETF 비교라는 다른 각도로 별개 키워드."
+      }
+    </output>
+  </example>
+
+  <example id="10" quality="excellent" category="테마/이슈 - 각도: 초보가이드">
+    <keyword>2차전지 산업 구조 입문 가이드</keyword>
+    <analysis>
+      <step name="intent-analysis">
+        2차전지 산업을 이해하려는 초보 투자자 의도
+        -> "입문", "가이드" 트리거 -> informational intent
+      </step>
+      <step name="difficulty-assessment">
+        테마명 + 산업 구조 + 입문 = 교육형 롱테일
+        -> difficulty: low
+      </step>
+      <step name="volume-estimation">
+        테마 진입 초보 투자자 검색 수요 꾸준
+        -> 월간 검색량 추정: 500-900
+      </step>
+      <step name="content-type-matching">
+        "입문", "가이드" 트리거 -> guide 타입
+      </step>
+      <step name="relevance-scoring">
+        트렌딩 테마 + 교육 콘텐츠 + 초보 타겟
+        -> relevanceScore: 8.5/10
+      </step>
+    </analysis>
+    <output>
+      {
+        "keyword": "2차전지 산업 구조 입문 가이드",
+        "searchIntent": "informational",
+        "difficulty": "low",
+        "estimatedSearchVolume": 700,
+        "relevanceScore": 8.5,
+        "contentType": "guide",
+        "topicArea": "theme",
+        "reasoning": "2차전지 테마를 '초보가이드' 각도로 접근. 같은 테마에서 관련주/ETF와 다른 교육 목적 키워드로 차별화."
       }
     </output>
   </example>
