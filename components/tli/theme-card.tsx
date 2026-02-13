@@ -20,6 +20,7 @@ interface ThemeCardProps {
     isReigniting: boolean
     sparkline: number[]
     newsCount7d: number
+    avgStockChange: number | null
   }
   href?: string
 }
@@ -55,7 +56,7 @@ function Sparkline({ data, isPositive }: { data: number[]; isPositive: boolean }
   const last = coords[coords.length - 1]
 
   return (
-    <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} className="flex-shrink-0">
+    <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} className="shrink-0">
       <defs>
         <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor={gradientStart} stopOpacity={0.3} />
@@ -129,29 +130,64 @@ export default function ThemeCard({ theme, href }: ThemeCardProps) {
           </div>
         </div>
 
-        {/* 변화율 표시 */}
-        <div className="flex items-center gap-2 mb-4 pb-4 border-b border-slate-700/50">
-          {theme.change7d === 0 ? (
-            <>
-              <span className="text-sm font-mono font-medium text-slate-500">—</span>
-              <span className="text-xs text-slate-500">7일 변화</span>
-            </>
-          ) : (
-            <>
-              {isPositiveChange ? (
-                <ArrowUpRight className="w-4 h-4 text-emerald-400" />
-              ) : (
-                <ArrowDownRight className="w-4 h-4 text-red-400" />
-              )}
-              <span
-                className={`text-sm font-mono font-medium ${
-                  isPositiveChange ? 'text-emerald-400' : 'text-red-400'
-                }`}
-              >
-                {isPositiveChange ? '+' : ''}{theme.change7d.toFixed(1)}%
+        {/* 관심도 + 관련주 등락률 */}
+        <div className="grid grid-cols-2 gap-3 mb-4 pb-4 border-b border-slate-700/50">
+          {/* 종합점수 변화 */}
+          <div className="flex flex-col gap-1">
+            <span className="text-[10px] uppercase tracking-wider text-slate-500 font-medium">
+              종합점수 · 7일
+            </span>
+            {theme.change7d === 0 ? (
+              <div className="flex items-baseline gap-1">
+                <span className="text-lg font-mono font-bold text-slate-500">—</span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-1.5">
+                {isPositiveChange ? (
+                  <ArrowUpRight className="w-4 h-4 text-emerald-400 shrink-0" />
+                ) : (
+                  <ArrowDownRight className="w-4 h-4 text-red-400 shrink-0" />
+                )}
+                <span
+                  className={`text-lg font-mono font-bold ${
+                    isPositiveChange ? 'text-emerald-400' : 'text-red-400'
+                  }`}
+                >
+                  {isPositiveChange ? '+' : ''}{theme.change7d.toFixed(1)}
+                </span>
+                <span className="text-xs font-mono text-slate-500 self-end pb-0.5">pt</span>
+              </div>
+            )}
+          </div>
+
+          {/* 관련주 평균 등락률 */}
+          {theme.avgStockChange != null && (
+            <div className="flex flex-col gap-1 border-l border-slate-700/50 pl-3">
+              <span className="text-[10px] uppercase tracking-wider text-slate-500 font-medium">
+                관련주 평균 · 전일대비
               </span>
-              <span className="text-xs text-slate-500">7일 변화</span>
-            </>
+              <div className="flex items-center gap-1.5">
+                {theme.avgStockChange > 0 ? (
+                  <ArrowUpRight className="w-4 h-4 text-emerald-400 shrink-0" />
+                ) : theme.avgStockChange < 0 ? (
+                  <ArrowDownRight className="w-4 h-4 text-red-400 shrink-0" />
+                ) : (
+                  <div className="w-4 h-4 shrink-0" />
+                )}
+                <span
+                  className={`text-lg font-mono font-bold ${
+                    theme.avgStockChange > 0
+                      ? 'text-emerald-400'
+                      : theme.avgStockChange < 0
+                        ? 'text-red-400'
+                        : 'text-slate-500'
+                  }`}
+                >
+                  {theme.avgStockChange > 0 ? '+' : ''}{theme.avgStockChange.toFixed(2)}
+                </span>
+                <span className="text-xs font-mono text-slate-500 self-end pb-0.5">%</span>
+              </div>
+            </div>
           )}
         </div>
 
