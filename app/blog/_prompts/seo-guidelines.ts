@@ -207,6 +207,7 @@ export function getKoreanSeoGuidelines(): string {
       - 과도한 외래어
       - 너무 딱딱한 문어체
       - 길고 복잡한 문장
+      - **bold** 마크다운 문법 사용 금지 (렌더링 오류 발생). 강조는 문장 구조와 어휘로 표현할 것
     </avoid>
   </korean_writing_style>
 
