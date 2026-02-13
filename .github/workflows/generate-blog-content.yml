@@ -1,16 +1,23 @@
 name: Generate Blog Content
 
 on:
-  # 평일 오전 9:00 KST 자동 실행 (UTC 22:00 전날, 월-금요일)
+  # 평일 오전 7:00 KST (UTC 22:00, 일-목 = KST 월-금)
   schedule:
     - cron: '0 22 * * 0-4'
 
   # 수동 실행 가능
   workflow_dispatch:
 
+concurrency:
+  group: generate-blog
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
 jobs:
   generate-blog:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     timeout-minutes: 60
 
     steps:
@@ -26,31 +33,31 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Cache Playwright browsers
+      - name: Playwright 브라우저 캐시
+        id: playwright-cache
         uses: actions/cache@v4
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
 
-      - name: Install Playwright browsers
-        run: npx playwright install chromium --with-deps
+      - name: Playwright 브라우저 설치
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: npx playwright install chromium
 
-      - name: Setup Google Cloud credentials
-        run: |
-          echo '${{ secrets.GOOGLE_CLOUD_CREDENTIALS }}' > /tmp/service-account.json
-          echo "GOOGLE_APPLICATION_CREDENTIALS=/tmp/service-account.json" >> $GITHUB_ENV
+      - name: Playwright 시스템 의존성 설치
+        run: npx playwright install-deps chromium
+
+      - name: Google Cloud 인증
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GOOGLE_CLOUD_CREDENTIALS }}
 
       - name: Generate blog content (AI Dynamic Keywords)
         env:
           SERP_API_KEY: ${{ secrets.SERP_API_KEY }}
           GOOGLE_CLOUD_PROJECT: ${{ secrets.GOOGLE_CLOUD_PROJECT }}
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: |
-          echo "🤖 AI 동적 키워드 5개 생성"
+          echo "AI 동적 키워드 5개 생성"
           npx tsx scripts/generate-blog-post.ts
-
-      - name: Cleanup credentials
-        if: always()
-        run: rm -f /tmp/service-account.json
