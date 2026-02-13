@@ -156,6 +156,10 @@ async function generateKeywordsWithAI(
 
     for (const kw of keywords) {
       if (!kw.keyword || !kw.searchIntent || !kw.difficulty || !kw.contentType) continue;
+      if (kw.keyword.length > 40) {
+        console.warn(`[KeywordGenerator] 40자 초과 키워드 필터: "${kw.keyword}" (${kw.keyword.length}자)`);
+        continue;
+      }
       if (isDuplicate(kw.keyword, allExistingKeywords, existingTitles)) continue;
 
       validKeywords.push(kw);

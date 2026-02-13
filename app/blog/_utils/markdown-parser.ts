@@ -83,6 +83,7 @@ const sanitizeSchema = {
  * 1. Markdown → HTML 변환 (remark + GFM)
  * 2. rehype-sanitize로 XSS 위험 제거
  * 3. Heading에 ID 추가 (목차용)
+ * 4. 잔여 **bold** / ***bold+italic*** 패턴 후처리
  *
  * @param markdown - 변환할 Markdown 텍스트
  * @returns 안전하게 sanitize된 HTML 문자열
@@ -95,5 +96,13 @@ export async function parseMarkdown(markdown: string): Promise<string> {
     .use(rehypeStringify)
     .process(markdown);
 
-  return addHeadingIds(result.toString());
+  let html = addHeadingIds(result.toString());
+
+  // remark가 변환하지 못한 잔여 마크다운 강조 패턴 후처리
+  // ***bold+italic*** → <strong><em>text</em></strong> (3개짜리 먼저 처리)
+  html = html.replace(/\*{3}([^*]+?)\*{3}/g, '<strong><em>$1</em></strong>');
+  // **bold** → <strong>text</strong>
+  html = html.replace(/\*{2}([^*]+?)\*{2}/g, '<strong>$1</strong>');
+
+  return html;
 }
