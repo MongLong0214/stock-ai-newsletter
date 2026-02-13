@@ -79,9 +79,12 @@ export function calculateSEOScore(keyword: KeywordMetadata): number {
     volumeWeight = SEO_SCORING_WEIGHTS.volume.high.weight;
   }
 
+  // 테마 기반 키워드 시의성 부스트
+  const themeBoost = keyword.topicArea === 'theme' ? 1.1 : 1.0;
+
   // relevanceScore(0-10) -> base(0-50) -> 가중치 적용
   const relevanceBase = keyword.relevanceScore * 5;
-  const weightedScore = relevanceBase * intentWeight * difficultyWeight * volumeWeight;
+  const weightedScore = relevanceBase * intentWeight * difficultyWeight * volumeWeight * themeBoost;
 
   return Math.min(100, Math.round(weightedScore));
 }

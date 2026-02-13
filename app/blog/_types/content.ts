@@ -6,6 +6,11 @@ export type SearchIntent = 'informational' | 'commercial' | 'transactional' | 'n
 
 export type KeywordDifficulty = 'low' | 'medium' | 'high';
 
+export type TopicArea =
+  | 'technical' | 'value' | 'strategy' | 'market'
+  | 'discovery' | 'psychology' | 'education' | 'execution'
+  | 'theme';
+
 export interface KeywordMetadata {
   keyword: string;
   searchIntent: SearchIntent;
@@ -13,6 +18,7 @@ export interface KeywordMetadata {
   estimatedSearchVolume: number;
   relevanceScore: number;
   contentType: ContentType;
+  topicArea?: TopicArea;
   reasoning: string;
 }
 
