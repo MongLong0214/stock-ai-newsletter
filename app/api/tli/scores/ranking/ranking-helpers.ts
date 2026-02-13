@@ -22,22 +22,22 @@ export const EMPTY_RANKING: ThemeRanking = {
 const BATCH_SIZE = 50
 const PAGE_SIZE = 1000
 
-/** theme_stocks 배치 로더 (is_active=true) — 종목명 포함, 병렬 배치 */
+/** theme_stocks 배치 로더 (is_active=true) — 종목명 + 등락률 포함, 병렬 배치 */
 export async function batchLoadStockData(
   themeIds: string[]
-): Promise<Array<{ theme_id: string; name: string }>> {
+): Promise<Array<{ theme_id: string; name: string; price_change_pct: number | null }>> {
   const chunks: string[][] = []
   for (let i = 0; i < themeIds.length; i += BATCH_SIZE) {
     chunks.push(themeIds.slice(i, i + BATCH_SIZE))
   }
   const batchResults = await Promise.all(
     chunks.map(async (chunk) => {
-      const chunkResults: Array<{ theme_id: string; name: string }> = []
+      const chunkResults: Array<{ theme_id: string; name: string; price_change_pct: number | null }> = []
       let from = 0
       while (true) {
         const { data } = await supabase
           .from('theme_stocks')
-          .select('theme_id, name')
+          .select('theme_id, name, price_change_pct')
           .in('theme_id', chunk)
           .eq('is_active', true)
           .range(from, from + PAGE_SIZE - 1)
@@ -131,23 +131,38 @@ export function buildScoreMetaMap(
 }
 
 /**
- * 종목 카운트/이름 + 뉴스 카운트 맵 구성
+ * 종목 카운트/이름/평균등락률 + 뉴스 카운트 맵 구성
  */
 export function buildCountMaps(
-  stocksList: Array<{ theme_id: string; name: string }>,
+  stocksList: Array<{ theme_id: string; name: string; price_change_pct: number | null }>,
   newsList: Array<{ theme_id: string }>
 ): {
   stockCountMap: Map<string, number>
   stockNamesMap: Map<string, string[]>
+  avgStockChangeMap: Map<string, number>
   newsCountMap: Map<string, number>
 } {
   const stockCountMap = new Map<string, number>()
   const stockNamesMap = new Map<string, string[]>()
+  const changeSumMap = new Map<string, { sum: number; count: number }>()
+
   for (const s of stocksList) {
     stockCountMap.set(s.theme_id, (stockCountMap.get(s.theme_id) || 0) + 1)
     if (!stockNamesMap.has(s.theme_id)) stockNamesMap.set(s.theme_id, [])
     const names = stockNamesMap.get(s.theme_id)!
     if (names.length < 5) names.push(s.name)
+
+    if (s.price_change_pct != null) {
+      const acc = changeSumMap.get(s.theme_id) ?? { sum: 0, count: 0 }
+      acc.sum += s.price_change_pct
+      acc.count += 1
+      changeSumMap.set(s.theme_id, acc)
+    }
+  }
+
+  const avgStockChangeMap = new Map<string, number>()
+  for (const [id, acc] of changeSumMap) {
+    avgStockChangeMap.set(id, acc.sum / acc.count)
   }
 
   const newsCountMap = new Map<string, number>()
@@ -155,7 +170,7 @@ export function buildCountMaps(
     newsCountMap.set(n.theme_id, (newsCountMap.get(n.theme_id) || 0) + 1)
   }
 
-  return { stockCountMap, stockNamesMap, newsCountMap }
+  return { stockCountMap, stockNamesMap, avgStockChangeMap, newsCountMap }
 }
 
 /**

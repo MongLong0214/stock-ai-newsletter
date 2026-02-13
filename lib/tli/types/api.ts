@@ -82,6 +82,8 @@ export interface ThemeListItem {
   newsCount7d: number;
   /** 점수 신뢰도 */
   confidenceLevel?: ConfidenceLevel;
+  /** 관련주 평균 등락률 (%) — null이면 데이터 없음 */
+  avgStockChange: number | null;
 }
 
 /** 테마 상세 정보 */
