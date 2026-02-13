@@ -1,14 +1,30 @@
 /** AI 기반 동적 키워드 생성 서비스 */
 
+import { z } from 'zod';
 import { getServerSupabaseClient } from '@/lib/supabase/server-client';
 import { generateText } from '@/lib/llm/gemini-client';
-import {
-  buildKeywordGenerationPrompt,
-  validateKeywordMetadata,
-  calculateSEOScore,
-} from '../_prompts/keyword-generation';
-import { STOP_WORDS, CORE_TOPIC_WORDS } from '../_config/keyword-dictionaries';
+import { buildKeywordGenerationPrompt } from '../_prompts/keyword-generation';
+import { validateKeywordMetadata, calculateSEOScore } from '../_prompts/keyword-validation';
+import { isDuplicate } from './keyword-similarity';
+import { fetchTLIContext } from './tli-context';
+import type { TLIContext } from './tli-context';
 import type { KeywordMetadata } from '../_types/blog';
+
+const keywordMetadataSchema = z.object({
+  keyword: z.string(),
+  searchIntent: z.enum(['informational', 'commercial', 'transactional', 'navigational']),
+  difficulty: z.enum(['low', 'medium', 'high']),
+  estimatedSearchVolume: z.number(),
+  relevanceScore: z.number(),
+  contentType: z.enum(['comparison', 'guide', 'listicle', 'review']),
+  topicArea: z.enum([
+    'technical', 'value', 'strategy', 'market', 'discovery',
+    'psychology', 'education', 'execution', 'theme',
+  ]),
+  reasoning: z.string(),
+});
+
+const keywordsArraySchema = z.array(keywordMetadataSchema);
 
 interface KeywordGenerationResult {
   success: boolean;
@@ -40,21 +56,23 @@ async function getUsedContent(): Promise<UsedContent> {
   const allTitles: string[] = [];
 
   data.forEach((post) => {
-    if (post.title && typeof post.title === 'string') {
+    if (post.title) {
       allTitles.push(post.title.trim());
     }
 
-    allKeywords.add(post.target_keyword.toLowerCase().trim());
+    if (post.target_keyword) {
+      allKeywords.add(post.target_keyword.toLowerCase().trim());
+    }
 
     if (Array.isArray(post.secondary_keywords)) {
       post.secondary_keywords.forEach((kw: string) => {
-        if (kw && typeof kw === 'string') allKeywords.add(kw.toLowerCase().trim());
+        if (kw) allKeywords.add(kw.toLowerCase().trim());
       });
     }
 
     if (Array.isArray(post.tags)) {
       post.tags.forEach((tag: string) => {
-        if (tag && typeof tag === 'string') allKeywords.add(tag.toLowerCase().trim());
+        if (tag) allKeywords.add(tag.toLowerCase().trim());
       });
     }
   });
@@ -62,89 +80,26 @@ async function getUsedContent(): Promise<UsedContent> {
   return { keywords: Array.from(allKeywords), titles: allTitles };
 }
 
-/** 텍스트에서 핵심 주제어 추출 (불용어 제외, 부분 매칭 포함) */
-function extractCoreTopics(text: string): Set<string> {
-  const normalized = text.toLowerCase().replace(/[^가-힣a-z0-9\s]/g, ' ');
-  const words = normalized.split(/\s+/).filter((w) => w.length > 1);
-
-  const topics = new Set<string>();
-
-  for (const word of words) {
-    if (STOP_WORDS.has(word)) continue;
-
-    if (CORE_TOPIC_WORDS.has(word)) {
-      topics.add(word);
-      continue;
-    }
-
-    // 부분 매칭 (예: "볼린저" -> "볼린저밴드")
-    for (const coreTopic of CORE_TOPIC_WORDS) {
-      if (word.includes(coreTopic) || coreTopic.includes(word)) {
-        topics.add(coreTopic);
-      }
-    }
-
-    if (word.length >= 2) {
-      topics.add(word);
-    }
-  }
-
-  return topics;
-}
-
-/** Jaccard 유사도 + 핵심 주제어 오버랩 기반 유사도 검사 */
-function isSimilar(newText: string, existingTexts: string[], threshold: number = 0.5): boolean {
-  const newTopics = extractCoreTopics(newText);
-  if (newTopics.size === 0) return false;
-
-  for (const existing of existingTexts) {
-    const existingTopics = extractCoreTopics(existing);
-    if (existingTopics.size === 0) continue;
-
-    const intersection = new Set([...newTopics].filter((w) => existingTopics.has(w)));
-    const union = new Set([...newTopics, ...existingTopics]);
-    const jaccardSimilarity = intersection.size / union.size;
-
-    // 핵심 주제어 2개 이상 겹치면 중복으로 판정
-    const coreOverlap = [...intersection].filter((w) => CORE_TOPIC_WORDS.has(w));
-
-    if (jaccardSimilarity >= threshold || coreOverlap.length >= 2) {
-      return true;
-    }
-  }
-
-  return false;
-}
-
-/** 키워드 중복 검사 (완전 일치 + 유사도 + 기존 제목 비교) */
-function isDuplicate(
-  newKeyword: string,
-  existingKeywords: string[],
-  existingTitles: string[] = []
-): boolean {
-  const normalized = newKeyword.toLowerCase().trim();
-
-  if (existingKeywords.includes(normalized)) return true;
-  if (isSimilar(newKeyword, existingKeywords, 0.5)) return true;
-  if (existingTitles.length > 0 && isSimilar(newKeyword, existingTitles, 0.4)) return true;
-
-  return false;
-}
-
 /** AI로 키워드를 생성하고 중복 제거 후 반환 */
 async function generateKeywordsWithAI(
   count: number,
   usedKeywords: string[],
-  existingTitles: string[]
+  existingTitles: string[],
+  tliContext?: TLIContext,
 ): Promise<KeywordMetadata[]> {
-  console.log(`[KeywordGenerator] AI 생성 중 (제외: ${usedKeywords.length}개, 기존 글: ${existingTitles.length}개)`);
+  console.log(`[KeywordGenerator] AI 생성 중 (제외: ${usedKeywords.length}개, 기존 글: ${existingTitles.length}개, TLI: ${tliContext?.themes.length ?? 0}개 테마)`);
 
-  const prompt = buildKeywordGenerationPrompt(count, usedKeywords, undefined, existingTitles);
+  const prompt = buildKeywordGenerationPrompt(count, usedKeywords, undefined, existingTitles, tliContext);
   const response = await generateText({ prompt });
 
   try {
     const jsonText = response.trim().replace(/^```json\s*/i, '').replace(/\s*```$/i, '').trim();
-    const keywords = JSON.parse(jsonText) as KeywordMetadata[];
+    const parsed = keywordsArraySchema.safeParse(JSON.parse(jsonText));
+    if (!parsed.success) {
+      console.warn('[KeywordGen] AI 응답 Zod 검증 실패:', parsed.error.message);
+      return [];
+    }
+    const keywords: KeywordMetadata[] = parsed.data;
 
     const validation = validateKeywordMetadata(keywords);
     if (!validation.isValid) {
@@ -155,11 +110,9 @@ async function generateKeywordsWithAI(
     const allExistingKeywords = [...usedKeywords];
 
     for (const kw of keywords) {
-      if (!kw.keyword || !kw.searchIntent || !kw.difficulty || !kw.contentType) continue;
-      if (kw.keyword.length > 40) {
-        console.warn(`[KeywordGenerator] 40자 초과 키워드 필터: "${kw.keyword}" (${kw.keyword.length}자)`);
-        continue;
-      }
+      // Zod z.enum()이 searchIntent/difficulty/contentType/topicArea를 보장
+      if (!kw.keyword) continue;
+      if (kw.keyword.length > 40) continue;
       if (isDuplicate(kw.keyword, allExistingKeywords, existingTitles)) continue;
 
       validKeywords.push(kw);
@@ -184,8 +137,11 @@ export async function generateKeywords(
   console.log(`[KeywordGenerator] ${requestedCount}개 키워드 생성 시작`);
 
   try {
-    const usedContent = await getUsedContent();
-    console.log(`[KeywordGenerator] 기존 키워드: ${usedContent.keywords.length}개, 기존 글: ${usedContent.titles.length}개`);
+    const [usedContent, tliContext] = await Promise.all([
+      getUsedContent(),
+      fetchTLIContext(),
+    ]);
+    console.log(`[KeywordGenerator] 기존 키워드: ${usedContent.keywords.length}개, 기존 글: ${usedContent.titles.length}개, TLI: ${tliContext.themes.length}개 테마`);
 
     const keywordMap = new Map<string, KeywordMetadata>();
     let attempt = 0;
@@ -198,22 +154,27 @@ export async function generateKeywords(
       const newKeywords = await generateKeywordsWithAI(
         Math.ceil(remainingCount * 1.5),
         usedContent.keywords,
-        usedContent.titles
+        usedContent.titles,
+        tliContext,
       );
 
-      newKeywords.forEach((kw) => keywordMap.set(kw.keyword.toLowerCase(), kw));
+      newKeywords.forEach((kw) => {
+        keywordMap.set(kw.keyword.toLowerCase(), kw);
+        usedContent.keywords.push(kw.keyword);
+      });
     }
 
     const allKeywords = Array.from(keywordMap.values());
-    const scoredKeywords = allKeywords
-      .map((kw) => ({ ...kw, finalScore: calculateSEOScore(kw) }))
-      .sort((a, b) => b.finalScore - a.finalScore);
+    const scoreMap = new Map(allKeywords.map((kw) => [kw.keyword, calculateSEOScore(kw)]));
+    const sortedKeywords = [...allKeywords].sort(
+      (a, b) => (scoreMap.get(b.keyword) ?? 0) - (scoreMap.get(a.keyword) ?? 0)
+    );
 
-    const selectedKeywords = scoredKeywords.slice(0, requestedCount);
+    const selectedKeywords = sortedKeywords.slice(0, requestedCount);
 
     console.log(`[KeywordGenerator] 완료: 생성 ${allKeywords.length}개 -> 선택 ${selectedKeywords.length}개`);
     selectedKeywords.forEach((kw, idx) => {
-      console.log(`  ${idx + 1}. "${kw.keyword}" (${kw.finalScore}점, ${kw.difficulty}, ~${kw.estimatedSearchVolume})`);
+      console.log(`  ${idx + 1}. "${kw.keyword}" (${scoreMap.get(kw.keyword)}점, ${kw.difficulty}, ~${kw.estimatedSearchVolume})`);
     });
 
     return {
@@ -224,14 +185,14 @@ export async function generateKeywords(
     };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    console.error(`[KeywordGenerator] 실패: ${errorMessage}`);
+    console.error('[KeywordGen] 상세 에러:', errorMessage);
 
     return {
       success: false,
       keywords: [],
       totalGenerated: 0,
       totalFiltered: 0,
-      error: errorMessage,
+      error: '키워드 생성 중 오류가 발생했습니다',
     };
   }
 }
