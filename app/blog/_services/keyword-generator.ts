@@ -8,6 +8,8 @@ import {
   calculateSEOScore,
 } from '../_prompts/keyword-generation';
 import { STOP_WORDS, CORE_TOPIC_WORDS } from '../_config/keyword-dictionaries';
+import { fetchTLIContext } from './tli-context';
+import type { TLIContext } from './tli-context';
 import type { KeywordMetadata } from '../_types/blog';
 
 interface KeywordGenerationResult {
@@ -135,11 +137,12 @@ function isDuplicate(
 async function generateKeywordsWithAI(
   count: number,
   usedKeywords: string[],
-  existingTitles: string[]
+  existingTitles: string[],
+  tliContext?: TLIContext,
 ): Promise<KeywordMetadata[]> {
-  console.log(`[KeywordGenerator] AI 생성 중 (제외: ${usedKeywords.length}개, 기존 글: ${existingTitles.length}개)`);
+  console.log(`[KeywordGenerator] AI 생성 중 (제외: ${usedKeywords.length}개, 기존 글: ${existingTitles.length}개, TLI: ${tliContext?.themes.length ?? 0}개 테마)`);
 
-  const prompt = buildKeywordGenerationPrompt(count, usedKeywords, undefined, existingTitles);
+  const prompt = buildKeywordGenerationPrompt(count, usedKeywords, undefined, existingTitles, tliContext);
   const response = await generateText({ prompt });
 
   try {
@@ -156,6 +159,7 @@ async function generateKeywordsWithAI(
 
     for (const kw of keywords) {
       if (!kw.keyword || !kw.searchIntent || !kw.difficulty || !kw.contentType) continue;
+      if (kw.keyword.length > 40) continue;
       if (isDuplicate(kw.keyword, allExistingKeywords, existingTitles)) continue;
 
       validKeywords.push(kw);
@@ -180,8 +184,11 @@ export async function generateKeywords(
   console.log(`[KeywordGenerator] ${requestedCount}개 키워드 생성 시작`);
 
   try {
-    const usedContent = await getUsedContent();
-    console.log(`[KeywordGenerator] 기존 키워드: ${usedContent.keywords.length}개, 기존 글: ${usedContent.titles.length}개`);
+    const [usedContent, tliContext] = await Promise.all([
+      getUsedContent(),
+      fetchTLIContext(),
+    ]);
+    console.log(`[KeywordGenerator] 기존 키워드: ${usedContent.keywords.length}개, 기존 글: ${usedContent.titles.length}개, TLI: ${tliContext.themes.length}개 테마`);
 
     const keywordMap = new Map<string, KeywordMetadata>();
     let attempt = 0;
@@ -194,7 +201,8 @@ export async function generateKeywords(
       const newKeywords = await generateKeywordsWithAI(
         Math.ceil(remainingCount * 1.5),
         usedContent.keywords,
-        usedContent.titles
+        usedContent.titles,
+        tliContext,
       );
 
       newKeywords.forEach((kw) => keywordMap.set(kw.keyword.toLowerCase(), kw));
