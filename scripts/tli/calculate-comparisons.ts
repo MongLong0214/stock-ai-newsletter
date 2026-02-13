@@ -78,9 +78,12 @@ export async function calculateThemeComparisons(themes: ThemeWithKeywords[], thr
     }
   }
 
-  // 만료된 비교 결과 정리 (7일 이전)
-  const sevenDaysAgo = new Date(kstNow.getTime() - 7 * 86400000).toISOString().split('T')[0]
-  const { data: deleted, error: deleteErr } = await supabaseAdmin.from('theme_comparisons').delete().lt('calculated_at', sevenDaysAgo).select('id')
+  // 만료된 미검증 비교 정리 (21일 이전, 검증 완료 레코드는 보존)
+  const twentyOneDaysAgo = new Date(kstNow.getTime() - 21 * 86400000).toISOString().split('T')[0]
+  const { data: deleted, error: deleteErr } = await supabaseAdmin.from('theme_comparisons').delete()
+    .lt('calculated_at', twentyOneDaysAgo)
+    .or('outcome_verified.is.null,outcome_verified.eq.false')
+    .select('id')
   if (deleteErr) console.warn('   ⚠️ stale 비교 삭제 실패:', deleteErr.message)
 
   console.log(`\n✅ 비교 분석 완료: ${themesWithMatches}/${themes.length} 테마에 총 ${totalMatches}건 매칭 (stale ${deleted?.length ?? 0}건 정리)`)
