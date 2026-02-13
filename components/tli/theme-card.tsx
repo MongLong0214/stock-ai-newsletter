@@ -191,7 +191,7 @@ export default function ThemeCard({ theme, href }: ThemeCardProps) {
           )}
         </div>
 
-        {/* 종목 수 + 뉴스 카운트 */}
+        {/* 종목 수 & 뉴스 카운트 */}
         <div className="flex items-center gap-4 mb-3">
           <div className="flex items-center gap-2">
             <TrendingUp className="w-4 h-4 text-slate-500" />
