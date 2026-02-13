@@ -18,7 +18,7 @@ export interface KeywordMetadata {
   estimatedSearchVolume: number;
   relevanceScore: number;
   contentType: ContentType;
-  topicArea?: TopicArea;
+  topicArea: TopicArea;
   reasoning: string;
 }
 
