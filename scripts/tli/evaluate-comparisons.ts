@@ -2,13 +2,11 @@ import { supabaseAdmin } from './supabase-admin'
 import { batchQuery, groupByThemeId } from './supabase-batch'
 import { pearsonCorrelation } from '../../lib/tli/comparison/similarity'
 import { getKSTDate } from './utils'
-import { DEFAULT_THRESHOLD as AUTO_TUNE_DEFAULT } from './auto-tune'
+import { DEFAULT_THRESHOLD } from './auto-tune'
 
 /** 궤적 상관 >= 0.3이면 "정확한 비교"로 판정 */
 const ACCURACY_THRESHOLD = 0.3
 const MIN_VERIFICATION_DAYS = 14
-/** auto-tune 폴백 임계값 (auto-tune.ts와 동일 값 사용) */
-const DEFAULT_THRESHOLD = AUTO_TUNE_DEFAULT
 const DEFAULT_SECTOR_PENALTY = 0.85
 
 export async function evaluateComparisonOutcomes(tunedThreshold?: number) {
