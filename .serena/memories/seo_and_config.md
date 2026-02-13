@@ -90,7 +90,8 @@ siteConfig = {
 
 ### Sitemap (app/sitemap.ts)
 - 정적 페이지: /, /subscribe, /archive, /about, /faq, /themes, /technical-indicators, /blog
-- 동적: /themes/[id] (Supabase에서 활성 테마 조회), /blog/[slug]
+- 동적: /themes/[id] (Supabase에서 활성 테마 조회), /blog/[slug], /blog/tag/[tag] (상위 20개 태그)
+- priority: 블로그 0.8, 태그허브 0.6, 테마 0.7
 
 ### Robots (app/robots.ts)
 - 표준 robots.txt 생성

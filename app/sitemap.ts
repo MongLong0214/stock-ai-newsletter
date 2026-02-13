@@ -1,42 +1,20 @@
 import { MetadataRoute } from 'next';
-import { createClient } from '@supabase/supabase-js';
+import { getServerSupabaseClient } from '@/lib/supabase/server-client';
 import { isValidBlogSlug } from './blog/_utils/slug-validator';
 
-/**
- * 활성 테마 ID 목록 조회
- */
 async function getActiveThemeIds(): Promise<string[]> {
   try {
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      { auth: { persistSession: false } }
-    );
-
-    const { data } = await supabase
-      .from('themes')
-      .select('id')
-      .eq('is_active', true);
-
+    const supabase = getServerSupabaseClient();
+    const { data } = await supabase.from('themes').select('id').eq('is_active', true);
     return (data || []).map((t) => t.id);
   } catch {
     return [];
   }
 }
 
-/**
- * 발행된 블로그 슬러그 목록 조회
- */
-async function getPublishedBlogSlugs(): Promise<
-  { slug: string; published_at: string }[]
-> {
+async function getPublishedBlogSlugs(): Promise<{ slug: string; published_at: string }[]> {
   try {
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      { auth: { persistSession: false } }
-    );
-
+    const supabase = getServerSupabaseClient();
     const { data } = await supabase
       .from('blog_posts')
       .select('slug, published_at')
@@ -49,75 +27,66 @@ async function getPublishedBlogSlugs(): Promise<
   }
 }
 
+async function getTopBlogTags(): Promise<string[]> {
+  try {
+    const supabase = getServerSupabaseClient();
+    const { data } = await supabase.from('blog_posts').select('tags').eq('status', 'published');
+
+    if (!data) return [];
+
+    const tagCounts = new Map<string, number>();
+    data.forEach((post) => {
+      post.tags?.forEach((tag: string) => {
+        tagCounts.set(tag, (tagCounts.get(tag) || 0) + 1);
+      });
+    });
+
+    return [...tagCounts.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 20)
+      .map(([tag]) => tag);
+  } catch {
+    return [];
+  }
+}
+
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const baseUrl = 'https://stockmatrix.co.kr';
   const currentDate = new Date();
 
-  // 정적 페이지
   const staticPages: MetadataRoute.Sitemap = [
-    {
-      url: baseUrl,
-      lastModified: currentDate,
-      changeFrequency: 'daily',
-      priority: 1.0,
-    },
-    {
-      url: `${baseUrl}/about`,
-      lastModified: currentDate,
-      changeFrequency: 'monthly',
-      priority: 0.8,
-    },
-    {
-      url: `${baseUrl}/faq`,
-      lastModified: currentDate,
-      changeFrequency: 'monthly',
-      priority: 0.8,
-    },
-    {
-      url: `${baseUrl}/technical-indicators`,
-      lastModified: currentDate,
-      changeFrequency: 'monthly',
-      priority: 0.9,
-    },
-    {
-      url: `${baseUrl}/subscribe`,
-      lastModified: currentDate,
-      changeFrequency: 'weekly',
-      priority: 0.9,
-    },
-    {
-      url: `${baseUrl}/archive`,
-      lastModified: currentDate,
-      changeFrequency: 'daily',
-      priority: 0.9,
-    },
-    {
-      url: `${baseUrl}/blog`,
-      lastModified: currentDate,
-      changeFrequency: 'daily',
-      priority: 0.9,
-    },
-    {
-      url: `${baseUrl}/themes`,
-      lastModified: currentDate,
-      changeFrequency: 'daily',
-      priority: 0.9,
-    },
+    { url: baseUrl, lastModified: currentDate, changeFrequency: 'daily', priority: 1.0 },
+    { url: `${baseUrl}/about`, lastModified: currentDate, changeFrequency: 'monthly', priority: 0.8 },
+    { url: `${baseUrl}/faq`, lastModified: currentDate, changeFrequency: 'monthly', priority: 0.8 },
+    { url: `${baseUrl}/technical-indicators`, lastModified: currentDate, changeFrequency: 'monthly', priority: 0.9 },
+    { url: `${baseUrl}/subscribe`, lastModified: currentDate, changeFrequency: 'weekly', priority: 0.9 },
+    { url: `${baseUrl}/archive`, lastModified: currentDate, changeFrequency: 'daily', priority: 0.9 },
+    { url: `${baseUrl}/blog`, lastModified: currentDate, changeFrequency: 'daily', priority: 0.9 },
+    { url: `${baseUrl}/themes`, lastModified: currentDate, changeFrequency: 'daily', priority: 0.9 },
   ];
 
-  // 블로그 포스트 동적 페이지
-  const blogPosts = await getPublishedBlogSlugs();
+  const [blogPosts, topTags, themeIds] = await Promise.all([
+    getPublishedBlogSlugs(),
+    getTopBlogTags(),
+    getActiveThemeIds(),
+  ]);
+
   const blogPages: MetadataRoute.Sitemap = blogPosts
     .filter((post) => isValidBlogSlug(post.slug))
     .map((post) => ({
       url: `${baseUrl}/blog/${post.slug}`,
       lastModified: new Date(post.published_at),
       changeFrequency: 'weekly',
-      priority: 0.7,
+      priority: 0.8,
     }));
 
-  // 테마 동적 페이지
-  const themeIds = await getActiveThemeIds();
+  const tagPages: MetadataRoute.Sitemap = topTags.map((tag) => ({
+    url: `${baseUrl}/blog/tag/${encodeURIComponent(tag)}`,
+    lastModified: currentDate,
+    changeFrequency: 'daily',
+    priority: 0.6,
+  }));
+
   const themePages: MetadataRoute.Sitemap = themeIds.map((id) => ({
     url: `${baseUrl}/themes/${id}`,
     lastModified: currentDate,
@@ -125,5 +94,5 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.7,
   }));
 
-  return [...staticPages, ...blogPages, ...themePages];
+  return [...staticPages, ...blogPages, ...tagPages, ...themePages];
 }

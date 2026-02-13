@@ -1,66 +1,15 @@
-'use client';
-
-import React, { useEffect } from "react";
 import Script from "next/script";
-import AnimatedBackground from "@/components/animated-background";
-import { useCountdownToTomorrow } from "@/hooks/use-countdown-to-tomorrow";
-import { useIsMobile } from "@/hooks/use-is-mobile";
-import {  TECHNICAL_INDICATORS_DATA } from "./constants/home-page";
-import HeroSection from "./_components/home/hero-section";
-import ServiceDefinitionSection from "./_components/home/service-definition-section";
-import EmailPreviewSection from "./_components/home/email-preview-section";
-import ThemePreviewSection from "./_components/home/theme-preview-section";
-import TechnicalIndicatorsSection from "./_components/home/technical-indicators-section";
-import CTASection from "./_components/home/cta-section";
+import { TECHNICAL_INDICATORS_DATA } from "./constants/home-page";
+import HomePageClient from "./_components/home/home-page-client";
+import LatestBlogSection from "./_components/home/latest-blog-section";
 
 export default function HomePage() {
-  const { formatted } = useCountdownToTomorrow();
-  const isMobile = useIsMobile();
-
-  // 페이지 로드 시 스크롤을 최상단으로 강제
-  useEffect(() => {
-    // 히스토리 스크롤 복원 비활성화
-    if ('scrollRestoration' in window.history) {
-      window.history.scrollRestoration = 'manual';
-    }
-
-    // 스크롤을 최상단으로 이동
-    window.scrollTo(0, 0);
-  }, []);
-
   return (
-    <div className="min-h-screen bg-black text-white relative overflow-hidden">
-      {/* Animated Background */}
-      <AnimatedBackground />
+    <>
+      <HomePageClient technicalIndicators={TECHNICAL_INDICATORS_DATA} />
+      <LatestBlogSection />
 
-      {/* Scanline Effect */}
-      <div className="fixed inset-0 pointer-events-none z-[1] opacity-[0.04]">
-        <div className="absolute inset-0 bg-[linear-gradient(transparent_50%,rgba(16,185,129,0.04)_50%)] bg-[length:100%_4px] animate-[matrix-scan_8s_linear_infinite]" aria-hidden="true" />
-      </div>
-
-      {/* Hero Section */}
-      <HeroSection formatted={formatted} />
-
-
-      {/* Email Preview Section */}
-      <EmailPreviewSection />
-
-      {/* Theme Lifecycle Preview */}
-      <ThemePreviewSection isMobile={isMobile} />
-
-      {/* Technical Indicators Section */}
-      <TechnicalIndicatorsSection
-        isMobile={isMobile}
-        indicators={TECHNICAL_INDICATORS_DATA}
-      />
-
-
-      {/* CTA Section */}
-      <CTASection formatted={formatted} />
-
-        {/* Service Definition Section - AI 검색 최적화 */}
-        <ServiceDefinitionSection />
-      {/* SoftwareApplication Schema for Homepage */}
+      {/* 홈페이지 SoftwareApplication 스키마 */}
       <Script
         id="software-application-schema"
         type="application/ld+json"
@@ -93,6 +42,6 @@ export default function HomePage() {
         }}
         strategy="afterInteractive"
       />
-    </div>
+    </>
   );
 }
