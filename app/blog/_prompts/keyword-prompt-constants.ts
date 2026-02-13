@@ -124,35 +124,61 @@ export const TOPIC_BUCKETS = `
    - 체결/호가: 호가창 잔량, 체결강도, 거래대금, 분봉/일봉 해석
    - 타이밍: 진입 조건, 추가매수 조건, 손절/익절 실행, 갭상승 대응
    - 실수 방지: 슬리피지, 과도한 레버리지, 뉴스 반응 매매 주의
-   - 예시 키워드 결: "호가창 보는 법", "눌림목 매수 타이밍 체크리스트"`;
+   - 예시 키워드 결: "호가창 보는 법", "눌림목 매수 타이밍 체크리스트"
 
-/** 검색 쿼리 품질 기준 (프롬프트에 삽입) */
+9. theme: 테마/이슈 (TLI 데이터 기반 - 최우선)
+   - 트렌딩 테마: 2차전지, AI 반도체, 로봇, 바이오 등 실시간 시장 테마
+   - 테마 관련주: 테마별 수혜주 목록, 대장주, 관련 종목
+   - 종목 분석: 특정 종목 전망, 실적, 목표가, 매수 타이밍
+   - 테마 비교: 테마 간 비교, 시장 흐름 분석
+   - 예시 키워드 결: "2차전지 관련주 2026", "AI 반도체 수혜주 목록", "에코프로비엠 전망"`;
+
+/** 검색 쿼리 가이드라인 (프롬프트에 삽입) */
 export const SEARCH_QUERY_GUIDELINES = `
-## 검색 쿼리 형태 규칙 (필수)
+## 검색 쿼리 가이드라인 (필수)
 
-keyword는 사용자가 Google/Naver 검색창에 실제로 입력하는 자연어 검색 쿼리여야 합니다.
-블로그 제목이나 후킹 문구가 아닙니다. 제목은 별도 단계에서 자동 생성됩니다.
+키워드는 **블로그 제목이 아닌 실제 검색 쿼리**여야 합니다.
+사용자가 네이버/구글 검색창에 직접 입력할 법한 문구를 생성하세요.
+후킹은 키워드가 아닌 콘텐츠 제목에서 처리하므로, 키워드는 검색 가능성에 집중하세요.
 
-### 길이 제한
-- 2~8개 단어 조합 (한글 기준 10~40자)
-- 40자를 초과하면 안 됩니다
+### 좋은 키워드 (실제 검색 쿼리)
+- "2차전지 관련주 전망 2026"
+- "삼성전자 실적 분석"
+- "AI 반도체 수혜주 목록"
+- "에코프로비엠 목표가"
+- "금리 인하 수혜주 추천"
+- "로봇 테마주 대장주"
 
-### 올바른 검색 쿼리 패턴
-- [지표/개념] + [활용/방법/뜻]: "매입채무 회전율 보는 법"
-- [상황] + [대응/판단]: "흑자도산 기업 판별 방법"
-- [대상] + [비교/추천]: "가치투자 재무지표 비교"
-- [구어체 질문]: "주식 분할매수 몇 번 나눠서 사야"
-- [지표 A] vs [지표 B]: "PER vs PBR 뭘 봐야"
+### 나쁜 키워드 (블로그 제목처럼 생긴 것 - 금지)
+- "99%가 모르는 2차전지의 비밀" (후킹형)
+- "이 종목 안 사면 후회합니다" (낚시형)
+- "프로만 아는 숨겨진 투자법" (비밀형)
+- "3초 만에 판별하는 흑자도산 기업" (과장형)
 
-### 금지 패턴 (블로그 제목이지 검색 쿼리가 아닌 것)
-- "99%가 모르는 ~" → 아무도 이렇게 검색하지 않음
-- "3초 판별법", "100% 걸러내는" → 후킹 문구이지 검색어가 아님
-- "~에 속아 상폐 당할 뻔?" → 기사 헤드라인이지 검색어가 아님
-- 40자 이상의 긴 문장 → 검색창에 입력하기엔 너무 김
+### 검색 쿼리 작성 규칙
+1. 3-8 단어, 40자 이내
+2. 핵심 명사 중심 (테마명, 종목명, 지표명)
+3. 의도 명확 (전망, 분석, 비교, 추천, 방법, 뜻)
+4. 시의성 포함 권장 (연도, "최근", "올해")
+5. 실제 테마명/종목명 사용 우선`;
 
-### 자가 검증
-keyword를 작성한 뒤, "이 문장을 실제로 검색창에 입력할 사람이 있는가?"를 자문하세요.
-"아니오"라면 더 자연스러운 검색 쿼리로 수정하세요.`;
+/** 키워드 각도 다양화 가이드 (같은 테마에서 다른 관점의 키워드 생성) */
+export const KEYWORD_ANGLES = `
+<keyword-angles>
+같은 테마에서 다양한 각도로 키워드를 생성하세요:
+
+1. **전망/분석**: "[테마] 전망 2026", "[종목] 실적 분석"
+2. **관련주/수혜주**: "[테마] 관련주 정리", "[테마] 수혜주 대장주"
+3. **비교**: "[테마A] vs [테마B]", "[종목A] vs [종목B] 비교"
+4. **투자전략**: "[테마] 투자 방법", "[테마] ETF 추천"
+5. **종목분석**: "[종목] 목표가", "[종목] 재무제표 분석"
+6. **뉴스해석**: "[테마] 정책 영향", "[이슈] 수혜주"
+7. **초보가이드**: "[테마] 입문 가이드", "[테마] 기초 용어"
+
+같은 테마라도 각도가 다르면 별개 키워드입니다.
+예: "2차전지 관련주 전망" ≠ "2차전지 ETF 비교" ≠ "에코프로비엠 목표가"
+</keyword-angles>
+`;
 
 /** Few-Shot 예시 (분석 패턴 + 출력 품질 참고용) */
 export const FEW_SHOT_EXAMPLES = `
@@ -189,79 +215,82 @@ export const FEW_SHOT_EXAMPLES = `
         "estimatedSearchVolume": 950,
         "relevanceScore": 9.0,
         "contentType": "guide",
+        "topicArea": "value",
         "reasoning": "가치투자 핵심 지표인 PER/PBR 활용법을 알려주는 실용 가이드. 초보 투자자들의 검색 수요가 높은 주제."
       }
     </output>
   </example>
 
-  <example id="2" quality="excellent" category="투자전략">
-    <keyword>주식 분할매수 방법 몇 번 나눠서 사야</keyword>
+  <example id="2" quality="excellent" category="테마/이슈">
+    <keyword>AI 반도체 수혜주 대장주 정리</keyword>
     <analysis>
       <step name="intent-analysis">
-        분할매수 전략의 구체적 실행 방법을 알고 싶은 의도
-        -> "방법" 트리거 -> informational intent
+        AI 반도체 테마 수혜주 목록을 원하는 의도
+        -> "수혜주", "대장주", "정리" 트리거 -> commercial intent
       </step>
       <step name="difficulty-assessment">
-        구어체 롱테일 키워드로 경쟁도 낮음
-        -> difficulty: low
+        테마명 + 수혜주 = 시의성 롱테일
+        -> difficulty: medium
       </step>
       <step name="volume-estimation">
-        실전 투자 전략에 대한 꾸준한 검색 수요
-        -> 월간 검색량 추정: 600-900
+        AI 반도체 테마 급등기 검색 수요 높음
+        -> 월간 검색량 추정: 1200-2000
       </step>
       <step name="content-type-matching">
-        "방법" 트리거 + 실전 전략 -> guide 타입
+        "수혜주", "대장주", "정리" 트리거 -> listicle 타입
       </step>
       <step name="relevance-scoring">
-        실용적 투자 전략 + 초보 타겟
-        -> relevanceScore: 8.5/10
+        트렌딩 테마 + 종목 추천 + 높은 검색 수요
+        -> relevanceScore: 9.5/10
       </step>
     </analysis>
     <output>
       {
-        "keyword": "주식 분할매수 방법 몇 번 나눠서 사야",
-        "searchIntent": "informational",
-        "difficulty": "low",
-        "estimatedSearchVolume": 720,
-        "relevanceScore": 8.5,
-        "contentType": "guide",
-        "reasoning": "실전 투자자들이 자주 검색하는 분할매수 전략 가이드. 구어체 롱테일로 검색 의도가 명확함."
+        "keyword": "AI 반도체 수혜주 대장주 정리",
+        "searchIntent": "commercial",
+        "difficulty": "medium",
+        "estimatedSearchVolume": 1600,
+        "relevanceScore": 9.5,
+        "contentType": "listicle",
+        "topicArea": "theme",
+        "reasoning": "AI 반도체 테마 Growth 단계. SK하이닉스, 한미반도체 등 수혜주에 대한 검색 수요가 급증하는 시기."
       }
     </output>
   </example>
 
-  <example id="3" quality="excellent" category="종목발굴">
-    <keyword>2024년 고배당주 추천 목록 TOP 10</keyword>
+  <example id="3" quality="excellent" category="테마/이슈">
+    <keyword>SK하이닉스 HBM 실적 전망</keyword>
     <analysis>
       <step name="intent-analysis">
-        배당 투자를 위한 종목 리스트를 원하는 의도
-        -> "TOP 10", "추천" 트리거 -> commercial intent
+        특정 종목의 핵심 사업 전망을 알고 싶은 의도
+        -> "실적", "전망" 트리거 -> commercial intent
       </step>
       <step name="difficulty-assessment">
-        연도 특정 + 숫자 목록 = 시즈널 롱테일
-        -> difficulty: medium
+        종목명 + 기술명 + 전망 = 구체적 롱테일
+        -> difficulty: low
       </step>
       <step name="volume-estimation">
-        배당 시즌 전후 검색 급증
-        -> 월간 검색량 추정: 1200-1800
+        실적 시즌 및 HBM 이슈 시 검색량 급증
+        -> 월간 검색량 추정: 900-1500
       </step>
       <step name="content-type-matching">
-        "TOP 10", "목록" 트리거 -> listicle 타입
+        "실적", "전망" 트리거 -> review 타입
       </step>
       <step name="relevance-scoring">
-        종목 추천 + 한국 시장 + 실용적 정보
+        시의성 종목 + 구체적 기술 + 투자 판단
         -> relevanceScore: 9.2/10
       </step>
     </analysis>
     <output>
       {
-        "keyword": "2024년 고배당주 추천 목록 TOP 10",
+        "keyword": "SK하이닉스 HBM 실적 전망",
         "searchIntent": "commercial",
-        "difficulty": "medium",
-        "estimatedSearchVolume": 1450,
+        "difficulty": "low",
+        "estimatedSearchVolume": 1200,
         "relevanceScore": 9.2,
-        "contentType": "listicle",
-        "reasoning": "배당 투자자들의 핵심 검색어. 시즌별 업데이트로 지속적 트래픽 확보 가능한 키워드."
+        "contentType": "review",
+        "topicArea": "theme",
+        "reasoning": "AI 반도체 대장주 SK하이닉스의 HBM 사업. 실적 발표 전후 검색량이 폭증하며, 투자 판단에 직결되는 키워드."
       }
     </output>
   </example>
@@ -297,151 +326,230 @@ export const FEW_SHOT_EXAMPLES = `
         "estimatedSearchVolume": 650,
         "relevanceScore": 8.0,
         "contentType": "guide",
+        "topicArea": "psychology",
         "reasoning": "투자자들의 공감을 얻을 수 있는 심리 관련 키워드. 손실 회피 심리 극복 가이드로 높은 체류 시간 기대."
       }
     </output>
   </example>
 
-  <example id="5" quality="excellent" category="시장분석">
-    <keyword>금리 인상 주식시장 영향 어떤 업종 유리</keyword>
+  <example id="5" quality="excellent" category="테마/이슈">
+    <keyword>로봇 테마주 관련주 추천 2026</keyword>
     <analysis>
       <step name="intent-analysis">
-        거시경제와 주식시장 관계를 이해하려는 의도
-        -> "영향", "유리" 트리거 -> informational intent
+        로봇 테마 투자 종목을 찾으려는 의도
+        -> "테마주", "관련주", "추천" 트리거 -> commercial intent
       </step>
       <step name="difficulty-assessment">
-        구어체 + 복합 질문 = 롱테일
+        테마명 + 연도 = 시의성 롱테일
         -> difficulty: medium
       </step>
       <step name="volume-estimation">
-        금리 변동기 검색 급증, 경제 뉴스 연동
-        -> 월간 검색량 추정: 800-1200
+        로봇 테마 성장기 검색 수요 높음
+        -> 월간 검색량 추정: 1000-1800
       </step>
       <step name="content-type-matching">
-        분석 요청 + 업종 비교 -> guide/comparison 혼합 -> guide 선택
+        "테마주", "관련주", "추천" 트리거 -> listicle 타입
       </step>
       <step name="relevance-scoring">
-        시장 분석 + 실용적 정보 + 검색 수요 높음
-        -> relevanceScore: 8.5/10
-      </step>
-    </analysis>
-    <output>
-      {
-        "keyword": "금리 인상 주식시장 영향 어떤 업종 유리",
-        "searchIntent": "informational",
-        "difficulty": "medium",
-        "estimatedSearchVolume": 980,
-        "relevanceScore": 8.5,
-        "contentType": "guide",
-        "reasoning": "거시경제 이해를 돕는 시장 분석 콘텐츠. 뉴스 이슈와 연동되어 트래픽 급증 가능성 높음."
-      }
-    </output>
-  </example>
-
-  <example id="6" quality="excellent" category="투자교육">
-    <keyword>증권사 수수료 비교 2024 어디가 싼지</keyword>
-    <analysis>
-      <step name="intent-analysis">
-        증권사 선택을 위한 비교 정보를 원하는 의도
-        -> "비교", "어디가" 트리거 -> commercial intent
-      </step>
-      <step name="difficulty-assessment">
-        연도 특정 + 구어체 = 틈새 롱테일
-        -> difficulty: low
-      </step>
-      <step name="volume-estimation">
-        신규 투자자 유입 시 검색 급증
-        -> 월간 검색량 추정: 1000-1500
-      </step>
-      <step name="content-type-matching">
-        "비교" 트리거 명확 -> comparison 타입
-      </step>
-      <step name="relevance-scoring">
-        투자 입문 + 실용적 정보 + 검색 수요 높음
+        트렌딩 테마 + 종목 추천 + 시의성
         -> relevanceScore: 9.0/10
       </step>
     </analysis>
     <output>
       {
-        "keyword": "증권사 수수료 비교 2024 어디가 싼지",
+        "keyword": "로봇 테마주 관련주 추천 2026",
+        "searchIntent": "commercial",
+        "difficulty": "medium",
+        "estimatedSearchVolume": 1400,
+        "relevanceScore": 9.0,
+        "contentType": "listicle",
+        "topicArea": "theme",
+        "reasoning": "로봇 테마 Growth 단계. 두산로보틱스, 레인보우로보틱스 등 관련주에 대한 검색이 활발한 시기."
+      }
+    </output>
+  </example>
+
+  <example id="6" quality="excellent" category="테마/이슈">
+    <keyword>2차전지 vs 반도체 어디에 투자</keyword>
+    <analysis>
+      <step name="intent-analysis">
+        두 테마 간 비교 투자 판단을 원하는 의도
+        -> "vs", "어디에" 트리거 -> commercial intent
+      </step>
+      <step name="difficulty-assessment">
+        테마 간 비교 = 틈새 롱테일
+        -> difficulty: low
+      </step>
+      <step name="volume-estimation">
+        주요 테마 간 비교 검색 꾸준
+        -> 월간 검색량 추정: 600-1000
+      </step>
+      <step name="content-type-matching">
+        "vs" 트리거 명확 -> comparison 타입
+      </step>
+      <step name="relevance-scoring">
+        실시간 테마 비교 + 투자 판단 + 실용적 정보
+        -> relevanceScore: 9.0/10
+      </step>
+    </analysis>
+    <output>
+      {
+        "keyword": "2차전지 vs 반도체 어디에 투자",
         "searchIntent": "commercial",
         "difficulty": "low",
-        "estimatedSearchVolume": 1200,
+        "estimatedSearchVolume": 800,
         "relevanceScore": 9.0,
         "contentType": "comparison",
-        "reasoning": "주식 입문자들의 필수 검색어. 표로 정리된 비교 콘텐츠로 높은 공유율 기대."
+        "topicArea": "theme",
+        "reasoning": "두 Growth 테마 간 비교. 투자자들이 테마 선택 시 자주 검색하며, 비교 콘텐츠는 체류 시간이 높음."
       }
     </output>
   </example>
 
-  <example id="7" quality="excellent" category="기술적분석">
-    <keyword>이동평균선 골든크로스 데드크로스 매매 신호</keyword>
+  <example id="7" quality="excellent" category="테마/이슈">
+    <keyword>2차전지 관련주 전망 2026</keyword>
     <analysis>
       <step name="intent-analysis">
-        기술적 분석 신호 해석을 배우려는 의도
-        -> informational intent
+        현재 성장 중인 2차전지 테마 관련 투자 정보를 원하는 의도
+        -> "전망", "관련주" 트리거 -> commercial intent
       </step>
       <step name="difficulty-assessment">
-        전문 용어 조합 롱테일
+        연도 특정 + 테마명 + 전망 = 시의성 롱테일
+        -> difficulty: medium
+      </step>
+      <step name="volume-estimation">
+        2차전지 테마 성장세 + 관련주 검색 수요 지속
+        -> 월간 검색량 추정: 1500-2500
+      </step>
+      <step name="content-type-matching">
+        "관련주" + "전망" -> listicle 타입
+      </step>
+      <step name="relevance-scoring">
+        실시간 테마 + 종목 추천 + 높은 검색 수요
+        -> relevanceScore: 9.5/10
+      </step>
+    </analysis>
+    <output>
+      {
+        "keyword": "2차전지 관련주 전망 2026",
+        "searchIntent": "commercial",
+        "difficulty": "medium",
+        "estimatedSearchVolume": 2000,
+        "relevanceScore": 9.5,
+        "contentType": "listicle",
+        "topicArea": "theme",
+        "reasoning": "TLI Growth 단계 테마. 2차전지 관련주에 대한 검색 수요가 높고, 시의성 있는 연도 키워드로 차별화."
+      }
+    </output>
+  </example>
+
+  <example id="8" quality="excellent" category="테마/이슈">
+    <keyword>에코프로비엠 목표가 실적 분석</keyword>
+    <analysis>
+      <step name="intent-analysis">
+        특정 종목의 투자 판단 정보를 원하는 의도
+        -> "목표가", "분석" 트리거 -> commercial intent
+      </step>
+      <step name="difficulty-assessment">
+        종목명 + 분석 = 구체적 롱테일
         -> difficulty: low
       </step>
       <step name="volume-estimation">
-        기술적 분석 학습자 꾸준한 수요
-        -> 월간 검색량 추정: 700-1000
+        테마 대장주에 대한 높은 검색 수요
+        -> 월간 검색량 추정: 800-1500
       </step>
       <step name="content-type-matching">
-        교육 콘텐츠 -> guide 타입
+        "분석", "목표가" 트리거 -> review 타입
       </step>
       <step name="relevance-scoring">
-        기술적 분석 핵심 주제 + 실용적 정보
+        실시간 종목 + 구체적 분석 + 투자 판단 지원
         -> relevanceScore: 9.0/10
       </step>
     </analysis>
     <output>
       {
-        "keyword": "이동평균선 골든크로스 데드크로스 매매 신호",
-        "searchIntent": "informational",
+        "keyword": "에코프로비엠 목표가 실적 분석",
+        "searchIntent": "commercial",
         "difficulty": "low",
-        "estimatedSearchVolume": 850,
+        "estimatedSearchVolume": 1100,
         "relevanceScore": 9.0,
-        "contentType": "guide",
-        "reasoning": "기술적 분석의 기본인 이동평균선 활용법. 차트와 함께 설명하면 높은 교육 가치."
+        "contentType": "review",
+        "topicArea": "theme",
+        "reasoning": "2차전지 테마 대장주. 실적 시즌 전후 검색량 급증하며, 목표가 분석은 투자자 관심이 높은 키워드."
       }
     </output>
   </example>
 
-  <example id="8" quality="excellent" category="실전투자">
-    <keyword>주식 호가창 보는법 매수매도 잔량 의미</keyword>
+  <example id="9" quality="excellent" category="테마/이슈 - 각도: 투자전략">
+    <keyword>2차전지 ETF 비교 추천 2026</keyword>
     <analysis>
       <step name="intent-analysis">
-        실전 매매를 위한 기초 지식을 배우려는 의도
-        -> "보는법", "의미" 트리거 -> informational intent
+        2차전지 테마에 ETF로 투자하려는 의도
+        -> "ETF", "비교", "추천" 트리거 -> commercial intent
       </step>
       <step name="difficulty-assessment">
-        초보자 대상 구체적 롱테일
+        테마명 + ETF + 비교 = 구체적 투자전략 롱테일
         -> difficulty: low
       </step>
       <step name="volume-estimation">
-        HTS/MTS 입문자 상시 검색
-        -> 월간 검색량 추정: 600-900
+        ETF 투자 관심 증가 + 테마 ETF 검색 수요
+        -> 월간 검색량 추정: 700-1200
       </step>
       <step name="content-type-matching">
-        "보는법" 트리거 -> guide 타입
+        "비교", "추천" 트리거 -> comparison 타입
       </step>
       <step name="relevance-scoring">
-        실전 투자 기초 + 초보 타겟
+        트렌딩 테마 + ETF 전략 + 실용적 비교 정보
+        -> relevanceScore: 9.0/10
+      </step>
+    </analysis>
+    <output>
+      {
+        "keyword": "2차전지 ETF 비교 추천 2026",
+        "searchIntent": "commercial",
+        "difficulty": "low",
+        "estimatedSearchVolume": 950,
+        "relevanceScore": 9.0,
+        "contentType": "comparison",
+        "topicArea": "theme",
+        "reasoning": "2차전지 테마를 '투자전략' 각도로 접근. '관련주 전망'과 같은 테마지만 ETF 비교라는 다른 각도로 별개 키워드."
+      }
+    </output>
+  </example>
+
+  <example id="10" quality="excellent" category="테마/이슈 - 각도: 초보가이드">
+    <keyword>2차전지 산업 구조 입문 가이드</keyword>
+    <analysis>
+      <step name="intent-analysis">
+        2차전지 산업을 이해하려는 초보 투자자 의도
+        -> "입문", "가이드" 트리거 -> informational intent
+      </step>
+      <step name="difficulty-assessment">
+        테마명 + 산업 구조 + 입문 = 교육형 롱테일
+        -> difficulty: low
+      </step>
+      <step name="volume-estimation">
+        테마 진입 초보 투자자 검색 수요 꾸준
+        -> 월간 검색량 추정: 500-900
+      </step>
+      <step name="content-type-matching">
+        "입문", "가이드" 트리거 -> guide 타입
+      </step>
+      <step name="relevance-scoring">
+        트렌딩 테마 + 교육 콘텐츠 + 초보 타겟
         -> relevanceScore: 8.5/10
       </step>
     </analysis>
     <output>
       {
-        "keyword": "주식 호가창 보는법 매수매도 잔량 의미",
+        "keyword": "2차전지 산업 구조 입문 가이드",
         "searchIntent": "informational",
         "difficulty": "low",
-        "estimatedSearchVolume": 780,
+        "estimatedSearchVolume": 700,
         "relevanceScore": 8.5,
         "contentType": "guide",
-        "reasoning": "주식 입문자들이 반드시 검색하는 기초 콘텐츠. 스크린샷과 함께 설명하면 완성도 높음."
+        "topicArea": "theme",
+        "reasoning": "2차전지 테마를 '초보가이드' 각도로 접근. 같은 테마에서 관련주/ETF와 다른 교육 목적 키워드로 차별화."
       }
     </output>
   </example>
