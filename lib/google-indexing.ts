@@ -6,7 +6,7 @@ const MAX_CONCURRENCY = 5;
 const MAX_RETRIES = 2;
 const RETRY_BASE_MS = 500;
 
-// --- Singleton auth (lazy) ---
+// --- 싱글턴 인증 (지연 초기화) ---
 
 let authInstance: GoogleAuth | null = null;
 let warnedMissing = false;
@@ -26,7 +26,7 @@ function getAuth(): GoogleAuth | null {
   return authInstance;
 }
 
-// --- Retry with exponential backoff ---
+// --- 지수 백오프 재시도 ---
 
 async function withRetry<T>(fn: () => Promise<T>, retries = MAX_RETRIES): Promise<T> {
   for (let attempt = 0; ; attempt++) {
@@ -40,7 +40,7 @@ async function withRetry<T>(fn: () => Promise<T>, retries = MAX_RETRIES): Promis
   }
 }
 
-// --- Concurrency limiter ---
+// --- 동시성 제한 ---
 
 async function mapConcurrent<T, R>(
   items: T[],
@@ -61,9 +61,9 @@ async function mapConcurrent<T, R>(
   return results;
 }
 
-// --- Public API ---
+// --- 단건 알림 (batch 전용) ---
 
-export async function notifyGoogleIndexing(url: string): Promise<boolean> {
+async function notifyGoogleIndexing(url: string): Promise<boolean> {
   const auth = getAuth();
   if (!auth) return false;
 
@@ -73,7 +73,7 @@ export async function notifyGoogleIndexing(url: string): Promise<boolean> {
       client.request({ url: INDEXING_API, method: 'POST', data: { url, type: 'URL_UPDATED' } }),
     );
 
-    console.log(`[Google Indexing] ${url} -> ${(res as { status: number }).status}`);
+    console.log(`[Google Indexing] ${url} -> ${res.status}`);
     return true;
   } catch (e) {
     console.error(`[Google Indexing] 실패 (${url}):`, e instanceof Error ? e.message : String(e));
@@ -81,11 +81,11 @@ export async function notifyGoogleIndexing(url: string): Promise<boolean> {
   }
 }
 
+// --- 공개 API ---
+
 export async function notifyGoogleIndexingBatch(
   urls: string[],
 ): Promise<{ success: number; failed: number }> {
-  const auth = getAuth();
-  if (!auth) return { success: 0, failed: 0 };
   if (!urls.length) return { success: 0, failed: 0 };
 
   const results = await mapConcurrent(urls, MAX_CONCURRENCY, notifyGoogleIndexing);
