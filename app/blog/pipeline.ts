@@ -3,6 +3,7 @@ import { scrapeSearchResults, analyzeCompetitors, closeBrowser, getMetrics, rese
 import { generateBlogContent, generateSlug } from './_services/content-generator';
 import { saveBlogPost, publishBlogPost } from './_services/blog-repository';
 import { generateKeywords } from './_services/keyword-generator';
+import { notifyGoogleIndexingBatch } from '@/lib/google-indexing';
 import type { BlogPostCreateInput, PipelineResult } from './_types/blog';
 
 const T = { search: 60000, scrape: 120000, generate: 180000, save: 30000, keyword: 90000 };
@@ -59,7 +60,13 @@ export async function generateBlogPost(keyword: string, type: 'comparison' | 'gu
     };
 
     const saved = await withTimeout(saveBlogPost(post), T.save, 'DB');
-    if (publish) await publishBlogPost(saved.slug).catch(() => {});
+    if (publish) {
+      await publishBlogPost(saved.slug).catch(() => {});
+      notifyGoogleIndexingBatch([
+        `https://stockmatrix.co.kr/blog/${saved.slug}`,
+        'https://stockmatrix.co.kr/sitemap.xml',
+      ]).catch(() => {});
+    }
 
     metrics.totalTime = Date.now() - start;
     console.log(`✅ ${saved.slug} (${(metrics.totalTime / 1000).toFixed(1)}초)`);

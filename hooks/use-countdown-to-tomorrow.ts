@@ -22,7 +22,7 @@ export function useCountdownToTomorrow(): TimeRemaining {
       const now = new Date();
       const tomorrow = new Date();
 
-      // Set to tomorrow 8:50 AM
+      // 내일 오전 8시 50분 기준
       tomorrow.setDate(now.getDate() + 1);
       tomorrow.setHours(8, 50, 0, 0);
 
@@ -49,10 +49,8 @@ export function useCountdownToTomorrow(): TimeRemaining {
       };
     }
 
-    // Initial calculation
     setTimeRemaining(calculateTimeRemaining());
 
-    // Update every second
     const interval = setInterval(() => {
       setTimeRemaining(calculateTimeRemaining());
     }, 1000);

@@ -3,11 +3,14 @@ export function isValidBlogSlug(slug: string): boolean {
 
   const normalized = slug.toLowerCase();
 
-  // allow only lowercase letters, numbers, and hyphens
-  if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(normalized)) {
+  // 경로 탐색 공격 방지
+  if (normalized.includes('..') || normalized.includes('./') || normalized.includes('\\')) {
     return false;
   }
 
-  // must contain at least one letter
-  return /[a-z]/.test(normalized);
+  // 과도한 길이 방지
+  if (normalized.length > 200) return false;
+
+  // 소문자, 숫자, 하이픈, 언더스코어만 허용
+  return /^[a-z0-9_-]+$/.test(normalized);
 }

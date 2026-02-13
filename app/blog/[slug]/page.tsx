@@ -1,10 +1,4 @@
-/**
- * 블로그 상세 페이지 (/blog/[slug])
- * - 동적 메타데이터 생성 (SEO 최적화)
- * - Schema.org 구조화 데이터 삽입
- * - 목차(TOC), 읽기 진행도, FAQ 등 고급 UX 기능
- */
-
+import { cache } from 'react';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import type { Metadata } from 'next';
@@ -16,6 +10,7 @@ import { parseMarkdown } from '../_utils/markdown-parser';
 import { formatDateKo } from '../_utils/date-formatter';
 import { createArticleSchema, createFAQSchema, createBreadcrumbSchema } from '../_utils/schema-generator';
 import { isValidBlogSlug } from '../_utils/slug-validator';
+import { extractTOCItems } from '../_utils/toc-extractor';
 import type { BlogPost } from '../_types/blog';
 
 import { ReadingProgress } from './_components/reading-progress';
@@ -23,14 +18,13 @@ import { TableOfContents } from './_components/table-of-contents';
 import { FAQAccordion } from './_components/faq-accordion';
 import { CTASection } from './_components/cta-section';
 import { SchemaScripts } from './_components/schema-scripts';
-import { extractTOCItems } from '../_utils/toc-extractor';
 
 interface PageProps {
   params: Promise<{ slug: string }>;
 }
 
-/** 블로그 포스트 조회 */
-async function getBlogPost(slug: string): Promise<BlogPost | null> {
+// generateMetadata와 페이지 컴포넌트에서 동일 slug로 호출되므로 요청 단위 캐싱
+const getBlogPost = cache(async (slug: string): Promise<BlogPost | null> => {
   const supabase = getServerSupabaseClient();
   const { data, error } = await supabase
     .from('blog_posts')
@@ -40,9 +34,8 @@ async function getBlogPost(slug: string): Promise<BlogPost | null> {
     .single();
 
   return error || !data ? null : (data as BlogPost);
-}
+});
 
-/** 관련 포스트 조회 (태그 기반) */
 async function getRelatedPosts(currentSlug: string, tags: string[]) {
   const supabase = getServerSupabaseClient();
   const { data } = await supabase
@@ -51,20 +44,18 @@ async function getRelatedPosts(currentSlug: string, tags: string[]) {
     .eq('status', 'published')
     .neq('slug', currentSlug)
     .overlaps('tags', tags)
-    .limit(3);
+    .limit(6);
 
   return data || [];
 }
 
-/** 동적 메타데이터 생성 */
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { slug } = await params;
   if (!isValidBlogSlug(slug)) {
     return { title: '페이지를 찾을 수 없습니다', robots: { index: false, follow: false } };
   }
   const post = await getBlogPost(slug);
-
-  if (!post) return { title: '페이지를 찾을 수 없습니다' };
+  if (!post) return { title: '페이지를 찾을 수 없습니다', robots: { index: false, follow: false } };
 
   const title = post.meta_title || post.title;
   const description = post.meta_description || post.description;
@@ -77,9 +68,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     keywords: [post.target_keyword, ...(post.secondary_keywords || [])].join(', '),
     authors: [{ name: siteConfig.serviceName }],
     openGraph: {
-      title,
-      description,
-      url,
+      title, description, url,
       siteName: siteConfig.serviceName,
       type: 'article',
       locale: 'ko_KR',
@@ -91,19 +80,16 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     twitter: { card: 'summary_large_image', title, description, images: [ogImageUrl] },
     alternates: { canonical: url },
     robots: {
-      index: true,
-      follow: true,
+      index: true, follow: true,
       googleBot: { index: true, follow: true, 'max-video-preview': -1, 'max-image-preview': 'large', 'max-snippet': -1 },
     },
   };
 }
 
-/** 블로그 상세 페이지 컴포넌트 */
 async function BlogPostPage({ params }: PageProps) {
   const { slug } = await params;
   if (!isValidBlogSlug(slug)) notFound();
   const post = await getBlogPost(slug);
-
   if (!post) notFound();
 
   const [relatedPosts, htmlContent] = await Promise.all([
@@ -112,8 +98,6 @@ async function BlogPostPage({ params }: PageProps) {
   ]);
 
   const tocItems = extractTOCItems(htmlContent);
-
-  /** Schema.org 구조화 데이터 생성 */
   const allSchemas = [
     { id: 'article-schema', data: createArticleSchema(post, slug) },
     { id: 'faq-schema', data: createFAQSchema(post.faq_items || []) },
@@ -123,14 +107,10 @@ async function BlogPostPage({ params }: PageProps) {
 
   return (
     <>
-      {/* Schema.org JSON-LD */}
       <SchemaScripts schemas={schemas} />
-
-      {/* 읽기 진행도 바 */}
       <ReadingProgress />
 
       <div className="relative min-h-screen pt-20 pb-16">
-        {/* 브레드크럼 네비게이션 */}
         <div className="max-w-7xl mx-auto px-5 md:px-6 lg:px-4 mb-8">
           <Link href="/blog" className="inline-flex items-center gap-2 text-sm text-slate-400 hover:text-emerald-400 transition-colors">
             <ArrowLeft className="w-4 h-4" />
@@ -138,13 +118,10 @@ async function BlogPostPage({ params }: PageProps) {
           </Link>
         </div>
 
-        {/* 메인 레이아웃: 콘텐츠 + 목차 사이드바 */}
         <div className="max-w-7xl mx-auto px-5 md:px-6 lg:px-4">
           <div className="lg:grid lg:grid-cols-[1fr_280px] lg:gap-16 xl:gap-20">
-            {/* 메인 콘텐츠 */}
             <main>
               <article>
-                {/* 글 헤더 */}
                 <header className="mb-10">
                   <span className="inline-block px-3 py-1 mb-4 text-sm font-medium rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
                     Stock Matrix
@@ -154,7 +131,6 @@ async function BlogPostPage({ params }: PageProps) {
                     {post.title}
                   </h1>
 
-                  {/* 메타 정보 */}
                   <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-slate-400 mb-6">
                     <span className="flex items-center gap-1.5">
                       <Calendar className="w-4 h-4" />
@@ -162,34 +138,30 @@ async function BlogPostPage({ params }: PageProps) {
                     </span>
                   </div>
 
-                  {/* 태그 */}
                   {post.tags && post.tags.length > 0 && (
                     <div className="flex flex-wrap gap-2">
                       {post.tags.map((tag) => (
-                        <span key={tag} className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-md bg-slate-800/80 text-slate-300 border border-slate-700/50">
+                        <Link
+                          key={tag}
+                          href={`/blog/tag/${encodeURIComponent(tag)}`}
+                          className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-md bg-slate-800/80 text-slate-300 border border-slate-700/50 hover:border-emerald-500/40 hover:bg-slate-800 transition-colors"
+                        >
                           <Tag className="w-3 h-3" />
                           {tag}
-                        </span>
+                        </Link>
                       ))}
                     </div>
                   )}
                 </header>
 
-                {/* 모바일 목차 */}
                 <div className="lg:hidden">
                   <TableOfContents items={tocItems} variant="mobile" />
                 </div>
 
-                {/* 글 본문 */}
                 <div className="prose-article" dangerouslySetInnerHTML={{ __html: htmlContent }} />
-
-                {/* FAQ 섹션 */}
                 <FAQAccordion items={post.faq_items || []} />
-
-                {/* CTA 섹션 */}
                 <CTASection />
 
-                {/* 관련 글 */}
                 {relatedPosts.length > 0 && (
                   <section className="mt-16 pt-10 border-t border-slate-800">
                     <h2 className="text-xl font-bold mb-6 text-white">관련 글</h2>
@@ -211,7 +183,6 @@ async function BlogPostPage({ params }: PageProps) {
               </article>
             </main>
 
-            {/* 데스크톱 목차 사이드바 */}
             <aside className="hidden lg:block">
               <TableOfContents items={tocItems} variant="desktop" />
             </aside>
@@ -226,7 +197,6 @@ export default BlogPostPage;
 
 export const revalidate = 3600;
 
-/** 빌드 시 전체 블로그 포스트 정적 생성 */
 export async function generateStaticParams() {
   try {
     const supabase = getServerSupabaseClient();
@@ -236,14 +206,9 @@ export async function generateStaticParams() {
       .eq('status', 'published')
       .order('published_at', { ascending: false });
 
-    if (error) {
-      console.error('[generateStaticParams] Database query failed:', error);
-      return [];
-    }
-
+    if (error) return [];
     return data?.map((post) => ({ slug: post.slug })) || [];
-  } catch (error) {
-    console.error('[generateStaticParams] Unexpected error:', error);
+  } catch {
     return [];
   }
 }
