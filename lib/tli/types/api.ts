@@ -84,6 +84,8 @@ export interface ThemeListItem {
   newsCount7d: number;
   /** 최근 감성 점수 (0=중립, >0=긍정, <0=부정) */
   sentimentScore: number;
+  /** 관련주 평균 등락률 (%) — null이면 데이터 없음 */
+  avgStockChange: number | null;
 }
 
 /** 테마 상세 정보 */
