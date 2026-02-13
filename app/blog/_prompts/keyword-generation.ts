@@ -1,18 +1,14 @@
-// AI 키워드 생성 프롬프트 빌더
-
 import {
   CONTENT_TYPE_RULES,
   FEW_SHOT_EXAMPLES,
+  KEYWORD_ANGLES,
   MAX_SEARCH_VOLUME,
   TOPIC_BUCKETS,
   SEARCH_QUERY_GUIDELINES,
 } from './keyword-prompt-constants';
 import type { CompetitorKeyword } from './keyword-validation';
 import type { TLIContext } from '../_services/tli-context';
-import { formatTLIForPrompt } from '../_services/tli-context';
-
-export { validateKeywordMetadata, calculateSEOScore } from './keyword-validation';
-export type { CompetitorKeyword } from './keyword-validation';
+import { formatTLIForPrompt } from './tli-formatter';
 
 /** AI 키워드 생성 프롬프트 빌더 */
 export function buildKeywordGenerationPrompt(
@@ -27,18 +23,11 @@ export function buildKeywordGenerationPrompt(
     : '(없음 - 첫 생성)';
 
   const existingTitlesList = existingTitles && existingTitles.length > 0
-    ? existingTitles.map((t, i) => `${i + 1}. ${t}`).join('\n')
+    ? existingTitles.slice(-50).map((t, i) => `${i + 1}. ${t}`).join('\n')
     : '(없음 - 첫 생성)';
 
-  const minDistinctContentTypes = count >= 5 ? Math.min(4, Math.ceil(count * 0.6)) : 2;
-  const minDistinctTopicAreas = count >= 5 ? Math.min(4, Math.ceil(count * 0.5)) : 2;
-
   const diversityRequirement = count >= 5
-    ? [
-        `최소 ${minDistinctContentTypes}개는 서로 다른 contentType을 가져야 합니다.`,
-        `최소 ${minDistinctTopicAreas}개는 서로 다른 topicArea를 가져야 합니다.`,
-        `theme(테마/이슈) topicArea를 최우선으로 사용하세요.`,
-      ].join(' ')
+    ? `최소 ${Math.min(4, Math.ceil(count * 0.6))}개는 서로 다른 contentType을 가져야 합니다. 최소 ${Math.min(4, Math.ceil(count * 0.5))}개는 서로 다른 topicArea를 가져야 합니다. theme(테마/이슈) topicArea를 최우선으로 사용하세요.`
     : '가능한 다양한 contentType과 topicArea를 포함하세요.';
 
   const competitorKeywordsSection = competitorKeywords && competitorKeywords.length > 0
@@ -56,21 +45,19 @@ ${competitorKeywords.slice(0, 15).map((kw, i) => `${i + 1}. "${kw.keyword}" (${k
 </competitor-keywords-analysis>`
     : '';
 
-  // TLI 컨텍스트 섹션
-  const themeCount = Math.ceil(count * 0.8);
-  const evergreenCount = count - themeCount;
   const tliSection = tliContext && !tliContext.isEmpty
     ? `
 <tli-market-context>
 ${formatTLIForPrompt(tliContext)}
 
 **TLI 데이터 활용 규칙 (최우선):**
-- 전체 ${count}개 중 **최소 ${themeCount}개**는 위 테마/종목을 활용한 키워드를 생성하세요 (topicArea: "theme")
-- 나머지 **최대 ${evergreenCount}개**는 일반 투자 주제 (에버그린 콘텐츠)
+- 전체 ${count}개 중 **최소 ${Math.ceil(count * 0.8)}개**는 위 테마/종목을 활용한 키워드를 생성하세요 (topicArea: "theme")
+- 나머지 **최대 ${count - Math.ceil(count * 0.8)}개**는 일반 투자 주제 (에버그린 콘텐츠)
 - 테마명은 그대로 사용 (예: "2차전지 관련주"), 종목명도 그대로 사용 (예: "삼성전자 실적")
 - Growth/Reigniting 테마를 우선 활용하세요
-- 같은 테마에서 최대 2개 키워드까지만 허용
-</tli-market-context>`
+- 같은 테마에서 최대 3개 키워드까지 허용 (각각 다른 각도 필수 - 아래 keyword-angles 참조)
+</tli-market-context>
+${KEYWORD_ANGLES}`
     : '';
 
   return `<system>
@@ -96,39 +83,24 @@ ${tliSection}
 Stock Matrix 블로그를 위한 고품질 SEO 키워드 ${count}개를 생성하세요.
 목표는 "검색 유입"이며, 각 키워드는 사용자가 실제로 검색창에 입력하는 **검색 쿼리** 형태여야 합니다.
 현재 시장에서 실제로 관심받는 테마와 종목을 기반으로 시의성 있는 키워드를 생성하세요.
+같은 테마라도 전망/관련주/비교/ETF/초보가이드 등 다양한 각도를 활용하여 키워드 풀을 극대화하세요.
 후킹은 키워드가 아닌 콘텐츠 제목에서 처리하므로, 키워드는 검색 가능성에 집중하세요.
 </task>
 
 <analysis-framework>
 각 키워드 생성 시 다음 5단계 분석을 수행하세요:
 
-## Step 1: 검색 의도 분석
-- informational: 정보/지식 습득 목적 (가중치: 1.2x)
-- commercial: 구매/선택 전 비교 조사 (가중치: 1.1x)
-- transactional: 즉각적 행동/구매 의도 (가중치: 0.9x)
-- navigational: 특정 사이트/페이지 탐색 (가중치: 0.7x)
+## Step 1: 검색 의도 분석 (informational: 1.2x | commercial: 1.1x | transactional: 0.9x | navigational: 0.7x)
 
-## Step 2: 난이도 평가
-- low: 롱테일, 틈새 키워드 (가중치: 1.3x)
-- medium: 적정 경쟁, 기회 존재 (가중치: 1.0x)
-- high: 대형 사이트 경쟁 심함 (가중치: 0.7x)
+## Step 2: 난이도 평가 (low 롱테일: 1.3x | medium 적정: 1.0x | high 경쟁심함: 0.7x)
 
-## Step 3: 검색량 추정
-- optimal zone: 500-1500 (가중치: 1.2x) - 우선 타겟
-- good zone: 100-500 (가중치: 1.0x)
-- low zone: <100 (가중치: 0.6x) - 피할 것
-- high zone: >3000 (가중치: 0.8x) - 경쟁 과열
+## Step 3: 검색량 추정 (optimal 500-1500: 1.2x | good 100-500: 1.0x | low <100: 0.6x 피할것 | high >3000: 0.8x)
 
 ## Step 4: 콘텐츠 타입 매칭
 ${CONTENT_TYPE_RULES}
 
 ## Step 5: 관련성 점수 산정 (0-10점)
-- 주식 투자/분석 관련: +3점
-- 실용적 정보 제공: +2점
-- 한국 시장 관련: +2점
-- 검색 수요 높음: +2점
-- 시의성 (트렌딩 테마/종목): +1점 (보너스)
-
+주식투자/분석: +3 | 실용정보: +2 | 한국시장: +2 | 검색수요: +2 | 시의성 보너스: +1
 ${SEARCH_QUERY_GUIDELINES}
 </analysis-framework>
 
@@ -183,41 +155,25 @@ ${existingTitlesList}
 ${competitorKeywordsSection}
 
 <output-schema>
-반드시 다음 JSON 스키마를 준수하세요:
-
 \`\`\`typescript
 interface KeywordMetadata {
   keyword: string;           // 한국어 SEO 키워드 (2+ 단어, 40자 이내)
   searchIntent: 'informational' | 'commercial' | 'transactional' | 'navigational';
   difficulty: 'low' | 'medium' | 'high';
-  estimatedSearchVolume: number;  // 100-${MAX_SEARCH_VOLUME} 범위
-  relevanceScore: number;         // 7.5-10.0 범위
+  estimatedSearchVolume: number;  // 100-${MAX_SEARCH_VOLUME}
+  relevanceScore: number;         // 7.5-10.0
   contentType: 'comparison' | 'guide' | 'listicle' | 'review';
   topicArea: 'technical' | 'value' | 'strategy' | 'market' | 'discovery' | 'psychology' | 'education' | 'execution' | 'theme';
   reasoning: string;              // 50자 이상 근거 설명
 }
 \`\`\`
-
-출력 형식:
-\`\`\`json
-[
-  { ... },
-  { ... }
-]
-\`\`\`
+출력: JSON 배열만 (\`[{ ... }, { ... }]\`). 설명 텍스트 없음.
 </output-schema>
 
 <self-validation>
-출력 전 다음을 확인하세요:
-- 정확히 ${count}개의 키워드가 있는가?
-- 제외 키워드와 중복되는 것이 없는가?
-- estimatedSearchVolume이 100-${MAX_SEARCH_VOLUME} 범위인가?
-- reasoning이 구체적이고 50자 이상인가?
-- JSON 형식이 올바른가?
-- topicArea가 누락되지 않았는가?
-- 키워드가 40자 이내의 실제 검색 쿼리 형태인가?
-- 80% 이상이 테마/종목 기반 키워드인가?
+출력 전 확인: (1) 정확히 ${count}개 (2) 제외 키워드 미중복 (3) searchVolume 100-${MAX_SEARCH_VOLUME}
+(4) reasoning 50자+ (5) 유효 JSON (6) topicArea 필수 (7) 40자 이내 검색 쿼리 (8) 80%+ 테마/종목 기반
 </self-validation>
 
-**JSON 배열만 출력하세요. 다른 텍스트는 포함하지 마세요.**`;
+**JSON 배열만 출력하세요.**`;
 }
