@@ -50,8 +50,8 @@ async function getUsedContent(): Promise<UsedContent> {
   const days30Ago = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
 
   const [titlesRes, recentRes, shortTermRes] = await Promise.all([
-    // 전체 제목 (중복 방지용)
-    supabase.from('blog_posts').select('title').not('title', 'is', null),
+    // 전체 제목 (중복 방지용) — Supabase 기본 1000행 제한 방지
+    supabase.from('blog_posts').select('title').not('title', 'is', null).limit(5000),
     // 90일 이내 target_keyword
     supabase.from('blog_posts')
       .select('target_keyword')
@@ -62,6 +62,11 @@ async function getUsedContent(): Promise<UsedContent> {
       .select('secondary_keywords')
       .gte('created_at', days30Ago),
   ]);
+
+  // Supabase 쿼리 에러 감지 (조용한 실패 방지)
+  if (titlesRes.error) console.error('[KeywordGenerator] 제목 조회 실패:', titlesRes.error.message);
+  if (recentRes.error) console.error('[KeywordGenerator] target_keyword 조회 실패:', recentRes.error.message);
+  if (shortTermRes.error) console.error('[KeywordGenerator] secondary_keywords 조회 실패:', shortTermRes.error.message);
 
   const allKeywords = new Set<string>();
   const allTitles: string[] = [];
