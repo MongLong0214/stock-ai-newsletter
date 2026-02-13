@@ -5,7 +5,7 @@ import {
   FEW_SHOT_EXAMPLES,
   MAX_SEARCH_VOLUME,
   TOPIC_BUCKETS,
-  HOOKING_TRIGGERS,
+  SEARCH_QUERY_GUIDELINES,
 } from './keyword-prompt-constants';
 import type { CompetitorKeyword } from './keyword-validation';
 
@@ -73,8 +73,8 @@ ${TOPIC_BUCKETS}
 
 <task>
 Stock Matrix 블로그를 위한 고품질 SEO 키워드 ${count}개를 생성하세요.
-목표는 "검색 유입"이며, 각 키워드는 클릭을 유도할 수 있는 **후킹(hooking) 요소**를 반드시 포함해야 합니다.
-단, 과장/낚시성 표현이 아니라 사용자가 실제로 얻을 수 있는 정보가 명확한 "정직한 후킹"이어야 합니다.
+목표는 "검색 유입"이며, 각 키워드는 사용자가 실제로 Google/Naver 검색창에 입력하는 자연어 검색 쿼리 형태여야 합니다.
+블로그 제목이나 후킹 문구가 아닌, 검색 가능한 롱테일 키워드를 생성하세요.
 </task>
 
 <analysis-framework>
@@ -107,11 +107,10 @@ ${CONTENT_TYPE_RULES}
 - 검색 수요 높음: +2점
 - 초보-중급 투자자 타겟: +1점
 
-**키워드 다양성 + 강력한 후킹 (최우선)**:
+**키워드 다양성 (최우선)**:
 - 다양한 주제 영역에서 키워드를 생성해야 함 (특정 주제 편중 금지)
-- 각 키워드는 반드시 아래 "후킹 트리거" 중 **2개 이상 조합**해야 함 (필수)
 
-${HOOKING_TRIGGERS}
+${SEARCH_QUERY_GUIDELINES}
 </analysis-framework>
 
 <few-shot-learning>
@@ -127,8 +126,8 @@ ${FEW_SHOT_EXAMPLES}
 4. 모든 항목에 topicArea를 반드시 포함할 것
 5. 동일 topicArea는 최대 2개까지만 허용 (count가 5 이상인 경우)
 6. 서로 유사한 문장(표현만 바꾼 반복) 금지
-6-1. 각 키워드는 후킹 트리거 **2개 이상 조합** 필수
 7. ${diversityRequirement}
+8. 각 키워드는 40자 이내의 검색 가능한 자연어 쿼리여야 함
 
 ## 금지 사항
 1. 제외 키워드와 동일/유사(의미상 유사 포함)한 키워드 생성 금지
@@ -141,7 +140,7 @@ ${FEW_SHOT_EXAMPLES}
 - 롱테일 비율: 70% 이상 (3개+ 단어 조합)
 - contentType 근거: 트리거 단어 기반 매칭 필수
 - 주제 다양성: 최소 3개 이상의 다른 주제 영역 포함
-- 후킹 요소: 각 키워드에 후킹 트리거 1개 이상 포함
+- 검색 가능성: 각 키워드를 구글에 검색했을 때 관련 결과가 나올 수 있는 자연어 쿼리
 </constraints>
 
 <excluded-keywords>
