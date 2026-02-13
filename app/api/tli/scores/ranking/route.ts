@@ -64,7 +64,7 @@ export async function GET() {
     // --- 맵 구성 (O(n) 단일 패스) ---
 
     const scoreMetaByTheme = buildScoreMetaMap(scores, sevenDaysAgo)
-    const { stockCountMap, stockNamesMap, newsCountMap } = buildCountMaps(stocksList, newsList)
+    const { stockCountMap, stockNamesMap, avgStockChangeMap, newsCountMap } = buildCountMaps(stocksList, newsList)
 
     // --- ThemeListItem 조합 ---
 
@@ -94,6 +94,7 @@ export async function GET() {
         sparkline: meta?.sparkline ?? [],
         newsCount7d: newsCountMap.get(theme.id) ?? 0,
         sentimentScore,
+        avgStockChange: avgStockChangeMap.get(theme.id) ?? null,
       }
     })
 
