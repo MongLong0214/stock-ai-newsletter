@@ -1,5 +1,4 @@
 import type { Metadata } from 'next';
-import Script from 'next/script';
 import { getServerSupabaseClient } from '@/lib/supabase/server-client';
 import { siteConfig } from '@/lib/constants/seo/config';
 import AnimatedBackground from '@/components/animated-background';
@@ -29,11 +28,10 @@ async function BlogPage() {
 
   return (
     <>
-      <Script
+      <script
         id="blog-collection-schema"
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(collectionSchema) }}
-        strategy="beforeInteractive"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(collectionSchema).replace(/</g, '\\u003c') }}
       />
 
       {/* 배경 애니메이션 */}
