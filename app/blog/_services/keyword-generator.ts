@@ -39,43 +39,53 @@ interface UsedContent {
   titles: string[];
 }
 
-/** 기존 블로그 포스트에서 사용된 키워드/제목 조회 */
+/** 롤링 윈도우 기반 사용 키워드/제목 조회 (고갈 방지) */
 async function getUsedContent(): Promise<UsedContent> {
   const supabase = getServerSupabaseClient();
-  const { data, error } = await supabase
-    .from('blog_posts')
-    .select('title, target_keyword, secondary_keywords, tags')
-    .not('target_keyword', 'is', null);
 
-  if (error) {
-    console.error('[KeywordGenerator] 조회 실패:', error);
-    return { keywords: [], titles: [] };
-  }
+  // 제목: 전체 조회 (중복 방지)
+  // 키워드: target_keyword 90일, secondary_keywords 30일, tags 제외
+  const now = new Date();
+  const days90Ago = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000).toISOString();
+  const days30Ago = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
+
+  const [titlesRes, recentRes, shortTermRes] = await Promise.all([
+    // 전체 제목 (중복 방지용)
+    supabase.from('blog_posts').select('title').not('title', 'is', null),
+    // 90일 이내 target_keyword
+    supabase.from('blog_posts')
+      .select('target_keyword')
+      .not('target_keyword', 'is', null)
+      .gte('created_at', days90Ago),
+    // 30일 이내 secondary_keywords
+    supabase.from('blog_posts')
+      .select('secondary_keywords')
+      .gte('created_at', days30Ago),
+  ]);
 
   const allKeywords = new Set<string>();
   const allTitles: string[] = [];
 
-  data.forEach((post) => {
-    if (post.title) {
-      allTitles.push(post.title.trim());
-    }
+  (titlesRes.data ?? []).forEach((post) => {
+    if (post.title) allTitles.push(post.title.trim());
+  });
 
+  (recentRes.data ?? []).forEach((post) => {
     if (post.target_keyword) {
       allKeywords.add(post.target_keyword.toLowerCase().trim());
     }
+  });
 
+  (shortTermRes.data ?? []).forEach((post) => {
     if (Array.isArray(post.secondary_keywords)) {
       post.secondary_keywords.forEach((kw: string) => {
         if (kw) allKeywords.add(kw.toLowerCase().trim());
       });
     }
-
-    if (Array.isArray(post.tags)) {
-      post.tags.forEach((tag: string) => {
-        if (tag) allKeywords.add(tag.toLowerCase().trim());
-      });
-    }
   });
+
+  // tags 제외: "주식", "투자" 같은 범용 태그가 키워드 공간 낭비
+  console.log(`[KeywordGenerator] 롤링 윈도우: target(90d) ${recentRes.data?.length ?? 0}개, secondary(30d) ${shortTermRes.data?.length ?? 0}개, 제목 ${allTitles.length}개`);
 
   return { keywords: Array.from(allKeywords), titles: allTitles };
 }
