@@ -10,6 +10,7 @@
     "send-newsletter": "tsx scripts/send-newsletter.ts",
     "test-twitter": "tsx scripts/test-twitter.ts",
     "generate-blog": "tsx scripts/generate-blog-post.ts",
+    "generate-blog-multi": "tsx scripts/llm-hunt-blogs/index.ts",
     "test": "vitest run",
     "test:watch": "vitest"
   },
