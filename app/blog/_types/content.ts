@@ -34,6 +34,8 @@ export interface GeneratedContent {
   headings: string[];
   faqItems: FAQItem[];
   suggestedTags: string[];
+  /** 품질 점수 (0-100, content-generator에서 계산) */
+  qualityScore?: number;
 }
 
 export interface SerpSearchResult {
