@@ -1,6 +1,61 @@
 {
   "newsletters": [
     {
+      "date": "2026-02-16",
+      "stocks": [
+        {
+          "ticker": "KOSDAQ:191170",
+          "name": "알테오젠",
+          "close_price": 382000,
+          "rationale": "SMA 5/20/60/120일선 완전정배열 확인|EMA 12-26일선 강세 골든크로스 유지|RSI(14) 62.47로 과매수권 진입 전 추가 상승 여력 충분|MACD 히스토그램 3일 연속 확장세|거래량비율(VR) 142.3%로 건전한 자금 유입|볼린저밴드 상단(395,000원) 접근율 72%로 변동성 확대|ATR(14) 14,500원(3.8%)으로 적정 변동성 범위 내 위치|ADX 28.52로 강력한 상승 추세 강화 구간|OBV(On-Balance Volume) 직전 고점 돌파하며 우상향|Stochastic(12,3,3) K-D선 80 하단에서 골든크로스 발생|Williams %R -28.4로 강세 구간 안착|Ichimoku 구름대 상단 지지 후 상향 돌파 성공|SuperTrend 매수 신호 유지 및 지지선 상향|Aroon Up 92.8로 추세 지속성 매우 높음|Vortex VI+ 1.28로 상승 압력이 하락 압력을 압도함",
+          "signals": {
+            "trend_score": 93,
+            "momentum_score": 98,
+            "volume_score": 100,
+            "volatility_score": 98,
+            "pattern_score": 95,
+            "sentiment_score": 94,
+            "overall_score": 96
+          },
+          "verified_date": "2026-02-13"
+        },
+        {
+          "ticker": "KOSDAQ:028300",
+          "name": "HLB",
+          "close_price": 51100,
+          "rationale": "단기/중기 이평선 밀집 후 상향 발산형 패턴 형성|EMA 5일선이 20일선을 상향 돌파하는 정배열 초입|RSI(14) 59.82로 중립 이상의 강력한 매수세 유입|MACD 0선 돌파 및 Signal선과의 이격 확대|전일 거래량 대비 128.5% 증가하며 바닥권 탈출 신호|볼린저밴드 상단 돌파 시도로 변동성 상단 개방|ATR(14) 2,600원(5.1%)으로 탄력적인 주가 움직임 예상|OBV 지표 급증하며 강력한 손바뀜 현상 포착|Williams %R -22.15로 과매수 전 단계의 적정 강세|CCI(20) 135.4로 강력한 가격 모멘텀 확보 확인|MFI(Money Flow Index) 72.58로 실질적 자금 유입 증명|Aroon Up 100 도달로 완벽한 단기 상승 추세 진입|Elder Ray Bull Power 양수 전환 및 최고치 경신|KST(Know Sure Thing) 지표 저점 부근 골든크로스|Vortex VI+ 1.35로 시장 내 지배적인 매수 우위",
+          "signals": {
+            "trend_score": 89,
+            "momentum_score": 99,
+            "volume_score": 99,
+            "volatility_score": 97,
+            "pattern_score": 95,
+            "sentiment_score": 94,
+            "overall_score": 95
+          },
+          "verified_date": "2026-02-13"
+        },
+        {
+          "ticker": "KOSDAQ:257720",
+          "name": "실리콘투",
+          "close_price": 43000,
+          "rationale": "SMA 20일 이평선 터치 후 강력한 지지 반등 확인|EMA 10일선과 20일선 데드크로스 회피 후 재정배열|RSI(14) 55.24로 조정 후 재상승 적기 구간|MACD 0선 상단에서 Signal선 지지 후 반등 시도|거래량비율(VR) 115.8%로 안정적 우상향 추세|볼린저밴드 중심선(20일선) 지지력 재확인 완료|ATR(14) 1,800원(4.2%)으로 고변동성 구간 진입 준비|ADX 22.45로 새로운 추세 형성 초입 단계 진입|OBV 매집 패턴 유지하며 매물 소화 마무리 단계|Stochastic %K선이 %D선을 돌파하는 과매도 탈출 신호|Parabolic SAR 매수 전환 신호 발생 2일차 유지|SuperTrend 장기 지지선 위에서 안정적 흐름|VWAP(42,850원) 상회하며 기관/외인 평균 단가 돌파|Aroon 상승 지표가 하락 지표를 교차하며 우위 점함|Chaikin Oscillator 양수 전환으로 자금 유입 가속화",
+          "signals": {
+            "trend_score": 90,
+            "momentum_score": 93,
+            "volume_score": 92,
+            "volatility_score": 96,
+            "pattern_score": 85,
+            "sentiment_score": 86,
+            "overall_score": 90
+          },
+          "verified_date": "2026-02-13"
+        }
+      ],
+      "sentAt": "2026-02-15T22:55:29.779+00:00",
+      "subscriberCount": 148
+    },
+    {
       "date": "2026-02-13",
       "stocks": [
         {
@@ -4089,5 +4144,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-02-12T23:05:30.520Z"
+  "lastUpdated": "2026-02-15T22:56:04.177Z"
 }
