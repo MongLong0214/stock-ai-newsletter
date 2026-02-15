@@ -14,16 +14,16 @@ let warnedMissing = false;
 function getAuth(): GoogleAuth | null {
   if (authInstance) return authInstance;
 
-  if (!process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+  try {
+    authInstance = new GoogleAuth({ scopes: SCOPES });
+    return authInstance;
+  } catch (e) {
     if (!warnedMissing) {
-      console.warn('[Google Indexing] GOOGLE_APPLICATION_CREDENTIALS 미설정 — 건너뜀');
+      console.warn('[Google Indexing] 인증 초기화 실패 — 건너뜀:', e instanceof Error ? e.message : String(e));
       warnedMissing = true;
     }
     return null;
   }
-
-  authInstance = new GoogleAuth({ scopes: SCOPES });
-  return authInstance;
 }
 
 // --- 지수 백오프 재시도 ---

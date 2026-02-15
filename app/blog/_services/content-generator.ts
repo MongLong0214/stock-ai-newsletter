@@ -170,6 +170,7 @@ export async function generateBlogContent(
         throw new Error(`품질 점수 미달 (${qualityScore}/100 < 60)`);
       }
 
+      content.qualityScore = qualityScore;
       console.log(`[Gemini] 생성 완료 (${Date.now() - attemptStartTime}ms, Q=${qualityScore})`);
       return content;
     } catch (error) {
