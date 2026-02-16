@@ -1,6 +1,61 @@
 {
   "newsletters": [
     {
+      "date": "2026-02-17",
+      "stocks": [
+        {
+          "ticker": "KOSPI:042700",
+          "name": "한미반도체",
+          "close_price": 203500,
+          "rationale": "EMA20 이평선 지지 확인|RSI(14) 51.42 중립 상향|MACD 1250 시그널 상향 돌파|Williams %R -32.1 건전한 조정 구간|2026-02-13 거래량 84.2만주 안정화|볼린저밴드 중심선 부근 안착|ATR 7100 적정 변동성 유지|ADX 24.8 추세 강화 신호|HBM4 TC본더 독점적 공급 가시화|기관 및 외국계 창구 매수 우위|52주 최고가 224,500원 대비 10% 이격|AI 반도체 공정 혁신 수혜 모멘텀",
+          "signals": {
+            "trend_score": 92,
+            "momentum_score": 88,
+            "volume_score": 85,
+            "volatility_score": 82,
+            "pattern_score": 90,
+            "sentiment_score": 91,
+            "overall_score": 88
+          },
+          "verified_date": "2026-02-13"
+        },
+        {
+          "ticker": "KOSPI:402340",
+          "name": "SK스퀘어",
+          "close_price": 558000,
+          "rationale": "SMA 50일선 기술적 반등 성공|RSI 50.0 바닥 확인 후 골든크로스|MACD 히스토그램 양전환 임박|Williams %R -44.4 과매도 해소 단계|2026-02-13 거래량 45.7만주(전일 대비 안정)|볼린저밴드 하단 지지력 확인|ATR 15800 변동성 확대 구간|ADX 21.5 추세 반전 신호|SK하이닉스 지분가치 70조원 상회|정부 밸류업 프로그램 핵심 수혜주|자사주 소각 및 주주환원 기대감|기관 수급 지속 유입세 확인",
+          "signals": {
+            "trend_score": 89,
+            "momentum_score": 91,
+            "volume_score": 87,
+            "volatility_score": 85,
+            "pattern_score": 88,
+            "sentiment_score": 92,
+            "overall_score": 89
+          },
+          "verified_date": "2026-02-13"
+        },
+        {
+          "ticker": "KOSPI:005380",
+          "name": "현대차",
+          "close_price": 499000,
+          "rationale": "박스권 상단 돌파 시도|RSI 54.8 강세장 진입 구간|MACD 3400 매수 시그널 유지|Williams %R -28.2 건전한 매수 우위|2026-02-13 종가 기준 5일선 상회|볼린저밴드 상단 확산 추세|ATR 6400 안정적 흐름|ADX 22.1 점진적 상승|인도 법인 상장 및 구주 매출 기대|미국 자동차 관세 불확실성 해소 국면|HEV 판매 비중 확대로 수익성 개선|자율주행 및 SDV 기술력 부각",
+          "signals": {
+            "trend_score": 91,
+            "momentum_score": 87,
+            "volume_score": 84,
+            "volatility_score": 80,
+            "pattern_score": 89,
+            "sentiment_score": 93,
+            "overall_score": 88
+          },
+          "verified_date": "2026-02-13"
+        }
+      ],
+      "sentAt": "2026-02-16T22:57:47.218+00:00",
+      "subscriberCount": 149
+    },
+    {
       "date": "2026-02-16",
       "stocks": [
         {
@@ -4144,5 +4199,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-02-15T23:04:00.064Z"
+  "lastUpdated": "2026-02-16T22:58:19.689Z"
 }
