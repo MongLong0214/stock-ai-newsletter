@@ -60,7 +60,6 @@ describe('calculateLifecycleScore', () => {
       newsMetrics: news,
       firstSpikeDate: '2025-10-01',
       today: '2026-01-10',
-      sentimentScores: [0.8, 0.9, 1.0],
     })
     expect(result).not.toBeNull()
     expect(result!.score).toBeLessThanOrEqual(100)
@@ -124,19 +123,7 @@ describe('calculateLifecycleScore', () => {
     expect(result!.components.news_momentum).toBeLessThanOrEqual(0.5)
   })
 
-  it('returns 0.5 sentiment when no sentiment data', () => {
-    const interest = Array.from({ length: 5 }, (_, i) => makeInterestMetric(i, 50))
-    const result = calculateLifecycleScore({
-      interestMetrics: interest,
-      newsMetrics: [],
-      firstSpikeDate: null,
-      today: '2026-01-10',
-    })
-    expect(result).not.toBeNull()
-    expect(result!.components.sentiment_score).toBe(0.5)
-  })
-
-  it('uses correct SCORE_WEIGHTS (0.40, 0.25, 0.20, 0.15)', () => {
+  it('uses correct SCORE_WEIGHTS (0.50, 0.30, 0.20)', () => {
     const interest = Array.from({ length: 5 }, (_, i) => makeInterestMetric(i, 50))
     const result = calculateLifecycleScore({
       interestMetrics: interest,
@@ -146,10 +133,9 @@ describe('calculateLifecycleScore', () => {
     })
     expect(result).not.toBeNull()
     const w = result!.components.weights
-    expect(w.interest).toBe(0.4)
-    expect(w.news).toBe(0.25)
-    expect(w.sentiment).toBe(0.2)
-    expect(w.volatility).toBe(0.15)
+    expect(w.interest).toBe(0.50)
+    expect(w.news).toBe(0.30)
+    expect(w.volatility).toBe(0.20)
   })
 
   it('reduces volatility score when noise detected (high CV + low percentile)', () => {
@@ -178,6 +164,93 @@ describe('calculateLifecycleScore', () => {
     expect(normal).not.toBeNull()
     // 노이즈 감지 시 volatilityScore가 0.3배로 줄어듦
     expect(noisy!.components.volatility_score).toBeLessThan(normal!.components.volatility_score)
+  })
+
+  it('returns confidence based on data coverage', () => {
+    // Low confidence: only 3 days of interest data
+    const low = calculateLifecycleScore({
+      interestMetrics: Array.from({ length: 3 }, (_, i) => makeInterestMetric(i, 50)),
+      newsMetrics: [],
+      firstSpikeDate: null,
+      today: '2026-01-10',
+    })
+    expect(low).not.toBeNull()
+    expect(low!.confidence.level).toBe('low')
+
+    // Medium confidence: 10 days interest, some news
+    const medium = calculateLifecycleScore({
+      interestMetrics: Array.from({ length: 10 }, (_, i) => makeInterestMetric(i, 50)),
+      newsMetrics: Array.from({ length: 7 }, (_, i) => makeNewsMetric(i, 3)),
+      firstSpikeDate: '2025-12-01',
+      today: '2026-01-10',
+    })
+    expect(medium).not.toBeNull()
+    expect(medium!.confidence.level).toBe('medium')
+
+    // High confidence: 30 days interest, 14 days news
+    const high = calculateLifecycleScore({
+      interestMetrics: Array.from({ length: 30 }, (_, i) => makeInterestMetric(i, 50)),
+      newsMetrics: Array.from({ length: 14 }, (_, i) => makeNewsMetric(i, 5)),
+      firstSpikeDate: '2025-12-01',
+      today: '2026-01-10',
+    })
+    expect(high).not.toBeNull()
+    expect(high!.confidence.level).toBe('high')
+  })
+
+  it('confidence boundary: exactly 14 interest + high coverage → high', () => {
+    const result = calculateLifecycleScore({
+      interestMetrics: Array.from({ length: 14 }, (_, i) => makeInterestMetric(i, 50)),
+      newsMetrics: Array.from({ length: 14 }, (_, i) => makeNewsMetric(i, 5)),
+      firstSpikeDate: '2025-12-01', today: '2026-01-10',
+    })
+    // coverage = (14/30)*0.6 + (14/14)*0.4 = 0.28+0.4 = 0.68 < 0.7 → medium
+    expect(result!.confidence.level).toBe('medium')
+  })
+
+  it('confidence boundary: 13 interest → medium not high', () => {
+    const result = calculateLifecycleScore({
+      interestMetrics: Array.from({ length: 13 }, (_, i) => makeInterestMetric(i, 50)),
+      newsMetrics: Array.from({ length: 14 }, (_, i) => makeNewsMetric(i, 5)),
+      firstSpikeDate: '2025-12-01', today: '2026-01-10',
+    })
+    // interestMetrics < 14 → high 불가
+    expect(result!.confidence.level).toBe('medium')
+  })
+
+  it('confidence boundary: 6 interest → low', () => {
+    const result = calculateLifecycleScore({
+      interestMetrics: Array.from({ length: 6 }, (_, i) => makeInterestMetric(i, 50)),
+      newsMetrics: [], firstSpikeDate: null, today: '2026-01-10',
+    })
+    // interestMetrics < 7 → medium 불가 → low
+    expect(result!.confidence.level).toBe('low')
+  })
+
+  it('confidence: all news with article_count=0 → newsCoverage=0', () => {
+    const result = calculateLifecycleScore({
+      interestMetrics: Array.from({ length: 10 }, (_, i) => makeInterestMetric(i, 50)),
+      newsMetrics: Array.from({ length: 14 }, (_, i) => makeNewsMetric(i, 0)),
+      firstSpikeDate: null, today: '2026-01-10',
+    })
+    expect(result!.confidence.newsCoverage).toBe(0)
+    // coverageScore = (10/30)*0.6 + 0*0.4 = 0.2 < 0.4 → low
+    expect(result!.confidence.level).toBe('low')
+  })
+
+  it('handles all-zero normalized values without NaN', () => {
+    const interest = Array.from({ length: 5 }, (_, i) => makeInterestMetric(i, 0, 0))
+    const result = calculateLifecycleScore({
+      interestMetrics: interest,
+      newsMetrics: [],
+      firstSpikeDate: null,
+      today: '2026-01-10',
+    })
+    expect(result).not.toBeNull()
+    expect(result!.score).toBeGreaterThanOrEqual(0)
+    expect(Number.isFinite(result!.score)).toBe(true)
+    expect(Number.isFinite(result!.components.interest_score)).toBe(true)
+    expect(Number.isFinite(result!.components.volatility_score)).toBe(true)
   })
 
   it('includes maturity_ratio from firstSpikeDate', () => {

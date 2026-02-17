@@ -42,7 +42,6 @@ interface BuildThemeDetailParams {
     link: string
     source: string | null
     pub_date: string
-    sentiment_score: number | null
   }>
   keywords: string[]
   comparisonResults: ComparisonResult[]
@@ -73,6 +72,7 @@ export function buildThemeDetailResponse(params: BuildThemeDetailParams): ThemeD
 
   const rawComponents = latestScore?.components ?? null
   const components = isScoreComponents(rawComponents) ? rawComponents : null
+  const stage = toStage(latestScore?.stage)
 
   return {
     id: theme.id,
@@ -83,8 +83,8 @@ export function buildThemeDetailResponse(params: BuildThemeDetailParams): ThemeD
     keywords,
     score: {
       value: latestScore?.score ?? 0,
-      stage: toStage(latestScore?.stage),
-      stageKo: getStageKo(toStage(latestScore?.stage)),
+      stage,
+      stageKo: getStageKo(stage),
       updatedAt: latestScore?.calculated_at ?? new Date().toISOString(),
       change24h: latestScore?.score != null && dayAgoScore?.score != null
         ? latestScore.score - dayAgoScore.score
@@ -96,7 +96,6 @@ export function buildThemeDetailResponse(params: BuildThemeDetailParams): ThemeD
       components: {
         interest: components?.interest_score ?? 0,
         newsMomentum: components?.news_momentum ?? 0,
-        sentiment: components?.sentiment_score ?? 0,
         volatility: components?.volatility_score ?? 0,
       },
       raw: components?.raw
@@ -107,8 +106,15 @@ export function buildThemeDetailResponse(params: BuildThemeDetailParams): ThemeD
             newsLastWeek: components.raw.news_last_week,
             interestStddev: components.raw.interest_stddev,
             activeDays: components.raw.active_days,
-            sentimentAvg: components.raw.sentiment_avg ?? 0,
-            sentimentArticleCount: components.raw.sentiment_article_count ?? 0,
+          }
+        : null,
+      confidence: components?.confidence
+        ? {
+            level: components.confidence.level,
+            dataAge: components.confidence.dataAge,
+            interestCoverage: components.confidence.interestCoverage,
+            newsCoverage: components.confidence.newsCoverage,
+            reason: components.confidence.reason,
           }
         : null,
     },
@@ -127,7 +133,6 @@ export function buildThemeDetailResponse(params: BuildThemeDetailParams): ThemeD
       link: a.link,
       source: a.source,
       pubDate: a.pub_date,
-      sentimentScore: a.sentiment_score ?? null,
     })),
     comparisons: comparisonResults,
     lifecycleCurve: allScores.map((s) => ({

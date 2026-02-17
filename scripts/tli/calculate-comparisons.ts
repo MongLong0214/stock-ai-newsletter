@@ -1,5 +1,4 @@
 /** 테마 비교 분석 — 활성 테마와 전체 테마의 다중 시그널 비교 및 DB 저장 */
-
 import { supabaseAdmin } from './supabase-admin'
 import { batchQuery, groupByThemeId } from './supabase-batch'
 import { getKSTDate } from './utils'
@@ -7,8 +6,7 @@ import { compositeCompare, featuresToArray } from '../../lib/tli/comparison'
 import { buildMutualRankIndex, buildCurveMutualRankIndex, type MutualRankIndex } from '../../lib/tli/comparison/mutual-rank'
 import type { ThemeWithKeywords } from './data-ops'
 import { enrichThemes, computePopulationStats, type ThemeDataMaps, type EnrichedTheme } from './enrich-themes'
-
-const SIMILARITY_THRESHOLD = 0.25
+import { DEFAULT_THRESHOLD } from './auto-tune'
 const MAX_MATCHES_PER_THEME = 3
 
 interface MatchResult {
@@ -17,8 +15,11 @@ interface MatchResult {
   message: string; featureSim: number; curveSim: number; keywordSim: number
 }
 
-export async function calculateThemeComparisons(themes: ThemeWithKeywords[]) {
+export async function calculateThemeComparisons(themes: ThemeWithKeywords[], thresholdOverride?: number) {
   console.log('\n🔍 테마 비교 분석 중 (다중 시그널)...')
+
+  // 유효 임계값 결정 (override 우선, 없으면 기본값)
+  const effectiveThreshold = thresholdOverride ?? DEFAULT_THRESHOLD
 
   // 1단계: 전체 테마 + 데이터 배치 로딩
   const allThemes = await loadAllThemes()
@@ -60,9 +61,9 @@ export async function calculateThemeComparisons(themes: ThemeWithKeywords[]) {
       const current = enrichedMap.get(currentTheme.id)
       if (!current) { console.log(`   ⊘ ${currentTheme.name}: 보강 데이터 없음`); continue }
 
-      const matches = findTopMatches(current, enrichedThemes, populationStats, mutualRankIndex, curveMutualRankIndex)
+      const matches = findTopMatches(current, enrichedThemes, populationStats, mutualRankIndex, curveMutualRankIndex, effectiveThreshold)
       if (matches.length === 0) {
-        console.log(`   ⊘ ${currentTheme.name}: 유사 매칭 없음 (임계값 ${Math.round(SIMILARITY_THRESHOLD * 100)}%)`)
+        console.log(`   ⊘ ${currentTheme.name}: 유사 매칭 없음 (임계값 ${Math.round(effectiveThreshold * 100)}%)`)
         continue
       }
 
@@ -77,9 +78,13 @@ export async function calculateThemeComparisons(themes: ThemeWithKeywords[]) {
     }
   }
 
-  // 만료된 비교 결과 정리 (7일 이전)
-  const sevenDaysAgo = new Date(kstNow.getTime() - 7 * 86400000).toISOString().split('T')[0]
-  const { data: deleted } = await supabaseAdmin.from('theme_comparisons').delete().lt('calculated_at', sevenDaysAgo).select('id')
+  // 만료된 미검증 비교 정리 (21일 이전, 검증 완료 레코드는 보존)
+  const twentyOneDaysAgo = new Date(kstNow.getTime() - 21 * 86400000).toISOString().split('T')[0]
+  const { data: deleted, error: deleteErr } = await supabaseAdmin.from('theme_comparisons').delete()
+    .lt('calculated_at', twentyOneDaysAgo)
+    .or('outcome_verified.is.null,outcome_verified.eq.false')
+    .select('id')
+  if (deleteErr) console.warn('   ⚠️ stale 비교 삭제 실패:', deleteErr.message)
 
   console.log(`\n✅ 비교 분석 완료: ${themesWithMatches}/${themes.length} 테마에 총 ${totalMatches}건 매칭 (stale ${deleted?.length ?? 0}건 정리)`)
 }
@@ -101,8 +106,8 @@ async function loadThemeData(themeIds: string[], kstNow: Date): Promise<ThemeDat
   const daysAgo = (d: number) => new Date(kstNow.getTime() - d * 86400000).toISOString().split('T')[0]
 
   const [interestAll, scoresAll, newsAll, keywordsAll, stocksAll] = await Promise.all([
-    batchQuery<{ theme_id: string; time: string; normalized: number }>(
-      'interest_metrics', 'theme_id, time, normalized', themeIds, q => q.gte('time', daysAgo(180)),
+    batchQuery<{ theme_id: string; time: string; normalized: number; raw_value: number }>(
+      'interest_metrics', 'theme_id, time, normalized, raw_value', themeIds, q => q.gte('time', daysAgo(180)),
     ),
     batchQuery<{ theme_id: string; score: number; calculated_at: string }>(
       'lifecycle_scores', 'theme_id, score, calculated_at', themeIds,
@@ -117,10 +122,8 @@ async function loadThemeData(themeIds: string[], kstNow: Date): Promise<ThemeDat
     ),
   ])
 
-  return {
-    interest: groupByThemeId(interestAll), scores: groupByThemeId(scoresAll),
-    news: groupByThemeId(newsAll), keywords: groupByThemeId(keywordsAll), stocks: groupByThemeId(stocksAll),
-  }
+  return { interest: groupByThemeId(interestAll), scores: groupByThemeId(scoresAll),
+    news: groupByThemeId(newsAll), keywords: groupByThemeId(keywordsAll), stocks: groupByThemeId(stocksAll) }
 }
 
 /** 현재 테마와 모든 보강 테마를 비교, 유사도 상위 N개 반환 */
@@ -130,6 +133,7 @@ function findTopMatches(
   populationStats: ReturnType<typeof computePopulationStats>,
   mutualRank: MutualRankIndex,
   curveMutualRank: MutualRankIndex,
+  threshold: number,
 ): MatchResult[] {
   const matches: MatchResult[] = []
 
@@ -142,7 +146,7 @@ function findTopMatches(
     // Curve MR 인덱스에 없는 쌍(sim=0)은 rawCurveSim 폴백 (undefined)
     const precomputedCurveSim = curveMRSim > 0 ? curveMRSim : undefined
     const result = compositeCompare({ current, past, populationStats, precomputedFeatureSim, precomputedCurveSim })
-    if (result.similarity >= SIMILARITY_THRESHOLD) {
+    if (result.similarity >= threshold) {
       matches.push({ pastThemeId: past.id, pastThemeName: past.name, ...result })
     }
   }
@@ -198,10 +202,7 @@ async function saveMatches(
 
   // 오늘 날짜의 실제 저장된 매칭에 없는 이전 항목 삭제
   if (savedIds.length === 0) return
-  await supabaseAdmin
-    .from('theme_comparisons')
-    .delete()
-    .eq('current_theme_id', currentThemeId)
-    .eq('calculated_at', today)
+  await supabaseAdmin.from('theme_comparisons').delete()
+    .eq('current_theme_id', currentThemeId).eq('calculated_at', today)
     .not('past_theme_id', 'in', `(${savedIds.join(',')})`)
 }

@@ -4,7 +4,7 @@ import type { ThemeFeatures } from '../comparison/features'
 import type { TimeSeriesPoint } from '../comparison/timeline'
 
 function makeFeatures(overrides?: Partial<ThemeFeatures>): ThemeFeatures {
-  return { growthRate: 0.5, volatility: 0.3, newsIntensity: 0.4, scoreLevel: 0.6, activeDaysNorm: 0.2, priceChangePct: 0.5, volumeIntensity: 0, ...overrides }
+  return { interestLevel: 0.5, interestMomentum: 0.5, volatilityDVI: 0.3, newsIntensity: 0.4, activeDaysNorm: 0.2, priceChangePct: 0.5, volumeIntensity: 0, ...overrides }
 }
 
 function makeCurve(length: number, valueFn: (i: number) => number = i => i * 10): TimeSeriesPoint[] {
@@ -101,7 +101,7 @@ describe('compositeCompare', () => {
   it('rounds similarity to 3 decimal places', () => {
     const result = compositeCompare({
       current: { features: makeFeatures(), curve: makeCurve(10), keywords: ['a'], activeDays: 5, sector: 'AI' },
-      past: { features: makeFeatures({ growthRate: 0.8 }), curve: makeCurve(10, i => i * 5), keywords: ['a', 'b'], peakDay: 7, totalDays: 20, name: 'test', sector: 'AI' },
+      past: { features: makeFeatures({ interestMomentum: 0.8 }), curve: makeCurve(10, i => i * 5), keywords: ['a', 'b'], peakDay: 7, totalDays: 20, name: 'test', sector: 'AI' },
     })
     const decimalPlaces = result.similarity.toString().split('.')[1]?.length ?? 0
     expect(decimalPlaces).toBeLessThanOrEqual(3)

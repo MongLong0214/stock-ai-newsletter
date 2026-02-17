@@ -10,8 +10,8 @@ import { STAGE_CONFIG, type Stage } from '@/lib/tli/types'
 export function scoreToStage(score: number): Stage {
   if (score >= 80) return 'Peak'
   if (score >= 60) return 'Growth'
-  if (score >= 40) return 'Early'
-  if (score >= 20) return 'Decay'
+  if (score >= 40) return 'Emerging'
+  if (score >= 20) return 'Decline'
   return 'Dormant'
 }
 

@@ -28,6 +28,8 @@ jobs:
   collect-and-score:
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    permissions:
+      issues: write
 
     steps:
       - name: Checkout code
@@ -66,3 +68,47 @@ jobs:
           NAVER_CLIENT_SECRET: ${{ secrets.NAVER_CLIENT_SECRET }}
           TLI_MODE: ${{ steps.mode.outputs.mode }}
         run: npx tsx scripts/tli/collect-and-score.ts
+
+      - name: Notify on failure
+        if: failure()
+        env:
+          TLI_MODE: ${{ steps.mode.outputs.mode }}
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const title = `🚨 TLI 파이프라인 실패 (${new Date().toISOString().split('T')[0]})`;
+            const rawMode = process.env.TLI_MODE || 'unknown';
+            const safeMode = ['full', 'news-only'].includes(rawMode) ? rawMode : 'unknown';
+            const body = [
+              `## 파이프라인 실패 알림`,
+              ``,
+              `| 항목 | 값 |`,
+              `|------|-----|`,
+              `| **실행 모드** | \`${safeMode}\` |`,
+              `| **트리거** | \`${context.eventName}\` |`,
+              `| **실행 URL** | [링크](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}) |`,
+              `| **시간 (UTC)** | ${new Date().toISOString()} |`,
+              ``,
+              `> 자동 생성된 이슈입니다. 로그를 확인하고 조치해 주세요.`,
+            ].join('\n');
+
+            // 동일 제목의 열린 이슈가 있으면 중복 생성 방지
+            const existing = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'pipeline-failure',
+              per_page: 5,
+            });
+            if (existing.data.some(i => i.title === title)) {
+              console.log('동일 이슈가 이미 존재합니다. 생성 생략.');
+              return;
+            }
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title,
+              body,
+              labels: ['bug', 'pipeline-failure'],
+            });
+

@@ -1,6 +1,6 @@
 /** 데이터베이스 모델 인터페이스 */
 
-export type Stage = 'Dormant' | 'Early' | 'Growth' | 'Peak' | 'Decay';
+export type Stage = 'Dormant' | 'Emerging' | 'Growth' | 'Peak' | 'Decline';
 
 /** Display stage (includes Reigniting for UI rendering) */
 export type DisplayStage = Stage | 'Reigniting';
@@ -46,7 +46,6 @@ export interface NewsArticle {
   link: string;
   source: string | null;
   pubDate: string;
-  sentimentScore?: number | null;
 }
 
 export interface InterestMetric {
@@ -66,17 +65,30 @@ export interface NewsMetric {
   growth_rate: number | null;
 }
 
+/** 신뢰도 레벨 */
+export type ConfidenceLevel = 'high' | 'medium' | 'low'
+
+/** Score Confidence — 점수 신뢰도 지표 */
+export interface ScoreConfidence {
+  level: ConfidenceLevel
+  dataAge: number
+  interestCoverage: number
+  newsCoverage: number
+  reason: string
+}
+
 export interface ScoreComponents {
   interest_score: number;
   news_momentum: number;
-  sentiment_score: number;
   volatility_score: number;
   maturity_ratio: number;
+  /** Activity Score — 주가/거래량/데이터 성숙도 교차 시그널 (v2 신규, 하위 호환 optional) */
+  activity_score?: number;
   weights: {
     interest: number;
     news: number;
-    sentiment: number;
     volatility: number;
+    activity?: number;
   };
   raw: {
     recent_7d_avg: number;
@@ -85,12 +97,23 @@ export interface ScoreComponents {
     news_last_week: number;
     interest_stddev: number;
     active_days: number;
-    sentiment_avg?: number;
-    sentiment_article_count?: number;
     raw_interest_avg?: number;
     dampening_factor?: number;
     raw_percentile?: number | null;
+    /** v2 Dual-Axis fields */
+    level_score?: number;
+    momentum_score?: number;
+    /** 관심도 선형회귀 기울기 (정규화 전 raw slope) — stage 판정용 */
+    interest_slope?: number;
+    dvi?: number;
+    volume_intensity?: number;
+    data_coverage?: number;
+    raw_score?: number;
+    smoothed_score?: number;
+    /** Hysteresis용: Markov-constrained stage candidate (다음날 비교용) */
+    stage_candidate?: string;
   };
+  confidence?: ScoreConfidence;
 }
 
 export interface LifecycleScore {

@@ -11,7 +11,7 @@ import {
 interface EnrichedTheme {
   id: string; name: string; firstSpikeDate: string
   curve: TimeSeriesPoint[]; keywords: string[]; peakDay: number; totalDays: number
-  activeDays: number; sector: string; scores: Array<{ score: number }>
+  activeDays: number; sector: string
   interestValues: number[]; avgPriceChangePct: number; avgVolume: number
 }
 
@@ -28,14 +28,10 @@ async function main() {
 
   const themeIds = themes.map(t => t.id)
 
-  // 데이터 배치 로딩 (주가 포함)
-  const [interestAll, scoresAll, keywordsAll, stocksAll] = await Promise.all([
+  // 데이터 배치 로딩 (주가 포함, scores 제거 — v2에서 features에 불필요)
+  const [interestAll, keywordsAll, stocksAll] = await Promise.all([
     batchQuery<{ theme_id: string; time: string; normalized: number }>(
       'interest_metrics', 'theme_id, time, normalized', themeIds,
-    ),
-    batchQuery<{ theme_id: string; score: number; calculated_at: string }>(
-      'lifecycle_scores', 'theme_id, score, calculated_at', themeIds,
-      q => q.order('calculated_at', { ascending: false }),
     ),
     batchQuery<{ theme_id: string; keyword: string }>(
       'theme_keywords', 'theme_id, keyword', themeIds,
@@ -46,7 +42,6 @@ async function main() {
   ])
 
   const interestByTheme = groupByThemeId(interestAll)
-  const scoresByTheme = groupByThemeId(scoresAll)
   const keywordsByTheme = groupByThemeId(keywordsAll)
   const stocksByTheme = groupByThemeId(stocksAll)
 
@@ -60,7 +55,6 @@ async function main() {
 
     const curve = normalizeTimeline(interest.map(m => ({ date: m.time, value: m.normalized })), fsd)
     const keywords = (keywordsByTheme.get(theme.id) || []).map(k => k.keyword)
-    const scores = (scoresByTheme.get(theme.id) || []).map(s => ({ score: s.score }))
     const peakDay = findPeakDay(curve)
     if (peakDay < 0) continue
     const totalDays = curve.length > 0 ? curve[curve.length - 1].day : 0
@@ -77,7 +71,7 @@ async function main() {
     enriched.push({
       id: theme.id, name: theme.name, firstSpikeDate: fsd,
       curve, keywords, peakDay, totalDays, activeDays, sector: classifySector(keywords),
-      scores, interestValues, avgPriceChangePct, avgVolume,
+      interestValues, avgPriceChangePct, avgVolume,
     })
   }
 
@@ -87,7 +81,7 @@ async function main() {
   // 모집단 통계 (7D 피처 포함)
   const allFeatureVecs = enriched.map(t => {
     const f = extractFeatures({
-      scores: t.scores, interestValues: t.interestValues, totalNewsCount: 0,
+      interestValues: t.interestValues, totalNewsCount: 0,
       activeDays: t.activeDays, avgPriceChangePct: t.avgPriceChangePct, avgVolume: t.avgVolume,
     })
     return featuresToArray(f)
@@ -119,7 +113,6 @@ async function main() {
 
       // 절반 곡선 기준 피처 (주가/거래량 포함)
       const halfFeatures = extractFeatures({
-        scores: current.scores.slice(0, Math.min(7, current.scores.length)),
         interestValues: current.interestValues.slice(0, midIdx),
         totalNewsCount: 0,
         activeDays: halfCurve[halfCurve.length - 1]?.day || 0,
@@ -133,7 +126,7 @@ async function main() {
         if (past.curve.length < 14) continue
 
         const pastFeatures = extractFeatures({
-          scores: past.scores, interestValues: past.interestValues, totalNewsCount: 0,
+          interestValues: past.interestValues, totalNewsCount: 0,
           activeDays: past.activeDays, avgPriceChangePct: past.avgPriceChangePct, avgVolume: past.avgVolume,
         })
 

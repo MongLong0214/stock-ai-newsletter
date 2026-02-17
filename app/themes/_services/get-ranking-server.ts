@@ -1,5 +1,5 @@
 import { supabase, isSupabasePlaceholder } from '@/lib/supabase'
-import { getStageKo, toStage, isScoreComponents } from '@/lib/tli/types'
+import { getStageKo, toStage } from '@/lib/tli/types'
 import { isTableNotFound } from '@/lib/tli/api-utils'
 import type { ThemeListItem, ThemeRanking } from '@/lib/tli/types'
 import { EMPTY_RANKING, buildScoreMetaMap, buildCountMaps, calculateRankingSummary, batchLoadStockData, batchLoadNewsCounts } from '@/app/api/tli/scores/ranking/ranking-helpers'
@@ -63,9 +63,6 @@ export async function getRankingServer(): Promise<ThemeRanking> {
       const meta = scoreMetaByTheme.get(theme.id)
       const latest = meta?.latest ?? null
       const weekAgoScore = meta?.weekAgoScore ?? null
-      const latestComponents = isScoreComponents(latest?.components) ? latest!.components : null
-      const sentimentScore = latestComponents?.sentiment_score ?? 0
-
       return {
         id: theme.id,
         name: theme.name,
@@ -82,16 +79,15 @@ export async function getRankingServer(): Promise<ThemeRanking> {
         updatedAt: latest?.calculated_at ?? new Date().toISOString(),
         sparkline: meta?.sparkline ?? [],
         newsCount7d: newsCountMap.get(theme.id) ?? 0,
-        sentimentScore,
         avgStockChange: avgStockChangeMap.get(theme.id) ?? null,
       }
     })
 
     // --- 단계별 그룹화 ---
-    const early: ThemeListItem[] = []
+    const emerging: ThemeListItem[] = []
     const growth: ThemeListItem[] = []
     const peak: ThemeListItem[] = []
-    const decay: ThemeListItem[] = []
+    const decline: ThemeListItem[] = []
     const reigniting: ThemeListItem[] = []
 
     for (const theme of themeData) {
@@ -102,24 +98,24 @@ export async function getRankingServer(): Promise<ThemeRanking> {
         reigniting.push(theme)
       } else {
         switch (theme.stage) {
-          case 'Early': early.push(theme); break
+          case 'Emerging': emerging.push(theme); break
           case 'Growth': growth.push(theme); break
           case 'Peak': peak.push(theme); break
-          case 'Decay': decay.push(theme); break
+          case 'Decline': decline.push(theme); break
         }
       }
     }
 
-    early.sort((a, b) => a.score - b.score)
+    emerging.sort((a, b) => a.score - b.score)
     growth.sort((a, b) => b.score - a.score)
     peak.sort((a, b) => b.score - a.score)
-    decay.sort((a, b) => b.score - a.score)
+    decline.sort((a, b) => b.score - a.score)
     reigniting.sort((a, b) => b.score - a.score)
 
-    const activeThemes = [...early, ...growth, ...peak, ...decay, ...reigniting]
+    const activeThemes = [...emerging, ...growth, ...peak, ...decline, ...reigniting]
     const summary = calculateRankingSummary(activeThemes)
 
-    return { early, growth, peak, decay, reigniting, summary }
+    return { emerging, growth, peak, decline, reigniting, summary }
   } catch (error) {
     console.error('[TLI] 랭킹 서버 조회 실패:', error instanceof Error ? error.message : String(error))
     return EMPTY_RANKING

@@ -10,11 +10,11 @@ export const size = {
 export const contentType = 'image/png'
 
 const STAGE_LABELS: Record<string, { label: string; color: string }> = {
-  Peak: { label: '정점', color: '#F59E0B' },
-  Growth: { label: '성장', color: '#0EA5E9' },
-  Early: { label: '초기', color: '#10B981' },
-  Reigniting: { label: '재점화', color: '#8B5CF6' },
-  Decay: { label: '쇠퇴', color: '#EF4444' },
+  Peak: { label: '정점', color: '#EF4444' },
+  Growth: { label: '성장', color: '#10B981' },
+  Emerging: { label: '부상', color: '#3B82F6' },
+  Reigniting: { label: '재점화', color: '#F97316' },
+  Decline: { label: '하락', color: '#F59E0B' },
   Dormant: { label: '휴면', color: '#64748B' },
 }
 
@@ -52,8 +52,8 @@ export default async function Image({ params }: { params: { id: string } }) {
   const { theme, score } = await getThemeData(id)
 
   const name = theme?.name || '테마 분석'
-  const stageKey = score?.stage || 'Early'
-  const stageInfo = STAGE_LABELS[stageKey] || STAGE_LABELS.Early
+  const stageKey = score?.stage || 'Emerging'
+  const stageInfo = STAGE_LABELS[stageKey] || STAGE_LABELS.Emerging
   const scoreValue = score?.score ?? '--'
 
   return new ImageResponse(
