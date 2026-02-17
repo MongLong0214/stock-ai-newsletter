@@ -6,6 +6,7 @@
 
 import { motion, AnimatePresence } from 'framer-motion';
 import { formatDateString } from '../../../_utils/formatting/date';
+import { KOREAN_MARKET_HOLIDAYS_BY_YEAR } from '../../../_utils/market/_constants/holidays';
 import type { DateString } from '../../../_types/archive.types';
 import { DURATION } from '../../../_constants/animations';
 import DateCell from './date-cell';
@@ -42,6 +43,8 @@ function CalendarGrid({
           const dateString = formatDateString(year, month, day) as DateString;
           const hasData = availableDates.has(dateString);
           const isSelected = selectedDate === dateString;
+          const holidays = KOREAN_MARKET_HOLIDAYS_BY_YEAR[year];
+          const isHoliday = holidays?.has(dateString);
 
           return (
             <DateCell
@@ -52,6 +55,7 @@ function CalendarGrid({
               dateString={dateString}
               hasData={hasData}
               isSelected={isSelected}
+              isHoliday={isHoliday}
               onSelect={onDateSelect}
             />
           );

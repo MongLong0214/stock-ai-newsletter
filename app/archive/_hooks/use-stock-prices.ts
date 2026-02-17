@@ -3,6 +3,7 @@ import { MAX_BUSINESS_DAYS } from '../_utils/formatting/date';
 import {
   getStockPriceCacheExpiry,
   getPreviousBusinessDate,
+  getNthBusinessDateAfter,
   calculateBusinessDays,
   isTodayMarketClosed,
 } from '../_utils/market/hours';
@@ -21,18 +22,20 @@ interface StockPrice {
 }
 
 /** 가격 조회 불가 사유 */
-export type PriceUnavailableReason =
-  | 'tracking_expired' // 7영업일 경과
-  | 'api_error'; // API 호출 실패
+export type PriceUnavailableReason = 'api_error';
 
 /** 훅 반환 타입 */
 interface UseStockPricesResult {
   prices: Map<string, StockPrice>;
   historicalClosePrices: Map<string, number>;
+  /** 7영업일 후 확정 종가 (tracking 만료 시) */
+  settledClosePrices: Map<string, number>;
   loading: boolean;
   unavailableReason: PriceUnavailableReason | null;
   /** 오늘이 휴장일인지 여부 (직전 개장일 종가 표시용) */
   isMarketClosed: boolean;
+  /** 실시간 추적 기간이 만료되었는지 여부 */
+  isTrackingExpired: boolean;
 }
 
 /** API 응답 타입 */
@@ -75,21 +78,17 @@ function isHistoricalPriceAPIResponse(data: unknown): data is HistoricalPriceAPI
 }
 
 /**
- * 현재가 조회 가능 여부 확인
- * @returns null (조회 가능) | 사유 (조회 불가)
+ * 실시간 추적 기간 만료 여부 확인
+ * @returns true면 7영업일 초과 (확정 종가 조회 필요)
  */
-function checkPriceAvailability(newsletterDate: DateString): PriceUnavailableReason | null {
+function isTrackingPeriodExpired(newsletterDate: DateString): boolean {
   const recommendDate = new Date(newsletterDate);
   recommendDate.setHours(0, 0, 0, 0);
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const businessDays = calculateBusinessDays(recommendDate, today);
 
-  if (businessDays > MAX_BUSINESS_DAYS) {
-    return 'tracking_expired';
-  }
-
-  return null;
+  return businessDays > MAX_BUSINESS_DAYS;
 }
 
 /**
@@ -111,9 +110,11 @@ export default function useStockPrices(
   const [historicalClosePrices, setHistoricalClosePrices] = useState<Map<string, number>>(
     new Map()
   );
+  const [settledClosePrices, setSettledClosePrices] = useState<Map<string, number>>(new Map());
   const [loading, setLoading] = useState(true);
   const [unavailableReason, setUnavailableReason] = useState<PriceUnavailableReason | null>(null);
   const [isMarketClosed, setIsMarketClosed] = useState(false);
+  const [isExpired, setIsExpired] = useState(false);
 
   // React 19: 단순 연산은 useMemo 불필요
   const tickersKey = tickers.join(',');
@@ -185,6 +186,9 @@ export default function useStockPrices(
         setLoading(true);
         setUnavailableReason(null);
         setIsMarketClosed(isTodayMarketClosed());
+        setIsExpired(false);
+        setSettledClosePrices(new Map());
+        setPrices(new Map());
 
         // 추천일 전일 종가 조회 (항상 수행)
         const prevDate = getPreviousBusinessDate(currentDate);
@@ -206,13 +210,38 @@ export default function useStockPrices(
           }
         }
 
-        // 현재가 조회 가능 여부 확인
-        const reason = checkPriceAvailability(currentDate);
-        if (reason) {
-          if (isMounted) {
-            setUnavailableReason(reason);
-            setLoading(false);
+        // 추적 기간 만료 시 7영업일 후 확정 종가 조회
+        const expired = isTrackingPeriodExpired(currentDate);
+        if (expired) {
+          if (isMounted) setIsExpired(true);
+
+          const settledDate = getNthBusinessDateAfter(currentDate, MAX_BUSINESS_DAYS);
+          try {
+            const settledRes = await fetch(
+              `/api/stock/daily-close?tickers=${tickersKey}&date=${settledDate}`,
+              { signal: controller.signal }
+            );
+            if (settledRes.ok) {
+              const settledData: unknown = await settledRes.json();
+              if (isHistoricalPriceAPIResponse(settledData) && isMounted) {
+                const priceMap = new Map<string, number>();
+                for (const [ticker, price] of Object.entries(settledData.prices)) {
+                  if (typeof price === 'number' && price > 0) {
+                    priceMap.set(ticker, price);
+                  }
+                }
+                setSettledClosePrices(priceMap);
+              }
+            } else if (isMounted) {
+              setUnavailableReason('api_error');
+            }
+          } catch (settledErr) {
+            if (settledErr instanceof Error && settledErr.name === 'AbortError') return;
+            if (settledErr instanceof DOMException && settledErr.name === 'AbortError') return;
+            if (isMounted) setUnavailableReason('api_error');
           }
+
+          if (isMounted) setLoading(false);
           return;
         }
 
@@ -281,5 +310,13 @@ export default function useStockPrices(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [newsletterDate, tickersKey]);
 
-  return { prices, historicalClosePrices, loading, unavailableReason, isMarketClosed };
+  return {
+    prices,
+    historicalClosePrices,
+    settledClosePrices,
+    loading,
+    unavailableReason,
+    isMarketClosed,
+    isTrackingExpired: isExpired,
+  };
 }

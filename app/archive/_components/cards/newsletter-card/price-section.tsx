@@ -3,10 +3,9 @@
  */
 
 import { format } from 'date-fns';
-import { TrendingUp, TrendingDown, Clock, AlertCircle } from 'lucide-react';
+import { TrendingUp, TrendingDown, AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatPrice } from '../../../_utils/formatting/price';
-import { MAX_BUSINESS_DAYS } from '../../../_utils/formatting/date';
 import type { PriceUnavailableReason } from '../../../_hooks/use-stock-prices';
 import type { StockPrice, PriceChangeInfo } from './types';
 
@@ -18,18 +17,21 @@ interface PriceSectionProps {
   unavailableReason?: PriceUnavailableReason | null;
   /** 오늘이 휴장일인지 여부 */
   isMarketClosed?: boolean;
+  /** 7거래일 후 종가 */
+  settledPrice?: number;
+  /** 종가 기준 가격 변동 정보 */
+  settledPriceChange?: PriceChangeInfo | null;
+  /** 7거래일 후 날짜 표시 (예: "1/20") */
+  settledDateDisplay?: string;
+  /** 실시간 추적 기간 만료 여부 */
+  isTrackingExpired?: boolean;
 }
 
 /** 상태별 메시지 */
 const STATUS_MESSAGES: Record<
   PriceUnavailableReason,
-  { icon: typeof Clock; title: string; subtitle: string }
+  { icon: typeof AlertCircle; title: string; subtitle: string }
 > = {
-  tracking_expired: {
-    icon: Clock,
-    title: `${MAX_BUSINESS_DAYS}영업일 경과`,
-    subtitle: '실시간 시세 추적이 종료되었습니다',
-  },
   api_error: {
     icon: AlertCircle,
     title: '시세를 불러올 수 없습니다',
@@ -114,6 +116,26 @@ function CurrentPriceDisplay({
   );
 }
 
+/** 추천 후 종가 섹션 */
+function SettledPriceDisplay({ settledPrice, dateDisplay }: { settledPrice: number; dateDisplay?: string }) {
+  return (
+    <div className="h-[72px]">
+      <div className="flex items-center gap-2 mb-3">
+        <span className="text-xs font-medium text-slate-400">7거래일 후 종가</span>
+        {dateDisplay && (
+          <span className="px-2 py-0.5 text-[10px] font-medium rounded text-slate-300 bg-slate-500/15">
+            {dateDisplay} 기준
+          </span>
+        )}
+      </div>
+      <div className="text-3xl font-bold text-white font-mono tabular-nums">
+        {formatPrice(settledPrice)}
+        <span className="text-base text-slate-500 ml-2 font-normal">원</span>
+      </div>
+    </div>
+  );
+}
+
 /** 수익률 섹션 */
 function ProfitDisplay({ priceChange }: { priceChange: PriceChangeInfo }) {
   const TrendIcon = priceChange.isPositive ? TrendingUp : TrendingDown;
@@ -141,6 +163,13 @@ function ProfitDisplay({ priceChange }: { priceChange: PriceChangeInfo }) {
 
 /**
  * 가격 섹션 (로딩/상태/시세)
+ *
+ * 렌더링 분기:
+ * 1. 로딩 중 → LoadingSkeleton
+ * 2. 추적 만료 + 확정 종가 있음 → SettledPriceDisplay + ProfitDisplay
+ * 3. 추적 만료 + 확정 종가 없음 → StatusMessage('api_error')
+ * 4. unavailableReason → StatusMessage
+ * 5. 현재가 + 변동 정보 → CurrentPriceDisplay + ProfitDisplay
  */
 function PriceSection({
   isLoadingPrice,
@@ -148,9 +177,28 @@ function PriceSection({
   priceChange,
   unavailableReason,
   isMarketClosed = false,
+  settledPrice,
+  settledPriceChange,
+  settledDateDisplay,
+  isTrackingExpired = false,
 }: PriceSectionProps) {
   if (isLoadingPrice) {
     return <LoadingSkeleton />;
+  }
+
+  // 추적 만료: 확정 종가 표시
+  if (isTrackingExpired && settledPrice && settledPriceChange) {
+    return (
+      <div className="h-[168px] space-y-5">
+        <SettledPriceDisplay settledPrice={settledPrice} dateDisplay={settledDateDisplay} />
+        <ProfitDisplay priceChange={settledPriceChange} />
+      </div>
+    );
+  }
+
+  // 추적 만료: 확정 종가 또는 변동 정보가 없는 경우
+  if (isTrackingExpired) {
+    return <StatusMessage reason="api_error" />;
   }
 
   if (unavailableReason) {
