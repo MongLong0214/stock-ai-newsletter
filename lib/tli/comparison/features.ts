@@ -1,29 +1,32 @@
 /**
- * 특성 벡터 추출 — 테마 데이터에서 수치적 특성을 요약
+ * 특성 벡터 추출 v2 — scoreLevel 제거, Dual-Axis Interest + DVI 도입
+ *
+ * 7차원: interestLevel, interestMomentum, volatilityDVI,
+ *        newsIntensity, activeDaysNorm, priceChangePct, volumeIntensity
  */
 
-import { avg, standardDeviation } from '../normalize'
+import { avg, sigmoid_normalize, log_normalize, linearRegressionSlope } from '../normalize'
 import { SECTOR_KEYWORDS } from '../constants/sectors'
 
 // ---------------------------------------------------------------------------
 // 타입 정의
 // ---------------------------------------------------------------------------
 
-/** 테마의 수치적 특성을 요약한 벡터 */
+/** 테마의 수치적 특성을 요약한 벡터 (v2 — scoreLevel 제거) */
 export interface ThemeFeatures {
-  /** 성장률 (최근 7일 vs 이전 7일), 0-1 정규화 */
-  growthRate: number
-  /** 관심도 변동성 (표준편차 기반), 0-1 정규화 */
-  volatility: number
-  /** 뉴스 집약도 (30일 기준), 0-1 정규화 */
+  /** 관심도 절대 수준 (cross-sectional percentileRank 또는 sigmoid fallback), 0-1 */
+  interestLevel: number
+  /** 관심도 시계열 방향 (linearRegression slope → sigmoid), 0-1 */
+  interestMomentum: number
+  /** 방향성 변동 지수 (DVI — RSI 원리), 0-1 */
+  volatilityDVI: number
+  /** 뉴스 집약도 (log_normalize), 0-1 */
   newsIntensity: number
-  /** 현재 점수 레벨, score / 100 */
-  scoreLevel: number
-  /** 활동 기간 (최대 365일 기준), 0-1 정규화 */
+  /** 활동 기간 (최대 365일 기준), 0-1 */
   activeDaysNorm: number
-  /** 평균 주가 등락률, 0-1 정규화 (기본값 0.5 = 중립) */
+  /** 주가 방향 (sigmoid), 0-1 */
   priceChangePct: number
-  /** 평균 거래량 강도, 0-1 정규화 (기본값 0) */
+  /** 거래량 강도 (log_normalize), 0-1 */
   volumeIntensity: number
 }
 
@@ -33,53 +36,74 @@ export interface ThemeFeatures {
 
 /**
  * 테마 데이터에서 수치적 특성 벡터를 추출한다.
- * 데이터가 1일분만 있어도 동작하도록 설계됨.
+ * v2: scoreLevel 제거 (순환 의존 차단), interestLevel + interestMomentum + DVI 도입
  */
 export function extractFeatures(params: {
-  scores: Array<{ score: number }>
+  /** 정규화된 관심도 값 (시간순 ASC) */
   interestValues: number[]
   totalNewsCount: number
   activeDays: number
-  avgPriceChangePct?: number  // optional — 기본값 0
-  avgVolume?: number          // optional — 기본값 0
+  avgPriceChangePct?: number
+  avgVolume?: number
+  /** Cross-sectional percentileRank (0-1). 미제공 시 sigmoid fallback */
+  interestLevel?: number
 }): ThemeFeatures {
-  const { scores, interestValues, totalNewsCount, activeDays } = params
+  const { interestValues, totalNewsCount, activeDays } = params
 
-  // growthRate: 최근 7일 평균 vs 이전 7일 평균 점수 비교
-  const recentScores = scores.slice(0, Math.min(7, scores.length))
-  const olderScores = scores.slice(7, Math.min(14, scores.length))
-  const recentAvg = recentScores.length > 0 ? avg(recentScores.map(s => s.score)) : 0
-  const olderAvg = olderScores.length > 0 ? avg(olderScores.map(s => s.score)) : recentAvg
-  const rawGrowth = olderAvg > 0 ? (recentAvg - olderAvg) / Math.max(olderAvg, 1) : 0
-  const growthRate = Math.max(0, Math.min(1, (rawGrowth + 1) / 2))
+  // interestLevel: cross-sectional 수준 (pre-computed percentile 우선)
+  let interestLevel: number
+  if (params.interestLevel !== undefined) {
+    interestLevel = params.interestLevel
+  } else {
+    // sigmoid fallback: 관심도 평균 기반
+    const meanInterest = interestValues.length > 0 ? avg(interestValues) : 0
+    interestLevel = sigmoid_normalize(meanInterest, 30, 20)
+  }
 
-  // volatility: 관심도 값의 표준편차 (stddev 50 → 1.0)
-  const vol = interestValues.length > 1 ? standardDeviation(interestValues) : 0
-  const volatility = Math.min(vol / 50, 1)
+  // interestMomentum: 최근 7일 관심도 기울기 → sigmoid
+  const recent7 = interestValues.slice(-Math.min(7, interestValues.length))
+  const slope = recent7.length >= 2 ? linearRegressionSlope(recent7) : 0
+  const interestMomentum = sigmoid_normalize(slope, 0, 1.5)
 
-  // newsIntensity: 30일 기사 수 (100건/월 → 1.0)
-  const newsIntensity = Math.min(totalNewsCount / 100, 1)
+  // volatilityDVI: 방향성 변동 지수 (RSI 원리)
+  const recent7d = interestValues.slice(-Math.min(7, interestValues.length))
+  const deltas: number[] = []
+  for (let i = 1; i < recent7d.length; i++) {
+    deltas.push(recent7d[i] - recent7d[i - 1])
+  }
+  const upMoves = deltas.filter(d => d > 0)
+  const downMoves = deltas.filter(d => d < 0).map(d => Math.abs(d))
+  const avgUp = avg(upMoves)
+  const avgDown = avg(downMoves)
 
-  // scoreLevel: 최신 점수 / 100
-  const scoreLevel = scores.length > 0 ? scores[0].score / 100 : 0
+  let volatilityDVI: number
+  if (avgUp === 0 && avgDown === 0) {
+    volatilityDVI = 0.5
+  } else if (avgDown > 0) {
+    const rs = avgUp / avgDown
+    volatilityDVI = 1 - 1 / (1 + rs)
+  } else {
+    volatilityDVI = 1.0
+  }
+
+  // newsIntensity: log 정규화 (100건/월 → ~1.0)
+  const newsIntensity = log_normalize(totalNewsCount, 100)
 
   // activeDaysNorm: 최대 365일 기준
   const activeDaysNorm = Math.min(activeDays, 365) / 365
 
-  // priceChangePct: [-50, +50] 범위를 [0, 1]로 정규화
-  const rawPricePct = params.avgPriceChangePct ?? 0
-  const priceChangePct = Math.max(0, Math.min(1, (rawPricePct + 50) / 100))
+  // priceChangePct: sigmoid 정규화 (center=0, scale=5)
+  const priceChangePct = sigmoid_normalize(params.avgPriceChangePct ?? 0, 0, 5)
 
-  // volumeIntensity: 5천만주 기준 0-1 정규화
-  const VOLUME_MAX = 50_000_000
-  const volumeIntensity = Math.min((params.avgVolume ?? 0) / VOLUME_MAX, 1)
+  // volumeIntensity: log 정규화 (5천만주 기준)
+  const volumeIntensity = log_normalize(params.avgVolume ?? 0, 50_000_000)
 
-  return { growthRate, volatility, newsIntensity, scoreLevel, activeDaysNorm, priceChangePct, volumeIntensity }
+  return { interestLevel, interestMomentum, volatilityDVI, newsIntensity, activeDaysNorm, priceChangePct, volumeIntensity }
 }
 
 /** ThemeFeatures를 명시적 순서로 배열 변환 */
 export function featuresToArray(f: ThemeFeatures): number[] {
-  return [f.growthRate, f.volatility, f.newsIntensity, f.scoreLevel, f.activeDaysNorm, f.priceChangePct, f.volumeIntensity]
+  return [f.interestLevel, f.interestMomentum, f.volatilityDVI, f.newsIntensity, f.activeDaysNorm, f.priceChangePct, f.volumeIntensity]
 }
 
 // ---------------------------------------------------------------------------

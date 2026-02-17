@@ -6,7 +6,7 @@ import { motion } from 'framer-motion'
 import { Clock, Target, BarChart3, Lightbulb, ChevronRight } from 'lucide-react'
 import { GlassCard } from '@/components/tli/glass-card'
 import { calculatePrediction } from '@/lib/tli/prediction'
-import type { ComparisonResult } from '@/lib/tli/types'
+import type { ComparisonResult, Stage } from '@/lib/tli/types'
 import {
   CONFIDENCE_CONFIG,
   RISK_CONFIG,
@@ -34,12 +34,13 @@ interface ThemePredictionProps {
   firstSpikeDate: string | null
   comparisons: ComparisonResult[]
   score?: number
+  stage?: Stage
 }
 
-function ThemePrediction({ firstSpikeDate, comparisons, score }: ThemePredictionProps) {
+function ThemePrediction({ firstSpikeDate, comparisons, score, stage }: ThemePredictionProps) {
   const prediction = useMemo(
-    () => calculatePrediction(firstSpikeDate, comparisons, undefined, score),
-    [firstSpikeDate, comparisons, score],
+    () => calculatePrediction(firstSpikeDate, comparisons, undefined, score, stage),
+    [firstSpikeDate, comparisons, score, stage],
   )
 
   if (!prediction) return null

@@ -33,7 +33,7 @@ export interface EnrichedTheme {
 }
 
 export interface ThemeDataMaps {
-  interest: Map<string, Array<{ time: string; normalized: number }>>
+  interest: Map<string, Array<{ time: string; normalized: number; raw_value?: number }>>
   scores: Map<string, Array<{ score: number; calculated_at: string }>>
   news: Map<string, Array<{ article_count: number }>>
   keywords: Map<string, Array<{ keyword: string }>>
@@ -53,52 +53,81 @@ export function enrichThemes(
   const enriched: EnrichedTheme[] = []
   let inferredCount = 0
 
+  // 1단계: 기본 데이터 수집 + rawAvg7d 계산 (cross-theme percentile용)
+  interface PreEnriched {
+    theme: RawTheme; firstSpikeDate: string
+    interestAfterSpike: Array<{ time: string; normalized: number; raw_value?: number }>
+    news: Array<{ article_count: number }>; keywords: string[]
+    stocks: Array<{ price_change_pct: number | null; volume: number | null }>
+    activeDays: number; rawAvg7d: number
+  }
+  const preEnriched: PreEnriched[] = []
+
   for (const theme of allThemes) {
     const firstSpikeDate = resolveFirstSpikeDate(theme, data.interest.get(theme.id), kstNow)
     if (!firstSpikeDate) continue
     if (firstSpikeDate !== theme.first_spike_date) inferredCount++
 
-    // 데이터 수집
     const interest = data.interest.get(theme.id) || []
-    const scores = data.scores.get(theme.id) || []
     const news = data.news.get(theme.id) || []
     const keywords = (data.keywords.get(theme.id) || []).map(k => k.keyword)
     const stocks = data.stocks.get(theme.id) || []
 
-    // first_spike_date 이후 관심도 곡선
     const interestAfterSpike = interest
       .filter(m => m.time >= firstSpikeDate)
       .sort((a, b) => a.time.localeCompare(b.time))
+
+    const kstToday = kstNow.toISOString().split('T')[0]
+    const activeDays = Math.max(0, Math.floor((new Date(kstToday).getTime() - new Date(firstSpikeDate).getTime()) / 86400000))
+
+    // rawAvg7d: raw_value가 있으면 사용, 없으면 normalized 사용
+    const recent7 = interestAfterSpike.slice(-Math.min(7, interestAfterSpike.length))
+    const rawValues = recent7.map(m => m.raw_value ?? m.normalized)
+    const rawAvg7d = rawValues.length > 0 ? rawValues.reduce((s, v) => s + v, 0) / rawValues.length : 0
+
+    preEnriched.push({ theme, firstSpikeDate, interestAfterSpike, news, keywords, stocks, activeDays, rawAvg7d })
+  }
+
+  // 2단계: Cross-theme percentile 배열 구축
+  const allRawAvgs = preEnriched.map(p => p.rawAvg7d).filter(v => v > 0).sort((a, b) => a - b)
+
+  // percentileRank 로컬 구현 (normalize.ts의 것과 동일 로직)
+  function computePercentile(value: number): number {
+    if (allRawAvgs.length === 0 || value <= 0) return 0
+    let lo = 0, hi = allRawAvgs.length
+    while (lo < hi) {
+      const mid = (lo + hi) >>> 1
+      if (allRawAvgs[mid] < value) lo = mid + 1
+      else hi = mid
+    }
+    return lo / allRawAvgs.length
+  }
+
+  // 3단계: 피처 추출 + 보강
+  for (const pre of preEnriched) {
+    const { theme, firstSpikeDate, interestAfterSpike, news, keywords, stocks, activeDays, rawAvg7d } = pre
+
     const curve = normalizeTimeline(
       interestAfterSpike.map(m => ({ date: m.time, value: m.normalized })),
       firstSpikeDate,
     )
 
-    // 활성 일수 (KST 날짜 기준, 시간 절삭으로 ±1일 오차 제거)
-    const kstToday = kstNow.toISOString().split('T')[0]
-    const activeDays = Math.max(0, Math.floor((new Date(kstToday).getTime() - new Date(firstSpikeDate).getTime()) / 86400000))
-
-    // 주가/거래량 집계
     const validPrices = stocks.filter(s => s.price_change_pct !== null).map(s => s.price_change_pct!)
     const validVolumes = stocks.filter(s => s.volume !== null).map(s => s.volume!)
     const avgPriceChangePct = validPrices.length > 0 ? validPrices.reduce((a, b) => a + b, 0) / validPrices.length : 0
     const avgVolume = validVolumes.length > 0 ? validVolumes.reduce((a, b) => a + b, 0) / validVolumes.length : 0
 
-    // 피처 벡터 추출
     const features = extractFeatures({
-      scores: scores.map(s => ({ score: s.score })),
       interestValues: interestAfterSpike.map(m => m.normalized),
       totalNewsCount: news.reduce((sum, n) => sum + n.article_count, 0),
       activeDays,
       avgPriceChangePct,
       avgVolume,
+      interestLevel: allRawAvgs.length >= 3 ? computePercentile(rawAvg7d) : undefined,
     })
 
-    // 피크/총일수
     const peakDay = curve.length > 0 ? findPeakDay(curve) : -1
     const totalDays = curve.length > 0 ? curve[curve.length - 1].day : activeDays
-
-    // 사전계산 캐싱 (비교 시 재계산 방지)
     const resampledCurve = curve.length >= 7 ? resampleCurve(normalizeValues(curve)) : []
     const keywordsLower = new Set(keywords.map(k => k.toLowerCase()))
 

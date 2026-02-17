@@ -1,6 +1,6 @@
 /** 데이터베이스 모델 인터페이스 */
 
-export type Stage = 'Dormant' | 'Early' | 'Growth' | 'Peak' | 'Decay';
+export type Stage = 'Dormant' | 'Emerging' | 'Growth' | 'Peak' | 'Decline';
 
 /** Display stage (includes Reigniting for UI rendering) */
 export type DisplayStage = Stage | 'Reigniting';
@@ -82,10 +82,13 @@ export interface ScoreComponents {
   news_momentum: number;
   volatility_score: number;
   maturity_ratio: number;
+  /** Activity Score — 주가/거래량/데이터 성숙도 교차 시그널 (v2 신규, 하위 호환 optional) */
+  activity_score?: number;
   weights: {
     interest: number;
     news: number;
     volatility: number;
+    activity?: number;
   };
   raw: {
     recent_7d_avg: number;
@@ -97,6 +100,18 @@ export interface ScoreComponents {
     raw_interest_avg?: number;
     dampening_factor?: number;
     raw_percentile?: number | null;
+    /** v2 Dual-Axis fields */
+    level_score?: number;
+    momentum_score?: number;
+    /** 관심도 선형회귀 기울기 (정규화 전 raw slope) — stage 판정용 */
+    interest_slope?: number;
+    dvi?: number;
+    volume_intensity?: number;
+    data_coverage?: number;
+    raw_score?: number;
+    smoothed_score?: number;
+    /** Hysteresis용: Markov-constrained stage candidate (다음날 비교용) */
+    stage_candidate?: string;
   };
   confidence?: ScoreConfidence;
 }

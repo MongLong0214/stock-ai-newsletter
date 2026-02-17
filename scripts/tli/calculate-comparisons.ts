@@ -106,8 +106,8 @@ async function loadThemeData(themeIds: string[], kstNow: Date): Promise<ThemeDat
   const daysAgo = (d: number) => new Date(kstNow.getTime() - d * 86400000).toISOString().split('T')[0]
 
   const [interestAll, scoresAll, newsAll, keywordsAll, stocksAll] = await Promise.all([
-    batchQuery<{ theme_id: string; time: string; normalized: number }>(
-      'interest_metrics', 'theme_id, time, normalized', themeIds, q => q.gte('time', daysAgo(180)),
+    batchQuery<{ theme_id: string; time: string; normalized: number; raw_value: number }>(
+      'interest_metrics', 'theme_id, time, normalized, raw_value', themeIds, q => q.gte('time', daysAgo(180)),
     ),
     batchQuery<{ theme_id: string; score: number; calculated_at: string }>(
       'lifecycle_scores', 'theme_id, score, calculated_at', themeIds,

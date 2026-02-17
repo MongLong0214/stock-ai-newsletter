@@ -97,7 +97,7 @@ export default async function Image() {
               backgroundColor: 'rgba(0, 0, 0, 0.6)',
             }}
           >
-            {/* Early */}
+            {/* Emerging */}
             <div
               style={{
                 display: 'flex',
@@ -110,7 +110,7 @@ export default async function Image() {
                   width: '32px',
                   height: '32px',
                   borderRadius: '50%',
-                  backgroundColor: '#10b981',
+                  backgroundColor: '#3b82f6',
                   marginBottom: '12px',
                   display: 'flex',
                 }}
@@ -118,12 +118,12 @@ export default async function Image() {
               <div
                 style={{
                   fontSize: '24px',
-                  color: '#10b981',
+                  color: '#3b82f6',
                   fontWeight: 'bold',
                   display: 'flex',
                 }}
               >
-                Early
+                Emerging
               </div>
               <div
                 style={{
@@ -132,7 +132,7 @@ export default async function Image() {
                   display: 'flex',
                 }}
               >
-                초기
+                부상
               </div>
             </div>
 
@@ -247,7 +247,7 @@ export default async function Image() {
               →
             </div>
 
-            {/* Decay */}
+            {/* Decline */}
             <div
               style={{
                 display: 'flex',
@@ -260,7 +260,7 @@ export default async function Image() {
                   width: '32px',
                   height: '32px',
                   borderRadius: '50%',
-                  backgroundColor: '#ef4444',
+                  backgroundColor: '#f59e0b',
                   marginBottom: '12px',
                   display: 'flex',
                 }}
@@ -268,12 +268,12 @@ export default async function Image() {
               <div
                 style={{
                   fontSize: '24px',
-                  color: '#ef4444',
+                  color: '#f59e0b',
                   fontWeight: 'bold',
                   display: 'flex',
                 }}
               >
-                Decay
+                Decline
               </div>
               <div
                 style={{
@@ -282,7 +282,7 @@ export default async function Image() {
                   display: 'flex',
                 }}
               >
-                쇠퇴
+                하락
               </div>
             </div>
           </div>

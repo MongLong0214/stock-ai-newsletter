@@ -3,10 +3,10 @@ import type { ThemeListItem, ThemeRanking } from '@/lib/tli/types'
 
 /** 빈 랭킹 응답 (placeholder / 에러 시 재사용) */
 export const EMPTY_RANKING: ThemeRanking = {
-  early: [],
+  emerging: [],
   growth: [],
   peak: [],
-  decay: [],
+  decline: [],
   reigniting: [],
   summary: {
     totalThemes: 0,
@@ -199,7 +199,7 @@ export function calculateRankingSummary(activeThemes: ThemeListItem[]) {
   const surgingCandidates = activeThemes.filter(
     t =>
       t.score >= 15 &&
-      (t.stage === 'Early' || t.stage === 'Growth') &&
+      (t.stage === 'Emerging' || t.stage === 'Growth') &&
       t.change7d > 3 &&
       t.newsCount7d >= 2 &&
       t.sparkline.length >= 3
