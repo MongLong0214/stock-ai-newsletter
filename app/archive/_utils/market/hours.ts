@@ -105,7 +105,7 @@ function isKoreanHoliday(kstDate: Date): boolean {
  * 시장 휴장일 여부 확인 (주말 + 공휴일)
  * @param kstDate - KST Date 객체
  */
-function isMarketClosed(kstDate: Date): boolean {
+export function isMarketClosed(kstDate: Date): boolean {
   return isWeekendKST(kstDate) || isKoreanHoliday(kstDate);
 }
 
@@ -273,4 +273,46 @@ export function calculateBusinessDays(startDate: Date, endDate: Date): number {
   }
 
   return count;
+}
+
+/**
+ * YYYY-MM-DD 형식 날짜가 휴장일(공휴일)인지 확인
+ * 주말은 체크하지 않음 (캘린더에서 주말은 이미 별도 처리)
+ *
+ * @param dateString - YYYY-MM-DD 형식
+ * @returns 공휴일이면 true
+ */
+export function isHolidayDate(dateString: string): boolean {
+  const date = new Date(dateString);
+  date.setHours(12, 0, 0, 0);
+  return isKoreanHoliday(date);
+}
+
+/**
+ * 주어진 날짜로부터 N영업일 후 날짜를 YYYYMMDD 형식으로 반환
+ * 주말 + 공휴일을 건너뛰며 N영업일 카운트
+ *
+ * @param dateString - YYYY-MM-DD 형식
+ * @param n - 이동할 영업일 수
+ * @returns YYYYMMDD 형식 (KIS API 형식)
+ *
+ * @example
+ * getNthBusinessDateAfter('2026-01-02', 7) // 7영업일 후 -> '20260113'
+ */
+export function getNthBusinessDateAfter(dateString: string, n: number): string {
+  const date = new Date(dateString);
+  date.setHours(12, 0, 0, 0);
+
+  let count = 0;
+  while (count < n) {
+    date.setDate(date.getDate() + 1);
+    if (!isMarketClosed(date)) {
+      count++;
+    }
+  }
+
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}${month}${day}`;
 }
