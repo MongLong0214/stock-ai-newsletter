@@ -26,6 +26,8 @@ function getRawLabel(key: string, raw: ScoreRawData): string {
       return `이번주 ${raw.newsThisWeek}건 / 지난주 ${raw.newsLastWeek}건`
     case 'volatility':
       return `표준편차: ${raw.interestStddev.toFixed(2)}`
+    case 'activity':
+      return `활동일수: ${raw.activeDays}일`
     default:
       return ''
   }

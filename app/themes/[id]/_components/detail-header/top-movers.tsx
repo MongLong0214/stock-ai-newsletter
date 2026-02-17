@@ -6,7 +6,7 @@ import { useReducedMotion, motion } from 'framer-motion'
 import { TrendingUp, TrendingDown, BarChart3 } from 'lucide-react'
 import { formatPrice, formatVolume } from '@/lib/tli/format-utils'
 
-const MAX_TOP_MOVERS = 3
+const MAX_TOP_MOVERS = 4
 
 interface TopMoversStock {
   symbol: string

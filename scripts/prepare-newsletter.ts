@@ -51,7 +51,7 @@ async function prepareNewsletter() {
     console.log(`📅 뉴스레터 날짜: ${today}`);
 
     // 3. DB에 저장 (이미 존재하면 업데이트)
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from('newsletter_content')
       .upsert(
         {

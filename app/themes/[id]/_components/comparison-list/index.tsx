@@ -13,16 +13,19 @@ interface ComparisonListProps {
   comparisons: ComparisonResult[]
   selectedIndices?: number[]
   onToggleComparison?: (index: number) => void
+  /** 정점 이전 단계(Emerging/Growth)인지 — false면 "정점까지 X일" 숨김 */
+  isPrePeak?: boolean
 }
 
 function ComparisonList({
   comparisons,
   selectedIndices = [],
   onToggleComparison,
+  isPrePeak = true,
 }: ComparisonListProps) {
   const { containerRef, handleKeyDown } = useRovingTabindex()
 
-  const insight = comparisons.length > 0 ? generateInsight(comparisons) : null
+  const insight = comparisons.length > 0 ? generateInsight(comparisons, isPrePeak) : null
 
   return (
     <GlassCard className="h-full overflow-hidden flex flex-col">
@@ -66,6 +69,7 @@ function ComparisonList({
                 idx={idx}
                 isSelected={selectedIndices?.includes(idx) ?? false}
                 onToggle={() => onToggleComparison?.(idx)}
+                isPrePeak={isPrePeak}
               />
             ))}
           </div>

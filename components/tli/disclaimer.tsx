@@ -51,10 +51,10 @@ export default function Disclaimer() {
                 <p>
                   <strong className="text-slate-400">생명주기 단계</strong>
                   <br />
-                  • 초기(Early): 관심이 형성되는 단계<br />
+                  • 초기(Emerging): 관심이 형성되는 단계<br />
                   • 성장(Growth): 관심이 빠르게 증가하는 단계<br />
                   • 과열(Peak): 관심이 최고조에 달한 단계<br />
-                  • 말기(Decay): 관심이 감소하는 단계<br />
+                  • 하락(Decline): 관심이 감소하는 단계<br />
                   • 관심없음(Dormant): 관심이 거의 없는 단계
                 </p>
 

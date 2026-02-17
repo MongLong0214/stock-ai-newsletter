@@ -10,7 +10,7 @@ export const STAGE_ORDER: {
   title: string
   subtitle: string
 }[] = [
-  { key: 'emerging', stage: 'Emerging', title: '부상 단계', subtitle: '새로운 기회가 형성되는 테마' },
+  { key: 'emerging', stage: 'Emerging', title: '초기 단계', subtitle: '새로운 기회가 형성되는 테마' },
   { key: 'growth', stage: 'Growth', title: '성장 단계', subtitle: '관심이 빠르게 증가하는 테마' },
   { key: 'peak', stage: 'Peak', title: '정점 단계', subtitle: '관심이 최고조에 달한 테마' },
   { key: 'reigniting', stage: 'Growth', title: '재점화 감지', subtitle: '하락 후 다시 관심이 증가하는 테마' },

@@ -132,7 +132,7 @@ export default async function Image() {
                   display: 'flex',
                 }}
               >
-                부상
+                초기
               </div>
             </div>
 

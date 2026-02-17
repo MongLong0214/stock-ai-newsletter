@@ -15,9 +15,11 @@ interface ComparisonCardProps {
   idx: number
   isSelected: boolean
   onToggle: () => void
+  /** 정점 이전 단계(Emerging/Growth)인지 — false면 "정점까지 X일" 숨김 */
+  isPrePeak?: boolean
 }
 
-export default function ComparisonCard({ comp, idx, isSelected, onToggle }: ComparisonCardProps) {
+export default function ComparisonCard({ comp, idx, isSelected, onToggle, isPrePeak = true }: ComparisonCardProps) {
   const simColor = getSimilarityColor(comp.similarity)
   const simPercent = Math.round(comp.similarity * 100)
   const badge = getSimilarityBadge(comp.similarity)
@@ -142,7 +144,7 @@ export default function ComparisonCard({ comp, idx, isSelected, onToggle }: Comp
       )}
 
       {/* 상태 알림 (estimatedDaysToPeak > 0 과 isBeyondCycle은 상호 배타적) */}
-      {comp.estimatedDaysToPeak > 0 && (
+      {isPrePeak && comp.estimatedDaysToPeak > 0 && (
         <AlertRow color="amber">
           과거 패턴 기준, 정점까지 약 <span className="font-medium">{comp.estimatedDaysToPeak}일</span> 추정
         </AlertRow>
