@@ -12,7 +12,7 @@ import ScoreBadge from '../../ui/score-badge';
 import { formatPrice } from '../../../_utils/formatting/price';
 import { getOverallScoreColor } from '../../../_utils/formatting/score';
 import PriceSection from './price-section';
-import { calculatePriceChange, getPreviousDate } from './utils';
+import { calculatePriceChange, calculateSettledPriceChange, getPreviousDate, getSettledDateDisplay } from './utils';
 import { RATIONALE_LAYOUT, SIGNAL_BADGES } from './constants';
 import type { NewsletterCardProps } from './types';
 
@@ -25,9 +25,11 @@ export default function NewsletterCard({
   newsletterDate,
   currentPrice,
   historicalClosePrice,
+  settledClosePrice,
   isLoadingPrice = false,
   unavailableReason,
   isMarketClosed = false,
+  isTrackingExpired = false,
 }: NewsletterCardProps) {
   const { ticker, name, close_price, rationale, signals } = stock;
 
@@ -39,6 +41,15 @@ export default function NewsletterCard({
 
   // 가격 변동 정보 계산
   const priceChange = calculatePriceChange(currentPrice, displayClosePrice);
+
+  // 7거래일 후 확정 종가 기준 변동 정보
+  const settledPriceChange =
+    isTrackingExpired && settledClosePrice
+      ? calculateSettledPriceChange(settledClosePrice, displayClosePrice)
+      : null;
+
+  // 7거래일 후 날짜 (UI 표시용)
+  const settledDateDisplay = isTrackingExpired ? getSettledDateDisplay(newsletterDate) : undefined;
 
   // 추천일 전일 날짜
   const previousDate = getPreviousDate(newsletterDate);
@@ -136,6 +147,10 @@ export default function NewsletterCard({
           priceChange={priceChange}
           unavailableReason={unavailableReason}
           isMarketClosed={isMarketClosed}
+          settledPrice={settledClosePrice}
+          settledPriceChange={settledPriceChange}
+          settledDateDisplay={settledDateDisplay}
+          isTrackingExpired={isTrackingExpired}
         />
       </div>
 
