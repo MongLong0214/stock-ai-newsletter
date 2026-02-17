@@ -9,6 +9,7 @@ interface ScoreComponentsProps {
     interest: number
     newsMomentum: number
     volatility: number
+    activity?: number
   }
 }
 
@@ -22,7 +23,7 @@ export default function ScoreComponents({ components }: ScoreComponentsProps) {
       <div className="space-y-12">
         {SCORE_COMPONENTS.map(({ key, label, color, weight }) => {
           const Icon = getComponentIcon(key)
-          const value = components[key]
+          const value = components[key] ?? 0
           const pct = Math.round(value * 100)
           const contribution = Math.round(value * weight)
           return (
@@ -66,10 +67,10 @@ export default function ScoreComponents({ components }: ScoreComponentsProps) {
 
 /* ── 아이콘 매핑 (score-config에는 아이콘 없음) ──────────────────── */
 
-import { Eye, Newspaper, LineChart } from 'lucide-react'
+import { Eye, Newspaper, LineChart, Activity } from 'lucide-react'
 import type { ScoreComponentKey } from '@/lib/tli/constants/score-config'
 
 function getComponentIcon(key: ScoreComponentKey) {
-  const icons = { interest: Eye, newsMomentum: Newspaper, volatility: LineChart }
+  const icons = { interest: Eye, newsMomentum: Newspaper, volatility: LineChart, activity: Activity }
   return icons[key]
 }

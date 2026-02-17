@@ -1,4 +1,4 @@
-/** 예측 계산 헬퍼 함수들 */
+/** 예측 계산 헬퍼 함수들 — Stage-derived Phase 기반 메시지 */
 
 import type { Phase } from './prediction'
 
@@ -33,7 +33,6 @@ export function buildKeyInsight(phase: Phase, avgDaysToPeak: number, score?: num
       ? `현재 점수 ${score}점으로 성장 중이에요. 비슷한 테마 기준 정점까지 약 ${avgDaysToPeak}일 정도 남았어요`
       : `현재 점수 ${score}점으로 성장 중이에요`
   }
-  // 낮은 점수(< 55)는 상승/하락 구분 불가 → phase 기반 메시지로 위임
   switch (phase) {
     case 'pre-peak':
       return avgDaysToPeak > 0

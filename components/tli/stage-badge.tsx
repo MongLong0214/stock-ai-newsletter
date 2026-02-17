@@ -11,10 +11,10 @@ interface StageBadgeProps {
 
 const STAGE_ICONS = {
   Dormant: Minus,
-  Early: null,
+  Emerging: null,
   Growth: TrendingUp,
   Peak: Flame,
-  Decay: TrendingDown,
+  Decline: TrendingDown,
 } as const
 
 export default function StageBadge({
@@ -42,7 +42,7 @@ export default function StageBadge({
       }}
     >
       {showIcon && Icon && <Icon className={size === 'sm' ? 'w-3 h-3' : 'w-4 h-4'} />}
-      {showIcon && stage === 'Early' && <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />}
+      {showIcon && stage === 'Emerging' && <div className="w-2 h-2 rounded-full bg-blue-400 animate-pulse" />}
       <span>{config.label}</span>
     </div>
   )

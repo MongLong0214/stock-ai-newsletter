@@ -89,7 +89,7 @@ function DetailContent({ id }: DetailContentProps) {
 
           {theme.comparisons.length > 0 && (
             <div className="mb-8">
-              <ThemePrediction firstSpikeDate={theme.firstSpikeDate} comparisons={theme.comparisons} score={theme.score.value} />
+              <ThemePrediction firstSpikeDate={theme.firstSpikeDate} comparisons={theme.comparisons} score={theme.score.value} stage={theme.score.stage} />
             </div>
           )}
 

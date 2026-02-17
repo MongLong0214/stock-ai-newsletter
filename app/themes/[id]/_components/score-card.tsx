@@ -18,7 +18,7 @@ function ScoreCard({ score }: ScoreCardProps) {
   const dominantComponent = useMemo(() => {
     const contributions = SCORE_COMPONENTS.map(c => ({
       key: c.key,
-      contribution: score.components[c.key] * c.weight,
+      contribution: (score.components[c.key] ?? 0) * c.weight,
       label: c.label,
     }))
     return contributions.reduce((max, curr) =>

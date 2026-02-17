@@ -1,28 +1,111 @@
-/** 테마 라이프사이클 단계 결정 모듈 */
+/** 테마 라이프사이클 단계 결정 모듈 v2 — Multi-Signal + Markov 제약 */
 
 import type { Stage, ScoreComponents } from './types';
 
-export function determineStage(score: number, components: ScoreComponents): Stage {
-  const { interest_score, news_momentum, maturity_ratio } = components;
+/** 관심도 추세 방향 */
+type Trend = 'rising' | 'stable' | 'falling';
 
-  if (
-    score >= 80 ||
-    (score >= 60 && interest_score > 0.8 && news_momentum > 0.7)
+/** 추세 판별 임계값 (정규화된 기울기 기준) */
+const TREND_THRESHOLD = 0.10;
+
+/** Markov 허용 전이 맵 */
+const ALLOWED_TRANSITIONS: Record<Stage, Set<Stage>> = {
+  Dormant:  new Set<Stage>(['Emerging']),
+  Emerging: new Set<Stage>(['Growth', 'Dormant']),
+  Growth:   new Set<Stage>(['Peak', 'Decline']),
+  Peak:     new Set<Stage>(['Decline', 'Growth']),
+  Decline:  new Set<Stage>(['Dormant', 'Emerging']),
+};
+
+/** 데이터 갭 시 1단계 점프 허용 (Markov 제약 완화) */
+const DATA_GAP_THRESHOLD = 3;
+
+/**
+ * 관심도 추세 계산
+ * interest_slope(raw linearRegressionSlope)를 recent_7d_avg로 정규화하여 판별
+ */
+function computeTrend(components: ScoreComponents): Trend {
+  const slope = components.raw.interest_slope ?? 0;
+  const mean = Math.max(components.raw.recent_7d_avg, 1);
+  const normalizedSlope = slope / mean;
+
+  if (normalizedSlope > TREND_THRESHOLD) return 'rising';
+  if (normalizedSlope < -TREND_THRESHOLD) return 'falling';
+  return 'stable';
+}
+
+/**
+ * 단계 결정 — Multi-Signal 우선순위 판정 + Markov 전이 제약
+ * @param score 0-100 라이프사이클 점수
+ * @param components 점수 하위 컴포넌트
+ * @param prevStage 이전 단계 (없으면 Markov 제약 스킵)
+ * @param dataGapDays 데이터 누락 일수 (>= 3이면 제약 완화)
+ */
+export function determineStage(
+  score: number,
+  components: ScoreComponents,
+  prevStage?: Stage | null,
+  dataGapDays?: number,
+): Stage {
+  const trend = computeTrend(components);
+  const newsVolume = components.raw.news_this_week;
+  const rawScore = components.raw.raw_score ?? score / 100;
+
+  // ── Multi-Signal 우선순위 판정 ──
+  let candidate: Stage;
+
+  // 1. Dormant: 낮은 점수 + 상승 추세 아님
+  if (score < 15 && trend !== 'rising') {
+    candidate = 'Dormant';
+  }
+  // 2. Peak: 높은 점수 또는 복합 시그널 (EMA bypass 포함)
+  else if (
+    score >= 63 ||
+    (score >= 50 && (trend === 'stable' || trend === 'rising') && newsVolume > 30)
   ) {
-    return 'Peak';
+    candidate = 'Peak';
+  }
+  // 3. Decline: 하락 추세 + 이전 대비 15%+ 하락 + 뉴스 감소
+  else if (
+    trend === 'falling' &&
+    rawScore < 0.85 * (components.raw.level_score ?? rawScore) &&
+    newsVolume < 30
+  ) {
+    candidate = 'Decline';
+  }
+  // 4. Growth: 중상위 점수 + 안정/상승 추세
+  else if (score >= 40 && (trend === 'stable' || trend === 'rising')) {
+    candidate = 'Growth';
+  }
+  // 5. Emerging: 나머지 전부
+  else {
+    candidate = 'Emerging';
   }
 
-  if (score >= 60) {
-    return 'Growth';
+  // ── Markov 전이 제약 적용 ──
+  if (prevStage && prevStage !== candidate) {
+    const allowed = ALLOWED_TRANSITIONS[prevStage];
+
+    if (!allowed.has(candidate)) {
+      // 데이터 갭 시 1단계 점프 허용
+      if (dataGapDays !== undefined && dataGapDays >= DATA_GAP_THRESHOLD) {
+        return candidate;
+      }
+      // 허용되지 않은 전이 → 이전 단계 유지
+      return prevStage;
+    }
   }
 
-  if (score >= 40) {
-    return 'Early';
-  }
+  return candidate;
+}
 
-  if (score >= 20 || (score >= 10 && maturity_ratio > 0.8 && interest_score < 0.3)) {
-    return 'Decay';
-  }
-
-  return 'Dormant';
+/**
+ * 재점화 판별 — Decline→Emerging 전이 감지
+ * determineStage 결과가 Emerging이고 prevStage가 Decline이면 재점화
+ */
+export function isReignitingTransition(
+  candidateStage: Stage,
+  prevStage: Stage | null | undefined,
+): boolean {
+  return prevStage === 'Decline' && candidateStage === 'Emerging';
 }

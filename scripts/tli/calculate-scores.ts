@@ -1,20 +1,37 @@
 import { supabaseAdmin } from './supabase-admin'
 import { batchQuery, groupByThemeId } from './supabase-batch'
 import { calculateLifecycleScore } from '../../lib/tli/calculator'
-import { determineStage } from '../../lib/tli/stage'
+import { determineStage, isReignitingTransition } from '../../lib/tli/stage'
 import { checkReigniting } from '../../lib/tli/reigniting'
 import { getKSTDate } from './utils'
+import { avg, standardDeviation, daysBetween } from '../../lib/tli/normalize'
 import type { InterestMetric, NewsMetric, Stage, ScoreComponents } from '../../lib/tli/types'
 import type { ThemeWithKeywords } from './data-ops'
 
-/** 라이프사이클 점수 계산 및 저장 */
+/** EMA smoothing factor (span≈4일, 60% 노이즈 억제) */
+const EMA_ALPHA = 0.4
+/** Bollinger band 최소 일일 변동 허용 (score 0-100 대비 10%) */
+const MIN_DAILY_CHANGE = 10
+
+/** 이전 점수 레코드 타입 */
+interface PrevScoreRecord {
+  theme_id: string
+  stage: string
+  score: number
+  smoothed_score: number | null
+  raw_score: number | null
+  components: ScoreComponents | null
+  calculated_at: string
+}
+
+/** 라이프사이클 점수 계산 및 저장 (v2 — EMA + Bollinger + Hysteresis) */
 export async function calculateAndSaveScores(themes: ThemeWithKeywords[]) {
   console.log('\n🧮 라이프사이클 점수 계산 중...')
   const today = getKSTDate()
   const themeIds = themes.map(t => t.id)
 
   // ─── 데이터 배치 로딩 (병렬, 자동 페이지네이션) ───
-  const [allInterest, allNews, allPrevScores] = await Promise.all([
+  const [allInterest, allNews, allPrevScores, allStocks] = await Promise.all([
     batchQuery<InterestMetric & { theme_id: string }>(
       'interest_metrics', '*', themeIds,
       q => q.order('time', { ascending: false }),
@@ -23,20 +40,28 @@ export async function calculateAndSaveScores(themes: ThemeWithKeywords[]) {
       'news_metrics', '*', themeIds,
       q => q.order('time', { ascending: false }),
     ),
-    batchQuery<{ theme_id: string; stage: string }>(
-      'lifecycle_scores', 'theme_id, stage', themeIds,
+    batchQuery<PrevScoreRecord>(
+      'lifecycle_scores', 'theme_id, stage, score, smoothed_score, raw_score, components, calculated_at', themeIds,
       q => q.lt('calculated_at', today).order('calculated_at', { ascending: false }),
+    ),
+    batchQuery<{ theme_id: string; price_change_pct: number | null; volume: number | null }>(
+      'theme_stocks', 'theme_id, price_change_pct, volume', themeIds,
     ),
   ])
 
   // 테마별 그룹화
   const interestByTheme = groupByThemeId(allInterest)
   const newsByTheme = groupByThemeId(allNews)
+  const stocksByTheme = groupByThemeId(allStocks)
 
-  // 이전 스테이지 맵 (테마당 최신 1건)
-  const prevStageMap = new Map<string, string>()
+  // 이전 점수 맵 (테마당 최신 2건 — hysteresis용)
+  const prevScoreMap = new Map<string, PrevScoreRecord[]>()
   for (const s of allPrevScores) {
-    if (!prevStageMap.has(s.theme_id)) prevStageMap.set(s.theme_id, s.stage)
+    const arr = prevScoreMap.get(s.theme_id) || []
+    if (arr.length < 2) {
+      arr.push(s)
+      prevScoreMap.set(s.theme_id, arr)
+    }
   }
 
   // ─── 관심도 캐시 + Cross-theme percentile ───
@@ -58,21 +83,10 @@ export async function calculateAndSaveScores(themes: ThemeWithKeywords[]) {
     }
   }
 
-  const sortedRawAvgs = Array.from(rawAvgMap.values()).filter(v => v > 0).sort((a, b) => a - b)
-  function computePercentile(value: number): number {
-    if (sortedRawAvgs.length === 0 || value <= 0) return 0
-    // Binary search: upper bound of value in sorted array
-    let lo = 0, hi = sortedRawAvgs.length
-    while (lo < hi) {
-      const mid = (lo + hi) >>> 1
-      if (sortedRawAvgs[mid] <= value) lo = mid + 1
-      else hi = mid
-    }
-    return lo / sortedRawAvgs.length
-  }
-
-  const medianRaw = sortedRawAvgs.length > 0 ? sortedRawAvgs[Math.floor(sortedRawAvgs.length / 2)] : 0
-  console.log(`   📊 Cross-theme percentile: ${sortedRawAvgs.length}개 테마, median rawAvg=${medianRaw.toFixed(1)}`)
+  // allThemesRawAvg: raw > 0인 테마만 포함, 오름차순 정렬
+  const allThemesRawAvg = Array.from(rawAvgMap.values()).filter(v => v > 0).sort((a, b) => a - b)
+  const medianRaw = allThemesRawAvg.length > 0 ? allThemesRawAvg[Math.floor(allThemesRawAvg.length / 2)] : 0
+  console.log(`   📊 Cross-theme percentile: ${allThemesRawAvg.length}개 테마, median rawAvg=${medianRaw.toFixed(1)}`)
 
   // ─── 뉴스 캐시 ───
   const newsCache = new Map<string, NewsMetric[]>()
@@ -86,9 +100,21 @@ export async function calculateAndSaveScores(themes: ThemeWithKeywords[]) {
     }
   }
 
+  // ─── Bollinger용: 이전 5일 smoothedScore 캐시 ───
+  const recentSmoothedMap = new Map<string, number[]>()
+  for (const [themeId, records] of prevScoreMap) {
+    // allPrevScores는 calculated_at DESC 정렬, 여기서는 최근 5일분 smoothed_score 수집
+    const smootheds = records
+      .filter(r => r.smoothed_score !== null)
+      .map(r => r.smoothed_score!)
+      .slice(0, 5)
+    if (smootheds.length > 0) recentSmoothedMap.set(themeId, smootheds)
+  }
+
   // ─── 점수 계산 (결과 수집) ───
   const scoreRows: {
     theme_id: string; calculated_at: string; score: number; stage: string
+    raw_score: number; smoothed_score: number
     is_reigniting: boolean; stage_changed: boolean; prev_stage: string | null
     components: ScoreComponents
   }[] = []
@@ -104,12 +130,27 @@ export async function calculateAndSaveScores(themes: ThemeWithKeywords[]) {
         continue
       }
 
+      // 주가/거래량 집계
+      const stocks = stocksByTheme.get(theme.id) || []
+      const validPrices = stocks.filter(s => s.price_change_pct !== null).map(s => s.price_change_pct!)
+      const validVolumes = stocks.filter(s => s.volume !== null).map(s => s.volume!)
+      const avgPriceChangePct = validPrices.length > 0 ? avg(validPrices) : undefined
+      const avgVolume = validVolumes.length > 0 ? avg(validVolumes) : undefined
+
+      // 이전 점수 정보
+      const prevRecords = prevScoreMap.get(theme.id) || []
+      const prevRecord = prevRecords[0] ?? null
+      const prevSmoothedScore = prevRecord?.smoothed_score ?? prevRecord?.score ?? undefined
+
       const result = calculateLifecycleScore({
         interestMetrics,
         newsMetrics: newsCache.get(theme.id) || [],
         firstSpikeDate: theme.first_spike_date,
         today,
-        rawPercentile: computePercentile(rawAvgMap.get(theme.id) ?? 0),
+        allThemesRawAvg,
+        avgPriceChangePct,
+        avgVolume,
+        prevSmoothedScore,
       })
 
       if (!result) {
@@ -117,21 +158,78 @@ export async function calculateAndSaveScores(themes: ThemeWithKeywords[]) {
         continue
       }
 
-      const { score, components } = result
-      const stage = determineStage(score, components)
-      const isReigniting = checkReigniting(stage, interestMetrics.slice(0, 14))
-      const prevStage = (prevStageMap.get(theme.id) as Stage) ?? null
-      const stageChanged = prevStage !== null && prevStage !== stage
+      const rawScore = result.score
+      const { components } = result
+
+      // ── EMA Smoothing + Bollinger 이상치 감지 ──
+      let smoothedScore: number
+      if (prevSmoothedScore !== undefined) {
+        // Bollinger band: 이전 5일 smoothed score의 2σ 밴드
+        const recentSmoothed = recentSmoothedMap.get(theme.id) || []
+        const sigma = recentSmoothed.length >= 2 ? standardDeviation(recentSmoothed) : 0
+        const maxDailyChange = Math.max(MIN_DAILY_CHANGE, 2 * sigma)
+
+        let effectiveRaw = rawScore
+        if (Math.abs(rawScore - prevSmoothedScore) > maxDailyChange) {
+          const sign = rawScore > prevSmoothedScore ? 1 : -1
+          effectiveRaw = prevSmoothedScore + sign * maxDailyChange
+        }
+
+        smoothedScore = Math.round(EMA_ALPHA * effectiveRaw + (1 - EMA_ALPHA) * prevSmoothedScore)
+      } else {
+        // 첫 날: rawScore 그대로
+        smoothedScore = rawScore
+      }
+      smoothedScore = Math.max(0, Math.min(100, smoothedScore))
+
+      // ── Stage 결정 (Markov + Hysteresis) ──
+      const prevStage = (prevRecord?.stage as Stage) ?? null
+      const dataGapDays = prevRecord ? daysBetween(prevRecord.calculated_at, today) : undefined
+
+      // 1. Markov-constrained candidate (smoothed score 기준)
+      const markovStage = determineStage(smoothedScore, components, prevStage, dataGapDays)
+
+      // 2. Peak fast-track: rawScore >= 63 AND smoothedScore >= 50 → 즉시 Peak
+      let finalStage: Stage
+      if (rawScore >= 63 && smoothedScore >= 50 && markovStage === 'Peak') {
+        finalStage = 'Peak'
+      }
+      // 3. 변경 없으면 그대로
+      else if (markovStage === prevStage || prevStage === null) {
+        finalStage = markovStage
+      }
+      // 4. Hysteresis: 2일 연속 동일 candidate 필요
+      else {
+        // 어제의 candidate 복원: 이전 components에서 저장된 stage_candidate 확인
+        const prevCandidate = prevRecord?.components?.raw?.stage_candidate as Stage | undefined
+        if (prevCandidate === markovStage) {
+          finalStage = markovStage // 2일 연속 → 전환 확정
+        } else {
+          finalStage = prevStage // 1일차 → 현재 stage 유지
+        }
+      }
+
+      // stage_candidate 저장 (내일 hysteresis 판단용)
+      components.raw.stage_candidate = markovStage
+
+      const isReigniting = checkReigniting(finalStage, interestMetrics.slice(0, 14), prevStage)
+        || isReignitingTransition(finalStage, prevStage)
+      const stageChanged = prevStage !== null && prevStage !== finalStage
 
       scoreRows.push({
         theme_id: theme.id,
         calculated_at: today,
-        score, stage, is_reigniting: isReigniting,
-        stage_changed: stageChanged, prev_stage: prevStage,
+        score: smoothedScore,
+        raw_score: rawScore,
+        smoothed_score: smoothedScore,
+        stage: finalStage,
+        is_reigniting: isReigniting,
+        stage_changed: stageChanged,
+        prev_stage: prevStage,
         components,
       })
 
-      console.log(`   ✅ 점수: ${score}, 스테이지: ${stage}${isReigniting ? ' (재점화!)' : ''}`)
+      console.log(`   ✅ raw=${rawScore} → smoothed=${smoothedScore}, stage=${finalStage}${stageChanged ? ` (← ${prevStage})` : ''}${isReigniting ? ' (재점화!)' : ''}`)
 
       if (!theme.first_spike_date) {
         spikeBackfillIds.push(theme.id)

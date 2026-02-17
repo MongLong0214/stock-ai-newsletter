@@ -12,6 +12,7 @@ interface ScoreBreakdownProps {
     interest: number
     newsMomentum: number
     volatility: number
+    activity?: number
   }
   raw?: ScoreRawData | null
 }
@@ -34,7 +35,7 @@ export default function ScoreBreakdown({ components, raw }: ScoreBreakdownProps)
   return (
     <div className="space-y-3">
       {SCORE_COMPONENTS.map((config, index) => {
-        const value = components[config.key]
+        const value = components[config.key] ?? 0
         const percentage = Math.min(Math.max(value * 100, 0), 100)
         const contribution = value * config.weight
         return (

@@ -111,6 +111,8 @@ export interface ThemeDetail {
       newsMomentum: number;
       /** 변동성 점수 (0~1 정규화) */
       volatility: number;
+      /** 활동성 점수 (0~1 정규화, v2 신규 — 하위 호환 optional) */
+      activity?: number;
     };
     /** raw 수치 (툴팁/상세용) */
     raw: {
@@ -174,10 +176,10 @@ export interface ThemeDetail {
 
 /** 테마 랭킹 (단계별 그룹) */
 export interface ThemeRanking {
-  early: ThemeListItem[];
+  emerging: ThemeListItem[];
   growth: ThemeListItem[];
   peak: ThemeListItem[];
-  decay: ThemeListItem[];
+  decline: ThemeListItem[];
   reigniting: ThemeListItem[];
   /** 요약 통계 */
   summary: {

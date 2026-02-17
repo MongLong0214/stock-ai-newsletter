@@ -18,8 +18,8 @@ function getMarketPulse(summary: ThemeRanking['summary']): {
   const { byStage, avgScore } = summary
   const peak = byStage['Peak'] ?? 0
   const growth = byStage['Growth'] ?? 0
-  const decay = byStage['Decay'] ?? 0
-  const early = byStage['Early'] ?? 0
+  const decline = byStage['Decline'] ?? 0
+  const emerging = byStage['Emerging'] ?? 0
   const total = summary.totalThemes
 
   if (total > 0 && peak / total >= 0.1) {
@@ -30,7 +30,7 @@ function getMarketPulse(summary: ThemeRanking['summary']): {
       barColor: 'bg-amber-500',
     }
   }
-  if (growth > peak && growth > decay) {
+  if (growth > peak && growth > decline) {
     return {
       label: '성장 주도',
       description: '성장 단계 테마가 시장을 이끌고 있습니다. 모멘텀이 살아있는 구간입니다.',
@@ -38,7 +38,7 @@ function getMarketPulse(summary: ThemeRanking['summary']): {
       barColor: 'bg-sky-500',
     }
   }
-  if (decay > growth && decay > peak) {
+  if (decline > growth && decline > peak) {
     return {
       label: '시장 냉각',
       description: '대부분의 테마가 하락 추세입니다. 새로운 테마 출현을 주시하세요.',
@@ -46,12 +46,12 @@ function getMarketPulse(summary: ThemeRanking['summary']): {
       barColor: 'bg-red-500',
     }
   }
-  if (early > growth && early > peak) {
+  if (emerging > growth && emerging > peak) {
     return {
-      label: '초기 탐색',
+      label: '부상 탐색',
       description: '새로운 테마들이 형성 중입니다. 조기 포착 기회를 살펴보세요.',
-      color: 'text-emerald-400',
-      barColor: 'bg-emerald-500',
+      color: 'text-blue-400',
+      barColor: 'bg-blue-500',
     }
   }
   if (avgScore >= 60) {
