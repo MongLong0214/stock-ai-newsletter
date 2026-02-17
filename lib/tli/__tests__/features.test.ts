@@ -2,114 +2,135 @@ import { describe, it, expect } from 'vitest'
 import { extractFeatures, featuresToArray, classifySector } from '../comparison/features'
 
 describe('extractFeatures', () => {
-  it('returns all zeros for empty inputs', () => {
+  it('returns defaults for empty inputs', () => {
     const result = extractFeatures({
-      scores: [],
       interestValues: [],
       totalNewsCount: 0,
       activeDays: 0,
     })
-    expect(result.growthRate).toBe(0.5) // 성장 없음: (0+1)/2 = 0.5
-    expect(result.volatility).toBe(0)
+    // sigmoid_normalize(0, 30, 20) ≈ 0.182 for interestLevel fallback
+    expect(result.interestLevel).toBeGreaterThan(0)
+    expect(result.interestLevel).toBeLessThan(0.5)
+    // no data → slope=0 → sigmoid(0,0,1.5)=0.5
+    expect(result.interestMomentum).toBeCloseTo(0.5)
+    // no deltas → DVI=0.5
+    expect(result.volatilityDVI).toBeCloseTo(0.5)
     expect(result.newsIntensity).toBe(0)
-    expect(result.scoreLevel).toBe(0)
     expect(result.activeDaysNorm).toBe(0)
-    expect(result.priceChangePct).toBe(0.5) // 기본값 0 → (0+50)/100 = 0.5
+    // sigmoid(0, 0, 5) = 0.5
+    expect(result.priceChangePct).toBeCloseTo(0.5)
     expect(result.volumeIntensity).toBe(0)
   })
 
-  it('calculates growthRate from recent vs older scores', () => {
-    // recent 7: avg=60, older 7: avg=30 → rawGrowth=(60-30)/30=1 → (1+1)/2=1.0
-    const scores = [
-      ...Array(7).fill({ score: 60 }),
-      ...Array(7).fill({ score: 30 }),
-    ]
-    const result = extractFeatures({ scores, interestValues: [], totalNewsCount: 0, activeDays: 0 })
-    expect(result.growthRate).toBeCloseTo(1.0)
-  })
-
-  it('clamps growthRate to [0, 1]', () => {
-    // 하락: recent=10, older=100 → rawGrowth=(10-100)/100=-0.9 → (-0.9+1)/2=0.05
-    const scores = [
-      ...Array(7).fill({ score: 10 }),
-      ...Array(7).fill({ score: 100 }),
-    ]
-    const result = extractFeatures({ scores, interestValues: [], totalNewsCount: 0, activeDays: 0 })
-    expect(result.growthRate).toBeGreaterThanOrEqual(0)
-    expect(result.growthRate).toBeLessThanOrEqual(1)
-  })
-
-  it('uses recentAvg as olderAvg when fewer than 8 scores', () => {
-    const scores = [{ score: 50 }, { score: 60 }]
-    const result = extractFeatures({ scores, interestValues: [], totalNewsCount: 0, activeDays: 0 })
-    // olderScores empty → olderAvg = recentAvg → rawGrowth=0 → growthRate=0.5
-    expect(result.growthRate).toBeCloseTo(0.5)
-  })
-
-  it('calculates volatility from interest values', () => {
-    // stddev of [0, 50] ≈ 25 → 25/50 = 0.5
+  it('uses provided interestLevel over sigmoid fallback', () => {
     const result = extractFeatures({
-      scores: [],
-      interestValues: [0, 50],
+      interestValues: [10, 20, 30],
+      totalNewsCount: 0,
+      activeDays: 0,
+      interestLevel: 0.85,
+    })
+    expect(result.interestLevel).toBe(0.85)
+  })
+
+  it('computes interestMomentum from slope', () => {
+    // rising values: slope > 0 → sigmoid > 0.5
+    const rising = extractFeatures({
+      interestValues: [10, 20, 30, 40, 50, 60, 70],
       totalNewsCount: 0,
       activeDays: 0,
     })
-    expect(result.volatility).toBeCloseTo(0.5)
-  })
+    expect(rising.interestMomentum).toBeGreaterThan(0.5)
 
-  it('caps volatility at 1', () => {
-    const result = extractFeatures({
-      scores: [],
-      interestValues: [0, 200],
+    // falling values: slope < 0 → sigmoid < 0.5
+    const falling = extractFeatures({
+      interestValues: [70, 60, 50, 40, 30, 20, 10],
       totalNewsCount: 0,
       activeDays: 0,
     })
-    expect(result.volatility).toBeLessThanOrEqual(1)
+    expect(falling.interestMomentum).toBeLessThan(0.5)
   })
 
-  it('caps newsIntensity at 1', () => {
+  it('computes DVI from directional volatility', () => {
+    // pure upward movement → DVI = 1.0
+    const up = extractFeatures({
+      interestValues: [10, 20, 30, 40],
+      totalNewsCount: 0,
+      activeDays: 0,
+    })
+    expect(up.volatilityDVI).toBeCloseTo(1.0)
+
+    // pure downward movement → DVI = 0
+    const down = extractFeatures({
+      interestValues: [40, 30, 20, 10],
+      totalNewsCount: 0,
+      activeDays: 0,
+    })
+    expect(down.volatilityDVI).toBeCloseTo(0)
+  })
+
+  it('computes newsIntensity with log normalization', () => {
     const result = extractFeatures({
-      scores: [],
       interestValues: [],
-      totalNewsCount: 500,
+      totalNewsCount: 100,
       activeDays: 0,
     })
-    expect(result.newsIntensity).toBe(1)
-  })
-
-  it('calculates scoreLevel from first score', () => {
-    const result = extractFeatures({
-      scores: [{ score: 75 }, { score: 50 }],
-      interestValues: [],
-      totalNewsCount: 0,
-      activeDays: 0,
-    })
-    expect(result.scoreLevel).toBeCloseTo(0.75)
+    // log_normalize(100, 100) = log(101)/log(101) = 1.0
+    expect(result.newsIntensity).toBeCloseTo(1.0)
   })
 
   it('caps activeDaysNorm at 1 for 365+ days', () => {
     const result = extractFeatures({
-      scores: [],
       interestValues: [],
       totalNewsCount: 0,
       activeDays: 730,
     })
     expect(result.activeDaysNorm).toBe(1)
   })
+
+  it('computes priceChangePct with sigmoid', () => {
+    // positive price change → > 0.5
+    const up = extractFeatures({
+      interestValues: [],
+      totalNewsCount: 0,
+      activeDays: 0,
+      avgPriceChangePct: 10,
+    })
+    expect(up.priceChangePct).toBeGreaterThan(0.5)
+
+    // negative price change → < 0.5
+    const down = extractFeatures({
+      interestValues: [],
+      totalNewsCount: 0,
+      activeDays: 0,
+      avgPriceChangePct: -10,
+    })
+    expect(down.priceChangePct).toBeLessThan(0.5)
+  })
+
+  it('computes volumeIntensity with log normalization', () => {
+    const result = extractFeatures({
+      interestValues: [],
+      totalNewsCount: 0,
+      activeDays: 0,
+      avgVolume: 50_000_000,
+    })
+    // log_normalize(50M, 50M) = 1.0
+    expect(result.volumeIntensity).toBeCloseTo(1.0)
+  })
 })
 
 describe('featuresToArray', () => {
   it('returns features in correct order', () => {
     const features = {
-      growthRate: 0.1,
-      volatility: 0.2,
-      newsIntensity: 0.3,
-      scoreLevel: 0.4,
+      interestLevel: 0.1,
+      interestMomentum: 0.2,
+      volatilityDVI: 0.3,
+      newsIntensity: 0.4,
       activeDaysNorm: 0.5,
-      priceChangePct: 0.5,
-      volumeIntensity: 0,
+      priceChangePct: 0.6,
+      volumeIntensity: 0.7,
     }
-    expect(featuresToArray(features)).toEqual([0.1, 0.2, 0.3, 0.4, 0.5, 0.5, 0])
+    expect(featuresToArray(features)).toEqual([0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7])
   })
 })
 
@@ -131,7 +152,6 @@ describe('classifySector', () => {
   })
 
   it('picks sector with most keyword matches', () => {
-    // 2 matches for 반도체 (HBM, DRAM), 1 for AI (GPU)
     expect(classifySector(['HBM', 'DRAM', 'GPU'])).toBe('반도체')
   })
 

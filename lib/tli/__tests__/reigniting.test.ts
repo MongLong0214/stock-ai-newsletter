@@ -17,7 +17,7 @@ function makeMetric(day: number, normalized: number): InterestMetric {
 describe('checkReigniting', () => {
   it('returns false if stage is not Decay', () => {
     const metrics = Array.from({ length: 14 }, (_, i) => makeMetric(i, 50))
-    expect(checkReigniting('Early', metrics)).toBe(false)
+    expect(checkReigniting('Emerging', metrics)).toBe(false)
     expect(checkReigniting('Peak', metrics)).toBe(false)
     expect(checkReigniting('Growth', metrics)).toBe(false)
     expect(checkReigniting('Dormant', metrics)).toBe(false)
@@ -25,7 +25,7 @@ describe('checkReigniting', () => {
 
   it('returns false if fewer than 7 metrics', () => {
     const metrics = Array.from({ length: 5 }, (_, i) => makeMetric(i, 50))
-    expect(checkReigniting('Decay', metrics)).toBe(false)
+    expect(checkReigniting('Decline', metrics)).toBe(false)
   })
 
   it('returns true when recent half shows >= 30% growth over older half', () => {
@@ -34,7 +34,7 @@ describe('checkReigniting', () => {
       ...Array.from({ length: 7 }, (_, i) => makeMetric(i, 10)),
       ...Array.from({ length: 7 }, (_, i) => makeMetric(i + 7, 20)),
     ]
-    expect(checkReigniting('Decay', metrics)).toBe(true)
+    expect(checkReigniting('Decline', metrics)).toBe(true)
   })
 
   it('returns false when growth is below 30%', () => {
@@ -43,7 +43,7 @@ describe('checkReigniting', () => {
       ...Array.from({ length: 7 }, (_, i) => makeMetric(i, 10)),
       ...Array.from({ length: 7 }, (_, i) => makeMetric(i + 7, 12)),
     ]
-    expect(checkReigniting('Decay', metrics)).toBe(false)
+    expect(checkReigniting('Decline', metrics)).toBe(false)
   })
 
   it('returns false when older average is 0', () => {
@@ -51,7 +51,7 @@ describe('checkReigniting', () => {
       ...Array.from({ length: 7 }, (_, i) => makeMetric(i, 0)),
       ...Array.from({ length: 7 }, (_, i) => makeMetric(i + 7, 50)),
     ]
-    expect(checkReigniting('Decay', metrics)).toBe(false)
+    expect(checkReigniting('Decline', metrics)).toBe(false)
   })
 
   it('sorts by time before splitting halves', () => {
@@ -61,6 +61,6 @@ describe('checkReigniting', () => {
       ...Array.from({ length: 7 }, (_, i) => makeMetric(i + 7, 20)), // recent but listed first
       ...Array.from({ length: 7 }, (_, i) => makeMetric(i, 10)),     // older but listed second
     ]
-    expect(checkReigniting('Decay', metrics)).toBe(true)
+    expect(checkReigniting('Decline', metrics)).toBe(true)
   })
 })

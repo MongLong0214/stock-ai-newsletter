@@ -39,7 +39,7 @@ export interface FetchThemeDataResult {
   comparisonsRes: SupabaseRes<{ id: string; past_theme_id: string; similarity_score: number; current_day: number; past_peak_day: number; past_total_days: number; message: string | null; feature_sim: number | null; curve_sim: number | null; keyword_sim: number | null; past_peak_score: number | null; past_final_stage: string | null; past_decline_days: number | null }>
   newsRes: SupabaseRes<{ time: string; article_count: number }>
   interestRes: SupabaseRes<{ time: string; normalized: number }>
-  newsArticlesRes: SupabaseRes<{ title: string; link: string; source: string | null; pub_date: string; sentiment_score: number | null }>
+  newsArticlesRes: SupabaseRes<{ title: string; link: string; source: string | null; pub_date: string }>
   keywordsRes: SupabaseRes<{ keyword: string }>
   stockCount: number
   newsArticleCount: number
@@ -123,7 +123,7 @@ export async function fetchThemeData(
       // 최근 뉴스 기사 (최신 50건) — 테이블 미존재 시 graceful fallback
       supabase
         .from('theme_news_articles')
-        .select('title, link, source, pub_date, sentiment_score')
+        .select('title, link, source, pub_date')
         .eq('theme_id', id)
         .order('pub_date', { ascending: false })
         .limit(50),

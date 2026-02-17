@@ -3,6 +3,7 @@ config({ path: '.env.local' })
 import { loadActiveThemes, upsertInterestMetrics, upsertNewsMetrics, upsertThemeStocks, upsertNewsArticles } from './data-ops';
 import { calculateAndSaveScores } from './calculate-scores';
 import { calculateThemeComparisons } from './calculate-comparisons';
+import { computeOptimalThreshold } from './auto-tune';
 import { snapshotPredictions } from './snapshot-predictions';
 import { evaluatePredictions } from './evaluate-predictions';
 import { collectNaverDatalab } from './collectors/naver-datalab';
@@ -25,6 +26,8 @@ async function main() {
 
   const startTime = Date.now();
   let criticalFailures = 0;
+  let warningFailures = 0;
+  let datalabFailed = false;
 
   try {
     // 사전단계: 테마 발견 (주 2회 - 일/수, full 모드에서만)
@@ -60,9 +63,30 @@ async function main() {
           startDate,
           endDate
         );
-        await upsertInterestMetrics(interestMetrics);
+
+        // PHASE 0.1: Volume Validation Gate
+        const totalThemes = themes.length;
+        const uniqueThemesCollected = new Set(interestMetrics.map(m => m.themeId)).size;
+        const coverageRate = totalThemes > 0 ? uniqueThemesCollected / totalThemes : 0;
+        const zeroValueCount = interestMetrics.filter(m => m.rawValue === 0).length;
+        const zeroValueRate = interestMetrics.length > 0 ? zeroValueCount / interestMetrics.length : 0;
+
+        console.log(`📊 수집 품질 검증: 테마 커버리지 ${(coverageRate * 100).toFixed(1)}% (${uniqueThemesCollected}/${totalThemes}), 제로값 비율 ${(zeroValueRate * 100).toFixed(1)}% (${zeroValueCount}/${interestMetrics.length})`);
+
+        if (coverageRate < 0.7) {
+          criticalFailures++;
+          datalabFailed = true;
+          console.error(`❌ DataLab 수집 품질 불량: 테마 커버리지 ${(coverageRate * 100).toFixed(1)}% < 70% (후속 단계 생략)`);
+        } else if (zeroValueRate >= 0.9) {
+          criticalFailures++;
+          datalabFailed = true;
+          console.error(`❌ DataLab API 장애 의심: 제로값 비율 ${(zeroValueRate * 100).toFixed(1)}% >= 90% (후속 단계 생략)`);
+        } else {
+          await upsertInterestMetrics(interestMetrics);
+        }
       } catch (error: unknown) {
         criticalFailures++;
+        datalabFailed = true;
         console.error('❌ 네이버 DataLab 수집 실패:', error instanceof Error ? error.message : String(error));
       }
     }
@@ -94,6 +118,7 @@ async function main() {
         );
         await upsertThemeStocks(stocks);
       } catch (error: unknown) {
+        criticalFailures++;
         console.error('❌ 종목 수집 실패:', error instanceof Error ? error.message : String(error));
       }
     } else if (mode === 'full') {
@@ -102,48 +127,73 @@ async function main() {
 
     // 4단계: 점수 계산 (full 모드에서만)
     if (mode === 'full') {
-      console.log('\n🧮 4단계: 라이프사이클 점수 계산');
+      if (datalabFailed) {
+        console.log('\n⊘ DataLab 수집 실패로 후속 단계 생략 (4~8단계)');
+      } else {
+        console.log('\n🧮 4단계: 라이프사이클 점수 계산');
 
-      try {
-        await calculateAndSaveScores(themes);
-      } catch (error: unknown) {
-        console.error('❌ 점수 계산 실패:', error instanceof Error ? error.message : String(error));
-      }
+        try {
+          await calculateAndSaveScores(themes);
+        } catch (error: unknown) {
+          criticalFailures++;
+          console.error('❌ 점수 계산 실패:', error instanceof Error ? error.message : String(error));
+        }
 
-      // 5단계: 비교 분석
-      console.log('\n🔍 5단계: 테마 비교 분석');
+        // 4.5단계: 비교 임계값 자동 튜닝
+        console.log('\n🎯 4.5단계: 비교 임계값 자동 튜닝');
 
-      try {
-        await calculateThemeComparisons(themes);
-      } catch (error: unknown) {
-        console.error('❌ 비교 분석 실패:', error instanceof Error ? error.message : String(error));
-      }
+        let tunedThreshold: number | undefined;
+        try {
+          const tuning = await computeOptimalThreshold();
+          if (tuning) {
+            tunedThreshold = tuning.threshold;
+            console.log(`   ✅ 자동 튜닝 임계값: ${tuning.threshold} (신뢰도: ${tuning.confidence}, 검증 ${tuning.sampleSize}건)`);
+          } else {
+            console.log('   ⊘ 검증 데이터 부족 — 기본 임계값 사용');
+          }
+        } catch (error: unknown) {
+          console.warn('   ⚠️ 자동 튜닝 실패 (기본 임계값 사용):', error instanceof Error ? error.message : String(error));
+        }
 
-      // 6단계: 예측 스냅샷
-      console.log('\n📸 6단계: 예측 스냅샷');
+        // 5단계: 비교 분석
+        console.log('\n🔍 5단계: 테마 비교 분석');
 
-      try {
-        await snapshotPredictions();
-      } catch (error: unknown) {
-        console.error('❌ 예측 스냅샷 실패:', error instanceof Error ? error.message : String(error));
-      }
+        try {
+          await calculateThemeComparisons(themes, tunedThreshold);
+        } catch (error: unknown) {
+          criticalFailures++;
+          console.error('❌ 비교 분석 실패:', error instanceof Error ? error.message : String(error));
+        }
 
-      // 7단계: 예측 평가
-      console.log('\n📊 7단계: 예측 평가');
+        // 6단계: 예측 스냅샷
+        console.log('\n📸 6단계: 예측 스냅샷');
 
-      try {
-        await evaluatePredictions();
-      } catch (error: unknown) {
-        console.error('❌ 예측 평가 실패:', error instanceof Error ? error.message : String(error));
-      }
+        try {
+          await snapshotPredictions();
+        } catch (error: unknown) {
+          warningFailures++;
+          console.error('❌ 예측 스냅샷 실패:', error instanceof Error ? error.message : String(error));
+        }
 
-      // 8단계: 비교 결과 검증
-      console.log('\n🔬 8단계: 비교 결과 검증');
+        // 7단계: 예측 평가
+        console.log('\n📊 7단계: 예측 평가');
 
-      try {
-        await evaluateComparisonOutcomes();
-      } catch (error: unknown) {
-        console.error('❌ 비교 결과 검증 실패:', error instanceof Error ? error.message : String(error));
+        try {
+          await evaluatePredictions();
+        } catch (error: unknown) {
+          warningFailures++;
+          console.error('❌ 예측 평가 실패:', error instanceof Error ? error.message : String(error));
+        }
+
+        // 8단계: 비교 결과 검증
+        console.log('\n🔬 8단계: 비교 결과 검증');
+
+        try {
+          await evaluateComparisonOutcomes(tunedThreshold);
+        } catch (error: unknown) {
+          warningFailures++;
+          console.error('❌ 비교 결과 검증 실패:', error instanceof Error ? error.message : String(error));
+        }
       }
     }
 
@@ -151,6 +201,9 @@ async function main() {
     const duration = ((Date.now() - startTime) / 1000).toFixed(2);
     console.log(`\n✨ TLI ${mode === 'news-only' ? '뉴스 수집' : '전체 수집 및 점수 계산'} 완료!`);
     console.log(`⏱️  소요 시간: ${duration}초 | 📊 처리된 테마: ${themes.length}개`);
+
+    if (criticalFailures > 0) console.log(`⚠️  치명적 실패: ${criticalFailures}건`);
+    if (warningFailures > 0) console.log(`⚠️  경고 실패: ${warningFailures}건`);
 
     process.exit(criticalFailures > 0 ? 1 : 0);
   } catch (error: unknown) {
