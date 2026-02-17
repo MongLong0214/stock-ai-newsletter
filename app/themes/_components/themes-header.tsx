@@ -48,7 +48,7 @@ function getMarketPulse(summary: ThemeRanking['summary']): {
   }
   if (emerging > growth && emerging > peak) {
     return {
-      label: '부상 탐색',
+      label: '초기 탐색',
       description: '새로운 테마들이 형성 중입니다. 조기 포착 기회를 살펴보세요.',
       color: 'text-blue-400',
       barColor: 'bg-blue-500',

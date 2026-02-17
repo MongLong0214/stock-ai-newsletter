@@ -108,7 +108,7 @@ describe('calculateLifecycleScore', () => {
 
   it('uses fallback news momentum when no last week data', () => {
     const interest = Array.from({ length: 10 }, (_, i) => makeInterestMetric(i, 50))
-    // 이번 주 뉴스만 존재, 지난 주 없음 → 폴백 공식
+    // 이번 주 뉴스만 존재, 지난 주 없음 → 모멘텀 중립(0.5) + 볼륨 반영
     const news = Array.from({ length: 7 }, (_, i) => makeNewsMetric(i, 3))
 
     const result = calculateLifecycleScore({
@@ -118,12 +118,11 @@ describe('calculateLifecycleScore', () => {
       today: '2026-01-10',
     })
     expect(result).not.toBeNull()
-    // 폴백: normalize(newsThisWeek=21, 0, 15) * 0.5 → 최대 0.5
+    // v2: newsScore = volumeScore * 0.6 + fallbackMomentum(0.5) * 0.4
     expect(result!.components.news_momentum).toBeGreaterThan(0)
-    expect(result!.components.news_momentum).toBeLessThanOrEqual(0.5)
   })
 
-  it('uses correct SCORE_WEIGHTS (0.50, 0.30, 0.20)', () => {
+  it('uses correct SCORE_WEIGHTS (0.40, 0.35, 0.10, 0.15)', () => {
     const interest = Array.from({ length: 5 }, (_, i) => makeInterestMetric(i, 50))
     const result = calculateLifecycleScore({
       interestMetrics: interest,
@@ -133,37 +132,40 @@ describe('calculateLifecycleScore', () => {
     })
     expect(result).not.toBeNull()
     const w = result!.components.weights
-    expect(w.interest).toBe(0.50)
-    expect(w.news).toBe(0.30)
-    expect(w.volatility).toBe(0.20)
+    expect(w.interest).toBe(0.40)
+    expect(w.news).toBe(0.35)
+    expect(w.volatility).toBe(0.10)
+    expect(w.activity).toBe(0.15)
   })
 
-  it('reduces volatility score when noise detected (high CV + low percentile)', () => {
-    // 노이즈 조건: coefficientOfVariation > 0.8 AND dampening < 1
-    // 높은 변동 관심도 (0과 100 반복 → stddev 높고 CV > 0.8) + 낮은 백분위
-    const noisyInterest = Array.from({ length: 14 }, (_, i) =>
-      makeInterestMetric(i, i % 2 === 0 ? 0 : 100)
+  it('DVI: consistent direction yields higher volatility than flat pattern', () => {
+    // 상승 패턴 (desc-sorted): 최근이 높고 과거가 낮음 → DVI ≈ 1.0
+    const risingInterest = Array.from({ length: 14 }, (_, i) =>
+      makeInterestMetric(i, 70 - i * 5)
+    )
+    // 플랫 패턴: 전부 동일 → stddev ≈ 0 → volMagnitude ≈ 0
+    const flatInterest = Array.from({ length: 14 }, (_, i) =>
+      makeInterestMetric(i, 50)
     )
     const news = Array.from({ length: 14 }, (_, i) => makeNewsMetric(i, 1))
 
-    const noisy = calculateLifecycleScore({
-      interestMetrics: noisyInterest,
+    const rising = calculateLifecycleScore({
+      interestMetrics: risingInterest,
       newsMetrics: news,
       firstSpikeDate: '2025-12-01',
       today: '2026-01-10',
-      rawPercentile: 0.05, // 낮은 백분위 → dampening < 1
     })
-    const normal = calculateLifecycleScore({
-      interestMetrics: noisyInterest,
+    const flat = calculateLifecycleScore({
+      interestMetrics: flatInterest,
       newsMetrics: news,
       firstSpikeDate: '2025-12-01',
       today: '2026-01-10',
-      rawPercentile: 1.0, // 높은 백분위 → dampening = 1 → 노이즈 미감지
     })
-    expect(noisy).not.toBeNull()
-    expect(normal).not.toBeNull()
-    // 노이즈 감지 시 volatilityScore가 0.3배로 줄어듦
-    expect(noisy!.components.volatility_score).toBeLessThan(normal!.components.volatility_score)
+    expect(rising).not.toBeNull()
+    expect(flat).not.toBeNull()
+    // 상승 패턴은 stddev > 0 → volMagnitude > 0, DVI=1.0
+    // 플랫 패턴은 stddev ≈ 0 → volMagnitude ≈ 0
+    expect(rising!.components.volatility_score).toBeGreaterThan(flat!.components.volatility_score)
   })
 
   it('returns confidence based on data coverage', () => {

@@ -195,7 +195,7 @@ export function calculateRankingSummary(activeThemes: ThemeListItem[]) {
     ? hottestCandidates.reduce((max, t) => (t.score > max.score ? t : max))
     : null
 
-  // surging (급상승): Early/Growth 단계, 의미있는 상승폭, 뉴스 뒷받침
+  // surging (급상승): Emerging/Growth 단계, 의미있는 상승폭, 뉴스 뒷받침
   const surgingCandidates = activeThemes.filter(
     t =>
       t.score >= 15 &&
