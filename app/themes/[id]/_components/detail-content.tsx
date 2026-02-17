@@ -158,6 +158,7 @@ function DetailContent({ id }: DetailContentProps) {
               comparisons={theme.comparisons}
               selectedIndices={selectedComparisons}
               onToggleComparison={handleToggleComparison}
+              isPrePeak={theme.score.stage === 'Emerging' || theme.score.stage === 'Growth'}
             />
             <StockList stocks={theme.stocks} />
           </div>

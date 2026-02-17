@@ -97,6 +97,7 @@ export function buildThemeDetailResponse(params: BuildThemeDetailParams): ThemeD
         interest: components?.interest_score ?? 0,
         newsMomentum: components?.news_momentum ?? 0,
         volatility: components?.volatility_score ?? 0,
+        activity: components?.activity_score ?? 0,
       },
       raw: components?.raw
         ? {

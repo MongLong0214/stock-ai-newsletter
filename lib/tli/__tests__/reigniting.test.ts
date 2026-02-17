@@ -15,7 +15,7 @@ function makeMetric(day: number, normalized: number): InterestMetric {
 }
 
 describe('checkReigniting', () => {
-  it('returns false if stage is not Decay', () => {
+  it('returns false if stage is not Decline', () => {
     const metrics = Array.from({ length: 14 }, (_, i) => makeMetric(i, 50))
     expect(checkReigniting('Emerging', metrics)).toBe(false)
     expect(checkReigniting('Peak', metrics)).toBe(false)

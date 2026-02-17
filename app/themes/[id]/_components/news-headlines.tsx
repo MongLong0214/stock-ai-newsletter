@@ -108,7 +108,7 @@ function NewsHeadlines({ articles }: NewsHeadlinesProps) {
               <span className="text-[10px] font-mono text-slate-700 w-4 text-right flex-shrink-0 mt-0.5">
                 {idx + 1}
               </span>
-              <span className="flex-1 text-sm text-slate-300 group-hover:text-white transition-colors line-clamp-2 sm:line-clamp-1 min-w-0 break-keep">
+              <span className="flex-1 text-sm text-slate-300 group-hover:text-white transition-colors min-w-0 break-words whitespace-normal">
                 {stripHtml(article.title)}
               </span>
               <ExternalLink className="w-3 h-3 text-slate-700 group-hover:text-emerald-400 transition-colors flex-shrink-0 mt-0.5 hidden sm:block" />

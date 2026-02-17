@@ -4,7 +4,7 @@ import type { Stage, ScoreComponents, DisplayStage } from './db'
 
 export const STAGE_CONFIG: Record<DisplayStage, { color: string; label: string; labelEn: string; bg: string; border: string; text: string }> = {
   Dormant:    { color: '#64748B', label: '휴면',     labelEn: 'Dormant',    bg: 'bg-slate-500/20',   border: 'border-slate-500/30',   text: 'text-slate-400' },
-  Emerging:   { color: '#3B82F6', label: '부상',     labelEn: 'Emerging',   bg: 'bg-blue-500/20',    border: 'border-blue-500/30',    text: 'text-blue-400' },
+  Emerging:   { color: '#3B82F6', label: '초기',     labelEn: 'Emerging',   bg: 'bg-blue-500/20',    border: 'border-blue-500/30',    text: 'text-blue-400' },
   Growth:     { color: '#10B981', label: '성장',     labelEn: 'Growth',     bg: 'bg-emerald-500/20', border: 'border-emerald-500/30', text: 'text-emerald-400' },
   Peak:       { color: '#EF4444', label: '정점',     labelEn: 'Peak',       bg: 'bg-red-500/20',     border: 'border-red-500/30',     text: 'text-red-400' },
   Decline:    { color: '#F59E0B', label: '하락',     labelEn: 'Decline',    bg: 'bg-amber-500/20',   border: 'border-amber-500/30',   text: 'text-amber-400' },

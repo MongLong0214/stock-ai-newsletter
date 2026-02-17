@@ -12,7 +12,7 @@ export const contentType = 'image/png'
 const STAGE_LABELS: Record<string, { label: string; color: string }> = {
   Peak: { label: '정점', color: '#EF4444' },
   Growth: { label: '성장', color: '#10B981' },
-  Emerging: { label: '부상', color: '#3B82F6' },
+  Emerging: { label: '초기', color: '#3B82F6' },
   Reigniting: { label: '재점화', color: '#F97316' },
   Decline: { label: '하락', color: '#F59E0B' },
   Dormant: { label: '휴면', color: '#64748B' },
