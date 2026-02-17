@@ -19,21 +19,27 @@ interface NewsletterGridProps {
   stockPrices: Map<string, StockPrice>;
   /** 추천일 전일 종가 (티커 → 종가) */
   historicalClosePrices: Map<string, number>;
+  /** 7영업일 후 확정 종가 (티커 → 종가) */
+  settledClosePrices: Map<string, number>;
   /** 가격 로딩 상태 */
   isLoadingPrice: boolean;
   /** 현재가 조회 불가 사유 */
   unavailableReason: PriceUnavailableReason | null;
   /** 오늘이 휴장일인지 여부 */
   isMarketClosed: boolean;
+  /** 실시간 추적 기간 만료 여부 */
+  isTrackingExpired: boolean;
 }
 
 function NewsletterGrid({
   newsletter,
   stockPrices,
   historicalClosePrices,
+  settledClosePrices,
   isLoadingPrice,
   unavailableReason,
   isMarketClosed,
+  isTrackingExpired,
 }: NewsletterGridProps) {
   // rationale 항목 최대 개수 계산 (카드 높이 균일화용)
   const maxRationaleItems = Math.max(
@@ -65,9 +71,11 @@ function NewsletterGrid({
             newsletterDate={newsletter.date}
             currentPrice={stockPrices.get(stock.ticker)}
             historicalClosePrice={historicalClosePrices.get(stock.ticker)}
+            settledClosePrice={settledClosePrices.get(stock.ticker)}
             isLoadingPrice={isLoadingPrice}
             unavailableReason={unavailableReason}
             isMarketClosed={isMarketClosed}
+            isTrackingExpired={isTrackingExpired}
           />
         </motion.div>
       ))}

@@ -27,12 +27,16 @@ export interface NewsletterCardProps {
   currentPrice?: StockPrice;
   /** 추천일 전일 종가 (KIS API에서 조회) */
   historicalClosePrice?: number;
+  /** 7영업일 후 확정 종가 */
+  settledClosePrice?: number;
   /** 실시간 시세 로딩 상태 */
   isLoadingPrice?: boolean;
   /** 현재가 조회 불가 사유 */
   unavailableReason?: PriceUnavailableReason | null;
   /** 오늘이 휴장일인지 여부 */
   isMarketClosed?: boolean;
+  /** 실시간 추적 기간 만료 여부 */
+  isTrackingExpired?: boolean;
 }
 
 /** 가격 변동 정보 */
