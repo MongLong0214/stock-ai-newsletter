@@ -35,19 +35,19 @@ describe('determineStage', () => {
     expect(determineStage(79, c)).toBe('Growth')
   })
 
-  it('returns Early for score 40-59', () => {
-    expect(determineStage(40, makeComponents())).toBe('Early')
-    expect(determineStage(59, makeComponents())).toBe('Early')
+  it('returns Emerging for score 40-59', () => {
+    expect(determineStage(40, makeComponents())).toBe('Emerging')
+    expect(determineStage(59, makeComponents())).toBe('Emerging')
   })
 
-  it('returns Decay for score 20-39', () => {
-    expect(determineStage(20, makeComponents())).toBe('Decay')
-    expect(determineStage(39, makeComponents())).toBe('Decay')
+  it('returns Decline for score 20-39', () => {
+    expect(determineStage(20, makeComponents())).toBe('Decline')
+    expect(determineStage(39, makeComponents())).toBe('Decline')
   })
 
-  it('returns Decay for score >= 10 with high maturity + low interest', () => {
+  it('returns Decline for score >= 10 with high maturity + low interest', () => {
     const c = makeComponents({ maturity_ratio: 0.9, interest_score: 0.2 })
-    expect(determineStage(15, c)).toBe('Decay')
+    expect(determineStage(15, c)).toBe('Decline')
   })
 
   it('returns Dormant for score < 20 without decay conditions', () => {

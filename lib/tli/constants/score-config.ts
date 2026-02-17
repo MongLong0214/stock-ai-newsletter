@@ -2,9 +2,10 @@
 
 /** 점수 컴포넌트 가중치 */
 export const SCORE_WEIGHTS = {
-  interest: 0.50,
-  newsMomentum: 0.30,
-  volatility: 0.20,
+  interest: 0.40,
+  newsMomentum: 0.35,
+  volatility: 0.10,
+  activity: 0.15,
 } as const
 
 // 가중치 합계 검증 (1.0이 아니면 즉시 에러)
@@ -71,5 +72,18 @@ export const SCORE_COMPONENTS: readonly ScoreComponentConfig[] = [
     bg: 'bg-purple-500/5',
     border: 'border-purple-500/20',
     rawLabel: 'interestStddev',
+  },
+  {
+    key: 'activity',
+    label: '활동성',
+    weight: Math.round(SCORE_WEIGHTS.activity * 100),
+    weightLabel: `${Math.round(SCORE_WEIGHTS.activity * 100)}%`,
+    color: '#F59E0B',
+    colorFrom: '#F59E0B',
+    colorTo: '#D97706',
+    glow: 'rgba(245, 158, 11, 0.3)',
+    bg: 'bg-amber-500/5',
+    border: 'border-amber-500/20',
+    rawLabel: 'stockPriceChange,volumeIntensity,dataCoverage',
   },
 ]

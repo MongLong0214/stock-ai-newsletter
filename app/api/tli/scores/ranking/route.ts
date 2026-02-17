@@ -101,10 +101,10 @@ export async function GET() {
 
     // --- 단계별 그룹화 ---
 
-    const early: ThemeListItem[] = []
+    const emerging: ThemeListItem[] = []
     const growth: ThemeListItem[] = []
     const peak: ThemeListItem[] = []
-    const decay: ThemeListItem[] = []
+    const decline: ThemeListItem[] = []
     const reigniting: ThemeListItem[] = []
 
     for (const theme of themeData) {
@@ -116,31 +116,31 @@ export async function GET() {
         reigniting.push(theme)
       } else {
         switch (theme.stage) {
-          case 'Early': early.push(theme); break
+          case 'Emerging': emerging.push(theme); break
           case 'Growth': growth.push(theme); break
           case 'Peak': peak.push(theme); break
-          case 'Decay': decay.push(theme); break
+          case 'Decline': decline.push(theme); break
         }
       }
     }
 
-    // 정렬: Early는 오름차순(낮은 점수 = 새로운 기회), 나머지는 내림차순
-    early.sort((a, b) => a.score - b.score)
+    // 정렬: Emerging은 오름차순(낮은 점수 = 새로운 기회), 나머지는 내림차순
+    emerging.sort((a, b) => a.score - b.score)
     growth.sort((a, b) => b.score - a.score)
     peak.sort((a, b) => b.score - a.score)
-    decay.sort((a, b) => b.score - a.score)
+    decline.sort((a, b) => b.score - a.score)
     reigniting.sort((a, b) => b.score - a.score)
 
     // --- 요약 통계 (필터 통과한 테마 기준) ---
 
-    const activeThemes = [...early, ...growth, ...peak, ...decay, ...reigniting]
+    const activeThemes = [...emerging, ...growth, ...peak, ...decline, ...reigniting]
     const summary = calculateRankingSummary(activeThemes)
 
     const ranking: ThemeRanking = {
-      early,
+      emerging,
       growth,
       peak,
-      decay,
+      decline,
       reigniting,
       summary,
     }

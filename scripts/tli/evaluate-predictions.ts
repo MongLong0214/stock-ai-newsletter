@@ -56,11 +56,11 @@ export async function evaluatePredictions(): Promise<void> {
 
     // 페이즈 예측 정확도 판정
     const phaseToStageMap: Record<string, string[]> = {
-      'pre-peak': ['Early', 'Growth'],
+      'pre-peak': ['Emerging', 'Growth'],
       'near-peak': ['Growth'],
       'at-peak': ['Peak', 'Growth'],
-      'post-peak': ['Decay', 'Peak'],
-      'declining': ['Decay', 'Dormant'],
+      'post-peak': ['Decline', 'Peak'],
+      'declining': ['Decline', 'Dormant'],
     }
     const expectedStages = phaseToStageMap[snapshot.phase] || []
     const phaseCorrect = expectedStages.includes(current.stage)

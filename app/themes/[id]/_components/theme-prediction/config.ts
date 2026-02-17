@@ -43,11 +43,11 @@ export const INSIGHT_ICON_COLOR: Record<RiskLevel, string> = {
 }
 
 export const PHASE_LABELS: { id: Phase; label: string }[] = [
-  { id: 'pre-peak',  label: '초기' },
+  { id: 'pre-peak',  label: '부상' },
   { id: 'near-peak', label: '성장' },
   { id: 'at-peak',   label: '정점' },
   { id: 'post-peak', label: '하락' },
-  { id: 'declining', label: '종료' },
+  { id: 'declining', label: '휴면' },
 ]
 
 export const PHASE_COLORS: Record<Phase, { bg: string; ring: string; text: string }> = {
