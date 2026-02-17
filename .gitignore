@@ -45,6 +45,10 @@ gen-lang-client-*.json
 *.tsbuildinfo
 next-env.d.ts
 
+# CTF Key Hunter runtime files
+**/.ctf-cookies.txt
+**/ctf-keys*.json
+
 .agents
 .claude
 .codex
