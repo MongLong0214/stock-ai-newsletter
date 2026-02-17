@@ -27,6 +27,7 @@ import useStockPrices from './_hooks/use-stock-prices';
 import useKeyboardShortcuts from './_hooks/use-keyboard-shortcuts';
 import useFocusTrap from './_hooks/use-focus-trap';
 import { isDateString, type DateString } from './_types/archive.types';
+import { isHolidayDate } from './_utils/market/hours';
 import { createFadeInUpVariant, STAGGER_DELAYS } from './_constants/animations';
 
 /** 로딩 스켈레톤 */
@@ -50,12 +51,18 @@ function ArchiveContent() {
   const availableDatesSet = useMemo(() => new Set(availableDates), [availableDates]);
 
   // URL에서 날짜 추출 (단일 진실 소스)
+  // 휴장일은 선택 불가 — URL 파라미터든 초기값이든 휴장일이면 건너뜀
   const urlDate = searchParams.get('date');
   const selectedDate = useMemo(() => {
-    if (urlDate && isDateString(urlDate) && availableDatesSet.has(urlDate)) {
+    if (
+      urlDate &&
+      isDateString(urlDate) &&
+      availableDatesSet.has(urlDate) &&
+      !isHolidayDate(urlDate)
+    ) {
       return urlDate;
     }
-    return availableDates[0] || null;
+    return availableDates.find((d) => !isHolidayDate(d)) || null;
   }, [urlDate, availableDatesSet, availableDates]);
 
   // 캘린더 상태 관리
@@ -83,9 +90,11 @@ function ArchiveContent() {
   const {
     prices: stockPrices,
     historicalClosePrices,
+    settledClosePrices,
     loading: isPriceLoading,
     unavailableReason,
     isMarketClosed,
+    isTrackingExpired,
   } = useStockPrices(tickers, selectedDate);
 
   // 모바일 캘린더 상태
@@ -167,9 +176,11 @@ function ArchiveContent() {
                   newsletter={newsletter}
                   stockPrices={stockPrices}
                   historicalClosePrices={historicalClosePrices}
+                  settledClosePrices={settledClosePrices}
                   isLoadingPrice={isPriceLoading}
                   unavailableReason={unavailableReason}
                   isMarketClosed={isMarketClosed}
+                  isTrackingExpired={isTrackingExpired}
                 />
               )}
             </motion.section>

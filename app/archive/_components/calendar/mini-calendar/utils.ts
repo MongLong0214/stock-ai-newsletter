@@ -47,14 +47,18 @@ const CELL_STATE_CLASSES = {
     'bg-emerald-500/20 text-white border-2 border-emerald-500 shadow-[0_0_20px_rgba(16,185,129,0.4)]',
   hasData:
     'bg-emerald-500/5 text-slate-300 border border-emerald-500/20 hover:bg-emerald-500/10 hover:border-emerald-500/40',
+  holiday: 'bg-transparent text-red-400/60 border border-transparent cursor-not-allowed',
   disabled: 'bg-transparent text-slate-600 border border-transparent cursor-not-allowed',
 } as const;
 
 /**
  * 날짜 셀 스타일 클래스 계산
+ *
+ * 우선순위: 휴장일 > 선택됨 > 데이터있음 > 비활성
+ * 휴장일은 항상 비활성 (데이터 유무 무관)
  */
-export function getDateCellClassName(isSelected: boolean, hasData: boolean): string {
-  const state = isSelected ? 'selected' : hasData ? 'hasData' : 'disabled';
+export function getDateCellClassName(isSelected: boolean, hasData: boolean, isHoliday?: boolean): string {
+  const state = isHoliday ? 'holiday' : isSelected ? 'selected' : hasData ? 'hasData' : 'disabled';
   return `${BASE_CELL_CLASSES} ${CELL_STATE_CLASSES[state]}`;
 }
 

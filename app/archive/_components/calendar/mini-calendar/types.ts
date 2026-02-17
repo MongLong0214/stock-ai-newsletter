@@ -39,6 +39,7 @@ export interface DateCellProps {
   dateString: DateString;
   hasData: boolean;
   isSelected: boolean;
+  isHoliday?: boolean;
   onSelect: (dateString: DateString) => void;
 }
 
