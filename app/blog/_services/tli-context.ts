@@ -16,9 +16,9 @@ export interface StageConfig {
 /** OCP: 새 스테이지 추가 시 이 1곳만 수정 */
 export const STAGE_CONFIG: Record<ActiveStage, StageConfig> = {
   Growth: { priority: 1, limit: 8, label: '성장 중 - 키워드 최우선' },
-  Early: { priority: 2, limit: 5, label: '초기 포착 - 선점 기회' },
-  Peak: { priority: 3, limit: 5, label: '최고조 - 검색량 높음' },
-  Decay: { priority: 4, limit: 3, label: '하락세 - 제한적 사용' },
+  Emerging: { priority: 2, limit: 5, label: '부상 포착 - 선점 기회' },
+  Peak: { priority: 3, limit: 5, label: '정점 - 검색량 높음' },
+  Decline: { priority: 4, limit: 3, label: '하락세 - 제한적 사용' },
 };
 
 const VALID_ACTIVE_STAGES = Object.keys(STAGE_CONFIG) as ActiveStage[];
