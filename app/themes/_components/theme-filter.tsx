@@ -18,7 +18,7 @@ interface ThemeFilterProps {
   activeSort: SortOption
 }
 
-const FILTERABLE_STAGES: DisplayStage[] = ['Early', 'Growth', 'Peak', 'Reigniting', 'Decay']
+const FILTERABLE_STAGES: DisplayStage[] = ['Emerging', 'Growth', 'Peak', 'Reigniting', 'Decline']
 
 const SORT_OPTIONS: { value: SortOption; label: string }[] = [
   { value: 'score', label: '점수' },

@@ -156,12 +156,12 @@ function buildMessage(current: CurrentInput, past: PastInput, ctx: MessageCtx): 
   if (ctx.featureSim >= 0.3) {
     const cF = current.features, pF = past.features
     const details: string[] = []
-    if (Math.abs(cF.growthRate - pF.growthRate) < 0.15) details.push('성장세')
-    if (Math.abs(cF.scoreLevel - pF.scoreLevel) < 0.15) {
-      details.push(`점수 수준(차이 ${Math.round(Math.abs(cF.scoreLevel - pF.scoreLevel) * 100)}p)`)
+    if (Math.abs(cF.interestMomentum - pF.interestMomentum) < 0.15) details.push('성장세')
+    if (Math.abs(cF.interestLevel - pF.interestLevel) < 0.15) {
+      details.push(`관심도 수준(차이 ${Math.round(Math.abs(cF.interestLevel - pF.interestLevel) * 100)}p)`)
     }
     if (Math.abs(cF.priceChangePct - pF.priceChangePct) < 0.15) details.push('주가 흐름')
-    if (Math.abs(cF.volatility - pF.volatility) < 0.15) details.push('변동성')
+    if (Math.abs(cF.volatilityDVI - pF.volatilityDVI) < 0.15) details.push('변동성')
     if (details.length > 0) parts.push(`${details.join(' · ')} 유사`)
   }
 

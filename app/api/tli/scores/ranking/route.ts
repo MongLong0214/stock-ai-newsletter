@@ -73,17 +73,18 @@ export async function GET() {
       const latest = meta?.latest ?? null
       const weekAgoScore = meta?.weekAgoScore ?? null
 
-      // Extract sentiment from latest score's components
+      // 최신 점수 컴포넌트에서 신뢰도 추출
       const latestComponents = isScoreComponents(latest?.components) ? latest!.components : null
-      const sentimentScore = latestComponents?.sentiment_score ?? 0
+      const confidenceLevel = latestComponents?.confidence?.level
+      const stage = toStage(latest?.stage)
 
       return {
         id: theme.id,
         name: theme.name,
         nameEn: theme.name_en,
         score: latest?.score ?? 0,
-        stage: toStage(latest?.stage),
-        stageKo: getStageKo(toStage(latest?.stage)),
+        stage,
+        stageKo: getStageKo(stage),
         change7d: latest?.score != null && weekAgoScore?.score != null
           ? latest.score - weekAgoScore.score
           : 0,
@@ -93,17 +94,17 @@ export async function GET() {
         updatedAt: latest?.calculated_at ?? new Date().toISOString(),
         sparkline: meta?.sparkline ?? [],
         newsCount7d: newsCountMap.get(theme.id) ?? 0,
-        sentimentScore,
+        confidenceLevel,
         avgStockChange: avgStockChangeMap.get(theme.id) ?? null,
       }
     })
 
     // --- 단계별 그룹화 ---
 
-    const early: ThemeListItem[] = []
+    const emerging: ThemeListItem[] = []
     const growth: ThemeListItem[] = []
     const peak: ThemeListItem[] = []
-    const decay: ThemeListItem[] = []
+    const decline: ThemeListItem[] = []
     const reigniting: ThemeListItem[] = []
 
     for (const theme of themeData) {
@@ -115,31 +116,31 @@ export async function GET() {
         reigniting.push(theme)
       } else {
         switch (theme.stage) {
-          case 'Early': early.push(theme); break
+          case 'Emerging': emerging.push(theme); break
           case 'Growth': growth.push(theme); break
           case 'Peak': peak.push(theme); break
-          case 'Decay': decay.push(theme); break
+          case 'Decline': decline.push(theme); break
         }
       }
     }
 
-    // 정렬: Early는 오름차순(낮은 점수 = 새로운 기회), 나머지는 내림차순
-    early.sort((a, b) => a.score - b.score)
+    // 정렬: Emerging은 오름차순(낮은 점수 = 새로운 기회), 나머지는 내림차순
+    emerging.sort((a, b) => a.score - b.score)
     growth.sort((a, b) => b.score - a.score)
     peak.sort((a, b) => b.score - a.score)
-    decay.sort((a, b) => b.score - a.score)
+    decline.sort((a, b) => b.score - a.score)
     reigniting.sort((a, b) => b.score - a.score)
 
     // --- 요약 통계 (필터 통과한 테마 기준) ---
 
-    const activeThemes = [...early, ...growth, ...peak, ...decay, ...reigniting]
+    const activeThemes = [...emerging, ...growth, ...peak, ...decline, ...reigniting]
     const summary = calculateRankingSummary(activeThemes)
 
     const ranking: ThemeRanking = {
-      early,
+      emerging,
       growth,
       peak,
-      decay,
+      decline,
       reigniting,
       summary,
     }

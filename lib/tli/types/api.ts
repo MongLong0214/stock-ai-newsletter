@@ -1,6 +1,6 @@
 /** API response types */
 
-import type { Stage, NewsArticle } from './db'
+import type { Stage, NewsArticle, ConfidenceLevel } from './db'
 
 /** API 응답 공통 래퍼 */
 export interface ApiResponse<T> {
@@ -27,8 +27,6 @@ export interface ScoreRawData {
   newsLastWeek: number
   interestStddev: number
   activeDays: number
-  sentimentAvg?: number
-  sentimentArticleCount?: number
 }
 
 /** 생명주기 곡선 데이터 포인트 */
@@ -82,8 +80,8 @@ export interface ThemeListItem {
   sparkline: number[];
   /** 뉴스 기사 수 (theme_news_articles 총 건수) */
   newsCount7d: number;
-  /** 최근 감성 점수 (0=중립, >0=긍정, <0=부정) */
-  sentimentScore: number;
+  /** 점수 신뢰도 */
+  confidenceLevel?: ConfidenceLevel;
   /** 관련주 평균 등락률 (%) — null이면 데이터 없음 */
   avgStockChange: number | null;
 }
@@ -111,10 +109,10 @@ export interface ThemeDetail {
       interest: number;
       /** 뉴스 모멘텀 점수 (0~1 정규화) */
       newsMomentum: number;
-      /** 감성 점수 (0~1 정규화, 0 = 중립, >0 = 긍정, <0 = 부정) */
-      sentiment: number;
       /** 변동성 점수 (0~1 정규화) */
       volatility: number;
+      /** 활동성 점수 (0~1 정규화, v2 신규 — 하위 호환 optional) */
+      activity?: number;
     };
     /** raw 수치 (툴팁/상세용) */
     raw: {
@@ -124,20 +122,19 @@ export interface ThemeDetail {
       newsLastWeek: number;
       interestStddev: number;
       activeDays: number;
-      sentimentAvg?: number;
-      sentimentArticleCount?: number;
+    } | null;
+    /** 점수 신뢰도 */
+    confidence: {
+      level: ConfidenceLevel;
+      dataAge: number;
+      interestCoverage: number;
+      newsCoverage: number;
+      reason: string;
     } | null;
   };
   /** 관련 종목 총 수 (카드와 동일 기준) */
   stockCount: number;
-  stocks: Array<{
-    symbol: string;
-    name: string;
-    market: string;
-    currentPrice: number | null;
-    priceChangePct: number | null;
-    volume: number | null;
-  }>;
+  stocks: ThemeStockItem[];
   /** 뉴스 기사 총 수 (카드와 동일 기준) */
   newsCount: number;
   recentNews: NewsArticle[];
@@ -179,10 +176,10 @@ export interface ThemeDetail {
 
 /** 테마 랭킹 (단계별 그룹) */
 export interface ThemeRanking {
-  early: ThemeListItem[];
+  emerging: ThemeListItem[];
   growth: ThemeListItem[];
   peak: ThemeListItem[];
-  decay: ThemeListItem[];
+  decline: ThemeListItem[];
   reigniting: ThemeListItem[];
   /** 요약 통계 */
   summary: {

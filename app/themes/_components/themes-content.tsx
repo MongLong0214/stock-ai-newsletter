@@ -24,7 +24,7 @@ function ThemesContent({ initialData }: ThemesContentProps) {
 
   /** 필터 상태 */
   const [searchQuery, setSearchQuery] = useState('')
-  const [activeStages, setActiveStages] = useState<DisplayStage[]>(['Early', 'Growth', 'Peak', 'Reigniting', 'Decay'])
+  const [activeStages, setActiveStages] = useState<DisplayStage[]>(['Emerging', 'Growth', 'Peak', 'Reigniting', 'Decline'])
   const [sortOption, setSortOption] = useState<SortOption>('score')
 
   /** 검색어 변경 핸들러 */
