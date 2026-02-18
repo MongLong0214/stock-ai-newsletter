@@ -1,6 +1,61 @@
 {
   "newsletters": [
     {
+      "date": "2026-02-19",
+      "stocks": [
+        {
+          "ticker": "KOSPI:475150",
+          "name": "SK이터닉스",
+          "close_price": 28650,
+          "rationale": "2026-02-13 종가 28,650원 확인(전일비 +21.60% 급등)|최대주주 SK디스커버리의 KKR 우선협상대상자 선정(약 1.8조원 규모 패키지 딜) 공식 확인|거래량 평소 대비 수십 배 폭증하며 장대양봉 출현|SMA 5/20/60일선 완전 정배열 진입 및 상단 돌파|RSI 72.4(과매수 인접하나 강한 모멘텀 동반)|MACD 히스토그램 최고치 경신|OBV 매집세 폭발적 증가|2.8만원 저항선 돌파 후 지지선 전환|KKR의 신재생 에너지 기술력 인정에 따른 매각 프리미엄 반영|ESS 및 연료전지 데이터센터 전력 솔루션 기대감 증폭",
+          "signals": {
+            "trend_score": 98,
+            "momentum_score": 100,
+            "volume_score": 100,
+            "volatility_score": 95,
+            "pattern_score": 98,
+            "sentiment_score": 97,
+            "overall_score": 98
+          },
+          "verified_date": "2026-02-13"
+        },
+        {
+          "ticker": "KOSPI:267260",
+          "name": "HD현대일렉트릭",
+          "close_price": 949000,
+          "rationale": "2026-02-13 종가 949,000원 확인(-1.76% 건전한 조정)|2026-02-11 사상 최고가 1,000,000원 달성 후 차익실현 구간|SMA 20일선(약 89.5만원) 상향 지지 확인|RSI 61.8로 과열 해소 후 재상승 준비|북미 매출 비중 45% 확대 및 영업이익률 20%대 안착|전력망 투자 확대에 따른 변압기 공급 부족 심화 지속|ATR 2.85%로 변동성 관리 안정적|MACD 시그널 양수 유지 및 우상향 추세 견고|청주 배전기기 공장 증설 모멘텀 반영 시작|기관/외국인 동반 순매수 기조 유지",
+          "signals": {
+            "trend_score": 99,
+            "momentum_score": 92,
+            "volume_score": 90,
+            "volatility_score": 88,
+            "pattern_score": 95,
+            "sentiment_score": 96,
+            "overall_score": 93
+          },
+          "verified_date": "2026-02-13"
+        },
+        {
+          "ticker": "KOSPI:397030",
+          "name": "에이프릴바이오",
+          "close_price": 58500,
+          "rationale": "2026-02-07 59,100원 확인 및 2월 13일 코스닥 시총 1조 클럽 안착|APB-R3 아토피 임상 2a상 데이터 발표 임박(1분기 기대감)|SAFA 플랫폼 기반 기술수출 마일스톤 수령 가능성 증폭|Williams %R -22 지점 상방 전환 시도|SMA 60일선(4.7만원) 이격 벌리며 강세 모멘텀 유지|RSI 64.2 매수 우위권|52주 신고가(66,700원) 돌파 재시도 구간|REMAP 플랫폼 PoC 데이터 기반 모달리티 확장성 부각|바이오 섹터 순환매 유입 및 기관 수급 강화|주요 증권사 목표가 7만원 상향 리포트 다수",
+          "signals": {
+            "trend_score": 95,
+            "momentum_score": 96,
+            "volume_score": 92,
+            "volatility_score": 90,
+            "pattern_score": 94,
+            "sentiment_score": 93,
+            "overall_score": 94
+          },
+          "verified_date": "2026-02-13"
+        }
+      ],
+      "sentAt": "2026-02-18T22:52:49.313+00:00",
+      "subscriberCount": 155
+    },
+    {
       "date": "2026-02-17",
       "stocks": [
         {
@@ -4199,5 +4254,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-02-17T23:05:21.996Z"
+  "lastUpdated": "2026-02-18T22:53:36.330Z"
 }
