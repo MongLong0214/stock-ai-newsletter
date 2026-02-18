@@ -5,7 +5,7 @@ import { determineStage, isReignitingTransition } from '../../lib/tli/stage'
 import { checkReigniting } from '../../lib/tli/reigniting'
 import { getKSTDate } from './utils'
 import { avg, standardDeviation, daysBetween } from '../../lib/tli/normalize'
-import type { InterestMetric, NewsMetric, Stage, ScoreComponents } from '../../lib/tli/types'
+import type { InterestMetric, NewsMetric, CommunityMetric, Stage, ScoreComponents } from '../../lib/tli/types'
 import type { ThemeWithKeywords } from './data-ops'
 
 /** EMA smoothing factor (span≈4일, 60% 노이즈 억제) */
@@ -31,7 +31,7 @@ export async function calculateAndSaveScores(themes: ThemeWithKeywords[]) {
   const themeIds = themes.map(t => t.id)
 
   // ─── 데이터 배치 로딩 (병렬, 자동 페이지네이션) ───
-  const [allInterest, allNews, allPrevScores, allStocks] = await Promise.all([
+  const [allInterest, allNews, allPrevScores, allStocks, allCommunity] = await Promise.all([
     batchQuery<InterestMetric & { theme_id: string }>(
       'interest_metrics', '*', themeIds,
       q => q.order('time', { ascending: false }),
@@ -47,12 +47,20 @@ export async function calculateAndSaveScores(themes: ThemeWithKeywords[]) {
     batchQuery<{ theme_id: string; price_change_pct: number | null; volume: number | null }>(
       'theme_stocks', 'theme_id, price_change_pct, volume', themeIds,
     ),
+    batchQuery<CommunityMetric & { theme_id: string }>(
+      'community_metrics', '*', themeIds,
+      q => q.order('time', { ascending: false }),
+    ).catch((e: unknown) => {
+      console.warn('   ⚠️ community_metrics 조회 실패 (테이블 미존재 가능):', e instanceof Error ? e.message : String(e))
+      return [] as (CommunityMetric & { theme_id: string })[]
+    }),
   ])
 
   // 테마별 그룹화
   const interestByTheme = groupByThemeId(allInterest)
   const newsByTheme = groupByThemeId(allNews)
   const stocksByTheme = groupByThemeId(allStocks)
+  const communityByTheme = groupByThemeId(allCommunity)
 
   // 이전 점수 맵 (테마당 최신 2건 — hysteresis용)
   const prevScoreMap = new Map<string, PrevScoreRecord[]>()
@@ -97,6 +105,18 @@ export async function calculateAndSaveScores(themes: ThemeWithKeywords[]) {
       newsCache.set(theme.id, [...newsMetrics]
         .sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime())
         .slice(0, 14))
+    }
+  }
+
+  // ─── 커뮤니티 캐시 ───
+  const communityCache = new Map<string, CommunityMetric[]>()
+
+  for (const theme of themes) {
+    const communityMetrics = communityByTheme.get(theme.id) || []
+    if (communityMetrics.length > 0) {
+      communityCache.set(theme.id, [...communityMetrics]
+        .sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime())
+        .slice(0, 30))
     }
   }
 
@@ -145,6 +165,7 @@ export async function calculateAndSaveScores(themes: ThemeWithKeywords[]) {
       const result = calculateLifecycleScore({
         interestMetrics,
         newsMetrics: newsCache.get(theme.id) || [],
+        communityMetrics: communityCache.get(theme.id) || [],
         firstSpikeDate: theme.first_spike_date,
         today,
         allThemesRawAvg,

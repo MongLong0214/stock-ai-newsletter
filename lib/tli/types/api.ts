@@ -27,6 +27,10 @@ export interface ScoreRawData {
   newsLastWeek: number
   interestStddev: number
   activeDays: number
+  blogMentions7d?: number
+  blogMentionsPrev7d?: number
+  discussionPosts7d?: number
+  discussionPostsPrev7d?: number
 }
 
 /** 생명주기 곡선 데이터 포인트 */
@@ -113,6 +117,8 @@ export interface ThemeDetail {
       volatility: number;
       /** 활동성 점수 (0~1 정규화, v2 신규 — 하위 호환 optional) */
       activity?: number;
+      /** 커뮤니티 버즈 점수 (0~1 정규화) */
+      communityBuzz?: number;
     };
     /** raw 수치 (툴팁/상세용) */
     raw: {
@@ -122,6 +128,10 @@ export interface ThemeDetail {
       newsLastWeek: number;
       interestStddev: number;
       activeDays: number;
+      blogMentions7d?: number;
+      blogMentionsPrev7d?: number;
+      discussionPosts7d?: number;
+      discussionPostsPrev7d?: number;
     } | null;
     /** 점수 신뢰도 */
     confidence: {
@@ -172,6 +182,14 @@ export interface ThemeDetail {
     date: string;
     value: number;
   }>;
+  /** 커뮤니티 시계열 (블로그+토론방 합산, 보조 차트용) */
+  communityTimeline?: Array<{
+    date: string;
+    blog: number;
+    discussion: number;
+  }>;
+  /** 최근 7일 커뮤니티 언급 총 수 */
+  communityCount7d?: number;
 }
 
 /** 테마 랭킹 (단계별 그룹) */

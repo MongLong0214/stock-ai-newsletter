@@ -155,6 +155,32 @@ export async function upsertThemeStocks(
   return result
 }
 
+/** 커뮤니티 메트릭 저장 */
+export async function upsertCommunityMetrics(
+  metrics: Array<{
+    themeId: string;
+    date: string;
+    source: 'blog' | 'discussion';
+    mentionCount: number;
+    stockCount?: number;
+    stocksSampled?: number;
+  }>
+) {
+  return batchUpsert(
+    'community_metrics',
+    metrics.map(m => ({
+      theme_id: m.themeId,
+      time: m.date,
+      source: m.source,
+      mention_count: m.mentionCount,
+      stock_count: m.stockCount ?? 0,
+      stocks_sampled: m.stocksSampled ?? 0,
+    })),
+    'theme_id,time,source',
+    '커뮤니티 메트릭',
+  )
+}
+
 /** 뉴스 기사 저장 */
 export async function upsertNewsArticles(
   articles: Array<{

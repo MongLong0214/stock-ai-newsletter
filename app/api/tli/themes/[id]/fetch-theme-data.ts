@@ -41,6 +41,7 @@ export interface FetchThemeDataResult {
   interestRes: SupabaseRes<{ time: string; normalized: number }>
   newsArticlesRes: SupabaseRes<{ title: string; link: string; source: string | null; pub_date: string }>
   keywordsRes: SupabaseRes<{ keyword: string }>
+  communityRes: SupabaseRes<{ time: string; source: string; mention_count: number }>
   stockCount: number
   newsArticleCount: number
 }
@@ -54,7 +55,7 @@ export async function fetchThemeData(
   const { id, thirtyDaysAgo } = params
   const threeDaysAgo = getKSTDateString(-3)
 
-  const [latestScoreRes, scoresRes, stocksRes, comparisonsRes, newsRes, interestRes, newsArticlesRes, keywordsRes, stockCountRes, newsArticleCountRes] =
+  const [latestScoreRes, scoresRes, stocksRes, comparisonsRes, newsRes, interestRes, newsArticlesRes, keywordsRes, communityRes, stockCountRes, newsArticleCountRes] =
     await Promise.all([
       // 최신 점수 1건 (날짜 제한 없음 - 배치 지연 시에도 유실 방지)
       supabase
@@ -133,6 +134,13 @@ export async function fetchThemeData(
         .select('keyword')
         .eq('theme_id', id)
         .order('keyword', { ascending: true }),
+      // 커뮤니티 메트릭 (30일) — 테이블 미존재 시 graceful fallback
+      supabase
+        .from('community_metrics')
+        .select('time, source, mention_count')
+        .eq('theme_id', id)
+        .gte('time', thirtyDaysAgo)
+        .order('time', { ascending: true }),
       // 종목 총 수 (head: true로 카운트만 가져옴)
       supabase
         .from('theme_stocks')
@@ -155,6 +163,7 @@ export async function fetchThemeData(
     interestRes,
     newsArticlesRes,
     keywordsRes,
+    communityRes,
     stockCount: stockCountRes.count ?? 0,
     newsArticleCount: newsArticleCountRes.count ?? 0,
   }

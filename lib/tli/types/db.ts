@@ -84,11 +84,14 @@ export interface ScoreComponents {
   maturity_ratio: number;
   /** Activity Score — 주가/거래량/데이터 성숙도 교차 시그널 (v2 신규, 하위 호환 optional) */
   activity_score?: number;
+  /** Community Buzz Score — 블로그 + 종목토론방 커뮤니티 언급 지표 */
+  community_buzz?: number;
   weights: {
     interest: number;
     news: number;
     volatility: number;
     activity?: number;
+    community?: number;
   };
   raw: {
     recent_7d_avg: number;
@@ -110,6 +113,11 @@ export interface ScoreComponents {
     data_coverage?: number;
     raw_score?: number;
     smoothed_score?: number;
+    /** 커뮤니티 버즈 raw 데이터 */
+    blog_mentions_7d?: number;
+    blog_mentions_prev_7d?: number;
+    discussion_posts_7d?: number;
+    discussion_posts_prev_7d?: number;
     /** Hysteresis용: Markov-constrained stage candidate (다음날 비교용) */
     stage_candidate?: string;
   };
@@ -151,6 +159,17 @@ export interface ThemeComparison {
   trajectory_correlation?: number | null;
   stage_match?: boolean | null;
   verified_at?: string | null;
+}
+
+export interface CommunityMetric {
+  id: string;
+  theme_id: string;
+  time: string;           // DATE as YYYY-MM-DD
+  source: 'blog' | 'discussion';
+  mention_count: number;
+  stock_count: number;
+  stocks_sampled: number;
+  created_at: string;
 }
 
 export interface ComparisonCalibration {

@@ -23,7 +23,10 @@ async function scrapeNaverFinanceTheme(themeId: string, naverThemeId: string): P
   try {
     const response = await withRetry(
       async () => {
-        const res = await fetch(url, { signal: AbortSignal.timeout(30000) });
+        const res = await fetch(url, {
+          headers: { 'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' },
+          signal: AbortSignal.timeout(30000),
+        });
         if (!res.ok) throw new Error(`HTTP 오류 ${res.status}`);
         return res;
       },

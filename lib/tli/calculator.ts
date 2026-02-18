@@ -11,12 +11,16 @@ import {
 } from './normalize';
 import { getKSTDateString } from './date-utils';
 import { SCORE_WEIGHTS } from './constants/score-config';
-import type { InterestMetric, NewsMetric, ScoreComponents, ScoreConfidence } from './types';
+import type { InterestMetric, NewsMetric, CommunityMetric, ScoreComponents, ScoreConfidence } from './types';
 
 /** 최소 데이터 요건 */
 const MIN_INTEREST_DAYS = 3;
 /** 뉴스 모멘텀 계산을 위한 최소 지난주 기사 수 */
 const MIN_NEWS_LAST_WEEK = 3;
+/** 커뮤니티 모멘텀 계산을 위한 최소 지난주 건수 */
+const MIN_COMMUNITY_LAST_WEEK = 3;
+/** 커뮤니티 데이터 없을 때 중립 폴백 점수 */
+const COMMUNITY_FALLBACK = 0.3;
 
 interface CalculateScoreInput {
   /** 최신순(desc) 정렬된 관심도 메트릭 (slice(0,7)=최근 7일) */
@@ -35,6 +39,8 @@ interface CalculateScoreInput {
   rawPercentile?: number;
   /** 이전 스무딩 점수 (EMA용, 미사용 시 스무딩 스킵) */
   prevSmoothedScore?: number;
+  /** 최신순(desc) 정렬된 커뮤니티 메트릭 */
+  communityMetrics?: CommunityMetric[];
 }
 
 export function calculateLifecycleScore(input: CalculateScoreInput): {
@@ -148,12 +154,47 @@ export function calculateLifecycleScore(input: CalculateScoreInput): {
     activityScore *= 0.5;
   }
 
-  // ── 5. Total Score ──
+  // ── 5. Community Buzz Score ──
+  const communityMetrics = input.communityMetrics ?? [];
+  const blogMetrics = communityMetrics.filter(m => m.source === 'blog');
+  const discMetrics = communityMetrics.filter(m => m.source === 'discussion');
+
+  // 최근 7일 / 지난 7일 분리 (최신순 정렬 가정)
+  const blogThisWeek = blogMetrics.slice(0, 7).reduce((s, m) => s + m.mention_count, 0);
+  const blogLastWeek = blogMetrics.slice(7, 14).reduce((s, m) => s + m.mention_count, 0);
+  const discThisWeek = discMetrics.slice(0, 7).reduce((s, m) => s + m.mention_count, 0);
+  const discLastWeek = discMetrics.slice(7, 14).reduce((s, m) => s + m.mention_count, 0);
+
+  let communityScore: number;
+  const totalMentions = communityMetrics.reduce((s, m) => s + m.mention_count, 0);
+  if (communityMetrics.length === 0 || totalMentions === 0) {
+    // 커뮤니티 데이터 없거나 전부 0이면 중립 fallback (0보다 낮은 점수 방지)
+    communityScore = COMMUNITY_FALLBACK;
+  } else {
+    // 블로그 점수
+    const blogVolume = log_normalize(blogThisWeek, 100);
+    const blogMomentum = blogLastWeek >= MIN_COMMUNITY_LAST_WEEK
+      ? sigmoid_normalize((blogThisWeek - blogLastWeek) / Math.max(blogLastWeek, 1), 0, 1.0)
+      : 0.5;
+    const blogScore = blogVolume * 0.6 + blogMomentum * 0.4;
+
+    // 종목토론방 점수
+    const discVolume = log_normalize(discThisWeek, 500);
+    const discMomentum = discLastWeek >= MIN_COMMUNITY_LAST_WEEK
+      ? sigmoid_normalize((discThisWeek - discLastWeek) / Math.max(discLastWeek, 1), 0, 1.0)
+      : 0.5;
+    const discScore = discVolume * 0.6 + discMomentum * 0.4;
+
+    communityScore = blogScore * 0.6 + discScore * 0.4;
+  }
+
+  // ── 6. Total Score ──
   const maturityRatio = activeDays > 0 ? Math.min(activeDays / 90, 1.5) : 0;
 
   const rawScore =
     interestScore * SCORE_WEIGHTS.interest +
     newsScore * SCORE_WEIGHTS.newsMomentum +
+    communityScore * SCORE_WEIGHTS.communityBuzz +
     volatilityScore * SCORE_WEIGHTS.volatility +
     activityScore * SCORE_WEIGHTS.activity;
 
@@ -197,11 +238,13 @@ export function calculateLifecycleScore(input: CalculateScoreInput): {
     volatility_score: volatilityScore,
     maturity_ratio: maturityRatio,
     activity_score: activityScore,
+    community_buzz: communityScore,
     weights: {
       interest: SCORE_WEIGHTS.interest,
       news: SCORE_WEIGHTS.newsMomentum,
       volatility: SCORE_WEIGHTS.volatility,
       activity: SCORE_WEIGHTS.activity,
+      community: SCORE_WEIGHTS.communityBuzz,
     },
     raw: {
       recent_7d_avg: recent7dAvg,
@@ -219,6 +262,10 @@ export function calculateLifecycleScore(input: CalculateScoreInput): {
       volume_intensity: volumeIntensity,
       data_coverage: dataCoverage,
       raw_score: rawScore,
+      blog_mentions_7d: blogThisWeek,
+      blog_mentions_prev_7d: blogLastWeek,
+      discussion_posts_7d: discThisWeek,
+      discussion_posts_prev_7d: discLastWeek,
     },
     confidence,
   };

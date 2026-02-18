@@ -2,10 +2,11 @@
 
 /** 점수 컴포넌트 가중치 */
 export const SCORE_WEIGHTS = {
-  interest: 0.40,
-  newsMomentum: 0.35,
+  interest: 0.35,
+  newsMomentum: 0.30,
+  communityBuzz: 0.15,
   volatility: 0.10,
-  activity: 0.15,
+  activity: 0.10,
 } as const
 
 // 가중치 합계 검증 (1.0이 아니면 즉시 에러)
@@ -59,6 +60,19 @@ export const SCORE_COMPONENTS: readonly ScoreComponentConfig[] = [
     bg: 'bg-sky-500/5',
     border: 'border-sky-500/20',
     rawLabel: 'newsThisWeek,newsLastWeek',
+  },
+  {
+    key: 'communityBuzz',
+    label: '커뮤니티 버즈',
+    weight: Math.round(SCORE_WEIGHTS.communityBuzz * 100),
+    weightLabel: `${Math.round(SCORE_WEIGHTS.communityBuzz * 100)}%`,
+    color: '#EC4899',
+    colorFrom: '#EC4899',
+    colorTo: '#DB2777',
+    glow: 'rgba(236, 72, 153, 0.3)',
+    bg: 'bg-pink-500/5',
+    border: 'border-pink-500/20',
+    rawLabel: 'blogMentions7d,discussionPosts7d',
   },
   {
     key: 'volatility',

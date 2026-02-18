@@ -1,6 +1,6 @@
 import { config } from 'dotenv'
 config({ path: '.env.local' })
-import { loadActiveThemes, upsertInterestMetrics, upsertNewsMetrics, upsertThemeStocks, upsertNewsArticles } from './data-ops';
+import { loadActiveThemes, upsertInterestMetrics, upsertNewsMetrics, upsertThemeStocks, upsertNewsArticles, upsertCommunityMetrics } from './data-ops';
 import { calculateAndSaveScores } from './calculate-scores';
 import { calculateThemeComparisons } from './calculate-comparisons';
 import { computeOptimalThreshold } from './auto-tune';
@@ -9,6 +9,8 @@ import { evaluatePredictions } from './evaluate-predictions';
 import { collectNaverDatalab } from './collectors/naver-datalab';
 import { collectNaverNews } from './collectors/naver-news';
 import { collectNaverFinanceStocks } from './collectors/naver-finance-themes';
+import { collectNaverBlog } from './collectors/naver-blog';
+import { collectStockDiscussions } from './collectors/naver-stock-discussion';
 import { discoverAndManageThemes } from './discover-themes';
 import { autoActivate, autoDeactivate } from './theme-lifecycle';
 import { evaluateComparisonOutcomes } from './evaluate-comparisons';
@@ -123,6 +125,42 @@ async function main() {
       }
     } else if (mode === 'full') {
       console.log('\n⊘ 종목 수집 생략 (주말)');
+    }
+
+    // 3.5단계: 커뮤니티 데이터 수집 (full 모드에서만)
+    if (mode === 'full') {
+      // 3.5a: 블로그 수집
+      console.log('\n📝 3.5a단계: 네이버 블로그 수집');
+
+      try {
+        const blogStartDate = daysAgo(14);
+        const blogMetrics = await collectNaverBlog(
+          themes.map(t => ({ id: t.id, keywords: t.keywords })),
+          blogStartDate,
+          endDate
+        );
+        await upsertCommunityMetrics(blogMetrics);
+      } catch (error: unknown) {
+        warningFailures++;
+        console.error('❌ 블로그 수집 실패:', error instanceof Error ? error.message : String(error));
+      }
+
+      // 3.5b: 종목토론방 수집 (평일만)
+      if (dayOfWeek >= 1 && dayOfWeek <= 5) {
+        console.log('\n💬 3.5b단계: 종목토론방 수집');
+
+        try {
+          const discMetrics = await collectStockDiscussions(
+            themes.map(t => ({ id: t.id }))
+          );
+          await upsertCommunityMetrics(discMetrics);
+        } catch (error: unknown) {
+          warningFailures++;
+          console.error('❌ 종목토론방 수집 실패:', error instanceof Error ? error.message : String(error));
+        }
+      } else {
+        console.log('\n⊘ 종목토론방 수집 생략 (주말)');
+      }
     }
 
     // 4단계: 점수 계산 (full 모드에서만)

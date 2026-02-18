@@ -1,4 +1,5 @@
 import { sleep, withRetry } from '../utils'
+import { stripHtml, isRelevantArticle } from './search-utils'
 
 interface Theme {
   id: string
@@ -72,40 +73,15 @@ async function searchNews(query: string, display = 100, start = 1): Promise<Nave
   )
 }
 
-/** pubDate → YYYY-MM-DD 변환 */
+/** pubDate → YYYY-MM-DD 변환 (KST 기준) */
 function parseDate(pubDate: string): string | null {
   const d = new Date(pubDate)
   if (isNaN(d.getTime())) return null
-  return d.toISOString().split('T')[0]
+  // KST(+9h) 기준 날짜 추출 — 다른 수집기(blog, discussion)와 일관성 유지
+  const kst = new Date(d.getTime() + 9 * 60 * 60 * 1000)
+  return kst.toISOString().split('T')[0]
 }
 
-/** HTML 태그 제거 + 엔티티 디코딩 */
-function stripHtml(text: string): string {
-  return text
-    .replace(/<[^>]*>/g, '')
-    .replace(/&quot;/g, '"')
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&apos;/g, "'")
-    .replace(/&#39;/g, "'")
-    .trim()
-}
-
-/** 정규식 특수문자 이스케이프 */
-function escapeRegex(str: string): string {
-  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-}
-
-/** 기사 제목이 테마 키워드와 관련있는지 확인 */
-function isRelevantArticle(title: string, keywords: string[]): boolean {
-  return keywords.some(keyword => {
-    if (keyword.length <= 3 && /^[A-Za-z0-9]+$/.test(keyword)) {
-      return new RegExp(`\\b${escapeRegex(keyword)}\\b`, 'i').test(title)
-    }
-    return title.includes(keyword)
-  })
-}
 
 /** 링크에서 도메인(언론사) 추출 */
 function extractSource(link: string): string | null {

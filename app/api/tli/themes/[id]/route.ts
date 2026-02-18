@@ -57,6 +57,7 @@ export async function GET(
       interestRes,
       newsArticlesRes,
       keywordsRes,
+      communityRes,
       stockCount,
       newsArticleCount,
     } = await fetchThemeData({ id, thirtyDaysAgo })
@@ -71,6 +72,10 @@ export async function GET(
       ? []
       : (newsArticlesRes.data || [])
     const keywords = (keywordsRes.data || []).map(k => k.keyword)
+    // community_metrics 테이블 미존재 시 빈 배열 (42P01 graceful fallback)
+    const communityList = (communityRes.error && isTableNotFound(communityRes.error))
+      ? []
+      : (communityRes.data || [])
 
     // --- 점수 파싱 ---
 
@@ -108,6 +113,7 @@ export async function GET(
       allScores,
       newsList,
       interestList,
+      communityList,
     })
 
     return apiSuccess(result)

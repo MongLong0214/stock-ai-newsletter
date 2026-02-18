@@ -2,7 +2,9 @@
 'use client'
 
 import { motion } from 'framer-motion'
+import { Eye, Newspaper, LineChart, Activity, MessageCircle } from 'lucide-react'
 import { SCORE_COMPONENTS } from '@/lib/tli/constants/score-config'
+import type { ScoreComponentKey } from '@/lib/tli/constants/score-config'
 
 interface ScoreComponentsProps {
   components: {
@@ -10,6 +12,7 @@ interface ScoreComponentsProps {
     newsMomentum: number
     volatility: number
     activity?: number
+    communityBuzz?: number
   }
 }
 
@@ -20,7 +23,7 @@ export default function ScoreComponents({ components }: ScoreComponentsProps) {
         <h3 className="text-xs font-mono text-slate-400 uppercase tracking-wider">점수 구성 요소</h3>
         <span className="text-[10px] font-mono text-slate-600">가중치 적용됨</span>
       </div>
-      <div className="space-y-12">
+      <div className="space-y-6">
         {SCORE_COMPONENTS.map(({ key, label, color, weight }) => {
           const Icon = getComponentIcon(key)
           const value = components[key] ?? 0
@@ -67,10 +70,7 @@ export default function ScoreComponents({ components }: ScoreComponentsProps) {
 
 /* ── 아이콘 매핑 (score-config에는 아이콘 없음) ──────────────────── */
 
-import { Eye, Newspaper, LineChart, Activity } from 'lucide-react'
-import type { ScoreComponentKey } from '@/lib/tli/constants/score-config'
-
 function getComponentIcon(key: ScoreComponentKey) {
-  const icons = { interest: Eye, newsMomentum: Newspaper, volatility: LineChart, activity: Activity }
+  const icons = { interest: Eye, newsMomentum: Newspaper, communityBuzz: MessageCircle, volatility: LineChart, activity: Activity }
   return icons[key]
 }

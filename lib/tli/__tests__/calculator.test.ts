@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { calculateLifecycleScore } from '@/lib/tli/calculator'
-import type { InterestMetric, NewsMetric } from '@/lib/tli/types'
+import type { InterestMetric, NewsMetric, CommunityMetric } from '@/lib/tli/types'
 
 function makeInterestMetric(day: number, normalized: number, rawValue = 50): InterestMetric {
   return {
@@ -20,6 +20,23 @@ function makeNewsMetric(day: number, articleCount: number): NewsMetric {
     time: `2026-01-${String(day + 1).padStart(2, '0')}`,
     article_count: articleCount,
     growth_rate: null,
+  }
+}
+
+function makeCommunityMetric(
+  day: number,
+  source: 'blog' | 'discussion',
+  mentionCount: number,
+): CommunityMetric {
+  return {
+    id: `cm-${source}-${day}`,
+    theme_id: 't-1',
+    time: `2026-01-${String(day + 1).padStart(2, '0')}`,
+    source,
+    mention_count: mentionCount,
+    stock_count: source === 'discussion' ? 10 : 0,
+    stocks_sampled: source === 'discussion' ? 5 : 0,
+    created_at: '2026-01-01T00:00:00Z',
   }
 }
 
@@ -122,7 +139,7 @@ describe('calculateLifecycleScore', () => {
     expect(result!.components.news_momentum).toBeGreaterThan(0)
   })
 
-  it('uses correct SCORE_WEIGHTS (0.40, 0.35, 0.10, 0.15)', () => {
+  it('uses correct SCORE_WEIGHTS (0.35, 0.30, 0.15, 0.10, 0.10)', () => {
     const interest = Array.from({ length: 5 }, (_, i) => makeInterestMetric(i, 50))
     const result = calculateLifecycleScore({
       interestMetrics: interest,
@@ -132,10 +149,11 @@ describe('calculateLifecycleScore', () => {
     })
     expect(result).not.toBeNull()
     const w = result!.components.weights
-    expect(w.interest).toBe(0.40)
-    expect(w.news).toBe(0.35)
+    expect(w.interest).toBe(0.35)
+    expect(w.news).toBe(0.30)
+    expect(w.community).toBe(0.15)
     expect(w.volatility).toBe(0.10)
-    expect(w.activity).toBe(0.15)
+    expect(w.activity).toBe(0.10)
   })
 
   it('DVI: consistent direction yields higher volatility than flat pattern', () => {
@@ -267,5 +285,104 @@ describe('calculateLifecycleScore', () => {
     // 101 days / 90 = ~1.12
     expect(result!.components.maturity_ratio).toBeGreaterThan(1)
     expect(result!.components.maturity_ratio).toBeLessThanOrEqual(1.5)
+  })
+
+  // ── Community Buzz Tests ──
+
+  it('uses fallback communityScore=0.3 when no community metrics', () => {
+    const interest = Array.from({ length: 5 }, (_, i) => makeInterestMetric(i, 50))
+    const result = calculateLifecycleScore({
+      interestMetrics: interest,
+      newsMetrics: [],
+      firstSpikeDate: null,
+      today: '2026-01-10',
+    })
+    expect(result).not.toBeNull()
+    expect(result!.components.community_buzz).toBeCloseTo(0.3, 2)
+  })
+
+  it('computes community_buzz > 0 with blog + discussion data', () => {
+    const interest = Array.from({ length: 10 }, (_, i) => makeInterestMetric(i, 50))
+    const community = [
+      // 이번 주 블로그 (day 0-6)
+      ...Array.from({ length: 7 }, (_, i) => makeCommunityMetric(i, 'blog', 15)),
+      // 지난 주 블로그 (day 7-13)
+      ...Array.from({ length: 7 }, (_, i) => makeCommunityMetric(i + 7, 'blog', 5)),
+      // 이번 주 토론방 (day 0-6)
+      ...Array.from({ length: 7 }, (_, i) => makeCommunityMetric(i, 'discussion', 50)),
+      // 지난 주 토론방 (day 7-13)
+      ...Array.from({ length: 7 }, (_, i) => makeCommunityMetric(i + 7, 'discussion', 20)),
+    ]
+    const result = calculateLifecycleScore({
+      interestMetrics: interest,
+      newsMetrics: [],
+      firstSpikeDate: null,
+      today: '2026-01-10',
+      communityMetrics: community,
+    })
+    expect(result).not.toBeNull()
+    expect(result!.components.community_buzz).toBeGreaterThan(0)
+    expect(result!.components.community_buzz).toBeLessThanOrEqual(1)
+  })
+
+  it('stores community raw fields in components', () => {
+    const interest = Array.from({ length: 5 }, (_, i) => makeInterestMetric(i, 50))
+    const community = [
+      ...Array.from({ length: 7 }, (_, i) => makeCommunityMetric(i, 'blog', 10)),
+      ...Array.from({ length: 7 }, (_, i) => makeCommunityMetric(i + 7, 'blog', 3)),
+      ...Array.from({ length: 7 }, (_, i) => makeCommunityMetric(i, 'discussion', 30)),
+      ...Array.from({ length: 7 }, (_, i) => makeCommunityMetric(i + 7, 'discussion', 10)),
+    ]
+    const result = calculateLifecycleScore({
+      interestMetrics: interest,
+      newsMetrics: [],
+      firstSpikeDate: null,
+      today: '2026-01-10',
+      communityMetrics: community,
+    })
+    expect(result).not.toBeNull()
+    expect(result!.components.raw.blog_mentions_7d).toBe(70)       // 10 × 7
+    expect(result!.components.raw.blog_mentions_prev_7d).toBe(21)  // 3 × 7
+    expect(result!.components.raw.discussion_posts_7d).toBe(210)   // 30 × 7
+    expect(result!.components.raw.discussion_posts_prev_7d).toBe(70) // 10 × 7
+  })
+
+  it('community momentum neutral when last week < MIN_COMMUNITY_LAST_WEEK', () => {
+    const interest = Array.from({ length: 5 }, (_, i) => makeInterestMetric(i, 50))
+    // 이번 주만 데이터 있고 지난 주 없음 → 모멘텀 = 0.5 (중립)
+    const community = Array.from({ length: 7 }, (_, i) => makeCommunityMetric(i, 'blog', 20))
+    const result = calculateLifecycleScore({
+      interestMetrics: interest,
+      newsMetrics: [],
+      firstSpikeDate: null,
+      today: '2026-01-10',
+      communityMetrics: community,
+    })
+    expect(result).not.toBeNull()
+    // 블로그만 있고 토론방 없음, 지난주 데이터 없음 → 중립 모멘텀
+    expect(result!.components.community_buzz).toBeGreaterThan(0)
+  })
+
+  it('higher community activity yields higher score', () => {
+    const interest = Array.from({ length: 10 }, (_, i) => makeInterestMetric(i, 50))
+    const baseCommunity = [
+      ...Array.from({ length: 7 }, (_, i) => makeCommunityMetric(i, 'blog', 5)),
+      ...Array.from({ length: 7 }, (_, i) => makeCommunityMetric(i + 7, 'blog', 5)),
+    ]
+    const highCommunity = [
+      ...Array.from({ length: 7 }, (_, i) => makeCommunityMetric(i, 'blog', 80)),
+      ...Array.from({ length: 7 }, (_, i) => makeCommunityMetric(i + 7, 'blog', 20)),
+    ]
+    const low = calculateLifecycleScore({
+      interestMetrics: interest, newsMetrics: [], firstSpikeDate: null,
+      today: '2026-01-10', communityMetrics: baseCommunity,
+    })
+    const high = calculateLifecycleScore({
+      interestMetrics: interest, newsMetrics: [], firstSpikeDate: null,
+      today: '2026-01-10', communityMetrics: highCommunity,
+    })
+    expect(low).not.toBeNull()
+    expect(high).not.toBeNull()
+    expect(high!.score).toBeGreaterThan(low!.score)
   })
 })

@@ -13,6 +13,7 @@ interface ScoreBreakdownProps {
     newsMomentum: number
     volatility: number
     activity?: number
+    communityBuzz?: number
   }
   raw?: ScoreRawData | null
 }
@@ -28,6 +29,8 @@ function getRawLabel(key: string, raw: ScoreRawData): string {
       return `표준편차: ${raw.interestStddev.toFixed(2)}`
     case 'activity':
       return `활동일수: ${raw.activeDays}일`
+    case 'communityBuzz':
+      return `블로그 ${raw.blogMentions7d ?? 0}건 / 토론 ${raw.discussionPosts7d ?? 0}건`
     default:
       return ''
   }

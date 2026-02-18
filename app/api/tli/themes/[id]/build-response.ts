@@ -5,6 +5,7 @@
 import type { ThemeDetail } from '@/lib/tli/types'
 import { toStage, getStageKo, isScoreComponents } from '@/lib/tli/types'
 import type { ComparisonResult } from '@/lib/tli/types/api'
+import { getKSTDateString } from '@/lib/tli/date-utils'
 
 interface ThemeBasic {
   id: string
@@ -48,6 +49,7 @@ interface BuildThemeDetailParams {
   allScores: ScoreData[]
   newsList: Array<{ time: string; article_count: number }>
   interestList: Array<{ time: string; normalized: number }>
+  communityList: Array<{ time: string; source: string; mention_count: number }>
 }
 
 /**
@@ -68,6 +70,7 @@ export function buildThemeDetailResponse(params: BuildThemeDetailParams): ThemeD
     allScores,
     newsList,
     interestList,
+    communityList,
   } = params
 
   const rawComponents = latestScore?.components ?? null
@@ -98,6 +101,7 @@ export function buildThemeDetailResponse(params: BuildThemeDetailParams): ThemeD
         newsMomentum: components?.news_momentum ?? 0,
         volatility: components?.volatility_score ?? 0,
         activity: components?.activity_score ?? 0,
+        communityBuzz: components?.community_buzz,
       },
       raw: components?.raw
         ? {
@@ -107,6 +111,10 @@ export function buildThemeDetailResponse(params: BuildThemeDetailParams): ThemeD
             newsLastWeek: components.raw.news_last_week,
             interestStddev: components.raw.interest_stddev,
             activeDays: components.raw.active_days,
+            blogMentions7d: components.raw.blog_mentions_7d,
+            blogMentionsPrev7d: components.raw.blog_mentions_prev_7d,
+            discussionPosts7d: components.raw.discussion_posts_7d,
+            discussionPostsPrev7d: components.raw.discussion_posts_prev_7d,
           }
         : null,
       confidence: components?.confidence
@@ -148,5 +156,32 @@ export function buildThemeDetailResponse(params: BuildThemeDetailParams): ThemeD
       date: i.time,
       value: i.normalized,
     })),
+    ...buildCommunityFields(communityList),
   }
+}
+
+/** 커뮤니티 데이터를 날짜별 blog/discussion으로 집계 */
+function buildCommunityFields(communityList: Array<{ time: string; source: string; mention_count: number }>) {
+  if (communityList.length === 0) return {}
+
+  // 날짜별 blog/discussion 합산
+  const byDate = new Map<string, { blog: number; discussion: number }>()
+  for (const row of communityList) {
+    const entry = byDate.get(row.time) ?? { blog: 0, discussion: 0 }
+    if (row.source === 'blog') entry.blog += row.mention_count
+    else if (row.source === 'discussion') entry.discussion += row.mention_count
+    byDate.set(row.time, entry)
+  }
+
+  const communityTimeline = [...byDate.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([date, counts]) => ({ date, ...counts }))
+
+  // 최근 7일 총 멘션 수
+  const sevenDaysAgo = getKSTDateString(-7)
+  const communityCount7d = communityList
+    .filter(r => r.time >= sevenDaysAgo)
+    .reduce((sum, r) => sum + r.mention_count, 0)
+
+  return { communityTimeline, communityCount7d }
 }
