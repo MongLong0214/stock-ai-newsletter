@@ -22,7 +22,7 @@ function HeroSection({ formatted }: HeroSectionProps) {
   const blur = useTransform(scrollYProgress, [0, 0.6], [0, 10]); // Add blur effect
 
   return (
-    <section ref={ref} className="relative pt-32 pb-16 lg:pb-24 flex items-center justify-center px-6 lg:px-8" aria-labelledby="hero-heading">
+    <section ref={ref} className="relative pt-32 pb-16 lg:pb-24 flex items-center justify-center px-6 lg:px-8 overflow-hidden" aria-labelledby="hero-heading">
       {/* Subtle gradient overlay with parallax - Enhanced movement */}
       <motion.div
         className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(16,185,129,0.04)_0%,transparent_60%)] pointer-events-none"
