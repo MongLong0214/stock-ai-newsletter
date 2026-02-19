@@ -1,6 +1,61 @@
 {
   "newsletters": [
     {
+      "date": "2026-02-20",
+      "stocks": [
+        {
+          "ticker": "KOSDAQ:196170",
+          "name": "알테오젠",
+          "close_price": 411500,
+          "rationale": "SMA 5일·20일·60일 완전 정배열 랠리 지속|EMA 10일선 지지 기반 신고가 경신|RSI(14) 58.72로 강력한 상승 모멘텀 유지|MACD 히스토그램 양의 값 확대 및 시그널 상향|거래량 806,219주로 전일 대비 건전한 증가|볼린저밴드 상단(414,500) 근접 위치 82%|ATR 2.8% 수준으로 안정적 변동성 유지|ADX 35.2로 매우 강한 추세 강도 확인|OBV(On-Balance Volume) 역사적 고점 돌파|스토캐스틱 %K선이 %D선을 상향 돌파하는 골든크로스|JPMHC 2026 기술 이전 가시화 및 MSD 로열티 모멘텀|코스닥 시가총액 1위 탈환에 따른 수급 집중",
+          "signals": {
+            "trend_score": 96,
+            "momentum_score": 92,
+            "volume_score": 88,
+            "volatility_score": 85,
+            "pattern_score": 94,
+            "sentiment_score": 95,
+            "overall_score": 93
+          },
+          "verified_date": "2026-02-19"
+        },
+        {
+          "ticker": "KOSPI:003530",
+          "name": "한화투자증권",
+          "close_price": 9560,
+          "rationale": "SMA 5일선 가파른 기울기로 단기 정배열 진입|EMA 20일선 상향 돌파 후 상한가 안착|RSI(14) 68.45로 과매수 진입 전 강한 탄력|MACD 0선 위 골든크로스 및 히스토그램 폭증|거래량 61,144,000주로 평시 대비 210% 압도적 분출|볼린저밴드 상단 돌파 및 밴드 확장형(Squeeze 탈출)|ATR 4.5%로 변동성 확대 구간 진입|ADX 28.4 추세 형성 초기 단계 확인|OBV 수직 상승으로 매집 세력 이탈 부재 확인|스토캐스틱 80선 돌파하며 초강세 국면 진입|코스피 5600선 돌파에 따른 증권업종 전반적 Re-rating|비트코인 신고가 랠리에 따른 디지털 자산 지분 가치 부각",
+          "signals": {
+            "trend_score": 94,
+            "momentum_score": 98,
+            "volume_score": 99,
+            "volatility_score": 90,
+            "pattern_score": 97,
+            "sentiment_score": 92,
+            "overall_score": 96
+          },
+          "verified_date": "2026-02-19"
+        },
+        {
+          "ticker": "KOSPI:001510",
+          "name": "SK증권",
+          "close_price": 1579,
+          "rationale": "SMA 5일/20일 골든크로스 발생 및 장기 이평선 돌파|EMA 단기 정배열 전환 완료 및 지지력 확인|RSI(14) 52.38에서 상한가 직행으로 70선 육박|MACD 시그널선 영선 위로 급격한 양전환|거래량 298,653,000주로 시장 전체 거래량 1위 기록|볼린저밴드 상단 돌파 시도 및 변동성 폭발|ATR 3.2%로 적정 수준에서 고변동성으로 전이|ADX 22.5 상승 추세 본격 형성 신호 발생|OBV 신고가 경신하며 강력한 거래량 동반 확인|스토캐스틱 20선 탈출 후 급격한 상향 각도 형성|저PBR(0.71) 부각에 따른 밸류업 프로그램 수혜 기대|증권주 동반 상한가 랠리에 따른 강력한 테마 형성",
+          "signals": {
+            "trend_score": 92,
+            "momentum_score": 97,
+            "volume_score": 100,
+            "volatility_score": 88,
+            "pattern_score": 95,
+            "sentiment_score": 89,
+            "overall_score": 94
+          },
+          "verified_date": "2026-02-19"
+        }
+      ],
+      "sentAt": "2026-02-19T22:55:25.379+00:00",
+      "subscriberCount": 161
+    },
+    {
       "date": "2026-02-19",
       "stocks": [
         {
@@ -4254,5 +4309,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-02-18T23:07:05.663Z"
+  "lastUpdated": "2026-02-19T22:56:34.173Z"
 }
