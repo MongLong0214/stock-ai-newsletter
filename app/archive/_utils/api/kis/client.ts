@@ -18,6 +18,56 @@ const tokenCache: { token: KisToken | null } = { token: null };
 // 환경 변수 캐시 (런타임에 로드)
 let configCache: KisConfig | null = null;
 
+/** KIS API 요청 타임아웃 (ms) */
+const FETCH_TIMEOUT_MS = 8_000;
+
+/** 종목 간 요청 간격 (ms) — KIS API rate limit 방지 */
+const INTER_REQUEST_DELAY_MS = 100;
+
+/**
+ * 타임아웃이 있는 fetch
+ */
+async function fetchWithTimeout(
+  url: string,
+  options: RequestInit,
+  timeoutMs = FETCH_TIMEOUT_MS
+): Promise<Response> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+/**
+ * 지수 백오프 재시도
+ */
+async function retryAsync<T>(
+  fn: () => Promise<T>,
+  maxRetries = 2,
+  baseDelay = 300
+): Promise<T> {
+  let lastError: Error | null = null;
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      lastError = err instanceof Error ? err : new Error(String(err));
+      if (attempt < maxRetries) {
+        await new Promise((resolve) => setTimeout(resolve, baseDelay * Math.pow(2, attempt)));
+      }
+    }
+  }
+  throw lastError ?? new Error('Failed after retries');
+}
+
+/** 종목 간 delay */
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 /**
  * KIS 설정 가져오기 (런타임에 환경 변수 로드)
  */
@@ -134,9 +184,8 @@ async function getAccessToken(): Promise<string> {
   checkRateLimit('token');
   const newToken = await issueNewToken();
 
-  // 메모리 및 Supabase에 저장
   tokenCache.token = newToken;
-  saveTokenToStorage(newToken).catch(() => {}); // 실패해도 무시
+  saveTokenToStorage(newToken).catch(() => {});
 
   return newToken.access_token;
 }
@@ -156,7 +205,7 @@ export async function getStockPrice(ticker: string): Promise<KisStockPrice> {
   const cleanedTicker = cleanTicker(ticker);
   const config = getKisConfig();
 
-  const response = await fetch(
+  const response = await fetchWithTimeout(
     `${config.KIS_BASE_URL}/uapi/domestic-stock/v1/quotations/inquire-price?` +
       new URLSearchParams({
         FID_COND_MRKT_DIV_CODE: 'J',
@@ -195,23 +244,31 @@ export async function getStockPrice(ticker: string): Promise<KisStockPrice> {
 }
 
 /**
- * 여러 주식 현재가 일괄 조회
+ * 여러 주식 현재가 일괄 조회 (순차 + 개별 재시도)
+ *
+ * 개선:
+ * - 동시 호출 대신 순차 호출로 KIS API rate limit 방지
+ * - 종목별 2회 재시도 (지수 백오프 300ms → 600ms)
+ * - 종목 간 100ms 간격으로 API 부하 분산
  */
 export async function getBatchStockPrices(tickers: string[]): Promise<BatchPriceResult> {
   const prices = new Map<string, KisStockPrice>();
   const failures = new Map<string, string>();
 
-  const results = await Promise.allSettled(tickers.map((ticker) => getStockPrice(ticker)));
-
-  results.forEach((result, index) => {
-    if (result.status === 'fulfilled') {
-      prices.set(result.value.ticker, result.value);
-    } else {
-      const ticker = tickers[index];
-      const errorMsg = result.reason instanceof Error ? result.reason.message : 'Unknown error';
+  for (let i = 0; i < tickers.length; i++) {
+    const ticker = tickers[i];
+    try {
+      const price = await retryAsync(() => getStockPrice(ticker), 2, 300);
+      prices.set(price.ticker, price);
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'Unknown error';
       failures.set(ticker, errorMsg);
     }
-  });
+
+    if (i < tickers.length - 1) {
+      await delay(INTER_REQUEST_DELAY_MS);
+    }
+  }
 
   return { prices, failures };
 }
@@ -235,7 +292,7 @@ export async function getDailyClosePrice(ticker: string, date: string): Promise<
       FID_ORG_ADJ_PRC: '0',
     });
 
-    const res = await fetch(
+    const res = await fetchWithTimeout(
       `${config.KIS_BASE_URL}/uapi/domestic-stock/v1/quotations/inquire-daily-itemchartprice?${params}`,
       {
         headers: {
@@ -258,22 +315,24 @@ export async function getDailyClosePrice(ticker: string, date: string): Promise<
 }
 
 /**
- * 여러 종목 특정 날짜 종가 일괄 조회
+ * 여러 종목 특정 날짜 종가 일괄 조회 (순차 + delay)
  */
 export async function getBatchDailyClosePrices(
   tickers: string[],
   date: string
 ): Promise<Map<string, number>> {
   const results = new Map<string, number>();
-  const settled = await Promise.allSettled(
-    tickers.map((ticker) => getDailyClosePrice(ticker, date))
-  );
 
-  settled.forEach((result, index) => {
-    if (result.status === 'fulfilled' && result.value !== null) {
-      results.set(tickers[index], result.value);
+  for (let i = 0; i < tickers.length; i++) {
+    const price = await getDailyClosePrice(tickers[i], date);
+    if (price !== null) {
+      results.set(tickers[i], price);
     }
-  });
+
+    if (i < tickers.length - 1) {
+      await delay(INTER_REQUEST_DELAY_MS);
+    }
+  }
 
   return results;
 }

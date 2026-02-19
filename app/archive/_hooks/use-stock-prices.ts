@@ -78,6 +78,45 @@ function isHistoricalPriceAPIResponse(data: unknown): data is HistoricalPriceAPI
 }
 
 /**
+ * 재시도 로직을 포함한 fetch (모듈 레벨)
+ *
+ * - ok 응답만 반환, 4xx는 즉시 실패, 5xx는 재시도
+ * - AbortError는 즉시 전파 (컴포넌트 언마운트 대응)
+ */
+async function fetchWithRetry(
+  url: string,
+  options: RequestInit,
+  maxRetries = 3,
+  baseDelay = 300
+): Promise<Response> {
+  let lastError: Error | null = null;
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const response = await fetch(url, options);
+      if (response.ok) return response;
+
+      if (response.status >= 400 && response.status < 500) {
+        throw new Error(`Client error: ${response.status}`);
+      }
+
+      lastError = new Error(`Server error: ${response.status}`);
+    } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') throw err;
+      if (err instanceof DOMException && err.name === 'AbortError') throw err;
+      lastError = err instanceof Error ? err : new Error('Unknown error');
+    }
+
+    if (attempt < maxRetries) {
+      const delay = baseDelay * Math.pow(2, attempt);
+      await new Promise((resolve) => setTimeout(resolve, delay));
+    }
+  }
+
+  throw lastError ?? new Error('Failed after retries');
+}
+
+/**
  * 실시간 추적 기간 만료 여부 확인
  * @returns true면 7영업일 초과 (확정 종가 조회 필요)
  */
@@ -144,43 +183,6 @@ export default function useStockPrices(
     let isMounted = true;
     const controller = new AbortController();
 
-    // 재시도 로직을 포함한 fetch 함수
-    async function fetchWithRetry(
-      url: string,
-      options: RequestInit,
-      maxRetries = 3,
-      baseDelay = 300
-    ): Promise<Response> {
-      let lastError: Error | null = null;
-
-      for (let attempt = 0; attempt <= maxRetries; attempt++) {
-        try {
-          const response = await fetch(url, options);
-          if (response.ok) return response;
-
-          // 4xx 에러는 재시도하지 않음 (클라이언트 오류)
-          if (response.status >= 400 && response.status < 500) {
-            throw new Error(`Client error: ${response.status}`);
-          }
-
-          // 5xx 에러는 재시도
-          lastError = new Error(`Server error: ${response.status}`);
-        } catch (err) {
-          if (err instanceof Error && err.name === 'AbortError') throw err;
-          if (err instanceof DOMException && err.name === 'AbortError') throw err;
-          lastError = err instanceof Error ? err : new Error('Unknown error');
-        }
-
-        // 마지막 시도가 아니면 대기 후 재시도
-        if (attempt < maxRetries) {
-          const delay = baseDelay * Math.pow(2, attempt); // 지수 백오프: 300ms, 600ms, 1200ms
-          await new Promise((resolve) => setTimeout(resolve, delay));
-        }
-      }
-
-      throw lastError ?? new Error('Failed after retries');
-    }
-
     async function fetchPrices() {
       try {
         setLoading(true);
@@ -190,14 +192,15 @@ export default function useStockPrices(
         setSettledClosePrices(new Map());
         setPrices(new Map());
 
-        // 추천일 전일 종가 조회 (항상 수행)
+        // 추천일 전일 종가 조회 (비핵심 — 실패해도 newsletter 종가로 fallback)
         const prevDate = getPreviousBusinessDate(currentDate);
-        const historicalRes = await fetch(
-          `/api/stock/daily-close?tickers=${tickersKey}&date=${prevDate}`,
-          { signal: controller.signal }
-        );
-
-        if (historicalRes.ok) {
+        try {
+          const historicalRes = await fetchWithRetry(
+            `/api/stock/daily-close?tickers=${tickersKey}&date=${prevDate}`,
+            { signal: controller.signal },
+            2,
+            300
+          );
           const histData: unknown = await historicalRes.json();
           if (isHistoricalPriceAPIResponse(histData) && isMounted) {
             const priceMap = new Map<string, number>();
@@ -208,6 +211,10 @@ export default function useStockPrices(
             }
             setHistoricalClosePrices(priceMap);
           }
+        } catch (histErr) {
+          if (histErr instanceof Error && histErr.name === 'AbortError') throw histErr;
+          if (histErr instanceof DOMException && histErr.name === 'AbortError') throw histErr;
+          // 비핵심 데이터 — 무시하고 계속 진행
         }
 
         // 추적 기간 만료 시 7영업일 후 확정 종가 조회
@@ -217,23 +224,21 @@ export default function useStockPrices(
 
           const settledDate = getNthBusinessDateAfter(currentDate, MAX_BUSINESS_DAYS);
           try {
-            const settledRes = await fetch(
+            const settledRes = await fetchWithRetry(
               `/api/stock/daily-close?tickers=${tickersKey}&date=${settledDate}`,
-              { signal: controller.signal }
+              { signal: controller.signal },
+              2,
+              300
             );
-            if (settledRes.ok) {
-              const settledData: unknown = await settledRes.json();
-              if (isHistoricalPriceAPIResponse(settledData) && isMounted) {
-                const priceMap = new Map<string, number>();
-                for (const [ticker, price] of Object.entries(settledData.prices)) {
-                  if (typeof price === 'number' && price > 0) {
-                    priceMap.set(ticker, price);
-                  }
+            const settledData: unknown = await settledRes.json();
+            if (isHistoricalPriceAPIResponse(settledData) && isMounted) {
+              const priceMap = new Map<string, number>();
+              for (const [ticker, price] of Object.entries(settledData.prices)) {
+                if (typeof price === 'number' && price > 0) {
+                  priceMap.set(ticker, price);
                 }
-                setSettledClosePrices(priceMap);
               }
-            } else if (isMounted) {
-              setUnavailableReason('api_error');
+              setSettledClosePrices(priceMap);
             }
           } catch (settledErr) {
             if (settledErr instanceof Error && settledErr.name === 'AbortError') return;
