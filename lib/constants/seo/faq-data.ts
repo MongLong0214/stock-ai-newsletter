@@ -84,7 +84,7 @@ export const faqData: FAQItem[] = [
   {
     question: '과거 뉴스레터도 볼 수 있나요?',
     answer:
-      '네, 가능합니다. StockMatrix 웹사이트의 아카이브 페이지(stockmatrix.co.kr/archive)에서 과거 발송된 뉴스레터를 모두 확인하실 수 있습니다. 날짜별로 정리되어 있어 특정일의 KOSPI, KOSDAQ 분석 데이터를 다시 검토할 수 있습니다.',
+      '네, 가능합니다. StockMatrix 웹사이트의 분석 기록 페이지(stockmatrix.co.kr/archive)에서 과거 발송된 뉴스레터를 모두 확인하실 수 있습니다. 날짜별로 정리되어 있어 특정일의 KOSPI, KOSDAQ 분석 데이터를 다시 검토할 수 있습니다.',
     category: 'service',
   },
   {

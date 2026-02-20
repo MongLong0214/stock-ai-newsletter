@@ -114,7 +114,7 @@ function Footer() {
                         className="text-slate-400 hover:text-emerald-400 text-sm transition-colors duration-200 block"
                         title="과거 뉴스레터 보기"
                       >
-                        아카이브
+                        분석 기록
                       </Link>
                     </li>
                     <li>

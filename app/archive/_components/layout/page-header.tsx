@@ -1,5 +1,5 @@
 /**
- * 아카이브 페이지 헤더
+ * 분석 기록 페이지 헤더
  *
  * 페이지 제목과 설명을 표시합니다.
  */
@@ -20,9 +20,9 @@ function PageHeader() {
         {...createFadeInUpVariant(STAGGER_DELAYS.title)}
         className="mb-4 text-4xl sm:text-5xl lg:text-6xl font-extralight tracking-tight leading-[0.95]"
       >
-        <span className="block text-emerald-500/90 mb-2">Newsletter</span>
+        <span className="block text-emerald-500/90 mb-2">뉴스레터</span>
         <span className="block font-normal bg-clip-text text-transparent bg-gradient-to-r from-emerald-400 via-teal-400 to-emerald-400">
-          Archive
+          분석 기록
         </span>
       </motion.h1>
       <motion.p

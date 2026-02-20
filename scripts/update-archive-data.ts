@@ -30,7 +30,7 @@ const supabase = createClient(
 );
 
 /**
- * Supabase에서 전체 아카이브 데이터 조회 및 JSON 파일 생성
+ * Supabase에서 전체 분석 기록 데이터 조회 및 JSON 파일 생성
  *
  * 실행 흐름:
  * 1. Supabase에서 is_sent=true인 모든 뉴스레터 조회
@@ -39,7 +39,7 @@ const supabase = createClient(
  */
 async function updateArchiveData() {
   console.log('━'.repeat(80));
-  console.log('🗄️  아카이브 데이터 업데이트 시작');
+  console.log('🗄️  분석 기록 데이터 업데이트 시작');
   console.log('━'.repeat(80) + '\n');
 
   try {
@@ -108,7 +108,7 @@ async function updateArchiveData() {
     saveToFile(outputData);
 
     console.log('\n━'.repeat(80));
-    console.log('✨ 아카이브 데이터 업데이트 완료!');
+    console.log('✨ 분석 기록 데이터 업데이트 완료!');
     console.log('━'.repeat(80));
     console.log(`\n📦 저장된 뉴스레터: ${validCount}개`);
     console.log(`📅 날짜 범위: ${archiveData[archiveData.length - 1]?.date} ~ ${archiveData[0]?.date}`);
@@ -116,7 +116,7 @@ async function updateArchiveData() {
 
     process.exit(0);
   } catch (error) {
-    console.error('❌ 아카이브 데이터 업데이트 실패:', error);
+    console.error('❌ 분석 기록 데이터 업데이트 실패:', error);
     process.exit(1);
   }
 }

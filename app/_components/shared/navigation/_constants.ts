@@ -16,7 +16,7 @@ export const EASING = {
 
 export const NAVIGATION_LINKS = [
   { href: '/', label: '홈', highlighted: false },
-  { href: '/archive', label: '아카이브', highlighted: false },
+  { href: '/archive', label: '분석 기록', highlighted: false },
   { href: '/themes', label: '테마', highlighted: true },
   { href: '/blog', label: '블로그', highlighted: false },
   { href: '/about', label: '서비스', highlighted: false },
