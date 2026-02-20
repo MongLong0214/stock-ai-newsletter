@@ -7,7 +7,7 @@ interface UseArchiveDataReturn {
 }
 
 /**
- * 정적 JSON 파일에서 아카이브 데이터 조회
+ * 정적 JSON 파일에서 분석 기록 데이터 조회
  *
  * - 정적 JSON import로 초고속 로딩
  * - 빌드 타임에 데이터 번들링

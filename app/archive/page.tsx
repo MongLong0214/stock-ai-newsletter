@@ -1,5 +1,5 @@
 /**
- * 뉴스레터 아카이브 페이지
+ * 뉴스레터 분석 기록 페이지
  *
  * 과거 발송된 AI 주식 분석 뉴스레터를 날짜별로 조회합니다.
  * - 캘린더에서 날짜 선택
@@ -39,12 +39,12 @@ function ArchiveLoading() {
   );
 }
 
-/** 메인 아카이브 콘텐츠 (useSearchParams 사용) */
+/** 메인 분석 기록 콘텐츠 (useSearchParams 사용) */
 function ArchiveContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  // 아카이브 데이터 조회
+  // 분석 기록 데이터 조회
   const { availableDates, allNewsletters } = useArchiveData();
 
   // 사용 가능한 날짜 Set (참조 안정성을 위해 useMemo 사용)
