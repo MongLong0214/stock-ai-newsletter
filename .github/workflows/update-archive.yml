@@ -43,7 +43,7 @@ jobs:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
         run: |
-          echo "📊 Supabase에서 아카이브 데이터 조회 중..."
+          echo "📊 Supabase에서 분석 기록 데이터 조회 중..."
           npx tsx scripts/update-archive-data.ts
 
       - name: Check for changes
@@ -74,12 +74,12 @@ jobs:
         if: success()
         run: |
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "✅ 아카이브 데이터 업데이트 완료!"
+          echo "✅ 분석 기록 데이터 업데이트 완료!"
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
       - name: Notify on failure
         if: failure()
         run: |
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "❌ 아카이브 데이터 업데이트 실패!"
+          echo "❌ 분석 기록 데이터 업데이트 실패!"
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"

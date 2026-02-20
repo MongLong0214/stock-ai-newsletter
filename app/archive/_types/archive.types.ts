@@ -1,5 +1,5 @@
 /**
- * 아카이브 페이지 타입 정의
+ * 분석 기록 페이지 타입 정의
  */
 
 /**
@@ -63,7 +63,7 @@ export interface StockData {
 }
 
 /**
- * 뉴스레터 아카이브 항목
+ * 뉴스레터 분석 기록 항목
  */
 export interface NewsletterArchive {
   /** 뉴스레터 날짜 */
