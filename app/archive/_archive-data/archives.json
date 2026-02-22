@@ -1,6 +1,61 @@
 {
   "newsletters": [
     {
+      "date": "2026-02-23",
+      "stocks": [
+        {
+          "ticker": "KOSPI:085620",
+          "name": "미래에셋생명",
+          "close_price": 12400,
+          "rationale": "전일종가 12400원 상한가마감|당일등락률 29.98% 폭등기록|거래량 1841846주 폭발적급증|거래대금 21698백만원 강력집중|PER 11.91 업종대비저평가|최근1주외국인 135611주 순매수|최근1주기관 204737주 순매도|52주신고가 10150원돌파후경신|보험업종평균 8.82% 동반강세|연속5거래일 견조한상승흐름|보험주순환매 강력한수혜주|장대양봉 상한가강세패턴출현",
+          "signals": {
+            "trend_score": 95,
+            "momentum_score": 98,
+            "volume_score": 95,
+            "volatility_score": 92,
+            "pattern_score": 95,
+            "sentiment_score": 90,
+            "overall_score": 94
+          },
+          "verified_date": "2026-02-20"
+        },
+        {
+          "ticker": "KOSPI:012450",
+          "name": "한화에어로스페이스",
+          "close_price": 1245000,
+          "rationale": "전일종가 1245000원 상승마감|당일등락률 8.36% 강세상승|장중고가 1258000원 돌파시도|거래량 196860주 매수세유입|거래대금 239516백만원 대규모집중|RSI 67.65 과열전매수적기|MACD 26071 강력한양수모멘텀|MA5 1239900원 단기적극매수신호|MA50 1158490원 중기강세국면유지|전일외국인 10874주 동반순매수|전일기관 12536주 동반순매수|피보나치 1245333 저항선돌파시도",
+          "signals": {
+            "trend_score": 92,
+            "momentum_score": 88,
+            "volume_score": 85,
+            "volatility_score": 85,
+            "pattern_score": 86,
+            "sentiment_score": 90,
+            "overall_score": 88
+          },
+          "verified_date": "2026-02-20"
+        },
+        {
+          "ticker": "KOSPI:009290",
+          "name": "광동제약",
+          "close_price": 10400,
+          "rationale": "전일종가 10400원 상한가마감|당일등락률 30.00% 코스피1위|전일대비 2400원 폭등강세|거래량 20347757주 폭발적대량거래|PER 18.67 시장평균대비평가|ROE 7.21% 안정적수익성기반|자사주소각 의무화대응기대감|만원라운드피겨 강력돌파안착|제약바이오 동반강세흐름동참|장대양봉 강력한상한가패턴",
+          "signals": {
+            "trend_score": 90,
+            "momentum_score": 99,
+            "volume_score": 99,
+            "volatility_score": 95,
+            "pattern_score": 94,
+            "sentiment_score": 90,
+            "overall_score": 95
+          },
+          "verified_date": "2026-02-20"
+        }
+      ],
+      "sentAt": "2026-02-22T22:53:03.458+00:00",
+      "subscriberCount": 171
+    },
+    {
       "date": "2026-02-20",
       "stocks": [
         {
@@ -4309,5 +4364,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-02-19T23:06:59.907Z"
+  "lastUpdated": "2026-02-22T22:54:10.016Z"
 }
