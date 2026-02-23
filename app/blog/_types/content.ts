@@ -9,7 +9,7 @@ export type KeywordDifficulty = 'low' | 'medium' | 'high';
 export type TopicArea =
   | 'technical' | 'value' | 'strategy' | 'market'
   | 'discovery' | 'psychology' | 'education' | 'execution'
-  | 'theme';
+  | 'theme' | 'event';
 
 export interface KeywordMetadata {
   keyword: string;

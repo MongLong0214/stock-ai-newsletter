@@ -20,7 +20,7 @@ export interface CompetitorKeyword {
 const VALID_INTENTS: SearchIntent[] = ['informational', 'commercial', 'transactional', 'navigational'];
 const VALID_DIFFICULTIES: KeywordDifficulty[] = ['low', 'medium', 'high'];
 const VALID_CONTENT_TYPES: ContentType[] = ['comparison', 'guide', 'listicle', 'review'];
-const VALID_TOPIC_AREAS: TopicArea[] = ['technical', 'value', 'strategy', 'market', 'discovery', 'psychology', 'education', 'execution', 'theme'];
+const VALID_TOPIC_AREAS: TopicArea[] = ['technical', 'value', 'strategy', 'market', 'discovery', 'psychology', 'education', 'execution', 'theme', 'event'];
 
 /** 생성된 키워드 메타데이터 품질 검증 */
 export function validateKeywordMetadata(keywords: KeywordMetadata[]): {
@@ -85,7 +85,7 @@ export function calculateSEOScore(keyword: KeywordMetadata): number {
   }
 
   // 테마 기반 키워드 시의성 부스트
-  const themeBoost = keyword.topicArea === 'theme' ? 1.1 : 1.0;
+  const themeBoost = (keyword.topicArea === 'theme' || keyword.topicArea === 'event') ? 1.1 : 1.0;
 
   // relevanceScore(0-10) -> base(0-50) -> 가중치 적용
   const relevanceBase = keyword.relevanceScore * 5;

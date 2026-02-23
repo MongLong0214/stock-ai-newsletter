@@ -131,7 +131,14 @@ export const TOPIC_BUCKETS = `
    - 테마 관련주: 테마별 수혜주 목록, 대장주, 관련 종목
    - 종목 분석: 특정 종목 전망, 실적, 목표가, 매수 타이밍
    - 테마 비교: 테마 간 비교, 시장 흐름 분석
-   - 예시 키워드 결: "2차전지 관련주 2026", "AI 반도체 수혜주 목록", "에코프로비엠 전망"`;
+   - 예시 키워드 결: "2차전지 관련주 2026", "AI 반도체 수혜주 목록", "에코프로비엠 전망"
+
+10. event: 시사/이벤트 (비-TLI 슬롯 최우선)
+    - IPO/공모주: 신규 상장, 공모 청약, 상장일 전망, 따상 가능성, 공모가 분석
+    - 정책/제도: 금투세, 공매도 재개, 대주주 양도세, 신규 ETF 상장
+    - 대형 공시: 유상증자, 무상증자, 액면분할, 합병/분할, 자사주 매입
+    - 시즌 이벤트: 실적 시즌, 배당락일, 연말 세금, IPO 러시
+    - 예시 키워드 결: "2026 공모주 청약 일정", "IPO 따상 조건 분석", "금투세 시행 영향"`;
 
 /** 검색 쿼리 가이드라인 (프롬프트에 삽입) */
 export const SEARCH_QUERY_GUIDELINES = `
@@ -148,6 +155,8 @@ export const SEARCH_QUERY_GUIDELINES = `
 - "에코프로비엠 목표가"
 - "금리 인하 수혜주 추천"
 - "로봇 테마주 대장주"
+- "2026 공모주 청약 일정 추천"
+- "IPO 따상 조건 분석"
 
 ### 나쁜 키워드 (블로그 제목처럼 생긴 것 - 금지)
 - "99%가 모르는 2차전지의 비밀" (후킹형)
@@ -550,6 +559,43 @@ export const FEW_SHOT_EXAMPLES = `
         "contentType": "guide",
         "topicArea": "theme",
         "reasoning": "2차전지 테마를 '초보가이드' 각도로 접근. 같은 테마에서 관련주/ETF와 다른 교육 목적 키워드로 차별화."
+      }
+    </output>
+  </example>
+
+  <example id="11" quality="excellent" category="시사/이벤트">
+    <keyword>2026 공모주 청약 일정 추천</keyword>
+    <analysis>
+      <step name="intent-analysis">
+        올해 공모주 청약 일정과 추천 종목을 알고 싶은 의도
+        -> "청약", "일정", "추천" 트리거 -> commercial intent
+      </step>
+      <step name="difficulty-assessment">
+        연도 + 공모주 + 청약 + 일정 = 시의성 높은 롱테일
+        -> difficulty: medium
+      </step>
+      <step name="volume-estimation">
+        IPO 시즌 검색량 급증, 공모주 투자 관심 증가
+        -> 월간 검색량 추정: 1200-2000
+      </step>
+      <step name="content-type-matching">
+        "일정", "추천" 트리거 -> listicle 타입
+      </step>
+      <step name="relevance-scoring">
+        시의성 + 실용 정보 + 높은 검색 수요
+        -> relevanceScore: 9.0/10
+      </step>
+    </analysis>
+    <output>
+      {
+        "keyword": "2026 공모주 청약 일정 추천",
+        "searchIntent": "commercial",
+        "difficulty": "medium",
+        "estimatedSearchVolume": 1600,
+        "relevanceScore": 9.0,
+        "contentType": "listicle",
+        "topicArea": "event",
+        "reasoning": "IPO 시즌에 검색량이 급증하는 시의성 키워드. 공모주 청약 일정과 유망 종목을 정리한 리스트 콘텐츠로 높은 유입 기대."
       }
     </output>
   </example>
