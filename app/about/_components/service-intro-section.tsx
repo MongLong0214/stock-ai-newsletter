@@ -51,8 +51,8 @@ function ServiceIntroSection(): JSX.Element {
           </p>
 
           <p className="text-base md:text-lg">
-            매일 <strong className="text-emerald-400 font-normal">오전 7시 50분</strong>,
-            장 시작 <strong className="font-normal">10분 전</strong>에 무료로 이메일로{' '}
+            매일 <strong className="text-emerald-400 font-normal">오전 7시 30분</strong>,
+            장 시작 <strong className="font-normal">30분 전</strong>에 무료로 이메일로{' '}
             <strong className="font-normal">기술적 분석 데이터</strong>를 받아보실 수 있습니다. 장
             시작 전에 미리 시장 동향을 파악하고 당일 투자 계획을 세울 수
             있도록 도와드립니다.
@@ -137,7 +137,7 @@ function ServiceIntroSection(): JSX.Element {
                 </svg>
                 <span>
                   <strong className="text-white font-normal">
-                    매일 오전 7시 50분 발송
+                    매일 오전 7시 30분 발송
                   </strong>
                   : 장 시작 전 최신 분석 데이터 제공
                 </span>
@@ -248,7 +248,7 @@ function SchemaOrgStructuredData() {
     '@type': 'WebPage',
     name: 'Stock Matrix 서비스 소개 | AI 주식 분석 무료 뉴스레터',
     description:
-      'Stock Matrix는 RSI, MACD, 볼린저밴드 등 30가지 기술적 지표를 활용한 AI 주식 분석 무료 뉴스레터입니다. 매일 오전 7시 50분 KOSPI·KOSDAQ 종목 분석을 이메일로 받아보세요.',
+      'Stock Matrix는 RSI, MACD, 볼린저밴드 등 30가지 기술적 지표를 활용한 AI 주식 분석 무료 뉴스레터입니다. 매일 오전 7시 30분 KOSPI·KOSDAQ 종목 분석을 이메일로 받아보세요.',
     url: 'https://stockmatrix.co.kr/about',
     inLanguage: 'ko-KR',
     isPartOf: {

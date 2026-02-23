@@ -4,7 +4,7 @@ import { siteConfig, keywordsByCategory } from '@/lib/constants/seo';
 export const metadata: Metadata = {
   title: 'Stock Matrix 소개 - 30개 지표로 분석하는 AI 주식 뉴스레터',
   description:
-    'RSI, MACD, 볼린저밴드 등 30개 기술적 지표를 AI가 실시간 분석하여 매일 아침 7시 50분 KOSPI, KOSDAQ 3종목 정보를 무료 이메일로 발송. 투자 참고용 기술적 분석 데이터 제공.',
+    'RSI, MACD, 볼린저밴드 등 30개 기술적 지표를 AI가 실시간 분석하여 매일 아침 7시 30분 KOSPI, KOSDAQ 3종목 정보를 무료 이메일로 발송. 투자 참고용 기술적 분석 데이터 제공.',
   keywords: [
     ...keywordsByCategory.brand,
     ...keywordsByCategory.ai,
@@ -19,7 +19,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'Stock Matrix - AI가 30개 지표로 분석하는 무료 주식 뉴스레터',
     description:
-      '매일 아침 7시 50분, AI가 RSI·MACD·볼린저밴드 등 30개 지표로 KOSPI/KOSDAQ 3종목 분석',
+      '매일 아침 7시 30분, AI가 RSI·MACD·볼린저밴드 등 30개 지표로 KOSPI/KOSDAQ 3종목 분석',
     url: `${siteConfig.domain}/about`,
     siteName: siteConfig.serviceName,
     locale: 'ko_KR',
@@ -36,7 +36,7 @@ export const metadata: Metadata = {
   twitter: {
     card: 'summary_large_image',
     title: 'Stock Matrix - AI 주식 분석 뉴스레터',
-    description: '30개 기술지표 AI 분석, 매일 7:50 무료 발송',
+    description: '30개 기술지표 AI 분석, 매일 7:30 무료 발송',
   },
 };
 

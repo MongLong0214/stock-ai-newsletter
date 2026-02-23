@@ -24,7 +24,7 @@ siteConfig = {
   domain: 'https://stockmatrix.co.kr',
   serviceName: 'Stock Matrix',
   serviceNameKo: '스탁매트릭스',
-  deliveryTime: '오전 7시 50분',
+  deliveryTime: '오전 7시 30분', (상수: lib/constants/delivery.ts)
   stockCount: 3,
   indicatorCount: 30,
   markets: 'KOSPI·KOSDAQ',

@@ -197,7 +197,7 @@
 | 파일 | 설명 |
 |------|------|
 | use-calendar-dates.ts | 캘린더 날짜 계산 |
-| use-countdown-to-tomorrow.ts | 내일 7:50까지 카운트다운 |
+| use-countdown-to-tomorrow.ts | 내일 7:30까지 카운트다운 (lib/constants/delivery.ts 상수 참조) |
 | use-is-mobile.ts | 모바일 감지 |
 | use-reveal.ts | 스크롤 reveal 애니메이션 |
 

@@ -7,7 +7,7 @@
  * import { siteConfig, metadataConfig, allKeywords } from '@/lib/constants/seo';
  *
  * console.log(siteConfig.domain);        // "https://stockmatrix.co.kr"
- * console.log(metadataConfig.title);     // "매일 7:50 AI 주식분석 무료 | StockMatrix"
+ * console.log(metadataConfig.title);     // "매일 7:30 AI 주식분석 무료 | StockMatrix"
  * console.log(allKeywords.length);       // 70
  * ```
  */

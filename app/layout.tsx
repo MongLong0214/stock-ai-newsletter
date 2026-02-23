@@ -185,8 +185,8 @@ export default function RootLayout({
         hoursAvailable: {
           '@type': 'OpeningHoursSpecification',
           dayOfWeek: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'],
-          opens: '07:50',
-          closes: '07:50',
+          opens: '07:30',
+          closes: '07:30',
         },
         availableChannel: {
           '@type': 'ServiceChannel',
@@ -199,7 +199,7 @@ export default function RootLayout({
         '@id': `${siteConfig.domain}/#newsletter`,
         name: 'StockMatrix 주식 뉴스레터',
         alternateName: '스탁매트릭스 투자 뉴스레터',
-        description: '한국 주식 투자자를 위한 무료 이메일 뉴스레터 서비스. AI가 분석한 시장 인사이트와 종목 정보를 매일 오전 7시 50분 제공.',
+        description: '한국 주식 투자자를 위한 무료 이메일 뉴스레터 서비스. AI가 분석한 시장 인사이트와 종목 정보를 매일 오전 7시 30분 제공.',
         publisher: {
           '@id': `${siteConfig.domain}/#organization`,
         },
