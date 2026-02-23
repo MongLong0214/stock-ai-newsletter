@@ -20,7 +20,7 @@ export function CTASection() {
         </div>
 
         <p className="text-slate-300 mb-6 max-w-xl">
-          Stock Matrix는 30개 기술지표를 분석해 매일 오전 7시 50분 유망 종목 3개를 선정합니다.
+          Stock Matrix는 30개 기술지표를 분석해 매일 오전 7시 30분 유망 종목 3개를 선정합니다.
           무료로 구독하고 데이터 기반 투자를 시작하세요.
         </p>
 

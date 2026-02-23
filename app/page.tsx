@@ -21,7 +21,7 @@ export default function HomePage() {
             applicationCategory: 'FinanceApplication',
             operatingSystem: 'Web Browser',
             description:
-              '매일 오전 7시 50분 AI가 30가지 기술적 지표로 분석한 KOSPI·KOSDAQ 3종목을 이메일로 제공하는 무료 주식 분석 뉴스레터',
+              '매일 오전 7시 30분 AI가 30가지 기술적 지표로 분석한 KOSPI·KOSDAQ 3종목을 이메일로 제공하는 무료 주식 분석 뉴스레터',
             offers: {
               '@type': 'Offer',
               price: '0',

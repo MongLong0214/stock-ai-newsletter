@@ -1,7 +1,7 @@
 # 뉴스레터 시스템
 
 ## 개요
-매일 평일 오전 7:50 KST에 AI 분석 종목 3개를 이메일로 발송하는 시스템.
+매일 평일 오전 7:30 KST (cron 07:25)에 AI 분석 종목 3개를 이메일로 발송하는 시스템.
 2단계 파이프라인(준비→발송)으로 안정성 확보.
 
 ## 2단계 파이프라인
@@ -22,7 +22,7 @@
    → is_sent = false
 ```
 
-### 2단계: 발송 (07:48 KST)
+### 2단계: 발송 (07:25 KST)
 **워크플로우**: daily-newsletter.yml
 **스크립트**: scripts/send-newsletter.ts
 
@@ -98,7 +98,7 @@
 - 카운트다운 버튼 ("XX:XX:XX 후 메일 받기")
 - Glass morphism 폼
 - Framer Motion 애니메이션
-- Trust signals (100% 무료, 매일 7:50, 30개 지표, 250+ 테마)
+- Trust signals (100% 무료, 매일 7:30, 30개 지표, 250+ 테마)
 
 ### 해지 (app/unsubscribe/page.tsx)
 ```
