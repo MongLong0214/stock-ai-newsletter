@@ -51,8 +51,8 @@ ${competitorKeywords.slice(0, 15).map((kw, i) => `${i + 1}. "${kw.keyword}" (${k
 ${formatTLIForPrompt(tliContext)}
 
 **TLI 데이터 활용 규칙 (최우선):**
-- 전체 ${count}개 중 **최소 ${Math.ceil(count * 0.8)}개**는 위 테마/종목을 활용한 키워드를 생성하세요 (topicArea: "theme")
-- 나머지 **최대 ${count - Math.ceil(count * 0.8)}개**는 일반 투자 주제 (에버그린 콘텐츠)
+- 전체 ${count}개 중 **최소 ${Math.ceil(count * 0.7)}개**는 위 테마/종목을 활용한 키워드를 생성하세요 (topicArea: "theme")
+- 나머지 **최대 ${count - Math.ceil(count * 0.7)}개**는 시사/이벤트 주제 우선, 나머지 에버그린
 - 테마명은 그대로 사용 (예: "2차전지 관련주"), 종목명도 그대로 사용 (예: "삼성전자 실적")
 - Growth/Reigniting 테마를 우선 활용하세요
 - 같은 테마에서 최대 3개 키워드까지 허용 (각각 다른 각도 필수 - 아래 keyword-angles 참조)
@@ -72,9 +72,9 @@ ${KEYWORD_ANGLES}`
 ${TOPIC_BUCKETS}
 
 **버킷 분산 규칙:**
-- theme(테마/이슈) 버킷이 최우선입니다 (전체의 80%)
+- theme(테마/이슈) 버킷이 최우선입니다 (전체의 70%)
 - 동일 topicArea는 최대 3개까지 허용 (theme 제외, theme은 제한 없음)
-- 에버그린 주제(차트 보는법, 증권사 이용법 등)는 이미 포화 → 가급적 피하세요
+- 비-TLI 슬롯은 시사/이벤트(IPO, 정책, 공시 등) 우선. 에버그린은 이벤트 주제가 없을 때만
 </service-context>
 </system>
 ${tliSection}
@@ -131,7 +131,7 @@ ${FEW_SHOT_EXAMPLES}
 ## 품질 기준
 - 롱테일 비율: 70% 이상 (3개+ 단어 조합)
 - contentType 근거: 트리거 단어 기반 매칭 필수
-- 테마/종목 비율: 전체의 80% 이상은 실제 테마명/종목명 포함
+- 테마/종목 비율: 전체의 70% 이상은 실제 테마명/종목명 포함
 </constraints>
 
 <excluded-keywords>
@@ -164,7 +164,7 @@ interface KeywordMetadata {
   estimatedSearchVolume: number;  // 100-${MAX_SEARCH_VOLUME}
   relevanceScore: number;         // 7.5-10.0
   contentType: 'comparison' | 'guide' | 'listicle' | 'review';
-  topicArea: 'technical' | 'value' | 'strategy' | 'market' | 'discovery' | 'psychology' | 'education' | 'execution' | 'theme';
+  topicArea: 'technical' | 'value' | 'strategy' | 'market' | 'discovery' | 'psychology' | 'education' | 'execution' | 'theme' | 'event';
   reasoning: string;              // 50자 이상 근거 설명
 }
 \`\`\`
@@ -173,7 +173,7 @@ interface KeywordMetadata {
 
 <self-validation>
 출력 전 확인: (1) 정확히 ${count}개 (2) 제외 키워드 미중복 (3) searchVolume 100-${MAX_SEARCH_VOLUME}
-(4) reasoning 50자+ (5) 유효 JSON (6) topicArea 필수 (7) 40자 이내 검색 쿼리 (8) 80%+ 테마/종목 기반
+(4) reasoning 50자+ (5) 유효 JSON (6) topicArea 필수 (7) 40자 이내 검색 쿼리 (8) 70%+ 테마/종목 기반
 </self-validation>
 
 **JSON 배열만 출력하세요.**`;

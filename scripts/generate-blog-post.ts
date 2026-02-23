@@ -6,7 +6,7 @@ import { existsSync } from 'fs';
 const envPath = resolve(process.cwd(), '.env.local');
 if (existsSync(envPath)) config({ path: envPath });
 
-import { generateWithDynamicKeywords } from '@/app/blog/pipeline';
+import { generateWithDynamicKeywords, DAILY_POST_COUNT } from '@/app/blog/pipeline';
 import { closeBrowser } from '@/app/blog/_services/web-scraper';
 
 const SCRIPT_TIMEOUT_MS = 25 * 60 * 1000;
@@ -39,7 +39,7 @@ setTimeout(() => { console.error('\n타임아웃 (25분)'); exit(1); }, SCRIPT_T
   if (missing.length) { console.error(`환경변수 누락: ${missing.join(', ')}`); return exit(1); }
 
   try {
-    const results = await generateWithDynamicKeywords({ publish: true, count: 5 });
+    const results = await generateWithDynamicKeywords({ publish: true, count: DAILY_POST_COUNT });
     const ok = results.filter(r => r.success).length;
     console.log(`\n결과: ${ok}개 성공, ${results.length - ok}개 실패`);
     results.forEach((r, i) => { if (r.success) console.log(`   ${i + 1}. ${r.blogPost.title}`); });
