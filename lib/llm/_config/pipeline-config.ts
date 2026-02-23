@@ -67,7 +67,7 @@ export const PIPELINE_CONFIG = {
 
   /**
    * Vertex AI 리전
-   * global: Gemini 3.1 Pro Preview는 Global 리전 전용
+   * global: Gemini 3 Pro Preview는 Global 리전 전용
    */
   VERTEX_AI_LOCATION: 'global' as const,
 
@@ -85,23 +85,22 @@ export const PIPELINE_CONFIG = {
 /**
  * Gemini API 호출 설정
  *
- * gemini-3.1-pro-preview 모델 최적 파라미터
+ * gemini-3-flash-preview 모델 최적 파라미터
  */
 export const GEMINI_API_CONFIG = {
   /**
    * 사용 모델
-   * gemini-3.1-pro-preview: Gemini 3.1 Pro Preview
-   * - 향상된 추론 능력, 토큰 효율성, 사실 기반 일관성
-   * - SW 엔지니어링 및 에이전틱 워크플로우에 최적화
+   * gemini-3-flash-preview: Gemini 3.0 Flash Preview
+   * - Gemini 3 Pro의 추론 능력 + Flash의 낮은 지연시간/비용 효율성
    * - 1M 토큰 입력 컨텍스트 윈도우
    * - 최대 65K 출력 토큰
-   * - thinking 지원
+   * - thinking_level 파라미터로 추론 수준 조절 가능 (minimal, low, medium, high)
    */
-  MODEL: 'gemini-3.1-pro-preview' as const,
+  MODEL: 'gemini-3-flash-preview' as const,
 
   /**
    * 최대 출력 토큰 수
-   * 65536: gemini-3.1-pro-preview 최대값
+   * 65536: gemini-3-flash 최대값
    */
   MAX_OUTPUT_TOKENS: 65536,
 
@@ -116,7 +115,7 @@ export const GEMINI_API_CONFIG = {
 
   /**
    * Top-P (nucleus sampling)
-   * 0.95: Gemini 3.1 Pro 공식 기본값
+   * 0.95: Gemini 3 Pro 공식 기본값
    * - 범위: 0.0 ~ 1.0
    * - 누적 확률 95%까지의 토큰만 고려
    */
@@ -124,7 +123,7 @@ export const GEMINI_API_CONFIG = {
 
   /**
    * Top-K (top-k sampling)
-   * 64: Gemini 3.1 Pro 고정값 (변경 불가)
+   * 64: Gemini 3 Pro 고정값 (변경 불가)
    * - 상위 64개 토큰 중에서 선택
    */
   TOP_K: 64,
