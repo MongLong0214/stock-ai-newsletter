@@ -31,6 +31,7 @@ const BATCH_DELAY_MS = 3_000;
 const SELECT_COUNT = 10;
 const EXISTING_POSTS_LIMIT = 150;
 const QUALITY_MIN_SCORE = 60;
+export const DAILY_POST_COUNT = 7;
 
 // --- 타입 ---
 
@@ -273,7 +274,7 @@ export async function generateBlogPost(keyword: string, type: 'comparison' | 'gu
 // --- 메인 엔트리: 4-Phase 파이프라인 ---
 
 export async function generateWithDynamicKeywords(options: { publish?: boolean; count?: number } = {}): Promise<PipelineResult[]> {
-  const { publish = false, count = 5 } = options;
+  const { publish = false, count = DAILY_POST_COUNT } = options;
 
   console.log(`\n${'#'.repeat(60)}`);
   console.log(`[Pipeline] 4-Phase 블로그 파이프라인 시작 (목표: ${count}개)`);

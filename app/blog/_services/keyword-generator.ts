@@ -19,7 +19,7 @@ const keywordMetadataSchema = z.object({
   contentType: z.enum(['comparison', 'guide', 'listicle', 'review']),
   topicArea: z.enum([
     'technical', 'value', 'strategy', 'market', 'discovery',
-    'psychology', 'education', 'execution', 'theme',
+    'psychology', 'education', 'execution', 'theme', 'event',
   ]),
   reasoning: z.string(),
 });
