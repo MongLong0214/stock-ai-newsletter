@@ -61,7 +61,7 @@ function HeroSection({ formatted }: HeroSectionProps) {
           className="mb-8 max-w-3xl mx-auto text-center"
         >
           <p className="text-base sm:text-lg md:text-xl lg:text-2xl text-slate-300 font-light leading-relaxed tracking-wide mb-1">
-            매일 프리마켓 개장 10분 전 <span className="text-[10px] sm:text-xs md:text-sm lg:text-base text-slate-400">(7시 50분)</span>
+            매일 프리마켓 개장 30분 전 <span className="text-[10px] sm:text-xs md:text-sm lg:text-base text-slate-400">(7시 30분)</span>
           </p>
           <p className="text-base sm:text-lg md:text-xl lg:text-2xl text-slate-300 font-light leading-relaxed tracking-wide mb-2">
             코스피·코스닥 종목 3개

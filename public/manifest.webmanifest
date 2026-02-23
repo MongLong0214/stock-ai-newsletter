@@ -1,7 +1,7 @@
 {
   "name": "Stock Matrix - AI 주식 분석 뉴스레터",
   "short_name": "Stock Matrix",
-  "description": "AI가 분석한 기술적 지표 데이터를 매일 오전 7시 50분 무료 발송",
+  "description": "AI가 분석한 기술적 지표 데이터를 매일 오전 7시 30분 무료 발송",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#000000",

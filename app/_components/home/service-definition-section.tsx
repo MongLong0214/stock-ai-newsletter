@@ -15,7 +15,7 @@ const FEATURES = [
   { title: 'AI가 30개 기술적 지표로 분석', detail: 'RSI, MACD, 볼린저밴드 등', highlight: false },
   { title: 'KOSPI·KOSDAQ 3종목 선정', detail: '시장 분석과 투자 인사이트', highlight: false },
   { title: '250+ 투자 테마 생명주기 추적', detail: '초기·성장·정점·쇠퇴·휴면 5단계 분석', highlight: false },
-  { title: '매일 오전 7시 50분 발송', detail: '이메일로 무료 제공', highlight: true },
+  { title: '매일 오전 7시 30분 발송', detail: '이메일로 무료 제공', highlight: true },
 ] as const;
 
 // 신뢰 지표 데이터
@@ -27,7 +27,7 @@ const TRUST_INDICATORS = [
 
 // 가치 제안 카드 데이터
 const VALUE_CARDS = [
-  { Icon: Clock, label: '배송 시간', value: '매일 오전 7:50', description: '프리마켓 개장 10분 전 정시 발송', detail: '장 시작 전 충분한 검토 시간 확보' },
+  { Icon: Clock, label: '배송 시간', value: '매일 오전 7:30', description: '프리마켓 개장 30분 전 정시 발송', detail: '장 시작 전 충분한 검토 시간 확보' },
   { Icon: TrendingUp, label: '분석 범위', value: 'KOSPI·KOSDAQ 3종목', description: 'AI가 30개 기술적 지표로 종합 분석', detail: 'RSI, MACD, 볼린저밴드, 이동평균선 등' },
   { Icon: Gift, label: '서비스 비용', value: '완전 무료', description: '광고 없음, 구독료 없음, 숨겨진 비용 없음', detail: '신용카드 등록 불필요' },
   { Icon: Mail, label: '구독 방법', value: '이메일 주소만', description: '5초면 구독 완료, 회원가입 불필요', detail: '언제든 원클릭으로 구독 해지 가능' },

@@ -1,9 +1,9 @@
 name: Generate Blog Content
 
 on:
-  # 평일 오전 7:00 KST (UTC 22:00, 일-목 = KST 월-금)
+  # 평일 새벽 5:30 KST (UTC 20:30, 일-목 = KST 월-금)
   schedule:
-    - cron: '0 22 * * 0-4'
+    - cron: '30 20 * * 0-4'
 
   # 수동 실행 가능
   workflow_dispatch:

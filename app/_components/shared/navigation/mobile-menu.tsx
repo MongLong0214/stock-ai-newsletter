@@ -192,7 +192,7 @@ function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
             </Link>
 
             <p className="mt-4 text-xs text-center text-slate-500">
-              매일 오전 7:50 • 광고 없음 • 완전 무료
+              매일 오전 7:30 • 광고 없음 • 완전 무료
             </p>
           </motion.div>
           </div>

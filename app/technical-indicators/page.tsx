@@ -80,7 +80,7 @@ export default function TechnicalIndicatorsPage() {
       {
         '@type': 'HowToStep',
         name: 'AI 종합 분석 확인',
-        text: 'Stock Matrix AI가 30개 지표를 종합하여 매일 7:50 이메일 발송',
+        text: 'Stock Matrix AI가 30개 지표를 종합하여 매일 7:30 이메일 발송',
         url: `${siteConfig.domain}/subscribe`,
       },
     ],

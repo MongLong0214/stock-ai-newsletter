@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { COUNTDOWN_HOUR, COUNTDOWN_MINUTE } from '@/lib/constants/delivery';
 
 interface TimeRemaining {
   hours: number;
@@ -22,9 +23,8 @@ export function useCountdownToTomorrow(): TimeRemaining {
       const now = new Date();
       const tomorrow = new Date();
 
-      // 내일 오전 8시 50분 기준
       tomorrow.setDate(now.getDate() + 1);
-      tomorrow.setHours(8, 50, 0, 0);
+      tomorrow.setHours(COUNTDOWN_HOUR, COUNTDOWN_MINUTE, 0, 0);
 
       const diff = tomorrow.getTime() - now.getTime();
 

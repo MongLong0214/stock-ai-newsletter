@@ -48,12 +48,12 @@
 
 ### 뉴스레터 파이프라인
 ```
-prepare-newsletter.yml (07:00 KST)
+prepare-newsletter.yml (06:00 KST)
   → scripts/prepare-newsletter.ts
     → Gemini AI 7단계 분석 (200→30→3 종목)
     → Supabase newsletter_content 테이블 저장
 
-daily-newsletter.yml (07:48 KST)
+daily-newsletter.yml (07:25 KST)
   → scripts/send-newsletter.ts
     → newsletter_content에서 오늘 데이터 조회
     → SendGrid 개별 발송 (구독자별 해지 링크)

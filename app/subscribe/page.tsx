@@ -83,7 +83,7 @@ export default function SubscribePage() {
         }
       }
 
-      setMessage('구독이 완료되었습니다! 매일 오전 7시 50분에 이메일을 받으실 수 있습니다.');
+      setMessage('구독이 완료되었습니다! 매일 오전 7시 30분에 이메일을 받으실 수 있습니다.');
       setStatus('success');
       setEmail('');
       setName('');
@@ -128,7 +128,7 @@ export default function SubscribePage() {
 
               {/* Subheading with value proposition */}
               <h2 className="text-xl sm:text-2xl text-slate-300 mb-8 font-light">
-                매일 아침 7:50, AI가 분석한 KOSPI·KOSDAQ 3종목 정보를 이메일로
+                매일 아침 7:30, AI가 분석한 KOSPI·KOSDAQ 3종목 정보를 이메일로
                 받아보세요
               </h2>
 
@@ -140,7 +140,7 @@ export default function SubscribePage() {
                 </div>
                 <div className="flex items-center gap-2 text-emerald-400/80">
                   <Clock className="w-5 h-5" aria-hidden="true" />
-                  <span className="text-sm">매일 7:50 발송</span>
+                  <span className="text-sm">매일 7:30 발송</span>
                 </div>
                 <div className="flex items-center gap-2 text-emerald-400/80">
                   <TrendingUp className="w-5 h-5" aria-hidden="true" />

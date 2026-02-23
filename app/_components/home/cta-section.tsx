@@ -21,7 +21,7 @@ function CTASection({ formatted }: CTASectionProps) {
   const [showCursor2, setShowCursor2] = useState(false);
   const [, setIsDeleting] = useState(false);
 
-  const text1 = '개장 10분 전';
+  const text1 = '개장 30분 전';
   const text2 = '모든 분석 완료';
 
   useEffect(() => {
@@ -145,7 +145,7 @@ function CTASection({ formatted }: CTASectionProps) {
             animate={isInView ? { opacity: 1, y: 0 } : {}}
             transition={{ duration: 0.8, delay: 0.4, ease: [0.19, 1, 0.22, 1] }}
           >
-            <CTAButton formatted={formatted} ariaLabel="매일 아침 7시 50분 분석 받기" />
+            <CTAButton formatted={formatted} ariaLabel="매일 아침 7시 30분 분석 받기" />
           </motion.div>
         </motion.div>
       </div>

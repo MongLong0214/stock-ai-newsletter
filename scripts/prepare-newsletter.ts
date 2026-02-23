@@ -77,7 +77,7 @@ async function prepareNewsletter() {
     console.log(`\n📝 저장된 데이터:`);
     console.log(`  날짜: ${today}`);
     console.log(`  분석 길이: ${geminiAnalysis.length} characters`);
-    console.log(`  발송 예정: 07:50 KST\n`);
+    console.log(`  발송 예정: 07:30 KST\n`);
 
     process.exit(0);
   } catch (error) {

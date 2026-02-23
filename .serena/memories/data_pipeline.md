@@ -10,7 +10,7 @@ TLI(Theme Lifecycle Intelligence)는 한국 주식 시장 테마의 생명주기
 |-----------|------|-------------|----------|
 | TLI Data Collection | tli-collect-data.yml | 평일 16:30, 09:00 / 일 02:00 | 데이터 수집 + 점수 계산 |
 | Prepare Newsletter | prepare-newsletter.yml | 평일 07:00 | Gemini AI 분석 → DB 저장 |
-| Daily Newsletter | daily-newsletter.yml | 평일 07:48 | DB → SendGrid 발송 + Twitter 게시 |
+| Daily Newsletter | daily-newsletter.yml | 평일 07:25 | DB → SendGrid 발송 + Twitter 게시 |
 | Update Archive | update-archive.yml | 평일 08:00 또는 뉴스레터 후 | archives.json 갱신 + git push |
 | Generate Blog | generate-blog-content.yml | 수동 | AI 블로그 글 생성 |
 | Test Twitter | test-twitter.yml | 수동 | Twitter 게시 테스트 |

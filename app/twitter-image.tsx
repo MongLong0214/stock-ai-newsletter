@@ -105,7 +105,7 @@ export default async function Image() {
             }}
           >
             <span style={{ marginRight: '10px' }}>📊</span>
-            매일 오전 7시 50분 발송
+            매일 오전 7시 30분 발송
           </div>
         </div>
 
