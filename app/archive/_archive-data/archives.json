@@ -1,6 +1,61 @@
 {
   "newsletters": [
     {
+      "date": "2026-02-24",
+      "stocks": [
+        {
+          "ticker": "KOSPI:003230",
+          "name": "삼양식품",
+          "close_price": 1248000,
+          "rationale": "2026-02-23 종가 1,248,000원 확인(전일비 +7.22%)|SMA 5일선 1,192,400원 상향 돌파|EMA 20선 1,185,000원 지지 확인|RSI(14) 58.50으로 중립 이상의 강세 전환|MACD 히스토그램 2,450으로 양전환 성공|볼린저밴드 중심선(1,190,000) 지지 후 상단 향한 발산|ATR 45,200으로 변동성 확대 시작|ADX 21.5로 추세 형성 초기 단계|Stochastic %K 62.4 과매도 구간 탈출 후 골든크로스|Williams %R -45.2로 매수세 유입 확인|MFI 55 자금유입 안정|WDS 2026 관련 K-푸드 수출 모멘텀 부각",
+          "signals": {
+            "trend_score": 92,
+            "momentum_score": 88,
+            "volume_score": 95,
+            "volatility_score": 85,
+            "pattern_score": 90,
+            "sentiment_score": 89,
+            "overall_score": 91
+          },
+          "verified_date": "2026-02-23"
+        },
+        {
+          "ticker": "KOSDAQ:196170",
+          "name": "알테오젠",
+          "close_price": 406000,
+          "rationale": "2026-02-23 종가 406,000원 확인(전일비 +0.99%)|EMA 단중장기(5, 20, 60) 완전 정배열 유지|RSI(14) 61.80으로 견고한 상승 모멘텀 유지|MACD 0선 위에서 시그널선 재발산|거래량 386,572주로 전일 대비 건전한 증가|볼린저밴드 하단(400,500) 지지 후 반등 성공|ATR 16,800(4.1%)으로 섹터 평균 변동성 유지|ADX 24.2로 상승 추세 지속성 확인|OBV 상승 추세선 이탈 없이 우상향|MFI 62 자금 흐름 긍정적 유입|SuperTrend Buy 신호 유지 중|머크 소송 리스크 완화에 따른 기관 매수세 유입",
+          "signals": {
+            "trend_score": 96,
+            "momentum_score": 85,
+            "volume_score": 88,
+            "volatility_score": 90,
+            "pattern_score": 95,
+            "sentiment_score": 86,
+            "overall_score": 91
+          },
+          "verified_date": "2026-02-23"
+        },
+        {
+          "ticker": "KOSPI:012450",
+          "name": "한화에어로스페이스",
+          "close_price": 1242000,
+          "rationale": "2026-02-23 종가 1,242,000원 확인(전일비 +8.09%)|SMA 완전 정배열(5일선 1,239,900원 상회)|EMA 5/20 골든크로스 발생|RSI(14) 67.657로 과매수 진입 전 최강세 구간|MACD(12,26) 25,592 매수 신호 강화|거래량 442,000주로 전일(190,000주) 대비 145% 폭증|ADX 51.432로 매우 강력한 상승 추세 진행 중|ATR 21,642로 높은 변동성 동반한 추세 확장|Stochastic %K 78.08 상단 돌파 시도|Aroon Up 100 기록하며 전형적인 급등 패턴|사우디 WDS 2026 참가 및 AI 무기체계 공개 모멘텀|장기 평행채널 상단 확장형 돌파 구간 진입",
+          "signals": {
+            "trend_score": 100,
+            "momentum_score": 94,
+            "volume_score": 99,
+            "volatility_score": 92,
+            "pattern_score": 98,
+            "sentiment_score": 90,
+            "overall_score": 96
+          },
+          "verified_date": "2026-02-23"
+        }
+      ],
+      "sentAt": "2026-02-23T23:17:22.415+00:00",
+      "subscriberCount": 195
+    },
+    {
       "date": "2026-02-23",
       "stocks": [
         {
@@ -4364,5 +4419,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-02-23T23:11:33.445Z"
+  "lastUpdated": "2026-02-23T23:18:30.408Z"
 }
