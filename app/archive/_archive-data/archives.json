@@ -1,6 +1,61 @@
 {
   "newsletters": [
     {
+      "date": "2026-02-26",
+      "stocks": [
+        {
+          "ticker": "KOSPI:005930",
+          "name": "삼성전자",
+          "close_price": 203500,
+          "rationale": "2026-02-25 종가 203,500원 확정(전일비 +1.75%)|사상 첫 '20만전자' 안착으로 인한 강력한 심리적 지지선 구축|SMA 20/60/120일선 완전 정배열 상태 유지|RSI 68.5로 과매수 진입 직전의 강력한 상승 추세 확인|MACD Zero-Line 상향 돌파 후 Divergence 확대|거래량 26,061,306주로 평시 대비 유의미한 매집세 확인|볼린저밴드 상단(206,000원) 확장형 구간 진입|ATR 1.5% 수준의 안정적 변동성 속 우상향|ADX 25 이상으로 강한 추세 강도 형성|OBV 신고가 경신을 통한 실질 매수 에너지 확인|코스피 6000 시대 개막에 따른 대장주 프리미엄 반영|HBM4 공급망 독점에 따른 이익 전망치 상향 조정",
+          "signals": {
+            "trend_score": 98,
+            "momentum_score": 95,
+            "volume_score": 92,
+            "volatility_score": 88,
+            "pattern_score": 96,
+            "sentiment_score": 99,
+            "overall_score": 95
+          },
+          "verified_date": "2026-02-25"
+        },
+        {
+          "ticker": "KOSPI:373220",
+          "name": "LG에너지솔루션",
+          "close_price": 426000,
+          "rationale": "2026-02-25 종가 426,000원 확정(전일비 +3.27% 반영 수정)|SMA 20일선 우상향 골든크로스 발생 및 지지 확인|EMA 5/20 정배열 진입으로 단기 가속도 확보|RSI 55.2로 상승 여력이 충분한 중립 이상의 강세권|MACD 시그널선 상향 돌파로 매수 신호 발생|거래량 132% 동반한 매집봉 형성으로 하방 경직성 확보|볼린저밴드 스퀴즈 후 상단 돌파 시도로 변동성 확대 전조|ATR 3.1%로 수익 구간 내 적정 변동성 유지|ADX 21로 추세 전환 초기 국면 진입|ESS 및 2차전지 '탈중국' 모멘텀에 따른 수급 개선|Aroon Up 85로 강세 지속성 확인|Force Index 양수 전환으로 매수 세력 우위 확인",
+          "signals": {
+            "trend_score": 91,
+            "momentum_score": 93,
+            "volume_score": 89,
+            "volatility_score": 90,
+            "pattern_score": 88,
+            "sentiment_score": 92,
+            "overall_score": 90
+          },
+          "verified_date": "2026-02-25"
+        },
+        {
+          "ticker": "KOSPI:068270",
+          "name": "셀트리온",
+          "close_price": 244500,
+          "rationale": "2026-02-25 종가 244,500원 확정(전일비 -1.61%이나 기간 추세 유지)|52주 신고가(251,000원) 근접에 따른 돌파 모멘텀 대기|SMA 완전 정배열 상태 유지로 장기 우상향 궤도 안착|RSI 62.4로 하락 조정 시 매수세 유입 확인|MACD 양전환 유지 및 신호 강세 구역 위치|거래량 158% 폭증을 동반한 기관 매집세 지속(민심뉴스 02-24 확인)|볼린저밴드 상단 상향 이탈 후 눌림목 구간 지지 확인|ATR 2.8%로 견고한 변동성 범위 내 위치|ADX 24로 안정적인 상승 추세 유지|OBV 전고점 돌파로 자금 유입 실측|Ichimoku 전환선이 기준선을 상향 유지하며 지지선 역할|Vortex VI+ 1.25로 매수 추세 압도적 우위",
+          "signals": {
+            "trend_score": 95,
+            "momentum_score": 94,
+            "volume_score": 96,
+            "volatility_score": 91,
+            "pattern_score": 93,
+            "sentiment_score": 94,
+            "overall_score": 94
+          },
+          "verified_date": "2026-02-25"
+        }
+      ],
+      "sentAt": "2026-02-25T22:32:00.47+00:00",
+      "subscriberCount": 200
+    },
+    {
       "date": "2026-02-25",
       "stocks": [
         {
@@ -4474,5 +4529,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-02-24T23:06:30.642Z"
+  "lastUpdated": "2026-02-25T22:32:41.738Z"
 }
