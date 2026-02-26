@@ -1,6 +1,61 @@
 {
   "newsletters": [
     {
+      "date": "2026-02-27",
+      "stocks": [
+        {
+          "ticker": "KOSPI:373220",
+          "name": "LG에너지솔루션",
+          "close_price": 427000,
+          "rationale": "RSI(14) 65.45로 강세권 내 적정 수준 유지|MACD 5493.42 매수 신호 발생|ADX 48.86으로 매우 강한 상승 추세 형성|ATR 5464.28 기반 변동성 확대 국면 진입|SMA 5-20-60-200일선 완전 정배열 정석 패턴|MA20(419,600) 강력한 지지선 확인 후 반등|Williams %R -3.837로 상방 모멘텀 극대화 상태|2026년 AI 데이터센터 전용 전력 인프라 공급 확대 수혜|배터리 업황 턴어라운드 및 연간 실적 개선 기대감 고조|Bollinger Band 상단 돌파 시도 중 매물 소화 완료",
+          "signals": {
+            "trend_score": 92,
+            "momentum_score": 88,
+            "volume_score": 85,
+            "volatility_score": 82,
+            "pattern_score": 90,
+            "sentiment_score": 94,
+            "overall_score": 89
+          },
+          "verified_date": "2026-02-26"
+        },
+        {
+          "ticker": "KOSPI:005490",
+          "name": "POSCO홀딩스",
+          "close_price": 407500,
+          "rationale": "6351억원 규모 자사주 소각 결정에 따른 강력한 수급 모멘텀|전일 종가 대비 0.25% 상승하며 6300선 돌파 장세 내 건전한 조정 완료|주간 수익률 5.71% 기록하며 상승 채널 상단 지향|PER 73.29배로 업종 평균 대비 프리미엄 구간 진입 초기|박스권 상단인 423,000원 돌파를 위한 에너지 응축 과정|외인 소진율 29.54% 유지 및 기관 순매수 유입 가속|2026년 철강-이차전지 소재 동반 슈퍼사이클 진입 전망|Fibonacci Retacement 23.6% 구간 지지 성공|거래량 74만주 돌파하며 전일 대비 활발한 손바뀜 발생|주주환원 정책 강화에 따른 저평가 매력 부각(Value-up)",
+          "signals": {
+            "trend_score": 85,
+            "momentum_score": 82,
+            "volume_score": 89,
+            "volatility_score": 78,
+            "pattern_score": 88,
+            "sentiment_score": 96,
+            "overall_score": 87
+          },
+          "verified_date": "2026-02-26"
+        },
+        {
+          "ticker": "KOSPI:068270",
+          "name": "셀트리온",
+          "close_price": 242000,
+          "rationale": "4Q25 영업이익 4722억원으로 컨센서스 대폭 상회(Earnings Surprise)|2026년 신규 바이오시밀러 5종 글로벌 출시 모멘텀 대기|EBITDA 2026년 전망치 1.96조원 기반 밸류에이션 재평가|Eli Lilly향 CMO 계약(연 2000억 규모) 기반 현금흐름 개선|원가율 36.1%로 전분기 대비 3.1%p 개선되며 수익성 본격화|MA10(238,500) 지지선 안착 및 매수세 집중 구간|장기 박스권 상단 22만원 돌파 후 리테스팅 완료|목표주가 28만~32만원 상향 리포트 연속 발행 중|Staking, 램시마SC 등 고마진 제품군 매출 비중 확대|외국인/기관 동반 매수세 유입되며 52주 신고가(251,000) 재탈환 준비",
+          "signals": {
+            "trend_score": 88,
+            "momentum_score": 84,
+            "volume_score": 81,
+            "volatility_score": 85,
+            "pattern_score": 92,
+            "sentiment_score": 95,
+            "overall_score": 88
+          },
+          "verified_date": "2026-02-26"
+        }
+      ],
+      "sentAt": "2026-02-26T22:37:25.345+00:00",
+      "subscriberCount": 203
+    },
+    {
       "date": "2026-02-26",
       "stocks": [
         {
@@ -4529,5 +4584,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-02-25T23:07:06.388Z"
+  "lastUpdated": "2026-02-26T22:38:04.219Z"
 }
