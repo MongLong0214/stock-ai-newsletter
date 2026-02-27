@@ -37,7 +37,7 @@ export default function HomePageClient({ technicalIndicators }: HomePageClientPr
   }, []);
 
   return (
-    <div className="min-h-screen bg-black text-white relative overflow-hidden">
+    <main className="min-h-screen bg-black text-white relative overflow-hidden">
       <AnimatedBackground />
 
       {/* 스캔라인 효과 */}
@@ -53,6 +53,6 @@ export default function HomePageClient({ technicalIndicators }: HomePageClientPr
 
       {/* AI 검색 최적화용 서비스 정의 */}
       <ServiceDefinitionSection />
-    </div>
+    </main>
   );
 }

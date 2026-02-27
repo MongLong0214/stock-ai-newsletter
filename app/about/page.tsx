@@ -1,11 +1,9 @@
-'use client';
-
 import AnimatedBackground from '@/components/animated-background';
 import ServiceIntroSection from './_components/service-intro-section';
 
-export default function AboutPage() {
+const AboutPage = () => {
   return (
-    <div className="min-h-screen bg-black text-white relative overflow-hidden">
+    <main className="min-h-screen bg-black text-white relative overflow-hidden">
       <AnimatedBackground />
 
       <div className="fixed inset-0 pointer-events-none z-[1] opacity-[0.04]">
@@ -13,6 +11,8 @@ export default function AboutPage() {
       </div>
 
       <ServiceIntroSection />
-    </div>
+    </main>
   );
-}
+};
+
+export default AboutPage;

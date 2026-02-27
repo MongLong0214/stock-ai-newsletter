@@ -37,6 +37,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'Stock Matrix - AI 주식 분석 뉴스레터',
     description: '30개 기술지표 AI 분석, 매일 7:30 무료 발송',
+    images: ['/twitter-image'],
   },
 };
 

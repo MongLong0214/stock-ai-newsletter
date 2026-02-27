@@ -1,9 +1,10 @@
 import { MetadataRoute } from 'next';
+import { siteConfig } from '@/lib/constants/seo/config';
 
 // #DaumWebMasterTool:4b0564f4ab4eddd8aeccac8c9b10fbcc6f1b5ed93990d9bc29bb5f246b12bb35:nFArT0OIkE5+7VCbwTnXuA==
 
 export default function robots(): MetadataRoute.Robots {
-    const baseUrl = 'https://stockmatrix.co.kr';
+    const baseUrl = siteConfig.domain;
 
     return {
         rules: [
@@ -68,6 +69,5 @@ export default function robots(): MetadataRoute.Robots {
             },
         ],
         sitemap: `${baseUrl}/sitemap.xml`,
-        host: baseUrl,
     };
 }
