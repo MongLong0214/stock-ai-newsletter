@@ -5,17 +5,17 @@ import { buildPhaseMessage, buildKeyInsight } from './prediction-helpers'
 import type { Stage, ConfidenceLevel } from './types'
 
 export type { ConfidenceLevel }
-export type Phase = 'pre-peak' | 'near-peak' | 'at-peak' | 'post-peak' | 'declining'
+export type Phase = 'rising' | 'hot' | 'cooling'
 export type RiskLevel = 'low' | 'moderate' | 'high' | 'critical'
 export type Momentum = 'accelerating' | 'stable' | 'decelerating'
 
-/** Stage → Phase 직접 매핑 (독립적 Phase 판정 제거) */
+/** Stage → 3-Phase 직접 매핑 (v2: 5→3 재분류) */
 const STAGE_TO_PHASE: Record<Stage, Phase> = {
-  Dormant:  'declining',
-  Emerging: 'pre-peak',
-  Growth:   'near-peak',
-  Peak:     'at-peak',
-  Decline:  'post-peak',
+  Dormant:  'cooling',
+  Emerging: 'rising',
+  Growth:   'rising',
+  Peak:     'hot',
+  Decline:  'cooling',
 }
 
 /** Stage 기반 리스크 매핑 */
@@ -111,10 +111,9 @@ function deriveRisk(stage: Stage | undefined, phase: Phase, confidence: Confiden
   if (stage) return STAGE_TO_RISK[stage]
 
   // stage 미제공 시 phase 폴백
-  if (phase === 'declining' || phase === 'post-peak') return 'critical'
-  if (phase === 'at-peak') return 'high'
-  if (phase === 'near-peak') return 'moderate'
-  if (phase === 'pre-peak' && confidence !== 'low') return 'low'
+  if (phase === 'cooling') return 'critical'
+  if (phase === 'hot') return 'high'
+  if (phase === 'rising' && confidence !== 'low') return 'low'
   return 'moderate'
 }
 
@@ -131,9 +130,9 @@ function computeStageConfidence(
   avgPeakDay: number,
   daysSinceSpike: number,
 ): number {
-  // 시그널 1: phase가 상승 계열인지
-  const phaseIsRising = phase === 'pre-peak' || phase === 'near-peak'
-  const phaseIsFalling = phase === 'post-peak' || phase === 'declining'
+  // 시그널 1: phase 방향
+  const phaseIsRising = phase === 'rising'
+  const phaseIsFalling = phase === 'cooling'
 
   // 시그널 2: momentum 방향
   const momentumIsRising = momentum === 'accelerating'
@@ -265,7 +264,7 @@ export function calculatePrediction(
   }
 }
 
-/** Stage 미제공 시 비교 데이터 기반 Phase 폴백 (하위 호환) */
+/** Stage 미제공 시 비교 데이터 기반 3-Phase 폴백 */
 function derivePhaseFallback(
   daysSinceSpike: number,
   avgPeakDay: number,
@@ -273,24 +272,19 @@ function derivePhaseFallback(
   score?: number,
 ): Phase {
   if (score !== undefined && score > 0) {
-    if (score >= 75) return 'at-peak'
-    if (score >= 55) return 'near-peak'
+    if (score >= 70) return 'hot'
     if (score < 25) {
-      if (avgPeakDay > 0 && daysSinceSpike > avgPeakDay) return 'declining'
-      return 'pre-peak'
+      if (avgPeakDay > 0 && daysSinceSpike > avgPeakDay) return 'cooling'
+      return 'rising'
     }
     if (avgPeakDay >= 3 && avgTotalDays > 0) {
-      if (daysSinceSpike > avgTotalDays * 0.8) return 'declining'
-      if (daysSinceSpike > avgPeakDay) return 'post-peak'
-      if (daysSinceSpike > avgPeakDay * 0.7) return 'near-peak'
+      if (daysSinceSpike > avgPeakDay * 1.1) return 'cooling'
     }
-    return 'pre-peak'
+    return 'rising'
   }
 
-  if (avgPeakDay <= 0 || avgTotalDays <= 0) return 'pre-peak'
-  if (daysSinceSpike < avgPeakDay * 0.7) return 'pre-peak'
-  if (daysSinceSpike < avgPeakDay * 0.95) return 'near-peak'
-  if (daysSinceSpike <= avgPeakDay * 1.1) return 'at-peak'
-  if (daysSinceSpike < avgTotalDays * 0.8) return 'post-peak'
-  return 'declining'
+  if (avgPeakDay <= 0 || avgTotalDays <= 0) return 'rising'
+  if (daysSinceSpike < avgPeakDay * 0.9) return 'rising'
+  if (daysSinceSpike <= avgPeakDay * 1.1) return 'hot'
+  return 'cooling'
 }
