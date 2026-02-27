@@ -1,9 +1,10 @@
 import { supabase, isSupabasePlaceholder } from '@/lib/supabase'
-import { getStageKo, toStage } from '@/lib/tli/types'
+import { getStageKo, toStage, isScoreComponents } from '@/lib/tli/types'
 import { isTableNotFound } from '@/lib/tli/api-utils'
 import type { ThemeListItem, ThemeRanking } from '@/lib/tli/types'
 import { EMPTY_RANKING, buildScoreMetaMap, buildCountMaps, calculateRankingSummary, batchLoadStockData, batchLoadNewsCounts } from '@/app/api/tli/scores/ranking/ranking-helpers'
 import { getKSTDateString } from '@/lib/tli/date-utils'
+import { applyQualityGate } from '@/lib/tli/quality-gate'
 
 /** 서버 사이드 랭킹 데이터 조회 (API 라우트 경유 없이 직접 Supabase 호출) */
 export async function getRankingServer(): Promise<ThemeRanking> {
@@ -17,10 +18,7 @@ export async function getRankingServer(): Promise<ThemeRanking> {
       .eq('is_active', true)
 
     if (themesError) {
-      if (isTableNotFound(themesError)) {
-        console.warn('[TLI] TLI tables not found - returning empty ranking')
-        return EMPTY_RANKING
-      }
+      if (isTableNotFound(themesError)) return EMPTY_RANKING
       throw themesError
     }
 
@@ -63,13 +61,16 @@ export async function getRankingServer(): Promise<ThemeRanking> {
       const meta = scoreMetaByTheme.get(theme.id)
       const latest = meta?.latest ?? null
       const weekAgoScore = meta?.weekAgoScore ?? null
+      const latestComponents = isScoreComponents(latest?.components) ? latest!.components : null
+      const confidenceLevel = latestComponents?.confidence?.level
+      const stage = toStage(latest?.stage)
       return {
         id: theme.id,
         name: theme.name,
         nameEn: theme.name_en,
         score: latest?.score ?? 0,
-        stage: toStage(latest?.stage),
-        stageKo: getStageKo(toStage(latest?.stage)),
+        stage,
+        stageKo: getStageKo(stage),
         change7d: latest?.score != null && weekAgoScore?.score != null
           ? latest.score - weekAgoScore.score
           : 0,
@@ -79,38 +80,13 @@ export async function getRankingServer(): Promise<ThemeRanking> {
         updatedAt: latest?.calculated_at ?? new Date().toISOString(),
         sparkline: meta?.sparkline ?? [],
         newsCount7d: newsCountMap.get(theme.id) ?? 0,
+        confidenceLevel,
         avgStockChange: avgStockChangeMap.get(theme.id) ?? null,
       }
     })
 
-    // --- 단계별 그룹화 ---
-    const emerging: ThemeListItem[] = []
-    const growth: ThemeListItem[] = []
-    const peak: ThemeListItem[] = []
-    const decline: ThemeListItem[] = []
-    const reigniting: ThemeListItem[] = []
-
-    for (const theme of themeData) {
-      if (theme.stage === 'Dormant') continue
-      if (theme.score <= 0) continue
-
-      if (theme.isReigniting) {
-        reigniting.push(theme)
-      } else {
-        switch (theme.stage) {
-          case 'Emerging': emerging.push(theme); break
-          case 'Growth': growth.push(theme); break
-          case 'Peak': peak.push(theme); break
-          case 'Decline': decline.push(theme); break
-        }
-      }
-    }
-
-    emerging.sort((a, b) => a.score - b.score)
-    growth.sort((a, b) => b.score - a.score)
-    peak.sort((a, b) => b.score - a.score)
-    decline.sort((a, b) => b.score - a.score)
-    reigniting.sort((a, b) => b.score - a.score)
+    // --- 품질 게이트 + 단계별 그룹화 ---
+    const { emerging, growth, peak, decline, reigniting } = applyQualityGate(themeData)
 
     const activeThemes = [...emerging, ...growth, ...peak, ...decline, ...reigniting]
     const summary = calculateRankingSummary(activeThemes)

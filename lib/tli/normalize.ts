@@ -1,10 +1,5 @@
 /** 통계 계산 및 정규화 유틸리티 */
 
-export function normalize(value: number, min: number, max: number): number {
-  if (!isFinite(value) || max === min) return 0;
-  return Math.max(0, Math.min(1, (value - min) / (max - min)));
-}
-
 export function standardDeviation(values: number[]): number {
   if (values.length === 0) return 0;
   const avg = values.reduce((sum, v) => sum + v, 0) / values.length;
@@ -25,7 +20,7 @@ export function daysBetween(date1: string, date2: string): number {
 }
 
 /** percentileRank에 필요한 최소 모집단 크기 — 미달 시 sigmoid fallback */
-export const MIN_PERCENTILE_POPULATION = 50;
+const MIN_PERCENTILE_POPULATION = 50;
 
 /** 시그모이드 정규화 — 결과는 항상 (0, 1) 범위 */
 export function sigmoid_normalize(x: number, center: number, scale: number): number {
@@ -91,4 +86,22 @@ export function linearRegressionSlope(values: number[]): number {
   if (!isFinite(slope)) return 0;
 
   return slope;
+}
+
+/** 방향성 변동 지수 (DVI) — RSI 원리 기반, 상승/하락 비율로 방향성 산출 */
+export function calculateDVI(values: number[]): number {
+  const deltas: number[] = [];
+  for (let i = 1; i < values.length; i++) {
+    deltas.push(values[i] - values[i - 1]);
+  }
+
+  const upMoves = deltas.filter(d => d > 0);
+  const downMoves = deltas.filter(d => d < 0).map(d => Math.abs(d));
+  const avgUp = avg(upMoves);
+  const avgDown = avg(downMoves);
+
+  if (avgUp === 0 && avgDown === 0) return 0.5;
+  if (avgDown === 0) return 1.0;
+  const rs = avgUp / avgDown;
+  return 1 - 1 / (1 + rs);
 }

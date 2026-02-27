@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ChevronDown } from 'lucide-react'
 import ThemeCard from '@/components/tli/theme-card'
@@ -12,7 +12,6 @@ interface StageSectionProps {
   title: string
   subtitle: string
   themes: ThemeListItem[]
-  index: number
   sectionKey: string
 }
 
@@ -22,10 +21,6 @@ function StageSection({ stage, title, subtitle, themes, sectionKey }: StageSecti
   const config = STAGE_CONFIG[stage]
   const [collapsed, setCollapsed] = useState(false)
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE)
-
-  useEffect(() => {
-    if (collapsed) setVisibleCount(PAGE_SIZE)
-  }, [collapsed])
 
   const visible = themes.slice(0, visibleCount)
   const remaining = themes.length - visibleCount
@@ -39,7 +34,12 @@ function StageSection({ stage, title, subtitle, themes, sectionKey }: StageSecti
       className={cn('scroll-mt-20 rounded-2xl border border-emerald-500/10 bg-slate-900/30 p-4 sm:p-5', collapsed ? 'mb-4' : 'mb-10')}
     >
       <button
-        onClick={() => setCollapsed((v) => !v)}
+        onClick={() => {
+          setCollapsed((v) => {
+            if (!v) setVisibleCount(PAGE_SIZE)
+            return !v
+          })
+        }}
         aria-expanded={!collapsed}
         className={cn(
           'w-full flex items-start gap-3 cursor-pointer rounded-xl p-3 mb-0',

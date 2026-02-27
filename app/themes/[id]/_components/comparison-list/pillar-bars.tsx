@@ -16,7 +16,7 @@ const SIMILARITY_THRESHOLDS = {
 const COLORS = {
   emerald: SCORE_COMPONENTS[0].color, // #10B981 (interest)
   sky: SCORE_COMPONENTS[1].color,     // #0EA5E9 (newsMomentum)
-  amber: '#F59E0B',                   // amber (decorative)
+  amber: '#F59E0B',                   // 장식용
   slate: '#64748B',                   // 낮은 유사도 fallback
 } as const
 

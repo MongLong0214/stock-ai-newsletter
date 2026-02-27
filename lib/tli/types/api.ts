@@ -1,4 +1,4 @@
-/** API response types */
+/** API 응답 타입 */
 
 import type { Stage, NewsArticle, ConfidenceLevel } from './db'
 

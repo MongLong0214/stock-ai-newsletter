@@ -56,7 +56,7 @@ function DetailHeader({ theme }: DetailHeaderProps) {
                 <Hash className="w-3.5 h-3.5 text-slate-600 shrink-0" />
                 {theme.keywords.slice(0, MAX_VISIBLE_KEYWORDS).map((keyword, i) => (
                   <motion.span
-                    key={i}
+                    key={keyword}
                     initial={shouldReduceMotion ? false : { opacity: 0, scale: 0.8 }}
                     animate={{ opacity: 1, scale: 1 }}
                     transition={{ delay: i * 0.05, duration: 0.3 }}

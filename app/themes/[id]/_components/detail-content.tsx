@@ -55,7 +55,7 @@ function DetailContent({ id }: DetailContentProps) {
   }, [theme, selectedComparisons])
 
   if (isLoading) return <DetailLoading />
-  if (error || !theme) return <DetailError message={error?.message || 'Unknown error'} />
+  if (error || !theme) return <DetailError message={error?.message || '알 수 없는 오류가 발생했어요'} />
 
   return (
     <div className="min-h-screen bg-black text-white relative overflow-hidden">

@@ -140,7 +140,7 @@ function ThemesContent({ initialData }: ThemesContentProps) {
 
           {hasResults ? (
             <div>
-              {filteredSections.map((section, sectionIdx) => (
+              {filteredSections.map((section) => (
                 <StageSection
                   key={section.key}
                   sectionKey={section.key}
@@ -148,7 +148,6 @@ function ThemesContent({ initialData }: ThemesContentProps) {
                   title={section.title}
                   subtitle={section.subtitle}
                   themes={section.themes}
-                  index={sectionIdx}
                 />
               ))}
             </div>

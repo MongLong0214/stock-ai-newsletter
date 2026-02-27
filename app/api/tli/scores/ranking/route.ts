@@ -4,6 +4,7 @@ import { apiSuccess, handleApiError, isTableNotFound, placeholderResponse } from
 import type { ThemeListItem, ThemeRanking } from '@/lib/tli/types'
 import { EMPTY_RANKING, buildScoreMetaMap, buildCountMaps, calculateRankingSummary, batchLoadStockData, batchLoadNewsCounts } from './ranking-helpers'
 import { getKSTDateString } from '@/lib/tli/date-utils'
+import { applyQualityGate } from '@/lib/tli/quality-gate'
 
 // 생명주기 단계별 랭킹 (배치 쿼리 최적화)
 export async function GET() {
@@ -99,37 +100,9 @@ export async function GET() {
       }
     })
 
-    // --- 단계별 그룹화 ---
+    // --- 품질 게이트 + 단계별 그룹화 ---
 
-    const emerging: ThemeListItem[] = []
-    const growth: ThemeListItem[] = []
-    const peak: ThemeListItem[] = []
-    const decline: ThemeListItem[] = []
-    const reigniting: ThemeListItem[] = []
-
-    for (const theme of themeData) {
-      // 품질 게이트: Dormant + 점수 0 이하 제거
-      if (theme.stage === 'Dormant') continue
-      if (theme.score <= 0) continue
-
-      if (theme.isReigniting) {
-        reigniting.push(theme)
-      } else {
-        switch (theme.stage) {
-          case 'Emerging': emerging.push(theme); break
-          case 'Growth': growth.push(theme); break
-          case 'Peak': peak.push(theme); break
-          case 'Decline': decline.push(theme); break
-        }
-      }
-    }
-
-    // 정렬: Emerging은 오름차순(낮은 점수 = 새로운 기회), 나머지는 내림차순
-    emerging.sort((a, b) => a.score - b.score)
-    growth.sort((a, b) => b.score - a.score)
-    peak.sort((a, b) => b.score - a.score)
-    decline.sort((a, b) => b.score - a.score)
-    reigniting.sort((a, b) => b.score - a.score)
+    const { emerging, growth, peak, decline, reigniting } = applyQualityGate(themeData)
 
     // --- 요약 통계 (필터 통과한 테마 기준) ---
 
