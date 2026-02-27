@@ -53,6 +53,20 @@ export async function snapshotPredictions(): Promise<void> {
 
   const compsByTheme = groupByThemeId(dedupedComps)
 
+  // 현재 score/stage 로딩 (v2: Phase 판정에 활용)
+  const scoreRows = await batchQuery<{ theme_id: string; score: number; stage: string; calculated_at: string }>(
+    'lifecycle_scores',
+    'theme_id, score, stage, calculated_at',
+    themeIds,
+    q => q.order('calculated_at', { ascending: false }),
+  )
+  const latestScoreByTheme = new Map<string, { score: number; stage: string }>()
+  for (const s of scoreRows) {
+    if (!latestScoreByTheme.has(s.theme_id)) {
+      latestScoreByTheme.set(s.theme_id, { score: s.score, stage: s.stage })
+    }
+  }
+
   // 과거 테마명 로딩 (시나리오용)
   const pastThemeIds = [...new Set(comparisons.map(c => c.past_theme_id))]
   const pastThemes = pastThemeIds.length > 0
@@ -80,7 +94,8 @@ export async function snapshotPredictions(): Promise<void> {
       }
     })
 
-    const result = calculatePrediction(theme.first_spike_date, inputs, today)
+    const themeScore = latestScoreByTheme.get(theme.id)
+    const result = calculatePrediction(theme.first_spike_date, inputs, today, themeScore?.score, themeScore?.stage as Parameters<typeof calculatePrediction>[4])
     if (!result) continue
 
     rows.push({
