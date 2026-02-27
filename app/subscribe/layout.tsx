@@ -38,6 +38,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: '무료 구독 - Stock Matrix',
     description: '매일 7:30 AI 주식분석 무료 이메일',
+    images: ['/twitter-image'],
   },
   robots: {
     index: true,
