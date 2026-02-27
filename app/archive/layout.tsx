@@ -1,5 +1,4 @@
 import type { Metadata } from 'next';
-import Script from 'next/script';
 import { siteConfig, keywordsByCategory } from '@/lib/constants/seo';
 
 export const metadata: Metadata = {
@@ -42,6 +41,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'Stock Matrix 뉴스레터 분석 기록',
     description: 'AI 주식 분석 뉴스레터 히스토리 확인',
+    images: ['/twitter-image'],
   },
   robots: {
     index: true,
@@ -102,24 +102,18 @@ export default function ArchiveLayout({
       'AI 주식 분석, 뉴스레터 분석 기록, 기술적 지표, KOSPI, KOSDAQ, RSI, MACD, 볼린저밴드',
   };
 
-  const websiteSchema = {
-    '@context': 'https://schema.org',
-    '@type': 'WebSite',
-    name: siteConfig.serviceName,
-    url: siteConfig.domain,
-  };
-
   return (
     <>
-      <Script id="breadcrumb-schema" type="application/ld+json">
-        {JSON.stringify(breadcrumbSchema)}
-      </Script>
-      <Script id="collection-page-schema" type="application/ld+json">
-        {JSON.stringify(collectionPageSchema)}
-      </Script>
-      <Script id="website-schema" type="application/ld+json">
-        {JSON.stringify(websiteSchema)}
-      </Script>
+      <script
+        id="breadcrumb-schema"
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema).replace(/</g, '\\u003c') }}
+      />
+      <script
+        id="collection-page-schema"
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(collectionPageSchema).replace(/</g, '\\u003c') }}
+      />
       {children}
     </>
   );

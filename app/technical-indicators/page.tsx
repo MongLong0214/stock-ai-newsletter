@@ -1,6 +1,3 @@
-'use client';
-
-import Script from 'next/script';
 import AnimatedBackground from '@/components/animated-background';
 import { siteConfig } from '@/lib/constants/seo';
 import {
@@ -9,90 +6,90 @@ import {
 } from '@/lib/constants/seo/breadcrumb-schema';
 import TechnicalIndicatorsExplanationSection from './_components/technical-indicators-explanation-section';
 
-export default function TechnicalIndicatorsPage() {
-  const breadcrumbSchema = generateBreadcrumbSchema(
-    breadcrumbPatterns.technicalIndicators
-  );
+const breadcrumbSchema = generateBreadcrumbSchema(
+  breadcrumbPatterns.technicalIndicators
+);
 
-  const articleSchema = {
-    '@context': 'https://schema.org',
-    '@type': 'Article',
-    headline: '30가지 기술적 지표로 분석하는 AI 주식 투자 전략',
-    description:
-      'RSI, MACD, 볼린저밴드 등 주식 기술적 분석 지표의 의미와 활용법 완벽 가이드',
-    author: {
-      '@type': 'Organization',
-      name: siteConfig.serviceName,
-      url: siteConfig.domain,
+const articleSchema = {
+  '@context': 'https://schema.org',
+  '@type': 'Article',
+  headline: '30가지 기술적 지표로 분석하는 AI 주식 투자 전략',
+  description:
+    'RSI, MACD, 볼린저밴드 등 주식 기술적 분석 지표의 의미와 활용법 완벽 가이드',
+  author: {
+    '@type': 'Organization',
+    name: siteConfig.serviceName,
+    url: siteConfig.domain,
+  },
+  publisher: {
+    '@type': 'Organization',
+    name: siteConfig.serviceName,
+    logo: {
+      '@type': 'ImageObject',
+      url: `${siteConfig.domain}/icon-512.png`,
+      width: 512,
+      height: 512,
     },
-    publisher: {
-      '@type': 'Organization',
-      name: siteConfig.serviceName,
-      logo: {
-        '@type': 'ImageObject',
-        url: `${siteConfig.domain}/icon-512.png`,
-        width: 512,
-        height: 512,
-      },
-    },
-    datePublished: '2025-01-15',
-    dateModified: new Date().toISOString().split('T')[0],
-    mainEntityOfPage: {
-      '@type': 'WebPage',
-      '@id': `${siteConfig.domain}/technical-indicators`,
-    },
-    keywords: [
-      'RSI 지표',
-      'MACD 분석',
-      '볼린저밴드',
-      '이동평균선',
-      '기술적 분석',
-    ],
-    articleSection: '투자 교육',
-    inLanguage: 'ko-KR',
-  };
+  },
+  datePublished: '2025-01-15',
+  dateModified: new Date().toISOString().split('T')[0],
+  mainEntityOfPage: {
+    '@type': 'WebPage',
+    '@id': `${siteConfig.domain}/technical-indicators`,
+  },
+  keywords: [
+    'RSI 지표',
+    'MACD 분석',
+    '볼린저밴드',
+    '이동평균선',
+    '기술적 분석',
+  ],
+  articleSection: '투자 교육',
+  inLanguage: 'ko-KR',
+};
 
-  const howToSchema = {
-    '@context': 'https://schema.org',
-    '@type': 'HowTo',
-    name: 'AI로 기술적 지표를 활용하는 방법',
-    description:
-      '30가지 기술적 지표를 AI가 종합 분석하여 주식 투자에 활용하는 방법',
-    step: [
-      {
-        '@type': 'HowToStep',
-        name: 'RSI 지표 이해하기',
-        text: 'RSI 70 이상은 과매수, 30 이하는 과매도 구간으로 매매 타이밍 포착',
-        url: `${siteConfig.domain}/technical-indicators#rsi`,
-      },
-      {
-        '@type': 'HowToStep',
-        name: 'MACD 골든크로스 확인',
-        text: 'MACD 선이 시그널 선을 상향 돌파하면 매수 신호',
-        url: `${siteConfig.domain}/technical-indicators#macd`,
-      },
-      {
-        '@type': 'HowToStep',
-        name: '볼린저밴드 활용',
-        text: '주가가 하단 밴드 접근 시 반등 기회, 상단 접근 시 조정 가능성',
-        url: `${siteConfig.domain}/technical-indicators#bollinger`,
-      },
-      {
-        '@type': 'HowToStep',
-        name: 'AI 종합 분석 확인',
-        text: 'Stock Matrix AI가 30개 지표를 종합하여 매일 7:30 이메일 발송',
-        url: `${siteConfig.domain}/subscribe`,
-      },
-    ],
-    totalTime: 'PT10M',
-    tool: {
-      '@type': 'HowToTool',
-      name: 'Stock Matrix AI',
+const howToSchema = {
+  '@context': 'https://schema.org',
+  '@type': 'HowTo',
+  name: 'AI로 기술적 지표를 활용하는 방법',
+  description:
+    '30가지 기술적 지표를 AI가 종합 분석하여 주식 투자에 활용하는 방법',
+  step: [
+    {
+      '@type': 'HowToStep',
+      name: 'RSI 지표 이해하기',
+      text: 'RSI 70 이상은 과매수, 30 이하는 과매도 구간으로 매매 타이밍 포착',
+      url: `${siteConfig.domain}/technical-indicators#rsi`,
     },
-  };
+    {
+      '@type': 'HowToStep',
+      name: 'MACD 골든크로스 확인',
+      text: 'MACD 선이 시그널 선을 상향 돌파하면 매수 신호',
+      url: `${siteConfig.domain}/technical-indicators#macd`,
+    },
+    {
+      '@type': 'HowToStep',
+      name: '볼린저밴드 활용',
+      text: '주가가 하단 밴드 접근 시 반등 기회, 상단 접근 시 조정 가능성',
+      url: `${siteConfig.domain}/technical-indicators#bollinger`,
+    },
+    {
+      '@type': 'HowToStep',
+      name: 'AI 종합 분석 확인',
+      text: 'Stock Matrix AI가 30개 지표를 종합하여 매일 7:30 이메일 발송',
+      url: `${siteConfig.domain}/subscribe`,
+    },
+  ],
+  totalTime: 'PT10M',
+  tool: {
+    '@type': 'HowToTool',
+    name: 'Stock Matrix AI',
+  },
+};
 
+const TechnicalIndicatorsPage = () => {
   return (
-    <div className="min-h-screen bg-black text-white relative overflow-hidden">
+    <main className="min-h-screen bg-black text-white relative overflow-hidden">
       <AnimatedBackground />
 
       <div className="fixed inset-0 pointer-events-none z-[1] opacity-[0.04]">
@@ -101,29 +98,25 @@ export default function TechnicalIndicatorsPage() {
 
       <TechnicalIndicatorsExplanationSection />
 
-      {/* Breadcrumb Schema */}
-      <Script
+      <script
         id="breadcrumb-schema"
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }}
-        strategy="afterInteractive"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema).replace(/</g, '\\u003c') }}
       />
 
-      {/* Article Schema */}
-      <Script
+      <script
         id="article-schema"
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(articleSchema) }}
-        strategy="afterInteractive"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(articleSchema).replace(/</g, '\\u003c') }}
       />
 
-      {/* HowTo Schema */}
-      <Script
+      <script
         id="howto-schema"
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(howToSchema) }}
-        strategy="afterInteractive"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(howToSchema).replace(/</g, '\\u003c') }}
       />
-    </div>
+    </main>
   );
-}
+};
+
+export default TechnicalIndicatorsPage;

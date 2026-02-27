@@ -62,6 +62,7 @@ function Navigation() {
   return (
     <>
       <motion.nav
+        aria-label="메인 내비게이션"
         initial={{ y: -100 }}
         animate={{ y: 0 }}
         transition={{

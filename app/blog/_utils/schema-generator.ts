@@ -53,7 +53,7 @@ function createArticleSchema(post: BlogPost, slug: string): ArticleSchema {
     publisher: {
       '@type': 'Organization',
       name: siteConfig.serviceName,
-      logo: { '@type': 'ImageObject', url: `${siteConfig.domain}/logo.png` },
+      logo: { '@type': 'ImageObject', url: `${siteConfig.domain}/icon-512.png` },
     },
     datePublished: post.published_at,
     dateModified: post.updated_at,
@@ -94,7 +94,7 @@ function createBlogPostingSchema(post: BlogPostCreateInput, slug: string): Schem
       name: siteConfig.serviceName,
       logo: {
         '@type': 'ImageObject',
-        url: `${siteConfig.domain}/logo.png`,
+        url: `${siteConfig.domain}/icon-512.png`,
       },
     },
     datePublished: now,
