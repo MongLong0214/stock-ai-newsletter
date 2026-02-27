@@ -1,5 +1,6 @@
 import { MetadataRoute } from 'next';
 import { getServerSupabaseClient } from '@/lib/supabase/server-client';
+import { siteConfig } from '@/lib/constants/seo/config';
 import { isValidBlogSlug } from './blog/_utils/slug-validator';
 
 async function getActiveThemeIds(): Promise<string[]> {
@@ -12,12 +13,12 @@ async function getActiveThemeIds(): Promise<string[]> {
   }
 }
 
-async function getPublishedBlogSlugs(): Promise<{ slug: string; published_at: string }[]> {
+async function getPublishedBlogSlugs(): Promise<{ slug: string; published_at: string; updated_at: string | null }[]> {
   try {
     const supabase = getServerSupabaseClient();
     const { data } = await supabase
       .from('blog_posts')
-      .select('slug, published_at')
+      .select('slug, published_at, updated_at')
       .eq('status', 'published')
       .order('published_at', { ascending: false });
 
@@ -51,7 +52,7 @@ async function getTopBlogTags(): Promise<string[]> {
 }
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const baseUrl = 'https://stockmatrix.co.kr';
+  const baseUrl = siteConfig.domain;
   const currentDate = new Date();
 
   const staticPages: MetadataRoute.Sitemap = [
@@ -75,7 +76,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     .filter((post) => isValidBlogSlug(post.slug))
     .map((post) => ({
       url: `${baseUrl}/blog/${post.slug}`,
-      lastModified: new Date(post.published_at),
+      lastModified: new Date(post.updated_at || post.published_at),
       changeFrequency: 'weekly',
       priority: 0.8,
     }));

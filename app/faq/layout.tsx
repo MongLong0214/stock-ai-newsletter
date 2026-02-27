@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { siteConfig } from '@/lib/constants/seo/config';
 
 export const metadata: Metadata = {
   title: '자주 묻는 질문 | Stock Matrix - 무료 AI 주식 분석 뉴스레터',
@@ -17,11 +18,23 @@ export const metadata: Metadata = {
     '무료 주식 정보',
     '투자 뉴스레터',
   ],
+  alternates: {
+    canonical: `${siteConfig.domain}/faq`,
+  },
   openGraph: {
     title: 'FAQ - Stock Matrix AI 주식 분석',
     description: '무료 AI 주식 분석 뉴스레터에 대한 자주 묻는 질문',
     type: 'website',
-    url: 'https://stockmatrix.co.kr/faq',
+    url: `${siteConfig.domain}/faq`,
+    locale: 'ko_KR',
+    siteName: siteConfig.serviceName,
+    images: [{ url: '/opengraph-image', width: 1200, height: 630, alt: 'Stock Matrix FAQ' }],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'FAQ - Stock Matrix AI 주식 분석',
+    description: '무료 AI 주식 분석 뉴스레터에 대한 자주 묻는 질문',
+    images: ['/twitter-image'],
   },
 };
 

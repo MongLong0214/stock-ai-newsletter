@@ -16,7 +16,6 @@ import { technicalIndicatorsContent } from '@/lib/constants/seo/technical-indica
 import SectionHeader from './sections/section-header';
 import IndicatorsGrid from './sections/indicators-grid';
 import AIIntegrationSection from './sections/ai-integration-section';
-import SchemaOrgStructuredData from './seo/schema-org-structured-data';
 
 function TechnicalIndicatorsExplanationSection() {
   const { introduction, mainIndicators, aiIntegration } =
@@ -40,8 +39,6 @@ function TechnicalIndicatorsExplanationSection() {
           content={aiIntegration.content}
         />
       </div>
-
-      <SchemaOrgStructuredData />
     </section>
   );
 }

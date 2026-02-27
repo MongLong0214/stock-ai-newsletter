@@ -1,12 +1,10 @@
-'use client';
-
 import AnimatedBackground from '@/components/animated-background';
 import FAQSection from './_components/faq-section';
 import { generateFAQSchema } from '@/lib/constants/seo/faq-data';
 
-export default function FAQPage() {
+const FAQPage = () => {
   return (
-    <div className="min-h-screen bg-black text-white relative overflow-hidden">
+    <main className="min-h-screen bg-black text-white relative overflow-hidden">
       <AnimatedBackground />
 
       <div className="fixed inset-0 pointer-events-none z-[1] opacity-[0.04]">
@@ -15,13 +13,14 @@ export default function FAQPage() {
 
       <FAQSection />
 
-      {/* Schema.org Structured Data for SEO - Only on FAQ page */}
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify(generateFAQSchema()),
+          __html: JSON.stringify(generateFAQSchema()).replace(/</g, '\\u003c'),
         }}
       />
-    </div>
+    </main>
   );
-}
+};
+
+export default FAQPage;
