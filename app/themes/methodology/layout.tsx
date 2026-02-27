@@ -4,7 +4,7 @@ import { siteConfig } from '@/lib/constants/seo/config'
 export const metadata: Metadata = {
   title: '테마 트래킹 알고리즘 — AI 점수 산출 과정 완전 공개',
   description:
-    'TLI(Theme Lifecycle Index) 테마 트래킹 알고리즘을 완전 공개합니다. 검색 관심도, 뉴스 모멘텀, 변동성, 활동성 4요소 가중치와 생명주기 5단계 판정 알고리즘을 투명하게 설명합니다.',
+    'TLI(Theme Lifecycle Index) 테마 트래킹 알고리즘을 완전 공개합니다. 4요소 가중치, 생명주기 5단계 판정, 7일 3-Phase 전망 알고리즘을 투명하게 설명합니다.',
   keywords: [
     '테마 트래킹 알고리즘',
     'TLI 점수',
@@ -19,7 +19,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: '테마 트래킹 알고리즘 — AI 점수 산출 과정 완전 공개 | StockMatrix',
     description:
-      'TLI 테마 트래킹 알고리즘 완전 공개. 4요소 가중치와 생명주기 5단계 판정 알고리즘을 투명하게 설명합니다.',
+      'TLI 테마 트래킹 알고리즘 완전 공개. 4요소 가중치, 생명주기 5단계 판정, 7일 3-Phase 전망 알고리즘을 투명하게 설명합니다.',
     url: `${siteConfig.domain}/themes/methodology`,
     type: 'article',
     locale: 'ko_KR',
@@ -28,7 +28,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: '테마 트래킹 알고리즘 — AI 점수 산출 과정 완전 공개 | StockMatrix',
     description:
-      'TLI 테마 트래킹 알고리즘 완전 공개. 4요소 가중치와 생명주기 5단계 판정 알고리즘을 투명하게 설명합니다.',
+      'TLI 테마 트래킹 알고리즘 완전 공개. 4요소 가중치, 생명주기 5단계 판정, 7일 3-Phase 전망 알고리즘을 투명하게 설명합니다.',
   },
 }
 

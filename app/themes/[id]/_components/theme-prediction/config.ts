@@ -43,19 +43,15 @@ export const INSIGHT_ICON_COLOR: Record<RiskLevel, string> = {
 }
 
 export const PHASE_LABELS: { id: Phase; label: string }[] = [
-  { id: 'pre-peak',  label: '초기' },
-  { id: 'near-peak', label: '성장' },
-  { id: 'at-peak',   label: '정점' },
-  { id: 'post-peak', label: '하락' },
-  { id: 'declining', label: '휴면' },
+  { id: 'rising',  label: '상승' },
+  { id: 'hot',     label: '과열' },
+  { id: 'cooling', label: '냉각' },
 ]
 
 export const PHASE_COLORS: Record<Phase, { bg: string; ring: string; text: string }> = {
-  'pre-peak':  { bg: 'bg-emerald-500', ring: 'ring-emerald-500/30', text: 'text-emerald-400' },
-  'near-peak': { bg: 'bg-amber-500',   ring: 'ring-amber-500/30',   text: 'text-amber-400' },
-  'at-peak':   { bg: 'bg-orange-500',  ring: 'ring-orange-500/30',  text: 'text-orange-400' },
-  'post-peak': { bg: 'bg-red-500',     ring: 'ring-red-500/30',     text: 'text-red-400' },
-  'declining': { bg: 'bg-slate-500',   ring: 'ring-slate-500/30',   text: 'text-slate-400' },
+  rising:  { bg: 'bg-emerald-500', ring: 'ring-emerald-500/30', text: 'text-emerald-400' },
+  hot:     { bg: 'bg-orange-500',  ring: 'ring-orange-500/30',  text: 'text-orange-400' },
+  cooling: { bg: 'bg-slate-500',   ring: 'ring-slate-500/30',   text: 'text-slate-400' },
 }
 
 export const MOMENTUM_CONFIG: Record<Momentum, { label: string; color: string; Icon: typeof TrendingUp }> = {

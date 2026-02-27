@@ -89,7 +89,7 @@ const DATA_SOURCES = [
 
 const LIMITATIONS = [
   '네이버 DataLab은 배치당 5개 키워드 제한으로, 배치 간 상대값 차이를 자기 정규화로 보정합니다. 정밀도에 한계가 있습니다.',
-  '과거 유사 테마 비교의 예측 적중률은 약 47%입니다. 이 한계를 인지하고, 예측이 아닌 현황 진단에 집중하고 있습니다.',
+  '7일 전망의 방향 예측 정확도는 약 55% 수준입니다. 특히 상승(Rising) 시그널의 정확도가 가장 높고, 냉각(Cooling) 시그널은 참고 수준입니다.',
   '뉴스 모멘텀은 기사 수 기반이며, 기사의 긍정/부정 감성은 분석하지 않습니다.',
   '데이터 수집 주기에 따라 최신 시장 변화가 즉시 반영되지 않을 수 있습니다.',
 ]
@@ -310,7 +310,53 @@ function MethodologyContent() {
             </GlassCard>
           </motion.section>
 
-          {/* Section 5: Data Sources & Limitations */}
+          {/* Section 5: 7-Day Forecast */}
+          <motion.section
+            {...FADE_UP}
+            transition={{ duration: 0.5, delay: 0.28 }}
+            className="mb-12"
+          >
+            <SectionHeader
+              title="7일 전망 · 3-Phase 분석"
+              subtitle="생명주기 단계를 3개 방향으로 요약하여 1주일 전망 제공"
+            />
+            <GlassCard className="p-6">
+              <div className="space-y-4">
+                <p className="text-xs text-slate-300 leading-relaxed">
+                  5개 생명주기 단계를 투자 판단에 직결되는 3개 방향(Phase)으로 그룹핑하여
+                  향후 7일간의 전망을 제공합니다.
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4">
+                    <h4 className="text-sm font-semibold text-emerald-400 mb-1">상승 Rising</h4>
+                    <p className="text-[11px] text-slate-400 mb-2">Emerging + Growth</p>
+                    <p className="text-xs text-slate-300">관심이 증가하는 구간. 가장 신뢰도가 높은 시그널입니다.</p>
+                  </div>
+                  <div className="rounded-xl border border-orange-500/20 bg-orange-500/5 p-4">
+                    <h4 className="text-sm font-semibold text-orange-400 mb-1">과열 Hot</h4>
+                    <p className="text-[11px] text-slate-400 mb-2">Peak</p>
+                    <p className="text-xs text-slate-300">관심이 정점에 달한 구간. 하락 전환 가능성에 주의가 필요합니다.</p>
+                  </div>
+                  <div className="rounded-xl border border-slate-500/20 bg-slate-500/5 p-4">
+                    <h4 className="text-sm font-semibold text-slate-400 mb-1">냉각 Cooling</h4>
+                    <p className="text-[11px] text-slate-400 mb-2">Decline + Dormant</p>
+                    <p className="text-xs text-slate-300">관심이 감소하는 구간. 참고 수준의 시그널로 활용하세요.</p>
+                  </div>
+                </div>
+                <div className="p-3 rounded-lg border border-white/5 bg-white/[0.02]">
+                  <p className="text-[11px] text-slate-500 leading-relaxed">
+                    전망 정확도는 Phase별로 차이가 있습니다.
+                    상승(Rising) 시그널이 가장 높은 정확도를 보이며,
+                    냉각(Cooling)은 참고 수준입니다.
+                    시스템의 예측 가능 지평은 약 3~7일이며,
+                    이를 넘어서는 전망은 신뢰도가 크게 떨어집니다.
+                  </p>
+                </div>
+              </div>
+            </GlassCard>
+          </motion.section>
+
+          {/* Section 6: Data Sources & Limitations */}
           <motion.section
             {...FADE_UP}
             transition={{ duration: 0.5, delay: 0.3 }}
