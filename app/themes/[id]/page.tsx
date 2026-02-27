@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
-import Script from 'next/script'
 import { createClient } from '@supabase/supabase-js'
+import { siteConfig } from '@/lib/constants/seo/config'
 import DetailContent from './_components/detail-content'
 
 /** 10분마다 재검증 (ISR) */
@@ -72,18 +72,18 @@ export async function generateMetadata({
       '테마 생명주기',
     ],
     alternates: {
-      canonical: `https://stockmatrix.co.kr/themes/${id}`,
+      canonical: `${siteConfig.domain}/themes/${id}`,
     },
     openGraph: {
       title: `${title} | StockMatrix`,
       description,
-      url: `https://stockmatrix.co.kr/themes/${id}`,
+      url: `${siteConfig.domain}/themes/${id}`,
       type: 'article',
       locale: 'ko_KR',
-      siteName: 'StockMatrix',
+      siteName: siteConfig.serviceName,
       images: [
         {
-          url: `https://stockmatrix.co.kr/themes/${id}/opengraph-image`,
+          url: `${siteConfig.domain}/themes/${id}/opengraph-image`,
           width: 1200,
           height: 630,
           alt: `${theme.name} 테마 생명주기 분석`,
@@ -94,7 +94,7 @@ export async function generateMetadata({
       card: 'summary_large_image',
       title: `${title} | StockMatrix`,
       description,
-      images: [`https://stockmatrix.co.kr/themes/${id}/opengraph-image`],
+      images: [`${siteConfig.domain}/themes/${id}/opengraph-image`],
     },
   }
 }
@@ -104,42 +104,48 @@ export default async function ThemeDetailPage({ params }: { params: Promise<{ id
   const { id } = await params
   const theme = await getThemeMeta(id)
 
-  const schemas = theme ? [
-    {
-      '@context': 'https://schema.org',
-      '@type': 'Article',
-      headline: `${theme.name} 테마 분석 — 생명주기 점수 & 전망`,
-      description: theme.description || `${theme.name} 테마의 AI 생명주기 분석`,
-      author: { '@type': 'Organization', name: 'StockMatrix', url: 'https://stockmatrix.co.kr' },
-      publisher: {
-        '@type': 'Organization',
-        name: 'StockMatrix',
-        logo: { '@type': 'ImageObject', url: 'https://stockmatrix.co.kr/icon-512.png' },
-      },
-      image: `https://stockmatrix.co.kr/themes/${id}/opengraph-image`,
-      mainEntityOfPage: { '@type': 'WebPage', '@id': `https://stockmatrix.co.kr/themes/${id}` },
+  const articleSchema = theme ? {
+    '@context': 'https://schema.org',
+    '@type': 'Article',
+    headline: `${theme.name} 테마 분석 — 생명주기 점수 & 전망`,
+    description: theme.description || `${theme.name} 테마의 AI 생명주기 분석`,
+    datePublished: new Date().toISOString().split('T')[0],
+    author: { '@type': 'Organization', name: siteConfig.serviceName, url: siteConfig.domain },
+    publisher: {
+      '@type': 'Organization',
+      name: siteConfig.serviceName,
+      logo: { '@type': 'ImageObject', url: `${siteConfig.domain}/icon-512.png` },
     },
-    {
-      '@context': 'https://schema.org',
-      '@type': 'BreadcrumbList',
-      itemListElement: [
-        { '@type': 'ListItem', position: 1, name: 'Home', item: 'https://stockmatrix.co.kr' },
-        { '@type': 'ListItem', position: 2, name: '테마 분석', item: 'https://stockmatrix.co.kr/themes' },
-        { '@type': 'ListItem', position: 3, name: theme.name, item: `https://stockmatrix.co.kr/themes/${id}` },
-      ],
-    },
-  ] : []
+    image: `${siteConfig.domain}/themes/${id}/opengraph-image`,
+    mainEntityOfPage: { '@type': 'WebPage', '@id': `${siteConfig.domain}/themes/${id}` },
+  } : null
+
+  const breadcrumbSchema = theme ? {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'Home', item: siteConfig.domain },
+      { '@type': 'ListItem', position: 2, name: '테마 분석', item: `${siteConfig.domain}/themes` },
+      { '@type': 'ListItem', position: 3, name: theme.name, item: `${siteConfig.domain}/themes/${id}` },
+    ],
+  } : null
 
   return (
     <>
-      {schemas.map((schema, i) => (
-        <Script
-          key={i}
-          id={`theme-schema-${i}`}
+      {articleSchema && (
+        <script
+          id="theme-article-schema"
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(articleSchema).replace(/</g, '\\u003c') }}
         />
-      ))}
+      )}
+      {breadcrumbSchema && (
+        <script
+          id="theme-breadcrumb-schema"
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema).replace(/</g, '\\u003c') }}
+        />
+      )}
       <DetailContent id={id} />
     </>
   )

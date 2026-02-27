@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
-import Script from 'next/script'
 import { createClient } from '@supabase/supabase-js'
+import { siteConfig } from '@/lib/constants/seo/config'
 import ThemesContent from '../_components/themes-content'
 import { getRankingServer } from '../_services/get-ranking-server'
 
@@ -20,22 +20,27 @@ export const metadata: Metadata = {
     '2차전지 테마',
   ],
   alternates: {
-    canonical: 'https://stockmatrix.co.kr/themes',
+    canonical: `${siteConfig.domain}/themes`,
   },
   openGraph: {
     title: '주식 테마 분석 — AI 테마 생명주기 추적 | StockMatrix',
     description:
       'AI가 분석하는 한국 주식시장 테마 트렌드. 주요 테마의 생명주기 점수와 단계를 실시간 추적합니다.',
-    url: 'https://stockmatrix.co.kr/themes',
+    url: `${siteConfig.domain}/themes`,
     type: 'website',
+    locale: 'ko_KR',
+    images: [{ url: '/opengraph-image', width: 1200, height: 630, alt: '주식 테마 분석' }],
   },
   twitter: {
     card: 'summary_large_image',
     title: '주식 테마 분석 — AI 테마 생명주기 추적 | StockMatrix',
     description:
       'AI가 분석하는 한국 주식시장 테마 트렌드. 주요 테마의 생명주기 점수와 단계를 실시간 추적합니다.',
+    images: ['/twitter-image'],
   },
 }
+
+export const revalidate = 600
 
 /** 테마 목록 조회 (ItemList 스키마용) */
 async function getActiveThemes() {
@@ -74,20 +79,20 @@ export default async function ThemesPage() {
       position: index + 1,
       item: {
         '@type': 'Thing',
-        '@id': `https://stockmatrix.co.kr/themes/${theme.id}`,
+        '@id': `${siteConfig.domain}/themes/${theme.id}`,
         name: theme.name,
         description: theme.description || `${theme.name} 테마 생명주기 분석`,
-        url: `https://stockmatrix.co.kr/themes/${theme.id}`,
+        url: `${siteConfig.domain}/themes/${theme.id}`,
       },
     })),
   }
 
   return (
     <>
-      <Script
+      <script
         id="theme-list-schema"
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(itemListSchema) }}
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(itemListSchema).replace(/</g, '\\u003c') }}
       />
       <ThemesContent initialData={ranking} />
     </>
