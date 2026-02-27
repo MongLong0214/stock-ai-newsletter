@@ -109,44 +109,28 @@ describe('calculatePrediction', () => {
     expect(result!.daysSinceSpike).toBe(365)
   })
 
-  it('determines phase correctly for pre-peak', () => {
-    // daysSinceSpike=5, avgPeakDay~30, avgTotalDays~60 → 5 < 30*0.7=21 → pre-peak
+  it('determines phase correctly for rising', () => {
+    // daysSinceSpike=5, avgPeakDay~30 → 5 < 30*0.9=27 → rising
     const comps = makePair({ pastPeakDay: 30, pastTotalDays: 60 })
     const result = calculatePrediction('2026-01-01', comps, '2026-01-06')
     expect(result).not.toBeNull()
-    expect(result!.phase).toBe('pre-peak')
+    expect(result!.phase).toBe('rising')
   })
 
-  it('determines phase correctly for near-peak', () => {
-    // daysSinceSpike=22, avgPeakDay~30 → 22 >= 21 AND 22 < 28.5 → near-peak
-    const comps = makePair({ pastPeakDay: 30, pastTotalDays: 60 })
-    const result = calculatePrediction('2026-01-01', comps, '2026-01-23')
-    expect(result).not.toBeNull()
-    expect(result!.phase).toBe('near-peak')
-  })
-
-  it('determines phase correctly for at-peak', () => {
-    // daysSinceSpike=29, avgPeakDay~30 → 29 >= 28.5 AND 29 <= 33 → at-peak
+  it('determines phase correctly for hot', () => {
+    // daysSinceSpike=29, avgPeakDay~30 → 29 >= 27 AND 29 <= 33 → hot
     const comps = makePair({ pastPeakDay: 30, pastTotalDays: 60 })
     const result = calculatePrediction('2026-01-01', comps, '2026-01-30')
     expect(result).not.toBeNull()
-    expect(result!.phase).toBe('at-peak')
+    expect(result!.phase).toBe('hot')
   })
 
-  it('determines phase correctly for post-peak', () => {
-    // daysSinceSpike=40, avgPeakDay~30, avgTotalDays~60 → 40 > 33 AND 40 < 48 → post-peak
+  it('determines phase correctly for cooling', () => {
+    // daysSinceSpike=40, avgPeakDay~30 → 40 > 33 → cooling
     const comps = makePair({ pastPeakDay: 30, pastTotalDays: 60 })
     const result = calculatePrediction('2026-01-01', comps, '2026-02-10')
     expect(result).not.toBeNull()
-    expect(result!.phase).toBe('post-peak')
-  })
-
-  it('determines phase correctly for declining', () => {
-    // daysSinceSpike=50, avgTotalDays~60 → 50 >= 48 → declining
-    const comps = makePair({ pastPeakDay: 30, pastTotalDays: 60 })
-    const result = calculatePrediction('2026-01-01', comps, '2026-02-20')
-    expect(result).not.toBeNull()
-    expect(result!.phase).toBe('declining')
+    expect(result!.phase).toBe('cooling')
   })
 
   it('determines confidence levels', () => {

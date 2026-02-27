@@ -1,7 +1,7 @@
 import { supabaseAdmin } from './supabase-admin'
 import { getKSTDateString } from '../../lib/tli/date-utils'
 
-const EVALUATION_WINDOW = 14 // 평가 대기 기간 (일)
+const EVALUATION_WINDOW = 7 // 평가 대기 기간 (일) — v2: 14→7 (시상수 ~2일, 예측 가능 지평 3~5일)
 
 export async function evaluatePredictions(): Promise<void> {
   const today = getKSTDateString()
@@ -27,7 +27,7 @@ export async function evaluatePredictions(): Promise<void> {
     return
   }
 
-  // 해당 테마들의 현재 점수 로딩
+  // 해당 테마들의 점수 히스토리 로딩 (snapshot 타겟 날짜 기준 매칭용)
   const themeIds = [...new Set(snapshots.map(s => s.theme_id))]
   const { data: scores, error: scoresErr } = await supabaseAdmin
     .from('lifecycle_scores')
@@ -36,29 +36,52 @@ export async function evaluatePredictions(): Promise<void> {
     .order('calculated_at', { ascending: false })
 
   if (scoresErr) {
-    console.error('   ⚠️ 현재 점수 로딩 실패:', scoresErr.message)
+    console.error('   ⚠️ 점수 로딩 실패:', scoresErr.message)
     return
   }
 
-  // 테마별 최신 점수 추출
-  const latestScores = new Map<string, { score: number; stage: string }>()
+  // theme_id별 전체 점수 히스토리 (날짜 내림차순)
+  const scoresByTheme = new Map<string, { score: number; stage: string; calculated_at: string }[]>()
   for (const s of scores || []) {
-    if (!latestScores.has(s.theme_id)) {
-      latestScores.set(s.theme_id, { score: s.score, stage: s.stage })
-    }
+    const list = scoresByTheme.get(s.theme_id) || []
+    list.push(s)
+    scoresByTheme.set(s.theme_id, list)
   }
 
   let evaluatedCount = 0
 
   for (const snapshot of snapshots) {
-    const current = latestScores.get(snapshot.theme_id)
-    if (!current) continue
+    const themeScores = scoresByTheme.get(snapshot.theme_id)
+    if (!themeScores?.length) continue
 
-    // 페이즈 예측 정확도 판정
+    // snapshot_date + EVALUATION_WINDOW에 가장 가까운 score 사용 (3일 이내)
+    const targetDate = new Date(snapshot.snapshot_date)
+    targetDate.setDate(targetDate.getDate() + EVALUATION_WINDOW)
+    const targetTime = targetDate.getTime()
+
+    let closest: { score: number; stage: string; diff: number } | null = null
+    for (const s of themeScores) {
+      const diff = Math.abs(new Date(s.calculated_at).getTime() - targetTime)
+      if (!closest || diff < closest.diff) {
+        closest = { score: s.score, stage: s.stage, diff }
+      }
+    }
+
+    const MAX_TOLERANCE_MS = 3 * 86_400_000 // 3일 이내만 허용
+    if (!closest || closest.diff > MAX_TOLERANCE_MS) continue
+
+    const current = { score: closest.score, stage: closest.stage }
+
+    // 페이즈 예측 정확도 판정 (v2 3-Phase + 기존 5-Phase 하위 호환)
     const phaseToStageMap: Record<string, string[]> = {
-      'pre-peak': ['Emerging', 'Growth'],
+      // v2 3-Phase
+      'rising':  ['Emerging', 'Growth'],
+      'hot':     ['Peak'],
+      'cooling': ['Decline', 'Dormant'],
+      // v1 5-Phase (기존 pending 스냅샷 평가용)
+      'pre-peak':  ['Emerging', 'Growth'],
       'near-peak': ['Growth'],
-      'at-peak': ['Peak', 'Growth'],
+      'at-peak':   ['Peak', 'Growth'],
       'post-peak': ['Decline', 'Peak'],
       'declining': ['Decline', 'Dormant'],
     }
