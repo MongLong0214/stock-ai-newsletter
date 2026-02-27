@@ -3,6 +3,7 @@
 import { getServerSupabaseClient } from '@/lib/supabase/server-client';
 import { getKSTDateString } from '@/lib/tli/date-utils';
 import type { Stage } from '@/lib/tli/types/db';
+import { QUALITY_GATE } from '@/lib/tli/constants/quality-gate';
 
 /** Dormant 제외 활성 스테이지 */
 export type ActiveStage = Exclude<Stage, 'Dormant'>;
@@ -82,11 +83,12 @@ export async function fetchTLIContext(): Promise<TLIContext> {
       }
     }
 
-    // Dormant 및 score <= 0 필터링
+    // 품질 게이트: Dormant + score<=0 + minScore (자체 STAGE_CONFIG caps가 v3 caps보다 엄격하므로 minScore만 적용)
     const activeThemes = themes.filter((t) => {
       const s = latestScoreMap.get(t.id);
       if (!s) return false;
       if (s.stage === 'Dormant' || s.score <= 0) return false;
+      if (s.score < QUALITY_GATE.minScore) return false;
       return true;
     });
 
@@ -169,8 +171,6 @@ export async function fetchTLIContext(): Promise<TLIContext> {
       stageCounts[t.stage] = count + 1;
       if (selected.length >= 25) break;
     }
-
-    console.log(`[TLI Context] ${selected.length}개 테마 로드 (${activeThemes.length}개 활성 중)`);
 
     return { themes: selected, fetchedAt: now, isEmpty: selected.length === 0 };
   } catch (error) {

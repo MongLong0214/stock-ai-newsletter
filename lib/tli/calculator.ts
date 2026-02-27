@@ -8,6 +8,7 @@ import {
   log_normalize,
   percentileRank,
   linearRegressionSlope,
+  calculateDVI,
 } from './normalize';
 import { getKSTDateString } from './date-utils';
 import { SCORE_WEIGHTS } from './constants/score-config';
@@ -108,27 +109,7 @@ export function calculateLifecycleScore(input: CalculateScoreInput): {
 
   // ── 3. Volatility (DVI — Directional Volatility Index) ──
   const interestStdDev = standardDeviation(recent7d);
-  // 7일 관심도 일일 변화량 (시간순)
-  const deltas: number[] = [];
-  for (let i = recent7dAsc.length - 1; i > 0; i--) {
-    deltas.push(recent7dAsc[i] - recent7dAsc[i - 1]);
-  }
-
-  const upMoves = deltas.filter(d => d > 0);
-  const downMoves = deltas.filter(d => d < 0).map(d => Math.abs(d));
-  const avgUp = avg(upMoves);
-  const avgDown = avg(downMoves);
-
-  let dvi: number;
-  if (avgUp === 0 && avgDown === 0) {
-    dvi = 0.5;
-  } else if (avgDown > 0) {
-    const rs = avgUp / avgDown;
-    dvi = 1 - 1 / (1 + rs);
-  } else {
-    dvi = 1.0;
-  }
-
+  const dvi = calculateDVI(recent7dAsc);
   const volMagnitude = sigmoid_normalize(interestStdDev, 15, 10);
   const volatilityScore = dvi * volMagnitude;
 

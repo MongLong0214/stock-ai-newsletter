@@ -19,7 +19,7 @@ function StageNav({ sections }: StageNavProps) {
   const navRef = useRef<HTMLDivElement>(null)
   const activePillRef = useRef<HTMLButtonElement>(null)
 
-  // Scroll spy with IntersectionObserver
+  // IntersectionObserver 스크롤 감지
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
@@ -41,7 +41,7 @@ function StageNav({ sections }: StageNavProps) {
     return () => observer.disconnect()
   }, [sections])
 
-  // Auto-scroll active pill into view on mobile
+  // 모바일에서 활성 탭 자동 스크롤
   useEffect(() => {
     if (activePillRef.current && navRef.current) {
       const pill = activePillRef.current
