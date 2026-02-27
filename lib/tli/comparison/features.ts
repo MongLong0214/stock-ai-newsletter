@@ -5,7 +5,7 @@
  *        newsIntensity, activeDaysNorm, priceChangePct, volumeIntensity
  */
 
-import { avg, sigmoid_normalize, log_normalize, linearRegressionSlope } from '../normalize'
+import { avg, sigmoid_normalize, log_normalize, linearRegressionSlope, calculateDVI } from '../normalize'
 import { SECTOR_KEYWORDS } from '../constants/sectors'
 
 // ---------------------------------------------------------------------------
@@ -67,24 +67,7 @@ export function extractFeatures(params: {
 
   // volatilityDVI: 방향성 변동 지수 (RSI 원리)
   const recent7d = interestValues.slice(-Math.min(7, interestValues.length))
-  const deltas: number[] = []
-  for (let i = 1; i < recent7d.length; i++) {
-    deltas.push(recent7d[i] - recent7d[i - 1])
-  }
-  const upMoves = deltas.filter(d => d > 0)
-  const downMoves = deltas.filter(d => d < 0).map(d => Math.abs(d))
-  const avgUp = avg(upMoves)
-  const avgDown = avg(downMoves)
-
-  let volatilityDVI: number
-  if (avgUp === 0 && avgDown === 0) {
-    volatilityDVI = 0.5
-  } else if (avgDown > 0) {
-    const rs = avgUp / avgDown
-    volatilityDVI = 1 - 1 / (1 + rs)
-  } else {
-    volatilityDVI = 1.0
-  }
+  const volatilityDVI = calculateDVI(recent7d)
 
   // newsIntensity: log 정규화 (100건/월 → ~1.0)
   const newsIntensity = log_normalize(totalNewsCount, 100)

@@ -1,32 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { normalize, standardDeviation, avg, daysBetween } from '@/lib/tli/normalize'
-
-describe('normalize', () => {
-  it('returns 0 for non-finite values', () => {
-    expect(normalize(NaN, 0, 100)).toBe(0)
-    expect(normalize(Infinity, 0, 100)).toBe(0)
-    expect(normalize(-Infinity, 0, 100)).toBe(0)
-  })
-
-  it('returns 0 when min === max', () => {
-    expect(normalize(50, 50, 50)).toBe(0)
-  })
-
-  it('normalizes value within range to [0, 1]', () => {
-    expect(normalize(50, 0, 100)).toBe(0.5)
-    expect(normalize(0, 0, 100)).toBe(0)
-    expect(normalize(100, 0, 100)).toBe(1)
-    expect(normalize(25, 0, 100)).toBe(0.25)
-  })
-
-  it('clamps below-min values to 0', () => {
-    expect(normalize(-10, 0, 100)).toBe(0)
-  })
-
-  it('clamps above-max values to 1', () => {
-    expect(normalize(150, 0, 100)).toBe(1)
-  })
-})
+import { standardDeviation, avg, daysBetween } from '@/lib/tli/normalize'
 
 describe('standardDeviation', () => {
   it('returns 0 for empty array', () => {

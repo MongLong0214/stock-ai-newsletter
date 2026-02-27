@@ -2,7 +2,7 @@
 
 export type Stage = 'Dormant' | 'Emerging' | 'Growth' | 'Peak' | 'Decline';
 
-/** Display stage (includes Reigniting for UI rendering) */
+/** 표시용 단계 (UI 렌더링에 Reigniting 포함) */
 export type DisplayStage = Stage | 'Reigniting';
 
 export interface Theme {
@@ -82,7 +82,7 @@ export interface ScoreComponents {
   news_momentum: number;
   volatility_score: number;
   maturity_ratio: number;
-  /** Activity Score — 주가/거래량/데이터 성숙도 교차 시그널 (v2 신규, 하위 호환 optional) */
+  /** 활동 점수 — 주가/거래량/데이터 성숙도 교차 시그널 (v2 신규, 하위 호환 optional) */
   activity_score?: number;
   weights: {
     interest: number;
@@ -100,7 +100,7 @@ export interface ScoreComponents {
     raw_interest_avg?: number;
     dampening_factor?: number;
     raw_percentile?: number | null;
-    /** v2 Dual-Axis fields */
+    /** v2 이중축 필드 */
     level_score?: number;
     momentum_score?: number;
     /** 관심도 선형회귀 기울기 (정규화 전 raw slope) — stage 판정용 */
@@ -110,7 +110,7 @@ export interface ScoreComponents {
     data_coverage?: number;
     raw_score?: number;
     smoothed_score?: number;
-    /** Hysteresis용: Markov-constrained stage candidate (다음날 비교용) */
+    /** 히스테리시스용: 마르코프 제약 단계 후보 (다음날 비교용) */
     stage_candidate?: string;
   };
   confidence?: ScoreConfidence;

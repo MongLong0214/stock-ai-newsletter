@@ -1,4 +1,4 @@
-/** Stage constants and utilities */
+/** 단계 상수 및 유틸리티 */
 
 import type { Stage, ScoreComponents, DisplayStage } from './db'
 
