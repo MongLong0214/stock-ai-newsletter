@@ -76,7 +76,7 @@ function ThemePrediction({ firstSpikeDate, comparisons, score, stage }: ThemePre
           <p className="text-sm font-mono text-slate-200 leading-relaxed">{prediction.keyInsight}</p>
         </motion.div>
 
-        {/* 3. Phase Timeline (5단계 이산) */}
+        {/* 3. Phase Timeline (3단계) */}
         <motion.div variants={itemVariants} className="space-y-3">
           <div className="flex items-center gap-1.5">
             {PHASE_LABELS.map((phase, idx) => {
