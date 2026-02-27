@@ -7,6 +7,7 @@ import ThemesHeader from './themes-header'
 import StatsOverview from './stats-overview'
 import ThemeFilter, { type SortOption } from './theme-filter'
 import StageNav from './stage-nav'
+import TodaySignals from './today-signals'
 import StageSection from './stage-section'
 import ThemesSkeleton from './themes-skeleton'
 import { ThemesError, EmptySearchResult } from './themes-empty-states'
@@ -117,6 +118,10 @@ function ThemesContent({ initialData }: ThemesContentProps) {
 
           {ranking?.summary && (
             <StatsOverview summary={ranking.summary} />
+          )}
+
+          {ranking && (
+            <TodaySignals ranking={ranking} />
           )}
 
           <ThemeFilter

@@ -1,7 +1,8 @@
 'use client'
 
 import { motion } from 'framer-motion'
-import { Activity } from 'lucide-react'
+import { Activity, BookOpen } from 'lucide-react'
+import Link from 'next/link'
 import type { ThemeRanking } from '@/lib/tli/types'
 
 interface ThemesHeaderProps {
@@ -88,6 +89,13 @@ function ThemesHeader({ summary }: ThemesHeaderProps) {
           <span className="text-white">테마</span>
           <span className="text-emerald-400 ml-2">트래커</span>
         </h1>
+        <Link
+          href="/themes/methodology"
+          className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-emerald-500/20 bg-emerald-500/5 text-emerald-400 text-xs font-medium hover:bg-emerald-500/10 transition-colors"
+        >
+          <BookOpen className="w-3.5 h-3.5" />
+          트래킹 알고리즘
+        </Link>
       </div>
 
       {/* 시장 펄스 인사이트 */}
