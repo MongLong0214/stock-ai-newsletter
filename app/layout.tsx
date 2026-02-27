@@ -18,7 +18,7 @@ import {
 
 const notoSansKR = Noto_Sans_KR({
   subsets: ['latin'],
-  weight: ['100', '300', '400', '500', '700', '900'],
+  weight: ['300', '400', '500', '700'],
   display: 'swap',
 });
 
@@ -185,8 +185,8 @@ export default function RootLayout({
         hoursAvailable: {
           '@type': 'OpeningHoursSpecification',
           dayOfWeek: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'],
-          opens: '07:30',
-          closes: '07:30',
+          opens: '07:00',
+          closes: '08:00',
         },
         availableChannel: {
           '@type': 'ServiceChannel',
@@ -222,10 +222,12 @@ export default function RootLayout({
   return (
     <html lang="ko" suppressHydrationWarning>
       <head>
+        <link rel="preconnect" href="https://SUPABASE_PROJECT_URL" />
+        <link rel="dns-prefetch" href="https://SUPABASE_PROJECT_URL" />
         <Script
           id="structured-data"
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, '\\u003c') }}
         />
       </head>
       <body className={notoSansKR.className} suppressHydrationWarning>

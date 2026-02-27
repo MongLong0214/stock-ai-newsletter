@@ -42,6 +42,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'RSI·MACD·볼린저밴드 등 30개 기술지표 완벽 가이드',
     description: 'AI 주식 분석에 사용되는 핵심 기술적 지표 총정리',
+    images: ['/twitter-image'],
   },
 };
 

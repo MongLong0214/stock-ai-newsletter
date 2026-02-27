@@ -65,7 +65,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   return {
     title,
     description,
-    keywords: [post.target_keyword, ...(post.secondary_keywords || [])].join(', '),
+    keywords: [post.target_keyword, ...(post.secondary_keywords || [])],
     authors: [{ name: siteConfig.serviceName }],
     openGraph: {
       title, description, url,
