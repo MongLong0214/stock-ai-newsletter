@@ -71,9 +71,6 @@ importers:
       next:
         specifier: 15.5.7
         version: 15.5.7(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
-      playwright:
-        specifier: ^1.57.0
-        version: 1.58.2
       radix-ui:
         specifier: ^1.4.3
         version: 1.4.3(@types/react-dom@19.2.3(@types/react@19.2.13))(@types/react@19.2.13)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
@@ -138,6 +135,9 @@ importers:
       eslint-config-next:
         specifier: 15.5.7
         version: 15.5.7(eslint@9.39.2(jiti@2.6.1))(typescript@5.9.3)
+      playwright:
+        specifier: ^1.57.0
+        version: 1.58.2
       tailwindcss:
         specifier: ^4
         version: 4.1.18
