@@ -6,36 +6,39 @@ import { getRankingServer } from '../_services/get-ranking-server'
 
 /** 테마 목록 페이지 메타데이터 */
 export const metadata: Metadata = {
-  title: '주식 테마 분석 — AI 테마 생명주기 추적',
+  title: '테마주 관련주 분석 — AI 테마 생명주기 추적',
   description:
-    'AI가 분석하는 한국 주식시장 테마 트렌드. 반도체, 2차전지, AI 등 주요 테마의 생명주기 점수와 단계를 실시간 추적합니다.',
+    'AI가 분석하는 한국 주식시장 테마주 트렌드. 반도체, 2차전지, AI 등 주요 테마의 생명주기 점수와 단계를 실시간 추적하고 관련주를 확인하세요.',
   keywords: [
-    '주식 테마',
     '테마주',
-    '테마 분석',
-    '주식 테마 추적',
+    '관련주',
+    '테마주 분석',
+    '주식 테마',
+    '테마 관련주 찾기',
     'AI 테마 분석',
     '테마 생명주기',
-    '반도체 테마',
-    '2차전지 테마',
+    '반도체 관련주',
+    '2차전지 관련주',
+    'AI 관련주',
+    '테마주 추적',
   ],
   alternates: {
     canonical: `${siteConfig.domain}/themes`,
   },
   openGraph: {
-    title: '주식 테마 분석 — AI 테마 생명주기 추적 | StockMatrix',
+    title: '테마주 관련주 분석 — AI 테마 생명주기 추적 | StockMatrix',
     description:
-      'AI가 분석하는 한국 주식시장 테마 트렌드. 주요 테마의 생명주기 점수와 단계를 실시간 추적합니다.',
+      'AI가 분석하는 한국 주식시장 테마주 트렌드. 주요 테마의 생명주기 점수와 단계를 실시간 추적하고 관련주를 확인하세요.',
     url: `${siteConfig.domain}/themes`,
     type: 'website',
     locale: 'ko_KR',
-    images: [{ url: '/opengraph-image', width: 1200, height: 630, alt: '주식 테마 분석' }],
+    images: [{ url: '/opengraph-image', width: 1200, height: 630, alt: '테마주 관련주 분석' }],
   },
   twitter: {
     card: 'summary_large_image',
-    title: '주식 테마 분석 — AI 테마 생명주기 추적 | StockMatrix',
+    title: '테마주 관련주 분석 — AI 테마 생명주기 추적 | StockMatrix',
     description:
-      'AI가 분석하는 한국 주식시장 테마 트렌드. 주요 테마의 생명주기 점수와 단계를 실시간 추적합니다.',
+      'AI가 분석하는 한국 주식시장 테마주 트렌드. 주요 테마의 생명주기 점수와 단계를 실시간 추적하고 관련주를 확인하세요.',
     images: ['/twitter-image'],
   },
 }

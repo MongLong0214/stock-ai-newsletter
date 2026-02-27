@@ -64,6 +64,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${baseUrl}/archive`, lastModified: currentDate, changeFrequency: 'daily', priority: 0.9 },
     { url: `${baseUrl}/blog`, lastModified: currentDate, changeFrequency: 'daily', priority: 0.9 },
     { url: `${baseUrl}/themes`, lastModified: currentDate, changeFrequency: 'daily', priority: 0.9 },
+    { url: `${baseUrl}/themes/methodology`, lastModified: currentDate, changeFrequency: 'monthly', priority: 0.8 },
   ];
 
   const [blogPosts, topTags, themeIds] = await Promise.all([
@@ -92,7 +93,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     url: `${baseUrl}/themes/${id}`,
     lastModified: currentDate,
     changeFrequency: 'daily',
-    priority: 0.7,
+    priority: 0.9,
   }));
 
   return [...staticPages, ...blogPages, ...tagPages, ...themePages];
