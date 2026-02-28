@@ -13,6 +13,7 @@ import { discoverAndManageThemes } from './discover-themes';
 import { autoActivate, autoDeactivate } from './theme-lifecycle';
 import { evaluateComparisonOutcomes } from './evaluate-comparisons';
 import { getKSTDate, daysAgo } from './utils';
+import { submitToIndexNow, buildThemeUrls } from '../../lib/indexnow';
 
 /** 실행 모드: full(전체 수집) / news-only(뉴스만) */
 type RunMode = 'full' | 'news-only'
@@ -194,6 +195,24 @@ async function main() {
           warningFailures++;
           console.error('❌ 비교 결과 검증 실패:', error instanceof Error ? error.message : String(error));
         }
+      }
+    }
+
+    // 9단계: IndexNow URL 제출 (full 모드, DataLab 성공 시)
+    if (mode === 'full' && !datalabFailed) {
+      console.log('\n🔔 9단계: IndexNow URL 제출');
+
+      try {
+        const themeIds = themes.map(t => t.id);
+        const urls = buildThemeUrls(themeIds);
+        const result = await submitToIndexNow(urls);
+        if (result.submitted > 0) {
+          console.log(`   ✅ ${result.submitted}개 URL 제출 완료`);
+        } else if (result.errors.length > 0) {
+          console.warn(`   ⚠️ IndexNow 제출 실패: ${result.errors[0]}`);
+        }
+      } catch (error: unknown) {
+        console.warn('   ⚠️ IndexNow 제출 실패 (무시):', error instanceof Error ? error.message : String(error));
       }
     }
 
