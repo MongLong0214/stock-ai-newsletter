@@ -8,16 +8,24 @@ import { registerGetThemeHistory } from './tools/get-theme-history.js';
 import { registerSearchThemes } from './tools/search-themes.js';
 import { registerGetStockTheme } from './tools/get-stock-theme.js';
 
-const server = new McpServer({
-  name: 'stockmatrix-mcp',
-  version: '0.1.0',
-});
+const createServer = (): McpServer => {
+  const s = new McpServer({
+    name: 'stockmatrix-mcp',
+    version: '0.1.1',
+  });
 
-registerGetThemeRanking(server);
-registerGetThemeDetail(server);
-registerGetThemeHistory(server);
-registerSearchThemes(server);
-registerGetStockTheme(server);
+  registerGetThemeRanking(s);
+  registerGetThemeDetail(s);
+  registerGetThemeHistory(s);
+  registerSearchThemes(s);
+  registerGetStockTheme(s);
+
+  return s;
+};
+
+export const createSandboxServer = (): McpServer => createServer();
+
+const server = createServer();
 
 const main = async (): Promise<void> => {
   const transport = new StdioServerTransport();

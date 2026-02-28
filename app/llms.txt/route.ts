@@ -60,6 +60,13 @@ ${themeCount}개 이상의 주식 테마를 실시간 추적하여 생명주기 
 - \`GET /api/tli/themes/{id}/history\` — 테마 점수 이력 (기본 30일)
 - \`GET /api/ai/summary\` — AI 에이전트 최적화 요약 (Top 5 테마 + 시장 개요)
 
+## MCP Server
+
+\`stockmatrix-mcp\` — Model Context Protocol 서버로 AI 에이전트에서 직접 테마 데이터를 조회할 수 있습니다.
+- 설치: \`npx -y stockmatrix-mcp\`
+- 도구: get_theme_ranking, get_theme_detail, get_theme_history, search_themes, get_stock_theme
+- npm: https://www.npmjs.com/package/stockmatrix-mcp
+
 ## Pages
 
 - [홈](${siteConfig.domain}) — 서비스 소개 및 구독
@@ -68,6 +75,7 @@ ${themeCount}개 이상의 주식 테마를 실시간 추적하여 생명주기 
 - [FAQ](${siteConfig.domain}/faq) — 자주 묻는 질문
 - [기술적 지표](${siteConfig.domain}/technical-indicators) — ${siteConfig.indicatorCount}개 지표 설명
 ${blogCount > 0 ? `- [블로그](${siteConfig.domain}/blog) — ${blogCount}개 투자 인사이트 아티클\n` : ''}- [구독](${siteConfig.domain}/subscribe) — 무료 뉴스레터 구독
+- [개발자](${siteConfig.domain}/developers) — MCP 서버 설치 및 사용 가이드
 
 ## Data Sources
 

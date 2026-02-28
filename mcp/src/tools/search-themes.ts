@@ -10,6 +10,7 @@ export const registerSearchThemes = (server: McpServer): void => {
       query: z
         .string()
         .min(1)
+        .max(200)
         .describe('Search query (theme name or related stock name, e.g. "AI", "반도체", "삼성전자")'),
     },
     async ({ query }) => {
