@@ -10,8 +10,8 @@ export const revalidate = 600
 /** Supabase 클라이언트 (페이지 내부용) */
 function getSupabase() {
   return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co',
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-key',
     { auth: { persistSession: false } }
   )
 }
@@ -142,6 +142,15 @@ export async function generateMetadata({
   }
 }
 
+/** 최근 7일 이내 업데이트 여부 확인 */
+function isRecentlyUpdated(dateStr: string | null): boolean {
+  if (!dateStr) return false
+  const updated = new Date(dateStr)
+  const sevenDaysAgo = new Date()
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
+  return updated >= sevenDaysAgo
+}
+
 /** 테마 상세 페이지 */
 export default async function ThemeDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -151,12 +160,19 @@ export default async function ThemeDetailPage({ params }: { params: Promise<{ id
     ? STAGE_CONFIG[theme.stage as keyof typeof STAGE_CONFIG].label
     : null
 
+  const headline = theme
+    ? (stageKo && theme.score != null
+      ? `${theme.name} 관련주 — ${stageKo} 단계 · 점수 ${theme.score}/100`
+      : `${theme.name} 테마 분석`)
+    : null
+
+  const isRecent = theme ? isRecentlyUpdated(theme.updatedAt) : false
+  const schemaType = isRecent ? 'NewsArticle' as const : 'Article' as const
+
   const articleSchema = theme ? {
     '@context': 'https://schema.org',
-    '@type': 'Article',
-    headline: stageKo && theme.score != null
-      ? `${theme.name} 관련주 — ${stageKo} 단계 · 점수 ${theme.score}/100`
-      : `${theme.name} 테마 분석`,
+    '@type': schemaType,
+    headline,
     description: theme.description || `${theme.name} 테마의 AI 생명주기 분석`,
     dateModified: theme.updatedAt || new Date().toISOString().split('T')[0],
     datePublished: theme.updatedAt || new Date().toISOString().split('T')[0],
@@ -174,6 +190,12 @@ export default async function ThemeDetailPage({ params }: { params: Promise<{ id
       name: `${theme.name} 테마`,
       description: `한국 주식시장 ${theme.name} 관련 테마`,
     },
+    speakable: {
+      '@type': 'SpeakableSpecification',
+      cssSelector: ['[data-speakable]', '.theme-headline', '.theme-score'],
+    },
+    isAccessibleForFree: true,
+    ...(isRecent ? { dateline: '서울' } : {}),
   } : null
 
   const breadcrumbSchema = theme ? {
@@ -233,6 +255,28 @@ export default async function ThemeDetailPage({ params }: { params: Promise<{ id
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema).replace(/</g, '\\u003c') }}
         />
+      )}
+      {/* SSR 콘텐츠: JS 미실행 AI 크롤러용 */}
+      {theme && (
+        <section className="sr-only" data-speakable aria-label={`${theme.name} 테마 분석 요약`}>
+          <h1 className="theme-headline">{headline}</h1>
+          <p>{theme.description || `${theme.name} 테마의 AI 생명주기 분석`}</p>
+          {stageKo && theme.score != null && (
+            <p className="theme-score">
+              현재 단계: {stageKo} | 생명주기 점수: {theme.score}/100점
+            </p>
+          )}
+          {theme.topStocks.length > 0 && (
+            <div>
+              <h2>{theme.name} 주요 관련주</h2>
+              <ul>
+                {theme.topStocks.map((stock) => (
+                  <li key={stock}>{stock}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </section>
       )}
       <DetailContent id={id} />
     </>

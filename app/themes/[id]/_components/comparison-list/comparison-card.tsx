@@ -21,7 +21,7 @@ interface ComparisonCardProps {
 
 export default function ComparisonCard({ comp, idx, isSelected, onToggle, isPrePeak = true }: ComparisonCardProps) {
   const simColor = getSimilarityColor(comp.similarity)
-  const simPercent = Math.round(comp.similarity * 100)
+  const simPercent = Math.min(99, Math.round(comp.similarity * 100))
   const badge = getSimilarityBadge(comp.similarity)
 
   // "유사 근거. 위치 분석" 형식 분리 (첫 번째 '. '만 기준으로 분할)

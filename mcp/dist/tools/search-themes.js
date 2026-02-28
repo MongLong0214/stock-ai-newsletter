@@ -1,0 +1,23 @@
+import { z } from 'zod';
+import { fetchApi, formatResult, formatError } from '../fetch-helper.js';
+export const registerSearchThemes = (server) => {
+    server.tool('search_themes', '테마를 검색합니다. 이름으로 필터링하여 일치하는 테마의 점수, 단계 정보를 반환합니다. 쿼리 없이 호출하면 전체 목록(250+)을 반환합니다.', {
+        query: z
+            .string()
+            .min(1)
+            .describe('Search query (theme name or related stock name, e.g. "AI", "반도체", "삼성전자")'),
+    }, async ({ query }) => {
+        try {
+            const data = await fetchApi('/api/tli/themes', { q: query });
+            return {
+                content: [{ type: 'text', text: formatResult(data) }],
+            };
+        }
+        catch (error) {
+            return {
+                content: [{ type: 'text', text: formatError(error) }],
+                isError: true,
+            };
+        }
+    });
+};

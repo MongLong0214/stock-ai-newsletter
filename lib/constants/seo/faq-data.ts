@@ -118,7 +118,7 @@ export const faqData: FAQItem[] = [
   {
     question: '테마 점수는 어떻게 계산되나요?',
     answer:
-      '테마 점수는 4가지 요소를 가중 합산하여 0~100점으로 산출됩니다. 네이버 검색 관심도(40%)는 해당 테마에 대한 대중의 관심 수준을 반영하고, 뉴스 모멘텀(25%)은 최근 뉴스 보도 빈도의 변화를 측정합니다. 감성 분석(20%)은 뉴스 기사의 긍정·부정 톤을 분석하며, 주가 변동성(15%)은 테마 관련 종목들의 가격 변동 폭을 나타냅니다. 이 점수를 기반으로 5단계 생명주기가 자동 분류됩니다.',
+      '테마 점수는 4가지 요소를 가중 합산하여 0~100점으로 산출됩니다. 네이버 검색 관심도(40%)는 해당 테마에 대한 대중의 관심 수준을 반영하고, 뉴스 모멘텀(35%)은 최근 뉴스 보도 빈도의 변화를 측정합니다. 활동성 지수(15%)는 관련 종목들의 평균 주가 등락률을 반영하며, 변동성(10%)은 테마 관련 종목들의 가격 변동 폭을 나타냅니다. 이 점수를 기반으로 5단계 생명주기가 자동 분류됩니다.',
     category: 'service',
   },
   {
@@ -204,45 +204,3 @@ export function generateFAQSchema() {
   };
 }
 
-/**
- * FAQ 페이지의 총 글자 수 계산 (SEO 목표: 1,000+ 글자)
- */
-export function calculateTotalCharacters(): number {
-  return faqData.reduce(
-    (total, faq) => total + faq.question.length + faq.answer.length,
-    0
-  );
-}
-
-/**
- * SEO 키워드 밀도 분석
- */
-export function analyzeKeywordDensity(): Record<string, number> {
-  const keywords = [
-    'AI 주식 분석',
-    '무료',
-    '뉴스레터',
-    '기술적 분석',
-    'RSI',
-    'MACD',
-    '볼린저밴드',
-    '이동평균선',
-    'KOSPI',
-    'KOSDAQ',
-    '주식 투자',
-    '투자',
-  ];
-
-  const allText = faqData
-    .map((faq) => faq.question + ' ' + faq.answer)
-    .join(' ');
-
-  const density: Record<string, number> = {};
-  keywords.forEach((keyword) => {
-    const regex = new RegExp(keyword, 'gi');
-    const matches = allText.match(regex);
-    density[keyword] = matches ? matches.length : 0;
-  });
-
-  return density;
-}

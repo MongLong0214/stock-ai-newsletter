@@ -85,7 +85,7 @@ export function compositeCompare(params: {
   // 섹터 교차 패널티 (이종 섹터 15% 감쇄)
   const sectorMatch = current.sector === past.sector || current.sector === 'etc' || past.sector === 'etc'
   const rawSim = (wFeature * featureSim + wCurve * curveSim) * (sectorMatch ? 1.0 : 0.85)
-  const similarity = Math.round(Math.max(0, Math.min(1, rawSim)) * 1000) / 1000
+  const similarity = Math.round(Math.max(0, Math.min(0.99, rawSim)) * 1000) / 1000
 
   // 일수 캡핑
   const currentDay = Math.min(current.activeDays, MAX_LIFECYCLE_DAYS)

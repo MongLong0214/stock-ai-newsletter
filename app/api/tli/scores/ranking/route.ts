@@ -106,8 +106,18 @@ export async function GET() {
 
     // --- 요약 통계 (필터 통과한 테마 기준) ---
 
+    // surging 노이즈 방지: components에서 raw_interest_avg 추출
+    const rawInterestAvgMap = new Map<string, number>()
+    for (const s of scores) {
+      if (rawInterestAvgMap.has(s.theme_id)) continue
+      const comp = isScoreComponents(s.components) ? s.components : null
+      if (comp?.raw?.raw_interest_avg != null) {
+        rawInterestAvgMap.set(s.theme_id, comp.raw.raw_interest_avg)
+      }
+    }
+
     const activeThemes = [...emerging, ...growth, ...peak, ...decline, ...reigniting]
-    const summary = calculateRankingSummary(activeThemes)
+    const summary = calculateRankingSummary(activeThemes, rawInterestAvgMap)
 
     const ranking: ThemeRanking = {
       emerging,

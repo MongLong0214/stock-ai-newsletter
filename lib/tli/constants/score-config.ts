@@ -1,5 +1,8 @@
 /** 점수 컴포넌트 가중치 및 UI 설정 — 단일 소스 */
 
+/** 노이즈 감쇠 임계값: rawAvg가 이 값 미만이면 interestScore에 dampening 적용 */
+export const MIN_RAW_INTEREST = 5
+
 /** 점수 컴포넌트 가중치 */
 export const SCORE_WEIGHTS = {
   interest: 0.40,

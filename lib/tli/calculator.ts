@@ -11,7 +11,7 @@ import {
   calculateDVI,
 } from './normalize';
 import { getKSTDateString } from './date-utils';
-import { SCORE_WEIGHTS } from './constants/score-config';
+import { SCORE_WEIGHTS, MIN_RAW_INTEREST } from './constants/score-config';
 import type { InterestMetric, NewsMetric, ScoreComponents, ScoreConfidence } from './types';
 
 /** 최소 데이터 요건 */
@@ -87,6 +87,10 @@ export function calculateLifecycleScore(input: CalculateScoreInput): {
   }
 
   let interestScore = levelScore * 0.6 + momentumScore * 0.4;
+
+  // 노이즈 감쇠: rawAvg가 MIN_RAW_INTEREST 미만이면 interestScore 비례 감쇠
+  const dampeningFactor = rawAvg < MIN_RAW_INTEREST ? rawAvg / MIN_RAW_INTEREST : 1;
+  interestScore *= dampeningFactor;
 
   // ── 2. News Score ──
   const volumeScore = log_normalize(newsThisWeek, 50);
@@ -192,6 +196,7 @@ export function calculateLifecycleScore(input: CalculateScoreInput): {
       interest_stddev: interestStdDev,
       active_days: activeDays,
       raw_interest_avg: rawAvg,
+      dampening_factor: dampeningFactor,
       raw_percentile: input.rawPercentile ?? null,
       level_score: levelScore,
       momentum_score: momentumScore,

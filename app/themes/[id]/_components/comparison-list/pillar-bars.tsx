@@ -62,7 +62,7 @@ export default function PillarBars({ featureSim, curveSim, keywordSim, similarit
       {/* Fallback: pillar 데이터 없으면 단일 바 */}
       {featureSim === null && (() => {
         const simColor = getSimilarityColor(similarity)
-        const simPercent = Math.round(similarity * 100)
+        const simPercent = Math.min(99, Math.round(similarity * 100))
         return (
           <div className="relative h-1.5 rounded-full bg-slate-700/40 overflow-hidden">
             <motion.div
@@ -80,7 +80,7 @@ export default function PillarBars({ featureSim, curveSim, keywordSim, similarit
 }
 
 function PillarRow({ label, value, color, delay }: { label: string; value: number; color: string; delay: number }) {
-  const pct = Math.round(value * 100)
+  const pct = Math.min(99, Math.round(value * 100))
   return (
     <div className="flex items-center gap-2">
       <span className="text-[10px] font-mono text-slate-500 w-12 shrink-0 whitespace-nowrap">{label}</span>
