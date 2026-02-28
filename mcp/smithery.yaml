@@ -1,0 +1,11 @@
+name: stockmatrix-mcp
+description: Korean stock market theme lifecycle analysis — 250+ KOSPI/KOSDAQ investment themes with real-time scores, lifecycle stages, related stocks, and news
+tags:
+  - finance
+  - stocks
+  - korean-market
+  - theme-lifecycle
+  - kospi
+  - kosdaq
+runtime: node
+startCommand: npx -y stockmatrix-mcp
