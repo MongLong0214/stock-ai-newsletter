@@ -65,6 +65,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${baseUrl}/blog`, lastModified: currentDate, changeFrequency: 'daily', priority: 0.9 },
     { url: `${baseUrl}/themes`, lastModified: currentDate, changeFrequency: 'daily', priority: 0.9 },
     { url: `${baseUrl}/themes/methodology`, lastModified: currentDate, changeFrequency: 'monthly', priority: 0.8 },
+    { url: `${baseUrl}/developers`, lastModified: currentDate, changeFrequency: 'monthly', priority: 0.6 },
   ];
 
   const [blogPosts, topTags, themeIds] = await Promise.all([

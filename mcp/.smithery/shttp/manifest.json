@@ -1,0 +1,139 @@
+{
+  "payload": {
+    "type": "hosted",
+    "stateful": false,
+    "hasAuthAdapter": false,
+    "serverCard": {
+      "serverInfo": {
+        "name": "stockmatrix-mcp",
+        "version": "0.1.1"
+      },
+      "tools": [
+        {
+          "name": "get_theme_ranking",
+          "description": "한국 주식시장 테마 생명주기 랭킹을 조회합니다. 단계별(초기/성장/정점/쇠퇴/재점화) 테마 목록과 점수를 반환합니다.",
+          "inputSchema": {
+            "type": "object",
+            "properties": {
+              "stage": {
+                "type": "string",
+                "enum": [
+                  "emerging",
+                  "growth",
+                  "peak",
+                  "decline",
+                  "reigniting"
+                ],
+                "description": "Filter by lifecycle stage: emerging (초기), growth (성장), peak (정점), decline (쇠퇴), reigniting (재점화)"
+              }
+            },
+            "additionalProperties": false,
+            "$schema": "http://json-schema.org/draft-07/schema#"
+          },
+          "execution": {
+            "taskSupport": "forbidden"
+          }
+        },
+        {
+          "name": "get_theme_detail",
+          "description": "특정 테마의 상세 정보를 조회합니다. 테마 점수, 생명주기 단계, 관련 종목, 뉴스 등을 포함합니다.",
+          "inputSchema": {
+            "type": "object",
+            "properties": {
+              "theme_id": {
+                "type": "string",
+                "format": "uuid",
+                "description": "Theme UUID (e.g. \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\")"
+              }
+            },
+            "required": [
+              "theme_id"
+            ],
+            "additionalProperties": false,
+            "$schema": "http://json-schema.org/draft-07/schema#"
+          },
+          "execution": {
+            "taskSupport": "forbidden"
+          }
+        },
+        {
+          "name": "get_theme_history",
+          "description": "테마의 최근 30일 점수 이력을 조회합니다. 생명주기 추이를 파악할 수 있습니다.",
+          "inputSchema": {
+            "type": "object",
+            "properties": {
+              "theme_id": {
+                "type": "string",
+                "format": "uuid",
+                "description": "Theme UUID (e.g. \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\")"
+              }
+            },
+            "required": [
+              "theme_id"
+            ],
+            "additionalProperties": false,
+            "$schema": "http://json-schema.org/draft-07/schema#"
+          },
+          "execution": {
+            "taskSupport": "forbidden"
+          }
+        },
+        {
+          "name": "search_themes",
+          "description": "테마를 검색합니다. 이름(한국어/영문)으로 필터링하여 일치하는 테마의 점수, 단계 정보를 반환합니다.",
+          "inputSchema": {
+            "type": "object",
+            "properties": {
+              "query": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Search query (theme name or related stock name, e.g. \"AI\", \"반도체\", \"삼성전자\")"
+              }
+            },
+            "required": [
+              "query"
+            ],
+            "additionalProperties": false,
+            "$schema": "http://json-schema.org/draft-07/schema#"
+          },
+          "execution": {
+            "taskSupport": "forbidden"
+          }
+        },
+        {
+          "name": "get_stock_theme",
+          "description": "특정 종목이 속한 테마를 조회합니다. 종목 코드로 관련 테마 정보를 확인할 수 있습니다.",
+          "inputSchema": {
+            "type": "object",
+            "properties": {
+              "symbol": {
+                "type": "string",
+                "pattern": "^\\d{6}$",
+                "description": "Korean stock code (e.g. \"005930\" for Samsung Electronics, \"000660\" for SK Hynix)"
+              }
+            },
+            "required": [
+              "symbol"
+            ],
+            "additionalProperties": false,
+            "$schema": "http://json-schema.org/draft-07/schema#"
+          },
+          "execution": {
+            "taskSupport": "forbidden"
+          }
+        }
+      ],
+      "resources": [],
+      "prompts": []
+    },
+    "source": {
+      "commit": "17908043e83ff5f1b0076627efa93b3a715bc239",
+      "branch": "main"
+    }
+  },
+  "artifacts": {
+    "module": "module.js",
+    "sourcemap": "module.js.map"
+  },
+  "name": "stockmatrix-mcp"
+}

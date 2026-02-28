@@ -190,6 +190,15 @@ function Footer() {
                         문의하기
                       </a>
                     </li>
+                    <li>
+                      <Link
+                        href="/developers"
+                        className="text-slate-400 hover:text-emerald-400 text-sm transition-colors duration-200 block"
+                        title="MCP 서버 개발자 가이드"
+                      >
+                        개발자
+                      </Link>
+                    </li>
                   </ul>
                 </div>
               </div>

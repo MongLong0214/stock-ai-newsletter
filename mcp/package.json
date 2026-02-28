@@ -1,15 +1,44 @@
 {
-  "name": "@stockmatrix/mcp-server",
-  "version": "0.1.0",
-  "description": "StockMatrix MCP Server - Korean stock market theme lifecycle analysis",
+  "name": "stockmatrix-mcp",
+  "mcpName": "io.github.MongLong0214/stockmatrix-mcp",
+  "version": "0.1.1",
+  "description": "StockMatrix MCP Server - Korean stock market theme lifecycle analysis for AI agents",
   "type": "module",
   "main": "dist/index.js",
   "bin": {
-    "@stockmatrix/mcp-server": "dist/index.js"
+    "stockmatrix-mcp": "dist/index.js"
   },
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsc",
-    "start": "node dist/index.js"
+    "start": "node dist/index.js",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "korean-stocks",
+    "theme-lifecycle",
+    "finance",
+    "kospi",
+    "kosdaq",
+    "ai-agent"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/MongLong0214/stock-ai-newsletter.git",
+    "directory": "mcp"
+  },
+  "homepage": "https://stockmatrix.co.kr/developers",
+  "bugs": {
+    "url": "https://github.com/MongLong0214/stock-ai-newsletter/issues"
+  },
+  "license": "MIT",
+  "author": "StockMatrix <aistockmatrix@gmail.com>",
+  "engines": {
+    "node": ">=18"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",
