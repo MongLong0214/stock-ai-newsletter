@@ -4,8 +4,12 @@ import { apiSuccess, handleApiError, placeholderResponse, isTableNotFound } from
 import { getKSTDateString } from '@/lib/tli/date-utils'
 
 // 활성 테마 목록과 현재 생명주기 점수 조회 (배치 쿼리 최적화)
-export async function GET() {
+// ?q= 파라미터로 테마명/영문명 필터링 지원
+export async function GET(request: Request) {
   try {
+    const { searchParams } = new URL(request.url)
+    const query = searchParams.get('q')?.trim().toLowerCase() || ''
+
     // placeholder 환경 처리
     const placeholder = placeholderResponse([])
     if (placeholder) return placeholder
@@ -130,7 +134,15 @@ export async function GET() {
       }
     })
 
-    return apiSuccess(results)
+    const filtered = query
+      ? results.filter(
+          (t) =>
+            t.name.toLowerCase().includes(query) ||
+            (t.nameEn && t.nameEn.toLowerCase().includes(query))
+        )
+      : results
+
+    return apiSuccess(filtered)
   } catch (error) {
     return handleApiError(error, '테마 목록을 불러오는데 실패했습니다.')
   }

@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase'
 import type { ThemeListItem, ThemeRanking } from '@/lib/tli/types'
+import { MIN_RAW_INTEREST } from '@/lib/tli/constants/score-config'
 
 /** 빈 랭킹 응답 (placeholder / 에러 시 재사용) */
 export const EMPTY_RANKING: ThemeRanking = {
@@ -180,7 +181,10 @@ export function buildCountMaps(
  * - 급상승: score >= 15, change7d > 2, newsCount7d >= 1, sparkline >= 2, 비부정 감성 중 최대 change7d
  * - 평균 점수
  */
-export function calculateRankingSummary(activeThemes: ThemeListItem[]) {
+export function calculateRankingSummary(
+  activeThemes: ThemeListItem[],
+  rawInterestAvgMap?: Map<string, number>,
+) {
   const byStage: Record<string, number> = {}
   for (const t of activeThemes) {
     const key = t.isReigniting ? 'Reigniting' : t.stage
@@ -195,14 +199,15 @@ export function calculateRankingSummary(activeThemes: ThemeListItem[]) {
     ? hottestCandidates.reduce((max, t) => (t.score > max.score ? t : max))
     : null
 
-  // surging (급상승): Emerging/Growth 단계, 의미있는 상승폭, 뉴스 뒷받침
+  // surging (급상승): Emerging/Growth 단계, 의미있는 상승폭, 뉴스 뒷받침, 노이즈 방지
   const surgingCandidates = activeThemes.filter(
     t =>
       t.score >= 15 &&
       (t.stage === 'Emerging' || t.stage === 'Growth') &&
       t.change7d > 3 &&
       t.newsCount7d >= 2 &&
-      t.sparkline.length >= 3
+      t.sparkline.length >= 3 &&
+      (rawInterestAvgMap ? (rawInterestAvgMap.get(t.id) ?? 0) >= MIN_RAW_INTEREST : true)
   )
   const surging = surgingCandidates.length > 0
     ? surgingCandidates.reduce((max, t) => (t.change7d > max.change7d ? t : max))

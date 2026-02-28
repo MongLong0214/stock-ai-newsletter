@@ -9,7 +9,7 @@ import type { BlogPost, BlogPostCreateInput, FAQItem, SchemaData } from '../_typ
 
 interface ArticleSchema {
   '@context': 'https://schema.org';
-  '@type': 'Article';
+  '@type': 'BlogPosting';
   headline: string;
   description: string;
   image: string[];
@@ -19,6 +19,9 @@ interface ArticleSchema {
   dateModified: string;
   mainEntityOfPage: { '@type': 'WebPage'; '@id': string };
   keywords: string;
+  wordCount?: number;
+  articleSection?: string;
+  speakable: { '@type': 'SpeakableSpecification'; cssSelector: string[] };
 }
 
 interface FAQSchema {
@@ -43,9 +46,11 @@ interface BreadcrumbSchema {
 }
 
 function createArticleSchema(post: BlogPost, slug: string): ArticleSchema {
+  const wordCount = post.content ? post.content.replace(/<[^>]*>/g, '').split(/\s+/).length : undefined
+
   return {
     '@context': 'https://schema.org',
-    '@type': 'Article',
+    '@type': 'BlogPosting',
     headline: post.title,
     description: post.description,
     image: [`${siteConfig.domain}/blog/${slug}/opengraph-image`],
@@ -59,6 +64,12 @@ function createArticleSchema(post: BlogPost, slug: string): ArticleSchema {
     dateModified: post.updated_at,
     mainEntityOfPage: { '@type': 'WebPage', '@id': `${siteConfig.domain}/blog/${slug}` },
     keywords: [post.target_keyword, ...(post.secondary_keywords || [])].join(', '),
+    wordCount,
+    articleSection: post.category || '투자 분석',
+    speakable: {
+      '@type': 'SpeakableSpecification',
+      cssSelector: ['article h1', 'article h2', 'article [data-speakable]'],
+    },
   };
 }
 

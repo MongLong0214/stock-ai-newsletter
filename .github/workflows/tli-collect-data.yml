@@ -68,6 +68,7 @@ jobs:
           NAVER_CLIENT_ID: ${{ secrets.NAVER_CLIENT_ID }}
           NAVER_CLIENT_SECRET: ${{ secrets.NAVER_CLIENT_SECRET }}
           TLI_MODE: ${{ steps.mode.outputs.mode }}
+          INDEXNOW_KEY: ${{ secrets.INDEXNOW_KEY }}
         run: npx tsx scripts/tli/collect-and-score.ts
 
       - name: Notify on failure

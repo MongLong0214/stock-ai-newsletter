@@ -50,8 +50,6 @@ export { keywordsByCategory, allKeywords } from './keywords';
 export {
   faqData,
   generateFAQSchema,
-  calculateTotalCharacters,
-  analyzeKeywordDensity,
   type FAQItem,
 } from './faq-data';
 

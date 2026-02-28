@@ -1,17 +1,62 @@
+import type { Metadata } from 'next'
 import AnimatedBackground from '@/components/animated-background';
 import ServiceIntroSection from './_components/service-intro-section';
+import { siteConfig } from '@/lib/constants/seo/config'
+import { schemaConfig } from '@/lib/constants/seo/schema'
+import { generateBreadcrumbSchema, breadcrumbPatterns } from '@/lib/constants/seo/breadcrumb-schema'
+
+export const metadata: Metadata = {
+  title: '서비스 소개',
+  description: schemaConfig.serviceDesc,
+  alternates: { canonical: `${siteConfig.domain}/about` },
+}
 
 const AboutPage = () => {
+  const aboutSchema = {
+    '@context': 'https://schema.org',
+    '@type': 'AboutPage',
+    name: `${siteConfig.serviceName} 서비스 소개`,
+    description: schemaConfig.serviceDesc,
+    url: `${siteConfig.domain}/about`,
+    mainEntity: {
+      '@type': 'Organization',
+      name: siteConfig.serviceName,
+      url: siteConfig.domain,
+      description: schemaConfig.websiteDesc,
+      logo: `${siteConfig.domain}/icon-512.png`,
+      contactPoint: {
+        '@type': 'ContactPoint',
+        email: 'aistockmatrix@gmail.com',
+        contactType: 'customer service',
+        availableLanguage: 'Korean',
+      },
+    },
+  }
+
+  const breadcrumbSchema = generateBreadcrumbSchema(breadcrumbPatterns.about)
+
   return (
-    <main className="min-h-screen bg-black text-white relative overflow-hidden">
-      <AnimatedBackground />
+    <>
+      <script
+        id="about-page-schema"
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(aboutSchema).replace(/</g, '\\u003c') }}
+      />
+      <script
+        id="about-breadcrumb-schema"
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema).replace(/</g, '\\u003c') }}
+      />
+      <main className="min-h-screen bg-black text-white relative overflow-hidden">
+        <AnimatedBackground />
 
-      <div className="fixed inset-0 pointer-events-none z-[1] opacity-[0.04]">
-        <div className="absolute inset-0 bg-[linear-gradient(transparent_50%,rgba(16,185,129,0.04)_50%)] bg-[length:100%_4px] animate-[matrix-scan_8s_linear_infinite]" aria-hidden="true" />
-      </div>
+        <div className="fixed inset-0 pointer-events-none z-[1] opacity-[0.04]">
+          <div className="absolute inset-0 bg-[linear-gradient(transparent_50%,rgba(16,185,129,0.04)_50%)] bg-[length:100%_4px] animate-[matrix-scan_8s_linear_infinite]" aria-hidden="true" />
+        </div>
 
-      <ServiceIntroSection />
-    </main>
+        <ServiceIntroSection />
+      </main>
+    </>
   );
 };
 
