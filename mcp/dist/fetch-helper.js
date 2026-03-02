@@ -1,4 +1,5 @@
 const BASE_URL = process.env.STOCKMATRIX_API_URL || 'https://stockmatrix.co.kr';
+const MCP_USER_AGENT = `stockmatrix-mcp/0.1.3`;
 // 시작 시 URL 유효성 검증
 try {
     new URL(BASE_URL);
@@ -36,7 +37,10 @@ export const fetchApi = async (path, params) => {
         }
         try {
             const response = await fetch(url.toString(), {
-                headers: { Accept: 'application/json' },
+                headers: {
+                    Accept: 'application/json',
+                    'User-Agent': MCP_USER_AGENT,
+                },
                 signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
             });
             if (!response.ok) {

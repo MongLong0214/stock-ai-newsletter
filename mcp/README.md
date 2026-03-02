@@ -129,5 +129,4 @@ MIT
 
 - [Website](https://stockmatrix.co.kr)
 - [Developer Guide](https://stockmatrix.co.kr/developers)
-- [GitHub](https://github.com/MongLong0214/stock-ai-newsletter)
 - [llms.txt](https://stockmatrix.co.kr/llms.txt)

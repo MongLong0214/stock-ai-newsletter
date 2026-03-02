@@ -9,7 +9,7 @@ import { registerGetStockTheme } from './tools/get-stock-theme.js';
 const createServer = () => {
     const s = new McpServer({
         name: 'stockmatrix-mcp',
-        version: '0.1.1',
+        version: '0.1.3',
     });
     registerGetThemeRanking(s);
     registerGetThemeDetail(s);
