@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { supabase, isSupabasePlaceholder } from '@/lib/supabase'
 
 const ADMIN_SECRET = process.env.ADMIN_SECRET
 
@@ -11,13 +11,10 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-  if (!supabaseUrl || !serviceKey) {
+  if (isSupabasePlaceholder) {
     return NextResponse.json({ error: 'Supabase not configured' }, { status: 500 })
   }
 
-  const supabase = createClient(supabaseUrl, serviceKey)
   const days = Number(searchParams.get('days')) || 30
 
   const since = new Date()
