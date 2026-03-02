@@ -11,9 +11,10 @@ import {
   calculateDVI,
 } from './normalize';
 import { getKSTDateString } from './date-utils';
-import { getScoreWeights, getMinRawInterest, getConfidenceThresholds } from './constants/score-config';
+import { getScoreWeights, getMinRawInterest } from './constants/score-config';
 import { computeSentimentProxy } from './sentiment-proxy';
-import type { InterestMetric, NewsMetric, ScoreComponents, ScoreConfidence, ConfidenceLevel } from './types';
+import { computeScoreConfidence } from './score-confidence';
+import type { InterestMetric, NewsMetric, ScoreComponents, ScoreConfidence } from './types';
 
 /** 최소 데이터 요건 */
 const MIN_INTEREST_DAYS = 3;
@@ -21,23 +22,15 @@ const MIN_INTEREST_DAYS = 3;
 const MIN_NEWS_LAST_WEEK = 3;
 
 interface CalculateScoreInput {
-  /** 최신순(desc) 정렬된 관심도 메트릭 (slice(0,7)=최근 7일) */
   interestMetrics: InterestMetric[];
-  /** 최신순(desc) 정렬된 뉴스 메트릭 (slice(0,7)=이번 주) */
   newsMetrics: NewsMetric[];
   firstSpikeDate: string | null;
   today?: string;
-  /** 관련주 평균 등락률 (%) */
   avgPriceChangePct?: number;
-  /** 관련주 평균 거래량 */
   avgVolume?: number;
-  /** 전체 테마 raw interest 평균 배열 (오름차순 정렬, percentileRank용) */
   allThemesRawAvg?: number[];
-  /** 하위 호환: 파이프라인에서 사전 계산한 백분위 (allThemesRawAvg 우선) */
   rawPercentile?: number;
-  /** 이전 스무딩 점수 (EMA용, 미사용 시 스무딩 스킵) */
   prevSmoothedScore?: number;
-  /** 이전 평균 거래량 (sentiment volume acceleration용) */
   prevAvgVolume?: number;
 }
 
@@ -66,7 +59,6 @@ export function calculateLifecycleScore(input: CalculateScoreInput): {
   const newsLastWeek = newsMetrics.slice(7, 14).reduce((sum, m) => sum + m.article_count, 0);
 
   // ── 1. Interest Score (Dual-Axis) ──
-  // Level: 전체 테마 대비 상대적 위치 (allThemesRawAvg > rawPercentile > sigmoid fallback)
   let levelScore: number;
   if (input.allThemesRawAvg && input.allThemesRawAvg.length > 0) {
     levelScore = percentileRank(rawAvg, input.allThemesRawAvg);
@@ -76,8 +68,6 @@ export function calculateLifecycleScore(input: CalculateScoreInput): {
     levelScore = sigmoid_normalize(rawAvg, 30, 20);
   }
 
-  // Momentum: 7일 관심도 추세 기울기
-  // 시계열을 시간순(asc)으로 뒤집어 linearRegressionSlope 입력
   const recent7dAsc = [...recent7d].reverse();
   const growthRate = linearRegressionSlope(recent7dAsc);
 
@@ -85,13 +75,11 @@ export function calculateLifecycleScore(input: CalculateScoreInput): {
   if (baselineAvg > 0) {
     momentumScore = sigmoid_normalize(growthRate, 0, 1.5);
   } else {
-    // 기준선 부재 시 절대값 기반 half-strength fallback
     momentumScore = sigmoid_normalize(rawAvg, 30, 20) * 0.5;
   }
 
   let interestScore = levelScore * 0.6 + momentumScore * 0.4;
 
-  // 노이즈 감쇠: rawAvg가 임계값 미만이면 interestScore 비례 감쇠
   const minRawInterest = getMinRawInterest();
   const dampeningFactor = rawAvg < minRawInterest ? rawAvg / minRawInterest : 1;
   interestScore *= dampeningFactor;
@@ -104,18 +92,16 @@ export function calculateLifecycleScore(input: CalculateScoreInput): {
     const newsChange = (newsThisWeek - newsLastWeek) / Math.max(newsLastWeek, 1);
     newsMomentumScore = sigmoid_normalize(newsChange, 0, 1.0);
   } else {
-    // 기준선 부족 시 중립
     newsMomentumScore = 0.5;
   }
 
   const newsScore = volumeScore * 0.6 + newsMomentumScore * 0.4;
 
-  // ── DataLab 미수집 fallback ──
   if (rawAvg === 0 && newsThisWeek > 0) {
     interestScore = newsScore * 0.7;
   }
 
-  // ── 3. Volatility (DVI — Directional Volatility Index) ──
+  // ── 3. Volatility (DVI) ──
   const interestStdDev = standardDeviation(recent7d);
   const dvi = calculateDVI(recent7dAsc);
   const volMagnitude = sigmoid_normalize(interestStdDev, 15, 10);
@@ -130,7 +116,6 @@ export function calculateLifecycleScore(input: CalculateScoreInput): {
   const volumeIntensity = log_normalize(vol, 50_000_000) * 0.3;
   const dataCoverage = Math.min(activeDays / 14, 1) * 0.2;
 
-  // Sentiment proxy (price + news acceleration + volume breadth)
   const sentimentProxy = computeSentimentProxy({
     avgPriceChangePct: pricePct,
     newsThisWeek: newsThisWeek,
@@ -140,11 +125,8 @@ export function calculateLifecycleScore(input: CalculateScoreInput): {
   });
 
   let activityScore = stockPriceChange + volumeIntensity + dataCoverage;
-
-  // Sentiment-adjusted activity: blend activity with sentiment signal
   activityScore = activityScore * 0.7 + sentimentProxy * 0.3;
 
-  // 노이즈 게이트: 관심도 수준이 극히 낮으면 활동성도 감쇠
   if (levelScore < 0.1) {
     activityScore *= 0.5;
   }
@@ -161,39 +143,8 @@ export function calculateLifecycleScore(input: CalculateScoreInput): {
 
   const score = Math.round(rawScore * 100);
 
-  // ── Confidence 계산 (injectable thresholds for ECE calibration) ──
-  const interestCoverage = Math.min(interestMetrics.length / 30, 1);
-  const newsDaysWithData = new Set(newsMetrics.filter(m => m.article_count > 0).map(m => m.time)).size;
-  const newsCoverage = Math.min(newsDaysWithData / 14, 1);
-  const coverageScore = interestCoverage * 0.6 + newsCoverage * 0.4;
-
-  const ct = getConfidenceThresholds();
-
-  let confidenceLevel: ConfidenceLevel;
-  let confidenceReason: string;
-
-  if (coverageScore >= ct.highCoverage && interestMetrics.length >= ct.highDays) {
-    confidenceLevel = 'high';
-    confidenceReason = '충분한 데이터';
-  } else if (coverageScore >= ct.mediumCoverage && interestMetrics.length >= ct.mediumDays) {
-    confidenceLevel = 'medium';
-    confidenceReason = interestMetrics.length < ct.highDays
-      ? `관심도 ${interestMetrics.length}일 (${ct.highDays}일 미만)`
-      : newsDaysWithData < 7 ? '뉴스 데이터 부족' : '데이터 축적 중';
-  } else {
-    confidenceLevel = 'low';
-    confidenceReason = interestMetrics.length < ct.mediumDays
-      ? `관심도 ${interestMetrics.length}일 (${ct.mediumDays}일 미만)`
-      : newsDaysWithData === 0 ? '뉴스 데이터 없음' : '데이터 부족';
-  }
-
-  const confidence: ScoreConfidence = {
-    level: confidenceLevel,
-    dataAge: interestMetrics.length,
-    interestCoverage,
-    newsCoverage,
-    reason: confidenceReason,
-  };
+  // ── Confidence (extracted) ──
+  const confidence = computeScoreConfidence(interestMetrics, newsMetrics);
 
   const components: ScoreComponents = {
     interest_score: interestScore,
