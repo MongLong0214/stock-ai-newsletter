@@ -40,9 +40,14 @@ describe('determineStage (v2 Multi-Signal + Markov)', () => {
     expect(determineStage(10, c)).toBe('Emerging')
   })
 
-  it('returns Peak for score >= 63', () => {
-    expect(determineStage(63, makeComponents())).toBe('Peak')
+  it('returns Peak for score >= 68', () => {
+    expect(determineStage(68, makeComponents())).toBe('Peak')
     expect(determineStage(95, makeComponents())).toBe('Peak')
+  })
+
+  it('returns Growth (not Peak) for score in [58, 68) range', () => {
+    expect(determineStage(60, makeComponents())).toBe('Growth')
+    expect(determineStage(67, makeComponents())).toBe('Growth')
   })
 
   it('returns Peak for score >= 50 with high news volume and stable trend', () => {

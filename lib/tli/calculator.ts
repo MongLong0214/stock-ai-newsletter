@@ -11,8 +11,9 @@ import {
   calculateDVI,
 } from './normalize';
 import { getKSTDateString } from './date-utils';
-import { SCORE_WEIGHTS, MIN_RAW_INTEREST } from './constants/score-config';
-import type { InterestMetric, NewsMetric, ScoreComponents, ScoreConfidence } from './types';
+import { getScoreWeights, getMinRawInterest, getConfidenceThresholds } from './constants/score-config';
+import { computeSentimentProxy } from './sentiment-proxy';
+import type { InterestMetric, NewsMetric, ScoreComponents, ScoreConfidence, ConfidenceLevel } from './types';
 
 /** 최소 데이터 요건 */
 const MIN_INTEREST_DAYS = 3;
@@ -36,6 +37,8 @@ interface CalculateScoreInput {
   rawPercentile?: number;
   /** 이전 스무딩 점수 (EMA용, 미사용 시 스무딩 스킵) */
   prevSmoothedScore?: number;
+  /** 이전 평균 거래량 (sentiment volume acceleration용) */
+  prevAvgVolume?: number;
 }
 
 export function calculateLifecycleScore(input: CalculateScoreInput): {
@@ -88,8 +91,9 @@ export function calculateLifecycleScore(input: CalculateScoreInput): {
 
   let interestScore = levelScore * 0.6 + momentumScore * 0.4;
 
-  // 노이즈 감쇠: rawAvg가 MIN_RAW_INTEREST 미만이면 interestScore 비례 감쇠
-  const dampeningFactor = rawAvg < MIN_RAW_INTEREST ? rawAvg / MIN_RAW_INTEREST : 1;
+  // 노이즈 감쇠: rawAvg가 임계값 미만이면 interestScore 비례 감쇠
+  const minRawInterest = getMinRawInterest();
+  const dampeningFactor = rawAvg < minRawInterest ? rawAvg / minRawInterest : 1;
   interestScore *= dampeningFactor;
 
   // ── 2. News Score ──
@@ -126,7 +130,19 @@ export function calculateLifecycleScore(input: CalculateScoreInput): {
   const volumeIntensity = log_normalize(vol, 50_000_000) * 0.3;
   const dataCoverage = Math.min(activeDays / 14, 1) * 0.2;
 
+  // Sentiment proxy (price + news acceleration + volume breadth)
+  const sentimentProxy = computeSentimentProxy({
+    avgPriceChangePct: pricePct,
+    newsThisWeek: newsThisWeek,
+    newsLastWeek: newsLastWeek,
+    avgVolume: vol,
+    prevAvgVolume: input.prevAvgVolume,
+  });
+
   let activityScore = stockPriceChange + volumeIntensity + dataCoverage;
+
+  // Sentiment-adjusted activity: blend activity with sentiment signal
+  activityScore = activityScore * 0.7 + sentimentProxy * 0.3;
 
   // 노이즈 게이트: 관심도 수준이 극히 낮으면 활동성도 감쇠
   if (levelScore < 0.1) {
@@ -135,36 +151,39 @@ export function calculateLifecycleScore(input: CalculateScoreInput): {
 
   // ── 5. Total Score ──
   const maturityRatio = activeDays > 0 ? Math.min(activeDays / 90, 1.5) : 0;
+  const weights = getScoreWeights();
 
   const rawScore =
-    interestScore * SCORE_WEIGHTS.interest +
-    newsScore * SCORE_WEIGHTS.newsMomentum +
-    volatilityScore * SCORE_WEIGHTS.volatility +
-    activityScore * SCORE_WEIGHTS.activity;
+    interestScore * weights.interest +
+    newsScore * weights.newsMomentum +
+    volatilityScore * weights.volatility +
+    activityScore * weights.activity;
 
   const score = Math.round(rawScore * 100);
 
-  // ── Confidence 계산 ──
+  // ── Confidence 계산 (injectable thresholds for ECE calibration) ──
   const interestCoverage = Math.min(interestMetrics.length / 30, 1);
   const newsDaysWithData = new Set(newsMetrics.filter(m => m.article_count > 0).map(m => m.time)).size;
   const newsCoverage = Math.min(newsDaysWithData / 14, 1);
   const coverageScore = interestCoverage * 0.6 + newsCoverage * 0.4;
 
-  let confidenceLevel: ScoreConfidence['level'];
+  const ct = getConfidenceThresholds();
+
+  let confidenceLevel: ConfidenceLevel;
   let confidenceReason: string;
 
-  if (coverageScore >= 0.7 && interestMetrics.length >= 14) {
+  if (coverageScore >= ct.highCoverage && interestMetrics.length >= ct.highDays) {
     confidenceLevel = 'high';
     confidenceReason = '충분한 데이터';
-  } else if (coverageScore >= 0.4 && interestMetrics.length >= 7) {
+  } else if (coverageScore >= ct.mediumCoverage && interestMetrics.length >= ct.mediumDays) {
     confidenceLevel = 'medium';
-    confidenceReason = interestMetrics.length < 14
-      ? `관심도 ${interestMetrics.length}일 (14일 미만)`
+    confidenceReason = interestMetrics.length < ct.highDays
+      ? `관심도 ${interestMetrics.length}일 (${ct.highDays}일 미만)`
       : newsDaysWithData < 7 ? '뉴스 데이터 부족' : '데이터 축적 중';
   } else {
     confidenceLevel = 'low';
-    confidenceReason = interestMetrics.length < 7
-      ? `관심도 ${interestMetrics.length}일 (7일 미만)`
+    confidenceReason = interestMetrics.length < ct.mediumDays
+      ? `관심도 ${interestMetrics.length}일 (${ct.mediumDays}일 미만)`
       : newsDaysWithData === 0 ? '뉴스 데이터 없음' : '데이터 부족';
   }
 
@@ -183,10 +202,10 @@ export function calculateLifecycleScore(input: CalculateScoreInput): {
     maturity_ratio: maturityRatio,
     activity_score: activityScore,
     weights: {
-      interest: SCORE_WEIGHTS.interest,
-      news: SCORE_WEIGHTS.newsMomentum,
-      volatility: SCORE_WEIGHTS.volatility,
-      activity: SCORE_WEIGHTS.activity,
+      interest: weights.interest,
+      news: weights.newsMomentum,
+      volatility: weights.volatility,
+      activity: weights.activity,
     },
     raw: {
       recent_7d_avg: recent7dAvg,
@@ -205,6 +224,8 @@ export function calculateLifecycleScore(input: CalculateScoreInput): {
       volume_intensity: volumeIntensity,
       data_coverage: dataCoverage,
       raw_score: rawScore,
+      sentiment_proxy: sentimentProxy,
+      avg_volume: vol,
     },
     confidence,
   };

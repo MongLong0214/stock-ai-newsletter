@@ -1,6 +1,6 @@
 import { supabase } from '@/lib/supabase'
 import type { ThemeListItem, ThemeRanking } from '@/lib/tli/types'
-import { MIN_RAW_INTEREST } from '@/lib/tli/constants/score-config'
+import { getMinRawInterest } from '@/lib/tli/constants/score-config'
 
 /** 빈 랭킹 응답 (placeholder / 에러 시 재사용) */
 export const EMPTY_RANKING: ThemeRanking = {
@@ -84,11 +84,28 @@ export async function batchLoadNewsCounts(
   return batchResults.flat()
 }
 
+/** Freshness decay: exponential decay for scores older than 7 days (Boomer HIGH fix) */
+export function applyFreshnessDecay(score: number, lastDataDate: string, today: string): number {
+  const daysSince = Math.max(0, daysBetweenDates(today, lastDataDate));
+  if (daysSince <= 7) return score;
+  // e^(-0.1 * (days - 7)) — score halves by ~17 days past threshold
+  const decay = Math.exp(-0.1 * (daysSince - 7));
+  return Math.round(score * decay);
+}
+
+function daysBetweenDates(d1: string, d2: string): number {
+  const date1 = new Date(d1);
+  const date2 = new Date(d2);
+  if (isNaN(date1.getTime()) || isNaN(date2.getTime())) return 0;
+  return Math.floor((date1.getTime() - date2.getTime()) / (1000 * 60 * 60 * 24));
+}
+
 /** 점수 메타 정보 (최신, 7일 전, 스파크라인) */
 export interface ThemeScoreMeta {
   latest: { theme_id: string; score: number; stage: string | null; is_reigniting: boolean; calculated_at: string; components: unknown } | null
   weekAgoScore: { theme_id: string; score: number; stage: string | null; is_reigniting: boolean; calculated_at: string; components: unknown } | null
   sparkline: number[]
+  lastDataDate: string | null
 }
 
 /**
@@ -106,13 +123,16 @@ export function buildScoreMetaMap(
   // scores는 calculated_at desc 정렬 → 첫 번째가 최신
   for (const s of scores) {
     if (!scoreMetaByTheme.has(s.theme_id)) {
-      scoreMetaByTheme.set(s.theme_id, { latest: null, weekAgoScore: null, sparkline: [] })
+      scoreMetaByTheme.set(s.theme_id, { latest: null, weekAgoScore: null, sparkline: [], lastDataDate: null })
     }
     const meta = scoreMetaByTheme.get(s.theme_id)!
     const dateStr = s.calculated_at.includes('T') ? s.calculated_at.split('T')[0] : s.calculated_at
 
     // 최신 점수 (desc이므로 첫 번째 = latest)
-    if (!meta.latest) meta.latest = s
+    if (!meta.latest) {
+      meta.latest = s
+      meta.lastDataDate = dateStr
+    }
 
     // 7일 전 점수: sevenDaysAgo 이하인 첫 번째 (desc이므로 가장 최근)
     if (!meta.weekAgoScore && dateStr <= sevenDaysAgo) {
@@ -207,7 +227,7 @@ export function calculateRankingSummary(
       t.change7d > 3 &&
       t.newsCount7d >= 2 &&
       t.sparkline.length >= 3 &&
-      (rawInterestAvgMap ? (rawInterestAvgMap.get(t.id) ?? 0) >= MIN_RAW_INTEREST : true)
+      (rawInterestAvgMap ? (rawInterestAvgMap.get(t.id) ?? 0) >= getMinRawInterest() : true)
   )
   const surging = surgingCandidates.length > 0
     ? surgingCandidates.reduce((max, t) => (t.change7d > max.change7d ? t : max))

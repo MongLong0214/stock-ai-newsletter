@@ -2,7 +2,7 @@ import { supabase } from '@/lib/supabase'
 import { getStageKo, toStage, isScoreComponents } from '@/lib/tli/types'
 import { apiSuccess, handleApiError, isTableNotFound, placeholderResponse } from '@/lib/tli/api-utils'
 import type { ThemeListItem, ThemeRanking } from '@/lib/tli/types'
-import { EMPTY_RANKING, buildScoreMetaMap, buildCountMaps, calculateRankingSummary, batchLoadStockData, batchLoadNewsCounts } from './ranking-helpers'
+import { EMPTY_RANKING, buildScoreMetaMap, buildCountMaps, calculateRankingSummary, batchLoadStockData, batchLoadNewsCounts, applyFreshnessDecay } from './ranking-helpers'
 import { getKSTDateString } from '@/lib/tli/date-utils'
 import { applyQualityGate } from '@/lib/tli/quality-gate'
 
@@ -99,6 +99,15 @@ export async function GET() {
         avgStockChange: avgStockChangeMap.get(theme.id) ?? null,
       }
     })
+
+    // Apply freshness decay (stale score prevention)
+    const todayStr = getKSTDateString();
+    for (const item of themeData) {
+      const meta = scoreMetaByTheme.get(item.id);
+      if (meta?.lastDataDate) {
+        item.score = applyFreshnessDecay(item.score, meta.lastDataDate, todayStr);
+      }
+    }
 
     // --- 품질 게이트 + 단계별 그룹화 ---
 

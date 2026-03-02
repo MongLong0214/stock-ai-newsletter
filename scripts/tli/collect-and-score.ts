@@ -14,6 +14,10 @@ import { autoActivate, autoDeactivate } from './theme-lifecycle';
 import { evaluateComparisonOutcomes } from './evaluate-comparisons';
 import { getKSTDate, daysAgo } from './utils';
 import { submitToIndexNow, buildThemeUrls } from '../../lib/indexnow';
+import { calibrateNoiseThreshold } from './calibrate-noise';
+import { calibrateConfidence } from './calibrate-confidence';
+import { calibrateWeights } from './calibrate-weights';
+import { loadCalibrationsFromDB } from './load-calibrations';
 
 /** 실행 모드: full(전체 수집) / news-only(뉴스만) */
 type RunMode = 'full' | 'news-only'
@@ -131,6 +135,42 @@ async function main() {
       if (datalabFailed) {
         console.log('\n⊘ DataLab 수집 실패로 후속 단계 생략 (4~8단계)');
       } else {
+        // 3.5단계: 교정값 로드 + 월 1회 재교정 (점수 계산 전 실행)
+        console.log('\n📥 3.5단계: 교정값 로드');
+        try {
+          await loadCalibrationsFromDB();
+        } catch (error: unknown) {
+          console.warn('   ⚠️ 교정값 로드 실패 (기본값 사용):', error instanceof Error ? error.message : String(error));
+        }
+
+        const kstDay = kstNow.getUTCDate();
+        if (kstDay === 1) {
+          console.log('\n🔬 3.5b단계: 월간 과학적 재교정');
+          const calibStart = Date.now();
+
+          try {
+            await calibrateNoiseThreshold();
+          } catch (error: unknown) {
+            console.warn('   ⚠️ 노이즈 교정 실패:', error instanceof Error ? error.message : String(error));
+          }
+
+          try {
+            await calibrateConfidence();
+          } catch (error: unknown) {
+            console.warn('   ⚠️ Confidence 교정 실패:', error instanceof Error ? error.message : String(error));
+          }
+
+          try {
+            await calibrateWeights();
+          } catch (error: unknown) {
+            console.warn('   ⚠️ 가중치 교정 실패:', error instanceof Error ? error.message : String(error));
+          }
+
+          const calibDuration = ((Date.now() - calibStart) / 1000).toFixed(1);
+          console.log(`   ⏱️ 재교정 완료: ${calibDuration}초`);
+        }
+
+        // 4단계: 라이프사이클 점수 계산 (교정값 적용된 상태)
         console.log('\n🧮 4단계: 라이프사이클 점수 계산');
 
         try {

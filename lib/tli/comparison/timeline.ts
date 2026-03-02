@@ -28,8 +28,24 @@ export function normalizeTimeline(
   }))
 }
 
-/** peak 값 기준으로 0-1 정규화 */
-export function normalizeValues(data: TimeSeriesPoint[]): TimeSeriesPoint[] {
+/** Population stats for robust z-score normalization */
+export interface PopulationStats {
+  median: number;
+  mad: number;
+}
+
+/** peak 값 기준으로 0-1 정규화, or robust z-score if population stats provided */
+export function normalizeValues(data: TimeSeriesPoint[], populationStats?: PopulationStats): TimeSeriesPoint[] {
+  // Use robust z-score when population stats are available (cross-theme comparable)
+  if (populationStats && populationStats.mad > 0) {
+    const { median: med, mad } = populationStats;
+    const scaledMAD = mad * 1.4826;
+    return data.map(d => ({
+      day: d.day,
+      value: scaledMAD > 0.001 ? (d.value - med) / scaledMAD : 0,
+    }));
+  }
+  // Fallback: peak normalization (self-max, backward compatible)
   let peak = 1
   for (const d of data) {
     if (d.value > peak) peak = d.value

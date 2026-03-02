@@ -115,6 +115,7 @@ export async function snapshotPredictions(): Promise<void> {
       best_scenario: result.scenarios.best,
       median_scenario: result.scenarios.median,
       worst_scenario: result.scenarios.worst,
+      prediction_intervals: result.predictionIntervals ?? null,
       status: 'pending',
     })
   }
@@ -133,8 +134,24 @@ export async function snapshotPredictions(): Promise<void> {
       .upsert(batch, { onConflict: 'theme_id,snapshot_date' })
 
     if (error) {
-      failedCount += batch.length
-      console.error(`   ⚠️ 스냅샷 저장 실패:`, error.message)
+      // Retry without prediction_intervals if column doesn't exist yet (pre-migration)
+      if (error.message?.includes('prediction_intervals')) {
+        const fallbackBatch = batch.map(r => {
+          const row = { ...r } as Record<string, unknown>
+          delete row.prediction_intervals
+          return row
+        })
+        const { error: retryErr } = await supabaseAdmin
+          .from('prediction_snapshots')
+          .upsert(fallbackBatch, { onConflict: 'theme_id,snapshot_date' })
+        if (retryErr) {
+          failedCount += batch.length
+          console.error(`   ⚠️ 스냅샷 저장 실패 (fallback):`, retryErr.message)
+        }
+      } else {
+        failedCount += batch.length
+        console.error(`   ⚠️ 스냅샷 저장 실패:`, error.message)
+      }
     }
   }
 
