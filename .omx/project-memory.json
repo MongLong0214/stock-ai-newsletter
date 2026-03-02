@@ -1,0 +1,16 @@
+{
+  "notes": [
+    {
+      "category": "architecture",
+      "content": "MCP analytics path has reliability/security gaps: middleware fire-and-forget without waitUntil or timeout, spoofable UA gate, fallback IP salt, app-side limited aggregation."
+    },
+    {
+      "category": "build",
+      "content": "Supabase migration chain issue: 011 recreates allow_insert/allow_select without dropping existing policies created in 010, causing duplicate policy errors on clean bootstrap."
+    },
+    {
+      "category": "test",
+      "content": "No direct tests found for middleware analytics write path, RLS policies, or mcp-stats aggregation correctness under truncation/high-volume scenarios."
+    }
+  ]
+}
