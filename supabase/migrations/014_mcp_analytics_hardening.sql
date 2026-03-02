@@ -91,6 +91,8 @@ BEGIN
 END;
 $$;
 
+-- PostgreSQL 기본 PUBLIC 권한 제거 후 service_role만 허용
+REVOKE EXECUTE ON FUNCTION get_mcp_analytics_stats(timestamptz) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION get_mcp_analytics_stats(timestamptz) TO service_role;
 
 -- 3. TTL cleanup 함수 (M-2: 수동 또는 pg_cron으로 실행)
@@ -110,4 +112,5 @@ BEGIN
 END;
 $$;
 
+REVOKE EXECUTE ON FUNCTION cleanup_mcp_analytics(int) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION cleanup_mcp_analytics(int) TO service_role;
