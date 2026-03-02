@@ -17,7 +17,8 @@ const inferTool = (path: string): string => {
 }
 
 const hashIp = async (ip: string): Promise<string> => {
-  const data = new TextEncoder().encode(ip + 'stockmatrix-salt')
+  const salt = process.env.IP_HASH_SALT || 'fallback-dev-salt'
+  const data = new TextEncoder().encode(ip + salt)
   const buf = await crypto.subtle.digest('SHA-256', data)
   return Array.from(new Uint8Array(buf).slice(0, 8))
     .map((b) => b.toString(16).padStart(2, '0'))
@@ -34,15 +35,14 @@ export const middleware = async (request: NextRequest) => {
   const ipHash = await hashIp(ip)
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-  if (!supabaseUrl || !anonKey) return NextResponse.next()
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!supabaseUrl || !serviceKey) return NextResponse.next()
 
-  // fire-and-forget: 응답 지연 없이 비동기 로깅
   fetch(`${supabaseUrl}/rest/v1/mcp_analytics`, {
     method: 'POST',
     headers: {
-      apikey: anonKey,
-      Authorization: `Bearer ${anonKey}`,
+      apikey: serviceKey,
+      Authorization: `Bearer ${serviceKey}`,
       'Content-Type': 'application/json',
       Prefer: 'return=minimal',
     },
