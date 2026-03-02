@@ -1,6 +1,61 @@
 {
   "newsletters": [
     {
+      "date": "2026-03-03",
+      "stocks": [
+        {
+          "ticker": "KOSPI:000660",
+          "name": "SK하이닉스",
+          "close_price": 1061000,
+          "rationale": "2026-02-27 종가 1,061,000원 확인(Investing.com) | RSI(14) 58.92로 과매수권 미진입 및 상승 여력 확보 | MACD 26309.85로 강력한 매수 시그널 유지 | ADX 44.71로 매우 강한 상승 추세 형성 중 | 2026년 영업이익 전망치 140조 원으로 상향 조정(키움증권 리서치) | HBM4 가격 협상 우호적 환경 및 실적 모멘텀 집중 | MA20(1,050,975원) 및 MA50, MA200 정배열 지지선 확보 | 외국인 비중 및 거래대금 코스피 최상위권 유지 | ATR 19714.28로 변동성 확대 국면 진입, 돌파 시 급등 가능성 | 1Q26 영업이익 28조 원 전망으로 시장 컨센서스 대폭 상회 기대",
+          "signals": {
+            "trend_score": 95,
+            "momentum_score": 88,
+            "volume_score": 92,
+            "volatility_score": 85,
+            "pattern_score": 90,
+            "sentiment_score": 94,
+            "overall_score": 91
+          },
+          "verified_date": "2026-02-27"
+        },
+        {
+          "ticker": "KOSPI:005380",
+          "name": "현대차",
+          "close_price": 427000,
+          "rationale": "2026-02-27 종가 427,000원 확인(한국경제 시장종합) | 새만금 10조 원 규모 AI 데이터센터 및 로봇 생산시설 투자 발표(KB증권) | '피지컬 AI' 기업으로의 체질 개선 및 글로벌 성장주 재평가 국면 | 정부의 3차 상법개정안 및 밸류업 프로그램 핵심 수혜주 | 2026년 RMAC 구축 및 2027년 SDV 양산 모멘텀 확보 | 기관 및 외국인의 대형주 중심 수급 유입 지속 | 정배열 추세 유지 및 52주 신고가 랠리 합류 | PBR 및 PER 기준 글로벌 동종 업계 대비 극심한 저평가 상태 | 거래량 회전율 28%로 3년 10개월 만에 최대치 기록한 시장 활황 수혜 | 자사주 소각 및 주주환원 확대 공시 기대감 고조",
+          "signals": {
+            "trend_score": 89,
+            "momentum_score": 91,
+            "volume_score": 87,
+            "volatility_score": 82,
+            "pattern_score": 88,
+            "sentiment_score": 95,
+            "overall_score": 89
+          },
+          "verified_date": "2026-02-27"
+        },
+        {
+          "ticker": "KOSPI:005930",
+          "name": "삼성전자",
+          "close_price": 216500,
+          "rationale": "2026-02-27 종가 216,500원 확인(Daum 금융) | 2026년 3월 19일 기업가치 제고(밸류업) 계획 공시 확정 모멘텀 | 외국인 지분율 50.66% 유지 및 대형 반도체주 중심 수급 쏠림 | 반도체 수출액이 전체 수출의 1/3 차지하며 실적 피크아웃 우려 불식 | 코스피 6,300선 돌파 장세 속 시가총액 1조 달러 돌파 달성 | 52주 신고가 223,000원(2026-02-27 장중) 돌파 시도하는 강한 패턴 | 일평균 거래대금 10조 원 이상으로 코스피 전체의 33% 점유 | 1Q26 어닝 서프라이즈 기대감 및 메모리 가격 상승세 지속 | MA5, MA10 단기 이평선 지지 확인 | AI 수요에 따른 첨단 DRAM 및 HBM 공급 부족의 최대 수혜",
+          "signals": {
+            "trend_score": 92,
+            "momentum_score": 85,
+            "volume_score": 96,
+            "volatility_score": 80,
+            "pattern_score": 89,
+            "sentiment_score": 93,
+            "overall_score": 89
+          },
+          "verified_date": "2026-02-27"
+        }
+      ],
+      "sentAt": "2026-03-02T22:36:31.081+00:00",
+      "subscriberCount": 216
+    },
+    {
       "date": "2026-02-27",
       "stocks": [
         {
@@ -4584,5 +4639,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-03-01T23:02:41.214Z"
+  "lastUpdated": "2026-03-02T22:37:08.754Z"
 }
