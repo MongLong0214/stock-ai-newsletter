@@ -2,17 +2,12 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.MongLong0214/stockmatrix-mcp",
   "description": "Korean stock market theme lifecycle analysis for 250+ KOSPI/KOSDAQ investment themes",
-  "repository": {
-    "url": "https://github.com/MongLong0214/stock-ai-newsletter",
-    "source": "github",
-    "subfolder": "mcp"
-  },
-  "version": "0.1.1",
+  "version": "0.1.3",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "stockmatrix-mcp",
-      "version": "0.1.1",
+      "version": "0.1.3",
       "transport": {
         "type": "stdio"
       },
