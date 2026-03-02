@@ -12,13 +12,12 @@ CREATE TABLE IF NOT EXISTS mcp_analytics (
 CREATE INDEX idx_mcp_analytics_created_at ON mcp_analytics (created_at DESC);
 CREATE INDEX idx_mcp_analytics_tool_name ON mcp_analytics (tool_name, created_at DESC);
 
--- RLS 비활성화 (서버사이드에서만 삽입)
+-- RLS
 ALTER TABLE mcp_analytics ENABLE ROW LEVEL SECURITY;
 
--- service_role만 삽입 가능
-CREATE POLICY "service_role_insert" ON mcp_analytics
-  FOR INSERT TO service_role WITH CHECK (true);
+-- anon + service_role 삽입/조회 허용 (서버사이드 API에서만 호출)
+CREATE POLICY "allow_insert" ON mcp_analytics
+  FOR INSERT WITH CHECK (true);
 
--- service_role만 조회 가능
-CREATE POLICY "service_role_select" ON mcp_analytics
-  FOR SELECT TO service_role USING (true);
+CREATE POLICY "allow_select" ON mcp_analytics
+  FOR SELECT USING (true);

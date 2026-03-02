@@ -34,15 +34,15 @@ export const middleware = async (request: NextRequest) => {
   const ipHash = await hashIp(ip)
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-  if (!supabaseUrl || !serviceKey) return NextResponse.next()
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  if (!supabaseUrl || !anonKey) return NextResponse.next()
 
   // fire-and-forget: 응답 지연 없이 비동기 로깅
   fetch(`${supabaseUrl}/rest/v1/mcp_analytics`, {
     method: 'POST',
     headers: {
-      apikey: serviceKey,
-      Authorization: `Bearer ${serviceKey}`,
+      apikey: anonKey,
+      Authorization: `Bearer ${anonKey}`,
       'Content-Type': 'application/json',
       Prefer: 'return=minimal',
     },
