@@ -1,14 +1,27 @@
 import { NextResponse } from 'next/server'
+import { timingSafeEqual } from 'crypto'
 import { createClient } from '@supabase/supabase-js'
 
 const ADMIN_SECRET = process.env.ADMIN_SECRET
 const MAX_DAYS = 365
 
+const verifyBearerToken = (authHeader: string | null): boolean => {
+  if (!ADMIN_SECRET || !authHeader) return false
+  const token = authHeader.replace('Bearer ', '')
+  if (token.length !== ADMIN_SECRET.length) return false
+  try {
+    return timingSafeEqual(
+      Buffer.from(token, 'utf8'),
+      Buffer.from(ADMIN_SECRET, 'utf8')
+    )
+  } catch {
+    return false
+  }
+}
+
 export async function GET(request: Request) {
   const authHeader = request.headers.get('authorization')
-  const secret = authHeader?.replace('Bearer ', '')
-
-  if (!ADMIN_SECRET || secret !== ADMIN_SECRET) {
+  if (!verifyBearerToken(authHeader)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
@@ -27,43 +40,24 @@ export async function GET(request: Request) {
   const since = new Date()
   since.setDate(since.getDate() - days)
 
-  const QUERY_LIMIT = 1000
-
-  const { data: rows, error } = await supabase
-    .from('mcp_analytics')
-    .select('tool_name, path, user_agent, ip_hash, created_at')
-    .gte('created_at', since.toISOString())
-    .order('created_at', { ascending: false })
-    .limit(QUERY_LIMIT)
+  const { data, error } = await supabase.rpc('get_mcp_analytics_stats', {
+    p_since: since.toISOString(),
+  })
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
-  }
-
-  const totalCalls = rows?.length ?? 0
-  const truncated = totalCalls === QUERY_LIMIT
-  const uniqueUsers = new Set(rows?.map((r) => r.ip_hash)).size
-  const toolCounts: Record<string, number> = {}
-  const dailyCounts: Record<string, number> = {}
-  const userAgents: Record<string, number> = {}
-
-  for (const row of rows ?? []) {
-    toolCounts[row.tool_name] = (toolCounts[row.tool_name] ?? 0) + 1
-
-    const day = row.created_at.slice(0, 10)
-    dailyCounts[day] = (dailyCounts[day] ?? 0) + 1
-
-    if (row.user_agent) {
-      userAgents[row.user_agent] = (userAgents[row.user_agent] ?? 0) + 1
-    }
+    console.error('[mcp-stats] query error:', error.message)
+    return NextResponse.json({ error: 'Internal query failed' }, { status: 500 })
   }
 
   return NextResponse.json({
     period: { days, since: since.toISOString() },
-    summary: { totalCalls, uniqueUsers, truncated },
-    byTool: toolCounts,
-    byDay: dailyCounts,
-    byUserAgent: userAgents,
+    summary: {
+      totalCalls: data?.totalCalls ?? 0,
+      uniqueUsers: data?.uniqueUsers ?? 0,
+    },
+    byTool: data?.byTool ?? {},
+    byDay: data?.byDay ?? {},
+    byUserAgent: data?.byUserAgent ?? {},
   })
 }
 
