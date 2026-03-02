@@ -46,21 +46,23 @@ export function determineStage(
   components: ScoreComponents,
   prevStage?: Stage | null,
   dataGapDays?: number,
+  thresholds?: { dormant: number; emerging: number; growth: number; peak: number },
 ): Stage {
   const trend = computeTrend(components);
   const newsVolume = components.raw.news_this_week;
   const rawScore = components.raw.raw_score ?? score / 100;
 
   // ── Multi-Signal 우선순위 판정 ──
+  const t = thresholds ?? { dormant: 15, emerging: 40, growth: 58, peak: 68 };
   let candidate: Stage;
 
   // 1. Dormant: 낮은 점수 + 상승 추세 아님
-  if (score < 15 && trend !== 'rising') {
+  if (score < t.dormant && trend !== 'rising') {
     candidate = 'Dormant';
   }
   // 2. Peak: 높은 점수 또는 복합 시그널 (EMA bypass 포함)
   else if (
-    score >= 63 ||
+    score >= t.peak ||
     (score >= 50 && (trend === 'stable' || trend === 'rising') && newsVolume > 30)
   ) {
     candidate = 'Peak';
@@ -74,7 +76,7 @@ export function determineStage(
     candidate = 'Decline';
   }
   // 4. Growth: 중상위 점수 + 안정/상승 추세
-  else if (score >= 40 && (trend === 'stable' || trend === 'rising')) {
+  else if (score >= t.emerging && (trend === 'stable' || trend === 'rising')) {
     candidate = 'Growth';
   }
   // 5. Emerging: 나머지 전부

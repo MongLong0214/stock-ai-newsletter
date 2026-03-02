@@ -105,3 +105,31 @@ export function calculateDVI(values: number[]): number {
   const rs = avgUp / avgDown;
   return 1 - 1 / (1 + rs);
 }
+
+/** Median Absolute Deviation — robust spread estimator (Greco 2023) */
+export function medianAbsoluteDeviation(values: number[]): number {
+  if (values.length === 0) return 0;
+  const sorted = [...values].sort((a, b) => a - b);
+  const med = sorted[Math.floor(sorted.length / 2)];
+  const deviations = sorted.map(v => Math.abs(v - med));
+  deviations.sort((a, b) => a - b);
+  return deviations[Math.floor(deviations.length / 2)];
+}
+
+/** Robust Z-score using MAD (resistant to outliers) */
+export function robustZScore(value: number, med: number, mad: number): number {
+  // 0.6745 is the 75th percentile of standard normal (MAD consistency constant)
+  const scaledMAD = mad * 1.4826;  // = 1/0.6745
+  if (scaledMAD < 0.001) return 0;
+  return (value - med) / scaledMAD;
+}
+
+/** Median of sorted array */
+export function median(sortedValues: number[]): number {
+  if (sortedValues.length === 0) return 0;
+  const mid = Math.floor(sortedValues.length / 2);
+  if (sortedValues.length % 2 === 0) {
+    return (sortedValues[mid - 1] + sortedValues[mid]) / 2;
+  }
+  return sortedValues[mid];
+}

@@ -1,9 +1,22 @@
 /** 점수 컴포넌트 가중치 및 UI 설정 — 단일 소스 */
 
-/** 노이즈 감쇠 임계값: rawAvg가 이 값 미만이면 interestScore에 dampening 적용 */
+/** 노이즈 감쇠 기본 임계값 */
 export const MIN_RAW_INTEREST = 5
 
-/** 점수 컴포넌트 가중치 */
+/** 캘리브레이션된 노이즈 임계값 (ROC 교정 시 업데이트) */
+let _calibratedMinRawInterest: number | null = null
+
+/** 캘리브레이션된 노이즈 임계값 설정 (calibrate-noise.ts에서 호출) */
+export function setMinRawInterest(value: number) {
+  _calibratedMinRawInterest = value
+}
+
+/** 현재 노이즈 임계값 반환 (캘리브레이션 우선, 없으면 기본값) */
+export function getMinRawInterest(): number {
+  return _calibratedMinRawInterest ?? MIN_RAW_INTEREST
+}
+
+/** 기본 점수 컴포넌트 가중치 */
 export const SCORE_WEIGHTS = {
   interest: 0.40,
   newsMomentum: 0.35,
@@ -11,7 +24,53 @@ export const SCORE_WEIGHTS = {
   activity: 0.15,
 } as const
 
-// 가중치 합계 검증 (1.0이 아니면 즉시 에러)
+/** Entropy 가중치 도메인 바운드 (최소, 최대) */
+export const WEIGHT_BOUNDS = {
+  interest: [0.25, 0.55] as const,
+  newsMomentum: [0.20, 0.45] as const,
+  volatility: [0.05, 0.20] as const,
+  activity: [0.05, 0.25] as const,
+} as const
+
+/** 캘리브레이션된 가중치 (entropy-weights.ts에서 업데이트) */
+let _calibratedWeights: { interest: number; newsMomentum: number; volatility: number; activity: number } | null = null
+
+/** 캘리브레이션된 가중치 설정 */
+export function setScoreWeights(weights: { interest: number; newsMomentum: number; volatility: number; activity: number }) {
+  const sum = weights.interest + weights.newsMomentum + weights.volatility + weights.activity
+  if (Math.abs(sum - 1.0) > 0.001) {
+    throw new Error(`가중치 합계 ${sum} ≠ 1.0`)
+  }
+  _calibratedWeights = weights
+}
+
+/** 현재 가중치 반환 (캘리브레이션 우선, 없으면 기본값) */
+export function getScoreWeights(): { interest: number; newsMomentum: number; volatility: number; activity: number } {
+  return _calibratedWeights ?? { ...SCORE_WEIGHTS }
+}
+
+/** Confidence 임계값 기본값 */
+export const CONFIDENCE_THRESHOLDS = {
+  highCoverage: 0.7,
+  highDays: 14,
+  mediumCoverage: 0.4,
+  mediumDays: 7,
+} as const
+
+/** 캘리브레이션된 confidence 임계값 (calibrate-confidence.ts에서 업데이트) */
+let _calibratedConfidenceThresholds: { highCoverage: number; highDays: number; mediumCoverage: number; mediumDays: number } | null = null
+
+/** 캘리브레이션된 confidence 임계값 설정 */
+export function setConfidenceThresholds(thresholds: { highCoverage: number; highDays: number; mediumCoverage: number; mediumDays: number }) {
+  _calibratedConfidenceThresholds = thresholds
+}
+
+/** 현재 confidence 임계값 반환 (캘리브레이션 우선, 없으면 기본값) */
+export function getConfidenceThresholds(): { highCoverage: number; highDays: number; mediumCoverage: number; mediumDays: number } {
+  return _calibratedConfidenceThresholds ?? { ...CONFIDENCE_THRESHOLDS }
+}
+
+// 기본 가중치 합계 검증
 const _weightSum = Object.values(SCORE_WEIGHTS).reduce((s, w) => s + w, 0)
 if (Math.abs(_weightSum - 1.0) > 0.001) {
   throw new Error(`SCORE_WEIGHTS 합계 ${_weightSum} ≠ 1.0`)

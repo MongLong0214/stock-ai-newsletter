@@ -7,6 +7,7 @@ import { pearsonCorrelation, cosineSimilarity, zScoreEuclideanSimilarity, keywor
 import type { ThemeFeatures } from './features'
 import { featuresToArray } from './features'
 import { formatDays } from '../date-utils'
+import { dtwSimilarity } from './dtw'
 
 const MAX_LIFECYCLE_DAYS = 365
 
@@ -133,7 +134,11 @@ function computeCurveSim(
   }
   const derivCorr = dC.length >= 7 ? Math.max(0, pearsonCorrelation(dC, dP)) : 0
 
-  return { curveSim: shapeSim * 0.6 + derivCorr * 0.4, minCurveLen }
+  // DTW similarity (phase-shift resistant)
+  const dtwSim = dtwSimilarity(cR, pR)
+
+  // 3-signal ensemble: RMSE 0.35 + derivative Pearson 0.30 + DTW 0.35
+  return { curveSim: shapeSim * 0.35 + derivCorr * 0.30 + dtwSim * 0.35, minCurveLen }
 }
 
 // ── 메시지 생성 ──────────────────────────────────────────────────────────────

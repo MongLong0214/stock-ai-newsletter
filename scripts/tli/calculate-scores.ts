@@ -142,6 +142,9 @@ export async function calculateAndSaveScores(themes: ThemeWithKeywords[]) {
       const prevRecord = prevRecords[0] ?? null
       const prevSmoothedScore = prevRecord?.smoothed_score ?? prevRecord?.score ?? undefined
 
+      // 이전 거래량 (sentiment volume acceleration용)
+      const prevAvgVolume = prevRecord?.components?.raw?.avg_volume as number | undefined
+
       const result = calculateLifecycleScore({
         interestMetrics,
         newsMetrics: newsCache.get(theme.id) || [],
@@ -151,6 +154,7 @@ export async function calculateAndSaveScores(themes: ThemeWithKeywords[]) {
         avgPriceChangePct,
         avgVolume,
         prevSmoothedScore,
+        prevAvgVolume,
       })
 
       if (!result) {
@@ -189,9 +193,9 @@ export async function calculateAndSaveScores(themes: ThemeWithKeywords[]) {
       // 1. Markov-constrained candidate (smoothed score 기준)
       const markovStage = determineStage(smoothedScore, components, prevStage, dataGapDays)
 
-      // 2. Peak fast-track: rawScore >= 63 AND smoothedScore >= 50 → 즉시 Peak
+      // 2. Peak fast-track: rawScore >= 68 AND smoothedScore >= 50 → 즉시 Peak
       let finalStage: Stage
-      if (rawScore >= 63 && smoothedScore >= 50 && markovStage === 'Peak') {
+      if (rawScore >= 68 && smoothedScore >= 50 && markovStage === 'Peak') {
         finalStage = 'Peak'
       }
       // 3. 변경 없으면 그대로

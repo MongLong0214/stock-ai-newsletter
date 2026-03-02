@@ -2,7 +2,8 @@
 
 import { KST_OFFSET_MS } from './date-utils'
 import { buildPhaseMessage, buildKeyInsight } from './prediction-helpers'
-import type { Stage, ConfidenceLevel } from './types'
+import { computePredictionIntervals } from './prediction-bootstrap'
+import type { Stage, ConfidenceLevel, PredictionInterval } from './types'
 
 export type { ConfidenceLevel }
 export type Phase = 'rising' | 'hot' | 'cooling'
@@ -60,6 +61,11 @@ export interface PredictionResult {
   keyInsight: string
   /** Stage-derived Phase 신뢰도 */
   stageConfidence: number
+  /** Bootstrap prediction intervals (90% CI) */
+  predictionIntervals?: {
+    peakDay: PredictionInterval | null;
+    totalDays: PredictionInterval | null;
+  }
 }
 
 export interface ComparisonInput {
@@ -81,8 +87,8 @@ function clamp(value: number, min: number, max: number): number {
 }
 
 function deriveConfidence(count: number, avgSimilarity: number): ConfidenceLevel {
-  if (count >= 3 && avgSimilarity >= 0.55) return 'high'
-  if (count >= 2 && avgSimilarity >= 0.40) return 'medium'
+  if (count >= 5 && avgSimilarity >= 0.55) return 'high'
+  if (count >= 3 && avgSimilarity >= 0.40) return 'medium'
   return 'low'
 }
 
@@ -207,7 +213,7 @@ export function calculatePrediction(
   stage?: Stage,
 ): PredictionResult | null {
   const validComparisons = comparisons.filter(c => c.pastTotalDays >= 14 && c.pastPeakDay >= 3)
-  if (validComparisons.length < 2) return null
+  if (validComparisons.length < 3) return null
 
   const now = today ? new Date(today).getTime() : Date.now() + KST_OFFSET_MS
   const spike = firstSpikeDate ? new Date(firstSpikeDate).getTime() : 0
@@ -244,6 +250,15 @@ export function calculatePrediction(
   const scenarios = buildScenarios(validComparisons)
   const stageConfidence = computeStageConfidence(phase, momentum, score, avgPeakDay, daysSinceSpike)
 
+  // Bootstrap prediction intervals (90% CI)
+  const predictionIntervals = computePredictionIntervals(
+    validComparisons.map(c => ({
+      pastPeakDay: c.pastPeakDay,
+      pastTotalDays: c.pastTotalDays,
+      similarity: c.similarity,
+    }))
+  );
+
   return {
     daysSinceSpike,
     confidence,
@@ -261,6 +276,10 @@ export function calculatePrediction(
     riskLevel,
     keyInsight: buildKeyInsight(phase, avgDaysToPeak, score),
     stageConfidence,
+    predictionIntervals: {
+      peakDay: predictionIntervals.peakDayCI,
+      totalDays: predictionIntervals.totalDaysCI,
+    },
   }
 }
 

@@ -112,6 +112,10 @@ export interface ScoreComponents {
     smoothed_score?: number;
     /** 히스테리시스용: 마르코프 제약 단계 후보 (다음날 비교용) */
     stage_candidate?: string;
+    /** Multi-signal sentiment proxy (price + news accel + volume breadth) */
+    sentiment_proxy?: number;
+    /** 평균 거래량 (다음 실행의 prevAvgVolume 참조용) */
+    avg_volume?: number;
   };
   confidence?: ScoreConfidence;
 }
@@ -151,6 +155,14 @@ export interface ThemeComparison {
   trajectory_correlation?: number | null;
   stage_match?: boolean | null;
   verified_at?: string | null;
+}
+
+/** Bootstrap prediction interval (B=1000, 90% CI) */
+export interface PredictionInterval {
+  lower: number;
+  upper: number;
+  median: number;
+  confidenceLevel: number;
 }
 
 export interface ComparisonCalibration {
