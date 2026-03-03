@@ -1,6 +1,63 @@
 {
   "newsletters": [
     {
+      "type": "stock",
+      "date": "2026-03-04",
+      "stocks": [
+        {
+          "ticker": "KOSPI:064350",
+          "name": "현대로템",
+          "close_price": 253500,
+          "rationale": "2026년 3월 3일 '검은 화요일' 지수 급락 속 9.98% 급등하며 강한 하방경직성 확인|52주 신고가(274,000원) 돌파 시도 후 매물 소화 과정 진행|EMA 5-20-60일선 완전 정배열 상태 유지|RSI(14) 68.4로 과매수 구간 진입 직전의 강력한 모멘텀 형성|거래량 2,286,000주로 전일 대비 폭발적 증가(수급 집중)|ADX 38.2로 강한 상승 추세 진행 중임이 기술적으로 증명|MACD 오실레이터 양의 영역에서 확산세 지속|볼린저밴드 상단 돌파 후 밴드 타고 상승하는 '태우기' 패턴 발생|ATR 4.8%로 변동성 확대되며 급등 가능 구간 진입|MFI 72.4로 자금 유입 강도 최상위권 유지|중동 리스크 고조에 따른 방산 테마 대장주 지위 부각|K-2 전차 추가 수출 모멘텀 및 지정학적 위기 수혜 기대",
+          "signals": {
+            "trend_score": 96,
+            "momentum_score": 94,
+            "volume_score": 98,
+            "volatility_score": 85,
+            "pattern_score": 92,
+            "sentiment_score": 97,
+            "overall_score": 94
+          },
+          "verified_date": "2026-03-03"
+        },
+        {
+          "ticker": "KOSDAQ:028300",
+          "name": "HLB",
+          "close_price": 54100,
+          "rationale": "코스피 7% 폭락장에서도 4.44% 상승하며 시장 대비 압도적 상대강도(RS) 과시|SMA 20일선(51,700원) 및 10일선 지지 확인 후 반등 성공|RSI(14) 48.6으로 중립 구간 내 매수 여력 충분|MACD 히스토그램 양전환 발생하며 단기 매수 신호 포착|거래량 3,219,000주 기록하며 지수 하락 시 저가 매수세 대거 유입|볼린저밴드 중심선 탈환 및 상향 돌파 시도|ATR 4.2%로 변동성 안정화 속 수익 구간 진입|OBV 지표 점진적 우상향하며 매집 패턴 지속|스토캐스틱 %K선이 %D선을 상향 돌파하는 골든크로스 완성|Williams %R -32로 매수 우위 권역 안착|지정학적 리스크 회피용 바이오 섹터 대장주로의 자금 이동 포착|간암 신약 글로벌 유통망 확충 뉴스에 따른 심리적 지지선 강화",
+          "signals": {
+            "trend_score": 88,
+            "momentum_score": 85,
+            "volume_score": 90,
+            "volatility_score": 82,
+            "pattern_score": 86,
+            "sentiment_score": 88,
+            "overall_score": 87
+          },
+          "verified_date": "2026-03-03"
+        },
+        {
+          "ticker": "KOSPI:329180",
+          "name": "HD현대중공업",
+          "close_price": 590000,
+          "rationale": "지수 폭락 영향으로 -2.15% 하락했으나 SMA 60일선(561,433원)에서 강력한 기술적 지지 확인|전일 종가 603,000원 대비 과도한 낙폭에 따른 기술적 반등 가능성 증대|RSI(14) 47.9로 하락장 속에서도 과매도 구간 진입 없이 안정적 흐름 유지|ADX 19.4로 추세 형성 초기 단계이며 하락 강도 미약함 확인|거래량 416,330주로 하락 시 투매가 아닌 견조한 손바꿈 양상|볼린저밴드 하단 근접 후 아래꼬리 형성하며 저가 매수세 유입 입증|ATR 3.5%로 안정적인 변동성 범위 내 위치|MFI 55로 자금 이탈보다 유입 흐름이 우세한 구간|스토캐스틱 K-D 교차 완료 후 상향 반전 준비 중|호르무즈 해협 봉쇄 리스크에 따른 조선/해양 방산 가치 재평가 국면|미국-이란 전쟁 장기화 우려 시 에너지 수송 및 방산 군함 모멘텀 부각|기관 매수세 잔류로 수급 안정성 확보",
+          "signals": {
+            "trend_score": 84,
+            "momentum_score": 82,
+            "volume_score": 80,
+            "volatility_score": 85,
+            "pattern_score": 88,
+            "sentiment_score": 80,
+            "overall_score": 83
+          },
+          "verified_date": "2026-03-03"
+        }
+      ],
+      "sentAt": "2026-03-03T22:36:56.283+00:00",
+      "subscriberCount": 216
+    },
+    {
+      "type": "stock",
       "date": "2026-03-03",
       "stocks": [
         {
@@ -56,6 +113,7 @@
       "subscriberCount": 216
     },
     {
+      "type": "stock",
       "date": "2026-02-27",
       "stocks": [
         {
@@ -111,6 +169,7 @@
       "subscriberCount": 203
     },
     {
+      "type": "stock",
       "date": "2026-02-26",
       "stocks": [
         {
@@ -166,6 +225,7 @@
       "subscriberCount": 200
     },
     {
+      "type": "stock",
       "date": "2026-02-25",
       "stocks": [
         {
@@ -221,6 +281,7 @@
       "subscriberCount": 196
     },
     {
+      "type": "stock",
       "date": "2026-02-24",
       "stocks": [
         {
@@ -276,6 +337,7 @@
       "subscriberCount": 195
     },
     {
+      "type": "stock",
       "date": "2026-02-23",
       "stocks": [
         {
@@ -331,6 +393,7 @@
       "subscriberCount": 171
     },
     {
+      "type": "stock",
       "date": "2026-02-20",
       "stocks": [
         {
@@ -386,6 +449,7 @@
       "subscriberCount": 161
     },
     {
+      "type": "stock",
       "date": "2026-02-19",
       "stocks": [
         {
@@ -441,6 +505,7 @@
       "subscriberCount": 155
     },
     {
+      "type": "stock",
       "date": "2026-02-17",
       "stocks": [
         {
@@ -496,6 +561,7 @@
       "subscriberCount": 149
     },
     {
+      "type": "stock",
       "date": "2026-02-16",
       "stocks": [
         {
@@ -551,6 +617,7 @@
       "subscriberCount": 148
     },
     {
+      "type": "stock",
       "date": "2026-02-13",
       "stocks": [
         {
@@ -606,6 +673,7 @@
       "subscriberCount": 145
     },
     {
+      "type": "stock",
       "date": "2026-02-12",
       "stocks": [
         {
@@ -661,6 +729,7 @@
       "subscriberCount": 139
     },
     {
+      "type": "stock",
       "date": "2026-02-11",
       "stocks": [
         {
@@ -716,6 +785,7 @@
       "subscriberCount": 139
     },
     {
+      "type": "stock",
       "date": "2026-02-10",
       "stocks": [
         {
@@ -771,6 +841,7 @@
       "subscriberCount": 134
     },
     {
+      "type": "stock",
       "date": "2026-02-09",
       "stocks": [
         {
@@ -826,6 +897,7 @@
       "subscriberCount": 125
     },
     {
+      "type": "stock",
       "date": "2026-02-06",
       "stocks": [
         {
@@ -881,6 +953,7 @@
       "subscriberCount": 121
     },
     {
+      "type": "stock",
       "date": "2026-02-05",
       "stocks": [
         {
@@ -936,6 +1009,7 @@
       "subscriberCount": 117
     },
     {
+      "type": "stock",
       "date": "2026-02-04",
       "stocks": [
         {
@@ -991,6 +1065,7 @@
       "subscriberCount": 114
     },
     {
+      "type": "stock",
       "date": "2026-02-03",
       "stocks": [
         {
@@ -1046,6 +1121,7 @@
       "subscriberCount": 113
     },
     {
+      "type": "stock",
       "date": "2026-02-02",
       "stocks": [
         {
@@ -1101,6 +1177,7 @@
       "subscriberCount": 111
     },
     {
+      "type": "stock",
       "date": "2026-01-30",
       "stocks": [
         {
@@ -1156,6 +1233,7 @@
       "subscriberCount": 103
     },
     {
+      "type": "stock",
       "date": "2026-01-29",
       "stocks": [
         {
@@ -1211,6 +1289,7 @@
       "subscriberCount": 99
     },
     {
+      "type": "stock",
       "date": "2026-01-28",
       "stocks": [
         {
@@ -1266,6 +1345,7 @@
       "subscriberCount": 97
     },
     {
+      "type": "stock",
       "date": "2026-01-27",
       "stocks": [
         {
@@ -1321,6 +1401,7 @@
       "subscriberCount": 95
     },
     {
+      "type": "stock",
       "date": "2026-01-26",
       "stocks": [
         {
@@ -1376,6 +1457,7 @@
       "subscriberCount": 95
     },
     {
+      "type": "stock",
       "date": "2026-01-23",
       "stocks": [
         {
@@ -1431,6 +1513,7 @@
       "subscriberCount": 87
     },
     {
+      "type": "stock",
       "date": "2026-01-22",
       "stocks": [
         {
@@ -1486,6 +1569,7 @@
       "subscriberCount": 83
     },
     {
+      "type": "stock",
       "date": "2026-01-21",
       "stocks": [
         {
@@ -1541,6 +1625,7 @@
       "subscriberCount": 80
     },
     {
+      "type": "stock",
       "date": "2026-01-20",
       "stocks": [
         {
@@ -1596,6 +1681,7 @@
       "subscriberCount": 78
     },
     {
+      "type": "stock",
       "date": "2026-01-19",
       "stocks": [
         {
@@ -1651,6 +1737,7 @@
       "subscriberCount": 78
     },
     {
+      "type": "stock",
       "date": "2026-01-16",
       "stocks": [
         {
@@ -1706,6 +1793,7 @@
       "subscriberCount": 76
     },
     {
+      "type": "stock",
       "date": "2026-01-15",
       "stocks": [
         {
@@ -1761,6 +1849,7 @@
       "subscriberCount": 76
     },
     {
+      "type": "stock",
       "date": "2026-01-14",
       "stocks": [
         {
@@ -1816,6 +1905,7 @@
       "subscriberCount": 76
     },
     {
+      "type": "stock",
       "date": "2026-01-13",
       "stocks": [
         {
@@ -1871,6 +1961,7 @@
       "subscriberCount": 76
     },
     {
+      "type": "stock",
       "date": "2026-01-12",
       "stocks": [
         {
@@ -1926,6 +2017,7 @@
       "subscriberCount": 73
     },
     {
+      "type": "stock",
       "date": "2026-01-09",
       "stocks": [
         {
@@ -1981,6 +2073,7 @@
       "subscriberCount": 71
     },
     {
+      "type": "stock",
       "date": "2026-01-08",
       "stocks": [
         {
@@ -2036,6 +2129,7 @@
       "subscriberCount": 69
     },
     {
+      "type": "stock",
       "date": "2026-01-07",
       "stocks": [
         {
@@ -2091,6 +2185,7 @@
       "subscriberCount": 67
     },
     {
+      "type": "stock",
       "date": "2026-01-06",
       "stocks": [
         {
@@ -2143,6 +2238,7 @@
       "subscriberCount": 60
     },
     {
+      "type": "stock",
       "date": "2026-01-05",
       "stocks": [
         {
@@ -2195,6 +2291,7 @@
       "subscriberCount": 57
     },
     {
+      "type": "stock",
       "date": "2026-01-02",
       "stocks": [
         {
@@ -2247,6 +2344,7 @@
       "subscriberCount": 53
     },
     {
+      "type": "stock",
       "date": "2026-01-01",
       "stocks": [
         {
@@ -2299,6 +2397,7 @@
       "subscriberCount": 53
     },
     {
+      "type": "stock",
       "date": "2025-12-31",
       "stocks": [
         {
@@ -2351,6 +2450,7 @@
       "subscriberCount": 51
     },
     {
+      "type": "stock",
       "date": "2025-12-30",
       "stocks": [
         {
@@ -2403,6 +2503,7 @@
       "subscriberCount": 50
     },
     {
+      "type": "stock",
       "date": "2025-12-29",
       "stocks": [
         {
@@ -2455,6 +2556,7 @@
       "subscriberCount": 49
     },
     {
+      "type": "stock",
       "date": "2025-12-26",
       "stocks": [
         {
@@ -2507,6 +2609,7 @@
       "subscriberCount": 49
     },
     {
+      "type": "stock",
       "date": "2025-12-25",
       "stocks": [
         {
@@ -2559,6 +2662,7 @@
       "subscriberCount": 49
     },
     {
+      "type": "stock",
       "date": "2025-12-24",
       "stocks": [
         {
@@ -2611,6 +2715,7 @@
       "subscriberCount": 49
     },
     {
+      "type": "stock",
       "date": "2025-12-23",
       "stocks": [
         {
@@ -2663,6 +2768,7 @@
       "subscriberCount": 49
     },
     {
+      "type": "stock",
       "date": "2025-12-22",
       "stocks": [
         {
@@ -2715,6 +2821,7 @@
       "subscriberCount": 49
     },
     {
+      "type": "stock",
       "date": "2025-12-19",
       "stocks": [
         {
@@ -2767,6 +2874,7 @@
       "subscriberCount": 49
     },
     {
+      "type": "stock",
       "date": "2025-12-18",
       "stocks": [
         {
@@ -2819,6 +2927,7 @@
       "subscriberCount": 49
     },
     {
+      "type": "stock",
       "date": "2025-12-17",
       "stocks": [
         {
@@ -2871,6 +2980,7 @@
       "subscriberCount": 49
     },
     {
+      "type": "stock",
       "date": "2025-12-16",
       "stocks": [
         {
@@ -2923,6 +3033,7 @@
       "subscriberCount": 49
     },
     {
+      "type": "stock",
       "date": "2025-12-15",
       "stocks": [
         {
@@ -2975,6 +3086,7 @@
       "subscriberCount": 48
     },
     {
+      "type": "stock",
       "date": "2025-12-12",
       "stocks": [
         {
@@ -3027,6 +3139,7 @@
       "subscriberCount": 46
     },
     {
+      "type": "stock",
       "date": "2025-12-11",
       "stocks": [
         {
@@ -3079,6 +3192,7 @@
       "subscriberCount": 45
     },
     {
+      "type": "stock",
       "date": "2025-12-10",
       "stocks": [
         {
@@ -3131,6 +3245,7 @@
       "subscriberCount": 43
     },
     {
+      "type": "stock",
       "date": "2025-12-09",
       "stocks": [
         {
@@ -3183,6 +3298,7 @@
       "subscriberCount": 30
     },
     {
+      "type": "stock",
       "date": "2025-12-08",
       "stocks": [
         {
@@ -3235,6 +3351,7 @@
       "subscriberCount": 30
     },
     {
+      "type": "stock",
       "date": "2025-12-05",
       "stocks": [
         {
@@ -3287,6 +3404,7 @@
       "subscriberCount": 30
     },
     {
+      "type": "stock",
       "date": "2025-12-04",
       "stocks": [
         {
@@ -3339,6 +3457,7 @@
       "subscriberCount": 29
     },
     {
+      "type": "stock",
       "date": "2025-12-03",
       "stocks": [
         {
@@ -3391,6 +3510,7 @@
       "subscriberCount": 28
     },
     {
+      "type": "stock",
       "date": "2025-12-02",
       "stocks": [
         {
@@ -3443,6 +3563,7 @@
       "subscriberCount": 28
     },
     {
+      "type": "stock",
       "date": "2025-12-01",
       "stocks": [
         {
@@ -3495,6 +3616,7 @@
       "subscriberCount": 28
     },
     {
+      "type": "stock",
       "date": "2025-11-28",
       "stocks": [
         {
@@ -3547,6 +3669,7 @@
       "subscriberCount": 28
     },
     {
+      "type": "stock",
       "date": "2025-11-27",
       "stocks": [
         {
@@ -3599,6 +3722,7 @@
       "subscriberCount": 28
     },
     {
+      "type": "stock",
       "date": "2025-11-26",
       "stocks": [
         {
@@ -3651,6 +3775,7 @@
       "subscriberCount": 27
     },
     {
+      "type": "stock",
       "date": "2025-11-25",
       "stocks": [
         {
@@ -3703,6 +3828,7 @@
       "subscriberCount": 27
     },
     {
+      "type": "stock",
       "date": "2025-11-24",
       "stocks": [
         {
@@ -3755,6 +3881,7 @@
       "subscriberCount": 27
     },
     {
+      "type": "stock",
       "date": "2025-11-21",
       "stocks": [
         {
@@ -3807,6 +3934,7 @@
       "subscriberCount": 27
     },
     {
+      "type": "stock",
       "date": "2025-11-20",
       "stocks": [
         {
@@ -3859,6 +3987,7 @@
       "subscriberCount": 27
     },
     {
+      "type": "stock",
       "date": "2025-11-19",
       "stocks": [
         {
@@ -3911,6 +4040,7 @@
       "subscriberCount": 27
     },
     {
+      "type": "stock",
       "date": "2025-11-18",
       "stocks": [
         {
@@ -3963,6 +4093,7 @@
       "subscriberCount": 27
     },
     {
+      "type": "stock",
       "date": "2025-11-17",
       "stocks": [
         {
@@ -4015,6 +4146,7 @@
       "subscriberCount": 27
     },
     {
+      "type": "stock",
       "date": "2025-11-14",
       "stocks": [
         {
@@ -4067,6 +4199,7 @@
       "subscriberCount": 27
     },
     {
+      "type": "stock",
       "date": "2025-11-13",
       "stocks": [
         {
@@ -4119,6 +4252,7 @@
       "subscriberCount": 27
     },
     {
+      "type": "stock",
       "date": "2025-11-12",
       "stocks": [
         {
@@ -4171,6 +4305,7 @@
       "subscriberCount": 27
     },
     {
+      "type": "stock",
       "date": "2025-11-11",
       "stocks": [
         {
@@ -4223,6 +4358,7 @@
       "subscriberCount": 26
     },
     {
+      "type": "stock",
       "date": "2025-11-10",
       "stocks": [
         {
@@ -4275,6 +4411,7 @@
       "subscriberCount": 25
     },
     {
+      "type": "stock",
       "date": "2025-11-07",
       "stocks": [
         {
@@ -4327,6 +4464,7 @@
       "subscriberCount": 25
     },
     {
+      "type": "stock",
       "date": "2025-11-06",
       "stocks": [
         {
@@ -4379,6 +4517,7 @@
       "subscriberCount": 25
     },
     {
+      "type": "stock",
       "date": "2025-11-05",
       "stocks": [
         {
@@ -4431,6 +4570,7 @@
       "subscriberCount": 25
     },
     {
+      "type": "stock",
       "date": "2025-11-04",
       "stocks": [
         {
@@ -4483,6 +4623,7 @@
       "subscriberCount": 24
     },
     {
+      "type": "stock",
       "date": "2025-11-03",
       "stocks": [
         {
@@ -4535,6 +4676,7 @@
       "subscriberCount": 24
     },
     {
+      "type": "stock",
       "date": "2025-10-31",
       "stocks": [
         {
@@ -4587,6 +4729,7 @@
       "subscriberCount": 21
     },
     {
+      "type": "stock",
       "date": "2025-10-30",
       "stocks": [
         {
@@ -4639,5 +4782,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-03-02T23:03:07.138Z"
+  "lastUpdated": "2026-03-03T22:37:37.964Z"
 }
