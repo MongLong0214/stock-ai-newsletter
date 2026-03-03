@@ -1,4 +1,5 @@
-import { executeGeminiPipeline } from './gemini-pipeline';
+import { executeGeminiPipeline, executeMarketAssessment, executeCrashAnalysisPipeline } from './gemini-pipeline';
+import type { MarketAssessment } from './gemini-pipeline';
 import { PIPELINE_CONFIG } from '../_config/pipeline-config';
 import type { StockDataArray, StockData, StockSignals } from '../_types/stock-data';
 
@@ -145,6 +146,73 @@ function extractAndValidateJSON(text: string): string | null {
 }
 
 /**
+ * Crash Alert 데이터 검증
+ *
+ * 폭락 분석 결과 JSON이 올바른 형식인지 검증합니다.
+ */
+function validateCrashAlert(data: unknown): boolean {
+  if (!data || typeof data !== 'object') return false;
+
+  const alert = data as Record<string, unknown>;
+  if (alert.type !== 'crash_alert') return false;
+  if (!['warning', 'critical'].includes(alert.severity as string)) return false;
+  if (typeof alert.title !== 'string' || alert.title.length === 0) return false;
+  if (!alert.market_overview || typeof alert.market_overview !== 'object') return false;
+  if (!Array.isArray(alert.causes) || alert.causes.length === 0) return false;
+  if (typeof alert.historical_context !== 'string') return false;
+  if (typeof alert.outlook !== 'string') return false;
+  if (typeof alert.investor_guidance !== 'string') return false;
+
+  // causes 개별 항목 구조 검증
+  const causesValid = alert.causes.every((c: unknown) => {
+    if (!c || typeof c !== 'object') return false;
+    const cause = c as Record<string, unknown>;
+    return typeof cause.factor === 'string' && typeof cause.impact === 'string' && typeof cause.detail === 'string';
+  });
+  if (!causesValid) return false;
+
+  return true;
+}
+
+/**
+ * Crash Alert JSON 추출 및 검증
+ *
+ * 폭락 분석 응답에서 crash_alert JSON을 추출하고 검증합니다.
+ */
+function extractAndValidateCrashJSON(text: string): string | null {
+  if (!text?.trim()) return null;
+
+  try {
+    const cleaned = text
+      .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
+      .replace(/<ctrl\d+>/g, '')
+      .replace(/call:google_search\.search\{[^}]*}/g, '');
+
+    // JSON 객체 패턴 {...} 찾기
+    const matches = [...cleaned.matchAll(/\{[\s\S]*}/g)];
+
+    for (const match of matches) {
+      try {
+        const parsed = JSON.parse(match[0]);
+        if (validateCrashAlert(parsed)) {
+          console.log('✅ [Crash Alert JSON 검증 성공]');
+          return match[0];
+        }
+      } catch {
+        // 다음 후보 시도
+      }
+    }
+
+    console.warn('[Crash Alert JSON 추출 실패] 유효한 데이터 없음');
+    return null;
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error(`[Crash Alert JSON 파싱 에러] ${msg}`);
+    return null;
+  }
+}
+
+/**
  * 에러 포맷팅
  *
  * Gemini API 에러를 사용자 친화적인 메시지로 변환합니다.
@@ -216,70 +284,136 @@ export async function getGeminiRecommendation(): Promise<string> {
   );
 
   try {
-    for (let attempt = 1; attempt <= PIPELINE_CONFIG.OUTER_MAX_RETRY; attempt++) {
-      const retryDelay = Math.min(
-        PIPELINE_CONFIG.OUTER_BASE_RETRY_DELAY * Math.pow(2, attempt - 1),
-        PIPELINE_CONFIG.OUTER_MAX_RETRY_DELAY
-      );
+    // ━━━━━ Step 1: 시장 평가 (대폭락 가능성 판정) ━━━━━
+    const assessment: MarketAssessment = await executeMarketAssessment();
 
-      console.log(`[Gemini Pipeline] 시도 ${attempt}/${PIPELINE_CONFIG.OUTER_MAX_RETRY}`);
-
-      try {
-        const result = await executeGeminiPipeline();
-        if (!result) throw new Error('Empty response from Pipeline');
-
-        // 응답 로깅
-        console.log(`\n${'━'.repeat(80)}`);
-        console.log(`📥 [Pipeline 최종 응답] (${attempt}/${PIPELINE_CONFIG.OUTER_MAX_RETRY})`);
-        console.log(`${'━'.repeat(80)}`);
-        console.log(result);
-        console.log(`${'━'.repeat(80)}\n`);
-
-        // JSON 추출 및 검증
-        const validJSON = extractAndValidateJSON(result);
-
-        if (validJSON) {
-          console.log(
-            `✅ [Pipeline] 유효한 JSON 응답 받음 (${attempt}/${PIPELINE_CONFIG.OUTER_MAX_RETRY})`
-          );
-          if (validJSON !== result) {
-            console.log(`📦 [추출된 JSON]:\n${validJSON}\n`);
-          }
-          return validJSON;
-        }
-
-        console.warn(
-          `⚠️ [Pipeline] JSON 검증 실패 (${attempt}/${PIPELINE_CONFIG.OUTER_MAX_RETRY})`
-        );
-
-        if (attempt < PIPELINE_CONFIG.OUTER_MAX_RETRY) {
-          console.log(`🔄 [Pipeline] ${retryDelay / 1000}초 후 재시도...`);
-          await new Promise((resolve) => setTimeout(resolve, retryDelay));
-        }
-      } catch (pipelineError) {
-        const errorMsg =
-          pipelineError instanceof Error ? pipelineError.message : String(pipelineError);
-        const is429 = errorMsg.includes('429') || errorMsg.includes('RESOURCE_EXHAUSTED');
-
-        console.warn(
-          `⚠️ [Pipeline] 오류 (${attempt}/${PIPELINE_CONFIG.OUTER_MAX_RETRY}): ${errorMsg}`
-        );
-        if (is429) console.log(`🔍 [429 Error] Quota 초과 감지`);
-
-        if (attempt < PIPELINE_CONFIG.OUTER_MAX_RETRY) {
-          console.log(`🔄 [Pipeline] ${retryDelay / 1000}초 후 재시도...`);
-          await new Promise((resolve) => setTimeout(resolve, retryDelay));
-        } else {
-          throw pipelineError;
-        }
-      }
+    // ━━━━━ Step 2: 분기 — CRASH_ALERT vs NORMAL ━━━━━
+    if (assessment.verdict === 'CRASH_ALERT') {
+      console.log(`\n🚨 [CRASH_ALERT] 대폭락 예상 → 폭락 분석 Pipeline 실행`);
+      return await executeCrashAnalysisWithRetry(assessment.summary);
     }
 
-    throw new Error(
-      `JSON 검증 실패: ${PIPELINE_CONFIG.OUTER_MAX_RETRY}번 시도 후에도 올바른 응답을 받지 못했습니다.`
-    );
+    console.log(`\n✅ [NORMAL] 시장 정상 → 종목 추천 Pipeline 실행`);
+    return await executeStockPipelineWithRetry();
   } catch (error) {
     console.error('❌ [Pipeline Error]', error);
     return formatError(error);
   }
+}
+
+/**
+ * 폭락 분석 Pipeline (Outer Retry)
+ */
+async function executeCrashAnalysisWithRetry(assessmentSummary: string): Promise<string> {
+  for (let attempt = 1; attempt <= PIPELINE_CONFIG.OUTER_MAX_RETRY; attempt++) {
+    const retryDelay = Math.min(
+      PIPELINE_CONFIG.OUTER_BASE_RETRY_DELAY * Math.pow(2, attempt - 1),
+      PIPELINE_CONFIG.OUTER_MAX_RETRY_DELAY
+    );
+
+    console.log(`[Crash Analysis] 시도 ${attempt}/${PIPELINE_CONFIG.OUTER_MAX_RETRY}`);
+
+    try {
+      const result = await executeCrashAnalysisPipeline(assessmentSummary);
+      if (!result) throw new Error('Empty response from Crash Analysis Pipeline');
+
+      console.log(`\n${'━'.repeat(80)}`);
+      console.log(`📥 [Crash Analysis 최종 응답] (${attempt}/${PIPELINE_CONFIG.OUTER_MAX_RETRY})`);
+      console.log(`${'━'.repeat(80)}`);
+      console.log(result);
+      console.log(`${'━'.repeat(80)}\n`);
+
+      const validJSON = extractAndValidateCrashJSON(result);
+
+      if (validJSON) {
+        console.log(`✅ [Crash Analysis] 유효한 JSON 응답 받음`);
+        return validJSON;
+      }
+
+      console.warn(`⚠️ [Crash Analysis] JSON 검증 실패 (${attempt}/${PIPELINE_CONFIG.OUTER_MAX_RETRY})`);
+
+      if (attempt < PIPELINE_CONFIG.OUTER_MAX_RETRY) {
+        console.log(`🔄 ${retryDelay / 1000}초 후 재시도...`);
+        await new Promise((resolve) => setTimeout(resolve, retryDelay));
+      }
+    } catch (pipelineError) {
+      const errorMsg = pipelineError instanceof Error ? pipelineError.message : String(pipelineError);
+      console.warn(`⚠️ [Crash Analysis] 오류 (${attempt}/${PIPELINE_CONFIG.OUTER_MAX_RETRY}): ${errorMsg}`);
+
+      if (attempt < PIPELINE_CONFIG.OUTER_MAX_RETRY) {
+        console.log(`🔄 ${retryDelay / 1000}초 후 재시도...`);
+        await new Promise((resolve) => setTimeout(resolve, retryDelay));
+      } else {
+        throw pipelineError;
+      }
+    }
+  }
+
+  throw new Error(`Crash Analysis JSON 검증 실패: ${PIPELINE_CONFIG.OUTER_MAX_RETRY}번 시도 후에도 올바른 응답을 받지 못했습니다.`);
+}
+
+/**
+ * 종목 추천 Pipeline (기존 로직, Outer Retry)
+ */
+async function executeStockPipelineWithRetry(): Promise<string> {
+  for (let attempt = 1; attempt <= PIPELINE_CONFIG.OUTER_MAX_RETRY; attempt++) {
+    const retryDelay = Math.min(
+      PIPELINE_CONFIG.OUTER_BASE_RETRY_DELAY * Math.pow(2, attempt - 1),
+      PIPELINE_CONFIG.OUTER_MAX_RETRY_DELAY
+    );
+
+    console.log(`[Gemini Pipeline] 시도 ${attempt}/${PIPELINE_CONFIG.OUTER_MAX_RETRY}`);
+
+    try {
+      const result = await executeGeminiPipeline();
+      if (!result) throw new Error('Empty response from Pipeline');
+
+      console.log(`\n${'━'.repeat(80)}`);
+      console.log(`📥 [Pipeline 최종 응답] (${attempt}/${PIPELINE_CONFIG.OUTER_MAX_RETRY})`);
+      console.log(`${'━'.repeat(80)}`);
+      console.log(result);
+      console.log(`${'━'.repeat(80)}\n`);
+
+      const validJSON = extractAndValidateJSON(result);
+
+      if (validJSON) {
+        console.log(
+          `✅ [Pipeline] 유효한 JSON 응답 받음 (${attempt}/${PIPELINE_CONFIG.OUTER_MAX_RETRY})`
+        );
+        if (validJSON !== result) {
+          console.log(`📦 [추출된 JSON]:\n${validJSON}\n`);
+        }
+        return validJSON;
+      }
+
+      console.warn(
+        `⚠️ [Pipeline] JSON 검증 실패 (${attempt}/${PIPELINE_CONFIG.OUTER_MAX_RETRY})`
+      );
+
+      if (attempt < PIPELINE_CONFIG.OUTER_MAX_RETRY) {
+        console.log(`🔄 [Pipeline] ${retryDelay / 1000}초 후 재시도...`);
+        await new Promise((resolve) => setTimeout(resolve, retryDelay));
+      }
+    } catch (pipelineError) {
+      const errorMsg =
+        pipelineError instanceof Error ? pipelineError.message : String(pipelineError);
+      const is429 = errorMsg.includes('429') || errorMsg.includes('RESOURCE_EXHAUSTED');
+
+      console.warn(
+        `⚠️ [Pipeline] 오류 (${attempt}/${PIPELINE_CONFIG.OUTER_MAX_RETRY}): ${errorMsg}`
+      );
+      if (is429) console.log(`🔍 [429 Error] Quota 초과 감지`);
+
+      if (attempt < PIPELINE_CONFIG.OUTER_MAX_RETRY) {
+        console.log(`🔄 [Pipeline] ${retryDelay / 1000}초 후 재시도...`);
+        await new Promise((resolve) => setTimeout(resolve, retryDelay));
+      } else {
+        throw pipelineError;
+      }
+    }
+  }
+
+  throw new Error(
+    `JSON 검증 실패: ${PIPELINE_CONFIG.OUTER_MAX_RETRY}번 시도 후에도 올바른 응답을 받지 못했습니다.`
+  );
 }
