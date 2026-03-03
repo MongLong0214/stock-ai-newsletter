@@ -1,14 +1,15 @@
 /**
  * 데스크톱 사이드바
  *
- * 캘린더와 선택된 뉴스레터 정보를 표시합니다.
+ * 캘린더와 선택된 엔트리 정보를 표시합니다.
  * sticky 포지셔닝으로 스크롤 시 화면 상단에 고정됩니다.
  */
 
 import { motion } from 'framer-motion';
-import { TrendingUp } from 'lucide-react';
+import { TrendingUp, AlertTriangle } from 'lucide-react';
 import MiniCalendar from './mini-calendar';
-import type { Newsletter, DateString } from '../../_types/archive.types';
+import type { ArchiveEntry, DateString } from '../../_types/archive.types';
+import type { ArchiveDataType } from './mini-calendar/types';
 import { formatDisplayDate } from '../../_utils/formatting/date';
 import { createFadeInUpVariant, STAGGER_DELAYS } from '../../_constants/animations';
 
@@ -21,8 +22,10 @@ interface DesktopSidebarProps {
   selectedDate: DateString | null;
   /** 뉴스레터가 있는 날짜 목록 */
   availableDates: Set<DateString>;
-  /** 선택된 날짜의 뉴스레터 */
-  newsletter: Newsletter | null;
+  /** 날짜별 데이터 타입 맵 */
+  dateTypeMap?: Map<DateString, ArchiveDataType>;
+  /** 선택된 날짜의 엔트리 */
+  entry: ArchiveEntry | null;
   /** 날짜 선택 핸들러 */
   onDateSelect: (date: DateString) => void;
   /** 이전 달 핸들러 */
@@ -36,11 +39,14 @@ function DesktopSidebar({
   month,
   selectedDate,
   availableDates,
-  newsletter,
+  dateTypeMap,
+  entry,
   onDateSelect,
   onPrevMonth,
   onNextMonth,
 }: DesktopSidebarProps) {
+  const isCrashAlert = entry?.type === 'crash_alert';
+
   return (
     <motion.aside
       {...createFadeInUpVariant(STAGGER_DELAYS.sidebar)}
@@ -52,33 +58,54 @@ function DesktopSidebar({
           month={month}
           selectedDate={selectedDate}
           availableDates={availableDates}
+          dateTypeMap={dateTypeMap}
           onDateSelect={onDateSelect}
           onPrevMonth={onPrevMonth}
           onNextMonth={onNextMonth}
         />
 
-        {newsletter && (
+        {entry && (
           <motion.header
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.1 }}
-            className="rounded-xl border border-emerald-500/20 bg-slate-900/60 backdrop-blur-xl p-6 shadow-lg"
+            className={`rounded-xl border backdrop-blur-xl p-6 shadow-lg ${
+              isCrashAlert
+                ? 'border-red-500/20 bg-slate-900/60'
+                : 'border-emerald-500/20 bg-slate-900/60'
+            }`}
           >
             <div className="flex items-start justify-between">
               <div>
                 <h2 className="mb-2 text-2xl font-bold text-white">
-                  {formatDisplayDate(newsletter.date)}
+                  {formatDisplayDate(entry.date)}
                 </h2>
-                {newsletter.sentAt && (
+                {entry.sentAt && (
                   <p className="text-sm text-slate-300 font-mono">
-                    발송: {new Date(newsletter.sentAt).toLocaleString('ko-KR')}
+                    발송: {new Date(entry.sentAt).toLocaleString('ko-KR')}
+                  </p>
+                )}
+                {isCrashAlert && (
+                  <p className={`mt-1 text-xs font-bold uppercase tracking-wider ${
+                    entry.crashAlert.severity === 'critical' ? 'text-red-400' : 'text-amber-400'
+                  }`}>
+                    {entry.crashAlert.severity === 'critical' ? 'CRITICAL ALERT' : 'WARNING ALERT'}
                   </p>
                 )}
               </div>
-              <TrendingUp
-                className="h-8 w-8 text-emerald-400"
-                aria-hidden="true"
-              />
+              {isCrashAlert ? (
+                <AlertTriangle
+                  className={`h-8 w-8 ${
+                    entry.crashAlert.severity === 'critical' ? 'text-red-400' : 'text-amber-400'
+                  }`}
+                  aria-hidden="true"
+                />
+              ) : (
+                <TrendingUp
+                  className="h-8 w-8 text-emerald-400"
+                  aria-hidden="true"
+                />
+              )}
             </div>
           </motion.header>
         )}

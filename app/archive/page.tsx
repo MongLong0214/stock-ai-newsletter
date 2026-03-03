@@ -4,6 +4,7 @@
  * 과거 발송된 AI 주식 분석 뉴스레터를 날짜별로 조회합니다.
  * - 캘린더에서 날짜 선택
  * - 선택된 날짜의 뉴스레터와 실시간 주가 표시
+ * - Crash Alert 날짜는 전용 카드로 표시
  * - URL로 날짜 공유 가능 (?date=YYYY-MM-DD)
  * - 키보드 단축키 지원 (Cmd/Ctrl + 좌우: 월 이동, Esc: 캘린더 닫기)
  */
@@ -18,6 +19,7 @@ import PageHeader from './_components/layout/page-header';
 import DesktopSidebar from './_components/calendar/desktop-sidebar';
 import MobileCalendarToggle from './_components/calendar/mobile-calendar-toggle';
 import NewsletterGrid from './_components/layout/newsletter-grid';
+import CrashAlertCard from './_components/cards/crash-alert-card';
 import EmptyState from './_components/layout/empty-state';
 import useArchiveData from './_hooks/use-archive-data';
 import useCalendarState from './_hooks/use-calendar-state';
@@ -45,7 +47,7 @@ function ArchiveContent() {
   const searchParams = useSearchParams();
 
   // 분석 기록 데이터 조회
-  const { availableDates, allNewsletters } = useArchiveData();
+  const { availableDates, allEntries, dateTypeMap } = useArchiveData();
 
   // 사용 가능한 날짜 Set (참조 안정성을 위해 useMemo 사용)
   const availableDatesSet = useMemo(() => new Set(availableDates), [availableDates]);
@@ -83,10 +85,10 @@ function ArchiveContent() {
     }
   }, [selectedDate, navigateToDate]);
 
-  // 선택된 뉴스레터 및 티커
-  const { newsletter, tickers } = useNewsletterData(selectedDate, allNewsletters);
+  // 선택된 엔트리 및 티커
+  const { entry, tickers } = useNewsletterData(selectedDate, allEntries);
 
-  // 실시간 주식 시세 및 추천일 전일 종가
+  // 실시간 주식 시세 및 추천일 전일 종가 (stock 타입일 때만 의미 있음)
   const {
     prices: stockPrices,
     historicalClosePrices,
@@ -127,6 +129,7 @@ function ArchiveContent() {
     month: calendarState.month,
     selectedDate,
     availableDates: availableDatesSet,
+    dateTypeMap,
     onDateSelect: handleDateSelect,
     onPrevMonth: handlePrevMonth,
     onNextMonth: handleNextMonth,
@@ -152,7 +155,7 @@ function ArchiveContent() {
 
           <div className="flex flex-col gap-8 lg:flex-row lg:items-start">
             {/* 데스크톱 사이드바 */}
-            <DesktopSidebar {...calendarProps} newsletter={newsletter} />
+            <DesktopSidebar {...calendarProps} entry={entry} />
 
             {/* 모바일 캘린더 토글 */}
             <MobileCalendarToggle
@@ -168,12 +171,17 @@ function ArchiveContent() {
               className="flex-1 min-w-0"
               aria-live="polite"
             >
-              {!newsletter ? (
+              {!entry ? (
                 <EmptyState availableDatesCount={availableDates.length} />
+              ) : entry.type === 'crash_alert' ? (
+                <CrashAlertCard
+                  key={entry.date}
+                  crashAlert={entry.crashAlert}
+                />
               ) : (
                 <NewsletterGrid
-                  key={newsletter.date}
-                  newsletter={newsletter}
+                  key={entry.date}
+                  newsletter={entry}
                   stockPrices={stockPrices}
                   historicalClosePrices={historicalClosePrices}
                   settledClosePrices={settledClosePrices}

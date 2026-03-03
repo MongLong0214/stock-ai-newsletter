@@ -10,7 +10,14 @@ if (existsSync(envPath)) {
 }
 
 import { createClient } from '@supabase/supabase-js';
-import type { NewsletterArchive, StockData, DateString } from '@/app/archive/_types/archive.types';
+import type {
+  StockData,
+  DateString,
+  ArchiveEntry,
+  CrashAlertData,
+  StockArchiveEntry,
+  CrashAlertArchiveEntry,
+} from '@/app/archive/_types/archive.types';
 
 // 환경변수 검증
 if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
@@ -69,27 +76,58 @@ async function updateArchiveData() {
     // 2. 데이터 검증 및 변환
     console.log('🔍 데이터 검증 및 변환 중...');
 
-    const archiveData: NewsletterArchive[] = [];
+    const archiveData: ArchiveEntry[] = [];
     let validCount = 0;
     let invalidCount = 0;
 
     for (const newsletter of newsletters) {
       try {
-        const stocks = parseAndValidateStocks(newsletter.gemini_analysis);
+        const parsed = safeParse(newsletter.gemini_analysis);
 
+        if (!parsed) {
+          console.warn(`⚠️  ${newsletter.newsletter_date}: JSON 파싱 실패 - 건너뜀`);
+          invalidCount++;
+          continue;
+        }
+
+        // Crash Alert 분기
+        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed) && (parsed as Record<string, unknown>).type === 'crash_alert') {
+          const crashAlert = validateCrashAlertData(parsed as Record<string, unknown>);
+          if (!crashAlert) {
+            console.warn(`⚠️  ${newsletter.newsletter_date}: 유효하지 않은 crash alert 데이터 - 건너뜀`);
+            invalidCount++;
+            continue;
+          }
+
+          const entry: CrashAlertArchiveEntry = {
+            type: 'crash_alert',
+            date: newsletter.newsletter_date as DateString,
+            crashAlert,
+            sentAt: newsletter.sent_at as string | null,
+            subscriberCount: newsletter.subscriber_count ?? 0,
+          };
+          archiveData.push(entry);
+          console.log(`🚨 ${newsletter.newsletter_date}: crash alert (${crashAlert.severity}) 추가`);
+          validCount++;
+          continue;
+        }
+
+        // Stock 배열 분기
+        const stocks = validateStockArray(parsed);
         if (!stocks) {
           console.warn(`⚠️  ${newsletter.newsletter_date}: 유효하지 않은 데이터 - 건너뜀`);
           invalidCount++;
           continue;
         }
 
-        archiveData.push({
+        const entry: StockArchiveEntry = {
+          type: 'stock',
           date: newsletter.newsletter_date as DateString,
           stocks,
           sentAt: newsletter.sent_at as string | null,
           subscriberCount: newsletter.subscriber_count ?? 0,
-        });
-
+        };
+        archiveData.push(entry);
         validCount++;
       } catch (parseError) {
         console.error(`❌ ${newsletter.newsletter_date} 파싱 실패:`, parseError);
@@ -122,71 +160,97 @@ async function updateArchiveData() {
 }
 
 /**
- * 주식 JSON 데이터 파싱 및 검증
- *
- * @param jsonString - 파싱할 JSON 문자열
- * @returns 검증된 주식 데이터 배열 또는 null
+ * JSON 문자열을 안전하게 파싱
  */
-function parseAndValidateStocks(jsonString: string): StockData[] | null {
-  // 보안: JSON Bomb 방지 - 크기 제한 체크
+function safeParse(jsonString: string): unknown {
   const MAX_JSON_SIZE = 1024 * 1024; // 1MB
   if (jsonString.length > MAX_JSON_SIZE) {
     console.error('[Update] JSON too large:', jsonString.length);
     return null;
   }
-
   try {
-    const stocks = JSON.parse(jsonString);
-
-    // 검증: 배열이어야 함
-    if (!Array.isArray(stocks)) {
-      console.error('[Update] Invalid data: not an array');
-      return null;
-    }
-
-    // 검증: 배열 크기 제한 (최대 100개)
-    if (stocks.length === 0 || stocks.length > 100) {
-      console.error('[Update] Invalid array size:', stocks.length);
-      return null;
-    }
-
-    // 검증: 각 주식은 필수 필드를 가져야 함
-    const isValid = stocks.every((stock) => {
-      // 프로토타입 오염 공격 방지: 직접 프로퍼티만 확인
-      const hasOwnProto = Object.prototype.hasOwnProperty.call(stock, '__proto__');
-      const hasOwnConstructor = Object.prototype.hasOwnProperty.call(stock, 'constructor');
-
-      const checks = {
-        isObject: stock && typeof stock === 'object',
-        noProto: !hasOwnProto, // 직접 프로퍼티로 __proto__가 없어야 함
-        noConstructor: !hasOwnConstructor, // 직접 프로퍼티로 constructor가 없어야 함
-        hasTicker: typeof stock.ticker === 'string' && stock.ticker.length > 0,
-        hasName: typeof stock.name === 'string' && stock.name.length > 0,
-        hasPrice: typeof stock.close_price === 'number' && stock.close_price > 0,
-        hasRationale: typeof stock.rationale === 'string' && stock.rationale.length > 0,
-        hasSignals: stock.signals && typeof stock.signals === 'object',
-        hasTrendScore: typeof stock.signals?.trend_score === 'number',
-        hasMomentumScore: typeof stock.signals?.momentum_score === 'number',
-        hasVolumeScore: typeof stock.signals?.volume_score === 'number',
-        hasVolatilityScore: typeof stock.signals?.volatility_score === 'number',
-        hasPatternScore: typeof stock.signals?.pattern_score === 'number',
-        hasSentimentScore: typeof stock.signals?.sentiment_score === 'number',
-        hasOverallScore: typeof stock.signals?.overall_score === 'number',
-      };
-
-      return Object.values(checks).every((check) => check);
-    });
-
-    if (!isValid) {
-      console.error('[Update] Invalid data: missing required fields');
-      return null;
-    }
-
-    return stocks as StockData[];
+    return JSON.parse(jsonString);
   } catch (err) {
     console.error('[Update] JSON parse error:', err instanceof Error ? err.message : 'Unknown error');
     return null;
   }
+}
+
+/**
+ * Crash Alert 데이터 검증
+ */
+function validateCrashAlertData(obj: Record<string, unknown>): CrashAlertData | null {
+  if (obj.type !== 'crash_alert') return null;
+  if (obj.severity !== 'warning' && obj.severity !== 'critical') return null;
+  if (typeof obj.title !== 'string' || obj.title.length === 0) return null;
+  if (!obj.market_overview || typeof obj.market_overview !== 'object') return null;
+  if (!Array.isArray(obj.causes) || obj.causes.length === 0) return null;
+  if (typeof obj.outlook !== 'string') return null;
+  if (typeof obj.investor_guidance !== 'string') return null;
+
+  const causes = obj.causes as Array<Record<string, unknown>>;
+  const validCauses = causes.every(
+    (c) => typeof c.factor === 'string' && typeof c.impact === 'string' && typeof c.detail === 'string'
+  );
+  if (!validCauses) return null;
+
+  return {
+    type: 'crash_alert',
+    severity: obj.severity as 'warning' | 'critical',
+    title: obj.title as string,
+    market_overview: obj.market_overview as Record<string, string>,
+    causes: obj.causes as CrashAlertData['causes'],
+    historical_context: typeof obj.historical_context === 'string' ? obj.historical_context : '',
+    outlook: obj.outlook as string,
+    investor_guidance: obj.investor_guidance as string,
+  };
+}
+
+/**
+ * Stock 배열 데이터 검증
+ */
+function validateStockArray(parsed: unknown): StockData[] | null {
+  if (!Array.isArray(parsed)) {
+    console.error('[Update] Invalid data: not an array');
+    return null;
+  }
+
+  if (parsed.length === 0 || parsed.length > 100) {
+    console.error('[Update] Invalid array size:', parsed.length);
+    return null;
+  }
+
+  const isValid = parsed.every((stock) => {
+    const hasOwnProto = Object.prototype.hasOwnProperty.call(stock, '__proto__');
+    const hasOwnConstructor = Object.prototype.hasOwnProperty.call(stock, 'constructor');
+
+    const checks = {
+      isObject: stock && typeof stock === 'object',
+      noProto: !hasOwnProto,
+      noConstructor: !hasOwnConstructor,
+      hasTicker: typeof stock.ticker === 'string' && stock.ticker.length > 0,
+      hasName: typeof stock.name === 'string' && stock.name.length > 0,
+      hasPrice: typeof stock.close_price === 'number' && stock.close_price > 0,
+      hasRationale: typeof stock.rationale === 'string' && stock.rationale.length > 0,
+      hasSignals: stock.signals && typeof stock.signals === 'object',
+      hasTrendScore: typeof stock.signals?.trend_score === 'number',
+      hasMomentumScore: typeof stock.signals?.momentum_score === 'number',
+      hasVolumeScore: typeof stock.signals?.volume_score === 'number',
+      hasVolatilityScore: typeof stock.signals?.volatility_score === 'number',
+      hasPatternScore: typeof stock.signals?.pattern_score === 'number',
+      hasSentimentScore: typeof stock.signals?.sentiment_score === 'number',
+      hasOverallScore: typeof stock.signals?.overall_score === 'number',
+    };
+
+    return Object.values(checks).every((check) => check);
+  });
+
+  if (!isValid) {
+    console.error('[Update] Invalid data: missing required fields');
+    return null;
+  }
+
+  return parsed as StockData[];
 }
 
 /**

@@ -1,9 +1,12 @@
 import archiveData from '../_archive-data/archives.json';
-import type { NewsletterArchive, DateString } from '../_types/archive.types';
+import type { ArchiveEntry, DateString } from '../_types/archive.types';
+
+type EntryType = 'stock' | 'crash_alert';
 
 interface UseArchiveDataReturn {
   availableDates: DateString[];
-  allNewsletters: NewsletterArchive[];
+  allEntries: ArchiveEntry[];
+  dateTypeMap: Map<DateString, EntryType>;
 }
 
 /**
@@ -14,10 +17,16 @@ interface UseArchiveDataReturn {
  * - React 19: useMemo 불필요 (자동 최적화)
  */
 export default function useArchiveData(): UseArchiveDataReturn {
-  const newsletters = archiveData.newsletters as NewsletterArchive[];
+  const entries = archiveData.newsletters as ArchiveEntry[];
+
+  const dateTypeMap = new Map<DateString, EntryType>();
+  for (const entry of entries) {
+    dateTypeMap.set(entry.date, entry.type ?? 'stock');
+  }
 
   return {
-    availableDates: newsletters.map((n) => n.date),
-    allNewsletters: newsletters,
+    availableDates: entries.map((e) => e.date),
+    allEntries: entries,
+    dateTypeMap,
   };
 }

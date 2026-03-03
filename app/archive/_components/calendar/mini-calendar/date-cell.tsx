@@ -8,7 +8,7 @@ import { motion } from 'framer-motion';
 import { getDateCellClassName } from './utils';
 import type { DateCellProps } from './types';
 
-function DateCell({ day, year, month, dateString, hasData, isSelected, isHoliday, onSelect }: DateCellProps) {
+function DateCell({ day, year, month, dateString, hasData, isSelected, isHoliday, dataType, onSelect }: DateCellProps) {
   const isDisabled = isHoliday || !hasData;
 
   const handleClick = () => {
@@ -26,8 +26,8 @@ function DateCell({ day, year, month, dateString, hasData, isSelected, isHoliday
       tabIndex={isDisabled ? -1 : 0}
       whileHover={!isDisabled ? { scale: 1.05 } : undefined}
       whileTap={!isDisabled ? { scale: 0.95 } : undefined}
-      className={getDateCellClassName(isSelected, hasData, isHoliday)}
-      aria-label={`${year}년 ${month + 1}월 ${day}일${isHoliday ? ' (휴장일)' : hasData ? ' (데이터 있음)' : ' (데이터 없음)'}`}
+      className={getDateCellClassName(isSelected, hasData, isHoliday, dataType)}
+      aria-label={`${year}년 ${month + 1}월 ${day}일${isHoliday ? ' (휴장일)' : hasData ? (dataType === 'crash_alert' ? ' (폭락 알림)' : ' (데이터 있음)') : ' (데이터 없음)'}`}
       aria-current={isSelected ? 'date' : undefined}
       aria-disabled={isDisabled}
     >
