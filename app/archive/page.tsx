@@ -19,7 +19,7 @@ import PageHeader from './_components/layout/page-header';
 import DesktopSidebar from './_components/calendar/desktop-sidebar';
 import MobileCalendarToggle from './_components/calendar/mobile-calendar-toggle';
 import NewsletterGrid from './_components/layout/newsletter-grid';
-import CrashAlertCard from './_components/cards/crash-alert-card';
+import { CrashAlertCard } from './_components/cards/crash-alert-card';
 import EmptyState from './_components/layout/empty-state';
 import useArchiveData from './_hooks/use-archive-data';
 import useCalendarState from './_hooks/use-calendar-state';
