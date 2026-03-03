@@ -187,13 +187,14 @@ function validateCrashAlertData(obj: Record<string, unknown>): CrashAlertData | 
   if (obj.type !== 'crash_alert') return null;
   if (obj.severity !== 'warning' && obj.severity !== 'critical') return null;
   if (typeof obj.title !== 'string' || obj.title.length === 0) return null;
-  if (!obj.market_overview || typeof obj.market_overview !== 'object') return null;
+  if (!obj.market_overview || typeof obj.market_overview !== 'object' || Array.isArray(obj.market_overview)) return null;
   if (!Array.isArray(obj.causes) || obj.causes.length === 0) return null;
   if (typeof obj.outlook !== 'string') return null;
   if (typeof obj.investor_guidance !== 'string') return null;
 
-  // market_overview 프로토타입 오염 방지
+  // market_overview: 모든 값이 string인지 검증 (nested object/number → React child 에러 방지)
   const overview = obj.market_overview as Record<string, unknown>;
+  if (!Object.values(overview).every((v) => typeof v === 'string')) return null;
   if (Object.prototype.hasOwnProperty.call(overview, '__proto__') ||
       Object.prototype.hasOwnProperty.call(overview, 'constructor')) return null;
 
