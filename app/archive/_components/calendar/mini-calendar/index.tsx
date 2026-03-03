@@ -26,6 +26,7 @@ export default function MiniCalendar({
   month,
   selectedDate,
   availableDates,
+  dateTypeMap,
   onDateSelect,
   onPrevMonth,
   onNextMonth,
@@ -60,6 +61,7 @@ export default function MiniCalendar({
         calendarDays={calendarDays}
         selectedDate={selectedDate}
         availableDates={availableDates}
+        dateTypeMap={dateTypeMap}
         onDateSelect={onDateSelect}
       />
     </motion.div>
