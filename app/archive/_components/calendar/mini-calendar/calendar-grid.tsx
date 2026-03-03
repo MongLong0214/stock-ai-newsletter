@@ -19,6 +19,7 @@ function CalendarGrid({
   calendarDays,
   selectedDate,
   availableDates,
+  dateTypeMap,
   onDateSelect,
 }: CalendarGridProps) {
   return (
@@ -45,6 +46,7 @@ function CalendarGrid({
           const isSelected = selectedDate === dateString;
           const holidays = KOREAN_MARKET_HOLIDAYS_BY_YEAR[year];
           const isHoliday = holidays?.has(dateString);
+          const dataType = dateTypeMap?.get(dateString);
 
           return (
             <DateCell
@@ -56,6 +58,7 @@ function CalendarGrid({
               hasData={hasData}
               isSelected={isSelected}
               isHoliday={isHoliday}
+              dataType={dataType}
               onSelect={onDateSelect}
             />
           );
