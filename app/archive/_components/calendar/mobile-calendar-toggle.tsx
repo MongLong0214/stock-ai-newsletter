@@ -8,6 +8,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Calendar, ChevronDown } from 'lucide-react';
 import MiniCalendar from './mini-calendar';
 import type { DateString } from '../../_types/archive.types';
+import type { ArchiveDataType } from './mini-calendar/types';
 import { formatDisplayDate } from '../../_utils/formatting/date';
 import { createFadeInUpVariant, STAGGER_DELAYS, EASE_OUT_EXPO, DURATION } from '../../_constants/animations';
 
@@ -20,6 +21,8 @@ interface MobileCalendarToggleProps {
   selectedDate: DateString | null;
   /** 뉴스레터가 있는 날짜 목록 */
   availableDates: Set<DateString>;
+  /** 날짜별 데이터 타입 맵 */
+  dateTypeMap?: Map<DateString, ArchiveDataType>;
   /** 캘린더 열림 상태 */
   isCalendarOpen: boolean;
   /** 캘린더 버튼 ref */
@@ -39,6 +42,7 @@ function MobileCalendarToggle({
   month,
   selectedDate,
   availableDates,
+  dateTypeMap,
   isCalendarOpen,
   calendarButtonRef,
   onToggleCalendar,
@@ -93,6 +97,7 @@ function MobileCalendarToggle({
               month={month}
               selectedDate={selectedDate}
               availableDates={availableDates}
+              dateTypeMap={dateTypeMap}
               onDateSelect={onDateSelect}
               onPrevMonth={onPrevMonth}
               onNextMonth={onNextMonth}

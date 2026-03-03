@@ -56,3 +56,9 @@ next-env.d.ts
 .opencode
 docs
 .env*.local
+
+# Debug/preview images
+crash-alert-*.png
+
+# Playwright MCP logs
+.playwright-mcp/

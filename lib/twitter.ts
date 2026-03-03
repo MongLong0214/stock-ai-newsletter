@@ -80,6 +80,47 @@ export async function postTweetWithImage(analysis: StockAnalysis[]): Promise<str
   }
 }
 
+interface CrashAlertData {
+  type: 'crash_alert';
+  severity: 'warning' | 'critical';
+  title: string;
+  market_overview: Record<string, string>;
+  causes: { factor: string; impact: string; detail: string }[];
+  outlook: string;
+  investor_guidance: string;
+}
+
+/**
+ * Crash Alert 텍스트 트윗 게시
+ */
+export async function postCrashAlertToTwitter(alert: CrashAlertData): Promise<void> {
+  try {
+    const client = getTwitterClient();
+    const rwClient = client.readWrite;
+
+    const today = new Date().toLocaleDateString('ko-KR', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      timeZone: 'Asia/Seoul',
+    });
+
+    const severityEmoji = alert.severity === 'critical' ? '🔴' : '🟡';
+    const topCause = alert.causes?.[0]?.factor || '';
+
+    const tweetText = `${severityEmoji} ${today} 긴급 시장 분석\n\n${alert.title}\n주요 원인: ${topCause}\n\n오늘의 시장 분석 리포트를 메일로 확인하세요\n👉 https://stockmatrix.co.kr\n\n#주식 #코스피 #시장분석`;
+
+    // Twitter 280자 제한 방어
+    const finalText = tweetText.length > 280 ? tweetText.slice(0, 277) + '...' : tweetText;
+
+    await rwClient.v2.tweet({ text: finalText });
+    console.log('✅ Crash Alert 트윗 게시 성공');
+  } catch (error) {
+    console.error('❌ Crash Alert 트윗 게시 실패:', error);
+    throw error;
+  }
+}
+
 /**
  * 뉴스레터 분석 결과를 자동으로 트윗 (이미지로 게시)
  */
