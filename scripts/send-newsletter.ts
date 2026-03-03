@@ -10,8 +10,8 @@ if (existsSync(envPath)) {
 }
 
 import { createClient } from '@supabase/supabase-js';
-import { sendStockNewsletter } from '@/lib/sendgrid';
-import { postNewsletterToTwitter } from '@/lib/twitter';
+import { sendStockNewsletter, isCrashAlert } from '@/lib/sendgrid';
+import { postNewsletterToTwitter, postCrashAlertToTwitter } from '@/lib/twitter';
 
 // 환경변수 검증
 if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
@@ -127,11 +127,15 @@ async function sendNewsletter() {
       console.log('🐦 X(Twitter) 자동 게시 시작...');
       console.log('━'.repeat(80) + '\n');
 
-      // Gemini 분석 결과 파싱
-      const analysisData = JSON.parse(geminiAnalysis);
-
-      // 트윗 게시 (이미지 + 텍스트)
-      await postNewsletterToTwitter(analysisData);
+      if (isCrashAlert(geminiAnalysis)) {
+        // Crash Alert: 텍스트 트윗 게시
+        const parsed = JSON.parse(geminiAnalysis);
+        await postCrashAlertToTwitter(parsed);
+      } else {
+        // 일반: 기존 이미지 + 텍스트 트윗
+        const analysisData = JSON.parse(geminiAnalysis);
+        await postNewsletterToTwitter(analysisData);
+      }
 
       console.log('✅ X(Twitter) 자동 게시 완료!\n');
     } catch (twitterError) {

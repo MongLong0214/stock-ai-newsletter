@@ -22,6 +22,8 @@ import { getStage3CollectIndicators } from './stage-3-collect-indicators';
 import { STAGE_4_CALCULATE_SCORES } from './stage-4-calculate-scores';
 import { STAGE_5_JSON_OUTPUT } from './stage-5-json-output';
 import { getStage6FinalVerification } from './stage-6-final-verification';
+import { getMarketAssessmentPrompt } from './market-assessment';
+import { getCrashAnalysisSearchPrompt, getCrashAnalysisJsonPrompt } from './crash-analysis';
 
 // Type exports
 export type { DateContext, DateInfo, TargetDateInfo, SearchFormats } from './types';
@@ -39,6 +41,9 @@ export {
   STAGE_4_CALCULATE_SCORES,
   STAGE_5_JSON_OUTPUT,
   getStage6FinalVerification,
+  getMarketAssessmentPrompt,
+  getCrashAnalysisSearchPrompt,
+  getCrashAnalysisJsonPrompt,
 };
 
 /**

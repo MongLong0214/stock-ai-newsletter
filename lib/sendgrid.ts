@@ -55,6 +55,18 @@ interface StockData {
 }
 
 /**
+ * Crash Alert 데이터인지 확인
+ */
+export function isCrashAlert(jsonString: string): boolean {
+  try {
+    const parsed = JSON.parse(jsonString);
+    return parsed?.type === 'crash_alert';
+  } catch {
+    return false;
+  }
+}
+
+/**
  * SendGrid로 주식 뉴스레터 이메일 전송
  */
 export async function sendStockNewsletter(
@@ -64,7 +76,10 @@ export async function sendStockNewsletter(
   // SendGrid 초기화
   initSendGrid();
 
-  const subject = `[Stock Matrix] ${data.date} AI 기술적 분석`;
+  const crashAlert = isCrashAlert(data.geminiAnalysis);
+  const subject = crashAlert
+    ? `[Stock Matrix] ${data.date} 긴급 시장 분석`
+    : `[Stock Matrix] ${data.date} AI 기술적 분석`;
 
   try {
     // 각 수신자별로 개별 이메일 전송 (수신거부 링크 개인화)
@@ -94,13 +109,22 @@ export async function sendStockNewsletter(
  * 뉴스레터 HTML 템플릿 생성
  */
 function generateNewsletterHTML(data: StockNewsletterData, email: string): string {
+  const crashAlert = isCrashAlert(data.geminiAnalysis);
+
+  const headerTitle = crashAlert ? '긴급 시장 분석' : '오늘의 AI 기술적 분석';
+  const headerSubtitle = crashAlert
+    ? '대폭락 가능성 감지 — 시장 분석 리포트'
+    : '기술적 지표 기반 3개 종목 분석';
+  const headerBgColor = crashAlert ? '#7F1D1D' : '#0F172A';
+  const accentColor = crashAlert ? '#FCA5A5' : '#10B981';
+
   return `
 <!DOCTYPE html>
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AI 기술적 지표 분석 데이터</title>
+  <title>${crashAlert ? '긴급 시장 분석' : 'AI 기술적 지표 분석 데이터'}</title>
 </head>
 <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Noto Sans KR', 'Helvetica Neue', Arial, sans-serif; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; background-color: #F8FAFC;">
   <!-- Email Wrapper -->
@@ -112,16 +136,16 @@ function generateNewsletterHTML(data: StockNewsletterData, email: string): strin
 
           <!-- Header -->
           <tr>
-            <td style="padding: 32px 24px; background-color: #0F172A; border-radius: 8px 8px 0 0;">
+            <td style="padding: 32px 24px; background-color: ${headerBgColor}; border-radius: 8px 8px 0 0;">
               <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
                 <tr>
                   <td style="text-align: center;">
-                    <p style="margin: 0 0 12px 0; padding: 0; font-size: 13px; font-weight: 600; color: #10B981; letter-spacing: 0.05em; text-transform: uppercase; line-height: 1;">Stock Matrix</p>
-                    <h1 style="margin: 0 0 8px 0; padding: 0; font-size: 26px; font-weight: 700; letter-spacing: -0.03em; color: #FFFFFF; line-height: 1.2;">오늘의 AI 기술적 분석</h1>
-                    <p style="margin: 0 0 12px 0; padding: 0; font-size: 14px; font-weight: 400; color: #94A3B8; letter-spacing: 0.02em; line-height: 1.5;">기술적 지표 기반 3개 종목 분석</p>
+                    <p style="margin: 0 0 12px 0; padding: 0; font-size: 13px; font-weight: 600; color: ${accentColor}; letter-spacing: 0.05em; text-transform: uppercase; line-height: 1;">Stock Matrix</p>
+                    <h1 style="margin: 0 0 8px 0; padding: 0; font-size: 26px; font-weight: 700; letter-spacing: -0.03em; color: #FFFFFF; line-height: 1.2;">${headerTitle}</h1>
+                    <p style="margin: 0 0 12px 0; padding: 0; font-size: 14px; font-weight: 400; color: #94A3B8; letter-spacing: 0.02em; line-height: 1.5;">${headerSubtitle}</p>
                     <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin: 0 auto;">
                       <tr>
-                        <td style="padding: 6px 16px; background-color: #1E293B; border: 1px solid #334155; border-radius: 6px;">
+                        <td style="padding: 6px 16px; background-color: ${crashAlert ? '#991B1B' : '#1E293B'}; border: 1px solid ${crashAlert ? '#B91C1C' : '#334155'}; border-radius: 6px;">
                           <span style="font-size: 12px; font-weight: 500; color: #E2E8F0; letter-spacing: 0.01em;">${data.date}</span>
                         </td>
                       </tr>
@@ -169,6 +193,172 @@ function generateNewsletterHTML(data: StockNewsletterData, email: string): strin
   `;
 }
 
+interface CrashAlertCause {
+  factor: string;
+  impact: string;
+  detail: string;
+}
+
+interface CrashAlertData {
+  type: 'crash_alert';
+  severity: 'warning' | 'critical';
+  title: string;
+  market_overview: Record<string, string>;
+  causes: CrashAlertCause[];
+  historical_context: string;
+  outlook: string;
+  investor_guidance: string;
+}
+
+/**
+ * Crash Alert HTML 생성
+ */
+function formatCrashAlertHTML(data: CrashAlertData): string {
+  const isCritical = data.severity === 'critical';
+  const severityLabel = isCritical ? 'CRITICAL' : 'WARNING';
+  const severityBg = isCritical ? '#DC2626' : '#F59E0B';
+  const severityColor = isCritical ? '#FFFFFF' : '#0F172A';
+
+  const marketLabels: Record<string, string> = {
+    kospi_futures: 'KOSPI 선물',
+    kosdaq_futures: 'KOSDAQ 선물',
+    sp500_close: 'S&P 500',
+    nasdaq_close: 'NASDAQ',
+    dow_close: 'Dow Jones',
+    vix: 'VIX 공포지수',
+    usd_krw: '원/달러 환율',
+  };
+
+  const impactColors: Record<string, { bg: string; color: string }> = {
+    high: { bg: '#FEE2E2', color: '#DC2626' },
+    medium: { bg: '#FEF3C7', color: '#CA8A04' },
+    low: { bg: '#F0F9FF', color: '#0369A1' },
+  };
+
+  const marketRows = Object.entries(data.market_overview)
+    .map(([key, value]) => {
+      const label = marketLabels[key] || key;
+      const isNegative = typeof value === 'string' && value.includes('-');
+      const valueColor = isNegative ? '#DC2626' : '#0F172A';
+      return `
+        <tr>
+          <td style="padding: 8px 12px; font-size: 13px; font-weight: 500; color: #64748B; border-bottom: 1px solid #F1F5F9;">${label}</td>
+          <td style="padding: 8px 12px; font-size: 14px; font-weight: 600; color: ${valueColor}; text-align: right; border-bottom: 1px solid #F1F5F9;">${value}</td>
+        </tr>`;
+    })
+    .join('');
+
+  const causeItems = data.causes
+    .map((cause: CrashAlertCause) => {
+      const colors = impactColors[cause.impact] || impactColors.medium;
+      return `
+        <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin-bottom: 12px;">
+          <tr>
+            <td style="padding: 14px 16px; background-color: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 6px;">
+              <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin-bottom: 8px;">
+                <tr>
+                  <td>
+                    <span style="font-size: 14px; font-weight: 600; color: #0F172A;">${cause.factor}</span>
+                  </td>
+                  <td style="text-align: right;">
+                    <span style="display: inline-block; padding: 2px 8px; background-color: ${colors.bg}; border-radius: 4px; font-size: 11px; font-weight: 600; color: ${colors.color}; text-transform: uppercase;">${cause.impact}</span>
+                  </td>
+                </tr>
+              </table>
+              <p style="margin: 0; font-size: 13px; font-weight: 400; color: #475569; line-height: 1.6;">${cause.detail}</p>
+            </td>
+          </tr>
+        </table>`;
+    })
+    .join('');
+
+  return `
+    <!-- Severity Badge -->
+    <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin-bottom: 20px;">
+      <tr>
+        <td style="text-align: center;">
+          <span style="display: inline-block; padding: 6px 16px; background-color: ${severityBg}; border-radius: 4px; font-size: 12px; font-weight: 700; color: ${severityColor}; letter-spacing: 0.05em;">${severityLabel}</span>
+        </td>
+      </tr>
+    </table>
+
+    <!-- Title -->
+    <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin-bottom: 24px;">
+      <tr>
+        <td style="text-align: center;">
+          <h2 style="margin: 0; font-size: 20px; font-weight: 700; color: #0F172A; line-height: 1.3;">${data.title}</h2>
+        </td>
+      </tr>
+    </table>
+
+    <!-- Market Overview -->
+    <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin-bottom: 24px; background-color: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 8px; overflow: hidden;">
+      <tr>
+        <td colspan="2" style="padding: 14px 16px; background-color: #F8FAFC; border-bottom: 1px solid #E2E8F0;">
+          <p style="margin: 0; font-size: 12px; font-weight: 600; color: #0EA5E9; letter-spacing: 0.05em; text-transform: uppercase;">시장 현황</p>
+        </td>
+      </tr>
+      ${marketRows}
+    </table>
+
+    <!-- Causes -->
+    <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin-bottom: 24px;">
+      <tr>
+        <td style="padding-bottom: 12px;">
+          <p style="margin: 0; font-size: 12px; font-weight: 600; color: #DC2626; letter-spacing: 0.05em; text-transform: uppercase;">원인 분석</p>
+        </td>
+      </tr>
+      <tr>
+        <td>
+          ${causeItems}
+        </td>
+      </tr>
+    </table>
+
+    <!-- Historical Context -->
+    <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin-bottom: 24px; background-color: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 8px; overflow: hidden;">
+      <tr>
+        <td style="padding: 14px 16px; background-color: #F8FAFC; border-bottom: 1px solid #E2E8F0;">
+          <p style="margin: 0; font-size: 12px; font-weight: 600; color: #64748B; letter-spacing: 0.05em; text-transform: uppercase;">과거 유사 사례</p>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding: 16px;">
+          <p style="margin: 0; font-size: 14px; font-weight: 400; color: #475569; line-height: 1.7;">${data.historical_context}</p>
+        </td>
+      </tr>
+    </table>
+
+    <!-- Outlook -->
+    <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin-bottom: 24px; background-color: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 8px; overflow: hidden;">
+      <tr>
+        <td style="padding: 14px 16px; background-color: #F8FAFC; border-bottom: 1px solid #E2E8F0;">
+          <p style="margin: 0; font-size: 12px; font-weight: 600; color: #64748B; letter-spacing: 0.05em; text-transform: uppercase;">전망</p>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding: 16px;">
+          <p style="margin: 0; font-size: 14px; font-weight: 400; color: #475569; line-height: 1.7;">${data.outlook}</p>
+        </td>
+      </tr>
+    </table>
+
+    <!-- Investor Guidance -->
+    <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin-bottom: 8px; background-color: #FFFBEB; border: 1px solid #FDE68A; border-radius: 8px; overflow: hidden;">
+      <tr>
+        <td style="padding: 14px 16px; background-color: #FEF3C7; border-bottom: 1px solid #FDE68A;">
+          <p style="margin: 0; font-size: 12px; font-weight: 600; color: #CA8A04; letter-spacing: 0.05em; text-transform: uppercase;">투자자 행동 지침</p>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding: 16px;">
+          <p style="margin: 0; font-size: 14px; font-weight: 400; color: #475569; line-height: 1.7;">${data.investor_guidance}</p>
+        </td>
+      </tr>
+    </table>
+  `;
+}
+
 /**
  * JSON 분석 결과를 HTML로 변환
  */
@@ -202,7 +392,14 @@ function parseAndFormatAnalysis(jsonString: string): string {
   }
 
   try {
-    const stocks = JSON.parse(jsonString);
+    const parsed = JSON.parse(jsonString);
+
+    // Crash Alert 처리
+    if (parsed?.type === 'crash_alert') {
+      return formatCrashAlertHTML(parsed);
+    }
+
+    const stocks = parsed;
 
     // 파싱은 되었지만 배열이 비어있는 경우
     if (!stocks || stocks.length === 0) {
