@@ -155,7 +155,7 @@ function validateCrashAlert(data: unknown): boolean {
 
   const alert = data as Record<string, unknown>;
   if (alert.type !== 'crash_alert') return false;
-  if (!['warning', 'critical'].includes(alert.severity as string)) return false;
+  if (typeof alert.severity !== 'string' || !['warning', 'critical'].includes(alert.severity)) return false;
   if (typeof alert.title !== 'string' || alert.title.length === 0) return false;
   if (!alert.market_overview || typeof alert.market_overview !== 'object') return false;
   if (!Array.isArray(alert.causes) || alert.causes.length === 0) return false;
@@ -287,13 +287,19 @@ export async function getGeminiRecommendation(): Promise<string> {
     // ━━━━━ Step 1: 시장 평가 (대폭락 가능성 판정) ━━━━━
     const assessment: MarketAssessment = await executeMarketAssessment();
 
-    // ━━━━━ Step 2: 분기 — CRASH_ALERT vs NORMAL ━━━━━
+    // ━━━━━ Step 2: 분기 — CRASH_ALERT vs NORMAL vs UNKNOWN ━━━━━
     if (assessment.verdict === 'CRASH_ALERT') {
       console.log(`\n🚨 [CRASH_ALERT] 대폭락 예상 → 폭락 분석 Pipeline 실행`);
       return await executeCrashAnalysisWithRetry(assessment.summary);
     }
 
-    console.log(`\n✅ [NORMAL] 시장 정상 → 종목 추천 Pipeline 실행`);
+    if (assessment.verdict === 'UNKNOWN') {
+      console.warn(`\n⚠️ [UNKNOWN] 시장 평가 실패 — 종목 추천 Pipeline으로 폴백 (판정 불가 상태)`);
+      console.warn(`   원인: ${assessment.summary}`);
+    } else {
+      console.log(`\n✅ [NORMAL] 시장 정상 → 종목 추천 Pipeline 실행`);
+    }
+
     return await executeStockPipelineWithRetry();
   } catch (error) {
     console.error('❌ [Pipeline Error]', error);

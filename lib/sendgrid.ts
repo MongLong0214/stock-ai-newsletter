@@ -1,10 +1,28 @@
 import sgMail from '@sendgrid/mail';
 
-// API 키 초기화 함수
+/**
+ * HTML 특수문자 이스케이프 (LLM 출력 삽입 시 XSS 방지)
+ */
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+// API 키 + 발신자 정보 초기화 함수
 function initSendGrid() {
   const apiKey = process.env.SENDGRID_API_KEY;
   if (!apiKey) {
     throw new Error('SENDGRID_API_KEY is required');
+  }
+  if (!process.env.SENDGRID_FROM_EMAIL) {
+    throw new Error('SENDGRID_FROM_EMAIL is required');
+  }
+  if (!process.env.SENDGRID_FROM_NAME) {
+    throw new Error('SENDGRID_FROM_NAME is required');
   }
   sgMail.setApiKey(apiKey);
   return true;
@@ -55,14 +73,42 @@ interface StockData {
 }
 
 /**
- * Crash Alert 데이터인지 확인
+ * Crash Alert 데이터 구조 검증
  */
-export function isCrashAlert(jsonString: string): boolean {
+function validateCrashAlertData(data: unknown): data is CrashAlertData {
+  if (!data || typeof data !== 'object') return false;
+
+  const alert = data as Record<string, unknown>;
+  if (alert.type !== 'crash_alert') return false;
+  if (typeof alert.severity !== 'string' || !['warning', 'critical'].includes(alert.severity)) return false;
+  if (typeof alert.title !== 'string' || alert.title.length === 0) return false;
+  if (!alert.market_overview || typeof alert.market_overview !== 'object') return false;
+  if (!Array.isArray(alert.causes) || alert.causes.length === 0) return false;
+  if (typeof alert.historical_context !== 'string') return false;
+  if (typeof alert.outlook !== 'string') return false;
+  if (typeof alert.investor_guidance !== 'string') return false;
+
+  const causesValid = alert.causes.every((c: unknown) => {
+    if (!c || typeof c !== 'object') return false;
+    const cause = c as Record<string, unknown>;
+    return typeof cause.factor === 'string' && typeof cause.impact === 'string' && typeof cause.detail === 'string';
+  });
+
+  return causesValid;
+}
+
+/**
+ * Crash Alert JSON 파싱 + 구조 검증
+ *
+ * 파싱 + 검증을 한 번에 수행하여 이중 파싱 방지
+ */
+export function parseCrashAlert(jsonString: string): CrashAlertData | null {
   try {
     const parsed = JSON.parse(jsonString);
-    return parsed?.type === 'crash_alert';
+    if (validateCrashAlertData(parsed)) return parsed;
+    return null;
   } catch {
-    return false;
+    return null;
   }
 }
 
@@ -73,11 +119,11 @@ export async function sendStockNewsletter(
   recipients: EmailRecipient[],
   data: StockNewsletterData
 ): Promise<void> {
-  // SendGrid 초기화
+  // SendGrid 초기화 (API 키 + 발신자 정보 검증 포함)
   initSendGrid();
 
-  const crashAlert = isCrashAlert(data.geminiAnalysis);
-  const subject = crashAlert
+  const isCrash = parseCrashAlert(data.geminiAnalysis) !== null;
+  const subject = isCrash
     ? `[Stock Matrix] ${data.date} 긴급 시장 분석`
     : `[Stock Matrix] ${data.date} AI 기술적 분석`;
 
@@ -89,8 +135,8 @@ export async function sendStockNewsletter(
         return sgMail.send({
           to: recipient.email,
           from: {
-            email: process.env.SENDGRID_FROM_EMAIL!,
-            name: process.env.SENDGRID_FROM_NAME!,
+            email: process.env.SENDGRID_FROM_EMAIL as string,
+            name: process.env.SENDGRID_FROM_NAME as string,
           },
           subject,
           html,
@@ -109,14 +155,14 @@ export async function sendStockNewsletter(
  * 뉴스레터 HTML 템플릿 생성
  */
 function generateNewsletterHTML(data: StockNewsletterData, email: string): string {
-  const crashAlert = isCrashAlert(data.geminiAnalysis);
+  const isCrash = parseCrashAlert(data.geminiAnalysis) !== null;
 
-  const headerTitle = crashAlert ? '긴급 시장 분석' : '오늘의 AI 기술적 분석';
-  const headerSubtitle = crashAlert
+  const headerTitle = isCrash ? '긴급 시장 분석' : '오늘의 AI 기술적 분석';
+  const headerSubtitle = isCrash
     ? '대폭락 가능성 감지 — 시장 분석 리포트'
     : '기술적 지표 기반 3개 종목 분석';
-  const headerBgColor = crashAlert ? '#7F1D1D' : '#0F172A';
-  const accentColor = crashAlert ? '#FCA5A5' : '#10B981';
+  const headerBgColor = isCrash ? '#7F1D1D' : '#0F172A';
+  const accentColor = isCrash ? '#FCA5A5' : '#10B981';
 
   return `
 <!DOCTYPE html>
@@ -124,7 +170,7 @@ function generateNewsletterHTML(data: StockNewsletterData, email: string): strin
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${crashAlert ? '긴급 시장 분석' : 'AI 기술적 지표 분석 데이터'}</title>
+  <title>${isCrash ? '긴급 시장 분석' : 'AI 기술적 지표 분석 데이터'}</title>
 </head>
 <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Noto Sans KR', 'Helvetica Neue', Arial, sans-serif; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; background-color: #F8FAFC;">
   <!-- Email Wrapper -->
@@ -145,7 +191,7 @@ function generateNewsletterHTML(data: StockNewsletterData, email: string): strin
                     <p style="margin: 0 0 12px 0; padding: 0; font-size: 14px; font-weight: 400; color: #94A3B8; letter-spacing: 0.02em; line-height: 1.5;">${headerSubtitle}</p>
                     <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin: 0 auto;">
                       <tr>
-                        <td style="padding: 6px 16px; background-color: ${crashAlert ? '#991B1B' : '#1E293B'}; border: 1px solid ${crashAlert ? '#B91C1C' : '#334155'}; border-radius: 6px;">
+                        <td style="padding: 6px 16px; background-color: ${isCrash ? '#991B1B' : '#1E293B'}; border: 1px solid ${isCrash ? '#B91C1C' : '#334155'}; border-radius: 6px;">
                           <span style="font-size: 12px; font-weight: 500; color: #E2E8F0; letter-spacing: 0.01em;">${data.date}</span>
                         </td>
                       </tr>
@@ -180,7 +226,7 @@ function generateNewsletterHTML(data: StockNewsletterData, email: string): strin
           <tr>
             <td style="padding: 32px 40px; background-color: #F8FAFC; border-radius: 0 0 8px 8px; text-align: center;">
               <p style="margin: 0 0 16px 0; padding: 0; font-size: 12px; font-weight: 400; color: #94A3B8; line-height: 1.5;">Stock Matrix</p>
-              <a href="${process.env.NEXT_PUBLIC_APP_URL}/unsubscribe?email=${encodeURIComponent(email)}" style="display: inline-block; padding: 8px 16px; font-size: 12px; font-weight: 500; color: #64748B; text-decoration: none; border: 1px solid #E2E8F0; border-radius: 6px; transition: all 0.2s;">구독 취소</a>
+              <a href="${process.env.NEXT_PUBLIC_APP_URL || 'https://stockmatrix.co.kr'}/unsubscribe?email=${encodeURIComponent(email)}" style="display: inline-block; padding: 8px 16px; font-size: 12px; font-weight: 500; color: #64748B; text-decoration: none; border: 1px solid #E2E8F0; border-radius: 6px; transition: all 0.2s;">구독 취소</a>
             </td>
           </tr>
 
@@ -242,8 +288,8 @@ function formatCrashAlertHTML(data: CrashAlertData): string {
       const valueColor = isNegative ? '#DC2626' : '#0F172A';
       return `
         <tr>
-          <td style="padding: 8px 12px; font-size: 13px; font-weight: 500; color: #64748B; border-bottom: 1px solid #F1F5F9;">${label}</td>
-          <td style="padding: 8px 12px; font-size: 14px; font-weight: 600; color: ${valueColor}; text-align: right; border-bottom: 1px solid #F1F5F9;">${value}</td>
+          <td style="padding: 8px 12px; font-size: 13px; font-weight: 500; color: #64748B; border-bottom: 1px solid #F1F5F9;">${escapeHtml(label)}</td>
+          <td style="padding: 8px 12px; font-size: 14px; font-weight: 600; color: ${valueColor}; text-align: right; border-bottom: 1px solid #F1F5F9;">${escapeHtml(String(value))}</td>
         </tr>`;
     })
     .join('');
@@ -258,14 +304,14 @@ function formatCrashAlertHTML(data: CrashAlertData): string {
               <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin-bottom: 8px;">
                 <tr>
                   <td>
-                    <span style="font-size: 14px; font-weight: 600; color: #0F172A;">${cause.factor}</span>
+                    <span style="font-size: 14px; font-weight: 600; color: #0F172A;">${escapeHtml(cause.factor)}</span>
                   </td>
                   <td style="text-align: right;">
-                    <span style="display: inline-block; padding: 2px 8px; background-color: ${colors.bg}; border-radius: 4px; font-size: 11px; font-weight: 600; color: ${colors.color}; text-transform: uppercase;">${cause.impact}</span>
+                    <span style="display: inline-block; padding: 2px 8px; background-color: ${colors.bg}; border-radius: 4px; font-size: 11px; font-weight: 600; color: ${colors.color}; text-transform: uppercase;">${escapeHtml(cause.impact)}</span>
                   </td>
                 </tr>
               </table>
-              <p style="margin: 0; font-size: 13px; font-weight: 400; color: #475569; line-height: 1.6;">${cause.detail}</p>
+              <p style="margin: 0; font-size: 13px; font-weight: 400; color: #475569; line-height: 1.6;">${escapeHtml(cause.detail)}</p>
             </td>
           </tr>
         </table>`;
@@ -286,7 +332,7 @@ function formatCrashAlertHTML(data: CrashAlertData): string {
     <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin-bottom: 24px;">
       <tr>
         <td style="text-align: center;">
-          <h2 style="margin: 0; font-size: 20px; font-weight: 700; color: #0F172A; line-height: 1.3;">${data.title}</h2>
+          <h2 style="margin: 0; font-size: 20px; font-weight: 700; color: #0F172A; line-height: 1.3;">${escapeHtml(data.title)}</h2>
         </td>
       </tr>
     </table>
@@ -324,7 +370,7 @@ function formatCrashAlertHTML(data: CrashAlertData): string {
       </tr>
       <tr>
         <td style="padding: 16px;">
-          <p style="margin: 0; font-size: 14px; font-weight: 400; color: #475569; line-height: 1.7;">${data.historical_context}</p>
+          <p style="margin: 0; font-size: 14px; font-weight: 400; color: #475569; line-height: 1.7;">${escapeHtml(data.historical_context)}</p>
         </td>
       </tr>
     </table>
@@ -338,7 +384,7 @@ function formatCrashAlertHTML(data: CrashAlertData): string {
       </tr>
       <tr>
         <td style="padding: 16px;">
-          <p style="margin: 0; font-size: 14px; font-weight: 400; color: #475569; line-height: 1.7;">${data.outlook}</p>
+          <p style="margin: 0; font-size: 14px; font-weight: 400; color: #475569; line-height: 1.7;">${escapeHtml(data.outlook)}</p>
         </td>
       </tr>
     </table>
@@ -352,7 +398,7 @@ function formatCrashAlertHTML(data: CrashAlertData): string {
       </tr>
       <tr>
         <td style="padding: 16px;">
-          <p style="margin: 0; font-size: 14px; font-weight: 400; color: #475569; line-height: 1.7;">${data.investor_guidance}</p>
+          <p style="margin: 0; font-size: 14px; font-weight: 400; color: #475569; line-height: 1.7;">${escapeHtml(data.investor_guidance)}</p>
         </td>
       </tr>
     </table>
@@ -394,9 +440,21 @@ function parseAndFormatAnalysis(jsonString: string): string {
   try {
     const parsed = JSON.parse(jsonString);
 
-    // Crash Alert 처리
+    // Crash Alert 처리 (구조 검증 후 렌더링)
     if (parsed?.type === 'crash_alert') {
-      return formatCrashAlertHTML(parsed);
+      if (validateCrashAlertData(parsed)) {
+        return formatCrashAlertHTML(parsed);
+      }
+      console.warn('Crash Alert 구조 검증 실패 — 렌더링 건너뜀');
+      return `
+        <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+          <tr>
+            <td style="padding: 32px 20px; text-align: center; background-color: #F8FAFC; border-radius: 8px;">
+              <p style="margin: 0; padding: 0; font-size: 14px; font-weight: 500; color: #64748B;">분석 결과를 표시할 수 없습니다.</p>
+            </td>
+          </tr>
+        </table>
+      `;
     }
 
     const stocks = parsed;
@@ -431,8 +489,8 @@ function parseAndFormatAnalysis(jsonString: string): string {
               <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid #F1F5F9;">
                 <tr>
                   <td style="vertical-align: top; width: 60%;">
-                    <h3 style="margin: 0 0 6px 0; padding: 0; font-size: 18px; font-weight: 600; color: #0F172A; letter-spacing: -0.02em; line-height: 1.2;">${stock.name}</h3>
-                    <p style="margin: 0; padding: 0; font-size: 12px; font-weight: 500; color: #94A3B8; letter-spacing: 0.02em; text-transform: uppercase; line-height: 1;">${stock.ticker}</p>
+                    <h3 style="margin: 0 0 6px 0; padding: 0; font-size: 18px; font-weight: 600; color: #0F172A; letter-spacing: -0.02em; line-height: 1.2;">${escapeHtml(stock.name)}</h3>
+                    <p style="margin: 0; padding: 0; font-size: 12px; font-weight: 500; color: #94A3B8; letter-spacing: 0.02em; text-transform: uppercase; line-height: 1;">${escapeHtml(stock.ticker)}</p>
                   </td>
                   <td style="vertical-align: top; width: 40%; text-align: right;">
                     <p style="margin: 0 0 6px 0; padding: 0; font-size: 11px; font-weight: 500; color: #94A3B8; text-align: right;">전일 종가</p>
@@ -458,7 +516,7 @@ function parseAndFormatAnalysis(jsonString: string): string {
                             <span style="display: block; width: 4px; height: 4px; background-color: #0EA5E9; border-radius: 50%;"></span>
                           </td>
                           <td style="width: 8px;"></td>
-                          <td style="font-size: 14px; font-weight: 400; color: #475569; line-height: 1.6;">${r.trim()}</td>
+                          <td style="font-size: 14px; font-weight: 400; color: #475569; line-height: 1.6;">${escapeHtml(r.trim())}</td>
                         </tr>
                       </table>
                     `

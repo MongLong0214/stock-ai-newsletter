@@ -11,6 +11,16 @@
     {
       "category": "test",
       "content": "No direct tests found for middleware analytics write path, RLS policies, or mcp-stats aggregation correctness under truncation/high-volume scenarios."
+    },
+    {
+      "category": "architecture",
+      "content": "CrashAlert path now validates+escapes, but stock newsletter HTML path still interpolates stock.name/ticker without escaping in sendgrid template.",
+      "timestamp": "2026-03-03T11:46:12.471Z"
+    },
+    {
+      "category": "test",
+      "content": "Twitter crash-alert truncation currently uses JS .length/.slice; add tests using weighted tweet length (CJK/emoji/url) to prevent 400 errors.",
+      "timestamp": "2026-03-03T11:46:12.504Z"
     }
   ]
 }

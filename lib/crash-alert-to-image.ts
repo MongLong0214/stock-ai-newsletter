@@ -1,8 +1,19 @@
 import { createCanvas, CanvasRenderingContext2D, registerFont } from 'canvas';
 import { resolve } from 'path';
+import { existsSync } from 'fs';
 
-const fontPath = resolve(process.cwd(), 'fonts/AppleSDGothicNeo.ttc');
-registerFont(fontPath, { family: 'Sans' });
+let fontRegistered = false;
+
+function ensureFontRegistered(): void {
+  if (fontRegistered) return;
+  const fontPath = resolve(process.cwd(), 'fonts/AppleSDGothicNeo.ttc');
+  if (existsSync(fontPath)) {
+    registerFont(fontPath, { family: 'Sans' });
+    fontRegistered = true;
+  } else {
+    console.warn(`⚠️ 폰트 파일 없음: ${fontPath} — 시스템 기본 폰트 사용`);
+  }
+}
 
 interface CrashAlertCause {
   factor: string;
@@ -34,6 +45,8 @@ const MARKET_LABELS: Record<string, string> = {
  * Crash Alert 데이터를 트위터 업로드용 이미지로 변환
  */
 export async function crashAlertToImage(data: CrashAlertData): Promise<Buffer> {
+  ensureFontRegistered();
+
   const width = 1200;
   const height = 675;
   const canvas = createCanvas(width, height);

@@ -264,7 +264,7 @@ export async function executeGeminiPipeline(): Promise<string> {
  * 시장 평가 결과 타입
  */
 export interface MarketAssessment {
-    verdict: 'NORMAL' | 'CRASH_ALERT';
+    verdict: 'NORMAL' | 'CRASH_ALERT' | 'UNKNOWN';
     confidence: number;
     summary: string;
 }
@@ -339,12 +339,12 @@ export async function executeMarketAssessment(): Promise<MarketAssessment> {
             console.warn(`⚠️ 시장 평가 시도 ${attempt}/${PIPELINE_CONFIG.STAGE_MAX_RETRY} 실패: ${errorMsg}`);
 
             if (attempt === PIPELINE_CONFIG.STAGE_MAX_RETRY) {
-                // 시장 평가 실패 시 안전하게 NORMAL 반환
-                console.warn('🔄 시장 평가 최대 재시도 초과 → NORMAL로 기본 처리');
+                // 시장 평가 실패 시 UNKNOWN 반환 (fail-closed: 판정 불가 명시)
+                console.warn('🔄 시장 평가 최대 재시도 초과 → UNKNOWN (판정 불가)');
                 return {
-                    verdict: 'NORMAL',
+                    verdict: 'UNKNOWN',
                     confidence: 0,
-                    summary: '시장 평가 실패로 기본값(NORMAL) 적용',
+                    summary: `시장 평가 실패 (${errorMsg}) — 판정 불가`,
                 };
             }
 
@@ -355,7 +355,7 @@ export async function executeMarketAssessment(): Promise<MarketAssessment> {
     }
 
     // 도달 불가하지만 타입 안전성을 위해
-    return { verdict: 'NORMAL', confidence: 0, summary: '시장 평가 실패' };
+    return { verdict: 'UNKNOWN', confidence: 0, summary: '시장 평가 실패' };
 }
 
 /**
