@@ -180,6 +180,10 @@ function safeParse(jsonString: string): unknown {
  * Crash Alert 데이터 검증
  */
 function validateCrashAlertData(obj: Record<string, unknown>): CrashAlertData | null {
+  // 프로토타입 오염 방지
+  if (Object.prototype.hasOwnProperty.call(obj, '__proto__') ||
+      Object.prototype.hasOwnProperty.call(obj, 'constructor')) return null;
+
   if (obj.type !== 'crash_alert') return null;
   if (obj.severity !== 'warning' && obj.severity !== 'critical') return null;
   if (typeof obj.title !== 'string' || obj.title.length === 0) return null;
@@ -188,9 +192,16 @@ function validateCrashAlertData(obj: Record<string, unknown>): CrashAlertData | 
   if (typeof obj.outlook !== 'string') return null;
   if (typeof obj.investor_guidance !== 'string') return null;
 
+  // market_overview 프로토타입 오염 방지
+  const overview = obj.market_overview as Record<string, unknown>;
+  if (Object.prototype.hasOwnProperty.call(overview, '__proto__') ||
+      Object.prototype.hasOwnProperty.call(overview, 'constructor')) return null;
+
   const causes = obj.causes as Array<Record<string, unknown>>;
   const validCauses = causes.every(
-    (c) => typeof c.factor === 'string' && typeof c.impact === 'string' && typeof c.detail === 'string'
+    (c) => typeof c.factor === 'string' && typeof c.impact === 'string' && typeof c.detail === 'string' &&
+      !Object.prototype.hasOwnProperty.call(c, '__proto__') &&
+      !Object.prototype.hasOwnProperty.call(c, 'constructor')
   );
   if (!validCauses) return null;
 
