@@ -1,5 +1,10 @@
 import { GoogleGenAI } from '@google/genai';
-import { createStockAnalysisPrompt } from '../../prompts/korea';
+import {
+    createStockAnalysisPrompt,
+    getMarketAssessmentPrompt,
+    getCrashAnalysisSearchPrompt,
+    getCrashAnalysisJsonPrompt,
+} from '../../prompts/korea';
 import { PIPELINE_CONFIG, GEMINI_API_CONFIG } from '../_config/pipeline-config';
 
 /**
@@ -253,4 +258,209 @@ export async function executeGeminiPipeline(): Promise<string> {
     }
 
     throw new Error('Pipeline이 STAGE 6에 도달하지 못했습니다.');
+}
+
+/**
+ * 시장 평가 결과 타입
+ */
+export interface MarketAssessment {
+    verdict: 'NORMAL' | 'CRASH_ALERT';
+    confidence: number;
+    summary: string;
+}
+
+/**
+ * 시장 대폭락 가능성 평가
+ *
+ * 06:00 KST 시점에서 글로벌 시장 데이터를 기반으로
+ * 한국 시장 대폭락 가능성을 판정합니다.
+ *
+ * @returns MarketAssessment (verdict, confidence, summary)
+ */
+export async function executeMarketAssessment(): Promise<MarketAssessment> {
+    if (!process.env.GOOGLE_CLOUD_PROJECT) {
+        throw new Error('GOOGLE_CLOUD_PROJECT 환경 변수가 설정되지 않았습니다.');
+    }
+
+    console.log(`\n${'='.repeat(80)}`);
+    console.log(`🔍 시장 평가 (Market Assessment) 시작`);
+    console.log(`${'='.repeat(80)}`);
+
+    const genAI = new GoogleGenAI({
+        vertexai: true,
+        project: process.env.GOOGLE_CLOUD_PROJECT,
+        location: PIPELINE_CONFIG.VERTEX_AI_LOCATION,
+    });
+
+    const prompt = getMarketAssessmentPrompt();
+
+    for (let attempt = 1; attempt <= PIPELINE_CONFIG.STAGE_MAX_RETRY; attempt++) {
+        try {
+            const response = await withTimeout(
+                genAI.models.generateContent({
+                    model: GEMINI_API_CONFIG.MODEL,
+                    contents: [{ role: 'user', parts: [{ text: prompt }] }],
+                    config: {
+                        tools: [{ googleSearch: {} }],
+                        maxOutputTokens: 2048,
+                        temperature: GEMINI_API_CONFIG.TEMPERATURE,
+                        topP: GEMINI_API_CONFIG.TOP_P,
+                        topK: GEMINI_API_CONFIG.TOP_K,
+                        responseMimeType: 'application/json',
+                    },
+                }),
+                PIPELINE_CONFIG.STAGE_TIMEOUT
+            );
+
+            const text = response.text || '';
+            console.log(`📥 시장 평가 응답: ${text}`);
+
+            const parsed = JSON.parse(text) as MarketAssessment;
+
+            if (!parsed.verdict || !['NORMAL', 'CRASH_ALERT'].includes(parsed.verdict)) {
+                throw new Error(`잘못된 verdict: ${parsed.verdict}`);
+            }
+
+            if (typeof parsed.confidence !== 'number' || parsed.confidence < 0 || parsed.confidence > 100) {
+                throw new Error(`잘못된 confidence: ${parsed.confidence}`);
+            }
+
+            // confidence 70 미만이면 NORMAL로 처리
+            if (parsed.verdict === 'CRASH_ALERT' && parsed.confidence < 70) {
+                console.log(`⚠️ CRASH_ALERT이지만 confidence ${parsed.confidence} < 70 → NORMAL로 변경`);
+                parsed.verdict = 'NORMAL';
+            }
+
+            console.log(`✅ 시장 평가 완료: ${parsed.verdict} (confidence: ${parsed.confidence})`);
+            console.log(`   요약: ${parsed.summary}`);
+            return parsed;
+        } catch (error) {
+            const errorMsg = error instanceof Error ? error.message : String(error);
+            console.warn(`⚠️ 시장 평가 시도 ${attempt}/${PIPELINE_CONFIG.STAGE_MAX_RETRY} 실패: ${errorMsg}`);
+
+            if (attempt === PIPELINE_CONFIG.STAGE_MAX_RETRY) {
+                // 시장 평가 실패 시 안전하게 NORMAL 반환
+                console.warn('🔄 시장 평가 최대 재시도 초과 → NORMAL로 기본 처리');
+                return {
+                    verdict: 'NORMAL',
+                    confidence: 0,
+                    summary: '시장 평가 실패로 기본값(NORMAL) 적용',
+                };
+            }
+
+            const delay = PIPELINE_CONFIG.STAGE_INITIAL_RETRY_DELAY * Math.pow(2, attempt - 1);
+            console.log(`⏳ ${delay / 1000}초 후 재시도...`);
+            await new Promise((resolve) => setTimeout(resolve, delay));
+        }
+    }
+
+    // 도달 불가하지만 타입 안전성을 위해
+    return { verdict: 'NORMAL', confidence: 0, summary: '시장 평가 실패' };
+}
+
+/**
+ * 폭락 분석 2-Stage Pipeline 실행
+ *
+ * Stage 1: Google Search로 원인 심층 분석
+ * Stage 2: 분석 결과를 구조화된 JSON으로 변환
+ *
+ * @param assessmentSummary - 시장 평가 요약 (context 전달용)
+ * @returns crash_alert JSON 문자열
+ */
+export async function executeCrashAnalysisPipeline(assessmentSummary: string): Promise<string> {
+    if (!process.env.GOOGLE_CLOUD_PROJECT) {
+        throw new Error('GOOGLE_CLOUD_PROJECT 환경 변수가 설정되지 않았습니다.');
+    }
+
+    console.log(`\n${'='.repeat(80)}`);
+    console.log(`🚨 폭락 분석 Pipeline 시작`);
+    console.log(`${'='.repeat(80)}`);
+
+    const genAI = new GoogleGenAI({
+        vertexai: true,
+        project: process.env.GOOGLE_CLOUD_PROJECT,
+        location: PIPELINE_CONFIG.VERTEX_AI_LOCATION,
+    });
+
+    // Stage 1: 심층 분석 (Google Search)
+    console.log('\n🔍 [폭락 분석 Stage 1] 원인 심층 분석...');
+    const searchPrompt = getCrashAnalysisSearchPrompt(assessmentSummary);
+
+    let searchResult = '';
+    for (let attempt = 1; attempt <= PIPELINE_CONFIG.STAGE_MAX_RETRY; attempt++) {
+        try {
+            const response = await withTimeout(
+                genAI.models.generateContent({
+                    model: GEMINI_API_CONFIG.MODEL,
+                    contents: [{ role: 'user', parts: [{ text: searchPrompt }] }],
+                    config: {
+                        tools: [{ googleSearch: {} }],
+                        maxOutputTokens: GEMINI_API_CONFIG.MAX_OUTPUT_TOKENS,
+                        temperature: GEMINI_API_CONFIG.TEMPERATURE,
+                        topP: GEMINI_API_CONFIG.TOP_P,
+                        topK: GEMINI_API_CONFIG.TOP_K,
+                        responseMimeType: 'text/plain',
+                    },
+                }),
+                PIPELINE_CONFIG.STAGE_TIMEOUT
+            );
+
+            searchResult = response.text || '';
+            console.log(`✅ Stage 1 완료 (${searchResult.length} chars)`);
+            break;
+        } catch (error) {
+            const errorMsg = error instanceof Error ? error.message : String(error);
+            console.warn(`⚠️ Stage 1 시도 ${attempt}/${PIPELINE_CONFIG.STAGE_MAX_RETRY} 실패: ${errorMsg}`);
+
+            if (attempt === PIPELINE_CONFIG.STAGE_MAX_RETRY) throw error;
+
+            const delay = PIPELINE_CONFIG.STAGE_INITIAL_RETRY_DELAY * Math.pow(2, attempt - 1);
+            await new Promise((resolve) => setTimeout(resolve, delay));
+        }
+    }
+
+    // Stage 간 쿨다운
+    await new Promise((resolve) => setTimeout(resolve, PIPELINE_CONFIG.STAGE_DELAY));
+
+    // Stage 2: JSON 구조화
+    console.log('\n📋 [폭락 분석 Stage 2] JSON 구조화...');
+    const jsonPrompt = getCrashAnalysisJsonPrompt(searchResult);
+
+    for (let attempt = 1; attempt <= PIPELINE_CONFIG.STAGE_MAX_RETRY; attempt++) {
+        try {
+            const response = await withTimeout(
+                genAI.models.generateContent({
+                    model: GEMINI_API_CONFIG.MODEL,
+                    contents: [{ role: 'user', parts: [{ text: jsonPrompt }] }],
+                    config: {
+                        maxOutputTokens: GEMINI_API_CONFIG.MAX_OUTPUT_TOKENS,
+                        temperature: GEMINI_API_CONFIG.TEMPERATURE,
+                        topP: GEMINI_API_CONFIG.TOP_P,
+                        topK: GEMINI_API_CONFIG.TOP_K,
+                        responseMimeType: 'application/json',
+                    },
+                }),
+                PIPELINE_CONFIG.STAGE_TIMEOUT
+            );
+
+            const text = response.text || '';
+            console.log(`✅ Stage 2 완료 (${text.length} chars)`);
+
+            console.log(`\n${'='.repeat(80)}`);
+            console.log(`🚨 폭락 분석 Pipeline 완료`);
+            console.log(`${'='.repeat(80)}\n`);
+
+            return text;
+        } catch (error) {
+            const errorMsg = error instanceof Error ? error.message : String(error);
+            console.warn(`⚠️ Stage 2 시도 ${attempt}/${PIPELINE_CONFIG.STAGE_MAX_RETRY} 실패: ${errorMsg}`);
+
+            if (attempt === PIPELINE_CONFIG.STAGE_MAX_RETRY) throw error;
+
+            const delay = PIPELINE_CONFIG.STAGE_INITIAL_RETRY_DELAY * Math.pow(2, attempt - 1);
+            await new Promise((resolve) => setTimeout(resolve, delay));
+        }
+    }
+
+    throw new Error('폭락 분석 Pipeline Stage 2 실행 실패');
 }
