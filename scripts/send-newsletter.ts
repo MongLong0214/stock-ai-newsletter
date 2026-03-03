@@ -10,7 +10,7 @@ if (existsSync(envPath)) {
 }
 
 import { createClient } from '@supabase/supabase-js';
-import { sendStockNewsletter, isCrashAlert } from '@/lib/sendgrid';
+import { sendStockNewsletter, parseCrashAlert } from '@/lib/sendgrid';
 import { postNewsletterToTwitter, postCrashAlertToTwitter } from '@/lib/twitter';
 
 // 환경변수 검증
@@ -127,10 +127,10 @@ async function sendNewsletter() {
       console.log('🐦 X(Twitter) 자동 게시 시작...');
       console.log('━'.repeat(80) + '\n');
 
-      if (isCrashAlert(geminiAnalysis)) {
-        // Crash Alert: 텍스트 트윗 게시
-        const parsed = JSON.parse(geminiAnalysis);
-        await postCrashAlertToTwitter(parsed);
+      const crashAlertData = parseCrashAlert(geminiAnalysis);
+      if (crashAlertData) {
+        // Crash Alert: 텍스트 트윗 게시 (구조 검증 완료)
+        await postCrashAlertToTwitter(crashAlertData);
       } else {
         // 일반: 기존 이미지 + 텍스트 트윗
         const analysisData = JSON.parse(geminiAnalysis);

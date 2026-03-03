@@ -106,11 +106,14 @@ export async function postCrashAlertToTwitter(alert: CrashAlertData): Promise<vo
     });
 
     const severityEmoji = alert.severity === 'critical' ? '🔴' : '🟡';
-    const topCause = alert.causes[0]?.factor || '';
+    const topCause = alert.causes?.[0]?.factor || '';
 
     const tweetText = `${severityEmoji} ${today} 긴급 시장 분석\n\n${alert.title}\n주요 원인: ${topCause}\n\n오늘의 시장 분석 리포트를 메일로 확인하세요\n👉 https://stockmatrix.co.kr\n\n#주식 #코스피 #시장분석`;
 
-    await rwClient.v2.tweet({ text: tweetText });
+    // Twitter 280자 제한 방어
+    const finalText = tweetText.length > 280 ? tweetText.slice(0, 277) + '...' : tweetText;
+
+    await rwClient.v2.tweet({ text: finalText });
     console.log('✅ Crash Alert 트윗 게시 성공');
   } catch (error) {
     console.error('❌ Crash Alert 트윗 게시 실패:', error);
