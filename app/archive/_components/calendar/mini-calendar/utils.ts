@@ -41,12 +41,18 @@ const BASE_CELL_CLASSES = [
   'focus-visible:ring-offset-slate-900',
 ].join(' ');
 
+import type { ArchiveDataType } from './types';
+
 /** 날짜 셀 상태별 스타일 */
 const CELL_STATE_CLASSES = {
   selected:
     'bg-emerald-500/20 text-white border-2 border-emerald-500 shadow-[0_0_20px_rgba(16,185,129,0.4)]',
+  selectedCrash:
+    'bg-red-500/20 text-white border-2 border-red-500 shadow-[0_0_20px_rgba(239,68,68,0.4)]',
   hasData:
     'bg-emerald-500/5 text-slate-300 border border-emerald-500/20 hover:bg-emerald-500/10 hover:border-emerald-500/40',
+  hasDataCrash:
+    'bg-red-500/5 text-slate-300 border border-red-500/20 hover:bg-red-500/10 hover:border-red-500/40',
   holiday: 'bg-transparent text-red-400/60 border border-transparent cursor-not-allowed',
   disabled: 'bg-transparent text-slate-600 border border-transparent cursor-not-allowed',
 } as const;
@@ -57,8 +63,25 @@ const CELL_STATE_CLASSES = {
  * 우선순위: 휴장일 > 선택됨 > 데이터있음 > 비활성
  * 휴장일은 항상 비활성 (데이터 유무 무관)
  */
-export function getDateCellClassName(isSelected: boolean, hasData: boolean, isHoliday?: boolean): string {
-  const state = isHoliday ? 'holiday' : isSelected ? 'selected' : hasData ? 'hasData' : 'disabled';
+export function getDateCellClassName(
+  isSelected: boolean,
+  hasData: boolean,
+  isHoliday?: boolean,
+  dataType?: ArchiveDataType,
+): string {
+  const isCrash = dataType === 'crash_alert';
+
+  let state: keyof typeof CELL_STATE_CLASSES;
+  if (isHoliday) {
+    state = 'holiday';
+  } else if (isSelected) {
+    state = isCrash ? 'selectedCrash' : 'selected';
+  } else if (hasData) {
+    state = isCrash ? 'hasDataCrash' : 'hasData';
+  } else {
+    state = 'disabled';
+  }
+
   return `${BASE_CELL_CLASSES} ${CELL_STATE_CLASSES[state]}`;
 }
 

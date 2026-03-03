@@ -77,6 +77,59 @@ export interface NewsletterArchive {
 }
 
 /**
+ * Crash Alert 원인 분석
+ */
+export interface CrashAlertCause {
+  /** 원인 요소 */
+  factor: string;
+  /** 영향도 (high/medium/low) */
+  impact: string;
+  /** 상세 설명 */
+  detail: string;
+}
+
+/**
+ * Crash Alert 데이터 (폭락장 감지)
+ */
+export interface CrashAlertData {
+  type: 'crash_alert';
+  severity: 'warning' | 'critical';
+  title: string;
+  market_overview: Record<string, string>;
+  causes: CrashAlertCause[];
+  historical_context: string;
+  outlook: string;
+  investor_guidance: string;
+}
+
+/**
+ * Stock 타입 분석 기록 항목
+ */
+export interface StockArchiveEntry {
+  type: 'stock';
+  date: DateString;
+  stocks: StockData[];
+  sentAt: string | null;
+  subscriberCount: number;
+}
+
+/**
+ * Crash Alert 타입 분석 기록 항목
+ */
+export interface CrashAlertArchiveEntry {
+  type: 'crash_alert';
+  date: DateString;
+  crashAlert: CrashAlertData;
+  sentAt: string | null;
+  subscriberCount: number;
+}
+
+/**
+ * 분석 기록 항목 (Discriminated Union)
+ */
+export type ArchiveEntry = StockArchiveEntry | CrashAlertArchiveEntry;
+
+/**
  * Newsletter 타입 별칭 (하위 호환성)
  */
 export type Newsletter = NewsletterArchive;

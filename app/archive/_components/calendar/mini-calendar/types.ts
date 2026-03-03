@@ -13,6 +13,8 @@ export interface MiniCalendarProps {
   selectedDate: DateString | null;
   /** 뉴스레터가 존재하는 날짜 목록 */
   availableDates: Set<DateString>;
+  /** 날짜별 데이터 타입 맵 */
+  dateTypeMap?: Map<DateString, ArchiveDataType>;
   /** 날짜 선택 핸들러 */
   onDateSelect: (dateString: DateString) => void;
   /** 이전 달 이동 핸들러 */
@@ -32,6 +34,8 @@ export interface DayNamesRowProps {
   dayNames: readonly string[];
 }
 
+export type ArchiveDataType = 'stock' | 'crash_alert';
+
 export interface DateCellProps {
   day: number;
   year: number;
@@ -40,6 +44,7 @@ export interface DateCellProps {
   hasData: boolean;
   isSelected: boolean;
   isHoliday?: boolean;
+  dataType?: ArchiveDataType;
   onSelect: (dateString: DateString) => void;
 }
 
@@ -50,5 +55,6 @@ export interface CalendarGridProps {
   calendarDays: (number | null)[];
   selectedDate: DateString | null;
   availableDates: Set<DateString>;
+  dateTypeMap?: Map<DateString, ArchiveDataType>;
   onDateSelect: (dateString: DateString) => void;
 }
