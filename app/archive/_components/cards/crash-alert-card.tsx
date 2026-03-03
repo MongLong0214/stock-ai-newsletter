@@ -107,11 +107,11 @@ export const CrashAlertCard = ({ crashAlert }: CrashAlertCardProps) => {
           <h3 className="text-lg font-bold text-white">원인 분석</h3>
         </div>
         <div className="space-y-3">
-          {crashAlert.causes.map((cause, index) => {
+          {crashAlert.causes.map((cause) => {
             const impact = IMPACT_STYLES[cause.impact] || IMPACT_STYLES.medium;
             return (
               <div
-                key={index}
+                key={cause.factor}
                 className="rounded-xl border border-slate-700/40 bg-slate-800/40 p-4"
               >
                 <div className="mb-2 flex items-center justify-between">
@@ -167,5 +167,3 @@ export const CrashAlertCard = ({ crashAlert }: CrashAlertCardProps) => {
     </div>
   );
 };
-
-export default CrashAlertCard;
