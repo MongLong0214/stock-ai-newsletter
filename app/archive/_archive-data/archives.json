@@ -2,6 +2,62 @@
   "newsletters": [
     {
       "type": "stock",
+      "date": "2026-03-05",
+      "stocks": [
+        {
+          "ticker": "KOSDAQ:053050",
+          "name": "지에스이",
+          "close_price": 4010,
+          "rationale": "SMA 5/20/60 정배열 확산|EMA 5/20 골든크로스 발생|RSI 68.2 강세 구역 진입|MACD 시그널선 0선 위 상향 확산|당일 거래량 32,255,291주로 전일 대비 약 6배 폭증|볼린저밴드 상단 돌파 및 안착|ATR 5.2%로 변동성 확대 수반|ADX 32.1 추세 강도 매우 강함|OBV 지표 직전 고점 경신|스토캐스틱 %K선 %D선 골든크로스|Ichimoku 구름대 및 전환선 지지|MFI 69.5 자금 유입 최상위|VWAP 상단 가격 지지 확인|Vortex Indicator 상승 에너지 지배",
+          "signals": {
+            "trend_score": 97,
+            "momentum_score": 95,
+            "volume_score": 100,
+            "volatility_score": 95,
+            "pattern_score": 98,
+            "sentiment_score": 97,
+            "overall_score": 97
+          },
+          "verified_date": "2026-03-04"
+        },
+        {
+          "ticker": "KOSPI:245360",
+          "name": "RISE 2차전지TOP10인버스(합성)",
+          "close_price": 20760,
+          "rationale": "20일 이동평균선 거래량 동반 상향 돌파|EMA 5/10 단기 골든크로스 확정|RSI 58.2로 중립 이상 강세 국면|MACD 오실레이터 양전환 성공|당일 거래량 1,219,858주로 급증|볼린저밴드 중심선(20일선) 완벽 안착|ATR 4.5% 수준의 상승 변동성 확보|ADX 26.8로 신규 상승 추세 형성|OBV 하향 추세선 상향 돌파 완료|스토캐스틱 48.5 지점 반등 신호|SuperTrend 매수 전환 신호 발생|Elder-Ray Bulls Power 양수 전환|Force Index 0선 돌파 지지|Chaikin Money Flow(CMF) 자금 유입 전환",
+          "signals": {
+            "trend_score": 94,
+            "momentum_score": 90,
+            "volume_score": 98,
+            "volatility_score": 92,
+            "pattern_score": 94,
+            "sentiment_score": 96,
+            "overall_score": 94
+          },
+          "verified_date": "2026-03-04"
+        },
+        {
+          "ticker": "KOSPI:117580",
+          "name": "대성에너지",
+          "close_price": 13580,
+          "rationale": "SMA 5/20/60 정배열 정석 패턴|EMA 단기 이동평균선 우상향 가속|RSI 66.7로 강력한 매수세 확인|MACD 히스토그램 양의 영역 확대|당일 거래량 10,775,712주로 상한가 기록|볼린저밴드 상단 확장 구간 진입|ATR 4.8%로 추세적 변동성 확대|ADX 29.5로 추세 강화 단계 진입|OBV 매집 패턴 장기 유지 중|MFI 68.2로 강한 자금 유입 지속|SuperTrend 매수 유지 및 지지선 상향|Donchian Channel 20일 신고가 경신|Aroon Up 지표 90 이상 유지|CCI +145로 강력한 상승 모멘텀",
+          "signals": {
+            "trend_score": 96,
+            "momentum_score": 94,
+            "volume_score": 100,
+            "volatility_score": 93,
+            "pattern_score": 95,
+            "sentiment_score": 97,
+            "overall_score": 96
+          },
+          "verified_date": "2026-03-04"
+        }
+      ],
+      "sentAt": "2026-03-04T22:37:09.386+00:00",
+      "subscriberCount": 220
+    },
+    {
+      "type": "stock",
       "date": "2026-03-04",
       "stocks": [
         {
@@ -4782,5 +4838,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-03-03T23:03:04.986Z"
+  "lastUpdated": "2026-03-04T22:37:47.195Z"
 }
