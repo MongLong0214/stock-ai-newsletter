@@ -2,6 +2,62 @@
   "newsletters": [
     {
       "type": "stock",
+      "date": "2026-03-06",
+      "stocks": [
+        {
+          "ticker": "KOSPI:012450",
+          "name": "한화에어로스페이스",
+          "close_price": 1323000,
+          "rationale": "SMA 10/20/50/100/200 전 라인 정배열(적극매수)|EMA 5일선 일시적 하회 후 강력 지지 확인|MACD 36269.446 매수 신호 유지|RSI 56.699 안정적 강세권 진입|10개 이상의 이동평균 지표에서 매수 우위 확인|볼린저밴드 중심선(1350754) 상향 돌파 시도 중|피보나치 피벗 포인트(1413333) 타겟팅|중동 지정학적 리스크로 인한 방산 섹터 자금 쏠림|거래량 1.19M으로 높은 시장 관심도 유지|ATR 변동성 범위 내 상승 추세 강화 단계|ADX 35.2로 추세 강도 상승 중|MFI 62.8로 자금 유입 지속 확인",
+          "signals": {
+            "trend_score": 96,
+            "momentum_score": 92,
+            "volume_score": 90,
+            "volatility_score": 88,
+            "pattern_score": 94,
+            "sentiment_score": 97,
+            "overall_score": 94
+          },
+          "verified_date": "2026-03-05"
+        },
+        {
+          "ticker": "KOSPI:064350",
+          "name": "현대로템",
+          "close_price": 202000,
+          "rationale": "주봉 기준 장기 박스권 상단 돌파 후 안착|SMA 20일선(185000) 강력 지지 후 반등|RSI 62.1로 과열권 진입 전의 강력한 강세 구간|MACD 히스토그램 양선 확대 및 시그널선 골든크로스|거래량 전일 대비 165% 급증하며 매집 흔적 노출|볼린저밴드 상단(212000) 돌파를 위한 에너지 응축|윌리엄스 %R -18.5로 강한 매수세 유입 신호|OBV 지표 신고가 경신으로 세력 이탈 없음 확인|Stochastic K-D선 20선 상향 돌파 후 확산|CCI 132로 강한 상승 모멘텀 유지|방산 섹터 대장주와 동조화 현상 뚜렷|엘리어트 3파 진행 구간으로 판단되는 가파른 기울기",
+          "signals": {
+            "trend_score": 93,
+            "momentum_score": 95,
+            "volume_score": 92,
+            "volatility_score": 84,
+            "pattern_score": 91,
+            "sentiment_score": 93,
+            "overall_score": 91
+          },
+          "verified_date": "2026-03-05"
+        },
+        {
+          "ticker": "KOSPI:005380",
+          "name": "현대차",
+          "close_price": 548000,
+          "rationale": "3월 5일 전일 대비 +9.38% 급등하며 바닥 신호 확인|SMA 200일선(518731) 지지 후 V자 반등 성공|RSI 45.533으로 저평가 구간 탈출 및 상승 여력 충분|2026 가이던스 영업이익률 6.3~7.3% 달성 가시화|외국인 및 기관 동반 순매수세 유입(쌍끌이 매수)|MACD -6873에서 마이너스 폭 축소하며 추세 전환|피보나치 0.618 되돌림 구간 지지 후 1차 저항 돌파|볼린저밴드 하단 이탈 후 밴드 내 재진입 성공|거래량 2.66M으로 최근 3개월 평균치 200% 상회|Target P/E 15배 적용 시 목표주가 65만원 대비 저평가|EMA 12/26 수렴 후 확산 초기 단계|주주환원 정책(자사주 취득) 발표로 인한 하방 경직성 확보",
+          "signals": {
+            "trend_score": 85,
+            "momentum_score": 91,
+            "volume_score": 94,
+            "volatility_score": 82,
+            "pattern_score": 88,
+            "sentiment_score": 89,
+            "overall_score": 88
+          },
+          "verified_date": "2026-03-05"
+        }
+      ],
+      "sentAt": "2026-03-05T22:37:06.579+00:00",
+      "subscriberCount": 223
+    },
+    {
+      "type": "stock",
       "date": "2026-03-05",
       "stocks": [
         {
@@ -4838,5 +4894,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-03-04T23:05:39.316Z"
+  "lastUpdated": "2026-03-05T22:37:48.720Z"
 }
