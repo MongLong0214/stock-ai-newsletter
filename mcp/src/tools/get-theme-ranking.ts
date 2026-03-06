@@ -13,7 +13,7 @@ const VALID_STAGES = [
 export const registerGetThemeRanking = (server: McpServer): void => {
   server.tool(
     'get_theme_ranking',
-    '한국 주식시장 테마 생명주기 랭킹을 조회합니다. 단계별(초기/성장/정점/쇠퇴/재점화) 테마 목록과 점수를 반환합니다.',
+    'Get Korean stock market theme rankings with lifecycle scores. Use when the user asks about trending stock themes, hot investment sectors, market momentum, what themes are rising/falling in Korea, 한국 주식 테마 랭킹, 요즘 뜨는 테마, 상승/하락 테마, or any question about KOSPI/KOSDAQ theme trends. Returns themes ranked by score with lifecycle stage (emerging/growth/peak/decline/reigniting) and related stocks.',
     {
       stage: z
         .enum(VALID_STAGES)
