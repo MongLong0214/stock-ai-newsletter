@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { fetchApi, formatResult, formatError } from '../fetch-helper.js';
 export const registerGetStockTheme = (server) => {
-    server.tool('get_stock_theme', '특정 종목이 속한 테마를 조회합니다. 종목 코드로 관련 테마 정보를 확인할 수 있습니다.', {
+    server.tool('get_stock_theme', 'Find which investment themes a Korean stock belongs to. Use when the user asks about a specific stock code like 005930 (Samsung), 000660 (SK Hynix), 373220 (LG Energy), or any 6-digit Korean stock code. Answers "삼성전자 무슨 테마야?", "what themes is this stock part of?", "이 종목 관련 테마". Returns all associated themes with scores and stages.', {
         symbol: z
             .string()
             .regex(/^\d{6}$/, 'Korean stock code must be 6 digits')

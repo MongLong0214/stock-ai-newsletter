@@ -1,7 +1,7 @@
 const BASE_URL =
   process.env.STOCKMATRIX_API_URL || 'https://stockmatrix.co.kr';
 
-const MCP_USER_AGENT = `stockmatrix-mcp/0.1.3`;
+const MCP_USER_AGENT = `stockmatrix-mcp/0.1.4`;
 
 // 시작 시 URL 유효성 검증
 try {

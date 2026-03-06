@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { fetchApi, formatResult, formatError } from '../fetch-helper.js';
 export const registerGetThemeHistory = (server) => {
-    server.tool('get_theme_history', '테마의 최근 30일 점수 이력을 조회합니다. 생명주기 추이를 파악할 수 있습니다.', {
+    server.tool('get_theme_history', 'Get 30-day score history for a Korean stock theme. Use when the user asks about theme trend over time, momentum changes, whether a theme is gaining or losing interest, "이 테마 추세가 어때?", "최근 한달 흐름", or wants to see historical data for a theme. Returns daily scores to analyze lifecycle trajectory.', {
         theme_id: z
             .string()
             .uuid('Theme ID must be a valid UUID')

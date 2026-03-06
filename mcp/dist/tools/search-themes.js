@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { fetchApi, formatResult, formatError } from '../fetch-helper.js';
 export const registerSearchThemes = (server) => {
-    server.tool('search_themes', '테마를 검색합니다. 이름(한국어/영문)으로 필터링하여 일치하는 테마의 점수, 단계 정보를 반환합니다.', {
+    server.tool('search_themes', 'Search Korean stock market themes by keyword. Use when the user asks about a specific sector, industry, or investment theme like AI, semiconductors, EV, bio, defense, robots, nuclear, 반도체, 2차전지, 방산, 로봇, 원자력, or any topic related to Korean stock market themes. Also useful when the user mentions a Korean company name to find related themes. Returns matching themes with scores and lifecycle stages.', {
         query: z
             .string()
             .min(1)
