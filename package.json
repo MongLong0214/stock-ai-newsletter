@@ -11,7 +11,8 @@
     "test-twitter": "tsx scripts/test-twitter.ts",
     "generate-blog": "tsx scripts/generate-blog-post.ts",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "mcp:stats": "tsx scripts/mcp-stats.ts"
   },
   "dependencies": {
     "@google/genai": "^1.30.0",
