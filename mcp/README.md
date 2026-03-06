@@ -1,14 +1,8 @@
 # stockmatrix-mcp
 
-MCP server for Korean stock market theme lifecycle analysis. Provides real-time theme scores, lifecycle stages, related stocks, and news for 250+ KOSPI/KOSDAQ investment themes.
+MCP server for Korean stock market theme analysis. Track 250+ KOSPI/KOSDAQ investment themes with lifecycle scores, trend data, related stocks, and news — all through natural conversation with AI.
 
-## Installation
-
-```bash
-npx -y stockmatrix-mcp
-```
-
-## Configuration
+## Quick Start
 
 ### Claude Desktop
 
@@ -25,9 +19,9 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
 }
 ```
 
-### Cursor
+### Cursor / Windsurf
 
-Add to `.cursor/mcp.json`:
+Add to `.cursor/mcp.json` or `.windsurf/mcp.json`:
 
 ```json
 {
@@ -40,7 +34,7 @@ Add to `.cursor/mcp.json`:
 }
 ```
 
-### VS Code
+### VS Code / Claude Code
 
 Add to `.vscode/mcp.json`:
 
@@ -55,71 +49,68 @@ Add to `.vscode/mcp.json`:
 }
 ```
 
+## Try Asking
+
+After setup, just ask in natural language:
+
+| Prompt | What happens |
+|--------|-------------|
+| "요즘 한국 주식시장에서 뜨는 테마 뭐야?" | Top trending themes with scores |
+| "AI 관련 테마 찾아줘" | Search AI-related themes |
+| "반도체 테마 최근 한달 추세 어때?" | 30-day score history |
+| "삼성전자가 속한 테마 알려줘" | Themes linked to Samsung (005930) |
+| "성장 단계인 테마만 보여줘" | Growth-stage themes only |
+| "방산 테마 상세 정보" | Score, stocks, news for defense theme |
+| "What are the hottest stock themes in Korea?" | Works in English too |
+| "Which themes is SK Hynix (000660) part of?" | Stock-to-theme lookup |
+
 ## Available Tools
 
 ### `get_theme_ranking`
 
-한국 주식시장 테마 생명주기 랭킹을 조회합니다. Retrieves theme lifecycle rankings by stage.
+Get theme rankings by lifecycle stage.
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `stage` | string | No | Filter by stage: `emerging`, `growth`, `peak`, `decline`, `reigniting` |
-
-### `get_theme_detail`
-
-특정 테마의 상세 정보를 조회합니다. Gets detailed theme info including score, stage, related stocks, and news.
-
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `theme_id` | string (UUID) | Yes | Theme UUID |
-
-### `get_theme_history`
-
-테마의 최근 30일 점수 이력을 조회합니다. Returns 30-day score history for a theme.
-
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `theme_id` | string (UUID) | Yes | Theme UUID |
+| `stage` | string | No | `emerging` / `growth` / `peak` / `decline` / `reigniting` |
 
 ### `search_themes`
 
-테마를 검색합니다. Searches themes by name in Korean or English.
+Search themes by keyword (Korean or English).
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `query` | string | Yes | Search query (e.g. `"AI"`, `"반도체"`, `"삼성전자"`) |
+| `query` | string | Yes | e.g. `"AI"`, `"반도체"`, `"2차전지"`, `"삼성전자"` |
+
+### `get_theme_detail`
+
+Get detailed info: score, stage, prediction, related stocks, news.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `theme_id` | string (UUID) | Yes | Theme UUID from ranking or search |
+
+### `get_theme_history`
+
+Get 30-day score history for trend analysis.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `theme_id` | string (UUID) | Yes | Theme UUID |
 
 ### `get_stock_theme`
 
-특정 종목이 속한 테마를 조회합니다. Finds themes related to a specific stock code.
+Find themes a specific stock belongs to.
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `symbol` | string | Yes | 6-digit Korean stock code (e.g. `"005930"` for Samsung) |
+| `symbol` | string | Yes | 6-digit code, e.g. `"005930"` (Samsung), `"000660"` (SK Hynix) |
 
-## Environment Variables
+## Data Coverage
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `STOCKMATRIX_API_URL` | `https://stockmatrix.co.kr` | API base URL |
-
-## Examples
-
-**"What are the hottest stock themes in Korea right now?"**
-→ `get_theme_ranking` with `stage: "growth"`
-
-**"Tell me about the semiconductor theme"**
-→ `search_themes` with `query: "반도체"` → `get_theme_detail` with the returned theme ID
-
-**"What themes is Samsung Electronics part of?"**
-→ `get_stock_theme` with `symbol: "005930"`
-
-## Data Sources
-
-- Naver DataLab search interest trends
-- Naver Finance theme stock data
-- Naver News article collection
-- KRX (Korea Exchange) market data
+- **250+ themes** across KOSPI & KOSDAQ
+- **Daily updates** — scores, news, stock mappings
+- **Sources**: Naver DataLab, Naver Finance, Naver News, KRX
 
 ## License
 
