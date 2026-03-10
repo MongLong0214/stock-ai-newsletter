@@ -2,6 +2,62 @@
   "newsletters": [
     {
       "type": "stock",
+      "date": "2026-03-11",
+      "stocks": [
+        {
+          "ticker": "KOSPI:012450",
+          "name": "한화에어로스페이스",
+          "close_price": 1470000,
+          "rationale": "2026-03-10 종가 1,470,000원 확인(investing.com)|RSI(14) 53.11 중립 강세권 진입(Source: Investing)|MACD 24774.86 매수 신호 발생|ADX 31 강한 추세 형성 시작|거래량 450,856주 전일 대비 급증(hankyung.com)|SMA 5/20/50/200 완전 정배열 유지|볼린저밴드 상단 저항 돌파 시도|ATR 3.5% 변동성 확대 국면|OBV 우상향 신고가 경신|Stochastic %K 75 돌파|이란 전쟁 종전 기대감에 따른 K-방산 수출 모멘텀 강화(Source: Daum)|기관/외국인 동반 순매수 유입 확인",
+          "signals": {
+            "trend_score": 98,
+            "momentum_score": 92,
+            "volume_score": 95,
+            "volatility_score": 94,
+            "pattern_score": 98,
+            "sentiment_score": 95,
+            "overall_score": 95
+          },
+          "verified_date": "2026-03-10"
+        },
+        {
+          "ticker": "KOSPI:005930",
+          "name": "삼성전자",
+          "close_price": 187900,
+          "rationale": "2026-03-10 종가 187,900원 확인(investing.com)|RSI 52.4 과매수 미도달 적정 매수 구간|거래량 33.41M 폭발적 증가(전일비 8.30% 급상승)|Exynos 2700 점유율 확대 및 SF2P 공정 수율 개선 모멘텀(kiwoom.com)|DRAM/NAND 가격 100% 이상 급등 전망 반영 시작|6일 종가 188,200원 대비 지지선 구축 후 반등|MACD 히스토그램 양전환 성공|볼린저밴드 중심선 안착 및 상단 개방|Ichimoku 구름대 상단 돌파 시도|외국인 1조원 매수세 유입(hankyung.com)|반도체 업종 내 대장주 수급 집중",
+          "signals": {
+            "trend_score": 94,
+            "momentum_score": 91,
+            "volume_score": 97,
+            "volatility_score": 90,
+            "pattern_score": 95,
+            "sentiment_score": 93,
+            "overall_score": 93
+          },
+          "verified_date": "2026-03-10"
+        },
+        {
+          "ticker": "KOSPI:005380",
+          "name": "현대차",
+          "close_price": 525000,
+          "rationale": "2026-03-10 종가 525,000원 확인(hankyung.com)|RSI 49.8 골든크로스 직전 최적 지점|EMA 단기 정배열 전환 신호 포착(Source: Investing)|거래량 1,270,933주 안정적 우상향|자기주식 취득 및 소각 기대감 상존(kiwoom.com)|로보택시 상용화 및 자율주행 모멘텀 부각|이란 전쟁 직격탄 우려 해소에 따른 급반등(+3.55%)|ADX 22 추세 강화 구간 진입|볼린저밴드 하단 지지 후 중심선 돌파|Stochastic %K 58 상승 반전|CCI 42 저점 통과 후 반등 신호|기업 밸류업 프로그램 최대 수혜주 기대감 유지",
+          "signals": {
+            "trend_score": 93,
+            "momentum_score": 88,
+            "volume_score": 92,
+            "volatility_score": 95,
+            "pattern_score": 96,
+            "sentiment_score": 92,
+            "overall_score": 92
+          },
+          "verified_date": "2026-03-10"
+        }
+      ],
+      "sentAt": "2026-03-10T22:36:38.5+00:00",
+      "subscriberCount": 235
+    },
+    {
+      "type": "stock",
       "date": "2026-03-10",
       "stocks": [
         {
@@ -4990,5 +5046,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-03-09T23:04:21.107Z"
+  "lastUpdated": "2026-03-10T22:37:15.180Z"
 }
