@@ -37,10 +37,6 @@ async function prepareNewsletter() {
     console.log('🤖 Gemini AI 분석 시작...');
     const { geminiAnalysis } = await getStockAnalysis();
 
-    if (geminiAnalysis.startsWith('⚠️')) {
-      throw new Error('Gemini analysis failed: ' + geminiAnalysis);
-    }
-
     console.log('✅ AI 분석 완료\n');
 
     // 2. 오늘 날짜 가져오기 (KST 기준)

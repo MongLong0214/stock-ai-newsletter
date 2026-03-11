@@ -4,7 +4,7 @@ import { getGeminiRecommendation } from './korea/gemini';
  * 주식 분석 결과
  */
 export interface StockAnalysisResult {
-  /** Gemini 분석 결과 (JSON 문자열 또는 에러 메시지) */
+  /** Gemini 분석 결과 JSON 문자열 */
   geminiAnalysis: string;
 }
 
@@ -22,28 +22,30 @@ export async function getStockAnalysis(): Promise<StockAnalysisResult> {
   console.log('🤖 Gemini 주식 분석 시작...\n');
 
   const startTime = Date.now();
+  try {
+    const geminiAnalysis = await getGeminiRecommendation();
+    const endTime = Date.now();
+    const duration = ((endTime - startTime) / 1000).toFixed(2);
 
-  // Gemini Pipeline 실행 (Promise.allSettled로 에러 처리)
-  const [geminiResult] = await Promise.allSettled([getGeminiRecommendation()]);
+    console.log(`\n⏱️  총 실행 시간: ${duration}초\n`);
+    console.log('━'.repeat(80));
+    console.log('📊 Gemini 분석: ✅ 성공');
+    console.log('━'.repeat(80));
+    console.log('');
 
-  const endTime = Date.now();
-  const duration = ((endTime - startTime) / 1000).toFixed(2);
+    return {
+      geminiAnalysis,
+    };
+  } catch (error) {
+    const endTime = Date.now();
+    const duration = ((endTime - startTime) / 1000).toFixed(2);
 
-  console.log(`\n⏱️  총 실행 시간: ${duration}초\n`);
+    console.log(`\n⏱️  총 실행 시간: ${duration}초\n`);
+    console.log('━'.repeat(80));
+    console.log('📊 Gemini 분석: ❌ 실패');
+    console.log('━'.repeat(80));
+    console.log('');
 
-  // 결과 추출 (gemini.ts에서 이미 검증된 JSON 또는 에러 메시지)
-  const geminiAnalysis =
-    geminiResult.status === 'fulfilled'
-      ? geminiResult.value
-      : `⚠️ Gemini 분석 실패: ${geminiResult.reason}`;
-
-  // 결과 로깅
-  console.log('━'.repeat(80));
-  console.log('📊 Gemini 분석:', geminiAnalysis.startsWith('⚠️') ? '❌ 실패' : '✅ 성공');
-  console.log('━'.repeat(80));
-  console.log('');
-
-  return {
-    geminiAnalysis,
-  };
+    throw error;
+  }
 }

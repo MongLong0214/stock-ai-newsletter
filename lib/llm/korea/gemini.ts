@@ -259,24 +259,18 @@ function formatError(error: unknown): string {
  * - JSON 검증 실패 또는 Pipeline 오류 시 전체 재실행
  * - 429 Rate Limit 에러 자동 감지 및 처리
  *
- * @returns 유효한 JSON 문자열 (1-3개 종목) 또는 에러 메시지
+ * @returns 유효한 JSON 문자열
  * @throws 환경 변수 미설정, 최대 재시도 횟수 초과
  *
  * @example
  * ```typescript
  * const result = await getGeminiRecommendation();
- * if (result.startsWith('[')) {
- *   // 성공: JSON 문자열
- *   const stocks = JSON.parse(result);
- * } else {
- *   // 실패: 에러 메시지
- *   console.error(result); // "⚠️ 응답 시간 초과"
- * }
+ * const stocks = JSON.parse(result);
  * ```
  */
 export async function getGeminiRecommendation(): Promise<string> {
   if (!process.env.GOOGLE_CLOUD_PROJECT) {
-    return '⚠️ GOOGLE_CLOUD_PROJECT 환경 변수가 설정되지 않았습니다.';
+    throw new Error('GOOGLE_CLOUD_PROJECT 환경 변수가 설정되지 않았습니다.');
   }
 
   console.log(
@@ -287,23 +281,18 @@ export async function getGeminiRecommendation(): Promise<string> {
     // ━━━━━ Step 1: 시장 평가 (대폭락 가능성 판정) ━━━━━
     const assessment: MarketAssessment = await executeMarketAssessment();
 
-    // ━━━━━ Step 2: 분기 — CRASH_ALERT vs NORMAL vs UNKNOWN ━━━━━
+    // ━━━━━ Step 2: 분기 — CRASH_ALERT vs NORMAL ━━━━━
     if (assessment.verdict === 'CRASH_ALERT') {
       console.log(`\n🚨 [CRASH_ALERT] 대폭락 예상 → 폭락 분석 Pipeline 실행`);
       return await executeCrashAnalysisWithRetry(assessment.summary);
     }
 
-    if (assessment.verdict === 'UNKNOWN') {
-      console.warn(`\n⚠️ [UNKNOWN] 시장 평가 실패 — 종목 추천 Pipeline으로 폴백 (판정 불가 상태)`);
-      console.warn(`   원인: ${assessment.summary}`);
-    } else {
-      console.log(`\n✅ [NORMAL] 시장 정상 → 종목 추천 Pipeline 실행`);
-    }
+    console.log(`\n✅ [NORMAL] 시장 정상 → 종목 추천 Pipeline 실행`);
 
     return await executeStockPipelineWithRetry();
   } catch (error) {
     console.error('❌ [Pipeline Error]', error);
-    return formatError(error);
+    throw error instanceof Error ? error : new Error(formatError(error));
   }
 }
 

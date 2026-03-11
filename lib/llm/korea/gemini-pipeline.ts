@@ -1,11 +1,18 @@
 import { GoogleGenAI } from '@google/genai';
 import {
     createStockAnalysisPrompt,
-    getMarketAssessmentPrompt,
     getCrashAnalysisSearchPrompt,
     getCrashAnalysisJsonPrompt,
+    getMarketAssessmentPrompt,
 } from '../../prompts/korea';
 import { PIPELINE_CONFIG, GEMINI_API_CONFIG } from '../_config/pipeline-config';
+import {
+    evaluateMarketAssessmentSnapshot,
+    formatMarketAssessmentSnapshot,
+    getKisMarketAssessmentSnapshot,
+    type MarketAssessmentEvidence,
+    type MarketAssessmentSnapshot,
+} from '@/lib/market-data/kis-market-assessment';
 
 /**
  * 단일 Stage 프롬프트 정보
@@ -264,9 +271,149 @@ export async function executeGeminiPipeline(): Promise<string> {
  * 시장 평가 결과 타입
  */
 export interface MarketAssessment {
-    verdict: 'NORMAL' | 'CRASH_ALERT' | 'UNKNOWN';
+    verdict: 'NORMAL' | 'CRASH_ALERT';
     confidence: number;
     summary: string;
+}
+
+function parseMarketAssessmentResponse(text: string): MarketAssessment {
+    const candidate = text.trim();
+    const jsonBlock = candidate.match(/\{[\s\S]*\}/)?.[0] ?? candidate;
+    const parsed = JSON.parse(jsonBlock) as Partial<MarketAssessment>;
+
+    if (parsed.verdict !== 'NORMAL' && parsed.verdict !== 'CRASH_ALERT') {
+        throw new Error('시장 평가 응답 verdict가 유효하지 않습니다.');
+    }
+
+    if (typeof parsed.confidence !== 'number' || parsed.confidence < 0 || parsed.confidence > 100) {
+        throw new Error('시장 평가 응답 confidence가 유효하지 않습니다.');
+    }
+
+    if (typeof parsed.summary !== 'string' || parsed.summary.trim().length === 0) {
+        throw new Error('시장 평가 응답 summary가 비어 있습니다.');
+    }
+
+    return {
+        verdict: parsed.verdict,
+        confidence: Math.round(parsed.confidence),
+        summary: parsed.summary.trim(),
+    };
+}
+
+async function executeSearchMarketAssessmentFallback(snapshotError: string): Promise<MarketAssessment> {
+    if (!process.env.GOOGLE_CLOUD_PROJECT) {
+        throw new Error(`시장 스냅샷 확보 실패 후 fallback 불가: ${snapshotError}`);
+    }
+
+    console.warn(`⚠️ 시장 스냅샷 확보 실패. Gemini search fallback 진입: ${snapshotError}`);
+
+    const genAI = new GoogleGenAI({
+        vertexai: true,
+        project: process.env.GOOGLE_CLOUD_PROJECT,
+        location: PIPELINE_CONFIG.VERTEX_AI_LOCATION,
+    });
+
+    const prompt = getMarketAssessmentPrompt({
+        executionDate: new Date(),
+        snapshot: null,
+        evidence: null,
+    });
+
+    for (let attempt = 1; attempt <= PIPELINE_CONFIG.STAGE_MAX_RETRY; attempt++) {
+        try {
+            const response = await withTimeout(
+                genAI.models.generateContent({
+                    model: GEMINI_API_CONFIG.MODEL,
+                    contents: [{ role: 'user', parts: [{ text: prompt }] }],
+                    config: {
+                        tools: [{ googleSearch: {} }],
+                        maxOutputTokens: GEMINI_API_CONFIG.MAX_OUTPUT_TOKENS,
+                        temperature: GEMINI_API_CONFIG.TEMPERATURE,
+                        topP: GEMINI_API_CONFIG.TOP_P,
+                        topK: GEMINI_API_CONFIG.TOP_K,
+                        responseMimeType: 'application/json',
+                    },
+                }),
+                PIPELINE_CONFIG.STAGE_TIMEOUT
+            );
+
+            const parsed = parseMarketAssessmentResponse(response.text || '');
+            const resolved =
+                parsed.verdict === 'CRASH_ALERT' && parsed.confidence < 70
+                    ? {
+                        verdict: 'NORMAL' as const,
+                        confidence: 69,
+                        summary: `Gemini search fallback에서 낮은 신뢰 crash 신호가 감지됐지만 confidence 기준 미달로 NORMAL 처리했습니다. ${parsed.summary}`,
+                    }
+                    : parsed;
+
+            console.log(`✅ 시장 평가 완료 (Gemini fallback): ${resolved.verdict} (confidence: ${resolved.confidence})`);
+            console.log(`   요약: ${resolved.summary}`);
+            return resolved;
+        } catch (error) {
+            const errorMsg = error instanceof Error ? error.message : String(error);
+            console.warn(`⚠️ 시장 평가 fallback 시도 ${attempt}/${PIPELINE_CONFIG.STAGE_MAX_RETRY} 실패: ${errorMsg}`);
+
+            if (attempt === PIPELINE_CONFIG.STAGE_MAX_RETRY) {
+                throw new Error(`시장 스냅샷 확보 실패 후 Gemini fallback도 실패: ${errorMsg}`);
+            }
+
+            const delay = PIPELINE_CONFIG.STAGE_INITIAL_RETRY_DELAY * Math.pow(2, attempt - 1);
+            await new Promise((resolve) => setTimeout(resolve, delay));
+        }
+    }
+
+    throw new Error(`시장 스냅샷 확보 실패 후 Gemini fallback도 실패: ${snapshotError}`);
+}
+
+function resolveMarketAssessmentFromSnapshot(
+    snapshot: MarketAssessmentSnapshot,
+    evidence: MarketAssessmentEvidence
+): MarketAssessment {
+    const { sp500, dowJones, nasdaqComposite, kospi200MiniFutures, vix, usdKrw, usdJpy } = snapshot.indicators;
+    const tier1Count = evidence.tier1Signals.length;
+    const tier2Count = evidence.tier2Signals.length;
+    const tier3Count = evidence.tier3Signals.length;
+    const supportingSummary = evidence.supportingNotes.slice(0, 3).join(' / ');
+    const formatSupplementaryIndicator = (label: string, indicator: typeof vix | typeof usdKrw | typeof usdJpy, unit: string) =>
+        indicator
+            ? `${label} ${indicator.change.toFixed(2)}${unit}${indicator.validation === 'cross_checked' ? ' [cross-checked]' : indicator.validation === 'single_source' ? ' [single-source]' : ''}`
+            : null;
+
+    const numericContext = [
+        `S&P 500 ${sp500.changePct.toFixed(2)}%`,
+        `Dow ${dowJones.changePct.toFixed(2)}%`,
+        `NASDAQ Composite ${nasdaqComposite.changePct.toFixed(2)}%`,
+        `KOSPI200 mini futures ${kospi200MiniFutures.changePct.toFixed(2)}%`,
+        vix ? `VIX ${vix.price.toFixed(2)} (${vix.change.toFixed(2)}pt)${vix.validation === 'cross_checked' ? ' [cross-checked]' : vix.validation === 'single_source' ? ' [single-source]' : ''}` : null,
+        formatSupplementaryIndicator('USD/KRW', usdKrw, ' KRW'),
+        formatSupplementaryIndicator('USD/JPY', usdJpy, ' JPY'),
+    ].filter(Boolean).join(', ');
+
+    if (tier1Count > 0) {
+        const confidence =
+            tier3Count > 0 ? 93 : tier1Count >= 2 ? 90 : tier2Count > 0 ? 84 : 76;
+
+        return {
+            verdict: 'CRASH_ALERT',
+            confidence,
+            summary: `API snapshot 기준 Tier 1 시그널 감지: ${evidence.tier1Signals.join(', ')}.${tier3Count > 0 ? ` 이벤트 보강: ${evidence.tier3Signals.join(', ')}.` : ''} ${numericContext}.${supportingSummary ? ` 보강 지표: ${supportingSummary}.` : ''}`,
+        };
+    }
+
+    if (tier2Count > 0) {
+        return {
+            verdict: 'NORMAL',
+            confidence: 68,
+            summary: `API snapshot 기준 Tier 2 경계 시그널만 감지: ${evidence.tier2Signals.join(', ')}.${tier3Count > 0 ? ` 이벤트 참고: ${evidence.tier3Signals.join(', ')}.` : ''} ${numericContext}.${supportingSummary ? ` 보강 지표: ${supportingSummary}.` : ''}`,
+        };
+    }
+
+    return {
+        verdict: 'NORMAL',
+        confidence: 92,
+        summary: `API snapshot 기준 핵심 급락 시그널이 없습니다. ${numericContext}.${supportingSummary ? ` 보강 지표: ${supportingSummary}.` : ''}${tier3Count > 0 ? ` 다만 이벤트 참고: ${evidence.tier3Signals.join(', ')}.` : ''}`,
+    };
 }
 
 /**
@@ -278,84 +425,30 @@ export interface MarketAssessment {
  * @returns MarketAssessment (verdict, confidence, summary)
  */
 export async function executeMarketAssessment(): Promise<MarketAssessment> {
-    if (!process.env.GOOGLE_CLOUD_PROJECT) {
-        throw new Error('GOOGLE_CLOUD_PROJECT 환경 변수가 설정되지 않았습니다.');
-    }
-
     console.log(`\n${'='.repeat(80)}`);
     console.log(`🔍 시장 평가 (Market Assessment) 시작`);
     console.log(`${'='.repeat(80)}`);
 
-    const genAI = new GoogleGenAI({
-        vertexai: true,
-        project: process.env.GOOGLE_CLOUD_PROJECT,
-        location: PIPELINE_CONFIG.VERTEX_AI_LOCATION,
-    });
-
-    const prompt = getMarketAssessmentPrompt();
-
-    for (let attempt = 1; attempt <= PIPELINE_CONFIG.STAGE_MAX_RETRY; attempt++) {
-        try {
-            const response = await withTimeout(
-                genAI.models.generateContent({
-                    model: GEMINI_API_CONFIG.MODEL,
-                    contents: [{ role: 'user', parts: [{ text: prompt }] }],
-                    config: {
-                        tools: [{ googleSearch: {} }],
-                        maxOutputTokens: 2048,
-                        temperature: GEMINI_API_CONFIG.TEMPERATURE,
-                        topP: GEMINI_API_CONFIG.TOP_P,
-                        topK: GEMINI_API_CONFIG.TOP_K,
-                        responseMimeType: 'application/json',
-                    },
-                }),
-                PIPELINE_CONFIG.STAGE_TIMEOUT
-            );
-
-            const text = response.text || '';
-            console.log(`📥 시장 평가 응답: ${text}`);
-
-            const parsed = JSON.parse(text) as MarketAssessment;
-
-            if (!parsed.verdict || !['NORMAL', 'CRASH_ALERT'].includes(parsed.verdict)) {
-                throw new Error(`잘못된 verdict: ${parsed.verdict}`);
-            }
-
-            if (typeof parsed.confidence !== 'number' || parsed.confidence < 0 || parsed.confidence > 100) {
-                throw new Error(`잘못된 confidence: ${parsed.confidence}`);
-            }
-
-            // confidence 70 미만이면 NORMAL로 처리
-            if (parsed.verdict === 'CRASH_ALERT' && parsed.confidence < 70) {
-                console.log(`⚠️ CRASH_ALERT이지만 confidence ${parsed.confidence} < 70 → NORMAL로 변경`);
-                parsed.verdict = 'NORMAL';
-            }
-
-            console.log(`✅ 시장 평가 완료: ${parsed.verdict} (confidence: ${parsed.confidence})`);
-            console.log(`   요약: ${parsed.summary}`);
-            return parsed;
-        } catch (error) {
-            const errorMsg = error instanceof Error ? error.message : String(error);
-            console.warn(`⚠️ 시장 평가 시도 ${attempt}/${PIPELINE_CONFIG.STAGE_MAX_RETRY} 실패: ${errorMsg}`);
-
-            if (attempt === PIPELINE_CONFIG.STAGE_MAX_RETRY) {
-                // 시장 평가 실패 시 UNKNOWN 반환 (fail-closed: 판정 불가 명시)
-                console.warn('🔄 시장 평가 최대 재시도 초과 → UNKNOWN (판정 불가)');
-                return {
-                    verdict: 'UNKNOWN',
-                    confidence: 0,
-                    summary: `시장 평가 실패 (${errorMsg}) — 판정 불가`,
-                };
-            }
-
-            const delay = PIPELINE_CONFIG.STAGE_INITIAL_RETRY_DELAY * Math.pow(2, attempt - 1);
-            console.log(`⏳ ${delay / 1000}초 후 재시도...`);
-            await new Promise((resolve) => setTimeout(resolve, delay));
+    try {
+        const snapshot = await getKisMarketAssessmentSnapshot();
+        const evidence = evaluateMarketAssessmentSnapshot(snapshot);
+        console.log('📡 시장 스냅샷 확보 완료');
+        console.log(formatMarketAssessmentSnapshot(snapshot));
+        if (evidence.tier1Signals.length > 0) {
+            console.log(`🚨 로컬 Tier 1 신호: ${evidence.tier1Signals.join(', ')}`);
         }
-    }
+        if (evidence.tier2Signals.length > 0) {
+            console.log(`⚠️ 로컬 Tier 2 신호: ${evidence.tier2Signals.join(', ')}`);
+        }
 
-    // 도달 불가하지만 타입 안전성을 위해
-    return { verdict: 'UNKNOWN', confidence: 0, summary: '시장 평가 실패' };
+        const resolved = resolveMarketAssessmentFromSnapshot(snapshot, evidence);
+        console.log(`✅ 시장 평가 완료 (API local): ${resolved.verdict} (confidence: ${resolved.confidence})`);
+        console.log(`   요약: ${resolved.summary}`);
+        return resolved;
+    } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        return executeSearchMarketAssessmentFallback(errorMsg);
+    }
 }
 
 /**
