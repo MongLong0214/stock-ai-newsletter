@@ -11,6 +11,38 @@
 3. Epic C: Safe Promotion
 4. Epic D: Candidate Experiments
 
+## Global Execution Rule: Mandatory TDD
+
+이 문서의 모든 `CMPV4-*` 티켓은 예외 없이 TDD로만 진행한다.
+
+핵심 규칙:
+
+1. **NO PRODUCTION CODE WITHOUT A FAILING TEST FIRST**
+2. 각 티켓은 `RED -> GREEN -> REFACTOR` 순서를 반드시 따른다.
+3. failing test 없이 작성된 production code는 완료로 인정하지 않는다.
+4. 테스트가 처음부터 통과하면 테스트가 잘못된 것으로 간주한다.
+5. 한 티켓 안에서도 기능 단위로 TDD cycle을 반복한다.
+
+각 티켓 공통 완료 조건:
+
+- 관련 신규/변경 동작에 대한 failing test가 먼저 추가되어 있어야 한다.
+- 최소 한 번의 RED 실행 로그가 있어야 한다.
+- 최소 구현 후 GREEN 실행 결과가 있어야 한다.
+- refactor 후 전체 관련 테스트가 다시 GREEN이어야 한다.
+- PR 또는 작업 로그에 `RED`, `GREEN`, `REFACTOR` 증빙을 남겨야 한다.
+
+각 티켓 공통 금지 사항:
+
+- 테스트 없이 스키마/서비스/리더/평가 로직을 먼저 작성하는 것
+- 여러 기능을 한 번에 구현한 뒤 나중에 테스트를 붙이는 것
+- “기존 테스트가 있으니 됐다”를 이유로 신규 실패 테스트를 생략하는 것
+
+진행 규칙:
+
+- `In Progress`로 상태 변경하려면 먼저 failing test 파일/케이스가 있어야 한다.
+- `Done`으로 상태 변경하려면 해당 티켓 범위의 테스트와 관련 회귀 테스트가 모두 통과해야 한다.
+- 테스트 작성이 기술적으로 어려운 migration/ops 티켓도 dry-run validator, parity check, smoke test, rollback drill 중 최소 하나의 자동 검증을 먼저 만든 뒤 구현한다.
+
 ## Epic A. Measurement Freeze
 
 ### CMPV4-001 Define Canonical Comparison Spec
