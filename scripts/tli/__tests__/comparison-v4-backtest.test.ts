@@ -68,8 +68,8 @@ describe('comparison v4 backtest helpers', () => {
   it('runs threshold sweeps across folds using an evaluator callback', () => {
     const results = runThresholdSweepAcrossFolds({
       folds: [
-        { foldId: 'A', train: [1], validation: [2], test: [3] },
-        { foldId: 'B', train: [4], validation: [5], test: [6] },
+        { foldId: 'A', train: [1], validation: [2], embargo: [], test: [3] },
+        { foldId: 'B', train: [4], validation: [5], embargo: [], test: [6] },
       ],
       thresholds: [0.35, 0.4],
       evaluateFold: ({ foldId, threshold }) => {
@@ -122,12 +122,29 @@ describe('comparison v4 backtest helpers', () => {
     const selected = selectArchetypeCandidatesAtRunDate(candidates, {
       runDate: '2026-03-20',
       stateHistory: [
-        { theme_id: 'past-1', effective_from: '2026-03-01', effective_to: null, is_active: false, closed_at: '2026-03-10' },
-        { theme_id: 'past-2', effective_from: '2026-03-01', effective_to: null, is_active: false, closed_at: '2026-03-19' },
-        { theme_id: 'active-1', effective_from: '2026-03-01', effective_to: null, is_active: true, closed_at: null },
+        { theme_id: 'past-1', effective_from: '2026-03-01', effective_to: null, is_active: false, closed_at: '2026-03-10', state_version: 'backfill-v1' },
+        { theme_id: 'past-2', effective_from: '2026-03-01', effective_to: null, is_active: false, closed_at: '2026-03-19', state_version: 'live-v1' },
+        { theme_id: 'active-1', effective_from: '2026-03-01', effective_to: null, is_active: true, closed_at: null, state_version: 'backfill-v1' },
       ],
     })
 
     expect(selected.map((item) => item.id)).toEqual(['past-1', 'past-2'])
+  })
+
+  it('excludes unknown state_version themes from archetype candidates', () => {
+    const candidates = [
+      { id: 'known-1' },
+      { id: 'unknown-1' },
+    ]
+
+    const selected = selectArchetypeCandidatesAtRunDate(candidates, {
+      runDate: '2026-03-20',
+      stateHistory: [
+        { theme_id: 'known-1', effective_from: '2026-01-01', effective_to: null, is_active: false, closed_at: '2026-02-15', state_version: 'backfill-v1' },
+        { theme_id: 'unknown-1', effective_from: '2025-01-01', effective_to: null, is_active: false, closed_at: '2025-06-01', state_version: 'unknown' },
+      ],
+    })
+
+    expect(selected.map((item) => item.id)).toEqual(['known-1'])
   })
 })

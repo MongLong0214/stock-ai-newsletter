@@ -1,7 +1,6 @@
-import { computeBinaryRelevance, computeGradedGain, COMPARISON_PRIMARY_HORIZON_DAYS } from '../../lib/tli/comparison'
+import { computeBinaryRelevance, computeGradedGain, COMPARISON_PRIMARY_HORIZON_DAYS, classifyRunLevelCensoring } from '../../lib/tli/comparison/spec'
 import { pearsonCorrelation } from '../../lib/tli/comparison/similarity'
 import { daysBetween } from '../../lib/tli/normalize'
-import { classifyRunLevelCensoring } from '../../lib/tli/comparison'
 
 export type ComparisonCandidateCensorReason =
   | 'candidate_alignment_overflow'

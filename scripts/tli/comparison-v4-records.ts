@@ -16,6 +16,8 @@ interface RunRowInput {
   thresholdPolicyVersion: string
   sourceDataCutoffDate: string
   comparisonSpecVersion: string
+  themeDefinitionVersion: string
+  lifecycleScoreVersion: string
   expectedCandidateCount: number
 }
 
@@ -30,6 +32,8 @@ export function buildComparisonRunRowV2(input: RunRowInput): ThemeComparisonRunV
     threshold_policy_version: input.thresholdPolicyVersion,
     source_data_cutoff_date: input.sourceDataCutoffDate,
     comparison_spec_version: input.comparisonSpecVersion,
+    theme_definition_version: input.themeDefinitionVersion,
+    lifecycle_score_version: input.lifecycleScoreVersion,
     status: 'pending',
     publish_ready: false,
     expected_candidate_count: input.expectedCandidateCount,

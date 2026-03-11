@@ -2,8 +2,14 @@ import { NextResponse } from 'next/server'
 import { timingSafeEqual } from 'crypto'
 import { supabaseAdmin } from '@/scripts/tli/supabase-admin'
 import { promoteComparisonV4Runs } from '@/scripts/tli/comparison-v4-orchestration'
+import { isPromotionBlocked } from '@/scripts/tli/comparison-v4-promotion'
+import { isStateHistoryBackfillComplete } from '@/scripts/tli/theme-state-history'
 
 const ADMIN_SECRET = process.env.ADMIN_SECRET
+
+if (!ADMIN_SECRET) {
+  console.error('ADMIN_SECRET 환경변수가 설정되지 않았습니다. comparison-v4 promote API가 비활성 상태입니다.')
+}
 
 function verifyBearerToken(authHeader: string | null) {
   if (!ADMIN_SECRET || !authHeader) return false
@@ -25,10 +31,24 @@ export async function POST(request: Request) {
   const runIds = Array.isArray(body?.runIds) ? body.runIds.filter((value: unknown): value is string => typeof value === 'string' && value.length > 0) : []
   const productionVersion = typeof body?.productionVersion === 'string' && body.productionVersion.length > 0
     ? body.productionVersion
-    : process.env.TLI_COMPARISON_V4_PRODUCTION_VERSION
+    : null
 
   if (runIds.length === 0 || !productionVersion) {
     return NextResponse.json({ error: 'Invalid payload' }, { status: 400 })
+  }
+
+  // CMPV4-003: backfill 미완료 시 승격 차단
+  const { count: totalThemes } = await supabaseAdmin.from('themes').select('*', { count: 'exact', head: true })
+  const { count: themesWithHistory } = await supabaseAdmin
+    .from('theme_state_history_v2')
+    .select('theme_id', { count: 'exact', head: true })
+  const backfillComplete = isStateHistoryBackfillComplete({
+    totalThemeCount: totalThemes ?? 0,
+    themesWithHistoryCount: themesWithHistory ?? 0,
+  })
+  const blockResult = isPromotionBlocked({ stateHistoryBackfillComplete: backfillComplete })
+  if (blockResult.blocked) {
+    return NextResponse.json({ error: blockResult.reason }, { status: 409 })
   }
 
   try {

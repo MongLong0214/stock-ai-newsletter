@@ -6,6 +6,7 @@ import { collectNaverThemeList, type DiscoveredTheme } from './collectors/naver-
 import { populateKeywords } from './theme-keywords'
 import { autoActivate, autoDeactivate } from './theme-lifecycle'
 import { getKSTDate } from './utils'
+import { buildOngoingStateChangeRow } from './theme-state-history'
 
 // ─────────────────────────────────────────────────────
 // 1. 테마 발견: 네이버 금융 목록 → DB 비교 → 신규 삽입
@@ -92,6 +93,20 @@ async function discoverNewThemes(discovered: DiscoveredTheme[]) {
 
       for (const t of inserted || []) {
         newThemeIds.push({ id: t.id, name: t.name, naverThemeId: t.naver_theme_id })
+
+        // 신규 테마 state history 기록 (is_active: false로 생성됨)
+        try {
+          const stateRow = buildOngoingStateChangeRow({
+            themeId: t.id,
+            newIsActive: false,
+            firstSpikeDate: today,
+            changeDate: today,
+          })
+          await supabaseAdmin.from('theme_state_history_v2').insert(stateRow)
+        } catch (stateErr: unknown) {
+          console.error(`   ⚠️ state history 기록 실패 (계속): ${stateErr instanceof Error ? stateErr.message : String(stateErr)}`)
+        }
+
         console.log(`   ✓ 신규 테마: ${t.name}`)
       }
     }

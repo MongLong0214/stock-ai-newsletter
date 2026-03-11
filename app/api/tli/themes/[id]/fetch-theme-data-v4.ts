@@ -13,7 +13,7 @@ export function shouldFallbackToLegacyComparisons(result: {
   error: unknown | null
 }) {
   if (result.error) return true
-  if (!result.data || result.data.length === 0) return true
+  if (!result.data) return true
   return false
 }
 
@@ -21,5 +21,6 @@ export function resolveComparisonsResult<T>(
   v4Result: { data: T[] | null; error: { code?: string; message?: string } | null },
   legacyResult: { data: T[] | null; error: { code?: string; message?: string } | null },
 ) {
-  return shouldFallbackToLegacyComparisons(v4Result) ? legacyResult : v4Result
+  if (v4Result.error || v4Result.data == null) return legacyResult
+  return v4Result
 }

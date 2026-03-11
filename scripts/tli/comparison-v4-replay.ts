@@ -63,6 +63,62 @@ interface RolloutGateInput {
   maxSingleCensorReasonRate: number
 }
 
+// ── CMPV4-008: checkpoint/restart ──
+
+export interface ReplayCheckpoint {
+  planId: string
+  completedFoldIds: string[]
+  totalFolds: number
+  lastCompletedDate: string
+  isComplete: boolean
+}
+
+export const buildReplayCheckpoint = (input: {
+  planId: string
+  completedFoldIds: string[]
+  totalFolds: number
+  lastCompletedDate: string
+}): ReplayCheckpoint => ({
+  planId: input.planId,
+  completedFoldIds: input.completedFoldIds,
+  totalFolds: input.totalFolds,
+  lastCompletedDate: input.lastCompletedDate,
+  isComplete: input.completedFoldIds.length >= input.totalFolds,
+})
+
+export const resumeReplayFromCheckpoint = (
+  allFoldIds: string[],
+  checkpoint: ReplayCheckpoint | null,
+): string[] => {
+  if (!checkpoint) return allFoldIds
+  if (checkpoint.isComplete) return []
+  const completedSet = new Set(checkpoint.completedFoldIds)
+  return allFoldIds.filter((id) => !completedSet.has(id))
+}
+
+// ── CMPV4-008: future data leakage guard ──
+
+export const isReplayDateSafe = (input: {
+  runDate: string
+  dataDates: string[]
+}): { safe: boolean; leakedDates: string[] } => {
+  const leakedDates = input.dataDates.filter((d) => d >= input.runDate)
+  return { safe: leakedDates.length === 0, leakedDates }
+}
+
+// ── CMPV4-008: backfill/shadow queue separation ──
+
+export const separateReplayQueues = (input: {
+  allDates: string[]
+  cutoffDate: string
+}): { backfillQueue: string[]; shadowQueue: string[] } => {
+  const backfillQueue = input.allDates.filter((d) => d <= input.cutoffDate)
+  const shadowQueue = input.allDates.filter((d) => d > input.cutoffDate)
+  return { backfillQueue, shadowQueue }
+}
+
+// ── Rollout gate ──
+
 export function evaluateRolloutGate(input: RolloutGateInput) {
   const reasons: string[] = []
   if (input.primaryDeltaLowerBound <= -0.03) reasons.push('primary_endpoint')
