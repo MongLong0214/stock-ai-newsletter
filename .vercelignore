@@ -3,7 +3,7 @@
 .env
 
 # Testing
-scripts/
+
 *.test.js
 *.test.ts
 
