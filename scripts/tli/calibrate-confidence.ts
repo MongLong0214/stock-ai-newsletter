@@ -18,16 +18,39 @@ export async function calibrateConfidence(): Promise<{
   mediumDays: number;
   ece: number;
 } | null> {
-  // Load evaluated prediction snapshots
-  const { data: snapshots, error } = await supabaseAdmin
-    .from('prediction_snapshots')
+  // V4 prediction_snapshots_v2에서 평가된 스냅샷 로딩 (legacy fallback)
+  let snapshots: Array<{ theme_id: string; snapshot_date: string; phase_correct: boolean | null; status: string }> | null = null;
+
+  const { data: v2Snapshots, error: v2Err } = await supabaseAdmin
+    .from('prediction_snapshots_v2')
     .select('theme_id, snapshot_date, phase_correct, status')
     .eq('status', 'evaluated')
     .not('phase_correct', 'is', null)
     .order('created_at', { ascending: false })
     .limit(500);
 
-  if (error || !snapshots?.length) {
+  if (!v2Err && v2Snapshots && v2Snapshots.length >= 30) {
+    console.log(`   📊 V4 prediction 데이터: ${v2Snapshots.length}건`);
+    snapshots = v2Snapshots;
+  } else {
+    // Legacy fallback
+    console.log('   ℹ️ V4 prediction 데이터 부족 — legacy fallback');
+    const { data: legacySnapshots, error: legacyErr } = await supabaseAdmin
+      .from('prediction_snapshots')
+      .select('theme_id, snapshot_date, phase_correct, status')
+      .eq('status', 'evaluated')
+      .not('phase_correct', 'is', null)
+      .order('created_at', { ascending: false })
+      .limit(500);
+
+    if (legacyErr || !legacySnapshots?.length) {
+      console.log('   ⊘ Confidence 교정 데이터 부족 (evaluated snapshots 없음)');
+      return null;
+    }
+    snapshots = legacySnapshots;
+  }
+
+  if (!snapshots?.length) {
     console.log('   ⊘ Confidence 교정 데이터 부족 (evaluated snapshots 없음)');
     return null;
   }

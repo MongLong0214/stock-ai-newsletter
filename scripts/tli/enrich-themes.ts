@@ -1,10 +1,8 @@
 /** 테마 보강 — first_spike_date 추론 · 피처 추출 · 곡선 구축 · 모집단 통계 */
 
-import {
-  normalizeTimeline, normalizeValues, resampleCurve, findPeakDay,
-  extractFeatures, featuresToArray, classifySector,
-  type TimeSeriesPoint, type ThemeFeatures, type FeaturePopulationStats,
-} from '../../lib/tli/comparison'
+import { normalizeTimeline, normalizeValues, resampleCurve, findPeakDay, type TimeSeriesPoint } from '../../lib/tli/comparison/timeline'
+import { extractFeatures, featuresToArray, classifySector, type ThemeFeatures } from '../../lib/tli/comparison/features'
+import type { FeaturePopulationStats } from '../../lib/tli/comparison/similarity'
 
 // ── 타입 ──────────────────────────────────────────────────────────────────────
 
@@ -147,7 +145,7 @@ export function enrichThemes(
 // ── first_spike_date 결정 ────────────────────────────────────────────────────
 
 /** first_spike_date가 없거나 365일 초과 시 자동 추론 (장기/반복 테마 대응) */
-function resolveFirstSpikeDate(
+export function resolveFirstSpikeDate(
   theme: RawTheme,
   interest: Array<{ time: string; normalized: number }> | undefined,
   kstNow: Date,

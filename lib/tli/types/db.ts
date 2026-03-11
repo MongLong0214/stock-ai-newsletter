@@ -182,3 +182,129 @@ export interface ComparisonCalibration {
   details: Record<string, unknown> | null;
   created_at: string;
 }
+
+import type { ComparisonRunType, ComparisonCandidatePool } from '../comparison/spec'
+export type { ComparisonRunType, ComparisonCandidatePool }
+export type ComparisonRunStatus = 'pending' | 'materializing' | 'complete' | 'published' | 'failed' | 'rolled_back'
+
+export interface ThemeComparisonRunV2 {
+  id: string
+  run_date: string
+  current_theme_id: string
+  algorithm_version: string
+  run_type: ComparisonRunType
+  candidate_pool: ComparisonCandidatePool
+  threshold_policy_version: string
+  source_data_cutoff_date: string
+  comparison_spec_version: string
+  theme_definition_version: string
+  lifecycle_score_version: string
+  status: ComparisonRunStatus
+  publish_ready: boolean
+  expected_candidate_count: number
+  materialized_candidate_count: number
+  expected_snapshot_count: number
+  materialized_snapshot_count: number
+  attempt_no: number
+  checkpoint_cursor: Record<string, unknown> | null
+  last_error: string | null
+  started_at: string | null
+  completed_at: string | null
+  published_at: string | null
+  created_at: string
+}
+
+export interface ThemeComparisonCandidateV2 {
+  run_id: string
+  candidate_theme_id: string
+  rank: number
+  similarity_score: number
+  feature_sim: number | null
+  curve_sim: number | null
+  keyword_sim: number | null
+  current_day: number
+  past_peak_day: number
+  past_total_days: number
+  estimated_days_to_peak: number
+  message: string
+  past_peak_score: number | null
+  past_final_stage: string | null
+  past_decline_days: number | null
+  is_selected_top3: boolean
+}
+
+export interface ThemeComparisonEvalV2 {
+  run_id: string
+  candidate_theme_id: string
+  evaluation_horizon_days: number
+  trajectory_corr_h14: number | null
+  position_stage_match_h14: boolean | null
+  binary_relevant: boolean
+  graded_gain: number
+  censored_reason: string | null
+  evaluated_at: string
+}
+
+export interface PredictionSnapshotV2 {
+  id: string
+  theme_id: string
+  snapshot_date: string
+  comparison_run_id: string
+  comparison_count: number
+  avg_similarity: number
+  phase: string
+  confidence: string
+  risk_level: string
+  momentum: string
+  avg_peak_day: number
+  avg_total_days: number
+  avg_days_to_peak: number
+  current_progress: number
+  days_since_spike: number
+  best_scenario: Record<string, unknown> | null
+  median_scenario: Record<string, unknown> | null
+  worst_scenario: Record<string, unknown> | null
+  prediction_intervals?: Record<string, unknown> | null
+  status: string
+  created_at: string
+  algorithm_version: string
+  run_type: ComparisonRunType
+  candidate_pool: ComparisonCandidatePool
+  evaluation_horizon_days: number
+  comparison_spec_version: string
+  evaluated_at: string | null
+  actual_score: number | null
+  actual_stage: string | null
+  phase_correct: boolean | null
+  peak_timing_error_days: number | null
+}
+
+export interface ThemeStateHistoryV2 {
+  theme_id: string
+  effective_from: string
+  effective_to: string | null
+  is_active: boolean
+  closed_at: string | null
+  first_spike_date: string | null
+  state_version: string
+}
+
+export interface ComparisonBackfillManifestV2 {
+  manifest_id: string
+  source_table: string
+  source_row_count: number
+  target_row_count: number
+  row_count_parity_ok: boolean
+  sample_contract_parity_ok: boolean
+  executed_at: string
+  notes: string | null
+}
+
+export interface ComparisonV4Control {
+  id: string
+  production_version: string
+  serving_enabled: boolean
+  promoted_by: string
+  promoted_at: string
+  created_at: string
+}
