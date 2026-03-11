@@ -172,6 +172,8 @@ export interface ThemeDetail {
     date: string;
     value: number;
   }>;
+  /** Source of comparison data (backward-compatible optional field) */
+  comparisonSource?: 'legacy' | 'v4' | 'v4-view';
 }
 
 /** 테마 랭킹 (단계별 그룹) */

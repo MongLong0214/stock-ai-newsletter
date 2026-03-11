@@ -5,10 +5,10 @@ import { dirname, resolve } from 'node:path'
 
 import { supabaseAdmin } from './supabase-admin'
 import { batchQuery, groupByThemeId } from './supabase-batch'
-import {
-  normalizeTimeline, findPeakDay, extractFeatures, featuresToArray, compositeCompare,
-  pearsonCorrelation, type TimeSeriesPoint, type FeaturePopulationStats,
-} from '../../lib/tli/comparison'
+import { normalizeTimeline, findPeakDay, type TimeSeriesPoint } from '../../lib/tli/comparison/timeline'
+import { extractFeatures, featuresToArray } from '../../lib/tli/comparison/features'
+import { compositeCompare } from '../../lib/tli/comparison/composite'
+import { pearsonCorrelation, type FeaturePopulationStats } from '../../lib/tli/comparison/similarity'
 import { resolveFirstSpikeDate } from './enrich-themes'
 import {
   aggregateThresholdSweepResults,
@@ -38,6 +38,7 @@ interface ThemeStateHistoryRow {
   effective_to: string | null
   is_active: boolean
   closed_at: string | null
+  state_version: string
 }
 
 async function main() {
@@ -58,7 +59,7 @@ async function main() {
       'interest_metrics', 'theme_id, time, normalized', themeIds,
     ),
     batchQuery<ThemeStateHistoryRow>(
-      'theme_state_history_v2', 'theme_id, effective_from, effective_to, is_active, closed_at', themeIds,
+      'theme_state_history_v2', 'theme_id, effective_from, effective_to, is_active, closed_at, state_version', themeIds,
     ),
   ])
 
@@ -115,10 +116,11 @@ async function main() {
   }
 
   const thresholds = [0.30, 0.35, 0.40, 0.45, 0.50, 0.55, 0.60]
-  const folds = buildTemporalBacktestFolds(enriched, 3).map((fold, idx) => ({
-    foldId: `fold-${idx + 1}`,
+  const folds = buildTemporalBacktestFolds(enriched, 3).map((fold) => ({
+    foldId: fold.foldId,
     train: [...fold.train, ...fold.validation],
     validation: fold.validation,
+    embargo: fold.embargo,
     test: fold.test,
   }))
 

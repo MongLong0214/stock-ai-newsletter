@@ -3,7 +3,7 @@
 - Date: 2026-03-11
 - Context: `docs/comparison-v4-prd.md` / `docs/comparison-v4-tickets.md`
 - Status: In progress
-- Last verified state: `npx vitest run` green, `npx tsc --noEmit --pretty false` green
+- Last verified state: `npx vitest run` green (493 tests, 52 files), `npx tsc --noEmit` green
 
 ## 1. Summary
 
@@ -24,9 +24,9 @@
 아직 미완/보강 필요:
 
 1. 실제 `published` 승격 orchestration을 운영 절차에 녹이는 것
-2. 실제 row-level backfill/parity 실행 경로 강화
-3. `theme_comparison_eval_v2` 실저장 경로
-4. `theme_state_history_v2` backfill + ongoing sync 실제 구현
+2. ~~실제 row-level backfill/parity 실행 경로 강화~~ → CMPV4-010 완료
+3. ~~`theme_comparison_eval_v2` 실저장 경로~~ → CMPV4-007 완료
+4. ~~`theme_state_history_v2` backfill + ongoing sync 실제 구현~~ → CMPV4-003 완료
 5. e2e / integration parity를 helper 수준이 아니라 더 실제적인 경로로 확장
 
 ## 2. What Was Implemented
@@ -183,6 +183,15 @@
 - `app/api/tli/themes/[id]/fetch-theme-data-v4.test.ts`
 - `app/api/admin/tli/comparison-v4/promote/route.test.ts`
 - `app/api/openapi.json/route.test.ts`
+- `app/api/tli/themes/[id]/build-comparisons.test.ts`
+- `scripts/tli/__tests__/theme-state-history.test.ts`
+- `scripts/tli/__tests__/comparison-v4-eval-writer.test.ts`
+- `scripts/tli/__tests__/comparison-v4-ops-enhanced.test.ts`
+- `scripts/tli/__tests__/comparison-v4-validation-enhanced.test.ts`
+- `scripts/tli/__tests__/comparison-v4-replay-enhanced.test.ts`
+- `scripts/tli/__tests__/comparison-v4-baselines.test.ts`
+- `scripts/tli/__tests__/comparison-v4-core-imports.test.ts`
+- `scripts/tli/__tests__/comparison-v4-experiments.test.ts`
 
 ## 4. Verification State
 
@@ -196,8 +205,8 @@
 
 마지막 전체 수치:
 
-- Test files: `43`
-- Tests: `364`
+- Test files: `52`
+- Tests: `493`
 
 ## 5. Files Changed So Far
 
@@ -263,30 +272,78 @@
 - `CMPV4-013` foundation
 - `CMPV4-014` foundation
 
+### 새로 완료된 것 (2026-03-11)
+
+- `CMPV4-003` ✅
+  - `theme_state_history_v2` backfill + ongoing sync 구현
+  - 6개 pure functions, 16 tests, backfill script, migration(unique constraint)
+  - `autoActivate`/`autoDeactivate`/`discoverNewThemes`에 state change recording 통합
+  - 승격 시 backfill 완료 검증 guard 추가
+- `CMPV4-007` ✅
+  - `theme_comparison_eval_v2` eval row builder + aggregation + sensitivity analysis
+  - `evaluate-comparisons.ts`에 v2 eval write 경로 통합
+  - 6 tests
+- `CMPV4-010` ✅
+  - row-level remap (`remapLegacyRowToV2Candidate`)
+  - null/default mapping report (`buildNullMappingReport`)
+  - backfill script 완전 재작성 (실제 remap + manifest + parity)
+  - manifest parity를 promotion guard에 추가
+- `CMPV4-011` ✅
+  - serving view migration (`v_comparison_v4_serving`, `v_prediction_v4_serving`)
+  - anon/authenticated GRANT SELECT
+  - feature flag routing (`TLI_COMPARISON_V4_SERVING_VIEW`)
+  - view mode reader path 추가
+- `CMPV4-012` ✅
+  - `build-comparisons.ts` v2 candidate builder
+  - API 타입 `comparisonSource` 추가
+  - OpenAPI schema + contract test 추가
+- `CMPV4-013` ✅
+  - 평가 가능한 numeric alert thresholds (`COMPARISON_V4_ALERT_THRESHOLDS`)
+  - `evaluateAlertThreshold()` 함수
+  - notification channel 설정 (`COMPARISON_V4_NOTIFICATION_CHANNEL`)
+  - retention policy PRD §12 기준 (`COMPARISON_V4_RETENTION_POLICY`)
+  - `isObservabilityReady()` 승격 전제조건 검증
+  - `buildDrillEvidence()` drill 증거 기록
+  - observability/runbook 문서 전면 보강
+  - 15 tests
+- `CMPV4-014` ✅
+  - `evaluateReplayIdempotency()` (float epsilon, rank/ID 비교)
+  - `evaluateContractParityV2()` (field-level mismatch report)
+  - AC-17 전체 커버: replay idempotency, rollback drill, retention cleanup, partial publish, contract parity
+  - 14 tests
+- `CMPV4-008` ✅
+  - checkpoint/restart: `buildReplayCheckpoint`, `resumeReplayFromCheckpoint`
+  - future data leakage guard: `isReplayDateSafe` (same-day = leak)
+  - backfill/shadow queue separation: `separateReplayQueues`
+  - 13 tests
+- `CMPV4-009` ✅
+  - 6 PRD baseline definitions (`BASELINE_DEFINITIONS`)
+  - `evaluateBaselinePassFail` (minimum beat baseline + failed baselines)
+  - `requirePowerAnalysisDocument` existence guard
+  - `buildRolloutReportWithVariance` (fold mean + stddev)
+  - 11 tests
+
+- `CMPV4-015` ✅
+  - skip rate / skip reasons audit (`auditSkipReasons`)
+  - resample cache length guard (`validateResampleCacheConsistency`)
+  - threshold stability by regime (`evaluateThresholdStabilityByRegime`, IQR 기반)
+  - daily drift monitoring (`buildDailyDriftReport`, alert threshold)
+  - 17 tests
+- `CMPV4-016` ✅
+  - curve scale unification (`unifyCurveScale`, min-max normalization)
+  - sigmoid weight smoothing (`applySigmoidWeightSmoothing`)
+  - sector affinity matrix (`buildSectorAffinityMatrix`)
+  - experiment version isolation (`createExperimentVersion`)
+  - 12 tests
+- `CMPV4-017` ✅
+  - inactive-theme news snapshot normalization (`normalizeInactiveThemeNewsSnapshot`)
+  - VIF diagnostic + conditional feature merge (`computeVIFDiagnostic`)
+  - N<15 Mutual Rank explicit fallback (`mutualRankExplicitFallback`, `MUTUAL_RANK_MIN_THEMES`)
+  - 12 tests
+
 ### 아직 미완료인 것
 
-- `CMPV4-002`
-  - serving view/materialized reader 미구현
-- `CMPV4-003`
-  - `theme_state_history_v2` 실제 backfill / ongoing sync 미구현
-- `CMPV4-007`
-  - `theme_comparison_eval_v2` 실저장 경로 미구현
-- `CMPV4-008`
-  - replay checkpoint/restart 실제 실행 경로 미구현
-- `CMPV4-009`
-  - baseline 현재 축소 버전, 실제 current production과 정식 비교 스크립트 보강 필요
-- `CMPV4-010`
-  - row-level remap/parity 실구현 미흡
-- `CMPV4-011`
-  - serving view/materialized reader 미구현
-- `CMPV4-012`
-  - OpenAPI/route/fetch 일부만 반영, `build-comparisons.ts` / API 타입 / 외부 parity 확대 필요
-- `CMPV4-013`
-  - 실제 monitoring/alert wiring 미구현
-- `CMPV4-014`
-  - helper/test foundation만 있음, 실제 drill/cron/integration 수준 미완
-- `CMPV4-015` 이후 실험 큐
-  - 미착수
+- 모든 CMPV4 티켓 완료
 
 ## 7. Known Gaps / Risks
 

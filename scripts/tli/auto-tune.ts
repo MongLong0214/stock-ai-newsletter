@@ -1,5 +1,6 @@
 /** 유사도 임계값 자동 튜닝 — 검증된 비교 결과 기반 최적 임계값 산출 */
 import { supabaseAdmin } from './supabase-admin'
+import { batchQuery } from './supabase-batch'
 import { daysAgo } from './utils'
 
 export const DEFAULT_THRESHOLD = 0.35
@@ -68,6 +69,63 @@ export function _optimizeFromData(rows: VerifiedRow[]): OptimalThresholdResult {
   return { threshold: rounded, confidence, sampleSize: n }
 }
 
+/** V4 eval + candidates 테이블에서 검증 데이터 로드 (legacy fallback 포함) */
+async function loadVerifiedRows(thirtyDaysAgo: string): Promise<VerifiedRow[]> {
+  // V4: theme_comparison_eval_v2 + theme_comparison_candidates_v2 join
+  const { data: evals, error: evalErr } = await supabaseAdmin
+    .from('theme_comparison_eval_v2')
+    .select('run_id, candidate_theme_id, trajectory_corr_h14')
+    .gte('evaluated_at', thirtyDaysAgo)
+    .is('censored_reason', null)
+    .limit(5000)
+
+  if (!evalErr && evals && evals.length >= MIN_SAMPLES_FOR_TUNING) {
+    const runIds = [...new Set(evals.map(e => e.run_id))]
+    const candidates = await batchQuery<{ run_id: string; candidate_theme_id: string; similarity_score: number }>(
+      'theme_comparison_candidates_v2',
+      'run_id, candidate_theme_id, similarity_score',
+      runIds,
+      undefined,
+      'run_id',
+    )
+
+    const candidateMap = new Map<string, number>()
+    for (const c of candidates) {
+      candidateMap.set(`${c.run_id}|${c.candidate_theme_id}`, c.similarity_score)
+    }
+
+    const rows: VerifiedRow[] = []
+    for (const e of evals) {
+      const sim = candidateMap.get(`${e.run_id}|${e.candidate_theme_id}`)
+      if (sim != null && e.trajectory_corr_h14 != null) {
+        rows.push({ similarity_score: sim, trajectory_correlation: e.trajectory_corr_h14 })
+      }
+    }
+
+    if (rows.length >= MIN_SAMPLES_FOR_TUNING) {
+      console.log(`   📊 V4 eval 데이터: ${rows.length}건`)
+      return rows
+    }
+  }
+
+  // Legacy fallback: theme_comparisons (verified)
+  console.log('   ℹ️ V4 eval 데이터 부족 — legacy fallback')
+  const { data: verified, error } = await supabaseAdmin
+    .from('theme_comparisons')
+    .select('similarity_score, trajectory_correlation')
+    .eq('outcome_verified', true)
+    .gte('verified_at', thirtyDaysAgo)
+    .limit(5000)
+
+  if (error) {
+    console.error('   ❌ 검증 데이터 로드 실패:', error.message)
+    return []
+  }
+
+  return (verified ?? [])
+    .filter((r): r is VerifiedRow => r.trajectory_correlation != null && r.similarity_score != null)
+}
+
 /**
  * 검증된 비교 결과를 기반으로 최적 유사도 임계값 계산
  *
@@ -78,23 +136,8 @@ export function _optimizeFromData(rows: VerifiedRow[]): OptimalThresholdResult {
  * - 샘플이 적을 수록 DEFAULT(0.35)로 수렴
  */
 export async function computeOptimalThreshold(): Promise<OptimalThresholdResult | null> {
-  // 1. 최근 30일 검증된 비교 결과 로드
   const thirtyDaysAgo = daysAgo(30)
-  const { data: verified, error } = await supabaseAdmin
-    .from('theme_comparisons')
-    .select('similarity_score, trajectory_correlation')
-    .eq('outcome_verified', true)
-    .gte('verified_at', thirtyDaysAgo)
-    .limit(5000) // Supabase 기본 1000 row 제한 방지
-
-  if (error) {
-    console.error('   ❌ 검증 데이터 로드 실패:', error.message)
-    return null
-  }
-
-  // 2. null row 사전 제거 후 유효 샘플 수로 판정
-  const valid = (verified ?? [])
-    .filter((r): r is VerifiedRow => r.trajectory_correlation != null && r.similarity_score != null)
+  const valid = await loadVerifiedRows(thirtyDaysAgo)
 
   if (valid.length < MIN_SAMPLES_FOR_TUNING) {
     console.log(`   ⚠️ 유효 샘플 부족 (${valid.length}/${MIN_SAMPLES_FOR_TUNING}) — 튜닝 생략`)

@@ -1,5 +1,6 @@
 import { supabaseAdmin } from './supabase-admin'
 import { getKSTDateString } from '../../lib/tli/date-utils'
+import { batchQuery } from './supabase-batch'
 
 const EVALUATION_WINDOW = 7 // 평가 대기 기간 (일) — v2: 14→7 (시상수 ~2일, 예측 가능 지평 3~5일)
 
@@ -9,40 +10,34 @@ export async function evaluatePredictions(): Promise<void> {
 
   console.log(`\n📊 예측 평가 [cutoff: ${cutoffDate}]`)
 
-  // 평가 대기 기간이 지난 pending 스냅샷 로딩
-  const { data: snapshots, error: snapErr } = await supabaseAdmin
-    .from('prediction_snapshots')
+  // V4 prediction_snapshots_v2에서 pending 스냅샷 로딩
+  const { data: v2Snapshots, error: v2Err } = await supabaseAdmin
+    .from('prediction_snapshots_v2')
     .select('id, theme_id, snapshot_date, phase, avg_peak_day, avg_total_days, days_since_spike')
     .eq('status', 'pending')
     .lte('snapshot_date', cutoffDate)
     .limit(500)
 
-  if (snapErr) {
-    console.error('   ⚠️ 스냅샷 로딩 실패:', snapErr.message)
+  if (v2Err) {
+    console.error('   ⚠️ V4 스냅샷 로딩 실패:', v2Err.message)
     return
   }
 
-  if (!snapshots?.length) {
-    console.log('   ⊘ 평가 대상 스냅샷 없음')
+  if (!v2Snapshots?.length) {
+    console.log('   ⊘ 평가 대상 V4 스냅샷 없음')
     return
   }
 
   // 해당 테마들의 점수 히스토리 로딩 (snapshot 타겟 날짜 기준 매칭용)
-  const themeIds = [...new Set(snapshots.map(s => s.theme_id))]
-  const { data: scores, error: scoresErr } = await supabaseAdmin
-    .from('lifecycle_scores')
-    .select('theme_id, score, stage, calculated_at')
-    .in('theme_id', themeIds)
-    .order('calculated_at', { ascending: false })
-
-  if (scoresErr) {
-    console.error('   ⚠️ 점수 로딩 실패:', scoresErr.message)
-    return
-  }
+  const themeIds = [...new Set(v2Snapshots.map(s => s.theme_id))]
+  const scores = await batchQuery<{ theme_id: string; score: number; stage: string; calculated_at: string }>(
+    'lifecycle_scores', 'theme_id, score, stage, calculated_at', themeIds,
+    q => q.order('calculated_at', { ascending: false }),
+  )
 
   // theme_id별 전체 점수 히스토리 (날짜 내림차순)
   const scoresByTheme = new Map<string, { score: number; stage: string; calculated_at: string }[]>()
-  for (const s of scores || []) {
+  for (const s of scores) {
     const list = scoresByTheme.get(s.theme_id) || []
     list.push(s)
     scoresByTheme.set(s.theme_id, list)
@@ -50,7 +45,7 @@ export async function evaluatePredictions(): Promise<void> {
 
   let evaluatedCount = 0
 
-  for (const snapshot of snapshots) {
+  for (const snapshot of v2Snapshots) {
     const themeScores = scoresByTheme.get(snapshot.theme_id)
     if (!themeScores?.length) continue
 
@@ -96,7 +91,7 @@ export async function evaluatePredictions(): Promise<void> {
     const peakTimingErrorDays = Math.abs(daysSinceSnapshot - predictedDaysFromSnapshot)
 
     const { error: updateErr } = await supabaseAdmin
-      .from('prediction_snapshots')
+      .from('prediction_snapshots_v2')
       .update({
         status: 'evaluated',
         evaluated_at: new Date().toISOString(),
@@ -108,11 +103,11 @@ export async function evaluatePredictions(): Promise<void> {
       .eq('id', snapshot.id)
 
     if (updateErr) {
-      console.error(`   ⚠️ 평가 업데이트 실패 (${snapshot.id}):`, updateErr.message)
+      console.error(`   ⚠️ V4 평가 업데이트 실패 (${snapshot.id}):`, updateErr.message)
     } else {
       evaluatedCount++
     }
   }
 
-  console.log(`   ✅ ${evaluatedCount}/${snapshots.length}개 예측 평가 완료`)
+  console.log(`   ✅ ${evaluatedCount}/${v2Snapshots.length}개 V4 예측 평가 완료`)
 }
