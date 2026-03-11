@@ -2,6 +2,62 @@
   "newsletters": [
     {
       "type": "stock",
+      "date": "2026-03-12",
+      "stocks": [
+        {
+          "ticker": "KOSDAQ:196170",
+          "name": "알테오젠",
+          "close_price": 360000,
+          "rationale": "2026-03-11 종가 360,000 확인(한국경제/네이버금융)|SMA 60일 이평선 355,000원 지지 확인으로 장기 우상향 추세 유효|RSI 38.5로 과매도 국면 탈출 및 단기 반등 초기 신호 포착|MACD 히스토그램의 마이너스 폭 급격한 축소로 추세 전환 시그널 발생|거래량비율(VR) 210% 수준으로 바닥권에서의 매집 물량 확인|볼린저밴드 하단(356,000) 이탈 후 내부 재진입 성공하며 기술적 반등 준비|ATR 6.8%로 고변동성 구간 진입에 따른 단기 급등 에너지 축적 상태|ADX 31.2 하락 추세 강도 약화 및 횡보 국면 진입 확인|Stochastic(14,3,3) 18선에서 골든크로스 발생하며 매수 타점 형성|Parabolic SAR 매수 전환 임박으로 추세 역전 가능성 증대|머크(Merck)의 키트루다SC 연내 런칭 가시화에 따른 로열티 기대감 선반영 시작",
+          "signals": {
+            "trend_score": 78,
+            "momentum_score": 88,
+            "volume_score": 85,
+            "volatility_score": 82,
+            "pattern_score": 85,
+            "sentiment_score": 80,
+            "overall_score": 83
+          },
+          "verified_date": "2026-03-11"
+        },
+        {
+          "ticker": "KOSPI:005380",
+          "name": "현대차",
+          "close_price": 530000,
+          "rationale": "2026-03-11 종가 530,000 확인(인베스팅닷컴/네이버금융)|SMA 20일 이평선 눌림목 형성 후 하방 경직성 확보 및 반등 성공|EMA 5일선-20일선 정배열 확산으로 단기 강세 추세 강화|RSI 58.2 강세 구간 진입하며 과매수 전 추가 상승 여력 확보|MACD 4500선 양전환 이후 0선 상단에서의 안정적인 추세 유지|볼린저밴드 상단 확장 국면 진입으로 변동성 확대 동반 상승 시사|ADX 28.5 상승 추세 본격화 단계 진입 및 추세 강도 증가|OBV 신고가 경신을 통한 기관 및 외국인 동반 매집세 유입 확인|SuperTrend 'Buy' 신호 지속 유지로 추세 추종 전략의 신뢰도 상승|Ichimoku 구름대 상단(Leading Span) 돌파 후 지지 안착 확인|Boston Dynamics의 휴머노이드 '아틀라스' 공정 투입에 따른 로보틱스 모멘텀 부각",
+          "signals": {
+            "trend_score": 92,
+            "momentum_score": 82,
+            "volume_score": 78,
+            "volatility_score": 75,
+            "pattern_score": 72,
+            "sentiment_score": 88,
+            "overall_score": 82
+          },
+          "verified_date": "2026-03-11"
+        },
+        {
+          "ticker": "KOSDAQ:298380",
+          "name": "에이비엘바이오",
+          "close_price": 184600,
+          "rationale": "2026-03-11 종가 184,600 확인(네이버금융/한경)|SMA 120일 장기 이평선 터치 후 대량 거래 수반한 전형적인 바닥 확인 패턴|RSI 51.5 중립 구간 상향 돌파하며 매수세 우위 점유 시작|MACD 0선 돌파 시도 및 히스토그램 양전환으로 단기 모멘텀 회복|거래량비율(VR) 185% 바닥권 매집 포착 및 직전 거래일 대비 거래량 증가|볼린저밴드 수축기 종료 후 상단 방향으로의 밴드 열림 현상 발생|ATR 4.2% 적정 변동성 유지 속 에너지 응축 완료 후 발산 직전|Stochastic(14,3,3) 48.2에서 하락 추세 탈피 및 정배열 초기 시그널|CCI 45.3 과매수 구간 진입 전으로 가격적 메리트 보유한 최적 타점|Williams %R -42 상향 돌파로 단기 탄력 강화 및 매수 강도 증가|담도암 치료제 ABL001의 임상 3상 결과 발표 임박에 따른 기대감 고조",
+          "signals": {
+            "trend_score": 80,
+            "momentum_score": 85,
+            "volume_score": 88,
+            "volatility_score": 80,
+            "pattern_score": 82,
+            "sentiment_score": 78,
+            "overall_score": 83
+          },
+          "verified_date": "2026-03-11"
+        }
+      ],
+      "sentAt": "2026-03-11T22:36:07.393+00:00",
+      "subscriberCount": 240
+    },
+    {
+      "type": "stock",
       "date": "2026-03-11",
       "stocks": [
         {
@@ -5046,5 +5102,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-03-10T23:04:45.907Z"
+  "lastUpdated": "2026-03-11T22:36:47.428Z"
 }
