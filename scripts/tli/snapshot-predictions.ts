@@ -3,6 +3,14 @@ import { batchQuery, groupByThemeId } from './supabase-batch'
 import { calculatePrediction } from '../../lib/tli/prediction'
 import type { ComparisonInput } from '../../lib/tli/prediction'
 import { getKSTDateString } from '../../lib/tli/date-utils'
+import {
+  getComparisonV4ShadowConfig,
+  loadShadowCandidatesByRunIds,
+  loadShadowRunsByTheme,
+  markShadowRunCompleteWithoutSnapshot,
+  toPredictionInputsFromShadowCandidates,
+  upsertPredictionShadowSnapshot,
+} from './comparison-v4-shadow'
 
 interface ThemeComparison {
   theme_id: string
@@ -17,6 +25,7 @@ interface ThemeComparison {
 export async function snapshotPredictions(): Promise<void> {
   const today = getKSTDateString()
   console.log(`\n📸 예측 스냅샷 생성 [${today}]`)
+  const shadowConfig = getComparisonV4ShadowConfig()
 
   // 활성 테마 로딩
   const { data: themes, error: themesErr } = await supabaseAdmin
@@ -30,6 +39,15 @@ export async function snapshotPredictions(): Promise<void> {
   }
 
   const themeIds = themes.map(t => t.id)
+  const shadowRunsByTheme = await loadShadowRunsByTheme({
+    config: shadowConfig,
+    themeIds,
+    runDate: today,
+  })
+  const shadowCandidatesByRunId = await loadShadowCandidatesByRunIds({
+    config: shadowConfig,
+    runIds: [...new Set([...shadowRunsByTheme.values()].map((item) => item.runId))],
+  })
 
   // 비교 데이터 로딩 (당일 기준, 중복 방지)
   const comparisons = await batchQuery<ThemeComparison & { calculated_at: string }>(
@@ -77,26 +95,43 @@ export async function snapshotPredictions(): Promise<void> {
   const rows: Record<string, unknown>[] = []
 
   for (const theme of themes) {
+    const shadowRun = shadowRunsByTheme.get(theme.id)
+    const shadowCandidates = shadowRun ? shadowCandidatesByRunId.get(shadowRun.runId) || [] : []
     const themeComps = compsByTheme.get(theme.id) || []
-    if (themeComps.length === 0) continue
-
-    const inputs: ComparisonInput[] = themeComps.map(c => {
-      // DB 값 방어적 캡핑 (스크립트 재실행 전 기존 데이터 대응)
-      const pastTotalDays = Math.min(c.past_total_days, 365)
-      const currentDay = Math.min(c.current_day, 365)
-      const pastPeakDay = Math.min(c.past_peak_day, pastTotalDays)
-      return {
-        pastTheme: pastThemeNames.get(c.past_theme_id) || c.past_theme_id,
-        similarity: c.similarity_score,
-        estimatedDaysToPeak: pastPeakDay > 0 ? Math.max(0, pastPeakDay - currentDay) : 0,
-        pastPeakDay,
-        pastTotalDays,
+    if (themeComps.length === 0 && shadowCandidates.length === 0) {
+      if (shadowRun) {
+        await markShadowRunCompleteWithoutSnapshot({ config: shadowConfig, runId: shadowRun.runId, snapshotDate: today })
       }
-    })
+      continue
+    }
+
+    const inputs: ComparisonInput[] = shadowCandidates.length > 0
+      ? toPredictionInputsFromShadowCandidates(
+          shadowCandidates,
+          Object.fromEntries([...pastThemeNames.entries()]),
+        )
+      : themeComps.map(c => {
+          // DB 값 방어적 캡핑 (스크립트 재실행 전 기존 데이터 대응)
+          const pastTotalDays = Math.min(c.past_total_days, 365)
+          const currentDay = Math.min(c.current_day, 365)
+          const pastPeakDay = Math.min(c.past_peak_day, pastTotalDays)
+          return {
+            pastTheme: pastThemeNames.get(c.past_theme_id) || c.past_theme_id,
+            similarity: c.similarity_score,
+            estimatedDaysToPeak: pastPeakDay > 0 ? Math.max(0, pastPeakDay - currentDay) : 0,
+            pastPeakDay,
+            pastTotalDays,
+          }
+        })
 
     const themeScore = latestScoreByTheme.get(theme.id)
     const result = calculatePrediction(theme.first_spike_date, inputs, today, themeScore?.score, themeScore?.stage as Parameters<typeof calculatePrediction>[4])
-    if (!result) continue
+    if (!result) {
+      if (shadowRun) {
+        await markShadowRunCompleteWithoutSnapshot({ config: shadowConfig, runId: shadowRun.runId, snapshotDate: today })
+      }
+      continue
+    }
 
     rows.push({
       theme_id: theme.id,
@@ -118,6 +153,17 @@ export async function snapshotPredictions(): Promise<void> {
       prediction_intervals: result.predictionIntervals ?? null,
       status: 'pending',
     })
+
+    if (shadowRun) {
+      await upsertPredictionShadowSnapshot({
+        config: shadowConfig,
+        runId: shadowRun.runId,
+        themeId: theme.id,
+        snapshotDate: today,
+        candidatePool: shadowRun.candidatePool,
+        prediction: result,
+      })
+    }
   }
 
   if (rows.length === 0) {

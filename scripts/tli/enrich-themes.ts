@@ -147,7 +147,7 @@ export function enrichThemes(
 // ── first_spike_date 결정 ────────────────────────────────────────────────────
 
 /** first_spike_date가 없거나 365일 초과 시 자동 추론 (장기/반복 테마 대응) */
-function resolveFirstSpikeDate(
+export function resolveFirstSpikeDate(
   theme: RawTheme,
   interest: Array<{ time: string; normalized: number }> | undefined,
   kstNow: Date,
