@@ -54,7 +54,7 @@ next-env.d.ts
 .codex
 
 .opencode
-docs
+
 .env*.local
 
 # Debug/preview images
