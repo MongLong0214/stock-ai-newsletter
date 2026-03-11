@@ -3,11 +3,9 @@
   "active": true,
   "skill": "ralph",
   "keyword": "Ralph",
-  "phase": "planning",
+  "phase": "reviewing",
   "activated_at": "2026-03-03T12:49:25.959Z",
-  "updated_at": "2026-03-03T12:49:25.959Z",
+  "updated_at": "2026-03-11T06:40:59.356Z",
   "source": "keyword-detector",
-  "session_id": "",
-  "thread_id": "019cb3bc-a064-7703-809c-edda4c24372c",
-  "turn_id": "019cb3bc-a080-7230-a7c4-73f17cda2634"
+  "input_lock": null
 }
