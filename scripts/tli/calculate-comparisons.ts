@@ -2,21 +2,30 @@
 import { supabaseAdmin } from './supabase-admin'
 import { batchQuery, groupByThemeId } from './supabase-batch'
 import { getKSTDate } from './utils'
-import { compositeCompare, featuresToArray } from '../../lib/tli/comparison'
+import { compositeCompare } from '../../lib/tli/comparison/composite'
+import { featuresToArray } from '../../lib/tli/comparison/features'
 import { buildMutualRankIndex, buildCurveMutualRankIndex, type MutualRankIndex } from '../../lib/tli/comparison/mutual-rank'
 import type { ThemeWithKeywords } from './data-ops'
 import { enrichThemes, computePopulationStats, type ThemeDataMaps, type EnrichedTheme } from './enrich-themes'
 import { DEFAULT_THRESHOLD } from './auto-tune'
+import { COMPARISON_V4_LEGACY_CLEANUP_DAYS } from './comparison-v4-ops'
+import { getComparisonV4ShadowConfig, upsertComparisonShadowRun } from './comparison-v4-shadow'
 const MAX_MATCHES_PER_THEME = 3
 
 interface MatchResult {
   pastThemeId: string; pastThemeName: string; similarity: number
   currentDay: number; pastPeakDay: number; pastTotalDays: number
+  estimatedDaysToPeak: number
   message: string; featureSim: number; curveSim: number; keywordSim: number
+  isPastActive?: boolean
+  pastPeakScore?: number | null
+  pastFinalStage?: string | null
+  pastDeclineDays?: number | null
 }
 
 export async function calculateThemeComparisons(themes: ThemeWithKeywords[], thresholdOverride?: number) {
   console.log('\n🔍 테마 비교 분석 중 (다중 시그널)...')
+  const shadowConfig = getComparisonV4ShadowConfig()
 
   // 유효 임계값 결정 (override 우선, 없으면 기본값)
   const effectiveThreshold = thresholdOverride ?? DEFAULT_THRESHOLD
@@ -63,6 +72,17 @@ export async function calculateThemeComparisons(themes: ThemeWithKeywords[], thr
 
       const matches = findTopMatches(current, enrichedThemes, populationStats, mutualRankIndex, curveMutualRankIndex, effectiveThreshold)
       if (matches.length === 0) {
+        try {
+          await upsertComparisonShadowRun({
+            config: shadowConfig,
+            runDate: getKSTDate(),
+            currentThemeId: currentTheme.id,
+            sourceDataCutoffDate: getKSTDate(),
+            matches: [],
+          })
+        } catch (v4Err: unknown) {
+          console.error('   ⚠️ V4 write 실패 (파이프라인 계속):', v4Err instanceof Error ? v4Err.message : String(v4Err))
+        }
         console.log(`   ⊘ ${currentTheme.name}: 유사 매칭 없음 (임계값 ${Math.round(effectiveThreshold * 100)}%)`)
         continue
       }
@@ -70,7 +90,7 @@ export async function calculateThemeComparisons(themes: ThemeWithKeywords[], thr
       themesWithMatches++
       totalMatches += matches.length
       const today = getKSTDate()
-      await saveMatches(currentTheme.id, matches, enrichedMap, dataByTheme.scores, today)
+      await saveMatches(currentTheme.id, matches, enrichedMap, dataByTheme.scores, today, shadowConfig)
 
       console.log(`   ✅ ${currentTheme.name}: ${matches.length}개 매칭 (최고: ${matches[0].pastThemeName} ${Math.round(matches[0].similarity * 100)}%)`)
     } catch (error: unknown) {
@@ -78,10 +98,10 @@ export async function calculateThemeComparisons(themes: ThemeWithKeywords[], thr
     }
   }
 
-  // 만료된 미검증 비교 정리 (21일 이전, 검증 완료 레코드는 보존)
-  const twentyOneDaysAgo = new Date(kstNow.getTime() - 21 * 86400000).toISOString().split('T')[0]
+  // 만료된 미검증 비교 정리 (90일 이전, 검증 완료 레코드는 보존)
+  const staleCutoffDate = new Date(kstNow.getTime() - COMPARISON_V4_LEGACY_CLEANUP_DAYS * 86400000).toISOString().split('T')[0]
   const { data: deleted, error: deleteErr } = await supabaseAdmin.from('theme_comparisons').delete()
-    .lt('calculated_at', twentyOneDaysAgo)
+    .lt('calculated_at', staleCutoffDate)
     .or('outcome_verified.is.null,outcome_verified.eq.false')
     .select('id')
   if (deleteErr) console.warn('   ⚠️ stale 비교 삭제 실패:', deleteErr.message)
@@ -155,15 +175,16 @@ function findTopMatches(
   return matches.slice(0, MAX_MATCHES_PER_THEME)
 }
 
-/** 매칭 결과 DB 저장 + 이전 매칭 정리 */
+/** 매칭 결과 V4 테이블에 저장 */
 async function saveMatches(
   currentThemeId: string,
   matches: MatchResult[],
   enrichedMap: Map<string, EnrichedTheme>,
   scoresByTheme: Map<string, Array<{ score: number; calculated_at: string }>>,
   today: string,
+  shadowConfig: ReturnType<typeof getComparisonV4ShadowConfig>,
 ): Promise<void> {
-  const savedIds: string[] = []
+  const v4Matches: MatchResult[] = []
 
   for (const match of matches) {
     if (![match.similarity, match.featureSim, match.curveSim, match.keywordSim].every(isFinite)) {
@@ -176,33 +197,34 @@ async function saveMatches(
     const pastData = enrichedMap.get(match.pastThemeId)
     const pastFinalStage = pastData && !pastData.isActive ? 'Dormant' : null
     const pastDeclineDays = pastPeakScore !== null && match.pastPeakDay > 0 ? Math.max(0, match.pastTotalDays - match.pastPeakDay) : null
-
-    const { error } = await supabaseAdmin
-      .from('theme_comparisons')
-      .upsert({
-        current_theme_id: currentThemeId,
-        past_theme_id: match.pastThemeId,
-        similarity_score: match.similarity,
-        current_day: match.currentDay,
-        past_peak_day: Math.max(0, match.pastPeakDay),
-        past_total_days: match.pastTotalDays,
-        message: match.message,
-        calculated_at: today,
-        feature_sim: match.featureSim,
-        curve_sim: match.curveSim,
-        keyword_sim: match.keywordSim,
-        past_peak_score: pastPeakScore,
-        past_final_stage: pastFinalStage,
-        past_decline_days: pastDeclineDays,
-      }, { onConflict: 'current_theme_id,past_theme_id,calculated_at' })
-
-    if (error) console.error(`   ⚠️ 저장 실패:`, error.message)
-    else savedIds.push(match.pastThemeId)
+    v4Matches.push({ ...match, pastPeakScore, pastFinalStage, pastDeclineDays, isPastActive: pastData?.isActive ?? undefined })
   }
 
-  // 오늘 날짜의 실제 저장된 매칭에 없는 이전 항목 삭제
-  if (savedIds.length === 0) return
-  await supabaseAdmin.from('theme_comparisons').delete()
-    .eq('current_theme_id', currentThemeId).eq('calculated_at', today)
-    .not('past_theme_id', 'in', `(${savedIds.join(',')})`)
+  if (v4Matches.length === 0) return
+
+  try {
+    await upsertComparisonShadowRun({
+      config: shadowConfig,
+      runDate: today,
+      currentThemeId,
+      sourceDataCutoffDate: today,
+      matches: v4Matches.map((match) => ({
+        pastThemeId: match.pastThemeId,
+        similarity: match.similarity,
+        currentDay: match.currentDay,
+        pastPeakDay: match.pastPeakDay,
+        pastTotalDays: match.pastTotalDays,
+        estimatedDaysToPeak: match.estimatedDaysToPeak,
+        message: match.message,
+        featureSim: match.featureSim,
+        curveSim: match.curveSim,
+        keywordSim: match.keywordSim,
+        pastPeakScore: match.pastPeakScore ?? null,
+        pastFinalStage: match.pastFinalStage ?? null,
+        pastDeclineDays: match.pastDeclineDays ?? null,
+      })),
+    })
+  } catch (v4Err: unknown) {
+    console.error('   ⚠️ V4 write 실패 (파이프라인 계속):', v4Err instanceof Error ? v4Err.message : String(v4Err))
+  }
 }
