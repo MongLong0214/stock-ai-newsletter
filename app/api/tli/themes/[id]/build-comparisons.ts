@@ -3,7 +3,57 @@
  */
 
 import { supabase } from '@/lib/supabase'
-import type { ComparisonResult } from '@/lib/tli/types/api'
+import type { ComparisonResult, LifecycleCurvePoint } from '@/lib/tli/types/api'
+
+// ── v2 candidate → ComparisonResult 변환 ──
+
+export interface V2CandidateForBuild {
+  candidate_theme_id: string
+  similarity_score: number
+  current_day: number
+  past_peak_day: number
+  past_total_days: number
+  estimated_days_to_peak: number
+  message: string | null
+  feature_sim: number | null
+  curve_sim: number | null
+  keyword_sim: number | null
+  past_peak_score: number | null
+  past_final_stage: string | null
+  past_decline_days: number | null
+}
+
+export const buildComparisonResultFromV2Candidate = (
+  candidate: V2CandidateForBuild,
+  context: {
+    pastThemeName: string
+    lifecycleCurve: LifecycleCurvePoint[]
+  },
+): ComparisonResult => {
+  const pastTotalDays = Math.min(candidate.past_total_days, 365)
+  const currentDay = Math.min(candidate.current_day, 365)
+  const pastPeakDay = Math.min(candidate.past_peak_day, pastTotalDays)
+
+  return {
+    pastTheme: context.pastThemeName,
+    pastThemeId: candidate.candidate_theme_id,
+    similarity: candidate.similarity_score,
+    currentDay,
+    pastPeakDay,
+    pastTotalDays,
+    estimatedDaysToPeak: Math.min(candidate.estimated_days_to_peak, 365),
+    message: candidate.message ?? '',
+    lifecycleCurve: context.lifecycleCurve,
+    featureSim: candidate.feature_sim ?? null,
+    curveSim: candidate.curve_sim ?? null,
+    keywordSim: candidate.keyword_sim ?? null,
+    pastPeakScore: candidate.past_peak_score ?? null,
+    pastFinalStage: candidate.past_final_stage ?? null,
+    pastDeclineDays: candidate.past_decline_days ?? null,
+  }
+}
+
+// ── Legacy comparison interface ──
 
 interface Comparison {
   id: string

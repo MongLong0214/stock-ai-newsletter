@@ -495,6 +495,11 @@ export function GET() {
                 },
               },
             },
+            comparisonSource: {
+              type: 'string',
+              enum: ['legacy', 'v4', 'v4-view'],
+              description: 'Source of comparison data (legacy table or v4 pipeline)',
+            },
           },
           required: [
             'id',

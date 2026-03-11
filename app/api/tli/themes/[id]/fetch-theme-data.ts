@@ -4,6 +4,8 @@
 
 import { supabase } from '@/lib/supabase'
 import { getKSTDateString } from '@/lib/tli/date-utils'
+import { fetchPublishedComparisonRowsV4, isComparisonV4ServingEnabled } from './comparison-v4-reader'
+import { buildComparisonsQueryDescriptor, shouldFallbackToLegacyComparisons } from './fetch-theme-data-v4'
 
 interface FetchThemeDataParams {
   id: string
@@ -53,6 +55,23 @@ export async function fetchThemeData(
 ): Promise<FetchThemeDataResult> {
   const { id, thirtyDaysAgo } = params
   const threeDaysAgo = getKSTDateString(-3)
+  const useV4Serving = isComparisonV4ServingEnabled()
+  const comparisonDescriptor = buildComparisonsQueryDescriptor({
+    themeId: id,
+    threeDaysAgo,
+    useV4Serving,
+  })
+
+  const comparisonsPromise = comparisonDescriptor.mode === 'v4'
+    ? fetchPublishedComparisonRowsV4(comparisonDescriptor.themeId)
+    : supabase
+        .from('theme_comparisons')
+        .select('id, past_theme_id, similarity_score, current_day, past_peak_day, past_total_days, message, feature_sim, curve_sim, keyword_sim, past_peak_score, past_final_stage, past_decline_days')
+        .eq('current_theme_id', comparisonDescriptor.themeId)
+        .gte('calculated_at', comparisonDescriptor.threeDaysAgo)
+        .order('calculated_at', { ascending: false })
+        .order('similarity_score', { ascending: false })
+        .limit(3)
 
   const [latestScoreRes, scoresRes, stocksRes, comparisonsRes, newsRes, interestRes, newsArticlesRes, keywordsRes, stockCountRes, newsArticleCountRes] =
     await Promise.all([
@@ -97,15 +116,8 @@ export async function fetchThemeData(
           }
           return res
         }),
-      // 유사 테마 비교 (최근 3일 이내)
-      supabase
-        .from('theme_comparisons')
-        .select('id, past_theme_id, similarity_score, current_day, past_peak_day, past_total_days, message, feature_sim, curve_sim, keyword_sim, past_peak_score, past_final_stage, past_decline_days')
-        .eq('current_theme_id', id)
-        .gte('calculated_at', threeDaysAgo)
-        .order('calculated_at', { ascending: false })
-        .order('similarity_score', { ascending: false })
-        .limit(3),
+      // 유사 테마 비교 (v4 reader 또는 legacy fallback)
+      comparisonsPromise,
       // 뉴스 시계열 (30일)
       supabase
         .from('news_metrics')
@@ -146,11 +158,24 @@ export async function fetchThemeData(
         .eq('theme_id', id),
     ])
 
+  let safeComparisonsRes = comparisonsRes
+  if (comparisonDescriptor.mode === 'v4' && shouldFallbackToLegacyComparisons(comparisonsRes)) {
+    const legacyComparisonsRes = await supabase
+      .from('theme_comparisons')
+      .select('id, past_theme_id, similarity_score, current_day, past_peak_day, past_total_days, message, feature_sim, curve_sim, keyword_sim, past_peak_score, past_final_stage, past_decline_days')
+      .eq('current_theme_id', id)
+      .gte('calculated_at', threeDaysAgo)
+      .order('calculated_at', { ascending: false })
+      .order('similarity_score', { ascending: false })
+      .limit(3)
+    safeComparisonsRes = legacyComparisonsRes
+  }
+
   return {
     latestScoreRes,
     scoresRes,
     stocksRes,
-    comparisonsRes,
+    comparisonsRes: safeComparisonsRes,
     newsRes,
     interestRes,
     newsArticlesRes,
