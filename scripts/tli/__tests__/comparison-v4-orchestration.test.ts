@@ -30,7 +30,10 @@ describe('comparison v4 orchestration', () => {
     expect(result.promotedRunIds).toEqual(['run-1'])
     expect(deps.updateRuns).toHaveBeenCalledTimes(1)
     expect(deps.disableActiveControlRows).toHaveBeenCalledTimes(1)
-    expect(deps.upsertControlRow).toHaveBeenCalledTimes(1)
+    // 2회 호출: 1) 비활성 control row 생성, 2) 활성화 (원자성 보장)
+    expect(deps.upsertControlRow).toHaveBeenCalledTimes(2)
+    expect(deps.upsertControlRow).toHaveBeenNthCalledWith(1, expect.objectContaining({ serving_enabled: false }))
+    expect(deps.upsertControlRow).toHaveBeenNthCalledWith(2, expect.objectContaining({ serving_enabled: true }))
   })
 
   it('throws when there are no promotable runs', async () => {

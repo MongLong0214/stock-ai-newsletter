@@ -79,6 +79,8 @@ describe('comparison v4 db types', () => {
       threshold_policy_version: 'v1',
       source_data_cutoff_date: '2026-03-11',
       comparison_spec_version: 'v4',
+      theme_definition_version: 'td-v2.0',
+      lifecycle_score_version: 'ls-v2.0',
       status: 'pending',
       publish_ready: false,
       expected_candidate_count: 0,

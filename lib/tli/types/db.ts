@@ -183,8 +183,8 @@ export interface ComparisonCalibration {
   created_at: string;
 }
 
-export type ComparisonRunType = 'prod' | 'shadow' | 'backtest'
-export type ComparisonCandidatePool = 'archetype' | 'peer' | 'mixed_legacy'
+import type { ComparisonRunType, ComparisonCandidatePool } from '../comparison/spec'
+export type { ComparisonRunType, ComparisonCandidatePool }
 export type ComparisonRunStatus = 'pending' | 'materializing' | 'complete' | 'published' | 'failed' | 'rolled_back'
 
 export interface ThemeComparisonRunV2 {
@@ -197,6 +197,8 @@ export interface ThemeComparisonRunV2 {
   threshold_policy_version: string
   source_data_cutoff_date: string
   comparison_spec_version: string
+  theme_definition_version: string
+  lifecycle_score_version: string
   status: ComparisonRunStatus
   publish_ready: boolean
   expected_candidate_count: number

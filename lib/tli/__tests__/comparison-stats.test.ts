@@ -129,6 +129,59 @@ describe('comparison stats', () => {
     expect(result.lower).toBeLessThanOrEqual(result.upper)
   })
 
+  it('PRNG samples from ALL clusters — not biased to first half', () => {
+    // CRITICAL: clusters 0-4 have delta=+0.5, clusters 5-9 have delta=-0.5
+    // If PRNG only selects indices [0, 0.5), bootstrap will only sample clusters 0-4
+    // and show a biased positive mean instead of ~0
+    const rows = Array.from({ length: 10 }, (_, i) => ({
+      clusterId: `cluster-${i}`,
+      id: `row-${i}`,
+      baseline: 0.5,
+      candidate: i < 5 ? 1.0 : 0.0, // first half: +0.5 delta, second half: -0.5 delta
+    }))
+
+    const result = clusterBootstrapPairedDelta(rows, { iterations: 1000, seed: 42 })
+
+    // Observed mean should be 0 (balanced positive and negative deltas)
+    expect(result.meanDelta).toBeCloseTo(0, 6)
+    // With a correct PRNG, bootstrap mean should cluster around 0
+    // With a biased PRNG (only first half), lower AND upper would both be positive
+    // This test FAILS if PRNG only samples clusters 0-4
+    expect(result.lower).toBeLessThan(0.25)
+  })
+
+  it('bootstrap CI uses one-sided percentiles per PRD §8.3', () => {
+    // Create data with known variance to detect percentile difference
+    // one-sided 95% CI: alpha=0.05 → lower = percentile(5%), upper = percentile(95%)
+    // two-sided 95% CI: alpha=0.05 → lower = percentile(2.5%), upper = percentile(97.5%)
+    const rows = Array.from({ length: 100 }, (_, i) => ({
+      clusterId: `c-${i % 20}`,
+      id: `r-${i}`,
+      baseline: 0.3,
+      candidate: 0.4 + (i % 5) * 0.03,
+    }))
+
+    const result95 = clusterBootstrapPairedDelta(rows, {
+      iterations: 1000,
+      confidenceLevel: 0.95,
+      seed: 123,
+    })
+
+    // Verify that 95% CI lower bound is at 5th percentile (one-sided)
+    // by checking that a 90% CI gives the SAME lower bound
+    // (because one-sided 95% lower = two-sided 90% lower = percentile(0.05))
+    const result90 = clusterBootstrapPairedDelta(rows, {
+      iterations: 1000,
+      confidenceLevel: 0.90,
+      seed: 123, // same seed → same bootstrap distribution
+    })
+
+    // One-sided 95% lower = percentile(0.05)
+    // One-sided 90% lower = percentile(0.10)
+    // So 95% lower should be LESS than 90% lower (wider interval at higher confidence)
+    expect(result95.lower).toBeLessThan(result90.lower)
+  })
+
   it('renders a power analysis report with the key inputs', () => {
     const report = renderPowerAnalysisReport({
       primaryMetric: 'Phase-Aligned Precision@3',

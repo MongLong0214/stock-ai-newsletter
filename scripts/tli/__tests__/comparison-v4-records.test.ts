@@ -19,6 +19,8 @@ describe('comparison v4 record builders', () => {
       thresholdPolicyVersion: 'policy-v1',
       sourceDataCutoffDate: '2026-03-11',
       comparisonSpecVersion: 'spec-v4',
+      themeDefinitionVersion: 'td-v2.0',
+      lifecycleScoreVersion: 'ls-v2.0',
       expectedCandidateCount: 3,
     })
 
@@ -153,6 +155,27 @@ describe('comparison v4 record builders', () => {
       expected_snapshot_count: 1,
       materialized_snapshot_count: 1,
     })).toBe(false)
+  })
+
+  // ── Gap 1: PRD §6.4 — theme_definition_version + lifecycle_score_version ──
+
+  it('includes theme_definition_version and lifecycle_score_version in run row', () => {
+    const row = buildComparisonRunRowV2({
+      runDate: '2026-03-11',
+      currentThemeId: 'theme-1',
+      algorithmVersion: 'v4-shadow',
+      runType: 'shadow',
+      candidatePool: 'archetype',
+      thresholdPolicyVersion: 'policy-v1',
+      sourceDataCutoffDate: '2026-03-11',
+      comparisonSpecVersion: 'spec-v4',
+      expectedCandidateCount: 3,
+      themeDefinitionVersion: 'td-v2.1',
+      lifecycleScoreVersion: 'ls-v2.3',
+    })
+
+    expect(row.theme_definition_version).toBe('td-v2.1')
+    expect(row.lifecycle_score_version).toBe('ls-v2.3')
   })
 
   it('finalizes run status to published or failed according to completeness', () => {

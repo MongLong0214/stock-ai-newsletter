@@ -21,19 +21,24 @@ interface GenericFold<T> {
   foldId: string
   train: T[]
   validation: T[]
+  embargo: T[]
   test: T[]
 }
 
 export function buildTemporalBacktestFolds<T extends { firstSpikeDate: string }>(
   items: T[],
   minFolds = 3,
-) {
+): GenericFold<T & { runDate: string }>[] {
   const observations = items
     .filter((item) => item.firstSpikeDate)
     .sort((a, b) => a.firstSpikeDate.localeCompare(b.firstSpikeDate))
     .map((item) => ({ ...item, runDate: item.firstSpikeDate }))
 
-  return assignRollingOriginFolds(observations, minFolds)
+  const folds = assignRollingOriginFolds(observations, minFolds)
+  return folds.map((fold, idx) => ({
+    ...fold,
+    foldId: `fold-${idx + 1}`,
+  }))
 }
 
 export function selectArchetypeCandidatesAtRunDate<T extends { id: string }>(
@@ -46,12 +51,15 @@ export function selectArchetypeCandidatesAtRunDate<T extends { id: string }>(
       effective_to: string | null
       is_active: boolean
       closed_at: string | null
+      state_version?: string
     }>
   },
 ) {
   return candidates.filter((candidate) => {
     const states = input.stateHistory.filter((row) => row.theme_id === candidate.id)
     return states.some((row) => {
+      // unknown state_version → excluded from primary archetype pool
+      if (row.state_version === 'unknown') return false
       const started = row.effective_from <= input.runDate
       const notEnded = row.effective_to == null || row.effective_to >= input.runDate
       const closedBeforeRun = row.closed_at != null && row.closed_at <= input.runDate

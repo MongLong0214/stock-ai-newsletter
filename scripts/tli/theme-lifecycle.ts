@@ -4,10 +4,42 @@ config({ path: '.env.local' })
 import { supabaseAdmin } from './supabase-admin'
 import { batchQuery } from './supabase-batch'
 import { daysAgo } from './utils'
+import { buildOngoingStateChangeRow, buildCloseRowPatch } from './theme-state-history'
 
 // ─────────────────────────────────────────────────────
 // 테마 생명주기 관리: 자동 활성화 / 비활성화
 // ─────────────────────────────────────────────────────
+
+/** state_history_v2에 상태 변경 기록 (이전 행 닫기 + 신규 행 삽입) */
+async function recordStateChange(input: {
+  themeId: string
+  newIsActive: boolean
+  firstSpikeDate: string | null
+  changeDate: string
+}) {
+  try {
+    // 이전 활성 행 닫기
+    const closePatch = buildCloseRowPatch({ changeDate: input.changeDate })
+    await supabaseAdmin
+      .from('theme_state_history_v2')
+      .update(closePatch)
+      .eq('theme_id', input.themeId)
+      .is('effective_to', null)
+
+    // 신규 행 삽입
+    const newRow = buildOngoingStateChangeRow({
+      themeId: input.themeId,
+      newIsActive: input.newIsActive,
+      firstSpikeDate: input.firstSpikeDate,
+      changeDate: input.changeDate,
+    })
+    await supabaseAdmin
+      .from('theme_state_history_v2')
+      .insert(newRow)
+  } catch (err: unknown) {
+    console.error(`   ⚠️ state history 기록 실패 (파이프라인 계속): ${err instanceof Error ? err.message : String(err)}`)
+  }
+}
 
 /** 비활성화 임계값 */
 export const DEACTIVATION_CONFIG = {
@@ -47,6 +79,14 @@ export async function autoActivate() {
       .from('themes')
       .update({ is_active: true, auto_activated: true })
       .eq('id', theme.id)
+
+    const today = new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().split('T')[0]
+    await recordStateChange({
+      themeId: theme.id,
+      newIsActive: true,
+      firstSpikeDate: null,
+      changeDate: today,
+    })
 
     activatedCount++
     console.log(`   ✓ 활성화: ${theme.name}`)
@@ -113,6 +153,14 @@ export async function autoDeactivate() {
       .from('themes')
       .update({ is_active: false })
       .eq('id', theme.id)
+
+    const todayStr = today.toISOString().split('T')[0]
+    await recordStateChange({
+      themeId: theme.id,
+      newIsActive: false,
+      firstSpikeDate: null,
+      changeDate: todayStr,
+    })
 
     deactivatedCount++
     console.log(`   ✓ 비활성화: ${theme.name} (미출현 ${notSeenDays}일)`)

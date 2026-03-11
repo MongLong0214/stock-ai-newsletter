@@ -6,6 +6,29 @@ vi.mock('@/scripts/tli/comparison-v4-orchestration', () => ({
   promoteComparisonV4Runs,
 }))
 
+// backfill guard: 항상 완료 상태로 mock
+vi.mock('@/scripts/tli/theme-state-history', () => ({
+  isStateHistoryBackfillComplete: () => true,
+}))
+
+vi.mock('@/scripts/tli/supabase-admin', () => ({
+  supabaseAdmin: {
+    from: () => ({
+      select: () => ({
+        count: 50,
+        error: null,
+        // .in() chain for loadRuns
+        in: () => Promise.resolve({ data: [], error: null }),
+      }),
+      update: () => ({
+        in: () => Promise.resolve({ error: null }),
+        eq: () => Promise.resolve({ error: null }),
+      }),
+      upsert: () => Promise.resolve({ error: null }),
+    }),
+  },
+}))
+
 describe('admin comparison v4 promote route', () => {
   const originalEnv = process.env
 

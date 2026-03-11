@@ -32,15 +32,19 @@ describe('fetch theme data v4 descriptor', () => {
     expect(shouldFallbackToLegacyComparisons({ data: null, error: { message: 'rls' } })).toBe(true)
   })
 
-  it('falls back to legacy comparisons when the v4 reader returns no published rows', () => {
-    expect(shouldFallbackToLegacyComparisons({ data: [], error: null })).toBe(true)
+  it('does not fall back when v4 returns empty data (legitimate no-comparisons)', () => {
+    expect(shouldFallbackToLegacyComparisons({ data: [], error: null })).toBe(false)
     expect(shouldFallbackToLegacyComparisons({ data: [{ id: 'x' }], error: null })).toBe(false)
   })
 
-  it('prefers legacy comparisons only when the v4 result is unsafe', () => {
+  it('falls back when v4 returns null data', () => {
+    expect(shouldFallbackToLegacyComparisons({ data: null, error: null })).toBe(true)
+  })
+
+  it('prefers legacy comparisons only when the v4 result has error or null data', () => {
     const legacy = { data: [{ id: 'legacy' }], error: null }
     expect(resolveComparisonsResult({ data: [{ id: 'v4' }], error: null }, legacy)).toEqual({ data: [{ id: 'v4' }], error: null })
-    expect(resolveComparisonsResult({ data: [], error: null }, legacy)).toEqual(legacy)
+    expect(resolveComparisonsResult({ data: [], error: null }, legacy)).toEqual({ data: [], error: null })
     expect(resolveComparisonsResult({ data: null, error: { message: 'rls' } }, legacy)).toEqual(legacy)
   })
 })

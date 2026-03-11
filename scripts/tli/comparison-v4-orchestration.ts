@@ -35,6 +35,17 @@ export async function promoteComparisonV4Runs(
   }
 
   const patch = buildPromoteRunPatch(input.promotedAt)
+
+  // 안전한 순서: control row 비활성 생성 → run 승격 → control row 활성화
+  // 중간 실패 시 serving이 중단되지 않고 이전 상태 유지
+  await deps.upsertControlRow(
+    buildComparisonV4ControlRow({
+      productionVersion: input.productionVersion,
+      servingEnabled: false,
+      actor: input.actor,
+      promotedAt: patch.published_at,
+    }),
+  )
   await deps.updateRuns(releasePlan.promotableRunIds, patch)
   await deps.disableActiveControlRows()
   await deps.upsertControlRow(

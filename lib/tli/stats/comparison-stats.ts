@@ -30,6 +30,7 @@ export function createEmbargoedTemporalSplits(
   config: TemporalSplitConfig,
 ): RollingFold<string> {
   const sorted = [...new Set(dates)].sort(compareDateStrings)
+  if (sorted.length === 0) return { train: [], validation: [], embargo: [], test: [] }
   const trainEnd = Math.max(1, Math.floor(sorted.length * config.trainRatio))
   const validationEnd = Math.max(trainEnd + 1, Math.floor(sorted.length * (config.trainRatio + config.validationRatio)))
   const validation = sorted.slice(trainEnd, validationEnd)
@@ -126,7 +127,8 @@ export function computePairedDelta(baseline: PairedValue[], candidate: PairedVal
     deltas.push(item.value - base)
   }
 
-  const meanDelta = deltas.length > 0 ? deltas.reduce((sum, value) => sum + value, 0) / deltas.length : 0
+  if (deltas.length === 0) return { meanDelta: NaN, count: 0, deltas: [] }
+  const meanDelta = deltas.reduce((sum, value) => sum + value, 0) / deltas.length
   return { meanDelta, count: deltas.length, deltas }
 }
 
@@ -161,8 +163,8 @@ export function clusterBootstrapPairedDelta(
   let seed = options.seed ?? 42
 
   const nextRandom = () => {
-    seed = (seed * 1664525 + 1013904223) & 0x7fffffff
-    return seed / 0x7fffffff
+    seed = (seed * 1664525 + 1013904223) | 0
+    return (seed >>> 0) / 0x100000000
   }
 
   const clusters = [...new Set(rows.map(row => row.clusterId))]
@@ -177,6 +179,16 @@ export function clusterBootstrapPairedDelta(
     rows.map(row => ({ id: row.id, value: row.baseline })),
     rows.map(row => ({ id: row.id, value: row.candidate })),
   )
+
+  if (observed.count === 0) {
+    return {
+      meanDelta: NaN,
+      lower: NaN,
+      upper: NaN,
+      clusterCount: clusters.length,
+      observationCount: rows.length,
+    }
+  }
 
   const bootstrapMeans: number[] = []
   for (let i = 0; i < iterations; i++) {
@@ -194,8 +206,9 @@ export function clusterBootstrapPairedDelta(
 
   bootstrapMeans.sort((a, b) => a - b)
   const alpha = 1 - confidenceLevel
-  const lowerIndex = Math.max(0, Math.floor((alpha / 2) * iterations))
-  const upperIndex = Math.min(iterations - 1, Math.floor((1 - alpha / 2) * iterations))
+  // One-sided CI per PRD §8.3: lower = percentile(alpha), upper = percentile(1-alpha)
+  const lowerIndex = Math.max(0, Math.floor(alpha * iterations))
+  const upperIndex = Math.min(iterations - 1, Math.floor((1 - alpha) * iterations))
 
   return {
     meanDelta: observed.meanDelta,

@@ -5,7 +5,7 @@
 import { supabase } from '@/lib/supabase'
 import { getKSTDateString } from '@/lib/tli/date-utils'
 import { fetchPublishedComparisonRowsV4, isComparisonV4ServingEnabled } from './comparison-v4-reader'
-import { buildComparisonsQueryDescriptor, resolveComparisonsResult } from './fetch-theme-data-v4'
+import { buildComparisonsQueryDescriptor, shouldFallbackToLegacyComparisons } from './fetch-theme-data-v4'
 
 interface FetchThemeDataParams {
   id: string
@@ -158,20 +158,18 @@ export async function fetchThemeData(
         .eq('theme_id', id),
     ])
 
-  const legacyComparisonsRes = comparisonDescriptor.mode === 'legacy'
-    ? comparisonsRes
-    : await supabase
-        .from('theme_comparisons')
-        .select('id, past_theme_id, similarity_score, current_day, past_peak_day, past_total_days, message, feature_sim, curve_sim, keyword_sim, past_peak_score, past_final_stage, past_decline_days')
-        .eq('current_theme_id', id)
-        .gte('calculated_at', threeDaysAgo)
-        .order('calculated_at', { ascending: false })
-        .order('similarity_score', { ascending: false })
-        .limit(3)
-
-  const safeComparisonsRes = comparisonDescriptor.mode === 'v4'
-    ? resolveComparisonsResult(comparisonsRes, legacyComparisonsRes)
-    : comparisonsRes
+  let safeComparisonsRes = comparisonsRes
+  if (comparisonDescriptor.mode === 'v4' && shouldFallbackToLegacyComparisons(comparisonsRes)) {
+    const legacyComparisonsRes = await supabase
+      .from('theme_comparisons')
+      .select('id, past_theme_id, similarity_score, current_day, past_peak_day, past_total_days, message, feature_sim, curve_sim, keyword_sim, past_peak_score, past_final_stage, past_decline_days')
+      .eq('current_theme_id', id)
+      .gte('calculated_at', threeDaysAgo)
+      .order('calculated_at', { ascending: false })
+      .order('similarity_score', { ascending: false })
+      .limit(3)
+    safeComparisonsRes = legacyComparisonsRes
+  }
 
   return {
     latestScoreRes,

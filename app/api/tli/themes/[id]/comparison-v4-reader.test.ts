@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import {
   DEFAULT_COMPARISON_V4_SERVING_VERSION,
   getComparisonV4ServingVersion,
+  getComparisonV4ReaderMode,
   isComparisonV4ServingEnabled,
   mapV2CandidatesToLegacyComparisons,
   selectPublishedComparisonRun,
@@ -74,5 +75,15 @@ describe('comparison v4 reader', () => {
         past_decline_days: 9,
       },
     ])
+  })
+
+  it('returns view mode when serving view env is set', () => {
+    process.env.TLI_COMPARISON_V4_SERVING_VIEW = 'true'
+    expect(getComparisonV4ReaderMode()).toBe('view')
+  })
+
+  it('returns table mode by default', () => {
+    delete process.env.TLI_COMPARISON_V4_SERVING_VIEW
+    expect(getComparisonV4ReaderMode()).toBe('table')
   })
 })

@@ -1,4 +1,4 @@
-import { COMPARISON_PRIMARY_HORIZON_DAYS, type ComparisonCandidatePool } from '../../lib/tli/comparison'
+import { COMPARISON_PRIMARY_HORIZON_DAYS, type ComparisonCandidatePool } from '../../lib/tli/comparison/spec'
 import type { ComparisonInput, PredictionResult } from '../../lib/tli/prediction'
 import { supabaseAdmin } from './supabase-admin'
 import { batchQuery, batchUpsert } from './supabase-batch'
@@ -8,11 +8,13 @@ import {
   buildPredictionSnapshotRowV2,
   finalizeComparisonRunV2,
 } from './comparison-v4-records'
-import type { ThemeComparisonCandidateV2, ThemeComparisonRunV2 } from '../../lib/tli/types/db'
+import type { ThemeComparisonCandidateV2 } from '../../lib/tli/types/db'
 
 export const DEFAULT_COMPARISON_V4_SHADOW_ALGORITHM_VERSION = 'comparison-v4-shadow-v1'
 export const DEFAULT_COMPARISON_V4_THRESHOLD_POLICY_VERSION = 'comparison-v4-threshold-v1'
 export const DEFAULT_COMPARISON_V4_SPEC_VERSION = 'comparison-v4-spec-v1'
+export const DEFAULT_THEME_DEFINITION_VERSION = 'theme-def-v2.0'
+export const DEFAULT_LIFECYCLE_SCORE_VERSION = 'lifecycle-score-v2.0'
 
 export interface ComparisonV4ShadowConfig {
   enabled: boolean
@@ -69,11 +71,13 @@ export function prepareComparisonShadowRows(input: {
     runDate: input.runDate,
     currentThemeId: input.currentThemeId,
     algorithmVersion: input.config.algorithmVersion,
-    runType: 'shadow',
+    runType: 'prod',
     candidatePool,
     thresholdPolicyVersion: input.config.thresholdPolicyVersion,
     sourceDataCutoffDate: input.sourceDataCutoffDate,
     comparisonSpecVersion: input.config.comparisonSpecVersion,
+    themeDefinitionVersion: DEFAULT_THEME_DEFINITION_VERSION,
+    lifecycleScoreVersion: DEFAULT_LIFECYCLE_SCORE_VERSION,
     expectedCandidateCount: input.matches.length,
   })
 
@@ -101,7 +105,7 @@ export function preparePredictionShadowRow(input: {
     snapshotDate: input.snapshotDate,
     comparisonRunId: input.comparisonRunId,
     algorithmVersion: input.config.algorithmVersion,
-    runType: 'shadow',
+    runType: 'prod',
     candidatePool: input.candidatePool,
     evaluationHorizonDays: COMPARISON_PRIMARY_HORIZON_DAYS,
     comparisonSpecVersion: input.config.comparisonSpecVersion,
@@ -174,10 +178,14 @@ export async function upsertComparisonShadowRun(input: {
     throw new Error(`v2 shadow sibling run 정리 실패: ${siblingDeleteErr.message}`)
   }
 
-  await supabaseAdmin
+  const { error: candidateDeleteErr } = await supabaseAdmin
     .from('theme_comparison_candidates_v2')
     .delete()
     .eq('run_id', runId)
+
+  if (candidateDeleteErr) {
+    throw new Error(`v2 shadow candidate 정리 실패: ${candidateDeleteErr.message}`)
+  }
 
   const candidateRows = prepared.candidateRows.map((row) => ({ ...row, run_id: runId }))
   let failedCount = 0
@@ -191,11 +199,13 @@ export async function upsertComparisonShadowRun(input: {
   }
   const materializedCandidateCount = Math.max(0, candidateRows.length - failedCount)
 
+  const allCandidatesMaterialized = materializedCandidateCount === candidateRows.length
   const { error: updateErr } = await supabaseAdmin
     .from('theme_comparison_runs_v2')
     .update({
       materialized_candidate_count: materializedCandidateCount,
-      status: materializedCandidateCount === candidateRows.length ? 'materializing' : 'failed',
+      publish_ready: allCandidatesMaterialized,
+      status: allCandidatesMaterialized ? 'materializing' : 'failed',
       last_error: failedCount > 0 ? `${failedCount} candidate rows failed to materialize` : null,
     })
     .eq('id', runId)
@@ -221,7 +231,8 @@ export async function loadShadowRunsByTheme(input: {
     .select('id, current_theme_id, candidate_pool, created_at')
     .eq('run_date', input.runDate)
     .eq('algorithm_version', input.config.algorithmVersion)
-    .eq('run_type', 'shadow')
+    .in('run_type', ['prod', 'shadow'])
+    .in('status', ['materializing', 'complete', 'published'])
     .order('created_at', { ascending: false })
     .in('current_theme_id', input.themeIds)
 
@@ -293,28 +304,44 @@ export async function upsertPredictionShadowSnapshot(input: {
     throw new Error(`v2 prediction snapshot upsert 실패: ${error.message}`)
   }
 
-  const { data: runRow, error: loadErr } = await supabaseAdmin
-    .from('theme_comparison_runs_v2')
-    .select('publish_ready, expected_candidate_count, materialized_candidate_count')
-    .eq('id', input.runId)
-    .single()
+  const [countResult, runResult] = await Promise.all([
+    supabaseAdmin
+      .from('prediction_snapshots_v2')
+      .select('*', { count: 'exact', head: true })
+      .eq('comparison_run_id', input.runId),
+    supabaseAdmin
+      .from('theme_comparison_runs_v2')
+      .select('publish_ready, expected_candidate_count, materialized_candidate_count, expected_snapshot_count')
+      .eq('id', input.runId)
+      .single(),
+  ])
 
-  if (loadErr) {
-    throw new Error(`v2 shadow run snapshot count 조회 실패: ${loadErr.message}`)
+  if (countResult.error) {
+    throw new Error(`v2 snapshot count 조회 실패: ${countResult.error.message}`)
+  }
+  if (runResult.error) {
+    throw new Error(`v2 shadow run snapshot count 조회 실패: ${runResult.error.message}`)
   }
 
+  const materializedSnapshots = countResult.count ?? 0
+  const runRow = runResult.data
+
+  const expectedSnapshots = Math.max(Number(runRow.expected_snapshot_count) || 1, materializedSnapshots)
+
+  const finalStatus = finalizeComparisonRunV2({
+    publish_ready: Boolean(runRow.publish_ready),
+    expected_candidate_count: Number(runRow.expected_candidate_count),
+    materialized_candidate_count: Number(runRow.materialized_candidate_count),
+    expected_snapshot_count: expectedSnapshots,
+    materialized_snapshot_count: materializedSnapshots,
+  })
   const { error: finalizeErr } = await supabaseAdmin
     .from('theme_comparison_runs_v2')
     .update({
-      expected_snapshot_count: 1,
-      materialized_snapshot_count: 1,
-      status: finalizeComparisonRunV2({
-        publish_ready: Boolean(runRow.publish_ready),
-        expected_candidate_count: Number(runRow.expected_candidate_count),
-        materialized_candidate_count: Number(runRow.materialized_candidate_count),
-        expected_snapshot_count: 1,
-        materialized_snapshot_count: 1,
-      }),
+      expected_snapshot_count: expectedSnapshots,
+      materialized_snapshot_count: materializedSnapshots,
+      status: finalStatus,
+      ...(finalStatus === 'published' ? { published_at: new Date().toISOString() } : {}),
     })
     .eq('id', input.runId)
 
@@ -328,18 +355,15 @@ export async function upsertPredictionShadowSnapshot(input: {
 export async function markShadowRunCompleteWithoutSnapshot(input: {
   config: ComparisonV4ShadowConfig
   runId: string
-  snapshotDate?: string
+  snapshotDate: string
 }) {
   if (!input.config.enabled) return
 
-  let deleteQuery = supabaseAdmin
+  const { error: deleteErr } = await supabaseAdmin
     .from('prediction_snapshots_v2')
     .delete()
     .eq('comparison_run_id', input.runId)
-  if (input.snapshotDate) {
-    deleteQuery = deleteQuery.eq('snapshot_date', input.snapshotDate)
-  }
-  const { error: deleteErr } = await deleteQuery
+    .eq('snapshot_date', input.snapshotDate)
   if (deleteErr) {
     throw new Error(`v2 shadow snapshot stale row 정리 실패: ${deleteErr.message}`)
   }
@@ -354,18 +378,20 @@ export async function markShadowRunCompleteWithoutSnapshot(input: {
     throw new Error(`v2 shadow run complete 조회 실패: ${loadErr.message}`)
   }
 
+  const finalStatus = finalizeComparisonRunV2({
+    publish_ready: Boolean(runRow.publish_ready),
+    expected_candidate_count: Number(runRow.expected_candidate_count),
+    materialized_candidate_count: Number(runRow.materialized_candidate_count),
+    expected_snapshot_count: 0,
+    materialized_snapshot_count: 0,
+  })
   const { error } = await supabaseAdmin
     .from('theme_comparison_runs_v2')
     .update({
       expected_snapshot_count: 0,
       materialized_snapshot_count: 0,
-      status: finalizeComparisonRunV2({
-        publish_ready: Boolean(runRow.publish_ready),
-        expected_candidate_count: Number(runRow.expected_candidate_count),
-        materialized_candidate_count: Number(runRow.materialized_candidate_count),
-        expected_snapshot_count: 0,
-        materialized_snapshot_count: 0,
-      }),
+      status: finalStatus,
+      ...(finalStatus === 'published' ? { published_at: new Date().toISOString() } : {}),
     })
     .eq('id', input.runId)
 

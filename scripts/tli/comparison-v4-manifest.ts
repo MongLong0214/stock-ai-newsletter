@@ -8,11 +8,15 @@ export function evaluateRowCountParity(sourceRowCount: number, targetRowCount: n
   return sourceRowCount === targetRowCount
 }
 
+function normalizeRow(row: Record<string, unknown>): Record<string, unknown> {
+  return Object.fromEntries(Object.entries(row).sort(([a], [b]) => a.localeCompare(b)))
+}
+
 export function evaluateSampleContractParity(
   sourceSample: Array<Record<string, unknown>>,
   targetSample: Array<Record<string, unknown>>,
 ) {
-  return JSON.stringify(sourceSample) === JSON.stringify(targetSample)
+  return JSON.stringify(sourceSample.map(normalizeRow)) === JSON.stringify(targetSample.map(normalizeRow))
 }
 
 export function buildComparisonBackfillManifestRow(input: {
