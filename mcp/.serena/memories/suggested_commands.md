@@ -1,0 +1,1 @@
+Build: `npm run build`. Run built server: `npm start`. Publish precheck: `npm run prepublishOnly`. General Darwin utilities available: `git`, `ls`, `cd`, `rg`, `find`, `sed`, `cat`.

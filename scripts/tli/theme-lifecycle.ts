@@ -51,6 +51,30 @@ export const DEACTIVATION_CONFIG = {
   notSeenDays: 30,
 } as const
 
+export function computeNextNaverSeenStreak(input: {
+  previousStreak: number | null | undefined
+  previousSeenDate: string | null | undefined
+  currentSeenDate: string
+}) {
+  if (!input.previousSeenDate) return 1
+
+  const previous = new Date(input.previousSeenDate)
+  const current = new Date(input.currentSeenDate)
+  const diffDays = Math.floor((current.getTime() - previous.getTime()) / 86400000)
+  if (diffDays === 1) return Math.max(1, input.previousStreak ?? 1) + 1
+  return 1
+}
+
+export function shouldAutoActivateTheme(input: {
+  isActive: boolean
+  discoverySource: string
+  naverSeenStreak: number | null | undefined
+}) {
+  return !input.isActive
+    && input.discoverySource === 'naver_finance'
+    && (input.naverSeenStreak ?? 0) >= 2
+}
+
 // ─────────────────────────────────────────────────────
 // 자동 활성화: 네이버 2회 연속 등장 → is_active=true
 // ─────────────────────────────────────────────────────
@@ -61,10 +85,7 @@ export async function autoActivate() {
   // 비활성 테마 중 네이버에서 발견된 것 조회
   const { data: candidates, error } = await supabaseAdmin
     .from('themes')
-    .select('id, name, last_seen_on_naver, discovered_at')
-    .eq('is_active', false)
-    .eq('discovery_source', 'naver_finance')
-    .not('last_seen_on_naver', 'is', null)
+    .select('id, name, is_active, discovery_source, naver_seen_streak')
 
   if (error || !candidates) {
     console.error('   ⚠️ 활성화 후보 조회 실패')
@@ -74,7 +95,12 @@ export async function autoActivate() {
   let activatedCount = 0
 
   for (const theme of candidates) {
-    // 네이버 금융 목록에 존재하는 테마 → 즉시 활성화 (네이버가 검증한 테마)
+    if (!shouldAutoActivateTheme({
+      isActive: theme.is_active,
+      discoverySource: theme.discovery_source,
+      naverSeenStreak: theme.naver_seen_streak,
+    })) continue
+
     await supabaseAdmin
       .from('themes')
       .update({ is_active: true, auto_activated: true })

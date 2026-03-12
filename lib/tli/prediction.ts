@@ -13,7 +13,6 @@ import {
   computeStageConfidence,
   buildScenarios,
   derivePhaseFallback,
-  STAGE_TO_PHASE,
 } from './prediction-helpers'
 import type { Stage } from './types'
 
@@ -37,8 +36,12 @@ export function calculatePrediction(
   comparisons: import('./prediction-helpers').ComparisonInput[],
   today?: string,
   score?: number,
-  stage?: Stage,
+  _stage?: Stage,
 ): import('./prediction-helpers').PredictionResult | null {
+  void _stage
+
+  if (!firstSpikeDate) return null
+
   const validComparisons = comparisons.filter(c => c.pastTotalDays >= 14 && c.pastPeakDay >= 3)
   if (validComparisons.length < 3) return null
 
@@ -67,12 +70,10 @@ export function calculatePrediction(
   const comparisonCount = validComparisons.length
   const confidence = deriveConfidence(comparisonCount, avgSimilarity)
 
-  const phase = stage
-    ? STAGE_TO_PHASE[stage]
-    : derivePhaseFallback(daysSinceSpike, avgPeakDay, avgTotalDays, score)
+  const phase = derivePhaseFallback(daysSinceSpike, avgPeakDay, avgTotalDays)
 
   const momentum = deriveMomentum(validComparisons, daysSinceSpike)
-  const riskLevel = deriveRisk(stage, phase, confidence)
+  const riskLevel = deriveRisk(undefined, phase, confidence)
   const scenarios = buildScenarios(validComparisons)
   const stageConfidence = computeStageConfidence(phase, momentum, score, avgPeakDay, daysSinceSpike)
 

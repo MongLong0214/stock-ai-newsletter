@@ -307,4 +307,64 @@ export interface ComparisonV4Control {
   promoted_by: string
   promoted_at: string
   created_at: string
+  source_surface: 'v2_certification' | 'replay_equivalent'
+  calibration_version: string
+  weight_version: string | null
+  drift_version: string | null
+  promotion_gate_status: 'passed' | 'failed' | 'blocked' | 'rolled_back'
+  promotion_gate_summary: string | null
+  promotion_gate_failures: string[]
+  previous_stable_version: string | null
+  rollback_reason: string | null
+  rolled_back_at: string | null
+  auto_hold_enabled: boolean
+  hold_state: 'inactive' | 'active' | 'observation_only'
+  hold_reason: string | null
+  hold_report_date: string | null
+  decision_trace?: Record<string, unknown>
+  updated_at: string
+}
+
+export interface WeightArtifact {
+  weight_version: string
+  source_surface: 'v2_certification' | 'replay_equivalent'
+  w_feature: number
+  w_curve: number
+  w_keyword: number
+  sector_penalty: number
+  curve_bucket_policy: {
+    gte14: { w_feature: number; w_curve: number; w_keyword: number }
+    gte7: { w_feature: number; w_curve: number; w_keyword: number }
+    lt7: { w_feature: number; w_curve: number; w_keyword: number }
+  }
+  validation_metric_summary: Record<string, unknown>
+  ci_lower: number
+  ci_upper: number
+  ci_method: string
+  bootstrap_iterations: number
+  created_at: string
+}
+
+export interface DriftReportArtifact {
+  drift_version: string
+  report_date: string
+  source_surface: 'v2_certification' | 'replay_equivalent'
+  relevance_base_rate: number
+  calibration_curve_error: number
+  brier: number
+  ece: number
+  candidate_concentration_gini: number
+  censoring_ratio: number
+  first_spike_inference_rate: number
+  support_bucket_precision: {
+    high: number | null
+    medium: number | null
+    low: number | null
+  }
+  baseline_window_months: number
+  baseline_row_count: number
+  auto_hold_enabled: boolean
+  drift_status: 'observation_only' | 'stable' | 'hold'
+  triggered_rules: string[]
+  created_at: string
 }

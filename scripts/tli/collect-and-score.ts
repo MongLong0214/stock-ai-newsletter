@@ -4,7 +4,7 @@ import { loadActiveThemes } from './data-ops';
 import { discoverAndManageThemes } from './discover-themes';
 import { autoActivate, autoDeactivate } from './theme-lifecycle';
 import { getKSTDate } from './utils';
-import { collectDataSources, runCalibrationPhase, runAnalysisPipeline, submitIndexNowStep } from './pipeline-steps';
+import { collectDataSources, runCalibrationPhase, runAnalysisPipeline, shouldAbortAnalysisPipeline, submitIndexNowStep } from './pipeline-steps';
 
 type RunMode = 'full' | 'news-only'
 
@@ -48,8 +48,12 @@ async function main() {
 
     // Steps 3.5-8: 교정 + 분석 (full 모드, DataLab 성공 시)
     if (mode === 'full') {
-      if (collection.datalabFailed) {
-        console.log('\n⊘ DataLab 수집 실패로 후속 단계 생략 (4~8단계)');
+      if (shouldAbortAnalysisPipeline({
+        mode,
+        datalabFailed: collection.datalabFailed,
+        criticalFailures: collection.criticalFailures,
+      })) {
+        console.log('\n⊘ 수집 단계 치명적 실패로 후속 단계 생략 (4~8단계)');
       } else {
         await runCalibrationPhase(kstNow);
 
@@ -60,7 +64,11 @@ async function main() {
     }
 
     // Step 9: IndexNow URL 제출
-    if (mode === 'full' && !collection.datalabFailed) {
+    if (mode === 'full' && !shouldAbortAnalysisPipeline({
+      mode,
+      datalabFailed: collection.datalabFailed,
+      criticalFailures: collection.criticalFailures,
+    })) {
       await submitIndexNowStep(themes);
     }
 

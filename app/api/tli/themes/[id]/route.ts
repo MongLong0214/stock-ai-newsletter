@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server'
 import { supabase } from '@/lib/supabase'
 import { apiError, apiSuccess, handleApiError, isTableNotFound, placeholderResponse, UUID_RE } from '@/lib/tli/api-utils'
-import { fetchThemeData } from './fetch-theme-data'
+import { fetchThemeData, findCriticalThemeDetailError } from './fetch-theme-data'
 import { buildComparisonResults } from './build-comparisons'
 import { buildThemeDetailResponse } from './build-response'
 import { getKSTDateString } from '@/lib/tli/date-utils'
@@ -60,6 +60,20 @@ export async function GET(
       stockCount,
       newsArticleCount,
     } = await fetchThemeData({ id, thirtyDaysAgo })
+
+    const criticalError = findCriticalThemeDetailError({
+      latestScoreRes,
+      scoresRes,
+      stocksRes,
+      comparisonsRes,
+      newsRes,
+      interestRes,
+      newsArticlesRes,
+      keywordsRes,
+    })
+    if (criticalError) {
+      throw new Error(criticalError.message || 'theme detail fetch failed')
+    }
 
     const allScores = scoresRes.data || []
     const stocks = stocksRes.data || []

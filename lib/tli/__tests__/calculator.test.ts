@@ -122,6 +122,35 @@ describe('calculateLifecycleScore', () => {
     expect(result!.components.news_momentum).toBeGreaterThan(0)
   })
 
+  it('does not grant a news score bonus when there is no news data', () => {
+    const interest = Array.from({ length: 10 }, (_, i) => makeInterestMetric(i, 50))
+
+    const result = calculateLifecycleScore({
+      interestMetrics: interest,
+      newsMetrics: [],
+      firstSpikeDate: null,
+      today: '2026-01-10',
+    })
+
+    expect(result).not.toBeNull()
+    expect(result!.components.news_momentum).toBe(0)
+  })
+
+  it('does not overwrite interest score with news-only fallback when raw interest is zero', () => {
+    const interest = Array.from({ length: 10 }, (_, i) => makeInterestMetric(i, 0, 0))
+    const news = Array.from({ length: 7 }, (_, i) => makeNewsMetric(i, 5))
+
+    const result = calculateLifecycleScore({
+      interestMetrics: interest,
+      newsMetrics: news,
+      firstSpikeDate: null,
+      today: '2026-01-10',
+    })
+
+    expect(result).not.toBeNull()
+    expect(result!.components.interest_score).toBe(0)
+  })
+
   it('uses correct SCORE_WEIGHTS (0.40, 0.35, 0.10, 0.15)', () => {
     const interest = Array.from({ length: 5 }, (_, i) => makeInterestMetric(i, 50))
     const result = calculateLifecycleScore({

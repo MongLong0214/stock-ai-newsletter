@@ -122,4 +122,17 @@ describe('keywordJaccard', () => {
   it('handles one empty set', () => {
     expect(keywordJaccard(['a'], [])).toBe(0)
   })
+
+  it('downweights generic overlaps relative to rare overlaps when support counts are provided', () => {
+    const supportCounts = new Map<string, number>([
+      ['테마', 100],
+      ['관련주', 80],
+      ['hbm', 2],
+    ])
+
+    const generic = keywordJaccard(['테마', '관련주'], ['테마'], { supportCounts })
+    const rare = keywordJaccard(['HBM'], ['hbm'], { supportCounts })
+
+    expect(rare).toBeGreaterThan(generic)
+  })
 })

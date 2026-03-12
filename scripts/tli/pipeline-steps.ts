@@ -141,6 +141,15 @@ interface AnalysisResult {
   warningFailures: number
 }
 
+export function shouldAbortAnalysisPipeline(input: {
+  mode: 'full' | 'news-only'
+  datalabFailed: boolean
+  criticalFailures: number
+}) {
+  if (input.mode !== 'full') return false
+  return input.datalabFailed || input.criticalFailures > 0
+}
+
 /** Steps 4-8: 점수 계산 + 비교 + 예측 + 평가 */
 export async function runAnalysisPipeline(themes: ThemeWithKeywords[]): Promise<AnalysisResult> {
   let criticalFailures = 0

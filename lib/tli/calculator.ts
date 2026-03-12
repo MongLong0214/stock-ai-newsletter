@@ -88,17 +88,17 @@ export function calculateLifecycleScore(input: CalculateScoreInput): {
   const volumeScore = log_normalize(newsThisWeek, 50);
 
   let newsMomentumScore: number;
-  if (newsLastWeek >= MIN_NEWS_LAST_WEEK) {
+  let newsScore: number;
+  if (newsThisWeek === 0 && newsLastWeek === 0) {
+    newsMomentumScore = 0;
+    newsScore = 0;
+  } else if (newsLastWeek >= MIN_NEWS_LAST_WEEK) {
     const newsChange = (newsThisWeek - newsLastWeek) / Math.max(newsLastWeek, 1);
     newsMomentumScore = sigmoid_normalize(newsChange, 0, 1.0);
+    newsScore = volumeScore * 0.6 + newsMomentumScore * 0.4;
   } else {
-    newsMomentumScore = 0.5;
-  }
-
-  const newsScore = volumeScore * 0.6 + newsMomentumScore * 0.4;
-
-  if (rawAvg === 0 && newsThisWeek > 0) {
-    interestScore = newsScore * 0.7;
+    newsMomentumScore = volumeScore;
+    newsScore = volumeScore;
   }
 
   // ── 3. Volatility (DVI) ──

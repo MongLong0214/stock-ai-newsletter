@@ -10,17 +10,23 @@ export function buildComparisonsQueryDescriptor(input: {
 
 export function shouldFallbackToLegacyComparisons(result: {
   data: unknown[] | null
-  error: unknown | null
+  error: { code?: string; message?: string } | null
 }) {
-  if (result.error) return true
-  if (!result.data) return true
+  if (result.error) return false
+  if (result.data == null) return false
   return false
+}
+
+export function isCertificationArtifactError(error: { code?: string; message?: string } | null) {
+  return error?.code === 'CERTIFICATION_REQUIRED'
 }
 
 export function resolveComparisonsResult<T>(
   v4Result: { data: T[] | null; error: { code?: string; message?: string } | null },
-  legacyResult: { data: T[] | null; error: { code?: string; message?: string } | null },
+  _legacyResult: { data: T[] | null; error: { code?: string; message?: string } | null },
 ) {
-  if (v4Result.error || v4Result.data == null) return legacyResult
+  void _legacyResult
+  if (isCertificationArtifactError(v4Result.error)) return v4Result
+  if (v4Result.error || v4Result.data == null) return v4Result
   return v4Result
 }

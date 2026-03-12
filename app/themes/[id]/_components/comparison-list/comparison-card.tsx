@@ -9,6 +9,7 @@ import { formatDays } from '@/lib/tli/date-utils'
 import InfoTooltip from '@/components/tli/info-tooltip'
 import { TOOLTIP_TEXTS } from '@/lib/tli/constants/tooltip-texts'
 import PillarBars, { getSimilarityColor, getSimilarityBadge } from './pillar-bars'
+import { getConfidenceAlertText, shouldShowPeakEta } from './logic'
 
 interface ComparisonCardProps {
   comp: ComparisonResult
@@ -37,6 +38,7 @@ export default function ComparisonCard({ comp, idx, isSelected, onToggle, isPreP
   const showTimeline = comp.pastTotalDays >= 14 && comp.pastPeakDay >= 3 && comp.pastPeakDay <= comp.pastTotalDays
   // estimatedDaysToPeak === 0이면서 주기 초과 → 상호 배타적 (estimatedDaysToPeak > 0과 동시 불가)
   const isBeyondCycle = comp.pastTotalDays > 0 && comp.currentDay >= comp.pastTotalDays && comp.estimatedDaysToPeak === 0
+  const confidenceAlert = getConfidenceAlertText(comp)
 
   return (
     <motion.div
@@ -144,7 +146,7 @@ export default function ComparisonCard({ comp, idx, isSelected, onToggle, isPreP
       )}
 
       {/* 상태 알림 (estimatedDaysToPeak > 0 과 isBeyondCycle은 상호 배타적) */}
-      {isPrePeak && comp.estimatedDaysToPeak > 0 && (
+      {shouldShowPeakEta(comp, isPrePeak) && (
         <AlertRow color="amber">
           과거 패턴 기준, 정점까지 약 <span className="font-medium">{comp.estimatedDaysToPeak}일</span> 추정
         </AlertRow>
@@ -152,6 +154,11 @@ export default function ComparisonCard({ comp, idx, isSelected, onToggle, isPreP
       {isBeyondCycle && (
         <AlertRow color="purple">
           {comp.pastTheme} 주기({formatDays(comp.pastTotalDays)})를 넘었어요 · 독자적 흐름 가능성
+        </AlertRow>
+      )}
+      {confidenceAlert && (
+        <AlertRow color="amber">
+          {confidenceAlert}
         </AlertRow>
       )}
     </motion.div>

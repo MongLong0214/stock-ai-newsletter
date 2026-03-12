@@ -1,4 +1,10 @@
-import { computeBinaryRelevance, computeGradedGain, COMPARISON_PRIMARY_HORIZON_DAYS, classifyRunLevelCensoring } from '../../lib/tli/comparison/spec'
+import {
+  computeBinaryRelevance,
+  computeGradedGain,
+  computeStageAlignmentScore,
+  COMPARISON_PRIMARY_HORIZON_DAYS,
+  classifyRunLevelCensoring,
+} from '../../lib/tli/comparison/spec'
 import { pearsonCorrelation } from '../../lib/tli/comparison/similarity'
 import { daysBetween } from '../../lib/tli/normalize'
 
@@ -76,13 +82,29 @@ export function evaluateFixedHorizonComparison(input: {
   const positionStageMatchH14 = input.currentStageAtH14 != null
     && input.pastStageAtAlignedH14 != null
     && input.currentStageAtH14 === input.pastStageAtAlignedH14
+  const stageAlignmentScore = computeStageAlignmentScore(
+    input.currentStageAtH14,
+    input.pastStageAtAlignedH14,
+  )
 
   return {
     trajectoryCorrH14,
     positionStageMatchH14,
-    binaryRelevant: computeBinaryRelevance({ trajectoryCorrH14, positionStageMatchH14 }),
-    gradedGain: computeGradedGain({ trajectoryCorrH14, positionStageMatchH14 }),
+    stageAlignmentScore,
+    binaryRelevant: computeBinaryRelevance({ trajectoryCorrH14, positionStageMatchH14, stageAlignmentScore }),
+    gradedGain: computeGradedGain({ trajectoryCorrH14, positionStageMatchH14, stageAlignmentScore }),
     censoredReason: null,
+  }
+}
+
+export function computeStageAlignmentForComparison(
+  currentStageAtH14: string | null,
+  pastStageAtAlignedH14: string | null,
+) {
+  const score = computeStageAlignmentScore(currentStageAtH14, pastStageAtAlignedH14)
+  return {
+    exactMatch: score === 1,
+    score,
   }
 }
 

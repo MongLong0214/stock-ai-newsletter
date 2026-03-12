@@ -176,11 +176,23 @@ export function buildScenarios(comparisons: ComparisonInput[]): { best: Scenario
     totalDays: c.pastTotalDays,
     similarity: c.similarity,
   })
-  const midIdx = Math.floor(sorted.length / 2)
+  if (sorted.length <= 3) {
+    const midIdx = Math.floor(sorted.length / 2)
+    return {
+      best: toScenario(sorted[0]),
+      median: toScenario(sorted[midIdx]),
+      worst: toScenario(sorted[sorted.length - 1]),
+    }
+  }
+
+  const bestIdx = Math.max(0, Math.floor((sorted.length - 1) * 0.25))
+  const midIdx = Math.floor((sorted.length - 1) * 0.5)
+  const worstIdx = Math.min(sorted.length - 1, Math.ceil((sorted.length - 1) * 0.75))
+
   return {
-    best: toScenario(sorted[0]),
+    best: toScenario(sorted[bestIdx]),
     median: toScenario(sorted[midIdx]),
-    worst: toScenario(sorted[sorted.length - 1]),
+    worst: toScenario(sorted[worstIdx]),
   }
 }
 
@@ -188,20 +200,7 @@ export function derivePhaseFallback(
   daysSinceSpike: number,
   avgPeakDay: number,
   avgTotalDays: number,
-  score?: number,
 ): Phase {
-  if (score !== undefined && score > 0) {
-    if (score >= 70) return 'hot'
-    if (score < 25) {
-      if (avgPeakDay > 0 && daysSinceSpike > avgPeakDay) return 'cooling'
-      return 'rising'
-    }
-    if (avgPeakDay >= 3 && avgTotalDays > 0) {
-      if (daysSinceSpike > avgPeakDay * 1.1) return 'cooling'
-    }
-    return 'rising'
-  }
-
   if (avgPeakDay <= 0 || avgTotalDays <= 0) return 'rising'
   if (daysSinceSpike < avgPeakDay * 0.9) return 'rising'
   if (daysSinceSpike <= avgPeakDay * 1.1) return 'hot'
@@ -211,38 +210,27 @@ export function derivePhaseFallback(
 // ── Message Builders ──
 
 export function buildPhaseMessage(phase: Phase, avgDaysToPeak: number, score?: number): string {
-  if (score !== undefined && score >= 75) return `점수 ${score}점 · 정점 구간 통과 중`
-  if (score !== undefined && score >= 55) return `점수 ${score}점 · 성장 구간 진입`
-
   switch (phase) {
     case 'rising':
       return avgDaysToPeak > 0
-        ? `정점까지 약 ${avgDaysToPeak}일 남음`
-        : '상승 구간이에요'
+        ? `정점까지 약 ${avgDaysToPeak}일 남음${score !== undefined ? ` · 현재 점수 ${score}점` : ''}`
+        : `상승 구간이에요${score !== undefined ? ` · 현재 점수 ${score}점` : ''}`
     case 'hot':
-      return '정점 구간을 지나고 있어요'
+      return `정점 구간을 지나고 있어요${score !== undefined ? ` · 현재 점수 ${score}점` : ''}`
     case 'cooling':
-      return '방향 전환 가능성이 있어요'
+      return `방향 전환 가능성이 있어요${score !== undefined ? ` · 현재 점수 ${score}점` : ''}`
   }
 }
 
 export function buildKeyInsight(phase: Phase, avgDaysToPeak: number, score?: number): string {
-  if (score !== undefined && score >= 75) {
-    return `현재 점수 ${score}점으로 관심이 매우 높아요. 이후 하락 전환에 유의하세요`
-  }
-  if (score !== undefined && score >= 55) {
-    return avgDaysToPeak > 0
-      ? `현재 점수 ${score}점으로 성장 중이에요. 비슷한 테마 기준 정점까지 약 ${avgDaysToPeak}일 정도 남았어요`
-      : `현재 점수 ${score}점으로 성장 중이에요`
-  }
   switch (phase) {
     case 'rising':
       return avgDaysToPeak > 0
-        ? `비슷한 테마 기준, 상승 단계로 정점까지 약 ${avgDaysToPeak}일 여유가 있어요`
-        : '비슷한 테마 기준, 상승 단계로 정점까지 여유가 있어요'
+        ? `비슷한 테마 기준, 상승 단계로 정점까지 약 ${avgDaysToPeak}일 여유가 있어요${score !== undefined ? ` (현재 ${score}점)` : ''}`
+        : `비슷한 테마 기준, 상승 단계로 정점까지 여유가 있어요${score !== undefined ? ` (현재 ${score}점)` : ''}`
     case 'hot':
-      return '현재 정점 구간으로 보여요. 이후 하락 전환에 유의하세요'
+      return `현재 정점 구간으로 보여요. 이후 하락 전환에 유의하세요${score !== undefined ? ` (현재 ${score}점)` : ''}`
     case 'cooling':
-      return '관심도가 감소 추세예요. 참고 수준의 시그널입니다'
+      return `관심도가 감소 추세예요. 참고 수준의 시그널입니다${score !== undefined ? ` (현재 ${score}점)` : ''}`
   }
 }

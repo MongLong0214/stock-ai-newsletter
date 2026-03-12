@@ -1,14 +1,14 @@
 import type { ThemeListItem } from './types'
 import { QUALITY_GATE } from './constants/quality-gate'
 
-export function applyQualityGate(themes: ThemeListItem[]): {
+export function buildQualityGateBuckets(themes: ThemeListItem[]): {
   emerging: ThemeListItem[]
   growth: ThemeListItem[]
   peak: ThemeListItem[]
   decline: ThemeListItem[]
   reigniting: ThemeListItem[]
 } {
-  const { minScore, excludeConfidence, stageCaps, reignitingCap } = QUALITY_GATE
+  const { minScore, excludeConfidence } = QUALITY_GATE
 
   const emerging: ThemeListItem[] = []
   const growth: ThemeListItem[] = []
@@ -42,11 +42,24 @@ export function applyQualityGate(themes: ThemeListItem[]): {
   decline.sort((a, b) => b.score - a.score)
   reigniting.sort((a, b) => b.score - a.score)
 
+  return { emerging, growth, peak, decline, reigniting }
+}
+
+export function applyQualityGate(themes: ThemeListItem[]): {
+  emerging: ThemeListItem[]
+  growth: ThemeListItem[]
+  peak: ThemeListItem[]
+  decline: ThemeListItem[]
+  reigniting: ThemeListItem[]
+} {
+  const { stageCaps, reignitingCap } = QUALITY_GATE
+  const buckets = buildQualityGateBuckets(themes)
+
   return {
-    emerging: emerging.slice(0, stageCaps.Emerging),
-    growth: growth.slice(0, stageCaps.Growth),
-    peak: peak.slice(0, stageCaps.Peak),
-    decline: decline.slice(0, stageCaps.Decline),
-    reigniting: reigniting.slice(0, reignitingCap),
+    emerging: buckets.emerging.slice(0, stageCaps.Emerging),
+    growth: buckets.growth.slice(0, stageCaps.Growth),
+    peak: buckets.peak.slice(0, stageCaps.Peak),
+    decline: buckets.decline.slice(0, stageCaps.Decline),
+    reigniting: buckets.reigniting.slice(0, reignitingCap),
   }
 }

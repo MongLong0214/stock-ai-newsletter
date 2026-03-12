@@ -6,9 +6,10 @@ import { getKSTDate } from './utils'
 import { avg } from '../../lib/tli/normalize'
 import type { InterestMetric, NewsMetric, Stage, ScoreComponents } from '../../lib/tli/types'
 import type { ThemeWithKeywords } from './data-ops'
+import { buildFirstSpikeDateBackfillRows } from './first-spike-date'
 
 /** 이전 점수 레코드 타입 */
-interface PrevScoreRecord {
+export interface PrevScoreRecord {
   theme_id: string
   stage: string
   score: number
@@ -16,6 +17,36 @@ interface PrevScoreRecord {
   raw_score: number | null
   components: ScoreComponents | null
   calculated_at: string
+}
+
+const MAX_PREV_SCORE_RECORDS = 5
+
+export function buildPrevScoreMap(allPrevScores: PrevScoreRecord[]): Map<string, PrevScoreRecord[]> {
+  const prevScoreMap = new Map<string, PrevScoreRecord[]>()
+
+  for (const score of allPrevScores) {
+    const records = prevScoreMap.get(score.theme_id) || []
+    if (records.length < MAX_PREV_SCORE_RECORDS) {
+      records.push(score)
+      prevScoreMap.set(score.theme_id, records)
+    }
+  }
+
+  return prevScoreMap
+}
+
+export function buildRecentSmoothedMap(prevScoreMap: Map<string, PrevScoreRecord[]>): Map<string, number[]> {
+  const recentSmoothedMap = new Map<string, number[]>()
+
+  for (const [themeId, records] of prevScoreMap) {
+    const smootheds = records
+      .filter(record => record.smoothed_score !== null)
+      .map(record => record.smoothed_score!)
+      .slice(0, MAX_PREV_SCORE_RECORDS)
+    if (smootheds.length > 0) recentSmoothedMap.set(themeId, smootheds)
+  }
+
+  return recentSmoothedMap
 }
 
 /** 라이프사이클 점수 계산 및 저장 (v2 — EMA + Bollinger + Hysteresis) */
@@ -29,17 +60,26 @@ export async function calculateAndSaveScores(themes: ThemeWithKeywords[]) {
     batchQuery<InterestMetric & { theme_id: string }>(
       'interest_metrics', '*', themeIds,
       q => q.order('time', { ascending: false }),
+      'theme_id',
+      { failOnError: true },
     ),
     batchQuery<NewsMetric & { theme_id: string }>(
       'news_metrics', '*', themeIds,
       q => q.order('time', { ascending: false }),
+      'theme_id',
+      { failOnError: true },
     ),
     batchQuery<PrevScoreRecord>(
       'lifecycle_scores', 'theme_id, stage, score, smoothed_score, raw_score, components, calculated_at', themeIds,
       q => q.lt('calculated_at', today).order('calculated_at', { ascending: false }),
+      'theme_id',
+      { failOnError: true },
     ),
     batchQuery<{ theme_id: string; price_change_pct: number | null; volume: number | null }>(
       'theme_stocks', 'theme_id, price_change_pct, volume', themeIds,
+      undefined,
+      'theme_id',
+      { failOnError: true },
     ),
   ])
 
@@ -48,14 +88,7 @@ export async function calculateAndSaveScores(themes: ThemeWithKeywords[]) {
   const newsByTheme = groupByThemeId(allNews)
   const stocksByTheme = groupByThemeId(allStocks)
 
-  const prevScoreMap = new Map<string, PrevScoreRecord[]>()
-  for (const s of allPrevScores) {
-    const arr = prevScoreMap.get(s.theme_id) || []
-    if (arr.length < 2) {
-      arr.push(s)
-      prevScoreMap.set(s.theme_id, arr)
-    }
-  }
+  const prevScoreMap = buildPrevScoreMap(allPrevScores)
 
   const interestCache = new Map<string, InterestMetric[]>()
   const rawAvgMap = new Map<string, number>()
@@ -89,14 +122,7 @@ export async function calculateAndSaveScores(themes: ThemeWithKeywords[]) {
     }
   }
 
-  const recentSmoothedMap = new Map<string, number[]>()
-  for (const [themeId, records] of prevScoreMap) {
-    const smootheds = records
-      .filter(r => r.smoothed_score !== null)
-      .map(r => r.smoothed_score!)
-      .slice(0, 5)
-    if (smootheds.length > 0) recentSmoothedMap.set(themeId, smootheds)
-  }
+  const recentSmoothedMap = buildRecentSmoothedMap(prevScoreMap)
 
   // ─── 점수 계산 ───
   const scoreRows: {
@@ -105,7 +131,8 @@ export async function calculateAndSaveScores(themes: ThemeWithKeywords[]) {
     is_reigniting: boolean; stage_changed: boolean; prev_stage: string | null
     components: ScoreComponents
   }[] = []
-  const spikeBackfillIds: string[] = []
+  const kstNow = new Date(Date.now() + 9 * 60 * 60 * 1000)
+  let themeFailures = 0
 
   for (const theme of themes) {
     try {
@@ -184,11 +211,8 @@ export async function calculateAndSaveScores(themes: ThemeWithKeywords[]) {
       })
 
       console.log(`   ✅ raw=${rawScore} → smoothed=${smoothedScore}, stage=${stageResult.finalStage}${stageResult.stageChanged ? ` (← ${prevStage})` : ''}${stageResult.isReigniting ? ' (재점화!)' : ''}`)
-
-      if (!theme.first_spike_date) {
-        spikeBackfillIds.push(theme.id)
-      }
     } catch (error: unknown) {
+      themeFailures++
       console.error(`   ❌ 테마 처리 실패:`, error instanceof Error ? error.message : String(error))
     }
   }
@@ -199,24 +223,32 @@ export async function calculateAndSaveScores(themes: ThemeWithKeywords[]) {
       .from('lifecycle_scores')
       .upsert(scoreRows, { onConflict: 'theme_id,calculated_at' })
     if (error) {
-      console.error(`   ❌ 점수 배치 저장 실패 (${scoreRows.length}건):`, error)
+      throw new Error(`점수 배치 저장 실패 (${scoreRows.length}건): ${error.message}`)
     } else {
       console.log(`\n   💾 점수 배치 저장 완료: ${scoreRows.length}건`)
     }
   }
 
-  if (spikeBackfillIds.length > 0) {
-    const { error } = await supabaseAdmin
-      .from('themes')
-      .update({ first_spike_date: today })
-      .in('id', spikeBackfillIds)
-      .is('first_spike_date', null)
-    if (error) {
-      console.error(`   ❌ first_spike_date 백필 실패:`, error)
-    } else {
-      console.log(`   📅 first_spike_date 백필 완료: ${spikeBackfillIds.length}건`)
+  const spikeBackfillRows = buildFirstSpikeDateBackfillRows(themes, interestByTheme, kstNow)
+  if (spikeBackfillRows.length > 0) {
+    let backfilledCount = 0
+    for (const row of spikeBackfillRows) {
+      const { error } = await supabaseAdmin
+        .from('themes')
+        .update({ first_spike_date: row.first_spike_date })
+        .eq('id', row.id)
+        .is('first_spike_date', null)
+      if (error) {
+        console.error(`   ❌ first_spike_date 백필 실패 (${row.id}):`, error.message)
+      } else {
+        backfilledCount++
+      }
     }
+    console.log(`   📅 first_spike_date 백필 완료: ${backfilledCount}건`)
   }
 
   console.log('\n   ✅ 라이프사이클 점수 계산 완료')
+  if (themeFailures > 0) {
+    throw new Error(`라이프사이클 점수 계산 중 ${themeFailures}개 테마 실패`)
+  }
 }

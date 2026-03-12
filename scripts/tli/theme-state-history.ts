@@ -38,17 +38,20 @@ export const buildBackfillRow = (input: {
   lastScoreDate: string | null
   updatedAt: string
 }): ThemeStateHistoryRow => {
-  const effectiveFrom = input.createdAt.split('T')[0]
+  const createdDate = input.createdAt.split('T')[0]
   const closedAt = !input.isActive && input.lastScoreDate ? input.lastScoreDate : null
 
   // inactive + no closed_at derivation → unknown
   const stateVersion: ThemeStateHistoryRow['state_version'] =
     !input.isActive && !closedAt ? 'unknown' : 'backfill-v1'
+  const effectiveFrom = input.isActive
+    ? createdDate
+    : (closedAt ?? createdDate)
 
   return {
     theme_id: input.themeId,
     effective_from: effectiveFrom,
-    effective_to: input.isActive ? null : effectiveFrom,
+    effective_to: null,
     is_active: input.isActive,
     closed_at: closedAt,
     first_spike_date: input.firstSpikeDate,

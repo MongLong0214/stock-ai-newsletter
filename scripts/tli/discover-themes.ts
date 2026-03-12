@@ -4,9 +4,10 @@ config({ path: '.env.local' })
 import { supabaseAdmin } from './supabase-admin'
 import { collectNaverThemeList, type DiscoveredTheme } from './collectors/naver-finance-theme-list'
 import { populateKeywords } from './theme-keywords'
-import { autoActivate, autoDeactivate } from './theme-lifecycle'
+import { autoActivate, autoDeactivate, computeNextNaverSeenStreak } from './theme-lifecycle'
 import { getKSTDate } from './utils'
 import { buildOngoingStateChangeRow } from './theme-state-history'
+import { buildDiscoveredThemeInsert, buildInitialStateHistoryInput } from './first-spike-date'
 
 // ─────────────────────────────────────────────────────
 // 1. 테마 발견: 네이버 금융 목록 → DB 비교 → 신규 삽입
@@ -18,7 +19,7 @@ async function discoverNewThemes(discovered: DiscoveredTheme[]) {
   // 기존 테마를 naverThemeId로 조회
   const { data: existingThemes, error } = await supabaseAdmin
     .from('themes')
-    .select('id, name, naver_theme_id, is_active, last_seen_on_naver')
+    .select('id, name, naver_theme_id, is_active, last_seen_on_naver, naver_seen_streak')
 
   if (error) throw new Error(`기존 테마 조회 실패: ${error.message}`)
 
@@ -35,7 +36,7 @@ async function discoverNewThemes(discovered: DiscoveredTheme[]) {
   const newThemeIds: Array<{ id: string; name: string; naverThemeId: string }> = []
 
   // Batch collect updates and inserts
-  const existingUpdates: Array<{ id: string; last_seen_on_naver: string; naver_theme_id: string }> = []
+  const existingUpdates: Array<{ id: string; last_seen_on_naver: string; naver_theme_id: string; naver_seen_streak: number }> = []
   const newInserts: Array<Record<string, unknown>> = []
 
   for (const theme of discovered) {
@@ -48,17 +49,19 @@ async function discoverNewThemes(discovered: DiscoveredTheme[]) {
         id: existing.id,
         last_seen_on_naver: today,
         naver_theme_id: theme.naverThemeId,
+        naver_seen_streak: computeNextNaverSeenStreak({
+          previousStreak: existing.naver_seen_streak,
+          previousSeenDate: existing.last_seen_on_naver,
+          currentSeenDate: today,
+        }),
       })
     } else {
-      newInserts.push({
+      newInserts.push(buildDiscoveredThemeInsert({
         name: theme.name,
-        naver_theme_id: theme.naverThemeId,
-        is_active: false,
-        discovery_source: 'naver_finance',
-        discovered_at: new Date().toISOString(),
-        last_seen_on_naver: today,
-        first_spike_date: today,
-      })
+        naverThemeId: theme.naverThemeId,
+        today,
+        discoveredAt: new Date().toISOString(),
+      }))
     }
   }
 
@@ -70,7 +73,11 @@ async function discoverNewThemes(discovered: DiscoveredTheme[]) {
       for (const upd of batch) {
         await supabaseAdmin
           .from('themes')
-          .update({ last_seen_on_naver: upd.last_seen_on_naver, naver_theme_id: upd.naver_theme_id })
+          .update({
+            last_seen_on_naver: upd.last_seen_on_naver,
+            naver_theme_id: upd.naver_theme_id,
+            naver_seen_streak: upd.naver_seen_streak,
+          })
           .eq('id', upd.id)
       }
     }
@@ -96,12 +103,10 @@ async function discoverNewThemes(discovered: DiscoveredTheme[]) {
 
         // 신규 테마 state history 기록 (is_active: false로 생성됨)
         try {
-          const stateRow = buildOngoingStateChangeRow({
+          const stateRow = buildOngoingStateChangeRow(buildInitialStateHistoryInput({
             themeId: t.id,
-            newIsActive: false,
-            firstSpikeDate: today,
             changeDate: today,
-          })
+          }))
           await supabaseAdmin.from('theme_state_history_v2').insert(stateRow)
         } catch (stateErr: unknown) {
           console.error(`   ⚠️ state history 기록 실패 (계속): ${stateErr instanceof Error ? stateErr.message : String(stateErr)}`)

@@ -6,15 +6,33 @@ import { supabase } from '@/lib/supabase'
 import { getKSTDateString } from '@/lib/tli/date-utils'
 import { fetchPublishedComparisonRowsV4, isComparisonV4ServingEnabled } from './comparison-v4-reader'
 import { buildComparisonsQueryDescriptor, shouldFallbackToLegacyComparisons } from './fetch-theme-data-v4'
+import { isTableNotFound } from '@/lib/tli/api-utils'
 
 interface FetchThemeDataParams {
   id: string
   thirtyDaysAgo: string
 }
 
+export const COMPARISON_FETCH_LIMIT = 12
+
 interface SupabaseRes<T> {
   data: T[] | null
   error: { code?: string; message?: string } | null
+}
+
+interface ThemeDetailCriticalFetchInput {
+  latestScoreRes: SupabaseRes<unknown>
+  scoresRes: SupabaseRes<unknown>
+  stocksRes: SupabaseRes<unknown>
+  comparisonsRes: SupabaseRes<unknown>
+  newsRes: SupabaseRes<unknown>
+  interestRes: SupabaseRes<unknown>
+  newsArticlesRes: SupabaseRes<unknown>
+  keywordsRes: SupabaseRes<unknown>
+  stockCount?: number
+  newsArticleCount?: number
+  stockCountError?: { code?: string; message?: string } | null
+  newsArticleCountError?: { code?: string; message?: string } | null
 }
 
 interface ScoreRow {
@@ -47,6 +65,42 @@ export interface FetchThemeDataResult {
   newsArticleCount: number
 }
 
+export function shouldFallbackThemeStocksMetricsQuery(error: { code?: string; message?: string } | null) {
+  if (!error) return false
+  const message = (error.message || '').toLowerCase()
+  if (error.code === '42703') return true
+  return (
+    message.includes('column')
+    && message.includes('does not exist')
+    && (
+      message.includes('current_price')
+      || message.includes('price_change_pct')
+      || message.includes('volume')
+    )
+  )
+}
+
+export function findCriticalThemeDetailError(input: ThemeDetailCriticalFetchInput) {
+  const candidates = [
+    input.latestScoreRes.error,
+    input.scoresRes.error,
+    input.stocksRes.error,
+    input.comparisonsRes.error,
+    input.newsRes.error,
+    input.interestRes.error,
+    input.keywordsRes.error,
+    input.stockCountError,
+    input.newsArticleCountError && !isTableNotFound(input.newsArticleCountError)
+      ? input.newsArticleCountError
+      : null,
+    input.newsArticlesRes.error && !isTableNotFound(input.newsArticlesRes.error)
+      ? input.newsArticlesRes.error
+      : null,
+  ]
+
+  return candidates.find((error): error is { code?: string; message?: string } => error != null) ?? null
+}
+
 /**
  * 병렬 배치 쿼리 8개 실행
  */
@@ -71,7 +125,7 @@ export async function fetchThemeData(
         .gte('calculated_at', comparisonDescriptor.threeDaysAgo)
         .order('calculated_at', { ascending: false })
         .order('similarity_score', { ascending: false })
-        .limit(3)
+        .limit(COMPARISON_FETCH_LIMIT)
 
   const [latestScoreRes, scoresRes, stocksRes, comparisonsRes, newsRes, interestRes, newsArticlesRes, keywordsRes, stockCountRes, newsArticleCountRes] =
     await Promise.all([
@@ -97,7 +151,7 @@ export async function fetchThemeData(
         .eq('is_active', true)
         .order('relevance', { ascending: false })
         .then(async (res) => {
-          if (res.error) {
+          if (res.error && shouldFallbackThemeStocksMetricsQuery(res.error)) {
             const fallback = await supabase
               .from('theme_stocks')
               .select('symbol, name, market')
@@ -158,6 +212,23 @@ export async function fetchThemeData(
         .eq('theme_id', id),
     ])
 
+  const criticalError = findCriticalThemeDetailError({
+    latestScoreRes,
+    scoresRes,
+    stocksRes,
+    comparisonsRes,
+    newsRes,
+    interestRes,
+    newsArticlesRes,
+    keywordsRes,
+    stockCountError: stockCountRes.error,
+    newsArticleCountError: newsArticleCountRes.error,
+  })
+
+  if (criticalError) {
+    throw new Error(criticalError.message || 'theme detail batch fetch failed')
+  }
+
   let safeComparisonsRes = comparisonsRes
   if (comparisonDescriptor.mode === 'v4' && shouldFallbackToLegacyComparisons(comparisonsRes)) {
     const legacyComparisonsRes = await supabase
@@ -167,7 +238,7 @@ export async function fetchThemeData(
       .gte('calculated_at', threeDaysAgo)
       .order('calculated_at', { ascending: false })
       .order('similarity_score', { ascending: false })
-      .limit(3)
+      .limit(COMPARISON_FETCH_LIMIT)
     safeComparisonsRes = legacyComparisonsRes
   }
 

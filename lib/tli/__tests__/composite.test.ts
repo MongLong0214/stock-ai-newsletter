@@ -4,7 +4,20 @@ import type { ThemeFeatures } from '../comparison/features'
 import type { TimeSeriesPoint } from '../comparison/timeline'
 
 function makeFeatures(overrides?: Partial<ThemeFeatures>): ThemeFeatures {
-  return { interestLevel: 0.5, interestMomentum: 0.5, volatilityDVI: 0.3, newsIntensity: 0.4, activeDaysNorm: 0.2, priceChangePct: 0.5, volumeIntensity: 0, ...overrides }
+  return {
+    interestLevel: 0.5,
+    interestMomentum: 0.5,
+    volatilityDVI: 0.3,
+    newsIntensity: 0.4,
+    activeDaysNorm: 0.2,
+    lifecyclePosition: 0.5,
+    recoverySignal: 0.2,
+    sectorConfidence: 0.8,
+    keywordSpecificity: 0.5,
+    priceChangePct: 0.5,
+    volumeIntensity: 0,
+    ...overrides,
+  }
 }
 
 function makeCurve(length: number, valueFn: (i: number) => number = i => i * 10): TimeSeriesPoint[] {
@@ -40,12 +53,12 @@ describe('compositeCompare', () => {
     const keywords = ['AI']
 
     const sameSector = compositeCompare({
-      current: { features, curve, keywords, activeDays: 10, sector: 'AI' },
-      past: { features, curve, keywords, peakDay: 15, totalDays: 30, name: 'test', sector: 'AI' },
+      current: { features, curve, keywords, activeDays: 10, sector: 'AI', sectorConfidence: 0.9 },
+      past: { features, curve, keywords, peakDay: 15, totalDays: 30, name: 'test', sector: 'AI', sectorConfidence: 0.9 },
     })
     const diffSector = compositeCompare({
-      current: { features, curve, keywords, activeDays: 10, sector: 'AI' },
-      past: { features, curve, keywords, peakDay: 15, totalDays: 30, name: 'test', sector: '반도체' },
+      current: { features, curve, keywords, activeDays: 10, sector: 'AI', sectorConfidence: 0.9 },
+      past: { features, curve, keywords, peakDay: 15, totalDays: 30, name: 'test', sector: '반도체', sectorConfidence: 0.9 },
     })
     expect(diffSector.similarity).toBeCloseTo(sameSector.similarity * 0.85, 2)
   })
@@ -54,15 +67,16 @@ describe('compositeCompare', () => {
     const features = makeFeatures()
     const curve = makeCurve(20)
     const result = compositeCompare({
-      current: { features, curve, keywords: [], activeDays: 10, sector: 'etc' },
-      past: { features, curve, keywords: [], peakDay: 15, totalDays: 30, name: 'test', sector: '반도체' },
+      current: { features, curve, keywords: [], activeDays: 10, sector: 'etc', sectorConfidence: 0.2 },
+      past: { features, curve, keywords: [], peakDay: 15, totalDays: 30, name: 'test', sector: '반도체', sectorConfidence: 0.9 },
     })
-    // 0.85 패널티 미적용
+    // low-confidence sector는 soft penalty만 적용
     const sameResult = compositeCompare({
-      current: { features, curve, keywords: [], activeDays: 10, sector: '반도체' },
-      past: { features, curve, keywords: [], peakDay: 15, totalDays: 30, name: 'test', sector: '반도체' },
+      current: { features, curve, keywords: [], activeDays: 10, sector: '반도체', sectorConfidence: 0.9 },
+      past: { features, curve, keywords: [], peakDay: 15, totalDays: 30, name: 'test', sector: '반도체', sectorConfidence: 0.9 },
     })
-    expect(result.similarity).toBe(sameResult.similarity)
+    expect(result.similarity).toBeLessThan(sameResult.similarity)
+    expect(result.similarity).toBeCloseTo(sameResult.similarity * 0.95, 2)
   })
 
   describe('adaptive weights', () => {
@@ -143,7 +157,10 @@ describe('compositeCompare', () => {
   })
 
   it('uses populationStats for feature similarity when provided', () => {
-    const stats = { means: [0.5, 0.3, 0.4, 0.6, 0.2, 0.5, 0], stddevs: [0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1] }
+    const stats = {
+      means: [0.5, 0.3, 0.4, 0.6, 0.2, 0.5, 0.2, 0.8, 0.5, 0.5, 0],
+      stddevs: [0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1],
+    }
     const result = compositeCompare({
       current: { features: makeFeatures(), curve: makeCurve(3), keywords: [], activeDays: 5, sector: 'etc' },
       past: { features: makeFeatures(), curve: makeCurve(3), keywords: [], peakDay: 10, totalDays: 30, name: 'test', sector: 'etc' },
@@ -160,5 +177,63 @@ describe('compositeCompare', () => {
     })
     expect(typeof result.message).toBe('string')
     expect(result.message.length).toBeGreaterThan(0)
+  })
+
+  it('applies artifact-backed custom weights when provided', () => {
+    const current = {
+      features: makeFeatures({ interestMomentum: 0.9 }),
+      curve: makeCurve(20, (index) => index * 2),
+      keywords: ['AI'],
+      activeDays: 10,
+      sector: 'AI',
+    }
+    const past = {
+      features: makeFeatures({ interestMomentum: 0.9 }),
+      curve: makeCurve(20, (index) => index * 8),
+      keywords: ['AI'],
+      peakDay: 15,
+      totalDays: 30,
+      name: 'weighted-test',
+      sector: 'AI',
+    }
+
+    const featureHeavy = compositeCompare({
+      current,
+      past,
+      weightConfig: {
+        wFeature: 1,
+        wCurve: 0,
+        wKeyword: 0,
+        sectorPenalty: 0.85,
+      },
+    })
+    const curveHeavy = compositeCompare({
+      current,
+      past,
+      weightConfig: {
+        wFeature: 0,
+        wCurve: 1,
+        wKeyword: 0,
+        sectorPenalty: 0.85,
+      },
+    })
+
+    expect(featureHeavy.similarity).toBeGreaterThan(curveHeavy.similarity)
+  })
+
+  it('boosts rare keyword overlap above generic overlap when support counts are available', () => {
+    const generic = compositeCompare({
+      current: { features: makeFeatures(), curve: makeCurve(20), keywords: ['테마', '관련주'], keywordsLower: new Set(['테마', '관련주']), activeDays: 10, sector: 'AI', sectorConfidence: 0.9 },
+      past: { features: makeFeatures(), curve: makeCurve(20), keywords: ['테마'], keywordsLower: new Set(['테마']), peakDay: 15, totalDays: 30, name: 'generic', sector: 'AI', sectorConfidence: 0.9 },
+      keywordSupportCounts: new Map([['테마', 100], ['hbm', 2]]),
+    })
+
+    const rare = compositeCompare({
+      current: { features: makeFeatures(), curve: makeCurve(20), keywords: ['HBM'], keywordsLower: new Set(['hbm']), activeDays: 10, sector: 'AI', sectorConfidence: 0.9 },
+      past: { features: makeFeatures(), curve: makeCurve(20), keywords: ['HBM'], keywordsLower: new Set(['hbm']), peakDay: 15, totalDays: 30, name: 'rare', sector: 'AI', sectorConfidence: 0.9 },
+      keywordSupportCounts: new Map([['테마', 100], ['hbm', 2]]),
+    })
+
+    expect(rare.keywordSim).toBeGreaterThan(generic.keywordSim)
   })
 })

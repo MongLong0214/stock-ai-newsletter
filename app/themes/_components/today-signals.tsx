@@ -3,116 +3,57 @@
 import { motion } from 'framer-motion'
 import { TrendingUp, AlertTriangle, Sparkles, Zap } from 'lucide-react'
 import Link from 'next/link'
-import type { ThemeRanking, ThemeListItem } from '@/lib/tli/types'
+import type { ThemeRanking } from '@/lib/tli/types'
+import { buildSignalCards, type SignalCardData } from './today-signals-logic'
 
 interface TodaySignalsProps {
   ranking: ThemeRanking
 }
 
-interface SignalData {
-  key: string
+interface SignalData extends SignalCardData {
   icon: React.ComponentType<{ className?: string }>
-  title: string
   color: string
   borderColor: string
   bgColor: string
   textColor: string
-  themes: { id: string; name: string; detail: string }[]
 }
 
 function computeSignals(ranking: ThemeRanking): SignalData[] {
-  const allThemes: ThemeListItem[] = [
-    ...ranking.emerging,
-    ...ranking.growth,
-    ...ranking.peak,
-    ...ranking.decline,
-    ...ranking.reigniting,
-  ]
-
-  const topMovers = [...allThemes]
-    .sort((a, b) => b.change7d - a.change7d)
-    .slice(0, 3)
-    .map((t) => ({
-      id: t.id,
-      name: t.name,
-      detail: `${t.change7d > 0 ? '+' : ''}${t.change7d.toFixed(1)}`,
-    }))
-
-  const peakEntries = ranking.peak
-    .filter((t) => t.change7d > 0)
-    .map((t) => ({
-      id: t.id,
-      name: t.name,
-      detail: `${t.score.toFixed(0)}점`,
-    }))
-
-  const emergingThemes = ranking.emerging.map((t) => ({
-    id: t.id,
-    name: t.name,
-    detail: `${t.score.toFixed(0)}점`,
-  }))
-
-  const reignitingThemes = ranking.reigniting.map((t) => ({
-    id: t.id,
-    name: t.name,
-    detail: `${t.change7d > 0 ? '+' : ''}${t.change7d.toFixed(1)}`,
-  }))
-
-  const signals: SignalData[] = []
-
-  if (topMovers.length > 0) {
-    signals.push({
-      key: 'movers',
+  const signalConfig: Record<SignalCardData['key'], Omit<SignalData, keyof SignalCardData>> = {
+    movers: {
       icon: TrendingUp,
-      title: '점수 급등',
       color: '#10B981',
       borderColor: 'border-emerald-500/20',
       bgColor: 'bg-emerald-500/5',
       textColor: 'text-emerald-400',
-      themes: topMovers,
-    })
-  }
-
-  if (peakEntries.length > 0) {
-    signals.push({
-      key: 'peak',
+    },
+    peak: {
       icon: AlertTriangle,
-      title: '과열 주의',
       color: '#EF4444',
       borderColor: 'border-red-500/20',
       bgColor: 'bg-red-500/5',
       textColor: 'text-red-400',
-      themes: peakEntries,
-    })
-  }
-
-  if (emergingThemes.length > 0) {
-    signals.push({
-      key: 'emerging',
+    },
+    emerging: {
       icon: Sparkles,
-      title: '새로 등장',
       color: '#3B82F6',
       borderColor: 'border-blue-500/20',
       bgColor: 'bg-blue-500/5',
       textColor: 'text-blue-400',
-      themes: emergingThemes,
-    })
-  }
-
-  if (reignitingThemes.length > 0) {
-    signals.push({
-      key: 'reigniting',
+    },
+    reigniting: {
       icon: Zap,
-      title: '재점화',
       color: '#F97316',
       borderColor: 'border-orange-500/20',
       bgColor: 'bg-orange-500/5',
       textColor: 'text-orange-400',
-      themes: reignitingThemes,
-    })
+    },
   }
 
-  return signals
+  return buildSignalCards(ranking).map((signal) => ({
+    ...signal,
+    ...signalConfig[signal.key],
+  }))
 }
 
 function SignalCard({ signal }: { signal: SignalData }) {

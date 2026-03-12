@@ -1,6 +1,7 @@
 /** API 응답 타입 */
 
 import type { Stage, NewsArticle, ConfidenceLevel } from './db'
+import type { Level4ConfidenceTier, Level4SourceSurface } from '@/lib/tli/comparison/level4-types'
 
 /** API 응답 공통 래퍼 */
 export interface ApiResponse<T> {
@@ -41,6 +42,18 @@ export interface TimelinePoint {
   count: number
 }
 
+export interface ThemeSignalItem {
+  id: string
+  name: string
+  detail: string
+}
+
+export interface ThemeSignalCard {
+  key: 'movers' | 'peak' | 'emerging' | 'reigniting'
+  title: string
+  themes: ThemeSignalItem[]
+}
+
 /** 유사 테마 비교 결과 (comparison-list, theme-prediction, query-helpers 통합) */
 export interface ComparisonResult {
   pastTheme: string
@@ -60,6 +73,15 @@ export interface ComparisonResult {
   pastPeakScore: number | null
   pastFinalStage: string | null
   pastDeclineDays: number | null
+  /** Level-4 serving metadata (optional for backward compatibility) */
+  relevanceProbability?: number | null
+  probabilityCiLower?: number | null
+  probabilityCiUpper?: number | null
+  supportCount?: number | null
+  confidenceTier?: Level4ConfidenceTier | null
+  calibrationVersion?: string | null
+  weightVersion?: string | null
+  sourceSurface?: Level4SourceSurface | null
 }
 
 /** 테마 목록 아이템 (카드 표시용) */
@@ -138,26 +160,7 @@ export interface ThemeDetail {
   /** 뉴스 기사 총 수 (카드와 동일 기준) */
   newsCount: number;
   recentNews: NewsArticle[];
-  comparisons: Array<{
-    pastTheme: string;
-    pastThemeId: string;
-    similarity: number;
-    currentDay: number;
-    pastPeakDay: number;
-    pastTotalDays: number;
-    estimatedDaysToPeak: number;
-    message: string;
-    /** 유사도 3-Pillar 분해 */
-    featureSim: number | null;
-    curveSim: number | null;
-    keywordSim: number | null;
-    /** 과거 테마 결과 */
-    pastPeakScore: number | null;
-    pastFinalStage: string | null;
-    pastDeclineDays: number | null;
-    /** 과거 테마 라이프사이클 곡선 (비교 오버레이용) */
-    lifecycleCurve: Array<{ date: string; score: number }>;
-  }>;
+  comparisons: ComparisonResult[];
   lifecycleCurve: Array<{
     date: string;
     score: number;
@@ -183,6 +186,7 @@ export interface ThemeRanking {
   peak: ThemeListItem[];
   decline: ThemeListItem[];
   reigniting: ThemeListItem[];
+  signals: ThemeSignalCard[];
   /** 요약 통계 */
   summary: {
     totalThemes: number;

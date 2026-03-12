@@ -69,6 +69,55 @@ interface Comparison {
   past_peak_score: number | null
   past_final_stage: string | null
   past_decline_days: number | null
+  relevanceProbability?: number | null
+  probabilityCiLower?: number | null
+  probabilityCiUpper?: number | null
+  supportCount?: number | null
+  confidenceTier?: 'high' | 'medium' | 'low' | null
+  calibrationVersion?: string | null
+  weightVersion?: string | null
+  sourceSurface?: 'legacy_diagnostic' | 'v2_certification' | 'replay_equivalent' | null
+  relevance_probability?: number | null
+  probability_ci_lower?: number | null
+  probability_ci_upper?: number | null
+  support_count?: number | null
+  confidence_tier?: 'high' | 'medium' | 'low' | null
+  calibration_version?: string | null
+  weight_version?: string | null
+  source_surface?: 'legacy_diagnostic' | 'v2_certification' | 'replay_equivalent' | null
+}
+
+const CURVE_PAGE_SIZE = 1000
+
+async function loadPastThemeCurves(pastThemeIds: string[]) {
+  const pastThemeCurves: Record<string, Array<{ date: string; score: number }>> = {}
+  if (pastThemeIds.length === 0) return pastThemeCurves
+
+  let from = 0
+  while (true) {
+    const { data, error } = await supabase
+      .from('lifecycle_scores')
+      .select('theme_id, calculated_at, score')
+      .in('theme_id', pastThemeIds)
+      .order('calculated_at', { ascending: true })
+      .range(from, from + CURVE_PAGE_SIZE - 1)
+
+    if (error) {
+      throw new Error(`failed to load comparison lifecycle curves: ${error.message}`)
+    }
+
+    if (!data?.length) break
+
+    for (const score of data) {
+      if (!pastThemeCurves[score.theme_id]) pastThemeCurves[score.theme_id] = []
+      pastThemeCurves[score.theme_id].push({ date: score.calculated_at, score: score.score })
+    }
+
+    if (data.length < CURVE_PAGE_SIZE) break
+    from += CURVE_PAGE_SIZE
+  }
+
+  return pastThemeCurves
 }
 
 /**
@@ -77,30 +126,27 @@ interface Comparison {
 export async function buildComparisonResults(
   comparisons: Comparison[],
 ): Promise<ComparisonResult[]> {
-  const pastThemeIds = comparisons.map((c) => c.past_theme_id)
+  const pastThemeIds = [...new Set(comparisons.map((c) => c.past_theme_id))]
   const pastThemeNames: Record<string, string> = {}
-  const pastThemeCurves: Record<string, Array<{ date: string; score: number }>> = {}
+  let pastThemeCurves: Record<string, Array<{ date: string; score: number }>> = {}
 
   if (pastThemeIds.length > 0) {
-    const [namesRes, curvesRes] = await Promise.all([
+    const [namesRes, curves] = await Promise.all([
       supabase
         .from('themes')
         .select('id, name')
         .in('id', pastThemeIds),
-      supabase
-        .from('lifecycle_scores')
-        .select('theme_id, calculated_at, score')
-        .in('theme_id', pastThemeIds)
-        .order('calculated_at', { ascending: true })
-        .limit(1825),
+      loadPastThemeCurves(pastThemeIds),
     ])
+
+    if (namesRes.error) {
+      throw new Error(`failed to load comparison theme names: ${namesRes.error.message}`)
+    }
+
+    pastThemeCurves = curves
 
     for (const t of namesRes.data || []) {
       pastThemeNames[t.id] = t.name
-    }
-    for (const s of curvesRes.data || []) {
-      if (!pastThemeCurves[s.theme_id]) pastThemeCurves[s.theme_id] = []
-      pastThemeCurves[s.theme_id].push({ date: s.calculated_at, score: s.score })
     }
   }
 
@@ -127,6 +173,14 @@ export async function buildComparisonResults(
       pastPeakScore: comp.past_peak_score ?? null,
       pastFinalStage: comp.past_final_stage ?? null,
       pastDeclineDays: comp.past_decline_days ?? null,
+      relevanceProbability: comp.relevanceProbability ?? comp.relevance_probability ?? null,
+      probabilityCiLower: comp.probabilityCiLower ?? comp.probability_ci_lower ?? null,
+      probabilityCiUpper: comp.probabilityCiUpper ?? comp.probability_ci_upper ?? null,
+      supportCount: comp.supportCount ?? comp.support_count ?? null,
+      confidenceTier: comp.confidenceTier ?? comp.confidence_tier ?? null,
+      calibrationVersion: comp.calibrationVersion ?? comp.calibration_version ?? null,
+      weightVersion: comp.weightVersion ?? comp.weight_version ?? null,
+      sourceSurface: comp.sourceSurface ?? comp.source_surface ?? null,
     }
   })
 }

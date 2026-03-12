@@ -18,6 +18,24 @@ import type { ThemeComparisonEvalV2 } from '../../lib/tli/types/db'
 const MIN_VERIFICATION_DAYS = COMPARISON_PRIMARY_HORIZON_DAYS
 const DEFAULT_SECTOR_PENALTY = 0.85 // static placeholder — not calibrated from data
 const STAGE_TOLERANCE_DAYS = 3
+export const THEME_COMPARISON_EVAL_V2_ON_CONFLICT = 'run_id,candidate_theme_id,evaluation_horizon_days'
+export const THEME_COMPARISON_EVAL_V2_NATIVE_ON_CONFLICT = 'run_id,candidate_theme_id,evaluation_horizon_days'
+export const buildLegacyEvalBridgeRunKey = (
+  currentThemeId: string,
+  runDate: string,
+  algorithmVersion?: string,
+  runType?: string,
+  candidatePool?: string,
+) => [currentThemeId, runDate, algorithmVersion, runType, candidatePool].filter(Boolean).join(':')
+export const isLegacyEvalBridgeEnabled = () => process.env.TLI_LEGACY_EVAL_BRIDGE_ENABLED === 'true'
+export function resolveLegacyBridgeRunId(
+  runIdsByThemeDate: Map<string, string[]>,
+  currentThemeId: string,
+  runDate: string,
+) {
+  const candidates = runIdsByThemeDate.get(`${currentThemeId}:${runDate}`) || []
+  return candidates.length === 1 ? candidates[0] : null
+}
 
 // ── Shared Data Loading ──
 
@@ -236,7 +254,7 @@ async function evaluateV4CandidatesNative(today: string, cutoffDate: string): Pr
     await batchUpsert(
       'theme_comparison_eval_v2',
       evalRows.map(r => ({ ...r })),
-      'run_id,candidate_theme_id',
+      THEME_COMPARISON_EVAL_V2_NATIVE_ON_CONFLICT,
       'v4-native eval',
     )
 
@@ -251,6 +269,7 @@ type VerifiedResult = {
   id: string
   currentThemeId: string
   pastThemeId: string
+  runDate: string
   trajectoryCorr: number
   stageMatch: boolean
   binaryRelevant: boolean
@@ -304,6 +323,7 @@ async function evaluateLegacyComparisons(today: string, cutoffDate: string, tune
       id: comp.id,
       currentThemeId: comp.current_theme_id,
       pastThemeId: comp.past_theme_id,
+      runDate: comp.calculated_at,
       trajectoryCorr: evaluated.trajectoryCorrH14,
       stageMatch: evaluated.positionStageMatchH14,
       binaryRelevant: evaluated.binaryRelevant,
@@ -316,7 +336,7 @@ async function evaluateLegacyComparisons(today: string, cutoffDate: string, tune
     })
   }
 
-  if (results.length > 0) {
+  if (results.length > 0 && isLegacyEvalBridgeEnabled()) {
     const accurate = results.filter(r => r.binaryRelevant && !r.runLevelCensored)
     const inaccurate = results.filter(r => !r.binaryRelevant && !r.runLevelCensored)
 
@@ -367,19 +387,20 @@ async function evaluateLegacyComparisons(today: string, cutoffDate: string, tune
       const currentThemeIds = [...new Set(results.map((r) => r.currentThemeId))]
       const { data: v2Runs } = await supabaseAdmin
         .from('theme_comparison_runs_v2')
-        .select('id, current_theme_id')
+        .select('id, current_theme_id, run_date, algorithm_version, run_type, candidate_pool')
         .in('current_theme_id', currentThemeIds)
         .order('created_at', { ascending: false })
 
       if (v2Runs && v2Runs.length > 0) {
-        const runByTheme = new Map<string, string>()
+        const runIdsByThemeDate = new Map<string, string[]>()
         for (const run of v2Runs) {
-          if (!runByTheme.has(run.current_theme_id)) {
-            runByTheme.set(run.current_theme_id, run.id)
-          }
+          const key = buildLegacyEvalBridgeRunKey(run.current_theme_id, run.run_date)
+          const existing = runIdsByThemeDate.get(key) || []
+          existing.push(run.id)
+          runIdsByThemeDate.set(key, existing)
         }
 
-        const bridgeRunIds = [...new Set(runByTheme.values())]
+        const bridgeRunIds = [...new Set([...runIdsByThemeDate.values()].flat())]
         const existingNativeEvals = bridgeRunIds.length > 0
           ? await batchQuery<{ run_id: string; candidate_theme_id: string }>(
               'theme_comparison_eval_v2', 'run_id, candidate_theme_id',
@@ -390,7 +411,7 @@ async function evaluateLegacyComparisons(today: string, cutoffDate: string, tune
 
         const evalRows: ThemeComparisonEvalV2[] = []
         for (const result of results) {
-          const runId = runByTheme.get(result.currentThemeId)
+          const runId = resolveLegacyBridgeRunId(runIdsByThemeDate, result.currentThemeId, result.runDate)
           if (!runId) continue
           if (nativeEvalSet.has(`${runId}|${result.pastThemeId}`)) continue
 
@@ -421,7 +442,7 @@ async function evaluateLegacyComparisons(today: string, cutoffDate: string, tune
           await batchUpsert(
             'theme_comparison_eval_v2',
             evalRows.map((r) => ({ ...r })),
-            'run_id,candidate_theme_id',
+            THEME_COMPARISON_EVAL_V2_ON_CONFLICT,
             'v2 eval (legacy bridge)',
           )
 

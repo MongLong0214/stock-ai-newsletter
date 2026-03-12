@@ -1,8 +1,9 @@
 /**
  * 특성 벡터 추출 v2 — scoreLevel 제거, Dual-Axis Interest + DVI 도입
  *
- * 7차원: interestLevel, interestMomentum, volatilityDVI,
- *        newsIntensity, activeDaysNorm, priceChangePct, volumeIntensity
+ * 11차원: interestLevel, interestMomentum, volatilityDVI,
+ *         newsIntensity, activeDaysNorm, lifecyclePosition, recoverySignal,
+ *         sectorConfidence, keywordSpecificity, priceChangePct, volumeIntensity
  */
 
 import { avg, sigmoid_normalize, log_normalize, linearRegressionSlope, calculateDVI } from '../normalize'
@@ -24,10 +25,81 @@ export interface ThemeFeatures {
   newsIntensity: number
   /** 활동 기간 (최대 365일 기준), 0-1 */
   activeDaysNorm: number
+  /** 연속형 라이프사이클 위치 — 관측된 고점 이후 진행 정도와 drawdown 기반, 0-1 */
+  lifecyclePosition: number
+  /** 연속형 stage proxy — 후기 사이클에서 회복 중일수록 높음, 0-1 */
+  recoverySignal: number
+  /** 섹터 분류 신뢰도, 0-1 */
+  sectorConfidence: number
+  /** 키워드 희소성/특이성, 0-1 */
+  keywordSpecificity: number
   /** 주가 방향 (sigmoid), 0-1 */
   priceChangePct: number
   /** 거래량 강도 (log_normalize), 0-1 */
   volumeIntensity: number
+}
+
+export interface SectorProfile {
+  sector: string
+  confidence: number
+  matchedKeywords: number
+}
+
+export function computeLifecyclePosition(interestValues: number[]): number {
+  if (interestValues.length < 2) return 0.5
+
+  const peakValue = Math.max(...interestValues)
+  if (!Number.isFinite(peakValue) || peakValue <= 0) return 0.5
+
+  const currentIndex = interestValues.length - 1
+  const peakIndex = interestValues.lastIndexOf(peakValue)
+  const currentValue = interestValues[currentIndex] ?? peakValue
+  const postPeakAge = currentIndex > 0 ? (currentIndex - peakIndex) / currentIndex : 0
+  const drawdownFromPeak = Math.max(0, 1 - currentValue / peakValue)
+
+  return Math.max(0, Math.min(1, postPeakAge * 0.6 + drawdownFromPeak * 0.4))
+}
+
+const GENERIC_THEME_KEYWORDS = new Set([
+  '테마',
+  '관련주',
+  '수혜주',
+  '종목',
+  '주가',
+  '정책',
+])
+
+function clamp01(value: number) {
+  return Math.max(0, Math.min(1, value))
+}
+
+export function computeRecoverySignal(input: {
+  interestValues: number[]
+  lifecyclePosition: number
+}) {
+  const recentWindow = input.interestValues.slice(-Math.min(4, input.interestValues.length))
+  const recentSlope = recentWindow.length >= 2 ? linearRegressionSlope(recentWindow) : 0
+  const recentMomentum = sigmoid_normalize(recentSlope, 0, 1.5)
+  const positiveMomentum = clamp01((recentMomentum - 0.5) * 2)
+  return clamp01(positiveMomentum * input.lifecyclePosition)
+}
+
+export function computeKeywordSpecificity(
+  keywords: string[],
+  keywordSupportCounts?: Map<string, number>,
+) {
+  if (keywords.length === 0) return 0
+  if (!keywordSupportCounts) return 0.5
+
+  const normalizedKeywords = [...new Set(keywords.map((keyword) => keyword.toLowerCase()))]
+  const scores = normalizedKeywords.map((keyword) => {
+    const genericPenalty = GENERIC_THEME_KEYWORDS.has(keyword) ? 0.2 : 1
+    const support = keywordSupportCounts.get(keyword)
+    const rarityScore = support != null && support > 0 ? 1 / Math.sqrt(support) : 1
+    return clamp01(genericPenalty * rarityScore * 1.5)
+  })
+
+  return scores.reduce((sum, score) => sum + score, 0) / scores.length
 }
 
 // ---------------------------------------------------------------------------
@@ -47,6 +119,9 @@ export function extractFeatures(params: {
   avgVolume?: number
   /** Cross-sectional percentileRank (0-1). 미제공 시 sigmoid fallback */
   interestLevel?: number
+  keywords?: string[]
+  keywordSupportCounts?: Map<string, number>
+  sectorConfidence?: number
 }): ThemeFeatures {
   const { interestValues, totalNewsCount, activeDays } = params
 
@@ -74,6 +149,10 @@ export function extractFeatures(params: {
 
   // activeDaysNorm: 최대 365일 기준
   const activeDaysNorm = Math.min(activeDays, 365) / 365
+  const lifecyclePosition = computeLifecyclePosition(interestValues)
+  const recoverySignal = computeRecoverySignal({ interestValues, lifecyclePosition })
+  const sectorConfidence = clamp01(params.sectorConfidence ?? 0.5)
+  const keywordSpecificity = computeKeywordSpecificity(params.keywords ?? [], params.keywordSupportCounts)
 
   // priceChangePct: sigmoid 정규화 (center=0, scale=5)
   const priceChangePct = sigmoid_normalize(params.avgPriceChangePct ?? 0, 0, 5)
@@ -81,12 +160,36 @@ export function extractFeatures(params: {
   // volumeIntensity: log 정규화 (5천만주 기준)
   const volumeIntensity = log_normalize(params.avgVolume ?? 0, 50_000_000)
 
-  return { interestLevel, interestMomentum, volatilityDVI, newsIntensity, activeDaysNorm, priceChangePct, volumeIntensity }
+  return {
+    interestLevel,
+    interestMomentum,
+    volatilityDVI,
+    newsIntensity,
+    activeDaysNorm,
+    lifecyclePosition,
+    recoverySignal,
+    sectorConfidence,
+    keywordSpecificity,
+    priceChangePct,
+    volumeIntensity,
+  }
 }
 
 /** ThemeFeatures를 명시적 순서로 배열 변환 */
 export function featuresToArray(f: ThemeFeatures): number[] {
-  return [f.interestLevel, f.interestMomentum, f.volatilityDVI, f.newsIntensity, f.activeDaysNorm, f.priceChangePct, f.volumeIntensity]
+  return [
+    f.interestLevel,
+    f.interestMomentum,
+    f.volatilityDVI,
+    f.newsIntensity,
+    f.activeDaysNorm,
+    f.lifecyclePosition,
+    f.recoverySignal,
+    f.sectorConfidence,
+    f.keywordSpecificity,
+    f.priceChangePct,
+    f.volumeIntensity,
+  ]
 }
 
 // ---------------------------------------------------------------------------
@@ -95,16 +198,42 @@ export function featuresToArray(f: ThemeFeatures): number[] {
 
 /** 키워드 기반 섹터 분류 */
 export function classifySector(keywords: string[]): string {
+  return classifySectorProfile(keywords).sector
+}
+
+export function classifySectorProfile(keywords: string[]): SectorProfile {
   let bestSector = 'etc'
   let bestScore = 0
+  let secondScore = 0
+  let totalMatchedKeywords = 0
+
   for (const [sector, sectorKws] of Object.entries(SECTOR_KEYWORDS)) {
-    const score = keywords.filter(kw =>
-      sectorKws.some(sk => kw.toLowerCase().includes(sk.toLowerCase())),
+    const score = keywords.filter((kw) =>
+      sectorKws.some((sk) => kw.toLowerCase().includes(sk.toLowerCase())),
     ).length
+
+    if (score > 0) totalMatchedKeywords += score
+
     if (score > bestScore) {
+      secondScore = bestScore
       bestScore = score
       bestSector = sector
+    } else if (score > secondScore) {
+      secondScore = score
     }
   }
-  return bestSector
+
+  if (bestScore === 0) {
+    return { sector: 'etc', confidence: 0.2, matchedKeywords: 0 }
+  }
+
+  const dominance = bestScore / Math.max(1, totalMatchedKeywords)
+  const margin = (bestScore - secondScore) / Math.max(1, bestScore)
+  const confidence = Math.max(0.2, Math.min(1, dominance * 0.7 + margin * 0.3))
+
+  return {
+    sector: bestSector,
+    confidence,
+    matchedKeywords: bestScore,
+  }
 }

@@ -38,6 +38,8 @@ describe('theme state history', () => {
         updatedAt: '2025-12-22T00:00:00Z',
       })
       expect(row.is_active).toBe(false)
+      expect(row.effective_from).toBe('2025-12-20')
+      expect(row.effective_to).toBeNull()
       expect(row.closed_at).toBe('2025-12-20')
       expect(row.state_version).toBe('backfill-v1')
     })
@@ -168,6 +170,20 @@ describe('theme state history', () => {
         { theme_id: 't1', effective_from: '2026-01-01', effective_to: null, is_active: false, closed_at: '2026-02-15', first_spike_date: '2026-01-05', state_version: 'backfill-v1' },
       ])
       expect(result).toBe(false)
+    })
+
+    it('does not treat a backfilled inactive theme as closed before its closed_at date', () => {
+      const row = buildBackfillRow({
+        themeId: 't2',
+        isActive: false,
+        firstSpikeDate: '2025-06-01',
+        createdAt: '2025-05-15T00:00:00Z',
+        lastScoreDate: '2025-12-20',
+        updatedAt: '2025-12-22T00:00:00Z',
+      })
+
+      expect(isArchetypeAtDate('t2', '2025-12-10', [row])).toBe(false)
+      expect(isArchetypeAtDate('t2', '2025-12-21', [row])).toBe(true)
     })
   })
 })
