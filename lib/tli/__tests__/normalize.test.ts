@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   standardDeviation, avg, daysBetween,
   medianAbsoluteDeviation, robustZScore, median,
-  sigmoid_normalize, log_normalize, percentileRank,
+  sigmoid_normalize, log_normalize,
   linearRegressionSlope, calculateDVI,
 } from '@/lib/tli/normalize'
 

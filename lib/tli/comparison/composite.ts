@@ -24,6 +24,7 @@ interface CurrentInput {
   keywordsLower?: Set<string>
   activeDays: number
   sector: string
+  sectorConfidence?: number
 }
 
 interface PastInput {
@@ -36,6 +37,40 @@ interface PastInput {
   totalDays: number
   name: string
   sector: string
+  sectorConfidence?: number
+}
+
+export interface CompositeWeightConfig {
+  weightVersion?: string
+  wFeature?: number
+  wCurve?: number
+  wKeyword?: number
+  sectorPenalty: number
+  curveBucketPolicy?: {
+    gte14: { wFeature: number; wCurve: number; wKeyword: number }
+    gte7: { wFeature: number; wCurve: number; wKeyword: number }
+    lt7: { wFeature: number; wCurve: number; wKeyword: number }
+  }
+}
+
+function resolveCompositeWeights(minCurveLen: number, weightConfig?: CompositeWeightConfig) {
+  if (weightConfig?.curveBucketPolicy) {
+    if (minCurveLen >= 14) return weightConfig.curveBucketPolicy.gte14
+    if (minCurveLen >= 7) return weightConfig.curveBucketPolicy.gte7
+    return weightConfig.curveBucketPolicy.lt7
+  }
+
+  if (weightConfig && weightConfig.wFeature != null && weightConfig.wCurve != null && weightConfig.wKeyword != null) {
+    return {
+      wFeature: weightConfig.wFeature,
+      wCurve: weightConfig.wCurve,
+      wKeyword: weightConfig.wKeyword,
+    }
+  }
+
+  if (minCurveLen >= 14) return { wFeature: 0.40, wCurve: 0.60, wKeyword: 0.00 }
+  if (minCurveLen >= 7) return { wFeature: 0.60, wCurve: 0.40, wKeyword: 0.00 }
+  return { wFeature: 1.00, wCurve: 0.00, wKeyword: 0.00 }
 }
 
 export function compositeCompare(params: {
@@ -44,6 +79,8 @@ export function compositeCompare(params: {
   populationStats?: FeaturePopulationStats
   precomputedFeatureSim?: number
   precomputedCurveSim?: number
+  weightConfig?: CompositeWeightConfig
+  keywordSupportCounts?: Map<string, number>
 }): {
   similarity: number
   currentDay: number
@@ -74,18 +111,23 @@ export function compositeCompare(params: {
 
   // 키워드 자카드 (표시용, 점수 미반영)
   const keywordSim = current.keywordsLower && past.keywordsLower
-    ? keywordJaccard(current.keywordsLower, past.keywordsLower)
-    : keywordJaccard(current.keywords, past.keywords)
+    ? keywordJaccard(current.keywordsLower, past.keywordsLower, { supportCounts: params.keywordSupportCounts })
+    : keywordJaccard(current.keywords, past.keywords, { supportCounts: params.keywordSupportCounts })
 
-  // 2-Pillar 적응적 가중치 (곡선 데이터 가용량 기준)
-  let wFeature: number, wCurve: number
-  if (minCurveLen >= 14)     { wFeature = 0.40; wCurve = 0.60 }
-  else if (minCurveLen >= 7) { wFeature = 0.60; wCurve = 0.40 }
-  else                       { wFeature = 1.00; wCurve = 0.00 }
+  const { wFeature, wCurve, wKeyword } = resolveCompositeWeights(minCurveLen, params.weightConfig)
+  const totalWeight = Math.max(wFeature + wCurve + wKeyword, 1)
 
   // 섹터 교차 패널티 (이종 섹터 15% 감쇄)
-  const sectorMatch = current.sector === past.sector || current.sector === 'etc' || past.sector === 'etc'
-  const rawSim = (wFeature * featureSim + wCurve * curveSim) * (sectorMatch ? 1.0 : 0.85)
+  const sectorMatch = current.sector === past.sector
+  const minSectorConfidence = Math.min(current.sectorConfidence ?? 1, past.sectorConfidence ?? 1)
+  const sectorPenalty = sectorMatch
+    ? 1
+    : (current.sector === 'etc' || past.sector === 'etc' || minSectorConfidence < 0.5)
+      ? 0.95
+      : (params.weightConfig?.sectorPenalty ?? 0.85)
+  const rawSim = (
+    (wFeature * featureSim + wCurve * curveSim + wKeyword * keywordSim) / totalWeight
+  ) * sectorPenalty
   const similarity = Math.round(Math.max(0, Math.min(0.99, rawSim)) * 1000) / 1000
 
   // 일수 캡핑

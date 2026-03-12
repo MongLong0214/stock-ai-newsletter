@@ -2,9 +2,8 @@ import { supabase } from '@/lib/supabase'
 import { getStageKo, toStage, isScoreComponents } from '@/lib/tli/types'
 import { apiSuccess, handleApiError, isTableNotFound, placeholderResponse } from '@/lib/tli/api-utils'
 import type { ThemeListItem, ThemeRanking } from '@/lib/tli/types'
-import { EMPTY_RANKING, buildScoreMetaMap, buildCountMaps, calculateRankingSummary, batchLoadStockData, batchLoadNewsCounts, applyFreshnessDecay } from './ranking-helpers'
+import { EMPTY_RANKING, SCORE_QUERY_BATCH_SIZE, buildScoreMetaMap, buildCountMaps, buildThemeRanking, batchLoadStockData, batchLoadNewsCounts, applyFreshnessDecayToThemeData } from './ranking-helpers'
 import { getKSTDateString } from '@/lib/tli/date-utils'
-import { applyQualityGate } from '@/lib/tli/quality-gate'
 
 // 생명주기 단계별 랭킹 (배치 쿼리 최적화)
 export async function GET() {
@@ -36,10 +35,9 @@ export async function GET() {
     const ninetyDaysAgo = getKSTDateString(-90)
 
     // 2) 모든 배치 쿼리 병렬 실행 (stocks + news + scores 동시)
-    const SCORE_BATCH_SIZE = 50
     const scoreChunks: string[][] = []
-    for (let i = 0; i < themeIds.length; i += SCORE_BATCH_SIZE) {
-      scoreChunks.push(themeIds.slice(i, i + SCORE_BATCH_SIZE))
+    for (let i = 0; i < themeIds.length; i += SCORE_QUERY_BATCH_SIZE) {
+      scoreChunks.push(themeIds.slice(i, i + SCORE_QUERY_BATCH_SIZE))
     }
 
     const [stocksList, newsList, ...scoreBatches] = await Promise.all([
@@ -49,13 +47,14 @@ export async function GET() {
       batchLoadNewsCounts(themeIds, sevenDaysAgo),
       // lifecycle_scores 배치 조회 (병렬, 테마당 최대 90일)
       ...scoreChunks.map(async (chunk) => {
-        const { data } = await supabase
+        const { data, error } = await supabase
           .from('lifecycle_scores')
           .select('theme_id, score, stage, is_reigniting, calculated_at, components')
           .in('theme_id', chunk)
           .gte('calculated_at', ninetyDaysAgo)
           .order('calculated_at', { ascending: false })
           .limit(1000)
+        if (error) throw error
         return data ?? []
       }),
     ])
@@ -100,20 +99,8 @@ export async function GET() {
       }
     })
 
-    // Apply freshness decay (stale score prevention)
-    const todayStr = getKSTDateString();
-    for (const item of themeData) {
-      const meta = scoreMetaByTheme.get(item.id);
-      if (meta?.lastDataDate) {
-        item.score = applyFreshnessDecay(item.score, meta.lastDataDate, todayStr);
-      }
-    }
-
-    // --- 품질 게이트 + 단계별 그룹화 ---
-
-    const { emerging, growth, peak, decline, reigniting } = applyQualityGate(themeData)
-
-    // --- 요약 통계 (필터 통과한 테마 기준) ---
+    const todayStr = getKSTDateString()
+    const normalizedThemeData = applyFreshnessDecayToThemeData(themeData, scoreMetaByTheme, todayStr)
 
     // surging 노이즈 방지: components에서 raw_interest_avg 추출
     const rawInterestAvgMap = new Map<string, number>()
@@ -125,17 +112,7 @@ export async function GET() {
       }
     }
 
-    const activeThemes = [...emerging, ...growth, ...peak, ...decline, ...reigniting]
-    const summary = calculateRankingSummary(activeThemes, rawInterestAvgMap)
-
-    const ranking: ThemeRanking = {
-      emerging,
-      growth,
-      peak,
-      decline,
-      reigniting,
-      summary,
-    }
+    const ranking = buildThemeRanking(normalizedThemeData, rawInterestAvgMap)
 
     return apiSuccess(ranking, undefined, 'medium')
   } catch (error) {

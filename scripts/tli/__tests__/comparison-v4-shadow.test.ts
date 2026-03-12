@@ -5,6 +5,7 @@ import {
   DEFAULT_COMPARISON_V4_SHADOW_ALGORITHM_VERSION,
   determineShadowCandidatePool,
   getComparisonV4ShadowConfig,
+  resolveShadowRunMaterialization,
   toPredictionInputsFromShadowCandidates,
   prepareComparisonShadowRows,
   preparePredictionShadowRow,
@@ -195,5 +196,27 @@ describe('comparison v4 shadow row preparation', () => {
         pastTotalDays: 35,
       },
     ])
+  })
+
+  it('fails closed when any candidate row fails to materialize', () => {
+    expect(resolveShadowRunMaterialization({
+      candidateCount: 3,
+      failedCount: 1,
+    })).toEqual({
+      materializedCandidateCount: 2,
+      allCandidatesMaterialized: false,
+      lastError: '1 candidate rows failed to materialize',
+      status: 'failed',
+    })
+
+    expect(resolveShadowRunMaterialization({
+      candidateCount: 3,
+      failedCount: 0,
+    })).toEqual({
+      materializedCandidateCount: 3,
+      allCandidatesMaterialized: true,
+      lastError: null,
+      status: 'materializing',
+    })
   })
 })

@@ -1,0 +1,1 @@
+`mcp` is a TypeScript Node.js MCP server for Korean stock market theme lifecycle analysis. It exposes tools for theme ranking, detail, history, search, and stock-to-theme lookup. Source lives under `src/`; build output goes to `dist/`. Main entrypoint is `src/index.ts` and tool handlers are under `src/tools/`.

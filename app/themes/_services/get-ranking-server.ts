@@ -2,9 +2,8 @@ import { supabase, isSupabasePlaceholder } from '@/lib/supabase'
 import { getStageKo, toStage, isScoreComponents } from '@/lib/tli/types'
 import { isTableNotFound } from '@/lib/tli/api-utils'
 import type { ThemeListItem, ThemeRanking } from '@/lib/tli/types'
-import { EMPTY_RANKING, buildScoreMetaMap, buildCountMaps, calculateRankingSummary, batchLoadStockData, batchLoadNewsCounts } from '@/app/api/tli/scores/ranking/ranking-helpers'
+import { EMPTY_RANKING, SCORE_QUERY_BATCH_SIZE, buildScoreMetaMap, buildCountMaps, buildThemeRanking, batchLoadStockData, batchLoadNewsCounts, applyFreshnessDecayToThemeData } from '@/app/api/tli/scores/ranking/ranking-helpers'
 import { getKSTDateString } from '@/lib/tli/date-utils'
-import { applyQualityGate } from '@/lib/tli/quality-gate'
 
 /** 서버 사이드 랭킹 데이터 조회 (API 라우트 경유 없이 직접 Supabase 호출) */
 export async function getRankingServer(): Promise<ThemeRanking> {
@@ -29,10 +28,9 @@ export async function getRankingServer(): Promise<ThemeRanking> {
     const ninetyDaysAgo = getKSTDateString(-90)
 
     // 2) 모든 배치 쿼리 병렬 실행 (stocks + news + scores 동시)
-    const SCORE_BATCH_SIZE = 10
     const scoreChunks: string[][] = []
-    for (let i = 0; i < themeIds.length; i += SCORE_BATCH_SIZE) {
-      scoreChunks.push(themeIds.slice(i, i + SCORE_BATCH_SIZE))
+    for (let i = 0; i < themeIds.length; i += SCORE_QUERY_BATCH_SIZE) {
+      scoreChunks.push(themeIds.slice(i, i + SCORE_QUERY_BATCH_SIZE))
     }
 
     const [stocksList, newsList, ...scoreBatches] = await Promise.all([
@@ -85,13 +83,19 @@ export async function getRankingServer(): Promise<ThemeRanking> {
       }
     })
 
-    // --- 품질 게이트 + 단계별 그룹화 ---
-    const { emerging, growth, peak, decline, reigniting } = applyQualityGate(themeData)
+    const todayStr = getKSTDateString()
+    const normalizedThemeData = applyFreshnessDecayToThemeData(themeData, scoreMetaByTheme, todayStr)
 
-    const activeThemes = [...emerging, ...growth, ...peak, ...decline, ...reigniting]
-    const summary = calculateRankingSummary(activeThemes)
+    const rawInterestAvgMap = new Map<string, number>()
+    for (const s of scores) {
+      if (rawInterestAvgMap.has(s.theme_id)) continue
+      const comp = isScoreComponents(s.components) ? s.components : null
+      if (comp?.raw?.raw_interest_avg != null) {
+        rawInterestAvgMap.set(s.theme_id, comp.raw.raw_interest_avg)
+      }
+    }
 
-    return { emerging, growth, peak, decline, reigniting, summary }
+    return buildThemeRanking(normalizedThemeData, rawInterestAvgMap)
   } catch (error) {
     console.error('[TLI] 랭킹 서버 조회 실패:', error instanceof Error ? error.message : String(error))
     return EMPTY_RANKING

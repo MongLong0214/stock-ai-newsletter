@@ -2,6 +2,9 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   /* config options here */
+  turbopack: {
+    root: process.cwd(),
+  },
 
   // 보안 헤더 설정 (Enterprise Security Standards)
   async headers() {

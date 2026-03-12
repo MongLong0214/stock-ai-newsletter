@@ -1,0 +1,2 @@
+ALTER TABLE drift_report_artifact
+  ADD COLUMN IF NOT EXISTS base_rate DOUBLE PRECISION;

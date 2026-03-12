@@ -135,8 +135,11 @@ export async function collectNaverNews(
   console.log(`   테마 수: ${themes.length}`)
 
   if (!process.env.NAVER_CLIENT_ID || !process.env.NAVER_CLIENT_SECRET) {
-    console.warn('   ⚠️ NAVER_CLIENT_ID/SECRET 미설정 — 뉴스 수집 건너뜀')
-    return { metrics: [], articles: [] }
+    if (process.env.TLI_ALLOW_NEWS_SKIP === '1') {
+      console.warn('   ⚠️ NAVER_CLIENT_ID/SECRET 미설정 — 뉴스 수집 건너뜀')
+      return { metrics: [], articles: [] }
+    }
+    throw new Error('NAVER_CLIENT_ID / NAVER_CLIENT_SECRET 환경 변수가 필요합니다')
   }
 
   const metrics: NewsMetric[] = []

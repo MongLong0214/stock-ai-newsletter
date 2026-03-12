@@ -11,6 +11,59 @@ import { DEFAULT_THRESHOLD } from './auto-tune'
 import { COMPARISON_V4_LEGACY_CLEANUP_DAYS } from './comparison-v4-ops'
 import { getComparisonV4ShadowConfig, upsertComparisonShadowRun } from './comparison-v4-shadow'
 const MAX_MATCHES_PER_THEME = 3
+export const COMPARISON_SCORE_LOOKBACK_DAYS = 365
+
+interface LegacyComparisonCleanupClient {
+  from(table: string): {
+    delete(): {
+      lt(column: string, value: string): {
+        or?(filter: string): {
+          select(columns: string): Promise<{ data: Array<{ id: string }> | null; error: { message?: string } | null }>
+        }
+        select(columns: string): Promise<{ data: Array<{ id: string }> | null; error: { message?: string } | null }>
+      }
+    }
+  }
+}
+
+export function getComparisonScoreLookbackDate(kstNow: Date): string {
+  return new Date(kstNow.getTime() - COMPARISON_SCORE_LOOKBACK_DAYS * 86400000).toISOString().split('T')[0]
+}
+
+export async function deleteStaleLegacyComparisons(
+  client: LegacyComparisonCleanupClient,
+  today: string,
+  retentionDays: number,
+) {
+  const staleCutoffDate = new Date(new Date(today).getTime() - retentionDays * 86400000).toISOString().split('T')[0]
+
+  const firstAttempt = await client
+    .from('theme_comparisons')
+    .delete()
+    .lt('calculated_at', staleCutoffDate)
+    .or?.('outcome_verified.is.null,outcome_verified.eq.false')
+    .select('id')
+
+  if (firstAttempt && !firstAttempt.error) {
+    return {
+      deletedCount: firstAttempt.data?.length ?? 0,
+      usedSchemaFallback: false,
+      error: null,
+    }
+  }
+
+  const fallbackAttempt = await client
+    .from('theme_comparisons')
+    .delete()
+    .lt('calculated_at', staleCutoffDate)
+    .select('id')
+
+  return {
+    deletedCount: fallbackAttempt.data?.length ?? 0,
+    usedSchemaFallback: true,
+    error: fallbackAttempt.error,
+  }
+}
 
 interface MatchResult {
   pastThemeId: string; pastThemeName: string; similarity: number
@@ -21,6 +74,23 @@ interface MatchResult {
   pastPeakScore?: number | null
   pastFinalStage?: string | null
   pastDeclineDays?: number | null
+}
+
+export function resolveComparisonPersistenceOutcome(input: {
+  attemptedMatches: number
+  writeSucceeded: boolean
+}) {
+  if (!input.writeSucceeded) {
+    return {
+      persistedMatchCount: 0,
+      persistedTheme: false,
+    }
+  }
+
+  return {
+    persistedMatchCount: input.attemptedMatches,
+    persistedTheme: input.attemptedMatches > 0,
+  }
 }
 
 export async function calculateThemeComparisons(themes: ThemeWithKeywords[], thresholdOverride?: number) {
@@ -45,6 +115,12 @@ export async function calculateThemeComparisons(themes: ThemeWithKeywords[], thr
   if (enrichedThemes.length === 0) { console.log('   ⚠️ 보강된 테마 없음 — 비교 분석 생략'); return }
 
   const populationStats = computePopulationStats(enrichedThemes)
+  const keywordSupportCounts = new Map<string, number>()
+  for (const theme of enrichedThemes) {
+    for (const keyword of theme.keywordsLower) {
+      keywordSupportCounts.set(keyword, (keywordSupportCounts.get(keyword) ?? 0) + 1)
+    }
+  }
   console.log(`   피처 모집단 통계: ${populationStats.means.length}차원, ${enrichedThemes.length}개 테마`)
 
   // 2.5단계: Mutual Rank 인덱스 구축 (중심편향 방지)
@@ -70,43 +146,52 @@ export async function calculateThemeComparisons(themes: ThemeWithKeywords[], thr
       const current = enrichedMap.get(currentTheme.id)
       if (!current) { console.log(`   ⊘ ${currentTheme.name}: 보강 데이터 없음`); continue }
 
-      const matches = findTopMatches(current, enrichedThemes, populationStats, mutualRankIndex, curveMutualRankIndex, effectiveThreshold)
+      const matches = findTopMatches(
+        current,
+        enrichedThemes,
+        populationStats,
+        mutualRankIndex,
+        curveMutualRankIndex,
+        keywordSupportCounts,
+        effectiveThreshold,
+      )
       if (matches.length === 0) {
-        try {
-          await upsertComparisonShadowRun({
-            config: shadowConfig,
-            runDate: getKSTDate(),
-            currentThemeId: currentTheme.id,
-            sourceDataCutoffDate: getKSTDate(),
-            matches: [],
-          })
-        } catch (v4Err: unknown) {
-          console.error('   ⚠️ V4 write 실패 (파이프라인 계속):', v4Err instanceof Error ? v4Err.message : String(v4Err))
-        }
+        await upsertComparisonShadowRun({
+          config: shadowConfig,
+          runDate: getKSTDate(),
+          currentThemeId: currentTheme.id,
+          sourceDataCutoffDate: getKSTDate(),
+          matches: [],
+        })
         console.log(`   ⊘ ${currentTheme.name}: 유사 매칭 없음 (임계값 ${Math.round(effectiveThreshold * 100)}%)`)
         continue
       }
 
-      themesWithMatches++
-      totalMatches += matches.length
       const today = getKSTDate()
       await saveMatches(currentTheme.id, matches, enrichedMap, dataByTheme.scores, today, shadowConfig)
+      const persisted = resolveComparisonPersistenceOutcome({
+        attemptedMatches: matches.length,
+        writeSucceeded: true,
+      })
+      if (persisted.persistedTheme) themesWithMatches++
+      totalMatches += persisted.persistedMatchCount
 
       console.log(`   ✅ ${currentTheme.name}: ${matches.length}개 매칭 (최고: ${matches[0].pastThemeName} ${Math.round(matches[0].similarity * 100)}%)`)
     } catch (error: unknown) {
       console.error(`   ❌ ${currentTheme.name} 비교 실패:`, error instanceof Error ? error.message : String(error))
+      throw error instanceof Error ? error : new Error(String(error))
     }
   }
 
   // 만료된 미검증 비교 정리 (90일 이전, 검증 완료 레코드는 보존)
-  const staleCutoffDate = new Date(kstNow.getTime() - COMPARISON_V4_LEGACY_CLEANUP_DAYS * 86400000).toISOString().split('T')[0]
-  const { data: deleted, error: deleteErr } = await supabaseAdmin.from('theme_comparisons').delete()
-    .lt('calculated_at', staleCutoffDate)
-    .or('outcome_verified.is.null,outcome_verified.eq.false')
-    .select('id')
-  if (deleteErr) console.warn('   ⚠️ stale 비교 삭제 실패:', deleteErr.message)
+  const cleanup = await deleteStaleLegacyComparisons(
+    supabaseAdmin as unknown as LegacyComparisonCleanupClient,
+    kstNow.toISOString().split('T')[0],
+    COMPARISON_V4_LEGACY_CLEANUP_DAYS,
+  )
+  if (cleanup.error) console.warn('   ⚠️ stale 비교 삭제 실패:', cleanup.error.message)
 
-  console.log(`\n✅ 비교 분석 완료: ${themesWithMatches}/${themes.length} 테마에 총 ${totalMatches}건 매칭 (stale ${deleted?.length ?? 0}건 정리)`)
+  console.log(`\n✅ 비교 분석 완료: ${themesWithMatches}/${themes.length} 테마에 총 ${totalMatches}건 매칭 (stale ${cleanup.deletedCount}건 정리)`)
 }
 
 async function loadAllThemes() {
@@ -124,6 +209,7 @@ async function loadAllThemes() {
 
 async function loadThemeData(themeIds: string[], kstNow: Date): Promise<ThemeDataMaps> {
   const daysAgo = (d: number) => new Date(kstNow.getTime() - d * 86400000).toISOString().split('T')[0]
+  const comparisonScoreLookbackDate = getComparisonScoreLookbackDate(kstNow)
 
   const [interestAll, scoresAll, newsAll, keywordsAll, stocksAll] = await Promise.all([
     batchQuery<{ theme_id: string; time: string; normalized: number; raw_value: number }>(
@@ -131,7 +217,7 @@ async function loadThemeData(themeIds: string[], kstNow: Date): Promise<ThemeDat
     ),
     batchQuery<{ theme_id: string; score: number; calculated_at: string }>(
       'lifecycle_scores', 'theme_id, score, calculated_at', themeIds,
-      q => q.gte('calculated_at', daysAgo(90)).order('calculated_at', { ascending: false }),
+      q => q.gte('calculated_at', comparisonScoreLookbackDate).order('calculated_at', { ascending: false }),
     ),
     batchQuery<{ theme_id: string; article_count: number }>(
       'news_metrics', 'theme_id, article_count', themeIds, q => q.gte('time', daysAgo(30)),
@@ -153,6 +239,7 @@ function findTopMatches(
   populationStats: ReturnType<typeof computePopulationStats>,
   mutualRank: MutualRankIndex,
   curveMutualRank: MutualRankIndex,
+  keywordSupportCounts: Map<string, number>,
   threshold: number,
 ): MatchResult[] {
   const matches: MatchResult[] = []
@@ -165,7 +252,14 @@ function findTopMatches(
     const curveMRSim = curveMutualRank.getSimilarity(current.id, past.id)
     // Curve MR 인덱스에 없는 쌍(sim=0)은 rawCurveSim 폴백 (undefined)
     const precomputedCurveSim = curveMRSim > 0 ? curveMRSim : undefined
-    const result = compositeCompare({ current, past, populationStats, precomputedFeatureSim, precomputedCurveSim })
+    const result = compositeCompare({
+      current,
+      past,
+      populationStats,
+      precomputedFeatureSim,
+      precomputedCurveSim,
+      keywordSupportCounts,
+    })
     if (result.similarity >= threshold) {
       matches.push({ pastThemeId: past.id, pastThemeName: past.name, ...result })
     }
@@ -202,29 +296,25 @@ async function saveMatches(
 
   if (v4Matches.length === 0) return
 
-  try {
-    await upsertComparisonShadowRun({
-      config: shadowConfig,
-      runDate: today,
-      currentThemeId,
-      sourceDataCutoffDate: today,
-      matches: v4Matches.map((match) => ({
-        pastThemeId: match.pastThemeId,
-        similarity: match.similarity,
-        currentDay: match.currentDay,
-        pastPeakDay: match.pastPeakDay,
-        pastTotalDays: match.pastTotalDays,
-        estimatedDaysToPeak: match.estimatedDaysToPeak,
-        message: match.message,
-        featureSim: match.featureSim,
-        curveSim: match.curveSim,
-        keywordSim: match.keywordSim,
-        pastPeakScore: match.pastPeakScore ?? null,
-        pastFinalStage: match.pastFinalStage ?? null,
-        pastDeclineDays: match.pastDeclineDays ?? null,
-      })),
-    })
-  } catch (v4Err: unknown) {
-    console.error('   ⚠️ V4 write 실패 (파이프라인 계속):', v4Err instanceof Error ? v4Err.message : String(v4Err))
-  }
+  await upsertComparisonShadowRun({
+    config: shadowConfig,
+    runDate: today,
+    currentThemeId,
+    sourceDataCutoffDate: today,
+    matches: v4Matches.map((match) => ({
+      pastThemeId: match.pastThemeId,
+      similarity: match.similarity,
+      currentDay: match.currentDay,
+      pastPeakDay: match.pastPeakDay,
+      pastTotalDays: match.pastTotalDays,
+      estimatedDaysToPeak: match.estimatedDaysToPeak,
+      message: match.message,
+      featureSim: match.featureSim,
+      curveSim: match.curveSim,
+      keywordSim: match.keywordSim,
+      pastPeakScore: match.pastPeakScore ?? null,
+      pastFinalStage: match.pastFinalStage ?? null,
+      pastDeclineDays: match.pastDeclineDays ?? null,
+    })),
+  })
 }

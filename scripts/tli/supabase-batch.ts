@@ -19,6 +19,7 @@ export async function batchQuery<T>(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase 쿼리 빌더 타입이 제네릭 체인으로 추론 불가
   filters?: (q: any) => any,
   column = 'theme_id',
+  options?: { failOnError?: boolean },
 ): Promise<T[]> {
   const results: T[] = []
 
@@ -50,6 +51,9 @@ export async function batchQuery<T>(
 
       if (lastError) {
         console.error(`   ⚠️ batchQuery(${table}) ${MAX_RETRIES}회 시도 후 실패:`, lastError)
+        if (options?.failOnError) {
+          throw new Error(lastError)
+        }
         break
       }
       if (!data?.length) break

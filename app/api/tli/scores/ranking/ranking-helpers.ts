@@ -1,6 +1,9 @@
 import { supabase } from '@/lib/supabase'
 import type { ThemeListItem, ThemeRanking } from '@/lib/tli/types'
 import { getMinRawInterest } from '@/lib/tli/constants/score-config'
+import { QUALITY_GATE } from '@/lib/tli/constants/quality-gate'
+import { buildQualityGateBuckets } from '@/lib/tli/quality-gate'
+import { buildSignalCardsFromPools } from '@/lib/tli/theme-signals'
 
 /** 빈 랭킹 응답 (placeholder / 에러 시 재사용) */
 export const EMPTY_RANKING: ThemeRanking = {
@@ -9,6 +12,7 @@ export const EMPTY_RANKING: ThemeRanking = {
   peak: [],
   decline: [],
   reigniting: [],
+  signals: [],
   summary: {
     totalThemes: 0,
     byStage: {},
@@ -22,6 +26,7 @@ export const EMPTY_RANKING: ThemeRanking = {
 
 const BATCH_SIZE = 50
 const PAGE_SIZE = 1000
+export const SCORE_QUERY_BATCH_SIZE = 10
 
 /** theme_stocks 배치 로더 (is_active=true) — 종목명 + 등락률 포함, 병렬 배치 */
 export async function batchLoadStockData(
@@ -36,12 +41,13 @@ export async function batchLoadStockData(
       const chunkResults: Array<{ theme_id: string; name: string; price_change_pct: number | null }> = []
       let from = 0
       while (true) {
-        const { data } = await supabase
+        const { data, error } = await supabase
           .from('theme_stocks')
           .select('theme_id, name, price_change_pct')
           .in('theme_id', chunk)
           .eq('is_active', true)
           .range(from, from + PAGE_SIZE - 1)
+        if (error) throw new Error(`theme_stocks batch load failed: ${error.message}`)
         if (!data || data.length === 0) break
         chunkResults.push(...data)
         if (data.length < PAGE_SIZE) break
@@ -67,12 +73,13 @@ export async function batchLoadNewsCounts(
       const chunkResults: Array<{ theme_id: string }> = []
       let from = 0
       while (true) {
-        const { data } = await supabase
+        const { data, error } = await supabase
           .from('theme_news_articles')
           .select('theme_id')
           .in('theme_id', chunk)
           .gte('pub_date', since)
           .range(from, from + PAGE_SIZE - 1)
+        if (error) throw new Error(`theme_news_articles batch load failed: ${error.message}`)
         if (!data || data.length === 0) break
         chunkResults.push(...data)
         if (data.length < PAGE_SIZE) break
@@ -98,6 +105,22 @@ function daysBetweenDates(d1: string, d2: string): number {
   const date2 = new Date(d2);
   if (isNaN(date1.getTime()) || isNaN(date2.getTime())) return 0;
   return Math.floor((date1.getTime() - date2.getTime()) / (1000 * 60 * 60 * 24));
+}
+
+export function applyFreshnessDecayToThemeData(
+  themeData: ThemeListItem[],
+  scoreMetaByTheme: Map<string, ThemeScoreMeta>,
+  today: string,
+): ThemeListItem[] {
+  return themeData.map((item) => {
+    const meta = scoreMetaByTheme.get(item.id)
+    if (!meta?.lastDataDate) return item
+
+    return {
+      ...item,
+      score: applyFreshnessDecay(item.score, meta.lastDataDate, today),
+    }
+  })
 }
 
 /** 점수 메타 정보 (최신, 7일 전, 스파크라인) */
@@ -247,5 +270,31 @@ export function calculateRankingSummary(
       ? { id: surging.id, name: surging.name, score: surging.score, change7d: surging.change7d, stage: surging.stage }
       : null,
     avgScore,
+  }
+}
+
+export function buildThemeRanking(
+  themeData: ThemeListItem[],
+  rawInterestAvgMap?: Map<string, number>,
+): ThemeRanking {
+  const eligibleBuckets = buildQualityGateBuckets(themeData)
+  const activeThemes = [
+    ...eligibleBuckets.emerging,
+    ...eligibleBuckets.growth,
+    ...eligibleBuckets.peak,
+    ...eligibleBuckets.decline,
+    ...eligibleBuckets.reigniting,
+  ]
+  const summary = calculateRankingSummary(activeThemes, rawInterestAvgMap)
+  const signals = buildSignalCardsFromPools(eligibleBuckets)
+
+  return {
+    emerging: eligibleBuckets.emerging.slice(0, QUALITY_GATE.stageCaps.Emerging),
+    growth: eligibleBuckets.growth.slice(0, QUALITY_GATE.stageCaps.Growth),
+    peak: eligibleBuckets.peak.slice(0, QUALITY_GATE.stageCaps.Peak),
+    decline: eligibleBuckets.decline.slice(0, QUALITY_GATE.stageCaps.Decline),
+    reigniting: eligibleBuckets.reigniting.slice(0, QUALITY_GATE.reignitingCap),
+    signals,
+    summary,
   }
 }

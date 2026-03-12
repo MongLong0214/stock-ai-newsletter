@@ -16,6 +16,7 @@ import {
   PHASE_COLORS,
 } from './config'
 import { StatCell, MomentumCell, ScenarioCard } from './sub-components'
+import { getScenarioCards } from './presentation'
 
 const containerVariants = {
   hidden: { opacity: 0, y: 24 },
@@ -151,31 +152,23 @@ function ThemePrediction({ firstSpikeDate, comparisons, score, stage }: ThemePre
 
         {/* 6. 시나리오 카드 (동일 테마 중복 시 축소) */}
         {(() => {
-          const { best, median, worst } = prediction.scenarios
-          const allSame = best.themeName === median.themeName && median.themeName === worst.themeName
-          const bestMedianSame = best.themeName === median.themeName
-          const medianWorstSame = median.themeName === worst.themeName
+          const cards = getScenarioCards(prediction.scenarios)
+          const gridClass = cards.length === 1
+            ? 'grid grid-cols-1 gap-3'
+            : cards.length === 2
+              ? 'grid grid-cols-1 sm:grid-cols-2 gap-3'
+              : 'grid grid-cols-1 sm:grid-cols-3 gap-3'
 
-          if (allSame) {
-            return (
-              <motion.div variants={itemVariants} className="grid grid-cols-1 gap-3">
-                <ScenarioCard label="참고 시나리오" scenario={median} accent="slate" />
-              </motion.div>
-            )
-          }
-          if (bestMedianSame || medianWorstSame) {
-            return (
-              <motion.div variants={itemVariants} className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <ScenarioCard label="낙관 시나리오" scenario={best} accent="emerald" />
-                <ScenarioCard label="비관 시나리오" scenario={worst} accent="red" />
-              </motion.div>
-            )
-          }
           return (
-            <motion.div variants={itemVariants} className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <ScenarioCard label="낙관 시나리오" scenario={best} accent="emerald" />
-              <ScenarioCard label="기본 시나리오" scenario={median} accent="slate" />
-              <ScenarioCard label="비관 시나리오" scenario={worst} accent="red" />
+            <motion.div variants={itemVariants} className={gridClass}>
+              {cards.map((card) => (
+                <ScenarioCard
+                  key={`${card.label}-${card.scenario.themeName}`}
+                  label={card.label}
+                  scenario={card.scenario}
+                  accent={card.accent}
+                />
+              ))}
             </motion.div>
           )
         })()}

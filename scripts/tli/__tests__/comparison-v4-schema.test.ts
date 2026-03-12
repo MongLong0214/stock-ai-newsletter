@@ -8,6 +8,8 @@ import type {
   PredictionSnapshotV2,
   ThemeStateHistoryV2,
   ComparisonBackfillManifestV2,
+  ComparisonV4Control,
+  DriftReportArtifact,
 } from '../../../lib/tli/types/db'
 
 const migrationPath = join(process.cwd(), 'supabase/migrations/016_comparison_v4_foundation.sql')
@@ -30,6 +32,54 @@ describe('comparison v4 schema migration', () => {
     expect(controlSql).toContain('production_version')
     expect(controlSql).toContain('serving_enabled')
     expect(controlSql).toContain('CREATE UNIQUE INDEX IF NOT EXISTS idx_comparison_v4_control_single_enabled')
+  })
+
+  it('adds level4 promotion metadata and drift artifact persistence in the next migration', () => {
+    const sql = readFileSync(join(process.cwd(), 'supabase/migrations/022_level4_promotion_and_drift.sql'), 'utf8')
+
+    expect(sql).toContain('ALTER TABLE comparison_v4_control')
+    expect(sql).toContain('calibration_version')
+    expect(sql).toContain('weight_version')
+    expect(sql).toContain('drift_version')
+    expect(sql).toContain('promotion_gate_status')
+    expect(sql).toContain('previous_stable_version')
+    expect(sql).toContain('auto_hold_enabled')
+    expect(sql).toContain('hold_state')
+    expect(sql).toContain('CREATE TABLE IF NOT EXISTS drift_report_artifact')
+    expect(sql).toContain('support_bucket_precision')
+  })
+
+  it('adds base_rate to drift_report_artifact in the follow-up migration', () => {
+    const sql = readFileSync(join(process.cwd(), 'supabase/migrations/024_level4_drift_base_rate.sql'), 'utf8')
+    expect(sql).toContain('ALTER TABLE drift_report_artifact')
+    expect(sql).toContain('base_rate')
+  })
+
+  it('adds an atomic promotion function for comparison v4 release cutover', () => {
+    const sql = readFileSync(join(process.cwd(), 'supabase/migrations/025_comparison_v4_atomic_promotion.sql'), 'utf8')
+    expect(sql).toContain('CREATE OR REPLACE FUNCTION promote_comparison_v4_release')
+    expect(sql).toContain('theme_comparison_runs_v2')
+    expect(sql).toContain('comparison_v4_control')
+  })
+
+  it('adds promotion-runtime drift evidence columns in the next migration', () => {
+    const sql = readFileSync(join(process.cwd(), 'supabase/migrations/026_level4_drift_gate_columns.sql'), 'utf8')
+    expect(sql).toContain('ALTER TABLE drift_report_artifact')
+    expect(sql).toContain('baseline_candidate_concentration_gini')
+    expect(sql).toContain('baseline_censoring_ratio')
+    expect(sql).toContain('low_confidence_serving_rate')
+    expect(sql).toContain('hold_report_date')
+  })
+
+  it('adds certification weight artifact persistence in the following migration', () => {
+    const sql = readFileSync(join(process.cwd(), 'supabase/migrations/023_level4_weight_artifacts.sql'), 'utf8')
+
+    expect(sql).toContain('CREATE TABLE IF NOT EXISTS weight_artifact')
+    expect(sql).toContain('weight_version')
+    expect(sql).toContain('curve_bucket_policy')
+    expect(sql).toContain('validation_metric_summary')
+    expect(sql).toContain('ci_method')
+    expect(sql).toContain('bootstrap_iterations')
   })
 
   it('adds lineage-safe uniqueness and key columns', () => {
@@ -181,11 +231,57 @@ describe('comparison v4 db types', () => {
       notes: null,
     }
 
+    const control: ComparisonV4Control = {
+      id: 'control-1',
+      production_version: 'algo-v4-prod',
+      serving_enabled: true,
+      promoted_by: 'codex',
+      promoted_at: '2026-03-11T00:00:00Z',
+      created_at: '2026-03-11T00:00:00Z',
+      source_surface: 'v2_certification',
+      calibration_version: 'cal-2026-03',
+      weight_version: null,
+      drift_version: 'drift-2026-03',
+      promotion_gate_status: 'passed',
+      promotion_gate_summary: 'all release gates passed',
+      promotion_gate_failures: [],
+      previous_stable_version: 'algo-v4-prev',
+      rollback_reason: null,
+      rolled_back_at: null,
+      auto_hold_enabled: true,
+      hold_state: 'inactive',
+      hold_reason: null,
+      hold_report_date: '2026-03-31',
+      updated_at: '2026-03-11T00:00:00Z',
+    }
+
+    const driftArtifact: DriftReportArtifact = {
+      drift_version: 'drift-2026-03',
+      report_date: '2026-03-31',
+      source_surface: 'v2_certification',
+      relevance_base_rate: 0.05,
+      calibration_curve_error: 0.02,
+      brier: 0.04,
+      ece: 0.03,
+      candidate_concentration_gini: 0.21,
+      censoring_ratio: 0.11,
+      first_spike_inference_rate: 0.18,
+      support_bucket_precision: { high: 0.8, medium: 0.55, low: 0.14 },
+      baseline_window_months: 3,
+      baseline_row_count: 3200,
+      auto_hold_enabled: true,
+      drift_status: 'stable',
+      triggered_rules: [],
+      created_at: '2026-03-31T00:00:00Z',
+    }
+
     expect(run.run_type).toBe('shadow')
     expect(candidate.is_selected_top3).toBe(true)
     expect(evaluation.graded_gain).toBe(2)
     expect(snapshot.candidate_pool).toBe('archetype')
     expect(stateHistory.state_version).toBe('v1')
     expect(manifest.row_count_parity_ok).toBe(true)
+    expect(control.calibration_version).toBe('cal-2026-03')
+    expect(driftArtifact.drift_status).toBe('stable')
   })
 })

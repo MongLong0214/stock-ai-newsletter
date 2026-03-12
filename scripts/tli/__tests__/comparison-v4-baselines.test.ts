@@ -1,4 +1,5 @@
 import { existsSync, writeFileSync, unlinkSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import { resolve } from 'node:path'
 import { describe, expect, it, afterAll } from 'vitest'
 import {
@@ -89,7 +90,7 @@ describe('CMPV4-009: baseline pass/fail', () => {
 })
 
 describe('CMPV4-009: power analysis document guard', () => {
-  const testPath = resolve(process.cwd(), 'docs/comparison-v4-power-analysis-test-temp.md')
+  const testPath = resolve(tmpdir(), 'comparison-v4-power-analysis-test-temp.md')
 
   afterAll(() => {
     if (existsSync(testPath)) unlinkSync(testPath)
