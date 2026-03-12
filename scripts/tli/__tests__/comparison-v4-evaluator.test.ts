@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   alignPastWindowByCurrentDay,
   classifyCurrentRunHorizonCensoring,
+  computeStageAlignmentForComparison,
   evaluateFixedHorizonComparison,
   findClosestStageByDate,
   findClosestStageByLifecycleDay,
@@ -59,6 +60,26 @@ describe('comparison v4 evaluator', () => {
     expect(result.positionStageMatchH14).toBe(false)
     expect(result.binaryRelevant).toBe(false)
     expect(result.gradedGain).toBe(2)
+  })
+
+  it('computes adjacent-stage partial alignment instead of hard zero', () => {
+    const alignment = computeStageAlignmentForComparison('Growth', 'Peak')
+    expect(alignment.exactMatch).toBe(false)
+    expect(alignment.score).toBe(0.5)
+  })
+
+  it('allows adjacent-stage strong correlations to count as relevant', () => {
+    const rising = Array.from({ length: 14 }, (_, idx) => idx + 1)
+    const result = evaluateFixedHorizonComparison({
+      currentFutureValues: rising,
+      pastFutureValues: rising,
+      currentStageAtH14: 'Growth',
+      pastStageAtAlignedH14: 'Peak',
+    })
+
+    expect(result.positionStageMatchH14).toBe(false)
+    expect(result.stageAlignmentScore).toBe(0.5)
+    expect(result.binaryRelevant).toBe(true)
   })
 
   it('computes a phase-aligned relevant hit when both correlation and stage match hold', () => {

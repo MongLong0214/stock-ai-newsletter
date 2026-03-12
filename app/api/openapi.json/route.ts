@@ -277,6 +277,10 @@ export function GET() {
               type: 'array',
               items: { $ref: '#/components/schemas/ThemeListItem' },
             },
+            signals: {
+              type: 'array',
+              items: { $ref: '#/components/schemas/ThemeSignalCard' },
+            },
             summary: { $ref: '#/components/schemas/RankingSummary' },
           },
           required: [
@@ -431,6 +435,30 @@ export function GET() {
             'surging',
             'avgScore',
           ],
+        },
+        ThemeSignalCard: {
+          type: 'object',
+          properties: {
+            key: {
+              type: 'string',
+              enum: ['movers', 'peak', 'emerging', 'reigniting'],
+            },
+            title: { type: 'string' },
+            themes: {
+              type: 'array',
+              items: { $ref: '#/components/schemas/ThemeSignalItem' },
+            },
+          },
+          required: ['key', 'title', 'themes'],
+        },
+        ThemeSignalItem: {
+          type: 'object',
+          properties: {
+            id: { type: 'string' },
+            name: { type: 'string' },
+            detail: { type: 'string' },
+          },
+          required: ['id', 'name', 'detail'],
         },
         ThemeDetail: {
           type: 'object',
@@ -686,6 +714,48 @@ export function GET() {
                 },
               },
               description: 'Past theme lifecycle curve data points',
+            },
+            relevanceProbability: {
+              type: 'number',
+              nullable: true,
+              description: 'Calibrated relevance probability from an approved level-4 artifact',
+            },
+            probabilityCiLower: {
+              type: 'number',
+              nullable: true,
+              description: 'Lower bound of the relevance probability confidence interval',
+            },
+            probabilityCiUpper: {
+              type: 'number',
+              nullable: true,
+              description: 'Upper bound of the relevance probability confidence interval',
+            },
+            supportCount: {
+              type: 'integer',
+              nullable: true,
+              description: 'Effective support sample size used for calibration',
+            },
+            confidenceTier: {
+              type: 'string',
+              nullable: true,
+              enum: ['high', 'medium', 'low'],
+              description: 'Level-4 confidence tier derived from support count and CI width',
+            },
+            calibrationVersion: {
+              type: 'string',
+              nullable: true,
+              description: 'Version identifier of the calibration artifact used for serving',
+            },
+            weightVersion: {
+              type: 'string',
+              nullable: true,
+              description: 'Version identifier of the weight artifact used for serving',
+            },
+            sourceSurface: {
+              type: 'string',
+              nullable: true,
+              enum: ['legacy_diagnostic', 'v2_certification', 'replay_equivalent'],
+              description: 'Source surface that produced the serving artifact',
             },
           },
           required: ['pastTheme', 'pastThemeId', 'similarity', 'currentDay', 'estimatedDaysToPeak', 'message'],

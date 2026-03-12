@@ -1,7 +1,7 @@
 /** 테마 보강 — first_spike_date 추론 · 피처 추출 · 곡선 구축 · 모집단 통계 */
 
 import { normalizeTimeline, normalizeValues, resampleCurve, findPeakDay, type TimeSeriesPoint } from '../../lib/tli/comparison/timeline'
-import { extractFeatures, featuresToArray, classifySector, type ThemeFeatures } from '../../lib/tli/comparison/features'
+import { extractFeatures, featuresToArray, classifySectorProfile, type ThemeFeatures } from '../../lib/tli/comparison/features'
 import type { FeaturePopulationStats } from '../../lib/tli/comparison/similarity'
 
 // ── 타입 ──────────────────────────────────────────────────────────────────────
@@ -28,6 +28,7 @@ export interface EnrichedTheme {
   totalDays: number
   activeDays: number
   sector: string
+  sectorConfidence: number
 }
 
 export interface ThemeDataMaps {
@@ -88,6 +89,13 @@ export function enrichThemes(
 
   // 2단계: Cross-theme percentile 배열 구축
   const allRawAvgs = preEnriched.map(p => p.rawAvg7d).filter(v => v > 0).sort((a, b) => a - b)
+  const keywordSupportCounts = new Map<string, number>()
+  for (const pre of preEnriched) {
+    for (const keyword of pre.keywords) {
+      const normalized = keyword.toLowerCase()
+      keywordSupportCounts.set(normalized, (keywordSupportCounts.get(normalized) ?? 0) + 1)
+    }
+  }
 
   // percentileRank 로컬 구현 (normalize.ts의 것과 동일 로직)
   function computePercentile(value: number): number {
@@ -115,6 +123,8 @@ export function enrichThemes(
     const avgPriceChangePct = validPrices.length > 0 ? validPrices.reduce((a, b) => a + b, 0) / validPrices.length : 0
     const avgVolume = validVolumes.length > 0 ? validVolumes.reduce((a, b) => a + b, 0) / validVolumes.length : 0
 
+    const sectorProfile = classifySectorProfile(keywords)
+
     const features = extractFeatures({
       interestValues: interestAfterSpike.map(m => m.normalized),
       totalNewsCount: news.reduce((sum, n) => sum + n.article_count, 0),
@@ -122,6 +132,9 @@ export function enrichThemes(
       avgPriceChangePct,
       avgVolume,
       interestLevel: allRawAvgs.length >= 3 ? computePercentile(rawAvg7d) : undefined,
+      keywords,
+      keywordSupportCounts,
+      sectorConfidence: sectorProfile.confidence,
     })
 
     const peakDay = curve.length > 0 ? findPeakDay(curve) : -1
@@ -135,7 +148,8 @@ export function enrichThemes(
       firstSpikeDate,
       isActive: theme.is_active,
       features, curve, resampledCurve, keywords, keywordsLower, peakDay, totalDays, activeDays,
-      sector: classifySector(keywords),
+      sector: sectorProfile.sector,
+      sectorConfidence: sectorProfile.confidence,
     })
   }
 

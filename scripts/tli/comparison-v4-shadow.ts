@@ -57,6 +57,24 @@ export function determineShadowCandidatePool(matches: Array<{ isPastActive?: boo
   return 'mixed_legacy'
 }
 
+export function resolveShadowRunMaterialization(input: {
+  candidateCount: number
+  failedCount: number
+}) {
+  const materializedCandidateCount = Math.max(0, input.candidateCount - input.failedCount)
+  const allCandidatesMaterialized = materializedCandidateCount === input.candidateCount
+  const lastError = input.failedCount > 0
+    ? `${input.failedCount} candidate rows failed to materialize`
+    : null
+
+  return {
+    materializedCandidateCount,
+    allCandidatesMaterialized,
+    lastError,
+    status: allCandidatesMaterialized ? 'materializing' as const : 'failed' as const,
+  }
+}
+
 export function prepareComparisonShadowRows(input: {
   config: ComparisonV4ShadowConfig
   runDate: string
@@ -197,21 +215,26 @@ export async function upsertComparisonShadowRun(input: {
       'comparison-v4 shadow candidates',
     )
   }
-  const materializedCandidateCount = Math.max(0, candidateRows.length - failedCount)
-
-  const allCandidatesMaterialized = materializedCandidateCount === candidateRows.length
+  const materialization = resolveShadowRunMaterialization({
+    candidateCount: candidateRows.length,
+    failedCount,
+  })
   const { error: updateErr } = await supabaseAdmin
     .from('theme_comparison_runs_v2')
     .update({
-      materialized_candidate_count: materializedCandidateCount,
-      publish_ready: allCandidatesMaterialized,
-      status: allCandidatesMaterialized ? 'materializing' : 'failed',
-      last_error: failedCount > 0 ? `${failedCount} candidate rows failed to materialize` : null,
+      materialized_candidate_count: materialization.materializedCandidateCount,
+      publish_ready: materialization.allCandidatesMaterialized,
+      status: materialization.status,
+      last_error: materialization.lastError,
     })
     .eq('id', runId)
 
   if (updateErr) {
     throw new Error(`v2 shadow run 상태 업데이트 실패: ${updateErr.message}`)
+  }
+
+  if (!materialization.allCandidatesMaterialized) {
+    throw new Error(materialization.lastError || 'comparison-v4 shadow candidates failed to materialize')
   }
 
   return { runId, candidateRows, candidatePool: prepared.runRow.candidate_pool }

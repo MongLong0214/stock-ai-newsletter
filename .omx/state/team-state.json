@@ -1,0 +1,73 @@
+{
+  "active": false,
+  "mode": "team",
+  "iteration": 0,
+  "max_iterations": 50,
+  "current_phase": "cancelled",
+  "task_description": "Implement TLI4-001 through TLI4-015 from docs/tli-comparison-level4-tickets.md in strict TDD order. Prioritize all P0 tickets before P1, preserve existing behavior, generate required artifacts/reports, and keep the system production-ready after each completed ticket.",
+  "started_at": "2026-03-12T03:26:27.550Z",
+  "tmux_pane_id": "%27",
+  "tmux_pane_set_at": "2026-03-12T03:26:27.550Z",
+  "linked_ralph": true,
+  "team_name": "implement-tli4-001-through-tli",
+  "agent_count": 3,
+  "agent_types": "test-engineer,writer",
+  "available_agent_types": [
+    "analyst",
+    "api-reviewer",
+    "architect",
+    "build-fixer",
+    "code-reviewer",
+    "code-simplifier",
+    "critic",
+    "debugger",
+    "deep-executor",
+    "dependency-expert",
+    "designer",
+    "executor",
+    "explore",
+    "git-master",
+    "information-architect",
+    "performance-reviewer",
+    "planner",
+    "product-analyst",
+    "product-manager",
+    "qa-tester",
+    "quality-reviewer",
+    "quality-strategist",
+    "researcher",
+    "scientist",
+    "security-reviewer",
+    "sisyphus-lite",
+    "style-reviewer",
+    "team-executor",
+    "team-orchestrator",
+    "test-engineer",
+    "ux-researcher",
+    "verifier",
+    "vision",
+    "writer"
+  ],
+  "staffing_summary": "test-engineer x1 (primary delivery lane, medium reasoning); test-engineer x1 (verification + regression lane, medium reasoning); designer x1 (specialist support lane, medium reasoning)",
+  "staffing_allocations": [
+    {
+      "role": "test-engineer",
+      "count": 1,
+      "reason": "primary delivery lane",
+      "reasoningEffort": "medium"
+    },
+    {
+      "role": "test-engineer",
+      "count": 1,
+      "reason": "verification + regression lane",
+      "reasoningEffort": "medium"
+    },
+    {
+      "role": "designer",
+      "count": 1,
+      "reason": "specialist support lane",
+      "reasoningEffort": "medium"
+    }
+  ],
+  "completed_at": "2026-03-12T04:22:16.438Z"
+}

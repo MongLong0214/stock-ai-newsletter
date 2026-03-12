@@ -6,7 +6,7 @@ import { dirname, resolve } from 'node:path'
 import { supabaseAdmin } from './supabase-admin'
 import { batchQuery, groupByThemeId } from './supabase-batch'
 import { normalizeTimeline, findPeakDay, type TimeSeriesPoint } from '../../lib/tli/comparison/timeline'
-import { extractFeatures, featuresToArray } from '../../lib/tli/comparison/features'
+import { classifySectorProfile, extractFeatures, featuresToArray } from '../../lib/tli/comparison/features'
 import { compositeCompare } from '../../lib/tli/comparison/composite'
 import { pearsonCorrelation, type FeaturePopulationStats } from '../../lib/tli/comparison/similarity'
 import { resolveFirstSpikeDate } from './enrich-themes'
@@ -23,8 +23,9 @@ import {
 interface EnrichedTheme {
   id: string; name: string; firstSpikeDate: string
   curve: TimeSeriesPoint[]; keywords: string[]; peakDay: number; totalDays: number
-  activeDays: number; sector: string
+  activeDays: number; sector: string; sectorConfidence: number
   interestValues: number[]; avgPriceChangePct: number; avgVolume: number
+  features: ReturnType<typeof extractFeatures>
 }
 
 interface ThresholdEvaluation {
@@ -39,6 +40,70 @@ interface ThemeStateHistoryRow {
   is_active: boolean
   closed_at: string | null
   state_version: string
+}
+
+export function buildBacktestKeywordSupportCounts(keywordSets: string[][]) {
+  const counts = new Map<string, number>()
+  for (const keywords of keywordSets) {
+    for (const keyword of keywords) {
+      const normalized = keyword.toLowerCase()
+      counts.set(normalized, (counts.get(normalized) ?? 0) + 1)
+    }
+  }
+  return counts
+}
+
+export function buildBacktestEnrichedTheme(input: {
+  theme: { id: string; name: string; first_spike_date: string | null; created_at: string | null; is_active: boolean }
+  interest: Array<{ theme_id: string; time: string; normalized: number }>
+  keywords: string[]
+  stocks: Array<{ price_change_pct: number | null; volume: number | null }>
+  keywordSupportCounts: Map<string, number>
+  kstNow: Date
+}): EnrichedTheme | null {
+  const interest = [...input.interest].sort((a, b) => a.time.localeCompare(b.time))
+  const fsd = resolveFirstSpikeDate(input.theme, interest, input.kstNow)
+  if (!fsd || interest.length < 14) return null
+
+  const curve = normalizeTimeline(interest.map((metric) => ({ date: metric.time, value: metric.normalized })), fsd)
+  const peakDay = findPeakDay(curve)
+  if (peakDay < 0) return null
+
+  const totalDays = curve.length > 0 ? curve[curve.length - 1].day : 0
+  const activeDays = totalDays
+  const interestValues = interest.map((metric) => metric.normalized)
+  const validPrices = input.stocks.filter((stock) => stock.price_change_pct != null).map((stock) => stock.price_change_pct as number)
+  const validVolumes = input.stocks.filter((stock) => stock.volume != null).map((stock) => stock.volume as number)
+  const avgPriceChangePct = validPrices.length > 0 ? validPrices.reduce((sum, value) => sum + value, 0) / validPrices.length : 0
+  const avgVolume = validVolumes.length > 0 ? validVolumes.reduce((sum, value) => sum + value, 0) / validVolumes.length : 0
+  const sectorProfile = classifySectorProfile(input.keywords)
+  const features = extractFeatures({
+    interestValues,
+    totalNewsCount: 0,
+    activeDays,
+    avgPriceChangePct,
+    avgVolume,
+    keywords: input.keywords,
+    keywordSupportCounts: input.keywordSupportCounts,
+    sectorConfidence: sectorProfile.confidence,
+  })
+
+  return {
+    id: input.theme.id,
+    name: input.theme.name,
+    firstSpikeDate: fsd,
+    curve,
+    keywords: input.keywords,
+    peakDay,
+    totalDays,
+    activeDays,
+    sector: sectorProfile.sector,
+    sectorConfidence: sectorProfile.confidence,
+    interestValues,
+    avgPriceChangePct,
+    avgVolume,
+    features,
+  }
 }
 
 async function main() {
@@ -64,32 +129,21 @@ async function main() {
   ])
 
   const interestByTheme = groupByThemeId(interestAll)
+  const keywordSupportCounts = buildBacktestKeywordSupportCounts([])
 
   // 테마 보강
   const enriched: EnrichedTheme[] = []
   for (const theme of themes) {
-    const interest = (interestByTheme.get(theme.id) || []).sort((a, b) => a.time.localeCompare(b.time))
-    const fsd = resolveFirstSpikeDate(theme, interest, new Date(Date.now() + 9 * 60 * 60 * 1000))
-    if (!fsd) continue
-    if (interest.length < 14) continue
-
-    const curve = normalizeTimeline(interest.map(m => ({ date: m.time, value: m.normalized })), fsd)
     const keywords: string[] = []
-    const peakDay = findPeakDay(curve)
-    if (peakDay < 0) continue
-    const totalDays = curve.length > 0 ? curve[curve.length - 1].day : 0
-    const activeDays = totalDays
-    const interestValues = interest.map(m => m.normalized)
-
-    // historical keyword/stock snapshot이 아직 없으므로 neutral defaults 사용
-    const avgPriceChangePct = 0
-    const avgVolume = 0
-
-    enriched.push({
-      id: theme.id, name: theme.name, firstSpikeDate: fsd,
-      curve, keywords, peakDay, totalDays, activeDays, sector: 'etc',
-      interestValues, avgPriceChangePct, avgVolume,
+    const enrichedTheme = buildBacktestEnrichedTheme({
+      theme,
+      interest: interestByTheme.get(theme.id) || [],
+      keywords,
+      stocks: [],
+      keywordSupportCounts,
+      kstNow: new Date(Date.now() + 9 * 60 * 60 * 1000),
     })
+    if (enrichedTheme) enriched.push(enrichedTheme)
   }
 
   console.log(`📊 백테스트 대상: ${enriched.length}개 완료 테마\n`)
@@ -114,6 +168,8 @@ async function main() {
     }
     return { means, stddevs }
   }
+
+  const populationKeywordSupportCounts = buildBacktestKeywordSupportCounts(enriched.map((theme) => theme.keywords))
 
   const thresholds = [0.30, 0.35, 0.40, 0.45, 0.50, 0.55, 0.60]
   const folds = buildTemporalBacktestFolds(enriched, 3).map((fold) => ({
@@ -154,18 +210,15 @@ async function main() {
         activeDays: halfCurve[halfCurve.length - 1]?.day || 0,
         avgPriceChangePct: current.avgPriceChangePct,
         avgVolume: current.avgVolume,
+        keywords: current.keywords,
+        keywordSupportCounts: populationKeywordSupportCounts,
+        sectorConfidence: current.sectorConfidence,
       })
 
       for (const past of archetypeCandidates) {
         if (past.curve.length < 14) continue
 
-        const pastFeatures = extractFeatures({
-          interestValues: past.interestValues,
-          totalNewsCount: 0,
-          activeDays: past.activeDays,
-          avgPriceChangePct: past.avgPriceChangePct,
-          avgVolume: past.avgVolume,
-        })
+        const pastFeatures = past.features
 
         const result = compositeCompare({
           current: {
@@ -174,6 +227,7 @@ async function main() {
             keywords: current.keywords,
             activeDays: halfCurve[halfCurve.length - 1]?.day || 0,
             sector: current.sector,
+            sectorConfidence: current.sectorConfidence,
           },
           past: {
             features: pastFeatures,
@@ -183,8 +237,10 @@ async function main() {
             totalDays: past.totalDays,
             name: past.name,
             sector: past.sector,
+            sectorConfidence: past.sectorConfidence,
           },
           populationStats,
+          keywordSupportCounts: populationKeywordSupportCounts,
         })
 
         if (result.similarity >= threshold) {

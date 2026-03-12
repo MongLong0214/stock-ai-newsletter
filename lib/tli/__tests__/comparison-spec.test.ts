@@ -5,6 +5,7 @@ import {
   COMPARISON_CANDIDATE_POOLS,
   COMPARISON_TIE_BREAK,
   THRESHOLD_REGIMES,
+  computeStageAlignmentScore,
   computeBinaryRelevance,
   computeGradedGain,
   classifyRunLevelCensoring,
@@ -38,11 +39,34 @@ describe('comparison spec', () => {
     expect(computeBinaryRelevance({ trajectoryCorrH14: 0.29, positionStageMatchH14: true })).toBe(false)
   })
 
+  it('assigns partial credit to adjacent lifecycle stages', () => {
+    expect(computeStageAlignmentScore('Growth', 'Growth')).toBe(1)
+    expect(computeStageAlignmentScore('Growth', 'Peak')).toBe(0.5)
+    expect(computeStageAlignmentScore('Decline', 'Dormant')).toBe(0.5)
+    expect(computeStageAlignmentScore('Dormant', 'Peak')).toBe(0)
+  })
+
+  it('treats strong correlation with adjacent-stage alignment as relevant', () => {
+    expect(computeBinaryRelevance({
+      trajectoryCorrH14: 0.46,
+      positionStageMatchH14: false,
+      stageAlignmentScore: 0.5,
+    })).toBe(true)
+  })
+
   it('computes graded gain from the canonical thresholds', () => {
     expect(computeGradedGain({ trajectoryCorrH14: 0.61, positionStageMatchH14: true })).toBe(3)
     expect(computeGradedGain({ trajectoryCorrH14: 0.50, positionStageMatchH14: false })).toBe(2)
     expect(computeGradedGain({ trajectoryCorrH14: 0.35, positionStageMatchH14: false })).toBe(1)
     expect(computeGradedGain({ trajectoryCorrH14: 0.29, positionStageMatchH14: true })).toBe(0)
+  })
+
+  it('raises gain for adjacent-stage strong matches above weak mismatches', () => {
+    expect(computeGradedGain({
+      trajectoryCorrH14: 0.46,
+      positionStageMatchH14: false,
+      stageAlignmentScore: 0.5,
+    })).toBe(2)
   })
 
   it('classifies run-level censoring explicitly', () => {

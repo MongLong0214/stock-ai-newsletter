@@ -4,8 +4,37 @@ import { batchQuery } from './supabase-batch'
 
 const EVALUATION_WINDOW = 7 // 평가 대기 기간 (일) — v2: 14→7 (시상수 ~2일, 예측 가능 지평 3~5일)
 
+export function computePeakTimingErrorDays(input: {
+  snapshotDate: string
+  observedDate: string
+  avgPeakDay: number
+  daysSinceSpike: number
+}): number {
+  const observedDaysFromSnapshot = Math.floor(
+    (new Date(input.observedDate).getTime() - new Date(input.snapshotDate).getTime()) / 86_400_000,
+  )
+  const predictedDaysFromSnapshot = Math.max(0, input.avgPeakDay - input.daysSinceSpike)
+  return Math.abs(observedDaysFromSnapshot - predictedDaysFromSnapshot)
+}
+
+export function resolvePredictionEvaluationAction(input: {
+  hasThemeScores: boolean
+  withinTolerance: boolean
+}) {
+  if (!input.hasThemeScores || !input.withinTolerance) {
+    return {
+      status: 'failed',
+      shouldEvaluate: false,
+    } as const
+  }
+
+  return {
+    status: 'evaluated',
+    shouldEvaluate: true,
+  } as const
+}
+
 export async function evaluatePredictions(): Promise<void> {
-  const today = getKSTDateString()
   const cutoffDate = getKSTDateString(-EVALUATION_WINDOW)
 
   console.log(`\n📊 예측 평가 [cutoff: ${cutoffDate}]`)
@@ -16,6 +45,7 @@ export async function evaluatePredictions(): Promise<void> {
     .select('id, theme_id, snapshot_date, phase, avg_peak_day, avg_total_days, days_since_spike')
     .eq('status', 'pending')
     .lte('snapshot_date', cutoffDate)
+    .order('snapshot_date', { ascending: true })
     .limit(500)
 
   if (v2Err) {
@@ -47,25 +77,53 @@ export async function evaluatePredictions(): Promise<void> {
 
   for (const snapshot of v2Snapshots) {
     const themeScores = scoresByTheme.get(snapshot.theme_id)
-    if (!themeScores?.length) continue
+    const baseAction = resolvePredictionEvaluationAction({
+      hasThemeScores: Boolean(themeScores?.length),
+      withinTolerance: false,
+    })
+    if (!baseAction.shouldEvaluate) {
+      await supabaseAdmin
+        .from('prediction_snapshots_v2')
+        .update({
+          status: baseAction.status,
+          evaluated_at: new Date().toISOString(),
+        })
+        .eq('id', snapshot.id)
+      continue
+    }
+    const safeThemeScores = themeScores!
 
     // snapshot_date + EVALUATION_WINDOW에 가장 가까운 score 사용 (3일 이내)
     const targetDate = new Date(snapshot.snapshot_date)
     targetDate.setDate(targetDate.getDate() + EVALUATION_WINDOW)
     const targetTime = targetDate.getTime()
 
-    let closest: { score: number; stage: string; diff: number } | null = null
-    for (const s of themeScores) {
+    let closest: { score: number; stage: string; diff: number; calculatedAt: string } | null = null
+    for (const s of safeThemeScores) {
       const diff = Math.abs(new Date(s.calculated_at).getTime() - targetTime)
       if (!closest || diff < closest.diff) {
-        closest = { score: s.score, stage: s.stage, diff }
+        closest = { score: s.score, stage: s.stage, diff, calculatedAt: s.calculated_at }
       }
     }
 
     const MAX_TOLERANCE_MS = 3 * 86_400_000 // 3일 이내만 허용
-    if (!closest || closest.diff > MAX_TOLERANCE_MS) continue
+    const action = resolvePredictionEvaluationAction({
+      hasThemeScores: true,
+      withinTolerance: Boolean(closest && closest.diff <= MAX_TOLERANCE_MS),
+    })
+    if (!action.shouldEvaluate) {
+      await supabaseAdmin
+        .from('prediction_snapshots_v2')
+        .update({
+          status: action.status,
+          evaluated_at: new Date().toISOString(),
+        })
+        .eq('id', snapshot.id)
+      continue
+    }
+    const safeClosest = closest!
 
-    const current = { score: closest.score, stage: closest.stage }
+    const current = { score: safeClosest.score, stage: safeClosest.stage }
 
     // 페이즈 예측 정확도 판정 (v2 3-Phase + 기존 5-Phase 하위 호환)
     const phaseToStageMap: Record<string, string[]> = {
@@ -84,11 +142,12 @@ export async function evaluatePredictions(): Promise<void> {
     const phaseCorrect = expectedStages.includes(current.stage)
 
     // 피크 타이밍 오차 계산
-    const daysSinceSnapshot = Math.floor(
-      (new Date(today).getTime() - new Date(snapshot.snapshot_date).getTime()) / 86_400_000,
-    )
-    const predictedDaysFromSnapshot = Math.max(0, snapshot.avg_peak_day - snapshot.days_since_spike)
-    const peakTimingErrorDays = Math.abs(daysSinceSnapshot - predictedDaysFromSnapshot)
+    const peakTimingErrorDays = computePeakTimingErrorDays({
+      snapshotDate: snapshot.snapshot_date,
+      observedDate: safeClosest.calculatedAt,
+      avgPeakDay: snapshot.avg_peak_day,
+      daysSinceSpike: snapshot.days_since_spike,
+    })
 
     const { error: updateErr } = await supabaseAdmin
       .from('prediction_snapshots_v2')

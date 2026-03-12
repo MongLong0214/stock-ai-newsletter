@@ -113,18 +113,47 @@ export function zScoreEuclideanSimilarity(
 // 키워드 자카드 유사도
 // ---------------------------------------------------------------------------
 
-/** 두 키워드 집합의 Jaccard 유사도 (배열 또는 사전계산된 소문자 Set) */
-export function keywordJaccard(setA: string[] | Set<string>, setB: string[] | Set<string>): number {
+const GENERIC_THEME_KEYWORDS = new Set([
+  '테마',
+  '관련주',
+  '수혜주',
+  '종목',
+  '주가',
+  '정책',
+])
+
+function keywordWeight(keyword: string, supportCounts?: Map<string, number>) {
+  const normalized = keyword.toLowerCase()
+  const genericPenalty = GENERIC_THEME_KEYWORDS.has(normalized) ? 0.2 : 1
+  const support = supportCounts?.get(normalized)
+  const rarityWeight = support != null && support > 0 ? 1 / Math.sqrt(support) : 1
+  return genericPenalty * rarityWeight
+}
+
+/** 두 키워드 집합의 rarity-aware weighted Jaccard 유사도 */
+export function keywordJaccard(
+  setA: string[] | Set<string>,
+  setB: string[] | Set<string>,
+  options?: { supportCounts?: Map<string, number> },
+): number {
   const aSize = setA instanceof Set ? setA.size : setA.length
   const bSize = setB instanceof Set ? setB.size : setB.length
   if (aSize === 0 && bSize === 0) return 0
 
   const a = setA instanceof Set ? setA : new Set(setA.map(k => k.toLowerCase()))
   const b = setB instanceof Set ? setB : new Set(setB.map(k => k.toLowerCase()))
+  const unionKeywords = new Set([...a, ...b])
 
-  let intersection = 0
-  a.forEach(k => { if (b.has(k)) intersection++ })
+  let intersectionWeight = 0
+  let unionWeight = 0
 
-  const union = a.size + b.size - intersection
-  return union === 0 ? 0 : intersection / union
+  for (const keyword of unionKeywords) {
+    const weight = keywordWeight(keyword, options?.supportCounts)
+    unionWeight += weight
+    if (a.has(keyword) && b.has(keyword)) {
+      intersectionWeight += weight
+    }
+  }
+
+  return unionWeight === 0 ? 0 : intersectionWeight / unionWeight
 }
