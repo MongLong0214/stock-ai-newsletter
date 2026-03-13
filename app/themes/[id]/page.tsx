@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js'
 import { siteConfig } from '@/lib/constants/seo/config'
 import { STAGE_CONFIG } from '@/lib/tli/types'
 import DetailContent from './_components/detail-content'
+import ThemeDetailAnalytics from './_components/theme-detail-analytics'
 
 /** 10분마다 재검증 (ISR) */
 export const revalidate = 600
@@ -235,6 +236,14 @@ export default async function ThemeDetailPage({ params }: { params: Promise<{ id
 
   return (
     <>
+      {theme && (
+        <ThemeDetailAnalytics
+          themeId={id}
+          themeName={theme.name}
+          themeStage={theme.stage}
+          themeScore={theme.score}
+        />
+      )}
       {articleSchema && (
         <script
           id="theme-article-schema"

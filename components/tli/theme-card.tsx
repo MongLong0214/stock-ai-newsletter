@@ -4,6 +4,7 @@ import { useId } from 'react'
 import Link from 'next/link'
 import { ArrowUpRight, ArrowDownRight, TrendingUp, Newspaper } from 'lucide-react'
 import { type Stage, STAGE_CONFIG } from '@/lib/tli/types'
+import { buildThemeItem, trackEvent } from '@/lib/analytics/ga'
 import StageBadge from './stage-badge'
 
 interface ThemeCardProps {
@@ -84,7 +85,32 @@ export default function ThemeCard({ theme, href }: ThemeCardProps) {
   const linkHref = href || `/themes/${theme.id}`
 
   return (
-    <Link href={linkHref}>
+    <Link
+      href={linkHref}
+      onClick={() => {
+        const item = buildThemeItem({
+          id: theme.id,
+          name: theme.name,
+          stage: theme.stage,
+          listId: 'theme_ranking',
+          listName: 'Theme ranking',
+        })
+
+        trackEvent('select_item', {
+          item_list_id: 'theme_ranking',
+          item_list_name: 'Theme ranking',
+          source_page: window.location.pathname,
+          items: [item],
+        })
+
+        trackEvent('select_theme', {
+          theme_id: theme.id,
+          theme_name: theme.name,
+          theme_stage: theme.stage,
+          source_page: window.location.pathname,
+        })
+      }}
+    >
       <article
         className="group relative h-full flex flex-col rounded-2xl border border-emerald-500/10 bg-slate-900/60 backdrop-blur-sm p-6 shadow-[0_2px_12px_rgba(0,0,0,0.3)] hover:border-emerald-500/30 hover:shadow-[0_4px_24px_rgba(16,185,129,0.15),0_0_0_1px_rgba(16,185,129,0.1)] transition-[border-color,box-shadow] duration-300 ease-out"
       >
