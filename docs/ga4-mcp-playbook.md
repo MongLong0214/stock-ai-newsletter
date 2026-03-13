@@ -8,6 +8,12 @@
 - GA4 관리 화면에서 `generate_lead`를 key event로 지정
 - GA4 관리 화면에서 아래 event parameter를 custom dimensions로 등록
 
+현재 이 프로젝트의 확인된 식별자:
+
+- `Measurement ID`: `G-4LYN29KGH1`
+- `Property ID`: `528264837`
+- `Account`: `StockMatrix`
+
 등록 권장 custom dimensions:
 
 - `cta_location`
@@ -84,6 +90,18 @@
 4. `check_compatibility`
 5. `get_custom_dimensions_and_metrics`
 
+Codex CLI 연결 상태:
+
+- MCP 서버 설정 파일: [`/Users/isaac/.codex/config.toml`](/Users/isaac/.codex/config.toml)
+- 서버 이름: `analytics_mcp`
+- 인증: `gcloud auth application-default login` 으로 생성된 ADC 사용
+
+주의:
+
+- Codex CLI는 새 MCP 서버를 인식하려면 재시작이 필요하다
+- 배포 전에는 `run_report` 결과가 `0 rows`일 수 있다
+- 배포 후 실제 페이지를 방문해야 데이터가 쌓인다
+
 ## 5. 바로 쓸 MCP 프롬프트 예시
 
 ### 최근 30일 랜딩 페이지 전환 분석
@@ -133,6 +151,13 @@ home_hero, home_bottom_cta, navigation, blog_post_cta 별 클릭 수와 이후 g
 ```text
 GA4 realtime 기준으로 activeUsers를 pagePath와 eventName 기준으로 보여줘.
 현재 /subscribe 유입과 generate_lead 발생 여부를 우선 확인해줘.
+```
+
+### 배포 직후 스모크 테스트
+
+```text
+GA4 realtime 기준으로 property_id 528264837의 activeUsers를 pagePath 기준으로 보여줘.
+/ , /themes , /subscribe 경로가 보이는지 먼저 확인해줘.
 ```
 
 ### 퍼널 점검

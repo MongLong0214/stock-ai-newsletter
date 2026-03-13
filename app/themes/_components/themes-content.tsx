@@ -75,9 +75,6 @@ function ThemesContent({ initialData }: ThemesContentProps) {
     return filtered
   }, [searchQuery, sortOption])
 
-  if (isLoading) return <ThemesSkeleton />
-  if (error) return <ThemesError message={error.message} />
-
   /** 전체 필터 적용된 섹션 계산 */
   const filteredSections = STAGE_ORDER.map(({ key, stage, title, subtitle }) => {
     const themes = ranking?.[key]
@@ -149,6 +146,9 @@ function ThemesContent({ initialData }: ThemesContentProps) {
 
     return () => window.clearTimeout(timeoutId)
   }, [filteredSections, searchQuery])
+
+  if (isLoading) return <ThemesSkeleton />
+  if (error) return <ThemesError message={error.message} />
 
   return (
     <div className="min-h-screen bg-black text-white relative">
