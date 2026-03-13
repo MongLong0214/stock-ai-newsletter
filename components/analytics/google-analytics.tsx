@@ -1,5 +1,6 @@
 'use client';
 
+import { Suspense } from 'react';
 import Script from 'next/script';
 import GA4RouteTracker from '@/components/analytics/ga4-route-tracker';
 import { GA_MEASUREMENT_ID } from '@/lib/analytics/ga';
@@ -25,7 +26,9 @@ export default function GoogleAnalytics() {
           });
         `}
       </Script>
-      <GA4RouteTracker />
+      <Suspense fallback={null}>
+        <GA4RouteTracker />
+      </Suspense>
     </>
   );
 }
