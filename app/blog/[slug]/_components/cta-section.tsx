@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { ArrowRight, Mail } from 'lucide-react';
+import { trackEvent } from '@/lib/analytics/ga';
 
 /**
  * CTA 섹션 컴포넌트
@@ -27,6 +28,13 @@ export function CTASection() {
         <div className="flex flex-col sm:flex-row gap-3">
           <Link
             href="/subscribe"
+            onClick={() => {
+              trackEvent('subscribe_cta_click', {
+                cta_location: 'blog_post_cta',
+                destination_path: '/subscribe',
+                content_type: 'blog_post',
+              });
+            }}
             className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-emerald-500 hover:bg-emerald-400 text-black font-semibold rounded-lg transition-colors"
           >
             무료 구독하기
@@ -34,6 +42,13 @@ export function CTASection() {
           </Link>
           <Link
             href="/archive"
+            onClick={() => {
+              trackEvent('archive_cta_click', {
+                cta_location: 'blog_post_cta',
+                destination_path: '/archive',
+                content_type: 'blog_post',
+              });
+            }}
             className="inline-flex items-center justify-center gap-2 px-6 py-3 border border-slate-700 hover:border-slate-600 text-slate-300 hover:text-white rounded-lg transition-colors"
           >
             지난 분석 보기

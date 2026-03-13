@@ -8,6 +8,7 @@ import Navigation from './_components/shared/navigation';
 import Footer from './_components/shared/footer';
 import QueryProvider from './_components/shared/providers/query-provider';
 import ScrollToTop from '@/components/scroll-to-top';
+import GoogleAnalytics from '@/components/analytics/google-analytics';
 import {
   siteConfig,
   metadataConfig,
@@ -240,6 +241,7 @@ export default function RootLayout({
         </QueryProvider>
 
         <Analytics />
+        <GoogleAnalytics />
         <SpeedInsights />
       </body>
     </html>

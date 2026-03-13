@@ -7,6 +7,7 @@ import { Search, X } from 'lucide-react'
 import { STAGE_CONFIG } from '@/lib/tli/types'
 import type { DisplayStage } from '@/lib/tli/types'
 import { cn } from '@/lib/utils'
+import { trackEvent } from '@/lib/analytics/ga'
 
 export type SortOption = 'score' | 'change' | 'name'
 
@@ -127,7 +128,19 @@ function ThemeFilter({ onSearchChange, onStageFilter, onSortChange, activeStages
     } else {
       onStageFilter([...activeStages, stage])
     }
+
+    trackEvent('theme_filter_change', {
+      filter_stage: stage,
+      filter_action: isActive ? 'remove' : 'add',
+    })
   }, [activeStages, onStageFilter])
+
+  const handleSortChange = useCallback((sort: SortOption) => {
+    onSortChange(sort)
+    trackEvent('theme_sort_change', {
+      sort_option: sort,
+    })
+  }, [onSortChange])
 
   return (
     <motion.div
@@ -154,7 +167,7 @@ function ThemeFilter({ onSearchChange, onStageFilter, onSortChange, activeStages
           )}
         </div>
         <StageFilterPills stages={FILTERABLE_STAGES} activeStages={activeStages} onToggle={toggleStage} variant="desktop" />
-        <SortPills options={SORT_OPTIONS} activeSort={activeSort} onSortChange={onSortChange} variant="desktop" />
+        <SortPills options={SORT_OPTIONS} activeSort={activeSort} onSortChange={handleSortChange} variant="desktop" />
       </div>
 
       {/* Mobile */}
@@ -175,7 +188,7 @@ function ThemeFilter({ onSearchChange, onStageFilter, onSortChange, activeStages
           )}
         </div>
         <StageFilterPills stages={FILTERABLE_STAGES} activeStages={activeStages} onToggle={toggleStage} variant="mobile" />
-        <SortPills options={SORT_OPTIONS} activeSort={activeSort} onSortChange={onSortChange} variant="mobile" />
+        <SortPills options={SORT_OPTIONS} activeSort={activeSort} onSortChange={handleSortChange} variant="mobile" />
       </div>
     </motion.div>
   )

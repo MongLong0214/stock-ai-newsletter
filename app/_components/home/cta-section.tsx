@@ -145,7 +145,11 @@ function CTASection({ formatted }: CTASectionProps) {
             animate={isInView ? { opacity: 1, y: 0 } : {}}
             transition={{ duration: 0.8, delay: 0.4, ease: [0.19, 1, 0.22, 1] }}
           >
-            <CTAButton formatted={formatted} ariaLabel="매일 아침 7시 30분 분석 받기" />
+            <CTAButton
+              formatted={formatted}
+              ariaLabel="매일 아침 7시 30분 분석 받기"
+              location="home_bottom_cta"
+            />
           </motion.div>
         </motion.div>
       </div>

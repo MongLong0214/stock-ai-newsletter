@@ -1,9 +1,19 @@
 import Link from 'next/link';
 import { motion } from 'framer-motion';
+import { trackEvent } from '@/lib/analytics/ga';
 
 function SubscribeButton() {
   return (
-    <Link href="/subscribe">
+    <Link
+      href="/subscribe"
+      onClick={() => {
+        trackEvent('subscribe_cta_click', {
+          cta_location: 'navigation',
+          destination_path: '/subscribe',
+          content_type: 'global_nav',
+        });
+      }}
+    >
       <motion.div
         className="group relative px-6 py-2.5 rounded-lg overflow-hidden border border-emerald-500/40 bg-gradient-to-br from-emerald-500/15 to-emerald-600/10 shadow-lg shadow-emerald-500/10"
         whileHover={{ scale: 1.03, boxShadow: '0 20px 40px rgba(16,185,129,0.2)' }}
