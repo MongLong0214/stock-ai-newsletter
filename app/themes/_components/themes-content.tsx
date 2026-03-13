@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react'
 import AnimatedBackground from '@/components/animated-background'
 import Disclaimer from '@/components/tli/disclaimer'
 import ThemesHeader from './themes-header'
@@ -14,6 +14,7 @@ import { ThemesError, EmptySearchResult } from './themes-empty-states'
 import { useGetRanking } from '../_services/use-get-ranking'
 import { STAGE_ORDER } from '../_constants/stage-order'
 import type { DisplayStage, ThemeListItem, ThemeRanking } from '@/lib/tli/types'
+import { buildThemeItem, trackEvent } from '@/lib/analytics/ga'
 
 interface ThemesContentProps {
   initialData?: ThemeRanking
@@ -97,6 +98,57 @@ function ThemesContent({ initialData }: ThemesContentProps) {
   /** 검색 중인데 결과가 없는 경우 */
   const isSearchActive = searchQuery.trim().length > 0
   const hasResults = filteredSections.length > 0
+  const lastListSignatureRef = useRef('')
+  const lastSearchSignatureRef = useRef('')
+
+  const visibleThemeItems = useMemo(() => (
+    filteredSections
+      .flatMap((section) =>
+        section.themes.map((theme, index) =>
+          buildThemeItem({
+            id: theme.id,
+            name: theme.name,
+            stage: section.stage,
+            index: index + 1,
+            listId: 'theme_ranking',
+            listName: 'Theme ranking',
+          })
+        )
+      )
+      .slice(0, 20)
+  ), [filteredSections])
+
+  useEffect(() => {
+    const signature = visibleThemeItems.map((item) => `${item.item_id}:${item.index}`).join('|')
+    if (!signature || signature === lastListSignatureRef.current) return
+
+    trackEvent('view_item_list', {
+      item_list_id: 'theme_ranking',
+      item_list_name: 'Theme ranking',
+      items: visibleThemeItems,
+    })
+
+    lastListSignatureRef.current = signature
+  }, [visibleThemeItems])
+
+  useEffect(() => {
+    const query = searchQuery.trim()
+    if (query.length < 2) return
+
+    const resultCount = filteredSections.reduce((count, section) => count + section.themes.length, 0)
+    const signature = `${query}:${resultCount}`
+    if (signature === lastSearchSignatureRef.current) return
+
+    const timeoutId = window.setTimeout(() => {
+      trackEvent('view_search_results', {
+        search_term: query,
+        result_count: resultCount,
+      })
+      lastSearchSignatureRef.current = signature
+    }, 700)
+
+    return () => window.clearTimeout(timeoutId)
+  }, [filteredSections, searchQuery])
 
   return (
     <div className="min-h-screen bg-black text-white relative">

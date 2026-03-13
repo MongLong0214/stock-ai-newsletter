@@ -2,16 +2,32 @@
 
 import { motion } from "framer-motion";
 import Link from "next/link";
+import { trackEvent } from "@/lib/analytics/ga";
 
 interface CTAButtonProps {
   formatted: string;
   ariaLabel?: string;
   className?: string;
+  location?: string;
 }
 
-function CTAButton({ formatted, ariaLabel = "무료 메일 받기", className = "" }: CTAButtonProps) {
+function CTAButton({
+  formatted,
+  ariaLabel = "무료 메일 받기",
+  className = "",
+  location = "unknown",
+}: CTAButtonProps) {
   return (
-    <Link href="/subscribe">
+    <Link
+      href="/subscribe"
+      onClick={() => {
+        trackEvent('subscribe_cta_click', {
+          cta_location: location,
+          destination_path: '/subscribe',
+          content_type: 'homepage',
+        });
+      }}
+    >
       <motion.button
         className={`relative overflow-hidden bg-emerald-600 text-slate-50 text-base font-medium px-8 py-3.5 rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/50 tracking-wide cursor-pointer border-0 ${className}`}
         aria-label={ariaLabel}

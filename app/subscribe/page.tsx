@@ -18,6 +18,7 @@ import { Input } from '@/components/ui/input';
 import AnimatedBackground from '@/components/animated-background';
 import { useCountdownToTomorrow } from '@/hooks/use-countdown-to-tomorrow';
 import { isDisposableEmail } from 'disposable-email-domains-js';
+import { trackEvent } from '@/lib/analytics/ga';
 
 const subscribeSchema = z.object({
   email: z.string()
@@ -38,6 +39,11 @@ export default function SubscribePage() {
     e.preventDefault();
     setStatus('loading');
     setMessage('');
+
+    trackEvent('subscribe_form_submit', {
+      form_id: 'newsletter_subscribe',
+      content_type: 'subscription',
+    });
 
     try {
       const validated = subscribeSchema.parse({
@@ -64,6 +70,10 @@ export default function SubscribePage() {
 
         if (updateError) {
           console.error('Resubscribe error:', updateError);
+          trackEvent('subscribe_form_error', {
+            form_id: 'newsletter_subscribe',
+            error_type: 'resubscribe_db',
+          });
           setMessage('구독 처리 중 오류가 발생했습니다. 다시 시도해주세요.');
           setStatus('error');
           return;
@@ -77,11 +87,22 @@ export default function SubscribePage() {
 
         if (insertError) {
           console.error('Subscribe error:', insertError);
+          trackEvent('subscribe_form_error', {
+            form_id: 'newsletter_subscribe',
+            error_type: 'insert_db',
+          });
           setMessage('구독 처리 중 오류가 발생했습니다. 다시 시도해주세요.');
           setStatus('error');
           return;
         }
       }
+
+      trackEvent('generate_lead', {
+        method: 'newsletter',
+        form_id: 'newsletter_subscribe',
+        lead_type: existing ? 'resubscribe' : 'new_subscriber',
+        content_type: 'subscription',
+      });
 
       setMessage('구독이 완료되었습니다! 매일 오전 7시 30분에 이메일을 받으실 수 있습니다.');
       setStatus('success');
@@ -89,9 +110,17 @@ export default function SubscribePage() {
       setName('');
     } catch (error) {
       if (error instanceof z.ZodError) {
+        trackEvent('subscribe_form_error', {
+          form_id: 'newsletter_subscribe',
+          error_type: 'validation',
+        });
         setMessage(error.issues[0].message);
       } else {
         console.error('Subscribe error:', error);
+        trackEvent('subscribe_form_error', {
+          form_id: 'newsletter_subscribe',
+          error_type: 'system',
+        });
         setMessage('시스템 오류가 발생했습니다. 잠시 후 다시 시도해주세요.');
       }
       setStatus('error');

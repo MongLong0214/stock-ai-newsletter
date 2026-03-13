@@ -6,6 +6,7 @@ import { ChevronDown } from 'lucide-react'
 import ThemeCard from '@/components/tli/theme-card'
 import { STAGE_CONFIG, type ThemeListItem, type Stage } from '@/lib/tli/types'
 import { cn } from '@/lib/utils'
+import { trackEvent } from '@/lib/analytics/ga'
 
 interface StageSectionProps {
   stage: Stage
@@ -35,6 +36,14 @@ function StageSection({ stage, title, subtitle, themes, sectionKey }: StageSecti
     >
       <button
         onClick={() => {
+          const nextCollapsed = !collapsed
+
+          trackEvent('theme_section_toggle', {
+            section_key: sectionKey,
+            section_stage: stage,
+            is_collapsed: nextCollapsed,
+          })
+
           setCollapsed((v) => {
             if (!v) setVisibleCount(PAGE_SIZE)
             return !v
@@ -133,6 +142,11 @@ function StageSection({ stage, title, subtitle, themes, sectionKey }: StageSecti
                 <button
                   onClick={(e) => {
                     e.stopPropagation()
+                    trackEvent('theme_list_load_more', {
+                      section_key: sectionKey,
+                      section_stage: stage,
+                      next_visible_count: Math.min(visibleCount + PAGE_SIZE, themes.length),
+                    })
                     setVisibleCount((v) => Math.min(v + PAGE_SIZE, themes.length))
                   }}
                   className="cursor-pointer px-4 py-2 rounded-lg text-sm font-medium bg-slate-900/60 border transition-colors duration-150 hover:bg-slate-800/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/50"

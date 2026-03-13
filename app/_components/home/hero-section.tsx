@@ -76,7 +76,11 @@ function HeroSection({ formatted }: HeroSectionProps) {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.4, ease: [0.19, 1, 0.22, 1] }}
         >
-          <CTAButton formatted={formatted} ariaLabel="Get started with AI stock intelligence" />
+          <CTAButton
+            formatted={formatted}
+            ariaLabel="Get started with AI stock intelligence"
+            location="home_hero"
+          />
         </motion.div>
       </motion.div>
     </section>
