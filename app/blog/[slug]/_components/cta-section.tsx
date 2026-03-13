@@ -1,3 +1,5 @@
+'use client';
+
 import Link from 'next/link';
 import { ArrowRight, Mail } from 'lucide-react';
 import { trackEvent } from '@/lib/analytics/ga';
