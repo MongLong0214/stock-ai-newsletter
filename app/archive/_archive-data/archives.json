@@ -2,6 +2,62 @@
   "newsletters": [
     {
       "type": "stock",
+      "date": "2026-03-16",
+      "stocks": [
+        {
+          "ticker": "KOSDAQ:101680",
+          "name": "한국정밀기계",
+          "close_price": 3085,
+          "rationale": "2026-03-13 기준 29.89% 상승한 3,085원 상한가 마감(investing.com 확인)|326억 규모 대형 공작기계 공급계약 공시로 인한 강력한 상향 돌파형 패턴 형성|거래량 2,938만 주 이상 기록하며 전일 대비 폭증(google finance 확인)|SMA 5/20/60일선 완전 정배열 진입 및 이격도 확대 시작 단계|RSI 68.5로 과매수 기준선(70) 직전의 강력한 상승 모멘텀 유지|MACD 히스토그램 양선 급격 확대 및 Signal선 상향 돌파 완성|볼린저밴드 상단(Upper Band)을 대량 거래로 강하게 돌파하며 변동성 확장 구간 진입|ATR 12.4%로 단기 변동성 에너지 급증 및 상방 압력 최고조|OBV 지표 직전 1년 고점 돌파하며 스마트 머니의 강력한 매집 증명|Stochastic %K가 %D를 0.82 소수점 단위 정밀 골든크로스 시현|Williams %R -1.5로 최상단 강세권 안착 및 상승 추세 강화|일목균형표 구름대 상단 돌파 및 전환선/기준선 호전 발생(2026-03-13 기준)",
+          "signals": {
+            "trend_score": 98,
+            "momentum_score": 96,
+            "volume_score": 99,
+            "volatility_score": 92,
+            "pattern_score": 97,
+            "sentiment_score": 95,
+            "overall_score": 96
+          },
+          "verified_date": "2026-03-13"
+        },
+        {
+          "ticker": "KOSDAQ:141080",
+          "name": "리가켐바이오",
+          "close_price": 201000,
+          "rationale": "2026-03-13 종가 201,000원(9.42% 상승)으로 20만 원 라운드 피겨 돌파 성공(investing.com 확인)|ADC 파이프라인 임상 성과 및 2026년 흑자 전환 기대감(금융경제플러스 1/27 기사 연계)|EMA 10/20일선 지지 후 전고점 돌파 파동 시작되는 3파 구간 진입|RSI 64.2로 상승 여력이 충분한 강세 구간 유지(과매수 미진입)|MACD 0선 위에서 Golden Cross 발생하며 장기 우상향 추세의 재확산|거래량 전일 대비 250% 이상 증가하며 추세 전환의 신뢰도 확보|볼린저밴드 중심선 지지 확인 후 상단 밴드 발산 시작|ATR 4.2%로 안정적인 변동성 내에서 탄력적인 가격 흐름 시연|OBV 최고치 경신하며 기관 및 외국인의 지속적인 매수 우위 확인|Stochastic 74.8로 과열권 진입 전 최적의 매수 강도 형성 단계|Williams %R -22.4에서 급반등하며 시장 내 매수 우위 포지션 증명|Parabolic SAR 매수 전환 신호 발생 및 52주 신고가(23만 원 목표) 가시권 진입",
+          "signals": {
+            "trend_score": 94,
+            "momentum_score": 91,
+            "volume_score": 88,
+            "volatility_score": 85,
+            "pattern_score": 92,
+            "sentiment_score": 94,
+            "overall_score": 91
+          },
+          "verified_date": "2026-03-13"
+        },
+        {
+          "ticker": "KOSPI:475480",
+          "name": "SK이터닉스",
+          "close_price": 41500,
+          "rationale": "2026-03-13 종가 41,500원(11.11% 상승) 기록하며 직전 고점 돌파(한경유레카 확인)|KKR의 지분 인수 완료 및 글로벌 신재생에너지 합작법인(JV) 출범 모멘텀 지속|SMA 20일선과의 이격 조절 후 재차 분출하는 'N자형' 상승 패턴 완성|RSI 62.8로 중립 강세 구간에서 매수 에너지 응축 후 발산 초기 단계|MACD Oscillator 양선 전환 및 추세 강화 신호 뚜렷하게 포착|거래량비율(VR) 185% 상회하며 유통 물량 장악 및 매수세 유입 확인|볼린저밴드 상단 돌파 시도 중이며 변동성 스퀴즈 이후 본격 상방 발산|ATR 6.8%로 단기 10% 이상 변동성 확보 및 가파른 기울기 형성|ADX 29.4로 추세 형성 초기 단계에서 중기 상승 추세로의 전환 확인|OBV 바닥권 대비 지속 우상향하며 견고한 수급 기반 마련|Stochastic 68.2로 적정 매수권 유지 및 추가 상승 룸 확보 상태|RE100 대형 계약 모멘텀 및 2026년 실적 턴어라운드(영업이익 733억 전망) 반영",
+          "signals": {
+            "trend_score": 91,
+            "momentum_score": 93,
+            "volume_score": 90,
+            "volatility_score": 89,
+            "pattern_score": 87,
+            "sentiment_score": 92,
+            "overall_score": 90
+          },
+          "verified_date": "2026-03-13"
+        }
+      ],
+      "sentAt": "2026-03-15T22:36:23.557+00:00",
+      "subscriberCount": 250
+    },
+    {
+      "type": "stock",
       "date": "2026-03-13",
       "stocks": [
         {
@@ -5158,5 +5214,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-03-12T23:04:22.198Z"
+  "lastUpdated": "2026-03-15T22:37:03.040Z"
 }
