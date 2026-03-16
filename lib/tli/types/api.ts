@@ -2,7 +2,6 @@
 
 import type { Stage, NewsArticle, ConfidenceLevel } from './db'
 import type { Level4ConfidenceTier, Level4SourceSurface } from '@/lib/tli/comparison/level4-types'
-import type { AnalogEvidencePayload, ForecastPayload } from '@/lib/tli/forecast/api-payloads'
 
 /** API 응답 공통 래퍼 */
 export interface ApiResponse<T> {
@@ -170,9 +169,6 @@ export interface ThemeDetail {
   newsCount: number;
   recentNews: NewsArticle[];
   comparisons: ComparisonResult[];
-  forecast?: ForecastPayload;
-  analogEvidence?: AnalogEvidencePayload;
-  forecastControl?: ThemeForecastControl;
   lifecycleCurve: Array<{
     date: string;
     score: number;
@@ -187,8 +183,6 @@ export interface ThemeDetail {
     date: string;
     value: number;
   }>;
-  /** Source of comparison data (backward-compatible optional field) */
-  comparisonSource?: 'legacy' | 'v4' | 'v4-view' | 'forecast';
 }
 
 /** 테마 랭킹 (단계별 그룹) */

@@ -9,9 +9,7 @@ export interface ScenarioCardConfig {
 export function shouldRenderPredictionPanel(
   firstSpikeDate: string | null,
   comparisonCount: number,
-  hasForecast = false,
 ): boolean {
-  if (hasForecast) return true
   return Boolean(firstSpikeDate) && comparisonCount >= 3
 }
 

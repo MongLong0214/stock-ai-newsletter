@@ -4,14 +4,11 @@
 
 import { supabase } from '@/lib/supabase'
 import { getKSTDateString } from '@/lib/tli/date-utils'
-import { fetchPublishedComparisonRowsV4, isComparisonV4ServingEnabled } from './comparison-v4-reader'
-import { buildComparisonsQueryDescriptor, shouldFallbackToLegacyComparisons } from './fetch-theme-data-v4'
 import { isTableNotFound } from '@/lib/tli/api-utils'
 
 interface FetchThemeDataParams {
   id: string
   thirtyDaysAgo: string
-  skipComparisons?: boolean
 }
 
 export const COMPARISON_FETCH_LIMIT = 12
@@ -108,27 +105,17 @@ export function findCriticalThemeDetailError(input: ThemeDetailCriticalFetchInpu
 export async function fetchThemeData(
   params: FetchThemeDataParams,
 ): Promise<FetchThemeDataResult> {
-  const { id, thirtyDaysAgo, skipComparisons = false } = params
+  const { id, thirtyDaysAgo } = params
   const threeDaysAgo = getKSTDateString(-3)
-  const useV4Serving = isComparisonV4ServingEnabled()
-  const comparisonDescriptor = buildComparisonsQueryDescriptor({
-    themeId: id,
-    threeDaysAgo,
-    useV4Serving,
-  })
 
-  const comparisonsPromise = skipComparisons
-    ? Promise.resolve({ data: [], error: null })
-    : comparisonDescriptor.mode === 'v4'
-    ? fetchPublishedComparisonRowsV4(comparisonDescriptor.themeId)
-    : supabase
-        .from('theme_comparisons')
-        .select('id, past_theme_id, similarity_score, current_day, past_peak_day, past_total_days, message, feature_sim, curve_sim, keyword_sim, past_peak_score, past_final_stage, past_decline_days')
-        .eq('current_theme_id', comparisonDescriptor.themeId)
-        .gte('calculated_at', comparisonDescriptor.threeDaysAgo)
-        .order('calculated_at', { ascending: false })
-        .order('similarity_score', { ascending: false })
-        .limit(COMPARISON_FETCH_LIMIT)
+  const comparisonsPromise = supabase
+    .from('theme_comparisons')
+    .select('id, past_theme_id, similarity_score, current_day, past_peak_day, past_total_days, message, feature_sim, curve_sim, keyword_sim, past_peak_score, past_final_stage, past_decline_days')
+    .eq('current_theme_id', id)
+    .gte('calculated_at', threeDaysAgo)
+    .order('calculated_at', { ascending: false })
+    .order('similarity_score', { ascending: false })
+    .limit(COMPARISON_FETCH_LIMIT)
 
   const [latestScoreRes, scoresRes, stocksRes, comparisonsRes, newsRes, interestRes, newsArticlesRes, keywordsRes, stockCountRes, newsArticleCountRes] =
     await Promise.all([
@@ -232,24 +219,11 @@ export async function fetchThemeData(
     throw new Error(criticalError.message || 'theme detail batch fetch failed')
   }
 
-  let safeComparisonsRes = comparisonsRes
-  if (!skipComparisons && comparisonDescriptor.mode === 'v4' && shouldFallbackToLegacyComparisons(comparisonsRes)) {
-    const legacyComparisonsRes = await supabase
-      .from('theme_comparisons')
-      .select('id, past_theme_id, similarity_score, current_day, past_peak_day, past_total_days, message, feature_sim, curve_sim, keyword_sim, past_peak_score, past_final_stage, past_decline_days')
-      .eq('current_theme_id', id)
-      .gte('calculated_at', threeDaysAgo)
-      .order('calculated_at', { ascending: false })
-      .order('similarity_score', { ascending: false })
-      .limit(COMPARISON_FETCH_LIMIT)
-    safeComparisonsRes = legacyComparisonsRes
-  }
-
   return {
     latestScoreRes,
     scoresRes,
     stocksRes,
-    comparisonsRes: safeComparisonsRes,
+    comparisonsRes,
     newsRes,
     interestRes,
     newsArticlesRes,

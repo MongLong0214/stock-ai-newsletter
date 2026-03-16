@@ -5,10 +5,6 @@ import { fetchThemeData, findCriticalThemeDetailError } from './fetch-theme-data
 import { buildComparisonResults } from './build-comparisons'
 import { buildThemeDetailResponse } from './build-response'
 import { getKSTDateString } from '@/lib/tli/date-utils'
-import {
-  loadServedForecastBundle,
-  shouldAllowLegacyComparisonFallback,
-} from './forecast-reader'
 
 // 특정 테마의 상세 정보 조회 (배치 쿼리 최적화)
 export async function GET(
@@ -50,8 +46,6 @@ export async function GET(
     const oneDayAgo = getKSTDateString(-1)
     const sevenDaysAgo = getKSTDateString(-7)
     const thirtyDaysAgo = getKSTDateString(-30)
-    const servedForecast = await loadServedForecastBundle(id)
-    const allowLegacyComparisonFallback = shouldAllowLegacyComparisonFallback(servedForecast.control)
 
     // 2) 병렬 배치 쿼리 (keywords 포함)
     const {
@@ -68,7 +62,6 @@ export async function GET(
     } = await fetchThemeData({
       id,
       thirtyDaysAgo,
-      skipComparisons: !allowLegacyComparisonFallback,
     })
 
     const criticalError = findCriticalThemeDetailError({
@@ -114,13 +107,7 @@ export async function GET(
 
     // --- 유사 테마: 이름 + lifecycleCurve 배치 조회 ---
 
-    const comparisonRows = servedForecast.control.serving
-      ? servedForecast.comparisonRows
-      : allowLegacyComparisonFallback
-        ? comparisons
-        : []
-
-    const comparisonResults = await buildComparisonResults(comparisonRows)
+    const comparisonResults = await buildComparisonResults(comparisons)
 
     // --- 최종 응답 조합 ---
 
@@ -138,10 +125,6 @@ export async function GET(
       allScores,
       newsList,
       interestList,
-      forecast: servedForecast.forecast ?? undefined,
-      analogEvidence: servedForecast.analogEvidence ?? undefined,
-      forecastControl: servedForecast.control,
-      comparisonSource: servedForecast.control.serving ? 'forecast' : undefined,
     })
 
     return apiSuccess(result)

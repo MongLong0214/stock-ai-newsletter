@@ -85,51 +85,8 @@ describe('buildThemeDetailResponse', () => {
       allScores: [],
       newsList: [],
       interestList: [],
-      forecast: {
-        probabilities: { 5: 0.22, 10: 0.54, 20: 0.81 },
-        expectedPeakDay: 11,
-        confidence: 0.68,
-        confidenceLabel: 'medium',
-        survival: {
-          probabilities: { 5: 0.78, 10: 0.46, 20: 0.19 },
-          medianTimeToPeak: 10,
-        },
-        postPeakRisk: {
-          expectedDrawdown: 0.24,
-          severeDrawdownProb: 0.12,
-        },
-        evidenceQualityScore: 0.61,
-        abstained: false,
-        abstentionReasons: [],
-      },
-      analogEvidence: {
-        analogCount: 5,
-        topAnalogs: [
-          {
-            episodeId: 'ep-1',
-            themeId: 'past-1',
-            similarity: 0.81,
-            peakDay: 14,
-            totalDays: 40,
-          },
-        ],
-        concentrationGini: 0.32,
-        top1Weight: 0.27,
-        evidenceQuality: 'high',
-        lowEvidenceBadge: false,
-      },
-      forecastControl: {
-        serving: true,
-        version: 'forecast-2026-03-14',
-        rollbackAvailable: true,
-        rollbackVersion: 'forecast-2026-03-07',
-      },
-      comparisonSource: 'forecast',
     })
 
-    expect(result.forecast?.probabilities[10]).toBe(0.54)
-    expect(result.analogEvidence?.topAnalogs[0].themeId).toBe('past-1')
-    expect(result.forecastControl?.version).toBe('forecast-2026-03-14')
-    expect(result.comparisonSource).toBe('forecast')
+    expect(result.comparisons).toEqual([])
   })
 })
