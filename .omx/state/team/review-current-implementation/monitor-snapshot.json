@@ -1,0 +1,11 @@
+{
+  "taskStatusById": {},
+  "workerAliveByName": {},
+  "workerStateByName": {},
+  "workerTurnCountByName": {},
+  "workerTaskIdByName": {},
+  "mailboxNotifiedByMessageId": {},
+  "completedEventTaskIds": {
+    "3": true
+  }
+}

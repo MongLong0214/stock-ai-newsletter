@@ -63,4 +63,9 @@ describe('checkReigniting', () => {
     ]
     expect(checkReigniting('Decline', metrics)).toBe(true)
   })
+
+  it('returns true immediately for Decline → Growth recovery', () => {
+    const metrics = Array.from({ length: 14 }, (_, i) => makeMetric(i, 50))
+    expect(checkReigniting('Growth', metrics, 'Decline')).toBe(true)
+  })
 })

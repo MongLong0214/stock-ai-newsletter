@@ -170,7 +170,7 @@ export default function LifecycleCurve({
         {/* 비교 테마 라인 */}
         {comparisonData?.map((comp, idx) => (
           <Line
-            key={comp.themeName}
+            key={`comparison-${idx}`}
             type="monotone"
             dataKey={`comparison${idx}`}
             yAxisId="score"

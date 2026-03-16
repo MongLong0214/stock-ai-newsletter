@@ -32,6 +32,8 @@ function makeRanking(overrides: Partial<ThemeRanking> = {}): ThemeRanking {
     signals: overrides.signals ?? [],
     summary: overrides.summary ?? {
       totalThemes: 0,
+      trackedThemes: 0,
+      visibleThemes: 0,
       byStage: {},
       hottestTheme: null,
       surging: null,

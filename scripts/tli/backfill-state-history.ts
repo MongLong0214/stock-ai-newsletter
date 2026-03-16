@@ -35,7 +35,7 @@ async function main() {
 
   // 3) 비활성 테마의 마지막 점수 날짜 조회 (closed_at 유도용)
   const inactiveThemeIds = themes.filter(t => !t.is_active).map(t => t.id)
-  let lastScoreDateByTheme = new Map<string, string>()
+  const lastScoreDateByTheme = new Map<string, string>()
 
   if (inactiveThemeIds.length > 0) {
     const scores = await batchQuery<{ theme_id: string; calculated_at: string }>(

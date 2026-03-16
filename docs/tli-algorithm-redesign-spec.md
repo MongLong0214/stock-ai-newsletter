@@ -412,16 +412,16 @@ else: interestTrend = 'stable'
   Growth → Decline (급락)
   Peak → Decline (정상 하락)
   Decline → Emerging (재점화 — reigniting)
+  Decline → Growth (급반등 회복)
   Decline → Dormant (완전 소멸)
 
-Reigniting 전이 경로 (Decline → Emerging → Growth):
+Reigniting 전이 경로 (Decline → Emerging/Growth):
   조건: Decline 상태에서 interestTrend=rising AND (newsVolume 증가 OR score 상승)
-  → Emerging으로 전이 (Growth 직행 불가, 반드시 Emerging 경유)
+  → 일반 반등은 Emerging, 강한 급반등은 Growth로 전이
   → reigniting.ts 유지 — 기존 재점화 감지 로직 활용
 
 금지 전이:
-  Decline → Growth (1단계 점프 불가 — 반드시 Emerging 경유)
-  Decline → Peak (2단계 점프 불가 — 반드시 Emerging→Growth 경유)
+  Decline → Peak (2단계 점프 불가 — 강한 신호도 Growth로 1단계 보정)
   Dormant → Peak (2단계 점프 불가)
   Dormant → Growth (1단계 점프 불가 — 반드시 Emerging 경유)
   Peak → Emerging (역행 불가)

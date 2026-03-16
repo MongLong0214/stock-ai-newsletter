@@ -1,0 +1,9 @@
+{
+  "pid": 27914,
+  "started_at": "2026-03-12T22:35:02.410Z",
+  "cwd": "/Users/isaac/projects/stock-ai-newsletter",
+  "notify_script": "/Users/isaac/.nvm/versions/node/v24.13.0/lib/node_modules/oh-my-codex/scripts/notify-hook.js",
+  "poll_ms": 700,
+  "tracked_files": 1,
+  "seen_turns": 0
+}

@@ -55,7 +55,7 @@ export const buildComparisonResultFromV2Candidate = (
 
 // ── Legacy comparison interface ──
 
-interface Comparison {
+export interface ComparisonRow {
   id: string
   past_theme_id: string
   similarity_score: number
@@ -124,7 +124,7 @@ async function loadPastThemeCurves(pastThemeIds: string[]) {
  * 유사 테마 비교 데이터 배치 조회 및 구축
  */
 export async function buildComparisonResults(
-  comparisons: Comparison[],
+  comparisons: ComparisonRow[],
 ): Promise<ComparisonResult[]> {
   const pastThemeIds = [...new Set(comparisons.map((c) => c.past_theme_id))]
   const pastThemeNames: Record<string, string> = {}

@@ -115,6 +115,9 @@ function ThemesHeader({ summary }: ThemesHeaderProps) {
           <p className="text-sm text-slate-400">
             {pulse.description}
           </p>
+          <p className="text-xs text-slate-500 font-mono">
+            추적 {summary.trackedThemes}개 / 활성 {summary.totalThemes}개
+          </p>
         </div>
       ) : (
         <p className="text-slate-400 text-lg ml-4">
