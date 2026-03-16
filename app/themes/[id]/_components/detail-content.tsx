@@ -88,16 +88,13 @@ function DetailContent({ id }: DetailContentProps) {
 
           <DetailHeader theme={theme} />
 
-          {shouldRenderPredictionPanel(theme.firstSpikeDate, theme.comparisons.length, Boolean(theme.forecast)) && (
+          {shouldRenderPredictionPanel(theme.firstSpikeDate, theme.comparisons.length) && (
             <div className="mb-8">
               <ThemePrediction
                 firstSpikeDate={theme.firstSpikeDate}
                 comparisons={theme.comparisons}
                 score={theme.score.value}
                 stage={theme.score.stage}
-                forecast={theme.forecast}
-                analogEvidence={theme.analogEvidence}
-                forecastControl={theme.forecastControl}
               />
             </div>
           )}

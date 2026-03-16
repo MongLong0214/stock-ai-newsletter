@@ -5,11 +5,6 @@
 import type { ThemeDetail } from '@/lib/tli/types'
 import { toStage, getStageKo, isScoreComponents } from '@/lib/tli/types'
 import type { ComparisonResult } from '@/lib/tli/types/api'
-import type {
-  AnalogEvidencePayload,
-  ForecastPayload,
-} from '@/lib/tli/forecast/api-payloads'
-import type { ThemeForecastControl } from '@/lib/tli/types/api'
 
 interface ThemeBasic {
   id: string
@@ -53,10 +48,6 @@ interface BuildThemeDetailParams {
   allScores: ScoreData[]
   newsList: Array<{ time: string; article_count: number }>
   interestList: Array<{ time: string; normalized: number }>
-  forecast?: ForecastPayload
-  analogEvidence?: AnalogEvidencePayload
-  forecastControl?: ThemeForecastControl
-  comparisonSource?: ThemeDetail['comparisonSource']
 }
 
 /**
@@ -77,10 +68,6 @@ export function buildThemeDetailResponse(params: BuildThemeDetailParams): ThemeD
     allScores,
     newsList,
     interestList,
-    forecast,
-    analogEvidence,
-    forecastControl,
-    comparisonSource,
   } = params
 
   const rawComponents = latestScore?.components ?? null
@@ -149,9 +136,6 @@ export function buildThemeDetailResponse(params: BuildThemeDetailParams): ThemeD
       pubDate: a.pub_date,
     })),
     comparisons: comparisonResults,
-    forecast,
-    analogEvidence,
-    forecastControl,
     lifecycleCurve: allScores.map((s) => ({
       date: s.calculated_at,
       score: s.score,
@@ -164,6 +148,5 @@ export function buildThemeDetailResponse(params: BuildThemeDetailParams): ThemeD
       date: i.time,
       value: i.normalized,
     })),
-    comparisonSource,
   }
 }
