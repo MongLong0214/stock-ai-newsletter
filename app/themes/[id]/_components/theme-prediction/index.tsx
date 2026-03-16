@@ -3,12 +3,10 @@
 
 import { useMemo } from 'react'
 import { motion } from 'framer-motion'
-import { Clock, Target, BarChart3, Lightbulb, ChevronRight, ShieldAlert } from 'lucide-react'
+import { Clock, Target, BarChart3, Lightbulb, ChevronRight } from 'lucide-react'
 import { GlassCard } from '@/components/tli/glass-card'
 import { calculatePrediction } from '@/lib/tli/prediction'
 import type { ComparisonResult, Stage } from '@/lib/tli/types'
-import type { AnalogEvidencePayload, ForecastPayload } from '@/lib/tli/forecast/api-payloads'
-import type { ThemeForecastControl } from '@/lib/tli/types/api'
 import {
   CONFIDENCE_CONFIG,
   RISK_CONFIG,
@@ -38,139 +36,6 @@ interface ThemePredictionProps {
   comparisons: ComparisonResult[]
   score?: number
   stage?: Stage
-  forecast?: ForecastPayload
-  analogEvidence?: AnalogEvidencePayload
-  forecastControl?: ThemeForecastControl
-}
-
-function resolveForecastRiskLabel(severeDrawdownProb: number) {
-  if (severeDrawdownProb >= 0.3) return '높음'
-  if (severeDrawdownProb >= 0.15) return '보통'
-  return '낮음'
-}
-
-function formatPercent(value: number) {
-  return `${Math.round(value * 100)}%`
-}
-
-function ServedForecastPrediction({
-  forecast,
-  analogEvidence,
-  forecastControl,
-  comparisons,
-}: {
-  forecast: ForecastPayload
-  analogEvidence: AnalogEvidencePayload | undefined
-  forecastControl: ThemeForecastControl | undefined
-  comparisons: ComparisonResult[]
-}) {
-  const confidenceCfg = CONFIDENCE_CONFIG[forecast.confidenceLabel]
-  const themeNames = new Map(comparisons.map((comparison) => [comparison.pastThemeId, comparison.pastTheme]))
-
-  return (
-    <GlassCard className="p-5 sm:p-6">
-      <motion.div variants={containerVariants} initial="hidden" animate="visible" className="space-y-5">
-        <motion.div variants={itemVariants} className="flex flex-wrap items-center justify-between gap-2">
-          <div>
-            <h2 className="text-lg font-bold">
-              <span className="text-white">확률형</span>
-              <span className="text-emerald-400 ml-1">예측</span>
-            </h2>
-            {forecastControl?.version && (
-              <p className="text-xs font-mono text-slate-500 mt-1">
-                serving {forecastControl.version}
-              </p>
-            )}
-          </div>
-          <div className="flex items-center gap-2">
-            <span className={`text-[10px] font-mono px-2.5 py-1 rounded-full border ${confidenceCfg.bg} ${confidenceCfg.text} ${confidenceCfg.border}`}>
-              {confidenceCfg.label}
-            </span>
-            {analogEvidence?.lowEvidenceBadge && (
-              <span className="text-[10px] font-mono px-2.5 py-1 rounded-full border border-amber-500/30 bg-amber-500/10 text-amber-300">
-                낮은 근거
-              </span>
-            )}
-            {forecast.abstained && (
-              <span className="text-[10px] font-mono px-2.5 py-1 rounded-full border border-red-500/30 bg-red-500/10 text-red-300">
-                보수적 서빙
-              </span>
-            )}
-          </div>
-        </motion.div>
-
-        <motion.div variants={itemVariants} className="grid grid-cols-3 gap-3">
-          {[5, 10, 20].map((horizon) => (
-            <div key={horizon} className="rounded-xl border border-slate-800 bg-slate-900/50 p-3">
-              <div className="text-[11px] font-mono text-slate-500">정점 {horizon}일 이내</div>
-              <div className="mt-2 text-2xl font-mono font-bold text-emerald-400">
-                {formatPercent(forecast.probabilities[horizon as 5 | 10 | 20])}
-              </div>
-            </div>
-          ))}
-        </motion.div>
-
-        <motion.div variants={itemVariants} className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <StatCell icon={<Target className="w-4 h-4" />} label="기대 정점" value={`약 ${forecast.expectedPeakDay}일`} color="#10B981" />
-          <StatCell icon={<Clock className="w-4 h-4" />} label="중앙 정점 시점" value={`${forecast.survival.medianTimeToPeak}일`} color="#0EA5E9" />
-          <StatCell icon={<BarChart3 className="w-4 h-4" />} label="급락 위험" value={resolveForecastRiskLabel(forecast.postPeakRisk.severeDrawdownProb)} color="#F59E0B" />
-        </motion.div>
-
-        {forecast.abstained && (
-          <motion.div variants={itemVariants} className="rounded-xl border border-red-500/20 bg-red-500/10 p-4 flex items-start gap-3">
-            <ShieldAlert className="w-5 h-5 mt-0.5 shrink-0 text-red-300" />
-            <div className="space-y-1">
-              <p className="text-sm font-mono text-red-200">
-                근거가 충분하지 않아 확신형 문구를 비활성화했습니다.
-              </p>
-              <p className="text-xs font-mono text-red-300/80">
-                {forecast.abstentionReasons.join(' · ')}
-              </p>
-            </div>
-          </motion.div>
-        )}
-
-        {analogEvidence && (
-          <motion.div variants={itemVariants} className="rounded-xl border border-slate-800 bg-slate-900/50 p-4 space-y-3">
-            <div className="flex items-center justify-between gap-2">
-              <h3 className="text-sm font-semibold text-white">근거 패키지</h3>
-              <span className="text-[10px] font-mono px-2 py-1 rounded-full border border-slate-700 text-slate-300">
-                품질 {analogEvidence.evidenceQuality}
-              </span>
-            </div>
-            <div className="grid grid-cols-3 gap-3 text-xs font-mono">
-              <div className="rounded-lg bg-slate-950/60 p-3">
-                <div className="text-slate-500">근거 수</div>
-                <div className="mt-1 text-white">{analogEvidence.analogCount}</div>
-              </div>
-              <div className="rounded-lg bg-slate-950/60 p-3">
-                <div className="text-slate-500">집중도 Gini</div>
-                <div className="mt-1 text-white">{analogEvidence.concentrationGini.toFixed(2)}</div>
-              </div>
-              <div className="rounded-lg bg-slate-950/60 p-3">
-                <div className="text-slate-500">Top-1 비중</div>
-                <div className="mt-1 text-white">{formatPercent(analogEvidence.top1Weight)}</div>
-              </div>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {analogEvidence.topAnalogs.slice(0, 3).map((analog) => (
-                <span
-                  key={`${analog.episodeId}-${analog.themeId}`}
-                  className="rounded-full border border-slate-700 bg-slate-950/70 px-3 py-1 text-[11px] font-mono text-slate-300"
-                >
-                  {themeNames.get(analog.themeId) ?? analog.themeId} · {analog.peakDay}일
-                </span>
-              ))}
-            </div>
-          </motion.div>
-        )}
-
-        <motion.p variants={itemVariants} className="text-[10px] font-mono text-slate-500 text-center pt-1">
-          확률, 불확실성, 근거 패키지를 함께 노출하는 forecast_control_v1 서빙 경로입니다
-        </motion.p>
-      </motion.div>
-    </GlassCard>
-  )
 }
 
 function ThemePrediction({
@@ -178,25 +43,11 @@ function ThemePrediction({
   comparisons,
   score,
   stage,
-  forecast,
-  analogEvidence,
-  forecastControl,
 }: ThemePredictionProps) {
   const prediction = useMemo(
-    () => (forecast ? null : calculatePrediction(firstSpikeDate, comparisons, undefined, score, stage)),
-    [forecast, firstSpikeDate, comparisons, score, stage],
+    () => calculatePrediction(firstSpikeDate, comparisons, undefined, score, stage),
+    [firstSpikeDate, comparisons, score, stage],
   )
-
-  if (forecast) {
-    return (
-      <ServedForecastPrediction
-        forecast={forecast}
-        analogEvidence={analogEvidence}
-        forecastControl={forecastControl}
-        comparisons={comparisons}
-      />
-    )
-  }
 
   if (!prediction) return null
 

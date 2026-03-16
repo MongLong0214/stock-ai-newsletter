@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { ThemeScoreMeta } from '../scores/ranking/ranking-helpers'
-import { THEME_LIST_SCORE_BATCH_SIZE, buildThemeListResults } from './route'
+import { THEME_LIST_SCORE_BATCH_SIZE, buildThemeListResults } from './theme-list-helpers'
 
 describe('theme list route batching', () => {
   it('uses a score batch size that stays under the 1000-row cap for a 90-day window', () => {

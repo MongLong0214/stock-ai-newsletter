@@ -297,7 +297,7 @@ export const readForecastForTheme = (controlState: ControlPlaneState): ForecastR
 
 export const shouldAllowLegacyComparisonFallback = (
   control: ForecastReaderResult,
-): boolean => !control.serving && LEGACY_FALLBACK_REASONS.has(control.reason ?? '')
+): boolean => !control.serving
 
 export async function loadServedForecastBundle(themeId: string): Promise<ServedForecastBundle> {
   const controlState = await loadLatestControlState()
