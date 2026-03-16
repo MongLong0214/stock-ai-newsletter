@@ -3,7 +3,6 @@
  */
 
 import { supabase } from '@/lib/supabase'
-import { getKSTDateString } from '@/lib/tli/date-utils'
 import { isTableNotFound } from '@/lib/tli/api-utils'
 
 interface FetchThemeDataParams {
@@ -106,13 +105,12 @@ export async function fetchThemeData(
   params: FetchThemeDataParams,
 ): Promise<FetchThemeDataResult> {
   const { id, thirtyDaysAgo } = params
-  const threeDaysAgo = getKSTDateString(-3)
 
   const comparisonsPromise = supabase
     .from('theme_comparisons')
     .select('id, past_theme_id, similarity_score, current_day, past_peak_day, past_total_days, message, feature_sim, curve_sim, keyword_sim, past_peak_score, past_final_stage, past_decline_days')
     .eq('current_theme_id', id)
-    .gte('calculated_at', threeDaysAgo)
+    .gte('calculated_at', thirtyDaysAgo)
     .order('calculated_at', { ascending: false })
     .order('similarity_score', { ascending: false })
     .limit(COMPARISON_FETCH_LIMIT)
