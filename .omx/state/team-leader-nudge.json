@@ -1,5 +1,15 @@
 {
-  "last_nudged_by_team": {},
-  "last_idle_nudged_by_team": {},
+  "last_nudged_by_team": {
+    "review-users-isaac-openclaw-wo": {
+      "at": "2026-03-12T15:43:22.426Z",
+      "last_message_id": "32efbc80-8ec4-412e-ac3b-f331bb54ca1b"
+    }
+  },
+  "last_idle_nudged_by_team": {
+    "review-users-isaac-openclaw-wo": {
+      "at": "2026-03-12T15:43:22.426Z",
+      "worker_count": 3
+    }
+  },
   "progress_by_team": {}
 }

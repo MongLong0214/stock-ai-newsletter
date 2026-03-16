@@ -14,11 +14,20 @@ const ALLOWED_TRANSITIONS: Record<Stage, Set<Stage>> = {
   Emerging: new Set<Stage>(['Growth', 'Dormant']),
   Growth:   new Set<Stage>(['Peak', 'Decline']),
   Peak:     new Set<Stage>(['Decline', 'Growth']),
-  Decline:  new Set<Stage>(['Dormant', 'Emerging']),
+  Decline:  new Set<Stage>(['Dormant', 'Emerging', 'Growth']),
 };
 
 /** 데이터 갭 시 1단계 점프 허용 (Markov 제약 완화) */
 const DATA_GAP_THRESHOLD = 3;
+
+function resolveDisallowedTransition(prevStage: Stage, candidate: Stage): Stage {
+  // 급반등은 허용하되 Decline -> Peak 직행은 Growth로 한 단계만 승격한다.
+  if (prevStage === 'Decline' && candidate === 'Peak') {
+    return 'Growth';
+  }
+
+  return prevStage;
+}
 
 /**
  * 관심도 추세 계산
@@ -93,8 +102,8 @@ export function determineStage(
       if (dataGapDays !== undefined && dataGapDays >= DATA_GAP_THRESHOLD) {
         return candidate;
       }
-      // 허용되지 않은 전이 → 이전 단계 유지
-      return prevStage;
+      // 허용되지 않은 전이 → 보정 또는 이전 단계 유지
+      return resolveDisallowedTransition(prevStage, candidate);
     }
   }
 
@@ -102,12 +111,12 @@ export function determineStage(
 }
 
 /**
- * 재점화 판별 — Decline→Emerging 전이 감지
- * determineStage 결과가 Emerging이고 prevStage가 Decline이면 재점화
+ * 재점화 판별 — Decline→Emerging/Growth 전이 감지
+ * determineStage 결과가 Emerging/Growth이고 prevStage가 Decline이면 재점화
  */
 export function isReignitingTransition(
   candidateStage: Stage,
   prevStage: Stage | null | undefined,
 ): boolean {
-  return prevStage === 'Decline' && candidateStage === 'Emerging';
+  return prevStage === 'Decline' && (candidateStage === 'Emerging' || candidateStage === 'Growth');
 }

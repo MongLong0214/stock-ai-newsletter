@@ -32,8 +32,9 @@ function StatsOverview({ summary }: StatsOverviewProps) {
               <Layers className="w-4 h-4 text-emerald-400" />
             </div>
             <div>
-              <p className="text-xs text-slate-500 font-mono uppercase tracking-wider">Total</p>
+              <p className="text-xs text-slate-500 font-mono uppercase tracking-wider">Active</p>
               <p className="text-lg font-bold text-white font-mono">{summary.totalThemes}</p>
+              <p className="text-[10px] text-slate-500 font-mono">추적 {summary.trackedThemes}</p>
             </div>
           </div>
 

@@ -26,7 +26,7 @@ function Footer() {
                     Stock Matrix
                   </h2>
                   <p className="text-slate-400 text-sm leading-relaxed font-light">
-                    매일 오전 7시 30분, AI가 분석한 KOSPI·KOSDAQ 3종목의 기술적 분석과 250+ 투자 테마의 생명주기 추적을 제공합니다
+                    매일 오전 7시 30분, AI가 분석한 KOSPI·KOSDAQ 3종목의 기술적 분석과 투자 테마 생명주기 추적을 제공합니다
                   </p>
                 </div>
 

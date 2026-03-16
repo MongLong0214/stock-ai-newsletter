@@ -18,13 +18,17 @@ export async function GET() {
 
     const top5 = allThemes.slice(0, 5)
     const today = new Date().toISOString().split('T')[0]
+    const trackedThemes = ranking.summary.trackedThemes
+    const eligibleThemes = ranking.summary.totalThemes
+    const visibleThemes = ranking.summary.visibleThemes
+    const byStage = ranking.summary.byStage
 
     const stageDistribution = {
-      peak: ranking.peak.length,
-      growth: ranking.growth.length,
-      emerging: ranking.emerging.length,
-      decline: ranking.decline.length,
-      reigniting: ranking.reigniting.length,
+      peak: byStage.Peak ?? 0,
+      growth: byStage.Growth ?? 0,
+      emerging: byStage.Emerging ?? 0,
+      decline: byStage.Decline ?? 0,
+      reigniting: byStage.Reigniting ?? 0,
     }
 
     const summary = {
@@ -35,12 +39,12 @@ export async function GET() {
       },
       generatedAt: today,
       marketOverview: {
-        totalActiveThemes: allThemes.length,
+        totalActiveThemes: eligibleThemes,
+        trackedThemes,
+        visibleThemes,
         stageDistribution,
-        averageScore: allThemes.length > 0
-          ? Math.round(allThemes.reduce((sum, t) => sum + t.score, 0) / allThemes.length)
-          : 0,
-        description: `현재 ${allThemes.length}개 테마 추적 중. 정점 ${stageDistribution.peak}개, 성장 ${stageDistribution.growth}개, 초기 ${stageDistribution.emerging}개, 쇠퇴 ${stageDistribution.decline}개, 재점화 ${stageDistribution.reigniting}개.`,
+        averageScore: ranking.summary.avgScore,
+        description: `현재 ${trackedThemes}개 테마 추적 중, 품질 게이트 통과 ${eligibleThemes}개입니다. 정점 ${stageDistribution.peak}개, 성장 ${stageDistribution.growth}개, 초기 ${stageDistribution.emerging}개, 쇠퇴 ${stageDistribution.decline}개, 재점화 ${stageDistribution.reigniting}개.`,
       },
       topThemes: top5.map((t) => ({
         name: t.name,

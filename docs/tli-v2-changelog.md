@@ -214,9 +214,10 @@ Dormant  → Emerging (만)
 Emerging → Growth | Dormant
 Growth   → Peak | Decline
 Peak     → Decline | Growth
-Decline  → Dormant | Emerging
+Decline  → Dormant | Emerging | Growth
 ```
 
+- `Decline → Peak` 후보는 `Growth`로 1단계 보정
 - 허용되지 않은 전이 → 이전 단계 유지
 - **데이터 갭 ≥ 3일** → 제약 완화 (1단계 점프 허용)
 - `prevStage` 미제공 시 → 제약 없음

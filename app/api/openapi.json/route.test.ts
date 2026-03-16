@@ -40,6 +40,19 @@ describe('openapi route contract', () => {
     expect(themeDetail.required).not.toContain('comparisonSource')
   })
 
+  it('documents forecast and analog evidence payloads as optional additive fields', async () => {
+    const response = GET()
+    const spec = await response.json()
+    const themeDetail = spec.components.schemas.ThemeDetail
+
+    expect(themeDetail.properties.forecast).toBeDefined()
+    expect(themeDetail.properties.analogEvidence).toBeDefined()
+    expect(themeDetail.properties.forecastControl).toBeDefined()
+    expect(themeDetail.required).not.toContain('forecast')
+    expect(themeDetail.required).not.toContain('analogEvidence')
+    expect(themeDetail.required).not.toContain('forecastControl')
+  })
+
   it('documents ranking signals as an optional additive field', async () => {
     const response = GET()
     const spec = await response.json()
@@ -48,6 +61,20 @@ describe('openapi route contract', () => {
     expect(themeRanking.properties.signals).toBeDefined()
     expect(themeRanking.properties.signals.type).toBe('array')
     expect(themeRanking.required).not.toContain('signals')
+  })
+
+  it('documents tracked and visible counts for ranking and AI summary payloads', async () => {
+    const response = GET()
+    const spec = await response.json()
+    const rankingSummary = spec.components.schemas.RankingSummary
+    const aiSummary = spec.components.schemas.AiSummary
+
+    expect(rankingSummary.properties.trackedThemes).toBeDefined()
+    expect(rankingSummary.properties.visibleThemes).toBeDefined()
+    expect(rankingSummary.required).toContain('trackedThemes')
+    expect(rankingSummary.required).toContain('visibleThemes')
+    expect(aiSummary.properties.marketOverview.properties.trackedThemes).toBeDefined()
+    expect(aiSummary.properties.marketOverview.properties.visibleThemes).toBeDefined()
   })
 
   it('documents level-4 probability metadata on comparison payloads', async () => {

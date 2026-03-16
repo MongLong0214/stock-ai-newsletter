@@ -34,12 +34,7 @@ export interface CalibrationArtifactReadbackValidationInput {
   read: CalibrationArtifactRow
 }
 
-interface CalibrationArtifactQueryResult<T> {
-  data: T | null
-  error: { message?: string } | null
-}
-
-type CalibrationArtifactQueryHandle<T> = Promise<{ data: T | null | any; error: { message?: string } | null }>
+type CalibrationArtifactQueryHandle<T> = Promise<{ data: T | null | unknown; error: { message?: string } | null }>
 
 interface CalibrationArtifactTableHandle {
   upsert?(row: CalibrationArtifactRow): {
@@ -129,16 +124,17 @@ export async function upsertCalibrationArtifact(
   if (error || !data) {
     throw new Error(`Calibration artifact upsert/readback failed: ${error?.message || 'unknown error'}`)
   }
+  const readback = data as CalibrationArtifactRow
 
   const validation = validateCalibrationArtifactReadback({
     written: row,
-    read: data,
+    read: readback,
   })
   if (!validation.ok) {
     throw new Error(`Calibration artifact readback mismatches: ${validation.mismatches.join(', ')}`)
   }
 
-  return data
+  return readback
 }
 
 export async function fetchLatestCertificationCalibrationArtifact(
