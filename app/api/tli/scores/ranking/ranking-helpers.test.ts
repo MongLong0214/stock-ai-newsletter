@@ -42,11 +42,20 @@ describe('buildThemeRanking', () => {
         score: 72,
       }),
     ]
+    const ineligible = makeTheme({
+      id: 'low-score',
+      name: 'Low Score',
+      stage: 'Emerging',
+      stageKo: '초기',
+      score: 20,
+    })
 
-    const ranking = buildThemeRanking([...emerging, ...growth])
+    const ranking = buildThemeRanking([...emerging, ...growth, ineligible])
 
     expect(ranking.emerging).toHaveLength(12)
     expect(ranking.summary.totalThemes).toBe(14)
+    expect(ranking.summary.trackedThemes).toBe(15)
+    expect(ranking.summary.visibleThemes).toBe(13)
     expect(ranking.summary.byStage.Emerging).toBe(13)
     expect(ranking.summary.byStage.Growth).toBe(1)
   })

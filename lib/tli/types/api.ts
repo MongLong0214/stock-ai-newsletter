@@ -2,6 +2,7 @@
 
 import type { Stage, NewsArticle, ConfidenceLevel } from './db'
 import type { Level4ConfidenceTier, Level4SourceSurface } from '@/lib/tli/comparison/level4-types'
+import type { AnalogEvidencePayload, ForecastPayload } from '@/lib/tli/forecast/api-payloads'
 
 /** API 응답 공통 래퍼 */
 export interface ApiResponse<T> {
@@ -109,6 +110,14 @@ export interface ThemeListItem {
 }
 
 /** 테마 상세 정보 */
+export interface ThemeForecastControl {
+  serving: boolean
+  version: string | null
+  rollbackAvailable: boolean
+  rollbackVersion: string | null
+  reason?: string
+}
+
 export interface ThemeDetail {
   id: string;
   name: string;
@@ -161,6 +170,9 @@ export interface ThemeDetail {
   newsCount: number;
   recentNews: NewsArticle[];
   comparisons: ComparisonResult[];
+  forecast?: ForecastPayload;
+  analogEvidence?: AnalogEvidencePayload;
+  forecastControl?: ThemeForecastControl;
   lifecycleCurve: Array<{
     date: string;
     score: number;
@@ -176,7 +188,7 @@ export interface ThemeDetail {
     value: number;
   }>;
   /** Source of comparison data (backward-compatible optional field) */
-  comparisonSource?: 'legacy' | 'v4' | 'v4-view';
+  comparisonSource?: 'legacy' | 'v4' | 'v4-view' | 'forecast';
 }
 
 /** 테마 랭킹 (단계별 그룹) */
@@ -189,7 +201,12 @@ export interface ThemeRanking {
   signals: ThemeSignalCard[];
   /** 요약 통계 */
   summary: {
+    /** 품질 게이트를 통과한 활성 테마 수 */
     totalThemes: number;
+    /** DB 기준 추적 중인 전체 활성 테마 수 (is_active=true) */
+    trackedThemes: number;
+    /** 기본 화면에 실제로 노출되는 테마 수 (stage cap 적용 후) */
+    visibleThemes: number;
     byStage: Record<string, number>;
     hottestTheme: { id: string; name: string; score: number; stage: string; stockCount: number } | null;
     /** 급상승 테마 (Emerging/Growth 단계, 이번 주 최대 상승) */

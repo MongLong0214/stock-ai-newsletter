@@ -65,6 +65,10 @@ export function resolveStageWithHysteresis(input: StageResolutionInput): StageRe
   if (rawScore >= 68 && smoothedScore >= 50 && markovStage === 'Peak') {
     finalStage = 'Peak'
   }
+  // Decline rebound fast-track: 강한 급반등은 하루 대기 없이 Growth로 복귀시킨다
+  else if (prevStage === 'Decline' && rawScore >= 68 && smoothedScore >= 50 && markovStage === 'Growth') {
+    finalStage = 'Growth'
+  }
   // 변경 없거나 첫 날이면 그대로
   else if (markovStage === prevStage || prevStage === null) {
     finalStage = markovStage

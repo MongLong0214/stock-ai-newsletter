@@ -11,6 +11,7 @@ import { isTableNotFound } from '@/lib/tli/api-utils'
 interface FetchThemeDataParams {
   id: string
   thirtyDaysAgo: string
+  skipComparisons?: boolean
 }
 
 export const COMPARISON_FETCH_LIMIT = 12
@@ -107,7 +108,7 @@ export function findCriticalThemeDetailError(input: ThemeDetailCriticalFetchInpu
 export async function fetchThemeData(
   params: FetchThemeDataParams,
 ): Promise<FetchThemeDataResult> {
-  const { id, thirtyDaysAgo } = params
+  const { id, thirtyDaysAgo, skipComparisons = false } = params
   const threeDaysAgo = getKSTDateString(-3)
   const useV4Serving = isComparisonV4ServingEnabled()
   const comparisonDescriptor = buildComparisonsQueryDescriptor({
@@ -116,7 +117,9 @@ export async function fetchThemeData(
     useV4Serving,
   })
 
-  const comparisonsPromise = comparisonDescriptor.mode === 'v4'
+  const comparisonsPromise = skipComparisons
+    ? Promise.resolve({ data: [], error: null })
+    : comparisonDescriptor.mode === 'v4'
     ? fetchPublishedComparisonRowsV4(comparisonDescriptor.themeId)
     : supabase
         .from('theme_comparisons')
@@ -230,7 +233,7 @@ export async function fetchThemeData(
   }
 
   let safeComparisonsRes = comparisonsRes
-  if (comparisonDescriptor.mode === 'v4' && shouldFallbackToLegacyComparisons(comparisonsRes)) {
+  if (!skipComparisons && comparisonDescriptor.mode === 'v4' && shouldFallbackToLegacyComparisons(comparisonsRes)) {
     const legacyComparisonsRes = await supabase
       .from('theme_comparisons')
       .select('id, past_theme_id, similarity_score, current_day, past_peak_day, past_total_days, message, feature_sim, curve_sim, keyword_sim, past_peak_score, past_final_stage, past_decline_days')

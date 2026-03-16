@@ -29,4 +29,9 @@ describe('getScenarioCards', () => {
     expect(shouldRenderPredictionPanel(null, 3)).toBe(false)
     expect(shouldRenderPredictionPanel('2026-01-01', 2)).toBe(false)
   })
+
+  it('renders the panel when a served forecast exists even without legacy comparison preconditions', () => {
+    expect(shouldRenderPredictionPanel(null, 0, true)).toBe(true)
+    expect(shouldRenderPredictionPanel('2026-01-01', 1, true)).toBe(true)
+  })
 })

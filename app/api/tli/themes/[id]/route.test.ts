@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const fetchThemeData = vi.fn()
 const buildComparisonResults = vi.fn()
+const loadServedForecastBundle = vi.fn()
 
 vi.mock('./fetch-theme-data', () => ({
   fetchThemeData,
@@ -24,6 +25,11 @@ vi.mock('./fetch-theme-data', () => ({
 
 vi.mock('./build-comparisons', () => ({
   buildComparisonResults,
+}))
+
+vi.mock('./forecast-reader', () => ({
+  loadServedForecastBundle,
+  shouldAllowLegacyComparisonFallback: () => true,
 }))
 
 vi.mock('@/lib/supabase', () => ({
@@ -54,6 +60,19 @@ describe('theme detail route', () => {
   beforeEach(() => {
     fetchThemeData.mockReset()
     buildComparisonResults.mockReset()
+    loadServedForecastBundle.mockReset()
+    loadServedForecastBundle.mockResolvedValue({
+      control: {
+        serving: false,
+        version: null,
+        rollbackAvailable: false,
+        rollbackVersion: null,
+        reason: 'control_row_missing',
+      },
+      forecast: null,
+      analogEvidence: null,
+      comparisonRows: [],
+    })
   })
 
   it('returns a server error when critical detail queries fail instead of emitting a degraded success payload', async () => {

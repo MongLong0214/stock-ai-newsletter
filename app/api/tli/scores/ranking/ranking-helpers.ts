@@ -15,6 +15,8 @@ export const EMPTY_RANKING: ThemeRanking = {
   signals: [],
   summary: {
     totalThemes: 0,
+    trackedThemes: 0,
+    visibleThemes: 0,
     byStage: {},
     hottestTheme: null,
     surging: null,
@@ -278,6 +280,13 @@ export function buildThemeRanking(
   rawInterestAvgMap?: Map<string, number>,
 ): ThemeRanking {
   const eligibleBuckets = buildQualityGateBuckets(themeData)
+  const displayedBuckets = {
+    emerging: eligibleBuckets.emerging.slice(0, QUALITY_GATE.stageCaps.Emerging),
+    growth: eligibleBuckets.growth.slice(0, QUALITY_GATE.stageCaps.Growth),
+    peak: eligibleBuckets.peak.slice(0, QUALITY_GATE.stageCaps.Peak),
+    decline: eligibleBuckets.decline.slice(0, QUALITY_GATE.stageCaps.Decline),
+    reigniting: eligibleBuckets.reigniting.slice(0, QUALITY_GATE.reignitingCap),
+  }
   const activeThemes = [
     ...eligibleBuckets.emerging,
     ...eligibleBuckets.growth,
@@ -287,14 +296,25 @@ export function buildThemeRanking(
   ]
   const summary = calculateRankingSummary(activeThemes, rawInterestAvgMap)
   const signals = buildSignalCardsFromPools(eligibleBuckets)
+  const visibleThemes = [
+    ...displayedBuckets.emerging,
+    ...displayedBuckets.growth,
+    ...displayedBuckets.peak,
+    ...displayedBuckets.decline,
+    ...displayedBuckets.reigniting,
+  ]
 
   return {
-    emerging: eligibleBuckets.emerging.slice(0, QUALITY_GATE.stageCaps.Emerging),
-    growth: eligibleBuckets.growth.slice(0, QUALITY_GATE.stageCaps.Growth),
-    peak: eligibleBuckets.peak.slice(0, QUALITY_GATE.stageCaps.Peak),
-    decline: eligibleBuckets.decline.slice(0, QUALITY_GATE.stageCaps.Decline),
-    reigniting: eligibleBuckets.reigniting.slice(0, QUALITY_GATE.reignitingCap),
+    emerging: displayedBuckets.emerging,
+    growth: displayedBuckets.growth,
+    peak: displayedBuckets.peak,
+    decline: displayedBuckets.decline,
+    reigniting: displayedBuckets.reigniting,
     signals,
-    summary,
+    summary: {
+      ...summary,
+      trackedThemes: themeData.length,
+      visibleThemes: visibleThemes.length,
+    },
   }
 }

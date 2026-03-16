@@ -6,7 +6,12 @@ export interface ScenarioCardConfig {
   scenario: Scenario
 }
 
-export function shouldRenderPredictionPanel(firstSpikeDate: string | null, comparisonCount: number): boolean {
+export function shouldRenderPredictionPanel(
+  firstSpikeDate: string | null,
+  comparisonCount: number,
+  hasForecast = false,
+): boolean {
+  if (hasForecast) return true
   return Boolean(firstSpikeDate) && comparisonCount >= 3
 }
 

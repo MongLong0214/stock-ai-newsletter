@@ -1,0 +1,4 @@
+{"timestamp":"2026-03-12T22:35:02.312Z","type":"watcher_start","cwd":"/Users/isaac/projects/stock-ai-newsletter","notify_script":"/Users/isaac/.nvm/versions/node/v24.13.0/lib/node_modules/oh-my-codex/scripts/notify-hook.js","poll_ms":700,"once":false}
+{"timestamp":"2026-03-12T22:35:02.410Z","type":"watcher_start","cwd":"/Users/isaac/projects/stock-ai-newsletter","notify_script":"/Users/isaac/.nvm/versions/node/v24.13.0/lib/node_modules/oh-my-codex/scripts/notify-hook.js","poll_ms":700,"once":true}
+{"timestamp":"2026-03-12T22:35:02.420Z","type":"watcher_once_complete","seen_turns":0}
+{"timestamp":"2026-03-12T22:35:02.422Z","type":"watcher_stop","signal":"SIGTERM"}

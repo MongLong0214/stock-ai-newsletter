@@ -94,7 +94,7 @@ export default async function ThemesPage() {
     '@context': 'https://schema.org',
     '@type': 'Dataset',
     name: '한국 주식시장 테마 생명주기 데이터셋',
-    description: `AI가 분석하는 ${themes.length}개 이상의 한국 주식시장(KOSPI·KOSDAQ) 테마 생명주기 점수, 단계, 관련주 데이터. 네이버 검색 관심도, 뉴스 모멘텀, 주가 변동성을 종합 분석하여 매일 갱신됩니다.`,
+    description: `AI가 분석하는 ${themes.length}개 추적 테마 중 현재 ${ranking.summary.totalThemes}개 활성 테마의 생명주기 점수, 단계, 관련주 데이터. 네이버 검색 관심도, 뉴스 모멘텀, 주가 변동성을 종합 분석하여 매일 갱신됩니다.`,
     url: `${siteConfig.domain}/themes`,
     license: 'https://creativecommons.org/licenses/by-nc/4.0/',
     creator: {
@@ -148,7 +148,7 @@ export default async function ThemesPage() {
       {/* SSR 콘텐츠: JS 미실행 AI 크롤러용 */}
       <section className="sr-only" aria-label="테마 생명주기 분석 목록">
         <h1>한국 주식시장 테마 생명주기 분석</h1>
-        <p>{themes.length}개 테마의 AI 분석 랭킹. 네이버 검색 관심도, 뉴스 모멘텀, 주가 변동성을 종합하여 0~100점 점수와 5단계 생명주기를 산출합니다.</p>
+        <p>{themes.length}개 추적 테마 중 {ranking.summary.totalThemes}개 활성 테마의 AI 분석 랭킹. 네이버 검색 관심도, 뉴스 모멘텀, 주가 변동성을 종합하여 0~100점 점수와 5단계 생명주기를 산출합니다.</p>
         {allRanked.length > 0 && (
           <table>
             <thead>

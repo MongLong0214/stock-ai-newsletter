@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { determineStage } from '@/lib/tli/stage'
+import { determineStage, isReignitingTransition } from '@/lib/tli/stage'
 import type { ScoreComponents } from '@/lib/tli/types'
 
 /** v2 ScoreComponents 기본값 — stable trend (slope=0) */
@@ -91,7 +91,19 @@ describe('determineStage (v2 Multi-Signal + Markov)', () => {
     expect(determineStage(80, makeComponents(), 'Growth')).toBe('Peak')
   })
 
+  it('allows valid transitions (Decline → Growth)', () => {
+    expect(determineStage(60, makeComponents(), 'Decline')).toBe('Growth')
+  })
+
+  it('clamps rapid Decline → Peak rebounds to Growth instead of keeping Decline', () => {
+    expect(determineStage(80, makeComponents(), 'Decline')).toBe('Growth')
+  })
+
   it('relaxes Markov constraints on data gap >= 3 days', () => {
     expect(determineStage(80, makeComponents(), 'Dormant', 3)).toBe('Peak')
+  })
+
+  it('marks Decline → Growth as a reigniting transition', () => {
+    expect(isReignitingTransition('Growth', 'Decline')).toBe(true)
   })
 })

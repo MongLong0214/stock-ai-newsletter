@@ -19,12 +19,7 @@ export interface WeightArtifactRow {
   created_at: string
 }
 
-interface WeightArtifactQueryResult<T> {
-  data: T | null
-  error: { message?: string } | null
-}
-
-type WeightArtifactQueryHandle<T> = Promise<{ data: T | null | any; error: { message?: string } | null }>
+type WeightArtifactQueryHandle<T> = Promise<{ data: T | null | unknown; error: { message?: string } | null }>
 
 interface WeightArtifactTableHandle {
   upsert?(row: WeightArtifactRow): {
@@ -106,16 +101,17 @@ export async function upsertWeightArtifact(
   if (error || !data) {
     throw new Error(`Weight artifact upsert/readback failed: ${error?.message || 'unknown error'}`)
   }
+  const readback = data as WeightArtifactRow
 
   const validation = validateWeightArtifactReadback({
     written: row,
-    read: data,
+    read: readback,
   })
   if (!validation.ok) {
     throw new Error(`Weight artifact readback mismatches: ${validation.mismatches.join(', ')}`)
   }
 
-  return data
+  return readback
 }
 
 export async function fetchWeightArtifactByVersion(
@@ -135,11 +131,12 @@ export async function fetchWeightArtifactByVersion(
   if (error || !data) {
     throw new Error(`No certification-grade weight artifact available for version ${weightVersion}: ${error?.message || 'not found'}`)
   }
-  if (!isCertificationSourceSurface(data.source_surface)) {
+  const row = data as WeightArtifactRow
+  if (!isCertificationSourceSurface(row.source_surface)) {
     throw new Error(`Invalid certification-grade weight artifact: ${weightVersion}`)
   }
 
-  return data as WeightArtifactRow
+  return row
 }
 
 export async function fetchLatestCertificationWeightArtifact(
