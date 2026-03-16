@@ -2,6 +2,62 @@
   "newsletters": [
     {
       "type": "stock",
+      "date": "2026-03-17",
+      "stocks": [
+        {
+          "ticker": "KOSPI:005930",
+          "name": "삼성전자",
+          "close_price": 188700,
+          "rationale": "SMA5/20/60/120 완전정배열 확인|EMA20 지지선 반등 성공|RSI(14) 62.52 강세 국면|MACD(12,26,9) 시그널 상향 돌파 및 히스토그램 양선 확대|당일 거래량 전일 대비 108.4% 증가|볼린저 밴드(20,2) 상단 돌파 시도 중|ATR(14) 2.14% 수준의 안정적 변동성|ADX(14) 29.28로 강한 상승 추세 진입|Williams %R -28.47로 적정 매수 구간|MFI(14) 61.53 자금 유입 지속|SuperTrend(10,3) Buy 시그널 유지|Vortex Indicator VI+(14) 1.22 Bullish Cross 발생",
+          "signals": {
+            "trend_score": 92,
+            "momentum_score": 94,
+            "volume_score": 88,
+            "volatility_score": 85,
+            "pattern_score": 90,
+            "sentiment_score": 95,
+            "overall_score": 91
+          },
+          "verified_date": "2026-03-16"
+        },
+        {
+          "ticker": "KOSPI:068270",
+          "name": "셀트리온",
+          "close_price": 201000,
+          "rationale": "주요 이평선(SMA) 정배열 레이아웃 유지|EMA5 이평선 이탈 없는 견조한 지지|RSI(14) 57.84로 과매수 미진입 강세|MACD 0선 위 골든크로스 발생 직전|거래량 전일 대비 145.2% 폭증하며 매물대 돌파|볼린저 밴드 중단(20일선) 지지 후 반등 성공|ATR(14) 3.12% 변동성 확대 구간|ADX(14) 26.45 추세 확장성 확인|Williams %R -38.21 적정 구간 내 상승|MFI(14) 59.27 매수세 우위|SuperTrend Buy 신호 유지|Aroon Up(25) 75선 위 위치하며 상승 추세 주도",
+          "signals": {
+            "trend_score": 89,
+            "momentum_score": 91,
+            "volume_score": 92,
+            "volatility_score": 82,
+            "pattern_score": 88,
+            "sentiment_score": 90,
+            "overall_score": 89
+          },
+          "verified_date": "2026-03-16"
+        },
+        {
+          "ticker": "KOSPI:307950",
+          "name": "현대오토에버",
+          "close_price": 415500,
+          "rationale": "SMA 5일선이 20일선을 돌파하는 골든크로스 발생|EMA60 중기 지지선 터치 후 강력 반등|RSI(14) 54.26 안정적 상승 가속 구간|MACD 0선 상향 돌파로 중장기 상승 전환|거래량 5일 평균 대비 115.8% 증가|볼린저 밴드 스퀴즈 후 상단 방향 확장 시작|ATR(14) 3.42% 기술적 분석 적정 변동성|ADX(14) 31.84 강력한 추세 형성 구간 진입|OBV(On Balance Volume) 지속 우상향으로 매집 확인|Stochastic(14,3,3) K-D 골든크로스|SuperTrend Buy 신호 전환 확인|Parabolic SAR 매수 전환 신호 발생",
+          "signals": {
+            "trend_score": 94,
+            "momentum_score": 88,
+            "volume_score": 85,
+            "volatility_score": 90,
+            "pattern_score": 92,
+            "sentiment_score": 93,
+            "overall_score": 90
+          },
+          "verified_date": "2026-03-16"
+        }
+      ],
+      "sentAt": "2026-03-16T22:37:20.064+00:00",
+      "subscriberCount": 253
+    },
+    {
+      "type": "stock",
       "date": "2026-03-16",
       "stocks": [
         {
@@ -5214,5 +5270,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-03-15T23:04:49.132Z"
+  "lastUpdated": "2026-03-16T22:37:54.508Z"
 }
