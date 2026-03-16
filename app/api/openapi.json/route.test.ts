@@ -29,28 +29,15 @@ describe('openapi route contract', () => {
     expect(themeDetail.required).toContain('lifecycleCurve')
   })
 
-  it('documents the v4 comparison source metadata as optional', async () => {
+  it('does not document removed forecast fields', async () => {
     const response = GET()
     const spec = await response.json()
     const themeDetail = spec.components.schemas.ThemeDetail
 
-    expect(themeDetail.properties.comparisonSource).toBeDefined()
-    expect(themeDetail.properties.comparisonSource.type).toBe('string')
-    // comparisonSource is NOT in required → backward compatible
-    expect(themeDetail.required).not.toContain('comparisonSource')
-  })
-
-  it('documents forecast and analog evidence payloads as optional additive fields', async () => {
-    const response = GET()
-    const spec = await response.json()
-    const themeDetail = spec.components.schemas.ThemeDetail
-
-    expect(themeDetail.properties.forecast).toBeDefined()
-    expect(themeDetail.properties.analogEvidence).toBeDefined()
-    expect(themeDetail.properties.forecastControl).toBeDefined()
-    expect(themeDetail.required).not.toContain('forecast')
-    expect(themeDetail.required).not.toContain('analogEvidence')
-    expect(themeDetail.required).not.toContain('forecastControl')
+    expect(themeDetail.properties.forecast).toBeUndefined()
+    expect(themeDetail.properties.analogEvidence).toBeUndefined()
+    expect(themeDetail.properties.forecastControl).toBeUndefined()
+    expect(themeDetail.properties.comparisonSource).toBeUndefined()
   })
 
   it('documents ranking signals as an optional additive field', async () => {

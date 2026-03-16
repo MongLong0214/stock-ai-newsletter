@@ -497,9 +497,6 @@ export function GET() {
               items: { $ref: '#/components/schemas/Comparison' },
               description: 'Similar themes by lifecycle pattern',
             },
-            forecast: { $ref: '#/components/schemas/ForecastPayload' },
-            analogEvidence: { $ref: '#/components/schemas/AnalogEvidencePayload' },
-            forecastControl: { $ref: '#/components/schemas/ForecastControl' },
             lifecycleCurve: {
               type: 'array',
               items: {
@@ -529,11 +526,6 @@ export function GET() {
                   value: { type: 'number' },
                 },
               },
-            },
-            comparisonSource: {
-              type: 'string',
-              enum: ['legacy', 'v4', 'v4-view', 'forecast'],
-              description: 'Source of comparison data (legacy table or v4 pipeline)',
             },
           },
           required: [
@@ -766,88 +758,6 @@ export function GET() {
             },
           },
           required: ['pastTheme', 'pastThemeId', 'similarity', 'currentDay', 'estimatedDaysToPeak', 'message'],
-        },
-        ForecastPayload: {
-          type: 'object',
-          properties: {
-            probabilities: {
-              type: 'object',
-              properties: {
-                '5': { type: 'number' },
-                '10': { type: 'number' },
-                '20': { type: 'number' },
-              },
-            },
-            expectedPeakDay: { type: 'integer' },
-            confidence: { type: 'number' },
-            confidenceLabel: {
-              type: 'string',
-              enum: ['high', 'medium', 'low'],
-            },
-            survival: {
-              type: 'object',
-              properties: {
-                probabilities: {
-                  type: 'object',
-                  properties: {
-                    '5': { type: 'number' },
-                    '10': { type: 'number' },
-                    '20': { type: 'number' },
-                  },
-                },
-                medianTimeToPeak: { type: 'integer' },
-              },
-            },
-            postPeakRisk: {
-              type: 'object',
-              properties: {
-                expectedDrawdown: { type: 'number' },
-                severeDrawdownProb: { type: 'number' },
-              },
-            },
-            evidenceQualityScore: { type: 'number' },
-            abstained: { type: 'boolean' },
-            abstentionReasons: {
-              type: 'array',
-              items: { type: 'string' },
-            },
-          },
-        },
-        AnalogEvidencePayload: {
-          type: 'object',
-          properties: {
-            analogCount: { type: 'integer' },
-            topAnalogs: {
-              type: 'array',
-              items: {
-                type: 'object',
-                properties: {
-                  episodeId: { type: 'string' },
-                  themeId: { type: 'string' },
-                  similarity: { type: 'number' },
-                  peakDay: { type: 'integer' },
-                  totalDays: { type: 'integer' },
-                },
-              },
-            },
-            concentrationGini: { type: 'number' },
-            top1Weight: { type: 'number' },
-            evidenceQuality: {
-              type: 'string',
-              enum: ['high', 'medium', 'low'],
-            },
-            lowEvidenceBadge: { type: 'boolean' },
-          },
-        },
-        ForecastControl: {
-          type: 'object',
-          properties: {
-            serving: { type: 'boolean' },
-            version: { type: 'string', nullable: true },
-            rollbackAvailable: { type: 'boolean' },
-            rollbackVersion: { type: 'string', nullable: true },
-            reason: { type: 'string' },
-          },
         },
         HistoryEntry: {
           type: 'object',
