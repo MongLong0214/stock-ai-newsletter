@@ -314,11 +314,16 @@ export function runEvaluation(
 
       if (result === null) continue
 
-      // Apply EMA smoothing
+      // Apply EMA smoothing (with Cautious Decay + age-dependent alpha)
       const smoothed = applyEMASmoothing(
         result.score,
         state.prevSmoothed,
         state.recentSmoothed,
+        {
+          components: result.components,
+          firstSpikeDate: theme.firstSpikeDate,
+          today: date,
+        },
       )
 
       // Resolve stage with hysteresis
