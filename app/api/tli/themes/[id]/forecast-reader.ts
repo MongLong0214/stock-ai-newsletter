@@ -69,7 +69,6 @@ export interface ServedForecastBundle {
 }
 
 const SERVING_ANALOG_LIMIT = 5
-const LEGACY_FALLBACK_REASONS = new Set(['control_row_missing', 'not_production'])
 
 const isFiniteNumber = (value: unknown): value is number =>
   typeof value === 'number' && Number.isFinite(value)
