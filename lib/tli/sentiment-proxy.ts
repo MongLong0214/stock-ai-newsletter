@@ -34,7 +34,7 @@ export function computeSentimentProxy(input: SentimentInput, config?: Partial<TL
 
   // Signal 2: News acceleration (week-over-week change rate)
   let newsAcceleration: number;
-  if (input.newsLastWeek >= 3) {
+  if (input.newsLastWeek >= cfg.min_news_last_week) {
     const changeRate = (input.newsThisWeek - input.newsLastWeek) / Math.max(input.newsLastWeek, 1);
     newsAcceleration = sigmoid_normalize(changeRate, 0, cfg.news_momentum_scale);
   } else {
