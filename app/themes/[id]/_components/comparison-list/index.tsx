@@ -64,7 +64,7 @@ function ComparisonList({
           >
             {comparisons.map((comp, idx) => (
               <ComparisonCard
-                key={comp.pastThemeId}
+                key={`${comp.pastThemeId}-${idx}`}
                 comp={comp}
                 idx={idx}
                 isSelected={selectedIndices?.includes(idx) ?? false}
