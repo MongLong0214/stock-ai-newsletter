@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { calculateLifecycleScore } from '@/lib/tli/calculator'
 import type { InterestMetric, NewsMetric } from '@/lib/tli/types'
+import type { TLIParams } from '@/lib/tli/constants/tli-params'
 
 function makeInterestMetric(day: number, normalized: number, rawValue = 50): InterestMetric {
   return {
@@ -151,7 +152,7 @@ describe('calculateLifecycleScore', () => {
     expect(result!.components.interest_score).toBe(0)
   })
 
-  it('uses correct SCORE_WEIGHTS (0.40, 0.35, 0.10, 0.15)', () => {
+  it('uses correct SCORE_WEIGHTS (0.304148, 0.366408, 0.104017, 0.225427)', () => {
     const interest = Array.from({ length: 5 }, (_, i) => makeInterestMetric(i, 50))
     const result = calculateLifecycleScore({
       interestMetrics: interest,
@@ -161,10 +162,10 @@ describe('calculateLifecycleScore', () => {
     })
     expect(result).not.toBeNull()
     const w = result!.components.weights
-    expect(w.interest).toBe(0.40)
-    expect(w.news).toBe(0.35)
-    expect(w.volatility).toBe(0.10)
-    expect(w.activity).toBe(0.15)
+    expect(w.interest).toBeCloseTo(0.304148, 5)
+    expect(w.news).toBeCloseTo(0.366408, 5)
+    expect(w.volatility).toBeCloseTo(0.104017, 5)
+    expect(w.activity).toBeCloseTo(0.225427, 5)
   })
 
   it('DVI: consistent direction yields higher volatility than flat pattern', () => {
@@ -296,5 +297,59 @@ describe('calculateLifecycleScore', () => {
     // 101 days / 90 = ~1.12
     expect(result!.components.maturity_ratio).toBeGreaterThan(1)
     expect(result!.components.maturity_ratio).toBeLessThanOrEqual(1.5)
+  })
+
+  it('with default config matches current behavior (backward compat)', () => {
+    const interest = Array.from({ length: 10 }, (_, i) => makeInterestMetric(i, 50))
+    const news = [
+      ...Array.from({ length: 7 }, (_, i) => makeNewsMetric(i, 10)),
+      ...Array.from({ length: 7 }, (_, i) => makeNewsMetric(i + 7, 5)),
+    ]
+
+    const withoutConfig = calculateLifecycleScore({
+      interestMetrics: interest,
+      newsMetrics: news,
+      firstSpikeDate: '2025-12-01',
+      today: '2026-01-10',
+    })
+
+    const withDefaultConfig = calculateLifecycleScore({
+      interestMetrics: interest,
+      newsMetrics: news,
+      firstSpikeDate: '2025-12-01',
+      today: '2026-01-10',
+      config: {},
+    })
+
+    expect(withoutConfig).not.toBeNull()
+    expect(withDefaultConfig).not.toBeNull()
+    expect(withDefaultConfig!.score).toBe(withoutConfig!.score)
+    expect(withDefaultConfig!.components.interest_score).toBe(withoutConfig!.components.interest_score)
+    expect(withDefaultConfig!.components.news_momentum).toBe(withoutConfig!.components.news_momentum)
+  })
+
+  it('with custom interest_level_center shifts interest score', () => {
+    const interest = Array.from({ length: 10 }, (_, i) => makeInterestMetric(i, 50))
+    const news = Array.from({ length: 14 }, (_, i) => makeNewsMetric(i, 5))
+
+    const defaultResult = calculateLifecycleScore({
+      interestMetrics: interest,
+      newsMetrics: news,
+      firstSpikeDate: '2025-12-01',
+      today: '2026-01-10',
+    })
+
+    const customResult = calculateLifecycleScore({
+      interestMetrics: interest,
+      newsMetrics: news,
+      firstSpikeDate: '2025-12-01',
+      today: '2026-01-10',
+      config: { interest_level_center: 50 } as Partial<TLIParams>,
+    })
+
+    expect(defaultResult).not.toBeNull()
+    expect(customResult).not.toBeNull()
+    // center=50 vs center=30 for rawAvg=50 → different sigmoid outputs
+    expect(customResult!.score).not.toBe(defaultResult!.score)
   })
 })

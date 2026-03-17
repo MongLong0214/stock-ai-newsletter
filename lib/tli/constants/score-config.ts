@@ -1,7 +1,9 @@
-/** 점수 컴포넌트 가중치 및 UI 설정 — 단일 소스 */
+/** 점수 컴포넌트 가중치 및 UI 설정 — tli-params.ts가 단일 소스 */
 
-/** 노이즈 감쇠 기본 임계값 */
-export const MIN_RAW_INTEREST = 5
+import { DEFAULT_TLI_PARAMS, computeWActivity } from './tli-params'
+
+/** 노이즈 감쇠 기본 임계값 — tli-params에서 파생 */
+export const MIN_RAW_INTEREST = DEFAULT_TLI_PARAMS.min_raw_interest
 
 /** 캘리브레이션된 노이즈 임계값 (ROC 교정 시 업데이트) */
 let _calibratedMinRawInterest: number | null = null
@@ -16,12 +18,12 @@ export function getMinRawInterest(): number {
   return _calibratedMinRawInterest ?? MIN_RAW_INTEREST
 }
 
-/** 기본 점수 컴포넌트 가중치 */
+/** 기본 점수 컴포넌트 가중치 — tli-params에서 파생 */
 export const SCORE_WEIGHTS = {
-  interest: 0.40,
-  newsMomentum: 0.35,
-  volatility: 0.10,
-  activity: 0.15,
+  interest: DEFAULT_TLI_PARAMS.w_interest,
+  newsMomentum: DEFAULT_TLI_PARAMS.w_newsMomentum,
+  volatility: DEFAULT_TLI_PARAMS.w_volatility,
+  activity: computeWActivity(DEFAULT_TLI_PARAMS),
 } as const
 
 /** Entropy 가중치 도메인 바운드 (최소, 최대) */

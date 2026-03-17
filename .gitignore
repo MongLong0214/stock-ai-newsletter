@@ -49,9 +49,6 @@ next-env.d.ts
 **/.ctf-cookies.txt
 **/ctf-keys*.json
 
-.agents
-.claude
-.codex
 
 .opencode
 
@@ -62,3 +59,7 @@ crash-alert-*.png
 
 # Playwright MCP logs
 .playwright-mcp/
+
+# TLI Optimizer data dumps
+scripts/tli-optimizer/historical-data.json
+scripts/tli-optimizer/optimized-params.json
