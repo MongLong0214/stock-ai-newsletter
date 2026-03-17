@@ -152,7 +152,7 @@ describe('calculateLifecycleScore', () => {
     expect(result!.components.interest_score).toBe(0)
   })
 
-  it('uses correct SCORE_WEIGHTS (0.40, 0.35, 0.10, 0.15)', () => {
+  it('uses correct SCORE_WEIGHTS (0.304148, 0.366408, 0.104017, 0.225427)', () => {
     const interest = Array.from({ length: 5 }, (_, i) => makeInterestMetric(i, 50))
     const result = calculateLifecycleScore({
       interestMetrics: interest,
@@ -162,10 +162,10 @@ describe('calculateLifecycleScore', () => {
     })
     expect(result).not.toBeNull()
     const w = result!.components.weights
-    expect(w.interest).toBe(0.40)
-    expect(w.news).toBe(0.35)
-    expect(w.volatility).toBe(0.10)
-    expect(w.activity).toBe(0.15)
+    expect(w.interest).toBe(0.304148)
+    expect(w.news).toBe(0.366408)
+    expect(w.volatility).toBe(0.104017)
+    expect(w.activity).toBe(0.225427)
   })
 
   it('DVI: consistent direction yields higher volatility than flat pattern', () => {

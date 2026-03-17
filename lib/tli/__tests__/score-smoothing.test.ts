@@ -107,11 +107,11 @@ describe('applyEMASmoothing — Cautious Decay', () => {
     })
     const raw = 60
     const result = applyEMASmoothing(raw, prev, recentSmoothed, { components })
-    // confirmCount=1 < 2 => floor = 80 * 0.90 = 72
-    // effectiveRaw = max(60, 72) = 72
-    // Bollinger: |72-80|=8 <= 10 => no clamp
-    // EMA: round(0.4*72 + 0.6*80) = round(76.8) = 77
-    expect(result).toBe(77)
+    // confirmCount=1 < 2 => floor = 80 * 0.946661 = 75.73
+    // effectiveRaw = max(60, 75.73) = 75.73
+    // Bollinger: |75.73-80|=4.27 <= 10 => no clamp
+    // EMA: round(0.416554*75.73 + 0.583446*80) = round(78.22) = 78
+    expect(result).toBe(78)
   })
 
   // 4. 0/3 signals -> all neutral -> floor applies
@@ -123,11 +123,11 @@ describe('applyEMASmoothing — Cautious Decay', () => {
     })
     const raw = 60
     const result = applyEMASmoothing(raw, prev, recentSmoothed, { components })
-    // confirmCount=0 < 2 => floor = 80 * 0.90 = 72
-    // effectiveRaw = max(60, 72) = 72
-    // Bollinger: |72-80|=8 <= 10 => no clamp
-    // EMA: round(0.4*72 + 0.6*80) = round(76.8) = 77
-    expect(result).toBe(77)
+    // confirmCount=0 < 2 => floor = 80 * 0.946661 = 75.73
+    // effectiveRaw = max(60, 75.73) = 75.73
+    // Bollinger: |75.73-80|=4.27 <= 10 => no clamp
+    // EMA: round(0.416554*75.73 + 0.583446*80) = round(78.22) = 78
+    expect(result).toBe(78)
   })
 
   // 5. Score increase -> bypass cautious decay entirely
@@ -152,15 +152,15 @@ describe('applyEMASmoothing — Cautious Decay', () => {
       news_this_week: 12,          // >= news_last_week(8) => false
       dvi: 0.6,                    // >= 0.4 => false
     })
-    // raw = 75 < prev = 80; floor = 80 * 0.90 = 72
-    // effectiveRaw = max(75, 72) = 75 (raw is already above floor)
+    // raw = 75 < prev = 80; floor = 80 * 0.946661 = 75.73
+    // effectiveRaw = max(75, 75.73) = 75.73
     const raw = 75
     const result = applyEMASmoothing(raw, prev, recentSmoothed, { components })
     // Bollinger: |75-80|=5 <= 10 => no clamp
     // EMA: round(0.4*75 + 0.6*80) = round(78) = 78
     expect(result).toBe(78)
-    // Verify floor (72) < prev (80)
-    expect(prev * 0.90).toBeLessThan(prev)
+    // Verify floor (75.73) < prev (80)
+    expect(prev * 0.946661).toBeLessThan(prev)
   })
 
   // 7. Step A before Step B: floor then Bollinger clamp
@@ -174,11 +174,11 @@ describe('applyEMASmoothing — Cautious Decay', () => {
     const raw = 30
     const highPrev = 90
     const result = applyEMASmoothing(raw, highPrev, recentSmoothed, { components })
-    // Step A: confirmCount=0 < 2 => floor = 90*0.90 = 81
-    //   effectiveRaw = max(30, 81) = 81
-    // Step B: |81-90|=9 <= 10 => no clamp (floor already limits the drop)
-    // EMA: round(0.4*81 + 0.6*90) = round(86.4) = 86
-    expect(result).toBe(86)
+    // Step A: confirmCount=0 < 2 => floor = 90*0.946661 = 85.20
+    //   effectiveRaw = max(30, 85.20) = 85.20
+    // Step B: |85.20-90|=4.8 <= 10 => no clamp (floor already limits the drop)
+    // EMA: round(0.416554*85.20 + 0.583446*90) = round(88.0) = 88
+    expect(result).toBe(88)
   })
 
   // 8. components undefined -> falls back to no protection (backward compat)

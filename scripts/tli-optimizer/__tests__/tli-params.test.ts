@@ -10,13 +10,13 @@ describe('TLIParams', () => {
   // T2 Test #1
   it('getTLIParams returns defaults when no override', () => {
     const params = getTLIParams()
-    expect(params.w_interest).toBe(0.40)
-    expect(params.w_newsMomentum).toBe(0.35)
-    expect(params.w_volatility).toBe(0.10)
-    expect(params.stage_dormant).toBe(15)
-    expect(params.ema_alpha).toBe(0.4)
-    expect(params.min_raw_interest).toBe(5)
-    expect(params.cautious_floor_ratio).toBe(0.90)
+    expect(params.w_interest).toBe(0.304148)
+    expect(params.w_newsMomentum).toBe(0.366408)
+    expect(params.w_volatility).toBe(0.104017)
+    expect(params.stage_dormant).toBe(10)
+    expect(params.ema_alpha).toBe(0.416554)
+    expect(params.min_raw_interest).toBe(4)
+    expect(params.cautious_floor_ratio).toBe(0.946661)
   })
 
   // T2 Test #2
@@ -25,7 +25,7 @@ describe('TLIParams', () => {
     const params = getTLIParams()
     expect(params.w_interest).toBe(0.50)
     expect(params.stage_peak).toBe(75)
-    expect(params.w_newsMomentum).toBe(0.35) // unchanged
+    expect(params.w_newsMomentum).toBe(0.366408) // unchanged
   })
 
   // T2 Test #3
@@ -33,7 +33,7 @@ describe('TLIParams', () => {
     setTLIParams({ w_interest: 0.50 })
     setTLIParams(null)
     const params = getTLIParams()
-    expect(params.w_interest).toBe(0.40) // back to default
+    expect(params.w_interest).toBe(0.304148) // back to default
   })
 
   // T2 Test #4
@@ -60,19 +60,19 @@ describe('TLIParams', () => {
     expect(params.w_interest).toBe(DEFAULT_TLI_PARAMS.w_interest)
   })
 
-  // T2 Test #7
-  it('env var v2 with missing file falls back to defaults + warning', () => {
+  // T2 Test #7 — optimized-params.json now exists, so v2 loads it (full-precision values)
+  it('env var v2 loads optimized-params.json when present', () => {
     vi.stubEnv('TLI_PARAMS_VERSION', 'v2')
-    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
     const params = getTLIParams()
-    expect(params.w_interest).toBe(DEFAULT_TLI_PARAMS.w_interest)
-    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('optimized-params.json not found'))
-    warnSpy.mockRestore()
+    // JSON has full-precision values that round to the truncated defaults
+    expect(params.w_interest).toBeCloseTo(DEFAULT_TLI_PARAMS.w_interest, 4)
+    expect(params.w_newsMomentum).toBeCloseTo(DEFAULT_TLI_PARAMS.w_newsMomentum, 4)
+    expect(params.w_volatility).toBeCloseTo(DEFAULT_TLI_PARAMS.w_volatility, 4)
   })
 
   // T2 Test #8 - computeWActivity
   it('computeWActivity returns correct computed value', () => {
-    expect(computeWActivity(DEFAULT_TLI_PARAMS)).toBeCloseTo(0.15, 3)
+    expect(computeWActivity(DEFAULT_TLI_PARAMS)).toBeCloseTo(0.225427, 3)
   })
 
   // T2 Test #9 - computeSentVolumeWeight

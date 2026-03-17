@@ -57,45 +57,45 @@ export interface TLIParams {
   cautious_floor_ratio: number
 }
 
-/** 현재 하드코딩 값과 동일한 기본 파라미터 */
+/** Bayesian Optimized 기본 파라미터 (2026-03-17, GDDA 53.5% → 66.6%, val 64.9%) */
 export const DEFAULT_TLI_PARAMS: Readonly<TLIParams> = {
-  // Scoring Weights
-  w_interest: 0.40,
-  w_newsMomentum: 0.35,
-  w_volatility: 0.10,
+  // Scoring Weights — 뉴스 모멘텀 비중 증가, 관심도 비중 소폭 감소
+  w_interest: 0.304148,
+  w_newsMomentum: 0.366408,
+  w_volatility: 0.104017,
 
-  // Stage Thresholds
-  stage_dormant: 15,
+  // Stage Thresholds — Growth 진입 소폭 상향, Peak 소폭 상향
+  stage_dormant: 10,
   stage_emerging: 40,
-  stage_growth: 58,
-  stage_peak: 68,
-  trend_threshold: 0.10,
+  stage_growth: 61,
+  stage_peak: 71,
+  trend_threshold: 0.163507,
 
   // Smoothing Core
-  ema_alpha: 0.4,
-  min_raw_interest: 5,
+  ema_alpha: 0.416554,
+  min_raw_interest: 4,
 
-  // Interest
-  interest_level_center: 30,
-  interest_level_scale: 20,
+  // Interest — sigmoid 중심 상향 + 가파른 곡선
+  interest_level_center: 45.793311,
+  interest_level_scale: 10.799847,
   interest_momentum_scale: 1.5,
-  interest_level_ratio: 0.6,
+  interest_level_ratio: 0.576366,
 
-  // News
-  news_log_scale: 50,
-  news_momentum_scale: 1.0,
+  // News — log scale 확대
+  news_log_scale: 64.338194,
+  news_momentum_scale: 1.324128,
   news_volume_ratio: 0.6,
   min_news_last_week: 3,
 
-  // Volatility
-  vol_center: 15,
+  // Volatility — 중심 하향
+  vol_center: 10.752023,
   vol_scale: 10,
 
   // Activity
   price_sigmoid_scale: 5,
   volume_log_scale: 50_000_000,
   coverage_days: 14,
-  activity_vs_sentiment_ratio: 0.7,
+  activity_vs_sentiment_ratio: 0.727894,
   level_dampening_threshold: 0.1,
 
   // Sentiment Proxy
@@ -105,13 +105,13 @@ export const DEFAULT_TLI_PARAMS: Readonly<TLIParams> = {
 
   // Stage Bypass
   peak_bypass_news: 30,
-  decline_score_ratio: 0.85,
+  decline_score_ratio: 0.860943,
 
   // Smoothing Fine-tune
   min_daily_change: 10,
 
-  // Cautious Decay
-  cautious_floor_ratio: 0.90,
+  // Cautious Decay — floor 비율 상향 (더 보수적)
+  cautious_floor_ratio: 0.946661,
 }
 
 // ── 런타임 파라미터 관리 ──
