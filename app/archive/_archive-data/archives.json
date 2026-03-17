@@ -2,6 +2,62 @@
   "newsletters": [
     {
       "type": "stock",
+      "date": "2026-03-18",
+      "stocks": [
+        {
+          "ticker": "KOSPI:005930",
+          "name": "삼성전자",
+          "close_price": 193900,
+          "rationale": "2026-03-17 종가 193,900원(+2.76%) 확인|RSI(14) 59.29로 강세장 진입 구간 안착|MACD(12,26) 2923.727 매수 신호 발생|ADX(14) 29.04로 상승 추세 강도 증가|거래량 19,360,000주로 전일 대비 폭발적 증가|GTC 2026 엔비디아 '메모리 3종 세트' 탑재 확인 호재|HBM 경쟁력 회복에 따른 P/B 밴드 상단 회복 중|FY26 예상 BPS 89,613원 기반 목표가 20만원 도출|52주 범위 52,900~223,000원 내 상승 여력 충분|Stochastic RSI 57.81로 추가 상승 공간 확보|Williams %R -2.02로 단기 과매수권이나 강한 밴드 워킹 시도|기관 투자자 중심의 대규모 순매수 유입 확인",
+          "signals": {
+            "trend_score": 92,
+            "momentum_score": 89,
+            "volume_score": 94,
+            "volatility_score": 85,
+            "pattern_score": 90,
+            "sentiment_score": 95,
+            "overall_score": 91
+          },
+          "verified_date": "2026-03-17"
+        },
+        {
+          "ticker": "KOSPI:000660",
+          "name": "SK하이닉스",
+          "close_price": 970000,
+          "rationale": "2026-03-17 종가 970,000원 확인(장중 100만닉스 돌파)|최태원 회장 미국 ADR 상장 검토 공식 발언 모멘텀|RSI(14) 66.93으로 강력한 상승 모멘텀 유지|ADX(14) 45.18로 초강력 추세 형성 확인|거래량 3,140,000주 안정적 수급 유지|4Q25 영업이익 19.2조원(OPM 58.4%) 어닝 서프라이즈|HBM4 차세대 메모리 시장 독점적 지위 지속|미국 주식예탁증서(ADR) 상장 시 글로벌 밸류에이션 재평가 기대|52주 최고가 1,099,000원 탈환 시도 중|MACD 20456.415 Buy 시그널 유지|기관 7,338억원 순매수세 중 반도체 집중 유입|NAND ASP 33.4% 상승에 따른 이익 구조 혁신",
+          "signals": {
+            "trend_score": 96,
+            "momentum_score": 93,
+            "volume_score": 88,
+            "volatility_score": 82,
+            "pattern_score": 92,
+            "sentiment_score": 97,
+            "overall_score": 94
+          },
+          "verified_date": "2026-03-17"
+        },
+        {
+          "ticker": "KOSPI:005380",
+          "name": "현대차",
+          "close_price": 522000,
+          "rationale": "2026-03-17 종가 522,000원(+3.16%) 확인|한-미 정상회담 계기 대미 수출 관세 15% 인하 확실시|RSI(14) 51.23으로 중립 이상 강세 반전 성공|ADX(14) 31.45로 상승 추세 초기 진입 신호|거래량 1,350,000주로 바닥권 탈피 거래 증가|모셔널 로보택시 마케팅 영상 3000만뷰 달성 센티먼트 개선|50일 이동평균선 520,090원 상향 돌파 및 지지 확인|자율주행 플랫폼 '하이페리온' 엔비디아 협력 강화|2026년 순이익 전망 11.9조원 상향 조정|Stochastic RSI 62.39 매수 우위 구간 진입|대미 수출 불확실성 해소에 따른 저평가 메리트 부각|현대차 아산공장 등 노사 리스크 관리 단계 진입",
+          "signals": {
+            "trend_score": 88,
+            "momentum_score": 91,
+            "volume_score": 85,
+            "volatility_score": 87,
+            "pattern_score": 89,
+            "sentiment_score": 94,
+            "overall_score": 90
+          },
+          "verified_date": "2026-03-17"
+        }
+      ],
+      "sentAt": "2026-03-17T22:37:12.218+00:00",
+      "subscriberCount": 252
+    },
+    {
+      "type": "stock",
       "date": "2026-03-17",
       "stocks": [
         {
@@ -5270,5 +5326,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-03-16T23:05:11.519Z"
+  "lastUpdated": "2026-03-17T22:37:51.667Z"
 }
