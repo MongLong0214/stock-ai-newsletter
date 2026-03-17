@@ -1,5 +1,39 @@
 /** 점수 컴포넌트 가중치 및 UI 설정 — 단일 소스 */
 
+import { DEFAULT_TLI_PARAMS, type TLIParams } from './tli-params'
+
+// ── TLI 통합 파라미터 관리 ──
+
+let _overriddenParams: Partial<TLIParams> | null = null
+
+/** 런타임 파라미터 오버라이드 (evaluate.ts 등에서 사용) */
+export function setTLIParams(params: Partial<TLIParams> | null) {
+  _overriddenParams = params
+}
+
+/** 현재 활성 TLI 파라미터 반환. 우선순위: override > env v2 > 기본값 */
+export function getTLIParams(): TLIParams {
+  const base = { ...DEFAULT_TLI_PARAMS }
+
+  // env var v2: optimized-params.json 로드 시도
+  if (!_overriddenParams && typeof process !== 'undefined' && process.env.TLI_PARAMS_VERSION === 'v2') {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const optimized = require('../../../scripts/tli-optimizer/optimized-params.json') as Partial<TLIParams>
+      return { ...base, ...optimized }
+    } catch {
+      console.warn('[TLI] TLI_PARAMS_VERSION=v2 but optimized-params.json not found. Using defaults.')
+      return base
+    }
+  }
+
+  if (_overriddenParams) {
+    return { ...base, ..._overriddenParams }
+  }
+
+  return base
+}
+
 /** 노이즈 감쇠 기본 임계값 */
 export const MIN_RAW_INTEREST = 5
 

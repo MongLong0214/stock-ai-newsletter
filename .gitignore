@@ -62,3 +62,7 @@ crash-alert-*.png
 
 # Playwright MCP logs
 .playwright-mcp/
+
+# TLI Optimizer data dumps
+scripts/tli-optimizer/historical-data.json
+scripts/tli-optimizer/optimized-params.json
