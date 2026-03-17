@@ -8,6 +8,7 @@ import type { ThemeFeatures } from './features'
 import { featuresToArray } from './features'
 import { formatDays } from '../date-utils'
 import { dtwSimilarity } from './dtw'
+import { getTLIParams } from '../constants/tli-params'
 
 const MAX_LIFECYCLE_DAYS = 365
 
@@ -179,8 +180,9 @@ function computeCurveSim(
   // DTW similarity (phase-shift resistant)
   const dtwSim = dtwSimilarity(cR, pR)
 
-  // 3-signal ensemble: RMSE 0.35 + derivative Pearson 0.30 + DTW 0.35
-  return { curveSim: shapeSim * 0.35 + derivCorr * 0.30 + dtwSim * 0.35, minCurveLen }
+  // 3-signal ensemble
+  const cfg = getTLIParams()
+  return { curveSim: shapeSim * cfg.curve_shape_weight + derivCorr * cfg.curve_derivative_weight + dtwSim * cfg.curve_dtw_weight, minCurveLen }
 }
 
 // ── 메시지 생성 ──────────────────────────────────────────────────────────────

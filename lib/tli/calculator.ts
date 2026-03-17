@@ -11,15 +11,13 @@ import {
   calculateDVI,
 } from './normalize';
 import { getKSTDateString } from './date-utils';
-import { getScoreWeights, getMinRawInterest } from './constants/score-config';
+import { getTLIParams, computeWActivity, type TLIParams } from './constants/tli-params';
 import { computeSentimentProxy } from './sentiment-proxy';
 import { computeScoreConfidence } from './score-confidence';
 import type { InterestMetric, NewsMetric, ScoreComponents, ScoreConfidence } from './types';
 
 /** 최소 데이터 요건 */
 const MIN_INTEREST_DAYS = 3;
-/** 뉴스 모멘텀 계산을 위한 최소 지난주 기사 수 */
-const MIN_NEWS_LAST_WEEK = 3;
 
 interface CalculateScoreInput {
   interestMetrics: InterestMetric[];
@@ -32,6 +30,7 @@ interface CalculateScoreInput {
   rawPercentile?: number;
   prevSmoothedScore?: number;
   prevAvgVolume?: number;
+  config?: Partial<TLIParams>;
 }
 
 export function calculateLifecycleScore(input: CalculateScoreInput): {
@@ -41,6 +40,7 @@ export function calculateLifecycleScore(input: CalculateScoreInput): {
 } | null {
   const { interestMetrics, newsMetrics, firstSpikeDate } = input;
   const today = input.today || getKSTDateString();
+  const cfg = { ...getTLIParams(), ...input.config };
 
   if (interestMetrics.length < MIN_INTEREST_DAYS) {
     return null;
@@ -65,7 +65,7 @@ export function calculateLifecycleScore(input: CalculateScoreInput): {
   } else if (input.rawPercentile !== undefined) {
     levelScore = input.rawPercentile;
   } else {
-    levelScore = sigmoid_normalize(rawAvg, 30, 20);
+    levelScore = sigmoid_normalize(rawAvg, cfg.interest_level_center, cfg.interest_level_scale);
   }
 
   const recent7dAsc = [...recent7d].reverse();
@@ -73,29 +73,29 @@ export function calculateLifecycleScore(input: CalculateScoreInput): {
 
   let momentumScore: number;
   if (baselineAvg > 0) {
-    momentumScore = sigmoid_normalize(growthRate, 0, 1.5);
+    momentumScore = sigmoid_normalize(growthRate, 0, cfg.interest_momentum_scale);
   } else {
-    momentumScore = sigmoid_normalize(rawAvg, 30, 20) * 0.5;
+    momentumScore = sigmoid_normalize(rawAvg, cfg.interest_level_center, cfg.interest_level_scale) * 0.5;
   }
 
-  let interestScore = levelScore * 0.6 + momentumScore * 0.4;
+  let interestScore = levelScore * cfg.interest_level_ratio + momentumScore * (1 - cfg.interest_level_ratio);
 
-  const minRawInterest = getMinRawInterest();
+  const minRawInterest = cfg.min_raw_interest;
   const dampeningFactor = rawAvg < minRawInterest ? rawAvg / minRawInterest : 1;
   interestScore *= dampeningFactor;
 
   // ── 2. News Score ──
-  const volumeScore = log_normalize(newsThisWeek, 50);
+  const volumeScore = log_normalize(newsThisWeek, cfg.news_log_scale);
 
   let newsMomentumScore: number;
   let newsScore: number;
   if (newsThisWeek === 0 && newsLastWeek === 0) {
     newsMomentumScore = 0;
     newsScore = 0;
-  } else if (newsLastWeek >= MIN_NEWS_LAST_WEEK) {
+  } else if (newsLastWeek >= cfg.min_news_last_week) {
     const newsChange = (newsThisWeek - newsLastWeek) / Math.max(newsLastWeek, 1);
-    newsMomentumScore = sigmoid_normalize(newsChange, 0, 1.0);
-    newsScore = volumeScore * 0.6 + newsMomentumScore * 0.4;
+    newsMomentumScore = sigmoid_normalize(newsChange, 0, cfg.news_momentum_scale);
+    newsScore = volumeScore * cfg.news_volume_ratio + newsMomentumScore * (1 - cfg.news_volume_ratio);
   } else {
     newsMomentumScore = volumeScore;
     newsScore = volumeScore;
@@ -104,7 +104,7 @@ export function calculateLifecycleScore(input: CalculateScoreInput): {
   // ── 3. Volatility (DVI) ──
   const interestStdDev = standardDeviation(recent7d);
   const dvi = calculateDVI(recent7dAsc);
-  const volMagnitude = sigmoid_normalize(interestStdDev, 15, 10);
+  const volMagnitude = sigmoid_normalize(interestStdDev, cfg.vol_center, cfg.vol_scale);
   const volatilityScore = dvi * volMagnitude;
 
   // ── 4. Activity Score ──
@@ -112,9 +112,9 @@ export function calculateLifecycleScore(input: CalculateScoreInput): {
   const vol = input.avgVolume ?? 0;
   const activeDays = firstSpikeDate ? Math.max(0, daysBetween(firstSpikeDate, today)) : 0;
 
-  const stockPriceChange = sigmoid_normalize(pricePct, 0, 5) * 0.5;
-  const volumeIntensity = log_normalize(vol, 50_000_000) * 0.3;
-  const dataCoverage = Math.min(activeDays / 14, 1) * 0.2;
+  const stockPriceChange = sigmoid_normalize(pricePct, 0, cfg.price_sigmoid_scale) * cfg.activity_price_weight;
+  const volumeIntensity = log_normalize(vol, cfg.volume_log_scale) * cfg.activity_volume_weight;
+  const dataCoverage = Math.min(activeDays / cfg.coverage_days, 1) * cfg.activity_coverage_weight;
 
   const sentimentProxy = computeSentimentProxy({
     avgPriceChangePct: pricePct,
@@ -122,18 +122,21 @@ export function calculateLifecycleScore(input: CalculateScoreInput): {
     newsLastWeek: newsLastWeek,
     avgVolume: vol,
     prevAvgVolume: input.prevAvgVolume,
-  });
+  }, input.config);
 
   let activityScore = stockPriceChange + volumeIntensity + dataCoverage;
-  activityScore = activityScore * 0.7 + sentimentProxy * 0.3;
+  activityScore = activityScore * cfg.activity_vs_sentiment_ratio + sentimentProxy * (1 - cfg.activity_vs_sentiment_ratio);
 
-  if (levelScore < 0.1) {
+  if (levelScore < cfg.level_dampening_threshold) {
     activityScore *= 0.5;
   }
 
   // ── 5. Total Score ──
   const maturityRatio = activeDays > 0 ? Math.min(activeDays / 90, 1.5) : 0;
-  const weights = getScoreWeights();
+
+  // 단일 소스: getTLIParams() (config override 포함)
+  const wActivity = computeWActivity(cfg);
+  const weights = { interest: cfg.w_interest, newsMomentum: cfg.w_newsMomentum, volatility: cfg.w_volatility, activity: wActivity };
 
   const rawScore =
     interestScore * weights.interest +

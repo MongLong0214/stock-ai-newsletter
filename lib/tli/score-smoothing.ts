@@ -3,31 +3,67 @@
 import { standardDeviation, daysBetween } from './normalize'
 import { determineStage, isReignitingTransition } from './stage'
 import { checkReigniting } from './reigniting'
+import { getTLIParams } from './constants/tli-params'
 import type { Stage, ScoreComponents, InterestMetric } from './types'
 
-/** EMA smoothing factor (span~4일, 60% 노이즈 억제) */
-const EMA_ALPHA = 0.4
-/** Bollinger band 최소 일일 변동 허용 (score 0-100 대비 10%) */
-const MIN_DAILY_CHANGE = 10
+/** 테마 나이 기반 EMA alpha 스케줄링.
+ *  신생(0일): 0.6 (반응적) → 성숙(30일+): 0.3 (안정적). 선형 보간. */
+export function computeAlpha(firstSpikeDate: string | null | undefined, today: string): number {
+  const cfg = getTLIParams()
+  if (!firstSpikeDate) return cfg.ema_alpha
+  const daysSinceSpike = Math.max(0, daysBetween(firstSpikeDate, today))
+  const frac = Math.min(daysSinceSpike / cfg.ema_schedule_days, 1)
+  return (1 - frac) * cfg.ema_alpha_fresh + frac * cfg.ema_alpha_mature
+}
 
-/** EMA + Bollinger band clamping 적용 */
+/** T7: EMA smoothing options — components for Cautious Decay, T8 fields reserved */
+export interface EMAOptions {
+  components?: ScoreComponents
+  firstSpikeDate?: string | null
+  today?: string
+}
+
+/** EMA + Cautious Decay + Bollinger band clamping 적용 */
 export function applyEMASmoothing(
   rawScore: number,
   prevSmoothedScore: number | undefined,
   recentSmoothed: number[],
+  options?: EMAOptions,
 ): number {
   if (prevSmoothedScore === undefined) return rawScore
 
-  const sigma = recentSmoothed.length >= 2 ? standardDeviation(recentSmoothed) : 0
-  const maxDailyChange = Math.max(MIN_DAILY_CHANGE, 2 * sigma)
-
+  // --- Step A: Cautious Decay Check ---
   let effectiveRaw = rawScore
-  if (Math.abs(rawScore - prevSmoothedScore) > maxDailyChange) {
-    const sign = rawScore > prevSmoothedScore ? 1 : -1
+  const components = options?.components
+  if (rawScore < prevSmoothedScore && components) {
+    const signals = [
+      (components.raw.interest_slope ?? 0) < 0,
+      (components.raw.news_this_week ?? 0) < (components.raw.news_last_week ?? 0),
+      (components.raw.dvi ?? 0.5) < 0.4,
+    ]
+    const confirmCount = signals.filter(Boolean).length
+
+    if (confirmCount < 2) {
+      const cautiousFloor = prevSmoothedScore * getTLIParams().cautious_floor_ratio
+      effectiveRaw = Math.max(rawScore, cautiousFloor)
+    }
+    // confirmCount >= 2: effectiveRaw stays as rawScore (confirmed decline)
+  }
+
+  // --- Step B: Bollinger Band Clamp ---
+  const sigma = recentSmoothed.length >= 2 ? standardDeviation(recentSmoothed) : 0
+  const maxDailyChange = Math.max(getTLIParams().min_daily_change, 2 * sigma)
+
+  if (Math.abs(effectiveRaw - prevSmoothedScore) > maxDailyChange) {
+    const sign = effectiveRaw > prevSmoothedScore ? 1 : -1
     effectiveRaw = prevSmoothedScore + sign * maxDailyChange
   }
 
-  const smoothed = Math.round(EMA_ALPHA * effectiveRaw + (1 - EMA_ALPHA) * prevSmoothedScore)
+  // --- Step C: EMA (age-dependent alpha) ---
+  const alpha = (options?.firstSpikeDate != null && options?.today)
+    ? computeAlpha(options.firstSpikeDate, options.today)
+    : getTLIParams().ema_alpha
+  const smoothed = Math.round(alpha * effectiveRaw + (1 - alpha) * prevSmoothedScore)
   return Math.max(0, Math.min(100, smoothed))
 }
 
@@ -56,17 +92,18 @@ export function resolveStageWithHysteresis(input: StageResolutionInput): StageRe
     today, interestMetrics14d,
   } = input
 
+  const cfg = getTLIParams()
   const dataGapDays = prevCalculatedAt ? daysBetween(prevCalculatedAt, today) : undefined
   const markovStage = determineStage(smoothedScore, components, prevStage, dataGapDays)
 
   let finalStage: Stage
 
-  // Peak fast-track: rawScore >= 68 AND smoothedScore >= 50 → 즉시 Peak
-  if (rawScore >= 68 && smoothedScore >= 50 && markovStage === 'Peak') {
+  // Peak fast-track: rawScore >= stage_peak AND smoothedScore >= stage_emerging → 즉시 Peak
+  if (rawScore >= cfg.stage_peak && smoothedScore >= cfg.stage_emerging && markovStage === 'Peak') {
     finalStage = 'Peak'
   }
   // Decline rebound fast-track: 강한 급반등은 하루 대기 없이 Growth로 복귀시킨다
-  else if (prevStage === 'Decline' && rawScore >= 68 && smoothedScore >= 50 && markovStage === 'Growth') {
+  else if (prevStage === 'Decline' && rawScore >= cfg.stage_peak && smoothedScore >= cfg.stage_emerging && markovStage === 'Growth') {
     finalStage = 'Growth'
   }
   // 변경 없거나 첫 날이면 그대로

@@ -8,6 +8,7 @@
 
 import { avg, sigmoid_normalize, log_normalize, linearRegressionSlope, calculateDVI } from '../normalize'
 import { SECTOR_KEYWORDS } from '../constants/sectors'
+import { getTLIParams } from '../constants/tli-params'
 
 // ---------------------------------------------------------------------------
 // 타입 정의
@@ -57,7 +58,8 @@ export function computeLifecyclePosition(interestValues: number[]): number {
   const postPeakAge = currentIndex > 0 ? (currentIndex - peakIndex) / currentIndex : 0
   const drawdownFromPeak = Math.max(0, 1 - currentValue / peakValue)
 
-  return Math.max(0, Math.min(1, postPeakAge * 0.6 + drawdownFromPeak * 0.4))
+  const cfg = getTLIParams()
+  return Math.max(0, Math.min(1, postPeakAge * cfg.lifecycle_post_peak_weight + drawdownFromPeak * cfg.lifecycle_drawdown_weight))
 }
 
 const GENERIC_THEME_KEYWORDS = new Set([

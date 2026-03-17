@@ -1,6 +1,7 @@
 /** 점수 Confidence (데이터 커버리지 기반 신뢰도) 계산 */
 
 import { getConfidenceThresholds } from './constants/score-config'
+import { getTLIParams } from './constants/tli-params'
 import type { InterestMetric, NewsMetric, ScoreConfidence, ConfidenceLevel } from './types'
 
 export function computeScoreConfidence(
@@ -10,7 +11,8 @@ export function computeScoreConfidence(
   const interestCoverage = Math.min(interestMetrics.length / 30, 1)
   const newsDaysWithData = new Set(newsMetrics.filter(m => m.article_count > 0).map(m => m.time)).size
   const newsCoverage = Math.min(newsDaysWithData / 14, 1)
-  const coverageScore = interestCoverage * 0.6 + newsCoverage * 0.4
+  const cfg = getTLIParams()
+  const coverageScore = interestCoverage * cfg.confidence_interest_weight + newsCoverage * cfg.confidence_news_weight
 
   const ct = getConfidenceThresholds()
 

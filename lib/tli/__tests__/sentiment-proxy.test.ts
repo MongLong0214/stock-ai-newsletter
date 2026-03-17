@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { computeSentimentProxy } from '../sentiment-proxy'
+import type { TLIParams } from '@/lib/tli/constants/tli-params'
 
 describe('computeSentimentProxy', () => {
   it('returns ~0.5 for neutral inputs', () => {
@@ -75,5 +76,23 @@ describe('computeSentimentProxy', () => {
     })
     // Bearish divergence should give lower sentiment
     expect(bearishDiv).toBeLessThan(neutral)
+  })
+
+  it('with custom weights: price=0.70 shifts result toward price signal', () => {
+    const config: Partial<TLIParams> = { sent_price_weight: 0.70, sent_news_weight: 0.20 }
+    const input = {
+      avgPriceChangePct: 5,
+      newsThisWeek: 5,
+      newsLastWeek: 20,
+      avgVolume: 1000000,
+      prevAvgVolume: 1000000,
+    }
+
+    const defaultResult = computeSentimentProxy(input)
+    const customResult = computeSentimentProxy(input, config)
+
+    // price is bullish (+5%), news is bearish (decline from 20 to 5)
+    // With price weight 0.70 (vs default 0.50), result should be more bullish
+    expect(customResult).toBeGreaterThan(defaultResult)
   })
 })
