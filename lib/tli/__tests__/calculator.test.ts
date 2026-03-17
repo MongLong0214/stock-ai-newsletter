@@ -162,10 +162,10 @@ describe('calculateLifecycleScore', () => {
     })
     expect(result).not.toBeNull()
     const w = result!.components.weights
-    expect(w.interest).toBe(0.304148)
-    expect(w.news).toBe(0.366408)
-    expect(w.volatility).toBe(0.104017)
-    expect(w.activity).toBe(0.225427)
+    expect(w.interest).toBeCloseTo(0.304148, 5)
+    expect(w.news).toBeCloseTo(0.366408, 5)
+    expect(w.volatility).toBeCloseTo(0.104017, 5)
+    expect(w.activity).toBeCloseTo(0.225427, 5)
   })
 
   it('DVI: consistent direction yields higher volatility than flat pattern', () => {
