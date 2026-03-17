@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { determineStage, isReignitingTransition } from '@/lib/tli/stage'
 import type { ScoreComponents } from '@/lib/tli/types'
+import type { TLIParams } from '@/lib/tli/constants/tli-params'
 
 /** v2 ScoreComponents 기본값 — stable trend (slope=0) */
 function makeComponents(rawOverrides: Partial<ScoreComponents['raw']> = {}): ScoreComponents {
@@ -105,5 +106,24 @@ describe('determineStage (v2 Multi-Signal + Markov)', () => {
 
   it('marks Decline → Growth as a reigniting transition', () => {
     expect(isReignitingTransition('Growth', 'Decline')).toBe(true)
+  })
+
+  it('with custom thresholds via config: dormant=20 makes score=15 Emerging', () => {
+    // Default dormant=15 → score=15 is NOT < 15 → not Dormant → Emerging
+    // With dormant=20 → score=15 IS < 20 + stable trend → Dormant
+    // So we set dormant=20 and score=18 (< 20) to get Dormant with config,
+    // but with default (dormant=15) score=18 > 15 → Emerging
+    const config: Partial<TLIParams> = { stage_dormant: 20 }
+    const resultDefault = determineStage(18, makeComponents())
+    const resultConfig = determineStage(18, makeComponents(), undefined, undefined, config)
+
+    expect(resultDefault).toBe('Emerging') // score=18 > 15 default dormant
+    expect(resultConfig).toBe('Dormant')   // score=18 < 20 custom dormant
+  })
+
+  it('config replaces legacy thresholds param', () => {
+    // config로 stage_dormant=20 전달 → 15점은 score < 20 → Dormant
+    const config: Partial<TLIParams> = { stage_dormant: 20, stage_emerging: 40, stage_growth: 58, stage_peak: 68 }
+    expect(determineStage(18, makeComponents(), undefined, undefined, config)).toBe('Dormant')
   })
 })

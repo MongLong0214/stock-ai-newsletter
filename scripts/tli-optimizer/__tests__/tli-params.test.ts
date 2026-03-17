@@ -1,6 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { DEFAULT_TLI_PARAMS, computeWActivity, computeSentVolumeWeight, type TLIParams } from '../../../lib/tli/constants/tli-params'
-import { getTLIParams, setTLIParams } from '../../../lib/tli/constants/score-config'
+import { DEFAULT_TLI_PARAMS, computeWActivity, computeSentVolumeWeight, getTLIParams, setTLIParams } from '../../../lib/tli/constants/tli-params'
 
 describe('TLIParams', () => {
   beforeEach(() => {

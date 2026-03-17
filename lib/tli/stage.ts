@@ -1,12 +1,10 @@
 /** 테마 라이프사이클 단계 결정 모듈 v2 — Multi-Signal + Markov 제약 */
 
 import type { Stage, ScoreComponents } from './types';
+import { getTLIParams, type TLIParams } from './constants/tli-params';
 
 /** 관심도 추세 방향 */
 type Trend = 'rising' | 'stable' | 'falling';
-
-/** 추세 판별 임계값 (정규화된 기울기 기준) */
-const TREND_THRESHOLD = 0.10;
 
 /** Markov 허용 전이 맵 */
 const ALLOWED_TRANSITIONS: Record<Stage, Set<Stage>> = {
@@ -33,13 +31,13 @@ function resolveDisallowedTransition(prevStage: Stage, candidate: Stage): Stage 
  * 관심도 추세 계산
  * interest_slope(raw linearRegressionSlope)를 recent_7d_avg로 정규화하여 판별
  */
-function computeTrend(components: ScoreComponents): Trend {
+function computeTrend(components: ScoreComponents, trendThreshold: number): Trend {
   const slope = components.raw.interest_slope ?? 0;
   const mean = Math.max(components.raw.recent_7d_avg, 1);
   const normalizedSlope = slope / mean;
 
-  if (normalizedSlope > TREND_THRESHOLD) return 'rising';
-  if (normalizedSlope < -TREND_THRESHOLD) return 'falling';
+  if (normalizedSlope > trendThreshold) return 'rising';
+  if (normalizedSlope < -trendThreshold) return 'falling';
   return 'stable';
 }
 
@@ -49,20 +47,22 @@ function computeTrend(components: ScoreComponents): Trend {
  * @param components 점수 하위 컴포넌트
  * @param prevStage 이전 단계 (없으면 Markov 제약 스킵)
  * @param dataGapDays 데이터 누락 일수 (>= 3이면 제약 완화)
+ * @param config TLI 파라미터 오버라이드 (미전달 시 기본값)
  */
 export function determineStage(
   score: number,
   components: ScoreComponents,
   prevStage?: Stage | null,
   dataGapDays?: number,
-  thresholds?: { dormant: number; emerging: number; growth: number; peak: number },
+  config?: Partial<TLIParams>,
 ): Stage {
-  const trend = computeTrend(components);
+  const cfg = { ...getTLIParams(), ...config };
+  const trend = computeTrend(components, cfg.trend_threshold);
   const newsVolume = components.raw.news_this_week;
   const rawScore = components.raw.raw_score ?? score / 100;
 
   // ── Multi-Signal 우선순위 판정 ──
-  const t = thresholds ?? { dormant: 15, emerging: 40, growth: 58, peak: 68 };
+  const t = { dormant: cfg.stage_dormant, emerging: cfg.stage_emerging, growth: cfg.stage_growth, peak: cfg.stage_peak };
   let candidate: Stage;
 
   // 1. Dormant: 낮은 점수 + 상승 추세 아님
@@ -72,15 +72,15 @@ export function determineStage(
   // 2. Peak: 높은 점수 또는 복합 시그널 (EMA bypass 포함)
   else if (
     score >= t.peak ||
-    (score >= 50 && (trend === 'stable' || trend === 'rising') && newsVolume > 30)
+    (score >= 50 && (trend === 'stable' || trend === 'rising') && newsVolume > cfg.peak_bypass_news)
   ) {
     candidate = 'Peak';
   }
   // 3. Decline: 하락 추세 + 이전 대비 15%+ 하락 + 뉴스 감소
   else if (
     trend === 'falling' &&
-    rawScore < 0.85 * (components.raw.level_score ?? rawScore) &&
-    newsVolume < 30
+    rawScore < cfg.decline_score_ratio * (components.raw.level_score ?? rawScore) &&
+    newsVolume < cfg.peak_bypass_news
   ) {
     candidate = 'Decline';
   }
