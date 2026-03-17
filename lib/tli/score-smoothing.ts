@@ -3,6 +3,7 @@
 import { standardDeviation, daysBetween } from './normalize'
 import { determineStage, isReignitingTransition } from './stage'
 import { checkReigniting } from './reigniting'
+import { getTLIParams } from './constants/tli-params'
 import type { Stage, ScoreComponents, InterestMetric } from './types'
 
 /** EMA smoothing factor (span~4일, 60% 노이즈 억제) */
@@ -10,23 +11,50 @@ const EMA_ALPHA = 0.4
 /** Bollinger band 최소 일일 변동 허용 (score 0-100 대비 10%) */
 const MIN_DAILY_CHANGE = 10
 
-/** EMA + Bollinger band clamping 적용 */
+/** T7: EMA smoothing options — components for Cautious Decay, T8 fields reserved */
+export interface EMAOptions {
+  components?: ScoreComponents
+  firstSpikeDate?: string | null
+  today?: string
+}
+
+/** EMA + Cautious Decay + Bollinger band clamping 적용 */
 export function applyEMASmoothing(
   rawScore: number,
   prevSmoothedScore: number | undefined,
   recentSmoothed: number[],
+  options?: EMAOptions,
 ): number {
   if (prevSmoothedScore === undefined) return rawScore
 
+  // --- Step A: Cautious Decay Check ---
+  let effectiveRaw = rawScore
+  const components = options?.components
+  if (rawScore < prevSmoothedScore && components) {
+    const signals = [
+      (components.raw.interest_slope ?? 0) < 0,
+      (components.raw.news_this_week ?? 0) < (components.raw.news_last_week ?? 0),
+      (components.raw.dvi ?? 0.5) < 0.4,
+    ]
+    const confirmCount = signals.filter(Boolean).length
+
+    if (confirmCount < 2) {
+      const cautiousFloor = prevSmoothedScore * getTLIParams().cautious_floor_ratio
+      effectiveRaw = Math.max(rawScore, cautiousFloor)
+    }
+    // confirmCount >= 2: effectiveRaw stays as rawScore (confirmed decline)
+  }
+
+  // --- Step B: Bollinger Band Clamp ---
   const sigma = recentSmoothed.length >= 2 ? standardDeviation(recentSmoothed) : 0
   const maxDailyChange = Math.max(MIN_DAILY_CHANGE, 2 * sigma)
 
-  let effectiveRaw = rawScore
-  if (Math.abs(rawScore - prevSmoothedScore) > maxDailyChange) {
-    const sign = rawScore > prevSmoothedScore ? 1 : -1
+  if (Math.abs(effectiveRaw - prevSmoothedScore) > maxDailyChange) {
+    const sign = effectiveRaw > prevSmoothedScore ? 1 : -1
     effectiveRaw = prevSmoothedScore + sign * maxDailyChange
   }
 
+  // --- Step C: EMA ---
   const smoothed = Math.round(EMA_ALPHA * effectiveRaw + (1 - EMA_ALPHA) * prevSmoothedScore)
   return Math.max(0, Math.min(100, smoothed))
 }

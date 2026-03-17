@@ -175,11 +175,12 @@ export async function calculateAndSaveScores(themes: ThemeWithKeywords[]) {
       const rawScore = result.score
       const { components } = result
 
-      // EMA + Bollinger smoothing (extracted)
+      // EMA + Cautious Decay + Bollinger smoothing (T7)
       const smoothedScore = applyEMASmoothing(
         rawScore,
         prevSmoothedScore,
         recentSmoothedMap.get(theme.id) || [],
+        { components },
       )
 
       // Stage resolution with Hysteresis (extracted)
