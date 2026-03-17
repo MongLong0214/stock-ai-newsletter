@@ -113,9 +113,9 @@ export function calculateLifecycleScore(input: CalculateScoreInput): {
   const vol = input.avgVolume ?? 0;
   const activeDays = firstSpikeDate ? Math.max(0, daysBetween(firstSpikeDate, today)) : 0;
 
-  const stockPriceChange = sigmoid_normalize(pricePct, 0, cfg.price_sigmoid_scale) * 0.5;
-  const volumeIntensity = log_normalize(vol, cfg.volume_log_scale) * 0.3;
-  const dataCoverage = Math.min(activeDays / cfg.coverage_days, 1) * 0.2;
+  const stockPriceChange = sigmoid_normalize(pricePct, 0, cfg.price_sigmoid_scale) * cfg.activity_price_weight;
+  const volumeIntensity = log_normalize(vol, cfg.volume_log_scale) * cfg.activity_volume_weight;
+  const dataCoverage = Math.min(activeDays / cfg.coverage_days, 1) * cfg.activity_coverage_weight;
 
   const sentimentProxy = computeSentimentProxy({
     avgPriceChangePct: pricePct,
