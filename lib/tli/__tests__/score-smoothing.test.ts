@@ -247,8 +247,8 @@ describe('computeAlpha — EMA Momentum Scheduling', () => {
     expect(computeAlpha('2026-01-16', '2026-03-17')).toBeCloseTo(0.3, 2)
   })
 
-  it('returns 0.4 for null firstSpikeDate', () => {
-    expect(computeAlpha(null, '2026-03-17')).toBe(0.4)
+  it('returns default ema_alpha for null firstSpikeDate', () => {
+    expect(computeAlpha(null, '2026-03-17')).toBeCloseTo(0.416554, 4)
   })
 
   it('applyEMASmoothing uses computed alpha for young theme (day 0)', () => {
