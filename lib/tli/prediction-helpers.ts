@@ -1,6 +1,7 @@
 /** 예측 계산 헬퍼 — types, constants, utilities, message builders */
 
 import type { Stage, ConfidenceLevel, PredictionInterval } from './types'
+import { getTLIParams } from './constants/tli-params'
 
 // ── Types ──
 
@@ -100,12 +101,14 @@ export function deriveMomentum(comparisons: ComparisonInput[], daysSinceSpike: n
   for (const c of comparisons) {
     if (c.pastPeakDay <= 0) continue
     const pastProgress = daysSinceSpike / c.pastPeakDay
-    if (pastProgress < 0.7) accel++
-    else if (pastProgress > 1.1) decel++
+    const cfg = getTLIParams()
+    if (pastProgress < cfg.momentum_accel_threshold) accel++
+    else if (pastProgress > cfg.momentum_decel_threshold) decel++
   }
 
-  if (accel > decel && accel > comparisons.length * 0.4) return 'accelerating'
-  if (decel > accel && decel > comparisons.length * 0.4) return 'decelerating'
+  const cfg = getTLIParams()
+  if (accel > decel && accel > comparisons.length * cfg.momentum_min_ratio) return 'accelerating'
+  if (decel > accel && decel > comparisons.length * cfg.momentum_min_ratio) return 'decelerating'
   return 'stable'
 }
 
@@ -138,8 +141,9 @@ export function computeStageConfidence(
 
   let compDirection: 'rising' | 'falling' | 'neutral' = 'neutral'
   if (avgPeakDay > 0) {
-    if (daysSinceSpike < avgPeakDay * 0.8) compDirection = 'rising'
-    else if (daysSinceSpike > avgPeakDay * 1.2) compDirection = 'falling'
+    const pcfg = getTLIParams()
+    if (daysSinceSpike < avgPeakDay * pcfg.phase_rising_ratio) compDirection = 'rising'
+    else if (daysSinceSpike > avgPeakDay * pcfg.phase_cooling_ratio) compDirection = 'falling'
   }
 
   let risingVotes = 0

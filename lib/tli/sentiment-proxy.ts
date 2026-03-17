@@ -5,6 +5,7 @@
  */
 
 import { sigmoid_normalize } from './normalize';
+import { getTLIParams, computeSentVolumeWeight, type TLIParams } from './constants/tli-params';
 
 interface SentimentInput {
   /** Average price change % across theme stocks */
@@ -25,15 +26,17 @@ interface SentimentInput {
  *
  * Signal weights: price(0.50) + newsAcceleration(0.30) + volumeBreadth(0.20)
  */
-export function computeSentimentProxy(input: SentimentInput): number {
-  // Signal 1: Price direction (sigmoid, center=0, scale=5)
-  const priceSignal = sigmoid_normalize(input.avgPriceChangePct, 0, 5);
+export function computeSentimentProxy(input: SentimentInput, config?: Partial<TLIParams>): number {
+  const cfg = { ...getTLIParams(), ...config };
+
+  // Signal 1: Price direction (sigmoid, center=0, scale=price_sigmoid_scale)
+  const priceSignal = sigmoid_normalize(input.avgPriceChangePct, 0, cfg.price_sigmoid_scale);
 
   // Signal 2: News acceleration (week-over-week change rate)
   let newsAcceleration: number;
-  if (input.newsLastWeek >= 3) {
+  if (input.newsLastWeek >= cfg.min_news_last_week) {
     const changeRate = (input.newsThisWeek - input.newsLastWeek) / Math.max(input.newsLastWeek, 1);
-    newsAcceleration = sigmoid_normalize(changeRate, 0, 1.5);
+    newsAcceleration = sigmoid_normalize(changeRate, 0, cfg.news_momentum_scale);
   } else {
     // Insufficient baseline → neutral
     newsAcceleration = 0.5;
@@ -48,11 +51,12 @@ export function computeSentimentProxy(input: SentimentInput): number {
     const priceDir = input.avgPriceChangePct > 0 ? 1 : input.avgPriceChangePct < 0 ? -1 : 0;
     // Aligned (both up or both down) → boost, divergent → penalize
     const alignment = volumeChange * priceDir;
-    volumeBreadth = sigmoid_normalize(alignment, 0, 0.5);
+    volumeBreadth = sigmoid_normalize(alignment, 0, cfg.sent_volume_scale);
   }
 
   // Weighted combination
-  const proxy = priceSignal * 0.50 + newsAcceleration * 0.30 + volumeBreadth * 0.20;
+  const volWeight = computeSentVolumeWeight(cfg);
+  const proxy = priceSignal * cfg.sent_price_weight + newsAcceleration * cfg.sent_news_weight + volumeBreadth * volWeight;
 
   // Clamp to [0, 1]
   return Math.max(0, Math.min(1, proxy));
