@@ -16,15 +16,15 @@ EVALUATE_CMD = ["npx", "tsx", "scripts/tli-optimizer/evaluate.ts"]
 TIMEOUT = 30
 OUTPUT_PATH = "scripts/tli-optimizer/optimized-params.json"
 
-# Default param values for regularization penalty
+# Default param values for regularization penalty — synced with DEFAULT_TLI_PARAMS (2026-03-17)
 DEFAULTS = {
-    "w_interest": 0.40, "w_newsMomentum": 0.35, "w_volatility": 0.10,
-    "stage_dormant": 15, "stage_emerging": 40, "stage_growth": 58, "stage_peak": 68,
-    "trend_threshold": 0.10, "ema_alpha": 0.40, "min_raw_interest": 5,
-    "interest_level_center": 30, "interest_level_scale": 20, "interest_level_ratio": 0.6,
-    "news_log_scale": 50, "news_momentum_scale": 1.0,
-    "activity_vs_sentiment_ratio": 0.7, "vol_center": 15, "decline_score_ratio": 0.85,
-    "cautious_floor_ratio": 0.90,
+    "w_interest": 0.304148, "w_newsMomentum": 0.366408, "w_volatility": 0.104017,
+    "stage_dormant": 10, "stage_emerging": 40, "stage_growth": 61, "stage_peak": 71,
+    "trend_threshold": 0.163507, "ema_alpha": 0.416554, "min_raw_interest": 4,
+    "interest_level_center": 45.793311, "interest_level_scale": 10.799847, "interest_level_ratio": 0.576366,
+    "news_log_scale": 64.338194, "news_momentum_scale": 1.324128,
+    "activity_vs_sentiment_ratio": 0.727894, "vol_center": 10.752023, "decline_score_ratio": 0.860943,
+    "cautious_floor_ratio": 0.946661,
 }
 
 # Regularization strength — penalizes deviation from defaults
@@ -59,14 +59,12 @@ def regularization_penalty(params: dict) -> float:
 
 
 def objective_cv(trial) -> float:
-    """Core params objective with 5-fold walk-forward CV + regularization."""
+    """Core params objective: full dataset evaluation + L2 regularization."""
     params = suggest_core(trial)
     if not validate_params(params):
         return float("nan")
 
-    # 5-fold walk-forward: evaluate on 5 different split points
-    # fold1=train, fold2=val, fold3=val, fold4=val, fold5=val
-    # By using --split=all and comparing across folds, we get robust estimation
+    # Single evaluation on full dataset with L2 regularization toward defaults
     result = run_evaluate(params, "all")
     if result is None:
         return float("nan")
