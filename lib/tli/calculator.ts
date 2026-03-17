@@ -11,7 +11,6 @@ import {
   calculateDVI,
 } from './normalize';
 import { getKSTDateString } from './date-utils';
-import { getScoreWeights } from './constants/score-config';
 import { getTLIParams, computeWActivity, type TLIParams } from './constants/tli-params';
 import { computeSentimentProxy } from './sentiment-proxy';
 import { computeScoreConfidence } from './score-confidence';
@@ -135,11 +134,9 @@ export function calculateLifecycleScore(input: CalculateScoreInput): {
   // ── 5. Total Score ──
   const maturityRatio = activeDays > 0 ? Math.min(activeDays / 90, 1.5) : 0;
 
-  // config 가중치 우선, 캘리브레이션 가중치는 config 미전달 시 fallback
+  // 단일 소스: getTLIParams() (config override 포함)
   const wActivity = computeWActivity(cfg);
-  const weights = input.config
-    ? { interest: cfg.w_interest, newsMomentum: cfg.w_newsMomentum, volatility: cfg.w_volatility, activity: wActivity }
-    : getScoreWeights();
+  const weights = { interest: cfg.w_interest, newsMomentum: cfg.w_newsMomentum, volatility: cfg.w_volatility, activity: wActivity };
 
   const rawScore =
     interestScore * weights.interest +

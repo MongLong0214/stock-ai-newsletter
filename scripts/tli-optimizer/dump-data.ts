@@ -164,7 +164,7 @@ export async function dumpHistoricalData(): Promise<HistoricalData> {
     scoresByTheme.set(row.theme_id, arr)
   }
 
-  // Step 5: Merge + filter (>= 60 unique days of interest data)
+  // Step 5: Merge + filter (>= 30 unique days of interest data)
   const historicalThemes: HistoricalTheme[] = []
 
   for (const theme of themes) {
