@@ -114,6 +114,37 @@ export const DEFAULT_TLI_PARAMS: Readonly<TLIParams> = {
   cautious_floor_ratio: 0.90,
 }
 
+// ── 런타임 파라미터 관리 ──
+
+let _overriddenParams: Partial<TLIParams> | null = null
+
+/** 런타임 파라미터 오버라이드 (evaluate.ts 등에서 사용) */
+export function setTLIParams(params: Partial<TLIParams> | null) {
+  _overriddenParams = params
+}
+
+/** 현재 활성 TLI 파라미터 반환. 우선순위: override > env v2 > 기본값 */
+export function getTLIParams(): TLIParams {
+  const base = { ...DEFAULT_TLI_PARAMS }
+
+  if (!_overriddenParams && typeof process !== 'undefined' && process.env.TLI_PARAMS_VERSION === 'v2') {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const optimized = require('../../../../scripts/tli-optimizer/optimized-params.json') as Partial<TLIParams>
+      return { ...base, ...optimized }
+    } catch {
+      console.warn('[TLI] TLI_PARAMS_VERSION=v2 but optimized-params.json not found. Using defaults.')
+      return base
+    }
+  }
+
+  if (_overriddenParams) {
+    return { ...base, ..._overriddenParams }
+  }
+
+  return base
+}
+
 /** 계산값: w_activity = 1.0 - (w_interest + w_newsMomentum + w_volatility) */
 export function computeWActivity(params: TLIParams): number {
   return 1.0 - (params.w_interest + params.w_newsMomentum + params.w_volatility)
