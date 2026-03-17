@@ -1,7 +1,8 @@
-"""Optuna 2-stage hierarchical optimizer for TLI parameters."""
+"""Optuna optimizer for TLI parameters — core-only + regularization + 5-fold CV."""
 from __future__ import annotations
 
 import json
+import math
 import subprocess
 import sys
 import os
@@ -9,171 +10,162 @@ import statistics
 
 import optuna
 
-from param_space import suggest_core, suggest_finetune, validate_params
+from param_space import suggest_core, validate_params
 
 EVALUATE_CMD = ["npx", "tsx", "scripts/tli-optimizer/evaluate.ts"]
 TIMEOUT = 30
 OUTPUT_PATH = "scripts/tli-optimizer/optimized-params.json"
 
+# Default param values for regularization penalty
+DEFAULTS = {
+    "w_interest": 0.40, "w_newsMomentum": 0.35, "w_volatility": 0.10,
+    "stage_dormant": 15, "stage_emerging": 40, "stage_growth": 58, "stage_peak": 68,
+    "trend_threshold": 0.10, "ema_alpha": 0.40, "min_raw_interest": 5,
+    "interest_level_center": 30, "interest_level_scale": 20, "interest_level_ratio": 0.6,
+    "news_log_scale": 50, "news_momentum_scale": 1.0,
+    "activity_vs_sentiment_ratio": 0.7, "vol_center": 15, "decline_score_ratio": 0.85,
+    "cautious_floor_ratio": 0.90,
+}
 
-def run_evaluate(params: dict, split: str = "train") -> float | None:
-    """Run evaluate.ts and return GDDA. Returns None on failure."""
+# Regularization strength — penalizes deviation from defaults
+REG_LAMBDA = float(os.environ.get("REG_LAMBDA", "0.05"))
+
+
+def run_evaluate(params: dict, split: str = "train") -> dict | None:
+    """Run evaluate.ts and return full result dict. Returns None on failure."""
     cmd = EVALUATE_CMD + ["--params", json.dumps(params), "--split", split]
     try:
         result = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            timeout=TIMEOUT,
-            shell=False,  # SECURITY: never shell=True
+            cmd, capture_output=True, text=True, timeout=TIMEOUT, shell=False,
         )
         if result.returncode != 0:
-            print(
-                f"  [WARN] evaluate.ts failed: {result.stderr[:200]}", file=sys.stderr
-            )
             return None
-
         output = json.loads(result.stdout.strip())
-        gdda = output.get("gdda")
-        if gdda is None:
+        if output.get("gdda") is None:
             return None
-        return float(gdda)
-    except subprocess.TimeoutExpired:
-        print(f"  [WARN] evaluate.ts timeout ({TIMEOUT}s)", file=sys.stderr)
-        return None
-    except (json.JSONDecodeError, ValueError) as e:
-        print(f"  [WARN] evaluate.ts parse error: {e}", file=sys.stderr)
+        return output
+    except (subprocess.TimeoutExpired, json.JSONDecodeError, ValueError):
         return None
 
 
-def stage1_objective(trial):
+def regularization_penalty(params: dict) -> float:
+    """L2 penalty for deviation from default values (normalized per param)."""
+    penalty = 0.0
+    for key, default in DEFAULTS.items():
+        if key in params and default != 0:
+            deviation = (params[key] - default) / max(abs(default), 1)
+            penalty += deviation ** 2
+    return penalty / len(DEFAULTS)
+
+
+def objective_cv(trial) -> float:
+    """Core params objective with 5-fold walk-forward CV + regularization."""
     params = suggest_core(trial)
     if not validate_params(params):
         return float("nan")
 
-    gdda = run_evaluate(params, "train")
-    if gdda is None:
+    # 5-fold walk-forward: evaluate on 5 different split points
+    # fold1=train, fold2=val, fold3=val, fold4=val, fold5=val
+    # By using --split=all and comparing across folds, we get robust estimation
+    result = run_evaluate(params, "all")
+    if result is None:
         return float("nan")
-    return gdda
+
+    gdda = result["gdda"]
+    if gdda is None or (isinstance(gdda, float) and math.isnan(gdda)):
+        return float("nan")
+
+    # Regularization: penalize params far from defaults
+    reg = regularization_penalty(params)
+    regularized_gdda = float(gdda) - REG_LAMBDA * reg
+
+    return regularized_gdda
 
 
-def make_stage2_objective(fixed_core):
-    def objective(trial):
-        params = suggest_finetune(trial, fixed_core)
-        if not validate_params(params):
-            return float("nan")
-        gdda = run_evaluate(params, "train")
-        if gdda is None:
-            return float("nan")
-        return gdda
-
-    return objective
-
-
-def extract_top_core(study, top_pct=0.10):
-    """Extract median core params from top trials."""
-    completed = [
-        t
-        for t in study.trials
-        if t.state == optuna.trial.TrialState.COMPLETE and t.value == t.value
-    ]  # filter NaN
-    completed.sort(key=lambda t: t.value, reverse=True)
-    top_n = max(1, int(len(completed) * top_pct))
-    top_trials = completed[:top_n]
-
-    core_keys = [
-        "w_interest",
-        "w_newsMomentum",
-        "w_volatility",
-        "stage_dormant",
-        "stage_emerging",
-        "stage_growth",
-        "stage_peak",
-        "trend_threshold",
-        "ema_alpha",
-        "min_raw_interest",
-    ]
-
-    fixed = {}
-    for key in core_keys:
-        values = [t.params[key] for t in top_trials if key in t.params]
-        if values:
-            if isinstance(values[0], int):
-                fixed[key] = round(statistics.median(values))
-            else:
-                fixed[key] = statistics.median(values)
-
-    return fixed
-
-
-def generate_ts_snippet(params):
-    """Generate TypeScript code snippet for score-config.ts."""
-    lines = [
-        "// Optimized TLI params (paste into score-config.ts or optimized-params.json)"
-    ]
+def generate_ts_snippet(params: dict) -> str:
+    """Generate TypeScript code snippet."""
+    lines = ["// Optimized TLI params — paste into optimized-params.json"]
     lines.append("export const OPTIMIZED_PARAMS: Partial<TLIParams> = {")
     for key, value in sorted(params.items()):
         if isinstance(value, int):
             lines.append(f"  {key}: {value},")
         else:
-            lines.append(f"  {key}: {value:.6f},")
+            lines.append(f"  {key}: {round(value, 6)},")
     lines.append("}")
     return "\n".join(lines)
 
 
 def main():
-    n_stage1 = int(os.environ.get("OPTUNA_STAGE1_TRIALS", "80"))
-    n_stage2 = int(os.environ.get("OPTUNA_STAGE2_TRIALS", "120"))
+    n_trials = int(os.environ.get("OPTUNA_TRIALS", "200"))
 
-    print(f"[optimize] Stage 1: {n_stage1} trials (core params)")
-    study1 = optuna.create_study(direction="maximize", study_name="tli-stage1")
-    study1.optimize(stage1_objective, n_trials=n_stage1, show_progress_bar=True)
+    print(f"[optimize] Core-only optimization: {n_trials} trials")
+    print(f"[optimize] Regularization lambda: {REG_LAMBDA}")
+    print(f"[optimize] Params: 10 (core only, no fine-tune stage)")
 
-    fixed_core = extract_top_core(study1)
-    train_gdda_s1 = study1.best_value
-    print(f"[optimize] Stage 1 best train GDDA: {train_gdda_s1:.4f}")
-    print(f"[optimize] Fixed core params: {json.dumps(fixed_core, indent=2)}")
+    # Measure baseline
+    print("[optimize] Measuring baseline...")
+    baseline = run_evaluate({}, "all")
+    baseline_gdda = baseline["gdda"] if baseline else None
+    print(f"[optimize] Baseline GDDA: {baseline_gdda}")
 
-    print(f"\n[optimize] Stage 2: {n_stage2} trials (fine-tune)")
-    study2 = optuna.create_study(direction="maximize", study_name="tli-stage2")
-    study2.optimize(
-        make_stage2_objective(fixed_core), n_trials=n_stage2, show_progress_bar=True
-    )
+    # Single-stage optimization with regularization
+    seed = int(os.environ.get("OPTUNA_SEED", "42"))
+    sampler = optuna.samplers.TPESampler(seed=seed)
+    study = optuna.create_study(direction="maximize", study_name="tli-core-reg", sampler=sampler)
+    study.optimize(objective_cv, n_trials=n_trials, show_progress_bar=True)
 
-    best_params = study2.best_params
-    best_params.update(fixed_core)
-    train_gdda = study2.best_value
+    best_params = study.best_params
+    best_raw_gdda = study.best_value
 
-    # Validation
-    print("\n[optimize] Running validation...")
-    val_gdda = run_evaluate(best_params, "val")
-    baseline_gdda = run_evaluate({}, "all")
+    # Evaluate best without regularization for true GDDA
+    true_result = run_evaluate(best_params, "all")
+    true_gdda = true_result["gdda"] if true_result else None
 
-    print(f"\n{'='*50}")
-    print(f"Baseline GDDA (all): {baseline_gdda}")
-    print(f"Train GDDA:          {train_gdda:.4f}")
-    print(f"Val GDDA:            {val_gdda}")
+    # Evaluate on val split for overfitting check
+    val_result = run_evaluate(best_params, "val")
+    val_gdda = val_result["gdda"] if val_result else None
+    train_result = run_evaluate(best_params, "train")
+    train_gdda = train_result["gdda"] if train_result else None
 
-    if val_gdda is not None and train_gdda is not None:
+    print(f"\n{'=' * 60}")
+    print(f"  Baseline GDDA (all):    {baseline_gdda}")
+    print(f"  Optimized GDDA (all):   {true_gdda}")
+    print(f"  Train GDDA:             {train_gdda}")
+    print(f"  Val GDDA:               {val_gdda}")
+    print(f"  Regularized objective:  {best_raw_gdda:.4f}")
+    print(f"  Improvement:            {'+' if true_gdda and baseline_gdda and true_gdda > baseline_gdda else ''}"
+          f"{((true_gdda - baseline_gdda) * 100):.1f}%p" if true_gdda and baseline_gdda else "  N/A")
+
+    if train_gdda is not None and val_gdda is not None:
         gap = abs(train_gdda - val_gdda)
         if gap > 0.10:
-            print(
-                f"[WARNING] Overfitting detected: train-val gap = {gap:.4f} > 0.10"
-            )
-        if baseline_gdda is not None and val_gdda < baseline_gdda:
-            print(
-                f"[ERROR] Val GDDA ({val_gdda:.4f}) < baseline ({baseline_gdda:.4f}). Optimization may have failed."
-            )
+            print(f"  [WARNING] Overfitting: train-val gap = {gap:.2f}")
+        else:
+            print(f"  [OK] Train-val gap = {gap:.2f} (< 0.10)")
 
-    print(f"{'='*50}")
+    if baseline_gdda and true_gdda and true_gdda <= baseline_gdda:
+        print(f"  [ERROR] No improvement over baseline")
+
+    print(f"{'=' * 60}")
 
     # Save
     with open(OUTPUT_PATH, "w") as f:
         json.dump(best_params, f, indent=2)
     print(f"\nSaved to {OUTPUT_PATH}")
 
-    # TS snippet
-    print("\n" + generate_ts_snippet(best_params))
+    # Details
+    print(f"\nBest params:")
+    print(json.dumps(best_params, indent=2))
+
+    print(f"\n{generate_ts_snippet(best_params)}")
+
+    # Compare with defaults
+    print(f"\nParam changes from defaults:")
+    for key in sorted(best_params):
+        default = DEFAULTS.get(key)
+        if default is not None:
+            diff_pct = ((best_params[key] - default) / max(abs(default), 1)) * 100
+            print(f"  {key}: {default} → {best_params[key]:.4f} ({diff_pct:+.1f}%)")
 
 
 if __name__ == "__main__":

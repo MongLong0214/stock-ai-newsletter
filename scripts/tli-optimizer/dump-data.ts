@@ -33,7 +33,7 @@ export interface HistoricalTheme {
 
 // --- Constants ---
 
-const MIN_DAYS = 60
+const MIN_DAYS = 30
 const LOOKBACK_DAYS = 90
 const OUTPUT_PATH = path.resolve(__dirname, 'historical-data.json')
 
