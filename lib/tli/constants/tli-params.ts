@@ -34,12 +34,15 @@ export interface TLIParams {
   vol_center: number
   vol_scale: number
 
-  // ── Activity (5개) ──
+  // ── Activity (8개) ──
   price_sigmoid_scale: number
   volume_log_scale: number
   coverage_days: number
   activity_vs_sentiment_ratio: number
   level_dampening_threshold: number
+  activity_price_weight: number
+  activity_volume_weight: number
+  activity_coverage_weight: number
 
   // ── Sentiment Proxy (3개, sent_volume_weight = 1.0 - price - news) ──
   sent_price_weight: number
@@ -53,8 +56,31 @@ export interface TLIParams {
   // ── Smoothing Fine-tune (1개) ──
   min_daily_change: number
 
-  // ── Cautious Decay (1개, Step 2 신규) ──
+  // ── Cautious Decay (1개) ──
   cautious_floor_ratio: number
+
+  // ── EMA Schedule (3개) ──
+  ema_alpha_fresh: number
+  ema_alpha_mature: number
+  ema_schedule_days: number
+
+  // ── Confidence (2개) ──
+  confidence_interest_weight: number
+  confidence_news_weight: number
+
+  // ── Prediction (5개) ──
+  momentum_accel_threshold: number
+  momentum_decel_threshold: number
+  momentum_min_ratio: number
+  phase_rising_ratio: number
+  phase_cooling_ratio: number
+
+  // ── Comparison (5개) ──
+  curve_shape_weight: number
+  curve_derivative_weight: number
+  curve_dtw_weight: number
+  lifecycle_post_peak_weight: number
+  lifecycle_drawdown_weight: number
 }
 
 /** Bayesian Optimized 기본 파라미터 (2026-03-17, GDDA 53.5% → 66.6%, val 64.9%) */
@@ -97,6 +123,9 @@ export const DEFAULT_TLI_PARAMS: Readonly<TLIParams> = {
   coverage_days: 14,
   activity_vs_sentiment_ratio: 0.727894,
   level_dampening_threshold: 0.1,
+  activity_price_weight: 0.5,
+  activity_volume_weight: 0.3,
+  activity_coverage_weight: 0.2,
 
   // Sentiment Proxy
   sent_price_weight: 0.50,
@@ -112,6 +141,29 @@ export const DEFAULT_TLI_PARAMS: Readonly<TLIParams> = {
 
   // Cautious Decay — floor 비율 상향 (더 보수적)
   cautious_floor_ratio: 0.946661,
+
+  // EMA Schedule — 신생/성숙 테마 반응 속도
+  ema_alpha_fresh: 0.6,
+  ema_alpha_mature: 0.3,
+  ema_schedule_days: 30,
+
+  // Confidence — 데이터 커버리지 가중치
+  confidence_interest_weight: 0.6,
+  confidence_news_weight: 0.4,
+
+  // Prediction — 모멘텀/Phase 판단 임계값
+  momentum_accel_threshold: 0.7,
+  momentum_decel_threshold: 1.1,
+  momentum_min_ratio: 0.4,
+  phase_rising_ratio: 0.8,
+  phase_cooling_ratio: 1.2,
+
+  // Comparison — 곡선 유사도 + Lifecycle 가중치
+  curve_shape_weight: 0.35,
+  curve_derivative_weight: 0.30,
+  curve_dtw_weight: 0.35,
+  lifecycle_post_peak_weight: 0.6,
+  lifecycle_drawdown_weight: 0.4,
 }
 
 // ── 런타임 파라미터 관리 ──
