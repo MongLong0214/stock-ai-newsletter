@@ -181,8 +181,10 @@ export function getTLIParams(): TLIParams {
 
   if (!_overriddenParams && typeof process !== 'undefined' && process.env.TLI_PARAMS_VERSION === 'v2') {
     try {
+      // 동적 경로로 Turbopack 정적 분석 회피
+      const jsonPath = ['..', '..', '..', 'scripts', 'tli-optimizer', 'optimized-params.json'].join('/')
       // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const optimized = require('../../../scripts/tli-optimizer/optimized-params.json') as Partial<TLIParams>
+      const optimized = require(jsonPath) as Partial<TLIParams>
       return { ...base, ...optimized }
     } catch {
       console.error('[TLI] TLI_PARAMS_VERSION=v2 but optimized-params.json not found. Using defaults.')
