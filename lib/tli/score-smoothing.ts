@@ -9,10 +9,11 @@ import type { Stage, ScoreComponents, InterestMetric } from './types'
 /** 테마 나이 기반 EMA alpha 스케줄링.
  *  신생(0일): 0.6 (반응적) → 성숙(30일+): 0.3 (안정적). 선형 보간. */
 export function computeAlpha(firstSpikeDate: string | null | undefined, today: string): number {
-  if (!firstSpikeDate) return getTLIParams().ema_alpha
+  const cfg = getTLIParams()
+  if (!firstSpikeDate) return cfg.ema_alpha
   const daysSinceSpike = Math.max(0, daysBetween(firstSpikeDate, today))
-  const frac = Math.min(daysSinceSpike / 30, 1)
-  return (1 - frac) * 0.6 + frac * 0.3
+  const frac = Math.min(daysSinceSpike / cfg.ema_schedule_days, 1)
+  return (1 - frac) * cfg.ema_alpha_fresh + frac * cfg.ema_alpha_mature
 }
 
 /** T7: EMA smoothing options — components for Cautious Decay, T8 fields reserved */

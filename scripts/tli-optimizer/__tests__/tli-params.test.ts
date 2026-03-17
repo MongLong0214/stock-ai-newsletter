@@ -81,7 +81,7 @@ describe('TLIParams', () => {
   })
 
   // T2 Test - 32 fields check
-  it('DEFAULT_TLI_PARAMS has exactly 32 fields', () => {
-    expect(Object.keys(DEFAULT_TLI_PARAMS)).toHaveLength(32)
+  it('DEFAULT_TLI_PARAMS has exactly 50 fields', () => {
+    expect(Object.keys(DEFAULT_TLI_PARAMS)).toHaveLength(50)
   })
 })
