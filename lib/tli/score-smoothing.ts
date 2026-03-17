@@ -6,8 +6,17 @@ import { checkReigniting } from './reigniting'
 import { getTLIParams } from './constants/tli-params'
 import type { Stage, ScoreComponents, InterestMetric } from './types'
 
-/** EMA smoothing factor (span~4일, 60% 노이즈 억제) */
+/** EMA smoothing factor (span~4일, 60% 노이즈 억제) — computeAlpha null fallback */
 const EMA_ALPHA = 0.4
+
+/** 테마 나이 기반 EMA alpha 스케줄링.
+ *  신생(0일): 0.6 (반응적) → 성숙(30일+): 0.3 (안정적). 선형 보간. */
+export function computeAlpha(firstSpikeDate: string | null | undefined, today: string): number {
+  if (!firstSpikeDate) return EMA_ALPHA
+  const daysSinceSpike = Math.max(0, daysBetween(firstSpikeDate, today))
+  const frac = Math.min(daysSinceSpike / 30, 1)
+  return (1 - frac) * 0.6 + frac * 0.3
+}
 /** Bollinger band 최소 일일 변동 허용 (score 0-100 대비 10%) */
 const MIN_DAILY_CHANGE = 10
 
@@ -54,8 +63,11 @@ export function applyEMASmoothing(
     effectiveRaw = prevSmoothedScore + sign * maxDailyChange
   }
 
-  // --- Step C: EMA ---
-  const smoothed = Math.round(EMA_ALPHA * effectiveRaw + (1 - EMA_ALPHA) * prevSmoothedScore)
+  // --- Step C: EMA (age-dependent alpha) ---
+  const alpha = (options?.firstSpikeDate !== undefined || options?.today)
+    ? computeAlpha(options?.firstSpikeDate, options?.today ?? new Date().toISOString().split('T')[0])
+    : EMA_ALPHA
+  const smoothed = Math.round(alpha * effectiveRaw + (1 - alpha) * prevSmoothedScore)
   return Math.max(0, Math.min(100, smoothed))
 }
 

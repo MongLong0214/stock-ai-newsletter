@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest'
-import { applyEMASmoothing, resolveStageWithHysteresis } from '@/lib/tli/score-smoothing'
+import { applyEMASmoothing, resolveStageWithHysteresis, computeAlpha } from '@/lib/tli/score-smoothing'
 import type { InterestMetric, ScoreComponents } from '@/lib/tli/types'
 import { setTLIParams } from '@/lib/tli/constants/tli-params'
 
@@ -223,5 +223,55 @@ describe('applyEMASmoothing — Cautious Decay', () => {
     // Bollinger: clamped to 70
     // EMA: 76
     expect(result).toBe(76)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// T8: EMA Momentum Scheduling — computeAlpha tests
+// ---------------------------------------------------------------------------
+
+describe('computeAlpha — EMA Momentum Scheduling', () => {
+  it('returns 0.6 for day 0', () => {
+    expect(computeAlpha('2026-03-17', '2026-03-17')).toBeCloseTo(0.6, 2)
+  })
+
+  it('returns 0.45 for day 15', () => {
+    expect(computeAlpha('2026-03-02', '2026-03-17')).toBeCloseTo(0.45, 2)
+  })
+
+  it('returns 0.3 for day 30', () => {
+    expect(computeAlpha('2026-02-15', '2026-03-17')).toBeCloseTo(0.3, 2)
+  })
+
+  it('returns 0.3 for day 60 (clamp)', () => {
+    expect(computeAlpha('2026-01-16', '2026-03-17')).toBeCloseTo(0.3, 2)
+  })
+
+  it('returns 0.4 for null firstSpikeDate', () => {
+    expect(computeAlpha(null, '2026-03-17')).toBe(0.4)
+  })
+
+  it('applyEMASmoothing uses computed alpha for young theme (day 0)', () => {
+    const raw = 90
+    const prev = 80
+    const recent = [78, 79, 80]
+    // alpha = 0.6 for day 0
+    const result = applyEMASmoothing(raw, prev, recent, {
+      firstSpikeDate: '2026-03-17',
+      today: '2026-03-17',
+    })
+    // Bollinger: |90-80|=10 <= max(10, 2*sigma) => no clamp
+    // EMA: round(0.6*90 + 0.4*80) = round(86) = 86
+    expect(result).toBe(86)
+  })
+
+  it('applyEMASmoothing without dates uses default alpha 0.4', () => {
+    const raw = 90
+    const prev = 80
+    const recent = [78, 79, 80]
+    const result = applyEMASmoothing(raw, prev, recent)
+    // No options => alpha = EMA_ALPHA = 0.4
+    // EMA: round(0.4*90 + 0.6*80) = round(84) = 84
+    expect(result).toBe(84)
   })
 })

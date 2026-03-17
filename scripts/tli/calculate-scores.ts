@@ -180,7 +180,7 @@ export async function calculateAndSaveScores(themes: ThemeWithKeywords[]) {
         rawScore,
         prevSmoothedScore,
         recentSmoothedMap.get(theme.id) || [],
-        { components },
+        { components, firstSpikeDate: theme.first_spike_date, today },
       )
 
       // Stage resolution with Hysteresis (extracted)
