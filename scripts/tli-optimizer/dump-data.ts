@@ -65,6 +65,35 @@ function countUniqueDays(metrics: Array<{ time: string }>): number {
   return days.size
 }
 
+/** 배치 크기 (.in() URL 길이 제한 회피) */
+const BATCH_SIZE = 50
+
+/** 배치로 분할하여 전체 행 가져오기 */
+async function fetchInBatches<T>(
+  supabase: ReturnType<typeof createClient>,
+  table: string,
+  selectColumns: string,
+  themeIds: string[],
+  themeIdColumn: string,
+  dateColumn: string,
+  gteDate: string,
+): Promise<T[]> {
+  const allRows: T[] = []
+  for (let i = 0; i < themeIds.length; i += BATCH_SIZE) {
+    const batchIds = themeIds.slice(i, i + BATCH_SIZE)
+    const { data, error } = await supabase
+      .from(table)
+      .select(selectColumns)
+      .in(themeIdColumn, batchIds)
+      .gte(dateColumn, gteDate)
+      .range(0, 49999)
+
+    if (error) throw new Error(`${table} 로딩 실패 (batch ${i}): ${error.message}`)
+    if (data) allRows.push(...(data as T[]))
+  }
+  return allRows
+}
+
 // --- Main ---
 
 export async function dumpHistoricalData(): Promise<HistoricalData> {
@@ -96,32 +125,22 @@ export async function dumpHistoricalData(): Promise<HistoricalData> {
 
   const themeIds = themes.map(t => t.id)
 
-  // Step 3: Query metrics (SELECT only, parallel)
-  const [interestResult, newsResult, scoresResult] = await Promise.all([
-    supabase
-      .from('interest_metrics')
-      .select('theme_id, time, raw_value, normalized')
-      .in('theme_id', themeIds)
-      .gte('time', gteDate),
-    supabase
-      .from('news_metrics')
-      .select('theme_id, time, article_count')
-      .in('theme_id', themeIds)
-      .gte('time', gteDate),
-    supabase
-      .from('lifecycle_scores')
-      .select('theme_id, calculated_at, score, stage, components')
-      .in('theme_id', themeIds)
-      .gte('calculated_at', gteDate),
+  // Step 3: Query metrics in batches (SELECT only, .in() URL 길이 제한 회피)
+  console.log(`[dump-data] ${themeIds.length}개 테마에서 데이터 로딩 중... (배치 ${BATCH_SIZE}개씩)`)
+
+  const [interestData, newsData, scoresData] = await Promise.all([
+    fetchInBatches<{ theme_id: string; time: string; raw_value: number; normalized: number }>(
+      supabase, 'interest_metrics', 'theme_id, time, raw_value, normalized', themeIds, 'theme_id', 'time', gteDate,
+    ),
+    fetchInBatches<{ theme_id: string; time: string; article_count: number }>(
+      supabase, 'news_metrics', 'theme_id, time, article_count', themeIds, 'theme_id', 'time', gteDate,
+    ),
+    fetchInBatches<{ theme_id: string; calculated_at: string; score: number; stage: string; components: Record<string, unknown> }>(
+      supabase, 'lifecycle_scores', 'theme_id, calculated_at, score, stage, components', themeIds, 'theme_id', 'calculated_at', gteDate,
+    ),
   ])
 
-  if (interestResult.error) throw new Error(`interest_metrics 로딩 실패: ${interestResult.error.message}`)
-  if (newsResult.error) throw new Error(`news_metrics 로딩 실패: ${newsResult.error.message}`)
-  if (scoresResult.error) throw new Error(`lifecycle_scores 로딩 실패: ${scoresResult.error.message}`)
-
-  const interestData = interestResult.data ?? []
-  const newsData = newsResult.data ?? []
-  const scoresData = scoresResult.data ?? []
+  console.log(`[dump-data] 로딩 완료: interest=${interestData.length}, news=${newsData.length}, scores=${scoresData.length}`)
 
   // Step 4: Group by theme
   const interestByTheme = new Map<string, typeof interestData>()
