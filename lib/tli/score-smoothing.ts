@@ -60,8 +60,8 @@ export function applyEMASmoothing(
   }
 
   // --- Step C: EMA (age-dependent alpha) ---
-  const alpha = (options?.firstSpikeDate !== undefined || options?.today)
-    ? computeAlpha(options?.firstSpikeDate, options?.today ?? new Date().toISOString().split('T')[0])
+  const alpha = (options?.firstSpikeDate != null && options?.today)
+    ? computeAlpha(options.firstSpikeDate, options.today)
     : getTLIParams().ema_alpha
   const smoothed = Math.round(alpha * effectiveRaw + (1 - alpha) * prevSmoothedScore)
   return Math.max(0, Math.min(100, smoothed))

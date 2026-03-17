@@ -185,7 +185,7 @@ export function getTLIParams(): TLIParams {
       const optimized = require('../../../scripts/tli-optimizer/optimized-params.json') as Partial<TLIParams>
       return { ...base, ...optimized }
     } catch {
-      console.warn('[TLI] TLI_PARAMS_VERSION=v2 but optimized-params.json not found. Using defaults.')
+      console.error('[TLI] TLI_PARAMS_VERSION=v2 but optimized-params.json not found. Using defaults.')
       return base
     }
   }
