@@ -62,7 +62,7 @@ describe('resolveStageWithHysteresis', () => {
 
 describe('applyEMASmoothing — Cautious Decay', () => {
   afterEach(() => {
-    setTLIParams() // restore defaults
+    setTLIParams(null) // restore defaults
   })
 
   const prev = 80

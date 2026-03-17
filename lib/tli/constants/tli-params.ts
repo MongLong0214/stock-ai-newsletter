@@ -130,7 +130,7 @@ export function getTLIParams(): TLIParams {
   if (!_overriddenParams && typeof process !== 'undefined' && process.env.TLI_PARAMS_VERSION === 'v2') {
     try {
       // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const optimized = require('../../../../scripts/tli-optimizer/optimized-params.json') as Partial<TLIParams>
+      const optimized = require('../../../scripts/tli-optimizer/optimized-params.json') as Partial<TLIParams>
       return { ...base, ...optimized }
     } catch {
       console.warn('[TLI] TLI_PARAMS_VERSION=v2 but optimized-params.json not found. Using defaults.')

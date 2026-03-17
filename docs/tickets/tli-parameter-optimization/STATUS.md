@@ -2,20 +2,20 @@
 
 **PRD**: docs/prd/PRD-tli-parameter-optimization.md
 **Size**: L
-**Current Phase**: 3 (Ticket Detailing)
+**Current Phase**: 6 (Final Review)
 
 ## Ticket Status
 
 | Ticket | Title | Size | Status | Review | Depends | Notes |
 |--------|-------|------|--------|--------|---------|-------|
-| T1 | Prerequisites & Environment Setup | S | Todo | - | None | .gitignore, Python env |
-| T2 | Parameter Types & Config Extension | M | Todo | - | T1 | TLIParams interface, env var |
-| T3 | Parameterize Calculator/Stage/Sentiment | M | Todo | - | T2 | Optional config args |
-| T4 | Historical Data Dump Script | M | Todo | - | T1 | Supabase → JSON |
-| T5 | GDDA Evaluator (evaluate.ts) | L | Todo | - | T3, T4 | Sequential State Machine |
-| T6 | Python Optuna Optimizer | L | Todo | - | T5 | 2-stage hierarchical |
-| T7 | Cautious Score Decay | M | Todo | - | T2 | Step A→B→C pipeline |
-| T8 | EMA Momentum Scheduling | S | Todo | - | T7 | computeAlpha, linear interp |
+| T1 | Prerequisites & Environment Setup | S | Done | PASS | None | .gitignore, Python env |
+| T2 | Parameter Types & Config Extension | M | Done | PASS | T1 | TLIParams interface, env var |
+| T3 | Parameterize Calculator/Stage/Sentiment | M | Done | PASS | T2 | Optional config args |
+| T4 | Historical Data Dump Script | M | Done | PASS | T1 | Supabase → JSON |
+| T5 | GDDA Evaluator (evaluate.ts) | L | Done | PASS | T3, T4 | Sequential State Machine |
+| T6 | Python Optuna Optimizer | L | Done | PASS | T5 | 2-stage hierarchical |
+| T7 | Cautious Score Decay | M | Done | PASS | T2 | Step A→B→C pipeline |
+| T8 | EMA Momentum Scheduling | S | Done | PASS | T7 | computeAlpha, linear interp |
 
 ## Dependency Graph
 
