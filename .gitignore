@@ -49,9 +49,6 @@ next-env.d.ts
 **/.ctf-cookies.txt
 **/ctf-keys*.json
 
-.agents
-.claude
-.codex
 
 .opencode
 
