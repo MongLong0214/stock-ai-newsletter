@@ -1,7 +1,7 @@
 /** 점수 컴포넌트 가중치 및 UI 설정 — 단일 소스 */
 
-/** 노이즈 감쇠 기본 임계값 */
-export const MIN_RAW_INTEREST = 5
+/** 노이즈 감쇠 기본 임계값 (optimized 2026-03-17) */
+export const MIN_RAW_INTEREST = 4
 
 /** 캘리브레이션된 노이즈 임계값 (ROC 교정 시 업데이트) */
 let _calibratedMinRawInterest: number | null = null
@@ -16,12 +16,12 @@ export function getMinRawInterest(): number {
   return _calibratedMinRawInterest ?? MIN_RAW_INTEREST
 }
 
-/** 기본 점수 컴포넌트 가중치 */
+/** 기본 점수 컴포넌트 가중치 (optimized 2026-03-17) */
 export const SCORE_WEIGHTS = {
-  interest: 0.40,
-  newsMomentum: 0.35,
-  volatility: 0.10,
-  activity: 0.15,
+  interest: 0.304148,
+  newsMomentum: 0.366408,
+  volatility: 0.104017,
+  activity: 0.225427,
 } as const
 
 /** Entropy 가중치 도메인 바운드 (최소, 최대) */

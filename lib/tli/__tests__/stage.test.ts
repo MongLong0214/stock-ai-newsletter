@@ -30,25 +30,25 @@ function makeComponents(rawOverrides: Partial<ScoreComponents['raw']> = {}): Sco
 describe('determineStage (v2 Multi-Signal + Markov)', () => {
   // ── Multi-Signal 우선순위 판정 ──
 
-  it('returns Dormant for score < 15 with stable trend', () => {
-    expect(determineStage(10, makeComponents())).toBe('Dormant')
+  it('returns Dormant for score < 10 with stable trend', () => {
+    expect(determineStage(8, makeComponents())).toBe('Dormant')
     expect(determineStage(0, makeComponents())).toBe('Dormant')
   })
 
-  it('returns Emerging for score < 15 with rising trend', () => {
+  it('returns Emerging for score < 10 with rising trend', () => {
     // slope=10, recent_7d_avg=50 → normalizedSlope=0.2 > 0.10 → rising
     const c = makeComponents({ interest_slope: 10 })
-    expect(determineStage(10, c)).toBe('Emerging')
+    expect(determineStage(8, c)).toBe('Emerging')
   })
 
-  it('returns Peak for score >= 68', () => {
-    expect(determineStage(68, makeComponents())).toBe('Peak')
+  it('returns Peak for score >= 71', () => {
+    expect(determineStage(75, makeComponents())).toBe('Peak')
     expect(determineStage(95, makeComponents())).toBe('Peak')
   })
 
-  it('returns Growth (not Peak) for score in [58, 68) range', () => {
-    expect(determineStage(60, makeComponents())).toBe('Growth')
-    expect(determineStage(67, makeComponents())).toBe('Growth')
+  it('returns Growth (not Peak) for score in [61, 71) range', () => {
+    expect(determineStage(63, makeComponents())).toBe('Growth')
+    expect(determineStage(70, makeComponents())).toBe('Growth')
   })
 
   it('returns Peak for score >= 50 with high news volume and stable trend', () => {
@@ -109,15 +109,13 @@ describe('determineStage (v2 Multi-Signal + Markov)', () => {
   })
 
   it('with custom thresholds via config: dormant=20 makes score=15 Emerging', () => {
-    // Default dormant=15 → score=15 is NOT < 15 → not Dormant → Emerging
-    // With dormant=20 → score=15 IS < 20 + stable trend → Dormant
-    // So we set dormant=20 and score=18 (< 20) to get Dormant with config,
-    // but with default (dormant=15) score=18 > 15 → Emerging
+    // Default dormant=10 → score=18 is NOT < 10 → not Dormant → Emerging
+    // With dormant=20 → score=18 IS < 20 + stable trend → Dormant
     const config: Partial<TLIParams> = { stage_dormant: 20 }
     const resultDefault = determineStage(18, makeComponents())
     const resultConfig = determineStage(18, makeComponents(), undefined, undefined, config)
 
-    expect(resultDefault).toBe('Emerging') // score=18 > 15 default dormant
+    expect(resultDefault).toBe('Emerging') // score=18 > 10 default dormant
     expect(resultConfig).toBe('Dormant')   // score=18 < 20 custom dormant
   })
 
