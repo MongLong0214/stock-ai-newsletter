@@ -5,7 +5,6 @@
  */
 
 import { describe, expect, it } from 'vitest'
-import type { BoundarySource } from '../analog/types'
 import {
   isPromotionEligible,
   filterPromotionEligible,

@@ -4,7 +4,7 @@ import { siteConfig, keywordsByCategory } from '@/lib/constants/seo';
 export const metadata: Metadata = {
   title: '기술적 지표 완벽 가이드 - RSI·MACD·볼린저밴드 | Stock Matrix',
   description:
-    'RSI(상대강도지수), MACD 골든크로스, 볼린저밴드, 이동평균선, 스토캐스틱 등 30가지 기술적 분석 지표의 의미와 활용법. AI 주식 분석에 사용되는 핵심 지표 완벽 정리.',
+    'RSI, MACD, 볼린저밴드, 이동평균선 등 30가지 기술적 지표의 의미와 활용법. AI 주식 분석 핵심 지표 완벽 가이드.',
   keywords: [
     ...keywordsByCategory.indicator,
     ...keywordsByCategory.analysis,
@@ -31,7 +31,7 @@ export const metadata: Metadata = {
     type: 'article',
     images: [
       {
-        url: `${siteConfig.domain}/opengraph-image`,
+        url: '/opengraph-image',
         width: 1200,
         height: 630,
         alt: '기술적 지표 가이드 - Stock Matrix',

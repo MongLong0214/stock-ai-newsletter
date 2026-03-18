@@ -82,10 +82,7 @@ export async function searchGoogle(
 
         response = await res.json() as SerpApiResponse;
 
-        if (attempt > 1) {
-          console.log(`[SerpApi] 재시도 성공 (${attempt}/${PIPELINE_CONFIG.retryAttempts})`);
-        }
-        break;
+          break;
       } finally {
         clearTimeout(timeoutId);
       }
@@ -94,7 +91,6 @@ export async function searchGoogle(
 
       if (attempt < PIPELINE_CONFIG.retryAttempts) {
         const delay = PIPELINE_CONFIG.retryDelay * Math.pow(2, attempt - 1);
-        console.log(`[SerpApi] ${delay}ms 후 재시도 (${attempt + 1}/${PIPELINE_CONFIG.retryAttempts})`);
         await new Promise((resolve) => setTimeout(resolve, delay));
       }
     }

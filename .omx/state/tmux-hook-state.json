@@ -4,19 +4,8 @@
     "%0": 60
   },
   "session_counts": {},
-  "recent_keys": {
-    "c17213521dedbbff61030a43943833874a991aad438d4d1c1b5394e42428dcb3": 1773536371626,
-    "2257e88b2379a6a118a873ee7eff44b6c91664cb92fe7fffca36461c2ac51415": 1773536854267,
-    "bc1c93c2a3f6423bfe98677161fd0a35d79a6231e1beaeb7f4fb8c11edf6400d": 1773537136507,
-    "515390f6cb34e4f1e4df98eea50f814de2a479a330e77d3932f2e406b7041b82": 1773537487069,
-    "f59e65c2a6b7053416b7f6d3a989b510744ca72f86d901532264eee7adbeca57": 1773537731465,
-    "9af015270103780ca874fe260864e4db2b846ab40faec176cefd116f664c4cd8": 1773537918393,
-    "c321dfe26c218cab0cb2e62253c53b8f251fdc86778d046b1eb94a9d95883c72": 1773538166917,
-    "1c2a4e3d75dc5bc17ee6cbe7a653d8512cf9f2cbcfa3dac9b2b8b39dcf73260d": 1773538397118
-  },
+  "recent_keys": {},
   "last_injection_ts": 1773538397118,
-  "last_reason": "injection_sent",
-  "last_event_at": "2026-03-15T01:33:17.118Z",
-  "last_target": "%0",
-  "last_prompt_preview": "Continue from current mode state. [OMX_TMUX_INJECT]\n[OMX_LANG_REMINDER] User input includes non-Latin script. Continue i"
+  "last_reason": "target_not_found",
+  "last_event_at": "2026-03-18T07:28:40.354Z"
 }

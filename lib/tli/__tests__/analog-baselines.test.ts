@@ -11,7 +11,6 @@ import {
   retrieveRegimeFilteredNn,
   type QueryInput,
   type CorpusEpisode,
-  type RetrievalCandidate,
 } from '../analog/baselines'
 
 // --- Test helpers ---

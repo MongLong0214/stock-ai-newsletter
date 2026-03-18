@@ -81,7 +81,11 @@ export async function generateMetadata({
   const theme = await getThemeSeoData(id)
 
   if (!theme) {
-    return { title: '테마 상세' }
+    return {
+      title: '존재하지 않는 테마',
+      description: '요청하신 테마 정보를 찾을 수 없습니다. 삭제되었거나 비활성화된 테마일 수 있습니다.',
+      robots: { index: false, follow: true },
+    }
   }
 
   const stageKo = theme.stage && theme.stage in STAGE_CONFIG
@@ -276,7 +280,7 @@ export default async function ThemeDetailPage({ params }: { params: Promise<{ id
       {/* SSR 콘텐츠: JS 미실행 AI 크롤러용 */}
       {theme && (
         <section className="sr-only" data-speakable aria-label={`${theme.name} 테마 분석 요약`}>
-          <h1 className="theme-headline">{headline}</h1>
+          <h2 className="theme-headline">{headline}</h2>
           <p>{theme.description || `${theme.name} 테마의 AI 생명주기 분석`}</p>
           {stageKo && theme.score != null && (
             <p className="theme-score">

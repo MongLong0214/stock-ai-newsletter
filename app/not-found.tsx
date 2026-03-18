@@ -92,6 +92,7 @@ export default function NotFound() {
 
   useEffect(() => {
     setPathname(window.location.pathname);
+    document.title = '페이지를 찾을 수 없습니다 | StockMatrix';
   }, []);
 
   return (
@@ -145,9 +146,9 @@ export default function NotFound() {
               }}
               transition={{ duration: 0.8, repeat: Infinity, ease: 'linear' }}
             >
-              <h1 className="font-mono text-[140px] font-bold leading-none tracking-tighter text-red-500 mix-blend-multiply sm:text-[200px] md:text-[240px]">
+              <div className="font-mono text-[140px] font-bold leading-none tracking-tighter text-red-500 mix-blend-multiply sm:text-[200px] md:text-[240px]">
                 {glitched404}
-              </h1>
+              </div>
             </motion.div>
 
             {/* Cyan 채널 (chromatic aberration) */}
@@ -161,9 +162,9 @@ export default function NotFound() {
               }}
               transition={{ duration: 0.9, repeat: Infinity, ease: 'linear' }}
             >
-              <h1 className="font-mono text-[140px] font-bold leading-none tracking-tighter text-cyan-500 mix-blend-screen sm:text-[200px] md:text-[240px]">
+              <div className="font-mono text-[140px] font-bold leading-none tracking-tighter text-cyan-500 mix-blend-screen sm:text-[200px] md:text-[240px]">
                 {glitched404}
-              </h1>
+              </div>
             </motion.div>
 
             {/* 수평 슬라이스 글리치 레이어 */}
@@ -172,9 +173,9 @@ export default function NotFound() {
               aria-hidden="true"
               style={sliceStyle}
             >
-              <h1 className="font-mono text-[140px] font-bold leading-none tracking-tighter text-emerald-400 sm:text-[200px] md:text-[240px]">
+              <div className="font-mono text-[140px] font-bold leading-none tracking-tighter text-emerald-400 sm:text-[200px] md:text-[240px]">
                 404
-              </h1>
+              </div>
             </div>
           </div>
 

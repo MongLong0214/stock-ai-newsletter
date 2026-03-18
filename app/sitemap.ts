@@ -85,16 +85,16 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const baseUrl = siteConfig.domain;
 
   const staticPages: MetadataRoute.Sitemap = [
-    { url: baseUrl, lastModified: new Date(), changeFrequency: 'daily', priority: 1.0, alternates: withAlternates(baseUrl) },
-    { url: `${baseUrl}/about`, lastModified: new Date('2025-12-01'), changeFrequency: 'monthly', priority: 0.8, alternates: withAlternates(`${baseUrl}/about`) },
-    { url: `${baseUrl}/faq`, lastModified: new Date('2025-12-01'), changeFrequency: 'monthly', priority: 0.8, alternates: withAlternates(`${baseUrl}/faq`) },
-    { url: `${baseUrl}/technical-indicators`, lastModified: new Date('2025-12-01'), changeFrequency: 'monthly', priority: 0.9, alternates: withAlternates(`${baseUrl}/technical-indicators`) },
-    { url: `${baseUrl}/subscribe`, lastModified: new Date('2025-12-01'), changeFrequency: 'weekly', priority: 0.9, alternates: withAlternates(`${baseUrl}/subscribe`) },
-    { url: `${baseUrl}/archive`, lastModified: new Date(), changeFrequency: 'daily', priority: 0.9, alternates: withAlternates(`${baseUrl}/archive`) },
-    { url: `${baseUrl}/blog`, lastModified: new Date(), changeFrequency: 'daily', priority: 0.9, alternates: withAlternates(`${baseUrl}/blog`) },
-    { url: `${baseUrl}/themes`, lastModified: new Date(), changeFrequency: 'daily', priority: 0.9, alternates: withAlternates(`${baseUrl}/themes`) },
-    { url: `${baseUrl}/themes/methodology`, lastModified: new Date('2025-12-01'), changeFrequency: 'monthly', priority: 0.8, alternates: withAlternates(`${baseUrl}/themes/methodology`) },
-    { url: `${baseUrl}/developers`, lastModified: new Date('2025-12-01'), changeFrequency: 'monthly', priority: 0.6, alternates: withAlternates(`${baseUrl}/developers`) },
+    { url: baseUrl, lastModified: new Date('2026-03-18'), changeFrequency: 'daily', priority: 1.0, alternates: withAlternates(baseUrl) },
+    { url: `${baseUrl}/about`, lastModified: new Date('2026-03-18'), changeFrequency: 'monthly', priority: 0.8, alternates: withAlternates(`${baseUrl}/about`) },
+    { url: `${baseUrl}/faq`, lastModified: new Date('2026-03-18'), changeFrequency: 'monthly', priority: 0.8, alternates: withAlternates(`${baseUrl}/faq`) },
+    { url: `${baseUrl}/technical-indicators`, lastModified: new Date('2026-03-18'), changeFrequency: 'monthly', priority: 0.9, alternates: withAlternates(`${baseUrl}/technical-indicators`) },
+    { url: `${baseUrl}/subscribe`, lastModified: new Date('2026-03-18'), changeFrequency: 'weekly', priority: 0.9, alternates: withAlternates(`${baseUrl}/subscribe`) },
+    { url: `${baseUrl}/archive`, lastModified: new Date('2026-03-18'), changeFrequency: 'daily', priority: 0.9, alternates: withAlternates(`${baseUrl}/archive`) },
+    { url: `${baseUrl}/blog`, lastModified: new Date('2026-03-18'), changeFrequency: 'daily', priority: 0.9, alternates: withAlternates(`${baseUrl}/blog`) },
+    { url: `${baseUrl}/themes`, lastModified: new Date('2026-03-18'), changeFrequency: 'daily', priority: 0.9, alternates: withAlternates(`${baseUrl}/themes`) },
+    { url: `${baseUrl}/themes/methodology`, lastModified: new Date('2026-03-18'), changeFrequency: 'monthly', priority: 0.8, alternates: withAlternates(`${baseUrl}/themes/methodology`) },
+    { url: `${baseUrl}/developers`, lastModified: new Date('2026-03-18'), changeFrequency: 'monthly', priority: 0.6, alternates: withAlternates(`${baseUrl}/developers`) },
   ];
 
   const [blogPosts, topTags, themes] = await Promise.all([

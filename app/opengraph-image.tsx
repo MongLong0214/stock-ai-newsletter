@@ -1,7 +1,7 @@
 import { ImageResponse } from 'next/og';
 
 export const runtime = 'edge';
-export const alt = 'STOCK MATRIX - AI 주식 분석 뉴스레터';
+export const alt = 'Stock Matrix - AI 주식 분석 뉴스레터';
 export const size = {
   width: 1200,
   height: 630,
@@ -13,119 +13,107 @@ export default async function Image() {
     (
       <div
         style={{
-          height: '100%',
+          background: 'linear-gradient(135deg, #0a0a0a 0%, #0f1a14 50%, #0a0a0a 100%)',
           width: '100%',
+          height: '100%',
           display: 'flex',
           flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          backgroundColor: '#000',
-          backgroundImage: 'linear-gradient(to bottom, #000, #001210)',
+          alignItems: 'flex-start',
+          justifyContent: 'space-between',
+          padding: '70px 80px',
           position: 'relative',
+          fontFamily: 'system-ui, -apple-system, sans-serif',
         }}
       >
-        {/* Matrix rain effect background */}
+        {/* Subtle accent glow */}
         <div
           style={{
             position: 'absolute',
             top: 0,
-            left: 0,
             right: 0,
-            bottom: 0,
-            opacity: 0.1,
-            fontSize: '20px',
-            color: '#10b981',
+            width: '600px',
+            height: '600px',
+            background:
+              'radial-gradient(circle, rgba(16,185,129,0.08) 0%, transparent 60%)',
             display: 'flex',
-            flexWrap: 'wrap',
-            overflow: 'hidden',
           }}
-        >
-          {'01010101010101010101010101010101010101010101'.repeat(30)}
-        </div>
+        />
 
-        {/* Main content */}
+        {/* Badge */}
         <div
           style={{
             display: 'flex',
-            flexDirection: 'column',
             alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 10,
-            padding: '60px',
-            border: '2px solid #10b981',
-            borderRadius: '20px',
-            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+            backgroundColor: 'rgba(16,185,129,0.08)',
+            border: '1px solid rgba(16,185,129,0.2)',
+            borderRadius: '999px',
+            padding: '10px 24px',
+            color: '#10b981',
+            fontSize: 24,
+            fontWeight: 600,
           }}
         >
-          {/* Logo/Title */}
+          AI 주식 분석 뉴스레터
+        </div>
+
+        {/* Title + Subtitle */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
           <div
             style={{
-              fontSize: '80px',
-              fontWeight: 'bold',
-              color: '#10b981',
-              letterSpacing: '8px',
-              marginBottom: '20px',
-              textShadow: '0 0 20px #10b981, 0 0 40px #10b981',
+              fontSize: 72,
+              fontWeight: 800,
+              color: '#ffffff',
+              lineHeight: 1.1,
               display: 'flex',
             }}
           >
-            STOCK MATRIX
+            Stock Matrix
           </div>
-
-          {/* Divider */}
           <div
             style={{
-              width: '600px',
-              height: '2px',
-              background: 'linear-gradient(to right, transparent, #10b981, transparent)',
-              marginBottom: '30px',
-              display: 'flex',
-            }}
-          />
-
-          {/* Description */}
-          <div
-            style={{
-              fontSize: '36px',
-              color: '#fff',
-              marginBottom: '15px',
+              fontSize: 32,
+              color: '#64748b',
+              lineHeight: 1.4,
               display: 'flex',
             }}
           >
-            AI 기반 기술적 분석 데이터
+            매일 오전 7:30 · AI가 분석한 KOSPI·KOSDAQ 3종목
           </div>
+        </div>
 
-          {/* Target */}
+        {/* Bottom bar */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '16px',
+            width: '100%',
+          }}
+        >
           <div
             style={{
-              fontSize: '32px',
-              color: '#10b981',
+              width: 52,
+              height: 52,
+              borderRadius: '12px',
+              background: 'linear-gradient(135deg, #10b981, #059669)',
               display: 'flex',
               alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: 28,
+              fontWeight: 900,
+              color: '#000',
             }}
           >
-            <span style={{ marginRight: '10px' }}>📊</span>
-            매일 오전 7시 30분 발송
+            SM
           </div>
-        </div>
-
-        {/* Bottom domain */}
-        <div
-          style={{
-            position: 'absolute',
-            bottom: '40px',
-            fontSize: '28px',
-            color: '#10b981',
-            opacity: 0.8,
-            display: 'flex',
-          }}
-        >
-          stockmatrix.co.kr
+          <span style={{ fontSize: 30, fontWeight: 700, color: '#ffffff' }}>
+            Stock Matrix
+          </span>
+          <div style={{ flex: 1, display: 'flex' }} />
+          <span style={{ fontSize: 24, color: '#475569' }}>stockmatrix.co.kr</span>
         </div>
       </div>
     ),
-    {
-      ...size,
-    }
+    { ...size }
   );
 }

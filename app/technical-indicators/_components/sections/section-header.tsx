@@ -23,12 +23,12 @@ function SectionHeader({ title, introduction }: SectionHeaderProps) {
       <p className="text-sm text-emerald-500 uppercase tracking-wider mb-4 font-medium">
         Technical Indicators
       </p>
-      <h2
+      <h1
         id="technical-indicators-heading"
         className="text-3xl md:text-4xl font-extralight text-emerald-500/80 tracking-tight mb-4"
       >
         {title}
-      </h2>
+      </h1>
       <div
         className="text-base md:text-lg text-slate-300 font-light tracking-wide leading-relaxed max-w-3xl mx-auto"
         dangerouslySetInnerHTML={{ __html: introduction }}

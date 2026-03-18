@@ -28,12 +28,12 @@ function FAQSection() {
           <p className="text-sm text-emerald-500 uppercase tracking-wider mb-4 font-medium">
             FAQ
           </p>
-          <h2
+          <h1
             id="faq-heading"
             className="text-3xl md:text-4xl font-extralight text-emerald-500/80 tracking-tight mb-4"
           >
             자주 묻는 질문
-          </h2>
+          </h1>
           <p className="text-lg text-slate-300 font-light tracking-wide">
             Stock Matrix AI 주식 분석 뉴스레터에 대한 궁금증을 해결해드립니다
           </p>

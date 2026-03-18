@@ -8,26 +8,16 @@ import {
   computeECE,
   computeSliceECE,
   type CalibrationBin,
-  type ECEResult,
-  type SliceECEResult,
 } from '../forecast/calibration'
 import {
   computeEvidenceQualityScore,
   shouldAbstain,
   type EvidenceInput,
   type AbstentionInput,
-  type AbstentionResult,
 } from '../forecast/evidence-quality'
 import { ABSTENTION_THRESHOLDS, GATE_THRESHOLDS } from '../forecast/types'
 
 // --- helpers ---
-
-const makeBin = (overrides: Partial<CalibrationBin> = {}): CalibrationBin => ({
-  predictedProb: 0.5,
-  actualOutcome: 1,
-  count: 1,
-  ...overrides,
-})
 
 const makeEvidenceInput = (overrides: Partial<EvidenceInput> = {}): EvidenceInput => ({
   analogSupportCount: 10,
@@ -335,8 +325,6 @@ describe('Fix 4: NaN guard — computeECE (fail-closed)', () => {
 describe('E2E: corrupt ECE propagates fail-closed through ship gate', () => {
   it('computeECE NaN → ece=1 → ship gate rejects (global ECE ceiling exceeded)', async () => {
     const { evaluateShipGate } = await import('../../../scripts/tli/forecast-ship-gate')
-    const { GATE_THRESHOLDS, ABSTENTION_THRESHOLDS } = await import('../forecast/types')
-
     // Step 1: computeECE with corrupt bins produces ece=1
     const corruptBins: CalibrationBin[] = [
       { predictedProb: NaN, actualOutcome: NaN, count: 10 },

@@ -45,8 +45,6 @@ export async function GET(request: NextRequest) {
 
     const geminiAnalysis = await getGeminiRecommendation();
 
-    console.log('✅ Gemini recommendations fetched');
-
     const { data: subscribers, error: dbError } = await supabase
       .from('subscribers')
       .select('*')
@@ -59,7 +57,6 @@ export async function GET(request: NextRequest) {
     }
 
     if (!subscribers || subscribers.length === 0) {
-      console.log('ℹ️ No active subscribers');
       return NextResponse.json({
         success: true,
         message: '활성 구독자가 없습니다.',
@@ -67,8 +64,6 @@ export async function GET(request: NextRequest) {
         duration: Date.now() - startTime,
       });
     }
-
-    console.log(`📧 Sending to ${subscribers.length} subscribers...`);
 
     const newsletterData = {
       geminiAnalysis,

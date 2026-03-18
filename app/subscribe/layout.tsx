@@ -6,7 +6,7 @@ import { schemaIds } from '@/lib/constants/seo/config';
 export const metadata: Metadata = {
   title: '무료 구독하기 — 매일 7:30 AI 주식분석 이메일 | Stock Matrix',
   description:
-    '이메일 주소만 입력하면 5초 구독. 매일 오전 7:30 AI가 RSI·MACD·볼린저밴드 등 30개 지표로 분석한 KOSPI·KOSDAQ 3종목 정보를 무료로 받아보세요. 광고 없음, 원클릭 해지.',
+    '이메일만 입력하면 5초 구독. 매일 7:30 AI가 30개 지표로 분석한 KOSPI·KOSDAQ 3종목을 무료 이메일로 받아보세요.',
   keywords: [
     ...keywordsByCategory.service,
     ...keywordsByCategory.free,
@@ -28,7 +28,7 @@ export const metadata: Metadata = {
     type: 'website',
     images: [
       {
-        url: `${siteConfig.domain}/opengraph-image`,
+        url: '/opengraph-image',
         width: 1200,
         height: 630,
         alt: 'Stock Matrix 무료 구독',

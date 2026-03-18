@@ -23,8 +23,6 @@ const USER_AGENTS = [
 
 const BROWSER_CHECK_TIMEOUT = 5000;
 const BROWSER_RECHECK_INTERVAL = 5 * 60 * 1000;
-interface NodeSystemError extends Error { code?: string }
-
 let browserInstance: Browser | null = null;
 let browserAvailable: boolean | null = null;
 let browserCheckAttempted = false;
@@ -112,17 +110,7 @@ export async function checkBrowserAvailability(): Promise<boolean> {
     await testBrowser.close();
     browserAvailable = true;
     return true;
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    const errorCode = (error as NodeSystemError)?.code;
-
-    const isInstallError = errorMessage.includes('Executable') || errorMessage.includes('playwright install') || errorCode === 'ENOENT';
-    if (isInstallError) {
-      console.log('   Playwright not installed. Run: npx playwright install chromium');
-    } else {
-      console.log(`   Browser check failed: ${errorMessage}`);
-    }
-
+  } catch {
     browserAvailable = false;
     return false;
   }
@@ -130,7 +118,6 @@ export async function checkBrowserAvailability(): Promise<boolean> {
 
 export async function getBrowser(): Promise<Browser> {
   if (!browserInstance) {
-    console.log('   Starting browser...');
     browserInstance = await chromium.launch({
       headless: true,
       args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu'],
@@ -143,7 +130,6 @@ export async function closeBrowser(): Promise<void> {
   if (browserInstance) {
     await browserInstance.close();
     browserInstance = null;
-    console.log('   Browser closed');
   }
 }
 
@@ -173,8 +159,8 @@ export async function fetchWithBrowser(url: string, timeout: number, domainConfi
           await sleep(1000);
           return await frame.content();
         }
-      } catch (error) {
-        console.log(`   iframe 처리 실패: ${error instanceof Error ? error.message : String(error)}`);
+      } catch {
+        // iframe handling failed, fall through to main page content
       }
     }
 
@@ -183,7 +169,7 @@ export async function fetchWithBrowser(url: string, timeout: number, domainConfi
       try {
         await page.waitForSelector(domainConfig.waitForSelector, { timeout: 10000, state: 'visible' });
       } catch {
-        console.log(`   Selector not found: ${domainConfig.waitForSelector}`);
+        // selector not found, proceed with available content
       }
     }
 

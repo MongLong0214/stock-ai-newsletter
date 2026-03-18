@@ -38,14 +38,11 @@ export async function POST(request: NextRequest) {
     }
 
     if (!subscribers || subscribers.length === 0) {
-      console.log('⚠️ 활성 구독자가 없습니다.');
       return NextResponse.json(
         { message: '활성 구독자가 없습니다.', count: 0 },
         { status: 200 }
       );
     }
-
-    console.log(`✅ ${subscribers.length}명의 구독자 발견\n`);
 
     // 2. Gemini 분석 실행
     const { geminiAnalysis } = await getStockAnalysis();
@@ -61,15 +58,13 @@ export async function POST(request: NextRequest) {
       }),
     };
 
-    console.log('📧 이메일 발송 중...\n');
-
     // 4. SendGrid로 뉴스레터 전송
     await sendStockNewsletter(
       subscribers.map((s) => ({ email: s.email, name: s.name || undefined })),
       newsletterData
     );
 
-    console.log(`✅ ${subscribers.length}명에게 뉴스레터 발송 완료\n`);
+    console.log(`Job completed: ${subscribers.length} subscribers`);
 
     return NextResponse.json(
       {

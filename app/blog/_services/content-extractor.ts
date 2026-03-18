@@ -103,8 +103,6 @@ function findBestContentBlock($: cheerio.CheerioAPI): cheerio.Cheerio<AnyNode> |
   if (candidates.length === 0) return null;
 
   candidates.sort((a, b) => b.score - a.score);
-  console.log(`   Best content: ${candidates[0].wordCount} words (score: ${candidates[0].score})`);
-
   return candidates[0].score >= LIMITS.MIN_CONTENT_SCORE ? candidates[0].element : null;
 }
 
@@ -142,7 +140,6 @@ export function extractContent(
   if (customContentSelector) {
     $mainContent = $(customContentSelector).first();
     if ($mainContent.length === 0) {
-      console.log(`   Custom selector not found: ${customContentSelector}`);
       $mainContent = null;
     }
   }
@@ -152,7 +149,6 @@ export function extractContent(
   }
 
   if (!$mainContent || $mainContent.length === 0) {
-    console.log('   Using body fallback');
     $mainContent = $('body');
   }
 
