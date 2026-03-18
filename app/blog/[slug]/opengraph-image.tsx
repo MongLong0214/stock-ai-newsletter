@@ -1,6 +1,5 @@
 import { ImageResponse } from 'next/og';
 import { getServerSupabaseClient } from '@/lib/supabase/server-client';
-import { siteConfig } from '@/lib/constants/seo/config';
 import { isValidBlogSlug } from '../_utils/slug-validator';
 
 export const runtime = 'edge';
@@ -11,9 +10,6 @@ export const size = {
 };
 export const contentType = 'image/png';
 
-/**
- * 블로그 포스트 조회 (OG 이미지용)
- */
 async function getBlogPost(slug: string) {
   const supabase = getServerSupabaseClient();
   const { data } = await supabase
@@ -25,9 +21,6 @@ async function getBlogPost(slug: string) {
   return data;
 }
 
-/**
- * 동적 Open Graph 이미지 생성
- */
 export default async function Image({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   if (!isValidBlogSlug(slug)) {
@@ -39,127 +32,308 @@ export default async function Image({ params }: { params: Promise<{ slug: string
     return new Response('Not found', { status: 404 });
   }
 
-  // 제목 길이 제한 (너무 길면 잘림)
-  const title = post.title.length > 80 ? post.title.slice(0, 77) + '...' : post.title;
+  const title = post.title.length > 60 ? post.title.slice(0, 57) + '...' : post.title;
   const description =
-    post.description.length > 150 ? post.description.slice(0, 147) + '...' : post.description;
+    post.description.length > 100 ? post.description.slice(0, 97) + '...' : post.description;
 
   return new ImageResponse(
     (
       <div
         style={{
-          background: 'linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 100%)',
+          background: '#0c1222',
           width: '100%',
           height: '100%',
           display: 'flex',
           flexDirection: 'column',
-          alignItems: 'flex-start',
-          justifyContent: 'space-between',
-          padding: '80px',
-          fontFamily: 'system-ui, -apple-system, sans-serif',
+          justifyContent: 'center',
+          alignItems: 'center',
           position: 'relative',
+          fontFamily: 'system-ui, -apple-system, sans-serif',
+          overflow: 'hidden',
         }}
       >
-        {/* 배경 장식 - 작은 Matrix 느낌 */}
+        {/* Card 1 — Gauge Card (top-left) */}
         <div
           style={{
             position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            opacity: 0.03,
-            background:
-              'radial-gradient(circle at 30% 20%, rgba(16, 185, 129, 0.2) 0%, transparent 50%)',
+            top: '20px',
+            left: '-50px',
+            width: '340px',
+            height: '220px',
+            background: '#0f1729',
+            border: '1px solid rgba(255,255,255,0.08)',
+            borderRadius: '16px',
+            transform: 'rotate(-6deg)',
+            opacity: 0.55,
+            display: 'flex',
+            flexDirection: 'column',
+            padding: '20px',
           }}
-        />
+        >
+          <div style={{ display: 'flex', gap: '40px' }}>
+            <div style={{ fontSize: '11px', color: '#4b5563', display: 'flex' }}>TLI 점수</div>
+            <div style={{ fontSize: '11px', color: '#4b5563', display: 'flex' }}>관심도</div>
+          </div>
+          <div style={{ display: 'flex', gap: '40px', marginTop: '4px' }}>
+            <div style={{ fontSize: '38px', fontWeight: 700, color: '#e2e8f0', display: 'flex' }}>85</div>
+            <div style={{ fontSize: '38px', fontWeight: 700, color: '#e2e8f0', display: 'flex' }}>72</div>
+          </div>
+          <div style={{ fontSize: '10px', color: '#374151', display: 'flex', marginTop: '8px' }}>지난 30일</div>
+          <div style={{ width: '100%', height: '5px', background: '#1a2332', borderRadius: '3px', display: 'flex', marginTop: '12px' }}>
+            <div style={{ width: '68%', height: '5px', background: '#10b98133', borderRadius: '3px', display: 'flex' }} />
+          </div>
+        </div>
 
-        {/* 카테고리 뱃지 */}
+        {/* Card 2 — Trend Sparkline (mid-left) */}
+        <div
+          style={{
+            position: 'absolute',
+            top: '155px',
+            left: '20px',
+            width: '260px',
+            height: '160px',
+            background: '#0f1729',
+            border: '1px solid rgba(255,255,255,0.08)',
+            borderRadius: '16px',
+            transform: 'rotate(-3deg)',
+            opacity: 0.5,
+            display: 'flex',
+            flexDirection: 'column',
+            padding: '20px',
+          }}
+        >
+          <div style={{ fontSize: '11px', color: '#4b5563', display: 'flex' }}>관심도 추이</div>
+          <div style={{ display: 'flex', alignItems: 'flex-end', gap: '4px', marginTop: '12px' }}>
+            {[25, 35, 30, 50, 45, 60, 55, 70, 65, 75, 80, 72].map((h, i) => (
+              <div key={`sp-${i}`} style={{ width: '8px', height: `${h}px`, background: '#10b98125', borderRadius: '2px', display: 'flex' }} />
+            ))}
+          </div>
+        </div>
+
+        {/* Card 3 — Count Card (top-right) */}
+        <div
+          style={{
+            position: 'absolute',
+            top: '55px',
+            right: '-30px',
+            width: '280px',
+            height: '200px',
+            background: '#0f1729',
+            border: '1px solid rgba(255,255,255,0.08)',
+            borderRadius: '16px',
+            transform: 'rotate(4deg)',
+            opacity: 0.55,
+            display: 'flex',
+            flexDirection: 'column',
+            padding: '20px',
+          }}
+        >
+          <div style={{ fontSize: '11px', color: '#4b5563', display: 'flex' }}>활성 테마</div>
+          <div style={{ fontSize: '48px', fontWeight: 700, color: '#8B5CF6', display: 'flex' }}>73</div>
+          <div style={{ display: 'flex', alignItems: 'flex-end', gap: '4px', marginTop: '4px' }}>
+            {[12, 18, 15, 25, 22, 30, 28, 35].map((h, i) => (
+              <div key={`mc-${i}`} style={{ width: '4px', height: `${h}px`, background: '#8B5CF620', borderRadius: '1px', display: 'flex' }} />
+            ))}
+          </div>
+          <div style={{ fontSize: '10px', color: '#10b981', display: 'flex', marginTop: '8px' }}>+5 전일 대비</div>
+        </div>
+
+        {/* Card 4 — Table (far top-right, cut off) */}
+        <div
+          style={{
+            position: 'absolute',
+            top: '-15px',
+            right: '-90px',
+            width: '320px',
+            height: '180px',
+            background: '#0f1729',
+            border: '1px solid rgba(255,255,255,0.08)',
+            borderRadius: '16px',
+            transform: 'rotate(3deg)',
+            opacity: 0.45,
+            display: 'flex',
+            flexDirection: 'column',
+            padding: '20px',
+          }}
+        >
+          <div style={{ fontSize: '10px', color: '#4b5563', display: 'flex', marginBottom: '12px' }}>테마별 거래량</div>
+          {[
+            { color: '#3B82F6', label: '반도체', barW: 40 },
+            { color: '#10B981', label: '2차전지', barW: 32 },
+            { color: '#F59E0B', label: 'AI', barW: 28 },
+            { color: '#EF4444', label: '바이오', barW: 22 },
+          ].map((row) => (
+            <div key={row.label} style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+              <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: row.color, display: 'flex' }} />
+              <div style={{ fontSize: '11px', color: '#6b7280', display: 'flex', width: '52px' }}>{row.label}</div>
+              <div style={{ width: `${row.barW}px`, height: '5px', background: `${row.color}1F`, borderRadius: '3px', display: 'flex' }} />
+            </div>
+          ))}
+        </div>
+
+        {/* Card 5 — Scatter (bottom-left) */}
+        <div
+          style={{
+            position: 'absolute',
+            bottom: '-15px',
+            left: '-50px',
+            width: '400px',
+            height: '260px',
+            background: '#0f1729',
+            border: '1px solid rgba(255,255,255,0.08)',
+            borderRadius: '16px',
+            transform: 'rotate(-2deg)',
+            opacity: 0.5,
+            display: 'flex',
+            flexDirection: 'column',
+            padding: '20px',
+          }}
+        >
+          <div style={{ fontSize: '11px', color: '#4b5563', display: 'flex' }}>테마 분포도</div>
+          <div style={{ display: 'flex', position: 'relative', flex: 1, marginTop: '8px' }}>
+            {[
+              { top: 20, left: 30, size: 6, op: 0.35 },
+              { top: 60, left: 80, size: 5, op: 0.25 },
+              { top: 40, left: 150, size: 6, op: 0.4 },
+              { top: 90, left: 50, size: 5, op: 0.15 },
+              { top: 30, left: 220, size: 6, op: 0.3 },
+              { top: 70, left: 180, size: 5, op: 0.2 },
+              { top: 100, left: 120, size: 6, op: 0.35 },
+              { top: 50, left: 260, size: 5, op: 0.25 },
+              { top: 80, left: 300, size: 6, op: 0.4 },
+              { top: 110, left: 200, size: 5, op: 0.15 },
+              { top: 25, left: 100, size: 6, op: 0.3 },
+              { top: 95, left: 280, size: 5, op: 0.2 },
+            ].map((dot, i) => (
+              <div
+                key={`dot-${i}`}
+                style={{
+                  position: 'absolute',
+                  top: `${dot.top}px`,
+                  left: `${dot.left}px`,
+                  width: `${dot.size}px`,
+                  height: `${dot.size}px`,
+                  borderRadius: '50%',
+                  background: '#10b981',
+                  opacity: dot.op,
+                  display: 'flex',
+                }}
+              />
+            ))}
+          </div>
+          <div style={{ fontSize: '8px', color: '#1e293b', display: 'flex', gap: '16px' }}>
+            <span style={{ display: 'flex' }}>10</span>
+            <span style={{ display: 'flex' }}>20</span>
+            <span style={{ display: 'flex' }}>30</span>
+            <span style={{ display: 'flex' }}>40</span>
+            <span style={{ display: 'flex' }}>50</span>
+            <span style={{ display: 'flex' }}>60</span>
+            <span style={{ display: 'flex' }}>70</span>
+            <span style={{ display: 'flex' }}>80</span>
+          </div>
+        </div>
+
+        {/* Card 6 — Bar Chart (bottom-right) */}
+        <div
+          style={{
+            position: 'absolute',
+            bottom: '5px',
+            right: '-50px',
+            width: '320px',
+            height: '220px',
+            background: '#0f1729',
+            border: '1px solid rgba(255,255,255,0.08)',
+            borderRadius: '16px',
+            transform: 'rotate(3deg)',
+            opacity: 0.5,
+            display: 'flex',
+            flexDirection: 'column',
+            padding: '20px',
+          }}
+        >
+          <div style={{ fontSize: '10px', color: '#4b5563', display: 'flex' }}>지표별 분포</div>
+          <div style={{ display: 'flex', alignItems: 'flex-end', gap: '10px', flex: 1, marginTop: '12px' }}>
+            {[35, 60, 80, 50, 25, 45].map((h, i) => (
+              <div key={`bar-${i}`} style={{ width: '28px', height: `${h}px`, background: '#10b98118', borderRadius: '3px', display: 'flex' }} />
+            ))}
+          </div>
+        </div>
+
+        {/* Brand */}
+        <div
+          style={{
+            position: 'absolute',
+            top: '48px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+          }}
+        >
+          <div
+            style={{
+              width: '10px',
+              height: '10px',
+              borderRadius: '50%',
+              background: '#10b981',
+              display: 'flex',
+            }}
+          />
+          <span style={{ fontSize: '22px', fontWeight: 600, color: '#94a3b8', letterSpacing: '1px', display: 'flex' }}>
+            Stock Matrix
+          </span>
+        </div>
+
+        {/* Hero Text - Dynamic blog title */}
         <div
           style={{
             display: 'flex',
+            flexDirection: 'column',
             alignItems: 'center',
-            backgroundColor: 'rgba(16, 185, 129, 0.1)',
-            border: '2px solid rgba(16, 185, 129, 0.3)',
-            borderRadius: '999px',
-            padding: '12px 24px',
-            color: '#10b981',
-            fontSize: 28,
-            fontWeight: 600,
-            position: 'relative',
+            gap: '16px',
+            zIndex: 10,
+            maxWidth: '900px',
+            padding: '0 40px',
           }}
         >
-          {post.category || '주식 뉴스레터'}
-        </div>
-
-        {/* 제목 & 설명 */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', position: 'relative' }}>
-          <h1
+          <div
             style={{
-              fontSize: 64,
-              fontWeight: 900,
+              fontSize: title.length > 30 ? '58px' : '72px',
+              fontWeight: 800,
               color: '#ffffff',
-              lineHeight: 1.2,
-              margin: 0,
-              maxWidth: '1000px',
+              lineHeight: 1.0,
+              letterSpacing: '-2px',
+              textAlign: 'center',
+              display: 'flex',
             }}
           >
             {title}
-          </h1>
-          <p
+          </div>
+          <div
             style={{
-              fontSize: 32,
-              color: '#94a3b8',
+              fontSize: '22px',
+              fontWeight: 400,
+              color: '#64748b',
+              textAlign: 'center',
               lineHeight: 1.4,
-              margin: 0,
-              maxWidth: '900px',
+              display: 'flex',
             }}
           >
             {description}
-          </p>
+          </div>
         </div>
 
-        {/* 하단: 로고 & 날짜 */}
+        {/* Domain */}
         <div
           style={{
+            position: 'absolute',
+            bottom: '40px',
+            right: '50px',
+            fontSize: '18px',
+            color: '#334155',
             display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            width: '100%',
-            position: 'relative',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-            {/* 로고 아이콘 */}
-            <div
-              style={{
-                width: 60,
-                height: 60,
-                borderRadius: '12px',
-                background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: 32,
-                fontWeight: 900,
-                color: '#000',
-              }}
-            >
-              SM
-            </div>
-            <span style={{ fontSize: 36, fontWeight: 700, color: '#ffffff' }}>
-              {siteConfig.serviceName}
-            </span>
-          </div>
-          {post.published_at && (
-            <span style={{ fontSize: 28, color: '#64748b' }}>
-              {new Date(post.published_at).toLocaleDateString('ko-KR', {
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric',
-              })}
-            </span>
-          )}
+          stockmatrix.co.kr
         </div>
       </div>
     ),
