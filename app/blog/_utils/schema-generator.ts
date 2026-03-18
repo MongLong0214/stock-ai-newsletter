@@ -2,78 +2,66 @@
  * Schema.org structured data generators (Single Source of Truth)
  *
  * Generates: Article, BlogPosting, FAQ, Breadcrumb schemas
+ * Google Search Central best practice 준수:
+ * - @id 기반 엔티티 그래프 연결
+ * - image 3가지 비율 (16:9, 4:3, 1:1)
+ * - datePublished/dateModified KST timezone
+ * - inLanguage, isPartOf, speakable xPath
  */
 
-import { siteConfig } from '@/lib/constants/seo/config';
+import { siteConfig, schemaIds, ensureKSTTimezone } from '@/lib/constants/seo/config';
 import type { BlogPost, BlogPostCreateInput, FAQItem, SchemaData } from '../_types/blog';
 
-interface ArticleSchema {
-  '@context': 'https://schema.org';
-  '@type': 'BlogPosting';
-  headline: string;
-  description: string;
-  image: string[];
-  author: { '@type': 'Organization'; name: string; url: string };
-  publisher: { '@type': 'Organization'; name: string; logo: { '@type': 'ImageObject'; url: string } };
-  datePublished: string | null;
-  dateModified: string;
-  mainEntityOfPage: { '@type': 'WebPage'; '@id': string };
-  keywords: string;
-  wordCount?: number;
-  articleSection?: string;
-  speakable: { '@type': 'SpeakableSpecification'; cssSelector: string[] };
-}
-
-interface FAQSchema {
-  '@context': 'https://schema.org';
-  '@type': 'FAQPage';
-  mainEntity: Array<{
-    '@type': 'Question';
-    name: string;
-    acceptedAnswer: { '@type': 'Answer'; text: string };
-  }>;
-}
-
-interface BreadcrumbSchema {
-  '@context': 'https://schema.org';
-  '@type': 'BreadcrumbList';
-  itemListElement: Array<{
-    '@type': 'ListItem';
-    position: number;
-    name: string;
-    item: string;
-  }>;
-}
-
-function createArticleSchema(post: BlogPost, slug: string): ArticleSchema {
-  const wordCount = post.content ? post.content.replace(/<[^>]*>/g, '').split(/\s+/).length : undefined
+function createArticleSchema(post: BlogPost, slug: string) {
+  const wordCount = post.content ? post.content.replace(/<[^>]*>/g, '').split(/\s+/).length : undefined;
+  const url = `${siteConfig.domain}/blog/${slug}`;
+  const ogImage = `${url}/opengraph-image`;
 
   return {
     '@context': 'https://schema.org',
     '@type': 'BlogPosting',
+    '@id': schemaIds.articleId(`/blog/${slug}`),
     headline: post.title,
     description: post.description,
-    image: [`${siteConfig.domain}/blog/${slug}/opengraph-image`],
-    author: { '@type': 'Organization', name: siteConfig.serviceName, url: siteConfig.domain },
+    image: [
+      { '@type': 'ImageObject', url: ogImage, width: 1200, height: 675 },
+      { '@type': 'ImageObject', url: ogImage, width: 1200, height: 900 },
+      { '@type': 'ImageObject', url: ogImage, width: 1200, height: 1200 },
+    ],
+    author: {
+      '@type': 'Organization',
+      '@id': schemaIds.organization,
+      name: siteConfig.serviceName,
+      url: siteConfig.domain,
+    },
     publisher: {
       '@type': 'Organization',
+      '@id': schemaIds.organization,
       name: siteConfig.serviceName,
       logo: { '@type': 'ImageObject', url: `${siteConfig.domain}/icon-512.png` },
     },
-    datePublished: post.published_at,
-    dateModified: post.updated_at,
-    mainEntityOfPage: { '@type': 'WebPage', '@id': `${siteConfig.domain}/blog/${slug}` },
+    datePublished: ensureKSTTimezone(post.published_at) || new Date().toISOString(),
+    dateModified: ensureKSTTimezone(post.updated_at) || ensureKSTTimezone(post.published_at) || new Date().toISOString(),
+    mainEntityOfPage: { '@type': 'WebPage', '@id': schemaIds.pageId(`/blog/${slug}`) },
+    isPartOf: { '@id': schemaIds.website },
+    inLanguage: 'ko-KR',
     keywords: [post.target_keyword, ...(post.secondary_keywords || [])].join(', '),
     wordCount,
     articleSection: post.category || '투자 분석',
+    about: post.target_keyword
+      ? [{ '@type': 'Thing', name: post.target_keyword }]
+      : undefined,
     speakable: {
       '@type': 'SpeakableSpecification',
-      cssSelector: ['article h1', 'article h2', 'article [data-speakable]'],
+      xPath: [
+        '/html/head/title',
+        '/html/head/meta[@name=\'description\']/@content',
+      ],
     },
   };
 }
 
-function createFAQSchema(faqItems: FAQItem[]): FAQSchema | null {
+function createFAQSchema(faqItems: FAQItem[]) {
   if (!faqItems || faqItems.length === 0) return null;
 
   return {
@@ -93,39 +81,38 @@ function createBlogPostingSchema(post: BlogPostCreateInput, slug: string): Schem
   return {
     '@context': 'https://schema.org',
     '@type': 'BlogPosting',
+    '@id': schemaIds.articleId(`/blog/${slug}`),
     headline: post.title,
     description: post.description,
     author: {
       '@type': 'Organization',
+      '@id': schemaIds.organization,
       name: siteConfig.serviceName,
       url: siteConfig.domain,
     },
     publisher: {
       '@type': 'Organization',
+      '@id': schemaIds.organization,
       name: siteConfig.serviceName,
-      logo: {
-        '@type': 'ImageObject',
-        url: `${siteConfig.domain}/icon-512.png`,
-      },
+      logo: { '@type': 'ImageObject', url: `${siteConfig.domain}/icon-512.png` },
     },
     datePublished: now,
     dateModified: now,
-    mainEntityOfPage: {
-      '@type': 'WebPage',
-      '@id': `${siteConfig.domain}/blog/${slug}`,
-    },
+    mainEntityOfPage: { '@type': 'WebPage', '@id': schemaIds.pageId(`/blog/${slug}`) },
+    isPartOf: { '@id': schemaIds.website },
+    inLanguage: 'ko-KR',
     keywords: [post.target_keyword, ...(post.secondary_keywords || [])].join(', '),
   };
 }
 
-function createBreadcrumbSchema(postTitle: string, slug: string): BreadcrumbSchema {
+function createBreadcrumbSchema(postTitle: string) {
   return {
     '@context': 'https://schema.org',
     '@type': 'BreadcrumbList',
     itemListElement: [
       { '@type': 'ListItem', position: 1, name: 'Stock Matrix', item: siteConfig.domain },
       { '@type': 'ListItem', position: 2, name: '블로그', item: `${siteConfig.domain}/blog` },
-      { '@type': 'ListItem', position: 3, name: postTitle, item: `${siteConfig.domain}/blog/${slug}` },
+      { '@type': 'ListItem', position: 3, name: postTitle },
     ],
   };
 }

@@ -16,6 +16,7 @@ import {
   schemaConfig,
   allKeywords,
 } from '@/lib/constants/seo';
+import { schemaIds } from '@/lib/constants/seo/config';
 
 const notoSansKR = Noto_Sans_KR({
   subsets: ['latin'],
@@ -110,16 +111,10 @@ export default function RootLayout({
     '@graph': [
       {
         '@type': 'Organization',
-        '@id': `${siteConfig.domain}/#organization`,
+        '@id': schemaIds.organization,
         name: siteConfig.serviceName,
         url: siteConfig.domain,
-        logo: {
-          '@type': 'ImageObject',
-          url: `${siteConfig.domain}/icon-512.png`,
-          width: 512,
-          height: 512,
-          caption: `${siteConfig.serviceName} Logo`,
-        },
+        logo: `${siteConfig.domain}/icon-512.png`,
         image: {
           '@type': 'ImageObject',
           url: `${siteConfig.domain}/icon-512.png`,
@@ -137,7 +132,7 @@ export default function RootLayout({
           availableLanguage: ['Korean'],
           email: 'aistockmatrix@gmail.com',
         },
-        foundingDate: '2024',
+        foundingDate: '2024-01-01',
         description: schemaConfig.serviceDesc,
         knowsAbout: [
           '주식 기술적 분석',
@@ -150,23 +145,27 @@ export default function RootLayout({
       },
       {
         '@type': 'WebSite',
-        '@id': `${siteConfig.domain}/#website`,
+        '@id': schemaIds.website,
         url: siteConfig.domain,
         name: siteConfig.serviceName,
         description: schemaConfig.websiteDesc,
-        publisher: {
-          '@id': `${siteConfig.domain}/#organization`,
-        },
+        publisher: { '@id': schemaIds.organization },
         inLanguage: 'ko-KR',
+        potentialAction: {
+          '@type': 'SearchAction',
+          target: {
+            '@type': 'EntryPoint',
+            urlTemplate: `${siteConfig.domain}/blog/tag/{search_term_string}`,
+          },
+          'query-input': 'required name=search_term_string',
+        },
       },
       {
         '@type': 'Service',
-        '@id': `${siteConfig.domain}/#service`,
+        '@id': schemaIds.service,
         name: schemaConfig.serviceName,
         description: schemaConfig.serviceDesc,
-        provider: {
-          '@id': `${siteConfig.domain}/#organization`,
-        },
+        provider: { '@id': schemaIds.organization },
         serviceType: '주식 기술적 분석 데이터 뉴스레터',
         areaServed: {
           '@type': 'Country',
@@ -196,14 +195,12 @@ export default function RootLayout({
         },
       },
       {
-        '@type': ['Service', 'NewsMediaOrganization'],
+        '@type': 'NewsMediaOrganization',
         '@id': `${siteConfig.domain}/#newsletter`,
         name: 'StockMatrix 주식 뉴스레터',
         alternateName: '스탁매트릭스 투자 뉴스레터',
         description: '한국 주식 투자자를 위한 무료 이메일 뉴스레터 서비스. AI가 분석한 시장 인사이트와 종목 정보를 매일 오전 7시 30분 제공.',
-        publisher: {
-          '@id': `${siteConfig.domain}/#organization`,
-        },
+        parentOrganization: { '@id': schemaIds.organization },
         inLanguage: 'ko-KR',
         about: ['주식 투자', '시장 분석', '기술적 지표', '종목 인사이트', '경제 뉴스'],
         audience: {

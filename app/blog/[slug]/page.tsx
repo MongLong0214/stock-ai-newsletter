@@ -74,6 +74,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       locale: 'ko_KR',
       publishedTime: post.published_at || undefined,
       modifiedTime: post.updated_at,
+      section: post.category || '투자 분석',
+      tags: post.tags || [],
       authors: [siteConfig.serviceName],
       images: [{ url: ogImageUrl, width: 1200, height: 630, alt: title, type: 'image/png' }],
     },
@@ -101,7 +103,7 @@ async function BlogPostPage({ params }: PageProps) {
   const allSchemas = [
     { id: 'article-schema', data: createArticleSchema(post, slug) },
     { id: 'faq-schema', data: createFAQSchema(post.faq_items || []) },
-    { id: 'breadcrumb-schema', data: createBreadcrumbSchema(post.title, slug) },
+    { id: 'breadcrumb-schema', data: createBreadcrumbSchema(post.title) },
   ];
   const schemas = allSchemas.filter((s) => s.data) as Array<{ id: string; data: object }>;
 
