@@ -1,0 +1,52 @@
+# StockMatrix
+
+> 한국 주식 투자자를 위한 무료 AI 기술적 분석 뉴스레터
+
+StockMatrix는 매일 오전 7시 30분, AI가 RSI·MACD·볼린저밴드 등 30개 기술적 지표로 분석한 KOSPI·KOSDAQ 3종목 정보를 무료 이메일로 발송하는 뉴스레터 서비스입니다.
+
+## 핵심 기능
+
+- 매일 오전 7:30 무료 이메일 발송 (프리마켓 개장 30분 전)
+- AI가 30개 기술적 지표로 KOSPI·KOSDAQ 종목 3개 선정 및 분석
+- 250+ 투자 테마 생명주기 추적 (초기·성장·정점·쇠퇴·재점화 5단계)
+- 100% 무료, 광고 없음, 5초 이메일 구독
+
+## 주요 페이지
+
+- [무료 구독](https://stockmatrix.co.kr/subscribe): 이메일 주소만으로 5초 구독. 매일 AI 분석 결과를 받아볼 수 있습니다.
+- [테마 분석](https://stockmatrix.co.kr/themes): AI가 추적하는 250+ 투자 테마의 생명주기 점수, 단계, 관련 종목을 확인할 수 있습니다.
+- [분석 기록](https://stockmatrix.co.kr/archive): 과거 발송된 뉴스레터를 날짜별로 열람할 수 있습니다.
+- [블로그](https://stockmatrix.co.kr/blog): 주식 투자 전략, 기술적 지표 해설, 시장 분석 글을 제공합니다.
+- [서비스 소개](https://stockmatrix.co.kr/about): StockMatrix의 분석 방법론과 서비스 철학을 설명합니다.
+- [기술적 지표](https://stockmatrix.co.kr/technical-indicators): RSI, MACD, 볼린저밴드 등 30개 지표에 대한 상세 설명입니다.
+- [FAQ](https://stockmatrix.co.kr/faq): 자주 묻는 질문과 답변입니다.
+
+## 자주 묻는 질문
+
+Q: StockMatrix는 무엇인가요?
+A: 매일 오전 7:30에 AI가 기술적 지표로 분석한 KOSPI·KOSDAQ 3종목 정보를 무료 이메일로 보내주는 뉴스레터 서비스입니다.
+
+Q: 구독료가 있나요?
+A: 완전 무료입니다. 광고도 없습니다. 이메일 주소만 입력하면 5초 만에 구독할 수 있습니다.
+
+Q: 어떤 지표로 분석하나요?
+A: RSI, MACD, 볼린저밴드, 이동평균선(SMA/EMA), ADX, 일목균형표, OBV, ATR 등 30개 기술적 지표를 종합 분석합니다.
+
+Q: 투자 추천인가요?
+A: 아닙니다. StockMatrix는 투자 권유나 매매 추천이 아닌 참고용 기술적 분석 정보만 제공합니다.
+
+Q: 테마 분석이란 무엇인가요?
+A: AI가 250개 이상의 투자 테마(반도체, 2차전지, AI 등)의 생명주기를 추적합니다. 각 테마가 초기·성장·정점·쇠퇴·재점화 중 어느 단계에 있는지 점수화하여 보여줍니다.
+
+Q: 해지는 어떻게 하나요?
+A: 매 이메일 하단의 "구독 해지" 링크를 클릭하면 즉시 해지됩니다.
+
+## 기술 스택
+
+- Next.js (App Router), TypeScript, Supabase, Vercel
+- 데이터 출처: 한국거래소(KRX), 네이버 금융, 네이버 DataLab
+
+## 연락처
+
+- 이메일: aistockmatrix@gmail.com
+- 웹사이트: https://stockmatrix.co.kr
