@@ -1,11 +1,12 @@
 import { Metadata } from 'next';
 import { ReactNode } from 'react';
-import { siteConfig, keywordsByCategory, generateBreadcrumbSchema } from '@/lib/constants/seo';
+import { siteConfig, keywordsByCategory, generateBreadcrumbSchema, schemaConfig } from '@/lib/constants/seo';
+import { schemaIds } from '@/lib/constants/seo/config';
 
 export const metadata: Metadata = {
-  title: '무료 구독하기 - 매일 7:30 AI 주식분석 이메일 | Stock Matrix',
+  title: '무료 구독하기 — 매일 7:30 AI 주식분석 이메일 | Stock Matrix',
   description:
-    '지금 이메일 주소만 입력하면 내일부터 매일 아침 7시 30분에 AI가 분석한 KOSPI, KOSDAQ 3종목 기술적 분석 리포트를 무료로 받아보세요. RSI, MACD, 볼린저밴드 등 30개 지표 분석.',
+    '이메일 주소만 입력하면 5초 구독. 매일 오전 7:30 AI가 RSI·MACD·볼린저밴드 등 30개 지표로 분석한 KOSPI·KOSDAQ 3종목 정보를 무료로 받아보세요. 광고 없음, 원클릭 해지.',
   keywords: [
     ...keywordsByCategory.service,
     ...keywordsByCategory.free,
@@ -52,12 +53,45 @@ export default function SubscribeLayout({ children }: { children: ReactNode }) {
     { name: '무료 구독', url: `${siteConfig.domain}/subscribe` },
   ]);
 
+  const subscribePageSchema = {
+    '@context': 'https://schema.org',
+    '@type': 'WebPage',
+    '@id': schemaIds.pageId('/subscribe'),
+    name: '무료 구독 — StockMatrix AI 주식 분석 뉴스레터',
+    description: schemaConfig.serviceDesc,
+    url: `${siteConfig.domain}/subscribe`,
+    isPartOf: { '@id': schemaIds.website },
+    about: { '@id': schemaIds.service },
+    potentialAction: {
+      '@type': 'SubscribeAction',
+      target: {
+        '@type': 'EntryPoint',
+        urlTemplate: `${siteConfig.domain}/subscribe`,
+        actionPlatform: [
+          'http://schema.org/DesktopWebPlatform',
+          'http://schema.org/MobileWebPlatform',
+        ],
+      },
+      object: {
+        '@type': 'Service',
+        name: 'StockMatrix 무료 뉴스레터',
+        description:
+          '매일 오전 7:30 AI가 30개 기술적 지표로 분석한 KOSPI·KOSDAQ 3종목 정보를 무료 이메일로 발송',
+      },
+    },
+  };
+
   return (
     <>
       <script
         id="subscribe-breadcrumb-schema"
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema).replace(/</g, '\\u003c') }}
+      />
+      <script
+        id="subscribe-page-schema"
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(subscribePageSchema).replace(/</g, '\\u003c') }}
       />
       {children}
     </>

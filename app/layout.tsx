@@ -151,14 +151,25 @@ export default function RootLayout({
         description: schemaConfig.websiteDesc,
         publisher: { '@id': schemaIds.organization },
         inLanguage: 'ko-KR',
-        potentialAction: {
-          '@type': 'SearchAction',
-          target: {
-            '@type': 'EntryPoint',
-            urlTemplate: `${siteConfig.domain}/blog/tag/{search_term_string}`,
+        potentialAction: [
+          {
+            '@type': 'SearchAction',
+            target: {
+              '@type': 'EntryPoint',
+              urlTemplate: `${siteConfig.domain}/blog/tag/{search_term_string}`,
+            },
+            'query-input': 'required name=search_term_string',
           },
-          'query-input': 'required name=search_term_string',
-        },
+          {
+            '@type': 'SubscribeAction',
+            target: `${siteConfig.domain}/subscribe`,
+            object: {
+              '@type': 'Service',
+              name: 'StockMatrix 무료 뉴스레터',
+              description: '매일 오전 7:30 AI가 30개 기술적 지표로 분석한 KOSPI·KOSDAQ 3종목 정보를 무료 이메일로 발송',
+            },
+          },
+        ],
       },
       {
         '@type': 'Service',
