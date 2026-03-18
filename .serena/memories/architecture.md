@@ -12,7 +12,7 @@
 - **Hosting**: Vercel (Analytics, SpeedInsights 포함)
 - **CI/CD**: GitHub Actions (5개 워크플로우)
 - **Font**: Noto Sans KR (Google Fonts), AppleSDGothicNeo (OG 이미지용)
-- **Testing**: Vitest 4.0 (132 unit tests, 10 files)
+- **Testing**: Vitest 4.0 (33 test files in lib/tli/__tests__/)
 
 ## 라우트 맵
 
@@ -41,7 +41,7 @@
 | `/api/tli/themes` | GET | 활성 테마 목록 + 점수 |
 | `/api/tli/themes/[id]` | GET | 테마 상세 (점수, 종목, 뉴스, 비교) |
 | `/api/tli/themes/[id]/history` | GET | 30일 점수 이력 |
-| `/api/tli/scores/ranking` | GET | 단계별 랭킹 (Early/Growth/Peak/Decay/Reigniting) |
+| `/api/tli/scores/ranking` | GET | 단계별 랭킹 (Emerging/Growth/Peak/Decline/Reigniting) |
 | `/api/tli/stocks/[symbol]/theme` | GET | 종목이 속한 테마 목록 |
 
 ## 데이터 흐름
@@ -78,7 +78,7 @@ full 모드 (8단계):
   1. 네이버 DataLab 관심도 수집 (30일)
   2. 네이버 뉴스 수집 (14일, 감성 분석 포함, 배치 내 중복 제거)
   3. 네이버 금융 종목 수집 (현재가, 등락률, 거래량) + 미출현 종목 자동 비활성화
-  4. 라이프사이클 점수 계산 (4요소 가중합)
+  4. 라이프사이클 점수 계산 (4요소 가중합, Bayesian Optimized + Cautious Decay + EMA Scheduling)
   5. 테마 비교 분석 (3-Pillar: feature+curve+keyword)
   6. 예측 스냅샷 (비교 기반 calculatePrediction → prediction_snapshots)
   7. 예측 평가 (14일 경과 스냅샷 vs 실제 결과)
@@ -103,11 +103,14 @@ Client Component (Hydration)
 ## 핵심 라이브러리 구조 (lib/tli/)
 
 ### 점수/단계 판정
-- `calculator.ts` — calculateLifecycleScore (4요소 가중합)
-- `stage.ts` — determineStage (점수→단계)
+- `calculator.ts` — calculateLifecycleScore (4요소 가중합, Bayesian Optimized 파라미터)
+- `stage.ts` — determineStage (Multi-Signal 우선순위 + Markov 전이 제약)
+- `score-smoothing.ts` — applyEMASmoothing (Cautious Decay + Bollinger + EMA Scheduling), resolveStageWithHysteresis (2일 연속 확인), computeAlpha (테마 나이별 alpha)
 - `reigniting.ts` — checkReigniting (재점화 감지)
-- `sentiment.ts` — analyzeSentiment, aggregateSentiment
 - `normalize.ts` — normalize, standardDeviation, avg, daysBetween
+- `constants/tli-params.ts` — DEFAULT_TLI_PARAMS (단일 소스, 전체 파라미터), getTLIParams(), setTLIParams()
+- `constants/score-config.ts` — SCORE_WEIGHTS, SCORE_COMPONENTS (tli-params에서 파생)
+- `sentiment-proxy.ts` — 가격/뉴스/거래량 기반 sentiment 대리 지표 (키워드 감성 분석 삭제됨)
 
 ### 비교 분석 (lib/tli/comparison/)
 - `composite.ts` — compositeCompare (3-Pillar 종합)

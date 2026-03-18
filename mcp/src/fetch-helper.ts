@@ -1,7 +1,12 @@
+import { createRequire } from 'node:module';
+
+const require = createRequire(import.meta.url);
+const { version } = require('../package.json') as { version: string };
+
 const BASE_URL =
   process.env.STOCKMATRIX_API_URL || 'https://stockmatrix.co.kr';
 
-const MCP_USER_AGENT = `stockmatrix-mcp/0.1.4`;
+const MCP_USER_AGENT = `stockmatrix-mcp/${version}`;
 
 // 시작 시 URL 유효성 검증
 try {
@@ -117,8 +122,13 @@ export const fetchApi = async <T = unknown>(
   throw lastError;
 };
 
-export const formatResult = (data: unknown): string =>
-  JSON.stringify(data, null, 2);
+/** JSON 직렬화 with optional context header for AI agents */
+export const formatResult = (data: unknown, context?: string): string => {
+  if (context) {
+    return `${context}\n\n${JSON.stringify(data, null, 2)}`;
+  }
+  return JSON.stringify(data, null, 2);
+};
 
 export const formatError = (error: unknown): string => {
   const message =

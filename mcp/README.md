@@ -2,6 +2,8 @@
 
 MCP server for Korean stock market theme analysis. Track 250+ KOSPI/KOSDAQ investment themes with lifecycle scores, trend data, related stocks, and news — all through natural conversation with AI.
 
+Scores are computed using **TLI (Theme Lifecycle Index)** — a Bayesian-optimized algorithm combining search interest, news momentum, market volatility, and stock activity into a 0-100 score with lifecycle stage classification.
+
 ## Quick Start
 
 ### Claude Desktop
@@ -61,6 +63,7 @@ After setup, just ask in natural language:
 | "삼성전자가 속한 테마 알려줘" | Themes linked to Samsung (005930) |
 | "성장 단계인 테마만 보여줘" | Growth-stage themes only |
 | "방산 테마 상세 정보" | Score, stocks, news for defense theme |
+| "TLI 점수는 어떻게 계산돼?" | Algorithm methodology |
 | "What are the hottest stock themes in Korea?" | Works in English too |
 | "Which themes is SK Hynix (000660) part of?" | Stock-to-theme lookup |
 
@@ -84,7 +87,7 @@ Search themes by keyword (Korean or English).
 
 ### `get_theme_detail`
 
-Get detailed info: score, stage, prediction, related stocks, news.
+Get detailed info: score breakdown (4 components), stage, prediction, stocks, news, comparisons.
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
@@ -106,11 +109,48 @@ Find themes a specific stock belongs to.
 |-----------|------|----------|-------------|
 | `symbol` | string | Yes | 6-digit code, e.g. `"005930"` (Samsung), `"000660"` (SK Hynix) |
 
+### `get_methodology`
+
+Get TLI algorithm documentation — scoring, stages, stabilization, comparison, prediction.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `section` | string | No | `scoring` / `stabilization` / `stages` / `comparison` / `prediction` / `all` |
+
+## Scoring Algorithm
+
+TLI scores (0-100) are a weighted sum of 4 components, optimized via Bayesian Optimization:
+
+| Component | Weight | Source |
+|-----------|--------|--------|
+| Search Interest | 30.4% | Naver DataLab |
+| News Momentum | 36.6% | Naver News |
+| Volatility | 10.4% | Interest time-series |
+| Stock Activity | 22.6% | Naver Finance |
+
+Scores are stabilized through **Cautious Decay** (3-signal majority vote prevents false drops), **Bollinger Band Clamp** (limits daily change), and **Age-adaptive EMA** (newer themes react faster).
+
+## Lifecycle Stages
+
+```
+Dormant → Emerging → Growth → Peak → Decline → Dormant
+                                          ↓
+                                     Reigniting
+```
+
+Stage transitions require 2 consecutive days of the same candidate (hysteresis) and follow Markov transition constraints.
+
 ## Data Coverage
 
 - **250+ themes** across KOSPI & KOSDAQ
 - **Daily updates** — scores, news, stock mappings
-- **Sources**: Naver DataLab, Naver Finance, Naver News, KRX
+- **Sources**: Naver DataLab, Naver Finance, Naver News
+
+## Configuration
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `STOCKMATRIX_API_URL` | `https://stockmatrix.co.kr` | Override API base URL |
 
 ## License
 

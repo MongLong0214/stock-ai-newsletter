@@ -225,7 +225,6 @@ function ServiceIntroSection(): JSX.Element {
         </motion.div>
       </div>
 
-      <SchemaOrgStructuredData />
     </section>
   );
 }
@@ -242,57 +241,6 @@ function ServiceIntroSection(): JSX.Element {
  * @see https://schema.org/WebPage
  * @see https://developers.google.com/search/docs/appearance/structured-data/intro-structured-data
  */
-function SchemaOrgStructuredData() {
-  const schemaData = {
-    '@context': 'https://schema.org',
-    '@type': 'WebPage',
-    name: 'Stock Matrix 서비스 소개 | AI 주식 분석 무료 뉴스레터',
-    description:
-      'Stock Matrix는 RSI, MACD, 볼린저밴드 등 30가지 기술적 지표를 활용한 AI 주식 분석 무료 뉴스레터입니다. 매일 오전 7시 30분 KOSPI·KOSDAQ 종목 분석을 이메일로 받아보세요.',
-    url: 'https://stockmatrix.co.kr/about',
-    inLanguage: 'ko-KR',
-    isPartOf: {
-      '@type': 'WebSite',
-      name: 'Stock Matrix',
-      url: 'https://stockmatrix.co.kr',
-    },
-    about: {
-      '@type': 'Service',
-      name: 'Stock Matrix AI 주식 분석 뉴스레터',
-      description:
-        '30개 기술적 지표를 활용한 AI 주식 분석 무료 뉴스레터 서비스',
-      serviceType: 'AI 주식 분석',
-      provider: {
-        '@type': 'Organization',
-        name: 'Stock Matrix',
-        url: 'https://stockmatrix.co.kr',
-      },
-      areaServed: 'KR',
-      availableLanguage: 'ko',
-    },
-    keywords: [
-      'AI 주식 분석',
-      '무료 뉴스레터',
-      'RSI',
-      'MACD',
-      '볼린저밴드',
-      'KOSPI',
-      'KOSDAQ',
-      '기술적 분석',
-      '주식 투자',
-      '테마 생명주기',
-      '테마 분석',
-    ],
-  };
-
-  return (
-    <script
-      type="application/ld+json"
-      dangerouslySetInnerHTML={{
-        __html: JSON.stringify(schemaData),
-      }}
-    />
-  );
-}
+/** 중복 스키마 제거: about/page.tsx의 AboutPage 스키마가 @id 기반으로 관리 */
 
 export default ServiceIntroSection;

@@ -17,3 +17,25 @@ export const siteConfig: SiteConfig = {
   indicatorCount: 30,
   markets: 'KOSPI·KOSDAQ',
 } as const;
+
+/**
+ * Schema.org @id 체계 — 엔티티 그래프 상호참조용
+ * Google Search Central: Organization → WebSite → WebPage → Article 체인 필수
+ */
+export const schemaIds = {
+  organization: `${siteConfig.domain}/#organization`,
+  website: `${siteConfig.domain}/#website`,
+  service: `${siteConfig.domain}/#service`,
+  pageId: (path: string) => `${siteConfig.domain}${path}/#webpage`,
+  articleId: (path: string) => `${siteConfig.domain}${path}/#article`,
+} as const;
+
+/** ISO 8601 KST timezone suffix */
+export const KST_TIMEZONE = '+09:00';
+
+/** datePublished/dateModified에 KST timezone 보장 */
+export function ensureKSTTimezone(dateStr: string | null): string | null {
+  if (!dateStr) return null;
+  if (dateStr.includes('+') || dateStr.includes('Z')) return dateStr;
+  return `${dateStr}${KST_TIMEZONE}`;
+}

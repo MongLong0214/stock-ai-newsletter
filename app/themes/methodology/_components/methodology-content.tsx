@@ -9,6 +9,8 @@ import {
   ArrowRight,
   Database,
   AlertTriangle,
+  Shield,
+  TrendingUp,
 } from 'lucide-react'
 import Link from 'next/link'
 import AnimatedBackground from '@/components/animated-background'
@@ -52,32 +54,32 @@ const LIFECYCLE_STAGES: { stage: DisplayStage; description: string; criteria: st
   {
     stage: 'Emerging',
     description: '새로운 테마가 관심을 받기 시작하는 단계입니다. 검색량이 기준선 대비 상승하기 시작하며, 뉴스 기사가 나타나기 시작합니다.',
-    criteria: '관심도 상승 초기 + 뉴스 모멘텀 양(+)',
+    criteria: '다른 단계 조건에 해당하지 않는 초기 진입 테마',
   },
   {
     stage: 'Growth',
-    description: '관심이 빠르게 증가하는 성장 단계입니다. 검색량과 뉴스가 지속 증가하며, 관련주 거래량도 함께 늘어납니다.',
-    criteria: '관심도 가속 상승 + 높은 뉴스 모멘텀',
+    description: '관심이 지속 증가하는 성장 단계입니다. 검색량과 뉴스가 꾸준히 늘며, 관련주 거래량도 함께 늘어납니다.',
+    criteria: '중상위 점수 + 안정 또는 상승 추세',
   },
   {
     stage: 'Peak',
     description: '관심이 최고조에 달한 정점 단계입니다. 검색량이 피크에 도달했으며, 과열 신호에 주의가 필요합니다.',
-    criteria: '관심도 정점 근처 + 모멘텀 둔화 시작',
+    criteria: '최상위 점수 도달 또는 높은 점수 + 뉴스 폭증 복합 시그널',
   },
   {
     stage: 'Decline',
     description: '관심이 감소하고 있는 하락 단계입니다. 검색량과 뉴스 빈도가 줄어들고 있습니다.',
-    criteria: '관심도 하락 추세 + 뉴스 모멘텀 음(-)',
+    criteria: '하락 추세 + 이전 대비 점수 하락 + 뉴스 감소',
   },
   {
     stage: 'Dormant',
-    description: '관심이 거의 없는 휴면 단계입니다. 품질 게이트 기준 미달로 목록에서 제외됩니다.',
-    criteria: '점수 50 미만 또는 신뢰도 low',
+    description: '관심이 거의 없는 휴면 단계입니다. 점수가 매우 낮고 상승 추세가 아닌 테마입니다.',
+    criteria: '매우 낮은 점수 + 비상승 추세',
   },
   {
     stage: 'Reigniting',
     description: '하락 후 다시 관심이 증가하는 재점화 테마입니다. 과거 Decline/Dormant 이력이 있으면서 다시 성장세를 보입니다.',
-    criteria: 'Decline/Dormant 이력 + 현재 관심도 재상승',
+    criteria: 'Decline 이력 + 현재 Emerging/Growth로 전환',
   },
 ]
 
@@ -89,7 +91,7 @@ const DATA_SOURCES = [
 
 const LIMITATIONS = [
   '네이버 DataLab은 배치당 5개 키워드 제한으로, 배치 간 상대값 차이를 자기 정규화로 보정합니다. 정밀도에 한계가 있습니다.',
-  '7일 전망의 방향 예측 정확도는 약 55% 수준입니다. 특히 상승(Rising) 시그널의 정확도가 가장 높고, 냉각(Cooling) 시그널은 참고 수준입니다.',
+  '7일 전망은 방향 예측 모델이며, 상승(Rising) 시그널의 정확도가 가장 높고, 냉각(Cooling) 시그널은 참고 수준입니다.',
   '뉴스 모멘텀은 기사 수 기반이며, 기사의 긍정/부정 감성은 분석하지 않습니다.',
   '데이터 수집 주기에 따라 최신 시장 변화가 즉시 반영되지 않을 수 있습니다.',
 ]
@@ -152,7 +154,8 @@ function MethodologyContent() {
                 TLI는 한국 주식시장 테마의 생명주기를 정량화한 지수입니다.
                 검색 관심도, 뉴스 모멘텀, 변동성, 활동성 4개 요소를 가중 합산하여
                 0~100 사이의 점수를 산출하고, 이를 바탕으로 테마의 생명주기 단계를 판정합니다.
-                모든 데이터는 공개 소스에서 수집되며, 산출 과정을 투명하게 공개합니다.
+                가중치와 파라미터는 과거 데이터 기반으로 자동 최적화되었으며,
+                모든 데이터는 공개 소스에서 수집되고, 산출 과정을 투명하게 공개합니다.
               </p>
             </GlassCard>
           </motion.section>
@@ -211,8 +214,73 @@ function MethodologyContent() {
 
             <div className="mt-4 p-4 rounded-xl border border-white/5 bg-white/[0.02]">
               <p className="text-xs text-slate-400 text-center">
-                최종 점수 = (관심도 × 0.40) + (뉴스 모멘텀 × 0.35) + (변동성 × 0.10) + (활동성 × 0.15)
+                최종 점수 = Σ(요소별 점수 × 가중치). 가중치는 Bayesian Optimization으로 도출되었으며, 합계 = 100%
               </p>
+            </div>
+          </motion.section>
+
+          {/* Section 2.5: Score Stabilization */}
+          <motion.section
+            {...FADE_UP}
+            transition={{ duration: 0.5, delay: 0.17 }}
+            className="mb-12"
+          >
+            <SectionHeader
+              title="점수 안정화"
+              subtitle="데이터 기반 최적화 + 노이즈 방어 + 적응형 스무딩"
+            />
+            <div className="space-y-4">
+              <GlassCard className="p-5">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-sky-500/10 border border-sky-500/20">
+                    <TrendingUp className="w-4 h-4 text-sky-400" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-semibold text-white">데이터 기반 파라미터 최적화</h3>
+                    <span className="text-xs text-slate-500">Bayesian Optimization</span>
+                  </div>
+                </div>
+                <p className="text-xs text-slate-300 leading-relaxed">
+                  과거 데이터를 기반으로 가중치, 단계 임계값 등 전체 파라미터를 자동 최적화했습니다.
+                  수동 튜닝 대비 방향 예측 정확도가 크게 개선되었으며,
+                  과적합을 방지하기 위해 학습/검증 데이터를 분리하여 검증합니다.
+                </p>
+              </GlassCard>
+
+              <GlassCard className="p-5">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+                    <Shield className="w-4 h-4 text-emerald-400" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-semibold text-white">Cautious Score Decay</h3>
+                    <span className="text-xs text-slate-500">거짓 하락 방지</span>
+                  </div>
+                </div>
+                <p className="text-xs text-slate-300 leading-relaxed">
+                  점수가 하락할 때 3개 독립 신호(관심도 기울기, 뉴스 감소, 방향성 지수)를 교차 검증합니다.
+                  과반(2개 이상)이 하락을 확인해야 반영하고, 그렇지 않으면 이전 점수의 일정 비율을 하한으로 유지하여
+                  데이터 공백이나 일시적 노이즈에 의한 거짓 단계 하락을 방지합니다.
+                </p>
+              </GlassCard>
+
+              <GlassCard className="p-5">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-purple-500/10 border border-purple-500/20">
+                    <Activity className="w-4 h-4 text-purple-400" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-semibold text-white">EMA Momentum Scheduling</h3>
+                    <span className="text-xs text-slate-500">테마 나이별 반응 속도 조절</span>
+                  </div>
+                </div>
+                <p className="text-xs text-slate-300 leading-relaxed">
+                  신생 테마(0일)는 높은 EMA alpha로 빠르게 반응하고,
+                  성숙 테마(30일+)는 낮은 alpha로 안정적으로 유지됩니다.
+                  선형 보간으로 연속적인 전환이 이루어져
+                  급격한 행동 변화 없이 자연스러운 스무딩을 제공합니다.
+                </p>
+              </GlassCard>
             </div>
           </motion.section>
 
@@ -345,7 +413,7 @@ function MethodologyContent() {
                 </div>
                 <div className="p-3 rounded-lg border border-white/5 bg-white/[0.02]">
                   <p className="text-[11px] text-slate-500 leading-relaxed">
-                    전망 정확도는 Phase별로 차이가 있습니다.
+                    Growth/Decline 방향 예측 정확도는 데이터 기반 최적화를 통해 지속적으로 개선하고 있습니다.
                     상승(Rising) 시그널이 가장 높은 정확도를 보이며,
                     냉각(Cooling)은 참고 수준입니다.
                     시스템의 예측 가능 지평은 약 3~7일이며,

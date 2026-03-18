@@ -2,15 +2,27 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import { fetchApi, formatResult, formatError } from '../fetch-helper.js';
 
+const CONTEXT = `[StockMatrix Theme History — 30-day]
+Daily TLI scores with stage transitions. Use to identify:
+- Trend direction: rising scores = growing interest, falling = declining
+- Stage transitions: stage changes require 2 consecutive days (hysteresis)
+- Score stability: Cautious Decay prevents false drops from data gaps
+- Momentum: EMA smoothing adapts to theme age (newer themes react faster)
+Scores are 0-100, computed from interest + news + volatility + activity.`;
+
 export const registerGetThemeHistory = (server: McpServer): void => {
   server.tool(
     'get_theme_history',
-    'Get 30-day score history for a Korean stock theme. Use when the user asks about theme trend over time, momentum changes, whether a theme is gaining or losing interest, "이 테마 추세가 어때?", "최근 한달 흐름", or wants to see historical data for a theme. Returns daily scores to analyze lifecycle trajectory.',
+    `Get 30-day score history for a Korean stock theme.
+
+Returns daily TLI scores and stage transitions for trend analysis. Use when the user asks about theme momentum over time, whether a theme is gaining or losing interest, or wants to see historical trajectory.
+
+Answers: "이 테마 추세가 어때?", "최근 한달 흐름", "is this theme gaining or losing momentum?", "show me the trend".`,
     {
       theme_id: z
         .string()
         .uuid('Theme ID must be a valid UUID')
-        .describe('Theme UUID (e.g. "a1b2c3d4-e5f6-7890-abcd-ef1234567890")'),
+        .describe('Theme UUID from ranking or search results'),
     },
     async ({ theme_id }) => {
       try {
@@ -19,7 +31,7 @@ export const registerGetThemeHistory = (server: McpServer): void => {
         );
 
         return {
-          content: [{ type: 'text' as const, text: formatResult(data) }],
+          content: [{ type: 'text' as const, text: formatResult(data, CONTEXT) }],
         };
       } catch (error) {
         return {
