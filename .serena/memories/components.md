@@ -113,7 +113,7 @@
 |------|------|
 | themes-content.tsx | 메인 콘텐츠 (필터 + 섹션) |
 | themes-header.tsx | 페이지 헤더 |
-| stage-nav.tsx | 단계 탭 네비게이션 (Early/Growth/Peak/Decay/Reigniting) |
+| stage-nav.tsx | 단계 탭 네비게이션 (Emerging/Growth/Peak/Decline/Reigniting) |
 | stage-section.tsx | 단계별 테마 카드 그리드 |
 | theme-filter.tsx | 검색 필터 |
 | stats-overview.tsx | 요약 통계 — **Hottest/급상승 클릭 시 `/themes/{id}` 상세 이동** (Next.js Link) |

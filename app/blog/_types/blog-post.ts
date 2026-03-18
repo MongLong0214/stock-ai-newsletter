@@ -14,15 +14,18 @@ export interface SchemaData {
   '@context': 'https://schema.org';
   /** Article 또는 BlogPosting */
   '@type': 'Article' | 'BlogPosting';
+  '@id'?: string;
   headline: string;
   description: string;
   author: {
     '@type': 'Organization';
+    '@id'?: string;
     name: string;
     url: string;
   };
   publisher: {
     '@type': 'Organization';
+    '@id'?: string;
     name: string;
     logo: {
       '@type': 'ImageObject';
@@ -35,6 +38,8 @@ export interface SchemaData {
     '@type': 'WebPage';
     '@id': string;
   };
+  isPartOf?: { '@id': string };
+  inLanguage?: string;
   image?: string;
   keywords?: string;
 }

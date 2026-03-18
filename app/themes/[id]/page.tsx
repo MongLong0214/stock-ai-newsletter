@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import { createClient } from '@supabase/supabase-js'
-import { siteConfig } from '@/lib/constants/seo/config'
+import { siteConfig, schemaIds, ensureKSTTimezone } from '@/lib/constants/seo/config'
 import { STAGE_CONFIG } from '@/lib/tli/types'
 import DetailContent from './_components/detail-content'
 import ThemeDetailAnalytics from './_components/theme-detail-analytics'
@@ -173,18 +173,26 @@ export default async function ThemeDetailPage({ params }: { params: Promise<{ id
   const articleSchema = theme ? {
     '@context': 'https://schema.org',
     '@type': schemaType,
+    '@id': schemaIds.articleId(`/themes/${id}`),
     headline,
     description: theme.description || `${theme.name} 테마의 AI 생명주기 분석`,
-    dateModified: theme.updatedAt || new Date().toISOString().split('T')[0],
-    datePublished: theme.updatedAt || new Date().toISOString().split('T')[0],
-    author: { '@type': 'Organization', name: siteConfig.serviceName, url: siteConfig.domain },
+    dateModified: ensureKSTTimezone(theme.updatedAt) || new Date().toISOString(),
+    datePublished: ensureKSTTimezone(theme.updatedAt) || new Date().toISOString(),
+    author: { '@type': 'Organization', '@id': schemaIds.organization, name: siteConfig.serviceName, url: siteConfig.domain },
     publisher: {
       '@type': 'Organization',
+      '@id': schemaIds.organization,
       name: siteConfig.serviceName,
       logo: { '@type': 'ImageObject', url: `${siteConfig.domain}/icon-512.png` },
     },
-    image: `${siteConfig.domain}/themes/${id}/opengraph-image`,
-    mainEntityOfPage: { '@type': 'WebPage', '@id': `${siteConfig.domain}/themes/${id}` },
+    image: [
+      { '@type': 'ImageObject', url: `${siteConfig.domain}/themes/${id}/opengraph-image`, width: 1200, height: 675 },
+      { '@type': 'ImageObject', url: `${siteConfig.domain}/themes/${id}/opengraph-image`, width: 1200, height: 900 },
+      { '@type': 'ImageObject', url: `${siteConfig.domain}/themes/${id}/opengraph-image`, width: 1200, height: 1200 },
+    ],
+    mainEntityOfPage: { '@type': 'WebPage', '@id': schemaIds.pageId(`/themes/${id}`) },
+    isPartOf: { '@id': schemaIds.website },
+    inLanguage: 'ko-KR',
     ...(theme.keywords?.length ? { keywords: theme.keywords.join(', ') } : {}),
     about: {
       '@type': 'Thing',
@@ -193,7 +201,7 @@ export default async function ThemeDetailPage({ params }: { params: Promise<{ id
     },
     speakable: {
       '@type': 'SpeakableSpecification',
-      cssSelector: ['[data-speakable]', '.theme-headline', '.theme-score'],
+      xPath: ['/html/head/title', '/html/head/meta[@name=\'description\']/@content'],
     },
     isAccessibleForFree: true,
     ...(isRecent ? { dateline: '서울' } : {}),
@@ -205,7 +213,7 @@ export default async function ThemeDetailPage({ params }: { params: Promise<{ id
     itemListElement: [
       { '@type': 'ListItem', position: 1, name: 'Home', item: siteConfig.domain },
       { '@type': 'ListItem', position: 2, name: '테마 분석', item: `${siteConfig.domain}/themes` },
-      { '@type': 'ListItem', position: 3, name: `${theme.name} 관련주`, item: `${siteConfig.domain}/themes/${id}` },
+      { '@type': 'ListItem', position: 3, name: `${theme.name} 관련주` },
     ],
   } : null
 

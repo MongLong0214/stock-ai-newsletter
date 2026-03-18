@@ -1,6 +1,6 @@
 import { Metadata } from 'next';
 import { ReactNode } from 'react';
-import { siteConfig, keywordsByCategory } from '@/lib/constants/seo';
+import { siteConfig, keywordsByCategory, generateBreadcrumbSchema } from '@/lib/constants/seo';
 
 export const metadata: Metadata = {
   title: '무료 구독하기 - 매일 7:30 AI 주식분석 이메일 | Stock Matrix',
@@ -47,5 +47,19 @@ export const metadata: Metadata = {
 };
 
 export default function SubscribeLayout({ children }: { children: ReactNode }) {
-  return <>{children}</>;
+  const breadcrumbSchema = generateBreadcrumbSchema([
+    { name: '홈', url: siteConfig.domain },
+    { name: '무료 구독', url: `${siteConfig.domain}/subscribe` },
+  ]);
+
+  return (
+    <>
+      <script
+        id="subscribe-breadcrumb-schema"
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema).replace(/</g, '\\u003c') }}
+      />
+      {children}
+    </>
+  );
 }

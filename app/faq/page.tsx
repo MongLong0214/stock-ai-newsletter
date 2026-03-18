@@ -1,8 +1,15 @@
 import AnimatedBackground from '@/components/animated-background';
 import FAQSection from './_components/faq-section';
 import { generateFAQSchema } from '@/lib/constants/seo/faq-data';
+import { generateBreadcrumbSchema } from '@/lib/constants/seo/breadcrumb-schema';
+import { siteConfig } from '@/lib/constants/seo/config';
 
 const FAQPage = () => {
+  const breadcrumbSchema = generateBreadcrumbSchema([
+    { name: '홈', url: siteConfig.domain },
+    { name: '자주 묻는 질문', url: `${siteConfig.domain}/faq` },
+  ]);
+
   return (
     <main className="min-h-screen bg-black text-white relative overflow-hidden">
       <AnimatedBackground />
@@ -17,6 +24,13 @@ const FAQPage = () => {
         type="application/ld+json"
         dangerouslySetInnerHTML={{
           __html: JSON.stringify(generateFAQSchema()).replace(/</g, '\\u003c'),
+        }}
+      />
+      <script
+        id="faq-breadcrumb-schema"
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(breadcrumbSchema).replace(/</g, '\\u003c'),
         }}
       />
     </main>
