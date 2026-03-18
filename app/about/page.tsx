@@ -1,35 +1,23 @@
-import type { Metadata } from 'next'
 import AnimatedBackground from '@/components/animated-background';
 import ServiceIntroSection from './_components/service-intro-section';
-import { siteConfig } from '@/lib/constants/seo/config'
+import { siteConfig, schemaIds } from '@/lib/constants/seo/config'
 import { schemaConfig } from '@/lib/constants/seo/schema'
 import { generateBreadcrumbSchema, breadcrumbPatterns } from '@/lib/constants/seo/breadcrumb-schema'
 
-export const metadata: Metadata = {
-  title: '서비스 소개',
-  description: schemaConfig.serviceDesc,
-  alternates: { canonical: `${siteConfig.domain}/about` },
-}
+/** metadata는 about/layout.tsx에서 전체 정의 (OG, Twitter 포함) — page에서 중복 선언 금지 */
 
 const AboutPage = () => {
   const aboutSchema = {
     '@context': 'https://schema.org',
     '@type': 'AboutPage',
+    '@id': schemaIds.pageId('/about'),
     name: `${siteConfig.serviceName} 서비스 소개`,
     description: schemaConfig.serviceDesc,
     url: `${siteConfig.domain}/about`,
+    isPartOf: { '@id': schemaIds.website },
+    inLanguage: 'ko-KR',
     mainEntity: {
-      '@type': 'Organization',
-      name: siteConfig.serviceName,
-      url: siteConfig.domain,
-      description: schemaConfig.websiteDesc,
-      logo: `${siteConfig.domain}/icon-512.png`,
-      contactPoint: {
-        '@type': 'ContactPoint',
-        email: 'aistockmatrix@gmail.com',
-        contactType: 'customer service',
-        availableLanguage: 'Korean',
-      },
+      '@id': schemaIds.organization,
     },
   }
 

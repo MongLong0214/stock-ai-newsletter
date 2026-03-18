@@ -6,6 +6,7 @@ import BlogListClient from './_components/blog-list/blog-list-client';
 import createCollectionPageSchema from './_utils/schema-generator-list';
 import isValidBlogPost from './_utils/type-guards';
 import { isValidBlogSlug } from './_utils/slug-validator';
+import { generateBreadcrumbSchema } from '@/lib/constants/seo/breadcrumb-schema';
 import type { BlogPostListItem } from './_types/blog';
 
 async function getPublishedPosts(): Promise<BlogPostListItem[]> {
@@ -25,6 +26,10 @@ async function getPublishedPosts(): Promise<BlogPostListItem[]> {
 async function BlogPage() {
   const posts = await getPublishedPosts();
   const collectionSchema = createCollectionPageSchema(posts);
+  const breadcrumbSchema = generateBreadcrumbSchema([
+    { name: '홈', url: siteConfig.domain },
+    { name: '블로그', url: `${siteConfig.domain}/blog` },
+  ]);
 
   return (
     <>
@@ -32,6 +37,11 @@ async function BlogPage() {
         id="blog-collection-schema"
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(collectionSchema).replace(/</g, '\\u003c') }}
+      />
+      <script
+        id="blog-breadcrumb-schema"
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema).replace(/</g, '\\u003c') }}
       />
 
       {/* 배경 애니메이션 */}
