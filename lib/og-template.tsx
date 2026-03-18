@@ -116,18 +116,18 @@ export function createOgLayout({
         <div style={{ display: 'flex', flex: 1, position: 'relative' }}>
           <div style={{ position: 'absolute', bottom: 0, left: 0, width: '100%', height: '1px', background: 'rgba(255,255,255,0.05)', display: 'flex' }} />
           <div style={{ position: 'absolute', bottom: 0, left: 0, width: '1px', height: '100%', background: 'rgba(255,255,255,0.05)', display: 'flex' }} />
-          <div style={{ position: 'absolute', top: '15px', left: '25px', width: '5px', height: '5px', borderRadius: '50%', background: '#2dd4bf', opacity: 0.5, display: 'flex' }} />
-          <div style={{ position: 'absolute', top: '40px', left: '60px', width: '5px', height: '5px', borderRadius: '50%', background: '#2dd4bf', opacity: 0.4, display: 'flex' }} />
-          <div style={{ position: 'absolute', top: '55px', left: '100px', width: '5px', height: '5px', borderRadius: '50%', background: '#2dd4bf', opacity: 0.5, display: 'flex' }} />
-          <div style={{ position: 'absolute', top: '30px', left: '140px', width: '5px', height: '5px', borderRadius: '50%', background: '#2dd4bf', opacity: 0.35, display: 'flex' }} />
-          <div style={{ position: 'absolute', top: '70px', left: '80px', width: '5px', height: '5px', borderRadius: '50%', background: '#2dd4bf', opacity: 0.45, display: 'flex' }} />
-          <div style={{ position: 'absolute', top: '50px', left: '180px', width: '5px', height: '5px', borderRadius: '50%', background: '#2dd4bf', opacity: 0.5, display: 'flex' }} />
-          <div style={{ position: 'absolute', top: '85px', left: '120px', width: '5px', height: '5px', borderRadius: '50%', background: '#2dd4bf', opacity: 0.4, display: 'flex' }} />
-          <div style={{ position: 'absolute', top: '25px', left: '220px', width: '5px', height: '5px', borderRadius: '50%', background: '#2dd4bf', opacity: 0.35, display: 'flex' }} />
-          <div style={{ position: 'absolute', top: '65px', left: '200px', width: '5px', height: '5px', borderRadius: '50%', background: '#2dd4bf', opacity: 0.5, display: 'flex' }} />
-          <div style={{ position: 'absolute', top: '95px', left: '160px', width: '5px', height: '5px', borderRadius: '50%', background: '#2dd4bf', opacity: 0.4, display: 'flex' }} />
-          <div style={{ position: 'absolute', top: '45px', left: '260px', width: '5px', height: '5px', borderRadius: '50%', background: '#2dd4bf', opacity: 0.45, display: 'flex' }} />
-          <div style={{ position: 'absolute', top: '80px', left: '300px', width: '5px', height: '5px', borderRadius: '50%', background: '#2dd4bf', opacity: 0.35, display: 'flex' }} />
+          <div style={{ position: 'absolute', top: '15px', left: '25px', width: '5px', height: '5px', borderRadius: '50%', background: '#10b981', opacity: 0.5, display: 'flex' }} />
+          <div style={{ position: 'absolute', top: '40px', left: '60px', width: '5px', height: '5px', borderRadius: '50%', background: '#10b981', opacity: 0.4, display: 'flex' }} />
+          <div style={{ position: 'absolute', top: '55px', left: '100px', width: '5px', height: '5px', borderRadius: '50%', background: '#10b981', opacity: 0.5, display: 'flex' }} />
+          <div style={{ position: 'absolute', top: '30px', left: '140px', width: '5px', height: '5px', borderRadius: '50%', background: '#10b981', opacity: 0.35, display: 'flex' }} />
+          <div style={{ position: 'absolute', top: '70px', left: '80px', width: '5px', height: '5px', borderRadius: '50%', background: '#10b981', opacity: 0.45, display: 'flex' }} />
+          <div style={{ position: 'absolute', top: '50px', left: '180px', width: '5px', height: '5px', borderRadius: '50%', background: '#10b981', opacity: 0.5, display: 'flex' }} />
+          <div style={{ position: 'absolute', top: '85px', left: '120px', width: '5px', height: '5px', borderRadius: '50%', background: '#10b981', opacity: 0.4, display: 'flex' }} />
+          <div style={{ position: 'absolute', top: '25px', left: '220px', width: '5px', height: '5px', borderRadius: '50%', background: '#10b981', opacity: 0.35, display: 'flex' }} />
+          <div style={{ position: 'absolute', top: '65px', left: '200px', width: '5px', height: '5px', borderRadius: '50%', background: '#10b981', opacity: 0.5, display: 'flex' }} />
+          <div style={{ position: 'absolute', top: '95px', left: '160px', width: '5px', height: '5px', borderRadius: '50%', background: '#10b981', opacity: 0.4, display: 'flex' }} />
+          <div style={{ position: 'absolute', top: '45px', left: '260px', width: '5px', height: '5px', borderRadius: '50%', background: '#10b981', opacity: 0.45, display: 'flex' }} />
+          <div style={{ position: 'absolute', top: '80px', left: '300px', width: '5px', height: '5px', borderRadius: '50%', background: '#10b981', opacity: 0.35, display: 'flex' }} />
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '6px' }}>
           <span style={{ fontSize: '7px', color: '#334155', display: 'flex' }}>10</span>
@@ -149,7 +149,7 @@ export function createOgLayout({
           right: '-10px',
           width: '280px',
           height: '220px',
-          background: '#151e2e',
+          background: '#0f1729',
           border: '1px solid rgba(255,255,255,0.08)',
           borderRadius: '16px',
           transform: 'rotate(5deg)',
@@ -162,16 +162,16 @@ export function createOgLayout({
         <span style={{ fontSize: '10px', color: '#64748b', display: 'flex', marginBottom: '4px' }}>활성 테마</span>
         <span style={{ fontSize: '56px', fontWeight: 700, color: '#8B5CF6', opacity: 0.7, display: 'flex' }}>73</span>
         <div style={{ display: 'flex', alignItems: 'flex-end', gap: '2px', marginTop: '8px', flex: 1 }}>
-          <div style={{ width: '4px', height: '20px', background: '#ffffff15', borderRadius: '1px', display: 'flex' }} />
-          <div style={{ width: '4px', height: '35px', background: '#ffffff15', borderRadius: '1px', display: 'flex' }} />
-          <div style={{ width: '4px', height: '25px', background: '#ffffff15', borderRadius: '1px', display: 'flex' }} />
-          <div style={{ width: '4px', height: '40px', background: '#ffffff15', borderRadius: '1px', display: 'flex' }} />
-          <div style={{ width: '4px', height: '30px', background: '#ffffff15', borderRadius: '1px', display: 'flex' }} />
-          <div style={{ width: '4px', height: '45px', background: '#ffffff15', borderRadius: '1px', display: 'flex' }} />
-          <div style={{ width: '4px', height: '35px', background: '#ffffff15', borderRadius: '1px', display: 'flex' }} />
-          <div style={{ width: '4px', height: '50px', background: '#ffffff15', borderRadius: '1px', display: 'flex' }} />
-          <div style={{ width: '4px', height: '28px', background: '#ffffff15', borderRadius: '1px', display: 'flex' }} />
-          <div style={{ width: '4px', height: '42px', background: '#ffffff15', borderRadius: '1px', display: 'flex' }} />
+          <div style={{ width: '4px', height: '20px', background: '#8B5CF615', borderRadius: '1px', display: 'flex' }} />
+          <div style={{ width: '4px', height: '35px', background: '#8B5CF615', borderRadius: '1px', display: 'flex' }} />
+          <div style={{ width: '4px', height: '25px', background: '#8B5CF615', borderRadius: '1px', display: 'flex' }} />
+          <div style={{ width: '4px', height: '40px', background: '#8B5CF615', borderRadius: '1px', display: 'flex' }} />
+          <div style={{ width: '4px', height: '30px', background: '#8B5CF615', borderRadius: '1px', display: 'flex' }} />
+          <div style={{ width: '4px', height: '45px', background: '#8B5CF615', borderRadius: '1px', display: 'flex' }} />
+          <div style={{ width: '4px', height: '35px', background: '#8B5CF615', borderRadius: '1px', display: 'flex' }} />
+          <div style={{ width: '4px', height: '50px', background: '#8B5CF615', borderRadius: '1px', display: 'flex' }} />
+          <div style={{ width: '4px', height: '28px', background: '#8B5CF615', borderRadius: '1px', display: 'flex' }} />
+          <div style={{ width: '4px', height: '42px', background: '#8B5CF615', borderRadius: '1px', display: 'flex' }} />
         </div>
       </div>
 
@@ -234,12 +234,12 @@ export function createOgLayout({
       >
         <span style={{ fontSize: '9px', color: '#475569', display: 'flex', marginBottom: '8px' }}>지표별 분포</span>
         <div style={{ display: 'flex', alignItems: 'flex-end', gap: '6px', flex: 1 }}>
-          <div style={{ width: '20px', height: '80px', background: '#ffffff12', borderRadius: '2px', display: 'flex' }} />
-          <div style={{ width: '20px', height: '45px', background: '#ffffff12', borderRadius: '2px', display: 'flex' }} />
-          <div style={{ width: '20px', height: '65px', background: '#ffffff12', borderRadius: '2px', display: 'flex' }} />
-          <div style={{ width: '20px', height: '30px', background: '#ffffff12', borderRadius: '2px', display: 'flex' }} />
-          <div style={{ width: '20px', height: '90px', background: '#ffffff12', borderRadius: '2px', display: 'flex' }} />
-          <div style={{ width: '20px', height: '55px', background: '#ffffff12', borderRadius: '2px', display: 'flex' }} />
+          <div style={{ width: '20px', height: '80px', background: '#10b98118', borderRadius: '2px', display: 'flex' }} />
+          <div style={{ width: '20px', height: '45px', background: '#3B82F618', borderRadius: '2px', display: 'flex' }} />
+          <div style={{ width: '20px', height: '65px', background: '#10b98118', borderRadius: '2px', display: 'flex' }} />
+          <div style={{ width: '20px', height: '30px', background: '#F59E0B18', borderRadius: '2px', display: 'flex' }} />
+          <div style={{ width: '20px', height: '90px', background: '#10b98118', borderRadius: '2px', display: 'flex' }} />
+          <div style={{ width: '20px', height: '55px', background: '#8B5CF618', borderRadius: '2px', display: 'flex' }} />
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '6px' }}>
           <span style={{ fontSize: '7px', color: '#334155', display: 'flex' }}>09:00</span>
