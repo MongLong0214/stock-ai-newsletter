@@ -2,38 +2,69 @@
 
 import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { Terminal, Package, Code, ExternalLink, Copy, Check } from 'lucide-react'
+import {
+  Terminal,
+  Package,
+  Code,
+  ExternalLink,
+  Copy,
+  Check,
+  Search,
+  BarChart3,
+  GitBranch,
+  BookOpen,
+  MessageSquare,
+} from 'lucide-react'
+import Link from 'next/link'
 
 const TOOLS = [
   {
     name: 'get_theme_ranking',
     description: '테마 생명주기 랭킹 조회',
-    descEn: 'Theme lifecycle rankings by stage',
-    params: [{ name: 'stage', type: 'string?', desc: 'emerging | growth | peak | decline | reigniting' }],
+    descEn: 'Theme lifecycle rankings filtered by stage',
+    params: [
+      { name: 'stage', type: 'string?', desc: 'emerging | growth | peak | decline | reigniting' },
+    ],
+  },
+  {
+    name: 'search_themes',
+    description: '테마 검색 (이름/종목명)',
+    descEn: 'Search themes by keyword (Korean or English)',
+    params: [
+      { name: 'query', type: 'string', desc: '"AI", "반도체", "삼성전자"' },
+    ],
   },
   {
     name: 'get_theme_detail',
-    description: '테마 상세 정보 조회',
-    descEn: 'Theme details: score, stage, stocks, news',
-    params: [{ name: 'theme_id', type: 'string (UUID)', desc: '테마 UUID' }],
+    description: '테마 상세 분석',
+    descEn: 'Score breakdown, prediction, stocks, news, comparisons',
+    params: [
+      { name: 'theme_id', type: 'string (UUID)', desc: '랭킹/검색 결과에서 획득' },
+    ],
   },
   {
     name: 'get_theme_history',
     description: '테마 30일 점수 이력',
     descEn: '30-day score history for trend analysis',
-    params: [{ name: 'theme_id', type: 'string (UUID)', desc: '테마 UUID' }],
-  },
-  {
-    name: 'search_themes',
-    description: '테마 검색 (이름/종목명)',
-    descEn: 'Search themes by Korean or English name',
-    params: [{ name: 'query', type: 'string', desc: '"AI", "반도체", "삼성전자"' }],
+    params: [
+      { name: 'theme_id', type: 'string (UUID)', desc: '랭킹/검색 결과에서 획득' },
+    ],
   },
   {
     name: 'get_stock_theme',
     description: '종목 코드로 관련 테마 조회',
     descEn: 'Find themes by 6-digit stock code',
-    params: [{ name: 'symbol', type: 'string', desc: '"005930" (삼성전자)' }],
+    params: [
+      { name: 'symbol', type: 'string', desc: '"005930" (삼성전자), "000660" (SK하이닉스)' },
+    ],
+  },
+  {
+    name: 'get_methodology',
+    description: 'TLI 알고리즘 문서 조회',
+    descEn: 'Scoring, stages, stabilization, comparison methodology',
+    params: [
+      { name: 'section', type: 'string?', desc: 'scoring | stabilization | stages | comparison | prediction | all' },
+    ],
   },
 ] as const
 
@@ -74,6 +105,42 @@ const CONFIG_TABS = [
   }
 }`,
   },
+  {
+    label: 'Claude Code',
+    file: '.claude/settings.json',
+    code: `{
+  "mcpServers": {
+    "stockmatrix": {
+      "command": "npx",
+      "args": ["-y", "stockmatrix-mcp"]
+    }
+  }
+}`,
+  },
+] as const
+
+const EXAMPLE_PROMPTS = [
+  { prompt: '요즘 한국 주식시장에서 뜨는 테마 뭐야?', result: '점수 기준 상위 테마 랭킹' },
+  { prompt: 'AI 관련 테마 찾아줘', result: 'AI 키워드 매칭 테마 목록' },
+  { prompt: '반도체 테마 최근 한달 추세 어때?', result: '30일 점수 이력 + 추세 분석' },
+  { prompt: '삼성전자가 속한 테마 알려줘', result: '005930 관련 테마 + 점수/단계' },
+  { prompt: 'TLI 점수는 어떻게 계산돼?', result: '알고리즘 전체 문서' },
+  { prompt: 'What are the hottest themes in Korea?', result: 'English supported' },
+] as const
+
+const SCORE_COMPONENTS = [
+  { name: '검색 관심', weight: '30.4%', color: 'text-emerald-400', source: 'Naver DataLab' },
+  { name: '뉴스 모멘텀', weight: '36.6%', color: 'text-sky-400', source: 'Naver News' },
+  { name: '변동성', weight: '10.4%', color: 'text-purple-400', source: '관심도 시계열' },
+  { name: '활동성', weight: '22.6%', color: 'text-amber-400', source: 'Naver Finance' },
+] as const
+
+const LIFECYCLE_STAGES = [
+  { name: 'Emerging', nameKo: '초기', color: 'bg-blue-400' },
+  { name: 'Growth', nameKo: '성장', color: 'bg-emerald-400' },
+  { name: 'Peak', nameKo: '정점', color: 'bg-red-400' },
+  { name: 'Decline', nameKo: '하락', color: 'bg-amber-400' },
+  { name: 'Reigniting', nameKo: '재점화', color: 'bg-orange-400' },
 ] as const
 
 const fadeIn = {
@@ -83,7 +150,7 @@ const fadeIn = {
 
 const easing = [0.25, 0.46, 0.45, 0.94] as const
 
-const CopyButton = ({ text }: { text: string }) => {
+function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false)
 
   const handleCopy = async () => {
@@ -107,7 +174,7 @@ const CopyButton = ({ text }: { text: string }) => {
   )
 }
 
-const DevelopersContent = () => {
+function DevelopersContent() {
   const [activeTab, setActiveTab] = useState(0)
 
   return (
@@ -131,9 +198,70 @@ const DevelopersContent = () => {
           >
             MCP 서버
           </h1>
-          <p className="text-lg text-slate-300 font-light tracking-wide leading-relaxed">
-            AI 에이전트에서 한국 주식 테마 생명주기 데이터를 직접 조회하세요
+          <p className="text-lg text-slate-300 font-light tracking-wide leading-relaxed max-w-2xl mx-auto">
+            AI 에이전트에서 250+ 한국 주식 테마의 생명주기 점수, 관련주, 뉴스를 자연어로 조회하세요
           </p>
+        </motion.div>
+
+        {/* Algorithm Overview */}
+        <motion.div
+          {...fadeIn}
+          transition={{ duration: 0.4, delay: 0.05, ease: easing }}
+          className="mb-16"
+        >
+          <div className="flex items-center gap-3 mb-6">
+            <BarChart3 className="w-5 h-5 text-emerald-400" aria-hidden="true" />
+            <h2 className="text-xl font-light text-white">TLI 알고리즘</h2>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+            {/* Score Components */}
+            <div className="bg-slate-800/50 border border-slate-700/30 rounded-2xl p-5">
+              <h3 className="text-sm font-semibold text-white mb-3">점수 산출 (0-100)</h3>
+              <div className="space-y-2.5">
+                {SCORE_COMPONENTS.map((comp) => (
+                  <div key={comp.name} className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className={`text-sm font-mono font-bold ${comp.color}`}>
+                        {comp.weight}
+                      </span>
+                      <span className="text-sm text-slate-300">{comp.name}</span>
+                    </div>
+                    <span className="text-[11px] text-slate-500">{comp.source}</span>
+                  </div>
+                ))}
+              </div>
+              <p className="text-[11px] text-slate-500 mt-3 pt-3 border-t border-slate-700/30">
+                가중치는 Bayesian Optimization으로 도출
+              </p>
+            </div>
+
+            {/* Lifecycle Stages */}
+            <div className="bg-slate-800/50 border border-slate-700/30 rounded-2xl p-5">
+              <h3 className="text-sm font-semibold text-white mb-3">생명주기 단계</h3>
+              <div className="space-y-2.5">
+                {LIFECYCLE_STAGES.map((stage) => (
+                  <div key={stage.name} className="flex items-center gap-3">
+                    <div className={`w-2 h-2 rounded-full ${stage.color} shrink-0`} />
+                    <span className="text-sm text-slate-300">{stage.nameKo}</span>
+                    <span className="text-xs text-slate-500 font-mono">{stage.name}</span>
+                  </div>
+                ))}
+              </div>
+              <p className="text-[11px] text-slate-500 mt-3 pt-3 border-t border-slate-700/30">
+                2일 연속 확인 후 단계 전환 (Hysteresis)
+              </p>
+            </div>
+          </div>
+
+          <div className="bg-slate-900/40 border border-slate-700/20 rounded-xl px-4 py-3">
+            <p className="text-xs text-slate-400 text-center">
+              점수 안정화: Cautious Decay (3-signal 다수결) → Bollinger Clamp → 적응형 EMA ·{' '}
+              <Link href="/themes/methodology" className="text-emerald-400/80 hover:text-emerald-400 transition-colors">
+                상세 알고리즘 →
+              </Link>
+            </p>
+          </div>
         </motion.div>
 
         {/* Installation */}
@@ -148,7 +276,7 @@ const DevelopersContent = () => {
           </div>
 
           {/* Tabs */}
-          <div className="flex gap-2 mb-4">
+          <div className="flex flex-wrap gap-2 mb-4">
             {CONFIG_TABS.map((tab, i) => (
               <button
                 key={tab.label}
@@ -181,6 +309,30 @@ const DevelopersContent = () => {
           </div>
         </motion.div>
 
+        {/* Try Asking */}
+        <motion.div
+          {...fadeIn}
+          transition={{ duration: 0.4, delay: 0.15, ease: easing }}
+          className="mb-16"
+        >
+          <div className="flex items-center gap-3 mb-6">
+            <MessageSquare className="w-5 h-5 text-emerald-400" aria-hidden="true" />
+            <h2 className="text-xl font-light text-white">이렇게 물어보세요</h2>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {EXAMPLE_PROMPTS.map((example) => (
+              <div
+                key={example.prompt}
+                className="bg-slate-800/30 border border-slate-700/20 rounded-xl px-4 py-3"
+              >
+                <p className="text-sm text-slate-200 mb-1">{example.prompt}</p>
+                <p className="text-[11px] text-slate-500">→ {example.result}</p>
+              </div>
+            ))}
+          </div>
+        </motion.div>
+
         {/* Available Tools */}
         <motion.div
           {...fadeIn}
@@ -190,9 +342,10 @@ const DevelopersContent = () => {
           <div className="flex items-center gap-3 mb-6">
             <Package className="w-5 h-5 text-emerald-400" aria-hidden="true" />
             <h2 className="text-xl font-light text-white">사용 가능한 도구</h2>
+            <span className="text-xs text-slate-500 font-mono ml-auto">{TOOLS.length} tools</span>
           </div>
 
-          <div className="space-y-4">
+          <div className="space-y-3">
             {TOOLS.map((tool) => (
               <div
                 key={tool.name}
@@ -221,6 +374,36 @@ const DevelopersContent = () => {
           </div>
         </motion.div>
 
+        {/* Response Context */}
+        <motion.div
+          {...fadeIn}
+          transition={{ duration: 0.4, delay: 0.25, ease: easing }}
+          className="mb-16"
+        >
+          <div className="flex items-center gap-3 mb-6">
+            <BookOpen className="w-5 h-5 text-emerald-400" aria-hidden="true" />
+            <h2 className="text-xl font-light text-white">AI 컨텍스트 주입</h2>
+          </div>
+
+          <div className="bg-slate-900/60 border border-slate-700/30 rounded-2xl p-5">
+            <p className="text-sm text-slate-300 leading-relaxed mb-4">
+              모든 응답에 알고리즘 컨텍스트 헤더가 자동으로 포함됩니다.
+              AI 에이전트가 점수, 단계, 가중치의 의미를 이해하고 정확하게 해석할 수 있습니다.
+            </p>
+            <div className="bg-slate-950/50 border border-slate-700/20 rounded-xl p-4">
+              <pre className="text-xs text-slate-400 font-mono overflow-x-auto leading-relaxed whitespace-pre-wrap">{`[StockMatrix TLI Ranking]
+Scores: 0-100 (Bayesian-optimized weighted sum of 4 components:
+  interest 30%, news momentum 37%, volatility 10%, activity 23%).
+Stages: Emerging → Growth → Peak → Decline → Dormant
+  (with possible Reigniting).
+Stage transitions require 2 consecutive days of same candidate
+  (hysteresis).
+
+{ "emerging": [...], "growth": [...], ... }`}</pre>
+            </div>
+          </div>
+        </motion.div>
+
         {/* npm Package */}
         <motion.div
           {...fadeIn}
@@ -236,7 +419,7 @@ const DevelopersContent = () => {
               <CopyButton text="npx -y stockmatrix-mcp" />
             </div>
             <p className="text-xs text-slate-500 mt-3">
-              Node.js 18+ 필요 · 환경변수 없이 바로 실행 가능
+              Node.js 18+ 필요 · 환경변수 없이 바로 실행 가능 · MIT 라이선스
             </p>
           </div>
         </motion.div>
@@ -244,10 +427,10 @@ const DevelopersContent = () => {
         {/* Resources */}
         <motion.div
           {...fadeIn}
-          transition={{ duration: 0.4, delay: 0.4, ease: easing }}
+          transition={{ duration: 0.4, delay: 0.35, ease: easing }}
         >
           <h2 className="text-xl font-light text-white mb-4">리소스</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <a
               href="https://www.npmjs.com/package/stockmatrix-mcp"
               target="_blank"
@@ -259,10 +442,20 @@ const DevelopersContent = () => {
               <ExternalLink className="w-3 h-3 text-slate-600 ml-auto" aria-hidden="true" />
             </a>
             <a
+              href="https://github.com/MongLong0214/stock-ai-newsletter/tree/main/mcp"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="group flex items-center gap-3 bg-slate-800/50 border border-slate-700/30 rounded-xl px-4 py-3 hover:border-emerald-500/30 transition-all duration-300"
+            >
+              <GitBranch className="w-4 h-4 text-slate-400 group-hover:text-emerald-400 transition-colors" aria-hidden="true" />
+              <span className="text-sm text-slate-300 group-hover:text-white transition-colors">GitHub</span>
+              <ExternalLink className="w-3 h-3 text-slate-600 ml-auto" aria-hidden="true" />
+            </a>
+            <a
               href="/llms.txt"
               className="group flex items-center gap-3 bg-slate-800/50 border border-slate-700/30 rounded-xl px-4 py-3 hover:border-emerald-500/30 transition-all duration-300"
             >
-              <Terminal className="w-4 h-4 text-slate-400 group-hover:text-emerald-400 transition-colors" aria-hidden="true" />
+              <Search className="w-4 h-4 text-slate-400 group-hover:text-emerald-400 transition-colors" aria-hidden="true" />
               <span className="text-sm text-slate-300 group-hover:text-white transition-colors">llms.txt</span>
               <ExternalLink className="w-3 h-3 text-slate-600 ml-auto" aria-hidden="true" />
             </a>
