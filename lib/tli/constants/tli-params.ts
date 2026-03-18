@@ -179,12 +179,16 @@ export function setTLIParams(params: Partial<TLIParams> | null) {
 export function getTLIParams(): TLIParams {
   const base = { ...DEFAULT_TLI_PARAMS }
 
-  if (!_overriddenParams && typeof process !== 'undefined' && process.env.TLI_PARAMS_VERSION === 'v2') {
+  if (!_overriddenParams && typeof window === 'undefined' && process.env.TLI_PARAMS_VERSION === 'v2') {
     try {
-      // 동적 경로로 Turbopack 정적 분석 회피
-      const jsonPath = ['..', '..', '..', 'scripts', 'tli-optimizer', 'optimized-params.json'].join('/')
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const optimized = require(jsonPath) as Partial<TLIParams>
+      // webpack/turbopack 정적 분석 회피: new Function으로 런타임 require
+      // eslint-disable-next-line @typescript-eslint/no-implied-eval
+      const nodeRequire = new Function('mod', 'return require(mod)') as (mod: string) => unknown
+      const fs = nodeRequire('fs') as typeof import('fs')
+      const path = nodeRequire('path') as typeof import('path')
+      const jsonPath = path.resolve(process.cwd(), 'scripts', 'tli-optimizer', 'optimized-params.json')
+      const raw = fs.readFileSync(jsonPath, 'utf-8')
+      const optimized = JSON.parse(raw) as Partial<TLIParams>
       return { ...base, ...optimized }
     } catch {
       console.error('[TLI] TLI_PARAMS_VERSION=v2 but optimized-params.json not found. Using defaults.')

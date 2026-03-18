@@ -45,8 +45,29 @@ function canTrack() {
   );
 }
 
-export function pageview(path: string) {
-  if (!canTrack() || !GA_MEASUREMENT_ID) return;
+function waitForGtag(maxWaitMs = 5000): Promise<boolean> {
+  if (canTrack()) return Promise.resolve(true);
+  return new Promise((resolve) => {
+    const interval = 200;
+    let elapsed = 0;
+    const timer = setInterval(() => {
+      elapsed += interval;
+      if (canTrack()) {
+        clearInterval(timer);
+        resolve(true);
+      } else if (elapsed >= maxWaitMs) {
+        clearInterval(timer);
+        resolve(false);
+      }
+    }, interval);
+  });
+}
+
+export async function pageview(path: string) {
+  if (!GA_MEASUREMENT_ID) return;
+
+  const ready = canTrack() || (await waitForGtag());
+  if (!ready) return;
 
   window.gtag?.('config', GA_MEASUREMENT_ID, {
     page_path: path,
