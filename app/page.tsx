@@ -1,5 +1,4 @@
 import type { Metadata } from 'next';
-import Script from "next/script";
 import { siteConfig, metadataConfig } from '@/lib/constants/seo';
 import { schemaIds } from '@/lib/constants/seo/config';
 import { TECHNICAL_INDICATORS_DATA } from "./constants/home-page";
@@ -11,7 +10,7 @@ export const metadata: Metadata = {
   description: metadataConfig.description,
   openGraph: {
     title: metadataConfig.title,
-    description: metadataConfig.descriptionShort,
+    description: metadataConfig.description,
     url: siteConfig.domain,
     type: 'website',
   },
@@ -42,13 +41,12 @@ export default function HomePage() {
       <HomePageClient technicalIndicators={TECHNICAL_INDICATORS_DATA} />
       <LatestBlogSection />
 
-      <Script
+      <script
         id="product-schema"
         type="application/ld+json"
         dangerouslySetInnerHTML={{
           __html: JSON.stringify(productSchema).replace(/</g, '\\u003c'),
         }}
-        strategy="afterInteractive"
       />
     </>
   );

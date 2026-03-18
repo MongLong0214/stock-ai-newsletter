@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { siteConfig } from '@/lib/constants/seo/config'
+import { generateBreadcrumbSchema } from '@/lib/constants/seo/breadcrumb-schema'
 
 export const metadata: Metadata = {
   title: '테마 트래킹 알고리즘 — AI 점수 산출 과정 완전 공개',
@@ -33,7 +34,22 @@ export const metadata: Metadata = {
 }
 
 const MethodologyLayout = ({ children }: { children: React.ReactNode }) => {
-  return <>{children}</>
+  const breadcrumbSchema = generateBreadcrumbSchema([
+    { name: '홈', url: siteConfig.domain },
+    { name: '테마 분석', url: `${siteConfig.domain}/themes` },
+    { name: '알고리즘', url: `${siteConfig.domain}/themes/methodology` },
+  ])
+
+  return (
+    <>
+      <script
+        id="methodology-breadcrumb-schema"
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema).replace(/</g, '\\u003c') }}
+      />
+      {children}
+    </>
+  )
 }
 
 export default MethodologyLayout

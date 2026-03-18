@@ -70,9 +70,9 @@ function UnsubscribeContent() {
           >
             <XCircle className="w-10 lg:w-12 h-10 lg:h-12 text-red-400" />
           </motion.div>
-          <h1 className="text-5xl sm:text-6xl md:text-7xl font-extralight mb-6 lg:mb-8 text-emerald-500/80 leading-tight tracking-tight">
+          <p className="text-5xl sm:text-6xl md:text-7xl font-extralight mb-6 lg:mb-8 text-emerald-500/80 leading-tight tracking-tight" role="heading" aria-level={2}>
             Invalid Request
-          </h1>
+          </p>
           <p className="text-xl sm:text-2xl text-slate-300 font-light mb-12 lg:mb-16 tracking-wide">
             유효하지 않은 이메일 주소입니다
           </p>
@@ -102,9 +102,9 @@ function UnsubscribeContent() {
         <div className="inline-flex items-center justify-center w-24 h-24 rounded-lg glass-morphism border border-emerald-500/20 mb-12">
           <Loader2 className="w-12 h-12 text-emerald-400 animate-spin" />
         </div>
-        <h1 className="text-6xl md:text-7xl font-extralight mb-8 text-emerald-500/80 tracking-tight">
+        <p className="text-6xl md:text-7xl font-extralight mb-8 text-emerald-500/80 tracking-tight" role="heading" aria-level={2}>
           Processing
-        </h1>
+        </p>
         <p className="text-2xl text-slate-300 font-light tracking-wide">
           구독 취소 요청을 처리하고 있습니다...
         </p>
@@ -132,9 +132,9 @@ function UnsubscribeContent() {
           >
             <CheckCircle className="w-10 lg:w-12 h-10 lg:h-12 text-emerald-400 animate-[matrix-pulse_2s_ease-in-out_infinite]" />
           </motion.div>
-          <h1 className="text-5xl sm:text-6xl md:text-7xl font-extralight mb-6 lg:mb-8 text-emerald-500/80 leading-tight tracking-tight">
+          <p className="text-5xl sm:text-6xl md:text-7xl font-extralight mb-6 lg:mb-8 text-emerald-500/80 leading-tight tracking-tight" role="heading" aria-level={2}>
             Unsubscribed
-          </h1>
+          </p>
           <p className="text-xl sm:text-2xl text-slate-300 font-light mb-12 lg:mb-16 tracking-wide">
             구독이 성공적으로 취소되었습니다
           </p>
@@ -227,9 +227,9 @@ function UnsubscribeContent() {
           >
             <XCircle className="w-10 lg:w-12 h-10 lg:h-12 text-red-400" />
           </motion.div>
-          <h1 className="text-5xl sm:text-6xl md:text-7xl font-extralight mb-6 lg:mb-8 text-emerald-500/80 leading-tight tracking-tight">
+          <p className="text-5xl sm:text-6xl md:text-7xl font-extralight mb-6 lg:mb-8 text-emerald-500/80 leading-tight tracking-tight" role="heading" aria-level={2}>
             Error
-          </h1>
+          </p>
           <p className="text-xl sm:text-2xl text-slate-300 font-light mb-12 lg:mb-16 tracking-wide">
             구독 취소 처리 중 오류가 발생했습니다
           </p>
@@ -276,6 +276,7 @@ export default function UnsubscribePage() {
 
       {/* Main Content */}
       <main className="pt-20 pb-24 px-6 lg:px-8 flex items-center min-h-screen relative z-10">
+        <h1 className="sr-only">구독 취소</h1>
         <Suspense
           fallback={
             <motion.div

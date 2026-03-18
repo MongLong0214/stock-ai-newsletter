@@ -5,7 +5,7 @@ import { siteConfig } from '@/lib/constants/seo/config'
 import { generateBreadcrumbSchema } from '@/lib/constants/seo/breadcrumb-schema'
 
 export const metadata: Metadata = {
-  title: '개발자 — MCP 서버',
+  title: 'StockMatrix MCP 서버 — AI 주식 데이터 API 개발자 가이드',
   description: 'StockMatrix MCP 서버로 250+ 한국 주식 테마의 생명주기 점수, 관련주, 뉴스를 AI 에이전트에서 자연어로 조회하세요. Claude Desktop, Cursor, VS Code, Claude Code에서 바로 사용 가능합니다.',
   alternates: { canonical: `${siteConfig.domain}/developers` },
   openGraph: {

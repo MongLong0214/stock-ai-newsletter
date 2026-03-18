@@ -4,7 +4,6 @@ import {
   rerank,
   RERANKER_VERSION,
   type FutureAlignmentScore,
-  type RerankedCandidate,
   type RerankerOptions,
 } from '../analog/reranker'
 

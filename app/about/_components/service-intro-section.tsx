@@ -21,12 +21,12 @@ function ServiceIntroSection(): JSX.Element {
           <p className="text-sm text-emerald-500 uppercase tracking-wider mb-4 font-medium">
             About Service
           </p>
-          <h2
+          <h1
             id="service-intro-heading"
             className="text-3xl md:text-4xl font-extralight text-emerald-500/80 tracking-tight mb-4"
           >
             AI 주식 분석 무료 뉴스레터
-          </h2>
+          </h1>
           <p className="text-lg text-slate-300 font-light tracking-wide leading-relaxed">
             매일 아침 받는 기술적 분석 데이터로 투자 인사이트를 얻으세요
           </p>

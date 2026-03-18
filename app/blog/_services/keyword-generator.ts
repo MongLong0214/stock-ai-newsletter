@@ -89,9 +89,6 @@ async function getUsedContent(): Promise<UsedContent> {
     }
   });
 
-  // tags 제외: "주식", "투자" 같은 범용 태그가 키워드 공간 낭비
-  console.log(`[KeywordGenerator] 롤링 윈도우: target(90d) ${recentRes.data?.length ?? 0}개, secondary(30d) ${shortTermRes.data?.length ?? 0}개, 제목 ${allTitles.length}개`);
-
   return { keywords: Array.from(allKeywords), titles: allTitles };
 }
 
@@ -102,8 +99,6 @@ async function generateKeywordsWithAI(
   existingTitles: string[],
   tliContext?: TLIContext,
 ): Promise<KeywordMetadata[]> {
-  console.log(`[KeywordGenerator] AI 생성 중 (제외: ${usedKeywords.length}개, 기존 글: ${existingTitles.length}개, TLI: ${tliContext?.themes.length ?? 0}개 테마)`);
-
   const prompt = buildKeywordGenerationPrompt(count, usedKeywords, undefined, existingTitles, tliContext);
   const response = await generateText({ prompt });
 
@@ -134,7 +129,6 @@ async function generateKeywordsWithAI(
       allExistingKeywords.push(kw.keyword.toLowerCase().trim());
     }
 
-    console.log(`[KeywordGenerator] 생성: ${keywords.length}개, 유효: ${validKeywords.length}개`);
     return validKeywords;
   } catch (error) {
     console.error('[KeywordGenerator] JSON 파싱 실패:', error);
@@ -149,23 +143,17 @@ export async function generateKeywords(
 ): Promise<KeywordGenerationResult> {
   const { maxRetries = 3 } = options;
 
-  console.log(`[KeywordGenerator] ${requestedCount}개 키워드 생성 시작`);
-
   try {
     const [usedContent, tliContext] = await Promise.all([
       getUsedContent(),
       fetchTLIContext(),
     ]);
-    console.log(`[KeywordGenerator] 기존 키워드: ${usedContent.keywords.length}개, 기존 글: ${usedContent.titles.length}개, TLI: ${tliContext.themes.length}개 테마`);
-
     const keywordMap = new Map<string, KeywordMetadata>();
     let attempt = 0;
 
     while (keywordMap.size < requestedCount && attempt < maxRetries) {
       attempt++;
       const remainingCount = requestedCount - keywordMap.size;
-      console.log(`[KeywordGenerator] 시도 ${attempt}/${maxRetries}: ${remainingCount}개 필요`);
-
       const newKeywords = await generateKeywordsWithAI(
         Math.ceil(remainingCount * 1.5),
         usedContent.keywords,
@@ -188,9 +176,6 @@ export async function generateKeywords(
     const selectedKeywords = sortedKeywords.slice(0, requestedCount);
 
     console.log(`[KeywordGenerator] 완료: 생성 ${allKeywords.length}개 -> 선택 ${selectedKeywords.length}개`);
-    selectedKeywords.forEach((kw, idx) => {
-      console.log(`  ${idx + 1}. "${kw.keyword}" (${scoreMap.get(kw.keyword)}점, ${kw.difficulty}, ~${kw.estimatedSearchVolume})`);
-    });
 
     return {
       success: true,
