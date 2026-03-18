@@ -30,7 +30,7 @@ export const metadata: Metadata = {
     type: 'website',
     images: [
       {
-        url: `${siteConfig.domain}/opengraph-image`,
+        url: '/opengraph-image',
         width: 1200,
         height: 630,
         alt: 'Stock Matrix 뉴스레터 분석 기록',

@@ -74,14 +74,12 @@ export async function scrapeUrl(
   } = options;
 
   if (!canAttemptRequest(domain)) {
-    console.log(`   Circuit breaker OPEN for ${domain}, skipping`);
     return null;
   }
 
   await enforceRateLimit(domain);
 
   if (domainConfig.skipReason) {
-    console.log(`   Skip (${domain}): ${domainConfig.skipReason}`);
     return null;
   }
 
@@ -91,7 +89,6 @@ export async function scrapeUrl(
   if (useBrowser) {
     const available = await checkBrowserAvailability();
     if (!available) {
-      console.log(`   Browser not available for ${domain}, falling back to HTTP`);
       useBrowser = false;
     }
   }
@@ -101,7 +98,6 @@ export async function scrapeUrl(
       let html: string;
 
       if (useBrowser) {
-        console.log(`   Browser mode for ${domain}`);
         html = await fetchWithBrowser(url, timeout, domainConfig);
       } else {
         try {
@@ -111,7 +107,6 @@ export async function scrapeUrl(
           if (attempt === maxRetries) {
             const available = await checkBrowserAvailability();
             if (available) {
-              console.log('   Trying browser fallback...');
               html = await fetchWithBrowser(url, timeout, domainConfig);
               metrics.browserFallbackCount++;
             } else {
@@ -143,7 +138,6 @@ export async function scrapeUrl(
 
       if (!isLastAttempt) {
         const delay = calculateJitter(retryDelay * Math.pow(2, attempt - 1));
-        console.log(`   Retry ${attempt}/${maxRetries} (${Math.round(delay)}ms)...`);
         await sleep(delay);
       } else {
         const message = error instanceof Error ? error.message : String(error);
@@ -163,13 +157,8 @@ export async function scrapeSearchResults(
   const total = searchResults.length;
   let succeeded = 0;
 
-  console.log(`   ${total}개 URL 스크래핑 시작...`);
-
   for (let i = 0; i < searchResults.length; i++) {
     const result = searchResults[i];
-    const domain = extractDomain(result.link);
-
-    console.log(`   [${i + 1}/${total}] ${domain}...`);
 
     const content = await scrapeUrl(result.link, {
       referer: 'https://www.google.co.kr/search?q=' + encodeURIComponent(result.title),
@@ -178,7 +167,6 @@ export async function scrapeSearchResults(
     if (content) {
       scrapedContents.push(content);
       succeeded++;
-      console.log(`   Success (${content.wordCount} words)`);
     }
 
     if (i < searchResults.length - 1) {

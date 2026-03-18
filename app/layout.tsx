@@ -225,6 +225,17 @@ export default function RootLayout({
         isAccessibleForFree: true,
         publishingPrinciples: `${siteConfig.domain}/about`,
       },
+      {
+        '@type': 'BreadcrumbList',
+        itemListElement: [
+          {
+            '@type': 'ListItem',
+            position: 1,
+            name: '홈',
+            item: siteConfig.domain,
+          },
+        ],
+      },
     ],
   };
 

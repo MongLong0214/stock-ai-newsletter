@@ -182,7 +182,6 @@ export function getTLIParams(): TLIParams {
   if (!_overriddenParams && typeof window === 'undefined' && process.env.TLI_PARAMS_VERSION === 'v2') {
     try {
       // webpack/turbopack 정적 분석 회피: new Function으로 런타임 require
-      // eslint-disable-next-line @typescript-eslint/no-implied-eval
       const nodeRequire = new Function('mod', 'return require(mod)') as (mod: string) => unknown
       const fs = nodeRequire('fs') as typeof import('fs')
       const path = nodeRequire('path') as typeof import('path')

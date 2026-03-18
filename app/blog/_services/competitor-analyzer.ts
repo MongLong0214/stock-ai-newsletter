@@ -36,7 +36,6 @@ export function analyzeCompetitors(
   targetKeyword: string,
 ): CompetitorAnalysis {
   if (scrapedContents.length === 0) {
-    console.log('   분석할 콘텐츠 없음. 기본값 사용.');
     return {
       totalCompetitors: 0,
       commonTopics: [],
@@ -111,10 +110,6 @@ export function analyzeCompetitors(
     .map(([keyword, { count, sources }]) => ({ keyword, count, sources: Array.from(sources) }))
     .sort((a, b) => b.sources.length - a.sources.length || b.count - a.count)
     .slice(0, 20);
-
-  if (competitorKeywords.length > 0) {
-    console.log(`   경쟁사 키워드: ${competitorKeywords.slice(0, 5).map(k => k.keyword).join(', ')}`);
-  }
 
   return {
     totalCompetitors: scrapedContents.length,

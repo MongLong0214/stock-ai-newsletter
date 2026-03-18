@@ -1,19 +1,12 @@
 import { ImageResponse } from 'next/og';
 
 export const runtime = 'edge';
-export const alt = 'Stock Matrix - 테마 생명주기 분석, 한국 주식시장 테마 추적';
+export const alt = 'Stock Matrix - 뉴스레터 아카이브';
 export const size = {
   width: 1200,
   height: 630,
 };
 export const contentType = 'image/png';
-
-const STAGES = [
-  { label: 'Emerging', sub: '초기', color: '#3b82f6' },
-  { label: 'Growth', sub: '성장', color: '#0ea5e9' },
-  { label: 'Peak', sub: '과열', color: '#f59e0b' },
-  { label: 'Decline', sub: '하락', color: '#ef4444' },
-];
 
 export default async function Image() {
   return new ImageResponse(
@@ -45,7 +38,6 @@ export default async function Image() {
           }}
         />
 
-        {/* Badge */}
         <div
           style={{
             display: 'flex',
@@ -59,11 +51,10 @@ export default async function Image() {
             fontWeight: 600,
           }}
         >
-          테마 분석
+          분석 기록
         </div>
 
-        {/* Title + Stages */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
           <div
             style={{
               fontSize: 72,
@@ -73,64 +64,8 @@ export default async function Image() {
               display: 'flex',
             }}
           >
-            테마 생명주기 분석
+            뉴스레터 아카이브
           </div>
-
-          {/* Stage visualization - clean horizontal dots */}
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '12px',
-            }}
-          >
-            {STAGES.map((stage, i) => (
-              <div
-                key={stage.label}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '12px',
-                }}
-              >
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px',
-                  }}
-                >
-                  <div
-                    style={{
-                      width: 14,
-                      height: 14,
-                      borderRadius: '50%',
-                      backgroundColor: stage.color,
-                      display: 'flex',
-                    }}
-                  />
-                  <span
-                    style={{
-                      fontSize: 26,
-                      fontWeight: 700,
-                      color: stage.color,
-                    }}
-                  >
-                    {stage.label}
-                  </span>
-                  <span style={{ fontSize: 22, color: '#64748b' }}>
-                    {stage.sub}
-                  </span>
-                </div>
-                {i < STAGES.length - 1 && (
-                  <span style={{ fontSize: 24, color: '#334155' }}>
-                    →
-                  </span>
-                )}
-              </div>
-            ))}
-          </div>
-
           <div
             style={{
               fontSize: 32,
@@ -139,11 +74,10 @@ export default async function Image() {
               display: 'flex',
             }}
           >
-            한국 주식시장 테마의 탄생부터 쇠퇴까지
+            과거 AI 주식 분석 결과를 날짜별로 조회
           </div>
         </div>
 
-        {/* Bottom bar */}
         <div
           style={{
             display: 'flex',

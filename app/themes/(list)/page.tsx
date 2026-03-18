@@ -147,7 +147,7 @@ export default async function ThemesPage() {
       />
       {/* SSR 콘텐츠: JS 미실행 AI 크롤러용 */}
       <section className="sr-only" aria-label="테마 생명주기 분석 목록">
-        <h1>한국 주식시장 테마 생명주기 분석</h1>
+        <h2>한국 주식시장 테마 생명주기 분석</h2>
         <p>{themes.length}개 추적 테마 중 {ranking.summary.totalThemes}개 활성 테마의 AI 분석 랭킹. 네이버 검색 관심도, 뉴스 모멘텀, 주가 변동성을 종합하여 0~100점 점수와 5단계 생명주기를 산출합니다.</p>
         {allRanked.length > 0 && (
           <table>

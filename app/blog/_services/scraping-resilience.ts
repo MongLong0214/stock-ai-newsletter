@@ -96,7 +96,7 @@ export function recordFailure(domain: string): void {
   if (breaker.failures >= CIRCUIT_BREAKER_CONFIG.FAILURE_THRESHOLD) {
     breaker.state = 'open';
     metrics.circuitBreakerTrips++;
-    console.log(`   Circuit breaker OPEN for ${domain} (${breaker.failures} failures)`);
+    console.warn(`[CircuitBreaker] OPEN for ${domain} (${breaker.failures} failures)`);
   }
 }
 
@@ -121,8 +121,7 @@ export async function enforceRateLimit(domain: string): Promise<void> {
     const oldestRequest = state.requests[0];
     const waitTime = 60000 - (now - oldestRequest);
     if (waitTime > 0) {
-      console.log(`   Rate limit: waiting ${Math.round(waitTime / 1000)}s for ${domain}`);
-      await sleep(waitTime);
+        await sleep(waitTime);
     }
   }
 
