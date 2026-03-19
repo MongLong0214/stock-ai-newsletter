@@ -108,6 +108,11 @@ jobs:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
 
+          # KIS API - 시장 스냅샷 수집용
+          KIS_APP_KEY: ${{ secrets.KIS_APP_KEY }}
+          KIS_APP_SECRET: ${{ secrets.KIS_APP_SECRET }}
+          KIS_BASE_URL: ${{ secrets.KIS_BASE_URL }}
+
           # Google Cloud (Vertex AI) - Gemini 전용
           GOOGLE_CLOUD_PROJECT: ${{ secrets.GOOGLE_CLOUD_PROJECT }}
           GOOGLE_CLOUD_LOCATION: us-central1
