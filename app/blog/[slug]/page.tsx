@@ -4,7 +4,7 @@ import Link from 'next/link';
 import type { Metadata } from 'next';
 import { ArrowLeft, Calendar, Tag } from 'lucide-react';
 
-import { siteConfig } from '@/lib/constants/seo/config';
+import { siteConfig, withOgImageVersion } from '@/lib/constants/seo/config';
 import { getServerSupabaseClient } from '@/lib/supabase/server-client';
 import { parseMarkdown } from '../_utils/markdown-parser';
 import { formatDateKo } from '../_utils/date-formatter';
@@ -60,7 +60,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const title = post.meta_title || post.title;
   const description = post.meta_description || post.description;
   const url = `${siteConfig.domain}/blog/${slug}`;
-  const ogImageUrl = `${siteConfig.domain}/blog/${slug}/opengraph-image`;
+  const ogImageUrl = withOgImageVersion(`${siteConfig.domain}/blog/${slug}/opengraph-image`);
 
   return {
     title,

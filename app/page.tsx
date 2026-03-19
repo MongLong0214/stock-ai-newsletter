@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { siteConfig } from '@/lib/constants/seo';
+import { siteConfig, withOgImageVersion } from '@/lib/constants/seo';
 import { schemaIds } from '@/lib/constants/seo/config';
 import { TECHNICAL_INDICATORS_DATA } from "./constants/home-page";
 import HomePageClient from "./_components/home/home-page-client";
@@ -32,7 +32,7 @@ export const metadata: Metadata = {
     siteName: 'StockMatrix',
     images: [
       {
-        url: '/opengraph-image',
+        url: withOgImageVersion('/opengraph-image'),
         width: 1200,
         height: 630,
         alt: 'StockMatrix 무료 AI 주식 분석 뉴스레터',
@@ -44,7 +44,7 @@ export const metadata: Metadata = {
     title: 'StockMatrix | 무료 AI 주식 분석 뉴스레터',
     description:
       '매일 오전 7시 30분, KOSPI·KOSDAQ 3종목을 AI로 분석해 무료 이메일로 제공하는 한국 주식 뉴스레터. 웹사이트에서 250+ 테마 분석 제공',
-    images: ['/twitter-image'],
+    images: [withOgImageVersion('/twitter-image')],
   },
 };
 
@@ -69,7 +69,7 @@ export default function HomePage() {
     ],
     primaryImageOfPage: {
       '@type': 'ImageObject',
-      url: `${siteConfig.domain}/opengraph-image`,
+      url: withOgImageVersion(`${siteConfig.domain}/opengraph-image`),
       width: 1200,
       height: 630,
     },

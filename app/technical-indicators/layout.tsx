@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { siteConfig, keywordsByCategory } from '@/lib/constants/seo';
+import { siteConfig, keywordsByCategory, withOgImageVersion } from '@/lib/constants/seo';
 
 export const metadata: Metadata = {
   title: '기술적 지표 완벽 가이드 - RSI·MACD·볼린저밴드 | Stock Matrix',
@@ -31,7 +31,7 @@ export const metadata: Metadata = {
     type: 'article',
     images: [
       {
-        url: '/opengraph-image',
+        url: withOgImageVersion('/opengraph-image'),
         width: 1200,
         height: 630,
         alt: '기술적 지표 가이드 - Stock Matrix',
@@ -42,7 +42,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'RSI·MACD·볼린저밴드 등 30개 기술지표 완벽 가이드',
     description: 'AI 주식 분석에 사용되는 핵심 기술적 지표 총정리',
-    images: ['/twitter-image'],
+    images: [withOgImageVersion('/twitter-image')],
   },
 };
 
