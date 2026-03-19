@@ -1,7 +1,7 @@
-import { ImageResponse } from 'next/og';
 import { createOgLayout } from '@/lib/og-template';
+import { createOgImageResponse } from '@/lib/og-image-response';
 
-export const runtime = 'edge';
+export const runtime = 'nodejs';
 export const alt = 'Stock Matrix - AI 주식 분석 서비스 소개';
 export const size = {
   width: 1200,
@@ -10,7 +10,7 @@ export const size = {
 export const contentType = 'image/png';
 
 export default async function Image() {
-  return new ImageResponse(
+  return createOgImageResponse(
     createOgLayout({
       title: (
         <>
@@ -21,6 +21,6 @@ export default async function Image() {
       subtitle: '30개 기술적 지표 · KOSPI · KOSDAQ',
       titleSize: 90,
     }),
-    { ...size }
+    size
   );
 }

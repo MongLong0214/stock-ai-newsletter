@@ -1,8 +1,8 @@
-import { ImageResponse } from 'next/og';
 import { createClient } from '@supabase/supabase-js';
 import { createOgLayout } from '@/lib/og-template';
+import { createOgImageResponse } from '@/lib/og-image-response';
 
-export const runtime = 'edge';
+export const runtime = 'nodejs';
 export const alt = '테마 생명주기 분석 - Stock Matrix';
 export const size = {
   width: 1200,
@@ -57,12 +57,12 @@ export default async function Image({ params }: { params: { id: string } }) {
   const stageInfo = STAGE_LABELS[stageKey] || STAGE_LABELS.Emerging;
   const scoreValue = score?.score ?? '--';
 
-  return new ImageResponse(
+  return createOgImageResponse(
     createOgLayout({
       title: name,
       subtitle: `생명주기 점수 ${scoreValue}/100 · ${stageInfo.label} 단계`,
       titleSize: name.length > 8 ? 80 : 120,
     }),
-    { ...size }
+    size
   );
 }
