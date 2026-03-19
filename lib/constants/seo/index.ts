@@ -28,7 +28,7 @@ export type {
 // ============================================================================
 
 /** 사이트 기본 설정 (도메인, 서비스명, 배송 시간 등) */
-export { siteConfig } from './config';
+export { siteConfig, OG_IMAGE_VERSION, withOgImageVersion } from './config';
 
 /** 페이지 메타데이터 (title, description 등) */
 export { metadataConfig } from './metadata';

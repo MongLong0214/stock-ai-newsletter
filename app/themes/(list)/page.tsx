@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import { createClient } from '@supabase/supabase-js'
-import { siteConfig } from '@/lib/constants/seo/config'
+import { siteConfig, withOgImageVersion } from '@/lib/constants/seo/config'
 import ThemesContent from '../_components/themes-content'
 import { getRankingServer } from '../_services/get-ranking-server'
 
@@ -32,14 +32,14 @@ export const metadata: Metadata = {
     url: `${siteConfig.domain}/themes`,
     type: 'website',
     locale: 'ko_KR',
-    images: [{ url: '/opengraph-image', width: 1200, height: 630, alt: '테마주 관련주 분석' }],
+    images: [{ url: withOgImageVersion('/opengraph-image'), width: 1200, height: 630, alt: '테마주 관련주 분석' }],
   },
   twitter: {
     card: 'summary_large_image',
     title: '테마주 관련주 분석 — AI 테마 생명주기 추적 | StockMatrix',
     description:
       'AI가 분석하는 한국 주식시장 테마주 트렌드. 주요 테마의 생명주기 점수와 단계를 실시간 추적하고 관련주를 확인하세요.',
-    images: ['/twitter-image'],
+    images: [withOgImageVersion('/twitter-image')],
   },
 }
 

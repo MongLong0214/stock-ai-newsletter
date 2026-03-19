@@ -63,3 +63,9 @@ crash-alert-*.png
 # TLI Optimizer data dumps
 scripts/tli-optimizer/historical-data.json
 scripts/tli-optimizer/optimized-params.json
+
+# Temp scripts
+.tmp-*.mjs
+
+# OMX local state
+.omx/

@@ -15,6 +15,7 @@ import {
   socialConfig,
   schemaConfig,
   allKeywords,
+  withOgImageVersion,
 } from '@/lib/constants/seo';
 import { schemaIds } from '@/lib/constants/seo/config';
 
@@ -26,6 +27,7 @@ const notoSansKR = Noto_Sans_KR({
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteConfig.domain),
+  applicationName: 'StockMatrix',
   title: {
     default: metadataConfig.title,
     template: metadataConfig.titleTemplate,
@@ -43,11 +45,11 @@ export const metadata: Metadata = {
     locale: 'ko_KR',
     url: siteConfig.domain,
     title: metadataConfig.title,
-    description: metadataConfig.descriptionShort,
-    siteName: siteConfig.serviceName,
+    description: metadataConfig.description,
+    siteName: 'StockMatrix',
     images: [
       {
-        url: '/opengraph-image',
+        url: withOgImageVersion('/opengraph-image'),
         width: 1200,
         height: 630,
         alt: `${siteConfig.serviceName} - AI 주식 분석`,
@@ -60,7 +62,7 @@ export const metadata: Metadata = {
     description: metadataConfig.descriptionShort,
     creator: socialConfig.handle,
     site: socialConfig.handle,
-    images: ['/twitter-image'],
+    images: [withOgImageVersion('/twitter-image')],
   },
   robots: {
     index: true,
@@ -80,6 +82,7 @@ export const metadata: Metadata = {
     google: '3SavpxZkoJOuLHdnV94F9xjHNL7rPyyTJjQGbfttv5g',
     other: {
       'naver-site-verification': '5ce857b8cfd4c2e2b15181ee3029b6fce6590c18',
+      ...(process.env.BING_SITE_VERIFICATION ? { 'msvalidate.01': process.env.BING_SITE_VERIFICATION } : {}),
     },
   },
   formatDetection: {
@@ -91,6 +94,11 @@ export const metadata: Metadata = {
   classification: 'Business',
   referrer: 'origin-when-cross-origin',
   manifest: '/manifest.webmanifest',
+  appleWebApp: {
+    capable: true,
+    title: 'StockMatrix',
+    statusBarStyle: 'black-translucent',
+  },
   icons: {
     icon: [
       { url: '/favicon.ico', type: 'image/x-icon' },
@@ -113,6 +121,7 @@ export default function RootLayout({
         '@type': 'Organization',
         '@id': schemaIds.organization,
         name: siteConfig.serviceName,
+        alternateName: ['StockMatrix', siteConfig.serviceNameKo],
         url: siteConfig.domain,
         logo: `${siteConfig.domain}/icon-512.png`,
         image: {
@@ -133,6 +142,7 @@ export default function RootLayout({
           email: 'aistockmatrix@gmail.com',
         },
         foundingDate: '2024-01-01',
+        slogan: '매일 오전 7시 30분, 무료 AI 주식 분석 뉴스레터',
         description: schemaConfig.serviceDesc,
         knowsAbout: [
           '주식 기술적 분석',
@@ -148,6 +158,7 @@ export default function RootLayout({
         '@id': schemaIds.website,
         url: siteConfig.domain,
         name: siteConfig.serviceName,
+        alternateName: 'StockMatrix AI 주식 분석 뉴스레터',
         description: schemaConfig.websiteDesc,
         publisher: { '@id': schemaIds.organization },
         inLanguage: 'ko-KR',

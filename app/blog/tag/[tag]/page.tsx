@@ -4,7 +4,7 @@ import { notFound } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
 
 import { getServerSupabaseClient } from '@/lib/supabase/server-client';
-import { siteConfig } from '@/lib/constants/seo/config';
+import { siteConfig, withOgImageVersion } from '@/lib/constants/seo/config';
 import AnimatedBackground from '@/components/animated-background';
 import BlogListClient from '../../_components/blog-list/blog-list-client';
 import isValidBlogPost from '../../_utils/type-guards';
@@ -72,8 +72,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     title,
     description,
     keywords: [decodedTag, '주식 블로그', 'AI 주식 분석', '기술적 분석'],
-    openGraph: { title, description, url, siteName: siteConfig.serviceName, type: 'website', locale: 'ko_KR', images: [{ url: '/opengraph-image', width: 1200, height: 630, alt: `${decodedTag} - Stock Matrix` }] },
-    twitter: { card: 'summary_large_image', title, description, images: ['/twitter-image'] },
+    openGraph: { title, description, url, siteName: siteConfig.serviceName, type: 'website', locale: 'ko_KR', images: [{ url: withOgImageVersion('/opengraph-image'), width: 1200, height: 630, alt: `${decodedTag} - Stock Matrix` }] },
+    twitter: { card: 'summary_large_image', title, description, images: [withOgImageVersion('/twitter-image')] },
     alternates: { canonical: url },
     robots: {
       index: true,

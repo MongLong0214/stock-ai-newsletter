@@ -177,7 +177,7 @@ export default function SubscribePage() {
                 </div>
                 <div className="flex items-center gap-2 text-emerald-400/80">
                   <TrendingUp className="w-5 h-5" aria-hidden="true" />
-                  <span className="text-sm">250+ 테마 생명주기 추적</span>
+                  <span className="text-sm">웹사이트에서 250+ 테마 추적</span>
                 </div>
               </div>
             </motion.div>

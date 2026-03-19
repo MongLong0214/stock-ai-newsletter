@@ -69,6 +69,10 @@ function HeroSection({ formatted }: HeroSectionProps) {
           <p className="text-xs sm:text-sm md:text-base text-slate-400 font-light tracking-wide">
             5초 구독 • 광고 없음 • 완전 무료
           </p>
+          <p className="mt-5 text-sm sm:text-base md:text-lg text-slate-400/95 leading-relaxed max-w-3xl mx-auto">
+            <span className="text-emerald-400/90">StockMatrix는 한국 주식 투자자를 위한 무료 AI 주식 분석 뉴스레터입니다.</span>{' '}
+            매일 오전 7시 30분, AI가 30개 기술적 지표로 분석한 KOSPI·KOSDAQ 3종목을 이메일로 전달하며, 웹사이트에서는 250+ 테마 생명주기 분석을 제공합니다.
+          </p>
         </motion.div>
 
         <motion.div
