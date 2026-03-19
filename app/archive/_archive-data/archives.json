@@ -2,6 +2,62 @@
   "newsletters": [
     {
       "type": "stock",
+      "date": "2026-03-20",
+      "stocks": [
+        {
+          "ticker": "KOSPI:475150",
+          "name": "SK이터닉스",
+          "close_price": 53700,
+          "rationale": "2026-03-19 종가 53,700원 확인(finance.naver.com)|SMA 5/20/60일선 완전 정배열 상태 유지|RSI(14) 65.42로 강세 모멘텀 구간 진입(과매수 미달)|MACD Oscillator 12,26,9 시그널 상향 돌파 후 히스토그램 확장|일 거래량 14,628,000주로 전일 대비 220% 증가|볼린저밴드 상단(52,800원)을 강한 거래량으로 돌파 안착|ATR 3,350원(6.2%) 수준으로 급등 변동성 유효|ADX 35.8로 매우 강력한 상승 추세 진행 중 확인|OBV 지표 직전 고점 돌파하며 기관/외인 동반 매집 포착|52주 신고가 경신에 따른 상단 매물벽 부재 구간",
+          "signals": {
+            "trend_score": 98,
+            "momentum_score": 97,
+            "volume_score": 99,
+            "volatility_score": 92,
+            "pattern_score": 96,
+            "sentiment_score": 95,
+            "overall_score": 97
+          },
+          "verified_date": "2026-03-19"
+        },
+        {
+          "ticker": "KOSDAQ:037030",
+          "name": "파워넷",
+          "close_price": 4240,
+          "rationale": "2026-03-19 종가 4,240원 확인(stockplus.com)|SMA 20일선이 60일선을 상향 돌파하는 골든크로스 발생|RSI(14) 62.15로 상승 여력이 충분한 강세 구간|MACD 시그널 양전환(0.12) 및 Zero Line 돌파 시도|당일 거래량 3,480,000주로 전주 평균 대비 350% 폭증|볼린저밴드 상단 밴드 상향 확장 및 종가 안착 성공|Williams %R -22.4로 단기 과열 진입 전 최적 매수 타점|Vortex VI+ 1.25로 VI-와의 이격 확대(추세 강화)|AI 인프라 전력 변환 장치(SMPS) 수주 확대 뉴스 확인|매물대 집중 구간(4,100~4,200원)을 대량 거래로 돌파",
+          "signals": {
+            "trend_score": 94,
+            "momentum_score": 92,
+            "volume_score": 95,
+            "volatility_score": 88,
+            "pattern_score": 93,
+            "sentiment_score": 91,
+            "overall_score": 93
+          },
+          "verified_date": "2026-03-19"
+        },
+        {
+          "ticker": "KOSDAQ:095910",
+          "name": "에스에너지",
+          "close_price": 1951,
+          "rationale": "2026-03-19 종가 1,951원 확인(krx.co.kr)|바닥권에서 SMA 20일선 지지 확인 후 양봉 반전|EMA 5일선이 20일선을 돌파하는 단기 추세 전환 포착|RSI(14) 58.73으로 바닥 탈출 초기 강세 신호|MACD 시그널선 하단 교차 후 중심선 방향으로 북상 중|거래량 9,920,000주 발생하며 바닥권 매집봉 형성|Ichimoku 구름대 하단 돌파 및 선행스팬 전환 구간|CCI 115.8로 100선 돌파하며 단기 급등 시그널 발생|Chaikin Oscillator 양수(0.15) 전환으로 자금 유입 확인|태양광 모듈 국산화 및 정책 수혜 모멘텀 실시간 반영",
+          "signals": {
+            "trend_score": 89,
+            "momentum_score": 91,
+            "volume_score": 93,
+            "volatility_score": 85,
+            "pattern_score": 90,
+            "sentiment_score": 88,
+            "overall_score": 90
+          },
+          "verified_date": "2026-03-19"
+        }
+      ],
+      "sentAt": "2026-03-19T22:36:35.633+00:00",
+      "subscriberCount": 257
+    },
+    {
+      "type": "stock",
       "date": "2026-03-19",
       "stocks": [
         {
@@ -5382,5 +5438,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-03-18T23:05:52.635Z"
+  "lastUpdated": "2026-03-19T22:37:10.097Z"
 }
