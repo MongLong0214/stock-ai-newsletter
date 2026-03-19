@@ -2,6 +2,62 @@
   "newsletters": [
     {
       "type": "stock",
+      "date": "2026-03-19",
+      "stocks": [
+        {
+          "ticker": "KOSPI:000660",
+          "name": "SK하이닉스",
+          "close_price": 1056000,
+          "rationale": "2026-03-18 종가 1,056,000원(+8.87%) 확인|엔비디아 GTC 2026 동맹 재확인 모멘텀|'100만닉스' 역사적 고지 탈환 성공|기관 3조 4,869억 순매수 중심주|SMA 5일/20일/60일 완전 정배열 확장|RSI 68.4 강세 구역 진입|MACD 히스토그램 사상 최대치 경폭 확대|거래량 전일 대비 240% 폭증하며 매수 사이드카 견인|볼린저밴드 상단 돌파 후 밴드 라이딩 시작|ADX 35.2 추세 강도 최상위권 진입|OBV 수직 상승으로 강력한 매집 확인|Stochastic 82 과매수 초입의 강력한 탄력|Parabolic SAR 매수 신호 지속 유지|MFI 74 자금 유입 최정점 기록|Ichimoku 구름대 상단 지지 후 급등",
+          "signals": {
+            "trend_score": 98,
+            "momentum_score": 97,
+            "volume_score": 99,
+            "volatility_score": 92,
+            "pattern_score": 96,
+            "sentiment_score": 98,
+            "overall_score": 97
+          },
+          "verified_date": "2026-03-18"
+        },
+        {
+          "ticker": "KOSPI:402340",
+          "name": "SK스퀘어",
+          "close_price": 630000,
+          "rationale": "2026-03-18 종가 630,000원(+7.33%) 확인|SK하이닉스 지분가치 재평가 및 배당 수입 증가 기대|자사주 매입 및 소각 발표로 주주환원 모멘텀 강화|60일 평균 거래대금 1,730억 상회하는 유동성 유입|SMA 5일선 재탈환 및 기울기 가팔라짐|RSI 62.5 안정적 강세장 유지|MACD 시그널선 골든크로스 발생|PBR 0.8 수준의 여전한 저평가 메리트 부각|볼린저밴드 중심선 지지 후 상방 발산|ADX 28.4 추세 형성 초기 단계 안착|OBV 전고점 돌파로 매물대 완전 소화|Stochastic 74 상향 돌파 지속|Ichimoku 전환선/기준선 역전 현상 해소|SuperTrend Buy 신호 강력 발생|Force Index 누적 매수세 역대급 경신",
+          "signals": {
+            "trend_score": 92,
+            "momentum_score": 90,
+            "volume_score": 94,
+            "volatility_score": 88,
+            "pattern_score": 91,
+            "sentiment_score": 95,
+            "overall_score": 92
+          },
+          "verified_date": "2026-03-18"
+        },
+        {
+          "ticker": "KOSDAQ:403870",
+          "name": "HPSP",
+          "close_price": 51400,
+          "rationale": "2026-03-18 종가 51,400원(+13.51%) 확인|52주 최고가 경신하며 코스닥 반도체 대장주 등극|고압 수소 어닐링 장비 독점적 지위 및 실적 서프라이즈|GTC 2026 발 반도체 소부장 키맞추기 수혜|RSI 65.8 과매수 구간 미진입한 강력한 상승 탄력|EMA 20일선 강력 지지 후 대량 거래 동반 장대양봉|MACD 영선 위에서 확장 가속화|ATR 3.5% 변동성 확대 구역 진입으로 상방 변동성 극대화|ADX 32.1 상승 추세 확산 국면|OBV 우상향 각도 급격화|Stochastic 79 K-D선 이격 확대 상승|Parabolic SAR 점선 주가 하단 위치로 매수 신호|볼린저밴드 상단 확장 경로 진입|CCI +120 과열 초입 신호|Ichimoku 구름대 돌파 후 안착 성공",
+          "signals": {
+            "trend_score": 94,
+            "momentum_score": 95,
+            "volume_score": 96,
+            "volatility_score": 91,
+            "pattern_score": 93,
+            "sentiment_score": 94,
+            "overall_score": 94
+          },
+          "verified_date": "2026-03-18"
+        }
+      ],
+      "sentAt": "2026-03-18T22:37:07.402+00:00",
+      "subscriberCount": 252
+    },
+    {
+      "type": "stock",
       "date": "2026-03-18",
       "stocks": [
         {
@@ -5326,5 +5382,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-03-17T23:06:58.876Z"
+  "lastUpdated": "2026-03-18T23:05:52.635Z"
 }
