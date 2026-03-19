@@ -2,6 +2,7 @@ import { createOgLayout } from '@/lib/og-template';
 import { createOgImageResponse } from '@/lib/og-image-response';
 
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 export const alt = 'Stock Matrix - AI 주식 분석 뉴스레터';
 export const size = {
   width: 1200,

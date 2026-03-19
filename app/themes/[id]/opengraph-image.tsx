@@ -3,6 +3,7 @@ import { createOgLayout } from '@/lib/og-template';
 import { createOgImageResponse } from '@/lib/og-image-response';
 
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 export const alt = '테마 생명주기 분석 - Stock Matrix';
 export const size = {
   width: 1200,

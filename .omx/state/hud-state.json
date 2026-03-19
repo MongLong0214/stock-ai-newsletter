@@ -1,5 +1,5 @@
 {
-  "last_turn_at": "2026-03-19T01:42:03.901Z",
-  "turn_count": 55,
-  "last_agent_output": "네, 지금 기준으로는 완료됐고 배포해도 됩니다.\n\n확인된 상태는 이렇습니다.\n- `npm run build` 통과\n- 홈 메타 실제 렌더 확인\n- OG 이미지 실제 렌더 확인\n- "
+  "last_turn_at": "2026-03-19T01:53:54.609Z",
+  "turn_count": 56,
+  "last_agent_output": "정확히 말하면:\n\n- `npm run build` 로컬 검증은 제대로 했습니다.\n- 하지만 그건 `Vercel + pnpm install + 정적 OG 프리렌더` 경로까지 1:1로"
 }
