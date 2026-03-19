@@ -13,9 +13,9 @@ const fadeInUp = {
 // 핵심 기능 설명 데이터
 const FEATURES = [
   { title: 'AI가 30개 기술적 지표로 분석', detail: 'RSI, MACD, 볼린저밴드 등', highlight: false },
-  { title: 'KOSPI·KOSDAQ 3종목 선정', detail: '시장 분석과 투자 인사이트', highlight: false },
-  { title: '투자 테마 생명주기 추적', detail: '초기·성장·정점·쇠퇴·휴면 5단계 분석', highlight: false },
-  { title: '매일 오전 7시 30분 발송', detail: '이메일로 무료 제공', highlight: true },
+  { title: 'KOSPI·KOSDAQ 3종목 선정', detail: '이메일 뉴스레터로 매일 발송', highlight: true },
+  { title: '투자 테마 생명주기 추적', detail: '웹사이트에서 250+ 테마 5단계 분석 제공', highlight: false },
+  { title: '매일 오전 7시 30분 발송', detail: '광고 없이 무료 이메일 제공', highlight: false },
 ] as const;
 
 // 신뢰 지표 데이터

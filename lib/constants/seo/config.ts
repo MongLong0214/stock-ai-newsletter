@@ -18,6 +18,15 @@ export const siteConfig: SiteConfig = {
   markets: 'KOSPI·KOSDAQ',
 } as const;
 
+/** OG/Twitter 이미지 캐시 버스팅용 버전 */
+export const OG_IMAGE_VERSION = '20260319-og-v2';
+
+/** 외부 크롤러 캐시를 깨기 위해 이미지 URL에 버전 쿼리 부여 */
+export function withOgImageVersion(pathOrUrl: string): string {
+  const separator = pathOrUrl.includes('?') ? '&' : '?';
+  return `${pathOrUrl}${separator}v=${OG_IMAGE_VERSION}`;
+}
+
 /**
  * Schema.org @id 체계 — 엔티티 그래프 상호참조용
  * Google Search Central: Organization → WebSite → WebPage → Article 체인 필수

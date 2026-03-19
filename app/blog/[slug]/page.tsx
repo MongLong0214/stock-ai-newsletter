@@ -4,7 +4,7 @@ import Link from 'next/link';
 import type { Metadata } from 'next';
 import { ArrowLeft, Calendar, Tag } from 'lucide-react';
 
-import { siteConfig } from '@/lib/constants/seo/config';
+import { siteConfig, withOgImageVersion } from '@/lib/constants/seo/config';
 import { getServerSupabaseClient } from '@/lib/supabase/server-client';
 import { parseMarkdown } from '../_utils/markdown-parser';
 import { formatDateKo } from '../_utils/date-formatter';
@@ -60,7 +60,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const title = post.meta_title || post.title;
   const description = post.meta_description || post.description;
   const url = `${siteConfig.domain}/blog/${slug}`;
-  const ogImageUrl = `${siteConfig.domain}/blog/${slug}/opengraph-image`;
+  const ogImageUrl = withOgImageVersion(`${siteConfig.domain}/blog/${slug}/opengraph-image`);
 
   return {
     title,
@@ -82,8 +82,16 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     twitter: { card: 'summary_large_image', title, description, images: [ogImageUrl] },
     alternates: { canonical: url },
     robots: {
-      index: true, follow: true,
-      googleBot: { index: true, follow: true, 'max-video-preview': -1, 'max-image-preview': 'large', 'max-snippet': -1 },
+      // description 150자 미만인 글은 콘텐츠 부실 판단 → noindex (검색 이탈 신호 방지)
+      index: (description?.length ?? 0) >= 150,
+      follow: true,
+      googleBot: {
+        index: (description?.length ?? 0) >= 150,
+        follow: true,
+        'max-video-preview': -1,
+        'max-image-preview': 'large',
+        'max-snippet': -1,
+      },
     },
   };
 }
