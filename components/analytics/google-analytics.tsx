@@ -21,7 +21,7 @@ export default function GoogleAnalytics() {
           window.gtag = window.gtag || gtag;
           gtag('js', new Date());
           gtag('config', '${GA_MEASUREMENT_ID}', {
-            send_page_view: false,
+            send_page_view: true,
             debug_mode: ${process.env.NODE_ENV !== 'production'}
           });
         `}

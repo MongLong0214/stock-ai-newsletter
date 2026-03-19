@@ -82,6 +82,7 @@ export const metadata: Metadata = {
     google: '3SavpxZkoJOuLHdnV94F9xjHNL7rPyyTJjQGbfttv5g',
     other: {
       'naver-site-verification': '5ce857b8cfd4c2e2b15181ee3029b6fce6590c18',
+      ...(process.env.BING_SITE_VERIFICATION ? { 'msvalidate.01': process.env.BING_SITE_VERIFICATION } : {}),
     },
   },
   formatDetection: {
