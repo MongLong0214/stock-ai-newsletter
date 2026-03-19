@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { siteConfig, keywordsByCategory } from '@/lib/constants/seo';
+import { siteConfig, keywordsByCategory, withOgImageVersion } from '@/lib/constants/seo';
 
 export const metadata: Metadata = {
   title: '뉴스레터 분석 기록 - Stock Matrix AI 주식 분석',
@@ -30,7 +30,7 @@ export const metadata: Metadata = {
     type: 'website',
     images: [
       {
-        url: '/opengraph-image',
+        url: withOgImageVersion('/opengraph-image'),
         width: 1200,
         height: 630,
         alt: 'Stock Matrix 뉴스레터 분석 기록',
@@ -41,7 +41,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'Stock Matrix 뉴스레터 분석 기록',
     description: 'AI 주식 분석 뉴스레터 히스토리 확인',
-    images: ['/twitter-image'],
+    images: [withOgImageVersion('/twitter-image')],
   },
   robots: {
     index: true,

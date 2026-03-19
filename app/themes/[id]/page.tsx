@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import { createClient } from '@supabase/supabase-js'
-import { siteConfig, schemaIds, ensureKSTTimezone } from '@/lib/constants/seo/config'
+import { siteConfig, schemaIds, ensureKSTTimezone, withOgImageVersion } from '@/lib/constants/seo/config'
 import { STAGE_CONFIG } from '@/lib/tli/types'
 import DetailContent from './_components/detail-content'
 import ThemeDetailAnalytics from './_components/theme-detail-analytics'
@@ -131,7 +131,7 @@ export async function generateMetadata({
       siteName: siteConfig.serviceName,
       images: [
         {
-          url: `${siteConfig.domain}/themes/${id}/opengraph-image`,
+          url: withOgImageVersion(`${siteConfig.domain}/themes/${id}/opengraph-image`),
           width: 1200,
           height: 630,
           alt: `${theme.name} 테마 생명주기 분석`,
@@ -142,7 +142,7 @@ export async function generateMetadata({
       card: 'summary_large_image',
       title: `${title} | StockMatrix`,
       description,
-      images: [`${siteConfig.domain}/themes/${id}/opengraph-image`],
+      images: [withOgImageVersion(`${siteConfig.domain}/themes/${id}/opengraph-image`)],
     },
   }
 }
@@ -190,9 +190,9 @@ export default async function ThemeDetailPage({ params }: { params: Promise<{ id
       logo: { '@type': 'ImageObject', url: `${siteConfig.domain}/icon-512.png` },
     },
     image: [
-      { '@type': 'ImageObject', url: `${siteConfig.domain}/themes/${id}/opengraph-image`, width: 1200, height: 675 },
-      { '@type': 'ImageObject', url: `${siteConfig.domain}/themes/${id}/opengraph-image`, width: 1200, height: 900 },
-      { '@type': 'ImageObject', url: `${siteConfig.domain}/themes/${id}/opengraph-image`, width: 1200, height: 1200 },
+      { '@type': 'ImageObject', url: withOgImageVersion(`${siteConfig.domain}/themes/${id}/opengraph-image`), width: 1200, height: 675 },
+      { '@type': 'ImageObject', url: withOgImageVersion(`${siteConfig.domain}/themes/${id}/opengraph-image`), width: 1200, height: 900 },
+      { '@type': 'ImageObject', url: withOgImageVersion(`${siteConfig.domain}/themes/${id}/opengraph-image`), width: 1200, height: 1200 },
     ],
     mainEntityOfPage: { '@type': 'WebPage', '@id': schemaIds.pageId(`/themes/${id}`) },
     isPartOf: { '@id': schemaIds.website },
