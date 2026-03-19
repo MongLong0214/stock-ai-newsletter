@@ -3,7 +3,49 @@
 > **작성**: team-ga4-optimization (strategist + frontend + domain + boomer)
 > **날짜**: 2026-03-19
 > **GA4 분석 기간**: 2026-03-13 ~ 2026-03-17 (5일)
-> **상태**: DRAFT — Boomer 검증 대기
+> **상태**: FINAL — Boomer 검증 완료 (PROCEED_WITH_CAUTION)
+
+---
+
+## Boomer 검증 결과 요약
+
+> **판정**: PROCEED_WITH_CAUTION
+> **검증 도구**: Codex CLI (gpt-5.4, xhigh reasoning)
+
+### 핵심 반론 3건 (반영됨)
+
+| # | 반론 | 대응 |
+|---|------|------|
+| BC1 | `send_page_view:false`를 단일 원인으로 특정했으나 네트워크/타이밍 변수 미검증. P0 후에도 30~50% 미발화 가능성 | DebugView 검증 48시간→**1주 확대**, PV 95% 미달 시 에스컬레이션 |
+| BC2 | BFCache 복원 시 send_page_view:true + pageshow → page_view 중복 발화 리스크 | RouteTracker skip 조건 + **중복 제거 플래그** 스펙 추가 (R1.2) |
+| BC6 | R2.6(Level 2) 메타 변경 구체안 부재 — 승인 판단 근거 없음 | Phase 2 진행 전 **메타 백업 + 기존 vs 신규 비교표** Isaac에게 사전 제출 |
+
+### 재조정 사항 (반영됨)
+
+| 항목 | 기존 | 재조정 |
+|------|------|--------|
+| 일정 | 8~11일 | **2.5주** (Phase 검증 기간 포함) |
+| R2.6 vs R2.2 순서 | 동시 | R2.6(메타) 먼저 → 효과 가시화 1~2주 → R2.2(Hero) |
+| AI 챗봇 분류 | P3 (Low) | **P2+ (Medium)** 상향 — engagement 최상급 |
+| CTA 전환율 8% 목표 | 확정 | **가설** — A/B 테스트 설계 필요 |
+| 재방문율 10% 목표 | 확정 | **가설** — 신규 획득 증가 후 자연 증가 관찰 먼저 |
+
+### 진행 게이트 3개
+
+| 게이트 | 담당 | 기준 | 충족 시 |
+|--------|------|------|---------|
+| GA1 | frontend | PV 발화율 95%+, (not set) <10% (1주 검증) | Phase 2 진행 |
+| GA2 | domain + Isaac | R2.6 메타 변경안 + 백업 + Isaac 승인 | R2.6 착수 |
+| GA3 | strategist | P1 A/B 실험 설계 (가설/MDE/샘플수) | Hero 변경 착수 |
+
+### 확신도 매트릭스
+
+| KPI | 현재 → 목표 | 확신도 |
+|-----|------------|--------|
+| page_view 발화율 58%→95% | 높음 (P0만으로 달성 가능) |
+| 이탈률 82%→60% | 중간 (P0+P1 모두 성공 필요) |
+| CTA 전환율 4.4%→8% | 낮음 (A/B 결과 의존) |
+| 재방문율 5%→10% | 낮음 (신규 증가 선행 필요) |
 
 ---
 
@@ -351,47 +393,49 @@ lib/analytics/ga.ts > pageview()
 
 ---
 
-## Implementation Phases
+## Implementation Phases (Boomer 재조정 반영)
 
-### Phase 1: 측정 정상화 (1주) — P0
+### Phase 1: 측정 정상화 (1주 구현 + 1주 검증 = 2주) — P0
 
 | 단계 | 에이전트 | 작업 | Size |
 |------|---------|------|------|
-| 1 | frontend | R1.1 send_page_view:true + 중복 방지 | S |
-| 2 | frontend | R1.2 dataLayer 큐잉 + BFCache 대응 | S |
-| 3 | — | R1.3 GA4 DebugView 48시간 모니터링 | S |
+| 1 | frontend | R1.1 send_page_view:true + RouteTracker skip 조건 명시 + 중복 방지 플래그 | S |
+| 2 | frontend | R1.2 dataLayer 큐잉 + BFCache pageshow 대응 + 큐 상한선 정의 | S |
+| 3 | — | R1.3 GA4 DebugView **1주 모니터링** (48시간→확대) | S |
 
-**Gate**: (not set) <10%, PV 발화율 >95% → Phase 2 진행
+**Gate GA1**: (not set) <10%, PV 발화율 >95% → Phase 2 진행. **미달 시 에스컬레이션.**
 
 ### Phase 2: 첫인상 개선 (2주) — P1
 
-> Phase 1 검증 완료 + 정상화된 데이터 1주 수집 후 시작
+> Phase 1 GA1 게이트 통과 후 시작. R2.6은 GA2+GA3 게이트 별도.
 
-| 단계 | 에이전트 | 작업 | Size |
-|------|---------|------|------|
-| 4 | frontend | R2.1 Hero 즉시 가시화 + AnimatedBackground lazy | S |
-| 5 | frontend | R2.3 모바일 Parallax 비활성 + scrollRestoration | S |
-| 6 | frontend | R2.4 CTA 카피 구체화 | S |
-| 7 | frontend | R2.5 scroll depth 추적 + 스크롤 유도 | M |
-| 8 | frontend | R2.2 Hero Value Prop + 실시간 테마 | M |
-| 9 | domain | R2.7 문제 블로그 noindex + description 기준 | S |
-| 10 | frontend+domain | R2.6 검색 의도 랜딩 [Level 2 — Isaac 승인] | L |
+| 단계 | 에이전트 | 작업 | Size | 비고 |
+|------|---------|------|------|------|
+| 4 | domain | R2.6 메타 변경안 초안 + 기존 백업 → Isaac 제출 | L | **GA2: Isaac 승인 대기** |
+| 5 | domain | R2.7 문제 블로그 noindex + description 기준 | S | GA2와 병렬 |
+| 6 | frontend | R2.1 Hero 즉시 가시화 + AnimatedBackground lazy | S | 병렬 |
+| 7 | frontend | R2.3 모바일 Parallax 비활성 + scrollRestoration | S | 병렬 |
+| 8 | frontend | R2.4 CTA 카피 구체화 | S | 병렬 |
+| 9 | frontend | R2.5 scroll depth 추적 + 스크롤 유도 | M | |
+| 10 | strategist | **GA3: A/B 실험 설계** (가설/MDE/샘플수) | — | Hero 변경 전 필수 |
+| 11 | frontend | R2.2 Hero Value Prop + 실시간 테마 | M | GA3 통과 후 |
+| 12 | domain | R2.6 메타 변경 실행 | L | **GA2 Isaac 승인 후** |
 
-**Gate**: 25% 스크롤 도달률 30%+, 네이버 이탈률 70% 이하
+**Gate**: 25% 스크롤 도달률 30%+, 네이버 이탈률 70% 이하 (2주 측정)
 
 ### Phase 3: 리텐션 + 성장 (2주) — P2+P3 (병렬)
 
 | 단계 | 에이전트 | 작업 | Size |
 |------|---------|------|------|
-| 11 | backend | R3.1 뉴스레터 UTM 딥링크 | S |
-| 12 | frontend | R3.4 Sticky 모바일 CTA | S |
-| 13 | frontend | R3.2 구독 온보딩 Thank-you | M |
-| 14 | frontend | R3.3 /archive 크로스링크 + CTA | M |
-| 15 | domain | R4.1 AI 챗봇 Schema 강화 | S |
-| 16 | domain | R4.2 Bing + IndexNow 활성화 | S |
-| 17 | domain | R4.3 테마↔블로그 크로스링크 | S |
+| 13 | backend | R3.1 뉴스레터 UTM 딥링크 | S |
+| 14 | frontend | R3.4 Sticky 모바일 CTA | S |
+| 15 | frontend | R3.2 구독 온보딩 Thank-you | M |
+| 16 | frontend | R3.3 /archive 크로스링크 + CTA | M |
+| 17 | domain | R4.1 AI 챗봇 Schema 강화 (**P2+ 상향**) | S |
+| 18 | domain | R4.2 Bing + IndexNow 활성화 | S |
+| 19 | domain | R4.3 테마↔블로그 크로스링크 | S |
 
-**Gate**: utm_source=newsletter 추적 가능, 재방문율 10%+
+**Gate**: utm_source=newsletter 추적 가능, 재방문율 관찰 (목표는 가설 — 신규 증가 후 자연 추이 관찰)
 
 ---
 
@@ -424,13 +468,20 @@ lib/analytics/ga.ts > pageview()
 
 ---
 
-## Sprint 요약
+## Sprint 요약 (Boomer 재조정 반영)
 
 ```
-Phase 1 (P0): S x3 / ~2일 / frontend
-Phase 2 (P1): S x4 + M x2 + L x1 / ~5일 / frontend + domain
+Phase 1 (P0): S x3 / 구현 2일 + 검증 1주 / frontend
+Phase 2 (P1): S x4 + M x2 + L x1 / ~7일 / frontend + domain + strategist
+  ※ R2.6(메타) 먼저 → R2.2(Hero) 순차. GA2/GA3 게이트 포함.
 Phase 3 (P2+P3): S x5 + M x2 / ~4일 / frontend + backend + domain
+  ※ AI 챗봇 R4.1 → P2+ 상향
 
-총: ~11일 (병렬 최적화 시 ~8일)
-Level 2 트리거: R2.6만
+총: ~2.5주 (Phase 검증 기간 포함, 순차)
+Level 2 트리거: R2.6만 (Isaac 승인 필수)
+
+진행 조건:
+  Phase 1 완료 → GA1 게이트 통과 → Phase 2
+  GA2(메타 변경안 Isaac 승인) + GA3(A/B 설계) → R2.2 + R2.6
+  Phase 2 완료 → Phase 3
 ```
