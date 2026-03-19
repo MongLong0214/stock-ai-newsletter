@@ -7,19 +7,19 @@ const ogFontData = Promise.all([
   readFile(
     join(
       process.cwd(),
-      'node_modules/@fontsource/noto-sans-kr/files/noto-sans-kr-korean-400-normal.woff'
+      'fonts/noto-sans-kr/noto-sans-kr-korean-400-normal.woff'
     )
   ),
   readFile(
     join(
       process.cwd(),
-      'node_modules/@fontsource/noto-sans-kr/files/noto-sans-kr-korean-500-normal.woff'
+      'fonts/noto-sans-kr/noto-sans-kr-korean-500-normal.woff'
     )
   ),
   readFile(
     join(
       process.cwd(),
-      'node_modules/@fontsource/noto-sans-kr/files/noto-sans-kr-korean-700-normal.woff'
+      'fonts/noto-sans-kr/noto-sans-kr-korean-700-normal.woff'
     )
   ),
 ]);
