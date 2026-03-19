@@ -9,13 +9,13 @@
  * - inLanguage, isPartOf, speakable xPath
  */
 
-import { siteConfig, schemaIds, ensureKSTTimezone } from '@/lib/constants/seo/config';
+import { siteConfig, schemaIds, ensureKSTTimezone, withOgImageVersion } from '@/lib/constants/seo/config';
 import type { BlogPost, BlogPostCreateInput, FAQItem, SchemaData } from '../_types/blog';
 
 function createArticleSchema(post: BlogPost, slug: string) {
   const wordCount = post.content ? post.content.replace(/<[^>]*>/g, '').split(/\s+/).length : undefined;
   const url = `${siteConfig.domain}/blog/${slug}`;
-  const ogImage = `${url}/opengraph-image`;
+  const ogImage = withOgImageVersion(`${url}/opengraph-image`);
 
   return {
     '@context': 'https://schema.org',

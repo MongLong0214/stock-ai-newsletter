@@ -15,6 +15,7 @@ import {
   socialConfig,
   schemaConfig,
   allKeywords,
+  withOgImageVersion,
 } from '@/lib/constants/seo';
 import { schemaIds } from '@/lib/constants/seo/config';
 
@@ -48,7 +49,7 @@ export const metadata: Metadata = {
     siteName: 'StockMatrix',
     images: [
       {
-        url: '/opengraph-image',
+        url: withOgImageVersion('/opengraph-image'),
         width: 1200,
         height: 630,
         alt: `${siteConfig.serviceName} - AI 주식 분석`,
@@ -61,7 +62,7 @@ export const metadata: Metadata = {
     description: metadataConfig.descriptionShort,
     creator: socialConfig.handle,
     site: socialConfig.handle,
-    images: ['/twitter-image'],
+    images: [withOgImageVersion('/twitter-image')],
   },
   robots: {
     index: true,
