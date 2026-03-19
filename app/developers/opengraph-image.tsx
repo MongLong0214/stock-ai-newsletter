@@ -2,6 +2,7 @@ import { createOgLayout } from '@/lib/og-template';
 import { createOgImageResponse } from '@/lib/og-image-response';
 
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 export const alt = 'Stock Matrix - MCP 서버 개발자 가이드';
 export const size = {
   width: 1200,
