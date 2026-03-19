@@ -1,6 +1,6 @@
-import { createClient } from '@supabase/supabase-js';
 import { createOgLayout } from '@/lib/og-template';
 import { createOgImageResponse } from '@/lib/og-image-response';
+import { getThemeSeoData } from './theme-seo-data';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -20,43 +20,14 @@ const STAGE_LABELS: Record<string, { label: string; color: string }> = {
   Dormant: { label: '휴면', color: '#64748B' },
 };
 
-async function getThemeData(id: string) {
-  try {
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co',
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-key',
-      { auth: { persistSession: false } }
-    );
-
-    const { data: theme } = await supabase
-      .from('themes')
-      .select('name, description')
-      .eq('id', id)
-      .eq('is_active', true)
-      .maybeSingle();
-
-    const { data: score } = await supabase
-      .from('lifecycle_scores')
-      .select('score, stage')
-      .eq('theme_id', id)
-      .order('calculated_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    return { theme, score };
-  } catch {
-    return { theme: null, score: null };
-  }
-}
-
 export default async function Image({ params }: { params: { id: string } }) {
   const { id } = params;
-  const { theme, score } = await getThemeData(id);
+  const theme = await getThemeSeoData(id);
 
   const name = theme?.name || '테마 분석';
-  const stageKey = score?.stage || 'Emerging';
+  const stageKey = theme?.stage || 'Emerging';
   const stageInfo = STAGE_LABELS[stageKey] || STAGE_LABELS.Emerging;
-  const scoreValue = score?.score ?? '--';
+  const scoreValue = theme?.score ?? '--';
 
   return createOgImageResponse(
     createOgLayout({
