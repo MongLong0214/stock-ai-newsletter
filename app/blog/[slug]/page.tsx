@@ -82,8 +82,16 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     twitter: { card: 'summary_large_image', title, description, images: [ogImageUrl] },
     alternates: { canonical: url },
     robots: {
-      index: true, follow: true,
-      googleBot: { index: true, follow: true, 'max-video-preview': -1, 'max-image-preview': 'large', 'max-snippet': -1 },
+      // description 150자 미만인 글은 콘텐츠 부실 판단 → noindex (검색 이탈 신호 방지)
+      index: (description?.length ?? 0) >= 150,
+      follow: true,
+      googleBot: {
+        index: (description?.length ?? 0) >= 150,
+        follow: true,
+        'max-video-preview': -1,
+        'max-image-preview': 'large',
+        'max-snippet': -1,
+      },
     },
   };
 }

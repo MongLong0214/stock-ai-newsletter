@@ -222,6 +222,23 @@ function generateNewsletterHTML(data: StockNewsletterData, email: string): strin
             </td>
           </tr>
 
+          <!-- Web Links -->
+          <tr>
+            <td style="padding: 16px 40px 0; text-align: center;">
+              <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin: 0 auto;">
+                <tr>
+                  <td style="padding: 0 8px;">
+                    <a href="${process.env.NEXT_PUBLIC_APP_URL || 'https://stockmatrix.co.kr'}/themes?utm_source=newsletter&utm_medium=email&utm_campaign=daily" style="font-size: 12px; color: #10B981; text-decoration: none; font-weight: 500;">오늘의 테마 랭킹 →</a>
+                  </td>
+                  <td style="padding: 0 8px; color: #E2E8F0;">|</td>
+                  <td style="padding: 0 8px;">
+                    <a href="${process.env.NEXT_PUBLIC_APP_URL || 'https://stockmatrix.co.kr'}/archive?utm_source=newsletter&utm_medium=email&utm_campaign=daily" style="font-size: 12px; color: #10B981; text-decoration: none; font-weight: 500;">지난 뉴스레터 →</a>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
           <!-- Footer -->
           <tr>
             <td style="padding: 32px 40px; background-color: #F8FAFC; border-radius: 0 0 8px 8px; text-align: center;">
