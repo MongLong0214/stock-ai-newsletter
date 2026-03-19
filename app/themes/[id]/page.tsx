@@ -1,73 +1,26 @@
 import type { Metadata } from 'next'
-import { createClient } from '@supabase/supabase-js'
 import { siteConfig, schemaIds, ensureKSTTimezone, withOgImageVersion } from '@/lib/constants/seo/config'
+import { getServerSupabaseClient } from '@/lib/supabase/server-client'
 import { STAGE_CONFIG } from '@/lib/tli/types'
 import DetailContent from './_components/detail-content'
 import ThemeDetailAnalytics from './_components/theme-detail-analytics'
+import { getThemeSeoData } from './theme-seo-data'
 
 /** 10분마다 재검증 (ISR) */
 export const revalidate = 600
 
-/** Supabase 클라이언트 (페이지 내부용) */
-function getSupabase() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co',
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-key',
-    { auth: { persistSession: false } }
-  )
-}
-
 /** 빌드 시 모든 활성 테마 ID 생성 (SSG) */
 export async function generateStaticParams() {
   try {
-    const { data } = await getSupabase()
+    const supabase = getServerSupabaseClient()
+    const { data } = await supabase
       .from('themes')
       .select('id')
       .eq('is_active', true)
-    return (data || []).map(t => ({ id: t.id }))
+
+    return (data || []).map((theme) => ({ id: theme.id }))
   } catch {
     return []
-  }
-}
-
-/** 테마 SEO용 풍부한 정보 조회 */
-async function getThemeSeoData(id: string) {
-  try {
-    const supabase = getSupabase()
-
-    const [themeRes, scoreRes, stocksRes] = await Promise.all([
-      supabase
-        .from('themes')
-        .select('name, name_en, description, keywords')
-        .eq('id', id)
-        .eq('is_active', true)
-        .maybeSingle(),
-      supabase
-        .from('lifecycle_scores')
-        .select('score, stage, calculated_at')
-        .eq('theme_id', id)
-        .order('calculated_at', { ascending: false })
-        .limit(1)
-        .maybeSingle(),
-      supabase
-        .from('theme_stocks')
-        .select('stock_name')
-        .eq('theme_id', id)
-        .order('market_cap', { ascending: false })
-        .limit(5),
-    ])
-
-    if (!themeRes.data) return null
-
-    return {
-      ...themeRes.data,
-      score: scoreRes.data?.score ?? null,
-      stage: scoreRes.data?.stage ?? null,
-      updatedAt: scoreRes.data?.calculated_at ?? null,
-      topStocks: (stocksRes.data ?? []).map(s => s.stock_name),
-    }
-  } catch {
-    return null
   }
 }
 
