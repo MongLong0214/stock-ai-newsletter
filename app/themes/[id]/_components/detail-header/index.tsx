@@ -27,6 +27,26 @@ function DetailHeader({ theme }: DetailHeaderProps) {
     return daysBetween(theme.firstSpikeDate, new Date().toISOString())
   }, [theme.firstSpikeDate])
 
+  const visibleKeywords = useMemo(() => {
+    const seen = new Set<string>()
+    const deduped: string[] = []
+
+    for (const keyword of theme.keywords) {
+      const normalized = keyword.trim()
+      if (!normalized || seen.has(normalized)) continue
+      seen.add(normalized)
+      deduped.push(normalized)
+    }
+
+    return deduped.slice(0, MAX_VISIBLE_KEYWORDS)
+  }, [theme.keywords])
+
+  const uniqueKeywordCount = useMemo(() => {
+    return new Set(
+      theme.keywords.map((keyword) => keyword.trim()).filter(Boolean),
+    ).size
+  }, [theme.keywords])
+
   return (
     <GlassCard className="p-4 sm:p-6 mb-6 sm:mb-8">
       <motion.div
@@ -51,10 +71,10 @@ function DetailHeader({ theme }: DetailHeaderProps) {
             {theme.description && <p className="text-slate-400 mt-2 max-w-2xl text-sm">{theme.description}</p>}
 
             {/* 키워드 태그 */}
-            {theme.keywords && theme.keywords.length > 0 && (
+            {visibleKeywords.length > 0 && (
               <div className="flex items-center flex-wrap gap-1.5 mt-3">
                 <Hash className="w-3.5 h-3.5 text-slate-600 shrink-0" />
-                {theme.keywords.slice(0, MAX_VISIBLE_KEYWORDS).map((keyword, i) => (
+                {visibleKeywords.map((keyword, i) => (
                   <motion.span
                     key={keyword}
                     initial={shouldReduceMotion ? false : { opacity: 0, scale: 0.8 }}
@@ -65,8 +85,8 @@ function DetailHeader({ theme }: DetailHeaderProps) {
                     {keyword}
                   </motion.span>
                 ))}
-                {theme.keywords.length > MAX_VISIBLE_KEYWORDS && (
-                  <span className="text-[10px] font-mono text-slate-600">+{theme.keywords.length - MAX_VISIBLE_KEYWORDS}</span>
+                {uniqueKeywordCount > visibleKeywords.length && (
+                  <span className="text-[10px] font-mono text-slate-600">+{uniqueKeywordCount - visibleKeywords.length}</span>
                 )}
               </div>
             )}

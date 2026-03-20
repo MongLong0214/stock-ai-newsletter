@@ -3,7 +3,7 @@ import {
   buildReplayPlan,
   buildRolloutReport,
   evaluateRolloutGate,
-} from '../comparison-v4-replay'
+} from '../research/comparison-v4-replay'
 
 describe('comparison v4 replay', () => {
   it('builds replay plan from dated runs without future leakage', () => {

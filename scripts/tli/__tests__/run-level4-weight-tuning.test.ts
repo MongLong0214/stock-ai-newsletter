@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildRunDateLookupMap } from '../run-level4-weight-tuning'
+import { buildRunDateLookupMap } from '../ops/run-level4-weight-tuning'
 
 describe('run-level4-weight-tuning runner helpers', () => {
   it('builds a stable run-date lookup map from run rows', () => {

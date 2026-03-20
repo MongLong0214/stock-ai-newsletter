@@ -39,6 +39,7 @@ interface PastInput {
   name: string
   sector: string
   sectorConfidence?: number
+  isActive?: boolean
 }
 
 export interface CompositeWeightConfig {
@@ -230,7 +231,9 @@ function buildMessage(current: CurrentInput, past: PastInput, ctx: MessageCtx): 
   if (ctx.pastTotalDays < 14) {
     position = `과거 데이터 ${ctx.pastTotalDays}일로 비교 신뢰도가 낮아요`
   } else if (ctx.currentDay >= ctx.pastTotalDays && ctx.pastTotalDays > 0) {
-    position = `${past.name}은 ${formatDays(ctx.pastTotalDays)} 만에 쇠퇴했지만, 현재 테마는 더 오래 지속 중이에요`
+    position = past.isActive === false
+      ? `${past.name}은 ${formatDays(ctx.pastTotalDays)} 만에 종료됐고, 현재 테마는 이를 넘어섰어요`
+      : `${past.name}의 현재 관측 구간(${formatDays(ctx.pastTotalDays)})을 넘어섰어요`
   } else if (ctx.estimatedDaysToPeak > 0) {
     position = `${past.name} 기준 진행률 ${Math.round((ctx.currentDay / ctx.pastTotalDays) * 100)}%, 정점까지 약 ${ctx.estimatedDaysToPeak}일 남음`
   } else if (ctx.pastPeakDay > 0) {

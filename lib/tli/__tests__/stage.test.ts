@@ -69,9 +69,9 @@ describe('determineStage (v2 Multi-Signal + Markov)', () => {
     expect(determineStage(30, c)).toBe('Decline')
   })
 
-  it('returns Growth for score >= 40 with stable trend', () => {
-    expect(determineStage(40, makeComponents())).toBe('Growth')
-    expect(determineStage(60, makeComponents())).toBe('Growth')
+  it('keeps scores below stage_growth in Emerging even when they clear stage_emerging', () => {
+    expect(determineStage(40, makeComponents())).toBe('Emerging')
+    expect(determineStage(60, makeComponents())).toBe('Emerging')
   })
 
   it('returns Emerging for mid-range score below Growth threshold', () => {
@@ -93,7 +93,7 @@ describe('determineStage (v2 Multi-Signal + Markov)', () => {
   })
 
   it('allows valid transitions (Decline → Growth)', () => {
-    expect(determineStage(60, makeComponents(), 'Decline')).toBe('Growth')
+    expect(determineStage(63, makeComponents(), 'Decline')).toBe('Growth')
   })
 
   it('clamps rapid Decline → Peak rebounds to Growth instead of keeping Decline', () => {

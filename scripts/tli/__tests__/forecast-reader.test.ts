@@ -5,8 +5,8 @@ import { describe, it, expect } from 'vitest'
 import {
   readForecastForTheme,
   type ForecastReaderResult,
-} from '../../../app/api/tli/themes/[id]/forecast-reader'
-import type { ControlPlaneState } from '../forecast-serving'
+} from '@/app/api/tli/themes/[id]/forecast-reader'
+import type { ControlPlaneState } from '@/scripts/tli/comparison/forecast-serving'
 
 const makeState = (overrides: Partial<ControlPlaneState> = {}): ControlPlaneState => ({
   productionVersion: 'v1.2.0',

@@ -1,4 +1,4 @@
-import { textToImage } from '../lib/text-to-image';
+import { textToImage } from '@/lib/text-to-image';
 import { writeFileSync } from 'fs';
 import { resolve } from 'path';
 

@@ -30,7 +30,7 @@ export const metadata: Metadata = {
     type: 'website',
     images: [
       {
-        url: withOgImageVersion('/opengraph-image'),
+        url: withOgImageVersion('/archive/opengraph-image'),
         width: 1200,
         height: 630,
         alt: 'Stock Matrix 뉴스레터 분석 기록',
@@ -41,7 +41,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'Stock Matrix 뉴스레터 분석 기록',
     description: 'AI 주식 분석 뉴스레터 히스토리 확인',
-    images: [withOgImageVersion('/twitter-image')],
+    images: [withOgImageVersion('/archive/opengraph-image')],
   },
   robots: {
     index: true,

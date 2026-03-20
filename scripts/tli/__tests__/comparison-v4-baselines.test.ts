@@ -10,7 +10,7 @@ import {
   MIN_ELIGIBLE_RUNS,
   MIN_UNIQUE_THEMES,
   evaluateMinimumTestCohort,
-} from '../comparison-v4-baselines'
+} from '../research/comparison-v4-baselines'
 
 describe('CMPV4-009: baseline definitions', () => {
   it('defines all 6 PRD-required baselines', () => {

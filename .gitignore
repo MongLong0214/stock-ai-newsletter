@@ -61,11 +61,5 @@ crash-alert-*.png
 .playwright-mcp/
 
 # TLI Optimizer data dumps
-scripts/tli-optimizer/historical-data.json
-scripts/tli-optimizer/optimized-params.json
-
-# Temp scripts
-.tmp-*.mjs
-
-# OMX local state
-.omx/
+scripts/tli/research/optimizer/historical-data.json
+scripts/tli/research/optimizer/optimized-params.json

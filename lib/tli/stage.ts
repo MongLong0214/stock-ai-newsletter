@@ -84,8 +84,8 @@ export function determineStage(
   ) {
     candidate = 'Decline';
   }
-  // 4. Growth: 중상위 점수 + 안정/상승 추세
-  else if (score >= t.emerging && (trend === 'stable' || trend === 'rising')) {
+  // 4. Growth: 성장 임계값 이상 + 안정/상승 추세
+  else if (score >= t.growth && (trend === 'stable' || trend === 'rising')) {
     candidate = 'Growth';
   }
   // 5. Emerging: 나머지 전부

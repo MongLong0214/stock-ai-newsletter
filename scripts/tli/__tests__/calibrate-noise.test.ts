@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { computeAUC, findOptimalThreshold, labelScoreRecords } from '../calibrate-noise'
+import { computeAUC, findOptimalThreshold, labelScoreRecords } from '@/scripts/tli/scoring/calibrate-noise'
 
 describe('computeAUC', () => {
   it('returns 1.0 for perfect classifier', () => {

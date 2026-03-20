@@ -1,6 +1,6 @@
 import { config } from 'dotenv'
 config({ path: '.env.local' })
-import { sleep, withRetry } from '../utils';
+import { sleep, withRetry } from '@/scripts/tli/shared/utils';
 
 interface NaverDatalabRequest {
   startDate: string;

@@ -101,6 +101,10 @@ describe('build-comparisons v2 support', () => {
     expect(result.featureSim).toBe(0.5)
     expect(result.pastPeakScore).toBe(82)
     expect(result.pastDeclineDays).toBe(10)
+    expect(result.observedWindowDays).toBe(30)
+    expect(result.completedCycleDays).toBe(30)
+    expect(result.cycleCompletionStatus).toBe('completed')
+    expect(result.isPastActive).toBe(false)
   })
 
   it('caps values at 365 for safety', () => {
@@ -128,6 +132,36 @@ describe('build-comparisons v2 support', () => {
     expect(result.currentDay).toBe(365)
     expect(result.pastTotalDays).toBe(365)
     expect(result.pastPeakDay).toBeLessThanOrEqual(result.pastTotalDays)
+  })
+
+  it('marks analogs without a final stage as observed-only instead of completed cycles', () => {
+    const candidate: V2CandidateForBuild = {
+      candidate_theme_id: 'past-1',
+      similarity_score: 0.72,
+      current_day: 41,
+      past_peak_day: 15,
+      past_total_days: 40,
+      estimated_days_to_peak: 0,
+      message: 'test message',
+      feature_sim: 0.5,
+      curve_sim: 0.7,
+      keyword_sim: 0.1,
+      past_peak_score: 82,
+      past_final_stage: null,
+      past_decline_days: 25,
+    }
+
+    const result = buildComparisonResultFromV2Candidate(candidate, {
+      pastThemeName: '관측 전용 테마',
+      lifecycleCurve: [],
+    })
+
+    expect(result.observedWindowDays).toBe(40)
+    expect(result.completedCycleDays).toBeNull()
+    expect(result.cycleCompletionStatus).toBe('observed')
+    expect(result.isPastActive).toBe(true)
+    expect(result.message).toContain('현재 관측 구간')
+    expect(result.message).not.toContain('쇠퇴했지만')
   })
 
   it('paginates lifecycle curve loading so the full comparison pool keeps its history', async () => {
@@ -190,5 +224,29 @@ describe('build-comparisons v2 support', () => {
       calibrationVersion: 'cal-2026-03-12',
       sourceSurface: 'v2_certification',
     })
+  })
+
+  it('normalizes stale active-peer payload text into observational wording', async () => {
+    const result = await buildComparisonResults([
+      {
+        id: 'cmp-3',
+        past_theme_id: 'past-1',
+        similarity_score: 0.97,
+        current_day: 41,
+        past_peak_day: 3,
+        past_total_days: 40,
+        message: 'legacy stale message',
+        feature_sim: 0.96,
+        curve_sim: 0,
+        keyword_sim: 0,
+        past_peak_score: 54,
+        past_final_stage: null,
+        past_decline_days: 37,
+      },
+    ] as never)
+
+    expect(result[0].comparisonLane).toBe('active_peer')
+    expect(result[0].message).toContain('현재 관측 구간')
+    expect(result[0].message).not.toContain('쇠퇴했지만')
   })
 })
