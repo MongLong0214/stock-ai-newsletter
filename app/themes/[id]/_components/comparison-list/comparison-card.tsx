@@ -9,7 +9,14 @@ import { formatDays } from '@/lib/tli/date-utils'
 import InfoTooltip from '@/components/tli/info-tooltip'
 import { TOOLTIP_TEXTS } from '@/lib/tli/constants/tooltip-texts'
 import PillarBars, { getSimilarityColor, getSimilarityBadge } from './pillar-bars'
-import { getConfidenceAlertText, shouldShowPeakEta } from './logic'
+import {
+  getConfidenceAlertText,
+  getIndependentFlowAlertText,
+  getComparisonPositionText,
+  getObservedWindowDays,
+  shouldShowIndependentFlowAlert,
+  shouldShowPeakEta,
+} from './logic'
 
 interface ComparisonCardProps {
   comp: ComparisonResult
@@ -24,20 +31,24 @@ export default function ComparisonCard({ comp, idx, isSelected, onToggle, isPreP
   const simColor = getSimilarityColor(comp.similarity)
   const simPercent = Math.min(99, Math.round(comp.similarity * 100))
   const badge = getSimilarityBadge(comp.similarity)
+  const laneLabel = comp.comparisonLane === 'completed_analog' ? '완결 아날로그' : '활성 피어'
+  const laneClass = comp.comparisonLane === 'completed_analog'
+    ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20'
+    : 'bg-sky-500/10 text-sky-300 border-sky-500/20'
 
   // "유사 근거. 위치 분석" 형식 분리 (첫 번째 '. '만 기준으로 분할)
   const dotIdx = comp.message.indexOf('. ')
   const basis = dotIdx >= 0 ? comp.message.slice(0, dotIdx) : comp.message
-  const position = dotIdx >= 0 ? comp.message.slice(dotIdx + 2) : undefined
+  const position = getComparisonPositionText(comp) || (dotIdx >= 0 ? comp.message.slice(dotIdx + 2) : undefined)
 
-  const progressPct = comp.pastTotalDays > 0
-    ? Math.min((comp.currentDay / comp.pastTotalDays) * 100, 100) : 0
-  const peakPct = comp.pastTotalDays > 0
-    ? Math.min((comp.pastPeakDay / comp.pastTotalDays) * 100, 100) : 0
+  const observedWindowDays = getObservedWindowDays(comp)
+  const progressPct = observedWindowDays > 0
+    ? Math.min((comp.currentDay / observedWindowDays) * 100, 100) : 0
+  const peakPct = observedWindowDays > 0
+    ? Math.min((comp.pastPeakDay / observedWindowDays) * 100, 100) : 0
 
-  const showTimeline = comp.pastTotalDays >= 14 && comp.pastPeakDay >= 3 && comp.pastPeakDay <= comp.pastTotalDays
-  // estimatedDaysToPeak === 0이면서 주기 초과 → 상호 배타적 (estimatedDaysToPeak > 0과 동시 불가)
-  const isBeyondCycle = comp.pastTotalDays > 0 && comp.currentDay >= comp.pastTotalDays && comp.estimatedDaysToPeak === 0
+  const showTimeline = observedWindowDays >= 14 && comp.pastPeakDay >= 3 && comp.pastPeakDay <= observedWindowDays
+  const independentFlowAlert = getIndependentFlowAlertText(comp)
   const confidenceAlert = getConfidenceAlertText(comp)
 
   return (
@@ -64,6 +75,12 @@ export default function ComparisonCard({ comp, idx, isSelected, onToggle, isPreP
             badge.bg, badge.text, badge.border,
           )}>
             {badge.label}
+          </span>
+          <span className={cn(
+            'inline-block mt-2 ml-2 text-[11px] font-mono px-2 py-0.5 rounded border',
+            laneClass,
+          )}>
+            {laneLabel}
           </span>
         </div>
         <div className="flex flex-col items-end shrink-0">
@@ -114,7 +131,7 @@ export default function ComparisonCard({ comp, idx, isSelected, onToggle, isPreP
           <div className="flex justify-between text-xs font-mono">
             <span className="text-slate-500">D+0</span>
             <span className="text-amber-400/80">정점 D+{comp.pastPeakDay}</span>
-            <span className="text-slate-500">D+{comp.pastTotalDays}</span>
+            <span className="text-slate-500">D+{observedWindowDays}</span>
           </div>
           <p className="text-xs font-mono text-slate-400">
             현재 <span className="text-emerald-400">{formatDays(comp.currentDay)}</span> 경과 · 과거 주기의 {Math.round(progressPct)}% 지점
@@ -122,7 +139,7 @@ export default function ComparisonCard({ comp, idx, isSelected, onToggle, isPreP
         </div>
       ) : (
         <p className="text-xs font-mono text-slate-600 text-center">
-          비교 데이터가 부족해요 (과거 주기 {comp.pastTotalDays}일)
+          비교 데이터가 부족해요 (관측 구간 {observedWindowDays}일)
         </p>
       )}
 
@@ -151,9 +168,9 @@ export default function ComparisonCard({ comp, idx, isSelected, onToggle, isPreP
           과거 패턴 기준, 정점까지 약 <span className="font-medium">{comp.estimatedDaysToPeak}일</span> 추정
         </AlertRow>
       )}
-      {isBeyondCycle && (
+      {shouldShowIndependentFlowAlert(comp) && independentFlowAlert && (
         <AlertRow color="purple">
-          {comp.pastTheme} 주기({formatDays(comp.pastTotalDays)})를 넘었어요 · 독자적 흐름 가능성
+          {independentFlowAlert}
         </AlertRow>
       )}
       {confidenceAlert && (

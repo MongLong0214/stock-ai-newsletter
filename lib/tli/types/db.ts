@@ -132,55 +132,12 @@ export interface LifecycleScore {
   components: ScoreComponents;
 }
 
-export interface ThemeComparison {
-  id: string;
-  current_theme_id: string;
-  past_theme_id: string;
-  similarity_score: number;
-  current_day: number;
-  past_peak_day: number;
-  past_total_days: number;
-  message: string;
-  calculated_at: string;
-  /** 3-Pillar 분해 점수 */
-  feature_sim: number | null;
-  curve_sim: number | null;
-  keyword_sim: number | null;
-  /** 과거 테마 결과 정보 */
-  past_peak_score: number | null;
-  past_final_stage: string | null;
-  past_decline_days: number | null;
-  /** 결과 검증 필드 */
-  outcome_verified?: boolean;
-  trajectory_correlation?: number | null;
-  stage_match?: boolean | null;
-  verified_at?: string | null;
-}
-
 /** Bootstrap prediction interval (B=1000, 90% CI) */
 export interface PredictionInterval {
   lower: number;
   upper: number;
   median: number;
   confidenceLevel: number;
-}
-
-export interface ComparisonCalibration {
-  id: string;
-  calculated_at: string;
-  total_verified: number;
-  avg_trajectory_corr: number | null;
-  stage_match_rate: number | null;
-  feature_corr_when_accurate: number | null;
-  curve_corr_when_accurate: number | null;
-  keyword_corr_when_accurate: number | null;
-  feature_corr_when_inaccurate: number | null;
-  curve_corr_when_inaccurate: number | null;
-  keyword_corr_when_inaccurate: number | null;
-  suggested_threshold: number | null;
-  suggested_sector_penalty: number | null;
-  details: Record<string, unknown> | null;
-  created_at: string;
 }
 
 import type { ComparisonRunType, ComparisonCandidatePool } from '../comparison/spec'
@@ -287,17 +244,6 @@ export interface ThemeStateHistoryV2 {
   closed_at: string | null
   first_spike_date: string | null
   state_version: string
-}
-
-export interface ComparisonBackfillManifestV2 {
-  manifest_id: string
-  source_table: string
-  source_row_count: number
-  target_row_count: number
-  row_count_parity_ok: boolean
-  sample_contract_parity_ok: boolean
-  executed_at: string
-  notes: string | null
 }
 
 export interface ComparisonV4Control {

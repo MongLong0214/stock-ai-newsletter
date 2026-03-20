@@ -3,6 +3,7 @@
  */
 
 import { supabase } from '@/lib/supabase'
+import { formatDays } from '@/lib/tli/date-utils'
 import type { ComparisonResult, LifecycleCurvePoint } from '@/lib/tli/types/api'
 
 // ── v2 candidate → ComparisonResult 변환 ──
@@ -23,6 +24,43 @@ export interface V2CandidateForBuild {
   past_decline_days: number | null
 }
 
+function buildNormalizedComparisonMessage(input: {
+  pastThemeName: string
+  currentDay: number
+  pastPeakDay: number
+  pastTotalDays: number
+  estimatedDaysToPeak: number
+  isCompletedCycle: boolean
+  completedCycleDays: number | null
+}) {
+  if (input.pastTotalDays < 14) {
+    return `과거 데이터 ${input.pastTotalDays}일로 비교 신뢰도가 낮아요`
+  }
+
+  if (
+    input.isCompletedCycle
+    && input.completedCycleDays != null
+    && input.currentDay > input.completedCycleDays
+    && input.estimatedDaysToPeak === 0
+  ) {
+    return `${input.pastThemeName} 완결 주기(${formatDays(input.completedCycleDays)})를 넘어섰어요`
+  }
+
+  if (input.currentDay >= input.pastTotalDays && input.estimatedDaysToPeak === 0) {
+    return `${input.pastThemeName}의 현재 관측 구간(${formatDays(input.pastTotalDays)})을 넘어섰어요`
+  }
+
+  if (input.estimatedDaysToPeak > 0) {
+    return `${input.pastThemeName} 기준 진행률 ${Math.round((input.currentDay / input.pastTotalDays) * 100)}%, 정점까지 약 ${input.estimatedDaysToPeak}일 남음`
+  }
+
+  if (input.pastPeakDay > 0) {
+    return `${input.pastThemeName} 정점(${input.pastPeakDay}일차) 부근 진입 추정`
+  }
+
+  return '초기 단계, 추세 확인 중'
+}
+
 export const buildComparisonResultFromV2Candidate = (
   candidate: V2CandidateForBuild,
   context: {
@@ -33,16 +71,31 @@ export const buildComparisonResultFromV2Candidate = (
   const pastTotalDays = Math.min(candidate.past_total_days, 365)
   const currentDay = Math.min(candidate.current_day, 365)
   const pastPeakDay = Math.min(candidate.past_peak_day, pastTotalDays)
+  const completedCycleDays = candidate.past_final_stage ? pastTotalDays : null
+  const estimatedDaysToPeak = Math.min(candidate.estimated_days_to_peak, 365)
 
   return {
     pastTheme: context.pastThemeName,
     pastThemeId: candidate.candidate_theme_id,
+    comparisonLane: candidate.past_final_stage ? 'completed_analog' : 'active_peer',
     similarity: candidate.similarity_score,
     currentDay,
     pastPeakDay,
     pastTotalDays,
-    estimatedDaysToPeak: Math.min(candidate.estimated_days_to_peak, 365),
-    message: candidate.message ?? '',
+    observedWindowDays: pastTotalDays,
+    completedCycleDays,
+    cycleCompletionStatus: candidate.past_final_stage ? 'completed' : 'observed',
+    isPastActive: candidate.past_final_stage == null,
+    estimatedDaysToPeak,
+    message: buildNormalizedComparisonMessage({
+      pastThemeName: context.pastThemeName,
+      currentDay,
+      pastPeakDay,
+      pastTotalDays,
+      estimatedDaysToPeak,
+      isCompletedCycle: candidate.past_final_stage != null,
+      completedCycleDays,
+    }),
     lifecycleCurve: context.lifecycleCurve,
     featureSim: candidate.feature_sim ?? null,
     curveSim: candidate.curve_sim ?? null,
@@ -156,16 +209,31 @@ export async function buildComparisonResults(
     const currentDay = Math.min(comp.current_day, 365)
     const pastPeakDay = Math.min(comp.past_peak_day, pastTotalDays)
     const estimatedDaysToPeak = pastPeakDay > 0 ? Math.max(0, pastPeakDay - currentDay) : 0
+    const completedCycleDays = comp.past_final_stage ? pastTotalDays : null
+    const pastThemeName = pastThemeNames[comp.past_theme_id] ?? 'Unknown'
 
     return {
-      pastTheme: pastThemeNames[comp.past_theme_id] ?? 'Unknown',
+      pastTheme: pastThemeName,
       pastThemeId: comp.past_theme_id,
+      comparisonLane: comp.past_final_stage ? 'completed_analog' : 'active_peer',
       similarity: comp.similarity_score,
       currentDay,
       pastPeakDay,
       pastTotalDays,
+      observedWindowDays: pastTotalDays,
+      completedCycleDays,
+      cycleCompletionStatus: comp.past_final_stage ? 'completed' : 'observed',
+      isPastActive: comp.past_final_stage == null,
       estimatedDaysToPeak,
-      message: comp.message ?? '',
+      message: buildNormalizedComparisonMessage({
+        pastThemeName,
+        currentDay,
+        pastPeakDay,
+        pastTotalDays,
+        estimatedDaysToPeak,
+        isCompletedCycle: comp.past_final_stage != null,
+        completedCycleDays,
+      }),
       lifecycleCurve: pastThemeCurves[comp.past_theme_id] || [],
       featureSim: comp.feature_sim ?? null,
       curveSim: comp.curve_sim ?? null,

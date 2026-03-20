@@ -12,7 +12,7 @@ import {
   isServingAllowed,
   loadRollbackTarget,
   type ControlPlaneState,
-} from '../forecast-serving'
+} from '@/scripts/tli/comparison/forecast-serving'
 
 // --- Test helpers ---
 

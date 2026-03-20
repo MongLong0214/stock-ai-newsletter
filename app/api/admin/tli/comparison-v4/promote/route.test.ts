@@ -19,11 +19,11 @@ vi.mock('@/scripts/tli/level4/promotion-runtime', () => ({
 }))
 
 // backfill guard: 항상 완료 상태로 mock
-vi.mock('@/scripts/tli/theme-state-history', () => ({
+vi.mock('@/scripts/tli/themes/theme-state-history', () => ({
   isStateHistoryBackfillComplete: () => true,
 }))
 
-vi.mock('@/scripts/tli/supabase-admin', () => ({
+vi.mock('@/scripts/tli/shared/supabase-admin', () => ({
   supabaseAdmin: {
     from: () => ({
       select: () => ({

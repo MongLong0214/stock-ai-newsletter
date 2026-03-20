@@ -1,5 +1,5 @@
 import * as cheerio from 'cheerio'
-import { sleep, withRetry } from '../utils'
+import { sleep, withRetry } from '@/scripts/tli/shared/utils'
 
 export interface DiscoveredTheme {
   name: string

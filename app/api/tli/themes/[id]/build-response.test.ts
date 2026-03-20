@@ -64,6 +64,59 @@ describe('buildThemeDetailResponse', () => {
     })
   })
 
+  it('preserves cycle-completion comparison metadata in the ThemeDetail payload', () => {
+    const comparison: ComparisonResult = {
+      pastTheme: 'Past Theme',
+      pastThemeId: 'past-1',
+      similarity: 0.73,
+      currentDay: 41,
+      pastPeakDay: 20,
+      pastTotalDays: 40,
+      observedWindowDays: 40,
+      completedCycleDays: null,
+      cycleCompletionStatus: 'observed',
+      isPastActive: true,
+      estimatedDaysToPeak: 0,
+      message: 'sample',
+      lifecycleCurve: [],
+      featureSim: 0.5,
+      curveSim: 0.7,
+      keywordSim: 0.1,
+      pastPeakScore: 82,
+      pastFinalStage: null,
+      pastDeclineDays: null,
+    }
+
+    const result = buildThemeDetailResponse({
+      theme: {
+        id: 'theme-1',
+        name: 'Theme 1',
+        name_en: null,
+        description: null,
+        first_spike_date: '2026-01-01',
+      },
+      latestScore: null,
+      dayAgoScore: null,
+      weekAgoScore: null,
+      stockCount: 0,
+      stocks: [],
+      newsCount: 0,
+      newsArticles: [],
+      keywords: [],
+      comparisonResults: [comparison],
+      allScores: [],
+      newsList: [],
+      interestList: [],
+    })
+
+    expect(result.comparisons[0]).toMatchObject({
+      observedWindowDays: 40,
+      completedCycleDays: null,
+      cycleCompletionStatus: 'observed',
+      isPastActive: true,
+    })
+  })
+
   it('includes forecast, analog evidence, and control-plane metadata when present', () => {
     const result = buildThemeDetailResponse({
       theme: {
@@ -88,5 +141,31 @@ describe('buildThemeDetailResponse', () => {
     })
 
     expect(result.comparisons).toEqual([])
+  })
+
+  it('deduplicates repeated keywords in the ThemeDetail payload', () => {
+    const result = buildThemeDetailResponse({
+      theme: {
+        id: 'theme-1',
+        name: 'Theme 1',
+        name_en: null,
+        description: null,
+        first_spike_date: '2026-01-01',
+      },
+      latestScore: null,
+      dayAgoScore: null,
+      weekAgoScore: null,
+      stockCount: 0,
+      stocks: [],
+      newsCount: 0,
+      newsArticles: [],
+      keywords: ['전기자전거', ' 전기자전거 ', '전고체', '전고체', ''],
+      comparisonResults: [],
+      allScores: [],
+      newsList: [],
+      interestList: [],
+    })
+
+    expect(result.keywords).toEqual(['전기자전거', '전고체'])
   })
 })

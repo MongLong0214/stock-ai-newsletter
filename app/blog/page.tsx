@@ -91,13 +91,13 @@ export const metadata: Metadata = {
     siteName: siteConfig.serviceName,
     type: 'website',
     locale: 'ko_KR',
-    images: [{ url: withOgImageVersion('/opengraph-image'), width: 1200, height: 630, alt: 'Stock Matrix 블로그' }],
+    images: [{ url: withOgImageVersion('/blog/opengraph-image'), width: 1200, height: 630, alt: 'Stock Matrix 블로그' }],
   },
   twitter: {
     card: 'summary_large_image',
     title: 'AI 주식 분석 블로그 - Stock Matrix',
     description: 'AI 주식 분석, 뉴스레터 추천, 기술적 분석 가이드 등 주식 투자에 필요한 모든 정보를 제공합니다. RSI·MACD·볼린저밴드 30개 지표 활용법과 테마 트렌드 분석을 확인하세요.',
-    images: [withOgImageVersion('/twitter-image')],
+    images: [withOgImageVersion('/blog/opengraph-image')],
   },
   alternates: {
     canonical: `${siteConfig.domain}/blog`,

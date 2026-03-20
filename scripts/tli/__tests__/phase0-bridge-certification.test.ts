@@ -13,8 +13,8 @@ import {
   type BridgeCertificationInput,
   type BridgeCertificationResult,
   type WeeklyVerdictHistory,
-} from '../phase0-bridge-certification'
-import { GATE_THRESHOLDS } from '../../../lib/tli/forecast/types'
+} from '../ops/phase0-bridge-certification'
+import { GATE_THRESHOLDS } from '@/lib/tli/forecast/types'
 
 // --- Test helpers ---
 

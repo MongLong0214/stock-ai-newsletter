@@ -5,7 +5,7 @@ import {
   isReplayDateSafe,
   separateReplayQueues,
   type ReplayCheckpoint,
-} from '../comparison-v4-replay'
+} from '../research/comparison-v4-replay'
 
 describe('CMPV4-008: replay checkpoint/restart', () => {
   it('builds a checkpoint from completed folds', () => {

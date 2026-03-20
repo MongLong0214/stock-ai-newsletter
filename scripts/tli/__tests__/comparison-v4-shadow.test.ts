@@ -1,15 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { ComparisonInput, PredictionResult } from '../../../lib/tli/prediction'
-import { buildComparisonCandidateRowV2, buildPredictionSnapshotRowV2 } from '../comparison-v4-records'
+import type { ComparisonInput, PredictionResult } from '@/lib/tli/prediction'
+import { buildComparisonCandidateRowV2, buildPredictionSnapshotRowV2 } from '@/scripts/tli/comparison/v4/records'
 import {
   DEFAULT_COMPARISON_V4_SHADOW_ALGORITHM_VERSION,
+  assertComparisonV4PipelineEnabled,
+  buildShadowRunPersistenceRow,
   determineShadowCandidatePool,
   getComparisonV4ShadowConfig,
   resolveShadowRunMaterialization,
   toPredictionInputsFromShadowCandidates,
   prepareComparisonShadowRows,
   preparePredictionShadowRow,
-} from '../comparison-v4-shadow'
+} from '@/scripts/tli/comparison/v4/shadow'
 
 describe('comparison v4 shadow config', () => {
   const originalEnv = process.env
@@ -34,6 +36,15 @@ describe('comparison v4 shadow config', () => {
     expect(config.enabled).toBe(true)
     expect(config.algorithmVersion).toBe('algo-v4-test')
     expect(config.thresholdPolicyVersion).toBe('policy-v2')
+  })
+
+  it('fails closed when active comparison v4 pipeline is invoked while disabled', () => {
+    expect(() => assertComparisonV4PipelineEnabled({
+      enabled: false,
+      algorithmVersion: 'algo-v4',
+      thresholdPolicyVersion: 'policy-v1',
+      comparisonSpecVersion: 'spec-v4',
+    }, 'comparison generation')).toThrow(/comparison generation/i)
   })
 })
 
@@ -120,6 +131,26 @@ describe('comparison v4 shadow row preparation', () => {
     if (!prepared) throw new Error('expected prepared shadow rows')
     expect(prepared.runRow.candidate_pool).toBe('mixed_legacy')
     expect(prepared.candidateRows).toHaveLength(0)
+  })
+
+  it('reuses an existing shadow run id when rebuilding the same logical run', () => {
+    const prepared = prepareComparisonShadowRows({
+      config: {
+        enabled: true,
+        algorithmVersion: 'algo-v4',
+        thresholdPolicyVersion: 'policy-v1',
+        comparisonSpecVersion: 'spec-v4',
+      },
+      runDate: '2026-03-11',
+      currentThemeId: 'theme-1',
+      sourceDataCutoffDate: '2026-03-11',
+      matches: [],
+    })
+
+    if (!prepared) throw new Error('expected prepared shadow rows')
+
+    const persisted = buildShadowRunPersistenceRow(prepared.runRow, 'existing-run-id')
+    expect(persisted.id).toBe('existing-run-id')
   })
 
   it('prepares a prediction snapshot row linked to a run id', () => {

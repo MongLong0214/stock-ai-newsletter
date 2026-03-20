@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { collectNaverNews } from '../collectors/naver-news'
+import { collectNaverNews } from '@/scripts/tli/collectors/naver-news'
 
 describe('naver news collection', () => {
   const originalEnv = process.env

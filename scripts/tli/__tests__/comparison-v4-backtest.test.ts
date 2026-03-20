@@ -7,7 +7,7 @@ import {
   runThresholdSweepAcrossFolds,
   selectBestThreshold,
   renderThresholdSweepSummary,
-} from '../comparison-v4-backtest'
+} from '../research/comparison-v4-backtest'
 
 describe('comparison v4 backtest helpers', () => {
   it('builds temporal folds from firstSpikeDate ordering', () => {

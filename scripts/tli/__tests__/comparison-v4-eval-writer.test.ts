@@ -5,7 +5,7 @@ import {
   aggregateRunEvalSummary,
   buildSensitivityAnalysisRows,
   buildCensoringSensitivity,
-} from '../comparison-v4-eval-writer'
+} from '@/scripts/tli/comparison/v4/eval-writer'
 
 describe('comparison v4 eval writer', () => {
   describe('buildEvalRowV2', () => {

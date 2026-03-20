@@ -4,7 +4,7 @@ import {
   evaluatePartialPublishExposure,
   evaluateRetentionCleanup,
   evaluateRollbackDrill,
-} from '../comparison-v4-validation'
+} from '@/scripts/tli/comparison/v4/validation'
 
 describe('comparison v4 operational validation helpers', () => {
   it('passes contract parity when payloads are identical', () => {

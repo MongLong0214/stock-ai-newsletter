@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { computeNextNaverSeenStreak, shouldAutoActivateTheme } from '../theme-lifecycle'
+import { computeNextNaverSeenStreak, shouldAutoActivateTheme } from '@/scripts/tli/themes/theme-lifecycle'
 
 describe('theme lifecycle activation guards', () => {
   it('resets streak to 1 when the theme was not seen on the previous day', () => {

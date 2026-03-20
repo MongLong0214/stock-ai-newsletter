@@ -1,4 +1,4 @@
-import { sleep, withRetry } from '../utils'
+import { sleep, withRetry } from '@/scripts/tli/shared/utils'
 
 interface Theme {
   id: string

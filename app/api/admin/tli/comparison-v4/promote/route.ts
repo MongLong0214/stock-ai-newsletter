@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server'
 import { timingSafeEqual } from 'crypto'
-import { supabaseAdmin } from '@/scripts/tli/supabase-admin'
-import { isPromotionBlocked } from '@/scripts/tli/comparison-v4-promotion'
+import { supabaseAdmin } from '@/scripts/tli/shared/supabase-admin'
+import { isPromotionBlocked } from '@/scripts/tli/comparison/v4/promotion'
 import { fetchLatestCertificationCalibrationArtifact } from '@/scripts/tli/level4/calibration-artifact'
 import { buildArtifactBackedPromotionContext, resolveRequiredWeightArtifact } from '@/scripts/tli/level4/promotion-runtime'
 import { fetchWeightArtifactByVersion } from '@/scripts/tli/level4/weight-artifact'
-import { isStateHistoryBackfillComplete } from '@/scripts/tli/theme-state-history'
+import { isStateHistoryBackfillComplete } from '@/scripts/tli/themes/theme-state-history'
 
 const ADMIN_SECRET = process.env.ADMIN_SECRET
 

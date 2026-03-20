@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildPrevScoreMap, buildRecentSmoothedMap } from '../calculate-scores'
+import { buildPrevScoreMap, buildRecentSmoothedMap } from '@/scripts/tli/scoring/calculate-scores'
 
 describe('calculate-scores helpers', () => {
   it('keeps up to five historical score records per theme for smoothing', () => {

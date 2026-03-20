@@ -114,6 +114,9 @@ export default function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const gaId = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID?.replace(/[^A-Z0-9\-]/gi, '') ?? '';
+  const shouldRenderVercelTelemetry =
+    process.env.VERCEL === '1' || Boolean(process.env.NEXT_PUBLIC_VERCEL_ENV);
   const jsonLd = {
     '@context': 'https://schema.org',
     '@graph': [
@@ -255,6 +258,21 @@ export default function RootLayout({
       <head>
         <link rel="preconnect" href="https://nclzxaqxjktqrhbpqiwv.supabase.co" />
         <link rel="dns-prefetch" href="https://nclzxaqxjktqrhbpqiwv.supabase.co" />
+        <link rel="preconnect" href="https://www.googletagmanager.com" />
+        <link rel="preconnect" href="https://www.google-analytics.com" crossOrigin="anonymous" />
+        {gaId && (
+          <>
+            <script
+              async
+              src={`https://www.googletagmanager.com/gtag/js?id=${gaId}`}
+            />
+            <script
+              dangerouslySetInnerHTML={{
+                __html: `window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}window.gtag=gtag;gtag('js',new Date());gtag('config','${gaId}',{send_page_view:true});`,
+              }}
+            />
+          </>
+        )}
         <Script
           id="structured-data"
           type="application/ld+json"
@@ -270,9 +288,9 @@ export default function RootLayout({
           <ScrollToTop />
         </QueryProvider>
 
-        <Analytics />
+        {shouldRenderVercelTelemetry ? <Analytics /> : null}
         <GoogleAnalytics />
-        <SpeedInsights />
+        {shouldRenderVercelTelemetry ? <SpeedInsights /> : null}
       </body>
     </html>
   );
