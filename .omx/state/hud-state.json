@@ -1,5 +1,5 @@
 {
-  "last_turn_at": "2026-03-20T06:08:24.768Z",
-  "turn_count": 127,
-  "last_agent_output": "정확히 말하면 이겁니다.\n\n- `scripts/tli`의 파일이 전부 `런타임에서 자동으로 import되어 사용된다`는 뜻이면 `아니오`\n- `scripts/tli`의 non-te"
+  "last_turn_at": "2026-03-20T06:25:50.169Z",
+  "turn_count": 129,
+  "last_agent_output": "원인은 `블로그 태그 허브`였습니다. 라이브에서 `/blog/tag/[tag]`가 build 시점 404 상태로 굳어져 있었고, 그래서 OG도 태그 전용이 아니라 사이트 기본값으로"
 }

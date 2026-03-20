@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import { cache } from 'react';
 import { ArrowLeft } from 'lucide-react';
 
 import { getServerSupabaseClient } from '@/lib/supabase/server-client';
@@ -15,7 +16,9 @@ interface PageProps {
   params: Promise<{ tag: string }>;
 }
 
-async function getPostsByTag(tag: string): Promise<BlogPostListItem[]> {
+export const dynamic = 'force-dynamic';
+
+const getPostsByTag = cache(async (tag: string): Promise<BlogPostListItem[]> => {
   const supabase = getServerSupabaseClient();
 
   const { data, error } = await supabase
@@ -28,19 +31,11 @@ async function getPostsByTag(tag: string): Promise<BlogPostListItem[]> {
   if (error || !Array.isArray(data)) return [];
 
   return data.filter(isValidBlogPost).filter((post) => isValidBlogSlug(post.slug));
-}
+});
 
 async function isValidTag(tag: string): Promise<boolean> {
-  const supabase = getServerSupabaseClient();
-  const { data } = await supabase
-    .from('blog_posts')
-    .select('slug')
-    .eq('status', 'published')
-    .contains('tags', [tag])
-    .limit(1)
-    .maybeSingle();
-
-  return !!data;
+  const posts = await getPostsByTag(tag);
+  return posts.length > 0;
 }
 
 function createTagBreadcrumbSchema(tag: string) {
@@ -175,29 +170,3 @@ async function TagHubPage({ params }: PageProps) {
 export default TagHubPage;
 
 export const revalidate = 3600;
-
-export async function generateStaticParams() {
-  try {
-    const supabase = getServerSupabaseClient();
-    const { data, error } = await supabase
-      .from('blog_posts')
-      .select('tags')
-      .eq('status', 'published');
-
-    if (error) return [];
-
-    const tagCounts = new Map<string, number>();
-    data?.forEach((post) => {
-      post.tags?.forEach((tag: string) => {
-        tagCounts.set(tag, (tagCounts.get(tag) || 0) + 1);
-      });
-    });
-
-    return [...tagCounts.entries()]
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 20)
-      .map(([tag]) => ({ tag: encodeURIComponent(tag) }));
-  } catch {
-    return [];
-  }
-}
