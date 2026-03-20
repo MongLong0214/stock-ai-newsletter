@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { shouldAbortAnalysisPipeline } from '../pipeline-steps'
+import { shouldAbortAnalysisPipeline } from '@/scripts/tli/batch/pipeline-steps'
 
 describe('pipeline fail-closed policy', () => {
   it('aborts downstream analysis when any critical collection failure occurred', () => {

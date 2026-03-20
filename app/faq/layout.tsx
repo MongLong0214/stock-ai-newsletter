@@ -28,13 +28,13 @@ export const metadata: Metadata = {
     url: `${siteConfig.domain}/faq`,
     locale: 'ko_KR',
     siteName: siteConfig.serviceName,
-    images: [{ url: withOgImageVersion('/opengraph-image'), width: 1200, height: 630, alt: 'Stock Matrix FAQ' }],
+    images: [{ url: withOgImageVersion('/faq/opengraph-image'), width: 1200, height: 630, alt: 'Stock Matrix FAQ' }],
   },
   twitter: {
     card: 'summary_large_image',
     title: 'FAQ - Stock Matrix AI 주식 분석',
     description: '무료 AI 주식 분석 뉴스레터에 대한 자주 묻는 질문',
-    images: [withOgImageVersion('/twitter-image')],
+    images: [withOgImageVersion('/faq/opengraph-image')],
   },
 };
 

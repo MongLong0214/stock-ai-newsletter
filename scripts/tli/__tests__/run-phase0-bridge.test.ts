@@ -1,10 +1,24 @@
 import { describe, expect, it } from 'vitest'
 import {
+  buildAnalogCandidatesEvidenceStats,
   buildBridgeAuditRows,
   buildBridgeCertificationInputFromStats,
-} from '../run-phase0-bridge'
+} from '../ops/run-phase0-bridge'
 
 describe('run-phase0-bridge helpers', () => {
+  it('keeps analog candidate bridge stats on a single population instead of mixing v2 and v1 counts', () => {
+    expect(buildAnalogCandidatesEvidenceStats({
+      candidateCount: 400,
+      evidenceCount: 399,
+    })).toEqual({
+      expectedArtifacts: 400,
+      materializedArtifacts: 399,
+      dualWriteSuccessCount: 399,
+      dualWriteAttemptCount: 400,
+      auditTrailComplete: false,
+    })
+  })
+
   it('maps materialized stats into the 4 bridge certification inputs', () => {
     const input = buildBridgeCertificationInputFromStats({
       episodeRegistry: {

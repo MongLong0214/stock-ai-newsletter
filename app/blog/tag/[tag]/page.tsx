@@ -72,8 +72,34 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     title,
     description,
     keywords: [decodedTag, '주식 블로그', 'AI 주식 분석', '기술적 분석'],
-    openGraph: { title, description, url, siteName: siteConfig.serviceName, type: 'website', locale: 'ko_KR', images: [{ url: withOgImageVersion('/opengraph-image'), width: 1200, height: 630, alt: `${decodedTag} - Stock Matrix` }] },
-    twitter: { card: 'summary_large_image', title, description, images: [withOgImageVersion('/twitter-image')] },
+    openGraph: {
+      title,
+      description,
+      url,
+      siteName: siteConfig.serviceName,
+      type: 'website',
+      locale: 'ko_KR',
+      images: [
+        {
+          url: withOgImageVersion(
+            `${siteConfig.domain}/blog/tag/${encodeURIComponent(decodedTag)}/opengraph-image`
+          ),
+          width: 1200,
+          height: 630,
+          alt: `${decodedTag} - Stock Matrix`,
+        },
+      ],
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title,
+      description,
+      images: [
+        withOgImageVersion(
+          `${siteConfig.domain}/blog/tag/${encodeURIComponent(decodedTag)}/opengraph-image`
+        ),
+      ],
+    },
     alternates: { canonical: url },
     robots: {
       index: true,

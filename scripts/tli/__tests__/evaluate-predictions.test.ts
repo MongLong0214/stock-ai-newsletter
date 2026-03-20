@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { computePeakTimingErrorDays, resolvePredictionEvaluationAction } from '../evaluate-predictions'
+import { computePeakTimingErrorDays, resolvePredictionEvaluationAction } from '@/scripts/tli/comparison/evaluate-predictions'
 
 describe('evaluate predictions helpers', () => {
   it('measures peak timing error against the observed evaluation date, not the runtime date', () => {

@@ -4,7 +4,7 @@ import {
   isPromotionBlocked,
   buildPromoteRunPatch,
   buildRollbackRunPatch,
-} from '../comparison-v4-promotion'
+} from '@/scripts/tli/comparison/v4/promotion'
 
 describe('comparison v4 promotion helpers', () => {
   it('allows promotion only for complete and publish-ready runs', () => {

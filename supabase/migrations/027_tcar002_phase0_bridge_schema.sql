@@ -7,7 +7,7 @@
 -- ============================================================
 CREATE TABLE IF NOT EXISTS episode_registry_v1 (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  theme_id TEXT NOT NULL REFERENCES themes(id),
+  theme_id UUID NOT NULL REFERENCES themes(id),
   episode_number INTEGER NOT NULL,
   boundary_source_start TEXT NOT NULL CHECK (boundary_source_start IN ('observed', 'inferred-v1', 'imported')),
   boundary_source_end TEXT CHECK (boundary_source_end IN ('observed', 'inferred-v1', 'imported')),
@@ -34,8 +34,9 @@ ALTER TABLE episode_registry_v1 ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "service_role_episode_registry_v1" ON episode_registry_v1;
 CREATE POLICY "service_role_episode_registry_v1" ON episode_registry_v1
-  FOR ALL USING (true) WITH CHECK (true)
-  TO service_role;
+  FOR ALL TO service_role
+  USING (true)
+  WITH CHECK (true);
 
 -- ============================================================
 -- 2. query_snapshot_v1
@@ -43,7 +44,7 @@ CREATE POLICY "service_role_episode_registry_v1" ON episode_registry_v1
 CREATE TABLE IF NOT EXISTS query_snapshot_v1 (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   episode_id UUID NOT NULL REFERENCES episode_registry_v1(id),
-  theme_id TEXT NOT NULL REFERENCES themes(id),
+  theme_id UUID NOT NULL REFERENCES themes(id),
   snapshot_date DATE NOT NULL,
   source_data_cutoff DATE NOT NULL,
   features JSONB NOT NULL DEFAULT '{}',
@@ -68,8 +69,9 @@ ALTER TABLE query_snapshot_v1 ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "service_role_query_snapshot_v1" ON query_snapshot_v1;
 CREATE POLICY "service_role_query_snapshot_v1" ON query_snapshot_v1
-  FOR ALL USING (true) WITH CHECK (true)
-  TO service_role;
+  FOR ALL TO service_role
+  USING (true)
+  WITH CHECK (true);
 
 -- ============================================================
 -- 3. label_table_v1
@@ -77,7 +79,7 @@ CREATE POLICY "service_role_query_snapshot_v1" ON query_snapshot_v1
 CREATE TABLE IF NOT EXISTS label_table_v1 (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   episode_id UUID NOT NULL REFERENCES episode_registry_v1(id),
-  theme_id TEXT NOT NULL REFERENCES themes(id),
+  theme_id UUID NOT NULL REFERENCES themes(id),
   boundary_source TEXT NOT NULL CHECK (boundary_source IN ('observed', 'inferred-v1', 'imported')),
   source_data_cutoff DATE NOT NULL,
   is_completed BOOLEAN NOT NULL DEFAULT false,
@@ -108,8 +110,9 @@ ALTER TABLE label_table_v1 ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "service_role_label_table_v1" ON label_table_v1;
 CREATE POLICY "service_role_label_table_v1" ON label_table_v1
-  FOR ALL USING (true) WITH CHECK (true)
-  TO service_role;
+  FOR ALL TO service_role
+  USING (true)
+  WITH CHECK (true);
 
 -- ============================================================
 -- 4. analog_candidates_v1
@@ -117,9 +120,9 @@ CREATE POLICY "service_role_label_table_v1" ON label_table_v1
 CREATE TABLE IF NOT EXISTS analog_candidates_v1 (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   query_snapshot_id UUID NOT NULL REFERENCES query_snapshot_v1(id),
-  query_theme_id TEXT NOT NULL REFERENCES themes(id),
+  query_theme_id UUID NOT NULL REFERENCES themes(id),
   candidate_episode_id UUID NOT NULL REFERENCES episode_registry_v1(id),
-  candidate_theme_id TEXT NOT NULL REFERENCES themes(id),
+  candidate_theme_id UUID NOT NULL REFERENCES themes(id),
   rank INTEGER NOT NULL,
   retrieval_surface TEXT NOT NULL CHECK (retrieval_surface IN ('price_volume_knn', 'dtw_baseline', 'regime_filtered_nn', 'future_aligned_reranker')),
   similarity_score DOUBLE PRECISION NOT NULL,
@@ -151,8 +154,9 @@ ALTER TABLE analog_candidates_v1 ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "service_role_analog_candidates_v1" ON analog_candidates_v1;
 CREATE POLICY "service_role_analog_candidates_v1" ON analog_candidates_v1
-  FOR ALL USING (true) WITH CHECK (true)
-  TO service_role;
+  FOR ALL TO service_role
+  USING (true)
+  WITH CHECK (true);
 
 -- ============================================================
 -- 5. analog_evidence_v1
@@ -160,7 +164,7 @@ CREATE POLICY "service_role_analog_candidates_v1" ON analog_candidates_v1
 CREATE TABLE IF NOT EXISTS analog_evidence_v1 (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   query_snapshot_id UUID NOT NULL,
-  query_theme_id TEXT NOT NULL REFERENCES themes(id),
+  query_theme_id UUID NOT NULL REFERENCES themes(id),
   candidate_id UUID NOT NULL,
   candidate_episode_id UUID NOT NULL REFERENCES episode_registry_v1(id),
   -- Composite FK ensures candidate belongs to the same snapshot
@@ -189,8 +193,9 @@ ALTER TABLE analog_evidence_v1 ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "service_role_analog_evidence_v1" ON analog_evidence_v1;
 CREATE POLICY "service_role_analog_evidence_v1" ON analog_evidence_v1
-  FOR ALL USING (true) WITH CHECK (true)
-  TO service_role;
+  FOR ALL TO service_role
+  USING (true)
+  WITH CHECK (true);
 
 -- ============================================================
 -- 6. forecast_control_v1
@@ -220,8 +225,9 @@ ALTER TABLE forecast_control_v1 ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "service_role_forecast_control_v1" ON forecast_control_v1;
 CREATE POLICY "service_role_forecast_control_v1" ON forecast_control_v1
-  FOR ALL USING (true) WITH CHECK (true)
-  TO service_role;
+  FOR ALL TO service_role
+  USING (true)
+  WITH CHECK (true);
 
 -- ============================================================
 -- 7. bridge_run_audits_v1
@@ -250,5 +256,6 @@ ALTER TABLE bridge_run_audits_v1 ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "service_role_bridge_run_audits_v1" ON bridge_run_audits_v1;
 CREATE POLICY "service_role_bridge_run_audits_v1" ON bridge_run_audits_v1
-  FOR ALL USING (true) WITH CHECK (true)
-  TO service_role;
+  FOR ALL TO service_role
+  USING (true)
+  WITH CHECK (true);

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildOperationalDriftArtifact } from '../run-level4-drift'
+import { buildOperationalDriftArtifact } from '../ops/run-level4-drift'
 
 const rows = [
   {

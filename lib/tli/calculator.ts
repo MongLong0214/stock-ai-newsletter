@@ -12,6 +12,7 @@ import {
 } from './normalize';
 import { getKSTDateString } from './date-utils';
 import { getTLIParams, computeWActivity, type TLIParams } from './constants/tli-params';
+import { getMinRawInterest, getScoreWeights } from './constants/score-config';
 import { computeSentimentProxy } from './sentiment-proxy';
 import { computeScoreConfidence } from './score-confidence';
 import type { InterestMetric, NewsMetric, ScoreComponents, ScoreConfidence } from './types';
@@ -80,7 +81,7 @@ export function calculateLifecycleScore(input: CalculateScoreInput): {
 
   let interestScore = levelScore * cfg.interest_level_ratio + momentumScore * (1 - cfg.interest_level_ratio);
 
-  const minRawInterest = cfg.min_raw_interest;
+  const minRawInterest = input.config?.min_raw_interest ?? getMinRawInterest();
   const dampeningFactor = rawAvg < minRawInterest ? rawAvg / minRawInterest : 1;
   interestScore *= dampeningFactor;
 
@@ -135,8 +136,19 @@ export function calculateLifecycleScore(input: CalculateScoreInput): {
   const maturityRatio = activeDays > 0 ? Math.min(activeDays / 90, 1.5) : 0;
 
   // 단일 소스: getTLIParams() (config override 포함)
+  const hasExplicitWeightOverride = input.config?.w_interest !== undefined
+    || input.config?.w_newsMomentum !== undefined
+    || input.config?.w_volatility !== undefined
+  const calibratedWeights = getScoreWeights()
   const wActivity = computeWActivity(cfg);
-  const weights = { interest: cfg.w_interest, newsMomentum: cfg.w_newsMomentum, volatility: cfg.w_volatility, activity: wActivity };
+  const weights = hasExplicitWeightOverride
+    ? { interest: cfg.w_interest, newsMomentum: cfg.w_newsMomentum, volatility: cfg.w_volatility, activity: wActivity }
+    : {
+        interest: calibratedWeights.interest,
+        newsMomentum: calibratedWeights.newsMomentum,
+        volatility: calibratedWeights.volatility,
+        activity: calibratedWeights.activity,
+      };
 
   const rawScore =
     interestScore * weights.interest +

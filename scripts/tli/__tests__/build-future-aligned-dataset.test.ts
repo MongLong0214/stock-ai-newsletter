@@ -12,7 +12,7 @@ import {
   type DatasetInput,
   type DatasetLineage,
   type FutureAlignedPair,
-} from '../build-future-aligned-dataset'
+} from '../research/build-future-aligned-dataset'
 
 // --- Test helpers ---
 

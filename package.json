@@ -12,7 +12,18 @@
     "generate-blog": "tsx scripts/generate-blog-post.ts",
     "test": "vitest run",
     "test:watch": "vitest",
-    "mcp:stats": "tsx scripts/mcp-stats.ts"
+    "mcp:stats": "tsx scripts/mcp-stats.ts",
+    "tli:run": "tsx scripts/tli/batch/collect-and-score.ts",
+    "tli:compare": "tsx scripts/tli/batch/run-comparisons.ts",
+    "tli:level4:calibrate": "tsx scripts/tli/ops/run-level4-calibration.ts",
+    "tli:level4:certify": "tsx scripts/tli/ops/run-level4-certification.ts",
+    "tli:level4:drift": "tsx scripts/tli/ops/run-level4-drift.ts",
+    "tli:level4:weights": "tsx scripts/tli/ops/run-level4-weight-tuning.ts",
+    "tli:phase0:bridge": "tsx scripts/tli/ops/run-phase0-bridge.ts",
+    "tli:phase0:materialize": "tsx scripts/tli/ops/run-phase0-materialization.ts",
+    "tli:v4:promote": "tsx scripts/tli/ops/promote-comparison-v4.ts",
+    "tli:first-spike:repair": "tsx scripts/tli/ops/run-first-spike-repair.ts",
+    "tli:state-history:backfill": "tsx scripts/tli/ops/run-theme-state-history-backfill.ts"
   },
   "dependencies": {
     "@fontsource/noto-sans-kr": "^5.2.9",

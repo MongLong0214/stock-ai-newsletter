@@ -7,7 +7,7 @@ import {
   runBridgeValidation,
   createPendingNotMaterializedResult,
   type BridgeRowResult,
-} from '../phase0-bridge'
+} from '../ops/phase0-bridge'
 
 describe('TCAR-003: phase0 bridge validators', () => {
   // ============================================================

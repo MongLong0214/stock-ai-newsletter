@@ -12,7 +12,7 @@ import {
   computeVIFDiagnostic,
   mutualRankExplicitFallback,
   MUTUAL_RANK_MIN_THEMES,
-} from '../comparison-v4-experiments'
+} from '../research/comparison-v4-experiments'
 
 // ── CMPV4-016: curve scale unification ──
 

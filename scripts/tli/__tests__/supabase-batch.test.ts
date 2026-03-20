@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 
-vi.mock('../supabase-admin', () => ({
+vi.mock('@/scripts/tli/shared/supabase-admin', () => ({
   supabaseAdmin: {
     from: vi.fn(() => ({
       select: vi.fn(() => ({
@@ -14,7 +14,7 @@ vi.mock('../supabase-admin', () => ({
 
 describe('supabase batch query strict mode', () => {
   it('throws after retries when strict mode is enabled', async () => {
-    const { batchQuery } = await import('../supabase-batch')
+    const { batchQuery } = await import('@/scripts/tli/shared/supabase-batch')
 
     await expect(
       batchQuery('themes', '*', ['theme-1'], undefined, 'id', { failOnError: true }),

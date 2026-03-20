@@ -10,8 +10,8 @@ import {
   type ShipGateVerdict,
   type BrierScoreSet,
   type SliceSummary,
-} from '../../tli/forecast-ship-gate'
-import { GATE_THRESHOLDS, ABSTENTION_THRESHOLDS } from '../../../lib/tli/forecast/types'
+} from '../../tli/research/forecast-ship-gate'
+import { GATE_THRESHOLDS, ABSTENTION_THRESHOLDS } from '@/lib/tli/forecast/types'
 
 // --- helpers ---
 

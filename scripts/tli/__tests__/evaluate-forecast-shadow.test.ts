@@ -8,7 +8,7 @@ import { describe, it, expect } from 'vitest'
 import {
   evaluateForecastShadow,
   type ShadowEvalInput,
-} from '../evaluate-forecast-shadow'
+} from '../research/evaluate-forecast-shadow'
 
 const makeInput = (overrides: Partial<ShadowEvalInput> = {}): ShadowEvalInput => ({
   shadowWeeks: 8,

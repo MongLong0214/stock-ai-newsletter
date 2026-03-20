@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { siteConfig } from '@/lib/constants/seo/config'
+import { siteConfig, withOgImageVersion } from '@/lib/constants/seo/config'
 import { generateBreadcrumbSchema } from '@/lib/constants/seo/breadcrumb-schema'
 
 export const metadata: Metadata = {
@@ -24,12 +24,21 @@ export const metadata: Metadata = {
     url: `${siteConfig.domain}/themes/methodology`,
     type: 'article',
     locale: 'ko_KR',
+    images: [
+      {
+        url: withOgImageVersion('/themes/methodology/opengraph-image'),
+        width: 1200,
+        height: 630,
+        alt: '테마 트래킹 알고리즘 완전 공개',
+      },
+    ],
   },
   twitter: {
     card: 'summary_large_image',
     title: '테마 트래킹 알고리즘 — AI 점수 산출 과정 완전 공개 | StockMatrix',
     description:
       'TLI 테마 트래킹 알고리즘 완전 공개. 4요소 가중치, 생명주기 5단계 판정, 7일 3-Phase 전망 알고리즘을 투명하게 설명합니다.',
+    images: [withOgImageVersion('/themes/methodology/opengraph-image')],
   },
 }
 

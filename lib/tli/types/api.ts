@@ -58,10 +58,15 @@ export interface ThemeSignalCard {
 export interface ComparisonResult {
   pastTheme: string
   pastThemeId: string
+  comparisonLane?: 'completed_analog' | 'active_peer'
   similarity: number
   currentDay: number
   pastPeakDay: number
   pastTotalDays: number
+  observedWindowDays?: number
+  completedCycleDays?: number | null
+  cycleCompletionStatus?: 'observed' | 'completed'
+  isPastActive?: boolean
   estimatedDaysToPeak: number
   message: string
   lifecycleCurve: LifecycleCurvePoint[]

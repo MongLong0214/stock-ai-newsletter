@@ -21,7 +21,7 @@ import {
   loadRollbackTarget,
   readServingVersion,
   type ControlPlaneState,
-} from '../../../../../scripts/tli/forecast-serving'
+} from '@/scripts/tli/comparison/forecast-serving'
 import type { Stage } from '@/lib/tli/types/db'
 
 export type ForecastReaderResult = ThemeForecastControl

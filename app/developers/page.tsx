@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import AnimatedBackground from '@/components/animated-background'
 import DevelopersContent from './_components/developers-content'
-import { siteConfig } from '@/lib/constants/seo/config'
+import { siteConfig, withOgImageVersion } from '@/lib/constants/seo/config'
 import { generateBreadcrumbSchema } from '@/lib/constants/seo/breadcrumb-schema'
 
 export const metadata: Metadata = {
@@ -14,11 +14,21 @@ export const metadata: Metadata = {
     url: `${siteConfig.domain}/developers`,
     siteName: siteConfig.serviceName,
     type: 'website',
+    locale: 'ko_KR',
+    images: [
+      {
+        url: withOgImageVersion('/developers/opengraph-image'),
+        width: 1200,
+        height: 630,
+        alt: 'StockMatrix MCP 서버 개발자 가이드',
+      },
+    ],
   },
   twitter: {
     card: 'summary_large_image',
     title: '개발자 — StockMatrix MCP 서버',
     description: '250+ 한국 주식 테마의 생명주기 점수, 관련주, 뉴스를 AI 에이전트에서 직접 조회하세요.',
+    images: [withOgImageVersion('/developers/opengraph-image')],
   },
 }
 

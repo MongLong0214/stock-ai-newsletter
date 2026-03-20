@@ -5,7 +5,7 @@ import {
   buildComparisonV4ControlRow,
   buildRollbackControlRow,
   resolveComparisonV4ServingVersion,
-} from '../comparison-v4-control'
+} from '@/scripts/tli/comparison/v4/control'
 
 describe('comparison v4 control helpers', () => {
   it('prefers persisted production pointer over env default', () => {

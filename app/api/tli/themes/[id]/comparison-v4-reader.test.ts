@@ -4,8 +4,9 @@ import type { Level4ServingMetadata, Level4SourceSurface } from '@/lib/tli/compa
 import {
   DEFAULT_COMPARISON_V4_SERVING_VERSION,
   applyCertifiedWeightVersion,
+  buildCompletedAnalogComparisonRows,
   buildLevel4ServingMetadata,
-  getComparisonV4ServingVersion,
+  hasActiveComparisonV4ServingControl,
   getComparisonV4ReaderMode,
   isComparisonV4ServingEnabled,
   mapV2CandidatesToLegacyComparisons,
@@ -20,29 +21,29 @@ describe('comparison v4 reader', () => {
     process.env = { ...originalEnv }
   })
 
-  it('is disabled by default', () => {
+  it('is enabled by default', () => {
     delete process.env.TLI_COMPARISON_V4_SERVING_ENABLED
-    expect(isComparisonV4ServingEnabled()).toBe(false)
+    expect(isComparisonV4ServingEnabled()).toBe(true)
   })
 
-  it('uses explicit production version when provided', () => {
-    process.env.TLI_COMPARISON_V4_PRODUCTION_VERSION = 'algo-v4-prod'
-    expect(getComparisonV4ServingVersion()).toBe('algo-v4-prod')
-  })
-
-  it('falls back to latest serving version when no production pointer exists', () => {
-    delete process.env.TLI_COMPARISON_V4_PRODUCTION_VERSION
-    expect(getComparisonV4ServingVersion()).toBe(DEFAULT_COMPARISON_V4_SERVING_VERSION)
-  })
-
-  it('selects the newest published archetype run for serving', () => {
+  it('prefers archetype runs, then mixed runs, then peer runs for serving', () => {
     const selected = selectPublishedComparisonRun([
       { id: 'run-1', candidate_pool: 'peer', publish_ready: true, status: 'published', created_at: '2026-03-11T01:00:00Z', algorithm_version: 'a' },
+      { id: 'run-mixed', candidate_pool: 'mixed_legacy', publish_ready: true, status: 'published', created_at: '2026-03-11T02:30:00Z', algorithm_version: 'a' },
       { id: 'run-2', candidate_pool: 'archetype', publish_ready: false, status: 'published', created_at: '2026-03-11T02:00:00Z', algorithm_version: 'a' },
       { id: 'run-3', candidate_pool: 'archetype', publish_ready: true, status: 'published', created_at: '2026-03-11T03:00:00Z', algorithm_version: 'a' },
     ], DEFAULT_COMPARISON_V4_SERVING_VERSION)
 
     expect(selected?.id).toBe('run-3')
+  })
+
+  it('falls back to mixed_legacy when no archetype run exists', () => {
+    const selected = selectPublishedComparisonRun([
+      { id: 'run-1', candidate_pool: 'peer', publish_ready: true, status: 'published', created_at: '2026-03-11T01:00:00Z', algorithm_version: 'a' },
+      { id: 'run-mixed', candidate_pool: 'mixed_legacy', publish_ready: true, status: 'published', created_at: '2026-03-11T02:30:00Z', algorithm_version: 'a' },
+    ], DEFAULT_COMPARISON_V4_SERVING_VERSION)
+
+    expect(selected?.id).toBe('run-mixed')
   })
 
   it('maps v2 candidates into the legacy comparison payload shape', () => {
@@ -64,7 +65,7 @@ describe('comparison v4 reader', () => {
     ])
 
     expect(rows).toEqual([
-      {
+      expect.objectContaining({
         id: 'past-1',
         past_theme_id: 'past-1',
         similarity_score: 0.73,
@@ -78,7 +79,116 @@ describe('comparison v4 reader', () => {
         past_peak_score: 82,
         past_final_stage: 'Decline',
         past_decline_days: 9,
-      },
+      }),
+    ])
+  })
+
+  it('builds completed analog comparison rows from query snapshot artifacts', () => {
+    const rows = buildCompletedAnalogComparisonRows({
+      currentDay: 41,
+      candidates: [
+        {
+          id: 'candidate-1',
+          candidate_theme_id: 'past-1',
+          candidate_episode_id: 'episode-1',
+          similarity_score: 0.82,
+          feature_sim: 0.7,
+          curve_sim: 0.8,
+          keyword_sim: 0.1,
+          rank: 1,
+        },
+      ],
+      evidenceByCandidateId: new Map([
+        ['candidate-1', {
+          candidate_id: 'candidate-1',
+          candidate_episode_id: 'episode-1',
+          analog_future_path_summary: {
+            peak_day: 15,
+            total_days: 40,
+            final_stage: 'Dormant',
+            post_peak_drawdown: 0.25,
+          },
+          retrieval_reason: 'completed analog retrieval',
+          mismatch_summary: null,
+          evidence_quality: 'high',
+          evidence_quality_score: 0.91,
+          analog_support_count: 18,
+          candidate_concentration_gini: 0.2,
+          top1_analog_weight: 0.45,
+        }],
+      ]),
+      episodeById: new Map([
+        ['episode-1', {
+          id: 'episode-1',
+          is_active: false,
+        }],
+      ]),
+    })
+
+    expect(rows).toEqual([
+      expect.objectContaining({
+        candidate_theme_id: 'past-1',
+        similarity_score: 0.82,
+        current_day: 41,
+        past_peak_day: 15,
+        past_total_days: 40,
+        past_final_stage: 'Dormant',
+        past_decline_days: 25,
+        supportCount: 18,
+        confidenceTier: 'high',
+      }),
+    ])
+  })
+
+  it('keeps active peer analog rows observational when the candidate episode is still active', () => {
+    const rows = buildCompletedAnalogComparisonRows({
+      currentDay: 41,
+      candidates: [
+        {
+          id: 'candidate-1',
+          candidate_theme_id: 'past-1',
+          candidate_episode_id: 'episode-1',
+          similarity_score: 0.82,
+          feature_sim: 0.7,
+          curve_sim: 0.8,
+          keyword_sim: 0.1,
+          rank: 1,
+        },
+      ],
+      evidenceByCandidateId: new Map([
+        ['candidate-1', {
+          candidate_id: 'candidate-1',
+          candidate_episode_id: 'episode-1',
+          analog_future_path_summary: {
+            peak_day: 15,
+            total_days: 40,
+            final_stage: 'Dormant',
+            post_peak_drawdown: 0.25,
+          },
+          retrieval_reason: 'active peer retrieval',
+          mismatch_summary: null,
+          evidence_quality: 'medium',
+          evidence_quality_score: 0.72,
+          analog_support_count: 12,
+          candidate_concentration_gini: 0.28,
+          top1_analog_weight: 0.39,
+        }],
+      ]),
+      episodeById: new Map([
+        ['episode-1', {
+          id: 'episode-1',
+          is_active: true,
+        }],
+      ]),
+    })
+
+    expect(rows).toEqual([
+      expect.objectContaining({
+        candidate_theme_id: 'past-1',
+        past_final_stage: null,
+        past_decline_days: null,
+        confidenceTier: 'medium',
+      }),
     ])
   })
 
@@ -119,6 +229,43 @@ describe('comparison v4 reader', () => {
     })
   })
 
+  it('preserves artifact versions when analog rows only override support and confidence metadata', () => {
+    const rows = mapV2CandidatesToLegacyComparisons([
+      {
+        candidate_theme_id: 'past-1',
+        similarity_score: 0.73,
+        current_day: 12,
+        past_peak_day: 20,
+        past_total_days: 35,
+        message: 'sample',
+        feature_sim: 0.5,
+        curve_sim: 0.7,
+        keyword_sim: 0.1,
+        past_peak_score: 82,
+        past_final_stage: null,
+        past_decline_days: null,
+        supportCount: 18,
+        confidenceTier: 'high',
+        sourceSurface: 'v2_certification',
+      },
+    ], {
+      source_surface: 'v2_certification',
+      calibration_version: 'cal-2026-03-12',
+      weight_version: 'w-2026-03-12',
+      bin_summary: [
+        { bucket: 7, mean_predicted: 0.61, empirical_rate: 0.18, count: 220 },
+      ],
+    })
+
+    expect(rows[0]).toMatchObject({
+      supportCount: 18,
+      confidenceTier: 'high',
+      calibrationVersion: 'cal-2026-03-12',
+      weightVersion: 'w-2026-03-12',
+      sourceSurface: 'v2_certification',
+    })
+  })
+
   it('applies an active certified weight version to serving metadata', () => {
     const merged = applyCertifiedWeightVersion(
       {
@@ -134,11 +281,6 @@ describe('comparison v4 reader', () => {
     )
 
     expect(merged.weight_version).toBe('w-active-2026-03-12')
-  })
-
-  it('returns view mode when serving view env is set', () => {
-    process.env.TLI_COMPARISON_V4_SERVING_VIEW = 'true'
-    expect(getComparisonV4ReaderMode()).toBe('view')
   })
 
   it('returns table mode by default', () => {
@@ -195,5 +337,24 @@ describe('comparison v4 reader', () => {
       calibrationVersion: 'cal-pinned',
       weightVersion: 'w-pinned',
     })
+  })
+
+  it('identifies whether a control row is actively serving', () => {
+    expect(hasActiveComparisonV4ServingControl(null)).toBe(false)
+    expect(hasActiveComparisonV4ServingControl({
+      production_version: 'algo-v4',
+      serving_enabled: false,
+    })).toBe(false)
+    expect(hasActiveComparisonV4ServingControl({
+      production_version: 'algo-v4',
+      serving_enabled: true,
+    })).toBe(true)
+  })
+
+  it('always serves v4 regardless of env flag state', () => {
+    process.env.TLI_COMPARISON_V4_SERVING_ENABLED = 'false'
+    expect(isComparisonV4ServingEnabled()).toBe(true)
+    process.env.TLI_COMPARISON_V4_SERVING_ENABLED = 'true'
+    expect(isComparisonV4ServingEnabled()).toBe(true)
   })
 })

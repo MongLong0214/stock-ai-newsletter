@@ -6,6 +6,62 @@ Theme Lifecycle Intelligence (TLI) data collection and scoring automation.
 
 This directory contains scripts for collecting theme data from multiple sources, calculating lifecycle scores, and analyzing theme comparisons.
 
+Comparison serving is now permanently v4-only.
+
+- User-facing comparison reads always use the v4 pipeline
+- The default serving path uses the latest published archetype run
+- The default serving metadata uses the latest certification-grade calibration and weight artifacts
+- `TLI_COMPARISON_V4_SERVING_ENABLED` is no longer required to turn serving on
+
+## Current Layout
+
+- `scripts/tli/`:
+  Runtime core only
+- `scripts/tli/collectors/`:
+  External ingestion
+- `scripts/tli/ops/`:
+  Operational runners, certification, promotion, bridge workflows
+- `scripts/tli/research/`:
+  Offline evaluation and backtests
+- `scripts/tli/research/optimizer/`:
+  Offline parameter optimization
+- `scripts/tli/level4/`:
+  Shared level-4 modules used by ops
+
+## Canonical Commands
+
+Runtime:
+
+- `npm run tli:run`
+- `npm run tli:compare`
+
+Ops:
+
+- `npm run tli:level4:calibrate`
+- `npm run tli:level4:weights`
+- `npm run tli:level4:drift`
+- `npm run tli:level4:certify`
+- `npm run tli:phase0:bridge`
+- `npm run tli:phase0:materialize`
+- `npm run tli:v4:promote -- <run-id> [run-id...]`
+
+See [docs/tli-ops-runbook.md](/Users/isaac/WebstormProjects/stock-ai-newsletter/docs/tli-ops-runbook.md) for the operator-facing runbook.
+
+## Runtime Categories
+
+- `scripts/tli/batch/`
+  - runtime entrypoints and pipeline orchestration
+- `scripts/tli/shared/`
+  - shared runtime infrastructure and utilities
+- `scripts/tli/scoring/`
+  - lifecycle score calculation and calibration loading
+- `scripts/tli/comparison/`
+  - comparison generation, analog artifact materialization, prediction evaluation, forecast serving
+- `scripts/tli/comparison/v4/`
+  - v4-specific comparison runtime modules
+- `scripts/tli/themes/`
+  - theme discovery, keyword management, lifecycle state helpers
+
 ## Scripts
 
 ### 1. `supabase-admin.ts`
@@ -20,30 +76,20 @@ Supabase service role client for write operations.
 
 ---
 
-### 2. `seed-themes.ts`
-Seeds initial 10 themes with keywords into the database.
+### 2. `run-comparisons.ts`
+Runs the comparison pipeline as a standalone batch entrypoint.
 
 **Usage:**
 ```bash
-npx tsx scripts/tli/seed-themes.ts
+npm run tli:compare
 ```
 
-**Themes:**
-1. AI 반도체 (AI Semiconductor)
-2. 로봇 (Robot)
-3. 2차전지 (Secondary Battery)
-4. 방산 (Defense)
-5. 바이오 (Bio)
-6. 원전 (Nuclear)
-7. UAM
-8. 양자컴퓨팅 (Quantum)
-9. 메타버스 (Metaverse)
-10. NFT
-
 **Features:**
-- Idempotent (safe to run multiple times)
-- Inserts general and naver-specific keywords
-- Marks first keyword as primary
+- Loads active themes
+- Computes the current auto-tuned threshold
+- Writes v4 comparison candidates
+- Publishes the canonical comparison inputs used by the v4 serving path
+- Intended for scheduled or manual comparison regeneration
 
 ---
 
@@ -52,7 +98,7 @@ Main orchestrator that runs the complete TLI pipeline.
 
 **Usage:**
 ```bash
-npx tsx scripts/tli/collect-and-score.ts
+npm run tli:run
 ```
 
 **Pipeline Steps:**
@@ -158,7 +204,7 @@ https://finance.naver.com/sise/sise_group_detail.naver?type=theme&no={naverTheme
 
 **Daily (6 AM KST):**
 ```bash
-0 6 * * * cd /path/to/project && npx tsx scripts/tli/collect-and-score.ts
+0 6 * * * cd /path/to/project && npm run tli:run
 ```
 
 **Weekly Stock Collection (Monday 6 AM KST):**
@@ -202,7 +248,8 @@ Stock collection is automatically handled within `collect-and-score.ts` based on
                             ▼
                 ┌───────────────────────┐
                 │  lifecycle_scores     │
-                │  theme_comparisons    │
+                │  theme_comparison_*   │
+                │  prediction_snapshots_v2 │
                 └───────────────────────┘
 ```
 
@@ -241,10 +288,21 @@ npx tsx scripts/tli/collectors/naver-news.ts
 npx tsx scripts/tli/collectors/naver-finance-themes.ts
 ```
 
+### Comparison Serving Defaults
+- No feature flag is required for user-facing v4 comparison serving
+- If an active `comparison_v4_control` row exists, its pinned production/calibration/weight versions are used
+- If no active control row exists, serving falls back to the latest published v4 run plus the latest certification-grade artifacts
+
+### Official Ops Entry Points
+- Use `npm run tli:level4:calibrate` to generate the latest calibration artifact
+- Use `npm run tli:level4:weights` to tune and persist serving weights
+- Use `npm run tli:level4:drift` to build the latest drift report artifact
+- Use `npm run tli:level4:certify` to generate the current certification report
+- Use `npm run tli:phase0:bridge` to run bridge parity checks
+- Use `npm run tli:v4:promote -- <run-id> [run-id...]` to promote published v4 runs
+
 ### Adding New Themes
-1. Add theme data to `seed-themes.ts`
-2. Run: `npx tsx scripts/tli/seed-themes.ts`
-3. Optionally set `naver_theme_id` in database for stock collection
+Add or discover new themes through the current runtime/ops flows instead of the removed legacy seed script.
 
 ### Modifying Score Calculation
 Edit calculation logic in:
@@ -274,8 +332,17 @@ Daily article counts from Naver News Search.
 ### `lifecycle_scores`
 Calculated scores, stages, and component breakdowns.
 
-### `theme_comparisons`
-Pattern matching with past themes for prediction.
+### `theme_comparison_runs_v2`
+Comparison execution runs for the v4 pipeline.
+
+### `theme_comparison_candidates_v2`
+Top ranked comparison candidates for each v4 run.
+
+### `theme_comparison_eval_v2`
+Fixed-horizon evaluation results for v4 comparison candidates.
+
+### `prediction_snapshots_v2`
+Prediction snapshots generated from v4 comparison candidates.
 
 ---
 

@@ -7,7 +7,7 @@ import {
   findClosestStageByDate,
   findClosestStageByLifecycleDay,
   sliceFixedHorizonWindow,
-} from '../comparison-v4-evaluator'
+} from '@/scripts/tli/comparison/v4/evaluator'
 
 describe('comparison v4 evaluator', () => {
   it('slices a fixed 14-day horizon from future observations', () => {

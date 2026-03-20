@@ -6,7 +6,7 @@ import {
   evaluatePartialPublishExposure,
   evaluateRetentionCleanup,
   evaluateRollbackDrill,
-} from '../comparison-v4-validation'
+} from '@/scripts/tli/comparison/v4/validation'
 
 describe('CMPV4-014: replay idempotency', () => {
   it('passes when two replay runs produce identical candidate sets', () => {

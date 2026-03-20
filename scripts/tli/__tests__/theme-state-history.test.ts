@@ -3,10 +3,11 @@ import {
   buildBackfillRow,
   buildOngoingStateChangeRow,
   buildCloseRowPatch,
+  buildFirstSpikeDateSyncPatch,
   isStateHistoryBackfillComplete,
   getThemeStateAtDate,
   isArchetypeAtDate,
-} from '../theme-state-history'
+} from '@/scripts/tli/themes/theme-state-history'
 
 describe('theme state history', () => {
   describe('buildBackfillRow', () => {
@@ -92,6 +93,14 @@ describe('theme state history', () => {
     it('produces a patch that closes the effective_to', () => {
       const patch = buildCloseRowPatch({ changeDate: '2026-03-11' })
       expect(patch.effective_to).toBe('2026-03-11')
+    })
+  })
+
+  describe('buildFirstSpikeDateSyncPatch', () => {
+    it('produces a patch that synchronizes state history first_spike_date', () => {
+      expect(buildFirstSpikeDateSyncPatch({ firstSpikeDate: '2026-01-03' })).toEqual({
+        first_spike_date: '2026-01-03',
+      })
     })
   })
 

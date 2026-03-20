@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   buildBacktestEnrichedTheme,
   buildBacktestKeywordSupportCounts,
-} from '../backtest-comparisons'
+} from '../research/backtest-comparisons'
 
 describe('backtest-comparisons helpers', () => {
   it('builds keyword support counts case-insensitively', () => {

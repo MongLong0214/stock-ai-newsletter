@@ -1,7 +1,8 @@
-import { describe, it, expect } from 'vitest'
+import { afterEach, describe, it, expect } from 'vitest'
 import { calculateLifecycleScore } from '@/lib/tli/calculator'
 import type { InterestMetric, NewsMetric } from '@/lib/tli/types'
 import type { TLIParams } from '@/lib/tli/constants/tli-params'
+import { setMinRawInterest, setScoreWeights } from '@/lib/tli/constants/score-config'
 
 function makeInterestMetric(day: number, normalized: number, rawValue = 50): InterestMetric {
   return {
@@ -25,6 +26,16 @@ function makeNewsMetric(day: number, articleCount: number): NewsMetric {
 }
 
 describe('calculateLifecycleScore', () => {
+  afterEach(() => {
+    setMinRawInterest(4)
+    setScoreWeights({
+      interest: 0.304148,
+      newsMomentum: 0.366408,
+      volatility: 0.104017,
+      activity: 0.225427,
+    })
+  })
+
   it('returns null when interest metrics < MIN_INTEREST_DAYS (3)', () => {
     const result = calculateLifecycleScore({
       interestMetrics: [makeInterestMetric(0, 50), makeInterestMetric(1, 50)],
@@ -166,6 +177,42 @@ describe('calculateLifecycleScore', () => {
     expect(w.news).toBeCloseTo(0.366408, 5)
     expect(w.volatility).toBeCloseTo(0.104017, 5)
     expect(w.activity).toBeCloseTo(0.225427, 5)
+  })
+
+  it('applies calibrated min raw interest when no explicit config override is provided', () => {
+    setMinRawInterest(100)
+
+    const result = calculateLifecycleScore({
+      interestMetrics: Array.from({ length: 10 }, (_, i) => makeInterestMetric(i, 50, 10)),
+      newsMetrics: [],
+      firstSpikeDate: null,
+      today: '2026-01-10',
+    })
+
+    expect(result).not.toBeNull()
+    expect(result!.components.raw.dampening_factor).toBeCloseTo(0.1, 5)
+  })
+
+  it('applies calibrated score weights when no explicit weight override is provided', () => {
+    setScoreWeights({
+      interest: 0.55,
+      newsMomentum: 0.2,
+      volatility: 0.05,
+      activity: 0.2,
+    })
+
+    const result = calculateLifecycleScore({
+      interestMetrics: Array.from({ length: 10 }, (_, i) => makeInterestMetric(i, 50)),
+      newsMetrics: Array.from({ length: 14 }, (_, i) => makeNewsMetric(i, 5)),
+      firstSpikeDate: '2025-12-01',
+      today: '2026-01-10',
+    })
+
+    expect(result).not.toBeNull()
+    expect(result!.components.weights.interest).toBeCloseTo(0.55, 5)
+    expect(result!.components.weights.news).toBeCloseTo(0.2, 5)
+    expect(result!.components.weights.volatility).toBeCloseTo(0.05, 5)
+    expect(result!.components.weights.activity).toBeCloseTo(0.2, 5)
   })
 
   it('DVI: consistent direction yields higher volatility than flat pattern', () => {

@@ -11,7 +11,7 @@
 | prediction-availability-drift | Prediction Availability Drift | comparison-v4-secondary-owner |
 | v2-storage-growth | V2 Storage Growth | comparison-v4-secondary-owner |
 
-Config: `scripts/tli/comparison-v4-ops.ts` `COMPARISON_V4_DASHBOARDS`
+These dashboards are documented directly here and are no longer backed by a dedicated helper module.
 
 ## Required Alerts
 
@@ -24,7 +24,7 @@ Config: `scripts/tli/comparison-v4-ops.ts` `COMPARISON_V4_DASHBOARDS`
 | storage-growth-budget | 20% | > 20% over planned budget |
 | contract-parity-e2e | N/A | any promotion candidate parity failure |
 
-Config: `scripts/tli/comparison-v4-ops.ts` `COMPARISON_V4_ALERT_THRESHOLDS`
+These numeric alert thresholds are documented directly here and should be enforced by the actual promotion and incident workflow.
 
 ## Notification Channel
 
@@ -32,7 +32,7 @@ Config: `scripts/tli/comparison-v4-ops.ts` `COMPARISON_V4_ALERT_THRESHOLDS`
 - Primary Owner: comparison-v4-primary-owner
 - Secondary Owner: comparison-v4-secondary-owner
 
-Config: `scripts/tli/comparison-v4-ops.ts` `COMPARISON_V4_NOTIFICATION_CHANNEL`
+Notification ownership is documented directly here and should be wired through the actual incident workflow.
 
 ## Retention Policy (PRD §12)
 
@@ -44,7 +44,7 @@ Config: `scripts/tli/comparison-v4-ops.ts` `COMPARISON_V4_NOTIFICATION_CHANNEL`
 | prediction_snapshots_v2 | 365 days |
 | comparison_backfill_manifest_v2 | permanent |
 
-Config: `scripts/tli/comparison-v4-ops.ts` `COMPARISON_V4_RETENTION_POLICY`
+Retention policy is documented directly here and should be enforced by the actual retention jobs.
 
 ## Promotion Prerequisites
 
@@ -56,4 +56,4 @@ Promotion (`/api/admin/tli/comparison-v4/promote`) requires all:
 4. Rollback runbook exists (`docs/comparison-v4-runbook.md`)
 5. Drill evidence exists (at least one successful drill recorded)
 
-Checker: `scripts/tli/comparison-v4-ops.ts` `isObservabilityReady()`
+Promotion readiness should verify these five prerequisites directly instead of relying on a docs-only helper module.

@@ -6,7 +6,7 @@ import {
   buildLegacyComparisonPayloadFromV2,
   canPublishComparisonRunV2,
   finalizeComparisonRunV2,
-} from '../comparison-v4-records'
+} from '@/scripts/tli/comparison/v4/records'
 
 describe('comparison v4 record builders', () => {
   it('builds a run row with publish metadata defaults', () => {

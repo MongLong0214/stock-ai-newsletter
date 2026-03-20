@@ -185,7 +185,7 @@ export function getTLIParams(): TLIParams {
       const nodeRequire = new Function('mod', 'return require(mod)') as (mod: string) => unknown
       const fs = nodeRequire('fs') as typeof import('fs')
       const path = nodeRequire('path') as typeof import('path')
-      const jsonPath = path.resolve(process.cwd(), 'scripts', 'tli-optimizer', 'optimized-params.json')
+      const jsonPath = path.resolve(process.cwd(), 'scripts', 'tli', 'research', 'optimizer', 'optimized-params.json')
       const raw = fs.readFileSync(jsonPath, 'utf-8')
       const optimized = JSON.parse(raw) as Partial<TLIParams>
       return { ...base, ...optimized }

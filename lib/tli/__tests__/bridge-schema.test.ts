@@ -41,7 +41,7 @@ describe('TCAR-002: bridge schema migration', () => {
 
   describe('episode_registry_v1', () => {
     it('has required columns', () => {
-      expect(sql).toContain('theme_id TEXT NOT NULL')
+      expect(sql).toContain('theme_id UUID NOT NULL')
       expect(sql).toContain('episode_number INTEGER NOT NULL')
       expect(sql).toContain('boundary_source_start TEXT NOT NULL')
       expect(sql).toContain('boundary_source_end TEXT')
@@ -66,6 +66,7 @@ describe('TCAR-002: bridge schema migration', () => {
   describe('query_snapshot_v1', () => {
     it('has required columns', () => {
       expect(sql).toContain('episode_id UUID NOT NULL REFERENCES episode_registry_v1(id)')
+      expect(sql).toContain('theme_id UUID NOT NULL REFERENCES themes(id)')
       expect(sql).toContain('snapshot_date DATE NOT NULL')
       expect(sql).toContain('source_data_cutoff DATE NOT NULL')
       expect(sql).toContain('lifecycle_score DOUBLE PRECISION NOT NULL')
@@ -86,6 +87,7 @@ describe('TCAR-002: bridge schema migration', () => {
 
   describe('label_table_v1', () => {
     it('has required columns', () => {
+      expect(sql).toContain('theme_id UUID NOT NULL REFERENCES themes(id)')
       expect(sql).toContain('source_data_cutoff DATE NOT NULL')
       expect(sql).toContain('is_completed BOOLEAN NOT NULL DEFAULT false')
       expect(sql).toContain('is_promotion_eligible BOOLEAN NOT NULL DEFAULT false')
@@ -100,6 +102,11 @@ describe('TCAR-002: bridge schema migration', () => {
   })
 
   describe('analog_candidates_v1', () => {
+    it('uses UUID theme foreign keys', () => {
+      expect(sql).toContain('query_theme_id UUID NOT NULL REFERENCES themes(id)')
+      expect(sql).toContain('candidate_theme_id UUID NOT NULL REFERENCES themes(id)')
+    })
+
     it('has retrieval surface CHECK constraint', () => {
       for (const surface of RETRIEVAL_SURFACES) {
         expect(sql).toContain(surface)
@@ -118,6 +125,7 @@ describe('TCAR-002: bridge schema migration', () => {
     })
 
     it('has required columns', () => {
+      expect(sql).toContain('query_theme_id UUID NOT NULL REFERENCES themes(id)')
       expect(sql).toContain('analog_future_path_summary JSONB NOT NULL')
       expect(sql).toContain('retrieval_reason TEXT NOT NULL')
       expect(sql).toContain('evidence_quality TEXT NOT NULL')

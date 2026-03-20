@@ -2,10 +2,14 @@ import { getServerSupabaseClient } from '@/lib/supabase/server-client'
 import { resolveLevel4ConfidenceTier } from '@/lib/tli/comparison/level4-serving'
 import { isCertificationSourceSurface, type Level4ServingMetadata } from '@/lib/tli/comparison/level4-types'
 import { fetchLatestCertificationCalibrationArtifact } from '@/scripts/tli/level4/calibration-artifact'
-import { fetchWeightArtifactByVersion, type WeightArtifactRow } from '@/scripts/tli/level4/weight-artifact'
+import {
+  fetchLatestCertificationWeightArtifact,
+  fetchWeightArtifactByVersion,
+  type WeightArtifactRow,
+} from '@/scripts/tli/level4/weight-artifact'
 
 export { isCertificationSourceSurface } from '@/lib/tli/comparison/level4-types'
-import { resolveComparisonV4ServingVersion } from '@/scripts/tli/comparison-v4-control'
+import { resolveComparisonV4ServingVersion } from '@/scripts/tli/comparison/v4/control'
 
 export const DEFAULT_COMPARISON_V4_SERVING_VERSION = 'latest'
 
@@ -31,6 +35,11 @@ interface ComparisonV2CandidateRow {
   past_peak_score: number | null
   past_final_stage: string | null
   past_decline_days: number | null
+  supportCount?: number | null
+  confidenceTier?: 'high' | 'medium' | 'low' | null
+  calibrationVersion?: string | null
+  weightVersion?: string | null
+  sourceSurface?: Level4ServingMetadata['source_surface'] | null
 }
 
 interface CalibrationArtifactServingRow {
@@ -45,6 +54,40 @@ interface CalibrationArtifactServingRow {
   }> | null
 }
 
+interface AnalogCandidateServingRow {
+  id: string
+  candidate_theme_id: string
+  candidate_episode_id: string
+  similarity_score: number
+  feature_sim: number | null
+  curve_sim: number | null
+  keyword_sim: number | null
+  rank: number
+}
+
+interface AnalogEvidenceServingRow {
+  candidate_id: string
+  candidate_episode_id: string
+  analog_future_path_summary: {
+    peak_day: number
+    total_days: number
+    final_stage: string
+    post_peak_drawdown: number | null
+  }
+  retrieval_reason: string
+  mismatch_summary: string | null
+  evidence_quality: 'high' | 'medium' | 'low'
+  evidence_quality_score: number
+  analog_support_count: number
+  candidate_concentration_gini: number
+  top1_analog_weight: number
+}
+
+interface EpisodeServingRow {
+  id: string
+  is_active: boolean
+}
+
 type ServingMetadataInput = CalibrationArtifactServingRow | Pick<
   Level4ServingMetadata,
   'source_surface' | 'calibration_version' | 'weight_version' | 'relevance_probability' | 'probability_ci_lower' | 'probability_ci_upper' | 'support_count' | 'confidence_tier'
@@ -57,16 +100,18 @@ type ActiveControlRow = {
   weight_version?: string | null
 } | null
 
+export function hasActiveComparisonV4ServingControl(
+  controlRow: { production_version: string; serving_enabled: boolean } | null,
+) {
+  return Boolean(controlRow?.serving_enabled && controlRow.production_version)
+}
+
 export function isComparisonV4ServingEnabled() {
-  return process.env.TLI_COMPARISON_V4_SERVING_ENABLED === 'true'
+  return true
 }
 
 export function getComparisonV4ReaderMode(): 'view' | 'table' {
-  return process.env.TLI_COMPARISON_V4_SERVING_VIEW === 'true' ? 'view' : 'table'
-}
-
-export function getComparisonV4ServingVersion() {
-  return process.env.TLI_COMPARISON_V4_PRODUCTION_VERSION || DEFAULT_COMPARISON_V4_SERVING_VERSION
+  return 'table'
 }
 
 export function resolvePinnedServingArtifactVersions(input: {
@@ -84,10 +129,20 @@ export function selectPublishedComparisonRun(
   runs: PublishedComparisonRun[],
   algorithmVersion = DEFAULT_COMPARISON_V4_SERVING_VERSION,
 ) {
+  const poolPriority: Record<string, number> = {
+    archetype: 0,
+    mixed_legacy: 1,
+    peer: 2,
+  }
+
   const eligible = runs
-    .filter((run) => run.candidate_pool === 'archetype' && run.publish_ready && run.status === 'published')
+    .filter((run) => run.publish_ready && run.status === 'published')
     .filter((run) => algorithmVersion === DEFAULT_COMPARISON_V4_SERVING_VERSION || run.algorithm_version === algorithmVersion)
-    .sort((a, b) => b.created_at.localeCompare(a.created_at))
+    .sort((a, b) => {
+      const poolDelta = (poolPriority[a.candidate_pool] ?? 99) - (poolPriority[b.candidate_pool] ?? 99)
+      if (poolDelta !== 0) return poolDelta
+      return b.created_at.localeCompare(a.created_at)
+    })
 
   return eligible[0] ?? null
 }
@@ -167,28 +222,22 @@ async function resolveServingCalibrationArtifact(
     weight_version: controlRow?.weight_version ?? null,
     serving_enabled: controlRow?.serving_enabled ?? false,
   })
-  if (!pinned.calibrationVersion) {
-    throw new Error('Active serving control row is missing a pinned calibration artifact')
-  }
-
   const artifactClient = supabase as unknown as Parameters<typeof fetchLatestCertificationCalibrationArtifact>[0]
-  const calibrationArtifact = await fetchLatestCertificationCalibrationArtifact(artifactClient, pinned.calibrationVersion) as CalibrationArtifactServingRow
+  const calibrationArtifact = await fetchLatestCertificationCalibrationArtifact(
+    artifactClient,
+    pinned.calibrationVersion,
+  ) as CalibrationArtifactServingRow
   assertCertificationServingArtifact(calibrationArtifact)
 
-  const weightVersion = await resolveServingWeightVersion({
-    requestedWeightVersion: pinned.weightVersion,
-    loadWeightArtifact: (requestedWeightVersion) => fetchWeightArtifactByVersion(
-      supabase as unknown as Parameters<typeof fetchWeightArtifactByVersion>[0],
-      requestedWeightVersion,
-    ),
-  })
+  const weightArtifactClient = supabase as unknown as Parameters<typeof fetchWeightArtifactByVersion>[0]
+  const weightArtifact = pinned.weightVersion
+    ? await fetchWeightArtifactByVersion(weightArtifactClient, pinned.weightVersion)
+    : await fetchLatestCertificationWeightArtifact(weightArtifactClient)
 
-  return weightVersion
-    ? applyCertifiedWeightVersion(calibrationArtifact, {
-        weight_version: weightVersion,
-        source_surface: calibrationArtifact.source_surface,
-      })
-    : calibrationArtifact
+  return applyCertifiedWeightVersion(calibrationArtifact, {
+    weight_version: weightArtifact.weight_version,
+    source_surface: weightArtifact.source_surface,
+  })
 }
 
 export function buildLevel4ServingMetadata(
@@ -244,25 +293,148 @@ export function mapV2CandidatesToLegacyComparisons(
       past_peak_score: row.past_peak_score,
       past_final_stage: row.past_final_stage,
       past_decline_days: row.past_decline_days,
-      ...(level4 ? {
-        relevanceProbability: level4.relevance_probability,
-        probabilityCiLower: level4.probability_ci_lower,
-        probabilityCiUpper: level4.probability_ci_upper,
-        supportCount: level4.support_count,
-        confidenceTier: level4.confidence_tier,
-        calibrationVersion: level4.calibration_version,
-        weightVersion: level4.weight_version ?? null,
-        sourceSurface: level4.source_surface,
-      } : {}),
+      relevanceProbability: level4?.relevance_probability ?? null,
+      probabilityCiLower: level4?.probability_ci_lower ?? null,
+      probabilityCiUpper: level4?.probability_ci_upper ?? null,
+      supportCount: row.supportCount ?? level4?.support_count ?? null,
+      confidenceTier: row.confidenceTier ?? level4?.confidence_tier ?? null,
+      calibrationVersion: row.calibrationVersion ?? level4?.calibration_version ?? null,
+      weightVersion: row.weightVersion ?? level4?.weight_version ?? null,
+      sourceSurface: row.sourceSurface ?? level4?.source_surface ?? null,
     }
   })
 }
 
+function normalizeAnalogSummary(
+  summary: AnalogEvidenceServingRow['analog_future_path_summary'] | null | undefined,
+) {
+  if (!summary) return null
+  if (!Number.isFinite(summary.peak_day) || !Number.isFinite(summary.total_days)) return null
+  if (typeof summary.final_stage !== 'string' || summary.final_stage.length === 0) return null
+  return summary
+}
+
+export function buildCompletedAnalogComparisonRows(input: {
+  currentDay: number
+  candidates: AnalogCandidateServingRow[]
+  evidenceByCandidateId: Map<string, AnalogEvidenceServingRow>
+  episodeById: Map<string, EpisodeServingRow>
+}) {
+  const rows: Array<{
+    id: string
+    candidate_theme_id: string
+    similarity_score: number
+    current_day: number
+    past_peak_day: number
+    past_total_days: number
+    message: string
+    feature_sim: number | null
+    curve_sim: number | null
+    keyword_sim: number | null
+    past_peak_score: null
+    past_final_stage: string | null
+    past_decline_days: number | null
+    supportCount: number
+    confidenceTier: 'high' | 'medium' | 'low'
+    sourceSurface: Level4ServingMetadata['source_surface']
+  }> = []
+
+  for (const candidate of input.candidates) {
+    const evidence = input.evidenceByCandidateId.get(candidate.id)
+    const summary = normalizeAnalogSummary(evidence?.analog_future_path_summary)
+    const episode = input.episodeById.get(candidate.candidate_episode_id)
+    if (!evidence || !summary) continue
+
+    rows.push({
+      id: candidate.id,
+      candidate_theme_id: candidate.candidate_theme_id,
+      similarity_score: candidate.similarity_score,
+      current_day: input.currentDay,
+      past_peak_day: summary.peak_day,
+      past_total_days: summary.total_days,
+      message: evidence.retrieval_reason,
+      feature_sim: candidate.feature_sim,
+      curve_sim: candidate.curve_sim,
+      keyword_sim: candidate.keyword_sim,
+      past_peak_score: null,
+      past_final_stage: episode?.is_active ? null : summary.final_stage,
+      past_decline_days: episode?.is_active ? null : Math.max(summary.total_days - summary.peak_day, 0),
+      supportCount: evidence.analog_support_count,
+      confidenceTier: evidence.evidence_quality,
+      sourceSurface: 'v2_certification',
+    })
+  }
+
+  return rows
+}
+
+async function loadLatestCompletedAnalogRows(themeId: string) {
+  const supabase = getServerSupabaseClient()
+  const { data: snapshot, error: snapshotError } = await supabase
+    .from('query_snapshot_v1')
+    .select('id, days_since_episode_start, reconstruction_status')
+    .eq('theme_id', themeId)
+    .neq('reconstruction_status', 'failed')
+    .order('snapshot_date', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (snapshotError || !snapshot) {
+    return { data: [], error: snapshotError ?? null }
+  }
+
+  const { data: candidates, error: candidateError } = await supabase
+    .from('analog_candidates_v1')
+    .select('id, candidate_theme_id, candidate_episode_id, similarity_score, feature_sim, curve_sim, keyword_sim, rank')
+    .eq('query_snapshot_id', snapshot.id)
+    .order('rank', { ascending: true })
+    .limit(5)
+
+  if (candidateError || !candidates?.length) {
+    return { data: [], error: candidateError ?? null }
+  }
+
+  const candidateIds = candidates.map((candidate) => candidate.id)
+  const { data: evidenceRows, error: evidenceError } = await supabase
+    .from('analog_evidence_v1')
+    .select('candidate_id, candidate_episode_id, analog_future_path_summary, retrieval_reason, mismatch_summary, evidence_quality, evidence_quality_score, analog_support_count, candidate_concentration_gini, top1_analog_weight')
+    .eq('query_snapshot_id', snapshot.id)
+    .in('candidate_id', candidateIds)
+
+  if (evidenceError || !evidenceRows?.length) {
+    return { data: [], error: evidenceError ?? null }
+  }
+
+  const episodeIds = [...new Set(candidates.map((candidate) => candidate.candidate_episode_id))]
+  const { data: episodeRows, error: episodeError } = await supabase
+    .from('episode_registry_v1')
+    .select('id, is_active')
+    .in('id', episodeIds)
+
+  if (episodeError) {
+    return { data: [], error: episodeError }
+  }
+
+  return {
+    data: buildCompletedAnalogComparisonRows({
+      currentDay: snapshot.days_since_episode_start,
+      candidates: candidates as AnalogCandidateServingRow[],
+      evidenceByCandidateId: new Map(
+        evidenceRows.map((row) => [row.candidate_id, row as AnalogEvidenceServingRow]),
+      ),
+      episodeById: new Map(
+        (episodeRows ?? []).map((row) => [row.id, row as EpisodeServingRow]),
+      ),
+    }),
+    error: null,
+  }
+}
+
 async function fetchFromServingView(themeId: string) {
   const supabase = getServerSupabaseClient()
+  const controlRow = await loadActiveControlRow(supabase)
   let artifact: CalibrationArtifactServingRow
   try {
-    const controlRow = await loadActiveControlRow(supabase)
     artifact = await resolveServingCalibrationArtifact(supabase, controlRow)
   } catch (error) {
     return { data: null, error: { code: 'CERTIFICATION_REQUIRED', message: error instanceof Error ? error.message : String(error) } }
@@ -290,9 +462,27 @@ export async function fetchPublishedComparisonRowsV4(themeId: string) {
   const supabase = getServerSupabaseClient()
   const controlRow = await loadActiveControlRow(supabase)
   const algorithmVersion = resolveComparisonV4ServingVersion({
-    envVersion: process.env.TLI_COMPARISON_V4_PRODUCTION_VERSION,
+    envVersion: DEFAULT_COMPARISON_V4_SERVING_VERSION,
     controlRow,
   })
+
+  let artifact: CalibrationArtifactServingRow
+  try {
+    artifact = await resolveServingCalibrationArtifact(supabase, controlRow)
+  } catch (error) {
+    return { data: null, error: { code: 'CERTIFICATION_REQUIRED', message: error instanceof Error ? error.message : String(error) } }
+  }
+
+  const analogRows = await loadLatestCompletedAnalogRows(themeId)
+  if (analogRows.error) {
+    return { data: null, error: analogRows.error }
+  }
+  if (analogRows.data.length > 0) {
+    return {
+      data: mapV2CandidatesToLegacyComparisons(analogRows.data as ComparisonV2CandidateRow[], artifact),
+      error: null,
+    }
+  }
 
   const { data: runs, error: runError } = await supabase
     .from('theme_comparison_runs_v2')
@@ -308,12 +498,6 @@ export async function fetchPublishedComparisonRowsV4(themeId: string) {
   const selected = selectPublishedComparisonRun((runs || []) as PublishedComparisonRun[], algorithmVersion)
   if (!selected) {
     return { data: [], error: null }
-  }
-  let artifact: CalibrationArtifactServingRow
-  try {
-    artifact = await resolveServingCalibrationArtifact(supabase, controlRow)
-  } catch (error) {
-    return { data: null, error: { code: 'CERTIFICATION_REQUIRED', message: error instanceof Error ? error.message : String(error) } }
   }
 
   const { data, error } = await supabase

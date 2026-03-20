@@ -1,5 +1,5 @@
 import type { Level4ConfidenceTier, Level4SourceSurface } from '@/lib/tli/comparison/level4-types'
-import { evaluateRollbackDrill } from '../comparison-v4-validation'
+import { evaluateRollbackDrill } from '@/scripts/tli/comparison/v4/validation'
 
 interface CertificationRuntimeControlRow {
   calibration_version: string | null

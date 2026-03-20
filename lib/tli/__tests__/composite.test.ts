@@ -179,6 +179,43 @@ describe('compositeCompare', () => {
     expect(result.message.length).toBeGreaterThan(0)
   })
 
+  it('uses observational wording when the past analog is still active', () => {
+    const result = compositeCompare({
+      current: { features: makeFeatures(), curve: makeCurve(5), keywords: ['AI'], activeDays: 41, sector: 'AI' },
+      past: {
+        features: makeFeatures(),
+        curve: makeCurve(5),
+        keywords: ['AI'],
+        peakDay: 15,
+        totalDays: 40,
+        name: 'active-analog',
+        sector: 'AI',
+        isActive: true,
+      },
+    })
+
+    expect(result.message).toContain('관측 구간')
+    expect(result.message).not.toContain('쇠퇴')
+  })
+
+  it('uses completed-cycle wording only when the past analog is inactive', () => {
+    const result = compositeCompare({
+      current: { features: makeFeatures(), curve: makeCurve(5), keywords: ['AI'], activeDays: 41, sector: 'AI' },
+      past: {
+        features: makeFeatures(),
+        curve: makeCurve(5),
+        keywords: ['AI'],
+        peakDay: 15,
+        totalDays: 40,
+        name: 'completed-analog',
+        sector: 'AI',
+        isActive: false,
+      },
+    })
+
+    expect(result.message).toContain('종료')
+  })
+
   it('applies artifact-backed custom weights when provided', () => {
     const current = {
       features: makeFeatures({ interestMomentum: 0.9 }),

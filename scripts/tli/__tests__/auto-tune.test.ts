@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { _optimizeFromData, DEFAULT_THRESHOLD } from '../auto-tune'
+import { _optimizeFromData, DEFAULT_THRESHOLD } from '@/scripts/tli/comparison/auto-tune'
 
 type Row = { similarity_score: number; trajectory_correlation: number }
 

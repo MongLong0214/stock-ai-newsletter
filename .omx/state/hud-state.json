@@ -1,5 +1,5 @@
 {
-  "last_turn_at": "2026-03-18T07:28:40.353Z",
-  "turn_count": 37,
-  "last_agent_output": "가능해요.  \n`11`개의 `opengraph-image`는 실제로 `ImageResponse`라서 URL에 접근하면 PNG가 내려옵니다.\n\n1. 먼저 로컬에서 서버 실행  \n``"
+  "last_turn_at": "2026-03-20T06:08:24.768Z",
+  "turn_count": 127,
+  "last_agent_output": "정확히 말하면 이겁니다.\n\n- `scripts/tli`의 파일이 전부 `런타임에서 자동으로 import되어 사용된다`는 뜻이면 `아니오`\n- `scripts/tli`의 non-te"
 }

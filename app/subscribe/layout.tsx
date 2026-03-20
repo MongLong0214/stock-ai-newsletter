@@ -28,7 +28,7 @@ export const metadata: Metadata = {
     type: 'website',
     images: [
       {
-        url: withOgImageVersion('/opengraph-image'),
+        url: withOgImageVersion('/subscribe/opengraph-image'),
         width: 1200,
         height: 630,
         alt: 'Stock Matrix 무료 구독',
@@ -39,7 +39,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: '무료 구독 - Stock Matrix',
     description: '매일 7:30 AI 주식분석 무료 이메일',
-    images: [withOgImageVersion('/twitter-image')],
+    images: [withOgImageVersion('/subscribe/opengraph-image')],
   },
   robots: {
     index: true,

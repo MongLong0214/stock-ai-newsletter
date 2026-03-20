@@ -1,16 +1,16 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
+import * as dbTypes from '@/lib/tli/types/db'
 import type {
   ThemeComparisonRunV2,
   ThemeComparisonCandidateV2,
   ThemeComparisonEvalV2,
   PredictionSnapshotV2,
   ThemeStateHistoryV2,
-  ComparisonBackfillManifestV2,
   ComparisonV4Control,
   DriftReportArtifact,
-} from '../../../lib/tli/types/db'
+} from '@/lib/tli/types/db'
 
 const migrationPath = join(process.cwd(), 'supabase/migrations/016_comparison_v4_foundation.sql')
 
@@ -69,6 +69,25 @@ describe('comparison v4 schema migration', () => {
     expect(sql).toContain('baseline_censoring_ratio')
     expect(sql).toContain('low_confidence_serving_rate')
     expect(sql).toContain('hold_report_date')
+  })
+
+  it('adds a forward migration that retires legacy comparison tables once v4 is live', () => {
+    const sql = readFileSync(join(process.cwd(), 'supabase/migrations/028_retire_legacy_tli_comparison_schema.sql'), 'utf8')
+    expect(sql).toContain('DROP TABLE IF EXISTS prediction_snapshots')
+    expect(sql).toContain('DROP TABLE IF EXISTS theme_comparisons')
+    expect(sql).toContain('DROP TABLE IF EXISTS comparison_calibration')
+  })
+
+  it('uses UUID foreign keys for phase0 bridge tables that reference themes(id)', () => {
+    const sql = readFileSync(join(process.cwd(), 'supabase/migrations/027_tcar002_phase0_bridge_schema.sql'), 'utf8')
+    expect(sql).toContain('theme_id UUID NOT NULL REFERENCES themes(id)')
+    expect(sql).toContain('query_theme_id UUID NOT NULL REFERENCES themes(id)')
+    expect(sql).toContain('candidate_theme_id UUID NOT NULL REFERENCES themes(id)')
+  })
+
+  it('uses valid CREATE POLICY ordering in phase0 bridge schema', () => {
+    const sql = readFileSync(join(process.cwd(), 'supabase/migrations/027_tcar002_phase0_bridge_schema.sql'), 'utf8')
+    expect(sql).toMatch(/FOR ALL TO service_role\s+USING \(true\)\s+WITH CHECK \(true\);/)
   })
 
   it('adds certification weight artifact persistence in the following migration', () => {
@@ -220,17 +239,6 @@ describe('comparison v4 db types', () => {
       state_version: 'v1',
     }
 
-    const manifest: ComparisonBackfillManifestV2 = {
-      manifest_id: 'manifest-1',
-      source_table: 'theme_comparisons',
-      source_row_count: 10,
-      target_row_count: 10,
-      row_count_parity_ok: true,
-      sample_contract_parity_ok: true,
-      executed_at: '2026-03-11T00:00:00Z',
-      notes: null,
-    }
-
     const control: ComparisonV4Control = {
       id: 'control-1',
       production_version: 'algo-v4-prod',
@@ -280,8 +288,13 @@ describe('comparison v4 db types', () => {
     expect(evaluation.graded_gain).toBe(2)
     expect(snapshot.candidate_pool).toBe('archetype')
     expect(stateHistory.state_version).toBe('v1')
-    expect(manifest.row_count_parity_ok).toBe(true)
     expect(control.calibration_version).toBe('cal-2026-03')
     expect(driftArtifact.drift_status).toBe('stable')
+  })
+
+  it('does not export retired legacy comparison db interfaces', () => {
+    expect('ThemeComparison' in dbTypes).toBe(false)
+    expect('ComparisonCalibration' in dbTypes).toBe(false)
+    expect('ComparisonBackfillManifestV2' in dbTypes).toBe(false)
   })
 })

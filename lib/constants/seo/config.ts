@@ -19,7 +19,7 @@ export const siteConfig: SiteConfig = {
 } as const;
 
 /** OG/Twitter 이미지 캐시 버스팅용 버전 */
-export const OG_IMAGE_VERSION = '20260319-og-v2';
+export const OG_IMAGE_VERSION = '20260320-og-v3';
 
 /** 외부 크롤러 캐시를 깨기 위해 이미지 URL에 버전 쿼리 부여 */
 export function withOgImageVersion(pathOrUrl: string): string {

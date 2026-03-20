@@ -8,17 +8,17 @@
 
 ## Required Steps
 
-### 1. feature flag revert
+### 1. repin to a stable v4 version
 
-Set `TLI_COMPARISON_V4_SERVING_ENABLED=false` in Vercel environment.
+Update the active `comparison_v4_control` row so it points to a known stable `production_version`, `calibration_version`, and `weight_version`.
 
-This immediately stops the API from reading v4 serving tables. Legacy `theme_comparisons` path takes over.
+This keeps the API on v4 while rolling back away from the latest bad promotion.
 
-### 2. published reader pin to `v_current`
+The API should remain healthy; comparison payloads continue to come from v4, but from the stable pinned version.
 
-If `TLI_COMPARISON_V4_SERVING_VIEW=true`, also set it to `false` to bypass the serving view.
+### 2. verify published reader on the stable version
 
-Verify the API returns legacy data by checking `/api/tli/themes/{id}` response `comparisonSource` field (should be `'legacy'` or absent).
+Verify the API returns the expected v4 comparison candidates by checking `/api/tli/themes/{id}` and confirming the comparison section is populated or degrades cleanly without affecting the rest of the payload.
 
 ### 3. shadow writer freeze 여부 판단
 
@@ -46,8 +46,10 @@ After rollback, verify parity:
 
 1. Pick 3 active themes
 2. Call `/api/tli/themes/{id}` for each
-3. Confirm `comparisons` array is non-empty and `comparisonSource` is `'legacy'` or absent
-4. Record pass/fail in incident note
+3. Confirm the route returns `200`
+4. Confirm non-comparison sections still render correctly
+5. Confirm comparison arrays reflect the stable pinned v4 data
+6. Record pass/fail in incident note
 
 ### 6. incident note 작성
 
@@ -68,11 +70,9 @@ Rollback drills should be conducted:
 
 ## Drill Evidence
 
-Drill results are recorded using `buildDrillEvidence()` from `scripts/tli/comparison-v4-ops.ts`.
-
 Each drill records:
 - Date
 - Pass/fail
-- All 6 steps above (flag revert, reader pin, writer freeze decision, affected range, parity result, incident note)
+- All 6 steps above (stable version repin, reader pin, writer freeze decision, affected range, parity result, incident note)
 
-Evidence is stored as part of the promotion prerequisite check via `isObservabilityReady({ drillEvidenceExists: true })`.
+Evidence should be stored as part of the promotion prerequisite check.

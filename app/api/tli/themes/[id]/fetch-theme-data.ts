@@ -4,6 +4,7 @@
 
 import { supabase } from '@/lib/supabase'
 import { isTableNotFound } from '@/lib/tli/api-utils'
+import { fetchPublishedComparisonRowsV4 } from './comparison-v4-reader'
 
 interface FetchThemeDataParams {
   id: string
@@ -11,10 +12,15 @@ interface FetchThemeDataParams {
 }
 
 export const COMPARISON_FETCH_LIMIT = 12
-
 interface SupabaseRes<T> {
   data: T[] | null
   error: { code?: string; message?: string } | null
+}
+
+export function isNonCriticalComparisonDetailError(
+  error: { code?: string; message?: string } | null,
+) {
+  return error?.code === 'CERTIFICATION_REQUIRED'
 }
 
 interface ThemeDetailCriticalFetchInput {
@@ -82,7 +88,9 @@ export function findCriticalThemeDetailError(input: ThemeDetailCriticalFetchInpu
     input.latestScoreRes.error,
     input.scoresRes.error,
     input.stocksRes.error,
-    input.comparisonsRes.error,
+    isNonCriticalComparisonDetailError(input.comparisonsRes.error)
+      ? null
+      : input.comparisonsRes.error,
     input.newsRes.error,
     input.interestRes.error,
     input.keywordsRes.error,
@@ -106,14 +114,7 @@ export async function fetchThemeData(
 ): Promise<FetchThemeDataResult> {
   const { id, thirtyDaysAgo } = params
 
-  const comparisonsPromise = supabase
-    .from('theme_comparisons')
-    .select('id, past_theme_id, similarity_score, current_day, past_peak_day, past_total_days, message, feature_sim, curve_sim, keyword_sim, past_peak_score, past_final_stage, past_decline_days')
-    .eq('current_theme_id', id)
-    .gte('calculated_at', thirtyDaysAgo)
-    .order('calculated_at', { ascending: false })
-    .order('similarity_score', { ascending: false })
-    .limit(COMPARISON_FETCH_LIMIT)
+  const comparisonsPromise = fetchPublishedComparisonRowsV4(id)
 
   const [latestScoreRes, scoresRes, stocksRes, comparisonsRes, newsRes, interestRes, newsArticlesRes, keywordsRes, stockCountRes, newsArticleCountRes] =
     await Promise.all([
@@ -158,7 +159,7 @@ export async function fetchThemeData(
           }
           return res
         }),
-      // 유사 테마 비교 (v4 reader 또는 legacy fallback)
+      // 유사 테마 비교 (v4 reader)
       comparisonsPromise,
       // 뉴스 시계열 (30일)
       supabase
@@ -212,6 +213,12 @@ export async function fetchThemeData(
     stockCountError: stockCountRes.error,
     newsArticleCountError: newsArticleCountRes.error,
   })
+
+  if (isNonCriticalComparisonDetailError(comparisonsRes.error)) {
+    console.warn(
+      `[TLI API] comparison detail degraded for ${id}: ${comparisonsRes.error?.message ?? comparisonsRes.error?.code ?? 'unknown comparison serving error'}`,
+    )
+  }
 
   if (criticalError) {
     throw new Error(criticalError.message || 'theme detail batch fetch failed')

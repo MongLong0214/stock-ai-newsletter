@@ -50,6 +50,20 @@ interface BuildThemeDetailParams {
   interestList: Array<{ time: string; normalized: number }>
 }
 
+function dedupeKeywords(keywords: string[]) {
+  const seen = new Set<string>()
+  const deduped: string[] = []
+
+  for (const keyword of keywords) {
+    const normalized = keyword.trim()
+    if (!normalized || seen.has(normalized)) continue
+    seen.add(normalized)
+    deduped.push(normalized)
+  }
+
+  return deduped
+}
+
 /**
  * ThemeDetail 응답 객체 조합
  */
@@ -73,6 +87,7 @@ export function buildThemeDetailResponse(params: BuildThemeDetailParams): ThemeD
   const rawComponents = latestScore?.components ?? null
   const components = isScoreComponents(rawComponents) ? rawComponents : null
   const stage = toStage(latestScore?.stage)
+  const dedupedKeywords = dedupeKeywords(keywords)
 
   return {
     id: theme.id,
@@ -80,7 +95,7 @@ export function buildThemeDetailResponse(params: BuildThemeDetailParams): ThemeD
     nameEn: theme.name_en,
     description: theme.description,
     firstSpikeDate: theme.first_spike_date,
-    keywords,
+    keywords: dedupedKeywords,
     score: {
       value: latestScore?.score ?? 0,
       stage,

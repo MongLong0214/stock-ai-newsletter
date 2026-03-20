@@ -1,8 +1,8 @@
 import { config } from 'dotenv';
-import { getGeminiRecommendation } from '../lib/llm/korea/gemini';
+import { getGeminiRecommendation } from '@/lib/llm/korea/gemini';
 import { writeFileSync } from 'fs';
 import { join } from 'path';
-import { GEMINI_API_CONFIG, PIPELINE_CONFIG } from '../lib/llm/_config/pipeline-config';
+import { GEMINI_API_CONFIG, PIPELINE_CONFIG } from '@/lib/llm/_config/pipeline-config';
 
 // .env.local 파일 로드
 config({ path: join(process.cwd(), '.env.local') });

@@ -14,7 +14,7 @@ import {
   blockBootstrapLowerBound,
   type EvalRow,
   type SliceMetricReport,
-} from '../evaluate-analog-retrieval'
+} from '../research/evaluate-analog-retrieval'
 
 // --- Test helpers ---
 

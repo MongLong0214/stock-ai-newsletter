@@ -26,7 +26,7 @@ export const metadata: Metadata = {
     type: 'website',
     images: [
       {
-        url: withOgImageVersion('/opengraph-image'),
+        url: withOgImageVersion('/about/opengraph-image'),
         width: 1200,
         height: 630,
         alt: 'Stock Matrix AI 주식 분석 서비스',
@@ -37,7 +37,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'Stock Matrix - AI 주식 분석 뉴스레터',
     description: '30개 기술지표 AI 분석, 매일 7:30 무료 발송',
-    images: [withOgImageVersion('/twitter-image')],
+    images: [withOgImageVersion('/about/opengraph-image')],
   },
 };
 
