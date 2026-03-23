@@ -4,8 +4,25 @@
   "skill": "cancel",
   "keyword": "Stop",
   "phase": "reviewing",
-  "activated_at": "2026-03-20T05:57:01.454Z",
-  "updated_at": "2026-03-20T06:25:50.209Z",
+  "activated_at": "2026-03-23T00:58:49.857Z",
+  "updated_at": "2026-03-23T01:04:13.513Z",
   "source": "keyword-detector",
-  "input_lock": null
+  "input_lock": {
+    "active": false,
+    "scope": "deep-interview-auto-approval",
+    "acquired_at": "2026-03-20T07:28:15.837Z",
+    "released_at": "2026-03-23T00:58:49.857Z",
+    "blocked_inputs": [
+      "yes",
+      "y",
+      "proceed",
+      "continue",
+      "ok",
+      "sure",
+      "go ahead",
+      "next i should"
+    ],
+    "message": "Deep interview is active; auto-approval shortcuts are blocked until the interview finishes.",
+    "exit_reason": "handoff"
+  }
 }

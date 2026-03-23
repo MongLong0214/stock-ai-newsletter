@@ -1,6 +1,7 @@
 /** 3-Pillar 유사도 바 시각화 */
 'use client'
 
+import React from 'react'
 import { motion } from 'framer-motion'
 import { SCORE_COMPONENTS } from '@/lib/tli/constants/score-config'
 
@@ -42,57 +43,69 @@ interface PillarBarsProps {
   featureSim: number | null
   curveSim: number | null
   keywordSim: number | null
-  similarity: number
   idx: number
 }
 
-export default function PillarBars({ featureSim, curveSim, keywordSim, similarity, idx }: PillarBarsProps) {
+export default function PillarBars({ featureSim, curveSim, keywordSim, idx }: PillarBarsProps) {
   return (
     <div className="space-y-1.5 mb-3">
-      {/* featureSim: 0도 유의미하므로 항상 표시. curveSim/keywordSim: 0이면 데이터 부재 → 숨김 */}
-      {featureSim !== null && (
-        <PillarRow label="핵심 지표" value={featureSim} color="bg-sky-500/70" delay={idx * 0.1} />
-      )}
-      {curveSim !== null && curveSim > 0 && (
-        <PillarRow label="추세 흐름" value={curveSim} color="bg-emerald-500/70" delay={idx * 0.1 + 0.05} />
-      )}
-      {keywordSim !== null && keywordSim > 0 && (
-        <PillarRow label="연관어" value={keywordSim} color="bg-amber-500/70" delay={idx * 0.1 + 0.1} />
-      )}
-      {/* Fallback: pillar 데이터 없으면 단일 바 */}
-      {featureSim === null && (() => {
-        const simColor = getSimilarityColor(similarity)
-        const simPercent = Math.min(99, Math.round(similarity * 100))
-        return (
-          <div className="relative h-1.5 rounded-full bg-slate-700/40 overflow-hidden">
-            <motion.div
-              className="absolute inset-y-0 left-0 rounded-full"
-              style={{ backgroundColor: simColor }}
-              initial={{ width: 0 }}
-              animate={{ width: `${simPercent}%` }}
-              transition={{ duration: 0.8, delay: idx * 0.1 }}
-            />
-          </div>
-        )
-      })()}
+      <PillarRow
+        label="핵심 지표"
+        value={featureSim ?? 0}
+        available={featureSim !== null}
+        color="bg-sky-500/70"
+        delay={idx * 0.1}
+      />
+      <PillarRow
+        label="추세 흐름"
+        value={curveSim ?? 0}
+        available={curveSim !== null && curveSim > 0}
+        color="bg-emerald-500/70"
+        delay={idx * 0.1 + 0.05}
+      />
+      <PillarRow
+        label="연관어"
+        value={keywordSim ?? 0}
+        available={keywordSim !== null}
+        color="bg-amber-500/70"
+        delay={idx * 0.1 + 0.1}
+      />
     </div>
   )
 }
 
-function PillarRow({ label, value, color, delay }: { label: string; value: number; color: string; delay: number }) {
+function PillarRow({
+  label,
+  value,
+  available,
+  color,
+  delay,
+}: {
+  label: string
+  value: number
+  available: boolean
+  color: string
+  delay: number
+}) {
   const pct = Math.min(99, Math.round(value * 100))
   return (
     <div className="flex items-center gap-2">
-      <span className="text-[10px] font-mono text-slate-500 w-12 shrink-0 whitespace-nowrap">{label}</span>
+      <span className="text-[10px] font-mono text-slate-500 w-14 shrink-0 whitespace-nowrap">{label}</span>
       <div className="flex-1 h-1 rounded-full bg-slate-700/40 overflow-hidden">
-        <motion.div
-          className={`h-full rounded-full ${color}`}
-          initial={{ width: 0 }}
-          animate={{ width: `${pct}%` }}
-          transition={{ duration: 0.6, delay }}
-        />
+        {available ? (
+          <motion.div
+            className={`h-full rounded-full ${color}`}
+            initial={{ width: 0 }}
+            animate={{ width: `${pct}%` }}
+            transition={{ duration: 0.6, delay }}
+          />
+        ) : (
+          <div className="h-full w-full border border-dashed border-slate-700/70 rounded-full bg-slate-800/40" />
+        )}
       </div>
-      <span className="text-[10px] font-mono text-slate-400 w-8 text-right">{pct}%</span>
+      <span className="text-[10px] font-mono text-slate-400 w-12 text-right">
+        {available ? `${pct}%` : '미산출'}
+      </span>
     </div>
   )
 }

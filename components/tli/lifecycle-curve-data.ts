@@ -3,6 +3,7 @@ import { COMPARISON_COLORS } from '@/lib/tli/constants/comparison-colors'
 
 export interface LifecycleCurveProps {
   currentData: Array<{ date: string; score: number }>
+  currentLabel?: string
   comparisonData?: Array<{
     themeName: string
     data: Array<{ day: number; value: number }>
@@ -10,15 +11,18 @@ export interface LifecycleCurveProps {
   }>
   newsTimeline?: Array<{ date: string; count: number }>
   interestTimeline?: Array<{ date: string; value: number }>
-  height?: number
+  height?: number | string
 }
 
 export const comparisonColors = COMPARISON_COLORS
 
-export function prepareChartConfig(comparisonData?: LifecycleCurveProps['comparisonData']): ChartConfig {
+export function prepareChartConfig(
+  comparisonData?: LifecycleCurveProps['comparisonData'],
+  currentLabel = '현재 테마',
+): ChartConfig {
   const chartConfig: ChartConfig = {
     current: {
-      label: '현재 테마',
+      label: currentLabel,
       color: '#10B981',
     },
     news: {

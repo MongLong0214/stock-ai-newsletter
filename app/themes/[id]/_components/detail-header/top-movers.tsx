@@ -5,6 +5,11 @@ import { useMemo } from 'react'
 import { useReducedMotion, motion } from 'framer-motion'
 import { TrendingUp, TrendingDown, BarChart3 } from 'lucide-react'
 import { formatPrice, formatVolume } from '@/lib/tli/format-utils'
+import {
+  DEFAULT_STOCK_SORT_DIRECTION,
+  DEFAULT_STOCK_SORT_FIELD,
+  sortStocks,
+} from '../stock-list-utils'
 
 const MAX_TOP_MOVERS = 4
 
@@ -25,10 +30,13 @@ export default function TopMovers({ stocks }: TopMoversProps) {
   const shouldReduceMotion = useReducedMotion()
 
   const topMovers = useMemo(() => {
-    return [...stocks]
+    return sortStocks(
+      stocks
       .filter(s => s.priceChangePct != null)
-      .sort((a, b) => Math.abs(b.priceChangePct!) - Math.abs(a.priceChangePct!))
-      .slice(0, MAX_TOP_MOVERS)
+      ,
+      DEFAULT_STOCK_SORT_FIELD,
+      DEFAULT_STOCK_SORT_DIRECTION,
+    ).slice(0, MAX_TOP_MOVERS)
   }, [stocks])
 
   return (
@@ -36,7 +44,7 @@ export default function TopMovers({ stocks }: TopMoversProps) {
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-xs font-mono text-slate-400 uppercase tracking-wider">주요 변동 종목</h3>
         {topMovers.length > 0 && (
-          <span className="text-[10px] font-mono text-slate-600">등락률 기준</span>
+          <span className="text-[10px] font-mono text-slate-600">등락률 내림차순</span>
         )}
       </div>
       {topMovers.length > 0 ? (

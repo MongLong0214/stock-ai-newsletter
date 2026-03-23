@@ -9,6 +9,7 @@ import {
 } from '@/lib/tli/analog/baselines'
 import { classifySectorProfile, extractFeatures } from '@/lib/tli/comparison/features'
 import { findPeakDay, normalizeTimeline, normalizeValues, resampleCurve } from '@/lib/tli/comparison/timeline'
+import { keywordJaccard } from '@/lib/tli/comparison/similarity'
 import type { ThemeStateHistoryV2, Stage } from '@/lib/tli/types/db'
 import { batchQuery, batchUpsert, groupByThemeId } from '@/scripts/tli/shared/supabase-batch'
 import { supabaseAdmin } from '@/scripts/tli/shared/supabase-admin'
@@ -127,6 +128,7 @@ interface AggregatedCandidate {
   similarityScore: number
   featureSim: number | null
   curveSim: number | null
+  keywordSim: number | null
   dtwDistance: number | null
   regimeMatch: boolean
   rank: number
@@ -228,6 +230,7 @@ export function aggregateRetrievalCandidates(input: {
         similarityScore: candidate.similarityScore,
         featureSim: candidate.featureSim,
         curveSim: candidate.curveSim,
+        keywordSim: null,
         dtwDistance: candidate.dtwDistance,
         regimeMatch: candidate.regimeMatch,
         rank: candidate.rank,
@@ -252,6 +255,7 @@ export function aggregateRetrievalCandidates(input: {
       ...candidate,
       featureSim: Number.isFinite(candidate.featureSim ?? NaN) ? candidate.featureSim : null,
       curveSim: Number.isFinite(candidate.curveSim ?? NaN) ? candidate.curveSim : null,
+      keywordSim: Number.isFinite(candidate.keywordSim ?? NaN) ? candidate.keywordSim : null,
       dtwDistance: Number.isFinite(candidate.dtwDistance ?? NaN) ? candidate.dtwDistance : null,
     }))
     .sort((a, b) => b.similarityScore - a.similarityScore)
@@ -277,6 +281,7 @@ export function buildRetrievalReason(input: {
   surface: RetrievalSurface
   featureSim: number | null
   curveSim: number | null
+  keywordSim?: number | null
   regimeMatch: boolean
 }) {
   const surfaceText: Record<RetrievalSurface, string> = {
@@ -290,7 +295,21 @@ export function buildRetrievalReason(input: {
   if (input.regimeMatch) reasons.push('현재 레짐 일치')
   if (input.featureSim != null && input.featureSim >= 0.7) reasons.push(`feature ${input.featureSim.toFixed(2)}`)
   if (input.curveSim != null && input.curveSim >= 0.7) reasons.push(`curve ${input.curveSim.toFixed(2)}`)
+  if (input.keywordSim != null && input.keywordSim > 0) reasons.push(`연관어 ${Math.round(input.keywordSim * 100)}%`)
   return reasons.join(' · ')
+}
+
+export function computeKeywordSimilarity(input: {
+  queryKeywords: Set<string>
+  candidateKeywords: Set<string>
+  keywordSupportCounts: Map<string, number>
+}) {
+  if (input.queryKeywords.size === 0 || input.candidateKeywords.size === 0) return 0
+  return Math.round(
+    keywordJaccard(input.queryKeywords, input.candidateKeywords, {
+      supportCounts: input.keywordSupportCounts,
+    }) * 1000,
+  ) / 1000
 }
 
 export function buildMismatchSummary(input: {
@@ -352,6 +371,15 @@ const buildKeywordSupportCounts = (keywordRows: KeywordRow[]) => {
   }
   return counts
 }
+
+const buildThemeKeywordSet = (
+  keywordRows: Map<string, KeywordRow[]>,
+  themeId: string,
+) => new Set(
+  (keywordRows.get(themeId) ?? [])
+    .map((row) => row.keyword.trim().toLowerCase())
+    .filter(Boolean),
+)
 
 const buildSnapshotFeatureSlice = (input: {
   themeId: string
@@ -797,7 +825,14 @@ export async function materializePhase0Artifacts(): Promise<Phase0Materializatio
     const aggregated = aggregateRetrievalCandidates({
       candidates: retrievalCandidates,
       topN: TOP_ANALOGS,
-    })
+    }).map((candidate) => ({
+      ...candidate,
+      keywordSim: computeKeywordSimilarity({
+        queryKeywords: buildThemeKeywordSet(keywordByTheme, snapshot.theme_id),
+        candidateKeywords: buildThemeKeywordSet(keywordByTheme, candidate.candidateThemeId),
+        keywordSupportCounts,
+      }),
+    }))
 
     if (aggregated.length === 0) continue
 
@@ -820,7 +855,7 @@ export async function materializePhase0Artifacts(): Promise<Phase0Materializatio
         similarity_score: candidate.similarityScore,
         feature_sim: candidate.featureSim,
         curve_sim: candidate.curveSim,
-        keyword_sim: null,
+        keyword_sim: candidate.keywordSim,
         dtw_distance: candidate.dtwDistance,
         regime_match: candidate.regimeMatch,
         is_future_aligned: false,
@@ -856,6 +891,7 @@ export async function materializePhase0Artifacts(): Promise<Phase0Materializatio
           surface: candidate.retrievalSurface,
           featureSim: candidate.featureSim,
           curveSim: candidate.curveSim,
+          keywordSim: candidate.keywordSim,
           regimeMatch: candidate.regimeMatch,
         }),
         mismatchSummary: buildMismatchSummary({
