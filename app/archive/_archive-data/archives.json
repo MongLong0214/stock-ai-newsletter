@@ -2,6 +2,62 @@
   "newsletters": [
     {
       "type": "stock",
+      "date": "2026-03-24",
+      "stocks": [
+        {
+          "ticker": "KOSDAQ:000250",
+          "name": "삼천당제약",
+          "close_price": 198400,
+          "rationale": "SMA 20일선(185,200원) 지지 확인|RSI(14) 64.28로 과매수 구간 진입 전 강세|MACD 히스토그램 1,240.5로 양선 확대 전환|시장 -5% 급락 시 +2.45% 기록하며 독보적 상대강도(RS) 노출|거래량 전일 대비 245% 폭증(3,240,000주)하며 매집 확인|볼린저밴드 상단(202,000원) 저항선 돌파 시도 중|ATR 8,420으로 변동성 확대 및 에너지 응축 구간 진입|ADX 32.4로 강력한 상승 추세 확립 단계|OBV 횡보 후 상향 돌파하며 실질적 수급 유입 증명|스토캐스틱 K(72.4) 및 D(65.8) 골든크로스 유지|Ichimoku 기준선(188,000원) 상단 안착으로 추세 반전|SuperTrend 매수 신호(Green) 발생 후 지속 유지",
+          "signals": {
+            "trend_score": 95,
+            "momentum_score": 93,
+            "volume_score": 96,
+            "volatility_score": 88,
+            "pattern_score": 92,
+            "sentiment_score": 97,
+            "overall_score": 94
+          },
+          "verified_date": "2026-03-23"
+        },
+        {
+          "ticker": "KOSDAQ:053050",
+          "name": "지에스이",
+          "close_price": 4125,
+          "rationale": "SMA 5일선이 20일선 상향 돌파하는 골든크로스 초기|RSI(14) 61.15로 안정적인 상승 가속 구간 진입|MACD(12,26,9) 시그널선 상향 돌파 성공 및 양선 유지|중동 긴장 고조에 따른 에너지 테마 거래대금 최상위|거래량 1,500만 주 돌파(전일 대비 180% 증가)|볼린저밴드 중심선(3,850원) 강력 지지 후 반등 성공|ATR 245로 단기 급등을 위한 충분한 변동성 확보|ADX 28.7로 상승 추세 강화 국면 정밀 진입|OBV 전고점 돌파로 강력한 매수 세력 잔류 확인|Parabolic SAR 하단 위치하며 상승 지속 신호 송출|Vortex VI+ 1.18로 매수세가 매도세를 완전 장악|Ichimoku 구름대(3,900원) 상단 돌파 및 호전 발생",
+          "signals": {
+            "trend_score": 94,
+            "momentum_score": 91,
+            "volume_score": 98,
+            "volatility_score": 92,
+            "pattern_score": 95,
+            "sentiment_score": 90,
+            "overall_score": 93
+          },
+          "verified_date": "2026-03-23"
+        },
+        {
+          "ticker": "KOSDAQ:090710",
+          "name": "휴림로봇",
+          "close_price": 2845,
+          "rationale": "SMA 60일선(2,720원) 돌파 및 20일선 지지 후 재반등|RSI(14) 56.82로 중립 이상의 강세 및 추가 상승 공간 충분|MACD 영선(0) 위 안착 및 시그널 상향 교차 발생|로봇 섹터 내 수급 순환매 유입 및 주도적 움직임|거래량 8,400,000주 기록(전일 대비 165% 점진적 증가)|볼린저밴드 상단 저항선(2,950원) 근접하며 변동성 수축 후 발산|ATR 115로 안정적 변동성 범위 내 상승 에너지 축적|ADX 24.2로 추세 강화 초기 단계 진입 확인|OBV 지속 우상향 패턴으로 유동성 공급 확인|스토캐스틱 slow 68.2 수준으로 안정적 상승 탄력|Elder Ray Bull Power 12.5 양선 확대로 매수세 강화|Ichimoku 전환선/기준선 역전 해소 및 선행스팬 지지",
+          "signals": {
+            "trend_score": 89,
+            "momentum_score": 87,
+            "volume_score": 91,
+            "volatility_score": 86,
+            "pattern_score": 90,
+            "sentiment_score": 93,
+            "overall_score": 89
+          },
+          "verified_date": "2026-03-23"
+        }
+      ],
+      "sentAt": "2026-03-23T22:37:05.772+00:00",
+      "subscriberCount": 262
+    },
+    {
+      "type": "stock",
       "date": "2026-03-23",
       "stocks": [
         {
@@ -5494,5 +5550,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-03-22T23:04:23.104Z"
+  "lastUpdated": "2026-03-23T22:37:44.657Z"
 }
