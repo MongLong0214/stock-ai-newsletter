@@ -8,7 +8,7 @@ import {
   BarChart3,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { formatVolume } from '@/lib/tli/format-utils'
+import { formatPrice, formatVolume } from '@/lib/tli/format-utils'
 import { formatSnapshotTime } from './stock-list-kis'
 import { formatChange, type SortDirection, type SortField, type Stock } from './stock-list-utils'
 
@@ -30,6 +30,30 @@ interface StockListOverviewProps {
   sortDirection: SortDirection
   onTabChange: (tab: 'all' | 'KOSPI' | 'KOSDAQ') => void
   onSortChange: (field: SortField) => void
+}
+
+function stockDetail(stock: Stock | null, mode: 'gainer' | 'loser' | 'volume'): string {
+  if (!stock) return '데이터 없음'
+  const parts: string[] = [`${stock.market} ${stock.symbol}`]
+  if (stock.currentPrice != null) parts.push(formatPrice(stock.currentPrice))
+  if (mode === 'volume') {
+    if (stock.priceChangePct != null) parts.push(formatChange(stock.priceChangePct))
+    if (stock.tradingValue != null) parts.push(`거래대금 ${formatTradingValue(stock.tradingValue)}`)
+  } else {
+    if (stock.volume != null) parts.push(`거래량 ${formatVolume(stock.volume)}`)
+    if (stock.marketCap != null) parts.push(`시총 ${formatMarketCapShort(stock.marketCap)}`)
+  }
+  return parts.join(' · ')
+}
+
+function formatMarketCapShort(value: number) {
+  if (value >= 10_000) return `${(value / 10_000).toFixed(1)}조`
+  return `${value.toLocaleString('ko-KR')}억`
+}
+
+function formatTradingValue(value: number) {
+  if (value >= 10_000) return `${(value / 10_000).toFixed(1)}억`
+  return `${value.toLocaleString('ko-KR')}만`
 }
 
 export default function StockListOverview({
@@ -96,21 +120,24 @@ export default function StockListOverview({
             icon={<ArrowUpRight className="w-3.5 h-3.5" />}
             label="최대 상승"
             value={topGainer?.name ?? '—'}
-            detail={topGainer?.priceChangePct != null ? formatChange(topGainer.priceChangePct) : '데이터 없음'}
+            subValue={topGainer?.priceChangePct != null ? formatChange(topGainer.priceChangePct) : undefined}
+            detail={stockDetail(topGainer, 'gainer')}
             accent="emerald"
           />
           <StatCell
             icon={<ArrowDownRight className="w-3.5 h-3.5" />}
             label="최대 하락"
             value={topLoser?.name ?? '—'}
-            detail={topLoser?.priceChangePct != null ? formatChange(topLoser.priceChangePct) : '데이터 없음'}
+            subValue={topLoser?.priceChangePct != null ? formatChange(topLoser.priceChangePct) : undefined}
+            detail={stockDetail(topLoser, 'loser')}
             accent="red"
           />
           <StatCell
             icon={<BarChart3 className="w-3.5 h-3.5" />}
             label="거래 주도"
             value={volumeLeader?.name ?? '—'}
-            detail={volumeLeader?.volume != null ? formatVolume(volumeLeader.volume) : '거래량 데이터 없음'}
+            subValue={volumeLeader?.volume != null ? formatVolume(volumeLeader.volume) : undefined}
+            detail={stockDetail(volumeLeader, 'volume')}
             accent="sky"
           />
         </div>
@@ -188,12 +215,14 @@ function StatCell({
   icon,
   label,
   value,
+  subValue,
   detail,
   accent,
 }: {
   icon: ReactNode
   label: string
   value: string
+  subValue?: string
   detail: string
   accent: StatAccent
 }) {
@@ -214,13 +243,20 @@ function StatCell({
         : 'text-slate-200'
 
   return (
-    <div className="rounded-xl border border-slate-800/50 bg-slate-950/40 p-3 h-[88px] flex flex-col justify-between">
+    <div className="rounded-xl border border-slate-800/50 bg-slate-950/40 p-3 min-h-[88px] flex flex-col gap-1">
       <div className="flex items-center gap-2">
         <span className={cn('p-1 rounded-md', iconTone)}>{icon}</span>
         <span className="text-[11px] font-mono text-slate-500 uppercase tracking-wider">{label}</span>
       </div>
-      <div className={cn('text-[15px] font-semibold truncate', valueTone)}>{value}</div>
-      <div className="text-[11px] font-mono text-slate-500 truncate">{detail}</div>
+      <div className="flex items-baseline justify-between gap-2 min-w-0">
+        <span className={cn('text-[15px] font-semibold', valueTone)}>{value}</span>
+        {subValue && (
+          <span className={cn('text-[12px] font-mono font-semibold tabular-nums shrink-0', valueTone)}>
+            {subValue}
+          </span>
+        )}
+      </div>
+      <div className="text-[11px] font-mono text-slate-500 leading-relaxed break-keep">{detail}</div>
     </div>
   )
 }
