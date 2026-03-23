@@ -1,0 +1,117 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - navigation "메인 내비게이션" [ref=e2]:
+    - generic [ref=e5]:
+      - link "Stock Matrix AI Analysis" [ref=e6] [cursor=pointer]:
+        - /url: /
+        - img [ref=e9]
+        - generic [ref=e13]:
+          - generic [ref=e14]: Stock Matrix
+          - generic [ref=e15]: AI Analysis
+      - generic [ref=e16]:
+        - link "홈" [ref=e18] [cursor=pointer]:
+          - /url: /
+          - generic [ref=e24]: 홈
+        - link "분석 기록" [ref=e26] [cursor=pointer]:
+          - /url: /archive
+          - generic [ref=e32]: 분석 기록
+        - link "테마" [ref=e34] [cursor=pointer]:
+          - /url: /themes
+          - generic [ref=e41]: 테마
+        - link "블로그" [ref=e43] [cursor=pointer]:
+          - /url: /blog
+          - generic [ref=e49]: 블로그
+        - link "서비스" [ref=e51] [cursor=pointer]:
+          - /url: /about
+          - generic [ref=e57]: 서비스
+        - link "가이드" [ref=e59] [cursor=pointer]:
+          - /url: /technical-indicators
+          - generic [ref=e65]: 가이드
+        - link "FAQ" [ref=e67] [cursor=pointer]:
+          - /url: /faq
+          - generic [ref=e73]: FAQ
+      - link "무료 메일받기" [ref=e75] [cursor=pointer]:
+        - /url: /subscribe
+        - generic [ref=e76]: 무료 메일받기
+  - main [ref=e83]
+  - contentinfo [ref=e499]:
+    - generic [ref=e500]:
+      - generic [ref=e502]:
+        - generic [ref=e504]:
+          - generic [ref=e505]:
+            - heading "Stock Matrix" [level=2] [ref=e506]
+            - paragraph [ref=e507]: 매일 오전 7시 30분, AI가 분석한 KOSPI·KOSDAQ 3종목의 기술적 분석과 투자 테마 생명주기 추적을 제공합니다
+          - link "무료 구독하기" [ref=e509] [cursor=pointer]:
+            - /url: /subscribe
+            - img [ref=e510]
+            - generic [ref=e513]: 무료 구독하기
+          - generic [ref=e514]:
+            - paragraph [ref=e515]: Connect
+            - generic [ref=e516]:
+              - link "Twitter" [ref=e517] [cursor=pointer]:
+                - /url: https://x.com/aistockmatrix
+                - img [ref=e518]
+              - link "Instagram" [ref=e520] [cursor=pointer]:
+                - /url: https://www.instagram.com/aistockmatrix/
+                - img [ref=e521]
+              - link "Threads" [ref=e524] [cursor=pointer]:
+                - /url: https://www.threads.net/@aistockmatrix
+                - img [ref=e525]
+        - navigation "Footer navigation" [ref=e527]:
+          - generic [ref=e528]:
+            - generic [ref=e529]:
+              - heading "서비스" [level=3] [ref=e530]
+              - list [ref=e531]:
+                - listitem [ref=e532]:
+                  - link "서비스 소개" [ref=e533] [cursor=pointer]:
+                    - /url: /about
+                - listitem [ref=e534]:
+                  - link "무료 구독" [ref=e535] [cursor=pointer]:
+                    - /url: /subscribe
+                - listitem [ref=e536]:
+                  - link "분석 기록" [ref=e537] [cursor=pointer]:
+                    - /url: /archive
+                - listitem [ref=e538]:
+                  - link "테마 분석" [ref=e539] [cursor=pointer]:
+                    - /url: /themes
+            - generic [ref=e540]:
+              - heading "학습 자료" [level=3] [ref=e541]
+              - list [ref=e542]:
+                - listitem [ref=e543]:
+                  - link "블로그" [ref=e544] [cursor=pointer]:
+                    - /url: /blog
+                - listitem [ref=e545]:
+                  - link "기술적 지표" [ref=e546] [cursor=pointer]:
+                    - /url: /technical-indicators
+                - listitem [ref=e547]:
+                  - link "RSI 지표란?" [ref=e548] [cursor=pointer]:
+                    - /url: /technical-indicators#rsi
+                - listitem [ref=e549]:
+                  - link "MACD 골든크로스" [ref=e550] [cursor=pointer]:
+                    - /url: /technical-indicators#macd
+            - generic [ref=e551]:
+              - heading "지원" [level=3] [ref=e552]
+              - list [ref=e553]:
+                - listitem [ref=e554]:
+                  - link "FAQ" [ref=e555] [cursor=pointer]:
+                    - /url: /faq
+                - listitem [ref=e556]:
+                  - link "문의하기" [ref=e557] [cursor=pointer]:
+                    - /url: mailto:aistockmatrix@gmail.com
+                - listitem [ref=e558]:
+                  - link "개발자" [ref=e559] [cursor=pointer]:
+                    - /url: /developers
+      - button "법적 고지 및 투자 유의사항" [ref=e561]:
+        - generic [ref=e562]:
+          - img [ref=e563]
+          - text: 법적 고지 및 투자 유의사항
+        - img [ref=e565]
+      - paragraph [ref=e569]: © 2026 Stock Matrix. All rights reserved.
+  - button "맨 위로 스크롤":
+    - img
+  - button "Open Next.js Dev Tools" [ref=e575] [cursor=pointer]:
+    - img [ref=e576]
+  - alert [ref=e579]
+```
