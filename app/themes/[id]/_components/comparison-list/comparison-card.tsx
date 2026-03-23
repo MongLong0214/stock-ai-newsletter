@@ -6,6 +6,7 @@ import { motion } from 'framer-motion'
 import { cn } from '@/lib/utils'
 import type { ComparisonResult } from '@/lib/tli/types'
 import { formatDays } from '@/lib/tli/date-utils'
+import { COMPARISON_COLORS } from '@/lib/tli/constants/comparison-colors'
 import InfoTooltip from '@/components/tli/info-tooltip'
 import { TOOLTIP_TEXTS } from '@/lib/tli/constants/tooltip-texts'
 import PillarBars, { getSimilarityColor, getSimilarityBadge } from './pillar-bars'
@@ -22,15 +23,26 @@ interface ComparisonCardProps {
   comp: ComparisonResult
   idx: number
   isSelected: boolean
+  selectedLineIndex?: number | null
   onToggle: () => void
   /** 정점 이전 단계(Emerging/Growth)인지 — false면 "정점까지 X일" 숨김 */
   isPrePeak?: boolean
 }
 
-export default function ComparisonCard({ comp, idx, isSelected, onToggle, isPrePeak = true }: ComparisonCardProps) {
+export default function ComparisonCard({
+  comp,
+  idx,
+  isSelected,
+  selectedLineIndex = null,
+  onToggle,
+  isPrePeak = true,
+}: ComparisonCardProps) {
   const simColor = getSimilarityColor(comp.similarity)
   const simPercent = Math.min(99, Math.round(comp.similarity * 100))
   const badge = getSimilarityBadge(comp.similarity)
+  const selectedLineColor = selectedLineIndex != null
+    ? COMPARISON_COLORS[selectedLineIndex % COMPARISON_COLORS.length]
+    : null
   const laneLabel = comp.comparisonLane === 'completed_analog' ? '완결 아날로그' : '활성 피어'
   const laneClass = comp.comparisonLane === 'completed_analog'
     ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20'
@@ -38,8 +50,13 @@ export default function ComparisonCard({ comp, idx, isSelected, onToggle, isPreP
 
   // "유사 근거. 위치 분석" 형식 분리 (첫 번째 '. '만 기준으로 분할)
   const dotIdx = comp.message.indexOf('. ')
-  const basis = dotIdx >= 0 ? comp.message.slice(0, dotIdx) : comp.message
-  const position = getComparisonPositionText(comp) || (dotIdx >= 0 ? comp.message.slice(dotIdx + 2) : undefined)
+  const rawBasis = dotIdx >= 0 ? comp.message.slice(0, dotIdx) : comp.message
+  const rawPosition = getComparisonPositionText(comp) || (dotIdx >= 0 ? comp.message.slice(dotIdx + 2) : undefined)
+
+  const independentFlowAlert = getIndependentFlowAlertText(comp)
+  const confidenceAlert = getConfidenceAlertText(comp)
+  const basis = sanitizeComparisonText(rawBasis)
+  const position = dedupeComparisonText(rawPosition, [basis, independentFlowAlert, confidenceAlert])
 
   const observedWindowDays = getObservedWindowDays(comp)
   const progressPct = observedWindowDays > 0
@@ -48,19 +65,24 @@ export default function ComparisonCard({ comp, idx, isSelected, onToggle, isPreP
     ? Math.min((comp.pastPeakDay / observedWindowDays) * 100, 100) : 0
 
   const showTimeline = observedWindowDays >= 14 && comp.pastPeakDay >= 3 && comp.pastPeakDay <= observedWindowDays
-  const independentFlowAlert = getIndependentFlowAlertText(comp)
-  const confidenceAlert = getConfidenceAlertText(comp)
+  const showIndependentAlert = shouldShowIndependentFlowAlert(comp)
+    && !!independentFlowAlert
+    && !hasDuplicateComparisonText(independentFlowAlert, [basis, position])
+  const showConfidenceAlert = !!confidenceAlert
+    && !hasDuplicateComparisonText(confidenceAlert, [basis, position])
 
   return (
     <motion.div
       layout="position"
       role="button"
+      data-roving-item="true"
       tabIndex={0}
       aria-pressed={isSelected}
+      aria-label={`${comp.pastTheme} 패턴을 ${isSelected ? '그래프에서 제거' : '그래프에 겹쳐 보기'}`}
       className={cn(
-        'p-5 rounded-xl border transition-colors cursor-pointer space-y-4',
+        'w-full text-left p-5 rounded-xl border transition-colors cursor-pointer space-y-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950',
         isSelected
-          ? 'bg-slate-800 border-emerald-500/50'
+          ? 'bg-slate-800 border-emerald-500/55 shadow-[0_0_0_1px_rgba(16,185,129,0.14),0_10px_40px_rgba(16,185,129,0.08)]'
           : 'bg-slate-800/40 border-slate-700/30 hover:border-slate-600/50',
       )}
       onClick={onToggle}
@@ -69,7 +91,19 @@ export default function ComparisonCard({ comp, idx, isSelected, onToggle, isPreP
       {/* 헤더: 테마명 + 종합 유사도 */}
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
-          <h3 className="text-[15px] font-semibold text-white truncate leading-snug">{comp.pastTheme}</h3>
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="text-[15px] font-semibold text-white truncate leading-snug">{comp.pastTheme}</h3>
+            {isSelected && selectedLineColor && (
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-700/70 bg-slate-900/80 px-2 py-0.5 text-[10px] font-mono text-slate-200">
+                <span
+                  className="h-1.5 w-4 rounded-full"
+                  style={{ backgroundColor: selectedLineColor }}
+                  aria-hidden="true"
+                />
+                그래프 표시 중
+              </span>
+            )}
+          </div>
           <span className={cn(
             'inline-block mt-2 text-[11px] font-mono px-2 py-0.5 rounded border',
             badge.bg, badge.text, badge.border,
@@ -102,7 +136,6 @@ export default function ComparisonCard({ comp, idx, isSelected, onToggle, isPreP
         featureSim={comp.featureSim}
         curveSim={comp.curveSim}
         keywordSim={comp.keywordSim}
-        similarity={comp.similarity}
         idx={idx}
       />
 
@@ -168,18 +201,64 @@ export default function ComparisonCard({ comp, idx, isSelected, onToggle, isPreP
           과거 패턴 기준, 정점까지 약 <span className="font-medium">{comp.estimatedDaysToPeak}일</span> 추정
         </AlertRow>
       )}
-      {shouldShowIndependentFlowAlert(comp) && independentFlowAlert && (
+      {showIndependentAlert && independentFlowAlert && (
         <AlertRow color="purple">
           {independentFlowAlert}
         </AlertRow>
       )}
-      {confidenceAlert && (
+      {showConfidenceAlert && confidenceAlert && (
         <AlertRow color="amber">
           {confidenceAlert}
         </AlertRow>
       )}
+
+      <div className={cn(
+        'flex items-center justify-between gap-3 pt-3 border-t text-[11px] font-mono',
+        isSelected ? 'border-emerald-500/20 text-emerald-300' : 'border-slate-800/70 text-slate-500',
+      )}>
+        <span>{isSelected ? '차트에 비교선이 반영되어 있어요' : '선택하면 차트에 비교선이 추가돼요'}</span>
+        <span className={cn(
+          'px-2 py-0.5 rounded-full border transition-colors',
+          isSelected
+            ? 'border-emerald-500/25 bg-emerald-500/10 text-emerald-200'
+            : 'border-slate-700/60 text-slate-400',
+        )}>
+          {isSelected ? '해제' : '겹쳐 보기'}
+        </span>
+      </div>
     </motion.div>
   )
+}
+
+function sanitizeComparisonText(text?: string | null) {
+  return text?.trim() || undefined
+}
+
+function normalizeComparisonText(text?: string | null) {
+  if (!text) return ''
+  return text
+    .replace(/\s+/g, ' ')
+    .replace(/[·.,()]/g, '')
+    .trim()
+}
+
+function hasDuplicateComparisonText(text?: string | null, candidates: Array<string | null | undefined> = []) {
+  const normalizedText = normalizeComparisonText(text)
+  if (!normalizedText) return false
+
+  return candidates.some((candidate) => {
+    const normalizedCandidate = normalizeComparisonText(candidate)
+    if (!normalizedCandidate) return false
+    return normalizedCandidate === normalizedText
+      || normalizedCandidate.includes(normalizedText)
+      || normalizedText.includes(normalizedCandidate)
+  })
+}
+
+function dedupeComparisonText(text?: string | null, candidates: Array<string | null | undefined> = []) {
+  const sanitizedText = sanitizeComparisonText(text)
+  if (!sanitizedText) return undefined
+  return hasDuplicateComparisonText(sanitizedText, candidates) ? undefined : sanitizedText
 }
 
 /* ── 서브 컴포넌트 ── */

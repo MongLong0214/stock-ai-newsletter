@@ -10,7 +10,7 @@ export default function useRovingTabindex() {
     const container = containerRef.current
     if (!container) return
 
-    const items = Array.from(container.querySelectorAll<HTMLElement>('[role="button"]'))
+    const items = Array.from(container.querySelectorAll<HTMLElement>('[data-roving-item="true"]'))
     const idx = items.indexOf(e.target as HTMLElement)
     if (idx === -1) return
 

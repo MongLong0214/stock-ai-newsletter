@@ -7,6 +7,8 @@
 import type { SiteConfig } from './types';
 import { DELIVERY_TIME_DISPLAY, DELIVERY_TIME_SHORT } from '../delivery';
 
+type OgVersionEnv = Record<string, string | undefined>;
+
 export const siteConfig: SiteConfig = {
   domain: 'https://stockmatrix.co.kr',
   serviceName: 'Stock Matrix',
@@ -18,8 +20,31 @@ export const siteConfig: SiteConfig = {
   markets: 'KOSPI·KOSDAQ',
 } as const;
 
+export function resolveOgImageVersion(env: OgVersionEnv): string {
+  const explicitOverride =
+    env.NEXT_PUBLIC_OG_IMAGE_VERSION || env.OG_IMAGE_VERSION;
+
+  if (explicitOverride) {
+    return explicitOverride;
+  }
+
+  const deployIdentifier =
+    env.VERCEL_GIT_COMMIT_SHA ||
+    env.VERCEL_DEPLOYMENT_ID ||
+    env.GITHUB_SHA ||
+    env.CF_PAGES_COMMIT_SHA ||
+    env.VERCEL_URL;
+
+  if (!deployIdentifier) {
+    return 'dev-og';
+  }
+
+  const normalized = deployIdentifier.replace(/[^a-zA-Z0-9-]/g, '');
+  return normalized.slice(0, 12) || 'dev-og';
+}
+
 /** OG/Twitter 이미지 캐시 버스팅용 버전 */
-export const OG_IMAGE_VERSION = '20260320-og-v3';
+export const OG_IMAGE_VERSION = resolveOgImageVersion(process.env);
 
 /** 외부 크롤러 캐시를 깨기 위해 이미지 URL에 버전 쿼리 부여 */
 export function withOgImageVersion(pathOrUrl: string): string {

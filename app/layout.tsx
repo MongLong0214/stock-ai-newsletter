@@ -62,7 +62,7 @@ export const metadata: Metadata = {
     description: metadataConfig.descriptionShort,
     creator: socialConfig.handle,
     site: socialConfig.handle,
-    images: [withOgImageVersion('/twitter-image')],
+    images: [withOgImageVersion('/opengraph-image')],
   },
   robots: {
     index: true,

@@ -56,6 +56,18 @@ export interface KisStockPrice {
   previousClose: number;
   changeRate: number;
   volume: number;
+  openPrice?: number | null;
+  highPrice?: number | null;
+  lowPrice?: number | null;
+  week52High?: number | null;
+  week52Low?: number | null;
+  tradingValue?: number | null;
+  marketCap?: number | null;
+  per?: number | null;
+  pbr?: number | null;
+  eps?: number | null;
+  bps?: number | null;
+  sharesOutstanding?: number | null;
   timestamp: number;
 }
 

@@ -2,10 +2,30 @@
 
 import type { ThemeStockItem } from '@/lib/tli/types'
 
-export type Stock = ThemeStockItem
+export type Stock = ThemeStockItem & {
+  previousClose?: number | null
+  priceDelta?: number | null
+  lastUpdatedAt?: number | null
+  dataSource?: 'kis' | 'stored'
+  openPrice?: number | null
+  highPrice?: number | null
+  lowPrice?: number | null
+  week52High?: number | null
+  week52Low?: number | null
+  tradingValue?: number | null
+  marketCap?: number | null
+  per?: number | null
+  pbr?: number | null
+  eps?: number | null
+  bps?: number | null
+  sharesOutstanding?: number | null
+}
 
 export type SortField = 'name' | 'price' | 'change' | 'volume'
 export type SortDirection = 'asc' | 'desc'
+
+export const DEFAULT_STOCK_SORT_FIELD: SortField = 'change'
+export const DEFAULT_STOCK_SORT_DIRECTION: SortDirection = 'desc'
 
 export interface MarketStyle {
   bg: string
@@ -40,6 +60,41 @@ export function calculateStockStats(stocks: Stock[]) {
     : 0
 
   return { rising, falling, flat, avgChange }
+}
+
+export function getTopMover(stocks: Stock[]): Stock | null {
+  if (stocks.length === 0) return null
+
+  return [...stocks].sort((a, b) => {
+    const aChange = Math.abs(a.priceChangePct ?? -Infinity)
+    const bChange = Math.abs(b.priceChangePct ?? -Infinity)
+    return bChange - aChange
+  })[0] ?? null
+}
+
+export function getTopGainer(stocks: Stock[]): Stock | null {
+  return [...stocks]
+    .filter((stock) => stock.priceChangePct != null)
+    .sort((a, b) => (b.priceChangePct ?? -Infinity) - (a.priceChangePct ?? -Infinity))[0] ?? null
+}
+
+export function getTopLoser(stocks: Stock[]): Stock | null {
+  return [...stocks]
+    .filter((stock) => stock.priceChangePct != null)
+    .sort((a, b) => (a.priceChangePct ?? Infinity) - (b.priceChangePct ?? Infinity))[0] ?? null
+}
+
+export function getVolumeLeader(stocks: Stock[]): Stock | null {
+  if (stocks.length === 0) return null
+
+  return [...stocks].sort((a, b) => (b.volume ?? -Infinity) - (a.volume ?? -Infinity))[0] ?? null
+}
+
+export function getAveragePrice(stocks: Stock[]): number | null {
+  const valid = stocks.filter((stock) => stock.currentPrice != null)
+  if (valid.length === 0) return null
+
+  return valid.reduce((sum, stock) => sum + (stock.currentPrice ?? 0), 0) / valid.length
 }
 
 /** 최대 거래량 찾기 */
@@ -81,4 +136,11 @@ export function sortStocks(stocks: Stock[], field: SortField, direction: SortDir
     const bVal = valMap[field](b)
     return direction === 'asc' ? aVal - bVal : bVal - aVal
   })
+}
+
+export function getLeadLabel(sortField: SortField, sortDirection: SortDirection) {
+  if (sortField === 'name') return sortDirection === 'asc' ? '이름순 선두' : '이름순 후행'
+  if (sortField === 'price') return sortDirection === 'asc' ? '최저가 기준 선두' : '최고가 기준 선두'
+  if (sortField === 'volume') return sortDirection === 'asc' ? '최저 거래량 기준 선두' : '최고 거래량 기준 선두'
+  return sortDirection === 'asc' ? '하락률 기준 선두' : '상승률 기준 선두'
 }

@@ -4,6 +4,7 @@ import {
   aggregateRetrievalCandidates,
   buildMismatchSummary,
   buildRetrievalReason,
+  computeKeywordSimilarity,
   computeCandidateConcentrationStats,
   selectCandidateEpisodeCorpus,
 } from '../comparison/materialize-phase0-artifacts'
@@ -117,12 +118,14 @@ describe('human-readable retrieval outputs', () => {
       surface: 'regime_filtered_nn',
       featureSim: 0.8,
       curveSim: 0.75,
+      keywordSim: 0.33,
       regimeMatch: true,
     })
 
     expect(reason).toContain('레짐')
     expect(reason).toContain('feature')
     expect(reason).toContain('curve')
+    expect(reason).toContain('연관어')
   })
 
   it('builds mismatch summary only for materially different paths', () => {
@@ -137,5 +140,34 @@ describe('human-readable retrieval outputs', () => {
       candidatePeakDay: 39,
       candidateTotalDays: 45,
     })).toBeNull()
+  })
+})
+
+describe('computeKeywordSimilarity', () => {
+  it('returns a positive weighted jaccard score when keywords overlap', () => {
+    const result = computeKeywordSimilarity({
+      queryKeywords: new Set(['ai', '반도체']),
+      candidateKeywords: new Set(['ai', '로봇']),
+      keywordSupportCounts: new Map([
+        ['ai', 10],
+        ['반도체', 3],
+        ['로봇', 5],
+      ]),
+    })
+
+    expect(result).toBeGreaterThan(0)
+  })
+
+  it('returns zero when there is no overlap', () => {
+    const result = computeKeywordSimilarity({
+      queryKeywords: new Set(['ai']),
+      candidateKeywords: new Set(['호텔']),
+      keywordSupportCounts: new Map([
+        ['ai', 10],
+        ['호텔', 5],
+      ]),
+    })
+
+    expect(result).toBe(0)
   })
 })

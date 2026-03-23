@@ -3,36 +3,37 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { ReactElement } from 'react';
 
-const ogFontData = Promise.all([
-  readFile(
-    join(
-      process.cwd(),
-      'fonts/noto-sans-kr/noto-sans-kr-korean-400-normal.woff'
-    )
-  ),
-  readFile(
-    join(
-      process.cwd(),
-      'fonts/noto-sans-kr/noto-sans-kr-korean-500-normal.woff'
-    )
-  ),
-  readFile(
-    join(
-      process.cwd(),
-      'fonts/noto-sans-kr/noto-sans-kr-korean-700-normal.woff'
-    )
-  ),
-]);
+type OgFontDefinition = {
+  name: string;
+  data: Buffer;
+  weight: 400 | 500 | 700;
+  style: 'normal';
+};
 
-export async function createOgImageResponse(
-  element: ReactElement,
-  size: { width: number; height: number }
-): Promise<ImageResponse> {
-  const [regular, medium, bold] = await ogFontData;
+export async function loadOgFonts(): Promise<OgFontDefinition[]> {
+  try {
+    const [regular, medium, bold] = await Promise.all([
+      readFile(
+        join(
+          process.cwd(),
+          'fonts/noto-sans-kr/noto-sans-kr-korean-400-normal.woff'
+        )
+      ),
+      readFile(
+        join(
+          process.cwd(),
+          'fonts/noto-sans-kr/noto-sans-kr-korean-500-normal.woff'
+        )
+      ),
+      readFile(
+        join(
+          process.cwd(),
+          'fonts/noto-sans-kr/noto-sans-kr-korean-700-normal.woff'
+        )
+      ),
+    ]);
 
-  return new ImageResponse(element, {
-    ...size,
-    fonts: [
+    return [
       {
         name: 'Noto Sans KR',
         data: regular,
@@ -51,6 +52,26 @@ export async function createOgImageResponse(
         weight: 700,
         style: 'normal',
       },
-    ],
+    ];
+  } catch (error) {
+    console.warn(
+      '[OG] Failed to load custom fonts. Falling back to default fonts.',
+      error
+    );
+    return [];
+  }
+}
+
+const ogFontData = loadOgFonts();
+
+export async function createOgImageResponse(
+  element: ReactElement,
+  size: { width: number; height: number }
+): Promise<ImageResponse> {
+  const fonts = await ogFontData;
+
+  return new ImageResponse(element, {
+    ...size,
+    fonts,
   });
 }

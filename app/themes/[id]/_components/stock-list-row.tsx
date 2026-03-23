@@ -1,10 +1,9 @@
 'use client'
 
-import { ExternalLink, TrendingUp, TrendingDown, Minus } from 'lucide-react'
-import { motion } from 'framer-motion'
+import { ExternalLink, Minus, TrendingDown, TrendingUp } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { formatPrice, formatVolume } from '@/lib/tli/format-utils'
-import { MARKET_STYLE, DEFAULT_MARKET_STYLE, formatChange, getHeatBackground } from './stock-list-utils'
+import { DEFAULT_MARKET_STYLE, formatChange, getHeatBackground, MARKET_STYLE } from './stock-list-utils'
 import type { Stock } from './stock-list-utils'
 
 const NAVER_FINANCE_URL = 'https://finance.naver.com/item/main.naver?code='
@@ -15,85 +14,161 @@ interface StockRowProps {
   maxVolume: number
 }
 
-function getStockDisplay(stock: Stock) {
-  const style = MARKET_STYLE[stock.market] ?? DEFAULT_MARKET_STYLE
-  const hasPrice = stock.currentPrice !== null && stock.currentPrice !== undefined
+function ChangeIcon({ isPositive, isNegative }: { isPositive: boolean; isNegative: boolean }) {
+  if (isPositive) return <TrendingUp className="h-3 w-3 shrink-0" />
+  if (isNegative) return <TrendingDown className="h-3 w-3 shrink-0" />
+  return <Minus className="h-3 w-3 shrink-0" />
+}
+
+function formatMarketCap(value?: number | null) {
+  if (value == null || value <= 0) return '—'
+  if (value >= 10_000) return `${(value / 10_000).toFixed(1)}조`
+  return `${value.toLocaleString('ko-KR')}억`
+}
+
+export function StockRow({ stock, idx, maxVolume }: StockRowProps) {
+  const mStyle = MARKET_STYLE[stock.market] ?? DEFAULT_MARKET_STYLE
+  const hasPrice = stock.currentPrice != null
   const changePct = stock.priceChangePct ?? 0
   const isPositive = changePct > 0
   const isNegative = changePct < 0
   const href = `${NAVER_FINANCE_URL}${stock.symbol}`
-  const changeColor = !hasPrice ? 'text-slate-600' : isPositive ? 'text-emerald-400' : isNegative ? 'text-red-400' : 'text-slate-500'
-  return { style, hasPrice, changePct, isPositive, isNegative, href, changeColor }
-}
-
-function ChangeIcon({ isPositive, isNegative }: { isPositive: boolean; isNegative: boolean }) {
-  if (isPositive) return <TrendingUp className="w-3 h-3 flex-shrink-0" />
-  if (isNegative) return <TrendingDown className="w-3 h-3 flex-shrink-0" />
-  return <Minus className="w-3 h-3 flex-shrink-0" />
-}
-
-/**
- * 종목 행 — 좁은 컨테이너(~400px)에 최적화된 2행 레이아웃
- * Row 1: [idx] [종목명 ————————] [등락률]
- * Row 2:       [코드] [마켓]     [시세 · 거래량]
- */
-export function StockRow({ stock, idx, maxVolume }: StockRowProps) {
-  const { style, hasPrice, changePct, href, changeColor } = getStockDisplay(stock)
   const heatBg = getHeatBackground(stock.priceChangePct)
   const volumeRatio = maxVolume > 0 && stock.volume ? stock.volume / maxVolume : 0
+  const volumeWidth = stock.volume != null ? Math.max(6, Math.min(100, volumeRatio * 100)) : 0
+
+  const changeTone = !hasPrice
+    ? 'text-slate-400'
+    : isPositive
+      ? 'text-emerald-300'
+      : isNegative
+        ? 'text-red-300'
+        : 'text-slate-300'
+
+  const currentPrice = hasPrice ? formatPrice(stock.currentPrice!) : '—'
+  const prevClose = stock.previousClose != null ? formatPrice(stock.previousClose) : '—'
+  const changeValue = hasPrice ? formatChange(changePct) : '—'
+  const deltaValue = stock.priceDelta != null ? formatPrice(stock.priceDelta) : '—'
+  const volumeText = stock.volume != null ? formatVolume(stock.volume) : '—'
 
   return (
-    <motion.a
+    <a
       href={href}
       target="_blank"
       rel="noopener noreferrer"
-      initial={{ opacity: 0, x: -4 }}
-      animate={{ opacity: 1, x: 0 }}
-      transition={{ duration: 0.12, delay: Math.min(idx * 0.01, 0.15) }}
       className={cn(
-        'block px-4 py-2.5 border-b border-slate-800/20 relative',
-        'hover:bg-white/[0.03] transition-all duration-150 group cursor-pointer',
-        heatBg
+        'group relative block border-b border-slate-800/30 transition-colors duration-150',
+        'hover:bg-white/[0.025]',
+        heatBg,
       )}
       aria-label={`${stock.name} 상세 보기`}
     >
-      {/* 호버 왼쪽 악센트 */}
-      <div className="absolute left-0 top-0 h-full w-0 group-hover:w-0.5 bg-emerald-400 transition-all duration-150" />
+      {/* Hover accent bar */}
+      <div className="absolute left-0 top-0 h-full w-0 bg-emerald-400/80 transition-all duration-150 group-hover:w-[3px]" />
 
-      {/* Row 1: 종목명 + 등락률 */}
-      <div className="flex items-center gap-2">
-        <span className="text-[10px] font-mono text-slate-700 w-4 text-right flex-shrink-0 tabular-nums">{idx + 1}</span>
-        <span className="flex-1 text-[13px] font-medium text-slate-200 group-hover:text-white transition-colors truncate min-w-0">
-          {stock.name}
-        </span>
-        <span className={cn('flex-shrink-0 text-[13px] font-mono font-semibold tabular-nums inline-flex items-center gap-0.5', changeColor)}>
-          {!hasPrice ? '—' : (<><ChangeIcon isPositive={changePct > 0} isNegative={changePct < 0} />{formatChange(changePct)}</>)}
-        </span>
-        <ExternalLink className="w-3 h-3 text-slate-700 group-hover:text-emerald-400 transition-colors flex-shrink-0" />
-      </div>
+      {/* ── Mobile ── */}
+      <div className="lg:hidden px-4 py-3 space-y-1.5">
+        {/* Row 1: Rank + Name + Market + Change */}
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <span className="text-[11px] font-mono text-slate-500 tabular-nums w-5 text-center shrink-0">
+              {idx + 1}
+            </span>
+            <span className="text-[14px] font-semibold text-slate-100 truncate group-hover:text-white transition-colors">
+              {stock.name}
+            </span>
+            <span className={cn(
+              'text-[9px] font-mono px-1.5 py-0.5 rounded-full border shrink-0',
+              mStyle.bg, mStyle.border, mStyle.text,
+            )}>
+              {stock.market}
+            </span>
+          </div>
+          <div className={cn(
+            'flex items-center gap-1 text-[13px] font-mono font-semibold tabular-nums shrink-0',
+            changeTone,
+          )}>
+            {hasPrice && <ChangeIcon isPositive={isPositive} isNegative={isNegative} />}
+            {changeValue}
+          </div>
+        </div>
 
-      {/* Row 2: 코드 + 마켓 + 시세 + 거래량 */}
-      <div className="flex items-center gap-2 mt-1 ml-6">
-        <span className="text-[10px] text-slate-600 font-mono">{stock.symbol}</span>
-        <span className={cn('inline-flex items-center gap-0.5 text-[8px] font-mono px-1 py-px rounded border', style.bg, style.border, style.text)}>
-          <span className={cn('w-1 h-1 rounded-full', style.dot)} />
-          {stock.market}
-        </span>
-        <span className="flex-1" />
-        {hasPrice && stock.currentPrice !== null && (
-          <span className="text-[11px] font-mono text-slate-400 tabular-nums">{formatPrice(stock.currentPrice)}</span>
-        )}
-        {stock.volume != null && (
-          <span className="text-[10px] font-mono text-slate-600 tabular-nums flex items-center gap-1">
-            {formatVolume(stock.volume)}
-            {volumeRatio > 0 && (
-              <span className="inline-block w-6 h-[2px] bg-slate-800/60 rounded-full overflow-hidden">
-                <span className="block h-full bg-emerald-500/40 rounded-full" style={{ width: `${volumeRatio * 100}%` }} />
-              </span>
-            )}
+        {/* Row 2: Symbol + MarketCap + Price */}
+        <div className="flex items-center justify-between gap-2 pl-[30px]">
+          <span className="text-[11px] font-mono text-slate-500 truncate">
+            {stock.symbol} · 시총 {formatMarketCap(stock.marketCap)}
           </span>
-        )}
+          <span className="text-[13px] font-mono font-semibold text-slate-200 tabular-nums shrink-0">
+            {currentPrice}
+          </span>
+        </div>
+
+        {/* Row 3: Volume */}
+        <div className="flex items-center gap-2 pl-[30px]">
+          <span className="text-[11px] font-mono text-slate-500 shrink-0">거래량</span>
+          <span className="text-[11px] font-mono text-slate-300 tabular-nums shrink-0">{volumeText}</span>
+          <div className="flex-1 h-[3px] bg-slate-800/60 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-emerald-500/40 rounded-full transition-all duration-300"
+              style={{ width: `${volumeWidth}%` }}
+            />
+          </div>
+        </div>
       </div>
-    </motion.a>
+
+      {/* ── Desktop ── */}
+      <div className="hidden lg:grid lg:grid-cols-[40px_minmax(0,1.5fr)_132px_120px_176px] gap-4 items-center px-5 h-[68px]">
+        {/* Rank */}
+        <span className="text-[11px] font-mono text-slate-500 text-center tabular-nums">
+          {idx + 1}
+        </span>
+
+        {/* Name + Info */}
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="text-[14px] font-semibold text-slate-100 truncate group-hover:text-white transition-colors">
+              {stock.name}
+            </span>
+            <span className={cn(
+              'inline-flex items-center gap-1 text-[9px] font-mono px-1.5 py-0.5 rounded-full border shrink-0',
+              mStyle.bg, mStyle.border, mStyle.text,
+            )}>
+              <span className={cn('w-1 h-1 rounded-full', mStyle.dot)} />
+              {stock.market}
+            </span>
+            <ExternalLink className="w-3.5 h-3.5 text-slate-700 group-hover:text-emerald-400 transition-colors shrink-0 ml-auto" />
+          </div>
+          <div className="mt-0.5 text-[11px] font-mono text-slate-500 truncate">
+            {stock.symbol} · 시총 {formatMarketCap(stock.marketCap)}
+          </div>
+        </div>
+
+        {/* Price */}
+        <div className="text-right">
+          <div className="text-[13px] font-mono font-semibold text-slate-100 tabular-nums">{currentPrice}</div>
+          <div className="mt-0.5 text-[11px] font-mono text-slate-500 tabular-nums">전일 {prevClose}</div>
+        </div>
+
+        {/* Change */}
+        <div className={cn('text-right', changeTone)}>
+          <div className="inline-flex items-center justify-end gap-1 text-[13px] font-mono font-semibold tabular-nums w-full">
+            {hasPrice && <ChangeIcon isPositive={isPositive} isNegative={isNegative} />}
+            {changeValue}
+          </div>
+          <div className="mt-0.5 text-[11px] font-mono text-slate-500 tabular-nums">{deltaValue}</div>
+        </div>
+
+        {/* Volume */}
+        <div>
+          <div className="text-[12px] font-mono text-slate-300 tabular-nums">{volumeText}</div>
+          <div className="mt-1.5 h-[3px] bg-slate-800/60 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-emerald-500/40 rounded-full transition-all duration-300"
+              style={{ width: `${volumeWidth}%` }}
+            />
+          </div>
+        </div>
+      </div>
+    </a>
   )
 }
