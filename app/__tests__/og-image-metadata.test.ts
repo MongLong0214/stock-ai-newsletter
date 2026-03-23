@@ -10,6 +10,7 @@ import { metadata as archiveMetadata } from '../archive/layout';
 import { metadata as blogMetadata } from '../blog/page';
 import { metadata as developersMetadata } from '../developers/page';
 import { metadata as faqMetadata } from '../faq/layout';
+import { metadata as homeMetadata } from '../page';
 import { metadata as subscribeMetadata } from '../subscribe/layout';
 import { metadata as technicalIndicatorsMetadata } from '../technical-indicators/layout';
 import { metadata as themesMetadata } from '../themes/(list)/page';
@@ -48,6 +49,7 @@ function expectMetadataImages(
 
 describe('OG image metadata wiring', () => {
   it('points section metadata to section-specific OG routes', () => {
+    expectMetadataImages(homeMetadata, '/opengraph-image');
     expectMetadataImages(aboutMetadata, '/about/opengraph-image');
     expectMetadataImages(archiveMetadata, '/archive/opengraph-image');
     expectMetadataImages(developersMetadata, '/developers/opengraph-image');

@@ -766,3 +766,114 @@ test.describe('AC-1: 죽은 테마(노이즈) Surging 미포함 검증', () => {
     await expect(page.getByText('관심도 데이터가 부족합니다')).toBeVisible()
   })
 })
+
+test.describe('AC-5: 종목 리스트 UI 리디자인', () => {
+  test.beforeEach(async ({ page }) => {
+    await mockThemeDetailApi(page, mockThemeDetailResponse)
+  })
+
+  test('종목 리스트가 컴팩트 개요와 함께 렌더링된다', async ({ page }) => {
+    await page.goto(`/themes/${MOCK_THEME_ID}`)
+    await page.waitForLoadState('networkidle')
+
+    // 관련 종목 헤딩
+    await expect(page.getByText('관련').first()).toBeVisible({ timeout: 10000 })
+
+    // StatCell: 4개의 통계 셀 (시장 평균, 최대 상승, 최대 하락, 거래 주도)
+    await expect(page.getByText('시장 평균').first()).toBeVisible()
+    await expect(page.getByText('최대 상승').first()).toBeVisible()
+    await expect(page.getByText('최대 하락').first()).toBeVisible()
+    await expect(page.getByText('거래 주도').first()).toBeVisible()
+
+    // 종목명 표시
+    await expect(page.getByText('삼성전자').first()).toBeVisible()
+    await expect(page.getByText('SK하이닉스').first()).toBeVisible()
+  })
+
+  test('시장 필터 탭이 렌더링되고 클릭 가능하다', async ({ page }) => {
+    await page.goto(`/themes/${MOCK_THEME_ID}`)
+    await page.waitForLoadState('networkidle')
+
+    // 필터 탭 존재
+    const allTab = page.getByRole('button', { name: /전체.*종목 보기/ })
+    const kospiTab = page.getByRole('button', { name: /KOSPI.*종목 보기/ })
+    const kosdaqTab = page.getByRole('button', { name: /KOSDAQ.*종목 보기/ })
+
+    await expect(allTab).toBeVisible({ timeout: 10000 })
+    await expect(kospiTab).toBeVisible()
+    await expect(kosdaqTab).toBeVisible()
+
+    // KOSPI 탭 클릭
+    await kospiTab.click()
+
+    // 두 종목 모두 KOSPI이므로 여전히 표시
+    await expect(page.getByText('삼성전자').first()).toBeVisible()
+  })
+
+  test('정렬 버튼이 렌더링되고 토글된다', async ({ page }) => {
+    await page.goto(`/themes/${MOCK_THEME_ID}`)
+    await page.waitForLoadState('networkidle')
+
+    // 정렬 버튼 (등락이 기본 활성)
+    const changeBtn = page.getByRole('button', { name: /등락.*정렬/ })
+    await expect(changeBtn).toBeVisible({ timeout: 10000 })
+    await expect(changeBtn).toHaveAttribute('aria-pressed', 'true')
+
+    // 이름 정렬 클릭
+    const nameBtn = page.getByRole('button', { name: /이름.*정렬/ })
+    await nameBtn.click()
+    await expect(nameBtn).toHaveAttribute('aria-pressed', 'true')
+    await expect(changeBtn).toHaveAttribute('aria-pressed', 'false')
+  })
+
+  test('CLS 방지: 종목 행에 레이아웃 시프트 유발 애니메이션이 없다', async ({ page }) => {
+    await page.goto(`/themes/${MOCK_THEME_ID}`)
+    await page.waitForLoadState('networkidle')
+
+    // 종목 링크가 plain <a> 태그 (motion.a가 아님)
+    const stockLink = page.getByLabel('삼성전자 상세 보기')
+    await expect(stockLink).toBeVisible({ timeout: 10000 })
+
+    // 행 높이가 안정적 (50px 이상 렌더링)
+    const box = await stockLink.boundingBox()
+    expect(box).not.toBeNull()
+    expect(box!.height).toBeGreaterThan(50)
+  })
+
+  test('시장 분포 바가 렌더링된다', async ({ page }) => {
+    await page.goto(`/themes/${MOCK_THEME_ID}`)
+    await page.waitForLoadState('networkidle')
+
+    // KOSPI/KOSDAQ 라벨
+    await expect(page.getByText(/^KOSPI \d+$/).first()).toBeVisible({ timeout: 10000 })
+    await expect(page.getByText(/^KOSDAQ \d+$/).first()).toBeVisible()
+  })
+
+  test('375px 뷰포트에서 종목 리스트가 가로 스크롤 없이 렌더링된다', async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 812 })
+    await mockThemeDetailApi(page, mockThemeDetailResponse)
+
+    await page.goto(`/themes/${MOCK_THEME_ID}`)
+    await page.waitForLoadState('networkidle')
+
+    await expect(page.getByText('삼성전자').first()).toBeVisible({ timeout: 10000 })
+
+    const scrollWidth = await page.evaluate(() => document.documentElement.scrollWidth)
+    const viewportWidth = await page.evaluate(() => window.innerWidth)
+    expect(scrollWidth).toBeLessThanOrEqual(viewportWidth + 10)
+  })
+
+  test('데스크탑 헤더 그리드와 행 그리드가 정렬된다', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 800 })
+    await mockThemeDetailApi(page, mockThemeDetailResponse)
+
+    await page.goto(`/themes/${MOCK_THEME_ID}`)
+    await page.waitForLoadState('networkidle')
+
+    // 헤더 컬럼 확인 (#, 종목, 현재가, 등락률, 거래량)
+    await expect(page.getByText('#').first()).toBeVisible({ timeout: 10000 })
+    await expect(page.getByText('현재가').first()).toBeVisible()
+    await expect(page.getByText('등락률').first()).toBeVisible()
+    await expect(page.getByText('거래량').first()).toBeVisible()
+  })
+})

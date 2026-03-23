@@ -1,39 +1,66 @@
 'use client'
 
 import { useState, useMemo, useCallback } from 'react'
-import { TrendingUp, ChevronUp, ChevronDown, Minus as MinusIcon } from 'lucide-react'
-import { motion } from 'framer-motion'
-import { cn } from '@/lib/utils'
-import { sortStocks, calculateStockStats, getMaxVolume } from './stock-list-utils'
-import type { SortField, SortDirection } from './stock-list-utils'
-import type { ThemeStockItem } from '@/lib/tli/types'
+import { TrendingUp } from 'lucide-react'
+import {
+  sortStocks,
+  calculateStockStats,
+  DEFAULT_STOCK_SORT_DIRECTION,
+  DEFAULT_STOCK_SORT_FIELD,
+  getMaxVolume,
+  getTopGainer,
+  getTopLoser,
+  getVolumeLeader,
+  type SortField,
+  type SortDirection,
+  type Stock,
+} from './stock-list-utils'
 import { StockRow } from './stock-list-row'
+import StockListOverview from './stock-list-overview'
 
 interface StockListProps {
-  stocks: ThemeStockItem[]
+  stocks: Stock[]
+  liveStatus?: 'idle' | 'loading' | 'success' | 'error'
 }
 
-function StockList({ stocks }: StockListProps) {
+function StockList({ stocks, liveStatus = 'idle' }: StockListProps) {
   const [activeTab, setActiveTab] = useState<'all' | 'KOSPI' | 'KOSDAQ'>('all')
-  const [sortField, setSortField] = useState<SortField>('change')
-  const [sortDirection, setSortDirection] = useState<SortDirection>('desc')
+  const [sortField, setSortField] = useState<SortField>(DEFAULT_STOCK_SORT_FIELD)
+  const [sortDirection, setSortDirection] = useState<SortDirection>(DEFAULT_STOCK_SORT_DIRECTION)
 
   const grouped = useMemo(() => ({
-    kospi: stocks.filter(s => s.market === 'KOSPI'),
-    kosdaq: stocks.filter(s => s.market === 'KOSDAQ'),
+    kospi: stocks.filter((stock) => stock.market === 'KOSPI'),
+    kosdaq: stocks.filter((stock) => stock.market === 'KOSDAQ'),
   }), [stocks])
 
   const filteredAndSortedStocks = useMemo(() => {
-    const filtered = activeTab === 'KOSPI' ? grouped.kospi : activeTab === 'KOSDAQ' ? grouped.kosdaq : stocks
+    const filtered = activeTab === 'KOSPI'
+      ? grouped.kospi
+      : activeTab === 'KOSDAQ'
+        ? grouped.kosdaq
+        : stocks
+
     return sortStocks(filtered, sortField, sortDirection)
-  }, [activeTab, stocks, grouped, sortField, sortDirection])
+  }, [activeTab, grouped, sortDirection, sortField, stocks])
 
   const stats = useMemo(() => calculateStockStats(filteredAndSortedStocks), [filteredAndSortedStocks])
   const maxVolume = useMemo(() => getMaxVolume(filteredAndSortedStocks), [filteredAndSortedStocks])
+  const volumeLeader = useMemo(() => getVolumeLeader(filteredAndSortedStocks), [filteredAndSortedStocks])
+  const topGainer = useMemo(() => getTopGainer(filteredAndSortedStocks), [filteredAndSortedStocks])
+  const topLoser = useMemo(() => getTopLoser(filteredAndSortedStocks), [filteredAndSortedStocks])
+  const marketMix = useMemo(() => {
+    const total = filteredAndSortedStocks.length || 1
+    return {
+      kospiCount: grouped.kospi.length,
+      kosdaqCount: grouped.kosdaq.length,
+      kospiPct: Math.round((grouped.kospi.length / total) * 100),
+      kosdaqPct: Math.round((grouped.kosdaq.length / total) * 100),
+    }
+  }, [filteredAndSortedStocks.length, grouped.kosdaq.length, grouped.kospi.length])
 
   const handleSort = useCallback((field: SortField) => {
     if (sortField === field) {
-      setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc')
+      setSortDirection((prev) => prev === 'asc' ? 'desc' : 'asc')
     } else {
       setSortField(field)
       setSortDirection(field === 'change' ? 'desc' : 'asc')
@@ -42,16 +69,12 @@ function StockList({ stocks }: StockListProps) {
 
   if (stocks.length === 0) {
     return (
-      <motion.div
-        initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, delay: 0.3 }}
-        className="rounded-2xl border border-emerald-500/10 bg-slate-900/40 p-12 flex flex-col items-center justify-center"
-      >
+      <div className="rounded-2xl border border-emerald-500/10 bg-slate-900/40 p-12 flex flex-col items-center justify-center">
         <div className="w-12 h-12 rounded-full bg-slate-800/50 border border-slate-700/30 flex items-center justify-center mb-4">
           <TrendingUp className="w-6 h-6 text-slate-600" />
         </div>
         <p className="text-sm text-slate-500 font-mono text-center">관련 종목 데이터가 아직 없어요</p>
-      </motion.div>
+      </div>
     )
   }
 
@@ -68,98 +91,50 @@ function StockList({ stocks }: StockListProps) {
     { field: 'volume', label: '거래량' },
   ]
 
+  const liveCount = stocks.filter((stock) => stock.dataSource === 'kis').length
+  const liveCoverage = `${liveCount}/${stocks.length}`
+  const latestSnapshotAt = filteredAndSortedStocks.find((stock) => stock.lastUpdatedAt)?.lastUpdatedAt
+    ?? stocks.find((stock) => stock.lastUpdatedAt)?.lastUpdatedAt
+    ?? null
+
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5, delay: 0.3 }}
-      className="rounded-2xl border border-emerald-500/20 bg-slate-900/60 overflow-hidden flex flex-col h-full"
-    >
-      {/* 헤더 */}
-      <div className="flex items-center justify-between px-4 py-3.5 border-b border-slate-800/50">
-        <h2 className="text-lg font-bold">
-          <span className="text-white">관련</span>
-          <span className="text-emerald-400 ml-1">종목</span>
-        </h2>
-        <span className="text-xs font-mono text-emerald-400 px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 tabular-nums">
-          {stocks.length}
-        </span>
-      </div>
+    <div className="rounded-[28px] border border-emerald-500/18 bg-[linear-gradient(180deg,rgba(15,23,42,0.94),rgba(2,6,23,0.9))] overflow-hidden flex flex-col shadow-[0_28px_80px_rgba(2,6,23,0.28)]">
+      <StockListOverview
+        totalCount={stocks.length}
+        filteredCount={filteredAndSortedStocks.length}
+        liveStatus={liveStatus}
+        liveCoverage={liveCoverage}
+        stats={stats}
+        topGainer={topGainer}
+        topLoser={topLoser}
+        volumeLeader={volumeLeader}
+        latestSnapshotAt={latestSnapshotAt}
+        marketMix={marketMix}
+        tabs={tabs}
+        activeTab={activeTab}
+        sortOptions={sortOptions}
+        sortField={sortField}
+        sortDirection={sortDirection}
+        onTabChange={setActiveTab}
+        onSortChange={handleSort}
+      />
 
-      {/* 탭 + 정렬 */}
-      <div className="px-4 pt-3 pb-2 space-y-2">
-        {/* 시장 탭 */}
-        <div className="flex gap-1">
-          {tabs.map(({ key, label, count }) => (
-            <button
-              key={key}
-              onClick={() => setActiveTab(key)}
-              aria-label={`${label} 종목 보기`}
-              className={cn(
-                'text-[11px] font-mono px-2.5 py-1 rounded-md border transition-colors',
-                activeTab === key
-                  ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
-                  : 'bg-slate-800/30 border-slate-700/30 text-slate-500 hover:text-slate-300'
-              )}
-            >
-              {label}
-              <span className="ml-1 text-[9px] opacity-60 tabular-nums">{count}</span>
-            </button>
-          ))}
-        </div>
-
-        {/* 정렬 버튼 */}
-        <div className="flex gap-1">
-          {sortOptions.map(({ field, label }) => (
-            <button
-              key={field}
-              onClick={() => handleSort(field)}
-              aria-label={`${label} 기준 정렬${sortField === field ? (sortDirection === 'asc' ? ' (오름차순)' : ' (내림차순)') : ''}`}
-              aria-pressed={sortField === field}
-              className={cn(
-                'text-[10px] font-mono px-2 py-0.5 rounded border transition-colors',
-                sortField === field
-                  ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
-                  : 'border-transparent text-slate-600 hover:text-slate-400'
-              )}
-            >
-              {label}
-              {sortField === field && (
-                <span className="ml-0.5">{sortDirection === 'asc' ? '↑' : '↓'}</span>
-              )}
-            </button>
-          ))}
+      <div className="hidden lg:block px-5 py-2 border-b border-slate-800/40 bg-slate-950/50">
+        <div className="grid grid-cols-[40px_minmax(0,1.5fr)_132px_120px_176px] gap-4 text-[10px] font-mono uppercase tracking-[0.16em] text-slate-500">
+          <span className="text-center">#</span>
+          <span>종목</span>
+          <span className="text-right">현재가</span>
+          <span className="text-right">등락률</span>
+          <span>거래량</span>
         </div>
       </div>
 
-      {/* 통계 바 */}
-      <div className="flex items-center gap-3 px-4 py-1.5 text-[10px] font-mono border-y border-slate-800/30 bg-slate-950/30">
-        <div className="flex items-center gap-1">
-          <ChevronUp className="w-3 h-3 text-emerald-400" />
-          <span className="text-emerald-400 tabular-nums">{stats.rising}</span>
-        </div>
-        <div className="flex items-center gap-1">
-          <ChevronDown className="w-3 h-3 text-red-400" />
-          <span className="text-red-400 tabular-nums">{stats.falling}</span>
-        </div>
-        <div className="flex items-center gap-1">
-          <MinusIcon className="w-3 h-3 text-slate-600" />
-          <span className="text-slate-500 tabular-nums">{stats.flat}</span>
-        </div>
-        <span className="flex-1" />
-        <span className="text-slate-600">avg</span>
-        <span className={cn('font-semibold tabular-nums', stats.avgChange > 0 ? 'text-emerald-400' : stats.avgChange < 0 ? 'text-red-400' : 'text-slate-400')}>
-          {stats.avgChange > 0 ? '+' : ''}{stats.avgChange.toFixed(2)}%
-        </span>
-      </div>
-
-      {/* 종목 리스트 */}
       <div className="custom-scroll flex-1 overflow-y-auto overscroll-contain">
         {filteredAndSortedStocks.map((stock, idx) => (
           <StockRow key={stock.symbol} stock={stock} idx={idx} maxVolume={maxVolume} />
         ))}
       </div>
-
-    </motion.div>
+    </div>
   )
 }
 

@@ -1,25 +1,24 @@
 /** 테마 상세 메인 컨텐츠 */
 'use client'
 
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useCallback, useMemo } from 'react'
 import { motion, useReducedMotion } from 'framer-motion'
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 import AnimatedBackground from '@/components/animated-background'
-import LifecycleCurve from '@/components/tli/lifecycle-curve'
-import ErrorBoundary from '@/components/tli/error-boundary'
 import Disclaimer from '@/components/tli/disclaimer'
 import { GlassCard } from '@/components/tli/glass-card'
+import ComparisonWorkspace from './comparison-workspace'
 import StockList from './stock-list'
-import ComparisonList from './comparison-list'
 import ThemePrediction from './theme-prediction'
-import ScoreCard from './score-card'
 import NewsHeadlines from './news-headlines'
 import DetailHeader from './detail-header'
 import { DetailLoading } from './detail-loading'
 import { DetailError } from './detail-error'
 import { shouldRenderPredictionPanel } from './theme-prediction/presentation'
 import { useGetThemeDetail } from '../_services/use-get-theme-detail'
+import { useKisStockSnapshots } from './stock-list-kis'
+import type { Stock } from './stock-list-utils'
 
 interface DetailContentProps {
   id: string
@@ -28,35 +27,75 @@ interface DetailContentProps {
 function DetailContent({ id }: DetailContentProps) {
   const shouldReduceMotion = useReducedMotion()
   const { data: theme, isLoading, error } = useGetThemeDetail(id)
+  const [selectedComparisonIds, setSelectedComparisonIds] = useState<string[]>([])
+  const { liveSnapshots, liveStatus } = useKisStockSnapshots(theme?.stocks ?? [])
 
-  const [selectedComparisons, setSelectedComparisons] = useState<number[]>([])
-
-  const handleToggleComparison = useCallback((index: number) => {
-    setSelectedComparisons(prev =>
-      prev.includes(index) ? prev.filter(i => i !== index) : [...prev, index]
+  const handleToggleComparison = useCallback((comparisonId: string) => {
+    setSelectedComparisonIds((prev) =>
+      prev.includes(comparisonId)
+        ? prev.filter((id) => id !== comparisonId)
+        : [...prev, comparisonId],
     )
   }, [])
 
-  const comparisonData = useMemo(() => {
-    if (!theme) return undefined
-    const selected = selectedComparisons
-      .filter(idx => idx >= 0 && idx < theme.comparisons.length)
-      .map(idx => {
-        const comp = theme.comparisons[idx]
+  const handleRemoveComparison = useCallback((comparisonId: string) => {
+    setSelectedComparisonIds((prev) => prev.filter((id) => id !== comparisonId))
+  }, [])
+
+  const handleClearComparisons = useCallback(() => {
+    setSelectedComparisonIds([])
+  }, [])
+
+  const liveStocks = useMemo<Stock[]>(() => (
+    (theme?.stocks ?? []).map((stock) => {
+      const snapshot = liveSnapshots.get(stock.symbol)
+
+      if (!snapshot) {
         return {
-          themeName: comp.pastTheme,
-          data: comp.lifecycleCurve.map((point, dayIdx) => ({
-            day: dayIdx,
-            value: point.score,
-          })),
-          similarity: comp.similarity,
+          ...stock,
+          previousClose: null,
+          priceDelta: null,
+          lastUpdatedAt: null,
+          dataSource: 'stored',
         }
-      })
-    return selected.length > 0 ? selected : undefined
-  }, [theme, selectedComparisons])
+      }
+
+      return {
+        ...stock,
+        currentPrice: snapshot.currentPrice,
+        priceChangePct: snapshot.changeRate,
+        volume: snapshot.volume,
+        previousClose: snapshot.previousClose,
+        priceDelta: snapshot.currentPrice - snapshot.previousClose,
+        openPrice: snapshot.openPrice ?? null,
+        highPrice: snapshot.highPrice ?? null,
+        lowPrice: snapshot.lowPrice ?? null,
+        week52High: snapshot.week52High ?? null,
+        week52Low: snapshot.week52Low ?? null,
+        tradingValue: snapshot.tradingValue ?? null,
+        marketCap: snapshot.marketCap ?? null,
+        per: snapshot.per ?? null,
+        pbr: snapshot.pbr ?? null,
+        eps: snapshot.eps ?? null,
+        bps: snapshot.bps ?? null,
+        sharesOutstanding: snapshot.sharesOutstanding ?? null,
+        lastUpdatedAt: snapshot.timestamp,
+        dataSource: 'kis',
+      }
+    })
+  ), [liveSnapshots, theme?.stocks])
+
+  const themeWithLiveStocks = useMemo(() => (
+    theme
+      ? {
+          ...theme,
+          stocks: liveStocks,
+        }
+      : null
+  ), [liveStocks, theme])
 
   if (isLoading) return <DetailLoading />
-  if (error || !theme) return <DetailError message={error?.message || '알 수 없는 오류가 발생했어요'} />
+  if (error || !theme || !themeWithLiveStocks) return <DetailError message={error?.message || '알 수 없는 오류가 발생했어요'} />
 
   return (
     <div className="min-h-screen bg-black text-white relative overflow-hidden">
@@ -86,7 +125,7 @@ function DetailContent({ id }: DetailContentProps) {
             </Link>
           </motion.div>
 
-          <DetailHeader theme={theme} />
+          <DetailHeader theme={themeWithLiveStocks} />
 
           {shouldRenderPredictionPanel(theme.firstSpikeDate, theme.comparisons.length) && (
             <div className="mb-8">
@@ -99,45 +138,28 @@ function DetailContent({ id }: DetailContentProps) {
             </div>
           )}
 
-          {/* 라이프사이클 차트 */}
-          <motion.div
-            initial={shouldReduceMotion ? false : { opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.1 }}
-          >
-            <GlassCard className="p-4 sm:p-6 mb-6 sm:mb-8">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-bold">
-                  <span className="text-white">점수</span>
-                  <span className="text-emerald-400 ml-1">추이</span>
-                </h2>
-                {comparisonData && (
-                  <span className="text-xs font-mono text-sky-400">{comparisonData.length}개 비교 중</span>
-                )}
-              </div>
-              {theme.lifecycleCurve.length === 0 ? (
-                <div className="flex items-center justify-center h-[400px] bg-slate-900/30 rounded-lg border border-slate-800">
-                  <p className="text-sm text-slate-500 font-mono">데이터를 준비하고 있어요</p>
-                </div>
-              ) : (
-                <ErrorBoundary>
-                  <LifecycleCurve
-                    currentData={theme.lifecycleCurve}
-                    comparisonData={comparisonData}
-                    newsTimeline={theme.newsTimeline}
-                    interestTimeline={theme.interestTimeline}
-                    height={400}
-                  />
-                </ErrorBoundary>
-              )}
-            </GlassCard>
-          </motion.div>
+          <div className="mb-6 sm:mb-8">
+            <StockList stocks={liveStocks} liveStatus={liveStatus} />
+          </div>
 
-          {/* 관련 뉴스 */}
+          <ComparisonWorkspace
+            themeName={theme.name}
+            currentData={theme.lifecycleCurve}
+            comparisons={theme.comparisons}
+            selectedComparisonIds={selectedComparisonIds}
+            onToggleComparison={handleToggleComparison}
+            onClearComparisons={handleClearComparisons}
+            onRemoveComparison={handleRemoveComparison}
+            newsTimeline={theme.newsTimeline}
+            interestTimeline={theme.interestTimeline}
+            isPrePeak={theme.score.stage === 'Emerging' || theme.score.stage === 'Growth'}
+            shouldReduceMotion={shouldReduceMotion ?? false}
+          />
+
           <motion.div
             initial={shouldReduceMotion ? false : { opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.15 }}
+            transition={{ duration: 0.5, delay: 0.16 }}
           >
             <GlassCard className="p-4 sm:p-6 mb-6 sm:mb-8">
               <div className="flex items-center justify-between mb-4">
@@ -157,22 +179,10 @@ function DetailContent({ id }: DetailContentProps) {
             </GlassCard>
           </motion.div>
 
-          {/* 3열 그리드 */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 lg:grid-rows-[600px] gap-4 sm:gap-6">
-            <ScoreCard score={theme.score} />
-            <ComparisonList
-              comparisons={theme.comparisons}
-              selectedIndices={selectedComparisons}
-              onToggleComparison={handleToggleComparison}
-              isPrePeak={theme.score.stage === 'Emerging' || theme.score.stage === 'Growth'}
-            />
-            <StockList stocks={theme.stocks} />
-          </div>
-
           <motion.div
             initial={shouldReduceMotion ? false : { opacity: 0 }}
             animate={{ opacity: 1 }}
-            transition={{ duration: 0.6, delay: 0.6 }}
+            transition={{ duration: 0.6, delay: 0.55 }}
             className="mt-16"
           >
             <Disclaimer />

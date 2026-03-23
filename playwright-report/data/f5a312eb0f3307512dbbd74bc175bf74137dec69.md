@@ -1,0 +1,1362 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - navigation "메인 내비게이션" [ref=e2]:
+    - generic [ref=e5]:
+      - link "Stock Matrix AI Analysis" [ref=e6] [cursor=pointer]:
+        - /url: /
+        - img [ref=e9]
+        - generic [ref=e13]:
+          - generic [ref=e14]: Stock Matrix
+          - generic [ref=e15]: AI Analysis
+      - generic [ref=e16]:
+        - link "홈" [ref=e18] [cursor=pointer]:
+          - /url: /
+          - generic [ref=e24]: 홈
+        - link "분석 기록" [ref=e26] [cursor=pointer]:
+          - /url: /archive
+          - generic [ref=e32]: 분석 기록
+        - link "테마" [ref=e34] [cursor=pointer]:
+          - /url: /themes
+          - generic [ref=e41]: 테마
+        - link "블로그" [ref=e43] [cursor=pointer]:
+          - /url: /blog
+          - generic [ref=e49]: 블로그
+        - link "서비스" [ref=e51] [cursor=pointer]:
+          - /url: /about
+          - generic [ref=e57]: 서비스
+        - link "가이드" [ref=e59] [cursor=pointer]:
+          - /url: /technical-indicators
+          - generic [ref=e65]: 가이드
+        - link "FAQ" [ref=e67] [cursor=pointer]:
+          - /url: /faq
+          - generic [ref=e73]: FAQ
+      - link "무료 메일받기" [ref=e75] [cursor=pointer]:
+        - /url: /subscribe
+        - generic [ref=e76]: 무료 메일받기
+  - generic [ref=e82]:
+    - generic:
+      - generic:
+        - generic: Option
+        - generic: "5"
+        - generic: Self
+        - generic: Self
+        - generic: Drop
+        - generic: impl
+        - generic: "@"
+        - generic: f64
+        - generic: Some
+        - generic: Box
+        - generic: Err
+        - generic: trait
+        - generic: "&&"
+        - generic: const
+        - generic: ｽ
+        - generic: Copy
+        - generic: ﾀ
+      - generic:
+        - generic: Cell
+        - generic: ﾁ
+        - generic: =
+        - generic: dyn
+        - generic: "2"
+        - generic: String
+        - generic: C0
+        - generic: ｻ
+        - generic: i16
+        - generic: ">"
+        - generic: Result
+        - generic: return
+        - generic: \
+        - generic: u128
+        - generic: str
+        - generic: i32
+        - generic: Drop
+        - generic: "0"
+        - generic: test
+        - generic: continue
+      - generic:
+        - generic: mod
+        - generic: ｽ
+        - generic: ﾂ
+        - generic: Some
+        - generic: if
+        - generic: "]"
+        - generic: Arc
+        - generic: RefCell
+        - generic: "3"
+        - generic: match
+        - generic: ","
+        - generic: "["
+        - generic: "8"
+      - generic:
+        - generic: "||"
+        - generic: const
+        - generic: else
+        - generic: "5"
+        - generic: Some
+        - generic: None
+        - generic: struct
+        - generic: RefCell
+        - generic: A5
+        - generic: "1"
+        - generic: const
+        - generic: "->"
+      - generic:
+        - generic: +
+        - generic: test
+        - generic: Vec
+        - generic: Rc
+        - generic: struct
+        - generic: "|"
+        - generic: vec!
+        - generic: ^
+        - generic: else
+        - generic: RefCell
+      - generic:
+        - generic: async
+        - generic: trait
+        - generic: "|"
+        - generic: Vec
+        - generic: "|"
+        - generic: ｸ
+        - generic: (
+        - generic: trait
+        - generic: i128
+        - generic: ﾀ
+        - generic: RefCell
+        - generic: "!="
+        - generic: const
+        - generic: C0
+        - generic: char
+        - generic: const
+        - generic: ~
+        - generic: ﾁ
+        - generic: struct
+        - generic: impl
+        - generic: Ok
+        - generic: FF
+      - generic:
+        - generic: else
+        - generic: loop
+        - generic: +
+        - generic: xFF
+        - generic: f32
+        - generic: crate
+        - generic: unwrap
+        - generic: "&str"
+        - generic: u16
+        - generic: "'static"
+        - generic: match
+        - generic: continue
+        - generic: ">="
+        - generic: ^
+        - generic: i8
+        - generic: i128
+        - generic: ﾀ
+        - generic: ﾀ
+        - generic: "8"
+      - generic:
+        - generic: "{"
+        - generic: Ok
+        - generic: ｸ
+        - generic: ｺ
+        - generic: <'a>
+        - generic: ...
+        - generic: unsafe
+        - generic: Option
+        - generic: .
+        - generic: "]"
+        - generic: "&&"
+        - generic: ｵ
+        - generic: ｺ
+        - generic: "8"
+      - generic:
+        - generic: i64
+        - generic: Self
+        - generic: f64
+        - generic: cfg
+        - generic: ｹ
+        - generic: "0"
+        - generic: \
+        - generic: String
+        - generic: "0xBEEF"
+        - generic: pub
+        - generic: "&mut"
+        - generic: Box
+        - generic: <
+        - generic: Vec
+      - generic:
+        - generic: "11"
+        - generic: "{"
+        - generic: as
+        - generic: 0b
+        - generic: "|"
+        - generic: "0xDEAD"
+        - generic: ":"
+        - generic: u64
+        - generic: _
+        - generic: "3"
+      - generic:
+        - generic: <'a>
+        - generic: return
+        - generic: Clone
+        - generic: Box
+        - generic: Err
+        - generic: 0x
+        - generic: _
+        - generic: \
+        - generic: i64
+        - generic: A5
+        - generic: "|"
+        - generic: ｸ
+        - generic: .
+        - generic: +
+        - generic: const
+        - generic: Ok
+        - generic: for
+      - generic:
+        - generic: Self
+        - generic: "11"
+        - generic: "&"
+        - generic: =>
+        - generic: <'a>
+        - generic: ｹ
+        - generic: f64
+        - generic: FF
+        - generic: "-"
+        - generic: struct
+        - generic: type
+        - generic: ==
+        - generic: "0xDEAD"
+        - generic: ｿ
+        - generic: async
+        - generic: "?"
+        - generic: "&"
+        - generic: const
+        - generic: cfg
+        - generic: ﾄ
+        - generic: "|"
+        - generic: trait
+      - generic:
+        - generic: struct
+        - generic: char
+        - generic: "*"
+        - generic: let
+        - generic: ｼ
+        - generic: FF
+        - generic: Option
+        - generic: ｼ
+        - generic: "?"
+        - generic: return
+        - generic: 3F
+        - generic: return
+        - generic: "||"
+        - generic: Err
+        - generic: "||"
+        - generic: impl
+        - generic: u8
+        - generic: xFF
+        - generic: enum
+        - generic: debug!
+        - generic: f64
+      - generic:
+        - generic: 0o
+        - generic: ﾀ
+        - generic: if
+        - generic: /
+        - generic: ｿ
+        - generic: if
+        - generic: u32
+        - generic: unsafe
+        - generic: ｸ
+        - generic: "["
+        - generic: Copy
+        - generic: ｿ
+        - generic: "&str"
+        - generic: vec!
+        - generic: type
+      - generic:
+        - generic: "'static"
+        - generic: 0o
+        - generic: FF
+        - generic: ﾂ
+        - generic: "0"
+        - generic: ﾂ
+        - generic: ｷ
+        - generic: "?"
+        - generic: ..
+        - generic: Result
+        - generic: f64
+        - generic: derive
+        - generic: _
+        - generic: "3"
+      - generic:
+        - generic: f32
+        - generic: const
+        - generic: u8
+        - generic: ﾂ
+        - generic: i128
+        - generic: derive
+        - generic: debug!
+        - generic: "*"
+        - generic: "||"
+        - generic: A5
+        - generic: const
+        - generic: ﾃ
+        - generic: if
+        - generic: derive
+        - generic: Arc
+        - generic: ...
+        - generic: String
+        - generic: "6"
+        - generic: use
+        - generic: "|"
+        - generic: trait
+      - generic:
+        - generic: "{"
+        - generic: ..
+        - generic: for
+        - generic: if
+        - generic: type
+        - generic: ｻ
+        - generic: ﾁ
+        - generic: ﾃ
+        - generic: ":"
+        - generic: str
+        - generic: impl
+        - generic: "@"
+        - generic: ","
+        - generic: DE
+        - generic: "-"
+        - generic: ｷ
+        - generic: Cell
+        - generic: if
+        - generic: as
+        - generic: RefCell
+        - generic: match
+        - generic: "&str"
+      - generic:
+        - generic: ｹ
+        - generic: ｾ
+        - generic: mod
+        - generic: ｾ
+        - generic: Err
+        - generic: Result
+        - generic: "4"
+        - generic: ｹ
+        - generic: Arc
+        - generic: "|"
+        - generic: ｶ
+        - generic: "]"
+      - generic:
+        - generic: dyn
+        - generic: Box
+        - generic: i8
+        - generic: ｷ
+        - generic: "4"
+        - generic: fn
+        - generic: debug!
+        - generic: _
+        - generic: Ok
+        - generic: "*"
+        - generic: Drop
+        - generic: let
+        - generic: =>
+        - generic: =>
+        - generic: "&&"
+        - generic: Arc
+      - generic:
+        - generic: +
+        - generic: "0"
+        - generic: async
+        - generic: i8
+        - generic: println!
+        - generic: assert!
+        - generic: impl
+        - generic: trait
+        - generic: "-"
+      - generic:
+        - generic: u64
+        - generic: "6"
+        - generic: fn
+        - generic: for
+        - generic: ｾ
+        - generic: "5"
+        - generic: ｺ
+        - generic: const
+        - generic: Err
+        - generic: A5
+        - generic: u8
+        - generic: "->"
+      - generic:
+        - generic: expect
+        - generic: =>
+        - generic: async
+        - generic: ":"
+        - generic: enum
+        - generic: "2"
+        - generic: ">="
+        - generic: =
+        - generic: while
+        - generic: enum
+        - generic: const
+        - generic: ｸ
+        - generic: ~
+        - generic: "|"
+        - generic: "2"
+        - generic: "2"
+        - generic: "&"
+      - generic:
+        - generic: FF
+        - generic: ﾄ
+        - generic: macro_rules!
+        - generic: None
+        - generic: Rc
+        - generic: A5
+        - generic: ﾁ
+        - generic: "@"
+        - generic: enum
+        - generic: ","
+        - generic: ^
+        - generic: mod
+        - generic: mut
+        - generic: let
+        - generic: "["
+        - generic: "1"
+        - generic: u32
+        - generic: ｷ
+        - generic: Err
+        - generic: ">="
+        - generic: )
+        - generic: if
+      - generic:
+        - generic: 0b
+        - generic: "-"
+        - generic: ==
+        - generic: \
+        - generic: "?"
+        - generic: "!"
+        - generic: "||"
+        - generic: 3F
+        - generic: async
+        - generic: crate
+        - generic: i128
+        - generic: let
+        - generic: "0xDEAD"
+      - generic:
+        - generic: "11"
+        - generic: 0x
+        - generic: Some
+        - generic: await
+        - generic: "!"
+        - generic: ｸ
+        - generic: ｹ
+        - generic: assert!
+        - generic: impl
+        - generic: "0xBEEF"
+        - generic: assert!
+        - generic: Clone
+        - generic: where
+        - generic: format!
+        - generic: ">"
+        - generic: =>
+      - generic:
+        - generic: while
+        - generic: ｾ
+        - generic: "5"
+        - generic: 3F
+        - generic: async
+        - generic: "|"
+        - generic: )
+        - generic: Copy
+        - generic: 7E
+        - generic: 0o
+        - generic: C0
+        - generic: str
+        - generic: "->"
+        - generic: "{"
+        - generic: "!"
+        - generic: _
+        - generic: Result
+        - generic: impl
+        - generic: super
+        - generic: "*"
+      - generic:
+        - generic: Drop
+        - generic: ｼ
+        - generic: f64
+        - generic: cfg
+        - generic: "'static"
+        - generic: ^
+        - generic: for
+        - generic: =>
+        - generic: "6"
+        - generic: C0
+        - generic: bool
+        - generic: "1"
+        - generic: String
+        - generic: RefCell
+        - generic: )
+        - generic: "||"
+        - generic: i64
+        - generic: str
+        - generic: Drop
+        - generic: xFF
+      - generic:
+        - generic: i16
+        - generic: i128
+        - generic: u32
+        - generic: ">"
+        - generic: String
+        - generic: .
+        - generic: assert!
+        - generic: +
+        - generic: +
+        - generic: enum
+        - generic: for
+        - generic: "||"
+        - generic: 3F
+        - generic: i16
+        - generic: panic!
+        - generic: i16
+        - generic: crate
+        - generic: enum
+      - generic:
+        - generic: 0o
+        - generic: 0b
+        - generic: <
+        - generic: String
+        - generic: ｻ
+        - generic: A5
+        - generic: None
+        - generic: (
+        - generic: None
+        - generic: ｴ
+        - generic: Err
+        - generic: u32
+        - generic: (
+        - generic: RefCell
+        - generic: 3F
+        - generic: "0x00"
+        - generic: "->"
+        - generic: \
+        - generic: struct
+        - generic: ｺ
+      - generic:
+        - generic: Copy
+        - generic: "2"
+        - generic: await
+        - generic: "?"
+        - generic: <'a>
+        - generic: "}"
+        - generic: "&"
+        - generic: u32
+        - generic: async
+        - generic: "4"
+        - generic: vec!
+        - generic: expect
+        - generic: "11"
+        - generic: ｿ
+        - generic: ｳ
+        - generic: dyn
+        - generic: None
+        - generic: assert!
+        - generic: ﾂ
+      - generic:
+        - generic: "8"
+        - generic: u128
+        - generic: Box
+        - generic: pub
+        - generic: Some
+        - generic: f64
+        - generic: ﾄ
+        - generic: "8"
+        - generic: RefCell
+        - generic: str
+      - generic:
+        - generic: enum
+        - generic: "&str"
+        - generic: "}"
+        - generic: Arc
+        - generic: ｷ
+        - generic: 0o
+        - generic: trait
+        - generic: 0x
+        - generic: "5"
+        - generic: ｾ
+        - generic: ;
+        - generic: for
+        - generic: f64
+        - generic: ":"
+        - generic: String
+        - generic: Copy
+        - generic: "||"
+        - generic: use
+        - generic: debug!
+      - generic:
+        - generic: Some
+        - generic: =
+        - generic: ｹ
+        - generic: "||"
+        - generic: ﾂ
+        - generic: Option
+        - generic: format!
+        - generic: println!
+        - generic: ｾ
+        - generic: ﾃ
+        - generic: "0xDEAD"
+        - generic: ","
+        - generic: "0xFF41"
+        - generic: ｺ
+        - generic: FF
+        - generic: "8"
+        - generic: async
+        - generic: "1"
+        - generic: ｷ
+      - generic:
+        - generic: ｿ
+        - generic: ｿ
+        - generic: "8"
+        - generic: type
+        - generic: ﾃ
+        - generic: "@"
+        - generic: enum
+        - generic: format!
+        - generic: Vec
+        - generic: (
+        - generic: Arc
+        - generic: 0x
+      - generic:
+        - generic: ｸ
+        - generic: i16
+        - generic: while
+        - generic: i128
+        - generic: Drop
+        - generic: for
+        - generic: "["
+        - generic: <
+        - generic: unsafe
+        - generic: 0x
+        - generic: None
+        - generic: unsafe
+        - generic: ﾁ
+        - generic: Err
+        - generic: "0xDEAD"
+        - generic: str
+        - generic: move
+        - generic: i32
+        - generic: str
+        - generic: pub
+      - generic:
+        - generic: DE
+        - generic: super
+        - generic: crate
+        - generic: "]"
+        - generic: "2"
+        - generic: unsafe
+        - generic: "2"
+        - generic: "-"
+        - generic: )
+        - generic: RefCell
+        - generic: i64
+        - generic: async
+        - generic: const
+        - generic: ｶ
+        - generic: ｱ
+        - generic: assert!
+        - generic: Drop
+      - generic:
+        - generic: u128
+        - generic: match
+        - generic: "-"
+        - generic: ｻ
+        - generic: Err
+        - generic: where
+        - generic: vec!
+        - generic: "2"
+        - generic: "||"
+        - generic: =>
+        - generic: crate
+        - generic: if
+        - generic: )
+        - generic: ":"
+        - generic: ﾂ
+        - generic: macro_rules!
+        - generic: enum
+        - generic: "0"
+        - generic: "]"
+      - generic:
+        - generic: ｵ
+        - generic: use
+        - generic: "0xFF41"
+        - generic: "0xFF41"
+        - generic: 0b
+        - generic: u128
+        - generic: Arc
+        - generic: "4"
+        - generic: +
+        - generic: if
+        - generic: f32
+        - generic: ｹ
+        - generic: "0"
+        - generic: char
+        - generic: "6"
+        - generic: where
+        - generic: xFF
+        - generic: where
+        - generic: DE
+      - generic:
+        - generic: <'a>
+        - generic: format!
+        - generic: ...
+        - generic: Ok
+        - generic: "-"
+        - generic: else
+        - generic: "*"
+        - generic: "->"
+        - generic: (
+        - generic: .
+        - generic: "11"
+        - generic: await
+      - generic:
+        - generic: "9"
+        - generic: Ok
+        - generic: async
+        - generic: Clone
+        - generic: /
+        - generic: dyn
+        - generic: Some
+        - generic: "::"
+        - generic: "0xDEAD"
+      - generic:
+        - generic: "::"
+        - generic: "5"
+        - generic: const
+        - generic: static
+        - generic: struct
+        - generic: 0x
+        - generic: ","
+        - generic: Result
+        - generic: <'a>
+        - generic: Option
+        - generic: i8
+        - generic: "3"
+        - generic: FF
+        - generic: while
+        - generic: struct
+      - generic:
+        - generic: ":"
+        - generic: xFF
+        - generic: use
+        - generic: Rc
+        - generic: ｶ
+        - generic: dyn
+        - generic: "8"
+        - generic: ref
+        - generic: Vec
+        - generic: u16
+        - generic: mut
+        - generic: "]"
+      - generic:
+        - generic: as
+        - generic: "'static"
+        - generic: Option
+        - generic: "00"
+        - generic: "-"
+        - generic: macro_rules!
+        - generic: Cell
+        - generic: char
+        - generic: "|"
+        - generic: "["
+      - generic:
+        - generic: A5
+        - generic: _
+        - generic: match
+        - generic: await
+        - generic: "!="
+        - generic: ==
+        - generic: "|"
+        - generic: "4"
+        - generic: debug!
+        - generic: static
+        - generic: debug!
+        - generic: test
+        - generic: ^
+        - generic: ｽ
+        - generic: Arc
+        - generic: unsafe
+      - generic:
+        - generic: <
+        - generic: "!="
+        - generic: "?"
+        - generic: "6"
+        - generic: ..
+        - generic: "0"
+        - generic: f32
+        - generic: bool
+        - generic: match
+        - generic: if
+        - generic: unwrap
+        - generic: 0o
+        - generic: "2"
+        - generic: "||"
+      - generic:
+        - generic: ｦ
+        - generic: char
+        - generic: Drop
+        - generic: ~
+        - generic: ","
+        - generic: \
+        - generic: panic!
+        - generic: \
+        - generic: Box
+        - generic: RefCell
+        - generic: debug!
+        - generic: "-"
+        - generic: "2"
+        - generic: assert!
+        - generic: "5"
+        - generic: String
+        - generic: ==
+        - generic: ref
+        - generic: "&str"
+        - generic: ~
+        - generic: "0xBEEF"
+      - generic:
+        - generic: i16
+        - generic: ｦ
+        - generic: ":"
+        - generic: panic!
+        - generic: ｳ
+        - generic: "-"
+        - generic: i32
+        - generic: ..
+        - generic: use
+        - generic: ^
+        - generic: "}"
+        - generic: "0"
+        - generic: "5"
+        - generic: match
+        - generic: u64
+        - generic: i16
+        - generic: =>
+        - generic: where
+      - generic:
+        - generic: 7E
+        - generic: Vec
+        - generic: Rc
+        - generic: "&str"
+        - generic: "0xFF41"
+        - generic: Vec
+        - generic: ">="
+        - generic: "@"
+        - generic: "5"
+      - generic:
+        - generic: type
+        - generic: Result
+        - generic: Self
+        - generic: move
+        - generic: i8
+        - generic: Some
+        - generic: i8
+        - generic: i64
+        - generic: ｼ
+        - generic: Option
+        - generic: ｦ
+        - generic: cfg
+        - generic: trait
+      - generic:
+        - generic: ｳ
+        - generic: Copy
+        - generic: struct
+        - generic: ":"
+        - generic: type
+        - generic: 3F
+        - generic: Drop
+        - generic: u128
+        - generic: "!="
+        - generic: "!="
+        - generic: "||"
+        - generic: unwrap
+        - generic: None
+        - generic: "?"
+        - generic: =
+        - generic: struct
+        - generic: "00"
+        - generic: Rc
+        - generic: u32
+    - main [ref=e83]:
+      - generic [ref=e84]:
+        - link "테마 목록으로 돌아가기" [ref=e86] [cursor=pointer]:
+          - /url: /themes
+          - img [ref=e87]
+          - generic [ref=e89]: 테마 목록
+        - generic [ref=e91]:
+          - generic [ref=e92]:
+            - generic [ref=e93]:
+              - generic [ref=e94]:
+                - heading "AI 로봇" [level=1] [ref=e95]
+                - generic [ref=e98]: 초기
+              - paragraph [ref=e99]: AI Robot
+              - paragraph [ref=e100]: AI 로봇 테마 설명
+              - generic [ref=e101]:
+                - img [ref=e102]
+                - generic [ref=e105]: AI
+                - generic [ref=e106]: 로봇
+                - generic [ref=e107]: 자동화
+              - generic [ref=e108]:
+                - generic [ref=e109]:
+                  - generic [ref=e110]:
+                    - img [ref=e112]
+                    - generic [ref=e114]: 테마 나이
+                  - generic [ref=e115]: 67일
+                - generic [ref=e116]:
+                  - generic [ref=e117]:
+                    - img [ref=e119]
+                    - generic [ref=e122]: 24H 변화
+                  - generic [ref=e123]: "+0.0"
+                - generic [ref=e124]:
+                  - generic [ref=e125]:
+                    - img [ref=e127]
+                    - generic [ref=e130]: 7D 변화
+                  - generic [ref=e131]: "+8.5"
+                - generic [ref=e132]:
+                  - generic [ref=e133]:
+                    - img [ref=e135]
+                    - generic [ref=e137]: 관련 종목
+                  - generic [ref=e138]: 2개
+                - generic [ref=e139]:
+                  - generic [ref=e140]:
+                    - img [ref=e142]
+                    - generic [ref=e145]: 뉴스
+                  - generic [ref=e146]: 2건
+                - generic [ref=e147]:
+                  - generic [ref=e148]:
+                    - img [ref=e150]
+                    - generic [ref=e152]: 유사 패턴
+                  - generic [ref=e153]: 2개
+            - generic [ref=e155]:
+              - generic [ref=e156]:
+                - img [ref=e157]
+                - generic [ref=e161]: "45"
+              - generic [ref=e162]:
+                - generic [ref=e165]: 초기
+                - generic [ref=e167]: "0.0"
+          - generic [ref=e168]:
+            - generic [ref=e169]:
+              - generic [ref=e170]:
+                - heading "점수 구성 요소" [level=3] [ref=e171]
+                - generic [ref=e172]: 가중치 적용됨
+              - generic [ref=e173]:
+                - generic [ref=e175]:
+                  - generic [ref=e176]:
+                    - img [ref=e177]
+                    - generic [ref=e180]: 검색 관심
+                    - generic [ref=e181]: ×30%
+                  - generic [ref=e182]:
+                    - generic [ref=e183]: 기여도 14pt
+                    - generic [ref=e184]: "45"
+                - generic [ref=e189]:
+                  - generic [ref=e190]:
+                    - img [ref=e191]
+                    - generic [ref=e194]: 뉴스 모멘텀
+                    - generic [ref=e195]: ×37%
+                  - generic [ref=e196]:
+                    - generic [ref=e197]: 기여도 22pt
+                    - generic [ref=e198]: "60"
+                - generic [ref=e203]:
+                  - generic [ref=e204]:
+                    - img [ref=e205]
+                    - generic [ref=e208]: 변동성
+                    - generic [ref=e209]: ×10%
+                  - generic [ref=e210]:
+                    - generic [ref=e211]: 기여도 3pt
+                    - generic [ref=e212]: "30"
+                - generic [ref=e217]:
+                  - generic [ref=e218]:
+                    - img [ref=e219]
+                    - generic [ref=e221]: 활동성
+                    - generic [ref=e222]: ×23%
+                  - generic [ref=e223]:
+                    - generic [ref=e224]: 기여도 9pt
+                    - generic [ref=e225]: "40"
+            - generic [ref=e229]:
+              - generic [ref=e230]:
+                - heading "주요 변동 종목" [level=3] [ref=e231]
+                - generic [ref=e232]: 등락률 내림차순
+              - generic [ref=e233]:
+                - generic [ref=e235]:
+                  - generic [ref=e236]:
+                    - generic [ref=e237]:
+                      - generic [ref=e238]: 삼성전자
+                      - generic [ref=e239]: KOSPI
+                    - generic [ref=e240]:
+                      - generic [ref=e241]: ₩188,600
+                      - generic [ref=e242]: •
+                      - generic [ref=e243]: 거래량 1269만
+                  - generic [ref=e245]:
+                    - img [ref=e246]
+                    - generic [ref=e249]: "-5.42%"
+                - generic [ref=e251]:
+                  - generic [ref=e252]:
+                    - generic [ref=e253]:
+                      - generic [ref=e254]: SK하이닉스
+                      - generic [ref=e255]: KOSPI
+                    - generic [ref=e256]:
+                      - generic [ref=e257]: ₩941,000
+                      - generic [ref=e258]: •
+                      - generic [ref=e259]: 거래량 159만
+                  - generic [ref=e261]:
+                    - img [ref=e262]
+                    - generic [ref=e265]: "-6.55%"
+        - generic [ref=e267]:
+          - generic [ref=e269]:
+            - heading "관련종목" [level=2] [ref=e270]
+            - generic [ref=e271]:
+              - generic [ref=e272]: 전체 2
+              - generic [ref=e273]: 필터 2
+              - generic [ref=e274]: KIS 2/2 · 10:18
+          - generic [ref=e275]:
+            - generic [ref=e276]:
+              - generic [ref=e277]:
+                - generic [ref=e278]:
+                  - img [ref=e280]
+                  - generic [ref=e282]: 시장 평균
+                - generic [ref=e283]: "-5.98%"
+                - generic [ref=e284]: ▲0 ▼2 —0
+              - generic [ref=e285]:
+                - generic [ref=e286]:
+                  - img [ref=e288]
+                  - generic [ref=e291]: 최대 상승
+                - generic [ref=e292]: 삼성전자
+                - generic [ref=e293]: "-5.42%"
+              - generic [ref=e294]:
+                - generic [ref=e295]:
+                  - img [ref=e297]
+                  - generic [ref=e300]: 최대 하락
+                - generic [ref=e301]: SK하이닉스
+                - generic [ref=e302]: "-6.55%"
+              - generic [ref=e303]:
+                - generic [ref=e304]:
+                  - img [ref=e306]
+                  - generic [ref=e308]: 거래 주도
+                - generic [ref=e309]: 삼성전자
+                - generic [ref=e310]: 1269만
+            - generic [ref=e311]:
+              - generic [ref=e312]: KOSPI 2
+              - generic [ref=e315]: KOSDAQ 0
+            - generic [ref=e316]:
+              - generic [ref=e317]:
+                - button "전체 종목 보기" [ref=e318]: 전체2
+                - button "KOSPI 종목 보기" [ref=e319]: KOSPI2
+                - button "KOSDAQ 종목 보기" [ref=e320]: KOSDAQ0
+              - generic [ref=e321]:
+                - button "이름 기준 정렬" [ref=e322]: 이름
+                - button "등락 기준 정렬 (내림차순)" [pressed] [ref=e323]: 등락↓
+                - button "시세 기준 정렬" [ref=e324]: 시세
+                - button "거래량 기준 정렬" [ref=e325]: 거래량
+          - generic [ref=e327]:
+            - generic [ref=e328]: "#"
+            - generic [ref=e329]: 종목
+            - generic [ref=e330]: 현재가
+            - generic [ref=e331]: 등락률
+            - generic [ref=e332]: 거래량
+          - generic [ref=e333]:
+            - link "삼성전자 상세 보기" [ref=e334] [cursor=pointer]:
+              - /url: https://finance.naver.com/item/main.naver?code=005930
+              - generic [ref=e335]:
+                - generic [ref=e336]: "1"
+                - generic [ref=e337]:
+                  - generic [ref=e338]:
+                    - generic [ref=e339]: 삼성전자
+                    - generic [ref=e340]: KOSPI
+                    - img [ref=e342]
+                  - generic [ref=e346]: 005930 · 시총 1116.4조
+                - generic [ref=e347]:
+                  - generic [ref=e348]: 188,600
+                  - generic [ref=e349]: 전일 199,400
+                - generic [ref=e350]:
+                  - generic [ref=e351]:
+                    - img [ref=e352]
+                    - text: "-5.42%"
+                  - generic [ref=e355]: "-10,800"
+                - generic [ref=e357]: 1269만
+            - link "SK하이닉스 상세 보기" [ref=e360] [cursor=pointer]:
+              - /url: https://finance.naver.com/item/main.naver?code=000660
+              - generic [ref=e361]:
+                - generic [ref=e362]: "2"
+                - generic [ref=e363]:
+                  - generic [ref=e364]:
+                    - generic [ref=e365]: SK하이닉스
+                    - generic [ref=e366]: KOSPI
+                    - img [ref=e368]
+                  - generic [ref=e372]: 000660 · 시총 670.7조
+                - generic [ref=e373]:
+                  - generic [ref=e374]: 941,000
+                  - generic [ref=e375]: 전일 1,007,000
+                - generic [ref=e376]:
+                  - generic [ref=e377]:
+                    - img [ref=e378]
+                    - text: "-6.55%"
+                  - generic [ref=e381]: "-66,000"
+                - generic [ref=e383]: 159만
+        - generic [ref=e386]:
+          - generic [ref=e389]:
+            - generic [ref=e390]:
+              - generic [ref=e391]:
+                - heading "유사패턴" [level=2] [ref=e392]
+                - generic [ref=e394]: 전체 2
+              - paragraph [ref=e395]: 카드를 고르면 점수 추이 그래프에 비교선이 추가됩니다.
+            - group "유사 패턴 목록" [ref=e396]:
+              - button "드론 패턴을 그래프에 겹쳐 보기" [ref=e397] [cursor=pointer]:
+                - generic [ref=e398]:
+                  - generic [ref=e399]:
+                    - heading "드론" [level=3] [ref=e401]
+                    - generic [ref=e402]: 매우 유사
+                    - generic [ref=e403]: 활성 피어
+                  - generic [ref=e404]:
+                    - generic [ref=e405]:
+                      - generic [ref=e406]: "99"
+                      - generic [ref=e407]: "%"
+                    - generic [ref=e408]:
+                      - text: 종합 유사도
+                      - button "도움말" [ref=e409]:
+                        - img [ref=e410]
+                - generic [ref=e413]:
+                  - generic [ref=e414]:
+                    - generic [ref=e415]: 핵심 지표
+                    - generic [ref=e418]: 99%
+                  - generic [ref=e419]:
+                    - generic [ref=e420]: 추세 흐름
+                    - generic [ref=e423]: 95%
+                  - generic [ref=e424]:
+                    - generic [ref=e425]: 연관어
+                    - generic [ref=e428]: 80%
+                - generic [ref=e429]:
+                  - generic [ref=e434]:
+                    - generic [ref=e435]: D+0
+                    - generic [ref=e436]: 정점 D+45
+                    - generic [ref=e437]: D+90
+                  - paragraph [ref=e438]: 현재 30일(~1개월) 경과 · 과거 주기의 33% 지점
+                - generic [ref=e439]:
+                  - paragraph [ref=e440]: 핵심 지표가 유사
+                  - paragraph [ref=e442]: 드론 기준 진행률 33%, 정점까지 약 15일 남음
+                - generic [ref=e443]:
+                  - generic [ref=e444]:
+                    - generic [ref=e445]: 최고 점수
+                    - generic [ref=e446]: "82"
+                  - generic [ref=e447]:
+                    - generic [ref=e448]: 하락 기간
+                    - generic [ref=e449]: 25일
+                  - generic [ref=e450]:
+                    - generic [ref=e451]: 최종 상태
+                    - generic [ref=e452]: Decline
+                - generic [ref=e455]:
+                  - text: 과거 패턴 기준, 정점까지 약
+                  - generic [ref=e456]: 15일
+                  - text: 추정
+                - generic [ref=e457]:
+                  - generic [ref=e458]: 선택하면 차트에 비교선이 추가돼요
+                  - generic [ref=e459]: 겹쳐 보기
+              - button "메타버스 패턴을 그래프에 겹쳐 보기" [ref=e460] [cursor=pointer]:
+                - generic [ref=e461]:
+                  - generic [ref=e462]:
+                    - heading "메타버스" [level=3] [ref=e464]
+                    - generic [ref=e465]: 유사
+                    - generic [ref=e466]: 활성 피어
+                  - generic [ref=e467]:
+                    - generic [ref=e468]:
+                      - generic [ref=e469]: "55"
+                      - generic [ref=e470]: "%"
+                    - generic [ref=e471]:
+                      - text: 종합 유사도
+                      - button "도움말" [ref=e472]:
+                        - img [ref=e473]
+                - generic [ref=e476]:
+                  - generic [ref=e477]:
+                    - generic [ref=e478]: 핵심 지표
+                    - generic [ref=e481]: 55%
+                  - generic [ref=e482]:
+                    - generic [ref=e483]: 추세 흐름
+                    - generic [ref=e486]: 미산출
+                  - generic [ref=e487]:
+                    - generic [ref=e488]: 연관어
+                    - generic [ref=e491]: 미산출
+                - paragraph [ref=e492]: 비교 데이터가 부족해요 (관측 구간 10일)
+                - generic [ref=e493]:
+                  - paragraph [ref=e494]: 전반적 유사도 높음.
+                  - paragraph [ref=e496]: 과거 데이터 10일로 비교 신뢰도가 낮아요
+                - generic [ref=e497]:
+                  - generic [ref=e498]:
+                    - generic [ref=e499]: 최고 점수
+                    - generic [ref=e500]: "90"
+                  - generic [ref=e501]:
+                    - generic [ref=e502]: 하락 기간
+                    - generic [ref=e503]: 30일
+                  - generic [ref=e504]:
+                    - generic [ref=e505]: 최종 상태
+                    - generic [ref=e506]: Decline
+                - generic [ref=e507]:
+                  - generic [ref=e508]: 선택하면 차트에 비교선이 추가돼요
+                  - generic [ref=e509]: 겹쳐 보기
+          - generic [ref=e511]:
+            - generic [ref=e513]:
+              - generic [ref=e514]:
+                - heading "점수 추이비교" [level=2] [ref=e515]
+                - generic [ref=e516]:
+                  - generic [ref=e517]: 기준선1개
+                  - generic [ref=e518]: 비교선0개
+              - paragraph [ref=e519]: 현재 테마 흐름과 선택한 유사 패턴을 같은 축에서 바로 비교합니다.
+            - generic [ref=e521]:
+              - generic [ref=e522]:
+                - generic [ref=e523]:
+                  - paragraph [ref=e524]: 현재 표시 중인 선
+                  - paragraph [ref=e525]: 색상과 이름이 차트 선과 1:1로 연결됩니다.
+                - generic [ref=e527]:
+                  - img [ref=e529]
+                  - generic [ref=e531]: 보조 지표
+                  - generic [ref=e532]: ·
+                  - generic [ref=e533]: 뉴스 · 관심도
+              - generic [ref=e534]:
+                - generic [ref=e535]:
+                  - generic [ref=e537]:
+                    - generic [ref=e540]: 표시 중
+                    - paragraph [ref=e541]: AI 로봇
+                    - paragraph [ref=e542]: 현재 테마 기준선
+                  - generic [ref=e543]: 상태
+                  - generic [ref=e544]: 활성
+                - generic [ref=e546]:
+                  - paragraph [ref=e547]: 비교선이 아직 선택되지 않았어요
+                  - paragraph [ref=e548]: 오른쪽 유사 패턴 카드에서 비교할 패턴을 고르면 차트가 즉시 갱신됩니다.
+            - generic [ref=e550]:
+              - generic [ref=e551]:
+                - generic [ref=e552]: 뉴스량
+                - generic [ref=e554]: 관심도
+                - generic [ref=e556]: 현재 최고점
+              - img [ref=e562]:
+                - generic [ref=e566]:
+                  - generic [ref=e568]: "1.15"
+                  - generic [ref=e570]: "1.22"
+                  - generic [ref=e572]: "1.29"
+                  - generic [ref=e574]: "2.05"
+                  - generic [ref=e576]: "2.12"
+                  - generic [ref=e578]: "2.19"
+                  - generic [ref=e580]: "2.28"
+                - generic [ref=e582]:
+                  - generic [ref=e584]: "0"
+                  - generic [ref=e586]: "25"
+                  - generic [ref=e588]: "50"
+                  - generic [ref=e590]: "75"
+                  - generic [ref=e592]: "100"
+        - generic [ref=e608]:
+          - generic [ref=e609]:
+            - heading "관련뉴스" [level=2] [ref=e610]
+            - generic [ref=e611]: 2건
+          - generic [ref=e614]:
+            - link "AI 로봇 시장 급성장 - 한국경제 (새 탭에서 열기)" [ref=e615] [cursor=pointer]:
+              - /url: https://example.com/news1
+              - generic [ref=e616]:
+                - generic [ref=e617]: "1"
+                - generic [ref=e618]: AI 로봇 시장 급성장
+                - img [ref=e619]
+              - generic [ref=e623]:
+                - generic [ref=e624]: 한국경제
+                - generic [ref=e625]: 22일 전
+            - link "삼성전자 AI 로봇 투자 확대 - 조선비즈 (새 탭에서 열기)" [ref=e626] [cursor=pointer]:
+              - /url: https://example.com/news2
+              - generic [ref=e627]:
+                - generic [ref=e628]: "2"
+                - generic [ref=e629]: 삼성전자 AI 로봇 투자 확대
+                - img [ref=e630]
+              - generic [ref=e634]:
+                - generic [ref=e635]: 조선비즈
+                - generic [ref=e636]: 23일 전
+        - button "투자 유의사항 테마 점수는 테마의 생명주기를 나타내는 지표로, 투자 권유가 아닙니다" [ref=e639]:
+          - img [ref=e640]
+          - generic [ref=e642]:
+            - generic [ref=e643]:
+              - heading "투자 유의사항" [level=4] [ref=e644]
+              - img [ref=e645]
+            - paragraph [ref=e647]: 테마 점수는 테마의 생명주기를 나타내는 지표로, 투자 권유가 아닙니다
+  - contentinfo [ref=e648]:
+    - generic [ref=e649]:
+      - generic [ref=e651]:
+        - generic [ref=e653]:
+          - generic [ref=e654]:
+            - heading "Stock Matrix" [level=2] [ref=e655]
+            - paragraph [ref=e656]: 매일 오전 7시 30분, AI가 분석한 KOSPI·KOSDAQ 3종목의 기술적 분석과 투자 테마 생명주기 추적을 제공합니다
+          - link "무료 구독하기" [ref=e658] [cursor=pointer]:
+            - /url: /subscribe
+            - img [ref=e659]
+            - generic [ref=e662]: 무료 구독하기
+          - generic [ref=e663]:
+            - paragraph [ref=e664]: Connect
+            - generic [ref=e665]:
+              - link "Twitter" [ref=e666] [cursor=pointer]:
+                - /url: https://x.com/aistockmatrix
+                - img [ref=e667]
+              - link "Instagram" [ref=e669] [cursor=pointer]:
+                - /url: https://www.instagram.com/aistockmatrix/
+                - img [ref=e670]
+              - link "Threads" [ref=e673] [cursor=pointer]:
+                - /url: https://www.threads.net/@aistockmatrix
+                - img [ref=e674]
+        - navigation "Footer navigation" [ref=e676]:
+          - generic [ref=e677]:
+            - generic [ref=e678]:
+              - heading "서비스" [level=3] [ref=e679]
+              - list [ref=e680]:
+                - listitem [ref=e681]:
+                  - link "서비스 소개" [ref=e682] [cursor=pointer]:
+                    - /url: /about
+                - listitem [ref=e683]:
+                  - link "무료 구독" [ref=e684] [cursor=pointer]:
+                    - /url: /subscribe
+                - listitem [ref=e685]:
+                  - link "분석 기록" [ref=e686] [cursor=pointer]:
+                    - /url: /archive
+                - listitem [ref=e687]:
+                  - link "테마 분석" [ref=e688] [cursor=pointer]:
+                    - /url: /themes
+            - generic [ref=e689]:
+              - heading "학습 자료" [level=3] [ref=e690]
+              - list [ref=e691]:
+                - listitem [ref=e692]:
+                  - link "블로그" [ref=e693] [cursor=pointer]:
+                    - /url: /blog
+                - listitem [ref=e694]:
+                  - link "기술적 지표" [ref=e695] [cursor=pointer]:
+                    - /url: /technical-indicators
+                - listitem [ref=e696]:
+                  - link "RSI 지표란?" [ref=e697] [cursor=pointer]:
+                    - /url: /technical-indicators#rsi
+                - listitem [ref=e698]:
+                  - link "MACD 골든크로스" [ref=e699] [cursor=pointer]:
+                    - /url: /technical-indicators#macd
+            - generic [ref=e700]:
+              - heading "지원" [level=3] [ref=e701]
+              - list [ref=e702]:
+                - listitem [ref=e703]:
+                  - link "FAQ" [ref=e704] [cursor=pointer]:
+                    - /url: /faq
+                - listitem [ref=e705]:
+                  - link "문의하기" [ref=e706] [cursor=pointer]:
+                    - /url: mailto:aistockmatrix@gmail.com
+                - listitem [ref=e707]:
+                  - link "개발자" [ref=e708] [cursor=pointer]:
+                    - /url: /developers
+      - button "법적 고지 및 투자 유의사항" [ref=e710]:
+        - generic [ref=e711]:
+          - img [ref=e712]
+          - text: 법적 고지 및 투자 유의사항
+        - img [ref=e714]
+      - paragraph [ref=e718]: © 2026 Stock Matrix. All rights reserved.
+  - button "맨 위로 스크롤":
+    - img
+  - button "Open Next.js Dev Tools" [ref=e724] [cursor=pointer]:
+    - img [ref=e725]
+  - alert [ref=e728]
+  - generic [ref=e729]: "0"
+```

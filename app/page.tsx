@@ -44,7 +44,7 @@ export const metadata: Metadata = {
     title: 'StockMatrix | 무료 AI 주식 분석 뉴스레터',
     description:
       '매일 오전 7시 30분, KOSPI·KOSDAQ 3종목을 AI로 분석해 무료 이메일로 제공하는 한국 주식 뉴스레터. 웹사이트에서 250+ 테마 분석 제공',
-    images: [withOgImageVersion('/twitter-image')],
+    images: [withOgImageVersion('/opengraph-image')],
   },
 };
 

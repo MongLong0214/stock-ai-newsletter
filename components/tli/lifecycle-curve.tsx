@@ -11,7 +11,7 @@ import {
   ComposedChart,
   ReferenceLine,
 } from 'recharts'
-import { ChartContainer, ChartTooltip, ChartLegend, ChartLegendContent } from '@/components/ui/chart'
+import { ChartContainer, ChartTooltip } from '@/components/ui/chart'
 import CustomTooltip from './lifecycle-curve-tooltip'
 import {
   type LifecycleCurveProps,
@@ -39,6 +39,7 @@ const CHART_COLORS = {
 
 export default function LifecycleCurve({
   currentData,
+  currentLabel = '현재 테마',
   comparisonData,
   newsTimeline,
   interestTimeline,
@@ -59,49 +60,49 @@ export default function LifecycleCurve({
 
   const peakDate = findPeakDate(currentData)
   const maxNewsCount = getMaxNewsCount(newsTimeline)
-  const chartConfig = prepareChartConfig(comparisonData)
+  const chartConfig = prepareChartConfig(comparisonData, currentLabel)
   const mergedData = mergeChartData(currentData, newsTimeline, interestTimeline, comparisonData)
 
   return (
-    <ChartContainer config={chartConfig} className="w-full" style={{ height }}>
-      <ComposedChart data={mergedData}>
+    <ChartContainer config={chartConfig} className="w-full aspect-auto" style={{ height }}>
+      <ComposedChart
+        data={mergedData}
+        margin={{ top: 8, right: 6, bottom: 4, left: -18 }}
+      >
         <defs>
           <linearGradient id={`currentGradient-${gradientId}`} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor={CHART_COLORS.currentTheme} stopOpacity={0.3} />
-            <stop offset="100%" stopColor={CHART_COLORS.currentTheme} stopOpacity={0} />
+            <stop offset="0%" stopColor={CHART_COLORS.currentTheme} stopOpacity={0.22} />
+            <stop offset="100%" stopColor={CHART_COLORS.currentTheme} stopOpacity={0.02} />
           </linearGradient>
         </defs>
 
         <CartesianGrid
           strokeDasharray="3 3"
           stroke={CHART_COLORS.grid}
-          opacity={0.3}
+          opacity={0.22}
           vertical={false}
         />
 
         <XAxis
           dataKey="date"
           tick={{ fill: CHART_COLORS.tick, fontSize: 11 }}
-          tickLine={{ stroke: CHART_COLORS.axis }}
-          axisLine={{ stroke: CHART_COLORS.axis }}
+          tickLine={false}
+          axisLine={false}
+          tickMargin={10}
+          minTickGap={28}
+          tickFormatter={formatAxisDateLabel}
         />
 
-        {/* 메인 Y축: 스코어 */}
         <YAxis
           yAxisId="score"
           domain={[0, 100]}
           tick={{ fill: CHART_COLORS.tick, fontSize: 11 }}
-          tickLine={{ stroke: CHART_COLORS.axis }}
-          axisLine={{ stroke: CHART_COLORS.axis }}
-          label={{
-            value: 'Score',
-            angle: -90,
-            position: 'insideLeft',
-            style: { fill: CHART_COLORS.tick, fontSize: 11 }
-          }}
+          tickLine={false}
+          axisLine={false}
+          width={34}
+          tickCount={5}
         />
 
-        {/* 뉴스 볼륨 Y축 (우측, 숨김) */}
         {newsTimeline && newsTimeline.length > 0 && (
           <YAxis
             yAxisId="news"
@@ -111,63 +112,67 @@ export default function LifecycleCurve({
           />
         )}
 
-        <ChartTooltip content={<CustomTooltip />} />
-        <ChartLegend content={<ChartLegendContent />} />
+        <ChartTooltip
+          cursor={{ stroke: '#334155', strokeWidth: 1, strokeDasharray: '4 4' }}
+          content={
+            <CustomTooltip
+              currentLabel={currentLabel}
+              comparisonLabels={comparisonData?.map((comparison) => comparison.themeName) ?? []}
+            />
+          }
+        />
 
-        {/* 최고점 마커 */}
         {peakDate && (
           <ReferenceLine
             x={peakDate}
             yAxisId="score"
             stroke={CHART_COLORS.peak}
-            strokeDasharray="3 3"
+            strokeDasharray="4 4"
             strokeWidth={1}
-            opacity={0.5}
+            opacity={0.55}
           />
         )}
 
-        {/* 뉴스 볼륨 바 (하단 반투명) */}
         {newsTimeline && newsTimeline.length > 0 && (
           <Bar
             dataKey="news"
             yAxisId="news"
             fill={CHART_COLORS.news}
-            fillOpacity={0.15}
+            fillOpacity={0.08}
             stroke={CHART_COLORS.news}
-            strokeOpacity={0.3}
+            strokeOpacity={0.18}
             strokeWidth={0.5}
-            radius={[2, 2, 0, 0]}
-            animationDuration={1500}
+            radius={[3, 3, 0, 0]}
+            barSize={10}
+            animationDuration={1200}
           />
         )}
 
-        {/* 현재 테마 영역 + 라인 */}
         <Area
           type="monotone"
           dataKey="current"
           yAxisId="score"
           stroke={CHART_COLORS.currentTheme}
-          strokeWidth={2}
+          strokeWidth={2.5}
           fill={`url(#currentGradient-${gradientId})`}
-          animationDuration={1500}
+          activeDot={{ r: 4, strokeWidth: 0, fill: CHART_COLORS.currentTheme }}
+          animationDuration={1200}
         />
 
-        {/* 관심도 보조선 (점선) */}
         {interestTimeline && interestTimeline.length > 0 && (
           <Line
             type="monotone"
             dataKey="interest"
             yAxisId="score"
             stroke={CHART_COLORS.interest}
-            strokeWidth={1.5}
+            strokeWidth={1.25}
             strokeDasharray="4 4"
             dot={false}
-            animationDuration={1500}
-            opacity={0.7}
+            animationDuration={1200}
+            opacity={0.55}
           />
         )}
 
-        {/* 비교 테마 라인 */}
         {comparisonData?.map((comp, idx) => (
           <Line
             key={`comparison-${idx}`}
@@ -175,13 +180,23 @@ export default function LifecycleCurve({
             dataKey={`comparison${idx}`}
             yAxisId="score"
             stroke={comparisonColors[idx % comparisonColors.length]}
-            strokeWidth={1.5}
-            strokeDasharray="5 5"
+            strokeWidth={2}
+            strokeDasharray="6 4"
             dot={false}
-            animationDuration={1500}
+            animationDuration={1200}
+            opacity={0.92}
           />
         ))}
       </ComposedChart>
     </ChartContainer>
   )
+}
+
+function formatAxisDateLabel(value: string) {
+  const parsed = new Date(value)
+  if (Number.isNaN(parsed.getTime())) {
+    return value
+  }
+
+  return `${parsed.getMonth() + 1}.${String(parsed.getDate()).padStart(2, '0')}`
 }

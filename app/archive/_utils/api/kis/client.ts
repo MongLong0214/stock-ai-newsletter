@@ -197,6 +197,20 @@ function cleanTicker(ticker: string): string {
   return ticker.replace(/^(KOSPI|KOSDAQ):/i, '');
 }
 
+function parseOptionalInt(value: unknown): number | null {
+  const parsed = typeof value === 'string' || typeof value === 'number'
+    ? Number.parseInt(String(value), 10)
+    : Number.NaN
+  return Number.isFinite(parsed) ? parsed : null
+}
+
+function parseOptionalFloat(value: unknown): number | null {
+  const parsed = typeof value === 'string' || typeof value === 'number'
+    ? Number.parseFloat(String(value))
+    : Number.NaN
+  return Number.isFinite(parsed) ? parsed : null
+}
+
 /**
  * 국내 주식 현재가 조회
  */
@@ -239,6 +253,18 @@ export async function getStockPrice(ticker: string): Promise<KisStockPrice> {
     previousClose: parseInt(output.stck_sdpr),
     changeRate: parseFloat(output.prdy_ctrt),
     volume: parseInt(output.acml_vol),
+    openPrice: parseOptionalInt(output.stck_oprc),
+    highPrice: parseOptionalInt(output.stck_hgpr),
+    lowPrice: parseOptionalInt(output.stck_lwpr),
+    week52High: parseOptionalInt(output.w52_hgpr),
+    week52Low: parseOptionalInt(output.w52_lwpr),
+    tradingValue: parseOptionalInt(output.acml_tr_pbmn),
+    marketCap: parseOptionalInt(output.hts_avls),
+    per: parseOptionalFloat(output.per),
+    pbr: parseOptionalFloat(output.pbr),
+    eps: parseOptionalFloat(output.eps),
+    bps: parseOptionalFloat(output.bps),
+    sharesOutstanding: parseOptionalInt(output.lstn_stcn),
     timestamp: Date.now(),
   };
 }

@@ -3,6 +3,19 @@ import { siteConfig } from '@/lib/constants/seo/config';
 
 // #DaumWebMasterTool:4b0564f4ab4eddd8aeccac8c9b10fbcc6f1b5ed93990d9bc29bb5f246b12bb35:nFArT0OIkE5+7VCbwTnXuA==
 
+const SOCIAL_PREVIEW_BOTS = [
+    'Twitterbot',
+    'facebookexternalhit',
+    'Facebot',
+    'FacebookBot',
+    'Slackbot',
+    'LinkedInBot',
+    'Discordbot',
+    'TelegramBot',
+    'WhatsApp',
+    'SkypeUriPreview',
+] as const;
+
 export default function robots(): MetadataRoute.Robots {
     const baseUrl = siteConfig.domain;
 
@@ -34,8 +47,11 @@ export default function robots(): MetadataRoute.Robots {
             // Perplexity AI (공식 확인됨)
             { userAgent: 'PerplexityBot', allow: '/', disallow: ['/api/', '/unsubscribe/'] },
 
-            // Meta AI (공식 확인됨)
-            { userAgent: 'FacebookBot', allow: '/', disallow: ['/api/', '/unsubscribe/'] },
+            ...SOCIAL_PREVIEW_BOTS.map((userAgent) => ({
+                userAgent,
+                allow: '/',
+                disallow: ['/api/'],
+            })),
 
             // Apple Intelligence (공식 확인됨)
             { userAgent: 'Applebot-Extended', allow: '/', disallow: ['/api/', '/unsubscribe/'] },
