@@ -45,6 +45,7 @@ describe('executeMarketAssessment', () => {
         usdKrw: null,
         usdJpy: null,
       },
+      nightSession: { kospiMiniFutures: null, isPreMarketHours: false },
       supplementary: {},
       events: {},
     });
@@ -53,6 +54,15 @@ describe('executeMarketAssessment', () => {
       tier2Signals: [],
       tier3Signals: [],
       supportingNotes: [],
+      kospiDataStale: false,
+      stalenessNote: null,
+      crashScore: 65,
+      confidence: 80,
+      confidenceLabel: 'strong',
+      directionCoherence: 'coherent_crash',
+      vixRegime: 'extreme',
+      crossValidationRatio: 0.67,
+      signalDetails: [],
     });
     mockFormatMarketAssessmentSnapshot.mockReturnValue('snapshot');
 
