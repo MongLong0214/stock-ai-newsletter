@@ -30,6 +30,34 @@ interface StagePrompt {
 }
 
 /**
+ * 경과 시간을 사람이 읽기 쉬운 형태로 포맷
+ */
+function formatElapsed(ms: number): string {
+    if (ms < 1000) return `${ms}ms`;
+    const s = Math.floor(ms / 1000);
+    if (s < 60) return `${s}s`;
+    const m = Math.floor(s / 60);
+    return `${m}m ${s % 60}s`;
+}
+
+/**
+ * API 호출 중 주기적으로 경과 시간 로그 출력
+ */
+function startProgressTimer(label: string, intervalMs = 10000): { stop: () => void } {
+    const start = Date.now();
+    const timer = setInterval(() => {
+        const elapsed = Date.now() - start;
+        console.log(`   ⏳ ${label} 진행 중... ${formatElapsed(elapsed)} 경과`);
+    }, intervalMs);
+
+    return {
+        stop: () => {
+            clearInterval(timer);
+        },
+    };
+}
+
+/**
  * Promise에 타임아웃 적용
  */
 async function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
@@ -99,15 +127,34 @@ async function executeStage(
     stage: StagePrompt,
     previousOutput?: string
 ): Promise<string> {
-    console.log(`\n🚀 [STAGE ${stage.stageNumber}] ${stage.stageName}`);
+    const stageStartTime = Date.now();
+    console.log(`\n${'─'.repeat(60)}`);
+    console.log(`🚀 [STAGE ${stage.stageNumber}/${6}] ${stage.stageName}`);
+    console.log(`${'─'.repeat(60)}`);
 
     // 최대 5회 재시도 (Exponential Backoff)
     for (let attempt = 1; attempt <= PIPELINE_CONFIG.STAGE_MAX_RETRY; attempt++) {
+        let apiStartTime = Date.now();
+        let progress = startProgressTimer(`STAGE ${stage.stageNumber}`, 15000);
+        progress.stop(); // 즉시 중지 — try 블록에서 재시작
+
         try {
             const finalPrompt =
                 stage.requiresPreviousOutput && previousOutput
                     ? appendPreviousOutput(stage.prompt, previousOutput)
                     : stage.prompt;
+
+            const promptChars = finalPrompt.length;
+            const estimatedTokens = Math.round(promptChars / 4);
+            console.log(`   📝 프롬프트: ${promptChars.toLocaleString()} chars (~${estimatedTokens.toLocaleString()} tokens)`);
+            if (previousOutput) {
+                console.log(`   📥 이전 Stage 결과 주입: ${previousOutput.length.toLocaleString()} chars`);
+            }
+            console.log(`   🤖 모델: ${GEMINI_API_CONFIG.MODEL} | 시도: ${attempt}/${PIPELINE_CONFIG.STAGE_MAX_RETRY}`);
+            console.log(`   ⏱️  타임아웃: ${formatElapsed(PIPELINE_CONFIG.STAGE_TIMEOUT)} | API 호출 시작...`);
+
+            apiStartTime = Date.now();
+            progress = startProgressTimer(`STAGE ${stage.stageNumber}`, 15000);
 
             const response = await withTimeout(
                 genAI.models.generateContent({
@@ -125,15 +172,21 @@ async function executeStage(
                 PIPELINE_CONFIG.STAGE_TIMEOUT
             );
 
-            console.log(`✅ 완료 (${response.text?.length || 0} chars)\n`);
+            progress.stop();
+            const apiElapsed = Date.now() - apiStartTime;
+            const responseChars = response.text?.length || 0;
+            console.log(`   ✅ API 응답 수신: ${responseChars.toLocaleString()} chars (${formatElapsed(apiElapsed)})`);
+            console.log(`   📊 Stage ${stage.stageNumber} 총 소요: ${formatElapsed(Date.now() - stageStartTime)}`);
             return response.text || JSON.stringify(response);
         } catch (error) {
+            progress.stop();
             const errorMsg = error instanceof Error ? error.message : String(error);
             const errorStack = error instanceof Error ? error.stack : undefined;
+            const apiElapsed = Date.now() - apiStartTime;
 
             console.error(`\n${'━'.repeat(80)}`);
             console.error(
-                `❌ [STAGE ${stage.stageNumber} 실패] 시도 ${attempt}/${PIPELINE_CONFIG.STAGE_MAX_RETRY}`
+                `❌ [STAGE ${stage.stageNumber} 실패] 시도 ${attempt}/${PIPELINE_CONFIG.STAGE_MAX_RETRY} (${formatElapsed(apiElapsed)} 경과)`
             );
             console.error(`${'━'.repeat(80)}`);
             console.error(`에러 메시지: ${errorMsg}`);
@@ -228,10 +281,18 @@ export async function executeGeminiPipeline(): Promise<string> {
         throw new Error('GOOGLE_CLOUD_PROJECT 환경 변수가 설정되지 않았습니다.');
     }
 
+    const pipelineStartTime = Date.now();
+
     console.log(`\n${'='.repeat(80)}`);
     console.log(`🎯 Gemini Multi-Stage Pipeline 시작`);
-    console.log(`   Project: ${process.env.GOOGLE_CLOUD_PROJECT}`);
-    console.log(`   Location: ${PIPELINE_CONFIG.VERTEX_AI_LOCATION}`);
+    console.log(`${'='.repeat(80)}`);
+    console.log(`   📌 Project: ${process.env.GOOGLE_CLOUD_PROJECT}`);
+    console.log(`   📌 Location: ${PIPELINE_CONFIG.VERTEX_AI_LOCATION}`);
+    console.log(`   📌 Model: ${GEMINI_API_CONFIG.MODEL}`);
+    console.log(`   📌 Max Output Tokens: ${GEMINI_API_CONFIG.MAX_OUTPUT_TOKENS.toLocaleString()}`);
+    console.log(`   📌 Temperature: ${GEMINI_API_CONFIG.TEMPERATURE} | TopP: ${GEMINI_API_CONFIG.TOP_P} | TopK: ${GEMINI_API_CONFIG.TOP_K}`);
+    console.log(`   📌 Stage 타임아웃: ${formatElapsed(PIPELINE_CONFIG.STAGE_TIMEOUT)} | Stage 간 쿨다운: ${formatElapsed(PIPELINE_CONFIG.STAGE_DELAY)}`);
+    console.log(`   📌 재시도: Outer ${PIPELINE_CONFIG.OUTER_MAX_RETRY}회 × Stage ${PIPELINE_CONFIG.STAGE_MAX_RETRY}회`);
     console.log(`${'='.repeat(80)}`);
 
     const genAI = new GoogleGenAI({
@@ -248,8 +309,10 @@ export async function executeGeminiPipeline(): Promise<string> {
 
         // Stage 6에서 파이프라인 종료
         if (stage.stageNumber === 6) {
+            const totalElapsed = Date.now() - pipelineStartTime;
             console.log(`\n${'='.repeat(80)}`);
             console.log(`🎉 Pipeline 완료: 3개 종목 최종 추천`);
+            console.log(`   ⏱️  총 소요 시간: ${formatElapsed(totalElapsed)}`);
             console.log(`${'='.repeat(80)}\n`);
             return stageOutput;
         }
@@ -257,8 +320,9 @@ export async function executeGeminiPipeline(): Promise<string> {
         previousOutput = stageOutput;
 
         if (stage.stageNumber < 6) {
+            const elapsed = Date.now() - pipelineStartTime;
             console.log(
-                `⏸️  다음 Stage 준비 중 (${PIPELINE_CONFIG.STAGE_DELAY / 1000}초 대기)...`
+                `⏸️  다음 Stage 준비 중 (${PIPELINE_CONFIG.STAGE_DELAY / 1000}초 대기)... [총 경과: ${formatElapsed(elapsed)}]`
             );
             await new Promise((resolve) => setTimeout(resolve, PIPELINE_CONFIG.STAGE_DELAY));
         }
