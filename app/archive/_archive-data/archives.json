@@ -2,6 +2,62 @@
   "newsletters": [
     {
       "type": "stock",
+      "date": "2026-03-25",
+      "stocks": [
+        {
+          "ticker": "KOSPI:066970",
+          "name": "엘앤에프",
+          "close_price": 125000,
+          "rationale": "종가 125000원 돌파|전일대비 11.51% 상승|거래량 138만주 이상 급증|NH투자증권 목표가 16만원 유지|1분기 영업이익 853억 전망|테슬라 유럽판매 회복 수혜|N95 양극재 독점공급 유지|삼성SDI 1.6조원 LFP 공급계약|외국인 기관 동반 순매수|코스피 5500선 회복 강세 동조화",
+          "signals": {
+            "trend_score": 85,
+            "momentum_score": 88,
+            "volume_score": 92,
+            "volatility_score": 80,
+            "pattern_score": 85,
+            "sentiment_score": 90,
+            "overall_score": 86
+          },
+          "verified_date": "2026-03-24"
+        },
+        {
+          "ticker": "KOSPI:003000",
+          "name": "부광약품",
+          "close_price": 7110,
+          "rationale": "종가 7110원 마감|전일대비 17.72% 급등|2030년 매출 6000억 달성 목표|글로벌 제약사 세르비에 맞손|순환기 포트폴리오 강화|아서틸 바스티난 공동판매|상위 20위 제약사 도약 비전|제66기 정기주주총회 개최|바이오펀드 조성 추진|코스피 5500선 회복 강세 동조화",
+          "signals": {
+            "trend_score": 82,
+            "momentum_score": 85,
+            "volume_score": 90,
+            "volatility_score": 85,
+            "pattern_score": 80,
+            "sentiment_score": 85,
+            "overall_score": 84
+          },
+          "verified_date": "2026-03-24"
+        },
+        {
+          "ticker": "KOSDAQ:108860",
+          "name": "셀바스AI",
+          "close_price": 13160,
+          "rationale": "종가 13160원 마감|전일대비 21.48% 장중 급등|글로벌 음성엔진 연동 미들웨어|외국인 기관 동시 순매수|아마존 알렉사 바이두 협업|모빌리티 AI 사업 확대|양산 차량 적용 경험 확보|철도 산업 모빌리티 확장 계획|코스닥 1121선 반등 동조화|외국인 공매도 비중 0.19% 최저수준",
+          "signals": {
+            "trend_score": 80,
+            "momentum_score": 82,
+            "volume_score": 88,
+            "volatility_score": 82,
+            "pattern_score": 85,
+            "sentiment_score": 80,
+            "overall_score": 82
+          },
+          "verified_date": "2026-03-24"
+        }
+      ],
+      "sentAt": "2026-03-24T22:37:03.617+00:00",
+      "subscriberCount": 262
+    },
+    {
+      "type": "stock",
       "date": "2026-03-24",
       "stocks": [
         {
@@ -5550,5 +5606,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-03-23T23:06:38.915Z"
+  "lastUpdated": "2026-03-24T22:37:39.847Z"
 }
