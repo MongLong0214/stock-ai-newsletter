@@ -135,6 +135,18 @@ interface KisDomesticFuturesResponse extends KisErrorResponse {
   output?: KisDomesticFuturesRow[];
 }
 
+interface KisFuturesInquirePriceOutput {
+  hts_kor_isnm?: string;
+  futs_prpr?: string;
+  futs_prdy_vrss?: string;
+  futs_prdy_ctrt?: string;
+  acml_vol?: string;
+}
+
+interface KisFuturesInquirePriceResponse extends KisErrorResponse {
+  output?: KisFuturesInquirePriceOutput;
+}
+
 type MarketIndicatorSource =
   | 'KIS'
   | 'SERP_API'
@@ -173,6 +185,10 @@ export interface MarketAssessmentSnapshot {
     usdKrw: MarketIndicatorSnapshot | null;
     usdJpy: MarketIndicatorSnapshot | null;
   };
+  nightSession: {
+    kospiMiniFutures: Kospi200MiniFuturesSnapshot | null;
+    isPreMarketHours: boolean;
+  };
   supplementary: {
     kospi200Futures: SearchIndicatorSnapshot | null;
     nikkeiFutures: SearchIndicatorSnapshot | null;
@@ -181,11 +197,22 @@ export interface MarketAssessmentSnapshot {
   events: EventSignals;
 }
 
+export type ConfidenceLabel = 'warning' | 'strong' | 'critical';
+
 export interface MarketAssessmentEvidence {
   tier1Signals: string[];
   tier2Signals: string[];
   tier3Signals: string[];
   supportingNotes: string[];
+  kospiDataStale: boolean;
+  stalenessNote: string | null;
+  crashScore: number;
+  confidence: number;
+  confidenceLabel: ConfidenceLabel;
+  directionCoherence: DirectionCoherence;
+  vixRegime: VixRegime;
+  crossValidationRatio: number;
+  signalDetails: SignalScoreDetail[];
 }
 
 export interface SearchIndicatorSnapshot {
@@ -654,6 +681,319 @@ function withCrossValidation(
     validation: 'cross_checked',
     secondarySource,
   };
+}
+
+export type VixRegime = 'low' | 'normal' | 'elevated' | 'extreme';
+
+const VIX_REGIME_BOUNDARIES: Array<{ max: number; regime: VixRegime }> = [
+  { max: 15, regime: 'low' },
+  { max: 25, regime: 'normal' },
+  { max: 35, regime: 'elevated' },
+];
+
+const REGIME_MULTIPLIERS: Record<VixRegime, number> = {
+  low: 1.5,
+  normal: 1.0,
+  elevated: 0.7,
+  extreme: 0.4,
+};
+
+export function getVixRegime(vixPrice: number | null): VixRegime {
+  if (vixPrice === null || !Number.isFinite(vixPrice)) return 'normal';
+  for (const { max, regime } of VIX_REGIME_BOUNDARIES) {
+    if (vixPrice < max) return regime;
+  }
+  return 'extreme';
+}
+
+export function getRegimeMultiplier(regime: VixRegime): number {
+  return REGIME_MULTIPLIERS[regime];
+}
+
+export interface SignalScoreDetail {
+  name: string;
+  normalizedDrop: number;
+  weight: number;
+  multiplier: number;
+  coherenceAdjust: number;
+  contribution: number;
+  validated: boolean;
+}
+
+const SIGNAL_WEIGHTS = {
+  us: 0.30,
+  kospi: 0.25,
+  vix: 0.20,
+  fx: 0.10,
+  event: 0.15,
+} as const;
+
+const COHERENCE_ADJUST: Record<DirectionCoherence, { kospi: number; event: number }> = {
+  coherent_normal: { kospi: 1.0, event: 1.0 },
+  coherent_crash: { kospi: 1.0, event: 1.0 },
+  stale_recovery: { kospi: 0.0, event: 1.0 },
+  korea_specific: { kospi: 1.2, event: 1.5 },
+  mixed: { kospi: 0.5, event: 1.0 },
+};
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
+}
+
+export function calculateCrashScore(
+  snapshot: MarketAssessmentSnapshot,
+  coherence: DirectionCoherence,
+  vixRegime: VixRegime
+): { crashScore: number; signalDetails: SignalScoreDetail[] } {
+  const { sp500, vix, usdKrw } = snapshot.indicators;
+  const effectiveKospi = snapshot.nightSession.kospiMiniFutures ?? snapshot.indicators.kospi200MiniFutures;
+  const adjust = COHERENCE_ADJUST[coherence];
+  const regimeMult = getRegimeMultiplier(vixRegime);
+
+  const eventCount = [
+    snapshot.events.tariffs,
+    snapshot.events.geopolitics,
+    snapshot.events.centralBankSurprise,
+    snapshot.events.financialInstitutionFailure,
+    snapshot.events.pandemic,
+  ].filter((e) => e.detected).length;
+
+  const usNorm = clamp((Math.abs(Math.min(sp500.changePct, 0)) / 3) * 100, 0, 100);
+  const kospiNorm = clamp((Math.abs(Math.min(effectiveKospi.changePct, 0)) / 2.5) * 100, 0, 100);
+  const vixNorm = vix && vix.change > 0 ? clamp(((vix.price - 20) / 30) * 100, 0, 100) : 0;
+  const fxNorm = usdKrw ? clamp((Math.max(0, usdKrw.change) / 20) * 100, 0, 100) : 0;
+  const eventNorm = clamp((eventCount / 3) * 100, 0, 100);
+
+  const vixValidated = vix?.validation === 'cross_checked';
+  const fxValidated = usdKrw?.validation === 'cross_checked';
+
+  const details: SignalScoreDetail[] = [
+    {
+      name: 'US',
+      normalizedDrop: usNorm,
+      weight: SIGNAL_WEIGHTS.us,
+      multiplier: 1.0,
+      coherenceAdjust: 1.0,
+      contribution: usNorm * SIGNAL_WEIGHTS.us,
+      validated: true,
+    },
+    {
+      name: 'KOSPI',
+      normalizedDrop: kospiNorm,
+      weight: SIGNAL_WEIGHTS.kospi,
+      multiplier: 1.0,
+      coherenceAdjust: adjust.kospi,
+      contribution: kospiNorm * SIGNAL_WEIGHTS.kospi * adjust.kospi,
+      validated: true,
+    },
+    {
+      name: 'VIX',
+      normalizedDrop: vixNorm,
+      weight: SIGNAL_WEIGHTS.vix * (vixValidated ? 1.0 : 0.6),
+      multiplier: regimeMult,
+      coherenceAdjust: 1.0,
+      contribution: vixNorm * SIGNAL_WEIGHTS.vix * (vixValidated ? 1.0 : 0.6) * regimeMult,
+      validated: vixValidated,
+    },
+    {
+      name: 'FX',
+      normalizedDrop: fxNorm,
+      weight: SIGNAL_WEIGHTS.fx * (fxValidated ? 1.0 : 0.6),
+      multiplier: 1.0,
+      coherenceAdjust: 1.0,
+      contribution: fxNorm * SIGNAL_WEIGHTS.fx * (fxValidated ? 1.0 : 0.6),
+      validated: fxValidated,
+    },
+    {
+      name: 'Event',
+      normalizedDrop: eventNorm,
+      weight: SIGNAL_WEIGHTS.event,
+      multiplier: 1.0,
+      coherenceAdjust: adjust.event,
+      contribution: eventNorm * SIGNAL_WEIGHTS.event * adjust.event,
+      validated: true,
+    },
+  ];
+
+  const crashScore = clamp(
+    details.reduce((sum, d) => sum + d.contribution, 0),
+    0,
+    100
+  );
+
+  return { crashScore, signalDetails: details };
+}
+
+const COHERENCE_BONUS: Record<DirectionCoherence, number> = {
+  coherent_crash: 5,
+  korea_specific: 3,
+  mixed: 0,
+  stale_recovery: -20,
+  coherent_normal: 0,
+};
+
+export function calculateConfidence(
+  crashScore: number,
+  crossValidationRatio: number,
+  coherence: DirectionCoherence,
+  hasNightData: boolean,
+  isCrash: boolean
+): number {
+  if (!isCrash) {
+    return clamp(95 - crashScore * 0.5, 60, 95);
+  }
+  const base = crashScore * 0.85 + 15;
+  const validationBonus = crossValidationRatio * 8;
+  const coherenceBonus = COHERENCE_BONUS[coherence];
+  const nightBonus = hasNightData ? 5 : 0;
+  return clamp(base + validationBonus + coherenceBonus + nightBonus, 50, 99);
+}
+
+export function getConfidenceLabel(confidence: number): ConfidenceLabel {
+  if (confidence >= 90) return 'critical';
+  if (confidence >= 80) return 'strong';
+  return 'warning';
+}
+
+export function calculateCrossValidationRatio(snapshot: MarketAssessmentSnapshot): number {
+  const indicators = [snapshot.indicators.vix, snapshot.indicators.usdKrw, snapshot.indicators.usdJpy].filter(Boolean);
+  if (indicators.length === 0) return 0;
+  const crossChecked = indicators.filter((i) => i!.validation === 'cross_checked').length;
+  return crossChecked / indicators.length;
+}
+
+export type DirectionCoherence = 'coherent_normal' | 'coherent_crash' | 'stale_recovery' | 'korea_specific' | 'mixed';
+
+export function classifyDirectionCoherence(snapshot: MarketAssessmentSnapshot): {
+  coherence: DirectionCoherence;
+  kospiDataStale: boolean;
+  stalenessNote: string | null;
+} {
+  const { sp500, dowJones, nasdaqComposite, kospi200MiniFutures } = snapshot.indicators;
+  const nightFutures = snapshot.nightSession.kospiMiniFutures;
+  const usChanges = [sp500.changePct, dowJones.changePct, nasdaqComposite.changePct];
+  const anyEventDetected =
+    snapshot.events.tariffs.detected ||
+    snapshot.events.geopolitics.detected ||
+    snapshot.events.centralBankSurprise.detected ||
+    snapshot.events.financialInstitutionFailure.detected ||
+    snapshot.events.pandemic.detected;
+
+  // §1: Night session data available
+  if (nightFutures) {
+    if (nightFutures.changePct > -0.5) {
+      return { coherence: 'coherent_normal', kospiDataStale: false, stalenessNote: null };
+    }
+    if (nightFutures.changePct <= -2.5 && usChanges.filter((v) => v <= -2).length >= 2) {
+      return { coherence: 'coherent_crash', kospiDataStale: false, stalenessNote: null };
+    }
+    if (nightFutures.changePct <= -1.5 && anyEventDetected) {
+      return { coherence: 'korea_specific', kospiDataStale: false, stalenessNote: null };
+    }
+    return { coherence: 'mixed', kospiDataStale: false, stalenessNote: null };
+  }
+
+  // §2: Pre-market, no night data
+  if (snapshot.nightSession.isPreMarketHours) {
+    const dayFutures = kospi200MiniFutures;
+    const kospiDown = dayFutures.changePct <= -1.5;
+    const usPositiveCount = usChanges.filter((v) => v > 0.3).length;
+    const usStronglyPositive = usPositiveCount >= 2;
+    const allUsZero = usChanges.every((v) => v === 0);
+    const vixCalm = !snapshot.indicators.vix || snapshot.indicators.vix.change < 5;
+    const fxCalm = !snapshot.indicators.usdKrw || snapshot.indicators.usdKrw.change < 10;
+
+    // US holiday
+    if (allUsZero && kospiDown) {
+      return { coherence: 'mixed', kospiDataStale: false, stalenessNote: null };
+    }
+
+    if (kospiDown && usStronglyPositive && vixCalm && fxCalm && !anyEventDetected) {
+      // Stale candidate — check Nikkei/foreigner exceptions
+      const nikkei = snapshot.supplementary.nikkeiFutures;
+      if (nikkei?.confirmed && typeof nikkei.changePct === 'number' && nikkei.changePct <= -2) {
+        return { coherence: 'mixed', kospiDataStale: false, stalenessNote: null };
+      }
+      const foreigner = snapshot.supplementary.foreignerNetSelling;
+      if (foreigner && foreigner.topSellAmountMillion >= 2_000_000) {
+        return { coherence: 'korea_specific', kospiDataStale: false, stalenessNote: null };
+      }
+      const note = `KOSPI200 미니선물 ${dayFutures.changePct.toFixed(2)}%는 전일 주간장 종가 기준이며, 글로벌 시장 반등과 불일치하여 폭락 시그널에서 제외`;
+      return { coherence: 'stale_recovery', kospiDataStale: true, stalenessNote: note };
+    }
+
+    if (kospiDown && !usStronglyPositive && !allUsZero) {
+      return { coherence: 'coherent_crash', kospiDataStale: false, stalenessNote: null };
+    }
+
+    if (kospiDown && anyEventDetected) {
+      return { coherence: 'korea_specific', kospiDataStale: false, stalenessNote: null };
+    }
+
+    return { coherence: 'mixed', kospiDataStale: false, stalenessNote: null };
+  }
+
+  // §3: Daytime session
+  return { coherence: 'coherent_normal', kospiDataStale: false, stalenessNote: null };
+}
+
+function getKstHour(): number {
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Seoul',
+    hour: 'numeric',
+    hour12: false,
+  });
+  return parseInt(formatter.format(new Date()), 10);
+}
+
+function isKstPreMarketHours(): boolean {
+  const hour = getKstHour();
+  return hour >= 18 || hour < 9;
+}
+
+async function getKospiNightSessionInquiry(
+  contractCode: string,
+  daySessionPrice: number
+): Promise<Kospi200MiniFuturesSnapshot | null> {
+  try {
+    const response = await kisGet<KisFuturesInquirePriceResponse>(
+      '/uapi/domestic-futureoption/v1/quotations/inquire-price',
+      {
+        FID_COND_MRKT_DIV_CODE: 'F',
+        FID_INPUT_ISCD: contractCode,
+      },
+      'FHMIF10000000'
+    );
+
+    const output = response.output;
+    if (!output) return null;
+
+    const price = parseNumber(output.futs_prpr);
+    const change = parseNumber(output.futs_prdy_vrss);
+    const changePct = parseNumber(output.futs_prdy_ctrt);
+    const volume = parseNumber(output.acml_vol);
+
+    if (!Number.isFinite(price) || price <= 0) return null;
+
+    const priceDiffPct = Math.abs(((price - daySessionPrice) / daySessionPrice) * 100);
+    const hasVolume = Number.isFinite(volume) && volume > 0;
+
+    if (priceDiffPct < 0.3 && !hasVolume) return null;
+
+    return withDirectValidation({
+      code: contractCode,
+      label: 'KOSPI200 mini futures (night)',
+      contractName: output.hts_kor_isnm ?? 'Night session',
+      remainingDays: null,
+      source: 'KIS',
+      price,
+      change: Number.isFinite(change) ? change : 0,
+      changePct: Number.isFinite(changePct) ? changePct : 0,
+      fetchedAt: new Date().toISOString(),
+    });
+  } catch {
+    return null;
+  }
 }
 
 async function getOverseasIndexQuote(
@@ -1433,6 +1773,18 @@ export async function getKisMarketAssessmentSnapshot(): Promise<MarketAssessment
 
   const events = await safeSupplementaryValue('Event signals', () => getEventSignals(), emptyEventSignals());
 
+  const preMarketHours = isKstPreMarketHours();
+  let nightKospiMiniFutures: Kospi200MiniFuturesSnapshot | null = null;
+
+  if (preMarketHours) {
+    await requestCooldown();
+    nightKospiMiniFutures = await safeSupplementaryValue(
+      'KOSPI200 night session inquiry',
+      () => getKospiNightSessionInquiry(kospi200MiniFutures.code, kospi200MiniFutures.price),
+      null
+    );
+  }
+
   const snapshot: MarketAssessmentSnapshot = {
     fetchedAt: new Date().toISOString(),
     indicators: {
@@ -1443,6 +1795,10 @@ export async function getKisMarketAssessmentSnapshot(): Promise<MarketAssessment
       vix,
       usdKrw,
       usdJpy,
+    },
+    nightSession: {
+      kospiMiniFutures: nightKospiMiniFutures,
+      isPreMarketHours: preMarketHours,
     },
     supplementary: {
       kospi200Futures,
@@ -1470,13 +1826,28 @@ export function evaluateMarketAssessmentSnapshot(
     snapshot.indicators.dowJones.changePct,
     snapshot.indicators.nasdaqComposite.changePct,
   ];
+
+  const nightFutures = snapshot.nightSession.kospiMiniFutures;
+  const dayFutures = snapshot.indicators.kospi200MiniFutures;
+  const effectiveKospi = nightFutures ?? dayFutures;
+  const hasNightData = nightFutures !== null;
+
+  const coherenceResult = classifyDirectionCoherence(snapshot);
+  const kospiDataStale = coherenceResult.kospiDataStale;
+  const stalenessNote = coherenceResult.stalenessNote;
+
+  if (kospiDataStale && stalenessNote) {
+    supportingNotes.push(stalenessNote);
+  }
+
   const kospiPriceGapPct = calculatePriceGapPct(
-    snapshot.indicators.kospi200MiniFutures.price,
+    effectiveKospi.price,
     snapshot.supplementary.kospi200Futures?.confirmed
       ? snapshot.supplementary.kospi200Futures.price
       : null
   );
-  const hasKospiPriceConflict = typeof kospiPriceGapPct === 'number' && kospiPriceGapPct >= 1.5;
+  const hasKospiPriceConflict = !kospiDataStale && typeof kospiPriceGapPct === 'number' && kospiPriceGapPct >= 1.5;
+
   const nikkeiChangePct = snapshot.supplementary.nikkeiFutures?.changePct;
   const hasConfirmedNikkeiSignal = snapshot.supplementary.nikkeiFutures?.confirmed === true;
   const hasValidatedVix = snapshot.indicators.vix?.validation === 'cross_checked';
@@ -1491,10 +1862,9 @@ export function evaluateMarketAssessmentSnapshot(
     tier1Signals.push('2 of 3 US indexes <= -2.5%');
   }
 
-  if (!hasKospiPriceConflict && snapshot.indicators.kospi200MiniFutures.changePct <= -2.5) {
-    tier1Signals.push(
-      `KOSPI200 mini futures ${snapshot.indicators.kospi200MiniFutures.changePct.toFixed(2)}%`
-    );
+  if (!kospiDataStale && !hasKospiPriceConflict && effectiveKospi.changePct <= -2.5) {
+    const label = hasNightData ? 'KOSPI200 mini futures (night)' : 'KOSPI200 mini futures';
+    tier1Signals.push(`${label} ${effectiveKospi.changePct.toFixed(2)}%`);
   }
 
   if (snapshot.indicators.vix && hasValidatedVix) {
@@ -1517,13 +1887,13 @@ export function evaluateMarketAssessmentSnapshot(
   }
 
   if (
+    !kospiDataStale &&
     !hasKospiPriceConflict &&
-    snapshot.indicators.kospi200MiniFutures.changePct <= -1.5 &&
-    snapshot.indicators.kospi200MiniFutures.changePct > -2.5
+    effectiveKospi.changePct <= -1.5 &&
+    effectiveKospi.changePct > -2.5
   ) {
-    tier2Signals.push(
-      `KOSPI200 mini futures ${snapshot.indicators.kospi200MiniFutures.changePct.toFixed(2)}%`
-    );
+    const label = hasNightData ? 'KOSPI200 mini futures (night)' : 'KOSPI200 mini futures';
+    tier2Signals.push(`${label} ${effectiveKospi.changePct.toFixed(2)}%`);
   }
 
   if (snapshot.indicators.usdKrw && hasValidatedUsdKrw && snapshot.indicators.usdKrw.change >= 15) {
@@ -1543,7 +1913,7 @@ export function evaluateMarketAssessmentSnapshot(
     snapshot.supplementary.foreignerNetSelling.topSellAmountMillion >= 2_000_000 &&
     (
       (snapshot.indicators.usdKrw?.change ?? 0) >= 10 ||
-      snapshot.indicators.kospi200MiniFutures.changePct <= -1 ||
+      effectiveKospi.changePct <= -1 ||
       usIndexChanges.filter((value) => value <= -1.5).length >= 2 ||
       (hasConfirmedNikkeiSignal && typeof nikkeiChangePct === 'number' && nikkeiChangePct <= -2)
     )
@@ -1581,7 +1951,13 @@ export function evaluateMarketAssessmentSnapshot(
 
   if (hasKospiPriceConflict && snapshot.supplementary.kospi200Futures?.price) {
     supportingNotes.push(
-      `KOSPI quote mismatch ${snapshot.supplementary.kospi200Futures.price.toFixed(2)} vs mini ${snapshot.indicators.kospi200MiniFutures.price.toFixed(2)}`
+      `KOSPI quote mismatch ${snapshot.supplementary.kospi200Futures.price.toFixed(2)} vs mini ${effectiveKospi.price.toFixed(2)}`
+    );
+  }
+
+  if (hasNightData) {
+    supportingNotes.push(
+      `Night session: ${nightFutures.price.toFixed(2)} (${nightFutures.changePct >= 0 ? '+' : ''}${nightFutures.changePct.toFixed(2)}%) [${nightFutures.contractName}]`
     );
   }
 
@@ -1601,11 +1977,28 @@ export function evaluateMarketAssessmentSnapshot(
   if (snapshot.events.financialInstitutionFailure.detected) tier3Signals.push('Financial institution stress');
   if (snapshot.events.pandemic.detected) tier3Signals.push('Pandemic / outbreak');
 
+  const directionCoherence = coherenceResult.coherence;
+  const vixRegime = getVixRegime(snapshot.indicators.vix?.price ?? null);
+  const { crashScore, signalDetails } = calculateCrashScore(snapshot, directionCoherence, vixRegime);
+  const crossValidationRatio = calculateCrossValidationRatio(snapshot);
+  const isCrash = crashScore >= 55;
+  const confidence = calculateConfidence(crashScore, crossValidationRatio, directionCoherence, snapshot.nightSession.kospiMiniFutures !== null, isCrash);
+  const confidenceLabel = getConfidenceLabel(confidence);
+
   return {
     tier1Signals,
     tier2Signals,
     tier3Signals,
     supportingNotes,
+    kospiDataStale,
+    stalenessNote,
+    crashScore,
+    confidence,
+    confidenceLabel,
+    directionCoherence,
+    vixRegime,
+    crossValidationRatio,
+    signalDetails,
   };
 }
 
@@ -1632,8 +2025,15 @@ export function formatMarketAssessmentSnapshot(snapshot: MarketAssessmentSnapsho
     `- S&P 500 (SPX): ${sp500.price.toFixed(2)} (${sp500.change >= 0 ? '+' : ''}${sp500.change.toFixed(2)}, ${sp500.changePct >= 0 ? '+' : ''}${sp500.changePct.toFixed(2)}%)`,
     `- Dow Jones (.DJI): ${dowJones.price.toFixed(2)} (${dowJones.change >= 0 ? '+' : ''}${dowJones.change.toFixed(2)}, ${dowJones.changePct >= 0 ? '+' : ''}${dowJones.changePct.toFixed(2)}%)`,
     `- NASDAQ Composite (${nasdaqComposite.code}): ${nasdaqComposite.price.toFixed(2)} (${nasdaqComposite.change >= 0 ? '+' : ''}${nasdaqComposite.change.toFixed(2)}, ${nasdaqComposite.changePct >= 0 ? '+' : ''}${nasdaqComposite.changePct.toFixed(2)}%)`,
-    `- KOSPI200 mini futures (${kospi200MiniFutures.contractName}, ${kospi200MiniFutures.code}): ${kospi200MiniFutures.price.toFixed(2)} (${kospi200MiniFutures.change >= 0 ? '+' : ''}${kospi200MiniFutures.change.toFixed(2)}, ${kospi200MiniFutures.changePct >= 0 ? '+' : ''}${kospi200MiniFutures.changePct.toFixed(2)}%)`,
+    `- KOSPI200 mini futures (${kospi200MiniFutures.contractName}, ${kospi200MiniFutures.code}): ${kospi200MiniFutures.price.toFixed(2)} (${kospi200MiniFutures.change >= 0 ? '+' : ''}${kospi200MiniFutures.change.toFixed(2)}, ${kospi200MiniFutures.changePct >= 0 ? '+' : ''}${kospi200MiniFutures.changePct.toFixed(2)}%)${snapshot.nightSession.isPreMarketHours ? ' [daytime close]' : ''}`,
   ];
+
+  if (snapshot.nightSession.kospiMiniFutures) {
+    const nf = snapshot.nightSession.kospiMiniFutures;
+    lines.push(
+      `- KOSPI200 mini futures (night): ${nf.price.toFixed(2)} (${nf.change >= 0 ? '+' : ''}${nf.change.toFixed(2)}, ${nf.changePct >= 0 ? '+' : ''}${nf.changePct.toFixed(2)}%) ★ effective`
+    );
+  }
 
   if (vix) {
     lines.push(`- ${formatIndicatorLine(vix)}`);

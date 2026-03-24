@@ -1,8 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
+  calculateCrashScore,
+  classifyDirectionCoherence,
   evaluateMarketAssessmentSnapshot,
   getKisMarketAssessmentSnapshot,
+  getRegimeMultiplier,
+  getVixRegime,
   type MarketAssessmentSnapshot,
   resetKisMarketAssessmentCacheForTest,
 } from '../kis-market-assessment';
@@ -114,7 +118,7 @@ function createNaverNewsSearchResponse(items: Array<{ title: string; originallin
       link: item.originallink,
       originallink: item.originallink,
       description: item.description ?? '',
-      pubDate: item.pubDate ?? 'Wed, 11 Mar 2026 09:00:00 +0900',
+      pubDate: item.pubDate ?? new Date().toUTCString(),
     })),
   });
 }
@@ -678,6 +682,10 @@ describe('kis-market-assessment', () => {
         nikkeiFutures: null,
         foreignerNetSelling: null,
       },
+      nightSession: {
+        kospiMiniFutures: null,
+        isPreMarketHours: false,
+      },
       events: {
         tariffs: { detected: false, evidence: [] },
         geopolitics: { detected: false, evidence: [] },
@@ -766,6 +774,10 @@ describe('kis-market-assessment', () => {
         },
         foreignerNetSelling: null,
       },
+      nightSession: {
+        kospiMiniFutures: null,
+        isPreMarketHours: false,
+      },
       events: {
         tariffs: { detected: false, evidence: [] },
         geopolitics: { detected: false, evidence: [] },
@@ -779,5 +791,390 @@ describe('kis-market-assessment', () => {
 
     expect(evidence.tier2Signals).not.toContain('Nikkei futures -3.40%');
     expect(evidence.supportingNotes).toContain('Nikkei 225 futures -3.40% [single-source]');
+  });
+
+  it('suppresses stale KOSPI signals when US markets are strongly positive in pre-market hours', () => {
+    const snapshot: MarketAssessmentSnapshot = {
+      fetchedAt: new Date().toISOString(),
+      indicators: {
+        sp500: {
+          code: 'SPX', label: 'S&P 500', source: 'KIS',
+          price: 6581, change: 74.52, changePct: 1.15,
+          validation: 'direct', secondarySource: null, fetchedAt: new Date().toISOString(),
+        },
+        dowJones: {
+          code: '.DJI', label: 'Dow Jones', source: 'KIS',
+          price: 46208, change: 631, changePct: 1.38,
+          validation: 'direct', secondarySource: null, fetchedAt: new Date().toISOString(),
+        },
+        nasdaqComposite: {
+          code: 'COMP', label: 'NASDAQ Composite', source: 'KIS',
+          price: 21946, change: 299, changePct: 1.38,
+          validation: 'direct', secondarySource: null, fetchedAt: new Date().toISOString(),
+        },
+        kospi200MiniFutures: {
+          code: 'A05604', label: 'KOSPI200 mini futures',
+          contractName: '미니F 202604', remainingDays: 31,
+          source: 'KIS', price: 803.26, change: -56.58, changePct: -6.58,
+          validation: 'direct', secondarySource: null, fetchedAt: new Date().toISOString(),
+        },
+        vix: {
+          code: '.VIX', label: 'VIX', source: 'MULTI_SOURCE',
+          price: 26.15, change: -0.63, changePct: -2.35,
+          validation: 'cross_checked', secondarySource: 'NAVER_SEARCH', fetchedAt: new Date().toISOString(),
+        },
+        usdKrw: {
+          code: 'FX_USDKRW', label: 'USD/KRW', source: 'MULTI_SOURCE',
+          price: 1486.87, change: -18.44, changePct: -1.22,
+          validation: 'cross_checked', secondarySource: 'NAVER_FINANCE', fetchedAt: new Date().toISOString(),
+        },
+        usdJpy: null,
+      },
+      nightSession: {
+        kospiMiniFutures: null,
+        isPreMarketHours: true,
+      },
+      supplementary: { kospi200Futures: null, nikkeiFutures: null, foreignerNetSelling: null },
+      events: {
+        tariffs: { detected: false, evidence: [] },
+        geopolitics: { detected: false, evidence: [] },
+        centralBankSurprise: { detected: false, evidence: [] },
+        financialInstitutionFailure: { detected: false, evidence: [] },
+        pandemic: { detected: false, evidence: [] },
+      },
+    };
+
+    const evidence = evaluateMarketAssessmentSnapshot(snapshot);
+
+    expect(evidence.kospiDataStale).toBe(true);
+    expect(evidence.tier1Signals).not.toContain('KOSPI200 mini futures -6.58%');
+    expect(evidence.tier1Signals).toHaveLength(0);
+    expect(evidence.stalenessNote).toContain('전일 주간장 종가 기준');
+  });
+
+  it('keeps KOSPI crash signals when US markets are also down (coherent crash)', () => {
+    const snapshot: MarketAssessmentSnapshot = {
+      fetchedAt: new Date().toISOString(),
+      indicators: {
+        sp500: {
+          code: 'SPX', label: 'S&P 500', source: 'KIS',
+          price: 5800, change: -210, changePct: -3.50,
+          validation: 'direct', secondarySource: null, fetchedAt: new Date().toISOString(),
+        },
+        dowJones: {
+          code: '.DJI', label: 'Dow Jones', source: 'KIS',
+          price: 42000, change: -1100, changePct: -2.55,
+          validation: 'direct', secondarySource: null, fetchedAt: new Date().toISOString(),
+        },
+        nasdaqComposite: {
+          code: 'COMP', label: 'NASDAQ Composite', source: 'KIS',
+          price: 21000, change: -800, changePct: -3.67,
+          validation: 'direct', secondarySource: null, fetchedAt: new Date().toISOString(),
+        },
+        kospi200MiniFutures: {
+          code: 'A05604', label: 'KOSPI200 mini futures',
+          contractName: '미니F 202604', remainingDays: 31,
+          source: 'KIS', price: 790, change: -30, changePct: -3.66,
+          validation: 'direct', secondarySource: null, fetchedAt: new Date().toISOString(),
+        },
+        vix: {
+          code: '.VIX', label: 'VIX', source: 'MULTI_SOURCE',
+          price: 38, change: 12, changePct: 46.15,
+          validation: 'cross_checked', secondarySource: 'NAVER_SEARCH', fetchedAt: new Date().toISOString(),
+        },
+        usdKrw: null,
+        usdJpy: null,
+      },
+      nightSession: {
+        kospiMiniFutures: null,
+        isPreMarketHours: true,
+      },
+      supplementary: { kospi200Futures: null, nikkeiFutures: null, foreignerNetSelling: null },
+      events: {
+        tariffs: { detected: false, evidence: [] },
+        geopolitics: { detected: false, evidence: [] },
+        centralBankSurprise: { detected: false, evidence: [] },
+        financialInstitutionFailure: { detected: false, evidence: [] },
+        pandemic: { detected: false, evidence: [] },
+      },
+    };
+
+    const evidence = evaluateMarketAssessmentSnapshot(snapshot);
+
+    expect(evidence.kospiDataStale).toBe(false);
+    expect(evidence.tier1Signals).toContain('KOSPI200 mini futures -3.66%');
+    expect(evidence.tier1Signals).toContain('S&P 500 -3.50%');
+  });
+
+  function makeCoherenceSnapshot(overrides: {
+      sp500Pct?: number;
+      dowPct?: number;
+      nasdaqPct?: number;
+      kospiPct?: number;
+      nightKospiPct?: number | null;
+      isPreMarket?: boolean;
+      vixChange?: number | null;
+      usdKrwChange?: number | null;
+      events?: Partial<MarketAssessmentSnapshot['events']>;
+      nikkeiPct?: number | null;
+      nikkeiConfirmed?: boolean;
+      foreignerAmountMillion?: number | null;
+    }): MarketAssessmentSnapshot {
+      const ts = new Date().toISOString();
+      const mkIndicator = (code: string, label: string, pct: number) => ({
+        code, label, source: 'KIS' as const, price: 100, change: pct, changePct: pct,
+        validation: 'direct' as const, secondarySource: null, fetchedAt: ts,
+      });
+      return {
+        fetchedAt: ts,
+        indicators: {
+          sp500: mkIndicator('SPX', 'S&P 500', overrides.sp500Pct ?? 0),
+          dowJones: mkIndicator('.DJI', 'Dow Jones', overrides.dowPct ?? 0),
+          nasdaqComposite: mkIndicator('COMP', 'NASDAQ', overrides.nasdaqPct ?? 0),
+          kospi200MiniFutures: {
+            ...mkIndicator('A05604', 'KOSPI200 mini futures', overrides.kospiPct ?? 0),
+            contractName: '미니F 202604', remainingDays: 30,
+          },
+          vix: overrides.vixChange !== undefined && overrides.vixChange !== null
+            ? { code: '.VIX', label: 'VIX', source: 'MULTI_SOURCE' as const, price: 20, change: overrides.vixChange, changePct: 0, validation: 'cross_checked' as const, secondarySource: null, fetchedAt: ts }
+            : null,
+          usdKrw: overrides.usdKrwChange !== undefined && overrides.usdKrwChange !== null
+            ? { code: 'FX', label: 'USD/KRW', source: 'MULTI_SOURCE' as const, price: 1400, change: overrides.usdKrwChange, changePct: 0, validation: 'cross_checked' as const, secondarySource: null, fetchedAt: ts }
+            : null,
+          usdJpy: null,
+        },
+        nightSession: {
+          kospiMiniFutures: overrides.nightKospiPct != null
+            ? { ...mkIndicator('A05604', 'KOSPI200 mini futures (night)', overrides.nightKospiPct), contractName: 'Night', remainingDays: null }
+            : null,
+          isPreMarketHours: overrides.isPreMarket ?? true,
+        },
+        supplementary: {
+          kospi200Futures: null,
+          nikkeiFutures: overrides.nikkeiPct != null ? {
+            label: 'Nikkei', query: '', title: 'Nikkei', snippet: '', link: null,
+            price: 50000, change: null, changePct: overrides.nikkeiPct,
+            confirmed: overrides.nikkeiConfirmed ?? false, proxy: false, fetchedAt: ts, source: 'NAVER_STOCK_API' as const,
+          } : null,
+          foreignerNetSelling: overrides.foreignerAmountMillion != null ? {
+            date: null, dominantStock: null, topRows: [],
+            topSellAmountMillion: overrides.foreignerAmountMillion, topSellQuantityK: 0,
+            fetchedAt: ts, source: 'NAVER_FINANCE' as const,
+          } : null,
+        },
+        events: {
+          tariffs: { detected: false, evidence: [] },
+          geopolitics: { detected: false, evidence: [] },
+          centralBankSurprise: { detected: false, evidence: [] },
+          financialInstitutionFailure: { detected: false, evidence: [] },
+          pandemic: { detected: false, evidence: [] },
+          ...overrides.events,
+        },
+      };
+    }
+
+  describe('classifyDirectionCoherence', () => {
+    it('night session up → coherent_normal', () => {
+      const s = makeCoherenceSnapshot({ sp500Pct: 1, dowPct: 1, nasdaqPct: 1, nightKospiPct: 3 });
+      expect(classifyDirectionCoherence(s).coherence).toBe('coherent_normal');
+    });
+
+    it('night session crash + US crash → coherent_crash', () => {
+      const s = makeCoherenceSnapshot({ sp500Pct: -3, dowPct: -2.5, nasdaqPct: -3, nightKospiPct: -3 });
+      expect(classifyDirectionCoherence(s).coherence).toBe('coherent_crash');
+    });
+
+    it('night session down + event → korea_specific', () => {
+      const s = makeCoherenceSnapshot({ sp500Pct: 0, dowPct: 0, nasdaqPct: 0, nightKospiPct: -2, events: { tariffs: { detected: true, evidence: ['x'] } } });
+      expect(classifyDirectionCoherence(s).coherence).toBe('korea_specific');
+    });
+
+    it('no night + US up + KOSPI down + calm → stale_recovery', () => {
+      const s = makeCoherenceSnapshot({ sp500Pct: 1, dowPct: 1, nasdaqPct: 1, kospiPct: -6, vixChange: -0.5, usdKrwChange: -5 });
+      const r = classifyDirectionCoherence(s);
+      expect(r.coherence).toBe('stale_recovery');
+      expect(r.kospiDataStale).toBe(true);
+    });
+
+    it('no night + US down + KOSPI down → coherent_crash', () => {
+      const s = makeCoherenceSnapshot({ sp500Pct: -3, dowPct: -2.5, nasdaqPct: -3, kospiPct: -3 });
+      expect(classifyDirectionCoherence(s).coherence).toBe('coherent_crash');
+    });
+
+    it('no night + US up + KOSPI down + event → korea_specific', () => {
+      const s = makeCoherenceSnapshot({ sp500Pct: 0.5, dowPct: 0.5, nasdaqPct: 0.5, kospiPct: -3, events: { tariffs: { detected: true, evidence: ['x'] } } });
+      expect(classifyDirectionCoherence(s).coherence).toBe('korea_specific');
+    });
+
+    it('stale candidate + Nikkei down confirmed → mixed', () => {
+      const s = makeCoherenceSnapshot({ sp500Pct: 1, dowPct: 1, nasdaqPct: 1, kospiPct: -3, vixChange: -0.5, usdKrwChange: -5, nikkeiPct: -2, nikkeiConfirmed: true });
+      expect(classifyDirectionCoherence(s).coherence).toBe('mixed');
+    });
+
+    it('stale candidate + foreigner 2T → korea_specific', () => {
+      const s = makeCoherenceSnapshot({ sp500Pct: 1, dowPct: 1, nasdaqPct: 1, kospiPct: -3, vixChange: -0.5, usdKrwChange: -5, foreignerAmountMillion: 2_500_000 });
+      expect(classifyDirectionCoherence(s).coherence).toBe('korea_specific');
+    });
+
+    it('US holiday (all 0%) + KOSPI down → mixed', () => {
+      const s = makeCoherenceSnapshot({ sp500Pct: 0, dowPct: 0, nasdaqPct: 0, kospiPct: -2 });
+      expect(classifyDirectionCoherence(s).coherence).toBe('mixed');
+    });
+
+    it('daytime hours → coherent_normal', () => {
+      const s = makeCoherenceSnapshot({ isPreMarket: false, kospiPct: -2 });
+      expect(classifyDirectionCoherence(s).coherence).toBe('coherent_normal');
+    });
+
+    it('backward compat: stale_recovery → kospiDataStale=true', () => {
+      const s = makeCoherenceSnapshot({ sp500Pct: 1, dowPct: 1, nasdaqPct: 1, kospiPct: -6, vixChange: -0.5, usdKrwChange: -5 });
+      expect(classifyDirectionCoherence(s).kospiDataStale).toBe(true);
+    });
+
+    it('night moderate down + no event + US flat → mixed', () => {
+      const s = makeCoherenceSnapshot({ sp500Pct: 0, dowPct: 0, nasdaqPct: 0, nightKospiPct: -1 });
+      expect(classifyDirectionCoherence(s).coherence).toBe('mixed');
+    });
+
+    it('KOSPI -1.5% boundary → stale candidate', () => {
+      const s = makeCoherenceSnapshot({ sp500Pct: 1, dowPct: 1, nasdaqPct: 1, kospiPct: -1.5, vixChange: -0.5, usdKrwChange: -5 });
+      expect(classifyDirectionCoherence(s).kospiDataStale).toBe(true);
+    });
+  });
+
+  describe('getVixRegime + getRegimeMultiplier', () => {
+    it('returns low regime for VIX 12', () => {
+      expect(getVixRegime(12)).toBe('low');
+      expect(getRegimeMultiplier('low')).toBe(1.5);
+    });
+
+    it('returns normal regime for VIX 20', () => {
+      expect(getVixRegime(20)).toBe('normal');
+      expect(getRegimeMultiplier('normal')).toBe(1.0);
+    });
+
+    it('returns elevated regime for VIX 30', () => {
+      expect(getVixRegime(30)).toBe('elevated');
+      expect(getRegimeMultiplier('elevated')).toBe(0.7);
+    });
+
+    it('returns extreme regime for VIX 45', () => {
+      expect(getVixRegime(45)).toBe('extreme');
+      expect(getRegimeMultiplier('extreme')).toBe(0.4);
+    });
+
+    it('returns normal for null VIX', () => {
+      expect(getVixRegime(null)).toBe('normal');
+    });
+
+    it('returns normal for NaN VIX', () => {
+      expect(getVixRegime(Number.NaN)).toBe('normal');
+    });
+
+    it('boundary: VIX exactly 15 → normal', () => {
+      expect(getVixRegime(15)).toBe('normal');
+    });
+
+    it('boundary: VIX exactly 25 → elevated', () => {
+      expect(getVixRegime(25)).toBe('elevated');
+    });
+
+    it('boundary: VIX exactly 35 → extreme', () => {
+      expect(getVixRegime(35)).toBe('extreme');
+    });
+  });
+
+  describe('calculateCrashScore', () => {
+    it('corona crash: S&P -9.51%, VIX 75, pandemic → score ≥ 55 (CRASH)', () => {
+      const s = makeCoherenceSnapshot({ sp500Pct: -9.51, dowPct: -8, nasdaqPct: -9, kospiPct: -5, vixChange: 30, usdKrwChange: 30, events: { pandemic: { detected: true, evidence: ['x'] } } });
+      s.indicators.vix = { code: '.VIX', label: 'VIX', source: 'MULTI_SOURCE' as const, price: 75.47, change: 30, changePct: 60, validation: 'cross_checked' as const, secondarySource: null, fetchedAt: new Date().toISOString() };
+      const { crashScore } = calculateCrashScore(s, 'coherent_crash', 'extreme');
+      // US:30 + KOSPI:25 + VIX:8(extreme×0.4) + FX:10(+30원=100×0.10) + Event:5 = 78
+      expect(crashScore).toBeGreaterThanOrEqual(55);
+      expect(crashScore).toBeLessThanOrEqual(100);
+    });
+
+    it('night recovery: US +1%, stale_recovery → score 0', () => {
+      const s = makeCoherenceSnapshot({ sp500Pct: 1, dowPct: 1, nasdaqPct: 1, kospiPct: -6, vixChange: -0.5, usdKrwChange: -5 });
+      const { crashScore } = calculateCrashScore(s, 'stale_recovery', 'normal');
+      expect(crashScore).toBe(0);
+    });
+
+    it('near miss: US -2.4%, KOSPI -2.3%, VIX 23 → score ~49', () => {
+      const s = makeCoherenceSnapshot({ sp500Pct: -2.4, dowPct: -2.4, nasdaqPct: -2.4, kospiPct: -2.3 });
+      s.indicators.vix = { code: '.VIX', label: 'VIX', source: 'MULTI_SOURCE' as const, price: 23, change: 3, changePct: 15, validation: 'cross_checked' as const, secondarySource: null, fetchedAt: new Date().toISOString() };
+      const { crashScore } = calculateCrashScore(s, 'coherent_crash', 'normal');
+      expect(crashScore).toBeGreaterThan(45);
+      expect(crashScore).toBeLessThan(55);
+    });
+
+    it('single_source VIX applies 0.6 penalty', () => {
+      const s = makeCoherenceSnapshot({ sp500Pct: -3, dowPct: -3, nasdaqPct: -3, kospiPct: -3 });
+      s.indicators.vix = { code: '.VIX', label: 'VIX', source: 'SERP_API' as const, price: 36, change: 11, changePct: 44, validation: 'single_source' as const, secondarySource: null, fetchedAt: new Date().toISOString() };
+      const { signalDetails } = calculateCrashScore(s, 'coherent_crash', 'extreme');
+      const vixDetail = signalDetails.find((d) => d.name === 'VIX');
+      expect(vixDetail).toBeDefined();
+      // single_source → effective weight = 0.20 × 0.6 = 0.12
+      expect(vixDetail!.weight).toBeCloseTo(0.12, 2);
+    });
+
+    it('korea_specific boosts event weight 1.5× and KOSPI 1.2×', () => {
+      const s = makeCoherenceSnapshot({ sp500Pct: 0, dowPct: 0, nasdaqPct: 0, kospiPct: -3, events: { tariffs: { detected: true, evidence: ['x'] } } });
+      const { signalDetails } = calculateCrashScore(s, 'korea_specific', 'normal');
+      const eventDetail = signalDetails.find((d) => d.name === 'Event');
+      const kospiDetail = signalDetails.find((d) => d.name === 'KOSPI');
+      expect(eventDetail!.coherenceAdjust).toBe(1.5);
+      expect(kospiDetail!.coherenceAdjust).toBe(1.2);
+    });
+
+    it('VIX extreme regime: multiplier 0.4', () => {
+      const s = makeCoherenceSnapshot({});
+      s.indicators.vix = { code: '.VIX', label: 'VIX', source: 'MULTI_SOURCE' as const, price: 45, change: 5, changePct: 12, validation: 'cross_checked' as const, secondarySource: null, fetchedAt: new Date().toISOString() };
+      const { signalDetails } = calculateCrashScore(s, 'coherent_normal', 'extreme');
+      const vixDetail = signalDetails.find((d) => d.name === 'VIX');
+      expect(vixDetail!.multiplier).toBe(0.4);
+    });
+
+    it('VIX decline (change<0) → normalizedDrop 0', () => {
+      const s = makeCoherenceSnapshot({});
+      s.indicators.vix = { code: '.VIX', label: 'VIX', source: 'MULTI_SOURCE' as const, price: 25, change: -3, changePct: -10, validation: 'cross_checked' as const, secondarySource: null, fetchedAt: new Date().toISOString() };
+      const { signalDetails } = calculateCrashScore(s, 'coherent_normal', 'normal');
+      const vixDetail = signalDetails.find((d) => d.name === 'VIX');
+      expect(vixDetail!.normalizedDrop).toBe(0);
+    });
+
+    it('all signals normal → score near 0', () => {
+      const s = makeCoherenceSnapshot({ sp500Pct: 0.5, dowPct: 0.3, nasdaqPct: 0.2, kospiPct: 0.1 });
+      const { crashScore } = calculateCrashScore(s, 'coherent_normal', 'normal');
+      expect(crashScore).toBe(0);
+    });
+
+    it('normalizedDrop clamped to 100', () => {
+      const s = makeCoherenceSnapshot({ sp500Pct: -15 }); // 15/3*100 = 500 → clamp 100
+      const { signalDetails } = calculateCrashScore(s, 'coherent_crash', 'normal');
+      const usDetail = signalDetails.find((d) => d.name === 'US');
+      expect(usDetail!.normalizedDrop).toBe(100);
+    });
+
+    it('FX normalizedDrop: +20원 → 100', () => {
+      const s = makeCoherenceSnapshot({ usdKrwChange: 20 });
+      const { signalDetails } = calculateCrashScore(s, 'coherent_normal', 'normal');
+      const fxDetail = signalDetails.find((d) => d.name === 'FX');
+      expect(fxDetail!.normalizedDrop).toBe(100);
+    });
+
+    it('FX normalizedDrop: +10원 → 50', () => {
+      const s = makeCoherenceSnapshot({ usdKrwChange: 10 });
+      const { signalDetails } = calculateCrashScore(s, 'coherent_normal', 'normal');
+      const fxDetail = signalDetails.find((d) => d.name === 'FX');
+      expect(fxDetail!.normalizedDrop).toBe(50);
+    });
+
+    it('Event normalizedDrop: 2 detected → 66.7', () => {
+      const s = makeCoherenceSnapshot({ events: { tariffs: { detected: true, evidence: ['x'] }, pandemic: { detected: true, evidence: ['y'] } } });
+      const { signalDetails } = calculateCrashScore(s, 'coherent_normal', 'normal');
+      const eventDetail = signalDetails.find((d) => d.name === 'Event');
+      expect(eventDetail!.normalizedDrop).toBeCloseTo(66.7, 0);
+    });
   });
 });

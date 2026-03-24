@@ -58,7 +58,6 @@ jobs:
             "2026-05-05"  # 어린이날
             "2026-05-25"  # 부처님오신날 대체공휴일
             "2026-06-03"  # 지방선거일
-            "2026-07-17"  # 제헌절
             "2026-08-17"  # 광복절 대체공휴일
             "2026-09-24" "2026-09-25"  # 추석
             "2026-09-28"  # 추석 대체공휴일
@@ -103,11 +102,8 @@ jobs:
           echo "GOOGLE_APPLICATION_CREDENTIALS=$HOME/gcloud-key.json" >> $GITHUB_ENV
 
       - name: Prepare Newsletter (AI Analysis)
+        timeout-minutes: 60
         env:
-          # API Keys
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-
           # KIS API - 시장 스냅샷 수집용
           KIS_APP_KEY: ${{ secrets.KIS_APP_KEY }}
           KIS_APP_SECRET: ${{ secrets.KIS_APP_SECRET }}
@@ -119,6 +115,10 @@ jobs:
 
           # SerpAPI (VIX, USD/KRW, USD/JPY, Event signals)
           SERP_API_KEY: ${{ secrets.SERP_API_KEY }}
+
+          # Naver (뉴스 수집, 이벤트 감지)
+          NAVER_CLIENT_ID: ${{ secrets.NAVER_CLIENT_ID }}
+          NAVER_CLIENT_SECRET: ${{ secrets.NAVER_CLIENT_SECRET }}
 
           # Supabase
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
