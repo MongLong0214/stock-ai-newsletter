@@ -72,7 +72,7 @@ jobs:
           TLI_COMPARISON_V4_SHADOW_ENABLED: 'true'
           # NOTE: SERVING_ENABLED는 파이프라인에서는 미사용 (Vercel 앱 서버에서 별도 설정 필요)
           TLI_COMPARISON_V4_SERVING_ENABLED: 'true'
-        run: npx tsx scripts/tli/collect-and-score.ts
+        run: npx tsx scripts/tli/batch/collect-and-score.ts
 
       - name: Notify on failure
         if: failure()
