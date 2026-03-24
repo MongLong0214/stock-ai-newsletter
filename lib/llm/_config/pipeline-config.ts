@@ -37,9 +37,9 @@ export const PIPELINE_CONFIG = {
 
   /**
    * 각 Stage별 최대 실행 시간 (밀리초)
-   * 10분 - Google Search 포함 복잡한 분석에 충분한 시간
+   * 20분 - gemini-3.1-pro-preview + Google Search 포함 복잡한 분석에 충분한 시간
    */
-  STAGE_TIMEOUT: 600000,
+  STAGE_TIMEOUT: 1200000,
 
   /**
    * Stage 실패 시 최대 재시도 횟수
