@@ -372,7 +372,6 @@ function resolveMarketAssessmentFromSnapshot(
 ): MarketAssessment {
     const { sp500, dowJones, nasdaqComposite, kospi200MiniFutures, vix, usdKrw, usdJpy } = snapshot.indicators;
     const tier1Count = evidence.tier1Signals.length;
-    const tier2Count = evidence.tier2Signals.length;
     const tier3Count = evidence.tier3Signals.length;
     const supportingSummary = evidence.supportingNotes.slice(0, 3).join(' / ');
     const formatSupplementaryIndicator = (label: string, indicator: typeof vix | typeof usdKrw | typeof usdJpy, unit: string) =>
@@ -380,39 +379,34 @@ function resolveMarketAssessmentFromSnapshot(
             ? `${label} ${indicator.change.toFixed(2)}${unit}${indicator.validation === 'cross_checked' ? ' [cross-checked]' : indicator.validation === 'single_source' ? ' [single-source]' : ''}`
             : null;
 
+    const effectiveKospi = snapshot.nightSession.kospiMiniFutures ?? kospi200MiniFutures;
+    const kospiLabel = snapshot.nightSession.kospiMiniFutures ? 'KOSPI200 mini futures (night)' : 'KOSPI200 mini futures';
+
     const numericContext = [
         `S&P 500 ${sp500.changePct.toFixed(2)}%`,
         `Dow ${dowJones.changePct.toFixed(2)}%`,
         `NASDAQ Composite ${nasdaqComposite.changePct.toFixed(2)}%`,
-        `KOSPI200 mini futures ${kospi200MiniFutures.changePct.toFixed(2)}%`,
+        `${kospiLabel} ${effectiveKospi.changePct.toFixed(2)}%`,
+        evidence.kospiDataStale ? `[KOSPI 주간장 ${kospi200MiniFutures.changePct.toFixed(2)}% stale — 글로벌 반등 불일치로 제외]` : null,
         vix ? `VIX ${vix.price.toFixed(2)} (${vix.change.toFixed(2)}pt)${vix.validation === 'cross_checked' ? ' [cross-checked]' : vix.validation === 'single_source' ? ' [single-source]' : ''}` : null,
         formatSupplementaryIndicator('USD/KRW', usdKrw, ' KRW'),
         formatSupplementaryIndicator('USD/JPY', usdJpy, ' JPY'),
     ].filter(Boolean).join(', ');
 
-    if (tier1Count > 0) {
-        const confidence =
-            tier3Count > 0 ? 93 : tier1Count >= 2 ? 90 : tier2Count > 0 ? 84 : 76;
+    const scoreContext = `[SCORE: ${evidence.crashScore}/100] [COHERENCE: ${evidence.directionCoherence}] [VIX_REGIME: ${evidence.vixRegime}]`;
 
+    if (evidence.crashScore >= 55 && evidence.confidence >= 70) {
         return {
             verdict: 'CRASH_ALERT',
-            confidence,
-            summary: `API snapshot 기준 Tier 1 시그널 감지: ${evidence.tier1Signals.join(', ')}.${tier3Count > 0 ? ` 이벤트 보강: ${evidence.tier3Signals.join(', ')}.` : ''} ${numericContext}.${supportingSummary ? ` 보강 지표: ${supportingSummary}.` : ''}`,
-        };
-    }
-
-    if (tier2Count > 0) {
-        return {
-            verdict: 'NORMAL',
-            confidence: 68,
-            summary: `API snapshot 기준 Tier 2 경계 시그널만 감지: ${evidence.tier2Signals.join(', ')}.${tier3Count > 0 ? ` 이벤트 참고: ${evidence.tier3Signals.join(', ')}.` : ''} ${numericContext}.${supportingSummary ? ` 보강 지표: ${supportingSummary}.` : ''}`,
+            confidence: evidence.confidence,
+            summary: `${scoreContext} crashScore ${evidence.crashScore} ≥ 55. ${tier1Count > 0 ? `Tier 1: ${evidence.tier1Signals.join(', ')}. ` : ''}${tier3Count > 0 ? `이벤트: ${evidence.tier3Signals.join(', ')}. ` : ''}${numericContext}.${supportingSummary ? ` 보강: ${supportingSummary}.` : ''}`,
         };
     }
 
     return {
         verdict: 'NORMAL',
-        confidence: 92,
-        summary: `API snapshot 기준 핵심 급락 시그널이 없습니다. ${numericContext}.${supportingSummary ? ` 보강 지표: ${supportingSummary}.` : ''}${tier3Count > 0 ? ` 다만 이벤트 참고: ${evidence.tier3Signals.join(', ')}.` : ''}`,
+        confidence: evidence.confidence,
+        summary: `${scoreContext} ${evidence.crashScore >= 55 ? `crashScore ${evidence.crashScore} ≥ 55이나 confidence ${evidence.confidence} < 70으로 NORMAL 다운그레이드. ` : `crashScore ${evidence.crashScore} < 55. `}${numericContext}.${evidence.kospiDataStale ? ` ${evidence.stalenessNote}.` : ''}${supportingSummary ? ` 보강: ${supportingSummary}.` : ''}${tier3Count > 0 ? ` 이벤트 참고: ${evidence.tier3Signals.join(', ')}.` : ''}`,
     };
 }
 

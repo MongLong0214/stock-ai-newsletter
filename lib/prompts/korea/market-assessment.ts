@@ -110,8 +110,9 @@ function buildApiSnapshotSection(
 - S&P 500 (SPX): ${sp500.price.toFixed(2)} / ${sp500.change >= 0 ? '+' : ''}${sp500.change.toFixed(2)} / ${sp500.changePct >= 0 ? '+' : ''}${sp500.changePct.toFixed(2)}%
 - Dow Jones (.DJI): ${dowJones.price.toFixed(2)} / ${dowJones.change >= 0 ? '+' : ''}${dowJones.change.toFixed(2)} / ${dowJones.changePct >= 0 ? '+' : ''}${dowJones.changePct.toFixed(2)}%
 - NASDAQ Composite (${nasdaqComposite.code}): ${nasdaqComposite.price.toFixed(2)} / ${nasdaqComposite.change >= 0 ? '+' : ''}${nasdaqComposite.change.toFixed(2)} / ${nasdaqComposite.changePct >= 0 ? '+' : ''}${nasdaqComposite.changePct.toFixed(2)}%
-- KOSPI200 mini futures (${kospi200MiniFutures.contractName}, ${kospi200MiniFutures.code}): ${kospi200MiniFutures.price.toFixed(2)} / ${kospi200MiniFutures.change >= 0 ? '+' : ''}${kospi200MiniFutures.change.toFixed(2)} / ${kospi200MiniFutures.changePct >= 0 ? '+' : ''}${kospi200MiniFutures.changePct.toFixed(2)}%
-- ${summarizeMarketIndicator(vix, 'VIX')}
+- KOSPI200 mini futures (${kospi200MiniFutures.contractName}, ${kospi200MiniFutures.code}): ${kospi200MiniFutures.price.toFixed(2)} / ${kospi200MiniFutures.change >= 0 ? '+' : ''}${kospi200MiniFutures.change.toFixed(2)} / ${kospi200MiniFutures.changePct >= 0 ? '+' : ''}${kospi200MiniFutures.changePct.toFixed(2)}%${snapshot.nightSession.isPreMarketHours ? ' [전일 주간장 종가]' : ''}
+${snapshot.nightSession.kospiMiniFutures ? `- KOSPI200 mini futures (night session): ${snapshot.nightSession.kospiMiniFutures.price.toFixed(2)} / ${snapshot.nightSession.kospiMiniFutures.change >= 0 ? '+' : ''}${snapshot.nightSession.kospiMiniFutures.change.toFixed(2)} / ${snapshot.nightSession.kospiMiniFutures.changePct >= 0 ? '+' : ''}${snapshot.nightSession.kospiMiniFutures.changePct.toFixed(2)}% ★ 야간 실시간` : '- KOSPI200 mini futures (night session): unavailable'}
+${evidence?.kospiDataStale ? `⚠️ KOSPI 주간장 데이터(${kospi200MiniFutures.changePct.toFixed(2)}%)는 전일 종가 기준이며, 글로벌 시장 반등과 불일치하여 폭락 시그널에서 자동 제외되었습니다.` : ''}- ${summarizeMarketIndicator(vix, 'VIX')}
 - ${summarizeMarketIndicator(usdKrw, 'USD/KRW')}
 - ${summarizeMarketIndicator(usdJpy, 'USD/JPY')}
 - ${summarizeSearchIndicator(kospi200Futures, 'KOSPI 200 futures')}
@@ -124,7 +125,14 @@ ${foreignerNetSelling ? `- Foreigner flow: ${summarizeForeignerFlow(foreignerNet
 - Naver Stock API: KOSPI 200 futures / Nikkei futures / Nikkei 225 index confirmation
 - Naver: VIX / FX / 외국인 순매도 / 뉴스 증거
 - 이미 숫자로 감지된 Tier 1 신호: ${hardSignals}
-- 이미 숫자로 감지된 Tier 2 신호: ${warningSignals}`;
+- 이미 숫자로 감지된 Tier 2 신호: ${warningSignals}
+${evidence?.crashScore != null ? `
+📊 스코어링 컨텍스트:
+- crashScore: ${evidence.crashScore}/100 (≥55 → CRASH_ALERT)
+- confidence: ${evidence.confidence} (${evidence.confidenceLabel})
+- directionCoherence: ${evidence.directionCoherence}
+- vixRegime: ${evidence.vixRegime}
+- crossValidationRatio: ${evidence.crossValidationRatio.toFixed(2)}` : ''}`;
 }
 
 export function getMarketAssessmentPrompt({
