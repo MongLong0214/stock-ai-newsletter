@@ -1,5 +1,5 @@
 {
-  "last_turn_at": "2026-03-24T06:41:56.723Z",
-  "turn_count": 179,
-  "last_agent_output": "[BOOMER-CODEX REVIEW] 시장 폭락 예측 시스템 고도화 PRD v0.3  \n대상 파일: [PRD](/Users/isaac/WebstormProjects/stock-a"
+  "last_turn_at": "2026-03-25T02:47:22.739Z",
+  "turn_count": 180,
+  "last_agent_output": "`mcp` 쪽은 바로 사용량에 영향 주는 방향으로 확장했습니다.\n\n- 새 MCP 도구 `get_market_summary`, `search_stocks`를 추가했고, `get_me"
 }

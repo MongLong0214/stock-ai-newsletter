@@ -102,6 +102,51 @@ export function GET() {
           },
         },
       },
+      '/api/tli/stocks/search': {
+        get: {
+          operationId: 'searchStocks',
+          summary: 'Search stocks by company name or symbol',
+          description:
+            'Returns matching Korean stocks with symbol, market, number of related themes, and top related themes ranked by current TLI score.',
+          parameters: [
+            {
+              name: 'q',
+              in: 'query',
+              required: true,
+              description: 'Company name or stock code (e.g. "삼성전자", "SK하이닉스", "005930")',
+              schema: { type: 'string' },
+            },
+          ],
+          responses: {
+            '200': {
+              description: 'List of matching stocks',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      success: { type: 'boolean', enum: [true] },
+                      data: {
+                        type: 'array',
+                        items: { $ref: '#/components/schemas/StockSearchItem' },
+                      },
+                    },
+                    required: ['success', 'data'],
+                  },
+                },
+              },
+            },
+            '400': {
+              description: 'Missing query',
+              content: {
+                'application/json': {
+                  schema: { $ref: '#/components/schemas/ErrorResponse' },
+                },
+              },
+            },
+          },
+        },
+      },
       '/api/ai/summary': {
         get: {
           operationId: 'getAiSummary',
@@ -781,6 +826,33 @@ export function GET() {
             },
           },
           required: ['success', 'data'],
+        },
+        StockSearchItem: {
+          type: 'object',
+          properties: {
+            symbol: { type: 'string', description: '6-digit stock code' },
+            name: { type: 'string', description: 'Company name' },
+            market: { type: 'string', description: 'Exchange/market label' },
+            themeCount: { type: 'integer', description: 'Number of related themes found' },
+            topThemes: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  themeId: { type: 'string', format: 'uuid' },
+                  themeName: { type: 'string' },
+                  themeNameEn: { type: 'string', nullable: true },
+                  score: { type: 'number' },
+                  stage: { type: 'string' },
+                  stageKo: { type: 'string' },
+                  isReigniting: { type: 'boolean' },
+                  updatedAt: { type: 'string', nullable: true },
+                },
+                required: ['themeId', 'themeName', 'score', 'stage', 'stageKo', 'isReigniting'],
+              },
+            },
+          },
+          required: ['symbol', 'name', 'market', 'themeCount', 'topThemes'],
         },
         StockThemeItem: {
           type: 'object',

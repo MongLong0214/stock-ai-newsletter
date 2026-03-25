@@ -1,6 +1,6 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
-import { fetchApi, formatResult, formatError } from '../fetch-helper.js';
+import { fetchApi, formatResult, formatError, formatEmptyResult } from '../fetch-helper.js';
 
 const CONTEXT = `[StockMatrix Theme Detail]
 Score components (Bayesian-optimized weights):
@@ -29,6 +29,12 @@ Use after get_theme_ranking or search_themes to drill into a specific theme. Ans
     async ({ theme_id }) => {
       try {
         const data = await fetchApi(`/api/tli/themes/${theme_id}`);
+
+        if (!data) {
+          return {
+            content: [{ type: 'text' as const, text: formatEmptyResult(CONTEXT, `Theme not found for ID "${theme_id}". Use search_themes to find valid theme IDs.`) }],
+          };
+        }
 
         return {
           content: [{ type: 'text' as const, text: formatResult(data, CONTEXT) }],

@@ -1,6 +1,6 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
-import { fetchApi, formatResult, formatError } from '../fetch-helper.js';
+import { fetchApi, formatResult, formatError, formatEmptyResult } from '../fetch-helper.js';
 
 const VALID_STAGES = [
   'emerging',
@@ -21,7 +21,8 @@ const STAGE_DESCRIPTIONS: Record<string, string> = {
 const CONTEXT = `[StockMatrix TLI Ranking]
 Scores: 0-100 (Bayesian-optimized weighted sum of 4 components: interest 30%, news momentum 37%, volatility 10%, activity 23%).
 Stages: Emerging → Growth → Peak → Decline → Dormant (with possible Reigniting). Stage transitions require 2 consecutive days of same candidate (hysteresis).
-Higher score = stronger theme momentum. Stage indicates lifecycle position.`;
+Higher score = stronger theme momentum. Stage indicates lifecycle position.
+The \`summary\` object includes \`signals\` (market mood indicators), \`hottestTheme\` (single highest scorer with 3+ stocks), and \`surging\` (rapidly rising themes).`;
 
 export const registerGetThemeRanking = (server: McpServer): void => {
   server.tool(
@@ -42,17 +43,40 @@ Returns themes ranked by score (0-100) with lifecycle stage and related stocks. 
         .describe(
           'Filter by lifecycle stage: emerging (초기 — early interest), growth (성장 — expanding), peak (정점 — maximum attention), decline (하락 — fading), reigniting (재점화 — comeback)'
         ),
+      limit: z
+        .number()
+        .int()
+        .min(1)
+        .max(50)
+        .optional()
+        .describe('Max themes per stage (1-50, default 10)'),
+      sort: z
+        .enum(['score', 'change7d', 'newsCount7d'])
+        .optional()
+        .describe('Sort order within each stage: score (default), change7d, newsCount7d'),
     },
-    async ({ stage }) => {
+    async ({ stage, limit, sort }) => {
       try {
+        const params: Record<string, string> = {};
+        if (limit !== undefined) params.limit = String(limit);
+        if (sort !== undefined) params.sort = sort;
+        const fetchParams = Object.keys(params).length > 0 ? params : undefined;
+
         const data = await fetchApi<Record<string, unknown>>(
-          '/api/tli/scores/ranking'
+          '/api/tli/scores/ranking',
+          fetchParams
         );
 
         if (stage) {
           const stageData = (data as Record<string, unknown>)[stage];
           const summary = (data as Record<string, unknown>).summary;
           const stageContext = `${CONTEXT}\nFiltered: ${stage} — ${STAGE_DESCRIPTIONS[stage]}`;
+
+          if (!stageData || (Array.isArray(stageData) && stageData.length === 0)) {
+            return {
+              content: [{ type: 'text' as const, text: formatEmptyResult(stageContext, `No ${stage} themes currently. Try other stages: ${VALID_STAGES.filter(s => s !== stage).join(', ')}.`) }],
+            };
+          }
 
           return {
             content: [
