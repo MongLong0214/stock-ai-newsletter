@@ -47,3 +47,8 @@ export function handleApiError(error: unknown, context: string) {
   console.error(`[TLI API] ${context}:`, error)
   return apiError(context)
 }
+
+/** ilike 쿼리의 SQL 와일드카드 이스케이프 */
+export function escapeIlike(str: string): string {
+  return str.replace(/%/g, '\\%').replace(/_/g, '\\_')
+}

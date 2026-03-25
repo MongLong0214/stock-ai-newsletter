@@ -1,18 +1,18 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.MongLong0214/stockmatrix-mcp",
-  "description": "StockMatrix MCP Server — Korean stock market theme lifecycle analysis (TLI) with Bayesian-optimized scoring, 250+ KOSPI/KOSDAQ themes, related stocks, and news",
+  "description": "StockMatrix MCP Server — Korean stock market theme lifecycle analysis (TLI) with market summaries, stock search, Bayesian-optimized scoring, 250+ KOSPI/KOSDAQ themes, related stocks, news, and methodology",
   "repository": {
     "url": "https://github.com/MongLong0214/stock-ai-newsletter",
     "source": "github",
     "subfolder": "mcp"
   },
-  "version": "0.2.0",
+  "version": "0.4.0",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "stockmatrix-mcp",
-      "version": "0.2.0",
+      "version": "0.4.0",
       "transport": {
         "type": "stdio"
       },

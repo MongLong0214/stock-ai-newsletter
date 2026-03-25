@@ -1,6 +1,6 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
-import { fetchApi, formatResult, formatError } from '../fetch-helper.js';
+import { fetchApi, formatResult, formatError, formatEmptyResult } from '../fetch-helper.js';
 
 const CONTEXT = `[StockMatrix Theme History — 30-day]
 Daily TLI scores with stage transitions. Use to identify:
@@ -29,6 +29,12 @@ Answers: "이 테마 추세가 어때?", "최근 한달 흐름", "is this theme 
         const data = await fetchApi(
           `/api/tli/themes/${theme_id}/history`
         );
+
+        if (!data || (Array.isArray(data) && data.length === 0)) {
+          return {
+            content: [{ type: 'text' as const, text: formatEmptyResult(CONTEXT, `No history data found for theme "${theme_id}". The theme may be too new or inactive.`) }],
+          };
+        }
 
         return {
           content: [{ type: 'text' as const, text: formatResult(data, CONTEXT) }],

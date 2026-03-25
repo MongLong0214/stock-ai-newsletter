@@ -19,6 +19,12 @@ import Link from 'next/link'
 
 const TOOLS = [
   {
+    name: 'get_market_summary',
+    description: '시장 요약 브리핑',
+    descEn: 'AI-optimized market overview with top themes and stage distribution',
+    params: [],
+  },
+  {
     name: 'get_theme_ranking',
     description: '테마 생명주기 랭킹 조회',
     descEn: 'Theme lifecycle rankings filtered by stage',
@@ -28,10 +34,18 @@ const TOOLS = [
   },
   {
     name: 'search_themes',
-    description: '테마 검색 (이름/종목명)',
-    descEn: 'Search themes by keyword (Korean or English)',
+    description: '테마 검색 (이름/종목명/종목코드)',
+    descEn: 'Search themes by keyword, stock name, or stock code',
     params: [
-      { name: 'query', type: 'string', desc: '"AI", "반도체", "삼성전자"' },
+      { name: 'query', type: 'string', desc: '"AI", "반도체", "삼성전자", "005930"' },
+    ],
+  },
+  {
+    name: 'search_stocks',
+    description: '종목 검색 + 테마 미리보기',
+    descEn: 'Find stock codes by company name and preview related themes',
+    params: [
+      { name: 'query', type: 'string', desc: '"삼성전자", "SK하이닉스", "005930"' },
     ],
   },
   {
@@ -60,10 +74,10 @@ const TOOLS = [
   },
   {
     name: 'get_methodology',
-    description: 'TLI 알고리즘 문서 조회',
-    descEn: 'Scoring, stages, stabilization, comparison methodology',
+    description: 'TLI 알고리즘/파이프라인 문서 조회',
+    descEn: 'Scoring, stages, runtime pipeline, data sources, and methodology',
     params: [
-      { name: 'section', type: 'string?', desc: 'scoring | stabilization | stages | comparison | prediction | all' },
+      { name: 'section', type: 'string?', desc: 'scoring | stabilization | stages | comparison | prediction | data_sources | update_schedule | runtime | data_flow | database_tables | limitations | all' },
     ],
   },
 ] as const
@@ -120,10 +134,12 @@ const CONFIG_TABS = [
 ] as const
 
 const EXAMPLE_PROMPTS = [
+  { prompt: '오늘 한국 테마 시장 요약해줘', result: '시장 개요 + 상위 테마 + 단계 분포' },
   { prompt: '요즘 한국 주식시장에서 뜨는 테마 뭐야?', result: '점수 기준 상위 테마 랭킹' },
   { prompt: 'AI 관련 테마 찾아줘', result: 'AI 키워드 매칭 테마 목록' },
   { prompt: '반도체 테마 최근 한달 추세 어때?', result: '30일 점수 이력 + 추세 분석' },
   { prompt: '삼성전자가 속한 테마 알려줘', result: '005930 관련 테마 + 점수/단계' },
+  { prompt: '삼성전자 종목 코드부터 찾아줘', result: '회사명으로 종목 검색 + 관련 테마 미리보기' },
   { prompt: 'TLI 점수는 어떻게 계산돼?', result: '알고리즘 전체 문서' },
   { prompt: 'What are the hottest themes in Korea?', result: 'English supported' },
 ] as const

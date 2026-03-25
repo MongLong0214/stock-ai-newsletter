@@ -1,5 +1,5 @@
 import { supabase } from '@/lib/supabase'
-import { apiSuccess, handleApiError, placeholderResponse, isTableNotFound } from '@/lib/tli/api-utils'
+import { apiSuccess, escapeIlike, handleApiError, placeholderResponse, isTableNotFound } from '@/lib/tli/api-utils'
 import { getKSTDateString } from '@/lib/tli/date-utils'
 import { buildScoreMetaMap } from '../scores/ranking/ranking-helpers'
 import { THEME_LIST_SCORE_BATCH_SIZE, buildThemeListResults } from './theme-list-helpers'
@@ -32,6 +32,36 @@ export async function GET(request: Request) {
 
     if (!themes?.length) {
       return apiSuccess([])
+    }
+
+    let matchedThemeIds = new Set<string>()
+    if (query) {
+      const [stockNameRes, stockSymbolRes] = await Promise.all([
+        supabase
+          .from('theme_stocks')
+          .select('theme_id')
+          .eq('is_active', true)
+          .ilike('name', `%${escapeIlike(query)}%`)
+          .limit(200),
+        supabase
+          .from('theme_stocks')
+          .select('theme_id')
+          .eq('is_active', true)
+          .ilike('symbol', `%${escapeIlike(query)}%`)
+          .limit(200),
+      ])
+
+      const stockSearchError = stockNameRes.error || stockSymbolRes.error
+      if (stockSearchError) {
+        if (!isTableNotFound(stockSearchError)) {
+          throw stockSearchError
+        }
+      } else {
+        matchedThemeIds = new Set(
+          [...(stockNameRes.data || []), ...(stockSymbolRes.data || [])]
+            .map((row) => String(row.theme_id))
+        )
+      }
     }
 
     const themeIds = themes.map((t) => t.id)
@@ -73,7 +103,7 @@ export async function GET(request: Request) {
           .in('theme_id', chunk)
           .gte('calculated_at', ninetyDaysAgo)
           .order('calculated_at', { ascending: false })
-          .limit(1000)
+          .limit(chunk.length * 7)
       )
     )
 
@@ -103,7 +133,8 @@ export async function GET(request: Request) {
       ? results.filter(
           (t) =>
             t.name.toLowerCase().includes(query) ||
-            (t.nameEn && t.nameEn.toLowerCase().includes(query))
+            (t.nameEn && t.nameEn.toLowerCase().includes(query)) ||
+            matchedThemeIds.has(String(t.id))
         )
       : results
 

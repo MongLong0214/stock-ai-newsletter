@@ -1,8 +1,8 @@
 # stockmatrix-mcp
 
-MCP server for Korean stock market theme analysis. Track 250+ KOSPI/KOSDAQ investment themes with lifecycle scores, trend data, related stocks, and news — all through natural conversation with AI.
+Ask about Korean stock market themes in natural conversation with AI. Track 250+ KOSPI/KOSDAQ investment themes, get daily movers, compare themes side-by-side, and see predictions — all through Claude, Cursor, or any MCP-compatible AI agent.
 
-Scores are computed using **TLI (Theme Lifecycle Index)** — a Bayesian-optimized algorithm combining search interest, news momentum, market volatility, and stock activity into a 0-100 score with lifecycle stage classification.
+Powered by **TLI (Theme Lifecycle Index)** — a Bayesian-optimized scoring algorithm combining search interest, news momentum, market volatility, and stock activity into a 0-100 score with lifecycle stage classification.
 
 ## Quick Start
 
@@ -57,65 +57,89 @@ After setup, just ask in natural language:
 
 | Prompt | What happens |
 |--------|-------------|
-| "요즘 한국 주식시장에서 뜨는 테마 뭐야?" | Top trending themes with scores |
+| "요즘 뜨는 테마 TOP 5" | Top 5 themes ranked by TLI score |
+| "오늘 한국 테마 시장 요약해줘" | AI-optimized market overview |
+| "어제 대비 가장 많이 오른 테마는?" | Daily score movers and stage transitions |
 | "AI 관련 테마 찾아줘" | Search AI-related themes |
-| "반도체 테마 최근 한달 추세 어때?" | 30-day score history |
-| "삼성전자가 속한 테마 알려줘" | Themes linked to Samsung (005930) |
-| "성장 단계인 테마만 보여줘" | Growth-stage themes only |
-| "방산 테마 상세 정보" | Score, stocks, news for defense theme |
-| "TLI 점수는 어떻게 계산돼?" | Algorithm methodology |
+| "반도체 vs 2차전지 비교해줘" | Side-by-side theme comparison |
+| "앞으로 오를 테마 알려줘" | Rising predictions with analog evidence |
+| "삼성전자가 속한 테마" | Stock-to-theme lookup (auto-detects 6-digit codes) |
+| "방산 테마 상세 정보" | Score breakdown, stocks, news, comparisons |
+| "반도체 테마 최근 한달 추세" | 30-day score history |
+| "TLI 점수는 어떻게 계산돼?" | Algorithm methodology (tip: use `section=scoring` to save tokens) |
 | "What are the hottest stock themes in Korea?" | Works in English too |
-| "Which themes is SK Hynix (000660) part of?" | Stock-to-theme lookup |
 
 ## Available Tools
 
 ### `get_theme_ranking`
-
-Get theme rankings by lifecycle stage.
+Get theme rankings by lifecycle stage with limit and sort options.
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `stage` | string | No | `emerging` / `growth` / `peak` / `decline` / `reigniting` |
+| `limit` | number | No | Results per stage (1-50, default: 10) |
+| `sort` | string | No | `score` / `change7d` / `newsCount7d` (default: score) |
 
-### `search_themes`
+### `get_market_summary`
+Get an AI-optimized market overview with top themes (includes themeId for chaining).
 
-Search themes by keyword (Korean or English).
+### `get_theme_changes`
+Get daily or weekly score movers, stage transitions, and newly emerging themes.
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `query` | string | Yes | e.g. `"AI"`, `"반도체"`, `"2차전지"`, `"삼성전자"` |
+| `period` | string | No | `1d` (default) / `7d` |
+
+### `compare_themes`
+Compare 2-5 themes side-by-side with scores, stocks, sparklines, and similarity.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `theme_ids` | string[] | Yes | Array of 2-5 theme UUIDs |
+
+### `get_predictions`
+Get themes predicted to rise, peak, or cool based on historical analog matching.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `phase` | string | No | `rising` / `hot` / `cooling` (default: all) |
+
+### `search_themes`
+Search themes by keyword, stock name, or stock code.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `query` | string | Yes | e.g. `"AI"`, `"반도체"`, `"삼성전자"`, `"005930"` |
+
+### `search_stocks`
+Search stocks by company name or 6-digit code, with related theme preview. Automatically performs stock-to-theme lookup for 6-digit codes.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `query` | string | Yes | e.g. `"삼성전자"`, `"SK하이닉스"`, `"005930"` |
 
 ### `get_theme_detail`
-
-Get detailed info: score breakdown (4 components), stage, prediction, stocks, news, comparisons.
+Get detailed analysis: score breakdown (4 components), stage, prediction, stocks, news, comparisons.
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `theme_id` | string (UUID) | Yes | Theme UUID from ranking or search |
 
 ### `get_theme_history`
-
 Get 30-day score history for trend analysis.
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `theme_id` | string (UUID) | Yes | Theme UUID |
 
-### `get_stock_theme`
-
-Find themes a specific stock belongs to.
-
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `symbol` | string | Yes | 6-digit code, e.g. `"005930"` (Samsung), `"000660"` (SK Hynix) |
-
 ### `get_methodology`
-
-Get TLI algorithm documentation — scoring, stages, stabilization, comparison, prediction.
+Get TLI algorithm documentation — scoring, stages, stabilization, comparison, prediction, data sources, and more.
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `section` | string | No | `scoring` / `stabilization` / `stages` / `comparison` / `prediction` / `all` |
+| `section` | string | No | `scoring` / `stages` / `comparison` / `prediction` / `all` (default: all) |
+
+> Tip: Use `section=scoring` to get just the scoring algorithm and save context tokens.
 
 ## Scoring Algorithm
 
@@ -128,13 +152,13 @@ TLI scores (0-100) are a weighted sum of 4 components, optimized via Bayesian Op
 | Volatility | 10.4% | Interest time-series |
 | Stock Activity | 22.6% | Naver Finance |
 
-Scores are stabilized through **Cautious Decay** (3-signal majority vote prevents false drops), **Bollinger Band Clamp** (limits daily change), and **Age-adaptive EMA** (newer themes react faster).
+Scores are stabilized through **Cautious Decay** (3-signal majority vote), **Bollinger Band Clamp** (limits daily change), and **Age-adaptive EMA** (newer themes react faster).
 
 ## Lifecycle Stages
 
 ```
-Dormant → Emerging → Growth → Peak → Decline → Dormant
-                                          ↓
+Dormant -> Emerging -> Growth -> Peak -> Decline -> Dormant
+                                          |
                                      Reigniting
 ```
 
@@ -144,6 +168,9 @@ Stage transitions require 2 consecutive days of the same candidate (hysteresis) 
 
 - **250+ themes** across KOSPI & KOSDAQ
 - **Daily updates** — scores, news, stock mappings
+- **Stock lookup** by company name or 6-digit code
+- **AI market summary** for first-call overview
+- **Predictions** with historical analog matching
 - **Sources**: Naver DataLab, Naver Finance, Naver News
 
 ## Configuration

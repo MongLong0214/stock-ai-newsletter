@@ -5,8 +5,10 @@ const MCP_UA_PREFIX = 'stockmatrix-mcp'
 const MAX_UA_LENGTH = 512
 
 const TOOL_MAP: Record<string, string> = {
+  '/api/ai/summary': 'get_market_summary',
   '/api/tli/scores/ranking': 'get_theme_ranking',
   '/api/tli/themes': 'search_themes',
+  '/api/tli/stocks/search': 'search_stocks',
 }
 
 const inferTool = (path: string): string => {
@@ -70,5 +72,5 @@ export const middleware = async (request: NextRequest) => {
 }
 
 export const config = {
-  matcher: '/api/tli/:path*',
+  matcher: ['/api/tli/:path*', '/api/ai/summary'],
 }

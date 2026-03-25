@@ -47,6 +47,7 @@ export async function GET() {
         description: `현재 ${trackedThemes}개 테마 추적 중, 품질 게이트 통과 ${eligibleThemes}개입니다. 정점 ${stageDistribution.peak}개, 성장 ${stageDistribution.growth}개, 초기 ${stageDistribution.emerging}개, 쇠퇴 ${stageDistribution.decline}개, 재점화 ${stageDistribution.reigniting}개.`,
       },
       topThemes: top5.map((t) => ({
+        themeId: t.id,
         name: t.name,
         nameEn: t.nameEn,
         score: t.score,

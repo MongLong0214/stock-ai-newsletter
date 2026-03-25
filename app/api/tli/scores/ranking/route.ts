@@ -6,8 +6,12 @@ import { EMPTY_RANKING, SCORE_QUERY_BATCH_SIZE, buildScoreMetaMap, buildCountMap
 import { getKSTDateString } from '@/lib/tli/date-utils'
 
 // 생명주기 단계별 랭킹 (배치 쿼리 최적화)
-export async function GET() {
+export async function GET(request: Request) {
   try {
+    const { searchParams } = new URL(request.url)
+    const limit = Math.max(1, Math.min(50, Number(searchParams.get('limit')) || 10))
+    const sort = searchParams.get('sort') || 'score'
+
     // placeholder 환경 처리
     const placeholder = placeholderResponse<ThemeRanking>(EMPTY_RANKING)
     if (placeholder) return placeholder
@@ -113,6 +117,18 @@ export async function GET() {
     }
 
     const ranking = buildThemeRanking(normalizedThemeData, rawInterestAvgMap)
+
+    // limit/sort 후처리
+    const sortKey = (sort === 'change7d' || sort === 'newsCount7d') ? sort : 'score' as const
+    const sortFn = (a: ThemeListItem, b: ThemeListItem) => {
+      const av = a[sortKey] ?? 0
+      const bv = b[sortKey] ?? 0
+      return bv - av
+    }
+    const stages: Array<'emerging' | 'growth' | 'peak' | 'decline' | 'reigniting'> = ['emerging', 'growth', 'peak', 'decline', 'reigniting']
+    for (const stage of stages) {
+      ranking[stage] = ranking[stage].sort(sortFn).slice(0, limit)
+    }
 
     return apiSuccess(ranking, undefined, 'medium')
   } catch (error) {

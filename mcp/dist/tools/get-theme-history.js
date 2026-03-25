@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { fetchApi, formatResult, formatError } from '../fetch-helper.js';
+import { fetchApi, formatResult, formatError, formatEmptyResult } from '../fetch-helper.js';
 const CONTEXT = `[StockMatrix Theme History — 30-day]
 Daily TLI scores with stage transitions. Use to identify:
 - Trend direction: rising scores = growing interest, falling = declining
@@ -20,6 +20,11 @@ Answers: "이 테마 추세가 어때?", "최근 한달 흐름", "is this theme 
     }, async ({ theme_id }) => {
         try {
             const data = await fetchApi(`/api/tli/themes/${theme_id}/history`);
+            if (!data || (Array.isArray(data) && data.length === 0)) {
+                return {
+                    content: [{ type: 'text', text: formatEmptyResult(CONTEXT, `No history data found for theme "${theme_id}". The theme may be too new or inactive.`) }],
+                };
+            }
             return {
                 content: [{ type: 'text', text: formatResult(data, CONTEXT) }],
             };
