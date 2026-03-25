@@ -1,7 +1,12 @@
 import { createRequire } from 'node:module';
+import type { ZodType } from 'zod';
+import { createCache } from './cache.js';
 
 const require = createRequire(import.meta.url);
 const { version } = require('../package.json') as { version: string };
+
+const apiCache = createCache(50);
+const CACHE_TTL_MS = 3_600_000; // 1 hour
 
 const BASE_URL =
   process.env.STOCKMATRIX_API_URL || 'https://stockmatrix.co.kr';
@@ -47,7 +52,8 @@ const sleep = (ms: number): Promise<void> =>
 
 export const fetchApi = async <T = unknown>(
   path: string,
-  params?: Record<string, string>
+  params?: Record<string, string>,
+  schema?: ZodType<T>
 ): Promise<T> => {
   const url = new URL(path, BASE_URL);
 
@@ -55,6 +61,12 @@ export const fetchApi = async <T = unknown>(
     for (const [key, value] of Object.entries(params)) {
       url.searchParams.set(key, value);
     }
+  }
+
+  const cacheKey = url.toString();
+  const cached = apiCache.get<T>(cacheKey);
+  if (cached !== undefined) {
+    return schema ? schema.parse(cached) : cached;
   }
 
   let lastError: unknown;
@@ -106,10 +118,14 @@ export const fetchApi = async <T = unknown>(
             wrapped.error?.message || 'API returned unsuccessful response'
           );
         }
-        return wrapped.data;
+        const result = schema ? schema.parse(wrapped.data) : wrapped.data;
+        apiCache.set(cacheKey, result, CACHE_TTL_MS);
+        return result;
       }
 
-      return json as T;
+      const rawResult = schema ? schema.parse(json) : (json as T);
+      apiCache.set(cacheKey, rawResult, CACHE_TTL_MS);
+      return rawResult;
     } catch (error) {
       lastError = error;
       if (attempt < MAX_RETRIES && isRetryable(error)) {
@@ -134,4 +150,9 @@ export const formatError = (error: unknown): string => {
   const message =
     error instanceof Error ? error.message : String(error);
   return `Error: ${message}`;
+};
+
+/** 빈 결과에 가이던스 메시지를 포함하는 포맷터 */
+export const formatEmptyResult = (context: string, guidance: string): string => {
+  return `${context}\n\n${JSON.stringify([], null, 2)}\n\n${guidance}`;
 };

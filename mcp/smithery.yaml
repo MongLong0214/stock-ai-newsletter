@@ -1,5 +1,5 @@
 name: stockmatrix-mcp
-description: Korean stock market theme lifecycle analysis (TLI) — 250+ KOSPI/KOSDAQ investment themes with Bayesian-optimized scores, lifecycle stages, related stocks, news, and algorithm methodology
+description: Korean stock market theme lifecycle analysis (TLI) — market summaries, stock search, 250+ KOSPI/KOSDAQ investment themes, Bayesian-optimized scores, lifecycle stages, related stocks, news, and runtime methodology
 tags:
   - finance
   - stocks
@@ -9,4 +9,4 @@ tags:
   - kosdaq
   - bayesian-optimization
 runtime: node
-startCommand: npx -y stockmatrix-mcp
+startCommand: npx -y stockmatrix-mcp@0.4.0

@@ -55,6 +55,7 @@ ${themeCount}개 이상의 주식 테마를 실시간 추적하여 생명주기 
 
 - \`GET /api/tli/scores/ranking\` — 단계별 테마 랭킹 (emerging/growth/peak/decline/reigniting)
 - \`GET /api/tli/themes?q={query}\` — 테마 검색 (이름 필터링, 쿼리 없으면 전체 목록)
+- \`GET /api/tli/stocks/search?q={query}\` — 종목명/종목코드 검색 + 관련 테마 미리보기
 - \`GET /api/tli/stocks/{symbol}/theme\` — 종목 코드(6자리)로 관련 테마 조회
 - \`GET /api/tli/themes/{id}\` — 테마 상세 (점수, 관련주, 뉴스)
 - \`GET /api/tli/themes/{id}/history\` — 테마 점수 이력 (기본 30일)
@@ -64,7 +65,7 @@ ${themeCount}개 이상의 주식 테마를 실시간 추적하여 생명주기 
 
 \`stockmatrix-mcp\` — Model Context Protocol 서버로 AI 에이전트에서 직접 테마 데이터를 조회할 수 있습니다.
 - 설치: \`npx -y stockmatrix-mcp\`
-- 도구: get_theme_ranking, get_theme_detail, get_theme_history, search_themes, get_stock_theme
+- 도구: get_market_summary, get_theme_ranking, get_theme_detail, get_theme_history, search_themes, search_stocks, get_stock_theme, get_methodology
 - npm: https://www.npmjs.com/package/stockmatrix-mcp
 
 ## Pages

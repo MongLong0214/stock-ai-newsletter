@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { fetchApi, formatResult, formatError } from '../fetch-helper.js';
+import { fetchApi, formatResult, formatError, formatEmptyResult } from '../fetch-helper.js';
 const VALID_STAGES = [
     'emerging',
     'growth',
@@ -17,7 +17,8 @@ const STAGE_DESCRIPTIONS = {
 const CONTEXT = `[StockMatrix TLI Ranking]
 Scores: 0-100 (Bayesian-optimized weighted sum of 4 components: interest 30%, news momentum 37%, volatility 10%, activity 23%).
 Stages: Emerging → Growth → Peak → Decline → Dormant (with possible Reigniting). Stage transitions require 2 consecutive days of same candidate (hysteresis).
-Higher score = stronger theme momentum. Stage indicates lifecycle position.`;
+Higher score = stronger theme momentum. Stage indicates lifecycle position.
+The \`summary\` object includes \`signals\` (market mood indicators), \`hottestTheme\` (single highest scorer with 3+ stocks), and \`surging\` (rapidly rising themes).`;
 export const registerGetThemeRanking = (server) => {
     server.tool('get_theme_ranking', `Get Korean stock market theme rankings with lifecycle scores (TLI: Theme Lifecycle Index).
 
@@ -32,13 +33,35 @@ Returns themes ranked by score (0-100) with lifecycle stage and related stocks. 
             .enum(VALID_STAGES)
             .optional()
             .describe('Filter by lifecycle stage: emerging (초기 — early interest), growth (성장 — expanding), peak (정점 — maximum attention), decline (하락 — fading), reigniting (재점화 — comeback)'),
-    }, async ({ stage }) => {
+        limit: z
+            .number()
+            .int()
+            .min(1)
+            .max(50)
+            .optional()
+            .describe('Max themes per stage (1-50, default 10)'),
+        sort: z
+            .enum(['score', 'change7d', 'newsCount7d'])
+            .optional()
+            .describe('Sort order within each stage: score (default), change7d, newsCount7d'),
+    }, async ({ stage, limit, sort }) => {
         try {
-            const data = await fetchApi('/api/tli/scores/ranking');
+            const params = {};
+            if (limit !== undefined)
+                params.limit = String(limit);
+            if (sort !== undefined)
+                params.sort = sort;
+            const fetchParams = Object.keys(params).length > 0 ? params : undefined;
+            const data = await fetchApi('/api/tli/scores/ranking', fetchParams);
             if (stage) {
                 const stageData = data[stage];
                 const summary = data.summary;
                 const stageContext = `${CONTEXT}\nFiltered: ${stage} — ${STAGE_DESCRIPTIONS[stage]}`;
+                if (!stageData || (Array.isArray(stageData) && stageData.length === 0)) {
+                    return {
+                        content: [{ type: 'text', text: formatEmptyResult(stageContext, `No ${stage} themes currently. Try other stages: ${VALID_STAGES.filter(s => s !== stage).join(', ')}.`) }],
+                    };
+                }
                 return {
                     content: [
                         {
