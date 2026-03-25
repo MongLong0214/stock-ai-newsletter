@@ -2,6 +2,62 @@
   "newsletters": [
     {
       "type": "stock",
+      "date": "2026-03-26",
+      "stocks": [
+        {
+          "ticker": "KOSPI:034020",
+          "name": "두산에너빌리티",
+          "close_price": 102600,
+          "rationale": "SMA 상승추세|외국인 706964주 순매수|기관 445105주 순매수|개인 1180172주 순매도|전일대비 2.50% 상승|52주신고가(112100) 근접|볼린저밴드 상단돌파시도|RSI 강세권|MACD 양수유지|OBV 자금유입|ADX 상승추세|CCI 매수권|Williams %R 호전|ATR 변동성증가",
+          "signals": {
+            "trend_score": 90,
+            "momentum_score": 85,
+            "volume_score": 90,
+            "volatility_score": 80,
+            "pattern_score": 90,
+            "sentiment_score": 90,
+            "overall_score": 88
+          },
+          "verified_date": "2026-03-25"
+        },
+        {
+          "ticker": "KOSPI:000660",
+          "name": "SK하이닉스",
+          "close_price": 995000,
+          "rationale": "SMA 20일선(976425) 상회|SMA 50일선(994580) 상회|SMA 200일선(951480) 상회|RSI 51.798 중립|MACD 4604.164 매수신호|외국인수급 주시|피봇포인트 995667 근접|볼린저밴드 중단지지|Stochastic 중립|OBV 상승추세유지|CCI 안정권|Williams %R 중립|ATR 적정수준|ADX 추세초기",
+          "signals": {
+            "trend_score": 80,
+            "momentum_score": 70,
+            "volume_score": 70,
+            "volatility_score": 70,
+            "pattern_score": 70,
+            "sentiment_score": 80,
+            "overall_score": 74
+          },
+          "verified_date": "2026-03-25"
+        },
+        {
+          "ticker": "KOSPI:005930",
+          "name": "삼성전자",
+          "close_price": 189000,
+          "rationale": "SMA 20일선(189812.5) 하회|SMA 50일선(195990) 하회|SMA 200일선(190252.75) 하회|RSI 42.279 매도|MACD -1278.649 매도신호|ROC 1.449 매수신호|피봇포인트 190567 저항|볼린저밴드 하단확인|Stochastic 과매도권|OBV 바닥다지기|CCI 침체권|Williams %R 과매도|ATR 적정|ADX 추세약화",
+          "signals": {
+            "trend_score": 40,
+            "momentum_score": 45,
+            "volume_score": 60,
+            "volatility_score": 50,
+            "pattern_score": 40,
+            "sentiment_score": 50,
+            "overall_score": 46
+          },
+          "verified_date": "2026-03-25"
+        }
+      ],
+      "sentAt": "2026-03-25T22:38:03.964+00:00",
+      "subscriberCount": 263
+    },
+    {
+      "type": "stock",
       "date": "2026-03-25",
       "stocks": [
         {
@@ -5606,5 +5662,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-03-24T23:06:15.064Z"
+  "lastUpdated": "2026-03-25T22:38:44.178Z"
 }
