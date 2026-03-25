@@ -53,19 +53,22 @@ ${themeCount}개 이상의 주식 테마를 실시간 추적하여 생명주기 
 
 ## API Endpoints
 
-- \`GET /api/tli/scores/ranking\` — 단계별 테마 랭킹 (emerging/growth/peak/decline/reigniting)
+- \`GET /api/tli/scores/ranking?limit=10&sort=score\` — 단계별 테마 랭킹 (emerging/growth/peak/decline/reigniting, limit 1-50, sort: score/change7d/newsCount7d)
 - \`GET /api/tli/themes?q={query}\` — 테마 검색 (이름 필터링, 쿼리 없으면 전체 목록)
-- \`GET /api/tli/stocks/search?q={query}\` — 종목명/종목코드 검색 + 관련 테마 미리보기
-- \`GET /api/tli/stocks/{symbol}/theme\` — 종목 코드(6자리)로 관련 테마 조회
+- \`GET /api/tli/stocks/search?q={query}\` — 종목명/종목코드 검색 + 관련 테마 미리보기 (6자리 코드 자동 감지)
 - \`GET /api/tli/themes/{id}\` — 테마 상세 (점수, 관련주, 뉴스)
 - \`GET /api/tli/themes/{id}/history\` — 테마 점수 이력 (기본 30일)
+- \`GET /api/tli/changes?period=1d|7d\` — 일간/주간 테마 점수 변동, 단계 전환, 신규 부상 테마
+- \`GET /api/tli/compare?ids=uuid1,uuid2,...\` — 2~5개 테마 나란히 비교 (점수, 관련주, 스파크라인, 유사도)
+- \`GET /api/tli/predictions?phase=rising|hot|cooling\` — v4 예측 시스템 기반 테마 전망 (과거 유사 패턴 매칭)
+- \`GET /api/tli/methodology?section=scoring|stages|...\` — TLI 알고리즘 문서 (채점, 단계, 안정화, 비교, 예측, 데이터 소스)
 - \`GET /api/ai/summary\` — AI 에이전트 최적화 요약 (Top 5 테마 + 시장 개요)
 
 ## MCP Server
 
 \`stockmatrix-mcp\` — Model Context Protocol 서버로 AI 에이전트에서 직접 테마 데이터를 조회할 수 있습니다.
 - 설치: \`npx -y stockmatrix-mcp\`
-- 도구: get_market_summary, get_theme_ranking, get_theme_detail, get_theme_history, search_themes, search_stocks, get_stock_theme, get_methodology
+- 도구 (10개): get_market_summary, get_theme_ranking, get_theme_detail, get_theme_history, search_themes, search_stocks, get_theme_changes, compare_themes, get_predictions, get_methodology
 - npm: https://www.npmjs.com/package/stockmatrix-mcp
 
 ## Pages
