@@ -19,6 +19,22 @@ export function GET() {
           summary: 'Get theme ranking by lifecycle stage',
           description:
             'Returns all active themes grouped by lifecycle stage (emerging, growth, peak, decline, reigniting) with summary statistics including hottest and surging themes.',
+          parameters: [
+            {
+              name: 'limit',
+              in: 'query',
+              required: false,
+              description: 'Maximum number of themes per stage (1-50)',
+              schema: { type: 'integer', minimum: 1, maximum: 50, default: 10 },
+            },
+            {
+              name: 'sort',
+              in: 'query',
+              required: false,
+              description: 'Sort field for themes within each stage',
+              schema: { type: 'string', enum: ['score', 'change7d', 'newsCount7d'], default: 'score' },
+            },
+          ],
           responses: {
             '200': {
               description: 'Theme ranking grouped by stage',
@@ -165,42 +181,6 @@ export function GET() {
           },
         },
       },
-      '/api/tli/stocks/{symbol}/theme': {
-        get: {
-          operationId: 'getStockThemes',
-          summary: 'Get themes for a stock',
-          description:
-            'Returns all themes that a given stock belongs to, with current lifecycle scores and stages. Results sorted by score descending.',
-          parameters: [
-            {
-              name: 'symbol',
-              in: 'path',
-              required: true,
-              description:
-                'Korean stock code (6 digits, e.g. "005930" for Samsung Electronics)',
-              schema: { type: 'string', pattern: '^\\d{6}$' },
-            },
-          ],
-          responses: {
-            '200': {
-              description: 'List of themes the stock belongs to',
-              content: {
-                'application/json': {
-                  schema: { $ref: '#/components/schemas/StockThemesResponse' },
-                },
-              },
-            },
-            '400': {
-              description: 'Invalid stock symbol',
-              content: {
-                'application/json': {
-                  schema: { $ref: '#/components/schemas/ErrorResponse' },
-                },
-              },
-            },
-          },
-        },
-      },
       '/api/tli/themes/{id}/history': {
         get: {
           operationId: 'getThemeHistory',
@@ -238,6 +218,126 @@ export function GET() {
               content: {
                 'application/json': {
                   schema: { $ref: '#/components/schemas/ErrorResponse' },
+                },
+              },
+            },
+          },
+        },
+      },
+      '/api/tli/changes': {
+        get: {
+          operationId: 'getThemeChanges',
+          summary: 'Get daily/weekly theme score movers and stage transitions',
+          description:
+            'Returns top rising/falling themes by score change, stage transitions, and newly emerging themes for the given period.',
+          parameters: [
+            {
+              name: 'period',
+              in: 'query',
+              required: false,
+              description: 'Time period for changes',
+              schema: { type: 'string', enum: ['1d', '7d'], default: '1d' },
+            },
+          ],
+          responses: {
+            '200': {
+              description: 'Theme changes summary',
+              content: {
+                'application/json': {
+                  schema: { $ref: '#/components/schemas/ThemeChangesResponse' },
+                },
+              },
+            },
+          },
+        },
+      },
+      '/api/tli/compare': {
+        get: {
+          operationId: 'compareThemes',
+          summary: 'Side-by-side comparison of 2-5 themes',
+          description:
+            'Returns detailed comparison of selected themes including scores, stocks, sparklines, pairwise similarity, and overlapping stocks.',
+          parameters: [
+            {
+              name: 'ids',
+              in: 'query',
+              required: true,
+              description: 'Comma-separated theme UUIDs (2-5 required)',
+              schema: { type: 'string' },
+            },
+          ],
+          responses: {
+            '200': {
+              description: 'Theme comparison result',
+              content: {
+                'application/json': {
+                  schema: { $ref: '#/components/schemas/ThemeComparisonResponse' },
+                },
+              },
+            },
+            '400': {
+              description: 'Invalid or insufficient theme IDs',
+              content: {
+                'application/json': {
+                  schema: { $ref: '#/components/schemas/ErrorResponse' },
+                },
+              },
+            },
+          },
+        },
+      },
+      '/api/tli/predictions': {
+        get: {
+          operationId: 'getPredictions',
+          summary: 'Get theme predictions based on v4 forecast system',
+          description:
+            'Returns prediction themes with phase forecasts (rising/hot/cooling), confidence levels, historical analog matching, and expected peak timing.',
+          parameters: [
+            {
+              name: 'phase',
+              in: 'query',
+              required: false,
+              description: 'Filter by prediction phase',
+              schema: { type: 'string', enum: ['rising', 'hot', 'cooling'] },
+            },
+          ],
+          responses: {
+            '200': {
+              description: 'Prediction themes',
+              content: {
+                'application/json': {
+                  schema: { $ref: '#/components/schemas/PredictionResponse' },
+                },
+              },
+            },
+          },
+        },
+      },
+      '/api/tli/methodology': {
+        get: {
+          operationId: 'getMethodology',
+          summary: 'Get TLI algorithm documentation',
+          description:
+            'Returns detailed methodology documentation for the TLI scoring system. Supports section-level filtering for focused queries.',
+          parameters: [
+            {
+              name: 'section',
+              in: 'query',
+              required: false,
+              description: 'Specific section to retrieve',
+              schema: {
+                type: 'string',
+                enum: ['scoring', 'stabilization', 'stages', 'comparison', 'prediction', 'data_sources', 'update_schedule', 'runtime', 'data_flow', 'database_tables', 'limitations', 'all'],
+                default: 'all',
+              },
+            },
+          ],
+          responses: {
+            '200': {
+              description: 'Methodology documentation',
+              content: {
+                'application/json': {
+                  schema: { $ref: '#/components/schemas/MethodologyResponse' },
                 },
               },
             },
@@ -879,6 +979,210 @@ export function GET() {
             'stageKo',
             'isReigniting',
           ],
+        },
+        ThemeChangesResponse: {
+          type: 'object',
+          properties: {
+            success: { type: 'boolean', enum: [true] },
+            data: {
+              type: 'object',
+              properties: {
+                period: { type: 'string', enum: ['1d', '7d'] },
+                generatedAt: { type: 'string', format: 'date-time' },
+                movers: {
+                  type: 'object',
+                  properties: {
+                    rising: {
+                      type: 'array',
+                      items: {
+                        type: 'object',
+                        properties: {
+                          id: { type: 'string', format: 'uuid' },
+                          name: { type: 'string' },
+                          score: { type: 'number' },
+                          change: { type: 'number' },
+                          stage: { type: 'string' },
+                        },
+                        required: ['id', 'name', 'score', 'change', 'stage'],
+                      },
+                    },
+                    falling: {
+                      type: 'array',
+                      items: {
+                        type: 'object',
+                        properties: {
+                          id: { type: 'string', format: 'uuid' },
+                          name: { type: 'string' },
+                          score: { type: 'number' },
+                          change: { type: 'number' },
+                          stage: { type: 'string' },
+                        },
+                        required: ['id', 'name', 'score', 'change', 'stage'],
+                      },
+                    },
+                  },
+                  required: ['rising', 'falling'],
+                },
+                stageTransitions: {
+                  type: 'array',
+                  items: {
+                    type: 'object',
+                    properties: {
+                      id: { type: 'string', format: 'uuid' },
+                      name: { type: 'string' },
+                      fromStage: { type: 'string' },
+                      toStage: { type: 'string' },
+                      score: { type: 'number' },
+                    },
+                    required: ['id', 'name', 'fromStage', 'toStage', 'score'],
+                  },
+                },
+                newlyEmerging: {
+                  type: 'array',
+                  items: {
+                    type: 'object',
+                    properties: {
+                      id: { type: 'string', format: 'uuid' },
+                      name: { type: 'string' },
+                      score: { type: 'number' },
+                      stage: { type: 'string' },
+                    },
+                    required: ['id', 'name', 'score', 'stage'],
+                  },
+                },
+              },
+              required: ['period', 'generatedAt', 'movers', 'stageTransitions', 'newlyEmerging'],
+            },
+          },
+          required: ['success', 'data'],
+        },
+        ThemeComparisonResponse: {
+          type: 'object',
+          properties: {
+            success: { type: 'boolean', enum: [true] },
+            data: {
+              type: 'object',
+              properties: {
+                themes: {
+                  type: 'array',
+                  items: {
+                    type: 'object',
+                    properties: {
+                      id: { type: 'string', format: 'uuid' },
+                      name: { type: 'string' },
+                      nameEn: { type: 'string', nullable: true },
+                      score: { type: 'number' },
+                      stage: { type: 'string' },
+                      stageKo: { type: 'string' },
+                      change7d: { type: 'number' },
+                      stockCount: { type: 'integer' },
+                      topStocks: { type: 'array', items: { type: 'string' } },
+                      sparkline: { type: 'array', items: { type: 'number' } },
+                      newsCount7d: { type: 'integer' },
+                    },
+                    required: ['id', 'name', 'score', 'stage', 'stageKo', 'change7d', 'stockCount'],
+                  },
+                },
+                pairwiseSimilarity: {
+                  type: 'array',
+                  items: {
+                    type: 'object',
+                    properties: {
+                      themeA: { type: 'string', format: 'uuid' },
+                      themeB: { type: 'string', format: 'uuid' },
+                      similarity: { type: 'number' },
+                    },
+                    required: ['themeA', 'themeB', 'similarity'],
+                  },
+                },
+                overlappingStocks: {
+                  type: 'array',
+                  items: {
+                    type: 'object',
+                    properties: {
+                      symbol: { type: 'string' },
+                      name: { type: 'string' },
+                      themes: { type: 'array', items: { type: 'string', format: 'uuid' } },
+                    },
+                    required: ['symbol', 'name', 'themes'],
+                  },
+                },
+                warnings: {
+                  type: 'array',
+                  items: { type: 'string' },
+                },
+              },
+              required: ['themes', 'pairwiseSimilarity', 'overlappingStocks', 'warnings'],
+            },
+          },
+          required: ['success', 'data'],
+        },
+        PredictionResponse: {
+          type: 'object',
+          properties: {
+            success: { type: 'boolean', enum: [true] },
+            data: {
+              type: 'object',
+              properties: {
+                phase: { type: 'string', nullable: true, description: 'Filtered phase or null for all' },
+                dataSource: { type: 'string', description: 'Prediction model version' },
+                themes: {
+                  type: 'array',
+                  items: {
+                    type: 'object',
+                    properties: {
+                      id: { type: 'string', format: 'uuid' },
+                      name: { type: 'string' },
+                      score: { type: 'number' },
+                      stage: { type: 'string' },
+                      prediction: {
+                        type: 'object',
+                        properties: {
+                          phase: { type: 'string', enum: ['rising', 'hot', 'cooling'] },
+                          confidence: { type: 'string', enum: ['high', 'medium', 'low'] },
+                          daysSinceEpisodeStart: { type: 'integer' },
+                          expectedPeakDay: { type: 'integer', nullable: true },
+                          topAnalog: {
+                            type: 'object',
+                            nullable: true,
+                            properties: {
+                              name: { type: 'string' },
+                              similarity: { type: 'number' },
+                            },
+                          },
+                          evidenceQuality: { type: 'string', enum: ['strong', 'moderate', 'weak'] },
+                        },
+                        required: ['phase', 'confidence', 'daysSinceEpisodeStart', 'evidenceQuality'],
+                      },
+                    },
+                    required: ['id', 'name', 'score', 'stage', 'prediction'],
+                  },
+                },
+              },
+              required: ['phase', 'dataSource', 'themes'],
+            },
+          },
+          required: ['success', 'data'],
+        },
+        MethodologyResponse: {
+          type: 'object',
+          description: 'TLI algorithm methodology documentation. Returns full or section-specific content.',
+          properties: {
+            success: { type: 'boolean', enum: [true] },
+            data: {
+              type: 'object',
+              properties: {
+                section: { type: 'string', description: 'Requested section name or "all"' },
+                content: {
+                  type: 'object',
+                  description: 'Methodology content keyed by section name',
+                  additionalProperties: true,
+                },
+              },
+              required: ['section', 'content'],
+            },
+          },
+          required: ['success', 'data'],
         },
         AiSummary: {
           type: 'object',
