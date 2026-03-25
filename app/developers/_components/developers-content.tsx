@@ -27,9 +27,11 @@ const TOOLS = [
   {
     name: 'get_theme_ranking',
     description: '테마 생명주기 랭킹 조회',
-    descEn: 'Theme lifecycle rankings filtered by stage',
+    descEn: 'Theme lifecycle rankings filtered by stage, with sort and limit control',
     params: [
       { name: 'stage', type: 'string?', desc: 'emerging | growth | peak | decline | reigniting' },
+      { name: 'limit', type: 'number?', desc: '1-50 (default 10)' },
+      { name: 'sort', type: 'string?', desc: 'score | change7d | newsCount7d' },
     ],
   },
   {
@@ -42,8 +44,8 @@ const TOOLS = [
   },
   {
     name: 'search_stocks',
-    description: '종목 검색 + 테마 미리보기',
-    descEn: 'Find stock codes by company name and preview related themes',
+    description: '종목 검색 + 6자리 코드 자동 테마 조회',
+    descEn: 'Search stocks by name or code — 6-digit codes auto-resolve to theme detail (integrates get_stock_theme)',
     params: [
       { name: 'query', type: 'string', desc: '"삼성전자", "SK하이닉스", "005930"' },
     ],
@@ -65,17 +67,33 @@ const TOOLS = [
     ],
   },
   {
-    name: 'get_stock_theme',
-    description: '종목 코드로 관련 테마 조회',
-    descEn: 'Find themes by 6-digit stock code',
+    name: 'get_theme_changes',
+    description: '일간/주간 테마 변동 리포트',
+    descEn: 'Score changes, stage transitions, newly emerging themes by period',
     params: [
-      { name: 'symbol', type: 'string', desc: '"005930" (삼성전자), "000660" (SK하이닉스)' },
+      { name: 'period', type: 'string?', desc: '1d | 7d (default 1d)' },
+    ],
+  },
+  {
+    name: 'compare_themes',
+    description: '테마 병렬 비교',
+    descEn: '2-5 themes side-by-side — scores, stocks, sparkline, mutual similarity',
+    params: [
+      { name: 'theme_ids', type: 'string[] (UUID)', desc: '2~5개 테마 ID 배열' },
+    ],
+  },
+  {
+    name: 'get_predictions',
+    description: '테마 예측 조회',
+    descEn: 'Predicted themes based on historical pattern matching — rising/hot/cooling outlook',
+    params: [
+      { name: 'phase', type: 'string?', desc: 'rising | hot | cooling' },
     ],
   },
   {
     name: 'get_methodology',
     description: 'TLI 알고리즘/파이프라인 문서 조회',
-    descEn: 'Scoring, stages, runtime pipeline, data sources, and methodology',
+    descEn: 'Scoring, stages, runtime pipeline, data sources, and methodology (fetched from API)',
     params: [
       { name: 'section', type: 'string?', desc: 'scoring | stabilization | stages | comparison | prediction | data_sources | update_schedule | runtime | data_flow | database_tables | limitations | all' },
     ],
@@ -140,6 +158,10 @@ const EXAMPLE_PROMPTS = [
   { prompt: '반도체 테마 최근 한달 추세 어때?', result: '30일 점수 이력 + 추세 분석' },
   { prompt: '삼성전자가 속한 테마 알려줘', result: '005930 관련 테마 + 점수/단계' },
   { prompt: '삼성전자 종목 코드부터 찾아줘', result: '회사명으로 종목 검색 + 관련 테마 미리보기' },
+  { prompt: '어제 대비 가장 많이 오른 테마는?', result: '일간 점수 변동 상위 테마' },
+  { prompt: '반도체 vs 2차전지 비교해줘', result: '테마 병렬 비교 — 점수, 종목, 유사도' },
+  { prompt: '앞으로 오를 테마 알려줘', result: '과거 패턴 기반 상승 전망 테마' },
+  { prompt: '이번 주 스테이지 전환된 테마', result: '주간 단계 전환 + 신규 이머징 리포트' },
   { prompt: 'TLI 점수는 어떻게 계산돼?', result: '알고리즘 전체 문서' },
   { prompt: 'What are the hottest themes in Korea?', result: 'English supported' },
 ] as const
@@ -215,7 +237,7 @@ function DevelopersContent() {
             MCP 서버
           </h1>
           <p className="text-lg text-slate-300 font-light tracking-wide leading-relaxed max-w-2xl mx-auto">
-            AI 에이전트에서 250+ 한국 주식 테마의 생명주기 점수, 관련주, 뉴스를 자연어로 조회하세요
+            10개 도구로 250+ 한국 주식 테마의 생명주기 점수, 예측, 비교, 변동을 자연어로 조회하세요
           </p>
         </motion.div>
 
@@ -407,13 +429,15 @@ function DevelopersContent() {
               AI 에이전트가 점수, 단계, 가중치의 의미를 이해하고 정확하게 해석할 수 있습니다.
             </p>
             <div className="bg-slate-950/50 border border-slate-700/20 rounded-xl p-4">
-              <pre className="text-xs text-slate-400 font-mono overflow-x-auto leading-relaxed whitespace-pre-wrap">{`[StockMatrix TLI Ranking]
+              <pre className="text-xs text-slate-400 font-mono overflow-x-auto leading-relaxed whitespace-pre-wrap">{`[StockMatrix TLI v0.4.0]
 Scores: 0-100 (Bayesian-optimized weighted sum of 4 components:
   interest 30%, news momentum 37%, volatility 10%, activity 23%).
 Stages: Emerging → Growth → Peak → Decline → Dormant
   (with possible Reigniting).
-Stage transitions require 2 consecutive days of same candidate
-  (hysteresis).
+Stage transitions require 2 consecutive days (hysteresis).
+
+signals: { surging: [...], hottestTheme: {...} }
+themeId: "uuid" — chain with get_theme_detail, compare_themes
 
 { "emerging": [...], "growth": [...], ... }`}</pre>
             </div>
