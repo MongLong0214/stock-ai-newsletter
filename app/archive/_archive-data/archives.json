@@ -2,6 +2,62 @@
   "newsletters": [
     {
       "type": "stock",
+      "date": "2026-03-30",
+      "stocks": [
+        {
+          "ticker": "KOSDAQ:046210",
+          "name": "HLB파나진",
+          "close_price": 2655,
+          "rationale": "2026-03-27 종가 2,655원 확인(finance.naver.com)|SMA 5일·20일 골든크로스 및 52주 신고가 경신(조선비즈)|RSI 62.4 강세 구역 유지로 추가 상승 모멘텀 확보|MACD 시그널선 상향 돌파 및 오실레이터 확장|거래량 전일 대비 184% 폭증하며 매수세 집중|볼린저밴드 상단 확장 국면 진입으로 변동성 확대|ADX 24 추세 강도 상승 시작 단계|OBV 누적 매수세 급증 및 외국인 수급 유입 확인|Williams %R -28 과매수 미진입 상태로 상승 여력 충분|AOC 신약 개발 및 치료제 사업 확장 모멘텀(전자신문)|PNA 유전체 검사 테마 강세 수혜주 분류",
+          "signals": {
+            "trend_score": 92,
+            "momentum_score": 88,
+            "volume_score": 94,
+            "volatility_score": 85,
+            "pattern_score": 95,
+            "sentiment_score": 92,
+            "overall_score": 91
+          },
+          "verified_date": "2026-03-27"
+        },
+        {
+          "ticker": "KOSPI:006400",
+          "name": "삼성SDI",
+          "close_price": 405500,
+          "rationale": "2026-03-27 종가 405,500원 확인(investing.com 일치)|SMA 20일 이동평균선 지지 및 반등 성공|RSI 56.8 중립 강세권 안착으로 상승 추세 전환|MACD 오실레이터 양전환 및 수렴 후 발산 초기|거래량 112% 수준의 견조한 회복세 시현|볼린저밴드 중심선 돌파 후 지지선 구축 완료|ESS(에너지저장장치) 수요 폭발 및 AI 데이터센터 수혜(KB증권)|1분기 실적 컨센서스 부합 및 수익성 개선 전망|외국인 지분율 유지 및 기관 순매수 전환 신호|P/B 2.0배 수준의 밸류에이션 매력도 보유",
+          "signals": {
+            "trend_score": 78,
+            "momentum_score": 82,
+            "volume_score": 84,
+            "volatility_score": 88,
+            "pattern_score": 80,
+            "sentiment_score": 85,
+            "overall_score": 82
+          },
+          "verified_date": "2026-03-27"
+        },
+        {
+          "ticker": "KOSPI:012450",
+          "name": "한화에어로스페이스",
+          "close_price": 1335000,
+          "rationale": "2026-03-27 종가 1,335,000원 확인(daum.net/finance)|SMA 60일 장기 지지선 반등 및 20일선 회복 시도|RSI 45.4 바닥 다지기 후 상향 고개(우동호 레포트)|MACD 하락 히스토그램 축소로 매도 압력 완화|중동 리스크 재부각에 따른 방산 수주 모멘텀 강화|볼린저밴드 하단 지지 후 중간선 회복 국면|ATR 2.5% 수준의 안정적 변동성 유지|외국인 7거래일 연속 매도세 진정 및 저가 매수 유입|52주 신고가(1,655,000원) 대비 -19% 조정으로 가격 메리트|우주 항공 산업 중장기 성장성 및 영업이익 급증 기대",
+          "signals": {
+            "trend_score": 75,
+            "momentum_score": 73,
+            "volume_score": 80,
+            "volatility_score": 84,
+            "pattern_score": 85,
+            "sentiment_score": 78,
+            "overall_score": 78
+          },
+          "verified_date": "2026-03-27"
+        }
+      ],
+      "sentAt": "2026-03-29T22:36:53.214+00:00",
+      "subscriberCount": 265
+    },
+    {
+      "type": "stock",
       "date": "2026-03-27",
       "stocks": [
         {
@@ -5718,5 +5774,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-03-26T23:05:06.001Z"
+  "lastUpdated": "2026-03-29T22:37:35.586Z"
 }
