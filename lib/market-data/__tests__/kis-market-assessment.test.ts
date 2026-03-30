@@ -223,6 +223,8 @@ describe('kis-market-assessment', () => {
   });
 
   it('builds a cached KIS snapshot and selects the nearest mini futures contract', async () => {
+    // KST 14:00 고정 → isKstPreMarketHours() = false (야간 세션 fetch 없음)
+    vi.useFakeTimers({ now: new Date('2026-03-30T05:00:00Z') });
     const fetchMock = vi
       .fn<() => Promise<Response>>()
       .mockResolvedValueOnce(createJsonResponse({ access_token: 'token-1' }))
@@ -411,6 +413,7 @@ describe('kis-market-assessment', () => {
     const cachedSnapshot = await getKisMarketAssessmentSnapshot();
     expect(cachedSnapshot).toEqual(snapshot);
     expect(fetchMock).toHaveBeenCalledTimes(25);
+    vi.useRealTimers();
   }, 15000);
 
   it('rejects overseas index responses that only return zero prices', async () => {
