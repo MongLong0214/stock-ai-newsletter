@@ -1,5 +1,0 @@
-{
-  "last_turn_at": "2026-03-25T02:47:22.739Z",
-  "turn_count": 180,
-  "last_agent_output": "`mcp` 쪽은 바로 사용량에 영향 주는 방향으로 확장했습니다.\n\n- 새 MCP 도구 `get_market_summary`, `search_stocks`를 추가했고, `get_me"
-}
