@@ -18,7 +18,7 @@ async function sendTestEmail() {
   try {
     // 테스트 수신자
     const testRecipient = {
-      email: 'REDACTED_EMAIL',
+      email: process.env.TEST_EMAIL || 'test@example.com',
       name: '테스트',
     };
 

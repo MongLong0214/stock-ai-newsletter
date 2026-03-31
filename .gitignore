@@ -89,5 +89,12 @@ output/
 # Test/preview images (root)
 crash-alert-*.png
 
-# Playwright report
+# Playwright report & test results
 playwright-report/
+test-results/
+
+# Supabase CLI temp
+supabase/.temp/
+
+# MCP Serena memories (sub-project)
+mcp/.serena/memories/

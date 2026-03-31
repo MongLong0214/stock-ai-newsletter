@@ -1,1 +1,0 @@
-TypeScript project with `strict` mode enabled, ESM via `module`/`moduleResolution` `NodeNext`, rootDir `src`, outDir `dist`. Code appears to use straightforward function-based modules with named exports and no special formatting tooling declared in `package.json`.
