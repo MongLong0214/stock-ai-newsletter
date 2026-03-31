@@ -395,7 +395,7 @@ async function executeSearchMarketAssessmentFallback(snapshotError: string): Pro
                         temperature: GEMINI_API_CONFIG.TEMPERATURE,
                         topP: GEMINI_API_CONFIG.TOP_P,
                         topK: GEMINI_API_CONFIG.TOP_K,
-                        responseMimeType: 'text/plain',
+                        responseMimeType: 'application/json',
                     },
                 }),
                 PIPELINE_CONFIG.STAGE_TIMEOUT
