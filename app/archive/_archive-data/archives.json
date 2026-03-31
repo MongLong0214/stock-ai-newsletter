@@ -2,6 +2,62 @@
   "newsletters": [
     {
       "type": "stock",
+      "date": "2026-04-01",
+      "stocks": [
+        {
+          "ticker": "KOSPI:161000",
+          "name": "애경케미칼",
+          "close_price": 13740,
+          "rationale": "2026-03-31 종가 13,740원(-7.29%) 확인|3월 30일 상한가(14,820원) 기록 후 건전한 눌림목 형성|TPC(아라미드 원료) 국산화 성공 및 3월 26일 양산 설비 준공 모멘텀|RSI 62.4로 과매수 구간(70) 이탈 후 조정 완료|SMA 20일선(11,200원) 상향 돌파 후 정배열 유지|MACD 양선 유지 및 시그널 라인 상단 위치|거래량 1200% 폭증(3/30) 이후 매수세 잔류 확인|ADX 22.5로 완만한 상승 추세 형성 시작|OBV 우상향 지속으로 매집 흔적 뚜렷|Ichimoku 구름대 상단 돌파 후 지지 테스트 중",
+          "signals": {
+            "trend_score": 98,
+            "momentum_score": 83,
+            "volume_score": 95,
+            "volatility_score": 82,
+            "pattern_score": 40,
+            "sentiment_score": 92,
+            "overall_score": 86
+          },
+          "verified_date": "2026-03-31"
+        },
+        {
+          "ticker": "KOSDAQ:372320",
+          "name": "큐로셀",
+          "close_price": 49100,
+          "rationale": "2026-03-31 종가 49,100원(+3.59%) 확인|4월 2일 예정된 '림카토' 중앙약심(품목허가 관련) 일정 임박|CAR-T 치료제 투약 환자 5년 완전관해 유지 데이터 발표 모멘텀|RSI 58.7로 강세 전환 초기 신호 포착|SMA 20일선 부근 지지 확인 후 반등 시도|MACD 0선 돌파 시도 및 히스토그램 양전환|볼린저 밴드 하단 지지 후 중심선 돌파 시도|ADX 25.3으로 단기 추세 강화 구간 진입|OBV 반등세로 전환하며 기관/외인 수급 유입|CAR-T 국산 1호 출시 기대감으로 투심 극대화",
+          "signals": {
+            "trend_score": 83,
+            "momentum_score": 76,
+            "volume_score": 76,
+            "volatility_score": 75,
+            "pattern_score": 40,
+            "sentiment_score": 82,
+            "overall_score": 75
+          },
+          "verified_date": "2026-03-31"
+        },
+        {
+          "ticker": "KOSDAQ:397030",
+          "name": "에이프릴바이오",
+          "close_price": 54500,
+          "rationale": "2026-03-31 종가 54,500원 기준 분석|3월 27일 고점(63,600원) 대비 -14% 수준의 강력한 눌림목 지지 구간|SAFA 플랫폼 기반 기술수출(APB-R3 등) 및 임상 진입 모멘텀|RSI 48.2로 과매수 해소 후 반등 임계점 도달|SMA 60일선(52,000원) 및 이평선 밀집 구간 지지 확인|MACD 시그널 라인 부근 수렴하며 반등 시그널 대기|전일 대비 거래량 감소하며 매도 클라이맥스 통과|ADX 27.8로 중기 상승 추세 여전히 유효|SAFA 플랫폼 가치 재평가 및 글로벌 파트너링 기대감 지속|SuperTrend 매수 신호 유지 및 눌림목 매수 적기",
+          "signals": {
+            "trend_score": 96,
+            "momentum_score": 84,
+            "volume_score": 85,
+            "volatility_score": 81,
+            "pattern_score": 45,
+            "sentiment_score": 85,
+            "overall_score": 83
+          },
+          "verified_date": "2026-03-31"
+        }
+      ],
+      "sentAt": "2026-03-31T22:37:18.22+00:00",
+      "subscriberCount": 265
+    },
+    {
+      "type": "stock",
       "date": "2026-03-30",
       "stocks": [
         {
@@ -5774,5 +5830,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-03-29T23:06:35.362Z"
+  "lastUpdated": "2026-03-31T22:37:53.053Z"
 }
