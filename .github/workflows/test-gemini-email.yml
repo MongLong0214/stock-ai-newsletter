@@ -51,7 +51,7 @@ jobs:
         if: success()
         run: |
           echo "✅ 테스트 성공!"
-          echo "📬 REDACTED_EMAIL 으로 이메일이 발송되었습니다."
+          echo "📬 테스트 이메일이 발송되었습니다."
 
       - name: Notify on failure
         if: failure()

@@ -1,1 +1,0 @@
-After changes, run `npm run build`. No dedicated lint or test scripts are defined in `package.json`, so build verification is the primary project check unless the task specifies otherwise.
