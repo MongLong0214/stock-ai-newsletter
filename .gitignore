@@ -63,3 +63,31 @@ crash-alert-*.png
 # TLI Optimizer data dumps
 scripts/tli/research/optimizer/historical-data.json
 scripts/tli/research/optimizer/optimized-params.json
+
+# === Public repo 보안 정리 ===
+
+# MCP Registry tokens (실제 시크릿)
+.mcpregistry_github_token
+.mcpregistry_registry_token
+
+# IDE settings
+.idea/
+
+# AI tool logs & state
+.omx/
+mcp/.omx/
+
+# Serena AI memories
+.serena/memories/
+
+# Playwright MCP logs (중복 확인)
+.playwright-mcp/
+
+# AI output dumps
+output/
+
+# Test/preview images (root)
+crash-alert-*.png
+
+# Playwright report
+playwright-report/
