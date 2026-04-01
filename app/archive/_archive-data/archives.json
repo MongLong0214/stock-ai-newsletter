@@ -2,6 +2,62 @@
   "newsletters": [
     {
       "type": "stock",
+      "date": "2026-04-02",
+      "stocks": [
+        {
+          "ticker": "KOSDAQ:086520",
+          "name": "에코프로",
+          "close_price": 149100,
+          "rationale": "Investing.com 2026-04-01 실측 종가 149,100원 확인|코스닥 지수 6.06% 폭등 및 사이드카 발동 시장 주도주|SMA 20일선 거래량 동반한 강한 돌파|RSI 58.4 과매수 미진입 매수 우위 구간|MACD 0선 하단 골든크로스 및 히스토그램 양전|2026년 4월 1일 기준 시가총액 20.4조원 및 수급 개선|볼린저밴드 중심선 상향 돌파 및 안착|ATR 3.2% 변동성 확대 시작 지점|ADX 22.1 추세 강도 우상향 가속|OBV 저점 고조 및 매집 지표 호전|Stochastic 62.5 중상단 안정적 흐름|MFI 54 자금 유입 신호 확인|이격도 102 수준으로 상승 여력 충분|CCI 95 강세 구역 진입",
+          "signals": {
+            "trend_score": 92,
+            "momentum_score": 88,
+            "volume_score": 85,
+            "volatility_score": 80,
+            "pattern_score": 90,
+            "sentiment_score": 94,
+            "overall_score": 90
+          },
+          "verified_date": "2026-04-01"
+        },
+        {
+          "ticker": "KOSDAQ:196170",
+          "name": "알테오젠",
+          "close_price": 360000,
+          "rationale": "한국경제 2026-04-01 장마감 360,000원 실측 확인|전일 대비 5.42% 상승하며 정배열 초기 진입|RSI 61.2 매수 세력 우세 및 안정적 흐름|MACD Signal 선 상향 돌파 및 추세 강화|거래량 261,074주(04.01 기준) 확보 및 수급 집중|볼린저밴드 중상단 지지 확인 후 반등|ATR 2.8% 하락 제한적 변동성 유지|ADX 24.5 강한 상승 추세 형성 구간|OBV 전고점 돌파 시도로 우상향 지속|Stochastic 68.4 강세권 안착|Williams %R -32.5 적정 매수 구간|MFI 58 지속적 자금 유입 확인|Ichimoku 구름대 상단 돌파 및 매수 신호|Aroon Up 85 상승세 지배적",
+          "signals": {
+            "trend_score": 94,
+            "momentum_score": 90,
+            "volume_score": 82,
+            "volatility_score": 88,
+            "pattern_score": 92,
+            "sentiment_score": 95,
+            "overall_score": 91
+          },
+          "verified_date": "2026-04-01"
+        },
+        {
+          "ticker": "KOSDAQ:247540",
+          "name": "에코프로비엠",
+          "close_price": 202500,
+          "rationale": "Daum 금융 2026-04-01 장중 202,500원(+1.81%) 실측 확인|코스닥 전기전자 업종 8.67% 상승 주도 섹터 포함|SMA 5/20 골든크로스 발생 및 지지 확인|EMA 완전 정배열 전환 시도로 단기 강세|RSI 56.8 과열 부담 없는 매수 가능 구간|MACD 히스토그램 양수 확대 및 추세 반전|거래량 498,000주(04.01 기준) 전일비 132% 급증|볼린저밴드 상단 터치 후 매물 소화 과정|ATR 3.5% 상승 추세 속 적정 변동성|ADX 21.8 상승 추세 가속 지점|OBV 점진적 우상향으로 저가 매수세 유입|Stochastic 55.2 추가 상승 여력 확보|CCI 92 강세 신호 유지|KST(Know Sure Thing) 매수 신호 발생",
+          "signals": {
+            "trend_score": 89,
+            "momentum_score": 85,
+            "volume_score": 88,
+            "volatility_score": 84,
+            "pattern_score": 86,
+            "sentiment_score": 92,
+            "overall_score": 88
+          },
+          "verified_date": "2026-04-01"
+        }
+      ],
+      "sentAt": "2026-04-01T22:37:45.136+00:00",
+      "subscriberCount": 266
+    },
+    {
+      "type": "stock",
       "date": "2026-04-01",
       "stocks": [
         {
@@ -5830,5 +5886,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-03-31T23:06:56.933Z"
+  "lastUpdated": "2026-04-01T22:38:21.543Z"
 }
