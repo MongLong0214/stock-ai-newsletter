@@ -2,6 +2,62 @@
   "newsletters": [
     {
       "type": "stock",
+      "date": "2026-04-03",
+      "stocks": [
+        {
+          "ticker": "KOSPI:003280",
+          "name": "흥아해운",
+          "close_price": 4470,
+          "rationale": "2026년 4월 2일 종가 4,470원(+20.48%) 확인|당일 거래량 3억 8백만 주 이상으로 전일 대비 114% 폭증|RSI 68.5로 과매수 구간(70) 진입 직전의 강한 모멘텀|MACD 시그널선 골든크로스 및 히스토그램 양선 확대|볼린저밴드 상단(4,250원)을 거래량 동반하며 돌파 완료|ADX 28.5 수준으로 상승 추세 강도 가속화 단계|중동 지정학적 리스크 심화에 따른 해상 운임 지수 상승 수혜|OBV 지표의 가파른 우상향으로 세력 매집세 확인|Stochastic %K선이 %D선을 상향 돌파하는 강세 신호|금일 코스피 거래량 1위 기록하며 시장 주도권 확보",
+          "signals": {
+            "trend_score": 99,
+            "momentum_score": 92,
+            "volume_score": 100,
+            "volatility_score": 95,
+            "pattern_score": 98,
+            "sentiment_score": 88,
+            "overall_score": 97
+          },
+          "verified_date": "2026-04-02"
+        },
+        {
+          "ticker": "KOSPI:012450",
+          "name": "한화에어로스페이스",
+          "close_price": 1438000,
+          "rationale": "2026년 4월 2일 종가 1,438,000원(+7.88%) 확인|지수 4%대 급락에도 불구하고 52주 신고가 근접 강세|RSI 58.3으로 안정적인 상승 여력 보유 구간|MACD 0선 위에서 시그널 상향 돌파하며 추세 유지|폴란드향 K9 및 천무 인도 물량 확대에 따른 실적 모멘텀|기관 및 외국인의 동반 순매수세가 하락장에서 유입 확인|볼린저밴드 중심선 지지 후 상단 향한 기술적 반등 성공|ATR 3.1%로 안정적인 변동성 유지하며 우상향 채널 형성|ADX 24.1로 새로운 상승 추세 형성 초기 국면 진입|루마니아 IFV 도입 사업 등 조 단위 수주 파이프라인 대기",
+          "signals": {
+            "trend_score": 96,
+            "momentum_score": 85,
+            "volume_score": 92,
+            "volatility_score": 88,
+            "pattern_score": 95,
+            "sentiment_score": 90,
+            "overall_score": 92
+          },
+          "verified_date": "2026-04-02"
+        },
+        {
+          "ticker": "KOSPI:064350",
+          "name": "현대로템",
+          "close_price": 201500,
+          "rationale": "2026년 4월 2일 종가 201,500원(+6.73%) 확인|장중 213,000원 터치하며 강한 매수 에너지가 분출됨|RSI 62.1로 과열권 진입 전의 건강한 상승 추세|거래량 193만 주 기록하며 전 거래일 대비 160% 증가|SMA 5일선과 20일선의 이격도가 벌어지는 정배열 가속화|중동 리스크에 따른 방산 섹터 수급 집중의 직접적 수혜|Stochastic 68.5로 골든크로스 이후 우상향 각도 확대|Vortex VI+ 지표가 VI- 지표를 크게 상회하며 추세 강화|Aroon Up 지수 90% 이상 유지하며 단기 고점 돌파 기대|지수 폭락 장세에서 방어주를 넘어 주도주로 부각",
+          "signals": {
+            "trend_score": 94,
+            "momentum_score": 82,
+            "volume_score": 95,
+            "volatility_score": 90,
+            "pattern_score": 92,
+            "sentiment_score": 85,
+            "overall_score": 91
+          },
+          "verified_date": "2026-04-02"
+        }
+      ],
+      "sentAt": "2026-04-02T22:37:06.291+00:00",
+      "subscriberCount": 266
+    },
+    {
+      "type": "stock",
       "date": "2026-04-02",
       "stocks": [
         {
@@ -5886,5 +5942,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-04-01T23:10:00.361Z"
+  "lastUpdated": "2026-04-02T22:37:42.049Z"
 }
