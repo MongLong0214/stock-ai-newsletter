@@ -2,6 +2,62 @@
   "newsletters": [
     {
       "type": "stock",
+      "date": "2026-04-06",
+      "stocks": [
+        {
+          "ticker": "KOSPI:000660",
+          "name": "SK하이닉스",
+          "close_price": 876000,
+          "rationale": "2026-04-03 종가 876,000원 확인(Daum금융)|전일 대비 +5.54% 급등하며 코스피 5400선 회복 주도|외국인 순매수 672,153주 집중 유입(민심뉴스)|거래량 2,930,000주로 전일 대비 대폭 증가|외국인 보유 비율 52.57%로 견조한 수급 유지|SMA 5일선 및 20일선 골든크로스 발생|52주 최고가 1,099,000원 대비 회복 국면 진입|RSI 58.7로 과매수 구간 전 단계의 강한 모멘텀|MACD 히스토그램 양선 확대 및 0선 돌파|엔비디아의 마벨(Marvell) 투자에 따른 광통신 및 HBM 수요 기대감|반도체 업종 지수 4.54% 상승 동조화 확인",
+          "signals": {
+            "trend_score": 96,
+            "momentum_score": 98,
+            "volume_score": 94,
+            "volatility_score": 92,
+            "pattern_score": 95,
+            "sentiment_score": 97,
+            "overall_score": 96
+          },
+          "verified_date": "2026-04-03"
+        },
+        {
+          "ticker": "KOSPI:207940",
+          "name": "삼성바이오로직스",
+          "close_price": 1560000,
+          "rationale": "2026-04-03 종가 1,560,000원 확인(Investing.com)|미국 메릴랜드주 록빌(Rockville) 생산시설 인수 최종 완료(이데일리)|연간 영업이익 2조원 돌파 및 1Q26 실적 컨센서스 상회 전망(iM증권)|영업이익률(OPM) 45% 수준의 고수익 구조 유지|록빌 인수로 총 생산능력 84만 5,000L로 확대|4월 2일 4.64% 급등 후 4월 3일 -1.58%의 건전한 되돌림 조정|SMA 60일선 지지 및 5공장 하반기 매출 반영 기대|MFI(Money Flow Index) 62.1로 자금 유입 지속 확인|Williams %R -32.5로 중립 이상의 강세장 유지|바이오 1분기 수출 6조원 돌파에 따른 업황 호조 수혜|기관 수급 중심의 하방 경직성 확보",
+          "signals": {
+            "trend_score": 92,
+            "momentum_score": 89,
+            "volume_score": 88,
+            "volatility_score": 91,
+            "pattern_score": 90,
+            "sentiment_score": 93,
+            "overall_score": 91
+          },
+          "verified_date": "2026-04-03"
+        },
+        {
+          "ticker": "KOSPI:005380",
+          "name": "현대차",
+          "close_price": 471000,
+          "rationale": "2026-04-03 종가 471,000원 확인(Traders Union)|RSI 45.64로 바닥권 탈출 시도 중인 매수 적기(Investing.com)|SMA-200(312,610원) 상회하며 장기 우상향 추세 유지|단기 저항선 SMA-20(504,600원) 돌파 시도 구간|52주 변동폭 175,800~687,000원 내 안정적 위치|P/E 13.66배로 글로벌 완성차 대비 저평가 매력|기관 및 외국인 합산 수급 개선세 포착|2030년 북미 생산 비중 80% 확대 전략 모멘텀|수소 버스 누적 판매 3,000대 돌파 등 신사업 가속화|루이지애나 프로젝트 소송 등 악재 선반영에 따른 반등 구간|5일 내 예상 변동 범위 460,000~483,000원 상단 돌파 가능성",
+          "signals": {
+            "trend_score": 85,
+            "momentum_score": 88,
+            "volume_score": 82,
+            "volatility_score": 89,
+            "pattern_score": 86,
+            "sentiment_score": 90,
+            "overall_score": 87
+          },
+          "verified_date": "2026-04-03"
+        }
+      ],
+      "sentAt": "2026-04-05T22:36:50.782+00:00",
+      "subscriberCount": 269
+    },
+    {
+      "type": "stock",
       "date": "2026-04-03",
       "stocks": [
         {
@@ -5942,5 +5998,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-04-02T23:07:00.530Z"
+  "lastUpdated": "2026-04-05T22:37:26.197Z"
 }
