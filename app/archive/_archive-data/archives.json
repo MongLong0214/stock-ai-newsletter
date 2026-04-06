@@ -2,6 +2,62 @@
   "newsletters": [
     {
       "type": "stock",
+      "date": "2026-04-07",
+      "stocks": [
+        {
+          "ticker": "KOSPI:005930",
+          "name": "삼성전자",
+          "close_price": 193100,
+          "rationale": "2026-04-06 종가 193,100원(+3.71%) 확인 완료|1분기 잠정 실적 발표(4/7)를 앞둔 영업이익 36조~50조 원대 어닝 서프라이즈 기대감 반영|기관 8,371억 원 규모의 강력한 순매수세 유입으로 '19만전자' 회복(Source: KRX)|SMA 5일선이 20일선을 상향 돌파하는 단기 골든크로스 발생|RSI 64.83으로 과매수 구간 전 단계의 강력한 상승 모멘텀 유지|볼린저밴드 상단(194,600) 돌파 시도하며 변동성 확대 국면 진입|MACD 히스토그램 양의 영역 확산 및 시그널 선과의 이격 확대|거래량 2,064만 주로 전 거래일 대비 급증하며 추세 신뢰도 확보|ATR 2.9%로 변동성 내 안정적 우상향 지속|ADX 34로 강력한 상승 추세 형성 확인|OBV 신고가 경신으로 기관/외인 동반 매집 강도 확인|Williams %R -22로 상방 압력 우세 및 단기 과열 진입 전 단계",
+          "signals": {
+            "trend_score": 96,
+            "momentum_score": 94,
+            "volume_score": 97,
+            "volatility_score": 85,
+            "pattern_score": 93,
+            "sentiment_score": 98,
+            "overall_score": 95
+          },
+          "verified_date": "2026-04-06"
+        },
+        {
+          "ticker": "KOSPI:000660",
+          "name": "SK하이닉스",
+          "close_price": 886000,
+          "rationale": "2026-04-06 종가 886,000원(+1.14%) 확인 완료|HBM4 포함 차세대 DRAM 시장 내 독보적 입지 및 목표주가 116.9만 원 상향 조정(Source: 유안타증권)|SMA 20일선 지지 확인 후 전고점(1,099,000) 돌파를 위한 반등 가속도 구간|EMA 단기 지표(5, 10, 20일) 완전 정배열 상태 유지|RSI 62.35로 건전한 상승 추세 내 위치하며 추가 상승 여력 확보|MACD 0선 위에서 시그널 선 상향 돌파 후 확산세 지속|거래량 300만 주 수준으로 시장 주도주로서의 견조한 수급 집중|볼린저밴드 상단(901,500)을 향한 추세적 반등 흐름 지속|ATR 3.2% 기반의 탄탄한 기술적 지지선 형성|ADX 31로 추세 강화 신호 지속 발생 및 추세 추종 매수세 유입|OBV 누적 매수세가 역대 최고치 부근에서 유지되며 매물 소화 완료|Stochastic %K 76.2로 우상향 흐름 견조 및 상승 모멘텀 극대화",
+          "signals": {
+            "trend_score": 97,
+            "momentum_score": 95,
+            "volume_score": 98,
+            "volatility_score": 88,
+            "pattern_score": 95,
+            "sentiment_score": 97,
+            "overall_score": 96
+          },
+          "verified_date": "2026-04-06"
+        },
+        {
+          "ticker": "KOSDAQ:402490",
+          "name": "그린리소스",
+          "close_price": 14900,
+          "rationale": "2026-04-06 종가 14,900원 확인 완료(Source: Investing/Naver)|최근 52주 저점(6,127) 대비 바닥 다지기 후 거래량 동반한 급등 국면 진입(Source: 주달)|SMA 5일선 및 20일선 골든크로스 발생 및 정배열 초기 진입 국면|RSI 58.42로 상승 여력 충분한 중립 이상의 강세 모멘텀|볼린저밴드 상단 확산과 함께 15,000원 라운드 피겨 저항 돌파 시도|거래량 55만 주 수준 유지하며 저가 매수세 및 안정적인 매집 흔적 포착|MACD 히스토그램 양 전환 및 시그널 선 상향 돌파로 매수 신호 발생|ATR 기반 변동성 확대 시작으로 단기 10% 이상 급등 가능성 시사|ADX 28로 새로운 상승 추세 형성 초기 신호 포착|OBV 저점 우상향 지속으로 스마트 머니의 유입 확인|Williams %R -32.5로 매수 우위권 안착 및 상방 압력 지속|MFI 64.1로 자금의 건전한 유입 및 매수세 강화 확인",
+          "signals": {
+            "trend_score": 91,
+            "momentum_score": 89,
+            "volume_score": 84,
+            "volatility_score": 91,
+            "pattern_score": 92,
+            "sentiment_score": 88,
+            "overall_score": 89
+          },
+          "verified_date": "2026-04-06"
+        }
+      ],
+      "sentAt": "2026-04-06T22:37:30.999+00:00",
+      "subscriberCount": 268
+    },
+    {
+      "type": "stock",
       "date": "2026-04-06",
       "stocks": [
         {
@@ -5998,5 +6054,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-04-05T23:06:38.652Z"
+  "lastUpdated": "2026-04-06T22:38:12.847Z"
 }
