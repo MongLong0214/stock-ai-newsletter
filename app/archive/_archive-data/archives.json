@@ -2,6 +2,62 @@
   "newsletters": [
     {
       "type": "stock",
+      "date": "2026-04-10",
+      "stocks": [
+        {
+          "ticker": "KOSPI:093370",
+          "name": "후성",
+          "close_price": 11500,
+          "rationale": "2026-04-09 종가 11,500원 확인(출처: 한국경제)|등락률 +18.43% 급등 모멘텀 형성|거래량 11,469,757주 폭증으로 매집 확인|반도체 특수가스 WF6 생산 직접 수혜 발표(뉴스1)|RSI 68.5로 과매수 구간(70) 미진입 및 강세 유지|MACD 0선 위 시그널선 상향 돌파 골든크로스|SMA 5/20/60 이동평균선 완전 정배열 진입|볼린저밴드 상단 돌파 및 밴드 라이딩 패턴|OBV 지표 전고점 돌파로 강력한 자금 유입 증명|기관 및 외국인 3일 연속 동반 순매수 확인",
+          "signals": {
+            "trend_score": 97,
+            "momentum_score": 98,
+            "volume_score": 99,
+            "volatility_score": 88,
+            "pattern_score": 95,
+            "sentiment_score": 96,
+            "overall_score": 96
+          },
+          "verified_date": "2026-04-09"
+        },
+        {
+          "ticker": "KOSPI:047040",
+          "name": "대우건설",
+          "close_price": 19430,
+          "rationale": "2026-04-09 종가 19,430원 급등 마감 확인|등락률 +24.95% 장대양봉으로 전고점 돌파|2026년 3월 예상 영업이익 1,207억 흑자 달성 기대감|외국인 및 기관 수급 집중(외국인 4/1~4/6 지속 매수)|거래량 3,489만 주 돌파로 유동성 공급 확인|RSI 69.2로 강력한 추세 강화 구간 위치|ADX 35.0 돌파로 강력한 상승 추세 확정 신호|일목균형표 구름대 돌파 및 전환선-기준선 호전|52주 신고가 근접에 따른 매물대 공백 구간 진입|Stochastic 68.2로 적정 상승 에너지 비축",
+          "signals": {
+            "trend_score": 95,
+            "momentum_score": 96,
+            "volume_score": 94,
+            "volatility_score": 91,
+            "pattern_score": 93,
+            "sentiment_score": 92,
+            "overall_score": 94
+          },
+          "verified_date": "2026-04-09"
+        },
+        {
+          "ticker": "KOSPI:373220",
+          "name": "LG에너지솔루션",
+          "close_price": 421500,
+          "rationale": "2026-04-09 코스피 하락장 속 +3.69% 차별화 상승|시가총액 상위 10개 종목 중 유일한 상승 마감|코스피 1.61% 하락 대비 강력한 하방경직성 증명|기관의 2,077억 순매수세 집중 유입 대상|RSI 58.4로 바닥권 탈출 후 안정적 추세 형성|MACD 시그널선 골든크로스 발생 초입 구간|60일 이동평균선 강력 돌파 및 안착 시도|MFI 65.2로 자금 유입 지속성 확인|Williams %R -35.2로 추가 상승 여력 충분|2차전지 섹터 내 대장주로서의 수급 쏠림 현상",
+          "signals": {
+            "trend_score": 91,
+            "momentum_score": 92,
+            "volume_score": 89,
+            "volatility_score": 82,
+            "pattern_score": 90,
+            "sentiment_score": 94,
+            "overall_score": 90
+          },
+          "verified_date": "2026-04-09"
+        }
+      ],
+      "sentAt": "2026-04-09T22:38:09.297+00:00",
+      "subscriberCount": 268
+    },
+    {
+      "type": "stock",
       "date": "2026-04-09",
       "stocks": [
         {
@@ -6166,5 +6222,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-04-08T23:11:36.360Z"
+  "lastUpdated": "2026-04-09T22:38:40.052Z"
 }
