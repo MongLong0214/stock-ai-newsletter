@@ -2,6 +2,62 @@
   "newsletters": [
     {
       "type": "stock",
+      "date": "2026-04-13",
+      "stocks": [
+        {
+          "ticker": "KOSPI:042700",
+          "name": "한미반도체",
+          "close_price": 286000,
+          "rationale": "2026-04-10 종가 286,000원 확인(Daum금융/Investing.com)|RSI(14) 65.352로 매수 우위 구간 진입|MACD(12,26) 5,899.887 기록하며 강세 모멘텀 유지|SMA 5일선(285,700) 상단 안착 성공|SMA 50일선(265,730) 상향 돌파 후 지지력 확보|거래량 1,087,000주로 전일 대비 견조한 수급 확인|기관 4월 9일 236,592주 대량 순매수 유입(민심뉴스)|HBM4 전용 듀얼 TC 본더 Tiger 출시 모멘텀(머니스토리)|글로벌 HBM 점유율 71.2% 독점적 지위 유지(주달)|2026년 매출 2조원 돌파 전망 및 슈퍼사이클 진입|52주 최고가 338,500원 대비 조정 후 반등 초입 구간",
+          "signals": {
+            "trend_score": 97,
+            "momentum_score": 89,
+            "volume_score": 89,
+            "volatility_score": 93,
+            "pattern_score": 85,
+            "sentiment_score": 88,
+            "overall_score": 91
+          },
+          "verified_date": "2026-04-10"
+        },
+        {
+          "ticker": "KOSPI:005380",
+          "name": "현대차",
+          "close_price": 489500,
+          "rationale": "2026-04-10 종가 489,500원 확인(Investing.com/Euroland)|RSI(14) 49.622로 과매수 해소 후 안정적 중립 구간|MACD(12,26) 1,833.640으로 매수 신호 발생|SMA 50일선(481,845) 및 100일선 지지 확인|Bollinger Bands 중심선 부근에서 하방 경직성 확보|거래량 812,710주로 건전한 손바뀜 현상 발생|Nvidia 협력 자율주행 알고리즘 Alpamayo 도입 기대|Boston Dynamics 로봇 공장 실증 사업 본격화(iM증권)|SDV(소프트웨어 중심 자동차) 2026년형 팰리세이드 판매 재개|외국인 지분율 38.6% 수준의 고점 유지(한화리서치)|2026년 영업이익 가이던스 11.8조~13.8조원 상향 조정",
+          "signals": {
+            "trend_score": 92,
+            "momentum_score": 87,
+            "volume_score": 85,
+            "volatility_score": 88,
+            "pattern_score": 90,
+            "sentiment_score": 85,
+            "overall_score": 88
+          },
+          "verified_date": "2026-04-10"
+        },
+        {
+          "ticker": "KOSPI:207940",
+          "name": "삼성바이오로직스",
+          "close_price": 1571000,
+          "rationale": "2026-04-10 종가 1,571,000원 확인(수정: 1,606,000 -> 1,571,000)|RSI(14) 55.679로 견조한 매수세 유지|MACD(12,26) 6,479.975로 강력한 상승 추세 확인|미국 제약사 대상 1.8조원 규모 대형 CMO 계약 체결(IBK투자)|4공장(24만 리터) Full 가동에 따른 매출 극대화 구간|생물보안법 반사 수혜 및 수주 경쟁력 강화(딜사이트)|미국 메릴랜드 록빌 생산시설 인수를 통한 생산 이원화 완료|SMA 60일선 강력 지지 및 이격도 확대 초기|2026년 예상 EBITDA 2.9조원 규모의 성장성 확보|목표주가 223만원 상향 리포트 발행(한국투자증권)|인적분할 후 CDMO 본업 가치 재평가 국면 진입",
+          "signals": {
+            "trend_score": 90,
+            "momentum_score": 85,
+            "volume_score": 82,
+            "volatility_score": 85,
+            "pattern_score": 88,
+            "sentiment_score": 82,
+            "overall_score": 86
+          },
+          "verified_date": "2026-04-10"
+        }
+      ],
+      "sentAt": "2026-04-12T22:37:16.183+00:00",
+      "subscriberCount": 268
+    },
+    {
+      "type": "stock",
       "date": "2026-04-10",
       "stocks": [
         {
@@ -6222,5 +6278,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-04-09T23:13:02.116Z"
+  "lastUpdated": "2026-04-12T22:37:46.583Z"
 }
