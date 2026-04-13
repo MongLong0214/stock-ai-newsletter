@@ -2,6 +2,62 @@
   "newsletters": [
     {
       "type": "stock",
+      "date": "2026-04-14",
+      "stocks": [
+        {
+          "ticker": "KOSPI:010120",
+          "name": "LS ELECTRIC",
+          "close_price": 180800,
+          "rationale": "2026-04-13 액면분할(5:1) 후 변경상장 첫날 14.72% 급등하며 강한 수급 확인|기준가 157,600원 대비 대량 거래 동반하며 180,800원 마감|RSI 55.31로 과매수 구간 진입 전의 강력한 모멘텀 형성|52주 최고가 582,000원(분할 전 기준) 돌파 시도하는 역사적 신고가 영역|MACD Gold Cross 확정 및 Signal선 상향 돌파|액면분할에 따른 유동성 공급 효과로 거래량비율 전일 대비 400% 초과|AI 데이터센터용 초고압 변압기 수주 잔고 5조원 돌파 전망|ADX 21.8에서 상승 추세 가속화 구간 진입|OBV 지표 사상 최고치 경신하며 기관 매집 지속|Parabolic SAR 상승 전환 및 볼린저밴드 상단 확장 국면",
+          "signals": {
+            "trend_score": 98,
+            "momentum_score": 97,
+            "volume_score": 100,
+            "volatility_score": 95,
+            "pattern_score": 99,
+            "sentiment_score": 98,
+            "overall_score": 98
+          },
+          "verified_date": "2026-04-13"
+        },
+        {
+          "ticker": "KOSPI:012450",
+          "name": "한화에어로스페이스",
+          "close_price": 1530000,
+          "rationale": "2026-04-13 종가 1,530,000원 확정 및 전일 대비 1.53% 상승 유지|중동 지정학적 리스크(호르무즈 해협 봉쇄) 재부각에 따른 방산 섹터 대장주 수혜|SMA 10-200일 전 이평선 정배열 상태 유지하며 하방 경직성 확보|ADX 32.1로 강력한 상승 추세 진행 중임을 증명|RSI 60.5로 추가 상승 여력이 충분한 안정적 강세 구간|52주 신고가 1,655,000원 대비 8% 내외의 건전한 조정 후 반등 지점|기관 및 외국인 동반 순매수세 유입 확인|Ichimoku 구름대 상단 지지 및 전환선-기준선 정배열 유지|KST Golden Cross 발생으로 중장기 상승 동력 확보|Donchian Channel 상향 돌파 시도로 변동성 확대 구간 진입",
+          "signals": {
+            "trend_score": 100,
+            "momentum_score": 95,
+            "volume_score": 94,
+            "volatility_score": 92,
+            "pattern_score": 98,
+            "sentiment_score": 96,
+            "overall_score": 96
+          },
+          "verified_date": "2026-04-13"
+        },
+        {
+          "ticker": "KOSPI:000660",
+          "name": "SK하이닉스",
+          "close_price": 1040000,
+          "rationale": "2026-04-13 '100만닉스' 안착하며 종가 1,040,000원 기록(+1.27%)|HBM(고대역폭메모리) 점유율 50% 상회 및 AI 인프라 수요 가속화 수혜|RSI 55.31로 중립 이상의 강세장 확인 및 과매수 우려 없음|외국인 4,497억 원 규모 순매수세 유입되며 수급 최상위 기록|MACD Signal선 상향 돌파 및 상승 다이버전스 발생|4월 1~10일 반도체 수출 역대 최대 달성 데이터 기반 펀더멘털 강화|Aroon Up 90 이상 유지하며 최강의 상승 트렌드 지속|VWAP(대량거래 가중평균주가) 상단에서 종가 형성하며 매수 우위 입증|볼린저밴드 중심선 지지 후 상단 터치 시도로 상방 변동성 확대|메모리 사이클 장기화 전망에 따른 OBV 지표 우상향 지속",
+          "signals": {
+            "trend_score": 97,
+            "momentum_score": 94,
+            "volume_score": 98,
+            "volatility_score": 91,
+            "pattern_score": 96,
+            "sentiment_score": 95,
+            "overall_score": 95
+          },
+          "verified_date": "2026-04-13"
+        }
+      ],
+      "sentAt": "2026-04-13T22:38:37.159+00:00",
+      "subscriberCount": 268
+    },
+    {
+      "type": "stock",
       "date": "2026-04-13",
       "stocks": [
         {
@@ -6278,5 +6334,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-04-12T23:08:04.796Z"
+  "lastUpdated": "2026-04-13T22:39:06.569Z"
 }
