@@ -2,6 +2,62 @@
   "newsletters": [
     {
       "type": "stock",
+      "date": "2026-04-15",
+      "stocks": [
+        {
+          "ticker": "KOSPI:000660",
+          "name": "SK하이닉스",
+          "close_price": 1103000,
+          "rationale": "RSI(14): 66.91 | MACD(12,26): 21757.68 (Buy) | ADX(14): 32.96 (Strong Trend) | ATR(14): 12464.29 | Volume: 4.71M (+70% vs Prev) | MA-5/20/50/200: Full Bullish Alignment | 1,100,000 KRW Psychological Barrier Breakout | 52-week High (1,128,000) Touch Pattern | AI Server HBM/HBF Demand Explosion Catalyst | Foreign Institutional Net Buying Concentration | 2026 Yongin Fab Completion Acceleration News",
+          "signals": {
+            "trend_score": 94,
+            "momentum_score": 96,
+            "volume_score": 92,
+            "volatility_score": 85,
+            "pattern_score": 95,
+            "sentiment_score": 97,
+            "overall_score": 94
+          },
+          "verified_date": "2026-04-14"
+        },
+        {
+          "ticker": "KOSPI:005930",
+          "name": "삼성전자",
+          "close_price": 206500,
+          "rationale": "RSI(14): 55.11 | MACD(12,26): 1726.01 (Buy) | STOCH(9,6): 99.02 (Momentum Max) | MA-50/200: Above (Golden Cross Maintenance) | Volume: 22.68M (Accumulation Phase) | 20.51% Quarterly Earnings Surprise Catalyst | High Performance Computing (HPC) New Order Wins | Relative Valuation Discount vs Global Peers | KOSPI 6,000 Level Leadership Expectation | Massive Foreign Capital Inflow into IT Cluster",
+          "signals": {
+            "trend_score": 90,
+            "momentum_score": 88,
+            "volume_score": 92,
+            "volatility_score": 82,
+            "pattern_score": 85,
+            "sentiment_score": 94,
+            "overall_score": 91
+          },
+          "verified_date": "2026-04-14"
+        },
+        {
+          "ticker": "KOSPI:005380",
+          "name": "현대차",
+          "close_price": 491500,
+          "rationale": "RSI(14): 44.52 (Stable Entry) | MACD: Positive Trend Transition Signal | 2026 Multi-year Box Range Upper Breakout | Former Resistance (490k) Converted to Support | MA-200: Long-term Support at 358k Area | 25% Structural Upside Target (660,000 KRW) | BEV/SDV Global Market Share Expansion | Attractive Dividend Yield (2.03%) at Current Price | Technical RSI Downtrend Line Breakout Confirmed | Institutional Long-term Accumulation Pattern Discovery",
+          "signals": {
+            "trend_score": 85,
+            "momentum_score": 82,
+            "volume_score": 80,
+            "volatility_score": 78,
+            "pattern_score": 92,
+            "sentiment_score": 88,
+            "overall_score": 84
+          },
+          "verified_date": "2026-04-14"
+        }
+      ],
+      "sentAt": "2026-04-14T22:38:54.25+00:00",
+      "subscriberCount": 268
+    },
+    {
+      "type": "stock",
       "date": "2026-04-14",
       "stocks": [
         {
@@ -6334,5 +6390,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-04-13T23:13:30.786Z"
+  "lastUpdated": "2026-04-14T22:39:28.032Z"
 }
