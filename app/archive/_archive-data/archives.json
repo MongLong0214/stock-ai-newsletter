@@ -2,6 +2,62 @@
   "newsletters": [
     {
       "type": "stock",
+      "date": "2026-04-16",
+      "stocks": [
+        {
+          "ticker": "KOSPI:011930",
+          "name": "신성이엔지",
+          "close_price": 4120,
+          "rationale": "2026-04-15 기준 SMA 5/20/60 정배열 확인|EMA(12,26) 골든크로스 발생|RSI(14) 58.4로 중립적 강세 구간 진입|MACD 히스토그램 0선 상향 돌파|전일 대비 거래량비율 180% 급증|볼린저밴드 중심선(20일) 지지 후 양봉 형성|ATR(14) 3.1%로 변동성 확대 초기|ADX(14) 24.5로 추세 강화 신호|OBV 지표 직전 고점 돌파하며 매집 확인|스토캐스틱(12,3,3) %K %D 골든크로스|Williams %R -35.2로 과매수 전 단계|SuperTrend Buy 신호 전환 확인|VWAP 4,085원 상회 유지|Aroon Up 85로 강력한 상승 추세|Vortex VI+ 1.15로 상승 전환 컨펌",
+          "signals": {
+            "trend_score": 95,
+            "momentum_score": 92,
+            "volume_score": 98,
+            "volatility_score": 88,
+            "pattern_score": 100,
+            "sentiment_score": 91,
+            "overall_score": 95
+          },
+          "verified_date": "2026-04-15"
+        },
+        {
+          "ticker": "KOSDAQ:445090",
+          "name": "에이직랜드",
+          "close_price": 58200,
+          "rationale": "2026-04-15 EMA 20일선 지지 후 반등 성공|RSI(14) 52.1로 안정적 상승 궤도|MACD 히스토그램 양전환 확인|거래량 165% 증가하며 매수세 유입|볼린저밴드 폭 스퀴즈 후 상단 돌파 시도|ATR(14) 4.5%로 주가 탄력성 확보|ADX(14) 21.8로 새로운 추세 시작점|OBV 우상향 추세 유지 중|스토캐스틱 slow 42.5 저점 형성 후 반등|Williams %R -48.2로 중립 위치|SuperTrend 매수 유지 구간|VWAP 57,800원 돌파 성공|Ichimoku 기준선 및 전환선 정배열|Elder Ray Bull Power 양수 전환|Vortex VI+ 1.05 상승 시작 신호",
+          "signals": {
+            "trend_score": 88,
+            "momentum_score": 85,
+            "volume_score": 90,
+            "volatility_score": 92,
+            "pattern_score": 95,
+            "sentiment_score": 88,
+            "overall_score": 90
+          },
+          "verified_date": "2026-04-15"
+        },
+        {
+          "ticker": "KOSDAQ:241710",
+          "name": "코스메카코리아",
+          "close_price": 82400,
+          "rationale": "2026-04-15 SMA 5/20/60 완벽한 정배열|EMA 단기 이동평균선 상향 이탈|RSI(14) 61.5로 강세 흐름 지속|MACD Signal 라인 위에서 히스토그램 확대|거래량 5일 평균 대비 점진적 확대|볼린저밴드 상단 밴드 타고 상승(Walking the Bands)|ATR(14) 3.8% 안정적 변동성 유지|ADX(14) 28.4로 강한 추세 탄력|OBV 신고가 경신하며 강력 매집 확인|스토캐스틱 65.2 우상향 진행|Williams %R -28.5 강세 구간|SuperTrend Buy 유지 및 지지선 상승|52주 신고가 돌파 직전 매물 소화|KST 골든크로스 발생|Chaikin Money Flow(CMF) 0.15로 자금 유입",
+          "signals": {
+            "trend_score": 92,
+            "momentum_score": 88,
+            "volume_score": 85,
+            "volatility_score": 82,
+            "pattern_score": 90,
+            "sentiment_score": 89,
+            "overall_score": 88
+          },
+          "verified_date": "2026-04-15"
+        }
+      ],
+      "sentAt": "2026-04-15T22:38:24.095+00:00",
+      "subscriberCount": 268
+    },
+    {
+      "type": "stock",
       "date": "2026-04-15",
       "stocks": [
         {
@@ -6390,5 +6446,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-04-14T23:14:09.086Z"
+  "lastUpdated": "2026-04-15T22:38:57.255Z"
 }
