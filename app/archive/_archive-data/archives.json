@@ -2,6 +2,62 @@
   "newsletters": [
     {
       "type": "stock",
+      "date": "2026-04-17",
+      "stocks": [
+        {
+          "ticker": "KOSPI:005930",
+          "name": "삼성전자",
+          "close_price": 217500,
+          "rationale": "SMA 5·10·20·60·120일 완전정배열 확인|RSI 64.2 강세 구간 유지(과매수 미진입)|MACD 시그널선 상향 돌파 및 히스토그램 양선 확대|2026-04-16 외국인 3,621억, 기관 3,144억 동반 순매수|거래량 21,339,292주로 전일 대비 점증|52주 신고가(223,000) 돌파 가시권 진입|TSMC 1분기 어닝 서프라이즈(순이익 +58%)에 따른 반도체 섹터 동반 강세|ADX 28 추세 강화 신호 발생|Stochastic 74 매수 신호 유지|OBV 사상 최고치 근접하며 매집 세력 강화|ATR 2.1% 수준의 안정적 변동성 속 우상향",
+          "signals": {
+            "trend_score": 94,
+            "momentum_score": 91,
+            "volume_score": 88,
+            "volatility_score": 85,
+            "pattern_score": 92,
+            "sentiment_score": 90,
+            "overall_score": 90
+          },
+          "verified_date": "2026-04-16"
+        },
+        {
+          "ticker": "KOSPI:005380",
+          "name": "현대차",
+          "close_price": 534000,
+          "rationale": "RSI 69.538로 과매수(70) 직전의 강력한 모멘텀 형성|MACD 10,642 기록하며 강한 매수 신호 발생|2026-04-16 종가 기준 5.12% 급등하며 52주 신고가 경신|기관 중심의 강력한 수급 유입 및 연기금 순매수 전환|MA 5·50·200일선 모두 정배열 및 지지선 구축|StochRSI 56.186으로 추가 상승 여력 충분|ADX 지표상 추세 강도 급증|볼린저밴드 상단을 타고 올라가는 추세 추종(Riding) 패턴|글로벌 완성차 섹터 강세 및 환율 안정화 수혜|거래량 104만 주 돌파하며 직전 고점 매물대 소화 완료",
+          "signals": {
+            "trend_score": 93,
+            "momentum_score": 94,
+            "volume_score": 92,
+            "volatility_score": 84,
+            "pattern_score": 93,
+            "sentiment_score": 91,
+            "overall_score": 91
+          },
+          "verified_date": "2026-04-16"
+        },
+        {
+          "ticker": "KOSDAQ:032820",
+          "name": "우리기술",
+          "close_price": 22950,
+          "rationale": "SMA 20일선 눌림목 지지 후 5.52% 반등 성공|RSI 64.526으로 건강한 상승 탄력 유지|MACD 147.231 상향 추세 지속|거래량 38,495,533주 기록하며 코스닥 거래 상위 랭크|MA 5·10·20일선 정배열 전환 및 단기 골든크로스|피보나치 피벗 포인트 21,717원 위에서 강력한 지지 확인|글로벌 SMR(소형모듈원전) 및 원전 제어시스템 독점 모멘텀 지속|OBV 직전 고점 돌파하며 자금 유입 가속화|Stochastic 78 강세권 진입으로 슈팅 가능성 증대|ATR 5.2%의 높은 변동성을 동반한 전형적인 급등주 패턴",
+          "signals": {
+            "trend_score": 88,
+            "momentum_score": 95,
+            "volume_score": 98,
+            "volatility_score": 80,
+            "pattern_score": 91,
+            "sentiment_score": 89,
+            "overall_score": 89
+          },
+          "verified_date": "2026-04-16"
+        }
+      ],
+      "sentAt": "2026-04-16T22:38:02.679+00:00",
+      "subscriberCount": 272
+    },
+    {
+      "type": "stock",
       "date": "2026-04-16",
       "stocks": [
         {
@@ -6446,5 +6502,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-04-15T23:13:33.294Z"
+  "lastUpdated": "2026-04-16T22:38:41.423Z"
 }
