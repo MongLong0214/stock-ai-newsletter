@@ -2,6 +2,62 @@
   "newsletters": [
     {
       "type": "stock",
+      "date": "2026-04-20",
+      "stocks": [
+        {
+          "ticker": "KOSPI:077970",
+          "name": "STX엔진",
+          "close_price": 44000,
+          "rationale": "SMA 5, 10, 20일 이평선 정배열 확장 국면 진입 확인|RSI 55.82로 과매수 구간(70) 미달하며 매수 우위 상태|MACD 영선(0) 위 시그널선 골든크로스 발생 초기 단계|거래량 20일 평균 대비 145.3% 급증하며 매수세 유입|볼린저밴드 상단 돌파 시도하며 추세 변동성 확대|ATR 4.21% 기록하며 단기 급등 탄력성 충분 확보|ADX 22.4로 바닥권 탈출하며 새로운 상승 추세 형성|OBV(On Balance Volume) 지속 우상향으로 매집 흔적 뚜렷|스토캐스틱 %K선이 %D선을 상향 돌파하며 상승 전환|SuperTrend 지표 매수(Buy) 시그널 발생 상태 유지|Williams %R -42.8로 추세 추종형 적정 매수 범위 위치|Ichimoku Cloud 전환선이 기준선을 상향 돌파하는 호전 현상",
+          "signals": {
+            "trend_score": 82,
+            "momentum_score": 85,
+            "volume_score": 88,
+            "volatility_score": 80,
+            "pattern_score": 85,
+            "sentiment_score": 85,
+            "overall_score": 84
+          },
+          "verified_date": "2026-04-17"
+        },
+        {
+          "ticker": "KOSPI:329180",
+          "name": "HD현대중공업",
+          "close_price": 514000,
+          "rationale": "SMA 20일선 안착 후 단기 골든크로스 패턴 형성|RSI 52.41로 중립 이상의 강세권 안정적 진입|MACD 시그널선 돌파 및 영선 근접으로 하락 추세 종료|거래량 전일 대비 120.5% 증가하며 수급 개선세 확인|볼린저밴드 중심선(20일) 지지 확인 후 반등 흐름|ATR 3.84%로 변동성 하단에서 상단으로 확장 구간|ADX 24.1로 강한 추세 강화 단계 초기 진입|OBV 지표 가격 상승과 함께 정배열 형태 형성|스토캐스틱 슬로우 42.57로 과매도 구간 탈출 신호|SuperTrend 매수 전환 신호 발생으로 단기 방향성 확정|%R Oscillator 70.43 기록하며 미과열 상태의 강한 에너지|Ichimoku Cloud 기준선 위로 주가 안착하며 지지선 확보",
+          "signals": {
+            "trend_score": 85,
+            "momentum_score": 80,
+            "volume_score": 82,
+            "volatility_score": 75,
+            "pattern_score": 90,
+            "sentiment_score": 88,
+            "overall_score": 83
+          },
+          "verified_date": "2026-04-17"
+        },
+        {
+          "ticker": "KOSPI:012450",
+          "name": "한화에어로스페이스",
+          "close_price": 1423000,
+          "rationale": "SMA 60일 이평선 터치 후 강력한 하방 경직성 확보|RSI 58.24로 견조한 상승 모멘텀 유지 중|MACD 영선 상단에서 시그널선과의 이격 축소 후 반등|외국인 및 기관 동반 수급 유입으로 매물 소화 과정 완료|볼린저밴드 수렴 후 상향 발산 직전의 눌림목 형성|ATR 2.91%로 안정적인 변동성 내 우상향 추세|ADX 31.5 기록하며 매우 강한 상승 추세 진행 중임|OBV 전고점 돌파 시도로 추가 상승 가능성 증대|스토캐스틱 65.04로 중립 이상 구간에서 가속도 확보|SuperTrend 매수 신호가 작년부터 지속되는 장기 우상향|Williams %R -35.21로 과매수 위험 없는 적정 구간|Vortex Indicator(VI+)가 VI-를 압도하며 추세 우위 유지",
+          "signals": {
+            "trend_score": 88,
+            "momentum_score": 82,
+            "volume_score": 78,
+            "volatility_score": 70,
+            "pattern_score": 80,
+            "sentiment_score": 90,
+            "overall_score": 82
+          },
+          "verified_date": "2026-04-17"
+        }
+      ],
+      "sentAt": "2026-04-19T22:37:26.028+00:00",
+      "subscriberCount": 275
+    },
+    {
+      "type": "stock",
       "date": "2026-04-17",
       "stocks": [
         {
@@ -6502,5 +6558,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-04-16T23:12:41.263Z"
+  "lastUpdated": "2026-04-19T22:38:01.388Z"
 }
