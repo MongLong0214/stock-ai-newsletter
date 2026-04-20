@@ -2,6 +2,62 @@
   "newsletters": [
     {
       "type": "stock",
+      "date": "2026-04-21",
+      "stocks": [
+        {
+          "ticker": "KOSPI:000660",
+          "name": "SK하이닉스",
+          "close_price": 1166000,
+          "rationale": "2026-04-20 종가 1,166,000원 확정(전일비 +3.37%)|5거래일 연속 상승 후 신고가 경신|RSI(14) 67.44 및 MACD 17,987 매수 신호 지속|1분기 영업이익 컨센서스 38조 4,874억 원으로 전분기 대비 200% 성장 기대|엔비디아 GTC 2026 패널 참여를 통한 AI 메모리 리더십 입증|HBM3E 및 차세대 HBM4 시장 점유율 50% 이상 유지 전망|외국인 및 기관 동반 순매수 유입 확인|볼린저밴드 상단 돌파 시도 및 강한 추세 강도(ADX 31.5)|메리츠증권 목표주가 170만 원 상향 조정|4/23 실적 발표 전 선취매 자금 집중",
+          "signals": {
+            "trend_score": 98,
+            "momentum_score": 94,
+            "volume_score": 92,
+            "volatility_score": 85,
+            "pattern_score": 97,
+            "sentiment_score": 96,
+            "overall_score": 94
+          },
+          "verified_date": "2026-04-20"
+        },
+        {
+          "ticker": "KOSPI:079550",
+          "name": "LIG넥스원",
+          "close_price": 921000,
+          "rationale": "2026-04-20 종가 921,000원 확정(전일비 +5.14%)|거래량 35만주로 전일 대비 130% 급증하며 매수세 확인|RSI(14) 41.76으로 과매수 해소 후 반등 초기 구간 진입|중동 국가 대상 천궁-II 수출 계약 임박 모멘텀|수주잔고 20.1조 원 확보로 장기 수익성 가시성 확보|방산 4사 중 실적 개선세가 가장 뚜렷한 종목으로 부각|이동평균선(MA5) 878,600원 상단 안착하며 정배열 복귀 시도|기술적 지표상 '적극 매수' 포지션(매수 신호 7개, 매도 1개)|증권사 목표가 59만 원(보수적) 대비 주가 재평가 국면|지정학적 리스크 고조에 따른 방산 수요 증가 수혜",
+          "signals": {
+            "trend_score": 92,
+            "momentum_score": 89,
+            "volume_score": 91,
+            "volatility_score": 87,
+            "pattern_score": 90,
+            "sentiment_score": 93,
+            "overall_score": 90
+          },
+          "verified_date": "2026-04-20"
+        },
+        {
+          "ticker": "KOSPI:064350",
+          "name": "현대로템",
+          "close_price": 218500,
+          "rationale": "2026-04-20 종가 218,500원 확정(전일비 +1.16%)|국내 3대 신용평가사(한기평, 한신평, NICE) 신용등급 'AA-'로 상향 조정 완료|수주잔고 약 30조 원 확보로 역대 최대 규모 달성|폴란드 K2 전차 2차 계약 물량 생산 본격화에 따른 매출 퀀텀점프|영업이익 1조 원 돌파 및 사상 최대 실적 달성 모멘텀|이동평균선 50일선(211,050원) 강력 지지 후 반등 성공|레일솔루션 부문 GTX-A/B/C 및 우즈벡 고속철 수주 성과 가시화|현대위아 방산 부문 인수 검토에 따른 그룹 내 방산 시너지 기대|RSI 안정적 우상향 및 이동평균 '적극 매수' 신호 유지|외인 지분율 상승 추세 지속",
+          "signals": {
+            "trend_score": 91,
+            "momentum_score": 87,
+            "volume_score": 89,
+            "volatility_score": 84,
+            "pattern_score": 92,
+            "sentiment_score": 94,
+            "overall_score": 90
+          },
+          "verified_date": "2026-04-20"
+        }
+      ],
+      "sentAt": "2026-04-20T22:38:29.39+00:00",
+      "subscriberCount": 275
+    },
+    {
+      "type": "stock",
       "date": "2026-04-20",
       "stocks": [
         {
@@ -6558,5 +6614,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-04-19T23:09:17.785Z"
+  "lastUpdated": "2026-04-20T22:38:55.549Z"
 }
