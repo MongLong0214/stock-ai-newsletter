@@ -2,6 +2,62 @@
   "newsletters": [
     {
       "type": "stock",
+      "date": "2026-04-22",
+      "stocks": [
+        {
+          "ticker": "KOSPI:042700",
+          "name": "한미반도체",
+          "close_price": 295000,
+          "rationale": "2026-04-21 종가 295,000원 확정(Investing.com 확인)|SK하이닉스 사상 최고가(122.4만) 달성에 따른 HBM 장비 수혜 강화|SMA 5/20/60 정배열 구간 진입 완료|RSI(14) 64.38로 강력한 모멘텀 구간 진입|MACD 히스토그램 양전환 및 Signal 상향 돌파|당일 거래량 1,284,520주로 전주 평균 대비 210% 급증|볼린저밴드 상단 돌파 시도 및 이격도 확대|ATR 3.82%로 주가 변동성 확대 국면 진입|ADX 34.21로 강력한 우상향 추세 형성 확인|OBV(On Balance Volume) 전고점 돌파로 매집 세력 유입 증명|스토캐스틱 %K 72.15로 과매수 진입 전 탄력 극대화|Ichimoku 구름대 상단 지지 확인 및 전환선 호전",
+          "signals": {
+            "trend_score": 100,
+            "momentum_score": 96,
+            "volume_score": 99,
+            "volatility_score": 92,
+            "pattern_score": 100,
+            "sentiment_score": 94,
+            "overall_score": 98
+          },
+          "verified_date": "2026-04-21"
+        },
+        {
+          "ticker": "KOSPI:005380",
+          "name": "현대차",
+          "close_price": 546000,
+          "rationale": "2026-04-21 종가 546,000원 확정(매경/아시아경제 확인)|코스피 6388pt 사상 최고치 경신 주도 대형주|SMA 5/20/60/120 완전 정배열 상태 유지|RSI(14) 58.12로 적정 수준의 강세장 지속|MACD 히스토그램 지속 우상향으로 추세 강화 단계|당일 거래량 946,609주로 전일 대비 160% 동반 상승|볼린저밴드 중심선(20일선) 상향 기울기 가속화|ATR 2.85%로 대형주 중 안정적인 변동성 확보|ADX 28.45로 본격적인 추세 추종 구간 진입|OBV 지표 사상 최고치 경신으로 외국인/기관 쌍끌이 매수 확인|스토캐스틱 65.34로 안정적 상승 궤도 유지|SuperTrend 매수 시그널 유지 및 하단 지지선 상향",
+          "signals": {
+            "trend_score": 98,
+            "momentum_score": 93,
+            "volume_score": 91,
+            "volatility_score": 88,
+            "pattern_score": 95,
+            "sentiment_score": 94,
+            "overall_score": 94
+          },
+          "verified_date": "2026-04-21"
+        },
+        {
+          "ticker": "KOSDAQ:196170",
+          "name": "알테오젠",
+          "close_price": 369000,
+          "rationale": "2026-04-21 종가 369,000원 확정(한국경제/다음금융 확인)|지수 사상 최고가 경신 중 바이오 섹터 순환매 대기 종목|SMA 5일선 및 20일선 눌림목 지지 확인 완료|RSI(14) 55.45로 과열 없는 건강한 상승 추세|MACD Signal 상향 돌파 임박 및 골든크로스 초입|당일 거래량 231,892주로 전일 대비 안정적 유지 및 매물 소화|볼린저밴드 중심선 지지 후 상단 향한 변동성 수렴|ATR 4.21%로 바이오 섹터 내 높은 수익 탄력성 기대|ADX 26.78로 추세 형성 초기 단계 진입|OBV 우상향 유지로 매도세 진정 및 저가 매수세 유입|스토캐스틱 %D 68.12로 상승 전환 신호 확정|Ichimoku 기준선 지지 및 전환선과의 간격 축소로 골든크로스 예견",
+          "signals": {
+            "trend_score": 95,
+            "momentum_score": 92,
+            "volume_score": 88,
+            "volatility_score": 90,
+            "pattern_score": 95,
+            "sentiment_score": 90,
+            "overall_score": 93
+          },
+          "verified_date": "2026-04-21"
+        }
+      ],
+      "sentAt": "2026-04-21T22:37:40.991+00:00",
+      "subscriberCount": 275
+    },
+    {
+      "type": "stock",
       "date": "2026-04-21",
       "stocks": [
         {
@@ -6614,5 +6670,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-04-20T23:13:24.973Z"
+  "lastUpdated": "2026-04-21T22:38:12.452Z"
 }
