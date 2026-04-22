@@ -2,6 +2,62 @@
   "newsletters": [
     {
       "type": "stock",
+      "date": "2026-04-23",
+      "stocks": [
+        {
+          "ticker": "KOSPI:079550",
+          "name": "LIG넥스원",
+          "close_price": 1018400,
+          "rationale": "SMA 20/50/200일선 완전 정배열 확인|EMA 12/26일선 골든크로스 매수 신호|RSI(14) 60.48 강세권 유지 및 상향 추세|MACD(12,26,9) 시그널선 상향 돌파 확인|거래량 132,450주로 전일 대비 150% 급증|ADX 32.5로 강력한 추세 강도 확인|ATR 4.2% 변동성 확대 구간 진입|Bollinger Band 상단 밀착형 상승 추세|1,000,000원 심리적 저항선 돌파 후 지지 확인|기관 및 외국인 3거래일 연속 순매수|52주 신고가 경신에 따른 매물벽 부재",
+          "signals": {
+            "trend_score": 96,
+            "momentum_score": 92,
+            "volume_score": 90,
+            "volatility_score": 88,
+            "pattern_score": 98,
+            "sentiment_score": 94,
+            "overall_score": 93
+          },
+          "verified_date": "2026-04-22"
+        },
+        {
+          "ticker": "KOSPI:329180",
+          "name": "HD현대중공업",
+          "close_price": 514200,
+          "rationale": "RSI(14) 57.62로 과매수 없는 안정적 강세|MACD Oscillator 양전환 및 매수 시그널|SMA 5/20일선 정배열 진입 초기 단계|전일 거래량 대비 182% 급증 확인|Vortex Indicator 상승 추세 전환 완료|52주 고가 대비 조정 후 되돌림 0.618 구간 통과|Ichimoku Cloud 전환선/기준선 호전 발생|ATR 3.5% 수준의 안정적 변동성 유지|Bollinger Band Squeeze 구간 상향 돌파|외국인 대량 순매수 거래원 포착|OBV 추세선의 우상향 전환 확인",
+          "signals": {
+            "trend_score": 88,
+            "momentum_score": 85,
+            "volume_score": 92,
+            "volatility_score": 82,
+            "pattern_score": 90,
+            "sentiment_score": 90,
+            "overall_score": 88
+          },
+          "verified_date": "2026-04-22"
+        },
+        {
+          "ticker": "KOSPI:007660",
+          "name": "이수페타시스",
+          "close_price": 120300,
+          "rationale": "RSI(14) 58.15 강세권 진입|모멘텀 스코어 76.7 수준의 우수한 가속도|AI 서버용 고다층 PCB 수요 가속화 데이터 확인|SMA 120일선 강력한 하단 지지|MACD 0선 위에서 시그널선 재돌파|거래량 이동평균선 상향 돌파|ATR 2.8%로 저변동성 매집 구간 종료|Bollinger Band 중단 지지 후 반등 패턴|외인/기관 동반 양매수 수급 유입|Williams %R -20 돌파 상향 구간|상승 삼각형 패턴 상단 돌파 시도",
+          "signals": {
+            "trend_score": 90,
+            "momentum_score": 84,
+            "volume_score": 85,
+            "volatility_score": 80,
+            "pattern_score": 86,
+            "sentiment_score": 88,
+            "overall_score": 86
+          },
+          "verified_date": "2026-04-22"
+        }
+      ],
+      "sentAt": "2026-04-22T22:39:22.054+00:00",
+      "subscriberCount": 275
+    },
+    {
+      "type": "stock",
       "date": "2026-04-22",
       "stocks": [
         {
@@ -6670,5 +6726,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-04-21T23:11:32.637Z"
+  "lastUpdated": "2026-04-22T22:39:53.215Z"
 }
