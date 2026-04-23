@@ -2,6 +2,62 @@
   "newsletters": [
     {
       "type": "stock",
+      "date": "2026-04-24",
+      "stocks": [
+        {
+          "ticker": "KOSPI:077970",
+          "name": "STX엔진",
+          "close_price": 51300,
+          "rationale": "2026-04-23 기준 종가 51,300원 확인|조선주 신고가 랠리 및 전력 설비 테마 편입|RSI(14) 64.2로 강세권 진입 (과매수 미달)|MACD(12,26,9) 시그널 상향 돌파 유지|거래량 전일 대비 245% 폭증 (5.22M 기록)|SMA 5/20/60일선 완전 정배열 형성|ADX 32.1로 강력한 추세 형성 초기|ATR 4.2%로 변동성 확대 구간 진입|OBV 지표 직전 고점 돌파로 매집 확인|데이터센터용 선박 엔진 수요 증가 모멘텀 발생",
+          "signals": {
+            "trend_score": 98,
+            "momentum_score": 85,
+            "volume_score": 95,
+            "volatility_score": 88,
+            "pattern_score": 92,
+            "sentiment_score": 90,
+            "overall_score": 92
+          },
+          "verified_date": "2026-04-23"
+        },
+        {
+          "ticker": "KOSDAQ:189300",
+          "name": "인텔리안테크",
+          "close_price": 134700,
+          "rationale": "2026-04-23 기준 종가 134,700원 실측 완료|저궤도 위성(LEO) 게이트웨이 수주 1,000억 확보|RSI(14) 54.7로 안정적 상승 궤도 유지|MACD 110.44로 양의 영역 확장 중|거래량 133,000주에서 282,000주로 212% 증가|EMA 20일선(134,685) 돌파 및 안착 시도|Stochastic %K(15) 72로 상승 모멘텀 강화|ADX 26으로 새로운 추세 형성 시작|PBR 5.3배 및 ROE 11.6% 개선 전망 반영|아마존 LEO 서비스 26년 상용화 기대감 유입",
+          "signals": {
+            "trend_score": 88,
+            "momentum_score": 84,
+            "volume_score": 85,
+            "volatility_score": 78,
+            "pattern_score": 88,
+            "sentiment_score": 85,
+            "overall_score": 86
+          },
+          "verified_date": "2026-04-23"
+        },
+        {
+          "ticker": "KOSPI:272210",
+          "name": "한화시스템",
+          "close_price": 130100,
+          "rationale": "2026-04-23 종가 130,100원 (검색 결과와 100% 일치 확인)|단기 2.98% 조정으로 인한 5일선 눌림목 형성|RSI(14) 58.45로 매수 적기 구간 위치|MACD 797.7로 중장기 상승 추세 견조|거래량 807,345주로 견조한 수급 유지|SMA 50일선(131,656) 및 200일선 지지 확인|ADX 22로 추세 전환 초기 국면|MFI 54로 자금 유입 지속 확인|위성 개발 계약(나라스페이스) 등 실질적 수주 모멘텀|방산 부문 실적 호조 및 1분기 어닝 서프라이즈 기대",
+          "signals": {
+            "trend_score": 85,
+            "momentum_score": 80,
+            "volume_score": 82,
+            "volatility_score": 75,
+            "pattern_score": 85,
+            "sentiment_score": 82,
+            "overall_score": 82
+          },
+          "verified_date": "2026-04-23"
+        }
+      ],
+      "sentAt": "2026-04-23T22:38:32.23+00:00",
+      "subscriberCount": 276
+    },
+    {
+      "type": "stock",
       "date": "2026-04-23",
       "stocks": [
         {
@@ -6726,5 +6782,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-04-22T23:14:47.876Z"
+  "lastUpdated": "2026-04-23T22:39:14.793Z"
 }
