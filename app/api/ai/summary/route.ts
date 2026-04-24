@@ -1,11 +1,13 @@
 import { NextResponse } from 'next/server'
 import { siteConfig } from '@/lib/constants/seo/config'
 import { getRankingServer } from '@/app/themes/_services/get-ranking-server'
+import { withRateLimit } from '@/lib/rate-limit/with-rate-limit'
 
 export const runtime = 'nodejs'
 
+// Rate limit: uses checkRateLimit('strict') via withRateLimit wrapper
 /** AI 에이전트 최적화 요약 API — LLM 소비에 최적화된 구조화된 응답 */
-export async function GET() {
+export const GET = withRateLimit('strict', async () => {
   try {
     const ranking = await getRankingServer()
     const allThemes = [
@@ -87,4 +89,4 @@ export async function GET() {
       { status: 500 },
     )
   }
-}
+})

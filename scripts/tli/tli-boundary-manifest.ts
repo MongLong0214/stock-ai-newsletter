@@ -36,6 +36,7 @@ export const TLI_BOUNDARY_MANIFEST: Record<string, TliFileCategory> = {
   'scripts/tli/shared/supabase-admin.ts': 'runtime',
   'scripts/tli/shared/supabase-batch.ts': 'runtime',
   'scripts/tli/shared/utils.ts': 'runtime',
+  'scripts/tli/shared/is-main.ts': 'runtime',
   'scripts/tli/comparison/forecast-serving.ts': 'runtime',
   'scripts/tli/comparison/v4/control.ts': 'runtime',
   'scripts/tli/comparison/v4/shadow.ts': 'runtime',

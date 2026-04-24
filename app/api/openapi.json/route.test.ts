@@ -3,7 +3,7 @@ import { GET } from './route'
 
 describe('openapi route contract', () => {
   it('preserves the comparison schema fields required by the detail API', async () => {
-    const response = GET()
+    const response = await GET(new Request('http://localhost/api/openapi.json'), {} as never)
     const spec = await response.json()
     const comparison = spec.components.schemas.Comparison
 
@@ -21,7 +21,7 @@ describe('openapi route contract', () => {
   })
 
   it('keeps ThemeDetail comparisons in the required payload surface', async () => {
-    const response = GET()
+    const response = await GET(new Request('http://localhost/api/openapi.json'), {} as never)
     const spec = await response.json()
     const themeDetail = spec.components.schemas.ThemeDetail
 
@@ -30,7 +30,7 @@ describe('openapi route contract', () => {
   })
 
   it('does not document removed forecast fields', async () => {
-    const response = GET()
+    const response = await GET(new Request('http://localhost/api/openapi.json'), {} as never)
     const spec = await response.json()
     const themeDetail = spec.components.schemas.ThemeDetail
 
@@ -41,7 +41,7 @@ describe('openapi route contract', () => {
   })
 
   it('documents ranking signals as an optional additive field', async () => {
-    const response = GET()
+    const response = await GET(new Request('http://localhost/api/openapi.json'), {} as never)
     const spec = await response.json()
     const themeRanking = spec.components.schemas.ThemeRanking
 
@@ -51,7 +51,7 @@ describe('openapi route contract', () => {
   })
 
   it('documents tracked and visible counts for ranking and AI summary payloads', async () => {
-    const response = GET()
+    const response = await GET(new Request('http://localhost/api/openapi.json'), {} as never)
     const spec = await response.json()
     const rankingSummary = spec.components.schemas.RankingSummary
     const aiSummary = spec.components.schemas.AiSummary
@@ -65,7 +65,7 @@ describe('openapi route contract', () => {
   })
 
   it('documents level-4 probability metadata on comparison payloads', async () => {
-    const response = GET()
+    const response = await GET(new Request('http://localhost/api/openapi.json'), {} as never)
     const spec = await response.json()
     const comparison = spec.components.schemas.Comparison
 
@@ -79,7 +79,7 @@ describe('openapi route contract', () => {
   })
 
   it('documents serving metadata source-surface enums for certification artifacts', async () => {
-    const response = GET()
+    const response = await GET(new Request('http://localhost/api/openapi.json'), {} as never)
     const spec = await response.json()
     const comparison = spec.components.schemas.Comparison
 

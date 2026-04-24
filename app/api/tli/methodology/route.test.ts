@@ -6,7 +6,7 @@ describe('GET /api/tli/methodology', () => {
   it('returns full methodology when no section param', async () => {
     const { GET } = await importRoute()
     const request = new Request('http://localhost/api/tli/methodology')
-    const response = await GET(request)
+    const response = await GET(request, {} as never)
     const json = await response.json()
 
     expect(json.success).toBe(true)
@@ -21,7 +21,7 @@ describe('GET /api/tli/methodology', () => {
   it('returns only scoring section when section=scoring', async () => {
     const { GET } = await importRoute()
     const request = new Request('http://localhost/api/tli/methodology?section=scoring')
-    const response = await GET(request)
+    const response = await GET(request, {} as never)
     const json = await response.json()
 
     expect(json.success).toBe(true)
@@ -33,7 +33,7 @@ describe('GET /api/tli/methodology', () => {
   it('returns items array for limitations section', async () => {
     const { GET } = await importRoute()
     const request = new Request('http://localhost/api/tli/methodology?section=limitations')
-    const response = await GET(request)
+    const response = await GET(request, {} as never)
     const json = await response.json()
 
     expect(json.success).toBe(true)
@@ -46,7 +46,7 @@ describe('GET /api/tli/methodology', () => {
   it('maps snake_case section names to camelCase keys', async () => {
     const { GET } = await importRoute()
     const request = new Request('http://localhost/api/tli/methodology?section=data_sources')
-    const response = await GET(request)
+    const response = await GET(request, {} as never)
     const json = await response.json()
 
     expect(json.success).toBe(true)
@@ -58,7 +58,7 @@ describe('GET /api/tli/methodology', () => {
   it('uses long cache preset', async () => {
     const { GET } = await importRoute()
     const request = new Request('http://localhost/api/tli/methodology')
-    const response = await GET(request)
+    const response = await GET(request, {} as never)
 
     expect(response.headers.get('Cache-Control')).toContain('s-maxage=3600')
   })
@@ -66,7 +66,7 @@ describe('GET /api/tli/methodology', () => {
   it('has updatedAt metadata', async () => {
     const { GET } = await importRoute()
     const request = new Request('http://localhost/api/tli/methodology')
-    const response = await GET(request)
+    const response = await GET(request, {} as never)
     const json = await response.json()
 
     expect(json.data).toHaveProperty('updatedAt')

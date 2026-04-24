@@ -106,7 +106,11 @@ async function main() {
   console.log(`\n✅ 승격 완료: ${runIds.join(', ')}`)
 }
 
-main().catch((error) => {
-  console.error(error instanceof Error ? error.message : String(error))
-  process.exit(1)
-})
+import { isMainModule } from '@/scripts/tli/shared/is-main'
+
+if (isMainModule(import.meta.url)) {
+  main().catch((error) => {
+    console.error(error instanceof Error ? error.message : String(error))
+    process.exit(1)
+  })
+}

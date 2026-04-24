@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { sendStockNewsletter } from '@/lib/sendgrid';
 import { getStockAnalysis } from '@/lib/llm/stock-analysis';
+import { verifyBearerToken } from '@/lib/auth/verify-bearer';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co',
@@ -14,9 +15,7 @@ const supabase = createClient(
 
 export async function POST(request: NextRequest) {
   try {
-    // CRON_SECRET 검증 (선택사항, 보안을 위해 설정 권장)
-    const authHeader = request.headers.get('authorization');
-    if (process.env.CRON_SECRET && authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+    if (!verifyBearerToken(request, process.env.CRON_SECRET, process.env.CRON_SECRET_OLD)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -31,10 +30,7 @@ export async function POST(request: NextRequest) {
 
     if (dbError) {
       console.error('❌ Database error:', dbError);
-      return NextResponse.json(
-        { error: 'Database error', details: dbError.message },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: 'Database error' }, { status: 500 });
     }
 
     if (!subscribers || subscribers.length === 0) {
@@ -79,13 +75,11 @@ export async function POST(request: NextRequest) {
     );
   } catch (error) {
     console.error('❌ 뉴스레터 발송 실패:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
 
     return NextResponse.json(
       {
         success: false,
         error: '뉴스레터 발송 실패',
-        details: errorMessage,
       },
       { status: 500 }
     );

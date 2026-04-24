@@ -42,11 +42,6 @@ export function getServerSupabaseClient(): SupabaseClient {
     return cachedClient;
   }
 
-  // 사용 중인 키 타입 로깅
-  console.log(
-    `[Supabase] 클라이언트 초기화: ${serviceRoleKey ? 'service_role' : 'anon'} 키 사용`
-  );
-
   cachedClient = createClient(url, key, {
     auth: { persistSession: false },
     db: { schema: 'public' },

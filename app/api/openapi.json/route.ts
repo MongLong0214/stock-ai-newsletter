@@ -1,8 +1,10 @@
 import { NextResponse } from 'next/server'
 
 import { siteConfig } from '@/lib/constants/seo/config'
+import { withRateLimit } from '@/lib/rate-limit/with-rate-limit'
 
-export function GET() {
+// Rate limit: uses checkRateLimit('standard') via withRateLimit wrapper
+export const GET = withRateLimit('standard', async () => {
   const spec = {
     openapi: '3.0.0',
     info: {
@@ -1265,4 +1267,4 @@ export function GET() {
   return NextResponse.json(spec, {
     headers: { 'Cache-Control': 'public, s-maxage=86400' },
   })
-}
+})

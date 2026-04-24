@@ -1,62 +1,38 @@
 import { NextResponse } from 'next/server'
-import { timingSafeEqual } from 'crypto'
+import { z } from 'zod'
 import { supabaseAdmin } from '@/scripts/tli/shared/supabase-admin'
 import { isPromotionBlocked } from '@/scripts/tli/comparison/v4/promotion'
 import { fetchLatestCertificationCalibrationArtifact } from '@/scripts/tli/level4/calibration-artifact'
 import { buildArtifactBackedPromotionContext, resolveRequiredWeightArtifact } from '@/scripts/tli/level4/promotion-runtime'
 import { fetchWeightArtifactByVersion } from '@/scripts/tli/level4/weight-artifact'
 import { isStateHistoryBackfillComplete } from '@/scripts/tli/themes/theme-state-history'
+import { verifyBearerToken } from '@/lib/auth/verify-bearer'
 
-const ADMIN_SECRET = process.env.ADMIN_SECRET
-
-if (!ADMIN_SECRET) {
-  console.error('ADMIN_SECRET 환경변수가 설정되지 않았습니다. comparison-v4 promote API가 비활성 상태입니다.')
-}
-
-function verifyBearerToken(authHeader: string | null) {
-  if (!ADMIN_SECRET || !authHeader) return false
-  const token = authHeader.replace('Bearer ', '')
-  if (token.length !== ADMIN_SECRET.length) return false
-  try {
-    return timingSafeEqual(Buffer.from(token, 'utf8'), Buffer.from(ADMIN_SECRET, 'utf8'))
-  } catch {
-    return false
-  }
-}
+const BodySchema = z.object({
+  runIds: z.array(z.uuid()).min(1).max(50),
+  productionVersion: z.string().min(1).max(64),
+  sourceSurface: z.enum(['v2_certification', 'replay_equivalent']).optional(),
+  calibrationVersion: z.string().min(1).max(64).optional(),
+  driftVersion: z.string().min(1).max(64).optional(),
+  weightVersion: z.string().min(1).max(64),
+  gateFailureReasons: z.array(z.string().min(1).max(256)).max(50).optional(),
+})
 
 export async function POST(request: Request) {
-  if (!verifyBearerToken(request.headers.get('authorization'))) {
+  if (!verifyBearerToken(request, process.env.ADMIN_SECRET, process.env.ADMIN_SECRET_OLD)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const body = await request.json().catch(() => null)
-  const runIds = Array.isArray(body?.runIds) ? body.runIds.filter((value: unknown): value is string => typeof value === 'string' && value.length > 0) : []
-  const productionVersion = typeof body?.productionVersion === 'string' && body.productionVersion.length > 0
-    ? body.productionVersion
-    : null
-
-  if (runIds.length === 0 || !productionVersion) {
-    return NextResponse.json({ error: 'Invalid payload' }, { status: 400 })
+  const raw = await request.json().catch(() => null)
+  const parsed = BodySchema.safeParse(raw)
+  if (!parsed.success) {
+    return NextResponse.json({ error: 'invalid request' }, { status: 422 })
   }
 
-  const sourceSurface = body?.sourceSurface === 'replay_equivalent' ? 'replay_equivalent' : 'v2_certification'
-  const calibrationVersion = typeof body?.calibrationVersion === 'string' && body.calibrationVersion.length > 0
-    ? body.calibrationVersion
-    : `${productionVersion}-calibration`
-  const driftVersion = typeof body?.driftVersion === 'string' && body.driftVersion.length > 0
-    ? body.driftVersion
-    : `${productionVersion}-drift`
-  const weightVersion = typeof body?.weightVersion === 'string' && body.weightVersion.length > 0
-    ? body.weightVersion
-    : null
-  const gateFailureReasons = Array.isArray(body?.gateFailureReasons)
-    ? body.gateFailureReasons.filter((value: unknown): value is string => typeof value === 'string' && value.length > 0)
-    : []
-  void gateFailureReasons
-
-  if (!weightVersion) {
-    return NextResponse.json({ error: 'weightVersion is required for certification-grade promotion' }, { status: 400 })
-  }
+  const { runIds, productionVersion, weightVersion } = parsed.data
+  const sourceSurface = parsed.data.sourceSurface ?? 'v2_certification'
+  const calibrationVersion = parsed.data.calibrationVersion ?? `${productionVersion}-calibration`
+  const driftVersion = parsed.data.driftVersion ?? `${productionVersion}-drift`
 
   try {
     const client = supabaseAdmin as unknown as Parameters<typeof fetchWeightArtifactByVersion>[0]
