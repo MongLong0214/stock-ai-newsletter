@@ -3,7 +3,7 @@ import { GET } from './route'
 
 describe('TLI4-001 OpenAPI level4 metadata contract', () => {
   it('documents the serving metadata fields required for certified comparison payloads', async () => {
-    const response = GET()
+    const response = await GET(new Request('http://localhost/api/openapi.json'), {} as never)
     const spec = await response.json()
     const comparison = spec.components.schemas.Comparison
 
@@ -18,7 +18,7 @@ describe('TLI4-001 OpenAPI level4 metadata contract', () => {
   })
 
   it('restricts sourceSurface to the level4 artifact surface enum', async () => {
-    const response = GET()
+    const response = await GET(new Request('http://localhost/api/openapi.json'), {} as never)
     const spec = await response.json()
     const comparison = spec.components.schemas.Comparison
 
