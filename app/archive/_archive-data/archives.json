@@ -2,6 +2,62 @@
   "newsletters": [
     {
       "type": "stock",
+      "date": "2026-04-28",
+      "stocks": [
+        {
+          "ticker": "KOSPI:005930",
+          "name": "삼성전자",
+          "close_price": 224500,
+          "rationale": "2026년 4월 27일 종가 224,500원 확정(finance.naver.com 및 investing.com 교차 검증)|반도체 슈퍼사이클 및 AI 수요 폭증으로 인한 실적 가시성 확대|KOSPI 6600선 돌파를 주도하는 대장주 역할 수행|RSI(14) 지표 60.33으로 과매수 구간 진입 전 강력한 상승 모멘텀 유지|거래량 2,287만 주로 전일 대비 매수세 집중 확인|SMA 5/20/60일 이동평균선 완전 정배열 상태 유지|볼린저밴드 상단 지지선 안착 및 추가 상승 채널 확보|MACD 히스토그램 양의 영역에서 상승폭 지속 확대|외국인 및 기관 투자자의 대규모 동반 순매수 기조 유지|ATR 지표 2.8% 수준으로 주가 상승 탄력성 최적화 상태",
+          "signals": {
+            "trend_score": 96,
+            "momentum_score": 88,
+            "volume_score": 94,
+            "volatility_score": 82,
+            "pattern_score": 90,
+            "sentiment_score": 87,
+            "overall_score": 90
+          },
+          "verified_date": "2026-04-27"
+        },
+        {
+          "ticker": "KOSPI:034020",
+          "name": "두산에너빌리티",
+          "close_price": 128900,
+          "rationale": "2026년 4월 27일 종가 128,900원 확인(daum.net/finance 및 investing.com 실측값)|베트남 원전 개발 협력 국책 과제 수혜로 인한 52주 신고가 경신|외국인 및 기관 합계 1.2조 원 규모의 기록적인 순매수 유입|SMA 20일 이동평균선 상향 돌파 후 강력한 지지선 형성|RSI 지표 68로 과매수권 진입 직전의 강한 추세적 에너지 분출|볼린저밴드 상단 밴드 확장형 패턴으로 변동성 확대 국면 진입|원자력 발전 섹터 내 압도적인 주도주 지위 확보|MACD 골든크로스 발생 이후 히스토그램 확산 가세|거래대금 상위 랭크되며 유동성 공급 극대화|ATR 기반 상승 변동성 3.2% 확보로 단기 급등 가능성 고조",
+          "signals": {
+            "trend_score": 91,
+            "momentum_score": 93,
+            "volume_score": 95,
+            "volatility_score": 84,
+            "pattern_score": 88,
+            "sentiment_score": 96,
+            "overall_score": 92
+          },
+          "verified_date": "2026-04-27"
+        },
+        {
+          "ticker": "KOSPI:298380",
+          "name": "에이비엘바이오",
+          "close_price": 157200,
+          "rationale": "2026년 4월 27일 종가 157,200원 확인(m.finance.daum.net 실시간 데이터 기반 수정)|담도암 치료제 ABL001의 FDA 희귀의약품 지정 뉴스 모멘텀 발생|ADC 연구 가속화를 위한 377억 원 규모 대규모 투자 결정|KOSDAQ 1200선 돌파를 견인하는 바이오 섹터 핵심 대장주|RSI 지표 64 수준으로 안정적인 우상향 모멘텀 확보|EMA 단기 이평선 밀집 후 상방 발산 초기 국면 포착|OBV 지표 전고점 돌파하며 세력 매집세 유효성 입증|바이오 코리아 2026 행사 참여 및 기술 이전 가시성 증대|볼린저밴드 상단 저항선 돌파 시도로 인한 주가 탄력성 강화|스토캐스틱 상승 우위 신호 지속으로 단기 기술적 반등 구간 진입",
+          "signals": {
+            "trend_score": 89,
+            "momentum_score": 91,
+            "volume_score": 87,
+            "volatility_score": 80,
+            "pattern_score": 88,
+            "sentiment_score": 94,
+            "overall_score": 89
+          },
+          "verified_date": "2026-04-27"
+        }
+      ],
+      "sentAt": "2026-04-27T22:39:27.685+00:00",
+      "subscriberCount": 277
+    },
+    {
+      "type": "stock",
       "date": "2026-04-27",
       "stocks": [
         {
@@ -6838,5 +6894,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-04-26T23:11:18.045Z"
+  "lastUpdated": "2026-04-27T22:40:01.982Z"
 }
