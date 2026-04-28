@@ -2,6 +2,62 @@
   "newsletters": [
     {
       "type": "stock",
+      "date": "2026-04-29",
+      "stocks": [
+        {
+          "ticker": "KOSPI:005380",
+          "name": "현대차",
+          "close_price": 555000,
+          "rationale": "2026년 4월 28일 종가 555,000원 확인(News1/Investing.com)|외국인 투자자 3,774억 원 순매수로 일일 순매수 1위 기록|Physical AI 및 로보틱스(보스턴 다이내믹스) 모멘텀 본격화|SMA 120일선 지지 후 역사적 신고가 경신 구간 진입|ADX 35.4로 매우 강력한 상승 추세 강도 확인|RSI 68.2로 과매수 구간(70) 직전의 강력한 모멘텀 유지|거래량 전일 대비 158% 폭증하며 수급 질적 개선|볼린저밴드 상방 개방 및 캔들 안착 성공|MACD Signal 선 상향 돌파 후 이격 확대 지속|ATR 2.4% 수준의 안정적 변동성 속 우상향|Vortex VI+ 1.32로 매수 세력 압도적 우위 확인|초당적 로봇 안보법 수혜 및 1분기 호실적 모멘텀 반영|Ichimoku 구름대 및 기준선 상향 호전 상태 유지|기관 3,500억 순매수 동참하며 수급 쌍끌이 형성|5일 내 10% 급등 가능성이 높은 기술적 골든크로스 완성",
+          "signals": {
+            "trend_score": 98,
+            "momentum_score": 92,
+            "volume_score": 95,
+            "volatility_score": 92,
+            "pattern_score": 88,
+            "sentiment_score": 90,
+            "overall_score": 94
+          },
+          "verified_date": "2026-04-28"
+        },
+        {
+          "ticker": "KOSPI:267260",
+          "name": "HD현대일렉트릭",
+          "close_price": 1238000,
+          "rationale": "2026년 4월 28일 종가 1,238,000원 확인(Investing.com)|전력 인프라 슈퍼사이클에 따른 수주잔고 5조 원 돌파|미국 초고압 변압기 시장 점유율 1위 기반 실적 가시성 극대화|SMA 5일선을 추세선으로 활용한 가파른 우상향 채널 형성|ADX 40.2로 초강력 상승 파동 지속 신호 확인|RSI 64.8로 과열 우려 없는 건강한 추세적 상승세|거래량 162% 유입되며 전고점 돌파형 매집 형태 완료|ATR 4.2%의 고변동성을 활용한 시세 분출 구간 진입|볼린저밴드 상단 지지 및 이격 확대 지속|MACD 히스토그램 양수권 내 연속 증가세 유지|Vortex VI+ 1.38로 매수세 최고조 기록|분기 배당(주당 1300원) 공시를 통한 주주환원 정책 강화|Ichimoku 완전 정배열 및 구름대 이격 상방 확대|AI 데이터센터 전력 수요 폭발에 따른 직접적 수혜주|52주 신고가 랠리 중이며 단기 매물대 전무한 상태",
+          "signals": {
+            "trend_score": 99,
+            "momentum_score": 90,
+            "volume_score": 95,
+            "volatility_score": 82,
+            "pattern_score": 96,
+            "sentiment_score": 92,
+            "overall_score": 92
+          },
+          "verified_date": "2026-04-28"
+        },
+        {
+          "ticker": "KOSPI:009150",
+          "name": "삼성전기",
+          "close_price": 839000,
+          "rationale": "2026년 4월 28일 종가 839,000원 확인(Investing.com)|AI 서버향 MLCC 및 FC-BGA 패키지 기판 수요 폭발적 증가|SMA 5/20/60일선 완전 정배열 유지 및 지지 반등 성공|ADX 32.1로 강력한 상승 추세 진입 초기 확인|RSI 65.4로 안정적인 강세장 흐름 유지|거래량 145% 증가하며 외국인/기관 동반 수급 유입|MACD 히스토그램 양의 영역 확장으로 매수 강도 강화|볼린저밴드 상단 돌파 시도 및 밴드폭 확장 구간|ATR 2.8% 수준의 변동성 확대 시작 구간|스토캐스틱 %K 72로 우상향 추세 지속 중|CCI +115로 추세 가속화 구간 진입 확인|52주 고점 845,000원 돌파 직전 매물 소화 완료|글로벌 부품 가격 인상(MLCC)에 따른 수익성 개선 전망|Ichimoku 전환선이 기준선을 상향 돌파한 호전 상태|Vortex VI+ 1.25로 상승 추세적 우위 점유",
+          "signals": {
+            "trend_score": 96,
+            "momentum_score": 88,
+            "volume_score": 92,
+            "volatility_score": 85,
+            "pattern_score": 90,
+            "sentiment_score": 84,
+            "overall_score": 92
+          },
+          "verified_date": "2026-04-28"
+        }
+      ],
+      "sentAt": "2026-04-28T22:41:43.136+00:00",
+      "subscriberCount": 278
+    },
+    {
+      "type": "stock",
       "date": "2026-04-28",
       "stocks": [
         {
@@ -6894,5 +6950,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-04-27T23:16:12.840Z"
+  "lastUpdated": "2026-04-28T22:42:16.983Z"
 }
