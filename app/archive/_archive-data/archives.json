@@ -2,6 +2,62 @@
   "newsletters": [
     {
       "type": "stock",
+      "date": "2026-05-04",
+      "stocks": [
+        {
+          "ticker": "KOSPI:012450",
+          "name": "한화에어로스페이스",
+          "close_price": 1417000,
+          "rationale": "2026-05-01 종가 1,417,000원 확인(Investing.com)|1분기 매출 5조 7,510억 원으로 전년비 대폭 성장(부산일보)|영업이익 8,564억 원 기록하며 수익성 강화 단계 진입|루마니아 및 유럽 시장 신규 수주 모멘텀 지속|애널리스트 21명 전원 '매수' 의견 및 평균 목표가 1,676,905원|52주 최고가 1,655,000원 대비 건전한 조정 후 지지선 확보|방산 수출 확대에 따른 현금 흐름 및 재무 안정성 매우 우수|SMA 20일선 위에서 안정적 우상향 추세 유지|외국인 및 기관의 지속적인 순매수세 유입 확인|RSI 62.5 수준으로 과매수 부담 없는 강세장 지속",
+          "signals": {
+            "trend_score": 96,
+            "momentum_score": 92,
+            "volume_score": 88,
+            "volatility_score": 85,
+            "pattern_score": 90,
+            "sentiment_score": 95,
+            "overall_score": 92
+          },
+          "verified_date": "2026-05-01"
+        },
+        {
+          "ticker": "KOSDAQ:196170",
+          "name": "알테오젠",
+          "close_price": 393000,
+          "rationale": "2026-03-26 급등 이후 39만원대 강력한 상단 박스권 형성|키트루다SC 로열티 수익이 2026년부터 본격 가시화 전망(더바이오)|바이오젠과 ALT-B4 기반 독점 라이선스 계약 체결(연합뉴스)|2026년 내 코스피 이전상장 추진 공 공식화로 패시브 자금 유입 기대|MSD 독점 계약 변경에 따른 마일스톤 수령 가능성 증대|ADX 35.8로 매우 강력한 상승 추세 구간 위치|OBV 지표 사상 최고치 경신하며 매집 세력 이탈 없음 확인|Vortex VI+ 1.32로 매수 강도가 매도 강도를 압도|ESG 경영 선언 및 내부 통제 시스템 고도화로 기관 선호도 상승|5일 내 전고점 돌파 시 10% 이상 추가 급등 가능성 농후",
+          "signals": {
+            "trend_score": 98,
+            "momentum_score": 95,
+            "volume_score": 92,
+            "volatility_score": 82,
+            "pattern_score": 94,
+            "sentiment_score": 97,
+            "overall_score": 95
+          },
+          "verified_date": "2026-05-01"
+        },
+        {
+          "ticker": "KOSPI:307950",
+          "name": "현대오토에버",
+          "close_price": 450500,
+          "rationale": "2026-05-01 종가 450,500원 확인(재경일보)|전일 대비 4.96% 하락하며 기술적 과매도 구간 진입|1분기 영업익 전망치 하회 뉴스 반영 완료(Sell on news 종료)|서정식 전 대표 2심 무죄 판결로 사법 리스크 완전 해소|AI·로봇·SDV 핵심 수혜주로 2027년 초고성장 진입 직전 단계|증권사 목표주가 최대 700,000원 유지(Tistory 분석팀)|6개월 주가 상승률 173%에 따른 건전한 차익실현 매물 소화|볼린저밴드 하단 터치 후 하방 경직성 확보|450,000원 라운드 넘버 강력한 심리적 지지선 작용|단기 낙폭 과대에 따른 5일 내 기술적 반등 가능성 매우 높음",
+          "signals": {
+            "trend_score": 82,
+            "momentum_score": 78,
+            "volume_score": 85,
+            "volatility_score": 90,
+            "pattern_score": 88,
+            "sentiment_score": 80,
+            "overall_score": 83
+          },
+          "verified_date": "2026-05-01"
+        }
+      ],
+      "sentAt": "2026-05-03T22:37:53.683+00:00",
+      "subscriberCount": 283
+    },
+    {
+      "type": "stock",
       "date": "2026-04-30",
       "stocks": [
         {
@@ -7006,5 +7062,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-04-30T23:16:27.297Z"
+  "lastUpdated": "2026-05-03T22:38:22.231Z"
 }
