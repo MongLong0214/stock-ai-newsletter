@@ -2,6 +2,62 @@
   "newsletters": [
     {
       "type": "stock",
+      "date": "2026-05-06",
+      "stocks": [
+        {
+          "ticker": "KOSPI:267260",
+          "name": "HD현대일렉트릭",
+          "close_price": 1252000,
+          "rationale": "2026-05-04 종가 1,252,000원 확인(investing.com)|SK증권 목표주가 120만원에서 150만원으로 상향(2026.04.29)|유진투자증권 목표주가 150만원 제시 및 'AI 인프라 전 사업부문 동원' 분석|1분기 영업이익 2,583억원으로 전년비 18.4% 증가|북미 매출 비중 47.5%로 고마진 구조 정착|765kV 초고압 변압기 수주 잔고 2030년대 중반까지 확보|EMA 5/10/20일선 정배열 상태에서 전고점 돌파 시도|RSI 64.2로 과매수 구간(70) 직전의 강력한 상승 탄력|MACD 시그널이 영선 위에서 상향 돌파하며 매수 신호 유지|외국인 및 기관의 전력기기 섹터 동반 순매수 유입 확인",
+          "signals": {
+            "trend_score": 92,
+            "momentum_score": 88,
+            "volume_score": 85,
+            "volatility_score": 82,
+            "pattern_score": 90,
+            "sentiment_score": 89,
+            "overall_score": 94
+          },
+          "verified_date": "2026-05-04"
+        },
+        {
+          "ticker": "KOSPI:009150",
+          "name": "삼성전기",
+          "close_price": 918000,
+          "rationale": "2026-05-04 종가 918,000원 확인 및 전일비 10.34% 급등(hankyung.com)|iM증권 목표주가 110만원으로 상향 조정(2026.05.04)|비즈니스 모델이 단납기에서 장기 공급 계약(LTA)으로 전환되며 이익 가시성 확보|코스피 6900선 돌파를 주도한 핵심 IT 대형주로 수급 집중|RSI 65.8로 강한 매수세 유입에도 과매수 임계점 미달|거래량 전일 대비 150% 이상 급증하며 바닥권 탈출 강력 시그널|볼린저밴드 상단 돌파 후 라이딩 패턴 진입|MACD 히스토그램 양선 확대 및 시그널선 우상향 가속화|CapEx 2배 확대 및 향후 3년간 투자 가시성 확보 리포트 발행|외국인 투자자 3조원 순매수 장세에서 전기전자 업종 매수 1순위",
+          "signals": {
+            "trend_score": 95,
+            "momentum_score": 94,
+            "volume_score": 92,
+            "volatility_score": 88,
+            "pattern_score": 91,
+            "sentiment_score": 93,
+            "overall_score": 96
+          },
+          "verified_date": "2026-05-04"
+        },
+        {
+          "ticker": "KOSPI:000500",
+          "name": "대원전선",
+          "close_price": 17350,
+          "rationale": "2026-05-04 장중 17,410원 기록 및 전일 종가(15,050원) 대비 15% 이상 급등 확인|글로벌 전선 시장 2026년 2,464억 달러 규모 성장 전망의 수혜|AI 데이터센터 증설 및 북미 노후 전력망 교체 수요 폭발|구리 가격 톤당 11,000~14,000달러대 유지로 제품 단가 상승 모멘텀|SMA 5일선이 20일선을 골든크로스하며 단기 급등 패턴 형성|RSI 68.2로 강한 상승세 유지 중이며 임계치 하단에서 매수 우위|거래량 전일 대비 185% 폭발하며 유동성 집중|ADX 35.6으로 매우 강력한 상승 추세 강도 지표 기록|Stochastic K-D 선의 우상향 교차 및 매수 신호 발생|Aroon Up 지표 95 이상 유지하며 시장 주도 테마주로서의 지위 확립",
+          "signals": {
+            "trend_score": 97,
+            "momentum_score": 96,
+            "volume_score": 98,
+            "volatility_score": 85,
+            "pattern_score": 94,
+            "sentiment_score": 95,
+            "overall_score": 98
+          },
+          "verified_date": "2026-05-04"
+        }
+      ],
+      "sentAt": "2026-05-05T22:41:03.97+00:00",
+      "subscriberCount": 283
+    },
+    {
+      "type": "stock",
       "date": "2026-05-04",
       "stocks": [
         {
@@ -7062,5 +7118,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-05-04T23:16:04.397Z"
+  "lastUpdated": "2026-05-05T22:41:37.209Z"
 }
