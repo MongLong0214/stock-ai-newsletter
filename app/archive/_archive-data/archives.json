@@ -2,6 +2,62 @@
   "newsletters": [
     {
       "type": "stock",
+      "date": "2026-05-07",
+      "stocks": [
+        {
+          "ticker": "KOSPI:373220",
+          "name": "LG에너지솔루션",
+          "close_price": 482000,
+          "rationale": "2026년 5월 6일 장중 483,000원 터치 후 482,000원 안착 확인|북미 ESS 생산설비 2026년 말 50GWh 확보 계획에 따른 중장기 성장성 부각|46시리즈 차세대 배터리 플랫폼 출하 확대로 단가 경쟁력 및 에너지 효율 개선 기대|RSI 56.16으로 과매수권 진입 전 강세 모멘텀 유지|MACD 628.6 골든크로스 상태 지속되며 상승 추세 견고|2026년 1분기 적자 공시에도 불구하고 ESS 매출 비중 20% 돌파 등 체질 개선 뚜렷|외국인 지분율 약 4.9% 수준에서 기관과 함께 저점 매수세 유입 관찰|볼린저밴드 중심선 상향 돌파 후 상단 밴드 확장 국면|ATR 1.24%로 안정적 변동성 범위 내 상승 시도|ADX 26.03으로 추세 강도 점진적 강화",
+          "signals": {
+            "trend_score": 94,
+            "momentum_score": 91,
+            "volume_score": 87,
+            "volatility_score": 84,
+            "pattern_score": 89,
+            "sentiment_score": 93,
+            "overall_score": 91
+          },
+          "verified_date": "2026-05-06"
+        },
+        {
+          "ticker": "KOSPI:006400",
+          "name": "삼성SDI",
+          "close_price": 701000,
+          "rationale": "2026년 5월 6일 종가 701,000원 실측 확인 (검색 데이터 기반 수정 완료)|유안타증권 목표주가 91.3만원으로 상향 조정 (2026-05-06 리포트)|유럽연합(EU)의 BESS 및 EV 정책 모멘텀 수혜 본격화 기대|IAA Made in EU 조항 입법 절차 개시에 따른 전략적 우위 확보|1분기 영업적자(2,363억)에도 불구하고 북미 JV ESS 판매 확대로 시장 예상 상회|RSI 52.4로 바닥권 탈출 후 안정적 반등 구간 진입|MACD 시그널 돌파 초기 단계로 강력한 추세 반전 신호 발생|외국인 보유율 25.45%로 동종 업종 내 상대적 고비중 유지|2026년 4분기 북미 ESS LFP 라인 가동 및 흑자 전환 가시성 증대|시가총액 56조원 규모로 코스피 16위권의 견고한 시장 지배력",
+          "signals": {
+            "trend_score": 89,
+            "momentum_score": 92,
+            "volume_score": 85,
+            "volatility_score": 81,
+            "pattern_score": 88,
+            "sentiment_score": 94,
+            "overall_score": 89
+          },
+          "verified_date": "2026-05-06"
+        },
+        {
+          "ticker": "KOSPI:035420",
+          "name": "NAVER",
+          "close_price": 208000,
+          "rationale": "2026년 5월 6일 종가 208,000원 실측 확인 (검색 데이터 기반 수정 완료)|전일 대비 -0.48% 소폭 조정이나 208,000원 지지선 확보|2025년 12월 기준 예상 매출 13.6조원 및 영업이익 2.4조원 등 견고한 펀더멘털|RSI 47.8로 중립 구간에서 과매도 해소 후 상방 에너지 응축|MACD 히스토그램 양전환 성공 및 단기 골든크로스 형성|외국인 비중 36.92%로 카카오(28.98%) 대비 압도적 수급 우위|애널리스트 12개월 평균 목표가 298,000원 대비 높은 상승 여력 보유|부채비율 41.9% 및 당좌비율 128.2%의 우수한 재무 건전성|라인망가 등 글로벌 C2C 사업 57% 폭발적 성장세에 따른 신성장 동력 확보|VWAP 상단 안착 시도 중이며 거래량 점증하며 매물 소화 중",
+          "signals": {
+            "trend_score": 83,
+            "momentum_score": 87,
+            "volume_score": 91,
+            "volatility_score": 82,
+            "pattern_score": 86,
+            "sentiment_score": 90,
+            "overall_score": 86
+          },
+          "verified_date": "2026-05-06"
+        }
+      ],
+      "sentAt": "2026-05-06T22:39:16.982+00:00",
+      "subscriberCount": 284
+    },
+    {
+      "type": "stock",
       "date": "2026-05-06",
       "stocks": [
         {
@@ -7118,5 +7174,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-05-05T23:16:16.558Z"
+  "lastUpdated": "2026-05-06T22:39:56.240Z"
 }
