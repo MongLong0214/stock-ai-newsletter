@@ -2,6 +2,62 @@
   "newsletters": [
     {
       "type": "stock",
+      "date": "2026-05-11",
+      "stocks": [
+        {
+          "ticker": "KOSPI:001440",
+          "name": "대한전선",
+          "close_price": 14660,
+          "rationale": "SMA 20일선(14,215원) 상향 돌파 후 안착|EMA 5일(14,480원)-20일(14,210원) 골든크로스 발생|RSI(14) 52.37 지수 바닥권 탈출 강세 전환|MACD(12,26,9) 12.45 시그널선 상향 돌파 시도|거래량 28,452,100주 기록(전일 대비 124% 증가)|볼린저밴드 중심선(14,185원) 상단 지지 확인|ATR(14) 412.5(2.81%) 변동성 점증|ADX 21.58 추세 형성 초기 국면 진입|OBV 45,210,000 돌파로 매집 흔적 포착|Stochastic %K 54.21 > %D 48.72 골든크로스|Williams %R -45.02 적정 상승 구간 유지|CCI 85.34 상승 에너지 축적|MFI(14) 55.28 자금 유입 가속화|SuperTrend(10,3) 매수 전환 신호 발생|KST(Know Sure Thing) 0.12 장기 하락 추세선 돌파",
+          "signals": {
+            "trend_score": 91,
+            "momentum_score": 95,
+            "volume_score": 88,
+            "volatility_score": 98,
+            "pattern_score": 92,
+            "sentiment_score": 94,
+            "overall_score": 93
+          },
+          "verified_date": "2026-05-08"
+        },
+        {
+          "ticker": "KOSPI:010120",
+          "name": "LS ELECTRIC",
+          "close_price": 215500,
+          "rationale": "SMA 5-10-20-60 정배열 유지(215.5k > 208k > 195k)|EMA 20일선(198,420원) 지지 후 반등 성공|RSI(14) 61.24 건전한 상승 추세 구간|MACD 4,525 양선 유지 및 시그널선 상회|거래량비율(VR) 135.4% 기록하며 매수 우위|볼린저밴드 중상단 위치하며 상단 돌파 준비|ATR(14) 7,542(3.5%) 적정 변동성 유지|ADX 32.12 강력한 우상향 상승 추세 확인|OBV 지속 우상향으로 전고점 돌파 매집 확인|Stochastic 72.58 상승 모멘텀 유지|Williams %R -28.43 과매수 구간 미진입|CCI 92.51 강세 신호 지속|MFI(14) 65.55 지속적인 자금 유입|Ichimoku 구름대 상단(202,500원) 지지|Vortex Indicator VI+ 1.15 확장 구간 진입",
+          "signals": {
+            "trend_score": 98,
+            "momentum_score": 89,
+            "volume_score": 92,
+            "volatility_score": 87,
+            "pattern_score": 85,
+            "sentiment_score": 90,
+            "overall_score": 91
+          },
+          "verified_date": "2026-05-08"
+        },
+        {
+          "ticker": "KOSDAQ:191150",
+          "name": "알테오젠",
+          "close_price": 284500,
+          "rationale": "SMA 5-20-60-120 완전정배열 추세 지속|EMA 5일선(278,560원) 상향 골든크로스 발생|RSI(14) 59.87 강세권 안착 및 상승 탄력|MACD 히스토그램 1,245 양선 확대 지속|거래량비율(VR) 155.4% 돌파로 대량 수급 확인|볼린저밴드 상단 수렴 후 확장(Expansion) 시작|ATR(14) 11,950(4.2%) 활발한 변동성 구간|ADX 28.55 추세 탄력 확보 완료|OBV 신고가 경신하며 강력한 주체 매집 확인|Stochastic 68.23 저점 높이며 상승 반전|Williams %R -32.15 적정 매수 구간|CCI 98.02 돌파 직전 강세 에너지 응집|MFI(14) 72.14 매수 우위 장악력 유지|SuperTrend 매수 신호 지속 및 지지선 상승|Elder Ray Bull Power 2,450 확대 양상",
+          "signals": {
+            "trend_score": 95,
+            "momentum_score": 88,
+            "volume_score": 94,
+            "volatility_score": 90,
+            "pattern_score": 88,
+            "sentiment_score": 92,
+            "overall_score": 92
+          },
+          "verified_date": "2026-05-08"
+        }
+      ],
+      "sentAt": "2026-05-10T22:38:47.91+00:00",
+      "subscriberCount": 285
+    },
+    {
+      "type": "stock",
       "date": "2026-05-08",
       "stocks": [
         {
@@ -7230,5 +7286,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-05-07T23:16:29.967Z"
+  "lastUpdated": "2026-05-10T22:39:18.198Z"
 }
