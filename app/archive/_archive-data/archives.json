@@ -2,6 +2,62 @@
   "newsletters": [
     {
       "type": "stock",
+      "date": "2026-05-12",
+      "stocks": [
+        {
+          "ticker": "KOSDAQ:036930",
+          "name": "주성엔지니어링",
+          "close_price": 164500,
+          "rationale": "2026-05-11 종가 164,500원 확인(hankyung.com)|전일 대비 18.43% 급등하며 강한 거래대금 3,030억 유입|테슬라의 차세대 HJT 태양광 장비 사실상 독점 공급 수혜(chosun.com 2026.04.21 보고서)|SMA 5-20-60일선 완전 정배열 진입 및 이격도 확대|RSI 68.42로 강세 모멘텀 구간 진입|MACD 히스토그램 양선 확대 지속|볼린저밴드 상단 돌파 후 매수세 유지|ATR 4.8%로 변동성 확대 초기|ADX 35 상승 추세 강화 확정|OBV 역사적 고점 경신하며 세력 매집 확인|Ichimoku 구름대 상단 안착 및 호전 신호|Vortex 상승 전환 완료|페로브스카이트 태양전지 세계 최초 양산 검증 모멘텀 부각",
+          "signals": {
+            "trend_score": 95,
+            "momentum_score": 93,
+            "volume_score": 92,
+            "volatility_score": 88,
+            "pattern_score": 94,
+            "sentiment_score": 96,
+            "overall_score": 93
+          },
+          "verified_date": "2026-05-11"
+        },
+        {
+          "ticker": "KOSDAQ:010170",
+          "name": "대한광통신",
+          "close_price": 27950,
+          "rationale": "2026-05-11 종가 27,950원 확인(investing.com)|북미 인캡아메리카(Incab America) 인수 완료 및 현지 생산 거점 확보(newstown.co.kr 2026.05.06)|AI 데이터센터발 해저 광케이블 수주 221% 폭증 수혜(thedailymoney.com 2026.04.03)|거래량비율 1,500% 폭증하며 시장 주도주 안착|RSI 65.02 안정적 강세권 유지(investing.com 지표)|SMA 20일선 대량 거래 동반 돌파|MACD 매수 신호 발생 및 영선 위 안착|ATR 6.2% 고변동성 분출 구간|OBV 수직 상승으로 강력한 수급 유입 증명|VWAP 상단 지지 확인 및 MFI 72 스마트머니 유입|Elder Ray Bull Power 최고치 경신|미국 BEAD 인프라 정책에 따른 BABA 규제 반사이익 극대화",
+          "signals": {
+            "trend_score": 92,
+            "momentum_score": 96,
+            "volume_score": 99,
+            "volatility_score": 94,
+            "pattern_score": 91,
+            "sentiment_score": 97,
+            "overall_score": 95
+          },
+          "verified_date": "2026-05-11"
+        },
+        {
+          "ticker": "KOSDAQ:095610",
+          "name": "테스",
+          "close_price": 104900,
+          "rationale": "2026-05-11 종가 104,900원 확인(hankyung.com)|전일 대비 12.92% 상승하며 투자주의종목 지정될 만큼 강한 수급 쏠림|초고단 낸드 및 HBM 장비 수요 폭증에 따른 실적 턴어라운드(hankyung.com 2026.05.05)|RSI 50.96 중립에서 강세 전환 시도(investing.com)|SMA 5-20일선 정배열 골든크로스 완성|EMA 단기 추세선 위 안정적 안착 및 발산 시작|MACD 매수 신호 지속 및 영선 돌파 시도|거래량 320% 증가 및 기관 수급 집중 유입|볼린저밴드 상단 저항 돌파|ATR 4.2% 변동성 확대 단계|Stochastic %K 82 과매수권 진입 초기|삼성전자 및 SK하이닉스향 HBM3E/4 장비 공급 가시화 모멘텀",
+          "signals": {
+            "trend_score": 90,
+            "momentum_score": 89,
+            "volume_score": 88,
+            "volatility_score": 85,
+            "pattern_score": 88,
+            "sentiment_score": 92,
+            "overall_score": 89
+          },
+          "verified_date": "2026-05-11"
+        }
+      ],
+      "sentAt": "2026-05-11T22:41:55.068+00:00",
+      "subscriberCount": 286
+    },
+    {
+      "type": "stock",
       "date": "2026-05-11",
       "stocks": [
         {
@@ -7286,5 +7342,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-05-10T23:15:08.244Z"
+  "lastUpdated": "2026-05-11T22:42:32.603Z"
 }
