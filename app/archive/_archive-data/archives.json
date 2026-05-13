@@ -2,6 +2,62 @@
   "newsletters": [
     {
       "type": "stock",
+      "date": "2026-05-14",
+      "stocks": [
+        {
+          "ticker": "KOSPI:005380",
+          "name": "현대차",
+          "close_price": 710000,
+          "rationale": "2026년 5월 13일 종가 710,000원 확인(전일비 +9.91%)|52주 신고가 경신 및 역대 최고가 도달|보스턴 다이내믹스 미국 상장(IPO) 기대감 본격화|미국 조지아주 스마트팩토리 가동 및 피지컬 AI 선도 평가|ADX 32로 강한 상승 추세 진입 확인|RSI 68로 과매수 구간(70) 직전의 강력한 상승 모멘텀 유지|외국인 및 기관의 대규모 동반 순매수 유입|SMA 5/20/60일선 완전 정배열 상태의 지지력|볼린저밴드 상단 돌파 후 밴드 라이딩 패턴 진행|OBV의 급격한 우상향으로 매집 에너지 집중 확인",
+          "signals": {
+            "trend_score": 96,
+            "momentum_score": 94,
+            "volume_score": 95,
+            "volatility_score": 88,
+            "pattern_score": 92,
+            "sentiment_score": 93,
+            "overall_score": 94
+          },
+          "verified_date": "2026-05-13"
+        },
+        {
+          "ticker": "KOSPI:012330",
+          "name": "현대모비스",
+          "close_price": 649000,
+          "rationale": "2026년 5월 13일 종가 649,000원 및 18.43% 폭등 확인|현대차그룹 로봇 사업 가치 재평가 수혜|보스턴 다이내믹스 신형 '아틀라스' 영상 공개로 인한 로봇주 테마 형성|거래량 전일 대비 180% 이상 폭증하며 강력한 수급 증명|RSI 69로 과매수 임계점 도달 전 최대 상승 탄력 구간|ADX 42의 초강세 추세 국면 진입|볼린저밴드 상단 오버슈팅 후 가격 정체 없이 상승 유지|EMA 5일선과의 이격도를 좁히지 않는 가파른 상승 각도|SuperTrend 매수 신호 지속 발생|현대차와의 시너지로 인한 로봇 부품 공급망 핵심 역할 부각",
+          "signals": {
+            "trend_score": 98,
+            "momentum_score": 97,
+            "volume_score": 99,
+            "volatility_score": 90,
+            "pattern_score": 95,
+            "sentiment_score": 96,
+            "overall_score": 96
+          },
+          "verified_date": "2026-05-13"
+        },
+        {
+          "ticker": "KOSPI:005930",
+          "name": "삼성전자",
+          "close_price": 284000,
+          "rationale": "2026년 5월 13일 종가 284,000원 확인(반등 성공)|코스피 7,800선 돌파를 주도하는 핵심 대장주 역할|정부의 노사 협상 중재안 제시로 인한 파업 리스크 완화|반도체 업황 슈퍼 사이클 지속 및 엔비디아와의 협력 강화|SMA 20일선 지지 후 전고점 돌파 시도|RSI 64의 안정적인 강세권 위치로 추격 매수 부담 적음|MACD 골든크로스 완성 후 히스토그램 양선 확대|VWAP(대량거래 가중평균주가) 상단에서 가격 형성|HBM4 및 선단 공정 수요 폭증으로 인한 실적 컨센서스 상향|기관 중심의 저가 매수세 유입 및 매도세 진정 확인",
+          "signals": {
+            "trend_score": 92,
+            "momentum_score": 88,
+            "volume_score": 90,
+            "volatility_score": 85,
+            "pattern_score": 89,
+            "sentiment_score": 91,
+            "overall_score": 90
+          },
+          "verified_date": "2026-05-13"
+        }
+      ],
+      "sentAt": "2026-05-13T22:48:33.644+00:00",
+      "subscriberCount": 287
+    },
+    {
+      "type": "stock",
       "date": "2026-05-13",
       "stocks": [
         {
@@ -7398,5 +7454,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-05-12T23:20:37.448Z"
+  "lastUpdated": "2026-05-13T22:49:17.480Z"
 }
