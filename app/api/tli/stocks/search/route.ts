@@ -1,7 +1,13 @@
+import { z } from 'zod'
 import { supabase } from '@/lib/supabase'
 import { apiError, apiSuccess, escapeIlike, handleApiError, isTableNotFound, placeholderResponse } from '@/lib/tli/api-utils'
 import { getKSTDateString } from '@/lib/tli/date-utils'
 import { getStageKo, toStage } from '@/lib/tli/types'
+import { withRateLimit } from '@/lib/rate-limit/with-rate-limit'
+
+const QuerySchema = z.object({
+  q: z.string().min(1).max(100).regex(/^[^\r\n\t\0]+$/),
+})
 
 interface ThemeStockMatchRow {
   symbol: string
@@ -40,14 +46,17 @@ const buildMatchRank = (query: string, stock: { symbol: string; name: string }) 
   return 4
 }
 
-export async function GET(request: Request) {
+// Rate limit: uses checkRateLimit('standard') via withRateLimit wrapper
+export const GET = withRateLimit('standard', async (request) => {
   try {
     const { searchParams } = new URL(request.url)
-    const query = searchParams.get('q')?.trim() || ''
+    const parsed = QuerySchema.safeParse({ q: searchParams.get('q')?.trim() })
 
-    if (!query) {
-      return apiError('검색어(q)가 필요합니다.', 400)
+    if (!parsed.success) {
+      return apiError('invalid query', 422)
     }
+
+    const query = parsed.data.q
 
     const placeholder = placeholderResponse([])
     if (placeholder) return placeholder
@@ -180,6 +189,6 @@ export async function GET(request: Request) {
   } catch (error) {
     return handleApiError(error, '종목 검색에 실패했습니다.')
   }
-}
+})
 
 export const runtime = 'nodejs'

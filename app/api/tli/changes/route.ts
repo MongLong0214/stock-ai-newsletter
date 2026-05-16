@@ -1,6 +1,7 @@
 import { supabase } from '@/lib/supabase'
 import { apiSuccess, handleApiError, placeholderResponse, isTableNotFound } from '@/lib/tli/api-utils'
 import { getKSTDateString } from '@/lib/tli/date-utils'
+import { withRateLimit } from '@/lib/rate-limit/with-rate-limit'
 
 interface ScoreRow {
   theme_id: string
@@ -20,7 +21,8 @@ interface ThemePair {
   prev?: ScoreRow
 }
 
-export async function GET(request: Request) {
+// Rate limit: uses checkRateLimit('standard') via withRateLimit wrapper
+export const GET = withRateLimit('standard', async (request) => {
   try {
     const { searchParams } = new URL(request.url)
     const period = searchParams.get('period') === '7d' ? '7d' : '1d'
@@ -163,6 +165,6 @@ export async function GET(request: Request) {
   } catch (error) {
     return handleApiError(error, '테마 변동 정보를 불러오는데 실패했습니다.')
   }
-}
+})
 
 export const runtime = 'nodejs'

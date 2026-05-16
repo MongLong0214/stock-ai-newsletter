@@ -1,14 +1,14 @@
-import { NextRequest } from 'next/server'
 import { supabase } from '@/lib/supabase'
 import { getStageKo, toStage } from '@/lib/tli/types'
 import { apiError, apiSuccess, handleApiError, isTableNotFound, placeholderResponse } from '@/lib/tli/api-utils'
+import { withRateLimit } from '@/lib/rate-limit/with-rate-limit'
 
 
+// Rate limit: uses checkRateLimit('standard') via withRateLimit wrapper
 // 특정 종목이 속한 모든 테마와 현재 점수 및 단계 조회
-export async function GET(
-  _request: NextRequest,
-  { params }: { params: Promise<{ symbol: string }> }
-) {
+export const GET = withRateLimit(
+  'standard',
+  async (_request: Request, { params }: { params: Promise<{ symbol: string }> }) => {
   try {
     const { symbol } = await params
 
@@ -106,6 +106,7 @@ export async function GET(
   } catch (error) {
     return handleApiError(error, '종목 테마 정보를 불러오는데 실패했습니다.')
   }
-}
+  },
+)
 
 export const runtime = 'nodejs'

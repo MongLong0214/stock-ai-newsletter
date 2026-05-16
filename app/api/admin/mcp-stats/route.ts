@@ -1,27 +1,11 @@
 import { NextResponse } from 'next/server'
-import { timingSafeEqual } from 'crypto'
 import { createClient } from '@supabase/supabase-js'
+import { verifyBearerToken } from '@/lib/auth/verify-bearer'
 
-const ADMIN_SECRET = process.env.ADMIN_SECRET
 const MAX_DAYS = 365
 
-const verifyBearerToken = (authHeader: string | null): boolean => {
-  if (!ADMIN_SECRET || !authHeader) return false
-  const token = authHeader.replace('Bearer ', '')
-  if (token.length !== ADMIN_SECRET.length) return false
-  try {
-    return timingSafeEqual(
-      Buffer.from(token, 'utf8'),
-      Buffer.from(ADMIN_SECRET, 'utf8')
-    )
-  } catch {
-    return false
-  }
-}
-
 export async function GET(request: Request) {
-  const authHeader = request.headers.get('authorization')
-  if (!verifyBearerToken(authHeader)) {
+  if (!verifyBearerToken(request, process.env.ADMIN_SECRET, process.env.ADMIN_SECRET_OLD)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 

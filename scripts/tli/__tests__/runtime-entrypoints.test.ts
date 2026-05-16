@@ -12,6 +12,7 @@ const shouldAbortAnalysisPipeline = vi.fn()
 const submitIndexNowStep = vi.fn()
 const calculateThemeComparisons = vi.fn()
 const computeOptimalThreshold = vi.fn()
+const materializePhase0Artifacts = vi.fn()
 
 vi.mock('@/scripts/tli/shared/data-ops', () => ({
   loadActiveThemes,
@@ -46,6 +47,10 @@ vi.mock('@/scripts/tli/comparison/auto-tune', () => ({
   computeOptimalThreshold,
 }))
 
+vi.mock('@/scripts/tli/comparison/materialize-phase0-artifacts', () => ({
+  materializePhase0Artifacts,
+}))
+
 describe('runtime entrypoints', () => {
   beforeEach(() => {
     vi.resetModules()
@@ -75,6 +80,7 @@ describe('runtime entrypoints', () => {
       confidence: 'high',
       sampleSize: 42,
     })
+    materializePhase0Artifacts.mockResolvedValue(undefined)
   })
 
   it('does not terminate the process when the main pipeline is imported and invoked', async () => {

@@ -4,9 +4,11 @@ import { apiSuccess, handleApiError, isTableNotFound, placeholderResponse } from
 import type { ThemeListItem, ThemeRanking } from '@/lib/tli/types'
 import { EMPTY_RANKING, SCORE_QUERY_BATCH_SIZE, buildScoreMetaMap, buildCountMaps, buildThemeRanking, batchLoadStockData, batchLoadNewsCounts, applyFreshnessDecayToThemeData } from './ranking-helpers'
 import { getKSTDateString } from '@/lib/tli/date-utils'
+import { withRateLimit } from '@/lib/rate-limit/with-rate-limit'
 
+// Rate limit: uses checkRateLimit('standard') via withRateLimit wrapper
 // 생명주기 단계별 랭킹 (배치 쿼리 최적화)
-export async function GET(request: Request) {
+export const GET = withRateLimit('standard', async (request) => {
   try {
     const { searchParams } = new URL(request.url)
     const limit = Math.max(1, Math.min(50, Number(searchParams.get('limit')) || 10))
@@ -134,6 +136,6 @@ export async function GET(request: Request) {
   } catch (error) {
     return handleApiError(error, '랭킹 정보를 불러오는데 실패했습니다.')
   }
-}
+})
 
 export const runtime = 'nodejs'

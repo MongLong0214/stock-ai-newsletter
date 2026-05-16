@@ -1,8 +1,10 @@
 import { supabase } from '@/lib/supabase'
 import { apiSuccess, apiError, handleApiError, placeholderResponse, UUID_RE } from '@/lib/tli/api-utils'
 import { getKSTDateString } from '@/lib/tli/date-utils'
+import { withRateLimit } from '@/lib/rate-limit/with-rate-limit'
 
-export async function GET(request: Request) {
+// Rate limit: uses checkRateLimit('standard') via withRateLimit wrapper
+export const GET = withRateLimit('standard', async (request) => {
   try {
     const { searchParams } = new URL(request.url)
     const idsParam = searchParams.get('ids')
@@ -224,6 +226,6 @@ export async function GET(request: Request) {
   } catch (error) {
     return handleApiError(error, '테마 비교 데이터를 불러오는데 실패했습니다.')
   }
-}
+})
 
 export const runtime = 'nodejs'

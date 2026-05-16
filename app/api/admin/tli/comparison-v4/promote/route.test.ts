@@ -42,7 +42,7 @@ vi.mock('@/scripts/tli/shared/supabase-admin', () => ({
       upsert: () => Promise.resolve({ error: null }),
     }),
     rpc: () => Promise.resolve({
-      data: { promotedRunIds: ['run-1'], skippedRunIds: [], report: 'ok' },
+      data: { promotedRunIds: ['00000000-0000-4000-8000-000000000001'], skippedRunIds: [], report: 'ok' },
       error: null,
     }),
   },
@@ -96,13 +96,13 @@ describe('admin comparison v4 promote route', () => {
     const { POST } = await import('./route')
     const response = await POST(new Request('http://localhost/api/admin/tli/comparison-v4/promote', {
       method: 'POST',
-      body: JSON.stringify({ runIds: ['run-1'], productionVersion: 'algo-v4-prod' }),
+      body: JSON.stringify({ runIds: ['00000000-0000-4000-8000-000000000001'], productionVersion: 'algo-v4-prod' }),
     }))
 
     expect(response.status).toBe(401)
   })
 
-  it('returns 400 when runIds are invalid', async () => {
+  it('returns 422 when runIds are invalid (Zod)', async () => {
     const { POST } = await import('./route')
     const response = await POST(new Request('http://localhost/api/admin/tli/comparison-v4/promote', {
       method: 'POST',
@@ -110,7 +110,7 @@ describe('admin comparison v4 promote route', () => {
       body: JSON.stringify({ runIds: [], productionVersion: 'algo-v4-prod', weightVersion: 'w-2026-03-12' }),
     }))
 
-    expect(response.status).toBe(400)
+    expect(response.status).toBe(422)
   })
 
   it('returns 200 with promotion summary on success', async () => {
@@ -118,12 +118,12 @@ describe('admin comparison v4 promote route', () => {
     const response = await POST(new Request('http://localhost/api/admin/tli/comparison-v4/promote', {
       method: 'POST',
       headers: { authorization: 'Bearer secret' },
-      body: JSON.stringify({ runIds: ['run-1'], productionVersion: 'algo-v4-prod', weightVersion: 'w-2026-03-12' }),
+      body: JSON.stringify({ runIds: ['00000000-0000-4000-8000-000000000001'], productionVersion: 'algo-v4-prod', weightVersion: 'w-2026-03-12' }),
     }))
 
     expect(response.status).toBe(200)
     const json = await response.json()
-    expect(json.promotedRunIds).toEqual(['run-1'])
+    expect(json.promotedRunIds).toEqual(['00000000-0000-4000-8000-000000000001'])
   })
 
   it('returns 409 when a requested weight version has no certification artifact', async () => {
@@ -134,7 +134,7 @@ describe('admin comparison v4 promote route', () => {
       method: 'POST',
       headers: { authorization: 'Bearer secret' },
       body: JSON.stringify({
-        runIds: ['run-1'],
+        runIds: ['00000000-0000-4000-8000-000000000001'],
         productionVersion: 'algo-v4-prod',
         weightVersion: 'w-2026-03-12',
       }),
@@ -164,7 +164,7 @@ describe('admin comparison v4 promote route', () => {
       method: 'POST',
       headers: { authorization: 'Bearer secret' },
       body: JSON.stringify({
-        runIds: ['run-1'],
+        runIds: ['00000000-0000-4000-8000-000000000001'],
         productionVersion: 'algo-v4-prod',
         weightVersion: 'w-2026-03-12',
         driftArtifact: {

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getBatchStockPrices } from '@/app/archive/_utils/api/kis/client';
+import { withRateLimit } from '@/lib/rate-limit/with-rate-limit';
 
 /**
  * 주식 현재가 조회 API
@@ -11,11 +12,13 @@ import { getBatchStockPrices } from '@/app/archive/_utils/api/kis/client';
  * - Rate limiting 보호
  * - 캐싱 전략 적용
  */
-export async function GET(request: NextRequest) {
+// Rate limit: uses checkRateLimit('standard') via withRateLimit wrapper
+export const GET = withRateLimit('standard', async (request: Request) => {
   const startTime = Date.now();
 
   try {
-    const searchParams = request.nextUrl.searchParams;
+    const req = request as NextRequest;
+    const searchParams = req.nextUrl.searchParams;
     const tickersParam = searchParams.get('tickers');
 
     // 입력 검증
@@ -106,22 +109,10 @@ export async function GET(request: NextRequest) {
       stack: error instanceof Error ? error.stack : undefined,
     });
 
-    // 프로덕션에서는 민감한 정보 숨김
-    const isProduction = process.env.NODE_ENV === 'production';
-
     return NextResponse.json(
       {
         success: false,
         error: 'Failed to fetch stock prices',
-        message: isProduction
-          ? 'An error occurred while fetching stock prices. Please try again later.'
-          : errorMessage,
-        details: !isProduction
-          ? {
-              name: errorName,
-              message: errorMessage,
-            }
-          : undefined,
       },
       {
         status: 500,
@@ -131,7 +122,7 @@ export async function GET(request: NextRequest) {
       }
     );
   }
-}
+});
 
 // Route segment config for Vercel
 export const runtime = 'nodejs'; // KIS API는 Node.js runtime 필요

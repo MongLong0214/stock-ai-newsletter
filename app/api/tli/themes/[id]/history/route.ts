@@ -1,14 +1,14 @@
-import { NextRequest } from 'next/server'
 import { supabase } from '@/lib/supabase'
 import { apiError, apiSuccess, handleApiError, isTableNotFound, placeholderResponse, UUID_RE } from '@/lib/tli/api-utils'
 import { toStage } from '@/lib/tli/types'
 import { getKSTDateString } from '@/lib/tli/date-utils'
+import { withRateLimit } from '@/lib/rate-limit/with-rate-limit'
 
+// Rate limit: uses checkRateLimit('standard') via withRateLimit wrapper
 // 특정 테마의 30일 생명주기 점수 이력 조회
-export async function GET(
-  _request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export const GET = withRateLimit(
+  'standard',
+  async (_request: Request, { params }: { params: Promise<{ id: string }> }) => {
   try {
     const { id } = await params
 
@@ -65,6 +65,7 @@ export async function GET(
   } catch (error) {
     return handleApiError(error, '테마 점수 이력을 불러오는데 실패했습니다.')
   }
-}
+  },
+)
 
 export const runtime = 'nodejs'

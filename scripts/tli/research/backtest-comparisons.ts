@@ -306,4 +306,8 @@ async function main() {
   console.log('\n✅ 백테스트 완료')
 }
 
-main().catch(console.error)
+import { isMainModule } from '@/scripts/tli/shared/is-main'
+
+if (isMainModule(import.meta.url)) {
+  main().catch(console.error)
+}

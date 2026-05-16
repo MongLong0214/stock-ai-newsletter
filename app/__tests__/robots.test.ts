@@ -17,9 +17,11 @@ describe('robots policy', () => {
       'SkypeUriPreview',
     ];
 
+    const rules = Array.isArray(config.rules) ? config.rules : [config.rules];
+    type Rule = (typeof rules)[number];
     for (const userAgent of userAgents) {
       expect(
-        config.rules.find((rule) => rule.userAgent === userAgent)
+        rules.find((rule: Rule) => rule.userAgent === userAgent)
       ).toEqual({
         userAgent,
         allow: '/',

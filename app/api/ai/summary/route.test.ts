@@ -114,7 +114,7 @@ describe('AI summary route', () => {
   it('reports tracked and active counts from summary instead of capped arrays', async () => {
     mockedGetRankingServer.mockResolvedValue(makeRanking())
 
-    const response = await GET()
+    const response = await GET(new Request('http://localhost/api/ai/summary'), {} as never)
     const body = await response.json()
 
     expect(body.marketOverview.totalActiveThemes).toBe(176)

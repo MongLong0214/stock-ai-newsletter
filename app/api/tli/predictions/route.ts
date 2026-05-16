@@ -1,6 +1,7 @@
 import { supabase } from '@/lib/supabase'
 import { apiSuccess, handleApiError, placeholderResponse, isTableNotFound } from '@/lib/tli/api-utils'
 import type { Stage } from '@/lib/tli/types/db'
+import { withRateLimit } from '@/lib/rate-limit/with-rate-limit'
 
 // v4 forecast serving gate check
 interface ControlRow {
@@ -282,7 +283,8 @@ async function loadV2Predictions(phaseFilter: PhaseFilter | null) {
   return results
 }
 
-export async function GET(request: Request) {
+// Rate limit: uses checkRateLimit('standard') via withRateLimit wrapper
+export const GET = withRateLimit('standard', async (request) => {
   try {
     const { searchParams } = new URL(request.url)
     const phaseParam = searchParams.get('phase') as PhaseFilter | null
@@ -343,6 +345,6 @@ export async function GET(request: Request) {
   } catch (error) {
     return handleApiError(error, '예측 데이터를 불러오는데 실패했습니다.')
   }
-}
+})
 
 export const runtime = 'nodejs'

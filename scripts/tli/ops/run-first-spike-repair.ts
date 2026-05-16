@@ -105,7 +105,11 @@ async function main() {
   console.log(`✅ first_spike_date repair complete: ${updated}/${repairRows.length} updated on ${getKSTDate()}`)
 }
 
-main().catch((error) => {
-  console.error(error instanceof Error ? error.message : String(error))
-  process.exit(1)
-})
+import { isMainModule } from '@/scripts/tli/shared/is-main'
+
+if (isMainModule(import.meta.url)) {
+  main().catch((error) => {
+    console.error(error instanceof Error ? error.message : String(error))
+    process.exit(1)
+  })
+}

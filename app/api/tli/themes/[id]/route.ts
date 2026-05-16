@@ -1,16 +1,16 @@
-import { NextRequest } from 'next/server'
 import { supabase } from '@/lib/supabase'
 import { apiError, apiSuccess, handleApiError, isTableNotFound, placeholderResponse, UUID_RE } from '@/lib/tli/api-utils'
 import { fetchThemeData, findCriticalThemeDetailError } from './fetch-theme-data'
 import { buildComparisonResults } from './build-comparisons'
 import { buildThemeDetailResponse } from './build-response'
 import { getKSTDateString } from '@/lib/tli/date-utils'
+import { withRateLimit } from '@/lib/rate-limit/with-rate-limit'
 
+// Rate limit: uses checkRateLimit('standard') via withRateLimit wrapper
 // 특정 테마의 상세 정보 조회 (배치 쿼리 최적화)
-export async function GET(
-  _request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export const GET = withRateLimit(
+  'standard',
+  async (_request: Request, { params }: { params: Promise<{ id: string }> }) => {
   try {
     // placeholder 환경 처리
     const placeholder = placeholderResponse<null>(null)
@@ -131,6 +131,7 @@ export async function GET(
   } catch (error) {
     return handleApiError(error, '테마 상세 정보를 불러오는데 실패했습니다.')
   }
-}
+  },
+)
 
 export const runtime = 'nodejs'

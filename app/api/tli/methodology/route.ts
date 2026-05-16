@@ -1,5 +1,6 @@
 import { apiSuccess } from '@/lib/tli/api-utils'
 import { getKSTDateString } from '@/lib/tli/date-utils'
+import { withRateLimit } from '@/lib/rate-limit/with-rate-limit'
 
 const METHODOLOGY = {
   name: 'TLI (Theme Lifecycle Index)',
@@ -158,7 +159,8 @@ const SECTION_KEY_MAP: Record<string, string> = {
   database_tables: 'databaseTables',
 }
 
-export async function GET(request: Request) {
+// Rate limit: uses checkRateLimit('standard') via withRateLimit wrapper
+export const GET = withRateLimit('standard', async (request) => {
   const { searchParams } = new URL(request.url)
   const section = searchParams.get('section')
 
@@ -181,6 +183,6 @@ export async function GET(request: Request) {
   }
 
   return apiSuccess(result, undefined, 'long')
-}
+})
 
 export const runtime = 'nodejs'
