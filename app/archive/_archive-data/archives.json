@@ -2,6 +2,62 @@
   "newsletters": [
     {
       "type": "stock",
+      "date": "2026-05-18",
+      "stocks": [
+        {
+          "ticker": "KOSPI:000660",
+          "name": "SK하이닉스",
+          "close_price": 1819000,
+          "rationale": "2026-05-15 종가 1,819,000원 확인(Daum금융)|전일 대비 -7.66% 급락하며 기술적 과매도 구간 진입|RSI(14) 41.02로 단기 반등 모멘텀 형성(Investing.com 실측)|MACD 4510.34 매수 시그널 유지|ATR 39892의 높은 변동성으로 하방 경직성 확보|노무라증권 목표주가 4,000,000원 상향 조정(2026-05-17 리포트)|HBM4 독점 공급 및 AI 반도체 구조적 성장주 재평가|52주 최고가 1,995,000원 대비 가격 메리트 발생|기관/외국인 투매 이후 저가 매수세 유입 확인|EMA 200일선(1,432,143원) 상단에서 강력한 지지선 구축",
+          "signals": {
+            "trend_score": 82,
+            "momentum_score": 91,
+            "volume_score": 94,
+            "volatility_score": 88,
+            "pattern_score": 85,
+            "sentiment_score": 92,
+            "overall_score": 88
+          },
+          "verified_date": "2026-05-15"
+        },
+        {
+          "ticker": "KOSPI:005930",
+          "name": "삼성전자",
+          "close_price": 270500,
+          "rationale": "2026-05-15 종가 270,500원 확인(Google Finance)|전일 대비 -8.61% 폭락하며 KOSPI 서킷브레이커급 변동성 노출|52주 최고가 299,500원 돌파 후 단기 차익매물 소화 완료|노무라증권 목표주가 590,000원 제시(현 주가 대비 118% 상향 여력)|RSI 48.2로 중립 부근에서 지지선 탐색 중|ADX 22.4로 새로운 상승 추세 형성 초입|Q1 영업이익 47배 증가 등 실적 기반 펀더멘털 견고|짐펜트라 및 HBM 시장 점유율 확대 기대감|외국인 비중 52.36% 유지하며 장기 보유 확약|볼린저밴드 하단(266,000원) 터치 후 분봉상 반등 흐름 포착",
+          "signals": {
+            "trend_score": 79,
+            "momentum_score": 88,
+            "volume_score": 95,
+            "volatility_score": 90,
+            "pattern_score": 82,
+            "sentiment_score": 87,
+            "overall_score": 86
+          },
+          "verified_date": "2026-05-15"
+        },
+        {
+          "ticker": "KOSPI:068270",
+          "name": "셀트리온",
+          "close_price": 188800,
+          "rationale": "2026-05-15 종가 188,800원 확인(Investing.com)|전일 대비 -3.23% 하락하며 상대적 방어주 성격 입증|신한투자증권 목표주가 290,000원 유지(2026-05-15 리포트)|미국 짐펜트라 월간 처방량 6,000건 돌파로 실적 가시성 확보|옴리클로 스페인 출시 3개월 만에 점유율 60% 달성|미국 브랜치버그 공장 정상 가동 및 CMO 매출 본격화|RSI 51.5로 안정적인 상승 추세 유지 중|EMA 5/20 골든크로스 패턴 지속 확인|Stochastic %K 55로 상승 우위 구간 체류|2026년 매출 5조 원, 영업이익 1.6조 원 가이드라인 제시",
+          "signals": {
+            "trend_score": 86,
+            "momentum_score": 84,
+            "volume_score": 82,
+            "volatility_score": 78,
+            "pattern_score": 91,
+            "sentiment_score": 89,
+            "overall_score": 85
+          },
+          "verified_date": "2026-05-15"
+        }
+      ],
+      "sentAt": "2026-05-17T22:39:46.461+00:00",
+      "subscriberCount": 291
+    },
+    {
+      "type": "stock",
       "date": "2026-05-15",
       "stocks": [
         {
@@ -7510,5 +7566,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-05-14T23:15:58.825Z"
+  "lastUpdated": "2026-05-17T22:40:22.035Z"
 }
