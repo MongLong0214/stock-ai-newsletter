@@ -2,6 +2,62 @@
   "newsletters": [
     {
       "type": "stock",
+      "date": "2026-05-19",
+      "stocks": [
+        {
+          "ticker": "KOSPI:454910",
+          "name": "두산로보틱스",
+          "close_price": 117900,
+          "rationale": "2026-05-18 종가 117,900원 확인(investing.com)|SMA5 108,500원 상향 돌파로 단기 골든크로스 완성|RSI 62.4 강세권 안착 및 상승 탄력 유지|MACD 히스토그램 양전환 후 시그널선 돌파|전일 거래량 56만주 대비 수급 유입 확인|볼린저밴드 상단(125,000원) 향한 확장 국면|ATR 5,200원 수준으로 적정 변동성 유지|ADX 28.4 추세 강도 심화 구간 진입|OBV 지표 직전 고점 돌파로 매집 시그널|스토캐스틱 %K 75.2 매수 우위 상태|MFI 68.3 자금 유입 강도 증가|VWAP 116,800원 상단 지지 확인|Parabolic SAR 매수 신호 유지|보스턴다이내믹스 IPO 테마 모멘텀 수혜",
+          "signals": {
+            "trend_score": 94,
+            "momentum_score": 91,
+            "volume_score": 88,
+            "volatility_score": 85,
+            "pattern_score": 92,
+            "sentiment_score": 90,
+            "overall_score": 91
+          },
+          "verified_date": "2026-05-18"
+        },
+        {
+          "ticker": "KOSPI:042700",
+          "name": "한미반도체",
+          "close_price": 369000,
+          "rationale": "2026-05-18 기준 종가 369,000원 실측(investing.com)|SMA 20일선(355,000원) 강력 지지 후 반등 성공|RSI 59.2 중립 강세권에서 상향 고개|MACD 0선 위에서 시그널선 재돌파 시도|거래량 146만주 돌파하며 전일 대비 활성도 증가|볼린저밴드 중심선 돌파 및 상단 이격 축소|ATR 12,500원 변동성 확대 구간|ADX 24.8 추세 형성 초기 국면|OBV 지속 우상향으로 스마트 머니 유입 확인|스토캐스틱 65.4 골든크로스 발생|MFI 61.2 자금 집중 현상 뚜렷|Williams %R -32.5 상승 여력 충분|HBM4 공급망 핵심 수혜주 모멘텀 부각|기관 및 외국인 동시 순매수세 포착",
+          "signals": {
+            "trend_score": 92,
+            "momentum_score": 89,
+            "volume_score": 93,
+            "volatility_score": 82,
+            "pattern_score": 90,
+            "sentiment_score": 91,
+            "overall_score": 90
+          },
+          "verified_date": "2026-05-18"
+        },
+        {
+          "ticker": "KOSPI:080220",
+          "name": "제주반도체",
+          "close_price": 82300,
+          "rationale": "2026-05-18 기준 종가 82,300원 확인(daum.net)|SMA 60일선 바닥 확인 후 급등 전환|RSI 72.5 과매수 경계권 진입 전 강세 지속|MACD 히스토그램 최대 확장 국면|거래량 1,068만주 폭증하며 시장 주도주 등극|볼린저밴드 상단 돌파 시도 및 밴드폭 확장|ATR 6,800원 높은 변동성 수반 상승|ADX 32.4 강력한 상승 추세 확립|OBV 수직 상승으로 강력한 매집 확인|스토캐스틱 %D 78.2 매수 신호 강화|MFI 75.4 자금 집중 현상 과열 초기|슈퍼사이클 진입에 따른 매출 3배 성장 기대|온디바이스 AI 핵심 칩 수요 폭발|5거래일 연속 외국인/기관 동반 순매수",
+          "signals": {
+            "trend_score": 96,
+            "momentum_score": 95,
+            "volume_score": 97,
+            "volatility_score": 78,
+            "pattern_score": 94,
+            "sentiment_score": 96,
+            "overall_score": 94
+          },
+          "verified_date": "2026-05-18"
+        }
+      ],
+      "sentAt": "2026-05-18T22:42:43.201+00:00",
+      "subscriberCount": 292
+    },
+    {
+      "type": "stock",
       "date": "2026-05-18",
       "stocks": [
         {
@@ -7566,5 +7622,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-05-17T23:16:18.837Z"
+  "lastUpdated": "2026-05-18T22:43:21.443Z"
 }
