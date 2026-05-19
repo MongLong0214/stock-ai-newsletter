@@ -2,6 +2,62 @@
   "newsletters": [
     {
       "type": "stock",
+      "date": "2026-05-20",
+      "stocks": [
+        {
+          "ticker": "KOSPI:001450",
+          "name": "현대해상",
+          "close_price": 38850,
+          "rationale": "1Q26 별도 당기순이익 2,233억원으로 컨센서스 50% 상회 달성|장기보험 손익 전년비 133% 급증하며 체질 개선 입증|K-ICS 비율 200% 상회하며 자본 건전성 리스크 해소|시장 3%대 급락 속에서도 직전 고점 38,000원 돌파 성공|교보증권 등 주요 증권사 목표가 38,000~48,000원 유지 및 상향|RSI 65 강세 구간 진입하며 단기 매수세 유입|MACD 골든크로스 발생으로 추세 전환 신호 확정|당일 변동성 확대(고가 39,500원)로 인한 매물 소화 완료|어린이 실손보험 손해율 안정화에 따른 이익 가시성 확보|기관 중심의 대규모 순매수세 포착되며 하방 경직성 확보",
+          "signals": {
+            "trend_score": 98,
+            "momentum_score": 96,
+            "volume_score": 99,
+            "volatility_score": 85,
+            "pattern_score": 97,
+            "sentiment_score": 95,
+            "overall_score": 95
+          },
+          "verified_date": "2026-05-19"
+        },
+        {
+          "ticker": "KOSDAQ:196170",
+          "name": "알테오젠",
+          "close_price": 366500,
+          "rationale": "코스피 3.25% 폭락장에서도 2.52% 상승하며 압도적 상대강도(RS) 시현|美 PTAB에서 경쟁사 할로자임과의 특허 분쟁 완승으로 독점권 재확인|ALT-B4 플랫폼 기반 글로벌 제약사들과의 라이선스 매출 본격화|이동평균선 완전정배열 상태 유지하며 신고가 재도전 패턴 형성|RSI 62 수준으로 과열권 진입 전 견조한 상승세 유지|증권사 컨센서스 목표가 600,000원 제시로 상승 여력 충분|MSCI 지수 내 비중 확대 및 외국인 순매수 잔량 유지|CCI 지표 강세 구간 지속으로 단기 급등 가능성 상존|바이오 섹터 내 리가켐(-10%), 보로노이(-8%) 대비 차별적 수급 집중|볼린저밴드 중심선 지지 후 상단 돌파 시도하는 강력한 기술적 반등",
+          "signals": {
+            "trend_score": 96,
+            "momentum_score": 92,
+            "volume_score": 88,
+            "volatility_score": 82,
+            "pattern_score": 95,
+            "sentiment_score": 93,
+            "overall_score": 91
+          },
+          "verified_date": "2026-05-19"
+        },
+        {
+          "ticker": "KOSPI:000660",
+          "name": "SK하이닉스",
+          "close_price": 1745000,
+          "rationale": "전일 5.16% 급락으로 인한 단기 과매도 구간(Williams %R -85) 진입|다올투자증권 5월 19일 리포트 통해 목표주가 2,500,000원 상향 제시|HBM4 독점적 공급 지위 및 AI 반도체 업황의 확정적 호황 국면|60일 이동평균선 부근에서 강력한 기술적 지지 확인 및 반등 시도|2026년 영업이익 전망치 254조원 상회하는 압도적 실적 모멘텀|장중 저가 1,740,000원에서 대기 매수세 유입되며 낙폭 축소|Stochastic %K 하단 교차 발생으로 단기 기술적 반등 신호 포착|외국인 투매 속에서도 기관의 저가 매수세 유입되며 수급 개선 징후|글로벌 AI 밸류체인(엔비디아 등)과의 동조화에 따른 주가 회복 기대|ATR 지표상 변동성 하단 위치하여 손익비 우수한 매수 타점 형성",
+          "signals": {
+            "trend_score": 88,
+            "momentum_score": 82,
+            "volume_score": 94,
+            "volatility_score": 78,
+            "pattern_score": 85,
+            "sentiment_score": 89,
+            "overall_score": 86
+          },
+          "verified_date": "2026-05-19"
+        }
+      ],
+      "sentAt": "2026-05-19T22:47:49.229+00:00",
+      "subscriberCount": 292
+    },
+    {
+      "type": "stock",
       "date": "2026-05-19",
       "stocks": [
         {
@@ -7622,5 +7678,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-05-18T23:20:57.508Z"
+  "lastUpdated": "2026-05-19T22:48:23.102Z"
 }
