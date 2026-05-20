@@ -2,6 +2,62 @@
   "newsletters": [
     {
       "type": "stock",
+      "date": "2026-05-21",
+      "stocks": [
+        {
+          "ticker": "KOSDAQ:477850",
+          "name": "마키나락스",
+          "close_price": 60000,
+          "rationale": "2026년 5월 20일 코스닥 상장 첫날 공모가(15,000원) 대비 300% 상승한 '따따블' 달성|상장 당일 거래대금 약 313억 원 기록하며 시장 수급 집중|AI 운영체제 '런웨이(Runway)'의 글로벌 확장성 및 반복 매출 구조 확보|일반 청약 증거금 13.8조 원으로 2026년 최고 기록 경신|기관 수요예측 경쟁률 1196대 1로 강력한 기관 지지 확인|삼성, 현대, LG 등 주요 대기업 6,000건 이상의 AI 모델 공급 레퍼런스 보유|상장 첫날 고가와 종가가 일치하는 강한 매수세 형성|신규 상장주 특유의 유통 물량 제한에 따른 오버슈팅 가능성|피지컬 AI(Physical AI) 선도 기업으로서의 독보적 시장 지위|추세 형성 초기 국면으로 단기 모멘텀 극대화 구간",
+          "signals": {
+            "trend_score": 100,
+            "momentum_score": 100,
+            "volume_score": 100,
+            "volatility_score": 95,
+            "pattern_score": 90,
+            "sentiment_score": 100,
+            "overall_score": 98
+          },
+          "verified_date": "2026-05-20"
+        },
+        {
+          "ticker": "KOSPI:007810",
+          "name": "코리아써키트",
+          "close_price": 89500,
+          "rationale": "메리츠증권 2026년 5월 20일 리포트에서 PCB 섹터 Top Pick으로 선정|목표주가 112,000원 상향 조정으로 약 25% 이상의 상승 여력 확보|AI 네트워크용 10~14층 고층 FC-BGA 공급 본격화 모멘텀|NVIDIA의 신규 CPU 랙 공개에 따른 SoCAMM 기판 수요 확대 수혜|국내 PCB 밸류체인 내 최저 수준의 저평가(Bargain) 국면|기관 및 외국인의 5거래일 연속 동반 순매수 유입 확인|RSI 62 수준으로 과매수 진입 전 강세 추세 유지|52주 신고가인 94,900원 돌파 시도 구간 진입|볼린저밴드 상단 확장에 따른 추세 추종 매수세 유입|SMA 5일선 및 20일선의 정배열 이격 확대 초기 단계",
+          "signals": {
+            "trend_score": 92,
+            "momentum_score": 88,
+            "volume_score": 85,
+            "volatility_score": 80,
+            "pattern_score": 90,
+            "sentiment_score": 85,
+            "overall_score": 87
+          },
+          "verified_date": "2026-05-20"
+        },
+        {
+          "ticker": "KOSDAQ:445090",
+          "name": "에이직랜드",
+          "close_price": 29500,
+          "rationale": "2026년 1분기 매출액 540억 원으로 전년 대비 242.4% 초급증 실현|TSMC VCA(Value Chain Alliance)로서의 독점적 지위 및 수주 잔고 확대|글로벌 뉴로모픽 AI 기업 '브레인칩'과의 신규 설계 계약 체결 모멘텀|말레이시아 및 북미 시장 신규 고객사 확보를 통한 글로벌 매출 다변화|2025년 R&D 투자 집중 시기를 지나 2026년 실적 턴어라운드 본격화|RSI 61 및 스토캐스틱 K-D선 골든크로스 발생으로 반등 신호|20일 이동평균선 지지 확인 후 전고점 35,900원 향한 기술적 반등 구간|AI 반도체 맞춤형 ASIC 수요 폭발에 따른 직접적 수혜주|최근 3거래일 평균 거래량 대비 150% 증가하며 매집 흔적 포착|기관 수급 가중치 증가에 따른 안정적 우상향 추세 형성",
+          "signals": {
+            "trend_score": 90,
+            "momentum_score": 92,
+            "volume_score": 88,
+            "volatility_score": 82,
+            "pattern_score": 85,
+            "sentiment_score": 90,
+            "overall_score": 90
+          },
+          "verified_date": "2026-05-20"
+        }
+      ],
+      "sentAt": "2026-05-20T22:52:37.288+00:00",
+      "subscriberCount": 292
+    },
+    {
+      "type": "stock",
       "date": "2026-05-20",
       "stocks": [
         {
@@ -7678,5 +7734,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-05-19T23:22:32.282Z"
+  "lastUpdated": "2026-05-20T22:53:13.506Z"
 }
