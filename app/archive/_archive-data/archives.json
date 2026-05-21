@@ -2,6 +2,62 @@
   "newsletters": [
     {
       "type": "stock",
+      "date": "2026-05-22",
+      "stocks": [
+        {
+          "ticker": "KOSPI:267260",
+          "name": "HD현대일렉트릭",
+          "close_price": 1136000,
+          "rationale": "2026년 5월 21일 KRX 마감 기준 종가 1,136,000원 확인(Source: joongangenews.com)|미국 유틸리티 업체와 1,730억 규모 765kV 초고압 변압기 및 리액터 공급 계약 체결(Source: busan.com 2026-05-07)|미국 중남부 송전망 구축 계획인 SPP 장기 송전 마스터 플랜 참여 확정(Source: sedaily.com 2026-05-21)|2026년 영업이익 1조 2,642억 전망으로 '1조 클럽' 진입 유력(Source: ceoscoredaily.com 2026-04-09)|NH투자증권 목표주가 1,400,000원 제시 및 31.3% 추가 상승 여력 보유(Source: newspim.com 2026-05-21)|AI 데이터센터 확산에 따른 변압기 수요 폭증으로 52주 신고가 랠리 지속(Source: daum.net 2026-05-21)|영업이익률 24.9%로 제조업 내 최고 수준의 수익성 입증(Source: siglab.kr 2026-05-02)|2026년 매출 가이던스 상회 가능성 및 삼성증권 목표가 102만원 상향(Source: chosun.com 2026-01-15)|5·20·60일 이동평균선 완전 정배열 유지 및 장기 상승 추세 견조|볼린저밴드 상단 확장 국면 진입하며 변동성 확대 초기 신호 확인",
+          "signals": {
+            "trend_score": 98,
+            "momentum_score": 92,
+            "volume_score": 88,
+            "volatility_score": 85,
+            "pattern_score": 94,
+            "sentiment_score": 91,
+            "overall_score": 93
+          },
+          "verified_date": "2026-05-21"
+        },
+        {
+          "ticker": "KOSPI:005930",
+          "name": "삼성전자",
+          "close_price": 299500,
+          "rationale": "2026년 5월 21일 종가 299,500원(+8.51%)으로 사상 최고가 마감 확인(Source: yna.co.kr)|노사 임금협상 잠정 합의로 파업 불확실성 및 100조 생산 차질 리스크 해소(Source: kyeonggi.com 2026-05-21)|외국인 투자자 1조 950억 순매수 유입으로 강한 수급 모멘텀 형성(Source: yna.co.kr 2026-05-21)|8.5% 급등에도 RSI 중립 구역 유지하며 과매수 구간 미진입 확인(Source: naver.com 2026-05-21)|노무라증권 590,000원, 신한투자증권 550,000원 등 목표가 상향 릴레이(Source: kyeonggi.com 2026-05-21)|엔비디아 12분기 연속 매출 신기록 달성에 따른 HBM4 공급 가시성 확대(Source: yna.co.kr 2026-05-21)|성과급 자사주 지급 합의로 임직원 책임경영 강화 및 유통물량 제어 효과(Source: yna.co.kr 2026-05-21)|코스피 7,800선 돌파 주도하며 시총 합계 2,200조 돌파 핵심 기여(Source: yna.co.kr 2026-05-21)|OBV 지표 최고치 경신 및 CCI 긍정적 신호로 추가 상승 동력 확보(Source: naver.com 2026-05-21)|볼린저밴드 상단 테스트 중이나 이치모쿠 구름대 위 안착하며 추세 강화",
+          "signals": {
+            "trend_score": 97,
+            "momentum_score": 98,
+            "volume_score": 99,
+            "volatility_score": 82,
+            "pattern_score": 97,
+            "sentiment_score": 96,
+            "overall_score": 95
+          },
+          "verified_date": "2026-05-21"
+        },
+        {
+          "ticker": "KOSDAQ:196170",
+          "name": "알테오젠",
+          "close_price": 351500,
+          "rationale": "2026년 5월 21일 종가 351,500원 확인 및 코스닥 시총 1위 지위 강화(Source: asiae.co.kr)|하나증권 목표주가 580,000원 유지하며 61.3% 추가 상승 여력 시사(Source: newspim.com 2026-05-21)|키트루다SC 미국 FDA 품목허가 및 로열티 본격 유입 기대감 지속(Source: g-enews.com 2026-05-20)|2026년 영업이익 2,950억 전망으로 전년 대비 176.3% 성장 가시화(Source: g-enews.com 2026-05-20)|대신증권 목표주가 500,000원 제시하며 신규 커버리지 개시(Source: g-enews.com 2026-05-20)|엔허투SC 임상 결과에 따른 ALT-B4 플랫폼 적용 범위 확장성 확보(Source: g-enews.com 2026-05-20)|기관 투자자 1만 9천주 순매수로 외국인 매도세 방어 및 하방 지지(Source: minsimnews.com 2026-05-21)|2026년 중 코스피 이전 상장 준비에 따른 장기 수급 호재 대기(Source: thebionews.net 2025-08-28)|20일 이평선 눌림목 형성 후 하방 경직성 확보하며 재반등 구간 진입|RSI 61.5 및 MFI 지표 안정권 내 위치하여 과매수 부담 없는 매수 구간",
+          "signals": {
+            "trend_score": 92,
+            "momentum_score": 89,
+            "volume_score": 94,
+            "volatility_score": 87,
+            "pattern_score": 91,
+            "sentiment_score": 93,
+            "overall_score": 91
+          },
+          "verified_date": "2026-05-21"
+        }
+      ],
+      "sentAt": "2026-05-21T22:50:18.045+00:00",
+      "subscriberCount": 292
+    },
+    {
+      "type": "stock",
       "date": "2026-05-21",
       "stocks": [
         {
@@ -7734,5 +7790,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-05-20T23:25:23.905Z"
+  "lastUpdated": "2026-05-21T22:51:02.576Z"
 }
