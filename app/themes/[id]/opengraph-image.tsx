@@ -3,7 +3,7 @@ import { createOgImageResponse } from '@/lib/og-image-response';
 import { getThemeSeoData } from './theme-seo-data';
 
 export const runtime = 'nodejs';
-export const dynamic = 'force-dynamic';
+export const revalidate = 86400;
 export const alt = '테마 생명주기 분석 - Stock Matrix';
 export const size = {
   width: 1200,

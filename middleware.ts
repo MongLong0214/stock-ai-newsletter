@@ -3,6 +3,7 @@ import type { NextRequest } from 'next/server'
 
 const MCP_UA_PREFIX = 'stockmatrix-mcp'
 const MAX_UA_LENGTH = 512
+const SAMPLE_RATE = 0.01
 
 const TOOL_MAP: Record<string, string> = {
   '/api/ai/summary': 'get_market_summary',
@@ -33,6 +34,8 @@ const hashIp = async (ip: string): Promise<string | null> => {
 export const middleware = async (request: NextRequest) => {
   const ua = request.headers.get('user-agent') || ''
   if (!ua.startsWith(MCP_UA_PREFIX)) return NextResponse.next()
+
+  if (Math.random() >= SAMPLE_RATE) return NextResponse.next()
 
   const path = request.nextUrl.pathname
   const tool = inferTool(path)

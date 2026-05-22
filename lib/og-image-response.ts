@@ -73,5 +73,9 @@ export async function createOgImageResponse(
   return new ImageResponse(element, {
     ...size,
     fonts,
+    headers: {
+      'Cache-Control': 'public, max-age=86400, s-maxage=86400, stale-while-revalidate=604800, immutable',
+      'CDN-Cache-Control': 'public, max-age=86400, s-maxage=2592000',
+    },
   });
 }

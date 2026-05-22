@@ -4,11 +4,23 @@ import { isSupabasePlaceholder } from '@/lib/supabase'
 /** UUID 형식 검증 정규식 */
 export const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
-/** 캐시 프리셋 */
+/** 캐시 프리셋 (Vercel Edge 캐시 강제용 CDN-Cache-Control 포함) */
 const CACHE = {
-  short: 'public, s-maxage=60',
-  medium: 'public, s-maxage=300, stale-while-revalidate=600',
-  long: 'public, s-maxage=3600, stale-while-revalidate=1800',
+  short: {
+    'Cache-Control': 'public, max-age=60, s-maxage=60, stale-while-revalidate=300',
+    'CDN-Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300',
+    'Vercel-CDN-Cache-Control': 'public, s-maxage=300',
+  },
+  medium: {
+    'Cache-Control': 'public, max-age=300, s-maxage=300, stale-while-revalidate=600',
+    'CDN-Cache-Control': 'public, s-maxage=600, stale-while-revalidate=1800',
+    'Vercel-CDN-Cache-Control': 'public, s-maxage=1800',
+  },
+  long: {
+    'Cache-Control': 'public, max-age=3600, s-maxage=3600, stale-while-revalidate=1800',
+    'CDN-Cache-Control': 'public, s-maxage=7200, stale-while-revalidate=3600',
+    'Vercel-CDN-Cache-Control': 'public, s-maxage=21600',
+  },
 } as const
 
 /** API 성공 응답 */
@@ -19,7 +31,7 @@ export function apiSuccess<T>(
 ) {
   return NextResponse.json(
     { success: true as const, data, metadata },
-    { headers: { 'Cache-Control': CACHE[cache] } },
+    { headers: CACHE[cache] },
   )
 }
 
