@@ -1,7 +1,7 @@
 {
   "name": "stockmatrix-mcp",
   "mcpName": "io.github.MongLong0214/stockmatrix-mcp",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "StockMatrix MCP Server — Korean stock market theme lifecycle analysis (TLI) with Bayesian-optimized scoring for AI agents",
   "type": "module",
   "main": "dist/index.js",
