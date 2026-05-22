@@ -3,6 +3,8 @@ import { getServerSupabaseClient } from '@/lib/supabase/server-client';
 import { siteConfig } from '@/lib/constants/seo/config';
 import { isValidBlogSlug } from './blog/_utils/slug-validator';
 
+export const revalidate = 86400;
+
 /** 언어 alternates (단일언어 사이트용 x-default + ko) */
 function withAlternates(url: string) {
   return {

@@ -77,7 +77,9 @@ export async function GET() {
 
     return NextResponse.json(summary, {
       headers: {
-        'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600',
+        'Cache-Control': 'public, max-age=3600, s-maxage=3600, stale-while-revalidate=1800',
+        'CDN-Cache-Control': 'public, s-maxage=21600, stale-while-revalidate=43200',
+        'Vercel-CDN-Cache-Control': 'public, s-maxage=86400',
       },
     })
   } catch (error) {
