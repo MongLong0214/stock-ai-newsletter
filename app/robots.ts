@@ -59,20 +59,19 @@ export default function robots(): MetadataRoute.Robots {
             // You.com AI (공식 확인됨)
             { userAgent: 'YouBot', allow: '/', disallow: ['/api/', '/unsubscribe/'] },
 
-            // Cohere AI (공식 확인됨)
-            { userAgent: 'cohere-ai', allow: '/', disallow: ['/api/', '/unsubscribe/'] },
-
-            // Diffbot (공식 확인됨)
-            { userAgent: 'Diffbot', allow: '/', disallow: ['/api/', '/unsubscribe/'] },
-
-            // Amazon Alexa AI (공식 확인됨)
-            { userAgent: 'Amazonbot', allow: '/', disallow: ['/api/', '/unsubscribe/'] },
-
-            // ByteDance/TikTok AI (공식 확인됨)
-            { userAgent: 'Bytespider', allow: '/', disallow: ['/api/', '/unsubscribe/'] },
-
-            // Common Crawl - AI 학습용 (공식 확인됨)
-            { userAgent: 'CCBot', allow: '/', disallow: ['/api/', '/unsubscribe/'] },
+            // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+            // 🚫 과도한 크롤링/AI 학습 봇 전면 차단 (CPU 사용량 절감)
+            // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+            { userAgent: 'Bytespider', disallow: '/' },
+            { userAgent: 'CCBot', disallow: '/' },
+            { userAgent: 'Amazonbot', disallow: '/' },
+            { userAgent: 'cohere-ai', disallow: '/' },
+            { userAgent: 'Diffbot', disallow: '/' },
+            { userAgent: 'AhrefsBot', disallow: '/' },
+            { userAgent: 'SemrushBot', disallow: '/' },
+            { userAgent: 'MJ12bot', disallow: '/' },
+            { userAgent: 'DotBot', disallow: '/' },
+            { userAgent: 'PetalBot', disallow: '/' },
 
             // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
             // 🌐 일반 봇 기본 규칙 (마지막에 위치)
