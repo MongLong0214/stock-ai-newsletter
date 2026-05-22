@@ -4,6 +4,7 @@ import { siteConfig } from '@/lib/constants/seo/config'
 import { metadataConfig } from '@/lib/constants/seo/metadata'
 
 export const runtime = 'nodejs'
+export const revalidate = 86400
 
 export async function GET() {
   let themeCount = 250
@@ -102,7 +103,9 @@ StockMatrix는 금융투자협회에 등록되지 않은 참고용 정보 제공
   return new NextResponse(content, {
     headers: {
       'Content-Type': 'text/plain; charset=utf-8',
-      'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=1800',
+      'Cache-Control': 'public, max-age=3600, s-maxage=3600, stale-while-revalidate=43200',
+      'CDN-Cache-Control': 'public, s-maxage=86400, stale-while-revalidate=86400',
+      'Vercel-CDN-Cache-Control': 'public, s-maxage=86400',
     },
   })
 }

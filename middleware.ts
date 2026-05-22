@@ -2,82 +2,31 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
 const MCP_UA_PREFIX = 'stockmatrix-mcp'
-const MAX_UA_LENGTH = 512
-const SAMPLE_RATE = 0.01
 
-const TOOL_MAP: Record<string, string> = {
-  '/api/ai/summary': 'get_market_summary',
-  '/api/tli/scores/ranking': 'get_theme_ranking',
-  '/api/tli/themes': 'search_themes',
-  '/api/tli/stocks/search': 'search_stocks',
-  '/api/tli/compare': 'compare_themes',
-  '/api/tli/predictions': 'get_predictions',
-  '/api/tli/methodology': 'get_methodology',
-  '/api/tli/changes': 'get_theme_changes',
+const ALLOWED_MCP_PATHS = new Set([
+  '/api/ai/summary',
+  '/api/tli/scores/ranking',
+  '/api/tli/themes',
+  '/api/tli/stocks/search',
+  '/api/tli/compare',
+  '/api/tli/predictions',
+  '/api/tli/methodology',
+  '/api/tli/changes',
+])
+
+const isValidMcpPath = (path: string): boolean => {
+  if (ALLOWED_MCP_PATHS.has(path)) return true
+  if (/^\/api\/tli\/themes\/[0-9a-f-]+(?:\/history)?$/.test(path)) return true
+  if (/^\/api\/tli\/stocks\/[A-Za-z0-9]+\/theme$/.test(path)) return true
+  return false
 }
 
-const inferTool = (path: string): string => {
-  if (TOOL_MAP[path]) return TOOL_MAP[path]
-  if (/^\/api\/tli\/themes\/[0-9a-f-]+\/history$/.test(path)) return 'get_theme_history'
-  if (/^\/api\/tli\/themes\/[0-9a-f-]+$/.test(path)) return 'get_theme_detail'
-  if (/^\/api\/tli\/stocks\/[A-Za-z0-9]+\/theme$/.test(path)) return 'get_stock_theme'
-  return 'unknown'
-}
-
-const hashIp = async (ip: string): Promise<string | null> => {
-  const salt = process.env.IP_HASH_SALT
-  if (!salt) return null
-
-  const data = new TextEncoder().encode(ip + salt)
-  const buf = await crypto.subtle.digest('SHA-256', data)
-  return Array.from(new Uint8Array(buf).slice(0, 16))
-    .map((b) => b.toString(16).padStart(2, '0'))
-    .join('')
-}
-
-export const middleware = async (request: NextRequest) => {
+export const middleware = (request: NextRequest) => {
   const ua = request.headers.get('user-agent') || ''
   if (!ua.startsWith(MCP_UA_PREFIX)) return NextResponse.next()
 
-  const path = request.nextUrl.pathname
-  const tool = inferTool(path)
-
-  if (tool === 'unknown') {
+  if (!isValidMcpPath(request.nextUrl.pathname)) {
     return new NextResponse('Not Found', { status: 404 })
-  }
-
-  if (Math.random() >= SAMPLE_RATE) return NextResponse.next()
-
-  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
-  const ipHash = await hashIp(ip)
-  if (!ipHash) return NextResponse.next()
-
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-  if (!supabaseUrl || !anonKey) return NextResponse.next()
-
-  const promise = fetch(`${supabaseUrl}/rest/v1/rpc/insert_mcp_analytics`, {
-    method: 'POST',
-    headers: {
-      apikey: anonKey,
-      Authorization: `Bearer ${anonKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      p_tool_name: tool,
-      p_path: path,
-      p_user_agent: ua.slice(0, MAX_UA_LENGTH),
-      p_ip_hash: ipHash,
-    }),
-  }).catch((e) => {
-    console.error(
-      '[mcp-analytics] insert failed:',
-      e instanceof Error ? e.message : String(e)
-    )
-  })
-
-  if ('waitUntil' in globalThis && typeof (globalThis as Record<string, unknown>).waitUntil === 'function') {
-    ;(globalThis as unknown as { waitUntil: (p: Promise<unknown>) => void }).waitUntil(promise)
   }
 
   return NextResponse.next()

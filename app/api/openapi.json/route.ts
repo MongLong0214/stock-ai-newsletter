@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server'
 
 import { siteConfig } from '@/lib/constants/seo/config'
 
+export const revalidate = 604800
+
 export function GET() {
   const spec = {
     openapi: '3.0.0',
@@ -1263,6 +1265,10 @@ export function GET() {
   }
 
   return NextResponse.json(spec, {
-    headers: { 'Cache-Control': 'public, s-maxage=86400' },
+    headers: {
+      'Cache-Control': 'public, max-age=86400, s-maxage=86400, stale-while-revalidate=604800',
+      'CDN-Cache-Control': 'public, s-maxage=604800',
+      'Vercel-CDN-Cache-Control': 'public, s-maxage=604800',
+    },
   })
 }

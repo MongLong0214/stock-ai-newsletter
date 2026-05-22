@@ -2,7 +2,7 @@ import { createOgLayout } from '@/lib/og-template';
 import { createOgImageResponse } from '@/lib/og-image-response';
 
 export const runtime = 'nodejs';
-export const dynamic = 'force-static';
+export const revalidate = 86400;
 export const alt = 'Stock Matrix - 뉴스레터 아카이브';
 export const size = {
   width: 1200,
