@@ -5,8 +5,8 @@ import { createCache } from './cache.js';
 const require = createRequire(import.meta.url);
 const { version } = require('../package.json') as { version: string };
 
-const apiCache = createCache(50);
-const CACHE_TTL_MS = 3_600_000; // 1 hour
+const apiCache = createCache(100);
+const CACHE_TTL_MS = 21_600_000; // 6 hours (한국 시장 데이터는 일 단위 갱신)
 
 const BASE_URL =
   process.env.STOCKMATRIX_API_URL || 'https://stockmatrix.co.kr';

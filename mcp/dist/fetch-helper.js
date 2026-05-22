@@ -2,8 +2,8 @@ import { createRequire } from 'node:module';
 import { createCache } from './cache.js';
 const require = createRequire(import.meta.url);
 const { version } = require('../package.json');
-const apiCache = createCache(50);
-const CACHE_TTL_MS = 3_600_000; // 1 hour
+const apiCache = createCache(100);
+const CACHE_TTL_MS = 21_600_000; // 6 hours (한국 시장 데이터는 일 단위 갱신)
 const BASE_URL = process.env.STOCKMATRIX_API_URL || 'https://stockmatrix.co.kr';
 const MCP_USER_AGENT = `stockmatrix-mcp/${version}`;
 // 시작 시 URL 유효성 검증

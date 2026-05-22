@@ -4,22 +4,25 @@ import { isSupabasePlaceholder } from '@/lib/supabase'
 /** UUID 형식 검증 정규식 */
 export const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
-/** 캐시 프리셋 (Vercel Edge 캐시 강제용 CDN-Cache-Control 포함) */
+/** 캐시 프리셋 (Vercel Edge 캐시 강제용 CDN-Cache-Control 포함)
+ *  - TLI 테마/점수는 일 단위 갱신 → 장기 캐시 안전
+ *  - Vercel-CDN-Cache-Control이 Vercel Edge 캐시 우선순위
+ */
 const CACHE = {
   short: {
     'Cache-Control': 'public, max-age=60, s-maxage=60, stale-while-revalidate=300',
-    'CDN-Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300',
-    'Vercel-CDN-Cache-Control': 'public, s-maxage=300',
+    'CDN-Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600',
+    'Vercel-CDN-Cache-Control': 'public, s-maxage=600',
   },
   medium: {
     'Cache-Control': 'public, max-age=300, s-maxage=300, stale-while-revalidate=600',
-    'CDN-Cache-Control': 'public, s-maxage=600, stale-while-revalidate=1800',
-    'Vercel-CDN-Cache-Control': 'public, s-maxage=1800',
+    'CDN-Cache-Control': 'public, s-maxage=1800, stale-while-revalidate=3600',
+    'Vercel-CDN-Cache-Control': 'public, s-maxage=21600',
   },
   long: {
     'Cache-Control': 'public, max-age=3600, s-maxage=3600, stale-while-revalidate=1800',
-    'CDN-Cache-Control': 'public, s-maxage=7200, stale-while-revalidate=3600',
-    'Vercel-CDN-Cache-Control': 'public, s-maxage=21600',
+    'CDN-Cache-Control': 'public, s-maxage=21600, stale-while-revalidate=43200',
+    'Vercel-CDN-Cache-Control': 'public, s-maxage=86400',
   },
 } as const
 

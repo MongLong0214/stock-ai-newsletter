@@ -10,13 +10,17 @@ const TOOL_MAP: Record<string, string> = {
   '/api/tli/scores/ranking': 'get_theme_ranking',
   '/api/tli/themes': 'search_themes',
   '/api/tli/stocks/search': 'search_stocks',
+  '/api/tli/compare': 'compare_themes',
+  '/api/tli/predictions': 'get_predictions',
+  '/api/tli/methodology': 'get_methodology',
+  '/api/tli/changes': 'get_theme_changes',
 }
 
 const inferTool = (path: string): string => {
   if (TOOL_MAP[path]) return TOOL_MAP[path]
-  if (/^\/api\/tli\/themes\/[^/]+\/history$/.test(path)) return 'get_theme_history'
-  if (/^\/api\/tli\/themes\/[^/]+$/.test(path)) return 'get_theme_detail'
-  if (/^\/api\/tli\/stocks\/[^/]+\/theme$/.test(path)) return 'get_stock_theme'
+  if (/^\/api\/tli\/themes\/[0-9a-f-]+\/history$/.test(path)) return 'get_theme_history'
+  if (/^\/api\/tli\/themes\/[0-9a-f-]+$/.test(path)) return 'get_theme_detail'
+  if (/^\/api\/tli\/stocks\/[A-Za-z0-9]+\/theme$/.test(path)) return 'get_stock_theme'
   return 'unknown'
 }
 
@@ -35,10 +39,15 @@ export const middleware = async (request: NextRequest) => {
   const ua = request.headers.get('user-agent') || ''
   if (!ua.startsWith(MCP_UA_PREFIX)) return NextResponse.next()
 
-  if (Math.random() >= SAMPLE_RATE) return NextResponse.next()
-
   const path = request.nextUrl.pathname
   const tool = inferTool(path)
+
+  if (tool === 'unknown') {
+    return new NextResponse('Not Found', { status: 404 })
+  }
+
+  if (Math.random() >= SAMPLE_RATE) return NextResponse.next()
+
   const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
   const ipHash = await hashIp(ip)
   if (!ipHash) return NextResponse.next()
