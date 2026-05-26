@@ -2,6 +2,62 @@
   "newsletters": [
     {
       "type": "stock",
+      "date": "2026-05-27",
+      "stocks": [
+        {
+          "ticker": "KOSPI:001820",
+          "name": "삼화콘덴서",
+          "close_price": 132600,
+          "rationale": "2026년 5월 26일 종가 132,600원 확인(전일 대비 +30.00% 상한가)|2거래일 연속 상한가 기록하며 13만원선 돌파|당일 거래량 5,856,117주로 직전 평균 대비 폭발적 증가|RSI 72.8로 과매수권 진입했으나 강력한 밴드라이딩 패턴 형성|MACD 오실레이터 4.25로 양선 확장 국면|AI 데이터센터용 MLCC 수요 급증 및 업황 개선 수혜 실측|코스피 8000 시대 진입에 따른 핵심 부품주 재평가|외국인 85,421주 및 기관 3,760주 동반 순매수 확인|ADX 45.2로 극강의 추세 강도 유지|볼린저밴드 상단 돌파 후 이격 확대형 상승 가속화",
+          "signals": {
+            "trend_score": 99,
+            "momentum_score": 98,
+            "volume_score": 100,
+            "volatility_score": 92,
+            "pattern_score": 97,
+            "sentiment_score": 98,
+            "overall_score": 98
+          },
+          "verified_date": "2026-05-26"
+        },
+        {
+          "ticker": "KOSPI:042700",
+          "name": "한미반도체",
+          "close_price": 329000,
+          "rationale": "2026년 5월 26일 종가 329,000원 확인|HBM4 TC본더 글로벌 독점적 지위 및 2026년 매출 1조원 전망치 부합|코스피 8047.51 역사적 고점 돌파의 주도주 섹터 포함|SMA 20일선(315,000원) 지지 후 반등 성공|RSI 64.5로 안정적 상승 가속 구간 유지|MACD 0선 상단 골든크로스 발생|외국인 한 달간 456억원 규모 누적 순매수 확인|ATR 4.2%로 고가주 특유의 안정적 변동성 유지|ADX 38.6으로 견고한 우상향 추세 확립|HBM3E 시장 점유율 90% 기반의 압도적 수익성 지표(ROE 40%대)",
+          "signals": {
+            "trend_score": 96,
+            "momentum_score": 92,
+            "volume_score": 89,
+            "volatility_score": 85,
+            "pattern_score": 94,
+            "sentiment_score": 95,
+            "overall_score": 93
+          },
+          "verified_date": "2026-05-26"
+        },
+        {
+          "ticker": "KOSDAQ:356680",
+          "name": "엑스게이트",
+          "close_price": 27550,
+          "rationale": "2026년 5월 26일 종가 27,550원 확인(전일 대비 +29.95% 상한가)|미국 정부 양자컴퓨팅 대규모 투자 및 한국 정부 3조 지원 모멘텀|당일 거래량 20,674,153주 기록하며 역대급 거래대금 발생|52주 신고가 경신 및 역사적 저항대 완전 돌파|RSI 74.2로 단기 과열 양상이나 테마 확산기 매수세 집중|ADX 52.1로 강력한 추세 폭발 신호 발생|Stochastic %K 85로 단기 모멘텀 최상단 위치|Ichimoku 구름대 상단(21,000원) 돌파 후 지지력 확보|Vortex VI+ 1.62로 압도적 매수 우위 상태|2025년 결산 기준 영업이익률 32.5%의 우수한 재무 구조 기반",
+          "signals": {
+            "trend_score": 98,
+            "momentum_score": 97,
+            "volume_score": 100,
+            "volatility_score": 78,
+            "pattern_score": 96,
+            "sentiment_score": 99,
+            "overall_score": 96
+          },
+          "verified_date": "2026-05-26"
+        }
+      ],
+      "sentAt": "2026-05-26T22:51:37.986+00:00",
+      "subscriberCount": 291
+    },
+    {
+      "type": "stock",
       "date": "2026-05-26",
       "stocks": [
         {
@@ -7846,5 +7902,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-05-25T23:22:34.607Z"
+  "lastUpdated": "2026-05-26T22:52:14.661Z"
 }
