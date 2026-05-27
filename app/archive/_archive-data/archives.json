@@ -2,6 +2,62 @@
   "newsletters": [
     {
       "type": "stock",
+      "date": "2026-05-28",
+      "stocks": [
+        {
+          "ticker": "KOSPI:005930",
+          "name": "삼성전자",
+          "close_price": 307000,
+          "rationale": "2026-05-27 KOSPI 8000 시대 사상 최고치 주도주|RSI 56.36 중립 강세 구간으로 추가 상승 여력 풍부|MACD 7107.67 강한 매수 신호 유지|거래량 26,182,717주 동반한 견조한 상승세|외국인 2,187,988주 순매수세 집중 확인|ADX 25.88로 안정적인 우상향 추세 형성|EMA 20 상향 돌파 후 지지선 안착 성공|HBM4 엔비디아 샘플 통과 및 대형 수주 모멘텀|영업이익 3.5조 돌파 전망 기반의 실적 장세|증권사 목표주가 34만원 상향 조정에 따른 기대감|SMA 정배열 초기 발산 국면의 기술적 완성도",
+          "signals": {
+            "trend_score": 88,
+            "momentum_score": 82,
+            "volume_score": 90,
+            "volatility_score": 85,
+            "pattern_score": 84,
+            "sentiment_score": 88,
+            "overall_score": 86
+          },
+          "verified_date": "2026-05-27"
+        },
+        {
+          "ticker": "KOSPI:009420",
+          "name": "한올바이오파마",
+          "close_price": 70700,
+          "rationale": "난치성 류마티스 임상 2b상 탑라인 결과 발표 임박|RSI 68.39 과매수 임계치(70) 하단으로 탄력 유지|거래량 2,245,000주 폭증하며 시장 핵심주 부각|장중 52주 신고가(73,000) 터치 후 눌림목 형성|MACD 히스토그램 급격한 양의 발산 신호|바토클리맙 TED 임상 3상 성공 기대감 반영|미국 파트너사 이뮤노반트와의 가치 재평가 시너지|EMA 정배열 상태에서 캔들 상단 위치|OBV 지표 가격 동반 우상향하며 역대 최고치 경신|Williams %R -1.09로 매우 강한 단기 추세 지속|MFI 76 자금 유입 가속화에 따른 추가 돌파 가능성",
+          "signals": {
+            "trend_score": 96,
+            "momentum_score": 92,
+            "volume_score": 95,
+            "volatility_score": 75,
+            "pattern_score": 94,
+            "sentiment_score": 92,
+            "overall_score": 92
+          },
+          "verified_date": "2026-05-27"
+        },
+        {
+          "ticker": "KOSPI:000270",
+          "name": "기아",
+          "close_price": 164700,
+          "rationale": "RSI 55.5 견조한 지지 구간에서 기술적 반등 성공|ADX 42.44로 매우 강력한 상승 추세 강도 보유|MACD 440.33 매수 포지션 및 골든크로스 유지|MA20, MA50, MA200 모든 주요 이평선 정배열 안착|EBITDA 11.16조원 기반의 실적 밸류업 모멘텀|K4 및 셀토스 스포츠 신규 라인업 확장 전략 기대|주가수익비율(PER) 8.4배 수준의 업종 내 저평가 매력|ATR 변동성 안정화 추세 속 박스권 상단 돌파 시도|거래량 130만주 이상의 안정적인 수급 관리 지속|애널리스트 평균 목표가 대비 33% 이상의 상승 여력|KOSPI 8000 안착에 따른 저평가 대형 우량주 선호 현상",
+          "signals": {
+            "trend_score": 84,
+            "momentum_score": 78,
+            "volume_score": 80,
+            "volatility_score": 82,
+            "pattern_score": 80,
+            "sentiment_score": 84,
+            "overall_score": 82
+          },
+          "verified_date": "2026-05-27"
+        }
+      ],
+      "sentAt": "2026-05-27T22:54:23.937+00:00",
+      "subscriberCount": 291
+    },
+    {
+      "type": "stock",
       "date": "2026-05-27",
       "stocks": [
         {
@@ -7902,5 +7958,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-05-26T23:23:05.392Z"
+  "lastUpdated": "2026-05-27T22:55:01.379Z"
 }
