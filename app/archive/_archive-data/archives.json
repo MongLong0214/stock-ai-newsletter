@@ -2,6 +2,62 @@
   "newsletters": [
     {
       "type": "stock",
+      "date": "2026-05-29",
+      "stocks": [
+        {
+          "ticker": "KOSPI:001820",
+          "name": "삼화콘덴서",
+          "close_price": 156200,
+          "rationale": "2026년 5월 28일 종가 156,200원 확인(한경/Investing.com)|전일 대비 24.07% 폭등하며 강력한 매수세 유입|장중 최고가 159,200원 기록 및 52주 신고가 163,400원 근접|거래량 5,450,028주로 평소 대비 500% 이상 폭증|NXT 야간 거래에서 상한가 163,600원 도달 확인(CBC뉴스)|AI 및 데이터센터용 MLCC 수요 폭증에 따른 공급자 우위 시장 형성|SMA 정배열 상태에서 이평선 간격 확산(Divergence) 발생|OBV 지표 사상 최고치 경신으로 강력한 매집 세력 확인|RSI 68.5로 과매수권 진입 전 강한 상승 탄력 유지|Ichimoku 구름대 상단을 대량 거래로 돌파하며 추세 강화|ATR 변동성 확대(8.5%)로 단기 급등 패턴 완성|볼린저밴드 상단 밴드 라이딩(Band Walking) 현상 포착",
+          "signals": {
+            "trend_score": 98,
+            "momentum_score": 96,
+            "volume_score": 99,
+            "volatility_score": 88,
+            "pattern_score": 97,
+            "sentiment_score": 95,
+            "overall_score": 96
+          },
+          "verified_date": "2026-05-28"
+        },
+        {
+          "ticker": "KOSPI:009150",
+          "name": "삼성전기",
+          "close_price": 1852500,
+          "rationale": "2026년 5월 28일 종가 1,852,500원 확인(Google Finance)|하루 만에 13.65%(222,500원) 상승하는 이례적 대형주 급등 실현|신한투자증권 목표주가 2,000,000원 상향 리포트 발행(2026-05-28)|AI 서버용 고부가 MLCC 및 FC-BGA 매출 비중 60% 상향 추정|52주 신고가 1,880,000원 돌파 시도하는 강력한 추세 형성|거래량 244만주로 평균 거래량(99만주) 대비 2.4배 급증|외국인 및 기관의 대규모 순매수 동반된 질적 상승 확인|MACD Zero Line 위에서 시그널선과의 골든크로스 확장|ADX 28 상승으로 강세 추세 본격화 단계 진입|SuperTrend Buy 신호 발생 이후 조정 없이 상방 지지선 상승|전환선이 기준선을 상향 돌파하는 역전 현상 발생(Ichimoku)|RSI 65.2로 추가 상승 여력 충분한 강세권 유지",
+          "signals": {
+            "trend_score": 95,
+            "momentum_score": 92,
+            "volume_score": 94,
+            "volatility_score": 85,
+            "pattern_score": 91,
+            "sentiment_score": 93,
+            "overall_score": 93
+          },
+          "verified_date": "2026-05-28"
+        },
+        {
+          "ticker": "KOSPI:065680",
+          "name": "우주일렉트로",
+          "close_price": 47600,
+          "rationale": "2026년 5월 28일 종가 47,600원 확인(Investing.com/BigGo)|전일 종가 39,850원 대비 약 19.4% 급등하며 박스권 상단 돌파|장중 52주 신고가 45,700원을 대량 거래로 돌파(조선비즈)|거래량 254,450주로 평균(3.6만주) 대비 7배 이상 폭발적 증가|AI 반도체 부품주 순환매 유입에 따른 저평가 메리트 부각|SMA 60일/120일선을 장대양봉으로 한꺼번에 돌파하는 갭 상승|기관 6,126주, 외국인 4,278주 일주일간 지속 매집 후 분출|Stochastic Slow 82로 강력한 모멘텀 구간 진입|Williams %R -15로 상방 압력이 매우 강한 상태|Aroon Up 100 기록하며 새로운 상승 사이클 시작 신호|EMA 5일선이 20일선을 가파르게 돌파하는 단기 골든크로스|볼린저밴드 스퀴즈(Squeeze) 이후 상방 확산(Expansion) 초기 단계",
+          "signals": {
+            "trend_score": 92,
+            "momentum_score": 89,
+            "volume_score": 95,
+            "volatility_score": 87,
+            "pattern_score": 93,
+            "sentiment_score": 90,
+            "overall_score": 91
+          },
+          "verified_date": "2026-05-28"
+        }
+      ],
+      "sentAt": "2026-05-28T22:52:29.615+00:00",
+      "subscriberCount": 291
+    },
+    {
+      "type": "stock",
       "date": "2026-05-28",
       "stocks": [
         {
@@ -7958,5 +8014,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-05-27T23:26:22.918Z"
+  "lastUpdated": "2026-05-28T22:53:11.813Z"
 }
