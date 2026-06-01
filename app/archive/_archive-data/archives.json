@@ -2,6 +2,62 @@
   "newsletters": [
     {
       "type": "stock",
+      "date": "2026-06-02",
+      "stocks": [
+        {
+          "ticker": "KOSPI:005930",
+          "name": "삼성전자",
+          "close_price": 349000,
+          "rationale": "2026년 6월 1일 10.09% 급등하며 349,000원 마감 확인 (edaily.co.kr)|보통주 시가총액 2,000조원 사상 첫 돌파 (investing.com)|HBM4E 샘플 글로벌 고객사 출하 개시 모멘텀|엔비디아 젠슨 황 CEO 방한 및 협력 강화 기대감 반영|코스피 8,700선 돌파를 주도한 핵심 주도주|거래량 39,372,103주로 전일 대비 대폭 증가|RSI 65.5로 강세 구간 진입하였으나 과열 기준(70) 미만|MACD 시그널선 상향 돌파 및 히스토그램 확장|52주 신고가(354,500원) 탈환 시도 중인 강한 추세|기관 2.5조원 순매수 유입의 중심 종목|AI 반도체 밸류체인 내 공급망 독점적 지위 부각|EMA 5/20/60일선 완전 정배열 초입 형성",
+          "signals": {
+            "trend_score": 96,
+            "momentum_score": 94,
+            "volume_score": 95,
+            "volatility_score": 89,
+            "pattern_score": 94,
+            "sentiment_score": 92,
+            "overall_score": 94
+          },
+          "verified_date": "2026-06-01"
+        },
+        {
+          "ticker": "KOSPI:042700",
+          "name": "한미반도체",
+          "close_price": 293000,
+          "rationale": "2026년 6월 1일 종가 293,000원 (+3.90%) 확인 (mk.co.kr)|반도체 후공정 및 첨단 패키징 장비 수요 폭증 수혜|AI 혁명에 따른 대형 고객사 설비투자 확대 수혜주|52주 최고가 426,000원 대비 조정 후 반등 추세 확인|외국인 수급 유입 전환 (26.06.01 데이터 기준)|RSI 62.4로 안정적 모멘텀 유지 중|MACD 양의 영역 지속 유지 및 시그널 지지|거래량 1,559천주로 점진적 증가세 형성|PBR 40.19배로 고밸류이나 압도적 수익성으로 정당화|NXT 및 마이크로 쏘 국산화 성공에 따른 이익 개선|삼성전자-SK하이닉스 랠리에 따른 동반 상승 압력|이동평균선 정배열 지지선 확보 및 20일선 안착",
+          "signals": {
+            "trend_score": 91,
+            "momentum_score": 88,
+            "volume_score": 86,
+            "volatility_score": 84,
+            "pattern_score": 90,
+            "sentiment_score": 89,
+            "overall_score": 88
+          },
+          "verified_date": "2026-06-01"
+        },
+        {
+          "ticker": "KOSPI:267260",
+          "name": "HD현대일렉트릭",
+          "close_price": 1067000,
+          "rationale": "2026년 6월 1일 종가 1,067,000원 확인 (hd-hyundaielectric.com)|글로벌 품질경영인대상 수상(김영기 사장) 등 대외 신뢰도 제고|전력기기 산업 사이클 호황에 따른 실적 우상향 지속|52주 최고가 1,430,000원 대비 건전한 조정 후 매수세 유입|RSI 58.2로 과매수 구간과 거리가 먼 안정적 위치|거래량 257천주 수준 유지하며 중심선 지지 확인|AI 데이터센터용 변압기 및 배전반 수주 사상 최대치|북미 및 유럽 노후 전력망 교체 수요 장기화 수혜|SMA 5/10/20일선 정배열 패턴 유지 중|컨센서스 '매수' 등급 2.0 유지 (hankyung.com)|시가총액 37.9조원 규모로 대형주 내 안정성 확보|Ichimoku 구름대 상단 지지 확인 및 반등 시그널",
+          "signals": {
+            "trend_score": 93,
+            "momentum_score": 87,
+            "volume_score": 85,
+            "volatility_score": 83,
+            "pattern_score": 91,
+            "sentiment_score": 90,
+            "overall_score": 89
+          },
+          "verified_date": "2026-06-01"
+        }
+      ],
+      "sentAt": "2026-06-01T23:05:40.718+00:00",
+      "subscriberCount": 291
+    },
+    {
+      "type": "stock",
       "date": "2026-06-01",
       "stocks": [
         {
@@ -8070,5 +8126,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-05-31T23:20:48.666Z"
+  "lastUpdated": "2026-06-01T23:06:16.998Z"
 }
