@@ -2,6 +2,62 @@
   "newsletters": [
     {
       "type": "stock",
+      "date": "2026-06-04",
+      "stocks": [
+        {
+          "ticker": "KOSDAQ:036930",
+          "name": "주성엔지니어링",
+          "close_price": 196900,
+          "rationale": "2026-06-02 종가 196,900원(+6.15%) 확인|제9회 지방선거(6/3) 휴장 전 3거래일 연속 신고가 랠리|ALD(원자층증착) 장비 글로벌 출하 확대 모멘텀|테슬라향 태양광 제조 장비 공급 계약 임박설 반영|SMA20 상향 정배열 및 EMA20 185,000선 강력 지지|RSI 55.4로 과매수 진입 전 상승 여력 충분|MACD 0선 위 골든크로스 및 히스토그램 양선 확장|거래량비율 1.35로 건전한 매수 수급 유입 확인|볼린저밴드 상단 돌파 시도 중인 변동성 확대 구간|ADX 22.1로 상승 추세 초기 진입 신호 발생|OBV 완만한 우상향으로 기관/외인 매집 징후 포착|PBR 14.36배로 섹터 내 고성장 가치 반영 중",
+          "signals": {
+            "trend_score": 92,
+            "momentum_score": 95,
+            "volume_score": 93,
+            "volatility_score": 90,
+            "pattern_score": 85,
+            "sentiment_score": 95,
+            "overall_score": 92
+          },
+          "verified_date": "2026-06-03"
+        },
+        {
+          "ticker": "KOSPI:454910",
+          "name": "두산로보틱스",
+          "close_price": 166700,
+          "rationale": "2026-06-02 종가 166,700원(+20.45%) 폭등 마감|젠슨 황 엔비디아 CEO 방한 및 로보틱스 투자 언급 수혜|역사적 신고가 경신으로 상방 매물대 진공 상태|SMA 5/10/20 완전정배열 구축 및 이격도 확대|RSI 64.2로 강력한 매수 모멘텀 유지(70 미만)|거래량비율 452%의 폭발적 수급 집중 확인|볼린저밴드 상단(72% 위치) 강한 돌파 및 밴드 확장|ATR 4.8%로 변동성 급증을 동반한 급등 패턴|ADX 28.5 및 +DI 32로 초강세 상승 추세 확정|시가총액 10조 원 돌파에 따른 패시브 자금 유입 기대|Parabolic SAR 매수 신호 지속 및 일목균형표 삼역호전|엔비디아 아이작 그루트 기반 피지컬 AI 협력 모멘텀",
+          "signals": {
+            "trend_score": 98,
+            "momentum_score": 96,
+            "volume_score": 99,
+            "volatility_score": 99,
+            "pattern_score": 100,
+            "sentiment_score": 98,
+            "overall_score": 98
+          },
+          "verified_date": "2026-06-03"
+        },
+        {
+          "ticker": "KOSDAQ:196170",
+          "name": "알테오젠",
+          "close_price": 357000,
+          "rationale": "2026-06-02 종가 357,000원(-2.46%) 단기 눌림목|미국 PTAB의 할로자임 특허 무효 판단으로 IP 리스크 해소|MSD 키트루다SC 판매 호조에 따른 마일스톤 유입 본격화|10개 이상 글로벌 빅파마와 MTA 논의 중인 기술수출 모멘텀|SMA 5~200 완전정배열 유지 및 상승 추세선 지지|RSI 68.5로 과매수 임계점 직전의 강세 구간 유지|MACD Signal 상회 지속 및 히스토그램 견조한 흐름|OBV 역사적 최고치 부근 형성으로 장기 매집 확인|CMF 0.32로 세력 자금 유입 강도 최상위권 유지|대신증권 목표주가 500,000원 유지 및 투자의견 매수|코스피 이전 상장 검토에 따른 수급 개선 기대감|Aroon Up 100으로 추세 강도 극대화 상태 지속",
+          "signals": {
+            "trend_score": 100,
+            "momentum_score": 85,
+            "volume_score": 90,
+            "volatility_score": 85,
+            "pattern_score": 90,
+            "sentiment_score": 92,
+            "overall_score": 91
+          },
+          "verified_date": "2026-06-03"
+        }
+      ],
+      "sentAt": "2026-06-03T23:06:59.871+00:00",
+      "subscriberCount": 291
+    },
+    {
+      "type": "stock",
       "date": "2026-06-02",
       "stocks": [
         {
@@ -8126,5 +8182,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-06-02T23:30:40.504Z"
+  "lastUpdated": "2026-06-03T23:07:41.640Z"
 }
