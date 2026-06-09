@@ -1,6 +1,62 @@
 {
   "newsletters": [
     {
+      "type": "stock",
+      "date": "2026-06-10",
+      "stocks": [
+        {
+          "ticker": "KOSDAQ:039440",
+          "name": "에스티아이",
+          "close_price": 28300,
+          "rationale": "2026-06-09 코스닥 시장 6.19% 폭등 속 반도체 소부장 대장주 역할 수행|전일 종가 28,300원(+13.88%) 기록하며 강력한 상방 압력 확인|HBM 핵심 장비(세정장비 등) 수급 집중으로 기관/외인 동반 매수세 유입|SMA 5일선 골든크로스 및 20일선 안착|RSI 42.5에서 급반등하며 과매도권 완전 탈출|MACD 히스토그램 양전환 시작으로 단기 추세 반전 확정|거래량 전일 대비 520% 폭증하며 하락 추세 종결 신호|볼린저밴드 하단 지지 후 중심선 돌파 시도|ATR 4.8%로 변동성 확대 구간 진입하여 수익 탄력성 확보|ADX 24 추세 전환 초기 신호 포착|Vortex VI+ 상향 크로스 확인|OBV 저점 상승으로 스마트 머니 유입 지속 증명",
+          "signals": {
+            "trend_score": 95,
+            "momentum_score": 98,
+            "volume_score": 99,
+            "volatility_score": 88,
+            "pattern_score": 94,
+            "sentiment_score": 96,
+            "overall_score": 96
+          },
+          "verified_date": "2026-06-09"
+        },
+        {
+          "ticker": "KOSDAQ:036930",
+          "name": "주성엔지니어링",
+          "close_price": 191700,
+          "rationale": "2026-06-09 코스피 8000선 회복 장세의 핵심 반도체 전공정 수혜주|종가 191,700원(+4.87%)으로 전일 급락폭 만회 및 상승 전환|반도체 전공정 ALD 장비 글로벌 수요 확대로 실적 턴어라운드 가속화|SMA 20일선 저항 구간을 대량 거래량(210만 주)과 함께 상향 돌파|RSI 48.2로 과열 없는 건강한 추세 회복 단계 안착|MACD 시그널선 골든크로스 확정|52주 최저가(26,050원) 대비 장기 우상향 추세 내 박스권 상단 도전|볼린저밴드 상단 밴드 확장형 진입으로 시세 분출 전조|ATR 5.5%의 가격 탄력성 극대화 구간|ADX 21 신규 상승 추세 형성 시작|Vortex VI+ 1.0 돌파로 강세장 진입 신호 발생|OBV 계단식 우상향으로 매집세 강화 포착",
+          "signals": {
+            "trend_score": 92,
+            "momentum_score": 94,
+            "volume_score": 96,
+            "volatility_score": 85,
+            "pattern_score": 91,
+            "sentiment_score": 90,
+            "overall_score": 92
+          },
+          "verified_date": "2026-06-09"
+        },
+        {
+          "ticker": "KOSDAQ:039030",
+          "name": "이오테크닉스",
+          "close_price": 432500,
+          "rationale": "2026-06-09 코스닥 매수 사이드카 발동 상황에서 레이저 어닐링 기술 부각|종가 432,500원(+9.08%)으로 전일 396,500원 대비 강력한 반등 성공|HBM 레이저 어닐링 장비 독보적 시장 지위 기반 삼성전자 밸류체인 핵심 부각|SMA 5/10일선 단기 정배열 전환 및 이평선 밀집 구간 돌파|RSI 52.6 안정적 모멘텀 구간 안착으로 추가 상승 여력 확보|MACD 양선 확대 및 기준선 상향 돌파|거래량 16만 주(전일 대비 급증)로 낙폭 과대 인식 매수세 유입 확인|볼린저밴드 중단 지지 후 상단 타격 패턴 형성|ATR 3.9%의 안정적 변동성 속 견고한 지지선 형성|ADX 27로 기존 하락 추세 종결 및 반등 강화|SuperTrend 그린 시그널 전환 포착|스토캐스틱 55 안정권에서 상향 발산 시도",
+          "signals": {
+            "trend_score": 90,
+            "momentum_score": 92,
+            "volume_score": 94,
+            "volatility_score": 82,
+            "pattern_score": 89,
+            "sentiment_score": 93,
+            "overall_score": 91
+          },
+          "verified_date": "2026-06-09"
+        }
+      ],
+      "sentAt": "2026-06-09T22:54:38.738+00:00",
+      "subscriberCount": 291
+    },
+    {
       "type": "crash_alert",
       "date": "2026-06-08",
       "crashAlert": {
@@ -8278,5 +8334,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-06-08T23:23:59.387Z"
+  "lastUpdated": "2026-06-09T22:55:14.597Z"
 }
