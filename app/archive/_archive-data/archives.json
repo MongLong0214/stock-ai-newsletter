@@ -2,6 +2,62 @@
   "newsletters": [
     {
       "type": "stock",
+      "date": "2026-06-11",
+      "stocks": [
+        {
+          "ticker": "KOSPI:100090",
+          "name": "SK오션플랜트",
+          "close_price": 16510,
+          "rationale": "SK그룹-KKR 신재생에너지 합작법인 설립 공식화 호재|2026년 6월 10일 종가 16,510원(+13.55%) 기록|당일 거래량 14,006,653주로 전일 대비 폭증|정규장 종가 대비 시간외/NXT 마켓 16,890원까지 추가 상승|모든 이동평균선 정배열 진입 초기 단계|DS투자증권 등 주요 기관 해상풍력 수혜주로 분석|대만 라운드 3.1 프로젝트 매출 인식 가속화 전망|PER 19.23배 수준의 밸류에이션 매력|부채비율 40%대의 안정적 재무구조|해상풍력 하부구조물 글로벌 점유율 확대 기대|상향 추세 속 단기 조정 후 강력한 상방 돌파|기관 및 외인의 동시 순매수세 유입 확인",
+          "signals": {
+            "trend_score": 98,
+            "momentum_score": 96,
+            "volume_score": 99,
+            "volatility_score": 92,
+            "pattern_score": 98,
+            "sentiment_score": 95,
+            "overall_score": 97
+          },
+          "verified_date": "2026-06-10"
+        },
+        {
+          "ticker": "KOSPI:010120",
+          "name": "LS ELECTRIC",
+          "close_price": 236000,
+          "rationale": "전력기기 북미/중동 수출 구조적 성장 가시화|2026년 6월 10일 종가 236,000원(+7.52%) 확정|전일 종가 219,500원 대비 강한 갭상승 마감|북미 데이터센터 전력 설비 수주 1.5조원 초과 달성 전망|유안타증권 목표주가 360,000원 상향 조정|중동 최대 전력청 공인 시험소 자격 획득 호재|52주 범위 153,400~907,000 내 중단부 위치로 상승 여력 충분|코리아 밸류업 지수 편입에 따른 수급 유입 기대|RSI 55.8 및 MACD 매수 신호 안정적 유지|Capa 확장 및 리드타임 경쟁 우위 확보|완전 정배열 구간 진입을 위한 추세 강화 단계|데이터센터 전력 공급 부족에 따른 장기 수혜 지속",
+          "signals": {
+            "trend_score": 100,
+            "momentum_score": 92,
+            "volume_score": 90,
+            "volatility_score": 88,
+            "pattern_score": 95,
+            "sentiment_score": 93,
+            "overall_score": 94
+          },
+          "verified_date": "2026-06-10"
+        },
+        {
+          "ticker": "KOSPI:079550",
+          "name": "LIG넥스원",
+          "close_price": 790000,
+          "rationale": "방산 수출 비중 확대 및 글로벌 군비 증강 수혜 지속|2026년 6월 10일 종가 790,000원(+8.97%) 달성|RSI(14) 62.511로 강력한 매수세 확인|MACD(12,26) 10,575.6 매수 신호 발생|ATR(14) 24,285.7로 변동성 에너지 응축 및 확대|CCI(14) 147.09로 과열 미진입 상태의 강세|Ultimate Oscillator 54.8로 견조한 매수 우위|피보나치 R1(784,842) 저항선 상향 돌파 완료|MA5~MA50 전 구간 Buy 시그널 점등|52주 최고가 1,118,000원 대비 낙폭 과대에 따른 반등 구간|고스트로보틱스 인수로 군사용 로봇 시장 선도 기대|Vortex VI+ 상향 교차로 강한 추세 전환 확인",
+          "signals": {
+            "trend_score": 95,
+            "momentum_score": 97,
+            "volume_score": 94,
+            "volatility_score": 91,
+            "pattern_score": 96,
+            "sentiment_score": 92,
+            "overall_score": 95
+          },
+          "verified_date": "2026-06-10"
+        }
+      ],
+      "sentAt": "2026-06-10T22:58:28.644+00:00",
+      "subscriberCount": 291
+    },
+    {
+      "type": "stock",
       "date": "2026-06-10",
       "stocks": [
         {
@@ -8334,5 +8390,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-06-09T23:26:33.358Z"
+  "lastUpdated": "2026-06-10T22:59:15.334Z"
 }
