@@ -2,6 +2,62 @@
   "newsletters": [
     {
       "type": "stock",
+      "date": "2026-06-16",
+      "stocks": [
+        {
+          "ticker": "KOSPI:000660",
+          "name": "SK하이닉스",
+          "close_price": 2288000,
+          "rationale": "2026-06-15 종가 2,288,000원 확인(전일비 +6.42%)|RSI 65.2 강세권 유지로 과매수 구간(70) 진입 전 매수 적기|미-이란 종전 합의에 따른 리스크 온 분위기로 외국인 4,157억 순매수|매수 사이드카 발동 등 폭발적 거래량 동반(357만 주)|SMA 5/20/60일선 완전 정배열 상태의 초강세 추세|노무라증권 목표주가 500만원 상향 리포트 모멘텀|MACD 히스토그램 양선 확장 및 시그널선 상향 돌파 유지|ATR 4.2% 수준의 건강한 변동성 확대 구간|ADX 32.5로 매우 강한 상승 추세 강도 증명|HBM 시장 지배력 강화에 따른 실적 퀀텀점프 가시화",
+          "signals": {
+            "trend_score": 98,
+            "momentum_score": 97,
+            "volume_score": 99,
+            "volatility_score": 88,
+            "pattern_score": 95,
+            "sentiment_score": 97,
+            "overall_score": 97
+          },
+          "verified_date": "2026-06-15"
+        },
+        {
+          "ticker": "KOSPI:267260",
+          "name": "HD현대일렉트릭",
+          "close_price": 1194000,
+          "rationale": "2026-06-15 종가 1,194,000원 확인(전일비 +5.66%)|5일간 상승률 29.22% 기록하며 단기 신고가 경신 패턴|RSI 55.3으로 급등 후에도 추가 상승 여력 충분한 중립 강세 구간|AI 전력 인프라 수요 폭증에 따른 전력기기 업종 동반 강세 수혜|SMA 20일선 강력 지지 후 상향 발산하는 전형적인 추세 추종형 차트|기관 및 외국인 동반 순매입 유입 확인|볼린저밴드 상단 돌파 후 밴드 라이딩 기법 적용 구간|ATR 3.5%로 안정적인 추세 유지형 변동성 시현|OBV 지표 우상향 지속으로 매집 세력 이탈 부재 확인|북미 및 유럽 시장 수주 잔고 사상 최대치 갱신 모멘텀",
+          "signals": {
+            "trend_score": 96,
+            "momentum_score": 94,
+            "volume_score": 92,
+            "volatility_score": 85,
+            "pattern_score": 93,
+            "sentiment_score": 96,
+            "overall_score": 93
+          },
+          "verified_date": "2026-06-15"
+        },
+        {
+          "ticker": "KOSPI:005930",
+          "name": "삼성전자",
+          "close_price": 337000,
+          "rationale": "2026-06-15 종가 337,000원 확인(전일비 +4.50%)|미래에셋증권 목표가 550,000원 상향 및 매수 의견 유지|26F P/E 6.6배 수준의 글로벌 피어 그룹 대비 극심한 저평가 상태|RSI 62.4로 과열되지 않은 견조한 상승 모멘텀 유지|외국인 코스피 순매수 1위 종목(삼성전자 집중 매집)|풀스텍 메모리 제조 내재화 역량 부각에 따른 프리미엄 구간 진입|거래량 2,018만 주 동반하며 전일 대비 강한 수급 개선 확인|MACD 0선 위에서 골든크로스 발생 후 시그널선 이격 확대|VWAP 332,000원 상향 돌파 후 지지력 확보|D램 슈퍼사이클 진입에 따른 분기 영업이익 98조원 추정치 반영",
+          "signals": {
+            "trend_score": 92,
+            "momentum_score": 90,
+            "volume_score": 94,
+            "volatility_score": 82,
+            "pattern_score": 89,
+            "sentiment_score": 95,
+            "overall_score": 91
+          },
+          "verified_date": "2026-06-15"
+        }
+      ],
+      "sentAt": "2026-06-15T23:06:15.907+00:00",
+      "subscriberCount": 291
+    },
+    {
+      "type": "stock",
       "date": "2026-06-15",
       "stocks": [
         {
@@ -8502,5 +8558,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-06-14T23:25:16.671Z"
+  "lastUpdated": "2026-06-15T23:06:55.335Z"
 }
