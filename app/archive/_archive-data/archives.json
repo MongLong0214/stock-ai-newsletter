@@ -2,6 +2,62 @@
   "newsletters": [
     {
       "type": "stock",
+      "date": "2026-06-17",
+      "stocks": [
+        {
+          "ticker": "KOSPI:000660",
+          "name": "SK하이닉스",
+          "close_price": 2382000,
+          "rationale": "2026-06-16 종가 2,382,000원 확인(investing.com)|RSI(14) 65.404로 강력한 매수세 유지|MACD 61917.5 매수 신호 확정|ADX 35.108로 강력한 상승 추세 진행 중|이동평균선 MA5부터 MA200까지 완전 정배열(적극 매수)|거래량 3.36M으로 유동성 확보|ATR 45214로 안정적 변동성 범위 내 상승|CCI 129.1 강세권 유지|Stochastic(9,6) 98.6 과매수권 진입으로 강력한 상방 탄력|52주 최고가 2,407,000원에 근접하여 돌파 시도 중|단기 이평선(MA5) 2,367,800원 위에서 견조한 지지 형성|Bull/Bear Power 89393.9로 매수세 압도|iHBM 기술 공개에 따른 AI 반도체 수요 기대감 반영|기관 및 외국인 자본 유입 지속 확인",
+          "signals": {
+            "trend_score": 98,
+            "momentum_score": 92,
+            "volume_score": 90,
+            "volatility_score": 88,
+            "pattern_score": 95,
+            "sentiment_score": 95,
+            "overall_score": 94
+          },
+          "verified_date": "2026-06-16"
+        },
+        {
+          "ticker": "KOSPI:005380",
+          "name": "현대차",
+          "close_price": 640000,
+          "rationale": "2026-06-16 종가 640,000원 확인(investing.com)|RSI(14) 53.612로 중립적 매수 우위|MACD 2686.98 매수 신호 발생|ADX 27.684로 추세 형성 초기 단계|MA5(638,600)~MA50 정배열 구간 진입|거래량 1.28M으로 평균 수준 유지|ATR 11714로 변동성 하락 안정화|Williams %R -2.92로 단기 과매수권이나 강한 반등 추세|피봇 포인트 638,667원 상회하며 지지력 확인|52주 범위 200,500~783,000원 중상단 위치|26년 하반기 SDV 및 자율주행 성과 가시화 모멘텀|목표주가 660,000원 상향 조정 추세|Bull/Bear Power 1782.17 양수 전환|미국 시장 내 친환경차 제품 믹스 개선 기대",
+          "signals": {
+            "trend_score": 88,
+            "momentum_score": 85,
+            "volume_score": 82,
+            "volatility_score": 80,
+            "pattern_score": 86,
+            "sentiment_score": 84,
+            "overall_score": 85
+          },
+          "verified_date": "2026-06-16"
+        },
+        {
+          "ticker": "KOSPI:068270",
+          "name": "셀트리온",
+          "close_price": 174500,
+          "rationale": "2026-06-16 종가 174,500원 확인(google finance)|RSI(14) 57.214 매수 적기 진입|MACD 1538.34 매수 신호 유지|이동평균선 MA10, MA20, MA50 골든크로스 형성|거래량 42.78만으로 바닥권 매집 징후|ATR 3000 수준으로 변동성 축소 후 확산 준비|CCI 53.87 점진적 상승세 전환|Stochastic RSI 64.168로 추가 상승 여력 충분|Ichimoku 기준선(196,850원) 대비 저평가 구간 탈피 시도|캐나다 보건부 EYDENZELT 승인 등 글로벌 파이프라인 확장|운영 통합에 따른 비용 효율화 기대감 반영|기관 투자자의 자본 배분 정책 주시 속 수급 개선|52주 최저가(150,857) 대비 15% 반등하며 추세 전환 성공|Ultimate Oscillator 63.81로 견조한 매수 에너지 확인",
+          "signals": {
+            "trend_score": 82,
+            "momentum_score": 84,
+            "volume_score": 80,
+            "volatility_score": 78,
+            "pattern_score": 85,
+            "sentiment_score": 80,
+            "overall_score": 82
+          },
+          "verified_date": "2026-06-16"
+        }
+      ],
+      "sentAt": "2026-06-16T22:57:54.975+00:00",
+      "subscriberCount": 291
+    },
+    {
+      "type": "stock",
       "date": "2026-06-16",
       "stocks": [
         {
@@ -8558,5 +8614,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-06-15T23:31:09.618Z"
+  "lastUpdated": "2026-06-16T22:58:34.064Z"
 }
