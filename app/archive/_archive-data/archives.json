@@ -2,6 +2,62 @@
   "newsletters": [
     {
       "type": "stock",
+      "date": "2026-06-18",
+      "stocks": [
+        {
+          "ticker": "KOSPI:000660",
+          "name": "SK하이닉스",
+          "close_price": 2288000,
+          "rationale": "2026-06-17 기준 6.42% 급등하며 반도체 섹터 주도권 확보|전일 종가 2,150,000원 대비 강한 시세 분출|SMA 5/20/60 완전 정배열 유지 및 이격도 확대|거래량 1,248,000주로 전일 대비 폭발적 증가|RSI(14) 68.42로 강한 상승 모멘텀 유지(과매수 미진입)|MACD 히스토그램 양선 확장 및 0선 위 상향 돌파|OBV 신고가 경신으로 기관/외국인 동반 매집 확인|EMA 20일선 강력 지지 후 반등 추세 형성|볼린저밴드 상단 돌파 시도로 변동성 확대 구간 진입|Williams %R -12.5로 상단 안착 및 추세 강화",
+          "signals": {
+            "trend_score": 96,
+            "momentum_score": 94,
+            "volume_score": 90,
+            "volatility_score": 85,
+            "pattern_score": 95,
+            "sentiment_score": 92,
+            "overall_score": 94
+          },
+          "verified_date": "2026-06-17"
+        },
+        {
+          "ticker": "KOSPI:005380",
+          "name": "현대차",
+          "close_price": 647000,
+          "rationale": "2026-06-17 기준 6.59% 상승하며 코스피 8,700선 탈환 주도|외국인 및 기관의 대규모 순매수세 유입 확인|주요 이평선 수렴 후 상단 돌파 패턴 완성|거래량 전일 대비 165% 증가하며 매수세 집중|RSI 62.15로 상승 여력이 충분한 중립 매수권 위치|MACD 시그널선 골든크로스 발생 및 매수 신호 확정|전고점 부근의 강력한 저항선 돌파로 매물대 해소|ATR 12,500원 수준으로 변동성 확대 시작 지점|Stochastic(9,6) 78.4 우상향 곡선 유지|SuperTrend Buy 신호 유지 및 손절선 상향 조정",
+          "signals": {
+            "trend_score": 95,
+            "momentum_score": 92,
+            "volume_score": 88,
+            "volatility_score": 80,
+            "pattern_score": 90,
+            "sentiment_score": 94,
+            "overall_score": 91
+          },
+          "verified_date": "2026-06-17"
+        },
+        {
+          "ticker": "KOSPI:042660",
+          "name": "한화오션",
+          "close_price": 133100,
+          "rationale": "상선 부문 영업이익률(OPM) 18% 달성으로 수익성 극대화|1분기 영업이익 4,411억원으로 시장 컨센서스 상회(1.1.5)|RSI(14) 32.95로 바닥권 확인 후 기술적 반등 초기 구간|2026-06-17 기준 3.02% 상승 및 거래량 597만주 폭증|52주 범위 71,500~154,800 내 중간 지점에서 추세 반전|고가 선박 매출 비중 확대로 인한 연간 실적 개선 가시화|MA5 단순이동평균선 상향 돌파 및 안착 시도|ADX 33.23으로 하락 추세 종료 및 새로운 상승 동력 형성|OBV 바닥권 다지기 후 상향 고개 돌림 포착|Williams %R -6.2로 과매도 구간 탈출 후 상승 랠리 기대",
+          "signals": {
+            "trend_score": 88,
+            "momentum_score": 85,
+            "volume_score": 92,
+            "volatility_score": 82,
+            "pattern_score": 86,
+            "sentiment_score": 88,
+            "overall_score": 87
+          },
+          "verified_date": "2026-06-17"
+        }
+      ],
+      "sentAt": "2026-06-17T22:54:57.377+00:00",
+      "subscriberCount": 291
+    },
+    {
+      "type": "stock",
       "date": "2026-06-17",
       "stocks": [
         {
@@ -8614,5 +8670,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-06-16T23:28:39.519Z"
+  "lastUpdated": "2026-06-17T22:55:40.098Z"
 }
