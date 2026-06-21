@@ -2,6 +2,62 @@
   "newsletters": [
     {
       "type": "stock",
+      "date": "2026-06-22",
+      "stocks": [
+        {
+          "ticker": "KOSPI:000500",
+          "name": "가온전선",
+          "close_price": 337500,
+          "rationale": "2026-06-19 종가 337,500원 확인(investing.com)|전일 대비 -12.45% 급락하며 단기 과열 해소|52주 최고가 635,000원 대비 낙폭 과대 구간 진입|RSI 48.5 수준으로 하락하며 매수 적정권 진입|거래량 215,053천주로 평시 대비 폭발적 증가(daum.net)|무상증자(1주당 0.8주) 결정에 따른 권리락 전 수급 집중 기대|미국 AI 데이터센터용 '케이블버스' 북미 인증 획득 및 공급 본격화|북미 시장 매출 비중 확대(전년 1천억 -> 올해 2천억 전망)|ADX 48.2로 장기 추세는 여전히 강력한 우상향 유지|지지선 321,000원 확인 후 하방 경직성 확보",
+          "signals": {
+            "trend_score": 95,
+            "momentum_score": 72,
+            "volume_score": 98,
+            "volatility_score": 75,
+            "pattern_score": 90,
+            "sentiment_score": 92,
+            "overall_score": 88
+          },
+          "verified_date": "2026-06-19"
+        },
+        {
+          "ticker": "KOSPI:086790",
+          "name": "하나금융지주",
+          "close_price": 123500,
+          "rationale": "2026-06-19 종가 123,500원 확인(daum.net)|PER 9.04배 및 PBR 0.77배로 업종 내 최상위 저평가 매력|외국인 지분율 68.44%로 견고한 수급 기반 유지(investing.com)|자사주 1,500억원 매입 및 소각 등 밸류업 프로그램 수혜 지속|NIM(순이자마진) 1.50% 유지하며 안정적 수익 구조 증명|5-20일 이평선 골든크로스 발생 후 눌림목 구간|RSI 56.2로 과매수 구간(70) 미달하는 건전한 상승 추세|ATR 1.85%로 변동성 관리 우수하며 우상향 채널 형성|기업가치 제고 계획 공시 이후 기관 매수세 유입 지속|은행주 신고가 랠리 속 대장주 역할 수행 중",
+          "signals": {
+            "trend_score": 98,
+            "momentum_score": 90,
+            "volume_score": 90,
+            "volatility_score": 84,
+            "pattern_score": 95,
+            "sentiment_score": 88,
+            "overall_score": 92
+          },
+          "verified_date": "2026-06-19"
+        },
+        {
+          "ticker": "KOSDAQ:078890",
+          "name": "가온그룹",
+          "close_price": 5670,
+          "rationale": "2026-06-19 종가 5,670원 확인(hankyung.com)|전일 대비 -5.97% 조정받으며 1차 지지선 5,500원 근접|AI 셋톱박스 및 로봇 신사업 매출 가시화 구간|RSI 38.5로 과매도 구간 탈출 후 기술적 반등 신호 포착|전문가 평균 목표주가 7,400원 대비 현저한 저평가(littlebproject.com)|52주 최저가 3,040원 대비 바닥권 탈출형 패턴 형성|EMA 5,665원 선 지지 여부 확인 중|ADX 22.4로 새로운 상승 추세 형성 초기 단계|AI 주식 상승확률 분석 결과 긍정적 지표 확인(investing.com)|Williams %R -82.4로 단기 바닥권 통과 신호 발생",
+          "signals": {
+            "trend_score": 75,
+            "momentum_score": 90,
+            "volume_score": 78,
+            "volatility_score": 95,
+            "pattern_score": 85,
+            "sentiment_score": 83,
+            "overall_score": 83
+          },
+          "verified_date": "2026-06-19"
+        }
+      ],
+      "sentAt": "2026-06-21T22:47:03.427+00:00",
+      "subscriberCount": 291
+    },
+    {
+      "type": "stock",
       "date": "2026-06-19",
       "stocks": [
         {
@@ -8726,5 +8782,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-06-18T23:31:08.394Z"
+  "lastUpdated": "2026-06-21T22:47:39.359Z"
 }
