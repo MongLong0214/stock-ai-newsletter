@@ -2,6 +2,62 @@
   "newsletters": [
     {
       "type": "stock",
+      "date": "2026-06-23",
+      "stocks": [
+        {
+          "ticker": "KOSPI:086280",
+          "name": "현대글로비스",
+          "close_price": 222500,
+          "rationale": "RSI(14) 61.165로 강세 구간 진입 확인|MACD 1180.408 매수 신호 발생|5일 이평선(216,200원)이 현 주가 하단 지지|ATR 4392.86 기반 적정 변동성 유지|MA5~MA100 이평선 정배열 구간 안착|2026-06-22 기준 메리츠증권 목표가 34만원 제시|중국 완성차 수출 확대에 따른 PCTC(차량운반선) 공급 부족 수혜|현대차그룹 로보틱스 사업 2026 하반기 구체화 모멘텀|비계열 고객 비중 확대 통한 해운 부문 수익성 개선|기관 중심의 순매수 유입 및 22만원 저항선 돌파 성공",
+          "signals": {
+            "trend_score": 91,
+            "momentum_score": 87,
+            "volume_score": 88,
+            "volatility_score": 84,
+            "pattern_score": 90,
+            "sentiment_score": 92,
+            "overall_score": 89
+          },
+          "verified_date": "2026-06-22"
+        },
+        {
+          "ticker": "KOSPI:000150",
+          "name": "두산",
+          "close_price": 1631000,
+          "rationale": "RSI(14) 52.866으로 과열 없는 안정적 상승 구간|1Q26 전자BG 영업이익 1,856억 역대 최고치 기록|3Q26 북미 NV사 차세대 Vera Rubin 플랫폼향 CCL 납품 본격화|태국 신규 CCL 증설 발표를 통한 글로벌 공급망 강화|메리츠증권 적정주가 240만원으로 상향 조정|ATR 42357.14로 높은 변동성 속 에너지 응집 구간|두산로보틱스 AI 박스 적재 솔루션 북미 공개 모멘텀|반도체향 하이엔드 소재(mPPO, HVLP 동박) 공급 우위|MA20(1,630,245원) 지수평균 지지 확인|복합 성장 지주사로서의 밸류에이션 재평가 국면",
+          "signals": {
+            "trend_score": 88,
+            "momentum_score": 84,
+            "volume_score": 82,
+            "volatility_score": 89,
+            "pattern_score": 87,
+            "sentiment_score": 90,
+            "overall_score": 87
+          },
+          "verified_date": "2026-06-22"
+        },
+        {
+          "ticker": "KOSPI:402340",
+          "name": "SK스퀘어",
+          "close_price": 1970000,
+          "rationale": "2026-06-22 전일 대비 10.67% 폭발적 급등 시현|ADX 62.52로 매우 강력한 상승 추세 형성|RSI 67.627로 과매수 임계치 하단에서 강한 모멘텀 유지|MACD 90707.25 매수 우위 지속|자회사 SK하이닉스의 코스피 시총 1위 등극에 따른 지분가치 급등|NAV 대비 할인율 43.8%로 축소되며 저평가 해소 진행|2026년 주주환원 규모 3,100억 확정 및 자사주 소각 기대|5일 이평선(1,776,600원)과의 이격 발생하나 거래량 폭증으로 상쇄|외국인 대규모 매도세에도 불구하고 기관/개인 저가 매수세 유입|반도체 슈퍼사이클 기반 지주사 베타 극대화 구간",
+          "signals": {
+            "trend_score": 96,
+            "momentum_score": 95,
+            "volume_score": 97,
+            "volatility_score": 78,
+            "pattern_score": 93,
+            "sentiment_score": 95,
+            "overall_score": 93
+          },
+          "verified_date": "2026-06-22"
+        }
+      ],
+      "sentAt": "2026-06-22T22:57:22.163+00:00",
+      "subscriberCount": 291
+    },
+    {
+      "type": "stock",
       "date": "2026-06-22",
       "stocks": [
         {
@@ -8782,5 +8838,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-06-21T23:26:46.955Z"
+  "lastUpdated": "2026-06-22T22:57:59.376Z"
 }
