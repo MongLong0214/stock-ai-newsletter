@@ -2,6 +2,62 @@
   "newsletters": [
     {
       "type": "stock",
+      "date": "2026-06-24",
+      "stocks": [
+        {
+          "ticker": "KOSPI:005930",
+          "name": "삼성전자",
+          "close_price": 310000,
+          "rationale": "2026-06-23 종가 310,000원(전일비 -12.31%) 급락 확인 | RSI(14) 25.325로 극심한 과매수 해소 및 침체 구간 진입 | MACD -6192.3으로 하락세이나 단기 이격도 과다 | ATR(14) 9107.14로 변동성 폭증하여 기술적 반등 임계점 도달 | MA5(326,800) 및 MA20(347,162)과의 이격도가 각각 5.1%, 10.7%로 확대 | 52주 최고가(374,500) 대비 17.2% 하락한 가격 메리트 발생 | Stochastic RSI 0으로 단기 바닥 신호 포착 | Ultimate Oscillator 29.572로 과매도 신호 일치 | KOSPI 9.99% 폭락에 따른 패닉 셀링으로 거래량(40,144,887주) 폭발적 증가 | 피벗 포인트 S3(310,166) 인근에서 지지력 확인",
+          "signals": {
+            "trend_score": 35,
+            "momentum_score": 25,
+            "volume_score": 95,
+            "volatility_score": 98,
+            "pattern_score": 92,
+            "sentiment_score": 88,
+            "overall_score": 68
+          },
+          "verified_date": "2026-06-23"
+        },
+        {
+          "ticker": "KOSPI:042700",
+          "name": "한미반도체",
+          "close_price": 263000,
+          "rationale": "2026-06-23 종가 263,000원(전일비 -12.77%) 마감 확인 | RSI(14) 24.089로 삼성전자보다 더 깊은 과매도 구간 진입 | MACD -13517.9로 데드크로스 이후 하향 이격 극대화 | ATR(14) 7392.85로 단기 변동성 최고조 달함 | MA5(270,100) 및 MA10(280,600) 아래로 하향 돌파하며 기술적 리바운드 대기 | Stochastic RSI 0으로 단기 반등 확률 매우 높음 | Williams %R -15.932로 과냉각 상태이나 회복 가능성 상존 | 52주 최고가(426,000) 대비 38.2% 하락하여 저가 매수세 유입 기대 | 피벗 포인트 S1(263,166) 및 클래식 피벗(267,333) 아래에서 종가 형성 | 2026년 매출 2조원 목표 및 생산 CAPA 증설 등 펀더멘털은 견고하나 수급 불안으로 인한 일시적 과락",
+          "signals": {
+            "trend_score": 30,
+            "momentum_score": 20,
+            "volume_score": 92,
+            "volatility_score": 95,
+            "pattern_score": 94,
+            "sentiment_score": 85,
+            "overall_score": 67
+          },
+          "verified_date": "2026-06-23"
+        },
+        {
+          "ticker": "KOSPI:000660",
+          "name": "SK하이닉스",
+          "close_price": 2669000,
+          "rationale": "2026-06-23 종가 2,669,000원(전일비 -8.43%~-11.78%) 급락하며 시가총액 1위 탈환 후 첫 대형 조정 | RSI(14) 37.982로 과매도 권역 진입 전 단계이나 단기 낙폭 과대 | MACD 34060.2로 양(+)의 영역에서 시그널선 하향 돌파 시도 중 | ATR(14) 79428.57로 높은 가격대에 따른 절대 변동액 확대 | MA5(2,692,800)를 하회하며 단기 추세 이탈했으나 MA50(2,575,490) 지지선 근접 | 2026년 2분기 영업이익 70조원 및 3분기 75조원 예상으로 실적 모멘텀은 최상위 유지 | 6월 22일 사상 최고가(약 290만원) 달성 후 첫 '블랙 투즈데이' 조정에 따른 대기 매수세 풍부 | Stochastic RSI 0으로 기술적 반등 시그널 포착 | 피보나치 피벗 포인트(2,669,000) 정확히 일치하며 지지선 형성 | HBM4 효과 및 2배 레버리지 ETF 상장에 따른 거래 유동성 공급 기대",
+          "signals": {
+            "trend_score": 45,
+            "momentum_score": 40,
+            "volume_score": 88,
+            "volatility_score": 90,
+            "pattern_score": 85,
+            "sentiment_score": 82,
+            "overall_score": 69
+          },
+          "verified_date": "2026-06-23"
+        }
+      ],
+      "sentAt": "2026-06-23T22:49:45.308+00:00",
+      "subscriberCount": 291
+    },
+    {
+      "type": "stock",
       "date": "2026-06-23",
       "stocks": [
         {
@@ -8838,5 +8894,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-06-22T23:27:45.999Z"
+  "lastUpdated": "2026-06-23T22:50:20.106Z"
 }
