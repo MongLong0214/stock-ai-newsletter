@@ -2,6 +2,62 @@
   "newsletters": [
     {
       "type": "stock",
+      "date": "2026-06-26",
+      "stocks": [
+        {
+          "ticker": "KOSDAQ:317770",
+          "name": "엑스페릭스",
+          "close_price": 2655,
+          "rationale": "2026-06-25 기준 11.55% 급등하며 강한 모멘텀 확보|Investing.com 급등주 리스트 상위 랭크 확인|거래량 185% 폭증하며 매집 에너지 분출|SMA 5-20일선 골든크로스 발생 및 단기 추세 강화|RSI 62.48로 과매수 구간 진입 전 강세 모멘텀 유지|회사합병결정 공시 이후 변동성 확대 및 매물대 소화 완료|MACD 히스토그램 양의 영역 확장 지속|ATR 4.2% 수준으로 변동성 확대에 따른 추가 상승 동력 확보|OBV 지표 바닥권 탈출 후 가파른 우상향|스토캐스틱 %K선이 %D선을 상향 돌파하며 매수 신호 확정|VI 발동을 통한 시장 관심도 집중 및 단기 수급 유입",
+          "signals": {
+            "trend_score": 92,
+            "momentum_score": 95,
+            "volume_score": 96,
+            "volatility_score": 90,
+            "pattern_score": 94,
+            "sentiment_score": 93,
+            "overall_score": 93
+          },
+          "verified_date": "2026-06-25"
+        },
+        {
+          "ticker": "KOSPI:005930",
+          "name": "삼성전자",
+          "close_price": 358500,
+          "rationale": "2026-06-25 종가 358,500원(+5.29%) 기록하며 사상 최고가 랠리|마이크론 실적 호조에 따른 반도체 슈퍼사이클 재점화 수혜|대신증권 목표주가 560,000원 상향 리포트 발행 확인|코스피 9,000선 탈환을 주도한 핵심 대장주 역할 수행|HBM4 2분기 일부 출하 시작 소식으로 기술 리더십 재평가|기관 3.3조원 순매수세 집중되며 강력한 수급 지지선 형성|SMA 20-60-120일선 완전 정배열 상태 유지 및 이격 확장|ADX 28.5로 강력한 상승 추세 형성 단계 진입|RSI 58.42로 안정적인 우상향 흐름 유지 중|Ichimoku 구름대 상단을 강력한 거래량으로 돌파 완료|미국 ADR 상장 기대감에 따른 외국인 패시브 자금 유입 가능성",
+          "signals": {
+            "trend_score": 96,
+            "momentum_score": 91,
+            "volume_score": 92,
+            "volatility_score": 85,
+            "pattern_score": 88,
+            "sentiment_score": 95,
+            "overall_score": 91
+          },
+          "verified_date": "2026-06-25"
+        },
+        {
+          "ticker": "KOSPI:000270",
+          "name": "기아",
+          "close_price": 139500,
+          "rationale": "2026-06-25 종가 139,500원(+0.43%)으로 견조한 지지력 확인|52주 최저점(95,700원) 대비 반등 후 13만원 중반대 강력 안착|P/E 7.7배 및 PBR 0.96배 수준의 극심한 저평가 구간 메리트|분기 배당(주당 1,700원) 및 연 4.87% 수익률로 하방 경직성 확보|EMA 20일선 지지 후 전고점(212,500원) 탈환을 위한 에너지 응축|자사주 매입 및 소각 기대감에 따른 주주환원 모멘텀 지속|RSI 61.26으로 중립 이상의 강세 분위기 형성|Vortex VI+ 1.15 돌파하며 매수 우위 장세 확인|현대차와 시너지 및 SDV 전환 가속화에 따른 체질 개선 부각|MACD 시그널선 위에서 안정적 흐름 유지 중|수급 측면에서 기관의 점진적 비중 확대 포착",
+          "signals": {
+            "trend_score": 89,
+            "momentum_score": 87,
+            "volume_score": 84,
+            "volatility_score": 86,
+            "pattern_score": 89,
+            "sentiment_score": 90,
+            "overall_score": 88
+          },
+          "verified_date": "2026-06-25"
+        }
+      ],
+      "sentAt": "2026-06-25T22:54:14.685+00:00",
+      "subscriberCount": 291
+    },
+    {
+      "type": "stock",
       "date": "2026-06-25",
       "stocks": [
         {
@@ -8950,5 +9006,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-06-24T23:22:44.075Z"
+  "lastUpdated": "2026-06-25T22:54:48.423Z"
 }
