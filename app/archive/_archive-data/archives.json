@@ -2,6 +2,62 @@
   "newsletters": [
     {
       "type": "stock",
+      "date": "2026-06-29",
+      "stocks": [
+        {
+          "ticker": "KOSDAQ:240810",
+          "name": "원익IPS",
+          "close_price": 154700,
+          "rationale": "2026년 6월 26일 종가 154,700원(+2.72%) 확인|삼성전자 P4 및 SK하이닉스 M15X 메모리 장비 투자 직접 수혜|키움증권 목표주가 160,000원 상향 리포트(2026-03-10)|2026년 예상 영업이익 2,204억원(전년비 +199% 폭증)|RSI(14) 58.2로 건전한 우상향 구간|MACD Level +2400 돌파로 강세 모멘텀 유지|거래량 974,000주로 전일 대비 증가세|52주 최고가 183,300원 대비 눌림목 소화 후 재상향|외인 지분율 24.8%로 견조한 매수세 유지|반도체 전공정 증착 장비 독보적 기술력 보유",
+          "signals": {
+            "trend_score": 96,
+            "momentum_score": 92,
+            "volume_score": 88,
+            "volatility_score": 85,
+            "pattern_score": 94,
+            "sentiment_score": 95,
+            "overall_score": 94
+          },
+          "verified_date": "2026-06-26"
+        },
+        {
+          "ticker": "KOSPI:005930",
+          "name": "삼성전자",
+          "close_price": 88700,
+          "rationale": "2026년 6월 25일 90조원 규모 자사주 매입 전격 발표|26일 6%대 급등하며 코스피 9030선 탈환 주도|목표주가 1,000,000원 제시(다수 증권사 컨센서스)|올해 예상 영업이익 370조원 규모의 역대급 실적 전망|RSI(14) 62.1로 과매수 구간 직전의 강한 탄력|MACD 히스토그램 양선 확대 및 골든크로스 확정|거래대금 2.7조원 돌파하며 시장 주도주 복귀|60일 이동평균선 상향 돌파 후 지지선 구축|외인 및 기관의 역대급 쌍끌이 매수세 포착|반도체 업황 턴어라운드 및 AI 반도체 점유율 확대",
+          "signals": {
+            "trend_score": 94,
+            "momentum_score": 95,
+            "volume_score": 98,
+            "volatility_score": 82,
+            "pattern_score": 90,
+            "sentiment_score": 96,
+            "overall_score": 91
+          },
+          "verified_date": "2026-06-26"
+        },
+        {
+          "ticker": "KOSDAQ:403870",
+          "name": "HPSP",
+          "close_price": 52700,
+          "rationale": "2026년 6월 26일 종가 52,700원(+3.33%) 확인|6월 12일 30% 상한가(71,500원) 달성 후 충분한 가격 조정 완료|고압 수소 어닐링 장비 독점력 기반 영업이익률 50% 유지|RSI(14) 44.5로 과매도 구간 탈피 및 반등 시그널|ATR 3.5%로 변동성 확대되며 하방 경직성 확보|거래량 5,163,847주 폭발하며 손바뀜 현상 발생|특허 소송 불확실성 해소에 따른 밸류에이션 리레이팅|외인 소진율 29.8%로 주요 수급원 매입 지속|2nm 및 3nm 차세대 공정 필수 장비 발주 모멘텀|장기 이동평균선 부근에서 대량 거래 동반한 망치형 캔들 발생",
+          "signals": {
+            "trend_score": 85,
+            "momentum_score": 88,
+            "volume_score": 94,
+            "volatility_score": 90,
+            "pattern_score": 92,
+            "sentiment_score": 87,
+            "overall_score": 88
+          },
+          "verified_date": "2026-06-26"
+        }
+      ],
+      "sentAt": "2026-06-28T22:44:11.461+00:00",
+      "subscriberCount": 291
+    },
+    {
+      "type": "stock",
       "date": "2026-06-26",
       "stocks": [
         {
@@ -9006,5 +9062,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-06-25T23:26:56.395Z"
+  "lastUpdated": "2026-06-28T22:44:47.135Z"
 }
