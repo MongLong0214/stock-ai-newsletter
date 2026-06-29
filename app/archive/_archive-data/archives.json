@@ -2,6 +2,62 @@
   "newsletters": [
     {
       "type": "stock",
+      "date": "2026-06-30",
+      "stocks": [
+        {
+          "ticker": "KOSPI:373220",
+          "name": "LG에너지솔루션",
+          "close_price": 400500,
+          "rationale": "2026-06-29 종가 400,500원(+20.81%) 확인(investing.com)|이차전지 주도주 부상 및 대장주 역할 수행|외국인 608억 원 순매수(news1.kr)|거래량 833.10K로 전일 대비 폭발적 증가|SMA20(379,762원) 상향 돌파 완료|장중 최고가 400,500원으로 종가 고가 형성 강세|미국 EV 역성장 완화 및 ESS 재고 축적 기대감|RSI 62.4 강세 구간 진입 확인|볼린저밴드 상단 돌파 시도하는 변동성 확대|OBV 지표 우상향 전환 및 매집 신호 포착",
+          "signals": {
+            "trend_score": 95,
+            "momentum_score": 100,
+            "volume_score": 100,
+            "volatility_score": 92,
+            "pattern_score": 98,
+            "sentiment_score": 94,
+            "overall_score": 97
+          },
+          "verified_date": "2026-06-29"
+        },
+        {
+          "ticker": "KOSPI:278470",
+          "name": "에이피알",
+          "close_price": 386000,
+          "rationale": "2026-06-29 종가 386,000원(+6.33%) 확인(tossinvest.com)|하나증권 투자의견 BUY 및 목표가 51만원 유지 리포트 발행|미국/유럽 사업 영토 확장 및 2분기 매출 YoY 112% 성장 전망|영업이익률 25% 이상 고마진 유지(newspim.com)|SMA 정배열 상태 유지 및 5일선 지지 확인|PER 19.0배로 고성장(CAGR 45%) 대비 저평가 구간|아마존 프라임데이 뷰티 TOP 100 10개 제품 진입|외국인 지분율 27.0% 안정적 유지|MACD 0선 위 상향 발산 시그널|ADX 31.5 상승 추세 강화 구간 안착",
+          "signals": {
+            "trend_score": 98,
+            "momentum_score": 92,
+            "volume_score": 90,
+            "volatility_score": 94,
+            "pattern_score": 96,
+            "sentiment_score": 88,
+            "overall_score": 94
+          },
+          "verified_date": "2026-06-29"
+        },
+        {
+          "ticker": "KOSPI:000720",
+          "name": "현대건설",
+          "close_price": 116100,
+          "rationale": "2026-06-29 종가 116,100원(+12.39%) 확인(investing.com)|정부 '3대 메가 프로젝트' 및 호남 반도체 클러스터 투자 수혜|건설 업종 지수 대비 강한 상대 강도 기록|거래대금 1,101억 원으로 거래량 동반한 장대양봉|52주 범위(54,100~198,400) 내 바닥권 탈출 시도|이전 종가 103,300원 대비 강력한 이격 확대|SMA5 골든크로스 발생 및 VWAP 상단 돌파|기관 및 개인의 강력한 하방 경직성 확보|CCI 108.0 임계점 돌파로 단기 과열 양상 진입|SuperTrend Buy 신호 유지 및 매수 우위 장세",
+          "signals": {
+            "trend_score": 90,
+            "momentum_score": 95,
+            "volume_score": 94,
+            "volatility_score": 88,
+            "pattern_score": 92,
+            "sentiment_score": 91,
+            "overall_score": 92
+          },
+          "verified_date": "2026-06-29"
+        }
+      ],
+      "sentAt": "2026-06-29T22:42:28.802+00:00",
+      "subscriberCount": 291
+    },
+    {
+      "type": "stock",
       "date": "2026-06-29",
       "stocks": [
         {
@@ -9062,5 +9118,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-06-28T23:20:45.160Z"
+  "lastUpdated": "2026-06-29T22:43:05.938Z"
 }
