@@ -12,7 +12,6 @@ import {
   Clock,
   TrendingUp,
 } from 'lucide-react';
-import { supabase } from '@/lib/supabase';
 import { z } from 'zod';
 import { Input } from '@/components/ui/input';
 import AnimatedBackground from '@/components/animated-background';
@@ -51,56 +50,31 @@ export default function SubscribePage() {
         name: name.trim() || undefined,
       });
 
-      // 1. 먼저 기존 구독자 확인
-      const { data: existing } = await supabase
-        .from('subscribers')
-        .select('*')
-        .eq('email', validated.email)
-        .single();
+      // 서버 API 경유 (service_role) — 클라이언트에서 subscribers 테이블 직접 접근 금지
+      const res = await fetch('/api/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: validated.email, name: validated.name }),
+      });
+      const result = (await res.json().catch(() => ({}))) as {
+        status?: 'subscribed' | 'resubscribed';
+        error?: string;
+      };
 
-      if (existing) {
-        // 기존 구독자가 있으면 is_active를 true로 업데이트
-        const { error: updateError } = await supabase
-          .from('subscribers')
-          .update({
-            is_active: true,
-            name: validated.name || existing.name,
-          })
-          .eq('email', validated.email);
-
-        if (updateError) {
-          console.error('Resubscribe error:', updateError);
-          trackEvent('subscribe_form_error', {
-            form_id: 'newsletter_subscribe',
-            error_type: 'resubscribe_db',
-          });
-          setMessage('구독 처리 중 오류가 발생했습니다. 다시 시도해주세요.');
-          setStatus('error');
-          return;
-        }
-      } else {
-        // 신규 구독자 INSERT
-        const { error: insertError } = await supabase.from('subscribers').insert({
-          email: validated.email,
-          name: validated.name || null,
+      if (!res.ok) {
+        trackEvent('subscribe_form_error', {
+          form_id: 'newsletter_subscribe',
+          error_type: res.status === 400 ? 'validation' : 'subscribe_db',
         });
-
-        if (insertError) {
-          console.error('Subscribe error:', insertError);
-          trackEvent('subscribe_form_error', {
-            form_id: 'newsletter_subscribe',
-            error_type: 'insert_db',
-          });
-          setMessage('구독 처리 중 오류가 발생했습니다. 다시 시도해주세요.');
-          setStatus('error');
-          return;
-        }
+        setMessage(result.error || '구독 처리 중 오류가 발생했습니다. 다시 시도해주세요.');
+        setStatus('error');
+        return;
       }
 
       trackEvent('generate_lead', {
         method: 'newsletter',
         form_id: 'newsletter_subscribe',
-        lead_type: existing ? 'resubscribe' : 'new_subscriber',
+        lead_type: result.status === 'resubscribed' ? 'resubscribe' : 'new_subscriber',
         content_type: 'subscription',
       });
 

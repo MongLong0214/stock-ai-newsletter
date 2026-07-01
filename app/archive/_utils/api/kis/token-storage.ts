@@ -15,12 +15,14 @@ let supabaseClient: SupabaseClient<Database> | null = null;
 function getSupabase(): SupabaseClient<Database> {
   if (!supabaseClient) {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    // kis_tokens는 RLS로 service_role 전용. 서버(API 라우트)에서만 실행되므로 service_role 우선.
+    const supabaseKey =
+      process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
     if (!supabaseUrl || !supabaseKey) {
       throw new Error(
         'Supabase credentials not configured. ' +
-          'Please set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY environment variables.'
+          'Please set NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY environment variables.'
       );
     }
 

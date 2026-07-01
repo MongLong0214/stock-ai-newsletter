@@ -5,7 +5,6 @@ import { motion } from 'framer-motion';
 import { useSearchParams } from 'next/navigation';
 import { CheckCircle, XCircle, Loader2, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
-import { supabase } from '@/lib/supabase';
 import { z } from 'zod';
 import { Button } from '@/components/ui/button';
 import AnimatedBackground from '@/components/animated-background';
@@ -32,13 +31,14 @@ function UnsubscribeContent() {
     setStatus('loading');
 
     try {
-      const { error } = await supabase
-        .from('subscribers')
-        .update({ is_active: false })
-        .eq('email', email);
+      const res = await fetch('/api/unsubscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
 
-      if (error) {
-        console.error('Unsubscribe error:', error);
+      if (!res.ok) {
+        console.error('Unsubscribe error:', await res.text().catch(() => ''));
         setStatus('error');
         return;
       }
