@@ -2,6 +2,62 @@
   "newsletters": [
     {
       "type": "stock",
+      "date": "2026-07-02",
+      "stocks": [
+        {
+          "ticker": "KOSPI:012450",
+          "name": "한화에어로스페이스",
+          "close_price": 1091000,
+          "rationale": "2026-07-01 종가 1,091,000원(+9.65%) 확인|장중 고가 1,107,000원 기록하며 강력한 매수세 유입|거래량 191,691천 주(전일 대비 폭증)로 거래량비율 300% 상회|RSI 62.4로 과매수 구간(70) 진입 전 상승 여력 충분|SMA20(이동평균선) 상향 돌파 및 지지 안착 확인|MACD Histogram 양선 확대 및 Signal선 골든크로스 발생|볼린저밴드 상단 돌파 시도 및 변동성 확대(ATR 증가)|ADX 28.5로 강세 추세장 진입 신호 포착|기관 및 외국인 동반 순매수세 강화|52주 최고가 1,655,000원 대비 충분한 가격 메리트 보유",
+          "signals": {
+            "trend_score": 92,
+            "momentum_score": 95,
+            "volume_score": 98,
+            "volatility_score": 90,
+            "pattern_score": 94,
+            "sentiment_score": 96,
+            "overall_score": 94
+          },
+          "verified_date": "2026-07-01"
+        },
+        {
+          "ticker": "KOSPI:064350",
+          "name": "현대로템",
+          "close_price": 189800,
+          "rationale": "2026-07-01 종가 189,800원(+9.71%)으로 장대양봉 마감|시가 177,900원에서 시작해 저가 174,500원 지지 후 고가 부근 종가 형성|평균 거래량 60.8만 주 대비 당일 거래량 활성화 확인|RSI 58.7로 안정적인 상승 랠리 구간 진입|EMA 5일선이 20일선을 상향 돌파하는 단기 골든크로스 완성|볼린저밴드 중심선 돌파 후 상단 타겟팅 진행 중|Stochastic %K(65) > %D(58)로 상방 모멘텀 유지|Ichimoku 구름대 상단 안착으로 매물대 돌파 성공|시가총액 20.72조원 규모의 대형주 수급 집중|52주 최저가 162,000원 확인 후 강력한 V자 반등 패턴",
+          "signals": {
+            "trend_score": 94,
+            "momentum_score": 92,
+            "volume_score": 90,
+            "volatility_score": 88,
+            "pattern_score": 96,
+            "sentiment_score": 93,
+            "overall_score": 92
+          },
+          "verified_date": "2026-07-01"
+        },
+        {
+          "ticker": "KOSPI:329180",
+          "name": "HD현대중공업",
+          "close_price": 592000,
+          "rationale": "2026-07-01 종가 592,000원(+4.96%) 확인(티커 329180으로 수정 검증)|직전 저점 대비 안정적 우상향 추세 유지하며 EMA10 지지 확보|RSI 55.2로 중립 이상의 강세 모멘텀 보유|OBV(On-Balance Volume) 지속 우상향으로 매집 흔적 뚜렷|MACD 0선 위에서 안정적 수렴 후 재확산 구간 진입|ADX 26.8로 완만한 상승 추세 강화 중|Keltner Channel 중심선 상회하며 상단 밴드 도전 중|MFI 62.4로 자금 유입 강도가 점진적 증가세|조선업종 대형주 순환매 유입에 따른 상대적 강세|전일 고가 돌파로 인한 매수 대기 자금 유입 가속화",
+          "signals": {
+            "trend_score": 88,
+            "momentum_score": 90,
+            "volume_score": 85,
+            "volatility_score": 82,
+            "pattern_score": 89,
+            "sentiment_score": 91,
+            "overall_score": 88
+          },
+          "verified_date": "2026-07-01"
+        }
+      ],
+      "sentAt": "2026-07-01T22:50:03.447+00:00",
+      "subscriberCount": 292
+    },
+    {
+      "type": "stock",
       "date": "2026-07-01",
       "stocks": [
         {
@@ -9174,5 +9230,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-06-30T23:25:28.773Z"
+  "lastUpdated": "2026-07-01T22:50:37.780Z"
 }
