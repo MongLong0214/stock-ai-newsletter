@@ -17,13 +17,15 @@ import { postNewsletterToTwitter, postCrashAlertToTwitter } from '@/lib/twitter'
 if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
   throw new Error('NEXT_PUBLIC_SUPABASE_URL is not set');
 }
-if (!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
-  throw new Error('NEXT_PUBLIC_SUPABASE_ANON_KEY is not set');
+const supabaseKey =
+  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+if (!supabaseKey) {
+  throw new Error('SUPABASE_SERVICE_ROLE_KEY or NEXT_PUBLIC_SUPABASE_ANON_KEY is not set');
 }
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+  supabaseKey,
   {
     auth: { persistSession: false },
     db: { schema: 'public' },

@@ -131,6 +131,7 @@ export async function postNewsletterToTwitter(analysis: StockAnalysis[]): Promis
     console.log('✅ X(Twitter) 자동 게시 완료\n');
   } catch (error) {
     console.error('❌ X(Twitter) 자동 게시 실패:', error);
-    // 트위터 게시 실패해도 뉴스레터 발송은 계속 진행
+    // 호출부(send-newsletter)에서 처리하도록 재전파 — 거짓 성공 로그 방지 (뉴스레터 발송 자체는 non-fatal)
+    throw error;
   }
 }

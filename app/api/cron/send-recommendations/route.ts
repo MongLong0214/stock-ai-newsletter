@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { timingSafeEqual } from 'crypto';
-import { supabase, type Subscriber } from '@/lib/supabase';
+import { type Subscriber } from '@/lib/supabase';
+import { getServerSupabaseClient } from '@/lib/supabase/server-client';
 import { getGeminiRecommendation } from '@/lib/ai-recommendations';
 import { sendStockNewsletter } from '@/lib/sendgrid';
 import { validateEnv } from '@/lib/env';
@@ -33,6 +34,8 @@ export async function GET(request: NextRequest) {
 
   try {
     validateEnv();
+
+    const supabase = getServerSupabaseClient();
 
     // Secure authentication check with timing-safe comparison
     const authHeader = request.headers.get('authorization');
