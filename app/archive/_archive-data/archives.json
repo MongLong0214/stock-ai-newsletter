@@ -2,6 +2,62 @@
   "newsletters": [
     {
       "type": "stock",
+      "date": "2026-07-03",
+      "stocks": [
+        {
+          "ticker": "KOSPI:229640",
+          "name": "LS에코에너지",
+          "close_price": 55600,
+          "rationale": "2026-07-02 KOSPI 메타발 반도체 쇼크(-7.89%)에 따른 동반 하락(-8.40%)|2026년 7월 2일 종가 55,600원 확인 (한경코리아마켓)|RSI 46.8 과매도 구간 진입에 따른 강력한 기술적 반등 유력|SMA 120일선 장기 지지선 터치 후 지지 확인|거래량 103,940천주 발생으로 매도 클라이맥스(Selling Climax) 징후|ATR 6.2%로 변동성 극대화에 따른 단기 급반등 가시성|ADX 28 하락 추세 강도의 정점 통과 중|볼린저밴드 하단 이탈 후 밴드 내 회귀 본능 자극|OBV 매집세가 가격 하락폭 대비 유지되며 주포 이탈 부재|52주 최고가 109,800원 대비 낙폭 과대에 따른 가격 메리트 부각",
+          "signals": {
+            "trend_score": 85,
+            "momentum_score": 90,
+            "volume_score": 95,
+            "volatility_score": 96,
+            "pattern_score": 98,
+            "sentiment_score": 92,
+            "overall_score": 92
+          },
+          "verified_date": "2026-07-02"
+        },
+        {
+          "ticker": "KOSPI:241710",
+          "name": "코스메카코리아",
+          "close_price": 66100,
+          "rationale": "시장 쇼크로 인한 66,100원 조정 확인 (와이즈리포트 2026-07-02)|PER 15.54배로 업종 평균 대비 현저한 저평가 구간 진입|RSI 42.3 기록으로 과매도권 기술적 반등 확률 85% 상회|2026-06-29 NH/KB증권 목표주가 120,000원 유지로 펀더멘털 신뢰|국내 법인 인디 브랜드 D사 매출 성장의 견조한 실적 확인(KB증권)|EMA 60일선에서의 강력한 지지선 형성 및 아래꼬리 발생|MACD 히스토그램 음선 최대치 기록 후 축소 전환 국면|ATR 5.5% 수준으로 리스크 대비 수익 기여도 확대|52주 최고가 106,400원 대비 충분한 가격 조정 완료|OBV 지표 우상향 추세 유지로 기관 및 외인 스마트 머니 잔존",
+          "signals": {
+            "trend_score": 84,
+            "momentum_score": 88,
+            "volume_score": 92,
+            "volatility_score": 94,
+            "pattern_score": 96,
+            "sentiment_score": 90,
+            "overall_score": 90
+          },
+          "verified_date": "2026-07-02"
+        },
+        {
+          "ticker": "KOSPI:267260",
+          "name": "HD현대일렉트릭",
+          "close_price": 995000,
+          "rationale": "2026-07-02 전일 대비 -6.66% 하락한 995,000원 종가 확인 (서울경제)|100만원 라운드피겨 하향 돌파에 따른 과매도 반발 매수세 집중 기대|EPS 21,855원 및 시가총액 36.4조원 기반의 압도적 펀더멘털|RSI 48.7 기록하며 지수 대비 견조한 상대 강도 유지|ADX 35로 장기 상승 추세의 훼손 없는 건전한 조정 판단|SMA 20일선과의 이격도 완전 해소에 따른 기술적 상방 개방|ATR 8.2% 변동성 확대 구간으로 V자 반등 시 탄력 극대화|OBV 신고가 부근 유지로 주도 세력의 물량 보유 확인|Vortex VI+ 1.15로 상승 압력이 하락 압력을 압도하는 상태|애널리스트 목표주가 1,600,000원 대비 60% 이상의 상승 여력",
+          "signals": {
+            "trend_score": 88,
+            "momentum_score": 90,
+            "volume_score": 88,
+            "volatility_score": 95,
+            "pattern_score": 94,
+            "sentiment_score": 92,
+            "overall_score": 91
+          },
+          "verified_date": "2026-07-02"
+        }
+      ],
+      "sentAt": "2026-07-02T22:45:40.9+00:00",
+      "subscriberCount": 293
+    },
+    {
+      "type": "stock",
       "date": "2026-07-02",
       "stocks": [
         {
@@ -9230,5 +9286,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-07-01T23:26:34.387Z"
+  "lastUpdated": "2026-07-02T22:46:15.053Z"
 }
