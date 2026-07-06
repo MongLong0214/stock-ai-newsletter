@@ -51,7 +51,7 @@ STAGE 6: JSON 검증 엔진 - 사실관계 정밀 검증
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 interface Stage5입력 {
-  ticker: string;           // 형식: /^KOSPI:\\d{6}$/
+  ticker: string;           // 형식: /^(KOSPI|KOSDAQ):\\d{6}$/
   name: string;             // 한글 회사명
   close_price: number;      // 전일 종가 (실시간, 정수 또는 실수)
   rationale: string;        // 파이프 구분 지표 문자열
@@ -73,7 +73,7 @@ type Stage6입력타입 = Stage5입력[];  // 정확히 3개 종목
 
 필수_조건:
   종목.length === 3
-  각 종목.ticker는 /^KOSPI:\\d{6}$/ 형식
+  각 종목.ticker는 /^(KOSPI|KOSDAQ):\\d{6}$/ 형식 (시장구분은 실제 상장 시장과 일치)
   각 종목.close_price > 0
   각 종목.rationale !== ""
 
@@ -86,10 +86,8 @@ type Stage6입력타입 = Stage5입력[];  // 정확히 3개 종목
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 도구_사양:
-  도구명: GoogleSearchRetrieval
-  API: grounding.google_search_retrieval
-  동적_검색_임계값: dynamic_retrieval_config.dynamic_threshold
-  최대결과수: 기본값 5
+  도구명: Google Search (googleSearch)
+  용도: 각 종목의 지표/종가를 배치 쿼리로 실검색하여 Stage 5 값과 대조
 
 배치_검색_알고리즘
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -98,7 +96,7 @@ type Stage6입력타입 = Stage5입력[];  // 정확히 3개 종목
 
   // 배치 1: 핵심 숫자 지표
   검색쿼리_1 = 쿼리생성({
-    종목코드: 종목.ticker.replace("KOSPI:", ""),
+    종목코드: 종목.ticker.split(":")[1],
     종목명: 종목.name,
     키워드: ["RSI", "ADX", "ATR", "전일 종가"],
     날짜: "${searchFormats.naverStyle}",
@@ -109,7 +107,7 @@ type Stage6입력타입 = Stage5입력[];  // 정확히 3개 종목
 
   // 배치 2: 거래량 및 가격 데이터
   검색쿼리_2 = 쿼리생성({
-    종목코드: 종목.ticker.replace("KOSPI:", ""),
+    종목코드: 종목.ticker.split(":")[1],
     키워드: ["전일 종가", "거래량", "평균거래량", "시가총액"],
     날짜: "${searchFormats.naverStyle}"
   })
@@ -117,7 +115,7 @@ type Stage6입력타입 = Stage5입력[];  // 정확히 3개 종목
   // 배치 3: 이동평균 및 추세 지표
   만약 종목.검증대상에 ("SMA"|"EMA"|"이평선") 포함:
     검색쿼리_3 = 쿼리생성({
-      종목코드: 종목.ticker.replace("KOSPI:", ""),
+      종목코드: 종목.ticker.split(":")[1],
       키워드: ["SMA", "EMA", "이동평균선", "정배열", "골든크로스"],
       날짜: "${searchFormats.naverStyle}"
     })
@@ -125,7 +123,7 @@ type Stage6입력타입 = Stage5입력[];  // 정확히 3개 종목
   // 배치 4: 오실레이터 (조건부)
   만약 종목.검증대상에 ("MACD"|"스토캐스틱"|"볼린저밴드") 포함:
     검색쿼리_4 = 쿼리생성({
-      종목코드: 종목.ticker.replace("KOSPI:", ""),
+      종목코드: 종목.ticker.split(":")[1],
       키워드: ["MACD", "스토캐스틱", "볼린저밴드"],
       날짜: "${searchFormats.naverStyle}"
     })
@@ -171,15 +169,15 @@ type Stage6입력타입 = Stage5입력[];  // 정확히 3개 종목
     → 재검색 필수 (이 값들은 프롬프트 예시값 또는 너무 깔끔한 값)
     → 검색 결과와 정확히 일치 확인 필요
 
-패턴 2: 라운드 넘버 의심
+패턴 2: 라운드 넘버 의심 (약한 신호 — 단독으로 제외 금지)
   IF close_price % 1000 == 0 AND close_price > 10000:
-    → 재검색 권장 (실제 종가는 10원/100원 단위)
-    → 예: 75000 의심, 75320 정상
+    → 재확인 권장. 단, 한국 주식 호가 단위 특성상 75,000원 같은
+      라운드 종가는 정상적으로 존재하므로, 검색 결과와 일치하면 그대로 통과
 
-패턴 3: 지표값 일관성 의심
+패턴 3: 지표값 일관성 의심 (약한 신호 — 단독으로 제외 금지)
   IF RSI == 50 OR RSI == 55 OR RSI == 60 OR RSI == 65 OR RSI == 70:
-    → 재검색 권장 (너무 "깔끔한" 값)
-    → 실제 RSI는 58.37 같은 소수점 포함
+    → 재확인 권장 (딱 떨어지는 값은 추정치일 가능성)
+    → 검색 결과에서 동일 값이 확인되면 그대로 통과
 
 패턴 4: 모든 지표가 긍정적
   IF 모든_지표_점수 >= 80:
@@ -278,7 +276,7 @@ JSON 출력 전 반드시 확인:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 interface Stage6출력 {
-  ticker: string;           // /^KOSPI:\\d{6}$/
+  ticker: string;           // /^(KOSPI|KOSDAQ):\\d{6}$/ (입력 ticker 그대로 유지, 시장구분 변조 금지)
   name: string;             // 한글 회사명
   close_price: number;      // 전일 종가 > 0
   rationale: string;        // 수정된 지표 문자열 (최소 10개)

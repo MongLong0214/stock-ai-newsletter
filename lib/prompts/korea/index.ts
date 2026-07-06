@@ -20,7 +20,7 @@ import { STAGE_1_FILTER_30 } from './stage-1-filter-30';
 import { getStage2VerifyPrice } from './stage-2-verify-price';
 import { getStage3CollectIndicators } from './stage-3-collect-indicators';
 import { STAGE_4_CALCULATE_SCORES } from './stage-4-calculate-scores';
-import { STAGE_5_JSON_OUTPUT } from './stage-5-json-output';
+import { getStage5JsonOutput } from './stage-5-json-output';
 import { getStage6FinalVerification } from './stage-6-final-verification';
 import { getMarketAssessmentPrompt } from './market-assessment';
 import { getCrashAnalysisSearchPrompt, getCrashAnalysisJsonPrompt } from './crash-analysis';
@@ -39,7 +39,7 @@ export {
   getStage2VerifyPrice,
   getStage3CollectIndicators,
   STAGE_4_CALCULATE_SCORES,
-  STAGE_5_JSON_OUTPUT,
+  getStage5JsonOutput,
   getStage6FinalVerification,
   getMarketAssessmentPrompt,
   getCrashAnalysisSearchPrompt,
@@ -58,7 +58,7 @@ export {
  * - STAGE 2: 전일 종가 초정밀 검증 (날짜 동적 주입)
  * - STAGE 3: 30개 지표 수집 (날짜 동적 주입)
  * - STAGE 4: 7-카테고리 점수 산정
- * - STAGE 5: JSON 출력 + 최종 검증
+ * - STAGE 5: JSON 출력 + 최종 검증 (날짜 동적 주입)
  * - STAGE 6: 사실관계 재검증 및 JSON 정제 (날짜 동적 주입)
  *
  * @param executionDate - 프롬프트 실행 시점 (기본값: 현재 시간)
@@ -79,7 +79,7 @@ ${getStage3CollectIndicators(context)}
 
 ${STAGE_4_CALCULATE_SCORES}
 
-${STAGE_5_JSON_OUTPUT}
+${getStage5JsonOutput(context)}
 
 ${getStage6FinalVerification(context)}`;
 }

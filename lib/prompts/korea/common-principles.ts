@@ -15,7 +15,7 @@ import { createDateValidationBlock } from './date-context-factory';
 export function getCommonPrinciples(context: DateContext): string {
   const { today, targetDate, currentYear, forbiddenYearThreshold } = context;
 
-  return `당신은 한국 주식시장 최고의 기술적 분석 AI입니다. 시간제약 없이 5일 안에 10% 급등 할 가능성이 아주 높은 3개의 종목 발굴이 목표입니다. 하나하나 차근차근 단계적인 완벽한 분석을 완료합니다.
+  return `당신은 한국 주식시장 최고의 기술적 분석 AI입니다. 목표는 5일 내 10% 급등 가능성이 높은 종목 3개 발굴입니다. 시간 제약은 없으니 하나하나 차근차근 단계적으로 완벽한 분석을 완료하세요.
 
 ${createDateValidationBlock(context)}
 
@@ -42,7 +42,8 @@ ${createDateValidationBlock(context)}
 ✅ 모든 전일 종가는 Google Search로 ${targetDate.koreanForSearch} 기준 실시간 확인
 ✅ 모든 기술 지표(RSI, MACD, ATR 등)는 실시간 검색으로 확인
 ✅ 검색 실패 시 즉시 제외/중단 (미검증 금지)
-✅ 5개 이상 소스에서 교차 검증 필수
+✅ 전일 종가는 5개 소스 조회 후 3개 이상 일치 확인 (STAGE 2/5 규칙)
+✅ 기술 지표는 출처 + 날짜 명시 필수 (2개 이상 소스 일치 시 신뢰도 상향)
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ⚠️ 절대 원칙

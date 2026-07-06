@@ -1,11 +1,20 @@
-import { GoogleGenAI } from '@google/genai';
+import { FinishReason, GoogleGenAI } from '@google/genai';
 import {
-    createStockAnalysisPrompt,
+    createDateContext,
+    getCommonPrinciples,
+    STAGE_0_COLLECT_200,
+    STAGE_1_FILTER_30,
+    getStage2VerifyPrice,
+    getStage3CollectIndicators,
+    STAGE_4_CALCULATE_SCORES,
+    getStage5JsonOutput,
+    getStage6FinalVerification,
     getCrashAnalysisSearchPrompt,
     getCrashAnalysisJsonPrompt,
     getMarketAssessmentPrompt,
 } from '../../prompts/korea';
 import { PIPELINE_CONFIG, GEMINI_API_CONFIG } from '../_config/pipeline-config';
+import { extractAndValidateJSON } from './stock-json';
 import {
     evaluateMarketAssessmentSnapshot,
     formatMarketAssessmentSnapshot,
@@ -59,57 +68,81 @@ function startProgressTimer(label: string, intervalMs = 10000): { stop: () => vo
 
 /**
  * Promise에 타임아웃 적용
+ *
+ * onTimeout으로 진행 중인 API 요청을 abort하고, 완료 시 타이머를 정리해
+ * 20분짜리 타이머가 프로세스 종료를 붙잡지 않도록 한다.
  */
-async function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
-    return Promise.race([
-        promise,
-        new Promise<T>((_, reject) =>
-            setTimeout(() => reject(new Error(`Timeout after ${ms}ms`)), ms)
-        ),
-    ]);
+async function withTimeout<T>(promise: Promise<T>, ms: number, onTimeout?: () => void): Promise<T> {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const timeout = new Promise<T>((_, reject) => {
+        timer = setTimeout(() => {
+            onTimeout?.();
+            reject(new Error(`Timeout after ${ms}ms`));
+        }, ms);
+    });
+
+    try {
+        return await Promise.race([promise, timeout]);
+    } finally {
+        clearTimeout(timer);
+    }
 }
 
 /**
- * 전체 프롬프트를 Stage별로 파싱하여 분리
+ * Stage별 프롬프트 조립
  *
- * 환각 방지를 위해 실행 시점에 createStockAnalysisPrompt()를 호출하여
- * 정확한 날짜가 동적으로 주입된 프롬프트를 생성합니다.
+ * 프롬프트 모듈에서 직접 조립하므로 전체 프롬프트를 정규식으로 재분해하지 않는다
+ * (헤더 문구 변경이 Stage 분리를 조용히 깨뜨리는 문제 방지).
+ * 환각 방지를 위해 실행 시점의 DateContext가 각 Stage에 동적 주입된다.
  *
  * @param executionDate - 프롬프트 실행 시점 (기본값: 현재 시간)
  */
-function extractStagePrompts(executionDate: Date = new Date()): StagePrompt[] {
-    // 🔴 CRITICAL: 매 실행마다 새로운 프롬프트 생성 (날짜 동적 주입)
-    const fullPrompt = createStockAnalysisPrompt(executionDate);
+function buildStagePrompts(executionDate: Date = new Date()): StagePrompt[] {
+    const context = createDateContext(executionDate);
+    const commonPrinciples = getCommonPrinciples(context);
 
-    // Stage 헤더 패턴: "━━━\nSTAGE 0: 설명\n━━━"
-    const stageRegex = /━+\nSTAGE (\d+): ([^\n]+)\n━+/g;
-    const matches = [...fullPrompt.matchAll(stageRegex)];
-    const stages: StagePrompt[] = [];
+    const stageBodies = [
+        { stageNumber: 0, stageName: '200개 종목 수집', body: STAGE_0_COLLECT_200 },
+        { stageNumber: 1, stageName: '200개 → 30개 필터링', body: STAGE_1_FILTER_30 },
+        { stageNumber: 2, stageName: '전일 종가 초정밀 검증', body: getStage2VerifyPrice(context) },
+        { stageNumber: 3, stageName: '30개 지표 수집', body: getStage3CollectIndicators(context) },
+        { stageNumber: 4, stageName: '7-카테고리 점수 산정', body: STAGE_4_CALCULATE_SCORES },
+        { stageNumber: 5, stageName: '최종 JSON 출력', body: getStage5JsonOutput(context) },
+        { stageNumber: 6, stageName: '사실관계 재검증 및 JSON 정제', body: getStage6FinalVerification(context) },
+    ];
 
-    // 공통 원칙 추출 (모든 Stage에 공통으로 전달)
-    const firstStageIndex = fullPrompt.indexOf('STAGE 0:');
-    const commonPrinciples = fullPrompt.substring(0, firstStageIndex);
+    const stages = stageBodies.map(({ stageNumber, stageName, body }) => ({
+        stageNumber,
+        stageName,
+        prompt: `${commonPrinciples}\n\n${body}`,
+        // STAGE 1부터 이전 결과 필요 (STAGE 1은 STAGE 0의 200개 리스트에서만 선별해야 함)
+        requiresPreviousOutput: stageNumber >= 1,
+    }));
 
-    // 각 Stage별로 프롬프트 추출
-    for (let i = 0; i < matches.length; i++) {
-        const currentMatch = matches[i];
-        const stageNumber = parseInt(currentMatch[1], 10);
-        const stageName = currentMatch[2].trim();
-        const stageStart = currentMatch.index!;
-        const nextStageStart =
-            i < matches.length - 1 ? matches[i + 1].index! : fullPrompt.length;
-        const stageContent = fullPrompt.substring(stageStart, nextStageStart);
+    console.log(`📋 총 ${stages.length}개 Stage 조립 완료`);
+    return stages;
+}
 
-        stages.push({
-            stageNumber,
-            stageName,
-            prompt: `${commonPrinciples}\n\n${stageContent}`, // 공통 원칙 + Stage 특화 내용
-            requiresPreviousOutput: stageNumber >= 2, // STAGE 2부터 이전 결과 필요
-        });
+/**
+ * STAGE 6 산출물 게이트
+ *
+ * 형식 불량(JSON 추출 실패)은 저비용인 Stage 재시도로,
+ * 사실 검증 실패는 고비용인 Pipeline 전체 재실행으로 라우팅하기 위해 에러를 구분한다.
+ */
+const STAGE_6_VERIFICATION_FAILED = 'STAGE_6_VERIFICATION_FAILED';
+
+function validateStage6Output(text: string): string {
+    // 실패 마커를 JSON 추출보다 먼저 검사 — 모델이 유효 JSON과 실패 마커를 함께 출력해도 실패가 우회되지 않도록 함
+    if (text.includes(STAGE_6_VERIFICATION_FAILED)) {
+        throw new Error(
+            `${STAGE_6_VERIFICATION_FAILED}: 사실 검증 실패 종목 존재 — Pipeline 전체 재실행 필요`
+        );
     }
 
-    console.log(`📋 총 ${stages.length}개 Stage 감지`);
-    return stages;
+    const validJSON = extractAndValidateJSON(text);
+    if (validJSON) return validJSON;
+
+    throw new Error('STAGE 6 출력에서 유효한 3개 종목 JSON을 추출하지 못했습니다');
 }
 
 /**
@@ -135,8 +168,7 @@ async function executeStage(
     // 최대 5회 재시도 (Exponential Backoff)
     for (let attempt = 1; attempt <= PIPELINE_CONFIG.STAGE_MAX_RETRY; attempt++) {
         let apiStartTime = Date.now();
-        let progress = startProgressTimer(`STAGE ${stage.stageNumber}`, 15000);
-        progress.stop(); // 즉시 중지 — try 블록에서 재시작
+        let progress: { stop: () => void } | undefined;
 
         try {
             const finalPrompt =
@@ -155,12 +187,14 @@ async function executeStage(
 
             apiStartTime = Date.now();
             progress = startProgressTimer(`STAGE ${stage.stageNumber}`, 15000);
+            const abortController = new AbortController();
 
             const response = await withTimeout(
                 genAI.models.generateContent({
                     model: GEMINI_API_CONFIG.MODEL,
                     contents: [{ role: 'user', parts: [{ text: finalPrompt }] }],
                     config: {
+                        abortSignal: abortController.signal,
                         tools: [{ googleSearch: {} }],
                         maxOutputTokens: GEMINI_API_CONFIG.MAX_OUTPUT_TOKENS,
                         temperature: GEMINI_API_CONFIG.TEMPERATURE,
@@ -169,17 +203,32 @@ async function executeStage(
                         responseMimeType: GEMINI_API_CONFIG.RESPONSE_MIME_TYPE,
                     },
                 }),
-                PIPELINE_CONFIG.STAGE_TIMEOUT
+                PIPELINE_CONFIG.STAGE_TIMEOUT,
+                () => abortController.abort()
             );
 
             progress.stop();
             const apiElapsed = Date.now() - apiStartTime;
-            const responseChars = response.text?.length || 0;
-            console.log(`   ✅ API 응답 수신: ${responseChars.toLocaleString()} chars (${formatElapsed(apiElapsed)})`);
+            const text = response.text ?? '';
+            console.log(`   ✅ API 응답 수신: ${text.length.toLocaleString()} chars (${formatElapsed(apiElapsed)})`);
+
+            const finishReason = response.candidates?.[0]?.finishReason;
+            if (finishReason && finishReason !== FinishReason.STOP) {
+                throw new Error(
+                    `STAGE ${stage.stageNumber} 응답 비정상 종료 (finishReason: ${finishReason}) — 출력 잘림/차단 가능성`
+                );
+            }
+            if (text.trim().length < PIPELINE_CONFIG.MIN_STAGE_OUTPUT_CHARS) {
+                throw new Error(
+                    `STAGE ${stage.stageNumber} 응답이 비정상적으로 짧습니다 (${text.trim().length} chars)`
+                );
+            }
+
+            const output = stage.stageNumber === 6 ? validateStage6Output(text) : text;
             console.log(`   📊 Stage ${stage.stageNumber} 총 소요: ${formatElapsed(Date.now() - stageStartTime)}`);
-            return response.text || JSON.stringify(response);
+            return output;
         } catch (error) {
-            progress.stop();
+            progress?.stop();
             const errorMsg = error instanceof Error ? error.message : String(error);
             const errorStack = error instanceof Error ? error.stack : undefined;
             const apiElapsed = Date.now() - apiStartTime;
@@ -231,6 +280,11 @@ async function executeStage(
                 console.error(`\n스택 트레이스:\n${errorStack}`);
             }
             console.error(`${'━'.repeat(80)}\n`);
+
+            // 재시도로 해결되지 않는 오류는 즉시 중단 (인증 오류, STAGE 6 사실 검증 실패)
+            if (isAuth || errorMsg.includes(STAGE_6_VERIFICATION_FAILED)) {
+                throw error;
+            }
 
             if (attempt === PIPELINE_CONFIG.STAGE_MAX_RETRY) {
                 console.error(
@@ -301,7 +355,7 @@ export async function executeGeminiPipeline(): Promise<string> {
         location: PIPELINE_CONFIG.VERTEX_AI_LOCATION,
     });
 
-    const stages = extractStagePrompts();
+    const stages = buildStagePrompts();
     let previousOutput: string | undefined;
 
     for (const stage of stages) {
@@ -385,20 +439,24 @@ async function executeSearchMarketAssessmentFallback(snapshotError: string): Pro
 
     for (let attempt = 1; attempt <= PIPELINE_CONFIG.STAGE_MAX_RETRY; attempt++) {
         try {
+            const abortController = new AbortController();
             const response = await withTimeout(
                 genAI.models.generateContent({
                     model: GEMINI_API_CONFIG.MODEL,
                     contents: [{ role: 'user', parts: [{ text: prompt }] }],
                     config: {
+                        abortSignal: abortController.signal,
                         tools: [{ googleSearch: {} }],
                         maxOutputTokens: GEMINI_API_CONFIG.MAX_OUTPUT_TOKENS,
                         temperature: GEMINI_API_CONFIG.TEMPERATURE,
                         topP: GEMINI_API_CONFIG.TOP_P,
                         topK: GEMINI_API_CONFIG.TOP_K,
-                        responseMimeType: 'application/json',
+                        // googleSearch 도구와 JSON 모드는 함께 쓸 수 없음 — 텍스트에서 JSON 추출
+                        responseMimeType: GEMINI_API_CONFIG.RESPONSE_MIME_TYPE,
                     },
                 }),
-                PIPELINE_CONFIG.STAGE_TIMEOUT
+                PIPELINE_CONFIG.STAGE_TIMEOUT,
+                () => abortController.abort()
             );
 
             const parsed = parseMarketAssessmentResponse(response.text || '');
@@ -540,11 +598,13 @@ export async function executeCrashAnalysisPipeline(assessmentSummary: string): P
     let searchResult = '';
     for (let attempt = 1; attempt <= PIPELINE_CONFIG.STAGE_MAX_RETRY; attempt++) {
         try {
+            const abortController = new AbortController();
             const response = await withTimeout(
                 genAI.models.generateContent({
                     model: GEMINI_API_CONFIG.MODEL,
                     contents: [{ role: 'user', parts: [{ text: searchPrompt }] }],
                     config: {
+                        abortSignal: abortController.signal,
                         tools: [{ googleSearch: {} }],
                         maxOutputTokens: GEMINI_API_CONFIG.MAX_OUTPUT_TOKENS,
                         temperature: GEMINI_API_CONFIG.TEMPERATURE,
@@ -553,10 +613,16 @@ export async function executeCrashAnalysisPipeline(assessmentSummary: string): P
                         responseMimeType: 'text/plain',
                     },
                 }),
-                PIPELINE_CONFIG.STAGE_TIMEOUT
+                PIPELINE_CONFIG.STAGE_TIMEOUT,
+                () => abortController.abort()
             );
 
             searchResult = response.text || '';
+            if (searchResult.trim().length < PIPELINE_CONFIG.MIN_STAGE_OUTPUT_CHARS) {
+                throw new Error(
+                    `폭락 분석 Stage 1 응답이 비정상적으로 짧습니다 (${searchResult.trim().length} chars)`
+                );
+            }
             console.log(`✅ Stage 1 완료 (${searchResult.length} chars)`);
             break;
         } catch (error) {
@@ -579,11 +645,13 @@ export async function executeCrashAnalysisPipeline(assessmentSummary: string): P
 
     for (let attempt = 1; attempt <= PIPELINE_CONFIG.STAGE_MAX_RETRY; attempt++) {
         try {
+            const abortController = new AbortController();
             const response = await withTimeout(
                 genAI.models.generateContent({
                     model: GEMINI_API_CONFIG.MODEL,
                     contents: [{ role: 'user', parts: [{ text: jsonPrompt }] }],
                     config: {
+                        abortSignal: abortController.signal,
                         maxOutputTokens: GEMINI_API_CONFIG.MAX_OUTPUT_TOKENS,
                         temperature: GEMINI_API_CONFIG.TEMPERATURE,
                         topP: GEMINI_API_CONFIG.TOP_P,
@@ -591,10 +659,16 @@ export async function executeCrashAnalysisPipeline(assessmentSummary: string): P
                         responseMimeType: 'application/json',
                     },
                 }),
-                PIPELINE_CONFIG.STAGE_TIMEOUT
+                PIPELINE_CONFIG.STAGE_TIMEOUT,
+                () => abortController.abort()
             );
 
             const text = response.text || '';
+            if (text.trim().length < PIPELINE_CONFIG.MIN_STAGE_OUTPUT_CHARS) {
+                throw new Error(
+                    `폭락 분석 Stage 2 응답이 비정상적으로 짧습니다 (${text.trim().length} chars)`
+                );
+            }
             console.log(`✅ Stage 2 완료 (${text.length} chars)`);
 
             console.log(`\n${'='.repeat(80)}`);

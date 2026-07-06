@@ -80,6 +80,13 @@ export const PIPELINE_CONFIG = {
    * 정확히 3개 종목이 아니면 Pipeline 재시도
    */
   REQUIRED_STOCK_COUNT: 3 as const,
+
+  /**
+   * Stage 출력 최소 길이 (문자)
+   * 빈 응답/거부 응답이 다음 Stage로 흘러가는 것을 차단하는 하한선
+   * (정상 Stage 출력은 최소 수 KB — 200자는 명백한 비정상만 걸러냄)
+   */
+  MIN_STAGE_OUTPUT_CHARS: 200,
 } as const;
 
 /**
