@@ -10,6 +10,7 @@ config({ path: '.env.local' });
 import { supabaseAdmin } from '@/scripts/tli/shared/supabase-admin';
 import { setMinRawInterest } from '@/lib/tli/constants/score-config';
 import { getKSTDate } from '@/scripts/tli/shared/utils';
+import { getKSTDateString } from '@/lib/tli/date-utils';
 
 interface LabeledTheme {
   rawAvg: number;
@@ -106,8 +107,7 @@ async function collectLabeledData(): Promise<LabeledTheme[] | null> {
   const labeled: LabeledTheme[] = [];
 
   // 180-day lookback to stay within Supabase row limits per batch
-  const lookbackDate = new Date(Date.now() + 9 * 60 * 60 * 1000 - 180 * 86_400_000)
-    .toISOString().split('T')[0];
+  const lookbackDate = getKSTDateString(-180);
 
   // Batch process
   const BATCH = 50;

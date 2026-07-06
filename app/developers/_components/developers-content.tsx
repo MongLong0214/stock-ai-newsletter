@@ -85,7 +85,7 @@ const TOOLS = [
   {
     name: 'get_predictions',
     description: '테마 예측 조회',
-    descEn: 'Predicted themes based on historical pattern matching — rising/hot/cooling outlook',
+    descEn: 'Predicted themes based on historical pattern matching — rising/hot outlook, cooling status',
     params: [
       { name: 'phase', type: 'string?', desc: 'rising | hot | cooling' },
     ],

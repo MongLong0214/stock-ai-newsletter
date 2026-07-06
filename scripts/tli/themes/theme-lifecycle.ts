@@ -5,6 +5,12 @@ import { supabaseAdmin } from '@/scripts/tli/shared/supabase-admin'
 import { batchQuery } from '@/scripts/tli/shared/supabase-batch'
 import { daysAgo } from '@/scripts/tli/shared/utils'
 import { buildOngoingStateChangeRow, buildCloseRowPatch } from '@/scripts/tli/themes/theme-state-history'
+import {
+  findScorelessZombieThemes,
+  type ScorelessZombieThemeCandidate,
+  type ScorelessZombieThemeInput,
+} from '@/scripts/tli/themes/scoreless-zombie-themes'
+import { getKSTDate, getKSTDateString } from '@/lib/tli/date-utils'
 
 // ─────────────────────────────────────────────────────
 // 테마 생명주기 관리: 자동 활성화 / 비활성화
@@ -49,7 +55,14 @@ export const DEACTIVATION_CONFIG = {
   lowScoreDays: 14,
   /** 네이버 목록 미출현 기준 일수 */
   notSeenDays: 30,
+  scorelessActiveDays: 30,
 } as const
+
+export interface ScorelessZombieCleanupResult {
+  candidates: ScorelessZombieThemeCandidate[]
+  mutations: number
+  dryRun: boolean
+}
 
 export function computeNextNaverSeenStreak(input: {
   previousStreak: number | null | undefined
@@ -73,6 +86,78 @@ export function shouldAutoActivateTheme(input: {
   return !input.isActive
     && input.discoverySource === 'naver_finance'
     && (input.naverSeenStreak ?? 0) >= 2
+}
+
+export async function cleanupScorelessZombieThemes(input: {
+  today?: Date
+  dryRun?: boolean
+} = {}): Promise<ScorelessZombieCleanupResult> {
+  const today = input.today ?? getKSTDate()
+  const dryRun = input.dryRun ?? true
+
+  const { data: themes, error } = await supabaseAdmin
+    .from('themes')
+    .select('id, name, created_at, is_active')
+    .eq('is_active', true)
+
+  if (error) {
+    throw new Error(`점수 없는 활성 테마 조회 실패: ${error.message}`)
+  }
+  if (!themes) {
+    throw new Error('점수 없는 활성 테마 조회 실패: 응답 데이터 없음')
+  }
+
+  const themeRows: ScorelessZombieThemeInput[] = themes.map((theme) => ({
+    id: theme.id,
+    name: theme.name,
+    createdAt: theme.created_at,
+    isActive: theme.is_active,
+  }))
+  const themeIds = themeRows.map((theme) => theme.id)
+  const scoreRows = await batchQuery<{ theme_id: string }>(
+    'lifecycle_scores',
+    'theme_id',
+    themeIds,
+    undefined,
+    'theme_id',
+    { failOnError: true },
+  )
+  const scoredThemeIds = new Set(scoreRows.map((row) => row.theme_id))
+  const candidates = findScorelessZombieThemes({
+    themes: themeRows,
+    scoredThemeIds,
+    today,
+    minimumAgeDays: DEACTIVATION_CONFIG.scorelessActiveDays,
+  })
+
+  if (dryRun || candidates.length === 0) {
+    return { candidates, mutations: 0, dryRun }
+  }
+
+  let mutations = 0
+  const todayStr = today.toISOString().split('T')[0]
+  for (const candidate of candidates) {
+    const { error: updateError } = await supabaseAdmin
+      .from('themes')
+      .update({ is_active: false })
+      .eq('id', candidate.id)
+
+    if (updateError) {
+      console.error(`   ⚠️ 점수 없는 테마 비활성화 실패 (${candidate.name}): ${updateError.message}`)
+      continue
+    }
+
+    await recordStateChange({
+      themeId: candidate.id,
+      newIsActive: false,
+      firstSpikeDate: null,
+      changeDate: todayStr,
+    })
+    mutations++
+    console.log(`   ✓ 점수 없는 활성 테마 비활성화: ${candidate.name} (${candidate.ageDays}일)`)
+  }
+
+  return { candidates, mutations, dryRun }
 }
 
 // ─────────────────────────────────────────────────────
@@ -106,7 +191,7 @@ export async function autoActivate() {
       .update({ is_active: true, auto_activated: true })
       .eq('id', theme.id)
 
-    const today = new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().split('T')[0]
+    const today = getKSTDateString()
     await recordStateChange({
       themeId: theme.id,
       newIsActive: true,
@@ -128,6 +213,14 @@ export async function autoActivate() {
 export async function autoDeactivate() {
   console.log('\n💤 4단계: 자동 비활성화 판정')
 
+  const today = getKSTDate()
+  let scorelessCleanup: ScorelessZombieCleanupResult = { candidates: [], mutations: 0, dryRun: false }
+  try {
+    scorelessCleanup = await cleanupScorelessZombieThemes({ today, dryRun: false })
+  } catch (error: unknown) {
+    console.warn('   ⚠️ 점수 없는 좀비 테마 정리 실패 (나머지 비활성화 로직은 계속):', error instanceof Error ? error.message : String(error))
+  }
+
   const { data: activeThemes, error } = await supabaseAdmin
     .from('themes')
     .select('id, name, last_seen_on_naver')
@@ -139,7 +232,6 @@ export async function autoDeactivate() {
     return
   }
 
-  const today = new Date(Date.now() + 9 * 60 * 60 * 1000)
   const cutoffDate = daysAgo(DEACTIVATION_CONFIG.lowScoreDays)
 
   // 모든 활성 테마의 최근 점수 배치 조회 (자동 페이지네이션)
@@ -157,7 +249,7 @@ export async function autoDeactivate() {
     scoresByTheme.set(s.theme_id, arr)
   }
 
-  let deactivatedCount = 0
+  let deactivatedCount = scorelessCleanup.mutations
 
   for (const theme of activeThemes) {
     // 조건 1: 네이버 목록에서 일정 기간 미출현

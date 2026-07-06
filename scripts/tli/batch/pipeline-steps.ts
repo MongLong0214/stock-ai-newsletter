@@ -1,6 +1,6 @@
 /** 파이프라인 단계별 함수 — collect-and-score.ts에서 추출 */
 
-import { upsertInterestMetrics, upsertNewsMetrics, upsertThemeStocks, upsertNewsArticles } from '@/scripts/tli/shared/data-ops'
+import { countActiveThemeStocks, upsertInterestMetrics, upsertNewsMetrics, upsertThemeStocks, upsertNewsArticles } from '@/scripts/tli/shared/data-ops'
 import { calculateAndSaveScores } from '@/scripts/tli/scoring/calculate-scores'
 import { calculateThemeComparisons } from '@/scripts/tli/comparison/calculate-comparisons'
 import { computeOptimalThreshold } from '@/scripts/tli/comparison/auto-tune'
@@ -9,13 +9,23 @@ import { evaluatePredictions } from '@/scripts/tli/comparison/evaluate-predictio
 import { collectNaverDatalab } from '@/scripts/tli/collectors/naver-datalab'
 import { collectNaverNews } from '@/scripts/tli/collectors/naver-news'
 import { collectNaverFinanceStocks } from '@/scripts/tli/collectors/naver-finance-themes'
+import { shouldRejectStockCollection } from '@/scripts/tli/collectors/naver-finance-theme-gates'
 import { evaluateComparisonOutcomes } from '@/scripts/tli/comparison/evaluate-comparisons'
 import { daysAgo } from '@/scripts/tli/shared/utils'
 import { submitToIndexNow, buildThemeUrls } from '@/lib/indexnow'
+import { isKoreanTradingDate, shouldCollectTliStocks } from '@/lib/tli/trading-calendar'
 import { calibrateNoiseThreshold } from '@/scripts/tli/scoring/calibrate-noise'
 import { calibrateConfidence } from '@/scripts/tli/scoring/calibrate-confidence'
 import { calibrateWeights } from '@/scripts/tli/scoring/calibrate-weights'
 import { loadCalibrationsFromDB } from '@/scripts/tli/scoring/load-calibrations'
+import {
+  planMonthlyCalibration,
+  type MonthlyCalibrationDecision,
+} from '@/scripts/tli/scoring/monthly-calibration-schedule'
+import {
+  loadMonthlyCalibrationRunDates,
+  recordMonthlyCalibrationRun,
+} from '@/scripts/tli/scoring/monthly-calibration-state'
 import { materializePhase0Artifacts } from '@/scripts/tli/comparison/materialize-phase0-artifacts'
 import type { ThemeWithKeywords } from '@/scripts/tli/shared/data-ops'
 
@@ -28,7 +38,6 @@ interface CollectionResult {
 export async function collectDataSources(
   themes: ThemeWithKeywords[],
   mode: 'full' | 'news-only',
-  dayOfWeek: number,
   endDate: string,
 ): Promise<CollectionResult> {
   let criticalFailures = 0
@@ -89,21 +98,24 @@ export async function collectDataSources(
     console.error('❌ 네이버 뉴스 수집 실패:', error instanceof Error ? error.message : String(error))
   }
 
-  // Step 3: Stocks (평일 full 모드)
-  if (mode === 'full' && dayOfWeek >= 1 && dayOfWeek <= 5) {
+  if (shouldCollectTliStocks({ mode, kstDate: endDate })) {
     console.log('\n📈 3단계: 네이버 금융 종목 수집')
 
     try {
       const stocks = await collectNaverFinanceStocks(
         themes.map(t => ({ id: t.id, naverThemeId: t.naver_theme_id })),
       )
+      const prevCount = await countActiveThemeStocks()
+      if (shouldRejectStockCollection({ prevCount, collectedCount: stocks.length })) {
+        throw new Error(`네이버 금융 종목 수집 붕괴 감지: 직전 활성 종목 ${prevCount}건 → 이번 수집 ${stocks.length}건 (70% 미만)`)
+      }
       await upsertThemeStocks(stocks)
     } catch (error: unknown) {
       criticalFailures++
       console.error('❌ 종목 수집 실패:', error instanceof Error ? error.message : String(error))
     }
   } else if (mode === 'full') {
-    console.log('\n⊘ 종목 수집 생략 (주말)')
+    console.log('\n⊘ 종목 수집 생략 (휴장일)')
   }
 
   return { criticalFailures, datalabFailed }
@@ -118,8 +130,22 @@ export async function runCalibrationPhase(kstNow: Date): Promise<void> {
     console.warn('   ⚠️ 교정값 로드 실패 (기본값 사용):', error instanceof Error ? error.message : String(error))
   }
 
-  const kstDay = kstNow.getUTCDate()
-  if (kstDay === 1) {
+  const kstDate = kstNow.toISOString().split('T')[0]
+  const eligibleRun = isKoreanTradingDate(kstDate)
+  // 조회 성공 시 planMonthlyCalibration이 항상 덮어쓰므로 초기값은 "이번 실행에서는 미실행, 다음 실행에서 재시도"인 deferred로 단순화.
+  // 조회 실패 시에도 이 값이 그대로 유지되어 정책 모듈("월 1회 첫 eligible 거래일")과 어긋나는 별도 기준을 두지 않는다.
+  let monthlyDecision: MonthlyCalibrationDecision = 'deferred'
+  try {
+    monthlyDecision = planMonthlyCalibration({
+      kstDate,
+      eligibleRun,
+      runDates: await loadMonthlyCalibrationRunDates(kstDate),
+    })
+  } catch (error: unknown) {
+    console.warn('   ⚠️ 월간 재교정 실행 기록 조회 실패 (다음 실행에서 재시도):', error instanceof Error ? error.message : String(error))
+  }
+
+  if (monthlyDecision === 'executed') {
     console.log('\n🔬 3.5b단계: 월간 과학적 재교정')
     const calibStart = Date.now()
 
@@ -134,6 +160,15 @@ export async function runCalibrationPhase(kstNow: Date): Promise<void> {
 
     const calibDuration = ((Date.now() - calibStart) / 1000).toFixed(1)
     console.log(`   ⏱️ 재교정 완료: ${calibDuration}초`)
+    try {
+      await recordMonthlyCalibrationRun(kstDate)
+    } catch (error: unknown) {
+      console.warn('   ⚠️ 월간 재교정 실행 기록 저장 실패:', error instanceof Error ? error.message : String(error))
+    }
+  } else if (monthlyDecision === 'deferred') {
+    console.log('   ⊘ 월간 재교정 연기 (eligible full run 아님)')
+  } else {
+    console.log('   ⊘ 월간 재교정 생략 (이번 달 이미 실행)')
   }
 }
 

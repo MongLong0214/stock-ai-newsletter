@@ -3,6 +3,7 @@ import { batchQuery, groupByThemeId } from '@/scripts/tli/shared/supabase-batch'
 import { calculateLifecycleScore } from '@/lib/tli/calculator'
 import { applyEMASmoothing, resolveStageWithHysteresis } from '@/lib/tli/score-smoothing'
 import { getKSTDate } from '@/scripts/tli/shared/utils'
+import { getKSTDate as getKSTDateObject } from '@/lib/tli/date-utils'
 import { avg } from '@/lib/tli/normalize'
 import type { InterestMetric, NewsMetric, Stage, ScoreComponents } from '@/lib/tli/types'
 import type { ThemeWithKeywords } from '@/scripts/tli/shared/data-ops'
@@ -40,8 +41,7 @@ export function buildRecentSmoothedMap(prevScoreMap: Map<string, PrevScoreRecord
 
   for (const [themeId, records] of prevScoreMap) {
     const smootheds = records
-      .filter(record => record.smoothed_score !== null)
-      .map(record => record.smoothed_score!)
+      .flatMap(record => record.smoothed_score === null ? [] : [record.smoothed_score])
       .slice(0, MAX_PREV_SCORE_RECORDS)
     if (smootheds.length > 0) recentSmoothedMap.set(themeId, smootheds)
   }
@@ -131,7 +131,7 @@ export async function calculateAndSaveScores(themes: ThemeWithKeywords[]) {
     is_reigniting: boolean; stage_changed: boolean; prev_stage: string | null
     components: ScoreComponents
   }[] = []
-  const kstNow = new Date(Date.now() + 9 * 60 * 60 * 1000)
+  const kstNow = getKSTDateObject()
   let themeFailures = 0
 
   for (const theme of themes) {
@@ -211,7 +211,7 @@ export async function calculateAndSaveScores(themes: ThemeWithKeywords[]) {
         components,
       })
 
-      console.log(`   ✅ raw=${rawScore} → smoothed=${smoothedScore}, stage=${stageResult.finalStage}${stageResult.stageChanged ? ` (← ${prevStage})` : ''}${stageResult.isReigniting ? ' (재점화!)' : ''}`)
+      console.log(`   ✅ raw=${rawScore} → smoothed=${smoothedScore}, stage=${stageResult.finalStage}${stageResult.stageChanged ? ` (← ${prevStage})` : ''}${stageResult.isReigniting ? ' (재점화)' : ''}`)
     } catch (error: unknown) {
       themeFailures++
       console.error(`   ❌ 테마 처리 실패:`, error instanceof Error ? error.message : String(error))

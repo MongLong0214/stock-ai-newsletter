@@ -1,14 +1,14 @@
-import { createDefaultPolicyVersions } from '@/lib/tli/analog/types'
+// allow: SIZE_OK - Legacy TLI phase0/v4 coordinator; current edits stay narrow until PRD Phase 4 cleanup.
+import { createDefaultPolicyVersions, type RetrievalSurface } from '@/lib/tli/analog/types'
 import {
   retrieveDtwBaseline,
   retrievePriceVolumeKnn,
   retrieveRegimeFilteredNn,
   type CorpusEpisode,
   type RetrievalCandidate,
-  type RetrievalSurface,
 } from '@/lib/tli/analog/baselines'
-import { classifySectorProfile, extractFeatures } from '@/lib/tli/comparison/features'
-import { findPeakDay, normalizeTimeline, normalizeValues, resampleCurve } from '@/lib/tli/comparison/timeline'
+import { classifySectorProfile, extractFeatures, type ThemeFeatures } from '@/lib/tli/comparison/features'
+import { normalizeTimeline, normalizeValues, resampleCurve } from '@/lib/tli/comparison/timeline'
 import { keywordJaccard } from '@/lib/tli/comparison/similarity'
 import type { ThemeStateHistoryV2, Stage } from '@/lib/tli/types/db'
 import { batchQuery, batchUpsert, groupByThemeId } from '@/scripts/tli/shared/supabase-batch'
@@ -168,6 +168,41 @@ const daysBetween = (from: string, to: string): number => {
 const roundMetric = (value: number | null): number | null => {
   if (value == null || !Number.isFinite(value)) return null
   return Math.round(value * 1000) / 1000
+}
+
+const FEATURE_KEYS = [
+  'interestLevel',
+  'interestMomentum',
+  'volatilityDVI',
+  'newsIntensity',
+  'activeDaysNorm',
+  'lifecyclePosition',
+  'recoverySignal',
+  'sectorConfidence',
+  'keywordSpecificity',
+  'priceChangePct',
+  'volumeIntensity',
+] as const satisfies readonly (keyof ThemeFeatures)[]
+
+// ThemeFeatures에 필드 추가 시 FEATURE_KEYS 누락을 컴파일 에러로 강제 (누락되면 MissingFeatureKeys가 never가 아니게 됨)
+type MissingFeatureKeys = Exclude<keyof ThemeFeatures, (typeof FEATURE_KEYS)[number]>
+const _featureKeysExhaustive: MissingFeatureKeys extends never ? true : never = true
+void _featureKeysExhaustive
+
+const toFeatureRecord = (features: ThemeFeatures): Record<string, number> => {
+  const record: Record<string, number> = {}
+  for (const key of FEATURE_KEYS) {
+    record[key] = features[key]
+  }
+  return record
+}
+
+const toRowRecord = <T extends object>(row: T): Record<string, unknown> => {
+  const record: Record<string, unknown> = {}
+  for (const key of Object.keys(row) as Array<keyof T>) {
+    record[String(key)] = row[key]
+  }
+  return record
 }
 
 async function deleteRowsInChunks(
@@ -414,7 +449,7 @@ const buildSnapshotFeatureSlice = (input: {
   )
 
   return {
-    features,
+    features: toFeatureRecord(features),
     curve: curve.length > 0 ? resampleCurve(normalizeValues(curve)) : [],
     stage: latestScore?.stage ?? 'Dormant',
     hasInterest: interest.length > 0,
@@ -679,7 +714,7 @@ export async function materializePhase0Artifacts(): Promise<Phase0Materializatio
       ? selectLatestScoreAtOrBefore(scoreRows, persistedEpisode.episode_start, persistedEpisode.primary_peak_date)?.stage ?? null
       : null
 
-    labelRows.push(buildLabelRow({
+    labelRows.push(toRowRecord(buildLabelRow({
       episodeId: persistedEpisode.id,
       themeId: persistedEpisode.theme_id,
       boundarySource: persistedEpisode.boundary_source_end ?? persistedEpisode.boundary_source_start,
@@ -694,7 +729,7 @@ export async function materializePhase0Artifacts(): Promise<Phase0Materializatio
       postPeakDrawdown20d: computeDrawdown(episodeScoreRows, persistedEpisode.primary_peak_date, persistedEpisode.peak_score, 20),
       stageAtPeak,
       policyVersions,
-    }))
+    })))
 
     const snapshotDate = persistedEpisode.is_active
       ? episodeScoreRows.at(-1)?.calculated_at.split('T')[0] ?? today
@@ -717,7 +752,7 @@ export async function materializePhase0Artifacts(): Promise<Phase0Materializatio
       hasScore: snapshotFeatureSlice.hasScore,
     })
 
-    querySnapshotRows.push(buildQuerySnapshot({
+    querySnapshotRows.push(toRowRecord(buildQuerySnapshot({
       episodeId: persistedEpisode.id,
       themeId: persistedEpisode.theme_id,
       snapshotDate,
@@ -729,7 +764,7 @@ export async function materializePhase0Artifacts(): Promise<Phase0Materializatio
       policyVersions,
       reconstructionStatus: reconstruction.status,
       reconstructionReason: reconstruction.reason ?? undefined,
-    }))
+    })))
   }
 
   await batchUpsert(
@@ -876,7 +911,7 @@ export async function materializePhase0Artifacts(): Promise<Phase0Materializatio
         scoreRows: candidateScoreRows,
       })
 
-      analogEvidenceRows.push(buildAnalogEvidence({
+      analogEvidenceRows.push(toRowRecord(buildAnalogEvidence({
         querySnapshotId: snapshot.id,
         queryThemeId: snapshot.theme_id,
         candidateId: candidateIdByEpisodeId.get(candidate.candidateEpisodeId) ?? crypto.randomUUID(),
@@ -903,7 +938,7 @@ export async function materializePhase0Artifacts(): Promise<Phase0Materializatio
         candidateConcentrationGini: gini,
         top1AnalogWeight: top1Weight,
         policyVersions,
-      }))
+      })))
     }
   }
 

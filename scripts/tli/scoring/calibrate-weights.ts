@@ -10,12 +10,12 @@ import { supabaseAdmin } from '@/scripts/tli/shared/supabase-admin';
 import { computeEntropyWeights } from '@/lib/tli/weights/entropy-weights';
 import { setScoreWeights } from '@/lib/tli/constants/score-config';
 import { getKSTDate } from '@/scripts/tli/shared/utils';
+import { getKSTDateString } from '@/lib/tli/date-utils';
 import type { ScoreComponents } from '@/lib/tli/types';
 
 /** Build decision matrix from recent scores */
 async function buildDecisionMatrix(): Promise<number[][] | null> {
-  const thirtyDaysAgo = new Date(Date.now() + 9 * 60 * 60 * 1000 - 30 * 86_400_000)
-    .toISOString().split('T')[0];
+  const thirtyDaysAgo = getKSTDateString(-30);
 
   const { data, error } = await supabaseAdmin
     .from('lifecycle_scores')

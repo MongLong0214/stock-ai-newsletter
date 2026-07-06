@@ -1,5 +1,9 @@
 import * as cheerio from 'cheerio';
 import { sleep, withRetry } from '@/scripts/tli/shared/utils';
+import {
+  NaverFinanceThemeGateError,
+  validateNaverFinanceThemeStocks,
+} from '@/scripts/tli/collectors/naver-finance-theme-gates';
 
 interface Theme {
   id: string;
@@ -36,6 +40,9 @@ async function scrapeNaverFinanceTheme(themeId: string, naverThemeId: string): P
     const html = new TextDecoder('euc-kr').decode(buffer);
     const $ = cheerio.load(html);
     const stocks: ThemeStock[] = [];
+    const expectedRows = $('table.type_5 tbody tr')
+      .filter((_, row) => $(row).find('td:first-child .name_area a').length > 0)
+      .length;
 
     // 종목 테이블 파싱 (종목 링크는 첫 번째 td의 .name_area 안에 있음)
     $('table.type_5 tbody tr').each((_, row) => {
@@ -80,11 +87,32 @@ async function scrapeNaverFinanceTheme(themeId: string, naverThemeId: string): P
       });
     });
 
+    const metrics = validateNaverFinanceThemeStocks(stocks, { expectedRows });
+    console.log(
+      `   ✓ 스크래퍼 게이트 통과: 커버리지 ${(metrics.rowCoverage * 100).toFixed(1)}%, 파싱 성공률 ${(metrics.schemaParseRate * 100).toFixed(1)}%`
+    );
+
     return stocks;
   } catch (error: unknown) {
     console.error(`   ❌ 테마 ${naverThemeId} 스크래핑 실패:`, error instanceof Error ? error.message : String(error));
+    if (error instanceof NaverFinanceThemeGateError) {
+      throw error;
+    }
     return [];
   }
+}
+
+/** 게이트 실패 1건이 이미 수집된 다른 테마 결과까지 폐기하지 않도록, 전면 붕괴일 때만 throw */
+const GATE_FAILURE_COLLAPSE_RATIO = 0.3;
+
+function shouldRejectThemeStockCollection(input: {
+  readonly attemptedThemeCount: number;
+  readonly gateFailedCount: number;
+  readonly collectedStockCount: number;
+}): boolean {
+  if (input.attemptedThemeCount === 0) return false;
+  const gateFailureRatio = input.gateFailedCount / input.attemptedThemeCount;
+  return gateFailureRatio > GATE_FAILURE_COLLAPSE_RATIO || input.collectedStockCount === 0;
 }
 
 /** 네이버 금융 테마 종목 수집 */
@@ -93,6 +121,8 @@ export async function collectNaverFinanceStocks(themes: Theme[]): Promise<ThemeS
   console.log(`   처리할 테마: ${themes.filter(t => t.naverThemeId).length}개`);
 
   const allStocks: ThemeStock[] = [];
+  let attemptedThemeCount = 0;
+  let gateFailedCount = 0;
 
   for (const theme of themes) {
     if (!theme.naverThemeId) {
@@ -101,8 +131,22 @@ export async function collectNaverFinanceStocks(themes: Theme[]): Promise<ThemeS
     }
 
     console.log(`\n   테마 ${theme.id} 처리 중 (네이버 ID: ${theme.naverThemeId})`);
+    attemptedThemeCount++;
 
-    const stocks = await scrapeNaverFinanceTheme(theme.id, theme.naverThemeId);
+    let stocks: ThemeStock[];
+    try {
+      stocks = await scrapeNaverFinanceTheme(theme.id, theme.naverThemeId);
+    } catch (error: unknown) {
+      if (error instanceof NaverFinanceThemeGateError) {
+        gateFailedCount++;
+        console.warn(
+          `   ⚠️ 테마 ${theme.id} 게이트 실패로 건너뜀: ${error.issues.map((issue) => issue.kind).join(', ')}`
+        );
+        await sleep(3000);
+        continue;
+      }
+      throw error;
+    }
 
     if (stocks.length > 0) {
       console.log(`   ✓ ${stocks.length}개 종목 발견`);
@@ -115,6 +159,12 @@ export async function collectNaverFinanceStocks(themes: Theme[]): Promise<ThemeS
     await sleep(3000);
   }
 
-  console.log(`\n   ✅ ${allStocks.length}개 테마-종목 매핑 수집 완료`);
+  if (shouldRejectThemeStockCollection({ attemptedThemeCount, gateFailedCount, collectedStockCount: allStocks.length })) {
+    throw new Error(
+      `네이버 금융 테마 스크래퍼 전면 붕괴 감지 (게이트 실패 ${gateFailedCount}/${attemptedThemeCount}개 테마, 수집 종목 ${allStocks.length}건) — 셀렉터 파손 가능성`
+    );
+  }
+
+  console.log(`\n   ✅ ${allStocks.length}개 테마-종목 매핑 수집 완료${gateFailedCount > 0 ? ` (게이트 실패 ${gateFailedCount}개 테마 제외)` : ''}`);
   return allStocks;
 }

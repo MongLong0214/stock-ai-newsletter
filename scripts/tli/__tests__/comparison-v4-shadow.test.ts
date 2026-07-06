@@ -1,6 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { ComparisonInput, PredictionResult } from '@/lib/tli/prediction'
-import { buildComparisonCandidateRowV2, buildPredictionSnapshotRowV2 } from '@/scripts/tli/comparison/v4/records'
+import { beforeEach, describe, expect, it } from 'vitest'
+import type { PredictionResult } from '@/lib/tli/prediction'
 import {
   DEFAULT_COMPARISON_V4_SHADOW_ALGORITHM_VERSION,
   assertComparisonV4PipelineEnabled,

@@ -1,6 +1,7 @@
 import { supabaseAdmin } from '@/scripts/tli/shared/supabase-admin'
 import { batchQuery, batchUpsert, groupByThemeId } from '@/scripts/tli/shared/supabase-batch'
 import { daysAgo, getKSTDate } from '@/scripts/tli/shared/utils'
+import { getKSTDate as getKSTDateObject } from '@/lib/tli/date-utils'
 import { COMPARISON_PRIMARY_HORIZON_DAYS } from '@/lib/tli/comparison/spec'
 import {
   alignPastWindowByCurrentDay,
@@ -32,7 +33,7 @@ async function loadEvalData(pastIds: string[], allIds: string[]): Promise<EvalDa
   const pastThemesData = await batchQuery<RawTheme>(
     'themes', 'id, name, first_spike_date, created_at, is_active', pastIds, undefined, 'id'
   )
-  const kstNow = new Date(Date.now() + 9 * 60 * 60 * 1000)
+  const kstNow = getKSTDateObject()
   const oneEightyDaysAgo = daysAgo(180)
 
   const [interestAll, allScores] = await Promise.all([
@@ -191,9 +192,18 @@ async function evaluateV4CandidatesNative(today: string, cutoffDate: string): Pr
 
   console.log(`   🔬 V4-native 평가: ${unevaluated.length}건 candidate`)
 
-  const runMap = new Map(runs.map(r => [r.id as string, { currentThemeId: r.current_theme_id as string, runDate: r.run_date as string }]))
-  const currentIds = [...new Set(unevaluated.map(c => runMap.get(c.run_id)!.currentThemeId))]
-  const pastIds = [...new Set(unevaluated.map(c => c.candidate_theme_id))]
+  const runMap: Map<string, { readonly currentThemeId: string; readonly runDate: string }> = new Map(
+    runs.map(r => [r.id as string, { currentThemeId: r.current_theme_id as string, runDate: r.run_date as string }]),
+  )
+  const currentIdSet = new Set<string>()
+  const pastIdSet = new Set<string>()
+  for (const candidate of unevaluated) {
+    const run = runMap.get(candidate.run_id)
+    if (run) currentIdSet.add(run.currentThemeId)
+    pastIdSet.add(candidate.candidate_theme_id)
+  }
+  const currentIds = [...currentIdSet]
+  const pastIds = [...pastIdSet]
   const allIds = [...new Set([...currentIds, ...pastIds])]
 
   const data = await loadEvalData(pastIds, allIds)

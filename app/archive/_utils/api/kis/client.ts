@@ -341,6 +341,163 @@ export async function getDailyClosePrice(ticker: string, date: string): Promise<
 }
 
 /**
+ * 지수 특정 날짜 일봉 종가 조회 (예: KOSPI 업종 지수)
+ * @param indexCode - 업종 코드 (예: KOSPI='0001')
+ * @param date - 조회일 (YYYYMMDD)
+ */
+export async function getIndexDailyClosePrice(indexCode: string, date: string): Promise<number | null> {
+  try {
+    const config = getKisConfig();
+    const token = await getAccessToken();
+
+    const params = new URLSearchParams({
+      FID_COND_MRKT_DIV_CODE: 'U',
+      FID_INPUT_ISCD: indexCode,
+      FID_INPUT_DATE_1: date,
+      FID_INPUT_DATE_2: date,
+      FID_PERIOD_DIV_CODE: 'D',
+    });
+
+    const res = await fetchWithTimeout(
+      `${config.KIS_BASE_URL}/uapi/domestic-stock/v1/quotations/inquire-daily-indexchartprice?${params}`,
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          authorization: `Bearer ${token}`,
+          appkey: config.KIS_APP_KEY,
+          appsecret: config.KIS_APP_SECRET,
+          tr_id: 'FHKUP03500100',
+        },
+      }
+    );
+
+    const data = await res.json();
+    if (!res.ok || data.rt_cd !== '0' || !data.output2?.[0]) return null;
+
+    const price = parseFloat(data.output2[0].bstp_nmix_prpr);
+    return Number.isFinite(price) && price > 0 ? price : null;
+  } catch {
+    return null;
+  }
+}
+
+/** 기간 일봉 데이터 포인트 (기간조회 1콜 응답의 각 영업일자 행) */
+export interface KisDailyRangePricePoint {
+  readonly date: string;
+  readonly close: number;
+  readonly volume: number | null;
+}
+
+function toIsoDate(kisDate: string): string | null {
+  if (!/^\d{8}$/.test(kisDate)) return null;
+  return `${kisDate.slice(0, 4)}-${kisDate.slice(4, 6)}-${kisDate.slice(6, 8)}`;
+}
+
+function parseRangePriceRow(row: Record<string, string>, closeField: string, parseClose: (v: string) => number): KisDailyRangePricePoint | null {
+  const date = toIsoDate(row.stck_bsop_date);
+  const close = parseClose(row[closeField]);
+  if (!date || !Number.isFinite(close) || close <= 0) return null;
+
+  const volume = parseInt(row.acml_vol, 10);
+  return { date, close, volume: Number.isFinite(volume) ? volume : null };
+}
+
+/**
+ * 종목 기간 일봉 종가/거래량 조회 (1콜 = 최대 100영업일)
+ * @param ticker - 종목코드 (예: KOSPI:005930)
+ * @param startDate - 조회 시작일 (YYYYMMDD)
+ * @param endDate - 조회 종료일 (YYYYMMDD)
+ */
+export async function getDailyRangeClosePrices(
+  ticker: string,
+  startDate: string,
+  endDate: string
+): Promise<KisDailyRangePricePoint[]> {
+  try {
+    const config = getKisConfig();
+    const token = await getAccessToken();
+
+    const params = new URLSearchParams({
+      FID_COND_MRKT_DIV_CODE: 'J',
+      FID_INPUT_ISCD: cleanTicker(ticker),
+      FID_INPUT_DATE_1: startDate,
+      FID_INPUT_DATE_2: endDate,
+      FID_PERIOD_DIV_CODE: 'D',
+      FID_ORG_ADJ_PRC: '0',
+    });
+
+    const res = await fetchWithTimeout(
+      `${config.KIS_BASE_URL}/uapi/domestic-stock/v1/quotations/inquire-daily-itemchartprice?${params}`,
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          authorization: `Bearer ${token}`,
+          appkey: config.KIS_APP_KEY,
+          appsecret: config.KIS_APP_SECRET,
+          tr_id: 'FHKST03010100',
+        },
+      }
+    );
+
+    const data = await res.json();
+    if (!res.ok || data.rt_cd !== '0' || !Array.isArray(data.output2)) return [];
+
+    return data.output2
+      .map((row: Record<string, string>) => parseRangePriceRow(row, 'stck_clpr', (v) => parseInt(v, 10)))
+      .filter((point: KisDailyRangePricePoint | null): point is KisDailyRangePricePoint => point !== null);
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * 지수 기간 일봉 종가/거래량 조회 (1콜 = 최대 100영업일)
+ * @param indexCode - 업종 코드 (예: KOSPI='0001')
+ * @param startDate - 조회 시작일 (YYYYMMDD)
+ * @param endDate - 조회 종료일 (YYYYMMDD)
+ */
+export async function getIndexDailyRangeClosePrices(
+  indexCode: string,
+  startDate: string,
+  endDate: string
+): Promise<KisDailyRangePricePoint[]> {
+  try {
+    const config = getKisConfig();
+    const token = await getAccessToken();
+
+    const params = new URLSearchParams({
+      FID_COND_MRKT_DIV_CODE: 'U',
+      FID_INPUT_ISCD: indexCode,
+      FID_INPUT_DATE_1: startDate,
+      FID_INPUT_DATE_2: endDate,
+      FID_PERIOD_DIV_CODE: 'D',
+    });
+
+    const res = await fetchWithTimeout(
+      `${config.KIS_BASE_URL}/uapi/domestic-stock/v1/quotations/inquire-daily-indexchartprice?${params}`,
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          authorization: `Bearer ${token}`,
+          appkey: config.KIS_APP_KEY,
+          appsecret: config.KIS_APP_SECRET,
+          tr_id: 'FHKUP03500100',
+        },
+      }
+    );
+
+    const data = await res.json();
+    if (!res.ok || data.rt_cd !== '0' || !Array.isArray(data.output2)) return [];
+
+    return data.output2
+      .map((row: Record<string, string>) => parseRangePriceRow(row, 'bstp_nmix_prpr', (v) => parseFloat(v)))
+      .filter((point: KisDailyRangePricePoint | null): point is KisDailyRangePricePoint => point !== null);
+  } catch {
+    return [];
+  }
+}
+
+/**
  * 여러 종목 특정 날짜 종가 일괄 조회 (순차 + delay)
  */
 export async function getBatchDailyClosePrices(

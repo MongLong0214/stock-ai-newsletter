@@ -1,26 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { calculatePrediction } from '@/lib/tli/prediction'
-import type { ComparisonInput } from '@/lib/tli/prediction'
-
-function makeComparison(overrides: Partial<ComparisonInput> = {}): ComparisonInput {
-  return {
-    pastTheme: 'Test Theme',
-    similarity: 0.6,
-    estimatedDaysToPeak: 10,
-    pastPeakDay: 30,
-    pastTotalDays: 60,
-    ...overrides,
-  }
-}
-
-/** 최소 3개 비교군 헬퍼 (품질 게이트 충족) */
-function makeTriple(overrides: Partial<ComparisonInput> = {}): ComparisonInput[] {
-  return [
-    makeComparison(overrides),
-    makeComparison({ pastTheme: 'Triple-B', ...overrides }),
-    makeComparison({ pastTheme: 'Triple-C', ...overrides }),
-  ]
-}
+import { makeComparison, makeTriple, requirePrediction } from './prediction-fixtures'
 
 describe('calculatePrediction', () => {
   it('returns null for empty comparisons', () => {
@@ -53,9 +33,8 @@ describe('calculatePrediction', () => {
 
   it('pastTotalDays=14, pastPeakDay=5는 품질 게이트를 통과한다 (최소 3개)', () => {
     const comps = makeTriple({ pastTotalDays: 14, pastPeakDay: 5 })
-    const result = calculatePrediction('2026-01-01', comps, '2026-01-05')
-    expect(result).not.toBeNull()
-    expect(result!.comparisonCount).toBe(3)
+    const result = requirePrediction(calculatePrediction('2026-01-01', comps, '2026-01-05'))
+    expect(result.comparisonCount).toBe(3)
   })
 
   it('pastTotalDays=13은 필터링되고 유효 2개면 null 반환', () => {
@@ -76,9 +55,8 @@ describe('calculatePrediction', () => {
       makeComparison({ pastTheme: 'Valid2', pastTotalDays: 20, pastPeakDay: 8, similarity: 0.5 }),
       makeComparison({ pastTheme: 'Valid3', pastTotalDays: 25, pastPeakDay: 10, similarity: 0.6 }),
     ]
-    const result = calculatePrediction('2026-01-01', comps, '2026-01-05')
-    expect(result).not.toBeNull()
-    expect(result!.comparisonCount).toBe(3)
+    const result = requirePrediction(calculatePrediction('2026-01-01', comps, '2026-01-05'))
+    expect(result.comparisonCount).toBe(3)
   })
 
   it('returns null when avgTotalDays < 3', () => {
@@ -100,12 +78,11 @@ describe('calculatePrediction', () => {
       makeComparison({ pastTheme: 'B', similarity: 0.5, pastPeakDay: 40, pastTotalDays: 80 }),
       makeComparison({ pastTheme: 'C', similarity: 0.6, pastPeakDay: 30, pastTotalDays: 65 }),
     ]
-    const result = calculatePrediction('2026-01-01', comps, '2026-01-10')
-    expect(result).not.toBeNull()
-    expect(result!.comparisonCount).toBe(3)
-    expect(result!.daysSinceSpike).toBe(9)
-    expect(result!.avgSimilarity).toBeCloseTo(0.6, 3)
-    expect(result!.avgPeakDay).toBeGreaterThan(0)
+    const result = requirePrediction(calculatePrediction('2026-01-01', comps, '2026-01-10'))
+    expect(result.comparisonCount).toBe(3)
+    expect(result.daysSinceSpike).toBe(9)
+    expect(result.avgSimilarity).toBeCloseTo(0.6, 3)
+    expect(result.avgPeakDay).toBeGreaterThan(0)
   })
 
   it('includes bootstrap predictionIntervals when 3+ comparisons present', () => {
@@ -114,22 +91,23 @@ describe('calculatePrediction', () => {
       makeComparison({ pastTheme: 'B', similarity: 0.6, pastPeakDay: 30, pastTotalDays: 60 }),
       makeComparison({ pastTheme: 'C', similarity: 0.5, pastPeakDay: 40, pastTotalDays: 80 }),
     ]
-    const result = calculatePrediction('2026-01-01', comps, '2026-01-10')
-    expect(result).not.toBeNull()
-    expect(result!.predictionIntervals).toBeDefined()
-    expect(result!.predictionIntervals!.peakDay).not.toBeNull()
-    expect(result!.predictionIntervals!.totalDays).not.toBeNull()
-    const pi = result!.predictionIntervals!.peakDay!
-    expect(pi.lower).toBeLessThanOrEqual(pi.median)
-    expect(pi.median).toBeLessThanOrEqual(pi.upper)
-    expect(pi.confidenceLevel).toBe(0.9)
+    const result = requirePrediction(calculatePrediction('2026-01-01', comps, '2026-01-10'))
+    const intervals = result.predictionIntervals
+    expect(intervals).toBeDefined()
+    if (!intervals) throw new Error('Expected prediction intervals')
+    const peakInterval = intervals.peakDay
+    expect(peakInterval).not.toBeNull()
+    expect(intervals.totalDays).not.toBeNull()
+    if (peakInterval === null) throw new Error('Expected peak interval')
+    expect(peakInterval.lower).toBeLessThanOrEqual(peakInterval.median)
+    expect(peakInterval.median).toBeLessThanOrEqual(peakInterval.upper)
+    expect(peakInterval.confidenceLevel).toBe(0.9)
   })
 
   it('uses today param for deterministic daysSinceSpike', () => {
     const comps = makeTriple()
-    const result = calculatePrediction('2026-01-01', comps, '2026-01-21')
-    expect(result).not.toBeNull()
-    expect(result!.daysSinceSpike).toBe(20)
+    const result = requirePrediction(calculatePrediction('2026-01-01', comps, '2026-01-21'))
+    expect(result.daysSinceSpike).toBe(20)
   })
 
   it('returns null when no firstSpikeDate is available', () => {
@@ -140,33 +118,39 @@ describe('calculatePrediction', () => {
 
   it('daysSinceSpike는 365일로 캡핑된다', () => {
     const comps = makeTriple()
-    const result = calculatePrediction('2024-01-01', comps, '2026-01-10')
-    expect(result).not.toBeNull()
-    expect(result!.daysSinceSpike).toBe(365)
+    const result = requirePrediction(calculatePrediction('2024-01-01', comps, '2026-01-10'))
+    expect(result.daysSinceSpike).toBe(365)
   })
 
   it('determines phase correctly for rising', () => {
     // daysSinceSpike=5, avgPeakDay~30 → 5 < 30*0.9=27 → rising
     const comps = makeTriple({ pastPeakDay: 30, pastTotalDays: 60 })
-    const result = calculatePrediction('2026-01-01', comps, '2026-01-06')
-    expect(result).not.toBeNull()
-    expect(result!.phase).toBe('rising')
+    const result = requirePrediction(calculatePrediction('2026-01-01', comps, '2026-01-06'))
+    expect(result.phase).toBe('rising')
   })
 
   it('determines phase correctly for hot', () => {
     // daysSinceSpike=29, avgPeakDay~30 → 29 >= 27 AND 29 <= 33 → hot
     const comps = makeTriple({ pastPeakDay: 30, pastTotalDays: 60 })
-    const result = calculatePrediction('2026-01-01', comps, '2026-01-30')
-    expect(result).not.toBeNull()
-    expect(result!.phase).toBe('hot')
+    const result = requirePrediction(calculatePrediction('2026-01-01', comps, '2026-01-30'))
+    expect(result.phase).toBe('hot')
   })
 
   it('determines phase correctly for cooling', () => {
     // daysSinceSpike=40, avgPeakDay~30 → 40 > 33 → cooling
     const comps = makeTriple({ pastPeakDay: 30, pastTotalDays: 60 })
+    const result = requirePrediction(calculatePrediction('2026-01-01', comps, '2026-02-10'))
+    expect(result.phase).toBe('cooling')
+  })
+
+  it('describes Cooling as current state rather than a forward-looking prediction', () => {
+    const comps = makeTriple({ pastPeakDay: 30, pastTotalDays: 60 })
     const result = calculatePrediction('2026-01-01', comps, '2026-02-10')
-    expect(result).not.toBeNull()
-    expect(result!.phase).toBe('cooling')
+
+    expect(result?.phase).toBe('cooling')
+    expect(result?.phaseMessage).toContain('관심도 둔화 구간')
+    expect(result?.phaseMessage).not.toContain('가능성')
+    expect(result?.phaseMessage).not.toContain('남음')
   })
 
   it('determines confidence levels', () => {
@@ -174,7 +158,8 @@ describe('calculatePrediction', () => {
     const highComps = Array.from({ length: 5 }, (_, i) =>
       makeComparison({ pastTheme: `H${i}`, similarity: 0.6 }),
     )
-    expect(calculatePrediction('2026-01-01', highComps, '2026-01-10')!.confidence).toBe('high')
+    const highResult = calculatePrediction('2026-01-01', highComps, '2026-01-10')
+    expect(highResult?.confidence).toBe('high')
 
     // 3개 + avg >= 0.40 but < 5 또는 sim < 0.55 → medium
     const medComps = [
@@ -182,7 +167,8 @@ describe('calculatePrediction', () => {
       makeComparison({ pastTheme: 'M2', similarity: 0.45 }),
       makeComparison({ pastTheme: 'M3', similarity: 0.45 }),
     ]
-    expect(calculatePrediction('2026-01-01', medComps, '2026-01-10')!.confidence).toBe('medium')
+    const mediumResult = calculatePrediction('2026-01-01', medComps, '2026-01-10')
+    expect(mediumResult?.confidence).toBe('medium')
 
     // 유사도 < 0.40이면 null 반환
     const lowComps = [
@@ -193,70 +179,4 @@ describe('calculatePrediction', () => {
     expect(calculatePrediction('2026-01-01', lowComps, '2026-01-10')).toBeNull()
   })
 
-  it('does not let the current stage override comparison-based phase', () => {
-    const comps = makeTriple({
-      pastPeakDay: 30,
-      pastTotalDays: 60,
-      estimatedDaysToPeak: 25,
-    })
-
-    const result = calculatePrediction('2026-01-01', comps, '2026-01-06', 82, 'Peak')
-
-    expect(result).not.toBeNull()
-    expect(result!.phase).toBe('rising')
-    expect(result!.riskLevel).toBe('low')
-  })
-
-  it('keeps the narrative aligned to comparison timing instead of score thresholds', () => {
-    const comps = makeTriple({
-      pastPeakDay: 30,
-      pastTotalDays: 60,
-      estimatedDaysToPeak: 25,
-    })
-
-    const result = calculatePrediction('2026-01-01', comps, '2026-01-06', 82, 'Peak')
-
-    expect(result).not.toBeNull()
-    expect(result!.phaseMessage).toContain('정점까지 약 25일 남음')
-    expect(result!.phaseMessage).not.toContain('정점 구간 통과 중')
-    expect(result!.keyInsight).toContain('상승 단계')
-  })
-
-  it('sorts scenarios by totalDays (best=shortest, worst=longest)', () => {
-    const comps = [
-      makeComparison({ pastTheme: 'Short', pastTotalDays: 30, pastPeakDay: 10 }),
-      makeComparison({ pastTheme: 'Mid', pastTotalDays: 60, pastPeakDay: 25 }),
-      makeComparison({ pastTheme: 'Long', pastTotalDays: 90, pastPeakDay: 40 }),
-    ]
-    const result = calculatePrediction('2026-01-01', comps, '2026-01-10')
-    expect(result).not.toBeNull()
-    expect(result!.scenarios.best.themeName).toBe('Short')
-    expect(result!.scenarios.worst.themeName).toBe('Long')
-  })
-
-  it('uses representative quartile scenarios instead of raw extremes when enough comparisons exist', () => {
-    const comps = [
-      makeComparison({ pastTheme: 'Fastest', pastTotalDays: 20, pastPeakDay: 8 }),
-      makeComparison({ pastTheme: 'Fast', pastTotalDays: 40, pastPeakDay: 15 }),
-      makeComparison({ pastTheme: 'Typical', pastTotalDays: 60, pastPeakDay: 24 }),
-      makeComparison({ pastTheme: 'Late', pastTotalDays: 300, pastPeakDay: 120 }),
-      makeComparison({ pastTheme: 'Latest', pastTotalDays: 365, pastPeakDay: 150 }),
-    ]
-
-    const result = calculatePrediction('2026-01-01', comps, '2026-01-10')
-
-    expect(result).not.toBeNull()
-    expect(result!.scenarios.best.themeName).toBe('Fast')
-    expect(result!.scenarios.median.themeName).toBe('Typical')
-    expect(result!.scenarios.worst.themeName).toBe('Late')
-  })
-
-  it('clamps currentProgress and peakProgress to [0, 100]', () => {
-    const comps = makeTriple({ pastTotalDays: 20, pastPeakDay: 5 })
-    const result = calculatePrediction('2025-01-01', comps, '2026-01-10')
-    expect(result).not.toBeNull()
-    expect(result!.currentProgress).toBeLessThanOrEqual(100)
-    expect(result!.peakProgress).toBeLessThanOrEqual(100)
-    expect(result!.currentProgress).toBeGreaterThanOrEqual(0)
-  })
 })

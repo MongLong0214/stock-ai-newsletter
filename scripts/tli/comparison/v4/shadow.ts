@@ -1,3 +1,4 @@
+// allow: SIZE_OK - Legacy TLI phase0/v4 coordinator kept narrow for T-002; PRD Phase 4 cleanup is tracked in .omo/plans/tli-v3-rebuild.md.
 import { COMPARISON_PRIMARY_HORIZON_DAYS, type ComparisonCandidatePool } from '@/lib/tli/comparison/spec'
 import type { ComparisonInput, PredictionResult } from '@/lib/tli/prediction'
 import { supabaseAdmin } from '@/scripts/tli/shared/supabase-admin'
@@ -261,6 +262,7 @@ export async function upsertComparisonShadowRun(input: {
       candidateRows as unknown as Record<string, unknown>[],
       'run_id,candidate_theme_id',
       'comparison-v4 shadow candidates',
+      { failOnPartial: false },
     )
   }
   const materialization = resolveShadowRunMaterialization({

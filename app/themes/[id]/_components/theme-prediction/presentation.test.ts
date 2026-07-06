@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { getScenarioCards, shouldRenderPredictionPanel } from './presentation'
+import { getPeakTimingStat, getScenarioCards, shouldRenderPredictionPanel } from './presentation'
 
 const scenarios = {
   best: { themeName: 'Fast', peakDay: 12, totalDays: 40, similarity: 0.7 },
@@ -30,4 +30,20 @@ describe('getScenarioCards', () => {
     expect(shouldRenderPredictionPanel('2026-01-01', 2)).toBe(false)
   })
 
+})
+
+describe('getPeakTimingStat', () => {
+  it('keeps Cooling copy descriptive instead of forward-looking', () => {
+    expect(getPeakTimingStat({ phase: 'cooling', avgDaysToPeak: 0, avgPeakDay: 34 })).toEqual({
+      label: '기록상 정점',
+      value: '34일차 부근',
+    })
+  })
+
+  it('keeps forward-looking peak copy for Rising and Hot phases', () => {
+    expect(getPeakTimingStat({ phase: 'rising', avgDaysToPeak: 8, avgPeakDay: 34 })).toEqual({
+      label: '예상 정점',
+      value: '약 8일 후',
+    })
+  })
 })

@@ -72,41 +72,95 @@ jobs:
           TLI_COMPARISON_V4_SHADOW_ENABLED: 'true'
           # NOTE: SERVING_ENABLED는 파이프라인에서는 미사용 (Vercel 앱 서버에서 별도 설정 필요)
           TLI_COMPARISON_V4_SERVING_ENABLED: 'true'
+          TLI_RESULT_PATH: tli-result.json
         run: npx tsx scripts/tli/batch/collect-and-score.ts
 
-      - name: Notify on failure
+      - name: Prediction parity report
+        if: steps.mode.outputs.mode == 'full'
+        continue-on-error: true
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          npx tsx scripts/tli/ops/run-prediction-parity-report.ts > tli-parity-result.json
+          echo '## TLI Prediction Parity Report' >> "$GITHUB_STEP_SUMMARY"
+          echo '```json' >> "$GITHUB_STEP_SUMMARY"
+          cat tli-parity-result.json >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Notify critical failure
         if: failure()
         env:
           TLI_MODE: ${{ steps.mode.outputs.mode }}
         uses: actions/github-script@v7
         with:
           script: |
-            const title = `🚨 TLI 파이프라인 실패 (${new Date().toISOString().split('T')[0]})`;
+            const fs = require('fs');
             const rawMode = process.env.TLI_MODE || 'unknown';
             const safeMode = ['full', 'news-only'].includes(rawMode) ? rawMode : 'unknown';
+            const now = new Date();
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const fallbackResult = {
+              mode: safeMode,
+              criticalFailures: 1,
+              warningFailures: 0,
+              exitCode: 1,
+            };
+            let result = fallbackResult;
+            if (fs.existsSync('tli-result.json')) {
+              try {
+                result = JSON.parse(fs.readFileSync('tli-result.json', 'utf8'));
+              } catch (error) {
+                console.log(`TLI 결과 파일 파싱 실패, fallback critical 알림으로 진행합니다: ${error.message}`);
+              }
+            }
+            if (!result.criticalFailures || result.criticalFailures <= 0) {
+              console.log('critical failure가 없어 즉시 이슈 생성을 생략합니다.');
+              return;
+            }
+
+            const signature = `tli-critical:${safeMode}`;
+            const marker = `<!-- tli-signature:${signature} -->`;
+            const title = `🚨 TLI critical failure: ${safeMode}`;
             const body = [
-              `## 파이프라인 실패 알림`,
+              marker,
+              `## 파이프라인 critical failure`,
               ``,
               `| 항목 | 값 |`,
               `|------|-----|`,
               `| **실행 모드** | \`${safeMode}\` |`,
               `| **트리거** | \`${context.eventName}\` |`,
-              `| **실행 URL** | [링크](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}) |`,
-              `| **시간 (UTC)** | ${new Date().toISOString()} |`,
+              `| **실행 URL** | [링크](${runUrl}) |`,
+              `| **시간 (UTC)** | ${now.toISOString()} |`,
               ``,
-              `> 자동 생성된 이슈입니다. 로그를 확인하고 조치해 주세요.`,
+              `- criticalFailures: ${result.criticalFailures}`,
+              `- warningFailures: ${result.warningFailures || 0}`,
             ].join('\n');
 
-            // 동일 제목의 열린 이슈가 있으면 중복 생성 방지
+            const duplicateWindowMs = 24 * 60 * 60 * 1000;
             const existing = await github.rest.issues.listForRepo({
               owner: context.repo.owner,
               repo: context.repo.repo,
               state: 'open',
-              labels: 'pipeline-failure',
-              per_page: 5,
+              labels: 'tli-critical',
+              per_page: 20,
             });
-            if (existing.data.some(i => i.title === title)) {
-              console.log('동일 이슈가 이미 존재합니다. 생성 생략.');
+            const duplicate = existing.data.find((issue) => {
+              const createdAt = new Date(issue.created_at).getTime();
+              const ageMs = now.getTime() - createdAt;
+              return issue.body?.includes(marker)
+                && Number.isFinite(createdAt)
+                && ageMs >= 0
+                && ageMs <= duplicateWindowMs;
+            });
+            if (duplicate) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: duplicate.number,
+                body,
+              });
+              console.log(`최근 24시간 내 동일 critical 이슈 #${duplicate.number}에 코멘트했습니다.`);
               return;
             }
             await github.rest.issues.create({
@@ -114,6 +168,82 @@ jobs:
               repo: context.repo.repo,
               title,
               body,
-              labels: ['bug', 'pipeline-failure'],
+              labels: ['bug', 'pipeline-failure', 'tli-critical'],
             });
 
+      - name: Notify warning digest
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            if (!fs.existsSync('tli-result.json')) {
+              console.log('TLI 결과 파일이 없어 warning digest 생성을 생략합니다.');
+              return;
+            }
+
+            let result;
+            try {
+              result = JSON.parse(fs.readFileSync('tli-result.json', 'utf8'));
+            } catch (error) {
+              console.log(`TLI 결과 파일 파싱 실패로 warning digest 생성을 생략합니다: ${error.message}`);
+              return;
+            }
+            if (!result.warningFailures || result.warningFailures <= 0) {
+              console.log('warning failure가 없어 digest 생성을 생략합니다.');
+              return;
+            }
+
+            const now = new Date();
+            const kstParts = new Intl.DateTimeFormat('en', {
+              timeZone: 'Asia/Seoul',
+              year: 'numeric',
+              month: '2-digit',
+              day: '2-digit',
+            }).formatToParts(now);
+            const part = (type) => kstParts.find((item) => item.type === type)?.value;
+            const date = `${part('year')}-${part('month')}-${part('day')}`;
+            const title = `⚠️ TLI warning digest (${date})`;
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const rawMode = result.mode || 'unknown';
+            const safeMode = ['full', 'news-only'].includes(rawMode) ? rawMode : 'unknown';
+            const body = [
+              `## TLI warning digest`,
+              ``,
+              `| 항목 | 값 |`,
+              `|------|-----|`,
+              `| **실행 모드** | \`${safeMode}\` |`,
+              `| **트리거** | \`${context.eventName}\` |`,
+              `| **실행 URL** | [링크](${runUrl}) |`,
+              `| **시간 (UTC)** | ${now.toISOString()} |`,
+              ``,
+              `- warningFailures: ${result.warningFailures}`,
+              `- criticalFailures: ${result.criticalFailures || 0}`,
+            ].join('\n');
+
+            const existing = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'tli-warning-digest',
+              per_page: 20,
+            });
+            const digest = existing.data.find((issue) => issue.title === title);
+            if (digest) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: digest.number,
+                body,
+              });
+              console.log(`오늘 warning digest #${digest.number}에 코멘트했습니다.`);
+              return;
+            }
+
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title,
+              body,
+              labels: ['tli-warning', 'tli-warning-digest'],
+            });

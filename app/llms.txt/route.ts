@@ -61,7 +61,7 @@ ${themeCount}개 이상의 주식 테마를 실시간 추적하여 생명주기 
 - \`GET /api/tli/themes/{id}/history\` — 테마 점수 이력 (기본 30일)
 - \`GET /api/tli/changes?period=1d|7d\` — 일간/주간 테마 점수 변동, 단계 전환, 신규 부상 테마
 - \`GET /api/tli/compare?ids=uuid1,uuid2,...\` — 2~5개 테마 나란히 비교 (점수, 관련주, 스파크라인, 유사도)
-- \`GET /api/tli/predictions?phase=rising|hot|cooling\` — v4 예측 시스템 기반 테마 전망 (과거 유사 패턴 매칭)
+- \`GET /api/tli/predictions?phase=rising|hot|cooling\` — v4 예측 시스템 기반 테마 전망, cooling은 관심도 둔화 상태 참고용 (과거 유사 패턴 매칭)
 - \`GET /api/tli/methodology?section=scoring|stages|...\` — TLI 알고리즘 문서 (채점, 단계, 안정화, 비교, 예측, 데이터 소스)
 - \`GET /api/ai/summary\` — AI 에이전트 최적화 요약 (Top 5 테마 + 시장 개요)
 

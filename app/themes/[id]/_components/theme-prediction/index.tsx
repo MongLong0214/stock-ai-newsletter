@@ -16,7 +16,7 @@ import {
   PHASE_COLORS,
 } from './config'
 import { StatCell, MomentumCell, ScenarioCard } from './sub-components'
-import { getScenarioCards } from './presentation'
+import { getPeakTimingStat, getScenarioCards } from './presentation'
 
 const containerVariants = {
   hidden: { opacity: 0, y: 24 },
@@ -55,6 +55,11 @@ function ThemePrediction({
   const riskCfg = RISK_CONFIG[prediction.riskLevel]
   const RiskIcon = riskCfg.icon
   const phaseColors = PHASE_COLORS[prediction.phase]
+  const peakTimingStat = getPeakTimingStat({
+    phase: prediction.phase,
+    avgDaysToPeak: prediction.avgDaysToPeak,
+    avgPeakDay: prediction.avgPeakDay,
+  })
 
   return (
     <GlassCard className="p-5 sm:p-6">
@@ -150,7 +155,7 @@ function ThemePrediction({
         {/* 5. 통계 그리드 */}
         <motion.div variants={itemVariants} className="grid grid-cols-2 gap-3">
           <StatCell icon={<Clock className="w-4 h-4" />} label="경과일" value={prediction.daysSinceSpike > 365 ? '1년+' : `${prediction.daysSinceSpike}일`} color="#10B981" />
-          <StatCell icon={<Target className="w-4 h-4" />} label="예상 정점" value={prediction.avgDaysToPeak > 0 ? `약 ${prediction.avgDaysToPeak}일 후` : '정점 부근'} color="#F59E0B" />
+          <StatCell icon={<Target className="w-4 h-4" />} label={peakTimingStat.label} value={peakTimingStat.value} color="#F59E0B" />
           <StatCell icon={<BarChart3 className="w-4 h-4" />} label="평균 유사도" value={`${Math.round(prediction.avgSimilarity * 100)}%`} color="#0EA5E9" />
           <MomentumCell momentum={prediction.momentum} />
         </motion.div>

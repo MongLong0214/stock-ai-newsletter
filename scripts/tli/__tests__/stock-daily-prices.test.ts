@@ -1,0 +1,238 @@
+import { readFile } from 'node:fs/promises'
+import { describe, expect, it, vi } from 'vitest'
+import {
+  dedupeStockDailyPriceRows,
+  KOSPI_INDEX_SYMBOL,
+  selectTopThemeStockSymbols,
+  type StockDailyPriceInput,
+} from '@/scripts/tli/prices/stock-daily-prices'
+import {
+  collectAndPersistStockDailyPriceRange,
+  DEFAULT_KIS_DAILY_PRICE_CALL_BUDGET,
+  KIS_DAILY_PRICE_RATE_LIMIT_PER_SECOND,
+} from '@/scripts/tli/prices/kis-daily-price-collector'
+
+describe('stock daily prices', () => {
+  it('keeps the stock_daily_prices migration additive with the expected dedupe key', async () => {
+    const migration = await readFile('supabase/migrations/031_create_stock_daily_prices.sql', 'utf8')
+
+    expect(migration).toContain('CREATE TABLE IF NOT EXISTS public.stock_daily_prices')
+    expect(migration).toContain('PRIMARY KEY (symbol, trade_date)')
+    expect(migration).not.toMatch(/\bDROP\s+TABLE\b/i)
+  })
+
+  it('dedupes daily prices by symbol and trade date before upsert', () => {
+    const rows = dedupeStockDailyPriceRows([
+      { symbol: '005930', tradeDate: '2026-07-01', close: 70000, volume: 100 },
+      { symbol: '005930', tradeDate: '2026-07-01', close: 70100, volume: 120 },
+      { symbol: '000660', tradeDate: '2026-07-01', close: -1, volume: 20 },
+    ])
+
+    expect(rows).toEqual([
+      {
+        symbol: '005930',
+        trade_date: '2026-07-01',
+        close: 70100,
+        volume: 120,
+        source: 'kis',
+      },
+    ])
+  })
+
+  it('selects top active symbols per theme and deduplicates shared stocks', () => {
+    const symbols = selectTopThemeStockSymbols([
+      { theme_id: 'theme-a', symbol: '005930', relevance: 0.9, is_active: true },
+      { theme_id: 'theme-a', symbol: '000660', relevance: 0.8, is_active: true },
+      { theme_id: 'theme-a', symbol: '035420', relevance: 0.7, is_active: true },
+      { theme_id: 'theme-b', symbol: '005930', relevance: 0.9, is_active: true },
+      { theme_id: 'theme-b', symbol: '051910', relevance: 0.8, is_active: true },
+      { theme_id: 'theme-b', symbol: '068270', relevance: 0.7, is_active: false },
+    ], 2)
+
+    expect(symbols).toEqual(['000660', '005930', '051910'])
+  })
+
+  it('defaults the KIS call budget to 1,000 per day', () => {
+    expect(DEFAULT_KIS_DAILY_PRICE_CALL_BUDGET).toBe(1000)
+  })
+
+  it('makes one period-range call per symbol (plus KOSPI) instead of one call per date×symbol pair', async () => {
+    const fetchDailyRangeClosePrices = vi.fn().mockResolvedValue([
+      { date: '2026-07-01', close: 70000, volume: 1000 },
+      { date: '2026-07-02', close: 70500, volume: 1200 },
+    ])
+    const fetchIndexDailyRangeClosePrices = vi.fn().mockResolvedValue([
+      { date: '2026-07-01', close: 2650.5, volume: null },
+      { date: '2026-07-02', close: 2655.1, volume: null },
+    ])
+    const persistDailyPrices = vi.fn(async (rows: readonly StockDailyPriceInput[]) => rows.length)
+    const loadSymbols = vi.fn(async () => ['005930', '000660'])
+
+    const report = await collectAndPersistStockDailyPriceRange({
+      endDate: '2026-07-02',
+      days: 2,
+      delayMs: 0,
+      fetchDailyRangeClosePrices,
+      fetchIndexDailyRangeClosePrices,
+      persistDailyPrices,
+      loadSymbols,
+    })
+
+    // 심볼 2개 + KOSPI = 콜 3건 (날짜×심볼 6건이 아님)
+    expect(fetchIndexDailyRangeClosePrices).toHaveBeenCalledTimes(1)
+    expect(fetchIndexDailyRangeClosePrices).toHaveBeenCalledWith('0001', '20260701', '20260702')
+    expect(fetchDailyRangeClosePrices).toHaveBeenCalledTimes(2)
+    expect(fetchDailyRangeClosePrices).toHaveBeenCalledWith('005930', '20260701', '20260702')
+    expect(fetchDailyRangeClosePrices).toHaveBeenCalledWith('000660', '20260701', '20260702')
+    expect(report.requestedRows).toBe(3)
+    expect(report.attemptedCalls).toBe(3)
+    expect(report.successCount).toBe(3)
+    expect(report.persistedRows).toBe(6)
+    expect(report.dateCoverageRate).toBe(1)
+  })
+
+  it('always includes KOSPI even when absent from the loaded symbols, and never drops it via the budget cap', async () => {
+    const fetchDailyRangeClosePrices = vi.fn().mockResolvedValue([])
+    const fetchIndexDailyRangeClosePrices = vi.fn().mockResolvedValue([])
+    const persistDailyPrices = vi.fn(async () => 0)
+    const loadSymbols = vi.fn(async () => ['005930', '000660', '035420'])
+
+    const report = await collectAndPersistStockDailyPriceRange({
+      endDate: '2026-07-02',
+      days: 1,
+      callBudget: 2,
+      delayMs: 0,
+      fetchDailyRangeClosePrices,
+      fetchIndexDailyRangeClosePrices,
+      persistDailyPrices,
+      loadSymbols,
+    })
+
+    expect(fetchIndexDailyRangeClosePrices).toHaveBeenCalledTimes(1)
+    expect(fetchDailyRangeClosePrices).toHaveBeenCalledTimes(1)
+    expect(report.requestedRows).toBe(4)
+    expect(report.attemptedCalls).toBe(2)
+    expect(report.skippedForBudget).toBe(2)
+  })
+
+  it('does not duplicate KOSPI when it is already present in the loaded symbols', async () => {
+    const fetchDailyRangeClosePrices = vi.fn().mockResolvedValue([])
+    const fetchIndexDailyRangeClosePrices = vi.fn().mockResolvedValue([])
+    const persistDailyPrices = vi.fn(async () => 0)
+    const loadSymbols = vi.fn(async () => ['005930', KOSPI_INDEX_SYMBOL])
+
+    const report = await collectAndPersistStockDailyPriceRange({
+      endDate: '2026-07-02',
+      days: 1,
+      delayMs: 0,
+      fetchDailyRangeClosePrices,
+      fetchIndexDailyRangeClosePrices,
+      persistDailyPrices,
+      loadSymbols,
+    })
+
+    expect(report.requestedRows).toBe(2)
+    expect(fetchIndexDailyRangeClosePrices).toHaveBeenCalledTimes(1)
+  })
+
+  it('routes KOSPI to the index fetcher and reports a failure (without touching the stock fetcher) when no matching trading-day rows return', async () => {
+    const fetchDailyRangeClosePrices = vi.fn().mockResolvedValue([])
+    const fetchIndexDailyRangeClosePrices = vi.fn().mockResolvedValue([])
+    const persistDailyPrices = vi.fn(async () => 0)
+    const loadSymbols = vi.fn(async () => [])
+
+    const report = await collectAndPersistStockDailyPriceRange({
+      endDate: '2026-07-02',
+      days: 1,
+      delayMs: 0,
+      fetchDailyRangeClosePrices,
+      fetchIndexDailyRangeClosePrices,
+      persistDailyPrices,
+      loadSymbols,
+    })
+
+    expect(fetchIndexDailyRangeClosePrices).toHaveBeenCalledWith('0001', '20260702', '20260702')
+    expect(fetchDailyRangeClosePrices).not.toHaveBeenCalled()
+    expect(report.failureCount).toBe(1)
+    expect(report.successCount).toBe(0)
+  })
+
+  it('reports symbol-level success/failure counts and success rate', async () => {
+    const fetchDailyRangeClosePrices = vi.fn()
+      .mockResolvedValueOnce([{ date: '2026-07-01', close: 70000, volume: 100 }])
+      .mockResolvedValueOnce([])
+    const fetchIndexDailyRangeClosePrices = vi.fn().mockResolvedValue([{ date: '2026-07-01', close: 2650, volume: null }])
+    const persistDailyPrices = vi.fn(async (rows: readonly StockDailyPriceInput[]) => rows.length)
+    const loadSymbols = vi.fn(async () => ['005930', '000660'])
+
+    const report = await collectAndPersistStockDailyPriceRange({
+      endDate: '2026-07-01',
+      days: 1,
+      callBudget: DEFAULT_KIS_DAILY_PRICE_CALL_BUDGET,
+      delayMs: 0,
+      fetchDailyRangeClosePrices,
+      fetchIndexDailyRangeClosePrices,
+      persistDailyPrices,
+      loadSymbols,
+    })
+
+    expect(report).toMatchObject({
+      callBudget: DEFAULT_KIS_DAILY_PRICE_CALL_BUDGET,
+      rateLimitPerSecond: KIS_DAILY_PRICE_RATE_LIMIT_PER_SECOND,
+      requestedRows: 3,
+      attemptedCalls: 3,
+      successCount: 2,
+      failureCount: 1,
+      successRate: 2 / 3,
+    })
+    expect(report.persistedRows).toBe(2)
+  })
+
+  it('logs the collection-phase report and rethrows when persistence fails, instead of swallowing it', async () => {
+    const fetchDailyRangeClosePrices = vi.fn().mockResolvedValue([{ date: '2026-07-01', close: 70000, volume: 100 }])
+    const fetchIndexDailyRangeClosePrices = vi.fn().mockResolvedValue([{ date: '2026-07-01', close: 2650, volume: null }])
+    const persistError = new Error('일봉 주가 전량 저장 실패 (2건)')
+    const persistDailyPrices = vi.fn().mockRejectedValue(persistError)
+    const loadSymbols = vi.fn(async () => ['005930'])
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    await expect(
+      collectAndPersistStockDailyPriceRange({
+        endDate: '2026-07-01',
+        days: 1,
+        delayMs: 0,
+        fetchDailyRangeClosePrices,
+        fetchIndexDailyRangeClosePrices,
+        persistDailyPrices,
+        loadSymbols,
+      }),
+    ).rejects.toThrow(persistError)
+
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      expect.stringContaining('attempted=2, success=2, failure=0'),
+      persistError.message,
+    )
+
+    consoleErrorSpy.mockRestore()
+  })
+
+  it('computes date coverage rate below 1 when a requested trading day has no data from any symbol', async () => {
+    const fetchDailyRangeClosePrices = vi.fn().mockResolvedValue([{ date: '2026-07-01', close: 70000, volume: 100 }])
+    const fetchIndexDailyRangeClosePrices = vi.fn().mockResolvedValue([{ date: '2026-07-01', close: 2650, volume: null }])
+    const persistDailyPrices = vi.fn(async (rows: readonly StockDailyPriceInput[]) => rows.length)
+    const loadSymbols = vi.fn(async () => ['005930'])
+
+    const report = await collectAndPersistStockDailyPriceRange({
+      endDate: '2026-07-02',
+      days: 2,
+      delayMs: 0,
+      fetchDailyRangeClosePrices,
+      fetchIndexDailyRangeClosePrices,
+      persistDailyPrices,
+      loadSymbols,
+    })
+
+    // 2026-07-01만 데이터 확보, 2026-07-02는 어떤 심볼에서도 반환되지 않음
+    expect(report.dateCoverageRate).toBe(0.5)
+  })
+})

@@ -1,7 +1,9 @@
+// allow: SIZE_OK - Legacy comparison coordinator; T-007 only centralizes KST date sourcing.
 /** 테마 비교 분석 — 활성 테마와 전체 테마의 다중 시그널 비교 및 DB 저장 */
 import { supabaseAdmin } from '@/scripts/tli/shared/supabase-admin'
 import { batchQuery, groupByThemeId } from '@/scripts/tli/shared/supabase-batch'
 import { getKSTDate } from '@/scripts/tli/shared/utils'
+import { getKSTDate as getKSTDateObject } from '@/lib/tli/date-utils'
 import { compositeCompare } from '@/lib/tli/comparison/composite'
 import { featuresToArray } from '@/lib/tli/comparison/features'
 import { buildMutualRankIndex, buildCurveMutualRankIndex, type MutualRankIndex } from '@/lib/tli/comparison/mutual-rank'
@@ -12,6 +14,20 @@ import { assertComparisonV4PipelineEnabled, getComparisonV4ShadowConfig, upsertC
 import { isArchetypeAtDate } from '@/scripts/tli/themes/theme-state-history'
 const MAX_MATCHES_PER_THEME = 3
 export const COMPARISON_SCORE_LOOKBACK_DAYS = 365
+
+interface ThemeStateHistoryLookupRow {
+  theme_id: string
+  effective_from: string
+  effective_to: string | null
+  is_active: boolean
+  closed_at: string | null
+  first_spike_date: string | null
+  state_version: string
+}
+
+type ThemeDataMapsWithHistory = ThemeDataMaps & {
+  stateHistory: ThemeStateHistoryLookupRow[]
+}
 
 export function getComparisonScoreLookbackDate(kstNow: Date): string {
   return new Date(kstNow.getTime() - COMPARISON_SCORE_LOOKBACK_DAYS * 86400000).toISOString().split('T')[0]
@@ -75,7 +91,7 @@ export async function calculateThemeComparisons(themes: ThemeWithKeywords[], thr
   const allThemes = await loadAllThemes()
   if (allThemes.length === 0) { console.log('   ⚠️ 테마 로딩 실패'); return }
 
-  const kstNow = new Date(Date.now() + 9 * 60 * 60 * 1000)
+  const kstNow = getKSTDateObject()
   const dataByTheme = await loadThemeData(allThemes.map(t => t.id), kstNow)
   console.log(`   데이터 로딩: 테마 ${allThemes.length}개`)
   const runDate = getKSTDate()
@@ -176,7 +192,7 @@ async function loadAllThemes() {
   return all
 }
 
-async function loadThemeData(themeIds: string[], kstNow: Date): Promise<ThemeDataMaps> {
+async function loadThemeData(themeIds: string[], kstNow: Date): Promise<ThemeDataMapsWithHistory> {
   const daysAgo = (d: number) => new Date(kstNow.getTime() - d * 86400000).toISOString().split('T')[0]
   const comparisonScoreLookbackDate = getComparisonScoreLookbackDate(kstNow)
 
@@ -218,15 +234,7 @@ async function loadThemeData(themeIds: string[], kstNow: Date): Promise<ThemeDat
     keywords: groupByThemeId(keywordsAll),
     stocks: groupByThemeId(stocksAll),
     stateHistory: stateHistoryAll,
-  } as ThemeDataMaps & { stateHistory: Array<{
-    theme_id: string
-    effective_from: string
-    effective_to: string | null
-    is_active: boolean
-    closed_at: string | null
-    first_spike_date: string | null
-    state_version: string
-  }> }
+  }
 }
 
 /** 현재 테마와 모든 보강 테마를 비교, 유사도 상위 N개 반환 */

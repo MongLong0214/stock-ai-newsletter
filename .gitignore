@@ -76,6 +76,7 @@ scripts/tli/research/optimizer/optimized-params.json
 # AI tool logs & state
 .omx/
 mcp/.omx/
+.omo/
 
 # Serena AI memories
 .serena/memories/

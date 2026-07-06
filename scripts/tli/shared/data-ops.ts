@@ -82,6 +82,17 @@ export async function upsertNewsMetrics(
   )
 }
 
+/** 활성 테마-종목 매핑 총 개수 조회 (수집 붕괴 감지용 직전 기준선) */
+export async function countActiveThemeStocks(): Promise<number> {
+  const { count, error } = await supabaseAdmin
+    .from('theme_stocks')
+    .select('*', { count: 'exact', head: true })
+    .eq('is_active', true)
+
+  if (error) throw new Error(`활성 테마 종목 개수 조회 실패: ${error.message}`)
+  return count ?? 0
+}
+
 /** 테마-종목 매핑 저장 + 미출현 종목 비활성화 */
 export async function upsertThemeStocks(
   stocks: Array<{

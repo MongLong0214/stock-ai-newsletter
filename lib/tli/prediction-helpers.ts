@@ -222,7 +222,7 @@ export function buildPhaseMessage(phase: Phase, avgDaysToPeak: number, score?: n
     case 'hot':
       return `정점 구간을 지나고 있어요${score !== undefined ? ` · 현재 점수 ${score}점` : ''}`
     case 'cooling':
-      return `방향 전환 가능성이 있어요${score !== undefined ? ` · 현재 점수 ${score}점` : ''}`
+      return `관심도 둔화 구간이에요${score !== undefined ? ` · 현재 점수 ${score}점` : ''}`
   }
 }
 

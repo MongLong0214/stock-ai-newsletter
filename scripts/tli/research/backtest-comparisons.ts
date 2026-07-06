@@ -1,3 +1,4 @@
+// allow: SIZE_OK - Legacy research backtest coordinator; T-007 only centralizes KST date sourcing.
 import { config } from 'dotenv'
 config({ path: '.env.local' })
 import { mkdir, writeFile } from 'node:fs/promises'
@@ -10,11 +11,11 @@ import { classifySectorProfile, extractFeatures, featuresToArray } from '@/lib/t
 import { compositeCompare } from '@/lib/tli/comparison/composite'
 import { pearsonCorrelation, type FeaturePopulationStats } from '@/lib/tli/comparison/similarity'
 import { resolveFirstSpikeDate } from '@/scripts/tli/themes/enrich-themes'
+import { getKSTDate } from '@/lib/tli/date-utils'
 import {
   aggregateThresholdSweepResults,
   buildBacktestArtifacts,
   buildTemporalBacktestFolds,
-  renderThresholdSweepSummary,
   runThresholdSweepAcrossFolds,
   selectArchetypeCandidatesAtRunDate,
   selectBestThreshold,
@@ -141,7 +142,7 @@ async function main() {
       keywords,
       stocks: [],
       keywordSupportCounts,
-      kstNow: new Date(Date.now() + 9 * 60 * 60 * 1000),
+      kstNow: getKSTDate(),
     })
     if (enrichedTheme) enriched.push(enrichedTheme)
   }
@@ -265,7 +266,7 @@ async function main() {
   const sweepRows = runThresholdSweepAcrossFolds({
     folds,
     thresholds,
-    evaluateFold: ({ foldId, threshold, fold }) => {
+    evaluateFold: ({ threshold, fold }) => {
       const result = evaluateFold(fold.test, fold.train, threshold)
       return { matches: result.matches, accurate: result.accurate }
     },

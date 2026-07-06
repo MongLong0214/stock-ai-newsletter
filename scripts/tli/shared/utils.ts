@@ -1,3 +1,5 @@
+import { getKSTDateString } from '@/lib/tli/date-utils'
+
 /** 지정 시간만큼 대기 */
 export function sleep(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms))
@@ -24,14 +26,10 @@ export async function withRetry<T>(
 /** KST 기준 현재 날짜 (YYYY-MM-DD)
  * NOTE: 정규 버전은 lib/tli/date-utils.ts — scripts는 빌드 설정 차이로 별도 유지 */
 export function getKSTDate(): string {
-  const now = new Date()
-  const kst = new Date(now.getTime() + 9 * 60 * 60 * 1000)
-  return kst.toISOString().split('T')[0]
+  return getKSTDateString()
 }
 
 /** N일 전 날짜 (YYYY-MM-DD, KST) */
 export function daysAgo(n: number): string {
-  const now = new Date()
-  const kst = new Date(now.getTime() + 9 * 60 * 60 * 1000 - n * 86400000)
-  return kst.toISOString().split('T')[0]
+  return getKSTDateString(-n)
 }

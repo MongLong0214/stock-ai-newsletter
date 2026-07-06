@@ -1,4 +1,6 @@
 import { supabaseAdmin } from '@/scripts/tli/shared/supabase-admin'
+import { assertBatchUpsertComplete } from '@/scripts/tli/shared/batch-upsert-failures'
+export { BatchUpsertPartialFailureError, assertBatchUpsertComplete } from '@/scripts/tli/shared/batch-upsert-failures'
 
 function sleep(ms: number) { return new Promise(r => setTimeout(r, ms)) }
 
@@ -6,6 +8,10 @@ const PAGE_SIZE = 1000
 const CHUNK_SIZE = 300
 const MAX_RETRIES = 3
 const BASE_DELAY_MS = 1000
+
+interface BatchUpsertOptions {
+  readonly failOnPartial?: boolean
+}
 
 /**
  * Supabase 배치 쿼리
@@ -83,6 +89,7 @@ export async function batchUpsert(
   rows: Record<string, unknown>[],
   onConflict: string,
   label: string,
+  options?: BatchUpsertOptions,
 ): Promise<number> {
   if (rows.length === 0) return 0
 
@@ -120,6 +127,9 @@ export async function batchUpsert(
     throw new Error(`${label} 전량 저장 실패 (${failedCount}건)`)
   } else if (failedCount > 0) {
     console.error(`   ❌ ${failedCount}/${rows.length}개 ${label} 저장 실패`)
+    if (options?.failOnPartial !== false) {
+      assertBatchUpsertComplete({ label, rowCount: rows.length, failedCount })
+    }
   } else {
     console.log(`   ✅ ${rows.length}개 ${label} 저장 완료`)
   }

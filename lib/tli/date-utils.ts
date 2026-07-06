@@ -2,10 +2,11 @@
 
 /** KST 오프셋 (밀리초) */
 export const KST_OFFSET_MS = 9 * 60 * 60 * 1000
+export const DAY_MS = 86_400_000
 
 /** KST 기준 Date 객체 반환 (offsetDays: 음수 = 과거, 양수 = 미래) */
 export function getKSTDate(offsetDays = 0): Date {
-  return new Date(Date.now() + KST_OFFSET_MS + offsetDays * 86_400_000)
+  return new Date(Date.now() + KST_OFFSET_MS + offsetDays * DAY_MS)
 }
 
 /** KST 기준 날짜 문자열 (YYYY-MM-DD) */

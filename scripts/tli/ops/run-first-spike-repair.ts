@@ -6,6 +6,7 @@ import { batchQuery, groupByThemeId } from '@/scripts/tli/shared/supabase-batch'
 import { getKSTDate } from '@/scripts/tli/shared/utils'
 import { buildFirstSpikeDateRepairRows } from '@/scripts/tli/themes/first-spike-date'
 import { buildFirstSpikeDateSyncPatch } from '@/scripts/tli/themes/theme-state-history'
+import { getKSTDate as getKSTDateObject } from '@/lib/tli/date-utils'
 
 async function main() {
   const repairDates = (process.env.TLI_FIRST_SPIKE_REPAIR_DATES || '2026-02-06')
@@ -57,7 +58,7 @@ async function main() {
   }
 
   const themeIds = themes.map((theme) => theme.id)
-  const kstNow = new Date(Date.now() + 9 * 60 * 60 * 1000)
+  const kstNow = getKSTDateObject()
   const interestRows = await batchQuery<{
     theme_id: string
     time: string
