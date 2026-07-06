@@ -1,7 +1,8 @@
 # PRD — TLI v3 전면 재구성: Closed-Loop Theme Intelligence
 
-> **버전**: v1.3 (프로덕션 레디 — Boomer 3-라운드 수렴 + 타당성 리서치 + 최종 정합성 감사·구현 스펙 반영) · **작성일**: 2026-07-03 · **작성**: Claude (오케스트레이터) + Explore 4기 병렬 정밀 분석 + Boomer(Codex gpt-5.5 xhigh) 반론 15건 수렴 (부록 C) + 문헌 리서치 3기 (부록 F) + 구현 계약 (부록 G)
-> **상태**: Isaac 최종 승인 대기 (Level 2). **오픈 퀘스천 Q1~Q6 전부 결정 완료** (§11, Isaac 위임 2026-07-03) — 승인 즉시 부록 G.8 순서로 Phase 0 착수 가능
+> **버전**: v2.0 (Phase 1~4 실행판) · **갱신**: 2026-07-06 · **작성**: Claude (오케스트레이터) + Explore 4기 + Boomer 수렴 (부록 C) + 문헌 리서치 3기 (부록 F) + 구현 계약 (부록 G)
+> **상태**: **Phase 0 완료** (2026-07-06, CTO 리뷰 22건 수정 + 빌드 3종·테스트 2,317개 통과 + 커밋 `bed3040` — as-built 기록은 부록 H). **Phase 1 착수 가능** — 구현 에이전트는 [부록 H → 부록 E 해당 티켓 → 부록 G/D 참조] 순으로 읽고 티켓 단위로 작업하라
+> **오픈 퀘스천**: Q1~Q6 전부 결정 완료 (§11)
 > **범위**: `lib/tli/*`(85파일), `scripts/tli/*`, `.github/workflows/tli-collect-data.yml`, TLI 관련 DB 스키마(마이그레이션 003~028), `app/themes/*` + `app/api/tli/*` 노출면
 > **비범위**: 뉴스레터 파이프라인(`lib/llm/korea`), 블로그/SEO, 구독 시스템
 
@@ -411,7 +412,12 @@
 
 > 각 Phase 종료 = Isaac 게이트 (Level 2 동기 승인). 롤백 전략 명시. 전체 7~9주 (1인 운영 전제, 병행 작업 없음 가정).
 
-### Phase 0 — 위생 + 계측 (1주) · *어떤 재설계와도 독립적으로 즉시 가치*
+### Phase 0 — 위생 + 계측 ✅ **완료 (2026-07-06, 커밋 `bed3040`)**
+
+> 실제 구현이 계획과 달라진 지점은 **부록 H (as-built)** 참조 — Phase 1+ 에이전트 필독.
+> 잔여 꼬리: ① KIS 30일 백필 1회 실행 (T-008 AC 마감, 수동) ② parity 14일 측정 대기 (자동) ③ T-010은 parity SLA 통과 후 착수.
+
+<details><summary>원 계획 (기록용)</summary>
 
 | 작업 | AC |
 |---|---|
@@ -421,6 +427,8 @@
 | **예측 parity 리포트**: 클라 재계산값 vs `prediction_snapshots_v2` 스냅샷의 일치율·freshness·coverage 14일 측정 (전환은 하지 않음 — Boomer B-9) | parity 리포트 산출. 전환 자체는 SLA(coverage≥90%, freshness≤1영업일) 통과 후 Phase 1에서 |
 | Cooling **예측 문구** 노출 중단 (필드는 호환 유지, §5.3) | UI 확인 |
 | **롤백**: 전 항목 개별 revert 가능 (스키마는 additive만) | |
+
+</details>
 
 ### Phase 1 — Ground Truth 파이프라인 (1~2주)
 
@@ -656,7 +664,8 @@
 
 ## 부록 D. 신규 스키마 스펙 (DDL 수준)
 
-> 전부 additive. 기존 테이블 변경은 컬럼 추가만 (`interest_metrics.anchor_scaled_value`). RLS: 전부 service_role 전용 (030 락다운 기조 유지), 서빙 노출은 API 경유만.
+> 전부 additive. 기존 테이블 변경은 컬럼 추가만. RLS: 전부 service_role 전용 — **031/032 as-built 패턴 복제** (`service_role_all_{table}` 정책 + `REVOKE ALL FROM anon, authenticated`, 부록 H.3). 서빙 노출은 API 경유만.
+> **마이그레이션 번호 배정**: D.1+D.6 → `033` (T-101, themes.keyword_epoch/keyword_hash 포함) · D.3 → `034` (T-207) · D.4+D.5 → `035` (T-301). 031/032는 적용 완료.
 
 ### D.1 `theme_labels` — GT 통합 라벨 저장소
 
@@ -789,70 +798,236 @@ CREATE TABLE model_metrics_daily (
 | `theme_news_articles` | 10건 제한 폐지, 메타 전건 영구 보존 (Q5 — 정리 잡 없음, 분기 용량 리뷰) |
 | `prediction_snapshots_v2` | 변경 없음 — Phase 3 후 읽기 동결, Phase 4에서 rename 보존 30일 후 정리 |
 
-## 부록 E. 티켓 분해 (Phase별)
+## 부록 E. 티켓 실행 명세 (Phase별) — v2.0 실행판
 
-> 크기: S(≤반나절) / M(≤1일) / L(2~3일). 의존성 명시. 총 36티켓 (P0 10 + P1 7 + P2 7 + P3 7 + P4 5).
+> **구현 에이전트 계약**: 티켓 착수 전 [부록 H(as-built) → 이 티켓 → 참조된 부록 G/D 섹션]을 읽어라. 1 티켓 = 1 PR (부록 G.7 규약). 모든 신규 scripts/tli 파일은 `tli-boundary-manifest.ts` 등록 필수 (누락 시 테스트 실패). DB는 additive 마이그레이션만.
+> 크기: S(≤반나절) / M(≤1일) / L(2~3일).
 
-### Phase 0 — 위생 + 계측 (10티켓)
+### Phase 0 — ✅ 완료 (2026-07-06, `bed3040`) — as-built는 부록 H
 
-| ID | 티켓 | 크기 | 의존 |
-|---|---|---|---|
-| T-001 | Naver 스크래퍼 정량 게이트: 행수 70% 룰 + **분포·스키마 검증** (필드 파싱 성공률 ≥95%, 값 범위 sanity — "행수 정상·내용 오염" 실패 유형 차단) + 단위테스트 | M | — |
-| T-002 | `batchUpsert` 실패 집계 → exit code + GH Issue 승격 (수집·점수 전 호출부) | M | — |
-| T-003 | 워크플로우 실패 Issue 알림 통합 (critical/warning 분리, warning은 일일 요약) | S | T-002 |
-| T-004 | `korean-trading-calendar` TLI 통합 (종목 수집 게이팅 + 영업일 유틸 export) | M | — |
-| T-005 | 좀비 테마 비활성화 분기 (점수 0행 + 30일) + 기존 좀비 일괄 정리 스크립트 | S | — |
-| T-006 | 월간 재교정을 요일 조건에서 분리 (매월 첫 실행일 수행) | S | — |
-| T-007 | 타임존 유틸 단일화 (`date-utils.ts`로 통합, 인라인 3곳 제거) | M | — |
-| T-008 | `stock_daily_prices` 신설 + 일일 적재 + KIS 일봉 백필 스크립트 | L | T-004 |
-| T-009 | 예측 parity 리포트 (재계산 vs 스냅샷 14일 측정) + Cooling 예측 문구 중단 | M | — |
-| T-010 | UI 스냅샷 읽기 전환 (T-009 SLA 통과 후, Phase 1 병행) + OpenAPI/MCP deprecation 표기 | M | T-009 |
+| ID | 티켓 | 결과 |
+|---|---|---|
+| T-001 | 스크래퍼 정량 게이트 | ✅ `naver-finance-theme-gates.ts` + 테마 격리 + 직전 DB 대비 70% |
+| T-002 | batchUpsert fail-loud | ✅ `batch-upsert-failures.ts`, batchUpsert 기본 throw |
+| T-003 | Issue 알림 정책 | ✅ 워크플로우 인라인 (critical 24h dedupe / warning digest) |
+| T-004 | 휴장일 캘린더 | ✅ `lib/tli/trading-calendar.ts` (archive hours 위임, 2025~2027) |
+| T-005 | 좀비 테마 정리 | ✅ `scoreless-zombie-themes.ts` + autoDeactivate 배선 |
+| T-006 | 월간 재교정 분리 | ✅ `monthly-calibration-schedule/state.ts` |
+| T-007 | 타임존 단일화 | ✅ `lib/tli/date-utils.ts` 위임 |
+| T-008 | stock_daily_prices + KIS | ✅ 031/032 적용·검증, 기간조회+KOSPI+volume. **잔여: 백필 1회 실행** |
+| T-009 | parity 리포트 + Cooling 문구 | ✅ 로더/리포트/배선. **잔여: 14일 측정 대기** |
+| T-010 | UI 스냅샷 전환 + deprecation | ⏸ **보류** — T-009 SLA(coverage≥90%, freshness≤1영업일) 통과 후 착수 |
 
-### Phase 1 — Ground Truth (7티켓)
+### Phase 1 — Ground Truth 파이프라인 (7티켓)
 
-| ID | 티켓 | 크기 | 의존 |
-|---|---|---|---|
-| T-101 | `theme_labels` 마이그레이션 + `lib/tli/labels/` 라벨러 (GT-A 산식+위생 규칙) | L | — |
-| T-102 | GT-A 소급 백필 (2026-01-07~) + 라벨 감사 리포트 (분포/절단율/rescale_suspect율) | M | T-101 |
-| T-103 | δ=+0.10 검증 리포트 (base rate 20~50% 확인, 이탈 시 재검토 Issue — Q1) | S | T-102 |
-| T-104 | GT-B 라벨러 (stock_daily_prices 기반) + 커버리지 리포트 | M | T-008, T-101 |
-| T-105 | 전 배치 앵커 슬롯 적용 (옵션 A: 배치 구성 5→앵커1+테마4) + `anchor_scaled_value` 적재 | L | — |
-| T-106 | 앵커 안정성 14일 관찰 리포트 (3후보 비교) + 앵커 키워드 확정 | S | T-105 |
-| T-107 | 일일 라벨 확정 잡 (pending→final) 파이프라인 편입 | M | T-101 |
+#### T-101 [L] `theme_labels` 스키마 + GT-A 라벨러 코어
+- **목적**: 외부 ground truth 저장소와 라벨 산식의 순수 함수 구현 (P1 원칙의 물리적 기반)
+- **의존**: 없음 (Phase 1 첫 티켓)
+- **작업**:
+  1. `supabase/migrations/033_create_theme_labels.sql` — 부록 D.1 DDL 그대로 + **다음 2개 추가**: ① `interest_metrics`에 `anchor_scaled_value numeric` (D.6, T-105가 사용) ② `themes`에 `keyword_epoch int NOT NULL DEFAULT 1`, `keyword_hash text` (keyword_epoch 단절 감지용, 아래 3). RLS는 031/032 패턴 (service_role 정책 + REVOKE anon/authenticated)
+  2. `lib/tli/labels/gt-a.ts` — **순수 함수** `labelGtA(input)`: 부록 G.2 의사코드를 그대로 구현. 시그니처: `labelGtA(input: { pastRaw: number[]; futureRaw: number[]; keywordEpochAtBase: number; keywordEpochAtFinalize: number; windowMaxRenewalGapDays: number | null; deactivatedBeforeHorizon: boolean }): GtALabelResult`. δ=+0.10 상수, `labeler_version='gta-v1'` 상수 export. 윈저라이즈 [-1.5,+1.5], 분모 하한 4, `low_signal`(denom<10), `rescale_suspect`(갭≤5영업일)
+  3. keyword_epoch 메커니즘: `scripts/tli/themes/theme-keywords.ts`의 키워드 upsert 경로에 "정렬된 키워드 목록의 해시를 `themes.keyword_hash`와 비교 → 다르면 `keyword_epoch+1` + hash 갱신" 추가. 라벨은 생성 시점 epoch을 기록하고, 확정 시점 epoch과 다르면 `excluded('keyword_epoch_break')`
+  4. `scripts/tli/labels/label-gt-a.ts` — DB 어댑터: 활성 테마 × 기준일에 대해 `interest_metrics` 로드(영업일 정렬은 `trading-calendar.ts`) → `labelGtA` 호출 → `theme_labels` upsert(`batchUpsert`, onConflict `theme_id,base_date,label_type,horizon_days`). 생성 시 `label_status='pending'`
+- **AC**: 마이그레이션이 원격 적용되고(`supabase db push`), 고정 픽스처(상승/하락/분모미달/절단/에폭단절/리스케일 6케이스)에 대해 라벨러가 스펙대로 판정
+- **테스트**: `lib/tli/__tests__/gt-a-labeler.test.ts` — 6케이스 + 윈저라이즈 경계 + δ 경계(g=0.10 정확히 → y=true)
+
+#### T-102 [M] GT-A 소급 백필 + 라벨 감사 리포트
+- **의존**: T-101
+- **작업**: `scripts/tli/ops/run-gt-a-backfill.ts` — 2026-01-07부터 어제까지 전 영업일 × 전 테마(비활성 포함, 당시 데이터 있으면) 라벨 생성. t+5 경과분은 즉시 `final` 확정. 완료 후 감사 리포트 JSON 출력: `{ totalLabels, finalCount, censoredRate, excludedByReason, rescaleSuspectRate, lowSignalRate, baseRate, gDistribution: {p10,p25,p50,p75,p90} }`. ops 스크립트 패턴(main().catch exit 1, 부록 H.9) 준수
+- **AC**: 백필 라벨 ≥ 2,000건 final, 감사 리포트 산출. 멱등성: 2회 실행해도 행 수 불변
+- **테스트**: 백필 로직의 날짜 경계(주말 시작일, 공휴일 낀 창) 단위테스트
+
+#### T-103 [S] δ=+0.10 검증 리포트 (Q1 게이트)
+- **의존**: T-102
+- **작업**: T-102 리포트의 `baseRate`가 **20~50% 범위인지 판정**하는 스텝을 백필 러너에 포함. 범위 이탈 시 exit 1 + 리포트에 `deltaReviewRequired: true` — 이 경우 작업 중단하고 Isaac에게 보고 (labeler_version 개정은 Isaac 결정)
+- **AC**: 리포트에 판정 필드 존재. 이탈 시 명확한 실패
+
+#### T-104 [M] GT-B 라벨러 (검증 라벨)
+- **의존**: T-101, T-008 백필 실행
+- **작업**: `lib/tli/labels/gt-b.ts` 순수 함수 — `r(i,t) = mean_j(close_j[t+5]/close_j[t] − 1) − (KOSPI[t+5]/KOSPI[t] − 1)`, j = 해당 테마 `theme_stocks` 상위 5종목(is_active, relevance 순 — `selectTopThemeStockSymbols` 재사용). 종목 중 시세 결측이 2개 초과면 `excluded('insufficient_prices')`, KOSPI 결측이면 `pending` 유지. `scripts/tli/labels/label-gt-b.ts` 어댑터 + 커버리지 리포트(라벨 가능 비율)
+- **AC**: 백필 구간 GT-B 커버리지 리포트 산출. **GT-B 실패가 GT-A 라벨링을 막지 않음** (독립 실행)
+- **테스트**: 초과수익 산술 + 결측 처리 케이스
+
+#### T-105 [L] DataLab 전 배치 앵커 (옵션 A) — ⚠️ 수집 파이프라인 변경, 이 Phase의 최고 리스크 티켓
+- **의존**: T-101 (anchor_scaled_value 컬럼)
+- **작업**:
+  1. `scripts/tli/collectors/naver-datalab.ts` — 배치 구성을 5테마 → **앵커 1 + 테마 4**로 변경. 앵커 키워드 상수 `ANCHOR_KEYWORD = '계산기'` + `ANCHOR_CANDIDATES = ['계산기','번역','지도']` (Q2). 배치 수 +26.7% — 기존 배치 간 delay·재시도 로직 그대로
+  2. 스케일 계산: 배치별 `scaleFactor = 1 / max(앵커의 7일 중앙값, ε)` — 앵커 시계열은 별도 버퍼에 누적 후 중앙값. `anchor_scaled_value = raw_value × scaleFactor`를 interest_metrics upsert에 포함 (**raw_value는 절대 불변**)
+  3. 앵커 드리프트 감시: 일일 앵커 CV 계산 → 14일 롤링 CV > 0.3이 2주 연속이면 warning (기존 warning 경로 → digest Issue)
+  4. **롤백 플래그**: `TLI_ANCHOR_ENABLED` env (기본 true) — false면 기존 5테마 배치로 즉시 복귀 (anchor_scaled_value는 null로 적재)
+- **AC**: 배치 구성 변경 후에도 기존 DataLab 게이트(커버리지 70%/제로값 90%) 통과 유지. anchor_scaled_value가 적재되기 시작. 롤백 플래그 동작 확인
+- **테스트**: 배치 구성 함수(앵커 삽입/테마 분할) + 스케일 산술 + 플래그 분기
+
+#### T-106 [S] 앵커 안정성 14일 관찰 리포트
+- **의존**: T-105 가동 14일 후
+- **작업**: `scripts/tli/ops/run-anchor-stability-report.ts` — 3후보의 14일 CV 비교 (후보 2개는 T-105 가동 중 주 1회 별도 배치로 샘플링하거나, 데이터 부족 시 주 앵커만 리포트). 최저 CV 후보가 '계산기'가 아니면 교체 검토 Issue 발행 (교체 자체는 `anchor_epoch` 태그와 함께 Isaac 승인)
+- **AC**: 리포트 산출 + 앵커 확정 기록 (본 PRD §11 Q2 행 갱신)
+
+#### T-107 [M] 일일 라벨 확정 잡 파이프라인 편입
+- **의존**: T-101
+- **작업**: `pipeline-steps.ts`에 Step 4.1 신설 (부록 G.4 접합점): ① 오늘 기준일 라벨 생성(pending) ② t−5영업일 pending 라벨에 실현값 기입 → `final`/`censored`/`excluded` 확정. full 모드에서만. 실패는 warning 분류 (라벨 지연은 다음 실행이 소급 처리 — `idx_theme_labels_pending` 인덱스 활용). `collect-and-score.ts` 결과 요약에 라벨 카운트 추가
+- **AC**: 파이프라인 2회 실행 시나리오 테스트에서 pending→final 전이 확인. 멱등성 (재실행 시 이중 확정 없음)
+- **테스트**: `scripts/tli/__tests__/label-finalize-step.test.ts` — mock supabase로 전이·멱등성
 
 ### Phase 2 — 베이스라인 + 평가 하네스 (7티켓)
 
-| ID | 티켓 | 크기 | 의존 |
-|---|---|---|---|
-| T-201 | 피처 빌더 (10피처, point-in-time 로더 + 결측 플래그) + 단위테스트 | L | T-105 |
-| T-202 | 베이스라인 2종: B-abl(현행 휴리스틱 GT-A 채점 ablation) + M0(룰) + base rate 산출 | M | T-201 |
-| T-203 | M1 학습 스크립트 (Python: 로지스틱+L2+class weight+Platt, 계수 JSON 출력) + **파일럿 Cox-Snell R² 실측 → Riley 최소표본 공식(`pmsampsize`)으로 M1 표본 충분성 확정** (R²≥0.08이면 충족, 0.05 미만이면 피처 축소) | M | T-201 |
-| T-204 | 평가 하네스 (walk-forward, 클러스터 부트스트랩, 비중복 서브셋 병행) — `comparison-stats.ts` 이식 | L | T-102 |
-| T-205 | 오프라인 평가 리포트 자동 생성 (Brier/ECE/IC/P@10 + CI) | M | T-202~204 |
-| T-206 | Go/No-Go 판정 문서 + Isaac 게이트 | S | T-205 |
-| T-207 | `theme_predictions_v3` 마이그레이션 + shadow 서빙 (기록만) | M | T-203 |
+#### T-201 [L] 피처 빌더 (10피처, point-in-time)
+- **의존**: T-105 (피처 2가 anchor_scaled_value 사용 — 축적 2주 미만이면 피처 2는 결측 플래그로 대체하고 진행)
+- **작업**: `lib/tli/features/build-features.ts` — 부록 G.1 수식 10개를 순수 함수로. 시그니처: `buildFeatureVector(input: FeatureInputs): { values: number[]; missingFlags: boolean[]; abstain: boolean; abstainReasons: string[] }`. 재사용 의무: `linearRegressionSlope`/`calculateDVI`/`log_normalize`/`percentileRank`(normalize.ts), 영업일 산술(trading-calendar.ts). abstain 규칙: 결측 >3개 또는 관심도 이력 <7일. DB 로더 `scripts/tli/features/load-feature-inputs.ts`는 **기준일 t 이전 데이터만** 조회 (point-in-time — `calculated_at`/`time` 필터 명시)
+- **AC**: 고정 픽스처에서 10피처 수식이 G.1과 일치 (수기 계산 대조 3케이스)
+- **테스트**: 피처별 단위테스트 + point-in-time 위반 가드 테스트 (t 이후 데이터 주입 시 결과 불변)
+
+#### T-202 [M] 베이스라인 2종 (B-abl + M0) + base rate
+- **의존**: T-201, T-102
+- **작업**: ① **B-abl**: 과거 `prediction_snapshots_v2`의 phase 판정('rising'=양성 예측)을 동일 (theme, date)의 GT-A final 라벨과 조인해 채점 — Brier/정밀도 산출 (현행 휴리스틱의 GT-A 성능 = 라벨 교체 효과의 대조군, §5.6). ② **M0**: `slope_7d > 0 AND news_momentum > 1` → p = train 구간 base rate (룰 히트 시), 아니면 1−base rate 보정. `lib/tli/model/baselines.ts`
+- **AC**: 두 베이스라인의 Brier/P@10이 리포트로 산출
+- **테스트**: M0 룰 분기 + B-abl 조인 로직
+
+#### T-203 [M] M1 학습 스크립트 (Python) + 표본 충분성 검증
+- **의존**: T-201
+- **작업**: `scripts/tli/learn/train_m1.py` — sklearn LogisticRegression(L2, class_weight='balanced') + Platt(내장 sigmoid calibration, `CalibratedClassifierCV` prefit) 학습. 입력: T-204 하네스가 덤프한 학습 데이터 JSON (Optuna의 `dump-data.ts` 패턴 재사용 — 네트워크 의존 없는 파일 입력). 출력: **부록 G.3 아티팩트 JSON 스키마 그대로** (feature_schema 순서 고정, scaler median/MAD, coefficients, calibrator a/b, seed=42). 파일럿 Cox-Snell R² 산출 → Riley `pmsampsize` 공식으로 최소 표본 판정 (R²≥0.08 충족 / <0.05면 피처 축소 권고 출력)
+- **AC**: 아티팩트 JSON이 스키마 검증 통과. R² 리포트 포함
+- **테스트**: `test_train_m1.py` — 합성 데이터로 학습·직렬화 왕복
+
+#### T-204 [L] 평가 하네스 (walk-forward + 클러스터 부트스트랩)
+- **의존**: T-102
+- **작업**: `lib/tli/eval/harness.ts` — ① walk-forward 분할 (purge gap 5영업일, 테마 클러스터 단위), ② 지표: Brier/ECE(quantile 5-bin·bin n≥30 wrapper — `forecast/calibration.ts::computeECE` 이식)/IC(일별 Spearman)/Rising-P@10, ③ CI: **테마 클러스터 부트스트랩 B=2,000** — `stats/comparison-stats.ts::clusterBootstrapPairedDelta` 재사용, ④ 비중복(주 1 기준일: 월요일) 서브셋 병행 산출, raw n·비중복 n 병기, ⑤ 클러스터 불균형 검사(상위 5% 테마가 라벨 30% 초과 → wild cluster bootstrap 전환)
+- **AC**: §8 지표 정의와 수식 일치. 동일 시드 재현성
+- **테스트**: 부트스트랩 결정성(시드 고정), purge gap 누수 가드, ECE wrapper bin 축소 분기
+
+#### T-205 [M] 오프라인 평가 리포트 자동 생성
+- **의존**: T-202, T-203, T-204
+- **작업**: `scripts/tli/learn/run-offline-eval.ts` — B-abl/M0/M1 3자를 백필 라벨로 walk-forward 평가 → markdown+JSON 리포트 (지표×모델 표, 클러스터 CI, censored율 의무 게시 §5.2)
+- **AC**: 리포트 1커맨드 재현 (`npm run tli:eval` — package.json 스크립트 추가)
+
+#### T-206 [S] Go/No-Go 판정 + Isaac 게이트
+- **의존**: T-205
+- **작업**: 판정 문서 작성 — **Go 조건: M1이 B-abl과 M0 양쪽 대비 Brier 개선 (클러스터 99% CI 상한 ≤ 0)**. Go → Phase 3 진행 / No-Go → 더 나은 베이스라인으로 T1 서빙 + 피처 개선 백로그 (§7). 본 PRD에 결과 기록 후 Isaac 승인
+- **AC**: 판정 근거가 T-205 리포트 수치로 추적 가능
+
+#### T-207 [M] `theme_predictions_v3` + shadow 서빙 (기록만)
+- **의존**: T-203 (Go/No-Go와 무관하게 shadow 기록은 선행 가능)
+- **작업**: `supabase/migrations/034_create_theme_predictions_v3.sql` — 부록 D.3 DDL 그대로 (serving_role/CHECK/champion 부분 유니크 포함) + RLS 031/032 패턴. `lib/tli/model/predict.ts` — 아티팩트 JSON을 읽어 추론하는 순수 TS 함수 (G.3: robust-z → w·z+b → sigmoid → Platt). **Python 학습기와 골든 벡터 대조 테스트 (오차 <1e-6)**. `pipeline-steps.ts` Step 6에 v3 기록 추가 (기존 v2 스냅샷과 병행 — 대체는 Phase 3)
+- **AC**: 마이그레이션 적용 + shadow 행이 일일 적재 + 골든 벡터 통과
+- **테스트**: 추론 순수 함수 + CHECK 제약 위반 케이스
 
 ### Phase 3 — 자동 루프 + 서빙 전환 (7티켓)
 
-| ID | 티켓 | 크기 | 의존 |
-|---|---|---|---|
-| T-301 | `tli-weekly-learn.yml` (4주 사이클: 챌린저 판정→승격→새 챌린저 고정, §5.7) + model_registry 등록 | L | T-207 |
-| T-302 | 자동 롤백 (롤링 4주 비중복 Brier 악화 감지, §5.7 — `model_metrics_daily` 소비) + 드라이런 2회 | M | T-301, T-303 |
-| T-303 | 일일 채점 잡 + `model_metrics_daily` 적재 | M | T-207 |
-| T-304 | T1 확률 UI (확률+CI+abstain 상태+실측 문구) — 기존 prediction 카드 대체 | L | T-303 |
-| T-305 | methodology 동적 섹션 (model_metrics_daily 집계 게시) | M | T-303 |
-| T-306 | shadow 2주 관찰 → 노출 전환 + 플래그 롤백 검증 | S | T-304 |
-| T-307 | 반사성 탐지 (R9): 발행 전후 raw_value 이벤트 스터디 자동화 + 노출/비노출 라벨 분포 분기 리포트 | M | T-303 |
+#### T-301 [L] `tli-weekly-learn.yml` 4주 사이클 + model_registry
+- **의존**: T-207
+- **작업**: ① `supabase/migrations/035_create_model_registry.sql` — 부록 D.4 + D.5(model_metrics_daily) 함께, RLS 동일 패턴. ② 워크플로우: 부록 G.6 스펙 그대로 (일요일 KST 06:00, 잡 5단계, dry_run 입력, 기존 시크릿 재사용, Python 셋업). ③ 체크포인트 판정: §8 의사코드를 `scripts/tli/learn/promotion-gate.ts` 순수 함수로 (n_eff≥250, 8주 연장, 연 6회 상한, Brier point+99% CI+상대 2%, ECE 이중조건, P@10 guardrail, 불균형 폴백). ④ 승격 = model_registry 트랜잭션 (champion/challenger 부분 유니크가 원자성 보장)
+- **AC**: 드라이런 2회 (모의 승격 1 + 모의 기각 1) 성공. 게이트 함수는 §8 의사코드와 분기 1:1
+- **테스트**: promotion-gate 전 분기 단위테스트 (보류/연장/상한/각 게이트 실패/통과)
 
-### Phase 4 — 감량 (5티켓)
+#### T-302 [M] 자동 롤백
+- **의존**: T-301, T-303
+- **작업**: weekly 워크플로우에 롤백 검사 스텝 — `model_metrics_daily`에서 서빙 챔피언의 롤링 4주 비중복 Brier vs 직전 버전 동기간, +10% 악화 시 이전 artifact 자동 복원(registry status 전환) + Issue. 드라이런 검증
+- **AC**: 모의 악화 데이터로 롤백 드라이런 성공
 
-| ID | 티켓 | 크기 | 의존 |
-|---|---|---|---|
-| T-401 | DELETE 목록 실행 (부록 B) + 참조 0 확인 2차 검증 패스 + 빌드 3종 | L | T-306 |
-| T-402 | 파라미터 50→20 체제 + 위표기 정정 + 고정상수 근거 주석 | M | T-401 |
-| T-403 | 스키마 정리 (rename 보존 30일 → DROP, 죽은 컬럼·뷰 제거) | M | T-401 |
-| T-404 | 문서 아카이브 이동 + 런북 갱신 + 본 PRD 최종화 | S | T-403 |
-| T-405 | (옵션, R10) Google Trends 어댑터 스켈레톤 — 인터페이스+인증만, 실수집 없음 | S | — |
+#### T-303 [M] 일일 채점 + `model_metrics_daily` 적재
+- **의존**: T-207
+- **작업**: `pipeline-steps.ts` Step 7을 v3 채점으로 확장 (기존 v2 평가와 병행): 만기(t+5영업일) 예측에 GT-A 실현값 기입(`scored`/`censored`/`excluded` — D.3 score_status), 일일 Brier/coverage/abstain율 → model_metrics_daily. `idx_predictions_v3_pending` 활용
+- **AC**: 7일 연속 적재 확인 (T-306 전환의 전제)
+- **테스트**: 채점 전이 + 지표 산술
+
+#### T-304 [L] T1 확률 UI (예측 카드 대체)
+- **의존**: T-303 + T-206 Go
+- **작업**: `app/themes/[id]/_components/theme-prediction/` — `calculatePrediction()` 라이브 호출 제거, `theme_predictions_v3` champion 스냅샷 조회 API로 교체 (P3: 노출=스냅샷=채점 단일 객체). 카드: 확률 + CI 밴드 + abstain 상태("데이터 수집 중 D+n") + **"최근 90일 실측: 상위 신호 정밀도 XX% (n=YY)"** 자동 문구 (model_metrics_daily 집계). §5.8 법적 고지 유지. **T-010 잔여分 흡수**: OpenAPI/MCP `phase` deprecation 표기 + 호환 파생값 (§5.3: p≥0.6 rising / 0.4~0.6 hot / <0.4 cooling, 6주 후 제거)
+- **AC**: 노출값 = DB 스냅샷 diff 0. 기존 UI 컴포넌트 재사용 (신규 공용 컴포넌트 필요 시 중단·보고 — Isaac 대원칙 3)
+- **테스트**: presentation 순수 함수 + API 계약 (부록 G.5)
+
+#### T-305 [M] methodology 동적 섹션
+- **의존**: T-303
+- **작업**: `app/api/tli/methodology/route.ts` + methodology 페이지 — 정적 수치 서술(GDDA 66% 등) 제거, model_metrics_daily 90일 집계를 읽는 동적 섹션으로 교체 (§5.8-3)
+- **AC**: 페이지 수치가 DB 집계와 일치, 정적 마케팅 수치 0
+
+#### T-306 [S] shadow 2주 관찰 → 노출 전환
+- **의존**: T-304
+- **작업**: shadow 2주 지표 리포트 → 이상 없으면 서빙 플래그 전환 (v2 카드 → v3 카드). 플래그 1개로 즉시 롤백 가능 (§7 Phase 3 롤백). 전환 후 1주 모니터
+- **AC**: 전환·롤백 왕복 검증
+
+#### T-307 [M] 반사성 탐지 (R9)
+- **의존**: T-303
+- **작업**: `scripts/tli/ops/run-reflexivity-report.ts` — ① 뉴스레터 발행 시각 전후 노출 테마의 raw_value 이벤트 스터디 (발행일 D0 대비 D+1~D+3 상대 변화 vs 비노출 대조군), ② 분기 리포트: 노출 상위 vs 비노출 테마 라벨 분포 비교. 유의 리프트 시 `exposure_suspect` 플래그 제안 Issue (자동 조치 없음 — 탐지 우선)
+- **AC**: 리포트 산출 + 분기 자동 Issue 리마인드 등록 (§9)
+
+### Phase 4 — 감량 + 정리 (5티켓)
+
+#### T-401 [L] DELETE 실행 (부록 B.2 목록)
+- **의존**: T-306 (노출 전환 완료 후)
+- **작업**: 삭제 규율(§6) 준수 — ① import graph + `tli-runtime-surface.ts`/`tli-boundary-manifest.ts`로 실사용 0 증명을 PR 본문에 첨부, ② 이식 선행: `forecast/calibration.ts::computeECE`(→ eval), fail-closed 패턴(forecast-serving), readback 검증(calibration-artifact), ③ B.2 DELETE 목록 실행 (prediction.ts 계열은 T-304 전환 완료가 전제), ④ manifest에서 삭제 항목 제거
+- **AC**: 빌드 3종 + 전 테스트 통과 + 잔존 참조 0 (2차 검증 패스 — 벌크 변경 규칙)
+- **테스트**: 기존 스위트 그린 유지가 곧 AC
+
+#### T-402 [M] 파라미터 50→20 체제
+- **의존**: T-401
+- **작업**: `tli-params.ts` 재편 — 부록 B.1 처분표 그대로 (Prediction 5·Comparison 5·Confidence 2 삭제, Smoothing 6→2, Interest/News/Vol 10→6, Activity 11→4). "Bayesian Optimized" 위표기 정정 (탐색공간 포함 이력 있는 값만). 잔존 20개 각각에 근거 주석 (P6: 루프 소속 또는 고정상수 문서화)
+- **AC**: 파라미터 감사 문서 (남은 20개 × 근거) + 전 테스트 통과
+
+#### T-403 [M] 스키마 정리
+- **의존**: T-401
+- **작업**: `prediction_snapshots_v2` 등 대체 완료 테이블 rename 보존 30일 → DROP 마이그레이션, 죽은 컬럼(`sentiment_score`)·뷰(`v_comparison_v4_serving`) 제거. 각 DROP 전 참조 0 확인
+- **AC**: 마이그레이션 적용 + 서빙 무영향 확인
+
+#### T-404 [S] 문서 아카이브 + 최종화
+- **의존**: T-403
+- **작업**: §0 대체 문서 14종 → `docs/archive/tli/` 이동, `tli-ops-runbook.md` 갱신 (신규 운영 절차: weekly-learn·롤백·앵커·라벨), 본 PRD 최종 상태 갱신 (문서 3개 체제: PRD+런북+methodology)
+- **AC**: docs/ 루트에 TLI 설계 문서 = 본 PRD 1개
+
+#### T-405 [S] (옵션, R10) Google Trends 어댑터 스켈레톤
+- **의존**: 없음
+- **작업**: 인터페이스+인증 스켈레톤만 (실수집 없음) — DataLab 두절 시 대체 경로의 사전 뼈대
+
+## 부록 H. Phase 0 As-Built 기록 (2026-07-06, 커밋 `bed3040`) — Phase 1+ 구현 에이전트 필독
+
+> 계획(v1.3) 대비 실제 구현의 차이와, 후속 티켓이 의존하는 실코드 계약. **이 부록과 어긋나는 가정으로 코딩하지 마라.**
+
+### H.1 거래일 캘린더 — 계획과 다른 소스 채택 (의도적)
+- 계획: `lib/utils/korean-trading-calendar.ts` 재사용 → **실제: `lib/tli/trading-calendar.ts`가 `app/archive/_utils/market/hours.ts` + `_constants/holidays.ts`에 위임** (KRX 휴장일이 더 완전: 근로자의날·연말휴장 포함, 2025~2027 데이터). 뉴스레터의 korean-trading-calendar는 TLI에서 미사용.
+- 공개 API: `isKoreanTradingDate(dateString)`, `shouldCollectTliStocks({mode, kstDate})`. noon-anchored 로컬 Date 패턴은 파일 주석의 WHY 참조 — **UTC 통일 리팩터링 금지**.
+- 2028년 데이터는 2027년 12월에 추가 필요 (holidays.ts 주석의 갱신 절차).
+
+### H.2 KIS 시세 클라이언트 — 사용 가능한 함수 4종
+`app/archive/_utils/api/kis/client.ts`:
+- `getDailyClosePrice(ticker, YYYYMMDD)` — 주식 단건 (FHKST03010100)
+- `getIndexDailyClosePrice(indexCode, YYYYMMDD)` — 지수 단건 (FHKUP03500100, KOSPI='0001')
+- `getDailyRangeClosePrices(ticker, start, end)` — **주식 기간조회 (1콜 최대 100영업일, close+volume)** ← 백필·일일 수집의 주 경로
+- `getIndexDailyRangeClosePrices(indexCode, start, end)` — 지수 기간조회
+- KOSPI 지수는 `stock_daily_prices.symbol='KOSPI'` 관례 (수집기가 '0001'로 자동 라우팅, 요청 목록 선두 고정 — 예산에 잘리지 않음).
+
+### H.3 stock_daily_prices — 가동 중
+- 마이그레이션 031(테이블)+032(REVOKE 락다운) **원격 적용·검증 완료** (anon `blocked`, service r/w ok). RLS 패턴: `service_role_all_{table}` 정책 + `REVOKE ALL FROM anon, authenticated` — **신규 테이블(033~035)은 이 패턴 복제**.
+- 일일 적재: `collect-and-score.ts`에서 full+거래일 조건, 기간조회(당일~당일)라 **volume 실적재됨** (Phase 2 피처 8 데이터 기반 확보). 콜 예산 1,000, 레이트리밋 초당 2콜.
+- 백필: `npx tsx scripts/tli/ops/run-stock-daily-price-backfill.ts` — 심볼당 기간조회 1콜, 날짜 커버리지 리포트 포함. **아직 1회 실행 안 됨 (T-008 잔여)**.
+
+### H.4 수집 게이트 아키텍처 (T-001 as-built)
+- `naver-finance-theme-gates.ts`: Zod strict 스키마(파싱률≥95%) + 값 범위(가격 1~1천만, 등락 ±30 경계포함, 거래량≤50억) + `shouldRejectStockCollection({prevCount, collectedCount})` (직전 DB 대비 70%, prevCount<50이면 스킵).
+- 게이트 실패는 **테마 단위 격리** — 실패율 >30% 또는 전체 0건일 때만 집계 throw. 개별 테마 실패는 warn.
+- `countActiveThemeStocks()`는 `data-ops.ts` 소속.
+
+### H.5 fail-loud 계약 (T-002/T-003 as-built)
+- `batchUpsert(table, rows, onConflict, label)`은 **기본 옵션에서 부분 실패 시 `BatchUpsertPartialFailureError`를 내부 throw** — 호출부에서 반환값으로 재검증하지 마라 (죽은 코드). 의도적 opt-out은 `{failOnPartial: false}` (v4/shadow.ts 참조 패턴).
+- 파이프라인 결과 계약: `TLI_RESULT_PATH` env가 있으면 `tli-result.json`에 `{mode, criticalFailures, warningFailures, exitCode}` 기록 → 워크플로우의 critical(24h dedupe)/warning(daily digest) Issue 스텝이 소비. **Issue 정책은 워크플로우 인라인 JS가 유일 구현** (issue-policy.ts 모듈은 삭제됨 — 부활 금지).
+
+### H.6 parity 리포트 (T-009 as-built)
+- `prediction-parity-loader.ts`: snapshot_date **최근접(±1일) score 매칭**, 초과 시 `score_missing` 분류. 러너 `run-prediction-parity-report.ts` (`npm run tli:parity`), 워크플로우 full 모드에서 continue-on-error로 `$GITHUB_STEP_SUMMARY` 출력.
+- T-010 전환 조건: 14일 측정에서 coverage≥90% AND freshness≤1영업일.
+
+### H.7 월간 재교정·좀비·타임존
+- 월간 재교정: `monthly-calibration-schedule.ts`(정책: 월 1회 첫 eligible 거래일) + `monthly-calibration-state.ts`(confidence_calibration 테이블에 실행 기록). 조회 실패 시 'deferred'(다음 실행 재시도).
+- 좀비 정리: `scoreless-zombie-themes.ts`(점수 0행 + **≥30일**) — `autoDeactivate()` 안에서 자동 실행(dryRun:false, 실패 시 격리 warn). 수동 일괄: `run-zombie-theme-cleanup.ts` (TLI_ZOMBIE_CLEANUP_APPLY=true).
+- 타임존: `lib/tli/date-utils.ts`가 단일 소스 (`getKSTDate`, `getKSTDateString(offsetDays)`). scripts/tli/shared/utils.ts는 위임 래퍼만.
+
+### H.8 테스트·빌드 계약
+- **모든 scripts/tli 신규 non-test 파일은 `tli-boundary-manifest.ts` 등록 필수** (runtime/ops/research 분류) — 미등록 시 `tli-boundary-manifest.test.ts` 실패.
+- vitest는 `.omo/**`·`e2e/**` 제외 (vitest.config.ts). 머지 기준: tsc 신규 에러 0 + eslint 에러 0 + vitest 전체 + next build (부록 G.7).
+- 기존 tsc 에러 3건(app/__tests__/og-image, robots)은 사전 존재 무관 항목 — 건드리지 말 것.
+
+### H.9 ops 스크립트 관례
+`process.env.DOTENV_CONFIG_QUIET` → dotenv(.env.local) → `main().catch(e => { console.error; process.exit(1) })` 패턴 + env 숫자 파싱은 양수 검증(불량 시 기본값). JSON 결과를 stdout에 출력.
+
+### H.10 T-010 이연분의 귀속
+UI `calculatePrediction()` 라이브 호출 제거와 OpenAPI/MCP `phase` deprecation은 **T-304에 흡수됨** (부록 E) — Phase 3 전까지 해당 코드를 건드리지 마라.
 
 ## 부록 F. 과학적 타당성 검토 — "이 재구성으로 유효·유용한 수준에 도달할 수 있는가"
 
@@ -1006,7 +1181,8 @@ labelGtA(theme, t):                       # t = KST 영업일
 4. 스키마 변경은 `supabase/migrations/NNN_*.sql` 연번 + RLS service_role 전용 (030 기조).
 5. 매 Phase 종료: Isaac 게이트 리포트 (증빙: 빌드 3종 + AC 체크리스트 + diff 요약).
 
-### G.8 Phase 0 킥오프 순서 (Definition of Ready 충족 확인)
+### G.8 킥오프 상태 (v2.0 — Phase 1 기준)
 
-- [x] 근본 원인·설계 결정 문서화 (§2~5) / [x] 스키마 DDL (부록 D) / [x] 티켓 분해+의존성 (부록 E) / [x] 수식·계약 (부록 G) / [x] 오픈 퀘스천 Q1~Q6 **결정 완료** (§11, 2026-07-03 Isaac 위임) / [ ] **Isaac PRD 최종 승인**
-- 착수 순서: T-002(실패 전파, 최우선 — 2/10 사고 재발 차단) → T-001·T-004·T-007 병렬 → T-003 → T-005·T-006 → T-008 → T-009. 첫 주 완료 목표.
+- [x] Phase 0 완료 (2026-07-06, `bed3040` — as-built 부록 H) / [x] 스키마 DDL+마이그레이션 번호 (부록 D) / [x] Phase 1~4 티켓 실행 명세 (부록 E) / [x] Q1~Q6 결정 (§11) / [x] Isaac 승인 (Phase 0 CTO 리뷰·커밋으로 갈음, 2026-07-06)
+- **Phase 1 착수 순서**: T-101(스키마+라벨러 코어, 최우선) → T-102·T-105 병렬 (백필 ‖ 앵커 전환) → T-103(δ 검증 게이트) → T-104·T-107 → T-106(14일 후). 선행 잔여: T-008 KIS 백필 1회 실행.
+- 구현 에이전트 진입점: **부록 H 정독 → 부록 E에서 티켓 선택 → 참조된 G/D 섹션 확인 → 1티켓 1PR**.
