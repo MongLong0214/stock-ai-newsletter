@@ -997,6 +997,7 @@ CREATE TABLE model_metrics_daily (
 
 ### H.3 stock_daily_prices — 가동 중
 - 마이그레이션 031(테이블)+032(REVOKE 락다운) **원격 적용·검증 완료** (anon `blocked`, service r/w ok). RLS 패턴: `service_role_all_{table}` 정책 + `REVOKE ALL FROM anon, authenticated` — **신규 테이블(033~035)은 이 패턴 복제**.
+- **마이그레이션 적용 절차**: Supabase CLI가 프로젝트에 링크돼 있고 원격 히스토리가 001~032까지 **완전 동기화됨** (2026-07-06 repair 완료) → 신규 마이그레이션은 `supabase db push --linked --dry-run`으로 대상 확인 후 `supabase db push --linked`가 표준 경로. Management API/대시보드 수동 실행 금지 (히스토리 불일치 재발 방지). 적용 후 anon/service 프로브 검증 관례 (H.3 첫 줄 방식).
 - 일일 적재: `collect-and-score.ts`에서 full+거래일 조건, 기간조회(당일~당일)라 **volume 실적재됨** (Phase 2 피처 8 데이터 기반 확보). 콜 예산 1,000, 레이트리밋 초당 2콜.
 - 백필: `npx tsx scripts/tli/ops/run-stock-daily-price-backfill.ts` — 심볼당 기간조회 1콜, 날짜 커버리지 리포트 포함. **아직 1회 실행 안 됨 (T-008 잔여)**.
 
