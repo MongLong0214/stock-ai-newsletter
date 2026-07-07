@@ -126,3 +126,21 @@ Status: 스냅샷 문서 — 작성 시점 이후 상태 변화 가능. 최신 �
 2. model_registry 상태 확인 (champion/challenger 현재 model_version).
 3. `docs/tli-v3-early-promotion-preregistration.md` §7 실행 기록에 새 항목이 추가됐는지 확인 (다음 주 재상정 시도 여부).
 4. 라이브 shadow의 p_rise non-null 비율 확인 (1,000행 캡 수정이 실제로 유지되고 있는지 회귀 감시).
+
+## 9. 부록 — 백로그 일괄 처리 (2026-07-07 오후, 커밋 408df9e·e433bb6)
+
+Isaac 지시로 남은 백로그 7건 전량 처리. 코드 수정은 전부 codex(gpt-5.5 xhigh)에 위임, 메인은 판단·스펙·리뷰.
+
+| 항목 | 결과 |
+|---|---|
+| 앵커 date-matching 버그 | `anchor_scaled_value`가 DataLab 1일 지연 탓에 배포 이래 영구 null이던 것 발견·수정 (테마별 max-date 기준). **T-106 앵커 시계는 오늘 시작된 적이 없었음** — 앞선 "오늘 시작" 판단은 오류였고, 이 수정이 실적재된 첫 배치(다음 정기 크론)부터 진짜 시작. |
+| ECE bin tie-splitting | 동일확률 run이 bin 경계서 쪼개지던 편향 → tie-aware 경계 |
+| 비중복 subset | UTC월요일 → ISO주 first-trading-day (휴장 월요일 누락 해소) |
+| 바스켓 survivorship | created_at≤baseDate PIT 필터. 잔존 한계(제거된 종목)는 멤버십 이력 테이블 필요 — 문서화, 향후 스키마 작업 |
+| reflexivity 통계검정 | 임계값-only → 결정적 permutation test(α=0.05) + 효과크기 이중조건, v2 |
+| offline-eval 윈도우 | data-anchored 기본값(순수 resolveEvalWindow helper) |
+| PRD 문서 2건 | G.3 platt 표기 정정 + 소급 백필 epoch 감지 한계 노트 |
+
+**중대한 부수 발견 (무결성 정정)**: 바스켓 look-ahead 제거 후 M1 offline IC가 0.2173 → 0.0516으로 급락. **이전 커밋된 Go rev 2 수치는 바스켓 미래정보 누수로 부풀려진 값**이었음(Go/No-Go rev 3에 정정). offline Go 게이트(Brier 99% CI + ECE<0.08)는 여전히 통과하나, M1은 "강한 랭커"가 아니라 **"잘 보정된 약한 랭커"**. 리플레이 감사 2차도 ECE 0.0804 > 0.08로 여전히 C3 탈락 (0.0887→0.0804 개선됐으나 미달) → 조기 승격 없음 유지.
+
+**교훈**: offline 우수 지표가 look-ahead 누수로 과대평가될 수 있음. 승격 판단의 결정적 관문은 전향 shadow의 IC/P@10 실측. 방법론 수정을 재평가 전에 커밋(408df9e < e433bb6)한 것이 게이밍 부재의 순서 증거.
