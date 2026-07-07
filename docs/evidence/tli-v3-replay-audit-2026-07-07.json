@@ -27,12 +27,12 @@
       "nScored": 1316,
       "coverage": 0.8832214765100671,
       "baseRate": 0.21580547112462006,
-      "brier": 0.1815905906015764,
-      "ece": 0.08868769205537129,
+      "brier": 0.17422746792561944,
+      "ece": 0.08041745429853658,
       "eceBinCount": 5,
       "eceUpper95": null,
-      "ic": 0.10840202426026622,
-      "risingPAt10": 0.23571428571428574
+      "ic": 0.1800739986505461,
+      "risingPAt10": 0.2857142857142857
     },
     "bAbl": {
       "totalCandidates": 1490,
@@ -40,8 +40,8 @@
       "coverage": 1,
       "baseRate": 0.212751677852349,
       "brier": 0.212751677852349,
-      "ece": 0.21275167785234902,
-      "eceBinCount": 5,
+      "ece": 0.212751677852349,
+      "eceBinCount": 1,
       "eceUpper95": null,
       "ic": null,
       "risingPAt10": 0.17857142857142863
@@ -49,45 +49,45 @@
   },
   "weeklyNonOverlap": {
     "m1": {
-      "totalCandidates": 207,
-      "nScored": 185,
-      "coverage": 0.893719806763285,
-      "baseRate": 0.16756756756756758,
-      "brier": 0.14344428585428076,
-      "ece": 0.07701972787792366,
+      "totalCandidates": 319,
+      "nScored": 285,
+      "coverage": 0.8934169278996865,
+      "baseRate": 0.20350877192982456,
+      "brier": 0.16148617519067737,
+      "ece": 0.06947115631782184,
       "eceBinCount": 5,
       "eceUpper95": null,
-      "ic": 0.151243489913416,
-      "risingPAt10": 0.2
+      "ic": 0.2468344008533835,
+      "risingPAt10": 0.39999999999999997
     },
     "bAbl": {
-      "totalCandidates": 207,
-      "nScored": 207,
+      "totalCandidates": 319,
+      "nScored": 319,
       "coverage": 1,
-      "baseRate": 0.15942028985507245,
-      "brier": 0.15942028985507245,
-      "ece": 0.15942028985507248,
-      "eceBinCount": 5,
+      "baseRate": 0.2006269592476489,
+      "brier": 0.2006269592476489,
+      "ece": 0.2006269592476489,
+      "eceBinCount": 1,
       "eceUpper95": null,
       "ic": null,
-      "risingPAt10": 0.1
+      "risingPAt10": 0.13333333333333333
     }
   },
   "brierDeltaCi": {
     "metric": "brier",
     "method": "cluster_bootstrap",
-    "meanDelta": -0.02412328171328675,
-    "lower": -0.06976477432748951,
-    "upper": 0.016419765543152772,
-    "clusterCount": 109,
-    "observationCount": 185,
+    "meanDelta": -0.042022596739147336,
+    "lower": -0.07614482998317842,
+    "upper": -0.009302582947969332,
+    "clusterCount": 126,
+    "observationCount": 285,
     "iterations": 2000,
     "confidenceLevel": 0.99,
     "imbalance": {
-      "clusterCount": 109,
-      "observationCount": 185,
-      "topClusterCount": 6,
-      "topClusterShare": 0.06486486486486487,
+      "clusterCount": 126,
+      "observationCount": 285,
+      "topClusterCount": 7,
+      "topClusterShare": 0.07368421052631578,
       "useWildClusterBootstrap": false
     }
   },

@@ -1,90 +1,90 @@
 {
   "reportVersion": "tli-offline-eval-report-v1",
-  "startDate": "2026-01-07",
-  "endDate": "2026-07-07",
+  "startDate": "2026-01-12",
+  "endDate": "2026-06-30",
   "models": {
     "bAbl": {
-      "rawN": 8941,
-      "nonOverlappingN": 1751,
+      "rawN": 8527,
+      "nonOverlappingN": 1956,
       "raw": {
-        "totalCandidates": 8941,
-        "nScored": 7083,
-        "coverage": 0.7921932669723745,
-        "baseRate": 0.24424678808414513,
-        "brier": 0.24481152054214317,
-        "ece": 0.24368205562614711,
-        "eceBinCount": 5,
+        "totalCandidates": 8527,
+        "nScored": 5294,
+        "coverage": 0.6208514131582034,
+        "baseRate": 0.25179448432187385,
+        "brier": 0.25255005666792596,
+        "ece": 0.25255005666792596,
+        "eceBinCount": 2,
         "eceUpper95": null,
-        "ic": -0.05705577444130644,
-        "risingPAt10": 0.20923076923076916
+        "ic": -0.06253171758651468,
+        "risingPAt10": 0.21363636363636354
       },
       "weeklyMonday": {
-        "totalCandidates": 1751,
-        "nScored": 1289,
-        "coverage": 0.7361507709880069,
-        "baseRate": 0.23196276183087663,
-        "brier": 0.23196276183087663,
-        "ece": 0.23196276183087666,
-        "eceBinCount": 5,
+        "totalCandidates": 1956,
+        "nScored": 1209,
+        "coverage": 0.6180981595092024,
+        "baseRate": 0.23490488006617039,
+        "brier": 0.23573200992555832,
+        "ece": 0.23573200992555832,
+        "eceBinCount": 2,
         "eceUpper95": null,
-        "ic": null,
-        "risingPAt10": 0.17500000000000002
+        "ic": -0.05167423893288018,
+        "risingPAt10": 0.2066666666666667
       }
     },
     "m0": {
-      "rawN": 8941,
-      "nonOverlappingN": 1751,
+      "rawN": 8527,
+      "nonOverlappingN": 1956,
       "raw": {
-        "totalCandidates": 8941,
-        "nScored": 8941,
-        "coverage": 1,
-        "baseRate": 0.24605748797673638,
-        "brier": 0.395990343979028,
-        "ece": 0.4452733911726945,
-        "eceBinCount": 5,
+        "totalCandidates": 8527,
+        "nScored": 8518,
+        "coverage": 0.9989445291427231,
+        "baseRate": 0.24688894106597792,
+        "brier": 0.3945641451631177,
+        "ece": 0.4409520120924759,
+        "eceBinCount": 1,
         "eceUpper95": null,
-        "ic": -0.03616539227891614,
-        "risingPAt10": 0.23484848484848478
+        "ic": -0.03102106516783631,
+        "risingPAt10": 0.22575757575757568
       },
       "weeklyMonday": {
-        "totalCandidates": 1751,
-        "nScored": 1751,
-        "coverage": 1,
-        "baseRate": 0.240434037692747,
-        "brier": 0.40731953271769106,
-        "ece": 0.4652132257381214,
-        "eceBinCount": 5,
+        "totalCandidates": 1956,
+        "nScored": 1954,
+        "coverage": 0.9989775051124744,
+        "baseRate": 0.24309109518935518,
+        "brier": 0.4013003811003655,
+        "ece": 0.45683202897819036,
+        "eceBinCount": 1,
         "eceUpper95": null,
-        "ic": -0.07814496003627641,
-        "risingPAt10": 0.21538461538461545
+        "ic": -0.014678487858038778,
+        "risingPAt10": 0.24000000000000005
       }
     },
     "m1": {
-      "rawN": 8941,
-      "nonOverlappingN": 1751,
+      "rawN": 8527,
+      "nonOverlappingN": 1956,
       "raw": {
-        "totalCandidates": 8941,
-        "nScored": 8941,
-        "coverage": 1,
-        "baseRate": 0.24605748797673638,
-        "brier": 0.1775187895416067,
-        "ece": 0.019643161978948914,
+        "totalCandidates": 8527,
+        "nScored": 4996,
+        "coverage": 0.5859036003283687,
+        "baseRate": 0.2576060848678943,
+        "brier": 0.19626076465990003,
+        "ece": 0.0698066421738466,
         "eceBinCount": 5,
         "eceUpper95": null,
-        "ic": 0.21725137048081342,
-        "risingPAt10": 0.4893939393939393
+        "ic": 0.05163206290339434,
+        "risingPAt10": 0.3744186046511629
       },
       "weeklyMonday": {
-        "totalCandidates": 1751,
-        "nScored": 1751,
-        "coverage": 1,
-        "baseRate": 0.240434037692747,
-        "brier": 0.17914687153134706,
-        "ece": 0.02332796714765005,
+        "totalCandidates": 1956,
+        "nScored": 1294,
+        "coverage": 0.6615541922290389,
+        "baseRate": 0.25193199381761977,
+        "brier": 0.19198679473988742,
+        "ece": 0.06320039029907194,
         "eceBinCount": 5,
         "eceUpper95": null,
-        "ic": 0.20534751829958653,
-        "risingPAt10": 0.3923076923076923
+        "ic": 0.08103082255477216,
+        "risingPAt10": 0.3909090909090909
       }
     }
   },
@@ -92,130 +92,130 @@
     "m1VsBAbl": {
       "metric": "brier",
       "method": "cluster_bootstrap",
-      "meanDelta": -0.054680032873369755,
-      "lower": -0.07405673948570167,
-      "upper": -0.03530380083691636,
-      "clusterCount": 164,
-      "observationCount": 1289,
+      "meanDelta": -0.05170431056405922,
+      "lower": -0.0737594284727502,
+      "upper": -0.027869860075782245,
+      "clusterCount": 130,
+      "observationCount": 755,
       "iterations": 2000,
       "confidenceLevel": 0.99,
       "imbalance": {
-        "clusterCount": 164,
-        "observationCount": 1289,
-        "topClusterCount": 9,
-        "topClusterShare": 0.08378588052754073,
+        "clusterCount": 130,
+        "observationCount": 755,
+        "topClusterCount": 7,
+        "topClusterShare": 0.10198675496688742,
         "useWildClusterBootstrap": false
       }
     },
     "m1VsM0": {
       "metric": "brier",
       "method": "cluster_bootstrap",
-      "meanDelta": -0.22817266118633592,
-      "lower": -0.25403528877504183,
-      "upper": -0.20138560320665963,
-      "clusterCount": 169,
-      "observationCount": 1751,
+      "meanDelta": -0.20702467084197865,
+      "lower": -0.23859866715339384,
+      "upper": -0.17551994004066265,
+      "clusterCount": 146,
+      "observationCount": 1294,
       "iterations": 2000,
       "confidenceLevel": 0.99,
       "imbalance": {
-        "clusterCount": 169,
-        "observationCount": 1751,
-        "topClusterCount": 9,
-        "topClusterShare": 0.06681896059394632,
+        "clusterCount": 146,
+        "observationCount": 1294,
+        "topClusterCount": 8,
+        "topClusterShare": 0.06800618238021638,
         "useWildClusterBootstrap": false
       }
     },
     "m1VsBAblOverlappingRaw": {
       "metric": "brier",
       "method": "cluster_bootstrap",
-      "meanDelta": -0.06789589068680667,
-      "lower": -0.08371396838125836,
-      "upper": -0.05139266812101697,
-      "clusterCount": 169,
-      "observationCount": 7083,
+      "meanDelta": -0.06618197410682725,
+      "lower": -0.0877309860466878,
+      "upper": -0.045375338572303185,
+      "clusterCount": 146,
+      "observationCount": 2987,
       "iterations": 2000,
       "confidenceLevel": 0.99,
       "imbalance": {
-        "clusterCount": 169,
-        "observationCount": 7083,
-        "topClusterCount": 9,
-        "topClusterShare": 0.08259212198221093,
+        "clusterCount": 146,
+        "observationCount": 2987,
+        "topClusterCount": 8,
+        "topClusterShare": 0.11382658185470372,
         "useWildClusterBootstrap": false
       }
     },
     "m1VsM0OverlappingRaw": {
       "metric": "brier",
       "method": "cluster_bootstrap",
-      "meanDelta": -0.2184715544374012,
-      "lower": -0.23831563449477514,
-      "upper": -0.19690661718844718,
-      "clusterCount": 170,
-      "observationCount": 8941,
+      "meanDelta": -0.1966653306086312,
+      "lower": -0.22500652093346563,
+      "upper": -0.1690009040806593,
+      "clusterCount": 148,
+      "observationCount": 4995,
       "iterations": 2000,
       "confidenceLevel": 0.99,
       "imbalance": {
-        "clusterCount": 170,
-        "observationCount": 8941,
-        "topClusterCount": 9,
-        "topClusterShare": 0.06643552175371882,
+        "clusterCount": 148,
+        "observationCount": 4995,
+        "topClusterCount": 8,
+        "topClusterShare": 0.06886886886886887,
         "useWildClusterBootstrap": false
       }
     }
   },
   "labelStatus": {
-    "final": 15307,
+    "final": 15322,
     "censored": 0,
-    "excluded": 14938,
-    "pending": 1052,
-    "total": 31297,
+    "excluded": 14397,
+    "pending": 0,
+    "total": 29719,
     "censoredRate": 0,
-    "excludedRate": 0.4772981435920376
+    "excludedRate": 0.4844375651939836
   },
   "folds": [
     {
       "foldId": "wf-1",
-      "trainRows": 5798,
-      "testRows": 2907,
+      "trainRows": 6253,
+      "testRows": 2818,
       "trainDateRange": {
         "start": "2026-01-12",
-        "end": "2026-03-16"
+        "end": "2026-03-17"
       },
       "testDateRange": {
-        "start": "2026-03-23",
-        "end": "2026-04-21"
+        "start": "2026-03-24",
+        "end": "2026-04-22"
       },
-      "trainClusterCount": 199,
-      "testClusterCount": 152
+      "trainClusterCount": 198,
+      "testClusterCount": 147
     },
     {
       "foldId": "wf-2",
-      "trainRows": 8741,
-      "testRows": 2994,
+      "trainRows": 9092,
+      "testRows": 2880,
       "trainDateRange": {
         "start": "2026-01-12",
-        "end": "2026-04-15"
+        "end": "2026-04-16"
       },
       "testDateRange": {
-        "start": "2026-04-22",
-        "end": "2026-05-26"
+        "start": "2026-04-23",
+        "end": "2026-05-27"
       },
-      "trainClusterCount": 199,
-      "testClusterCount": 150
+      "trainClusterCount": 198,
+      "testClusterCount": 144
     },
     {
       "foldId": "wf-3",
-      "trainRows": 11722,
-      "testRows": 3040,
+      "trainRows": 11970,
+      "testRows": 2829,
       "trainDateRange": {
         "start": "2026-01-12",
-        "end": "2026-05-19"
+        "end": "2026-05-20"
       },
       "testDateRange": {
-        "start": "2026-05-27",
-        "end": "2026-06-29"
+        "start": "2026-05-28",
+        "end": "2026-06-30"
       },
-      "trainClusterCount": 199,
-      "testClusterCount": 167
+      "trainClusterCount": 198,
+      "testClusterCount": 160
     }
   ],
   "m1TrainingFailures": []

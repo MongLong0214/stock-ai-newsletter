@@ -6,8 +6,8 @@ Rows: scored 1490, excluded 1301, trading days 14
 
 | Model | raw n | scored n | coverage | Brier | ECE | IC | Rising-P@10 | weekly scored n | weekly Brier |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| M1 | 1490 | 1316 | 0.8832 | 0.1816 | 0.0887 | 0.1084 | 0.2357 | 185 | 0.1434 |
-| B-abl | 1490 | 1490 | 1.0000 | 0.2128 | 0.2128 | n/a | 0.1786 | 207 | 0.1594 |
+| M1 | 1490 | 1316 | 0.8832 | 0.1742 | 0.0804 | 0.1801 | 0.2857 | 285 | 0.1615 |
+| B-abl | 1490 | 1490 | 1.0000 | 0.2128 | 0.2128 | n/a | 0.1786 | 319 | 0.2006 |
 
 | Criterion | Pass |
 | --- | --- |
@@ -18,7 +18,7 @@ Rows: scored 1490, excluded 1301, trading days 14
 
 | Brier delta CI | Method | Mean delta | Lower | Upper | Clusters | Observations |
 | --- | --- | ---: | ---: | ---: | ---: | ---: |
-| M1 vs B-abl | cluster_bootstrap | -0.0241 | -0.0698 | 0.0164 | 109 | 185 |
+| M1 vs B-abl | cluster_bootstrap | -0.0420 | -0.0761 | -0.0093 | 126 | 285 |
 
 | Verdict | fail |
 

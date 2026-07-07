@@ -1,20 +1,20 @@
 # TLI Offline Evaluation
 
-Window: 2026-01-07 to 2026-07-07
-Label status: final 15307, censored 0 (0.0000), excluded 14938 (0.4773), pending 1052
+Window: 2026-01-12 to 2026-06-30
+Label status: final 15322, censored 0 (0.0000), excluded 14397 (0.4844), pending 0
 
 | Model | raw n | weekly n | Brier | ECE | IC | Rising-P@10 |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| bAbl | 8941 | 1751 | 0.2448 | 0.2437 | -0.0571 | 0.2092 |
-| m0 | 8941 | 1751 | 0.3960 | 0.4453 | -0.0362 | 0.2348 |
-| m1 | 8941 | 1751 | 0.1775 | 0.0196 | 0.2173 | 0.4894 |
+| bAbl | 8527 | 1956 | 0.2526 | 0.2526 | -0.0625 | 0.2136 |
+| m0 | 8527 | 1956 | 0.3946 | 0.4410 | -0.0310 | 0.2258 |
+| m1 | 8527 | 1956 | 0.1963 | 0.0698 | 0.0516 | 0.3744 |
 
 | Delta | CI method | mean Brier delta | lower | upper | clusters | observations |
 | --- | --- | ---: | ---: | ---: | ---: | ---: |
-| m1VsBAbl | cluster_bootstrap | -0.0547 | -0.0741 | -0.0353 | 164 | 1289 |
-| m1VsM0 | cluster_bootstrap | -0.2282 | -0.2540 | -0.2014 | 169 | 1751 |
-| m1VsBAblOverlappingRaw | cluster_bootstrap | -0.0679 | -0.0837 | -0.0514 | 169 | 7083 |
-| m1VsM0OverlappingRaw | cluster_bootstrap | -0.2185 | -0.2383 | -0.1969 | 170 | 8941 |
+| m1VsBAbl | cluster_bootstrap | -0.0517 | -0.0738 | -0.0279 | 130 | 755 |
+| m1VsM0 | cluster_bootstrap | -0.2070 | -0.2386 | -0.1755 | 146 | 1294 |
+| m1VsBAblOverlappingRaw | cluster_bootstrap | -0.0662 | -0.0877 | -0.0454 | 146 | 2987 |
+| m1VsM0OverlappingRaw | cluster_bootstrap | -0.1967 | -0.2250 | -0.1690 | 148 | 4995 |
 
 Walk-forward folds: 3
 M1 training failures: 0
