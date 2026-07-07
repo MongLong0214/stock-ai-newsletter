@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { buildFeatureVector } from '../../../lib/tli/features/build-features'
 
 type QueryPage = {
   readonly data: readonly unknown[] | null
@@ -126,6 +127,32 @@ describe('T-201 feature input loader assembly', () => {
     const assembled = assembleFeatureInputsFromRows(rowsWithFutureCompletion)
 
     expect(assembled.completedEpisodePeakDays).toHaveLength(2)
+  })
+
+  it('filters basket stocks to theme mappings created by baseDate', () => {
+    const rowsWithPointInTimeBasket: FeatureInputRows = {
+      ...rows,
+      themeStockRows: [
+        { theme_id: 'theme-a', symbol: '999999', relevance: 1, is_active: true, created_at: '2026-07-10T15:00:00.000Z' },
+        { theme_id: 'theme-a', symbol: '005930', relevance: 0.9, is_active: true, created_at: '2026-07-10T14:59:59.000Z' },
+        { theme_id: 'theme-a', symbol: '000660', relevance: 0.8, is_active: true, created_at: null },
+        { theme_id: 'theme-b', symbol: '111111', relevance: 1, is_active: true, created_at: '2026-07-01T00:00:00.000Z' },
+      ],
+      priceRows: [
+        ...rows.priceRows,
+        { symbol: '999999', trade_date: '2026-07-03', close: 1000, volume: 10_000 },
+        { symbol: '999999', trade_date: '2026-07-10', close: 2000, volume: 20_000 },
+        { symbol: '111111', trade_date: '2026-07-03', close: 1000, volume: 10_000 },
+        { symbol: '111111', trade_date: '2026-07-10', close: 2000, volume: 20_000 },
+      ],
+    }
+
+    const assembled = assembleFeatureInputsFromRows(rowsWithPointInTimeBasket)
+    const vector = buildFeatureVector(assembled)
+
+    expect(assembled.basketStocks.map((stock) => stock.symbol)).toEqual(['000660', '005930'])
+    expect(vector.values[6]).toBeCloseTo(0.09)
+    expect(vector.values[7]).toBeCloseTo(1)
   })
 })
 

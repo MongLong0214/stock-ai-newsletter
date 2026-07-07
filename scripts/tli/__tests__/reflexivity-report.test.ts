@@ -1,74 +1,92 @@
 import { describe, expect, it } from 'vitest'
+import type { ExposureEvent, InterestMetricRow, ThemeLabelRow } from '../ops/reflexivity-report'
 import { extractNewsletterExposureEvents } from '../ops/reflexivity-loader'
 import { buildReflexivityReport } from '../ops/reflexivity-report'
 
 const allThemeIds = ['theme-a', 'theme-b', 'theme-c', 'theme-d', 'theme-e', 'theme-f']
+const eventDate = '2026-07-01'
+
+function themeIds(prefix: string, count: number): string[] {
+  return Array.from({ length: count }, (_, index) => `${prefix}-${index + 1}`)
+}
+
+function fixtureExposureEvents(themeIdsInput: readonly string[]): ExposureEvent[] {
+  return themeIdsInput.map((themeId) => ({ themeId, exposureDate: eventDate, source: 'fixture' }))
+}
+
+function fixtureInterestRows(themeIdsInput: readonly string[], futureRawValue: number): InterestMetricRow[] {
+  return themeIdsInput.flatMap((themeId) => [
+    { themeId, date: eventDate, rawValue: 100 },
+    { themeId, date: '2026-07-02', rawValue: futureRawValue },
+  ])
+}
+
+function fixtureLabelRows(input: {
+  readonly themeIdsInput: readonly string[]
+  readonly positiveCount: number
+}): ThemeLabelRow[] {
+  return input.themeIdsInput.map((themeId, index) => ({
+    themeId,
+    baseDate: eventDate,
+    yBinary: index < input.positiveCount,
+    labelStatus: 'final',
+  }))
+}
 
 describe('buildReflexivityReport', () => {
-  it('proposes an exposure_suspect issue when exposed raw_value lift exceeds the control group', () => {
+  it('proposes an exposure_suspect issue when exposed raw_value lift is statistically significant', () => {
+    const exposedThemeIds = themeIds('exposed', 20)
+    const controlThemeIds = themeIds('control', 20)
     const report = buildReflexivityReport({
       asOfDate: '2026-07-06',
       quarterStart: '2026-07-01',
       quarterEnd: '2026-07-06',
-      allThemeIds,
-      eventWindowDays: 3,
-      minComparableEvents: 1,
+      allThemeIds: [...exposedThemeIds, ...controlThemeIds],
+      eventWindowDays: 1,
+      minComparableEvents: 5,
       liftThreshold: 0.15,
       labelLiftThreshold: 0.25,
       extractionMode: 'fixture',
-      exposureEvents: [
-        { themeId: 'theme-a', exposureDate: '2026-07-01', source: 'fixture' },
-        { themeId: 'theme-b', exposureDate: '2026-07-02', source: 'fixture' },
-      ],
+      exposureEvents: fixtureExposureEvents(exposedThemeIds),
       interestRows: [
-        { themeId: 'theme-a', date: '2026-07-01', rawValue: 100 },
-        { themeId: 'theme-a', date: '2026-07-02', rawValue: 130 },
-        { themeId: 'theme-a', date: '2026-07-03', rawValue: 140 },
-        { themeId: 'theme-a', date: '2026-07-04', rawValue: 150 },
-        { themeId: 'theme-b', date: '2026-07-02', rawValue: 80 },
-        { themeId: 'theme-b', date: '2026-07-03', rawValue: 104 },
-        { themeId: 'theme-b', date: '2026-07-04', rawValue: 112 },
-        { themeId: 'theme-b', date: '2026-07-05', rawValue: 120 },
-        { themeId: 'theme-c', date: '2026-07-01', rawValue: 100 },
-        { themeId: 'theme-c', date: '2026-07-02', rawValue: 105 },
-        { themeId: 'theme-c', date: '2026-07-03', rawValue: 105 },
-        { themeId: 'theme-c', date: '2026-07-04', rawValue: 105 },
-        { themeId: 'theme-d', date: '2026-07-02', rawValue: 200 },
-        { themeId: 'theme-d', date: '2026-07-03', rawValue: 210 },
-        { themeId: 'theme-d', date: '2026-07-04', rawValue: 210 },
-        { themeId: 'theme-d', date: '2026-07-05', rawValue: 210 },
+        ...fixtureInterestRows(exposedThemeIds, 150),
+        ...fixtureInterestRows(controlThemeIds, 100),
       ],
       labelRows: [],
     })
 
     expect(report.eventStudy.status).toBe('ready')
-    expect(report.eventStudy.exposed.meanRelativeChange).toBe(0.4)
-    expect(report.eventStudy.control.meanRelativeChange).toBe(0.033333)
-    expect(report.eventStudy.netLift).toBe(0.366667)
+    expect(report.reportVersion).toBe('tli-reflexivity-report-v2')
+    expect(report.thresholds.alpha).toBe(0.05)
+    expect(report.thresholds.permutationIterations).toBe(2000)
+    expect(report.eventStudy.exposed.meanRelativeChange).toBe(0.5)
+    expect(report.eventStudy.control.meanRelativeChange).toBe(0)
+    expect(report.eventStudy.netLift).toBe(0.5)
+    expect(report.eventStudy.significantLift).toBe(true)
+    expect(report.eventStudy.permutationIterations).toBe(2000)
+    expect(report.eventStudy.pValue).toBeLessThanOrEqual(0.05)
+    expect(report.eventStudy.statisticallySignificant).toBe(true)
     expect(report.issueProposal?.labels).toContain('exposure_suspect')
     expect(report.recommendedAction).toBe('propose_exposure_suspect_issue')
   })
 
-  it('compares exposed and unexposed quarterly label distributions', () => {
+  it('proposes an exposure_suspect issue when label lift is statistically significant', () => {
+    const exposedThemeIds = themeIds('label-exposed', 20)
+    const unexposedThemeIds = themeIds('label-unexposed', 20)
     const report = buildReflexivityReport({
       asOfDate: '2026-07-06',
       quarterStart: '2026-07-01',
       quarterEnd: '2026-07-06',
-      allThemeIds,
-      minComparableEvents: 2,
+      allThemeIds: [...exposedThemeIds, ...unexposedThemeIds],
+      minComparableEvents: 5,
       liftThreshold: 0.50,
       labelLiftThreshold: 0.40,
       extractionMode: 'fixture',
-      exposureEvents: [
-        { themeId: 'theme-a', exposureDate: '2026-07-01', source: 'fixture' },
-        { themeId: 'theme-b', exposureDate: '2026-07-02', source: 'fixture' },
-      ],
+      exposureEvents: fixtureExposureEvents(exposedThemeIds),
       interestRows: [],
       labelRows: [
-        { themeId: 'theme-a', baseDate: '2026-07-01', yBinary: true, labelStatus: 'final' },
-        { themeId: 'theme-b', baseDate: '2026-07-02', yBinary: true, labelStatus: 'final' },
-        { themeId: 'theme-c', baseDate: '2026-07-01', yBinary: false, labelStatus: 'final' },
-        { themeId: 'theme-d', baseDate: '2026-07-01', yBinary: false, labelStatus: 'final' },
+        ...fixtureLabelRows({ themeIdsInput: exposedThemeIds, positiveCount: 20 }),
+        ...fixtureLabelRows({ themeIdsInput: unexposedThemeIds, positiveCount: 0 }),
       ],
     })
 
@@ -76,7 +94,67 @@ describe('buildReflexivityReport', () => {
     expect(report.labelDistribution.exposed.positiveRate).toBe(1)
     expect(report.labelDistribution.unexposed.positiveRate).toBe(0)
     expect(report.labelDistribution.lift).toBe(1)
+    expect(report.labelDistribution.significantLift).toBe(true)
+    expect(report.labelDistribution.pValue).toBeLessThanOrEqual(0.05)
+    expect(report.labelDistribution.statisticallySignificant).toBe(true)
     expect(report.issueProposal?.evidence.labelDistributionSignificant).toBe(true)
+  })
+
+  it('does not propose an issue when a small label lift only crosses the effect threshold', () => {
+    const exposedThemeIds = themeIds('small-exposed', 5)
+    const unexposedThemeIds = themeIds('small-unexposed', 5)
+    const report = buildReflexivityReport({
+      asOfDate: '2026-07-06',
+      quarterStart: '2026-07-01',
+      quarterEnd: '2026-07-06',
+      allThemeIds: [...exposedThemeIds, ...unexposedThemeIds],
+      minComparableEvents: 5,
+      liftThreshold: 0.50,
+      labelLiftThreshold: 0.19,
+      extractionMode: 'fixture',
+      exposureEvents: fixtureExposureEvents(exposedThemeIds),
+      interestRows: [],
+      labelRows: [
+        ...fixtureLabelRows({ themeIdsInput: exposedThemeIds, positiveCount: 3 }),
+        ...fixtureLabelRows({ themeIdsInput: unexposedThemeIds, positiveCount: 2 }),
+      ],
+    })
+
+    expect(report.labelDistribution.status).toBe('ready')
+    expect(report.labelDistribution.lift).toBe(0.2)
+    expect(report.labelDistribution.significantLift).toBe(true)
+    expect(report.labelDistribution.pValue).toBeGreaterThan(0.05)
+    expect(report.labelDistribution.statisticallySignificant).toBe(false)
+    expect(report.issueProposal).toBeNull()
+    expect(report.recommendedAction).toBe('none')
+  })
+
+  it('returns deterministic permutation p-values for identical inputs', () => {
+    const exposedThemeIds = themeIds('stable-exposed', 5)
+    const unexposedThemeIds = themeIds('stable-unexposed', 5)
+    const input = {
+      asOfDate: '2026-07-06',
+      quarterStart: '2026-07-01',
+      quarterEnd: '2026-07-06',
+      allThemeIds: [...exposedThemeIds, ...unexposedThemeIds],
+      minComparableEvents: 5,
+      liftThreshold: 0.50,
+      labelLiftThreshold: 0.19,
+      extractionMode: 'fixture',
+      exposureEvents: fixtureExposureEvents(exposedThemeIds),
+      interestRows: [],
+      labelRows: [
+        ...fixtureLabelRows({ themeIdsInput: exposedThemeIds, positiveCount: 3 }),
+        ...fixtureLabelRows({ themeIdsInput: unexposedThemeIds, positiveCount: 2 }),
+      ],
+    } satisfies Parameters<typeof buildReflexivityReport>[0]
+
+    const first = buildReflexivityReport(input)
+    const second = buildReflexivityReport(input)
+
+    expect(first.labelDistribution.pValue).toBe(second.labelDistribution.pValue)
+    expect(first.labelDistribution.statisticallySignificant)
+      .toBe(second.labelDistribution.statisticallySignificant)
   })
 
   it('does not propose an issue when comparable raw_value and label samples are insufficient', () => {

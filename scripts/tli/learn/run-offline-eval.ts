@@ -12,6 +12,11 @@ import {
   type M1TrainingFailure,
   type OfflineEvalInput,
 } from './offline-eval'
+import {
+  resolveEvalInputDateBounds,
+  resolveEvalWindow,
+  type EvalDataDateBounds,
+} from './offline-eval-window'
 
 process.env.DOTENV_CONFIG_QUIET = process.env.DOTENV_CONFIG_QUIET ?? 'true'
 
@@ -19,7 +24,6 @@ interface FeatureEvalRow extends BaselineFeatureRow {
   readonly id: string
 }
 
-const DEFAULT_START_DATE = '2026-01-07'
 const DEFAULT_JSON_OUTPUT = '.omo/evidence/tli-v3-t205-offline-eval.json'
 const DEFAULT_MARKDOWN_OUTPUT = '.omo/evidence/tli-v3-t205-offline-eval.md'
 const DEFAULT_WORK_DIR = '.omo/evidence/tli-v3-t205-m1-folds'
@@ -33,13 +37,18 @@ const ensureParentDir = (path: string): void => {
   mkdirSync(dirname(path), { recursive: true })
 }
 
-const loadInput = async (startDate: string, endDate: string): Promise<OfflineEvalInput> => {
-  const inputPath = readArg('input')
-  if (!inputPath) {
-    const { loadOfflineEvalInput } = await import('./offline-eval-data')
-    return loadOfflineEvalInput(startDate, endDate)
-  }
-  return JSON.parse(readFileSync(inputPath, 'utf8')) as OfflineEvalInput
+const loadInputFile = (inputPath: string): OfflineEvalInput => (
+  JSON.parse(readFileSync(inputPath, 'utf8')) as OfflineEvalInput
+)
+
+const loadDbDateBounds = async (): Promise<EvalDataDateBounds> => {
+  const { loadOfflineEvalDateBounds } = await import('./offline-eval-data')
+  return loadOfflineEvalDateBounds()
+}
+
+const loadDbInput = async (startDate: string, endDate: string): Promise<OfflineEvalInput> => {
+  const { loadOfflineEvalInput } = await import('./offline-eval-data')
+  return loadOfflineEvalInput(startDate, endDate)
 }
 
 const toFeatureEvalRows = (rows: readonly BaselineFeatureRow[]): FeatureEvalRow[] => (
@@ -120,14 +129,20 @@ const buildWalkForwardM1Predictions = (input: {
 }
 
 async function main(): Promise<void> {
-  const endDate = readArg('end', new Date().toISOString().slice(0, 10)) ?? DEFAULT_START_DATE
-  const startDate = readArg('start', DEFAULT_START_DATE) ?? DEFAULT_START_DATE
+  const inputPath = readArg('input')
+  const inputFile = inputPath ? loadInputFile(inputPath) : null
+  const dataBounds = inputFile ? resolveEvalInputDateBounds(inputFile) : await loadDbDateBounds()
+  const { startDate, endDate } = resolveEvalWindow({
+    startArg: readArg('start'),
+    endArg: readArg('end'),
+    ...dataBounds,
+  })
   const jsonOutput = readArg('json-output', DEFAULT_JSON_OUTPUT) ?? DEFAULT_JSON_OUTPUT
   const markdownOutput = readArg('markdown-output', DEFAULT_MARKDOWN_OUTPUT) ?? DEFAULT_MARKDOWN_OUTPUT
   const workDir = readArg('work-dir', DEFAULT_WORK_DIR) ?? DEFAULT_WORK_DIR
   const labelerVersion = readArg('labeler-version', 'gta-v1') ?? 'gta-v1'
   const trainedAt = readArg('trained-at', endDate) ?? endDate
-  const input = await loadInput(startDate, endDate)
+  const input = inputFile ? { ...inputFile, startDate, endDate } : await loadDbInput(startDate, endDate)
   const generated = input.m1Predictions ? null : buildWalkForwardM1Predictions({
     featureRows: input.featureRows,
     workDir,

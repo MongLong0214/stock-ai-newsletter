@@ -49,7 +49,9 @@ export async function loadActiveThemes(): Promise<ThemeWithKeywords[]> {
 
 /**
  * 관심도 메트릭 저장.
- * anchor_scaled_value는 "당일(todayDate)" 신규 행에만 오늘 계산한 scaleFactor로 기록한다.
+ * anchor_scaled_value는 테마별 최신 수집일 행에만 이번 scaleFactor로 기록한다.
+ * Naver DataLab은 약 1일 지연되어 calendar-today와 최신 data.period가 다를 수 있으므로
+ * 기준일은 배치 실행일이 아니라 metrics 데이터 안의 themeId별 max(date)로 계산한다.
  * 과거 재수집분(30일 창의 이전 날짜)은 payload에서 anchor_scaled_value 컬럼 자체를 제외해
  * PostgREST upsert가 기존 as-of 값을 보존하도록 한다(walk-forward point-in-time 오염 방지).
  */
@@ -61,8 +63,15 @@ export async function upsertInterestMetrics(
     normalized: number
     anchorScaledValue?: number | null
   }>,
-  todayDate: string,
 ) {
+  const maxDateByThemeId = new Map<string, string>()
+  for (const m of metrics) {
+    const currentMaxDate = maxDateByThemeId.get(m.themeId)
+    if (currentMaxDate === undefined || m.date > currentMaxDate) {
+      maxDateByThemeId.set(m.themeId, m.date)
+    }
+  }
+
   const buildBaseRow = (m: (typeof metrics)[number]) => ({
     theme_id: m.themeId,
     time: m.date,
@@ -71,16 +80,16 @@ export async function upsertInterestMetrics(
     normalized: m.normalized,
   })
 
-  const todayRows = metrics
-    .filter(m => m.date === todayDate)
+  const newestRows = metrics
+    .filter(m => m.date === maxDateByThemeId.get(m.themeId))
     .map(m => ({ ...buildBaseRow(m), anchor_scaled_value: m.anchorScaledValue ?? null }))
   const pastRows = metrics
-    .filter(m => m.date !== todayDate)
+    .filter(m => m.date !== maxDateByThemeId.get(m.themeId))
     .map(buildBaseRow)
 
-  const todayFailed = await batchUpsert('interest_metrics', todayRows, 'theme_id,time,source', '관심도 메트릭(당일)')
+  const newestFailed = await batchUpsert('interest_metrics', newestRows, 'theme_id,time,source', '관심도 메트릭(최신 수집일)')
   const pastFailed = await batchUpsert('interest_metrics', pastRows, 'theme_id,time,source', '관심도 메트릭(과거 재수집)')
-  return todayFailed + pastFailed
+  return newestFailed + pastFailed
 }
 
 /** 뉴스 메트릭 저장 */

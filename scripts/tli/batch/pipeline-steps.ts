@@ -70,7 +70,7 @@ export async function collectDataSources(
         datalabFailed = true
         console.error(`❌ DataLab API 장애 의심: 제로값 비율 ${(zeroValueRate * 100).toFixed(1)}% >= 90% (후속 단계 생략)`)
       } else {
-        await upsertInterestMetrics(interestMetrics, endDate)
+        await upsertInterestMetrics(interestMetrics)
       }
     } catch (error: unknown) {
       criticalFailures++

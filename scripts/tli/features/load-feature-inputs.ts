@@ -1,5 +1,6 @@
 import { addKoreanTradingDays, countKoreanTradingDaysBetween } from '@/lib/tli/trading-calendar'
 import type { FeatureInputs, BasketStockFeatureInput } from '@/lib/tli/features/build-features'
+import { KST_OFFSET_MS } from '@/lib/tli/date-utils'
 import { KOSPI_INDEX_SYMBOL, selectTopThemeStockSymbols } from '@/scripts/tli/prices/stock-daily-prices'
 import { supabaseAdmin } from '@/scripts/tli/shared/supabase-admin'
 
@@ -21,6 +22,7 @@ export interface ThemeStockFeatureRow {
   readonly symbol: string
   readonly relevance: number | null
   readonly is_active: boolean
+  readonly created_at?: string | null
 }
 
 export interface StockDailyFeatureRow {
@@ -113,9 +115,25 @@ const getVolumesThroughBase = (
   'trade_date',
 ).slice(-count).flatMap((row) => getFiniteNumber(row.volume) ?? [])
 
+const getKstDateFromTimestamp = (timestamp: string | null | undefined): string | null => {
+  if (!timestamp) return null
+  const millis = new Date(timestamp).getTime()
+  if (!Number.isFinite(millis)) return null
+  const [datePart] = new Date(millis + KST_OFFSET_MS).toISOString().split('T')
+  return datePart ?? null
+}
+
 const buildBasketStocks = (input: FeatureInputRows): BasketStockFeatureInput[] => {
   const lookbackDate = addKoreanTradingDays(input.baseDate, -5)
-  return selectTopThemeStockSymbols(input.themeStockRows, 5).map((symbol) => ({
+  // Point-in-time eligibility can only prove the mapping existed by baseDate.
+  // Current is_active still drops later-deactivated stocks until membership history exists.
+  const basketRows = input.themeStockRows.filter((row) => {
+    if (row.theme_id !== input.themeId) return false
+    const createdDate = getKstDateFromTimestamp(row.created_at)
+    return createdDate === null || createdDate <= input.baseDate
+  })
+
+  return selectTopThemeStockSymbols(basketRows, 5).map((symbol) => ({
     symbol,
     closeAtLookback: getCloseAtDate(input.priceRows, symbol, lookbackDate),
     closeAtBase: getCloseAtDate(input.priceRows, symbol, input.baseDate),
@@ -216,7 +234,7 @@ export async function loadFeatureInputsForBaseDate(
       .order('id', { ascending: true })),
     supabaseAdmin
       .from('theme_stocks')
-      .select('theme_id, symbol, relevance, is_active')
+      .select('theme_id, symbol, relevance, is_active, created_at')
       .eq('theme_id', request.themeId)
       .eq('is_active', true),
     fetchAllRows<StockDailyFeatureRow>(() => supabaseAdmin

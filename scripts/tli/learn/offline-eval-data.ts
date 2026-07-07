@@ -12,13 +12,14 @@ import {
 } from '../features/load-feature-inputs'
 import { supabaseAdmin } from '../shared/supabase-admin'
 import type { LabelStatusCounts, OfflineEvalInput } from './offline-eval'
+import type { EvalDataDateBounds } from './offline-eval-window'
 
 interface QueryError {
   readonly message: string
 }
 
 interface RangeQuery<T> {
-  range(from: number, to: number): Promise<{
+  range(from: number, to: number): PromiseLike<{
     readonly data: readonly T[] | null
     readonly error: QueryError | null
   }>
@@ -75,6 +76,29 @@ const loadLabelRows = async (startDate: string, endDate: string): Promise<ThemeL
     .eq('label_type', 'gt_a')
     .gte('base_date', startDate)
     .lte('base_date', endDate))
+}
+
+const loadLabelBoundaryDate = async (ascending: boolean): Promise<string | null> => {
+  const { data, error } = await supabaseAdmin
+    .from('theme_labels')
+    .select('base_date')
+    .eq('label_type', 'gt_a')
+    .eq('label_status', 'final')
+    .not('y_binary', 'is', null)
+    .order('base_date', { ascending })
+    .limit(1)
+    .maybeSingle()
+
+  if (error) throw new Error(`GT-A label date boundary query failed: ${error.message}`)
+  return typeof data?.base_date === 'string' ? data.base_date : null
+}
+
+export async function loadOfflineEvalDateBounds(): Promise<EvalDataDateBounds> {
+  const [dataMinDate, dataMaxDate] = await Promise.all([
+    loadLabelBoundaryDate(true),
+    loadLabelBoundaryDate(false),
+  ])
+  return { dataMinDate, dataMaxDate }
 }
 
 const loadSnapshots = async (startDate: string, endDate: string): Promise<BaselineSnapshotRow[]> => {

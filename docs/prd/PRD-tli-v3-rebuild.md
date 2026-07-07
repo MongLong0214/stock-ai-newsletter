@@ -200,6 +200,7 @@
   - 이진 라벨: `y = 1 if g ≥ δ else 0`. **δ = +0.10 확정** (≈+10.5% 실질 성장, `labeler_version='gta-v1'`에 박제 — Q1 결정). 백필 리포트(T-103)는 확정이 아니라 **검증**: base rate가 20~50% 범위 이탈 시 재검토 Issue. **δ 변경은 새 labeler_version 발행으로만 가능하며, 서로 다른 labeler_version의 지표는 절대 동일 축에서 비교·보고하지 않는다** (Boomer B-11).
 - **외부성의 정확한 한계 (Boomer B-3 반영)**: raw_value는 "순수 외부 불변 라벨"이 아니라 **proxy label**이다 — 스코어링·예측 파라미터가 값을 바꿀 수 없다는 점에서 자기참조는 없지만(GDDA의 검증된 통찰), DataLab 30일 요청 창의 상대 스케일, 테마 키워드 구성, 정수 반올림 저장(`data-ops.ts`)에 의존한다. 따라서:
   - **테마 키워드 셋 변경은 라벨 단절 이벤트**: 키워드 변경일 이전/이후 라벨은 다른 계열로 취급 (theme_keywords 변경 감지 → 해당 테마 라벨에 `keyword_epoch` 태그, 걸친 창은 excluded)
+  - ⚠️ **소급 백필의 epoch 감지 한계 (실측 한계, 회피 불가)**: `keyword_epoch`/`anchor_epoch` 태깅은 변경을 **전향적으로** 감지한다(변경 시점에 태그 기록). 그러나 epoch 추적 장치가 도입되기 **이전** 기간을 소급 백필하면, 그 기간에 실제로 있었던 키워드/앵커 변경 이력이 남아있지 않아 재구성이 불가능하다 — theme_keywords는 현재 상태만 보관하고 변경 로그가 없기 때문. 따라서 **백필 라벨은 감지되지 않은 epoch 경계를 조용히 걸칠 수 있다**. 완화: ① 백필 구간 라벨은 `backfill_provenance='retro'`로 태그해 전향 수집분과 구분 ② base rate 이탈(20~50%) 검증(T-103)이 대규모 오염의 1차 방어선 ③ 근본 해결은 theme_keywords 변경 이력 테이블 신설(향후 스키마 작업, 이 PRD 범위 밖). **원칙**: 소급 백필 라벨은 "검증된 과거"가 아니라 "그럴듯한 재구성"으로 취급하고, 승격 게이트의 결정적 증거는 전향 shadow 라벨을 우선한다.
   - 정수 반올림: 분모 하한(≥4)과 로그비 정의가 반올림 노이즈를 상대적으로 완충하나, 저값 구간(raw<10) 라벨은 `low_signal` 플래그로 민감도 분석 대상
 - **위생 규칙**:
   - 분모 `mean ≥ min_raw_interest(4)` 미만이면 라벨 제외 (0-분모/노이즈 방지)
@@ -1146,7 +1147,8 @@ labelGtA(theme, t):                       # t = KST 영업일
 }
 ```
 
-- 서빙 추론(TS, `lib/tli/model/`): `p = platt(sigmoid(w·z + b))` — 순수 함수, 부작용 0, 단위테스트 필수 (Python 학습기와 골든 벡터 대조 테스트: 동일 입력 → 확률 오차 < 1e-6).
+- 서빙 추론(TS, `lib/tli/model/`): robust-z 스케일링(`z = (x−median)/(k·MAD)`) → 로지스틱 raw margin `m = w·z + b₀` → **Platt 보정을 raw margin에 직접 적용** `p = 1/(1 + exp(a·m + b))` (= `sigmoid(−(a·m + b))`). 순수 함수, 부작용 0, 단위테스트 필수 (Python 학습기와 골든 벡터 대조: 동일 입력 → 확률 오차 < 1e-6, 실측 골든 0.6387631751488418).
+  - ⚠️ 표기 주의: Platt는 sigmoid **이전**의 raw margin에 적용된다. 초안의 `platt(sigmoid(w·z+b))`는 sigmoid를 두 번 적용하는 오표기였음 — sklearn `CalibratedClassifierCV(method='sigmoid')` 규약(`1/(1+exp(A·f+B))`, f=decision_function 원점수)과 `m1.ts`의 실제 구현이 정본.
 - CI: 캘리브레이션 bin의 Wilson 95% (bin당 실측 적중률 기반, `level4-serving.ts`의 Wilson 구현 이식).
 
 ### G.4 파이프라인 접합점 (`pipeline-steps.ts` 기준)

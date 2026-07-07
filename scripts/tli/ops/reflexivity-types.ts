@@ -53,6 +53,9 @@ export interface EventStudySummary {
   readonly control: ChangeGroupSummary
   readonly netLift: number | null
   readonly significantLift: boolean
+  readonly pValue: number | null
+  readonly statisticallySignificant: boolean
+  readonly permutationIterations: number
 }
 
 export interface LabelGroupSummary {
@@ -68,6 +71,9 @@ export interface LabelDistributionSummary {
   readonly unexposed: LabelGroupSummary
   readonly lift: number | null
   readonly significantLift: boolean
+  readonly pValue: number | null
+  readonly statisticallySignificant: boolean
+  readonly permutationIterations: number
 }
 
 export interface ReflexivityIssueProposal {
@@ -83,7 +89,7 @@ export interface ReflexivityIssueProposal {
 }
 
 export interface ReflexivityReport {
-  readonly reportVersion: 'tli-reflexivity-report-v1'
+  readonly reportVersion: 'tli-reflexivity-report-v2'
   readonly asOfDate: string
   readonly quarter: {
     readonly start: string
@@ -95,6 +101,8 @@ export interface ReflexivityReport {
     readonly eventWindowDays: number
     readonly rawValueNetLift: number
     readonly labelPositiveRateLift: number
+    readonly alpha: number
+    readonly permutationIterations: number
   }
   readonly exposureSummary: {
     readonly exposureEventCount: number

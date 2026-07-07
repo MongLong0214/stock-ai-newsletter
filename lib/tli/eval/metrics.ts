@@ -2,6 +2,7 @@ import type { EvalObservation, EvalPredictionRow, PredictionEvaluationSummary, P
 
 const DEFAULT_ECE_BINS = 5
 const DEFAULT_ECE_MIN_BIN_SIZE = 30
+const ISO_DAY_MS = 24 * 60 * 60 * 1000
 
 const mean = (values: readonly number[]): number | null => (
   values.length === 0 ? null : values.reduce((sum, value) => sum + value, 0) / values.length
@@ -33,17 +34,22 @@ export function computeQuantileEce(
   if (scored.length < minBinSize) return { ece: null, binCount: 0 }
   const binCount = Math.max(1, Math.min(options.binCount ?? DEFAULT_ECE_BINS, Math.floor(scored.length / minBinSize)))
   let ece = 0
+  let effectiveBinCount = 0
+  let start = 0
   for (let index = 0; index < binCount; index++) {
-    const start = Math.floor(index * scored.length / binCount)
-    const end = Math.floor((index + 1) * scored.length / binCount)
+    let end = index === binCount - 1 ? scored.length : Math.floor((index + 1) * scored.length / binCount)
+    while (end < scored.length && scored[end - 1].probability === scored[end].probability) end++
+    if (end <= start) continue
     const bin = scored.slice(start, end)
     const predicted = mean(bin.map((row) => row.probability)) ?? 0
     const actual = mean(bin.map((row) => row.actual)) ?? 0
     ece += (bin.length / scored.length) * Math.abs(predicted - actual)
+    effectiveBinCount++
+    start = end
   }
   // N2: fail-closed — a corrupt/non-finite ECE must read as worst-case (1), not best-case (0),
   // matching the same contract as lib/tli/forecast/calibration.ts's computeECE.
-  return { ece: Number.isFinite(ece) ? ece : 1, binCount }
+  return { ece: Number.isFinite(ece) ? ece : 1, binCount: effectiveBinCount }
 }
 
 const rankValues = (values: readonly number[]): number[] => {
@@ -128,8 +134,29 @@ export function evaluatePredictionRows(
   }
 }
 
+const isoWeekKey = (baseDate: string): string => {
+  const date = new Date(`${baseDate}T00:00:00.000Z`)
+  const day = date.getUTCDay() || 7
+  date.setUTCDate(date.getUTCDate() + 4 - day)
+  const isoYear = date.getUTCFullYear()
+  const yearStart = new Date(Date.UTC(isoYear, 0, 1))
+  const week = Math.ceil(((date.getTime() - yearStart.getTime()) / ISO_DAY_MS + 1) / 7)
+  return `${isoYear}-${week.toString().padStart(2, '0')}`
+}
+
+/**
+ * Selects the first available trading day per ISO week from the supplied data.
+ *
+ * The exported name is kept for caller compatibility; this is not a UTC-Monday filter.
+ */
 export function selectWeeklyMondaySubset<T extends EvalObservation>(rows: readonly T[]): T[] {
-  return rows.filter((row) => new Date(`${row.baseDate}T00:00:00.000Z`).getUTCDay() === 1)
+  const firstBaseDateByWeek = new Map<string, string>()
+  for (const row of rows) {
+    const weekKey = isoWeekKey(row.baseDate)
+    const current = firstBaseDateByWeek.get(weekKey)
+    if (current === undefined || row.baseDate < current) firstBaseDateByWeek.set(weekKey, row.baseDate)
+  }
+  return rows.filter((row) => firstBaseDateByWeek.get(isoWeekKey(row.baseDate)) === row.baseDate)
 }
 
 export function evaluateWithWeeklyMondaySubset(
