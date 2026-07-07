@@ -31,6 +31,7 @@
     "tli:gt-a:backfill": "tsx scripts/tli/ops/run-gt-a-backfill.ts",
     "tli:baseline:report": "tsx scripts/tli/ops/run-baseline-report.ts",
     "tli:eval": "tsx scripts/tli/learn/run-offline-eval.ts",
+    "tli:replay-audit": "tsx scripts/tli/learn/run-replay-audit.ts",
     "tli:weekly-learn": "tsx scripts/tli/learn/run-weekly-learn.ts",
     "tli:weekly-rollback": "tsx scripts/tli/learn/run-weekly-rollback.ts",
     "tli:m1:train": "uv run scripts/tli/learn/train_m1.py",
