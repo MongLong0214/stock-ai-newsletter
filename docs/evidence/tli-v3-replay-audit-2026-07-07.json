@@ -1,0 +1,101 @@
+{
+  "reportVersion": "tli-replay-audit-v1",
+  "trainEnd": "2026-05-29",
+  "replayStart": "2026-06-08",
+  "replayEnd": "2026-06-26",
+  "scoredRows": 1490,
+  "excludedRows": 1301,
+  "tradingDays": [
+    "2026-06-09",
+    "2026-06-10",
+    "2026-06-11",
+    "2026-06-12",
+    "2026-06-15",
+    "2026-06-16",
+    "2026-06-17",
+    "2026-06-18",
+    "2026-06-19",
+    "2026-06-22",
+    "2026-06-23",
+    "2026-06-24",
+    "2026-06-25",
+    "2026-06-26"
+  ],
+  "metrics": {
+    "m1": {
+      "totalCandidates": 1490,
+      "nScored": 1316,
+      "coverage": 0.8832214765100671,
+      "baseRate": 0.21580547112462006,
+      "brier": 0.1815905906015764,
+      "ece": 0.08868769205537129,
+      "eceBinCount": 5,
+      "eceUpper95": null,
+      "ic": 0.10840202426026622,
+      "risingPAt10": 0.23571428571428574
+    },
+    "bAbl": {
+      "totalCandidates": 1490,
+      "nScored": 1490,
+      "coverage": 1,
+      "baseRate": 0.212751677852349,
+      "brier": 0.212751677852349,
+      "ece": 0.21275167785234902,
+      "eceBinCount": 5,
+      "eceUpper95": null,
+      "ic": null,
+      "risingPAt10": 0.17857142857142863
+    }
+  },
+  "weeklyNonOverlap": {
+    "m1": {
+      "totalCandidates": 207,
+      "nScored": 185,
+      "coverage": 0.893719806763285,
+      "baseRate": 0.16756756756756758,
+      "brier": 0.14344428585428076,
+      "ece": 0.07701972787792366,
+      "eceBinCount": 5,
+      "eceUpper95": null,
+      "ic": 0.151243489913416,
+      "risingPAt10": 0.2
+    },
+    "bAbl": {
+      "totalCandidates": 207,
+      "nScored": 207,
+      "coverage": 1,
+      "baseRate": 0.15942028985507245,
+      "brier": 0.15942028985507245,
+      "ece": 0.15942028985507248,
+      "eceBinCount": 5,
+      "eceUpper95": null,
+      "ic": null,
+      "risingPAt10": 0.1
+    }
+  },
+  "brierDeltaCi": {
+    "metric": "brier",
+    "method": "cluster_bootstrap",
+    "meanDelta": -0.02412328171328675,
+    "lower": -0.06976477432748951,
+    "upper": 0.016419765543152772,
+    "clusterCount": 109,
+    "observationCount": 185,
+    "iterations": 2000,
+    "confidenceLevel": 0.99,
+    "imbalance": {
+      "clusterCount": 109,
+      "observationCount": 185,
+      "topClusterCount": 6,
+      "topClusterShare": 0.06486486486486487,
+      "useWildClusterBootstrap": false
+    }
+  },
+  "criteria": {
+    "m1BrierBelowBAbl": true,
+    "m1BrierAbsolute": true,
+    "m1EceMax": false,
+    "m1IcPositive": true
+  },
+  "verdict": "fail"
+}
