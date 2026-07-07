@@ -30,6 +30,16 @@ const BATCH_SIZE = 50
 const PAGE_SIZE = 1000
 export const SCORE_QUERY_BATCH_SIZE = 10
 
+type ThemeNewsCountRpcRow = {
+  readonly theme_id: string
+  readonly news_count: number | string
+}
+
+export type ThemeNewsCountRow = {
+  readonly theme_id: string
+  readonly news_count: number
+}
+
 /** theme_stocks 배치 로더 (is_active=true) — 종목명 + 등락률 포함, 병렬 배치 */
 export async function batchLoadStockData(
   themeIds: string[]
@@ -61,36 +71,40 @@ export async function batchLoadStockData(
   return batchResults.flat()
 }
 
-/** theme_news_articles 배치 카운트 로더 (날짜 필터 포함, 병렬 배치) */
 export async function batchLoadNewsCounts(
   themeIds: string[],
   since: string
-): Promise<Array<{ theme_id: string }>> {
-  const chunks: string[][] = []
-  for (let i = 0; i < themeIds.length; i += BATCH_SIZE) {
-    chunks.push(themeIds.slice(i, i + BATCH_SIZE))
-  }
-  const batchResults = await Promise.all(
-    chunks.map(async (chunk) => {
-      const chunkResults: Array<{ theme_id: string }> = []
-      let from = 0
-      while (true) {
-        const { data, error } = await supabase
-          .from('theme_news_articles')
-          .select('theme_id')
-          .in('theme_id', chunk)
-          .gte('pub_date', since)
-          .range(from, from + PAGE_SIZE - 1)
-        if (error) throw new Error(`theme_news_articles batch load failed: ${error.message}`)
-        if (!data || data.length === 0) break
-        chunkResults.push(...data)
-        if (data.length < PAGE_SIZE) break
-        from += PAGE_SIZE
-      }
-      return chunkResults
+): Promise<ThemeNewsCountRow[]> {
+  try {
+    const { data, error } = await supabase.rpc('get_theme_news_counts', {
+      p_theme_ids: themeIds,
+      p_since: since,
     })
-  )
-  return batchResults.flat()
+
+    if (error) {
+      console.error('[TLI] theme news count RPC failed:', {
+        themeCount: themeIds.length,
+        since,
+        error: error.message,
+      })
+      return []
+    }
+
+    return (data ?? []).map((row: ThemeNewsCountRpcRow) => {
+      const newsCount = Number(row.news_count)
+      return {
+        theme_id: row.theme_id,
+        news_count: Number.isFinite(newsCount) ? newsCount : 0,
+      }
+    })
+  } catch (error: unknown) {
+    console.error('[TLI] theme news count RPC failed:', {
+      themeCount: themeIds.length,
+      since,
+      error: error instanceof Error ? error.message : String(error),
+    })
+    return []
+  }
 }
 
 /** Freshness decay: exponential decay for scores older than 7 days (Boomer HIGH fix) */
@@ -181,7 +195,7 @@ export function buildScoreMetaMap(
  */
 export function buildCountMaps(
   stocksList: Array<{ theme_id: string; name: string; price_change_pct: number | null }>,
-  newsList: Array<{ theme_id: string }>
+  newsList: ThemeNewsCountRow[]
 ): {
   stockCountMap: Map<string, number>
   stockNamesMap: Map<string, string[]>
@@ -213,7 +227,7 @@ export function buildCountMaps(
 
   const newsCountMap = new Map<string, number>()
   for (const n of newsList) {
-    newsCountMap.set(n.theme_id, (newsCountMap.get(n.theme_id) || 0) + 1)
+    newsCountMap.set(n.theme_id, n.news_count)
   }
 
   return { stockCountMap, stockNamesMap, avgStockChangeMap, newsCountMap }

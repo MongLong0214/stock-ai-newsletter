@@ -1,6 +1,27 @@
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ThemeListItem } from '@/lib/tli/types'
-import { SCORE_QUERY_BATCH_SIZE, applyFreshnessDecayToThemeData, buildThemeRanking } from './ranking-helpers'
+
+const { rpcMock } = vi.hoisted(() => ({
+  rpcMock: vi.fn(),
+}))
+
+vi.mock('@/lib/supabase', () => ({
+  supabase: {
+    rpc: rpcMock,
+  },
+}))
+
+import {
+  SCORE_QUERY_BATCH_SIZE,
+  applyFreshnessDecayToThemeData,
+  batchLoadNewsCounts,
+  buildCountMaps,
+  buildThemeRanking,
+} from './ranking-helpers'
+
+beforeEach(() => {
+  rpcMock.mockReset()
+})
 
 function makeTheme(overrides: Partial<ThemeListItem> = {}): ThemeListItem {
   return {
@@ -135,5 +156,52 @@ describe('buildThemeRanking', () => {
   it('uses a score query batch size that stays under the Supabase 1000-row cap for a 90-day window', () => {
     expect(SCORE_QUERY_BATCH_SIZE).toBe(10)
     expect(SCORE_QUERY_BATCH_SIZE * 90).toBeLessThanOrEqual(1000)
+  })
+})
+
+describe('batchLoadNewsCounts', () => {
+  it('loads aggregated news counts through the get_theme_news_counts RPC', async () => {
+    rpcMock.mockResolvedValue({
+      data: [
+        { theme_id: 'theme-1', news_count: 3 },
+        { theme_id: 'theme-2', news_count: 1 },
+      ],
+      error: null,
+    })
+
+    const counts = await batchLoadNewsCounts(['theme-1', 'theme-2'], '2026-07-01')
+    const { newsCountMap } = buildCountMaps([], counts)
+
+    expect(rpcMock).toHaveBeenCalledWith('get_theme_news_counts', {
+      p_theme_ids: ['theme-1', 'theme-2'],
+      p_since: '2026-07-01',
+    })
+    expect(newsCountMap.get('theme-1')).toBe(3)
+    expect(newsCountMap.get('theme-2')).toBe(1)
+    expect(newsCountMap.get('theme-3')).toBeUndefined()
+  })
+
+  it('returns zero effective counts when the news-count RPC fails', async () => {
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    rpcMock.mockResolvedValue({
+      data: null,
+      error: { message: 'statement timeout' },
+    })
+
+    const counts = await batchLoadNewsCounts(['theme-1'], '2026-07-01')
+    const { newsCountMap } = buildCountMaps([], counts)
+
+    expect(counts).toEqual([])
+    expect(newsCountMap.get('theme-1')).toBeUndefined()
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      '[TLI] theme news count RPC failed:',
+      {
+        themeCount: 1,
+        since: '2026-07-01',
+        error: 'statement timeout',
+      },
+    )
+
+    consoleErrorSpy.mockRestore()
   })
 })

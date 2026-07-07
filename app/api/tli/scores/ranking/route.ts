@@ -38,19 +38,30 @@ export async function GET(request: Request) {
     const sevenDaysAgo = getKSTDateString(-7)
     const ninetyDaysAgo = getKSTDateString(-90)
 
-    // 2) 모든 배치 쿼리 병렬 실행 (stocks + news + scores 동시)
     const scoreChunks: string[][] = []
     for (let i = 0; i < themeIds.length; i += SCORE_QUERY_BATCH_SIZE) {
       scoreChunks.push(themeIds.slice(i, i + SCORE_QUERY_BATCH_SIZE))
     }
 
-    const [stocksList, newsList, ...scoreBatches] = await Promise.all([
-      // 활성 종목 (배치 분할 — Supabase 1000행 제한 우회, 종목명 포함)
-      batchLoadStockData(themeIds),
-      // 뉴스 기사 (배치 분할 — theme_news_articles 기준, 상세 페이지와 동일 소스)
-      batchLoadNewsCounts(themeIds, sevenDaysAgo),
-      // lifecycle_scores 배치 조회 (병렬, 테마당 최대 90일)
-      ...scoreChunks.map(async (chunk) => {
+    const stocksPromise = batchLoadStockData(themeIds).catch((error: unknown) => {
+      console.error('[TLI API] ranking stock data load failed:', {
+        themeCount: themeIds.length,
+        error: error instanceof Error ? error.message : String(error),
+      })
+      return []
+    })
+
+    const newsPromise = batchLoadNewsCounts(themeIds, sevenDaysAgo).catch((error: unknown) => {
+      console.error('[TLI API] ranking news count load failed:', {
+        themeCount: themeIds.length,
+        since: sevenDaysAgo,
+        error: error instanceof Error ? error.message : String(error),
+      })
+      return []
+    })
+
+    const scoreBatchesPromise = Promise.all(
+      scoreChunks.map(async (chunk) => {
         const { data, error } = await supabase
           .from('lifecycle_scores')
           .select('theme_id, score, stage, is_reigniting, calculated_at, components')
@@ -60,7 +71,13 @@ export async function GET(request: Request) {
           .limit(1000)
         if (error) throw error
         return data ?? []
-      }),
+      })
+    )
+
+    const [stocksList, newsList, scoreBatches] = await Promise.all([
+      stocksPromise,
+      newsPromise,
+      scoreBatchesPromise,
     ])
 
     const scores: Array<{ theme_id: string; score: number; stage: string | null; is_reigniting: boolean; calculated_at: string; components: unknown }> = scoreBatches.flat()
