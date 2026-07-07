@@ -107,8 +107,8 @@ function ComparisonWorkspace({
                   <SummaryPill label="비교선" value={`${selectedSeries.length}개`} accent="sky" />
                 </div>
               </div>
-              <p className="mt-1 text-sm text-slate-400">
-                현재 테마 흐름과 선택한 유사 패턴을 같은 축에서 바로 비교합니다.
+              <p className="mt-1 text-sm leading-relaxed text-slate-400 break-keep">
+                현재 흐름과 선택한 유사 패턴을 한 차트에서 비교합니다.
               </p>
             </div>
           </div>
@@ -137,7 +137,7 @@ function ComparisonWorkspace({
                 </div>
               </div>
 
-              <div className="mt-3 flex items-stretch gap-2.5 overflow-x-auto custom-scroll pb-1 pr-1">
+              <div className="mt-3 grid gap-2.5 sm:flex sm:items-stretch sm:overflow-x-auto sm:pb-1 sm:pr-1 custom-scroll">
                 <SeriesToken
                   title={themeName}
                   subtitle="현재 테마 기준선"
@@ -161,11 +161,11 @@ function ComparisonWorkspace({
                     />
                   ))
                 ) : (
-                  <div className="flex min-h-[86px] min-w-[260px] flex-1 items-center rounded-[18px] border border-dashed border-slate-700/70 bg-black/20 px-4 py-3">
+                  <div className="flex min-h-[86px] w-full min-w-0 items-center rounded-[18px] border border-dashed border-slate-700/70 bg-black/20 px-4 py-3 sm:min-w-[260px] sm:flex-1">
                     <div>
-                      <p className="text-sm font-medium text-slate-100">비교선이 아직 선택되지 않았어요</p>
-                      <p className="mt-1 text-xs text-slate-400">
-                        오른쪽 유사 패턴 카드에서 비교할 패턴을 고르면 차트가 즉시 갱신됩니다.
+                      <p className="text-sm font-medium leading-snug text-slate-100 break-keep">비교선이 아직 없어요</p>
+                      <p className="mt-1 text-xs leading-relaxed text-slate-400 break-keep">
+                        유사 패턴 카드를 선택하면 차트가 바로 갱신됩니다.
                       </p>
                     </div>
                   </div>
@@ -264,7 +264,7 @@ function SeriesToken({
 }) {
   return (
     <div className={cn(
-      'min-w-[220px] rounded-[18px] border px-3.5 py-3 shadow-[0_10px_24px_rgba(2,6,23,0.18)]',
+      'w-full min-w-0 rounded-[18px] border px-3.5 py-3 shadow-[0_10px_24px_rgba(2,6,23,0.18)] sm:w-auto sm:min-w-[220px]',
       accent === 'emerald'
         ? 'border-emerald-500/18 bg-[linear-gradient(180deg,rgba(16,185,129,0.12),rgba(2,6,23,0.82))]'
         : 'border-slate-700/70 bg-[linear-gradient(180deg,rgba(15,23,42,0.9),rgba(2,6,23,0.82))]',
@@ -276,7 +276,7 @@ function SeriesToken({
             <span className="text-[10px] font-mono text-slate-200">표시 중</span>
           </div>
           <p className="mt-2.5 truncate text-sm font-semibold text-white">{title}</p>
-          <p className="mt-1 text-[11px] text-slate-400">{subtitle}</p>
+          <p className="mt-1 text-[11px] leading-snug text-slate-400 break-keep">{subtitle}</p>
         </div>
 
         {onRemove && (

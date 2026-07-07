@@ -3,11 +3,11 @@ import { siteConfig, withOgImageVersion } from '@/lib/constants/seo/config'
 import { generateBreadcrumbSchema } from '@/lib/constants/seo/breadcrumb-schema'
 
 export const metadata: Metadata = {
-  title: '테마 트래킹 알고리즘 — AI 점수 산출 과정 완전 공개',
+  title: '테마 추적 알고리즘 — 점수 산출 과정 공개',
   description:
-    'TLI(Theme Lifecycle Index) 테마 트래킹 알고리즘을 완전 공개합니다. 4요소 가중치, 생명주기 5단계 판정, 7일 3-Phase 전망 알고리즘을 투명하게 설명합니다.',
+    '테마 점수와 방향 전망이 계산되는 과정을 공개합니다. 4가지 점수 요소, 생명주기 5단계 판정, 7일 방향 전망을 투명하게 설명합니다.',
   keywords: [
-    '테마 트래킹 알고리즘',
+    '테마 추적 알고리즘',
     'TLI 점수',
     '테마 생명주기',
     'AI 분석 알고리즘',
@@ -18,9 +18,9 @@ export const metadata: Metadata = {
     canonical: `${siteConfig.domain}/themes/methodology`,
   },
   openGraph: {
-    title: '테마 트래킹 알고리즘 — AI 점수 산출 과정 완전 공개 | StockMatrix',
+    title: '테마 추적 알고리즘 — 점수 산출 과정 공개 | StockMatrix',
     description:
-      'TLI 테마 트래킹 알고리즘 완전 공개. 4요소 가중치, 생명주기 5단계 판정, 7일 3-Phase 전망 알고리즘을 투명하게 설명합니다.',
+      '테마 점수와 방향 전망 계산 과정을 공개합니다. 4가지 점수 요소, 생명주기 5단계 판정, 7일 방향 전망을 투명하게 설명합니다.',
     url: `${siteConfig.domain}/themes/methodology`,
     type: 'article',
     locale: 'ko_KR',
@@ -29,15 +29,15 @@ export const metadata: Metadata = {
         url: withOgImageVersion('/themes/methodology/opengraph-image'),
         width: 1200,
         height: 630,
-        alt: '테마 트래킹 알고리즘 완전 공개',
+        alt: '테마 추적 알고리즘 공개',
       },
     ],
   },
   twitter: {
     card: 'summary_large_image',
-    title: '테마 트래킹 알고리즘 — AI 점수 산출 과정 완전 공개 | StockMatrix',
+    title: '테마 추적 알고리즘 — 점수 산출 과정 공개 | StockMatrix',
     description:
-      'TLI 테마 트래킹 알고리즘 완전 공개. 4요소 가중치, 생명주기 5단계 판정, 7일 3-Phase 전망 알고리즘을 투명하게 설명합니다.',
+      '테마 점수와 방향 전망 계산 과정을 공개합니다. 4가지 점수 요소, 생명주기 5단계 판정, 7일 방향 전망을 투명하게 설명합니다.',
     images: [withOgImageVersion('/themes/methodology/opengraph-image')],
   },
 }

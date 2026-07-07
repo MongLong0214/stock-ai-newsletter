@@ -3,52 +3,61 @@ import { z } from 'zod';
 import { fetchApi, formatResult, formatError } from '../fetch-helper.js';
 
 const CONTEXT = `[StockMatrix Theme Predictions]
-Lifecycle phase predictions for Korean stock themes based on analog comparison forecasting.
-Shows which themes are rising, hot, or cooling with confidence levels and analog evidence.
-Use to identify emerging opportunities (rising) or themes past peak (cooling).
+Champion theme_predictions_v3 snapshots for Korean stock themes when TLI_PREDICTIONS_V3_EXPOSURE_ENABLED=true.
+When exposure is disabled for rollback, the API returns dataSource=none with guidance.
+Use pRise, CI bounds, abstain state, and trailing90d precision as the primary contract.
+The phase field is deprecated compatibility derived from pRise and will be removed after 2026-09-15.
 Chain with get_theme_detail(themeId) for deeper analysis of any predicted theme.`;
 
 interface PredictionTheme {
-  id: string;
-  name: string;
-  score: number;
-  stage: string;
-  prediction: {
-    phase: string;
-    confidence: string;
-    daysSinceEpisodeStart: number;
-    expectedPeakDay: number;
-    topAnalog: { name: string; similarity: number; peakDay: number } | null;
-    evidenceQuality: string;
+  readonly id: string;
+  readonly name: string;
+  readonly themeId: string;
+  readonly predictionDate: string;
+  readonly pRise: number | null;
+  readonly ciLower: number | null;
+  readonly ciUpper: number | null;
+  readonly abstain: boolean;
+  readonly abstainReasons: readonly string[];
+  readonly modelVersion: string;
+  readonly trailing90d: {
+    readonly topSignalPrecision: number | null;
+    readonly n: number;
+  };
+  readonly phase: 'rising' | 'hot' | 'cooling' | null;
+  readonly deprecation: {
+    readonly phase: string;
   };
 }
 
 interface PredictionResponse {
-  phase: string | null;
-  dataSource: string;
-  themes: PredictionTheme[];
-  guidance?: string;
+  readonly phase: string | null;
+  readonly dataSource: string;
+  readonly themes: readonly PredictionTheme[];
+  readonly guidance?: string;
 }
 
 export const registerGetPredictions = (server: McpServer): void => {
   server.tool(
     'get_predictions',
-    `Get lifecycle phase predictions for Korean stock themes.
+    `Get champion probability prediction snapshots for Korean stock themes.
 
 Use when the user asks:
 - Which themes are rising / about to peak / cooling down?
+- What is the pRise probability for a theme?
+- Which themes are abstaining because data is still being collected?
 - Show me predicted hot themes
 - 상승세 테마 예측, 하락 전환 예상 테마
 - 테마 생명주기 예측 결과를 보고 싶어
 
-Returns themes with predicted phase (rising/hot/cooling), confidence, expected peak day, and top analog evidence.`,
+Returns v3 snapshot fields when exposure is enabled: pRise, ciLower, ciUpper, abstain, abstainReasons, modelVersion, trailing90d.topSignalPrecision, and deprecated phase compatibility. Returns dataSource=none when exposure is disabled for rollback.`,
     {
       phase: z
         .enum(['rising', 'hot', 'cooling'])
         .optional()
-        .describe('Filter by predicted phase: rising (ascending), hot (at peak), cooling (declining)'),
+        .describe('Deprecated compatibility filter derived from pRise: rising >=0.6, hot >=0.4, cooling <0.4'),
     },
-    async ({ phase }) => {
+    async ({ phase }: { readonly phase?: 'rising' | 'hot' | 'cooling' }) => {
       try {
         const params: Record<string, string> = {};
         if (phase) params.phase = phase;

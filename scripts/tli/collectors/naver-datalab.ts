@@ -1,6 +1,21 @@
 import { config } from 'dotenv'
-config({ path: '.env.local' })
-import { sleep, withRetry } from '@/scripts/tli/shared/utils';
+config({ path: '.env.local', quiet: true })
+import { sleep, withRetry } from '../shared/utils';
+import {
+  ANCHOR_CV_WARNING_THRESHOLD,
+  ANCHOR_KEYWORD,
+  computeAnchorScaleFactor,
+  computeCoefficientOfVariation,
+} from './datalab-anchor'
+
+export {
+  ANCHOR_CANDIDATES,
+  ANCHOR_CV_WARNING_THRESHOLD,
+  ANCHOR_EPSILON,
+  ANCHOR_KEYWORD,
+  computeAnchorScaleFactor,
+  computeCoefficientOfVariation,
+} from './datalab-anchor'
 
 interface NaverDatalabRequest {
   startDate: string;
@@ -34,7 +49,12 @@ interface InterestMetric {
   date: string;
   rawValue: number;
   normalized: number;
+  anchorScaledValue?: number | null;
 }
+
+const ANCHOR_GROUP_NAME = '__tli_anchor__'
+const ANCHOR_BATCH_THEME_SIZE = 4
+const LEGACY_BATCH_THEME_SIZE = 5
 
 function getNaverCredentials() {
   const clientId = process.env.NAVER_CLIENT_ID
@@ -45,32 +65,39 @@ function getNaverCredentials() {
   return { clientId, clientSecret }
 }
 
-/** 네이버 DataLab 검색에 최적화된 키워드 전처리 */
 function preprocessKeywords(keywords: string[]): string[] {
   const processed = new Set<string>();
 
   for (const kw of keywords) {
-    // 원본 추가
     processed.add(kw);
 
-    // 괄호 안 내용 제거: "스페이스X(SpaceX)" → "스페이스X"
     const withoutParens = kw.replace(/\s*\([^)]*\)\s*/g, '').trim();
     if (withoutParens && withoutParens !== kw) {
       processed.add(withoutParens);
     }
 
-    // 한글만 추출: "AI반도체" → "반도체"
     const koreanOnly = kw.replace(/[^가-힣\s]/g, '').trim();
     if (koreanOnly && koreanOnly.length >= 2 && koreanOnly !== kw) {
       processed.add(koreanOnly);
     }
   }
 
-  // DataLab API는 키워드 5개 제한
   return Array.from(processed).slice(0, 5);
 }
 
-/** 네이버 DataLab API 호출 (재시도 포함) */
+export function isDatalabAnchorEnabled(envValue = process.env.TLI_ANCHOR_ENABLED): boolean {
+  return envValue !== 'false' && envValue !== '0'
+}
+
+export function splitDatalabThemeBatches<T>(themes: readonly T[], anchorEnabled: boolean): T[][] {
+  const batchSize = anchorEnabled ? ANCHOR_BATCH_THEME_SIZE : LEGACY_BATCH_THEME_SIZE
+  const batches: T[][] = []
+  for (let index = 0; index < themes.length; index += batchSize) {
+    batches.push(themes.slice(index, index + batchSize))
+  }
+  return batches
+}
+
 async function callNaverDatalab(request: NaverDatalabRequest): Promise<NaverDatalabResponse> {
   const { clientId, clientSecret } = getNaverCredentials()
   return withRetry(
@@ -98,7 +125,6 @@ async function callNaverDatalab(request: NaverDatalabRequest): Promise<NaverData
   );
 }
 
-/** 네이버 DataLab 관심도 데이터 수집 */
 export async function collectNaverDatalab(
   themes: Theme[],
   startDate: string,
@@ -109,18 +135,22 @@ export async function collectNaverDatalab(
   console.log(`   테마 수: ${themes.length}`);
 
   const metrics: InterestMetric[] = [];
+  const anchorEnabled = isDatalabAnchorEnabled()
+  const batches = splitDatalabThemeBatches(themes, anchorEnabled)
 
-  // 배치 처리 (API 제한: 최대 5개)
-  for (let i = 0; i < themes.length; i += 5) {
-    const batch = themes.slice(i, i + 5);
-    console.log(`\n   배치 처리 ${Math.floor(i / 5) + 1}/${Math.ceil(themes.length / 5)}`);
+  for (let i = 0; i < batches.length; i++) {
+    const batch = batches[i];
+    console.log(`\n   배치 처리 ${i + 1}/${batches.length}${anchorEnabled ? ` (앵커: ${ANCHOR_KEYWORD})` : ''}`);
 
-    const keywordGroups = batch
+    const themeKeywordGroups = batch
       .filter(theme => theme.naverKeywords.length > 0)
       .map(theme => ({
         groupName: theme.name,
         keywords: preprocessKeywords(theme.naverKeywords),
       }));
+    const keywordGroups = anchorEnabled
+      ? [{ groupName: ANCHOR_GROUP_NAME, keywords: [ANCHOR_KEYWORD] }, ...themeKeywordGroups]
+      : themeKeywordGroups
 
     if (keywordGroups.length === 0) {
       console.log('   ⚠️ 네이버 키워드가 있는 테마가 없음');
@@ -136,16 +166,27 @@ export async function collectNaverDatalab(
       };
 
       const response = await callNaverDatalab(request);
+      const anchorResult = anchorEnabled
+        ? response.results.find(result => result.title === ANCHOR_GROUP_NAME)
+        : undefined
+      const anchorRatios = anchorResult?.data.map(dataPoint => dataPoint.ratio) ?? []
+      const anchorScaleFactor = anchorEnabled ? computeAnchorScaleFactor(anchorRatios) : null
+      const anchorCv = anchorEnabled ? computeCoefficientOfVariation(anchorRatios.slice(-14)) : null
+      if (anchorCv !== null && anchorCv > ANCHOR_CV_WARNING_THRESHOLD) {
+        console.warn(`   ⚠️ DataLab 앵커 변동성 경고: CV=${anchorCv.toFixed(3)} > ${ANCHOR_CV_WARNING_THRESHOLD}`)
+      }
+      if (anchorEnabled && anchorScaleFactor === null) {
+        console.warn('   ⚠️ DataLab 앵커 응답 누락 — anchor_scaled_value를 null로 적재')
+      }
 
-      // 결과 처리: 테마별 자기 최댓값 기준 정규화
       for (const result of response.results) {
+        if (result.title === ANCHOR_GROUP_NAME) continue
         const theme = batch.find(t => t.name === result.title);
         if (!theme) {
           console.warn(`   ⚠️ 그룹에 해당하는 테마 없음: ${result.title}`);
           continue;
         }
 
-        // 테마 자체 최댓값 기준 정규화 (배치 구성 변경에 영향 없음)
         const themeMax = Math.max(...result.data.map(d => d.ratio), 0);
 
         console.log(`   ✓ ${theme.name}: ${result.data.length}개 데이터 포인트 (max: ${themeMax})`);
@@ -156,28 +197,25 @@ export async function collectNaverDatalab(
             date: dataPoint.period,
             rawValue: dataPoint.ratio,
             normalized: themeMax > 0 ? (dataPoint.ratio / themeMax) * 100 : 0,
+            anchorScaledValue: anchorScaleFactor === null ? null : dataPoint.ratio * anchorScaleFactor,
           });
         }
       }
 
-      // 배치 응답에서 누락된 테마 감지
       const respondedNames = new Set(response.results.map(r => r.title));
-      const missingThemes = keywordGroups.filter(g => !respondedNames.has(g.groupName));
+      const missingThemes = themeKeywordGroups.filter(g => !respondedNames.has(g.groupName));
       if (missingThemes.length > 0) {
         console.warn(`   ⚠️ DataLab 응답 누락 (${missingThemes.length}개): ${missingThemes.map(t => t.groupName).join(', ')}`);
       }
 
-      // API 호출 간 간격 제한
-      if (i + 5 < themes.length) {
+      if (i + 1 < batches.length) {
         await sleep(1000);
       }
     } catch (error: unknown) {
       console.error(`   ❌ 배치 처리 실패:`, error instanceof Error ? error.message : String(error));
-      // 다음 배치 계속 처리
     }
   }
 
-  // 수집 성공률 요약
   const themesWithData = new Set(metrics.map(m => m.themeId));
   const themesWithoutData = themes.filter(t => !themesWithData.has(t.id));
   if (themesWithoutData.length > 0) {

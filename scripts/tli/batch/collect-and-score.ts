@@ -90,7 +90,7 @@ export async function runTliMainPipeline(): Promise<TliMainPipelineResult> {
       } else {
         await runCalibrationPhase(kstNow);
 
-        const analysis = await runAnalysisPipeline(themes);
+        const analysis = await runAnalysisPipeline(themes, endDate);
         criticalFailures += analysis.criticalFailures;
         warningFailures += analysis.warningFailures;
       }

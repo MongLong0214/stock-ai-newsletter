@@ -1,5 +1,6 @@
 import { apiSuccess } from '@/lib/tli/api-utils'
 import { getKSTDateString } from '@/lib/tli/date-utils'
+import { loadMethodologyMetricsSummary } from '@/lib/tli/methodology-metrics'
 
 const METHODOLOGY = {
   name: 'TLI (Theme Lifecycle Index)',
@@ -15,7 +16,7 @@ const METHODOLOGY = {
       { name: 'activity', weight: '22.6%', source: 'Naver Finance', method: 'Related stock price change rates, trading volume intensity, and data coverage cross-signal.' },
     ],
     optimization: 'Weights derived via Bayesian Optimization (Optuna TPE sampler, 2-stage hierarchical search: 80 trials core params + 120 trials fine-tune). Validated with walk-forward train/val split with 7-day gap to prevent data leakage.',
-    accuracy: 'Growth/Decline Directional Accuracy (GDDA): ~66% on validation set.',
+    validation: 'Live validation metrics are published from the model_metrics_daily monitoring table.',
   },
 
   stabilization: {
@@ -61,7 +62,7 @@ const METHODOLOGY = {
   prediction: {
     horizon: '7-day directional outlook',
     phases: 'Rising (Emerging + Growth), Hot (Peak), Cooling (Decline + Dormant)',
-    reliability: 'Rising signals are most accurate. Cooling signals are reference-level only.',
+    validation: 'Prediction quality is reported by the dynamic modelPerformance section; phase labels are interpretive groupings.',
   },
 
   dataSources: [
@@ -140,11 +141,13 @@ const METHODOLOGY = {
     { name: 'theme_comparison_candidates_v2', purpose: 'Top analog candidates per v4 comparison run' },
     { name: 'theme_comparison_eval_v2', purpose: 'Fixed-horizon evaluation results for comparison candidates' },
     { name: 'prediction_snapshots_v2', purpose: 'Prediction snapshots derived from comparison candidates' },
+    { name: 'model_registry', purpose: 'Champion/challenger model artifact registry and serving-role source of truth' },
+    { name: 'model_metrics_daily', purpose: 'Daily model monitoring metrics used by rollback and methodology publishing' },
   ],
 
   limitations: [
     'Naver DataLab 5-keyword batch limit requires self-normalization across batches — precision is limited.',
-    'News momentum is article-count-based; sentiment analysis is not included (removed due to low accuracy).',
+    'News momentum is article-count-based; sentiment analysis is not included in the runtime model.',
     'Data collection intervals mean latest market changes may not be immediately reflected.',
   ],
 
@@ -156,6 +159,7 @@ const SECTION_KEY_MAP: Record<string, string> = {
   update_schedule: 'updateSchedule',
   data_flow: 'dataFlow',
   database_tables: 'databaseTables',
+  model_performance: 'modelPerformance',
 }
 
 export async function GET(request: Request) {
@@ -163,24 +167,41 @@ export async function GET(request: Request) {
   const section = searchParams.get('section')
 
   const updatedAt = getKSTDateString()
+  const modelPerformance = await loadMethodologyMetricsSummary({ today: updatedAt })
+  const methodology = { ...METHODOLOGY, modelPerformance, updatedAt }
 
   if (!section || section === 'all') {
-    return apiSuccess({ ...METHODOLOGY, updatedAt }, undefined, 'long')
+    return methodologySuccess(methodology)
   }
 
-  const mappedKey = (SECTION_KEY_MAP[section] || section) as keyof typeof METHODOLOGY
-  const sectionData = METHODOLOGY[mappedKey]
+  const mappedKey = SECTION_KEY_MAP[section] || section
+  const sectionData = Object.prototype.hasOwnProperty.call(methodology, mappedKey)
+    ? methodology[mappedKey as keyof typeof methodology]
+    : undefined
 
   const result = {
     section,
     ...(Array.isArray(sectionData)
       ? { items: sectionData }
-      : typeof sectionData === 'object'
+      : isRecord(sectionData)
         ? sectionData
         : { value: sectionData }),
   }
 
-  return apiSuccess(result, undefined, 'long')
+  return methodologySuccess(result)
 }
 
 export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
+
+function methodologySuccess<T>(data: T) {
+  const response = apiSuccess(data, undefined, 'short')
+  response.headers.set('Cache-Control', 'no-store')
+  response.headers.set('CDN-Cache-Control', 'no-store')
+  response.headers.set('Vercel-CDN-Cache-Control', 'no-store')
+  return response
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null
+}

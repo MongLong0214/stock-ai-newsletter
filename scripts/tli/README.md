@@ -44,8 +44,31 @@ Ops:
 - `npm run tli:phase0:bridge`
 - `npm run tli:phase0:materialize`
 - `npm run tli:v4:promote -- <run-id> [run-id...]`
+- `npm run tli:reflexivity`
+- `npm run tli:anchor:stability`
+- `npm run tli:shadow:transition`
 
 See [docs/tli-ops-runbook.md](/Users/isaac/WebstormProjects/stock-ai-newsletter/docs/tli-ops-runbook.md) for the operator-facing runbook.
+
+### Anchor Stability Report
+
+`npm run tli:anchor:stability -- --as-of=YYYY-MM-DD` emits the T-106 anchor stability report.
+
+- It infers the primary calculator anchor observation from persisted `interest_metrics.raw_value / anchor_scaled_value`.
+- It accepts optional backup candidate observations through `--observations=path/to/observations.json`.
+- It reports `primary_only_report` when the calculator has 14 days of observations but backup candidates are missing.
+- It emits an `issueProposal` when a sampled backup candidate has lower CV than the primary anchor.
+- It does not mark T-106 complete by itself; T-106 still requires the elapsed 14-day live observation window and PRD Q2 confirmation record.
+
+### Shadow Transition Report
+
+`npm run tli:shadow:transition -- --as-of=YYYY-MM-DD` emits the T-306 pre-cutover readiness report.
+
+- It checks the last 14 calendar days of `theme_predictions_v3` shadow rows for the active champion model.
+- It checks the last 7 calendar days of `model_metrics_daily` rows for the active champion model.
+- It checks that a rollback target exists in `model_registry` with `archived` or `rolled_back` status.
+- It returns `ready_for_operator_cutover` only when all three gates pass.
+- It does not flip serving or mark T-306 complete; cutover is `TLI_PREDICTIONS_V3_EXPOSURE_ENABLED=true`, immediate rollback is `false` or unset, and post-cutover monitoring remains operator-controlled evidence.
 
 ## Runtime Categories
 
@@ -196,6 +219,21 @@ collectNaverFinanceStocks(
 https://finance.naver.com/sise/sise_group_detail.naver?type=theme&no={naverThemeId}
 ```
 
+### `collectors/google-trends.ts`
+Defines the Google Trends fallback adapter contract for DataLab outage planning.
+
+**Status:**
+- Skeleton only; it performs no external collection.
+- `collectDailySeries()` returns `not_implemented` until a real source is approved.
+- Auth config parsing supports service account env vars or OAuth refresh-token env vars.
+
+**Environment Variables:**
+- `GOOGLE_TRENDS_SERVICE_ACCOUNT_EMAIL`
+- `GOOGLE_TRENDS_PRIVATE_KEY`
+- `GOOGLE_TRENDS_CLIENT_ID`
+- `GOOGLE_TRENDS_CLIENT_SECRET`
+- `GOOGLE_TRENDS_REFRESH_TOKEN`
+
 ---
 
 ## Scheduling
@@ -300,6 +338,7 @@ npx tsx scripts/tli/collectors/naver-finance-themes.ts
 - Use `npm run tli:level4:certify` to generate the current certification report
 - Use `npm run tli:phase0:bridge` to run bridge parity checks
 - Use `npm run tli:v4:promote -- <run-id> [run-id...]` to promote published v4 runs
+- Use `npm run tli:reflexivity` to detect newsletter-exposure reflexivity and emit an exposure_suspect issue proposal only; it does not mutate serving state
 
 ### Adding New Themes
 Add or discover new themes through the current runtime/ops flows instead of the removed legacy seed script.

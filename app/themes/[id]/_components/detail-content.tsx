@@ -15,7 +15,6 @@ import NewsHeadlines from './news-headlines'
 import DetailHeader from './detail-header'
 import { DetailLoading } from './detail-loading'
 import { DetailError } from './detail-error'
-import { shouldRenderPredictionPanel } from './theme-prediction/presentation'
 import { useGetThemeDetail } from '../_services/use-get-theme-detail'
 import { useKisStockSnapshots } from './stock-list-kis'
 import type { Stock } from './stock-list-utils'
@@ -127,16 +126,9 @@ function DetailContent({ id }: DetailContentProps) {
 
           <DetailHeader theme={themeWithLiveStocks} />
 
-          {shouldRenderPredictionPanel(theme.firstSpikeDate, theme.comparisons.length) && (
-            <div className="mb-8">
-              <ThemePrediction
-                firstSpikeDate={theme.firstSpikeDate}
-                comparisons={theme.comparisons}
-                score={theme.score.value}
-                stage={theme.score.stage}
-              />
-            </div>
-          )}
+          <div className="mb-8">
+            <ThemePrediction themeId={id} />
+          </div>
 
           <div className="mb-6 sm:mb-8">
             <StockList stocks={liveStocks} liveStatus={liveStatus} />

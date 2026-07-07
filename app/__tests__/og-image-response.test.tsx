@@ -37,7 +37,13 @@ describe('createOgImageResponse', () => {
     );
 
     expect(imageResponseMock).toHaveBeenCalledTimes(1);
-    expect(result.fonts).toEqual([]);
+    expect(imageResponseMock).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        fonts: [],
+      })
+    );
+    expect(result).toBeInstanceOf(MockImageResponse);
     expect(warnSpy).toHaveBeenCalled();
     warnSpy.mockRestore();
   });

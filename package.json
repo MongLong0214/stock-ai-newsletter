@@ -24,7 +24,19 @@
     "tli:v4:promote": "tsx scripts/tli/ops/promote-comparison-v4.ts",
     "tli:first-spike:repair": "tsx scripts/tli/ops/run-first-spike-repair.ts",
     "tli:state-history:backfill": "tsx scripts/tli/ops/run-theme-state-history-backfill.ts",
-    "tli:parity": "tsx scripts/tli/ops/run-prediction-parity-report.ts"
+    "tli:parity": "tsx scripts/tli/ops/run-prediction-parity-report.ts",
+    "tli:reflexivity": "tsx scripts/tli/ops/run-reflexivity-report.ts",
+    "tli:anchor:stability": "tsx scripts/tli/ops/run-anchor-stability-report.ts",
+    "tli:shadow:transition": "tsx scripts/tli/ops/run-shadow-transition-report.ts",
+    "tli:gt-a:backfill": "tsx scripts/tli/ops/run-gt-a-backfill.ts",
+    "tli:baseline:report": "tsx scripts/tli/ops/run-baseline-report.ts",
+    "tli:eval": "tsx scripts/tli/learn/run-offline-eval.ts",
+    "tli:weekly-learn": "tsx scripts/tli/learn/run-weekly-learn.ts",
+    "tli:weekly-rollback": "tsx scripts/tli/learn/run-weekly-rollback.ts",
+    "tli:m1:train": "uv run scripts/tli/learn/train_m1.py",
+    "tli:m1:golden-vector": "uv run scripts/tli/learn/train_m1.py --golden-vector _unused.json lib/tli/__tests__/fixtures/m1-golden-vector.json",
+    "tli:stock-prices:ingest": "tsx scripts/tli/ops/run-stock-daily-price-ingest.ts",
+    "tli:stock-prices:backfill": "tsx scripts/tli/ops/run-stock-daily-price-backfill.ts"
   },
   "dependencies": {
     "@fontsource/noto-sans-kr": "^5.2.9",

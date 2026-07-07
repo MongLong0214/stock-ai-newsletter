@@ -9,7 +9,7 @@ function listFilesRecursively(root: string): string[] {
     const full = join(root, entry)
     const stat = statSync(full)
     if (stat.isDirectory()) {
-      if (entry === '__tests__') continue
+      if (entry === '__tests__' || entry === '__pycache__') continue
       results.push(...listFilesRecursively(full))
     } else {
       results.push(relative(process.cwd(), full))

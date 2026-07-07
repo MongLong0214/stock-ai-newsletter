@@ -5,6 +5,10 @@ import robots from '../robots';
 describe('robots policy', () => {
   it('allows social preview crawlers to crawl card pages while keeping api routes blocked', () => {
     const config = robots();
+    if (!Array.isArray(config.rules)) {
+      throw new TypeError('Expected robots rules to be an array');
+    }
+
     const userAgents = [
       'Twitterbot',
       'facebookexternalhit',

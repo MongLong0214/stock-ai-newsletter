@@ -14,6 +14,7 @@ vi.mock('../fetch-helper.js', () => ({
 describe('get-predictions MCP tool', () => {
   let registeredHandler: (args: Record<string, unknown>) => Promise<unknown>
   let registeredName: string
+  let registeredDescription: string
 
   beforeEach(async () => {
     mockFetchApi.mockReset()
@@ -23,6 +24,7 @@ describe('get-predictions MCP tool', () => {
     const mockServer = {
       tool: (_name: string, _desc: string, _schema: unknown, handler: typeof registeredHandler) => {
         registeredName = _name
+        registeredDescription = _desc
         registeredHandler = handler
       },
     }
@@ -31,6 +33,12 @@ describe('get-predictions MCP tool', () => {
 
   it('registers with the name get_predictions', () => {
     expect(registeredName).toBe('get_predictions')
+  })
+
+  it('documents pRise as the primary contract and phase as deprecated compatibility', () => {
+    expect(registeredDescription).toContain('pRise')
+    expect(registeredDescription).toContain('deprecated')
+    expect(registeredDescription).toContain('dataSource=none')
   })
 
   it('calls fetchApi with /api/tli/predictions and no params when phase is omitted', async () => {
@@ -52,21 +60,22 @@ describe('get-predictions MCP tool', () => {
   it('returns formatted result with context on success', async () => {
     const mockData = {
       phase: 'rising',
-      dataSource: 'v4-forecast',
+      dataSource: 'theme_predictions_v3',
       themes: [
         {
           id: 'abc',
           name: 'AI',
-          score: 75,
-          stage: 'Growth',
-          prediction: {
-            phase: 'rising',
-            confidence: 'high',
-            daysSinceEpisodeStart: 10,
-            expectedPeakDay: 25,
-            topAnalog: { name: '2차전지', similarity: 0.85, peakDay: 30 },
-            evidenceQuality: 'high',
-          },
+          themeId: 'abc',
+          predictionDate: '2026-08-03',
+          pRise: 0.68,
+          ciLower: 0.59,
+          ciUpper: 0.77,
+          abstain: false,
+          abstainReasons: [],
+          modelVersion: 'm1-2026w31',
+          trailing90d: { topSignalPrecision: 0.63, n: 214 },
+          phase: 'rising',
+          deprecation: { phase: 'removed_after=2026-09-15, use pRise' },
         },
       ],
     }

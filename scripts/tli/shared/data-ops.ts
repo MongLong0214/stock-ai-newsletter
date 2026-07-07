@@ -47,22 +47,40 @@ export async function loadActiveThemes(): Promise<ThemeWithKeywords[]> {
   })
 }
 
-/** 관심도 메트릭 저장 */
+/**
+ * 관심도 메트릭 저장.
+ * anchor_scaled_value는 "당일(todayDate)" 신규 행에만 오늘 계산한 scaleFactor로 기록한다.
+ * 과거 재수집분(30일 창의 이전 날짜)은 payload에서 anchor_scaled_value 컬럼 자체를 제외해
+ * PostgREST upsert가 기존 as-of 값을 보존하도록 한다(walk-forward point-in-time 오염 방지).
+ */
 export async function upsertInterestMetrics(
-  metrics: Array<{ themeId: string; date: string; rawValue: number; normalized: number }>
+  metrics: Array<{
+    themeId: string
+    date: string
+    rawValue: number
+    normalized: number
+    anchorScaledValue?: number | null
+  }>,
+  todayDate: string,
 ) {
-  return batchUpsert(
-    'interest_metrics',
-    metrics.map(m => ({
-      theme_id: m.themeId,
-      time: m.date,
-      source: 'naver_datalab',
-      raw_value: Number.isFinite(m.rawValue) ? Math.round(m.rawValue) : 0,
-      normalized: m.normalized,
-    })),
-    'theme_id,time,source',
-    '관심도 메트릭',
-  )
+  const buildBaseRow = (m: (typeof metrics)[number]) => ({
+    theme_id: m.themeId,
+    time: m.date,
+    source: 'naver_datalab',
+    raw_value: Number.isFinite(m.rawValue) ? Math.round(m.rawValue) : 0,
+    normalized: m.normalized,
+  })
+
+  const todayRows = metrics
+    .filter(m => m.date === todayDate)
+    .map(m => ({ ...buildBaseRow(m), anchor_scaled_value: m.anchorScaledValue ?? null }))
+  const pastRows = metrics
+    .filter(m => m.date !== todayDate)
+    .map(buildBaseRow)
+
+  const todayFailed = await batchUpsert('interest_metrics', todayRows, 'theme_id,time,source', '관심도 메트릭(당일)')
+  const pastFailed = await batchUpsert('interest_metrics', pastRows, 'theme_id,time,source', '관심도 메트릭(과거 재수집)')
+  return todayFailed + pastFailed
 }
 
 /** 뉴스 메트릭 저장 */

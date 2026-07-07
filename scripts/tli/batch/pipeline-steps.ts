@@ -5,6 +5,8 @@ import { calculateAndSaveScores } from '@/scripts/tli/scoring/calculate-scores'
 import { calculateThemeComparisons } from '@/scripts/tli/comparison/calculate-comparisons'
 import { computeOptimalThreshold } from '@/scripts/tli/comparison/auto-tune'
 import { snapshotPredictions } from '@/scripts/tli/comparison/snapshot-predictions'
+import { snapshotThemePredictionsV3 } from '@/scripts/tli/comparison/theme-predictions-v3'
+import { evaluateThemePredictionsV3 } from '@/scripts/tli/comparison/theme-predictions-v3-scoring'
 import { evaluatePredictions } from '@/scripts/tli/comparison/evaluate-predictions'
 import { collectNaverDatalab } from '@/scripts/tli/collectors/naver-datalab'
 import { collectNaverNews } from '@/scripts/tli/collectors/naver-news'
@@ -13,21 +15,17 @@ import { shouldRejectStockCollection } from '@/scripts/tli/collectors/naver-fina
 import { evaluateComparisonOutcomes } from '@/scripts/tli/comparison/evaluate-comparisons'
 import { daysAgo } from '@/scripts/tli/shared/utils'
 import { submitToIndexNow, buildThemeUrls } from '@/lib/indexnow'
-import { isKoreanTradingDate, shouldCollectTliStocks } from '@/lib/tli/trading-calendar'
-import { calibrateNoiseThreshold } from '@/scripts/tli/scoring/calibrate-noise'
-import { calibrateConfidence } from '@/scripts/tli/scoring/calibrate-confidence'
-import { calibrateWeights } from '@/scripts/tli/scoring/calibrate-weights'
-import { loadCalibrationsFromDB } from '@/scripts/tli/scoring/load-calibrations'
-import {
-  planMonthlyCalibration,
-  type MonthlyCalibrationDecision,
-} from '@/scripts/tli/scoring/monthly-calibration-schedule'
-import {
-  loadMonthlyCalibrationRunDates,
-  recordMonthlyCalibrationRun,
-} from '@/scripts/tli/scoring/monthly-calibration-state'
+import { shouldCollectTliStocks } from '@/lib/tli/trading-calendar'
+import { getKSTDateString } from '@/lib/tli/date-utils'
 import { materializePhase0Artifacts } from '@/scripts/tli/comparison/materialize-phase0-artifacts'
+import { countExpiredPendingLabels, runDailyLabelPhase } from '@/scripts/tli/labels/daily-label-phase'
+import { countExpiredPendingPredictions } from '@/scripts/tli/comparison/theme-predictions-v3-scoring'
 import type { ThemeWithKeywords } from '@/scripts/tli/shared/data-ops'
+
+/** 만기 경과 pending 적체 임계값 — 며칠 연속 실패가 조용히 누적되는 것을 차단 (C3) */
+const EXPIRED_PENDING_CRITICAL_THRESHOLD = 500
+
+export { runCalibrationPhase } from '@/scripts/tli/scoring/calibration-phase'
 
 interface CollectionResult {
   criticalFailures: number
@@ -72,7 +70,7 @@ export async function collectDataSources(
         datalabFailed = true
         console.error(`❌ DataLab API 장애 의심: 제로값 비율 ${(zeroValueRate * 100).toFixed(1)}% >= 90% (후속 단계 생략)`)
       } else {
-        await upsertInterestMetrics(interestMetrics)
+        await upsertInterestMetrics(interestMetrics, endDate)
       }
     } catch (error: unknown) {
       criticalFailures++
@@ -121,57 +119,6 @@ export async function collectDataSources(
   return { criticalFailures, datalabFailed }
 }
 
-/** Step 3.5: 교정값 로드 + 월 1회 재교정 */
-export async function runCalibrationPhase(kstNow: Date): Promise<void> {
-  console.log('\n📥 3.5단계: 교정값 로드')
-  try {
-    await loadCalibrationsFromDB()
-  } catch (error: unknown) {
-    console.warn('   ⚠️ 교정값 로드 실패 (기본값 사용):', error instanceof Error ? error.message : String(error))
-  }
-
-  const kstDate = kstNow.toISOString().split('T')[0]
-  const eligibleRun = isKoreanTradingDate(kstDate)
-  // 조회 성공 시 planMonthlyCalibration이 항상 덮어쓰므로 초기값은 "이번 실행에서는 미실행, 다음 실행에서 재시도"인 deferred로 단순화.
-  // 조회 실패 시에도 이 값이 그대로 유지되어 정책 모듈("월 1회 첫 eligible 거래일")과 어긋나는 별도 기준을 두지 않는다.
-  let monthlyDecision: MonthlyCalibrationDecision = 'deferred'
-  try {
-    monthlyDecision = planMonthlyCalibration({
-      kstDate,
-      eligibleRun,
-      runDates: await loadMonthlyCalibrationRunDates(kstDate),
-    })
-  } catch (error: unknown) {
-    console.warn('   ⚠️ 월간 재교정 실행 기록 조회 실패 (다음 실행에서 재시도):', error instanceof Error ? error.message : String(error))
-  }
-
-  if (monthlyDecision === 'executed') {
-    console.log('\n🔬 3.5b단계: 월간 과학적 재교정')
-    const calibStart = Date.now()
-
-    try { await calibrateNoiseThreshold() }
-    catch (error: unknown) { console.warn('   ⚠️ 노이즈 교정 실패:', error instanceof Error ? error.message : String(error)) }
-
-    try { await calibrateConfidence() }
-    catch (error: unknown) { console.warn('   ⚠️ Confidence 교정 실패:', error instanceof Error ? error.message : String(error)) }
-
-    try { await calibrateWeights() }
-    catch (error: unknown) { console.warn('   ⚠️ 가중치 교정 실패:', error instanceof Error ? error.message : String(error)) }
-
-    const calibDuration = ((Date.now() - calibStart) / 1000).toFixed(1)
-    console.log(`   ⏱️ 재교정 완료: ${calibDuration}초`)
-    try {
-      await recordMonthlyCalibrationRun(kstDate)
-    } catch (error: unknown) {
-      console.warn('   ⚠️ 월간 재교정 실행 기록 저장 실패:', error instanceof Error ? error.message : String(error))
-    }
-  } else if (monthlyDecision === 'deferred') {
-    console.log('   ⊘ 월간 재교정 연기 (eligible full run 아님)')
-  } else {
-    console.log('   ⊘ 월간 재교정 생략 (이번 달 이미 실행)')
-  }
-}
-
 interface AnalysisResult {
   criticalFailures: number
   warningFailures: number
@@ -187,7 +134,7 @@ export function shouldAbortAnalysisPipeline(input: {
 }
 
 /** Steps 4-8: 점수 계산 + 비교 + 예측 + 평가 */
-export async function runAnalysisPipeline(themes: ThemeWithKeywords[]): Promise<AnalysisResult> {
+export async function runAnalysisPipeline(themes: ThemeWithKeywords[], today = getKSTDateString()): Promise<AnalysisResult> {
   let criticalFailures = 0
   let warningFailures = 0
 
@@ -198,6 +145,29 @@ export async function runAnalysisPipeline(themes: ThemeWithKeywords[]): Promise<
   } catch (error: unknown) {
     criticalFailures++
     console.error('❌ 점수 계산 실패:', error instanceof Error ? error.message : String(error))
+  }
+
+  console.log('\n🏷️ 4.1단계: Ground Truth 라벨 생성/확정')
+  try {
+    const labels = await runDailyLabelPhase(today)
+    warningFailures += labels.warningFailures
+    const gtAFinalCount = labels.gtAFinalized.reduce((sum, r) => sum + r.finalCount, 0)
+    const gtBFinalCount = labels.gtBFinalized.reduce((sum, r) => sum + r.finalCount, 0)
+    console.log(
+      `   ✅ GT-A pending=${labels.gtAPending?.pendingCount ?? 0}, GT-A final=${gtAFinalCount} (${labels.gtAFinalized.length}일 확정), GT-B final=${gtBFinalCount} (${labels.gtBFinalized.length}일 확정), 비거래일 정리=${labels.nonTradingPendingClosed}`,
+    )
+
+    const [gtABacklog, gtBBacklog] = await Promise.all([
+      countExpiredPendingLabels({ labelType: 'gt_a', cutoffDate: labels.finalizeCutoffDate }),
+      countExpiredPendingLabels({ labelType: 'gt_b', cutoffDate: labels.finalizeCutoffDate }),
+    ])
+    if (gtABacklog > EXPIRED_PENDING_CRITICAL_THRESHOLD || gtBBacklog > EXPIRED_PENDING_CRITICAL_THRESHOLD) {
+      criticalFailures++
+      console.error(`❌ 라벨 확정 적체 위험: GT-A 만기pending=${gtABacklog}, GT-B 만기pending=${gtBBacklog} (${EXPIRED_PENDING_CRITICAL_THRESHOLD} 초과)`)
+    }
+  } catch (error: unknown) {
+    warningFailures++
+    console.warn('   ⚠️ Ground Truth 라벨 단계 실패:', error instanceof Error ? error.message : String(error))
   }
 
   // Step 4.5: 비교 임계값 자동 튜닝
@@ -238,6 +208,8 @@ export async function runAnalysisPipeline(themes: ThemeWithKeywords[]): Promise<
   console.log('\n📸 6단계: 예측 스냅샷')
   try {
     await snapshotPredictions()
+    const v3Result = await snapshotThemePredictionsV3({ today })
+    console.log(`   ✅ v3 champion=${v3Result.championRows}, challenger=${v3Result.challengerRows}`)
   } catch (error: unknown) {
     warningFailures++
     console.error('❌ 예측 스냅샷 실패:', error instanceof Error ? error.message : String(error))
@@ -247,6 +219,14 @@ export async function runAnalysisPipeline(themes: ThemeWithKeywords[]): Promise<
   console.log('\n📊 7단계: 예측 평가')
   try {
     await evaluatePredictions()
+    const v3Result = await evaluateThemePredictionsV3({ today })
+    console.log(`   ✅ v3 cutoff=${v3Result.cutoffDate}, updates=${v3Result.updates}, metrics=${v3Result.metrics}, skipped=${v3Result.skippedPending}`)
+
+    const predictionsBacklog = await countExpiredPendingPredictions(v3Result.cutoffDate)
+    if (predictionsBacklog > EXPIRED_PENDING_CRITICAL_THRESHOLD) {
+      criticalFailures++
+      console.error(`❌ 예측 채점 적체 위험: 만기 미채점=${predictionsBacklog} (${EXPIRED_PENDING_CRITICAL_THRESHOLD} 초과)`)
+    }
   } catch (error: unknown) {
     warningFailures++
     console.error('❌ 예측 평가 실패:', error instanceof Error ? error.message : String(error))

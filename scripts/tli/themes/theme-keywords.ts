@@ -1,6 +1,7 @@
 import { config } from 'dotenv'
 config({ path: '.env.local' })
 
+import { createHash } from 'node:crypto'
 import { supabaseAdmin } from '@/scripts/tli/shared/supabase-admin'
 import { collectNaverFinanceStocks } from '@/scripts/tli/collectors/naver-finance-themes'
 import { expandKeywords } from '@/scripts/tli/collectors/naver-autocomplete'
@@ -75,6 +76,27 @@ export function enrichThemeKeywords(themeName: string): Array<{ keyword: string;
   }
 
   return enriched
+}
+
+export function computeThemeKeywordHash(keywords: readonly string[]): string {
+  const canonical = [...new Set(keywords.map((keyword) => keyword.trim()).filter(Boolean))]
+    .sort((left, right) => left.localeCompare(right, 'ko'))
+    .join('\n')
+  return createHash('sha256').update(canonical).digest('hex')
+}
+
+export function buildKeywordEpochPatch(input: {
+  readonly keywords: readonly string[]
+  readonly currentEpoch: number | null
+  readonly currentHash: string | null
+}): { keyword_hash: string; keyword_epoch: number } {
+  const keywordHash = computeThemeKeywordHash(input.keywords)
+  const currentEpoch = input.currentEpoch ?? 1
+  const hashChanged = input.currentHash !== null && input.currentHash !== keywordHash
+  return {
+    keyword_hash: keywordHash,
+    keyword_epoch: hashChanged ? currentEpoch + 1 : currentEpoch,
+  }
 }
 
 // ─────────────────────────────────────────────────────
@@ -160,6 +182,28 @@ export async function populateKeywords(
     if (error) {
       console.error(`   ⚠️ 키워드 저장 실패 (${theme.name}):`, error.message)
     } else {
+      const { data: themeState, error: themeStateError } = await supabaseAdmin
+        .from('themes')
+        .select('keyword_epoch, keyword_hash')
+        .eq('id', theme.id)
+        .single()
+
+      if (themeStateError || !themeState) {
+        console.error(`   ⚠️ 키워드 epoch 조회 실패 (${theme.name}):`, themeStateError?.message ?? '응답 없음')
+      } else {
+        const patch = buildKeywordEpochPatch({
+          keywords: keywordRows.map((row) => row.keyword),
+          currentEpoch: themeState.keyword_epoch,
+          currentHash: themeState.keyword_hash,
+        })
+        const { error: epochError } = await supabaseAdmin
+          .from('themes')
+          .update(patch)
+          .eq('id', theme.id)
+        if (epochError) {
+          console.error(`   ⚠️ 키워드 epoch 저장 실패 (${theme.name}):`, epochError.message)
+        }
+      }
       console.log(`   ✓ ${theme.name}: ${keywords.length}개 키워드 저장`)
     }
   }

@@ -1,0 +1,171 @@
+name: TLI Reflexivity Report
+
+on:
+  schedule:
+    # Quarterly reminder: KST 09:30 on Jan/Apr/Jul/Oct 1st = UTC 00:30
+    - cron: '30 0 1 1,4,7,10 *'
+  workflow_dispatch:
+    inputs:
+      as_of:
+        description: 'Report as-of date (YYYY-MM-DD). Defaults to previous quarter end.'
+        required: false
+        type: string
+      quarter_start:
+        description: 'Quarter start date (YYYY-MM-DD). Defaults to previous quarter start.'
+        required: false
+        type: string
+      quarter_end:
+        description: 'Quarter end date (YYYY-MM-DD). Defaults to previous quarter end.'
+        required: false
+        type: string
+
+concurrency:
+  group: tli-reflexivity-report
+  cancel-in-progress: false
+
+jobs:
+  reflexivity-report:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      issues: write
+    env:
+      INPUT_AS_OF: ${{ github.event_name == 'workflow_dispatch' && inputs.as_of || '' }}
+      INPUT_QUARTER_START: ${{ github.event_name == 'workflow_dispatch' && inputs.quarter_start || '' }}
+      INPUT_QUARTER_END: ${{ github.event_name == 'workflow_dispatch' && inputs.quarter_end || '' }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Determine report window
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+          const addEnv = (key, value) => fs.appendFileSync(process.env.GITHUB_ENV, `${key}=${value}\n`);
+          const toDate = (value) => new Date(`${value}T00:00:00.000Z`);
+          const formatDate = (date) => date.toISOString().slice(0, 10);
+          const inputAsOf = process.env.INPUT_AS_OF || '';
+          const inputStart = process.env.INPUT_QUARTER_START || '';
+          const inputEnd = process.env.INPUT_QUARTER_END || '';
+          const reference = toDate(inputAsOf || formatDate(new Date()));
+          const currentQuarter = Math.floor(reference.getUTCMonth() / 3);
+          const previousQuarter = currentQuarter === 0 ? 3 : currentQuarter - 1;
+          const year = currentQuarter === 0 ? reference.getUTCFullYear() - 1 : reference.getUTCFullYear();
+          const start = new Date(Date.UTC(year, previousQuarter * 3, 1));
+          const end = new Date(Date.UTC(year, previousQuarter * 3 + 3, 0));
+          const quarterStart = inputStart || formatDate(start);
+          const quarterEnd = inputEnd || formatDate(end);
+          addEnv('TLI_REFLEXIVITY_AS_OF', inputAsOf || quarterEnd);
+          addEnv('TLI_REFLEXIVITY_QUARTER_START', quarterStart);
+          addEnv('TLI_REFLEXIVITY_QUARTER_END', quarterEnd);
+          NODE
+
+      - name: Run reflexivity report
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          npm run tli:reflexivity -- \
+            --as-of="${TLI_REFLEXIVITY_AS_OF}" \
+            --quarter-start="${TLI_REFLEXIVITY_QUARTER_START}" \
+            --quarter-end="${TLI_REFLEXIVITY_QUARTER_END}" \
+            --json-output=tli-reflexivity-report.json
+
+      - name: Add summary
+        if: always()
+        run: |
+          echo '## TLI Reflexivity Report' >> "$GITHUB_STEP_SUMMARY"
+          echo '' >> "$GITHUB_STEP_SUMMARY"
+          echo "- Window: ${TLI_REFLEXIVITY_QUARTER_START}..${TLI_REFLEXIVITY_QUARTER_END}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- As of: ${TLI_REFLEXIVITY_AS_OF}" >> "$GITHUB_STEP_SUMMARY"
+          echo '' >> "$GITHUB_STEP_SUMMARY"
+          echo '```json' >> "$GITHUB_STEP_SUMMARY"
+          jq '{recommendedAction, exposureSummary, eventStudy, labelDistribution, extraction: {newsletterCount: .extraction.newsletterCount, matchedNewsletterCount: .extraction.matchedNewsletterCount, unmatchedNewsletterCount: .extraction.unmatchedNewsletterCount}}' tli-reflexivity-report.json >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Open exposure_suspect proposal issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const report = JSON.parse(fs.readFileSync('tli-reflexivity-report.json', 'utf8'));
+            if (report.recommendedAction !== 'propose_exposure_suspect_issue' || !report.issueProposal) {
+              console.log('No significant reflexivity lift detected; issue creation skipped.');
+              return;
+            }
+            const marker = `<!-- tli-reflexivity:${process.env.TLI_REFLEXIVITY_QUARTER_START}:${process.env.TLI_REFLEXIVITY_QUARTER_END} -->`;
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const summary = {
+              recommendedAction: report.recommendedAction,
+              exposureSummary: report.exposureSummary,
+              eventStudy: report.eventStudy,
+              labelDistribution: report.labelDistribution,
+              extraction: {
+                newsletterCount: report.extraction.newsletterCount,
+                matchedNewsletterCount: report.extraction.matchedNewsletterCount,
+                unmatchedNewsletterCount: report.extraction.unmatchedNewsletterCount,
+              },
+            };
+            const body = [
+              marker,
+              '## TLI exposure_suspect review',
+              '',
+              `Run: ${runUrl}`,
+              `Window: ${process.env.TLI_REFLEXIVITY_QUARTER_START}..${process.env.TLI_REFLEXIVITY_QUARTER_END}`,
+              '',
+              report.issueProposal.body,
+              '',
+              'No automatic serving action was taken.',
+              '',
+              '```json',
+              JSON.stringify(summary, null, 2),
+              '```',
+            ].join('\n');
+            const existing = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              per_page: 100,
+            });
+            const match = existing.data.find((issue) => issue.body && issue.body.includes(marker));
+            if (match) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: match.number,
+                body,
+              });
+              return;
+            }
+            const repoLabels = await github.rest.issues.listLabelsForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              per_page: 100,
+            });
+            const existingLabels = new Set(repoLabels.data.map((label) => label.name));
+            const labels = report.issueProposal.labels.filter((label) => existingLabels.has(label));
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: report.issueProposal.title,
+              body,
+              ...(labels.length > 0 ? { labels } : {}),
+            });
+
+      - name: Upload reflexivity report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tli-reflexivity-report
+          path: tli-reflexivity-report.json

@@ -91,4 +91,40 @@ describe('openapi route contract', () => {
     ])
   })
 
+  it('documents the v3 prediction snapshot contract and phase deprecation', async () => {
+    const response = GET()
+    const spec = await response.json()
+    const phaseParam = spec.paths['/api/tli/predictions'].get.parameters.find(
+      (parameter: { readonly name: string }) => parameter.name === 'phase',
+    )
+    const themeIdParam = spec.paths['/api/tli/predictions'].get.parameters.find(
+      (parameter: { readonly name: string }) => parameter.name === 'themeId',
+    )
+    const predictionItem = spec.components.schemas.PredictionItem
+    const predictionResponse = spec.components.schemas.PredictionResponse
+
+    expect(spec.paths['/api/tli/predictions'].get.description).toContain('TLI_PREDICTIONS_V3_EXPOSURE_ENABLED')
+    expect(phaseParam.deprecated).toBe(true)
+    expect(phaseParam.description).toContain('removed_after=2026-09-15')
+    expect(themeIdParam.schema.format).toBe('uuid')
+    expect(predictionResponse.properties.data.properties.dataSource.enum).toEqual(['theme_predictions_v3', 'none'])
+    expect(predictionItem.required).toEqual([
+      'id',
+      'name',
+      'themeId',
+      'predictionDate',
+      'pRise',
+      'ciLower',
+      'ciUpper',
+      'abstain',
+      'abstainReasons',
+      'modelVersion',
+      'trailing90d',
+      'phase',
+      'deprecation',
+    ])
+    expect(predictionItem.properties.trailing90d.properties.topSignalPrecision).toBeDefined()
+    expect(predictionItem.properties.deprecation.properties.phase).toBeDefined()
+  })
+
 })

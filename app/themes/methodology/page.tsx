@@ -1,4 +1,5 @@
 import { siteConfig, schemaIds } from '@/lib/constants/seo/config'
+import { loadMethodologyMetricsSummary } from '@/lib/tli/methodology-metrics'
 import MethodologyContent from './_components/methodology-content'
 
 const breadcrumbSchema = {
@@ -20,7 +21,7 @@ const breadcrumbSchema = {
     {
       '@type': 'ListItem',
       position: 3,
-      name: '트래킹 알고리즘',
+      name: '테마 추적 알고리즘',
     },
   ],
 }
@@ -29,9 +30,9 @@ const articleSchema = {
   '@context': 'https://schema.org',
   '@type': 'Article',
   '@id': schemaIds.articleId('/themes/methodology'),
-  headline: '테마 트래킹 알고리즘 — AI 점수 산출 과정 완전 공개',
+  headline: '테마 추적 알고리즘 — 점수 산출 과정 공개',
   description:
-    'TLI(Theme Lifecycle Index) 테마 트래킹 알고리즘을 완전 공개합니다.',
+    '테마 점수와 방향 전망이 계산되는 과정을 공개합니다.',
   author: {
     '@type': 'Organization',
     '@id': schemaIds.organization,
@@ -49,7 +50,9 @@ const articleSchema = {
   inLanguage: 'ko-KR',
 }
 
-const MethodologyPage = () => {
+const MethodologyPage = async () => {
+  const modelPerformance = await loadMethodologyMetricsSummary()
+
   return (
     <>
       <script
@@ -66,9 +69,10 @@ const MethodologyPage = () => {
           __html: JSON.stringify(articleSchema).replace(/</g, '\\u003c'),
         }}
       />
-      <MethodologyContent />
+      <MethodologyContent modelPerformance={modelPerformance} />
     </>
   )
 }
 
 export default MethodologyPage
+export const dynamic = 'force-dynamic'

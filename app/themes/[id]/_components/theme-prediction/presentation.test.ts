@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { getPeakTimingStat, getScenarioCards, shouldRenderPredictionPanel } from './presentation'
+import {
+  formatPredictionSnapshotCard,
+  getPeakTimingStat,
+  getScenarioCards,
+  shouldRenderPredictionPanel,
+} from './presentation'
 
 const scenarios = {
   best: { themeName: 'Fast', peakDay: 12, totalDays: 40, similarity: 0.7 },
@@ -45,5 +50,53 @@ describe('getPeakTimingStat', () => {
       label: '예상 정점',
       value: '약 8일 후',
     })
+  })
+})
+
+describe('formatPredictionSnapshotCard', () => {
+  it('formats probability, expected range, and recent validation copy', () => {
+    const view = formatPredictionSnapshotCard({
+      id: '11111111-1111-4111-8111-111111111111',
+      name: 'AI 반도체',
+      themeId: '11111111-1111-4111-8111-111111111111',
+      predictionDate: '2026-08-03',
+      pRise: 0.68,
+      ciLower: 0.59,
+      ciUpper: 0.77,
+      abstain: false,
+      abstainReasons: [],
+      modelVersion: 'm1-2026w31',
+      trailing90d: { topSignalPrecision: 0.63, n: 214 },
+      phase: 'rising',
+      deprecation: { phase: 'removed_after=2026-09-15, use pRise' },
+    })
+
+    expect(view.statusLabel).toBe('상승 가능성')
+    expect(view.probabilityLabel).toBe('68%')
+    expect(view.ciLabel).toBe('59-77%')
+    expect(view.trailingPrecisionLabel).toBe('최근 검증: 상위 신호 63% 적중 (표본 214개)')
+  })
+
+  it('formats withheld snapshots as a clear preparation state without a fake probability', () => {
+    const view = formatPredictionSnapshotCard({
+      id: '11111111-1111-4111-8111-111111111111',
+      name: 'AI 반도체',
+      themeId: '11111111-1111-4111-8111-111111111111',
+      predictionDate: '2026-08-03',
+      pRise: null,
+      ciLower: null,
+      ciUpper: null,
+      abstain: true,
+      abstainReasons: ['interest_history_lt_7'],
+      modelVersion: 'm1-2026w31',
+      trailing90d: { topSignalPrecision: null, n: 0 },
+      phase: null,
+      deprecation: { phase: 'removed_after=2026-09-15, use pRise' },
+    })
+
+    expect(view.statusLabel).toBe('데이터 7일 확보 중')
+    expect(view.probabilityLabel).toBe('대기')
+    expect(view.ciLabel).toBe('예상 범위 준비 중')
+    expect(view.trailingPrecisionLabel).toBe('최근 검증: 아직 표시할 표본이 부족해요')
   })
 })

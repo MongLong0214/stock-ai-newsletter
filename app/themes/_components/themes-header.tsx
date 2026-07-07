@@ -94,7 +94,7 @@ function ThemesHeader({ summary }: ThemesHeaderProps) {
           className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-emerald-500/20 bg-emerald-500/5 text-emerald-400 text-xs font-medium hover:bg-emerald-500/10 transition-colors"
         >
           <BookOpen className="w-3.5 h-3.5" />
-          트래킹 알고리즘
+          추적 방식
         </Link>
       </div>
 

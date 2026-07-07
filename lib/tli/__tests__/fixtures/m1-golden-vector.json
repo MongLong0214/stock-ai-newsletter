@@ -1,0 +1,120 @@
+{
+  "fixture_version": "tli-m1-golden-vector-v1",
+  "artifact": {
+    "artifact_version": "tli-model-artifact-v1",
+    "model_type": "m1_logistic",
+    "feature_schema": [
+      "interest_slope_7d",
+      "interest_level_pct",
+      "interest_accel",
+      "dvi_7d",
+      "news_volume_7d",
+      "news_momentum",
+      "basket_return_5d",
+      "basket_volume_ratio",
+      "episode_progress",
+      "market_regime"
+    ],
+    "scaler": {
+      "median": [
+        -0.1136582335633386,
+        0.021546593749230143,
+        -0.05049493245156331,
+        -0.09784767813229407,
+        -0.12218761479822723,
+        0.046857207308968446,
+        0.02800445845553568,
+        0.12633188305245707,
+        -0.0032764127003457348,
+        -0.01288922743122111
+      ],
+      "mad": [
+        0.6538512212290415,
+        0.6014896546629047,
+        0.5930128264740735,
+        0.7271222969158463,
+        0.6050500650775648,
+        0.6528619348341584,
+        0.7029230473484491,
+        0.6681402943221819,
+        0.6572286185648523,
+        0.6789681798927025
+      ]
+    },
+    "coefficients": {
+      "intercept": 0.004101350300793349,
+      "weights": [
+        0.6615699127071187,
+        -0.38905167753650566,
+        0.05906617197673605,
+        -0.1324659429076514,
+        0.22274474677052347,
+        -0.11546810458714765,
+        0.049707837456817304,
+        0.1430772087941189,
+        0.07629884289975285,
+        0.07652607872610317,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    "calibrator": {
+      "type": "platt",
+      "a": -1.0030839296124092,
+      "b": -0.11971900650678723
+    },
+    "trained_at": "2026-08-02",
+    "train_range": [
+      "2026-01-01",
+      "2026-01-01"
+    ],
+    "labeler_version": "gta-v1",
+    "seed": 42,
+    "sample_report": {
+      "observed_n": 200,
+      "events": 106,
+      "event_rate": 0.53,
+      "parameters": 20,
+      "cox_snell_r2": 0.12884154765141076,
+      "r2_status": "sufficient",
+      "riley_minimum_n": 1295,
+      "riley_minimum_events": 609,
+      "sufficient": false
+    }
+  },
+  "inputRow": {
+    "values": [
+      1.4826,
+      -2.9652,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0
+    ],
+    "missingFlags": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "expectedProbability": 0.9263951535367867
+}

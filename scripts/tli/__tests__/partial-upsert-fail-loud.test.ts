@@ -50,6 +50,10 @@ vi.mock('@/scripts/tli/comparison/snapshot-predictions', () => ({
   snapshotPredictions: vi.fn(),
 }))
 
+vi.mock('@/scripts/tli/comparison/theme-predictions-v3', () => ({
+  snapshotThemePredictionsV3: vi.fn(),
+}))
+
 vi.mock('@/scripts/tli/comparison/evaluate-predictions', () => ({
   evaluatePredictions: vi.fn(),
 }))

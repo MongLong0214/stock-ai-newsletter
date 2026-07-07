@@ -1,5 +1,6 @@
 import type { Scenario } from '@/lib/tli/prediction'
 import type { Phase } from '@/lib/tli/prediction'
+import type { PredictionApiItem } from '@/lib/tli/predictions-v3-contract'
 
 export interface ScenarioCardConfig {
   readonly label: string
@@ -10,6 +11,15 @@ export interface ScenarioCardConfig {
 export interface PeakTimingStat {
   readonly label: string
   readonly value: string
+}
+
+export interface PredictionSnapshotCardView {
+  readonly statusLabel: string
+  readonly probabilityLabel: string
+  readonly ciLabel: string
+  readonly trailingPrecisionLabel: string
+  readonly phaseLabel: string
+  readonly reasonLabel: string | null
 }
 
 export function shouldRenderPredictionPanel(
@@ -64,5 +74,91 @@ export function getPeakTimingStat(input: {
   return {
     label: '예상 정점',
     value: input.avgDaysToPeak > 0 ? `약 ${input.avgDaysToPeak}일 후` : '정점 부근',
+  }
+}
+
+export function formatPredictionSnapshotCard(
+  snapshot: PredictionApiItem | null,
+): PredictionSnapshotCardView {
+  if (!snapshot) {
+    return {
+      statusLabel: '평가 준비 중',
+      probabilityLabel: '대기',
+      ciLabel: '예상 범위 준비 중',
+      trailingPrecisionLabel: '최근 검증: 아직 표시할 표본이 부족해요',
+      phaseLabel: '준비 중',
+      reasonLabel: null,
+    }
+  }
+
+  return {
+    statusLabel: snapshot.abstain ? buildAbstainStatus(snapshot.abstainReasons) : '상승 가능성',
+    probabilityLabel: snapshot.pRise === null ? '대기' : formatPercent(snapshot.pRise),
+    ciLabel: formatCi(snapshot),
+    trailingPrecisionLabel: formatTrailingPrecision(snapshot.trailing90d),
+    phaseLabel: formatPhase(snapshot.phase),
+    reasonLabel: snapshot.abstain ? formatAbstainReasons(snapshot.abstainReasons) : null,
+  }
+}
+
+function formatPercent(value: number): string {
+  return `${Math.round(value * 100)}%`
+}
+
+function formatCi(snapshot: PredictionApiItem): string {
+  if (snapshot.ciLower === null || snapshot.ciUpper === null) return '예상 범위 준비 중'
+  return `${formatPercentNumber(snapshot.ciLower)}-${formatPercent(snapshot.ciUpper)}`
+}
+
+function formatTrailingPrecision(
+  trailing90d: PredictionApiItem['trailing90d'],
+): string {
+  if (trailing90d.topSignalPrecision === null) {
+    return trailing90d.n > 0
+      ? `최근 검증: 표본 ${trailing90d.n}개 집계 중`
+      : '최근 검증: 아직 표시할 표본이 부족해요'
+  }
+  return `최근 검증: 상위 신호 ${formatPercent(trailing90d.topSignalPrecision)} 적중 (표본 ${trailing90d.n}개)`
+}
+
+function formatPercentNumber(value: number): number {
+  return Math.round(value * 100)
+}
+
+function formatPhase(phase: PredictionApiItem['phase']): string {
+  switch (phase) {
+    case 'rising':
+      return '상승'
+    case 'hot':
+      return '과열'
+    case 'cooling':
+      return '냉각'
+    case null:
+      return '준비 중'
+  }
+}
+
+function buildAbstainStatus(reasons: readonly string[]): string {
+  return reasons.includes('interest_history_lt_7') || reasons.includes('data_age_lt_7d')
+    ? '데이터 7일 확보 중'
+    : '평가 준비 중'
+}
+
+function formatAbstainReasons(reasons: readonly string[]): string | null {
+  if (reasons.length === 0) return null
+  return reasons.map(formatAbstainReason).join(', ')
+}
+
+function formatAbstainReason(reason: string): string {
+  switch (reason) {
+    case 'interest_history_lt_7':
+    case 'data_age_lt_7d':
+      return '관심도 데이터가 7일 미만'
+    case 'missing_features_gt_3':
+      return '필수 데이터가 부족함'
+    case 'feature_missing_gt_30pct':
+      return '누락 데이터가 많음'
+    default:
+      return '데이터 확인 필요'
   }
 }
