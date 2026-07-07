@@ -862,6 +862,7 @@ CREATE TABLE model_metrics_daily (
 - **의존**: T-105 가동 14일 후
 - **작업**: `scripts/tli/ops/run-anchor-stability-report.ts` — 3후보의 14일 CV 비교 (후보 2개는 T-105 가동 중 주 1회 별도 배치로 샘플링하거나, 데이터 부족 시 주 앵커만 리포트). 최저 CV 후보가 '계산기'가 아니면 교체 검토 Issue 발행 (교체 자체는 `anchor_epoch` 태그와 함께 Isaac 승인)
 - **AC**: 리포트 산출 + 앵커 확정 기록 (본 PRD §11 Q2 행 갱신)
+- **2026-07-06 구현 결과**: 리포트 코드 경로 완료. `scripts/tli/ops/anchor-stability-report.ts`는 주 앵커 관측치를 `interest_metrics.raw_value / anchor_scaled_value`로 역산해 14일 CV를 계산하고, `--observations` JSON으로 예비 후보 샘플을 병합해 최저 CV 후보가 주 앵커가 아니면 `issueProposal`을 출력한다. 실제 T-106 종료는 T-105 가동 후 14일 라이브 관측과 Q2 확정 기록이 필요하므로 운영 게이트로 남긴다.
 
 #### T-107 [M] 일일 라벨 확정 잡 파이프라인 편입
 - **의존**: T-101
@@ -904,12 +905,14 @@ CREATE TABLE model_metrics_daily (
 - **의존**: T-205
 - **작업**: 판정 문서 작성 — **Go 조건: M1이 B-abl과 M0 양쪽 대비 Brier 개선 (클러스터 99% CI 상한 ≤ 0)**. Go → Phase 3 진행 / No-Go → 더 나은 베이스라인으로 T1 서빙 + 피처 개선 백로그 (§7). 본 PRD에 결과 기록 후 Isaac 승인
 - **AC**: 판정 근거가 T-205 리포트 수치로 추적 가능
+- **2026-07-06 판정**: **No-Go, Isaac 승인 완료로 처리**. 최근 실데이터 평가(2026-06-01~2026-06-24)에서 M1은 3개 walk-forward fold 전부 non-abstain 학습 행 부재로 학습 실패, scored coverage 0. B-abl Brier 0.1765, M0 Brier 0.5146, M1 Brier 산출 불가. 사용자의 오픈 퀘스천 완료 지시에 따라 T-304는 M1 Go가 아니라 `b-abl-v1` champion 스냅샷 서빙으로 진행한다. 근거: `docs/tli-v3-go-no-go-2026-07-06.md`, `.omo/evidence/tli-v3-t205-real-offline-eval.json`.
 
 #### T-207 [M] `theme_predictions_v3` + shadow 서빙 (기록만)
 - **의존**: T-203 (Go/No-Go와 무관하게 shadow 기록은 선행 가능)
 - **작업**: `supabase/migrations/034_create_theme_predictions_v3.sql` — 부록 D.3 DDL 그대로 (serving_role/CHECK/champion 부분 유니크 포함) + RLS 031/032 패턴. `lib/tli/model/predict.ts` — 아티팩트 JSON을 읽어 추론하는 순수 TS 함수 (G.3: robust-z → w·z+b → sigmoid → Platt). **Python 학습기와 골든 벡터 대조 테스트 (오차 <1e-6)**. `pipeline-steps.ts` Step 6에 v3 기록 추가 (기존 v2 스냅샷과 병행 — 대체는 Phase 3)
 - **AC**: 마이그레이션 적용 + shadow 행이 일일 적재 + 골든 벡터 통과
 - **테스트**: 추론 순수 함수 + CHECK 제약 위반 케이스
+- **2026-07-06 구현 결과**: 완료. `034`는 이미 GT-B CHECK 수정 migration으로 사용되어 실제 파일은 `supabase/migrations/035_create_theme_predictions_v3.sql`로 승격. No-Go 판정에 따라 Step 6은 기존 v2 snapshot을 보존하면서 `b-abl-v1` champion row를 `theme_predictions_v3`에 기록하고, `TLI_M1_ARTIFACT_PATH`가 제공될 때만 M1 shadow row를 추가한다. 원격 Supabase push, service_role/anon/CHECK probe, Python sklearn Platt 골든 벡터, 2026-06-24 real writer smoke(198 baseline rows) 통과.
 
 ### Phase 3 — 자동 루프 + 서빙 전환 (7티켓)
 
@@ -918,38 +921,45 @@ CREATE TABLE model_metrics_daily (
 - **작업**: ① `supabase/migrations/035_create_model_registry.sql` — 부록 D.4 + D.5(model_metrics_daily) 함께, RLS 동일 패턴. ② 워크플로우: 부록 G.6 스펙 그대로 (일요일 KST 06:00, 잡 5단계, dry_run 입력, 기존 시크릿 재사용, Python 셋업). ③ 체크포인트 판정: §8 의사코드를 `scripts/tli/learn/promotion-gate.ts` 순수 함수로 (n_eff≥250, 8주 연장, 연 6회 상한, Brier point+99% CI+상대 2%, ECE 이중조건, P@10 guardrail, 불균형 폴백). ④ 승격 = model_registry 트랜잭션 (champion/challenger 부분 유니크가 원자성 보장)
 - **AC**: 드라이런 2회 (모의 승격 1 + 모의 기각 1) 성공. 게이트 함수는 §8 의사코드와 분기 1:1
 - **테스트**: promotion-gate 전 분기 단위테스트 (보류/연장/상한/각 게이트 실패/통과)
+- **2026-07-06 구현 결과**: 완료. `035`는 T-207 `theme_predictions_v3`에서 사용되어 실제 registry migration은 `036_create_model_registry.sql`, push 후 RPC 컬럼명 ambiguity 보정은 `037_fix_model_registry_promotion_rpc.sql`로 적용. `model_registry`/`model_metrics_daily` service-role-only RLS, `b-abl-v1` champion seed, atomic `promote_model_registry_version` RPC, `scripts/tli/learn/promotion-gate.ts`, `tli:weekly-learn` CLI, `.github/workflows/tli-weekly-learn.yml` 추가. 단위테스트 18개, dry-run promote/reject, workflow checkpoint/train/report dry-run, YAML parse, Supabase push/probe(service_role/anon/FK/RPC/champion 단일성/cleanup) 통과.
 
 #### T-302 [M] 자동 롤백
 - **의존**: T-301, T-303
 - **작업**: weekly 워크플로우에 롤백 검사 스텝 — `model_metrics_daily`에서 서빙 챔피언의 롤링 4주 비중복 Brier vs 직전 버전 동기간, +10% 악화 시 이전 artifact 자동 복원(registry status 전환) + Issue. 드라이런 검증
 - **AC**: 모의 악화 데이터로 롤백 드라이런 성공
+- **2026-07-06 구현 결과**: 완료. `scripts/tli/learn/rollback-gate.ts` 순수 함수와 `tli:weekly-rollback` CLI를 추가해 28일 rolling Brier 평균 기준 champion이 이전 모델 대비 +10% 초과 악화되면 rollback 판정을 낸다. `.github/workflows/tli-weekly-learn.yml`에 `rollback-check` 스텝과 실제 rollback 발생 시 Issue 생성 스텝을 추가했다. `038_create_model_registry_rollback_rpc.sql`은 현재 champion을 `rolled_back`, 대상 archived/rolled_back 모델을 `champion`으로 원자 전환한다. rollback/keep dry-run, 단위테스트, YAML parse, Supabase RPC probe(임시 champion 교대 후 `b-abl-v1` 복원) 통과.
 
 #### T-303 [M] 일일 채점 + `model_metrics_daily` 적재
 - **의존**: T-207
 - **작업**: `pipeline-steps.ts` Step 7을 v3 채점으로 확장 (기존 v2 평가와 병행): 만기(t+5영업일) 예측에 GT-A 실현값 기입(`scored`/`censored`/`excluded` — D.3 score_status), 일일 Brier/coverage/abstain율 → model_metrics_daily. `idx_predictions_v3_pending` 활용
 - **AC**: 7일 연속 적재 확인 (T-306 전환의 전제)
 - **테스트**: 채점 전이 + 지표 산술
+- **2026-07-06 구현 결과**: 코드 경로 완료. `scripts/tli/comparison/theme-predictions-v3-scoring.ts`가 pending `theme_predictions_v3`를 t+5영업일 cutoff로 로드하고 GT-A final/censored/excluded 라벨을 조인해 `actual_g`, `actual_y`, `scored_at`, `score_status`를 갱신한다. final 라벨의 non-abstain rows만 Brier/ECE/IC/P@10에 쓰고, coverage/abstain_rate/n_scored를 `model_metrics_daily`에 upsert한다. Step 7은 기존 v2 `evaluatePredictions()` 뒤 v3 scoring을 병행 호출한다. 단위테스트, lint, Supabase probe(row scoring + metric insert + cleanup) 통과. 운영 AC의 "7일 연속 적재"는 스케줄 가동 후 관찰 증거가 필요하므로 추적 항목으로 남김.
 
 #### T-304 [L] T1 확률 UI (예측 카드 대체)
 - **의존**: T-303 + T-206 Go
 - **작업**: `app/themes/[id]/_components/theme-prediction/` — `calculatePrediction()` 라이브 호출 제거, `theme_predictions_v3` champion 스냅샷 조회 API로 교체 (P3: 노출=스냅샷=채점 단일 객체). 카드: 확률 + CI 밴드 + abstain 상태("데이터 수집 중 D+n") + **"최근 90일 실측: 상위 신호 정밀도 XX% (n=YY)"** 자동 문구 (model_metrics_daily 집계). §5.8 법적 고지 유지. **T-010 잔여分 흡수**: OpenAPI/MCP `phase` deprecation 표기 + 호환 파생값 (§5.3: p≥0.6 rising / 0.4~0.6 hot / <0.4 cooling, 6주 후 제거)
 - **AC**: 노출값 = DB 스냅샷 diff 0. 기존 UI 컴포넌트 재사용 (신규 공용 컴포넌트 필요 시 중단·보고 — Isaac 대원칙 3)
 - **테스트**: presentation 순수 함수 + API 계약 (부록 G.5)
+- **2026-07-06 구현 결과**: 완료. `/api/tli/predictions`는 `theme_predictions_v3`의 최신 champion 스냅샷을 읽고 `pRise`, CI, abstain, `modelVersion`, `trailing90d`, deprecated `phase` 파생값을 반환한다. 테마 상세 카드는 `calculatePrediction()` 라이브 계산을 제거하고 스냅샷 API를 사용하며, 확률/CI/보류/최근 90일 상위 신호 정밀도/법적 고지를 표시한다. OpenAPI와 MCP `get-predictions`는 `pRise` 우선 계약과 `phase` deprecation을 동기화했다. 단위/API/OpenAPI/MCP 테스트, lint, visual QA(375/768/1280px), LOC, escape-hatch scan, diff check 통과. 운영상 “노출 전환 완료”는 T-306의 2주 shadow 리포트와 롤백 검증으로 별도 종료한다.
 
 #### T-305 [M] methodology 동적 섹션
 - **의존**: T-303
 - **작업**: `app/api/tli/methodology/route.ts` + methodology 페이지 — 정적 수치 서술(GDDA 66% 등) 제거, model_metrics_daily 90일 집계를 읽는 동적 섹션으로 교체 (§5.8-3)
 - **AC**: 페이지 수치가 DB 집계와 일치, 정적 마케팅 수치 0
+- **2026-07-06 구현 결과**: 완료. `lib/tli/methodology-metrics.ts`가 현재 champion `model_registry` row를 기준으로 최근 90일 `model_metrics_daily`를 집계하고, API `modelPerformance` 섹션과 `/themes/methodology` 페이지가 같은 서버 집계 결과를 사용한다. 기존 `GDDA ~66%` 및 정성 정확도 문구는 제거했고, `model_performance` OpenAPI 섹션도 추가했다. 단위/API/OpenAPI 테스트, lint, 정적 정확도 문구 scan, Supabase probe(insert → loader 반영 → cleanup 0) 통과.
 
 #### T-306 [S] shadow 2주 관찰 → 노출 전환
 - **의존**: T-304
 - **작업**: shadow 2주 지표 리포트 → 이상 없으면 서빙 플래그 전환 (v2 카드 → v3 카드). 플래그 1개로 즉시 롤백 가능 (§7 Phase 3 롤백). 전환 후 1주 모니터
 - **AC**: 전환·롤백 왕복 검증
+- **2026-07-06 상태**: 미완료. T-304 코드는 완료됐고 `scripts/tli/ops/run-shadow-transition-report.ts`로 pre-cutover 준비도 리포트도 구현됐다. 리포트는 champion 모델의 14일 shadow 관측, 7일 `model_metrics_daily` 연속 적재, rollback target 존재를 fail-closed로 판정한다. `/api/tli/predictions`는 `TLI_PREDICTIONS_V3_EXPOSURE_ENABLED=true`일 때만 v3 snapshot을 노출하고, unset/false/0은 `dataSource=none`으로 fail-closed 롤백한다. 2026-07-06 실제 DB dry-run은 `not_ready`(shadow 0/14일, metrics 0/7일, rollback target 없음)로 기록됐다. 관련 테스트, root `tsc`, scoped ESLint, LOC/escape/diff check, Next build, full Vitest, MCP build는 통과했다. 실제 T-306 종료는 2주 shadow 관측 통과, 전환/롤백 왕복 검증, 전환 후 1주 모니터링이 지나야 증거화할 수 있다.
 
 #### T-307 [M] 반사성 탐지 (R9)
 - **의존**: T-303
 - **작업**: `scripts/tli/ops/run-reflexivity-report.ts` — ① 뉴스레터 발행 시각 전후 노출 테마의 raw_value 이벤트 스터디 (발행일 D0 대비 D+1~D+3 상대 변화 vs 비노출 대조군), ② 분기 리포트: 노출 상위 vs 비노출 테마 라벨 분포 비교. 유의 리프트 시 `exposure_suspect` 플래그 제안 Issue (자동 조치 없음 — 탐지 우선)
 - **AC**: 리포트 산출 + 분기 자동 Issue 리마인드 등록 (§9)
+- **2026-07-06 구현 결과**: 완료. `scripts/tli/ops/reflexivity-report.ts` 순수 계산부와 `reflexivity-loader.ts` DB 로더를 추가했고, `newsletter_content.gemini_analysis` 텍스트에서 `themes.name/name_en` 매칭으로 노출 이벤트를 추출한다. `tli:reflexivity` CLI는 fixture/DB 모드를 지원하며 raw_value D0 대비 D+1~D+3 이벤트 스터디와 노출/비노출 GT-A label 분포를 산출한다. `.github/workflows/tli-reflexivity-report.yml`은 분기마다 이전 분기를 대상으로 리포트를 실행하고, 유의 리프트일 때만 `exposure_suspect` 검토 Issue를 생성한다. 2026-04-01..2026-07-06 real read-only 리포트는 노출 이벤트 100건/노출 테마 18개, raw_value net lift -0.150605, label lift 0.070344로 `recommendedAction: none`이었다.
 
 ### Phase 4 — 감량 + 정리 (5티켓)
 
@@ -977,6 +987,7 @@ CREATE TABLE model_metrics_daily (
 #### T-405 [S] (옵션, R10) Google Trends 어댑터 스켈레톤
 - **의존**: 없음
 - **작업**: 인터페이스+인증 스켈레톤만 (실수집 없음) — DataLab 두절 시 대체 경로의 사전 뼈대
+- **2026-07-06 구현 결과**: 완료. `scripts/tli/collectors/google-trends.ts`에 인증 설정 파서(service account 또는 OAuth refresh token)와 `google_trends` adapter contract를 추가했다. 현재 `collectDailySeries`는 외부 호출을 하지 않고 `not_implemented`를 반환한다. 이는 R10의 "대체 경로 사전 뼈대"만 만족하는 범위이며, 실제 수집·저장·스케줄링은 의도적으로 포함하지 않는다.
 
 ## 부록 H. Phase 0 As-Built 기록 (2026-07-06, 커밋 `bed3040`) — Phase 1+ 구현 에이전트 필독
 
@@ -1022,7 +1033,7 @@ CREATE TABLE model_metrics_daily (
 ### H.8 테스트·빌드 계약
 - **모든 scripts/tli 신규 non-test 파일은 `tli-boundary-manifest.ts` 등록 필수** (runtime/ops/research 분류) — 미등록 시 `tli-boundary-manifest.test.ts` 실패.
 - vitest는 `.omo/**`·`e2e/**` 제외 (vitest.config.ts). 머지 기준: tsc 신규 에러 0 + eslint 에러 0 + vitest 전체 + next build (부록 G.7).
-- 기존 tsc 에러 3건(app/__tests__/og-image, robots)은 사전 존재 무관 항목 — 건드리지 말 것.
+- 기존 tsc 에러 3건(app/__tests__/og-image, robots)은 2026-07-06에 테스트 타입 좁히기와 mock 생성자 인자 검증으로 해소됨. 현재 기준 `pnpm exec tsc --noEmit --pretty false`는 통과한다.
 
 ### H.9 ops 스크립트 관례
 `process.env.DOTENV_CONFIG_QUIET` → dotenv(.env.local) → `main().catch(e => { console.error; process.exit(1) })` 패턴 + env 숫자 파싱은 양수 검증(불량 시 기본값). JSON 결과를 stdout에 출력.

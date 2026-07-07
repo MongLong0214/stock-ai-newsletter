@@ -1,0 +1,222 @@
+{
+  "reportVersion": "tli-offline-eval-report-v1",
+  "startDate": "2026-01-07",
+  "endDate": "2026-07-07",
+  "models": {
+    "bAbl": {
+      "rawN": 8941,
+      "nonOverlappingN": 1751,
+      "raw": {
+        "totalCandidates": 8941,
+        "nScored": 7083,
+        "coverage": 0.7921932669723745,
+        "baseRate": 0.24424678808414513,
+        "brier": 0.24481152054214317,
+        "ece": 0.24368205562614711,
+        "eceBinCount": 5,
+        "eceUpper95": null,
+        "ic": -0.05705577444130644,
+        "risingPAt10": 0.20923076923076916
+      },
+      "weeklyMonday": {
+        "totalCandidates": 1751,
+        "nScored": 1289,
+        "coverage": 0.7361507709880069,
+        "baseRate": 0.23196276183087663,
+        "brier": 0.23196276183087663,
+        "ece": 0.23196276183087666,
+        "eceBinCount": 5,
+        "eceUpper95": null,
+        "ic": null,
+        "risingPAt10": 0.17500000000000002
+      }
+    },
+    "m0": {
+      "rawN": 8941,
+      "nonOverlappingN": 1751,
+      "raw": {
+        "totalCandidates": 8941,
+        "nScored": 8941,
+        "coverage": 1,
+        "baseRate": 0.24605748797673638,
+        "brier": 0.395990343979028,
+        "ece": 0.4452733911726945,
+        "eceBinCount": 5,
+        "eceUpper95": null,
+        "ic": -0.03616539227891614,
+        "risingPAt10": 0.23484848484848478
+      },
+      "weeklyMonday": {
+        "totalCandidates": 1751,
+        "nScored": 1751,
+        "coverage": 1,
+        "baseRate": 0.240434037692747,
+        "brier": 0.40731953271769106,
+        "ece": 0.4652132257381214,
+        "eceBinCount": 5,
+        "eceUpper95": null,
+        "ic": -0.07814496003627641,
+        "risingPAt10": 0.21538461538461545
+      }
+    },
+    "m1": {
+      "rawN": 8941,
+      "nonOverlappingN": 1751,
+      "raw": {
+        "totalCandidates": 8941,
+        "nScored": 8941,
+        "coverage": 1,
+        "baseRate": 0.24605748797673638,
+        "brier": 0.1775187895416067,
+        "ece": 0.019643161978948914,
+        "eceBinCount": 5,
+        "eceUpper95": null,
+        "ic": 0.21725137048081342,
+        "risingPAt10": 0.4893939393939393
+      },
+      "weeklyMonday": {
+        "totalCandidates": 1751,
+        "nScored": 1751,
+        "coverage": 1,
+        "baseRate": 0.240434037692747,
+        "brier": 0.17914687153134706,
+        "ece": 0.02332796714765005,
+        "eceBinCount": 5,
+        "eceUpper95": null,
+        "ic": 0.20534751829958653,
+        "risingPAt10": 0.3923076923076923
+      }
+    }
+  },
+  "brierDeltaCi": {
+    "m1VsBAbl": {
+      "metric": "brier",
+      "method": "cluster_bootstrap",
+      "meanDelta": -0.054680032873369755,
+      "lower": -0.07405673948570167,
+      "upper": -0.03530380083691636,
+      "clusterCount": 164,
+      "observationCount": 1289,
+      "iterations": 2000,
+      "confidenceLevel": 0.99,
+      "imbalance": {
+        "clusterCount": 164,
+        "observationCount": 1289,
+        "topClusterCount": 9,
+        "topClusterShare": 0.08378588052754073,
+        "useWildClusterBootstrap": false
+      }
+    },
+    "m1VsM0": {
+      "metric": "brier",
+      "method": "cluster_bootstrap",
+      "meanDelta": -0.22817266118633592,
+      "lower": -0.25403528877504183,
+      "upper": -0.20138560320665963,
+      "clusterCount": 169,
+      "observationCount": 1751,
+      "iterations": 2000,
+      "confidenceLevel": 0.99,
+      "imbalance": {
+        "clusterCount": 169,
+        "observationCount": 1751,
+        "topClusterCount": 9,
+        "topClusterShare": 0.06681896059394632,
+        "useWildClusterBootstrap": false
+      }
+    },
+    "m1VsBAblOverlappingRaw": {
+      "metric": "brier",
+      "method": "cluster_bootstrap",
+      "meanDelta": -0.06789589068680667,
+      "lower": -0.08371396838125836,
+      "upper": -0.05139266812101697,
+      "clusterCount": 169,
+      "observationCount": 7083,
+      "iterations": 2000,
+      "confidenceLevel": 0.99,
+      "imbalance": {
+        "clusterCount": 169,
+        "observationCount": 7083,
+        "topClusterCount": 9,
+        "topClusterShare": 0.08259212198221093,
+        "useWildClusterBootstrap": false
+      }
+    },
+    "m1VsM0OverlappingRaw": {
+      "metric": "brier",
+      "method": "cluster_bootstrap",
+      "meanDelta": -0.2184715544374012,
+      "lower": -0.23831563449477514,
+      "upper": -0.19690661718844718,
+      "clusterCount": 170,
+      "observationCount": 8941,
+      "iterations": 2000,
+      "confidenceLevel": 0.99,
+      "imbalance": {
+        "clusterCount": 170,
+        "observationCount": 8941,
+        "topClusterCount": 9,
+        "topClusterShare": 0.06643552175371882,
+        "useWildClusterBootstrap": false
+      }
+    }
+  },
+  "labelStatus": {
+    "final": 15307,
+    "censored": 0,
+    "excluded": 14938,
+    "pending": 1052,
+    "total": 31297,
+    "censoredRate": 0,
+    "excludedRate": 0.4772981435920376
+  },
+  "folds": [
+    {
+      "foldId": "wf-1",
+      "trainRows": 5798,
+      "testRows": 2907,
+      "trainDateRange": {
+        "start": "2026-01-12",
+        "end": "2026-03-16"
+      },
+      "testDateRange": {
+        "start": "2026-03-23",
+        "end": "2026-04-21"
+      },
+      "trainClusterCount": 199,
+      "testClusterCount": 152
+    },
+    {
+      "foldId": "wf-2",
+      "trainRows": 8741,
+      "testRows": 2994,
+      "trainDateRange": {
+        "start": "2026-01-12",
+        "end": "2026-04-15"
+      },
+      "testDateRange": {
+        "start": "2026-04-22",
+        "end": "2026-05-26"
+      },
+      "trainClusterCount": 199,
+      "testClusterCount": 150
+    },
+    {
+      "foldId": "wf-3",
+      "trainRows": 11722,
+      "testRows": 3040,
+      "trainDateRange": {
+        "start": "2026-01-12",
+        "end": "2026-05-19"
+      },
+      "testDateRange": {
+        "start": "2026-05-27",
+        "end": "2026-06-29"
+      },
+      "trainClusterCount": 199,
+      "testClusterCount": 167
+    }
+  ],
+  "m1TrainingFailures": []
+}
