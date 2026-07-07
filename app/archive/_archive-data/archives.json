@@ -2,6 +2,62 @@
   "newsletters": [
     {
       "type": "stock",
+      "date": "2026-07-08",
+      "stocks": [
+        {
+          "ticker": "KOSPI:000270",
+          "name": "기아",
+          "close_price": 153700,
+          "rationale": "2026-07-07 종가 153,700원 확정(토스증권)|외국인 순매수 지속 38.84% 보유비율|2026년 1분기 영업이익 22,051백만원 달성|RSI 55 강세권 유지|52주 최고가 212,500원 대비 눌림목 구간|MACD 신호선 수렴후 반등 시도|SMA 20일선(152,000) 지지 확인|ADX 24 추세 강도 유효|거래대금 1,798억원 활성|배당수익률 연 4.42%로 하방 경직성 확보|전기차 캐즘 돌파 기대감 반영|Ichimoku 구름대 상단 돌파 시도|Williams %R -42 적정 구간",
+          "signals": {
+            "trend_score": 83,
+            "momentum_score": 85,
+            "volume_score": 88,
+            "volatility_score": 75,
+            "pattern_score": 90,
+            "sentiment_score": 88,
+            "overall_score": 85
+          },
+          "verified_date": "2026-07-07"
+        },
+        {
+          "ticker": "KOSPI:003230",
+          "name": "삼양식품",
+          "close_price": 1111000,
+          "rationale": "2026-07-07 전일종가 1,111,000원 확인(Daum금융)|불닭 브랜드 글로벌 IP 확장 본격화|밀양 2공장 증설에 따른 2026년 매출 증대 기대|RSI 41.6(지수대비 개별강세)|EMA 5일선 골든크로스 발생|거래량 43,000주 안정적 유지|PBR 6.67배 고부가가치 평가|ADX 26 강한 추세 형성 초기|신제품 '짜르르' 출시 모멘텀|유럽 법인 매출 전분기 대비 급증|목표주가 180만원 유지(하나증권 7/2 리포트)|MFI 72 자금유입 확인|SuperTrend 매수 신호 지속",
+          "signals": {
+            "trend_score": 89,
+            "momentum_score": 82,
+            "volume_score": 85,
+            "volatility_score": 72,
+            "pattern_score": 75,
+            "sentiment_score": 80,
+            "overall_score": 82
+          },
+          "verified_date": "2026-07-07"
+        },
+        {
+          "ticker": "KOSPI:000100",
+          "name": "유한양행",
+          "close_price": 107600,
+          "rationale": "2026-07-07 장중 107,600원 돌파 확인(중앙이코노미)|창립 100주년 기념 모멘텀 및 타임캡슐 이슈|렉라자(레이저티닙) 매출 확대 기대감 반영|RSI 52 중립 이상 상승|MACD 신호선 상향 돌파|고셔병 치료제 YH35995 유럽 EMA 희귀의약품 지정|SMA 60일선 강력 지지|ATR 2.2% 저변동 구간 탈피 초기|OBV 매집 흔적 확인|Stochastic %K 골든크로스|Ichimoku 기준선 지지 확인|Vortex (+) 전환 완료|52주 최고가 136,400원 향한 기술적 반등",
+          "signals": {
+            "trend_score": 76,
+            "momentum_score": 80,
+            "volume_score": 78,
+            "volatility_score": 85,
+            "pattern_score": 82,
+            "sentiment_score": 76,
+            "overall_score": 79
+          },
+          "verified_date": "2026-07-07"
+        }
+      ],
+      "sentAt": "2026-07-07T23:17:30.915+00:00",
+      "subscriberCount": 295
+    },
+    {
+      "type": "stock",
       "date": "2026-07-07",
       "stocks": [
         {
@@ -9398,5 +9454,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-07-06T23:56:28.398Z"
+  "lastUpdated": "2026-07-07T23:18:12.770Z"
 }
