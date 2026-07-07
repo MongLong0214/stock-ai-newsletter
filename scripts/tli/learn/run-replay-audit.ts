@@ -1,19 +1,13 @@
 import { spawnSync } from 'node:child_process'
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
-import { buildFeatureVector } from '../../../lib/tli/features/build-features'
 import type { M1ModelArtifact } from '../../../lib/tli/model/m1'
 import { parseM1ModelArtifact } from '../../../lib/tli/model/predict'
 import { getKoreanTradingDatesBetween } from '../../../lib/tli/trading-calendar'
 import {
   TLI_V3_HORIZON_DAYS,
   TLI_V3_LABELER_VERSION,
-  TLI_V3_M1_PARAM_VERSION,
-  buildBaselinePredictionV3Row,
-  buildM1PredictionV3Row,
-  parsePredictionPhase,
 } from '../comparison/theme-predictions-v3-records'
-import { loadFeatureInputsForBaseDate } from '../features/load-feature-inputs'
 import { supabaseAdmin } from '../shared/supabase-admin'
 import { buildM1TrainingDatasetDump } from './offline-eval'
 import { loadOfflineEvalInput } from './offline-eval-data'
@@ -27,8 +21,8 @@ import {
   renderReplayAuditMarkdown,
   type ReplayAuditLabelRow,
   type ReplayAuditLabelStatus,
-  type ReplayAuditPredictionRow,
 } from './replay-audit'
+import { scoreReplayRows } from './replay-audit-scoring'
 
 process.env.DOTENV_CONFIG_QUIET = process.env.DOTENV_CONFIG_QUIET ?? 'true'
 
@@ -72,6 +66,12 @@ const readArg = (name: string, fallback: string | null = null): string | null =>
   return process.argv.find((arg) => arg.startsWith(prefix))?.slice(prefix.length) ?? fallback
 }
 
+const readBooleanArg = (name: string, fallback: boolean): boolean => {
+  const value = readArg(name)
+  if (value === null) return fallback
+  return ['1', 'true'].includes(value.toLowerCase())
+}
+
 const ensureParentDir = (path: string): void => {
   mkdirSync(dirname(path), { recursive: true })
 }
@@ -108,15 +108,18 @@ const parseLabelStatus = (value: string): ReplayAuditLabelStatus => {
 const trainCutoffArtifact = async (input: {
   readonly trainEnd: string
   readonly workDir: string
+  readonly forceRetrain: boolean
 }): Promise<TrainedArtifactResult> => {
   mkdirSync(input.workDir, { recursive: true })
   const datasetPath = join(input.workDir, 'training.json')
   const artifactPath = join(input.workDir, 'artifact.json')
-  const evalInput = await loadOfflineEvalInput(REPLAY_AUDIT_TRAIN_START, input.trainEnd)
-  writeJson(datasetPath, buildM1TrainingDatasetDump({
-    rows: evalInput.featureRows,
-    labelerVersion: TLI_V3_LABELER_VERSION,
-  }))
+  if (input.forceRetrain || !existsSync(datasetPath)) {
+    const evalInput = await loadOfflineEvalInput(REPLAY_AUDIT_TRAIN_START, input.trainEnd)
+    writeJson(datasetPath, buildM1TrainingDatasetDump({
+      rows: evalInput.featureRows,
+      labelerVersion: TLI_V3_LABELER_VERSION,
+    }))
+  }
   const result = spawnSync('python', [
     'scripts/tli/learn/train_m1.py',
     '--trained-at',
@@ -144,11 +147,17 @@ const loadReplaySnapshots = async (input: {
     .from('prediction_snapshots_v2')
     .select('theme_id, snapshot_date, phase')
     .eq('run_type', 'prod')
-    .eq('evaluation_horizon_days', TLI_V3_HORIZON_DAYS)
     .gte('snapshot_date', input.replayStart)
     .lte('snapshot_date', input.replayEnd)
     .order('snapshot_date', { ascending: true }))
-  return rows.filter((row) => tradingDaySet.has(row.snapshot_date))
+  const seenSnapshotKeys = new Set<string>()
+  return rows.filter((row) => {
+    if (!tradingDaySet.has(row.snapshot_date)) return false
+    const snapshotKey = `${row.theme_id}:${row.snapshot_date}`
+    if (seenSnapshotKeys.has(snapshotKey)) return false
+    seenSnapshotKeys.add(snapshotKey)
+    return true
+  })
 }
 
 const loadReplayLabels = async (input: {
@@ -172,44 +181,6 @@ const loadReplayLabels = async (input: {
   }))
 }
 
-const scoreReplayRows = async (input: {
-  readonly snapshots: readonly PredictionSnapshotReplayRow[]
-  readonly artifact: M1ModelArtifact
-  readonly trainEnd: string
-}): Promise<ReplayAuditPredictionRow[]> => {
-  const rows: ReplayAuditPredictionRow[] = []
-  for (const snapshot of input.snapshots) {
-    const featureInputs = await loadFeatureInputsForBaseDate({
-      themeId: snapshot.theme_id,
-      baseDate: snapshot.snapshot_date,
-    })
-    const featureVector = buildFeatureVector(featureInputs)
-    const m1 = buildM1PredictionV3Row({
-      themeId: snapshot.theme_id,
-      predictionDate: snapshot.snapshot_date,
-      featureVector,
-      artifact: input.artifact,
-      modelVersion: `m1-replay-${input.trainEnd}`,
-      paramVersion: TLI_V3_M1_PARAM_VERSION,
-      servingRole: 'shadow',
-    })
-    const bAbl = buildBaselinePredictionV3Row({
-      themeId: snapshot.theme_id,
-      predictionDate: snapshot.snapshot_date,
-      prediction: { phase: parsePredictionPhase(snapshot.phase) },
-      featureVector,
-      servingRole: 'champion',
-    })
-    rows.push({
-      themeId: snapshot.theme_id,
-      baseDate: snapshot.snapshot_date,
-      pRiseM1: m1.pRise,
-      pRiseBAbl: bAbl.pRise,
-    })
-  }
-  return rows
-}
-
 async function main(): Promise<void> {
   const trainEnd = readArg('train-end', REPLAY_AUDIT_TRAIN_END) ?? REPLAY_AUDIT_TRAIN_END
   const replayStart = readArg('replay-start', REPLAY_AUDIT_REPLAY_START) ?? REPLAY_AUDIT_REPLAY_START
@@ -217,9 +188,10 @@ async function main(): Promise<void> {
   const jsonOutput = readArg('json-output', DEFAULT_JSON_OUTPUT) ?? DEFAULT_JSON_OUTPUT
   const markdownOutput = readArg('markdown-output', DEFAULT_MARKDOWN_OUTPUT) ?? DEFAULT_MARKDOWN_OUTPUT
   const workDir = readArg('work-dir', DEFAULT_WORK_DIR) ?? DEFAULT_WORK_DIR
+  const forceRetrain = readBooleanArg('force-retrain', false)
   const tradingDays = getKoreanTradingDatesBetween({ startDate: replayStart, endDate: replayEnd })
   const [trained, snapshots, labels] = await Promise.all([
-    trainCutoffArtifact({ trainEnd, workDir }),
+    trainCutoffArtifact({ trainEnd, workDir, forceRetrain }),
     loadReplaySnapshots({ replayStart, replayEnd, tradingDays }),
     loadReplayLabels({ replayStart, replayEnd }),
   ])

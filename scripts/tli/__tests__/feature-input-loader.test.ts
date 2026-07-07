@@ -1,6 +1,46 @@
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+type QueryPage = {
+  readonly data: readonly unknown[] | null
+  readonly error: { readonly message: string } | null
+}
+
+const supabaseAdminMocks = vi.hoisted(() => {
+  const pagesByTable = new Map<string, QueryPage[]>()
+  const rangeCallsByTable = new Map<string, Array<readonly [number, number]>>()
+  return { pagesByTable, rangeCallsByTable }
+})
+
+vi.mock('@/scripts/tli/shared/supabase-admin', () => ({
+  supabaseAdmin: {
+    from: vi.fn((table: string) => {
+      const query = {
+        select: vi.fn(() => query),
+        eq: vi.fn(() => query),
+        gte: vi.fn(() => query),
+        lte: vi.fn(() => query),
+        order: vi.fn(() => query),
+        range: vi.fn(async (from: number, to: number) => {
+          const calls = supabaseAdminMocks.rangeCallsByTable.get(table) ?? []
+          calls.push([from, to])
+          supabaseAdminMocks.rangeCallsByTable.set(table, calls)
+          return supabaseAdminMocks.pagesByTable.get(table)?.shift() ?? { data: [], error: null }
+        }),
+        then<TResult1 = QueryPage, TResult2 = never>(
+          onFulfilled?: ((value: QueryPage) => TResult1 | PromiseLike<TResult1>) | null,
+          onRejected?: ((reason: unknown) => TResult2 | PromiseLike<TResult2>) | null,
+        ): Promise<TResult1 | TResult2> {
+          return Promise.resolve({ data: [], error: null }).then(onFulfilled, onRejected)
+        },
+      }
+      return query
+    }),
+  },
+}))
+
 import {
   assembleFeatureInputsFromRows,
+  loadFeatureInputsForBaseDate,
   type FeatureInputRows,
 } from '../features/load-feature-inputs'
 
@@ -50,6 +90,11 @@ const rows = {
   ],
 } satisfies FeatureInputRows
 
+beforeEach(() => {
+  supabaseAdminMocks.pagesByTable.clear()
+  supabaseAdminMocks.rangeCallsByTable.clear()
+})
+
 describe('T-201 feature input loader assembly', () => {
   it('ignores rows after the base date for point-in-time safety', () => {
     const assembled = assembleFeatureInputsFromRows(rows)
@@ -81,5 +126,27 @@ describe('T-201 feature input loader assembly', () => {
     const assembled = assembleFeatureInputsFromRows(rowsWithFutureCompletion)
 
     expect(assembled.completedEpisodePeakDays).toHaveLength(2)
+  })
+})
+
+describe('T-201 feature input loader pagination', () => {
+  it('fetches a second page when a feature-source query returns exactly 1000 rows', async () => {
+    const exactPage = Array.from({ length: 1000 }, (_, index) => ({
+      theme_id: `theme-${index}`,
+      time: '2026-07-10',
+      raw_value: index,
+      anchor_scaled_value: index,
+    }))
+    supabaseAdminMocks.pagesByTable.set('interest_metrics', [
+      { data: exactPage, error: null },
+      { data: [], error: null },
+    ])
+
+    await loadFeatureInputsForBaseDate({ themeId: 'theme-a', baseDate: '2026-07-10' })
+
+    expect(supabaseAdminMocks.rangeCallsByTable.get('interest_metrics')).toEqual([
+      [0, 999],
+      [1000, 1999],
+    ])
   })
 })

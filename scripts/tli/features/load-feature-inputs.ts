@@ -60,6 +60,29 @@ export interface LoadFeatureInputsRequest {
   readonly baseDate: string
 }
 
+interface QueryError {
+  readonly message: string
+}
+
+interface RangeQuery<T> {
+  range(from: number, to: number): PromiseLike<{
+    readonly data: readonly T[] | null
+    readonly error: QueryError | null
+  }>
+}
+
+const PAGE_SIZE = 1000
+
+const fetchAllRows = async <T>(createQuery: () => RangeQuery<T>): Promise<T[]> => {
+  const rows: T[] = []
+  for (let from = 0; ; from += PAGE_SIZE) {
+    const { data, error } = await createQuery().range(from, from + PAGE_SIZE - 1)
+    if (error) throw new Error(`T-201 피처 입력 로딩 실패: ${error.message}`)
+    rows.push(...(data ?? []))
+    if (!data || data.length < PAGE_SIZE) return rows
+  }
+}
+
 const getFiniteNumber = (value: number | null): number | null => (
   value === null || !Number.isFinite(value) ? null : value
 )
@@ -174,53 +197,65 @@ export async function loadFeatureInputsForBaseDate(
   request: LoadFeatureInputsRequest,
 ): Promise<FeatureInputs> {
   const startDate = addKoreanTradingDays(request.baseDate, -20)
-  const [interest, news, stocks, prices, states, episodes] = await Promise.all([
-    supabaseAdmin
+  const [interestRows, newsRows, stocks, priceRows, themeStateRows, completedEpisodeRows] = await Promise.all([
+    fetchAllRows<InterestMetricFeatureRow>(() => supabaseAdmin
       .from('interest_metrics')
       .select('theme_id, time, raw_value, anchor_scaled_value')
       .gte('time', startDate)
-      .lte('time', request.baseDate),
-    supabaseAdmin
+      .lte('time', request.baseDate)
+      .order('time', { ascending: true })
+      .order('theme_id', { ascending: true })
+      .order('id', { ascending: true })),
+    fetchAllRows<NewsMetricFeatureRow>(() => supabaseAdmin
       .from('news_metrics')
       .select('theme_id, time, article_count')
       .gte('time', startDate)
-      .lte('time', request.baseDate),
+      .lte('time', request.baseDate)
+      .order('time', { ascending: true })
+      .order('theme_id', { ascending: true })
+      .order('id', { ascending: true })),
     supabaseAdmin
       .from('theme_stocks')
       .select('theme_id, symbol, relevance, is_active')
       .eq('theme_id', request.themeId)
       .eq('is_active', true),
-    supabaseAdmin
+    fetchAllRows<StockDailyFeatureRow>(() => supabaseAdmin
       .from('stock_daily_prices')
       .select('symbol, trade_date, close, volume')
       .gte('trade_date', startDate)
-      .lte('trade_date', request.baseDate),
-    supabaseAdmin
+      .lte('trade_date', request.baseDate)
+      .order('trade_date', { ascending: true })
+      .order('symbol', { ascending: true })),
+    fetchAllRows<ThemeStateFeatureRow>(() => supabaseAdmin
       .from('theme_state_history_v2')
       .select('theme_id, effective_from, is_active, first_spike_date')
       .eq('theme_id', request.themeId)
-      .lte('effective_from', request.baseDate),
-    supabaseAdmin
+      .lte('effective_from', request.baseDate)
+      .order('effective_from', { ascending: true })
+      .order('theme_id', { ascending: true })
+      .order('id', { ascending: true })),
+    fetchAllRows<CompletedEpisodeFeatureRow>(() => supabaseAdmin
       .from('episode_registry_v1')
       .select('episode_start, episode_end, primary_peak_date, is_active')
       .eq('is_active', false)
-      .lte('episode_end', request.baseDate),
+      .lte('episode_end', request.baseDate)
+      .order('episode_end', { ascending: true })
+      .order('episode_start', { ascending: true })
+      .order('id', { ascending: true })),
   ])
 
-  for (const response of [interest, news, stocks, prices, states, episodes]) {
-    if (response.error) {
-      throw new Error(`T-201 피처 입력 로딩 실패: ${response.error.message}`)
-    }
+  if (stocks.error) {
+    throw new Error(`T-201 피처 입력 로딩 실패: ${stocks.error.message}`)
   }
 
   return assembleFeatureInputsFromRows({
     themeId: request.themeId,
     baseDate: request.baseDate,
-    interestRows: interest.data ?? [],
-    newsRows: news.data ?? [],
+    interestRows,
+    newsRows,
     themeStockRows: stocks.data ?? [],
-    priceRows: prices.data ?? [],
-    themeStateRows: states.data ?? [],
-    completedEpisodeRows: episodes.data ?? [],
+    priceRows,
+    themeStateRows,
+    completedEpisodeRows,
   })
 }
