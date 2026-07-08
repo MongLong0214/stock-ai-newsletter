@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os'
 import { z } from 'zod'
 import { describe, expect, it } from 'vitest'
 import { FEATURE_NAMES } from '@/lib/tli/features/build-features'
+import { applyPriorCorrection } from '@/lib/tli/model/prior-correction'
 import { loadM1ArtifactFromJsonFile, parseM1ModelArtifact, predictM1T1Probability } from '@/lib/tli/model/predict'
 import type { M1CalibratorArtifact, M1ModelArtifact } from '@/lib/tli/model/m1'
 
@@ -18,6 +19,13 @@ const goldenInputRowSchema = z.object({
 const goldenFixtureCaseSchema = z.object({
   artifact: z.unknown(),
   expectedProbability: z.number(),
+})
+
+const goldenArtifactSummarySchema = z.object({
+  train_event_rate: z.number(),
+  sample_report: z.object({
+    event_rate: z.number(),
+  }),
 })
 
 const goldenVectorFixtureSchema = z.object({
@@ -66,6 +74,7 @@ const makeGoldenArtifact = (calibrator: M1CalibratorArtifact = DEFAULT_PLATT_CAL
     train_range: ['2026-01-07', '2026-07-05'],
     labeler_version: 'gta-v1',
     seed: 42,
+    train_event_rate: 0.5,
     sample_report: {},
   }
 }
@@ -77,11 +86,32 @@ describe.skipIf(!existsSync(GOLDEN_VECTOR_FIXTURE_PATH))('C1 M1 prediction runti
   it('matches the actual Python-trained artifact within 1e-9', () => {
     const fixture = loadGoldenVectorFixture()
     const artifact = parseM1ModelArtifact(fixture.artifact)
+    const artifactSummary = goldenArtifactSummarySchema.parse(fixture.artifact)
 
     const probability = predictM1T1Probability({ artifact, row: fixture.inputRow })
 
+    expect(artifact.train_event_rate).toBe(artifactSummary.sample_report.event_rate)
+    expect(artifactSummary.train_event_rate).toBe(artifactSummary.sample_report.event_rate)
     expect(probability).not.toBeNull()
     expect(probability).toBeCloseTo(fixture.expectedProbability, 9)
+  })
+
+  it('applies prior correction to the Python golden probability without changing the uncorrected model output', () => {
+    const fixture = loadGoldenVectorFixture()
+    const artifact = parseM1ModelArtifact(fixture.artifact)
+    if (artifact.train_event_rate === undefined) throw new Error('golden artifact is missing train_event_rate')
+
+    const uncorrected = predictM1T1Probability({ artifact, row: fixture.inputRow })
+    if (uncorrected === null) throw new Error('golden vector should be scoreable')
+    const corrected = applyPriorCorrection(uncorrected, artifact.train_event_rate, 0.25)
+
+    expect(uncorrected).toBeCloseTo(fixture.expectedProbability, 9)
+    expect(corrected).toBeLessThan(uncorrected)
+    expect(corrected).toBeCloseTo(
+      (uncorrected * ((0.25 / 0.75) / (artifact.train_event_rate / (1 - artifact.train_event_rate))))
+        / ((uncorrected * ((0.25 / 0.75) / (artifact.train_event_rate / (1 - artifact.train_event_rate)))) + (1 - uncorrected)),
+      12,
+    )
   })
 
   it('matches Python-generated Platt, Beta, and Isotonic fixture cases within 1e-6', () => {

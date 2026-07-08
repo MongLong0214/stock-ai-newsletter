@@ -18,6 +18,9 @@ export const FEATURE_NAMES = [
   'basket_volume_ratio',
   'episode_progress',
   'market_regime',
+  'babl_phase_signal',
+  'interest_return_10d',
+  'interest_drawdown_20d',
 ] as const
 
 export type FeatureName = typeof FEATURE_NAMES[number]
@@ -40,6 +43,7 @@ export interface FeatureInputs {
   readonly kospiCloseAtBase: number | null
   readonly daysSinceSpike: number | null
   readonly completedEpisodePeakDays: readonly number[]
+  readonly bablPhaseSignal: number | null
 }
 
 export interface FeatureVector {
@@ -50,6 +54,8 @@ export interface FeatureVector {
 }
 
 const MIN_INTEREST_HISTORY_DAYS = 7
+// G.1 m1.1 keeps the legacy abstain threshold even though two legacy features are often
+// structurally missing; a missing B-abl snapshot can therefore consume the full missing budget.
 const MAX_MISSING_FEATURES = 3
 const NEWS_LOG_SCALE = 64.3
 
@@ -169,6 +175,27 @@ const computeMarketRegime = (input: FeatureInputs) => {
   return kospiReturn === null ? finiteOrMissing(null) : finiteOrMissing(kospiReturn >= 0 ? 1 : -1)
 }
 
+const computeInterestReturn10d = (interestRaw: readonly number[]) => {
+  const finite = finiteValues(interestRaw)
+  const recent = finite.slice(-3)
+  const past = finite.slice(-13, -10)
+  const recentMean = safeMean(recent)
+  const pastMean = safeMean(past)
+  if (recentMean === null || pastMean === null || past.length < 3 || recent.length < 3 || pastMean <= 0) {
+    return finiteOrMissing(null)
+  }
+  return finiteOrMissing(Math.log((recentMean + 1) / (pastMean + 1)))
+}
+
+const computeInterestDrawdown20d = (interestRaw: readonly number[]) => {
+  const recent = lastFiniteValues(interestRaw, 20)
+  if (recent.length < 10) return finiteOrMissing(null)
+  const current = recent.at(-1)
+  const peak = Math.max(...recent)
+  if (current === undefined || peak <= 0) return finiteOrMissing(null)
+  return finiteOrMissing((peak - current) / peak)
+}
+
 export function buildFeatureVector(input: FeatureInputs): FeatureVector {
   const interestSlope = computeInterestSlope7d(input.interestRaw)
   const featureResults = [
@@ -182,6 +209,9 @@ export function buildFeatureVector(input: FeatureInputs): FeatureVector {
     computeBasketVolumeRatio(input.basketStocks),
     computeEpisodeProgress(input),
     computeMarketRegime(input),
+    finiteOrMissing(input.bablPhaseSignal),
+    computeInterestReturn10d(input.interestRaw),
+    computeInterestDrawdown20d(input.interestRaw),
   ] as const
   const missingFlags = featureResults.map((feature) => feature.missing)
   // N1 (G.1 contract): non-abstain rows must never emit a non-finite value. A missing slot is

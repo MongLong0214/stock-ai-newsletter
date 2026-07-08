@@ -46,6 +46,12 @@ export interface CompletedEpisodeFeatureRow {
   readonly is_active: boolean
 }
 
+export interface PredictionSnapshotFeatureRow {
+  readonly theme_id: string
+  readonly snapshot_date: string
+  readonly phase: string
+}
+
 export interface FeatureInputRows {
   readonly themeId: string
   readonly baseDate: string
@@ -55,6 +61,7 @@ export interface FeatureInputRows {
   readonly priceRows: readonly StockDailyFeatureRow[]
   readonly themeStateRows: readonly ThemeStateFeatureRow[]
   readonly completedEpisodeRows: readonly CompletedEpisodeFeatureRow[]
+  readonly snapshotRows: readonly PredictionSnapshotFeatureRow[]
 }
 
 export interface LoadFeatureInputsRequest {
@@ -187,6 +194,21 @@ const buildCompletedEpisodePeakDays = (rows: readonly CompletedEpisodeFeatureRow
   })
 )
 
+const resolveBablPhaseSignal = (input: FeatureInputRows): number | null => {
+  const snapshot = input.snapshotRows.find((row) => (
+    row.theme_id === input.themeId && row.snapshot_date === input.baseDate
+  ))
+  if (!snapshot) return null
+  switch (snapshot.phase) {
+    case 'rising':
+      return 1
+    case 'cooling':
+      return -1
+    default:
+      return 0
+  }
+}
+
 export function assembleFeatureInputsFromRows(input: FeatureInputRows): FeatureInputs {
   const themeInterestRows = sortByDate(
     input.interestRows.filter((row) => row.theme_id === input.themeId && row.time <= input.baseDate),
@@ -208,6 +230,7 @@ export function assembleFeatureInputsFromRows(input: FeatureInputRows): FeatureI
     kospiCloseAtBase: getCloseAtDate(input.priceRows, KOSPI_INDEX_SYMBOL, input.baseDate),
     daysSinceSpike: getDaysSinceSpike(input),
     completedEpisodePeakDays: buildCompletedEpisodePeakDays(input.completedEpisodeRows, input.baseDate),
+    bablPhaseSignal: resolveBablPhaseSignal(input),
   }
 }
 
@@ -215,7 +238,7 @@ export async function loadFeatureInputsForBaseDate(
   request: LoadFeatureInputsRequest,
 ): Promise<FeatureInputs> {
   const startDate = addKoreanTradingDays(request.baseDate, -20)
-  const [interestRows, newsRows, stocks, priceRows, themeStateRows, completedEpisodeRows] = await Promise.all([
+  const [interestRows, newsRows, stocks, priceRows, themeStateRows, completedEpisodeRows, snapshotRows] = await Promise.all([
     fetchAllRows<InterestMetricFeatureRow>(() => supabaseAdmin
       .from('interest_metrics')
       .select('theme_id, time, raw_value, anchor_scaled_value')
@@ -260,6 +283,15 @@ export async function loadFeatureInputsForBaseDate(
       .order('episode_end', { ascending: true })
       .order('episode_start', { ascending: true })
       .order('id', { ascending: true })),
+    fetchAllRows<PredictionSnapshotFeatureRow>(() => supabaseAdmin
+      .from('prediction_snapshots_v2')
+      .select('theme_id, snapshot_date, phase')
+      .eq('run_type', 'prod')
+      .gte('snapshot_date', startDate)
+      .lte('snapshot_date', request.baseDate)
+      .order('snapshot_date', { ascending: true })
+      .order('theme_id', { ascending: true })
+      .order('id', { ascending: true })),
   ])
 
   if (stocks.error) {
@@ -275,5 +307,6 @@ export async function loadFeatureInputsForBaseDate(
     priceRows,
     themeStateRows,
     completedEpisodeRows,
+    snapshotRows,
   })
 }

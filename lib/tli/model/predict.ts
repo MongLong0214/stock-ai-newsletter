@@ -67,6 +67,7 @@ export const M1ModelArtifactSchema = z.object({
   train_range: z.tuple([z.string(), z.string()]),
   labeler_version: z.string(),
   seed: z.number(),
+  train_event_rate: z.number().gt(0).lt(1).optional(),
   sample_report: z.unknown(),
 }).superRefine((artifact, context) => {
   if (artifact.feature_schema.length !== FEATURE_NAMES.length) {

@@ -59,6 +59,9 @@ FEATURE_SCHEMA: Final[tuple[str, ...]] = (
     "basket_volume_ratio",
     "episode_progress",
     "market_regime",
+    "babl_phase_signal",
+    "interest_return_10d",
+    "interest_drawdown_20d",
 )
 ARTIFACT_VERSION: Final[str] = "tli-model-artifact-v1"
 MODEL_TYPE: Final[str] = "m1_logistic"
@@ -84,14 +87,14 @@ class TrainingRow(BaseModel):
     @classmethod
     def check_feature_count(cls, values: tuple[float, ...]) -> tuple[float, ...]:
         if len(values) != len(FEATURE_SCHEMA):
-            raise PydanticCustomError("feature_count", "expected 10 feature values")
+            raise PydanticCustomError("feature_count", f"expected {len(FEATURE_SCHEMA)} feature values")
         return values
 
     @field_validator("missing_flags")
     @classmethod
     def check_missing_flag_count(cls, values: tuple[bool, ...]) -> tuple[bool, ...]:
         if len(values) != len(FEATURE_SCHEMA):
-            raise PydanticCustomError("missing_flag_count", "expected 10 missing flags")
+            raise PydanticCustomError("missing_flag_count", f"expected {len(FEATURE_SCHEMA)} missing flags")
         return values
 
 
@@ -218,6 +221,7 @@ class ModelArtifact(BaseModel):
     train_range: tuple[str, str]
     labeler_version: str
     seed: int
+    train_event_rate: Annotated[float, Field(gt=0, lt=1)]
     sample_report: SampleSizeReport
 
 
@@ -375,6 +379,7 @@ def train_model(dataset: TrainingDataset, trained_at: str) -> ModelArtifact:
     y = np.array([1 if row.y else 0 for row in dataset.rows], dtype=np.int64)
     if y.size < 10 or np.unique(y).size != 2:
         raise TrainingDataError("M1 training requires at least 10 rows and both classes")
+    train_event_rate = float(np.mean(y))
 
     design = build_design_matrix(dataset.rows)
     base_dates = tuple(row.base_date for row in dataset.rows)
@@ -399,6 +404,7 @@ def train_model(dataset: TrainingDataset, trained_at: str) -> ModelArtifact:
         train_range=dataset.train_range,
         labeler_version=dataset.labeler_version,
         seed=SEED,
+        train_event_rate=train_event_rate,
         sample_report=build_sample_report(
             y,
             probabilities,
@@ -424,7 +430,21 @@ def run_training(input_path: Path, output_path: Path, trained_at: str) -> ModelA
 GOLDEN_VECTOR_SEED: Final[int] = 42
 GOLDEN_VECTOR_ROWS: Final[int] = 200
 GOLDEN_VECTOR_FIXTURE_VERSION: Final[str] = "tli-m1-golden-vector-v1"
-GOLDEN_INPUT_VALUES: Final[tuple[float, ...]] = (1.4826, -2.9652, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
+GOLDEN_INPUT_VALUES: Final[tuple[float, ...]] = (
+    1.4826,
+    -2.9652,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    1.0,
+    0.0,
+    0.0,
+)
 GOLDEN_INPUT_MISSING: Final[tuple[bool, ...]] = tuple(False for _ in FEATURE_SCHEMA)
 
 

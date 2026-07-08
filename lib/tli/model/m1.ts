@@ -41,6 +41,7 @@ export interface M1ModelArtifact {
   readonly train_range: readonly [string, string]
   readonly labeler_version: string
   readonly seed: number
+  readonly train_event_rate?: number
   readonly sample_report: unknown
 }
 
@@ -96,6 +97,12 @@ function assertM1Artifact(artifact: M1ModelArtifact): void {
     artifact.coefficients.weights.length !== FEATURE_NAMES.length * 2
   ) {
     throw new Error('M1 artifact scaler or coefficient length mismatch')
+  }
+  if (
+    artifact.train_event_rate !== undefined &&
+    (!Number.isFinite(artifact.train_event_rate) || artifact.train_event_rate <= 0 || artifact.train_event_rate >= 1)
+  ) {
+    throw new Error('M1 artifact train_event_rate must be in (0,1)')
   }
 }
 

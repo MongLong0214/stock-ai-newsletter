@@ -3,6 +3,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import type { M1ModelArtifact } from '../../../lib/tli/model/m1'
 import { parseM1ModelArtifact } from '../../../lib/tli/model/predict'
+import { getTrailingFinalBaseRateWindow } from '../../../lib/tli/model/prior-correction'
 import { getKoreanTradingDatesBetween } from '../../../lib/tli/trading-calendar'
 import {
   TLI_V3_HORIZON_DAYS,
@@ -164,13 +165,14 @@ const loadReplayLabels = async (input: {
   readonly replayStart: string
   readonly replayEnd: string
 }): Promise<ReplayAuditLabelRow[]> => {
+  const correctionWindow = getTrailingFinalBaseRateWindow(input.replayStart)
   const rows = await fetchAllRows<ThemeLabelReplayRow>(() => supabaseAdmin
     .from('theme_labels')
     .select('theme_id, base_date, label_status, y_binary')
     .eq('label_type', 'gt_a')
     .eq('horizon_days', TLI_V3_HORIZON_DAYS)
     .eq('labeler_version', TLI_V3_LABELER_VERSION)
-    .gte('base_date', input.replayStart)
+    .gte('base_date', correctionWindow.startDate)
     .lte('base_date', input.replayEnd)
     .order('base_date', { ascending: true }))
   return rows.map((row) => ({
@@ -195,7 +197,7 @@ async function main(): Promise<void> {
     loadReplaySnapshots({ replayStart, replayEnd, tradingDays }),
     loadReplayLabels({ replayStart, replayEnd }),
   ])
-  const predictionRows = await scoreReplayRows({ snapshots, artifact: trained.artifact, trainEnd })
+  const predictionRows = await scoreReplayRows({ snapshots, artifact: trained.artifact, trainEnd, labelRows: labels })
   const joined = joinReplayRowsWithFinalLabels({ predictionRows, labelRows: labels })
   const report = buildReplayAuditReport({
     trainEnd,

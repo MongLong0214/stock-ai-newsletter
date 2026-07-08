@@ -99,6 +99,7 @@ const nullM1Predictions = (rows: readonly FeatureEvalRow[]): EvalPredictionRow[]
 
 const buildWalkForwardM1Predictions = (input: {
   readonly featureRows: readonly BaselineFeatureRow[]
+  readonly labels: OfflineEvalInput['labels']
   readonly workDir: string
   readonly labelerVersion: string
   readonly trainedAt: string
@@ -114,7 +115,7 @@ const buildWalkForwardM1Predictions = (input: {
         labelerVersion: input.labelerVersion,
         trainedAt: input.trainedAt,
       })
-      return buildM1Predictions(fold.test, artifact)
+      return buildM1Predictions(fold.test, artifact, input.labels)
     } catch (error) {
       failures.push({
         foldId: fold.foldId,
@@ -145,6 +146,7 @@ async function main(): Promise<void> {
   const input = inputFile ? { ...inputFile, startDate, endDate } : await loadDbInput(startDate, endDate)
   const generated = input.m1Predictions ? null : buildWalkForwardM1Predictions({
     featureRows: input.featureRows,
+    labels: input.labels,
     workDir,
     labelerVersion,
     trainedAt,

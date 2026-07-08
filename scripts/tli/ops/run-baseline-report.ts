@@ -149,13 +149,21 @@ const loadFeatureSourceRows = async (
   }
 }
 
-const buildFeatureRows = async (labels: readonly BaselineGtLabelRow[]): Promise<BaselineFeatureRow[]> => {
+const buildFeatureRows = async (
+  labels: readonly BaselineGtLabelRow[],
+  snapshots: readonly BaselineSnapshotRow[],
+): Promise<BaselineFeatureRow[]> => {
   const sourceRows = await loadFeatureSourceRows(labels)
   return labels.map((label) => {
     const input = assembleFeatureInputsFromRows({
       themeId: label.themeId,
       baseDate: label.baseDate,
       ...sourceRows,
+      snapshotRows: snapshots.map((snapshot) => ({
+        theme_id: snapshot.themeId,
+        snapshot_date: snapshot.snapshotDate,
+        phase: snapshot.phase,
+      })),
     })
     const vector = buildFeatureVector(input)
     return {
@@ -176,7 +184,7 @@ async function main(): Promise<void> {
     loadLabels(startDate, endDate),
     loadSnapshots(startDate, endDate),
   ])
-  const featureRows = await buildFeatureRows(labels)
+  const featureRows = await buildFeatureRows(labels, snapshots)
   const report = buildBaselineReport({ labels, snapshots, featureRows })
 
   console.log(JSON.stringify({

@@ -30,6 +30,7 @@ const artifact = {
   train_range: ['2026-01-07', '2026-07-05'],
   labeler_version: 'gta-v1',
   seed: 42,
+  train_event_rate: 0.5,
   sample_report: {},
 } satisfies M1ModelArtifact
 
@@ -55,12 +56,26 @@ const featureRows = labels.map((label, index) => ({
   y: label.y,
 })) satisfies readonly BaselineFeatureRow[]
 
+const lowRecentRateLabels = Array.from({ length: 300 }, (_, index) => ({
+  themeId: `history-${index}`,
+  baseDate: '2026-06-15',
+  y: index < 75,
+})) satisfies readonly BaselineGtLabelRow[]
+
 describe('T-205 offline eval report', () => {
   it('builds M1 predictions from the artifact using sklearn Platt sigmoid semantics', () => {
     const predictions = buildM1Predictions(featureRows, artifact)
 
     expect(predictions[0].probability).toBeCloseTo(0.7310585786, 6)
     expect(predictions[1].probability).toBeCloseTo(0.2689414214, 6)
+    expect(predictions[3].probability).toBeNull()
+  })
+
+  it('applies per-baseDate prior correction from already-loaded final labels', () => {
+    const predictions = buildM1Predictions(featureRows, artifact, lowRecentRateLabels)
+
+    expect(predictions[0].probability).toBeCloseTo(0.4753668864, 10)
+    expect(predictions[1].probability).toBeCloseTo(0.1092317726, 10)
     expect(predictions[3].probability).toBeNull()
   })
 

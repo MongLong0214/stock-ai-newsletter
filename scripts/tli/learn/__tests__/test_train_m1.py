@@ -85,6 +85,9 @@ def make_dataset(rows: int = 80) -> TrainingDataset:
             1.0,
             0.4 + index / 200,
             1.0 if index % 2 == 0 else -1.0,
+            1.0 if positive else -1.0,
+            signal / 4,
+            0.2 if positive else 0.8,
         ]
         missing_flags = [False] * len(FEATURE_SCHEMA)
         if index % 11 == 0:
@@ -152,11 +155,12 @@ def test_train_model_serializes_g3_artifact_with_sample_report() -> None:
     assert artifact.artifact_version == "tli-model-artifact-v1"
     assert artifact.model_type == "m1_logistic"
     assert artifact.feature_schema == FEATURE_SCHEMA
-    assert len(artifact.scaler.median) == 10
-    assert len(artifact.scaler.mad) == 10
-    assert len(artifact.coefficients.weights) == 20
+    assert len(artifact.scaler.median) == 13
+    assert len(artifact.scaler.mad) == 13
+    assert len(artifact.coefficients.weights) == 26
     assert artifact.calibrator.type in {"platt", "beta", "isotonic"}
     assert artifact.seed == 42
+    assert artifact.train_event_rate == artifact.sample_report.event_rate
     assert artifact.sample_report.cox_snell_r2 > 0.08
     assert artifact.sample_report.r2_status == "sufficient"
     assert artifact.sample_report.calibration_selection.chosen_type == artifact.calibrator.type
@@ -176,6 +180,7 @@ def test_run_training_round_trips_json_file(tmp_path: Path) -> None:
     assert artifact["trained_at"] == "2026-08-02"
     assert artifact["train_range"] == ["2026-01-07", "2026-07-05"]
     assert artifact["labeler_version"] == "gta-v1"
+    assert artifact["train_event_rate"] == artifact["sample_report"]["event_rate"]
     assert artifact["sample_report"]["observed_n"] == 80
 
 
@@ -197,8 +202,10 @@ def test_golden_vector_fixture_is_deterministic_and_bounded() -> None:
     assert first["inputRow"]["missingFlags"] == list(GOLDEN_INPUT_MISSING)
     assert 0.0 < first["expectedProbability"] < 1.0
     assert set(first["calibratorFixtures"].keys()) == {"platt", "beta", "isotonic"}
+    assert first["artifact"]["train_event_rate"] == first["artifact"]["sample_report"]["event_rate"]
     for calibrator_type, fixture_case in first["calibratorFixtures"].items():
         assert fixture_case["artifact"]["calibrator"]["type"] == calibrator_type
+        assert fixture_case["artifact"]["train_event_rate"] == fixture_case["artifact"]["sample_report"]["event_rate"]
         assert 0.0 <= fixture_case["expectedProbability"] <= 1.0
     # Fixed seed (42) synthetic data + deterministic sklearn solver settings must reproduce exactly.
     assert first["expectedProbability"] == second["expectedProbability"]

@@ -204,7 +204,11 @@ const trainNewChallenger = async () => {
     const { parseM1ModelArtifact } = await import('@/lib/tli/model/predict')
     const { buildIsoWeekModelVersion, registerModelRegistryChallenger } = await import('./model-registry')
     const artifact = parseM1ModelArtifact(readJson(artifactPath))
-    const modelVersion = buildIsoWeekModelVersion(trainedAt)
+    const modelVersionOverride = readArg('model-version')
+    if (modelVersionOverride === '') {
+      throw new Error('train-new-challenger --model-version requires a non-empty value')
+    }
+    const modelVersion = modelVersionOverride ?? buildIsoWeekModelVersion(trainedAt)
     const registration = await registerModelRegistryChallenger({
       modelVersion,
       modelType: artifact.model_type,
@@ -221,6 +225,7 @@ const trainNewChallenger = async () => {
       datasetPath,
       artifactPath,
       trainedAt,
+      modelVersion,
       modelRegistry: registration,
     }
   }

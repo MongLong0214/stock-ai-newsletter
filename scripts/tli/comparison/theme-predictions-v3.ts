@@ -1,12 +1,15 @@
 import { buildFeatureVector } from '@/lib/tli/features/build-features'
 import type { FeatureVector } from '@/lib/tli/features/build-features'
 import { getKSTDateString } from '@/lib/tli/date-utils'
+import { computeTrailingFinalBaseRate, getTrailingFinalBaseRateWindow } from '@/lib/tli/model/prior-correction'
 import { parseM1ModelArtifact } from '@/lib/tli/model/predict'
 import { loadFeatureInputsForBaseDate } from '@/scripts/tli/features/load-feature-inputs'
 import { supabaseAdmin } from '@/scripts/tli/shared/supabase-admin'
 import { batchUpsert } from '@/scripts/tli/shared/supabase-batch'
 import {
   TLI_V3_BASELINE_MODEL_VERSION,
+  TLI_V3_HORIZON_DAYS,
+  TLI_V3_LABELER_VERSION,
   TLI_V3_M1_PARAM_VERSION,
   buildBaselinePredictionV3Row,
   buildM1PredictionV3Row,
@@ -37,6 +40,34 @@ interface ModelRegistryEntry {
   readonly coefficients: unknown
 }
 
+interface QueryError {
+  readonly message: string
+}
+
+interface RangeQuery<T> {
+  range(from: number, to: number): PromiseLike<{
+    readonly data: readonly T[] | null
+    readonly error: QueryError | null
+  }>
+}
+
+interface ThemeLabelRecentBaseRateRow {
+  readonly base_date: string
+  readonly y_binary: boolean | null
+}
+
+const PAGE_SIZE = 1000
+
+const fetchAllRows = async <T>(createQuery: () => RangeQuery<T>): Promise<T[]> => {
+  const rows: T[] = []
+  for (let from = 0; ; from += PAGE_SIZE) {
+    const { data, error } = await createQuery().range(from, from + PAGE_SIZE - 1)
+    if (error) throw new Error(error.message)
+    rows.push(...(data ?? []))
+    if (!data || data.length < PAGE_SIZE) return rows
+  }
+}
+
 /** model_registry에서 champion/challenger 아티팩트를 조회 (SSOT = DB, 로컬 파일 경로 의존 제거 — A1) */
 async function loadModelRegistryEntry(status: 'champion' | 'challenger'): Promise<ModelRegistryEntry | null> {
   const { data, error } = await supabaseAdmin
@@ -57,6 +88,28 @@ async function loadV2SnapshotsForDate(predictionDate: string): Promise<Predictio
   return data ?? []
 }
 
+async function loadRecentFinalBaseRate(predictionDate: string): Promise<number | null> {
+  const window = getTrailingFinalBaseRateWindow(predictionDate)
+  const rows = await fetchAllRows<ThemeLabelRecentBaseRateRow>(() => supabaseAdmin
+    .from('theme_labels')
+    .select('base_date, y_binary')
+    .eq('label_type', 'gt_a')
+    .eq('labeler_version', TLI_V3_LABELER_VERSION)
+    .eq('label_status', 'final')
+    .eq('horizon_days', TLI_V3_HORIZON_DAYS)
+    .not('y_binary', 'is', null)
+    .gte('base_date', window.startDate)
+    .lte('base_date', window.endDate)
+    .order('base_date', { ascending: true }))
+
+  return computeTrailingFinalBaseRate(
+    rows.flatMap((row) => (
+      row.y_binary === null ? [] : [{ baseDate: row.base_date, y: row.y_binary }]
+    )),
+    predictionDate,
+  )
+}
+
 /** model_registry 엔트리의 model_type에 맞춰 채점기를 선택해 기록 (b_abl 휴리스틱 / m1_logistic 추론) */
 function scoreWithRegistryEntry(input: {
   readonly entry: ModelRegistryEntry
@@ -65,6 +118,7 @@ function scoreWithRegistryEntry(input: {
   readonly predictionDate: string
   readonly featureVector: FeatureVector
   readonly snapshotPhase: string
+  readonly recentBaseRate: number | null
 }): ThemePredictionV3Row {
   if (input.entry.model_type === 'm1_logistic') {
     const artifact = parseM1ModelArtifact(input.entry.coefficients)
@@ -76,6 +130,7 @@ function scoreWithRegistryEntry(input: {
       modelVersion: input.entry.model_version,
       paramVersion: TLI_V3_M1_PARAM_VERSION,
       servingRole: input.servingRole,
+      recentBaseRate: input.recentBaseRate,
     })
   }
 
@@ -100,6 +155,7 @@ export async function snapshotThemePredictionsV3(input?: {
     loadModelRegistryEntry('champion'),
     loadModelRegistryEntry('challenger'),
   ])
+  const recentBaseRate = await loadRecentFinalBaseRate(predictionDate)
   if (!champion) {
     console.warn('   ⚠️ model_registry에 champion이 없음 — b-abl 휴리스틱 폴백으로 부트스트랩')
   }
@@ -121,6 +177,7 @@ export async function snapshotThemePredictionsV3(input?: {
         predictionDate,
         featureVector,
         snapshotPhase: snapshot.phase,
+        recentBaseRate,
       })
       : buildBaselinePredictionV3Row({
         themeId: snapshot.theme_id,
@@ -139,6 +196,7 @@ export async function snapshotThemePredictionsV3(input?: {
         predictionDate,
         featureVector,
         snapshotPhase: snapshot.phase,
+        recentBaseRate,
       }))
     }
   }

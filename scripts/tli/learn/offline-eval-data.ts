@@ -107,7 +107,10 @@ const loadSnapshots = async (startDate: string, endDate: string): Promise<Baseli
     .select('theme_id, snapshot_date, phase')
     .eq('run_type', 'prod')
     .gte('snapshot_date', startDate)
-    .lte('snapshot_date', endDate))
+    .lte('snapshot_date', endDate)
+    .order('snapshot_date', { ascending: true })
+    .order('theme_id', { ascending: true })
+    .order('id', { ascending: true }))
 
   return data.map((row) => ({
     themeId: row.theme_id,
@@ -127,6 +130,7 @@ const loadFeatureSourceRows = async (
       priceRows: [] as readonly StockDailyFeatureRow[],
       themeStateRows: [] as readonly ThemeStateFeatureRow[],
       completedEpisodeRows: [] as readonly CompletedEpisodeFeatureRow[],
+      snapshotRows: [] as readonly PredictionSnapshotRow[],
     }
   }
 
@@ -134,7 +138,7 @@ const loadFeatureSourceRows = async (
   const startDate = addKoreanTradingDays(labelDates[0], -20)
   const endDate = labelDates[labelDates.length - 1]
   const themeIds = uniqueSorted(labels.map((label) => label.themeId))
-  const [interest, news, stocks, prices, states, episodes] = await Promise.all([
+  const [interest, news, stocks, prices, states, episodes, snapshots] = await Promise.all([
     fetchAllRows<InterestMetricFeatureRow>(() => supabaseAdmin.from('interest_metrics').select('theme_id, time, raw_value, anchor_scaled_value').gte('time', startDate).lte('time', endDate)),
     fetchAllRows<NewsMetricFeatureRow>(() => supabaseAdmin.from('news_metrics').select('theme_id, time, article_count').in('theme_id', themeIds).gte('time', startDate).lte('time', endDate)),
     fetchAllRows<ThemeStockFeatureRow>(() => supabaseAdmin.from('theme_stocks').select('theme_id, symbol, relevance, is_active').in('theme_id', themeIds).eq('is_active', true)),
@@ -142,6 +146,15 @@ const loadFeatureSourceRows = async (
     fetchAllRows<ThemeStateFeatureRow>(() => supabaseAdmin.from('theme_state_history_v2').select('theme_id, effective_from, is_active, first_spike_date').in('theme_id', themeIds).lte('effective_from', endDate)),
     // baseDate 제한 없이 로드 — 완결 여부 필터는 assembleFeatureInputsFromRows에서 라벨별 baseDate 기준으로 적용된다 (B1).
     fetchAllRows<CompletedEpisodeFeatureRow>(() => supabaseAdmin.from('episode_registry_v1').select('episode_start, episode_end, primary_peak_date, is_active').eq('is_active', false)),
+    fetchAllRows<PredictionSnapshotRow>(() => supabaseAdmin
+      .from('prediction_snapshots_v2')
+      .select('theme_id, snapshot_date, phase')
+      .eq('run_type', 'prod')
+      .gte('snapshot_date', startDate)
+      .lte('snapshot_date', endDate)
+      .order('snapshot_date', { ascending: true })
+      .order('theme_id', { ascending: true })
+      .order('id', { ascending: true })),
   ])
 
   return {
@@ -151,6 +164,7 @@ const loadFeatureSourceRows = async (
     priceRows: prices,
     themeStateRows: states,
     completedEpisodeRows: episodes,
+    snapshotRows: snapshots,
   }
 }
 

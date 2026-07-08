@@ -2,6 +2,7 @@ import { FEATURE_NAMES } from '../../../lib/tli/features/build-features'
 import type { BaselineFeatureRow, BaselineGtLabelRow, BaselineSnapshotRow } from '../../../lib/tli/model/baselines'
 import { buildM0Predictions } from '../../../lib/tli/model/baselines'
 import { predictM1Probability, type M1ModelArtifact } from '../../../lib/tli/model/m1'
+import { applyPriorCorrection, computeTrailingFinalBaseRate } from '../../../lib/tli/model/prior-correction'
 import {
   computeBrierDeltaCi,
   createWalkForwardFolds,
@@ -128,14 +129,32 @@ const toEvalRows = (rows: readonly ReturnType<typeof buildM0Predictions>[number]
 export function buildM1Predictions(
   featureRows: readonly BaselineFeatureRow[],
   artifact: M1ModelArtifact,
+  labels: readonly BaselineGtLabelRow[] = [],
 ): EvalPredictionRow[] {
-  return featureRows.map((row) => ({
-    id: makeId(row.themeId, row.baseDate),
-    themeId: row.themeId,
-    baseDate: row.baseDate,
-    probability: predictM1Probability(artifact, row),
-    y: row.y,
-  }))
+  const recentRatesByDate = new Map<string, number | null>()
+  const recentRateForDate = (baseDate: string): number | null => {
+    const cached = recentRatesByDate.get(baseDate)
+    if (cached !== undefined) return cached
+    const recentRate = computeTrailingFinalBaseRate(labels, baseDate)
+    recentRatesByDate.set(baseDate, recentRate)
+    return recentRate
+  }
+
+  return featureRows.map((row) => {
+    const probability = predictM1Probability(artifact, row)
+    const recentRate = artifact.train_event_rate === undefined || probability === null
+      ? null
+      : recentRateForDate(row.baseDate)
+    return {
+      id: makeId(row.themeId, row.baseDate),
+      themeId: row.themeId,
+      baseDate: row.baseDate,
+      probability: probability === null || artifact.train_event_rate === undefined || recentRate === null
+        ? probability
+        : applyPriorCorrection(probability, artifact.train_event_rate, recentRate),
+      y: row.y,
+    }
+  })
 }
 
 export function buildM1TrainingDatasetDump(input: {

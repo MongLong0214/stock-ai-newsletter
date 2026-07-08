@@ -36,10 +36,11 @@ const completeInput = {
   kospiCloseAtBase: 1020,
   daysSinceSpike: 5,
   completedEpisodePeakDays: [8, 10, 12],
+  bablPhaseSignal: 1,
 } satisfies FeatureInputs
 
 describe('T-201 feature builder', () => {
-  it('returns the fixed 10-feature schema in PRD order', () => {
+  it('returns the fixed 13-feature schema in PRD order', () => {
     expect(FEATURE_NAMES).toEqual([
       'interest_slope_7d',
       'interest_level_pct',
@@ -51,14 +52,17 @@ describe('T-201 feature builder', () => {
       'basket_volume_ratio',
       'episode_progress',
       'market_regime',
+      'babl_phase_signal',
+      'interest_return_10d',
+      'interest_drawdown_20d',
     ])
   })
 
   it('computes the PRD G.1 formulas for a hand-calculated fixture', () => {
     const vector = buildFeatureVector(completeInput)
 
-    expect(vector.values).toHaveLength(10)
-    expect(vector.missingFlags).toEqual(Array.from({ length: 10 }, () => false))
+    expect(vector.values).toHaveLength(13)
+    expect(vector.missingFlags).toEqual(Array.from({ length: 13 }, () => false))
     expect(vector.abstain).toBe(false)
     expect(vector.values[0]).toBeCloseTo(3 / 27, 6)
     expect(vector.values[1]).toBeCloseTo(0.5, 6)
@@ -72,6 +76,9 @@ describe('T-201 feature builder', () => {
     expect(vector.values[7]).toBeCloseTo(190 / 160, 6)
     expect(vector.values[8]).toBeCloseTo(0.5, 6)
     expect(vector.values[9]).toBe(1)
+    expect(vector.values[10]).toBe(1)
+    expect(vector.values[11]).toBeCloseTo(Math.log(34 / 15), 6)
+    expect(vector.values[12]).toBe(0)
   })
 
   it('abstains when interest history is shorter than 7 days', () => {
@@ -115,5 +122,49 @@ describe('T-201 feature builder', () => {
     expect(vector.missingFlags[6]).toBe(true)
     expect(vector.missingFlags[9]).toBe(true)
     expect(vector.missingFlags.filter(Boolean).length).toBeLessThanOrEqual(3)
+  })
+
+  it('marks a missing B-abl phase snapshot as missing without abstaining by itself', () => {
+    const vector = buildFeatureVector({
+      ...completeInput,
+      bablPhaseSignal: null,
+    })
+
+    expect(vector.abstain).toBe(false)
+    expect(vector.values[10]).toBe(0)
+    expect(vector.missingFlags[10]).toBe(true)
+    expect(vector.abstainReasons).toEqual([])
+  })
+
+  it('marks interest_return_10d missing when the past window has no positive mean', () => {
+    const vector = buildFeatureVector({
+      ...completeInput,
+      interestRaw: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 3],
+    })
+
+    expect(vector.abstain).toBe(false)
+    expect(vector.values[11]).toBe(0)
+    expect(vector.missingFlags[11]).toBe(true)
+  })
+
+  it('computes interest_drawdown_20d from the recent peak and current raw value', () => {
+    const vector = buildFeatureVector({
+      ...completeInput,
+      interestRaw: [10, 12, 14, 16, 18, 50, 44, 40, 38, 36, 34, 32, 30, 25],
+    })
+
+    expect(vector.values[12]).toBeCloseTo(0.5, 6)
+    expect(vector.missingFlags[12]).toBe(false)
+  })
+
+  it('marks interest_drawdown_20d missing when fewer than 10 finite raw values exist', () => {
+    const vector = buildFeatureVector({
+      ...completeInput,
+      interestRaw: [10, 11, 12, 13, 14, 15, 16, 17, 18],
+    })
+
+    expect(vector.abstain).toBe(false)
+    expect(vector.values[12]).toBe(0)
+    expect(vector.missingFlags[12]).toBe(true)
   })
 })

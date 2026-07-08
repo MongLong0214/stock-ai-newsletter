@@ -1,5 +1,6 @@
 import { buildFeatureVector } from '../../../lib/tli/features/build-features'
 import type { M1ModelArtifact } from '../../../lib/tli/model/m1'
+import { computeTrailingFinalBaseRate } from '../../../lib/tli/model/prior-correction'
 import {
   TLI_V3_M1_PARAM_VERSION,
   buildBaselinePredictionV3Row,
@@ -7,7 +8,7 @@ import {
   parsePredictionPhase,
 } from '../comparison/theme-predictions-v3-records'
 import { loadFeatureInputsForBaseDate } from '../features/load-feature-inputs'
-import type { ReplayAuditPredictionRow } from './replay-audit'
+import type { ReplayAuditLabelRow, ReplayAuditPredictionRow } from './replay-audit'
 
 interface ReplaySnapshotForScoring {
   readonly theme_id: string
@@ -17,12 +18,32 @@ interface ReplaySnapshotForScoring {
 
 const SCORE_REPLAY_CONCURRENCY = 8
 
+export const computeReplayRecentBaseRate = (
+  labelRows: readonly ReplayAuditLabelRow[],
+  baseDate: string,
+): number | null => computeTrailingFinalBaseRate(
+  labelRows.flatMap((row) => (
+    row.labelStatus === 'final' && row.yBinary !== null ? [{ baseDate: row.baseDate, y: row.yBinary }] : []
+  )),
+  baseDate,
+)
+
 export const scoreReplayRows = async (input: {
   readonly snapshots: readonly ReplaySnapshotForScoring[]
   readonly artifact: M1ModelArtifact
   readonly trainEnd: string
+  readonly labelRows?: readonly ReplayAuditLabelRow[]
 }): Promise<ReplayAuditPredictionRow[]> => {
   const rows = new Array<ReplayAuditPredictionRow | null>(input.snapshots.length).fill(null)
+  const recentRatesByDate = new Map<string, number | null>()
+  const recentRateForDate = (baseDate: string): number | null => {
+    if (input.labelRows === undefined) return null
+    const cached = recentRatesByDate.get(baseDate)
+    if (cached !== undefined) return cached
+    const recentRate = computeReplayRecentBaseRate(input.labelRows, baseDate)
+    recentRatesByDate.set(baseDate, recentRate)
+    return recentRate
+  }
   let nextIndex = 0
   const workerCount = Math.min(SCORE_REPLAY_CONCURRENCY, input.snapshots.length)
   const workers = Array.from({ length: workerCount }, async () => {
@@ -47,6 +68,7 @@ export const scoreReplayRows = async (input: {
         modelVersion: `m1-replay-${input.trainEnd}`,
         paramVersion: TLI_V3_M1_PARAM_VERSION,
         servingRole: 'shadow',
+        recentBaseRate: recentRateForDate(snapshot.snapshot_date),
       })
       const bAbl = buildBaselinePredictionV3Row({
         themeId: snapshot.theme_id,

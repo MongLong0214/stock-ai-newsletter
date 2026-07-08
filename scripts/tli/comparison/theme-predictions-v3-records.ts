@@ -1,5 +1,6 @@
 import { FEATURE_NAMES } from '@/lib/tli/features/build-features'
 import type { FeatureVector } from '@/lib/tli/features/build-features'
+import { applyPriorCorrection, computePriorShiftWeight } from '@/lib/tli/model/prior-correction'
 import { predictM1T1Probability } from '@/lib/tli/model/predict'
 import type { M1ModelArtifact } from '@/lib/tli/model/m1'
 import type { PredictionResult } from '@/lib/tli/prediction'
@@ -8,7 +9,7 @@ export const TLI_V3_HORIZON_DAYS = 5
 export const TLI_V3_LABELER_VERSION = 'gta-v1'
 export const TLI_V3_BASELINE_MODEL_VERSION = 'b-abl-v1'
 export const TLI_V3_BASELINE_PARAM_VERSION = 'tli-v3-baseline-v1'
-export const TLI_V3_M1_PARAM_VERSION = 'tli-v3-m1-shadow-v1'
+export const TLI_V3_M1_PARAM_VERSION = 'tli-v3-m1-shadow-v1-a2'
 
 export type ThemePredictionServingRole = 'champion' | 'challenger' | 'shadow'
 export type ThemePredictionScoreStatus = 'pending' | 'scored' | 'censored' | 'excluded'
@@ -17,6 +18,11 @@ export interface ThemePredictionV3FeaturePayload {
   readonly featureSchema: readonly string[]
   readonly values: readonly number[]
   readonly missingFlags: readonly boolean[]
+  readonly priorCorrection?: {
+    readonly trainRate: number
+    readonly recentRate: number
+    readonly w: number
+  }
 }
 
 export interface ThemePredictionV3DraftRow {
@@ -119,10 +125,14 @@ export function parseThemePredictionV3Row(draft: ThemePredictionV3DraftRow): The
   }
 }
 
-const featurePayload = (featureVector: FeatureVector): ThemePredictionV3FeaturePayload => ({
+const featurePayload = (
+  featureVector: FeatureVector,
+  priorCorrection?: ThemePredictionV3FeaturePayload['priorCorrection'],
+): ThemePredictionV3FeaturePayload => ({
   featureSchema: FEATURE_NAMES,
   values: featureVector.values,
   missingFlags: featureVector.missingFlags,
+  ...(priorCorrection === undefined ? {} : { priorCorrection }),
 })
 
 /** b_abl 휴리스틱 채점 — champion/challenger/shadow 어느 serving_role로도 기록 가능한 일반형 (A1) */
@@ -170,10 +180,26 @@ export function buildM1PredictionV3Row(input: {
   readonly modelVersion: string
   readonly paramVersion: string
   readonly servingRole?: ThemePredictionServingRole
+  readonly recentBaseRate?: number | null
 }): ThemePredictionV3Row {
-  const pRise = input.featureVector.abstain
+  const rawPRise = input.featureVector.abstain
     ? null
     : predictM1T1Probability({ artifact: input.artifact, row: input.featureVector })
+  const priorCorrection = rawPRise === null ||
+    input.recentBaseRate === null ||
+    input.recentBaseRate === undefined ||
+    input.artifact.train_event_rate === undefined
+    ? undefined
+    : {
+      trainRate: input.artifact.train_event_rate,
+      recentRate: input.recentBaseRate,
+      w: computePriorShiftWeight(input.artifact.train_event_rate, input.recentBaseRate),
+    }
+  const pRise = rawPRise === null
+    ? null
+    : priorCorrection === undefined
+      ? rawPRise
+      : applyPriorCorrection(rawPRise, priorCorrection.trainRate, priorCorrection.recentRate)
   return parseThemePredictionV3Row({
     themeId: input.themeId,
     predictionDate: input.predictionDate,
@@ -184,7 +210,7 @@ export function buildM1PredictionV3Row(input: {
     ciUpper: null,
     abstain: input.featureVector.abstain || pRise === null,
     abstainReasons: input.featureVector.abstain ? input.featureVector.abstainReasons : [],
-    features: featurePayload(input.featureVector),
+    features: featurePayload(input.featureVector, priorCorrection),
     modelVersion: input.modelVersion,
     labelerVersion: input.artifact.labeler_version,
     paramVersion: input.paramVersion,
@@ -199,6 +225,7 @@ export function buildM1ShadowPredictionV3Row(input: {
   readonly artifact: M1ModelArtifact
   readonly modelVersion: string
   readonly paramVersion: string
+  readonly recentBaseRate?: number | null
 }): ThemePredictionV3Row {
   return buildM1PredictionV3Row({ ...input, servingRole: 'shadow' })
 }
@@ -218,6 +245,13 @@ export function toThemePredictionV3Record(row: ThemePredictionV3Row): Record<str
       feature_schema: row.features.featureSchema,
       values: row.features.values,
       missing_flags: row.features.missingFlags,
+      ...(row.features.priorCorrection === undefined ? {} : {
+        prior_correction: {
+          train_rate: row.features.priorCorrection.trainRate,
+          recent_rate: row.features.priorCorrection.recentRate,
+          w: row.features.priorCorrection.w,
+        },
+      }),
     },
     model_version: row.modelVersion,
     labeler_version: row.labelerVersion,

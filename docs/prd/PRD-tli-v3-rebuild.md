@@ -1107,8 +1107,12 @@ UI `calculatePrediction()` 라이브 호출 제거와 OpenAPI/MCP `phase` deprec
 | 8 | `basket_volume_ratio` | `mean_j(vol_j[t-4..t]) / mean_j(vol_j[t-19..t])` | stock_daily_prices |
 | 9 | `episode_progress` | `daysSinceSpike / median(완결 에피소드 peak_day 코호트)` (GT-C) | episode 라벨 |
 | 10 | `market_regime` | `sign(KOSPI[t]/KOSPI[t-5] − 1)` ∈ {-1, +1} | stock_daily_prices |
+| 11 | `babl_phase_signal` | `prediction_snapshots_v2`의 `(theme_id, snapshot_date=t, run_type='prod')` 전향 저장 phase를 사용. `rising → 1`, `cooling → -1`, 그 외 phase → `0`; snapshot 없음은 결측 | v2 analog snapshot |
+| 12 | `interest_return_10d` | `ln((mean(last 3 finite raw)+1) / (mean(finite raw[-13..-11])+1))`. guard: 두 평균이 모두 존재하고 과거 평균 `> 0`; `+1` smoothing은 저값 구간 분모 안정화용 | interest_metrics.raw_value |
+| 13 | `interest_drawdown_20d` | `peak=max(last 20 finite raw)`, `current=last finite raw`; guard: finite raw `>=10`개 and `peak > 0`; 값 `(peak-current)/peak` ∈ `[0,1]` | interest_metrics.raw_value |
 
-- 결측: 피처별 `NaN → train median 대치 + is_missing_k 플래그`(피처 수 10+10). abstain 판정: 결측 피처 >3개 또는 관심도 이력 <7일.
+- m1.1 변형은 기존 10개에 internally-proven analog/curve signal family 3개를 주입한 13-feature schema다. `babl_phase_signal`은 해당 일자에 이미 전향 기록된 `prediction_snapshots_v2` row를 PIT 원천으로 사용하며 phase를 재계산하지 않는다.
+- 결측: 피처별 `NaN → train median 대치 + is_missing_k 플래그`(피처 수 13+13). abstain 판정: 결측 피처 >3개 또는 관심도 이력 <7일.
 - 표준화: robust z `(x − median_train) / (1.4826 × MAD_train)` — `medianAbsoluteDeviation`/`robustZScore` 재사용. 통계량은 아티팩트에 포함.
 
 ### G.2 GT-A 라벨러 판정식 (T-101, 의사코드)
@@ -1138,15 +1142,16 @@ labelGtA(theme, t):                       # t = KST 영업일
 {
   "artifact_version": "tli-model-artifact-v1",
   "model_type": "m1_logistic",
-  "feature_schema": ["interest_slope_7d", "...10개 순서 고정..."],
-  "scaler": { "median": [/*10*/], "mad": [/*10*/] },
-  "coefficients": { "intercept": 0.0, "weights": [/*10 + missing 플래그 10*/] },
+  "feature_schema": ["interest_slope_7d", "...13개 순서 고정..."],
+  "scaler": { "median": [/*13*/], "mad": [/*13*/] },
+  "coefficients": { "intercept": 0.0, "weights": [/*13 + missing 플래그 13*/] },
   // tagged union: platt | beta | isotonic 중 하나
   "calibrator": { "type": "platt", "a": 0.0, "b": 0.0 },
   // 또는 { "type": "beta", "a": 0.0, "b": 0.0, "c": 0.0 },
   // 또는 { "type": "isotonic", "thresholds": [0.0, 1.0], "values": [0.0, 1.0] },
   "trained_at": "2026-08-02", "train_range": ["2026-01-07", "2026-07-05"],
   "labeler_version": "gta-v1", "seed": 42,
+  "train_event_rate": 0.381,
   "sample_report": {
     "calibration_selection": {
       "chosen_type": "beta",
@@ -1158,11 +1163,14 @@ labelGtA(theme, t):                       # t = KST 영업일
 }
 ```
 
+- `train_event_rate`는 학습 row의 `positive_count / observed_n`이며 `sample_report.event_rate`와 같은 값으로 직렬화한다. prior correction은 이 top-level 값을 SSOT로 사용한다.
 - 학습 선택 규칙: L2 로지스틱 base estimator는 기존 설정(`class_weight='balanced'`, seed=42)을 유지한다. 학습 데이터에서 deterministic 5-fold stratified CV를 돌려 각 fold마다 base estimator를 K-1 fold에 fit → raw margin `m` 산출 → Platt/Beta/Isotonic calibrator를 K-1 fold margin에 fit → held-out fold 확률을 예측한다. 누적 OOF 예측으로 `lib/tli/eval/metrics.ts`와 동일한 quantile ECE(5 equal-count bins, bin n≥30, tie-aware bin 확장)를 계산하고, 최저 CV ECE를 선택한다. 동률이면 CV log-loss가 낮은 calibrator를 선택한다. 최종 artifact에는 선택된 calibrator만 전체 학습 데이터 margin에 refit해서 저장한다. 이는 threshold 이동이 아니라 확률 재보정이며, fit-and-measure 순환을 금지한다.
 - 서빙 추론(TS, `lib/tli/model/`): robust-z 스케일링(`z = (x−median)/(k·MAD)`) → 로지스틱 raw margin `m = w·z + b₀`, base probability `s = sigmoid(m)` 산출 후 calibrator tagged union별로 분기한다.
   - Platt: raw margin에 직접 적용 `p = 1/(1 + exp(a·m + b))` (= `sigmoid(−(a·m + b))`).
   - Beta(Kull et al. 2017): `s`를 `[1e-6, 1−1e-6]`로 clip하고 `p = sigmoid(a·ln(s) + b·(−ln(1−s)) + c)`.
   - Isotonic: `s`를 `thresholds[]`/`values[]` breakpoint에 선형 보간하고 범위 밖은 양끝 `values`로 clip한다. 비모수 plateau 특성상 정확히 0 또는 1을 낼 수 있다.
+  - prior-shift correction(m1.2): calibrator 산출 확률 `p`에 대해 학습 양성률 `r_t = train_event_rate`, 최근 실현 양성률 `r_r`를 사용한다. `w = (r_r/(1-r_r)) / (r_t/(1-r_t))`, `p' = (p*w) / (p*w + (1-p))`. `p`, `r_t`, `r_r`는 `[1e-6, 1-1e-6]`로 clip한다. 이 변환은 `p`에 대해 단조 증가하므로 IC/P@10/ranking은 보존하고 calibration만 이동시킨다.
+  - PIT 최근 양성률 정의: `asOfDate` 기준 `base_date ∈ [asOfDate - lagDays - windowDays, asOfDate - lagDays]`인 GT-A final 라벨(`label_type='gt_a'`, `labeler_version='gta-v1'`, `label_status='final'`, `horizon_days=5`)만 사용한다. 기본값은 `windowDays=28`, `lagDays=7`, `minCount=300`; 표본이 300개 미만이면 correction을 적용하지 않는다. `lagDays>=7`은 GT-A의 5일 horizon 확정 잡이 지나지 않은 최신 baseDate를 PIT 창에서 제외해 finalization 이후 라벨만 쓰게 하는 운영 라그다.
   - 단위테스트 필수: Python 학습기와 골든 벡터 대조(동일 입력 → 확률 오차 < 1e-6) + Platt/Beta/Isotonic 모든 TS 분기 round-trip.
 - CI: 캘리브레이션 bin의 Wilson 95% (bin당 실측 적중률 기반, `level4-serving.ts`의 Wilson 구현 이식).
 
