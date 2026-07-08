@@ -1,0 +1,288 @@
+{
+  "reportVersion": "tli-m1-calibration-diagnostic-v1",
+  "generatedAt": "2026-07-07T08:24:12.301Z",
+  "startDate": "2026-01-12",
+  "endDate": "2026-06-30",
+  "totalPredictionRows": 15195,
+  "scoredPredictionRows": 11820,
+  "nonAbstainFeatureRows": 11820,
+  "sampleLimitVerdict": "sample_limited",
+  "reliabilityVerdict": "irregular",
+  "featureLivenessVerdict": "dead_features_present",
+  "eceVsSampleSize": {
+    "verdict": "sample_limited",
+    "rows": [
+      {
+        "sampleLabel": "250",
+        "sampleSize": 250,
+        "iterations": 200,
+        "meanEce": 0.06890754648229226,
+        "p025Ece": 0.030431070877909066,
+        "p975Ece": 0.11955387586891837
+      },
+      {
+        "sampleLabel": "500",
+        "sampleSize": 500,
+        "iterations": 200,
+        "meanEce": 0.061059565126733065,
+        "p025Ece": 0.03217184543882712,
+        "p975Ece": 0.09226058681828792
+      },
+      {
+        "sampleLabel": "1000",
+        "sampleSize": 1000,
+        "iterations": 200,
+        "meanEce": 0.052784676283782,
+        "p025Ece": 0.03343335254718806,
+        "p975Ece": 0.07589250467078806
+      },
+      {
+        "sampleLabel": "2000",
+        "sampleSize": 2000,
+        "iterations": 200,
+        "meanEce": 0.05072083167783328,
+        "p025Ece": 0.03697569723309953,
+        "p975Ece": 0.06517751655728657
+      },
+      {
+        "sampleLabel": "4000",
+        "sampleSize": 4000,
+        "iterations": 200,
+        "meanEce": 0.04853083026032559,
+        "p025Ece": 0.03950149981136217,
+        "p975Ece": 0.05969335714400905
+      },
+      {
+        "sampleLabel": "full",
+        "sampleSize": 11820,
+        "iterations": 200,
+        "meanEce": 0.04764009585392943,
+        "p025Ece": 0.04764009585392949,
+        "p975Ece": 0.04764009585392949
+      }
+    ]
+  },
+  "reliabilityCurve": {
+    "verdict": "irregular",
+    "monotonicObservedRate": false,
+    "largestGap": {
+      "binLabel": "[0.6,0.7)",
+      "gap": 0.2244713719860842,
+      "absoluteGap": 0.2244713719860842
+    },
+    "bins": [
+      {
+        "binIndex": 0,
+        "binLabel": "[0.0,0.1)",
+        "lowerInclusive": 0,
+        "upperExclusive": 0.1,
+        "count": 673,
+        "meanPredictedProbability": 0.06574383550147234,
+        "observedPositiveRate": 0.16047548291233285,
+        "gap": -0.09473164741086051
+      },
+      {
+        "binIndex": 1,
+        "binLabel": "[0.1,0.2)",
+        "lowerInclusive": 0.1,
+        "upperExclusive": 0.2,
+        "count": 2744,
+        "meanPredictedProbability": 0.1643506082025861,
+        "observedPositiveRate": 0.21173469387755103,
+        "gap": -0.04738408567496494
+      },
+      {
+        "binIndex": 2,
+        "binLabel": "[0.2,0.3)",
+        "lowerInclusive": 0.2,
+        "upperExclusive": 0.3,
+        "count": 4721,
+        "meanPredictedProbability": 0.24548653949759164,
+        "observedPositiveRate": 0.26286803643295914,
+        "gap": -0.017381496935367502
+      },
+      {
+        "binIndex": 3,
+        "binLabel": "[0.3,0.4)",
+        "lowerInclusive": 0.3,
+        "upperExclusive": 0.4,
+        "count": 1966,
+        "meanPredictedProbability": 0.3424574326234223,
+        "observedPositiveRate": 0.3326551373346897,
+        "gap": 0.00980229528873261
+      },
+      {
+        "binIndex": 4,
+        "binLabel": "[0.4,0.5)",
+        "lowerInclusive": 0.4,
+        "upperExclusive": 0.5,
+        "count": 830,
+        "meanPredictedProbability": 0.4443483530505978,
+        "observedPositiveRate": 0.327710843373494,
+        "gap": 0.11663750967710379
+      },
+      {
+        "binIndex": 5,
+        "binLabel": "[0.5,0.6)",
+        "lowerInclusive": 0.5,
+        "upperExclusive": 0.6,
+        "count": 415,
+        "meanPredictedProbability": 0.5492565060928996,
+        "observedPositiveRate": 0.41927710843373495,
+        "gap": 0.1299793976591646
+      },
+      {
+        "binIndex": 6,
+        "binLabel": "[0.6,0.7)",
+        "lowerInclusive": 0.6,
+        "upperExclusive": 0.7,
+        "count": 269,
+        "meanPredictedProbability": 0.6519806656663816,
+        "observedPositiveRate": 0.4275092936802974,
+        "gap": 0.2244713719860842
+      },
+      {
+        "binIndex": 7,
+        "binLabel": "[0.7,0.8)",
+        "lowerInclusive": 0.7,
+        "upperExclusive": 0.8,
+        "count": 121,
+        "meanPredictedProbability": 0.7500107484688062,
+        "observedPositiveRate": 0.5537190082644629,
+        "gap": 0.19629174020434337
+      },
+      {
+        "binIndex": 8,
+        "binLabel": "[0.8,0.9)",
+        "lowerInclusive": 0.8,
+        "upperExclusive": 0.9,
+        "count": 66,
+        "meanPredictedProbability": 0.843335615507329,
+        "observedPositiveRate": 0.696969696969697,
+        "gap": 0.14636591853763203
+      },
+      {
+        "binIndex": 9,
+        "binLabel": "[0.9,1.0]",
+        "lowerInclusive": 0.9,
+        "upperExclusive": null,
+        "count": 15,
+        "meanPredictedProbability": 0.9234218290844967,
+        "observedPositiveRate": 0.7333333333333333,
+        "gap": 0.19008849575116338
+      }
+    ]
+  },
+  "featureLiveness": {
+    "verdict": "dead_features_present",
+    "deadFeatureCount": 2,
+    "features": [
+      {
+        "featureName": "interest_level_pct",
+        "missingRate": 1,
+        "variance": null,
+        "zeroValueRate": 1,
+        "min": null,
+        "max": null,
+        "dead": true,
+        "deadReasons": [
+          "missing_rate_gt_0.5",
+          "variance_lt_1e-6"
+        ]
+      },
+      {
+        "featureName": "episode_progress",
+        "missingRate": 1,
+        "variance": null,
+        "zeroValueRate": 1,
+        "min": null,
+        "max": null,
+        "dead": true,
+        "deadReasons": [
+          "missing_rate_gt_0.5",
+          "variance_lt_1e-6"
+        ]
+      },
+      {
+        "featureName": "basket_return_5d",
+        "missingRate": 0.138917089678511,
+        "variance": 0.01113801654832758,
+        "zeroValueRate": 0.138917089678511,
+        "min": -0.510828140260094,
+        "max": 1.2857157421484902,
+        "dead": false,
+        "deadReasons": []
+      },
+      {
+        "featureName": "news_momentum",
+        "missingRate": 0.05956006768189509,
+        "variance": 1.2881050682099653,
+        "zeroValueRate": 0.0742808798646362,
+        "min": -0.9319371727748691,
+        "max": 17.5,
+        "dead": false,
+        "deadReasons": []
+      },
+      {
+        "featureName": "basket_volume_ratio",
+        "missingRate": 0.00042301184433164127,
+        "variance": 0.26562446006929696,
+        "zeroValueRate": 0.002284263959390863,
+        "min": 0,
+        "max": 4,
+        "dead": false,
+        "deadReasons": []
+      },
+      {
+        "featureName": "interest_slope_7d",
+        "missingRate": 0,
+        "variance": 0.02272268513511089,
+        "zeroValueRate": 0.03663282571912013,
+        "min": -0.75,
+        "max": 0.75,
+        "dead": false,
+        "deadReasons": []
+      },
+      {
+        "featureName": "interest_accel",
+        "missingRate": 0,
+        "variance": 0.07836172545366887,
+        "zeroValueRate": 0.02614213197969543,
+        "min": -1.5046296296296295,
+        "max": 1.7596153846153846,
+        "dead": false,
+        "deadReasons": []
+      },
+      {
+        "featureName": "dvi_7d",
+        "missingRate": 0,
+        "variance": 0.057245942069249864,
+        "zeroValueRate": 0.047546531302876484,
+        "min": 0,
+        "max": 1,
+        "dead": false,
+        "deadReasons": []
+      },
+      {
+        "featureName": "news_volume_7d",
+        "missingRate": 0,
+        "variance": 0.015262549042464615,
+        "zeroValueRate": 0,
+        "min": 0.4975940426844409,
+        "max": 1,
+        "dead": false,
+        "deadReasons": []
+      },
+      {
+        "featureName": "market_regime",
+        "missingRate": 0,
+        "variance": 0.8428300136565731,
+        "zeroValueRate": 0,
+        "min": -1,
+        "max": 1,
+        "dead": false,
+        "deadReasons": []
+      }
+    ]
+  }
+}
