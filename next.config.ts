@@ -6,6 +6,10 @@ const nextConfig: NextConfig = {
     root: process.cwd(),
   },
 
+  // 정적 페이지(OG 이미지·sitemap 등) 생성 타임아웃 상향(기본 60s).
+  // 대량 페이지 빌드 후반 리소스 경합 시 60s 초과로 실패하던 문제의 안전망.
+  staticPageGenerationTimeout: 180,
+
   // 보안 헤더 설정 (Enterprise Security Standards)
   async headers() {
     return [

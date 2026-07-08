@@ -3,6 +3,12 @@ import { createOgImageResponse } from '@/lib/og-image-response';
 
 export const runtime = 'nodejs';
 export const revalidate = 86400;
+
+// 빌드 타임 프리렌더 제외 → 첫 요청 시 온디맨드 렌더 후 ISR 캐시(하루).
+export function generateStaticParams() {
+  return [];
+}
+
 export const alt = 'Stock Matrix 블로그 태그';
 export const size = {
   width: 1200,

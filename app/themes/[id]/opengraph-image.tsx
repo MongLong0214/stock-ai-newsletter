@@ -4,6 +4,13 @@ import { getThemeSeoData } from './theme-seo-data';
 
 export const runtime = 'nodejs';
 export const revalidate = 86400;
+
+// 빌드 타임 프리렌더 제외 → 첫 요청 시 온디맨드 렌더 후 ISR 캐시(하루).
+// 활성 테마 수백 개의 무거운 Satori 렌더가 빌드를 OOM/타임아웃시키던 문제 해소.
+export function generateStaticParams() {
+  return [];
+}
+
 export const alt = '테마 생명주기 분석 - Stock Matrix';
 export const size = {
   width: 1200,
