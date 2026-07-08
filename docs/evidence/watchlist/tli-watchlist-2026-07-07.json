@@ -1,0 +1,66 @@
+{
+  "reportVersion": "tli-watchlist-v1",
+  "date": "2026-07-07",
+  "modelVersion": "m1-2026w28",
+  "modelVersionSource": "override",
+  "rising": [
+    {
+      "themeId": "038e2bef-b439-4711-a2c6-61bf54770ab1",
+      "theme": "미디어(방송/신문)",
+      "pRise": 0.6454001201691902,
+      "evidence": "검색 기울기 +0.000, 뉴스 모멘텀 +0.848"
+    },
+    {
+      "themeId": "7aa81886-2e3a-430e-a8d1-7bcf9249684d",
+      "theme": "겨울",
+      "pRise": 0.6225744013276534,
+      "evidence": "검색 기울기 +0.000, 뉴스 모멘텀 +4.650"
+    },
+    {
+      "themeId": "03076b4d-a174-4199-905f-4253b2f752d5",
+      "theme": "GTX(수도권 광역급행철도)",
+      "pRise": 0.49810898335346426,
+      "evidence": "검색 기울기 +0.000, 뉴스 모멘텀 -0.176"
+    },
+    {
+      "themeId": "8c04ecdf-093e-4e26-9fb3-d4f452ce7c61",
+      "theme": "초전도체",
+      "pRise": 0.45487691430801197,
+      "evidence": "검색 기울기 +0.107, 뉴스 모멘텀 -0.564"
+    },
+    {
+      "themeId": "a77ee662-ff23-4088-9f60-a816ce2924b6",
+      "theme": "스마트팩토리(스마트공장)",
+      "pRise": 0.43937868001249963,
+      "evidence": "검색 기울기 +0.107, 뉴스 모멘텀 -0.387"
+    }
+  ],
+  "cooling": [
+    {
+      "themeId": "f7071d11-f844-45ca-bc4d-84384286ac22",
+      "theme": "MLCC(적층세라믹콘덴서)",
+      "pRise": 0.08517015852341375,
+      "evidence": "검색 기울기 -0.338, 뉴스 모멘텀 +0.344"
+    },
+    {
+      "themeId": "30b69c3a-ca16-4c88-b5a2-ae5423bc8ef0",
+      "theme": "사료",
+      "pRise": 0.12569100486514276,
+      "evidence": "검색 기울기 -0.036, 뉴스 모멘텀 +1.313"
+    },
+    {
+      "themeId": "045c16d5-a470-4994-9023-65d6c7c98091",
+      "theme": "바이오",
+      "pRise": 0.13416447730131165,
+      "evidence": "검색 기울기 -0.107, 뉴스 모멘텀 -0.150"
+    }
+  ],
+  "shadowHealth": {
+    "totalRows": 224,
+    "nonNullPRiseCount": 149,
+    "coverage": 0.6651785714285714,
+    "abstainCount": 75,
+    "latestScoredDay": null,
+    "scoredMetricStatus": "no_scored_rows_yet"
+  }
+}

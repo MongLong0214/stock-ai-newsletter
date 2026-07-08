@@ -86,3 +86,4 @@ npx tsx --env-file=.env.local scripts/tli/learn/run-replay-audit.ts --train-end=
 ## 7. 실행 로그 (이벤트 발생 시 추가)
 
 - 2026-07-08: 런북 작성. m1.1·워치리스트 codex 진행 중. challenger `m1-2026w28`(클린 재학습본) shadow 축적 중.
+- 2026-07-08 (오후): m1.1(13피처, IC 취약성 해결) → m1.2(prior correction) 연속 반복. look #3 최종 판정 = A·B PASS / C FAIL(ECE 0.0984) → **조기 승격 경로 영구 종결, 표준 gate 전용**. challenger = `m1-2026w28-a2` (7/9부터 shadow 기록). 워치리스트 리포트 첫 실전 생성 (`npm run tli:watchlist`). codex 백그라운드 stall 사고 → `< /dev/null` 규칙 확립 (메모리 박제).

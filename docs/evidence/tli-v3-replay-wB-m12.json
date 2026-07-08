@@ -1,0 +1,95 @@
+{
+  "reportVersion": "tli-replay-audit-v1",
+  "trainEnd": "2026-05-15",
+  "replayStart": "2026-05-25",
+  "replayEnd": "2026-06-05",
+  "scoredRows": 879,
+  "excludedRows": 718,
+  "tradingDays": [
+    "2026-05-26",
+    "2026-05-27",
+    "2026-05-28",
+    "2026-05-29",
+    "2026-06-01",
+    "2026-06-02",
+    "2026-06-04",
+    "2026-06-05"
+  ],
+  "metrics": {
+    "m1": {
+      "totalCandidates": 879,
+      "nScored": 799,
+      "coverage": 0.9089874857792947,
+      "baseRate": 0.20400500625782228,
+      "brier": 0.16494549039077266,
+      "ece": 0.059362050099663985,
+      "eceBinCount": 5,
+      "eceUpper95": null,
+      "ic": 0.06380716775183151,
+      "risingPAt10": 0.3
+    },
+    "bAbl": {
+      "totalCandidates": 879,
+      "nScored": 879,
+      "coverage": 1,
+      "baseRate": 0.21274175199089876,
+      "brier": 0.21274175199089876,
+      "ece": 0.21274175199089876,
+      "eceBinCount": 1,
+      "eceUpper95": null,
+      "ic": null,
+      "risingPAt10": 0.15000000000000002
+    }
+  },
+  "weeklyNonOverlap": {
+    "m1": {
+      "totalCandidates": 220,
+      "nScored": 204,
+      "coverage": 0.9272727272727272,
+      "baseRate": 0.2107843137254902,
+      "brier": 0.16374857626888695,
+      "ece": 0.05715452926384636,
+      "eceBinCount": 5,
+      "eceUpper95": null,
+      "ic": 0.15274908026602002,
+      "risingPAt10": 0.35
+    },
+    "bAbl": {
+      "totalCandidates": 220,
+      "nScored": 220,
+      "coverage": 1,
+      "baseRate": 0.21818181818181817,
+      "brier": 0.21818181818181817,
+      "ece": 0.21818181818181817,
+      "eceBinCount": 1,
+      "eceUpper95": null,
+      "ic": null,
+      "risingPAt10": 0.2
+    }
+  },
+  "brierDeltaCi": {
+    "metric": "brier",
+    "method": "cluster_bootstrap",
+    "meanDelta": -0.04703573745660335,
+    "lower": -0.08847365231635756,
+    "upper": -0.0103676233002623,
+    "clusterCount": 117,
+    "observationCount": 204,
+    "iterations": 2000,
+    "confidenceLevel": 0.99,
+    "imbalance": {
+      "clusterCount": 117,
+      "observationCount": 204,
+      "topClusterCount": 6,
+      "topClusterShare": 0.058823529411764705,
+      "useWildClusterBootstrap": false
+    }
+  },
+  "criteria": {
+    "m1BrierBelowBAbl": true,
+    "m1BrierAbsolute": true,
+    "m1EceMax": true,
+    "m1IcPositive": true
+  },
+  "verdict": "pass"
+}
