@@ -1,4 +1,5 @@
 import React, { type CSSProperties, type ReactNode } from 'react';
+import { OG_BACKGROUND_DATA_URI } from '@/lib/og-background';
 import { siteConfig } from '@/lib/constants/seo/config';
 
 interface OgLayoutOptions {
@@ -416,28 +417,9 @@ function BarsCard({ style }: { style: CSSProperties }): React.JSX.Element {
   );
 }
 
-export function createOgLayout({
-  title,
-  subtitle,
-  titleSize = 108,
-  titleLineHeight = 0.98,
-  titleMaxWidth = 700,
-  subtitleMaxWidth = 560,
-}: OgLayoutOptions): React.JSX.Element {
-  const host = siteConfig.domain.replace(/^https?:\/\//, '');
-
+function OgDecorativeBackground(): React.JSX.Element {
   return (
-    <div
-      style={{
-        width: '100%',
-        height: '100%',
-        display: 'flex',
-        position: 'relative',
-        overflow: 'hidden',
-        background: `linear-gradient(180deg, ${COLORS.backgroundTop} 0%, ${COLORS.backgroundBottom} 100%)`,
-        fontFamily: '"Noto Sans KR", sans-serif',
-      }}
-    >
+    <>
       <div
         style={{
           position: 'absolute',
@@ -500,14 +482,72 @@ export function createOgLayout({
 
       <LineChartCard
         title="Theme velocity"
-        style={{ top: 2, right: -40, width: 308, height: 168, transform: 'rotate(-0.5deg)' }}
+        style={{ top: 2, left: 932, width: 308, height: 168, transform: 'rotate(-0.5deg)' }}
         bars={[54, 62, 58, 68, 74, 70, 66, 82, 76, 88, 80, 74, 84, 90]}
         accent={COLORS.emerald}
       />
 
-      <AccentMetricCard style={{ top: 174, right: 126, width: 184, height: 196, transform: 'rotate(8.8deg)' }} />
-      <MutedStatCard style={{ top: 246, right: -40, width: 232, height: 174 }} />
-      <BarsCard style={{ right: -20, bottom: -8, width: 320, height: 210, transform: 'rotate(0.8deg)' }} />
+      <AccentMetricCard style={{ top: 174, left: 890, width: 184, height: 196, transform: 'rotate(8.8deg)' }} />
+      <MutedStatCard style={{ top: 246, left: 1008, width: 232, height: 174 }} />
+      <BarsCard style={{ top: 428, left: 900, width: 320, height: 210, transform: 'rotate(0.8deg)' }} />
+    </>
+  );
+}
+
+export function createOgStaticBackground(): React.JSX.Element {
+  return (
+    <div
+      style={{
+        width: CANVAS_WIDTH,
+        height: CANVAS_HEIGHT,
+        display: 'flex',
+        position: 'relative',
+        overflow: 'hidden',
+        background: `linear-gradient(180deg, ${COLORS.backgroundTop} 0%, ${COLORS.backgroundBottom} 100%)`,
+        fontFamily: '"Noto Sans KR", sans-serif',
+      }}
+    >
+      <OgDecorativeBackground />
+    </div>
+  );
+}
+
+export function createOgLayout({
+  title,
+  subtitle,
+  titleSize = 108,
+  titleLineHeight = 0.98,
+  titleMaxWidth = 700,
+  subtitleMaxWidth = 560,
+}: OgLayoutOptions): React.JSX.Element {
+  const host = siteConfig.domain.replace(/^https?:\/\//, '');
+
+  return (
+    <div
+      style={{
+        width: '100%',
+        height: '100%',
+        display: 'flex',
+        position: 'relative',
+        overflow: 'hidden',
+        background: `linear-gradient(180deg, ${COLORS.backgroundTop} 0%, ${COLORS.backgroundBottom} 100%)`,
+        fontFamily: '"Noto Sans KR", sans-serif',
+      }}
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element -- Satori renders data URI backgrounds with plain img elements. */}
+      <img
+        src={OG_BACKGROUND_DATA_URI}
+        width={CANVAS_WIDTH}
+        height={CANVAS_HEIGHT}
+        alt=""
+        style={{
+          position: 'absolute',
+          inset: 0,
+          display: 'flex',
+          width: CANVAS_WIDTH,
+          height: CANVAS_HEIGHT,
+        }}
+      />
 
       <div
         style={{
@@ -557,7 +597,7 @@ export function createOgLayout({
               fontSize: titleSize,
               lineHeight: titleLineHeight,
               letterSpacing: -4.5,
-              fontWeight: 780,
+              fontWeight: 700,
               color: COLORS.text,
               textShadow: '0 8px 22px rgba(0, 0, 0, 0.28)',
               textAlign: 'center',

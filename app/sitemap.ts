@@ -26,7 +26,7 @@ async function getActiveThemes(): Promise<{ id: string; calculated_at: string | 
   try {
     const supabase = getServerSupabaseClient();
 
-    const [{ data: activeThemes }, { data: scores }] = await Promise.all([
+    const [themesResult, scoresResult] = await Promise.all([
       supabase
         .from('themes')
         .select('id')
@@ -38,6 +38,11 @@ async function getActiveThemes(): Promise<{ id: string; calculated_at: string | 
         .limit(SITEMAP_SCORES_ROW_CAP),
     ]);
 
+    if (themesResult.error) throw themesResult.error;
+    if (scoresResult.error) throw scoresResult.error;
+
+    const activeThemes = themesResult.data;
+    const scores = scoresResult.data;
     if (!activeThemes) return [];
 
     const latestScoreByTheme = new Map<string, string | null>();
@@ -51,23 +56,27 @@ async function getActiveThemes(): Promise<{ id: string; calculated_at: string | 
       id: t.id,
       calculated_at: latestScoreByTheme.get(t.id) || null,
     }));
-  } catch {
-    return [];
+  } catch (error) {
+    console.error('[Sitemap] 활성 테마 조회 실패', error);
+    throw error;
   }
 }
 
 async function getPublishedBlogSlugs(): Promise<{ slug: string; published_at: string; updated_at: string | null }[]> {
   try {
     const supabase = getServerSupabaseClient();
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('blog_posts')
       .select('slug, published_at, updated_at')
       .eq('status', 'published')
       .order('published_at', { ascending: false });
 
+    if (error) throw error;
+
     return data || [];
-  } catch {
-    return [];
+  } catch (error) {
+    console.error('[Sitemap] 발행 블로그 조회 실패', error);
+    throw error;
   }
 }
 

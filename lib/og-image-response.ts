@@ -6,40 +6,28 @@ import type { ReactElement } from 'react';
 type OgFontDefinition = {
   name: string;
   data: Buffer;
-  weight: 400 | 500 | 700;
+  weight: 500 | 700;
   style: 'normal';
 };
 
 export async function loadOgFonts(): Promise<OgFontDefinition[]> {
   try {
-    const [regular, medium, bold] = await Promise.all([
+    const [medium, bold] = await Promise.all([
       readFile(
         join(
           process.cwd(),
-          'fonts/noto-sans-kr/noto-sans-kr-korean-400-normal.woff'
+          'fonts/noto-sans-kr/noto-sans-kr-korean-500-normal-subset.woff'
         )
       ),
       readFile(
         join(
           process.cwd(),
-          'fonts/noto-sans-kr/noto-sans-kr-korean-500-normal.woff'
-        )
-      ),
-      readFile(
-        join(
-          process.cwd(),
-          'fonts/noto-sans-kr/noto-sans-kr-korean-700-normal.woff'
+          'fonts/noto-sans-kr/noto-sans-kr-korean-700-normal-subset.woff'
         )
       ),
     ]);
 
     return [
-      {
-        name: 'Noto Sans KR',
-        data: regular,
-        weight: 400,
-        style: 'normal',
-      },
       {
         name: 'Noto Sans KR',
         data: medium,

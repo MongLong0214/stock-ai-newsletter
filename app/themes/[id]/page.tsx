@@ -6,8 +6,8 @@ import DetailContent from './_components/detail-content'
 import ThemeDetailAnalytics from './_components/theme-detail-analytics'
 import { getThemeSeoData } from './theme-seo-data'
 
-/** 10분마다 재검증 (ISR) */
-export const revalidate = 600
+/** 1시간마다 재검증 (ISR) */
+export const revalidate = 3600
 
 /** 빌드 시 모든 활성 테마 ID 생성 (SSG) */
 export async function generateStaticParams() {

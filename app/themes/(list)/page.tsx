@@ -43,7 +43,7 @@ export const metadata: Metadata = {
   },
 }
 
-export const revalidate = 600
+export const revalidate = 3600
 
 /** 테마 목록 조회 (ItemList 스키마용) */
 async function getActiveThemes() {

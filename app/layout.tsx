@@ -3,7 +3,6 @@ import { Noto_Sans_KR } from 'next/font/google';
 import './globals.css';
 import Script from 'next/script';
 import { Analytics } from '@vercel/analytics/next';
-import { SpeedInsights } from '@vercel/speed-insights/next';
 import Navigation from './_components/shared/navigation';
 import Footer from './_components/shared/footer';
 import QueryProvider from './_components/shared/providers/query-provider';
@@ -290,7 +289,6 @@ export default function RootLayout({
 
         {shouldRenderVercelTelemetry ? <Analytics /> : null}
         <GoogleAnalytics />
-        {shouldRenderVercelTelemetry ? <SpeedInsights /> : null}
       </body>
     </html>
   );

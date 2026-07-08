@@ -205,10 +205,10 @@ async function BlogPostPage({ params }: PageProps) {
 
 export default BlogPostPage;
 
-export const revalidate = 3600;
+export const revalidate = 86400;
 
 // 최근 N개만 빌드 타임 프리렌더. 나머지 롱테일은 dynamicParams(기본 true)로
-// 첫 요청 시 온디맨드 렌더 후 ISR 캐시(revalidate=1h) — 전량 프리렌더 시 빌드
+// 첫 요청 시 온디맨드 렌더 후 ISR 캐시(revalidate=24h) — 전량 프리렌더 시 빌드
 // 메모리 고갈로 후반 정적 생성이 타임아웃되던 문제를 해소. sitemap은 전량 URL을
 // 노출하므로 색인·SEO 무손실.
 const BLOG_PRERENDER_LIMIT = 100;
