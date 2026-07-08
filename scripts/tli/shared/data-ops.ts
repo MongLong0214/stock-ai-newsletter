@@ -153,6 +153,8 @@ export async function upsertThemeStocks(
   )
 
   // 이번 수집에 없는 종목 비활성화 (테마별)
+  let deactivateFailedCount = 0
+  let lastDeactivateError: string | null = null
   const symbolsByTheme = new Map<string, Set<string>>()
   for (const s of stocks) {
     const set = symbolsByTheme.get(s.themeId) ?? new Set()
@@ -179,18 +181,26 @@ export async function upsertThemeStocks(
       for (let i = 0; i < toDeactivate.length; i += 100) {
         const batch = toDeactivate.slice(i, i + 100)
         for (const item of batch) {
-          await supabaseAdmin
+          const { error } = await supabaseAdmin
             .from('theme_stocks')
             .update({ is_active: false })
             .eq('theme_id', item.theme_id)
             .eq('symbol', item.symbol)
+
+          if (error) {
+            deactivateFailedCount++
+            lastDeactivateError = error.message
+          }
         }
       }
       console.log(`   🔕 ${toDeactivate.length}개 미출현 종목 비활성화`)
+      if (deactivateFailedCount > 0) {
+        console.warn(`   ⚠️ theme_stocks 비활성화 ${deactivateFailedCount}건 실패`, lastDeactivateError ?? 'unknown error')
+      }
     }
   }
 
-  return result
+  return result + deactivateFailedCount
 }
 
 /** 뉴스 기사 저장 */

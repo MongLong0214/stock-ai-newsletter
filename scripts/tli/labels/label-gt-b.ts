@@ -82,11 +82,14 @@ export async function generateGtBLabelsForBaseDate(baseDate: string): Promise<Gt
     return { baseDate, totalThemes: 0, finalCount: 0, pendingCount: 0, excludedCount: 0, coverageRate: 0 }
   }
 
+  // 읽기 실패가 excluded 라벨로 영구 박제되는 것을 막기 위해 라벨 런을 중단한다.
   const stockRows = await batchQuery<ThemeStockSelectionRow>(
     'theme_stocks',
     'theme_id, symbol, relevance, is_active',
     themeIds,
     (query) => query.eq('is_active', true),
+    'theme_id',
+    { failOnError: true },
   )
   const futureDate = addKoreanTradingDays(baseDate, GTB_HORIZON_DAYS)
   const allSymbols = [KOSPI_INDEX_SYMBOL, ...selectTopThemeStockSymbols(stockRows, 5)]

@@ -100,6 +100,7 @@ const loadPendingKeywordEpochs = async (
   themeIds: readonly string[],
   baseDate: string,
 ): Promise<Map<string, number>> => {
+  // 읽기 실패가 excluded 라벨로 영구 박제되는 것을 막기 위해 라벨 런을 중단한다.
   const rows = await batchQuery<PendingLabelRow>(
     'theme_labels',
     'theme_id, keyword_epoch',
@@ -108,6 +109,8 @@ const loadPendingKeywordEpochs = async (
       .eq('base_date', baseDate)
       .eq('label_type', 'gt_a')
       .eq('label_status', 'pending'),
+    'theme_id',
+    { failOnError: true },
   )
   return new Map(rows.map((row) => [row.theme_id, row.keyword_epoch]))
 }
@@ -184,6 +187,7 @@ export async function generateGtALabelsForBaseDate(input: {
   const futureDates = getKoreanTradingDateWindow({ baseDate, startOffset: 1, endOffset: GTA_HORIZON_DAYS })
   const queryStartDate = getKoreanTradingDateWindow({ baseDate, startOffset: -29, endOffset: -29 })[0]
 
+  // 읽기 실패가 excluded 라벨로 영구 박제되는 것을 막기 위해 라벨 런을 중단한다.
   const metricRows = await batchQuery<InterestMetricRow>(
     'interest_metrics',
     'theme_id, time, raw_value',
@@ -192,6 +196,8 @@ export async function generateGtALabelsForBaseDate(input: {
       .eq('source', 'naver_datalab')
       .gte('time', queryStartDate)
       .lte('time', horizonDate),
+    'theme_id',
+    { failOnError: true },
   )
   const metricsByTheme = groupByThemeId(metricRows)
 
@@ -201,6 +207,8 @@ export async function generateGtALabelsForBaseDate(input: {
       'theme_id, effective_from, effective_to, is_active, closed_at',
       themeIds,
       (query) => query.lte('effective_from', horizonDate),
+      'theme_id',
+      { failOnError: true },
     )
     : []
   const pendingEpochByTheme = horizonElapsed
