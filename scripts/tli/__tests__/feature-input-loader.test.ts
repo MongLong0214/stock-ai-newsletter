@@ -20,6 +20,7 @@ vi.mock('@/scripts/tli/shared/supabase-admin', () => ({
         eq: vi.fn(() => query),
         gte: vi.fn(() => query),
         lte: vi.fn(() => query),
+        in: vi.fn(() => query),
         order: vi.fn(() => query),
         range: vi.fn(async (from: number, to: number) => {
           const calls = supabaseAdminMocks.rangeCallsByTable.get(table) ?? []
@@ -89,6 +90,11 @@ const rows = {
     { episode_start: '2026-06-01', episode_end: '2026-06-20', primary_peak_date: '2026-06-15', is_active: false },
     { episode_start: '2026-06-01', episode_end: '2026-06-05', primary_peak_date: null, is_active: false },
   ],
+  snapshotRows: [
+    { theme_id: 'theme-a', snapshot_date: '2026-07-09', phase: 'cooling' },
+    { theme_id: 'theme-a', snapshot_date: '2026-07-10', phase: 'rising' },
+    { theme_id: 'theme-b', snapshot_date: '2026-07-10', phase: 'cooling' },
+  ],
 } satisfies FeatureInputRows
 
 beforeEach(() => {
@@ -108,8 +114,32 @@ describe('T-201 feature input loader assembly', () => {
     expect(assembled.basketStocks.find((stock) => stock.symbol === '005930')?.closeAtBase).toBe(110)
     expect(assembled.kospiCloseAtBase).toBe(1010)
     expect(assembled.daysSinceSpike).toBe(7)
+    expect(assembled.bablPhaseSignal).toBe(1)
     // Both completed-before-baseDate episodes with a primary_peak_date contribute; the null-peak row never does.
     expect(assembled.completedEpisodePeakDays).toHaveLength(2)
+  })
+
+  it('requires an exact theme/date snapshot match for the B-abl phase signal', () => {
+    const assembled = assembleFeatureInputsFromRows({
+      ...rows,
+      snapshotRows: [
+        { theme_id: 'theme-a', snapshot_date: '2026-07-09', phase: 'rising' },
+        { theme_id: 'theme-b', snapshot_date: '2026-07-10', phase: 'cooling' },
+      ],
+    })
+
+    expect(assembled.bablPhaseSignal).toBeNull()
+  })
+
+  it('maps B-abl snapshot phases to rising=1, cooling=-1, other=0', () => {
+    expect(assembleFeatureInputsFromRows({
+      ...rows,
+      snapshotRows: [{ theme_id: 'theme-a', snapshot_date: '2026-07-10', phase: 'cooling' }],
+    }).bablPhaseSignal).toBe(-1)
+    expect(assembleFeatureInputsFromRows({
+      ...rows,
+      snapshotRows: [{ theme_id: 'theme-a', snapshot_date: '2026-07-10', phase: 'hot' }],
+    }).bablPhaseSignal).toBe(0)
   })
 
   it('excludes completed-episode cohort members that finish after baseDate (B1 — no future leakage)', () => {
@@ -175,5 +205,19 @@ describe('T-201 feature input loader pagination', () => {
       [0, 999],
       [1000, 1999],
     ])
+  })
+
+  it('loads prediction snapshot rows through the same paginated path', async () => {
+    supabaseAdminMocks.pagesByTable.set('prediction_snapshots_v2', [
+      {
+        data: [{ theme_id: 'theme-a', snapshot_date: '2026-07-10', phase: 'cooling' }],
+        error: null,
+      },
+    ])
+
+    const assembled = await loadFeatureInputsForBaseDate({ themeId: 'theme-a', baseDate: '2026-07-10' })
+
+    expect(assembled.bablPhaseSignal).toBe(-1)
+    expect(supabaseAdminMocks.rangeCallsByTable.get('prediction_snapshots_v2')).toEqual([[0, 999]])
   })
 })
