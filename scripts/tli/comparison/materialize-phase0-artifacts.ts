@@ -77,6 +77,11 @@ interface PersistedEpisodeRow {
   policy_versions: Record<string, unknown>
 }
 
+interface EpisodePeakSnapshot {
+  readonly primary_peak_date: string | null
+  readonly peak_score: number | null
+}
+
 interface PersistedQuerySnapshotRow {
   id: string
   episode_id: string
@@ -163,6 +168,41 @@ const addDays = (date: string, days: number): string => {
 const daysBetween = (from: string, to: string): number => {
   const msPerDay = 86400000
   return Math.max(0, Math.floor((new Date(to).getTime() - new Date(from).getTime()) / msPerDay))
+}
+
+const episodeRegistryKey = (episode: {
+  readonly theme_id: string
+  readonly episode_number: number
+}): string => `${episode.theme_id}:${episode.episode_number}`
+
+const buildExistingEpisodePeaks = (
+  episodes: readonly PersistedEpisodeRow[],
+): ReadonlyMap<string, EpisodePeakSnapshot> => {
+  const peaks = new Map<string, EpisodePeakSnapshot>()
+  for (const episode of episodes) {
+    peaks.set(episodeRegistryKey(episode), {
+      primary_peak_date: episode.primary_peak_date,
+      peak_score: episode.peak_score,
+    })
+  }
+  return peaks
+}
+
+const preserveCompletedEpisodePeak = (input: {
+  readonly episode: EpisodeCandidate
+  readonly existingPeaks: ReadonlyMap<string, EpisodePeakSnapshot>
+}): EpisodeCandidate => {
+  if (input.episode.is_active || input.episode.episode_end === null) return input.episode
+  if (input.episode.primary_peak_date !== null) return input.episode
+
+  const existing = input.existingPeaks.get(episodeRegistryKey(input.episode))
+  if (existing?.primary_peak_date == null) return input.episode
+
+  return {
+    ...input.episode,
+    primary_peak_date: existing.primary_peak_date,
+    peak_score: input.episode.peak_score ?? existing.peak_score,
+  }
 }
 
 const roundMetric = (value: number | null): number | null => {
@@ -655,7 +695,11 @@ export async function materializePhase0Artifacts(): Promise<Phase0Materializatio
   const keywordByTheme = groupByThemeId(keywordRows)
   const keywordSupportCounts = buildKeywordSupportCounts(keywordRows)
 
-  const existingQuerySnapshots = await loadPersistedQuerySnapshots(themeIds)
+  const [existingQuerySnapshots, existingEpisodesBeforeRefresh] = await Promise.all([
+    loadPersistedQuerySnapshots(themeIds),
+    loadPersistedEpisodes(themeIds),
+  ])
+  const existingEpisodePeaks = buildExistingEpisodePeaks(existingEpisodesBeforeRefresh)
   const existingSnapshotIds = existingQuerySnapshots.map((snapshot) => snapshot.id)
   if (existingSnapshotIds.length > 0) {
     await deleteRowsInChunks('analog_evidence_v1', 'query_snapshot_id', existingSnapshotIds)
@@ -685,10 +729,16 @@ export async function materializePhase0Artifacts(): Promise<Phase0Materializatio
 
   await batchUpsert(
     'episode_registry_v1',
-    episodeSeeds.map((episode) => ({
-      ...episode,
-      updated_at: new Date().toISOString(),
-    })),
+    episodeSeeds.map((episode) => {
+      const peakPreservedEpisode = preserveCompletedEpisodePeak({
+        episode,
+        existingPeaks: existingEpisodePeaks,
+      })
+      return {
+        ...peakPreservedEpisode,
+        updated_at: new Date().toISOString(),
+      }
+    }),
     'theme_id,episode_number',
     'phase0 episode registry',
   )

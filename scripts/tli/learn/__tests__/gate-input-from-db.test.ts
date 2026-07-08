@@ -1,11 +1,97 @@
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { computeEceClusterBootstrapUpper95 } from '@/lib/tli/eval/harness'
 import {
+  buildPromotionGateInputFromDb,
   buildPromotionGateInputFromRows,
   countPromotionsThisYear,
   estimateCycleExtendedWeeks,
   isCheckpointDueSince,
 } from '../gate-input-from-db'
+
+interface GateDbQueryRecord {
+  readonly table: string
+  readonly select: string | null
+  readonly eqFilters: Readonly<Record<string, unknown>>
+}
+
+interface GateDbMocks {
+  registryRows: Record<string, unknown>[]
+  predictionRows: Record<string, unknown>[]
+  queries: GateDbQueryRecord[]
+}
+
+const gateDbMocks = vi.hoisted<GateDbMocks>(() => ({
+  registryRows: [],
+  predictionRows: [],
+  queries: [],
+}))
+
+vi.mock('@/scripts/tli/shared/supabase-admin', () => {
+  interface QueryState {
+    readonly table: string
+    select: string | null
+    readonly eqFilters: Map<string, unknown>
+  }
+
+  interface QueryResult {
+    readonly data: Record<string, unknown>[]
+    readonly error: null
+  }
+
+  interface QueryBuilder extends PromiseLike<QueryResult> {
+    select(columns: string): QueryBuilder
+    eq(column: string, value: unknown): QueryBuilder
+  }
+
+  const resolveRows = (state: QueryState): Record<string, unknown>[] => {
+    const rows = state.table === 'model_registry' ? gateDbMocks.registryRows : gateDbMocks.predictionRows
+    return rows.filter((row) => (
+      [...state.eqFilters].every(([column, value]) => row[column] === value)
+    ))
+  }
+
+  const createQueryBuilder = (table: string): QueryBuilder => {
+    const state: QueryState = {
+      table,
+      select: null,
+      eqFilters: new Map<string, unknown>(),
+    }
+    const builder: QueryBuilder = {
+      select(columns: string): QueryBuilder {
+        state.select = columns
+        return builder
+      },
+      eq(column: string, value: unknown): QueryBuilder {
+        state.eqFilters.set(column, value)
+        return builder
+      },
+      then<TResult1 = QueryResult, TResult2 = never>(
+        onfulfilled?: ((value: QueryResult) => TResult1 | PromiseLike<TResult1>) | null,
+        onrejected?: ((reason: unknown) => TResult2 | PromiseLike<TResult2>) | null,
+      ): PromiseLike<TResult1 | TResult2> {
+        gateDbMocks.queries.push({
+          table: state.table,
+          select: state.select,
+          eqFilters: Object.fromEntries(state.eqFilters),
+        })
+        return Promise.resolve({ data: resolveRows(state), error: null }).then(onfulfilled, onrejected)
+      },
+    }
+    return builder
+  }
+
+  return {
+    supabaseAdmin: {
+      from: vi.fn(createQueryBuilder),
+    },
+  }
+})
+
+beforeEach(() => {
+  gateDbMocks.registryRows = []
+  gateDbMocks.predictionRows = []
+  gateDbMocks.queries = []
+})
 
 describe('isCheckpointDueSince (H.3)', () => {
   it('is always due when the champion has never been evaluated', () => {
@@ -133,5 +219,65 @@ describe('buildPromotionGateInputFromRows', () => {
     // N4 contract: an empty/unresolved bootstrap sample reads as worst-case (1), not 0.
     expect(input.eceUpper95).toBe(computeEceClusterBootstrapUpper95([]))
     expect(input.eceUpper95).toBe(1)
+  })
+})
+
+describe('buildPromotionGateInputFromDb', () => {
+  it('evaluates only the current champion and challenger model versions from model_registry', async () => {
+    gateDbMocks.registryRows = [
+      { model_version: 'champion-vX', status: 'champion', promoted_at: '2026-05-01T00:00:00Z' },
+      { model_version: 'challenger-vY', status: 'challenger', promoted_at: null },
+      { model_version: 'challenger-vOLD', status: 'archived', promoted_at: null },
+    ]
+    gateDbMocks.predictionRows = [
+      { theme_id: 'theme-a', prediction_date: '2026-06-01', model_version: 'champion-vX', serving_role: 'champion', score_status: 'scored', p_rise: 0.7, abstain: false, actual_y: true },
+      { theme_id: 'theme-b', prediction_date: '2026-06-01', model_version: 'champion-vX', serving_role: 'champion', score_status: 'scored', p_rise: 0.3, abstain: false, actual_y: false },
+      { theme_id: 'theme-stale-champion', prediction_date: '2026-06-01', model_version: 'champion-vOLD', serving_role: 'champion', score_status: 'scored', p_rise: 0.9, abstain: false, actual_y: false },
+      { theme_id: 'theme-a', prediction_date: '2026-06-01', model_version: 'challenger-vY', serving_role: 'challenger', score_status: 'scored', p_rise: 0.9, abstain: false, actual_y: true },
+      { theme_id: 'theme-b', prediction_date: '2026-06-01', model_version: 'challenger-vY', serving_role: 'challenger', score_status: 'scored', p_rise: 0.1, abstain: false, actual_y: false },
+      { theme_id: 'theme-stale-challenger', prediction_date: '2026-06-01', model_version: 'challenger-vOLD', serving_role: 'challenger', score_status: 'scored', p_rise: 0.8, abstain: false, actual_y: false },
+    ]
+
+    const input = await buildPromotionGateInputFromDb({ asOfDate: '2026-07-06' })
+
+    expect(input.nEff).toBe(2)
+    expect(input.brierChampion).toBeCloseTo(0.09, 6)
+    expect(input.deltaBrierPoint).toBeCloseTo(-0.08, 6)
+    expect(gateDbMocks.queries).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        table: 'theme_predictions_v3',
+        eqFilters: expect.objectContaining({
+          serving_role: 'champion',
+          score_status: 'scored',
+          model_version: 'champion-vX',
+        }),
+      }),
+      expect.objectContaining({
+        table: 'theme_predictions_v3',
+        eqFilters: expect.objectContaining({
+          serving_role: 'challenger',
+          score_status: 'scored',
+          model_version: 'challenger-vY',
+        }),
+      }),
+    ]))
+  })
+
+  it('fails loudly when model_registry has no current challenger', async () => {
+    gateDbMocks.registryRows = [
+      { model_version: 'champion-vX', status: 'champion', promoted_at: '2026-05-01T00:00:00Z' },
+    ]
+
+    await expect(buildPromotionGateInputFromDb({ asOfDate: '2026-07-06' }))
+      .rejects.toThrow('model_registry current challenger 조회 실패: challenger 행이 없습니다')
+  })
+
+  it('fails loudly when model_registry has no current champion', async () => {
+    gateDbMocks.registryRows = [
+      { model_version: 'challenger-vY', status: 'challenger', promoted_at: null },
+    ]
+
+    await expect(buildPromotionGateInputFromDb({ asOfDate: '2026-07-06' }))
+      .rejects.toThrow('model_registry current champion 조회 실패: champion 행이 없습니다')
   })
 })

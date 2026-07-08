@@ -24,16 +24,29 @@ import json
 import math
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Final, Optional
+from typing import Annotated, Final, Literal, Optional, assert_never
 
 import numpy as np
 from numpy.typing import NDArray
-from pydantic import BaseModel, ConfigDict, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from pydantic_core import PydanticCustomError
-from sklearn.calibration import CalibratedClassifierCV
-from sklearn.frozen import FrozenEstimator
-from sklearn.linear_model import LogisticRegression
 import typer
+
+from m1_calibration import (
+    BetaCalibrator,
+    CalibrationCandidateMetric,
+    CalibrationDataError,
+    CalibrationSelection,
+    CalibratorType,
+    FittedCalibrator,
+    IsotonicCalibrator,
+    PlattCalibrator,
+    calibrator_for_type,
+    fit_all_calibrators,
+    fit_base_estimator,
+    predict_calibrator,
+    select_calibrator_type,
+)
 
 FEATURE_SCHEMA: Final[tuple[str, ...]] = (
     "interest_slope_7d",
@@ -113,12 +126,68 @@ class CoefficientsArtifact(BaseModel):
     weights: tuple[float, ...]
 
 
-class CalibratorArtifact(BaseModel):
+class PlattCalibratorArtifact(BaseModel):
     model_config = ConfigDict(frozen=True)
 
-    type: str
+    type: Literal["platt"]
     a: float
     b: float
+
+
+class BetaCalibratorArtifact(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    type: Literal["beta"]
+    a: float
+    b: float
+    c: float
+
+
+class IsotonicCalibratorArtifact(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    type: Literal["isotonic"]
+    thresholds: tuple[float, ...]
+    values: tuple[float, ...]
+
+    @model_validator(mode="after")
+    def check_breakpoints(self) -> IsotonicCalibratorArtifact:
+        if len(self.thresholds) == 0 or len(self.thresholds) != len(self.values):
+            raise PydanticCustomError("isotonic_breakpoints", "isotonic thresholds and values must be non-empty pairs")
+        for left, right in zip(self.thresholds, self.thresholds[1:]):
+            if right <= left:
+                raise PydanticCustomError("isotonic_thresholds", "isotonic thresholds must be strictly increasing")
+        return self
+
+
+CalibratorArtifact = Annotated[
+    PlattCalibratorArtifact | BetaCalibratorArtifact | IsotonicCalibratorArtifact,
+    Field(discriminator="type"),
+]
+
+
+class CalibrationCandidateReport(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    cv_ece: float | None
+    cv_log_loss: float | None
+    out_of_time_ece: float | None
+    recent_block_ece: float | None
+    relative_ece_improvement_vs_platt: float | None
+    beats_platt_margin: bool
+    passes_recent_block_guard: bool
+
+
+class CalibrationSelectionReport(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    chosen_type: CalibratorType
+    selection_method: Literal["forward_chaining"]
+    relative_improvement_margin: float
+    fallback_reason: str | None
+    platt: CalibrationCandidateReport
+    beta: CalibrationCandidateReport
+    isotonic: CalibrationCandidateReport
 
 
 class SampleSizeReport(BaseModel):
@@ -133,6 +202,7 @@ class SampleSizeReport(BaseModel):
     riley_minimum_n: int | None
     riley_minimum_events: int | None
     sufficient: bool
+    calibration_selection: CalibrationSelectionReport
 
 
 class ModelArtifact(BaseModel):
@@ -156,6 +226,12 @@ class DesignMatrix:
     values: NDArray[np.float64]
     medians: tuple[float, ...]
     mads: tuple[float, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class SampleReportContext:
+    parameters: int
+    calibration_selection: CalibrationSelection
 
 
 def _median(values: NDArray[np.float64]) -> float:
@@ -222,23 +298,76 @@ def _riley_minimum_n(r2: float, parameters: int, event_rate: float) -> int | Non
     return max(shrinkage_n, nagelkerke_n, risk_precision_n)
 
 
-def build_sample_report(y: NDArray[np.int64], probabilities: NDArray[np.float64], parameters: int) -> SampleSizeReport:
+def _candidate_report(metric: CalibrationCandidateMetric) -> CalibrationCandidateReport:
+    return CalibrationCandidateReport(
+        cv_ece=metric.cv_ece,
+        cv_log_loss=metric.cv_log_loss,
+        out_of_time_ece=metric.out_of_time_ece,
+        recent_block_ece=metric.recent_block_ece,
+        relative_ece_improvement_vs_platt=metric.relative_ece_improvement_vs_platt,
+        beats_platt_margin=metric.beats_platt_margin,
+        passes_recent_block_guard=metric.passes_recent_block_guard,
+    )
+
+
+def _selection_report(selection: CalibrationSelection) -> CalibrationSelectionReport:
+    return CalibrationSelectionReport(
+        chosen_type=selection.chosen_type,
+        selection_method=selection.selection_method,
+        relative_improvement_margin=selection.relative_improvement_margin,
+        fallback_reason=selection.fallback_reason,
+        platt=_candidate_report(selection.platt),
+        beta=_candidate_report(selection.beta),
+        isotonic=_candidate_report(selection.isotonic),
+    )
+
+
+def _calibrator_artifact(calibrator: FittedCalibrator) -> CalibratorArtifact:
+    match calibrator:
+        case PlattCalibrator(a=a, b=b):
+            return PlattCalibratorArtifact(type="platt", a=a, b=b)
+        case BetaCalibrator(a=a, b=b, c=c):
+            return BetaCalibratorArtifact(type="beta", a=a, b=b, c=c)
+        case IsotonicCalibrator(thresholds=thresholds, values=values):
+            return IsotonicCalibratorArtifact(type="isotonic", thresholds=thresholds, values=values)
+        case unreachable:
+            assert_never(unreachable)
+
+
+def _fitted_calibrator(calibrator: CalibratorArtifact) -> FittedCalibrator:
+    match calibrator:
+        case PlattCalibratorArtifact(a=a, b=b):
+            return PlattCalibrator(a=a, b=b)
+        case BetaCalibratorArtifact(a=a, b=b, c=c):
+            return BetaCalibrator(a=a, b=b, c=c)
+        case IsotonicCalibratorArtifact(thresholds=thresholds, values=values):
+            return IsotonicCalibrator(thresholds=thresholds, values=values)
+        case unreachable:
+            assert_never(unreachable)
+
+
+def build_sample_report(
+    y: NDArray[np.int64],
+    probabilities: NDArray[np.float64],
+    context: SampleReportContext,
+) -> SampleSizeReport:
     events = int(np.sum(y))
     event_rate = float(np.mean(y))
     r2 = _cox_snell_r2(y, probabilities)
-    minimum_n = _riley_minimum_n(r2, parameters, event_rate)
+    minimum_n = _riley_minimum_n(r2, context.parameters, event_rate)
     minimum_events = None if minimum_n is None else math.ceil(minimum_n * min(event_rate, 1 - event_rate))
     r2_status = "sufficient" if r2 >= 0.08 else "feature_reduction_recommended" if r2 < 0.05 else "borderline"
     return SampleSizeReport(
         observed_n=int(y.size),
         events=events,
         event_rate=event_rate,
-        parameters=parameters,
+        parameters=context.parameters,
         cox_snell_r2=r2,
         r2_status=r2_status,
         riley_minimum_n=minimum_n,
         riley_minimum_events=minimum_events,
         sufficient=minimum_n is not None and y.size >= minimum_n and min(events, y.size - events) >= (minimum_events or 0),
+        calibration_selection=_selection_report(context.calibration_selection),
     )
 
 
@@ -248,18 +377,16 @@ def train_model(dataset: TrainingDataset, trained_at: str) -> ModelArtifact:
         raise TrainingDataError("M1 training requires at least 10 rows and both classes")
 
     design = build_design_matrix(dataset.rows)
-    estimator = LogisticRegression(
-        class_weight="balanced",
-        random_state=SEED,
-        solver="lbfgs",
-        max_iter=1000,
-    )
-    estimator.fit(design.values, y)
-    calibrated = CalibratedClassifierCV(estimator=FrozenEstimator(estimator), method="sigmoid")
-    calibrated.fit(design.values, y)
-    classifier = calibrated.calibrated_classifiers_[0]
-    sigmoid = classifier.calibrators[0]
-    probabilities = calibrated.predict_proba(design.values)[:, 1].astype(np.float64)
+    base_dates = tuple(row.base_date for row in dataset.rows)
+    try:
+        selection = select_calibrator_type(design.values, y, base_dates)
+    except CalibrationDataError as error:
+        raise TrainingDataError(str(error)) from error
+    estimator = fit_base_estimator(design.values, y)
+    margins = np.asarray(estimator.decision_function(design.values), dtype=np.float64)
+    calibrators = fit_all_calibrators(margins, y)
+    calibrator = calibrator_for_type(calibrators, selection.chosen_type)
+    probabilities = predict_calibrator(calibrator, margins)
 
     return ModelArtifact(
         artifact_version=ARTIFACT_VERSION,
@@ -267,12 +394,16 @@ def train_model(dataset: TrainingDataset, trained_at: str) -> ModelArtifact:
         feature_schema=FEATURE_SCHEMA,
         scaler=ScalerArtifact(median=design.medians, mad=design.mads),
         coefficients=CoefficientsArtifact(intercept=float(estimator.intercept_[0]), weights=tuple(float(v) for v in estimator.coef_[0])),
-        calibrator=CalibratorArtifact(type="platt", a=float(sigmoid.a_), b=float(sigmoid.b_)),
+        calibrator=_calibrator_artifact(calibrator),
         trained_at=trained_at,
         train_range=dataset.train_range,
         labeler_version=dataset.labeler_version,
         seed=SEED,
-        sample_report=build_sample_report(y, probabilities, design.values.shape[1]),
+        sample_report=build_sample_report(
+            y,
+            probabilities,
+            SampleReportContext(parameters=design.values.shape[1], calibration_selection=selection),
+        ),
     )
 
 
@@ -347,11 +478,34 @@ def _predict_with_artifact(
     design = _golden_design_row(artifact, values, missing)
     weights = np.array(artifact.coefficients.weights, dtype=np.float64)
     margin = artifact.coefficients.intercept + float(np.dot(design, weights))
-    return float(1 / (1 + math.exp(artifact.calibrator.a * margin + artifact.calibrator.b)))
+    probabilities = predict_calibrator(_fitted_calibrator(artifact.calibrator), np.array([margin], dtype=np.float64))
+    return float(probabilities[0])
+
+
+def _golden_fixture_case(artifact: ModelArtifact) -> dict:
+    probability = _predict_with_artifact(artifact, GOLDEN_INPUT_VALUES, GOLDEN_INPUT_MISSING)
+    return {
+        "artifact": artifact.model_dump(mode="json"),
+        "expectedProbability": probability,
+    }
+
+
+def _build_calibrator_fixture_cases(dataset: TrainingDataset, artifact: ModelArtifact) -> dict:
+    y = np.array([1 if row.y else 0 for row in dataset.rows], dtype=np.int64)
+    design = build_design_matrix(dataset.rows)
+    estimator = fit_base_estimator(design.values, y)
+    margins = np.asarray(estimator.decision_function(design.values), dtype=np.float64)
+    calibrators = fit_all_calibrators(margins, y)
+    return {
+        "platt": _golden_fixture_case(artifact.model_copy(update={"calibrator": _calibrator_artifact(calibrators.platt)})),
+        "beta": _golden_fixture_case(artifact.model_copy(update={"calibrator": _calibrator_artifact(calibrators.beta)})),
+        "isotonic": _golden_fixture_case(artifact.model_copy(update={"calibrator": _calibrator_artifact(calibrators.isotonic)})),
+    }
 
 
 def build_golden_vector_fixture(trained_at: str) -> dict:
-    artifact = train_model(_build_golden_synthetic_dataset(), trained_at)
+    dataset = _build_golden_synthetic_dataset()
+    artifact = train_model(dataset, trained_at)
     probability = _predict_with_artifact(artifact, GOLDEN_INPUT_VALUES, GOLDEN_INPUT_MISSING)
     return {
         "fixture_version": GOLDEN_VECTOR_FIXTURE_VERSION,
@@ -361,6 +515,7 @@ def build_golden_vector_fixture(trained_at: str) -> dict:
             "missingFlags": list(GOLDEN_INPUT_MISSING),
         },
         "expectedProbability": probability,
+        "calibratorFixtures": _build_calibrator_fixture_cases(dataset, artifact),
     }
 
 

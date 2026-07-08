@@ -68,8 +68,8 @@
     },
     "calibrator": {
       "type": "platt",
-      "a": -1.0030839296124092,
-      "b": -0.11971900650678723
+      "a": -0.984506283173756,
+      "b": -0.11948225830635203
     },
     "trained_at": "2026-08-02",
     "train_range": [
@@ -83,11 +83,44 @@
       "events": 106,
       "event_rate": 0.53,
       "parameters": 20,
-      "cox_snell_r2": 0.12884154765141076,
+      "cox_snell_r2": 0.1287168589734594,
       "r2_status": "sufficient",
-      "riley_minimum_n": 1295,
-      "riley_minimum_events": 609,
-      "sufficient": false
+      "riley_minimum_n": 1296,
+      "riley_minimum_events": 610,
+      "sufficient": false,
+      "calibration_selection": {
+        "chosen_type": "platt",
+        "selection_method": "forward_chaining",
+        "relative_improvement_margin": 0.1,
+        "fallback_reason": "requires at least 5 distinct base_date values",
+        "platt": {
+          "cv_ece": null,
+          "cv_log_loss": null,
+          "out_of_time_ece": null,
+          "recent_block_ece": null,
+          "relative_ece_improvement_vs_platt": null,
+          "beats_platt_margin": false,
+          "passes_recent_block_guard": false
+        },
+        "beta": {
+          "cv_ece": null,
+          "cv_log_loss": null,
+          "out_of_time_ece": null,
+          "recent_block_ece": null,
+          "relative_ece_improvement_vs_platt": null,
+          "beats_platt_margin": false,
+          "passes_recent_block_guard": false
+        },
+        "isotonic": {
+          "cv_ece": null,
+          "cv_log_loss": null,
+          "out_of_time_ece": null,
+          "recent_block_ece": null,
+          "relative_ece_improvement_vs_platt": null,
+          "beats_platt_margin": false,
+          "passes_recent_block_guard": false
+        }
+      }
     }
   },
   "inputRow": {
@@ -116,5 +149,428 @@
       false
     ]
   },
-  "expectedProbability": 0.9263951535367867
+  "expectedProbability": 0.9232725966373369,
+  "calibratorFixtures": {
+    "platt": {
+      "artifact": {
+        "artifact_version": "tli-model-artifact-v1",
+        "model_type": "m1_logistic",
+        "feature_schema": [
+          "interest_slope_7d",
+          "interest_level_pct",
+          "interest_accel",
+          "dvi_7d",
+          "news_volume_7d",
+          "news_momentum",
+          "basket_return_5d",
+          "basket_volume_ratio",
+          "episode_progress",
+          "market_regime"
+        ],
+        "scaler": {
+          "median": [
+            -0.1136582335633386,
+            0.021546593749230143,
+            -0.05049493245156331,
+            -0.09784767813229407,
+            -0.12218761479822723,
+            0.046857207308968446,
+            0.02800445845553568,
+            0.12633188305245707,
+            -0.0032764127003457348,
+            -0.01288922743122111
+          ],
+          "mad": [
+            0.6538512212290415,
+            0.6014896546629047,
+            0.5930128264740735,
+            0.7271222969158463,
+            0.6050500650775648,
+            0.6528619348341584,
+            0.7029230473484491,
+            0.6681402943221819,
+            0.6572286185648523,
+            0.6789681798927025
+          ]
+        },
+        "coefficients": {
+          "intercept": 0.004101350300793349,
+          "weights": [
+            0.6615699127071187,
+            -0.38905167753650566,
+            0.05906617197673605,
+            -0.1324659429076514,
+            0.22274474677052347,
+            -0.11546810458714765,
+            0.049707837456817304,
+            0.1430772087941189,
+            0.07629884289975285,
+            0.07652607872610317,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        "calibrator": {
+          "type": "platt",
+          "a": -0.984506283173756,
+          "b": -0.11948225830635203
+        },
+        "trained_at": "2026-08-02",
+        "train_range": [
+          "2026-01-01",
+          "2026-01-01"
+        ],
+        "labeler_version": "gta-v1",
+        "seed": 42,
+        "sample_report": {
+          "observed_n": 200,
+          "events": 106,
+          "event_rate": 0.53,
+          "parameters": 20,
+          "cox_snell_r2": 0.1287168589734594,
+          "r2_status": "sufficient",
+          "riley_minimum_n": 1296,
+          "riley_minimum_events": 610,
+          "sufficient": false,
+          "calibration_selection": {
+            "chosen_type": "platt",
+            "selection_method": "forward_chaining",
+            "relative_improvement_margin": 0.1,
+            "fallback_reason": "requires at least 5 distinct base_date values",
+            "platt": {
+              "cv_ece": null,
+              "cv_log_loss": null,
+              "out_of_time_ece": null,
+              "recent_block_ece": null,
+              "relative_ece_improvement_vs_platt": null,
+              "beats_platt_margin": false,
+              "passes_recent_block_guard": false
+            },
+            "beta": {
+              "cv_ece": null,
+              "cv_log_loss": null,
+              "out_of_time_ece": null,
+              "recent_block_ece": null,
+              "relative_ece_improvement_vs_platt": null,
+              "beats_platt_margin": false,
+              "passes_recent_block_guard": false
+            },
+            "isotonic": {
+              "cv_ece": null,
+              "cv_log_loss": null,
+              "out_of_time_ece": null,
+              "recent_block_ece": null,
+              "relative_ece_improvement_vs_platt": null,
+              "beats_platt_margin": false,
+              "passes_recent_block_guard": false
+            }
+          }
+        }
+      },
+      "expectedProbability": 0.9232725966373369
+    },
+    "beta": {
+      "artifact": {
+        "artifact_version": "tli-model-artifact-v1",
+        "model_type": "m1_logistic",
+        "feature_schema": [
+          "interest_slope_7d",
+          "interest_level_pct",
+          "interest_accel",
+          "dvi_7d",
+          "news_volume_7d",
+          "news_momentum",
+          "basket_return_5d",
+          "basket_volume_ratio",
+          "episode_progress",
+          "market_regime"
+        ],
+        "scaler": {
+          "median": [
+            -0.1136582335633386,
+            0.021546593749230143,
+            -0.05049493245156331,
+            -0.09784767813229407,
+            -0.12218761479822723,
+            0.046857207308968446,
+            0.02800445845553568,
+            0.12633188305245707,
+            -0.0032764127003457348,
+            -0.01288922743122111
+          ],
+          "mad": [
+            0.6538512212290415,
+            0.6014896546629047,
+            0.5930128264740735,
+            0.7271222969158463,
+            0.6050500650775648,
+            0.6528619348341584,
+            0.7029230473484491,
+            0.6681402943221819,
+            0.6572286185648523,
+            0.6789681798927025
+          ]
+        },
+        "coefficients": {
+          "intercept": 0.004101350300793349,
+          "weights": [
+            0.6615699127071187,
+            -0.38905167753650566,
+            0.05906617197673605,
+            -0.1324659429076514,
+            0.22274474677052347,
+            -0.11546810458714765,
+            0.049707837456817304,
+            0.1430772087941189,
+            0.07629884289975285,
+            0.07652607872610317,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        "calibrator": {
+          "type": "beta",
+          "a": 0.7350705443865294,
+          "b": 1.1480941896947834,
+          "c": -0.19224676716047692
+        },
+        "trained_at": "2026-08-02",
+        "train_range": [
+          "2026-01-01",
+          "2026-01-01"
+        ],
+        "labeler_version": "gta-v1",
+        "seed": 42,
+        "sample_report": {
+          "observed_n": 200,
+          "events": 106,
+          "event_rate": 0.53,
+          "parameters": 20,
+          "cox_snell_r2": 0.1287168589734594,
+          "r2_status": "sufficient",
+          "riley_minimum_n": 1296,
+          "riley_minimum_events": 610,
+          "sufficient": false,
+          "calibration_selection": {
+            "chosen_type": "platt",
+            "selection_method": "forward_chaining",
+            "relative_improvement_margin": 0.1,
+            "fallback_reason": "requires at least 5 distinct base_date values",
+            "platt": {
+              "cv_ece": null,
+              "cv_log_loss": null,
+              "out_of_time_ece": null,
+              "recent_block_ece": null,
+              "relative_ece_improvement_vs_platt": null,
+              "beats_platt_margin": false,
+              "passes_recent_block_guard": false
+            },
+            "beta": {
+              "cv_ece": null,
+              "cv_log_loss": null,
+              "out_of_time_ece": null,
+              "recent_block_ece": null,
+              "relative_ece_improvement_vs_platt": null,
+              "beats_platt_margin": false,
+              "passes_recent_block_guard": false
+            },
+            "isotonic": {
+              "cv_ece": null,
+              "cv_log_loss": null,
+              "out_of_time_ece": null,
+              "recent_block_ece": null,
+              "relative_ece_improvement_vs_platt": null,
+              "beats_platt_margin": false,
+              "passes_recent_block_guard": false
+            }
+          }
+        }
+      },
+      "expectedProbability": 0.9311902460815421
+    },
+    "isotonic": {
+      "artifact": {
+        "artifact_version": "tli-model-artifact-v1",
+        "model_type": "m1_logistic",
+        "feature_schema": [
+          "interest_slope_7d",
+          "interest_level_pct",
+          "interest_accel",
+          "dvi_7d",
+          "news_volume_7d",
+          "news_momentum",
+          "basket_return_5d",
+          "basket_volume_ratio",
+          "episode_progress",
+          "market_regime"
+        ],
+        "scaler": {
+          "median": [
+            -0.1136582335633386,
+            0.021546593749230143,
+            -0.05049493245156331,
+            -0.09784767813229407,
+            -0.12218761479822723,
+            0.046857207308968446,
+            0.02800445845553568,
+            0.12633188305245707,
+            -0.0032764127003457348,
+            -0.01288922743122111
+          ],
+          "mad": [
+            0.6538512212290415,
+            0.6014896546629047,
+            0.5930128264740735,
+            0.7271222969158463,
+            0.6050500650775648,
+            0.6528619348341584,
+            0.7029230473484491,
+            0.6681402943221819,
+            0.6572286185648523,
+            0.6789681798927025
+          ]
+        },
+        "coefficients": {
+          "intercept": 0.004101350300793349,
+          "weights": [
+            0.6615699127071187,
+            -0.38905167753650566,
+            0.05906617197673605,
+            -0.1324659429076514,
+            0.22274474677052347,
+            -0.11546810458714765,
+            0.049707837456817304,
+            0.1430772087941189,
+            0.07629884289975285,
+            0.07652607872610317,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        "calibrator": {
+          "type": "isotonic",
+          "thresholds": [
+            0.12740643179676553,
+            0.1367154838515628,
+            0.1431314796570969,
+            0.26401693327232695,
+            0.2654775624841134,
+            0.3433362659699111,
+            0.3444606564477028,
+            0.356500371126186,
+            0.35652646946338556,
+            0.43619882037543994,
+            0.4363328402938591,
+            0.48239680012211916,
+            0.4901193956478427,
+            0.5075520397225067,
+            0.5083917619858825,
+            0.7241630330899227,
+            0.7287971870277627,
+            0.7941771283918376,
+            0.806166061315782,
+            0.9245579054335774
+          ],
+          "values": [
+            0.0,
+            0.0,
+            0.2222222222222222,
+            0.2222222222222222,
+            0.3181818181818182,
+            0.3181818181818182,
+            0.3333333333333333,
+            0.3333333333333333,
+            0.3548387096774194,
+            0.3548387096774194,
+            0.38461538461538464,
+            0.38461538461538464,
+            0.5,
+            0.5,
+            0.6666666666666666,
+            0.6666666666666666,
+            0.8666666666666667,
+            0.8666666666666667,
+            1.0,
+            1.0
+          ]
+        },
+        "trained_at": "2026-08-02",
+        "train_range": [
+          "2026-01-01",
+          "2026-01-01"
+        ],
+        "labeler_version": "gta-v1",
+        "seed": 42,
+        "sample_report": {
+          "observed_n": 200,
+          "events": 106,
+          "event_rate": 0.53,
+          "parameters": 20,
+          "cox_snell_r2": 0.1287168589734594,
+          "r2_status": "sufficient",
+          "riley_minimum_n": 1296,
+          "riley_minimum_events": 610,
+          "sufficient": false,
+          "calibration_selection": {
+            "chosen_type": "platt",
+            "selection_method": "forward_chaining",
+            "relative_improvement_margin": 0.1,
+            "fallback_reason": "requires at least 5 distinct base_date values",
+            "platt": {
+              "cv_ece": null,
+              "cv_log_loss": null,
+              "out_of_time_ece": null,
+              "recent_block_ece": null,
+              "relative_ece_improvement_vs_platt": null,
+              "beats_platt_margin": false,
+              "passes_recent_block_guard": false
+            },
+            "beta": {
+              "cv_ece": null,
+              "cv_log_loss": null,
+              "out_of_time_ece": null,
+              "recent_block_ece": null,
+              "relative_ece_improvement_vs_platt": null,
+              "beats_platt_margin": false,
+              "passes_recent_block_guard": false
+            },
+            "isotonic": {
+              "cv_ece": null,
+              "cv_log_loss": null,
+              "out_of_time_ece": null,
+              "recent_block_ece": null,
+              "relative_ece_improvement_vs_platt": null,
+              "beats_platt_margin": false,
+              "passes_recent_block_guard": false
+            }
+          }
+        }
+      },
+      "expectedProbability": 1.0
+    }
+  }
 }

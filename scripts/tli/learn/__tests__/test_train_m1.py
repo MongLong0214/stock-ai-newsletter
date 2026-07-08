@@ -1,13 +1,17 @@
 from __future__ import annotations
 
 import json
+import math
 import sys
 from pathlib import Path
 
+import numpy as np
+from numpy.typing import NDArray
 import pytest
 
 sys.path.insert(0, str(Path("scripts/tli/learn").resolve()))
 
+from m1_calibration import select_calibrator_type
 from train_m1 import (
     FEATURE_SCHEMA,
     GOLDEN_INPUT_MISSING,
@@ -19,6 +23,44 @@ from train_m1 import (
     run_training,
     train_model,
 )
+
+
+TEMPORAL_LOGITS = tuple(float(value) for value in np.linspace(-4.0, 4.0, 17))
+
+
+def _sigmoid(value: float) -> float:
+    return 1 / (1 + math.exp(-value))
+
+
+def _materialize_temporal_probabilities(
+    probability_blocks: tuple[tuple[float, ...], ...],
+    logits: tuple[float, ...],
+    repeats: int,
+) -> tuple[NDArray[np.float64], NDArray[np.int64], tuple[str, ...]]:
+    values: list[list[float]] = []
+    labels: list[int] = []
+    base_dates: list[str] = []
+    for block_index, probabilities in enumerate(probability_blocks):
+        base_date = f"2026-01-{block_index + 1:02d}"
+        for logit, probability in zip(logits, probabilities):
+            positives = round(probability * repeats)
+            for repeat_index in range(repeats):
+                values.append([logit])
+                labels.append(1 if repeat_index < positives else 0)
+                base_dates.append(base_date)
+    return np.array(values, dtype=np.float64), np.array(labels, dtype=np.int64), tuple(base_dates)
+
+
+def _beta_probability(logit: float) -> float:
+    base = min(1 - 1e-6, max(1e-6, _sigmoid(logit)))
+    return _sigmoid((1.6 * math.log(base)) + (0.35 * -math.log(1 - base)) - 0.15)
+
+
+def _shifted_probability(logit: float, shift: float) -> float:
+    base = _sigmoid(logit)
+    if -2.0 <= logit <= 2.0:
+        return min(0.95, max(0.05, base + shift))
+    return base
 
 
 def make_dataset(rows: int = 80) -> TrainingDataset:
@@ -58,6 +100,52 @@ def make_dataset(rows: int = 80) -> TrainingDataset:
     return TrainingDataset.model_validate(payload)
 
 
+def test_temporal_calibrator_selection_keeps_platt_when_isotonic_recent_block_overfits() -> None:
+    probability_blocks = tuple(
+        tuple(_shifted_probability(logit, 0.6 if block_index < 3 else -0.6) for logit in TEMPORAL_LOGITS)
+        for block_index in range(5)
+    )
+    values, labels, base_dates = _materialize_temporal_probabilities(probability_blocks, TEMPORAL_LOGITS, 18)
+
+    selection = select_calibrator_type(values, labels, base_dates)
+
+    assert selection.selection_method == "forward_chaining"
+    assert selection.chosen_type == "platt"
+    assert selection.isotonic.passes_recent_block_guard is False
+
+
+def test_temporal_calibrator_selection_promotes_beta_when_consistently_better_than_platt() -> None:
+    probability_blocks = tuple(tuple(_beta_probability(logit) for logit in TEMPORAL_LOGITS) for _ in range(5))
+    values, labels, base_dates = _materialize_temporal_probabilities(probability_blocks, TEMPORAL_LOGITS, 18)
+
+    selection = select_calibrator_type(values, labels, base_dates)
+
+    assert selection.chosen_type == "beta"
+    assert selection.beta.beats_platt_margin is True
+    assert selection.beta.passes_recent_block_guard is True
+
+
+def test_temporal_calibrator_selection_falls_back_to_platt_for_thin_dates() -> None:
+    probability_blocks = tuple(tuple(_sigmoid(logit) for logit in TEMPORAL_LOGITS) for _ in range(4))
+    values, labels, base_dates = _materialize_temporal_probabilities(probability_blocks, TEMPORAL_LOGITS, 2)
+
+    selection = select_calibrator_type(values, labels, base_dates)
+
+    assert selection.chosen_type == "platt"
+    assert selection.fallback_reason == "requires at least 5 distinct base_date values"
+    assert selection.platt.out_of_time_ece is None
+
+
+def test_temporal_calibrator_selection_is_deterministic() -> None:
+    probability_blocks = tuple(tuple(_beta_probability(logit) for logit in TEMPORAL_LOGITS) for _ in range(5))
+    values, labels, base_dates = _materialize_temporal_probabilities(probability_blocks, TEMPORAL_LOGITS, 18)
+
+    first = select_calibrator_type(values, labels, base_dates)
+    second = select_calibrator_type(values, labels, base_dates)
+
+    assert first == second
+
+
 def test_train_model_serializes_g3_artifact_with_sample_report() -> None:
     artifact = train_model(make_dataset(), "2026-08-02")
 
@@ -67,10 +155,14 @@ def test_train_model_serializes_g3_artifact_with_sample_report() -> None:
     assert len(artifact.scaler.median) == 10
     assert len(artifact.scaler.mad) == 10
     assert len(artifact.coefficients.weights) == 20
-    assert artifact.calibrator.type == "platt"
+    assert artifact.calibrator.type in {"platt", "beta", "isotonic"}
     assert artifact.seed == 42
     assert artifact.sample_report.cox_snell_r2 > 0.08
     assert artifact.sample_report.r2_status == "sufficient"
+    assert artifact.sample_report.calibration_selection.chosen_type == artifact.calibrator.type
+    assert artifact.sample_report.calibration_selection.platt.cv_log_loss > 0
+    assert artifact.sample_report.calibration_selection.beta.cv_log_loss > 0
+    assert artifact.sample_report.calibration_selection.isotonic.cv_log_loss > 0
 
 
 def test_run_training_round_trips_json_file(tmp_path: Path) -> None:
@@ -104,9 +196,14 @@ def test_golden_vector_fixture_is_deterministic_and_bounded() -> None:
     assert first["inputRow"]["values"] == list(GOLDEN_INPUT_VALUES)
     assert first["inputRow"]["missingFlags"] == list(GOLDEN_INPUT_MISSING)
     assert 0.0 < first["expectedProbability"] < 1.0
+    assert set(first["calibratorFixtures"].keys()) == {"platt", "beta", "isotonic"}
+    for calibrator_type, fixture_case in first["calibratorFixtures"].items():
+        assert fixture_case["artifact"]["calibrator"]["type"] == calibrator_type
+        assert 0.0 <= fixture_case["expectedProbability"] <= 1.0
     # Fixed seed (42) synthetic data + deterministic sklearn solver settings must reproduce exactly.
     assert first["expectedProbability"] == second["expectedProbability"]
     assert first["artifact"]["coefficients"] == second["artifact"]["coefficients"]
+    assert first["calibratorFixtures"] == second["calibratorFixtures"]
 
 
 def test_run_golden_vector_writes_fixture_file(tmp_path: Path) -> None:

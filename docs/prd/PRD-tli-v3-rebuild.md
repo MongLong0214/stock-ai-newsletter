@@ -1141,14 +1141,29 @@ labelGtA(theme, t):                       # t = KST 영업일
   "feature_schema": ["interest_slope_7d", "...10개 순서 고정..."],
   "scaler": { "median": [/*10*/], "mad": [/*10*/] },
   "coefficients": { "intercept": 0.0, "weights": [/*10 + missing 플래그 10*/] },
+  // tagged union: platt | beta | isotonic 중 하나
   "calibrator": { "type": "platt", "a": 0.0, "b": 0.0 },
+  // 또는 { "type": "beta", "a": 0.0, "b": 0.0, "c": 0.0 },
+  // 또는 { "type": "isotonic", "thresholds": [0.0, 1.0], "values": [0.0, 1.0] },
   "trained_at": "2026-08-02", "train_range": ["2026-01-07", "2026-07-05"],
-  "labeler_version": "gta-v1", "seed": 42
+  "labeler_version": "gta-v1", "seed": 42,
+  "sample_report": {
+    "calibration_selection": {
+      "chosen_type": "beta",
+      "platt": { "cv_ece": 0.0, "cv_log_loss": 0.0 },
+      "beta": { "cv_ece": 0.0, "cv_log_loss": 0.0 },
+      "isotonic": { "cv_ece": 0.0, "cv_log_loss": 0.0 }
+    }
+  }
 }
 ```
 
-- 서빙 추론(TS, `lib/tli/model/`): robust-z 스케일링(`z = (x−median)/(k·MAD)`) → 로지스틱 raw margin `m = w·z + b₀` → **Platt 보정을 raw margin에 직접 적용** `p = 1/(1 + exp(a·m + b))` (= `sigmoid(−(a·m + b))`). 순수 함수, 부작용 0, 단위테스트 필수 (Python 학습기와 골든 벡터 대조: 동일 입력 → 확률 오차 < 1e-6, 실측 골든 0.6387631751488418).
-  - ⚠️ 표기 주의: Platt는 sigmoid **이전**의 raw margin에 적용된다. 초안의 `platt(sigmoid(w·z+b))`는 sigmoid를 두 번 적용하는 오표기였음 — sklearn `CalibratedClassifierCV(method='sigmoid')` 규약(`1/(1+exp(A·f+B))`, f=decision_function 원점수)과 `m1.ts`의 실제 구현이 정본.
+- 학습 선택 규칙: L2 로지스틱 base estimator는 기존 설정(`class_weight='balanced'`, seed=42)을 유지한다. 학습 데이터에서 deterministic 5-fold stratified CV를 돌려 각 fold마다 base estimator를 K-1 fold에 fit → raw margin `m` 산출 → Platt/Beta/Isotonic calibrator를 K-1 fold margin에 fit → held-out fold 확률을 예측한다. 누적 OOF 예측으로 `lib/tli/eval/metrics.ts`와 동일한 quantile ECE(5 equal-count bins, bin n≥30, tie-aware bin 확장)를 계산하고, 최저 CV ECE를 선택한다. 동률이면 CV log-loss가 낮은 calibrator를 선택한다. 최종 artifact에는 선택된 calibrator만 전체 학습 데이터 margin에 refit해서 저장한다. 이는 threshold 이동이 아니라 확률 재보정이며, fit-and-measure 순환을 금지한다.
+- 서빙 추론(TS, `lib/tli/model/`): robust-z 스케일링(`z = (x−median)/(k·MAD)`) → 로지스틱 raw margin `m = w·z + b₀`, base probability `s = sigmoid(m)` 산출 후 calibrator tagged union별로 분기한다.
+  - Platt: raw margin에 직접 적용 `p = 1/(1 + exp(a·m + b))` (= `sigmoid(−(a·m + b))`).
+  - Beta(Kull et al. 2017): `s`를 `[1e-6, 1−1e-6]`로 clip하고 `p = sigmoid(a·ln(s) + b·(−ln(1−s)) + c)`.
+  - Isotonic: `s`를 `thresholds[]`/`values[]` breakpoint에 선형 보간하고 범위 밖은 양끝 `values`로 clip한다. 비모수 plateau 특성상 정확히 0 또는 1을 낼 수 있다.
+  - 단위테스트 필수: Python 학습기와 골든 벡터 대조(동일 입력 → 확률 오차 < 1e-6) + Platt/Beta/Isotonic 모든 TS 분기 round-trip.
 - CI: 캘리브레이션 bin의 Wilson 95% (bin당 실측 적중률 기반, `level4-serving.ts`의 Wilson 구현 이식).
 
 ### G.4 파이프라인 접합점 (`pipeline-steps.ts` 기준)

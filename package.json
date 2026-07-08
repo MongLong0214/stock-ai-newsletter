@@ -30,6 +30,7 @@
     "tli:shadow:transition": "tsx scripts/tli/ops/run-shadow-transition-report.ts",
     "tli:gt-a:backfill": "tsx scripts/tli/ops/run-gt-a-backfill.ts",
     "tli:baseline:report": "tsx scripts/tli/ops/run-baseline-report.ts",
+    "tli:m1-diagnostic": "tsx scripts/tli/ops/run-m1-calibration-diagnostic.ts",
     "tli:eval": "tsx scripts/tli/learn/run-offline-eval.ts",
     "tli:replay-audit": "tsx scripts/tli/learn/run-replay-audit.ts",
     "tli:weekly-learn": "tsx scripts/tli/learn/run-weekly-learn.ts",
@@ -37,7 +38,8 @@
     "tli:m1:train": "uv run scripts/tli/learn/train_m1.py",
     "tli:m1:golden-vector": "uv run scripts/tli/learn/train_m1.py --golden-vector _unused.json lib/tli/__tests__/fixtures/m1-golden-vector.json",
     "tli:stock-prices:ingest": "tsx scripts/tli/ops/run-stock-daily-price-ingest.ts",
-    "tli:stock-prices:backfill": "tsx scripts/tli/ops/run-stock-daily-price-backfill.ts"
+    "tli:stock-prices:backfill": "tsx scripts/tli/ops/run-stock-daily-price-backfill.ts",
+    "tli:episode:peak-backfill": "tsx scripts/tli/ops/run-episode-peak-backfill.ts"
   },
   "dependencies": {
     "@fontsource/noto-sans-kr": "^5.2.9",

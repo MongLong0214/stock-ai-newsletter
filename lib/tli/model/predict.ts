@@ -6,6 +6,50 @@ import type { M1FeatureRow, M1ModelArtifact } from '@/lib/tli/model/m1'
 
 const numberArraySchema = z.array(z.number())
 
+const plattCalibratorSchema = z.object({
+  type: z.literal('platt'),
+  a: z.number(),
+  b: z.number(),
+})
+
+const betaCalibratorSchema = z.object({
+  type: z.literal('beta'),
+  a: z.number(),
+  b: z.number(),
+  c: z.number(),
+})
+
+const isotonicCalibratorSchema = z.object({
+  type: z.literal('isotonic'),
+  thresholds: numberArraySchema.min(1),
+  values: numberArraySchema.min(1),
+}).superRefine((calibrator, context) => {
+  if (calibrator.thresholds.length !== calibrator.values.length) {
+    context.addIssue({
+      code: 'custom',
+      path: ['values'],
+      message: 'M1 isotonic calibrator thresholds and values length mismatch',
+    })
+  }
+  for (let index = 1; index < calibrator.thresholds.length; index++) {
+    const previous = calibrator.thresholds[index - 1]
+    const current = calibrator.thresholds[index]
+    if (previous === undefined || current === undefined || current <= previous) {
+      context.addIssue({
+        code: 'custom',
+        path: ['thresholds', index],
+        message: 'M1 isotonic calibrator thresholds must be strictly increasing',
+      })
+    }
+  }
+})
+
+const calibratorSchema = z.discriminatedUnion('type', [
+  plattCalibratorSchema,
+  betaCalibratorSchema,
+  isotonicCalibratorSchema,
+])
+
 export const M1ModelArtifactSchema = z.object({
   artifact_version: z.literal('tli-model-artifact-v1'),
   model_type: z.literal('m1_logistic'),
@@ -18,11 +62,7 @@ export const M1ModelArtifactSchema = z.object({
     intercept: z.number(),
     weights: numberArraySchema,
   }),
-  calibrator: z.object({
-    type: z.literal('platt'),
-    a: z.number(),
-    b: z.number(),
-  }),
+  calibrator: calibratorSchema,
   trained_at: z.string(),
   train_range: z.tuple([z.string(), z.string()]),
   labeler_version: z.string(),

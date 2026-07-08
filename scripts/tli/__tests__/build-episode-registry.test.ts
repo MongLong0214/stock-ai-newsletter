@@ -44,6 +44,8 @@ describe('buildEpisodesFromHistory', () => {
     expect(result[0].episode_start).toBe('2026-01-01')
     expect(result[0].episode_end).toBe('2026-02-01')
     expect(result[0].is_active).toBe(false)
+    expect(result[0].primary_peak_date).toBe('2026-01-09')
+    expect(result[0].peak_score).not.toBeNull()
   })
 
   it('creates a new episode when dormant gap is at least 14 days', () => {

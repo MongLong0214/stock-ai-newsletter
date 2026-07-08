@@ -23,6 +23,8 @@ interface ModelRegistryHistoryRow {
   readonly promoted_at: string | null
 }
 
+type ServingRole = 'champion' | 'challenger'
+
 const toEvalRows = (rows: readonly ScoredPredictionRow[]): EvalPredictionRow[] => rows.map((row) => ({
   id: `${row.theme_id}|${row.prediction_date}`,
   themeId: row.theme_id,
@@ -31,14 +33,15 @@ const toEvalRows = (rows: readonly ScoredPredictionRow[]): EvalPredictionRow[] =
   y: row.actual_y ?? false,
 }))
 
-async function loadScoredPredictions(servingRole: 'champion' | 'challenger'): Promise<ScoredPredictionRow[]> {
+async function loadScoredPredictions(servingRole: ServingRole, modelVersion: string): Promise<ScoredPredictionRow[]> {
   const { data, error } = await supabaseAdmin
     .from('theme_predictions_v3')
     .select('theme_id, prediction_date, p_rise, abstain, actual_y')
     .eq('serving_role', servingRole)
+    .eq('model_version', modelVersion)
     .eq('score_status', 'scored')
 
-  if (error) throw new Error(`theme_predictions_v3 ${servingRole} scored 로딩 실패: ${error.message}`)
+  if (error) throw new Error(`theme_predictions_v3 ${servingRole} ${modelVersion} scored 로딩 실패: ${error.message}`)
   return data ?? []
 }
 
@@ -49,6 +52,12 @@ async function loadModelRegistryHistory(): Promise<ModelRegistryHistoryRow[]> {
 
   if (error) throw new Error(`model_registry 이력 조회 실패: ${error.message}`)
   return data ?? []
+}
+
+function resolveCurrentModelVersion(history: readonly ModelRegistryHistoryRow[], servingRole: ServingRole): string {
+  const current = history.find((row) => row.status === servingRole)
+  if (!current) throw new Error(`model_registry current ${servingRole} 조회 실패: ${servingRole} 행이 없습니다`)
+  return current.model_version
 }
 
 const yearOf = (isoDate: string): number => Number(isoDate.slice(0, 4))
@@ -118,10 +127,12 @@ export function buildPromotionGateInputFromRows(input: {
 
 /** DB(theme_predictions_v3 + model_registry)로부터 실제 promotion gate 입력을 계산한다 (A3 — 파일 입력 의존 제거) */
 export async function buildPromotionGateInputFromDb(input: { readonly asOfDate: string }): Promise<PromotionGateInput> {
-  const [championScored, challengerScored, registryHistory] = await Promise.all([
-    loadScoredPredictions('champion'),
-    loadScoredPredictions('challenger'),
-    loadModelRegistryHistory(),
+  const registryHistory = await loadModelRegistryHistory()
+  const championModelVersion = resolveCurrentModelVersion(registryHistory, 'champion')
+  const challengerModelVersion = resolveCurrentModelVersion(registryHistory, 'challenger')
+  const [championScored, challengerScored] = await Promise.all([
+    loadScoredPredictions('champion', championModelVersion),
+    loadScoredPredictions('challenger', challengerModelVersion),
   ])
 
   return buildPromotionGateInputFromRows({
