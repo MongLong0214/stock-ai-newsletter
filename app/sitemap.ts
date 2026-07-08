@@ -5,10 +5,11 @@ import { isValidBlogSlug } from './blog/_utils/slug-validator';
 
 export const revalidate = 86400;
 
-// 빌드 중 DB 쿼리가 무한정 매달려 정적 생성 타임아웃을 유발하지 않도록 상한을 둔다.
-const SITEMAP_QUERY_TIMEOUT_MS = 15000;
 // 활성 테마는 수백 개 이내이고 모두 최근 날짜에 채점되므로, 최신 점수는 상위 rows만으로 충분.
-// lifecycle_scores 전량(수만 rows) 로드로 인한 시간·메모리 폭증을 방지.
+// lifecycle_scores 전량(수만 rows) 로드로 인한 빌드 시간·메모리 폭증을 방지(원래 sitemap이
+// 60초를 넘긴 근본 원인). 쿼리 자체는 <1s이므로 별도 abort는 두지 않는다 — DB 경합 구간에
+// abort가 발동하면 catch가 빈 sitemap을 조용히 만들어 색인이 유실됨. hang 가드는
+// next.config staticPageGenerationTimeout(180s)에 위임.
 const SITEMAP_SCORES_ROW_CAP = 2000;
 
 /** 언어 alternates (단일언어 사이트용 x-default + ko) */
@@ -29,14 +30,12 @@ async function getActiveThemes(): Promise<{ id: string; calculated_at: string | 
       supabase
         .from('themes')
         .select('id')
-        .eq('is_active', true)
-        .abortSignal(AbortSignal.timeout(SITEMAP_QUERY_TIMEOUT_MS)),
+        .eq('is_active', true),
       supabase
         .from('lifecycle_scores')
         .select('theme_id, calculated_at')
         .order('calculated_at', { ascending: false })
-        .limit(SITEMAP_SCORES_ROW_CAP)
-        .abortSignal(AbortSignal.timeout(SITEMAP_QUERY_TIMEOUT_MS)),
+        .limit(SITEMAP_SCORES_ROW_CAP),
     ]);
 
     if (!activeThemes) return [];
@@ -64,8 +63,7 @@ async function getPublishedBlogSlugs(): Promise<{ slug: string; published_at: st
       .from('blog_posts')
       .select('slug, published_at, updated_at')
       .eq('status', 'published')
-      .order('published_at', { ascending: false })
-      .abortSignal(AbortSignal.timeout(SITEMAP_QUERY_TIMEOUT_MS));
+      .order('published_at', { ascending: false });
 
     return data || [];
   } catch {
@@ -79,8 +77,7 @@ async function getTopBlogTags(): Promise<string[]> {
     const { data } = await supabase
       .from('blog_posts')
       .select('tags')
-      .eq('status', 'published')
-      .abortSignal(AbortSignal.timeout(SITEMAP_QUERY_TIMEOUT_MS));
+      .eq('status', 'published');
 
     if (!data) return [];
 
