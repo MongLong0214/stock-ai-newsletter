@@ -93,7 +93,7 @@ async function main(): Promise<void> {
     loadArtifact({ modelVersion, artifactPath }),
     loadOfflineEvalInput(startDate, endDate),
   ])
-  const predictions = buildM1Predictions(input.featureRows, artifact)
+  const predictions = buildM1Predictions(input.featureRows, artifact, input.labels)
   const report = buildM1CalibrationDiagnosticReport({
     startDate,
     endDate,

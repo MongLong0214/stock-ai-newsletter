@@ -6,6 +6,7 @@ import type { M1ModelArtifact } from '@/lib/tli/model/m1'
 import type { PredictionResult } from '@/lib/tli/prediction'
 import {
   TLI_V3_BASELINE_MODEL_VERSION,
+  TLI_V3_M1_PARAM_VERSION,
   buildBaselineChampionPredictionV3Row,
   buildM1ShadowPredictionV3Row,
   parseThemePredictionV3Row,
@@ -68,6 +69,7 @@ const artifact = (): M1ModelArtifact => ({
   train_range: ['2026-01-07', '2026-07-05'],
   labeler_version: 'gta-v1',
   seed: 42,
+  train_event_rate: 0.5,
   sample_report: {},
 })
 
@@ -144,7 +146,7 @@ describe('T-207 theme_predictions_v3 schema and rows', () => {
       featureVector: featureVector({ values: [1.4826, ...FEATURE_NAMES.slice(1).map(() => 0)] }),
       artifact: artifact(),
       modelVersion: 'm1-golden',
-      paramVersion: 'tli-v3-m1-shadow-v1',
+      paramVersion: TLI_V3_M1_PARAM_VERSION,
     })
     const abstained = buildM1ShadowPredictionV3Row({
       themeId: 'theme-2',
@@ -152,7 +154,7 @@ describe('T-207 theme_predictions_v3 schema and rows', () => {
       featureVector: featureVector({ abstain: true, abstainReasons: ['missing_features_gt_3'] }),
       artifact: artifact(),
       modelVersion: 'm1-golden',
-      paramVersion: 'tli-v3-m1-shadow-v1',
+      paramVersion: TLI_V3_M1_PARAM_VERSION,
     })
 
     expect(scored.servingRole).toBe('shadow')
@@ -160,5 +162,33 @@ describe('T-207 theme_predictions_v3 schema and rows', () => {
     expect(abstained.abstain).toBe(true)
     expect(abstained.pRise).toBeNull()
     expect(abstained.abstainReasons).toEqual(['missing_features_gt_3'])
+  })
+
+  it('applies prior correction and persists additive JSONB metadata for M1 rows', () => {
+    const row = buildM1ShadowPredictionV3Row({
+      themeId: 'theme-1',
+      predictionDate: '2026-07-06',
+      featureVector: featureVector({ values: [1.4826, ...FEATURE_NAMES.slice(1).map(() => 0)] }),
+      artifact: artifact(),
+      modelVersion: 'm1-golden',
+      paramVersion: TLI_V3_M1_PARAM_VERSION,
+      recentBaseRate: 0.25,
+    })
+
+    expect(row.pRise).toBeCloseTo(0.4753668864, 10)
+    expect(row.features.priorCorrection).toEqual({
+      trainRate: 0.5,
+      recentRate: 0.25,
+      w: 1 / 3,
+    })
+    expect(toThemePredictionV3Record(row)).toMatchObject({
+      features: {
+        prior_correction: {
+          train_rate: 0.5,
+          recent_rate: 0.25,
+          w: 1 / 3,
+        },
+      },
+    })
   })
 })

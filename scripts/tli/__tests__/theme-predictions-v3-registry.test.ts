@@ -4,9 +4,21 @@ import type { FeatureVector } from '@/lib/tli/features/build-features'
 
 const registryMocks = vi.hoisted(() => ({
   snapshotRows: [] as Array<{ theme_id: string; snapshot_date: string; phase: string }>,
+  recentLabelRows: [] as Array<{ base_date: string; y_binary: boolean | null }>,
   championEntry: null as { model_version: string; model_type: string; coefficients: unknown } | null,
   challengerEntry: null as { model_version: string; model_type: string; coefficients: unknown } | null,
-  batchUpsert: vi.fn(async () => 0),
+  batchUpsert: vi.fn(async (
+    _table: string,
+    _rows: Array<Record<string, unknown>>,
+    _constraint: string,
+    _label: string,
+  ) => {
+    void _table
+    void _rows
+    void _constraint
+    void _label
+    return 0
+  }),
   loadFeatureInputsForBaseDate: vi.fn(async (input: { themeId: string; baseDate: string }) => ({
     themeId: input.themeId,
     baseDate: input.baseDate,
@@ -43,6 +55,33 @@ vi.mock('@/scripts/tli/shared/supabase-admin', () => ({
             }),
           }),
         }
+      }
+      if (table === 'theme_labels') {
+        interface ThemeLabelsQuery {
+          select(): ThemeLabelsQuery
+          eq(): ThemeLabelsQuery
+          not(): ThemeLabelsQuery
+          gte(): ThemeLabelsQuery
+          lte(): ThemeLabelsQuery
+          order(): ThemeLabelsQuery
+          range(from: number, to: number): Promise<{
+            readonly data: typeof registryMocks.recentLabelRows
+            readonly error: null
+          }>
+        }
+        const query: ThemeLabelsQuery = {
+          select: () => query,
+          eq: () => query,
+          not: () => query,
+          gte: () => query,
+          lte: () => query,
+          order: () => query,
+          range: async (from: number, to: number) => ({
+            data: registryMocks.recentLabelRows.slice(from, to + 1),
+            error: null,
+          }),
+        }
+        return query
       }
       throw new Error(`unexpected table in mock: ${table}`)
     }),
@@ -87,6 +126,18 @@ const m1Artifact = () => ({
   sample_report: {},
 })
 
+const upsertRows = (): Array<Record<string, unknown>> => {
+  const call = registryMocks.batchUpsert.mock.calls[0]
+  if (call === undefined) throw new Error('batchUpsert was not called')
+  return call[1]
+}
+
+const firstUpsertRow = (): Record<string, unknown> => {
+  const row = upsertRows()[0]
+  if (row === undefined) throw new Error('batchUpsert had no first row')
+  return row
+}
+
 describe('snapshotThemePredictionsV3 — model_registry-driven scoring (A1)', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -94,14 +145,19 @@ describe('snapshotThemePredictionsV3 — model_registry-driven scoring (A1)', ()
     registryMocks.snapshotRows = [
       { theme_id: 'theme-1', snapshot_date: '2026-07-06', phase: 'rising' },
     ]
+    registryMocks.recentLabelRows = []
     registryMocks.challengerEntry = null
   })
 
   it('scores the champion row with m1 inference when model_registry champion is m1_logistic', async () => {
+    registryMocks.recentLabelRows = Array.from({ length: 300 }, (_, index) => ({
+      base_date: '2026-06-15',
+      y_binary: index < 75,
+    }))
     registryMocks.championEntry = {
       model_version: 'm1-2026w27',
       model_type: 'm1_logistic',
-      coefficients: m1Artifact(),
+      coefficients: { ...m1Artifact(), train_event_rate: 0.5 },
     }
     const { snapshotThemePredictionsV3 } = await import('@/scripts/tli/comparison/theme-predictions-v3')
 
@@ -109,14 +165,24 @@ describe('snapshotThemePredictionsV3 — model_registry-driven scoring (A1)', ()
 
     expect(result.championRows).toBe(1)
     expect(registryMocks.batchUpsert).toHaveBeenCalledTimes(1)
-    const [, rows] = registryMocks.batchUpsert.mock.calls[0]
+    const rows = upsertRows()
+    const row = firstUpsertRow()
     expect(rows).toHaveLength(1)
-    expect(rows[0]).toMatchObject({
+    expect(row).toMatchObject({
       theme_id: 'theme-1',
       serving_role: 'champion',
       model_version: 'm1-2026w27',
     })
-    expect(rows[0].p_rise).toBeCloseTo(0.7310585786300049, 10)
+    expect(row.p_rise).toBeCloseTo(0.4753668864, 10)
+    expect(row).toMatchObject({
+      features: {
+        prior_correction: {
+          train_rate: 0.5,
+          recent_rate: 0.25,
+          w: 1 / 3,
+        },
+      },
+    })
   })
 
   it('falls back to b-abl heuristic bootstrap when no champion is registered', async () => {
@@ -126,8 +192,7 @@ describe('snapshotThemePredictionsV3 — model_registry-driven scoring (A1)', ()
     const result = await snapshotThemePredictionsV3({ today: '2026-07-06' })
 
     expect(result.championRows).toBe(1)
-    const [, rows] = registryMocks.batchUpsert.mock.calls[0]
-    expect(rows[0]).toMatchObject({
+    expect(firstUpsertRow()).toMatchObject({
       serving_role: 'champion',
       model_version: TLI_V3_BASELINE_MODEL_VERSION,
       p_rise: 1,
@@ -151,7 +216,7 @@ describe('snapshotThemePredictionsV3 — model_registry-driven scoring (A1)', ()
 
     expect(result.championRows).toBe(1)
     expect(result.challengerRows).toBe(1)
-    const [, rows] = registryMocks.batchUpsert.mock.calls[0]
+    const rows = upsertRows()
     expect(rows).toHaveLength(2)
     expect(rows.find((r: Record<string, unknown>) => r.serving_role === 'champion')).toMatchObject({ model_version: 'b-abl-v1' })
     expect(rows.find((r: Record<string, unknown>) => r.serving_role === 'challenger')).toMatchObject({ model_version: 'm1-2026w27' })

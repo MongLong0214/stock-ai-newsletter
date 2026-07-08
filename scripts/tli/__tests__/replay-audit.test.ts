@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { applyPriorCorrection } from '@/lib/tli/model/prior-correction'
 import {
   REPLAY_AUDIT_CRITERIA,
   buildReplayAuditReport,
@@ -8,6 +9,7 @@ import {
   type ReplayAuditLabelRow,
   type ReplayAuditPredictionRow,
 } from '../learn/replay-audit'
+import { computeReplayRecentBaseRate } from '../learn/replay-audit-scoring'
 
 const predictionRows = [
   { themeId: 'theme-a', baseDate: '2026-06-08', pRiseM1: 0.8, pRiseBAbl: 1 },
@@ -21,6 +23,13 @@ const labelRows = [
   { themeId: 'theme-b', baseDate: '2026-06-08', labelStatus: 'final', yBinary: false },
   { themeId: 'theme-c', baseDate: '2026-06-09', labelStatus: 'censored', yBinary: null },
 ] satisfies readonly ReplayAuditLabelRow[]
+
+const replayPriorLabels = Array.from({ length: 300 }, (_, index) => ({
+  themeId: `history-${index}`,
+  baseDate: '2026-06-15',
+  labelStatus: 'final',
+  yBinary: index < 75,
+})) satisfies readonly ReplayAuditLabelRow[]
 
 const metric = (overrides: {
   readonly brier: number | null
@@ -48,6 +57,13 @@ describe('TLI replay audit', () => {
       { themeId: 'theme-b', baseDate: '2026-06-08', pRiseM1: 0.2, pRiseBAbl: 0, label: false },
     ])
     expect(joined.excludedRows).toBe(2)
+  })
+
+  it('computes replay prior correction per baseDate from loaded final labels', () => {
+    const recentBaseRate = computeReplayRecentBaseRate(replayPriorLabels, '2026-07-06')
+
+    expect(recentBaseRate).toBe(0.25)
+    expect(applyPriorCorrection(0.7310585786300049, 0.5, recentBaseRate ?? 0.5)).toBeCloseTo(0.4753668864, 10)
   })
 
   it('evaluates the pre-registered pass/fail criteria fail-closed on null metrics', () => {
