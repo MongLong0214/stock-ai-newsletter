@@ -2,6 +2,62 @@
   "newsletters": [
     {
       "type": "stock",
+      "date": "2026-07-10",
+      "stocks": [
+        {
+          "ticker": "KOSPI:042700",
+          "name": "한미반도체",
+          "close_price": 215500,
+          "rationale": "2026-07-09 종가 215,500원(+8.18%) 급등 확인|필라델피아 반도체 지수 2.23% 급등 영향 수혜|SK하이닉스 ADR 상장 기대감에 따른 장비 공급 모멘텀 강화|SMA 5/20/60일선 완전 정배열 구간 진입|거래량 전일 대비 156% 폭증하며 매집 신호 발생|RSI 65.4로 과매수 구간 전 강력한 추세 형성|MACD 히스토그램 양선 확대 및 시그널선 상향 돌파|ATR 4.8%로 변동성 확대되며 상방 압력 증가|OBV 지표 최고치 경신하며 기관 수급 유입 증명|Vortex VI+ 1.25로 상승 추세가 하락세 압도|볼린저밴드 상단 돌파 시도로 단기 슈팅 가능성 고조|엔비디아 H200 수입 승인 소식에 따른 AI 반도체 밸류체인 동반 강세",
+          "signals": {
+            "trend_score": 98,
+            "momentum_score": 94,
+            "volume_score": 96,
+            "volatility_score": 88,
+            "pattern_score": 92,
+            "sentiment_score": 91,
+            "overall_score": 94
+          },
+          "verified_date": "2026-07-09"
+        },
+        {
+          "ticker": "KOSPI:005380",
+          "name": "현대차",
+          "close_price": 445500,
+          "rationale": "2026-07-09 종가 445,500원(-3.68%) 확인되나 기술적 지지선 확보|DS투자증권 목표주가 84만원 상향 및 로보틱스 사업 고도화 평가|구글과의 협업을 통한 VLA 격차 해소 및 자율주행 모멘텀 부각|SMA 120일선 근접 시 강력한 저가 매수세 유입 확인|RSI 48.5로 하락 과열 진정 및 기술적 반등 임박|CCI -105 구간 탈출 시도로 단기 과매도 해소 신호|ADX 28.2로 새로운 상승 추세 형성 초기 단계 진입|OBV 하락폭 제한적이며 대형주 위주 외인 순매수 지속|보스턴다이내믹스 월드컵 퍼포먼스 이후 로봇 부문 심리적 모멘텀 상승|52주 최고가 783,000원 대비 가격 메리트 충분한 구간|Ichimoku 구름대 하단 지지 후 전환선 돌파 시도 중",
+          "signals": {
+            "trend_score": 82,
+            "momentum_score": 79,
+            "volume_score": 85,
+            "volatility_score": 81,
+            "pattern_score": 84,
+            "sentiment_score": 88,
+            "overall_score": 83
+          },
+          "verified_date": "2026-07-09"
+        },
+        {
+          "ticker": "KOSPI:005930",
+          "name": "삼성전자",
+          "close_price": 278000,
+          "rationale": "2026-07-09 종가 278,000원(+0.18%)으로 롤러코스터 장세 속 반등 성공|장중 3.6% 급락(267,500원) 후 기관 1.3조 순매수로 하방 경직성 확보|전고점 374,500원 대비 25.9% 하락한 과매도 구간에서 바닥 다지기|RSI 41.2로 바닥 탈출 시그널 발생|MACD 상승 다이버전스 발생하며 하락 추세 종료 신호|거래량 2,970만 주 발생하며 개인 투매 물량 소화 완료|볼린저밴드 하단 지지 확인 후 중심선(20일선) 회복 시도|애플과의 300억 달러 규모 반도체 공급 계약 확대 소식 수혜|스토캐스틱 %K 28 골든크로스 발생 초기|SuperTrend 매수 전환 대기 중이며 외국인 지분율 46.55% 안정적 유지|5-20일 EMA 수렴 후 확산 초기 국면으로 단기 급등 가능성 상존",
+          "signals": {
+            "trend_score": 76,
+            "momentum_score": 84,
+            "volume_score": 89,
+            "volatility_score": 75,
+            "pattern_score": 81,
+            "sentiment_score": 80,
+            "overall_score": 81
+          },
+          "verified_date": "2026-07-09"
+        }
+      ],
+      "sentAt": "2026-07-09T23:40:18.95+00:00",
+      "subscriberCount": 295
+    },
+    {
+      "type": "stock",
       "date": "2026-07-09",
       "stocks": [
         {
@@ -9510,5 +9566,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-07-08T23:58:21.326Z"
+  "lastUpdated": "2026-07-09T23:40:56.576Z"
 }
