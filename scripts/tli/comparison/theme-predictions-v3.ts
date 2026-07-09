@@ -161,6 +161,7 @@ export async function snapshotThemePredictionsV3(input?: {
   }
 
   const rows: ThemePredictionV3Row[] = []
+  let challengerRows = 0
 
   for (const snapshot of snapshots) {
     const featureInputs = await loadFeatureInputsForBaseDate({
@@ -189,15 +190,23 @@ export async function snapshotThemePredictionsV3(input?: {
       }))
 
     if (challenger) {
-      rows.push(scoreWithRegistryEntry({
-        entry: challenger,
-        servingRole: 'challenger',
-        themeId: snapshot.theme_id,
-        predictionDate,
-        featureVector,
-        snapshotPhase: snapshot.phase,
-        recentBaseRate,
-      }))
+      try {
+        rows.push(scoreWithRegistryEntry({
+          entry: challenger,
+          servingRole: 'challenger',
+          themeId: snapshot.theme_id,
+          predictionDate,
+          featureVector,
+          snapshotPhase: snapshot.phase,
+          recentBaseRate,
+        }))
+        challengerRows += 1
+      } catch (error: unknown) {
+        console.error(
+          `   ⚠️ challenger 예측 채점 실패 (${challenger.model_version}):`,
+          error instanceof Error ? error.message : String(error),
+        )
+      }
     }
   }
 
@@ -210,6 +219,6 @@ export async function snapshotThemePredictionsV3(input?: {
 
   return {
     championRows: snapshots.length,
-    challengerRows: challenger ? snapshots.length : 0,
+    challengerRows,
   }
 }

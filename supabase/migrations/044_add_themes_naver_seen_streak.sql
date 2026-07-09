@@ -1,0 +1,6 @@
+BEGIN;
+
+ALTER TABLE public.themes
+  ADD COLUMN IF NOT EXISTS naver_seen_streak INTEGER DEFAULT 0;
+
+COMMIT;
