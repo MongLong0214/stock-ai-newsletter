@@ -14,7 +14,7 @@ describe('naver news collection', () => {
   it('fails closed when NAVER credentials are missing', async () => {
     await expect(
       collectNaverNews(
-        [{ id: 'theme-1', keywords: ['AI'] }],
+        [{ id: 'theme-1', name: 'AI', naverKeywords: ['AI'] }],
         '2026-03-01',
         '2026-03-12',
       ),
@@ -26,7 +26,7 @@ describe('naver news collection', () => {
 
     await expect(
       collectNaverNews(
-        [{ id: 'theme-1', keywords: ['AI'] }],
+        [{ id: 'theme-1', name: 'AI', naverKeywords: ['AI'] }],
         '2026-03-01',
         '2026-03-12',
       ),

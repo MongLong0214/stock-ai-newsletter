@@ -8,8 +8,10 @@ import { snapshotPredictions } from '@/scripts/tli/comparison/snapshot-predictio
 import { snapshotThemePredictionsV3 } from '@/scripts/tli/comparison/theme-predictions-v3'
 import { evaluateThemePredictionsV3 } from '@/scripts/tli/comparison/theme-predictions-v3-scoring'
 import { evaluatePredictions } from '@/scripts/tli/comparison/evaluate-predictions'
-import { collectNaverDatalab } from '@/scripts/tli/collectors/naver-datalab'
+import { collectForecastInterestRuns, collectNaverDatalab } from '@/scripts/tli/collectors/naver-datalab'
 import { collectNaverNews } from '@/scripts/tli/collectors/naver-news'
+import { collectBablPhaseSnapshot } from '@/scripts/tli/collectors/babl-phase-snapshot'
+import { runMondayOrigins } from '@/scripts/tli/origins/run-monday-origins'
 import { collectNaverFinanceStocks } from '@/scripts/tli/collectors/naver-finance-themes'
 import { shouldRejectStockCollection } from '@/scripts/tli/collectors/naver-finance-theme-gates'
 import { evaluateComparisonOutcomes } from '@/scripts/tli/comparison/evaluate-comparisons'
@@ -77,6 +79,19 @@ export async function collectDataSources(
       datalabFailed = true
       console.error('❌ 네이버 DataLab 수집 실패:', error instanceof Error ? error.message : String(error))
     }
+
+    // forecast manifest가 선택할 수 있는 유일한 형태 — 테마 dedicated single-group run.
+    // current cache를 건드리지 않으므로 실패해도 수집 파이프라인을 중단하지 않는다 (best-effort).
+    if (!datalabFailed) {
+      try {
+        await collectForecastInterestRuns(
+          themes.map(t => ({ id: t.id, name: t.name, naverKeywords: t.naverKeywords })),
+          endDate,
+        )
+      } catch (error: unknown) {
+        console.warn('   ⚠️ forecast interest run 수집 실패:', error instanceof Error ? error.message : String(error))
+      }
+    }
   }
 
   // Step 2: News (모든 모드)
@@ -85,7 +100,7 @@ export async function collectDataSources(
   try {
     const newsStartDate = daysAgo(14)
     const { metrics: newsMetrics, articles: newsArticles } = await collectNaverNews(
-      themes.map(t => ({ id: t.id, keywords: t.keywords })),
+      themes.map(t => ({ id: t.id, name: t.name, naverKeywords: t.naverKeywords })),
       newsStartDate,
       endDate,
     )
@@ -213,6 +228,29 @@ export async function runAnalysisPipeline(themes: ThemeWithKeywords[], today = g
   } catch (error: unknown) {
     warningFailures++
     console.error('❌ 예측 스냅샷 실패:', error instanceof Error ? error.message : String(error))
+  }
+
+  // Step 6.5: B-Abl phase observation (study lock이 있을 때만)
+  console.log('\n🧬 6.5단계: B-Abl phase snapshot')
+  try {
+    await collectBablPhaseSnapshot(today)
+  } catch (error: unknown) {
+    warningFailures++
+    console.error('❌ B-Abl phase snapshot 실패:', error instanceof Error ? error.message : String(error))
+  }
+
+  // Step 6.6: 거래 가능한 월요일 cutoff 뒤 origin manifest 축적 (cycle 0개여도 계속 쌓는다)
+  console.log('\n🗓️ 6.6단계: Monday forecast/study origin manifest')
+  try {
+    const origins = await runMondayOrigins(today)
+    if (origins.skippedReason) {
+      console.log(`   ⊘ origin 생략: ${origins.skippedReason}`)
+    } else {
+      console.log(`   ✅ forecast child=${origins.forecastChildCount}, usable=${origins.usableChildCount}, study-origin=${origins.studyOriginManifestIds.length}`)
+    }
+  } catch (error: unknown) {
+    warningFailures++
+    console.error('❌ Monday origin manifest 실패:', error instanceof Error ? error.message : String(error))
   }
 
   // Step 7: 예측 평가

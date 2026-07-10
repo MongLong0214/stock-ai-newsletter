@@ -71,6 +71,14 @@ export const TLI_BOUNDARY_MANIFEST: Record<string, TliFileCategory> = {
   'scripts/tli/collectors/naver-finance-themes.ts': 'runtime',
   'scripts/tli/collectors/naver-finance-theme-gates.ts': 'runtime',
   'scripts/tli/collectors/naver-news.ts': 'runtime',
+  'scripts/tli/collectors/collection-run-contract.ts': 'runtime',
+  'scripts/tli/collectors/collection-run-store.ts': 'runtime',
+  'scripts/tli/collectors/babl-phase-snapshot.ts': 'runtime',
+
+  'scripts/tli/origins/forecast-origin-manifest.ts': 'runtime',
+  'scripts/tli/origins/origin-sources.ts': 'runtime',
+  'scripts/tli/origins/run-monday-origins.ts': 'runtime',
+  'scripts/tli/origins/lock-study-contract.ts': 'ops',
 
   'scripts/tli/batch/run-comparisons.ts': 'runtime',
   'scripts/tli/ops/run-level4-calibration.ts': 'ops',
