@@ -45,21 +45,14 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # wall-clock(date -u)은 runner 큐 지연 시 cron 시각과 어긋나 모드를 오분류한다.
+      # github.event.schedule은 지연과 무관하게 트리거된 cron 문자열 그대로다.
       - name: Determine run mode
         id: mode
-        run: |
-          # workflow_dispatch에서 mode 지정 시 사용
-          if [ "${{ github.event.inputs.mode }}" != "" ]; then
-            echo "mode=${{ github.event.inputs.mode }}" >> $GITHUB_OUTPUT
-          else
-            # cron 기반 자동 판별: UTC 00:00 (KST 09:00) = 뉴스만
-            HOUR=$(date -u +%H)
-            if [ "$HOUR" = "00" ]; then
-              echo "mode=news-only" >> $GITHUB_OUTPUT
-            else
-              echo "mode=full" >> $GITHUB_OUTPUT
-            fi
-          fi
+        env:
+          TLI_COLLECT_SCHEDULE: ${{ github.event.schedule }}
+          TLI_COLLECT_DISPATCH_MODE: ${{ github.event.inputs.mode }}
+        run: npx tsx scripts/tli/ops/resolve-collect-mode.ts
 
       - name: Run TLI Data Collection & Scoring
         env:
@@ -78,32 +71,74 @@ jobs:
           TLI_RESULT_PATH: tli-result.json
         run: npx tsx scripts/tli/batch/collect-and-score.ts
 
+      # 과학 gate step은 severity를 step output으로만 노출하고, 판정은 아래 "Scientific gate result"가
+      # 한 번에 내린다. continue-on-error는 critical contract failure를 success로 숨기므로 쓰지 않는다.
+      # exit code 규약: 0 pass / 1 operational failure / 2 warning / 3 critical (scientific-gate-exit.ts)
       - name: Prediction parity report
+        id: parity
         if: steps.mode.outputs.mode == 'full'
-        continue-on-error: true
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: |
-          npx tsx scripts/tli/ops/run-prediction-parity-report.ts > tli-parity-result.json
-          echo '## TLI Prediction Parity Report' >> "$GITHUB_STEP_SUMMARY"
-          echo '```json' >> "$GITHUB_STEP_SUMMARY"
-          cat tli-parity-result.json >> "$GITHUB_STEP_SUMMARY"
-          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          npx tsx scripts/tli/ops/run-prediction-parity-report.ts > tli-parity-result.json && status=0 || status=$?
+          echo "status=${status}" >> "$GITHUB_OUTPUT"
+          {
+            echo '## TLI Prediction Parity Report'
+            echo "- gate exit code: \`${status}\`"
+            echo '```json'
+            cat tli-parity-result.json
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: TLI watchlist canary
+        id: watchlist
         if: steps.mode.outputs.mode == 'full'
-        continue-on-error: true
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: |
           set -o pipefail
-          npm run tli:watchlist -- --top=5 --bottom=3 | tail -n 1 > tli-watchlist-result.json
-          echo '## TLI Watchlist Canary' >> "$GITHUB_STEP_SUMMARY"
-          echo '```json' >> "$GITHUB_STEP_SUMMARY"
-          cat tli-watchlist-result.json >> "$GITHUB_STEP_SUMMARY"
-          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          npx tsx scripts/tli/ops/run-theme-watchlist-report.ts --top=5 --bottom=3 \
+            | tail -n 1 > tli-watchlist-result.json && status=0 || status=$?
+          echo "status=${status}" >> "$GITHUB_OUTPUT"
+          {
+            echo '## TLI Watchlist Canary'
+            echo "- gate exit code: \`${status}\`"
+            echo '```json'
+            cat tli-watchlist-result.json
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload scientific gate artifacts
+        if: always() && steps.mode.outputs.mode == 'full'
+        uses: actions/upload-artifact@v4
+        with:
+          name: tli-scientific-gate-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            tli-parity-result.json
+            tli-watchlist-result.json
+          if-no-files-found: warn
+          retention-days: 30
+
+      # critical contract failure(3)만 workflow를 실패시킨다. 일반 경고(1,2)는 주석만 남긴다.
+      - name: Scientific gate result
+        if: always() && steps.mode.outputs.mode == 'full'
+        env:
+          PARITY_STATUS: ${{ steps.parity.outputs.status }}
+          WATCHLIST_STATUS: ${{ steps.watchlist.outputs.status }}
+        run: |
+          failed=0
+          for entry in "prediction-parity:${PARITY_STATUS}" "watchlist-canary:${WATCHLIST_STATUS}"; do
+            gate="${entry%%:*}"
+            status="${entry##*:}"
+            case "${status}" in
+              0) echo "::notice::${gate} scientific gate passed" ;;
+              3) echo "::error::${gate} critical scientific contract failure"; failed=1 ;;
+              *) echo "::warning::${gate} non-critical gate result (exit '${status}')" ;;
+            esac
+          done
+          exit "${failed}"
 
       - name: Notify critical failure
         if: failure()

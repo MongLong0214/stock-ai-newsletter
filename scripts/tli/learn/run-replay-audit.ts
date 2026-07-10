@@ -1,4 +1,3 @@
-import { spawnSync } from 'node:child_process'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import type { M1ModelArtifact } from '../../../lib/tli/model/m1'
@@ -10,6 +9,7 @@ import {
   TLI_V3_LABELER_VERSION,
 } from '../comparison/theme-predictions-v3-records'
 import { supabaseAdmin } from '../shared/supabase-admin'
+import { spawnM1Training } from './m1-runtime'
 import { buildM1TrainingDatasetDump } from './offline-eval'
 import { loadOfflineEvalInput } from './offline-eval-data'
 import {
@@ -121,13 +121,7 @@ const trainCutoffArtifact = async (input: {
       labelerVersion: TLI_V3_LABELER_VERSION,
     }))
   }
-  const result = spawnSync('python', [
-    'scripts/tli/learn/train_m1.py',
-    '--trained-at',
-    input.trainEnd,
-    datasetPath,
-    artifactPath,
-  ], { cwd: process.cwd(), encoding: 'utf8' })
+  const result = spawnM1Training(['--trained-at', input.trainEnd, datasetPath, artifactPath])
   if (result.status !== 0) {
     throw new Error(`M1 replay cutoff training failed: ${result.stderr || result.stdout}`)
   }

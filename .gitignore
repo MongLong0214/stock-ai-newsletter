@@ -99,3 +99,7 @@ supabase/.temp/
 
 # MCP Serena memories (sub-project)
 mcp/.serena/memories/
+
+# Python
+__pycache__/
+*.pyc

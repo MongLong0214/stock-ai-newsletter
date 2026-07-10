@@ -2,6 +2,11 @@ import { mkdirSync, writeFileSync } from 'node:fs'
 import { dirname } from 'node:path'
 import { z } from 'zod'
 import {
+  SCIENTIFIC_GATE_EXIT,
+  classifyThemeWatchlistSeverity,
+  scientificGateExitCode,
+} from './scientific-gate-exit'
+import {
   buildThemeWatchlistReport,
   renderThemeWatchlistMarkdown,
   type ThemeWatchlistFeaturePayload,
@@ -272,6 +277,8 @@ export async function runThemeWatchlistReport(args: readonly string[] = process.
     risingCount: report.rising.length,
     coverage: report.shadowHealth.coverage,
   }))
+  // severity는 stdout JSON 형태를 바꾸지 않고 exit code로만 노출한다 (scientific-gate-exit 규약).
+  process.exitCode = scientificGateExitCode(classifyThemeWatchlistSeverity(report))
 }
 
 const isDirectRun = process.argv[1]?.includes('run-theme-watchlist-report') ?? false
@@ -279,6 +286,6 @@ const isDirectRun = process.argv[1]?.includes('run-theme-watchlist-report') ?? f
 if (isDirectRun) {
   runThemeWatchlistReport().catch((error: unknown) => {
     console.error(error instanceof Error ? error.message : String(error))
-    process.exitCode = 1
+    process.exitCode = SCIENTIFIC_GATE_EXIT.operationalFailure
   })
 }

@@ -107,7 +107,7 @@ export async function collectDataSources(
       if (shouldRejectStockCollection({ prevCount, collectedCount: stocks.length })) {
         throw new Error(`네이버 금융 종목 수집 붕괴 감지: 직전 활성 종목 ${prevCount}건 → 이번 수집 ${stocks.length}건 (70% 미만)`)
       }
-      await upsertThemeStocks(stocks)
+      await upsertThemeStocks(stocks, endDate)
     } catch (error: unknown) {
       criticalFailures++
       console.error('❌ 종목 수집 실패:', error instanceof Error ? error.message : String(error))

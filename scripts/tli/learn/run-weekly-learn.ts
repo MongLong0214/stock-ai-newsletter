@@ -1,7 +1,7 @@
-import { spawnSync } from 'node:child_process'
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname } from 'node:path'
 import { z } from 'zod'
+import { spawnM1Training } from './m1-runtime'
 import {
   evaluateTliPromotionGate,
   promotionGateInputSchema,
@@ -215,13 +215,7 @@ const trainNewChallenger = async () => {
     }
     ensureParentDir(artifactPath)
     const trainedAt = readArg('trained-at', new Date().toISOString().slice(0, 10)) ?? new Date().toISOString().slice(0, 10)
-    const result = spawnSync('python', [
-      'scripts/tli/learn/train_m1.py',
-      '--trained-at',
-      trainedAt,
-      datasetPath,
-      artifactPath,
-    ], { cwd: process.cwd(), encoding: 'utf8' })
+    const result = spawnM1Training(['--trained-at', trainedAt, datasetPath, artifactPath])
     if (result.status !== 0) {
       throw new Error(`M1 challenger training failed: ${result.stderr || result.stdout}`)
     }
@@ -235,6 +229,22 @@ const trainNewChallenger = async () => {
       throw new Error('train-new-challenger --model-version requires a non-empty value')
     }
     const modelVersion = modelVersionOverride ?? buildIsoWeekModelVersion(trainedAt)
+
+    // Todo 1이 registry를 동결했으므로 cycle RPC 밖의 challenger 등록은 거부된다.
+    // 크래시로 위장하지 않고 명시적 disabled 결과를 반환한다 (promotion flag와 동일한 계약).
+    if (process.env.TLI_M1_REGISTRATION_ENABLED !== 'true') {
+      return {
+        step: 'train-new-challenger',
+        dryRun,
+        action: 'registration_disabled',
+        datasetPath,
+        artifactPath,
+        trainedAt,
+        modelVersion,
+        modelRegistry: null,
+      }
+    }
+
     const registration = await registerModelRegistryChallenger({
       modelVersion,
       modelType: artifact.model_type,

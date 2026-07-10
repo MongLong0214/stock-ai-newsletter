@@ -1,21 +1,25 @@
 #!/usr/bin/env -S uv run --script
 # /// script
-# requires-python = ">=3.13"
+# requires-python = ">=3.13.11,<3.14"
 # dependencies = [
-#     "numpy",
-#     "pydantic",
-#     "scikit-learn",
-#     "typer",
+#     "numpy==2.5.1",
+#     "pydantic==2.13.4",
+#     "scikit-learn==1.9.0",
+#     "typer==0.26.8",
 # ]
 # ///
 
 # How to run
-# 1. Install uv (if not installed):
-#      curl -LsSf https://astral.sh/uv/install.sh | sh
-# 2. Run directly:
-#      uv run scripts/tli/learn/train_m1.py --trained-at 2026-08-02 INPUT_JSON OUTPUT_JSON
-# 3. Or make executable and run:
-#      chmod +x scripts/tli/learn/train_m1.py && ./scripts/tli/learn/train_m1.py INPUT_JSON OUTPUT_JSON
+# 과학 실행은 고정 런타임에서만 허용된다 (master plan "첫 confirmatory 모델 계약").
+# 1. Install the pinned uv (if not installed):
+#      curl -LsSf https://astral.sh/uv/0.9.25/install.sh | sh
+# 2. Run with the frozen script lockfile and deterministic thread/hash env:
+#      PYTHONHASHSEED=0 OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 \
+#        uv run --frozen --python 3.13.11 --script scripts/tli/learn/train_m1.py \
+#        --trained-at 2026-08-02 INPUT_JSON OUTPUT_JSON
+# 3. Regenerate the lockfile after changing the PEP 723 dependencies:
+#      uv lock --script scripts/tli/learn/train_m1.py
+#    그리고 m1_runtime.EXPECTED_SCRIPT_LOCK_SHA256을 새 lock의 SHA-256으로 갱신한다.
 # End
 
 from __future__ import annotations
@@ -46,6 +50,11 @@ from m1_calibration import (
     fit_base_estimator,
     predict_calibrator,
     select_calibrator_type,
+)
+from m1_runtime import (
+    RuntimeContractError,
+    RuntimeManifest,
+    enforce_runtime_contract,
 )
 
 FEATURE_SCHEMA: Final[tuple[str, ...]] = (
@@ -223,6 +232,8 @@ class ModelArtifact(BaseModel):
     seed: int
     train_event_rate: Annotated[float, Field(gt=0, lt=1)]
     sample_report: SampleSizeReport
+    # 고정 실행환경 attestation. CLI 학습 실행에서만 채워지고, 단위 테스트 직접 호출에서는 None이다.
+    runtime: RuntimeManifest | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -375,7 +386,11 @@ def build_sample_report(
     )
 
 
-def train_model(dataset: TrainingDataset, trained_at: str) -> ModelArtifact:
+def train_model(
+    dataset: TrainingDataset,
+    trained_at: str,
+    runtime: RuntimeManifest | None = None,
+) -> ModelArtifact:
     y = np.array([1 if row.y else 0 for row in dataset.rows], dtype=np.int64)
     if y.size < 10 or np.unique(y).size != 2:
         raise TrainingDataError("M1 training requires at least 10 rows and both classes")
@@ -410,6 +425,7 @@ def train_model(dataset: TrainingDataset, trained_at: str) -> ModelArtifact:
             probabilities,
             SampleReportContext(parameters=design.values.shape[1], calibration_selection=selection),
         ),
+        runtime=runtime,
     )
 
 
@@ -418,8 +434,13 @@ def load_dataset(input_path: Path) -> TrainingDataset:
         return TrainingDataset.model_validate_json(handle.read())
 
 
-def run_training(input_path: Path, output_path: Path, trained_at: str) -> ModelArtifact:
-    artifact = train_model(load_dataset(input_path), trained_at)
+def run_training(
+    input_path: Path,
+    output_path: Path,
+    trained_at: str,
+    runtime: RuntimeManifest | None = None,
+) -> ModelArtifact:
+    artifact = train_model(load_dataset(input_path), trained_at, runtime)
     output_path.write_text(json.dumps(artifact.model_dump(mode="json"), ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     return artifact
 
@@ -555,6 +576,13 @@ def main(
         help="Train on fixed-seed synthetic data and emit an artifact + expected-probability fixture instead of training on INPUT_PATH",
     ),
 ) -> None:
+    # 학습이 시작되기 전에 고정 실행환경 계약을 검증한다 (exit 2 = runtime incompatibility).
+    try:
+        runtime = enforce_runtime_contract()
+    except RuntimeContractError as error:
+        typer.echo(f"M1 runtime contract violation:\n{error}", err=True)
+        raise typer.Exit(code=2) from error
+
     if golden_vector:
         if output_path is None:
             raise typer.BadParameter("--golden-vector requires OUTPUT_PATH")
@@ -564,7 +592,7 @@ def main(
 
     if input_path is None or output_path is None:
         raise typer.BadParameter("INPUT_PATH and OUTPUT_PATH are required unless --golden-vector is set")
-    artifact = run_training(input_path, output_path, trained_at)
+    artifact = run_training(input_path, output_path, trained_at, runtime)
     typer.echo(json.dumps(artifact.sample_report.model_dump(mode="json"), ensure_ascii=False))
 
 

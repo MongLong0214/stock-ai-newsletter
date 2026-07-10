@@ -1,9 +1,9 @@
-import { spawnSync } from 'node:child_process'
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import type { BaselineFeatureRow } from '../../../lib/tli/model/baselines'
 import { createWalkForwardFolds, type EvalPredictionRow } from '../../../lib/tli/eval/harness'
 import type { M1ModelArtifact } from '../../../lib/tli/model/m1'
+import { spawnM1Training } from './m1-runtime'
 import {
   buildM1Predictions,
   buildM1TrainingDatasetDump,
@@ -73,14 +73,7 @@ const trainFoldArtifact = (input: {
     rows: input.trainRows,
     labelerVersion: input.labelerVersion,
   }), null, 2))
-  const result = spawnSync('uv', [
-    'run',
-    'scripts/tli/learn/train_m1.py',
-    '--trained-at',
-    input.trainedAt,
-    datasetPath,
-    artifactPath,
-  ], { cwd: process.cwd(), encoding: 'utf8' })
+  const result = spawnM1Training(['--trained-at', input.trainedAt, datasetPath, artifactPath])
   if (result.status !== 0) {
     throw new Error(`M1 fold training failed for ${input.foldId}: ${result.stderr || result.stdout}`)
   }
