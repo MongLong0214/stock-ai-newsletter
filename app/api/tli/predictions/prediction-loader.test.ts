@@ -181,9 +181,9 @@ describe('TLI prediction scientific cycle loader', () => {
     const { client } = createClient({
       registryRow: PUBLIC_REGISTRY,
       predictions: [
-        prediction({ prediction_date: '2026-06-29', p_rise: 0.11 }),
+        prediction({ prediction_date: '2026-06-29', p_rise: 0.11, ci_lower: 0.05, ci_upper: 0.20 }),
         prediction({ prediction_date: '2026-07-06' }),
-        prediction({ theme_id: OTHER_THEME, prediction_date: '2026-07-06', p_rise: 0.2 }),
+        prediction({ theme_id: OTHER_THEME, prediction_date: '2026-07-06', p_rise: 0.2, ci_lower: 0.1, ci_upper: 0.3 }),
       ],
     })
     loaderMocks.getServerSupabaseClient.mockReturnValue(client)

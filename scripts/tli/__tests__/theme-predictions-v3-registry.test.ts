@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { FEATURE_NAMES } from '@/lib/tli/features/build-features'
 import type { FeatureVector } from '@/lib/tli/features/build-features'
+import { UnsupportedLegacyArtifactError } from '@/lib/tli/model/predict'
 
 const registryMocks = vi.hoisted(() => ({
   snapshotRows: [] as Array<{ theme_id: string; snapshot_date: string; phase: string }>,
@@ -102,7 +103,7 @@ vi.mock('@/lib/tli/features/build-features', async (importOriginal) => {
   return { ...actual, buildFeatureVector: vi.fn(() => registryMocks.featureVector) }
 })
 
-const m1Artifact = () => ({
+const legacyM1Artifact = () => ({
   artifact_version: 'tli-model-artifact-v1',
   model_type: 'm1_logistic',
   feature_schema: FEATURE_NAMES,
@@ -149,7 +150,7 @@ describe('snapshotThemePredictionsV3 — model_registry-driven scoring (A1)', ()
     registryMocks.challengerEntry = null
   })
 
-  it('scores the champion row with m1 inference when model_registry champion is m1_logistic', async () => {
+  it('rejects a legacy v1 M1 champion before scoring or prior correction', async () => {
     registryMocks.recentLabelRows = Array.from({ length: 300 }, (_, index) => ({
       base_date: '2026-06-15',
       y_binary: index < 75,
@@ -157,32 +158,24 @@ describe('snapshotThemePredictionsV3 — model_registry-driven scoring (A1)', ()
     registryMocks.championEntry = {
       model_version: 'm1-2026w27',
       model_type: 'm1_logistic',
-      coefficients: { ...m1Artifact(), train_event_rate: 0.5 },
+      coefficients: { ...legacyM1Artifact(), train_event_rate: 0.5 },
     }
     const { snapshotThemePredictionsV3 } = await import('@/scripts/tli/comparison/theme-predictions-v3')
 
-    const result = await snapshotThemePredictionsV3({ today: '2026-07-06' })
+    let caught: unknown
+    try {
+      await snapshotThemePredictionsV3({ today: '2026-07-06' })
+    } catch (error) {
+      caught = error
+    }
 
-    expect(result.championRows).toBe(1)
-    expect(registryMocks.batchUpsert).toHaveBeenCalledTimes(1)
-    const rows = upsertRows()
-    const row = firstUpsertRow()
-    expect(rows).toHaveLength(1)
-    expect(row).toMatchObject({
-      theme_id: 'theme-1',
-      serving_role: 'champion',
-      model_version: 'm1-2026w27',
-    })
-    expect(row.p_rise).toBeCloseTo(0.4753668864, 10)
-    expect(row).toMatchObject({
-      features: {
-        prior_correction: {
-          train_rate: 0.5,
-          recent_rate: 0.25,
-          w: 1 / 3,
-        },
-      },
-    })
+    expect(caught).toBeInstanceOf(UnsupportedLegacyArtifactError)
+    if (!(caught instanceof UnsupportedLegacyArtifactError)) {
+      throw new TypeError('expected UnsupportedLegacyArtifactError')
+    }
+    expect(caught.code).toBe('unsupported_legacy_artifact')
+    expect(caught.message).toBe('unsupported_legacy_artifact')
+    expect(registryMocks.batchUpsert).not.toHaveBeenCalled()
   })
 
   it('falls back to b-abl heuristic bootstrap when no champion is registered', async () => {
@@ -199,7 +192,7 @@ describe('snapshotThemePredictionsV3 — model_registry-driven scoring (A1)', ()
     })
   })
 
-  it('also records a challenger row when model_registry has an active challenger', async () => {
+  it('keeps the champion row when a legacy v1 challenger fails at its isolated boundary', async () => {
     registryMocks.championEntry = {
       model_version: 'b-abl-v1',
       model_type: 'b_abl',
@@ -208,17 +201,17 @@ describe('snapshotThemePredictionsV3 — model_registry-driven scoring (A1)', ()
     registryMocks.challengerEntry = {
       model_version: 'm1-2026w27',
       model_type: 'm1_logistic',
-      coefficients: m1Artifact(),
+      coefficients: legacyM1Artifact(),
     }
     const { snapshotThemePredictionsV3 } = await import('@/scripts/tli/comparison/theme-predictions-v3')
 
     const result = await snapshotThemePredictionsV3({ today: '2026-07-06' })
 
     expect(result.championRows).toBe(1)
-    expect(result.challengerRows).toBe(1)
+    expect(result.challengerRows).toBe(0)
     const rows = upsertRows()
-    expect(rows).toHaveLength(2)
+    expect(rows).toHaveLength(1)
     expect(rows.find((r: Record<string, unknown>) => r.serving_role === 'champion')).toMatchObject({ model_version: 'b-abl-v1' })
-    expect(rows.find((r: Record<string, unknown>) => r.serving_role === 'challenger')).toMatchObject({ model_version: 'm1-2026w27' })
+    expect(rows.find((r: Record<string, unknown>) => r.serving_role === 'challenger')).toBeUndefined()
   })
 })

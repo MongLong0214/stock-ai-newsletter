@@ -1,5 +1,32 @@
 import { z } from 'zod'
 
+const SHA256 = /^[0-9a-f]{64}$/
+const POSTGRES_TIMESTAMPTZ = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,6}))?(Z|[+-]\d{2}:\d{2})$/
+
+const sha256Schema = z.string().regex(SHA256)
+const nullableSha256Schema = sha256Schema.nullable()
+const timestamptzSchema = z.string().transform((value, context) => {
+  const match = POSTGRES_TIMESTAMPTZ.exec(value)
+  const parts = match?.slice(1, 7).map(Number)
+  const [year, month, day, hour, minute, second] = parts ?? []
+  const leap = year !== undefined && year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0)
+  const daysInMonth = [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+  const zone = match?.[8]
+  const [zoneHour, zoneMinute] = zone && zone !== 'Z' ? zone.slice(1).split(':').map(Number) : [0, 0]
+  const parsed = Date.parse(value)
+  const valid = match !== null
+    && year !== undefined && month !== undefined && day !== undefined
+    && hour !== undefined && minute !== undefined && second !== undefined
+    && month >= 1 && month <= 12 && day >= 1 && day <= (daysInMonth[month - 1] ?? 0)
+    && hour <= 23 && minute <= 59 && second <= 59
+    && zoneHour <= 23 && zoneMinute <= 59 && Number.isFinite(parsed)
+  if (!valid) {
+    context.addIssue({ code: 'custom', message: 'expected an explicit-zone PostgreSQL timestamptz' })
+    return z.NEVER
+  }
+  return new Date(parsed).toISOString()
+})
+
 const sourceStatusSchema = z.enum(['complete', 'partial', 'failed'])
 const sourceSchema = z.enum(['naver_datalab', 'naver_news', 'babl_phase'])
 const bablMissingReasonSchema = z.enum([
@@ -12,13 +39,13 @@ const bablMissingReasonSchema = z.enum([
 
 const studyOriginBundleSchema = z.object({
   id: z.string(),
-  payload_sha256: z.string(),
+  payload_sha256: sha256Schema,
   forecast_origin_manifest_id: z.string(),
   study_contract: z.object({
     id: z.string(),
-    payload_sha256: z.string(),
+    payload_sha256: sha256Schema,
     feature_contract_version: z.literal('tli-attention-v2-f1'),
-    feature_contract_sha256: z.string(),
+    feature_contract_sha256: sha256Schema,
     babl_algorithm_version: z.string(),
     babl_comparison_spec_version: z.string(),
     babl_evaluation_horizon_days: z.number().int().positive(),
@@ -44,7 +71,7 @@ const studyThemeInputsSchema = z.array(z.object({
   study_origin_manifest_id: z.string(),
   theme_id: z.string(),
   babl_observation_id: z.string().nullable(),
-  babl_input_sha256: z.string().nullable(),
+  babl_input_sha256: nullableSha256Schema,
   babl_candidate_pool: z.string().nullable(),
   babl_missing_reason: bablMissingReasonSchema.nullable(),
 })).transform((rows) => rows.map((row) => ({
@@ -58,9 +85,9 @@ const studyThemeInputsSchema = z.array(z.object({
 
 const forecastOriginManifestSchema = z.object({
   id: z.string(),
-  payload_sha256: z.string(),
+  payload_sha256: sha256Schema,
   origin_date: z.string(),
-  forecast_cutoff: z.string(),
+  forecast_cutoff: timestamptzSchema,
   expected_theme_ids: z.array(z.string()),
   expected_theme_count: z.number().int().positive(),
 }).nullable().transform((row) => row === null ? null : ({
@@ -75,11 +102,11 @@ const forecastOriginManifestSchema = z.object({
 const forecastThemeInputsSchema = z.array(z.object({
   forecast_origin_manifest_id: z.string(),
   theme_id: z.string(),
-  keyword_group_sha256: z.string(),
+  keyword_group_sha256: sha256Schema,
   forecast_interest_run_id: z.string().nullable(),
-  forecast_interest_response_sha256: z.string().nullable(),
+  forecast_interest_response_sha256: nullableSha256Schema,
   news_observation_ids: z.array(z.string()),
-  news_input_sha256: z.string().nullable(),
+  news_input_sha256: nullableSha256Schema,
   input_status: z.enum(['usable', 'abstain']),
   abstain_reason: z.string().nullable(),
 })).transform((rows) => rows.map((row) => ({
@@ -98,11 +125,11 @@ const collectionRunsSchema = z.array(z.object({
   id: z.string(),
   source: sourceSchema,
   status: sourceStatusSchema,
-  response_sha256: z.string().nullable(),
-  keyword_group_hash: z.string().nullable(),
+  response_sha256: nullableSha256Schema,
+  keyword_group_hash: nullableSha256Schema,
   source_max_date: z.string().nullable(),
-  collected_at: z.string(),
-  completed_at: z.string(),
+  collected_at: timestamptzSchema,
+  completed_at: timestamptzSchema,
 })).transform((rows) => rows.map((row) => ({
   id: row.id,
   source: row.source,
@@ -138,8 +165,8 @@ const newsObservationsSchema = z.array(z.object({
   theme_id: z.string(),
   article_date: z.string(),
   article_count: z.number().int().nonnegative(),
-  query_hash: z.string(),
-  collected_at: z.string(),
+  query_hash: sha256Schema,
+  collected_at: timestamptzSchema,
 })).transform((rows) => rows.map((row) => ({
   id: row.id,
   collectionRunId: row.collection_run_id,
@@ -161,8 +188,8 @@ const bablObservationsSchema = z.array(z.object({
   evaluation_horizon_days: z.number().int().positive(),
   candidate_pool: z.string(),
   source_prediction_snapshot_id: z.string(),
-  computed_at: z.string(),
-  payload_hash: z.string(),
+  computed_at: timestamptzSchema,
+  payload_hash: sha256Schema,
   source_run: z.object({ status: sourceStatusSchema }),
 })).transform((rows) => rows.map((row) => ({
   id: row.id,

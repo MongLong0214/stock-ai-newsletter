@@ -493,18 +493,52 @@ export const bablObservationPayloadHash = (observation: Omit<BablObservationInpu
     theme_id: observation.theme_id,
   })
 
+const bablSnapshotOrderKey = (snapshot: ProdPhaseSnapshot): string =>
+  [
+    snapshot.theme_id,
+    snapshot.snapshot_date,
+    snapshot.algorithm_version,
+    snapshot.candidate_pool,
+    snapshot.comparison_spec_version,
+    String(snapshot.evaluation_horizon_days),
+    snapshot.id,
+  ].join('\u0000')
+
 export const buildBablCollectionRun = (
   input: BuildBablRunInput,
 ): CollectionRunAppend<BablObservationInput> => {
-  const failureSummary = input.failureSummary ?? null
+  const explicitFailure = input.failureSummary ?? null
+  const sortedProdSnapshots = input.prodSnapshots
+    .map((snapshot) => ({ ...snapshot, created_at: new Date(snapshot.created_at).toISOString() }))
+    .sort((left, right) => compareUtf8Bytes(bablSnapshotOrderKey(left), bablSnapshotOrderKey(right)))
 
-  const matching = input.prodSnapshots.filter(
+  const matching = sortedProdSnapshots.filter(
     (snapshot) =>
       snapshot.snapshot_date === input.snapshotDate
       && snapshot.algorithm_version === input.studyContract.babl_algorithm_version
       && snapshot.comparison_spec_version === input.studyContract.babl_comparison_spec_version
       && snapshot.evaluation_horizon_days === input.studyContract.babl_evaluation_horizon_days,
   )
+
+  const failureSummary: JsonObject | null =
+    explicitFailure ?? (matching.length === 0 ? { reason: 'no_matching_prod_snapshots' } : null)
+
+  const responsePayload: JsonObject | null =
+    explicitFailure === null
+      ? {
+          snapshots: sortedProdSnapshots.map((snapshot) => ({
+            id: snapshot.id,
+            theme_id: snapshot.theme_id,
+            snapshot_date: snapshot.snapshot_date,
+            phase: snapshot.phase,
+            algorithm_version: snapshot.algorithm_version,
+            candidate_pool: snapshot.candidate_pool,
+            comparison_spec_version: snapshot.comparison_spec_version,
+            evaluation_horizon_days: snapshot.evaluation_horizon_days,
+            created_at: snapshot.created_at,
+          })),
+        }
+      : null
 
   const observations: BablObservationInput[] =
     failureSummary !== null
@@ -534,7 +568,7 @@ export const buildBablCollectionRun = (
       requestWindowStart: input.snapshotDate,
       requestWindowEnd: input.snapshotDate,
       requestPayload: input.requestPayload,
-      responsePayload: null,
+      responsePayload,
       keywordGroupHash: null,
       expectedThemeIds: observations.map((observation) => observation.theme_id),
       expectedKeys: observationKeys,

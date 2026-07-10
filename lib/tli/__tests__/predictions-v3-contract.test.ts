@@ -47,4 +47,27 @@ describe('predictions v3 API contract', () => {
     expect(derivePredictionPhase({ pRise: 0.399, abstain: false })).toBe('cooling')
     expect(derivePredictionPhase({ pRise: null, abstain: true })).toBeNull()
   })
+
+  it.each([
+    ['missing lower bound', { ci_lower: null }],
+    ['missing upper bound', { ci_upper: null }],
+    ['lower above p', { ci_lower: '0.70' }],
+    ['p above upper', { ci_upper: '0.60' }],
+  ])('fails closed for a non-abstain scientific interval with %s', (_name, change) => {
+    expect(() => buildPredictionApiItem({
+      row: { ...row, ...change },
+      themeName: 'AI 반도체',
+      trailing90d: { topSignalPrecision: 0.63, n: 214 },
+    })).toThrow(/interval/)
+  })
+
+  it('allows an explicit abstain row without probability interval values', () => {
+    const item = buildPredictionApiItem({
+      row: { ...row, p_rise: null, ci_lower: null, ci_upper: null, abstain: true },
+      themeName: 'AI 반도체',
+      trailing90d: { topSignalPrecision: null, n: 0 },
+    })
+
+    expect(item).toMatchObject({ pRise: null, ciLower: null, ciUpper: null, abstain: true, phase: null })
+  })
 })

@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { FEATURE_NAMES } from '@/lib/tli/features/build-features'
 import type { FeatureVector } from '@/lib/tli/features/build-features'
 import type { M1ModelArtifact } from '@/lib/tli/model/m1'
+import { UnsupportedLegacyArtifactError } from '@/lib/tli/model/predict'
 import type { PredictionResult } from '@/lib/tli/prediction'
 import {
   TLI_V3_BASELINE_MODEL_VERSION,
@@ -44,7 +45,7 @@ const prediction = (phase: PredictionResult['phase']): PredictionResult => ({
   stageConfidence: 0.6,
 })
 
-const artifact = (): M1ModelArtifact => ({
+const legacyArtifact = (): M1ModelArtifact => ({
   artifact_version: 'tli-model-artifact-v1',
   model_type: 'm1_logistic',
   feature_schema: FEATURE_NAMES,
@@ -72,6 +73,18 @@ const artifact = (): M1ModelArtifact => ({
   train_event_rate: 0.5,
   sample_report: {},
 })
+
+const captureUnsupportedLegacyArtifactError = (
+  operation: () => unknown,
+): UnsupportedLegacyArtifactError => {
+  try {
+    operation()
+  } catch (error) {
+    if (error instanceof UnsupportedLegacyArtifactError) return error
+    throw error
+  }
+  throw new TypeError('expected UnsupportedLegacyArtifactError')
+}
 
 const validDraft = () => ({
   themeId: '00000000-0000-0000-0000-000000000001',
@@ -139,56 +152,32 @@ describe('T-207 theme_predictions_v3 schema and rows', () => {
     })
   })
 
-  it('builds M1 shadow rows and preserves abstain rows without p_rise', () => {
-    const scored = buildM1ShadowPredictionV3Row({
+  it('fails closed when building an M1 shadow row from a legacy v1 artifact', () => {
+    const error = captureUnsupportedLegacyArtifactError(() => buildM1ShadowPredictionV3Row({
       themeId: 'theme-1',
       predictionDate: '2026-07-06',
       featureVector: featureVector({ values: [1.4826, ...FEATURE_NAMES.slice(1).map(() => 0)] }),
-      artifact: artifact(),
+      artifact: legacyArtifact(),
       modelVersion: 'm1-golden',
       paramVersion: TLI_V3_M1_PARAM_VERSION,
-    })
-    const abstained = buildM1ShadowPredictionV3Row({
-      themeId: 'theme-2',
-      predictionDate: '2026-07-06',
-      featureVector: featureVector({ abstain: true, abstainReasons: ['missing_features_gt_3'] }),
-      artifact: artifact(),
-      modelVersion: 'm1-golden',
-      paramVersion: TLI_V3_M1_PARAM_VERSION,
-    })
+    }))
 
-    expect(scored.servingRole).toBe('shadow')
-    expect(scored.pRise).toBeCloseTo(0.7310585786300049, 10)
-    expect(abstained.abstain).toBe(true)
-    expect(abstained.pRise).toBeNull()
-    expect(abstained.abstainReasons).toEqual(['missing_features_gt_3'])
+    expect(error.code).toBe('unsupported_legacy_artifact')
+    expect(error.message).toBe('unsupported_legacy_artifact')
   })
 
-  it('applies prior correction and persists additive JSONB metadata for M1 rows', () => {
-    const row = buildM1ShadowPredictionV3Row({
+  it('fails closed before applying prior correction to a legacy v1 M1 row', () => {
+    const error = captureUnsupportedLegacyArtifactError(() => buildM1ShadowPredictionV3Row({
       themeId: 'theme-1',
       predictionDate: '2026-07-06',
       featureVector: featureVector({ values: [1.4826, ...FEATURE_NAMES.slice(1).map(() => 0)] }),
-      artifact: artifact(),
+      artifact: legacyArtifact(),
       modelVersion: 'm1-golden',
       paramVersion: TLI_V3_M1_PARAM_VERSION,
       recentBaseRate: 0.25,
-    })
+    }))
 
-    expect(row.pRise).toBeCloseTo(0.4753668864, 10)
-    expect(row.features.priorCorrection).toEqual({
-      trainRate: 0.5,
-      recentRate: 0.25,
-      w: 1 / 3,
-    })
-    expect(toThemePredictionV3Record(row)).toMatchObject({
-      features: {
-        prior_correction: {
-          train_rate: 0.5,
-          recent_rate: 0.25,
-          w: 1 / 3,
-        },
-      },
-    })
+    expect(error.code).toBe('unsupported_legacy_artifact')
+    expect(error.message).toBe('unsupported_legacy_artifact')
   })
 })
