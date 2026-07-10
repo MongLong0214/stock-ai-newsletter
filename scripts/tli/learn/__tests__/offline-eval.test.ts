@@ -6,7 +6,6 @@ import {
   buildM1Predictions,
   buildM1TrainingDatasetDump,
   buildOfflineEvalReport,
-  renderOfflineEvalMarkdown,
 } from '../offline-eval'
 
 const artifact = {
@@ -62,6 +61,12 @@ const lowRecentRateLabels = Array.from({ length: 300 }, (_, index) => ({
   y: index < 75,
 })) satisfies readonly BaselineGtLabelRow[]
 
+const STUDY_LOCK = {
+  studyContractId: 'study-todo-10',
+  studyContractSha256: 'a'.repeat(64),
+  studyOriginScheduleSha256: 'b'.repeat(64),
+}
+
 describe('T-205 offline eval report', () => {
   it('builds M1 predictions from the artifact using sklearn Platt sigmoid semantics', () => {
     const predictions = buildM1Predictions(featureRows, artifact)
@@ -89,8 +94,8 @@ describe('T-205 offline eval report', () => {
     expect(dataset.rows[0].theme_id).toBe('theme-a')
   })
 
-  it('reports B-abl, M0, M1 metrics, cluster CI, and censored label rate', () => {
-    const report = buildOfflineEvalReport({
+  it('fails closed instead of falling back to retired baselines without immutable study input', () => {
+    expect(() => buildOfflineEvalReport({
       startDate: '2026-07-06',
       endDate: '2026-07-07',
       labels,
@@ -98,21 +103,11 @@ describe('T-205 offline eval report', () => {
       featureRows,
       labelStatusCounts: { final: 4, censored: 1, excluded: 1, pending: 0 },
       m1Predictions: buildM1Predictions(featureRows, artifact),
-    })
-
-    expect(report.reportVersion).toBe('tli-offline-eval-report-v1')
-    expect(report.models.bAbl.rawN).toBe(4)
-    expect(report.models.m0.rawN).toBe(4)
-    expect(report.models.m1.raw.nScored).toBe(3)
-    expect(report.labelStatus.censoredRate).toBeCloseTo(1 / 6, 6)
-    expect(report.m1TrainingFailures).toEqual([])
-    expect(report.brierDeltaCi.m1VsBAbl.metric).toBe('brier')
-    expect(report.brierDeltaCi.m1VsM0.confidenceLevel).toBe(0.99)
-    expect(renderOfflineEvalMarkdown(report)).toContain('censored 1 (0.1667)')
+    }, STUDY_LOCK)).toThrow(/requires an immutable scientificBaseline study contract/)
   })
 
-  it('computes the gating Brier delta CI on the non-overlapping (Monday) subset, not the full overlapping sample (B-4/N3)', () => {
-    const report = buildOfflineEvalReport({
+  it('rejects a malformed immutable study identity before evaluation', () => {
+    expect(() => buildOfflineEvalReport({
       startDate: '2026-07-06',
       endDate: '2026-07-07',
       labels,
@@ -120,13 +115,14 @@ describe('T-205 offline eval report', () => {
       featureRows,
       labelStatusCounts: { final: 4, censored: 1, excluded: 1, pending: 0 },
       m1Predictions: buildM1Predictions(featureRows, artifact),
-    })
-
-    // 2026-07-06 is a Monday (theme-a, theme-b); 2026-07-07 is a Tuesday (theme-c scored, theme-d abstains).
-    // The gating CI must only pair the Monday rows; the overlapping-raw CI may include the Tuesday row too.
-    expect(report.brierDeltaCi.m1VsBAbl.observationCount).toBe(2)
-    expect(report.brierDeltaCi.m1VsBAblOverlappingRaw.observationCount).toBe(3)
-    expect(report.brierDeltaCi.m1VsM0.observationCount).toBe(2)
-    expect(report.brierDeltaCi.m1VsM0OverlappingRaw.observationCount).toBe(3)
+      scientificBaseline: {
+        datasetManifest: {
+          study_contract_id: 'study-invalid',
+          study_contract_sha256: 'not-a-sha',
+        },
+        origins: [],
+        rows: [],
+      },
+    }, STUDY_LOCK)).toThrow(/64-hex study_contract_sha256/)
   })
 })

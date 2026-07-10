@@ -17,6 +17,7 @@ import {
   resolveEvalWindow,
   type EvalDataDateBounds,
 } from './offline-eval-window'
+import { scientificBaselineStudyLockSchema } from './offline-eval-study-lock'
 
 process.env.DOTENV_CONFIG_QUIET = process.env.DOTENV_CONFIG_QUIET ?? 'true'
 
@@ -39,6 +40,10 @@ const ensureParentDir = (path: string): void => {
 
 const loadInputFile = (inputPath: string): OfflineEvalInput => (
   JSON.parse(readFileSync(inputPath, 'utf8')) as OfflineEvalInput
+)
+
+const loadStudyLockFile = (path: string) => (
+  scientificBaselineStudyLockSchema.parse(JSON.parse(readFileSync(path, 'utf8')) as unknown)
 )
 
 const loadDbDateBounds = async (): Promise<EvalDataDateBounds> => {
@@ -134,6 +139,9 @@ async function main(): Promise<void> {
   const jsonOutput = readArg('json-output', DEFAULT_JSON_OUTPUT) ?? DEFAULT_JSON_OUTPUT
   const markdownOutput = readArg('markdown-output', DEFAULT_MARKDOWN_OUTPUT) ?? DEFAULT_MARKDOWN_OUTPUT
   const workDir = readArg('work-dir', DEFAULT_WORK_DIR) ?? DEFAULT_WORK_DIR
+  const studyLockPath = readArg('study-lock')
+  if (studyLockPath === null) throw new Error('offline evaluation requires --study-lock=<trusted-lock.json>')
+  const studyLock = loadStudyLockFile(studyLockPath)
   const labelerVersion = readArg('labeler-version', 'gta-v1') ?? 'gta-v1'
   const trainedAt = readArg('trained-at', endDate) ?? endDate
   const input = inputFile ? { ...inputFile, startDate, endDate } : await loadDbInput(startDate, endDate)
@@ -146,7 +154,7 @@ async function main(): Promise<void> {
   })
   const m1Predictions = input.m1Predictions ?? generated?.predictions ?? []
   const m1TrainingFailures = input.m1TrainingFailures ?? generated?.failures ?? []
-  const report = buildOfflineEvalReport({ ...input, m1Predictions, m1TrainingFailures })
+  const report = buildOfflineEvalReport({ ...input, m1Predictions, m1TrainingFailures }, studyLock)
 
   ensureParentDir(jsonOutput)
   ensureParentDir(markdownOutput)

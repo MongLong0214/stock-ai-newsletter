@@ -1,6 +1,5 @@
 import { FEATURE_NAMES } from '../../../lib/tli/features/build-features'
 import type { BaselineFeatureRow, BaselineGtLabelRow, BaselineSnapshotRow } from '../../../lib/tli/model/baselines'
-import { buildM0Predictions } from '../../../lib/tli/model/baselines'
 import { predictM1Probability, type M1ModelArtifact } from '../../../lib/tli/model/m1'
 import { applyPriorCorrection, computeTrailingFinalBaseRate } from '../../../lib/tli/model/prior-correction'
 import {
@@ -12,8 +11,21 @@ import {
   type EvalPredictionRow,
   type PredictionEvaluationSummary,
 } from '../../../lib/tli/eval/harness'
+import {
+  buildScientificBaselineEvaluation,
+  type ScientificBaselineEvaluation,
+  type ScientificBaselineInput,
+} from './offline-eval-baselines'
+import {
+  buildScientificBaselineGateInput,
+  createScientificBaselineGateInputSchema,
+  type ScientificBaselineGateInput,
+} from './offline-eval-baseline-gate'
+import type { ScientificBaselineStudyLock } from './offline-eval-study-lock'
 
-export const OFFLINE_EVAL_REPORT_VERSION = 'tli-offline-eval-report-v1'
+export { createScientificBaselineGateInputSchema }
+
+export const OFFLINE_EVAL_REPORT_VERSION = 'tli-offline-eval-report-v2'
 export const M1_TRAINING_DATASET_VERSION = 'tli-m1-training-dataset-v1'
 
 export interface LabelStatusCounts {
@@ -30,6 +42,7 @@ export interface OfflineEvalInput {
   readonly snapshots: readonly BaselineSnapshotRow[]
   readonly featureRows: readonly BaselineFeatureRow[]
   readonly labelStatusCounts: LabelStatusCounts
+  readonly scientificBaseline?: ScientificBaselineInput
   readonly m1Predictions?: readonly EvalPredictionRow[]
   readonly m1TrainingFailures?: readonly M1TrainingFailure[]
 }
@@ -61,17 +74,16 @@ export interface OfflineEvalReport {
   readonly endDate: string
   readonly models: {
     readonly bAbl: PredictionEvaluationSummary
-    readonly m0: PredictionEvaluationSummary
     readonly m1: PredictionEvaluationSummary
   }
   readonly brierDeltaCi: {
     /** B-4: 5일 horizon 겹침 자기상관으로 CI가 낙관 왜곡되므로 비중복(주 1 기준일) 서브셋으로 계산 — 게이팅 기준 */
     readonly m1VsBAbl: BrierDeltaCi
-    readonly m1VsM0: BrierDeltaCi
     /** 겹침(전체) 표본의 참고용 CI — 게이팅에는 사용하지 않는다 */
     readonly m1VsBAblOverlappingRaw: BrierDeltaCi
-    readonly m1VsM0OverlappingRaw: BrierDeltaCi
   }
+  readonly baselines: ScientificBaselineEvaluation
+  readonly baselineGateInput: ScientificBaselineGateInput
   readonly labelStatus: LabelStatusCounts & {
     readonly total: number
     readonly censoredRate: number
@@ -91,39 +103,8 @@ export interface OfflineEvalReport {
 
 const makeId = (themeId: string, baseDate: string) => `${themeId}|${baseDate}`
 
-const baseRate = (labels: readonly BaselineGtLabelRow[]): number | null => (
-  labels.length === 0 ? null : labels.filter((label) => label.y).length / labels.length
-)
-
 const restrictToIds = (rows: readonly EvalPredictionRow[], ids: ReadonlySet<string> | null): EvalPredictionRow[] => (
   ids === null ? [...rows] : rows.filter((row) => ids.has(row.id))
-)
-
-const buildBAblEvalRows = (
-  labels: readonly BaselineGtLabelRow[],
-  snapshots: readonly BaselineSnapshotRow[],
-): EvalPredictionRow[] => {
-  const snapshotsById = new Map(snapshots.map((snapshot) => [makeId(snapshot.themeId, snapshot.snapshotDate), snapshot]))
-  return labels.map((label) => {
-    const snapshot = snapshotsById.get(makeId(label.themeId, label.baseDate))
-    return {
-      id: makeId(label.themeId, label.baseDate),
-      themeId: label.themeId,
-      baseDate: label.baseDate,
-      probability: snapshot ? snapshot.phase === 'rising' ? 1 : 0 : null,
-      y: label.y,
-    }
-  })
-}
-
-const toEvalRows = (rows: readonly ReturnType<typeof buildM0Predictions>[number][]): EvalPredictionRow[] => (
-  rows.map((row) => ({
-    id: row.id,
-    themeId: row.themeId,
-    baseDate: row.baseDate,
-    probability: row.probability,
-    y: row.y,
-  }))
 )
 
 export function buildM1Predictions(
@@ -194,14 +175,18 @@ export function summarizeWalkForwardFolds(rows: readonly BaselineFeatureRow[]) {
   }))
 }
 
-export function buildOfflineEvalReport(input: OfflineEvalInput): OfflineEvalReport {
+export function buildOfflineEvalReport(
+  input: OfflineEvalInput,
+  studyLock: ScientificBaselineStudyLock,
+): OfflineEvalReport {
+  if (input.scientificBaseline === undefined) {
+    throw new Error('offline evaluation requires an immutable scientificBaseline study contract')
+  }
   const m1Predictions = input.m1Predictions ?? []
   const evalIds = m1Predictions.length === 0 ? null : new Set(m1Predictions.map((row) => row.id))
-  const bAbl = restrictToIds(buildBAblEvalRows(input.labels, input.snapshots), evalIds)
-  const m0 = restrictToIds(toEvalRows(buildM0Predictions({
-    featureRows: input.featureRows,
-    baseRate: baseRate(input.labels),
-  })), evalIds)
+  const baselines = buildScientificBaselineEvaluation(input.scientificBaseline, studyLock)
+  const baselineGateInput = buildScientificBaselineGateInput(baselines, studyLock)
+  const bAbl = restrictToIds(baselines.primaryPredictions, evalIds)
   const m1 = restrictToIds(m1Predictions, evalIds)
   const totalLabels = Object.values(input.labelStatusCounts).reduce((sum, count) => sum + count, 0)
 
@@ -209,7 +194,6 @@ export function buildOfflineEvalReport(input: OfflineEvalInput): OfflineEvalRepo
   // 게이팅에 쓰는 CI는 반드시 비중복(주 1 기준일) 서브셋으로 계산한다. nEff(challenger 표본 크기)도
   // 동일한 weekly-Monday 정의를 쓰므로(gate-input-from-db.ts) 두 값이 같은 표본 정의에 결속된다.
   const bAblNonOverlapping = selectWeeklyMondaySubset(bAbl)
-  const m0NonOverlapping = selectWeeklyMondaySubset(m0)
   const m1NonOverlapping = selectWeeklyMondaySubset(m1)
 
   return {
@@ -218,15 +202,14 @@ export function buildOfflineEvalReport(input: OfflineEvalInput): OfflineEvalRepo
     endDate: input.endDate,
     models: {
       bAbl: evaluateWithWeeklyMondaySubset(bAbl),
-      m0: evaluateWithWeeklyMondaySubset(m0),
       m1: evaluateWithWeeklyMondaySubset(m1),
     },
     brierDeltaCi: {
       m1VsBAbl: computeBrierDeltaCi({ baseline: bAblNonOverlapping, candidate: m1NonOverlapping, confidenceLevel: 0.99 }),
-      m1VsM0: computeBrierDeltaCi({ baseline: m0NonOverlapping, candidate: m1NonOverlapping, confidenceLevel: 0.99 }),
       m1VsBAblOverlappingRaw: computeBrierDeltaCi({ baseline: bAbl, candidate: m1, confidenceLevel: 0.99 }),
-      m1VsM0OverlappingRaw: computeBrierDeltaCi({ baseline: m0, candidate: m1, confidenceLevel: 0.99 }),
     },
+    baselines,
+    baselineGateInput,
     labelStatus: {
       ...input.labelStatusCounts,
       total: totalLabels,
