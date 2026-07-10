@@ -13,12 +13,20 @@ interface WorkflowStep {
   readonly run?: string
   readonly uses?: string
   readonly env?: Record<string, string>
+  readonly with?: Record<string, unknown>
   readonly 'continue-on-error'?: boolean
 }
 
 interface Workflow {
-  readonly on: { readonly schedule?: readonly { readonly cron: string }[] }
-  readonly jobs: Record<string, { readonly env?: Record<string, string>; readonly steps: readonly WorkflowStep[] }>
+  readonly on: {
+    readonly schedule?: readonly { readonly cron: string }[]
+    readonly workflow_dispatch?: { readonly inputs: Record<string, Record<string, unknown>> }
+  }
+  readonly jobs: Record<string, {
+    readonly env?: Record<string, string>
+    readonly permissions?: Record<string, string>
+    readonly steps: readonly WorkflowStep[]
+  }>
 }
 
 const readWorkflow = (file: string): Workflow => load(readFileSync(`.github/workflows/${file}`, 'utf8')) as Workflow
@@ -159,44 +167,46 @@ describe('tli-collect-data.yml contract', () => {
 describe('tli-weekly-learn.yml contract', () => {
   const steps = weeklyLearnJob.steps
 
-  it('pins uv 0.9.25 and CPython 3.13.11 instead of setup-python + pip', () => {
-    expect(weeklyLearnJob.env?.UV_VERSION).toBe('0.9.25')
-    expect(weeklyLearnJob.env?.PYTHON_VERSION).toBe('3.13.11')
-    expect(steps.some((step) => step.uses?.startsWith('actions/setup-python'))).toBe(false)
-    expect(steps.some((step) => step.run?.includes('pip install'))).toBe(false)
-
-    expect(stepByName(steps, 'Setup pinned uv').run).toContain('https://astral.sh/uv/${UV_VERSION}/install.sh')
-    const verify = stepByName(steps, 'Verify pinned uv and CPython')
-    expect(verify.run).toContain('uv python install "${PYTHON_VERSION}"')
-    expect(verify.run).toContain('exit 1')
+  it('keeps the scheduled job read-only and inspects lifecycle state without evaluating a gate', () => {
+    expect(weeklyLearnJob.permissions).toEqual({ contents: 'read' })
+    const inspect = stepByName(steps, 'Inspect prospective lifecycle')
+    expect(inspect.if).toContain("github.event_name == 'schedule'")
+    expect(inspect.run).toContain('tli:weekly-learn -- inspect')
+    expect(inspect.run).not.toContain('render-decision')
+    expect(inspect.run).not.toContain('record-decision')
   })
 
-  it('runs training with the deterministic hash seed and BLAS single-thread env', () => {
-    const step = stepByName(steps, 'train-new-challenger')
-    expect(step.env?.PYTHONHASHSEED).toBe('0')
-    expect(step.env?.OMP_NUM_THREADS).toBe('1')
-    expect(step.env?.OPENBLAS_NUM_THREADS).toBe('1')
-    expect(step.env?.MKL_NUM_THREADS).toBe('1')
-    expect(step.env?.TLI_TRAINING_CODE_GIT_SHA).toBe('${{ github.sha }}')
+  it('removes legacy repeated evaluation, promotion, rollback, extension, and retraining paths', () => {
+    const workflowText = readFileSync('.github/workflows/tli-weekly-learn.yml', 'utf8')
+    expect(workflowText).not.toMatch(
+      /checkpoint-check|evaluate-challenger|promote-or-keep|train-new-challenger|rollback-check|extend_to_next_checkpoint/,
+    )
   })
 
-  it('skips training on a not-due checkpoint and on an extend gate result', () => {
-    const step = stepByName(steps, 'train-new-challenger')
-    expect(step.if).toContain("steps.checkpoint-check.outputs.checkpoint_due == 'true'")
-    expect(step.if).toContain("steps.evaluate-challenger.outputs.gate_action != 'extend_to_next_checkpoint'")
-    expect(step.if).not.toContain('workflow_dispatch')
+  it('records only a committed artifact from explicit dispatch with no verdict override', () => {
+    const record = stepByName(steps, 'Record committed prospective decision')
+    expect(record.if).toBe("github.event_name == 'workflow_dispatch' && inputs.operation == 'record-decision'")
+    expect(record.run).toContain('--kind="${TLI_DECISION_KIND}"')
+    expect(record.run).toContain('--cycle-id="${TLI_CYCLE_ID}"')
+    expect(record.run).toContain('--evidence-commit="${TLI_EVIDENCE_COMMIT_SHA}"')
+    expect(record.run).toContain('--dry-run="${TLI_DRY_RUN}"')
+    expect(record.run).not.toMatch(/--pass|--decision=/)
+    expect(record.env?.TLI_M1_PROMOTION_ENABLED).toBe('${{ vars.TLI_M1_PROMOTION_ENABLED }}')
   })
 
-  it('publishes the gate action needed to gate training', () => {
-    const step = stepByName(steps, 'evaluate-challenger')
-    expect(step.id).toBe('evaluate-challenger')
-    expect(step.run).toContain('gate_action=')
+  it('declares the exact inspect and committed-record dispatch surface', () => {
+    const inputs = weeklyLearnWorkflow.on.workflow_dispatch?.inputs
+    expect(inputs?.operation?.options).toEqual(['inspect', 'record-decision'])
+    expect(inputs?.decision_kind?.options).toEqual(['safety', 'final'])
+    expect(inputs).toHaveProperty('cycle_id')
+    expect(inputs).toHaveProperty('evidence_commit_sha')
   })
 
-  it('surfaces a frozen registry as an explicit disabled result, not a success', () => {
-    const step = stepByName(steps, 'registration status')
-    expect(step.run).toContain('registration_disabled')
-    expect(step.run).toContain('::warning::')
+  it('fetches committed Git history and uploads the machine-readable result', () => {
+    expect(stepByName(steps, 'Checkout code').with?.['fetch-depth']).toBe(0)
+    const upload = stepByName(steps, 'Upload prospective gate result')
+    expect(upload.if).toBe('always()')
+    expect(upload.uses).toMatch(/^actions\/upload-artifact@/)
   })
 })
 

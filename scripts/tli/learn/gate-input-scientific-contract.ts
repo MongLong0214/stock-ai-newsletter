@@ -1,4 +1,4 @@
-import type { PromotionGateInput } from './promotion-gate'
+import type { PromotionGateInput } from './legacy-promotion-gate'
 
 export interface ScientificExpectedTheme {
   readonly originId: string

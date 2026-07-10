@@ -5,9 +5,33 @@ on:
     - cron: '0 21 * * 6'
   workflow_dispatch:
     inputs:
-      dry_run:
-        description: 'Run without model_registry writes'
+      operation:
+        description: 'Read lifecycle state or record an already committed gate artifact'
+        required: true
+        default: inspect
+        type: choice
+        options:
+          - inspect
+          - record-decision
+      cycle_id:
+        description: 'Canonical prospective cycle UUID; optional only for inspect'
         required: false
+        type: string
+      decision_kind:
+        description: 'Committed decision artifact kind'
+        required: true
+        default: safety
+        type: choice
+        options:
+          - safety
+          - final
+      evidence_commit_sha:
+        description: 'Full Git commit containing the immutable decision artifact'
+        required: false
+        type: string
+      dry_run:
+        description: 'Verify committed evidence without calling the decision RPC'
+        required: true
         default: true
         type: boolean
 
@@ -21,15 +45,17 @@ jobs:
     timeout-minutes: 45
     permissions:
       contents: read
-      issues: write
     env:
-      TLI_DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run || 'false' }}
-      UV_VERSION: '0.9.25'
-      PYTHON_VERSION: '3.13.11'
+      TLI_CYCLE_ID: ${{ inputs.cycle_id }}
+      TLI_DECISION_KIND: ${{ inputs.decision_kind }}
+      TLI_EVIDENCE_COMMIT_SHA: ${{ inputs.evidence_commit_sha }}
+      TLI_DRY_RUN: ${{ inputs.dry_run }}
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -37,179 +63,42 @@ jobs:
           node-version: '20'
           cache: 'npm'
 
-      # 과학 실행 런타임은 master plan "첫 confirmatory 모델 계약"에 고정돼 있다.
-      # setup-python + 미고정 pip install은 재현성을 깨므로 쓰지 않는다.
-      - name: Setup pinned uv
-        run: |
-          curl -LsSf "https://astral.sh/uv/${UV_VERSION}/install.sh" | sh
-          echo "${HOME}/.local/bin" >> "$GITHUB_PATH"
-
-      - name: Verify pinned uv and CPython
-        run: |
-          installed="$(uv --version | awk '{print $2}')"
-          if [ "${installed}" != "${UV_VERSION}" ]; then
-            echo "::error::uv ${installed} != required ${UV_VERSION}"
-            exit 1
-          fi
-          uv python install "${PYTHON_VERSION}"
-
       - name: Install dependencies
         run: npm ci
 
-      # 다음 evaluate-challenger/promote-or-keep 게이팅에 쓸 checkpoint_due를 job output으로 노출한다 (N8).
-      - name: checkpoint-check
-        id: checkpoint-check
+      - name: Inspect prospective lifecycle
+        if: github.event_name == 'schedule' || inputs.operation == 'inspect'
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: |
-          npm run tli:weekly-learn -- --step=checkpoint-check --dry-run="${TLI_DRY_RUN}" --json-output=tli-weekly-learn-checkpoint.json
-          echo "checkpoint_due=$(node -p "require('./tli-weekly-learn-checkpoint.json').checkpointDue")" >> "$GITHUB_OUTPUT"
-
-      - name: rollback-check
-        env:
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-        run: npm run tli:weekly-rollback -- --dry-run="${TLI_DRY_RUN}" --scenario=rollback --json-output=tli-weekly-learn-rollback.json
-
-      # gate-input은 theme_predictions_v3 + model_registry에서 직접 계산한다 (A3).
-      # --gate-input 파일은 존재할 때만 수동 오버라이드로 사용되며, 스케줄 실행에서는 만들지 않는다.
-      # 체크포인트가 아닌 주(checkpoint_due=false)의 스케줄 실행은 건너뛴다 — 매주 승격 판정을 반복
-      # 실행하면 §5.7 peeking 금지를 위반한다. workflow_dispatch 수동 실행은 항상 실행된다.
-      # gate.action은 train-new-challenger 게이팅에 쓴다 (extend에서 새 challenger 학습 금지).
-      - name: evaluate-challenger
-        id: evaluate-challenger
-        if: steps.checkpoint-check.outputs.checkpoint_due == 'true' || github.event_name == 'workflow_dispatch'
-        env:
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-        run: |
-          if [ "${TLI_DRY_RUN}" = "true" ]; then
-            npm run tli:weekly-learn -- --step=evaluate-challenger --dry-run=true --scenario=promote --json-output=tli-weekly-learn-gate.json
+          if [ -n "${TLI_CYCLE_ID}" ]; then
+            npm run tli:weekly-learn -- inspect --cycle-id="${TLI_CYCLE_ID}" --json-output=tli-weekly-learn-inspect.json
           else
-            npm run tli:weekly-learn -- --step=evaluate-challenger --json-output=tli-weekly-learn-gate.json
+            npm run tli:weekly-learn -- inspect --json-output=tli-weekly-learn-inspect.json
           fi
-          echo "gate_action=$(node -p "require('./tli-weekly-learn-gate.json').gate.action")" >> "$GITHUB_OUTPUT"
 
-      - name: promote-or-keep
-        if: steps.checkpoint-check.outputs.checkpoint_due == 'true' || github.event_name == 'workflow_dispatch'
+      - name: Record committed prospective decision
+        if: github.event_name == 'workflow_dispatch' && inputs.operation == 'record-decision'
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-        run: npm run tli:weekly-learn -- --step=promote-or-keep --dry-run="${TLI_DRY_RUN}" --gate-result=tli-weekly-learn-gate.json --json-output=tli-weekly-learn-promotion.json
+          TLI_M1_PROMOTION_ENABLED: ${{ vars.TLI_M1_PROMOTION_ENABLED }}
+        run: >-
+          npm run tli:weekly-learn -- record-decision
+          --kind="${TLI_DECISION_KIND}"
+          --cycle-id="${TLI_CYCLE_ID}"
+          --evidence-commit="${TLI_EVIDENCE_COMMIT_SHA}"
+          --dry-run="${TLI_DRY_RUN}"
+          --json-output=tli-weekly-learn-record.json
 
-      # training-dataset 파일이 없으면 offline-eval-data 로더로 DB에서 직접 생성한다 (A3).
-      # checkpoint_due=false(not-due) 또는 gate가 extend_to_next_checkpoint면 새 challenger를 학습하지 않는다.
-      # 승격 판정 사이클과 학습 사이클을 분리하지 않으면 매주 재학습된 챌린저가 사실상 매주 재평가를
-      # 유도해 §5.7 peeking 금지를 위반한다. dry-run dispatch는 checkpoint-check가 due=true를 반환한다.
-      - name: train-new-challenger
-        id: train-new-challenger
-        if: steps.checkpoint-check.outputs.checkpoint_due == 'true' && steps.evaluate-challenger.outputs.gate_action != 'extend_to_next_checkpoint'
-        env:
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          # 과학 실행 결정론 (uv run --frozen --python 3.13.11 + 고정 hash seed + BLAS single-thread)
-          PYTHONHASHSEED: '0'
-          OMP_NUM_THREADS: '1'
-          OPENBLAS_NUM_THREADS: '1'
-          MKL_NUM_THREADS: '1'
-          TLI_TRAINING_CODE_GIT_SHA: ${{ github.sha }}
-        run: npm run tli:weekly-learn -- --step=train-new-challenger --dry-run="${TLI_DRY_RUN}" --training-dataset=tli-m1-training.json --artifact-output=tli-m1-artifact.json --json-output=tli-weekly-learn-training.json
-
-      # Todo 1 이후 registry는 동결 상태다. 학습은 되지만 등록이 막힌 경로를 success로 위장하지 않는다.
-      - name: registration status
-        if: always() && steps.train-new-challenger.outcome == 'success'
-        run: |
-          action="$(node -p "require('./tli-weekly-learn-training.json').action" 2>/dev/null || echo 'unknown')"
-          if [ "${action}" = "registration_disabled" ]; then
-            echo "::warning::model_registry challenger registration is disabled (TLI_M1_REGISTRATION_ENABLED != 'true'); no challenger was registered"
-          fi
-          echo "- train-new-challenger action: \`${action}\`" >> "$GITHUB_STEP_SUMMARY"
-
-      - name: report
+      - name: Upload prospective gate result
         if: always()
-        run: npm run tli:weekly-learn -- --step=report --gate-result=tli-weekly-learn-gate.json --promotion-result=tli-weekly-learn-promotion.json --rollback-result=tli-weekly-learn-rollback.json --json-output=tli-weekly-learn-report.json
-
-      - name: Open rollback issue
-        if: always()
-        uses: actions/github-script@v7
+        uses: actions/upload-artifact@v4
         with:
-          script: |
-            const fs = require('fs');
-            if (!fs.existsSync('tli-weekly-learn-rollback.json')) return;
-            const rollback = JSON.parse(fs.readFileSync('tli-weekly-learn-rollback.json', 'utf8'));
-            if (rollback.dryRun || rollback.action !== 'rolled_back') return;
-            const marker = '<!-- tli-weekly-rollback -->';
-            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
-            const body = [
-              marker,
-              '## TLI automatic rollback',
-              '',
-              `Run: ${runUrl}`,
-              '',
-              '```json',
-              JSON.stringify(rollback, null, 2),
-              '```',
-            ].join('\n');
-            await github.rest.issues.create({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              title: 'TLI automatic rollback',
-              body,
-            });
-
-      - name: Open fail-safe issue
-        if: failure()
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const fs = require('fs');
-            const marker = '<!-- tli-weekly-learn-failure -->';
-            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
-            const readJson = (path) => {
-              if (!fs.existsSync(path)) return null;
-              try {
-                return JSON.parse(fs.readFileSync(path, 'utf8'));
-              } catch (error) {
-                return { parseError: error.message };
-              }
-            };
-            const body = [
-              marker,
-              '## TLI weekly learn fail-safe',
-              '',
-              `Run: ${runUrl}`,
-              `Dry run: ${process.env.TLI_DRY_RUN || 'false'}`,
-              '',
-              '```json',
-              JSON.stringify({
-                checkpoint: readJson('tli-weekly-learn-checkpoint.json'),
-                rollback: readJson('tli-weekly-learn-rollback.json'),
-                gate: readJson('tli-weekly-learn-gate.json'),
-                promotion: readJson('tli-weekly-learn-promotion.json'),
-                training: readJson('tli-weekly-learn-training.json'),
-              }, null, 2),
-              '```',
-            ].join('\n');
-            const existing = await github.rest.issues.listForRepo({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              state: 'open',
-              per_page: 50,
-            });
-            const duplicate = existing.data.find((issue) => issue.body?.includes(marker));
-            if (duplicate) {
-              await github.rest.issues.createComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: duplicate.number,
-                body,
-              });
-              return;
-            }
-            await github.rest.issues.create({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              title: 'TLI weekly learn fail-safe',
-              body,
-            });
+          name: tli-weekly-learn-${{ github.run_id }}
+          path: |
+            tli-weekly-learn-inspect.json
+            tli-weekly-learn-record.json
+          if-no-files-found: warn
+          retention-days: 30

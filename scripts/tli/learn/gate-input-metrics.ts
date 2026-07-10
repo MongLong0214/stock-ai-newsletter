@@ -6,7 +6,7 @@ import {
   selectWeeklyMondaySubset,
 } from '../../../lib/tli/eval/harness'
 import type { EvalPredictionRow } from '../../../lib/tli/eval/harness'
-import type { PromotionGateInput } from './promotion-gate'
+import type { PromotionGateInput } from './legacy-promotion-gate'
 
 export interface ScoredPredictionRow {
   readonly theme_id: string

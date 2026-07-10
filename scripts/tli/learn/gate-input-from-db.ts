@@ -1,5 +1,5 @@
 import { supabaseAdmin } from '../shared/supabase-admin'
-import type { PromotionGateInput } from './promotion-gate'
+import type { PromotionGateInput } from './legacy-promotion-gate'
 import {
   buildPromotionGateInputFromRows,
   type ModelRegistryHistoryRow,
@@ -26,6 +26,10 @@ export {
   type ScientificPromotionGateInputResult,
 } from './gate-input-scientific'
 export { buildScientificPromotionGateInputFromDb } from './gate-input-scientific-db'
+export { assembleProspectiveGateInput } from './prospective-gate-input-assembly'
+export { loadProspectiveGateInputFromDb } from './prospective-gate-input-db'
+export { buildFinalPromotionGateInput } from './prospective-gate-input-final'
+export type * from './prospective-gate-input-contract'
 
 type ServingRole = 'champion' | 'challenger'
 
