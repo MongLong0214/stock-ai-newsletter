@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 import { beforeAll, describe, expect, it } from 'vitest'
@@ -10,6 +10,10 @@ const migrationPath = join(
 const snapshotMigrationPath = join(
   process.cwd(),
   'supabase/migrations/046_tli_immutable_source_snapshots.sql',
+)
+const triggerBindingFixMigrationPath = join(
+  process.cwd(),
+  'supabase/migrations/051_tli_fix_observation_trigger_binding.sql',
 )
 const storePath = join(process.cwd(), 'scripts/tli/collectors/collection-run-store.ts')
 
@@ -27,6 +31,12 @@ beforeAll(() => {
 
 const functionSql = (name: string): string => {
   const match = sql.match(new RegExp(`CREATE OR REPLACE FUNCTION public\\.${name}\\([\\s\\S]*?\\n\\$\\$;`))
+  expect(match, `missing CREATE OR REPLACE FUNCTION public.${name}`).not.toBeNull()
+  return match?.[0].replace(/\s+/g, ' ').trim() ?? ''
+}
+
+const functionSqlFrom = (source: string, name: string): string => {
+  const match = source.match(new RegExp(`CREATE OR REPLACE FUNCTION public\\.${name}\\([\\s\\S]*?\\n\\$\\$;`))
   expect(match, `missing CREATE OR REPLACE FUNCTION public.${name}`).not.toBeNull()
   return match?.[0].replace(/\s+/g, ' ').trim() ?? ''
 }
@@ -191,5 +201,45 @@ describe('migration 050 append_tli_collection_run contract', () => {
     expect(snapshotSql).toContain('CREATE CONSTRAINT TRIGGER validate_tli_collection_run_after_insert')
     expect(snapshotSql).toContain('DEFERRABLE INITIALLY DEFERRED')
     expect(snapshotSql).toContain('complete collection run does not contain the exact expected key set')
+  })
+})
+
+describe('migration 051 observation trigger record binding contract', () => {
+  it('replaces only the unsafe cross-table NEW-field CASE with statement-level branches', () => {
+    // Given: 046 is already applied and its trigger function must otherwise remain byte-for-byte equivalent.
+    expect(existsSync(triggerBindingFixMigrationPath), 'migration 051 must exist').toBe(true)
+    const fixSql = readFileSync(triggerBindingFixMigrationPath, 'utf8')
+    const originalFunction = functionSqlFrom(
+      readFileSync(snapshotMigrationPath, 'utf8'),
+      'validate_tli_collection_run_observations',
+    )
+    const fixedFunction = functionSqlFrom(fixSql, 'validate_tli_collection_run_observations')
+    const unsafeBinding = [
+      'v_run_id := CASE',
+      "WHEN TG_TABLE_NAME = 'tli_collection_runs' THEN NEW.id",
+      'ELSE NEW.collection_run_id',
+      'END;',
+    ].join(' ')
+    const safeBinding = [
+      "IF TG_TABLE_NAME = 'tli_collection_runs' THEN",
+      'v_run_id := NEW.id;',
+      "ELSIF TG_TABLE_NAME IN ('tli_interest_observations', 'tli_news_observations', 'tli_babl_phase_observations') THEN",
+      'v_run_id := NEW.collection_run_id;',
+      'END IF;',
+    ].join(' ')
+
+    // When: migration 051 replaces the function.
+    // Then: only the binding statement changes, preserving signature, security, search_path, and all validation logic.
+    expect(fixedFunction).toBe(originalFunction.replace(unsafeBinding, safeBinding))
+  })
+
+  it('ships as one transactional function replacement without recreating applied triggers', () => {
+    expect(existsSync(triggerBindingFixMigrationPath), 'migration 051 must exist').toBe(true)
+    const normalizedFixSql = readFileSync(triggerBindingFixMigrationPath, 'utf8').replace(/\s+/g, ' ').trim()
+
+    expect(normalizedFixSql).toMatch(/^BEGIN;/)
+    expect(normalizedFixSql).toMatch(/COMMIT;$/)
+    expect(normalizedFixSql).not.toContain('v_run_id := CASE')
+    expect(normalizedFixSql).not.toContain('CREATE CONSTRAINT TRIGGER')
   })
 })
