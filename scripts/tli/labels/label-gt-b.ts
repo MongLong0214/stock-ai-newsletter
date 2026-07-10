@@ -121,7 +121,7 @@ export async function generateGtBLabelsForBaseDate(baseDate: string): Promise<Gt
     if (result.status === 'excluded') excludedCount++
   }
 
-  await batchUpsert('theme_labels', rows, 'theme_id,base_date,label_type,horizon_days', 'GT-B 라벨')
+  await batchUpsert('theme_labels', rows, 'theme_id,base_date,label_type,horizon_days,labeler_version', 'GT-B 라벨')
   return {
     baseDate,
     totalThemes: themes.length,

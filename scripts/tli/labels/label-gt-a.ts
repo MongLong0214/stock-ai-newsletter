@@ -245,6 +245,6 @@ export async function generateGtALabelsForBaseDate(input: {
     if (result.status === 'excluded') excludedCount++
   }
 
-  await batchUpsert('theme_labels', rows, 'theme_id,base_date,label_type,horizon_days', 'GT-A 라벨')
+  await batchUpsert('theme_labels', rows, 'theme_id,base_date,label_type,horizon_days,labeler_version', 'GT-A 라벨')
   return { baseDate, totalThemes: themes.length, pendingCount, finalCount, censoredCount, excludedCount }
 }
