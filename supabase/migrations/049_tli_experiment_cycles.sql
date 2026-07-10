@@ -1751,7 +1751,7 @@ BEGIN
   IF v_artifact.payload ->> 'cycle_id' IS DISTINCT FROM p_cycle_id::text
      OR (v_artifact.payload ->> 'planned_origins')::INTEGER IS DISTINCT FROM v_cycle.planned_origins
      OR v_artifact.payload ->> 'decision_origin_date' IS DISTINCT FROM to_char(v_decision_origin_date, 'YYYY-MM-DD')
-     OR v_artifact.payload ->> 'decision' IS DISTINCT FROM CASE WHEN p_pass THEN 'pass' ELSE 'reject' END
+     OR v_artifact.payload ->> 'decision' IS DISTINCT FROM (CASE WHEN p_pass THEN 'pass' ELSE 'reject' END)
   THEN
     RAISE EXCEPTION 'final decision artifact does not match the exact planned set and verdict'
       USING ERRCODE = '22023';
