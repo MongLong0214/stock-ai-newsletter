@@ -15,17 +15,50 @@ from interval_ensemble import (
     ensemble_interval,
 )
 from m1_artifact import ModelArtifact
+from m1_calibration import PlattCalibrator, predict_calibrator
 from m1_dataset import TrainingDataset
+from m1_scientific_availability import ParsedScientificAvailability, build_replicate_availability
 from m1_weighted_replicate import (
-    ArtifactProbe,
     WeightedFitRejected,
     WeightedFitRequest,
     WeightedFitSuccess,
+    WeightedReplicateError,
     fit_weighted_replicate,
-    predict_artifact,
 )
 from stats_bootstrap import build_paired_sample, replicate_digest, sha256_hex
-from study_eval_contract import AttemptLedger, EnsembleSummary, Probe, ProbeInterval, StudyBridgeError
+from study_eval_contract import (
+    AttemptLedger,
+    EnsembleSummary,
+    Probe,
+    ProbeInterval,
+    ReplicateBody,
+    ReplicateCoefficients,
+    ReplicatePlatt,
+    ReplicateScaler,
+    StudyBridgeError,
+)
+
+
+@dataclass(frozen=True, slots=True)
+class ArtifactProbe:
+    values: tuple[float, ...]
+    missing: tuple[bool, ...]
+
+
+def predict_artifact(artifact: ModelArtifact, probe: ArtifactProbe) -> float:
+    medians = np.asarray(artifact.scaler.median, dtype=np.float64)
+    mads = np.asarray(artifact.scaler.mad, dtype=np.float64)
+    values = np.asarray(probe.values, dtype=np.float64)
+    missing = np.asarray(probe.missing, dtype=np.bool_)
+    if values.shape != medians.shape or missing.shape != medians.shape:
+        raise WeightedReplicateError("invalid_probe", "probe must match the artifact feature schema")
+    imputed = np.where(missing | ~np.isfinite(values), medians, values)
+    design = np.concatenate(((imputed - medians) / np.where(mads > 0, mads, 1.0), missing.astype(np.float64)))
+    margin = artifact.coefficients.intercept + float(
+        np.dot(design, np.asarray(artifact.coefficients.weights, dtype=np.float64)),
+    )
+    calibrator = PlattCalibrator(a=artifact.calibrator.a, b=artifact.calibrator.b)
+    return float(predict_calibrator(calibrator, np.asarray([margin], dtype=np.float64))[0])
 
 
 @dataclass(frozen=True, slots=True)
@@ -34,6 +67,7 @@ class EnsembleBuildRequest:
     artifact: ModelArtifact
     probe: Probe
     cycle_id: str
+    availability: ParsedScientificAvailability
 
 
 def canonical_model_sha(model: BaseModel) -> str:
@@ -71,6 +105,7 @@ def build_ensemble_summary(
         [int(row.y) for row in request.dataset.rows],
     )
     estimator_sha = _estimator_sha256(request.artifact)
+    replicate_availability = build_replicate_availability(request.dataset, request.availability)
 
     def fit(draw: ReplicateDraw) -> FitOutcome:
         result = fit_weighted_replicate(
@@ -78,6 +113,7 @@ def build_ensemble_summary(
                 dataset=request.dataset,
                 template=request.artifact,
                 row_weights=draw.row_weights,
+                availability=replicate_availability,
             ),
         )
         match result:
@@ -99,6 +135,7 @@ def build_ensemble_summary(
     artifact_probe = ArtifactProbe(values=request.probe.values, missing=request.probe.missing)
     probabilities: list[float] = []
     accepted: list[AttemptLedger] = []
+    bodies: list[ReplicateBody] = []
     for item in ensemble.replicates:
         try:
             replicate_artifact = ModelArtifact.model_validate(item.artifact)
@@ -113,6 +150,17 @@ def build_ensemble_summary(
                 index_sha256=item.index_sha256,
                 seed=item.seed,
                 artifact_sha256=artifact_sha,
+            ),
+        )
+        bodies.append(
+            ReplicateBody(
+                replicate_index=item.replicate_index,
+                scaler=ReplicateScaler(median=replicate_artifact.scaler.median, mad=replicate_artifact.scaler.mad),
+                coefficients=ReplicateCoefficients(
+                    intercept=replicate_artifact.coefficients.intercept,
+                    weights=replicate_artifact.coefficients.weights,
+                ),
+                calibrator=ReplicatePlatt(a=replicate_artifact.calibrator.a, b=replicate_artifact.calibrator.b),
             ),
         )
     full_probability = predict_artifact(request.artifact, artifact_probe)
@@ -136,4 +184,5 @@ def build_ensemble_summary(
             upper=upper,
             replicate_probability_sha256=replicate_digest(values),
         ),
+        replicate_bodies=tuple(bodies),
     )

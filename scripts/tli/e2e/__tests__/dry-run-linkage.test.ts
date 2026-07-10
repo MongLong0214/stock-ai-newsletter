@@ -112,6 +112,8 @@ describe('Todo 15 hash and identity linkage', () => {
       origin: stack.prospectiveOrigins[0]!,
       themeId: THEME_ID,
       candidateProbability: 0.8,
+      candidateCiLower: 0.7,
+      candidateCiUpper: 0.9,
       comparatorProbability: 0.5 as const,
       outcome: true,
       labelId: '65000000-0000-4000-8000-000000000015',

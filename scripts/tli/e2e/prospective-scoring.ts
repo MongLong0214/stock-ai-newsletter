@@ -43,35 +43,49 @@ const afterCutoff = (forecastCutoff: string, milliseconds: number): string => (
   new Date(Date.parse(forecastCutoff) + milliseconds).toISOString()
 )
 
+// Candidate rows carry the replayed block_bootstrap_envelope_v1 from the frozen 500-model ensemble
+// (computed once at panel build); the climatology comparator has no ensemble, so its interval is its point.
+const scoringInterval = (row: ProspectivePanelRow, role: 'candidate' | 'comparator'): {
+  readonly lower: number
+  readonly upper: number
+} => (
+  role === 'comparator'
+    ? { lower: row.comparatorProbability, upper: row.comparatorProbability }
+    : { lower: row.candidateCiLower, upper: row.candidateCiUpper }
+)
+
 const scoringPrediction = (input: {
   readonly row: ProspectivePanelRow
   readonly originId: string
   readonly role: 'candidate' | 'comparator'
   readonly artifactSha256: string
-}): ScientificPredictionRow => ({
-  id: scientificPredictionId(input.originId, input.row.themeId, input.role),
-  experiment_cycle_id: CYCLE_ID,
-  experiment_origin_manifest_id: input.originId,
-  theme_id: input.row.themeId,
-  prediction_date: input.row.origin.originDate,
-  horizon_days: 5,
-  serving_role: 'shadow',
-  scientific_prediction_role: input.role,
-  model_version: input.role === 'candidate' ? 'scientific-m1-v2' : 'balanced-climatology-v1',
-  model_artifact_sha256: input.artifactSha256,
-  feature_contract_hash: FEATURE_CONTRACT_SHA256,
-  feature_snapshot_hash: input.row.snapshot.featureSnapshotSha256,
-  features: featuresBody(input.row.snapshot),
-  forecast_cutoff: input.row.origin.forecastCutoff,
-  forecast_origin_week: input.row.origin.originDate,
-  labeler_version: 'gta-v2',
-  p_rise: input.role === 'candidate' ? input.row.candidateProbability : input.row.comparatorProbability,
-  ci_lower: 0,
-  ci_upper: 1,
-  abstain: false,
-  score_status: 'pending',
-  created_at: afterCutoff(input.row.origin.forecastCutoff, 60_000),
-})
+}): ScientificPredictionRow => {
+  const interval = scoringInterval(input.row, input.role)
+  return {
+    id: scientificPredictionId(input.originId, input.row.themeId, input.role),
+    experiment_cycle_id: CYCLE_ID,
+    experiment_origin_manifest_id: input.originId,
+    theme_id: input.row.themeId,
+    prediction_date: input.row.origin.originDate,
+    horizon_days: 5,
+    serving_role: 'shadow',
+    scientific_prediction_role: input.role,
+    model_version: input.role === 'candidate' ? 'scientific-m1-v2' : 'balanced-climatology-v1',
+    model_artifact_sha256: input.artifactSha256,
+    feature_contract_hash: FEATURE_CONTRACT_SHA256,
+    feature_snapshot_hash: input.row.snapshot.featureSnapshotSha256,
+    features: featuresBody(input.row.snapshot),
+    forecast_cutoff: input.row.origin.forecastCutoff,
+    forecast_origin_week: input.row.origin.originDate,
+    labeler_version: 'gta-v2',
+    p_rise: input.role === 'candidate' ? input.row.candidateProbability : input.row.comparatorProbability,
+    ci_lower: interval.lower,
+    ci_upper: interval.upper,
+    abstain: false,
+    score_status: 'pending',
+    created_at: afterCutoff(input.row.origin.forecastCutoff, 60_000),
+  }
+}
 
 export async function scoreProspectiveOrigin(input: {
   readonly origin: FixtureOriginRef

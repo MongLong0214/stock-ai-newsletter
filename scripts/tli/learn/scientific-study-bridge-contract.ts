@@ -79,6 +79,22 @@ const rejectedAttemptSchema = z.object({
   artifact_sha256: z.null(),
 }).strict()
 
+const REPLICATE_FEATURE_SLOT_COUNT = 10
+const REPLICATE_DESIGN_WEIGHT_COUNT = 20
+
+const replicateBodySchema = z.object({
+  replicate_index: z.number().int().nonnegative(),
+  scaler: z.object({
+    median: z.array(finite).length(REPLICATE_FEATURE_SLOT_COUNT),
+    mad: z.array(finite.nonnegative()).length(REPLICATE_FEATURE_SLOT_COUNT),
+  }).strict(),
+  coefficients: z.object({
+    intercept: finite,
+    weights: z.array(finite).length(REPLICATE_DESIGN_WEIGHT_COUNT),
+  }).strict(),
+  calibrator: z.object({ a: finite, b: finite }).strict(),
+}).strict()
+
 const intervalEnsembleSchema = z.object({
   full_fit_estimator_sha256: sha256,
   accepted: z.array(acceptedAttemptSchema).length(STUDY_EVAL_ENSEMBLE_REPLICATES),
@@ -89,12 +105,21 @@ const intervalEnsembleSchema = z.object({
     upper: probability,
     replicate_probability_sha256: sha256,
   }).strict(),
+  replicate_bodies: z.array(replicateBodySchema).length(STUDY_EVAL_ENSEMBLE_REPLICATES),
 }).strict().superRefine((ensemble, context) => {
   ensemble.accepted.forEach((attempt, index) => {
     if (attempt.replicate_index !== index) {
       context.addIssue({
         code: 'custom', path: ['accepted', index, 'replicate_index'],
         message: 'accepted replicates must be complete and ordered',
+      })
+    }
+  })
+  ensemble.replicate_bodies.forEach((body, index) => {
+    if (body.replicate_index !== index) {
+      context.addIssue({
+        code: 'custom', path: ['replicate_bodies', index, 'replicate_index'],
+        message: 'replicate bodies must be complete and ordered',
       })
     }
   })

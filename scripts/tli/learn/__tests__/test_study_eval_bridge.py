@@ -76,11 +76,42 @@ def _request_payload(training_path: Path, digest: str) -> dict[str, JsonValue]:
         "full_fit": {
             "training_input_path": str(training_path),
             "expected_sha256": digest,
+            "availability_sidecar_path": str(training_path.with_name("inner-pit-sidecar.json")),
+            "availability_sidecar_sha256": "d" * 64,
             "artifact_path": str(training_path.with_name("artifact.json")),
             "artifact_sha256": "b" * 64,
             "probe": {"values": [0.0] * 10, "missing": [False] * 10},
         },
     }
+
+
+def _availability(dataset: TrainingDataset):
+    from m1_calibration_selection import create_inner_oof_split
+    from m1_scientific_availability import parse_scientific_availability
+
+    origins = tuple(sorted({row.base_date for row in dataset.rows}))
+    training_bytes = (json.dumps(dataset.model_dump(mode="json"), indent=2) + "\n").encode()
+    split = create_inner_oof_split(origins)
+    sidecar = {
+        "sidecar_version": "tli-m1-inner-pit-sidecar-v1",
+        "training_input_sha256": hashlib.sha256(training_bytes).hexdigest(),
+        "inner_oof_split_sha256": split.split_origins_sha256,
+        "origins": [{"origin_date": origin, "forecast_cutoff": "2099-01-01T00:00:00.000Z"} for origin in origins],
+        "rows": [
+            {
+                "row_index": index,
+                "row_id": f"row-{index:04d}",
+                "theme_id": row.theme_id,
+                "base_date": row.base_date,
+                "future_dates": [row.base_date],
+                "finalized_at": "2000-01-01T00:00:00.000Z",
+                "label_source_run_completed_at": "2000-01-01T00:00:00.000Z",
+            }
+            for index, row in enumerate(dataset.rows)
+        ],
+    }
+    sidecar_bytes = (json.dumps(sidecar, indent=2) + "\n").encode()
+    return parse_scientific_availability(dataset, training_bytes, sidecar_bytes)
 
 
 def _runtime() -> RuntimeManifest:
@@ -197,6 +228,7 @@ def test_real_first_admissible_ensemble_is_deterministic_with_reduced_count() ->
         artifact=artifact,
         probe=request.full_fit.probe,
         cycle_id=CYCLE_ID,
+        availability=_availability(dataset),
     )
     first = build_ensemble_summary(build_request, replicate_count=2)
     second = build_ensemble_summary(build_request, replicate_count=2)

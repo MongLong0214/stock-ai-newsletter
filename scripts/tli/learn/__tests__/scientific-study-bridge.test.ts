@@ -114,6 +114,18 @@ const bridgeRunner = (training: ScientificM1TrainingResult): StudyEvalBridgeRunn
     seed: index + 1,
     artifact_sha256: hash(`artifact-${index}`),
   }))
+  const replicateBodies = Array.from({ length: 500 }, (_unused, index) => ({
+    replicate_index: index,
+    scaler: {
+      median: Array.from({ length: 10 }, (_slot, slot) => slot * 0.1),
+      mad: Array.from({ length: 10 }, (_slot, slot) => 1 + slot * 0.1),
+    },
+    coefficients: {
+      intercept: 0.05,
+      weights: Array.from({ length: 20 }, (_slot, slot) => 0.01 * (slot + 1)),
+    },
+    calibrator: { a: -1, b: 0 },
+  }))
   writeFileSync(outputPath, `${JSON.stringify({
     bridge_version: 'tli-study-eval-bridge-v1',
     study_contract_id: training.studyContractId,
@@ -147,6 +159,7 @@ const bridgeRunner = (training: ScientificM1TrainingResult): StudyEvalBridgeRunn
         full_fit_probability: 0.8, lower: 0.7, upper: 0.9,
         replicate_probability_sha256: hash('probe'),
       },
+      replicate_bodies: replicateBodies,
     },
   }, null, 2)}\n`)
   return processResult(0)

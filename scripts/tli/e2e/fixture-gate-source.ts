@@ -17,7 +17,8 @@ import type { ProspectivePanelRow } from './prospective-panel'
 
 type GatePanelRow = Pick<
   ProspectivePanelRow,
-  'sequence' | 'origin' | 'themeId' | 'candidateProbability' | 'comparatorProbability' | 'outcome' | 'labelId'
+  'sequence' | 'origin' | 'themeId' | 'candidateProbability' | 'candidateCiLower' | 'candidateCiUpper'
+  | 'comparatorProbability' | 'outcome' | 'labelId'
 >
 
 const SOURCE_PROOF = {
@@ -43,6 +44,12 @@ export function buildGateSource(input: {
   readonly primaryCycleId?: string
   readonly primaryCycleEvidence?: readonly FreezeEvidenceEnvelope[]
 }): ProspectiveGateSource {
+  // Candidate interval = frozen 500-model replay stored on the panel row; comparator = its own point.
+  const intervalFor = (row: GatePanelRow, role: 'candidate' | 'comparator'): { lower: number; upper: number } => (
+    role === 'comparator'
+      ? { lower: row.comparatorProbability, upper: row.comparatorProbability }
+      : { lower: row.candidateCiLower, upper: row.candidateCiUpper }
+  )
   const cycleId = input.plannedOrigins === 24 && input.primaryCycleId !== undefined
     ? input.primaryCycleId
     : deterministicUuid('gate-cycle', input.plannedOrigins)
@@ -103,30 +110,33 @@ export function buildGateSource(input: {
   })))
   const predictions = origins.flatMap((origin) => {
     const rows = input.panel.rows.filter((row) => row.sequence === origin.sequence_no)
-    return rows.flatMap((row) => (['candidate', 'comparator'] as const).map((role) => ({
-      id: scientificPredictionId(origin.id, row.themeId, role),
-      experiment_cycle_id: cycleId,
-      experiment_origin_manifest_id: origin.id,
-      theme_id: row.themeId,
-      prediction_date: row.origin.originDate,
-      horizon_days: 5,
-      labeler_version: 'gta-v2',
-      scientific_prediction_role: role,
-      model_artifact_sha256: role === 'candidate'
-        ? input.candidateModelSha256
-        : COMPARATOR_ARTIFACT_SHA256,
-      feature_contract_hash: FEATURE_CONTRACT_SHA256,
-      forecast_cutoff: row.origin.forecastCutoff,
-      forecast_origin_week: row.origin.originDate,
-      p_rise: role === 'candidate' ? row.candidateProbability : row.comparatorProbability,
-      ci_lower: 0,
-      ci_upper: 1,
-      abstain: false,
-      actual_y: row.outcome,
-      actual_label_id: row.labelId,
-      score_status: 'scored' as const,
-      score_exclusion_reason: null,
-    })))
+    return rows.flatMap((row) => (['candidate', 'comparator'] as const).map((role) => {
+      const interval = intervalFor(row, role)
+      return {
+        id: scientificPredictionId(origin.id, row.themeId, role),
+        experiment_cycle_id: cycleId,
+        experiment_origin_manifest_id: origin.id,
+        theme_id: row.themeId,
+        prediction_date: row.origin.originDate,
+        horizon_days: 5,
+        labeler_version: 'gta-v2',
+        scientific_prediction_role: role,
+        model_artifact_sha256: role === 'candidate'
+          ? input.candidateModelSha256
+          : COMPARATOR_ARTIFACT_SHA256,
+        feature_contract_hash: FEATURE_CONTRACT_SHA256,
+        forecast_cutoff: row.origin.forecastCutoff,
+        forecast_origin_week: row.origin.originDate,
+        p_rise: role === 'candidate' ? row.candidateProbability : row.comparatorProbability,
+        ci_lower: interval.lower,
+        ci_upper: interval.upper,
+        abstain: false,
+        actual_y: row.outcome,
+        actual_label_id: row.labelId,
+        score_status: 'scored' as const,
+        score_exclusion_reason: null,
+      }
+    }))
   })
   const fixtureCyclePayload = (type: string): JsonObject => ({
     manifest_version: `tli-${type.replace('_', '-')}-fixture-v1`,

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
+from hashlib import sha256
+import json
 import sys
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -10,12 +12,63 @@ from numpy.typing import NDArray
 import pytest
 
 if TYPE_CHECKING:
+    from m1_calibration_selection import PreprocessingStats
+    from m1_scientific_availability import ReplicateAvailability
     from sklearn.linear_model import LogisticRegression
 
 sys.path.insert(0, str(Path("scripts/tli/learn").resolve()))
 
 from m1_dataset import FEATURE_SCHEMA, TrainingDataset, TrainingRow
 from m1_runtime import RuntimeManifest
+
+
+def _training_bytes(dataset: TrainingDataset) -> bytes:
+    return (json.dumps(dataset.model_dump(mode="json"), indent=2) + "\n").encode()
+
+
+def _iso_timestamp(origin: str, *, days: int = 0, milliseconds: int = 0) -> str:
+    value = datetime.fromisoformat(f"{origin}T09:00:00+00:00") + timedelta(days=days, milliseconds=milliseconds)
+    return value.isoformat(timespec="milliseconds").replace("+00:00", "Z")
+
+
+def _availability_from_rows(
+    dataset: TrainingDataset,
+    availability_rows: list[dict[str, object]],
+    *,
+    forecast_cutoff: dict[str, str],
+) -> ReplicateAvailability:
+    from m1_calibration_selection import create_inner_oof_split
+    from m1_scientific_availability import build_replicate_availability, parse_scientific_availability
+
+    origins = tuple(sorted({row.base_date for row in dataset.rows}))
+    training_bytes = _training_bytes(dataset)
+    split = create_inner_oof_split(origins)
+    sidecar = {
+        "sidecar_version": "tli-m1-inner-pit-sidecar-v1",
+        "training_input_sha256": sha256(training_bytes).hexdigest(),
+        "inner_oof_split_sha256": split.split_origins_sha256,
+        "origins": [{"origin_date": origin, "forecast_cutoff": forecast_cutoff[origin]} for origin in origins],
+        "rows": availability_rows,
+    }
+    sidecar_bytes = (json.dumps(sidecar, indent=2) + "\n").encode()
+    return build_replicate_availability(dataset, parse_scientific_availability(dataset, training_bytes, sidecar_bytes))
+
+
+def _all_available(dataset: TrainingDataset) -> ReplicateAvailability:
+    rows: list[dict[str, object]] = [
+        {
+            "row_index": index,
+            "row_id": f"row-{index:04d}",
+            "theme_id": row.theme_id,
+            "base_date": row.base_date,
+            "future_dates": [row.base_date],
+            "finalized_at": "2000-01-01T00:00:00.000Z",
+            "label_source_run_completed_at": "2000-01-01T00:00:00.000Z",
+        }
+        for index, row in enumerate(dataset.rows)
+    ]
+    origins = sorted({row.base_date for row in dataset.rows})
+    return _availability_from_rows(dataset, rows, forecast_cutoff={origin: "2099-01-01T00:00:00.000Z" for origin in origins})
 
 
 def _runtime() -> RuntimeManifest:
@@ -88,6 +141,7 @@ def test_uniform_integer_multiset_matches_the_full_training_artifact() -> None:
         dataset=dataset,
         template=full_fit,
         row_weights=np.ones(len(dataset.rows), dtype=np.float64),
+        availability=_all_available(dataset),
     )
 
     # When: every row has multiplicity one.
@@ -136,6 +190,7 @@ def test_template_selected_c_is_frozen_for_every_fold_and_full_estimator(
             dataset=dataset,
             template=template,
             row_weights=np.ones(len(dataset.rows), dtype=np.float64),
+            availability=_all_available(dataset),
         ),
     )
 
@@ -157,7 +212,14 @@ def test_exactly_five_supported_oof_origins_are_accepted() -> None:
     weights[8 * 12 : 11 * 12] = 0.0
 
     # When: the adapter evaluates only the five supported validation origins.
-    result = fit_weighted_replicate(WeightedFitRequest(dataset=dataset, template=template, row_weights=weights))
+    result = fit_weighted_replicate(
+        WeightedFitRequest(
+            dataset=dataset,
+            template=template,
+            row_weights=weights,
+            availability=_all_available(dataset),
+        ),
+    )
 
     # Then: the fixed chronological K plan remains recorded and the supported OOF reaches the floor.
     assert isinstance(result, WeightedFitSuccess)
@@ -176,7 +238,14 @@ def test_fewer_than_five_supported_oof_origins_are_rejected() -> None:
     weights[8 * 12 : 12 * 12] = 0.0
 
     # When: the replicate support is assessed before fitting.
-    result = fit_weighted_replicate(WeightedFitRequest(dataset=dataset, template=template, row_weights=weights))
+    result = fit_weighted_replicate(
+        WeightedFitRequest(
+            dataset=dataset,
+            template=template,
+            row_weights=weights,
+            availability=_all_available(dataset),
+        ),
+    )
 
     # Then: K support below five is inadmissible with a stable reason code.
     assert isinstance(result, WeightedFitRejected)
@@ -196,8 +265,99 @@ def test_multiplicity_cannot_inflate_distinct_oof_class_support() -> None:
         weights[origin_index * 12 + 7] = 2.0
 
     # When: the weighted replicate checks OOF admissibility.
-    result = fit_weighted_replicate(WeightedFitRequest(dataset=dataset, template=template, row_weights=weights))
+    result = fit_weighted_replicate(
+        WeightedFitRequest(
+            dataset=dataset,
+            template=template,
+            row_weights=weights,
+            availability=_all_available(dataset),
+        ),
+    )
 
     # Then: multiplicity cannot hide the sub-30 distinct-source-row class count.
     assert isinstance(result, WeightedFitRejected)
     assert result.reason == "oof_distinct_class_below_floor"
+
+
+def _leaky_availability(dataset: TrainingDataset) -> ReplicateAvailability:
+    origins = sorted({row.base_date for row in dataset.rows})
+    validation_origin = origins[8]
+    late = _iso_timestamp(validation_origin, milliseconds=1)
+    rows: list[dict[str, object]] = []
+    for index, row in enumerate(dataset.rows):
+        origin_index = origins.index(row.base_date)
+        theme_index = index % 12
+        future_dates = [(date.fromisoformat(row.base_date) + timedelta(days=5)).isoformat()]
+        finalized_at = _iso_timestamp(row.base_date, days=6)
+        source_completed_at = _iso_timestamp(row.base_date, days=6)
+        if origin_index == 3 and theme_index == 0:
+            future_dates = [validation_origin]
+        if origin_index == 4 and theme_index == 0:
+            finalized_at = late
+        if origin_index == 5 and theme_index == 0:
+            source_completed_at = late
+        rows.append({
+            "row_index": index,
+            "row_id": f"row-{origin_index:02d}-{theme_index:02d}",
+            "theme_id": row.theme_id,
+            "base_date": row.base_date,
+            "future_dates": future_dates,
+            "finalized_at": finalized_at,
+            "label_source_run_completed_at": source_completed_at,
+        })
+    return _availability_from_rows(
+        dataset,
+        rows,
+        forecast_cutoff={origin: _iso_timestamp(origin) for origin in origins},
+    )
+
+
+def test_replicate_inner_oof_purges_late_and_future_window_rows(monkeypatch: pytest.MonkeyPatch) -> None:
+    import m1_weighted_replicate as weighted
+    from train_m1 import train_model
+
+    # Given: a 13-origin replicate whose inner-01 train pool holds one future-window, one late-finalized,
+    # and one late-source row that must be purged before any fold-local preprocessing runs.
+    dataset = _dataset(origin_count=13)
+    template = train_model(dataset, "2026-08-02", _runtime())
+    weights = np.ones(len(dataset.rows), dtype=np.float64)
+    observed_train_rows: list[int] = []
+    original = weighted.fit_preprocessor
+
+    def capture(values: NDArray[np.float64], missing: NDArray[np.bool_]) -> PreprocessingStats:
+        observed_train_rows.append(values.shape[0])
+        return original(values, missing)
+
+    monkeypatch.setattr(weighted, "fit_preprocessor", capture)
+
+    # When: the weighted replicate fits its five inner folds and the full estimator under the PIT sidecar.
+    result = weighted.fit_weighted_replicate(
+        weighted.WeightedFitRequest(
+            dataset=dataset,
+            template=template,
+            row_weights=weights,
+            availability=_leaky_availability(dataset),
+        ),
+    )
+
+    # Then: inner-01 trains on 96 candidates minus the three unavailable rows; only the full fit keeps all 156.
+    assert isinstance(result, weighted.WeightedFitSuccess)
+    assert observed_train_rows == [93, 108, 120, 132, 144, 156]
+
+    # And: with every row available the same inner-01 fold would leak all 96 candidates into training.
+    all_observed: list[int] = []
+
+    def capture_all(values: NDArray[np.float64], missing: NDArray[np.bool_]) -> PreprocessingStats:
+        all_observed.append(values.shape[0])
+        return original(values, missing)
+
+    monkeypatch.setattr(weighted, "fit_preprocessor", capture_all)
+    weighted.fit_weighted_replicate(
+        weighted.WeightedFitRequest(
+            dataset=dataset,
+            template=template,
+            row_weights=weights,
+            availability=_all_available(dataset),
+        ),
+    )
+    assert all_observed == [96, 108, 120, 132, 144, 156]

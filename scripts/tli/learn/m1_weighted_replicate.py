@@ -6,6 +6,7 @@ from typing import Final, assert_never
 from numpy.typing import NDArray
 import numpy as np
 
+from m1_scientific_availability import ReplicateAvailability
 from m1_artifact import (
     CalibrationContractArtifact,
     CoefficientsArtifact,
@@ -23,10 +24,8 @@ from m1_calibration import (
     MIN_OOF_CLASS_COUNT,
     MIN_OOF_ORIGIN_COUNT,
     ModelFitError,
-    PlattCalibrator,
     fit_base_estimator,
     fit_platt_calibrator,
-    predict_calibrator,
     validate_cross_fitted_margins,
 )
 from m1_calibration_selection import (
@@ -59,6 +58,7 @@ class WeightedFitRequest:
     dataset: TrainingDataset
     template: ModelArtifact
     row_weights: NDArray[np.float64]
+    availability: ReplicateAvailability
 
 
 @dataclass(frozen=True, slots=True)
@@ -119,12 +119,14 @@ def _cross_fitted_oof(
     c: float,
     split: InnerOofSplit,
     arrays: _WeightedArrays,
+    availability: ReplicateAvailability,
 ) -> CrossFittedMargins:
+    # plan Todo 11: replicate inner/OOF train rows are the PIT-eligible ids, never the raw origin mask.
     margins: list[NDArray[np.float64]] = []
     outcomes: list[NDArray[np.int64]] = []
     origins: list[str] = []
     for fold in split.folds:
-        train_mask = np.isin(arrays.origins, np.asarray(fold.train_origins, dtype=np.str_))
+        train_mask = np.isin(availability.row_ids, availability.eligible_row_ids_by_fold[fold.fold_id])
         validation_mask = arrays.origins == fold.validation_origin
         train_indices = _expanded_indices(train_mask, arrays.weights)
         validation_indices = _expanded_indices(validation_mask, arrays.weights)
@@ -152,7 +154,11 @@ def _cross_fitted_oof(
     )
 
 
-def _selection(arrays: _WeightedArrays, selected_c: float) -> _FrozenSelection | WeightedFitRejected:
+def _selection(
+    arrays: _WeightedArrays,
+    selected_c: float,
+    availability: ReplicateAvailability,
+) -> _FrozenSelection | WeightedFitRejected:
     ordered_origins = tuple(sorted(set(arrays.origins.tolist())))
     split = create_inner_oof_split(ordered_origins)
     supported_validation_indices = tuple(
@@ -169,7 +175,7 @@ def _selection(arrays: _WeightedArrays, selected_c: float) -> _FrozenSelection |
     if len(supported_validation_indices) < MIN_OOF_ORIGIN_COUNT:
         return WeightedFitRejected(reason="oof_origin_support_below_floor")
     for fold in split.folds:
-        train_mask = np.isin(arrays.origins, np.asarray(fold.train_origins, dtype=np.str_))
+        train_mask = np.isin(availability.row_ids, availability.eligible_row_ids_by_fold[fold.fold_id])
         validation_mask = arrays.origins == fold.validation_origin
         train_indices = _expanded_indices(train_mask, arrays.weights)
         validation_indices = _expanded_indices(validation_mask, arrays.weights)
@@ -184,7 +190,7 @@ def _selection(arrays: _WeightedArrays, selected_c: float) -> _FrozenSelection |
     return _FrozenSelection(
         selected_c=selected_c,
         split=split,
-        oof=_cross_fitted_oof(selected_c, split, arrays),
+        oof=_cross_fitted_oof(selected_c, split, arrays, availability),
     )
 
 
@@ -249,11 +255,17 @@ def _artifact(
 
 
 def fit_weighted_replicate(request: WeightedFitRequest) -> WeightedFitResult:
+    if len(request.availability.row_ids) != len(request.dataset.rows):
+        raise WeightedReplicateError("availability_row_mismatch", "one PIT row id is required per dataset row")
     arrays = _arrays(request)
     if int(np.sum(arrays.weights)) == 0:
         return WeightedFitRejected(reason="weighted_sample_empty")
     try:
-        selection = _selection(arrays, request.template.estimator_contract.selected_c)
+        selection = _selection(
+            arrays,
+            request.template.estimator_contract.selected_c,
+            request.availability,
+        )
         match selection:
             case WeightedFitRejected():
                 return selection
@@ -263,25 +275,3 @@ def fit_weighted_replicate(request: WeightedFitRequest) -> WeightedFitResult:
                 assert_never(unreachable)
     except (CalibrationDataError, ModelFitError, PreprocessingError, TemporalSplitError):
         return WeightedFitRejected(reason="weighted_fit_contract_failure")
-
-
-@dataclass(frozen=True, slots=True)
-class ArtifactProbe:
-    values: tuple[float, ...]
-    missing: tuple[bool, ...]
-
-
-def predict_artifact(artifact: ModelArtifact, probe: ArtifactProbe) -> float:
-    medians = np.asarray(artifact.scaler.median, dtype=np.float64)
-    mads = np.asarray(artifact.scaler.mad, dtype=np.float64)
-    values = np.asarray(probe.values, dtype=np.float64)
-    missing = np.asarray(probe.missing, dtype=np.bool_)
-    if values.shape != medians.shape or missing.shape != medians.shape:
-        raise WeightedReplicateError("invalid_probe", "probe must match the artifact feature schema")
-    imputed = np.where(missing | ~np.isfinite(values), medians, values)
-    design = np.concatenate(((imputed - medians) / np.where(mads > 0, mads, 1.0), missing.astype(np.float64)))
-    margin = artifact.coefficients.intercept + float(
-        np.dot(design, np.asarray(artifact.coefficients.weights, dtype=np.float64)),
-    )
-    calibrator = PlattCalibrator(a=artifact.calibrator.a, b=artifact.calibrator.b)
-    return float(predict_calibrator(calibrator, np.asarray([margin], dtype=np.float64))[0])

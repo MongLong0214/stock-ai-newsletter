@@ -50,6 +50,8 @@ class Probe(StrictModel):
 class FullFitInput(StrictModel):
     training_input_path: Path
     expected_sha256: Sha256
+    availability_sidecar_path: Path
+    availability_sidecar_sha256: Sha256
     artifact_path: Path
     artifact_sha256: Sha256
     probe: Probe
@@ -134,11 +136,35 @@ class ProbeInterval(StrictModel):
     replicate_probability_sha256: Sha256
 
 
+class ReplicateScaler(StrictModel):
+    median: tuple[float, ...]
+    mad: tuple[float, ...]
+
+
+class ReplicateCoefficients(StrictModel):
+    intercept: float
+    weights: tuple[float, ...]
+
+
+class ReplicatePlatt(StrictModel):
+    a: float
+    b: float
+
+
+class ReplicateBody(StrictModel):
+    # plan Todo 13/15: frozen 500-model estimator/calibrator coefficients, persisted for row-level replay.
+    replicate_index: int
+    scaler: ReplicateScaler
+    coefficients: ReplicateCoefficients
+    calibrator: ReplicatePlatt
+
+
 class EnsembleSummary(StrictModel):
     full_fit_estimator_sha256: Sha256
     accepted: tuple[AttemptLedger, ...]
     rejected: tuple[AttemptLedger, ...]
     probe: ProbeInterval
+    replicate_bodies: tuple[ReplicateBody, ...]
 
 
 class RuntimeSummary(StrictModel):

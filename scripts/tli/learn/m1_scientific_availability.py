@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from hashlib import sha256
 import json
 import re
 from typing import Annotated, Final, Literal, Never
 
+import numpy as np
+from numpy.typing import NDArray
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, ValidationError
 
 from m1_calibration_selection import create_inner_oof_split
@@ -197,4 +200,25 @@ def build_inner_availability_receipt(
         sidecar_sha256=availability.sidecar_sha256,
         inner_oof_split_sha256=sidecar.inner_oof_split_sha256,
         folds=tuple(folds),
+    )
+
+
+@dataclass(frozen=True, slots=True, eq=False)
+class ReplicateAvailability:
+    # plan Todo 11: row-level PIT purge sidecar carried into replicate inner/OOF fitting.
+    row_ids: NDArray[np.str_]
+    eligible_row_ids_by_fold: Mapping[str, NDArray[np.str_]]
+
+
+def build_replicate_availability(
+    dataset: TrainingDataset,
+    availability: ParsedScientificAvailability,
+) -> ReplicateAvailability:
+    receipt = build_inner_availability_receipt(dataset, availability)
+    return ReplicateAvailability(
+        row_ids=np.asarray([row.row_id for row in availability.sidecar.rows], dtype=np.str_),
+        eligible_row_ids_by_fold={
+            fold.fold_id: np.asarray(fold.eligible_row_ids, dtype=np.str_)
+            for fold in receipt.folds
+        },
     )

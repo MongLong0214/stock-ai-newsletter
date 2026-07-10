@@ -4,6 +4,7 @@ import {
   type ConfirmatoryFeatureSnapshot,
 } from '../../../lib/tli/features/build-confirmatory-features'
 import { predictM1Probability, type M1ModelArtifactV2 } from '../../../lib/tli/model/m1'
+import { replayCandidateEnvelope, type ReplicateBody } from '../../../lib/tli/model/interval-replay'
 import { getKoreanTradingDateWindow } from '../../../lib/tli/trading-calendar'
 import type { FixtureOriginRef, FixtureOriginStack } from './fixture-origins'
 import {
@@ -28,6 +29,8 @@ export interface ProspectivePanelRow {
   readonly featureInput: ConfirmatoryFeatureInput
   readonly snapshot: ConfirmatoryFeatureSnapshot
   readonly candidateProbability: number
+  readonly candidateCiLower: number
+  readonly candidateCiUpper: number
   readonly comparatorProbability: 0.5
   readonly outcome: boolean
   readonly labelId: string
@@ -60,6 +63,7 @@ const buildPanelRow = (input: {
   readonly themeId: string
   readonly mode: FixtureSignalMode
   readonly artifact: M1ModelArtifactV2
+  readonly replicateBodies: readonly ReplicateBody[]
 }): ProspectivePanelRow => {
   const featureInput = buildProspectiveFeatureInput({
     stack: input.stack,
@@ -72,6 +76,13 @@ const buildPanelRow = (input: {
   if (candidateProbability === null || snapshot.abstain) {
     throw new Error(`prospective candidate unexpectedly abstained for ${input.origin.originDate}:${input.themeId}`)
   }
+  // plan Todo 13/15: the candidate interval is replayed from the frozen 500-model ensemble at scoring time.
+  const envelope = replayCandidateEnvelope({
+    fullFitArtifact: input.artifact,
+    replicateBodies: input.replicateBodies,
+    row: { values: snapshot.values, missingFlags: snapshot.missingFlags },
+    pointProbability: candidateProbability,
+  })
   const lastFuture = getKoreanTradingDateWindow({
     baseDate: input.origin.originDate,
     startOffset: 1,
@@ -85,6 +96,8 @@ const buildPanelRow = (input: {
     featureInput,
     snapshot,
     candidateProbability,
+    candidateCiLower: envelope.lower,
+    candidateCiUpper: envelope.upper,
     comparatorProbability: 0.5,
     outcome: buildProspectiveOutcome(input.themeId),
     labelId: deterministicUuid('prospective-label', `${input.origin.originDate}:${input.themeId}`),
@@ -98,6 +111,7 @@ export async function buildAndScoreProspectivePanel(input: {
   readonly artifact: M1ModelArtifactV2
   readonly artifactSha256: string
   readonly intervalEnsembleSha256: string
+  readonly replicateBodies: readonly ReplicateBody[]
 }): Promise<ProspectivePanel> {
   const rows = input.stack.prospectiveOrigins.flatMap((origin, originIndex) => (
     THEME_IDS.map((themeId) => buildPanelRow({ ...input, origin, originIndex, themeId }))

@@ -408,9 +408,12 @@ describe('kis-market-assessment', () => {
     expect(snapshot.events.tariffs.detected).toBe(true);
     expect(snapshot.events.tariffs.sourceCount).toBeGreaterThanOrEqual(3);
 
+    const firstSnapshotFetchCount = fetchMock.mock.calls.length;
+    expect(firstSnapshotFetchCount).toBe(snapshot.nightSession.isPreMarketHours ? 26 : 25);
+
     const cachedSnapshot = await getKisMarketAssessmentSnapshot();
     expect(cachedSnapshot).toEqual(snapshot);
-    expect(fetchMock).toHaveBeenCalledTimes(25);
+    expect(fetchMock).toHaveBeenCalledTimes(firstSnapshotFetchCount);
   }, 15000);
 
   it('rejects overseas index responses that only return zero prices', async () => {

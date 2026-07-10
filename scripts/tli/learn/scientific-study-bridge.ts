@@ -119,6 +119,8 @@ const buildRequest = (input: {
     full_fit: {
       training_input_path: input.training.prospective.trainingInputPath,
       expected_sha256: input.training.prospective.trainingInputSha256,
+      availability_sidecar_path: input.training.prospective.availabilitySidecarPath,
+      availability_sidecar_sha256: input.training.prospective.availabilitySidecarSha256,
       artifact_path: input.training.prospective.artifactPath,
       artifact_sha256: input.training.prospective.artifactSha256,
       probe: { values: probe.features, missing: probe.missingFlags },
@@ -139,6 +141,7 @@ const requestContractSha256 = (request: ReturnType<typeof buildRequest>): string
     })),
     full_fit: {
       expected_sha256: request.full_fit.expected_sha256,
+      availability_sidecar_sha256: request.full_fit.availability_sidecar_sha256,
       artifact_sha256: request.full_fit.artifact_sha256,
       probe: request.full_fit.probe,
     },

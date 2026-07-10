@@ -161,7 +161,10 @@ async function main() {
   console.log(`weight artifact saved: ${artifactRow.weight_version}`)
 }
 
-main().catch((error) => {
-  console.error(error instanceof Error ? error.message : String(error))
-  process.exit(1)
-})
+const isDirectRun = /run-level4-weight-tuning\.(?:ts|js)$/.test(process.argv[1] ?? '')
+if (isDirectRun) {
+  main().catch((error) => {
+    console.error(error instanceof Error ? error.message : String(error))
+    process.exit(1)
+  })
+}

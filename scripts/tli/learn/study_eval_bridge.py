@@ -30,8 +30,13 @@ from pydantic import BaseModel, ConfigDict, ValidationError
 import typer
 
 from m1_artifact import ModelArtifact, write_json
-from m1_dataset import TrainingDataError, load_dataset
+from m1_dataset import TrainingDataError, TrainingDataset, load_dataset
 from m1_runtime import EXPECTED_SCRIPT_LOCK_SHA256, RuntimeContractError, enforce_runtime_contract
+from m1_scientific_availability import (
+    ParsedScientificAvailability,
+    ScientificAvailabilityError,
+    parse_scientific_availability,
+)
 from stats_bootstrap import build_paired_sample
 from study_eval_contract import (
     ARTIFACT_VERSION,
@@ -156,11 +161,24 @@ def _load_artifact(full_fit: FullFitInput) -> ModelArtifact:
         raise StudyBridgeError("invalid_full_fit_artifact", str(error)) from error
 
 
+def _load_availability(
+    full_fit: FullFitInput,
+    dataset: TrainingDataset,
+    training_bytes: bytes,
+) -> ParsedScientificAvailability:
+    sidecar_bytes = _verified_bytes(full_fit.availability_sidecar_path, full_fit.availability_sidecar_sha256)
+    try:
+        return parse_scientific_availability(dataset, training_bytes, sidecar_bytes)
+    except ScientificAvailabilityError as error:
+        raise StudyBridgeError("invalid_availability_sidecar", str(error)) from error
+
+
 def run_bridge(request: StudyEvalRequest, runtime: RuntimeSummary) -> StudyEvalOutput:
     parity = load_training_parity(request.training_inputs)
-    _verified_bytes(request.full_fit.training_input_path, request.full_fit.expected_sha256)
+    training_bytes = _verified_bytes(request.full_fit.training_input_path, request.full_fit.expected_sha256)
     dataset = load_dataset(request.full_fit.training_input_path)
     artifact = _load_artifact(request.full_fit)
+    availability = _load_availability(request.full_fit, dataset, training_bytes)
     if (
         artifact.feature_schema != dataset.feature_schema
         or artifact.train_range != dataset.train_range
@@ -188,6 +206,7 @@ def run_bridge(request: StudyEvalRequest, runtime: RuntimeSummary) -> StudyEvalO
                 artifact=artifact,
                 probe=request.full_fit.probe,
                 cycle_id=request.cycle_id,
+                availability=availability,
             ),
             replicate_count=ENSEMBLE_REPLICATES,
         ),
