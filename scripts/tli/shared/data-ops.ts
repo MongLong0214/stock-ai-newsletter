@@ -1,5 +1,12 @@
 import { supabaseAdmin } from '@/scripts/tli/shared/supabase-admin'
 import { batchQuery, groupByThemeId, batchUpsert } from '@/scripts/tli/shared/supabase-batch'
+import { getKSTDateString } from '@/lib/tli/date-utils'
+import {
+  planMembershipHistoryDiff,
+  type MembershipHistoryInsert,
+  type MembershipHistoryRow,
+  type ObservedThemeStock,
+} from '@/scripts/tli/themes/theme-membership-history'
 import type { Theme } from '@/lib/tli/types'
 
 export interface ThemeWithKeywords extends Theme {
@@ -120,7 +127,88 @@ export async function countActiveThemeStocks(): Promise<number> {
   return count ?? 0
 }
 
-/** 테마-종목 매핑 저장 + 미출현 종목 비활성화 */
+const MEMBERSHIP_SOURCE = 'naver'
+const MEMBERSHIP_RELEVANCE = 1.0
+const MEMBERSHIP_HISTORY_TABLE = 'theme_stock_membership_history'
+const MEMBERSHIP_HISTORY_COLUMNS =
+  'id, theme_id, symbol, valid_from, valid_to, recorded_at, superseded_at, source, collection_run_id, relevance, market'
+
+const insertMembershipHistoryRows = async (rows: readonly MembershipHistoryInsert[]) => {
+  if (rows.length === 0) return
+  for (let i = 0; i < rows.length; i += 500) {
+    const { error } = await supabaseAdmin
+      .from(MEMBERSHIP_HISTORY_TABLE)
+      .insert(rows.slice(i, i + 500))
+    if (error) throw new Error(`테마-종목 membership history append 실패: ${error.message}`)
+  }
+}
+
+/**
+ * 테마-종목 매핑을 bitemporal history에 기록한다 (append-only).
+ *
+ * 신규는 open version append, 제거/속성 변경은 열린 version을 superseded_at으로 한 번 닫고
+ * 대체 version을 append한다. 기존 행의 다른 field는 절대 수정하지 않으므로 확정된 as-of 결과는
+ * 이후 수집이나 theme_stocks.is_active 변경으로 바뀌지 않는다.
+ *
+ * 관측하지 못한 테마는 diff 대상에서 제외한다 — 스크래핑 실패를 "매핑 제거"로 오판하면
+ * 존재하지 않았던 membership 종료 사실을 조작하게 된다.
+ * 과거 구간을 created_at으로 추정 backfill하지 않는다. 관측 이전은 absent가 정답이다.
+ *
+ * WHY 순차 close→append: supabase-js에 트랜잭션이 없어 키 단위로 닫고 즉시 대체 version을 넣는다.
+ * 실패는 즉시 throw해 조용한 부분 기록을 만들지 않는다 (Todo 6에서 단일 RPC 트랜잭션으로 승격 예정).
+ */
+export async function recordThemeStockMembershipHistory(input: {
+  observed: readonly ObservedThemeStock[]
+  observedDate: string
+  recordedAt?: string
+  collectionRunId?: string | null
+}): Promise<{ opened: number; closed: number; appended: number }> {
+  const observedThemeIds = [...new Set(input.observed.map(s => s.themeId))]
+  if (observedThemeIds.length === 0) return { opened: 0, closed: 0, appended: 0 }
+
+  const openRows = await batchQuery<MembershipHistoryRow>(
+    MEMBERSHIP_HISTORY_TABLE, MEMBERSHIP_HISTORY_COLUMNS, observedThemeIds,
+    q => q.is('valid_to', null).is('superseded_at', null).eq('source', MEMBERSHIP_SOURCE),
+    'theme_id', { failOnError: true },
+  )
+
+  const diff = planMembershipHistoryDiff({
+    observed: input.observed,
+    observedThemeIds,
+    openRows,
+    observedDate: input.observedDate,
+    recordedAt: input.recordedAt ?? new Date().toISOString(),
+    source: MEMBERSHIP_SOURCE,
+    collectionRunId: input.collectionRunId ?? null,
+  })
+
+  await insertMembershipHistoryRows(diff.opens)
+
+  let appended = diff.opens.length
+  for (const transition of diff.transitions) {
+    const { error } = await supabaseAdmin
+      .from(MEMBERSHIP_HISTORY_TABLE)
+      .update({ superseded_at: transition.close.superseded_at })
+      .eq('id', transition.close.id)
+      .is('superseded_at', null)
+
+    if (error) {
+      throw new Error(
+        `테마-종목 membership version close 실패 (${transition.themeId}/${transition.symbol}): ${error.message}`,
+      )
+    }
+
+    await insertMembershipHistoryRows(transition.replacements)
+    appended += transition.replacements.length
+  }
+
+  console.log(
+    `   🧬 membership history: open ${diff.opens.length}건, close ${diff.transitions.length}건, append ${appended}건`,
+  )
+  return { opened: diff.opens.length, closed: diff.transitions.length, appended }
+}
+
+/** 테마-종목 매핑 저장 + 미출현 종목 비활성화 (+ bitemporal history 기록) */
 export async function upsertThemeStocks(
   stocks: Array<{
     themeId: string;
@@ -130,8 +218,20 @@ export async function upsertThemeStocks(
     currentPrice: number | null;
     priceChangePct: number | null;
     volume: number | null;
-  }>
+  }>,
+  observedDate: string = getKSTDateString(),
 ) {
+  // history를 current cache보다 먼저 확정한다. cache 실패가 확정된 PIT 기록을 훼손하지 못한다.
+  await recordThemeStockMembershipHistory({
+    observed: stocks.map(s => ({
+      themeId: s.themeId,
+      symbol: s.symbol,
+      relevance: MEMBERSHIP_RELEVANCE,
+      market: s.market,
+    })),
+    observedDate,
+  })
+
   const result = await batchUpsert(
     'theme_stocks',
     stocks.map(s => ({
