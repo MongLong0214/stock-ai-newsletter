@@ -17,6 +17,12 @@ import {
   distinctOriginDates,
 } from '../../../lib/tli/eval/walk-forward'
 import type { EvalPredictionRow, StudyEvalRow, StudyOrigin } from '../../../lib/tli/eval/types'
+import {
+  fitTwoFeatureLogistic,
+  type TwoFeatureLogisticArtifact,
+  type TwoFeatureLogisticSkipReason,
+  type TwoFeatureLogisticTrainRow,
+} from '../../../lib/tli/model/two-feature-logistic'
 import { computeStudyOriginScheduleSha256, type ScientificBaselineStudyLock } from './offline-eval-study-lock'
 
 export const TWO_FEATURE_LOGISTIC_NAMES = ['interest_slope_7d', 'news_momentum'] as const
@@ -42,21 +48,36 @@ export interface BaselineArtifactPredictions<A> {
   readonly predictions: readonly EvalPredictionRow[]
 }
 
-export interface TwoFeatureLogisticSecondaryStub {
+interface TwoFeatureLogisticIdentity {
   readonly baselineId: 'logistic-two-feature-v1'
   readonly role: 'secondary_diagnostic'
-  readonly status: 'interface_stub'
   readonly featureNames: typeof TWO_FEATURE_LOGISTIC_NAMES
   readonly preprocessingContract: 'same-fold-train-only-median-mad-v1'
   readonly cSelectionContract: 'same-inner-oof-precalibration-brier-v1'
   readonly calibrationContract: 'same-time-blocked-oof-platt-v1'
-  readonly implementationOwner: 'todo-11-python-core'
   readonly studyContractId: string
   readonly studyContractSha256: string
   readonly splitOriginsSha256: string
   readonly trainOrigins: readonly string[]
   readonly testOrigin: string | null
 }
+
+/**
+ * Diagnostic-only 2-feature logistic secondary. It is never placed on the promotion gate: the gate
+ * schema (`offline-eval-baseline-gate.ts`) only reads `primary` artifacts, so this result stays out
+ * of the frozen gate input entirely. It degrades to `not_computed` (with a reason) when a fold
+ * cannot honour the same inner-OOF / class-floor contract the confirmatory candidate requires.
+ */
+export type TwoFeatureLogisticSecondary =
+  | (TwoFeatureLogisticIdentity & {
+    readonly status: 'computed'
+    readonly artifact: TwoFeatureLogisticArtifact
+    readonly predictions: readonly EvalPredictionRow[]
+  })
+  | (TwoFeatureLogisticIdentity & {
+    readonly status: 'not_computed'
+    readonly reason: TwoFeatureLogisticSkipReason
+  })
 
 export interface ScientificBaselineArtifactBundle {
   readonly scope: 'outer_fold' | 'prospective_cycle'
@@ -69,7 +90,7 @@ export interface ScientificBaselineArtifactBundle {
   readonly secondaryDiagnostics: {
     readonly climatology: BaselineArtifactPredictions<ClimatologyBaselineArtifact | null>
     readonly persistence: BaselineArtifactPredictions<StrataBaselineArtifact<PersistenceStratum>>
-    readonly twoFeatureLogistic: TwoFeatureLogisticSecondaryStub
+    readonly twoFeatureLogistic: TwoFeatureLogisticSecondary
   }
 }
 
@@ -139,26 +160,53 @@ const toEvalPrediction = (input: {
   y: input.row.y,
 })
 
-const twoFeatureStub = (input: {
+const toLogisticTrainRow = (row: ScientificBaselineEvalRow): TwoFeatureLogisticTrainRow => ({
+  themeId: row.themeId,
+  originDate: row.baseDate,
+  interestSlope7d: row.interestSlope7d,
+  newsMomentum: row.newsMomentum,
+  y: row.y,
+})
+
+const twoFeatureSecondary = (input: {
   readonly study: StudyIdentity
   readonly splitOriginsSha256: string
+  readonly trainRows: readonly ScientificBaselineEvalRow[]
+  readonly testRows: readonly ScientificBaselineEvalRow[]
   readonly trainOrigins: readonly string[]
   readonly testOrigin: string | null
-}): TwoFeatureLogisticSecondaryStub => ({
-  baselineId: 'logistic-two-feature-v1',
-  role: 'secondary_diagnostic',
-  status: 'interface_stub',
-  featureNames: TWO_FEATURE_LOGISTIC_NAMES,
-  preprocessingContract: 'same-fold-train-only-median-mad-v1',
-  cSelectionContract: 'same-inner-oof-precalibration-brier-v1',
-  calibrationContract: 'same-time-blocked-oof-platt-v1',
-  implementationOwner: 'todo-11-python-core',
-  studyContractId: input.study.studyContractId,
-  studyContractSha256: input.study.studyContractSha256,
-  splitOriginsSha256: input.splitOriginsSha256,
-  trainOrigins: input.trainOrigins,
-  testOrigin: input.testOrigin,
-})
+}): TwoFeatureLogisticSecondary => {
+  const identity: TwoFeatureLogisticIdentity = {
+    baselineId: 'logistic-two-feature-v1',
+    role: 'secondary_diagnostic',
+    featureNames: TWO_FEATURE_LOGISTIC_NAMES,
+    preprocessingContract: 'same-fold-train-only-median-mad-v1',
+    cSelectionContract: 'same-inner-oof-precalibration-brier-v1',
+    calibrationContract: 'same-time-blocked-oof-platt-v1',
+    studyContractId: input.study.studyContractId,
+    studyContractSha256: input.study.studyContractSha256,
+    splitOriginsSha256: input.splitOriginsSha256,
+    trainOrigins: input.trainOrigins,
+    testOrigin: input.testOrigin,
+  }
+  const fit = fitTwoFeatureLogistic({
+    trainRows: input.trainRows.map(toLogisticTrainRow),
+    studyContractId: input.study.studyContractId,
+    studyContractSha256: input.study.studyContractSha256,
+  })
+  if (fit.status === 'not_computed') return { ...identity, status: 'not_computed', reason: fit.reason }
+  const predictions = input.testRows.map((row) => toEvalPrediction({
+    row,
+    probability: fit.predict({
+      id: `${row.themeId}|${row.baseDate}`,
+      themeId: row.themeId,
+      originDate: row.baseDate,
+      interestSlope7d: row.interestSlope7d,
+      newsMomentum: row.newsMomentum,
+    }),
+  }))
+  return { ...identity, status: 'computed', artifact: fit.artifact, predictions }
+}
 
 const fitArtifactBundle = (input: {
   readonly scope: ScientificBaselineArtifactBundle['scope']
@@ -204,9 +252,11 @@ const fitArtifactBundle = (input: {
     secondaryDiagnostics: {
       climatology: { artifact: climatologyArtifact, predictions: climatology },
       persistence: { artifact: fitted.secondary.persistence, predictions: persistence },
-      twoFeatureLogistic: twoFeatureStub({
+      twoFeatureLogistic: twoFeatureSecondary({
         study: input.study,
         splitOriginsSha256: input.splitOriginsSha256,
+        trainRows: input.trainRows,
+        testRows: input.testRows,
         trainOrigins: fittedTrainOrigins,
         testOrigin: input.testOrigin,
       }),

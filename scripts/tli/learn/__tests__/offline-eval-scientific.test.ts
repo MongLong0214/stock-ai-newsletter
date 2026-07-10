@@ -202,21 +202,33 @@ describe('TLI v3 scientific offline baseline integration', () => {
     expect(firstFold.primary.artifact.trainRowCount).toBe(48)
   })
 
-  it('retires legacy baselines and exposes the two-feature secondary stub', () => {
+  it('retires legacy baselines and computes the diagnostic two-feature secondary under the shared contract', () => {
     const source = readFileSync(new URL('../offline-eval.ts', import.meta.url), 'utf8')
 
     expect(source).not.toMatch(/buildM0Predictions|buildBAblEvalRows|phase === 'rising' \? 1 : 0/)
-    const stub = buildScientificReport().baselines?.outerFolds[0].secondaryDiagnostics.twoFeatureLogistic
-    expect(stub).toMatchObject({
+    const secondary = buildScientificReport().baselines?.outerFolds[0].secondaryDiagnostics.twoFeatureLogistic
+    expect(secondary).toMatchObject({
       baselineId: 'logistic-two-feature-v1',
       role: 'secondary_diagnostic',
-      status: 'interface_stub',
       featureNames: ['interest_slope_7d', 'news_momentum'],
       preprocessingContract: 'same-fold-train-only-median-mad-v1',
       cSelectionContract: 'same-inner-oof-precalibration-brier-v1',
       calibrationContract: 'same-time-blocked-oof-platt-v1',
-      implementationOwner: 'todo-11-python-core',
     })
-    expect(stub).not.toHaveProperty('predictions')
+    // The legacy `interface_stub`/`implementationOwner` placeholder is gone.
+    expect(secondary).not.toHaveProperty('implementationOwner')
+    expect(['computed', 'not_computed']).toContain(secondary?.status)
+    // The 4-theme fixture is too sparse for the 30-per-class OOF floor, so it degrades gracefully.
+    if (secondary?.status === 'not_computed') {
+      expect(secondary.reason).toBe('oof_class_floor')
+    }
+  })
+
+  it('keeps the diagnostic two-feature secondary out of the frozen promotion-gate input', () => {
+    const report = buildScientificReport()
+    const gateInput = report.baselineGateInput
+    expect(gateInput).toBeDefined()
+    // The gate payload is `.strict()` and carries only `primaryArtifacts`; no secondary leaks in.
+    expect(JSON.stringify(gateInput)).not.toMatch(/logistic-two-feature|twoFeatureLogistic|secondaryDiagnostics/)
   })
 })

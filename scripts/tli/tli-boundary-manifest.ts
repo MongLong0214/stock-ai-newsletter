@@ -93,6 +93,7 @@ export const TLI_BOUNDARY_MANIFEST: Record<string, TliFileCategory> = {
   'scripts/tli/origins/lock-study-contract.ts': 'ops',
 
   'scripts/tli/e2e/cli-args.ts': 'ops',
+  'scripts/tli/e2e/confirmatory-query-count-rehearsal.ts': 'ops',
   'scripts/tli/e2e/contracts.ts': 'ops',
   'scripts/tli/e2e/cycle-freeze-contract.ts': 'ops',
   'scripts/tli/e2e/fixture-features.ts': 'ops',
