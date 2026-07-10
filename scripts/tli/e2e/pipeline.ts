@@ -38,6 +38,7 @@ import {
   featuresStage,
 } from './pipeline-stages'
 import { buildAndScoreProspectivePanel } from './prospective-panel'
+import { ProspectiveScoringCriticalIncidentError } from './prospective-replay-verification'
 import { runFrozenGateFixtures } from './run-gates'
 import { ScratchPostgres } from './scratch-postgres'
 import { trainAndEvaluate } from './train-evaluate'
@@ -68,14 +69,14 @@ export async function runDryRunPipeline(
 
   try {
     const stack = await buildFixtureOriginStack()
-    const scratchReceipt = scratch.start(args.prodSchemaPath)
-    stages.push({ name: 'scratch_postgres', status: 'pass', summary: { ...scratchReceipt } })
     const gitCommitSha = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim()
     const verifiedAt = new Date(execFileSync(
       'git', ['show', '-s', '--format=%cI', 'HEAD'], { encoding: 'utf8' },
     ).trim()).toISOString()
     const studyContract = buildStudyLockContract({ stack, gitCommitSha })
-    const studyReceipt = scratch.seedStudyLock(studyContract)
+    const scratchReceipt = scratch.start(args.prodSchemaPath, studyContract)
+    stages.push({ name: 'scratch_postgres', status: 'pass', summary: { ...scratchReceipt } })
+    const studyReceipt = scratchReceipt.studyLockRehearsal
     const lockStage = studyLockStage(stack, studyReceipt)
     stages.push(lockStage)
     if (lockStage.status !== 'pass') throw new Error('study contract was not locked before the first origin')
@@ -163,27 +164,48 @@ export async function runDryRunPipeline(
     exitCode = 0
     metrics = buildMetrics(training, gates)
   } catch (error) {
+    if (error instanceof ProspectiveScoringCriticalIncidentError) {
+      stages.push({
+        name: 'predict',
+        status: 'fail_closed',
+        summary: {
+          scoringStatus: 'rejected',
+          replayByteMatch: {
+            status: 'fail_closed',
+            checkedCandidateRows: error.checkedRows,
+            incidentCode: error.code,
+          },
+          criticalIncidentCount: 1,
+          criticalIncidents: [{
+            originDate: error.originDate,
+            themeId: error.themeId,
+            reason: error.code,
+          }],
+        },
+      })
+    }
     errors.push(error instanceof Error ? error.message : String(error))
     if (error instanceof ExpectedFailClosed && args.fixture === 'missing-source') {
       status = 'fail_closed'
       expectedSatisfied = true
       exitCode = 1
     } else {
-      status = 'failed'
+      status = error instanceof ProspectiveScoringCriticalIncidentError ? 'fail_closed' : 'failed'
       expectedSatisfied = false
       exitCode = 1
     }
   } finally {
     const cleanup = scratch.cleanup()
-    if (!cleanup.containerAbsent) {
-      errors.push(`scratch container ${TLI_E2E_CONTAINER_NAME} absence could not be verified`)
+    const scratchResourcesAbsent = cleanup.containerAbsent && cleanup.volumeAbsent
+    if (!scratchResourcesAbsent) {
+      errors.push(`scratch PostgreSQL container or data volume absence could not be verified`)
       status = 'failed'
       expectedSatisfied = false
       exitCode = 1
     }
     stages.push({
       name: 'cleanup',
-      status: cleanup.containerAbsent ? 'pass' : 'fail_closed',
+      status: scratchResourcesAbsent ? 'pass' : 'fail_closed',
       summary: { containerName: TLI_E2E_CONTAINER_NAME, ...cleanup },
     })
   }

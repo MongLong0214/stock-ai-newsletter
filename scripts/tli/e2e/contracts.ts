@@ -1,4 +1,5 @@
 export const TLI_E2E_CONTAINER_NAME = 'tli-e2e-dryrun'
+export const TLI_E2E_VOLUME_NAME = 'tli-e2e-dryrun-data'
 
 export type DryRunFixture = 'happy' | 'no-signal' | 'missing-source'
 export type DryRunStatus = 'pass' | 'no_promotion' | 'fail_closed' | 'failed'

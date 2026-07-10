@@ -4,7 +4,7 @@ import { dirname } from 'node:path'
 import { join } from 'node:path'
 
 import { parseDryRunCliArgs } from './cli-args'
-import { forceRemoveScratchContainer } from './scratch-postgres'
+import { forceRemoveScratchResources } from './scratch-postgres'
 
 const SENSITIVE_ENV_NAME = /(?:^|_)(?:API_?KEY|TOKEN|SECRET|PASSWORD|CREDENTIALS?|PRIVATE_KEY|SERVICE_ROLE_KEY|DATABASE_URL)(?:$|_)/i
 
@@ -66,7 +66,7 @@ const isDirectRun = /run-scientific-dry-run\.(?:ts|js)$/.test(process.argv[1] ??
 
 if (isDirectRun) {
   const onSignal = (signal: NodeJS.Signals): void => {
-    forceRemoveScratchContainer()
+    forceRemoveScratchResources()
     process.exit(signal === 'SIGINT' ? 130 : 143)
   }
   const onInterrupt = (): void => onSignal('SIGINT')

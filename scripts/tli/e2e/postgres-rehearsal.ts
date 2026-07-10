@@ -1,10 +1,12 @@
 import { spawnSync } from 'node:child_process'
+import { readFileSync } from 'node:fs'
 
 import {
   buildInterestCollectionRun,
   buildNewsCollectionRun,
 } from '../collectors/collection-run-contract'
 import { buildCollectionRunAppendRequest } from '../collectors/collection-run-store'
+import { todo12LifecycleReceiptSchema } from './todo12-lifecycle-receipt'
 
 const CONTAINER_NAME = process.argv[2] ?? 'tli-e2e-dryrun'
 const NEWS_THEME_ID = '15000000-0000-4000-8000-000000000001'
@@ -105,9 +107,24 @@ const datalabRequest = buildCollectionRunAppendRequest(datalab)
 const datalabRunId = append(datalabRequest.canonicalJson, datalabRequest.payloadSha256)
 assertComplete(datalabRunId, 'naver_datalab', 'tli_interest_observations')
 
+const lifecycleOutput = psql(readFileSync(
+  'scripts/tli/e2e/sql/todo12-lifecycle-rehearsal.sql',
+  'utf8',
+))
+const lifecycleLine = lifecycleOutput.split('\n').at(-1)
+if (lifecycleLine === undefined) throw new TypeError('Todo 12 lifecycle rehearsal returned no receipt')
+let lifecycleValue: unknown
+try {
+  lifecycleValue = JSON.parse(lifecycleLine) as unknown
+} catch {
+  throw new TypeError(`Todo 12 lifecycle rehearsal returned invalid JSON: ${lifecycleLine}`)
+}
+const lifecycle = todo12LifecycleReceiptSchema.parse(lifecycleValue)
+
 process.stdout.write(`${JSON.stringify({
   status: 'pass',
   sources: ['naver_news', 'naver_datalab'],
   identicalPayloadContract: 'separate_immutable_runs',
   runCount: 3,
+  lifecycle,
 })}\n`)

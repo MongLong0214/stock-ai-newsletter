@@ -2,6 +2,8 @@ import { createHash } from 'node:crypto'
 
 import { canonicalJsonV1Sha256 } from '../../../lib/tli/canonical-json'
 import type { ConfirmatoryFeatureSnapshot } from '../../../lib/tli/features/build-confirmatory-features'
+import type { ReplicateBody } from '../../../lib/tli/model/interval-replay'
+import type { M1ModelArtifactV2 } from '../../../lib/tli/model/m1'
 import {
   buildScientificPredictionScoringPlan,
   executeScientificPredictionScoringPlan,
@@ -18,17 +20,8 @@ import {
   scientificPredictionId,
 } from './fixture-identities'
 import type { FixtureOriginRef } from './fixture-origins'
-import type { ProspectivePanelRow } from './prospective-panel'
-
-export interface ProspectiveScoringReceipt {
-  readonly plannedFinalizations: number
-  readonly completedFinalizations: number
-  readonly crossCycleRoleJoinCount: number
-  readonly rolePairViolationCount: number
-  readonly featureSnapshotMismatchCount: number
-  readonly v1MixCount: number
-  readonly nullToFalseCount: number
-}
+import { assertProspectiveReplayBytes } from './prospective-replay-verification'
+import type { ProspectiveScoringReceipt, ProspectiveScoringRow } from './prospective-scoring-contract'
 
 const featuresBody = (snapshot: ConfirmatoryFeatureSnapshot): Readonly<Record<string, unknown>> => ({
   featureNames: snapshot.featureNames,
@@ -45,7 +38,7 @@ const afterCutoff = (forecastCutoff: string, milliseconds: number): string => (
 
 // Candidate rows carry the replayed block_bootstrap_envelope_v1 from the frozen 500-model ensemble
 // (computed once at panel build); the climatology comparator has no ensemble, so its interval is its point.
-const scoringInterval = (row: ProspectivePanelRow, role: 'candidate' | 'comparator'): {
+const scoringInterval = (row: ProspectiveScoringRow, role: 'candidate' | 'comparator'): {
   readonly lower: number
   readonly upper: number
 } => (
@@ -55,7 +48,7 @@ const scoringInterval = (row: ProspectivePanelRow, role: 'candidate' | 'comparat
 )
 
 const scoringPrediction = (input: {
-  readonly row: ProspectivePanelRow
+  readonly row: ProspectiveScoringRow
   readonly originId: string
   readonly role: 'candidate' | 'comparator'
   readonly artifactSha256: string
@@ -89,12 +82,15 @@ const scoringPrediction = (input: {
 
 export async function scoreProspectiveOrigin(input: {
   readonly origin: FixtureOriginRef
-  readonly rows: readonly ProspectivePanelRow[]
+  readonly rows: readonly ProspectiveScoringRow[]
+  readonly artifact: M1ModelArtifactV2
   readonly artifactSha256: string
   readonly intervalEnsembleSha256: string
+  readonly replicateBodies: readonly ReplicateBody[]
   readonly modelCreatedAt: string
   readonly modelArtifactId: string
 }): Promise<ProspectiveScoringReceipt> {
+  const replayEnvelopeChecks = assertProspectiveReplayBytes(input)
   const originId = experimentOriginId(CYCLE_ID, input.origin.originDate)
   const originArtifactId = deterministicUuid('origin-artifact', originId)
   const originArtifactPayload = {
@@ -232,6 +228,8 @@ export async function scoreProspectiveOrigin(input: {
   return {
     plannedFinalizations: execution.plannedFinalizations,
     completedFinalizations: execution.completedFinalizations,
+    replayEnvelopeChecks,
+    replayEnvelopeByteMatch: 'pass',
     crossCycleRoleJoinCount: plan.finalizations.filter((finalization) => {
       const prediction = predictionById.get(finalization.predictionId)
       return prediction === undefined

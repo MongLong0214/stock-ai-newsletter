@@ -1,8 +1,9 @@
 import { spawnSync, type SpawnSyncReturns } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 
-import { TLI_E2E_CONTAINER_NAME } from './contracts'
+import { TLI_E2E_CONTAINER_NAME, TLI_E2E_VOLUME_NAME } from './contracts'
 import type { CycleFreezeContract, StudyLockContract } from './cycle-freeze-contract'
+import { parsePostgresRehearsalReceipt, type Todo12LifecycleReceipt } from './todo12-lifecycle-receipt'
 
 const POSTGRES_IMAGE = 'postgres:17'
 const POSTGRES_READY_SENTINEL = 'PostgreSQL init process complete; ready for start up.'
@@ -43,9 +44,17 @@ const defaultRunner: CommandRunner = (command, args, input) => spawnSync(command
   input,
 })
 
-export const forceRemoveScratchContainer = (
+interface ScratchResourceRemoval {
+  readonly container: SpawnSyncReturns<string>
+  readonly volume: SpawnSyncReturns<string>
+}
+
+export const forceRemoveScratchResources = (
   runner: CommandRunner = defaultRunner,
-): SpawnSyncReturns<string> => runner('docker', ['rm', '-f', TLI_E2E_CONTAINER_NAME])
+): ScratchResourceRemoval => ({
+  container: runner('docker', ['rm', '-f', '-v', TLI_E2E_CONTAINER_NAME]),
+  volume: runner('docker', ['volume', 'rm', '-f', TLI_E2E_VOLUME_NAME]),
+})
 
 const outputOf = (result: SpawnSyncReturns<string>): string => (
   result.stderr || result.stdout || `exit ${String(result.status)}`
@@ -65,12 +74,18 @@ export interface ScratchPostgresReceipt {
   readonly migrations: typeof MIGRATIONS
   readonly positiveRehearsal: true
   readonly collectionAppendContract: 'separate_immutable_runs'
+  readonly studyLockRehearsal: StudyLockReceipt
+  readonly lifecycleRehearsal: Todo12LifecycleReceipt
 }
 
 export interface ScratchCleanupReceipt {
   readonly rmForceIssued: true
   readonly rmForceExitStatus: number | null
   readonly containerAbsent: boolean
+  readonly volumeName: typeof TLI_E2E_VOLUME_NAME
+  readonly volumeRmForceIssued: true
+  readonly volumeRmForceExitStatus: number | null
+  readonly volumeAbsent: boolean
 }
 
 export interface StudyLockReceipt {
@@ -100,15 +115,25 @@ export class ScratchPostgres {
   constructor(private readonly runner: CommandRunner = defaultRunner) {}
 
   cleanup(): ScratchCleanupReceipt {
-    const removal = forceRemoveScratchContainer(this.runner)
-    const verification = this.runner('docker', [
+    const removal = forceRemoveScratchResources(this.runner)
+    const containerVerification = this.runner('docker', [
       'ps', '-a', '--filter', `name=^/${TLI_E2E_CONTAINER_NAME}$`, '--format', '{{.Names}}',
     ])
+    const volumeVerification = this.runner('docker', [
+      'volume', 'ls', '--quiet', '--filter', `name=${TLI_E2E_VOLUME_NAME}`,
+    ])
+    const remainingVolumes = volumeVerification.stdout.trim().split('\n').filter(Boolean)
     this.started = false
     return {
       rmForceIssued: true,
-      rmForceExitStatus: removal.status,
-      containerAbsent: verification.status === 0 && verification.stdout.trim().length === 0,
+      rmForceExitStatus: removal.container.status,
+      containerAbsent: containerVerification.status === 0
+        && containerVerification.stdout.trim().length === 0,
+      volumeName: TLI_E2E_VOLUME_NAME,
+      volumeRmForceIssued: true,
+      volumeRmForceExitStatus: removal.volume.status,
+      volumeAbsent: volumeVerification.status === 0
+        && !remainingVolumes.includes(TLI_E2E_VOLUME_NAME),
     }
   }
 
@@ -172,11 +197,12 @@ export class ScratchPostgres {
     return receipt as CycleFreezeReceipt
   }
 
-  start(prodSchemaPath: string): ScratchPostgresReceipt {
+  start(prodSchemaPath: string, studyContract: StudyLockContract): ScratchPostgresReceipt {
     this.cleanup()
     this.run('docker', ['info'], 'docker_info')
     this.run('docker', [
       'run', '--name', TLI_E2E_CONTAINER_NAME,
+      '--mount', `type=volume,source=${TLI_E2E_VOLUME_NAME},target=/var/lib/postgresql/data`,
       '-e', 'POSTGRES_PASSWORD=postgres', '-d', POSTGRES_IMAGE,
     ], 'docker_run')
     this.started = true
@@ -210,17 +236,21 @@ export class ScratchPostgres {
       'psql', '-X', '-qAt', '-v', 'ON_ERROR_STOP=1', '-U', 'postgres',
       '-c', 'SHOW server_version;',
     ], 'server_version').stdout.trim()
-    this.run(process.execPath, [
+    const studyLockRehearsal = this.seedStudyLock(studyContract)
+    const rehearsal = this.run(process.execPath, [
       '--import', 'tsx',
       'scripts/tli/e2e/postgres-rehearsal.ts',
       TLI_E2E_CONTAINER_NAME,
     ], 'positive_rehearsal')
+    const rehearsalReceipt = parsePostgresRehearsalReceipt(rehearsal.stdout)
     return {
       image: POSTGRES_IMAGE,
       serverVersion: version,
       migrations: MIGRATIONS,
       positiveRehearsal: true,
       collectionAppendContract: 'separate_immutable_runs',
+      studyLockRehearsal,
+      lifecycleRehearsal: rehearsalReceipt.lifecycle,
     }
   }
 

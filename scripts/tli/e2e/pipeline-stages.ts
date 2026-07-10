@@ -159,7 +159,10 @@ export const cycleFreezeStage = (input: {
 
 export const panelStages = (panel: ProspectivePanel): readonly [DryRunStage, DryRunStage] => [{
   name: 'predict',
-  status: panel.rolePairViolationCount === 0 && panel.featureSnapshotMismatchCount === 0 ? 'pass' : 'no_go',
+  status: panel.rolePairViolationCount === 0
+    && panel.featureSnapshotMismatchCount === 0
+    && panel.replayEnvelopeByteMatch === 'pass'
+    && panel.replayEnvelopeChecks === panel.rows.length ? 'pass' : 'no_go',
   summary: {
     originCount: panel.scoredOriginCount,
     themeCount: 12,
@@ -169,7 +172,13 @@ export const panelStages = (panel: ProspectivePanel): readonly [DryRunStage, Dry
     rolePairViolationCount: panel.rolePairViolationCount,
     featureSnapshotMismatchCount: panel.featureSnapshotMismatchCount,
     crossCycleRoleJoinCount: panel.crossCycleRoleJoinCount,
-    intervalPolicy: 'conservative_0_1_due_to_summary_only_ensemble_contract',
+    intervalPolicy: 'block_bootstrap_envelope_v1',
+    replayByteMatch: {
+      status: panel.replayEnvelopeByteMatch,
+      checkedCandidateRows: panel.replayEnvelopeChecks,
+      expectedCandidateRows: panel.rows.length,
+      criticalIncidentCount: 0,
+    },
   },
 }, {
   name: 'label_score',

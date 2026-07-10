@@ -1,7 +1,6 @@
 import {
   buildConfirmatoryFeatureVector,
   type ConfirmatoryFeatureInput,
-  type ConfirmatoryFeatureSnapshot,
 } from '../../../lib/tli/features/build-confirmatory-features'
 import { predictM1Probability, type M1ModelArtifactV2 } from '../../../lib/tli/model/m1'
 import { replayCandidateEnvelope, type ReplicateBody } from '../../../lib/tli/model/interval-replay'
@@ -19,22 +18,12 @@ import {
 } from './fixture-study-data'
 import {
   scoreProspectiveOrigin,
-  type ProspectiveScoringReceipt,
 } from './prospective-scoring'
+import type { ProspectiveScoringReceipt, ProspectiveScoringRow } from './prospective-scoring-contract'
 
-export interface ProspectivePanelRow {
+export interface ProspectivePanelRow extends ProspectiveScoringRow {
   readonly sequence: number
-  readonly origin: FixtureOriginRef
-  readonly themeId: string
   readonly featureInput: ConfirmatoryFeatureInput
-  readonly snapshot: ConfirmatoryFeatureSnapshot
-  readonly candidateProbability: number
-  readonly candidateCiLower: number
-  readonly candidateCiUpper: number
-  readonly comparatorProbability: 0.5
-  readonly outcome: boolean
-  readonly labelId: string
-  readonly finalizedAt: string
 }
 
 export interface ProspectivePanel {
@@ -43,6 +32,8 @@ export interface ProspectivePanel {
   readonly plannedFinalizations: number
   readonly completedFinalizations: number
   readonly intervalEnsembleSha256: string
+  readonly replayEnvelopeChecks: number
+  readonly replayEnvelopeByteMatch: 'pass'
   readonly crossCycleRoleJoinCount: number
   readonly rolePairViolationCount: number
   readonly featureSnapshotMismatchCount: number
@@ -76,7 +67,8 @@ const buildPanelRow = (input: {
   if (candidateProbability === null || snapshot.abstain) {
     throw new Error(`prospective candidate unexpectedly abstained for ${input.origin.originDate}:${input.themeId}`)
   }
-  // plan Todo 13/15: the candidate interval is replayed from the frozen 500-model ensemble at scoring time.
+  // Todo 13/15: build the stored candidate envelope from the frozen 500-model ensemble; the scoring
+  // boundary independently replays the same bodies and rejects any byte-different stored bounds.
   const envelope = replayCandidateEnvelope({
     fullFitArtifact: input.artifact,
     replicateBodies: input.replicateBodies,
@@ -123,8 +115,10 @@ export async function buildAndScoreProspectivePanel(input: {
     receipts.push(await scoreProspectiveOrigin({
       origin,
       rows: rows.filter((row) => row.origin.originDate === origin.originDate),
+      artifact: input.artifact,
       artifactSha256: input.artifactSha256,
       intervalEnsembleSha256: input.intervalEnsembleSha256,
+      replicateBodies: input.replicateBodies,
       modelCreatedAt: isoBefore(firstOrigin.originDate),
       modelArtifactId: deterministicUuid('model-manifest-artifact', CYCLE_ID),
     }))
@@ -138,6 +132,8 @@ export async function buildAndScoreProspectivePanel(input: {
     plannedFinalizations: sum((receipt) => receipt.plannedFinalizations),
     completedFinalizations: sum((receipt) => receipt.completedFinalizations),
     intervalEnsembleSha256: input.intervalEnsembleSha256,
+    replayEnvelopeChecks: sum((receipt) => receipt.replayEnvelopeChecks),
+    replayEnvelopeByteMatch: 'pass',
     crossCycleRoleJoinCount: sum((receipt) => receipt.crossCycleRoleJoinCount),
     rolePairViolationCount: sum((receipt) => receipt.rolePairViolationCount),
     featureSnapshotMismatchCount: sum((receipt) => receipt.featureSnapshotMismatchCount),
