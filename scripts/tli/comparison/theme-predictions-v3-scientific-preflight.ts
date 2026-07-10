@@ -1,9 +1,13 @@
 import { canonicalJsonV1, canonicalJsonV1Sha256, compareUtf8Bytes } from '../../../lib/tli/canonical-json'
+import {
+  ScientificEnvelopeVerifiedPrediction,
+  ScientificScoringCriticalIncidentError,
+  parseScientificIntervalReplayEvidence,
+} from './theme-predictions-v3-scientific-interval'
 import type {
   ScientificCycleRow,
   ScientificEvidenceArtifactRow,
   ScientificEvidenceAttestationRow,
-  ScientificIntervalEvidence,
   ScientificLabelRow,
   ScientificPredictionRole,
   ScientificPredictionRow,
@@ -13,10 +17,19 @@ import type {
 } from './theme-predictions-v3-scientific-types'
 
 const SHA256 = /^[0-9a-f]{64}$/
+const verifiedScoringPlans = new WeakSet<object>()
 const ACTIVE_STATUSES = new Set(['running', 'promoted_internal', 'public_approved'])
 
 export class ScientificScoringContractError extends Error {
   readonly name = 'ScientificScoringContractError'
+}
+
+export function assertVerifiedScientificPredictionScoringPlan(
+  plan: unknown,
+): asserts plan is ScientificPredictionScoringPlan {
+  if (typeof plan !== 'object' || plan === null || !verifiedScoringPlans.has(plan)) {
+    throw new ScientificScoringCriticalIncidentError('scientific_scoring_plan_unverified', null)
+  }
 }
 
 const fail = (message: string): never => {
@@ -57,47 +70,6 @@ const matchingAttestation = (
   row.artifact_id === artifact.id && row.content_sha256 === artifact.content_sha256
 )), `${artifact.artifact_type} attestation`)
 
-const intervalEvidence = (
-  cycle: ScientificCycleRow,
-  artifact: ScientificEvidenceArtifactRow,
-): ScientificIntervalEvidence => {
-  const payload = artifact.payload
-  if (
-    payload.candidate_model_version !== cycle.candidate_model_version
-    || payload.candidate_model_sha256 !== cycle.candidate_model_sha256
-    || payload.comparator_version !== cycle.comparator_version
-    || payload.comparator_artifact_sha256 !== cycle.comparator_artifact_sha256
-  ) fail('model manifest does not match the frozen role model identities')
-  if (
-    payload.interval_ensemble_version !== 'interval-ensemble-v2'
-    || payload.interval_envelope_version !== 'block_bootstrap_envelope_v1'
-    || payload.interval_replicate_count !== 500
-  ) fail('interval model manifest requires the frozen exact 500-model ensemble')
-  const ensembleSha256 = typeof payload.interval_ensemble_sha256 === 'string'
-    ? payload.interval_ensemble_sha256
-    : fail('interval ensemble hash must be lowercase SHA-256')
-  if (!SHA256.test(ensembleSha256)) {
-    fail('interval ensemble hash must be lowercase SHA-256')
-  }
-  return {
-    ensembleVersion: 'interval-ensemble-v2',
-    envelopeVersion: 'block_bootstrap_envelope_v1',
-    replicateCount: 500,
-    ensembleSha256,
-  }
-}
-
-const assertInterval = (prediction: ScientificPredictionRow): number => {
-  if (prediction.abstain) return 0
-  const { p_rise: probability, ci_lower: lower, ci_upper: upper } = prediction
-  if (
-    probability === null || lower === null || upper === null
-    || !Number.isFinite(probability) || !Number.isFinite(lower) || !Number.isFinite(upper)
-    || lower < 0 || lower > probability || probability > upper || upper > 1
-  ) fail(`prediction ${prediction.id} interval must satisfy 0 <= lower <= p <= upper <= 1`)
-  return 1
-}
-
 const roleContract = (cycle: ScientificCycleRow, role: ScientificPredictionRole) => role === 'candidate'
   ? { modelVersion: cycle.candidate_model_version, modelSha: cycle.candidate_model_sha256 }
   : { modelVersion: cycle.comparator_version, modelSha: cycle.comparator_artifact_sha256 }
@@ -107,9 +79,11 @@ const validatePrediction = (input: {
   readonly role: ScientificPredictionRole
   readonly cycle: ScientificCycleRow
   readonly forecastDate: string
+  readonly forecastId: string
   readonly forecastCutoff: string
   readonly finalizedAt: string
-}): number => {
+  readonly intervalReplay: ReturnType<typeof parseScientificIntervalReplayEvidence>
+}): ScientificEnvelopeVerifiedPrediction => {
   const expected = roleContract(input.cycle, input.role)
   const row = input.row
   if (
@@ -124,7 +98,12 @@ const validatePrediction = (input: {
     || row.labeler_version !== input.cycle.labeler_version
   ) fail(`prediction ${row.id} role/model/feature/cutoff contract is not exact`)
   assertBeforeFinalization(row.created_at, input.finalizedAt, `prediction ${row.id} created_at`)
-  return assertInterval(row)
+  return ScientificEnvelopeVerifiedPrediction.verify(row, input.role, input.intervalReplay, {
+    featureContractSha256: input.cycle.feature_contract_sha256,
+    forecastOriginManifestId: input.forecastId,
+    themeId: row.theme_id,
+    cutoffAt: input.forecastCutoff,
+  })
 }
 
 const exactLabel = (
@@ -155,7 +134,7 @@ const terminalLabel = (label: ScientificLabelRow): { status: 'scored' | 'exclude
 }
 
 const finalization = (input: {
-  readonly prediction: ScientificPredictionRow
+  readonly prediction: ScientificEnvelopeVerifiedPrediction
   readonly label: ScientificLabelRow
   readonly role: ScientificPredictionRole
   readonly status: 'scored' | 'excluded'
@@ -163,7 +142,7 @@ const finalization = (input: {
   readonly scoredAt: string
 }): ScientificScoreFinalization => {
   const payload = {
-    prediction_id: input.prediction.id,
+    prediction_id: input.prediction.row.id,
     actual_label_id: input.label.id,
     score_status: input.status,
     score_exclusion_reason: input.reason,
@@ -171,7 +150,7 @@ const finalization = (input: {
   }
   const canonicalJson = canonicalJsonV1(payload)
   return {
-    predictionId: input.prediction.id,
+    predictionId: input.prediction.row.id,
     role: input.role,
     actualLabelId: input.label.id,
     scoreStatus: input.status,
@@ -213,7 +192,7 @@ export function buildScientificPredictionScoringPlan(
     && row.artifact_type === 'model_manifest' && row.artifact_key === 'singleton'
   )), 'frozen model manifest')
   const modelAttestation = matchingAttestation(modelArtifact, input.evidenceAttestations)
-  const frozenInterval = intervalEvidence(cycle, modelArtifact)
+  const frozenInterval = parseScientificIntervalReplayEvidence(cycle, modelArtifact)
 
   const scopedPredictions = input.predictions.filter((row) => (
     row.experiment_cycle_id === cycle.id && row.experiment_origin_manifest_id === origin.id
@@ -245,23 +224,28 @@ export function buildScientificPredictionScoringPlan(
       assertReadyAtPredictionInsert(originAttestation.verified_at, row.created_at, 'origin attestation verified_at')
       assertReadyAtPredictionInsert(modelArtifact.created_at, row.created_at, 'interval model manifest created_at')
       assertReadyAtPredictionInsert(modelAttestation.verified_at, row.created_at, 'interval attestation verified_at')
-      intervalCompleteCount += validatePrediction({
+      const verifiedPrediction = validatePrediction({
         row, role, cycle, forecastDate: forecast.origin_date,
-        forecastCutoff: forecast.forecast_cutoff, finalizedAt,
+        forecastId: forecast.id, forecastCutoff: forecast.forecast_cutoff,
+        finalizedAt, intervalReplay: frozenInterval,
       })
+      intervalCompleteCount += verifiedPrediction.intervalCount
       finalizations.push(finalization({
-        prediction: row, label, role, status: terminal.status,
+        prediction: verifiedPrediction, label, role, status: terminal.status,
         reason: terminal.reason, scoredAt: input.scoredAt,
       }))
     }
   }
   if (scopedPredictions.length !== themes.length * 2) fail('requested origin contains rows outside the exact expected universe')
-  return {
+  const immutableFinalizations = Object.freeze(finalizations.map((item) => Object.freeze(item)))
+  const plan: ScientificPredictionScoringPlan = Object.freeze({
     cycleId: cycle.id,
     originId: origin.id,
     expectedThemeCount: themes.length,
     intervalCompleteCount,
-    intervalEvidence: frozenInterval,
-    finalizations,
-  }
+    intervalEvidence: frozenInterval.receipt,
+    finalizations: immutableFinalizations,
+  })
+  verifiedScoringPlans.add(plan)
+  return plan
 }

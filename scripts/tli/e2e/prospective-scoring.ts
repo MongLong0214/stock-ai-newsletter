@@ -86,6 +86,7 @@ export async function scoreProspectiveOrigin(input: {
   readonly artifact: M1ModelArtifactV2
   readonly artifactSha256: string
   readonly intervalEnsembleSha256: string
+  readonly intervalEnsembleArtifact: unknown
   readonly replicateBodies: readonly ReplicateBody[]
   readonly modelCreatedAt: string
   readonly modelArtifactId: string
@@ -109,10 +110,12 @@ export async function scoreProspectiveOrigin(input: {
     candidate_model_sha256: input.artifactSha256,
     comparator_version: 'balanced-climatology-v1',
     comparator_artifact_sha256: COMPARATOR_ARTIFACT_SHA256,
+    candidate_model_artifact: input.artifact,
     interval_ensemble_version: 'interval-ensemble-v2',
     interval_envelope_version: 'block_bootstrap_envelope_v1',
     interval_replicate_count: 500,
     interval_ensemble_sha256: input.intervalEnsembleSha256,
+    interval_ensemble_artifact: input.intervalEnsembleArtifact,
   }
   const labels = input.rows.map((row) => ({
     id: row.labelId,

@@ -140,7 +140,10 @@ export const buildCycleFreezeContract = (input: {
     readonly artifactSha256: string
     readonly calibrationArtifactSha256: string
     readonly intervalEnsembleSha256: string
-    readonly report: { readonly promotionDecision: { readonly positiveSkill: boolean } }
+    readonly report: {
+      readonly promotionDecision: { readonly positiveSkill: boolean }
+      readonly intervalEnsemble: unknown
+    }
   }
   readonly gitCommitSha: string
   readonly verifiedAt: string
@@ -177,7 +180,11 @@ export const buildCycleFreezeContract = (input: {
     comparator_version: 'balanced-climatology-v1',
     comparator_artifact_sha256: COMPARATOR_ARTIFACT_SHA256,
     calibration_artifact_sha256: input.training.calibrationArtifactSha256,
+    interval_ensemble_version: 'interval-ensemble-v2',
+    interval_envelope_version: 'block_bootstrap_envelope_v1',
+    interval_replicate_count: 500,
     interval_ensemble_sha256: input.training.intervalEnsembleSha256,
+    interval_ensemble_artifact: canonicalObject(input.training.report.intervalEnsemble),
   })
   const modelManifestSha256 = canonicalJsonV1Sha256(modelPayload)
   const thresholds = canonicalObject({ paired_brier_upper_99_max: 0 })

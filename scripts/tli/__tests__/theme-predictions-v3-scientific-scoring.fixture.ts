@@ -1,6 +1,11 @@
-import { canonicalJsonV1Sha256 } from '@/lib/tli/canonical-json'
-import { CONFIRMATORY_FEATURE_NAMES } from '@/lib/tli/features/confirmatory-feature-types'
 import type { ScientificPredictionScoringInput } from '../comparison/theme-predictions-v3-scientific-scoring'
+import { canonicalJsonV1Sha256 } from '../../../lib/tli/canonical-json'
+import {
+  FEATURE_CONTRACT_SHA,
+  buildScientificIntervalFixture,
+} from './theme-predictions-v3-scientific-interval.fixture'
+
+export { FEATURE_CONTRACT_SHA } from './theme-predictions-v3-scientific-interval.fixture'
 
 export type ScientificScoringFixture = {
   -readonly [Key in keyof ScientificPredictionScoringInput]:
@@ -20,26 +25,26 @@ export const LABEL_ID = '70000000-0000-4000-8000-000000000001'
 export const CANDIDATE_ID = '80000000-0000-4000-8000-000000000001'
 export const COMPARATOR_ID = '80000000-0000-4000-8000-000000000002'
 
-export const CANDIDATE_SHA = 'a'.repeat(64)
 export const COMPARATOR_SHA = 'b'.repeat(64)
-export const FEATURE_CONTRACT_SHA = 'c'.repeat(64)
-export const FEATURE_SNAPSHOT = {
-  featureNames: CONFIRMATORY_FEATURE_NAMES,
-  values: [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0, 0],
-  missingFlags: Array.from({ length: CONFIRMATORY_FEATURE_NAMES.length }, () => false),
-  abstain: false,
-  abstainReasons: [],
-  provenance: {
-    featureContractSha256: FEATURE_CONTRACT_SHA,
-    forecastOriginManifestId: FORECAST_ID,
-    themeId: THEME_ID,
-    cutoffAt: '2026-07-06T09:00:00.000Z',
-  },
-} as const
-export const FEATURE_SNAPSHOT_SHA = canonicalJsonV1Sha256(FEATURE_SNAPSHOT)
-export const INTERVAL_SHA = 'e'.repeat(64)
+const intervalFixture = buildScientificIntervalFixture({ forecastId: FORECAST_ID, themeId: THEME_ID })
+export const CANDIDATE_SHA = intervalFixture.artifactSha256
+export const FEATURE_SNAPSHOT = intervalFixture.snapshot
+export const FEATURE_SNAPSHOT_SHA = intervalFixture.snapshotSha256
+export const INTERVAL_SHA = intervalFixture.intervalEnsembleSha256
 const ORIGIN_ARTIFACT_SHA = 'f'.repeat(64)
-const MODEL_MANIFEST_SHA = '1'.repeat(64)
+const MODEL_MANIFEST_PAYLOAD = {
+  candidate_model_version: 'candidate-v2',
+  candidate_model_sha256: CANDIDATE_SHA,
+  comparator_version: 'comparator-v1',
+  comparator_artifact_sha256: COMPARATOR_SHA,
+  interval_ensemble_version: 'interval-ensemble-v2',
+  interval_envelope_version: 'block_bootstrap_envelope_v1',
+  interval_replicate_count: 500,
+  interval_ensemble_sha256: INTERVAL_SHA,
+  candidate_model_artifact: intervalFixture.artifact,
+  interval_ensemble_artifact: intervalFixture.intervalEnsembleArtifact,
+} as const
+const MODEL_MANIFEST_SHA = canonicalJsonV1Sha256(MODEL_MANIFEST_PAYLOAD)
 
 const forecast = {
   id: FORECAST_ID,
@@ -128,16 +133,7 @@ export function makeScientificScoringFixture(): ScientificScoringFixture {
         artifact_type: 'model_manifest',
         artifact_key: 'singleton',
         content_sha256: MODEL_MANIFEST_SHA,
-        payload: {
-          candidate_model_version: 'candidate-v2',
-          candidate_model_sha256: CANDIDATE_SHA,
-          comparator_version: 'comparator-v1',
-          comparator_artifact_sha256: COMPARATOR_SHA,
-          interval_ensemble_version: 'interval-ensemble-v2',
-          interval_envelope_version: 'block_bootstrap_envelope_v1',
-          interval_replicate_count: 500,
-          interval_ensemble_sha256: INTERVAL_SHA,
-        },
+        payload: MODEL_MANIFEST_PAYLOAD,
         created_at: '2026-07-01T00:00:00.000Z',
       },
     ],
@@ -160,9 +156,9 @@ export function makeScientificScoringFixture(): ScientificScoringFixture {
         scientific_prediction_role: 'candidate',
         model_version: 'candidate-v2',
         model_artifact_sha256: CANDIDATE_SHA,
-        p_rise: 0.72,
-        ci_lower: 0.61,
-        ci_upper: 0.81,
+        p_rise: intervalFixture.pointProbability,
+        ci_lower: intervalFixture.envelope.lower,
+        ci_upper: intervalFixture.envelope.upper,
       },
       {
         ...predictionBase,
@@ -171,8 +167,8 @@ export function makeScientificScoringFixture(): ScientificScoringFixture {
         model_version: 'comparator-v1',
         model_artifact_sha256: COMPARATOR_SHA,
         p_rise: 0.65,
-        ci_lower: 0.55,
-        ci_upper: 0.75,
+        ci_lower: 0.65,
+        ci_upper: 0.65,
       },
       {
         ...predictionBase,

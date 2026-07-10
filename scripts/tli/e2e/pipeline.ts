@@ -132,6 +132,7 @@ export async function runDryRunPipeline(
       artifact: training.artifact,
       artifactSha256: training.artifactSha256,
       intervalEnsembleSha256: training.intervalEnsembleSha256,
+      intervalEnsembleArtifact: training.report.intervalEnsemble,
       replicateBodies: training.report.intervalEnsemble.replicate_bodies,
     })
     const panelStagePair = panelStages(panel)

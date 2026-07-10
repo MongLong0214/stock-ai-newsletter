@@ -23,6 +23,7 @@ export const TLI_BOUNDARY_MANIFEST: Record<string, TliFileCategory> = {
   'scripts/tli/comparison/theme-predictions-v3-legacy-scoring-plan.ts': 'runtime',
   'scripts/tli/comparison/theme-predictions-v3-scoring.ts': 'runtime',
   'scripts/tli/comparison/theme-predictions-v3-scientific-db.ts': 'runtime',
+  'scripts/tli/comparison/theme-predictions-v3-scientific-interval.ts': 'runtime',
   'scripts/tli/comparison/theme-predictions-v3-scientific-preflight.ts': 'runtime',
   'scripts/tli/comparison/theme-predictions-v3-scientific-scoring.ts': 'runtime',
   'scripts/tli/comparison/theme-predictions-v3-scientific-types.ts': 'runtime',

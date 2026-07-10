@@ -1,15 +1,18 @@
 import type {
-  ScientificPredictionScoringPlan,
   ScientificScoreFinalizer,
   ScientificScoringExecutionResult,
 } from './theme-predictions-v3-scientific-types'
-import { buildScientificPredictionScoringPlan } from './theme-predictions-v3-scientific-preflight'
+import {
+  assertVerifiedScientificPredictionScoringPlan,
+  buildScientificPredictionScoringPlan,
+} from './theme-predictions-v3-scientific-preflight'
 import {
   finalizeScientificScoreWithRpc,
   loadScientificPredictionScoringInput,
 } from './theme-predictions-v3-scientific-db'
 
 export { buildScientificPredictionScoringPlan, ScientificScoringContractError } from './theme-predictions-v3-scientific-preflight'
+export { ScientificScoringCriticalIncidentError } from './theme-predictions-v3-scientific-interval'
 export type {
   ScientificCycleRow,
   ScientificEvidenceArtifactRow,
@@ -41,9 +44,10 @@ export class ScientificScoringPartialError extends Error {
 }
 
 export async function executeScientificPredictionScoringPlan(
-  plan: ScientificPredictionScoringPlan,
+  plan: unknown,
   finalize: ScientificScoreFinalizer,
 ): Promise<ScientificScoringExecutionResult> {
+  assertVerifiedScientificPredictionScoringPlan(plan)
   let completedFinalizations = 0
   for (const item of plan.finalizations) {
     try {

@@ -7,15 +7,11 @@ import {
 } from '../comparison/theme-predictions-v3-scientific-scoring'
 import {
   CANDIDATE_ID,
-  CANDIDATE_SHA,
   COMPARATOR_ID,
-  FEATURE_CONTRACT_SHA,
-  INTERVAL_SHA,
   LABEL_ID,
   makeScientificScoringFixture,
   ORIGIN_ID,
   STUDY_ID,
-  THEME_ID,
 } from './theme-predictions-v3-scientific-scoring.fixture'
 
 const build = (input = makeScientificScoringFixture()) => buildScientificPredictionScoringPlan(input)
@@ -210,6 +206,26 @@ describe('Todo 13 scientific scorer — terminal scoring', () => {
     expect(finalize).toHaveBeenCalledTimes(1)
   })
 
+  it('rejects an unverified finalization plan before any RPC can run', async () => {
+    const finalize = vi.fn(async () => {})
+
+    await expect(executeScientificPredictionScoringPlan({ finalizations: [] }, finalize)).rejects.toMatchObject({
+      name: 'ScientificScoringCriticalIncidentError',
+      kind: 'critical_incident',
+      code: 'scientific_scoring_plan_unverified',
+      predictionId: null,
+    })
+    expect(finalize).not.toHaveBeenCalled()
+  })
+
+  it('freezes a verified plan so finalizations cannot be replaced after replay validation', () => {
+    const plan = build()
+
+    expect(Object.isFrozen(plan)).toBe(true)
+    expect(Object.isFrozen(plan.finalizations)).toBe(true)
+    expect(plan.finalizations.every((item) => Object.isFrozen(item))).toBe(true)
+  })
+
   it('plans the exact excluded label reason for both roles', () => {
     const fixture = makeScientificScoringFixture()
     fixture.labels = fixture.labels.map((label) => label.id === LABEL_ID
@@ -227,70 +243,5 @@ describe('Todo 13 scientific scorer — terminal scoring', () => {
       expect.objectContaining({ role: 'candidate', scoreStatus: 'excluded', scoreExclusionReason: 'source_gap_sla' }),
       expect.objectContaining({ role: 'comparator', scoreStatus: 'excluded', scoreExclusionReason: 'source_gap_sla' }),
     ])
-  })
-})
-
-describe('Todo 13 scientific scorer — frozen interval', () => {
-  it('requires exact frozen-500 metadata and complete ordered envelopes before label finalization', () => {
-    const plan = build()
-    expect(plan.intervalEvidence).toEqual({
-      ensembleVersion: 'interval-ensemble-v2',
-      envelopeVersion: 'block_bootstrap_envelope_v1',
-      replicateCount: 500,
-      ensembleSha256: INTERVAL_SHA,
-    })
-  })
-
-  it.each([
-    ['missing bound', { ci_lower: null }],
-    ['lower above p', { ci_lower: 0.8 }],
-    ['p above upper', { ci_upper: 0.6 }],
-    ['out-of-range bound', { ci_lower: -0.1 }],
-  ] as const)('rejects %s for a non-abstain prediction', (_name, change) => {
-    const fixture = makeScientificScoringFixture()
-    fixture.predictions = fixture.predictions.map((row) => row.id === CANDIDATE_ID ? { ...row, ...change } : row)
-    expect(() => buildScientificPredictionScoringPlan(fixture)).toThrow(/interval/i)
-  })
-
-  it('rejects missing/changed ensemble identity and post-outcome prediction timestamps', () => {
-    const badCount = makeScientificScoringFixture()
-    badCount.evidenceArtifacts = badCount.evidenceArtifacts.map((artifact) => artifact.artifact_type === 'model_manifest'
-      ? { ...artifact, payload: { ...artifact.payload, interval_replicate_count: 499 } }
-      : artifact)
-    expect(() => buildScientificPredictionScoringPlan(badCount)).toThrow(/500/)
-
-    const badHash = makeScientificScoringFixture()
-    badHash.evidenceArtifacts = badHash.evidenceArtifacts.map((artifact) => artifact.artifact_type === 'model_manifest'
-      ? { ...artifact, payload: { ...artifact.payload, candidate_model_sha256: '9'.repeat(64) } }
-      : artifact)
-    expect(() => buildScientificPredictionScoringPlan(badHash)).toThrow(/model manifest/i)
-
-    const late = makeScientificScoringFixture()
-    late.predictions = late.predictions.map((row) => row.id === CANDIDATE_ID
-      ? { ...row, created_at: '2026-07-13T09:00:01.000Z' }
-      : row)
-    expect(() => buildScientificPredictionScoringPlan(late)).toThrow(/finalization/i)
-  })
-
-  it('rejects provenance attested only after the prediction was inserted', () => {
-    const fixture = makeScientificScoringFixture()
-    fixture.evidenceAttestations = fixture.evidenceAttestations.map((attestation) => (
-      attestation.artifact_id === '90000000-0000-4000-8000-000000000001'
-        ? { ...attestation, verified_at: '2026-07-06T09:01:01.000Z' }
-        : attestation
-    ))
-
-    expect(() => buildScientificPredictionScoringPlan(fixture)).toThrow(/prediction insert/i)
-  })
-
-  it('keeps exact role and contract hashes attached to both finalizations', () => {
-    const fixture = makeScientificScoringFixture()
-    const plan = build(fixture)
-    expect(fixture.predictions.find((row) => row.id === CANDIDATE_ID)).toMatchObject({
-      model_artifact_sha256: CANDIDATE_SHA,
-      feature_contract_hash: FEATURE_CONTRACT_SHA,
-      theme_id: THEME_ID,
-    })
-    expect(plan.finalizations).toHaveLength(2)
   })
 })

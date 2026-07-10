@@ -22,6 +22,7 @@ const STUDY_ID = '15000000-0000-4000-8000-000000000015'
 const FORECAST_ID = '25000000-0000-4000-8000-000000000015'
 const STUDY_ORIGIN_ID = '35000000-0000-4000-8000-000000000015'
 const THEME_ID = '45000000-0000-4000-8000-000000000015'
+const INTERVAL_ENSEMBLE = { fixture: 'dry-run-linkage' }
 
 const STUDY_PAYLOAD = {
     id: STUDY_ID,
@@ -65,8 +66,11 @@ const training = {
   },
   artifactSha256: 'b'.repeat(64),
   calibrationArtifactSha256: 'c'.repeat(64),
-  intervalEnsembleSha256: 'd'.repeat(64),
-  report: { promotionDecision: { positiveSkill: true } },
+  intervalEnsembleSha256: canonicalJsonV1Sha256(INTERVAL_ENSEMBLE),
+  report: {
+    promotionDecision: { positiveSkill: true },
+    intervalEnsemble: INTERVAL_ENSEMBLE,
+  },
 }
 
 describe('Todo 15 hash and identity linkage', () => {
@@ -107,9 +111,11 @@ describe('Todo 15 hash and identity linkage', () => {
   })
 
   it('uses canonical evidence hashes and the scorer identities for the primary planned-24 gate', () => {
+    const origin = stack.prospectiveOrigins[0]
+    if (origin === undefined) throw new Error('prospective origin fixture is empty')
     const row = {
       sequence: 1,
-      origin: stack.prospectiveOrigins[0]!,
+      origin,
       themeId: THEME_ID,
       candidateProbability: 0.8,
       candidateCiLower: 0.7,

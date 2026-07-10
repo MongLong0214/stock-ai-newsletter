@@ -103,6 +103,7 @@ export async function buildAndScoreProspectivePanel(input: {
   readonly artifact: M1ModelArtifactV2
   readonly artifactSha256: string
   readonly intervalEnsembleSha256: string
+  readonly intervalEnsembleArtifact: unknown
   readonly replicateBodies: readonly ReplicateBody[]
 }): Promise<ProspectivePanel> {
   const rows = input.stack.prospectiveOrigins.flatMap((origin, originIndex) => (
@@ -118,6 +119,7 @@ export async function buildAndScoreProspectivePanel(input: {
       artifact: input.artifact,
       artifactSha256: input.artifactSha256,
       intervalEnsembleSha256: input.intervalEnsembleSha256,
+      intervalEnsembleArtifact: input.intervalEnsembleArtifact,
       replicateBodies: input.replicateBodies,
       modelCreatedAt: isoBefore(firstOrigin.originDate),
       modelArtifactId: deterministicUuid('model-manifest-artifact', CYCLE_ID),

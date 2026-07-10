@@ -19,9 +19,10 @@ const replicateBodies: readonly ReplicateBody[] = Array.from(
     replicate_index: index,
     scaler: artifact.scaler,
     coefficients: artifact.coefficients,
-    calibrator: artifact.calibrator,
+    calibrator: { a: artifact.calibrator.a, b: artifact.calibrator.b },
   }),
 )
+const intervalEnsembleArtifact = { replicate_bodies: replicateBodies }
 
 const origin = {
   originDate: '2027-03-01',
@@ -85,7 +86,8 @@ describe('prospective scoring replay boundary', () => {
       }],
       artifact,
       artifactSha256: canonicalJsonV1Sha256(artifact),
-      intervalEnsembleSha256: 'e'.repeat(64),
+      intervalEnsembleSha256: canonicalJsonV1Sha256(intervalEnsembleArtifact),
+      intervalEnsembleArtifact,
       replicateBodies,
       modelCreatedAt: '2027-02-28T00:00:00.000Z',
       modelArtifactId: deterministicUuid('mismatch-model-artifact', 1),
