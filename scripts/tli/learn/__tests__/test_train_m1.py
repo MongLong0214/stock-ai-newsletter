@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-import json
-import math
+from datetime import date, timedelta
 import sys
 from pathlib import Path
 
@@ -11,213 +10,134 @@ import pytest
 
 sys.path.insert(0, str(Path("scripts/tli/learn").resolve()))
 
-from m1_calibration import select_calibrator_type
-from train_m1 import (
-    FEATURE_SCHEMA,
-    GOLDEN_INPUT_MISSING,
-    GOLDEN_INPUT_VALUES,
-    TrainingDataError,
-    TrainingDataset,
-    build_golden_vector_fixture,
-    run_golden_vector,
-    run_training,
-    train_model,
+EXPECTED_FEATURE_SCHEMA = (
+    "interest_slope_7d",
+    "interest_accel",
+    "dvi_7d",
+    "interest_return_10d",
+    "interest_drawdown_20d",
+    "news_volume_7d",
+    "news_momentum",
+    "babl_phase_signal",
+    "interest_source_age_days",
+    "news_source_age_days",
 )
 
 
-TEMPORAL_LOGITS = tuple(float(value) for value in np.linspace(-4.0, 4.0, 17))
+def _origins(count: int) -> tuple[str, ...]:
+    first = date(2026, 1, 5)
+    return tuple((first + timedelta(days=7 * index)).isoformat() for index in range(count))
 
 
-def _sigmoid(value: float) -> float:
-    return 1 / (1 + math.exp(-value))
-
-
-def _materialize_temporal_probabilities(
-    probability_blocks: tuple[tuple[float, ...], ...],
-    logits: tuple[float, ...],
-    repeats: int,
-) -> tuple[NDArray[np.float64], NDArray[np.int64], tuple[str, ...]]:
-    values: list[list[float]] = []
-    labels: list[int] = []
-    base_dates: list[str] = []
-    for block_index, probabilities in enumerate(probability_blocks):
-        base_date = f"2026-01-{block_index + 1:02d}"
-        for logit, probability in zip(logits, probabilities):
-            positives = round(probability * repeats)
-            for repeat_index in range(repeats):
-                values.append([logit])
-                labels.append(1 if repeat_index < positives else 0)
-                base_dates.append(base_date)
-    return np.array(values, dtype=np.float64), np.array(labels, dtype=np.int64), tuple(base_dates)
-
-
-def _beta_probability(logit: float) -> float:
-    base = min(1 - 1e-6, max(1e-6, _sigmoid(logit)))
-    return _sigmoid((1.6 * math.log(base)) + (0.35 * -math.log(1 - base)) - 0.15)
-
-
-def _shifted_probability(logit: float, shift: float) -> float:
-    base = _sigmoid(logit)
-    if -2.0 <= logit <= 2.0:
-        return min(0.95, max(0.05, base + shift))
-    return base
-
-
-def make_dataset(rows: int = 80) -> TrainingDataset:
-    payload = {
-        "dataset_version": "tli-m1-training-dataset-v1",
-        "feature_schema": list(FEATURE_SCHEMA),
-        "train_range": ["2026-01-07", "2026-07-05"],
-        "labeler_version": "gta-v1",
-        "rows": [],
-    }
-    for index in range(rows):
-        positive = index >= rows // 2
-        signal = 1.5 + index / rows if positive else -1.5 + index / rows
-        features = [
-            signal,
-            index / rows,
-            signal / 2,
-            abs(signal),
-            0.5 + index / 100,
-            1.2 if positive else 0.2,
-            signal / 3,
-            1.0,
-            0.4 + index / 200,
-            1.0 if index % 2 == 0 else -1.0,
-            1.0 if positive else -1.0,
-            signal / 4,
-            0.2 if positive else 0.8,
-        ]
-        missing_flags = [False] * len(FEATURE_SCHEMA)
-        if index % 11 == 0:
-            missing_flags[7] = True
-            features[7] = 0.0
-        payload["rows"].append({
-            "theme_id": f"theme-{index % 8}",
-            "base_date": f"2026-06-{(index % 20) + 1:02d}",
-            "features": features,
-            "missing_flags": missing_flags,
-            "y": positive,
-        })
-    return TrainingDataset.model_validate(payload)
-
-
-def test_temporal_calibrator_selection_keeps_platt_when_isotonic_recent_block_overfits() -> None:
-    probability_blocks = tuple(
-        tuple(_shifted_probability(logit, 0.6 if block_index < 3 else -0.6) for logit in TEMPORAL_LOGITS)
-        for block_index in range(5)
+def _balanced_panel(
+    origin_count: int,
+    rows_per_origin: int = 16,
+) -> tuple[NDArray[np.float64], NDArray[np.bool_], NDArray[np.int64], tuple[str, ...]]:
+    continuous: list[list[float]] = []
+    missing: list[list[bool]] = []
+    outcomes: list[int] = []
+    row_origins: list[str] = []
+    for origin_index, origin in enumerate(_origins(origin_count)):
+        for row_index in range(rows_per_origin):
+            outcome = 1 if row_index >= rows_per_origin // 2 else 0
+            signal = (1.0 if outcome else -1.0) + origin_index / 100
+            continuous.append([
+                signal,
+                signal / 2,
+                float(row_index % 3),
+                signal / 3,
+                abs(signal),
+                float(row_index),
+                signal / 4,
+                1.0 if outcome else -1.0,
+                float(origin_index),
+                float(origin_index + 1),
+            ])
+            missing.append([False] * len(EXPECTED_FEATURE_SCHEMA))
+            outcomes.append(outcome)
+            row_origins.append(origin)
+    return (
+        np.asarray(continuous, dtype=np.float64),
+        np.asarray(missing, dtype=np.bool_),
+        np.asarray(outcomes, dtype=np.int64),
+        tuple(row_origins),
     )
-    values, labels, base_dates = _materialize_temporal_probabilities(probability_blocks, TEMPORAL_LOGITS, 18)
-
-    selection = select_calibrator_type(values, labels, base_dates)
-
-    assert selection.selection_method == "forward_chaining"
-    assert selection.chosen_type == "platt"
-    assert selection.isotonic.passes_recent_block_guard is False
 
 
-def test_temporal_calibrator_selection_promotes_beta_when_consistently_better_than_platt() -> None:
-    probability_blocks = tuple(tuple(_beta_probability(logit) for logit in TEMPORAL_LOGITS) for _ in range(5))
-    values, labels, base_dates = _materialize_temporal_probabilities(probability_blocks, TEMPORAL_LOGITS, 18)
+def test_inner_split_matches_ts_k_and_canonical_hash_contract() -> None:
+    from m1_calibration_selection import create_inner_oof_split
 
-    selection = select_calibrator_type(values, labels, base_dates)
+    split_13 = create_inner_oof_split(_origins(13))
+    split_26 = create_inner_oof_split(_origins(26))
 
-    assert selection.chosen_type == "beta"
-    assert selection.beta.beats_platt_margin is True
-    assert selection.beta.passes_recent_block_guard is True
-
-
-def test_temporal_calibrator_selection_falls_back_to_platt_for_thin_dates() -> None:
-    probability_blocks = tuple(tuple(_sigmoid(logit) for logit in TEMPORAL_LOGITS) for _ in range(4))
-    values, labels, base_dates = _materialize_temporal_probabilities(probability_blocks, TEMPORAL_LOGITS, 2)
-
-    selection = select_calibrator_type(values, labels, base_dates)
-
-    assert selection.chosen_type == "platt"
-    assert selection.fallback_reason == "requires at least 5 distinct base_date values"
-    assert selection.platt.out_of_time_ece is None
+    assert split_13.fold_count == 5
+    assert split_26.fold_count == 8
+    assert split_13.folds[0].validation_origin == _origins(13)[8]
+    assert split_13.folds[0].train_origins == _origins(13)[:8]
+    assert split_13.split_origins_sha256 == "43f810450b71aaa8d8d2f7eceb3b466cf835840b9198c8ddcc83579fe587b15f"
 
 
-def test_temporal_calibrator_selection_is_deterministic() -> None:
-    probability_blocks = tuple(tuple(_beta_probability(logit) for logit in TEMPORAL_LOGITS) for _ in range(5))
-    values, labels, base_dates = _materialize_temporal_probabilities(probability_blocks, TEMPORAL_LOGITS, 18)
+def test_inner_split_hard_fails_when_k_is_below_five() -> None:
+    from m1_calibration_selection import TemporalSplitError, create_inner_oof_split
 
-    first = select_calibrator_type(values, labels, base_dates)
-    second = select_calibrator_type(values, labels, base_dates)
-
-    assert first == second
+    with pytest.raises(TemporalSplitError, match=r"K=4 < 5"):
+        create_inner_oof_split(_origins(12))
 
 
-def test_train_model_serializes_g3_artifact_with_sample_report() -> None:
-    artifact = train_model(make_dataset(), "2026-08-02")
+def test_preprocessor_uses_raw_mad_train_stats_and_keeps_flags_binary() -> None:
+    from m1_calibration_selection import fit_preprocessor, transform_design
+    continuous = np.tile(np.arange(1.0, 11.0), (3, 1))
+    continuous[0, 0] = 1.0
+    continuous[1, 0] = 3.0
+    continuous[2, 0] = np.nan
+    continuous[:, 1] = 5.0
+    missing = np.zeros((3, 10), dtype=np.bool_)
+    missing[2, 0] = True
 
-    assert artifact.artifact_version == "tli-model-artifact-v1"
-    assert artifact.model_type == "m1_logistic"
-    assert artifact.feature_schema == FEATURE_SCHEMA
-    assert len(artifact.scaler.median) == 13
-    assert len(artifact.scaler.mad) == 13
-    assert len(artifact.coefficients.weights) == 26
-    assert artifact.calibrator.type in {"platt", "beta", "isotonic"}
-    assert artifact.seed == 42
-    assert artifact.train_event_rate == artifact.sample_report.event_rate
-    assert artifact.sample_report.cox_snell_r2 > 0.08
-    assert artifact.sample_report.r2_status == "sufficient"
-    assert artifact.sample_report.calibration_selection.chosen_type == artifact.calibrator.type
-    assert artifact.sample_report.calibration_selection.platt.cv_log_loss > 0
-    assert artifact.sample_report.calibration_selection.beta.cv_log_loss > 0
-    assert artifact.sample_report.calibration_selection.isotonic.cv_log_loss > 0
+    stats = fit_preprocessor(continuous, missing)
+    validation = np.full((1, 10), 100.0, dtype=np.float64)
+    validation_missing = np.array([[True, False, True, False, True, False, True, False, True, False]])
+    design = transform_design(validation, validation_missing, stats)
 
-
-def test_run_training_round_trips_json_file(tmp_path: Path) -> None:
-    input_path = tmp_path / "training.json"
-    output_path = tmp_path / "artifact.json"
-    input_path.write_text(make_dataset().model_dump_json(), encoding="utf-8")
-
-    run_training(input_path, output_path, "2026-08-02")
-    artifact = json.loads(output_path.read_text(encoding="utf-8"))
-
-    assert artifact["trained_at"] == "2026-08-02"
-    assert artifact["train_range"] == ["2026-01-07", "2026-07-05"]
-    assert artifact["labeler_version"] == "gta-v1"
-    assert artifact["train_event_rate"] == artifact["sample_report"]["event_rate"]
-    assert artifact["sample_report"]["observed_n"] == 80
+    assert stats.medians[0] == 2.0
+    assert stats.mads[0] == 1.0
+    assert stats.mads[1] == 0.0
+    assert design[0, 0] == 0.0
+    assert design[0, 1] == 95.0
+    np.testing.assert_array_equal(design[0, 10:], validation_missing[0].astype(np.float64))
 
 
-def test_train_model_rejects_single_class_dataset() -> None:
-    dataset = make_dataset(20)
-    payload = dataset.model_dump(mode="json")
-    payload["rows"] = [{**row, "y": True} for row in payload["rows"]]
+def test_preprocessor_hard_fails_when_any_train_slot_has_zero_finite_values() -> None:
+    from m1_calibration_selection import PreprocessingError, fit_preprocessor
+    continuous = np.ones((4, 10), dtype=np.float64)
+    continuous[:, 4] = np.nan
+    missing = np.zeros((4, 10), dtype=np.bool_)
 
-    with pytest.raises(TrainingDataError):
-        train_model(TrainingDataset.model_validate(payload), "2026-08-02")
-
-
-def test_golden_vector_fixture_is_deterministic_and_bounded() -> None:
-    first = build_golden_vector_fixture("2026-08-02")
-    second = build_golden_vector_fixture("2026-08-02")
-
-    assert first["fixture_version"] == "tli-m1-golden-vector-v1"
-    assert first["inputRow"]["values"] == list(GOLDEN_INPUT_VALUES)
-    assert first["inputRow"]["missingFlags"] == list(GOLDEN_INPUT_MISSING)
-    assert 0.0 < first["expectedProbability"] < 1.0
-    assert set(first["calibratorFixtures"].keys()) == {"platt", "beta", "isotonic"}
-    assert first["artifact"]["train_event_rate"] == first["artifact"]["sample_report"]["event_rate"]
-    for calibrator_type, fixture_case in first["calibratorFixtures"].items():
-        assert fixture_case["artifact"]["calibrator"]["type"] == calibrator_type
-        assert fixture_case["artifact"]["train_event_rate"] == fixture_case["artifact"]["sample_report"]["event_rate"]
-        assert 0.0 <= fixture_case["expectedProbability"] <= 1.0
-    # Fixed seed (42) synthetic data + deterministic sklearn solver settings must reproduce exactly.
-    assert first["expectedProbability"] == second["expectedProbability"]
-    assert first["artifact"]["coefficients"] == second["artifact"]["coefficients"]
-    assert first["calibratorFixtures"] == second["calibratorFixtures"]
+    with pytest.raises(PreprocessingError, match=r"slot 4.*zero finite"):
+        fit_preprocessor(continuous, missing)
 
 
-def test_run_golden_vector_writes_fixture_file(tmp_path: Path) -> None:
-    output_path = tmp_path / "golden-vector.json"
+def test_regularization_tie_breaks_to_the_smallest_c() -> None:
+    from m1_calibration_selection import select_regularization
+    continuous, missing, outcomes, row_origins = _balanced_panel(13)
+    continuous.fill(0.0)
 
-    fixture = run_golden_vector(output_path, "2026-08-02")
-    written = json.loads(output_path.read_text(encoding="utf-8"))
+    result = select_regularization(continuous, missing, outcomes, row_origins)
 
-    assert written == fixture
-    assert written["artifact"]["trained_at"] == "2026-08-02"
+    assert result.selected_c == 0.01
+    assert tuple(score.c for score in result.candidate_scores) == (0.01, 0.1, 1.0, 10.0)
+    assert all(score.mean_brier == pytest.approx(0.25) for score in result.candidate_scores)
+
+
+def test_regularization_returns_only_time_blocked_oof_margins() -> None:
+    from m1_calibration_selection import select_regularization
+    continuous, missing, outcomes, row_origins = _balanced_panel(13)
+
+    result = select_regularization(continuous, missing, outcomes, row_origins)
+
+    expected_validation_origins = _origins(13)[8:]
+    assert result.split.fold_count == 5
+    assert set(result.oof.origins) == set(expected_validation_origins)
+    assert len(result.oof.origins) == 5 * 16
+    assert result.oof.margins.shape == result.oof.outcomes.shape == (5 * 16,)
+    assert set(result.oof.origins).isdisjoint(_origins(13)[:8])
