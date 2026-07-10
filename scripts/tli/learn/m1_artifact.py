@@ -96,7 +96,7 @@ class CalibrationContractArtifact(BaseModel):
 
 class ModelArtifact(BaseModel):
     model_config = ConfigDict(frozen=True)
-    artifact_version: Literal["tli-model-artifact-v1"]
+    artifact_version: Literal["tli-model-artifact-v2"]
     model_type: Literal["m1_logistic"]
     feature_schema: tuple[str, ...]
     scaler: ScalerArtifact

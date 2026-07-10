@@ -1,17 +1,20 @@
-import { FEATURE_NAMES } from '@/lib/tli/features/build-features'
+import { CONFIRMATORY_FEATURE_NAMES } from '@/lib/tli/features/confirmatory-feature-types'
 
-export interface M1FeatureRow {
+export type M1FeatureRow = {
   readonly values: readonly number[]
   readonly missingFlags: readonly boolean[]
   readonly abstain?: boolean
 }
 
+export type M1PlattCalibratorArtifact = {
+  readonly type: 'platt'
+  readonly a: number
+  readonly b: number
+}
+
+/** @deprecated tli-model-artifact-v1 전용. 신규 artifact에서는 허용하지 않는다. */
 export type M1CalibratorArtifact =
-  | {
-    readonly type: 'platt'
-    readonly a: number
-    readonly b: number
-  }
+  | M1PlattCalibratorArtifact
   | {
     readonly type: 'beta'
     readonly a: number
@@ -24,7 +27,88 @@ export type M1CalibratorArtifact =
     readonly values: readonly number[]
   }
 
-export interface M1ModelArtifact {
+export type M1ModelArtifactV2 = {
+  readonly artifact_version: 'tli-model-artifact-v2'
+  readonly model_type: 'm1_logistic'
+  readonly feature_schema: readonly string[]
+  readonly scaler: {
+    readonly median: readonly number[]
+    readonly mad: readonly number[]
+  }
+  readonly coefficients: {
+    readonly intercept: number
+    readonly weights: readonly number[]
+  }
+  readonly calibrator: M1PlattCalibratorArtifact
+  readonly estimator_contract: {
+    readonly penalty: 'l2'
+    readonly solver: 'lbfgs'
+    readonly fit_intercept: true
+    readonly class_weight: null
+    readonly max_iter: 5000
+    readonly tol: number
+    readonly selected_c: number
+  }
+  readonly calibration_contract: {
+    readonly type: 'platt'
+    readonly source: 'time_blocked_cross_fitted_oof_margin'
+    readonly penalty: null
+    readonly solver: 'lbfgs'
+    readonly fit_intercept: true
+    readonly class_weight: null
+    readonly max_iter: 5000
+    readonly tol: number
+    readonly origin_weighting: 'one_per_origin'
+    readonly probability_clamp: readonly [number, number]
+  }
+  readonly inner_oof: {
+    readonly origin_count: number
+    readonly fold_count: number
+    readonly ordered_origins: readonly string[]
+    readonly folds: readonly {
+      readonly fold_id: string
+      readonly validation_origin: string
+      readonly train_origins: readonly string[]
+    }[]
+    readonly split_origins_sha256: string
+  }
+  readonly trained_at: string
+  readonly train_range: readonly [string, string]
+  readonly labeler_version: string
+  readonly seed: number
+  readonly train_event_rate: number
+  readonly sample_report: {
+    readonly observed_n: number
+    readonly events: number
+    readonly event_rate: number
+    readonly parameters: number
+    readonly selected_c: number
+    readonly candidate_scores: readonly {
+      readonly c: number
+      readonly mean_brier: number
+      readonly fold_briers: readonly number[]
+    }[]
+    readonly oof_rows: number
+    readonly oof_positive: number
+    readonly oof_negative: number
+  }
+  readonly runtime: {
+    readonly uv_version: string
+    readonly python_version: string
+    readonly python_implementation: string
+    readonly os: string
+    readonly arch: string
+    readonly blas: string
+    readonly thread_env: Readonly<Record<string, string>>
+    readonly resolved_packages: readonly string[]
+    readonly script_lock_sha256: string
+    readonly training_code_git_sha: string
+    readonly training_code_git_status: string
+  }
+}
+
+/** @deprecated 파서와 추론기는 이 shape를 unsupported_legacy_artifact로 거부한다. */
+export type LegacyM1ModelArtifactV1 = {
   readonly artifact_version: 'tli-model-artifact-v1'
   readonly model_type: 'm1_logistic'
   readonly feature_schema: readonly string[]
@@ -45,148 +129,113 @@ export interface M1ModelArtifact {
   readonly sample_report: unknown
 }
 
-const ROBUST_SCALE = 1.4826
-const MIN_MAD = 0.001
+/** @deprecated v1은 기존 호출부의 컴파일 전환용이며 런타임에서 항상 거부된다. */
+export type M1ModelArtifact = M1ModelArtifactV2 | LegacyM1ModelArtifactV1
+
+export class UnsupportedLegacyArtifactError extends Error {
+  readonly name = 'unsupported_legacy_artifact'
+  readonly code = 'unsupported_legacy_artifact'
+
+  constructor() {
+    super('unsupported_legacy_artifact')
+  }
+}
+
+class M1PredictionContractError extends Error {
+  readonly name = 'M1PredictionContractError'
+
+  constructor(readonly code: string) {
+    super(code)
+  }
+}
+
 const CALIBRATION_EPS = 1e-6
 
-const sigmoid = (value: number): number => 1 / (1 + Math.exp(-value))
-
 function assertNever(value: never): never {
-  throw new Error(`Unhandled M1 calibrator: ${JSON.stringify(value)}`)
+  throw new M1PredictionContractError(`unexpected_artifact:${JSON.stringify(value)}`)
 }
 
-function assertCalibrator(calibrator: M1CalibratorArtifact): void {
-  switch (calibrator.type) {
-    case 'platt':
-    case 'beta':
-      return
-    case 'isotonic': {
-      if (calibrator.thresholds.length === 0 || calibrator.thresholds.length !== calibrator.values.length) {
-        throw new Error('M1 isotonic calibrator requires paired non-empty breakpoints')
-      }
-      for (let index = 1; index < calibrator.thresholds.length; index++) {
-        const previous = calibrator.thresholds[index - 1]
-        const current = calibrator.thresholds[index]
-        if (previous === undefined || current === undefined || current <= previous) {
-          throw new Error('M1 isotonic calibrator thresholds must be strictly increasing')
-        }
-      }
-      return
-    }
+function assertFinite(values: readonly number[], code: string): void {
+  if (values.some((value) => !Number.isFinite(value))) {
+    throw new M1PredictionContractError(code)
+  }
+}
+
+function requireV2Artifact(artifact: M1ModelArtifact): M1ModelArtifactV2 {
+  switch (artifact.artifact_version) {
+    case 'tli-model-artifact-v2':
+      break
+    case 'tli-model-artifact-v1':
+      throw new UnsupportedLegacyArtifactError()
     default:
-      return assertNever(calibrator)
+      return assertNever(artifact)
   }
-}
 
-function assertM1Artifact(artifact: M1ModelArtifact): void {
-  if (artifact.artifact_version !== 'tli-model-artifact-v1' || artifact.model_type !== 'm1_logistic') {
-    throw new Error('Invalid M1 artifact identity')
+  if (artifact.model_type !== 'm1_logistic') {
+    throw new M1PredictionContractError('invalid_m1_artifact_identity')
   }
-  assertCalibrator(artifact.calibrator)
-  if (artifact.feature_schema.length !== FEATURE_NAMES.length) {
-    throw new Error('M1 artifact feature schema length mismatch')
+  if (artifact.feature_schema.length !== CONFIRMATORY_FEATURE_NAMES.length) {
+    throw new M1PredictionContractError('m1_feature_schema_length_mismatch')
   }
-  for (let index = 0; index < FEATURE_NAMES.length; index++) {
-    if (artifact.feature_schema[index] !== FEATURE_NAMES[index]) {
-      throw new Error(`M1 artifact feature schema mismatch at index ${index}`)
+  for (let index = 0; index < CONFIRMATORY_FEATURE_NAMES.length; index++) {
+    if (artifact.feature_schema[index] !== CONFIRMATORY_FEATURE_NAMES[index]) {
+      throw new M1PredictionContractError(`m1_feature_schema_mismatch:${index}`)
     }
   }
   if (
-    artifact.scaler.median.length !== FEATURE_NAMES.length ||
-    artifact.scaler.mad.length !== FEATURE_NAMES.length ||
-    artifact.coefficients.weights.length !== FEATURE_NAMES.length * 2
+    artifact.scaler.median.length !== CONFIRMATORY_FEATURE_NAMES.length
+    || artifact.scaler.mad.length !== CONFIRMATORY_FEATURE_NAMES.length
+    || artifact.coefficients.weights.length !== CONFIRMATORY_FEATURE_NAMES.length * 2
   ) {
-    throw new Error('M1 artifact scaler or coefficient length mismatch')
+    throw new M1PredictionContractError('m1_artifact_vector_length_mismatch')
   }
-  if (
-    artifact.train_event_rate !== undefined &&
-    (!Number.isFinite(artifact.train_event_rate) || artifact.train_event_rate <= 0 || artifact.train_event_rate >= 1)
-  ) {
-    throw new Error('M1 artifact train_event_rate must be in (0,1)')
+  assertFinite(artifact.scaler.median, 'm1_scaler_median_nonfinite')
+  assertFinite(artifact.scaler.mad, 'm1_scaler_mad_nonfinite')
+  assertFinite(artifact.coefficients.weights, 'm1_coefficients_nonfinite')
+  if (artifact.scaler.mad.some((value) => value < 0)) {
+    throw new M1PredictionContractError('m1_scaler_mad_negative')
   }
+  return artifact
 }
 
-function robustFeatureValue(artifact: M1ModelArtifact, row: M1FeatureRow, index: number): number {
-  const median = artifact.scaler.median[index]
-  const mad = artifact.scaler.mad[index]
-  const raw = row.values[index]
-  const missing = row.missingFlags[index] || raw === undefined || !Number.isFinite(raw)
-  const imputed = missing ? median : raw
-  return mad < MIN_MAD ? 0 : (imputed - median) / (ROBUST_SCALE * mad)
+function buildSupportedDesignVector(artifact: M1ModelArtifactV2, row: M1FeatureRow): number[] {
+  if (
+    row.values.length !== CONFIRMATORY_FEATURE_NAMES.length
+    || row.missingFlags.length !== CONFIRMATORY_FEATURE_NAMES.length
+  ) {
+    throw new M1PredictionContractError('m1_feature_row_length_mismatch')
+  }
+  const scaled = CONFIRMATORY_FEATURE_NAMES.map((_, index) => {
+    const median = artifact.scaler.median[index]
+    const mad = artifact.scaler.mad[index]
+    const raw = row.values[index]
+    const missing = row.missingFlags[index]
+    if (median === undefined || mad === undefined || missing === undefined) {
+      throw new M1PredictionContractError('m1_feature_row_length_mismatch')
+    }
+    if (raw === undefined || missing || !Number.isFinite(raw)) return 0
+    return (raw - median) / (mad > 0 ? mad : 1)
+  })
+  return [...scaled, ...row.missingFlags.map((missing) => (missing ? 1 : 0))]
 }
 
 export function buildM1DesignVector(artifact: M1ModelArtifact, row: M1FeatureRow): number[] {
-  assertM1Artifact(artifact)
-  if (row.values.length !== FEATURE_NAMES.length || row.missingFlags.length !== FEATURE_NAMES.length) {
-    throw new Error('M1 feature row length mismatch')
-  }
-  return [
-    ...FEATURE_NAMES.map((_, index) => robustFeatureValue(artifact, row, index)),
-    ...row.missingFlags.map((missing) => (missing ? 1 : 0)),
-  ]
-}
-
-function clippedBaseProbability(margin: number): number {
-  return Math.min(1 - CALIBRATION_EPS, Math.max(CALIBRATION_EPS, sigmoid(margin)))
-}
-
-function interpolateIsotonic(calibrator: Extract<M1CalibratorArtifact, { readonly type: 'isotonic' }>, base: number): number {
-  const firstThreshold = calibrator.thresholds[0]
-  const firstValue = calibrator.values[0]
-  const lastThreshold = calibrator.thresholds[calibrator.thresholds.length - 1]
-  const lastValue = calibrator.values[calibrator.values.length - 1]
-  if (
-    firstThreshold === undefined ||
-    firstValue === undefined ||
-    lastThreshold === undefined ||
-    lastValue === undefined
-  ) {
-    throw new Error('M1 isotonic calibrator requires paired non-empty breakpoints')
-  }
-  if (base <= firstThreshold) return firstValue
-  if (base >= lastThreshold) return lastValue
-
-  for (let index = 1; index < calibrator.thresholds.length; index++) {
-    const leftThreshold = calibrator.thresholds[index - 1]
-    const rightThreshold = calibrator.thresholds[index]
-    const leftValue = calibrator.values[index - 1]
-    const rightValue = calibrator.values[index]
-    if (
-      leftThreshold === undefined ||
-      rightThreshold === undefined ||
-      leftValue === undefined ||
-      rightValue === undefined
-    ) {
-      throw new Error('M1 isotonic calibrator requires paired non-empty breakpoints')
-    }
-    if (base <= rightThreshold) {
-      const weight = (base - leftThreshold) / (rightThreshold - leftThreshold)
-      return leftValue + weight * (rightValue - leftValue)
-    }
-  }
-  return lastValue
-}
-
-function applyCalibrator(calibrator: M1CalibratorArtifact, margin: number): number {
-  switch (calibrator.type) {
-    case 'platt':
-      return sigmoid(-(calibrator.a * margin + calibrator.b))
-    case 'beta': {
-      const base = clippedBaseProbability(margin)
-      return sigmoid((calibrator.a * Math.log(base)) + (calibrator.b * -Math.log(1 - base)) + calibrator.c)
-    }
-    case 'isotonic':
-      return interpolateIsotonic(calibrator, sigmoid(margin))
-    default:
-      return assertNever(calibrator)
-  }
+  return buildSupportedDesignVector(requireV2Artifact(artifact), row)
 }
 
 export function predictM1Probability(artifact: M1ModelArtifact, row: M1FeatureRow): number | null {
+  const supported = requireV2Artifact(artifact)
   if (row.abstain) return null
-  const design = buildM1DesignVector(artifact, row)
-  const margin = design.reduce((sum, value, index) => (
-    sum + value * artifact.coefficients.weights[index]
-  ), artifact.coefficients.intercept)
-  return applyCalibrator(artifact.calibrator, margin)
+  const design = buildSupportedDesignVector(supported, row)
+  let margin = supported.coefficients.intercept
+  for (let index = 0; index < design.length; index++) {
+    const weight = supported.coefficients.weights[index]
+    const value = design[index]
+    if (weight === undefined || value === undefined) {
+      throw new M1PredictionContractError('m1_artifact_vector_length_mismatch')
+    }
+    margin += weight * value
+  }
+  const probability = 1 / (1 + Math.exp(supported.calibrator.a * margin + supported.calibrator.b))
+  return Math.min(1 - CALIBRATION_EPS, Math.max(CALIBRATION_EPS, probability))
 }

@@ -116,7 +116,7 @@ def test_final_artifact_records_exact_contract_runtime_and_split_manifest() -> N
     artifact = train_m1.train_model(_dataset(), "2026-08-02", runtime)
 
     assert train_m1.FEATURE_SCHEMA == EXPECTED_FEATURE_SCHEMA
-    assert artifact.artifact_version == "tli-model-artifact-v1"
+    assert artifact.artifact_version == "tli-model-artifact-v2"
     assert artifact.feature_schema == EXPECTED_FEATURE_SCHEMA
     assert len(artifact.scaler.median) == len(artifact.scaler.mad) == 10
     assert len(artifact.coefficients.weights) == 20

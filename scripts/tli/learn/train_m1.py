@@ -66,7 +66,7 @@ from m1_calibration_selection import (
 )
 from m1_runtime import RuntimeContractError, RuntimeManifest, enforce_runtime_contract
 
-ARTIFACT_VERSION: Final[str] = "tli-model-artifact-v1"
+ARTIFACT_VERSION: Final[str] = "tli-model-artifact-v2"
 MODEL_TYPE: Final[str] = "m1_logistic"
 SEED: Final[int] = 42
 

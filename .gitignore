@@ -103,3 +103,4 @@ mcp/.serena/memories/
 # Python
 __pycache__/
 *.pyc
+.pnpm-store/

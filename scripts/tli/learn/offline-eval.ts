@@ -1,4 +1,4 @@
-import { FEATURE_NAMES } from '../../../lib/tli/features/build-features'
+import { CONFIRMATORY_FEATURE_NAMES } from '../../../lib/tli/features/build-confirmatory-features'
 import type { BaselineFeatureRow, BaselineGtLabelRow, BaselineSnapshotRow } from '../../../lib/tli/model/baselines'
 import { predictM1Probability, type M1ModelArtifact } from '../../../lib/tli/model/m1'
 import { applyPriorCorrection, computeTrailingFinalBaseRate } from '../../../lib/tli/model/prior-correction'
@@ -26,7 +26,7 @@ import type { ScientificBaselineStudyLock } from './offline-eval-study-lock'
 export { createScientificBaselineGateInputSchema }
 
 export const OFFLINE_EVAL_REPORT_VERSION = 'tli-offline-eval-report-v2'
-export const M1_TRAINING_DATASET_VERSION = 'tli-m1-training-dataset-v1'
+export const M1_TRAINING_DATASET_VERSION = 'tli-m1-training-dataset-v2'
 
 export interface LabelStatusCounts {
   readonly final: number
@@ -56,7 +56,7 @@ export interface M1TrainingFailure {
 
 export interface M1TrainingDatasetDump {
   readonly dataset_version: typeof M1_TRAINING_DATASET_VERSION
-  readonly feature_schema: readonly string[]
+  readonly feature_schema: typeof CONFIRMATORY_FEATURE_NAMES
   readonly train_range: readonly [string, string]
   readonly labeler_version: string
   readonly rows: readonly {
@@ -145,9 +145,16 @@ export function buildM1TrainingDatasetDump(input: {
   const trainRows = input.rows.filter((row) => !row.abstain)
   const dates = trainRows.map((row) => row.baseDate).sort()
   if (dates.length === 0) throw new Error('M1 training dataset has no non-abstain rows')
+  const invalidRow = trainRows.find((row) => (
+    row.values.length !== CONFIRMATORY_FEATURE_NAMES.length
+    || row.missingFlags.length !== CONFIRMATORY_FEATURE_NAMES.length
+  ))
+  if (invalidRow !== undefined) {
+    throw new Error(`M1 training row does not match the confirmatory feature schema: ${invalidRow.themeId}|${invalidRow.baseDate}`)
+  }
   return {
     dataset_version: M1_TRAINING_DATASET_VERSION,
-    feature_schema: FEATURE_NAMES,
+    feature_schema: CONFIRMATORY_FEATURE_NAMES,
     train_range: [dates[0], dates[dates.length - 1]],
     labeler_version: input.labelerVersion,
     rows: trainRows.map((row) => ({

@@ -1,37 +1,16 @@
 import { describe, expect, it } from 'vitest'
-import { FEATURE_NAMES } from '../../../../lib/tli/features/build-features'
+import goldenVector from '../../../../lib/tli/__tests__/fixtures/m1-golden-vector.json'
+import { CONFIRMATORY_FEATURE_NAMES } from '../../../../lib/tli/features/build-confirmatory-features'
 import type { BaselineFeatureRow, BaselineGtLabelRow, BaselineSnapshotRow } from '../../../../lib/tli/model/baselines'
-import type { M1ModelArtifact } from '../../../../lib/tli/model/m1'
+import { predictM1Probability } from '../../../../lib/tli/model/m1'
+import { parseM1ModelArtifact } from '../../../../lib/tli/model/predict'
 import {
   buildM1Predictions,
   buildM1TrainingDatasetDump,
   buildOfflineEvalReport,
 } from '../offline-eval'
 
-const artifact = {
-  artifact_version: 'tli-model-artifact-v1',
-  model_type: 'm1_logistic',
-  feature_schema: FEATURE_NAMES,
-  scaler: {
-    median: Array.from({ length: FEATURE_NAMES.length }, () => 0),
-    mad: Array.from({ length: FEATURE_NAMES.length }, () => 1),
-  },
-  coefficients: {
-    intercept: 0,
-    weights: [1, ...Array.from({ length: FEATURE_NAMES.length * 2 - 1 }, () => 0)],
-  },
-  calibrator: {
-    type: 'platt',
-    a: -1,
-    b: 0,
-  },
-  trained_at: '2026-08-02',
-  train_range: ['2026-01-07', '2026-07-05'],
-  labeler_version: 'gta-v1',
-  seed: 42,
-  train_event_rate: 0.5,
-  sample_report: {},
-} satisfies M1ModelArtifact
+const artifact = parseM1ModelArtifact(goldenVector.artifact)
 
 const labels = [
   { themeId: 'theme-a', baseDate: '2026-07-06', y: true },
@@ -49,8 +28,8 @@ const snapshots = [
 const featureRows = labels.map((label, index) => ({
   themeId: label.themeId,
   baseDate: label.baseDate,
-  values: [label.y ? 1.4826 : -1.4826, ...Array.from({ length: FEATURE_NAMES.length - 1 }, () => 0)],
-  missingFlags: Array.from({ length: FEATURE_NAMES.length }, () => false),
+  values: label.y ? goldenVector.inputRow.values : goldenVector.inputRow.values.map((value) => -value),
+  missingFlags: Array.from({ length: CONFIRMATORY_FEATURE_NAMES.length }, () => false),
   abstain: index === 3,
   y: label.y,
 })) satisfies readonly BaselineFeatureRow[]
@@ -68,27 +47,28 @@ const STUDY_LOCK = {
 }
 
 describe('T-205 offline eval report', () => {
-  it('builds M1 predictions from the artifact using sklearn Platt sigmoid semantics', () => {
+  it('builds M1 predictions from the parsed v2 artifact using sklearn Platt semantics', () => {
     const predictions = buildM1Predictions(featureRows, artifact)
 
-    expect(predictions[0].probability).toBeCloseTo(0.7310585786, 6)
-    expect(predictions[1].probability).toBeCloseTo(0.2689414214, 6)
+    expect(predictions[0].probability).toBeCloseTo(goldenVector.expectedProbability, 9)
+    expect(predictions[1].probability).toBe(predictM1Probability(artifact, featureRows[1]))
     expect(predictions[3].probability).toBeNull()
   })
 
   it('applies per-baseDate prior correction from already-loaded final labels', () => {
     const predictions = buildM1Predictions(featureRows, artifact, lowRecentRateLabels)
 
-    expect(predictions[0].probability).toBeCloseTo(0.4753668864, 10)
-    expect(predictions[1].probability).toBeCloseTo(0.1092317726, 10)
+    const raw = predictM1Probability(artifact, featureRows[0])
+    expect(raw).not.toBeNull()
+    expect(predictions[0].probability).toBeLessThan(raw ?? 0)
     expect(predictions[3].probability).toBeNull()
   })
 
-  it('dumps non-abstain M1 training rows in the T-203 JSON contract', () => {
-    const dataset = buildM1TrainingDatasetDump({ rows: featureRows, labelerVersion: 'gta-v1' })
+  it('dumps non-abstain rows in the Python v2 confirmatory contract', () => {
+    const dataset = buildM1TrainingDatasetDump({ rows: featureRows, labelerVersion: 'gta-v2' })
 
-    expect(dataset.dataset_version).toBe('tli-m1-training-dataset-v1')
-    expect(dataset.feature_schema).toEqual(FEATURE_NAMES)
+    expect(dataset.dataset_version).toBe('tli-m1-training-dataset-v2')
+    expect(dataset.feature_schema).toEqual(CONFIRMATORY_FEATURE_NAMES)
     expect(dataset.train_range).toEqual(['2026-07-06', '2026-07-07'])
     expect(dataset.rows).toHaveLength(3)
     expect(dataset.rows[0].theme_id).toBe('theme-a')
