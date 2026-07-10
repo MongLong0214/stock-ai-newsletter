@@ -4,7 +4,7 @@ import { motion } from 'framer-motion'
 import { Activity, Gauge, ShieldAlert, Target } from 'lucide-react'
 import { GlassCard } from '@/components/tli/glass-card'
 import { useGetThemePrediction } from '../../_services/use-get-theme-prediction'
-import { formatPredictionSnapshotCard } from './presentation'
+import { formatPredictionSnapshotCard, getPredictionSnapshotForPresentation } from './presentation'
 
 const containerEase = [0.25, 0.46, 0.45, 0.94] as const
 
@@ -17,14 +17,20 @@ const containerVariants = {
   },
 }
 
-interface ThemePredictionProps {
+function ThemePrediction({ themeId, stageKo, change7d }: {
   readonly themeId: string
-}
-
-function ThemePrediction({ themeId }: ThemePredictionProps) {
+  readonly stageKo: string
+  readonly change7d: number
+}) {
   const { data: snapshot, isLoading, isError } = useGetThemePrediction(themeId)
-  const view = formatPredictionSnapshotCard(snapshot ?? null)
-  const statusTone = snapshot?.abstain ? 'border-amber-500/30 bg-amber-500/10 text-amber-300' : 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300'
+  const presentationSnapshot = getPredictionSnapshotForPresentation(snapshot, { isLoading, isError })
+  const view = formatPredictionSnapshotCard(presentationSnapshot, { stageKo, change7d })
+  const isFallback = 'stageLabel' in view
+  const statusTone = isFallback
+    ? 'border-slate-700/30 bg-slate-800/30 text-slate-300'
+    : snapshot?.abstain
+      ? 'border-amber-500/30 bg-amber-500/10 text-amber-300'
+      : 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300'
   const phaseTone = snapshot?.phase === 'hot'
     ? 'text-orange-300'
     : snapshot?.phase === 'cooling'
@@ -46,40 +52,66 @@ function ThemePrediction({ themeId }: ThemePredictionProps) {
           </span>
         </div>
 
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <SnapshotStat
-            icon={<Target className="h-4 w-4" />}
-            label={view.statusLabel}
-            value={isError ? '오류' : view.probabilityLabel}
-            tone="emerald"
-          />
-          <SnapshotStat
-            icon={<Gauge className="h-4 w-4" />}
-            label="예상 범위"
-            value={isError ? '재시도 필요' : view.ciLabel}
-            tone="sky"
-          />
-          <SnapshotStat
-            icon={<Activity className="h-4 w-4" />}
-            label="현재 방향"
-            value={view.phaseLabel}
-            tone="slate"
-            valueClassName={phaseTone}
-          />
+        <div className={`grid grid-cols-1 gap-3 ${isFallback ? 'sm:grid-cols-2' : 'sm:grid-cols-3'}`}>
+          {isFallback ? (
+            <>
+              <SnapshotStat
+                icon={<Gauge className="h-4 w-4" />}
+                label="현재 단계"
+                value={view.stageLabel}
+                tone="sky"
+              />
+              <SnapshotStat
+                icon={<Activity className="h-4 w-4" />}
+                label="관심도 방향"
+                value={view.directionLabel}
+                tone="slate"
+                valueClassName={change7d > 0 ? 'text-emerald-300' : change7d < 0 ? 'text-red-300' : 'text-slate-300'}
+              />
+            </>
+          ) : (
+            <>
+              <SnapshotStat
+                icon={<Target className="h-4 w-4" />}
+                label={view.statusLabel}
+                value={isError ? '오류' : view.probabilityLabel}
+                tone="emerald"
+              />
+              <SnapshotStat
+                icon={<Gauge className="h-4 w-4" />}
+                label="예상 범위"
+                value={isError ? '재시도 필요' : view.ciLabel}
+                tone="sky"
+              />
+              <SnapshotStat
+                icon={<Activity className="h-4 w-4" />}
+                label="현재 방향"
+                value={view.phaseLabel}
+                tone="slate"
+                valueClassName={phaseTone}
+              />
+            </>
+          )}
         </div>
 
         <div className="rounded-xl border border-slate-700/30 bg-slate-800/30 p-4 font-mono">
           <div className="flex items-start gap-3">
             <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-emerald-400" />
             <div className="space-y-1">
-              <p className="text-xs text-slate-200">{view.trailingPrecisionLabel}</p>
-              {view.reasonLabel && (
-                <p className="text-[10px] text-amber-300">아직 표시하지 않는 이유: {view.reasonLabel}</p>
-              )}
-              {snapshot?.modelVersion && (
-                <p className="text-[10px] text-slate-500">
-                  기준일 {snapshot.predictionDate} · 사용 모델 {snapshot.modelVersion}
-                </p>
+              {isFallback ? (
+                <p className="text-[10px] text-amber-300">{view.guidanceLabel}</p>
+              ) : (
+                <>
+                  <p className="text-xs text-slate-200">{view.trailingPrecisionLabel}</p>
+                  {view.reasonLabel && (
+                    <p className="text-[10px] text-amber-300">아직 표시하지 않는 이유: {view.reasonLabel}</p>
+                  )}
+                  {snapshot?.modelVersion && (
+                    <p className="text-[10px] text-slate-500">
+                      기준일 {snapshot.predictionDate} · 사용 모델 {snapshot.modelVersion}
+                    </p>
+                  )}
+                </>
               )}
             </div>
           </div>

@@ -22,6 +22,28 @@ export interface PredictionSnapshotCardView {
   readonly reasonLabel: string | null
 }
 
+export interface PredictionFallbackCardView {
+  readonly statusLabel: string
+  readonly stageLabel: string
+  readonly directionLabel: '상승' | '보합' | '하락'
+  readonly guidanceLabel: string
+}
+
+export type PredictionCardView = PredictionSnapshotCardView | PredictionFallbackCardView
+
+type PredictionFallbackInput = {
+  readonly stageKo: string
+  readonly change7d: number
+}
+
+export function getPredictionSnapshotForPresentation(
+  snapshot: PredictionApiItem | null | undefined,
+  queryState: { readonly isLoading: boolean; readonly isError: boolean },
+): PredictionApiItem | null | undefined {
+  if (snapshot === null && (queryState.isLoading || queryState.isError)) return undefined
+  return snapshot
+}
+
 export function shouldRenderPredictionPanel(
   firstSpikeDate: string | null,
   comparisonCount: number,
@@ -78,9 +100,31 @@ export function getPeakTimingStat(input: {
 }
 
 export function formatPredictionSnapshotCard(
-  snapshot: PredictionApiItem | null,
-): PredictionSnapshotCardView {
-  if (!snapshot) {
+  snapshot: null,
+  fallback: PredictionFallbackInput,
+): PredictionFallbackCardView
+export function formatPredictionSnapshotCard(
+  snapshot: PredictionApiItem | undefined,
+  fallback: PredictionFallbackInput,
+): PredictionSnapshotCardView
+export function formatPredictionSnapshotCard(
+  snapshot: PredictionApiItem | null | undefined,
+  fallback: PredictionFallbackInput,
+): PredictionCardView
+export function formatPredictionSnapshotCard(
+  snapshot: PredictionApiItem | null | undefined,
+  fallback: PredictionFallbackInput,
+): PredictionCardView {
+  if (snapshot === null) {
+    return {
+      statusLabel: '현재 상태',
+      stageLabel: fallback.stageKo,
+      directionLabel: fallback.change7d > 0 ? '상승' : fallback.change7d < 0 ? '하락' : '보합',
+      guidanceLabel: '상세 안내는 검증 완료 후 제공됩니다',
+    }
+  }
+
+  if (snapshot === undefined) {
     return {
       statusLabel: '평가 준비 중',
       probabilityLabel: '대기',

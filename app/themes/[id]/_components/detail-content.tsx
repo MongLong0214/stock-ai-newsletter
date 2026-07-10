@@ -127,7 +127,11 @@ function DetailContent({ id }: DetailContentProps) {
           <DetailHeader theme={themeWithLiveStocks} />
 
           <div className="mb-8">
-            <ThemePrediction themeId={id} />
+            <ThemePrediction
+              themeId={id}
+              stageKo={theme.score.stageKo}
+              change7d={theme.score.change7d}
+            />
           </div>
 
           <div className="mb-6 sm:mb-8">
