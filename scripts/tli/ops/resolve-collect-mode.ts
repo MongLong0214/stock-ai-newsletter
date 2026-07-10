@@ -15,6 +15,7 @@ export const TLI_COLLECT_SCHEDULE_MODES: Readonly<Record<string, TliCollectMode>
   '30 7 * * 1-5': 'full',
   '0 0 * * 1-6': 'news-only',
   '0 17 * * 6': 'full',
+  '30 9 * * 1': 'news-only',
 }
 
 export const TLI_COLLECT_DISPATCH_DEFAULT_MODE: TliCollectMode = 'full'

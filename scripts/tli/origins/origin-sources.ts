@@ -1,71 +1,93 @@
-/**
- * TLI v3 Todo 6: Monday cutoff 시점의 source 선택.
- *
- * cutoff **이하** source만 읽는다. 046 RPC가 동일 규칙으로 재검증하므로 여기서 고른 값이
- * 하나라도 다르면 manifest 생성이 거부된다 (fail-closed).
- */
+// TLI v3 Todo 6: Monday cutoff 시점의 source 선택.
+// cutoff **이하** source만 읽는다. 046 RPC가 동일 규칙으로 재검증하므로 여기서 고른 값이
+// 하나라도 다르면 manifest 생성이 거부된다 (fail-closed).
 
 import { compareUtf8Bytes } from '@/lib/tli/canonical-json'
+import { addKoreanTradingDays, getKoreanTradingDateWindow } from '@/lib/tli/trading-calendar'
 import { supabaseAdmin } from '@/scripts/tli/shared/supabase-admin'
-import {
-  calendarDatesBetween,
-  keywordGroupSha256,
-  resolveThemeKeywordGroup,
-  type KeywordGroupSpec,
-} from '@/scripts/tli/collectors/collection-run-contract'
+import { keysetOrExpression, paginateByKeyset } from '@/scripts/tli/shared/keyset'
+import { z } from 'zod'
+import { keywordGroupSha256, type KeywordGroupSpec } from '@/scripts/tli/collectors/collection-run-contract'
 import type { AttentionStudyContract } from '@/scripts/tli/collectors/babl-phase-snapshot'
-import {
-  forecastCutoffUtc,
-  INTEREST_INPUT_SLOTS,
-  NEWS_INPUT_SLOTS,
-  type ForecastThemeSource,
-  type StudyBablCandidate,
-} from './forecast-origin-manifest'
-
-export interface OriginTheme {
-  readonly id: string
-  readonly name: string
-  readonly naverKeywords: string[]
-}
+import { forecastCutoffUtc, INTEREST_INPUT_SLOTS, NEWS_INPUT_SLOTS } from './forecast-origin-manifest'
+import type { ForecastThemeSource, StudyBablCandidate } from './forecast-origin-manifest'
 
 // ── Pure selectors ──
 
-export interface InterestRunCandidate {
+export interface PitInterestRunCandidate {
   readonly id: string
-  readonly response_sha256: string
-  readonly completed_at: string
-  /** 이 run 안에서 해당 테마의 `trading_date <= origin_date` 관측 수 */
-  readonly slotCount: number
+  readonly themeId: string
+  readonly responseSha256: string
+  readonly sourceMaxDate: string
+  readonly collectedAt: string
+  readonly completedAt: string
+  readonly keywordGroupSpec: KeywordGroupSpec
+  readonly keywordGroupSha256: string
+  readonly tradingDates: readonly string[]
 }
 
-/**
- * 046은 usable child의 run이 "20 slot을 가진 cutoff 이하 최신 complete single run"이기를 요구하고
- * `completed_at DESC, id DESC`로 그 최신 run을 스스로 다시 고른다. 정렬 규칙이 어긋나면 RPC가 거부한다.
- */
-export const selectForecastInterestRun = (
-  candidates: readonly InterestRunCandidate[],
-): { readonly id: string; readonly responseSha256: string } | null => {
-  const eligible = candidates
-    .filter((candidate) => candidate.slotCount === INTEREST_INPUT_SLOTS)
-    .sort((left, right) => {
-      if (left.completed_at !== right.completed_at) {
-        return left.completed_at < right.completed_at ? 1 : -1
-      }
-      return compareUtf8Bytes(right.id, left.id)
-    })
+const recordedInterestRequestSchema = z.object({
+  keywordGroups: z.array(z.object({ groupName: z.string().min(1), keywords: z.array(z.string().min(1)).min(1) })).min(1),
+})
 
-  const latest = eligible.at(0)
-  return latest ? { id: latest.id, responseSha256: latest.response_sha256 } : null
+export const recordedKeywordGroupSpec = (
+  requestPayload: unknown,
+  expectedSha256: string,
+): KeywordGroupSpec | null => {
+  const request = recordedInterestRequestSchema.parse(requestPayload)
+  const matches = request.keywordGroups
+    .map((group) => ({ group_name: group.groupName, keywords: [...group.keywords] }))
+    .filter((spec) => keywordGroupSha256(spec) === expectedSha256)
+  return matches.length === 1 ? matches[0] : null
 }
 
-export interface NewsObservationRow {
-  readonly id: string
-  readonly article_date: string
-  readonly collected_at: string
+const tradingDatesEndingAt = (baseDate: string, slots: number): string[] =>
+  getKoreanTradingDateWindow({ baseDate, startOffset: -(slots - 1), endOffset: 0 })
+
+// WHY: current themes/theme_keywords는 지연 backfill 시점에 따라 바뀐다. expected universe와 keyword는
+// origin cutoff 이하 immutable interest run 중 RPC가 받을 exact 20-slot 최신 run에서만 파생해야 한다.
+export const selectPitForecastSources = (
+  candidates: readonly PitInterestRunCandidate[],
+  originDate: string,
+): ForecastThemeSource[] => {
+  const cutoffIso = forecastCutoffUtc(originDate)
+  const previousTradingDate = addKoreanTradingDays(originDate, -1)
+  const eligible = candidates.filter((candidate) => {
+    const requiredDates = tradingDatesEndingAt(candidate.sourceMaxDate, INTEREST_INPUT_SLOTS)
+    const observedDates = [...candidate.tradingDates].sort(compareUtf8Bytes)
+    return candidate.collectedAt <= cutoffIso
+      && candidate.completedAt <= cutoffIso
+      && candidate.sourceMaxDate >= previousTradingDate
+      && candidate.sourceMaxDate <= originDate
+      && candidate.keywordGroupSha256 === keywordGroupSha256(candidate.keywordGroupSpec)
+      && observedDates.length === requiredDates.length
+      && observedDates.every((date, index) => date === requiredDates[index])
+  }).sort((left, right) => {
+    if (left.themeId !== right.themeId) return compareUtf8Bytes(left.themeId, right.themeId)
+    if (left.sourceMaxDate !== right.sourceMaxDate) return left.sourceMaxDate < right.sourceMaxDate ? 1 : -1
+    if (left.completedAt !== right.completedAt) return left.completedAt < right.completedAt ? 1 : -1
+    return compareUtf8Bytes(right.id, left.id)
+  })
+
+  const latestByTheme = new Map<string, PitInterestRunCandidate>()
+  for (const candidate of eligible) {
+    if (!latestByTheme.has(candidate.themeId)) latestByTheme.set(candidate.themeId, candidate)
+  }
+
+  return [...latestByTheme.values()].map((candidate) => ({
+    themeId: candidate.themeId,
+    keywordGroupSpec: candidate.keywordGroupSpec,
+    interestRun: { id: candidate.id, responseSha256: candidate.responseSha256 },
+    newsObservationIds: null,
+  }))
 }
 
-/** 046은 각 date의 최신 `(collected_at, id)` 1건을 article_date 오름차순으로 고정한다. */
-export const selectNewsObservationIds = (
+const newsObservationRowSchema = z.object({ id: z.string().uuid(), article_date: z.string(), collected_at: z.string() })
+type NewsObservationRow = z.infer<typeof newsObservationRowSchema>
+const NEWS_OBSERVATION_KEYSET = { first: 'article_date', second: 'collected_at', third: 'id' } as const
+
+// 046은 각 date의 최신 `(collected_at, id)` 1건을 article_date 오름차순으로 고정한다.
+const selectNewsObservationIds = (
   rows: readonly NewsObservationRow[],
   expectedDates: readonly string[],
 ): string[] | null => {
@@ -93,148 +115,144 @@ export const selectNewsObservationIds = (
   return ordered.length === NEWS_INPUT_SLOTS ? ordered : null
 }
 
-/** origin_date 기준 14개 달력일 (046 `origin_date - (13 - offset)`와 동일) */
-export const newsExpectedDates = (originDate: string): string[] => {
-  const dates = calendarDatesBetween(
-    new Date(Date.parse(`${originDate}T00:00:00.000Z`) - 13 * 86_400_000).toISOString().slice(0, 10),
-    originDate,
-  )
-  return dates
-}
+// 046 RPC와 같은 origin_date 이하 최근 14개 KOSPI 거래일.
+export const newsExpectedDates = (originDate: string): string[] =>
+  tradingDatesEndingAt(originDate, NEWS_INPUT_SLOTS)
 
-export interface BablObservationRow {
-  readonly id: string
-  readonly payload_hash: string
-  readonly candidate_pool: string
-  readonly computed_at: string
-  readonly run: { readonly status: string; readonly collected_at: string; readonly completed_at: string } | null
-  readonly snapshot: {
-    readonly candidate_pool: string
-    readonly created_at: string
-    readonly comparison_run: { readonly status: string; readonly candidate_pool: string } | null
-  } | null
-}
+const bablObservationRowSchema = z.object({
+  id: z.string().uuid(), theme_id: z.string().uuid(), payload_hash: z.string(),
+  candidate_pool: z.string(), computed_at: z.string(),
+  run: z.object({ status: z.string(), collected_at: z.string(), completed_at: z.string() }).nullable(),
+  snapshot: z.object({
+    candidate_pool: z.string(), created_at: z.string(),
+    comparison_run: z.object({ status: z.string(), candidate_pool: z.string() }).nullable(),
+  }).nullable(),
+})
+type BablObservationRow = z.infer<typeof bablObservationRowSchema>
 
-/** 046 `bind_tli_study_origin`이 적격성을 판정하는 세 조건을 그대로 계산한다. */
-export const toStudyBablCandidate = (row: BablObservationRow, cutoffIso: string): StudyBablCandidate => {
-  const sourceRunComplete = row.run?.status === 'complete'
-  const withinCutoff =
-    row.computed_at <= cutoffIso
+// 046 `bind_tli_study_origin`이 적격성을 판정하는 세 조건을 그대로 계산한다.
+const toStudyBablCandidate = (row: BablObservationRow, cutoffIso: string): StudyBablCandidate => ({
+  observationId: row.id,
+  payloadHash: row.payload_hash,
+  candidatePool: row.candidate_pool,
+  sourceRunComplete: row.run?.status === 'complete',
+  withinCutoff: row.computed_at <= cutoffIso
     && (row.run?.collected_at ?? '') <= cutoffIso
     && (row.run?.completed_at ?? '') <= cutoffIso
-    && (row.snapshot?.created_at ?? '') <= cutoffIso
-  const poolMatchesSource =
-    row.snapshot !== null
+    && (row.snapshot?.created_at ?? '') <= cutoffIso,
+  poolMatchesSource: row.snapshot !== null
     && row.candidate_pool === row.snapshot.candidate_pool
     && row.snapshot.comparison_run !== null
     && row.snapshot.candidate_pool === row.snapshot.comparison_run.candidate_pool
-    && ['complete', 'published'].includes(row.snapshot.comparison_run.status)
-
-  return {
-    observationId: row.id,
-    payloadHash: row.payload_hash,
-    candidatePool: row.candidate_pool,
-    sourceRunComplete,
-    withinCutoff,
-    poolMatchesSource,
-  }
-}
+    && ['complete', 'published'].includes(row.snapshot.comparison_run.status),
+})
 
 // ── Supabase IO ──
 
-const interestRunCandidates = async (input: {
-  readonly themeId: string
-  readonly keywordGroupSha256: string
-  readonly originDate: string
-  readonly cutoffIso: string
-}): Promise<InterestRunCandidate[]> => {
-  const { data: runs, error } = await supabaseAdmin
-    .from('tli_collection_runs')
-    .select('id, response_sha256, completed_at, request_window_start, request_window_end')
-    .eq('source', 'naver_datalab')
-    .eq('status', 'complete')
-    .eq('keyword_group_hash', input.keywordGroupSha256)
-    .lte('collected_at', input.cutoffIso)
-    .lte('completed_at', input.cutoffIso)
-    .lte('source_max_date', input.originDate)
-    .order('completed_at', { ascending: false })
-    .order('id', { ascending: false })
-    .limit(5)
+const interestRunRowSchema = z.object({
+  id: z.string().uuid(),
+  response_sha256: z.string().regex(/^[0-9a-f]{64}$/),
+  source_max_date: z.string(),
+  collected_at: z.string(),
+  completed_at: z.string(),
+  keyword_group_hash: z.string().regex(/^[0-9a-f]{64}$/),
+  request_payload: z.unknown(),
+})
 
-  if (error) throw new Error(`interest run 조회 실패: ${error.message}`)
+const interestObservationRowSchema = z.object({ theme_id: z.string().uuid(), trading_date: z.string() })
+type InterestRunRow = z.infer<typeof interestRunRowSchema>
 
-  const candidates: InterestRunCandidate[] = []
-  for (const run of runs ?? []) {
-    const { count, error: countError } = await supabaseAdmin
+const INTEREST_RUN_KEYSET = { first: 'source_max_date', second: 'completed_at', third: 'id' } as const
+
+const loadPitInterestRunRows = (input: { readonly originDate: string; readonly cutoffIso: string }): Promise<InterestRunRow[]> => paginateByKeyset({
+  pageSize: 1000,
+  keyOf: (row: InterestRunRow) => ({ first: row.source_max_date, second: row.completed_at, third: row.id }),
+  fetchPage: async (after) => {
+    let query = supabaseAdmin.from('tli_collection_runs')
+      .select('id, response_sha256, source_max_date, collected_at, completed_at, keyword_group_hash, request_payload')
+      .eq('source', 'naver_datalab').eq('status', 'complete')
+      .lte('collected_at', input.cutoffIso).lte('completed_at', input.cutoffIso)
+      .gte('source_max_date', addKoreanTradingDays(input.originDate, -1)).lte('source_max_date', input.originDate)
+    if (after !== null) query = query.or(keysetOrExpression(INTEREST_RUN_KEYSET, after))
+    const { data, error } = await query.order('source_max_date').order('completed_at').order('id').limit(1000)
+    if (error) throw new Error(`interest run 조회 실패: ${error.message}`)
+    return interestRunRowSchema.array().parse(data ?? [])
+  },
+})
+
+const loadPitInterestRunCandidates = async (input: { readonly originDate: string; readonly cutoffIso: string }): Promise<PitInterestRunCandidate[]> => {
+  const candidates: PitInterestRunCandidate[] = []
+  for (const run of await loadPitInterestRunRows(input)) {
+    const { data: observations, error: observationError } = await supabaseAdmin
       .from('tli_interest_observations')
-      .select('*', { count: 'exact', head: true })
+      .select('theme_id, trading_date')
       .eq('collection_run_id', run.id)
-      .eq('theme_id', input.themeId)
       .eq('source', 'naver_datalab')
-      .gte('trading_date', run.request_window_start)
-      .lte('trading_date', run.request_window_end)
-      .lte('trading_date', input.originDate)
+      .order('trading_date', { ascending: true })
 
-    if (countError) throw new Error(`interest observation 카운트 실패: ${countError.message}`)
-    if (run.response_sha256 === null) continue
-
+    if (observationError) throw new Error(`interest observation 조회 실패: ${observationError.message}`)
+    const rows = interestObservationRowSchema.array().parse(observations ?? [])
+    const themeIds = [...new Set(rows.map((row) => row.theme_id))]
+    const spec = recordedKeywordGroupSpec(run.request_payload, run.keyword_group_hash)
+    if (themeIds.length !== 1 || spec === null) continue
     candidates.push({
       id: run.id,
-      response_sha256: run.response_sha256,
-      completed_at: run.completed_at,
-      slotCount: count ?? 0,
+      themeId: themeIds[0],
+      responseSha256: run.response_sha256,
+      sourceMaxDate: run.source_max_date,
+      collectedAt: run.collected_at,
+      completedAt: run.completed_at,
+      keywordGroupSpec: spec,
+      keywordGroupSha256: run.keyword_group_hash,
+      tradingDates: rows.map((row) => row.trading_date),
     })
   }
 
   return candidates
 }
 
-const newsObservationRows = async (input: {
-  readonly themeId: string
-  readonly keywordGroupSha256: string
-  readonly expectedDates: readonly string[]
-  readonly cutoffIso: string
-}): Promise<NewsObservationRow[]> => {
-  const { data, error } = await supabaseAdmin
-    .from('tli_news_observations')
-    .select('id, article_date, collected_at, run:tli_collection_runs!inner(status, collected_at, completed_at)')
-    .eq('theme_id', input.themeId)
-    .eq('query_hash', input.keywordGroupSha256)
-    .gte('article_date', input.expectedDates[0])
-    .lte('article_date', input.expectedDates[input.expectedDates.length - 1])
-    .lte('collected_at', input.cutoffIso)
-    .eq('run.status', 'complete')
-    .lte('run.collected_at', input.cutoffIso)
-    .lte('run.completed_at', input.cutoffIso)
-
-  if (error) throw new Error(`news observation 조회 실패: ${error.message}`)
-  return (data ?? []) as unknown as NewsObservationRow[]
+const loadNewsObservationIds = async (input: {
+  readonly themeId: string; readonly keywordGroupSha256: string
+  readonly expectedDates: readonly string[]; readonly cutoffIso: string
+}): Promise<string[] | null> => {
+  const rows = await paginateByKeyset<NewsObservationRow>({
+    pageSize: 1000,
+    keyOf: (row) => ({ first: row.article_date, second: row.collected_at, third: row.id }),
+    fetchPage: async (after) => {
+      let query = supabaseAdmin.from('tli_news_observations')
+        .select('id, article_date, collected_at, run:tli_collection_runs!inner(status, collected_at, completed_at)')
+        .eq('theme_id', input.themeId).eq('query_hash', input.keywordGroupSha256)
+        .gte('article_date', input.expectedDates[0]).lte('article_date', input.expectedDates[input.expectedDates.length - 1])
+        .lte('collected_at', input.cutoffIso).eq('run.status', 'complete')
+        .lte('run.collected_at', input.cutoffIso).lte('run.completed_at', input.cutoffIso)
+      if (after !== null) query = query.or(keysetOrExpression(NEWS_OBSERVATION_KEYSET, after))
+      const { data, error } = await query.order('article_date').order('collected_at').order('id').limit(1000)
+      if (error) throw new Error(`news observation 조회 실패: ${error.message}`)
+      return newsObservationRowSchema.array().parse(data ?? [])
+    },
+  })
+  return selectNewsObservationIds(rows, input.expectedDates)
 }
 
-export const loadForecastThemeSources = async (input: {
-  readonly originDate: string
-  readonly themes: readonly OriginTheme[]
-}): Promise<ForecastThemeSource[]> => {
+export const loadForecastThemeSources = async (
+  input: { readonly originDate: string },
+): Promise<ForecastThemeSource[]> => {
   const cutoffIso = forecastCutoffUtc(input.originDate)
   const expectedDates = newsExpectedDates(input.originDate)
+  const selectedSources = selectPitForecastSources(
+    await loadPitInterestRunCandidates({ originDate: input.originDate, cutoffIso }),
+    input.originDate,
+  )
   const sources: ForecastThemeSource[] = []
 
-  for (const theme of input.themes) {
-    const spec: KeywordGroupSpec = resolveThemeKeywordGroup(theme)
-    const kwSha = keywordGroupSha256(spec)
-
-    const interestRun = selectForecastInterestRun(
-      await interestRunCandidates({ themeId: theme.id, keywordGroupSha256: kwSha, originDate: input.originDate, cutoffIso }),
-    )
-
-    const newsObservationIds = interestRun
-      ? selectNewsObservationIds(
-          await newsObservationRows({ themeId: theme.id, keywordGroupSha256: kwSha, expectedDates, cutoffIso }),
-          expectedDates,
-        )
-      : null
-
-    sources.push({ themeId: theme.id, keywordGroupSpec: spec, interestRun, newsObservationIds })
+  for (const source of selectedSources) {
+    const newsObservationIds = await loadNewsObservationIds({
+      themeId: source.themeId,
+      keywordGroupSha256: keywordGroupSha256(source.keywordGroupSpec),
+      expectedDates,
+      cutoffIso,
+    })
+    sources.push({ ...source, newsObservationIds })
   }
 
   return sources
@@ -267,7 +285,7 @@ export const loadStudyBablCandidates = async (input: {
   if (error) throw new Error(`B-Abl observation 조회 실패: ${error.message}`)
 
   const byTheme = new Map<string, StudyBablCandidate[]>()
-  for (const row of (data ?? []) as unknown as Array<BablObservationRow & { theme_id: string }>) {
+  for (const row of bablObservationRowSchema.array().parse(data ?? [])) {
     const candidates = byTheme.get(row.theme_id) ?? []
     candidates.push(toStudyBablCandidate(row, cutoffIso))
     byTheme.set(row.theme_id, candidates)

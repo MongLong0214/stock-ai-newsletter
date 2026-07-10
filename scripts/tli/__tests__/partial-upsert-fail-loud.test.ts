@@ -9,6 +9,7 @@ const collectionMocks = vi.hoisted(() => ({
   upsertNewsMetrics: vi.fn(),
   upsertNewsArticles: vi.fn(),
   upsertThemeStocks: vi.fn(),
+  runMondayOrigins: vi.fn(),
 }))
 
 vi.mock('@/scripts/tli/collectors/naver-news', () => ({
@@ -21,6 +22,10 @@ vi.mock('@/scripts/tli/collectors/naver-datalab', () => ({
 
 vi.mock('@/scripts/tli/collectors/naver-finance-themes', () => ({
   collectNaverFinanceStocks: collectionMocks.collectNaverFinanceStocks,
+}))
+
+vi.mock('@/scripts/tli/origins/run-monday-origins', () => ({
+  runMondayOrigins: collectionMocks.runMondayOrigins,
 }))
 
 vi.mock('@/scripts/tli/shared/data-ops', () => ({
@@ -116,6 +121,11 @@ describe('partial batch upsert fail-loud propagation', () => {
     collectionMocks.upsertNewsMetrics.mockResolvedValue(0)
     collectionMocks.upsertNewsArticles.mockResolvedValue(0)
     collectionMocks.upsertThemeStocks.mockResolvedValue(0)
+    collectionMocks.runMondayOrigins.mockResolvedValue({
+      asOfDate: '2026-03-20',
+      skippedReason: 'up_to_date',
+      origins: [],
+    })
   })
 
   it('increments collection criticalFailures when a news metrics upsert reports partial failure', async () => {
@@ -131,5 +141,23 @@ describe('partial batch upsert fail-loud propagation', () => {
 
     // Then: the partial persistence failure is surfaced as critical.
     expect(result.criticalFailures).toBeGreaterThan(0)
+  })
+
+  it('runs Monday origins from the news-only collection path', async () => {
+    const { collectDataSources } = await import('@/scripts/tli/batch/pipeline-steps')
+
+    const result = await collectDataSources(themes, 'news-only', '2026-07-13')
+
+    expect(collectionMocks.runMondayOrigins).toHaveBeenCalledWith('2026-07-13')
+    expect(result.criticalFailures).toBe(0)
+  })
+
+  it('surfaces a news-only Monday origin failure as critical', async () => {
+    collectionMocks.runMondayOrigins.mockRejectedValue(new Error('origin RPC failed'))
+    const { collectDataSources } = await import('@/scripts/tli/batch/pipeline-steps')
+
+    const result = await collectDataSources(themes, 'news-only', '2026-07-13')
+
+    expect(result.criticalFailures).toBe(1)
   })
 })

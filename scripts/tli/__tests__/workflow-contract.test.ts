@@ -54,6 +54,7 @@ describe('resolveTliCollectMode', () => {
     ['30 7 * * 1-5', 'full'],
     ['0 0 * * 1-6', 'news-only'],
     ['0 17 * * 6', 'full'],
+    ['30 9 * * 1', 'news-only'],
   ])('maps schedule %s to %s', (schedule, expected) => {
     expect(resolveTliCollectMode({ eventName: 'schedule', schedule })).toBe(expected)
   })

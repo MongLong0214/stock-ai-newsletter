@@ -8,6 +8,8 @@ on:
     - cron: '0 0 * * 1-6'
     # 주말 전체 수집 (일요일 KST 02:00 = UTC 17:00 토요일)
     - cron: '0 17 * * 6'
+    # Monday origin 적시 생성 (월요일 KST 18:30 = UTC 09:30)
+    - cron: '30 9 * * 1'
   workflow_dispatch:
     inputs:
       mode:
