@@ -102,6 +102,11 @@ export function buildPredictionApiItem(input: {
   if (ciLower !== null && ciUpper !== null && ciLower > ciUpper) {
     throw new PredictionV3ContractError('ci bounds invalid: ciLower must be <= ciUpper')
   }
+  if (!input.row.abstain && (
+    pRise === null || ciLower === null || ciUpper === null || ciLower > pRise || pRise > ciUpper
+  )) {
+    throw new PredictionV3ContractError('scientific interval must satisfy 0 <= ciLower <= pRise <= ciUpper <= 1')
+  }
 
   return {
     id: input.row.theme_id,

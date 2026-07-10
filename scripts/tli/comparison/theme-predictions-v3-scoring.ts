@@ -4,31 +4,23 @@ import { getKSTDateString } from '@/lib/tli/date-utils'
 import { evaluatePredictionRows, type EvalPredictionRow } from '@/lib/tli/eval/harness'
 import { supabaseAdmin } from '@/scripts/tli/shared/supabase-admin'
 import { batchUpsert } from '@/scripts/tli/shared/supabase-batch'
+import {
+  buildThemePredictionV3ScoringPlan,
+  type GtALabelScoreRow,
+  type ModelMetricDailyKey,
+  type ThemePredictionV3PendingRow,
+  type ThemePredictionV3ScoreUpdate,
+} from './theme-predictions-v3-legacy-scoring-plan'
 
-export interface ThemePredictionV3PendingRow {
-  readonly id: string
-  readonly theme_id: string
-  readonly prediction_date: string
-  readonly model_version: string
-  readonly p_rise: number | null
-  readonly abstain: boolean
-}
-
-export interface GtALabelScoreRow {
-  readonly theme_id: string
-  readonly base_date: string
-  readonly label_status: 'pending' | 'final' | 'censored' | 'excluded'
-  readonly g_log_ratio: number | null
-  readonly y_binary: boolean | null
-}
-
-export interface ThemePredictionV3ScoreUpdate {
-  readonly id: string
-  readonly actual_g: number | null
-  readonly actual_y: boolean | null
-  readonly scored_at: string
-  readonly score_status: 'scored' | 'censored' | 'excluded'
-}
+export {
+  buildThemePredictionV3ScoringPlan,
+  type GtALabelScoreRow,
+  type ModelMetricDailyKey,
+  type ThemePredictionV3PendingRow,
+  type ThemePredictionV3ScoreUpdate,
+  type ThemePredictionV3ScoringPlan,
+} from './theme-predictions-v3-legacy-scoring-plan'
+export * from './theme-predictions-v3-scientific-scoring'
 
 export interface ModelMetricDailyRecord {
   readonly metric_date: string
@@ -42,17 +34,6 @@ export interface ModelMetricDailyRecord {
   readonly n_scored: number
 }
 
-export interface ModelMetricDailyKey {
-  readonly metricDate: string
-  readonly modelVersion: string
-}
-
-export interface ThemePredictionV3ScoringPlan {
-  readonly updates: readonly ThemePredictionV3ScoreUpdate[]
-  readonly touchedMetricKeys: readonly ModelMetricDailyKey[]
-  readonly skippedPending: number
-}
-
 export interface ThemePredictionV3ScoringResult {
   readonly cutoffDate: string
   readonly pendingRows: number
@@ -60,9 +41,6 @@ export interface ThemePredictionV3ScoringResult {
   readonly metrics: number
   readonly skippedPending: number
 }
-
-const key = (themeId: string, date: string): string => `${themeId}|${date}`
-const metricKey = (date: string, modelVersion: string): string => `${date}|${modelVersion}`
 
 function buildMetricRecord(input: {
   readonly metricDate: string
@@ -84,58 +62,11 @@ function buildMetricRecord(input: {
   }
 }
 
-/**
- * 채점(개별 update)과 model_metrics_daily 대상 키 산출만 계산한다.
- * metric_date별 집계 자체는 이 배치에 포함된 행만으로는 부분 집계가 되어버리므로(재실행 시 수렴 불가)
- * 여기서는 "어떤 (metric_date, model_version)이 이번에 바뀌었는지"만 반환하고,
- * 실제 지표는 evaluateThemePredictionsV3가 theme_predictions_v3 전체를 재조회해 재계산한다 (C2).
- */
-export function buildThemePredictionV3ScoringPlan(input: {
-  readonly predictions: readonly ThemePredictionV3PendingRow[]
-  readonly labels: readonly GtALabelScoreRow[]
-  readonly scoredAt: string
-}): ThemePredictionV3ScoringPlan {
-  const labelsByKey = new Map(input.labels.map((label) => [key(label.theme_id, label.base_date), label]))
-  const touchedKeys = new Map<string, ModelMetricDailyKey>()
-  const updates: ThemePredictionV3ScoreUpdate[] = []
-  let skippedPending = 0
-
-  for (const prediction of input.predictions) {
-    const label = labelsByKey.get(key(prediction.theme_id, prediction.prediction_date))
-    if (!label || label.label_status === 'pending') {
-      skippedPending++
-      continue
-    }
-
-    if (label.label_status === 'final' && label.y_binary !== null) {
-      updates.push({
-        id: prediction.id,
-        actual_g: label.g_log_ratio,
-        actual_y: label.y_binary,
-        scored_at: input.scoredAt,
-        score_status: 'scored',
-      })
-      const groupKey = metricKey(prediction.prediction_date, prediction.model_version)
-      touchedKeys.set(groupKey, { metricDate: prediction.prediction_date, modelVersion: prediction.model_version })
-      continue
-    }
-
-    updates.push({
-      id: prediction.id,
-      actual_g: label.g_log_ratio,
-      actual_y: label.y_binary,
-      scored_at: input.scoredAt,
-      score_status: label.label_status,
-    })
-  }
-
-  return { updates, touchedMetricKeys: [...touchedKeys.values()], skippedPending }
-}
-
 async function loadPendingPredictions(cutoffDate: string, limit: number): Promise<ThemePredictionV3PendingRow[]> {
   const { data, error } = await supabaseAdmin
     .from('theme_predictions_v3')
-    .select('id, theme_id, prediction_date, model_version, p_rise, abstain')
+    .select('id, theme_id, prediction_date, model_version, labeler_version, p_rise, abstain')
+    .is('experiment_cycle_id', null)
     .eq('score_status', 'pending')
     .lte('prediction_date', cutoffDate)
     .order('prediction_date', { ascending: true })
@@ -150,7 +81,7 @@ async function loadGtALabels(predictions: readonly ThemePredictionV3PendingRow[]
   if (dates.length === 0) return []
   const { data, error } = await supabaseAdmin
     .from('theme_labels')
-    .select('theme_id, base_date, label_status, g_log_ratio, y_binary')
+    .select('theme_id, base_date, labeler_version, label_status, g_log_ratio, y_binary')
     .eq('label_type', 'gt_a')
     .eq('horizon_days', GTA_HORIZON_DAYS)
     .in('base_date', dates)
@@ -186,6 +117,7 @@ async function loadScoredPredictionsForMetric(key: ModelMetricDailyKey): Promise
   const { data, error } = await supabaseAdmin
     .from('theme_predictions_v3')
     .select('theme_id, prediction_date, p_rise, abstain, actual_y')
+    .is('experiment_cycle_id', null)
     .eq('prediction_date', key.metricDate)
     .eq('model_version', key.modelVersion)
     .eq('score_status', 'scored')
@@ -205,13 +137,20 @@ async function recomputeDailyMetrics(
   const records: ModelMetricDailyRecord[] = []
   for (const key of touchedKeys) {
     const rows = await loadScoredPredictionsForMetric(key)
-    const evalRows: EvalPredictionRow[] = rows.map((row) => ({
-      id: `${row.theme_id}|${row.prediction_date}`,
-      themeId: row.theme_id,
-      baseDate: row.prediction_date,
-      probability: row.abstain ? null : row.p_rise,
-      y: row.actual_y ?? false,
-    }))
+    const evalRows: EvalPredictionRow[] = rows.map((row) => {
+      if (row.actual_y === null) {
+        throw new Error(
+          `scored metric row requires non-null actual_y (${row.theme_id}/${row.prediction_date})`,
+        )
+      }
+      return {
+        id: `${row.theme_id}|${row.prediction_date}`,
+        themeId: row.theme_id,
+        baseDate: row.prediction_date,
+        probability: row.abstain ? null : row.p_rise,
+        y: row.actual_y,
+      }
+    })
     records.push(buildMetricRecord({
       metricDate: key.metricDate,
       modelVersion: key.modelVersion,
@@ -237,6 +176,7 @@ export async function countExpiredPendingPredictions(cutoffDate: string): Promis
   const { count, error } = await supabaseAdmin
     .from('theme_predictions_v3')
     .select('*', { count: 'exact', head: true })
+    .is('experiment_cycle_id', null)
     .eq('score_status', 'pending')
     .lte('prediction_date', cutoffDate)
 

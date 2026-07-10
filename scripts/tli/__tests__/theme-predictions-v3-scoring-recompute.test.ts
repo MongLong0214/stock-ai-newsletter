@@ -12,6 +12,7 @@ const dbMocks = vi.hoisted(() => ({
   labelRows: [] as Record<string, unknown>[],
   scoredRowsByKey: new Map<string, Record<string, unknown>[]>(),
   updateCalls: [] as Record<string, unknown>[],
+  legacyScopeCalls: 0,
   batchUpsert: vi.fn(async () => 0),
 }))
 
@@ -21,6 +22,13 @@ vi.mock('@/scripts/tli/shared/supabase-admin', () => ({
       const state = { table } as FakeQueryState
       const builder = {
         select: (cols: string) => { state.select = cols; return builder },
+        is: (col: string, val: unknown) => {
+          state[`eq_${col}`] = val
+          if (table === 'theme_predictions_v3' && col === 'experiment_cycle_id' && val === null) {
+            dbMocks.legacyScopeCalls++
+          }
+          return builder
+        },
         eq: (col: string, val: unknown) => { state[`eq_${col}`] = val; return builder },
         in: () => builder,
         lte: () => builder,
@@ -60,17 +68,20 @@ describe('evaluateThemePredictionsV3 — model_metrics_daily full recompute (C2)
     vi.clearAllMocks()
     dbMocks.batchUpsert.mockResolvedValue(0)
     dbMocks.updateCalls.length = 0
+    dbMocks.legacyScopeCalls = 0
     dbMocks.scoredRowsByKey.clear()
+    dbMocks.pendingRows = []
+    dbMocks.labelRows = []
   })
 
   it('recomputes the full-day aggregate (not just this batch) when only one of three rows was newly scored', async () => {
     // This run's pending batch has just 1 row for 2026-07-06/b-abl-v1 — the other 2 rows for that
     // same (date, model) were already scored by a previous run.
     dbMocks.pendingRows = [
-      { id: 'p3', theme_id: 'theme-c', prediction_date: '2026-07-06', model_version: 'b-abl-v1', p_rise: 0.9, abstain: false },
+      { id: 'p3', theme_id: 'theme-c', prediction_date: '2026-07-06', model_version: 'b-abl-v1', labeler_version: 'gta-v1', p_rise: 0.9, abstain: false },
     ]
     dbMocks.labelRows = [
-      { theme_id: 'theme-c', base_date: '2026-07-06', label_status: 'final', g_log_ratio: 0.3, y_binary: true },
+      { theme_id: 'theme-c', base_date: '2026-07-06', labeler_version: 'gta-v1', label_status: 'final', g_log_ratio: 0.3, y_binary: true },
     ]
     // Post-update DB state for the full day: 2 already-scored rows + the just-scored p3.
     dbMocks.scoredRowsByKey.set('2026-07-06|b-abl-v1', [
@@ -79,11 +90,13 @@ describe('evaluateThemePredictionsV3 — model_metrics_daily full recompute (C2)
       { theme_id: 'theme-c', prediction_date: '2026-07-06', p_rise: 0.9, abstain: false, actual_y: true },
     ])
 
-    const { evaluateThemePredictionsV3 } = await import('@/scripts/tli/comparison/theme-predictions-v3-scoring')
+    const { countExpiredPendingPredictions, evaluateThemePredictionsV3 } = await import('@/scripts/tli/comparison/theme-predictions-v3-scoring')
     const result = await evaluateThemePredictionsV3({ today: '2026-07-13' })
+    await countExpiredPendingPredictions(result.cutoffDate)
 
     expect(result.updates).toBe(1)
     expect(dbMocks.batchUpsert).toHaveBeenCalledTimes(1)
+    expect(dbMocks.legacyScopeCalls).toBe(3)
     const [, rows] = dbMocks.batchUpsert.mock.calls[0]
     expect(rows).toHaveLength(1)
     // n_scored reflects all 3 rows for the day, not just the 1 row scored in this batch.
@@ -93,5 +106,21 @@ describe('evaluateThemePredictionsV3 — model_metrics_daily full recompute (C2)
       n_scored: 3,
       coverage: 1,
     })
+  })
+
+  it('fails instead of converting a null scored outcome to a negative metric observation', async () => {
+    dbMocks.pendingRows = [
+      { id: 'p1', theme_id: 'theme-a', prediction_date: '2026-07-06', model_version: 'b-abl-v1', labeler_version: 'gta-v1', p_rise: 0.8, abstain: false },
+    ]
+    dbMocks.labelRows = [
+      { theme_id: 'theme-a', base_date: '2026-07-06', labeler_version: 'gta-v1', label_status: 'final', g_log_ratio: 0.3, y_binary: true },
+    ]
+    dbMocks.scoredRowsByKey.set('2026-07-06|b-abl-v1', [
+      { theme_id: 'theme-a', prediction_date: '2026-07-06', p_rise: 0.8, abstain: false, actual_y: null },
+    ])
+    const { evaluateThemePredictionsV3 } = await import('@/scripts/tli/comparison/theme-predictions-v3-scoring')
+
+    await expect(evaluateThemePredictionsV3({ today: '2026-07-13' })).rejects.toThrow(/non-null actual_y/)
+    expect(dbMocks.batchUpsert).not.toHaveBeenCalled()
   })
 })
