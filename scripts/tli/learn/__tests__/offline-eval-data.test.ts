@@ -40,8 +40,10 @@ vi.mock('@/scripts/tli/shared/supabase-admin', () => {
     gte(column: string, value: string | number): QueryBuilder
     lte(column: string, value: string | number): QueryBuilder
     in(column: string, values: readonly unknown[]): QueryBuilder
+    or(filter: string): QueryBuilder
     order(column: string, options?: { readonly ascending?: boolean }): QueryBuilder
     range(from: number, to: number): Promise<RangeResult>
+    limit(count: number): Promise<RangeResult>
   }
 
   const isComparable = (value: unknown): value is string | number => (
@@ -96,12 +98,19 @@ vi.mock('@/scripts/tli/shared/supabase-admin', () => {
         state.inFilters.set(column, values)
         return builder
       },
+      or(): QueryBuilder {
+        return builder
+      },
       order(): QueryBuilder {
         return builder
       },
       async range(from: number, to: number): Promise<RangeResult> {
         recordQuery(state)
         return { data: resolveRows(state).slice(from, to + 1), error: null }
+      },
+      async limit(count: number): Promise<RangeResult> {
+        recordQuery(state)
+        return { data: resolveRows(state).slice(0, count), error: null }
       },
       then<TResult1 = RangeResult, TResult2 = never>(
         onfulfilled?: ((value: RangeResult) => TResult1 | PromiseLike<TResult1>) | null,
