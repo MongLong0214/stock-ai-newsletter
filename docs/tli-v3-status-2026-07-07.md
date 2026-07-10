@@ -1,5 +1,8 @@
 # TLI v3 작업 현황 및 승격 로드맵 (2026-07-07)
 
+> **`superseded_for_scientific_claims`**: 과학적 주장·실행 기준으로는 master plan이 우선하며 이 문서는 의도/연구 이력 보존용이다. Master plan: `.omo/plans/tli-v3-scientific-rebuild-master.md`.
+> 이 banner는 아래의 “최신 상태” 및 “Canonical 설계 문서” 안내를 과학적 주장·실행 권위에 한해 명시적으로 대체한다. 기존 수치·실패·연구 기록은 그대로 보존한다.
+
 Status: 스냅샷 문서 — 작성 시점 이후 상태 변화 가능. 최신 상태는 `docs/prd/PRD-tli-v3-rebuild.md` §부록 H(as-built) + `docs/tli-v3-early-promotion-preregistration.md` §7(실행 기록)에서 확인.
 
 ## 1. 오늘 무슨 일이 있었나 (요약)

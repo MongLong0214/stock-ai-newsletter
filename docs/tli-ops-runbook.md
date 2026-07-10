@@ -1,8 +1,17 @@
 # TLI Ops Runbook
 
+> **`superseded_for_scientific_claims`**: For scientific claims and execution criteria, the master plan takes precedence; the pre-existing content in this document is retained to preserve intent and research history. Master plan: `.omo/plans/tli-v3-scientific-rebuild-master.md`.
+
 ## Goal
 
 Provide the canonical operator entrypoints for TLI runtime maintenance, v4 comparison governance, and the self-improving loop.
+
+## Scientific Promotion and Exposure Freeze
+
+- Current state: promotion and exposure are frozen. All legacy M1 models are `invalidated` / `blocked`; B-Abl is `unvalidated` / `blocked`.
+- Promotion remains blocked unless `TLI_M1_PROMOTION_ENABLED === 'true'` and the frozen candidate cycle passes the master plan's prospective gate. The flag alone does not unlock promotion.
+- Exposure remains empty unless `TLI_PREDICTIONS_V3_EXPOSURE_ENABLED === 'true'`, the registry row has `status='champion'`, `scientific_claim_status='eligible'`, and `scientific_release_status='public'`, and the prediction exactly joins that registry row by `experiment_cycle_id`, model version, and `role='candidate'`. The flag alone does not unlock exposure.
+- Unfreeze condition: complete master plan Todos 16-17 for the same frozen candidate, including Todo 16 data-floor, power simulation, preregistration, and cycle start, followed by Todo 17's full prospective and four-canary gates. Any failed or incomplete gate keeps promotion and exposure blocked.
 
 ## Runtime Batch Surface
 
