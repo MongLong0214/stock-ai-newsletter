@@ -25,6 +25,54 @@ export interface WalkForwardFold<T extends EvalObservation> {
   readonly testClusterCount: number
 }
 
+/** A clean eligible weekly origin of one immutable study contract. */
+export interface StudyOrigin {
+  readonly originDate: string
+  readonly forecastCutoff: string
+}
+
+/** One theme row observed at a study origin; `baseDate` is that origin's date. */
+export interface StudyEvalRow extends EvalObservation {
+  readonly futureDates: readonly string[]
+  readonly labelFinalizedAt: string
+  readonly labelSourceRunCompletedAt: string
+}
+
+export interface StudyWalkForwardFold<T extends StudyEvalRow> {
+  readonly foldId: string
+  readonly sequence: number
+  readonly testOrigin: StudyOrigin
+  /** Every origin strictly before the test origin, before the purge predicate is applied. */
+  readonly candidateTrainOrigins: readonly string[]
+  /** Distinct origins that survive the purge predicate; this is what the fold actually trains on. */
+  readonly trainOrigins: readonly string[]
+  readonly train: readonly T[]
+  readonly purged: readonly T[]
+  readonly test: readonly T[]
+  readonly splitOriginsSha256: string
+}
+
+export interface StudyWalkForwardSplit<T extends StudyEvalRow> {
+  readonly originCount: number
+  readonly initialTrainOriginCount: number
+  readonly testOriginCount: number
+  readonly folds: readonly StudyWalkForwardFold<T>[]
+  readonly splitOriginsSha256: string
+}
+
+export interface InnerOofFold {
+  readonly foldId: string
+  readonly validationOrigin: string
+  readonly trainOrigins: readonly string[]
+}
+
+export interface InnerOofSplit {
+  readonly originCount: number
+  readonly foldCount: number
+  readonly folds: readonly InnerOofFold[]
+  readonly splitOriginsSha256: string
+}
+
 export interface PredictionMetrics {
   readonly totalCandidates: number
   readonly nScored: number
