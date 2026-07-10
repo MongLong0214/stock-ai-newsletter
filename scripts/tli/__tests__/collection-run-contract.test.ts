@@ -380,6 +380,9 @@ describe('B-Abl phase collection run', () => {
     const { run, observations } = buildRun([snapshot({ candidate_pool: 'peer' })])
 
     expect(run.status).toBe('complete')
+    expect(run.response_payload).toEqual({ snapshots: [snapshot({ candidate_pool: 'peer' })] })
+    expect(run.response_sha256).toMatch(/^[0-9a-f]{64}$/)
+    expect(run.source_max_date).toBe('2026-06-19')
     expect(observations).toHaveLength(1)
     expect(observations[0].candidate_pool).toBe('peer')
     expect(observations[0].source_prediction_snapshot_id).toBe(snapshot().id)
@@ -409,10 +412,24 @@ describe('B-Abl phase collection run', () => {
     expect(observations.map((observation) => observation.candidate_pool).sort()).toEqual(['archetype', 'peer'])
   })
 
-  it('일치하는 prod 스냅샷이 없으면 observation 0개의 complete run이다', () => {
+  it('같은 prod snapshot 집합은 조회 순서와 무관하게 동일한 payload와 hash를 만든다', () => {
+    const first = snapshot({ candidate_pool: 'archetype' })
+    const second = snapshot({
+      id: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
+      theme_id: THEME_B,
+      candidate_pool: 'peer',
+    })
+
+    expect(buildRun([second, first])).toEqual(buildRun([first, second]))
+  })
+
+  it('일치하는 prod 스냅샷이 없으면 source missing을 숨기지 않는 failed run이다', () => {
     const { run, observations } = buildRun([])
-    expect(run.status).toBe('complete')
+    expect(run.status).toBe('failed')
     expect(observations).toHaveLength(0)
+    expect(run.failure_summary).toEqual({ reason: 'no_matching_prod_snapshots' })
+    expect(run.response_payload).toEqual({ snapshots: [] })
+    expect(run.response_sha256).toMatch(/^[0-9a-f]{64}$/)
     expect(run.source_max_date).toBeNull()
   })
 })

@@ -24,16 +24,10 @@ export const studyContractRepoPath = (studyId: string): string =>
 const git = (args: readonly string[]): string =>
   execFileSync('git', [...args], { encoding: 'utf8' }).trim()
 
-/**
- * 046은 `git_commit_sha`/`git_blob_sha`에 `^[0-9a-f]{64}$`를 요구한다.
- * 이 저장소의 object format이 sha1(40-hex)이면 RPC를 호출할 수 없으므로 즉시 fail-closed한다.
- */
-export const assertGitObjectFormatSha256 = (objectFormat: string): void => {
-  if (objectFormat !== 'sha256') {
-    throw new Error(
-      `046 lock_tli_attention_study_contract는 64-hex git object를 요구하지만 저장소 object format이 '${objectFormat}'입니다. `
-      + 'CTO 판정 필요: (a) CHECK를 40-hex 허용으로 완화, 또는 (b) git_blob_sha를 blob bytes의 SHA-256으로 재정의.',
-    )
+/** migration 050과 동일하게 Git object format은 sha1(40-hex) 또는 sha256(64-hex)만 허용한다. */
+export const assertSupportedGitObjectFormat = (objectFormat: string): void => {
+  if (objectFormat !== 'sha1' && objectFormat !== 'sha256') {
+    throw new Error(`지원하지 않는 Git object format '${objectFormat}'입니다. sha1 또는 sha256만 허용됩니다.`)
   }
 }
 
@@ -125,7 +119,7 @@ export const lockAttentionStudyContract = async (input: {
   readonly featureContractSha256: string
   readonly verifierCodeSha?: string
 }): Promise<LockStudyContractResult> => {
-  assertGitObjectFormatSha256(git(['rev-parse', '--show-object-format']))
+  assertSupportedGitObjectFormat(git(['rev-parse', '--show-object-format']))
 
   const control = await loadEnabledControlRow()
   const controlPayload = buildControlCanonicalPayload(control)

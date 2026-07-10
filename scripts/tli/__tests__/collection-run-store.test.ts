@@ -1,10 +1,17 @@
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+const supabaseMocks = vi.hoisted(() => ({ rpc: vi.fn() }))
+
+vi.mock('@/scripts/tli/shared/supabase-admin', () => ({
+  supabaseAdmin: { rpc: supabaseMocks.rpc },
+}))
 
 import { sha256Hex } from '@/lib/tli/canonical-json'
 import { getKoreanTradingDatesBetween } from '@/lib/tli/trading-calendar'
 import { buildInterestCollectionRun, type InterestObservationInput } from '../collectors/collection-run-contract'
 import {
   APPEND_COLLECTION_RUN_RPC,
+  appendCollectionRun,
   buildCollectionRunAppendRequest,
   commitSnapshotThenCache,
   type CollectionRunTransport,
@@ -45,6 +52,10 @@ const buildAppend = () =>
     },
   })
 
+beforeEach(() => {
+  supabaseMocks.rpc.mockReset()
+})
+
 describe('collection run append request', () => {
   it('run과 observations를 하나의 canonical payload로 묶는다', () => {
     const request = buildCollectionRunAppendRequest(buildAppend())
@@ -68,6 +79,18 @@ describe('collection run append request', () => {
 
   it('RPC 이름을 046 계약에 맞게 고정한다', () => {
     expect(APPEND_COLLECTION_RUN_RPC).toBe('append_tli_collection_run')
+  })
+
+  it('기본 transport가 migration 050의 실제 named parameters만 전달한다', async () => {
+    const append = buildAppend()
+    const request = buildCollectionRunAppendRequest(append)
+    supabaseMocks.rpc.mockResolvedValueOnce({ data: RUN_ID, error: null })
+
+    await expect(appendCollectionRun(append)).resolves.toBe(RUN_ID)
+    expect(supabaseMocks.rpc).toHaveBeenCalledWith(APPEND_COLLECTION_RUN_RPC, {
+      p_run_canonical_json: request.canonicalJson,
+      p_payload_sha256: request.payloadSha256,
+    })
   })
 })
 
