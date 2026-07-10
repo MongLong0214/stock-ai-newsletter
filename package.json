@@ -37,6 +37,7 @@
     "tli:replay-audit": "tsx scripts/tli/learn/run-replay-audit.ts",
     "tli:weekly-learn": "tsx scripts/tli/learn/run-weekly-learn.ts",
     "tli:weekly-rollback": "tsx scripts/tli/learn/run-weekly-rollback.ts",
+    "tli:e2e:dry-run": "node --import tsx scripts/tli/e2e/run-scientific-dry-run.ts",
     "tli:m1:train": "PYTHONHASHSEED=0 OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 uv run --frozen --python 3.13.11 --script scripts/tli/learn/train_m1.py",
     "tli:m1:golden-vector": "PYTHONHASHSEED=0 OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 uv run --frozen --python 3.13.11 --script scripts/tli/learn/train_m1.py --golden-vector _unused.json lib/tli/__tests__/fixtures/m1-golden-vector.json",
     "tli:stock-prices:ingest": "tsx scripts/tli/ops/run-stock-daily-price-ingest.ts",
