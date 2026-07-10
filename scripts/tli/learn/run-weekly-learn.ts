@@ -8,6 +8,7 @@ import {
   promotionGateResultSchema,
   type PromotionGateInput,
 } from './promotion-gate'
+import type { ModelRegistryPromotionResult } from './model-registry'
 
 process.env.DOTENV_CONFIG_QUIET = process.env.DOTENV_CONFIG_QUIET ?? 'true'
 
@@ -28,6 +29,17 @@ const gateEvaluationOutputSchema = z.object({
   candidateModelVersion: z.string().min(1),
   gate: promotionGateResultSchema,
 })
+
+type GateEvaluationOutput = z.infer<typeof gateEvaluationOutputSchema>
+
+interface PromoteOrKeepInput {
+  readonly dryRun: boolean
+  readonly evaluation: GateEvaluationOutput
+}
+
+type PromoteModelRegistryVersion = (
+  modelVersion: string,
+) => Promise<ModelRegistryPromotionResult>
 
 const args = process.argv.slice(2)
 
@@ -140,16 +152,29 @@ const evaluateChallenger = async () => {
   }
 }
 
-const promoteOrKeep = async () => {
-  const dryRun = readBooleanArg('dry-run', false)
-  const gatePath = readArg('gate-result', 'tli-weekly-learn-gate.json') ?? 'tli-weekly-learn-gate.json'
-  const evaluation = gateEvaluationOutputSchema.parse(readJson(gatePath))
+export const promoteOrKeep = async (
+  input?: PromoteOrKeepInput,
+  promoteModel?: PromoteModelRegistryVersion,
+) => {
+  const dryRun = input?.dryRun ?? readBooleanArg('dry-run', false)
+  const evaluation = input?.evaluation ?? (() => {
+    const gatePath = readArg('gate-result', 'tli-weekly-learn-gate.json') ?? 'tli-weekly-learn-gate.json'
+    return gateEvaluationOutputSchema.parse(readJson(gatePath))
+  })()
   if (!evaluation.gate.passed) {
     return {
       step: 'promote-or-keep',
       action: 'keep_champion',
       dryRun,
       reason: evaluation.gate.reason,
+    }
+  }
+  if (process.env.TLI_M1_PROMOTION_ENABLED !== 'true') {
+    return {
+      step: 'promote-or-keep',
+      action: 'promotion_disabled',
+      dryRun,
+      modelVersion: evaluation.candidateModelVersion,
     }
   }
   if (dryRun) {
@@ -160,7 +185,8 @@ const promoteOrKeep = async () => {
       modelVersion: evaluation.candidateModelVersion,
     }
   }
-  const { promoteModelRegistryVersion } = await import('./model-registry')
+  const promoteModelRegistryVersion = promoteModel
+    ?? (await import('./model-registry')).promoteModelRegistryVersion
   return {
     step: 'promote-or-keep',
     action: 'promoted',
@@ -270,7 +296,10 @@ async function main(): Promise<void> {
   console.log(JSON.stringify(payload))
 }
 
-main().catch((error: unknown) => {
-  console.error(error instanceof Error ? error.message : String(error))
-  process.exitCode = 1
-})
+const isDirectRun = process.argv[1]?.includes('run-weekly-learn') ?? false
+if (isDirectRun) {
+  main().catch((error: unknown) => {
+    console.error(error instanceof Error ? error.message : String(error))
+    process.exitCode = 1
+  })
+}

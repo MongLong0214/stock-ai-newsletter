@@ -24,24 +24,9 @@ describe('GET /api/tli/predictions', () => {
     routeMocks.loadPredictionResponse.mockReset()
     routeMocks.loadPredictionResponse.mockResolvedValue({
       phase: 'rising',
-      dataSource: 'theme_predictions_v3',
-      themes: [
-        {
-          id: '11111111-1111-4111-8111-111111111111',
-          name: 'AI 반도체',
-          themeId: '11111111-1111-4111-8111-111111111111',
-          predictionDate: '2026-08-03',
-          pRise: 0.68,
-          ciLower: 0.59,
-          ciUpper: 0.77,
-          abstain: false,
-          abstainReasons: [],
-          modelVersion: 'm1-2026w31',
-          trailing90d: { topSignalPrecision: 0.63, n: 214 },
-          phase: 'rising',
-          deprecation: { phase: 'removed_after=2026-09-15, use pRise' },
-        },
-      ],
+      dataSource: 'none',
+      themes: [],
+      guidance: 'Prediction data not yet available.',
     })
   })
 
@@ -53,7 +38,7 @@ describe('GET /api/tli/predictions', () => {
     }
   })
 
-  it('returns the v3 snapshot contract and forwards legacy phase as a deprecated filter', async () => {
+  it('forwards filters but remains empty when only the exposure flag is enabled', async () => {
     process.env.TLI_PREDICTIONS_V3_EXPOSURE_ENABLED = 'true'
     const { GET } = await import('./route')
     const response = await GET(new Request('http://localhost/api/tli/predictions?phase=rising&themeId=11111111-1111-4111-8111-111111111111'))
@@ -64,14 +49,10 @@ describe('GET /api/tli/predictions', () => {
       themeId: '11111111-1111-4111-8111-111111111111',
     })
     expect(json.success).toBe(true)
-    expect(json.data.themes[0]).toMatchObject({
-      themeId: '11111111-1111-4111-8111-111111111111',
-      pRise: 0.68,
-      ciLower: 0.59,
-      ciUpper: 0.77,
-      trailing90d: { topSignalPrecision: 0.63, n: 214 },
+    expect(json.data).toMatchObject({
       phase: 'rising',
-      deprecation: { phase: 'removed_after=2026-09-15, use pRise' },
+      dataSource: 'none',
+      themes: [],
     })
   })
 
@@ -109,5 +90,30 @@ describe('GET /api/tli/predictions', () => {
 
     expect(routeMocks.loadPredictionResponse).not.toHaveBeenCalled()
     expect(json.data.dataSource).toBe('none')
+  })
+
+  it('keeps DB-only eligibility unobservable when the exposure flag is false', async () => {
+    process.env.TLI_PREDICTIONS_V3_EXPOSURE_ENABLED = 'false'
+    routeMocks.loadPredictionResponse.mockResolvedValue({
+      phase: null,
+      dataSource: 'theme_predictions_v3',
+      themes: [],
+    })
+    const { GET } = await import('./route')
+    const response = await GET(new Request('http://localhost/api/tli/predictions'))
+    const json = await response.json()
+
+    expect(routeMocks.loadPredictionResponse).not.toHaveBeenCalled()
+    expect(json.data).toMatchObject({ dataSource: 'none', themes: [] })
+  })
+
+  it('does not treat numeric truthy as an exposure enablement', async () => {
+    process.env.TLI_PREDICTIONS_V3_EXPOSURE_ENABLED = '1'
+    const { GET } = await import('./route')
+    const response = await GET(new Request('http://localhost/api/tli/predictions'))
+    const json = await response.json()
+
+    expect(routeMocks.loadPredictionResponse).not.toHaveBeenCalled()
+    expect(json.data).toMatchObject({ dataSource: 'none', themes: [] })
   })
 })
