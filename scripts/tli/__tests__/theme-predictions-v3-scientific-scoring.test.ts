@@ -42,6 +42,7 @@ describe('Todo 13 scientific scorer — version-exact', () => {
     ])
     expect(plan.finalizations.every((item) => item.actualLabelId === LABEL_ID)).toBe(true)
     expect(plan.expectedThemeCount).toBe(1)
+    expect(plan.intervalEligibleCount).toBe(2)
     expect(plan.intervalCompleteCount).toBe(2)
   })
 })

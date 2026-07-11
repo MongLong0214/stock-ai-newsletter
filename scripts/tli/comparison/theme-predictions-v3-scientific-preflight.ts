@@ -1,6 +1,6 @@
 import { canonicalJsonV1, canonicalJsonV1Sha256, compareUtf8Bytes } from '../../../lib/tli/canonical-json'
 import {
-  ScientificEnvelopeVerifiedPrediction,
+  ScientificIntervalContractVerifiedPrediction,
   ScientificScoringCriticalIncidentError,
   parseScientificIntervalReplayEvidence,
 } from './theme-predictions-v3-scientific-interval'
@@ -83,7 +83,7 @@ const validatePrediction = (input: {
   readonly forecastCutoff: string
   readonly finalizedAt: string
   readonly intervalReplay: ReturnType<typeof parseScientificIntervalReplayEvidence>
-}): ScientificEnvelopeVerifiedPrediction => {
+}): ScientificIntervalContractVerifiedPrediction => {
   const expected = roleContract(input.cycle, input.role)
   const row = input.row
   if (
@@ -98,7 +98,7 @@ const validatePrediction = (input: {
     || row.labeler_version !== input.cycle.labeler_version
   ) fail(`prediction ${row.id} role/model/feature/cutoff contract is not exact`)
   assertBeforeFinalization(row.created_at, input.finalizedAt, `prediction ${row.id} created_at`)
-  return ScientificEnvelopeVerifiedPrediction.verify(row, input.role, input.intervalReplay, {
+  return ScientificIntervalContractVerifiedPrediction.verify(row, input.role, input.intervalReplay, {
     featureContractSha256: input.cycle.feature_contract_sha256,
     forecastOriginManifestId: input.forecastId,
     themeId: row.theme_id,
@@ -134,7 +134,7 @@ const terminalLabel = (label: ScientificLabelRow): { status: 'scored' | 'exclude
 }
 
 const finalization = (input: {
-  readonly prediction: ScientificEnvelopeVerifiedPrediction
+  readonly prediction: ScientificIntervalContractVerifiedPrediction
   readonly label: ScientificLabelRow
   readonly role: ScientificPredictionRole
   readonly status: 'scored' | 'excluded'
@@ -198,6 +198,7 @@ export function buildScientificPredictionScoringPlan(
     row.experiment_cycle_id === cycle.id && row.experiment_origin_manifest_id === origin.id
   ))
   const finalizations: ScientificScoreFinalization[] = []
+  let intervalEligibleCount = 0
   let intervalCompleteCount = 0
   for (const themeId of themes) {
     const themeRows = scopedPredictions.filter((row) => row.theme_id === themeId)
@@ -229,7 +230,8 @@ export function buildScientificPredictionScoringPlan(
         forecastId: forecast.id, forecastCutoff: forecast.forecast_cutoff,
         finalizedAt, intervalReplay: frozenInterval,
       })
-      intervalCompleteCount += verifiedPrediction.intervalCount
+      intervalEligibleCount += verifiedPrediction.intervalEligibleCount
+      intervalCompleteCount += verifiedPrediction.intervalCompleteCount
       finalizations.push(finalization({
         prediction: verifiedPrediction, label, role, status: terminal.status,
         reason: terminal.reason, scoredAt: input.scoredAt,
@@ -242,6 +244,7 @@ export function buildScientificPredictionScoringPlan(
     cycleId: cycle.id,
     originId: origin.id,
     expectedThemeCount: themes.length,
+    intervalEligibleCount,
     intervalCompleteCount,
     intervalEvidence: frozenInterval.receipt,
     finalizations: immutableFinalizations,

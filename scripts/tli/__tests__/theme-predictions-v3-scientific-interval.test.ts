@@ -44,6 +44,83 @@ describe('Todo 13 scientific scorer — frozen interval', () => {
     }))
   })
 
+  it.each(['candidate', 'both'] as const)(
+    'rejects the r4 %s abstain + [0,1] bypass before either role can be finalized',
+    (mode) => {
+      const fixture = makeScientificScoringFixture()
+      fixture.predictions = fixture.predictions.map((row) => (
+        mode === 'both' || row.id === CANDIDATE_ID
+          ? { ...row, abstain: true, ci_lower: 0, ci_upper: 1 }
+          : row
+      ))
+
+      expect(() => build(fixture)).toThrow(expect.objectContaining({
+        name: 'ScientificScoringCriticalIncidentError',
+        kind: 'critical_incident',
+        code: 'abstain_interval_contract_violation',
+        predictionId: CANDIDATE_ID,
+      }))
+    },
+  )
+
+  it('rejects the r4 comparator-only abstain + [0,1] bypass', () => {
+    const fixture = makeScientificScoringFixture()
+    fixture.predictions = fixture.predictions.map((row) => row.id === COMPARATOR_ID
+      ? { ...row, abstain: true, ci_lower: 0, ci_upper: 1 }
+      : row)
+
+    expect(() => build(fixture)).toThrow(expect.objectContaining({
+      code: 'abstain_interval_contract_violation',
+      predictionId: COMPARATOR_ID,
+    }))
+  })
+
+  it.each([
+    ['probability', { p_rise: 0.5, ci_lower: null, ci_upper: null }],
+    ['lower bound', { p_rise: null, ci_lower: 0, ci_upper: null }],
+    ['upper bound', { p_rise: null, ci_lower: null, ci_upper: 1 }],
+  ] as const)('rejects an abstain with only a non-sentinel %s', (_name, interval) => {
+    const fixture = makeScientificScoringFixture()
+    fixture.predictions = fixture.predictions.map((row) => row.id === CANDIDATE_ID
+      ? { ...row, abstain: true, ...interval }
+      : row)
+
+    expect(() => build(fixture)).toThrow(expect.objectContaining({
+      code: 'abstain_interval_contract_violation',
+      predictionId: CANDIDATE_ID,
+    }))
+  })
+
+  it('finalizes the exact all-null abstain sentinel without counting it as envelope eligible or complete', () => {
+    const fixture = makeScientificScoringFixture()
+    fixture.predictions = fixture.predictions.map((row) => ({
+      ...row,
+      abstain: true,
+      p_rise: null,
+      ci_lower: null,
+      ci_upper: null,
+    }))
+
+    const plan = build(fixture)
+
+    expect(plan.finalizations).toHaveLength(2)
+    expect(plan.intervalEligibleCount).toBe(0)
+    expect(plan.intervalCompleteCount).toBe(0)
+  })
+
+  it('keeps a sentinel abstain out of both interval counts while counting the verified peer', () => {
+    const fixture = makeScientificScoringFixture()
+    fixture.predictions = fixture.predictions.map((row) => row.id === CANDIDATE_ID
+      ? { ...row, abstain: true, p_rise: null, ci_lower: null, ci_upper: null }
+      : row)
+
+    const plan = build(fixture)
+
+    expect(plan.finalizations).toHaveLength(2)
+    expect(plan.intervalEligibleCount).toBe(1)
+    expect(plan.intervalCompleteCount).toBe(1)
+  })
+
   it('requires exact frozen-500 metadata before label finalization', () => {
     expect(build().intervalEvidence).toEqual({
       ensembleVersion: 'interval-ensemble-v2',

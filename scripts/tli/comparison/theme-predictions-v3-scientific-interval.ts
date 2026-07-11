@@ -82,11 +82,12 @@ export interface ScientificIntervalReplayEvidence {
   readonly replicateBodies: readonly ReplicateBody[]
 }
 
-export class ScientificEnvelopeVerifiedPrediction {
+export class ScientificIntervalContractVerifiedPrediction {
   private constructor(
     readonly row: ScientificPredictionRow,
     readonly role: ScientificPredictionRole,
-    readonly intervalCount: number,
+    readonly intervalEligibleCount: number,
+    readonly intervalCompleteCount: number,
   ) {}
 
   static verify(
@@ -94,7 +95,7 @@ export class ScientificEnvelopeVerifiedPrediction {
     role: ScientificPredictionRole,
     evidence: ScientificIntervalReplayEvidence,
     expectedFeature: ExpectedFeatureProvenance,
-  ): ScientificEnvelopeVerifiedPrediction {
+  ): ScientificIntervalContractVerifiedPrediction {
     let featureRow: z.infer<typeof replayFeatureRowSchema>
     try {
       featureRow = replayFeatureRowSchema.parse(row.features)
@@ -110,8 +111,13 @@ export class ScientificEnvelopeVerifiedPrediction {
     ) {
       throw new ScientificScoringCriticalIncidentError('feature_snapshot_provenance_mismatch', row.id)
     }
-    if (row.abstain) return new ScientificEnvelopeVerifiedPrediction(row, role, 0)
     const { p_rise: probability, ci_lower: lower, ci_upper: upper } = row
+    if (row.abstain) {
+      if (probability !== null || lower !== null || upper !== null) {
+        throw new ScientificScoringCriticalIncidentError('abstain_interval_contract_violation', row.id)
+      }
+      return new ScientificIntervalContractVerifiedPrediction(row, role, 0, 0)
+    }
     if (
       probability === null || lower === null || upper === null
       || !Number.isFinite(probability) || !Number.isFinite(lower) || !Number.isFinite(upper)
@@ -123,7 +129,7 @@ export class ScientificEnvelopeVerifiedPrediction {
       if (lower !== probability || upper !== probability) {
         throw new ScientificScoringCriticalIncidentError('comparator_interval_substitute_rejected', row.id)
       }
-      return new ScientificEnvelopeVerifiedPrediction(row, role, 1)
+      return new ScientificIntervalContractVerifiedPrediction(row, role, 1, 1)
     }
     try {
       const replayedPoint = predictM1Probability(evidence.fullFitArtifact, featureRow)
@@ -145,7 +151,7 @@ export class ScientificEnvelopeVerifiedPrediction {
         : 'interval_replay_prediction_evidence_invalid'
       throw new ScientificScoringCriticalIncidentError(code, row.id)
     }
-    return new ScientificEnvelopeVerifiedPrediction(row, role, 1)
+    return new ScientificIntervalContractVerifiedPrediction(row, role, 1, 1)
   }
 }
 

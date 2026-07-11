@@ -129,6 +129,7 @@ export interface ScientificPredictionScoringPlan {
   readonly cycleId: string
   readonly originId: string
   readonly expectedThemeCount: number
+  readonly intervalEligibleCount: number
   readonly intervalCompleteCount: number
   readonly intervalEvidence: ScientificIntervalEvidence
   readonly finalizations: readonly ScientificScoreFinalization[]
