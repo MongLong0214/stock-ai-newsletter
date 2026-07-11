@@ -2,6 +2,7 @@ import { batchQuery, batchUpsert } from '../shared/supabase-batch'
 import { supabaseAdmin } from '../shared/supabase-admin'
 import {
   GTB_HORIZON_DAYS,
+  GTB_LABELER_VERSION,
   labelGtB,
 } from '../../../lib/tli/labels/gt-b'
 import { addKoreanTradingDays } from '../../../lib/tli/trading-calendar'
@@ -10,9 +11,19 @@ import {
   selectTopThemeStockSymbols,
   type ThemeStockSelectionRow,
 } from '../prices/stock-daily-prices'
+import {
+  buildLegacyGtBFinalizationRow,
+  finalizeLegacyLabelRows,
+  type LegacyLabelFinalizationRow,
+} from './finalize-legacy-labels'
 
 interface ThemeRow {
   readonly id: string
+}
+
+interface PendingLabelRow {
+  readonly id: string
+  readonly theme_id: string
 }
 
 interface PriceRow {
@@ -32,14 +43,32 @@ export interface GtBLabelGenerationResult {
 
 const priceKey = (symbol: string, tradeDate: string): string => `${symbol}|${tradeDate}`
 
-async function loadActiveThemeRows(): Promise<ThemeRow[]> {
-  const { data, error } = await supabaseAdmin
+async function loadThemeRows(includeInactive: boolean): Promise<ThemeRow[]> {
+  let query = supabaseAdmin
     .from('themes')
     .select('id')
-    .eq('is_active', true)
 
+  if (!includeInactive) query = query.eq('is_active', true)
+
+  const { data, error } = await query
   if (error) throw new Error(`GT-B 테마 로딩 실패: ${error.message}`)
   return data ?? []
+}
+
+async function loadPendingLabels(themeIds: readonly string[], baseDate: string): Promise<Map<string, PendingLabelRow>> {
+  const rows = await batchQuery<PendingLabelRow>(
+    'theme_labels',
+    'id, theme_id',
+    [...themeIds],
+    (query) => query
+      .eq('base_date', baseDate)
+      .eq('label_type', 'gt_b')
+      .eq('labeler_version', GTB_LABELER_VERSION)
+      .eq('label_status', 'pending'),
+    'theme_id',
+    { failOnError: true },
+  )
+  return new Map(rows.map((row) => [row.theme_id, row]))
 }
 
 async function loadPriceRows(symbols: readonly string[], dates: readonly string[]): Promise<PriceRow[]> {
@@ -75,9 +104,20 @@ export function buildGtBLabelRow(input: {
   }
 }
 
-export async function generateGtBLabelsForBaseDate(baseDate: string): Promise<GtBLabelGenerationResult> {
-  const themes = await loadActiveThemeRows()
-  const themeIds = themes.map((theme) => theme.id)
+export async function generateGtBLabelsForBaseDate(
+  baseDate: string,
+  input?: { readonly existingPendingOnly?: boolean },
+): Promise<GtBLabelGenerationResult> {
+  const themes = await loadThemeRows(input?.existingPendingOnly ?? false)
+  const allThemeIds = themes.map((theme) => theme.id)
+  if (allThemeIds.length === 0) {
+    return { baseDate, totalThemes: 0, finalCount: 0, pendingCount: 0, excludedCount: 0, coverageRate: 0 }
+  }
+  const pendingByTheme = await loadPendingLabels(allThemeIds, baseDate)
+  const targetThemes = input?.existingPendingOnly
+    ? themes.filter((theme) => pendingByTheme.has(theme.id))
+    : themes
+  const themeIds = targetThemes.map((theme) => theme.id)
   if (themeIds.length === 0) {
     return { baseDate, totalThemes: 0, finalCount: 0, pendingCount: 0, excludedCount: 0, coverageRate: 0 }
   }
@@ -96,12 +136,13 @@ export async function generateGtBLabelsForBaseDate(baseDate: string): Promise<Gt
   const prices = await loadPriceRows([...new Set(allSymbols)], [baseDate, futureDate])
   const pricesByKey = new Map(prices.map((row) => [priceKey(row.symbol, row.trade_date), row.close]))
 
-  const rows: Record<string, unknown>[] = []
+  const newRows: Record<string, unknown>[] = []
+  const existingRows: LegacyLabelFinalizationRow[] = []
   let finalCount = 0
   let pendingCount = 0
   let excludedCount = 0
 
-  for (const theme of themes) {
+  for (const theme of targetThemes) {
     const themeSymbols = selectTopThemeStockSymbols(
       stockRows.filter((row) => row.theme_id === theme.id),
       5,
@@ -115,19 +156,31 @@ export async function generateGtBLabelsForBaseDate(baseDate: string): Promise<Gt
       kospiBaseClose: pricesByKey.get(priceKey(KOSPI_INDEX_SYMBOL, baseDate)) ?? null,
       kospiFutureClose: pricesByKey.get(priceKey(KOSPI_INDEX_SYMBOL, futureDate)) ?? null,
     })
-    rows.push(buildGtBLabelRow({ themeId: theme.id, baseDate, result }))
+    const pendingLabel = pendingByTheme.get(theme.id)
+    const row = buildGtBLabelRow({ themeId: theme.id, baseDate, result })
+    if (pendingLabel === undefined) {
+      newRows.push(row)
+    } else if (result.status !== 'pending') {
+      existingRows.push(buildLegacyGtBFinalizationRow({
+        id: pendingLabel.id,
+        themeId: theme.id,
+        baseDate,
+        result,
+      }))
+    }
     if (result.status === 'final') finalCount++
     if (result.status === 'pending') pendingCount++
     if (result.status === 'excluded') excludedCount++
   }
 
-  await batchUpsert('theme_labels', rows, 'theme_id,base_date,label_type,horizon_days,labeler_version', 'GT-B 라벨')
+  await batchUpsert('theme_labels', newRows, 'theme_id,base_date,label_type,horizon_days,labeler_version', 'GT-B 라벨')
+  await finalizeLegacyLabelRows(existingRows)
   return {
     baseDate,
-    totalThemes: themes.length,
+    totalThemes: targetThemes.length,
     finalCount,
     pendingCount,
     excludedCount,
-    coverageRate: themes.length > 0 ? finalCount / themes.length : 0,
+    coverageRate: targetThemes.length > 0 ? finalCount / targetThemes.length : 0,
   }
 }

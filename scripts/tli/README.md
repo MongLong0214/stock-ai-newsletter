@@ -48,6 +48,20 @@ Ops:
 - `npm run tli:anchor:stability`
 - `npm run tli:shadow:transition`
 
+### Legacy label finalization
+
+Expired legacy labels are scanned by their full versioned identity: GT-A uses `gta-v1` and GT-B uses `gtb-v1`. Existing pending rows are finalized through migration 054's exact-update RPC, which matches the stored row id plus theme, date, type, horizon, version, and pending status. Any partial or zero-row match aborts the whole RPC batch instead of reporting success.
+
+The runtime paginates every expired base date and chunks each terminal-row write at 500 without a per-run total cap. The observed backlog therefore runs through the normal full job as one 269-row GT-A date plus three 241-row GT-B dates; a synthetic 992-row writer input is also covered as 500 and 492. No one-off catch-up writer is required. GT-B rows without complete KOSPI/stock prices remain pending and now emit an explicit warning.
+
+The critical backlog count still covers every labeler version so gta-v2 debt cannot disappear from fail-loud monitoring. When the threshold is exceeded, the log also breaks the count down into `gta-v1`, `gta-v2`, and `gtb-v1`.
+
+To rehearse migrations 049-054, the unchanged scientific guards, and the 269 GT-A + 723 GT-B fixture against a production schema snapshot through migration 048:
+
+```bash
+scripts/tli/e2e/rehearse-migration-054.sh <prod-schema-through-048.sql>
+```
+
 See [docs/tli-ops-runbook.md](/Users/isaac/WebstormProjects/stock-ai-newsletter/docs/tli-ops-runbook.md) for the operator-facing runbook.
 
 ### Anchor Stability Report

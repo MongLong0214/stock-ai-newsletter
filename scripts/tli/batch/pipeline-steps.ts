@@ -13,6 +13,9 @@ import { submitToIndexNow, buildThemeUrls } from '@/lib/indexnow'
 import { getKSTDateString } from '@/lib/tli/date-utils'
 import { materializePhase0Artifacts } from '@/scripts/tli/comparison/materialize-phase0-artifacts'
 import { countExpiredPendingLabels, runDailyLabelPhase } from '@/scripts/tli/labels/daily-label-phase'
+import { GTA_LABELER_VERSION } from '@/lib/tli/labels/gt-a'
+import { GTA_V2_LABELER_VERSION } from '@/lib/tli/labels/gt-a-v2'
+import { GTB_LABELER_VERSION } from '@/lib/tli/labels/gt-b'
 import { countExpiredPendingPredictions } from '@/scripts/tli/comparison/theme-predictions-v3-scoring'
 import type { ThemeWithKeywords } from '@/scripts/tli/shared/data-ops'
 import { runMondayOriginsStep } from '@/scripts/tli/batch/collection-pipeline'
@@ -53,15 +56,30 @@ export async function runAnalysisPipeline(themes: ThemeWithKeywords[], today = g
     const labels = await runDailyLabelPhase(today)
     warningFailures += labels.warningFailures
     const gtAFinalCount = labels.gtAFinalized.reduce((sum, r) => sum + r.finalCount, 0)
+    const gtACensoredCount = labels.gtAFinalized.reduce((sum, r) => sum + r.censoredCount, 0)
+    const gtAExcludedCount = labels.gtAFinalized.reduce((sum, r) => sum + r.excludedCount, 0)
     const gtBFinalCount = labels.gtBFinalized.reduce((sum, r) => sum + r.finalCount, 0)
-    console.log(`   ✅ GT-A pending=${labels.gtAPending?.pendingCount ?? 0}, GT-A final=${gtAFinalCount} (${labels.gtAFinalized.length}일 확정), GT-B final=${gtBFinalCount} (${labels.gtBFinalized.length}일 확정), 비거래일 정리=${labels.nonTradingPendingClosed}`)
+    const gtBPendingCount = labels.gtBFinalized.reduce((sum, r) => sum + r.pendingCount, 0)
+    const gtBExcludedCount = labels.gtBFinalized.reduce((sum, r) => sum + r.excludedCount, 0)
+    console.log(`   ✅ GT-A pending=${labels.gtAPending?.pendingCount ?? 0}, final=${gtAFinalCount}, censored=${gtACensoredCount}, excluded=${gtAExcludedCount} (${labels.gtAFinalized.length}일 확정), GT-B final=${gtBFinalCount}, pending=${gtBPendingCount}, excluded=${gtBExcludedCount} (${labels.gtBFinalized.length}일 확정), 비거래일 정리=${labels.nonTradingPendingClosed}`)
 
     const [gtABacklog, gtBBacklog] = await Promise.all([
       countExpiredPendingLabels({ labelType: 'gt_a', cutoffDate: labels.finalizeCutoffDate }), countExpiredPendingLabels({ labelType: 'gt_b', cutoffDate: labels.finalizeCutoffDate }),
     ])
     if (gtABacklog > EXPIRED_PENDING_CRITICAL_THRESHOLD || gtBBacklog > EXPIRED_PENDING_CRITICAL_THRESHOLD) {
       criticalFailures++
-      console.error(`❌ 라벨 확정 적체 위험: GT-A 만기pending=${gtABacklog}, GT-B 만기pending=${gtBBacklog} (${EXPIRED_PENDING_CRITICAL_THRESHOLD} 초과)`)
+      let versionDetail: string
+      try {
+        const [gtAV1Backlog, gtAV2Backlog, gtBV1Backlog] = await Promise.all([
+          countExpiredPendingLabels({ labelType: 'gt_a', cutoffDate: labels.finalizeCutoffDate, labelerVersion: GTA_LABELER_VERSION }),
+          countExpiredPendingLabels({ labelType: 'gt_a', cutoffDate: labels.finalizeCutoffDate, labelerVersion: GTA_V2_LABELER_VERSION }),
+          countExpiredPendingLabels({ labelType: 'gt_b', cutoffDate: labels.finalizeCutoffDate, labelerVersion: GTB_LABELER_VERSION }),
+        ])
+        versionDetail = `gta-v1=${gtAV1Backlog}, gta-v2=${gtAV2Backlog}, gtb-v1=${gtBV1Backlog}`
+      } catch (error: unknown) {
+        versionDetail = `버전별 진단 실패=${error instanceof Error ? error.message : String(error)}`
+      }
+      console.error(`❌ 라벨 확정 적체 위험(전체 버전): GT-A 만기pending=${gtABacklog}, GT-B 만기pending=${gtBBacklog}, ${versionDetail} (${EXPIRED_PENDING_CRITICAL_THRESHOLD} 초과)`)
     }
   } catch (error: unknown) {
     warningFailures++

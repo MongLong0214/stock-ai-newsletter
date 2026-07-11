@@ -1,7 +1,9 @@
 import { supabaseAdmin } from '../shared/supabase-admin'
 import {
   GTA_HORIZON_DAYS,
+  GTA_LABELER_VERSION,
 } from '../../../lib/tli/labels/gt-a'
+import { GTB_LABELER_VERSION } from '../../../lib/tli/labels/gt-b'
 import { addKoreanTradingDays, isKoreanTradingDate } from '../../../lib/tli/trading-calendar'
 import {
   generateGtALabelsForBaseDate,
@@ -25,6 +27,11 @@ export interface DailyLabelPhaseResult {
 }
 
 type PendingLabelType = 'gt_a' | 'gt_b'
+
+const LEGACY_LABELER_VERSIONS = {
+  gt_a: GTA_LABELER_VERSION,
+  gt_b: GTB_LABELER_VERSION,
+} as const satisfies Record<PendingLabelType, string>
 
 export interface DailyLabelPhaseDeps {
   readonly generateGtA: typeof generateGtALabelsForBaseDate
@@ -56,11 +63,13 @@ export async function loadPendingBaseDates(input: {
   for (let from = 0; ; from += PENDING_SCAN_LIMIT) {
     const { data, error } = await supabaseAdmin
       .from('theme_labels')
-      .select('base_date')
+      .select('id, base_date')
       .eq('label_type', input.labelType)
+      .eq('labeler_version', LEGACY_LABELER_VERSIONS[input.labelType])
       .eq('label_status', 'pending')
       .lte('base_date', input.cutoffDate)
       .order('base_date', { ascending: true })
+      .order('id', { ascending: true })
       .range(from, from + PENDING_SCAN_LIMIT - 1)
 
     if (error) throw new Error(`${input.labelType} 소급 확정 대상 조회 실패: ${error.message}`)
@@ -76,6 +85,7 @@ async function closeNonTradingBaseDatePendingLabels(): Promise<number> {
     .from('theme_labels')
     .select('base_date')
     .eq('label_type', 'gt_a')
+    .eq('labeler_version', GTA_LABELER_VERSION)
     .eq('label_status', 'pending')
 
   if (error) throw new Error(`비거래일 pending 라벨 조회 실패: ${error.message}`)
@@ -92,6 +102,7 @@ async function closeNonTradingBaseDatePendingLabels(): Promise<number> {
       finalized_at: new Date().toISOString(),
     }, { count: 'exact' })
     .eq('label_type', 'gt_a')
+    .eq('labeler_version', GTA_LABELER_VERSION)
     .eq('label_status', 'pending')
     .in('base_date', nonTradingDates)
 
@@ -99,17 +110,24 @@ async function closeNonTradingBaseDatePendingLabels(): Promise<number> {
   return count ?? 0
 }
 
-/** base_date <= cutoffDate인 만기 경과 pending 라벨 총 개수 (조용한 적체 감지용, C3) */
+/** base_date <= cutoffDate인 만기 경과 pending 라벨 수. 기본은 모든 버전이며 진단 시 버전을 지정한다. */
 export async function countExpiredPendingLabels(input: {
   readonly labelType: PendingLabelType
   readonly cutoffDate: string
+  readonly labelerVersion?: string
 }): Promise<number> {
-  const { count, error } = await supabaseAdmin
+  let query = supabaseAdmin
     .from('theme_labels')
     .select('*', { count: 'exact', head: true })
     .eq('label_type', input.labelType)
     .eq('label_status', 'pending')
     .lte('base_date', input.cutoffDate)
+
+  if (input.labelerVersion !== undefined) {
+    query = query.eq('labeler_version', input.labelerVersion)
+  }
+
+  const { count, error } = await query
 
   if (error) throw new Error(`${input.labelType} 만기 pending 카운트 실패: ${error.message}`)
   return count ?? 0
@@ -154,10 +172,16 @@ export async function runDailyLabelPhase(
   // 현재 cutoff은 항상 시도(첫 도달 시 pending 행이 아직 없을 수 있음) + 과거 소급 미확정분을 합쳐 확정
   try {
     const gtAPendingBacklog = await deps.loadPendingBaseDates({ labelType: 'gt_a', cutoffDate: finalizeCutoffDate })
+    const gtAPendingBacklogSet = new Set(gtAPendingBacklog)
     const gtATargets = [...new Set([...gtAPendingBacklog, finalizeCutoffDate])].sort()
     for (const baseDate of gtATargets) {
       try {
-        gtAFinalized.push(await deps.generateGtA({ baseDate, includeInactive: true, today }))
+        gtAFinalized.push(await deps.generateGtA({
+          baseDate,
+          includeInactive: true,
+          today,
+          ...(gtAPendingBacklogSet.has(baseDate) ? { existingPendingOnly: true } : {}),
+        }))
       } catch (error: unknown) {
         warningFailures++
         deps.warn(`GT-A 라벨 확정 실패 (base_date=${baseDate}): ${error instanceof Error ? error.message : String(error)}`)
@@ -170,10 +194,18 @@ export async function runDailyLabelPhase(
 
   try {
     const gtBPendingBacklog = await deps.loadPendingBaseDates({ labelType: 'gt_b', cutoffDate: finalizeCutoffDate })
+    const gtBPendingBacklogSet = new Set(gtBPendingBacklog)
     const gtBTargets = [...new Set([...gtBPendingBacklog, finalizeCutoffDate])].sort()
     for (const baseDate of gtBTargets) {
       try {
-        gtBFinalized.push(await deps.generateGtB(baseDate))
+        const result = gtBPendingBacklogSet.has(baseDate)
+          ? await deps.generateGtB(baseDate, { existingPendingOnly: true })
+          : await deps.generateGtB(baseDate)
+        gtBFinalized.push(result)
+        if (result.pendingCount > 0) {
+          warningFailures++
+          deps.warn(`GT-B 만기 라벨 가격 부족으로 pending 유지 (base_date=${baseDate}, count=${result.pendingCount})`)
+        }
       } catch (error: unknown) {
         warningFailures++
         deps.warn(`GT-B 라벨 확정 실패 (base_date=${baseDate}): ${error instanceof Error ? error.message : String(error)}`)

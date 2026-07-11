@@ -12,6 +12,11 @@ import {
   getKoreanTradingDateWindow,
 } from '../../../lib/tli/trading-calendar'
 import { getKSTDateString } from '../../../lib/tli/date-utils'
+import {
+  buildLegacyGtAFinalizationRow,
+  finalizeLegacyLabelRows,
+  type LegacyLabelFinalizationRow,
+} from './finalize-legacy-labels'
 
 interface ThemeRow {
   readonly id: string
@@ -34,6 +39,7 @@ interface StateHistoryRow {
 }
 
 interface PendingLabelRow {
+  readonly id: string
   readonly theme_id: string
   readonly keyword_epoch: number
 }
@@ -96,23 +102,24 @@ const deactivatedBeforeHorizon = (
   && row.closed_at <= horizonDate
 )
 
-const loadPendingKeywordEpochs = async (
+const loadPendingLabels = async (
   themeIds: readonly string[],
   baseDate: string,
-): Promise<Map<string, number>> => {
+): Promise<Map<string, PendingLabelRow>> => {
   // 읽기 실패가 excluded 라벨로 영구 박제되는 것을 막기 위해 라벨 런을 중단한다.
   const rows = await batchQuery<PendingLabelRow>(
     'theme_labels',
-    'theme_id, keyword_epoch',
+    'id, theme_id, keyword_epoch',
     [...themeIds],
     (query) => query
       .eq('base_date', baseDate)
       .eq('label_type', 'gt_a')
+      .eq('labeler_version', GTA_LABELER_VERSION)
       .eq('label_status', 'pending'),
     'theme_id',
     { failOnError: true },
   )
-  return new Map(rows.map((row) => [row.theme_id, row.keyword_epoch]))
+  return new Map(rows.map((row) => [row.theme_id, row]))
 }
 
 export function buildGtALabelRow(input: {
@@ -170,19 +177,31 @@ async function loadThemes(includeInactive: boolean): Promise<ThemeRow[]> {
 
 export async function generateGtALabelsForBaseDate(input: {
   readonly baseDate: string
+  readonly existingPendingOnly?: boolean
   readonly includeInactive?: boolean
   readonly today?: string
 }): Promise<GtALabelGenerationResult> {
   const baseDate = input.baseDate
   const today = input.today ?? getKSTDateString()
   const themes = await loadThemes(input.includeInactive ?? false)
-  const themeIds = themes.map((theme) => theme.id)
-  if (themeIds.length === 0) {
+  const allThemeIds = themes.map((theme) => theme.id)
+  if (allThemeIds.length === 0) {
     return { baseDate, totalThemes: 0, pendingCount: 0, finalCount: 0, censoredCount: 0, excludedCount: 0 }
   }
 
   const horizonDate = addKoreanTradingDays(baseDate, GTA_HORIZON_DAYS)
   const horizonElapsed = today >= horizonDate
+  const pendingByTheme = horizonElapsed
+    ? await loadPendingLabels(allThemeIds, baseDate)
+    : new Map<string, PendingLabelRow>()
+  const targetThemes = input.existingPendingOnly
+    ? themes.filter((theme) => pendingByTheme.has(theme.id))
+    : themes
+  const themeIds = targetThemes.map((theme) => theme.id)
+  if (themeIds.length === 0) {
+    return { baseDate, totalThemes: 0, pendingCount: 0, finalCount: 0, censoredCount: 0, excludedCount: 0 }
+  }
+
   const pastDates = getKoreanTradingDateWindow({ baseDate, startOffset: -4, endOffset: 0 })
   const futureDates = getKoreanTradingDateWindow({ baseDate, startOffset: 1, endOffset: GTA_HORIZON_DAYS })
   const queryStartDate = getKoreanTradingDateWindow({ baseDate, startOffset: -29, endOffset: -29 })[0]
@@ -211,26 +230,24 @@ export async function generateGtALabelsForBaseDate(input: {
       { failOnError: true },
     )
     : []
-  const pendingEpochByTheme = horizonElapsed
-    ? await loadPendingKeywordEpochs(themeIds, baseDate)
-    : new Map<string, number>()
-
-  const rows: Record<string, unknown>[] = []
+  const newRows: Record<string, unknown>[] = []
+  const existingRows: LegacyLabelFinalizationRow[] = []
   let pendingCount = 0
   let finalCount = 0
   let censoredCount = 0
   let excludedCount = 0
 
-  for (const theme of themes) {
+  for (const theme of targetThemes) {
     const keywordEpoch = theme.keyword_epoch ?? 1
     if (!horizonElapsed) {
-      rows.push(buildPendingRow({ themeId: theme.id, baseDate, keywordEpoch }))
+      newRows.push(buildPendingRow({ themeId: theme.id, baseDate, keywordEpoch }))
       pendingCount++
       continue
     }
 
     const rawByDate = toRawMap(metricsByTheme.get(theme.id) ?? [])
-    const keywordEpochAtBase = pendingEpochByTheme.get(theme.id) ?? keywordEpoch
+    const pendingLabel = pendingByTheme.get(theme.id)
+    const keywordEpochAtBase = pendingLabel?.keyword_epoch ?? keywordEpoch
     const result = labelGtA({
       pastRaw: collectRawValues(rawByDate, pastDates),
       futureRaw: collectRawValues(rawByDate, futureDates),
@@ -239,12 +256,22 @@ export async function generateGtALabelsForBaseDate(input: {
       windowMaxRenewalGapDays: findWindowMaxRenewalGap(rawByDate, baseDate),
       deactivatedBeforeHorizon: deactivatedBeforeHorizon(theme.id, horizonDate, stateRows),
     })
-    rows.push(buildGtALabelRow({ themeId: theme.id, baseDate, result }))
+    if (pendingLabel === undefined) {
+      newRows.push(buildGtALabelRow({ themeId: theme.id, baseDate, result }))
+    } else {
+      existingRows.push(buildLegacyGtAFinalizationRow({
+        id: pendingLabel.id,
+        themeId: theme.id,
+        baseDate,
+        result,
+      }))
+    }
     if (result.status === 'final') finalCount++
     if (result.status === 'censored') censoredCount++
     if (result.status === 'excluded') excludedCount++
   }
 
-  await batchUpsert('theme_labels', rows, 'theme_id,base_date,label_type,horizon_days,labeler_version', 'GT-A 라벨')
-  return { baseDate, totalThemes: themes.length, pendingCount, finalCount, censoredCount, excludedCount }
+  await batchUpsert('theme_labels', newRows, 'theme_id,base_date,label_type,horizon_days,labeler_version', 'GT-A 라벨')
+  await finalizeLegacyLabelRows(existingRows)
+  return { baseDate, totalThemes: targetThemes.length, pendingCount, finalCount, censoredCount, excludedCount }
 }

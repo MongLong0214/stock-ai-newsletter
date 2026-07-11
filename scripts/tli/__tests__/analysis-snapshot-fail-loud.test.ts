@@ -117,4 +117,30 @@ describe('analysis snapshot fail-loud contract', () => {
 
     expect(result).toEqual({ criticalFailures: 1, warningFailures: 0 })
   })
+
+  it('keeps the global label backlog fail-loud and requests version-specific diagnostics', async () => {
+    mocks.countExpiredPendingLabels.mockImplementation(async (input) => {
+      if (input.labelerVersion === 'gta-v1') return 269
+      if (input.labelerVersion === 'gta-v2') return 0
+      if (input.labelerVersion === 'gtb-v1') return 723
+      return input.labelType === 'gt_a' ? 269 : 723
+    })
+    const { runAnalysisPipeline } = await import('@/scripts/tli/batch/pipeline-steps')
+
+    const result = await runAnalysisPipeline([], '2026-07-13')
+
+    expect(result).toEqual({ criticalFailures: 1, warningFailures: 0 })
+    expect(mocks.countExpiredPendingLabels).toHaveBeenCalledWith(expect.objectContaining({
+      labelType: 'gt_a',
+      labelerVersion: 'gta-v1',
+    }))
+    expect(mocks.countExpiredPendingLabels).toHaveBeenCalledWith(expect.objectContaining({
+      labelType: 'gt_a',
+      labelerVersion: 'gta-v2',
+    }))
+    expect(mocks.countExpiredPendingLabels).toHaveBeenCalledWith(expect.objectContaining({
+      labelType: 'gt_b',
+      labelerVersion: 'gtb-v1',
+    }))
+  })
 })
