@@ -3,7 +3,11 @@ import type {
   DatasetDataSource,
   RawConfirmatoryLabelRow,
 } from '../learn/dataset-manifest'
-import { resolveGtAV2Finalize } from '../labels/finalize-gt-a-v2'
+import {
+  buildGtAV2PendingRow,
+  resolveGtAV2Finalize,
+  type GtAV2FinalizePayload,
+} from '../labels/finalize-gt-a-v2'
 import type { FixtureOriginRef, FixtureOriginStack } from './fixture-origins'
 import {
   deterministicUuid,
@@ -16,19 +20,27 @@ import {
   THEME_IDS,
 } from './fixture-identities'
 
-interface BuiltLabel {
-  readonly row: RawConfirmatoryLabelRow
+export interface FixtureGtAV2LabelSeed {
+  readonly pendingRow: Readonly<Record<string, unknown>>
+  readonly finalizerPayload: GtAV2FinalizePayload
+  readonly readbackRow: RawConfirmatoryLabelRow
   readonly completedAt: string
 }
 
 export interface FixtureLabelSet {
+  readonly seeds: readonly FixtureGtAV2LabelSeed[]
   readonly rows: readonly RawConfirmatoryLabelRow[]
   readonly completions: Map<string, string>
 }
 
 const timestamp = (date: string, hour: string): string => `${date}T${hour}:00:00.000Z`
 
-const buildRawLabel = (origin: FixtureOriginRef, themeId: string): BuiltLabel => {
+export const buildFixtureGtAV2LabelSeed = (input: {
+  readonly origin: FixtureOriginRef
+  readonly themeId: string
+  readonly labelId?: string
+}): FixtureGtAV2LabelSeed => {
+  const { origin, themeId } = input
   const identity = `${origin.originDate}:${themeId}`
   const pastDates = getKoreanTradingDateWindow({ baseDate: origin.originDate, startOffset: -4, endOffset: 0 })
   const futureDates = getKoreanTradingDateWindow({ baseDate: origin.originDate, startOffset: 1, endOffset: 5 })
@@ -64,9 +76,19 @@ const buildRawLabel = (origin: FixtureOriginRef, themeId: string): BuiltLabel =>
   if (outcome.kind !== 'finalize' || outcome.payload.y_binary === null || outcome.payload.g_log_ratio === null) {
     throw new Error(`gta-v2 fixture did not finalize an eligible row for ${identity}`)
   }
+  const labelId = input.labelId ?? deterministicUuid('label', identity)
   return {
-    row: {
-      id: deterministicUuid('label', identity),
+    pendingRow: {
+      id: labelId,
+      ...buildGtAV2PendingRow({
+        themeId,
+        baseDate: origin.originDate,
+        forecastOriginManifestId: origin.forecastManifestId,
+      }),
+    },
+    finalizerPayload: outcome.payload,
+    readbackRow: {
+      id: labelId,
       theme_id: themeId,
       base_date: origin.originDate,
       horizon_days: 5,
@@ -89,17 +111,21 @@ const buildRawLabel = (origin: FixtureOriginRef, themeId: string): BuiltLabel =>
 }
 
 export function buildFixtureLabelSet(stack: FixtureOriginStack): FixtureLabelSet {
-  const built = stack.trainingOrigins.flatMap((origin) => (
-    THEME_IDS.map((themeId) => buildRawLabel(origin, themeId))
+  const seeds = stack.trainingOrigins.flatMap((origin) => (
+    THEME_IDS.map((themeId) => buildFixtureGtAV2LabelSeed({ origin, themeId }))
   ))
-  const rows = built.map((item) => item.row).sort((left, right) => (
+  const rows = seeds.map((seed) => seed.readbackRow).sort((left, right) => (
     left.base_date.localeCompare(right.base_date)
     || left.theme_id.localeCompare(right.theme_id)
     || left.id.localeCompare(right.id)
   ))
   return {
+    seeds,
     rows,
-    completions: new Map(built.map((item) => [item.row.label_source_run_id ?? '', item.completedAt])),
+    completions: new Map(seeds.map((seed) => [
+      seed.readbackRow.label_source_run_id ?? '',
+      seed.completedAt,
+    ])),
   }
 }
 

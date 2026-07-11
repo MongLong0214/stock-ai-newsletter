@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto'
+
 import { describe, expect, it } from 'vitest'
 
 import goldenFixture from '../../../../lib/tli/__tests__/fixtures/m1-golden-vector.json'
@@ -10,6 +12,7 @@ import { THEME_IDS, deterministicUuid } from '../fixture-identities'
 import { scoreProspectiveOrigin } from '../prospective-scoring'
 
 const artifact = parseM1ModelArtifact(goldenFixture.artifact)
+const artifactJson = `${JSON.stringify(artifact, null, 2)}\n`
 const pointProbability = predictM1Probability(artifact, goldenFixture.inputRow)
 if (pointProbability === null) throw new Error('golden candidate unexpectedly abstained')
 
@@ -85,7 +88,8 @@ describe('prospective scoring replay boundary', () => {
         finalizedAt: '2027-03-08T11:00:00.000Z',
       }],
       artifact,
-      artifactSha256: canonicalJsonV1Sha256(artifact),
+      artifactJson,
+      artifactSha256: createHash('sha256').update(artifactJson).digest('hex'),
       intervalEnsembleSha256: canonicalJsonV1Sha256(intervalEnsembleArtifact),
       intervalEnsembleArtifact,
       replicateBodies,

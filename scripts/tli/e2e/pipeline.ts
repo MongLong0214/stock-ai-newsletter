@@ -130,6 +130,7 @@ export async function runDryRunPipeline(
       stack,
       mode,
       artifact: training.artifact,
+      artifactJson: training.artifactJson,
       artifactSha256: training.artifactSha256,
       intervalEnsembleSha256: training.intervalEnsembleSha256,
       intervalEnsembleArtifact: training.report.intervalEnsemble,

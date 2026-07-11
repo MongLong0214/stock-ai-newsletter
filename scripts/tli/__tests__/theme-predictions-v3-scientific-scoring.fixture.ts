@@ -41,7 +41,7 @@ const MODEL_MANIFEST_PAYLOAD = {
   interval_envelope_version: 'block_bootstrap_envelope_v1',
   interval_replicate_count: 500,
   interval_ensemble_sha256: INTERVAL_SHA,
-  candidate_model_artifact: intervalFixture.artifact,
+  candidate_model_artifact_json: intervalFixture.artifactJson,
   interval_ensemble_artifact: intervalFixture.intervalEnsembleArtifact,
 } as const
 const MODEL_MANIFEST_SHA = canonicalJsonV1Sha256(MODEL_MANIFEST_PAYLOAD)

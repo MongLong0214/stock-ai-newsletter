@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto'
+
 import goldenFixture from '../../../lib/tli/__tests__/fixtures/m1-golden-vector.json'
 import { canonicalJsonV1Sha256 } from '../../../lib/tli/canonical-json'
 import { CONFIRMATORY_FEATURE_NAMES } from '../../../lib/tli/features/confirmatory-feature-types'
@@ -29,6 +31,7 @@ export function buildScientificIntervalFixture(input: {
     },
   } as const
   const artifact = parseM1ModelArtifact(goldenFixture.artifact)
+  const artifactJson = `${JSON.stringify(artifact, null, 2)}\n`
   const pointProbability = predictM1Probability(artifact, snapshot)
   if (pointProbability === null) throw new Error('scientific scoring fixture unexpectedly abstained')
   const replicateBodies: readonly ReplicateBody[] = Array.from(
@@ -51,7 +54,8 @@ export function buildScientificIntervalFixture(input: {
     snapshot,
     snapshotSha256: canonicalJsonV1Sha256(snapshot),
     artifact,
-    artifactSha256: canonicalJsonV1Sha256(artifact),
+    artifactJson,
+    artifactSha256: createHash('sha256').update(artifactJson).digest('hex'),
     pointProbability,
     envelope,
     intervalEnsembleArtifact,

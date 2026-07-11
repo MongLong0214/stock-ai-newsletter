@@ -20,6 +20,7 @@ import {
   scientificPredictionId,
 } from './fixture-identities'
 import type { FixtureOriginRef } from './fixture-origins'
+import { buildFixtureGtAV2LabelSeed } from './fixture-labels'
 import { assertProspectiveReplayBytes } from './prospective-replay-verification'
 import type { ProspectiveScoringReceipt, ProspectiveScoringRow } from './prospective-scoring-contract'
 
@@ -84,6 +85,7 @@ export async function scoreProspectiveOrigin(input: {
   readonly origin: FixtureOriginRef
   readonly rows: readonly ProspectiveScoringRow[]
   readonly artifact: M1ModelArtifactV2
+  readonly artifactJson: string
   readonly artifactSha256: string
   readonly intervalEnsembleSha256: string
   readonly intervalEnsembleArtifact: unknown
@@ -110,28 +112,44 @@ export async function scoreProspectiveOrigin(input: {
     candidate_model_sha256: input.artifactSha256,
     comparator_version: 'balanced-climatology-v1',
     comparator_artifact_sha256: COMPARATOR_ARTIFACT_SHA256,
-    candidate_model_artifact: input.artifact,
+    candidate_model_artifact_json: input.artifactJson,
     interval_ensemble_version: 'interval-ensemble-v2',
     interval_envelope_version: 'block_bootstrap_envelope_v1',
     interval_replicate_count: 500,
     interval_ensemble_sha256: input.intervalEnsembleSha256,
     interval_ensemble_artifact: input.intervalEnsembleArtifact,
   }
-  const labels = input.rows.map((row) => ({
-    id: row.labelId,
-    theme_id: row.themeId,
-    base_date: input.origin.originDate,
-    horizon_days: 5,
-    labeler_version: 'gta-v2',
-    label_type: 'gt_a',
-    label_status: 'final',
-    scientific_use_status: 'confirmatory_eligible',
-    g_log_ratio: row.outcome ? Math.log(1.2) : Math.log(0.8),
-    y_binary: row.outcome,
-    exclude_reason: null,
-    forecast_origin_manifest_id: input.origin.forecastManifestId,
-    finalized_at: row.finalizedAt,
-  }))
+  const labels = input.rows.map((row) => {
+    const seed = buildFixtureGtAV2LabelSeed({
+      origin: input.origin,
+      themeId: row.themeId,
+      labelId: row.labelId,
+    })
+    const payload = seed.finalizerPayload
+    if (
+      payload.y_binary === null
+      || payload.g_log_ratio === null
+      || payload.y_binary !== row.outcome
+      || seed.readbackRow.finalized_at !== row.finalizedAt
+    ) {
+      throw new Error(`prospective gta-v2 finalizer fixture mismatch for ${input.origin.originDate}:${row.themeId}`)
+    }
+    return {
+      id: row.labelId,
+      theme_id: payload.theme_id,
+      base_date: payload.base_date,
+      horizon_days: 5,
+      labeler_version: 'gta-v2',
+      label_type: 'gt_a',
+      label_status: 'final',
+      scientific_use_status: 'confirmatory_eligible',
+      g_log_ratio: payload.g_log_ratio,
+      y_binary: payload.y_binary,
+      exclude_reason: null,
+      forecast_origin_manifest_id: payload.forecast_origin_manifest_id,
+      finalized_at: seed.readbackRow.finalized_at,
+    }
+  })
   const scoredAt = new Date(Math.max(...input.rows.map((row) => Date.parse(row.finalizedAt))) + 3_600_000).toISOString()
   const plan = buildScientificPredictionScoringPlan({
     requestedCycleId: CYCLE_ID,

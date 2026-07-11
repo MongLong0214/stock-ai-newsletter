@@ -145,7 +145,7 @@ describe('Todo 13 scientific scorer — frozen interval', () => {
 
   it.each([
     ['interval ensemble', { interval_ensemble_artifact: { replicate_bodies: [] } }, 'model_manifest_content_sha256_mismatch'],
-    ['candidate model', { candidate_model_artifact: {} }, 'model_manifest_content_sha256_mismatch'],
+    ['candidate model', { candidate_model_artifact_json: '{}' }, 'model_manifest_content_sha256_mismatch'],
   ] as const)('rejects %s payload bytes under the attested manifest SHA', (_name, change, code) => {
     const fixture = makeScientificScoringFixture()
     fixture.evidenceArtifacts = fixture.evidenceArtifacts.map((artifact) => artifact.id === MODEL_ARTIFACT_ID
@@ -157,7 +157,7 @@ describe('Todo 13 scientific scorer — frozen interval', () => {
 
   it.each([
     ['interval ensemble', { interval_ensemble_artifact: { replicate_bodies: [] } }, 'interval_ensemble_sha256_mismatch'],
-    ['candidate model', { candidate_model_artifact: {} }, 'candidate_model_artifact_sha256_mismatch'],
+    ['candidate model', { candidate_model_artifact_json: '{}' }, 'candidate_model_artifact_sha256_mismatch'],
   ] as const)('rejects %s bytes even when the outer manifest is re-attested', (_name, change, code) => {
     const fixture = makeScientificScoringFixture()
     const modelArtifact = fixture.evidenceArtifacts.find((artifact) => artifact.id === MODEL_ARTIFACT_ID)

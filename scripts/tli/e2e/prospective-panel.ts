@@ -101,6 +101,7 @@ export async function buildAndScoreProspectivePanel(input: {
   readonly stack: FixtureOriginStack
   readonly mode: FixtureSignalMode
   readonly artifact: M1ModelArtifactV2
+  readonly artifactJson: string
   readonly artifactSha256: string
   readonly intervalEnsembleSha256: string
   readonly intervalEnsembleArtifact: unknown
@@ -117,6 +118,7 @@ export async function buildAndScoreProspectivePanel(input: {
       origin,
       rows: rows.filter((row) => row.origin.originDate === origin.originDate),
       artifact: input.artifact,
+      artifactJson: input.artifactJson,
       artifactSha256: input.artifactSha256,
       intervalEnsembleSha256: input.intervalEnsembleSha256,
       intervalEnsembleArtifact: input.intervalEnsembleArtifact,

@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
@@ -23,6 +24,7 @@ const FORECAST_ID = '25000000-0000-4000-8000-000000000015'
 const STUDY_ORIGIN_ID = '35000000-0000-4000-8000-000000000015'
 const THEME_ID = '45000000-0000-4000-8000-000000000015'
 const INTERVAL_ENSEMBLE = { fixture: 'dry-run-linkage' }
+const ARTIFACT_JSON = '{}'
 
 const STUDY_PAYLOAD = {
     id: STUDY_ID,
@@ -64,7 +66,8 @@ const training = {
     coefficients: { intercept: 0, weights: [] },
     train_range: ['2026-01-01', '2026-12-31'],
   },
-  artifactSha256: 'b'.repeat(64),
+  artifactJson: ARTIFACT_JSON,
+  artifactSha256: createHash('sha256').update(ARTIFACT_JSON).digest('hex'),
   calibrationArtifactSha256: 'c'.repeat(64),
   intervalEnsembleSha256: canonicalJsonV1Sha256(INTERVAL_ENSEMBLE),
   report: {
@@ -76,7 +79,7 @@ const training = {
 describe('Todo 15 hash and identity linkage', () => {
   it('builds canonical study/cycle envelopes linked to the raw deterministic dataset', () => {
     const study = buildStudyLockContract({ stack, gitCommitSha: '1'.repeat(40) })
-    const freeze = buildCycleFreezeContract({
+    const freezeInput = {
       stack,
       data: {
         dataset: {
@@ -90,14 +93,13 @@ describe('Todo 15 hash and identity linkage', () => {
             row_count: 312,
           },
           manifestSha256: 'f'.repeat(64),
-          rows: [],
         },
         cutoff: '2027-01-01T12:00:00.000Z',
       },
-      training,
       gitCommitSha: '1'.repeat(40),
       verifiedAt: '2026-07-10T15:30:00.000Z',
-    })
+    }
+    const freeze = buildCycleFreezeContract({ ...freezeInput, training })
 
     expect(study.payloadSha256).toBe(stack.studyContractSha256)
     expect(freeze.cycleId).toBe(CYCLE_ID)
@@ -108,6 +110,10 @@ describe('Todo 15 hash and identity linkage', () => {
     }
     const dataset = freeze.evidenceEnvelopes.find((row) => row.artifact_type === 'dataset_manifest')
     expect(dataset?.payload).toMatchObject({ source_dataset_manifest_sha256: 'f'.repeat(64) })
+    expect(() => buildCycleFreezeContract({
+      ...freezeInput,
+      training: { ...training, artifactSha256: '0'.repeat(64) },
+    })).toThrow('cycle freeze candidate artifact SHA does not match artifact JSON bytes')
   })
 
   it('uses canonical evidence hashes and the scorer identities for the primary planned-24 gate', () => {

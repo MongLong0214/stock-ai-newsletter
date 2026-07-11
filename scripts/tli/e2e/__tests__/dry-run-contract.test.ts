@@ -1,5 +1,5 @@
 import type { SpawnSyncReturns } from 'node:child_process'
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -8,6 +8,7 @@ import { describe, expect, it } from 'vitest'
 import { parseDryRunCliArgs } from '../cli-args'
 import { TLI_E2E_CONTAINER_NAME } from '../contracts'
 import { buildFixtureOriginStack } from '../fixture-origins'
+import { buildFixtureLabelSet } from '../fixture-labels'
 import { auditDataset } from '../pipeline-audit'
 import { runDryRunPipeline } from '../pipeline'
 import { ScratchPostgres, type CommandRunner } from '../scratch-postgres'
@@ -240,6 +241,7 @@ describe('Todo 15 dry-run public contract', () => {
 
   it('builds byte-repeatable exact-five data and excludes one missing source completion', async () => {
     const stack = await buildFixtureOriginStack()
+    const labels = buildFixtureLabelSet(stack)
     const happy = await buildTrainingFixtureData({
       stack,
       mode: 'known_signal',
@@ -253,6 +255,18 @@ describe('Todo 15 dry-run public contract', () => {
 
     expect(stack.trainingOrigins).toHaveLength(26)
     expect(stack.prospectiveOrigins).toHaveLength(24)
+    expect(labels.seeds).toHaveLength(26 * 12)
+    expect(labels.seeds.every((seed) => (
+      seed.pendingRow.label_status === 'pending'
+      && seed.pendingRow.scientific_use_status === 'exploratory_only'
+      && seed.pendingRow.scientific_use_reason === 'pending_gta_v2'
+      && !('y_binary' in seed.pendingRow)
+      && !('g_log_ratio' in seed.pendingRow)
+      && !('finalized_at' in seed.pendingRow)
+      && seed.pendingRow.id === seed.readbackRow.id
+      && seed.finalizerPayload.y_binary !== null
+      && seed.finalizerPayload.g_log_ratio !== null
+    ))).toBe(true)
     expect(happy.dataset.rows).toHaveLength(26 * 12)
     expect(happy.exactFiveRows).toBe(happy.dataset.rows.length)
     expect(happy.dataset.manifestSha256).toBe(happy.repeatedDataset.manifestSha256)
@@ -268,6 +282,15 @@ describe('Todo 15 dry-run public contract', () => {
     })
     expect(missing.missingRows).toBe(1)
     expect(missing.dataset.rows).toHaveLength(26 * 12 - 1)
+  })
+
+  it('seeds lifecycle gta-v2 labels as pristine pending rows finalized through the canonical RPC', () => {
+    const sql = readFileSync('scripts/tli/e2e/sql/todo12-lifecycle-rehearsal.sql', 'utf8')
+
+    expect(sql).toContain("'gta-v2', 'exploratory_only', 'pending_gta_v2'")
+    expect(sql).toContain('PERFORM public.finalize_tli_gta_v2_label(')
+    expect(sql).not.toContain("v_fixture.label_id, v_theme_id, v_fixture.origin_date, 'gt_a', 5, 'final'")
+    expect(sql).not.toContain("v_fixture.label_id, v_theme_id, v_fixture.origin_date, 'gt_a', 5, 'excluded'")
   })
 
   it('fails closed at docker_info and still removes the container and volume', async () => {

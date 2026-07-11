@@ -136,7 +136,7 @@ export const buildCycleFreezeContract = (input: {
     readonly cutoff: string
   }
   readonly training: {
-    readonly artifact: unknown
+    readonly artifactJson: string
     readonly artifactSha256: string
     readonly calibrationArtifactSha256: string
     readonly intervalEnsembleSha256: string
@@ -149,6 +149,10 @@ export const buildCycleFreezeContract = (input: {
   readonly verifiedAt: string
 }): CycleFreezeContract => {
   requireGitCommitSha(input.gitCommitSha)
+  const artifactSha256 = createHash('sha256').update(input.training.artifactJson).digest('hex')
+  if (artifactSha256 !== input.training.artifactSha256) {
+    throw new Error('cycle freeze candidate artifact SHA does not match artifact JSON bytes')
+  }
   const firstOrigin = input.stack.prospectiveOrigins.at(0)
   const lastOrigin = input.stack.prospectiveOrigins.at(-1)
   if (firstOrigin === undefined || lastOrigin === undefined) {
@@ -167,7 +171,6 @@ export const buildCycleFreezeContract = (input: {
     label_contract_sha256: LABEL_CONTRACT_SHA256,
   })
   const datasetManifestSha256 = canonicalJsonV1Sha256(datasetPayload)
-  const artifact = canonicalObject(input.training.artifact)
   const modelPayload = canonicalObject({
     manifest_version: 'tli-cycle-model-manifest-v1',
     cycle_id: CYCLE_ID,
@@ -176,7 +179,7 @@ export const buildCycleFreezeContract = (input: {
     dataset_manifest_sha256: datasetManifestSha256,
     candidate_model_version: 'scientific-m1-v2',
     candidate_model_sha256: input.training.artifactSha256,
-    candidate_model_artifact: artifact,
+    candidate_model_artifact_json: input.training.artifactJson,
     comparator_version: 'balanced-climatology-v1',
     comparator_artifact_sha256: COMPARATOR_ARTIFACT_SHA256,
     calibration_artifact_sha256: input.training.calibrationArtifactSha256,

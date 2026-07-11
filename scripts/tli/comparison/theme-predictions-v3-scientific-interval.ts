@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto'
+
 import { z } from 'zod'
 
 import { canonicalJsonV1Sha256 } from '../../../lib/tli/canonical-json'
@@ -35,7 +37,7 @@ const intervalManifestSchema = z.object({
   candidate_model_sha256: sha256Schema,
   comparator_version: z.string(),
   comparator_artifact_sha256: sha256Schema,
-  candidate_model_artifact: z.unknown(),
+  candidate_model_artifact_json: z.string().min(1),
   interval_ensemble_version: z.literal('interval-ensemble-v2'),
   interval_envelope_version: z.literal('block_bootstrap_envelope_v1'),
   interval_replicate_count: z.literal(INTERVAL_REPLICATE_COUNT),
@@ -182,10 +184,14 @@ export function parseScientificIntervalReplayEvidence(
     if (canonicalJsonV1Sha256(payload.interval_ensemble_artifact) !== payload.interval_ensemble_sha256) {
       throw new ScientificScoringCriticalIncidentError('interval_ensemble_sha256_mismatch', null)
     }
-    if (canonicalJsonV1Sha256(payload.candidate_model_artifact) !== payload.candidate_model_sha256) {
+    const artifactSha256 = createHash('sha256')
+      .update(payload.candidate_model_artifact_json)
+      .digest('hex')
+    if (artifactSha256 !== payload.candidate_model_sha256) {
       throw new ScientificScoringCriticalIncidentError('candidate_model_artifact_sha256_mismatch', null)
     }
-    const fullFitArtifact = parseM1ModelArtifact(payload.candidate_model_artifact)
+    const parsedArtifact: unknown = JSON.parse(payload.candidate_model_artifact_json)
+    const fullFitArtifact = parseM1ModelArtifact(parsedArtifact)
     const intervalEnsemble = intervalEnsembleArtifactSchema.parse(payload.interval_ensemble_artifact)
     return {
       receipt: {

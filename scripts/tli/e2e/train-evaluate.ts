@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs'
+
 import { canonicalJsonV1Sha256 } from '../../../lib/tli/canonical-json'
 import { buildConfirmatoryFeatureVector } from '../../../lib/tli/features/build-confirmatory-features'
 import type { M1ModelArtifactV2 } from '../../../lib/tli/model/m1'
@@ -12,6 +14,7 @@ import type { TrainingFixtureData } from './fixture-study-data'
 
 export interface TrainingRun {
   readonly artifact: M1ModelArtifactV2
+  readonly artifactJson: string
   readonly artifactSha256: string
   readonly calibrationArtifactSha256: string
   readonly intervalEnsembleSha256: string
@@ -59,10 +62,13 @@ export async function trainAndEvaluate(input: {
     workDir: input.workDir,
     trainedAt: input.data.cutoff.slice(0, 10),
   })
-  const artifact = await loadM1ArtifactFromJsonFile(`${input.workDir}/training/prospective/artifact.json`)
+  const artifactPath = `${input.workDir}/training/prospective/artifact.json`
+  const artifact = await loadM1ArtifactFromJsonFile(artifactPath)
+  const artifactJson = readFileSync(artifactPath, 'utf8')
   const snapshots = input.data.featureInputs.map(buildConfirmatoryFeatureVector)
   return {
     artifact,
+    artifactJson,
     artifactSha256: result.report.prospective.artifactSha256,
     calibrationArtifactSha256: canonicalJsonV1Sha256({
       sourceArtifactSha256: result.report.prospective.artifactSha256,
