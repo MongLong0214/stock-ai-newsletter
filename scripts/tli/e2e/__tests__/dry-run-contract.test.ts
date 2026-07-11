@@ -176,6 +176,7 @@ describe('Todo 15 dry-run public contract', () => {
         'supabase/migrations/050_tli_collection_append_rpc_and_git_sha.sql',
         'supabase/migrations/051_tli_fix_observation_trigger_binding.sql',
         'supabase/migrations/052_tli_abstain_sentinel_db_guard.sql',
+        'supabase/migrations/053_tli_label_guard_and_legacy_prediction_upsert.sql',
       ])
       expect(calls.filter((call) => call.command === 'docker'
         && call.args[0] === 'rm' && call.args[1] === '-f'

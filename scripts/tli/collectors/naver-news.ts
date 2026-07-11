@@ -1,5 +1,5 @@
-import type { JsonObject } from '@/lib/tli/canonical-json'
-import { sleep, withRetry } from '@/scripts/tli/shared/utils'
+import type { JsonObject } from '../../../lib/tli/canonical-json'
+import { sleep } from '../shared/utils'
 import {
   buildNewsCollectionRun,
   calendarDatesBetween,
@@ -7,6 +7,15 @@ import {
   resolveThemeKeywordGroup,
 } from './collection-run-contract'
 import { appendCollectionRun, type CollectionRunTransport } from './collection-run-store'
+import { emptyCollectionReport, type CollectionReport } from './collection-report'
+import {
+  newsFailureReason,
+  searchThemeNews,
+  type NewsArticle,
+  type ThemeSearchResult,
+} from './naver-news-api'
+
+export type { NewsArticle } from './naver-news-api'
 
 interface Theme {
   id: string
@@ -20,27 +29,6 @@ interface NewsMetric {
   articleCount: number
 }
 
-export interface NewsArticle {
-  themeId: string
-  title: string
-  link: string
-  source: string | null
-  pubDate: string
-}
-
-interface NaverNewsItem {
-  title: string
-  link: string
-  originallink: string
-  description: string
-  pubDate: string
-}
-
-interface NaverNewsResponse {
-  total: number
-  items: NaverNewsItem[]
-}
-
 export interface NewsCollectionOptions {
   /** 테스트 주입용. 미지정 시 supabase RPC로 immutable run을 append한다. */
   readonly transport?: CollectionRunTransport
@@ -48,158 +36,12 @@ export interface NewsCollectionOptions {
 
 const NEWS_CONTRACT_VERSION = 'tli-news-v1'
 
-function getNaverCredentials() {
-  const clientId = process.env.NAVER_CLIENT_ID
-  const clientSecret = process.env.NAVER_CLIENT_SECRET
-  if (!clientId || !clientSecret) {
-    throw new Error('NAVER_CLIENT_ID / NAVER_CLIENT_SECRET 환경 변수가 필요합니다')
-  }
-  return { clientId, clientSecret }
-}
-
-/** 네이버 뉴스 검색 API 호출 */
-async function searchNews(query: string, display = 100, start = 1): Promise<NaverNewsResponse> {
-  const { clientId, clientSecret } = getNaverCredentials()
-  return withRetry(
-    async () => {
-      const params = new URLSearchParams({
-        query,
-        display: String(display),
-        start: String(start),
-        sort: 'date',
-      })
-
-      const res = await fetch(`https://openapi.naver.com/v1/search/news.json?${params}`, {
-        headers: {
-          'X-Naver-Client-Id': clientId,
-          'X-Naver-Client-Secret': clientSecret,
-        },
-        signal: AbortSignal.timeout(30000),
-      })
-
-      if (!res.ok) {
-        throw new Error(`네이버 뉴스 API 오류 (${res.status}): ${await res.text()}`)
-      }
-
-      return res.json()
-    },
-    3,
-    '네이버 뉴스 검색'
-  )
-}
-
-/** pubDate → YYYY-MM-DD 변환 */
-function parseDate(pubDate: string): string | null {
-  const d = new Date(pubDate)
-  if (isNaN(d.getTime())) return null
-  return d.toISOString().split('T')[0]
-}
-
-/** HTML 태그 제거 + 엔티티 디코딩 */
-function stripHtml(text: string): string {
-  return text
-    .replace(/<[^>]*>/g, '')
-    .replace(/&quot;/g, '"')
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&apos;/g, "'")
-    .replace(/&#39;/g, "'")
-    .trim()
-}
-
-/** 정규식 특수문자 이스케이프 */
-function escapeRegex(str: string): string {
-  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-}
-
-/** 기사 제목이 테마 키워드와 관련있는지 확인 */
-function isRelevantArticle(title: string, keywords: readonly string[]): boolean {
-  return keywords.some(keyword => {
-    if (keyword.length <= 3 && /^[A-Za-z0-9]+$/.test(keyword)) {
-      return new RegExp(`\\b${escapeRegex(keyword)}\\b`, 'i').test(title)
-    }
-    return title.includes(keyword)
-  })
-}
-
-/** 링크에서 도메인(언론사) 추출 */
-function extractSource(link: string): string | null {
-  try {
-    const hostname = new URL(link).hostname
-    // news.naver.com → 원본 링크 사용이 나으므로 null
-    if (hostname.includes('naver.com')) return null
-    return hostname.replace(/^www\./, '')
-  } catch {
-    return null
-  }
-}
-
 export interface NewsCollectionResult {
   metrics: NewsMetric[]
   articles: NewsArticle[]
+  report: CollectionReport
 }
 
-interface ThemeSearchResult {
-  readonly dateCounts: Map<string, number>
-  readonly articles: NewsArticle[]
-  readonly apiTotal: number
-  readonly pages: number
-}
-
-async function searchThemeNews(input: {
-  readonly theme: Theme
-  readonly keywords: readonly string[]
-  readonly startDate: string
-  readonly endDate: string
-}): Promise<ThemeSearchResult> {
-  const dateCounts = new Map<string, number>()
-  const articles: NewsArticle[] = []
-  const orQuery = input.keywords.map(k => `"${k}"`).join(' | ')
-
-  // 페이지네이션: 최대 1000건까지 수집 (Naver API start 상한 1000)
-  let start = 1
-  let totalFetched = 0
-  let apiTotal = 0
-  let pages = 0
-  const MAX_RESULTS = 1000
-
-  while (start < MAX_RESULTS) {
-    const result = await searchNews(orQuery, 100, start)
-    apiTotal = result.total
-    pages++
-
-    if (result.items.length === 0) break
-
-    for (const item of result.items) {
-      const date = parseDate(item.pubDate)
-      if (!date || date < input.startDate || date > input.endDate) continue
-
-      const cleanTitle = stripHtml(item.title)
-
-      // 관련도 필터: 제목에 키워드 최소 1개 포함 필수
-      if (!isRelevantArticle(cleanTitle, input.keywords)) continue
-
-      dateCounts.set(date, (dateCounts.get(date) || 0) + 1)
-
-      articles.push({
-        themeId: input.theme.id,
-        title: cleanTitle,
-        link: item.originallink || item.link,
-        source: extractSource(item.originallink || item.link),
-        pubDate: date,
-      })
-    }
-
-    totalFetched += result.items.length
-    if (result.items.length < 100 || totalFetched >= apiTotal || start >= MAX_RESULTS) break
-
-    start += 100
-    await sleep(100) // 페이지 간 딜레이
-  }
-
-  return { dateCounts, articles, apiTotal, pages }
-}
 
 /**
  * 네이버 뉴스 데이터 수집 — 테마당 immutable run 1건.
@@ -222,19 +64,25 @@ export async function collectNaverNews(
   if (!process.env.NAVER_CLIENT_ID || !process.env.NAVER_CLIENT_SECRET) {
     if (process.env.TLI_ALLOW_NEWS_SKIP === '1') {
       console.warn('   ⚠️ NAVER_CLIENT_ID/SECRET 미설정 — 뉴스 수집 건너뜀')
-      return { metrics: [], articles: [] }
+      return { metrics: [], articles: [], report: emptyCollectionReport() }
     }
     throw new Error('NAVER_CLIENT_ID / NAVER_CLIENT_SECRET 환경 변수가 필요합니다')
   }
 
   const metrics: NewsMetric[] = []
   const allArticles: NewsArticle[] = []
+  let requested = 0
+  let succeeded = 0
+  let failed = 0
+  let persistenceFailed = 0
 
   for (const theme of themes) {
     if (theme.naverKeywords.length === 0) {
       console.log(`   ⊘ 테마 ${theme.id} 건너뜀: 키워드 없음`)
       continue
     }
+
+    requested++
 
     // interest run과 반드시 같은 keyword group을 쓴다 — 046이 query_hash == keyword_group_sha256를 강제한다.
     const spec = resolveThemeKeywordGroup(theme)
@@ -249,13 +97,14 @@ export async function collectNaverNews(
 
     let search: ThemeSearchResult
     try {
-      search = await searchThemeNews({ theme, keywords: spec.keywords, startDate, endDate })
+      search = await searchThemeNews({ themeId: theme.id, keywords: spec.keywords, startDate, endDate })
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error)
       console.error(`   ⚠️ 테마 ${theme.id} 뉴스 검색 실패:`, message)
 
       const now = new Date().toISOString()
-      await appendNewsRun({
+      failed++
+      const persisted = await appendNewsRun({
         append: buildNewsCollectionRun({
           contractVersion: NEWS_CONTRACT_VERSION,
           themeId: theme.id,
@@ -266,10 +115,11 @@ export async function collectNaverNews(
           keywordGroupSha256: querySha256,
           articleCountByDate: new Map(),
           timestamps: { requestedAt, collectedAt: now, completedAt: now },
-          failureSummary: { reason: 'naver_news_request_failed', message },
+          failureSummary: { reason: newsFailureReason(error), message },
         }),
         transport: options.transport,
       })
+      if (!persisted) persistenceFailed++
       await sleep(200)
       continue
     }
@@ -291,11 +141,15 @@ export async function collectNaverNews(
       // snapshot을 먼저 확정한다. 실패하면 이 테마의 metric은 current cache로 전파되지 않는다.
       await appendCollectionRun(append, options.transport)
     } catch (error: unknown) {
+      failed++
+      persistenceFailed++
       console.error(`   ❌ 테마 ${theme.id} news snapshot append 실패 (cache 미반영):`,
         error instanceof Error ? error.message : String(error))
       await sleep(200)
       continue
     }
+
+    succeeded++
 
     await sleep(200)
 
@@ -313,16 +167,22 @@ export async function collectNaverNews(
   }
 
   console.log(`\n   ✅ ${metrics.length}개 뉴스 메트릭, ${allArticles.length}개 기사 수집 완료`)
-  return { metrics, articles: allArticles }
+  return {
+    metrics,
+    articles: allArticles,
+    report: { requested, succeeded, failed, persistenceFailed },
+  }
 }
 
 async function appendNewsRun(input: {
   readonly append: ReturnType<typeof buildNewsCollectionRun>
   readonly transport?: CollectionRunTransport
-}): Promise<void> {
+}): Promise<boolean> {
   try {
     await appendCollectionRun(input.append, input.transport)
+    return true
   } catch (error: unknown) {
     console.error('   ⚠️ failed news run 기록 실패:', error instanceof Error ? error.message : String(error))
+    return false
   }
 }

@@ -152,6 +152,22 @@ describe('runtime entrypoints', () => {
     expect(exitSpy).not.toHaveBeenCalled()
   })
 
+  it('returns exitCode 1 when analysis reports a critical snapshot failure', async () => {
+    runAnalysisPipeline.mockResolvedValue({
+      criticalFailures: 1,
+      warningFailures: 0,
+    })
+    const { runTliMainPipeline } = await import('@/scripts/tli/batch/collect-and-score')
+
+    const result = await runTliMainPipeline()
+
+    expect(result).toMatchObject({
+      criticalFailures: 1,
+      warningFailures: 0,
+      exitCode: 1,
+    })
+  })
+
   it('counts daily stock price ingest failures as warnings', async () => {
     collectDailyStockPricesForDate.mockResolvedValue({
       failureCount: 2,

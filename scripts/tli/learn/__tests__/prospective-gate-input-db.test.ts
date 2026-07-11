@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { canonicalJsonV1Sha256 } from '../../../../lib/tli/canonical-json-v1'
 
 const CYCLE_ID = '10000000-0000-4000-8000-000000000014'
 const STUDY_CONTRACT_ID = '10000000-0000-4000-8000-000000000013'
@@ -200,6 +201,12 @@ describe('prospective gate DB loader', () => {
       checkpoint: { kind: 'safety_due', sequenceEnd: 8 },
       safetyInput: { criticalIncidentCount: 0 },
     })
+    expect(canonicalJsonV1Sha256(result)).toBe(
+      '333ea2ec7132c0d9a3225bdc44558f701d9027d8c7f477e15c168fdd993b48da',
+    )
+    for (const query of state.queries) {
+      for (const values of Object.values(query.includes)) expect(values.length).toBeLessThanOrEqual(150)
+    }
     expect(state.queries.filter((query) => query.table === 'theme_predictions_v3')).toEqual([
       expect.objectContaining({ range: [0, 999], orders: ['id'] }),
       expect.objectContaining({ range: [1000, 1999], orders: ['id'] }),

@@ -175,19 +175,37 @@ DECLARE
   v_origin public.tli_experiment_origin_manifests%ROWTYPE;
   v_cycle public.tli_experiment_cycles%ROWTYPE;
   v_theme_id UUID := pg_temp.fixture_uuid(1, 1);
+  v_label_payload JSONB;
+  v_label_canonical TEXT;
 BEGIN
   SELECT * INTO STRICT v_fixture FROM lifecycle_origin_fixture WHERE ordinal = p_ordinal;
   SELECT * INTO STRICT v_origin FROM public.tli_experiment_origin_manifests WHERE id = v_fixture.enrolled_id;
   SELECT * INTO STRICT v_cycle FROM public.tli_experiment_cycles WHERE id = v_origin.cycle_id;
 
   INSERT INTO public.theme_labels (
-    id, theme_id, base_date, label_type, horizon_days, label_status, exclude_reason,
-    labeler_version, finalized_at, scientific_use_status, scientific_use_reason,
+    id, theme_id, base_date, label_type, horizon_days, label_status,
+    labeler_version, scientific_use_status, scientific_use_reason,
     forecast_origin_manifest_id
   ) VALUES (
-    v_fixture.label_id, v_theme_id, v_fixture.origin_date, 'gt_a', 5, 'excluded',
-    'source_gap_sla', 'gta-v2', '2026-07-10T00:00:00.000Z'::TIMESTAMPTZ,
-    'exploratory_only', 'source_gap_sla', v_fixture.forecast_id
+    v_fixture.label_id, v_theme_id, v_fixture.origin_date, 'gt_a', 5, 'pending',
+    'gta-v2', 'exploratory_only', 'pending_gta_v2', v_fixture.forecast_id
+  );
+
+  v_label_payload := jsonb_build_object(
+    'theme_id', v_theme_id::TEXT,
+    'base_date', to_char(v_fixture.origin_date, 'YYYY-MM-DD'),
+    'forecast_origin_manifest_id', v_fixture.forecast_id::TEXT,
+    'as_of', to_char(clock_timestamp() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
+    'label_source_run_id', NULL,
+    'label_request_sha256', NULL,
+    'label_response_sha256', NULL,
+    'g_log_ratio', NULL,
+    'y_binary', NULL
+  );
+  v_label_canonical := public.tli_render_canonical_json_v1(v_label_payload);
+  PERFORM public.finalize_tli_gta_v2_label(
+    v_label_canonical,
+    pg_temp.payload_sha(v_label_payload)
   );
 
   INSERT INTO public.theme_predictions_v3 (
@@ -235,13 +253,18 @@ AS $score_prediction$
 DECLARE
   v_payload JSONB;
   v_canonical TEXT;
+  v_scored_at TEXT;
 BEGIN
+  v_scored_at := to_char(
+    clock_timestamp() AT TIME ZONE 'UTC',
+    'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'
+  );
   v_payload := jsonb_build_object(
     'prediction_id', p_prediction_id::TEXT,
     'actual_label_id', p_label_id::TEXT,
     'score_status', 'excluded',
-    'score_exclusion_reason', 'source_gap_sla',
-    'scored_at', '2026-07-10T01:00:00.000Z'
+    'score_exclusion_reason', 'spec_mismatch',
+    'scored_at', v_scored_at
   );
   v_canonical := public.tli_render_canonical_json_v1(v_payload);
   PERFORM public.finalize_tli_scientific_prediction_score(v_canonical, pg_temp.payload_sha(v_payload));

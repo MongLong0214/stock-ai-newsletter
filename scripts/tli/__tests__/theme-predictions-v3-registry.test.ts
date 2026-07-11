@@ -8,17 +8,9 @@ const registryMocks = vi.hoisted(() => ({
   recentLabelRows: [] as Array<{ base_date: string; y_binary: boolean | null }>,
   championEntry: null as { model_version: string; model_type: string; coefficients: unknown } | null,
   challengerEntry: null as { model_version: string; model_type: string; coefficients: unknown } | null,
-  batchUpsert: vi.fn(async (
-    _table: string,
-    _rows: Array<Record<string, unknown>>,
-    _constraint: string,
-    _label: string,
-  ) => {
-    void _table
+  upsertLegacyPredictionsV3: vi.fn(async (_rows: Array<Record<string, unknown>>) => {
     void _rows
-    void _constraint
-    void _label
-    return 0
+    return _rows.length
   }),
   loadFeatureInputsForBaseDate: vi.fn(async (input: { themeId: string; baseDate: string }) => ({
     themeId: input.themeId,
@@ -89,9 +81,8 @@ vi.mock('@/scripts/tli/shared/supabase-admin', () => ({
   },
 }))
 
-vi.mock('@/scripts/tli/shared/supabase-batch', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@/scripts/tli/shared/supabase-batch')>()
-  return { ...actual, batchUpsert: registryMocks.batchUpsert }
+vi.mock('@/scripts/tli/comparison/legacy-prediction-writer', () => {
+  return { upsertLegacyPredictionsV3: registryMocks.upsertLegacyPredictionsV3 }
 })
 
 vi.mock('@/scripts/tli/features/load-feature-inputs', () => ({
@@ -128,21 +119,21 @@ const legacyM1Artifact = () => ({
 })
 
 const upsertRows = (): Array<Record<string, unknown>> => {
-  const call = registryMocks.batchUpsert.mock.calls[0]
-  if (call === undefined) throw new Error('batchUpsert was not called')
-  return call[1]
+  const call = registryMocks.upsertLegacyPredictionsV3.mock.calls[0]
+  if (call === undefined) throw new Error('upsertLegacyPredictionsV3 was not called')
+  return call[0]
 }
 
 const firstUpsertRow = (): Record<string, unknown> => {
   const row = upsertRows()[0]
-  if (row === undefined) throw new Error('batchUpsert had no first row')
+  if (row === undefined) throw new Error('upsertLegacyPredictionsV3 had no first row')
   return row
 }
 
 describe('snapshotThemePredictionsV3 — model_registry-driven scoring (A1)', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    registryMocks.batchUpsert.mockResolvedValue(0)
+    registryMocks.upsertLegacyPredictionsV3.mockResolvedValue(1)
     registryMocks.snapshotRows = [
       { theme_id: 'theme-1', snapshot_date: '2026-07-06', phase: 'rising' },
     ]
@@ -175,7 +166,7 @@ describe('snapshotThemePredictionsV3 — model_registry-driven scoring (A1)', ()
     }
     expect(caught.code).toBe('unsupported_legacy_artifact')
     expect(caught.message).toBe('unsupported_legacy_artifact')
-    expect(registryMocks.batchUpsert).not.toHaveBeenCalled()
+    expect(registryMocks.upsertLegacyPredictionsV3).not.toHaveBeenCalled()
   })
 
   it('falls back to b-abl heuristic bootstrap when no champion is registered', async () => {

@@ -2,8 +2,9 @@ import { z } from 'zod'
 
 import { supabaseAdmin } from '../shared/supabase-admin'
 import { assembleProspectiveGateInput } from './prospective-gate-input-assembly'
+import { readAllRows, readChunkedRows, readRows } from './prospective-gate-db-query'
+import { buildProspectiveExpectedThemes } from './prospective-gate-source-proof'
 import type {
-  ProspectiveExpectedThemeRow,
   ProspectiveGateInputBundle,
 } from './prospective-gate-input-contract'
 
@@ -67,29 +68,6 @@ const newsObservationSchema = z.object({
   id: z.string().uuid(), collection_run_id: z.string().uuid(), collected_at: z.string(),
 })
 
-interface DbResult { readonly data: unknown; readonly error: { readonly message: string } | null }
-type DbQuery = PromiseLike<DbResult>
-const PAGE_SIZE = 1000
-
-const readRows = async <Row>(label: string, query: DbQuery, schema: z.ZodType<Row>): Promise<Row[]> => {
-  const { data, error } = await query
-  if (error) throw new Error(`${label} query failed: ${error.message}`)
-  return z.array(schema).parse(data ?? [])
-}
-
-const readAllRows = async <Row>(
-  label: string,
-  page: (from: number, to: number) => DbQuery,
-  schema: z.ZodType<Row>,
-): Promise<Row[]> => {
-  const rows: Row[] = []
-  for (let from = 0; ; from += PAGE_SIZE) {
-    const batch = await readRows(label, page(from, from + PAGE_SIZE - 1), schema)
-    rows.push(...batch)
-    if (batch.length < PAGE_SIZE) return rows
-  }
-}
-
 const exactOne = <Row>(rows: readonly Row[], label: string): Row => {
   if (rows.length !== 1 || rows[0] === undefined) throw new Error(`${label} must contain exactly one row`)
   return rows[0]
@@ -125,87 +103,75 @@ export async function loadProspectiveGateInputFromDb(input: {
   const originIds = scopedOrigins.map((origin) => origin.id)
   const artifactIds = evidence.map((artifact) => artifact.id)
   const [forecasts, rawExpectedThemes, predictions, attestations] = await Promise.all([
-    forecastIds.length === 0 ? Promise.resolve([]) : readRows(
-      'prospective forecasts', supabaseAdmin.from('tli_forecast_origin_manifests').select(
+    readChunkedRows(
+      'prospective forecasts', forecastIds, (chunk, from, to) => supabaseAdmin
+        .from('tli_forecast_origin_manifests').select(
         'id,origin_date,forecast_cutoff,expected_theme_count,expected_universe_sha256,keyword_group_manifest_sha256,payload_sha256',
-      ).in('id', forecastIds), forecastSchema,
+        ).in('id', chunk).order('id', { ascending: true }).range(from, to), forecastSchema,
     ),
-    forecastIds.length === 0 ? Promise.resolve([]) : readAllRows(
-      'prospective expected themes', (from, to) => supabaseAdmin.from('tli_forecast_origin_theme_inputs').select(
+    readChunkedRows(
+      'prospective expected themes', forecastIds, (chunk, from, to) => supabaseAdmin
+        .from('tli_forecast_origin_theme_inputs').select(
         'forecast_origin_manifest_id,theme_id,keyword_group_sha256,forecast_interest_run_id,forecast_interest_response_sha256,news_observation_ids,news_input_sha256,input_status,abstain_reason',
-      ).in('forecast_origin_manifest_id', forecastIds)
+        ).in('forecast_origin_manifest_id', chunk)
         .order('forecast_origin_manifest_id', { ascending: true }).order('theme_id', { ascending: true })
         .range(from, to), rawExpectedThemeSchema,
+      (left, right) => left.forecast_origin_manifest_id.localeCompare(right.forecast_origin_manifest_id)
+        || left.theme_id.localeCompare(right.theme_id),
     ),
-    originIds.length === 0 ? Promise.resolve([]) : readAllRows(
-      'prospective predictions', (from, to) => supabaseAdmin.from('theme_predictions_v3').select(
+    readChunkedRows(
+      'prospective predictions', originIds, (chunk, from, to) => supabaseAdmin
+        .from('theme_predictions_v3').select(
         'id,experiment_cycle_id,experiment_origin_manifest_id,theme_id,prediction_date,horizon_days,labeler_version,scientific_prediction_role,model_artifact_sha256,feature_contract_hash,forecast_cutoff,forecast_origin_week,p_rise,ci_lower,ci_upper,abstain,actual_y,actual_label_id,score_status,score_exclusion_reason',
-      ).eq('experiment_cycle_id', cycle.id).in('experiment_origin_manifest_id', originIds)
+        ).eq('experiment_cycle_id', cycle.id).in('experiment_origin_manifest_id', chunk)
         .order('id', { ascending: true }).range(from, to), predictionSchema,
+      (left, right) => left.id.localeCompare(right.id),
     ),
-    artifactIds.length === 0 ? Promise.resolve([]) : readAllRows(
-      'prospective attestations', (from, to) => supabaseAdmin.from('tli_evidence_attestations').select(
+    readChunkedRows(
+      'prospective attestations', artifactIds, (chunk, from, to) => supabaseAdmin
+        .from('tli_evidence_attestations').select(
         'artifact_id,content_sha256',
-      ).in('artifact_id', artifactIds).order('artifact_id', { ascending: true }).range(from, to),
+        ).in('artifact_id', chunk).order('artifact_id', { ascending: true }).range(from, to),
       attestationSchema,
+      (left, right) => left.artifact_id.localeCompare(right.artifact_id),
     ),
   ])
   const interestRunIds = rawExpectedThemes.flatMap((row) => row.forecast_interest_run_id === null
     ? [] : [row.forecast_interest_run_id])
   const newsObservationIds = rawExpectedThemes.flatMap((row) => row.news_observation_ids)
   const [interestRuns, interestObservations, newsObservations] = await Promise.all([
-    interestRunIds.length === 0 ? Promise.resolve([]) : readRows(
-      'prospective interest runs', supabaseAdmin.from('tli_collection_runs').select(
+    readChunkedRows(
+      'prospective interest runs', interestRunIds, (chunk, from, to) => supabaseAdmin
+        .from('tli_collection_runs').select(
         'id,source,status,collected_at,completed_at,response_sha256',
-      ).in('id', interestRunIds), collectionRunSchema,
+        ).in('id', chunk).order('id', { ascending: true }).range(from, to), collectionRunSchema,
     ),
-    interestRunIds.length === 0 ? Promise.resolve([]) : readAllRows(
-      'prospective interest observations', (from, to) => supabaseAdmin.from('tli_interest_observations').select(
+    readChunkedRows(
+      'prospective interest observations', interestRunIds, (chunk, from, to) => supabaseAdmin
+        .from('tli_interest_observations').select(
         'collection_run_id,theme_id',
-      ).in('collection_run_id', interestRunIds).order('collection_run_id', { ascending: true })
+        ).in('collection_run_id', chunk).order('collection_run_id', { ascending: true })
         .order('theme_id', { ascending: true }).range(from, to), interestObservationSchema,
+      (left, right) => left.collection_run_id.localeCompare(right.collection_run_id)
+        || left.theme_id.localeCompare(right.theme_id),
     ),
-    newsObservationIds.length === 0 ? Promise.resolve([]) : readAllRows(
-      'prospective news observations', (from, to) => supabaseAdmin.from('tli_news_observations').select(
+    readChunkedRows(
+      'prospective news observations', newsObservationIds, (chunk, from, to) => supabaseAdmin
+        .from('tli_news_observations').select(
         'id,collection_run_id,collected_at',
-      ).in('id', newsObservationIds).order('id', { ascending: true }).range(from, to), newsObservationSchema,
+        ).in('id', chunk).order('id', { ascending: true }).range(from, to), newsObservationSchema,
+      (left, right) => left.id.localeCompare(right.id),
     ),
   ])
   const newsRunIds = [...new Set(newsObservations.map((row) => row.collection_run_id))]
-  const newsRuns = newsRunIds.length === 0 ? [] : await readRows(
-    'prospective news runs', supabaseAdmin.from('tli_collection_runs').select(
+  const newsRuns = await readChunkedRows(
+    'prospective news runs', newsRunIds, (chunk, from, to) => supabaseAdmin
+      .from('tli_collection_runs').select(
       'id,source,status,collected_at,completed_at,response_sha256',
-    ).in('id', newsRunIds), collectionRunSchema,
+      ).in('id', chunk).order('id', { ascending: true }).range(from, to), collectionRunSchema,
   )
-  const beforeCutoff = (value: string | null, cutoff: string): boolean => value !== null
-    && Number.isFinite(Date.parse(value)) && Date.parse(value) <= Date.parse(cutoff)
-  const expectedThemes: ProspectiveExpectedThemeRow[] = rawExpectedThemes.map((row) => {
-    const forecast = forecasts.find((candidate) => candidate.id === row.forecast_origin_manifest_id)
-    const cutoff = forecast?.forecast_cutoff ?? ''
-    const interestRun = row.forecast_interest_run_id === null ? null
-      : interestRuns.find((candidate) => candidate.id === row.forecast_interest_run_id) ?? null
-    const interestRows = row.forecast_interest_run_id === null ? [] : interestObservations.filter((candidate) => (
-      candidate.collection_run_id === row.forecast_interest_run_id && candidate.theme_id === row.theme_id
-    ))
-    const newsRows = newsObservations.filter((candidate) => row.news_observation_ids.includes(candidate.id))
-    const sourceProof = {
-      interest_run_status: interestRun?.status ?? null,
-      interest_run_source: interestRun?.source ?? null,
-      interest_run_before_cutoff: interestRun !== null
-        && beforeCutoff(interestRun.collected_at, cutoff) && beforeCutoff(interestRun.completed_at, cutoff),
-      interest_observation_count: interestRows.length,
-      interest_observation_run_count: new Set(interestRows.map((candidate) => candidate.collection_run_id)).size,
-      news_observation_count: newsRows.length,
-      news_run_statuses: [...new Set(newsRows.map((candidate) => (
-        newsRuns.find((run) => run.id === candidate.collection_run_id)?.status ?? 'missing'
-      )))].sort(),
-      news_before_cutoff: newsRows.length === row.news_observation_ids.length && newsRows.every((candidate) => {
-        const run = newsRuns.find((value) => value.id === candidate.collection_run_id)
-        return run !== undefined && run.source === 'naver_news' && beforeCutoff(candidate.collected_at, cutoff)
-          && beforeCutoff(run.collected_at, cutoff) && beforeCutoff(run.completed_at, cutoff)
-      }),
-    }
-    return { ...row, source_proof: sourceProof }
+  const expectedThemes = buildProspectiveExpectedThemes({
+    rawExpectedThemes, forecasts, interestRuns, interestObservations, newsObservations, newsRuns,
   })
   return assembleProspectiveGateInput({
     cycle, origins: scopedOrigins, forecasts, expectedThemes, predictions, evidence, attestations,

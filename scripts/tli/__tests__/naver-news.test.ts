@@ -30,6 +30,10 @@ describe('naver news collection', () => {
         '2026-03-01',
         '2026-03-12',
       ),
-    ).resolves.toEqual({ metrics: [], articles: [] })
+    ).resolves.toEqual({
+      metrics: [],
+      articles: [],
+      report: { requested: 0, succeeded: 0, failed: 0, persistenceFailed: 0 },
+    })
   })
 })

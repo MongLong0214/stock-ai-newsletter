@@ -5,7 +5,7 @@ import { computeTrailingFinalBaseRate, getTrailingFinalBaseRateWindow } from '@/
 import { parseM1ModelArtifact } from '@/lib/tli/model/predict'
 import { loadFeatureInputsForBaseDate } from '@/scripts/tli/features/load-feature-inputs'
 import { supabaseAdmin } from '@/scripts/tli/shared/supabase-admin'
-import { batchUpsert } from '@/scripts/tli/shared/supabase-batch'
+import { upsertLegacyPredictionsV3 } from '@/scripts/tli/comparison/legacy-prediction-writer'
 import {
   TLI_V3_BASELINE_MODEL_VERSION,
   TLI_V3_HORIZON_DAYS,
@@ -210,12 +210,7 @@ export async function snapshotThemePredictionsV3(input?: {
     }
   }
 
-  await batchUpsert(
-    'theme_predictions_v3',
-    rows.map(toThemePredictionV3Record),
-    'theme_id,prediction_date,horizon_days,model_version',
-    'theme_predictions_v3',
-  )
+  await upsertLegacyPredictionsV3(rows.map(toThemePredictionV3Record))
 
   return {
     championRows: snapshots.length,

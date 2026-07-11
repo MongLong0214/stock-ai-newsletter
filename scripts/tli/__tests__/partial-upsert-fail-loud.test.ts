@@ -114,8 +114,12 @@ describe('partial batch upsert fail-loud propagation', () => {
     collectionMocks.collectNaverNews.mockResolvedValue({
       metrics: [{ themeId: 'theme-1', date: '2026-03-20', articleCount: 7 }],
       articles: [],
+      report: { requested: 1, succeeded: 1, failed: 0, persistenceFailed: 0 },
     })
-    collectionMocks.collectNaverDatalab.mockResolvedValue([])
+    collectionMocks.collectNaverDatalab.mockResolvedValue({
+      metrics: [{ themeId: 'theme-1', date: '2026-03-20', rawValue: 7, normalized: 100 }],
+      report: { requested: 1, succeeded: 1, failed: 0, persistenceFailed: 0 },
+    })
     collectionMocks.collectNaverFinanceStocks.mockResolvedValue([])
     collectionMocks.upsertInterestMetrics.mockResolvedValue(0)
     collectionMocks.upsertNewsMetrics.mockResolvedValue(0)
@@ -157,6 +161,32 @@ describe('partial batch upsert fail-loud propagation', () => {
     const { collectDataSources } = await import('@/scripts/tli/batch/pipeline-steps')
 
     const result = await collectDataSources(themes, 'news-only', '2026-07-13')
+
+    expect(result.criticalFailures).toBe(1)
+  })
+
+  it('surfaces a DataLab collection report failure as critical and blocks analysis', async () => {
+    collectionMocks.collectNaverDatalab.mockResolvedValue({
+      metrics: [{ themeId: 'theme-1', date: '2026-03-20', rawValue: 7, normalized: 100 }],
+      report: { requested: 1, succeeded: 0, failed: 1, persistenceFailed: 0 },
+    })
+    const { collectDataSources } = await import('@/scripts/tli/batch/pipeline-steps')
+
+    const result = await collectDataSources(themes, 'full', '2026-03-21')
+
+    expect(result).toMatchObject({ criticalFailures: 1, datalabFailed: true })
+    expect(collectionMocks.upsertInterestMetrics).toHaveBeenCalledOnce()
+  })
+
+  it('surfaces a news collection report failure as critical', async () => {
+    collectionMocks.collectNaverNews.mockResolvedValue({
+      metrics: [],
+      articles: [],
+      report: { requested: 1, succeeded: 0, failed: 1, persistenceFailed: 1 },
+    })
+    const { collectDataSources } = await import('@/scripts/tli/batch/pipeline-steps')
+
+    const result = await collectDataSources(themes, 'news-only', '2026-03-20')
 
     expect(result.criticalFailures).toBe(1)
   })

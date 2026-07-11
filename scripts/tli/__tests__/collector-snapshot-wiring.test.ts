@@ -45,7 +45,6 @@ const mockFetchJson = (payload: unknown) =>
   vi.fn(async () => new Response(JSON.stringify(payload), { status: 200, headers: { 'content-type': 'application/json' } }))
 
 describe('DataLab collector → immutable snapshot 배선', () => {
-  const originalFetch = globalThis.fetch
   const window = forecastInterestRunWindow(BASE_DATE)
 
   beforeEach(() => {
@@ -58,18 +57,18 @@ describe('DataLab collector → immutable snapshot 배선', () => {
   })
 
   afterEach(() => {
-    globalThis.fetch = originalFetch
+    vi.unstubAllGlobals()
     vi.restoreAllMocks()
   })
 
   it('배치 API call마다 별도 immutable run을 append하고 성공한 배치만 cache metric으로 반환한다', async () => {
     const dates = getKoreanTradingDatesBetween({ startDate: '2026-06-15', endDate: '2026-06-19' })
-    globalThis.fetch = mockFetchJson({
+    vi.stubGlobal('fetch', mockFetchJson({
       results: [{ title: 'A', keywords: ['a'], data: datalabPoints(dates) }],
-    }) as unknown as typeof fetch
+    }))
 
     const { transport, calls } = makeTransport()
-    const metrics = await collectNaverDatalab(
+    const result = await collectNaverDatalab(
       [{ id: THEME_A, name: 'A', naverKeywords: ['a'] }],
       '2026-06-15',
       '2026-06-19',
@@ -81,14 +80,15 @@ describe('DataLab collector → immutable snapshot 배선', () => {
     expect(run.source).toBe('naver_datalab')
     expect(run.status).toBe('complete')
     expect(observations).toHaveLength(dates.length)
-    expect(metrics).toHaveLength(dates.length)
+    expect(result.metrics).toHaveLength(dates.length)
+    expect(result.report).toEqual({ requested: 1, succeeded: 1, failed: 0, persistenceFailed: 0 })
   })
 
   it('같은 API fixture를 두 번 수집하면 같은 response hash로 별도 run을 append한다 (overwrite 0)', async () => {
     const dates = getKoreanTradingDatesBetween({ startDate: '2026-06-15', endDate: '2026-06-19' })
-    globalThis.fetch = mockFetchJson({
+    vi.stubGlobal('fetch', mockFetchJson({
       results: [{ title: 'A', keywords: ['a'], data: datalabPoints(dates) }],
-    }) as unknown as typeof fetch
+    }))
 
     const { transport, calls } = makeTransport()
     const themes = [{ id: THEME_A, name: 'A', naverKeywords: ['a'] }]
@@ -105,29 +105,30 @@ describe('DataLab collector → immutable snapshot 배선', () => {
 
   it('snapshot transaction 실패 시 그 배치의 cache metric이 0이다', async () => {
     const dates = getKoreanTradingDatesBetween({ startDate: '2026-06-15', endDate: '2026-06-19' })
-    globalThis.fetch = mockFetchJson({
+    vi.stubGlobal('fetch', mockFetchJson({
       results: [{ title: 'A', keywords: ['a'], data: datalabPoints(dates) }],
-    }) as unknown as typeof fetch
+    }))
 
     const transport: CollectionRunTransport = async () => {
       throw new Error('deferred constraint trigger rejected the run')
     }
 
-    const metrics = await collectNaverDatalab(
+    const result = await collectNaverDatalab(
       [{ id: THEME_A, name: 'A', naverKeywords: ['a'] }],
       '2026-06-15',
       '2026-06-19',
       { transport },
     )
 
-    expect(metrics).toEqual([])
+    expect(result.metrics).toEqual([])
+    expect(result.report).toEqual({ requested: 1, succeeded: 0, failed: 1, persistenceFailed: 1 })
   })
 
   it('응답에 없는 테마가 있으면 partial run으로 기록한다 (complete 위장 금지)', async () => {
     const dates = getKoreanTradingDatesBetween({ startDate: '2026-06-15', endDate: '2026-06-19' })
-    globalThis.fetch = mockFetchJson({
+    vi.stubGlobal('fetch', mockFetchJson({
       results: [{ title: 'A', keywords: ['a'], data: datalabPoints(dates) }],
-    }) as unknown as typeof fetch
+    }))
 
     const { transport, calls } = makeTransport()
     await collectNaverDatalab(
@@ -146,17 +147,18 @@ describe('DataLab collector → immutable snapshot 배선', () => {
   })
 
   it('API 예외는 failed run으로 남기고 cache에 반영하지 않는다', async () => {
-    globalThis.fetch = vi.fn(async () => new Response('boom', { status: 500 })) as unknown as typeof fetch
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('boom', { status: 500 })))
 
     const { transport, calls } = makeTransport()
-    const metrics = await collectNaverDatalab(
+    const result = await collectNaverDatalab(
       [{ id: THEME_A, name: 'A', naverKeywords: ['a'] }],
       '2026-06-15',
       '2026-06-19',
       { transport },
     )
 
-    expect(metrics).toEqual([])
+    expect(result.metrics).toEqual([])
+    expect(result.report).toEqual({ requested: 1, succeeded: 0, failed: 1, persistenceFailed: 0 })
     expect(calls).toHaveLength(1)
     const { run, observations } = parse(calls[0])
     expect(run.status).toBe('failed')
@@ -165,9 +167,9 @@ describe('DataLab collector → immutable snapshot 배선', () => {
   })
 
   it('forecast interest run은 테마 dedicated single-group run이고 keyword_group_hash가 테마 hash와 같다', async () => {
-    globalThis.fetch = mockFetchJson({
+    vi.stubGlobal('fetch', mockFetchJson({
       results: [{ title: 'A', keywords: ['a'], data: datalabPoints(window.tradingDates) }],
-    }) as unknown as typeof fetch
+    }))
 
     const { transport, calls } = makeTransport()
     const report = await collectForecastInterestRuns(
@@ -176,7 +178,7 @@ describe('DataLab collector → immutable snapshot 배선', () => {
       { transport },
     )
 
-    expect(report).toEqual({ appended: 1, failed: 0 })
+    expect(report).toEqual({ requested: 1, succeeded: 1, failed: 0, persistenceFailed: 0 })
     const { run, observations } = parse(calls[0])
     expect(run.keyword_group_hash).toBe(
       keywordGroupSha256(resolveThemeKeywordGroup({ name: 'A', naverKeywords: ['a'] })),
@@ -190,8 +192,6 @@ describe('DataLab collector → immutable snapshot 배선', () => {
 })
 
 describe('news collector → explicit zero row 배선', () => {
-  const originalFetch = globalThis.fetch
-
   beforeEach(() => {
     process.env.NAVER_CLIENT_ID = 'id'
     process.env.NAVER_CLIENT_SECRET = 'secret'
@@ -201,15 +201,15 @@ describe('news collector → explicit zero row 배선', () => {
   })
 
   afterEach(() => {
-    globalThis.fetch = originalFetch
+    vi.unstubAllGlobals()
     vi.restoreAllMocks()
   })
 
   it('expected theme×date마다 0건도 명시적 row로 저장하고 cache는 관측 날짜만 유지한다', async () => {
-    globalThis.fetch = mockFetchJson({
+    vi.stubGlobal('fetch', mockFetchJson({
       total: 1,
       items: [{ title: 'HBM 신고가', link: 'https://x.com/1', originallink: 'https://x.com/1', description: '', pubDate: 'Wed, 10 Jun 2026 09:00:00 +0900' }],
-    }) as unknown as typeof fetch
+    }))
 
     const { transport, calls } = makeTransport()
     const result = await collectNaverNews(
@@ -232,7 +232,7 @@ describe('news collector → explicit zero row 배선', () => {
   })
 
   it('news query_hash가 interest keyword_group_sha256와 동일하다 (046 계약)', async () => {
-    globalThis.fetch = mockFetchJson({ total: 0, items: [] }) as unknown as typeof fetch
+    vi.stubGlobal('fetch', mockFetchJson({ total: 0, items: [] }))
 
     const { transport, calls } = makeTransport()
     await collectNaverNews([{ id: THEME_A, name: 'HBM', naverKeywords: ['HBM'] }], NEWS_START, NEWS_END, { transport })
@@ -244,7 +244,7 @@ describe('news collector → explicit zero row 배선', () => {
   })
 
   it('검색 실패는 missing(failed run, observation 0)이고 0건으로 위장하지 않으며 cache write가 0이다', async () => {
-    globalThis.fetch = vi.fn(async () => new Response('boom', { status: 500 })) as unknown as typeof fetch
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('boom', { status: 500 })))
 
     const { transport, calls } = makeTransport()
     const result = await collectNaverNews(
@@ -262,7 +262,7 @@ describe('news collector → explicit zero row 배선', () => {
   })
 
   it('snapshot append 실패 테마는 cache metric으로 전파되지 않는다', async () => {
-    globalThis.fetch = mockFetchJson({ total: 0, items: [] }) as unknown as typeof fetch
+    vi.stubGlobal('fetch', mockFetchJson({ total: 0, items: [] }))
 
     const transport: CollectionRunTransport = async () => {
       throw new Error('snapshot rejected')
@@ -320,7 +320,12 @@ describe('B-Abl collector provenance', () => {
 
   it('pool은 source prod run 값을 그대로 쓰고 study lock tuple만 필터한다', async () => {
     const { transport, calls } = makeTransport()
-    const loadSnapshots = vi.fn(async () => [snapshot()])
+    const loadSnapshots = vi.fn<(
+      input: {
+        readonly snapshotDate: string
+        readonly study: AttentionStudyContract
+      },
+    ) => Promise<ProdPhaseSnapshot[]>>(async () => [snapshot()])
 
     const report = await collectBablPhaseSnapshot('2026-06-22', {
       transport,
