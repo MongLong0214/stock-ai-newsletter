@@ -144,6 +144,7 @@ export const todo12LifecycleEvidenceSchema = todo12LifecycleReceiptSchema.extend
       z.literal('supabase/migrations/049_tli_experiment_cycles.sql'),
       z.literal('supabase/migrations/050_tli_collection_append_rpc_and_git_sha.sql'),
       z.literal('supabase/migrations/051_tli_fix_observation_trigger_binding.sql'),
+      z.literal('supabase/migrations/052_tli_abstain_sentinel_db_guard.sql'),
     ]),
   }),
   cleanup: z.object({
