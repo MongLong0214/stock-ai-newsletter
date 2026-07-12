@@ -58,6 +58,7 @@ export const TLI_BOUNDARY_MANIFEST: Record<string, TliFileCategory> = {
   'scripts/tli/features/supabase-confirmatory-query.ts': 'runtime',
   'scripts/tli/labels/label-gt-a.ts': 'runtime',
   'scripts/tli/labels/finalize-legacy-labels.ts': 'runtime',
+  'scripts/tli/labels/legacy-label-identities.ts': 'runtime',
   'scripts/tli/labels/finalize-gt-a-v2.ts': 'runtime',
   'scripts/tli/labels/gt-a-audit.ts': 'runtime',
   'scripts/tli/labels/label-gt-b.ts': 'runtime',

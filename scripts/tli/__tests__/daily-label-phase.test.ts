@@ -84,9 +84,10 @@ describe('daily label phase', () => {
     expect(generateGtA).toHaveBeenNthCalledWith(2, {
       baseDate: '2026-07-03',
       includeInactive: true,
+      missingOrPendingOnly: true,
       today: '2026-07-10',
     })
-    expect(generateGtB).toHaveBeenCalledWith('2026-07-03')
+    expect(generateGtB).toHaveBeenCalledWith('2026-07-03', { missingOrPendingOnly: true })
     expect(loadPendingBaseDates).toHaveBeenCalledWith({ labelType: 'gt_a', cutoffDate: '2026-07-03' })
     expect(loadPendingBaseDates).toHaveBeenCalledWith({ labelType: 'gt_b', cutoffDate: '2026-07-03' })
     expect(closeNonTradingPending).toHaveBeenCalledTimes(1)
@@ -96,35 +97,6 @@ describe('daily label phase', () => {
     expect(result.gtAFinalized[0].finalCount).toBe(1)
     expect(result.gtBFinalized).toHaveLength(1)
     expect(result.gtBFinalized[0].coverageRate).toBe(1)
-  })
-
-  it('skips GT-A pending creation on a non-trading day but still runs finalize and cleanup (Sunday scenario)', async () => {
-    const generateGtA = vi.fn().mockResolvedValue(emptyGtAResult)
-    const generateGtB = vi.fn().mockResolvedValue(emptyGtBResult)
-    const loadPendingBaseDates = vi.fn().mockResolvedValue([])
-    const closeNonTradingPending = vi.fn().mockResolvedValue(3)
-    const warn = vi.fn()
-
-    // 2026-07-05 is a Sunday (2026-07-06 is the Monday given as "today" in this session's context)
-    const result = await runDailyLabelPhase('2026-07-05', {
-      generateGtA,
-      generateGtB,
-      loadPendingBaseDates,
-      closeNonTradingPending,
-      warn,
-    })
-
-    // Only the finalize call happens (baseDate=cutoff); no pending-creation call for today.
-    expect(generateGtA).toHaveBeenCalledTimes(1)
-    expect(generateGtA).toHaveBeenCalledWith({
-      baseDate: getDailyLabelBaseDates('2026-07-05').finalizeCutoffDate,
-      includeInactive: true,
-      today: '2026-07-05',
-    })
-    expect(result.gtAPending).toBeNull()
-    expect(closeNonTradingPending).toHaveBeenCalledTimes(1)
-    expect(result.nonTradingPendingClosed).toBe(3)
-    expect(result.warningFailures).toBe(0)
   })
 
   it('retroactively finalizes an older still-pending base_date that failed to finalize two days ago', async () => {
@@ -157,7 +129,12 @@ describe('daily label phase', () => {
       includeInactive: true,
       today: '2026-07-10',
     })
-    expect(generateGtA).toHaveBeenNthCalledWith(3, { baseDate: cutoffDate, includeInactive: true, today: '2026-07-10' })
+    expect(generateGtA).toHaveBeenNthCalledWith(3, {
+      baseDate: cutoffDate,
+      includeInactive: true,
+      missingOrPendingOnly: true,
+      today: '2026-07-10',
+    })
     expect(result.gtAFinalized.map((r) => r.baseDate)).toEqual([staleBaseDate, cutoffDate])
     expect(result.warningFailures).toBe(0)
   })
@@ -205,7 +182,7 @@ describe('daily label phase', () => {
       warn,
     })
 
-    expect(generateGtB).toHaveBeenCalledWith(cutoffDate, { existingPendingOnly: true })
+    expect(generateGtB).toHaveBeenCalledWith(cutoffDate, { missingOrPendingOnly: true })
     expect(result.warningFailures).toBe(1)
     expect(warn).toHaveBeenCalledWith(
       `GT-B 만기 라벨 가격 부족으로 pending 유지 (base_date=${cutoffDate}, count=2)`,
@@ -230,10 +207,11 @@ describe('daily label phase', () => {
       warn: vi.fn(),
     })
 
-    expect(generateGtB.mock.calls).toEqual(gtBBaseDates.map((baseDate) => [
-      baseDate,
-      { existingPendingOnly: true },
-    ]))
+    expect(generateGtB.mock.calls).toEqual([
+      ['2026-06-19', { existingPendingOnly: true }],
+      ['2026-06-26', { existingPendingOnly: true }],
+      ['2026-07-03', { missingOrPendingOnly: true }],
+    ])
   })
 
   it('paginates past the 500-row scan limit to collect every pending base_date (F3)', async () => {
@@ -253,10 +231,12 @@ describe('daily label phase', () => {
 
     await loadPendingBaseDates({ labelType: 'gt_a', cutoffDate: '2026-07-03' })
     expect(supabaseAdminMocks.eq).toHaveBeenCalledWith('labeler_version', 'gta-v1')
+    expect(supabaseAdminMocks.eq).toHaveBeenCalledWith('horizon_days', 5)
 
     supabaseAdminMocks.eq.mockClear()
     await loadPendingBaseDates({ labelType: 'gt_b', cutoffDate: '2026-07-03' })
     expect(supabaseAdminMocks.eq).toHaveBeenCalledWith('labeler_version', 'gtb-v1')
+    expect(supabaseAdminMocks.eq).toHaveBeenCalledWith('horizon_days', 5)
   })
 
   it('keeps the fail-loud expired count global unless a diagnostic version is requested', async () => {

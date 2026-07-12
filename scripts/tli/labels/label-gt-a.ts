@@ -17,6 +17,10 @@ import {
   finalizeLegacyLabelRows,
   type LegacyLabelFinalizationRow,
 } from './finalize-legacy-labels'
+import {
+  loadLegacyLabelIdentities,
+  type LegacyLabelIdentityRow,
+} from './legacy-label-identities'
 
 interface ThemeRow {
   readonly id: string
@@ -36,12 +40,6 @@ interface StateHistoryRow {
   readonly effective_to: string | null
   readonly is_active: boolean
   readonly closed_at: string | null
-}
-
-interface PendingLabelRow {
-  readonly id: string
-  readonly theme_id: string
-  readonly keyword_epoch: number
 }
 
 export interface GtALabelGenerationResult {
@@ -102,26 +100,6 @@ const deactivatedBeforeHorizon = (
   && row.closed_at <= horizonDate
 )
 
-const loadPendingLabels = async (
-  themeIds: readonly string[],
-  baseDate: string,
-): Promise<Map<string, PendingLabelRow>> => {
-  // 읽기 실패가 excluded 라벨로 영구 박제되는 것을 막기 위해 라벨 런을 중단한다.
-  const rows = await batchQuery<PendingLabelRow>(
-    'theme_labels',
-    'id, theme_id, keyword_epoch',
-    [...themeIds],
-    (query) => query
-      .eq('base_date', baseDate)
-      .eq('label_type', 'gt_a')
-      .eq('labeler_version', GTA_LABELER_VERSION)
-      .eq('label_status', 'pending'),
-    'theme_id',
-    { failOnError: true },
-  )
-  return new Map(rows.map((row) => [row.theme_id, row]))
-}
-
 export function buildGtALabelRow(input: {
   readonly themeId: string
   readonly baseDate: string
@@ -178,6 +156,7 @@ async function loadThemes(includeInactive: boolean): Promise<ThemeRow[]> {
 export async function generateGtALabelsForBaseDate(input: {
   readonly baseDate: string
   readonly existingPendingOnly?: boolean
+  readonly missingOrPendingOnly?: boolean
   readonly includeInactive?: boolean
   readonly today?: string
 }): Promise<GtALabelGenerationResult> {
@@ -191,11 +170,27 @@ export async function generateGtALabelsForBaseDate(input: {
 
   const horizonDate = addKoreanTradingDays(baseDate, GTA_HORIZON_DAYS)
   const horizonElapsed = today >= horizonDate
-  const pendingByTheme = horizonElapsed
-    ? await loadPendingLabels(allThemeIds, baseDate)
-    : new Map<string, PendingLabelRow>()
+  const labelIdentities = horizonElapsed
+    ? await loadLegacyLabelIdentities({
+        themeIds: allThemeIds,
+        baseDate,
+        labelType: 'gt_a',
+        labelerVersion: GTA_LABELER_VERSION,
+        horizonDays: GTA_HORIZON_DAYS,
+        includeKeywordEpoch: true,
+        pendingOnly: !input.missingOrPendingOnly,
+      })
+    : new Map<string, LegacyLabelIdentityRow>()
+  const pendingByTheme = new Map(
+    [...labelIdentities].filter(([, row]) => row.label_status === 'pending'),
+  )
   const targetThemes = input.existingPendingOnly
     ? themes.filter((theme) => pendingByTheme.has(theme.id))
+    : input.missingOrPendingOnly
+      ? themes.filter((theme) => {
+          const identity = labelIdentities.get(theme.id)
+          return identity === undefined || identity.label_status === 'pending'
+        })
     : themes
   const themeIds = targetThemes.map((theme) => theme.id)
   if (themeIds.length === 0) {

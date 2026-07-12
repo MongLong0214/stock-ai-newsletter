@@ -151,4 +151,127 @@ describe('legacy label finalizer exact-match persistence', () => {
       }),
     ])
   })
+
+  it('retries only missing or pending GT-A identities without rewriting terminal rows', async () => {
+    const terminalThemeId = '54000000-0000-4000-8000-000000000003'
+    const missingThemeId = '54000000-0000-4000-8000-000000000004'
+    mocks.themes.push(
+      { id: terminalThemeId, is_active: true, keyword_epoch: 1 },
+      { id: missingThemeId, is_active: true, keyword_epoch: 1 },
+    )
+    const dates = [
+      '2026-06-29', '2026-06-30', '2026-07-01', '2026-07-02', '2026-07-03',
+      '2026-07-06', '2026-07-07', '2026-07-08', '2026-07-09', '2026-07-10',
+    ]
+    mocks.batchQuery.mockImplementation(async (
+      table: string,
+      _select: string,
+      _ids: string[],
+      filters?: (query: FilterQuery) => FilterQuery,
+    ) => {
+      if (table === 'theme_labels') {
+        filters?.(pendingFilter())
+        return [{
+          id: '54000001-0000-4000-8000-000000000003',
+          theme_id: terminalThemeId,
+          keyword_epoch: 1,
+          label_status: 'final',
+        }]
+      }
+      if (table === 'interest_metrics') {
+        return dates.map((time, index) => ({
+          theme_id: missingThemeId,
+          time,
+          raw_value: index < 5 ? 100 : 120,
+        }))
+      }
+      return []
+    })
+    const { generateGtALabelsForBaseDate } = await import('../labels/label-gt-a')
+
+    const result = await generateGtALabelsForBaseDate({
+      baseDate: '2026-07-03',
+      includeInactive: true,
+      missingOrPendingOnly: true,
+      today: '2026-07-10',
+    })
+
+    expect(result).toMatchObject({ totalThemes: 1, finalCount: 1 })
+    expect(mocks.filterEq).toHaveBeenCalledWith('horizon_days', 5)
+    expect(mocks.batchUpsert).toHaveBeenCalledWith(
+      'theme_labels',
+      [expect.objectContaining({ theme_id: missingThemeId, label_status: 'final' })],
+      expect.any(String),
+      'GT-A 라벨',
+    )
+    expect(mocks.finalizeLegacyLabelRows).toHaveBeenCalledWith([])
+  })
+
+  it('retries only missing or pending GT-B identities without rewriting terminal rows', async () => {
+    const terminalThemeId = '54000000-0000-4000-8000-000000000005'
+    const missingThemeId = '54000000-0000-4000-8000-000000000006'
+    const inactiveMissingThemeId = '54000000-0000-4000-8000-000000000007'
+    const inactivePendingThemeId = '54000000-0000-4000-8000-000000000008'
+    mocks.themes.push(
+      { id: terminalThemeId, is_active: true },
+      { id: missingThemeId, is_active: true },
+      { id: inactiveMissingThemeId, is_active: false },
+      { id: inactivePendingThemeId, is_active: false },
+    )
+    mocks.prices.push(
+      { symbol: '005930', trade_date: '2026-07-03', close: 100 },
+      { symbol: '005930', trade_date: '2026-07-10', close: 110 },
+      { symbol: 'KOSPI', trade_date: '2026-07-03', close: 3000 },
+      { symbol: 'KOSPI', trade_date: '2026-07-10', close: 3030 },
+    )
+    mocks.batchQuery.mockImplementation(async (
+      table: string,
+      _select: string,
+      _ids: string[],
+      filters?: (query: FilterQuery) => FilterQuery,
+    ) => {
+      if (table === 'theme_labels') {
+        filters?.(pendingFilter())
+        return [
+          {
+            id: '54000001-0000-4000-8000-000000000005',
+            theme_id: terminalThemeId,
+            label_status: 'final',
+          },
+          {
+            id: '54000001-0000-4000-8000-000000000008',
+            theme_id: inactivePendingThemeId,
+            label_status: 'pending',
+          },
+        ]
+      }
+      return [missingThemeId, inactivePendingThemeId].map((themeId) => ({
+        theme_id: themeId,
+        symbol: '005930',
+        relevance: 1,
+        is_active: true,
+      }))
+    })
+    const { generateGtBLabelsForBaseDate } = await import('../labels/label-gt-b')
+
+    const result = await generateGtBLabelsForBaseDate('2026-07-03', {
+      missingOrPendingOnly: true,
+    })
+
+    expect(result).toMatchObject({ totalThemes: 2, finalCount: 2 })
+    expect(mocks.filterEq).toHaveBeenCalledWith('horizon_days', 5)
+    expect(mocks.batchUpsert).toHaveBeenCalledWith(
+      'theme_labels',
+      [expect.objectContaining({ theme_id: missingThemeId, label_status: 'final' })],
+      expect.any(String),
+      'GT-B 라벨',
+    )
+    expect(mocks.finalizeLegacyLabelRows).toHaveBeenCalledWith([
+      expect.objectContaining({
+        id: '54000001-0000-4000-8000-000000000008',
+        theme_id: inactivePendingThemeId,
+        label_status: 'final',
+      }),
+    ])
+  })
 })

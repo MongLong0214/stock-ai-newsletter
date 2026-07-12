@@ -16,14 +16,14 @@ import {
   finalizeLegacyLabelRows,
   type LegacyLabelFinalizationRow,
 } from './finalize-legacy-labels'
+import {
+  loadLegacyLabelIdentities,
+  type LegacyLabelIdentityRow,
+} from './legacy-label-identities'
 
 interface ThemeRow {
   readonly id: string
-}
-
-interface PendingLabelRow {
-  readonly id: string
-  readonly theme_id: string
+  readonly is_active: boolean
 }
 
 interface PriceRow {
@@ -46,29 +46,13 @@ const priceKey = (symbol: string, tradeDate: string): string => `${symbol}|${tra
 async function loadThemeRows(includeInactive: boolean): Promise<ThemeRow[]> {
   let query = supabaseAdmin
     .from('themes')
-    .select('id')
+    .select('id, is_active')
 
   if (!includeInactive) query = query.eq('is_active', true)
 
   const { data, error } = await query
   if (error) throw new Error(`GT-B 테마 로딩 실패: ${error.message}`)
   return data ?? []
-}
-
-async function loadPendingLabels(themeIds: readonly string[], baseDate: string): Promise<Map<string, PendingLabelRow>> {
-  const rows = await batchQuery<PendingLabelRow>(
-    'theme_labels',
-    'id, theme_id',
-    [...themeIds],
-    (query) => query
-      .eq('base_date', baseDate)
-      .eq('label_type', 'gt_b')
-      .eq('labeler_version', GTB_LABELER_VERSION)
-      .eq('label_status', 'pending'),
-    'theme_id',
-    { failOnError: true },
-  )
-  return new Map(rows.map((row) => [row.theme_id, row]))
 }
 
 async function loadPriceRows(symbols: readonly string[], dates: readonly string[]): Promise<PriceRow[]> {
@@ -106,16 +90,37 @@ export function buildGtBLabelRow(input: {
 
 export async function generateGtBLabelsForBaseDate(
   baseDate: string,
-  input?: { readonly existingPendingOnly?: boolean },
+  input?: {
+    readonly existingPendingOnly?: boolean
+    readonly missingOrPendingOnly?: boolean
+  },
 ): Promise<GtBLabelGenerationResult> {
-  const themes = await loadThemeRows(input?.existingPendingOnly ?? false)
+  const includeInactive = (input?.existingPendingOnly ?? false)
+    || (input?.missingOrPendingOnly ?? false)
+  const themes = await loadThemeRows(includeInactive)
   const allThemeIds = themes.map((theme) => theme.id)
   if (allThemeIds.length === 0) {
     return { baseDate, totalThemes: 0, finalCount: 0, pendingCount: 0, excludedCount: 0, coverageRate: 0 }
   }
-  const pendingByTheme = await loadPendingLabels(allThemeIds, baseDate)
+  const labelIdentities = await loadLegacyLabelIdentities({
+    themeIds: allThemeIds,
+    baseDate,
+    labelType: 'gt_b',
+    labelerVersion: GTB_LABELER_VERSION,
+    horizonDays: GTB_HORIZON_DAYS,
+    pendingOnly: !input?.missingOrPendingOnly,
+  })
+  const pendingByTheme = new Map<string, LegacyLabelIdentityRow>(
+    [...labelIdentities].filter(([, row]) => row.label_status === 'pending'),
+  )
   const targetThemes = input?.existingPendingOnly
     ? themes.filter((theme) => pendingByTheme.has(theme.id))
+    : input?.missingOrPendingOnly
+      ? themes.filter((theme) => {
+          const identity = labelIdentities.get(theme.id)
+          return identity?.label_status === 'pending'
+            || (identity === undefined && theme.is_active)
+        })
     : themes
   const themeIds = targetThemes.map((theme) => theme.id)
   if (themeIds.length === 0) {

@@ -337,7 +337,7 @@
 
 #### 일일 (기존 cron에 추가, `tli-collect-data.yml` 확장)
 
-1. 라벨 확정: t-5 영업일의 pending 라벨에 raw_value/주가 결과 기입 → `final`
+1. 라벨 확정: 최근 완료 거래일 기준 t-5 영업일의 누락/pending 라벨에 raw_value/주가 결과 기입 → terminal(`final`/`censored`/`excluded`). 주말·휴장일은 먼저 직전 거래일에 anchor하고, 이미 terminal인 identity는 건너뛴다.
 2. 예측 스냅샷 채점: `theme_predictions_v3`의 만기 예측에 GT-A 실현값 기입
 3. 모니터링 적재: 일일 Brier/커버리지/abstain율 → `model_metrics_daily`
 4. **전 단계 fail-loud**: 실패 시 GH Issue 자동 생성 (`actions/github-script` — 기존 워크플로우의 이슈 알림 패턴 재사용, 발행 규칙은 §9 알림 소음 방지 정책 준수)
@@ -870,8 +870,8 @@ CREATE TABLE model_metrics_daily (
 
 #### T-107 [M] 일일 라벨 확정 잡 파이프라인 편입
 - **의존**: T-101
-- **작업**: `pipeline-steps.ts`에 Step 4.1 신설 (부록 G.4 접합점): ① 오늘 기준일 라벨 생성(pending) ② t−5영업일 pending 라벨에 실현값 기입 → `final`/`censored`/`excluded` 확정. full 모드에서만. 실패는 warning 분류 (라벨 지연은 다음 실행이 소급 처리 — `idx_theme_labels_pending` 인덱스 활용). `collect-and-score.ts` 결과 요약에 라벨 카운트 추가
-- **AC**: 파이프라인 2회 실행 시나리오 테스트에서 pending→final 전이 확인. 멱등성 (재실행 시 이중 확정 없음)
+- **작업**: `pipeline-steps.ts`에 Step 4.1 신설 (부록 G.4 접합점): ① 거래일이면 오늘 기준일 라벨 생성(pending) ② 최근 완료 거래일에서 5영업일 전인 cutoff의 누락/pending identity에 실현값 기입 → `final`/`censored`/`excluded` 확정. 주말·휴장일은 직전 거래일에 먼저 anchor해 labeler의 `base_date+5영업일` maturity와 대칭을 맞춘다. 현재 cutoff은 terminal identity를 건너뛰며 매 run 재시도하고, 더 오래된 pending 날짜는 `idx_theme_labels_pending` 페이지네이션으로 소급 처리한다. full 모드에서만 실행하고 실패는 warning으로 분류한다. `collect-and-score.ts` 결과 요약에 라벨 카운트 추가
+- **AC**: 금요일 확정 실패 → 일요일 동일 cutoff 복구 → 월요일 다음 cutoff 전진 시나리오에서 pending/누락→terminal 전이를 확인. 멱등성 (terminal identity 재확정 및 `finalized_at` 재기록 없음)
 - **테스트**: `scripts/tli/__tests__/label-finalize-step.test.ts` — mock supabase로 전이·멱등성
 
 ### Phase 2 — 베이스라인 + 평가 하네스 (7티켓)
@@ -1182,7 +1182,7 @@ labelGtA(theme, t):                       # t = KST 영업일
 | 삽입 위치 | 신규 단계 | 티켓 |
 |---|---|---|
 | Step 3 수집 직후 | Step 3.2: `stock_daily_prices` 일봉 적재 (T-008) | Phase 0 |
-| Step 4 점수 계산 후 | Step 4.1: GT 라벨 생성(t 기준 pending) + t-5 확정 잡 (T-101/107) | Phase 1 |
+| Step 4 점수 계산 후 | Step 4.1: 거래일 GT 라벨 생성(t 기준 pending) + 최근 완료 거래일 기준 t-5 누락/pending 확정 잡, terminal identity skip (T-101/107) | Phase 1 |
 | Step 6 예측 스냅샷 | **교체**: `theme_predictions_v3` 기록 (champion+challenger) (T-207) | Phase 2 |
 | Step 7 예측 평가 | **교체**: v3 채점(GT-A 실현값 기입) + `model_metrics_daily` (T-303) | Phase 3 |
 | Step 8 이후 | Step 8.5: 서킷브레이커 검사 (§5.7) | Phase 3 |
