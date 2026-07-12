@@ -2,6 +2,62 @@
   "newsletters": [
     {
       "type": "stock",
+      "date": "2026-07-13",
+      "stocks": [
+        {
+          "ticker": "KOSDAQ:240810",
+          "name": "원익IPS",
+          "close_price": 125000,
+          "rationale": "2026-07-10 종가 125,000원(+19.16%) 확인(daum.net, minsimnews.com)|당일 거래량 2,968,770주로 전일 대비 약 211% 급증(alphasquare.co.kr)|HBM 전용 증착 장비 국산화 및 삼성전자 초미세 라인 대전환 수혜(youtube.com/July 10 2026)|SMA 5일선이 20일선을 상향 돌파하는 단기 골든크로스 발생|RSI(14) 지표 65 수준으로 강세 국면 진입|MACD 오실레이터 1.99 기록하며 양전환 신호 포착|기관 및 외국인 투자자 동반 순매수 유입(minsimnews.com)|볼린저밴드 상단(128,000원) 돌파 시도로 변동성 확대|ADX 32 수치로 강력한 상승 추세 형성 시작|삼성전자 평택 4공장 및 SK하이닉스 M15X 장비 공급 모멘텀(kiwoom.com)|반도체 전공정 장비 섹터 내 기술적 대장주 지위 확보",
+          "signals": {
+            "trend_score": 88,
+            "momentum_score": 92,
+            "volume_score": 95,
+            "volatility_score": 78,
+            "pattern_score": 90,
+            "sentiment_score": 86,
+            "overall_score": 89
+          },
+          "verified_date": "2026-07-10"
+        },
+        {
+          "ticker": "KOSPI:272210",
+          "name": "한화시스템",
+          "close_price": 71700,
+          "rationale": "2026-07-10 종가 71,700원(+10.82%) 확인(investing.com, daum.net)|전일 종가 64,700원 대비 강력한 갭 상승 및 안착|2Q26 실적 프리뷰 호조 및 대신증권 목표주가 유지(hankyung.com)|30톤급 무인수상정 독자기술 리더십 확보 뉴스(investing.com)|주요 이동평균선(SMA 5, 10, 20) 완전 정배열 초입 단계|RSI 33(과매도) 구간에서 10일 급등으로 58까지 급격히 반등|거래량 860천주 기록하며 하락 추세 저항선 돌파(daum.net)|방산 및 우주항공 테마 내 기관 수급 유입 확인|Aroon Up 지표 100 도달하며 신고가 갱신 에너지 축적|SuperTrend 매수 신호 발생 및 지지선 상향 조정|나토 정상회의 관련 방산 수출 모멘텀 지속 기대",
+          "signals": {
+            "trend_score": 94,
+            "momentum_score": 85,
+            "volume_score": 76,
+            "volatility_score": 80,
+            "pattern_score": 85,
+            "sentiment_score": 82,
+            "overall_score": 85
+          },
+          "verified_date": "2026-07-10"
+        },
+        {
+          "ticker": "KOSPI:006400",
+          "name": "삼성SDI",
+          "close_price": 434000,
+          "rationale": "2026-07-10 종가 434,000원(+8.09%) 확인(google.finance, investing.com)|AI 배전망 ESS 사업 66% 물량 수주 낭보(minsimnews.com)|RSI 27 수준의 극심한 과매도 상태에서 V자 반등 성공|당일 거래량 481,770주로 평균 거래량 대비 활성화(investing.com)|SMA 20일선(420,575원)을 강력한 장대양봉으로 돌파|MACD 시그널선 골든크로스 발생 및 하락 오실레이터 축소|외국인 투자자 비율 26.59%로 수급 안정성 확보(minsimnews.com)|북미 LFP ESS 4분기 본격 가동 및 AMPC 기여 기대(samsungpop.com)|PBR 1.51배로 동일 업종 대비 저평가 매력 부각|2차전지 섹터 내 ESS 성장 모멘텀을 통한 차별화된 흐름|Parabolic SAR 지표 매수 전환 신호 발생",
+          "signals": {
+            "trend_score": 76,
+            "momentum_score": 74,
+            "volume_score": 88,
+            "volatility_score": 70,
+            "pattern_score": 75,
+            "sentiment_score": 78,
+            "overall_score": 77
+          },
+          "verified_date": "2026-07-10"
+        }
+      ],
+      "sentAt": "2026-07-12T23:12:15.718+00:00",
+      "subscriberCount": 296
+    },
+    {
+      "type": "stock",
       "date": "2026-07-10",
       "stocks": [
         {
@@ -9566,5 +9622,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-07-09T23:56:44.670Z"
+  "lastUpdated": "2026-07-12T23:12:51.005Z"
 }
