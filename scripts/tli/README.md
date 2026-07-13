@@ -64,6 +64,14 @@ To rehearse migrations 049-054, the unchanged scientific guards, and the 269 GT-
 scripts/tli/e2e/rehearse-migration-054.sh <prod-schema-through-048.sql>
 ```
 
+Migration 055 adds the guarded `theme_labels` TRUNCATE boundary and the atomic latest-public-cohort RPC. Rehearse it with the same snapshot before the low-risk deployment window:
+
+```bash
+env -u JWT_SECRET scripts/tli/e2e/rehearse-migration-055.sh <prod-schema-through-048.sql>
+```
+
+Apply migration 055 before deploying the prediction loader that calls `load_tli_latest_public_scientific_predictions_v3`.
+
 See [docs/tli-ops-runbook.md](/Users/isaac/WebstormProjects/stock-ai-newsletter/docs/tli-ops-runbook.md) for the operator-facing runbook.
 
 ### Anchor Stability Report

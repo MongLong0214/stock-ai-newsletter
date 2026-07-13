@@ -11,6 +11,7 @@ import {
   type ScratchPostgresReceipt,
 } from './scratch-postgres'
 import { todo12LifecycleEvidenceSchema } from './todo12-lifecycle-receipt'
+import { buildTodo12LifecycleSourceProvenance } from './todo12-lifecycle-source-provenance'
 
 interface LifecycleCliArgs {
   readonly prodSchemaPath: string
@@ -40,10 +41,13 @@ const parseArgs = (argv: readonly string[]): LifecycleCliArgs => {
 
 const buildEvidence = (
   scratchReceipt: ScratchPostgresReceipt,
+  gitCommitSha: string,
   execution: { readonly startedAt: string; readonly completedAt: string },
   cleanup: ReturnType<ScratchPostgres['cleanup']>,
 ) => todo12LifecycleEvidenceSchema.parse({
   ...scratchReceipt.lifecycleRehearsal,
+  rollbackBranches: scratchReceipt.rollbackBranches,
+  sourceProvenance: buildTodo12LifecycleSourceProvenance(gitCommitSha),
   execution: { ...execution, containerName: TLI_E2E_CONTAINER_NAME },
   postgres: {
     image: scratchReceipt.image,
@@ -77,6 +81,7 @@ export const runTodo12LifecycleRehearsal = async (argv: readonly string[]): Prom
   if (scratchReceipt === undefined) throw new Error('lifecycle rehearsal returned no scratch PostgreSQL receipt')
   const evidence = buildEvidence(
     scratchReceipt,
+    gitCommitSha,
     { startedAt, completedAt: new Date().toISOString() },
     cleanup,
   )

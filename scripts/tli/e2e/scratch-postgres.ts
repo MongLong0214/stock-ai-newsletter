@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs'
 import { TLI_E2E_CONTAINER_NAME, TLI_E2E_VOLUME_NAME } from './contracts'
 import type { CycleFreezeContract, StudyLockContract } from './cycle-freeze-contract'
 import { parsePostgresRehearsalReceipt, type Todo12LifecycleReceipt } from './todo12-lifecycle-receipt'
+import type { Todo12RollbackBranchReceipt } from './todo12-rollback-branch-receipt'
 
 const POSTGRES_IMAGE = 'postgres:17'
 const POSTGRES_READY_SENTINEL = 'PostgreSQL init process complete; ready for start up.'
@@ -78,6 +79,7 @@ export interface ScratchPostgresReceipt {
   readonly collectionAppendContract: 'separate_immutable_runs'
   readonly studyLockRehearsal: StudyLockReceipt
   readonly lifecycleRehearsal: Todo12LifecycleReceipt
+  readonly rollbackBranches: Todo12RollbackBranchReceipt
 }
 
 export interface ScratchCleanupReceipt {
@@ -253,6 +255,7 @@ export class ScratchPostgres {
       collectionAppendContract: 'separate_immutable_runs',
       studyLockRehearsal,
       lifecycleRehearsal: rehearsalReceipt.lifecycle,
+      rollbackBranches: rehearsalReceipt.rollbackBranches,
     }
   }
 

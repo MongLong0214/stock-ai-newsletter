@@ -7,6 +7,7 @@ import {
 } from '../collectors/collection-run-contract'
 import { buildCollectionRunAppendRequest } from '../collectors/collection-run-store'
 import { todo12LifecycleReceiptSchema } from './todo12-lifecycle-receipt'
+import { parseTodo12RollbackBranchReceipt } from './todo12-rollback-branch-receipt'
 
 const CONTAINER_NAME = process.argv[2] ?? 'tli-e2e-dryrun'
 const NEWS_THEME_ID = '15000000-0000-4000-8000-000000000001'
@@ -111,6 +112,7 @@ const lifecycleOutput = psql(readFileSync(
   'scripts/tli/e2e/sql/todo12-lifecycle-rehearsal.sql',
   'utf8',
 ))
+const rollbackBranches = parseTodo12RollbackBranchReceipt(lifecycleOutput)
 const lifecycleLine = lifecycleOutput.split('\n').at(-1)
 if (lifecycleLine === undefined) throw new TypeError('Todo 12 lifecycle rehearsal returned no receipt')
 let lifecycleValue: unknown
@@ -127,4 +129,5 @@ process.stdout.write(`${JSON.stringify({
   identicalPayloadContract: 'separate_immutable_runs',
   runCount: 3,
   lifecycle,
+  rollbackBranches: rollbackBranches,
 })}\n`)

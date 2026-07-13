@@ -1,5 +1,8 @@
 import { z } from 'zod'
 
+import { todo12RollbackBranchReceiptSchema } from './todo12-rollback-branch-receipt'
+import { todo12LifecycleSourceProvenanceSchema } from './todo12-lifecycle-source-provenance'
+
 export const lifecycleTransitionNames = [
   'draft',
   'freeze',
@@ -132,6 +135,8 @@ export const todo12LifecycleReceiptSchema = z.object({
 })
 
 export const todo12LifecycleEvidenceSchema = todo12LifecycleReceiptSchema.extend({
+  rollbackBranches: todo12RollbackBranchReceiptSchema,
+  sourceProvenance: todo12LifecycleSourceProvenanceSchema,
   execution: z.object({
     startedAt: z.iso.datetime(),
     completedAt: z.iso.datetime(),
@@ -165,6 +170,7 @@ const postgresRehearsalReceiptSchema = z.object({
   identicalPayloadContract: z.literal('separate_immutable_runs'),
   runCount: z.literal(3),
   lifecycle: todo12LifecycleReceiptSchema,
+  rollbackBranches: todo12RollbackBranchReceiptSchema,
 })
 
 export type Todo12LifecycleReceipt = z.infer<typeof todo12LifecycleReceiptSchema>

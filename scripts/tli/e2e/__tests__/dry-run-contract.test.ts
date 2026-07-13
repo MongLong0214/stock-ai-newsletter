@@ -14,6 +14,7 @@ import { runDryRunPipeline } from '../pipeline'
 import { ScratchPostgres, type CommandRunner } from '../scratch-postgres'
 import { buildTrainingFixtureData } from '../fixture-study-data'
 import { todo12LifecycleReceiptSchema } from '../todo12-lifecycle-receipt'
+import { buildTodo12RollbackBranchReceiptFixture } from './todo12-rollback-branch-receipt.fixture'
 
 const processResult = (stdout = '', status = 0): SpawnSyncReturns<string> => ({
   pid: 1,
@@ -81,6 +82,7 @@ const lifecycleReceipt = {
   },
   publicSwap: { oldChampionStatus: 'archived', candidateStatus: 'champion', candidateRelease: 'public' },
 }
+const rollbackBranches = buildTodo12RollbackBranchReceiptFixture()
 
 describe('Todo 15 dry-run public contract', () => {
   it('rejects duplicate lifecycle steps and mismatched rejection SQLSTATEs', () => {
@@ -156,6 +158,7 @@ describe('Todo 15 dry-run public contract', () => {
           identicalPayloadContract: 'separate_immutable_runs',
           runCount: 3,
           lifecycle: lifecycleReceipt,
+          rollbackBranches,
         })}\n`)
       }
       return args.includes('SHOW server_version;') ? processResult('17.5\n') : processResult()
@@ -171,6 +174,7 @@ describe('Todo 15 dry-run public contract', () => {
         positiveRehearsal: true,
         collectionAppendContract: 'separate_immutable_runs',
         lifecycleRehearsal: lifecycleReceipt,
+        rollbackBranches,
       })
       expect(receipt.migrations).toEqual([
         'supabase/migrations/049_tli_experiment_cycles.sql',

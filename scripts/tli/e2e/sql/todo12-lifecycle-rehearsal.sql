@@ -40,6 +40,12 @@ CREATE TEMP TABLE lifecycle_transaction_log (
   guards_reset BOOLEAN NOT NULL CHECK (guards_reset)
 );
 
+CREATE TEMP TABLE lifecycle_rollback_branch_log (
+  branch TEXT PRIMARY KEY,
+  observed JSONB NOT NULL,
+  verdict TEXT NOT NULL CHECK (verdict = 'pass')
+);
+
 CREATE OR REPLACE FUNCTION pg_temp.assert_rpc_guards_reset(
   p_stage_order INTEGER,
   p_stage TEXT
@@ -347,6 +353,179 @@ BEGIN
   RETURN v_result;
 END;
 $canary_evidence_array$;
+
+CREATE OR REPLACE FUNCTION pg_temp.canary_failure_evidence_envelope(
+  p_cycle_id UUID,
+  p_origin_id UUID
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+STABLE
+AS $canary_failure_evidence_envelope$
+DECLARE
+  v_origin public.tli_experiment_origin_manifests%ROWTYPE;
+  v_origin_date DATE;
+  v_payload JSONB;
+BEGIN
+  SELECT * INTO STRICT v_origin
+  FROM public.tli_experiment_origin_manifests
+  WHERE id = p_origin_id;
+  SELECT origin_date INTO STRICT v_origin_date
+  FROM public.tli_forecast_origin_manifests
+  WHERE id = v_origin.forecast_origin_manifest_id;
+  v_payload := jsonb_build_object(
+    'cycle_id', p_cycle_id::TEXT,
+    'experiment_origin_manifest_id', v_origin.id::TEXT,
+    'public_canary_no', v_origin.public_canary_no,
+    'gate_pass', false,
+    'probability_interval_completeness', 0.50,
+    'expected_universe_coverage', 1,
+    'critical_incident_count', 0,
+    'probability_invalid_count', 0,
+    'candidate_brier', 0.10,
+    'pooled_fixed_bin_ece', 0.05,
+    'pooled_ece_upper95', 0.08,
+    'bootstrap_replicates', 10000,
+    'ece_bins', 10,
+    'bootstrap_quantile_type', 7
+  );
+  RETURN pg_temp.evidence_envelope(
+    p_cycle_id,
+    'public_canary',
+    to_char(v_origin_date, 'YYYY-MM-DD'),
+    v_payload
+  );
+END;
+$canary_failure_evidence_envelope$;
+
+CREATE OR REPLACE FUNCTION pg_temp.monitoring_hold_evidence_envelope(
+  p_cycle_id UUID,
+  p_release_event_id UUID,
+  p_payload_cycle_id UUID,
+  p_payload_release_event_id UUID,
+  p_model_artifact_sha256 TEXT,
+  p_payload_reason_code TEXT
+)
+RETURNS JSONB
+LANGUAGE sql
+STABLE
+AS $monitoring_hold_evidence_envelope$
+  SELECT pg_temp.evidence_envelope(
+    p_cycle_id,
+    'monitoring_hold',
+    p_release_event_id::TEXT,
+    jsonb_build_object(
+      'cycle_id', p_payload_cycle_id::TEXT,
+      'release_event_id', p_payload_release_event_id::TEXT,
+      'model_version', 'todo12-live-m1-v1',
+      'model_artifact_sha256', p_model_artifact_sha256,
+      'reason_code', p_payload_reason_code
+    )
+  );
+$monitoring_hold_evidence_envelope$;
+
+CREATE OR REPLACE FUNCTION pg_temp.monitoring_resume_evidence_envelope(
+  p_cycle_id UUID,
+  p_release_event_id UUID,
+  p_hold_reason_code TEXT
+)
+RETURNS JSONB
+LANGUAGE sql
+STABLE
+AS $monitoring_resume_evidence_envelope$
+  SELECT pg_temp.evidence_envelope(
+    p_cycle_id,
+    'monitoring_resume',
+    p_release_event_id::TEXT,
+    jsonb_build_object(
+      'cycle_id', p_cycle_id::TEXT,
+      'release_event_id', p_release_event_id::TEXT,
+      'model_version', 'todo12-live-m1-v1',
+      'model_artifact_sha256', repeat('a', 64),
+      'hold_reason_code', p_hold_reason_code,
+      'verified_resolved', true
+    )
+  );
+$monitoring_resume_evidence_envelope$;
+
+CREATE OR REPLACE FUNCTION pg_temp.probe_monitoring_hold_rejection(p_mismatch TEXT)
+RETURNS JSONB
+LANGUAGE plpgsql
+AS $probe_monitoring_hold_rejection$
+DECLARE
+  v_cycle_id CONSTANT UUID := '12000012-0000-4000-8000-000000000012'::UUID;
+  v_release_event_id UUID;
+  v_payload_cycle_id UUID := v_cycle_id;
+  v_payload_release_event_id UUID;
+  v_model_artifact_sha256 TEXT := repeat('a', 64);
+  v_payload_reason_code TEXT := 'source_outage';
+  v_sqlstate TEXT;
+  v_message TEXT;
+  v_artifacts_before INTEGER;
+  v_events_before INTEGER;
+  v_state_unchanged BOOLEAN;
+BEGIN
+  v_release_event_id := pg_temp.fixture_uuid(8, CASE p_mismatch
+    WHEN 'cycle' THEN 11 WHEN 'event' THEN 12 WHEN 'hash' THEN 13 WHEN 'reason' THEN 14
+    ELSE 99 END);
+  v_payload_release_event_id := v_release_event_id;
+  CASE p_mismatch
+    WHEN 'cycle' THEN v_payload_cycle_id := pg_temp.fixture_uuid(8, 91);
+    WHEN 'event' THEN v_payload_release_event_id := pg_temp.fixture_uuid(8, 92);
+    WHEN 'hash' THEN v_model_artifact_sha256 := repeat('b', 64);
+    WHEN 'reason' THEN v_payload_reason_code := 'serving_incident';
+    ELSE RAISE EXCEPTION 'unsupported monitoring hold mismatch: %', p_mismatch;
+  END CASE;
+
+  SELECT count(*) INTO v_artifacts_before
+  FROM public.tli_evidence_artifacts
+  WHERE cycle_id = v_cycle_id AND artifact_type = 'monitoring_hold';
+  SELECT count(*) INTO v_events_before
+  FROM public.tli_model_release_events
+  WHERE cycle_id = v_cycle_id AND id = v_release_event_id;
+
+  BEGIN
+    PERFORM public.hold_tli_public_release(
+      v_cycle_id,
+      v_release_event_id,
+      'source_outage',
+      pg_temp.monitoring_hold_evidence_envelope(
+        v_cycle_id,
+        v_release_event_id,
+        v_payload_cycle_id,
+        v_payload_release_event_id,
+        v_model_artifact_sha256,
+        v_payload_reason_code
+      )
+    );
+    RAISE EXCEPTION 'monitoring hold mismatch unexpectedly succeeded';
+  EXCEPTION WHEN SQLSTATE '22023' THEN
+    GET STACKED DIAGNOSTICS v_sqlstate = RETURNED_SQLSTATE, v_message = MESSAGE_TEXT;
+  END;
+
+  SELECT registry.scientific_release_status = 'public'
+    AND registry.scientific_claim_reason = 'validated_public_release'
+    AND (SELECT count(*) FROM public.tli_evidence_artifacts
+         WHERE cycle_id = v_cycle_id AND artifact_type = 'monitoring_hold') = v_artifacts_before
+    AND (SELECT count(*) FROM public.tli_model_release_events
+         WHERE cycle_id = v_cycle_id AND id = v_release_event_id) = v_events_before
+  INTO STRICT v_state_unchanged
+  FROM public.model_registry AS registry
+  WHERE registry.experiment_cycle_id = v_cycle_id;
+  IF v_sqlstate IS DISTINCT FROM '22023' OR v_state_unchanged IS NOT TRUE THEN
+    RAISE EXCEPTION 'monitoring hold % mismatch rejection was not exact', p_mismatch;
+  END IF;
+
+  RETURN jsonb_build_object(
+    'mismatch', p_mismatch,
+    'rpc', 'hold_tli_public_release',
+    'expectedSqlstate', '22023',
+    'observedSqlstate', v_sqlstate,
+    'message', v_message,
+    'stateUnchanged', v_state_unchanged
+  );
+END;
+$probe_monitoring_hold_rejection$;
 
 INSERT INTO lifecycle_origin_fixture (
   ordinal, origin_date, forecast_id, study_origin_id,
@@ -991,6 +1170,102 @@ BEGIN
 END;
 $three_canary_release_probe$;
 
+DO $canary_failure_rollback_probe$
+DECLARE
+  v_cycle_id CONSTANT UUID := '12000012-0000-4000-8000-000000000012'::UUID;
+  v_origin_id UUID;
+  v_transient_cycle_status TEXT;
+  v_transient_candidate_status TEXT;
+  v_transient_candidate_release TEXT;
+  v_transient_artifact_count INTEGER;
+  v_transient_event_count INTEGER;
+  v_artifacts_before INTEGER;
+  v_events_before INTEGER;
+  v_restored BOOLEAN;
+  v_cycle_guard TEXT;
+  v_registry_guard TEXT;
+BEGIN
+  SELECT enrolled_id INTO STRICT v_origin_id
+  FROM lifecycle_origin_fixture
+  WHERE ordinal = 17;
+  SELECT count(*) INTO v_artifacts_before
+  FROM public.tli_evidence_artifacts
+  WHERE cycle_id = v_cycle_id AND artifact_type = 'public_canary';
+  SELECT count(*) INTO v_events_before
+  FROM public.tli_model_release_events
+  WHERE cycle_id = v_cycle_id AND reason_code = 'public_canary_failed';
+
+  BEGIN
+    PERFORM public.record_tli_canary_failure(
+      v_cycle_id,
+      v_origin_id,
+      pg_temp.canary_failure_evidence_envelope(v_cycle_id, v_origin_id)
+    );
+    SELECT status INTO STRICT v_transient_cycle_status
+    FROM public.tli_experiment_cycles WHERE id = v_cycle_id;
+    SELECT status, scientific_release_status
+    INTO STRICT v_transient_candidate_status, v_transient_candidate_release
+    FROM public.model_registry WHERE experiment_cycle_id = v_cycle_id;
+    SELECT count(*) INTO v_transient_artifact_count
+    FROM public.tli_evidence_artifacts
+    WHERE cycle_id = v_cycle_id AND artifact_type = 'public_canary';
+    SELECT count(*) INTO v_transient_event_count
+    FROM public.tli_model_release_events
+    WHERE cycle_id = v_cycle_id AND reason_code = 'public_canary_failed';
+    IF v_transient_cycle_status <> 'safety_hold'
+       OR v_transient_candidate_status <> 'archived'
+       OR v_transient_candidate_release <> 'blocked'
+       OR v_transient_artifact_count <> v_artifacts_before + 1
+       OR v_transient_event_count <> v_events_before + 1
+    THEN
+      RAISE EXCEPTION 'canary failure transient state was not exact';
+    END IF;
+    RAISE EXCEPTION 'rollback validated canary failure branch' USING ERRCODE = 'P0001';
+  EXCEPTION WHEN SQLSTATE 'P0001' THEN
+    IF SQLERRM <> 'rollback validated canary failure branch' THEN
+      RAISE;
+    END IF;
+  END;
+
+  v_cycle_guard := NULLIF(current_setting('tli.cycle_rpc', true), '');
+  v_registry_guard := NULLIF(current_setting('tli.cycle_registry_rpc', true), '');
+  SELECT cycle.status = 'promoted_internal'
+    AND registry.status = 'challenger'
+    AND registry.scientific_release_status = 'internal'
+    AND (SELECT count(*) FROM public.tli_evidence_artifacts
+         WHERE cycle_id = v_cycle_id AND artifact_type = 'public_canary') = v_artifacts_before
+    AND (SELECT count(*) FROM public.tli_model_release_events
+         WHERE cycle_id = v_cycle_id AND reason_code = 'public_canary_failed') = v_events_before
+    AND v_cycle_guard IS NULL
+    AND v_registry_guard IS NULL
+  INTO STRICT v_restored
+  FROM public.tli_experiment_cycles AS cycle
+  JOIN public.model_registry AS registry ON registry.experiment_cycle_id = cycle.id
+  WHERE cycle.id = v_cycle_id;
+  IF v_restored IS NOT TRUE THEN
+    RAISE EXCEPTION 'canary failure rollback did not restore the promoted internal branch';
+  END IF;
+
+  INSERT INTO lifecycle_rollback_branch_log VALUES (
+    'canary_failure',
+    jsonb_build_object(
+      'rpc', 'record_tli_canary_failure',
+      'transientCycleStatus', v_transient_cycle_status,
+      'transientCandidateStatus', v_transient_candidate_status,
+      'transientCandidateRelease', v_transient_candidate_release,
+      'evidenceCreated', v_transient_artifact_count = v_artifacts_before + 1,
+      'releaseEventCreated', v_transient_event_count = v_events_before + 1,
+      'transactionRolledBack', true,
+      'restoredCycleStatus', 'promoted_internal',
+      'restoredCandidateStatus', 'challenger',
+      'restoredCandidateRelease', 'internal',
+      'stateRestored', v_restored
+    ),
+    'pass'
+  );
+END;
+$canary_failure_rollback_probe$;
+
 COMMIT;
 BEGIN;
 SELECT pg_temp.assert_rpc_guards_reset(18, 'canary_enroll_fourth');
@@ -1119,6 +1394,205 @@ JOIN public.model_registry AS candidate_registry ON candidate_registry.experimen
 JOIN public.model_registry AS old_registry ON old_registry.model_version = 'todo12-live-legacy-champion-v1'
 WHERE cycle.id = '12000012-0000-4000-8000-000000000012'::UUID;
 
+INSERT INTO lifecycle_rollback_branch_log (branch, observed, verdict)
+SELECT 'hold_' || mismatch,
+       pg_temp.probe_monitoring_hold_rejection(mismatch),
+       'pass'
+FROM unnest(ARRAY['cycle','event','hash','reason']) AS mismatches(mismatch);
+
+DO $public_hold_probe$
+DECLARE
+  v_cycle_id CONSTANT UUID := '12000012-0000-4000-8000-000000000012'::UUID;
+  v_release_event_id UUID := pg_temp.fixture_uuid(8, 21);
+  v_cycle_status TEXT;
+  v_candidate_status TEXT;
+  v_candidate_release TEXT;
+  v_claim_reason TEXT;
+  v_public_view_count INTEGER;
+  v_artifact_count INTEGER;
+  v_event_count INTEGER;
+BEGIN
+  PERFORM public.hold_tli_public_release(
+    v_cycle_id,
+    v_release_event_id,
+    'source_outage',
+    pg_temp.monitoring_hold_evidence_envelope(
+      v_cycle_id,
+      v_release_event_id,
+      v_cycle_id,
+      v_release_event_id,
+      repeat('a', 64),
+      'source_outage'
+    )
+  );
+  SELECT cycle.status, registry.status, registry.scientific_release_status,
+         registry.scientific_claim_reason
+  INTO STRICT v_cycle_status, v_candidate_status, v_candidate_release, v_claim_reason
+  FROM public.tli_experiment_cycles AS cycle
+  JOIN public.model_registry AS registry ON registry.experiment_cycle_id = cycle.id
+  WHERE cycle.id = v_cycle_id;
+  SELECT count(*) INTO v_public_view_count
+  FROM public.tli_public_scientific_predictions_v3;
+  SELECT count(*) INTO v_artifact_count
+  FROM public.tli_evidence_artifacts
+  WHERE cycle_id = v_cycle_id
+    AND artifact_type = 'monitoring_hold'
+    AND artifact_key = v_release_event_id::TEXT;
+  SELECT count(*) INTO v_event_count
+  FROM public.tli_model_release_events
+  WHERE cycle_id = v_cycle_id AND id = v_release_event_id;
+  IF v_cycle_status <> 'public_approved'
+     OR v_candidate_status <> 'champion'
+     OR v_candidate_release <> 'blocked'
+     OR v_claim_reason <> 'monitoring_hold:source_outage'
+     OR v_public_view_count <> 0
+     OR v_artifact_count <> 1
+     OR v_event_count <> 1
+  THEN
+    RAISE EXCEPTION 'public hold branch was not exact';
+  END IF;
+  INSERT INTO lifecycle_rollback_branch_log VALUES (
+    'public_hold',
+    jsonb_build_object(
+      'rpc', 'hold_tli_public_release',
+      'releaseEventId', v_release_event_id,
+      'cycleStatus', v_cycle_status,
+      'candidateStatus', v_candidate_status,
+      'candidateRelease', v_candidate_release,
+      'claimReason', v_claim_reason,
+      'publicViewCount', v_public_view_count,
+      'evidenceCreated', v_artifact_count = 1,
+      'releaseEventCreated', v_event_count = 1
+    ),
+    'pass'
+  );
+END;
+$public_hold_probe$;
+
+DO $resume_non_allowlisted_probe$
+DECLARE
+  v_cycle_id CONSTANT UUID := '12000012-0000-4000-8000-000000000012'::UUID;
+  v_release_event_id UUID := pg_temp.fixture_uuid(8, 31);
+  v_sqlstate TEXT;
+  v_message TEXT;
+  v_artifacts_before INTEGER;
+  v_events_before INTEGER;
+  v_state_unchanged BOOLEAN;
+BEGIN
+  SELECT count(*) INTO v_artifacts_before
+  FROM public.tli_evidence_artifacts
+  WHERE cycle_id = v_cycle_id AND artifact_type = 'monitoring_resume';
+  SELECT count(*) INTO v_events_before
+  FROM public.tli_model_release_events
+  WHERE cycle_id = v_cycle_id AND id = v_release_event_id;
+  BEGIN
+    PERFORM public.resume_tli_public_release(
+      v_cycle_id,
+      v_release_event_id,
+      'quality_regression',
+      pg_temp.monitoring_resume_evidence_envelope(
+        v_cycle_id,
+        v_release_event_id,
+        'quality_regression'
+      )
+    );
+    RAISE EXCEPTION 'non-allowlisted monitoring resume unexpectedly succeeded';
+  EXCEPTION WHEN SQLSTATE '22023' THEN
+    GET STACKED DIAGNOSTICS v_sqlstate = RETURNED_SQLSTATE, v_message = MESSAGE_TEXT;
+  END;
+  SELECT scientific_release_status = 'blocked'
+    AND scientific_claim_reason = 'monitoring_hold:source_outage'
+    AND (SELECT count(*) FROM public.tli_evidence_artifacts
+         WHERE cycle_id = v_cycle_id AND artifact_type = 'monitoring_resume') = v_artifacts_before
+    AND (SELECT count(*) FROM public.tli_model_release_events
+         WHERE cycle_id = v_cycle_id AND id = v_release_event_id) = v_events_before
+  INTO STRICT v_state_unchanged
+  FROM public.model_registry
+  WHERE experiment_cycle_id = v_cycle_id;
+  IF v_sqlstate IS DISTINCT FROM '22023' OR v_state_unchanged IS NOT TRUE THEN
+    RAISE EXCEPTION 'non-allowlisted monitoring resume rejection was not exact';
+  END IF;
+  INSERT INTO lifecycle_rollback_branch_log VALUES (
+    'resume_non_allowlisted_reason',
+    jsonb_build_object(
+      'probe', 'non_allowlisted_reason',
+      'rpc', 'resume_tli_public_release',
+      'expectedSqlstate', '22023',
+      'observedSqlstate', v_sqlstate,
+      'message', v_message,
+      'stateUnchanged', v_state_unchanged
+    ),
+    'pass'
+  );
+END;
+$resume_non_allowlisted_probe$;
+
+DO $public_resume_probe$
+DECLARE
+  v_cycle_id CONSTANT UUID := '12000012-0000-4000-8000-000000000012'::UUID;
+  v_release_event_id UUID := pg_temp.fixture_uuid(8, 22);
+  v_cycle_status TEXT;
+  v_candidate_status TEXT;
+  v_candidate_release TEXT;
+  v_claim_reason TEXT;
+  v_public_view_count INTEGER;
+  v_artifact_count INTEGER;
+  v_event_count INTEGER;
+BEGIN
+  PERFORM public.resume_tli_public_release(
+    v_cycle_id,
+    v_release_event_id,
+    'source_outage',
+    pg_temp.monitoring_resume_evidence_envelope(
+      v_cycle_id,
+      v_release_event_id,
+      'source_outage'
+    )
+  );
+  SELECT cycle.status, registry.status, registry.scientific_release_status,
+         registry.scientific_claim_reason
+  INTO STRICT v_cycle_status, v_candidate_status, v_candidate_release, v_claim_reason
+  FROM public.tli_experiment_cycles AS cycle
+  JOIN public.model_registry AS registry ON registry.experiment_cycle_id = cycle.id
+  WHERE cycle.id = v_cycle_id;
+  SELECT count(*) INTO v_public_view_count
+  FROM public.tli_public_scientific_predictions_v3;
+  SELECT count(*) INTO v_artifact_count
+  FROM public.tli_evidence_artifacts
+  WHERE cycle_id = v_cycle_id
+    AND artifact_type = 'monitoring_resume'
+    AND artifact_key = v_release_event_id::TEXT;
+  SELECT count(*) INTO v_event_count
+  FROM public.tli_model_release_events
+  WHERE cycle_id = v_cycle_id AND id = v_release_event_id;
+  IF v_cycle_status <> 'public_approved'
+     OR v_candidate_status <> 'champion'
+     OR v_candidate_release <> 'public'
+     OR v_claim_reason <> 'monitoring_resume_verified'
+     OR v_public_view_count <> 20
+     OR v_artifact_count <> 1
+     OR v_event_count <> 1
+  THEN
+    RAISE EXCEPTION 'public resume branch was not exact';
+  END IF;
+  INSERT INTO lifecycle_rollback_branch_log VALUES (
+    'public_resume',
+    jsonb_build_object(
+      'rpc', 'resume_tli_public_release',
+      'releaseEventId', v_release_event_id,
+      'cycleStatus', v_cycle_status,
+      'candidateStatus', v_candidate_status,
+      'candidateRelease', v_candidate_release,
+      'claimReason', v_claim_reason,
+      'publicViewCount', v_public_view_count,
+      'evidenceCreated', v_artifact_count = 1,
+      'releaseEventCreated', v_event_count = 1
+    ),
+    'pass'
+  );
+END;
+$public_resume_probe$;
+
 COMMIT;
 BEGIN;
 SELECT pg_temp.assert_rpc_guards_reset(23, 'final_invariants');
@@ -1133,6 +1607,7 @@ DECLARE
   v_predictions INTEGER;
   v_finalizations INTEGER;
   v_guard_reset_checks INTEGER;
+  v_rollback_branch_count INTEGER;
 BEGIN
   SELECT count(*) INTO v_transition_count FROM lifecycle_transition_log;
   SELECT count(*) INTO v_rejection_count FROM lifecycle_rejection_log;
@@ -1150,10 +1625,12 @@ BEGIN
   FROM public.theme_predictions_v3
   WHERE experiment_cycle_id = '12000012-0000-4000-8000-000000000012'::UUID;
   SELECT count(*) INTO v_guard_reset_checks FROM lifecycle_transaction_log;
+  SELECT count(*) INTO v_rollback_branch_count FROM lifecycle_rollback_branch_log;
 
   IF v_transition_count <> 15
      OR v_rejection_count <> 3
      OR v_guard_reset_checks <> 23
+     OR v_rollback_branch_count <> 8
      OR v_confirmatory <> 16
      OR v_canaries <> 4
      OR v_attestations <> 20
@@ -1182,6 +1659,36 @@ END;
 $final_invariants$;
 
 COMMIT;
+
+SELECT jsonb_build_object(
+  'receiptVersion', 'todo12-rollback-branches-v1',
+  'status', 'pass',
+  'cycleId', '12000012-0000-4000-8000-000000000012',
+  'canaryFailure', (
+    SELECT observed FROM lifecycle_rollback_branch_log WHERE branch = 'canary_failure'
+  ),
+  'holdRejections', (
+    SELECT jsonb_agg(observed ORDER BY CASE branch
+      WHEN 'hold_cycle' THEN 1
+      WHEN 'hold_event' THEN 2
+      WHEN 'hold_hash' THEN 3
+      ELSE 4
+    END)
+    FROM lifecycle_rollback_branch_log
+    WHERE branch IN ('hold_cycle','hold_event','hold_hash','hold_reason')
+  ),
+  'publicHold', (
+    SELECT observed FROM lifecycle_rollback_branch_log WHERE branch = 'public_hold'
+  ),
+  'resumeRejection', (
+    SELECT observed
+    FROM lifecycle_rollback_branch_log
+    WHERE branch = 'resume_non_allowlisted_reason'
+  ),
+  'publicResume', (
+    SELECT observed FROM lifecycle_rollback_branch_log WHERE branch = 'public_resume'
+  )
+)::TEXT;
 
 SELECT jsonb_build_object(
   'receiptVersion', 'todo12-lifecycle-rehearsal-v1',
