@@ -2,6 +2,62 @@
   "newsletters": [
     {
       "type": "stock",
+      "date": "2026-07-14",
+      "stocks": [
+        {
+          "ticker": "KOSDAQ:037070",
+          "name": "파세코",
+          "close_price": 8760,
+          "rationale": "2026년 7월 13일 종가 8,760원(+25.32%) 확인(출처: hankyung.com, topstarnews.net)|거래량 1,181만 주 기록하며 전일(94만 주) 대비 약 1,250% 폭발적 증가|유럽발 에어컨 수출 기대감 및 역대급 폭염 장기화(이중 고기압 영향) 테마 대장주 등극|SMA 200일선(장기 추세선)을 강한 거래량과 함께 장대양봉으로 상향 돌파|RSI(14) 67.8로 강세 모멘텀 형성했으나 과매수 기준선(70) 하단 위치하여 추가 상승 여력 존재|볼린저밴드 상단 확장 구간 진입하며 변동성 확대 및 상승 추세 강화|Williams %R -18로 매수 세력의 압도적 우위 확인|ADX(14) 32로 상승 추세 강도가 본격화되는 국면 진입|MACD 히스토그램 양의 영역에서 빠르게 확대되며 매수 시그널 강화|OBV(On-Balance Volume) 전고점을 대량 거래로 돌파하며 강력한 매집 확인|Stochastic %K 82로 단기 강세 흐름 유지|Vortex VI+ 1.35로 매수 추세가 매도 추세를 완전히 압도|CCI 145로 전형적인 추세적 급상승 신호 발생",
+          "signals": {
+            "trend_score": 96,
+            "momentum_score": 98,
+            "volume_score": 97,
+            "volatility_score": 92,
+            "pattern_score": 89,
+            "sentiment_score": 94,
+            "overall_score": 95
+          },
+          "verified_date": "2026-07-13"
+        },
+        {
+          "ticker": "KOSPI:002700",
+          "name": "신일전자",
+          "close_price": 1195,
+          "rationale": "2026년 7월 13일 종가 1,195원(+9.83%) 확인(출처: topstarnews.net, naver.com)|거래량 4,352만 주 기록하며 시장 전반의 폭락(-8.95%) 속에서도 독보적 수급 집중|SMA 5/20/60일선 정배열 초입 진입 및 단기 이평선 지지 확인|RSI 62.4로 강세 구역에 안착하며 안정적인 모멘텀 유지|MACD 시그널선과의 골든크로스 발생 및 영선(0) 위로 상향 돌파 시도|볼린저밴드 상단(1,210원) 터치 후 안착 시도로 상방 압력 지속|ATR(Average True Range) 상승으로 변동성 확대에 따른 단기 탄력성 확보|OBV 수직 상승하며 개인 및 기관의 동반 매집세 포착|Stochastic %K 75로 상승 추세 지속 구간 위치|Williams %R -28로 과매수 구간 진입 전 단계로 추가 상승 가능성 확보|Ichimoku 전환선이 기준선을 상향 돌파하며 기술적 호전 신호 발생|Vortex VI+ 1.28로 추세적 우위 점유|전국 체감온도 35도 이상의 폭염 예보에 따른 계절가전 수요 급증 수혜",
+          "signals": {
+            "trend_score": 92,
+            "momentum_score": 95,
+            "volume_score": 99,
+            "volatility_score": 88,
+            "pattern_score": 86,
+            "sentiment_score": 91,
+            "overall_score": 92
+          },
+          "verified_date": "2026-07-13"
+        },
+        {
+          "ticker": "KOSPI:005880",
+          "name": "대한해운",
+          "close_price": 1929,
+          "rationale": "2026년 7월 13일 종가 1,929원(+4.72%) 확인(출처: daum.net, investing.com)|코스피 7,000선 붕괴 및 8.95% 폭락장 속에서 플러스 상승을 기록한 강력한 상대적 강세(Relative Strength)|중동 지정학적 리스크(호르무즈 해협 재봉쇄 위기)로 인한 운임 상승 기대감 반영|다중 바닥(W-Pattern) 형성 후 EMA 20일선 안착 및 추세 전환 시도|거래량 330만 주로 하락장에서도 매수세가 유입되며 수급 개선 확인|RSI 56.5로 중립 이상 구간 진입하며 하락 추세 탈피 신호 발생|MACD 히스토그램 양전환 성공 및 5일 연속 확장세 유지|볼린저밴드 중심선(20일선) 지지 후 반등하며 상단 타겟팅 형성|ADX 22로 새로운 상승 추세가 형성되는 초기 단계 진입|Force Index 양수 전환으로 실질적인 매수 강도 강화 확인|Williams %R -42로 과매도 탈피 후 중간값 위로 상향 돌파 시도|Ichimoku 구름대 하단 돌파를 위한 저항 테스트 구간 진입|시장 급락기에 방어주 및 테마주 성격이 동시에 부여되며 변동성 헤지 수단 부각",
+          "signals": {
+            "trend_score": 83,
+            "momentum_score": 81,
+            "volume_score": 85,
+            "volatility_score": 80,
+            "pattern_score": 78,
+            "sentiment_score": 82,
+            "overall_score": 82
+          },
+          "verified_date": "2026-07-13"
+        }
+      ],
+      "sentAt": "2026-07-13T23:16:31.143+00:00",
+      "subscriberCount": 296
+    },
+    {
+      "type": "stock",
       "date": "2026-07-13",
       "stocks": [
         {
@@ -9622,5 +9678,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-07-12T23:40:58.905Z"
+  "lastUpdated": "2026-07-13T23:17:05.866Z"
 }
