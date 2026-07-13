@@ -75,25 +75,25 @@ function prediction(overrides: Partial<PredictionRow> = {}): PredictionRow {
 }
 
 function createClient(fixture: ClientFixture) {
-  const filters: Record<string, string> = {}
-  const predictionQuery = { select: vi.fn(), eq: vi.fn(), order: vi.fn() }
-  predictionQuery.select.mockReturnValue(predictionQuery)
-  predictionQuery.eq.mockImplementation((column: string, value: string) => {
-    filters[column] = value
-    return predictionQuery
-  })
-  predictionQuery.order.mockImplementation(async () => {
+  const rpc = vi.fn(async (_name: string, args: { readonly p_theme_id: string | null }) => {
     const registry = fixture.registryRow
     const isPublic = registry?.experiment_cycle_id !== null
       && registry?.status === 'champion'
       && registry.scientific_claim_status === 'eligible'
       && registry.scientific_release_status === 'public'
+    const scopedRows = isPublic ? (fixture.predictions ?? []).filter((row) =>
+      row.experiment_cycle_id === registry.experiment_cycle_id
+      && row.model_version === registry.model_version
+      && row.scientific_prediction_role === 'candidate'
+      && (args.p_theme_id === null || row.theme_id === args.p_theme_id)) : []
+    const latestDate = scopedRows.reduce<string | null>(
+      (latest, row) => latest === null || row.prediction_date > latest
+        ? row.prediction_date
+        : latest,
+      null,
+    )
     return {
-      data: isPublic ? (fixture.predictions ?? []).filter((row) =>
-        row.experiment_cycle_id === registry.experiment_cycle_id
-        && row.model_version === registry.model_version
-        && row.scientific_prediction_role === 'candidate'
-        && (filters.theme_id === undefined || row.theme_id === filters.theme_id)) : [],
+      data: scopedRows.filter((row) => row.prediction_date === latestDate),
       error: fixture.predictionError ?? null,
     }
   })
@@ -107,13 +107,12 @@ function createClient(fixture: ClientFixture) {
 
   const from = vi.fn((table: string) => {
     switch (table) {
-      case 'tli_public_scientific_predictions_v3': return predictionQuery
       case 'themes': return themeQuery
       default: throw new Error(`unexpected table: ${table}`)
     }
   })
 
-  return { client: { from }, from, predictionQuery, themeQuery }
+  return { client: { from, rpc }, from, rpc, themeQuery }
 }
 
 describe('TLI prediction scientific cycle loader', () => {
@@ -140,13 +139,15 @@ describe('TLI prediction scientific cycle loader', () => {
       scientific_claim_status: 'unvalidated' as const, scientific_release_status: 'blocked' as const,
     }],
   ])('fails closed for %s', async (_name, registryRow) => {
-    const { client, from } = createClient({ registryRow })
+    const { client, from, rpc } = createClient({ registryRow })
     loaderMocks.getServerSupabaseClient.mockReturnValue(client)
 
     const result = await loadPredictionResponse({ phaseFilter: null, themeId: null })
 
-    expect(from).toHaveBeenCalledTimes(1)
-    expect(from).toHaveBeenCalledWith('tli_public_scientific_predictions_v3')
+    expect(rpc).toHaveBeenCalledWith(
+      'load_tli_latest_public_scientific_predictions_v3', { p_theme_id: null },
+    )
+    expect(from).not.toHaveBeenCalled()
     expect(result).toMatchObject({ dataSource: 'none', themes: [] })
   })
 
@@ -157,7 +158,7 @@ describe('TLI prediction scientific cycle loader', () => {
       prediction({ scientific_prediction_role: 'comparator', p_rise: 0.01 }),
       prediction({ model_version: 'm1-stale', p_rise: 0.98 }),
     ]
-    const { client, predictionQuery } = createClient({
+    const { client, rpc } = createClient({
       registryRow: PUBLIC_REGISTRY,
       predictions: rows,
     })
@@ -165,8 +166,9 @@ describe('TLI prediction scientific cycle loader', () => {
 
     const result = await loadPredictionResponse({ phaseFilter: null, themeId: null })
 
-    expect(predictionQuery.eq).not.toHaveBeenCalled()
-    expect(predictionQuery.eq).not.toHaveBeenCalledWith('serving_role', 'champion')
+    expect(rpc).toHaveBeenCalledWith(
+      'load_tli_latest_public_scientific_predictions_v3', { p_theme_id: null },
+    )
     expect(result).toMatchObject({
       dataSource: 'theme_predictions_v3',
       themes: [{
@@ -177,7 +179,7 @@ describe('TLI prediction scientific cycle loader', () => {
     expect(result.themes).toHaveLength(1)
   })
 
-  it('returns only the latest prediction-date cohort from the atomic exact view query', async () => {
+  it('returns only the latest prediction-date cohort from the atomic RPC query', async () => {
     const { client } = createClient({
       registryRow: PUBLIC_REGISTRY,
       predictions: [
@@ -195,7 +197,7 @@ describe('TLI prediction scientific cycle loader', () => {
   })
 
   it('applies exact theme and derived phase filters without cross-theme leakage', async () => {
-    const { client, predictionQuery } = createClient({
+    const { client, rpc } = createClient({
       registryRow: PUBLIC_REGISTRY,
       predictions: [prediction(), prediction({ theme_id: OTHER_THEME, p_rise: 0.2 })],
     })
@@ -203,7 +205,9 @@ describe('TLI prediction scientific cycle loader', () => {
 
     const result = await loadPredictionResponse({ phaseFilter: 'rising', themeId: THEME })
 
-    expect(predictionQuery.eq).toHaveBeenCalledWith('theme_id', THEME)
+    expect(rpc).toHaveBeenCalledWith(
+      'load_tli_latest_public_scientific_predictions_v3', { p_theme_id: THEME },
+    )
     expect(result.phase).toBe('rising')
     expect(result.themes.map((item) => item.themeId)).toEqual([THEME])
   })

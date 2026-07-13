@@ -28,26 +28,16 @@ export async function loadPredictionResponse(
   }
 
   const client = getServerSupabaseClient()
-  const predictionQuery = client
-    .from('tli_public_scientific_predictions_v3')
-    .select('theme_id, prediction_date, p_rise, ci_lower, ci_upper, abstain, abstain_reasons, model_version')
-  const scopedPredictionQuery = input.themeId
-    ? predictionQuery.eq('theme_id', input.themeId)
-    : predictionQuery
-  const { data: predictionData, error: predictionError } = await scopedPredictionQuery
-    .order('prediction_date', { ascending: false })
+  const { data: predictionData, error: predictionError } = await client.rpc(
+    'load_tli_latest_public_scientific_predictions_v3',
+    { p_theme_id: input.themeId },
+  )
   if (predictionError) throw predictionError
 
-  const allPredictionRows = parsePredictionV3DbRows(predictionData ?? [])
-  if (allPredictionRows.length === 0) {
+  const predictionRows = parsePredictionV3DbRows(predictionData ?? [])
+  if (predictionRows.length === 0) {
     return emptyResponse(input.phaseFilter, 'Prediction data not yet available.')
   }
-
-  const latestPredictionDate = allPredictionRows.reduce(
-    (latest, row) => row.prediction_date > latest ? row.prediction_date : latest,
-    allPredictionRows[0].prediction_date,
-  )
-  const predictionRows = allPredictionRows.filter((row) => row.prediction_date === latestPredictionDate)
 
   const themeIds = [...new Set(predictionRows.map((row) => row.theme_id))]
   const [themeResult, metrics] = await Promise.all([
