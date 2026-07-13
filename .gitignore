@@ -104,3 +104,6 @@ mcp/.serena/memories/
 __pycache__/
 *.pyc
 .pnpm-store/
+
+# Local QA evidence (루트 오배치 방지 — 정본은 .omo/evidence)
+final-wave/
