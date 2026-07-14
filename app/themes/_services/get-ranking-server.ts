@@ -51,15 +51,24 @@ export async function getRankingServer(): Promise<ThemeRanking> {
 
     const scoreBatchesPromise = Promise.all(
       scoreChunks.map(async (chunk) => {
-        const { data, error } = await supabase
-          .from('lifecycle_scores')
-          .select('theme_id, score, stage, is_reigniting, calculated_at, components')
-          .in('theme_id', chunk)
-          .gte('calculated_at', ninetyDaysAgo)
-          .order('calculated_at', { ascending: false })
-          .limit(1000)
-        if (error) throw error
-        return data ?? []
+        try {
+          const { data, error } = await supabase
+            .from('lifecycle_scores')
+            .select('theme_id, score, stage, is_reigniting, calculated_at, components')
+            .in('theme_id', chunk)
+            .gte('calculated_at', ninetyDaysAgo)
+            .order('calculated_at', { ascending: false })
+            .limit(1000)
+          if (error) throw error
+          return data ?? []
+        } catch (error: unknown) {
+          console.error('[TLI] ranking score batch load failed:', {
+            themeCount: chunk.length,
+            since: ninetyDaysAgo,
+            error: error instanceof Error ? error.message : String(error),
+          })
+          return []
+        }
       })
     )
 
