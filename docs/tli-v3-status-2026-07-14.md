@@ -1,7 +1,8 @@
 # TLI v3 현황 인수인계 (2026-07-14)
 
 > **맨땅 세션용 단일 상태 문서.** 이 파일 하나로 TLI v3의 현재 상태·유지보수·코드 작업 진입점을 파악한다.
-> 최신 HEAD: `9696028` · 프로덕션 배포 완료 · 재구축 공식 완료(Isaac 승인 2026-07-13).
+> 최신 HEAD: `dc3855b` · 프로덕션 배포 완료 · 재구축 공식 완료(Isaac 승인 2026-07-13).
+> (2026-07-14 갱신: `/themes` 빈 화면+React #418 P0 근본 수정 배포 완료 — dc3855b. 실측 visibleThemes 43, 콘솔 에러 0.)
 
 ---
 
@@ -125,7 +126,7 @@ curl -s "https://stockmatrix.co.kr/themes?v=$(date +%s)" | grep -oE 'visibleThem
 
 ## 8. 사고 이력에서 나온 불변 규칙 (재발 방지)
 
-1. **실제 페이지 렌더를 확인하라** — API·CI green ≠ 사용자 화면 정상. 2026-07-14 `/themes` 빈 화면 P0(SSR 쿼리 timeout→EMPTY_RANKING→RQ 고착)를 며칠 놓친 원인. 배포/모니터 시 `/themes` visibleThemes·카드 수 실측 필수.
+1. **실제 페이지 렌더를 확인하라** — API·CI green ≠ 사용자 화면 정상. 2026-07-14 `/themes` 빈 화면 P0(SSR 쿼리 timeout→EMPTY_RANKING→RQ 고착)를 며칠 놓친 원인. 배포/모니터 시 `/themes` visibleThemes·카드 수 실측 필수. **→ dc3855b로 근본 수정·배포 완료**: SSR/헬퍼를 anon→service-role 클라이언트로 전환(대용량 news 테이블 RLS 평가 statement_timeout 제거, anon 841ms→service 223ms), asOfDate를 로케일/TZ 의존 `toLocaleDateString`→결정론적 `formatKoreanDate`로 교체(#418 제거). 프로덕션 Playwright 검증: 카드 렌더 + 콘솔 에러 0. 상세 교훈: `~/.claude 메모리 ssr-anon-rls-timeout`.
 2. **fail-loud를 신뢰하되 근본을 봐라** — 주말 라벨 확정 0건 경보는 fail-loud가 잡았지만 원인은 3중(finalizer 원자성·maturity 계산·가격 갭)이었다.
 3. **마이그레이션은 실 PG 리허설** — SQL 텍스트 테스트로 안 잡히는 PL/pgSQL 문법(049 CASE-in-IF), trigger 바인딩(051), 부정+긍정 경로를 스크래치 PG로 실행 검증.
 4. **배포 순서**: 스키마(migration) 먼저 → 앱(코드) 나중. 특히 RPC를 호출하는 loader는 RPC 적용 후 배포.
