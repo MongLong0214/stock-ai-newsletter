@@ -1,6 +1,4 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { ThemeNewsCountRow } from '@/app/api/tli/scores/ranking/ranking-helpers'
-
 type ThemeRow = {
   readonly id: string
   readonly name: string
@@ -29,13 +27,19 @@ type ScoreQueryResult = {
 
 const rankingMocks = vi.hoisted(() => ({
   from: vi.fn<(table: string) => unknown>(),
+  rpc: vi.fn(),
   loadStocks: vi.fn<(themeIds: string[]) => Promise<StockRow[]>>(),
-  loadNews: vi.fn<(themeIds: string[], since: string) => Promise<ThemeNewsCountRow[]>>(),
 }))
 
 vi.mock('@/lib/supabase', () => ({
   isSupabasePlaceholder: false,
-  supabase: { from: rankingMocks.from },
+}))
+
+vi.mock('@/lib/supabase/server-client', () => ({
+  getServerSupabaseClient: () => ({
+    from: rankingMocks.from,
+    rpc: rankingMocks.rpc,
+  }),
 }))
 
 vi.mock('@/app/api/tli/scores/ranking/ranking-helpers', async (importOriginal) => {
@@ -43,7 +47,6 @@ vi.mock('@/app/api/tli/scores/ranking/ranking-helpers', async (importOriginal) =
   return {
     ...actual,
     batchLoadStockData: rankingMocks.loadStocks,
-    batchLoadNewsCounts: rankingMocks.loadNews,
   }
 })
 
@@ -52,10 +55,10 @@ import { getRankingServer } from './get-ranking-server'
 beforeEach(() => {
   vi.restoreAllMocks()
   rankingMocks.from.mockReset()
+  rankingMocks.rpc.mockReset()
   rankingMocks.loadStocks.mockReset()
-  rankingMocks.loadNews.mockReset()
   rankingMocks.loadStocks.mockResolvedValue([])
-  rankingMocks.loadNews.mockResolvedValue([])
+  rankingMocks.rpc.mockResolvedValue({ data: [], error: null })
 })
 
 function createThemes(count: number): ThemeRow[] {
@@ -124,7 +127,7 @@ describe('getRankingServer', () => {
     vi.spyOn(console, 'error').mockImplementation(() => undefined)
 
     // When
-    const ranking = await getRankingServer()
+    const ranking = await getRankingServer('2026-07-14')
 
     // Then
     expect(ranking.summary.trackedThemes).toBe(11)
@@ -144,11 +147,11 @@ describe('getRankingServer', () => {
       }),
       error: null,
     }))
-    rankingMocks.loadNews.mockRejectedValue(new Error('forced news timeout'))
+    rankingMocks.rpc.mockRejectedValue(new Error('forced news timeout'))
     vi.spyOn(console, 'error').mockImplementation(() => undefined)
 
     // When
-    const ranking = await getRankingServer()
+    const ranking = await getRankingServer('2026-07-14')
 
     // Then
     expect(ranking.summary.trackedThemes).toBe(45)

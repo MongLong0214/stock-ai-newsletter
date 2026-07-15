@@ -1,9 +1,14 @@
-import { supabase } from '@/lib/supabase'
+import { getServerSupabaseClient } from '@/lib/supabase/server-client'
 import type { ThemeListItem, ThemeRanking } from '@/lib/tli/types'
 import { getMinRawInterest } from '@/lib/tli/constants/score-config'
 import { QUALITY_GATE } from '@/lib/tli/constants/quality-gate'
 import { buildQualityGateBuckets } from '@/lib/tli/quality-gate'
 import { buildSignalCardsFromPools } from '@/lib/tli/theme-signals'
+
+// 랭킹 조회는 service-role 클라이언트로 수행한다. anon 롤은 34만 행 theme_news_articles의
+// RLS를 행마다 평가해 ~4배 느리고 statement_timeout에 걸려, SSR 랭킹이 빈 채 반환되며
+// /themes 빈 화면 + 하이드레이션 불일치(React #418)를 유발했다. 데이터는 RLS allow-all이라 동일.
+const supabase = getServerSupabaseClient()
 
 /** 빈 랭킹 응답 (placeholder / 에러 시 재사용) */
 export const EMPTY_RANKING: ThemeRanking = {

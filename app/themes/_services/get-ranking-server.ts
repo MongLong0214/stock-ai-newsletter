@@ -1,4 +1,5 @@
-import { supabase, isSupabasePlaceholder } from '@/lib/supabase'
+import { isSupabasePlaceholder } from '@/lib/supabase'
+import { getServerSupabaseClient } from '@/lib/supabase/server-client'
 import { getStageKo, toStage, isScoreComponents } from '@/lib/tli/types'
 import { isTableNotFound } from '@/lib/tli/api-utils'
 import type { ThemeListItem, ThemeRanking } from '@/lib/tli/types'
@@ -6,9 +7,12 @@ import { EMPTY_RANKING, SCORE_QUERY_BATCH_SIZE, buildScoreMetaMap, buildCountMap
 import { getKSTDateString } from '@/lib/tli/date-utils'
 
 /** 서버 사이드 랭킹 데이터 조회 (API 라우트 경유 없이 직접 Supabase 호출) */
-export async function getRankingServer(): Promise<ThemeRanking> {
+export async function getRankingServer(todayStr = getKSTDateString()): Promise<ThemeRanking> {
   try {
     if (isSupabasePlaceholder) return EMPTY_RANKING
+
+    // service-role 클라이언트: anon RLS 오버헤드/statement_timeout로 SSR 랭킹이 비던 문제 근본 수정
+    const supabase = getServerSupabaseClient()
 
     // 1) 활성 테마 전체 조회
     const { data: themes, error: themesError } = await supabase
@@ -113,7 +117,6 @@ export async function getRankingServer(): Promise<ThemeRanking> {
       }
     })
 
-    const todayStr = getKSTDateString()
     const normalizedThemeData = applyFreshnessDecayToThemeData(themeData, scoreMetaByTheme, todayStr)
 
     const rawInterestAvgMap = new Map<string, number>()

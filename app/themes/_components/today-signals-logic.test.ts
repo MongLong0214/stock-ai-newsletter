@@ -1,6 +1,10 @@
-import { describe, expect, it } from 'vitest'
+import * as React from 'react'
+import { renderToStaticMarkup } from 'react-dom/server'
+import { describe, expect, it, vi } from 'vitest'
 import type { ThemeListItem, ThemeRanking } from '@/lib/tli/types'
 import { buildSignalCards } from './today-signals-logic'
+import ThemesHeader from './themes-header'
+import TodaySignals from './today-signals'
 
 function makeTheme(overrides: Partial<ThemeListItem> = {}): ThemeListItem {
   return {
@@ -41,6 +45,60 @@ function makeRanking(overrides: Partial<ThemeRanking> = {}): ThemeRanking {
     },
   }
 }
+
+describe('themes hydration date', () => {
+  it('renders the server-provided as-of date independently of the runtime timezone', () => {
+    // Given
+    const asOfDate = '2026-07-15'
+    const ranking = makeRanking({
+      growth: [makeTheme({ change7d: 4.1 })],
+      signals: [
+        {
+          key: 'movers',
+          title: '점수 급등',
+          themes: [{ id: 'theme-1', name: 'Theme 1', detail: '+4.1' }],
+        },
+      ],
+      summary: {
+        totalThemes: 1,
+        trackedThemes: 1,
+        visibleThemes: 1,
+        byStage: { Growth: 1 },
+        hottestTheme: null,
+        surging: null,
+        avgScore: 60,
+      },
+    })
+    const originalTimezone = process.env.TZ
+    vi.stubGlobal('React', React)
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-14T15:30:00.000Z'))
+
+    try {
+      // When
+      process.env.TZ = 'UTC'
+      const serverMarkup = [
+        renderToStaticMarkup(React.createElement(ThemesHeader, { summary: ranking.summary, asOfDate })),
+        renderToStaticMarkup(React.createElement(TodaySignals, { ranking, asOfDate })),
+      ].join('')
+
+      process.env.TZ = 'Asia/Seoul'
+      const clientMarkup = [
+        renderToStaticMarkup(React.createElement(ThemesHeader, { summary: ranking.summary, asOfDate })),
+        renderToStaticMarkup(React.createElement(TodaySignals, { ranking, asOfDate })),
+      ].join('')
+
+      // Then
+      expect(serverMarkup).toContain('2026. 7. 15. 기준')
+      expect(serverMarkup).toContain('2026년 7월 15일')
+      expect(clientMarkup).toBe(serverMarkup)
+    } finally {
+      process.env.TZ = originalTimezone
+      vi.useRealTimers()
+      vi.unstubAllGlobals()
+    }
+  })
+})
 
 describe('buildSignalCards', () => {
   it('excludes non-positive movers from the score surge card', () => {

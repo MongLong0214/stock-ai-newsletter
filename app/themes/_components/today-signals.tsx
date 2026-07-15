@@ -4,10 +4,12 @@ import { motion } from 'framer-motion'
 import { TrendingUp, AlertTriangle, Sparkles, Zap } from 'lucide-react'
 import Link from 'next/link'
 import type { ThemeRanking } from '@/lib/tli/types'
+import { formatKoreanDate } from '@/lib/tli/date-utils'
 import { buildSignalCards, type SignalCardData } from './today-signals-logic'
 
 interface TodaySignalsProps {
   ranking: ThemeRanking
+  asOfDate: string
 }
 
 interface SignalData extends SignalCardData {
@@ -110,16 +112,10 @@ function SignalCard({ signal }: { signal: SignalData }) {
   )
 }
 
-function TodaySignals({ ranking }: TodaySignalsProps) {
+function TodaySignals({ ranking, asOfDate }: TodaySignalsProps) {
   const signals = computeSignals(ranking)
 
   if (signals.length === 0) return null
-
-  const today = new Date().toLocaleDateString('ko-KR', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  })
 
   return (
     <motion.div
@@ -133,7 +129,9 @@ function TodaySignals({ ranking }: TodaySignalsProps) {
           <h2 className="text-base font-bold text-white">
             오늘의 시그널
           </h2>
-          <span className="text-xs text-slate-500 font-mono">{today}</span>
+          <span className="text-xs text-slate-500 font-mono">
+            {formatKoreanDate(asOfDate, 'long')}
+          </span>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

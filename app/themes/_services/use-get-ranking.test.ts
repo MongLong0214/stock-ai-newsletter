@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { QueryClient } from '@tanstack/react-query'
+import { QueryClient, QueryObserver } from '@tanstack/react-query'
 import type { ThemeListItem, ThemeRanking } from '@/lib/tli/types'
 import { EMPTY_RANKING } from '@/app/api/tli/scores/ranking/ranking-helpers'
 
@@ -86,11 +86,19 @@ describe('useGetRanking', () => {
 
     // When
     useGetRanking(EMPTY_RANKING)
-    const result = await queryClient.fetchQuery(getCapturedOptions())
+    const observer = new QueryObserver(queryClient, getCapturedOptions())
+    expect(observer.getCurrentResult().status).toBe('pending')
+    const unsubscribe = observer.subscribe(() => undefined)
+
+    await vi.waitFor(() => {
+      expect(observer.getCurrentResult().data).toBe(NON_EMPTY_RANKING)
+    })
 
     // Then
     expect(queryMocks.getRanking).toHaveBeenCalledOnce()
-    expect(result).toBe(NON_EMPTY_RANKING)
+    expect(observer.getCurrentResult().data).toBe(NON_EMPTY_RANKING)
+    unsubscribe()
+    queryClient.clear()
   })
 
   it('uses a non-empty initial ranking without fetching immediately', async () => {
@@ -100,10 +108,15 @@ describe('useGetRanking', () => {
 
     // When
     useGetRanking(NON_EMPTY_RANKING)
-    const result = await queryClient.fetchQuery(getCapturedOptions())
+    const observer = new QueryObserver(queryClient, getCapturedOptions())
+    expect(observer.getCurrentResult().data).toBe(NON_EMPTY_RANKING)
+    const unsubscribe = observer.subscribe(() => undefined)
+    await Promise.resolve()
 
     // Then
     expect(queryMocks.getRanking).not.toHaveBeenCalled()
-    expect(result).toBe(NON_EMPTY_RANKING)
+    expect(observer.getCurrentResult().data).toBe(NON_EMPTY_RANKING)
+    unsubscribe()
+    queryClient.clear()
   })
 })

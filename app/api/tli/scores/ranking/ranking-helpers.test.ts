@@ -5,10 +5,10 @@ const { rpcMock } = vi.hoisted(() => ({
   rpcMock: vi.fn(),
 }))
 
-vi.mock('@/lib/supabase', () => ({
-  supabase: {
+vi.mock('@/lib/supabase/server-client', () => ({
+  getServerSupabaseClient: () => ({
     rpc: rpcMock,
-  },
+  }),
 }))
 
 import {

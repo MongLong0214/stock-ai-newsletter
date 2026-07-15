@@ -14,6 +14,18 @@ export function getKSTDateString(offsetDays = 0): string {
   return getKSTDate(offsetDays).toISOString().split('T')[0]
 }
 
+export function formatKoreanDate(dateString: string, format: 'short' | 'long'): string {
+  const [year, monthPart, dayPart] = dateString.split('-')
+  const month = Number(monthPart)
+  const day = Number(dayPart)
+
+  if (!year || !Number.isInteger(month) || !Number.isInteger(day)) return dateString
+
+  return format === 'long'
+    ? `${year}년 ${month}월 ${day}일`
+    : `${year}. ${month}. ${day}.`
+}
+
 /** 일수 → 자연어 (30일 이상 개월 병기, 365일 초과 캡) */
 export function formatDays(d: number): string {
   if (d > 365) return '1년+'

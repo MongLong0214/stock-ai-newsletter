@@ -18,10 +18,11 @@ import { buildThemeItem, trackEvent } from '@/lib/analytics/ga'
 
 interface ThemesContentProps {
   initialData?: ThemeRanking
+  asOfDate: string
 }
 
 /** 테마 목록 메인 컴포넌트 */
-function ThemesContent({ initialData }: ThemesContentProps) {
+function ThemesContent({ initialData, asOfDate }: ThemesContentProps) {
   const { data: ranking, isLoading, error } = useGetRanking(initialData)
 
   /** 필터 상태 */
@@ -166,14 +167,14 @@ function ThemesContent({ initialData }: ThemesContentProps) {
 
       <main className="relative z-10 py-16 lg:py-20">
         <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8 lg:py-16">
-          <ThemesHeader summary={ranking?.summary ?? null} />
+          <ThemesHeader summary={ranking?.summary ?? null} asOfDate={asOfDate} />
 
           {ranking?.summary && (
             <StatsOverview summary={ranking.summary} />
           )}
 
           {ranking && (
-            <TodaySignals ranking={ranking} />
+            <TodaySignals ranking={ranking} asOfDate={asOfDate} />
           )}
 
           <ThemeFilter

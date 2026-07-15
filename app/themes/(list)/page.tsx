@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js'
 import { siteConfig, withOgImageVersion } from '@/lib/constants/seo/config'
 import ThemesContent from '../_components/themes-content'
 import { getRankingServer } from '../_services/get-ranking-server'
+import { getKSTDateString } from '@/lib/tli/date-utils'
 
 /** 테마 목록 페이지 메타데이터 */
 export const metadata: Metadata = {
@@ -66,9 +67,10 @@ async function getActiveThemes() {
 
 /** 테마 목록 페이지 */
 export default async function ThemesPage() {
+  const asOfDate = getKSTDateString()
   const [themes, ranking] = await Promise.all([
     getActiveThemes(),
-    getRankingServer(),
+    getRankingServer(asOfDate),
   ])
 
   const itemListSchema = {
@@ -167,7 +169,7 @@ export default async function ThemesPage() {
           </table>
         )}
       </section>
-      <ThemesContent initialData={ranking} />
+      <ThemesContent initialData={ranking} asOfDate={asOfDate} />
     </>
   )
 }

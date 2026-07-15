@@ -4,9 +4,11 @@ import { motion } from 'framer-motion'
 import { Activity, BookOpen } from 'lucide-react'
 import Link from 'next/link'
 import type { ThemeRanking } from '@/lib/tli/types'
+import { formatKoreanDate } from '@/lib/tli/date-utils'
 
 interface ThemesHeaderProps {
   summary: ThemeRanking['summary'] | null
+  asOfDate: string
 }
 
 /** 시장 상태 진단 (summary 데이터 기반) */
@@ -72,7 +74,7 @@ function getMarketPulse(summary: ThemeRanking['summary']): {
 }
 
 /** 테마 페이지 헤더 컴포넌트 */
-function ThemesHeader({ summary }: ThemesHeaderProps) {
+function ThemesHeader({ summary, asOfDate }: ThemesHeaderProps) {
   const pulse = summary ? getMarketPulse(summary) : null
 
   return (
@@ -108,8 +110,8 @@ function ThemesHeader({ summary }: ThemesHeaderProps) {
                 {pulse.label}
               </span>
             </div>
-            <span className="text-xs text-slate-600 font-mono" suppressHydrationWarning>
-              {new Date().toLocaleDateString('ko-KR')} 기준
+            <span className="text-xs text-slate-600 font-mono">
+              {formatKoreanDate(asOfDate, 'short')} 기준
             </span>
           </div>
           <p className="text-sm text-slate-400">
