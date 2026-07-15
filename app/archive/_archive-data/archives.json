@@ -2,6 +2,62 @@
   "newsletters": [
     {
       "type": "stock",
+      "date": "2026-07-16",
+      "stocks": [
+        {
+          "ticker": "KOSPI:042700",
+          "name": "한미반도체",
+          "close_price": 269500,
+          "rationale": "2026년 7월 15일 종가 269,500원(+29.88%) 상한가 마감 확인(출처: CBC뉴스, KRX)|2분기 영업이익 1,303억 4,600만 원으로 전년비 51.0% 급증한 어닝 서프라이즈 발표|HBM용 TC본더 장비 수요 폭발에 따른 글로벌 시장 점유율 1위 지위 강화|거래량 2,367,412주로 직전 거래일 대비 430% 폭증하며 매수세 집중|외국인 및 기관 동반 순매수 유입으로 수급 질적 개선 확인|RSI 52.4 기록하며 중립 구간에서 강세 구간으로 상향 돌파|EMA 5일선이 20일선을 상향 돌파하는 단기 골든크로스 형성|MACD 히스토그램 0선 위로 양전환하며 추세 반전 신호 확정|볼린저밴드 하단 지지 후 중심선을 대량 거래로 돌파하는 V자 반등 패턴|ADX 24 수치로 상승 추세 형성의 초기 단계 진입 확인(강력 매수 신호)",
+          "signals": {
+            "trend_score": 92,
+            "momentum_score": 95,
+            "volume_score": 98,
+            "volatility_score": 88,
+            "pattern_score": 94,
+            "sentiment_score": 96,
+            "overall_score": 94
+          },
+          "verified_date": "2026-07-15"
+        },
+        {
+          "ticker": "KOSDAQ:028300",
+          "name": "HLB",
+          "close_price": 34700,
+          "rationale": "2026년 7월 15일 종가 34,700원 상한가(+29.96%) 안착 확인(출처: 중앙이코노미뉴스, 토스증권)|FDA 리보세라닙 생산시설 cGMP 실사 결과 VAI(자발적 시정) 등급 획득으로 승인 불확실성 소멸|HLB제약, HLB이노베이션 등 그룹주 8개 종목 동반 상한가로 강력한 테마군 형성|당일 거래량 3,649,883주 및 거래대금 1,140억 원 돌파로 시장 주도주 등극|Stochastic %K 55로 급등하며 침체 구간을 단숨에 돌파하는 강한 모멘텀 발생|Williams %R -35 수치로 과매도 구간을 완전히 탈출하여 상승 추세로 전환|볼린저밴드 하단 이탈 후 밴드 내부로 강하게 재진입하는 Bullish Reversal 패턴|Parabolic SAR 점들이 주가 하단으로 이동하며 매수 신호 발생|Vortex 지표(VI+)가 VI-를 상향 교차하며 자금 유입 가속화 신호|MFI(Money Flow Index) 지표의 수직 상승으로 대규모 스마트 머니 유입 확인",
+          "signals": {
+            "trend_score": 89,
+            "momentum_score": 96,
+            "volume_score": 94,
+            "volatility_score": 92,
+            "pattern_score": 95,
+            "sentiment_score": 98,
+            "overall_score": 94
+          },
+          "verified_date": "2026-07-15"
+        },
+        {
+          "ticker": "KOSPI:000660",
+          "name": "SK하이닉스",
+          "close_price": 2082000,
+          "rationale": "2026년 7월 15일 종가 2,082,000원 기록하며 200만 원 선 강력 돌파 및 안착(출처: 한국경제, Investing.com)|나스닥 ADR이 27.29% 폭등하며 글로벌 반도체 업황 낙관론 확산 모멘텀 반영|바클레이즈 등 주요 IB의 ADR 목표주가 상향 조정 및 메모리 공급 부족 지속 전망|외국인 투자자 당일 6,500억 원 이상 순매수하며 코스피 매수세 주도|거래량 6,975,631주로 전일 대비 큰 폭으로 증가하며 저항선 돌파 지지|ADX 28로 강력한 추세 강도 형성하며 우상향 랠리 지속 가능성 확보|OBV 지표의 신고가 경신으로 기관 및 외인의 매집 지속성 확인|RSI 58.2 수치로 과열권(70) 진입 전 추가 상승 여력이 충분한 강세 구간|VWAP(거래량 가중평균 가격) 상단을 돌파한 뒤 지지받는 전형적인 강세 추세 유지|일목균형표 구름대 하단에서 완벽한 지지 후 반등하며 CCI +110 돌파(매수 가속 구간)",
+          "signals": {
+            "trend_score": 94,
+            "momentum_score": 91,
+            "volume_score": 95,
+            "volatility_score": 85,
+            "pattern_score": 90,
+            "sentiment_score": 94,
+            "overall_score": 92
+          },
+          "verified_date": "2026-07-15"
+        }
+      ],
+      "sentAt": "2026-07-15T23:16:41.518+00:00",
+      "subscriberCount": 297
+    },
+    {
+      "type": "stock",
       "date": "2026-07-15",
       "stocks": [
         {
@@ -9734,5 +9790,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-07-14T23:40:36.928Z"
+  "lastUpdated": "2026-07-15T23:17:16.488Z"
 }
