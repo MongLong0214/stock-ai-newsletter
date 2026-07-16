@@ -12,6 +12,7 @@ const getKSTDateString = vi.fn()
 const shouldCollectTliStocks = vi.fn()
 const collectDailyStockPricesForDate = vi.fn()
 const collectDataSources = vi.fn()
+const runInterestObservationGapWatchdog = vi.fn()
 const runCalibrationPhase = vi.fn()
 const runAnalysisPipeline = vi.fn()
 const shouldAbortAnalysisPipeline = vi.fn()
@@ -52,6 +53,7 @@ vi.mock('@/scripts/tli/prices/kis-daily-price-collector', () => ({
 
 vi.mock('@/scripts/tli/batch/pipeline-steps', () => ({
   collectDataSources,
+  runInterestObservationGapWatchdog,
   runCalibrationPhase,
   runAnalysisPipeline,
   shouldAbortAnalysisPipeline,
@@ -92,6 +94,7 @@ describe('runtime entrypoints', () => {
       criticalFailures: 0,
       datalabFailed: false,
     })
+    runInterestObservationGapWatchdog.mockResolvedValue(0)
     runCalibrationPhase.mockResolvedValue(undefined)
     runAnalysisPipeline.mockResolvedValue({
       criticalFailures: 0,
@@ -177,6 +180,26 @@ describe('runtime entrypoints', () => {
     const result = await runTliMainPipeline()
 
     expect(result).toMatchObject({
+      criticalFailures: 0,
+      warningFailures: 1,
+      exitCode: 0,
+    })
+  })
+
+  it('adds the interest observation watchdog warning on a news-only run', async () => {
+    // Given: news succeeds, but the trading-day interest watchdog reports a missing vintage.
+    process.env.TLI_MODE = 'news-only'
+    shouldCollectTliStocks.mockReturnValue(false)
+    runInterestObservationGapWatchdog.mockResolvedValue(1)
+
+    // When: the news-only pipeline completes.
+    const { runTliMainPipeline } = await import('@/scripts/tli/batch/collect-and-score')
+    const result = await runTliMainPipeline()
+
+    // Then: the warning is surfaced without changing critical status or exit code.
+    expect(runInterestObservationGapWatchdog).toHaveBeenCalledWith('2026-03-20')
+    expect(result).toMatchObject({
+      mode: 'news-only',
       criticalFailures: 0,
       warningFailures: 1,
       exitCode: 0,

@@ -21,6 +21,7 @@ const THEME_A = '11111111-1111-4111-8111-111111111111'
 const WINDOW_START = '2026-06-08'
 const WINDOW_END = '2026-06-19'
 const RUN_ID = '44444444-4444-4444-8444-444444444444'
+const SECOND_RUN_ID = '55555555-5555-4555-8555-555555555555'
 
 const tradingDates = getKoreanTradingDatesBetween({ startDate: WINDOW_START, endDate: WINDOW_END })
 
@@ -139,16 +140,19 @@ describe('commitSnapshotThenCache', () => {
     consoleError.mockRestore()
   })
 
-  it('같은 fixture를 두 번 수집하면 append가 두 번 호출되고 overwrite 경로가 없다', async () => {
-    const transport = vi.fn<CollectionRunTransport>(async () => RUN_ID)
+  it('같은 full fixture를 두 번 수집하면 별도 immutable vintage로 append된다', async () => {
+    const transport = vi.fn<CollectionRunTransport>()
+      .mockResolvedValueOnce(RUN_ID)
+      .mockResolvedValueOnce(SECOND_RUN_ID)
     const updateCurrentCache = vi.fn(async () => undefined)
 
-    await commitSnapshotThenCache({ append: buildAppend(), updateCurrentCache, transport })
-    await commitSnapshotThenCache({ append: buildAppend(), updateCurrentCache, transport })
+    const firstResult = await commitSnapshotThenCache({ append: buildAppend(), updateCurrentCache, transport })
+    const secondResult = await commitSnapshotThenCache({ append: buildAppend(), updateCurrentCache, transport })
 
     expect(transport).toHaveBeenCalledTimes(2)
     const [first, second] = transport.mock.calls
     // 동일 response hash·동일 payload지만 upsert/onConflict가 없으므로 DB는 매번 새 immutable run을 만든다.
     expect(first[0].payloadSha256).toBe(second[0].payloadSha256)
+    expect([firstResult.runId, secondResult.runId]).toEqual([RUN_ID, SECOND_RUN_ID])
   })
 })

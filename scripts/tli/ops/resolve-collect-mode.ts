@@ -13,6 +13,7 @@ export type TliCollectMode = typeof TLI_COLLECT_MODES[number]
 /** `.github/workflows/tli-collect-data.yml`의 `on.schedule` cron과 정확히 일치해야 한다. */
 export const TLI_COLLECT_SCHEDULE_MODES: Readonly<Record<string, TliCollectMode>> = {
   '30 7 * * 1-5': 'full',
+  '0 10 * * 1-5': 'full',
   '0 0 * * 1-6': 'news-only',
   '0 17 * * 6': 'full',
   '30 9 * * 1': 'news-only',

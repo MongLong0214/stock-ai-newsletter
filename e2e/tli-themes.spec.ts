@@ -62,8 +62,11 @@ const mockRankingResponse = {
     peak: [],
     decline: [],
     reigniting: [],
+    signals: [],
     summary: {
       totalThemes: 2,
+      trackedThemes: 2,
+      visibleThemes: 2,
       byStage: { Emerging: 1, Growth: 1, Peak: 0, Decline: 0, Dormant: 0 },
       hottestTheme: {
         id: 'semiconductor-e2e-test',
@@ -260,6 +263,35 @@ async function mockThemeDetailApi(
 /* ── 테스트 ─────────────────────────────────────────────────────────── */
 
 test.describe('AC-1: 테마 랭킹 페이지 (/themes)', () => {
+  test('P0: 빈 SSR 랭킹을 복구하고 hydration 오류 없이 테마 링크를 표시한다', async ({ page }) => {
+    const hydrationErrors: string[] = []
+    const captureHydrationError = (message: string) => {
+      if (/Minified React error #418|Hydration failed|hydration/i.test(message)) {
+        hydrationErrors.push(message)
+      }
+    }
+
+    page.on('console', (message) => {
+      if (message.type() === 'error') captureHydrationError(message.text())
+    })
+    page.on('pageerror', (error) => captureHydrationError(error.message))
+    await page.route('**/api/tli/scores/ranking', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(mockRankingResponse),
+      })
+    )
+
+    await page.goto('/themes')
+    await page.waitForLoadState('networkidle')
+
+    const themeLinks = page.locator('a[href^="/themes/"]:not([href="/themes/methodology"])')
+    await expect(themeLinks.first()).toBeVisible({ timeout: 10000 })
+    expect(await themeLinks.count()).toBeGreaterThan(0)
+    expect(hydrationErrors).toEqual([])
+  })
+
   test('페이지가 정상적으로 로드되고 주요 레이아웃이 렌더링된다', async ({ page }) => {
     // Arrange: 클라이언트 측 API 재호출 발생 시 목 반환 (방어용)
     await page.route('**/api/tli/scores/ranking', (route) =>

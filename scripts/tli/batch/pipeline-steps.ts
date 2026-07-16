@@ -11,6 +11,7 @@ import { collectBablPhaseSnapshot } from '@/scripts/tli/collectors/babl-phase-sn
 import { evaluateComparisonOutcomes } from '@/scripts/tli/comparison/evaluate-comparisons'
 import { submitToIndexNow, buildThemeUrls } from '@/lib/indexnow'
 import { getKSTDateString } from '@/lib/tli/date-utils'
+import { isKoreanTradingDate } from '@/lib/tli/trading-calendar'
 import { materializePhase0Artifacts } from '@/scripts/tli/comparison/materialize-phase0-artifacts'
 import { countExpiredPendingLabels, runDailyLabelPhase } from '@/scripts/tli/labels/daily-label-phase'
 import { GTA_LABELER_VERSION } from '@/lib/tli/labels/gt-a'
@@ -27,6 +28,40 @@ export { runCalibrationPhase } from '@/scripts/tli/scoring/calibration-phase'
 export { collectDataSources } from '@/scripts/tli/batch/collection-pipeline'
 
 interface AnalysisResult { criticalFailures: number; warningFailures: number }
+
+type InterestObservationCounter = (tradingDate: string) => Promise<number>
+
+const countInterestObservationsForDate: InterestObservationCounter = async (tradingDate) => {
+  const { supabaseAdmin } = await import('@/scripts/tli/shared/supabase-admin')
+  const { count, error } = await supabaseAdmin
+    .from('tli_interest_observations')
+    .select('id', { count: 'exact', head: true })
+    .eq('trading_date', tradingDate)
+
+  if (error) throw new Error(`interest observation count 실패: ${error.message}`)
+  return count ?? 0
+}
+
+export async function runInterestObservationGapWatchdog(
+  tradingDate: string,
+  countInterestObservations: InterestObservationCounter = countInterestObservationsForDate,
+): Promise<number> {
+  if (!isKoreanTradingDate(tradingDate)) return 0
+
+  try {
+    const observationCount = await countInterestObservations(tradingDate)
+    if (observationCount > 0) return 0
+
+    console.warn('⚠️ 거래일 interest observation 누락 감지', { tradingDate, observationCount })
+    return 1
+  } catch (error: unknown) {
+    console.warn('⚠️ interest observation 누락 점검 실패', {
+      tradingDate,
+      error: error instanceof Error ? error.message : String(error),
+    })
+    return 1
+  }
+}
 
 export function shouldAbortAnalysisPipeline(input: {
   mode: 'full' | 'news-only'

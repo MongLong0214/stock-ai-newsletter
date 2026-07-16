@@ -60,6 +60,7 @@ describe('resolveTliCollectMode', () => {
 
   it.each([
     ['30 7 * * 1-5', 'full'],
+    ['0 10 * * 1-5', 'full'],
     ['0 0 * * 1-6', 'news-only'],
     ['0 17 * * 6', 'full'],
     ['30 9 * * 1', 'news-only'],
@@ -96,6 +97,13 @@ describe('resolveTliCollectMode', () => {
     expect(resolveTliCollectMode({ eventName: 'schedule', schedule: '30 7 * * 1-5' })).toBe('full')
   })
 
+  it('keeps full when the redundant 10:00 cron starts late', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-06T10:37:00.000Z'))
+
+    expect(resolveTliCollectMode({ eventName: 'schedule', schedule: '0 10 * * 1-5' })).toBe('full')
+  })
+
   it('rejects an unmapped schedule cron', () => {
     expect(() => resolveTliCollectMode({ eventName: 'schedule', schedule: '0 5 * * *' }))
       .toThrow(/unknown schedule cron/)
@@ -128,6 +136,15 @@ describe('tli-collect-data.yml contract', () => {
   it('declares exactly the cron strings the resolver maps', () => {
     const crons = (collectWorkflow.on.schedule ?? []).map((entry) => entry.cron)
     expect([...crons].sort()).toEqual(Object.keys(TLI_COLLECT_SCHEDULE_MODES).sort())
+  })
+
+  it('keeps two independent weekday full schedules after market close', () => {
+    const weekdayFullSchedules = Object.entries(TLI_COLLECT_SCHEDULE_MODES)
+      .filter(([cron, mode]) => cron.endsWith('1-5') && mode === 'full')
+      .map(([cron]) => cron)
+      .sort()
+
+    expect(weekdayFullSchedules).toEqual(['0 10 * * 1-5', '30 7 * * 1-5'])
   })
 
   it('resolves the run mode from github.event.schedule instead of wall-clock', () => {

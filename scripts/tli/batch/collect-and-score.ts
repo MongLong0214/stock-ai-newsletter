@@ -6,7 +6,7 @@ import { discoverAndManageThemes } from '@/scripts/tli/themes/discover-themes';
 import { autoActivate, autoDeactivate } from '@/scripts/tli/themes/theme-lifecycle';
 import { getKSTDate, getKSTDateString } from '@/lib/tli/date-utils';
 import { shouldCollectTliStocks } from '@/lib/tli/trading-calendar';
-import { collectDataSources, runCalibrationPhase, runAnalysisPipeline, shouldAbortAnalysisPipeline, submitIndexNowStep } from '@/scripts/tli/batch/pipeline-steps';
+import { collectDataSources, runCalibrationPhase, runAnalysisPipeline, runInterestObservationGapWatchdog, shouldAbortAnalysisPipeline, submitIndexNowStep } from '@/scripts/tli/batch/pipeline-steps';
 import { collectDailyStockPricesForDate } from '@/scripts/tli/prices/kis-daily-price-collector';
 
 type RunMode = 'full' | 'news-only'
@@ -64,6 +64,10 @@ export async function runTliMainPipeline(): Promise<TliMainPipelineResult> {
     // Steps 1-3: 데이터 수집
     const collection = await collectDataSources(themes, mode, endDate);
     criticalFailures += collection.criticalFailures;
+
+    if (mode === 'news-only') {
+      warningFailures += await runInterestObservationGapWatchdog(endDate);
+    }
 
     if (collection.criticalFailures === 0 && shouldCollectTliStocks({ mode, kstDate: endDate })) {
       try {
