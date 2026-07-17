@@ -22,7 +22,7 @@ describe('get-market-summary MCP tool', () => {
 
     let registeredHandler: (args: Record<string, unknown>) => Promise<unknown> = async () => ({})
     const mockServer = {
-      tool: (_name: string, _desc: string, _schema: unknown, handler: typeof registeredHandler) => {
+      registerTool: (_name: string, _config: unknown, handler: typeof registeredHandler) => {
         registeredHandler = handler
       },
     }

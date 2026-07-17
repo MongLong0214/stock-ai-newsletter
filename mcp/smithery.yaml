@@ -9,4 +9,4 @@ tags:
   - kosdaq
   - bayesian-optimization
 runtime: node
-startCommand: npx -y stockmatrix-mcp@0.4.0
+startCommand: npx -y stockmatrix-mcp@0.5.0

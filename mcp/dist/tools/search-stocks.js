@@ -7,7 +7,9 @@ Results include stock identity plus top related themes with lifecycle score and 
 Common examples: 삼성전자, SK하이닉스, NAVER, 카카오, 005930, 000660.`;
 const IS_SIX_DIGIT = /^\d{6}$/;
 export const registerSearchStocks = (server) => {
-    server.tool('search_stocks', `Search Korean stocks by company name, symbol, or 6-digit stock code, and preview their related themes.
+    server.registerTool('search_stocks', {
+        title: 'Search Stocks',
+        description: `Search Korean stocks by company name, symbol, or 6-digit stock code, and preview their related themes.
 
 Use when the user asks:
 - Find Samsung Electronics / 삼성전자
@@ -17,12 +19,15 @@ Use when the user asks:
 - 005930 테마 알려줘 / which themes is this stock part of?
 
 For 6-digit stock codes, automatically performs a detailed stock-to-theme lookup (replaces get_stock_theme).
-For text queries, searches by company name and returns matching stocks with theme previews.`, {
-        query: z
-            .string()
-            .min(1)
-            .max(200)
-            .describe('Company name or 6-digit stock code, e.g. "삼성전자", "SK하이닉스", "005930"'),
+For text queries, searches by company name and returns matching stocks with theme previews.`,
+        inputSchema: {
+            query: z
+                .string()
+                .min(1)
+                .max(200)
+                .describe('Company name or 6-digit stock code, e.g. "삼성전자", "SK하이닉스", "005930"'),
+        },
+        annotations: { readOnlyHint: true, openWorldHint: true },
     }, async ({ query }) => {
         try {
             if (IS_SIX_DIGIT.test(query.trim())) {

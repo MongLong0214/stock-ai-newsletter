@@ -35,9 +35,11 @@ const CONTEXT = `[StockMatrix TLI Methodology]
 Comprehensive documentation of the TLI (Theme Lifecycle Index) algorithm — scoring, stages, stabilization, comparison, prediction, data sources, pipeline, and database schema.`;
 
 export const registerGetMethodology = (server: McpServer): void => {
-  server.tool(
+  server.registerTool(
     'get_methodology',
-    `Get the TLI (Theme Lifecycle Index) algorithm methodology — how scores, stages, and predictions work.
+    {
+      title: 'TLI Methodology',
+      description: `Get the TLI (Theme Lifecycle Index) algorithm methodology — how scores, stages, and predictions work.
 
 Use when the user asks:
 - How are theme scores calculated?
@@ -49,11 +51,13 @@ Use when the user asks:
 - TLI 수집 파이프라인, 업데이트 주기, 비교 파이프라인, 데이터 테이블
 
 Returns structured documentation of the scoring algorithm, data collection pipeline, runtime orchestration, database tables, stage determination, stabilization techniques, comparison analysis, and prediction methodology.`,
-    {
-      section: z
-        .enum(SECTIONS)
-        .optional()
-        .describe('Specific section: scoring, stabilization, stages, comparison, prediction, data_sources, update_schedule, runtime, data_flow, database_tables, limitations, or all (default: all)'),
+      inputSchema: {
+        section: z
+          .enum(SECTIONS)
+          .optional()
+          .describe('Specific section: scoring, stabilization, stages, comparison, prediction, data_sources, update_schedule, runtime, data_flow, database_tables, limitations, or all (default: all)'),
+      },
+      annotations: { readOnlyHint: true, openWorldHint: true },
     },
     async ({ section }) => {
       try {

@@ -13,6 +13,11 @@ describe('MCP index module (static analysis)', () => {
     'utf-8'
   )
 
+  const serverSource = readFileSync(
+    resolve(__dirname, '../server.ts'),
+    'utf-8'
+  )
+
   it('index.ts does not contain main() call', () => {
     expect(indexSource).not.toMatch(/\bmain\s*\(/)
   })
@@ -55,26 +60,33 @@ describe('MCP index module (static analysis)', () => {
     expect(pkg.main).toBe('dist/index.js')
   })
 
-  it('registers 10 tools (7 original + 3 new, get_stock_theme removed)', () => {
-    const registerCalls = indexSource.match(/register\w+\(s\)/g)
-    expect(registerCalls).toHaveLength(10)
+  it('index.ts delegates to the shared server module (no inline tool registration)', () => {
+    expect(indexSource).toContain("from './server.js'")
+    expect(indexSource).not.toMatch(/registerGet\w+\(/)
   })
 
-  it('includes all expected tool registrations', () => {
+  it('server.ts registers all 11 tools exactly once each', () => {
     const expected = [
       'registerGetThemeRanking',
       'registerGetThemeDetail',
       'registerGetThemeHistory',
       'registerSearchThemes',
       'registerSearchStocks',
+      'registerGetStockThemes',
       'registerGetMarketSummary',
       'registerGetMethodology',
       'registerGetThemeChanges',
       'registerCompareThemes',
       'registerGetPredictions',
     ]
+    expect(expected).toHaveLength(11)
     for (const name of expected) {
-      expect(indexSource).toContain(name)
+      expect(serverSource).toContain(`${name}(server)`)
     }
+  })
+
+  it('server.ts wires workflow prompts and resources', () => {
+    expect(serverSource).toContain('registerPrompts(server)')
+    expect(serverSource).toContain('registerResources(server)')
   })
 })

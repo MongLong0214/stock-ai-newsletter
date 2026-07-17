@@ -7,7 +7,9 @@ Use pRise, CI bounds, abstain state, and trailing90d precision as the primary co
 The phase field is deprecated compatibility derived from pRise and will be removed after 2026-09-15.
 Chain with get_theme_detail(themeId) for deeper analysis of any predicted theme.`;
 export const registerGetPredictions = (server) => {
-    server.tool('get_predictions', `Get champion probability prediction snapshots for Korean stock themes.
+    server.registerTool('get_predictions', {
+        title: 'Theme Predictions',
+        description: `Get champion probability prediction snapshots for Korean stock themes.
 
 Use when the user asks:
 - Which themes are rising / about to peak / cooling down?
@@ -17,11 +19,14 @@ Use when the user asks:
 - 상승세 테마 예측, 하락 전환 예상 테마
 - 테마 생명주기 예측 결과를 보고 싶어
 
-Returns v3 snapshot fields when exposure is enabled: pRise, ciLower, ciUpper, abstain, abstainReasons, modelVersion, trailing90d.topSignalPrecision, and deprecated phase compatibility. Returns dataSource=none when exposure is disabled for rollback.`, {
-        phase: z
-            .enum(['rising', 'hot', 'cooling'])
-            .optional()
-            .describe('Deprecated compatibility filter derived from pRise: rising >=0.6, hot >=0.4, cooling <0.4'),
+Returns v3 snapshot fields when exposure is enabled: pRise, ciLower, ciUpper, abstain, abstainReasons, modelVersion, trailing90d.topSignalPrecision, and deprecated phase compatibility. Returns dataSource=none when exposure is disabled for rollback.`,
+        inputSchema: {
+            phase: z
+                .enum(['rising', 'hot', 'cooling'])
+                .optional()
+                .describe('Deprecated compatibility filter derived from pRise: rising >=0.6, hot >=0.4, cooling <0.4'),
+        },
+        annotations: { readOnlyHint: true, openWorldHint: true },
     }, async ({ phase }) => {
         try {
             const params = {};

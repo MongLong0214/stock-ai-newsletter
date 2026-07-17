@@ -25,9 +25,11 @@ const isEmpty = (data: ChangesData): boolean =>
   data.newlyEmerging.length === 0;
 
 export const registerGetThemeChanges = (server: McpServer): void => {
-  server.tool(
+  server.registerTool(
     'get_theme_changes',
-    `Get recent score changes and stage transitions for Korean stock themes.
+    {
+      title: 'Daily Theme Movers',
+      description: `Get recent score changes and stage transitions for Korean stock themes.
 
 Use when the user asks:
 - What themes changed the most today/this week?
@@ -38,11 +40,13 @@ Use when the user asks:
 - 새로 떠오르는 테마 있어?
 
 Returns movers (rising/falling by score change), stage transitions, and newly emerging themes.`,
-    {
-      period: z
-        .enum(['1d', '7d'])
-        .optional()
-        .describe('Comparison period: 1d = vs yesterday (default), 7d = vs 7 days ago'),
+      inputSchema: {
+        period: z
+          .enum(['1d', '7d'])
+          .optional()
+          .describe('Comparison period: 1d = vs yesterday (default), 7d = vs 7 days ago'),
+      },
+      annotations: { readOnlyHint: true, openWorldHint: true },
     },
     async ({ period }) => {
       try {

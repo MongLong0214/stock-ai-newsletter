@@ -9,9 +9,11 @@ pairwise similarity (from comparison algorithm), overlapping stocks, and any war
 Use when the user asks to compare or contrast multiple themes.`;
 
 export const registerCompareThemes = (server: McpServer): void => {
-  server.tool(
+  server.registerTool(
     'compare_themes',
-    `Compare 2–5 Korean stock market themes side-by-side with lifecycle scores, similarity, and overlapping stocks.
+    {
+      title: 'Compare Themes',
+      description: `Compare 2–5 Korean stock market themes side-by-side with lifecycle scores, similarity, and overlapping stocks.
 
 Use when the user asks:
 - Compare semiconductor and AI themes
@@ -21,12 +23,14 @@ Use when the user asks:
 - Do these themes share the same stocks?
 
 Returns each theme's score/stage/sparkline, pairwise similarity scores, and overlapping stocks.`,
-    {
-      theme_ids: z
-        .array(z.string().uuid())
-        .min(2)
-        .max(5)
-        .describe('Array of 2–5 theme UUIDs to compare'),
+      inputSchema: {
+        theme_ids: z
+          .array(z.string().uuid())
+          .min(2)
+          .max(5)
+          .describe('Array of 2–5 theme UUIDs to compare'),
+      },
+      annotations: { readOnlyHint: true, openWorldHint: true },
     },
     async ({ theme_ids }) => {
       try {

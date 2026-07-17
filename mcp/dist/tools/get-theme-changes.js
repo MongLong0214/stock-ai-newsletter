@@ -11,7 +11,9 @@ const isEmpty = (data) => data.movers.rising.length === 0 &&
     data.stageTransitions.length === 0 &&
     data.newlyEmerging.length === 0;
 export const registerGetThemeChanges = (server) => {
-    server.tool('get_theme_changes', `Get recent score changes and stage transitions for Korean stock themes.
+    server.registerTool('get_theme_changes', {
+        title: 'Daily Theme Movers',
+        description: `Get recent score changes and stage transitions for Korean stock themes.
 
 Use when the user asks:
 - What themes changed the most today/this week?
@@ -21,11 +23,14 @@ Use when the user asks:
 - 이번 주 생명주기 단계 변화한 테마
 - 새로 떠오르는 테마 있어?
 
-Returns movers (rising/falling by score change), stage transitions, and newly emerging themes.`, {
-        period: z
-            .enum(['1d', '7d'])
-            .optional()
-            .describe('Comparison period: 1d = vs yesterday (default), 7d = vs 7 days ago'),
+Returns movers (rising/falling by score change), stage transitions, and newly emerging themes.`,
+        inputSchema: {
+            period: z
+                .enum(['1d', '7d'])
+                .optional()
+                .describe('Comparison period: 1d = vs yesterday (default), 7d = vs 7 days ago'),
+        },
+        annotations: { readOnlyHint: true, openWorldHint: true },
     }, async ({ period }) => {
         try {
             const data = await fetchApi('/api/tli/changes', {
