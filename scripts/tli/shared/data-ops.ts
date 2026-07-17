@@ -166,10 +166,12 @@ export async function recordThemeStockMembershipHistory(input: {
   const observedThemeIds = [...new Set(input.observed.map(s => s.themeId))]
   if (observedThemeIds.length === 0) return { opened: 0, closed: 0, appended: 0 }
 
+  // orderBy: 이 읽기는 append-only 원장의 diff 기준점이다. 페이지 간 순서가 흔들려 열린 version을
+  // 하나라도 놓치면 이미 존재하는 매핑을 '신규'로 오판해 없던 membership 시작을 조작하게 된다.
   const openRows = await batchQuery<MembershipHistoryRow>(
     MEMBERSHIP_HISTORY_TABLE, MEMBERSHIP_HISTORY_COLUMNS, observedThemeIds,
     q => q.is('valid_to', null).is('superseded_at', null).eq('source', MEMBERSHIP_SOURCE),
-    'theme_id', { failOnError: true },
+    'theme_id', { failOnError: true, orderBy: { column: 'id' } },
   )
 
   const diff = planMembershipHistoryDiff({
