@@ -25,9 +25,11 @@ Higher score = stronger theme momentum. Stage indicates lifecycle position.
 The \`summary\` object includes \`signals\` (market mood indicators), \`hottestTheme\` (single highest scorer with 3+ stocks), and \`surging\` (rapidly rising themes).`;
 
 export const registerGetThemeRanking = (server: McpServer): void => {
-  server.tool(
+  server.registerTool(
     'get_theme_ranking',
-    `Get Korean stock market theme rankings with lifecycle scores (TLI: Theme Lifecycle Index).
+    {
+      title: 'Theme Rankings',
+      description: `Get Korean stock market theme rankings with lifecycle scores (TLI: Theme Lifecycle Index).
 
 Use when the user asks about:
 - Trending stock themes, hot investment sectors, market momentum
@@ -36,24 +38,26 @@ Use when the user asks about:
 - KOSPI/KOSDAQ theme trends
 
 Returns themes ranked by score (0-100) with lifecycle stage and related stocks. Scores are computed from search interest (Naver DataLab), news momentum, market volatility, and stock activity — all optimized via Bayesian optimization.`,
-    {
-      stage: z
-        .enum(VALID_STAGES)
-        .optional()
-        .describe(
-          'Filter by lifecycle stage: emerging (초기 — early interest), growth (성장 — expanding), peak (정점 — maximum attention), decline (하락 — fading), reigniting (재점화 — comeback)'
-        ),
-      limit: z
-        .number()
-        .int()
-        .min(1)
-        .max(50)
-        .optional()
-        .describe('Max themes per stage (1-50, default 10)'),
-      sort: z
-        .enum(['score', 'change7d', 'newsCount7d'])
-        .optional()
-        .describe('Sort order within each stage: score (default), change7d, newsCount7d'),
+      inputSchema: {
+        stage: z
+          .enum(VALID_STAGES)
+          .optional()
+          .describe(
+            'Filter by lifecycle stage: emerging (초기 — early interest), growth (성장 — expanding), peak (정점 — maximum attention), decline (하락 — fading), reigniting (재점화 — comeback)'
+          ),
+        limit: z
+          .number()
+          .int()
+          .min(1)
+          .max(50)
+          .optional()
+          .describe('Max themes per stage (1-50, default 10)'),
+        sort: z
+          .enum(['score', 'change7d', 'newsCount7d'])
+          .optional()
+          .describe('Sort order within each stage: score (default), change7d, newsCount7d'),
+      },
+      annotations: { readOnlyHint: true, openWorldHint: true },
     },
     async ({ stage, limit, sort }) => {
       try {

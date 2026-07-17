@@ -8,15 +8,20 @@ Daily TLI scores with stage transitions. Use to identify:
 - Momentum: EMA smoothing adapts to theme age (newer themes react faster)
 Scores are 0-100, computed from interest + news + volatility + activity.`;
 export const registerGetThemeHistory = (server) => {
-    server.tool('get_theme_history', `Get 30-day score history for a Korean stock theme.
+    server.registerTool('get_theme_history', {
+        title: 'Theme Score History',
+        description: `Get 30-day score history for a Korean stock theme.
 
 Returns daily TLI scores and stage transitions for trend analysis. Use when the user asks about theme momentum over time, whether a theme is gaining or losing interest, or wants to see historical trajectory.
 
-Answers: "이 테마 추세가 어때?", "최근 한달 흐름", "is this theme gaining or losing momentum?", "show me the trend".`, {
-        theme_id: z
-            .string()
-            .uuid('Theme ID must be a valid UUID')
-            .describe('Theme UUID from ranking or search results'),
+Answers: "이 테마 추세가 어때?", "최근 한달 흐름", "is this theme gaining or losing momentum?", "show me the trend".`,
+        inputSchema: {
+            theme_id: z
+                .string()
+                .uuid('Theme ID must be a valid UUID')
+                .describe('Theme UUID from ranking or search results'),
+        },
+        annotations: { readOnlyHint: true, openWorldHint: true },
     }, async ({ theme_id }) => {
         try {
             const data = await fetchApi(`/api/tli/themes/${theme_id}/history`);

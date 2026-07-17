@@ -1,7 +1,7 @@
 {
   "name": "stockmatrix-mcp",
   "mcpName": "io.github.MongLong0214/stockmatrix-mcp",
-  "version": "0.4.1",
+  "version": "0.5.0",
   "description": "StockMatrix MCP Server — Korean stock market theme lifecycle analysis (TLI) with Bayesian-optimized scoring for AI agents",
   "type": "module",
   "main": "dist/index.js",
@@ -13,8 +13,9 @@
   ],
   "scripts": {
     "build": "tsc",
+    "typecheck": "tsc --noEmit",
     "start": "node dist/cli.js",
-    "prepublishOnly": "npm run build"
+    "prepublishOnly": "npm run typecheck && npm run build"
   },
   "keywords": [
     "mcp",
@@ -35,10 +36,10 @@
   "license": "MIT",
   "author": "StockMatrix <aistockmatrix@gmail.com>",
   "engines": {
-    "node": ">=18"
+    "node": ">=20"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.0.0",
+    "@modelcontextprotocol/sdk": "^1.29.0",
     "zod": "^3.23.0"
   },
   "devDependencies": {

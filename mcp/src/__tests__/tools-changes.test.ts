@@ -25,7 +25,7 @@ describe('get_theme_changes tool', () => {
 
     // Capture the handler registered with server.tool
     server = {
-      tool: vi.fn((_name: string, _desc: string, _schema: unknown, handler: unknown) => {
+      registerTool: vi.fn((_name: string, _config: unknown, handler: unknown) => {
         registeredHandler = handler as typeof registeredHandler
       }),
     } as unknown as McpServer
@@ -34,10 +34,13 @@ describe('get_theme_changes tool', () => {
   })
 
   it('registers tool with name get_theme_changes', () => {
-    expect(server.tool).toHaveBeenCalledWith(
+    expect(server.registerTool).toHaveBeenCalledWith(
       'get_theme_changes',
-      expect.any(String),
-      expect.objectContaining({ period: expect.anything() }),
+      expect.objectContaining({
+        description: expect.any(String),
+        inputSchema: expect.objectContaining({ period: expect.anything() }),
+        annotations: expect.objectContaining({ readOnlyHint: true }),
+      }),
       expect.any(Function),
     )
   })

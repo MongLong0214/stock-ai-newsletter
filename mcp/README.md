@@ -1,8 +1,10 @@
 # stockmatrix-mcp
 
-Ask about Korean stock market themes in natural conversation with AI. Track 250+ KOSPI/KOSDAQ investment themes, get daily movers, compare themes side-by-side, and see predictions — all through Claude, Cursor, or any MCP-compatible AI agent.
+Ask about Korean stock market themes in natural conversation with AI. Track 250+ KOSPI/KOSDAQ investment themes, get daily movers, look up which themes a stock belongs to, compare themes side-by-side, and see predictions — all through Claude, Cursor, or any MCP-compatible AI agent.
 
 Powered by **TLI (Theme Lifecycle Index)** — a Bayesian-optimized scoring algorithm combining search interest, news momentum, market volatility, and stock activity into a 0-100 score with lifecycle stage classification.
+
+**11 tools + 4 one-click workflow prompts + live resources.** Try the `market_briefing` slash command for an instant Korean market overview.
 
 ## Quick Start
 
@@ -118,6 +120,13 @@ Search stocks by company name or 6-digit code, with related theme preview. Autom
 |-----------|------|----------|-------------|
 | `query` | string | Yes | e.g. `"삼성전자"`, `"SK하이닉스"`, `"005930"` |
 
+### `get_stock_themes`
+Reverse lookup — every theme a stock belongs to, ranked by theme score, each with lifecycle stage and the stock's relevance. Answers "is my stock in a hot theme?"
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `symbol` | string | Yes | 6-digit Korean stock code, e.g. `"005930"` (Samsung), `"000660"` (SK Hynix) |
+
 ### `get_theme_detail`
 Get detailed analysis: score breakdown (4 components), stage, prediction, stocks, news, comparisons.
 
@@ -140,6 +149,26 @@ Get TLI algorithm documentation — scoring, stages, stabilization, comparison, 
 | `section` | string | No | `scoring` / `stages` / `comparison` / `prediction` / `all` (default: all) |
 
 > Tip: Use `section=scoring` to get just the scoring algorithm and save context tokens.
+
+## Workflow Prompts
+
+One-click slash commands (in Claude Desktop, Cursor, and other MCP clients) that run complete multi-tool analyses for you — the fastest way to get real value:
+
+| Prompt | Argument | What it does |
+|--------|----------|--------------|
+| `market_briefing` | — | Today's Korean market theme briefing: mood, top themes, movers, takeaways |
+| `theme_deep_dive` | `theme` | Full lifecycle analysis of one theme: score, 30-day trend, stocks, news, outlook |
+| `find_investment_themes` | `interest` | Discover themes matching an interest, ranked by momentum and stage |
+| `stock_theme_check` | `stock` | Check whether a stock (name or code) sits inside any hot or rising themes |
+
+## Resources
+
+Attachable read-only context (no tool call needed):
+
+| URI | Description |
+|-----|-------------|
+| `stockmatrix://methodology` | How TLI scores and lifecycle stages are computed — weights and thresholds |
+| `stockmatrix://rankings` | Live snapshot of today's theme rankings by score, grouped by stage |
 
 ## Scoring Algorithm
 
@@ -168,9 +197,10 @@ Stage transitions require 2 consecutive days of the same candidate (hysteresis) 
 
 - **250+ themes** across KOSPI & KOSDAQ
 - **Daily updates** — scores, news, stock mappings
-- **Stock lookup** by company name or 6-digit code
+- **Stock ↔ theme lookup** — by company name, 6-digit code, or reverse (stock → all its themes)
 - **AI market summary** for first-call overview
 - **Predictions** with historical analog matching
+- **Workflow prompts** — one-click multi-tool analyses
 - **Sources**: Naver DataLab, Naver Finance, Naver News
 
 ## Configuration

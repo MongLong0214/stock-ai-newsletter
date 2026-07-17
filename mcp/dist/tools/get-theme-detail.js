@@ -10,15 +10,20 @@ Score stabilization: Cautious Decay (3-signal majority vote prevents false drops
 Stage transitions use Markov constraints + 2-day hysteresis.
 Comparisons: 3-Pillar similarity (feature + curve + keyword) with Mutual Rank, threshold ≥ 0.40.`;
 export const registerGetThemeDetail = (server) => {
-    server.tool('get_theme_detail', `Get detailed analysis for a specific Korean stock theme.
+    server.registerTool('get_theme_detail', {
+        title: 'Theme Detail',
+        description: `Get detailed analysis for a specific Korean stock theme.
 
 Returns: TLI score breakdown (4 components with weights), lifecycle stage, 24h/7d score changes, prediction outlook, top related stocks with price changes, latest news headlines, and similar theme comparisons.
 
-Use after get_theme_ranking or search_themes to drill into a specific theme. Answers: "tell me more about this theme", "what stocks are in this theme", "테마 상세 정보", "관련 종목 알려줘", "이 테마 전망".`, {
-        theme_id: z
-            .string()
-            .uuid('Theme ID must be a valid UUID')
-            .describe('Theme UUID from ranking or search results'),
+Use after get_theme_ranking or search_themes to drill into a specific theme. Answers: "tell me more about this theme", "what stocks are in this theme", "테마 상세 정보", "관련 종목 알려줘", "이 테마 전망".`,
+        inputSchema: {
+            theme_id: z
+                .string()
+                .uuid('Theme ID must be a valid UUID')
+                .describe('Theme UUID from ranking or search results'),
+        },
+        annotations: { readOnlyHint: true, openWorldHint: true },
     }, async ({ theme_id }) => {
         try {
             const data = await fetchApi(`/api/tli/themes/${theme_id}`);

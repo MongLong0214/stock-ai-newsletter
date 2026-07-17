@@ -38,9 +38,11 @@ interface PredictionResponse {
 }
 
 export const registerGetPredictions = (server: McpServer): void => {
-  server.tool(
+  server.registerTool(
     'get_predictions',
-    `Get champion probability prediction snapshots for Korean stock themes.
+    {
+      title: 'Theme Predictions',
+      description: `Get champion probability prediction snapshots for Korean stock themes.
 
 Use when the user asks:
 - Which themes are rising / about to peak / cooling down?
@@ -51,11 +53,13 @@ Use when the user asks:
 - 테마 생명주기 예측 결과를 보고 싶어
 
 Returns v3 snapshot fields when exposure is enabled: pRise, ciLower, ciUpper, abstain, abstainReasons, modelVersion, trailing90d.topSignalPrecision, and deprecated phase compatibility. Returns dataSource=none when exposure is disabled for rollback.`,
-    {
-      phase: z
-        .enum(['rising', 'hot', 'cooling'])
-        .optional()
-        .describe('Deprecated compatibility filter derived from pRise: rising >=0.6, hot >=0.4, cooling <0.4'),
+      inputSchema: {
+        phase: z
+          .enum(['rising', 'hot', 'cooling'])
+          .optional()
+          .describe('Deprecated compatibility filter derived from pRise: rising >=0.6, hot >=0.4, cooling <0.4'),
+      },
+      annotations: { readOnlyHint: true, openWorldHint: true },
     },
     async ({ phase }: { readonly phase?: 'rising' | 'hot' | 'cooling' }) => {
       try {

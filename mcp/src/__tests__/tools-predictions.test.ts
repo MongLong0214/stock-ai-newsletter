@@ -22,9 +22,9 @@ describe('get-predictions MCP tool', () => {
     const { registerGetPredictions } = await import('../tools/get-predictions.js')
 
     const mockServer = {
-      tool: (_name: string, _desc: string, _schema: unknown, handler: typeof registeredHandler) => {
+      registerTool: (_name: string, _config: { description?: string }, handler: typeof registeredHandler) => {
         registeredName = _name
-        registeredDescription = _desc
+        registeredDescription = _config.description ?? ''
         registeredHandler = handler
       },
     }
