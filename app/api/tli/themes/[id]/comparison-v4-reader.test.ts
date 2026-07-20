@@ -6,6 +6,7 @@ import {
   applyCertifiedWeightVersion,
   buildCompletedAnalogComparisonRows,
   buildLevel4ServingMetadata,
+  filterAnalogRowsWithCurveData,
   hasActiveComparisonV4ServingControl,
   getComparisonV4ReaderMode,
   isComparisonV4ServingEnabled,
@@ -138,6 +139,28 @@ describe('comparison v4 reader', () => {
         confidenceTier: 'high',
       }),
     ])
+  })
+
+  it('drops analog rows whose candidate theme has no lifecycle curve data', () => {
+    const rows = [
+      { candidate_theme_id: 'past-with-curve', similarity_score: 0.9 },
+      { candidate_theme_id: 'past-without-curve', similarity_score: 0.8 },
+    ]
+
+    const filtered = filterAnalogRowsWithCurveData(rows, new Set(['past-with-curve']))
+
+    expect(filtered).toEqual([
+      expect.objectContaining({ candidate_theme_id: 'past-with-curve' }),
+    ])
+  })
+
+  it('returns an empty array when no analog candidate has curve data, enabling peer fallback', () => {
+    const rows = [
+      { candidate_theme_id: 'past-1' },
+      { candidate_theme_id: 'past-2' },
+    ]
+
+    expect(filterAnalogRowsWithCurveData(rows, new Set())).toEqual([])
   })
 
   it('keeps active peer analog rows observational when the candidate episode is still active', () => {

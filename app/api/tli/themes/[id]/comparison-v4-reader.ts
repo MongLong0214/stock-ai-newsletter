@@ -314,6 +314,36 @@ function normalizeAnalogSummary(
   return summary
 }
 
+/**
+ * lifecycleCurve 없는 완결 아날로그는 차트에 빈 비교선으로 렌더된다.
+ * 곡선 데이터(lifecycle_scores)가 실재하는 후보만 서빙하고, 전량 탈락 시
+ * 호출부가 v2 활성 피어 run으로 폴백하도록 빈 배열을 돌려준다.
+ */
+export function filterAnalogRowsWithCurveData<T extends { candidate_theme_id: string }>(
+  rows: T[],
+  themeIdsWithCurves: ReadonlySet<string>,
+) {
+  return rows.filter((row) => themeIdsWithCurves.has(row.candidate_theme_id))
+}
+
+async function loadThemeIdsWithCurveData(
+  supabase: ReturnType<typeof getServerSupabaseClient>,
+  themeIds: string[],
+): Promise<Set<string>> {
+  const uniqueIds = [...new Set(themeIds)]
+  const checks = await Promise.all(
+    uniqueIds.map(async (themeId) => {
+      const { count, error } = await supabase
+        .from('lifecycle_scores')
+        .select('theme_id', { count: 'exact', head: true })
+        .eq('theme_id', themeId)
+      // 조회 실패는 곡선 없음으로 간주 — 빈 선을 서빙하느니 피어 폴백이 안전하다
+      return { themeId, hasCurve: !error && (count ?? 0) > 0 }
+    }),
+  )
+  return new Set(checks.filter((check) => check.hasCurve).map((check) => check.themeId))
+}
+
 export function buildCompletedAnalogComparisonRows(input: {
   currentDay: number
   candidates: AnalogCandidateServingRow[]
@@ -415,17 +445,24 @@ async function loadLatestCompletedAnalogRows(themeId: string) {
     return { data: [], error: episodeError }
   }
 
+  const analogRows = buildCompletedAnalogComparisonRows({
+    currentDay: snapshot.days_since_episode_start,
+    candidates: candidates as AnalogCandidateServingRow[],
+    evidenceByCandidateId: new Map(
+      evidenceRows.map((row) => [row.candidate_id, row as AnalogEvidenceServingRow]),
+    ),
+    episodeById: new Map(
+      (episodeRows ?? []).map((row) => [row.id, row as EpisodeServingRow]),
+    ),
+  })
+
+  const themeIdsWithCurves = await loadThemeIdsWithCurveData(
+    supabase,
+    analogRows.map((row) => row.candidate_theme_id),
+  )
+
   return {
-    data: buildCompletedAnalogComparisonRows({
-      currentDay: snapshot.days_since_episode_start,
-      candidates: candidates as AnalogCandidateServingRow[],
-      evidenceByCandidateId: new Map(
-        evidenceRows.map((row) => [row.candidate_id, row as AnalogEvidenceServingRow]),
-      ),
-      episodeById: new Map(
-        (episodeRows ?? []).map((row) => [row.id, row as EpisodeServingRow]),
-      ),
-    }),
+    data: filterAnalogRowsWithCurveData(analogRows, themeIdsWithCurves),
     error: null,
   }
 }
