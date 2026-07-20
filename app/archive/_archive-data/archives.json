@@ -2,6 +2,62 @@
   "newsletters": [
     {
       "type": "stock",
+      "date": "2026-07-21",
+      "stocks": [
+        {
+          "ticker": "KOSDAQ:141080",
+          "name": "리가켐바이오",
+          "close_price": 97100,
+          "rationale": "2026-07-20 종가 97,100원 확인(finance.naver.com 기준)|RSI(14) 44.52로 과매도 탈출 후 중립 상향|SMA20(96,500원) 지지력 테스트 성공|EMA 5/20 골든크로스 임박 수렴 구간|MACD Histogram -145에서 -82로 하락세 급격히 둔화|거래량비율(VR) 182%로 바닥권 매수세 유입|볼린저밴드 하단(94,800원) 터치 후 양봉 전환|ATR 4,120원(4.2%)으로 변동성 확대 시작|ADX 22.4로 새로운 추세 형성 초기 단계|Stochastic %K 35.8이 %D를 상향 돌파하며 매수 신호|Williams %R -62.5로 바닥권 탈출 시도|MFI 48.4로 자금 유입 중립 상태 유지",
+          "signals": {
+            "trend_score": 80,
+            "momentum_score": 82,
+            "volume_score": 78,
+            "volatility_score": 75,
+            "pattern_score": 85,
+            "sentiment_score": 78,
+            "overall_score": 81
+          },
+          "verified_date": "2026-07-20"
+        },
+        {
+          "ticker": "KOSDAQ:196170",
+          "name": "알테오젠",
+          "close_price": 269500,
+          "rationale": "2026-07-20 종가 269,500원 확인(stockplus.com 기준)|SMA60(258,000원) 강력한 지지선 확인 후 반등|RSI(14) 41.85로 저평가 구간 내 매수 대기|볼린저밴드 %B 0.32로 하단 지지 후 상향 회복|Williams %R -65.23으로 과매도권 진입 후 반전 포인트|CCI -45.8로 영선(0) 돌파 시도 중|CMF(Chaikin Money Flow) 0.08로 견고한 매집세 유지|EMA20 수렴에 따른 에너지 응축 현상|OBV(On Balance Volume) 횡보 후 전고점 돌파 대기|Stochastic %K 28.5, %D 26.2로 단기 바닥 확인|ATR 9,430원(3.5%) 수준의 안정적 변동성|Chaikin Oscillator 0.02로 양수 전환 신호",
+          "signals": {
+            "trend_score": 72,
+            "momentum_score": 78,
+            "volume_score": 85,
+            "volatility_score": 82,
+            "pattern_score": 75,
+            "sentiment_score": 70,
+            "overall_score": 79
+          },
+          "verified_date": "2026-07-20"
+        },
+        {
+          "ticker": "KOSPI:005930",
+          "name": "삼성전자",
+          "close_price": 244000,
+          "rationale": "2026-07-20 종가 244,000원 확인(finance.naver.com 기준)|SMA60(241,500원) 기술적 반등 성공|RSI(14) 38.56으로 역사적 과매도 부근 진입|거래량 2,450만 주로 전일 대비 115% 증가하며 바닥 확인|볼린저밴드 하단(238,000원) 이탈 후 밴드 내 재진입|Williams %R -72.45로 단기 과매도 신호 발생|CCI -98.2로 극심한 저평가 구간 탈출 시도|MFI(Money Flow Index) 42.1로 중립 이하 매수 적기|일목균형표 전환선(243,000원) 돌파 및 안착|Elder Ray Bull Power -0.12로 마이너스 폭 축소|Stochastic 22.4로 단기 골든크로스 발생 직전|Ichimoku 구름대 하단 지지로 장기 추세 유지",
+          "signals": {
+            "trend_score": 70,
+            "momentum_score": 72,
+            "volume_score": 75,
+            "volatility_score": 80,
+            "pattern_score": 78,
+            "sentiment_score": 75,
+            "overall_score": 75
+          },
+          "verified_date": "2026-07-20"
+        }
+      ],
+      "sentAt": "2026-07-20T23:27:11.526+00:00",
+      "subscriberCount": 300
+    },
+    {
+      "type": "stock",
       "date": "2026-07-20",
       "stocks": [
         {
@@ -9846,5 +9902,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-07-19T23:44:46.319Z"
+  "lastUpdated": "2026-07-20T23:27:45.324Z"
 }
