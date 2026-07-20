@@ -113,8 +113,8 @@ function ComparisonWorkspace({
             </div>
           </div>
 
-          <div className="px-4 pb-4 sm:px-6 sm:pb-5">
-            <div className="rounded-[22px] border border-slate-800/70 bg-slate-950/55 p-3.5">
+          <div className="min-w-0 px-4 pb-4 sm:px-6 sm:pb-5">
+            <div className="min-w-0 rounded-[22px] border border-slate-800/70 bg-slate-950/55 p-3.5">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
                   <p className="text-[11px] font-mono uppercase tracking-[0.16em] text-slate-500">현재 표시 중인 선</p>
