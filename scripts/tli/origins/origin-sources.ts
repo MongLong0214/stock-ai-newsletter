@@ -3,7 +3,7 @@
 // 하나라도 다르면 manifest 생성이 거부된다 (fail-closed).
 
 import { compareUtf8Bytes } from '@/lib/tli/canonical-json'
-import { addKoreanTradingDays, getKoreanTradingDateWindow } from '@/lib/tli/trading-calendar'
+import { addKoreanTradingDays, getKoreanTradingDateWindow, isKoreanTradingDate } from '@/lib/tli/trading-calendar'
 import { supabaseAdmin } from '@/scripts/tli/shared/supabase-admin'
 import { keysetOrExpression, paginateByKeyset } from '@/scripts/tli/shared/keyset'
 import { z } from 'zod'
@@ -41,8 +41,13 @@ export const recordedKeywordGroupSpec = (
   return matches.length === 1 ? matches[0] : null
 }
 
-const tradingDatesEndingAt = (baseDate: string, slots: number): string[] =>
-  getKoreanTradingDateWindow({ baseDate, startOffset: -(slots - 1), endOffset: 0 })
+// RPC(046)는 stock_daily_prices에서 `trade_date <= baseDate LIMIT slots`로 창을 계산하므로
+// baseDate가 휴장일이면 창에 포함되지 않는다. getKoreanTradingDateWindow의 offset 0은 baseDate를
+// 거래일 여부와 무관하게 그대로 반환하므로, 비거래일 baseDate를 직전 거래일로 내려 의미를 일치시킨다.
+const tradingDatesEndingAt = (baseDate: string, slots: number): string[] => {
+  const endDate = isKoreanTradingDate(baseDate) ? baseDate : addKoreanTradingDays(baseDate, -1)
+  return getKoreanTradingDateWindow({ baseDate: endDate, startOffset: -(slots - 1), endOffset: 0 })
+}
 
 // WHY: current themes/theme_keywords는 지연 backfill 시점에 따라 바뀐다. expected universe와 keyword는
 // origin cutoff 이하 immutable interest run 중 RPC가 받을 exact 20-slot 최신 run에서만 파생해야 한다.

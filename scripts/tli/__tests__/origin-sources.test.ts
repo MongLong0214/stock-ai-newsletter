@@ -158,6 +158,35 @@ describe('Monday origin source PIT selection', () => {
     expect(selected.interestRun?.id).toBe(latestExact.id)
   })
 
+  it('source_max_date가 휴장일인 run은 휴장일 관측을 포함해도 제외하고 직전 거래일 run을 고른다', () => {
+    // Given: 2026-07-17(제헌절 재지정 휴장) 이전 캘린더로 수집돼 7/17을 거래일 관측으로 포함한 run과
+    //        휴장일 없는 정상 20-slot(6/19~7/16) run. RPC는 KOSPI 실측 기준 7/17을 창에서 제외한다.
+    const contaminatedDates = [
+      ...getKoreanTradingDateWindow({ baseDate: '2026-07-16', startOffset: -18, endOffset: 0 }),
+      '2026-07-17',
+    ]
+    const holidayMaxRun = interestCandidate({
+      id: '20000000-0000-4000-8000-000000000006',
+      sourceMaxDate: '2026-07-17',
+      collectedAt: '2026-07-18T09:00:00.000Z',
+      completedAt: '2026-07-18T09:05:00.000Z',
+      tradingDates: contaminatedDates,
+    })
+    const cleanRun = interestCandidate({
+      id: '20000000-0000-4000-8000-000000000007',
+      sourceMaxDate: '2026-07-16',
+      collectedAt: '2026-07-17T09:00:00.000Z',
+      completedAt: '2026-07-17T09:05:00.000Z',
+      tradingDates: getKoreanTradingDateWindow({ baseDate: '2026-07-16', startOffset: -19, endOffset: 0 }),
+    })
+
+    // When: 7/20(월) origin 기준으로 PIT source를 고른다.
+    const [selected] = selectPitForecastSources([holidayMaxRun, cleanRun], '2026-07-20')
+
+    // Then: 더 최신인 휴장일-오염 run 대신 RPC 창과 일치하는 clean run을 선택해야 한다.
+    expect(selected.interestRun?.id).toBe(cleanRun.id)
+  })
+
   it('keyword group은 immutable interest request payload에서 hash가 일치하는 exact group을 복원한다', () => {
     // Given: anchor와 Monday theme group이 함께 기록된 immutable DataLab request payload.
     const requestPayload = {
