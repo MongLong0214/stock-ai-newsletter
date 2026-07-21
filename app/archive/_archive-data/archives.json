@@ -2,6 +2,62 @@
   "newsletters": [
     {
       "type": "stock",
+      "date": "2026-07-22",
+      "stocks": [
+        {
+          "ticker": "KOSPI:000660",
+          "name": "SK하이닉스",
+          "close_price": 1846000,
+          "rationale": "2026-07-21 종가 1,846,000원 확인(investing.com)|14일 RSI 45.264로 중립 구간에서 상승 반전 신호 포착|MACD -32,774 수준에서 하락세 진정 및 히스토그램 수축 확인|Stochastic(9,6) 97.57로 단기 강세 모멘텀 압도적|MA10(1,818,400원) 상단 안착하며 단기 지지선 확보|52주 범위(245,000~2,987,000) 내 중상단 위치로 상승 여력 충분|애널리스트 평균 목표주가 3,408,502원 대비 저평가 국면|2026-07-22 실적 발표 예정에 따른 선취매 수급 유입|피봇 포인트 1,846,000원 돌파 시 R1(1,861,000원) 즉시 도달 가능성|최근 외인/기관 2.2조 원 규모 순매수세 유입 확인|반도체 AI 고점 논란 해소 및 기술적 반등 사이드카 발동 기록",
+          "signals": {
+            "trend_score": 98,
+            "momentum_score": 97,
+            "volume_score": 99,
+            "volatility_score": 95,
+            "pattern_score": 100,
+            "sentiment_score": 91,
+            "overall_score": 98
+          },
+          "verified_date": "2026-07-21"
+        },
+        {
+          "ticker": "KOSPI:207940",
+          "name": "삼성바이오로직스",
+          "close_price": 1395000,
+          "rationale": "2026-07-21 종가 1,395,000원 확정(google finance)|RSI(14) 46.28로 과매수 없는 건전한 상승 추세 유지|52주 최고가 1,987,000원 대비 약 30% 조정 후 바닥 다지기 완료|일간 주가 변동폭 1,346,000~1,415,000원으로 변동성 확대 시작|평균 거래량 6.06만 주 대비 최근 거래량 안정적 증가세|상승 웨지(Rising Wedge) 하단 지지선에서의 강한 반등 확인|MA20 돌파 시 시가총액 100조 원 재탈환 가시권|기관/외인 동반 매수세(쌍끌이) 유입으로 수급 질적 개선|Ichimoku 구름대 상단 저항 돌파 시도하는 전형적 강세 패턴|Williams %R 지표의 과매도 구역 탈출 및 상승 발산 포착",
+          "signals": {
+            "trend_score": 95,
+            "momentum_score": 93,
+            "volume_score": 87,
+            "volatility_score": 89,
+            "pattern_score": 92,
+            "sentiment_score": 88,
+            "overall_score": 91
+          },
+          "verified_date": "2026-07-21"
+        },
+        {
+          "ticker": "KOSPI:402340",
+          "name": "SK스퀘어",
+          "close_price": 1253000,
+          "rationale": "2026-07-21 종가 1,253,000원 확인(hankyung.com)|14일 RSI 53.146으로 중립 이상 강세 구간 진입|MA5(1,240,400원) 및 MA20(1,213,550원) 위로 상향 돌파 성공|Stochastic RSI 100 기록하며 단기 폭발적 매수세 유입 증명|일간 범위 1,156,000~1,263,000원 내 고가 부근 종가 형성|MACD -7,340으로 시그널선 상향 교차(골든크로스) 임박|피봇 포인트 1,234,667원 위에서 지지 형성하며 상승 추세 안착|Ultimate Oscillator 60.819로 매수 신호 지속 발생|SK하이닉스 지분가치 재부각에 따른 지주사 할인율 해소 국면|장중 아래꼬리 길게 달린 망치형 캔들 발생으로 하방 경직성 확보|기관 순매수 상위 2위 랭크(7월 21일 기준)로 수급 모멘텀 최상",
+          "signals": {
+            "trend_score": 94,
+            "momentum_score": 96,
+            "volume_score": 95,
+            "volatility_score": 88,
+            "pattern_score": 94,
+            "sentiment_score": 90,
+            "overall_score": 93
+          },
+          "verified_date": "2026-07-21"
+        }
+      ],
+      "sentAt": "2026-07-21T23:15:26.818+00:00",
+      "subscriberCount": 301
+    },
+    {
+      "type": "stock",
       "date": "2026-07-21",
       "stocks": [
         {
@@ -9902,5 +9958,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-07-20T23:45:17.644Z"
+  "lastUpdated": "2026-07-21T23:16:02.207Z"
 }
