@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
   calculateAndSaveScores: vi.fn(),
   runDailyLabelPhase: vi.fn(),
   countExpiredPendingLabels: vi.fn(),
+  runGtAV2FoundationPhase: vi.fn(),
   materializePhase0Artifacts: vi.fn(),
   computeOptimalThreshold: vi.fn(),
   calculateThemeComparisons: vi.fn(),
@@ -30,6 +31,9 @@ vi.mock('@/scripts/tli/scoring/calculate-scores', () => ({
 vi.mock('@/scripts/tli/labels/daily-label-phase', () => ({
   runDailyLabelPhase: mocks.runDailyLabelPhase,
   countExpiredPendingLabels: mocks.countExpiredPendingLabels,
+}))
+vi.mock('@/scripts/tli/labels/gta-v2-daily', () => ({
+  runGtAV2FoundationPhase: mocks.runGtAV2FoundationPhase,
 }))
 vi.mock('@/scripts/tli/comparison/materialize-phase0-artifacts', () => ({
   materializePhase0Artifacts: mocks.materializePhase0Artifacts,
@@ -90,6 +94,9 @@ describe('analysis snapshot fail-loud contract', () => {
       nonTradingPendingClosed: 0,
     })
     mocks.countExpiredPendingLabels.mockResolvedValue(0)
+    mocks.runGtAV2FoundationPhase.mockResolvedValue({
+      pendingCreated: 0, finalized: 0, keptPending: 0, failures: 0,
+    })
     mocks.materializePhase0Artifacts.mockResolvedValue({
       episodeCount: 0,
       querySnapshotCount: 0,

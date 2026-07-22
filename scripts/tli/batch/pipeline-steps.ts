@@ -14,6 +14,7 @@ import { getKSTDateString } from '@/lib/tli/date-utils'
 import { isKoreanTradingDate } from '@/lib/tli/trading-calendar'
 import { materializePhase0Artifacts } from '@/scripts/tli/comparison/materialize-phase0-artifacts'
 import { countExpiredPendingLabels, runDailyLabelPhase } from '@/scripts/tli/labels/daily-label-phase'
+import { runGtAV2FoundationPhase } from '@/scripts/tli/labels/gta-v2-daily'
 import { GTA_LABELER_VERSION } from '@/lib/tli/labels/gt-a'
 import { GTA_V2_LABELER_VERSION } from '@/lib/tli/labels/gt-a-v2'
 import { GTB_LABELER_VERSION } from '@/lib/tli/labels/gt-b'
@@ -119,6 +120,16 @@ export async function runAnalysisPipeline(themes: ThemeWithKeywords[], today = g
   } catch (error: unknown) {
     warningFailures++
     console.warn('   ⚠️ Ground Truth 라벨 단계 실패:', error instanceof Error ? error.message : String(error))
+  }
+
+  console.log('\n🏷️ 4.15단계: gta-v2 foundation 라벨 생성/확정')
+  try {
+    const gtAV2 = await runGtAV2FoundationPhase(today)
+    if (gtAV2.failures > 0) warningFailures++
+    console.log(`   ✅ gta-v2 pending 생성=${gtAV2.pendingCreated}, 확정=${gtAV2.finalized}, 유지=${gtAV2.keptPending}, 실패=${gtAV2.failures}`)
+  } catch (error: unknown) {
+    warningFailures++
+    console.warn('   ⚠️ gta-v2 foundation 라벨 단계 실패:', error instanceof Error ? error.message : String(error))
   }
 
   // Step 4.5: 비교 임계값 자동 튜닝
