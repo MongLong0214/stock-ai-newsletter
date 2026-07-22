@@ -2,6 +2,62 @@
   "newsletters": [
     {
       "type": "stock",
+      "date": "2026-07-23",
+      "stocks": [
+        {
+          "ticker": "KOSPI:000660",
+          "name": "SK하이닉스",
+          "close_price": 1830000,
+          "rationale": "2026년 7월 22일 종가 1,830,000원(-0.33%) 실측 확인|코스피 시가총액 1,304조 원으로 2위 수성|RSI(14) 지표 41.12로 과매도 구간 탈출 후 반등 모멘텀 형성|외국인 소진율 52.39%로 견조한 수급 기반 유지|52주 최고가 2,987,000원 대비 약 38% 가격 조정 완료|7월 22일 장중 2,006,000원 터치하며 강력한 상방 의지 표출|EMA 단기 이평선 수렴 및 정배열 전환 시도 구간|D램 가격 상승 전망 및 HBM 공급 부족 지속에 따른 업황 호조|거래량 4.76M주로 유동성 상위권 유지|심리적 지지선 180만 원 상향 지지 확인|Aroon Up 지표의 상승 반전 신호 포착|기관의 일시적 차익 실현에도 외국인 순매수 유입 지속",
+          "signals": {
+            "trend_score": 92,
+            "momentum_score": 85,
+            "volume_score": 90,
+            "volatility_score": 88,
+            "pattern_score": 87,
+            "sentiment_score": 91,
+            "overall_score": 89
+          },
+          "verified_date": "2026-07-22"
+        },
+        {
+          "ticker": "KOSPI:012450",
+          "name": "한화에어로스페이스",
+          "close_price": 891000,
+          "rationale": "2026년 7월 22일 종가 891,000원 확정|방산 업계 최초 해외 공모채 5억 달러 조달 성공으로 재무 건전성 강화|RSI 59.8로 강세 구간 진입 초기 신호 발생|EMA 20일선 지지 확인 및 정배열 추세 유지|52주 최고가 1,655,000원 대비 낙폭 과대 인식에 따른 저가 매수세 유입|MACD 0선 위 Bullish Cross 발생으로 추세 전환 암시|볼린저밴드 하단 지지 후 중심선 돌파 시도|거래량 171K주로 안정적인 수급 구조 형성|수주 잔고 기반 실적 턴어라운드 모멘텀 유효|Parabolic SAR 매수 전환 신호 포착|항공우주 및 국방 AI 분야 55조 원 대규모 투자 기대감|전일 종가 대비 변동성 축소하며 건전한 매물 소화 과정",
+          "signals": {
+            "trend_score": 95,
+            "momentum_score": 91,
+            "volume_score": 82,
+            "volatility_score": 89,
+            "pattern_score": 92,
+            "sentiment_score": 88,
+            "overall_score": 90
+          },
+          "verified_date": "2026-07-22"
+        },
+        {
+          "ticker": "KOSPI:005380",
+          "name": "현대차",
+          "close_price": 418000,
+          "rationale": "2026년 7월 22일 당일 +4.76% 급등하며 강한 매수세 유입|장중 최고가 433,000원 기록하며 직전 고점 돌파 시도|보스턴 다이내믹스 '아틀라스' 기반 로봇 및 피지컬 AI 모멘텀 본격화|RSI 55.4로 과매수 없는 이상적인 강세 구간 유지|외국인 투자자 중심의 2조 6천억 원 규모 코스피 순매수세 수혜|52주 최저가 204,500원 대비 강력한 우상향 채널 형성|거래량 799K주로 전일 대비 폭발적 증가 확인|보스턴 다이내믹스 잔여 지분 인수 기대감 반영|PER 13.16배로 업종 평균 대비 매력적인 밸류에이션 유지|Stochastic 골든크로스 및 과매도 탈출 신호 발생|현대모비스(+6.99%) 등 그룹주 동반 강세에 따른 시너지|VWAP 상단 위치로 단기 추세 강화 확인",
+          "signals": {
+            "trend_score": 94,
+            "momentum_score": 96,
+            "volume_score": 93,
+            "volatility_score": 85,
+            "pattern_score": 95,
+            "sentiment_score": 92,
+            "overall_score": 93
+          },
+          "verified_date": "2026-07-22"
+        }
+      ],
+      "sentAt": "2026-07-22T23:26:38.926+00:00",
+      "subscriberCount": 302
+    },
+    {
+      "type": "stock",
       "date": "2026-07-22",
       "stocks": [
         {
@@ -9958,5 +10014,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-07-21T23:45:58.689Z"
+  "lastUpdated": "2026-07-22T23:27:18.052Z"
 }
