@@ -59,6 +59,42 @@ interface ShadowMatchInput {
   isPastActive?: boolean
 }
 
+/** Postgres foreign_key_violation — tli_babl_phase_observations의 ON DELETE RESTRICT가 스냅샷을 고정한 경우 */
+const BABL_PINNED_FK_CODE = '23503'
+
+/** B-Abl 관측이 고정하지 않은 스냅샷만 골라 삭제한다 (고정 행은 PIT 원본으로 보존). */
+async function deleteUnpinnedSnapshots(input: { runId: string; snapshotDate: string }): Promise<void> {
+  const { data: scoped, error: scopeErr } = await supabaseAdmin
+    .from('prediction_snapshots_v2')
+    .select('id')
+    .eq('comparison_run_id', input.runId)
+    .eq('snapshot_date', input.snapshotDate)
+  if (scopeErr) {
+    throw new Error(`v2 snapshot 정리 대상 조회 실패: ${scopeErr.message}`)
+  }
+  const scopedIds = (scoped ?? []).map((row) => row.id as string)
+  if (scopedIds.length === 0) return
+
+  const { data: pinnedRows, error: pinnedErr } = await supabaseAdmin
+    .from('tli_babl_phase_observations')
+    .select('source_prediction_snapshot_id')
+    .in('source_prediction_snapshot_id', scopedIds)
+  if (pinnedErr) {
+    throw new Error(`v2 snapshot 고정 여부 조회 실패: ${pinnedErr.message}`)
+  }
+  const pinned = new Set((pinnedRows ?? []).map((row) => row.source_prediction_snapshot_id as string))
+  const deletable = scopedIds.filter((id) => !pinned.has(id))
+  if (deletable.length === 0) return
+
+  const { error: retryErr } = await supabaseAdmin
+    .from('prediction_snapshots_v2')
+    .delete()
+    .in('id', deletable)
+  if (retryErr) {
+    throw new Error(`v2 shadow snapshot 비고정 row 정리 실패: ${retryErr.message}`)
+  }
+}
+
 export function determineShadowCandidatePool(matches: Array<{ isPastActive?: boolean }>): ComparisonCandidatePool {
   if (matches.length === 0) return 'mixed_legacy'
   const activeCount = matches.filter(match => match.isPastActive === true).length
@@ -241,7 +277,11 @@ export async function upsertComparisonShadowRun(input: {
     .eq('run_type', prepared.runRow.run_type)
     .neq('id', runId)
 
-  if (siblingDeleteErr) {
+  if (siblingDeleteErr && siblingDeleteErr.code === BABL_PINNED_FK_CODE) {
+    // sibling run 삭제가 스냅샷 CASCADE를 타다 B-Abl 고정 행에 막힌 경우 —
+    // 고정된 run은 PIT 원본으로 남긴다. 잔존 sibling은 서빙 선택(최신순)에 무해하다.
+    console.warn('   ⚠️ v2 sibling run이 B-Abl 관측에 고정되어 정리를 건너뜀')
+  } else if (siblingDeleteErr) {
     throw new Error(`v2 shadow sibling run 정리 실패: ${siblingDeleteErr.message}`)
   }
 
@@ -373,7 +413,10 @@ export async function upsertPredictionShadowSnapshot(input: {
       onConflict: 'theme_id,snapshot_date,algorithm_version,run_type,candidate_pool,evaluation_horizon_days',
     })
 
-  if (error) {
+  // 23503 = B-Abl 관측(046 FK ON DELETE RESTRICT)이 기존 스냅샷을 고정한 경우.
+  // 새 id로의 교체(upsert)는 고정된 PIT 원본을 깨므로 DB가 막는 것이 옳고,
+  // 같은 날 재실행에서는 먼저 기록된 행이 진실이다 — 유지하고 집계를 계속한다.
+  if (error && error.code !== BABL_PINNED_FK_CODE) {
     throw new Error(`v2 prediction snapshot upsert 실패: ${error.message}`)
   }
 
@@ -437,7 +480,11 @@ export async function markShadowRunCompleteWithoutSnapshot(input: {
     .delete()
     .eq('comparison_run_id', input.runId)
     .eq('snapshot_date', input.snapshotDate)
-  if (deleteErr) {
+  if (deleteErr && deleteErr.code === BABL_PINNED_FK_CODE) {
+    // B-Abl 관측이 고정한 스냅샷이 섞여 있으면 statement 전체가 거부된다.
+    // 고정 행은 PIT 원본으로 보존하고, 고정되지 않은 stale row만 골라 정리한다.
+    await deleteUnpinnedSnapshots({ runId: input.runId, snapshotDate: input.snapshotDate })
+  } else if (deleteErr) {
     throw new Error(`v2 shadow snapshot stale row 정리 실패: ${deleteErr.message}`)
   }
 

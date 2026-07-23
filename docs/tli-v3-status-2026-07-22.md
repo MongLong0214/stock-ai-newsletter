@@ -99,6 +99,24 @@ failures=0
 ```
 DB 최종 상태: `2026-07-13 excluded/spec_mismatch: 200`, `2026-07-20 pending/pending_gta_v2: 198`.
 
+### 1.5 B-Abl 고정(pinning) × v2 스냅샷 교체 패턴 충돌 — 첫 재실행에서 CI 실패 (7/22 발생·수정)
+
+**증상**: 7/22 두 번째 full run(11:46 UTC, cron 지연 이중발화)이 exit 1. 로그:
+`v2 prediction snapshot upsert 실패: update or delete on table "prediction_snapshots_v2" violates foreign key constraint "tli_babl_phase_observations_source_prediction_snapshot_id_fkey"` × 183건 + stale 정리 1건.
+
+**메커니즘** (전부 실측):
+1. 같은 날 첫 run(09:57 UTC)이 7/22자 prod 스냅샷 생성 → step 6.5가 **사상 첫 B-Abl 관측 382건** append. 관측은 `source_prediction_snapshot_id` FK(**ON DELETE RESTRICT**, 046)로 스냅샷을 고정(pin)한다.
+2. 두 번째 run의 step 5가 같은 unique key로 스냅샷 재작성 시도. `buildPredictionSnapshotRowV2`가 **매번 `crypto.randomUUID()`로 새 id**를 만들므로 upsert의 ON CONFLICT UPDATE가 **PK 교체**가 되고, 고정된 행이라 DB가 거부. `markShadowRunCompleteWithoutSnapshot`의 광역 delete도 동일하게 거부.
+3. 즉 **study lock(1.3)이 켠 불변성 계약과, lock 이전의 mutable 저장 패턴의 충돌.** fail-loud가 설계대로 작동해 고정 스냅샷의 조용한 오염(관측의 payload_hash 무효화)을 막은 것 — 조용히 성공했다면 그쪽이 재앙이었다.
+
+**수정** (`shadow.ts`): FK 위반(SQLSTATE 23503)을 "고정 행 = PIT 원본 유지"로 처리.
+- `upsertPredictionShadowSnapshot`: 23503이면 기존 행 유지하고 성공 경로 계속 (같은 날 재실행에서는 먼저 기록된 행이 진실)
+- `markShadowRunCompleteWithoutSnapshot`: 23503이면 `deleteUnpinnedSnapshots`로 폴백 — 관측이 참조하는 id를 제외하고 비고정 stale row만 정리
+- sibling run 삭제(CASCADE 경유 잠재 경로): 23503이면 경고 후 스킵 (잔존 sibling은 서빙 최신순 선택에 무해)
+- 회귀 유닛 테스트 `comparison-v4-shadow-pinned.test.ts` (고정 행 보존 + 비고정만 삭제)
+
+**교훈 (불변 규칙 ⑩)**: append-only 관측이 FK로 원본을 고정하기 시작하면, 그 원본의 **모든 기존 writer(replace/upsert-새id/광역 delete)를 사전 점검**하라. lock 같은 활성화 이벤트의 영향 범위는 "새로 켜지는 것"만이 아니라 "이제 금지되는 것"을 포함한다.
+
 ---
 
 ## 2. 축적 시계 — 현재 위치와 캘린더
