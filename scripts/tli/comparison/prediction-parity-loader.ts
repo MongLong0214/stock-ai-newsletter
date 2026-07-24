@@ -26,6 +26,7 @@ const SnapshotRowSchema = z.object({
   avg_total_days: z.number(),
   avg_days_to_peak: z.number(),
   days_since_spike: z.number(),
+  created_at: z.string(),
 })
 
 const CandidateRowSchema = z.object({
@@ -36,6 +37,7 @@ const CandidateRowSchema = z.object({
   past_peak_day: z.number(),
   past_total_days: z.number(),
   estimated_days_to_peak: z.number(),
+  created_at: z.string().nullable(),
 })
 
 const ThemeRowSchema = z.object({
@@ -136,7 +138,7 @@ export async function loadPredictionParityReport(input: {
 
   const { data, error } = await supabaseAdmin
     .from('prediction_snapshots_v2')
-    .select('id, theme_id, snapshot_date, comparison_run_id, phase, confidence, risk_level, avg_peak_day, avg_total_days, avg_days_to_peak, days_since_spike')
+    .select('id, theme_id, snapshot_date, comparison_run_id, phase, confidence, risk_level, avg_peak_day, avg_total_days, avg_days_to_peak, days_since_spike, created_at')
     .gte('snapshot_date', startDate)
     .lte('snapshot_date', input.asOfDate)
     .order('snapshot_date', { ascending: false })
@@ -147,7 +149,7 @@ export async function loadPredictionParityReport(input: {
   const themeIds = [...new Set(snapshots.map((snapshot) => snapshot.theme_id))]
   const candidates = CandidateRowSchema.array().parse(await batchQuery(
     'theme_comparison_candidates_v2',
-    'run_id, candidate_theme_id, rank, similarity_score, past_peak_day, past_total_days, estimated_days_to_peak',
+    'run_id, candidate_theme_id, rank, similarity_score, past_peak_day, past_total_days, estimated_days_to_peak, created_at',
     runIds,
     (query) => query.order('rank', { ascending: true }),
     'run_id',
@@ -183,16 +185,33 @@ export async function loadPredictionParityReport(input: {
     candidatesByRun.set(candidate.run_id, [...(candidatesByRun.get(candidate.run_id) ?? []), candidate])
   }
 
-  const items: PredictionParityItem[] = snapshots.map((snapshot) => {
-    const { livePrediction, scoreMissing } = toLivePrediction({
-      snapshot,
-      theme: themeById.get(snapshot.theme_id),
-      candidates: candidatesByRun.get(snapshot.comparison_run_id) ?? [],
-      themeNames,
-      scores: scoresByTheme.get(snapshot.theme_id) ?? [],
-    })
-    return { snapshot, livePrediction, scoreMissing }
-  })
+  // B-Abl 관측이 스냅샷을 고정(FK RESTRICT)한 뒤 같은 날 재실행이 후보만 갱신하면, 스냅샷은
+  // 첫 기록(PIT 원본)으로 남고 후보는 더 새 빈티지가 된다. 이런 행은 "저장 후보로부터의
+  // 결정적 재계산" 계약 대상이 아니므로 parity에서 제외한다 (후보가 스냅샷보다 새로움 = 그 시그니처).
+  const isStaleInputSnapshot = (snapshot: SnapshotRow): boolean => {
+    const runCandidates = candidatesByRun.get(snapshot.comparison_run_id) ?? []
+    const snapshotTime = new Date(snapshot.created_at).getTime()
+    return runCandidates.some((candidate) =>
+      candidate.created_at !== null && new Date(candidate.created_at).getTime() > snapshotTime,
+    )
+  }
 
-  return buildPredictionParityReport({ asOfDate: input.asOfDate, windowDays: input.windowDays, items })
+  const staleInputExcludedCount = snapshots.filter(isStaleInputSnapshot).length
+  const items: PredictionParityItem[] = snapshots
+    .filter((snapshot) => !isStaleInputSnapshot(snapshot))
+    .map((snapshot) => {
+      const { livePrediction, scoreMissing } = toLivePrediction({
+        snapshot,
+        theme: themeById.get(snapshot.theme_id),
+        candidates: candidatesByRun.get(snapshot.comparison_run_id) ?? [],
+        themeNames,
+        scores: scoresByTheme.get(snapshot.theme_id) ?? [],
+      })
+      return { snapshot, livePrediction, scoreMissing }
+    })
+
+  return {
+    ...buildPredictionParityReport({ asOfDate: input.asOfDate, windowDays: input.windowDays, items }),
+    staleInputExcludedCount,
+  }
 }

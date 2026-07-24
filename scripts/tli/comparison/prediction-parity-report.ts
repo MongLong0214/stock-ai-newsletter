@@ -49,6 +49,8 @@ export interface PredictionParityReport {
   readonly parityRate: number
   readonly freshnessBusinessDays: number
   readonly mismatches: readonly PredictionParityMismatch[]
+  /** B-Abl 고정 스냅샷 + 이후 갱신된 후보(혼합 빈티지)로 재계산 계약 대상에서 제외된 수 */
+  readonly staleInputExcludedCount?: number
 }
 
 function roundRate(numerator: number, denominator: number): number {

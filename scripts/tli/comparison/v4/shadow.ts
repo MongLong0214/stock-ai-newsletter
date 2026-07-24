@@ -62,6 +62,28 @@ interface ShadowMatchInput {
 /** Postgres foreign_key_violation — tli_babl_phase_observations의 ON DELETE RESTRICT가 스냅샷을 고정한 경우 */
 const BABL_PINNED_FK_CODE = '23503'
 
+/** 이 run의 스냅샷 중 하나라도 B-Abl 관측이 고정했는지 여부. */
+async function isRunPinnedByBablObservations(runId: string): Promise<boolean> {
+  const { data: snapshots, error: snapshotErr } = await supabaseAdmin
+    .from('prediction_snapshots_v2')
+    .select('id')
+    .eq('comparison_run_id', runId)
+  if (snapshotErr) {
+    throw new Error(`v2 run 고정 여부 스냅샷 조회 실패: ${snapshotErr.message}`)
+  }
+  const snapshotIds = (snapshots ?? []).map((row) => row.id as string)
+  if (snapshotIds.length === 0) return false
+
+  const { count, error: pinnedErr } = await supabaseAdmin
+    .from('tli_babl_phase_observations')
+    .select('source_prediction_snapshot_id', { count: 'exact', head: true })
+    .in('source_prediction_snapshot_id', snapshotIds)
+  if (pinnedErr) {
+    throw new Error(`v2 run 고정 여부 관측 조회 실패: ${pinnedErr.message}`)
+  }
+  return (count ?? 0) > 0
+}
+
 /** B-Abl 관측이 고정하지 않은 스냅샷만 골라 삭제한다 (고정 행은 PIT 원본으로 보존). */
 async function deleteUnpinnedSnapshots(input: { runId: string; snapshotDate: string }): Promise<void> {
   const { data: scoped, error: scopeErr } = await supabaseAdmin
@@ -268,6 +290,14 @@ export async function upsertComparisonShadowRun(input: {
   }
 
   const runId = persistedRunRow.id as string
+
+  // 같은 날 재실행: 이 run의 스냅샷이 B-Abl 관측에 고정됐으면 후보도 그 빈티지 그대로 보존한다.
+  // 후보만 갱신하면 "스냅샷 = f(저장 후보)" 재계산 계약(parity gate)이 깨진 혼합 빈티지가 박제된다.
+  if (existingRun?.id && await isRunPinnedByBablObservations(runId)) {
+    console.warn('   ⚠️ v2 run이 B-Abl 관측에 고정되어 후보 교체를 건너뜀 (PIT 빈티지 보존)')
+    return { runId, candidateRows: prepared.candidateRows, candidatePool: prepared.runRow.candidate_pool }
+  }
+
   const { error: siblingDeleteErr } = await supabaseAdmin
     .from('theme_comparison_runs_v2')
     .delete()

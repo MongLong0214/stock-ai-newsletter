@@ -117,6 +117,19 @@ DB 최종 상태: `2026-07-13 excluded/spec_mismatch: 200`, `2026-07-20 pending/
 
 **교훈 (불변 규칙 ⑩)**: append-only 관측이 FK로 원본을 고정하기 시작하면, 그 원본의 **모든 기존 writer(replace/upsert-새id/광역 delete)를 사전 점검**하라. lock 같은 활성화 이벤트의 영향 범위는 "새로 켜지는 것"만이 아니라 "이제 금지되는 것"을 포함한다.
 
+### 1.6 parity gate critical — 고정 스냅샷 × 갱신된 후보의 혼합 빈티지 (7/23 발생·수정)
+
+**증상**: 7/23 full run(29997373038)이 본 파이프라인은 전부 성공(**B-Abl 첫 자동 축적 206건**, gta-v2 유지 198)했는데, 사후 gate 단계에서
+`##[error]prediction-parity critical scientific contract failure` (exit 3) → workflow 실패. parityRate 0.9294, mismatch 92건 중 **78건이 7/22**, 필드는 avgPeakDay/avgTotalDays 중심.
+
+**메커니즘**: parity gate 계약은 "스냅샷 = f(그 run의 저장된 후보), 재계산은 결정적, rate<1이면 critical". 그런데 7/22 run#2가 **후보(candidates)는 delete+재작성으로 교체**하고 **스냅샷은 (1.5 수정에 의해 올바르게) 고정 유지**하면서, 같은 run id 아래 스냅샷=run#1 빈티지 / 후보=run#2 빈티지의 **혼합 상태가 영구 박제**됐다. 이 행들은 재계산이 원리적으로 불가능하므로 gate가 14일 윈도우 내내(–8/5) critical을 반환할 상황이었다. (참고: 로그의 `model_registry challenger 없음` 에러는 watchlist gate의 warning 티어 — containment 설계상 challenger 0이 정상이며 무해한 red herring.)
+
+**수정 (2겹)**:
+1. **parity 치유** (`prediction-parity-loader.ts`): "후보 created_at > 스냅샷 created_at" = 혼합 빈티지 시그니처인 행을 재계산 계약 대상에서 제외하고 `staleInputExcludedCount`로 보고. 실측: 395행 제외 → **parityRate 1.0 복원**, 잔여 mismatch 9건은 전부 score_missing(비치명 coverage-warning 티어).
+2. **재발 방지** (`shadow.ts`): run의 스냅샷이 B-Abl에 고정돼 있으면 같은 날 재실행이 **후보 교체도 건너뜀** (`isRunPinnedByBablObservations`) — 스냅샷·후보가 항상 같은 빈티지로 유지돼 parity 계약이 구조적으로 성립.
+
+**교훈 (불변 규칙 ⑪)**: PIT 고정은 **행 단위가 아니라 빈티지 단위**다. 스냅샷을 고정했으면 그 스냅샷이 파생된 입력(후보)도 함께 고정해야 하고, "저장물로부터의 결정적 재계산"을 단언하는 게이트는 고정으로 재계산이 불가능해진 행을 계약 대상에서 명시적으로 빼야 한다(조용한 무시 금지 — 제외 수를 보고에 남길 것).
+
 ---
 
 ## 2. 축적 시계 — 현재 위치와 캘린더
