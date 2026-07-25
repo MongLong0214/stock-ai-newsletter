@@ -157,12 +157,21 @@ describe('evaluateHumanization', () => {
 
   it('분량이 과다 축소되면 반려한다', () => {
     const original = buildBody();
-    const candidate = buildBody({ filler: '이 지표는 매수 때 씁니다. ' });
+    const candidate = buildBody({ filler: '이 지표는 매수에 씁니다. ' });
 
     const verdict = evaluateHumanization(original, candidate, KEYWORD);
 
     expect(verdict.accepted).toBe(false);
-    expect(verdict.reason).toMatch(/분량 과다 축소|과윤문/);
+    expect(verdict.reason).toMatch(/분량 과다 축소/);
+  });
+
+  it('군더더기를 걷어낸 수준의 축소(20%대)는 채택한다', () => {
+    const original = buildBody();
+    const candidate = buildBody({ filler: '이 지표는 매수 시점에 씁니다. ' });
+
+    const verdict = evaluateHumanization(original, candidate, KEYWORD);
+
+    expect(verdict.accepted).toBe(true);
   });
 
   it('과윤문(변경률 50% 이상)을 반려한다', () => {
