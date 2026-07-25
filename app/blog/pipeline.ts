@@ -9,13 +9,14 @@
 
 import { searchGoogle } from './_services/serp-api';
 import { scrapeSearchResults, analyzeCompetitors, closeBrowser, getMetrics, resetMetrics } from './_services/web-scraper';
-import { generateBlogContent, generateSlug } from './_services/content-generator';
+import { generateBlogContent, generateSlug, calculateQualityScore } from './_services/content-generator';
+import { humanizeGeneratedContent } from './_services/humanizer';
 import { saveBlogPost, publishBlogPost } from './_services/blog-repository';
 import { generateKeywords } from './_services/keyword-generator';
 import { getServerSupabaseClient } from '@/lib/supabase/server-client';
 import { generateText } from '@/lib/llm/gemini-client';
 import { notifyGoogleIndexingBatch } from '@/lib/google-indexing';
-import type { BlogPostCreateInput, PipelineResult, PipelineMetrics } from './_types/blog';
+import type { BlogPostCreateInput, PipelineResult, PipelineMetrics, CompetitorAnalysis, GeneratedContent } from './_types/blog';
 
 // --- 상수 ---
 
@@ -23,6 +24,7 @@ const TIMEOUTS = {
   search: 60_000,
   scrape: 120_000,
   generate: 300_000,
+  humanize: 200_000,
   save: 30_000,
   keyword: 300_000,
   selection: 120_000,
@@ -70,6 +72,34 @@ async function withTimeoutFallback<R>(p: Promise<R>, ms: number, fallback: R, la
   try { return await withTimeout(p, ms, label); } catch { console.warn(`[Pipeline] ${label} 타임아웃 — fallback`); return fallback; }
 }
 
+/**
+ * 윤문본을 채택할지 결정하고 품질 점수를 실제 본문 기준으로 다시 매긴다
+ *
+ * 윤문은 부가 개선이므로 글의 발행 자격을 깎아선 안 된다. 점수가 발행 하한 아래로
+ * 떨어지면 원문으로 되돌린다 — 여기서 되돌리지 않으면 Phase 2의 품질 필터가
+ * 글 자체를 버린다.
+ */
+function resolveHumanized(
+  original: GeneratedContent,
+  humanized: GeneratedContent,
+  keyword: string,
+  analysis: CompetitorAnalysis
+): GeneratedContent {
+  if (humanized === original) return original;
+
+  const before = original.qualityScore ?? 0;
+  const after = calculateQualityScore(humanized, keyword, analysis);
+
+  if (after < QUALITY_MIN_SCORE && before >= QUALITY_MIN_SCORE) {
+    console.warn(`[Humanize] 품질 점수 하락 (${before} → ${after} < ${QUALITY_MIN_SCORE}) — 원문 유지`);
+    return original;
+  }
+
+  if (after !== before) console.log(`[Humanize] 품질 점수 갱신 ${before} → ${after}`);
+
+  return { ...humanized, qualityScore: after };
+}
+
 // --- Phase 2: 단일 초안 생성 (저장 없이) ---
 
 async function generateDraft(keyword: string, type: 'comparison' | 'guide' | 'listicle' | 'review'): Promise<DraftResult> {
@@ -86,7 +116,19 @@ async function generateDraft(keyword: string, type: 'comparison' | 'guide' | 'li
     getMetrics(); // finalize scraping metrics
 
     const analysis = analyzeCompetitors(scraped, keyword);
-    const content = await withTimeout(generateBlogContent(keyword, analysis, type), TIMEOUTS.generate, 'AI');
+    const generated = await withTimeout(generateBlogContent(keyword, analysis, type), TIMEOUTS.generate, 'AI');
+
+    // 윤문: AI 문체 제거. 품질 점수는 윤문 전 본문 기준으로 매겨져 있는데
+    // 30점짜리 길이 항목이 어절 수에서 파생되고 윤문 가드는 30% 감소까지 허용한다.
+    // 즉 점수가 그대로면 실제보다 부풀려진 값으로 발행 게이트를 통과할 수 있다.
+    const humanized = await withTimeoutFallback(
+      humanizeGeneratedContent(generated, keyword),
+      TIMEOUTS.humanize,
+      generated,
+      'Humanize'
+    );
+
+    const content = resolveHumanized(generated, humanized, keyword, analysis);
 
     const post: BlogPostCreateInput = {
       slug: generateSlug(content.title, keyword),
