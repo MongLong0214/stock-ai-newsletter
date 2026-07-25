@@ -78,12 +78,16 @@ function countKoreanWords(text: string): number {
 
 /**
  * 콘텐츠 품질 점수 계산 (100점 만점)
+ *
+ * 본문을 후처리(윤문)한 뒤에도 다시 불러 점수를 갱신해야 한다.
+ * 길이·키워드·헤딩 항목이 전부 `content.content`에서 파생되기 때문이다.
+ *
  * @param content - 생성된 콘텐츠
  * @param targetKeyword - SEO 타겟 키워드
  * @param competitorAnalysis - 경쟁사 분석 결과
  * @returns 0~100 품질 점수
  */
-function calculateQualityScore(
+export function calculateQualityScore(
   content: GeneratedContent,
   targetKeyword: string,
   competitorAnalysis: CompetitorAnalysis

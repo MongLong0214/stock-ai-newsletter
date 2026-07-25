@@ -14,7 +14,7 @@ import { generateText } from '@/lib/llm/gemini-client';
 import { buildHumanizePrompt, HUMANIZE_BEGIN, HUMANIZE_END } from '../_prompts/humanize';
 import { HUMANIZE_CONFIG } from '../_config/pipeline-config';
 import {
-  changeRate,
+  changeRateDetailed,
   stripSummaryBlock,
   CHANGE_RATE_WARN,
   CHANGE_RATE_ABORT,
@@ -36,16 +36,18 @@ export interface HumanizeVerdict {
 /**
  * 모델 응답에서 윤문본 추출
  *
- * 센티널 우선, 없으면 코드 펜스·메타 블록을 벗긴 전문을 사용한다.
+ * 두 센티널을 각각 독립적으로 잘라낸다. 한쪽만 나온 응답(출력 토큰 소진으로
+ * 닫는 센티널이 잘렸거나 모델이 빠뜨린 경우)에서 마커 문자열이 본문에 남으면
+ * 나머지 가드를 모두 통과해 그대로 발행될 수 있다.
  */
 export function extractHumanized(response: string): string {
-  const begin = response.indexOf(HUMANIZE_BEGIN);
-  const end = response.lastIndexOf(HUMANIZE_END);
+  let body = response;
 
-  let body =
-    begin !== -1 && end !== -1 && end > begin
-      ? response.slice(begin + HUMANIZE_BEGIN.length, end)
-      : response;
+  const begin = body.indexOf(HUMANIZE_BEGIN);
+  if (begin !== -1) body = body.slice(begin + HUMANIZE_BEGIN.length);
+
+  const end = body.lastIndexOf(HUMANIZE_END);
+  if (end !== -1) body = body.slice(0, end);
 
   body = stripSummaryBlock(body).trim();
 
@@ -53,7 +55,8 @@ export function extractHumanized(response: string): string {
   const fenced = body.match(/^```(?:markdown|md)?\s*\n([\s\S]*)\n```$/);
   if (fenced) body = fenced[1].trim();
 
-  return body;
+  // 센티널을 여러 번 뱉은 응답까지 막는다 — 반환값에 마커가 남는 경우는 없어야 한다
+  return body.split(HUMANIZE_BEGIN).join('').split(HUMANIZE_END).join('').trim();
 }
 
 // --- 가드 유틸 ---
@@ -122,10 +125,13 @@ export function evaluateHumanization(
     return reject(`윤문본이 최소 길이 미달 (${cleaned.length}자)`);
   }
 
-  const rate = changeRate(original, cleaned, { ignoreMarkup: true });
+  const { rate, tokenization } = changeRateDetailed(original, cleaned, { ignoreMarkup: true });
+
+  // 어절 강등은 임계값과 척도가 어긋난다 — 반려하되 사유에 드러내 원인을 추적할 수 있게 한다
+  const scale = tokenization === 'word' ? ' (어절 단위 비교 — 본문 과대)' : '';
 
   if (rate >= CHANGE_RATE_ABORT) {
-    return reject(`과윤문 — 변경률 ${(rate * 100).toFixed(1)}%`, rate);
+    return reject(`과윤문 — 변경률 ${(rate * 100).toFixed(1)}%${scale}`, rate);
   }
 
   // 철칙 #1: 헤딩 구조는 불변. 품질 점수의 가독성 항목도 여기에 걸려 있다
@@ -161,7 +167,7 @@ export function evaluateHumanization(
     accepted: true,
     text: cleaned,
     changeRate: rate,
-    reason: rate >= CHANGE_RATE_WARN ? `변경률 경고 ${(rate * 100).toFixed(1)}%` : null,
+    reason: rate >= CHANGE_RATE_WARN ? `변경률 경고 ${(rate * 100).toFixed(1)}%${scale}` : null,
   };
 }
 

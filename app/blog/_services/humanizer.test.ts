@@ -1,7 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import { evaluateHumanization, extractHumanized, extractFigures } from './humanizer';
-import { changeRate, stripSummaryBlock } from '../_utils/change-rate';
+import { changeRate, changeRateDetailed, stripSummaryBlock } from '../_utils/change-rate';
 import { HUMANIZE_BEGIN, HUMANIZE_END } from '../_prompts/humanize';
+import { calculateQualityScore } from './content-generator';
+import type { CompetitorAnalysis, GeneratedContent } from '../_types/blog';
 
 const KEYWORD = '주식 기술적 분석';
 
@@ -46,6 +48,24 @@ describe('extractHumanized', () => {
     const response = '## 제목\n\n본문\n\n<!-- HUMANIZE-SUMMARY v1.6.1\ngrade: A\n-->';
     expect(extractHumanized(response)).toBe('## 제목\n\n본문');
   });
+
+  it('닫는 센티널이 없어도 여는 센티널을 남기지 않는다', () => {
+    // 출력 토큰 소진이나 모델 누락으로 END가 잘린 응답
+    const response = `${HUMANIZE_BEGIN}\n## 제목\n\n본문입니다. RSI는 30입니다.`;
+    expect(extractHumanized(response)).toBe('## 제목\n\n본문입니다. RSI는 30입니다.');
+  });
+
+  it('여는 센티널이 없어도 닫는 센티널을 남기지 않는다', () => {
+    const response = `## 제목\n\n본문입니다.\n${HUMANIZE_END}`;
+    expect(extractHumanized(response)).toBe('## 제목\n\n본문입니다.');
+  });
+
+  it('센티널을 여러 번 뱉어도 본문에 남기지 않는다', () => {
+    const response = `${HUMANIZE_BEGIN}\n## 제목\n${HUMANIZE_BEGIN}\n본문\n${HUMANIZE_END}`;
+    const out = extractHumanized(response);
+    expect(out).not.toContain(HUMANIZE_BEGIN);
+    expect(out).not.toContain(HUMANIZE_END);
+  });
 });
 
 describe('changeRate', () => {
@@ -63,6 +83,19 @@ describe('changeRate', () => {
     const rate = changeRate(before, after);
     expect(rate).toBeGreaterThan(0);
     expect(rate).toBeLessThan(0.5);
+  });
+
+  it('실제 기사 분량에서는 어절 단위로 강등되지 않는다', () => {
+    // 실측 기사는 한글 2,700~4,300자. 여유를 크게 두고 12,000자로 확인한다.
+    // 강등되면 같은 편집의 변경률이 두 배 가까이 뛰어 정상 윤문이 과윤문으로 반려된다.
+    const unit = '이 지표를 통해 매수 시점을 판단할 수 있습니다. 결론적으로 RSI가 30 아래라면 과매도입니다. ';
+    const before = unit.repeat(Math.ceil(12_000 / unit.length));
+    const after = before.replaceAll('통해', '로').replaceAll('결론적으로 ', '');
+
+    const result = changeRateDetailed(before, after, { ignoreMarkup: true });
+
+    expect(result.tokenization).toBe('char');
+    expect(result.rate).toBeLessThan(0.3);
   });
 
   it('메타 블록은 변경률에 반영하지 않는다', () => {
@@ -203,6 +236,19 @@ describe('evaluateHumanization', () => {
     expect(verdict.text).not.toContain('**');
   });
 
+  it('닫는 센티널이 잘린 응답을 채택해도 마커가 발행되지 않는다', () => {
+    // 가드는 전부 통과한다: 헤딩 수 동일, 수치 보존, 어절 손실 적음, 변경률 낮음.
+    // 파싱이 마커를 남기면 그대로 본문에 실려 발행된다.
+    const original = buildBody();
+    const response = `${HUMANIZE_BEGIN}\n${original.replace(/판단하는 데 쓰입니다/g, '판단할 때 씁니다')}`;
+
+    const verdict = evaluateHumanization(original, extractHumanized(response), KEYWORD);
+
+    expect(verdict.accepted).toBe(true);
+    expect(verdict.text).not.toContain(HUMANIZE_BEGIN);
+    expect(verdict.text).not.toContain('<<<');
+  });
+
   it('변경률 30% 이상이면 채택하되 경고를 남긴다', () => {
     const original = buildBody();
     const candidate = buildBody({ filler: '이 지표로 매도 타이밍을 가늠할 때 사용합니다. ' });
@@ -213,5 +259,33 @@ describe('evaluateHumanization', () => {
     expect(verdict.changeRate).toBeGreaterThanOrEqual(0.3);
     expect(verdict.changeRate).toBeLessThan(0.5);
     expect(verdict.reason).toMatch(/변경률 경고/);
+  });
+});
+
+describe('calculateQualityScore — 윤문 후 재계산 근거', () => {
+  const analysis = { averageWordCount: 1000 } as CompetitorAnalysis;
+
+  function buildContent(bodyWordCount: number): GeneratedContent {
+    return {
+      title: `${KEYWORD} 완전 정복 가이드`,
+      description: '설명',
+      metaTitle: `${KEYWORD} 가이드`,
+      metaDescription: `${KEYWORD}를 다루는 글입니다.`,
+      content: buildBody() + '\n\n' + '지표 '.repeat(bodyWordCount),
+      headings: [],
+      faqItems: [{ question: 'Q', answer: 'A' }, { question: 'Q2', answer: 'A2' }, { question: 'Q3', answer: 'A3' }],
+      suggestedTags: [],
+    };
+  }
+
+  it('어절이 줄면 점수가 떨어진다 — 윤문 전 점수를 그대로 쓰면 부풀려진다', () => {
+    // 분량 가드는 30% 감소까지 허용하고, 길이 항목은 30점짜리다
+    const full = buildContent(1300);
+    const trimmed = buildContent(950);
+
+    const scoreBefore = calculateQualityScore(full, KEYWORD, analysis);
+    const scoreAfter = calculateQualityScore(trimmed, KEYWORD, analysis);
+
+    expect(scoreAfter).toBeLessThan(scoreBefore);
   });
 });
