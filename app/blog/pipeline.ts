@@ -10,6 +10,7 @@
 import { searchGoogle } from './_services/serp-api';
 import { scrapeSearchResults, analyzeCompetitors, closeBrowser, getMetrics, resetMetrics } from './_services/web-scraper';
 import { generateBlogContent, generateSlug } from './_services/content-generator';
+import { humanizeGeneratedContent } from './_services/humanizer';
 import { saveBlogPost, publishBlogPost } from './_services/blog-repository';
 import { generateKeywords } from './_services/keyword-generator';
 import { getServerSupabaseClient } from '@/lib/supabase/server-client';
@@ -23,6 +24,7 @@ const TIMEOUTS = {
   search: 60_000,
   scrape: 120_000,
   generate: 300_000,
+  humanize: 200_000,
   save: 30_000,
   keyword: 300_000,
   selection: 120_000,
@@ -86,7 +88,16 @@ async function generateDraft(keyword: string, type: 'comparison' | 'guide' | 'li
     getMetrics(); // finalize scraping metrics
 
     const analysis = analyzeCompetitors(scraped, keyword);
-    const content = await withTimeout(generateBlogContent(keyword, analysis, type), TIMEOUTS.generate, 'AI');
+    const generated = await withTimeout(generateBlogContent(keyword, analysis, type), TIMEOUTS.generate, 'AI');
+
+    // 윤문: AI 문체 제거. 품질 점수 산정 이후에 돌리되, 헤딩·키워드·분량 가드가
+    // 점수 구성 요소를 보존하므로 저장된 점수는 그대로 유효하다.
+    const content = await withTimeoutFallback(
+      humanizeGeneratedContent(generated, keyword),
+      TIMEOUTS.humanize,
+      generated,
+      'Humanize'
+    );
 
     const post: BlogPostCreateInput = {
       slug: generateSlug(content.title, keyword),

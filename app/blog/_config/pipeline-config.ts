@@ -29,6 +29,23 @@ export const CONTENT_CONFIG = {
   faqCount: 4,
 };
 
+/**
+ * 윤문(AI 문체 제거) 설정 — Humanize KR(im-not-ai) 이식분
+ *
+ * 변경률 임계값(0.30 경고 / 0.50 중단)은 `_utils/change-rate.ts`에서 관리한다.
+ */
+export const HUMANIZE_CONFIG = {
+  /** content-generator의 validateContent 하한과 동일 */
+  minContentLength: 500,
+  /** 품질 점수 SEO 항목이 요구하는 키워드 최소 등장 횟수 */
+  minKeywordCount: 3,
+  /** 어절 수가 이 비율 넘게 줄면 반려 */
+  maxWordLossRatio: 0.15,
+  /** 창작이 아니라 교정이므로 생성보다 낮게 */
+  temperature: 0.4,
+  timeout: 180_000,
+};
+
 export const SITE_INFO = {
   name: siteConfig.serviceName,
   nameKo: siteConfig.serviceNameKo,
