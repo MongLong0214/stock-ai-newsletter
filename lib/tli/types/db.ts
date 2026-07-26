@@ -55,6 +55,8 @@ export interface InterestMetric {
   source: string;
   raw_value: number;
   normalized: number;
+  /** 앵커 보정 절대 수준. 2026-07-06 적재 시작 — 그 이전 행은 null */
+  anchor_scaled_value?: number | null;
 }
 
 export interface NewsMetric {
@@ -98,6 +100,8 @@ export interface ScoreComponents {
     interest_stddev: number;
     active_days: number;
     raw_interest_avg?: number;
+    /** raw_interest_avg를 읽어온 척도 — 'raw'(정수 반올림) 또는 'anchor'(앵커 보정 실수) */
+    interest_scale?: 'raw' | 'anchor';
     dampening_factor?: number;
     raw_percentile?: number | null;
     /** v2 이중축 필드 */

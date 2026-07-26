@@ -12,7 +12,8 @@ import {
 } from './normalize';
 import { getKSTDateString } from './date-utils';
 import { getTLIParams, computeWActivity, type TLIParams } from './constants/tli-params';
-import { getMinRawInterest, getScoreWeights } from './constants/score-config';
+import { getNoiseFloor, getScoreWeights } from './constants/score-config';
+import { resolveInterestLevel, type InterestScale } from './interest-scale';
 import { computeSentimentProxy } from './sentiment-proxy';
 import { computeScoreConfidence } from './score-confidence';
 import type { InterestMetric, NewsMetric, ScoreComponents, ScoreConfidence } from './types';
@@ -29,6 +30,11 @@ interface CalculateScoreInput {
   avgVolume?: number;
   allThemesRawAvg?: number[];
   rawPercentile?: number;
+  /**
+   * 절대 관심 수준을 읽을 척도. `allThemesRawAvg`도 반드시 같은 척도로 만들어져야 한다.
+   * 기본 'raw'는 앵커 이전 동작 그대로 — 호출부가 명시적으로 넘길 때만 앵커로 전환된다.
+   */
+  interestScale?: InterestScale;
   prevSmoothedScore?: number;
   prevAvgVolume?: number;
   config?: Partial<TLIParams>;
@@ -53,8 +59,9 @@ export function calculateLifecycleScore(input: CalculateScoreInput): {
   const recent7dAvg = avg(recent7d);
   const baselineAvg = baseline.length > 0 ? avg(baseline) : recent7dAvg;
 
-  const recent7dRaw = interestMetrics.slice(0, 7).map(m => m.raw_value);
-  const rawAvg = avg(recent7dRaw);
+  // 절대 수준은 척도에 따라 다른 컬럼에서 온다 — 감쇠 임계값도 같은 척도의 것을 써야 한다
+  const interestScale: InterestScale = input.interestScale ?? 'raw';
+  const rawAvg = resolveInterestLevel(interestMetrics.slice(0, 7), interestScale) ?? 0;
 
   const newsThisWeek = newsMetrics.slice(0, 7).reduce((sum, m) => sum + m.article_count, 0);
   const newsLastWeek = newsMetrics.slice(7, 14).reduce((sum, m) => sum + m.article_count, 0);
@@ -65,8 +72,12 @@ export function calculateLifecycleScore(input: CalculateScoreInput): {
     levelScore = percentileRank(rawAvg, input.allThemesRawAvg);
   } else if (input.rawPercentile !== undefined) {
     levelScore = input.rawPercentile;
-  } else {
+  } else if (interestScale === 'raw') {
     levelScore = sigmoid_normalize(rawAvg, cfg.interest_level_center, cfg.interest_level_scale);
+  } else {
+    // sigmoid 중심·스케일 상수는 raw 척도로 교정돼 있어 앵커 값(~0.006)에 쓰면 전부 0이 된다.
+    // 교차 모집단 없이 앵커 척도의 수준을 놓을 방법이 없으므로 중립값으로 둔다.
+    levelScore = 0.5;
   }
 
   const recent7dAsc = [...recent7d].reverse();
@@ -75,14 +86,18 @@ export function calculateLifecycleScore(input: CalculateScoreInput): {
   let momentumScore: number;
   if (baselineAvg > 0) {
     momentumScore = sigmoid_normalize(growthRate, 0, cfg.interest_momentum_scale);
-  } else {
+  } else if (interestScale === 'raw') {
     momentumScore = sigmoid_normalize(rawAvg, cfg.interest_level_center, cfg.interest_level_scale) * 0.5;
+  } else {
+    momentumScore = levelScore * 0.5;
   }
 
   let interestScore = levelScore * cfg.interest_level_ratio + momentumScore * (1 - cfg.interest_level_ratio);
 
-  const minRawInterest = input.config?.min_raw_interest ?? getMinRawInterest();
-  const dampeningFactor = rawAvg < minRawInterest ? rawAvg / minRawInterest : 1;
+  const noiseFloor = interestScale === 'raw' && input.config?.min_raw_interest !== undefined
+    ? input.config.min_raw_interest
+    : getNoiseFloor(interestScale);
+  const dampeningFactor = rawAvg < noiseFloor ? rawAvg / noiseFloor : 1;
   interestScore *= dampeningFactor;
 
   // ── 2. News Score ──
@@ -181,6 +196,7 @@ export function calculateLifecycleScore(input: CalculateScoreInput): {
       interest_stddev: interestStdDev,
       active_days: activeDays,
       raw_interest_avg: rawAvg,
+      interest_scale: interestScale,
       dampening_factor: dampeningFactor,
       raw_percentile: input.rawPercentile ?? null,
       level_score: levelScore,

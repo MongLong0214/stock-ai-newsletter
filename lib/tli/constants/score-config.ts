@@ -18,6 +18,59 @@ export function getMinRawInterest(): number {
   return _calibratedMinRawInterest ?? MIN_RAW_INTEREST
 }
 
+/**
+ * 앵커 척도 노이즈 감쇠 임계값
+ *
+ * `min_raw_interest(4)`는 앵커 이전 raw_value 스케일에 맞춰져 있어 앵커 척도에 그대로 쓸 수 없다
+ * (두 값의 크기가 세 자릿수 다르다). 단위를 기계적으로 환산하면 앵커 도입으로 이미 어긋난
+ * 감쇠율을 그대로 박제하므로, **감쇠 대상 비율**을 기준으로 역산했다.
+ *
+ * 실측(2026-07-26, 프로덕션): 앵커 이전 체제(base ≤ 2026-06-06)에서 min_raw_interest=4가
+ * 감쇠하던 테마 비율은 36.9%였다. 현재 앵커 척도 분포에서 같은 36.9%를 재현하는 값이
+ * 0.0031이고, 이를 0.003으로 둔다(감쇠 대상 36.5%). 같은 시점 raw_value 기준 감쇠율은
+ * 88.1%까지 폭주해 있었다.
+ *
+ * 이 값은 앵커 키워드가 바뀌면 다시 역산해야 한다 (PRD §5.4.1의 CV>0.3 앵커 교체 경로).
+ */
+export const MIN_ANCHOR_INTEREST = 0.003
+
+let _calibratedMinAnchorInterest: number | null = null
+
+/** 캘리브레이션된 앵커 노이즈 임계값 설정 */
+export function setMinAnchorInterest(value: number) {
+  _calibratedMinAnchorInterest = value
+}
+
+/** 현재 앵커 노이즈 임계값 반환 (캘리브레이션 우선, 없으면 기본값) */
+export function getMinAnchorInterest(): number {
+  return _calibratedMinAnchorInterest ?? MIN_ANCHOR_INTEREST
+}
+
+/**
+ * 척도에 맞는 노이즈 감쇠 임계값 — 계산기가 쓰는 단일 진입점
+ *
+ * 두 척도의 임계값은 크기가 세 자릿수 다르므로 서로 대체할 수 없다.
+ */
+export function getNoiseFloor(scale: 'raw' | 'anchor'): number {
+  return scale === 'anchor' ? getMinAnchorInterest() : getMinRawInterest()
+}
+
+/**
+ * 해당 척도에 실제로 적용되는 캘리브레이션 값이 있는지
+ *
+ * `calibrate-noise.ts`는 raw 척도로만 임계값을 산출한다. 앵커 척도로 도는 런에서
+ * raw 캘리브레이션을 적재하면 **조용히 무시**되므로, 호출부가 이 상태를 드러내야 한다.
+ */
+export function describeNoiseFloorCalibration(scale: 'raw' | 'anchor'): {
+  readonly applied: number | null
+  readonly ignoredRawCalibration: number | null
+} {
+  if (scale === 'anchor') {
+    return { applied: _calibratedMinAnchorInterest, ignoredRawCalibration: _calibratedMinRawInterest }
+  }
+  return { applied: _calibratedMinRawInterest, ignoredRawCalibration: null }
+}
+
 /** 기본 점수 컴포넌트 가중치 — tli-params에서 파생 */
 export const SCORE_WEIGHTS = {
   interest: DEFAULT_TLI_PARAMS.w_interest,

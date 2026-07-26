@@ -16,6 +16,14 @@ export interface TLIParams {
 
   // ── Smoothing Core (2개) ──
   ema_alpha: number
+  /**
+   * raw 척도 노이즈 감쇠 임계값.
+   *
+   * ⚠️ 프로덕션은 2026-07-26부터 앵커 척도로 돌아 이 값을 쓰지 않는다
+   * (`score-config.ts`의 `MIN_ANCHOR_INTEREST`가 대응값). 옵티마이저는 앵커 적재 이전
+   * 구간을 재생하므로 여전히 raw 척도로 이 파라미터를 탐색한다 — 즉 여기서 튜닝한 값은
+   * 현행 프로덕션 점수에 반영되지 않는다. 앵커 척도 임계값 탐색은 별도 과제.
+   */
   min_raw_interest: number
 
   // ── Interest (4개) ──
