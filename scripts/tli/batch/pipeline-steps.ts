@@ -193,7 +193,7 @@ export async function runAnalysisPipeline(themes: ThemeWithKeywords[], today = g
   try {
     await evaluatePredictions()
     const v3Result = await evaluateThemePredictionsV3({ today })
-    console.log(`   ✅ v3 cutoff=${v3Result.cutoffDate}, updates=${v3Result.updates}, metrics=${v3Result.metrics}, skipped=${v3Result.skippedPending}`)
+    console.log(`   ✅ v3 cutoff=${v3Result.cutoffDate}, updates=${v3Result.updates}, metrics=${v3Result.metrics}, skipped=${v3Result.skippedPending}, 비거래일 정리=${v3Result.nonTradingClosed}`)
 
     const predictionsBacklog = await countExpiredPendingPredictions(v3Result.cutoffDate)
     if (predictionsBacklog > EXPIRED_PENDING_CRITICAL_THRESHOLD) {

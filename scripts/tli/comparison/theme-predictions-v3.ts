@@ -1,6 +1,7 @@
 import { buildFeatureVector } from '@/lib/tli/features/build-features'
 import type { FeatureVector } from '@/lib/tli/features/build-features'
 import { getKSTDateString } from '@/lib/tli/date-utils'
+import { isKoreanTradingDate } from '@/lib/tli/trading-calendar'
 import { computeTrailingFinalBaseRate, getTrailingFinalBaseRateWindow } from '@/lib/tli/model/prior-correction'
 import { parseM1ModelArtifact } from '@/lib/tli/model/predict'
 import { loadFeatureInputsForBaseDate } from '@/scripts/tli/features/load-feature-inputs'
@@ -148,6 +149,16 @@ export async function snapshotThemePredictionsV3(input?: {
   readonly today?: string
 }): Promise<ThemePredictionsV3SnapshotResult> {
   const predictionDate = input?.today ?? getKSTDateString()
+
+  // 비거래일 base_date는 GT-A 라벨 대상이 아니다(`non_trading_base_date`). 여기서 만들면
+  // 짝지을 라벨이 영원히 없는 pending 행이 되어 주말마다 채점 적체로 쌓인다.
+  // 공개 서빙은 scientific 뷰만 읽으므로(049 `tli_public_scientific_predictions_v3`)
+  // 이 legacy 행을 건너뛰어도 UI에는 영향이 없다.
+  if (!isKoreanTradingDate(predictionDate)) {
+    console.log(`   ⊘ 비거래일 — legacy v3 예측 스냅샷 생략 (${predictionDate})`)
+    return { championRows: 0, challengerRows: 0 }
+  }
+
   const snapshots = await loadV2SnapshotsForDate(predictionDate)
   if (snapshots.length === 0) return { championRows: 0, challengerRows: 0 }
 

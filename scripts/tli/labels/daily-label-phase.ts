@@ -7,7 +7,7 @@ import {
   GTB_HORIZON_DAYS,
   GTB_LABELER_VERSION,
 } from '../../../lib/tli/labels/gt-b'
-import { addKoreanTradingDays, isKoreanTradingDate } from '../../../lib/tli/trading-calendar'
+import { getLatestMaturedBaseDate, isKoreanTradingDate } from '../../../lib/tli/trading-calendar'
 import {
   generateGtALabelsForBaseDate,
   type GtALabelGenerationResult,
@@ -56,12 +56,9 @@ export function getDailyLabelBaseDates(today: string): {
   readonly pendingBaseDate: string
   readonly finalizeCutoffDate: string
 } {
-  const latestCompletedTradingDate = isKoreanTradingDate(today)
-    ? today
-    : addKoreanTradingDays(today, -1)
   return {
     pendingBaseDate: today,
-    finalizeCutoffDate: addKoreanTradingDays(latestCompletedTradingDate, -GTA_HORIZON_DAYS),
+    finalizeCutoffDate: getLatestMaturedBaseDate({ today, horizonDays: GTA_HORIZON_DAYS }),
   }
 }
 

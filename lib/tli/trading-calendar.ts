@@ -46,6 +46,25 @@ export function addKoreanTradingDays(dateString: string, offsetDays: number): st
   return cursor
 }
 
+/**
+ * `today` 기준으로 지평(거래일 `horizonDays`일)이 완전히 끝난 가장 최근 base_date
+ *
+ * 라벨 확정과 예측 채점이 "만기"를 각자 계산하면 비거래일에 어긋난다. `today`를 그대로
+ * 기준 삼으면 일요일에 `addKoreanTradingDays(일요일, -5)`가 직전 거래일들을 건너뛰며
+ * 세어 만기가 2거래일 앞당겨지는데, 그 base_date의 지평은 아직 끝나지 않아 GT-A 라벨이
+ * 존재할 수 없다. 채점 쪽만 앞서 나가면 정상 대기 중인 예측이 "만기 미채점 적체"로
+ * 계상돼 파이프라인이 오탐으로 죽는다. 그래서 두 곳 모두 이 함수 하나만 쓴다.
+ */
+export function getLatestMaturedBaseDate(input: {
+  readonly today: string
+  readonly horizonDays: number
+}): string {
+  const latestCompletedTradingDate = isKoreanTradingDate(input.today)
+    ? input.today
+    : addKoreanTradingDays(input.today, -1)
+  return addKoreanTradingDays(latestCompletedTradingDate, -input.horizonDays)
+}
+
 export function getKoreanTradingDateWindow(input: {
   readonly baseDate: string
   readonly startOffset: number
