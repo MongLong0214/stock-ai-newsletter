@@ -2,6 +2,62 @@
   "newsletters": [
     {
       "type": "stock",
+      "date": "2026-07-27",
+      "stocks": [
+        {
+          "ticker": "KOSPI:012450",
+          "name": "한화에어로스페이스",
+          "close_price": 979000,
+          "rationale": "2026-07-24 종가 979,000원(+2.19%) 확인|지정학적 리스크 고조로 인한 방산주 수급 집중|SMA 5, 20, 60, 120일선 완전 정배열 유지|RSI 58.4로 강세 구역 진입|MACD 오실레이터 양의 값 확대|OBV 지표 직전 고점 돌파하며 매집 확인|거래량 24.3만 주로 전일 대비 안정적 증가|볼린저밴드 상단 돌파 시도 중|ADX 32로 강한 상승 추세 형성|Ichimoku 전환선이 기준선 상단에서 지지|기관 및 외국인 동반 순매수 유입 확인",
+          "signals": {
+            "trend_score": 97,
+            "momentum_score": 92,
+            "volume_score": 88,
+            "volatility_score": 84,
+            "pattern_score": 95,
+            "sentiment_score": 94,
+            "overall_score": 93
+          },
+          "verified_date": "2026-07-24"
+        },
+        {
+          "ticker": "KOSPI:207940",
+          "name": "삼성바이오로직스",
+          "close_price": 1518000,
+          "rationale": "2026-07-24 종가 1,518,000원(+10.08%) 급등 확인|2Q26 영업이익 5,864억 원으로 컨센서스 부합 및 호실적|스위스 PolyPeptide Group 인수 계약 통한 모달리티 다변화|폭락장 속에서 매수세가 집중된 독보적 강세 종목|RSI 64.2로 상승 여력 충분한 강세권|MACD 골든크로스 발생 및 0선 돌파|거래량 19.8만 주로 평소 대비 4배 이상 폭증|볼린저밴드 중심선 돌파 후 상단 타기 시작|Stochastic K-D 교차하며 강력한 매수 신호 발생|MFI 62로 자금 유입 가속화|목표주가 1,900,000원으로 상향 조정된 리포트 다수",
+          "signals": {
+            "trend_score": 94,
+            "momentum_score": 98,
+            "volume_score": 96,
+            "volatility_score": 78,
+            "pattern_score": 93,
+            "sentiment_score": 96,
+            "overall_score": 95
+          },
+          "verified_date": "2026-07-24"
+        },
+        {
+          "ticker": "KOSDAQ:196170",
+          "name": "알테오젠",
+          "close_price": 300500,
+          "rationale": "2026-07-24 종가 300,500원 확인|코스닥 지수 -5.32% 폭락 대비 -1.96%로 선방하며 상대적 강세 입증|코스닥 시가총액 1위 지위 공고히 유지|SMA 120일선 장기 지지선 확인 후 반등 흐름|EMA 20일선 위에서 가격 형성하며 추세 유지|RSI 54.8로 중립 이상의 매수 우위 상태|MACD 히스토그램 감소세 멈추고 반전 준비|거래량 37.8만 주로 건전한 조정 양상|볼린저밴드 하단 지지 확인 후 회복세|ADX 28로 추세 지속성 유지|Vortex 지점 상승 우위 신호 지속",
+          "signals": {
+            "trend_score": 91,
+            "momentum_score": 86,
+            "volume_score": 82,
+            "volatility_score": 80,
+            "pattern_score": 88,
+            "sentiment_score": 90,
+            "overall_score": 88
+          },
+          "verified_date": "2026-07-24"
+        }
+      ],
+      "sentAt": "2026-07-26T23:16:05.23+00:00",
+      "subscriberCount": 304
+    },
+    {
+      "type": "stock",
       "date": "2026-07-24",
       "stocks": [
         {
@@ -10070,5 +10126,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-07-23T23:47:54.740Z"
+  "lastUpdated": "2026-07-26T23:16:47.234Z"
 }
