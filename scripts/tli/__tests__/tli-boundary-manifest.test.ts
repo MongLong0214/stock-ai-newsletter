@@ -1,30 +1,27 @@
-import { readdirSync, statSync } from 'node:fs'
-import { join, relative } from 'node:path'
+import { execFileSync } from 'node:child_process'
 import { describe, expect, it } from 'vitest'
 import { TLI_BOUNDARY_MANIFEST } from '../tli-boundary-manifest'
 
-function listFilesRecursively(root: string): string[] {
-  const results: string[] = []
-  for (const entry of readdirSync(root)) {
-    const full = join(root, entry)
-    const stat = statSync(full)
-    if (stat.isDirectory()) {
-      if (entry === '__tests__' || entry === '__pycache__') continue
-      results.push(...listFilesRecursively(full))
-    } else {
-      results.push(relative(process.cwd(), full))
-    }
-  }
-  return results.sort()
+const IGNORED_DIRECTORIES = new Set(['__tests__', '__pycache__'])
+
+/**
+ * 매니페스트가 분류하는 대상은 저장소에 커밋된 파일이다.
+ *
+ * 디스크를 직접 훑으면 gitignore된 optimizer 산출물(historical-data.json 등)이 로컬에만
+ * 나타나 CI는 통과하고 로컬만 깨진다. git ls-files는 추적 파일만 돌려주므로 실행 환경과
+ * 무관하게 같은 목록을 준다.
+ */
+function listTrackedFiles(root: string): string[] {
+  return execFileSync('git', ['ls-files', '-z', '--', root], { encoding: 'utf8' })
+    .split('\0')
+    .filter(Boolean)
+    .filter((path) => !path.split('/').some((segment) => IGNORED_DIRECTORIES.has(segment)))
+    .sort()
 }
 
 describe('tli boundary manifest', () => {
   it('classifies every non-test file in the unified scripts/tli tree', () => {
-    const files = [
-      ...listFilesRecursively(join(process.cwd(), 'scripts/tli')),
-    ].sort()
-
-    expect(Object.keys(TLI_BOUNDARY_MANIFEST).sort()).toEqual(files)
+    expect(Object.keys(TLI_BOUNDARY_MANIFEST).sort()).toEqual(listTrackedFiles('scripts/tli'))
   })
 
   it('uses only approved boundary categories', () => {

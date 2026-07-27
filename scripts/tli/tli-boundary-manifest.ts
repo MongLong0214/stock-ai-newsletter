@@ -296,8 +296,9 @@ export const TLI_BOUNDARY_MANIFEST: Record<string, TliFileCategory> = {
   'scripts/tli/research/optimizer/param_space.py': 'research',
   'scripts/tli/research/optimizer/requirements.txt': 'research',
   'scripts/tli/research/optimizer/test_optimize.py': 'research',
-  'scripts/tli/research/optimizer/historical-data.json': 'artifact',
-  'scripts/tli/research/optimizer/optimized-params.json': 'artifact',
+  // historical-data.json / optimized-params.json은 optimizer가 로컬에서 생성하고
+  // .gitignore가 커밋을 막는다(dump-data.test.ts가 그 등록을 강제). 저장소 파일이 아니므로
+  // 이 경계 매니페스트의 분류 대상이 아니다.
 }
 
 export function getTliBoundaryCategory(path: string) {

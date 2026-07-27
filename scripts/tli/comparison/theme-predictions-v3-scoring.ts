@@ -1,5 +1,5 @@
 import { GTA_HORIZON_DAYS } from '@/lib/tli/labels/gt-a'
-import { addKoreanTradingDays } from '@/lib/tli/trading-calendar'
+import { getLatestMaturedBaseDate, isKoreanTradingDate } from '@/lib/tli/trading-calendar'
 import { getKSTDateString } from '@/lib/tli/date-utils'
 import { evaluatePredictionRows, type EvalPredictionRow } from '@/lib/tli/eval/harness'
 import { supabaseAdmin } from '@/scripts/tli/shared/supabase-admin'
@@ -40,6 +40,8 @@ export interface ThemePredictionV3ScoringResult {
   readonly updates: number
   readonly metrics: number
   readonly skippedPending: number
+  /** 비거래일 prediction_date라 채점 불가로 excluded 처리한 행 수 */
+  readonly nonTradingClosed: number
 }
 
 function buildMetricRecord(input: {
@@ -171,6 +173,31 @@ async function upsertDailyMetrics(metrics: readonly ModelMetricDailyRecord[]): P
   )
 }
 
+/**
+ * prediction_date가 비거래일인 legacy pending 예측을 excluded로 확정 — 자기치유
+ *
+ * 주말 full 크론(`0 17 * * 6`)이 일요일 base_date로 예측 스냅샷을 만들어 왔다. GT-A는
+ * 비거래일 base_date를 라벨 대상에서 제외하므로(`non_trading_base_date`) 이 행들은
+ * 영원히 짝지을 라벨이 없다. 그대로 두면 pending이 주말마다 단조 증가해 적체 게이트를
+ * 터뜨린다. 라벨 쪽 `closeNonTradingBaseDatePendingLabels()`와 같은 처리다.
+ *
+ * service_role은 (actual_g, actual_y, scored_at, score_status)만 UPDATE 권한이 있어
+ * score_exclusion_reason은 남기지 못한다 (049 GRANT).
+ */
+async function closeNonTradingPredictionDates(dates: readonly string[]): Promise<number> {
+  if (dates.length === 0) return 0
+
+  const { error, count } = await supabaseAdmin
+    .from('theme_predictions_v3')
+    .update({ score_status: 'excluded', scored_at: new Date().toISOString() }, { count: 'exact' })
+    .is('experiment_cycle_id', null)
+    .eq('score_status', 'pending')
+    .in('prediction_date', [...dates])
+
+  if (error) throw new Error(`비거래일 예측 excluded 처리 실패: ${error.message}`)
+  return count ?? 0
+}
+
 /** prediction_date <= cutoffDate인 만기 경과 미채점 예측 총 개수 (조용한 적체 감지용, C3) */
 export async function countExpiredPendingPredictions(cutoffDate: string): Promise<number> {
   const { count, error } = await supabaseAdmin
@@ -189,15 +216,22 @@ export async function evaluateThemePredictionsV3(input?: {
   readonly limit?: number
 }): Promise<ThemePredictionV3ScoringResult> {
   const today = input?.today ?? getKSTDateString()
-  const cutoffDate = addKoreanTradingDays(today, -GTA_HORIZON_DAYS)
+  // 라벨 확정과 같은 만기 기준을 쓴다 — 어긋나면 아직 지평이 안 끝난 예측이 적체로 계상된다
+  const cutoffDate = getLatestMaturedBaseDate({ today, horizonDays: GTA_HORIZON_DAYS })
   const pending = await loadPendingPredictions(cutoffDate, input?.limit ?? 1000)
   if (pending.length === 0) {
-    return { cutoffDate, pendingRows: 0, updates: 0, metrics: 0, skippedPending: 0 }
+    return { cutoffDate, pendingRows: 0, updates: 0, metrics: 0, skippedPending: 0, nonTradingClosed: 0 }
   }
 
-  const labels = await loadGtALabels(pending)
+  // 오래된 순으로 로딩하므로 비거래일 고아 행은 항상 이 배치 안에 들어와 큐를 막지 않는다
+  const nonTradingDates = [...new Set(pending.map((row) => row.prediction_date))]
+    .filter((date) => !isKoreanTradingDate(date))
+  const nonTradingClosed = await closeNonTradingPredictionDates(nonTradingDates)
+  const scorable = pending.filter((row) => isKoreanTradingDate(row.prediction_date))
+
+  const labels = await loadGtALabels(scorable)
   const plan = buildThemePredictionV3ScoringPlan({
-    predictions: pending,
+    predictions: scorable,
     labels,
     scoredAt: new Date().toISOString(),
   })
@@ -210,5 +244,6 @@ export async function evaluateThemePredictionsV3(input?: {
     updates: plan.updates.length,
     metrics: metrics.length,
     skippedPending: plan.skippedPending,
+    nonTradingClosed,
   }
 }
