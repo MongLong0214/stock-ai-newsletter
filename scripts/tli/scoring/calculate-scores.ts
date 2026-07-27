@@ -1,6 +1,8 @@
 import { supabaseAdmin } from '@/scripts/tli/shared/supabase-admin'
 import { batchQuery, groupByThemeId } from '@/scripts/tli/shared/supabase-batch'
 import { calculateLifecycleScore } from '@/lib/tli/calculator'
+import { resolveInterestLevel, resolveRunInterestScale } from '@/lib/tli/interest-scale'
+import { describeNoiseFloorCalibration } from '@/lib/tli/constants/score-config'
 import { applyEMASmoothing, resolveStageWithHysteresis } from '@/lib/tli/score-smoothing'
 import { getKSTDate } from '@/scripts/tli/shared/utils'
 import { getKSTDate as getKSTDateObject } from '@/lib/tli/date-utils'
@@ -102,15 +104,26 @@ export async function calculateAndSaveScores(themes: ThemeWithKeywords[]) {
       .slice(0, 30)
     interestCache.set(theme.id, sorted)
 
-    const raw7d = sorted.slice(0, 7).map(m => m.raw_value)
-    if (raw7d.length > 0) {
-      rawAvgMap.set(theme.id, raw7d.reduce((s, v) => s + v, 0) / raw7d.length)
-    }
+  }
+
+  // 척도를 런 단위로 먼저 확정한다 — 테마 값과 교차 모집단이 다른 척도면 백분위가 무의미해진다
+  const interestWindows = [...interestCache.values()].map(rows => rows.slice(0, 7))
+  const interestScale = resolveRunInterestScale(interestWindows)
+
+  for (const theme of themes) {
+    const level = resolveInterestLevel((interestCache.get(theme.id) ?? []).slice(0, 7), interestScale)
+    if (level !== null) rawAvgMap.set(theme.id, level)
   }
 
   const allThemesRawAvg = Array.from(rawAvgMap.values()).filter(v => v > 0).sort((a, b) => a - b)
   const medianRaw = allThemesRawAvg.length > 0 ? allThemesRawAvg[Math.floor(allThemesRawAvg.length / 2)] : 0
-  console.log(`   📊 Cross-theme percentile: ${allThemesRawAvg.length}개 테마, median rawAvg=${medianRaw.toFixed(1)}`)
+  console.log(`   📊 Cross-theme percentile: ${allThemesRawAvg.length}개 테마, 척도=${interestScale}, median=${medianRaw.toPrecision(3)}`)
+
+  // raw 캘리브레이션은 앵커 척도에서 적용되지 않는다 — 조용히 무시되지 않도록 드러낸다
+  const calibration = describeNoiseFloorCalibration(interestScale)
+  if (calibration.ignoredRawCalibration !== null) {
+    console.warn(`   ⚠️ raw 노이즈 캘리브레이션(${calibration.ignoredRawCalibration})은 앵커 척도에 적용되지 않음 — calibrate-noise를 앵커 척도로 재산출해야 함`)
+  }
 
   const newsCache = new Map<string, NewsMetric[]>()
   for (const theme of themes) {
@@ -161,6 +174,7 @@ export async function calculateAndSaveScores(themes: ThemeWithKeywords[]) {
         firstSpikeDate: theme.first_spike_date,
         today,
         allThemesRawAvg,
+        interestScale,
         avgPriceChangePct,
         avgVolume,
         prevSmoothedScore,
