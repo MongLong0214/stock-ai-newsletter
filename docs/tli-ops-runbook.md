@@ -1,6 +1,6 @@
 # TLI Ops Runbook
 
-> **`superseded_for_scientific_claims`**: For scientific claims and execution criteria, the master plan takes precedence; the pre-existing content in this document is retained to preserve intent and research history. Master plan: `.omo/plans/tli-v3-scientific-rebuild-master.md`.
+> **`superseded_for_scientific_claims`**: For scientific claims and execution criteria, the master plan takes precedence; the pre-existing content in this document is retained to preserve intent and research history. Master plan: `docs/tli/scientific-rebuild-master-plan.md`.
 
 ## Goal
 

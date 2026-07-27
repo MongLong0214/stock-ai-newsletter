@@ -3,7 +3,7 @@
 > 계기: `tli-collect-data` run 30168741646 실패 (`예측 채점 적체 위험: 만기 미채점=609`).
 > 그 게이트를 파고들다 **2026-07-07 앵커 투입이 일으킨 광범위한 스케일 회귀**를 발견했다.
 > 이 문서는 무엇을 왜 고쳤는지, 무엇을 일부러 안 고쳤는지를 남긴다.
-> 선행 상태 문서: [`tli-v3-status-2026-07-22.md`](./tli-v3-status-2026-07-22.md) (승계 아님 — 보완)
+> 선행 상태 문서: [`docs/tli/SSOT.md`](./tli/SSOT.md) (당시 `tli-v3-status-2026-07-22.md`, 현재 SSOT로 통합됨)
 
 ---
 
@@ -305,7 +305,7 @@ percentile 모집단: raw=112개 → anchor=220개  (활성 테마 241)
 ```
 
 감쇠 대상 36.6%는 역산 목표였던 앵커 이전 36.9%를 재현한다.
-`/themes` visibleThemes 하락(45+ → 38, `tli-v3-status-2026-07-22.md` §6 Watch 항목)의
+`/themes` visibleThemes 하락(45+ → 38, 당시 status 문서 §6 Watch 항목, 현 `docs/tli/SSOT.md`)의
 원인이 이것이고, 이 수정이 그 항목의 답이다.
 
 > 주의: 위 dry-run은 저장된 `smoothed_score`가 아니라 원점수 재계산이라
@@ -461,6 +461,6 @@ scale invariance: 임의의 양수 상수 c를 곱해도 eligibility/ratio/growt
    넘기지 않아 프로덕션(percentile)과 다른 경로(sigmoid)를 탄다. 이 PR 이전부터의 문제다.
 5. **Peak 고착 재고 142건.** 앵커 이전 고득점기에 형성돼 Markov로 굳었다. 활성 테마의 60%가
    Peak인 상태는 사용자 신호로서 의미가 옅다. 이 PR 범위 밖.
-6. **`.omo/plans/tli-v3-scientific-rebuild-master.md` 부재.** 07-14/07-22 문서가
+6. **`docs/tli/scientific-rebuild-master-plan.md`(당시 .omo 경로) 부재.** 07-14/07-22 문서가
    "TLI 작업 전 반드시 Read"로 지정한 SSOT인데 저장소에도 홈 디렉토리에도 없다.
    26주 시계·게이트 기준의 원본이 현재 어떤 세션도 읽을 수 없는 상태다.

@@ -1,6 +1,6 @@
 # PRD — TLI v3 전면 재구성: Closed-Loop Theme Intelligence
 
-> **`superseded_for_scientific_claims`**: 과학적 주장·실행 기준으로는 master plan이 우선하며 이 문서는 의도/연구 이력 보존용이다. Master plan: `.omo/plans/tli-v3-scientific-rebuild-master.md`.
+> **`superseded_for_scientific_claims`**: 과학적 주장·실행 기준으로는 master plan이 우선하며 이 문서는 의도/연구 이력 보존용이다. Master plan: `docs/tli/scientific-rebuild-master-plan.md`.
 > 이 banner는 아래의 **“대체하는 단일 상위 문서”** 및 이 PRD를 단독 source of truth로 표시한 기존 문구를 과학적 주장·실행 권위에 한해 명시적으로 대체한다. 기존 수치·실패·연구 기록은 그대로 보존한다.
 
 > **버전**: v2.0 (Phase 1~4 실행판) · **갱신**: 2026-07-06 · **작성**: Claude (오케스트레이터) + Explore 4기 + Boomer 수렴 (부록 C) + 문헌 리서치 3기 (부록 F) + 구현 계약 (부록 G)

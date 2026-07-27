@@ -1,6 +1,6 @@
 # TLI v3 M1 조기 승격 사전 등록 (Pre-registration)
 
-> **`superseded_for_scientific_claims`**: 과학적 주장·실행 기준으로는 master plan이 우선하며 이 문서는 의도/연구 이력 보존용이다. Master plan: `.omo/plans/tli-v3-scientific-rebuild-master.md`.
+> **`superseded_for_scientific_claims`**: 과학적 주장·실행 기준으로는 master plan이 우선하며 이 문서는 의도/연구 이력 보존용이다. Master plan: `docs/tli/scientific-rebuild-master-plan.md`.
 
 Status: **CLOSED — 조기 승격 경로 종결 (2026-07-08 look #3 최종).** 최초 등록 2026-07-07 11:55 KST (리플레이 감사 실행 **전** 등록 — 결과를 보고 기준을 바꾸지 않기 위한 박제). 최종 갱신 2026-07-09.
 Authority: Isaac 전권 위임 (2026-07-07), CTO 판단
