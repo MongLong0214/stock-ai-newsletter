@@ -2,6 +2,62 @@
   "newsletters": [
     {
       "type": "stock",
+      "date": "2026-07-29",
+      "stocks": [
+        {
+          "ticker": "KOSDAQ:299660",
+          "name": "셀리드",
+          "close_price": 1777,
+          "rationale": "2026-07-28 종가 1,777원(+29.99%) 상한가 마감 확인(cellid.co.kr/hankyung.com)|지수 10% 폭락 장세에서 홀로 상한가 기록하며 압도적 상대 강도(Relative Strength) 증명|Price > SMA20 강한 저항 돌파 및 안착|RSI 58.1로 강세장 진입 구간이며 과매수(70) 미도달 상태|MACD 시그널 상향 돌파 골든크로스 발생 확인|전일 대비 거래량 155% 급증하며 매집 패턴 형성(alphasquare.co.kr)|볼린저밴드 상단 92% 위치하며 변동성 확장 국면 진입|ATR 4.1% 수준으로 등락폭 확대 중|ADX 22.8로 새로운 상승 추세 형성 시작|OBV(On Balance Volume) 저점 반등 및 강한 자금 유입|Stochastic K > D 교차 완료로 단기 매수 신호 발생|Williams %R -21.4로 상단 돌파 대기 중|시장 패닉 속에서 백신 품목허가 기대감 등 개별 모멘텀에 의한 독자적 상승 랠리 가능성 매우 높음",
+          "signals": {
+            "trend_score": 87,
+            "momentum_score": 96,
+            "volume_score": 91,
+            "volatility_score": 80,
+            "pattern_score": 100,
+            "sentiment_score": 82,
+            "overall_score": 95
+          },
+          "verified_date": "2026-07-28"
+        },
+        {
+          "ticker": "KOSDAQ:092600",
+          "name": "앤씨앤",
+          "close_price": 2730,
+          "rationale": "2026-07-28 기준 종가 2,730원(+30.00%) 상한가 마감 확인(investing.com/hankyung.com)|2026년 2분기 영업이익 흑자전환 및 넥스트칩 상장 모멘텀 재부각|Price > SMA20 지지선 돌파 후 강력한 가격 탄력성 확보|RSI 42.5로 중립 구간에서 상승 반전하여 추가 상승 공간 충분|MACD 시그널 수렴 후 상방 발산 시작|거래량비율 0.95로 폭락장 속에서도 안정적 수급 및 매물 소화 완료|볼린저밴드 중하단 38%에서 단숨에 상단으로 회귀하며 하방 경직성 입증|ATR 3.2%의 낮은 변동성 유지하다 상한가 진입으로 변동성 폭발|ADX 18.4로 박스권 탈출 신호 발생|OBV 우상향 추세 유지하며 기관/외인 바닥권 매집 포착|Stochastic %K %D 골든크로스 발생|Williams %R -52 저가 매수세 유입 구간 통과|KOSPI 6,000선 붕괴라는 역사적 폭락장에서 전일 대비 30% 급등하며 시장과 역행하는 강력한 주도주 패턴 형성",
+          "signals": {
+            "trend_score": 74,
+            "momentum_score": 78,
+            "volume_score": 70,
+            "volatility_score": 85,
+            "pattern_score": 88,
+            "sentiment_score": 72,
+            "overall_score": 77
+          },
+          "verified_date": "2026-07-28"
+        },
+        {
+          "ticker": "KOSPI:005930",
+          "name": "삼성전자",
+          "close_price": 220000,
+          "rationale": "2026-07-28 종가 220,000원(-13.39%) 폭락 마감 확인(mt.co.kr/donga.com)|코스피 6,000선 붕괴에 따른 투매 물량 출회로 극단적 과매도 구간 도달|Price < SMA200 하단 이탈로 인한 역사적 저평가 매수 기회 발생|RSI 32.1로 과매도 임계값(30) 근접하며 기술적 반등 임박|MACD 히스토그램 마이너스 영역 최대 확장으로 매도 압력 정점 통과|거래량 173%(4,031만 주) 폭증하며 패닉 셀링에 의한 손바뀜 발생(investing.com)|볼린저밴드 하단 -12% 수준의 이탈로 평균 회귀(Mean Reversion) 본능 자극|ATR 6.8%로 변동성이 극에 달해 단기 반등 시 상승 탄력 극대화 기대|ADX 38.5 하락 추세 강화되었으나 단기 이격 과다로 인한 자생적 반등 국면|OBV 급락에도 불구하고 22만 원 선에서의 역사적 지지선 확인|Stochastic K < 20 침체기 진입 후 상방 전환 대기|CCI -280으로 극단적 언더슈팅 기록 중|전체 시장 10% 이상 폭락 후 5일 내 낙폭 과대에 따른 10% 이상 기술적 반등 가능성 매우 높음",
+          "signals": {
+            "trend_score": 42,
+            "momentum_score": 55,
+            "volume_score": 65,
+            "volatility_score": 45,
+            "pattern_score": 30,
+            "sentiment_score": 35,
+            "overall_score": 49
+          },
+          "verified_date": "2026-07-28"
+        }
+      ],
+      "sentAt": "2026-07-28T23:26:43.92+00:00",
+      "subscriberCount": 304
+    },
+    {
+      "type": "stock",
       "date": "2026-07-28",
       "stocks": [
         {
@@ -10182,5 +10238,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-07-27T23:53:23.090Z"
+  "lastUpdated": "2026-07-28T23:27:22.871Z"
 }
