@@ -15,7 +15,8 @@
 | v1 | 2026-07-07 | (흡수) 재구축 이전 상태·승격 로드맵 — 재구축으로 전면 대체됨 |
 | v2 | 2026-07-14 | (흡수) 재구축 완료 선언, /themes P0 수정, 축적 국면 진입 |
 | v3 | 2026-07-22 | (흡수) 제헌절 CI 사고, study lock, gta-v2 배선, B-Abl 활성화 |
-| **v4** | **2026-07-27** | **문서 통합 개시.** PR #104(만기 SSOT)·#105(앵커 척도) 머지, study 시계 1주차 시작, master plan git 이동 |
+| v4 | 2026-07-27 | 문서 통합 개시. PR #104(만기 SSOT)·#105(앵커 척도) 머지, study 시계 1주차 시작, master plan git 이동 |
+| **v5** | **2026-07-29** | **Supabase egress 384% 초과 근본 수정** — 배치 feature 로더 per-theme 중복 로드 제거, 봇 방어 미들웨어, 뉴스 30일 보존 정리 |
 
 ## 문서 지도
 
@@ -140,6 +141,18 @@ study lock이 켠 스냅샷 고정(FK ON DELETE RESTRICT)과 v2 저장기의 교
 2026-07-07 DataLab 앵커 투입이 `raw_value` 스케일을 ~7배 압축(그룹 통합 max=100 정규화, 반올림에 48%가 0), 절대 임계값 기반 점수 계산이 붕괴 — 감쇠 대상 36.9%→88.1%, p50 51→31, visibleThemes 45+→38. 별개로 예측 채점 만기 기준이 라벨과 달라(비거래일 2거래일 어긋남) + 주말 크론이 라벨 불가능한 비거래일 예측을 매주 생성 → 만기 미채점 609건으로 게이트 폭발.
 수정: **#104** 만기 기준 `getLatestMaturedBaseDate` SSOT 통일 + 비거래일 스냅샷 차단 + 고아 자기치유(excluded). **#105** 절대 수준을 `anchor_scaled_value`로 전환 — 척도를 런 단위 확정(`lib/tli/interest-scale.ts` SSOT), `MIN_ANCHOR_INTEREST=0.003`은 감쇠 대상 비율(36.9%) 역산, stage 8거래일 재생으로 0/241 변동 확인. 진단 전문: `docs/tli-anchor-scale-regression-2026-07-26.md`.
 
+### 사건 7 — Supabase egress 384% 초과 (7/29 수정, `b6c391a` + DB 정리)
+
+**증상**: Supabase Free 조직이 이전 주기 egress 초과(19.18/5GB=384%) → grace 종료 7/31, 이후 402 위험. DB도 670/500MB=141%.
+
+**근본 원인 (CLI `inspect db`로 실측)**: public 트래픽·MCP 아님. **배치 코드**였다. `theme-predictions-v3`·`replay-audit-scoring`이 `loadFeatureInputsForBaseDate`를 테마별 루프에서 호출 → base_date에만 의존하는 interest/news/price/snapshot 20일 창을 테마 200개마다 중복 로드(O(themes)). stock_daily_prices가 전체 DB 시간 22%, interest_metrics 12.6% 차지. MCP는 `mcp_analytics` 마지막 이벤트 7/01·DB 직접 접근 0으로 무혐의.
+
+**수정**: ①공유 로드를 base_date당 1회로 hoist(`loadSharedFeatureRows`/`loadThemeScopedFeatureRows` 분리, replay는 base_date별 메모이즈) → egress ~90%↓ ②봇 방어 미들웨어(악성 스크레이퍼 16종 엣지 403) ③`theme_news_articles` 30일 보존 정리(305,272행 삭제, display 전용이라 과학 PIT 무관) + `pruneStaleNewsArticles` 파이프라인 배선. DB VACUUM FULL은 `docs/tli/db-vacuum-2026-07-29.sql`로 별도 실행(670→~508MB).
+
+**잔여 리스크**: 이번 주기 egress는 이미 초과라 되돌릴 수 없음. Phase A로 다음 주기부터 5GB 한도 내 복귀 → Fair Use 하드 제한 가능성 낮음. Pro 업그레이드는 Isaac이 거절.
+
+**교훈 (불변 규칙 ⑭)**: 참조 데이터를 테마/엔티티 루프 안에서 로드하지 말 것 — base_date/전역 단위로 1회 로드 후 재사용. 루프 안 로드는 egress가 O(N)으로 조용히 폭증한다. 정기적으로 `supabase inspect db outliers|calls|traffic-profile`로 쿼리 프로파일을 점검.
+
 ## 6. 불변 규칙 (사고 이력에서 나온 것 — 재발 방지)
 
 1. **실제 페이지 렌더를 확인하라** — API·CI green ≠ 사용자 화면 정상 (사건 1).
@@ -155,6 +168,7 @@ study lock이 켠 스냅샷 고정(FK ON DELETE RESTRICT)과 v2 저장기의 교
 11. **PIT 고정은 빈티지 단위** — 스냅샷을 고정했으면 파생 입력도 함께 고정, 재계산 게이트는 고정 행을 명시적으로 제외(제외 수 보고) (사건 5).
 12. **절대 임계값은 척도에 붙어 있다** — 데이터 척도를 바꾸는 변경(앵커 투입 등)은 그 척도로 교정된 모든 임계값·상수의 재역산을 동반해야 한다. 척도는 런 단위 SSOT로 한 번만 정한다 (사건 6).
 13. **만기·마감 같은 시간 기준은 한 함수로** — 두 곳에서 각자 계산하면 비거래일에 어긋난다 (`getLatestMaturedBaseDate` SSOT) (사건 6).
+14. **참조 데이터는 루프 밖에서 1회 로드** — base_date/전역 단위 데이터를 테마·엔티티 루프 안에서 읽으면 egress가 O(N)으로 조용히 폭증한다. `supabase inspect db outliers|traffic-profile`로 주기 점검 (사건 7).
 
 ## 7. 아키텍처 지도 (작업 진입점)
 
