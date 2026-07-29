@@ -147,7 +147,7 @@ study lock이 켠 스냅샷 고정(FK ON DELETE RESTRICT)과 v2 저장기의 교
 
 **근본 원인 (CLI `inspect db`로 실측)**: public 트래픽·MCP 아님. **배치 코드**였다. `theme-predictions-v3`·`replay-audit-scoring`이 `loadFeatureInputsForBaseDate`를 테마별 루프에서 호출 → base_date에만 의존하는 interest/news/price/snapshot 20일 창을 테마 200개마다 중복 로드(O(themes)). stock_daily_prices가 전체 DB 시간 22%, interest_metrics 12.6% 차지. MCP는 `mcp_analytics` 마지막 이벤트 7/01·DB 직접 접근 0으로 무혐의.
 
-**수정**: ①공유 로드를 base_date당 1회로 hoist(`loadSharedFeatureRows`/`loadThemeScopedFeatureRows` 분리, replay는 base_date별 메모이즈) → egress ~90%↓ ②봇 방어 미들웨어(악성 스크레이퍼 16종 엣지 403) ③`theme_news_articles` 30일 보존 정리(305,272행 삭제, display 전용이라 과학 PIT 무관) + `pruneStaleNewsArticles` 파이프라인 배선. DB VACUUM FULL 실행 완료(Management API, `docs/tli/db-vacuum-2026-07-29.sql`): **658→468MB** (141%→94%, theme_news_articles 172→22MB).
+**수정**: ①공유 로드를 base_date당 1회로 hoist(`loadSharedFeatureRows`/`loadThemeScopedFeatureRows` 분리, replay는 base_date별 메모이즈) → egress ~90%↓ ②봇 방어 미들웨어(악성 스크레이퍼 16종 엣지 403) ③`theme_news_articles` 30일 보존 정리(305,272행 삭제, display 전용이라 과학 PIT 무관) + `pruneStaleNewsArticles` 파이프라인 배선. DB VACUUM FULL 실행 완료(Management API, `docs/tli/db-vacuum-2026-07-29.sql`): 658→468MB. 이어서 미사용 인덱스 2개 드롭(056: idx_blog_posts_fts·candidate_run, index-stats 0 scans + 코드 미사용 확인) → **최종 455MB (141%→91%)**. 리전을 `sin1`로 이동(vercel.json, DB co-locate) → 테마상세 콜드 6~10초→0.56초. parity 게이트 lifecycle_scores 윈도우 바운드로 잔여 배치 egress 제거.
 
 **잔여 리스크**: 이번 주기 egress는 이미 초과라 되돌릴 수 없음. Phase A로 다음 주기부터 5GB 한도 내 복귀 → Fair Use 하드 제한 가능성 낮음. Pro 업그레이드는 Isaac이 거절.
 
