@@ -35,6 +35,12 @@ const BATCH_SIZE = 50
 const PAGE_SIZE = 1000
 export const SCORE_QUERY_BATCH_SIZE = 10
 
+/**
+ * 랭킹 점수 조회 윈도우(일). buildScoreMetaMap은 latest + weekAgo(≤7일 전) + sparkline(최근 7일)만
+ * 쓰므로 14일이면 충분하다. 이전 90일 로드는 ~6배 과다 fetch(egress·지연)였다.
+ */
+export const SCORE_QUERY_WINDOW_DAYS = 14
+
 type ThemeNewsCountRpcRow = {
   readonly theme_id: string
   readonly news_count: number | string

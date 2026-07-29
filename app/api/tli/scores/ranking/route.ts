@@ -2,7 +2,7 @@ import { supabase } from '@/lib/supabase'
 import { getStageKo, toStage, isScoreComponents } from '@/lib/tli/types'
 import { apiSuccess, handleApiError, isTableNotFound, placeholderResponse } from '@/lib/tli/api-utils'
 import type { ThemeListItem, ThemeRanking } from '@/lib/tli/types'
-import { EMPTY_RANKING, SCORE_QUERY_BATCH_SIZE, buildScoreMetaMap, buildCountMaps, buildThemeRanking, batchLoadStockData, batchLoadNewsCounts, applyFreshnessDecayToThemeData } from './ranking-helpers'
+import { EMPTY_RANKING, SCORE_QUERY_BATCH_SIZE, SCORE_QUERY_WINDOW_DAYS, buildScoreMetaMap, buildCountMaps, buildThemeRanking, batchLoadStockData, batchLoadNewsCounts, applyFreshnessDecayToThemeData } from './ranking-helpers'
 import { getKSTDateString } from '@/lib/tli/date-utils'
 
 // 생명주기 단계별 랭킹 (배치 쿼리 최적화)
@@ -36,7 +36,8 @@ export async function GET(request: Request) {
 
     const themeIds = themes.map((t) => t.id)
     const sevenDaysAgo = getKSTDateString(-7)
-    const ninetyDaysAgo = getKSTDateString(-90)
+    // latest + weekAgo(≤7일) + sparkline(최근 7일)만 쓰므로 14일이면 충분 (이전 90일 = ~6배 과다 fetch)
+    const scoreWindowStart = getKSTDateString(-SCORE_QUERY_WINDOW_DAYS)
 
     const scoreChunks: string[][] = []
     for (let i = 0; i < themeIds.length; i += SCORE_QUERY_BATCH_SIZE) {
@@ -67,7 +68,7 @@ export async function GET(request: Request) {
             .from('lifecycle_scores')
             .select('theme_id, score, stage, is_reigniting, calculated_at, components')
             .in('theme_id', chunk)
-            .gte('calculated_at', ninetyDaysAgo)
+            .gte('calculated_at', scoreWindowStart)
             .order('calculated_at', { ascending: false })
             .limit(1000)
           if (error) throw error
@@ -75,7 +76,7 @@ export async function GET(request: Request) {
         } catch (error: unknown) {
           console.error('[TLI API] ranking score batch load failed:', {
             themeCount: chunk.length,
-            since: ninetyDaysAgo,
+            since: scoreWindowStart,
             error: error instanceof Error ? error.message : String(error),
           })
           return []
