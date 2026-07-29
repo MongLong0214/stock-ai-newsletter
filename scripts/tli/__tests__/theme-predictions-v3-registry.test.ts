@@ -180,6 +180,24 @@ describe('snapshotThemePredictionsV3 — model_registry-driven scoring (A1)', ()
     expect(registryMocks.upsertLegacyPredictionsV3).not.toHaveBeenCalled()
   })
 
+  it('base_date 공유 입력을 테마 수와 무관하게 1회만 로드한다 (egress O(1) 회귀 방지)', async () => {
+    // 테마 3개 — hoist 이전이면 loadShared가 3회 불렸다(egress O(themes) 폭증의 근본 원인)
+    registryMocks.championEntry = null
+    registryMocks.snapshotRows = [
+      { theme_id: 'theme-1', snapshot_date: '2026-07-06', phase: 'rising' },
+      { theme_id: 'theme-2', snapshot_date: '2026-07-06', phase: 'hot' },
+      { theme_id: 'theme-3', snapshot_date: '2026-07-06', phase: 'cooling' },
+    ]
+    const { snapshotThemePredictionsV3 } = await import('@/scripts/tli/comparison/theme-predictions-v3')
+
+    await snapshotThemePredictionsV3({ today: '2026-07-06' })
+
+    // 공유 입력(interest/news/price/snapshot 20일 창)은 base_date당 1회
+    expect(registryMocks.loadSharedFeatureRows).toHaveBeenCalledTimes(1)
+    // 테마 스코프 입력(theme_stocks/theme_state)만 테마 수만큼
+    expect(registryMocks.loadThemeScopedFeatureRows).toHaveBeenCalledTimes(3)
+  })
+
   it('falls back to b-abl heuristic bootstrap when no champion is registered', async () => {
     registryMocks.championEntry = null
     const { snapshotThemePredictionsV3, TLI_V3_BASELINE_MODEL_VERSION } = await import('@/scripts/tli/comparison/theme-predictions-v3')
