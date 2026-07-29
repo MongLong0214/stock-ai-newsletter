@@ -165,11 +165,15 @@ export async function loadPredictionParityReport(input: {
     'id',
     { failOnError: true },
   ))
+  // 점수는 각 스냅샷 날짜의 ±1일 최근접만 쓴다(findNearestScore). 스냅샷은 [startDate, asOfDate]
+  // 구간이므로 그 구간 -2일 이전 점수는 절대 매칭되지 않는다. 테마별 전 이력 로드는 불필요한
+  // egress(2026-07 egress 초과의 잔여 원인) — 윈도우로 바운드한다.
+  const scoreLowerBound = shiftDate(startDate, -2)
   const scores = ScoreRowSchema.array().parse(await batchQuery(
     'lifecycle_scores',
     'theme_id, score, stage, calculated_at',
     themeIds,
-    (query) => query.order('calculated_at', { ascending: false }),
+    (query) => query.gte('calculated_at', scoreLowerBound).order('calculated_at', { ascending: false }),
     'theme_id',
     { failOnError: true },
   ))
