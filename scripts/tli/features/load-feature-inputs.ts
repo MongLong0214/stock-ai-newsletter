@@ -234,16 +234,36 @@ export function assembleFeatureInputsFromRows(input: FeatureInputRows): FeatureI
   }
 }
 
-export async function loadFeatureInputsForBaseDate(
-  request: LoadFeatureInputsRequest,
-): Promise<FeatureInputs> {
-  const startDate = addKoreanTradingDays(request.baseDate, -20)
-  const [interestRows, newsRows, stocks, priceRows, themeStateRows, completedEpisodeRows, snapshotRows] = await Promise.all([
+/** base_date에만 의존하는 교차 테마·교차 종목 입력 (한 base_date의 모든 테마가 동일하게 재사용) */
+export interface SharedFeatureRows {
+  readonly interestRows: readonly InterestMetricFeatureRow[]
+  readonly newsRows: readonly NewsMetricFeatureRow[]
+  readonly priceRows: readonly StockDailyFeatureRow[]
+  readonly completedEpisodeRows: readonly CompletedEpisodeFeatureRow[]
+  readonly snapshotRows: readonly PredictionSnapshotFeatureRow[]
+}
+
+/** themeId로 필터되는 소량·인덱스 입력 (테마별로 다름) */
+export interface ThemeScopedFeatureRows {
+  readonly themeStockRows: readonly ThemeStockFeatureRow[]
+  readonly themeStateRows: readonly ThemeStateFeatureRow[]
+}
+
+/**
+ * base_date에만 의존하는 공유 입력을 로드한다.
+ *
+ * ⚠️ 반드시 테마 루프 **밖에서 base_date당 한 번만** 호출할 것. 루프 안에서 호출하면
+ * interest/news/price/snapshot의 전 테마·전 종목 20일 창을 테마 수만큼 중복 로드해 egress가
+ * O(themes)로 폭증한다 — 2026-07 Supabase egress 초과(19GB)의 근본 원인이 바로 이 패턴이었다.
+ */
+export async function loadSharedFeatureRows(baseDate: string): Promise<SharedFeatureRows> {
+  const startDate = addKoreanTradingDays(baseDate, -20)
+  const [interestRows, newsRows, priceRows, completedEpisodeRows, snapshotRows] = await Promise.all([
     fetchAllRows<InterestMetricFeatureRow>(() => supabaseAdmin
       .from('interest_metrics')
       .select('theme_id, time, raw_value, anchor_scaled_value')
       .gte('time', startDate)
-      .lte('time', request.baseDate)
+      .lte('time', baseDate)
       .order('time', { ascending: true })
       .order('theme_id', { ascending: true })
       .order('id', { ascending: true })),
@@ -251,35 +271,22 @@ export async function loadFeatureInputsForBaseDate(
       .from('news_metrics')
       .select('theme_id, time, article_count')
       .gte('time', startDate)
-      .lte('time', request.baseDate)
+      .lte('time', baseDate)
       .order('time', { ascending: true })
       .order('theme_id', { ascending: true })
       .order('id', { ascending: true })),
-    supabaseAdmin
-      .from('theme_stocks')
-      .select('theme_id, symbol, relevance, is_active, created_at')
-      .eq('theme_id', request.themeId)
-      .eq('is_active', true),
     fetchAllRows<StockDailyFeatureRow>(() => supabaseAdmin
       .from('stock_daily_prices')
       .select('symbol, trade_date, close, volume')
       .gte('trade_date', startDate)
-      .lte('trade_date', request.baseDate)
+      .lte('trade_date', baseDate)
       .order('trade_date', { ascending: true })
       .order('symbol', { ascending: true })),
-    fetchAllRows<ThemeStateFeatureRow>(() => supabaseAdmin
-      .from('theme_state_history_v2')
-      .select('theme_id, effective_from, is_active, first_spike_date')
-      .eq('theme_id', request.themeId)
-      .lte('effective_from', request.baseDate)
-      .order('effective_from', { ascending: true })
-      .order('theme_id', { ascending: true })
-      .order('id', { ascending: true })),
     fetchAllRows<CompletedEpisodeFeatureRow>(() => supabaseAdmin
       .from('episode_registry_v1')
       .select('episode_start, episode_end, primary_peak_date, is_active')
       .eq('is_active', false)
-      .lte('episode_end', request.baseDate)
+      .lte('episode_end', baseDate)
       .order('episode_end', { ascending: true })
       .order('episode_start', { ascending: true })
       .order('id', { ascending: true })),
@@ -288,8 +295,32 @@ export async function loadFeatureInputsForBaseDate(
       .select('theme_id, snapshot_date, phase')
       .eq('run_type', 'prod')
       .gte('snapshot_date', startDate)
-      .lte('snapshot_date', request.baseDate)
+      .lte('snapshot_date', baseDate)
       .order('snapshot_date', { ascending: true })
+      .order('theme_id', { ascending: true })
+      .order('id', { ascending: true })),
+  ])
+
+  return { interestRows, newsRows, priceRows, completedEpisodeRows, snapshotRows }
+}
+
+/** 테마 스코프 입력 로드 (theme_stocks + theme_state — themeId 인덱스, 소량) */
+export async function loadThemeScopedFeatureRows(
+  themeId: string,
+  baseDate: string,
+): Promise<ThemeScopedFeatureRows> {
+  const [stocks, themeStateRows] = await Promise.all([
+    supabaseAdmin
+      .from('theme_stocks')
+      .select('theme_id, symbol, relevance, is_active, created_at')
+      .eq('theme_id', themeId)
+      .eq('is_active', true),
+    fetchAllRows<ThemeStateFeatureRow>(() => supabaseAdmin
+      .from('theme_state_history_v2')
+      .select('theme_id, effective_from, is_active, first_spike_date')
+      .eq('theme_id', themeId)
+      .lte('effective_from', baseDate)
+      .order('effective_from', { ascending: true })
       .order('theme_id', { ascending: true })
       .order('id', { ascending: true })),
   ])
@@ -298,15 +329,27 @@ export async function loadFeatureInputsForBaseDate(
     throw new Error(`T-201 피처 입력 로딩 실패: ${stocks.error.message}`)
   }
 
+  return { themeStockRows: stocks.data ?? [], themeStateRows }
+}
+
+/**
+ * 단일 테마의 피처 입력. 공유 로드 + 테마 로드를 합친 하위호환 래퍼.
+ *
+ * 다수 테마를 처리할 때는 이 함수를 루프에서 부르지 말고, `loadSharedFeatureRows`를 루프 밖에서
+ * 한 번 부른 뒤 테마별로 `loadThemeScopedFeatureRows` + `assembleFeatureInputsFromRows`를 조합하라.
+ */
+export async function loadFeatureInputsForBaseDate(
+  request: LoadFeatureInputsRequest,
+): Promise<FeatureInputs> {
+  const [shared, themeScoped] = await Promise.all([
+    loadSharedFeatureRows(request.baseDate),
+    loadThemeScopedFeatureRows(request.themeId, request.baseDate),
+  ])
+
   return assembleFeatureInputsFromRows({
     themeId: request.themeId,
     baseDate: request.baseDate,
-    interestRows,
-    newsRows,
-    themeStockRows: stocks.data ?? [],
-    priceRows,
-    themeStateRows,
-    completedEpisodeRows,
-    snapshotRows,
+    ...shared,
+    ...themeScoped,
   })
 }

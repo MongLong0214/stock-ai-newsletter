@@ -334,3 +334,25 @@ export async function upsertNewsArticles(
     '뉴스 기사',
   )
 }
+
+/** theme_news_articles 기본 보존기간(일). display 전용 테이블 — 상세는 최신 50건, blog는 7일창만 사용 */
+export const NEWS_ARTICLE_RETENTION_DAYS = 30
+
+/**
+ * 보존기간을 넘은 theme_news_articles를 정리한다 (DB 크기·egress 관리).
+ *
+ * 이 테이블은 UI display 전용이고 과학 PIT 입력(news_metrics·tli_news_observations)과 무관하므로
+ * 오래된 행 삭제가 예측·라벨·평가에 영향을 주지 않는다. 매 full run에서 호출해 재증식을 막는다.
+ */
+export async function pruneStaleNewsArticles(
+  retentionDays: number = NEWS_ARTICLE_RETENTION_DAYS,
+): Promise<number> {
+  const cutoff = getKSTDateString(-retentionDays)
+  const { count, error } = await supabaseAdmin
+    .from('theme_news_articles')
+    .delete({ count: 'exact' })
+    .lt('pub_date', cutoff)
+
+  if (error) throw new Error(`오래된 뉴스 기사 정리 실패: ${error.message}`)
+  return count ?? 0
+}

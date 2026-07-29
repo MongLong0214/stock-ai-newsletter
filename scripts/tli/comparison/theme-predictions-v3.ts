@@ -4,7 +4,11 @@ import { getKSTDateString } from '@/lib/tli/date-utils'
 import { isKoreanTradingDate } from '@/lib/tli/trading-calendar'
 import { computeTrailingFinalBaseRate, getTrailingFinalBaseRateWindow } from '@/lib/tli/model/prior-correction'
 import { parseM1ModelArtifact } from '@/lib/tli/model/predict'
-import { loadFeatureInputsForBaseDate } from '@/scripts/tli/features/load-feature-inputs'
+import {
+  assembleFeatureInputsFromRows,
+  loadSharedFeatureRows,
+  loadThemeScopedFeatureRows,
+} from '@/scripts/tli/features/load-feature-inputs'
 import { supabaseAdmin } from '@/scripts/tli/shared/supabase-admin'
 import { upsertLegacyPredictionsV3 } from '@/scripts/tli/comparison/legacy-prediction-writer'
 import {
@@ -174,10 +178,16 @@ export async function snapshotThemePredictionsV3(input?: {
   const rows: ThemePredictionV3Row[] = []
   let challengerRows = 0
 
+  // base_date 공유 입력은 루프 밖에서 1회만 로드 — 테마마다 재로드하면 egress가 O(themes)로 폭증한다
+  const sharedFeatureRows = await loadSharedFeatureRows(predictionDate)
+
   for (const snapshot of snapshots) {
-    const featureInputs = await loadFeatureInputsForBaseDate({
+    const themeScopedRows = await loadThemeScopedFeatureRows(snapshot.theme_id, predictionDate)
+    const featureInputs = assembleFeatureInputsFromRows({
       themeId: snapshot.theme_id,
       baseDate: predictionDate,
+      ...sharedFeatureRows,
+      ...themeScopedRows,
     })
     const featureVector = buildFeatureVector(featureInputs)
 

@@ -16,6 +16,14 @@ const registryMocks = vi.hoisted(() => ({
     themeId: input.themeId,
     baseDate: input.baseDate,
   })),
+  loadSharedFeatureRows: vi.fn(async () => ({
+    interestRows: [], newsRows: [], priceRows: [], completedEpisodeRows: [], snapshotRows: [],
+  })),
+  loadThemeScopedFeatureRows: vi.fn(async () => ({ themeStockRows: [], themeStateRows: [] })),
+  assembleFeatureInputsFromRows: vi.fn((input: { themeId: string; baseDate: string }) => ({
+    themeId: input.themeId,
+    baseDate: input.baseDate,
+  })),
   // Populated below (after FEATURE_NAMES import resolves) — read lazily by the buildFeatureVector mock.
   featureVector: null as FeatureVector | null,
 }))
@@ -87,6 +95,9 @@ vi.mock('@/scripts/tli/comparison/legacy-prediction-writer', () => {
 
 vi.mock('@/scripts/tli/features/load-feature-inputs', () => ({
   loadFeatureInputsForBaseDate: registryMocks.loadFeatureInputsForBaseDate,
+  loadSharedFeatureRows: registryMocks.loadSharedFeatureRows,
+  loadThemeScopedFeatureRows: registryMocks.loadThemeScopedFeatureRows,
+  assembleFeatureInputsFromRows: registryMocks.assembleFeatureInputsFromRows,
 }))
 
 vi.mock('@/lib/tli/features/build-features', async (importOriginal) => {

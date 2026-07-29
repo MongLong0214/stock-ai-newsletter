@@ -1,6 +1,8 @@
 import { shouldCollectTliStocks } from '@/lib/tli/trading-calendar'
 import {
+  NEWS_ARTICLE_RETENTION_DAYS,
   countActiveThemeStocks,
+  pruneStaleNewsArticles,
   upsertInterestMetrics,
   upsertNewsArticles,
   upsertNewsMetrics,
@@ -133,6 +135,13 @@ export async function collectDataSources(
     }
     await upsertNewsMetrics(newsMetrics)
     await upsertNewsArticles(newsArticles)
+    // display 전용 뉴스 기사 보존 정리 — 재증식 방지 (과학 PIT 입력과 무관)
+    try {
+      const pruned = await pruneStaleNewsArticles()
+      if (pruned > 0) console.log(`   🧹 오래된 뉴스 기사 ${pruned.toLocaleString()}건 정리 (보존 ${NEWS_ARTICLE_RETENTION_DAYS}일)`)
+    } catch (error: unknown) {
+      console.warn('   ⚠️ 뉴스 보존 정리 실패(비차단):', error instanceof Error ? error.message : String(error))
+    }
   } catch (error: unknown) {
     criticalFailures++
     console.error('❌ 네이버 뉴스 수집 실패:', error instanceof Error ? error.message : String(error))

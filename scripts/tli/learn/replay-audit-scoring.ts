@@ -7,7 +7,12 @@ import {
   buildM1PredictionV3Row,
   parsePredictionPhase,
 } from '../comparison/theme-predictions-v3-records'
-import { loadFeatureInputsForBaseDate } from '../features/load-feature-inputs'
+import {
+  assembleFeatureInputsFromRows,
+  loadSharedFeatureRows,
+  loadThemeScopedFeatureRows,
+  type SharedFeatureRows,
+} from '../features/load-feature-inputs'
 import type { ReplayAuditLabelRow, ReplayAuditPredictionRow } from './replay-audit'
 
 interface ReplaySnapshotForScoring {
@@ -35,6 +40,17 @@ export const scoreReplayRows = async (input: {
   readonly labelRows?: readonly ReplayAuditLabelRow[]
 }): Promise<ReplayAuditPredictionRow[]> => {
   const rows = new Array<ReplayAuditPredictionRow | null>(input.snapshots.length).fill(null)
+  // base_date별 공유 입력을 1회만 로드(Promise 캐시로 동시 워커 중복 로드 방지) — replay는 수백
+  // base_date × 테마를 도므로 이 메모이즈가 egress 스파이크(교차 종목·테마 20일 창 반복)를 없앤다
+  const sharedRowsByDate = new Map<string, Promise<SharedFeatureRows>>()
+  const sharedRowsForDate = (baseDate: string): Promise<SharedFeatureRows> => {
+    let pending = sharedRowsByDate.get(baseDate)
+    if (pending === undefined) {
+      pending = loadSharedFeatureRows(baseDate)
+      sharedRowsByDate.set(baseDate, pending)
+    }
+    return pending
+  }
   const recentRatesByDate = new Map<string, number | null>()
   const recentRateForDate = (baseDate: string): number | null => {
     if (input.labelRows === undefined) return null
@@ -55,9 +71,15 @@ export const scoreReplayRows = async (input: {
       if (snapshot === undefined) {
         throw new Error(`missing replay snapshot at index ${index}`)
       }
-      const featureInputs = await loadFeatureInputsForBaseDate({
+      const [sharedRows, themeScopedRows] = await Promise.all([
+        sharedRowsForDate(snapshot.snapshot_date),
+        loadThemeScopedFeatureRows(snapshot.theme_id, snapshot.snapshot_date),
+      ])
+      const featureInputs = assembleFeatureInputsFromRows({
         themeId: snapshot.theme_id,
         baseDate: snapshot.snapshot_date,
+        ...sharedRows,
+        ...themeScopedRows,
       })
       const featureVector = buildFeatureVector(featureInputs)
       const m1 = buildM1PredictionV3Row({
