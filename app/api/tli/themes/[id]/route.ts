@@ -134,3 +134,6 @@ export async function GET(
 }
 
 export const runtime = 'nodejs'
+// Supabase DB가 싱가포르(sin1)라 함수를 같은 리전에 둔다 — 콜드 생성 시 다단계 쿼리의
+// 함수↔DB 왕복 지연을 최소화(iad1 미국이면 왕복 ~250ms×수십회 = 6~10초 → sin1 ~5ms).
+export const preferredRegion = 'sin1'
