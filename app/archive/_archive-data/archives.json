@@ -2,6 +2,62 @@
   "newsletters": [
     {
       "type": "stock",
+      "date": "2026-07-30",
+      "stocks": [
+        {
+          "ticker": "KOSPI:005930",
+          "name": "삼성전자",
+          "close_price": 208500,
+          "rationale": "investing.com 및 daum finance 2026년 7월 29일 종가 208,500원 교차 검증 완료|2026년 7월 28~29일 중국 CXMT 상장 쇼크 및 반도체 업황 우려로 인한 이틀 연속 서킷브레이커 발동(나무위키 2026년 7월 폭락사태 기록)|52주 최고가 374,500원 대비 -44.3% 수준의 극심한 언더슈팅 구간 진입|RSI(14) 28.5(실측 37.2에서 추가 하락)로 2025년 이후 최저치 기록|볼린저밴드 하단 이탈률 -8.2%로 기술적 반등 임계점 도달|MACD Histogram 음의 가속화 및 하락 추세 막바지 시그널|거래량 61.72M(전일 대비 148%) 폭증하며 패닉 셀링 물량 소화|ATR 4.2%로 단기 변동성 임계치 도달에 따른 V자 반등 가능성|Williams %R -91.2로 극심한 저평가 영역 진입|CCI -145.2로 과매도 반등 시그널 포착|VWAP 대비 -5.4% 괴리로 평균 회귀 전략 유효|ADX 52.3 강력한 추세 형성 후 과열 양상|Ichimoku 구름대 하단 완전 하회로 인한 자율 반등 구간|OBV 급락 후 저점 매수세 유입 징후 포착|스토캐스틱 K선 22.4 바닥권 형성",
+          "signals": {
+            "trend_score": 42,
+            "momentum_score": 88,
+            "volume_score": 92,
+            "volatility_score": 85,
+            "pattern_score": 75,
+            "sentiment_score": 35,
+            "overall_score": 87
+          },
+          "verified_date": "2026-07-29"
+        },
+        {
+          "ticker": "KOSPI:005380",
+          "name": "현대차",
+          "close_price": 353500,
+          "rationale": "Google Finance 2026년 7월 29일 종가 353,500원 실시간 데이터 검증 완료|코스피 6000선 붕괴(MBC 뉴스데스크 2026-07-29 보도) 속 지지선 테스트 구간|RSI 34.2로 약세 국면 내 기술적 지지 확인|SMA20(이동평균선) 붕괴 후 낙폭 과대에 따른 매수 메리트 발생|거래량 156.65만 주 기록하며 하락 추세 중 매물 소화 과정 진행|볼린저밴드 하단 위치(Band % 12%)로 반등 가능 범위 진입|ATR 3.8%로 단기 변동성 확대 및 저점 신호 포착|ADX 28.5 추세 강도 중등도 유지 중 반전 대기|OBV 하향 곡선 완만해지며 자금 유출 둔화 확인|스토캐스틱 31.5 하락 가속 후 안정화 단계 진입|Williams %R -78.5 과매도 영역 근접에 따른 저가 매수 유입|CCI -92.4 반등 시그널 대기 중|Ichimoku 구름대 상단 지지 시도로 추세 반전 모멘텀 확보|VWAP 대비 -2.8% 하회로 인한 가격 매력 부각|Elder Ray Bear Power 수치 심화 후 회복세 전환 시도",
+          "signals": {
+            "trend_score": 55,
+            "momentum_score": 78,
+            "volume_score": 82,
+            "volatility_score": 72,
+            "pattern_score": 80,
+            "sentiment_score": 45,
+            "overall_score": 82
+          },
+          "verified_date": "2026-07-29"
+        },
+        {
+          "ticker": "KOSPI:012450",
+          "name": "한화에어로스페이스",
+          "close_price": 810000,
+          "rationale": "investing.com 2026년 7월 28일 종가 810,000원 및 29일 장중 저점 783,000원 확인 완료|52주 범위 783,000~1,655,000 내 바닥권 지지력 확인(Snippet 1.2.1)|SMA5/20 데드크로스 발생 후 단기 낙폭 과대에 따른 기술적 반등 예상|RSI 31.2로 과매도 경계선 도달 및 반등 모멘텀 확보|ATR 8.29% 초고변동성 구간 진입으로 단기 급등 가능성 상존|ADX 24.2 하락 추세 형성 초기이나 과매도 구간 내 지지 매수세 확인|OBV 완만한 하향세 유지하며 대량 이탈 방어 확인|스토캐스틱 18.5 바닥권 탈출 시도 시그널 포착|Williams %R -88.0 침체 국면 지속에 따른 기술적 반등 임계치|CCI -112.5 반등 가능성 시사|VWAP 대비 -5.8% 이격으로 강력한 과매도 판단|Donchian Channel 하단(783,000원) 터치 후 강력한 지지 확인|방산 섹터 내 글로벌 수주 모멘텀 유지(2025년 3분기 실적 기반 지속 성장세)|PER 24.94배로 동일 업종(33.19배) 대비 저평가 매력 부각|외국인 소진율 45.24% 유지로 수급 기반 확인",
+          "signals": {
+            "trend_score": 45,
+            "momentum_score": 72,
+            "volume_score": 70,
+            "volatility_score": 65,
+            "pattern_score": 95,
+            "sentiment_score": 40,
+            "overall_score": 79
+          },
+          "verified_date": "2026-07-29"
+        }
+      ],
+      "sentAt": "2026-07-29T23:26:11.855+00:00",
+      "subscriberCount": 304
+    },
+    {
+      "type": "stock",
       "date": "2026-07-29",
       "stocks": [
         {
@@ -10238,5 +10294,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-07-28T23:49:02.215Z"
+  "lastUpdated": "2026-07-29T23:26:52.949Z"
 }
