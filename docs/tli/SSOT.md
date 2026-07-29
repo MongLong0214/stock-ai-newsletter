@@ -200,7 +200,8 @@ study lock이 켠 스냅샷 고정(FK ON DELETE RESTRICT)과 v2 저장기의 교
 | 수시 | `/themes` visibleThemes 45+ 회복 (사건 6 수정 효과) | 미회복 시 재조사 |
 | 8/5 이후 | parity `staleInputExcludedCount` 증가 정지 (사건 5 혼합 빈티지 창 이탈) | 계속 늘면 사건 5 재발 |
 | **12월** | **2027 휴장일 테이블 추가 (필수)** | 누락 시 연말 라벨 창 계산 fail-loud (사건 2 계열) |
-| 비차단 후속 | 완결 아날로그 곡선 materialize · 7/18 27테마 오비활성화 조사 · 옵티마이저 anchor 척도 과제(#105 문서 권고) | — |
+| 비차단 후속 | 완결 아날로그 곡선 materialize · 옵티마이저 anchor 척도 과제(#105 문서 권고) | — |
+| 조사 종결 | ~~7/18 27테마 오비활성화~~ — **정상 확인(2026-07-29)**: 28개 비활성 테마 전부 lifecycle_scores 이력 0(truncation 피해 아님), 25개는 interest 데이터 전무, naver_seen_streak=1(<2 임계값). 저신호 테마의 정상 비활성이며 강제 재활성은 순손해(DataLab 낭비+즉시 재비활성). 조치 불필요. | — |
 
 ## 9. 성공/완료의 정의 (착각 금지)
 
