@@ -47,6 +47,7 @@ export const TLI_BOUNDARY_MANIFEST: Record<string, TliFileCategory> = {
   'scripts/tli/themes/theme-keywords.ts': 'runtime',
   'scripts/tli/themes/theme-lifecycle.ts': 'runtime',
   'scripts/tli/themes/theme-state-history.ts': 'runtime',
+  'scripts/tli/themes/theme-state-history-backfill.ts': 'runtime',
   'scripts/tli/themes/theme-membership-history.ts': 'runtime',
   'scripts/tli/themes/first-spike-date.ts': 'runtime',
   'scripts/tli/themes/enrich-themes.ts': 'runtime',
