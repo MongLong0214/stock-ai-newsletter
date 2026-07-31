@@ -625,11 +625,44 @@ test.describe('AC-4: 모바일 반응형 레이아웃', () => {
     // 점수가 표시됨
     await expect(page.getByText('45').first()).toBeVisible({ timeout: 10000 })
 
+    const chartRegion = page.getByTestId('lifecycle-comparison-chart')
+    await chartRegion.scrollIntoViewIfNeeded()
+    await expect(chartRegion).toBeVisible({ timeout: 10000 })
+    const chart = chartRegion.locator('.recharts-responsive-container, .recharts-wrapper').first()
+    await expect(chart).toBeVisible()
+    const chartBox = await chart.boundingBox()
+    expect(chartBox).not.toBeNull()
+    expect(chartBox!.height).toBeGreaterThanOrEqual(300)
+
     // 가로 스크롤 없이 렌더링됨
     const scrollWidth = await page.evaluate(() => document.documentElement.scrollWidth)
     const viewportWidth = await page.evaluate(() => window.innerWidth)
     expect(scrollWidth).toBeLessThanOrEqual(viewportWidth + 10)
   })
+
+  for (const viewport of [
+    { width: 768, height: 1024, minimumChartHeight: 300 },
+    { width: 1280, height: 900, minimumChartHeight: 250 },
+  ] as const) {
+    test(`${viewport.width}px 뷰포트에서 생명주기 차트 높이를 유지한다`, async ({ page }) => {
+      await page.setViewportSize({ width: viewport.width, height: viewport.height })
+      await mockThemeDetailApi(page, mockThemeDetailResponse)
+
+      await page.goto(`/themes/${MOCK_THEME_ID}`)
+      await page.waitForLoadState('networkidle')
+
+      const chartRegion = page.getByTestId('lifecycle-comparison-chart')
+      await chartRegion.scrollIntoViewIfNeeded()
+      const chart = chartRegion.locator('.recharts-responsive-container, .recharts-wrapper').first()
+      await expect(chart).toBeVisible({ timeout: 10000 })
+      const chartBox = await chart.boundingBox()
+      expect(chartBox).not.toBeNull()
+      expect(chartBox!.height).toBeGreaterThanOrEqual(viewport.minimumChartHeight)
+
+      const scrollWidth = await page.evaluate(() => document.documentElement.scrollWidth)
+      expect(scrollWidth).toBeLessThanOrEqual(viewport.width + 10)
+    })
+  }
 })
 
 test.describe('AC-2: Stats Overview 섹션 (랭킹 API 클라이언트 재호출 시나리오)', () => {
@@ -793,9 +826,15 @@ test.describe('AC-1: 죽은 테마(노이즈) Surging 미포함 검증', () => {
     await page.goto(`/themes/${MOCK_THEME_ID}`)
     await page.waitForLoadState('networkidle')
 
-    // 낮은 신뢰도 경고 메시지 표시 확인
+    // 낮은 신뢰도 경고 메시지와 접근 가능한 설명을 확인
     await expect(page.getByText('점수 신뢰도: 낮음')).toBeVisible({ timeout: 10000 })
     await expect(page.getByText('관심도 데이터가 부족합니다')).toBeVisible()
+    await expect(page.getByRole('status', {
+      name: '점수 신뢰도: 낮음. 관심도 데이터가 부족합니다',
+    })).toBeVisible()
+    await expect(page.getByRole('group', {
+      name: /생명주기 점수 45점, .*점수 신뢰도: 낮음/,
+    })).toBeVisible()
   })
 })
 

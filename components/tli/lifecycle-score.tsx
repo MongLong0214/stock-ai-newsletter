@@ -10,6 +10,7 @@ interface LifecycleScoreProps {
   change24h?: number
   size?: 'sm' | 'md' | 'lg'
   confidenceLevel?: ConfidenceLevel
+  confidenceReason?: string
 }
 
 const SIZE_CONFIG = {
@@ -25,9 +26,22 @@ export default function LifecycleScore({
   change24h,
   size = 'md',
   confidenceLevel,
+  confidenceReason,
 }: LifecycleScoreProps) {
   const config = SIZE_CONFIG[size]
   const stageConfig = STAGE_CONFIG[stage]
+  const roundedScore = Math.round(score)
+  const confidenceLabel = confidenceLevel === 'low'
+    ? '점수 신뢰도: 낮음'
+    : confidenceLevel === 'medium'
+      ? '점수 신뢰도: 보통'
+      : null
+  const accessibleLabel = [
+    `생명주기 점수 ${roundedScore}점`,
+    `${stageConfig.label} 단계`,
+    confidenceLabel,
+    confidenceLabel ? confidenceReason : null,
+  ].filter(Boolean).join(', ')
 
   const center = config.dimension / 2
   const radius = (config.dimension - config.strokeWidth) / 2
@@ -36,7 +50,11 @@ export default function LifecycleScore({
   const strokeDashoffset = circumference * (1 - progress)
 
   return (
-    <div className="flex flex-col items-center gap-2">
+    <div
+      className="flex flex-col items-center gap-2"
+      role="group"
+      aria-label={accessibleLabel}
+    >
       <div
         className="relative"
         style={{ width: config.dimension, height: config.dimension }}
@@ -125,13 +143,22 @@ export default function LifecycleScore({
             </span>
           </div>
         )}
-        {confidenceLevel && confidenceLevel !== 'high' && (
-          <div className={`px-2 py-0.5 rounded-full text-xs font-mono ${
-            confidenceLevel === 'low'
-              ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-              : 'bg-slate-500/10 text-slate-400 border border-slate-500/20'
-          }`}>
-            {confidenceLevel === 'low' ? '데이터 부족' : '~'}
+        {confidenceLabel && (
+          <div
+            role="status"
+            aria-label={[confidenceLabel, confidenceReason].filter(Boolean).join('. ')}
+            className={`max-w-48 rounded-lg border px-2.5 py-1.5 text-center font-mono ${
+              confidenceLevel === 'low'
+                ? 'border-amber-500/20 bg-amber-500/10 text-amber-400'
+                : 'border-slate-500/20 bg-slate-500/10 text-slate-400'
+            }`}
+          >
+            <p className="text-xs font-semibold">{confidenceLabel}</p>
+            {confidenceReason && (
+              <p className="mt-1 text-[10px] leading-snug opacity-90">
+                {confidenceReason}
+              </p>
+            )}
           </div>
         )}
       </div>
