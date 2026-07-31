@@ -3,7 +3,6 @@ import { batchQuery, groupByThemeId, batchUpsert } from '@/scripts/tli/shared/su
 import { getKSTDateString } from '@/lib/tli/date-utils'
 import {
   planMembershipHistoryDiff,
-  type MembershipHistoryInsert,
   type MembershipHistoryRow,
   type ObservedThemeStock,
 } from '@/scripts/tli/themes/theme-membership-history'
@@ -133,16 +132,6 @@ const MEMBERSHIP_HISTORY_TABLE = 'theme_stock_membership_history'
 const MEMBERSHIP_HISTORY_COLUMNS =
   'id, theme_id, symbol, valid_from, valid_to, recorded_at, superseded_at, source, collection_run_id, relevance, market'
 
-const insertMembershipHistoryRows = async (rows: readonly MembershipHistoryInsert[]) => {
-  if (rows.length === 0) return
-  for (let i = 0; i < rows.length; i += 500) {
-    const { error } = await supabaseAdmin
-      .from(MEMBERSHIP_HISTORY_TABLE)
-      .insert(rows.slice(i, i + 500))
-    if (error) throw new Error(`테마-종목 membership history append 실패: ${error.message}`)
-  }
-}
-
 /**
  * 테마-종목 매핑을 bitemporal history에 기록한다 (append-only).
  *
@@ -154,8 +143,8 @@ const insertMembershipHistoryRows = async (rows: readonly MembershipHistoryInser
  * 존재하지 않았던 membership 종료 사실을 조작하게 된다.
  * 과거 구간을 created_at으로 추정 backfill하지 않는다. 관측 이전은 absent가 정답이다.
  *
- * WHY 순차 close→append: supabase-js에 트랜잭션이 없어 키 단위로 닫고 즉시 대체 version을 넣는다.
- * 실패는 즉시 throw해 조용한 부분 기록을 만들지 않는다 (Todo 6에서 단일 RPC 트랜잭션으로 승격 예정).
+ * DB RPC가 전체 diff를 한 transaction에서 lock/validate/close/append한다. stale target, unique conflict,
+ * replacement 오류 중 하나라도 발생하면 모든 변경이 rollback된다.
  */
 export async function recordThemeStockMembershipHistory(input: {
   observed: readonly ObservedThemeStock[]
@@ -184,30 +173,47 @@ export async function recordThemeStockMembershipHistory(input: {
     collectionRunId: input.collectionRunId ?? null,
   })
 
-  await insertMembershipHistoryRows(diff.opens)
+  const opened = diff.opens.length
+  const closed = diff.transitions.length
+  const appended = opened + diff.transitions.reduce(
+    (total, transition) => total + transition.replacements.length,
+    0,
+  )
 
-  let appended = diff.opens.length
-  for (const transition of diff.transitions) {
-    const { error } = await supabaseAdmin
-      .from(MEMBERSHIP_HISTORY_TABLE)
-      .update({ superseded_at: transition.close.superseded_at })
-      .eq('id', transition.close.id)
-      .is('superseded_at', null)
-
+  if (opened > 0 || closed > 0) {
+    const { data, error } = await supabaseAdmin.rpc(
+      'apply_theme_stock_membership_history_diff',
+      {
+        p_diff: {
+          opens: diff.opens,
+          transitions: diff.transitions.map((transition) => ({
+            close_id: transition.close.id,
+            theme_id: transition.themeId,
+            symbol: transition.symbol,
+            superseded_at: transition.close.superseded_at,
+            replacements: transition.replacements,
+          })),
+        },
+      },
+    )
     if (error) {
-      throw new Error(
-        `테마-종목 membership version close 실패 (${transition.themeId}/${transition.symbol}): ${error.message}`,
-      )
+      throw new Error(`테마-종목 membership history transaction 실패: ${error.message}`)
     }
 
-    await insertMembershipHistoryRows(transition.replacements)
-    appended += transition.replacements.length
+    const result = Array.isArray(data) ? data[0] as Record<string, unknown> | undefined : undefined
+    if (
+      result?.opened !== opened
+      || result.closed !== closed
+      || result.appended !== appended
+    ) {
+      throw new Error('테마-종목 membership history transaction 결과 불일치')
+    }
   }
 
   console.log(
-    `   🧬 membership history: open ${diff.opens.length}건, close ${diff.transitions.length}건, append ${appended}건`,
+    `   🧬 membership history: open ${opened}건, close ${closed}건, append ${appended}건`,
   )
-  return { opened: diff.opens.length, closed: diff.transitions.length, appended }
+  return { opened, closed, appended }
 }
 
 /** 테마-종목 매핑 저장 + 미출현 종목 비활성화 (+ bitemporal history 기록) */
@@ -255,8 +261,6 @@ export async function upsertThemeStocks(
   )
 
   // 이번 수집에 없는 종목 비활성화 (테마별)
-  let deactivateFailedCount = 0
-  let lastDeactivateError: string | null = null
   const symbolsByTheme = new Map<string, Set<string>>()
   for (const s of stocks) {
     const set = symbolsByTheme.get(s.themeId) ?? new Set()
@@ -266,12 +270,13 @@ export async function upsertThemeStocks(
 
   const themeIds = [...symbolsByTheme.keys()]
   if (themeIds.length > 0) {
-    const existing = await batchQuery<{ theme_id: string; symbol: string }>(
-      'theme_stocks', 'theme_id, symbol', themeIds,
+    const existing = await batchQuery<{ id: string; theme_id: string; symbol: string }>(
+      'theme_stocks', 'id, theme_id, symbol', themeIds,
       q => q.eq('is_active', true).eq('source', 'naver'),
+      'theme_id', { failOnError: true, orderBy: { column: 'id' } },
     )
 
-    const toDeactivate: Array<{ theme_id: string; symbol: string }> = []
+    const toDeactivate: Array<{ id: string; theme_id: string; symbol: string }> = []
     for (const row of existing) {
       const activeSymbols = symbolsByTheme.get(row.theme_id)
       if (activeSymbols && !activeSymbols.has(row.symbol)) {
@@ -286,23 +291,20 @@ export async function upsertThemeStocks(
           const { error } = await supabaseAdmin
             .from('theme_stocks')
             .update({ is_active: false })
-            .eq('theme_id', item.theme_id)
-            .eq('symbol', item.symbol)
+            .eq('id', item.id)
 
           if (error) {
-            deactivateFailedCount++
-            lastDeactivateError = error.message
+            throw new Error(
+              `theme_stocks 비활성화 실패 (${item.theme_id}/${item.symbol}): ${error.message}`,
+            )
           }
         }
       }
       console.log(`   🔕 ${toDeactivate.length}개 미출현 종목 비활성화`)
-      if (deactivateFailedCount > 0) {
-        console.warn(`   ⚠️ theme_stocks 비활성화 ${deactivateFailedCount}건 실패`, lastDeactivateError ?? 'unknown error')
-      }
     }
   }
 
-  return result + deactivateFailedCount
+  return result
 }
 
 /** 뉴스 기사 저장 */

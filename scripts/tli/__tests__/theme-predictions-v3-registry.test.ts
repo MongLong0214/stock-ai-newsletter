@@ -198,6 +198,19 @@ describe('snapshotThemePredictionsV3 — model_registry-driven scoring (A1)', ()
     expect(registryMocks.loadThemeScopedFeatureRows).toHaveBeenCalledTimes(3)
   })
 
+  it('rejects an unknown champion model_type instead of routing it to the baseline scorer', async () => {
+    registryMocks.championEntry = {
+      model_version: 'unknown-v1',
+      model_type: 'future_model',
+      coefficients: {},
+    }
+    const { snapshotThemePredictionsV3 } = await import('@/scripts/tli/comparison/theme-predictions-v3')
+
+    await expect(snapshotThemePredictionsV3({ today: '2026-07-06' }))
+      .rejects.toThrow(/unsupported model_type: future_model/)
+    expect(registryMocks.upsertLegacyPredictionsV3).not.toHaveBeenCalled()
+  })
+
   it('falls back to b-abl heuristic bootstrap when no champion is registered', async () => {
     registryMocks.championEntry = null
     const { snapshotThemePredictionsV3, TLI_V3_BASELINE_MODEL_VERSION } = await import('@/scripts/tli/comparison/theme-predictions-v3')

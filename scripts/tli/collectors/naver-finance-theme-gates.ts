@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 export const NAVER_FINANCE_THEME_GATE_DEFAULTS = {
   minimumCoverage: 0.7,
-  minimumSchemaParseRate: 0.95,
+  minimumSchemaParseRate: 1,
   currentPriceRange: { min: 1, max: 10_000_000 },
   priceChangePctRange: { min: -30, max: 30 },
   volumeRange: { min: 0, max: 5_000_000_000 },
