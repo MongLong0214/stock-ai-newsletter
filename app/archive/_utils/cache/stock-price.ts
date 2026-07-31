@@ -1,5 +1,12 @@
+import 'server-only';
+
 /**
- * 주식 가격 Supabase 캐시 저장/조회 서비스
+ * 주식 가격 Supabase 캐시 저장/조회 서비스 (SERVER-ONLY)
+ *
+ * Architecture:
+ * - Both reads and writes use service_role key (server-side only)
+ * - This module must NOT be imported from client-side code
+ * - Cache failures are non-poisoning: read failures return empty, write failures are logged
  */
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
@@ -10,44 +17,31 @@ import type {
   StockPriceCacheInsert,
 } from './types';
 
-let supabaseClient: SupabaseClient<StockPriceCacheDatabase> | null = null;
-
 /**
  * 캐시 에러 로깅 (프로덕션 관찰성 확보)
  */
 function logCacheError(message: string, error: unknown): void {
-  console.error(`[StockPriceCache] ${message}:`, error);
+  console.error(`[StockPriceCache] ${message}:`, error instanceof Error ? error.message : error);
 }
 
 /**
  * 주식 가격 데이터 기본 검증
  */
-function validateStockPrice(price: StockPriceCache): void {
-  if (!price.ticker || price.currentPrice <= 0 || price.previousClose <= 0) {
-    throw new Error(`Invalid stock price for ${price.ticker}`);
-  }
+function validateStockPrice(price: StockPriceCache): boolean {
+  return !!(price.ticker && price.currentPrice > 0 && price.previousClose > 0);
 }
 
 /**
- * Supabase 클라이언트 초기화 (lazy initialization)
- *
- * @throws {Error} 환경 변수 미설정 시
+ * Service-role Supabase client (server-side only).
+ * Returns null if service role key is not configured.
  */
-function getSupabase(): SupabaseClient<StockPriceCacheDatabase> {
-  if (!supabaseClient) {
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-    if (!supabaseUrl || !supabaseKey) {
-      throw new Error(
-        'Supabase credentials not configured. ' +
-          'Please set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY environment variables.'
-      );
-    }
-
-    supabaseClient = createClient<StockPriceCacheDatabase>(supabaseUrl, supabaseKey);
-  }
-  return supabaseClient;
+function getServiceClient(): SupabaseClient<StockPriceCacheDatabase> | null {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) return null;
+  return createClient<StockPriceCacheDatabase>(url, key, {
+    auth: { persistSession: false },
+  });
 }
 
 /**
@@ -82,23 +76,21 @@ function mapCacheToInsert(price: StockPriceCache): StockPriceCacheInsert {
 }
 
 /**
- * Supabase에서 여러 주식 가격 캐시 일괄 조회
+ * Supabase에서 여러 주식 가격 캐시 일괄 조회 (service-role)
  *
- * @param tickers - 조회할 티커 배열
- * @returns Map<ticker, StockPriceCache> (만료되지 않은 캐시만)
+ * Non-poisoning: returns empty on error.
  */
 export async function getBatchPricesFromCache(
   tickers: string[]
 ): Promise<Map<string, StockPriceCache>> {
   const results = new Map<string, StockPriceCache>();
-
-  if (tickers.length === 0) {
-    return results;
-  }
+  if (tickers.length === 0) return results;
 
   try {
-    const supabase = getSupabase();
-    const { data: cacheData, error } = await supabase
+    const client = getServiceClient();
+    if (!client) return results;
+
+    const { data: cacheData, error } = await client
       .from('stock_price_cache')
       .select('*')
       .in('ticker', tickers);
@@ -108,16 +100,11 @@ export async function getBatchPricesFromCache(
       return results;
     }
 
-    if (!cacheData || cacheData.length === 0) {
-      return results;
-    }
+    if (!cacheData || cacheData.length === 0) return results;
 
     const now = Date.now();
-
     cacheData.forEach((row) => {
       const cache = mapRowToCache(row);
-
-      // 만료되지 않은 캐시만 반환
       if (cache.expires_at > now) {
         results.set(cache.ticker, cache);
       }
@@ -131,23 +118,22 @@ export async function getBatchPricesFromCache(
 }
 
 /**
- * Supabase에 여러 주식 가격 캐시 일괄 저장 (upsert)
+ * Supabase에 여러 주식 가격 캐시 일괄 저장 (upsert, service-role only)
  *
- * @param prices - 저장할 가격 데이터 배열
+ * Non-poisoning: silently fails on error.
  */
 export async function saveBatchPricesToCache(prices: StockPriceCache[]): Promise<void> {
-  if (prices.length === 0) {
-    return;
-  }
+  if (prices.length === 0) return;
+
+  const client = getServiceClient();
+  if (!client) return;
 
   try {
-    // 모든 가격 데이터 검증
-    prices.forEach((price) => validateStockPrice(price));
+    const validPrices = prices.filter(validateStockPrice);
+    if (validPrices.length === 0) return;
 
-    const supabase = getSupabase();
-    const cacheRows = prices.map((price) => mapCacheToInsert(price));
-
-    const { error } = await supabase.from('stock_price_cache').upsert(cacheRows);
+    const cacheRows = validPrices.map(mapCacheToInsert);
+    const { error } = await client.from('stock_price_cache').upsert(cacheRows);
 
     if (error) {
       logCacheError('Failed to save batch prices', error);
