@@ -75,6 +75,21 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: '시스템 설정 오류입니다.' }, { status: 500 });
   }
 
+  // Per-address limit on top of the per-IP limit. Every allowed request sends real
+  // mail, so a per-IP limit alone lets rotating IPs mail-bomb one subscriber.
+  const perEmailResult = await checkRateLimit(email, RATE_LIMITS.unsubscribeRequestEmail);
+  if (perEmailResult.status === 'unavailable') {
+    return NextResponse.json(
+      { error: '서비스를 일시적으로 사용할 수 없습니다.' },
+      { status: 503 }
+    );
+  }
+  if (perEmailResult.status === 'limited') {
+    // Deliberately the success body: a distinct 429 here would confirm the
+    // address is subscribed, which is exactly what the generic response hides.
+    return NextResponse.json(GENERIC_RESPONSE);
+  }
+
   try {
     // Only mail addresses that are actually subscribed — otherwise this endpoint
     // becomes an open relay for sending mail to arbitrary addresses.
@@ -91,7 +106,16 @@ export async function POST(request: NextRequest) {
     }
 
     if (subscriber) {
-      await sendUnsubscribeLink(email, generateUnsubscribeToken(email));
+      try {
+        await sendUnsubscribeLink(email, generateUnsubscribeToken(email));
+      } catch (sendError) {
+        // Must not surface as a distinct status: a 500 only for subscribed
+        // addresses would turn a mail outage into a subscriber oracle.
+        console.error(
+          '[unsubscribe/request] send failed:',
+          sendError instanceof Error ? sendError.message : 'unknown'
+        );
+      }
     }
 
     return NextResponse.json(GENERIC_RESPONSE);

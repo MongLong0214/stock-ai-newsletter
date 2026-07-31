@@ -10,14 +10,21 @@
 
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { createClientMock, upsertMock, sendConfirmationMock, sendUnsubscribeLinkMock, maybeSingleMock } =
-  vi.hoisted(() => ({
-    createClientMock: vi.fn(),
-    upsertMock: vi.fn(),
-    sendConfirmationMock: vi.fn(),
-    sendUnsubscribeLinkMock: vi.fn(),
-    maybeSingleMock: vi.fn(),
-  }))
+const {
+  createClientMock,
+  upsertMock,
+  sendConfirmationMock,
+  sendUnsubscribeLinkMock,
+  maybeSingleMock,
+  checkRateLimitMock,
+} = vi.hoisted(() => ({
+  createClientMock: vi.fn(),
+  upsertMock: vi.fn(),
+  sendConfirmationMock: vi.fn(),
+  sendUnsubscribeLinkMock: vi.fn(),
+  maybeSingleMock: vi.fn(),
+  checkRateLimitMock: vi.fn(),
+}))
 
 vi.mock('@supabase/supabase-js', () => ({ createClient: createClientMock }))
 vi.mock('@/lib/sendgrid', () => ({
@@ -28,7 +35,7 @@ vi.mock('@/lib/security/rate-limit', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/security/rate-limit')>()
   return {
     ...actual,
-    checkRateLimit: vi.fn().mockResolvedValue({ status: 'allowed', remaining: 5, resetAt: 0 }),
+    checkRateLimit: checkRateLimitMock,
     getTrustedClientIp: vi.fn().mockReturnValue('203.0.113.5'),
   }
 })
@@ -49,6 +56,8 @@ beforeEach(() => {
   sendConfirmationMock.mockReset().mockResolvedValue(undefined)
   sendUnsubscribeLinkMock.mockReset().mockResolvedValue(undefined)
   maybeSingleMock.mockReset().mockResolvedValue({ data: null, error: null })
+  // Reset per test: a leaked 'limited' implementation would silently skip sends
+  checkRateLimitMock.mockReset().mockResolvedValue({ status: 'allowed', remaining: 5, resetAt: 0 })
 
   createClientMock.mockReset().mockReturnValue({
     from: vi.fn().mockReturnValue({
@@ -114,6 +123,48 @@ describe('POST /api/unsubscribe/request', () => {
 
     expect(response.status).toBe(200)
     expect(sendUnsubscribeLinkMock).not.toHaveBeenCalled()
+    expect(body).toEqual({
+      status: 'requested',
+      message: '해당 주소가 구독 중이라면 구독 취소 링크를 발송했습니다. 이메일을 확인해주세요.',
+    })
+  })
+
+  it('returns the generic response even when the mail provider fails', async () => {
+    // A 500 only for subscribed addresses would turn a mail outage into a
+    // subscriber oracle.
+    maybeSingleMock.mockResolvedValue({ data: { email: 'active@example.com' }, error: null })
+    sendUnsubscribeLinkMock.mockRejectedValue(new Error('provider down'))
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+
+    const { POST } = await import('@/app/api/unsubscribe/request/route')
+    const response = await POST(jsonRequest({ email: 'active@example.com' }) as never)
+    const body = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(body).toEqual({
+      status: 'requested',
+      message: '해당 주소가 구독 중이라면 구독 취소 링크를 발송했습니다. 이메일을 확인해주세요.',
+    })
+
+    consoleErrorSpy.mockRestore()
+  })
+
+  it('rate limits per address so rotating IPs cannot mail-bomb one subscriber', async () => {
+    maybeSingleMock.mockResolvedValue({ data: { email: 'active@example.com' }, error: null })
+    // per-IP bucket allowed, per-address bucket limited
+    checkRateLimitMock.mockImplementation(async (_identity: string, config: { bucket: string }) =>
+      config.bucket === 'unsubscribe_request_email'
+        ? { status: 'limited', remaining: 0, resetAt: 0 }
+        : { status: 'allowed', remaining: 9, resetAt: 0 },
+    )
+
+    const { POST } = await import('@/app/api/unsubscribe/request/route')
+    const response = await POST(jsonRequest({ email: 'active@example.com' }) as never)
+    const body = await response.json()
+
+    expect(sendUnsubscribeLinkMock).not.toHaveBeenCalled()
+    // Identical to the success body — a distinct 429 would confirm the address is subscribed
+    expect(response.status).toBe(200)
     expect(body).toEqual({
       status: 'requested',
       message: '해당 주소가 구독 중이라면 구독 취소 링크를 발송했습니다. 이메일을 확인해주세요.',

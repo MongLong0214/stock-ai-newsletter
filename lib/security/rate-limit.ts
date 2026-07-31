@@ -89,23 +89,27 @@ export function getTrustedClientIp(headers: { get(name: string): string | null }
 /**
  * Check rate limit against the distributed atomic counter.
  *
+ * `identity` is whatever the bucket is keyed by — usually the trusted client IP,
+ * but an email address for buckets that limit per recipient. It is always HMAC'd
+ * before storage, so no raw identity value reaches the database.
+ *
  * FAIL-CLOSED: returns { status: 'unavailable' } when:
  * - RATE_LIMIT_HMAC_SECRET is missing or < 32 chars
  * - Supabase URL/service key is missing
- * - Trusted IP is missing
+ * - The identity is missing
  * - RPC call fails
  */
 export async function checkRateLimit(
-  ip: string | null,
+  identity: string | null,
   config: RateLimitConfig
 ): Promise<RateLimitResult> {
-  // Fail-closed: require trusted IP
-  if (!ip) {
+  // Fail-closed: require an identity (e.g. no trusted x-real-ip header)
+  if (!identity) {
     return { status: 'unavailable', reason: 'no_trusted_ip' };
   }
 
   // Fail-closed: require HMAC secret
-  const ipHash = hashClientIp(ip, config.bucket);
+  const ipHash = hashClientIp(identity, config.bucket);
   if (!ipHash) {
     return { status: 'unavailable', reason: 'hmac_secret_missing_or_short' };
   }
@@ -161,6 +165,12 @@ export async function checkRateLimit(
 export const RATE_LIMITS = {
   subscribe: { bucket: 'subscribe', maxRequests: 5, windowSeconds: 60 } as RateLimitConfig,
   unsubscribe: { bucket: 'unsubscribe', maxRequests: 10, windowSeconds: 60 } as RateLimitConfig,
+  /**
+   * Keyed by email address rather than IP. Requesting an unsubscribe link sends
+   * real mail, so a per-IP limit alone lets rotating IPs mail-bomb one address.
+   * The identity is HMAC'd like any other, so no raw address reaches the counter.
+   */
+  unsubscribeRequestEmail: { bucket: 'unsubscribe_request_email', maxRequests: 3, windowSeconds: 3600 } as RateLimitConfig,
   stockPrice: { bucket: 'stock_price', maxRequests: 30, windowSeconds: 60 } as RateLimitConfig,
   dailyClose: { bucket: 'daily_close', maxRequests: 30, windowSeconds: 60 } as RateLimitConfig,
   newsletter: { bucket: 'newsletter', maxRequests: 2, windowSeconds: 3600 } as RateLimitConfig,
