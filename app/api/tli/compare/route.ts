@@ -1,6 +1,7 @@
 import { supabase } from '@/lib/supabase'
 import { apiSuccess, apiError, handleApiError, placeholderResponse, UUID_RE } from '@/lib/tli/api-utils'
 import { getKSTDateString } from '@/lib/tli/date-utils'
+import { loadThemeScoreWindows, loadLatestPublishedComparisonRuns } from '@/lib/tli/rpc/score-windows'
 
 export async function GET(request: Request) {
   try {
@@ -58,48 +59,43 @@ export async function GET(request: Request) {
       }, undefined, 'medium')
     }
 
-    // 2) 병렬: 최신 점수 + 종목 + 7일 sparkline
+    // 2) 병렬: 최신 점수 + 종목 + 7일 sparkline (COR-016: RPC 사용)
     const sevenDaysAgo = getKSTDateString(-7)
 
-    const [scoresRes, stocksRes, sparklineRes] = await Promise.all([
-      supabase
-        .from('lifecycle_scores')
-        .select('theme_id, score, stage, is_reigniting, calculated_at')
-        .in('theme_id', activeIds)
-        .order('calculated_at', { ascending: false })
-        .limit(activeIds.length * 7),
+    const [scoreWindowResult, stocksRes] = await Promise.all([
+      loadThemeScoreWindows(supabase, activeIds, sevenDaysAgo),
       supabase
         .from('theme_stocks')
         .select('theme_id, symbol, name')
         .in('theme_id', activeIds)
         .eq('is_active', true),
-      supabase
-        .from('lifecycle_scores')
-        .select('theme_id, score, calculated_at')
-        .in('theme_id', activeIds)
-        .gte('calculated_at', sevenDaysAgo)
-        .order('calculated_at', { ascending: true }),
     ])
 
-    if (scoresRes.error) throw scoresRes.error
+    if (scoreWindowResult.error) throw scoreWindowResult.error
     if (stocksRes.error) throw stocksRes.error
-    if (sparklineRes.error) throw sparklineRes.error
 
-    // 최신 점수 Map (테마별 1개)
+    // 최신 점수 Map (테마별 1개) — RPC returns latest + recent rows
     const latestScoreMap = new Map<string, { score: number; stage: string | null; is_reigniting: boolean; calculated_at: string }>()
-    for (const row of scoresRes.data || []) {
+    for (const row of scoreWindowResult.data) {
       if (!latestScoreMap.has(row.theme_id)) {
         latestScoreMap.set(row.theme_id, row)
       }
     }
 
     // sparkline Map (테마별 7일 점수 배열)
+    // RPC는 calculated_at DESC로 반환하므로 시간순 차트를 위해 뒤집어야 한다.
+    // 이전 구현은 쿼리에서 ascending으로 받아 그대로 썼다.
     const sparklineMap = new Map<string, number[]>()
-    for (const row of sparklineRes.data || []) {
-      if (!sparklineMap.has(row.theme_id)) {
-        sparklineMap.set(row.theme_id, [])
+    for (const row of scoreWindowResult.data) {
+      if (row.calculated_at >= sevenDaysAgo) {
+        if (!sparklineMap.has(row.theme_id)) {
+          sparklineMap.set(row.theme_id, [])
+        }
+        sparklineMap.get(row.theme_id)!.push(Math.round(row.score))
       }
-      sparklineMap.get(row.theme_id)!.push(Math.round(row.score))
+    }
+    for (const series of sparklineMap.values()) {
+      series.reverse()
     }
 
     // 종목 Map (테마별 종목 배열)
@@ -151,22 +147,24 @@ export async function GET(request: Request) {
     // 5) 상호 유사도: theme_comparison_runs_v2 + theme_comparison_candidates_v2
     const pairwiseSimilarity: Array<{ themeA: string; themeB: string; similarity: number | null }> = []
 
-    // 각 테마의 최신 published run 조회
-    const { data: runs, error: runsError } = await supabase
-      .from('theme_comparison_runs_v2')
-      .select('id, current_theme_id, created_at, publish_ready, status')
-      .in('current_theme_id', activeIds)
-      .eq('status', 'published')
-      .eq('publish_ready', true)
-      .order('created_at', { ascending: false })
+    // COR-016: 각 테마의 최신 published run 조회 (RPC로 PostgREST 행 제한 우회)
+    const { data: runs, error: runsError } = await loadLatestPublishedComparisonRuns(
+      supabase,
+      activeIds,
+    )
 
-    if (!runsError && runs?.length) {
-      // 테마별 최신 run 선택
+    // 유사도는 비핵심 데이터라 실패해도 응답은 유지하되, 조용히 사라지지는 않게 한다.
+    // (RPC는 100개 테마 상한을 초과하면 error를 돌려준다)
+    if (runsError) {
+      console.error('[TLI API] compare pairwise similarity load failed:', runsError.message)
+      warnings.push('유사도 데이터를 불러오지 못했습니다.')
+    }
+
+    if (!runsError && runs.length) {
+      // RPC가 이미 테마별 최신 run 1개만 반환하므로 직접 매핑
       const latestRunMap = new Map<string, string>()
       for (const run of runs) {
-        if (!latestRunMap.has(run.current_theme_id)) {
-          latestRunMap.set(run.current_theme_id, run.id)
-        }
+        latestRunMap.set(run.current_theme_id, run.id)
       }
 
       const runIds = [...latestRunMap.values()]

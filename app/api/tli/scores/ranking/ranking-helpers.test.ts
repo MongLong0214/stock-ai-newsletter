@@ -18,6 +18,7 @@ import {
   buildCountMaps,
   buildThemeRanking,
 } from './ranking-helpers'
+import { THEME_SCORE_WINDOW_MAX_THEMES } from '@/lib/tli/rpc/score-windows'
 
 beforeEach(() => {
   rpcMock.mockReset()
@@ -153,9 +154,11 @@ describe('buildThemeRanking', () => {
       .toContain('emerging-13')
   })
 
-  it('uses a score query batch size that stays under the Supabase 1000-row cap for a 90-day window', () => {
-    expect(SCORE_QUERY_BATCH_SIZE).toBe(10)
-    expect(SCORE_QUERY_BATCH_SIZE * 90).toBeLessThanOrEqual(1000)
+  it('keeps the score query chunk within the RPC theme limit', () => {
+    // PostgREST 1000행 상한이 아니라 load_theme_score_windows의 테마 수 상한이
+    // 유일한 제약이다. 두 값이 어긋나면 청크 하나가 통째로 error를 받는다.
+    expect(SCORE_QUERY_BATCH_SIZE).toBe(THEME_SCORE_WINDOW_MAX_THEMES)
+    expect(SCORE_QUERY_BATCH_SIZE).toBeLessThanOrEqual(THEME_SCORE_WINDOW_MAX_THEMES)
   })
 })
 
