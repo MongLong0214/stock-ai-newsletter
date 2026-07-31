@@ -94,46 +94,42 @@ function setupSupabase(
       }
     }
 
-    if (table === 'lifecycle_scores') {
-      return {
-        select: () => ({
-          in: (_column: string, themeIds: string[]) => ({
-            gte: () => ({
-              order: () => ({
-                limit: () => Promise.resolve(scoreResultForChunk(themeIds)),
-              }),
-            }),
-          }),
-        }),
-      }
-    }
-
     throw new Error(`unexpected table: ${table}`)
+  })
+
+  // loadThemeScoreWindows calls supabase.rpc('load_theme_score_windows', ...)
+  rankingMocks.rpc.mockImplementation((name: string, params: { p_theme_ids: string[] }) => {
+    if (name === 'load_theme_score_windows') {
+      return Promise.resolve(scoreResultForChunk(params.p_theme_ids))
+    }
+    // Default: news RPC etc.
+    return Promise.resolve({ data: [], error: null })
   })
 }
 
 describe('getRankingServer', () => {
   it('keeps successful score chunks when another score chunk times out', async () => {
-    // Given
-    const themes = createThemes(11)
-    const scoreByTheme = new Map(themes.map((theme, index) => [theme.id, createScore(theme.id, index)]))
+    // Given: 501 themes to force two RPC chunks (chunk size = 500)
+    // First chunk (1-500) fails, second chunk (501) succeeds
+    const themes = createThemes(501)
+    const scoreForTheme501 = createScore('theme-501', 0) // Emerging
+
     setupSupabase(themes, (themeIds) => {
-      if (!themeIds.includes('theme-11')) {
-        return { data: null, error: { message: 'canceling statement due to statement timeout' } }
+      if (themeIds.includes('theme-501') && themeIds.length === 1) {
+        return { data: [scoreForTheme501], error: null }
       }
-      const score = scoreByTheme.get('theme-11')
-      return { data: score ? [score] : [], error: null }
+      return { data: null, error: { message: 'canceling statement due to statement timeout' } }
     })
     vi.spyOn(console, 'error').mockImplementation(() => undefined)
 
     // When
     const ranking = await getRankingServer('2026-07-14')
 
-    // Then
-    expect(ranking.summary.trackedThemes).toBe(11)
+    // Then: only theme-501 has score data
+    expect(ranking.summary.trackedThemes).toBe(501)
     expect(ranking.summary.totalThemes).toBe(1)
     expect(ranking.summary.visibleThemes).toBe(1)
-    expect(ranking.emerging[0]?.id).toBe('theme-11')
+    expect(ranking.emerging[0]?.id).toBe('theme-501')
   })
 
   it('returns all score-backed themes when the news source throws', async () => {
@@ -147,7 +143,21 @@ describe('getRankingServer', () => {
       }),
       error: null,
     }))
-    rankingMocks.rpc.mockRejectedValue(new Error('forced news timeout'))
+    // Override the RPC mock to make the news RPC throw while score RPC still works
+    rankingMocks.rpc.mockImplementation((name: string, params: { p_theme_ids?: string[] }) => {
+      if (name === 'load_theme_score_windows') {
+        const themeIds = params.p_theme_ids ?? []
+        return Promise.resolve({
+          data: themeIds.flatMap((themeId) => {
+            const score = scoreByTheme.get(themeId)
+            return score ? [score] : []
+          }),
+          error: null,
+        })
+      }
+      // News RPC: throw
+      return Promise.reject(new Error('forced news timeout'))
+    })
     vi.spyOn(console, 'error').mockImplementation(() => undefined)
 
     // When

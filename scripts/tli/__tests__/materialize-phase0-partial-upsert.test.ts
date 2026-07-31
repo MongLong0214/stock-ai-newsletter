@@ -17,7 +17,7 @@ vi.mock('@/lib/tli/analog/types', () => ({
   createDefaultPolicyVersions: vi.fn(() => ({ phase0: 'test' })),
 }))
 
-vi.mock('@/scripts/tli/ops/run-theme-state-history-backfill', () => ({
+vi.mock('@/scripts/tli/themes/theme-state-history-backfill', () => ({
   backfillThemeStateHistory: vi.fn(async () => ({ insertedCount: 0 })),
 }))
 

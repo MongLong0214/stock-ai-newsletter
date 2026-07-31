@@ -4,6 +4,9 @@ import { GoogleGenAI } from '@google/genai';
 import { GEMINI_API_CONFIG } from '@/lib/llm/_config/pipeline-config';
 import { PIPELINE_CONFIG } from '../_config/pipeline-config';
 import { buildContentGenerationPrompt } from '../_prompts/content-generation';
+import { abortableSleep, throwIfAborted } from '../_utils/abort';
+import { validateGeneratedContent } from '../_schemas/generated-content';
+import { validateCitations } from './citation-gate';
 import type { CompetitorAnalysis, GeneratedContent } from '../_types/blog';
 
 // 하위 호환: pipeline.ts에서 이 경로로 import
@@ -22,20 +25,9 @@ function initializeGemini(): GoogleGenAI {
   });
 }
 
-/** 런타임 GeneratedContent 타입 가드 */
-function isGeneratedContent(obj: unknown): obj is GeneratedContent {
-  if (!obj || typeof obj !== 'object') return false;
-  const content = obj as Record<string, unknown>;
-  return (
-    typeof content.title === 'string' &&
-    typeof content.content === 'string' &&
-    typeof content.metaTitle === 'string' &&
-    typeof content.metaDescription === 'string' &&
-    Array.isArray(content.faqItems)
-  );
-}
+/** 런타임 GeneratedContent 타입 가드 — replaced by Zod schema validation */
 
-/** Gemini 응답에서 JSON 추출 및 타입 검증 */
+/** Gemini 응답에서 JSON 추출 및 Zod 스키마 검증 */
 function parseJsonResponse(response: string): GeneratedContent {
   const cleaned = response.replace(/```json\s*/gi, '').replace(/```\s*/gi, '').trim();
   const jsonStart = cleaned.indexOf('{');
@@ -47,11 +39,8 @@ function parseJsonResponse(response: string): GeneratedContent {
 
   const parsed: unknown = JSON.parse(cleaned.substring(jsonStart, jsonEnd + 1));
 
-  if (!isGeneratedContent(parsed)) {
-    throw new Error('응답 형식이 GeneratedContent 스키마와 일치하지 않습니다.');
-  }
-
-  return parsed;
+  // AI-010: Full strict Zod validation including nested FAQ structure
+  return validateGeneratedContent(parsed) as GeneratedContent;
 }
 
 /** SEO 기준 콘텐츠 유효성 검증 */
@@ -134,7 +123,8 @@ export function calculateQualityScore(
 export async function generateBlogContent(
   targetKeyword: string,
   competitorAnalysis: CompetitorAnalysis,
-  contentType: 'comparison' | 'guide' | 'listicle' | 'review' = 'guide'
+  contentType: 'comparison' | 'guide' | 'listicle' | 'review' = 'guide',
+  signal?: AbortSignal,
 ): Promise<GeneratedContent> {
   console.log(`[Gemini] 콘텐츠 생성 시작: "${targetKeyword}" (${contentType})`);
 
@@ -146,28 +136,29 @@ export async function generateBlogContent(
     const attemptStartTime = Date.now();
 
     try {
-      const response = await Promise.race([
-        genAI.models.generateContent({
-          model: GEMINI_API_CONFIG.MODEL,
-          contents: [{ role: 'user', parts: [{ text: prompt }] }],
-          config: {
-            maxOutputTokens: GEMINI_API_CONFIG.MAX_OUTPUT_TOKENS,
-            temperature: GEMINI_API_CONFIG.TEMPERATURE,
-            topP: GEMINI_API_CONFIG.TOP_P,
-            topK: GEMINI_API_CONFIG.TOP_K,
-            responseMimeType: GEMINI_API_CONFIG.RESPONSE_MIME_TYPE,
-          },
-        }),
-        new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error('Timeout after 120000ms')), 120000)
-        ),
-      ]);
+      throwIfAborted(signal, 'blog content generation');
+      const response = await genAI.models.generateContent({
+        model: GEMINI_API_CONFIG.MODEL,
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        config: {
+          maxOutputTokens: GEMINI_API_CONFIG.MAX_OUTPUT_TOKENS,
+          temperature: GEMINI_API_CONFIG.TEMPERATURE,
+          topP: GEMINI_API_CONFIG.TOP_P,
+          topK: GEMINI_API_CONFIG.TOP_K,
+          responseMimeType: GEMINI_API_CONFIG.RESPONSE_MIME_TYPE,
+          abortSignal: signal,
+        },
+      });
 
       const responseText = response.text || '';
       if (!responseText) throw new Error('빈 응답을 받았습니다.');
 
       const content = parseJsonResponse(responseText);
       validateContent(content);
+      const citationCheck = validateCitations(content, competitorAnalysis.scrapedContents);
+      if (!citationCheck.passed) {
+        throw new Error(`source-backed citation 검증 실패: ${citationCheck.reason}`);
+      }
 
       const qualityScore = calculateQualityScore(content, targetKeyword, competitorAnalysis);
       if (qualityScore < 60) {
@@ -179,12 +170,13 @@ export async function generateBlogContent(
       return content;
     } catch (error) {
       lastError = error instanceof Error ? error : new Error(String(error));
+      if (signal?.aborted) throw lastError;
       console.error(`[Gemini] 시도 ${attempt} 실패: ${lastError.message}`);
 
       if (attempt < PIPELINE_CONFIG.retryAttempts) {
         const baseDelay = PIPELINE_CONFIG.retryDelay * Math.pow(2, attempt - 1);
         const jitter = Math.random() * 0.3 * baseDelay;
-        await new Promise((resolve) => setTimeout(resolve, baseDelay + jitter));
+        await abortableSleep(baseDelay + jitter, signal, 'blog content retry delay');
       }
     }
   }

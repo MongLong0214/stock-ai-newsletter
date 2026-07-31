@@ -1,4 +1,6 @@
 import { execFileSync } from 'node:child_process'
+import { readFileSync } from 'node:fs'
+import { dirname, relative, resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { TLI_BOUNDARY_MANIFEST } from '../tli-boundary-manifest'
 
@@ -40,6 +42,43 @@ describe('tli boundary manifest', () => {
     for (const path of researchFiles) {
       expect(path.startsWith('scripts/tli/research/')).toBe(true)
     }
+  })
+
+  it('keeps runtime imports out of ops and research layers', () => {
+    const violations: string[] = []
+    const runtimeFiles = Object.entries(TLI_BOUNDARY_MANIFEST)
+      .filter(([path, category]) => category === 'runtime' && path.endsWith('.ts'))
+      .map(([path]) => path)
+
+    for (const importer of runtimeFiles) {
+      const source = readFileSync(resolve(process.cwd(), importer), 'utf8')
+      const imports = source.matchAll(
+        /\bfrom\s+['"]([^'"]+)['"]|(?:\bimport\s*\(\s*|\bimport\s+)['"]([^'"]+)['"]/g,
+      )
+      for (const match of imports) {
+        const specifier = match[1] ?? match[2]
+        let targetBase: string | null = null
+        if (specifier.startsWith('@/')) {
+          targetBase = specifier.slice(2)
+        } else if (specifier.startsWith('.')) {
+          targetBase = relative(
+            process.cwd(),
+            resolve(process.cwd(), dirname(importer), specifier),
+          )
+        }
+        if (targetBase === null) continue
+
+        const target = [targetBase, `${targetBase}.ts`, `${targetBase}/index.ts`]
+          .find((candidate) => candidate in TLI_BOUNDARY_MANIFEST)
+        if (!target) continue
+        const targetCategory = TLI_BOUNDARY_MANIFEST[target]
+        if (targetCategory === 'ops' || targetCategory === 'research') {
+          violations.push(`${importer} -> ${target} (${targetCategory})`)
+        }
+      }
+    }
+
+    expect(violations).toEqual([])
   })
 
   it('does not keep any archive_candidate files once cleanup is complete', () => {

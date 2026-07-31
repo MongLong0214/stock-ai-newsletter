@@ -125,16 +125,34 @@ export async function collectNaverNews(
     }
 
     const collectedAt = new Date().toISOString()
+    const coverageFailure: JsonObject | null = search.coverageStatus === 'complete'
+      ? null
+      : {
+          reason: 'naver_news_coverage_incomplete',
+          coverage_status: search.coverageStatus,
+          coverage_note: search.coverageNote,
+          observed_start_date: search.observedStartDate,
+          observed_end_date: search.observedEndDate,
+          api_total: search.apiTotal,
+          pages: search.pages,
+        }
     const append = buildNewsCollectionRun({
       contractVersion: NEWS_CONTRACT_VERSION,
       themeId: theme.id,
       requestWindowStart: startDate,
       requestWindowEnd: endDate,
       requestPayload,
-      responsePayload: { total: search.apiTotal, pages: search.pages },
+      responsePayload: {
+        total: search.apiTotal,
+        pages: search.pages,
+        coverage_status: search.coverageStatus,
+        observed_start_date: search.observedStartDate,
+        observed_end_date: search.observedEndDate,
+      },
       keywordGroupSha256: querySha256,
       articleCountByDate: search.dateCounts,
       timestamps: { requestedAt, collectedAt, completedAt: new Date().toISOString() },
+      failureSummary: coverageFailure,
     })
 
     try {
@@ -145,6 +163,13 @@ export async function collectNaverNews(
       persistenceFailed++
       console.error(`   ❌ 테마 ${theme.id} news snapshot append 실패 (cache 미반영):`,
         error instanceof Error ? error.message : String(error))
+      await sleep(200)
+      continue
+    }
+
+    if (coverageFailure !== null) {
+      failed++
+      console.warn(`   ⚠️ 테마 ${theme.id} 뉴스 coverage 불완전 (${search.coverageStatus}); partial run만 기록하고 cache는 미반영`)
       await sleep(200)
       continue
     }

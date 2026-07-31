@@ -69,6 +69,7 @@ describe('executeMarketAssessment', () => {
     const result = await executeMarketAssessment();
 
     expect(result.verdict).toBe('CRASH_ALERT');
+    expect(result.suppressRecommendation).toBe(true);
     expect(mockGenerateContent).not.toHaveBeenCalled();
   });
 
@@ -84,11 +85,12 @@ describe('executeMarketAssessment', () => {
       verdict: 'CRASH_ALERT',
       confidence: 82,
       summary: 'Fallback crash signal detected.',
+      suppressRecommendation: true,
     });
     expect(mockGenerateContent).toHaveBeenCalledTimes(1);
   });
 
-  it('downgrades low-confidence fallback crash responses to NORMAL', async () => {
+  it('produces DEGRADED (not NORMAL) for low-confidence fallback crash responses', async () => {
     mockGetKisMarketAssessmentSnapshot.mockRejectedValue(new Error('snapshot unavailable'));
     mockGenerateContent.mockResolvedValue({
       text: '{"verdict":"CRASH_ALERT","confidence":61,"summary":"Weak crash concern."}',
@@ -96,8 +98,10 @@ describe('executeMarketAssessment', () => {
 
     const result = await executeMarketAssessment();
 
-    expect(result.verdict).toBe('NORMAL');
-    expect(result.confidence).toBe(69);
+    // AI-008: Low-confidence CRASH must NOT become NORMAL. Must be DEGRADED.
+    expect(result.verdict).toBe('DEGRADED');
+    expect(result.confidence).toBe(61);
+    expect(result.suppressRecommendation).toBe(true);
     expect(result.summary).toContain('Gemini search fallback');
   });
 });

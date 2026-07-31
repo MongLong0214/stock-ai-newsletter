@@ -1,4 +1,14 @@
 import sgMail from '@sendgrid/mail';
+import { generateUnsubscribeToken } from '@/lib/security/timing-safe-auth';
+
+/**
+ * Generate opaque unsubscribe token for a given email.
+ * Fail-closed: throws if UNSUBSCRIBE_TOKEN_SECRET is not configured.
+ * Caller must ensure the secret is set before sending mail.
+ */
+function generateUnsubscribeTokenForEmail(email: string): string {
+  return generateUnsubscribeToken(email);
+}
 
 /**
  * HTML 특수문자 이스케이프 (LLM 출력 삽입 시 XSS 방지)
@@ -10,6 +20,57 @@ function escapeHtml(str: string): string {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#039;');
+}
+
+/**
+ * Send double opt-in confirmation email.
+ * Token-only HTTPS URL, escaped content, no PII logging.
+ * Throws on send failure (caller must handle cleanup).
+ */
+export async function sendSubscriptionConfirmation(email: string, token: string): Promise<void> {
+  initSendGrid();
+
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://stockmatrix.co.kr';
+  const confirmUrl = `${appUrl}/subscribe?confirm=${encodeURIComponent(token)}`;
+  const escapedUrl = escapeHtml(confirmUrl);
+
+  const html = `<!DOCTYPE html>
+<html lang="ko">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>구독 확인</title></head>
+<body style="margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Noto Sans KR',sans-serif;background:#F8FAFC;">
+<table role="presentation" width="100%" style="background:#F8FAFC;padding:40px 20px;">
+<tr><td>
+<table role="presentation" width="100%" style="max-width:560px;margin:0 auto;background:#FFFFFF;border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,0.1);">
+<tr><td style="padding:32px 24px;background:#0F172A;border-radius:8px 8px 0 0;text-align:center;">
+<p style="margin:0 0 8px;font-size:13px;font-weight:600;color:#10B981;letter-spacing:0.05em;text-transform:uppercase;">Stock Matrix</p>
+<h1 style="margin:0;font-size:22px;font-weight:700;color:#FFFFFF;">이메일 주소 확인</h1>
+</td></tr>
+<tr><td style="padding:32px 24px;">
+<p style="margin:0 0 16px;font-size:15px;color:#334155;line-height:1.6;">안녕하세요,</p>
+<p style="margin:0 0 24px;font-size:15px;color:#334155;line-height:1.6;">Stock Matrix 뉴스레터 구독을 요청하셨습니다. 아래 링크를 클릭하여 구독을 확인해주세요.</p>
+<table role="presentation" width="100%"><tr><td style="text-align:center;padding:8px 0 24px;">
+<a href="${escapedUrl}" target="_blank" rel="noopener" style="display:inline-block;padding:14px 32px;background:#10B981;color:#FFFFFF;font-size:15px;font-weight:600;text-decoration:none;border-radius:6px;">구독 확인하기</a>
+</td></tr></table>
+<p style="margin:0 0 8px;font-size:13px;color:#64748B;line-height:1.5;">이 링크는 24시간 동안 유효합니다.</p>
+<p style="margin:0;font-size:13px;color:#64748B;line-height:1.5;">본인이 요청하지 않았다면 이 이메일을 무시해주세요.</p>
+</td></tr>
+<tr><td style="padding:16px 24px;border-top:1px solid #E2E8F0;text-align:center;">
+<p style="margin:0;font-size:12px;color:#94A3B8;">&copy; Stock Matrix. 모든 권리 보유.</p>
+</td></tr>
+</table>
+</td></tr>
+</table>
+</body></html>`;
+
+  await sgMail.send({
+    to: email,
+    from: {
+      email: process.env.SENDGRID_FROM_EMAIL as string,
+      name: process.env.SENDGRID_FROM_NAME as string,
+    },
+    subject: '[Stock Matrix] 이메일 주소 확인',
+    html,
+  });
 }
 
 // API 키 + 발신자 정보 초기화 함수
@@ -113,13 +174,24 @@ export function parseCrashAlert(jsonString: string): CrashAlertData | null {
 }
 
 /**
- * SendGrid로 주식 뉴스레터 이메일 전송
+ * Result of a single-recipient send attempt.
  */
-export async function sendStockNewsletter(
-  recipients: EmailRecipient[],
-  data: StockNewsletterData
-): Promise<void> {
-  // SendGrid 초기화 (API 키 + 발신자 정보 검증 포함)
+export interface SingleSendResult {
+  accepted: boolean;
+  messageId?: string;
+  retryable?: boolean;
+  error?: string;
+}
+
+/**
+ * Send newsletter to a single recipient. Returns structured outcome.
+ * Does NOT throw on provider rejection — returns a result object.
+ * Only throws on non-recoverable internal errors (missing config, etc).
+ */
+export async function sendSingleRecipient(
+  recipient: EmailRecipient,
+  data: StockNewsletterData,
+): Promise<SingleSendResult> {
   initSendGrid();
 
   const isCrash = parseCrashAlert(data.geminiAnalysis) !== null;
@@ -127,28 +199,103 @@ export async function sendStockNewsletter(
     ? `[Stock Matrix] ${data.date} 긴급 시장 분석`
     : `[Stock Matrix] ${data.date} AI 기술적 분석`;
 
-  try {
-    // 각 수신자별로 개별 이메일 전송 (수신거부 링크 개인화)
-    await Promise.all(
-      recipients.map((recipient) => {
-        const html = generateNewsletterHTML(data, recipient.email);
-        return sgMail.send({
-          to: recipient.email,
-          from: {
-            email: process.env.SENDGRID_FROM_EMAIL as string,
-            name: process.env.SENDGRID_FROM_NAME as string,
-          },
-          subject,
-          html,
-        });
-      })
-    );
+  const html = generateNewsletterHTML(data, recipient.email);
 
-    console.log(`✅ 이메일 전송 완료: ${recipients.length}명`);
-  } catch (error) {
-    console.error('❌ SendGrid 이메일 전송 실패:', error);
-    throw error;
+  try {
+    const [response] = await sgMail.send({
+      to: recipient.email,
+      from: {
+        email: process.env.SENDGRID_FROM_EMAIL as string,
+        name: process.env.SENDGRID_FROM_NAME as string,
+      },
+      subject,
+      html,
+    });
+
+    // SendGrid returns x-message-id in response headers
+    const messageId = response?.headers?.['x-message-id'] as string | undefined;
+
+    if (response?.statusCode && response.statusCode >= 200 && response.statusCode < 300) {
+      return { accepted: true, messageId };
+    }
+
+    // Unexpected non-2xx without throw
+    return {
+      accepted: false,
+      retryable: response?.statusCode ? response.statusCode >= 500 : false,
+      error: `Unexpected status ${response?.statusCode}`,
+    };
+  } catch (err: unknown) {
+    // Classify SendGrid errors
+    const error = err as { code?: number; response?: { statusCode?: number; body?: unknown } };
+    const statusCode = error.response?.statusCode || error.code;
+
+    if (statusCode && statusCode >= 400 && statusCode < 500) {
+      // 4xx = permanent (bad email, suppression, etc)
+      return {
+        accepted: false,
+        retryable: false,
+        error: `Provider rejected: ${statusCode}`,
+      };
+    }
+
+    if (statusCode && statusCode >= 500) {
+      // 5xx = retryable
+      return {
+        accepted: false,
+        retryable: true,
+        error: `Provider error: ${statusCode}`,
+      };
+    }
+
+    // Network errors, timeouts — ambiguous
+    throw err;
   }
+}
+
+/**
+ * SendGrid로 주식 뉴스레터 이메일 전송 (bounded concurrency)
+ *
+ * @deprecated Use `executeDelivery` from `@/lib/delivery/service` for
+ * production sends. This function is retained for backward compatibility
+ * but now uses bounded concurrency internally.
+ */
+export async function sendStockNewsletter(
+  recipients: EmailRecipient[],
+  data: StockNewsletterData,
+): Promise<void> {
+  initSendGrid();
+
+  const CONCURRENCY = 10;
+  const executing = new Set<Promise<void>>();
+  const errors: Error[] = [];
+
+  for (const recipient of recipients) {
+    const promise = (async () => {
+      try {
+        const result = await sendSingleRecipient(recipient, data);
+        if (!result.accepted) {
+          console.error(`[sendgrid] Failed for recipient (hash: ${recipient.email.length}chars): ${result.error}`);
+        }
+      } catch (err) {
+        errors.push(err instanceof Error ? err : new Error(String(err)));
+      }
+    })().then(() => { executing.delete(promise); });
+
+    executing.add(promise);
+
+    if (executing.size >= CONCURRENCY) {
+      await Promise.race(executing);
+    }
+  }
+
+  await Promise.all(executing);
+
+  if (errors.length > 0) {
+    throw new Error(`SendGrid delivery failed for ${errors.length} recipient(s)`);
+  }
+
+  console.log(`✅ 이메일 전송 완료: ${recipients.length}명`);
 }
 
 /**
@@ -243,7 +390,7 @@ function generateNewsletterHTML(data: StockNewsletterData, email: string): strin
           <tr>
             <td style="padding: 32px 40px; background-color: #F8FAFC; border-radius: 0 0 8px 8px; text-align: center;">
               <p style="margin: 0 0 16px 0; padding: 0; font-size: 12px; font-weight: 400; color: #94A3B8; line-height: 1.5;">Stock Matrix</p>
-              <a href="${process.env.NEXT_PUBLIC_APP_URL || 'https://stockmatrix.co.kr'}/unsubscribe?email=${encodeURIComponent(email)}" style="display: inline-block; padding: 8px 16px; font-size: 12px; font-weight: 500; color: #64748B; text-decoration: none; border: 1px solid #E2E8F0; border-radius: 6px; transition: all 0.2s;">구독 취소</a>
+              <a href="${process.env.NEXT_PUBLIC_APP_URL || 'https://stockmatrix.co.kr'}/unsubscribe?token=${encodeURIComponent(generateUnsubscribeTokenForEmail(email))}" style="display: inline-block; padding: 8px 16px; font-size: 12px; font-weight: 500; color: #64748B; text-decoration: none; border: 1px solid #E2E8F0; border-radius: 6px; transition: all 0.2s;">구독 취소</a>
             </td>
           </tr>
 

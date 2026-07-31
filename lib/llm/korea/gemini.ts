@@ -1,7 +1,17 @@
-import { executeGeminiPipeline, executeMarketAssessment, executeCrashAnalysisPipeline } from './gemini-pipeline';
-import type { MarketAssessment } from './gemini-pipeline';
-import { PIPELINE_CONFIG } from '../_config/pipeline-config';
+import { createHash } from 'node:crypto';
+import {
+  createGeminiExecutionBudget,
+  executeGeminiPipeline,
+  executeMarketAssessment,
+  executeCrashAnalysisPipeline,
+  getStockPromptManifest,
+} from './gemini-pipeline';
+import type { MarketAssessment, PromptManifest } from './gemini-pipeline';
+import type { LlmExecutionBudget } from '../execution-budget';
+import { GEMINI_API_CONFIG, PIPELINE_CONFIG } from '../_config/pipeline-config';
 import { extractAndValidateJSON, extractAndValidateCrashJSON } from './stock-json';
+import { verifyGeneratedStockClaims } from './stock-claims-verifier';
+import type { VerifiedStockClaims, VerifiedStockClaimEvidence } from './stock-claims-verifier';
 
 /**
  * 에러 포맷팅
@@ -59,38 +69,101 @@ function formatError(error: unknown): string {
  * const stocks = JSON.parse(result);
  * ```
  */
-export async function getGeminiRecommendation(): Promise<string> {
+export interface GeminiRecommendationResult {
+  readonly geminiAnalysis: string;
+  readonly generationKind: 'stock_recommendation' | 'crash_alert';
+  readonly modelVersion: string;
+  readonly promptManifest: PromptManifest;
+  readonly groundingEvidence: readonly (VerifiedStockClaimEvidence | {
+    readonly source: 'KIS_market_assessment';
+    readonly sourceUrl: string;
+    readonly observedAt: string;
+  })[];
+  readonly startedAt: string;
+  readonly completedAt: string;
+}
+
+const crashPromptManifest = (assessmentSummary: string): PromptManifest => ({
+  version: 'korea-crash-analysis-v1',
+  sha256: createHash('sha256')
+    .update(JSON.stringify({ contract: 'korea-crash-analysis-v1', assessmentSummary }), 'utf8')
+    .digest('hex'),
+});
+
+/** Full result including immutable generation provenance. */
+export async function getGeminiRecommendationResult(signal?: AbortSignal): Promise<GeminiRecommendationResult> {
   if (!process.env.GOOGLE_CLOUD_PROJECT) {
     throw new Error('GOOGLE_CLOUD_PROJECT 환경 변수가 설정되지 않았습니다.');
   }
 
+  const executionDate = new Date();
+  const startedAt = executionDate.toISOString();
+  const budget = createGeminiExecutionBudget(signal);
   console.log(
     `[Gemini] Using Vertex AI Multi-Stage Pipeline (Project: ${process.env.GOOGLE_CLOUD_PROJECT})`
   );
 
   try {
     // ━━━━━ Step 1: 시장 평가 (대폭락 가능성 판정) ━━━━━
-    const assessment: MarketAssessment = await executeMarketAssessment();
+    const assessment: MarketAssessment = await executeMarketAssessment(budget);
 
-    // ━━━━━ Step 2: 분기 — CRASH_ALERT vs NORMAL ━━━━━
-    if (assessment.verdict === 'CRASH_ALERT') {
-      console.log(`\n🚨 [CRASH_ALERT] 대폭락 예상 → 폭락 분석 Pipeline 실행`);
-      return await executeCrashAnalysisWithRetry(assessment.summary);
+    // ━━━━━ Step 2: 분기 — CRASH_ALERT / ABSTAIN / DEGRADED / NORMAL ━━━━━
+    if (assessment.suppressRecommendation) {
+      if (assessment.verdict === 'CRASH_ALERT') {
+        console.log(`\n🚨 [CRASH_ALERT] 대폭락 예상 → 폭락 분석 Pipeline 실행`);
+        const geminiAnalysis = await executeCrashAnalysisWithRetry(assessment.summary, budget);
+        return {
+          geminiAnalysis,
+          generationKind: 'crash_alert',
+          modelVersion: GEMINI_API_CONFIG.MODEL,
+          promptManifest: crashPromptManifest(assessment.summary),
+          groundingEvidence: [{
+            source: 'KIS_market_assessment',
+            sourceUrl: 'https://openapi.koreainvestment.com/uapi/',
+            observedAt: new Date().toISOString(),
+          }],
+          startedAt,
+          completedAt: new Date().toISOString(),
+        };
+      }
+      // ABSTAIN or DEGRADED: do not proceed with stock recommendations
+      console.error(`\n⛔ [${assessment.verdict}] 시장 상태 판정 불가/불확실 — 추천 억제`);
+      console.error(`   사유: ${assessment.summary}`);
+      throw new Error(
+        `Market assessment ${assessment.verdict}: 시장 상태 판정 불가로 추천 생성을 억제합니다. ${assessment.summary}`
+      );
     }
 
     console.log(`\n✅ [NORMAL] 시장 정상 → 종목 추천 Pipeline 실행`);
 
-    return await executeStockPipelineWithRetry();
+    const verified = await executeStockPipelineWithRetry(budget, executionDate);
+    return {
+      geminiAnalysis: verified.json,
+      generationKind: 'stock_recommendation',
+      modelVersion: GEMINI_API_CONFIG.MODEL,
+      promptManifest: getStockPromptManifest(executionDate),
+      groundingEvidence: verified.evidence,
+      startedAt,
+      completedAt: new Date().toISOString(),
+    };
   } catch (error) {
     console.error('❌ [Pipeline Error]', error);
     throw error instanceof Error ? error : new Error(formatError(error));
   }
 }
 
+/** Backward-compatible content-only API. Persistence code should use the full result. */
+export async function getGeminiRecommendation(signal?: AbortSignal): Promise<string> {
+  return (await getGeminiRecommendationResult(signal)).geminiAnalysis;
+}
+
 /**
  * 폭락 분석 Pipeline (Outer Retry)
  */
-async function executeCrashAnalysisWithRetry(assessmentSummary: string): Promise<string> {
+async function executeCrashAnalysisWithRetry(
+  assessmentSummary: string,
+  budget: LlmExecutionBudget,
+): Promise<string> {
   for (let attempt = 1; attempt <= PIPELINE_CONFIG.OUTER_MAX_RETRY; attempt++) {
     const retryDelay = Math.min(
       PIPELINE_CONFIG.OUTER_BASE_RETRY_DELAY * Math.pow(2, attempt - 1),
@@ -100,7 +173,7 @@ async function executeCrashAnalysisWithRetry(assessmentSummary: string): Promise
     console.log(`[Crash Analysis] 시도 ${attempt}/${PIPELINE_CONFIG.OUTER_MAX_RETRY}`);
 
     try {
-      const result = await executeCrashAnalysisPipeline(assessmentSummary);
+      const result = await executeCrashAnalysisPipeline(assessmentSummary, budget);
       if (!result) throw new Error('Empty response from Crash Analysis Pipeline');
 
       console.log(`\n${'━'.repeat(80)}`);
@@ -120,7 +193,7 @@ async function executeCrashAnalysisWithRetry(assessmentSummary: string): Promise
 
       if (attempt < PIPELINE_CONFIG.OUTER_MAX_RETRY) {
         console.log(`🔄 ${retryDelay / 1000}초 후 재시도...`);
-        await new Promise((resolve) => setTimeout(resolve, retryDelay));
+        await budget.sleep(retryDelay);
       }
     } catch (pipelineError) {
       const errorMsg = pipelineError instanceof Error ? pipelineError.message : String(pipelineError);
@@ -128,7 +201,7 @@ async function executeCrashAnalysisWithRetry(assessmentSummary: string): Promise
 
       if (attempt < PIPELINE_CONFIG.OUTER_MAX_RETRY) {
         console.log(`🔄 ${retryDelay / 1000}초 후 재시도...`);
-        await new Promise((resolve) => setTimeout(resolve, retryDelay));
+        await budget.sleep(retryDelay);
       } else {
         throw pipelineError;
       }
@@ -141,7 +214,10 @@ async function executeCrashAnalysisWithRetry(assessmentSummary: string): Promise
 /**
  * 종목 추천 Pipeline (기존 로직, Outer Retry)
  */
-async function executeStockPipelineWithRetry(): Promise<string> {
+async function executeStockPipelineWithRetry(
+  budget: LlmExecutionBudget,
+  executionDate: Date,
+): Promise<VerifiedStockClaims> {
   for (let attempt = 1; attempt <= PIPELINE_CONFIG.OUTER_MAX_RETRY; attempt++) {
     const retryDelay = Math.min(
       PIPELINE_CONFIG.OUTER_BASE_RETRY_DELAY * Math.pow(2, attempt - 1),
@@ -151,7 +227,7 @@ async function executeStockPipelineWithRetry(): Promise<string> {
     console.log(`[Gemini Pipeline] 시도 ${attempt}/${PIPELINE_CONFIG.OUTER_MAX_RETRY}`);
 
     try {
-      const result = await executeGeminiPipeline();
+      const result = await executeGeminiPipeline(budget, executionDate);
       if (!result) throw new Error('Empty response from Pipeline');
 
       console.log(`\n${'━'.repeat(80)}`);
@@ -163,13 +239,11 @@ async function executeStockPipelineWithRetry(): Promise<string> {
       const validJSON = extractAndValidateJSON(result);
 
       if (validJSON) {
+        const verified = await verifyGeneratedStockClaims(validJSON);
         console.log(
-          `✅ [Pipeline] 유효한 JSON 응답 받음 (${attempt}/${PIPELINE_CONFIG.OUTER_MAX_RETRY})`
+          `✅ [Pipeline] deterministic claim 검증 완료 (${verified.evidence.length}개 종목, 시도 ${attempt}/${PIPELINE_CONFIG.OUTER_MAX_RETRY})`
         );
-        if (validJSON !== result) {
-          console.log(`📦 [추출된 JSON]:\n${validJSON}\n`);
-        }
-        return validJSON;
+        return verified;
       }
 
       console.warn(
@@ -178,7 +252,7 @@ async function executeStockPipelineWithRetry(): Promise<string> {
 
       if (attempt < PIPELINE_CONFIG.OUTER_MAX_RETRY) {
         console.log(`🔄 [Pipeline] ${retryDelay / 1000}초 후 재시도...`);
-        await new Promise((resolve) => setTimeout(resolve, retryDelay));
+        await budget.sleep(retryDelay);
       }
     } catch (pipelineError) {
       const errorMsg =
@@ -192,7 +266,7 @@ async function executeStockPipelineWithRetry(): Promise<string> {
 
       if (attempt < PIPELINE_CONFIG.OUTER_MAX_RETRY) {
         console.log(`🔄 [Pipeline] ${retryDelay / 1000}초 후 재시도...`);
-        await new Promise((resolve) => setTimeout(resolve, retryDelay));
+        await budget.sleep(retryDelay);
       } else {
         throw pipelineError;
       }
