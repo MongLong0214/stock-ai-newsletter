@@ -2,6 +2,7 @@
 
 import * as cheerio from 'cheerio';
 import { PIPELINE_CONFIG } from '../_config/pipeline-config';
+import { abortableSleep, throwIfAborted } from '../_utils/abort';
 import type { ScrapedContent, SerpSearchResult } from '../_types/blog';
 import { fetchHtml, fetchWithBrowser, checkBrowserAvailability, type DomainConfig } from './http-client';
 import { cleanHtml, extractContent } from './content-extractor';
@@ -15,6 +16,7 @@ export interface ScrapeOptions {
   retryDelay?: number;
   referer?: string;
   forceBrowser?: boolean;
+  signal?: AbortSignal;
 }
 
 const LIMITS = {
@@ -55,7 +57,6 @@ function getDomainConfig(url: string): DomainConfig {
   return {};
 }
 
-const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 const calculateJitter = (base: number) => base + Math.random() * 0.3 * base;
 
 export async function scrapeUrl(
@@ -71,13 +72,16 @@ export async function scrapeUrl(
     retryDelay = 1000,
     referer,
     forceBrowser = false,
+    signal,
   } = options;
+
+  throwIfAborted(signal, `scrape ${url}`);
 
   if (!canAttemptRequest(domain)) {
     return null;
   }
 
-  await enforceRateLimit(domain);
+  await enforceRateLimit(domain, signal);
 
   if (domainConfig.skipReason) {
     return null;
@@ -94,20 +98,21 @@ export async function scrapeUrl(
   }
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    throwIfAborted(signal, `scrape ${url}`);
     try {
       let html: string;
 
       if (useBrowser) {
-        html = await fetchWithBrowser(url, timeout, domainConfig);
+        html = await fetchWithBrowser(url, timeout, domainConfig, signal);
       } else {
         try {
-          html = await fetchHtml(url, timeout, referer, updateMetrics);
+          html = await fetchHtml(url, timeout, referer, updateMetrics, signal);
         } catch (httpError) {
           // HTTP 실패 시 마지막 시도에서만 브라우저 폴백
           if (attempt === maxRetries) {
             const available = await checkBrowserAvailability();
             if (available) {
-              html = await fetchWithBrowser(url, timeout, domainConfig);
+              html = await fetchWithBrowser(url, timeout, domainConfig, signal);
               metrics.browserFallbackCount++;
             } else {
               throw httpError;
@@ -134,11 +139,12 @@ export async function scrapeUrl(
       recordSuccess(domain);
       return content;
     } catch (error) {
+      if (signal?.aborted) throw error;
       const isLastAttempt = attempt === maxRetries;
 
       if (!isLastAttempt) {
         const delay = calculateJitter(retryDelay * Math.pow(2, attempt - 1));
-        await sleep(delay);
+        await abortableSleep(delay, signal, `scrape retry ${url}`);
       } else {
         const message = error instanceof Error ? error.message : String(error);
         console.warn(`   Failed (${url}): ${message}`);
@@ -152,16 +158,19 @@ export async function scrapeUrl(
 
 export async function scrapeSearchResults(
   searchResults: SerpSearchResult[],
+  signal?: AbortSignal,
 ): Promise<ScrapedContent[]> {
   const scrapedContents: ScrapedContent[] = [];
   const total = searchResults.length;
   let succeeded = 0;
 
   for (let i = 0; i < searchResults.length; i++) {
+    throwIfAborted(signal, 'scrape search results');
     const result = searchResults[i];
 
     const content = await scrapeUrl(result.link, {
       referer: 'https://www.google.co.kr/search?q=' + encodeURIComponent(result.title),
+      signal,
     });
 
     if (content) {
@@ -170,7 +179,7 @@ export async function scrapeSearchResults(
     }
 
     if (i < searchResults.length - 1) {
-      await sleep(LIMITS.SCRAPE_DELAY);
+      await abortableSleep(LIMITS.SCRAPE_DELAY, signal, 'scrape inter-request delay');
     }
   }
 

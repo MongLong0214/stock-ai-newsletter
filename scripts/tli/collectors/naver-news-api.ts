@@ -92,11 +92,21 @@ export interface NewsArticle {
   readonly pubDate: string
 }
 
+export type CoverageStatus = 'complete' | 'partial' | 'truncated'
+
 export interface ThemeSearchResult {
   readonly dateCounts: Map<string, number>
   readonly articles: NewsArticle[]
   readonly apiTotal: number
   readonly pages: number
+  /** Whether the requested date window is fully covered */
+  readonly coverageStatus: CoverageStatus
+  /** Explanation of why coverage is partial/truncated */
+  readonly coverageNote: string | null
+  /** Earliest pub date actually observed (KST) */
+  readonly observedStartDate: string | null
+  /** Latest pub date actually observed (KST) */
+  readonly observedEndDate: string | null
 }
 
 export class NaverNewsResponseError extends Error {
@@ -172,7 +182,20 @@ export const newsFailureReason = (error: unknown): string =>
     ? error.reason
     : 'naver_news_request_failed'
 
-const parseDate = (pubDate: string): string => new Date(pubDate).toISOString().slice(0, 10)
+/**
+ * Parse an RFC-2822 pubDate into Asia/Seoul calendar date (YYYY-MM-DD).
+ * Previous behavior used UTC slice which shifts articles published late KST evening
+ * to the next day or vice-versa.
+ */
+const parseDate = (pubDate: string): string => {
+  const instant = new Date(pubDate)
+  // Intl.DateTimeFormat is deterministic and avoids date-fns dependency for a single format
+  const parts = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(instant)
+  const y = parts.find(p => p.type === 'year')!.value
+  const m = parts.find(p => p.type === 'month')!.value
+  const d = parts.find(p => p.type === 'day')!.value
+  return `${y}-${m}-${d}`
+}
 
 const escapeRegex = (value: string): string => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
@@ -196,7 +219,8 @@ export const searchThemeNews = async (input: {
   readonly startDate: string
   readonly endDate: string
 }): Promise<ThemeSearchResult> => {
-  const dateCounts = new Map<string, number>()
+  const seenLinks = new Set<string>()
+  const rawObservedDates = new Set<string>()
   const articles: NewsArticle[] = []
   const orQuery = input.keywords.map((keyword) => `"${keyword}"`).join(' | ')
   const maxResults = 1000
@@ -213,12 +237,16 @@ export const searchThemeNews = async (input: {
 
     for (const item of result.items) {
       const date = parseDate(item.pubDate)
+      rawObservedDates.add(date)
       if (date < input.startDate || date > input.endDate) continue
       const cleanTitle = stripHtml(item.title)
       if (!isRelevantArticle(cleanTitle, input.keywords)) continue
 
-      dateCounts.set(date, (dateCounts.get(date) ?? 0) + 1)
       const link = item.originallink || item.link
+      // Deduplicate by canonical link BEFORE counting
+      if (seenLinks.has(link)) continue
+      seenLinks.add(link)
+
       articles.push({
         themeId: input.themeId,
         title: cleanTitle,
@@ -234,5 +262,37 @@ export const searchThemeNews = async (input: {
     await sleep(100)
   }
 
-  return { dateCounts, articles, apiTotal, pages }
+  // Build date counts from deduplicated, relevant articles only.
+  const dateCounts = new Map<string, number>()
+  for (const article of articles) {
+    dateCounts.set(article.pubDate, (dateCounts.get(article.pubDate) ?? 0) + 1)
+  }
+
+  // Coverage proof must use every raw API item, not only relevant/deduplicated articles.
+  // Fetching the full result set proves explicit zeros even when no article is relevant.
+  // For a capped result set, descending date order proves the requested window only after
+  // the oldest fetched raw item reaches the requested start date.
+  const observedDates = [...rawObservedDates].sort()
+  const observedStartDate = observedDates[0] ?? null
+  const observedEndDate = observedDates[observedDates.length - 1] ?? null
+  const fetchedAllResults = apiTotal === 0 || totalFetched >= apiTotal
+  const cappedWindowCovered =
+    apiTotal > maxResults
+    && observedStartDate !== null
+    && observedStartDate <= input.startDate
+
+  let coverageStatus: CoverageStatus
+  let coverageNote: string | null = null
+
+  if (fetchedAllResults || cappedWindowCovered) {
+    coverageStatus = 'complete'
+  } else if (apiTotal > maxResults) {
+    coverageStatus = 'truncated'
+    coverageNote = `API total=${apiTotal} exceeds 1,000-result cap; fetched=${totalFetched}; oldest raw date=${observedStartDate ?? 'none'} does not reach requested start=${input.startDate}.`
+  } else {
+    coverageStatus = 'partial'
+    coverageNote = `API reported total=${apiTotal}, but only ${totalFetched} raw items were fetched.`
+  }
+
+  return { dateCounts, articles, apiTotal, pages, coverageStatus, coverageNote, observedStartDate, observedEndDate }
 }

@@ -184,7 +184,11 @@ function isEnabled(): boolean {
  * @param content - 윤문 대상 마크다운 본문
  * @param targetKeyword - SEO 타겟 키워드
  */
-export async function humanizeText(content: string, targetKeyword: string): Promise<string> {
+export async function humanizeText(
+  content: string,
+  targetKeyword: string,
+  signal?: AbortSignal,
+): Promise<string> {
   if (!isEnabled()) {
     console.log('[Humanize] 비활성화됨 (BLOG_HUMANIZE=off) — 원문 유지');
     return content;
@@ -205,6 +209,7 @@ export async function humanizeText(content: string, targetKeyword: string): Prom
         responseMimeType: 'text/plain',
       },
       timeout: HUMANIZE_CONFIG.timeout,
+      signal,
     });
 
     if (!response) {
@@ -229,6 +234,7 @@ export async function humanizeText(content: string, targetKeyword: string): Prom
 
     return verdict.text;
   } catch (error) {
+    if (signal?.aborted) throw error;
     const message = error instanceof Error ? error.message : String(error);
     console.warn(`[Humanize] 실패 (${Date.now() - start}ms): ${message} — 원문 유지`);
     return content;
@@ -245,8 +251,9 @@ export async function humanizeText(content: string, targetKeyword: string): Prom
  */
 export async function humanizeGeneratedContent(
   content: GeneratedContent,
-  targetKeyword: string
+  targetKeyword: string,
+  signal?: AbortSignal,
 ): Promise<GeneratedContent> {
-  const humanized = await humanizeText(content.content, targetKeyword);
+  const humanized = await humanizeText(content.content, targetKeyword, signal);
   return humanized === content.content ? content : { ...content, content: humanized };
 }

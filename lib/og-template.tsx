@@ -1,5 +1,4 @@
 import React, { type CSSProperties, type ReactNode } from 'react';
-import { OG_BACKGROUND_DATA_URI } from '@/lib/og-background';
 import { siteConfig } from '@/lib/constants/seo/config';
 
 interface OgLayoutOptions {
@@ -13,6 +12,7 @@ interface OgLayoutOptions {
 
 const CANVAS_WIDTH = 1200;
 const CANVAS_HEIGHT = 630;
+const OG_BACKGROUND_URL = new URL('/og-background-v1.png', siteConfig.domain).toString();
 
 const COLORS = {
   backgroundTop: '#050505',
@@ -534,9 +534,9 @@ export function createOgLayout({
         fontFamily: '"Noto Sans KR", sans-serif',
       }}
     >
-      {/* eslint-disable-next-line @next/next/no-img-element -- Satori renders data URI backgrounds with plain img elements. */}
+      {/* eslint-disable-next-line @next/next/no-img-element -- Satori renders the versioned static background with a plain img element. */}
       <img
-        src={OG_BACKGROUND_DATA_URI}
+        src={OG_BACKGROUND_URL}
         width={CANVAS_WIDTH}
         height={CANVAS_HEIGHT}
         alt=""
