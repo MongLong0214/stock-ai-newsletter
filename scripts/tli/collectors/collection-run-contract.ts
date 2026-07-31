@@ -417,18 +417,16 @@ export const buildNewsCollectionRun = (
     }
   }
 
-  // Only a proven-complete response may turn absent dates into explicit zeros.
-  // A partial response keeps its genuinely observed rows so the immutable run is
-  // auditable, but never manufactures zero observations for uncovered dates.
-  const observationDates =
-    failureSummary === null ? expectedDates : uniqueSorted([...input.articleCountByDate.keys()])
-  const observations: NewsObservationInput[] = observationDates.map((date) => ({
-    theme_id: input.themeId,
-    article_date: date,
-    article_count: input.articleCountByDate.get(date) ?? 0,
-    query_hash: input.keywordGroupSha256,
-    collected_at: input.timestamps.collectedAt,
-  }))
+  const observations: NewsObservationInput[] =
+    failureSummary !== null
+      ? []
+      : expectedDates.map((date) => ({
+          theme_id: input.themeId,
+          article_date: date,
+          article_count: input.articleCountByDate.get(date) ?? 0,
+          query_hash: input.keywordGroupSha256,
+          collected_at: input.timestamps.collectedAt,
+        }))
 
   const expectedKeys = expectedDates.map((date) => `${input.themeId}|${date}`)
 
@@ -439,7 +437,7 @@ export const buildNewsCollectionRun = (
       requestWindowStart: input.requestWindowStart,
       requestWindowEnd: input.requestWindowEnd,
       requestPayload: input.requestPayload,
-      responsePayload: input.responsePayload,
+      responsePayload: failureSummary !== null ? null : input.responsePayload,
       keywordGroupHash: input.keywordGroupSha256,
       expectedThemeIds: [input.themeId],
       expectedKeys,

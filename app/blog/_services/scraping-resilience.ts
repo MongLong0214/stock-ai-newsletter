@@ -1,7 +1,5 @@
 /** Circuit Breaker + Rate Limiting + 메트릭 수집 */
 
-import { abortableSleep } from '../_utils/abort';
-
 // --- 인터페이스 ---
 
 interface CircuitBreakerState {
@@ -104,7 +102,11 @@ export function recordFailure(domain: string): void {
 
 // --- Rate Limiting ---
 
-export async function enforceRateLimit(domain: string, signal?: AbortSignal): Promise<void> {
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+export async function enforceRateLimit(domain: string): Promise<void> {
   if (!rateLimits.has(domain)) {
     rateLimits.set(domain, { requests: [], lastRequest: 0 });
   }
@@ -119,17 +121,13 @@ export async function enforceRateLimit(domain: string, signal?: AbortSignal): Pr
     const oldestRequest = state.requests[0];
     const waitTime = 60000 - (now - oldestRequest);
     if (waitTime > 0) {
-        await abortableSleep(waitTime, signal, `rate limit ${domain}`);
+        await sleep(waitTime);
     }
   }
 
   const timeSinceLastRequest = now - state.lastRequest;
   if (timeSinceLastRequest < RATE_LIMIT_CONFIG.MIN_REQUEST_INTERVAL) {
-    await abortableSleep(
-      RATE_LIMIT_CONFIG.MIN_REQUEST_INTERVAL - timeSinceLastRequest,
-      signal,
-      `request interval ${domain}`,
-    );
+    await sleep(RATE_LIMIT_CONFIG.MIN_REQUEST_INTERVAL - timeSinceLastRequest);
   }
 
   // 실제 요청 시점 기록 (sleep 이후)

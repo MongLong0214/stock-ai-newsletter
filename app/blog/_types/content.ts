@@ -22,15 +22,6 @@ export interface KeywordMetadata {
   reasoning: string;
 }
 
-export interface GeneratedCitation {
-  /** 실제로 스크랩된 source URL과 exact match해야 한다. */
-  sourceUrl: string;
-  /** source corpus에 그대로 존재하는 짧은 근거 발췌문. */
-  sourceExcerpt: string;
-  /** 본문에 그대로 존재하고 바로 뒤에 inline citation marker가 붙는 주장. */
-  claim: string;
-}
-
 /** AI가 생성한 콘텐츠 (Gemini API JSON 응답) */
 export interface GeneratedContent {
   title: string;
@@ -43,7 +34,6 @@ export interface GeneratedContent {
   headings: string[];
   faqItems: FAQItem[];
   suggestedTags: string[];
-  citations: GeneratedCitation[];
   /** 품질 점수 (0-100, content-generator에서 계산) */
   qualityScore?: number;
 }

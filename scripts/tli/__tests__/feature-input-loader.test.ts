@@ -20,7 +20,6 @@ vi.mock('@/scripts/tli/shared/supabase-admin', () => ({
         eq: vi.fn(() => query),
         gte: vi.fn(() => query),
         lte: vi.fn(() => query),
-        or: vi.fn(() => query),
         in: vi.fn(() => query),
         order: vi.fn(() => query),
         range: vi.fn(async (from: number, to: number) => {
@@ -221,5 +220,4 @@ describe('T-201 feature input loader pagination', () => {
     expect(assembled.bablPhaseSignal).toBe(-1)
     expect(supabaseAdminMocks.rangeCallsByTable.get('prediction_snapshots_v2')).toEqual([[0, 999]])
   })
-
 })

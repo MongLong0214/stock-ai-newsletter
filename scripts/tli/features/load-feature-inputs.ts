@@ -3,7 +3,6 @@ import type { FeatureInputs, BasketStockFeatureInput } from '@/lib/tli/features/
 import { KST_OFFSET_MS } from '@/lib/tli/date-utils'
 import { KOSPI_INDEX_SYMBOL, selectTopThemeStockSymbols } from '@/scripts/tli/prices/stock-daily-prices'
 import { supabaseAdmin } from '@/scripts/tli/shared/supabase-admin'
-import { loadThemeStockMembershipAsOf } from '@/scripts/tli/features/load-membership-as-of'
 
 export interface InterestMetricFeatureRow {
   readonly theme_id: string

@@ -87,13 +87,6 @@ export async function runAnalysisPipeline(themes: ThemeWithKeywords[], today = g
     console.error('❌ 점수 계산 실패:', error instanceof Error ? error.message : String(error))
   }
 
-  // ARC-001: Stop/skip dependent intra-analysis stages after critical predecessor failure.
-  // Score calculation is a prerequisite for all downstream stages.
-  if (criticalFailures > 0) {
-    console.error(`\n🚨 [Pipeline Abort] 점수 계산 실패 (critical=${criticalFailures}) — 후속 분석 단계를 건너뜁니다.`)
-    return { criticalFailures, warningFailures }
-  }
-
   console.log('\n🏷️ 4.1단계: Ground Truth 라벨 생성/확정')
   try {
     const labels = await runDailyLabelPhase(today)
@@ -149,12 +142,6 @@ export async function runAnalysisPipeline(themes: ThemeWithKeywords[], today = g
     console.error('❌ phase0 analog artifact materialization 실패:', error instanceof Error ? error.message : String(error))
   }
 
-  // ARC-001: Materialization is required for comparison stages
-  if (criticalFailures > 0) {
-    console.error(`\n🚨 [Pipeline Abort] Materialization 실패 (critical=${criticalFailures}) — 비교/예측 단계를 건너뜁니다.`)
-    return { criticalFailures, warningFailures }
-  }
-
   // Step 4.5: 비교 임계값 자동 튜닝
   console.log('\n🎯 4.5단계: 비교 임계값 자동 튜닝')
   let tunedThreshold: number | undefined
@@ -179,12 +166,6 @@ export async function runAnalysisPipeline(themes: ThemeWithKeywords[], today = g
     console.error('❌ 비교 분석 실패:', error instanceof Error ? error.message : String(error))
   }
 
-  // Comparison output is the required input to every prediction snapshot.
-  if (criticalFailures > 0) {
-    console.error(`\n🚨 [Pipeline Abort] 비교 분석 실패 (critical=${criticalFailures}) — 예측/평가 단계를 건너뜁니다.`)
-    return { criticalFailures, warningFailures }
-  }
-
   // Step 6: 예측 스냅샷
   console.log('\n📸 6단계: 예측 스냅샷')
   try {
@@ -194,12 +175,6 @@ export async function runAnalysisPipeline(themes: ThemeWithKeywords[], today = g
   } catch (error: unknown) {
     criticalFailures++
     console.error('❌ 예측 스냅샷 실패:', error instanceof Error ? error.message : String(error))
-  }
-
-  // ARC-001: Prediction snapshot is required for evaluation and B-Abl phases
-  if (criticalFailures > 0) {
-    console.error(`\n🚨 [Pipeline Abort] 예측 스냅샷 실패 (critical=${criticalFailures}) — 평가 단계를 건너뜁니다.`)
-    return { criticalFailures, warningFailures }
   }
 
   // Step 6.5: B-Abl phase observation (study lock이 있을 때만)

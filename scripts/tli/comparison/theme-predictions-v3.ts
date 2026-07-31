@@ -39,11 +39,9 @@ interface PredictionSnapshotV2PhaseRow {
   readonly phase: string
 }
 
-type SupportedModelType = 'm1_logistic' | 'b_abl'
-
 interface ModelRegistryEntry {
   readonly model_version: string
-  readonly model_type: SupportedModelType
+  readonly model_type: string
   readonly coefficients: unknown
 }
 
@@ -83,15 +81,7 @@ async function loadModelRegistryEntry(status: 'champion' | 'challenger'): Promis
     .eq('status', status)
     .maybeSingle()
   if (error) throw new Error(`model_registry ${status} 조회 실패: ${error.message}`)
-  if (data === null) return null
-  if (data.model_type !== 'm1_logistic' && data.model_type !== 'b_abl') {
-    throw new Error(`model_registry ${status} has unsupported model_type: ${String(data.model_type)}`)
-  }
-  return {
-    model_version: data.model_version,
-    model_type: data.model_type,
-    coefficients: data.coefficients,
-  }
+  return data ?? null
 }
 
 async function loadV2SnapshotsForDate(predictionDate: string): Promise<PredictionSnapshotV2PhaseRow[]> {
@@ -135,34 +125,28 @@ function scoreWithRegistryEntry(input: {
   readonly snapshotPhase: string
   readonly recentBaseRate: number | null
 }): ThemePredictionV3Row {
-  switch (input.entry.model_type) {
-    case 'm1_logistic': {
-      const artifact = parseM1ModelArtifact(input.entry.coefficients)
-      return buildM1PredictionV3Row({
-        themeId: input.themeId,
-        predictionDate: input.predictionDate,
-        featureVector: input.featureVector,
-        artifact,
-        modelVersion: input.entry.model_version,
-        paramVersion: TLI_V3_M1_PARAM_VERSION,
-        servingRole: input.servingRole,
-        recentBaseRate: input.recentBaseRate,
-      })
-    }
-    case 'b_abl':
-      return buildBaselinePredictionV3Row({
-        themeId: input.themeId,
-        predictionDate: input.predictionDate,
-        prediction: { phase: parsePredictionPhase(input.snapshotPhase) },
-        featureVector: input.featureVector,
-        servingRole: input.servingRole,
-        modelVersion: input.entry.model_version,
-      })
-    default: {
-      const exhaustive: never = input.entry.model_type
-      throw new Error(`Unsupported model_type: ${String(exhaustive)}`)
-    }
+  if (input.entry.model_type === 'm1_logistic') {
+    const artifact = parseM1ModelArtifact(input.entry.coefficients)
+    return buildM1PredictionV3Row({
+      themeId: input.themeId,
+      predictionDate: input.predictionDate,
+      featureVector: input.featureVector,
+      artifact,
+      modelVersion: input.entry.model_version,
+      paramVersion: TLI_V3_M1_PARAM_VERSION,
+      servingRole: input.servingRole,
+      recentBaseRate: input.recentBaseRate,
+    })
   }
+
+  return buildBaselinePredictionV3Row({
+    themeId: input.themeId,
+    predictionDate: input.predictionDate,
+    prediction: { phase: parsePredictionPhase(input.snapshotPhase) },
+    featureVector: input.featureVector,
+    servingRole: input.servingRole,
+    modelVersion: input.entry.model_version,
+  })
 }
 
 export async function snapshotThemePredictionsV3(input?: {

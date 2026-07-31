@@ -1,11 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { isDisposableEmail } from 'disposable-email-domains-js';
-import { createClient } from '@supabase/supabase-js';
-import { createHash } from 'crypto';
-import { generateConfirmToken } from '@/lib/security/timing-safe-auth';
-import { checkRateLimit, getTrustedClientIp, RATE_LIMITS } from '@/lib/security/rate-limit';
-import { sendSubscriptionConfirmation } from '@/lib/sendgrid';
+import { getServerSupabaseClient } from '@/lib/supabase/server-client';
 
 const subscribeSchema = z.object({
   email: z
@@ -17,34 +13,7 @@ const subscribeSchema = z.object({
   name: z.string().max(100, '이름 길이 제한 초과').optional(),
 });
 
-/**
- * Get a service-role Supabase client.
- * Fail-closed: returns null if service role key is not configured.
- */
-function getServiceSupabase() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !key) return null;
-  return createClient(url, key, { auth: { persistSession: false } });
-}
-
 export async function POST(request: NextRequest) {
-  // Rate limiting (fail-closed)
-  const clientIp = getTrustedClientIp(request.headers);
-  const rateResult = await checkRateLimit(clientIp, RATE_LIMITS.subscribe);
-  if (rateResult.status === 'limited') {
-    return NextResponse.json(
-      { error: '너무 많은 요청입니다. 잠시 후 다시 시도해주세요.' },
-      { status: 429, headers: { 'Retry-After': '60' } }
-    );
-  }
-  if (rateResult.status === 'unavailable') {
-    return NextResponse.json(
-      { error: '서비스를 일시적으로 사용할 수 없습니다.' },
-      { status: 503 }
-    );
-  }
-
   let body: unknown;
   try {
     body = await request.json();
@@ -57,63 +26,42 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: parsed.error.issues[0].message }, { status: 400 });
   }
 
-  // Normalize email (lowercase, trim)
-  const email = parsed.data.email.toLowerCase().trim();
-  const name = parsed.data.name?.trim() || null;
-
-  const supabase = getServiceSupabase();
-  if (!supabase) {
-    console.error('[subscribe] SUPABASE_SERVICE_ROLE_KEY not configured');
-    return NextResponse.json({ error: '시스템 설정 오류입니다.' }, { status: 500 });
-  }
+  const { email, name } = parsed.data;
+  const supabase = getServerSupabaseClient();
 
   try {
-    // Generate a confirmation token (opaque, AEAD encrypted)
-    const confirmToken = generateConfirmToken(email);
-    const tokenHash = createHash('sha256').update(confirmToken).digest('hex');
-    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+    const { data: existing } = await supabase
+      .from('subscribers')
+      .select('name')
+      .eq('email', email)
+      .maybeSingle();
 
-    // Upsert pending subscriber
-    const { error: upsertError } = await supabase
-      .from('pending_subscribers')
-      .upsert(
-        { email, name, confirm_token_hash: tokenHash, expires_at: expiresAt },
-        { onConflict: 'email' }
-      );
+    if (existing) {
+      const { error: updateError } = await supabase
+        .from('subscribers')
+        .update({ is_active: true, name: name || existing.name })
+        .eq('email', email);
 
-    if (upsertError) {
-      console.error('[subscribe] pending upsert error:', upsertError.message);
-      return NextResponse.json(
-        { error: '시스템 오류가 발생했습니다. 잠시 후 다시 시도해주세요.' },
-        { status: 500 }
-      );
+      if (updateError) {
+        console.error('Resubscribe error:', updateError);
+        return NextResponse.json({ error: '구독 처리 중 오류가 발생했습니다. 다시 시도해주세요.' }, { status: 500 });
+      }
+
+      return NextResponse.json({ status: 'resubscribed' });
     }
 
-    // Send confirmation email
-    try {
-      await sendSubscriptionConfirmation(email, confirmToken);
-    } catch (sendError) {
-      // Clean up the pending row if sending fails
-      console.error('[subscribe] email send failed:', sendError instanceof Error ? sendError.message : 'unknown');
-      await supabase
-        .from('pending_subscribers')
-        .delete()
-        .eq('email', email)
-        .is('confirmed_at', null);
+    const { error: insertError } = await supabase
+      .from('subscribers')
+      .insert({ email, name: name || null });
 
-      return NextResponse.json(
-        { error: '시스템 오류가 발생했습니다. 잠시 후 다시 시도해주세요.' },
-        { status: 500 }
-      );
+    if (insertError) {
+      console.error('Subscribe error:', insertError);
+      return NextResponse.json({ error: '구독 처리 중 오류가 발생했습니다. 다시 시도해주세요.' }, { status: 500 });
     }
 
-    // Always return same response to prevent account enumeration
-    return NextResponse.json({
-      status: 'pending',
-      message: '확인 이메일을 발송했습니다. 이메일을 확인해주세요.',
-    });
+    return NextResponse.json({ status: 'subscribed' });
   } catch (error) {
-    console.error('[subscribe] unexpected error:', error instanceof Error ? error.message : 'unknown');
+    console.error('Subscribe error:', error);
     return NextResponse.json({ error: '시스템 오류가 발생했습니다. 잠시 후 다시 시도해주세요.' }, { status: 500 });
   }
 }

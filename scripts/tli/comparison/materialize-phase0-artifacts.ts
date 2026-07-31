@@ -26,7 +26,7 @@ import {
   type DailyScore,
   type EpisodeCandidate,
 } from '@/scripts/tli/themes/build-episode-registry'
-import { backfillThemeStateHistory } from '@/scripts/tli/themes/theme-state-history-backfill'
+import { backfillThemeStateHistory } from '@/scripts/tli/ops/run-theme-state-history-backfill'
 
 interface ThemeRow {
   id: string

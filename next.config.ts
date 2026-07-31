@@ -14,15 +14,6 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       {
-        source: '/og-background-v1.png',
-        headers: [
-          {
-            key: 'Cache-Control',
-            value: 'public, max-age=31536000, immutable',
-          },
-        ],
-      },
-      {
         source: '/:path*',
         headers: [
           {
@@ -46,14 +37,6 @@ const nextConfig: NextConfig = {
             value: 'camera=(), microphone=(), geolocation=()',
           },
           {
-            key: 'Strict-Transport-Security',
-            value: 'max-age=63072000; includeSubDomains; preload',
-          },
-          {
-            key: 'X-Permitted-Cross-Domain-Policies',
-            value: 'none',
-          },
-          {
             key: 'Content-Security-Policy',
             value: [
               "default-src 'self'",
@@ -64,8 +47,6 @@ const nextConfig: NextConfig = {
               "connect-src 'self' https://*.supabase.co https://vitals.vercel-insights.com https://www.google-analytics.com https://analytics.google.com https://www.googletagmanager.com",
               "frame-src https://vercel.live",
               "frame-ancestors 'none'",
-              "object-src 'none'",
-              "base-uri 'self'",
             ].join('; '),
           },
         ],

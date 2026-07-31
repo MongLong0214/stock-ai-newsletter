@@ -72,30 +72,24 @@ export async function runTliMainPipeline(): Promise<TliMainPipelineResult> {
     if (collection.criticalFailures === 0 && shouldCollectTliStocks({ mode, kstDate: endDate })) {
       try {
         const priceReport = await collectDailyStockPricesForDate(endDate);
-        const priceIncomplete =
-          priceReport.failureCount > 0
-          || (priceReport.skippedForBudget ?? 0) > 0
-          || (priceReport.dateCoverageRate ?? 1) < 1;
-        if (priceIncomplete) {
-          criticalFailures++;
-          console.error(
-            `❌ 일봉 주가 수집 불완전: failures=${priceReport.failureCount}, skipped=${priceReport.skippedForBudget ?? 0}, dateCoverage=${priceReport.dateCoverageRate ?? 'unknown'}`,
-          );
+        if (priceReport.failureCount > 0) warningFailures++;
+        if (priceReport.skippedForBudget > 0) {
+          warningFailures++;
+          console.warn(`⚠️ 일봉 주가 콜 예산 초과로 ${priceReport.skippedForBudget}건 생략`);
         }
       } catch (error: unknown) {
-        criticalFailures++;
-        console.error('❌ 일봉 주가 적재 실패:', error instanceof Error ? error.message : String(error));
+        warningFailures++;
+        console.warn('⚠️ 일봉 주가 적재 실패:', error instanceof Error ? error.message : String(error));
       }
     }
 
-    // Steps 3.5-8: 교정 + 분석 (full 모드, 모든 필수 수집 성공 시)
+    // Steps 3.5-8: 교정 + 분석 (full 모드, DataLab 성공 시)
     if (mode === 'full') {
-      const abortAnalysis = criticalFailures > 0 || shouldAbortAnalysisPipeline({
+      if (shouldAbortAnalysisPipeline({
         mode,
         datalabFailed: collection.datalabFailed,
-        criticalFailures,
-      });
-      if (abortAnalysis) {
+        criticalFailures: collection.criticalFailures,
+      })) {
         console.log('\n⊘ 수집 단계 치명적 실패로 후속 단계 생략 (4~8단계)');
       } else {
         await runCalibrationPhase(kstNow);
@@ -107,10 +101,10 @@ export async function runTliMainPipeline(): Promise<TliMainPipelineResult> {
     }
 
     // Step 9: IndexNow URL 제출
-    if (mode === 'full' && criticalFailures === 0 && !shouldAbortAnalysisPipeline({
+    if (mode === 'full' && !shouldAbortAnalysisPipeline({
       mode,
       datalabFailed: collection.datalabFailed,
-      criticalFailures,
+      criticalFailures: collection.criticalFailures,
     })) {
       await submitIndexNowStep(themes);
     }

@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto';
 import { FinishReason, GoogleGenAI } from '@google/genai';
 import {
     createDateContext,
@@ -15,7 +14,6 @@ import {
     getMarketAssessmentPrompt,
 } from '../../prompts/korea';
 import { PIPELINE_CONFIG, GEMINI_API_CONFIG } from '../_config/pipeline-config';
-import { LlmExecutionBudget, LlmExecutionBudgetError } from '../execution-budget';
 import { extractAndValidateJSON } from './stock-json';
 import {
     evaluateMarketAssessmentSnapshot,
@@ -68,14 +66,26 @@ function startProgressTimer(label: string, intervalMs = 10000): { stop: () => vo
     };
 }
 
-/** One budget instance must be shared by market assessment, recommendation stages, and retries. */
-export function createGeminiExecutionBudget(signal?: AbortSignal): LlmExecutionBudget {
-    return new LlmExecutionBudget({
-        deadlineMs: PIPELINE_CONFIG.GLOBAL_DEADLINE_MS,
-        maxCalls: PIPELINE_CONFIG.GLOBAL_MAX_CALLS,
-        maxReservedOutputTokens: PIPELINE_CONFIG.GLOBAL_MAX_RESERVED_OUTPUT_TOKENS,
-        signal,
+/**
+ * Promise에 타임아웃 적용
+ *
+ * onTimeout으로 진행 중인 API 요청을 abort하고, 완료 시 타이머를 정리해
+ * 20분짜리 타이머가 프로세스 종료를 붙잡지 않도록 한다.
+ */
+async function withTimeout<T>(promise: Promise<T>, ms: number, onTimeout?: () => void): Promise<T> {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const timeout = new Promise<T>((_, reject) => {
+        timer = setTimeout(() => {
+            onTimeout?.();
+            reject(new Error(`Timeout after ${ms}ms`));
+        }, ms);
     });
+
+    try {
+        return await Promise.race([promise, timeout]);
+    } finally {
+        clearTimeout(timer);
+    }
 }
 
 /**
@@ -113,27 +123,6 @@ function buildStagePrompts(executionDate: Date = new Date()): StagePrompt[] {
     return stages;
 }
 
-export const STOCK_PROMPT_CONTRACT_VERSION = 'korea-stock-seven-stage-v6';
-
-export interface PromptManifest {
-    readonly version: string;
-    readonly sha256: string;
-}
-
-export function getStockPromptManifest(executionDate: Date): PromptManifest {
-    const stages = buildStagePrompts(executionDate);
-    const serialized = JSON.stringify(stages.map((stage) => ({
-        stageNumber: stage.stageNumber,
-        stageName: stage.stageName,
-        prompt: stage.prompt,
-        requiresPreviousOutput: stage.requiresPreviousOutput,
-    })));
-    return {
-        version: STOCK_PROMPT_CONTRACT_VERSION,
-        sha256: createHash('sha256').update(serialized, 'utf8').digest('hex'),
-    };
-}
-
 /**
  * STAGE 6 산출물 게이트
  *
@@ -169,7 +158,6 @@ function appendPreviousOutput(basePrompt: string, previousOutput: string): strin
 async function executeStage(
     genAI: GoogleGenAI,
     stage: StagePrompt,
-    budget: LlmExecutionBudget,
     previousOutput?: string
 ): Promise<string> {
     const stageStartTime = Date.now();
@@ -199,15 +187,14 @@ async function executeStage(
 
             apiStartTime = Date.now();
             progress = startProgressTimer(`STAGE ${stage.stageNumber}`, 15000);
-            const response = await budget.runCall({
-                label: `stock-stage-${stage.stageNumber}-attempt-${attempt}`,
-                timeoutMs: PIPELINE_CONFIG.STAGE_TIMEOUT,
-                reservedOutputTokens: GEMINI_API_CONFIG.MAX_OUTPUT_TOKENS,
-                operation: (signal) => genAI.models.generateContent({
+            const abortController = new AbortController();
+
+            const response = await withTimeout(
+                genAI.models.generateContent({
                     model: GEMINI_API_CONFIG.MODEL,
                     contents: [{ role: 'user', parts: [{ text: finalPrompt }] }],
                     config: {
-                        abortSignal: signal,
+                        abortSignal: abortController.signal,
                         tools: [{ googleSearch: {} }],
                         maxOutputTokens: GEMINI_API_CONFIG.MAX_OUTPUT_TOKENS,
                         temperature: GEMINI_API_CONFIG.TEMPERATURE,
@@ -216,7 +203,9 @@ async function executeStage(
                         responseMimeType: GEMINI_API_CONFIG.RESPONSE_MIME_TYPE,
                     },
                 }),
-            });
+                PIPELINE_CONFIG.STAGE_TIMEOUT,
+                () => abortController.abort()
+            );
 
             progress.stop();
             const apiElapsed = Date.now() - apiStartTime;
@@ -292,11 +281,6 @@ async function executeStage(
             }
             console.error(`${'━'.repeat(80)}\n`);
 
-            // Budget/deadline errors are run-terminal and must not be retried.
-            if (error instanceof LlmExecutionBudgetError) {
-                throw error;
-            }
-
             // 재시도로 해결되지 않는 오류는 즉시 중단 (인증 오류, STAGE 6 사실 검증 실패)
             if (isAuth || errorMsg.includes(STAGE_6_VERIFICATION_FAILED)) {
                 throw error;
@@ -319,7 +303,7 @@ async function executeStage(
                     is429 ? ' [429 Rate Limit]' : ''
                 }\n`
             );
-            await budget.sleep(delay);
+            await new Promise((resolve) => setTimeout(resolve, delay));
         }
     }
 
@@ -346,10 +330,7 @@ async function executeStage(
  *
  * @returns JSON 문자열 (3개 종목 데이터)
  */
-export async function executeGeminiPipeline(
-    budget: LlmExecutionBudget = createGeminiExecutionBudget(),
-    executionDate: Date = new Date(),
-): Promise<string> {
+export async function executeGeminiPipeline(): Promise<string> {
     if (!process.env.GOOGLE_CLOUD_PROJECT) {
         throw new Error('GOOGLE_CLOUD_PROJECT 환경 변수가 설정되지 않았습니다.');
     }
@@ -374,11 +355,11 @@ export async function executeGeminiPipeline(
         location: PIPELINE_CONFIG.VERTEX_AI_LOCATION,
     });
 
-    const stages = buildStagePrompts(executionDate);
+    const stages = buildStagePrompts();
     let previousOutput: string | undefined;
 
     for (const stage of stages) {
-        const stageOutput = await executeStage(genAI, stage, budget, previousOutput);
+        const stageOutput = await executeStage(genAI, stage, previousOutput);
 
         // Stage 6에서 파이프라인 종료
         if (stage.stageNumber === 6) {
@@ -397,7 +378,7 @@ export async function executeGeminiPipeline(
             console.log(
                 `⏸️  다음 Stage 준비 중 (${PIPELINE_CONFIG.STAGE_DELAY / 1000}초 대기)... [총 경과: ${formatElapsed(elapsed)}]`
             );
-            await budget.sleep(PIPELINE_CONFIG.STAGE_DELAY);
+            await new Promise((resolve) => setTimeout(resolve, PIPELINE_CONFIG.STAGE_DELAY));
         }
     }
 
@@ -405,30 +386,12 @@ export async function executeGeminiPipeline(
 }
 
 /**
- * Market assessment outcome type.
- *
- * DECISION RECORD (commitlore):
- * The previous code downgraded low-confidence CRASH_ALERT to NORMAL when
- * confidence < 70 in the Gemini search fallback path. This was reverted in
- * commit 4c3d2b1 (responseMimeType change) but the semantic issue remained:
- * a source outage or ambiguous crash signal was being coerced to NORMAL,
- * which could suppress crash alerts and cause false recommendations.
- *
- * The correct behavior per AI-008: source outage or ambiguous crash signals
- * must produce a typed ABSTAIN/DEGRADED outcome that suppresses recommendation
- * preparation rather than proceeding as if the market is normal.
- *
- * We do NOT reintroduce the confidence < 70 → NORMAL logic. That path was
- * historically problematic and produced silent false-normal on API failures.
+ * 시장 평가 결과 타입
  */
-export type MarketAssessmentVerdict = 'NORMAL' | 'CRASH_ALERT' | 'ABSTAIN' | 'DEGRADED';
-
 export interface MarketAssessment {
-    verdict: MarketAssessmentVerdict;
+    verdict: 'NORMAL' | 'CRASH_ALERT';
     confidence: number;
     summary: string;
-    /** When true, the recommendation/preparation pipeline should be suppressed */
-    suppressRecommendation: boolean;
 }
 
 function parseMarketAssessmentResponse(text: string): MarketAssessment {
@@ -452,14 +415,10 @@ function parseMarketAssessmentResponse(text: string): MarketAssessment {
         verdict: parsed.verdict,
         confidence: Math.round(parsed.confidence),
         summary: parsed.summary.trim(),
-        suppressRecommendation: parsed.verdict === 'CRASH_ALERT',
     };
 }
 
-async function executeSearchMarketAssessmentFallback(
-    snapshotError: string,
-    budget: LlmExecutionBudget,
-): Promise<MarketAssessment> {
+async function executeSearchMarketAssessmentFallback(snapshotError: string): Promise<MarketAssessment> {
     if (!process.env.GOOGLE_CLOUD_PROJECT) {
         throw new Error(`시장 스냅샷 확보 실패 후 fallback 불가: ${snapshotError}`);
     }
@@ -480,15 +439,13 @@ async function executeSearchMarketAssessmentFallback(
 
     for (let attempt = 1; attempt <= PIPELINE_CONFIG.STAGE_MAX_RETRY; attempt++) {
         try {
-            const response = await budget.runCall({
-                label: `market-fallback-attempt-${attempt}`,
-                timeoutMs: PIPELINE_CONFIG.STAGE_TIMEOUT,
-                reservedOutputTokens: GEMINI_API_CONFIG.MAX_OUTPUT_TOKENS,
-                operation: (signal) => genAI.models.generateContent({
+            const abortController = new AbortController();
+            const response = await withTimeout(
+                genAI.models.generateContent({
                     model: GEMINI_API_CONFIG.MODEL,
                     contents: [{ role: 'user', parts: [{ text: prompt }] }],
                     config: {
-                        abortSignal: signal,
+                        abortSignal: abortController.signal,
                         tools: [{ googleSearch: {} }],
                         maxOutputTokens: GEMINI_API_CONFIG.MAX_OUTPUT_TOKENS,
                         temperature: GEMINI_API_CONFIG.TEMPERATURE,
@@ -498,19 +455,17 @@ async function executeSearchMarketAssessmentFallback(
                         responseMimeType: GEMINI_API_CONFIG.RESPONSE_MIME_TYPE,
                     },
                 }),
-            });
+                PIPELINE_CONFIG.STAGE_TIMEOUT,
+                () => abortController.abort()
+            );
 
             const parsed = parseMarketAssessmentResponse(response.text || '');
-            // AI-008: Do NOT downgrade low-confidence CRASH to NORMAL.
-            // A source outage fallback with ambiguous crash signal must produce
-            // DEGRADED that suppresses recommendation rather than false-normal.
-            const resolved: MarketAssessment =
+            const resolved =
                 parsed.verdict === 'CRASH_ALERT' && parsed.confidence < 70
                     ? {
-                        verdict: 'DEGRADED' as const,
-                        confidence: parsed.confidence,
-                        summary: `Gemini search fallback에서 낮은 신뢰 crash 신호 감지 (confidence=${parsed.confidence} < 70). 시장 스냅샷 실패 원인: ${snapshotError}. ${parsed.summary}`,
-                        suppressRecommendation: true,
+                        verdict: 'NORMAL' as const,
+                        confidence: 69,
+                        summary: `Gemini search fallback에서 낮은 신뢰 crash 신호가 감지됐지만 confidence 기준 미달로 NORMAL 처리했습니다. ${parsed.summary}`,
                     }
                     : parsed;
 
@@ -521,13 +476,12 @@ async function executeSearchMarketAssessmentFallback(
             const errorMsg = error instanceof Error ? error.message : String(error);
             console.warn(`⚠️ 시장 평가 fallback 시도 ${attempt}/${PIPELINE_CONFIG.STAGE_MAX_RETRY} 실패: ${errorMsg}`);
 
-            if (error instanceof LlmExecutionBudgetError) throw error;
             if (attempt === PIPELINE_CONFIG.STAGE_MAX_RETRY) {
                 throw new Error(`시장 스냅샷 확보 실패 후 Gemini fallback도 실패: ${errorMsg}`);
             }
 
             const delay = PIPELINE_CONFIG.STAGE_INITIAL_RETRY_DELAY * Math.pow(2, attempt - 1);
-            await budget.sleep(delay);
+            await new Promise((resolve) => setTimeout(resolve, delay));
         }
     }
 
@@ -568,26 +522,13 @@ function resolveMarketAssessmentFromSnapshot(
             verdict: 'CRASH_ALERT',
             confidence: evidence.confidence,
             summary: `${scoreContext} crashScore ${evidence.crashScore} ≥ 55. ${tier1Count > 0 ? `Tier 1: ${evidence.tier1Signals.join(', ')}. ` : ''}${tier3Count > 0 ? `이벤트: ${evidence.tier3Signals.join(', ')}. ` : ''}${numericContext}.${supportingSummary ? ` 보강: ${supportingSummary}.` : ''}`,
-            suppressRecommendation: true,
-        };
-    }
-
-    // When crashScore ≥ 55 but confidence < 70, this is an ambiguous state.
-    // Per AI-008: do not silently proceed as NORMAL. Produce DEGRADED.
-    if (evidence.crashScore >= 55 && evidence.confidence < 70) {
-        return {
-            verdict: 'DEGRADED',
-            confidence: evidence.confidence,
-            summary: `${scoreContext} crashScore ${evidence.crashScore} ≥ 55이나 confidence ${evidence.confidence} < 70. 시장 상태 판정 불확실 — 추천 억제. ${numericContext}.${evidence.kospiDataStale ? ` ${evidence.stalenessNote}.` : ''}${supportingSummary ? ` 보강: ${supportingSummary}.` : ''}${tier3Count > 0 ? ` 이벤트 참고: ${evidence.tier3Signals.join(', ')}.` : ''}`,
-            suppressRecommendation: true,
         };
     }
 
     return {
         verdict: 'NORMAL',
         confidence: evidence.confidence,
-        summary: `${scoreContext} crashScore ${evidence.crashScore} < 55. ${numericContext}.${evidence.kospiDataStale ? ` ${evidence.stalenessNote}.` : ''}${supportingSummary ? ` 보강: ${supportingSummary}.` : ''}${tier3Count > 0 ? ` 이벤트 참고: ${evidence.tier3Signals.join(', ')}.` : ''}`,
-        suppressRecommendation: false,
+        summary: `${scoreContext} ${evidence.crashScore >= 55 ? `crashScore ${evidence.crashScore} ≥ 55이나 confidence ${evidence.confidence} < 70으로 NORMAL 다운그레이드. ` : `crashScore ${evidence.crashScore} < 55. `}${numericContext}.${evidence.kospiDataStale ? ` ${evidence.stalenessNote}.` : ''}${supportingSummary ? ` 보강: ${supportingSummary}.` : ''}${tier3Count > 0 ? ` 이벤트 참고: ${evidence.tier3Signals.join(', ')}.` : ''}`,
     };
 }
 
@@ -599,9 +540,7 @@ function resolveMarketAssessmentFromSnapshot(
  *
  * @returns MarketAssessment (verdict, confidence, summary)
  */
-export async function executeMarketAssessment(
-    budget: LlmExecutionBudget = createGeminiExecutionBudget(),
-): Promise<MarketAssessment> {
+export async function executeMarketAssessment(): Promise<MarketAssessment> {
     console.log(`\n${'='.repeat(80)}`);
     console.log(`🔍 시장 평가 (Market Assessment) 시작`);
     console.log(`${'='.repeat(80)}`);
@@ -624,20 +563,7 @@ export async function executeMarketAssessment(
         return resolved;
     } catch (error) {
         const errorMsg = error instanceof Error ? error.message : String(error);
-        try {
-            return await executeSearchMarketAssessmentFallback(errorMsg, budget);
-        } catch (fallbackError) {
-            // AI-008: Total source outage must produce ABSTAIN, not propagate as unhandled error
-            // that would crash the pipeline or let a caller assume NORMAL.
-            const fallbackMsg = fallbackError instanceof Error ? fallbackError.message : String(fallbackError);
-            console.error(`🚨 시장 평가 완전 실패 (snapshot + fallback). ABSTAIN 반환: ${fallbackMsg}`);
-            return {
-                verdict: 'ABSTAIN',
-                confidence: 0,
-                summary: `시장 스냅샷 실패 (${errorMsg}) 및 Gemini fallback 실패 (${fallbackMsg}). 시장 상태 판정 불가 — 추천 억제.`,
-                suppressRecommendation: true,
-            };
-        }
+        return executeSearchMarketAssessmentFallback(errorMsg);
     }
 }
 
@@ -650,10 +576,7 @@ export async function executeMarketAssessment(
  * @param assessmentSummary - 시장 평가 요약 (context 전달용)
  * @returns crash_alert JSON 문자열
  */
-export async function executeCrashAnalysisPipeline(
-    assessmentSummary: string,
-    budget: LlmExecutionBudget = createGeminiExecutionBudget(),
-): Promise<string> {
+export async function executeCrashAnalysisPipeline(assessmentSummary: string): Promise<string> {
     if (!process.env.GOOGLE_CLOUD_PROJECT) {
         throw new Error('GOOGLE_CLOUD_PROJECT 환경 변수가 설정되지 않았습니다.');
     }
@@ -675,15 +598,13 @@ export async function executeCrashAnalysisPipeline(
     let searchResult = '';
     for (let attempt = 1; attempt <= PIPELINE_CONFIG.STAGE_MAX_RETRY; attempt++) {
         try {
-            const response = await budget.runCall({
-                label: `crash-search-attempt-${attempt}`,
-                timeoutMs: PIPELINE_CONFIG.STAGE_TIMEOUT,
-                reservedOutputTokens: GEMINI_API_CONFIG.MAX_OUTPUT_TOKENS,
-                operation: (signal) => genAI.models.generateContent({
+            const abortController = new AbortController();
+            const response = await withTimeout(
+                genAI.models.generateContent({
                     model: GEMINI_API_CONFIG.MODEL,
                     contents: [{ role: 'user', parts: [{ text: searchPrompt }] }],
                     config: {
-                        abortSignal: signal,
+                        abortSignal: abortController.signal,
                         tools: [{ googleSearch: {} }],
                         maxOutputTokens: GEMINI_API_CONFIG.MAX_OUTPUT_TOKENS,
                         temperature: GEMINI_API_CONFIG.TEMPERATURE,
@@ -692,7 +613,9 @@ export async function executeCrashAnalysisPipeline(
                         responseMimeType: 'text/plain',
                     },
                 }),
-            });
+                PIPELINE_CONFIG.STAGE_TIMEOUT,
+                () => abortController.abort()
+            );
 
             searchResult = response.text || '';
             if (searchResult.trim().length < PIPELINE_CONFIG.MIN_STAGE_OUTPUT_CHARS) {
@@ -706,16 +629,15 @@ export async function executeCrashAnalysisPipeline(
             const errorMsg = error instanceof Error ? error.message : String(error);
             console.warn(`⚠️ Stage 1 시도 ${attempt}/${PIPELINE_CONFIG.STAGE_MAX_RETRY} 실패: ${errorMsg}`);
 
-            if (error instanceof LlmExecutionBudgetError) throw error;
             if (attempt === PIPELINE_CONFIG.STAGE_MAX_RETRY) throw error;
 
             const delay = PIPELINE_CONFIG.STAGE_INITIAL_RETRY_DELAY * Math.pow(2, attempt - 1);
-            await budget.sleep(delay);
+            await new Promise((resolve) => setTimeout(resolve, delay));
         }
     }
 
     // Stage 간 쿨다운
-    await budget.sleep(PIPELINE_CONFIG.STAGE_DELAY);
+    await new Promise((resolve) => setTimeout(resolve, PIPELINE_CONFIG.STAGE_DELAY));
 
     // Stage 2: JSON 구조화
     console.log('\n📋 [폭락 분석 Stage 2] JSON 구조화...');
@@ -723,15 +645,13 @@ export async function executeCrashAnalysisPipeline(
 
     for (let attempt = 1; attempt <= PIPELINE_CONFIG.STAGE_MAX_RETRY; attempt++) {
         try {
-            const response = await budget.runCall({
-                label: `crash-json-attempt-${attempt}`,
-                timeoutMs: PIPELINE_CONFIG.STAGE_TIMEOUT,
-                reservedOutputTokens: GEMINI_API_CONFIG.MAX_OUTPUT_TOKENS,
-                operation: (signal) => genAI.models.generateContent({
+            const abortController = new AbortController();
+            const response = await withTimeout(
+                genAI.models.generateContent({
                     model: GEMINI_API_CONFIG.MODEL,
                     contents: [{ role: 'user', parts: [{ text: jsonPrompt }] }],
                     config: {
-                        abortSignal: signal,
+                        abortSignal: abortController.signal,
                         maxOutputTokens: GEMINI_API_CONFIG.MAX_OUTPUT_TOKENS,
                         temperature: GEMINI_API_CONFIG.TEMPERATURE,
                         topP: GEMINI_API_CONFIG.TOP_P,
@@ -739,7 +659,9 @@ export async function executeCrashAnalysisPipeline(
                         responseMimeType: 'application/json',
                     },
                 }),
-            });
+                PIPELINE_CONFIG.STAGE_TIMEOUT,
+                () => abortController.abort()
+            );
 
             const text = response.text || '';
             if (text.trim().length < PIPELINE_CONFIG.MIN_STAGE_OUTPUT_CHARS) {
@@ -758,11 +680,10 @@ export async function executeCrashAnalysisPipeline(
             const errorMsg = error instanceof Error ? error.message : String(error);
             console.warn(`⚠️ Stage 2 시도 ${attempt}/${PIPELINE_CONFIG.STAGE_MAX_RETRY} 실패: ${errorMsg}`);
 
-            if (error instanceof LlmExecutionBudgetError) throw error;
             if (attempt === PIPELINE_CONFIG.STAGE_MAX_RETRY) throw error;
 
             const delay = PIPELINE_CONFIG.STAGE_INITIAL_RETRY_DELAY * Math.pow(2, attempt - 1);
-            await budget.sleep(delay);
+            await new Promise((resolve) => setTimeout(resolve, delay));
         }
     }
 

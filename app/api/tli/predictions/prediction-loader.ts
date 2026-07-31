@@ -1,7 +1,6 @@
 import { z } from 'zod'
 import { isSupabasePlaceholder } from '@/lib/supabase'
 import { getServerSupabaseClient } from '@/lib/supabase/server-client'
-import { getKSTDateString } from '@/lib/tli/date-utils'
 import { loadMethodologyMetricsSummary } from '@/lib/tli/methodology-metrics'
 import {
   buildPredictionApiItem,
@@ -21,20 +20,6 @@ const themeRowsSchema = z.array(z.object({
   name: z.string(),
 }))
 
-export const MAX_PUBLIC_PREDICTION_AGE_DAYS = 10
-const DAY_MS = 86_400_000
-
-export function isPublicPredictionFresh(
-  predictionDate: string,
-  asOfDate = getKSTDateString(),
-): boolean {
-  const predictionMillis = Date.parse(`${predictionDate}T00:00:00.000Z`)
-  const asOfMillis = Date.parse(`${asOfDate}T00:00:00.000Z`)
-  if (!Number.isFinite(predictionMillis) || !Number.isFinite(asOfMillis)) return false
-  const ageDays = (asOfMillis - predictionMillis) / DAY_MS
-  return ageDays >= 0 && ageDays <= MAX_PUBLIC_PREDICTION_AGE_DAYS
-}
-
 export async function loadPredictionResponse(
   input: LoadPredictionResponseInput,
 ): Promise<PredictionApiResponse> {
@@ -52,9 +37,6 @@ export async function loadPredictionResponse(
   const predictionRows = parsePredictionV3DbRows(predictionData ?? [])
   if (predictionRows.length === 0) {
     return emptyResponse(input.phaseFilter, 'Prediction data not yet available.')
-  }
-  if (!predictionRows.every((row) => isPublicPredictionFresh(row.prediction_date))) {
-    return emptyResponse(input.phaseFilter, 'Prediction data is stale and has been withheld.')
   }
 
   const themeIds = [...new Set(predictionRows.map((row) => row.theme_id))]

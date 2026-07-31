@@ -320,29 +320,6 @@ describe('news collection run', () => {
     expect(observations.every((observation) => observation.query_hash === keywordSha)).toBe(true)
   })
 
-  it('불완전 coverage는 실제 관측 row만 가진 partial run이며 missing 날짜를 0으로 만들지 않는다', () => {
-    const { run, observations } = buildNewsCollectionRun({
-      contractVersion: 'tli-news-v1',
-      themeId: THEME_A,
-      requestWindowStart: NEWS_START,
-      requestWindowEnd: NEWS_END,
-      requestPayload: { query: '"HBM"', sort: 'date' },
-      responsePayload: { total: 5000, pages: 10, coverage_status: 'truncated' },
-      keywordGroupSha256: keywordSha,
-      articleCountByDate: new Map([['2026-06-10', 3]]),
-      timestamps: TIMESTAMPS,
-      failureSummary: { reason: 'naver_news_coverage_incomplete' },
-    })
-
-    expect(run.status).toBe('partial')
-    expect(run.response_payload).toEqual({ total: 5000, pages: 10, coverage_status: 'truncated' })
-    expect(run.expected_row_count).toBe(14)
-    expect(run.observed_row_count).toBe(1)
-    expect(observations).toEqual([
-      expect.objectContaining({ article_date: '2026-06-10', article_count: 3 }),
-    ])
-  })
-
   it('수집 실패는 missing이며 0건으로 위장하지 않는다', () => {
     const { run, observations } = buildNewsCollectionRun({
       contractVersion: 'tli-news-v1',

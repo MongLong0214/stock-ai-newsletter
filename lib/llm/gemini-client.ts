@@ -4,7 +4,6 @@
 
 import { GoogleGenAI, ThinkingLevel } from '@google/genai';
 import { GEMINI_API_CONFIG, PIPELINE_CONFIG } from '@/lib/llm/_config/pipeline-config';
-import { LlmExecutionBudget } from '@/lib/llm/execution-budget';
 
 interface GenerateTextOptions {
   prompt: string;
@@ -18,8 +17,6 @@ interface GenerateTextOptions {
     thinkingLevel?: ThinkingLevel;
   };
   timeout?: number;
-  budget?: LlmExecutionBudget;
-  signal?: AbortSignal;
 }
 
 function initializeGemini(): GoogleGenAI {
@@ -34,42 +31,39 @@ function initializeGemini(): GoogleGenAI {
   });
 }
 
+async function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
+  const timeout = new Promise<never>((_, reject) =>
+    setTimeout(() => reject(new Error(`Timeout after ${timeoutMs}ms`)), timeoutMs)
+  );
+  return Promise.race([promise, timeout]);
+}
+
 export async function generateText(options: GenerateTextOptions): Promise<string> {
   const {
     prompt,
     config = {},
-    timeout = PIPELINE_CONFIG.STAGE_TIMEOUT,
+    timeout = 120000,
   } = options;
 
   const genAI = initializeGemini();
-  const maxOutputTokens = config.maxOutputTokens ?? GEMINI_API_CONFIG.MAX_OUTPUT_TOKENS;
-  const budget = options.budget ?? new LlmExecutionBudget({
-    deadlineMs: Math.min(timeout, PIPELINE_CONFIG.GLOBAL_DEADLINE_MS),
-    maxCalls: 1,
-    maxReservedOutputTokens: maxOutputTokens,
-    signal: options.signal,
-  });
 
-  const response = await budget.runCall({
-    label: 'generate-text',
-    timeoutMs: timeout,
-    reservedOutputTokens: maxOutputTokens,
-    operation: (signal) => genAI.models.generateContent({
-      model: config.model ?? GEMINI_API_CONFIG.MODEL,
+  const response = await withTimeout(
+    genAI.models.generateContent({
+      model: config.model || GEMINI_API_CONFIG.MODEL,
       contents: [{ role: 'user', parts: [{ text: prompt }] }],
       config: {
-        abortSignal: signal,
-        maxOutputTokens,
+        maxOutputTokens: config.maxOutputTokens || GEMINI_API_CONFIG.MAX_OUTPUT_TOKENS,
         temperature: config.temperature ?? GEMINI_API_CONFIG.TEMPERATURE,
         topP: config.topP ?? GEMINI_API_CONFIG.TOP_P,
         topK: config.topK ?? GEMINI_API_CONFIG.TOP_K,
-        responseMimeType: config.responseMimeType ?? GEMINI_API_CONFIG.RESPONSE_MIME_TYPE,
+        responseMimeType: config.responseMimeType || GEMINI_API_CONFIG.RESPONSE_MIME_TYPE,
         thinkingConfig: {
-          thinkingLevel: config.thinkingLevel ?? ThinkingLevel.HIGH,
+          thinkingLevel: config.thinkingLevel || ThinkingLevel.HIGH,
         },
       },
     }),
-  });
+    timeout
+  );
 
   return response.text || '';
 }

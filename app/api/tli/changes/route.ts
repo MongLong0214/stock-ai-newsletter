@@ -1,8 +1,6 @@
 import { supabase } from '@/lib/supabase'
 import { apiSuccess, handleApiError, placeholderResponse, isTableNotFound } from '@/lib/tli/api-utils'
 import { getKSTDateString } from '@/lib/tli/date-utils'
-import { loadThemeScoreWindows } from '@/lib/tli/rpc/score-windows'
-import { selectPreviousChangesRow } from './date-selection'
 
 interface ScoreRow {
   theme_id: string
@@ -34,25 +32,28 @@ export async function GET(request: Request) {
     })
     if (placeholder) return placeholder
 
-    // 1) 활성 테마 ID 조회
-    const { data: activeThemes, error: themesLookupError } = await supabase
-      .from('themes')
-      .select('id')
-      .eq('is_active', true)
+    // 1) lifecycle_scores에서 최근 날짜분 조회
+    const cutoff = getKSTDateString(period === '7d' ? -8 : -2)
 
-    if (themesLookupError) {
-      if (isTableNotFound(themesLookupError)) {
+    const { data: scores, error: scoresError } = await supabase
+      .from('lifecycle_scores')
+      .select('theme_id, score, stage, calculated_at')
+      .gte('calculated_at', cutoff)
+      .order('calculated_at', { ascending: false })
+      .limit(5000)
+
+    if (scoresError) {
+      if (isTableNotFound(scoresError)) {
         return apiSuccess({
           movers: { rising: [], falling: [] },
           stageTransitions: [],
           newlyEmerging: [],
         }, undefined, 'short')
       }
-      throw themesLookupError
+      throw scoresError
     }
 
-    const allThemeIds = (activeThemes ?? []).map((t) => t.id)
-    if (allThemeIds.length === 0) {
+    if (!scores?.length) {
       return apiSuccess({
         movers: { rising: [], falling: [] },
         stageTransitions: [],
@@ -60,54 +61,23 @@ export async function GET(request: Request) {
       }, undefined, 'medium')
     }
 
-    // 2) RPC로 테마별 점수 윈도우 조회 (COR-016: PostgREST max_rows=1000 우회)
-    // For 7d: look back ~10 days to ensure we find a row with minimum gap
-    const lookbackDays = period === '7d' ? 12 : 3
-    const cutoff = getKSTDateString(-lookbackDays)
-
-    // Chunk theme IDs to stay within the 500-theme RPC limit
-    const scoreChunks: string[][] = []
-    for (let i = 0; i < allThemeIds.length; i += 500) {
-      scoreChunks.push(allThemeIds.slice(i, i + 500))
-    }
-
-    const chunkResults = await Promise.all(
-      scoreChunks.map((chunk) => loadThemeScoreWindows(supabase, chunk, cutoff)),
-    )
-
-    const scores: ScoreRow[] = []
-    for (const result of chunkResults) {
-      if (result.error) throw result.error
-      scores.push(...(result.data as ScoreRow[]))
-    }
-
-    if (!scores.length) {
-      return apiSuccess({
-        movers: { rising: [], falling: [] },
-        stageTransitions: [],
-        newlyEmerging: [],
-      }, undefined, 'medium')
-    }
-
-    // 3) 테마별 최신 row + 비교 시점 row 매핑
-    const rowsByTheme = new Map<string, ScoreRow[]>()
-    for (const row of scores as ScoreRow[]) {
-      const rows = rowsByTheme.get(row.theme_id) ?? []
-      rows.push(row)
-      rowsByTheme.set(row.theme_id, rows)
-    }
-
+    // 2) 테마별 최신 row + 비교 시점 row 매핑
     const themeMap = new Map<string, ThemePair>()
-    for (const [themeId, rows] of rowsByTheme) {
-      const latest = rows[0]
-      if (!latest) continue
-      themeMap.set(themeId, {
-        latest,
-        prev: selectPreviousChangesRow(rows, period),
-      })
+
+    for (const row of scores as ScoreRow[]) {
+      const existing = themeMap.get(row.theme_id)
+      if (!existing) {
+        themeMap.set(row.theme_id, { latest: row })
+      } else if (!existing.prev) {
+        // calculated_at DESC이므로 두 번째로 만나는 row가 이전 시점
+        existing.prev = row
+      }
     }
 
-    // 4) 테마명 조회
+    // 7d 모드: prev가 최소 5일 이상 차이나야 유효 (중간 데이터 누락 대비)
+    // 1d 모드: prev는 latest와 다른 날짜면 유효
+
+    // 3) 테마명 조회
     const themeIds = [...themeMap.keys()]
     if (themeIds.length === 0) {
       return apiSuccess({
@@ -129,7 +99,7 @@ export async function GET(request: Request) {
       nameMap.set(t.id, t)
     }
 
-    // 5) 결과 조립
+    // 4) 결과 조립
     const rising: Array<Record<string, unknown>> = []
     const falling: Array<Record<string, unknown>> = []
     const stageTransitions: Array<Record<string, unknown>> = []

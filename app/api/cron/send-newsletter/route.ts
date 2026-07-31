@@ -1,99 +1,95 @@
-/**
- * POST /api/cron/send-newsletter
- *
- * Cron endpoint for newsletter delivery.
- * Requires Bearer CRON_SECRET authorization (timing-safe, fail-closed).
- * Delegates to the canonical delivery service — no separate generate-and-blast.
- * Requires an already-prepared, unsent newsletter for today's date.
- */
-
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { validateCronSecret } from '@/lib/security/timing-safe-auth';
-import { executeDelivery } from '@/lib/delivery/service';
+import { sendStockNewsletter } from '@/lib/sendgrid';
+import { getStockAnalysis } from '@/lib/llm/stock-analysis';
 
-function getServiceSupabase() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !key) return null;
-  return createClient(url, key, {
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co',
+  process.env.SUPABASE_SERVICE_ROLE_KEY ||
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+    'placeholder-key',
+  {
     auth: { persistSession: false },
     db: { schema: 'public' },
-  });
-}
+  }
+);
 
 export async function POST(request: NextRequest) {
   try {
-    // Fail-closed CRON_SECRET validation.
+    // CRON_SECRET 검증 (선택사항, 보안을 위해 설정 권장)
     const authHeader = request.headers.get('authorization');
-    if (!validateCronSecret(authHeader)) {
+    if (process.env.CRON_SECRET && authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    console.log('[newsletter] send job started');
+    console.log('🚀 뉴스레터 발송 작업 시작...\n');
 
-    // Require service_role — fail closed if not configured
-    const supabase = getServiceSupabase();
-    if (!supabase) {
-      console.error('[newsletter] SUPABASE_SERVICE_ROLE_KEY not configured');
-      return NextResponse.json({ error: 'Server configuration error' }, { status: 500 });
-    }
+    // 1. 활성 구독자 가져오기
+    const { data: subscribers, error: dbError } = await supabase
+      .from('subscribers')
+      .select('*')
+      .eq('is_active', true)
+      .order('created_at', { ascending: true });
 
-    // Determine today's date (KST)
-    const today = new Date().toLocaleDateString('en-CA', {
-      timeZone: 'Asia/Seoul',
-    });
-
-    // Execute delivery via canonical service
-    // 5-minute timeout for Vercel serverless (max 60s on hobby, 300s on pro)
-    const result = await executeDelivery({
-      supabase,
-      newsletterDate: today,
-      timeoutMs: 5 * 60 * 1000,
-    });
-
-    // Log count only, no PII
-    console.log(
-      `[newsletter] job completed: ${result.accepted}/${result.total} accepted, ${result.failed} failed, ${result.ambiguous} ambiguous`,
-    );
-
-    if (!result.success) {
-      // Partial delivery or ambiguous outcomes — report as 500 so monitors alert
+    if (dbError) {
+      console.error('❌ Database error:', dbError);
       return NextResponse.json(
-        {
-          success: false,
-          message: '뉴스레터 부분 발송 (일부 실패/모호)',
-          runId: result.runId,
-          accepted: result.accepted,
-          failed: result.failed,
-          ambiguous: result.ambiguous,
-          total: result.total,
-        },
-        { status: 500 },
+        { error: 'Database error', details: dbError.message },
+        { status: 500 }
       );
     }
+
+    if (!subscribers || subscribers.length === 0) {
+      return NextResponse.json(
+        { message: '활성 구독자가 없습니다.', count: 0 },
+        { status: 200 }
+      );
+    }
+
+    // 2. Gemini 분석 실행
+    const { geminiAnalysis } = await getStockAnalysis();
+
+    // 3. 뉴스레터 데이터 생성
+    const newsletterData = {
+      geminiAnalysis,
+      date: new Date().toLocaleDateString('ko-KR', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        timeZone: 'Asia/Seoul',
+      }),
+    };
+
+    // 4. SendGrid로 뉴스레터 전송
+    await sendStockNewsletter(
+      subscribers.map((s) => ({ email: s.email, name: s.name || undefined })),
+      newsletterData
+    );
+
+    console.log(`Job completed: ${subscribers.length} subscribers`);
 
     return NextResponse.json(
       {
         success: true,
         message: '뉴스레터 발송 완료',
-        runId: result.runId,
-        subscriberCount: result.accepted,
-        total: result.total,
+        subscriberCount: subscribers.length,
+        results: {
+          gemini: geminiAnalysis.startsWith('⚠️') ? 'failed' : 'success',
+        },
       },
-      { status: 200 },
+      { status: 200 }
     );
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Unknown error';
-    console.error('[newsletter] send failed:', message);
+    console.error('❌ 뉴스레터 발송 실패:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
 
     return NextResponse.json(
       {
         success: false,
         error: '뉴스레터 발송 실패',
-        // Do not expose internal details to external callers
+        details: errorMessage,
       },
-      { status: 500 },
+      { status: 500 }
     );
   }
 }

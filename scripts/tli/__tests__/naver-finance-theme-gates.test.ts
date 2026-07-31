@@ -181,7 +181,7 @@ function buildMalformedNaverThemeRow(): string {
 function buildNaverThemeRow(symbol: string): string {
   return `
     <tr>
-      <td><span class="name_area"><a href="/item/main.naver?code=${symbol}&sosok=0">Stock ${symbol}</a></span></td>
+      <td><span class="name_area"><a href="/item/main.naver?code=${symbol}">Stock ${symbol}</a></span></td>
       <td>reason</td>
       <td>50,000</td>
       <td><span class="blind">상승</span></td>

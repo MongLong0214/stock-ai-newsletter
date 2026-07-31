@@ -423,34 +423,6 @@ async function kisGet<T>(path: string, params: Record<string, string>, trId: str
     },
   });
 
-  // AI-006: On 401/403, invalidate token and refresh exactly once
-  if (response.status === 401 || response.status === 403) {
-    console.warn(`[KIS] ${response.status} — invalidating token and retrying once`);
-    tokenCache.value = null;
-    const freshToken = await getAccessToken();
-    const retryResponse = await fetchWithTimeout(url, {
-      headers: {
-        'Content-Type': 'application/json',
-        authorization: `Bearer ${freshToken}`,
-        appkey: config.KIS_APP_KEY,
-        appsecret: config.KIS_APP_SECRET,
-        tr_id: trId,
-      },
-    });
-
-    if (!retryResponse.ok) {
-      let message = `HTTP ${retryResponse.status}`;
-      try { message = parseKisError(await retryResponse.json()); } catch { /* noop */ }
-      throw new Error(`KIS request failed after token refresh: ${message}`);
-    }
-
-    const retryData = (await retryResponse.json()) as KisErrorResponse;
-    if (retryData.rt_cd && retryData.rt_cd !== '0') {
-      throw new Error(`KIS request failed after token refresh: ${parseKisError(retryData)}`);
-    }
-    return retryData as T;
-  }
-
   if (!response.ok) {
     let message = `HTTP ${response.status}`;
 
@@ -484,21 +456,19 @@ function parseSignedMovement(movement: SerpApiPriceMovement | undefined): {
   changePct: number;
 } {
   if (!movement) {
-    // Missing movement data must produce NaN (invalid), not zero (valid).
-    // AI-005: coercing missing change/changePct to zero produces false NORMAL.
-    return { change: Number.NaN, changePct: Number.NaN };
+    return { change: 0, changePct: 0 };
   }
 
   const sign = movement.movement === 'Down' ? -1 : 1;
   const rawChange =
     typeof movement.value === 'number' ? movement.value :
     typeof movement.price === 'number' ? movement.price :
-    Number.NaN;
-  const rawChangePct = typeof movement.percentage === 'number' ? movement.percentage : Number.NaN;
+    0;
+  const rawChangePct = typeof movement.percentage === 'number' ? movement.percentage : 0;
 
   return {
-    change: Number.isFinite(rawChange) ? sign * Math.abs(rawChange) : Number.NaN,
-    changePct: Number.isFinite(rawChangePct) ? sign * Math.abs(rawChangePct) : Number.NaN,
+    change: sign * Math.abs(rawChange),
+    changePct: sign * Math.abs(rawChangePct),
   };
 }
 
@@ -981,12 +951,6 @@ function isKstPreMarketHours(): boolean {
   return hour >= 18 || hour < 9;
 }
 
-export function assertFiniteMarketMovement(change: number, changePct: number, label: string): void {
-  if (!Number.isFinite(change) || !Number.isFinite(changePct)) {
-    throw new Error(`${label} returned invalid change/changePct`);
-  }
-}
-
 async function getKospiNightSessionInquiry(
   contractCode: string,
   daySessionPrice: number
@@ -1010,7 +974,6 @@ async function getKospiNightSessionInquiry(
     const volume = parseNumber(output.acml_vol);
 
     if (!Number.isFinite(price) || price <= 0) return null;
-    assertFiniteMarketMovement(change, changePct, 'KOSPI200 mini futures (night)');
 
     const priceDiffPct = Math.abs(((price - daySessionPrice) / daySessionPrice) * 100);
     const hasVolume = Number.isFinite(volume) && volume > 0;
@@ -1024,8 +987,8 @@ async function getKospiNightSessionInquiry(
       remainingDays: null,
       source: 'KIS',
       price,
-      change,
-      changePct,
+      change: Number.isFinite(change) ? change : 0,
+      changePct: Number.isFinite(changePct) ? changePct : 0,
       fetchedAt: new Date().toISOString(),
     });
   } catch {
@@ -1059,15 +1022,14 @@ async function getOverseasIndexQuote(
   const changePct = parseNumber(output.prdy_ctrt);
 
   assertPositivePrice(price, label);
-  assertFiniteMarketMovement(change, changePct, label);
 
   return withDirectValidation({
     code: symbol,
     label,
     source: 'KIS',
     price,
-    change,
-    changePct,
+    change: Number.isFinite(change) ? change : 0,
+    changePct: Number.isFinite(changePct) ? changePct : 0,
     fetchedAt: new Date().toISOString(),
   });
 }
@@ -1111,7 +1073,6 @@ async function getKospi200MiniFutures(): Promise<Kospi200MiniFuturesSnapshot> {
   const changePct = parseNumber(contract.futs_prdy_ctrt);
 
   assertPositivePrice(price, 'KOSPI200 mini futures');
-  assertFiniteMarketMovement(change, changePct, 'KOSPI200 mini futures');
 
   const remainingDays = Number.parseInt(contract.hts_rmnn_dynu ?? '', 10);
 
@@ -1122,8 +1083,8 @@ async function getKospi200MiniFutures(): Promise<Kospi200MiniFuturesSnapshot> {
     remainingDays: Number.isFinite(remainingDays) ? remainingDays : null,
     source: 'KIS',
     price,
-    change,
-    changePct,
+    change: Number.isFinite(change) ? change : 0,
+    changePct: Number.isFinite(changePct) ? changePct : 0,
     fetchedAt: new Date().toISOString(),
   });
 }

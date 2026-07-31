@@ -1,7 +1,6 @@
 /** SerpApi 구글 검색 결과 수집 서비스 */
 
 import { SERP_API_CONFIG, PIPELINE_CONFIG } from '../_config/pipeline-config';
-import { abortableSleep, throwIfAborted } from '../_utils/abort';
 import type { SerpApiResponse, SerpSearchResult } from '../_types/blog';
 
 /** 텍스트 콘텐츠 스크래핑이 불가능한 도메인 */
@@ -51,13 +50,11 @@ function filterSearchResults(results: SerpSearchResult[]): SerpSearchResult[] {
  * 구글 검색 결과 수집 (재시도 포함)
  * @param keyword - 검색 키워드
  * @param maxResults - 최대 결과 수 (기본: PIPELINE_CONFIG.maxCompetitors)
- * @param signal - AbortSignal for cancellation (COR-007)
  * @returns 필터링된 검색 결과 배열
  */
 export async function searchGoogle(
   keyword: string,
-  maxResults: number = PIPELINE_CONFIG.maxCompetitors,
-  signal?: AbortSignal,
+  maxResults: number = PIPELINE_CONFIG.maxCompetitors
 ): Promise<SerpSearchResult[]> {
   console.log(`[SerpApi] "${keyword}" 검색 시작`);
 
@@ -68,15 +65,9 @@ export async function searchGoogle(
   let response: SerpApiResponse | null = null;
 
   for (let attempt = 1; attempt <= PIPELINE_CONFIG.retryAttempts; attempt++) {
-    throwIfAborted(signal, 'SerpApi search');
-
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), PIPELINE_CONFIG.requestTimeout);
-
-      // COR-007: Link parent signal to per-request controller
-      const onParentAbort = () => controller.abort(signal?.reason);
-      signal?.addEventListener('abort', onParentAbort, { once: true });
 
       try {
         const res = await fetch(url, {
@@ -94,16 +85,13 @@ export async function searchGoogle(
           break;
       } finally {
         clearTimeout(timeoutId);
-        signal?.removeEventListener('abort', onParentAbort);
       }
     } catch (error) {
       lastError = error instanceof Error ? error : new Error(String(error));
 
-      if (signal?.aborted) throw lastError;
-
       if (attempt < PIPELINE_CONFIG.retryAttempts) {
         const delay = PIPELINE_CONFIG.retryDelay * Math.pow(2, attempt - 1);
-        await abortableSleep(delay, signal, 'SerpApi retry delay');
+        await new Promise((resolve) => setTimeout(resolve, delay));
       }
     }
   }

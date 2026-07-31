@@ -1,8 +1,4 @@
 import * as cheerio from 'cheerio';
-import {
-  getAuthoritativeStockMarket,
-  type AuthoritativeKoreanStockMarket,
-} from '@/app/archive/_utils/api/kis/client';
 import { sleep, withRetry } from '@/scripts/tli/shared/utils';
 import {
   NaverFinanceThemeGateError,
@@ -14,61 +10,14 @@ interface Theme {
   naverThemeId: string | null;
 }
 
-type CollectedMarket = AuthoritativeKoreanStockMarket | 'UNKNOWN';
-
 interface ThemeStock {
   themeId: string;
   symbol: string;
   name: string;
-  market: CollectedMarket;
+  market: string;
   currentPrice: number | null;
   priceChangePct: number | null;
   volume: number | null;
-}
-
-/** Naver가 URL에 명시한 거래소 값만 신뢰한다. 종목코드·row text·CSS 추정은 금지한다. */
-export function classifyExplicitNaverMarket(href: string): CollectedMarket {
-  const match = /(?:[?&])sosok=(0|1)(?:&|$)/.exec(href);
-  if (match?.[1] === '0') return 'KOSPI';
-  if (match?.[1] === '1') return 'KOSDAQ';
-  return 'UNKNOWN';
-}
-
-export class NaverFinanceMarketResolutionError extends Error {
-  readonly name = 'NaverFinanceMarketResolutionError';
-
-  constructor(readonly symbol: string, cause: unknown) {
-    super(
-      `Authoritative market lookup failed for ${symbol}: ${cause instanceof Error ? cause.message : String(cause)}`,
-      { cause },
-    );
-  }
-}
-
-async function resolveUnknownMarkets(stocks: readonly ThemeStock[]): Promise<ThemeStock[]> {
-  const resolved: ThemeStock[] = [];
-
-  for (const stock of stocks) {
-    if (stock.market !== 'UNKNOWN') {
-      resolved.push(stock);
-      continue;
-    }
-
-    try {
-      const market = await withRetry(
-        () => getAuthoritativeStockMarket(stock.symbol),
-        3,
-        `KIS 종목 ${stock.symbol} 거래소 확인`,
-      );
-      resolved.push({ ...stock, market });
-    } catch (error: unknown) {
-      throw new NaverFinanceMarketResolutionError(stock.symbol, error);
-    }
-
-    await sleep(100);
-  }
-
-  return resolved;
 }
 
 /** 네이버 금융 테마 페이지 스크래핑 */
@@ -83,7 +32,7 @@ async function scrapeNaverFinanceTheme(themeId: string, naverThemeId: string): P
         return res;
       },
       3,
-      `테마 ${naverThemeId} 종목 스크래핑`,
+      `테마 ${naverThemeId} 종목 스크래핑`
     );
 
     // 네이버 금융은 EUC-KR 인코딩 사용
@@ -131,23 +80,22 @@ async function scrapeNaverFinanceTheme(themeId: string, naverThemeId: string): P
         themeId,
         symbol: stockCode,
         name: stockName,
-        market: classifyExplicitNaverMarket(href),
+        market: stockCode.startsWith('0') ? 'KOSPI' : 'KOSDAQ',
         currentPrice,
         priceChangePct,
         volume,
       });
     });
 
-    const resolvedStocks = await resolveUnknownMarkets(stocks);
-    const metrics = validateNaverFinanceThemeStocks(resolvedStocks, { expectedRows });
+    const metrics = validateNaverFinanceThemeStocks(stocks, { expectedRows });
     console.log(
-      `   ✓ 스크래퍼 게이트 통과: 커버리지 ${(metrics.rowCoverage * 100).toFixed(1)}%, 파싱 성공률 ${(metrics.schemaParseRate * 100).toFixed(1)}%`,
+      `   ✓ 스크래퍼 게이트 통과: 커버리지 ${(metrics.rowCoverage * 100).toFixed(1)}%, 파싱 성공률 ${(metrics.schemaParseRate * 100).toFixed(1)}%`
     );
 
-    return resolvedStocks;
+    return stocks;
   } catch (error: unknown) {
     console.error(`   ❌ 테마 ${naverThemeId} 스크래핑 실패:`, error instanceof Error ? error.message : String(error));
-    if (error instanceof NaverFinanceThemeGateError || error instanceof NaverFinanceMarketResolutionError) {
+    if (error instanceof NaverFinanceThemeGateError) {
       throw error;
     }
     return [];
@@ -192,7 +140,7 @@ export async function collectNaverFinanceStocks(themes: Theme[]): Promise<ThemeS
       if (error instanceof NaverFinanceThemeGateError) {
         gateFailedCount++;
         console.warn(
-          `   ⚠️ 테마 ${theme.id} 게이트 실패로 건너뜀: ${error.issues.map((issue) => issue.kind).join(', ')}`,
+          `   ⚠️ 테마 ${theme.id} 게이트 실패로 건너뜀: ${error.issues.map((issue) => issue.kind).join(', ')}`
         );
         await sleep(3000);
         continue;
@@ -204,7 +152,7 @@ export async function collectNaverFinanceStocks(themes: Theme[]): Promise<ThemeS
       console.log(`   ✓ ${stocks.length}개 종목 발견`);
       allStocks.push(...stocks);
     } else {
-      console.log('   ⚠️ 종목 없음');
+      console.log(`   ⚠️ 종목 없음`);
     }
 
     // 요청 간 정중한 지연
@@ -213,7 +161,7 @@ export async function collectNaverFinanceStocks(themes: Theme[]): Promise<ThemeS
 
   if (shouldRejectThemeStockCollection({ attemptedThemeCount, gateFailedCount, collectedStockCount: allStocks.length })) {
     throw new Error(
-      `네이버 금융 테마 스크래퍼 전면 붕괴 감지 (게이트 실패 ${gateFailedCount}/${attemptedThemeCount}개 테마, 수집 종목 ${allStocks.length}건) — 셀렉터 파손 가능성`,
+      `네이버 금융 테마 스크래퍼 전면 붕괴 감지 (게이트 실패 ${gateFailedCount}/${attemptedThemeCount}개 테마, 수집 종목 ${allStocks.length}건) — 셀렉터 파손 가능성`
     );
   }
 

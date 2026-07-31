@@ -98,10 +98,9 @@ async function generateKeywordsWithAI(
   usedKeywords: string[],
   existingTitles: string[],
   tliContext?: TLIContext,
-  signal?: AbortSignal,
 ): Promise<KeywordMetadata[]> {
   const prompt = buildKeywordGenerationPrompt(count, usedKeywords, undefined, existingTitles, tliContext);
-  const response = await generateText({ prompt, signal });
+  const response = await generateText({ prompt });
 
   try {
     const jsonText = response.trim().replace(/^```json\s*/i, '').replace(/\s*```$/i, '').trim();
@@ -140,11 +139,9 @@ async function generateKeywordsWithAI(
 /** 키워드 생성 메인 함수 (재시도 + SEO 점수 정렬) */
 export async function generateKeywords(
   requestedCount: number = 5,
-  signalOrOptions?: AbortSignal | { maxRetries?: number },
+  options: { maxRetries?: number } = {}
 ): Promise<KeywordGenerationResult> {
-  // COR-007: Accept AbortSignal as second arg for pipeline integration
-  const signal = signalOrOptions instanceof AbortSignal ? signalOrOptions : undefined;
-  const maxRetries = (signalOrOptions && !(signalOrOptions instanceof AbortSignal)) ? signalOrOptions.maxRetries ?? 3 : 3;
+  const { maxRetries = 3 } = options;
 
   try {
     const [usedContent, tliContext] = await Promise.all([
@@ -155,10 +152,6 @@ export async function generateKeywords(
     let attempt = 0;
 
     while (keywordMap.size < requestedCount && attempt < maxRetries) {
-      // COR-007: Check abort signal before each attempt
-      if (signal?.aborted) {
-        return { success: false, keywords: [], totalGenerated: 0, totalFiltered: 0, error: '키워드 생성 중단됨' };
-      }
       attempt++;
       const remainingCount = requestedCount - keywordMap.size;
       const newKeywords = await generateKeywordsWithAI(
@@ -166,7 +159,6 @@ export async function generateKeywords(
         usedContent.keywords,
         usedContent.titles,
         tliContext,
-        signal,
       );
 
       newKeywords.forEach((kw) => {

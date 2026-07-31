@@ -275,10 +275,6 @@ describe('calculateQualityScore — 윤문 후 재계산 근거', () => {
       headings: [],
       faqItems: [{ question: 'Q', answer: 'A' }, { question: 'Q2', answer: 'A2' }, { question: 'Q3', answer: 'A3' }],
       suggestedTags: [],
-      citations: [
-        { sourceUrl: 'https://example.com/a', sourceExcerpt: '근거 발췌문 열 글자 이상입니다.', claim: '검증된 첫 번째 주장 문장입니다.' },
-        { sourceUrl: 'https://example.com/b', sourceExcerpt: '두 번째 근거 발췌문도 충분히 깁니다.', claim: '검증된 두 번째 주장 문장입니다.' },
-      ],
     };
   }
 

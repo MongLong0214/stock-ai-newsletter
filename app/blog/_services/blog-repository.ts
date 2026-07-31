@@ -10,8 +10,7 @@ import type { BlogPost, BlogPostCreateInput } from '../_types/blog';
  * @returns 저장된 블로그 포스트
  */
 export async function saveBlogPost(
-  input: BlogPostCreateInput,
-  signal?: AbortSignal,
+  input: BlogPostCreateInput
 ): Promise<BlogPost> {
   const supabase = getServerSupabaseClient();
   const schemaData = createBlogPostingSchema(input, input.slug);
@@ -30,7 +29,6 @@ export async function saveBlogPost(
   const { data, error } = await supabase
     .from('blog_posts')
     .upsert(postData, { onConflict: 'slug' })
-    .abortSignal(signal ?? new AbortController().signal)
     .select()
     .single<BlogPost>();
 

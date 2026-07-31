@@ -6,18 +6,9 @@ on:
     - cron: '25 22 * * 0-4'
   workflow_dispatch: # 수동 실행 가능
 
-# Prevent duplicate send jobs from overlapping
-concurrency:
-  group: newsletter-send-${{ github.ref }}
-  cancel-in-progress: false
-
-permissions:
-  contents: read
-
 jobs:
   check-market:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
     outputs:
       should_run: ${{ steps.check.outputs.should_run }}
     steps:
@@ -67,7 +58,6 @@ jobs:
             "2026-05-05"  # 어린이날
             "2026-05-25"  # 부처님오신날 대체공휴일
             "2026-06-03"  # 지방선거일
-            "2026-06-06"  # 현충일
             "2026-07-17"  # 제헌절
             "2026-08-17"  # 광복절 대체공휴일
             "2026-09-24" "2026-09-25"  # 추석
@@ -93,7 +83,6 @@ jobs:
     needs: check-market
     if: needs.check-market.outputs.should_run == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 15
 
     steps:
       - name: Checkout code
@@ -108,20 +97,31 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Setup Google Cloud credentials
+        run: |
+          echo '${{ secrets.GOOGLE_CLOUD_CREDENTIALS }}' > $HOME/gcloud-key.json
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$HOME/gcloud-key.json" >> $GITHUB_ENV
+
       - name: Send Newsletter
-        timeout-minutes: 12
         env:
-          # Supabase (service role only — no anon key needed for delivery)
+          # API Keys
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          # GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}  # 사용 안 함 (Vertex AI 사용)
+
+          # Google Cloud (Vertex AI) - Gemini 전용
+          GOOGLE_CLOUD_PROJECT: ${{ secrets.GOOGLE_CLOUD_PROJECT }}
+          GOOGLE_CLOUD_LOCATION: us-central1
+
+          # Supabase
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
 
           # SendGrid
           SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY }}
           SENDGRID_FROM_EMAIL: ${{ secrets.SENDGRID_FROM_EMAIL }}
           SENDGRID_FROM_NAME: ${{ secrets.SENDGRID_FROM_NAME }}
-
-          # Unsubscribe token secret (required for unsubscribe links)
-          UNSUBSCRIBE_TOKEN_SECRET: ${{ secrets.UNSUBSCRIBE_TOKEN_SECRET }}
 
           # Twitter/X API
           TWITTER_API_KEY: ${{ secrets.TWITTER_API_KEY }}
@@ -134,6 +134,10 @@ jobs:
         run: |
           echo "📧 Starting newsletter sending from prepared content..."
           npx tsx scripts/send-newsletter.ts
+
+      - name: Cleanup credentials
+        if: always()
+        run: rm -f $HOME/gcloud-key.json
 
       - name: Notify on success
         if: success()

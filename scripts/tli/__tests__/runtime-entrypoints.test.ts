@@ -171,7 +171,7 @@ describe('runtime entrypoints', () => {
     })
   })
 
-  it('treats daily stock price ingest gaps as critical and aborts downstream analysis', async () => {
+  it('counts daily stock price ingest failures as warnings', async () => {
     collectDailyStockPricesForDate.mockResolvedValue({
       failureCount: 2,
     })
@@ -180,12 +180,10 @@ describe('runtime entrypoints', () => {
     const result = await runTliMainPipeline()
 
     expect(result).toMatchObject({
-      criticalFailures: 1,
-      warningFailures: 0,
-      exitCode: 1,
+      criticalFailures: 0,
+      warningFailures: 1,
+      exitCode: 0,
     })
-    expect(runAnalysisPipeline).not.toHaveBeenCalled()
-    expect(submitIndexNowStep).not.toHaveBeenCalled()
   })
 
   it('adds the interest observation watchdog warning on a news-only run', async () => {
