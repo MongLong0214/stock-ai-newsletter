@@ -58,7 +58,7 @@ async function getActiveThemes(): Promise<{ id: string; calculated_at: string | 
     }));
   } catch (error) {
     console.error('[Sitemap] 활성 테마 조회 실패', error);
-    throw error;
+    return [];
   }
 }
 
@@ -76,7 +76,7 @@ async function getPublishedBlogSlugs(): Promise<{ slug: string; published_at: st
     return data || [];
   } catch (error) {
     console.error('[Sitemap] 발행 블로그 조회 실패', error);
-    throw error;
+    return [];
   }
 }
 
