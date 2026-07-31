@@ -118,8 +118,15 @@ export async function GET(request: NextRequest) {
 
     // expires_at은 캐시 내부 필드이므로 응답 형태를 균일하게 유지하기 위해 제외한다
     const merged = new Map<string, PriceResponseEntry>();
-    for (const [ticker, { expires_at: _expiresAt, ...price }] of cached) {
-      merged.set(ticker, price);
+    for (const [ticker, cachedPrice] of cached) {
+      merged.set(ticker, {
+        ticker: cachedPrice.ticker,
+        currentPrice: cachedPrice.currentPrice,
+        previousClose: cachedPrice.previousClose,
+        changeRate: cachedPrice.changeRate,
+        volume: cachedPrice.volume,
+        timestamp: cachedPrice.timestamp,
+      });
     }
     for (const [ticker, price] of fetched.prices) {
       merged.set(ticker, price);
