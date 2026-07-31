@@ -243,6 +243,34 @@ describe('news collector → explicit zero row 배선', () => {
     expect(observations.every((o) => o.query_hash === expected)).toBe(true)
   })
 
+  it('coverage가 불완전하면 partial receipt만 남기고 metrics/articles cache에는 반영하지 않는다', async () => {
+    vi.stubGlobal('fetch', mockFetchJson({
+      total: 2,
+      items: [{ title: 'HBM 신고가', link: 'https://x.com/1', originallink: 'https://x.com/1', description: '', pubDate: 'Wed, 10 Jun 2026 09:00:00 +0900' }],
+    }))
+
+    const { transport, calls } = makeTransport()
+    const result = await collectNaverNews(
+      [{ id: THEME_A, name: 'HBM', naverKeywords: ['HBM'] }],
+      NEWS_START,
+      NEWS_END,
+      { transport },
+    )
+
+    expect(result.metrics).toEqual([])
+    expect(result.articles).toEqual([])
+    expect(result.report).toEqual({ requested: 1, succeeded: 0, failed: 1, persistenceFailed: 0 })
+    const { run, observations } = parse(calls[0])
+    expect(run.status).toBe('partial')
+    expect(run.failure_summary).toMatchObject({
+      reason: 'naver_news_coverage_incomplete',
+      coverage_status: 'partial',
+    })
+    expect(observations).toEqual([
+      expect.objectContaining({ article_date: '2026-06-10', article_count: 1 }),
+    ])
+  })
+
   it('검색 실패는 missing(failed run, observation 0)이고 0건으로 위장하지 않으며 cache write가 0이다', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => new Response('boom', { status: 500 })))
 

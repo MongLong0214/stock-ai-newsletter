@@ -72,24 +72,30 @@ export async function runTliMainPipeline(): Promise<TliMainPipelineResult> {
     if (collection.criticalFailures === 0 && shouldCollectTliStocks({ mode, kstDate: endDate })) {
       try {
         const priceReport = await collectDailyStockPricesForDate(endDate);
-        if (priceReport.failureCount > 0) warningFailures++;
-        if (priceReport.skippedForBudget > 0) {
-          warningFailures++;
-          console.warn(`⚠️ 일봉 주가 콜 예산 초과로 ${priceReport.skippedForBudget}건 생략`);
+        const priceIncomplete =
+          priceReport.failureCount > 0
+          || (priceReport.skippedForBudget ?? 0) > 0
+          || (priceReport.dateCoverageRate ?? 1) < 1;
+        if (priceIncomplete) {
+          criticalFailures++;
+          console.error(
+            `❌ 일봉 주가 수집 불완전: failures=${priceReport.failureCount}, skipped=${priceReport.skippedForBudget ?? 0}, dateCoverage=${priceReport.dateCoverageRate ?? 'unknown'}`,
+          );
         }
       } catch (error: unknown) {
-        warningFailures++;
-        console.warn('⚠️ 일봉 주가 적재 실패:', error instanceof Error ? error.message : String(error));
+        criticalFailures++;
+        console.error('❌ 일봉 주가 적재 실패:', error instanceof Error ? error.message : String(error));
       }
     }
 
-    // Steps 3.5-8: 교정 + 분석 (full 모드, DataLab 성공 시)
+    // Steps 3.5-8: 교정 + 분석 (full 모드, 모든 필수 수집 성공 시)
     if (mode === 'full') {
-      if (shouldAbortAnalysisPipeline({
+      const abortAnalysis = criticalFailures > 0 || shouldAbortAnalysisPipeline({
         mode,
         datalabFailed: collection.datalabFailed,
-        criticalFailures: collection.criticalFailures,
-      })) {
+        criticalFailures,
+      });
+      if (abortAnalysis) {
         console.log('\n⊘ 수집 단계 치명적 실패로 후속 단계 생략 (4~8단계)');
       } else {
         await runCalibrationPhase(kstNow);
@@ -101,10 +107,10 @@ export async function runTliMainPipeline(): Promise<TliMainPipelineResult> {
     }
 
     // Step 9: IndexNow URL 제출
-    if (mode === 'full' && !shouldAbortAnalysisPipeline({
+    if (mode === 'full' && criticalFailures === 0 && !shouldAbortAnalysisPipeline({
       mode,
       datalabFailed: collection.datalabFailed,
-      criticalFailures: collection.criticalFailures,
+      criticalFailures,
     })) {
       await submitIndexNowStep(themes);
     }

@@ -12,6 +12,9 @@ vi.mock('@/lib/supabase/server-client', () => ({
 vi.mock('@/lib/tli/methodology-metrics', () => ({
   loadMethodologyMetricsSummary: loaderMocks.loadMethodologyMetricsSummary,
 }))
+vi.mock('@/lib/tli/date-utils', () => ({
+  getKSTDateString: () => '2026-07-10',
+}))
 
 import {
   isPredictionV3ExposureEnabled,
@@ -210,6 +213,24 @@ describe('TLI prediction scientific cycle loader', () => {
     )
     expect(result.phase).toBe('rising')
     expect(result.themes.map((item) => item.themeId)).toEqual([THEME])
+  })
+
+  it('withholds a latest cohort older than the public maximum age', async () => {
+    const { client, from } = createClient({
+      registryRow: PUBLIC_REGISTRY,
+      predictions: [prediction({ prediction_date: '2026-06-29' })],
+    })
+    loaderMocks.getServerSupabaseClient.mockReturnValue(client)
+
+    const result = await loadPredictionResponse({ phaseFilter: null, themeId: null })
+
+    expect(result).toMatchObject({
+      dataSource: 'none',
+      themes: [],
+      guidance: expect.stringContaining('stale'),
+    })
+    expect(from).not.toHaveBeenCalled()
+    expect(loaderMocks.loadMethodologyMetricsSummary).not.toHaveBeenCalled()
   })
 
   it('keeps an empty exact identity result fail-closed', async () => {
