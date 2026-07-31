@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { motion } from 'framer-motion';
 import {
   Loader2,
@@ -27,7 +28,119 @@ const subscribeSchema = z.object({
   name: z.string().max(100, '이름 길이 제한 초과').optional(),
 });
 
+/**
+ * Confirmation sub-component shown when ?confirm=<token> is present.
+ * Requires explicit user action (POST) — no GET mutation.
+ */
+function ConfirmSection({ token }: { token: string }) {
+  const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  const [message, setMessage] = useState('');
+
+  const handleConfirm = async () => {
+    setStatus('loading');
+    try {
+      const res = await fetch('/api/subscribe/confirm', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token }),
+      });
+      const data = await res.json().catch(() => ({})) as { status?: string; error?: string; message?: string };
+      if (res.ok) {
+        setStatus('success');
+        setMessage(data.message || '구독이 확인되었습니다!');
+      } else {
+        setStatus('error');
+        setMessage(data.error || '확인 처리에 실패했습니다.');
+      }
+    } catch {
+      setStatus('error');
+      setMessage('네트워크 오류가 발생했습니다.');
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-black text-white relative overflow-hidden mt-20">
+      <AnimatedBackground />
+      <main className="pt-20 pb-24 px-6 lg:px-8 relative z-10">
+        <motion.div
+          initial={{ opacity: 0, y: 60 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.9, ease: [0.19, 1, 0.22, 1] }}
+          className="max-w-lg mx-auto"
+        >
+          <div className="glass-morphism rounded-3xl p-8 lg:p-12 border border-emerald-500/20 text-center">
+            <h1 className="text-3xl font-light text-emerald-500/80 mb-6">구독 확인</h1>
+            {status === 'idle' && (
+              <>
+                <p className="text-slate-300 mb-8">아래 버튼을 클릭하여 구독을 확인해주세요.</p>
+                <button
+                  onClick={handleConfirm}
+                  className="px-8 py-3 bg-emerald-600 text-white rounded-xl font-medium hover:bg-emerald-500 transition-colors"
+                  aria-label="Confirm subscription"
+                >
+                  구독 확인하기
+                </button>
+              </>
+            )}
+            {status === 'loading' && (
+              <div className="flex items-center justify-center gap-2 text-slate-300">
+                <Loader2 className="w-5 h-5 animate-spin" aria-hidden="true" />
+                확인 중...
+              </div>
+            )}
+            {status === 'success' && (
+              <div className="flex items-center justify-center gap-3 text-emerald-400">
+                <CheckCircle className="w-6 h-6" aria-hidden="true" />
+                <span>{message}</span>
+              </div>
+            )}
+            {status === 'error' && (
+              <div className="flex items-center justify-center gap-3 text-red-400">
+                <XCircle className="w-6 h-6" aria-hidden="true" />
+                <span>{message}</span>
+              </div>
+            )}
+          </div>
+        </motion.div>
+      </main>
+    </div>
+  );
+}
+
+function SubscribeContent() {
+  const searchParams = useSearchParams();
+  const confirmToken = searchParams.get('confirm');
+
+  // If a confirm token is present, show the confirmation UI
+  if (confirmToken) {
+    return <ConfirmSection token={confirmToken} />;
+  }
+
+  return <SubscribeForm />;
+}
+
 export default function SubscribePage() {
+  return (
+    <React.Suspense
+      fallback={
+        <div
+          className="min-h-screen bg-black text-white flex items-center justify-center"
+          role="status"
+          aria-live="polite"
+        >
+          <span className="flex items-center gap-3 text-slate-300">
+            <Loader2 className="w-5 h-5 animate-spin" aria-hidden="true" />
+            구독 페이지를 불러오는 중...
+          </span>
+        </div>
+      }
+    >
+      <SubscribeContent />
+    </React.Suspense>
+  );
+}
+
+function SubscribeForm() {
   const { formatted } = useCountdownToTomorrow();
   const [email, setEmail] = useState('');
   const [name, setName] = useState('');
