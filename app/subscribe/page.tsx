@@ -107,7 +107,7 @@ function ConfirmSection({ token }: { token: string }) {
   );
 }
 
-export default function SubscribePage() {
+function SubscribeContent() {
   const searchParams = useSearchParams();
   const confirmToken = searchParams.get('confirm');
 
@@ -117,6 +117,27 @@ export default function SubscribePage() {
   }
 
   return <SubscribeForm />;
+}
+
+export default function SubscribePage() {
+  return (
+    <React.Suspense
+      fallback={
+        <div
+          className="min-h-screen bg-black text-white flex items-center justify-center"
+          role="status"
+          aria-live="polite"
+        >
+          <span className="flex items-center gap-3 text-slate-300">
+            <Loader2 className="w-5 h-5 animate-spin" aria-hidden="true" />
+            구독 페이지를 불러오는 중...
+          </span>
+        </div>
+      }
+    >
+      <SubscribeContent />
+    </React.Suspense>
+  );
 }
 
 function SubscribeForm() {

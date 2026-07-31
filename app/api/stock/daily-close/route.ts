@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getBatchDailyClosePrices } from '@/app/archive/_utils/api/kis/client';
 import { checkRateLimit, getTrustedClientIp, RATE_LIMITS } from '@/lib/security/rate-limit';
 
+export const runtime = 'nodejs';
+
 /**
  * GET /api/stock/daily-close?tickers=KOSPI:005930&date=20241220
  *

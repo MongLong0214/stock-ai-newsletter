@@ -1141,16 +1141,35 @@ describe('normalizeErrorCode fixed allowlist', () => {
     expect(normalizeErrorCode('Email suppression list')).toBe('recipient_rejected');
   });
 
-  it('returns unknown_error for unrecognized messages (never leaks raw text)', async () => {
+  it('returns unknown_error for unrecognized messages and embedded numeric identifiers', async () => {
     const { normalizeErrorCode } = await import('@/lib/delivery/service');
 
-    const rawProvider = 'Mailbox user@example.com does not exist - rejected by relay';
-    const result = normalizeErrorCode(rawProvider);
-    expect(result).toBe('unknown_error');
-    // Must not contain any portion of the raw message
-    expect(result).not.toContain('user@');
-    expect(result).not.toContain('example.com');
-    expect(result).not.toContain('relay');
+    const cases = [
+      {
+        message: 'Mailbox user@example.com does not exist - rejected by relay',
+        sensitiveFragments: ['user@', 'example.com', 'relay'],
+      },
+      {
+        message: 'Connection to database port 5432 failed',
+        sensitiveFragments: ['5432'],
+      },
+      {
+        message: 'Operation elapsed 4040ms',
+        sensitiveFragments: ['4040ms'],
+      },
+      {
+        message: 'Provider request id 503991 was not found',
+        sensitiveFragments: ['503991'],
+      },
+    ];
+
+    for (const { message, sensitiveFragments } of cases) {
+      const result = normalizeErrorCode(message);
+      expect(result).toBe('unknown_error');
+      for (const fragment of sensitiveFragments) {
+        expect(result).not.toContain(fragment);
+      }
+    }
   });
 
   it('never returns a sanitized substring of raw provider text', async () => {

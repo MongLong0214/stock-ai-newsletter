@@ -573,9 +573,9 @@ async function sendAndMark(
 export function normalizeErrorCode(message: string): ErrorCode {
   if (/timeout/i.test(message)) return 'timeout';
   if (/ECONNREFUSED|ECONNRESET|ENOTFOUND/i.test(message)) return 'network_error';
-  if (/429/i.test(message)) return 'rate_limited';
-  if (/5\d{2}/i.test(message)) return 'provider_5xx';
-  if (/4\d{2}/i.test(message)) return 'provider_4xx';
+  if (/\b429\b/i.test(message)) return 'rate_limited';
+  if (/\b5\d{2}\b/i.test(message)) return 'provider_5xx';
+  if (/\b4\d{2}\b/i.test(message)) return 'provider_4xx';
   if (/suppression|bounce|invalid/i.test(message)) return 'recipient_rejected';
   // Default: never leak raw provider text
   return 'unknown_error';

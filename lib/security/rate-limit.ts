@@ -35,11 +35,26 @@ function getHmacSecret(): string | null {
   return secret;
 }
 
+interface ServiceClientCache {
+  url: string;
+  key: string;
+  client: SupabaseClient;
+}
+
+let serviceClientCache: ServiceClientCache | null = null;
+
 function getServiceClient(): SupabaseClient | null {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !key) return null;
-  return createClient(url, key, { auth: { persistSession: false } });
+
+  if (serviceClientCache?.url === url && serviceClientCache.key === key) {
+    return serviceClientCache.client;
+  }
+
+  const client = createClient(url, key, { auth: { persistSession: false } });
+  serviceClientCache = { url, key, client };
+  return client;
 }
 
 /**
