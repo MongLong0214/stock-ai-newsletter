@@ -76,7 +76,6 @@
     "remark": "^15.0.1",
     "remark-gfm": "^4.0.1",
     "remark-rehype": "^11.1.2",
-    "server-only": "0.0.1",
     "tailwind-merge": "^3.4.0",
     "twitter-api-v2": "^1.27.0",
     "undici": "^7.21.0",
