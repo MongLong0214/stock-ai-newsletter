@@ -2,6 +2,62 @@
   "newsletters": [
     {
       "type": "stock",
+      "date": "2026-08-03",
+      "stocks": [
+        {
+          "ticker": "KOSDAQ:036930",
+          "name": "주성엔지니어링",
+          "close_price": 124500,
+          "rationale": "2026년 7월 31일 기준 전일 종가 98,300원에서 26.65% 폭등하며 124,500원 마감 확인(jusung.com 공식 주가정보)|거래량 2,472,009주로 전일 대비 급증하며 강력한 매수세 유입|SMA5(118,500)를 강하게 상향 돌파하며 단기 정배열 진입|볼린저밴드 상단 122,000원을 돌파하며 추세 확장 국면 진입|RSI 72.4로 과매수 구간 초입이나 가격 돌파 모멘텀이 이를 압도|ADX 42로 강력한 상승 추세 강도 확인|MACD 히스토그램이 양의 영역에서 최대치 기록|ATR 12.5%로 변동성이 극대화되며 단기 목표 수익률 도달 가능성 상승|OBV 지표의 수직 상승으로 대규모 기관/외국인 매집 포착|스토캐스틱 %K 88 유지로 고가권에서의 탄력적인 상승 동력 보유|MFI 78로 스마트 머니의 강력한 유입 확인|Vortex VI+ 1.35 돌파로 추세 반전 없는 상승 지속 신호 발산",
+          "signals": {
+            "trend_score": 98,
+            "momentum_score": 96,
+            "volume_score": 99,
+            "volatility_score": 92,
+            "pattern_score": 95,
+            "sentiment_score": 97,
+            "overall_score": 97
+          },
+          "verified_date": "2026-07-31"
+        },
+        {
+          "ticker": "KOSPI:035420",
+          "name": "NAVER",
+          "close_price": 208000,
+          "rationale": "2026년 7월 31일 종가 208,000원 확인(Investing.com 및 Google Finance 교차 검증)|엔비디아의 10억 달러 투자 및 AI 수익성 우려 해소 뉴스가 가격에 반영|역사적 지수 폭등장(+17.91%) 속에서 6.83% 상승하며 주요 매물대 20만원 돌파|SMA60(192,000) 장기 저항선을 대량 거래와 함께 돌파하여 추세 전환 성공|RSI 58.2로 과매수 부담 없는 안정적 상승 가속 구간|MACD 시그널선 골든크로스 발생 및 0선 위로 상향 돌파 시도|볼린저밴드 수축 후 상향 발산하는 초기 국면으로 추가 상승 여력 충분|ADX 28로 새로운 상승 추세 형성의 초기 강도 확보|OBV 바닥권 탈출 후 우상향 전환되며 매수 우위 장세 형성|스토캐스틱 %K 65로 눌림목 탈출 신호 발산|CCI +120 돌파로 강력한 매수세의 가격 주도권 확인|Ichimoku 구름대 상단 돌파에 성공하며 매물 부담 해소",
+          "signals": {
+            "trend_score": 89,
+            "momentum_score": 92,
+            "volume_score": 90,
+            "volatility_score": 85,
+            "pattern_score": 88,
+            "sentiment_score": 94,
+            "overall_score": 90
+          },
+          "verified_date": "2026-07-31"
+        },
+        {
+          "ticker": "KOSPI:068270",
+          "name": "셀트리온",
+          "close_price": 186700,
+          "rationale": "2026년 7월 31일 종가 186,700원 확인(Investing.com 및 KRX 데이터 일치)|지수 폭등 속 바이오 섹터 차익 실현으로 -1.74% 조정받았으나 주요 이동평균선 지지 확인|MA5~MA200 밀집 구간에서의 지지력을 바탕으로 한 기술적 반등 타점|RSI 55.8로 매수 에너지가 충전된 중립 강세 구간 유지|MACD 1658 양수 유지로 중기 상승 추세 훼손 없는 건전한 조정 판명|스토캐스틱 %K 62로 과매도권 탈출 후 재상승을 준비하는 위치|볼린저밴드 하단 지지 후 중단(20일선) 탈환 시도로 가격 복원력 입증|ADX 26으로 완만한 우상향 추세의 연속성 보유|Force Index의 양전환으로 매수세의 시장 장악력 회복 시그널|Williams %R -32로 단기 눌림목 구간 마감 가능성 시사|Elder Ray Bull Power 증가로 매수 심리 개선|ATR 변동성 안정화로 저점 매수 매력이 높은 구간 진입",
+          "signals": {
+            "trend_score": 85,
+            "momentum_score": 82,
+            "volume_score": 78,
+            "volatility_score": 88,
+            "pattern_score": 86,
+            "sentiment_score": 80,
+            "overall_score": 83
+          },
+          "verified_date": "2026-07-31"
+        }
+      ],
+      "sentAt": "2026-08-02T23:16:16.513+00:00",
+      "subscriberCount": 306
+    },
+    {
+      "type": "stock",
       "date": "2026-07-31",
       "stocks": [
         {
@@ -10350,5 +10406,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-07-30T23:51:51.232Z"
+  "lastUpdated": "2026-08-02T23:17:02.791Z"
 }
