@@ -24,11 +24,20 @@ const TIMEOUTS = {
   search: 60_000,
   scrape: 120_000,
   generate: 300_000,
-  humanize: 200_000,
+  // 정상 윤문은 ~25초. 200초는 hang 시 초안 7개 누적으로 25분 스크립트 한도를 터뜨렸다(CI 실패 근본원인).
+  // 60초면 정상은 통과(2.4배 여유)하고 hang은 빨리 끊어 fallback(원문 유지)한다.
+  humanize: 60_000,
   save: 30_000,
   keyword: 300_000,
   selection: 120_000,
 };
+
+// 윤문 서킷브레이커: LLM 윤문 서비스가 저하되면(연속 타임아웃/에러) 남은 초안은 윤문을 생략해
+// 초당 낭비를 막는다. run 단위 상태 — generateWithDynamicKeywords 시작 시 리셋.
+const HUMANIZE_TRIP_THRESHOLD = 2;
+let humanizeConsecutiveFailures = 0;
+let humanizeDisabled = false;
+function resetHumanizeGate() { humanizeConsecutiveFailures = 0; humanizeDisabled = false; }
 const BATCH_DELAY_MS = 3_000;
 const SELECT_COUNT = 10;
 const EXISTING_POSTS_LIMIT = 150;
@@ -121,12 +130,25 @@ async function generateDraft(keyword: string, type: 'comparison' | 'guide' | 'li
     // 윤문: AI 문체 제거. 품질 점수는 윤문 전 본문 기준으로 매겨져 있는데
     // 30점짜리 길이 항목이 어절 수에서 파생되고 윤문 가드는 30% 감소까지 허용한다.
     // 즉 점수가 그대로면 실제보다 부풀려진 값으로 발행 게이트를 통과할 수 있다.
-    const humanized = await withTimeoutFallback(
-      humanizeGeneratedContent(generated, keyword),
-      TIMEOUTS.humanize,
-      generated,
-      'Humanize'
-    );
+    // 서킷브레이커가 열렸으면 윤문 생략(원문 사용) — 저하된 서비스에 초당 낭비하지 않는다
+    let humanized = generated;
+    if (humanizeDisabled) {
+      console.warn('[Humanize] 서킷브레이커 열림 — 윤문 생략(원문 유지)');
+    } else {
+      try {
+        humanized = await withTimeout(humanizeGeneratedContent(generated, keyword), TIMEOUTS.humanize, 'Humanize');
+        humanizeConsecutiveFailures = 0;
+      } catch (e) {
+        // 타임아웃/에러 모두 원문 유지(graceful). 연속 실패가 임계에 닿으면 남은 초안 윤문 중단.
+        console.warn(`[Humanize] 실패(${err(e)}) — 원문 유지`);
+        humanized = generated;
+        humanizeConsecutiveFailures += 1;
+        if (humanizeConsecutiveFailures >= HUMANIZE_TRIP_THRESHOLD) {
+          humanizeDisabled = true;
+          console.warn(`[Humanize] 연속 ${HUMANIZE_TRIP_THRESHOLD}회 실패 — 이번 run 남은 초안은 윤문 생략`);
+        }
+      }
+    }
 
     const content = resolveHumanized(generated, humanized, keyword, analysis);
 
@@ -302,6 +324,7 @@ export async function generateWithDynamicKeywords(options: { publish?: boolean; 
   const { publish = false, count = DAILY_POST_COUNT } = options;
 
   console.log(`[Pipeline] 4-Phase 블로그 파이프라인 시작 (목표: ${count}개)`);
+  resetHumanizeGate();
 
   try {
     // ━━━ Phase 1: 키워드 생성 ━━━
