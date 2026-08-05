@@ -2,6 +2,62 @@
   "newsletters": [
     {
       "type": "stock",
+      "date": "2026-08-06",
+      "stocks": [
+        {
+          "ticker": "KOSDAQ:196170",
+          "name": "알테오젠",
+          "close_price": 303000,
+          "rationale": "2026-08-05 코스닥 바이오 섹터 강세 속 9.3% 급등 확인|글로벌 제약사 대상 5,219억원 규모 플랫폼 기술이전 계약 모멘텀|SMA 5일/20일/60일 완전 정배열 구간 진입|EMA 단기 골든크로스 발생|RSI 62.4로 과매수 구간 전 단계의 강한 매수세|MACD 0선 위 상향 돌파 및 히스토그램 확대|거래량 430,000주 이상 기록하며 전일 대비 증가|ADX 28.5로 상승 추세 강화 신호|OBV 우상향을 통한 매집세 확인|볼린저밴드 상단 확장 구간 진입",
+          "signals": {
+            "trend_score": 98,
+            "momentum_score": 99,
+            "volume_score": 96,
+            "volatility_score": 91,
+            "pattern_score": 98,
+            "sentiment_score": 97,
+            "overall_score": 97
+          },
+          "verified_date": "2026-08-05"
+        },
+        {
+          "ticker": "KOSPI:042700",
+          "name": "한미반도체",
+          "close_price": 207000,
+          "rationale": "2026-08-05 반도체 낙폭 회복 및 기관 매수세 유입 확인|외국인 투자자 8.15% 보유 비중 유지 및 순매수 지속|SMA 20일 이동평균선 지지 후 강력한 반등 패턴|RSI 56.8로 건전한 상승 추세 유지|MACD 시그널선 골든크로스 발생|거래량 615,000주 이상으로 수급 개선 확인|AI 반도체 장비 수요 지속에 따른 업황 긍정론|Parabolic SAR 매수 전환 신호 발생|볼린저밴드 중심선 돌파 및 안착|ATR 4.1% 수준으로 적정 변동성 유지",
+          "signals": {
+            "trend_score": 96,
+            "momentum_score": 94,
+            "volume_score": 95,
+            "volatility_score": 91,
+            "pattern_score": 94,
+            "sentiment_score": 92,
+            "overall_score": 94
+          },
+          "verified_date": "2026-08-05"
+        },
+        {
+          "ticker": "KOSDAQ:141080",
+          "name": "리가켐바이오",
+          "close_price": 109500,
+          "rationale": "2026-08-05 코스닥 바이오 주도주로서 15.2% 급등 및 섹터 강세 견인|기관 5,434억원 순매수 유입 및 3거래일 연속 매수 사이드카 발동 수혜|SMA 5일선이 20일선을 상향 돌파하는 골든크로스 완성|RSI 64.2로 강세장 진입 초입 단계|거래량 전일 대비 180% 급증하며 대량 수급 확인|MACD 시그널 상향 돌파 및 0선 위 안착|CMF 0.15로 강한 자금 유입 지표 확인|Elder Ray Bull Power 확대로 인한 추가 상승 가능성|Ichimoku 구름대 상단 지지 및 돌파|Vortex VI+ 지표의 상승 전환 신호",
+          "signals": {
+            "trend_score": 99,
+            "momentum_score": 98,
+            "volume_score": 99,
+            "volatility_score": 89,
+            "pattern_score": 97,
+            "sentiment_score": 99,
+            "overall_score": 98
+          },
+          "verified_date": "2026-08-05"
+        }
+      ],
+      "sentAt": "2026-08-05T23:25:54.223+00:00",
+      "subscriberCount": 306
+    },
+    {
+      "type": "stock",
       "date": "2026-08-05",
       "stocks": [
         {
@@ -10518,5 +10574,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-08-04T23:52:50.731Z"
+  "lastUpdated": "2026-08-05T23:26:38.883Z"
 }
