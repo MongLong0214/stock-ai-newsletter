@@ -162,7 +162,7 @@ ${qualityChecklist}
   "description": "글의 핵심 가치를 요약 (150-200자)",
   "metaTitle": "검색 결과 제목 (50-60자, 키워드 앞부분 + 후킹 요소)",
   "metaDescription": "검색 결과 설명 (145-155자, 키워드+가치+CTA)",
-  "content": "전체 본문 (Markdown 형식, H2/H3 헤딩 포함, 이미지 위치 표시)",
+  "content": "전체 본문 (Markdown 형식, H2/H3 헤딩 포함. 이미지/사진/스크린샷 등 어떤 이미지 마커·플레이스홀더도 절대 넣지 말 것 — 텍스트·표·목록만 사용)",
   "headings": ["H2 헤딩 배열 (순서대로)"],
   "faqItems": [
     {

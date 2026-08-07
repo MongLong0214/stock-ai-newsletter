@@ -36,6 +36,22 @@ function isGeneratedContent(obj: unknown): obj is GeneratedContent {
 }
 
 /** Gemini 응답에서 JSON 추출 및 타입 검증 */
+/**
+ * 이미지 플레이스홀더 제거.
+ * 파이프라인에 실제 이미지 삽입 단계가 없으므로 `[이미지: ...]` / `![이미지: ...]` 마커는
+ * 영원히 죽은 텍스트로 남아 그대로 발행된다. 프롬프트로 1차 차단하되 여기서 최종 제거한다.
+ */
+export function stripImagePlaceholders(md: string): string {
+  const KW = '이미지|사진|그림|스크린샷|image|screenshot';
+  return md
+    // 마커만 있는 줄 전체 제거 (선택적 ! 및 뒤따르는 (url))
+    .replace(new RegExp(`^[ \\t]*!?\\[\\s*(?:${KW})[^\\]\\n]*\\][ \\t]*(?:\\([^)\\n]*\\))?[ \\t]*$`, 'gim'), '')
+    // 인라인 잔여 제거
+    .replace(new RegExp(`!?\\[\\s*(?:${KW})[^\\]\\n]*\\](?:\\([^)\\n]*\\))?`, 'gi'), '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
 function parseJsonResponse(response: string): GeneratedContent {
   const cleaned = response.replace(/```json\s*/gi, '').replace(/```\s*/gi, '').trim();
   const jsonStart = cleaned.indexOf('{');
@@ -50,6 +66,8 @@ function parseJsonResponse(response: string): GeneratedContent {
   if (!isGeneratedContent(parsed)) {
     throw new Error('응답 형식이 GeneratedContent 스키마와 일치하지 않습니다.');
   }
+
+  parsed.content = stripImagePlaceholders(parsed.content);
 
   return parsed;
 }
