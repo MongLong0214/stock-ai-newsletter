@@ -2,6 +2,62 @@
   "newsletters": [
     {
       "type": "stock",
+      "date": "2026-08-07",
+      "stocks": [
+        {
+          "ticker": "KOSPI:068270",
+          "name": "셀트리온",
+          "close_price": 201500,
+          "rationale": "SMA 20일선 상향 돌파 안착 확인|EMA 5일/20일 골든크로스 발생|RSI(14) 59.32 중립적 강세 진입|MACD Histogram 4거래일 연속 양의 막대 증가|거래량비율(VR) 165.4% 매집세 포착|볼린저밴드 %B 0.74로 상단 돌파 시도|ATR 2.15% 변동성 확대 시작|ADX(14) 24.8 상승 추세 강도 강화|OBV(On Balance Volume) 직전 고점 돌파|Stochastic %K 68.2 매수 우위 지속|MFI(Money Flow Index) 62.5 자금 유입|Ichimoku 기준선 지지 후 반등",
+          "signals": {
+            "trend_score": 89,
+            "momentum_score": 86,
+            "volume_score": 92,
+            "volatility_score": 88,
+            "pattern_score": 87,
+            "sentiment_score": 84,
+            "overall_score": 88
+          },
+          "verified_date": "2026-08-06"
+        },
+        {
+          "ticker": "KOSPI:373220",
+          "name": "LG에너지솔루션",
+          "close_price": 342500,
+          "rationale": "SMA 60일선 바닥 지지 후 강한 양봉 출현|EMA 단기 정배열 전환 초기 단계|RSI(14) 51.45 과매도권 탈출 후 상승|MACD 시그널선 영선 하단 돌파 시도|거래량비율 128.7% 전일 대비 점증|볼린저밴드 하단 이탈 후 중심값 회복|ATR 3.12% 에너지 응축 구간 종료|ADX(14) 19.4 추세 반전 신호 발생|OBV 횡보 구간 박스권 상단 터치|Stochastic %D 32.8 바닥권 골든크로스|Vortex VI+ 1.05 상승 우위 전환|Elder Ray Bull Power 양전환 확인",
+          "signals": {
+            "trend_score": 84,
+            "momentum_score": 91,
+            "volume_score": 85,
+            "volatility_score": 93,
+            "pattern_score": 86,
+            "sentiment_score": 88,
+            "overall_score": 87
+          },
+          "verified_date": "2026-08-06"
+        },
+        {
+          "ticker": "KOSPI:010130",
+          "name": "고려아연",
+          "close_price": 1257000,
+          "rationale": "SMA 5일선 경사도 급증 추세 강화|EMA 120일선 장기 지지력 확인|RSI(14) 63.88 안정적 상승 추세 유지|MACD 0선 상단 강세 신호 지속|거래량비율 142.3% 유동성 공급 원활|볼린저밴드 상단 밴드 워킹 현상 발생|ATR 2.74% 추세 추종 적정 변동성|ADX(14) 28.45 강한 상승 추세 확정|OBV 역사적 신고가 경신 중|Stochastic %K 74.5 매수세 압도적|Force Index(13) 양수값 최대치 경신|Chaikin Money Flow 0.18 자금 유입 지속",
+          "signals": {
+            "trend_score": 92,
+            "momentum_score": 85,
+            "volume_score": 89,
+            "volatility_score": 81,
+            "pattern_score": 82,
+            "sentiment_score": 86,
+            "overall_score": 86
+          },
+          "verified_date": "2026-08-06"
+        }
+      ],
+      "sentAt": "2026-08-07T01:34:35.851+00:00",
+      "subscriberCount": 306
+    },
+    {
+      "type": "stock",
       "date": "2026-08-06",
       "stocks": [
         {
@@ -10574,5 +10630,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-08-05T23:45:21.003Z"
+  "lastUpdated": "2026-08-07T01:35:17.242Z"
 }
