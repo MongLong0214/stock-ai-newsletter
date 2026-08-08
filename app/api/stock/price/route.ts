@@ -1,36 +1,60 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getBatchStockPrices } from '@/app/archive/_utils/api/kis/client';
+import type { KisStockPrice } from '@/app/archive/_utils/api/kis/types';
+import type { StockPriceCache } from '@/app/archive/_utils/cache/types';
+import { getStockPriceCacheExpiry } from '@/app/archive/_utils/market/hours';
+import { getBatchPricesFromCache, saveBatchPricesToCache } from '@/app/archive/_utils/cache/stock-price';
+import { checkRateLimit, getTrustedClientIp, RATE_LIMITS } from '@/lib/security/rate-limit';
+import { isValidTicker, MAX_TICKERS_PER_REQUEST } from '@/lib/security/validators';
 
 /**
  * 주식 현재가 조회 API
- * GET /api/stock/price?tickers=AAPL,GOOGL,MSFT
+ * GET /api/stock/price?tickers=005930,035720
  *
- * 프로덕션급 엔터프라이즈 API 엔드포인트
- * - 입력 검증 및 sanitization
- * - 에러 핸들링 및 상세 로깅
- * - Rate limiting 보호
- * - 캐싱 전략 적용
+ * Validation:
+ * - Tickers must be Korean stock format (6-digit numeric) or alphanumeric up to 10 chars
+ * - Max 10 tickers per request
+ * - Distributed rate limiting via Supabase
+ *
+ * Caching: the Supabase price cache is read/written with the service role here.
+ * The browser never touches the cache table (SEC-005), so this route is the only
+ * writer that keeps it warm — without it the table stays empty and every request
+ * would hit KIS directly.
  */
+
+type PriceResponseEntry = KisStockPrice | Omit<StockPriceCache, 'expires_at'>;
+
 export async function GET(request: NextRequest) {
   const startTime = Date.now();
+
+  // Distributed rate limiting (fail-closed)
+  const clientIp = getTrustedClientIp(request.headers);
+  const rateResult = await checkRateLimit(clientIp, RATE_LIMITS.stockPrice);
+  if (rateResult.status === 'limited') {
+    return NextResponse.json(
+      { success: false, error: 'Rate limit exceeded. Try again later.' },
+      { status: 429, headers: { 'Retry-After': '60' } }
+    );
+  }
+  if (rateResult.status === 'unavailable') {
+    return NextResponse.json(
+      { success: false, error: 'Service temporarily unavailable.' },
+      { status: 503 }
+    );
+  }
 
   try {
     const searchParams = request.nextUrl.searchParams;
     const tickersParam = searchParams.get('tickers');
 
-    // 입력 검증
-    if (!tickersParam) {
+    if (!tickersParam || tickersParam.trim().length === 0) {
       return NextResponse.json(
-        {
-          success: false,
-          error: 'tickers parameter is required',
-          message: 'Please provide tickers as comma-separated values',
-        },
+        { success: false, error: 'tickers parameter is required' },
         { status: 400 }
       );
     }
 
-    // 티커 파싱 및 sanitization
+    // 티커 파싱 및 strict validation
     const tickers = tickersParam
       .split(',')
       .map((t) => t.trim())
@@ -38,38 +62,81 @@ export async function GET(request: NextRequest) {
 
     if (tickers.length === 0) {
       return NextResponse.json(
-        {
-          success: false,
-          error: 'At least one valid ticker is required',
-          message: 'Tickers must be non-empty strings',
-        },
+        { success: false, error: 'At least one valid ticker is required' },
         { status: 400 }
       );
     }
 
-    // 최대 10개로 제한 (API 호출 최적화 및 rate limiting 보호)
-    if (tickers.length > 10) {
+    // 최대 10개로 제한
+    if (tickers.length > MAX_TICKERS_PER_REQUEST) {
       return NextResponse.json(
         {
           success: false,
-          error: 'Maximum 10 tickers allowed per request',
-          message: 'Please split your request into multiple calls',
+          error: `Maximum ${MAX_TICKERS_PER_REQUEST} tickers allowed per request`,
           requested: tickers.length,
-          max: 10,
+          max: MAX_TICKERS_PER_REQUEST,
         },
         { status: 400 }
       );
     }
 
-    // KIS API 호출
-    const result = await getBatchStockPrices(tickers);
+    // Strict ticker format validation
+    const invalidTickers = tickers.filter((t) => !isValidTicker(t));
+    if (invalidTickers.length > 0) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Invalid ticker format. Korean tickers must be 6 digits (e.g. 005930).',
+          invalid: invalidTickers,
+        },
+        { status: 400 }
+      );
+    }
 
-    const successCount = result.prices.size;
-    const failedCount = result.failures.size;
+    // 캐시 우선 조회 — 미스인 티커만 KIS로 넘긴다
+    const cached = await getBatchPricesFromCache(tickers);
+    const uncachedTickers = tickers.filter((ticker) => !cached.has(ticker));
 
-    // Map을 객체로 변환
-    const pricesObject = Object.fromEntries(result.prices);
-    const failuresObject = Object.fromEntries(result.failures);
+    const fetched = uncachedTickers.length > 0
+      ? await getBatchStockPrices(uncachedTickers)
+      : { prices: new Map<string, KisStockPrice>(), failures: new Map<string, string>() };
+
+    if (fetched.prices.size > 0) {
+      const expiresAt = getStockPriceCacheExpiry();
+      await saveBatchPricesToCache(
+        [...fetched.prices.values()].map((price) => ({
+          ticker: price.ticker,
+          currentPrice: price.currentPrice,
+          previousClose: price.previousClose,
+          changeRate: price.changeRate,
+          volume: price.volume,
+          timestamp: price.timestamp,
+          expires_at: expiresAt,
+        }))
+      );
+    }
+
+    // expires_at은 캐시 내부 필드이므로 응답 형태를 균일하게 유지하기 위해 제외한다
+    const merged = new Map<string, PriceResponseEntry>();
+    for (const [ticker, cachedPrice] of cached) {
+      merged.set(ticker, {
+        ticker: cachedPrice.ticker,
+        currentPrice: cachedPrice.currentPrice,
+        previousClose: cachedPrice.previousClose,
+        changeRate: cachedPrice.changeRate,
+        volume: cachedPrice.volume,
+        timestamp: cachedPrice.timestamp,
+      });
+    }
+    for (const [ticker, price] of fetched.prices) {
+      merged.set(ticker, price);
+    }
+
+    const successCount = merged.size;
+    const failedCount = fetched.failures.size;
+
+    const pricesObject = Object.fromEntries(merged);
+    const failuresObject = Object.fromEntries(fetched.failures);
 
     const duration = Date.now() - startTime;
 
@@ -78,17 +145,15 @@ export async function GET(request: NextRequest) {
         success: true,
         prices: pricesObject,
         failures: failedCount > 0 ? failuresObject : undefined,
-        metadata: {
-          requested: tickers.length,
+        meta: {
+          total: tickers.length,
           success: successCount,
           failed: failedCount,
           duration_ms: duration,
-          timestamp: new Date().toISOString(),
         },
       },
       {
         headers: {
-          // 1분 캐싱 (Vercel Edge에서도 캐싱)
           'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=30',
           'X-Response-Time': `${duration}ms`,
         },
@@ -97,50 +162,21 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     const duration = Date.now() - startTime;
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    const errorName = error instanceof Error ? error.name : 'Error';
 
-    console.error('[API] Stock price API error:', {
-      name: errorName,
-      message: errorMessage,
-      duration_ms: duration,
-      stack: error instanceof Error ? error.stack : undefined,
-    });
-
-    // 프로덕션에서는 민감한 정보 숨김
-    const isProduction = process.env.NODE_ENV === 'production';
+    console.error('[stock/price] API error:', errorMessage);
 
     return NextResponse.json(
       {
         success: false,
         error: 'Failed to fetch stock prices',
-        message: isProduction
-          ? 'An error occurred while fetching stock prices. Please try again later.'
-          : errorMessage,
-        details: !isProduction
-          ? {
-              name: errorName,
-              message: errorMessage,
-            }
-          : undefined,
+        message: 'An error occurred while fetching stock prices. Please try again later.',
       },
       {
         status: 500,
-        headers: {
-          'X-Response-Time': `${duration}ms`,
-        },
+        headers: { 'X-Response-Time': `${duration}ms` },
       }
     );
   }
 }
 
-// Route segment config for Vercel
-export const runtime = 'nodejs'; // KIS API는 Node.js runtime 필요
-
-// 🔧 캐싱 전략:
-// - force-dynamic 제거: Cache-Control 헤더가 제대로 작동하도록 함
-// - 장 중: 1분 캐싱 (실시간성 유지)
-// - 장 마감 후: Supabase 캐시가 다음 영업일 09:00까지 유지됨
-// - CDN 캐싱: s-maxage=60으로 Vercel Edge에서 1분간 캐시
-
-// Rate limiting은 Vercel Pro 이상에서 자동 적용됨
-// 무료 플랜에서는 애플리케이션 레벨에서 관리
+export const runtime = 'nodejs';

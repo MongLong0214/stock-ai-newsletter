@@ -12,6 +12,18 @@ export const revalidate = 86400;
 // next.config staticPageGenerationTimeout(180s)에 위임.
 const SITEMAP_SCORES_ROW_CAP = 2000;
 
+/**
+ * 조회 실패 시 빌드를 세울지 결정한다.
+ *
+ * 프로덕션 배포에서는 던진다 — 빈 sitemap을 조용히 내보내면 색인이 유실되므로,
+ * 그건 배포 실패보다 나쁜 결과다. preview·로컬처럼 Supabase 자격증명이 아예
+ * 없는 환경까지 같은 규칙을 적용하면 색인과 무관한 빌드가 전부 막히므로
+ * 그때만 부분 sitemap으로 물러난다.
+ */
+function shouldFailBuildOnSitemapError(): boolean {
+  return process.env.VERCEL_ENV === 'production';
+}
+
 /** 언어 alternates (단일언어 사이트용 x-default + ko) */
 function withAlternates(url: string) {
   return {
@@ -58,7 +70,8 @@ async function getActiveThemes(): Promise<{ id: string; calculated_at: string | 
     }));
   } catch (error) {
     console.error('[Sitemap] 활성 테마 조회 실패', error);
-    throw error;
+    if (shouldFailBuildOnSitemapError()) throw error;
+    return [];
   }
 }
 
@@ -76,7 +89,8 @@ async function getPublishedBlogSlugs(): Promise<{ slug: string; published_at: st
     return data || [];
   } catch (error) {
     console.error('[Sitemap] 발행 블로그 조회 실패', error);
-    throw error;
+    if (shouldFailBuildOnSitemapError()) throw error;
+    return [];
   }
 }
 
