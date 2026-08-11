@@ -304,7 +304,7 @@ export async function executeDelivery(options: DeliveryOptions): Promise<Deliver
 
 /**
  * Handle the case where newsletter is already marked as sent.
- * - If a delivery run exists, load its reconciliation and return success.
+ * - If a delivery run exists, load its reconciliation and return its success state.
  * - If no run exists (legacy sent row), return explicit no-op result.
  * Never creates a new run or sends anything.
  */
@@ -333,7 +333,7 @@ async function handleAlreadySent(
     // Load reconciliation from existing run
     const reconciliation = await reconcileRun(supabase, existingRun.id);
     return {
-      success: true,
+      success: isSuccessfulDelivery(reconciliation),
       runId: existingRun.id,
       total: reconciliation.total,
       accepted: reconciliation.accepted,
@@ -734,9 +734,9 @@ async function reconcileRun(
 }
 
 /**
- * Update newsletter_content.is_sent ONLY when fully terminal:
+ * Update newsletter_content.is_sent ONLY after a completed delivery:
  * - No pending, claimed, retryable, or ambiguous rows remain
- * - accepted + permanent failures + skips are all terminal
+ * - At least one recipient was accepted when recipients exist
  *
  * After the update, re-reads the row to verify is_sent=true.
  * If the re-read shows is_sent=false, throws (never accepts blindly).
@@ -750,17 +750,18 @@ export async function updateContentSentFlag(
   reconciliation: ReconciliationResult,
 ): Promise<void> {
   // is_sent = true ONLY when:
+  // - Delivery satisfies the shared success definition
   // - No pending/claimed/retryable/ambiguous remain
-  // - status is 'completed' (all terminal: accepted + failed + skipped)
+  //   (defensive check in addition to reconciliation status)
   const shouldMarkSent =
-    reconciliation.status === 'completed' &&
+    isSuccessfulDelivery(reconciliation) &&
     reconciliation.pending === 0 &&
     reconciliation.claimed === 0 &&
     reconciliation.retryable === 0 &&
     reconciliation.ambiguous === 0;
 
   if (!shouldMarkSent) {
-    // Non-terminal: do NOT mark as sent
+    // Incomplete or unsuccessful delivery: do NOT mark as sent
     return;
   }
 

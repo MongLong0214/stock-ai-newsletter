@@ -28,6 +28,8 @@ type ScoreQueryResult = {
 const rankingMocks = vi.hoisted(() => ({
   from: vi.fn<(table: string) => unknown>(),
   rpc: vi.fn(),
+  order: vi.fn(),
+  range: vi.fn(),
   loadStocks: vi.fn<(themeIds: string[]) => Promise<StockRow[]>>(),
 }))
 
@@ -56,6 +58,8 @@ beforeEach(() => {
   vi.restoreAllMocks()
   rankingMocks.from.mockReset()
   rankingMocks.rpc.mockReset()
+  rankingMocks.order.mockReset()
+  rankingMocks.range.mockReset()
   rankingMocks.loadStocks.mockReset()
   rankingMocks.loadStocks.mockResolvedValue([])
   rankingMocks.rpc.mockResolvedValue({ data: [], error: null })
@@ -89,18 +93,27 @@ function setupSupabase(
     if (table === 'themes') {
       return {
         select: () => ({
-          eq: () => Promise.resolve({ data: themes, error: null }),
+          eq: () => ({
+            order: rankingMocks.order,
+          }),
         }),
       }
     }
 
     throw new Error(`unexpected table: ${table}`)
   })
+  rankingMocks.order.mockReturnValue({ range: rankingMocks.range })
+  rankingMocks.range.mockImplementation((from: number, to: number) => Promise.resolve({
+    data: themes.slice(from, to + 1),
+    error: null,
+  }))
 
   // loadThemeScoreWindows calls supabase.rpc('load_theme_score_windows', ...)
   rankingMocks.rpc.mockImplementation((name: string, params: { p_theme_ids: string[] }) => {
     if (name === 'load_theme_score_windows') {
-      return Promise.resolve(scoreResultForChunk(params.p_theme_ids))
+      return {
+        range: () => Promise.resolve(scoreResultForChunk(params.p_theme_ids)),
+      }
     }
     // Default: news RPC etc.
     return Promise.resolve({ data: [], error: null })
@@ -108,6 +121,26 @@ function setupSupabase(
 }
 
 describe('getRankingServer', () => {
+  it('loads the next active-theme page after a full PostgREST page', async () => {
+    const themes = createThemes(1001)
+    const scoreByTheme = new Map(themes.map((theme, index) => [theme.id, createScore(theme.id, index)]))
+    setupSupabase(themes, (themeIds) => ({
+      data: themeIds.flatMap((themeId) => {
+        const score = scoreByTheme.get(themeId)
+        return score ? [score] : []
+      }),
+      error: null,
+    }))
+
+    const ranking = await getRankingServer('2026-07-14')
+
+    expect(rankingMocks.order).toHaveBeenCalledWith('id', { ascending: true })
+    expect(rankingMocks.range).toHaveBeenNthCalledWith(1, 0, 999)
+    expect(rankingMocks.range).toHaveBeenNthCalledWith(2, 1000, 1999)
+    expect(ranking.summary.trackedThemes).toBe(1001)
+    expect(ranking.summary.totalThemes).toBe(1001)
+  })
+
   it('keeps successful score chunks when another score chunk times out', async () => {
     // Given: 501 themes to force two RPC chunks (chunk size = 500)
     // First chunk (1-500) fails, second chunk (501) succeeds
@@ -147,13 +180,15 @@ describe('getRankingServer', () => {
     rankingMocks.rpc.mockImplementation((name: string, params: { p_theme_ids?: string[] }) => {
       if (name === 'load_theme_score_windows') {
         const themeIds = params.p_theme_ids ?? []
-        return Promise.resolve({
-          data: themeIds.flatMap((themeId) => {
-            const score = scoreByTheme.get(themeId)
-            return score ? [score] : []
+        return {
+          range: () => Promise.resolve({
+            data: themeIds.flatMap((themeId) => {
+              const score = scoreByTheme.get(themeId)
+              return score ? [score] : []
+            }),
+            error: null,
           }),
-          error: null,
-        })
+        }
       }
       // News RPC: throw
       return Promise.reject(new Error('forced news timeout'))

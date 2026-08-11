@@ -48,7 +48,7 @@ export async function GET(request: Request) {
 
     // 1) 활성 테마 ID 조회
     // PostgREST caps an unbounded select at max_rows(=1000). The score lookup below
-    // already routes around that cap via RPC, but this id lookup fed it a silently
+    // now pages RPC results, but this id lookup fed it a silently
     // truncated list — past 1000 active themes the surplus never reached the RPC and
     // simply vanished from movers/transitions with no error. Page explicitly, ordered
     // by id so page boundaries are stable across requests.
