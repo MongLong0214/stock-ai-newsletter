@@ -8,13 +8,25 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { loadThemeScoreWindowsMock, loadLatestPublishedComparisonRunsMock, fromMock } = vi.hoisted(
+const {
+  loadThemeScoreWindowsMock,
+  loadLatestPublishedComparisonRunsMock,
+  fromMock,
+  comparisonFromMock,
+  getServerSupabaseClientMock,
+  comparisonSupabase,
+} = vi.hoisted(
   () => ({
     loadThemeScoreWindowsMock: vi.fn(),
     loadLatestPublishedComparisonRunsMock: vi.fn(),
     fromMock: vi.fn(),
+    comparisonFromMock: vi.fn(),
+    getServerSupabaseClientMock: vi.fn(),
+    comparisonSupabase: {} as { from: ReturnType<typeof vi.fn> },
   }),
 )
+
+comparisonSupabase.from = comparisonFromMock
 
 vi.mock('@/lib/tli/rpc/score-windows', () => ({
   loadThemeScoreWindows: loadThemeScoreWindowsMock,
@@ -23,6 +35,10 @@ vi.mock('@/lib/tli/rpc/score-windows', () => ({
 
 vi.mock('@/lib/supabase', () => ({
   supabase: { from: fromMock },
+}))
+
+vi.mock('@/lib/supabase/server-client', () => ({
+  getServerSupabaseClient: getServerSupabaseClientMock,
 }))
 
 vi.mock('@/lib/tli/api-utils', async (importOriginal) => {
@@ -56,6 +72,8 @@ function scoreRow(themeId: string, calculatedAt: string, score: number) {
 
 beforeEach(() => {
   vi.resetModules()
+  getServerSupabaseClientMock.mockReset().mockReturnValue(comparisonSupabase)
+  comparisonFromMock.mockReset()
 
   fromMock.mockReset().mockImplementation((table: string) => {
     if (table === 'themes') {
@@ -143,5 +161,45 @@ describe('GET /api/tli/compare 유사도 로드 실패', () => {
     expect(consoleErrorSpy).toHaveBeenCalled()
 
     consoleErrorSpy.mockRestore()
+  })
+})
+
+describe('GET /api/tli/compare published comparison 접근', () => {
+  it('published run과 그 후보만 service-role 클라이언트로 읽는다', async () => {
+    const runId = '33333333-3333-4333-8333-333333333333'
+    loadLatestPublishedComparisonRunsMock.mockResolvedValue({
+      data: [{ id: runId, current_theme_id: THEME_A, created_at: '2026-08-11T00:00:00Z' }],
+      error: null,
+    })
+    comparisonFromMock.mockImplementation((table: string) => {
+      expect(table).toBe('theme_comparison_candidates_v2')
+      return {
+        select: () => ({
+          in: () => ({
+            in: () => Promise.resolve({
+              data: [{ run_id: runId, candidate_theme_id: THEME_B, similarity_score: 0.88 }],
+              error: null,
+            }),
+          }),
+        }),
+      }
+    })
+
+    const { GET } = await import('@/app/api/tli/compare/route')
+    const response = await GET(
+      new Request(`https://stockmatrix.co.kr/api/tli/compare?ids=${THEME_A},${THEME_B}`),
+    )
+    const body = await response.json()
+
+    expect(getServerSupabaseClientMock).toHaveBeenCalledTimes(1)
+    expect(loadLatestPublishedComparisonRunsMock).toHaveBeenCalledWith(
+      comparisonSupabase,
+      [THEME_A, THEME_B],
+    )
+    expect(comparisonFromMock).toHaveBeenCalledWith('theme_comparison_candidates_v2')
+    expect(fromMock.mock.calls.map(([table]) => table)).not.toContain('theme_comparison_candidates_v2')
+    expect(body.data.pairwiseSimilarity).toEqual([
+      { themeA: THEME_A, themeB: THEME_B, similarity: 0.88 },
+    ])
   })
 })
