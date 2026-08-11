@@ -1,6 +1,6 @@
 /**
  * Supabase RPC wrappers for COR-016 fix:
- * Replace global-limit queries with per-theme window RPCs to bypass PostgREST max_rows=1000.
+ * Replace global-limit queries with paged per-theme window RPCs.
  */
 import type { SupabaseClient } from '@supabase/supabase-js'
 
@@ -30,12 +30,15 @@ export const THEME_SCORE_WINDOW_MAX_THEMES = 500
 /** `load_latest_published_comparison_runs`가 한 번에 받는 테마 수 상한. */
 export const COMPARISON_RUN_MAX_THEMES = 100
 
+// One PostgREST page. A full page may be truncated at max_rows, so keep reading.
+const SCORE_WINDOW_PAGE_SIZE = 1000
+
 // ─── RPC: load_theme_score_windows ──────────────────────────────────────────
 
 /**
  * Load lifecycle scores for multiple themes using the DB RPC function.
  * Returns: latest row per theme + recent rows since date + previous comparison row.
- * Bypasses PostgREST max_rows=1000 that causes theme omission (COR-016).
+ * Pages through PostgREST max_rows=1000 so score rows are not silently omitted.
  *
  * @param supabase - Supabase client (anon, authenticated, or service_role)
  * @param themeIds - Array of theme UUIDs (max THEME_SCORE_WINDOW_MAX_THEMES)
@@ -62,17 +65,26 @@ export async function loadThemeScoreWindows(
   }
 
   try {
-    const { data, error } = await supabase.rpc('load_theme_score_windows', {
-      p_theme_ids: themeIds,
-      p_recent_since: recentSince,
-      ...(previousOnOrBefore != null ? { p_previous_on_or_before: previousOnOrBefore } : {}),
-    })
+    const rows: ScoreWindowRow[] = []
+    let from = 0
+    for (;;) {
+      const { data, error } = await supabase.rpc('load_theme_score_windows', {
+        p_theme_ids: themeIds,
+        p_recent_since: recentSince,
+        ...(previousOnOrBefore != null ? { p_previous_on_or_before: previousOnOrBefore } : {}),
+      }).range(from, from + SCORE_WINDOW_PAGE_SIZE - 1)
 
-    if (error) {
-      return { data: [], error: new Error(`load_theme_score_windows RPC failed: ${error.message}`) }
+      if (error) {
+        return { data: [], error: new Error(`load_theme_score_windows RPC failed: ${error.message}`) }
+      }
+
+      const page = (data ?? []) as ScoreWindowRow[]
+      rows.push(...page)
+      if (page.length < SCORE_WINDOW_PAGE_SIZE) break
+      from += SCORE_WINDOW_PAGE_SIZE
     }
 
-    return { data: (data ?? []) as ScoreWindowRow[], error: null }
+    return { data: rows, error: null }
   } catch (err: unknown) {
     return {
       data: [],

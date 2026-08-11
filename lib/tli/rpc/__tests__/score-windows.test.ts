@@ -1,8 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { SupabaseClient } from '@supabase/supabase-js'
 
-const { rpcMock } = vi.hoisted(() => ({
+const { rpcMock, rangeMock } = vi.hoisted(() => ({
   rpcMock: vi.fn(),
+  rangeMock: vi.fn(),
 }))
 
 // Mock supabase module — tests verify the RPC wrapper independently
@@ -17,7 +18,13 @@ import {
 
 beforeEach(() => {
   rpcMock.mockReset()
+  rangeMock.mockReset()
 })
+
+function mockScoreRpcResponse(response: unknown): void {
+  rpcMock.mockReturnValue({ range: rangeMock })
+  rangeMock.mockResolvedValue(response)
+}
 
 // ─── Fixtures ───────────────────────────────────────────────────────────────
 
@@ -44,7 +51,7 @@ const COMPARISON_ROW: LatestComparisonRunRow = {
 
 describe('loadThemeScoreWindows', () => {
   it('calls the correct RPC with parameters', async () => {
-    rpcMock.mockResolvedValue({ data: [SCORE_ROW], error: null })
+    mockScoreRpcResponse({ data: [SCORE_ROW], error: null })
 
     const result = await loadThemeScoreWindows(
       mockSupabase,
@@ -58,12 +65,13 @@ describe('loadThemeScoreWindows', () => {
       p_recent_since: '2026-07-23',
       p_previous_on_or_before: '2026-07-22',
     })
+    expect(rangeMock).toHaveBeenCalledWith(0, 999)
     expect(result.data).toEqual([SCORE_ROW])
     expect(result.error).toBeNull()
   })
 
   it('omits p_previous_on_or_before when not provided', async () => {
-    rpcMock.mockResolvedValue({ data: [], error: null })
+    mockScoreRpcResponse({ data: [], error: null })
 
     await loadThemeScoreWindows(mockSupabase, [THEME_A], '2026-07-23')
 
@@ -95,7 +103,7 @@ describe('loadThemeScoreWindows', () => {
   })
 
   it('wraps supabase error into result.error', async () => {
-    rpcMock.mockResolvedValue({
+    mockScoreRpcResponse({
       data: null,
       error: { message: 'relation "lifecycle_scores" does not exist' },
     })
@@ -108,7 +116,9 @@ describe('loadThemeScoreWindows', () => {
   })
 
   it('wraps unexpected thrown exceptions', async () => {
-    rpcMock.mockRejectedValue(new Error('network timeout'))
+    rpcMock.mockImplementation(() => {
+      throw new Error('network timeout')
+    })
 
     const result = await loadThemeScoreWindows(mockSupabase, [THEME_A], '2026-07-23')
 
@@ -121,13 +131,34 @@ describe('loadThemeScoreWindows', () => {
       { ...SCORE_ROW, theme_id: THEME_A, calculated_at: '2026-07-30' },
       { ...SCORE_ROW, id: '33333333-3333-4333-3333-333333333333', theme_id: THEME_B, calculated_at: '2026-07-29' },
     ]
-    rpcMock.mockResolvedValue({ data: rows, error: null })
+    mockScoreRpcResponse({ data: rows, error: null })
 
     const result = await loadThemeScoreWindows(mockSupabase, [THEME_A, THEME_B], '2026-07-23')
 
     expect(result.data).toHaveLength(2)
     expect(result.data[0].theme_id).toBe(THEME_A)
     expect(result.data[1].theme_id).toBe(THEME_B)
+  })
+
+  it('loads a second RPC page after a full first page', async () => {
+    const firstPage = Array.from({ length: 1000 }, (_, index) => ({
+      ...SCORE_ROW,
+      id: `first-${index}`,
+    }))
+    const finalRow = { ...SCORE_ROW, id: 'final-row' }
+    rpcMock.mockReturnValue({ range: rangeMock })
+    rangeMock.mockImplementation((from: number) => Promise.resolve({
+      data: from === 0 ? firstPage : [finalRow],
+      error: null,
+    }))
+
+    const result = await loadThemeScoreWindows(mockSupabase, [THEME_A], '2026-07-23')
+
+    expect(rangeMock).toHaveBeenNthCalledWith(1, 0, 999)
+    expect(rangeMock).toHaveBeenNthCalledWith(2, 1000, 1999)
+    expect(result.data).toHaveLength(1001)
+    expect(result.data.at(-1)).toEqual(finalRow)
+    expect(result.error).toBeNull()
   })
 })
 

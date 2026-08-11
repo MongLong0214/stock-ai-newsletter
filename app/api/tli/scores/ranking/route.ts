@@ -62,7 +62,7 @@ export async function GET(request: Request) {
       return []
     })
 
-    // COR-016: Use RPC to bypass PostgREST max_rows=1000 limit
+    // COR-016: Load score windows through the paged RPC wrapper.
     const scoreBatchesPromise = Promise.all(
       scoreChunks.map(async (chunk) => {
         try {
