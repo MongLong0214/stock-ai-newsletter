@@ -170,7 +170,8 @@ function SubscribeForm() {
         body: JSON.stringify({ email: validated.email, name: validated.name }),
       });
       const result = (await res.json().catch(() => ({}))) as {
-        status?: 'subscribed' | 'resubscribed';
+        status?: 'pending';
+        message?: string;
         error?: string;
       };
 
@@ -184,14 +185,20 @@ function SubscribeForm() {
         return;
       }
 
+      if (result.status !== 'pending') {
+        setMessage(result.error || '구독 처리 중 오류가 발생했습니다. 다시 시도해주세요.');
+        setStatus('error');
+        return;
+      }
+
       trackEvent('generate_lead', {
         method: 'newsletter',
         form_id: 'newsletter_subscribe',
-        lead_type: result.status === 'resubscribed' ? 'resubscribe' : 'new_subscriber',
+        lead_type: 'pending_confirmation',
         content_type: 'subscription',
       });
 
-      setMessage('구독이 완료되었습니다! 매일 오전 7시 30분에 이메일을 받으실 수 있습니다.');
+      setMessage('확인 이메일을 보냈습니다. 이메일의 확인 링크를 눌러 구독을 확인해주세요.');
       setStatus('success');
       setEmail('');
       setName('');

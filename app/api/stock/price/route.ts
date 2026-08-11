@@ -5,14 +5,15 @@ import type { StockPriceCache } from '@/app/archive/_utils/cache/types';
 import { getStockPriceCacheExpiry } from '@/app/archive/_utils/market/hours';
 import { getBatchPricesFromCache, saveBatchPricesToCache } from '@/app/archive/_utils/cache/stock-price';
 import { checkRateLimit, getTrustedClientIp, RATE_LIMITS } from '@/lib/security/rate-limit';
-import { isValidTicker, MAX_TICKERS_PER_REQUEST } from '@/lib/security/validators';
+import { isValidExchangeTicker, isValidTicker, MAX_TICKERS_PER_REQUEST } from '@/lib/security/validators';
 
 /**
  * 주식 현재가 조회 API
  * GET /api/stock/price?tickers=005930,035720
  *
  * Validation:
- * - Tickers must be Korean stock format (6-digit numeric) or alphanumeric up to 10 chars
+ * - Tickers must be Korean stock format (6-digit numeric), alphanumeric up to 10 chars,
+ *   or exchange-prefixed (e.g. KOSPI:005930)
  * - Max 10 tickers per request
  * - Distributed rate limiting via Supabase
  *
@@ -81,12 +82,14 @@ export async function GET(request: NextRequest) {
     }
 
     // Strict ticker format validation
-    const invalidTickers = tickers.filter((t) => !isValidTicker(t));
+    const invalidTickers = tickers.filter(
+      (ticker) => !isValidTicker(ticker) && !isValidExchangeTicker(ticker)
+    );
     if (invalidTickers.length > 0) {
       return NextResponse.json(
         {
           success: false,
-          error: 'Invalid ticker format. Korean tickers must be 6 digits (e.g. 005930).',
+          error: 'Invalid ticker format. Use a ticker without an exchange prefix (e.g. 005930) or EXCHANGE:TICKER (e.g. KOSPI:005930).',
           invalid: invalidTickers,
         },
         { status: 400 }
