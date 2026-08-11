@@ -4,6 +4,10 @@ import { getKSTDateString } from '@/lib/tli/date-utils'
 import { loadThemeScoreWindows } from '@/lib/tli/rpc/score-windows'
 import { selectPreviousChangesRow } from './date-selection'
 
+// One PostgREST page. Matches max_rows so a full page means "there may be more"
+// and a short page reliably terminates the loop.
+const THEMES_PAGE_SIZE = 1000
+
 interface ScoreRow {
   theme_id: string
   score: number
@@ -35,23 +39,38 @@ export async function GET(request: Request) {
     if (placeholder) return placeholder
 
     // 1) 활성 테마 ID 조회
-    const { data: activeThemes, error: themesLookupError } = await supabase
-      .from('themes')
-      .select('id')
-      .eq('is_active', true)
+    // PostgREST caps an unbounded select at max_rows(=1000). The score lookup below
+    // already routes around that cap via RPC, but this id lookup fed it a silently
+    // truncated list — past 1000 active themes the surplus never reached the RPC and
+    // simply vanished from movers/transitions with no error. Page explicitly, ordered
+    // by id so page boundaries are stable across requests.
+    const allThemeIds: string[] = []
+    let themesFrom = 0
+    for (;;) {
+      const { data: page, error: themesLookupError } = await supabase
+        .from('themes')
+        .select('id')
+        .eq('is_active', true)
+        .order('id', { ascending: true })
+        .range(themesFrom, themesFrom + THEMES_PAGE_SIZE - 1)
 
-    if (themesLookupError) {
-      if (isTableNotFound(themesLookupError)) {
-        return apiSuccess({
-          movers: { rising: [], falling: [] },
-          stageTransitions: [],
-          newlyEmerging: [],
-        }, undefined, 'short')
+      if (themesLookupError) {
+        if (isTableNotFound(themesLookupError)) {
+          return apiSuccess({
+            movers: { rising: [], falling: [] },
+            stageTransitions: [],
+            newlyEmerging: [],
+          }, undefined, 'short')
+        }
+        throw themesLookupError
       }
-      throw themesLookupError
+
+      if (!page || page.length === 0) break
+      allThemeIds.push(...page.map((t) => t.id))
+      if (page.length < THEMES_PAGE_SIZE) break
+      themesFrom += THEMES_PAGE_SIZE
     }
 
-    const allThemeIds = (activeThemes ?? []).map((t) => t.id)
     if (allThemeIds.length === 0) {
       return apiSuccess({
         movers: { rising: [], falling: [] },
@@ -117,16 +136,22 @@ export async function GET(request: Request) {
       }, undefined, 'medium')
     }
 
-    const { data: themes, error: themesError } = await supabase
-      .from('themes')
-      .select('id, name, name_en')
-      .in('id', themeIds)
-
-    if (themesError) throw themesError
-
+    // Same max_rows cap as the id lookup above: an unchunked .in() over more than
+    // max_rows ids drops the tail, and those themes then render without a name.
+    // 500 per request matches the chunk size the score RPC already uses here and
+    // keeps every response well under the cap.
     const nameMap = new Map<string, ThemeRow>()
-    for (const t of (themes || []) as ThemeRow[]) {
-      nameMap.set(t.id, t)
+    for (let i = 0; i < themeIds.length; i += 500) {
+      const { data: themes, error: themesError } = await supabase
+        .from('themes')
+        .select('id, name, name_en')
+        .in('id', themeIds.slice(i, i + 500))
+
+      if (themesError) throw themesError
+
+      for (const t of (themes || []) as ThemeRow[]) {
+        nameMap.set(t.id, t)
+      }
     }
 
     // 5) 결과 조립
