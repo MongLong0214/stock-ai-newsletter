@@ -315,11 +315,19 @@ async function handleAlreadySent(
   const idempotencyKey = `delivery-${content.newsletter_date}`;
 
   // Try loading existing run (do NOT create one)
-  const { data: existingRun } = await supabase
+  const { data: existingRun, error: runLookupError } = await supabase
     .from('newsletter_delivery_runs')
     .select('id')
     .eq('idempotency_key', idempotencyKey)
     .maybeSingle();
+
+  // A failed lookup returns data=null, which is indistinguishable from "no run exists"
+  // unless the error is checked. Swallowing it made a transient DB fault fall through to
+  // the legacy no-ledger branch and report success with total=0, so a run whose ledger
+  // was merely unreadable looked like a newsletter that had nothing to deliver.
+  if (runLookupError) {
+    throw new Error(`newsletter_delivery_runs lookup failed: ${runLookupError.message}`);
+  }
 
   if (existingRun) {
     // Load reconciliation from existing run

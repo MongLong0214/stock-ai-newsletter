@@ -219,7 +219,18 @@ GRANT EXECUTE ON FUNCTION public.recover_stale_claims(UUID, INTEGER) TO service_
 -- ================================================
 -- Replace claim_delivery_batch: claim only pending and retryable (within max_attempts).
 -- No stale claim reclamation here.
+--
+-- DROP first: 058 declared this function as RETURNS TABLE (delivery_id, subscriber_id)
+-- and this version adds attempt_count. PostgreSQL refuses to change a function's return
+-- type through CREATE OR REPLACE ("cannot change return type of existing function"), so
+-- on any database that already ran 058 this file aborted at this statement and every
+-- later migration stayed unapplied. A fresh database applying 058 and 059 together
+-- never hits it, which is why it only surfaces where 058 is already deployed.
+-- The signature is unchanged, so DROP + CREATE is equivalent, and the REVOKE/GRANT block
+-- added after the new definition restores the ACL the DROP discards.
 -- ================================================
+DROP FUNCTION IF EXISTS public.claim_delivery_batch(UUID, TEXT, INTEGER, INTEGER);
+
 CREATE OR REPLACE FUNCTION public.claim_delivery_batch(
   p_run_id UUID,
   p_worker_id TEXT,
@@ -266,6 +277,14 @@ BEGIN
   RETURNING d.id AS delivery_id, d.subscriber_id AS subscriber_id, d.attempt_count AS attempt_count;
 END;
 $$;
+
+-- Reapply the grants 058 set. CREATE OR REPLACE keeps a function's existing ACL, but the
+-- DROP above discards it — without this block claim_delivery_batch would exist with default
+-- privileges only and every service_role call would fail with permission denied.
+REVOKE ALL ON FUNCTION public.claim_delivery_batch(UUID, TEXT, INTEGER, INTEGER) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.claim_delivery_batch(UUID, TEXT, INTEGER, INTEGER) FROM anon;
+REVOKE ALL ON FUNCTION public.claim_delivery_batch(UUID, TEXT, INTEGER, INTEGER) FROM authenticated;
+GRANT EXECUTE ON FUNCTION public.claim_delivery_batch(UUID, TEXT, INTEGER, INTEGER) TO service_role;
 
 -- ================================================
 -- Replace mark_delivery_outcome: require nonempty claimed_by match, return boolean.
