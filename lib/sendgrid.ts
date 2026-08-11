@@ -322,9 +322,10 @@ export async function sendSingleRecipient(
 /**
  * SendGrid로 주식 뉴스레터 이메일 전송 (bounded concurrency)
  *
- * @deprecated Use `executeDelivery` from `@/lib/delivery/service` for
- * production sends. This function is retained for backward compatibility
- * but now uses bounded concurrency internally.
+ * @deprecated 프로덕션 발송은 `executeDelivery`(`@/lib/delivery/service`)만 사용한다.
+ * 이 경로는 per-recipient ledger·멱등성·재시도 분류가 전혀 없어, 중간 실패 시 누가
+ * 받았는지 알 수 없고 재실행이 중복 발송을 만든다. 단일 수신자 수동 테스트
+ * (`scripts/send-test-email.ts`) 용도로만 남겨둔다.
  */
 export async function sendStockNewsletter(
   recipients: EmailRecipient[],
@@ -341,11 +342,13 @@ export async function sendStockNewsletter(
       try {
         const result = await sendSingleRecipient(recipient, data);
         if (!result.accepted) {
+          // 수신자 식별자는 남기지 않는다. 개별 수신자 추적이 필요하면
+          // executeDelivery의 per-recipient ledger를 쓴다.
+          console.error(`[sendgrid] Failed for one recipient: ${result.error}`);
           // A provider rejection never throws, so it must be pushed onto `errors`
           // explicitly. Logging alone let the function return normally and print
           // "전송 완료: N명" while N recipients had been rejected — the cron routes
           // that call this then recorded the run as fully successful.
-          console.error(`[sendgrid] Failed for recipient (hash: ${recipient.email.length}chars): ${result.error}`);
           errors.push(new Error(result.error ?? 'provider rejected'));
         }
       } catch (err) {
