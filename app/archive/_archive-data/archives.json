@@ -2,6 +2,62 @@
   "newsletters": [
     {
       "type": "stock",
+      "date": "2026-08-12",
+      "stocks": [
+        {
+          "ticker": "KOSPI:005930",
+          "name": "삼성전자",
+          "close_price": 239500,
+          "rationale": "2026-08-11 종가 239,500원(+4.13%) 확인 (출처: finance.naver.com, investing.com)|KOSPI 지수 6,345.53 상승 리딩 및 반도체 섹터 매수세 집중|거래량 23,200,000주로 전일 대비 대폭 증가하며 수급 강세 입증|MACD 0선 상향 돌파 및 단기 EMA 정배열 전환 확인|RSI 57.3으로 과매수 구간 진입 전 강한 상승 모멘텀 유지|볼린저밴드 중심선 돌파 후 상단(243,000원) 터치 시도|ADX 27.8로 상승 추세 강도 강화 및 하락 다이버전스 해소|OBV 외인 대량 매수세 유입(약 268만 주 순매수) 확인|ATR 4.1% 수준으로 적정 변동성 내 변동폭 확대 시작|AI 반도체 수요 폭증 및 정부 지원책 발표 등 펀더멘털 신호 일치",
+          "signals": {
+            "trend_score": 95,
+            "momentum_score": 96,
+            "volume_score": 98,
+            "volatility_score": 90,
+            "pattern_score": 90,
+            "sentiment_score": 88,
+            "overall_score": 99
+          },
+          "verified_date": "2026-08-11"
+        },
+        {
+          "ticker": "KOSDAQ:196170",
+          "name": "알테오젠",
+          "close_price": 327500,
+          "rationale": "2026-08-11 종가 327,500원 확인 (출처: hankyung.com, investing.com)|직전 고점(356,000원) 대비 -5.89% 수준의 건강한 기술적 조정 마무리 단계|SMA20 및 EMA20 지지선 확인하며 정배열 추세 유지|블랙록(BlackRock) 지분 확대(3.75%) 소식으로 기관 수급 안정성 확보|RSI 63.9로 과매수 해소 후 상승 재개 가능 구간 안착|MFI 70 자금 유입 지속 및 OBV 우상향 패턴 유지|2분기 영업이익 342억 원 흑자 전환 및 기술 수출 모멘텀 지속|볼린저밴드 상단(350,000원) 재돌파 시도 가능성 높은 응축 구간|ADX 28.5로 강력한 중장기 상승 추세 진행형|SuperTrend 매수 신호 및 Aroon Up 85의 강력한 추세 강도 유지",
+          "signals": {
+            "trend_score": 93,
+            "momentum_score": 82,
+            "volume_score": 81,
+            "volatility_score": 88,
+            "pattern_score": 75,
+            "sentiment_score": 81,
+            "overall_score": 98
+          },
+          "verified_date": "2026-08-11"
+        },
+        {
+          "ticker": "KOSDAQ:141080",
+          "name": "리가켐바이오",
+          "close_price": 116900,
+          "rationale": "2026-08-11 종가 116,900원 확인 (출처: legochembio.com, littlebproject.com)|단기 하락 추세선 상향 돌파 후 SMA20 지지 테스트 성공|RSI 43.5로 바닥권 탈출 후 중립 구간 안착 시도|MACD 골든크로스 발생 초기 신호 및 시그널선 수렴 확인|거래량 352,529주로 전일 대비 안정적 수급 대기세 형성|볼린저밴드 위치 45% 중심부 안착하며 변동성 수축(Squeeze) 단계|ATR 3.8%로 변동성 하방 경직성 확보 및 반등 준비|ADX 21.2로 신규 추세 형성 초기 국면 진입|Vortex 상승 전환 신호 및 CCI -10 바닥 탈출 신호 포착|기관 순매수세 점진적 유입 및 ADC 플랫폼 기술 수출 기대감 반영",
+          "signals": {
+            "trend_score": 76,
+            "momentum_score": 83,
+            "volume_score": 71,
+            "volatility_score": 85,
+            "pattern_score": 80,
+            "sentiment_score": 85,
+            "overall_score": 94
+          },
+          "verified_date": "2026-08-11"
+        }
+      ],
+      "sentAt": "2026-08-11T23:07:53.767+00:00",
+      "subscriberCount": 307
+    },
+    {
+      "type": "stock",
       "date": "2026-08-11",
       "stocks": [
         {
@@ -10686,5 +10742,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-08-10T23:23:46.213Z"
+  "lastUpdated": "2026-08-11T23:08:31.909Z"
 }
