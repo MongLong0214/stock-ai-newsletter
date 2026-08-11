@@ -1104,6 +1104,7 @@ describe('전면 실패 보고', () => {
   // 그것만 보고 성공으로 보고하면 SendGrid 키 폐기 같은 전면 장애가 조용히 지나가고,
   // 호출부는 exit 0 / HTTP 200을 내며 Twitter 공지까지 나간다.
   it('수신자가 있는데 한 명도 수락되지 않으면 success=false', async () => {
+    let updateCalled = false
     const supabase = buildMockSupabase({
       rpcHandler: async (fn) => {
         if (fn === 'get_or_create_delivery_run') {
@@ -1123,10 +1124,17 @@ describe('전면 실패 보고', () => {
         }
         return { data: null, error: null }
       },
-      fromHandler: () => chainResolving({
-        data: { id: 'c1', newsletter_date: '2026-07-31', gemini_analysis: '[]', is_sent: false, sent_at: null },
-        error: null,
-      }),
+      fromHandler: () => {
+        const chain = chainResolving({
+          data: { id: 'c1', newsletter_date: '2026-07-31', gemini_analysis: '[]', is_sent: false, sent_at: null },
+          error: null,
+        })
+        chain.update = vi.fn().mockImplementation(() => {
+          updateCalled = true
+          return chain
+        })
+        return chain
+      },
     })
 
     const { executeDelivery } = await import('../service')
@@ -1135,6 +1143,49 @@ describe('전면 실패 보고', () => {
     expect(result.total).toBe(3)
     expect(result.accepted).toBe(0)
     expect(result.success).toBe(false)
+    expect(updateCalled).toBe(false)
+  })
+
+  it('일부 수신자가 수락되면 발송 완료로 표시한다', async () => {
+    const { updateContentSentFlag } = await import('../service')
+    let updateCalled = false
+    const chain = chainResolving({ data: { id: 'c1' }, error: null })
+    chain.update = vi.fn().mockImplementation(() => {
+      updateCalled = true
+      return chain
+    })
+    const supabase = buildMockSupabase({
+      rpcHandler: async () => ({ data: null, error: null }),
+      fromHandler: () => chain,
+    })
+
+    await updateContentSentFlag(supabase, 'c1', {
+      status: 'completed', total: 3, accepted: 1, failed: 2,
+      ambiguous: 0, retryable: 0, skipped: 0, pending: 0, claimed: 0,
+    })
+
+    expect(updateCalled).toBe(true)
+  })
+
+  it('수신자가 없으면 발송 완료로 표시한다', async () => {
+    const { updateContentSentFlag } = await import('../service')
+    let updateCalled = false
+    const chain = chainResolving({ data: { id: 'c1' }, error: null })
+    chain.update = vi.fn().mockImplementation(() => {
+      updateCalled = true
+      return chain
+    })
+    const supabase = buildMockSupabase({
+      rpcHandler: async () => ({ data: null, error: null }),
+      fromHandler: () => chain,
+    })
+
+    await updateContentSentFlag(supabase, 'c1', {
+      status: 'completed', total: 0, accepted: 0, failed: 0,
+      ambiguous: 0, retryable: 0, skipped: 0, pending: 0, claimed: 0,
+    })
+
+    expect(updateCalled).toBe(true)
   })
 
   it('수신자가 0명이면 success=true (보낼 대상이 없는 정상 상황)', async () => {
@@ -1456,6 +1507,44 @@ describe('already-sent newsletter idempotent no-op', () => {
     expect((supabase.rpc as ReturnType<typeof vi.fn>).mock.calls.filter(
       (c: unknown[]) => c[0] === 'get_or_create_delivery_run'
     )).toHaveLength(0);
+  });
+
+  it('returns success=false with alreadySent=true when the existing run accepted nobody', async () => {
+    const { executeDelivery } = await import('@/lib/delivery/service');
+
+    const supabase = buildMockSupabase({
+      rpcHandler: async (fn) => {
+        if (fn === 'reconcile_delivery_run') {
+          return { data: { status: 'completed', total: 3, accepted: 0, failed: 3, ambiguous: 0, retryable: 0, skipped: 0, pending: 0, claimed: 0 }, error: null };
+        }
+        return { data: null, error: null };
+      },
+      fromHandler: (table) => {
+        if (table === 'newsletter_content') {
+          return chainResolving({
+            data: { id: 'c1', newsletter_date: '2026-07-31', gemini_analysis: '[]', is_sent: true, sent_at: '2026-07-31T10:00:00Z' },
+            error: null,
+          });
+        }
+        if (table === 'newsletter_delivery_runs') {
+          const chain: Record<string, unknown> = {};
+          chain.select = vi.fn().mockReturnValue(chain);
+          chain.eq = vi.fn().mockReturnValue(chain);
+          chain.maybeSingle = vi.fn().mockResolvedValue({
+            data: { id: 'run-existing' },
+            error: null,
+          });
+          return chain;
+        }
+        return chainResolving({ data: null, error: null });
+      },
+    });
+
+    const result = await executeDelivery({ supabase, newsletterDate: '2026-07-31' });
+
+    expect(result.success).toBe(false);
+    expect(result.alreadySent).toBe(true);
+    expect(result.accepted).toBe(0);
   });
 
   it('returns legacy no-op with stable ID when no ledger exists', async () => {
