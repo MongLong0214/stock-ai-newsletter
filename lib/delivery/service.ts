@@ -217,6 +217,7 @@ export async function executeDelivery(options: DeliveryOptions): Promise<Deliver
 
   // Effective signal: aborts when EITHER internal timeout OR external signal fires
   const effectiveSignal = composeAbortSignals(internalController.signal, externalSignal);
+  const timeoutDeadline = Date.now() + timeoutMs;
 
   try {
     // 1. Load newsletter content
@@ -268,10 +269,25 @@ export async function executeDelivery(options: DeliveryOptions): Promise<Deliver
       // 재시도 배치면 provider가 회복할 시간을 준다
       const maxAttempt = batch.reduce((max, item) => Math.max(max, item.attempt_count ?? 1), 1);
       if (maxAttempt > 1) {
+        const rateLimited = batch.some((item) => item.failure_detail === 'rate_limited');
+        const retryDelay = retryBackoffMs(maxAttempt, rateLimited);
+        if (Date.now() + retryDelay > timeoutDeadline) {
+          await releaseClaimedBatchOrRethrow(
+            supabase,
+            batch,
+            workerId,
+            new Error('Delivery timeout budget cannot accommodate retry backoff'),
+          );
+        }
         console.log(`[delivery] Retry round (attempt ${maxAttempt}) — backing off`);
-        await waitBeforeRetryRound(maxAttempt, effectiveSignal);
+        await waitBeforeRetryRound(maxAttempt, rateLimited, effectiveSignal);
         if (effectiveSignal.aborted) {
-          throw new Error('Delivery aborted by signal/timeout');
+          await releaseClaimedBatchOrRethrow(
+            supabase,
+            batch,
+            workerId,
+            new Error('Delivery aborted by signal/timeout'),
+          );
         }
       }
 
@@ -488,11 +504,14 @@ interface ClaimedRecipient {
   subscriber_id: string;
   /** 이번 claim까지 포함한 누적 시도 횟수. 1이면 첫 시도다. */
   attempt_count: number;
+  /** 직전 provider 실패의 안전하게 정규화된 코드. */
+  failure_detail: ErrorCode | null;
 }
 
 /** 재시도 라운드 사이 대기(ms). 시도 2회차 이후에만 적용된다. */
 const RETRY_BACKOFF_BASE_MS = 2_000;
 const RETRY_BACKOFF_MAX_MS = 30_000;
+const RATE_LIMIT_BACKOFF_BASE_MS = 12_000;
 
 /**
  * 재시도 배치 앞에서 기다린다.
@@ -501,13 +520,23 @@ const RETRY_BACKOFF_MAX_MS = 30_000;
  * 밀린 수신자의 max_attempts가 수 밀리초 만에 소진된다. 30초짜리 provider 스로틀
  * 하나에 그날 발송 전체가 permanent failure로 확정되는 것을 막는다.
  */
-export function retryBackoffMs(attempt: number): number {
+export function retryBackoffMs(attempt: number, wasRateLimited = false): number {
   if (attempt <= 1) return 0;
+  if (wasRateLimited) {
+    return Math.min(
+      RATE_LIMIT_BACKOFF_BASE_MS * 2 ** (attempt - 2),
+      RETRY_BACKOFF_MAX_MS,
+    );
+  }
   return Math.min(RETRY_BACKOFF_BASE_MS * 2 ** (attempt - 2), RETRY_BACKOFF_MAX_MS);
 }
 
-async function waitBeforeRetryRound(attempt: number, signal: AbortSignal): Promise<void> {
-  const delay = retryBackoffMs(attempt);
+async function waitBeforeRetryRound(
+  attempt: number,
+  wasRateLimited: boolean,
+  signal: AbortSignal,
+): Promise<void> {
+  const delay = retryBackoffMs(attempt, wasRateLimited);
   await new Promise<void>((resolve) => {
     const timer = setTimeout(() => {
       signal.removeEventListener('abort', onAbort);
@@ -543,6 +572,48 @@ async function claimBatch(
 }
 
 /**
+ * Release a batch only when no provider request has begun. The RPC verifies
+ * worker ownership, restores pending/retryable status, and refunds the claim.
+ */
+async function releaseClaimedBatchAfterPreProviderFailure(
+  supabase: SupabaseClient,
+  batch: ClaimedRecipient[],
+  workerId: string,
+): Promise<void> {
+  const { data, error } = await supabase.rpc('release_delivery_claim_batch', {
+    p_delivery_ids: batch.map((item) => item.delivery_id),
+    p_worker_id: workerId,
+  });
+
+  if (error) {
+    throw new Error(`release_delivery_claim_batch failed: ${error.message}`);
+  }
+  if (data !== batch.length) {
+    throw new Error(
+      `release_delivery_claim_batch released ${String(data)} of ${batch.length} claimed recipients`,
+    );
+  }
+}
+
+async function releaseClaimedBatchOrRethrow(
+  supabase: SupabaseClient,
+  batch: ClaimedRecipient[],
+  workerId: string,
+  originalError: Error,
+): Promise<never> {
+  try {
+    await releaseClaimedBatchAfterPreProviderFailure(supabase, batch, workerId);
+  } catch (releaseError) {
+    const releaseMessage = releaseError instanceof Error ? releaseError.message : String(releaseError);
+    throw new Error(
+      `${originalError.message}; additionally failed to release claimed batch: ${releaseMessage}`,
+      { cause: originalError },
+    );
+  }
+  throw originalError;
+}
+
+/**
  * Send a batch of claimed recipients with a bounded worker pool.
  * Uses Promise.allSettled so all in-flight sends settle cleanly.
  * Fetches only active subscribers; marks inactive/missing as skipped.
@@ -556,6 +627,15 @@ async function sendBatchBounded(
   concurrency: number,
   signal: AbortSignal,
 ): Promise<void> {
+  if (signal.aborted) {
+    return await releaseClaimedBatchOrRethrow(
+      supabase,
+      batch,
+      workerId,
+      new Error('Aborted during batch send'),
+    );
+  }
+
   // Fetch subscriber details — only active ones
   const subscriberIds = batch.map((b) => b.subscriber_id);
   const { data: subscribers, error } = await supabase
@@ -564,7 +644,8 @@ async function sendBatchBounded(
     .in('id', subscriberIds);
 
   if (error || !subscribers) {
-    throw new Error(`Failed to fetch subscriber details for batch: ${error?.message}`);
+    const fetchError = new Error(`Failed to fetch subscriber details for batch: ${error?.message}`);
+    return await releaseClaimedBatchOrRethrow(supabase, batch, workerId, fetchError);
   }
 
   const subscriberMap = new Map<string, SubscriberRow>(

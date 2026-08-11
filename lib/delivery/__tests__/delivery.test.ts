@@ -923,6 +923,31 @@ describe('SQL migration 059 contracts', () => {
   });
 });
 
+describe('SQL migration 060 contracts', () => {
+  const sql = readFileSync(
+    resolve(__dirname, '../../../supabase/migrations/060_delivery_retry_and_pre_provider_release.sql'),
+    'utf-8',
+  );
+
+  it('returns normalized prior failure detail with each claimed recipient', () => {
+    expect(sql).toContain('failure_detail TEXT');
+    expect(sql).toContain('d.failure_detail AS failure_detail');
+  });
+
+  it('releases only the owning worker claim and refunds its attempt', () => {
+    expect(sql).toContain("AND status = 'claimed'");
+    expect(sql).toContain('AND claimed_by = p_worker_id');
+    expect(sql).toContain('attempt_count = GREATEST(attempt_count - 1, 0)');
+    expect(sql).toContain("CASE WHEN failure_category = 'retryable' THEN 'retryable' ELSE 'pending' END");
+  });
+
+  it('keeps release RPC inaccessible outside service_role', () => {
+    expect(sql).toContain('REVOKE ALL ON FUNCTION public.release_delivery_claim_batch(UUID[], TEXT) FROM anon');
+    expect(sql).toContain('REVOKE ALL ON FUNCTION public.release_delivery_claim_batch(UUID[], TEXT) FROM authenticated');
+    expect(sql).toContain('GRANT EXECUTE ON FUNCTION public.release_delivery_claim_batch(UUID[], TEXT) TO service_role');
+  });
+});
+
 // ─── 12. Workflow YAML invariants ────────────────────────────────────────────
 
 describe('workflow invariants (hardened)', () => {
@@ -1093,11 +1118,184 @@ describe('재시도 백오프', () => {
     expect(retryBackoffMs(4)).toBe(8_000)
   })
 
+  it('429 재시도는 3회차 전에 30초 스로틀 창을 넘긴다', async () => {
+    const { retryBackoffMs } = await import('../service')
+    const secondAttemptDelay = retryBackoffMs(2, true)
+    const thirdAttemptDelay = retryBackoffMs(3, true)
+
+    expect(secondAttemptDelay).toBe(12_000)
+    expect(thirdAttemptDelay).toBe(24_000)
+    expect(secondAttemptDelay + thirdAttemptDelay).toBeGreaterThan(30_000)
+  })
+
   it('상한을 넘지 않는다', async () => {
     const { retryBackoffMs } = await import('../service')
     expect(retryBackoffMs(20)).toBe(30_000)
+    expect(retryBackoffMs(20, true)).toBe(30_000)
   })
 })
+
+describe('provider 호출 전 claim 해제', () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+  });
+
+  it('수신자 상세 조회가 실패하면 provider 호출 없이 claim을 되돌리고 원래 오류를 던진다', async () => {
+    const releaseCalls: Record<string, unknown>[] = [];
+    const supabase = buildMockSupabase({
+      rpcHandler: async (fn, params) => {
+        if (fn === 'get_or_create_delivery_run') {
+          return { data: { id: 'run-1', status: 'in_progress', snapshot_completed: false, is_terminal: false }, error: null };
+        }
+        if (fn === 'snapshot_delivery_recipients') return { data: { total: 2, already_completed: false }, error: null };
+        if (fn === 'recover_stale_claims') return { data: 0, error: null };
+        if (fn === 'claim_delivery_batch') {
+          return {
+            data: [
+              { delivery_id: 'd1', subscriber_id: 'sub-1', attempt_count: 1, failure_detail: null },
+              { delivery_id: 'd2', subscriber_id: 'sub-2', attempt_count: 1, failure_detail: null },
+            ],
+            error: null,
+          };
+        }
+        if (fn === 'release_delivery_claim_batch') {
+          releaseCalls.push(params);
+          return { data: 2, error: null };
+        }
+        return { data: null, error: null };
+      },
+      fromHandler: (table) => {
+        if (table === 'newsletter_content') {
+          return chainResolving({ data: { id: 'c1', newsletter_date: '2026-07-31', gemini_analysis: '[]', is_sent: false, sent_at: null }, error: null });
+        }
+        if (table === 'subscribers') {
+          const chain: Record<string, unknown> = {};
+          chain.select = vi.fn().mockReturnValue(chain);
+          chain.in = vi.fn().mockResolvedValue({ data: null, error: { message: 'subscriber read unavailable' } });
+          return chain;
+        }
+        return chainResolving({ data: null, error: null });
+      },
+    });
+
+    const { executeDelivery } = await import('../service');
+    await expect(executeDelivery({ supabase, newsletterDate: '2026-07-31', workerId: 'worker-1' }))
+      .rejects.toThrow('Failed to fetch subscriber details for batch: subscriber read unavailable');
+
+    expect(mockSendSingle).not.toHaveBeenCalled();
+    expect(releaseCalls).toEqual([{
+      p_delivery_ids: ['d1', 'd2'],
+      p_worker_id: 'worker-1',
+    }]);
+  });
+
+  it('claim 해제가 실패해도 수신자 상세 조회의 원래 오류를 보존한다', async () => {
+    const supabase = buildMockSupabase({
+      rpcHandler: async (fn) => {
+        if (fn === 'get_or_create_delivery_run') {
+          return { data: { id: 'run-1', status: 'in_progress', snapshot_completed: false, is_terminal: false }, error: null };
+        }
+        if (fn === 'snapshot_delivery_recipients') return { data: { total: 1, already_completed: false }, error: null };
+        if (fn === 'recover_stale_claims') return { data: 0, error: null };
+        if (fn === 'claim_delivery_batch') {
+          return { data: [{ delivery_id: 'd1', subscriber_id: 'sub-1', attempt_count: 1, failure_detail: null }], error: null };
+        }
+        if (fn === 'release_delivery_claim_batch') {
+          return { data: null, error: { message: 'release connection reset' } };
+        }
+        return { data: null, error: null };
+      },
+      fromHandler: (table) => {
+        if (table === 'newsletter_content') {
+          return chainResolving({ data: { id: 'c1', newsletter_date: '2026-07-31', gemini_analysis: '[]', is_sent: false, sent_at: null }, error: null });
+        }
+        if (table === 'subscribers') {
+          const chain: Record<string, unknown> = {};
+          chain.select = vi.fn().mockReturnValue(chain);
+          chain.in = vi.fn().mockResolvedValue({ data: null, error: { message: 'subscriber read unavailable' } });
+          return chain;
+        }
+        return chainResolving({ data: null, error: null });
+      },
+    });
+
+    const { executeDelivery } = await import('../service');
+    await expect(executeDelivery({ supabase, newsletterDate: '2026-07-31' }))
+      .rejects.toThrow('Failed to fetch subscriber details for batch: subscriber read unavailable; additionally failed to release claimed batch: release_delivery_claim_batch failed: release connection reset');
+
+    expect(mockSendSingle).not.toHaveBeenCalled();
+  });
+
+  it('claim 직후 취소돼도 provider 호출 전에 claim을 되돌린다', async () => {
+    const controller = new AbortController();
+    const releaseCalls: Record<string, unknown>[] = [];
+    const supabase = buildMockSupabase({
+      rpcHandler: async (fn, params) => {
+        if (fn === 'get_or_create_delivery_run') {
+          return { data: { id: 'run-1', status: 'in_progress', snapshot_completed: false, is_terminal: false }, error: null };
+        }
+        if (fn === 'snapshot_delivery_recipients') return { data: { total: 1, already_completed: false }, error: null };
+        if (fn === 'recover_stale_claims') return { data: 0, error: null };
+        if (fn === 'claim_delivery_batch') {
+          controller.abort();
+          return { data: [{ delivery_id: 'd1', subscriber_id: 'sub-1', attempt_count: 1, failure_detail: null }], error: null };
+        }
+        if (fn === 'release_delivery_claim_batch') {
+          releaseCalls.push(params);
+          return { data: 1, error: null };
+        }
+        return { data: null, error: null };
+      },
+      fromHandler: (table) => {
+        if (table === 'newsletter_content') {
+          return chainResolving({ data: { id: 'c1', newsletter_date: '2026-07-31', gemini_analysis: '[]', is_sent: false, sent_at: null }, error: null });
+        }
+        return chainResolving({ data: null, error: null });
+      },
+    });
+
+    const { executeDelivery } = await import('../service');
+    await expect(executeDelivery({ supabase, newsletterDate: '2026-07-31', signal: controller.signal }))
+      .rejects.toThrow('Aborted during batch send');
+
+    expect(mockSendSingle).not.toHaveBeenCalled();
+    expect(releaseCalls).toHaveLength(1);
+  });
+
+  it('재시도 대기가 남은 전체 timeout 예산을 넘으면 provider 호출 전에 claim을 되돌린다', async () => {
+    const releaseCalls: Record<string, unknown>[] = [];
+    const supabase = buildMockSupabase({
+      rpcHandler: async (fn, params) => {
+        if (fn === 'get_or_create_delivery_run') {
+          return { data: { id: 'run-1', status: 'in_progress', snapshot_completed: false, is_terminal: false }, error: null };
+        }
+        if (fn === 'snapshot_delivery_recipients') return { data: { total: 1, already_completed: false }, error: null };
+        if (fn === 'recover_stale_claims') return { data: 0, error: null };
+        if (fn === 'claim_delivery_batch') {
+          return { data: [{ delivery_id: 'd1', subscriber_id: 'sub-1', attempt_count: 2, failure_detail: 'rate_limited' }], error: null };
+        }
+        if (fn === 'release_delivery_claim_batch') {
+          releaseCalls.push(params);
+          return { data: 1, error: null };
+        }
+        return { data: null, error: null };
+      },
+      fromHandler: (table) => {
+        if (table === 'newsletter_content') {
+          return chainResolving({ data: { id: 'c1', newsletter_date: '2026-07-31', gemini_analysis: '[]', is_sent: false, sent_at: null }, error: null });
+        }
+        return chainResolving({ data: null, error: null });
+      },
+    });
+
+    const { executeDelivery } = await import('../service');
+    await expect(executeDelivery({ supabase, newsletterDate: '2026-07-31', timeoutMs: 3_000 }))
+      .rejects.toThrow('Delivery timeout budget cannot accommodate retry backoff');
+
+    expect(mockSendSingle).not.toHaveBeenCalled();
+    expect(releaseCalls).toHaveLength(1);
+  });
+});
 
 describe('전면 실패 보고', () => {
   // 전 수신자가 permanent failure로 끝나도 상태머신은 'completed'다.
