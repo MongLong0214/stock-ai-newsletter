@@ -3,6 +3,16 @@ BEGIN;
 CREATE SCHEMA IF NOT EXISTS extensions;
 CREATE EXTENSION IF NOT EXISTS pg_trgm WITH SCHEMA extensions;
 
+-- The statement above is a no-op when pg_trgm already exists in another schema:
+-- IF NOT EXISTS wins and WITH SCHEMA is ignored, so nothing lands in `extensions`.
+-- Some Supabase projects ship it in `public`. The trigram indexes at the end of this
+-- file therefore cannot hardcode `extensions.gin_trgm_ops` — on those databases the
+-- operator class does not exist under that name and the migration aborts there. A
+-- clean database installs it into `extensions` and never reproduces the failure.
+--
+-- The extension is a database-wide shared object that other schemas may already
+-- depend on, so this resolves where it actually lives rather than relocating it.
+
 -- Public read paths use these bounded RPCs instead of applying one global
 -- PostgREST row limit before selecting the newest row for each theme.
 CREATE OR REPLACE FUNCTION public.load_theme_score_windows(
@@ -161,20 +171,42 @@ CREATE INDEX IF NOT EXISTS idx_comparison_runs_latest_published_theme
   ON public.theme_comparison_runs_v2 (current_theme_id, created_at DESC, id DESC)
   WHERE status = 'published' AND publish_ready = true;
 
-CREATE INDEX IF NOT EXISTS idx_themes_active_name_trgm
-  ON public.themes USING gin (name extensions.gin_trgm_ops)
-  WHERE is_active = true;
+-- Trigram indexes, qualified with the schema pg_trgm actually occupies (see the note
+-- at the top of this file). IF NOT EXISTS keeps each statement idempotent.
+DO $$
+DECLARE
+  v_schema TEXT;
+BEGIN
+  SELECT n.nspname INTO v_schema
+  FROM pg_extension e
+  JOIN pg_namespace n ON n.oid = e.extnamespace
+  WHERE e.extname = 'pg_trgm';
 
-CREATE INDEX IF NOT EXISTS idx_themes_active_name_en_trgm
-  ON public.themes USING gin (name_en extensions.gin_trgm_ops)
-  WHERE is_active = true AND name_en IS NOT NULL;
+  IF v_schema IS NULL THEN
+    RAISE EXCEPTION 'pg_trgm is not installed; trigram search indexes cannot be created';
+  END IF;
 
-CREATE INDEX IF NOT EXISTS idx_theme_stocks_active_name_trgm
-  ON public.theme_stocks USING gin (name extensions.gin_trgm_ops)
-  WHERE is_active = true;
+  EXECUTE format(
+    'CREATE INDEX IF NOT EXISTS idx_themes_active_name_trgm '
+    'ON public.themes USING gin (name %I.gin_trgm_ops) WHERE is_active = true',
+    v_schema);
 
-CREATE INDEX IF NOT EXISTS idx_theme_stocks_active_symbol_trgm
-  ON public.theme_stocks USING gin (symbol extensions.gin_trgm_ops)
-  WHERE is_active = true;
+  EXECUTE format(
+    'CREATE INDEX IF NOT EXISTS idx_themes_active_name_en_trgm '
+    'ON public.themes USING gin (name_en %I.gin_trgm_ops) '
+    'WHERE is_active = true AND name_en IS NOT NULL',
+    v_schema);
+
+  EXECUTE format(
+    'CREATE INDEX IF NOT EXISTS idx_theme_stocks_active_name_trgm '
+    'ON public.theme_stocks USING gin (name %I.gin_trgm_ops) WHERE is_active = true',
+    v_schema);
+
+  EXECUTE format(
+    'CREATE INDEX IF NOT EXISTS idx_theme_stocks_active_symbol_trgm '
+    'ON public.theme_stocks USING gin (symbol %I.gin_trgm_ops) WHERE is_active = true',
+    v_schema);
+END;
+$$;
 
 COMMIT;
