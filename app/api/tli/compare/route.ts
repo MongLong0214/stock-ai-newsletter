@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase'
+import { getServerSupabaseClient } from '@/lib/supabase/server-client'
 import { apiSuccess, apiError, handleApiError, placeholderResponse, UUID_RE } from '@/lib/tli/api-utils'
 import { getKSTDateString } from '@/lib/tli/date-utils'
 import { loadThemeScoreWindows, loadLatestPublishedComparisonRuns } from '@/lib/tli/rpc/score-windows'
@@ -147,9 +148,14 @@ export async function GET(request: Request) {
     // 5) 상호 유사도: theme_comparison_runs_v2 + theme_comparison_candidates_v2
     const pairwiseSimilarity: Array<{ themeA: string; themeB: string; similarity: number | null }> = []
 
+    // 비교 run/candidate 테이블은 service_role 전용 RLS 정책이다. 이 공개 API에서는
+    // RPC가 published + publish_ready run만 반환하고, 그 run ID의 후보만 후속 조회한다.
+    // 다른 공개 데이터 조회의 권한 범위는 넓히지 않도록 이 단계에서만 서버 클라이언트를 만든다.
+    const comparisonSupabase = getServerSupabaseClient()
+
     // COR-016: 각 테마의 최신 published run 조회 (RPC로 PostgREST 행 제한 우회)
     const { data: runs, error: runsError } = await loadLatestPublishedComparisonRuns(
-      supabase,
+      comparisonSupabase,
       activeIds,
     )
 
@@ -169,7 +175,7 @@ export async function GET(request: Request) {
 
       const runIds = [...latestRunMap.values()]
       if (runIds.length > 0) {
-        const { data: candidates } = await supabase
+        const { data: candidates } = await comparisonSupabase
           .from('theme_comparison_candidates_v2')
           .select('run_id, candidate_theme_id, similarity_score')
           .in('run_id', runIds)

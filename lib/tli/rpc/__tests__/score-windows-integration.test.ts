@@ -55,6 +55,19 @@ describe('COR-016: call sites use load_theme_score_windows RPC', () => {
   })
 })
 
+describe('공개 compare의 comparison run 공개 범위', () => {
+  it('migration RPC가 published 및 publish_ready run만 선택한다', () => {
+    const source = readSource('supabase/migrations/063_latest_per_theme_and_search_indexes.sql')
+    const functionStart = source.indexOf('CREATE OR REPLACE FUNCTION public.load_latest_published_comparison_runs')
+    const functionEnd = source.indexOf('$$;', functionStart)
+    const functionSource = source.slice(functionStart, functionEnd)
+
+    expect(functionStart).toBeGreaterThanOrEqual(0)
+    expect(functionSource).toContain("r.status = 'published'")
+    expect(functionSource).toContain('r.publish_ready = true')
+  })
+})
+
 describe('PERF-004: trigram index is declared in migration 063', () => {
   it('migration creates pg_trgm GIN indexes on themes and theme_stocks', () => {
     const source = readSource('supabase/migrations/063_latest_per_theme_and_search_indexes.sql')
