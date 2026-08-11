@@ -5,6 +5,10 @@ import { isTableNotFound } from '@/lib/tli/api-utils'
 import type { ThemeListItem, ThemeRanking } from '@/lib/tli/types'
 import { EMPTY_RANKING, SCORE_QUERY_BATCH_SIZE, SCORE_QUERY_WINDOW_DAYS, buildScoreMetaMap, buildCountMaps, buildThemeRanking, batchLoadStockData, batchLoadNewsCounts, applyFreshnessDecayToThemeData } from '@/app/api/tli/scores/ranking/ranking-helpers'
 import { getKSTDateString } from '@/lib/tli/date-utils'
+import { loadThemeScoreWindows } from '@/lib/tli/rpc/score-windows'
+
+// One PostgREST page. Matches max_rows so a full page means there may be more.
+const THEMES_PAGE_SIZE = 1000
 
 /** 서버 사이드 랭킹 데이터 조회 (API 라우트 경유 없이 직접 Supabase 호출) */
 export async function getRankingServer(todayStr = getKSTDateString()): Promise<ThemeRanking> {
@@ -15,17 +19,28 @@ export async function getRankingServer(todayStr = getKSTDateString()): Promise<T
     const supabase = getServerSupabaseClient()
 
     // 1) 활성 테마 전체 조회
-    const { data: themes, error: themesError } = await supabase
-      .from('themes')
-      .select('id, name, name_en')
-      .eq('is_active', true)
+    const themes: Array<{ id: string; name: string; name_en: string | null }> = []
+    let themesFrom = 0
+    for (;;) {
+      const { data: page, error: themesError } = await supabase
+        .from('themes')
+        .select('id, name, name_en')
+        .eq('is_active', true)
+        .order('id', { ascending: true })
+        .range(themesFrom, themesFrom + THEMES_PAGE_SIZE - 1)
 
-    if (themesError) {
-      if (isTableNotFound(themesError)) return EMPTY_RANKING
-      throw themesError
+      if (themesError) {
+        if (isTableNotFound(themesError)) return EMPTY_RANKING
+        throw themesError
+      }
+
+      if (!page || page.length === 0) break
+      themes.push(...page)
+      if (page.length < THEMES_PAGE_SIZE) break
+      themesFrom += THEMES_PAGE_SIZE
     }
 
-    if (!themes?.length) return EMPTY_RANKING
+    if (!themes.length) return EMPTY_RANKING
 
     const themeIds = themes.map((t) => t.id)
     const sevenDaysAgo = getKSTDateString(-7)
@@ -54,18 +69,17 @@ export async function getRankingServer(todayStr = getKSTDateString()): Promise<T
       return []
     })
 
+    // COR-016: Load score windows through the paged RPC wrapper.
     const scoreBatchesPromise = Promise.all(
       scoreChunks.map(async (chunk) => {
         try {
-          const { data, error } = await supabase
-            .from('lifecycle_scores')
-            .select('theme_id, score, stage, is_reigniting, calculated_at, components')
-            .in('theme_id', chunk)
-            .gte('calculated_at', scoreWindowStart)
-            .order('calculated_at', { ascending: false })
-            .limit(1000)
+          const { data, error } = await loadThemeScoreWindows(
+            supabase,
+            chunk,
+            scoreWindowStart,
+          )
           if (error) throw error
-          return data ?? []
+          return data
         } catch (error: unknown) {
           console.error('[TLI] ranking score batch load failed:', {
             themeCount: chunk.length,

@@ -990,7 +990,53 @@ export function GET() {
             'isReigniting',
           ],
         },
-        ThemeChangesResponse: {
+        // Field names here must match app/api/tli/changes/route.ts exactly. They did not:
+    // the spec advertised id/score/stage while the route returns
+    // themeId/currentScore/currentStage, so an assistant reading this document
+    // looked for keys that were never in the payload.
+    ThemeChangeBase: {
+      type: 'object',
+      properties: {
+        themeId: { type: 'string', format: 'uuid' },
+        name: { type: 'string' },
+        nameEn: { type: 'string', nullable: true },
+        currentScore: { type: 'number' },
+        currentStage: { type: 'string', nullable: true },
+        currentAt: {
+          type: 'string',
+          format: 'date',
+          description:
+            'Observation date of currentScore. The lookback window is wider than the '
+            + 'requested period (3 days for 1d, 12 for 7d) so a missed collection day '
+            + 'does not blank the endpoint, which means this can be older than today. '
+            + 'Qualify any restatement with this date rather than assuming "today".',
+        },
+      },
+      required: ['themeId', 'name', 'currentScore', 'currentStage', 'currentAt'],
+    },
+    ThemeMover: {
+      allOf: [
+        { $ref: '#/components/schemas/ThemeChangeBase' },
+        {
+          type: 'object',
+          properties: {
+            change: { type: 'number', description: 'currentScore - previousScore' },
+            previousScore: { type: 'number' },
+            previousAt: { type: 'string', format: 'date' },
+            gapDays: {
+              type: 'integer',
+              description:
+                'Calendar days between previousAt and currentAt — the interval `change` '
+                + 'was actually measured over. For period=7d the baseline is pinned near '
+                + '7 days with a 5-day floor; for period=1d it is simply the next '
+                + 'observation down and carries no floor, so this can exceed 1.',
+            },
+          },
+          required: ['change', 'previousScore', 'previousAt', 'gapDays'],
+        },
+      ],
+    },
+    ThemeChangesResponse: {
           type: 'object',
           properties: {
             success: { type: 'boolean', enum: [true] },
@@ -1004,31 +1050,11 @@ export function GET() {
                   properties: {
                     rising: {
                       type: 'array',
-                      items: {
-                        type: 'object',
-                        properties: {
-                          id: { type: 'string', format: 'uuid' },
-                          name: { type: 'string' },
-                          score: { type: 'number' },
-                          change: { type: 'number' },
-                          stage: { type: 'string' },
-                        },
-                        required: ['id', 'name', 'score', 'change', 'stage'],
-                      },
+                      items: { $ref: '#/components/schemas/ThemeMover' },
                     },
                     falling: {
                       type: 'array',
-                      items: {
-                        type: 'object',
-                        properties: {
-                          id: { type: 'string', format: 'uuid' },
-                          name: { type: 'string' },
-                          score: { type: 'number' },
-                          change: { type: 'number' },
-                          stage: { type: 'string' },
-                        },
-                        required: ['id', 'name', 'score', 'change', 'stage'],
-                      },
+                      items: { $ref: '#/components/schemas/ThemeMover' },
                     },
                   },
                   required: ['rising', 'falling'],
@@ -1036,29 +1062,24 @@ export function GET() {
                 stageTransitions: {
                   type: 'array',
                   items: {
-                    type: 'object',
-                    properties: {
-                      id: { type: 'string', format: 'uuid' },
-                      name: { type: 'string' },
-                      fromStage: { type: 'string' },
-                      toStage: { type: 'string' },
-                      score: { type: 'number' },
-                    },
-                    required: ['id', 'name', 'fromStage', 'toStage', 'score'],
+                    allOf: [
+                      { $ref: '#/components/schemas/ThemeChangeBase' },
+                      {
+                        type: 'object',
+                        properties: {
+                          fromStage: { type: 'string', nullable: true },
+                          toStage: { type: 'string', nullable: true },
+                          previousAt: { type: 'string', format: 'date' },
+                          gapDays: { type: 'integer' },
+                        },
+                        required: ['fromStage', 'toStage', 'previousAt', 'gapDays'],
+                      },
+                    ],
                   },
                 },
                 newlyEmerging: {
                   type: 'array',
-                  items: {
-                    type: 'object',
-                    properties: {
-                      id: { type: 'string', format: 'uuid' },
-                      name: { type: 'string' },
-                      score: { type: 'number' },
-                      stage: { type: 'string' },
-                    },
-                    required: ['id', 'name', 'score', 'stage'],
-                  },
+                  items: { $ref: '#/components/schemas/ThemeChangeBase' },
                 },
               },
               required: ['period', 'generatedAt', 'movers', 'stageTransitions', 'newlyEmerging'],

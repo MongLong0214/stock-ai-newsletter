@@ -1,6 +1,20 @@
 import { supabase } from '@/lib/supabase'
 import { apiSuccess, handleApiError, placeholderResponse, isTableNotFound } from '@/lib/tli/api-utils'
 import { getKSTDateString } from '@/lib/tli/date-utils'
+import { loadThemeScoreWindows } from '@/lib/tli/rpc/score-windows'
+import { selectPreviousChangesRow } from './date-selection'
+
+// One PostgREST page. Matches max_rows so a full page means "there may be more"
+// and a short page reliably terminates the loop.
+const THEMES_PAGE_SIZE = 1000
+
+const DAY_MS = 86_400_000
+
+/** Whole calendar days between two `YYYY-MM-DD` observations. */
+function calendarGapDays(from: string, to: string): number {
+  const parse = (v: string) => Date.UTC(+v.slice(0, 4), +v.slice(5, 7) - 1, +v.slice(8, 10))
+  return Math.round((parse(to) - parse(from)) / DAY_MS)
+}
 
 interface ScoreRow {
   theme_id: string
@@ -32,28 +46,40 @@ export async function GET(request: Request) {
     })
     if (placeholder) return placeholder
 
-    // 1) lifecycle_scores에서 최근 날짜분 조회
-    const cutoff = getKSTDateString(period === '7d' ? -8 : -2)
+    // 1) 활성 테마 ID 조회
+    // PostgREST caps an unbounded select at max_rows(=1000). The score lookup below
+    // now pages RPC results, but this id lookup fed it a silently
+    // truncated list — past 1000 active themes the surplus never reached the RPC and
+    // simply vanished from movers/transitions with no error. Page explicitly, ordered
+    // by id so page boundaries are stable across requests.
+    const allThemeIds: string[] = []
+    let themesFrom = 0
+    for (;;) {
+      const { data: page, error: themesLookupError } = await supabase
+        .from('themes')
+        .select('id')
+        .eq('is_active', true)
+        .order('id', { ascending: true })
+        .range(themesFrom, themesFrom + THEMES_PAGE_SIZE - 1)
 
-    const { data: scores, error: scoresError } = await supabase
-      .from('lifecycle_scores')
-      .select('theme_id, score, stage, calculated_at')
-      .gte('calculated_at', cutoff)
-      .order('calculated_at', { ascending: false })
-      .limit(5000)
-
-    if (scoresError) {
-      if (isTableNotFound(scoresError)) {
-        return apiSuccess({
-          movers: { rising: [], falling: [] },
-          stageTransitions: [],
-          newlyEmerging: [],
-        }, undefined, 'short')
+      if (themesLookupError) {
+        if (isTableNotFound(themesLookupError)) {
+          return apiSuccess({
+            movers: { rising: [], falling: [] },
+            stageTransitions: [],
+            newlyEmerging: [],
+          }, undefined, 'short')
+        }
+        throw themesLookupError
       }
-      throw scoresError
+
+      if (!page || page.length === 0) break
+      allThemeIds.push(...page.map((t) => t.id))
+      if (page.length < THEMES_PAGE_SIZE) break
+      themesFrom += THEMES_PAGE_SIZE
     }
 
-    if (!scores?.length) {
+    if (allThemeIds.length === 0) {
       return apiSuccess({
         movers: { rising: [], falling: [] },
         stageTransitions: [],
@@ -61,23 +87,54 @@ export async function GET(request: Request) {
       }, undefined, 'medium')
     }
 
-    // 2) 테마별 최신 row + 비교 시점 row 매핑
-    const themeMap = new Map<string, ThemePair>()
+    // 2) RPC로 테마별 점수 윈도우 조회 (COR-016: PostgREST max_rows=1000 우회)
+    // For 7d: look back ~10 days to ensure we find a row with minimum gap
+    const lookbackDays = period === '7d' ? 12 : 3
+    const cutoff = getKSTDateString(-lookbackDays)
 
-    for (const row of scores as ScoreRow[]) {
-      const existing = themeMap.get(row.theme_id)
-      if (!existing) {
-        themeMap.set(row.theme_id, { latest: row })
-      } else if (!existing.prev) {
-        // calculated_at DESC이므로 두 번째로 만나는 row가 이전 시점
-        existing.prev = row
-      }
+    // Chunk theme IDs to stay within the 500-theme RPC limit
+    const scoreChunks: string[][] = []
+    for (let i = 0; i < allThemeIds.length; i += 500) {
+      scoreChunks.push(allThemeIds.slice(i, i + 500))
     }
 
-    // 7d 모드: prev가 최소 5일 이상 차이나야 유효 (중간 데이터 누락 대비)
-    // 1d 모드: prev는 latest와 다른 날짜면 유효
+    const chunkResults = await Promise.all(
+      scoreChunks.map((chunk) => loadThemeScoreWindows(supabase, chunk, cutoff)),
+    )
 
-    // 3) 테마명 조회
+    const scores: ScoreRow[] = []
+    for (const result of chunkResults) {
+      if (result.error) throw result.error
+      scores.push(...(result.data as ScoreRow[]))
+    }
+
+    if (!scores.length) {
+      return apiSuccess({
+        movers: { rising: [], falling: [] },
+        stageTransitions: [],
+        newlyEmerging: [],
+      }, undefined, 'medium')
+    }
+
+    // 3) 테마별 최신 row + 비교 시점 row 매핑
+    const rowsByTheme = new Map<string, ScoreRow[]>()
+    for (const row of scores as ScoreRow[]) {
+      const rows = rowsByTheme.get(row.theme_id) ?? []
+      rows.push(row)
+      rowsByTheme.set(row.theme_id, rows)
+    }
+
+    const themeMap = new Map<string, ThemePair>()
+    for (const [themeId, rows] of rowsByTheme) {
+      const latest = rows[0]
+      if (!latest) continue
+      themeMap.set(themeId, {
+        latest,
+        prev: selectPreviousChangesRow(rows, period),
+      })
+    }
+
+    // 4) 테마명 조회
     const themeIds = [...themeMap.keys()]
     if (themeIds.length === 0) {
       return apiSuccess({
@@ -87,19 +144,25 @@ export async function GET(request: Request) {
       }, undefined, 'medium')
     }
 
-    const { data: themes, error: themesError } = await supabase
-      .from('themes')
-      .select('id, name, name_en')
-      .in('id', themeIds)
-
-    if (themesError) throw themesError
-
+    // Same max_rows cap as the id lookup above: an unchunked .in() over more than
+    // max_rows ids drops the tail, and those themes then render without a name.
+    // 500 per request matches the chunk size the score RPC already uses here and
+    // keeps every response well under the cap.
     const nameMap = new Map<string, ThemeRow>()
-    for (const t of (themes || []) as ThemeRow[]) {
-      nameMap.set(t.id, t)
+    for (let i = 0; i < themeIds.length; i += 500) {
+      const { data: themes, error: themesError } = await supabase
+        .from('themes')
+        .select('id, name, name_en')
+        .in('id', themeIds.slice(i, i + 500))
+
+      if (themesError) throw themesError
+
+      for (const t of (themes || []) as ThemeRow[]) {
+        nameMap.set(t.id, t)
+      }
     }
 
-    // 4) 결과 조립
+    // 5) 결과 조립
     const rising: Array<Record<string, unknown>> = []
     const falling: Array<Record<string, unknown>> = []
     const stageTransitions: Array<Record<string, unknown>> = []
@@ -116,6 +179,16 @@ export async function GET(request: Request) {
         nameEn: theme.name_en,
         currentScore: pair.latest.score,
         currentStage: pair.latest.stage,
+        // `period` names the request, not the interval this row was measured over.
+        // currentScore is the newest observation inside a lookback window that is
+        // deliberately wider than the period (3 days for 1d, 12 for 7d) so a missed
+        // collection day does not blank the endpoint — so it can be that many days
+        // old. The 7d baseline is pinned near latest-7 with a 5-day floor, but the
+        // 1d baseline is simply the next observation down and carries no gap floor.
+        // Consumers of this endpoint are llms.txt and openapi.json readers, i.e.
+        // assistants that will restate these numbers as "today". Publishing the
+        // observation dates lets them qualify that instead of guessing.
+        currentAt: pair.latest.calculated_at,
       }
 
       // movers
@@ -124,6 +197,8 @@ export async function GET(request: Request) {
           ...base,
           change,
           previousScore: pair.prev!.score,
+          previousAt: pair.prev!.calculated_at,
+          gapDays: calendarGapDays(pair.prev!.calculated_at, pair.latest.calculated_at),
         }
         if (change > 0) rising.push(entry)
         else falling.push(entry)
@@ -135,6 +210,8 @@ export async function GET(request: Request) {
           ...base,
           fromStage: pair.prev.stage,
           toStage: pair.latest.stage,
+          previousAt: pair.prev.calculated_at,
+          gapDays: calendarGapDays(pair.prev.calculated_at, pair.latest.calculated_at),
         })
       }
 

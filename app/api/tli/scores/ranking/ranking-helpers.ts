@@ -4,6 +4,7 @@ import { getMinRawInterest } from '@/lib/tli/constants/score-config'
 import { QUALITY_GATE } from '@/lib/tli/constants/quality-gate'
 import { buildQualityGateBuckets } from '@/lib/tli/quality-gate'
 import { buildSignalCardsFromPools } from '@/lib/tli/theme-signals'
+import { THEME_SCORE_WINDOW_MAX_THEMES } from '@/lib/tli/rpc/score-windows'
 
 // 랭킹 조회는 service-role 클라이언트로 수행한다. anon 롤은 34만 행 theme_news_articles의
 // RLS를 행마다 평가해 ~4배 느리고 statement_timeout에 걸려, SSR 랭킹이 빈 채 반환되며
@@ -33,7 +34,13 @@ export const EMPTY_RANKING: ThemeRanking = {
 
 const BATCH_SIZE = 50
 const PAGE_SIZE = 1000
-export const SCORE_QUERY_BATCH_SIZE = 10
+
+/**
+ * 점수 조회 청크 크기. 예전에는 PostgREST 1000행 상한 때문에 10이었지만, 이제
+ * `load_theme_score_windows` RPC가 테마별로 필요한 행만 돌려주므로 RPC 자체의
+ * 테마 수 상한이 유일한 제약이다.
+ */
+export const SCORE_QUERY_BATCH_SIZE = THEME_SCORE_WINDOW_MAX_THEMES
 
 /**
  * 랭킹 점수 조회 윈도우(일). buildScoreMetaMap은 latest + weekAgo(≤7일 전) + sparkline(최근 7일)만
