@@ -58,6 +58,14 @@ export async function POST(request: NextRequest) {
   // Validate token (AEAD decrypt, purpose=confirm)
   const tokenResult = validateConfirmToken(token);
   if (!tokenResult.valid || !tokenResult.email) {
+    // 'no_secret' is a server misconfiguration, not a bad link. Falling through to
+    // the 400 below told every user their link was invalid while the real cause was
+    // an unset token secret — the same class of error the SUPABASE_SERVICE_ROLE_KEY
+    // check below already reports as a 5xx.
+    if (tokenResult.error === 'no_secret') {
+      console.error('[subscribe/confirm] token secret not configured');
+      return NextResponse.json({ error: '시스템 설정 오류입니다.' }, { status: 503 });
+    }
     const status = tokenResult.error === 'expired' ? 410 : 400;
     const message = tokenResult.error === 'expired'
       ? '확인 링크가 만료되었습니다. 다시 구독 신청해주세요.'

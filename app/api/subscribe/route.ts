@@ -97,12 +97,17 @@ export async function POST(request: NextRequest) {
     try {
       await sendSubscriptionConfirmation(email, confirmToken);
     } catch (sendError) {
-      // Clean up the pending row if sending fails
+      // Clean up the pending row if sending fails.
+      // Scoped to this request's own token: two concurrent subscribes for the same
+      // address both upsert the single row, and without the hash predicate the one
+      // whose send failed would delete the row the other had already mailed a
+      // working link for.
       console.error('[subscribe] email send failed:', sendError instanceof Error ? sendError.message : 'unknown');
       await supabase
         .from('pending_subscribers')
         .delete()
         .eq('email', email)
+        .eq('confirm_token_hash', tokenHash)
         .is('confirmed_at', null);
 
       return NextResponse.json(

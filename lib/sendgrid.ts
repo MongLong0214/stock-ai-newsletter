@@ -284,6 +284,18 @@ export async function sendSingleRecipient(
     const error = err as { code?: number; response?: { statusCode?: number; body?: unknown } };
     const statusCode = error.response?.statusCode || error.code;
 
+    // 429 (rate limit) and 408 (request timeout) are 4xx but transient: the same
+    // payload succeeds once the window resets. Classifying them permanent burns a
+    // recipient's remaining attempts and drops a deliverable address for good —
+    // lib/delivery/service.ts routes !retryable straight to a terminal 'failed'.
+    if (statusCode === 429 || statusCode === 408) {
+      return {
+        accepted: false,
+        retryable: true,
+        error: `Provider throttled: ${statusCode}`,
+      };
+    }
+
     if (statusCode && statusCode >= 400 && statusCode < 500) {
       // 4xx = permanent (bad email, suppression, etc)
       return {
@@ -329,7 +341,12 @@ export async function sendStockNewsletter(
       try {
         const result = await sendSingleRecipient(recipient, data);
         if (!result.accepted) {
+          // A provider rejection never throws, so it must be pushed onto `errors`
+          // explicitly. Logging alone let the function return normally and print
+          // "전송 완료: N명" while N recipients had been rejected — the cron routes
+          // that call this then recorded the run as fully successful.
           console.error(`[sendgrid] Failed for recipient (hash: ${recipient.email.length}chars): ${result.error}`);
+          errors.push(new Error(result.error ?? 'provider rejected'));
         }
       } catch (err) {
         errors.push(err instanceof Error ? err : new Error(String(err)));
