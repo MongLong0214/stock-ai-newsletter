@@ -90,6 +90,26 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(GENERIC_RESPONSE);
   }
 
+  // Minted before the subscriber lookup on purpose. generateUnsubscribeToken throws
+  // fail-closed when UNSUBSCRIBE_TOKEN_SECRET is unset, and inside the `if (subscriber)`
+  // block below that throw was caught by the send-failure handler and reported as the
+  // generic success body — leaving the endpoint permanently inert with no signal.
+  // Minting here makes a misconfiguration answer 503 for every address alike, so it
+  // still reveals nothing about who is subscribed.
+  let unsubscribeToken: string;
+  try {
+    unsubscribeToken = generateUnsubscribeToken(email);
+  } catch (tokenError) {
+    console.error(
+      '[unsubscribe/request] token secret not configured:',
+      tokenError instanceof Error ? tokenError.message : 'unknown'
+    );
+    return NextResponse.json(
+      { error: '서비스를 일시적으로 사용할 수 없습니다.' },
+      { status: 503 }
+    );
+  }
+
   try {
     // Only mail addresses that are actually subscribed — otherwise this endpoint
     // becomes an open relay for sending mail to arbitrary addresses.
@@ -107,7 +127,7 @@ export async function POST(request: NextRequest) {
 
     if (subscriber) {
       try {
-        await sendUnsubscribeLink(email, generateUnsubscribeToken(email));
+        await sendUnsubscribeLink(email, unsubscribeToken);
       } catch (sendError) {
         // Must not surface as a distinct status: a 500 only for subscribed
         // addresses would turn a mail outage into a subscriber oracle.

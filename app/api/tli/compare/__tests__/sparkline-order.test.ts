@@ -33,6 +33,15 @@ vi.mock('@/lib/tli/api-utils', async (importOriginal) => {
 const THEME_A = '11111111-1111-4111-8111-111111111111'
 const THEME_B = '22222222-2222-4222-8222-222222222222'
 
+// The route keeps only rows with calculated_at >= getKSTDateString(-7), so fixed
+// literals silently age out of the window and the assertions start comparing against
+// an empty sparkline. Dating the fixtures relative to today keeps them inside it.
+function daysAgo(n: number): string {
+  const d = new Date()
+  d.setUTCDate(d.getUTCDate() - n)
+  return d.toISOString().slice(0, 10)
+}
+
 function scoreRow(themeId: string, calculatedAt: string, score: number) {
   return {
     id: `${themeId}-${calculatedAt}`,
@@ -76,11 +85,11 @@ beforeEach(() => {
   // RPC 계약: calculated_at DESC
   loadThemeScoreWindowsMock.mockReset().mockResolvedValue({
     data: [
-      scoreRow(THEME_A, '2026-07-31', 70),
-      scoreRow(THEME_A, '2026-07-30', 60),
-      scoreRow(THEME_A, '2026-07-29', 50),
-      scoreRow(THEME_B, '2026-07-31', 40),
-      scoreRow(THEME_B, '2026-07-30', 30),
+      scoreRow(THEME_A, daysAgo(0), 70),
+      scoreRow(THEME_A, daysAgo(1), 60),
+      scoreRow(THEME_A, daysAgo(2), 50),
+      scoreRow(THEME_B, daysAgo(0), 40),
+      scoreRow(THEME_B, daysAgo(1), 30),
     ],
     error: null,
   })

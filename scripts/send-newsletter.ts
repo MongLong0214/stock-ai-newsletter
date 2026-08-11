@@ -93,8 +93,12 @@ async function sendNewsletter() {
       console.error('   retryable/ambiguous 는 수동 확인 후 재실행 또는 수동 처리가 필요합니다.');
     }
 
-    // Twitter posting (best-effort, non-blocking for exit code)
-    if (result.success) {
+    // Twitter posting (best-effort, non-blocking for exit code).
+    // `alreadySent` means executeDelivery short-circuited on a run that had already
+    // completed, so no mail went out this invocation. Posting on that path made every
+    // idempotent rerun publish the same alert to X again — the email side is
+    // idempotent, the social side was not.
+    if (result.success && !result.alreadySent) {
       try {
         const { data: content } = await supabase
           .from('newsletter_content')
