@@ -16,8 +16,20 @@ END;
 $$;
 
 ALTER TABLE public.model_registry
+  DROP CONSTRAINT IF EXISTS model_registry_supported_model_type_check;
+
+ALTER TABLE public.model_registry
   ADD CONSTRAINT model_registry_supported_model_type_check
-  CHECK (model_type IN ('b_abl', 'm1_logistic'));
+  CHECK (
+    model_type IN ('b_abl', 'm1_logistic')
+    OR (
+      status = 'archived'
+      AND scientific_claim_status = 'invalidated'
+      AND scientific_release_status = 'blocked'
+      AND scientific_claim_reason = 'unsupported_model_type'
+      AND invalidated_at IS NOT NULL
+    )
+  );
 
 CREATE OR REPLACE FUNCTION public.load_tli_latest_public_scientific_predictions_v3(
   p_theme_id UUID DEFAULT NULL
@@ -74,6 +86,6 @@ GRANT EXECUTE ON FUNCTION public.load_tli_latest_public_scientific_predictions_v
   TO service_role;
 
 COMMENT ON CONSTRAINT model_registry_supported_model_type_check ON public.model_registry IS
-  'Runtime dispatch is exhaustive: only b_abl and m1_logistic artifacts are accepted.';
+  'Runtime dispatch is exhaustive: unsupported model types may exist only as invalidated, blocked archived quarantine records.';
 COMMENT ON FUNCTION public.load_tli_latest_public_scientific_predictions_v3(UUID) IS
   'Returns the optional-theme-scoped latest public cohort only when it is no more than 10 calendar days old.';
