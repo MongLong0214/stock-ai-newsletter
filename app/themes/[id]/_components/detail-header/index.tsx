@@ -95,7 +95,14 @@ function DetailHeader({ theme }: DetailHeaderProps) {
           </div>
 
           <div className="flex-shrink-0">
-            <LifecycleScore score={theme.score.value} stage={theme.score.stage} change24h={theme.score.change24h} size="lg" />
+            <LifecycleScore
+              score={theme.score.value}
+              stage={theme.score.stage}
+              change24h={theme.score.change24h}
+              size="lg"
+              confidenceLevel={theme.score.confidence?.level}
+              confidenceReason={theme.score.confidence?.reason}
+            />
           </div>
         </div>
 

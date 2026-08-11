@@ -11,7 +11,7 @@ import { cn } from '@/lib/utils'
 import type { ComparisonResult } from '@/lib/tli/types'
 import ComparisonList from './comparison-list'
 
-const WORKSPACE_HEIGHT_CLASS = 'xl:h-[clamp(680px,78vh,780px)]'
+const WORKSPACE_HEIGHT_CLASS = 'xl:h-[clamp(720px,78vh,820px)]'
 
 interface ComparisonWorkspaceProps {
   themeName: string
@@ -94,7 +94,7 @@ function ComparisonWorkspace({
         transition={{ duration: 0.45, delay: 0.08 }}
         className={WORKSPACE_HEIGHT_CLASS}
       >
-        <GlassCard className="h-full overflow-hidden grid grid-rows-[auto_auto_minmax(0,1fr)]">
+        <GlassCard className="overflow-hidden grid grid-rows-[auto_auto_400px] sm:grid-rows-[auto_auto_440px] xl:h-full xl:grid-rows-[auto_auto_minmax(340px,1fr)]">
           <div className="px-4 py-4 sm:px-6 sm:py-5">
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center justify-between gap-2.5">
@@ -174,7 +174,10 @@ function ComparisonWorkspace({
             </div>
           </div>
 
-          <div className="px-4 pb-4 sm:px-6 sm:pb-6 min-h-0">
+          <div
+            className="px-4 pb-4 sm:px-6 sm:pb-6 min-h-0"
+            data-testid="lifecycle-comparison-chart"
+          >
             <div className="h-full min-h-0 rounded-[24px] border border-slate-800/70 bg-[linear-gradient(180deg,rgba(2,6,23,0.56),rgba(2,6,23,0.18))] p-3 sm:p-4 grid grid-rows-[auto_minmax(0,1fr)]">
               <div className="flex flex-wrap items-center gap-2 pb-3">
                 {newsTimeline && newsTimeline.length > 0 && (

@@ -1,5 +1,6 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import React, { type CSSProperties, type ReactNode } from 'react';
-import { OG_BACKGROUND_DATA_URI } from '@/lib/og-background';
 import { siteConfig } from '@/lib/constants/seo/config';
 
 interface OgLayoutOptions {
@@ -13,6 +14,25 @@ interface OgLayoutOptions {
 
 const CANVAS_WIDTH = 1200;
 const CANVAS_HEIGHT = 630;
+let cachedOgBackgroundSource: ArrayBuffer | null = null;
+
+/**
+ * ImageResponse/Satori accepts local image bytes as ArrayBuffer. Loading the
+ * tracked asset lazily avoids a build-time dependency on the currently deployed
+ * production URL and still lets the bake script recreate a missing asset.
+ */
+function getOgBackgroundSource(): string {
+  if (!cachedOgBackgroundSource) {
+    const png = readFileSync(join(process.cwd(), 'public', 'og-background-v1.png'));
+    cachedOgBackgroundSource = png.buffer.slice(
+      png.byteOffset,
+      png.byteOffset + png.byteLength,
+    ) as ArrayBuffer;
+  }
+
+  // React's img typing only exposes string src, while Satori also accepts ArrayBuffer.
+  return cachedOgBackgroundSource as unknown as string;
+}
 
 const COLORS = {
   backgroundTop: '#050505',
@@ -534,9 +554,9 @@ export function createOgLayout({
         fontFamily: '"Noto Sans KR", sans-serif',
       }}
     >
-      {/* eslint-disable-next-line @next/next/no-img-element -- Satori renders data URI backgrounds with plain img elements. */}
+      {/* eslint-disable-next-line @next/next/no-img-element -- Satori renders the versioned static background with a plain img element. */}
       <img
-        src={OG_BACKGROUND_DATA_URI}
+        src={getOgBackgroundSource()}
         width={CANVAS_WIDTH}
         height={CANVAS_HEIGHT}
         alt=""
