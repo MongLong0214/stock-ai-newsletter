@@ -8,6 +8,14 @@ import { selectPreviousChangesRow } from './date-selection'
 // and a short page reliably terminates the loop.
 const THEMES_PAGE_SIZE = 1000
 
+const DAY_MS = 86_400_000
+
+/** Whole calendar days between two `YYYY-MM-DD` observations. */
+function calendarGapDays(from: string, to: string): number {
+  const parse = (v: string) => Date.UTC(+v.slice(0, 4), +v.slice(5, 7) - 1, +v.slice(8, 10))
+  return Math.round((parse(to) - parse(from)) / DAY_MS)
+}
+
 interface ScoreRow {
   theme_id: string
   score: number
@@ -171,6 +179,16 @@ export async function GET(request: Request) {
         nameEn: theme.name_en,
         currentScore: pair.latest.score,
         currentStage: pair.latest.stage,
+        // `period` names the request, not the interval this row was measured over.
+        // currentScore is the newest observation inside a lookback window that is
+        // deliberately wider than the period (3 days for 1d, 12 for 7d) so a missed
+        // collection day does not blank the endpoint — so it can be that many days
+        // old. The 7d baseline is pinned near latest-7 with a 5-day floor, but the
+        // 1d baseline is simply the next observation down and carries no gap floor.
+        // Consumers of this endpoint are llms.txt and openapi.json readers, i.e.
+        // assistants that will restate these numbers as "today". Publishing the
+        // observation dates lets them qualify that instead of guessing.
+        currentAt: pair.latest.calculated_at,
       }
 
       // movers
@@ -179,6 +197,8 @@ export async function GET(request: Request) {
           ...base,
           change,
           previousScore: pair.prev!.score,
+          previousAt: pair.prev!.calculated_at,
+          gapDays: calendarGapDays(pair.prev!.calculated_at, pair.latest.calculated_at),
         }
         if (change > 0) rising.push(entry)
         else falling.push(entry)
@@ -190,6 +210,8 @@ export async function GET(request: Request) {
           ...base,
           fromStage: pair.prev.stage,
           toStage: pair.latest.stage,
+          previousAt: pair.prev.calculated_at,
+          gapDays: calendarGapDays(pair.prev.calculated_at, pair.latest.calculated_at),
         })
       }
 
