@@ -2,6 +2,62 @@
   "newsletters": [
     {
       "type": "stock",
+      "date": "2026-08-13",
+      "stocks": [
+        {
+          "ticker": "KOSDAQ:225190",
+          "name": "LK삼양",
+          "close_price": 1131,
+          "rationale": "2026년 8월 12일 종가 1,131원 확인|국방부 드론 사업 카메라 모듈 공급 체결|스페이스X 상장 기대감 및 우주 광학 모듈 시장 진출|RSI 62.4 상승 추세 유지|전일 상한가 이후 추가 급등|거래량 870만 주 돌파|SMA 5-20 골든크로스 완성|MACD 시그널선 상향 돌파|ADX 22.1 추세 강도 증가|Ichimoku 구름대 상단 돌파 시도|OBV 매집 에너지 강화|Stochastic 72.5 안정적 상승",
+          "signals": {
+            "trend_score": 86,
+            "momentum_score": 88,
+            "volume_score": 82,
+            "volatility_score": 70,
+            "pattern_score": 75,
+            "sentiment_score": 90,
+            "overall_score": 85
+          },
+          "verified_date": "2026-08-12"
+        },
+        {
+          "ticker": "KOSPI:000660",
+          "name": "SK하이닉스",
+          "close_price": 1504000,
+          "rationale": "2026년 8월 12일 종가 1,504,000원 확인|AI 메모리 랠리 재점화로 전일 대비 5.54% 급등|코스피 6,600선 돌파 주도 대장주|외국인 및 기관 3조 원 규모 쌍끌이 매수|HBM 시장 점유율 70% 기반 독점적 지위|SMA 정배열 상태 유지|RSI 68.5 과매수 구간 진입 전 강세|볼린저밴드 상단 확장 구간 진입|MACD 히스토그램 양봉 전환|ADX 35 강력한 추세 형성|VWAP 상단 지지 확인|SuperTrend 매수 신호 지속",
+          "signals": {
+            "trend_score": 92,
+            "momentum_score": 90,
+            "volume_score": 88,
+            "volatility_score": 75,
+            "pattern_score": 85,
+            "sentiment_score": 92,
+            "overall_score": 90
+          },
+          "verified_date": "2026-08-12"
+        },
+        {
+          "ticker": "KOSPI:002990",
+          "name": "금호건설",
+          "close_price": 14930,
+          "rationale": "2026년 8월 12일 종가 14,930원(상한가) 확인|호남 반도체 클러스터 기대감으로 인한 상한가 도달|거래량 2,111만 주 폭증(평균 대비 600% 이상)|Williams %R -15 극강세|ADX 28 상승 추세 가속화|SMA 5-60 골든크로스 발생|RSI 68.2 모멘텀 강화|Parabolic SAR 매수 신호 전환|볼린저밴드 상단 돌파 마감|GTX 수도권 광역급행철도 컨소시엄 참여 모멘텀|OBV 매집 신호 역대 최고치|이낙연 테마 및 건설주 섹터 순환매 수혜",
+          "signals": {
+            "trend_score": 89,
+            "momentum_score": 98,
+            "volume_score": 99,
+            "volatility_score": 92,
+            "pattern_score": 95,
+            "sentiment_score": 95,
+            "overall_score": 95
+          },
+          "verified_date": "2026-08-12"
+        }
+      ],
+      "sentAt": "2026-08-12T23:05:34.103+00:00",
+      "subscriberCount": 307
+    },
+    {
+      "type": "stock",
       "date": "2026-08-12",
       "stocks": [
         {
@@ -10742,5 +10798,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-08-11T23:28:13.258Z"
+  "lastUpdated": "2026-08-12T23:06:14.158Z"
 }
