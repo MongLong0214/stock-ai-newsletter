@@ -2,6 +2,62 @@
   "newsletters": [
     {
       "type": "stock",
+      "date": "2026-08-14",
+      "stocks": [
+        {
+          "ticker": "KOSPI:402340",
+          "name": "SK스퀘어",
+          "close_price": 111700,
+          "rationale": "2026-08-13 종가 111,700원(수정됨) 확인|SMA 5/20/60/120일 완전정배열 지속|EMA 20일선 강력 우상향 추세 유지|RSI(14) 68.5로 과매수 진입 직전 강세구간|MACD 히스토그램 3일 연속 양선 확대|거래량비율(VR) 185%로 바닥권 대비 폭증|볼린저밴드 상단(112,500) 돌파 시도 중|ADX 32.4로 매우 강한 상승 추세 신호|OBV 지표가 전고점을 돌파하며 매집 확인|Stochastic %K 82.5로 단기 모멘텀 극대화",
+          "signals": {
+            "trend_score": 98,
+            "momentum_score": 96,
+            "volume_score": 95,
+            "volatility_score": 88,
+            "pattern_score": 94,
+            "sentiment_score": 97,
+            "overall_score": 95
+          },
+          "verified_date": "2026-08-13"
+        },
+        {
+          "ticker": "KOSPI:010120",
+          "name": "LS ELECTRIC",
+          "close_price": 214000,
+          "rationale": "2026-08-13 종가 214,000원 확인|SMA 20일 이평선(208,000) 지지 후 반등|EMA 5일선이 20일선을 상향 돌파하는 골든크로스|RSI(14) 62.8로 안정적인 상승 가도|MACD 시그널선이 0선 위에서 상향 돌파 성공|5일 평균 거래량 대비 140% 증가 확인|볼린저밴드 중심선(209,500) 지지력 검증 완료|ADX 28.2로 추세 강화 단계 진입|OBV 계단식 우상향으로 꾸준한 기관 수급 유입|Stochastic 72.4로 추가 상승 여력 충분",
+          "signals": {
+            "trend_score": 92,
+            "momentum_score": 90,
+            "volume_score": 88,
+            "volatility_score": 85,
+            "pattern_score": 91,
+            "sentiment_score": 92,
+            "overall_score": 90
+          },
+          "verified_date": "2026-08-13"
+        },
+        {
+          "ticker": "KOSDAQ:196170",
+          "name": "알테오젠",
+          "close_price": 312750,
+          "rationale": "2026-08-13 종가 312,750원 확인|SMA 장기 이평선(200일) 대비 25% 상단 정배열|EMA 지지선이 308,000원 구간에서 견고히 형성|RSI(14) 59.6으로 과매수 부담 없는 상승세|MACD 0선 위에서 시그널선과 이격 확대|거래량 박스권 돌파하며 에너지 응축 확인|볼린저밴드 폭이 수렴 후 상방 확산 초기 단계|ATR 3.2% 수준으로 변동성 관리 안정적|OBV 직전 고점 돌파로 매수 우위 장세 증명|MFI(Money Flow Index) 66.2로 자금 유입 지속",
+          "signals": {
+            "trend_score": 90,
+            "momentum_score": 88,
+            "volume_score": 85,
+            "volatility_score": 92,
+            "pattern_score": 93,
+            "sentiment_score": 89,
+            "overall_score": 89
+          },
+          "verified_date": "2026-08-13"
+        }
+      ],
+      "sentAt": "2026-08-13T23:06:46.819+00:00",
+      "subscriberCount": 309
+    },
+    {
+      "type": "stock",
       "date": "2026-08-13",
       "stocks": [
         {
@@ -10798,5 +10854,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-08-12T23:28:35.944Z"
+  "lastUpdated": "2026-08-13T23:07:30.028Z"
 }
