@@ -2,6 +2,62 @@
   "newsletters": [
     {
       "type": "stock",
+      "date": "2026-08-18",
+      "stocks": [
+        {
+          "ticker": "KOSDAQ:196170",
+          "name": "알테오젠",
+          "close_price": 314000,
+          "rationale": "SMA 20일선(317,500원) 이격 조정 후 강력한 지지선 310,000원 확인|RSI 42.653 중립 구간 진입으로 과열 해소 완료|Williams %R -49.41로 과매수 구간 미진입 확인(PASS)|MACD 히스토그램 하락폭 축소 및 영선 하단 반전 시도|Stochastic 42.54 중립권에서 골든크로스 대기|거래량 375K로 매도세 진정 및 바닥 다지기 포착|ADX 51.846 강한 추세성 보유한 눌림목 구간|볼린저밴드 하단 지지 반등 및 스퀴즈 패턴 형성|ATR 2.58%로 변동성 안정화 및 매집 적기|CCI -73.84 침체권 탈출 초기 시그널 발생",
+          "signals": {
+            "trend_score": 75,
+            "momentum_score": 88,
+            "volume_score": 70,
+            "volatility_score": 82,
+            "pattern_score": 94,
+            "sentiment_score": 80,
+            "overall_score": 82
+          },
+          "verified_date": "2026-08-14"
+        },
+        {
+          "ticker": "KOSPI:068270",
+          "name": "셀트리온",
+          "close_price": 201000,
+          "rationale": "EMA 120일선 장기 지지 확인 및 정배열 초기 단계|RSI 50.12 중립 유지로 상방 룸 충분|Williams %R -31.70로 안정적 매수 구간 유지(PASS)|MACD 영선 상단 교차하며 우상향 모멘텀 지속|Stochastic Slow 54.30 안정적인 추세 추종|거래량 341K 기관 중심의 점진적 매집 관찰|ADX 28.45 완만한 상승 추세 강화 구간|볼린저밴드 중단 지지 후 상단 돌파 시도|ATR 1.25% 저변동성 구간 매집 강세|OBV 저점 높이며 매집 강도 누적 확인",
+          "signals": {
+            "trend_score": 85,
+            "momentum_score": 80,
+            "volume_score": 78,
+            "volatility_score": 70,
+            "pattern_score": 88,
+            "sentiment_score": 85,
+            "overall_score": 82
+          },
+          "verified_date": "2026-08-14"
+        },
+        {
+          "ticker": "KOSPI:011200",
+          "name": "HMM",
+          "close_price": 21250,
+          "rationale": "SMA 5일선(21,180원) 돌파 및 지지 안착 성공|RSI 57.14 안정적 우상향 곡선 형성|Williams %R -29.41 과매수 기준치(-20) 하회로 안전 진입권(PASS)|MACD 52.893 매수 신호 발생 및 시그널선 상향 돌파|Stochastic 59.01 중립권 내 강세 반등 시도|거래량 1.05M 활발한 수급 유입 및 매물 소화 완료|ADX 25.969 신규 추세 형성 가능성 확대|볼린저밴드 중단 돌파 후 스퀴즈 상단 확장 대기|ATR 3.12% 변동성 확대 시작 지점|CCI 123.71 강세 구역 진입 초기 단계 포착",
+          "signals": {
+            "trend_score": 82,
+            "momentum_score": 85,
+            "volume_score": 80,
+            "volatility_score": 75,
+            "pattern_score": 84,
+            "sentiment_score": 72,
+            "overall_score": 81
+          },
+          "verified_date": "2026-08-14"
+        }
+      ],
+      "sentAt": "2026-08-17T22:44:43.321+00:00",
+      "subscriberCount": 311
+    },
+    {
+      "type": "stock",
       "date": "2026-08-14",
       "stocks": [
         {
@@ -10854,5 +10910,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-08-16T23:09:06.800Z"
+  "lastUpdated": "2026-08-17T22:45:26.458Z"
 }
