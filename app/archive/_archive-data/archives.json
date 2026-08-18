@@ -2,6 +2,62 @@
   "newsletters": [
     {
       "type": "stock",
+      "date": "2026-08-19",
+      "stocks": [
+        {
+          "ticker": "KOSDAQ:377450",
+          "name": "리파인",
+          "close_price": 16010,
+          "rationale": "최대주주 리얼티파인(스톤브릿지·LS증권)의 주당 17,600원 공개매수 공시로 강력한 가격 지지선 형성|2026-08-18 종가 16,010원(+17.89%) 기록하며 매수세 집중|거래량 1,741,559주로 전일(약 10만 주) 대비 17배 이상 폭발적 증가|RSI(14) 68.5로 과열권 진입 직전의 강력한 상승 모멘텀 확보|ADX 28.5 수준으로 상승 추세 강도 강화 확인|5일/20일/60일 이동평균선 완전 정배열 진입 초기|볼린저밴드 상단(15,200원)을 강력한 장대양봉으로 돌파|MACD Oscillator가 0선 위에서 확산되며 Bullish 전환|공개매수 가격(17,600원) 대비 약 9%의 추가 상승 여력 존재|상장 유지 결정으로 인한 불확실성 해소 및 지배구조 안정화 기대|OBV(On Balance Volume) 수직 상승으로 주체 매집 신호 포착",
+          "signals": {
+            "trend_score": 98,
+            "momentum_score": 95,
+            "volume_score": 100,
+            "volatility_score": 85,
+            "pattern_score": 96,
+            "sentiment_score": 92,
+            "overall_score": 96
+          },
+          "verified_date": "2026-08-18"
+        },
+        {
+          "ticker": "KOSPI:475560",
+          "name": "더본코리아",
+          "close_price": 19360,
+          "rationale": "북미 및 캐나다 외식·유통망 확대 모멘텀 가시화로 인한 글로벌 성장성 부각|2026-08-18 종가 19,360원(+21.84%) 기록하며 직전 저항선 돌파|장중 고가 20,600원 터치하며 단기 매물 소화 및 상승 의지 확인|거래대금 약 147억 원 발생하며 시장 급락(KOSPI -1.55%) 대비 강력한 상대 강도(Relative Strength) 시현|SMA 20일선이 60일선을 상향 돌파하는 골든크로스 발생|Stochastic Fast %K가 80선 위에서 유지되며 단기 과매수 모멘텀 지속|MFI(Money Flow Index) 62.4로 자금 유입 우위 상태 유지|VWAP(거래량 가중 평균 가격) 19,250원 상단에서 종가 형성하여 매수 심리 우위 확인|외국인 소진율 0.53%로 낮아 향후 기관 및 외국인 수급 추가 유입 공간 확보|Ichimoku Cloud(일목균형표) 선행스팬 상단 지지 후 반등 성공|CCI(14) 120 돌파로 신규 상승 추세 진입 신호 발생",
+          "signals": {
+            "trend_score": 94,
+            "momentum_score": 92,
+            "volume_score": 90,
+            "volatility_score": 82,
+            "pattern_score": 95,
+            "sentiment_score": 88,
+            "overall_score": 92
+          },
+          "verified_date": "2026-08-18"
+        },
+        {
+          "ticker": "KOSPI:006660",
+          "name": "삼성공조",
+          "close_price": 15110,
+          "rationale": "2026-08-18 장중 상한가(15,110원, +29.92%) 안착으로 강력한 기술적 돌파 성공|거래량 3,216,687주 기록하며 전일(193,863주) 대비 16배 이상 폭증|시장 전체 급락세에도 불구하고 독보적인 상한가 마감으로 강력한 대장주 포스 시현|52주 신고가(20,000원) 대비 낙폭 과대 인식에 따른 V자 반등 가속화|Aroon Up 지표 100 기록하며 최상위 수준의 상승 추세 강도 확인|Parabolic SAR 매수 신호 전환 및 주가 하단 지지선 형성|MACD 시그널선 골든크로스 발생 및 히스토그램 양선 확대|PBR 0.32배 수준의 극심한 저평가 상태에서 수급 유입에 따른 가치 재평가 시작|Elder Ray Bull Power가 최근 3개월 내 최대치 기록하며 매수세 압도|Vortex Indicator VI+가 1.30을 돌파하며 강력한 추세 반전 확정|상한가 잔량 유입으로 차기 거래일 시가 갭상승 가능성 고조",
+          "signals": {
+            "trend_score": 100,
+            "momentum_score": 98,
+            "volume_score": 100,
+            "volatility_score": 75,
+            "pattern_score": 98,
+            "sentiment_score": 95,
+            "overall_score": 96
+          },
+          "verified_date": "2026-08-18"
+        }
+      ],
+      "sentAt": "2026-08-18T22:44:40.788+00:00",
+      "subscriberCount": 311
+    },
+    {
+      "type": "stock",
       "date": "2026-08-18",
       "stocks": [
         {
@@ -10910,5 +10966,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-08-17T23:11:34.057Z"
+  "lastUpdated": "2026-08-18T22:45:16.435Z"
 }
