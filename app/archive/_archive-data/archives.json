@@ -2,6 +2,62 @@
   "newsletters": [
     {
       "type": "stock",
+      "date": "2026-08-20",
+      "stocks": [
+        {
+          "ticker": "KOSDAQ:196170",
+          "name": "알테오젠",
+          "close_price": 303500,
+          "rationale": "SMA 완전정배열 유지|EMA 10/20일선 지지후 반등|RSI 62.4 중립강세 구간|MACD Histogram 양의 영역 확장|거래량 36만주(한경 코리아마켓 실측)|볼린저 상단밴드 확장 국면|ATR 3.8% 수준의 변동성 확대|ADX 34.2 강한 상승 추세 확인|OBV 우상향 지속으로 매집 확인|Stochastic 78 강세권 유지|Williams %R -24.5 상단 모멘텀|Ichimoku 구름대 상단 돌파 완료|Vortex Indicator 상승 전환 신호|52주 최고가 569,000원 대비 회복세",
+          "signals": {
+            "trend_score": 98,
+            "momentum_score": 92,
+            "volume_score": 95,
+            "volatility_score": 89,
+            "pattern_score": 95,
+            "sentiment_score": 88,
+            "overall_score": 94
+          },
+          "verified_date": "2026-08-19"
+        },
+        {
+          "ticker": "KOSDAQ:403870",
+          "name": "HPSP",
+          "close_price": 45700,
+          "rationale": "SMA 20일선 강한 거래량과 함께 상향돌파|EMA 단기 골든크로스 발생|RSI 46.8 바닥권 탈출 신호|MACD 오실레이터 마이너스폭 급격히 축소|거래량 6,419,914주 폭발(평균 거래량 대비 200% 이상)|볼린저 하단 지지후 중심선 돌파|ATR 4.2% 추세 전환 변동성|ADX 18.2 바닥 다지기 후 상승 전환|OBV 매집세 유입 확인(민심뉴스 실측)|Stochastic 25 과매도 구간 탈출|Williams %R -72.1 반등 시작 신호|CMF 0.08 자금 유입 포착|Elder Ray Bull Power 양전환|Vortex 골든크로스 시그널 발생",
+          "signals": {
+            "trend_score": 82,
+            "momentum_score": 88,
+            "volume_score": 96,
+            "volatility_score": 92,
+            "pattern_score": 90,
+            "sentiment_score": 85,
+            "overall_score": 89
+          },
+          "verified_date": "2026-08-19"
+        },
+        {
+          "ticker": "KOSPI:012450",
+          "name": "한화에어로스페이스",
+          "close_price": 1177000,
+          "rationale": "SMA 중장기 정배열 추세 유지|미국 자주포 시제품 계약 체결 호재 반영(뉴스핌/한국경제)|RSI 58.1 안정적 상승권 진입|MACD Signal선 상향 돌파 시도|거래량 408,000주로 전일 대비 증가(Daum 금융 실측)|볼린저 중심선 지지후 재반등|ATR 2.9% 변동성 안정화 속 추세 형성|ADX 22.5 추세 강도 점진적 상승|OBV 신고가 동행하며 매물 소화|Stochastic 55 수렴 후 상방 발산|Parabolic SAR 매수 전환 신호|SuperTrend 강세 신호 지속|CCI 85 상승 여력 충분|외국인 보유율 45.64%로 견조한 수급",
+          "signals": {
+            "trend_score": 88,
+            "momentum_score": 82,
+            "volume_score": 78,
+            "volatility_score": 85,
+            "pattern_score": 80,
+            "sentiment_score": 84,
+            "overall_score": 83
+          },
+          "verified_date": "2026-08-19"
+        }
+      ],
+      "sentAt": "2026-08-19T22:45:37.845+00:00",
+      "subscriberCount": 311
+    },
+    {
+      "type": "stock",
       "date": "2026-08-19",
       "stocks": [
         {
@@ -10966,5 +11022,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-08-18T23:11:15.900Z"
+  "lastUpdated": "2026-08-19T22:46:14.127Z"
 }
