@@ -21,6 +21,9 @@ export const metadata: Metadata = {
   ],
   alternates: {
     canonical: siteConfig.domain,
+    types: {
+      'application/rss+xml': `${siteConfig.domain}/feed.xml`,
+    },
   },
   openGraph: {
     title: 'StockMatrix | 무료 AI 주식 분석 뉴스레터 · KOSPI·KOSDAQ 3종목 분석',

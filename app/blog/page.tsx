@@ -101,6 +101,9 @@ export const metadata: Metadata = {
   },
   alternates: {
     canonical: `${siteConfig.domain}/blog`,
+    types: {
+      'application/rss+xml': `${siteConfig.domain}/feed.xml`,
+    },
   },
   robots: {
     index: true,
