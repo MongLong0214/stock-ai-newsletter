@@ -114,6 +114,9 @@ export default function ArchiveLayout({
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(collectionPageSchema).replace(/</g, '\\u003c') }}
       />
+      {/* SSR 렌더 h1 — 하위 page.tsx는 'use client' CSR이라 h1이 초기 HTML에 안 나옴.
+          서버 컴포넌트인 layout에서 시맨틱 h1을 제공해 크롤러/스크린리더가 항상 인식. */}
+      <h1 className="sr-only">StockMatrix 뉴스레터 분석 기록</h1>
       {children}
     </>
   );

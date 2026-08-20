@@ -94,7 +94,7 @@ function AnimatedBackground() {
   }
 
   return (
-    <div className="fixed inset-0 overflow-hidden pointer-events-none z-0 bg-black">
+    <div className="fixed inset-0 overflow-hidden pointer-events-none z-0 bg-black" aria-hidden="true" role="presentation">
       {/* Primary matrix columns */}
       {columns.map((column) => (
         <motion.div

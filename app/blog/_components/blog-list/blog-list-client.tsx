@@ -15,8 +15,11 @@ import { useDebounce } from '../../_hooks/use-debounce';
 import type { BlogPostListItem } from '../../_types/blog';
 
 const DEBOUNCE_MS = 300;
-const INITIAL_RENDER_COUNT = 9;
-const LOAD_MORE_COUNT = 9;
+// SSR·초기 렌더 개수. SSR에서 전체(1000+)를 렌더하면 /blog HTML이 5MB+로 커져
+// 크롤 효율·모바일 성능이 무너진다. 초기엔 이 개수만 렌더하고 나머지는 무한스크롤로,
+// 전체 글 발견은 sitemap이 담당한다.
+const INITIAL_RENDER_COUNT = 24;
+const LOAD_MORE_COUNT = 12;
 const SCROLL_THRESHOLD = 200;
 
 const HEADER_ANIMATION = {
@@ -117,7 +120,8 @@ export default function BlogListClient({ posts }: BlogListClientProps) {
   }, []);
 
   const hasActiveFilters = debouncedSearch.trim() || selectedTags.size > 0;
-  const visiblePosts = hydrated ? filteredPosts.slice(0, visibleCount) : filteredPosts;
+  // SSR(하이드레이션 전)도 INITIAL_RENDER_COUNT개만 렌더 — 전체 렌더 시 5MB+ HTML 방지.
+  const visiblePosts = hydrated ? filteredPosts.slice(0, visibleCount) : filteredPosts.slice(0, INITIAL_RENDER_COUNT);
   const hasMore = hydrated && visibleCount < filteredPosts.length;
 
   return (

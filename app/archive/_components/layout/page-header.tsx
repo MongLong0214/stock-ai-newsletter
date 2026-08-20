@@ -16,7 +16,8 @@ function PageHeader() {
       {...createFadeInUpVariant(STAGGER_DELAYS.header)}
       className="mb-12 text-center lg:text-left"
     >
-      <motion.h1
+      {/* 시각적 타이틀 — 시맨틱 h1은 archive/layout.tsx(SSR)에 있으므로 여기선 div로 중복 h1 방지 */}
+      <motion.div
         {...createFadeInUpVariant(STAGGER_DELAYS.title)}
         className="mb-4 text-4xl sm:text-5xl lg:text-6xl font-extralight tracking-tight leading-[0.95]"
       >
@@ -24,7 +25,7 @@ function PageHeader() {
         <span className="block font-normal bg-clip-text text-transparent bg-gradient-to-r from-emerald-400 via-teal-400 to-emerald-400">
           분석 기록
         </span>
-      </motion.h1>
+      </motion.div>
       <motion.p
         {...createFadeInUpVariant(STAGGER_DELAYS.description)}
         className="text-lg text-white font-light leading-relaxed"

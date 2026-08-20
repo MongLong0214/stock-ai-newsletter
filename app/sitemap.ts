@@ -5,12 +5,9 @@ import { isValidBlogSlug } from './blog/_utils/slug-validator';
 
 export const revalidate = 86400;
 
-// 활성 테마는 수백 개 이내이고 모두 최근 날짜에 채점되므로, 최신 점수는 상위 rows만으로 충분.
-// lifecycle_scores 전량(수만 rows) 로드로 인한 빌드 시간·메모리 폭증을 방지(원래 sitemap이
-// 60초를 넘긴 근본 원인). 쿼리 자체는 <1s이므로 별도 abort는 두지 않는다 — DB 경합 구간에
-// abort가 발동하면 catch가 빈 sitemap을 조용히 만들어 색인이 유실됨. hang 가드는
-// next.config staticPageGenerationTimeout(180s)에 위임.
-const SITEMAP_SCORES_ROW_CAP = 2000;
+// 정적 페이지 실제 편집일 — 콘텐츠를 실제로 고칠 때만 수동 갱신한다.
+// 빌드·배포만으로 lastmod를 갱신하지 않는다(lastmod 신뢰도 유지).
+const STATIC_PAGE_UPDATED = new Date('2026-03-18');
 
 /** 언어 alternates (단일언어 사이트용 x-default + ko) */
 function withAlternates(url: string) {
@@ -20,46 +17,6 @@ function withAlternates(url: string) {
       'x-default': url,
     },
   };
-}
-
-async function getActiveThemes(): Promise<{ id: string; calculated_at: string | null }[]> {
-  try {
-    const supabase = getServerSupabaseClient();
-
-    const [themesResult, scoresResult] = await Promise.all([
-      supabase
-        .from('themes')
-        .select('id')
-        .eq('is_active', true),
-      supabase
-        .from('lifecycle_scores')
-        .select('theme_id, calculated_at')
-        .order('calculated_at', { ascending: false })
-        .limit(SITEMAP_SCORES_ROW_CAP),
-    ]);
-
-    if (themesResult.error) throw themesResult.error;
-    if (scoresResult.error) throw scoresResult.error;
-
-    const activeThemes = themesResult.data;
-    const scores = scoresResult.data;
-    if (!activeThemes) return [];
-
-    const latestScoreByTheme = new Map<string, string | null>();
-    for (const row of scores || []) {
-      if (!latestScoreByTheme.has(row.theme_id)) {
-        latestScoreByTheme.set(row.theme_id, row.calculated_at);
-      }
-    }
-
-    return activeThemes.map((t) => ({
-      id: t.id,
-      calculated_at: latestScoreByTheme.get(t.id) || null,
-    }));
-  } catch (error) {
-    console.error('[Sitemap] 활성 테마 조회 실패', error);
-    throw error;
-  }
 }
 
 async function getPublishedBlogSlugs(): Promise<{ slug: string; published_at: string; updated_at: string | null }[]> {
@@ -109,24 +66,29 @@ async function getTopBlogTags(): Promise<string[]> {
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const baseUrl = siteConfig.domain;
 
-  const staticPages: MetadataRoute.Sitemap = [
-    { url: baseUrl, lastModified: new Date('2026-03-18'), changeFrequency: 'daily', priority: 1.0, alternates: withAlternates(baseUrl) },
-    { url: `${baseUrl}/about`, lastModified: new Date('2026-03-18'), changeFrequency: 'monthly', priority: 0.8, alternates: withAlternates(`${baseUrl}/about`) },
-    { url: `${baseUrl}/faq`, lastModified: new Date('2026-03-18'), changeFrequency: 'monthly', priority: 0.8, alternates: withAlternates(`${baseUrl}/faq`) },
-    { url: `${baseUrl}/technical-indicators`, lastModified: new Date('2026-03-18'), changeFrequency: 'monthly', priority: 0.9, alternates: withAlternates(`${baseUrl}/technical-indicators`) },
-    { url: `${baseUrl}/subscribe`, lastModified: new Date('2026-03-18'), changeFrequency: 'weekly', priority: 0.9, alternates: withAlternates(`${baseUrl}/subscribe`) },
-    { url: `${baseUrl}/archive`, lastModified: new Date('2026-03-18'), changeFrequency: 'daily', priority: 0.9, alternates: withAlternates(`${baseUrl}/archive`) },
-    { url: `${baseUrl}/blog`, lastModified: new Date('2026-03-18'), changeFrequency: 'daily', priority: 0.9, alternates: withAlternates(`${baseUrl}/blog`) },
-    { url: `${baseUrl}/themes`, lastModified: new Date('2026-03-18'), changeFrequency: 'daily', priority: 0.9, alternates: withAlternates(`${baseUrl}/themes`) },
-    { url: `${baseUrl}/themes/methodology`, lastModified: new Date('2026-03-18'), changeFrequency: 'monthly', priority: 0.8, alternates: withAlternates(`${baseUrl}/themes/methodology`) },
-    { url: `${baseUrl}/developers`, lastModified: new Date('2026-03-18'), changeFrequency: 'monthly', priority: 0.6, alternates: withAlternates(`${baseUrl}/developers`) },
-  ];
-
-  const [blogPosts, topTags, themes] = await Promise.all([
+  const [blogPosts, topTags] = await Promise.all([
     getPublishedBlogSlugs(),
     getTopBlogTags(),
-    getActiveThemes(),
   ]);
+
+  // 동적 허브(홈·블로그·아카이브·테마 목록)의 lastmod = 발행 블로그의 실제 최신 갱신일.
+  // 빌드 시각(new Date())을 쓰면 배포마다 lastmod가 바뀌어 신뢰도가 무너지므로 콘텐츠 실날짜를 쓴다.
+  const latestContentDate = blogPosts.length
+    ? new Date(Math.max(...blogPosts.map((p) => new Date(p.updated_at || p.published_at).getTime())))
+    : STATIC_PAGE_UPDATED;
+
+  const staticPages: MetadataRoute.Sitemap = [
+    { url: baseUrl, lastModified: latestContentDate, changeFrequency: 'daily', priority: 1.0, alternates: withAlternates(baseUrl) },
+    { url: `${baseUrl}/about`, lastModified: STATIC_PAGE_UPDATED, changeFrequency: 'monthly', priority: 0.8, alternates: withAlternates(`${baseUrl}/about`) },
+    { url: `${baseUrl}/faq`, lastModified: STATIC_PAGE_UPDATED, changeFrequency: 'monthly', priority: 0.8, alternates: withAlternates(`${baseUrl}/faq`) },
+    { url: `${baseUrl}/technical-indicators`, lastModified: STATIC_PAGE_UPDATED, changeFrequency: 'monthly', priority: 0.9, alternates: withAlternates(`${baseUrl}/technical-indicators`) },
+    { url: `${baseUrl}/subscribe`, lastModified: STATIC_PAGE_UPDATED, changeFrequency: 'weekly', priority: 0.9, alternates: withAlternates(`${baseUrl}/subscribe`) },
+    { url: `${baseUrl}/archive`, lastModified: latestContentDate, changeFrequency: 'daily', priority: 0.9, alternates: withAlternates(`${baseUrl}/archive`) },
+    { url: `${baseUrl}/blog`, lastModified: latestContentDate, changeFrequency: 'daily', priority: 0.9, alternates: withAlternates(`${baseUrl}/blog`) },
+    { url: `${baseUrl}/themes`, lastModified: latestContentDate, changeFrequency: 'daily', priority: 0.9, alternates: withAlternates(`${baseUrl}/themes`) },
+    { url: `${baseUrl}/themes/methodology`, lastModified: STATIC_PAGE_UPDATED, changeFrequency: 'monthly', priority: 0.8, alternates: withAlternates(`${baseUrl}/themes/methodology`) },
+    { url: `${baseUrl}/developers`, lastModified: STATIC_PAGE_UPDATED, changeFrequency: 'monthly', priority: 0.6, alternates: withAlternates(`${baseUrl}/developers`) },
+  ];
 
   const blogPages: MetadataRoute.Sitemap = blogPosts
     .filter((post) => isValidBlogSlug(post.slug))
@@ -145,23 +107,15 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     const url = `${baseUrl}/blog/tag/${encodeURIComponent(tag)}`;
     return {
       url,
-      lastModified: new Date(),
+      lastModified: latestContentDate,
       changeFrequency: 'daily',
       priority: 0.6,
       alternates: withAlternates(url),
     };
   });
 
-  const themePages: MetadataRoute.Sitemap = themes.map((t) => {
-    const url = `${baseUrl}/themes/${t.id}`;
-    return {
-      url,
-      lastModified: t.calculated_at ? new Date(t.calculated_at) : new Date(),
-      changeFrequency: 'daily',
-      priority: 0.9,
-      alternates: withAlternates(url),
-    };
-  });
-
-  return [...staticPages, ...blogPages, ...tagPages, ...themePages];
+  // 테마 상세(/themes/[id])는 TLI v3 마이그레이션 동안 noindex → sitemap에서 제외한다.
+  // (noindex URL을 sitemap에 넣으면 "색인하라"는 신호와 모순되고 크롤 예산만 낭비.)
+  // 테마가 색인 전환되면 이 위치에 themePages를 다시 추가한다.
+  return [...staticPages, ...blogPages, ...tagPages];
 }
