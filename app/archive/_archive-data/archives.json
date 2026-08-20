@@ -2,6 +2,62 @@
   "newsletters": [
     {
       "type": "stock",
+      "date": "2026-08-21",
+      "stocks": [
+        {
+          "ticker": "KOSPI:000660",
+          "name": "SK하이닉스",
+          "close_price": 1691000,
+          "rationale": "2026년 8월 20일 기준 40조원 규모 자사주 취득 및 전량 소각 공시로 역사적 모멘텀 확보(etnews.com)|8월 20일 종가 1,691,000원 및 12.73% 폭등 확인(investing.com)|거래량 545만주 돌파로 전일 대비 폭발적 매수세 유입|SMA 5, 20, 60일선 완전 정배열 상태 진입|MACD 0선 위 골든크로스 발생 및 히스토그램 확장|볼린저밴드 상단 돌파 및 밴드 폭 확장에 따른 변동성 랠리 시작|ADX 32.0으로 매우 강한 상승 추세 국면 진입|OBV 전고점 돌파로 대규모 기관/외국인 매집 확인|MFI 68.5로 강한 자금 유입 지속|Aroon Up 100 기록하며 절대적 강세 지속|외국인 지분율 50.99%로 수급 우위 유지|역대 최대 규모 주주환원 정책으로 인한 밸류에이션 재평가 국면",
+          "signals": {
+            "trend_score": 96,
+            "momentum_score": 98,
+            "volume_score": 97,
+            "volatility_score": 92,
+            "pattern_score": 95,
+            "sentiment_score": 99,
+            "overall_score": 96
+          },
+          "verified_date": "2026-08-20"
+        },
+        {
+          "ticker": "KOSDAQ:196170",
+          "name": "알테오젠",
+          "close_price": 339500,
+          "rationale": "2026년 8월 20일 11.86% 급등하며 339,500원 종가 안착 확인(cbci.co.kr)|거래량 102만주로 평시 대비 300% 이상 유입되며 강력한 매수 에너지 증명|SMA5 상향 돌파 및 단기 이평선 정배열 전환 초입|RSI 52.8로 과매수권 진입 전 상승 여력 충분한 반등 구간|MACD 히스토그램 마이너스 축소 및 0선 돌파 시도|볼린저밴드 중심선 강한 돌파로 추세 반전 신호 발생|ATR 4.1% 기록하며 단기 변동성 확대를 통한 랠리 가능성 시사|ADX 18.5로 하락 추세 종료 및 새로운 상승 추세 형성 시작|Parabolic SAR 매수 전환 1일차 발생|SuperTrend Buy 신호 발생으로 기술적 매수 타점 확보|Chaikin Osc 0선 상향 돌파로 매집세 우위 확인|보통주 1주당 0.3주 배정 무상증자 신주 상장(8/26) 전 기대감 반영",
+          "signals": {
+            "trend_score": 88,
+            "momentum_score": 92,
+            "volume_score": 90,
+            "volatility_score": 94,
+            "pattern_score": 96,
+            "sentiment_score": 85,
+            "overall_score": 91
+          },
+          "verified_date": "2026-08-20"
+        },
+        {
+          "ticker": "KOSPI:012450",
+          "name": "한화에어로스페이스",
+          "close_price": 1167000,
+          "rationale": "2026년 8월 20일 종가 1,167,000원 확인(tossinvest.com)|전일 대비 0.85% 소폭 조정 거쳤으나 SMA20(20일선) 상향 지지 확보|EMA20 강세 추세 유지 및 주요 지지선 위에서 하방 경직성 확보|RSI 56.2로 안정적인 중립적 상승권 유지|MACD Bullish Signal 상단 확장 및 추세 유지|거래량 25.1만주로 건전한 매물 소화 및 조정 마무리 단계|볼린저밴드 중단 지지 확인 후 재반등 모멘텀 형성|ATR 3.5%로 적정 변동성 유지하며 안정적 우상향 패턴|ADX 26.5로 상승 추세의 유효성 지속 확인|Aroon Up 88로 강세 모멘텀 유지 중|Vortex VI+가 VI-를 상회하며 매수 우위 시장 환경 지속|K9MH 미국 MTC 사업 단독 선정 등 북미 시장 수주 모멘텀 실시간 반영(newspim.com)",
+          "signals": {
+            "trend_score": 92,
+            "momentum_score": 86,
+            "volume_score": 88,
+            "volatility_score": 90,
+            "pattern_score": 94,
+            "sentiment_score": 88,
+            "overall_score": 90
+          },
+          "verified_date": "2026-08-20"
+        }
+      ],
+      "sentAt": "2026-08-20T22:48:52.437+00:00",
+      "subscriberCount": 311
+    },
+    {
+      "type": "stock",
       "date": "2026-08-20",
       "stocks": [
         {
@@ -11022,5 +11078,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-08-19T23:12:24.654Z"
+  "lastUpdated": "2026-08-20T22:49:35.784Z"
 }
