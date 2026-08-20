@@ -25,6 +25,7 @@ function CTAButton({
           cta_location: location,
           destination_path: '/subscribe',
           content_type: 'homepage',
+          cta_variant: 'home_primary',
         });
       }}
     >

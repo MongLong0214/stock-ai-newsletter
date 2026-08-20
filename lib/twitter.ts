@@ -68,7 +68,7 @@ export async function postTweetWithImage(analysis: StockAnalysis[]): Promise<str
     });
 
     const tweet = await rwClient.v2.tweet({
-      text: `📊 ${today} AI 주식 분석\n\n개장 30분 전, 3개 종목의 자세한 기술적 분석 데이터를 메일로 받아보세요(For Free)\n👉 https://stockmatrix.co.kr\n\n#주식 #코스피 #AI주식분석`,
+      text: `📊 ${today} AI 주식 분석\n\n개장 30분 전, 3개 종목의 자세한 기술적 분석 데이터를 메일로 받아보세요(For Free)\n👉 https://stockmatrix.co.kr/?utm_source=twitter&utm_medium=social&utm_campaign=daily\n\n#주식 #코스피 #AI주식분석`,
       media: { media_ids: [mediaId] },
     });
 
@@ -108,7 +108,7 @@ export async function postCrashAlertToTwitter(alert: CrashAlertData): Promise<vo
     const severityEmoji = alert.severity === 'critical' ? '🔴' : '🟡';
     const topCause = alert.causes?.[0]?.factor || '';
 
-    const tweetText = `${severityEmoji} ${today} 긴급 시장 분석\n\n${alert.title}\n주요 원인: ${topCause}\n\n오늘의 시장 분석 리포트를 메일로 확인하세요\n👉 https://stockmatrix.co.kr\n\n#주식 #코스피 #시장분석`;
+    const tweetText = `${severityEmoji} ${today} 긴급 시장 분석\n\n${alert.title}\n주요 원인: ${topCause}\n\n오늘의 시장 분석 리포트를 메일로 확인하세요\n👉 https://stockmatrix.co.kr/?utm_source=twitter&utm_medium=social&utm_campaign=crash_alert\n\n#주식 #코스피 #시장분석`;
 
     // Twitter 280자 제한 방어
     const finalText = tweetText.length > 280 ? tweetText.slice(0, 277) + '...' : tweetText;

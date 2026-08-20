@@ -8,7 +8,7 @@ import { trackEvent } from '@/lib/analytics/ga';
  * CTA 섹션 컴포넌트
  * Stock Matrix 구독 유도
  */
-export function CTASection() {
+export function CTASection({ slug }: { slug?: string } = {}) {
   return (
     <section className="mt-16 p-8 md:p-10 rounded-2xl bg-gradient-to-br from-emerald-500/10 via-slate-900/50 to-slate-900/30 border border-emerald-500/20 relative overflow-hidden">
       {/* Background decoration */}
@@ -35,6 +35,8 @@ export function CTASection() {
                 cta_location: 'blog_post_cta',
                 destination_path: '/subscribe',
                 content_type: 'blog_post',
+                cta_variant: 'blog_footer',
+                ...(slug ? { content_id: slug } : {}),
               });
             }}
             className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-emerald-500 hover:bg-emerald-400 text-black font-semibold rounded-lg transition-colors"

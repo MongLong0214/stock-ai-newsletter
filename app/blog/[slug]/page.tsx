@@ -169,7 +169,7 @@ async function BlogPostPage({ params }: PageProps) {
 
                 <div className="prose-article" dangerouslySetInnerHTML={{ __html: htmlContent }} />
                 <FAQAccordion items={post.faq_items || []} />
-                <CTASection />
+                <CTASection slug={slug} />
 
                 {relatedPosts.length > 0 && (
                   <section className="mt-16 pt-10 border-t border-slate-800">

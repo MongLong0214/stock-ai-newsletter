@@ -11,6 +11,7 @@ function SubscribeButton() {
           cta_location: 'navigation',
           destination_path: '/subscribe',
           content_type: 'global_nav',
+          cta_variant: 'nav',
         });
       }}
     >
