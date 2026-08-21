@@ -29,10 +29,12 @@ function createArticleSchema(post: BlogPost, slug: string) {
       { '@type': 'ImageObject', url: ogImage, width: 1200, height: 1200 },
     ],
     author: {
-      '@type': 'Organization',
-      '@id': schemaIds.organization,
-      name: siteConfig.serviceName,
-      url: siteConfig.domain,
+      '@type': 'Person',
+      '@id': `${siteConfig.domain}/about#author`,
+      name: 'StockMatrix 리서치',
+      jobTitle: 'StockMatrix 리서치 애널리스트',
+      url: `${siteConfig.domain}/about`,
+      worksFor: { '@id': schemaIds.organization },
     },
     publisher: {
       '@type': 'Organization',
@@ -85,10 +87,12 @@ function createBlogPostingSchema(post: BlogPostCreateInput, slug: string): Schem
     headline: post.title,
     description: post.description,
     author: {
-      '@type': 'Organization',
-      '@id': schemaIds.organization,
-      name: siteConfig.serviceName,
-      url: siteConfig.domain,
+      '@type': 'Person',
+      '@id': `${siteConfig.domain}/about#author`,
+      name: 'StockMatrix 리서치',
+      jobTitle: 'StockMatrix 리서치 애널리스트',
+      url: `${siteConfig.domain}/about`,
+      worksFor: { '@id': schemaIds.organization },
     },
     publisher: {
       '@type': 'Organization',

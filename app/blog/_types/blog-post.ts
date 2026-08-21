@@ -18,10 +18,12 @@ export interface SchemaData {
   headline: string;
   description: string;
   author: {
-    '@type': 'Organization';
+    '@type': 'Person';
     '@id'?: string;
     name: string;
+    jobTitle?: string;
     url: string;
+    worksFor?: { '@id': string };
   };
   publisher: {
     '@type': 'Organization';
