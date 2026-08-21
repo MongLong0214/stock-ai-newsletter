@@ -2,6 +2,8 @@
 
 import { getServerSupabaseClient } from '@/lib/supabase/server-client';
 import { createBlogPostingSchema } from '../_utils/schema-generator';
+import { notifyIndexNow } from '@/lib/indexnow';
+import { siteConfig } from '@/lib/constants/seo/config';
 import type { BlogPost, BlogPostCreateInput } from '../_types/blog';
 
 /**
@@ -60,6 +62,9 @@ export async function publishBlogPost(slug: string): Promise<BlogPost> {
   if (error) {
     throw new Error(`발행 실패: ${error.message}`);
   }
+
+  // IndexNow: 발행 즉시 Bing·네이버에 통보 (실패해도 발행에 영향 없음)
+  await notifyIndexNow([`${siteConfig.domain}/blog/${slug}`]);
 
   return data;
 }

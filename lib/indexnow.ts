@@ -1,56 +1,31 @@
-const SITE_DOMAIN = 'https://stockmatrix.co.kr'
-const INDEXNOW_KEY = process.env.INDEXNOW_KEY || ''
-const INDEXNOW_KEY_FILE = 'stockmatrix-indexnow'
-const INDEXNOW_ENDPOINT = 'https://api.indexnow.org/indexnow'
+/**
+ * IndexNow — 새 콘텐츠 발행 시 Bing·네이버 등에 즉시 통보.
+ * 키 검증 파일: https://stockmatrix.co.kr/<KEY>.txt (public/<KEY>.txt)
+ */
 
-interface IndexNowResult {
-  submitted: number
-  errors: string[]
-}
+export const INDEXNOW_KEY = '8f3d9a1c4b7e2056f1a8c3d6e9b40275';
+const INDEXNOW_HOST = 'stockmatrix.co.kr';
 
-/** IndexNow API를 통해 URL 변경을 검색 엔진(Bing, Naver 등)에 알림 */
-export const submitToIndexNow = async (urls: string[]): Promise<IndexNowResult> => {
-  if (!INDEXNOW_KEY) {
-    console.warn('[IndexNow] INDEXNOW_KEY 미설정 — 제출 건너뜀')
-    return { submitted: 0, errors: ['INDEXNOW_KEY not configured'] }
-  }
-
-  if (urls.length === 0) {
-    return { submitted: 0, errors: [] }
-  }
-
-  const host = new URL(SITE_DOMAIN).host
-
+/** URL 목록을 IndexNow에 통보 (실패해도 throw 안 함 — 발행 흐름을 막지 않음) */
+export async function notifyIndexNow(urls: string[]): Promise<void> {
+  if (!urls.length) return;
   try {
-    const response = await fetch(INDEXNOW_ENDPOINT, {
+    const res = await fetch('https://api.indexnow.org/indexnow', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json; charset=utf-8' },
       body: JSON.stringify({
-        host,
+        host: INDEXNOW_HOST,
         key: INDEXNOW_KEY,
-        keyLocation: `${SITE_DOMAIN}/${INDEXNOW_KEY_FILE}.txt`,
-        urlList: urls.slice(0, 10000),
+        keyLocation: `https://${INDEXNOW_HOST}/${INDEXNOW_KEY}.txt`,
+        urlList: urls,
       }),
-    })
-
-    if (response.ok || response.status === 202) {
-      console.log(`[IndexNow] ${urls.length}개 URL 제출 완료`)
-      return { submitted: urls.length, errors: [] }
+    });
+    if (!res.ok) {
+      console.warn(`[IndexNow] 통보 실패 status=${res.status} (${urls.length} URLs)`);
+    } else {
+      console.log(`[IndexNow] ${urls.length}개 URL 통보 완료`);
     }
-
-    const errorText = await response.text().catch(() => 'Unknown error')
-    console.error(`[IndexNow] 제출 실패 (${response.status}):`, errorText)
-    return { submitted: 0, errors: [`HTTP ${response.status}: ${errorText}`] }
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error)
-    console.error('[IndexNow] 네트워크 오류:', message)
-    return { submitted: 0, errors: [message] }
+    console.warn('[IndexNow] 통보 예외:', error instanceof Error ? error.message : String(error));
   }
-}
-
-/** 테마 ID 목록으로부터 IndexNow 제출용 URL 생성 */
-export const buildThemeUrls = (themeIds: string[]): string[] => {
-  const urls = themeIds.map(id => `${SITE_DOMAIN}/themes/${id}`)
-  urls.push(`${SITE_DOMAIN}/themes`)
-  return urls
 }

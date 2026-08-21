@@ -10,8 +10,8 @@ export function getContentStructureGuide(
   <section name="hook_intro" word_count="250-350">
     <purpose>독자의 즉각적 관심 유도 및 문제 공감</purpose>
     <elements>
-      - 충격적인 통계 또는 공감 가능한 질문으로 시작
-      - 잘못된 선택의 결과 (손실, 시간 낭비 등) 언급
+      - 검증가능한 사실·데이터(기준 시점 명시) 또는 핵심 질문으로 시작
+      - 이 글이 다루는 범위와 판단 기준을 명확히 제시
       - 이 글을 읽으면 얻게 될 구체적 가치 제시
       - 타겟 키워드 자연스럽게 포함 (첫 100단어 내)
     </elements>

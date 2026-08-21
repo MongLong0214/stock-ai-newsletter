@@ -61,7 +61,7 @@ function ServiceIntroSection(): JSX.Element {
           <p className="text-base md:text-lg">
             또한 <strong className="text-emerald-400 font-normal">테마 생명주기 분석(TLI)</strong> 기능을 통해
             반도체, 2차전지, AI, 방산 등{' '}
-            <strong className="font-normal">250개 이상의 주식 테마</strong>를 실시간으로 추적합니다.
+            <strong className="font-normal">200개 이상의 주식 테마</strong>를 실시간으로 추적합니다.
             네이버 검색 관심도, 뉴스 빈도, 감성 분석, 주가 변동성을 종합하여{' '}
             <strong className="font-normal">0~100점의 테마 점수</strong>를 산출하고,{' '}
             <strong className="font-normal">초기 → 성장 → 정점 → 쇠퇴 → 휴면</strong>의
@@ -175,7 +175,7 @@ function ServiceIntroSection(): JSX.Element {
                 </svg>
                 <span>
                   <strong className="text-white font-normal">테마 생명주기 분석</strong>:
-                  250+ 테마의 점수·단계·관련 종목을 무료 추적
+                  200+ 테마의 점수·단계·관련 종목을 무료 추적
                 </span>
               </li>
               <li className="flex items-center">

@@ -11,7 +11,7 @@ export function GET() {
       title: 'StockMatrix API',
       version: '1.0.0',
       description:
-        'Korean stock market theme lifecycle intelligence API. Provides theme rankings, search, detail scores, and historical data for 250+ KOSPI/KOSDAQ themes updated daily.',
+        'Korean stock market theme lifecycle intelligence API. Provides theme rankings, search, detail scores, and historical data for 200+ KOSPI/KOSDAQ themes updated daily.',
     },
     servers: [{ url: siteConfig.domain }],
     paths: {

@@ -8,7 +8,7 @@ import LatestBlogSection from "./_components/home/latest-blog-section";
 export const metadata: Metadata = {
   title: 'StockMatrix | 무료 AI 주식 분석 뉴스레터 · KOSPI·KOSDAQ 3종목 분석',
   description:
-    '한국 주식 투자자를 위한 무료 AI 주식 분석 뉴스레터. 매일 오전 7시 30분, AI가 30개 기술적 지표로 분석한 KOSPI·KOSDAQ 3종목을 이메일로 제공합니다. 웹사이트에서는 250+ 테마 생명주기와 관련 종목 분석도 확인할 수 있습니다.',
+    '한국 주식 투자자를 위한 무료 AI 주식 분석 뉴스레터. 매일 오전 7시 30분, AI가 30개 기술적 지표로 분석한 KOSPI·KOSDAQ 3종목을 이메일로 제공합니다. 웹사이트에서는 200+ 테마 생명주기와 관련 종목 분석도 확인할 수 있습니다.',
   keywords: [
     'StockMatrix',
     'AI 주식 분석',
@@ -28,7 +28,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'StockMatrix | 무료 AI 주식 분석 뉴스레터 · KOSPI·KOSDAQ 3종목 분석',
     description:
-      '매일 오전 7시 30분, AI가 KOSPI·KOSDAQ 3종목을 분석해 무료 이메일로 제공하는 한국 주식 뉴스레터. 웹사이트에서 250+ 테마 분석 제공',
+      '매일 오전 7시 30분, AI가 KOSPI·KOSDAQ 3종목을 분석해 무료 이메일로 제공하는 한국 주식 뉴스레터. 웹사이트에서 200+ 테마 분석 제공',
     url: siteConfig.domain,
     type: 'website',
     locale: 'ko_KR',
@@ -46,7 +46,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'StockMatrix | 무료 AI 주식 분석 뉴스레터',
     description:
-      '매일 오전 7시 30분, KOSPI·KOSDAQ 3종목을 AI로 분석해 무료 이메일로 제공하는 한국 주식 뉴스레터. 웹사이트에서 250+ 테마 분석 제공',
+      '매일 오전 7시 30분, KOSPI·KOSDAQ 3종목을 AI로 분석해 무료 이메일로 제공하는 한국 주식 뉴스레터. 웹사이트에서 200+ 테마 분석 제공',
     images: [withOgImageVersion('/opengraph-image')],
   },
 };
@@ -58,7 +58,7 @@ export default function HomePage() {
     '@id': schemaIds.pageId('/'),
     name: 'StockMatrix 무료 AI 주식 분석 뉴스레터',
     description:
-      '한국 주식 투자자를 위한 무료 AI 주식 분석 뉴스레터. 매일 오전 7시 30분, AI가 30개 기술적 지표로 분석한 KOSPI·KOSDAQ 3종목을 이메일로 제공하며, 웹사이트에서는 250+ 테마 생명주기 분석을 확인할 수 있습니다.',
+      '한국 주식 투자자를 위한 무료 AI 주식 분석 뉴스레터. 매일 오전 7시 30분, AI가 30개 기술적 지표로 분석한 KOSPI·KOSDAQ 3종목을 이메일로 제공하며, 웹사이트에서는 200+ 테마 생명주기 분석을 확인할 수 있습니다.',
     url: siteConfig.domain,
     inLanguage: 'ko-KR',
     isPartOf: { '@id': schemaIds.website },

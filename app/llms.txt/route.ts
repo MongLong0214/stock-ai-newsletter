@@ -7,7 +7,7 @@ export const runtime = 'nodejs'
 export const revalidate = 86400
 
 export async function GET() {
-  let themeCount = 250
+  let themeCount = 200
   let blogCount = 0
 
   try {
@@ -31,6 +31,8 @@ export async function GET() {
   const content = `# ${siteConfig.serviceName}
 
 > ${metadataConfig.description}
+>
+> 전체 문서(지표·방법론 상세): ${siteConfig.domain}/llms-full.txt
 
 ## About
 

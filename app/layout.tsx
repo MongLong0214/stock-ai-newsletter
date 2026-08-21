@@ -141,6 +141,8 @@ export default function RootLayout({
           socialConfig.twitter,
           socialConfig.instagram,
           socialConfig.threads,
+          'https://github.com/MongLong0214',
+          'https://www.npmjs.com/package/stockmatrix-mcp',
         ],
         contactPoint: {
           '@type': 'ContactPoint',

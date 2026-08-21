@@ -14,7 +14,7 @@ export default async function Image() {
   return createOgImageResponse(
     createOgLayout({
       title: 'MCP 서버',
-      subtitle: '250+ 한국 주식 테마 데이터 API',
+      subtitle: '200+ 한국 주식 테마 데이터 API',
     }),
     size
   );

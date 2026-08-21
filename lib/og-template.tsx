@@ -329,7 +329,7 @@ function AccentMetricCard({ style }: { style: CSSProperties }): React.JSX.Elemen
           textShadow: '0 0 14px rgba(16, 185, 129, 0.1)',
         }}
       >
-        250+
+        200+
       </div>
       <svg viewBox="0 0 180 78" width="180" height="78" style={{ display: 'flex', width: '100%', marginTop: 'auto' }}>
         <polyline
