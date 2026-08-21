@@ -160,7 +160,13 @@ export default function RootLayout({
           'MACD 분석',
           '볼린저밴드',
           '이동평균선',
+          '테마 생명주기 분석',
+          'KOSPI',
+          'KOSDAQ',
         ],
+        areaServed: { '@type': 'Country', name: 'South Korea' },
+        disambiguatingDescription:
+          "Google Play의 'Stock Matrix - Alerts & News'(com.stockmatrix.app) 앱과 무관한 별개 서비스입니다. StockMatrix는 웹사이트와 이메일 뉴스레터로만 제공됩니다.",
       },
       {
         '@type': 'WebSite',

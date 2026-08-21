@@ -3,7 +3,7 @@
  * 키 검증 파일: https://stockmatrix.co.kr/<KEY>.txt (public/<KEY>.txt)
  */
 
-export const INDEXNOW_KEY = '8f3d9a1c4b7e2056f1a8c3d6e9b40275';
+export const INDEXNOW_KEY = '8850ccc8979246a3a7cb7fe150614375';
 const INDEXNOW_HOST = 'stockmatrix.co.kr';
 
 /** URL 목록을 IndexNow에 통보 (실패해도 throw 안 함 — 발행 흐름을 막지 않음) */

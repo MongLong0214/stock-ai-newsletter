@@ -72,6 +72,23 @@ function parseJsonResponse(response: string): GeneratedContent {
   return parsed;
 }
 
+/**
+ * 낚시성 제목 금지어 — 금융 YMYL/AI 인용을 해치는 공포·과장·낚시 패턴.
+ * 프롬프트로 1차 차단하되, 여기서 하드 게이트로 재생성을 강제한다.
+ */
+const BANNED_TITLE_PATTERNS: RegExp[] = [
+  /모르면/,
+  /고점에\s*물/,
+  /확률\s*\d+\s*%/,
+  /아직도.*(하시나요|보시나요|계신가요)/,
+  /나만\s*손해/,
+  /안\s*보면/,
+  /지금\s*아니면/,
+  /충격/,
+  /(?:^|\s)썰(?:\s|$|\.)/,
+  /후회/,
+];
+
 /** SEO 기준 콘텐츠 유효성 검증 */
 function validateContent(content: GeneratedContent): void {
   const errors: string[] = [];
@@ -81,6 +98,9 @@ function validateContent(content: GeneratedContent): void {
   if (!content.metaTitle || content.metaTitle.length > 70) errors.push('메타 제목이 없거나 70자를 초과합니다.');
   if (!content.metaDescription || content.metaDescription.length > 160) errors.push('메타 설명이 없거나 160자를 초과합니다.');
   if (!content.faqItems || content.faqItems.length < 2) errors.push('FAQ 항목이 부족합니다 (최소 2개).');
+
+  const banned = BANNED_TITLE_PATTERNS.find((re) => re.test(content.title || ''));
+  if (banned) errors.push(`제목에 낚시성 금지 표현 포함 (패턴: ${banned.source}). 사실형 제목으로 재생성 필요.`);
 
   if (errors.length > 0) {
     throw new Error(`콘텐츠 유효성 검증 실패:\n${errors.join('\n')}`);

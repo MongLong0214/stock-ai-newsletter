@@ -1,6 +1,8 @@
 # stockmatrix-mcp
 
-Ask about Korean stock market themes in natural conversation with AI. Track 250+ KOSPI/KOSDAQ investment themes, get daily movers, look up which themes a stock belongs to, compare themes side-by-side, and see predictions — all through Claude, Cursor, or any MCP-compatible AI agent.
+Official MCP server for **StockMatrix** (https://stockmatrix.co.kr).
+
+Ask about Korean stock market themes in natural conversation with AI. Track 200+ KOSPI/KOSDAQ investment themes, get daily movers, look up which themes a stock belongs to, compare themes side-by-side, and see predictions — all through Claude, Cursor, or any MCP-compatible AI agent.
 
 Powered by **TLI (Theme Lifecycle Index)** — a Bayesian-optimized scoring algorithm combining search interest, news momentum, market volatility, and stock activity into a 0-100 score with lifecycle stage classification.
 
@@ -195,7 +197,7 @@ Stage transitions require 2 consecutive days of the same candidate (hysteresis) 
 
 ## Data Coverage
 
-- **250+ themes** across KOSPI & KOSDAQ
+- **200+ themes** across KOSPI & KOSDAQ
 - **Daily updates** — scores, news, stock mappings
 - **Stock ↔ theme lookup** — by company name, 6-digit code, or reverse (stock → all its themes)
 - **AI market summary** for first-call overview

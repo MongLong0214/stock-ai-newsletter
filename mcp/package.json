@@ -18,6 +18,7 @@
     "prepublishOnly": "npm run typecheck && npm run build"
   },
   "keywords": [
+    "stockmatrix",
     "mcp",
     "model-context-protocol",
     "korean-stocks",
