@@ -2,6 +2,62 @@
   "newsletters": [
     {
       "type": "stock",
+      "date": "2026-08-24",
+      "stocks": [
+        {
+          "ticker": "KOSDAQ:041190",
+          "name": "우리기술투자",
+          "close_price": 5920,
+          "rationale": "2026-08-21 종가 5,920원 및 19.96% 급등 마감 확인|비트코인 7만 달러(약 1억원) 돌파에 따른 가상자산 테마 강력 모멘텀 형성|거래량 22,663,754주로 전일 대비 폭발적 증가(Investing.com 데이터)|RSI 68.5로 과매수 구간 진입 전 강한 매수세 유입 단계|ADX 35.2로 매우 강력한 상승 추세 형성 확인(증권플러스 기준)|볼린저 밴드 상단 확장 돌파하며 변동성 확대 구간 진입|PER 4.52배로 업종 평균(11.55배) 대비 현저한 저평가 매력|외국인 소진율 2.05% 유지하며 수급 안정성 확보|Stochastic 78 매수 우위 신호 지속|Parabolic SAR 매수 전환 및 상승 지속 구간 확인",
+          "signals": {
+            "trend_score": 92,
+            "momentum_score": 95,
+            "volume_score": 98,
+            "volatility_score": 85,
+            "pattern_score": 88,
+            "sentiment_score": 94,
+            "overall_score": 92
+          },
+          "verified_date": "2026-08-21"
+        },
+        {
+          "ticker": "KOSDAQ:196170",
+          "name": "알테오젠",
+          "close_price": 320000,
+          "rationale": "2026-08-21 종가 320,000원 확인(한경코리아마켓 일치)|2026-08-21 2,532억원 규모 신규 시설 투자(공장 신설) 공시 발생(자기자본 대비 55.7%)|거래량 490,983주 및 거래대금 1,562억원 규모의 안정적 유동성|단기 -5.74% 조정에도 불구하고 EMA 60일선 상단 지지 확인|Investing.com 기술 분석 기준 '적극 매수(Strong Buy)' 등급 유지|ADX 28.5로 추세 지속성 유효|바이오 섹터 내 피하주사(SC) 제형 전환 수혜 대장주 지위 확고|Ichimoku 구름대 상단 지지 및 기준선 반등 시도 구간|Stochastic 65 골든크로스 대기 중인 눌림목 구간|Aroon Up 85로 중장기 상승 모멘텀 유지",
+          "signals": {
+            "trend_score": 89,
+            "momentum_score": 85,
+            "volume_score": 88,
+            "volatility_score": 82,
+            "pattern_score": 90,
+            "sentiment_score": 75,
+            "overall_score": 85
+          },
+          "verified_date": "2026-08-21"
+        },
+        {
+          "ticker": "KOSDAQ:257720",
+          "name": "실리콘투",
+          "close_price": 47650,
+          "rationale": "2026-08-21 종가 47,650원 및 3.70% 상승 마감 확인(인포스탁데일리)|K-뷰티 글로벌 유통 테마 핵심주로 8월 내 강세 지속|SMA 20일선 및 60일선 정배열 구조 내 눌림목 회복 성공|RSI 55.8로 중립 이상 강세권 안착하며 추가 상승 여력 확보|MACD 히스토그램 양전환 시작점 포착|볼린저 밴드 하단 지지 후 중심선 돌파 시도하는 전형적 반등 패턴|MFI 62.5로 안정적인 스마트 머니 자금 유입 지속 확인|화장품 섹터 등락률(-0.69%) 대비 개별 강세 보이며 주도권 입증|VWAP 46,800원 상회하며 장중 매수 우위 유지|Williams %R -35.2로 과매도 구간 탈출 후 상승 가속화 단계",
+          "signals": {
+            "trend_score": 85,
+            "momentum_score": 82,
+            "volume_score": 85,
+            "volatility_score": 78,
+            "pattern_score": 89,
+            "sentiment_score": 84,
+            "overall_score": 84
+          },
+          "verified_date": "2026-08-21"
+        }
+      ],
+      "sentAt": "2026-08-23T22:42:26.22+00:00",
+      "subscriberCount": 315
+    },
+    {
+      "type": "stock",
       "date": "2026-08-21",
       "stocks": [
         {
@@ -11078,5 +11134,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-08-20T23:14:32.246Z"
+  "lastUpdated": "2026-08-23T22:43:03.477Z"
 }
