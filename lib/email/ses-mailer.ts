@@ -10,7 +10,7 @@ let client: SESv2Client | null = null;
 
 function getClient(): SESv2Client {
   if (!client) {
-    client = new SESv2Client({ region: process.env.AWS_REGION || 'ap-northeast-2' });
+    client = new SESv2Client({ region: process.env.AWS_REGION || 'us-east-1' });
   }
   return client;
 }

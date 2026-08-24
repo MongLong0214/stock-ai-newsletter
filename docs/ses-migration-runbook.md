@@ -1,9 +1,50 @@
 # SendGrid → AWS SES 마이그레이션 런북
 
 > 코드는 **provider 스위치**로 배포됨: `EMAIL_PROVIDER` 미설정/`sendgrid` = 현행 SendGrid(무변경), `EMAIL_PROVIDER=ses` = SES.
-> 그래서 이 브랜치를 머지해도 **env를 바꾸기 전까지 동작은 그대로**다. 아래는 SES로 실제 전환하려면 **이삭이 직접 해야 할 일**.
+> 그래서 이 브랜치를 머지해도 **env를 바꾸기 전까지 동작은 그대로**다.
 
 ---
+
+## ✅ 이미 완료됨 (2026-08-24, AWS CLI로 프로비저닝 — 계정 217044655151, us-east-1)
+- SES 도메인 아이덴티티 `stockmatrix.co.kr` + Easy DKIM 생성
+- Custom MAIL FROM `mail.stockmatrix.co.kr`, configuration set `stockmatrix-newsletter`
+- 발송 전용 IAM 유저 `stockmatrix-ses-sender` + send-only 정책 + 액세스키 발급
+- 샌드박스 해제(프로덕션 액세스) 요청 제출 (AWS 심사 ~24h)
+
+> Terraform(`infra/ses/`)은 동일 구성의 참조 IaC. 실제 리소스는 CLI로 만들었으므로, TF로 관리하려면 `terraform import`로 흡수해야 함(아래 리소스명 참조). 지금은 굳이 안 해도 됨.
+
+## 🔲 남은 것 (이삭)
+### A. hosting.co.kr DNS 입력 (필수 — 도메인 인증)
+| 타입 | 이름(host) | 값 | 비고 |
+|---|---|---|---|
+| CNAME | `ybpmaxr43a55chehik5uh6sq6c57gquz._domainkey` | `ybpmaxr43a55chehik5uh6sq6c57gquz.dkim.amazonses.com` | DKIM 1 |
+| CNAME | `uwkgpcgfgqo2sbhj4q4ai5udzpkzri33._domainkey` | `uwkgpcgfgqo2sbhj4q4ai5udzpkzri33.dkim.amazonses.com` | DKIM 2 |
+| CNAME | `rdjtcwe6o3dqo7ibblb3whw2paimgldn._domainkey` | `rdjtcwe6o3dqo7ibblb3whw2paimgldn.dkim.amazonses.com` | DKIM 3 |
+| MX | `mail` | `feedback-smtp.us-east-1.amazonses.com` (우선순위 10) | MAIL FROM |
+| TXT | `mail` | `v=spf1 include:amazonses.com ~all` | SPF |
+| TXT | `_dmarc` | `v=DMARC1; p=none; rua=mailto:noreply@stockmatrix.co.kr; fo=1` | DMARC |
+
+### B. env 설정 (Vercel + GitHub Actions secrets 둘 다)
+```
+AWS_ACCESS_KEY_ID     = (stockmatrix-ses-sender 액세스키 — 채팅으로 전달)
+AWS_SECRET_ACCESS_KEY = (동)
+AWS_REGION            = us-east-1
+SES_FROM_EMAIL        = noreply@stockmatrix.co.kr
+```
+`EMAIL_PROVIDER`는 테스트 전까지 넣지 말 것.
+
+### C. 검증 → 컷오버
+1. DNS 전파 후 도메인 인증 SUCCESS 확인
+2. 샌드박스 해제 승인 후 `EMAIL_PROVIDER=ses`로 테스트 발송(본인 주소)
+3. 이상 없으면 컷오버, 문제 시 `EMAIL_PROVIDER` 되돌려 즉시 SendGrid 복귀
+
+### D. 정리
+- 임시 admin 키 `terraform-ses` **IAM에서 삭제**
+- 안정화 후 SendGrid 구독 해지
+
+---
+
+### (참고) 원본 절차 — 처음부터 다시 할 때
 
 ## ⚠️ 먼저 — AWS 계정/권한 (확인 완료 사항)
 - 현재 로컬 `~/.aws` 프로필은 **`default` 하나뿐**, 계정 **471112896273**, 유저 **`portal-s3-public-user`** = **S3 전용**. `ses:*`/`iam:*` **권한 없음**.

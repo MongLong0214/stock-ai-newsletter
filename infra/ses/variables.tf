@@ -5,9 +5,9 @@ variable "domain" {
 }
 
 variable "region" {
-  description = "SES 리전 (서울 = ap-northeast-2)"
+  description = "SES 리전 (실제 프로비저닝: us-east-1)"
   type        = string
-  default     = "ap-northeast-2"
+  default     = "us-east-1"
 }
 
 variable "aws_profile" {
