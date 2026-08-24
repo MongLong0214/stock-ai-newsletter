@@ -20,42 +20,29 @@ interface KisErrorResponse {
   msg1?: string;
 }
 
-interface SerpApiPriceMovement {
-  value?: number;
-  price?: number;
-  percentage?: number;
-  movement?: 'Up' | 'Down';
-}
-
-interface SerpApiFinanceAnswerBox {
-  type?: string;
-  exchange?: string;
-  stock?: string;
-  price?: number;
-  price_movement?: SerpApiPriceMovement;
-}
-
-interface SerpApiFinanceResponse {
-  summary?: {
-    title?: string;
-    price?: string;
-    currency?: string;
-    market?: string;
-    price_movement?: SerpApiPriceMovement;
+/** Yahoo Finance chart API 응답 (지표 가격/전일종가만 사용) */
+interface YahooChartResponse {
+  chart?: {
+    result?: Array<{
+      meta?: {
+        regularMarketPrice?: number;
+        chartPreviousClose?: number;
+        previousClose?: number;
+      };
+    }>;
+    error?: unknown;
   };
-  error?: string;
 }
 
-interface SerpApiOrganicResult {
+/** Serper.dev 구글 검색 응답 (organic 결과만 사용) */
+interface SerperOrganicResult {
   title?: string;
   snippet?: string;
   link?: string;
 }
 
-interface SerpApiSearchResponse {
-  answer_box?: SerpApiFinanceAnswerBox;
-  organic_results?: SerpApiOrganicResult[];
-  error?: string;
+interface SerperSearchResponse {
+  organic?: SerperOrganicResult[];
 }
 
 interface NaverNewsItem {
@@ -149,7 +136,7 @@ interface KisFuturesInquirePriceResponse extends KisErrorResponse {
 
 type MarketIndicatorSource =
   | 'KIS'
-  | 'SERP_API'
+  | 'YAHOO_FINANCE'
   | 'NAVER_FINANCE'
   | 'NAVER_STOCK_API'
   | 'NAVER_SEARCH'
@@ -227,7 +214,7 @@ export interface SearchIndicatorSnapshot {
   confirmed: boolean;
   proxy: boolean;
   fetchedAt: string;
-  source: 'SERP_API' | 'NAVER_STOCK_API';
+  source: 'SERPER' | 'NAVER_STOCK_API';
 }
 
 export interface ForeignerNetSellingRow {
@@ -277,11 +264,11 @@ function getConfig(): KisConfig {
   return configCache;
 }
 
-function getSerpApiKey(): string {
-  const apiKey = process.env.SERP_API_KEY;
+function getSerperApiKey(): string {
+  const apiKey = process.env.SERPER_API_KEY;
 
   if (!apiKey) {
-    throw new Error('SERP_API_KEY 환경 변수가 설정되지 않았습니다.');
+    throw new Error('SERPER_API_KEY 환경 변수가 설정되지 않았습니다.');
   }
 
   return apiKey;
@@ -334,28 +321,23 @@ function parseKisError(data: unknown): string {
   return 'Unknown KIS API error';
 }
 
-async function serpGet<T>(
-  params: Record<string, string>,
-  endpoint = 'https://serpapi.com/search.json'
-): Promise<T> {
-  const apiKey = getSerpApiKey();
-  const url = `${endpoint}?${new URLSearchParams({ ...params, api_key: apiKey }).toString()}`;
+async function serperSearch(query: string): Promise<SerperSearchResponse> {
+  const apiKey = getSerperApiKey();
 
-  const response = await fetchWithTimeout(url, {
-    method: 'GET',
+  const response = await fetchWithTimeout('https://google.serper.dev/search', {
+    method: 'POST',
+    headers: {
+      'X-API-KEY': apiKey,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ q: query, gl: 'us', hl: 'en', num: 10 }),
   });
 
   if (!response.ok) {
-    throw new Error(`SerpAPI request failed: HTTP ${response.status}`);
+    throw new Error(`Serper request failed: HTTP ${response.status}`);
   }
 
-  const data = await response.json();
-
-  if (data.error) {
-    throw new Error(`SerpAPI request failed: ${data.error}`);
-  }
-
-  return data as T;
+  return (await response.json()) as SerperSearchResponse;
 }
 
 async function issueAccessToken(): Promise<KisToken> {
@@ -449,27 +431,6 @@ function parseNumber(value: string | undefined): number {
 
   const parsed = Number.parseFloat(value.replace(/,/g, ''));
   return Number.isFinite(parsed) ? parsed : Number.NaN;
-}
-
-function parseSignedMovement(movement: SerpApiPriceMovement | undefined): {
-  change: number;
-  changePct: number;
-} {
-  if (!movement) {
-    return { change: 0, changePct: 0 };
-  }
-
-  const sign = movement.movement === 'Down' ? -1 : 1;
-  const rawChange =
-    typeof movement.value === 'number' ? movement.value :
-    typeof movement.price === 'number' ? movement.price :
-    0;
-  const rawChangePct = typeof movement.percentage === 'number' ? movement.percentage : 0;
-
-  return {
-    change: sign * Math.abs(rawChange),
-    changePct: sign * Math.abs(rawChangePct),
-  };
 }
 
 function parseSignedInteger(value: string | undefined): number {
@@ -1089,36 +1050,46 @@ async function getKospi200MiniFutures(): Promise<Kospi200MiniFuturesSnapshot> {
   });
 }
 
-async function getSerpFinanceIndicator(
-  query: string,
+async function getYahooFinanceIndicator(
+  symbol: string,
   label: string
 ): Promise<MarketIndicatorSnapshot | null> {
-  const response = await serpGet<SerpApiFinanceResponse>({
-    engine: 'google_finance',
-    q: query,
-    hl: 'en',
-    gl: 'us',
-  });
+  const response = await fetchWithTimeout(
+    `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}`,
+    {
+      method: 'GET',
+      headers: { 'User-Agent': 'Mozilla/5.0' },
+    }
+  );
 
-  if (!response.summary?.price) {
+  if (!response.ok) {
+    throw new Error(`Yahoo Finance request failed: HTTP ${response.status}`);
+  }
+
+  const data = (await response.json()) as YahooChartResponse;
+  const meta = data.chart?.result?.[0]?.meta;
+  const price = meta?.regularMarketPrice;
+  const prevClose = meta?.chartPreviousClose ?? meta?.previousClose;
+
+  if (typeof price !== 'number' || !Number.isFinite(price) || price <= 0) {
+    return null;
+  }
+  if (typeof prevClose !== 'number' || !Number.isFinite(prevClose) || prevClose <= 0) {
     return null;
   }
 
-  const price = parseNumber(response.summary.price);
-
-  if (!Number.isFinite(price) || price <= 0) {
-    return null;
-  }
-
-  const movement = parseSignedMovement(response.summary.price_movement);
+  // 부동소수점 노이즈 제거 (지표는 표시·신호용이라 소수 2자리로 정규화)
+  const round2 = (n: number): number => Math.round(n * 100) / 100;
+  const change = round2(price - prevClose);
+  const changePct = round2(((price - prevClose) / prevClose) * 100);
 
   return withSingleSourceValidation({
-    code: query,
+    code: symbol,
     label,
-    source: 'SERP_API',
+    source: 'YAHOO_FINANCE',
     price,
-    change: movement.change,
-    changePct: movement.changePct,
+    change,
+    changePct,
     fetchedAt: new Date().toISOString(),
   });
 }
@@ -1536,14 +1507,9 @@ function isRecentNews(pubDate: string, recentDays = 7): boolean {
 }
 
 async function collectSerpEventEvidence(query: string, patterns: RegExp[]): Promise<string[]> {
-  const response = await serpGet<SerpApiSearchResponse>({
-    engine: 'google',
-    q: query,
-    hl: 'en',
-    gl: 'us',
-  });
+  const response = await serperSearch(query);
 
-  return (response.organic_results ?? [])
+  return (response.organic ?? [])
     .slice(0, 6)
     .map((item) => {
       const combined = `${item.title ?? ''} ${item.snippet ?? ''}`.trim();
@@ -1713,7 +1679,7 @@ export async function getKisMarketAssessmentSnapshot(): Promise<MarketAssessment
     () =>
       getCrossValidatedIndicator(
         'VIX',
-        () => getSerpFinanceIndicator('VIX:INDEXCBOE', 'VIX'),
+        () => getYahooFinanceIndicator('^VIX', 'VIX'),
         () => getNaverSearchVixIndicator(),
         { priceTolerancePct: 2, changeTolerance: 1.5, changePctTolerance: 0.75 }
       ),
@@ -1726,7 +1692,7 @@ export async function getKisMarketAssessmentSnapshot(): Promise<MarketAssessment
     () =>
       getCrossValidatedIndicator(
         'USD/KRW',
-        () => getSerpFinanceIndicator('USD-KRW', 'USD/KRW'),
+        () => getYahooFinanceIndicator('KRW=X', 'USD/KRW'),
         () =>
           getNaverFinanceExchangeIndicator(
             'https://finance.naver.com/marketindex/exchangeDetail.naver?marketindexCd=FX_USDKRW',
@@ -1744,7 +1710,7 @@ export async function getKisMarketAssessmentSnapshot(): Promise<MarketAssessment
     () =>
       getCrossValidatedIndicator(
         'USD/JPY',
-        () => getSerpFinanceIndicator('USD-JPY', 'USD/JPY'),
+        () => getYahooFinanceIndicator('JPY=X', 'USD/JPY'),
         () =>
           getNaverFinanceExchangeIndicator(
             'https://finance.naver.com/marketindex/worldExchangeDetail.naver?marketindexCd=FX_USDJPY',

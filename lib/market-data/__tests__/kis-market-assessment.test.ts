@@ -217,7 +217,7 @@ describe('kis-market-assessment', () => {
     process.env.KIS_APP_KEY = 'testkey';
     process.env.KIS_APP_SECRET = 'dGVzdA==';
     process.env.KIS_BASE_URL = 'https://example.com';
-    process.env.SERP_API_KEY = 'serp-test-key';
+    process.env.SERPER_API_KEY = 'serper-test-key';
     process.env.NAVER_CLIENT_ID = 'naver-client-id';
     process.env.NAVER_CLIENT_SECRET = 'naver-client-secret';
   });
@@ -287,10 +287,8 @@ describe('kis-market-assessment', () => {
       )
       .mockResolvedValueOnce(
         createJsonResponse({
-          summary: {
-            title: 'VIX',
-            price: '29.50',
-            price_movement: { value: 6.5, percentage: 28.2, movement: 'Up' },
+          chart: {
+            result: [{ meta: { regularMarketPrice: 29.50, chartPreviousClose: 23.10 } }],
           },
         })
       )
@@ -299,10 +297,8 @@ describe('kis-market-assessment', () => {
       )
       .mockResolvedValueOnce(
         createJsonResponse({
-          summary: {
-            title: 'USD/KRW',
-            price: '1460.20',
-            price_movement: { value: 18.2, percentage: 1.2, movement: 'Up' },
+          chart: {
+            result: [{ meta: { regularMarketPrice: 1460.20, chartPreviousClose: 1442.00 } }],
           },
         })
       )
@@ -311,10 +307,8 @@ describe('kis-market-assessment', () => {
       )
       .mockResolvedValueOnce(
         createJsonResponse({
-          summary: {
-            title: 'USD/JPY',
-            price: '157.80',
-            price_movement: { value: 5.2, percentage: 3.4, movement: 'Up' },
+          chart: {
+            result: [{ meta: { regularMarketPrice: 157.80, chartPreviousClose: 152.65 } }],
           },
         })
       )
@@ -348,7 +342,7 @@ describe('kis-market-assessment', () => {
       )
       .mockResolvedValueOnce(
         createJsonResponse({
-          organic_results: [
+          organic: [
             {
               title: 'Tariff risk rises',
               snippet: 'New tariff escalation hit global markets.',
@@ -376,13 +370,13 @@ describe('kis-market-assessment', () => {
           },
         ])
       )
-      .mockResolvedValueOnce(createJsonResponse({ organic_results: [] }))
+      .mockResolvedValueOnce(createJsonResponse({ organic: [] }))
       .mockResolvedValueOnce(createNaverNewsSearchResponse([]))
-      .mockResolvedValueOnce(createJsonResponse({ organic_results: [] }))
+      .mockResolvedValueOnce(createJsonResponse({ organic: [] }))
       .mockResolvedValueOnce(createNaverNewsSearchResponse([]))
-      .mockResolvedValueOnce(createJsonResponse({ organic_results: [] }))
+      .mockResolvedValueOnce(createJsonResponse({ organic: [] }))
       .mockResolvedValueOnce(createNaverNewsSearchResponse([]))
-      .mockResolvedValueOnce(createJsonResponse({ organic_results: [] }))
+      .mockResolvedValueOnce(createJsonResponse({ organic: [] }))
       .mockResolvedValueOnce(createNaverNewsSearchResponse([]));
 
     vi.stubGlobal('fetch', fetchMock);
@@ -494,10 +488,8 @@ describe('kis-market-assessment', () => {
       )
       .mockResolvedValueOnce(
         createJsonResponse({
-          summary: {
-            title: 'VIX',
-            price: '36.20',
-            price_movement: { value: 11.4, percentage: 45.2, movement: 'Up' },
+          chart: {
+            result: [{ meta: { regularMarketPrice: 36.20, chartPreviousClose: 24.80 } }],
           },
         })
       )
@@ -506,10 +498,8 @@ describe('kis-market-assessment', () => {
       )
       .mockResolvedValueOnce(
         createJsonResponse({
-          summary: {
-            title: 'USD/KRW',
-            price: '1475.82',
-            price_movement: { value: 16.8, percentage: 1.1, movement: 'Up' },
+          chart: {
+            result: [{ meta: { regularMarketPrice: 1475.82, chartPreviousClose: 1459.02 } }],
           },
         })
       )
@@ -518,10 +508,8 @@ describe('kis-market-assessment', () => {
       )
       .mockResolvedValueOnce(
         createJsonResponse({
-          summary: {
-            title: 'USD/JPY',
-            price: '157.79',
-            price_movement: { value: 5.6, percentage: 3.6, movement: 'Up' },
+          chart: {
+            result: [{ meta: { regularMarketPrice: 157.79, chartPreviousClose: 152.19 } }],
           },
         })
       )
@@ -555,7 +543,7 @@ describe('kis-market-assessment', () => {
       )
       .mockResolvedValueOnce(
         createJsonResponse({
-          organic_results: [
+          organic: [
             {
               title: 'Tariff risk rises',
               snippet: 'New tariff escalation hit global markets.',
@@ -583,13 +571,13 @@ describe('kis-market-assessment', () => {
           },
         ])
       )
-      .mockResolvedValueOnce(createJsonResponse({ organic_results: [] }))
+      .mockResolvedValueOnce(createJsonResponse({ organic: [] }))
       .mockResolvedValueOnce(createNaverNewsSearchResponse([]))
-      .mockResolvedValueOnce(createJsonResponse({ organic_results: [] }))
+      .mockResolvedValueOnce(createJsonResponse({ organic: [] }))
       .mockResolvedValueOnce(createNaverNewsSearchResponse([]))
-      .mockResolvedValueOnce(createJsonResponse({ organic_results: [] }))
+      .mockResolvedValueOnce(createJsonResponse({ organic: [] }))
       .mockResolvedValueOnce(createNaverNewsSearchResponse([]))
-      .mockResolvedValueOnce(createJsonResponse({ organic_results: [] }))
+      .mockResolvedValueOnce(createJsonResponse({ organic: [] }))
       .mockResolvedValueOnce(createNaverNewsSearchResponse([]));
 
     vi.stubGlobal('fetch', fetchMock);
@@ -1113,7 +1101,7 @@ describe('kis-market-assessment', () => {
 
     it('single_source VIX applies 0.6 penalty', () => {
       const s = makeCoherenceSnapshot({ sp500Pct: -3, dowPct: -3, nasdaqPct: -3, kospiPct: -3 });
-      s.indicators.vix = { code: '.VIX', label: 'VIX', source: 'SERP_API' as const, price: 36, change: 11, changePct: 44, validation: 'single_source' as const, secondarySource: null, fetchedAt: new Date().toISOString() };
+      s.indicators.vix = { code: '.VIX', label: 'VIX', source: 'YAHOO_FINANCE' as const, price: 36, change: 11, changePct: 44, validation: 'single_source' as const, secondarySource: null, fetchedAt: new Date().toISOString() };
       const { signalDetails } = calculateCrashScore(s, 'coherent_crash', 'extreme');
       const vixDetail = signalDetails.find((d) => d.name === 'VIX');
       expect(vixDetail).toBeDefined();

@@ -10,13 +10,11 @@ export const PIPELINE_CONFIG: PipelineConfig = {
   retryDelay: 2000,
 };
 
+/** Serper.dev 구글 검색 설정 (SerpApi 대체). 1 크레딧 = 결과 ≤10개. */
 export const SERP_API_CONFIG = {
-  baseUrl: 'https://serpapi.com/search.json',
-  engine: 'google',
-  location: 'South Korea',
+  baseUrl: 'https://google.serper.dev/search',
   hl: 'ko',
   gl: 'kr',
-  googleDomain: 'google.co.kr',
   num: 10,
 };
 

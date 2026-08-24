@@ -48,20 +48,14 @@ export interface SerpSearchResult {
   displayed_link: string;
 }
 
-export interface SerpApiResponse {
-  search_metadata: {
-    id: string;
-    status: string;
-    total_time_taken: number;
-  };
-  search_parameters: {
-    q: string;
-    /** google.co.kr 등 */
-    google_domain: string;
-    /** 언어 코드 (ko 등) */
-    hl: string;
-  };
-  organic_results: SerpSearchResult[];
+/** Serper.dev 응답 (organic 결과만 사용) */
+export interface SerperResponse {
+  organic?: Array<{
+    title?: string;
+    link: string;
+    snippet?: string;
+    position?: number;
+  }>;
 }
 
 export interface ScrapedContent {
