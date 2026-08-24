@@ -141,7 +141,7 @@ export default function RootLayout({
           socialConfig.twitter,
           socialConfig.instagram,
           socialConfig.threads,
-          'https://github.com/MongLong0214',
+          'https://github.com/MongLong0214/stock-ai-newsletter',
           'https://www.npmjs.com/package/stockmatrix-mcp',
         ],
         contactPoint: {

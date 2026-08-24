@@ -60,8 +60,8 @@ export const schemaIds = {
   organization: `${siteConfig.domain}/#organization`,
   website: `${siteConfig.domain}/#website`,
   service: `${siteConfig.domain}/#service`,
-  pageId: (path: string) => `${siteConfig.domain}${path}/#webpage`,
-  articleId: (path: string) => `${siteConfig.domain}${path}/#article`,
+  pageId: (path: string) => `${siteConfig.domain}${path.replace(/\/$/, '')}/#webpage`,
+  articleId: (path: string) => `${siteConfig.domain}${path.replace(/\/$/, '')}/#article`,
 } as const;
 
 /** ISO 8601 KST timezone suffix */
