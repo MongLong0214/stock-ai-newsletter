@@ -2,6 +2,62 @@
   "newsletters": [
     {
       "type": "stock",
+      "date": "2026-08-25",
+      "stocks": [
+        {
+          "ticker": "KOSPI:278470",
+          "name": "에이피알",
+          "close_price": 385000,
+          "rationale": "2026-08-21 기준 종가 385,000원 확인(zum.com/daum.net)|유럽 매출 목표 5,000억원 상향 조정(파이낸셜뉴스)|상반기 유럽 매출 전년비 363% 급증(서울경제)|홈 뷰티 디바이스 밸류체인 내재화 완료(alphasquare)|RSI 56.5 강세 구간 유지|SMA 정배열 및 20일선 지지 확인|52주 최고가 473,000원 대비 회복세|OBV 매집 신호 지속|MACD 양선 전환 시도|최대 분기 실적 갱신 모멘텀|K-뷰티 섹터 내 상대적 강세(매일경제)",
+          "signals": {
+            "trend_score": 95,
+            "momentum_score": 96,
+            "volume_score": 92,
+            "volatility_score": 85,
+            "pattern_score": 90,
+            "sentiment_score": 94,
+            "overall_score": 93
+          },
+          "verified_date": "2026-08-24"
+        },
+        {
+          "ticker": "KOSPI:012450",
+          "name": "한화에어로스페이스",
+          "close_price": 1085000,
+          "rationale": "2026-08-24 종가 1,085,000원 확인(daum.net)|미국 육군 자주포(MTC) 수주 및 현지 생산 투자(Chosunbiz)|EBITDA 4.64조원 달성으로 효율성 개선(tradingview)|미국 방산 법인 4,150억 추가 투자 결정(한국금융신문)|52주 최고가 1,655,000원 대비 가격 매력도 발생|SMA 정배열 하단 지지|RSI 58.8로 과매수 아닌 안정적 상승세|외인 지분율 45.5% 견조한 유지(daum.net)|루마니아 등 유럽 추가 수주 기대감(investing.com)|K9 자주포 글로벌 점유율 확대 지속",
+          "signals": {
+            "trend_score": 90,
+            "momentum_score": 88,
+            "volume_score": 85,
+            "volatility_score": 82,
+            "pattern_score": 85,
+            "sentiment_score": 80,
+            "overall_score": 86
+          },
+          "verified_date": "2026-08-24"
+        },
+        {
+          "ticker": "KOSPI:000100",
+          "name": "유한양행",
+          "close_price": 84300,
+          "rationale": "2026-08-24 종가 84,300원 확인(investing.com)|글로벌 자산운용사 블랙록 지분 6.50%로 확대 공시(EBN)|레이저티닙 유럽 출시 마일스톤 유입으로 실적 상회(hankyung)|창립 100주년 기념 엘레나 특별 세트 출시 등 모멘텀(뉴스1)|바이오 섹터 외인 수급 집중(investing.com)|국내 기관 대상 NDR 진행으로 주주 소통 강화(hankyung)|SMA 정배열 및 MACD 0선 상향 돌파|RSI 59.0 강세 구간 진입|52주 최고가 129,200원 대비 반등 구간|OBV 매집 지표 지속 상승",
+          "signals": {
+            "trend_score": 92,
+            "momentum_score": 94,
+            "volume_score": 90,
+            "volatility_score": 84,
+            "pattern_score": 88,
+            "sentiment_score": 92,
+            "overall_score": 91
+          },
+          "verified_date": "2026-08-24"
+        }
+      ],
+      "sentAt": "2026-08-24T22:48:11.439+00:00",
+      "subscriberCount": 315
+    },
+    {
+      "type": "stock",
       "date": "2026-08-24",
       "stocks": [
         {
@@ -11134,5 +11190,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-08-23T23:09:50.959Z"
+  "lastUpdated": "2026-08-24T22:48:46.640Z"
 }
