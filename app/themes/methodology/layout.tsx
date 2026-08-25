@@ -46,7 +46,7 @@ const MethodologyLayout = ({ children }: { children: React.ReactNode }) => {
   const breadcrumbSchema = generateBreadcrumbSchema([
     { name: '홈', url: siteConfig.domain },
     { name: '테마 분석', url: `${siteConfig.domain}/themes` },
-    { name: '알고리즘', url: `${siteConfig.domain}/themes/methodology` },
+    { name: '테마 추적 알고리즘', url: `${siteConfig.domain}/themes/methodology` },
   ])
 
   return (

@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { getServerSupabaseClient } from '@/lib/supabase/server-client';
+import { fetchAllRows } from '@/lib/supabase/paginate';
 import { siteConfig, withOgImageVersion } from '@/lib/constants/seo/config';
 import AnimatedBackground from '@/components/animated-background';
 import BlogListClient from './_components/blog-list/blog-list-client';
@@ -12,15 +13,21 @@ import type { BlogPostListItem } from './_types/blog';
 async function getPublishedPosts(): Promise<BlogPostListItem[]> {
   const supabase = getServerSupabaseClient();
 
-  const { data, error } = await supabase
-    .from('blog_posts')
-    .select('slug, title, description, target_keyword, category, tags, published_at, view_count')
-    .eq('status', 'published')
-    .order('published_at', { ascending: false });
+  try {
+    const data = await fetchAllRows<unknown>((from, to) =>
+      supabase
+        .from('blog_posts')
+        .select('slug, title, description, target_keyword, category, tags, published_at, view_count')
+        .eq('status', 'published')
+        .order('published_at', { ascending: false })
+        .range(from, to),
+    );
 
-  if (error || !Array.isArray(data)) return [];
-
-  return data.filter(isValidBlogPost).filter((post) => isValidBlogSlug(post.slug));
+    return data.filter(isValidBlogPost).filter((post) => isValidBlogSlug(post.slug));
+  } catch (error) {
+    console.error('[Blog] 발행글 조회 실패', error);
+    return [];
+  }
 }
 
 async function BlogPage() {
@@ -52,7 +59,7 @@ async function BlogPage() {
           <div className="relative max-w-6xl mx-auto">
             <header className="text-center space-y-6 sm:space-y-8">
               <h1 className="text-4xl leading-[1.15] font-extrabold tracking-tight sm:text-5xl md:text-6xl lg:text-7xl animate-fade-in-up" style={{ animationDelay: '0ms' }}>
-                <span className="block sm:inline">Stock Matrix</span>
+                <span className="block sm:inline">StockMatrix{' '}</span>
                 <span className="inline-block ml-2 sm:ml-3">
                   <span className="relative inline-block">
                     <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-emerald-500">
@@ -81,7 +88,7 @@ async function BlogPage() {
 export default BlogPage;
 
 export const metadata: Metadata = {
-  title: 'AI 주식 분석 블로그 - Stock Matrix',
+  title: 'AI 주식 분석 블로그',
   description: 'AI 주식 분석, 뉴스레터 추천, 기술적 분석 가이드 등 주식 투자에 필요한 모든 정보를 제공합니다. RSI·MACD·볼린저밴드 30개 지표 활용법과 테마 트렌드 분석을 확인하세요.',
   keywords: ['주식 블로그', 'AI 주식 분석', '기술적 분석', '주식 투자', '뉴스레터 추천'],
   openGraph: {
@@ -103,17 +110,6 @@ export const metadata: Metadata = {
     canonical: `${siteConfig.domain}/blog`,
     types: {
       'application/rss+xml': `${siteConfig.domain}/feed.xml`,
-    },
-  },
-  robots: {
-    index: true,
-    follow: true,
-    googleBot: {
-      index: true,
-      follow: true,
-      'max-video-preview': -1,
-      'max-image-preview': 'large',
-      'max-snippet': -1,
     },
   },
 };

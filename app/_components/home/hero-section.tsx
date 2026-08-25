@@ -46,7 +46,7 @@ function HeroSection({ formatted }: HeroSectionProps) {
             id="hero-heading"
             className="font-extralight mb-6 lg:mb-8 tracking-[-0.02em] leading-[0.95]"
           >
-            <span className="block text-4xl sm:text-5xl md:text-6xl lg:text-7xl xl:text-8xl text-emerald-500/80">AI가 분석한</span>
+            <span className="block text-4xl sm:text-5xl md:text-6xl lg:text-7xl xl:text-8xl text-emerald-500/80">AI가 분석한{' '}</span>
             <br />
             <span className="block text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-normal bg-clip-text text-transparent bg-gradient-to-r from-emerald-400 via-teal-400 to-emerald-400">
               기술적 지표 데이터

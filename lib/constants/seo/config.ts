@@ -11,7 +11,7 @@ type OgVersionEnv = Record<string, string | undefined>;
 
 export const siteConfig: SiteConfig = {
   domain: 'https://stockmatrix.co.kr',
-  serviceName: 'Stock Matrix',
+  serviceName: 'StockMatrix',
   serviceNameKo: '스탁매트릭스',
   deliveryTime: DELIVERY_TIME_DISPLAY,
   deliveryTimeShort: DELIVERY_TIME_SHORT,

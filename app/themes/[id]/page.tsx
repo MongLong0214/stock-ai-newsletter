@@ -100,15 +100,6 @@ export async function generateMetadata({
   }
 }
 
-/** 최근 7일 이내 업데이트 여부 확인 */
-function isRecentlyUpdated(dateStr: string | null): boolean {
-  if (!dateStr) return false
-  const updated = new Date(dateStr)
-  const sevenDaysAgo = new Date()
-  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
-  return updated >= sevenDaysAgo
-}
-
 /** 테마 상세 페이지 */
 export default async function ThemeDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -124,12 +115,9 @@ export default async function ThemeDetailPage({ params }: { params: Promise<{ id
       : `${theme.name} 테마 분석`)
     : null
 
-  const isRecent = theme ? isRecentlyUpdated(theme.updatedAt) : false
-  const schemaType = isRecent ? 'NewsArticle' as const : 'Article' as const
-
   const articleSchema = theme ? {
     '@context': 'https://schema.org',
-    '@type': schemaType,
+    '@type': 'Article',
     '@id': schemaIds.articleId(`/themes/${id}`),
     headline,
     description: theme.description || `${theme.name} 테마의 AI 생명주기 분석`,
@@ -161,7 +149,6 @@ export default async function ThemeDetailPage({ params }: { params: Promise<{ id
       xPath: ['/html/head/title', '/html/head/meta[@name=\'description\']/@content'],
     },
     isAccessibleForFree: true,
-    ...(isRecent ? { dateline: '서울' } : {}),
   } : null
 
   const breadcrumbSchema = theme ? {

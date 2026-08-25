@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { siteConfig, keywordsByCategory, withOgImageVersion } from '@/lib/constants/seo';
 
 export const metadata: Metadata = {
-  title: '뉴스레터 분석 기록 - Stock Matrix AI 주식 분석',
+  title: '뉴스레터 분석 기록 - AI 주식 분석',
   description:
     '과거 발송된 Stock Matrix AI 주식 뉴스레터를 날짜별로 확인하세요. RSI, MACD, 볼린저밴드 등 30개 기술적 지표 분석 결과와 추천 종목 히스토리를 제공합니다.',
   keywords: [
@@ -42,17 +42,6 @@ export const metadata: Metadata = {
     title: 'Stock Matrix 뉴스레터 분석 기록',
     description: 'AI 주식 분석 뉴스레터 히스토리 확인',
     images: [withOgImageVersion('/archive/opengraph-image')],
-  },
-  robots: {
-    index: true,
-    follow: true,
-    googleBot: {
-      index: true,
-      follow: true,
-      'max-video-preview': -1,
-      'max-image-preview': 'large',
-      'max-snippet': -1,
-    },
   },
 };
 

@@ -34,18 +34,18 @@ export default function robots(): MetadataRoute.Robots {
             // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
             // OpenAI ChatGPT (공식 확인됨)
-            { userAgent: 'GPTBot', allow: '/', disallow: ['/api/', '/unsubscribe/'] },
-            { userAgent: 'ChatGPT-User', allow: '/', disallow: ['/api/', '/unsubscribe/'] },
-            { userAgent: 'OAI-SearchBot', allow: '/', disallow: ['/api/', '/unsubscribe/'] },
+            { userAgent: 'GPTBot', allow: ['/', '/api/tli/'], disallow: ['/api/', '/unsubscribe/'] },
+            { userAgent: 'ChatGPT-User', allow: ['/', '/api/tli/'], disallow: ['/api/', '/unsubscribe/'] },
+            { userAgent: 'OAI-SearchBot', allow: ['/', '/api/tli/'], disallow: ['/api/', '/unsubscribe/'] },
 
             // Anthropic Claude (공식 확인됨)
-            { userAgent: 'ClaudeBot', allow: '/', disallow: ['/api/', '/unsubscribe/'] },
+            { userAgent: 'ClaudeBot', allow: ['/', '/api/tli/'], disallow: ['/api/', '/unsubscribe/'] },
 
             // Google Gemini/Bard (공식 확인됨)
-            { userAgent: 'Google-Extended', allow: '/', disallow: ['/api/', '/unsubscribe/'] },
+            { userAgent: 'Google-Extended', allow: ['/', '/api/tli/'], disallow: ['/api/', '/unsubscribe/'] },
 
             // Perplexity AI (공식 확인됨)
-            { userAgent: 'PerplexityBot', allow: '/', disallow: ['/api/', '/unsubscribe/'] },
+            { userAgent: 'PerplexityBot', allow: ['/', '/api/tli/'], disallow: ['/api/', '/unsubscribe/'] },
 
             ...SOCIAL_PREVIEW_BOTS.map((userAgent) => ({
                 userAgent,
@@ -54,10 +54,10 @@ export default function robots(): MetadataRoute.Robots {
             })),
 
             // Apple Intelligence (공식 확인됨)
-            { userAgent: 'Applebot-Extended', allow: '/', disallow: ['/api/', '/unsubscribe/'] },
+            { userAgent: 'Applebot-Extended', allow: ['/', '/api/tli/'], disallow: ['/api/', '/unsubscribe/'] },
 
             // You.com AI (공식 확인됨)
-            { userAgent: 'YouBot', allow: '/', disallow: ['/api/', '/unsubscribe/'] },
+            { userAgent: 'YouBot', allow: ['/', '/api/tli/'], disallow: ['/api/', '/unsubscribe/'] },
 
             // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
             // 🚫 과도한 크롤링/AI 학습 봇 전면 차단 (CPU 사용량 절감)

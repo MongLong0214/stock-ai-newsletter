@@ -81,17 +81,6 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     },
     twitter: { card: 'summary_large_image', title, description, images: [ogImageUrl] },
     alternates: { canonical: url },
-    robots: {
-      index: true,
-      follow: true,
-      googleBot: {
-        index: true,
-        follow: true,
-        'max-video-preview': -1,
-        'max-image-preview': 'large',
-        'max-snippet': -1,
-      },
-    },
   };
 }
 
@@ -121,7 +110,7 @@ async function BlogPostPage({ params }: PageProps) {
 
       <div className="relative min-h-screen pt-20 pb-16">
         <div className="max-w-7xl mx-auto px-5 md:px-6 lg:px-4 mb-8">
-          <Link href="/blog" className="inline-flex items-center gap-2 text-sm text-slate-400 hover:text-emerald-400 transition-colors">
+          <Link href="/blog" className="inline-flex items-center gap-2 py-2 text-sm text-slate-400 hover:text-emerald-400 transition-colors">
             <ArrowLeft className="w-4 h-4" />
             블로그 목록
           </Link>

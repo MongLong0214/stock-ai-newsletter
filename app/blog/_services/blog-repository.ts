@@ -38,6 +38,12 @@ export async function saveBlogPost(
     throw new Error(`블로그 포스트 저장 실패: ${error.message}`);
   }
 
+  // 이미 발행된 글의 수정도 재크롤 대상이다. 발행 시점(publishBlogPost)에만 알리면
+  // 종목 수치 정정 같은 변경이 Bing·네이버에 영영 전달되지 않는다.
+  if (status === 'published') {
+    await notifyIndexNow([`${siteConfig.domain}/blog/${input.slug}`]);
+  }
+
   return data;
 }
 

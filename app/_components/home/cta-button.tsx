@@ -20,6 +20,8 @@ function CTAButton({
   return (
     <Link
       href="/subscribe"
+      aria-label={ariaLabel}
+      className="inline-block"
       onClick={() => {
         trackEvent('subscribe_cta_click', {
           cta_location: location,
@@ -29,9 +31,8 @@ function CTAButton({
         });
       }}
     >
-      <motion.button
-        className={`relative overflow-hidden bg-emerald-600 text-slate-50 text-base font-medium px-8 py-3.5 rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/50 tracking-wide cursor-pointer border-0 ${className}`}
-        aria-label={ariaLabel}
+      <motion.span
+        className={`relative block overflow-hidden bg-emerald-600 text-slate-50 text-base font-medium px-8 py-3.5 rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/50 tracking-wide cursor-pointer border-0 ${className}`}
         initial="rest"
         whileHover="hover"
         whileTap="tap"
@@ -135,7 +136,7 @@ function CTAButton({
           }}
           aria-hidden="true"
         />
-      </motion.button>
+      </motion.span>
     </Link>
   );
 }

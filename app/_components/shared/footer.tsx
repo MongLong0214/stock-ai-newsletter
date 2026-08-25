@@ -227,13 +227,15 @@ function Footer() {
             )}
           </button>
 
-          {isDisclaimerOpen && (
-            <div
-              id="legal-disclaimer"
-              className="mt-4 px-5 py-4 bg-slate-900/20 rounded-xl border border-slate-800/30 text-xs text-slate-400 leading-relaxed font-light"
-            >
-              <p className="text-justify">
-                본 서비스는 인공지능(AI)을 활용하여 기술적 지표를 수집·분석한 참고
+          {/* 항상 DOM에 렌더한다. 조건부 렌더로 빼면 접힌 상태에서 서버 HTML에 고지문이 사라져
+              크롤러와 미클릭 사용자 모두에게 면책조항이 존재하지 않게 된다. */}
+          <div
+            id="legal-disclaimer"
+            hidden={!isDisclaimerOpen}
+            className="mt-4 px-5 py-4 bg-slate-900/20 rounded-xl border border-slate-800/30 text-xs text-slate-400 leading-relaxed font-light"
+          >
+            <p className="text-justify">
+              본 서비스는 인공지능(AI)을 활용하여 기술적 지표를 수집·분석한 참고
                 자료를 제공하는 정보 제공 서비스로서, 자본시장과 금융투자업에 관한
                 법률 제6조에 따른 투자권유, 투자자문, 투자일임 등 어떠한 형태의
                 금융투자업 행위도 아니며, 특정 종목의 매수·매도·보유를 권유하거나
@@ -254,15 +256,23 @@ function Footer() {
                 위험 감수 능력을 충분히 고려하여 신중하게 투자 결정을 내려야 하며,
                 필요한 경우 금융 전문가와 상담할 것을 권장합니다.
               </p>
-            </div>
-          )}
+          </div>
         </div>
 
         {/* Bottom Bar */}
         <div className="border-t border-slate-800/30 py-6">
-          <div className="flex items-center justify-center">
+          <div className="flex flex-col items-center justify-center gap-3">
+            <nav className="flex items-center gap-4 text-sm" aria-label="법적 고지">
+              <Link href="/privacy" className="text-slate-400 hover:text-slate-300 transition-colors">
+                개인정보처리방침
+              </Link>
+              <span className="text-slate-700" aria-hidden="true">·</span>
+              <Link href="/terms" className="text-slate-500 hover:text-slate-400 transition-colors">
+                이용약관
+              </Link>
+            </nav>
             <p className="text-slate-500 text-sm font-light">
-              &copy; {new Date().getFullYear()} Stock Matrix. All rights reserved.
+              &copy; {new Date().getFullYear()} StockMatrix. All rights reserved.
             </p>
           </div>
         </div>
