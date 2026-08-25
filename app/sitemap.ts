@@ -65,28 +65,13 @@ async function getTopBlogTags(): Promise<string[]> {
   }
 }
 
-async function getActiveThemeIds(): Promise<{ id: string; updated_at: string | null }[]> {
-  try {
-    const supabase = getServerSupabaseClient();
-    return await fetchAllRows<{ id: string; updated_at: string | null }>((from, to) =>
-      supabase
-        .from('themes')
-        .select('id, updated_at')
-        .eq('is_active', true)
-        .range(from, to),
-    );
-  } catch {
-    return [];
-  }
-}
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const baseUrl = siteConfig.domain;
 
-  const [blogPosts, topTags, themeIds] = await Promise.all([
+  const [blogPosts, topTags] = await Promise.all([
     getPublishedBlogSlugs(),
     getTopBlogTags(),
-    getActiveThemeIds(),
   ]);
 
   // 동적 허브(홈·블로그·아카이브·테마 목록)의 lastmod = 발행 블로그의 실제 최신 갱신일.
@@ -134,21 +119,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     };
   });
 
-  // 테마 상세(/themes/[id])는 실제로는 index,follow + self-canonical로 서빙되고
-  // generateStaticParams가 is_active 테마를 전부 프리렌더한다. noindex라는 옛 주석은
-  // 코드와 어긋난 상태였으므로 실제 동작(색인 가능)에 맞춰 sitemap에 포함한다.
-  // 다시 색인에서 빼려면 page.tsx의 generateMetadata 성공 경로에 robots:{index:false}를 넣고
-  // 여기서 themePages를 제거해야 한다 — 한쪽만 바꾸면 또 모순이 생긴다.
-  const themePages: MetadataRoute.Sitemap = themeIds.map((theme) => {
-    const url = `${baseUrl}/themes/${theme.id}`;
-    return {
-      url,
-      lastModified: theme.updated_at ? new Date(theme.updated_at) : latestContentDate,
-      changeFrequency: 'daily',
-      priority: 0.7,
-      alternates: withAlternates(url),
-    };
-  });
-
-  return [...staticPages, ...blogPages, ...tagPages, ...themePages];
+  // 테마 상세(/themes/[id])는 TLI v3 마이그레이션 동안 색인 대상이 아니므로 sitemap에서 제외한다.
+  //
+  // 주의 — 현재 코드와 이 의도는 어긋나 있다. app/themes/[id]/page.tsx의 generateMetadata는
+  // 존재하지 않는 테마(404 분기)에만 robots:{index:false}를 걸고, 실제 테마는 루트 layout의
+  // index,follow를 그대로 상속해 self-canonical로 서빙된다. 즉 sitemap에만 없을 뿐 색인은
+  // 가능한 상태다. 마이그레이션 중 색인을 실제로 막으려면 page.tsx 성공 경로에도
+  // robots:{index:false}를 넣어야 한다(약 239개 페이지가 색인에서 빠지므로 별도 판단 필요).
+  // 마이그레이션 종료 후 색인 전환 시에는 이 위치에 themePages를 추가한다.
+  return [...staticPages, ...blogPages, ...tagPages];
 }
