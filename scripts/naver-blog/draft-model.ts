@@ -138,12 +138,47 @@ export function formatChange(n: number): string {
   return `${n >= 0 ? '+' : '-'}${abs}점`;
 }
 
+/**
+ * 집계 글(ranking·evergreen) 캡션.
+ *
+ * 이 글들은 목록·방법론 화면을 캡처하고 스냅샷에 개별 테마 점수를 담지 않는다.
+ * theme 전제 템플릿을 그대로 재사용하면 `테마 점수 undefined점과 7일 변화 +0점`이
+ * 그대로 공개된다 — 캡션은 이미지 다음 문단으로 타이핑되므로 본문에 박힌다.
+ */
+function aggregateCaption(id: string, snap: SourceSnapshot, asOf?: string, kind?: string): string {
+  const sample = snap.stockCount ?? 0;
+  const date = asOf ? `, 기준일 ${asOf}` : '';
+  if (id.includes('hero')) {
+    // evergreen 히어로는 목록이 아니라 **방법론 페이지**를 찍는다. 목록 문구를 붙이면
+    // 화면과 캡션이 어긋난다.
+    return kind === 'evergreen'
+      ? `테마 추적 알고리즘 — 점수 산출 방법론${date}`
+      : `단계별 상위 ${sample}개 테마 생명주기 점수 목록${date}`;
+  }
+  if (id.includes('signals')) return `오늘의 테마 점수 변동 신호${date}`;
+  if (id.includes('peak')) return `정점 단계 테마 목록${date}`;
+  if (id.includes('growth')) return `성장 단계 테마 목록${date}`;
+  if (id.includes('emerging')) return `초기 단계 테마 목록${date}`;
+  if (id.includes('decline')) return `쇠퇴 단계 테마 목록${date}`;
+  if (id.includes('reigniting')) return `재점화 테마 목록${date}`;
+  if (id.includes('stability')) return `점수 안정화 방식${date}`;
+  if (id.includes('sources')) return `데이터 출처와 한계${date}`;
+  if (id.includes('score')) return `테마 생명주기 점수 산출 방식${date}`;
+  if (id.includes('stages')) return `점수를 이루는 네 가지 요소${date}`;
+  if (id.includes('limits')) return `테마 상태 5단계 구분 기준${date}`;
+  return `테마 점수 방법론 화면${date}`;
+}
+
 export function snapshotCaption(
   id: string,
   themeName: string,
   snap: SourceSnapshot,
   asOf?: string,
+  kind?: string,
 ): string {
+  // score가 없으면 집계 글이다 — theme 전제 문구를 쓰면 undefined가 새어 나간다
+  if (snap.score == null) return aggregateCaption(id, snap, asOf, kind);
+
   const change = formatChange(snap.change7d ?? 0);
   if (id.includes('hero')) {
     return `${themeName} 테마 점수 ${snap.score}점과 7일 변화 ${change}, 기준일 ${asOf ?? ''}`.trim();

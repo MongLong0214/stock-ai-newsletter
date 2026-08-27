@@ -171,3 +171,30 @@ describe('volumeProbes — 롱테일 구절이 아니라 주제(헤드)를 잰�
     expect(volumeProbes('A 관련주 분석')).not.toContain('A');
   });
 });
+
+describe('INVESTMENT_SOLICITATION_RE — 명령형 투자권유', () => {
+  it('직접 권유 문장을 잡는다', async () => {
+    const { checkYmyl } = await import('../ymyl-gate');
+    for (const bad of [
+      '이 종목은 지금 매수하세요.',
+      '전문가들은 매수를 권합니다.',
+      '지금 사세요, 기회입니다.',
+      '비중을 늘리세요.',
+      '목표가 85,000원을 제시합니다.',
+    ]) {
+      const v = await checkYmyl(bad, '전망');
+      expect(v.some((x) => x.rule === 'solicitation'), bad).toBe(true);
+    }
+  });
+
+  it('사실 서술은 통과한다', async () => {
+    const { checkYmyl } = await import('../ymyl-gate');
+    for (const ok of [
+      '이번 주 관련 기사는 41건으로 지난주보다 늘었습니다.',
+      '점수는 71점이며 정점 구간입니다.',
+    ]) {
+      const v = await checkYmyl(ok, '시장 분석');
+      expect(v.filter((x) => x.rule === 'solicitation'), ok).toHaveLength(0);
+    }
+  });
+});

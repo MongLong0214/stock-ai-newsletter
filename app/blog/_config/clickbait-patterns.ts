@@ -55,3 +55,18 @@ export const ALL_PATTERNS: readonly RegExp[] = [...GATE_PATTERNS, ...EXTRA_PATTE
 export function isClickbait(title: string): boolean {
   return ALL_PATTERNS.some((re) => re.test(title));
 }
+
+/**
+ * 매수·수익 단정 — 자본시장법상 투자권유·유사투자자문 경계 표현.
+ *
+ * 두 트랙이 공유한다. 트랙 A는 YMYL 게이트에서 생성물 전체를, 트랙 B는 인용할
+ * 기사 제목을 이 패턴으로 거른다. 인용이라도 본문에 실리면 같은 글에 실린 문장이다.
+ *
+ * 이 모듈에 두는 이유: 의존성이 없다. `_services/ymyl-gate`는 Supabase 클라이언트를
+ * 끌고 오므로, 정규식 하나 때문에 트랙 B(네이버)가 트랙 A의 DB 체인에 묶이면 안 된다.
+ *
+ * 명령형 권유(`매수하세요`, `매수를 권합니다`, `지금 사세요`, `담으세요`)가 빠져 있었다 —
+ * 가장 직접적인 투자권유 형태인데 게이트를 통과했다.
+ */
+export const INVESTMENT_SOLICITATION_RE =
+  /(지금\s*(매수|사야|사세요|들어가|담으)|매수\s*(추천|타이밍|적기|하세요|하시길)|매수를?\s*(권|추천)|사세요|담으세요|비중을?\s*(늘리세요|실으)|목표가\s*[\d,]+원|수익률?\s*\d+\s*%\s*(보장|확실)|무조건\s*(오른다|상승)|급등\s*(예정|확실)|반드시\s*(오른|상승))/;

@@ -69,18 +69,41 @@ const NEWS_TARGETS: readonly Target[] = [
   { heading: '점수 추이', name: '3-trend', page: 'theme', required: false, needsDataLine: true },
 ];
 
+/**
+ * 랭킹 글 캡처 후보.
+ *
+ * `/themes`의 단계 섹션과 「오늘의 시그널」은 **조건부 렌더**다 — 해당 단계 테마가
+ * 없으면 컴포넌트가 null을 반환한다(themes-content.tsx:82-91, today-signals.tsx:118).
+ * 세 섹션을 전부 required로 박아 두면 양수 변화 테마가 없거나 특정 단계가 빈 날
+ * 정상 랭킹 자료가 있어도 초안 생성이 중단돼 그날 발행이 0건이 된다.
+ *
+ * 그래서 히어로만 필수로 두고 후보를 넓힌다. 실측(2026-08-27) 렌더된 H2:
+ * 오늘의 시그널 · 초기 단계 · 성장 단계 · 정점 단계.
+ * 최소 장수(4)는 capturePostImages 호출부가 최종 판정한다.
+ */
 const RANKING_TARGETS: readonly Target[] = [
   { heading: null, name: '1-hero', page: 'list', required: true },
-  { heading: '오늘의 시그널', name: '2-signals', page: 'list', required: true },
-  { heading: '정점 단계', name: '3-peak', page: 'list', required: true },
-  { heading: '성장 단계', name: '4-growth', page: 'list', required: true },
+  { heading: '오늘의 시그널', name: '2-signals', page: 'list', required: false },
+  { heading: '정점 단계', name: '3-peak', page: 'list', required: false },
+  { heading: '성장 단계', name: '4-growth', page: 'list', required: false },
+  { heading: '초기 단계', name: '5-emerging', page: 'list', required: false },
+  { heading: '쇠퇴 단계', name: '6-decline', page: 'list', required: false },
+  { heading: '재점화', name: '7-reigniting', page: 'list', required: false },
 ];
 
+/**
+ * 상시 글 캡처 후보.
+ *
+ * 방법론 페이지는 정적 콘텐츠라 섹션이 항상 렌더된다(실측 H2 8개). 그래도 문구가
+ * 바뀌면 섹션을 못 찾을 수 있으므로 히어로만 필수로 두고 후보를 넉넉히 둔다.
+ */
 const EVERGREEN_TARGETS: readonly Target[] = [
   { heading: null, name: '1-hero', page: 'methodology', required: true },
-  { heading: '테마 점수란?', name: '2-score', page: 'methodology', required: true },
-  { heading: '점수를 이루는 4가지 요소', name: '3-stages', page: 'methodology', required: true },
-  { heading: '테마 상태 5단계와 재점화', name: '4-limits', page: 'methodology', required: true },
+  { heading: '테마 점수란?', name: '2-score', page: 'methodology', required: false },
+  { heading: '점수를 이루는 4가지 요소', name: '3-stages', page: 'methodology', required: false },
+  { heading: '테마 상태 5단계와 재점화', name: '4-limits', page: 'methodology', required: false },
+  { heading: '점수 안정화', name: '5-stability', page: 'methodology', required: false },
+  { heading: '데이터 출처와 한계', name: '6-sources', page: 'methodology', required: false },
 ];
 
 function targetsFor(kind: PostType): readonly Target[] {
@@ -226,7 +249,8 @@ async function inspectSection(page: Page, clip: ClipRect): Promise<SectionInspec
       .join(' ');
     return {
       dataLineCount: usable.length,
-      emptyCopy: /비교선이 아직 없어요|데이터가 없어요|표시할 데이터가 없/.test(text),
+      // 판정은 호출부에서 isEmptyChartCopy(단일 출처)로 한다. 여기서는 텍스트만 넘긴다.
+      emptyCopy: false,
       longestPath: Math.max(0, ...paths.map((d) => d.length)),
       pathDs: usable,
       stockRows: rows.length,
@@ -269,7 +293,7 @@ async function screenshotClip(page: Page, path: string, clip: { height: number; 
 }
 
 function captionOf(name: string, req: CaptureRequest): string {
-  return snapshotCaption(name, req.themeName ?? 'StockMatrix', req.snapshot ?? {}, req.asOf);
+  return snapshotCaption(name, req.themeName ?? 'StockMatrix', req.snapshot ?? {}, req.asOf, req.kind);
 }
 
 export async function capturePostImages(req: CaptureRequest, browser?: Browser): Promise<CapturedImage[]> {
@@ -344,8 +368,15 @@ export async function capturePostImages(req: CaptureRequest, browser?: Browser):
         }
         const inspect = await inspectSection(page, clip);
 
+        // 빈 상태 문구 검사는 **차트 섹션에만** 적용한다.
+        //
+        // 전 섹션으로 넓혔더니 관련종목·관련뉴스 필수 캡처가 전부 "빈 화면"으로 판정돼
+        // 발행이 0건이 됐다(실측). 섹션 텍스트는 클립과 겹치는 모든 요소를 모으므로
+        // 페이지 어딘가에 상시 존재하는 빈 상태 문구까지 걸린다.
+        // 다른 섹션의 빈 상태는 양의 신호로 본다 — 관련종목은 행 수(stockRowsMatch),
+        // 전 섹션은 PNG 크기 하한(MIN_IMAGE_BYTES).
         if (target.needsDataLine) {
-          const empty = inspect.emptyCopy || isEmptyChartCopy(inspect.text);
+          const empty = isEmptyChartCopy(inspect.text);
           const usable = hasUsableDataLine(inspect.pathDs.map((d) => ({ d })));
           if (!shouldIncludeTrend({ emptyCopy: empty, dataLineCount: usable ? 1 : 0 })) {
             if (target.required) throw new Error(`섹션 "${target.heading}"에 데이터 선이 없습니다`);

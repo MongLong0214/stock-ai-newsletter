@@ -474,11 +474,11 @@ export function composeEvergreen(
 
   const sectionBlocks = topic.sections.flatMap(([heading, ...paras], index) => {
     const image = index === 0
-      ? ['{{image:2-score}}']
+      ? ['{{image:2-section}}']
       : index === 1
-        ? ['{{image:3-stages}}']
+        ? ['{{image:3-section}}']
         : index === 2
-          ? ['{{image:4-limits}}']
+          ? ['{{image:4-section}}']
           : [];
     if (index < 3) return [`${QUOTE}${heading}`, ...paras, ...image];
     return [`**${heading}**`, ...paras];

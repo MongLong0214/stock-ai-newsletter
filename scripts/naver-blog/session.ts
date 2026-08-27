@@ -101,10 +101,34 @@ export function recentPublishCount(history: string[], now: number): number {
   }).length;
 }
 
+const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
+
+/** KST 날짜 문자열 — 하루 1편 판정용 */
+const kstDate = (ms: number) => new Date(ms + KST_OFFSET_MS).toISOString().slice(0, 10);
+
+/**
+ * 같은 KST 날짜에 이미 발행했는가.
+ *
+ * 주간 상한만으로는 부족하다 — 이력이 2건인 날 크론 발행 후 workflow_dispatch를 두 번
+ * 더 돌리면 각각 상한 7 미만이라 같은 날 3편이 공개된다. 매일 1편이 설계값이므로
+ * 날짜 단위로 막는다.
+ */
+export function publishedToday(history: string[], now: number): boolean {
+  const today = kstDate(now);
+  return history.some((iso) => {
+    const t = Date.parse(iso);
+    return Number.isFinite(t) && kstDate(t) === today;
+  });
+}
+
 export function canPublish(history: string[], now: number, limit = WEEKLY_PUBLISH_LIMIT): boolean {
   if (skipLimit()) {
     console.warn('[Naver] NAVER_SKIP_LIMIT=1 — 주간 상한 검사를 건너뜁니다(테스트 모드)');
     return true;
+  }
+  if (publishedToday(history, now)) {
+    console.warn('[Naver] 오늘(KST) 이미 발행했습니다 — 하루 1편입니다');
+    return false;
   }
   return recentPublishCount(history, now) < limit;
 }
@@ -152,14 +176,50 @@ export function clearPublishPending(): void {
   }
 }
 
-/** 최근 발행한 테마 id → ISO 시각 */
-export function readThemeHistory(): Record<string, string> {
+/**
+ * 레포에 커밋되는 쿨다운 시드.
+ *
+ * GitHub Actions 캐시는 **피처 브랜치 → main으로 복원되지 않는다.** 그래서 브랜치에서
+ * 쌓은 14일 쿨다운이 머지 직후의 main 크론에는 존재하지 않고, 방금 올린 테마가 다시
+ * 1순위로 뽑힌다 — 같은 템플릿 반복이 네이버 저품질의 대표 트리거다.
+ * 캐시 유실(7일 미사용 만료)에도 같은 문제가 생긴다.
+ *
+ * 이 파일이 그 경계를 메운다. 쿨다운(14일)보다 오래된 항목은 자연히 무시되므로
+ * 시드가 낡아도 해롭지 않다.
+ */
+const SEED_PATH = join(process.cwd(), 'scripts', 'naver-blog', 'theme-history-seed.json');
+
+function readSeed(): Record<string, string> {
   try {
-    const parsed = JSON.parse(readFileSync(THEME_LOG_PATH, 'utf-8'));
-    return parsed && typeof parsed === 'object' ? parsed : {};
+    const parsed = JSON.parse(readFileSync(SEED_PATH, 'utf-8'));
+    if (!parsed || typeof parsed !== 'object') return {};
+    // `_`로 시작하는 키는 설명용이다
+    return Object.fromEntries(
+      Object.entries(parsed as Record<string, unknown>)
+        .filter(([k, v]) => !k.startsWith('_') && typeof v === 'string'),
+    ) as Record<string, string>;
   } catch {
     return {};
   }
+}
+
+/** 최근 발행한 테마 id → ISO 시각. 시드와 캐시 이력을 병합한다(더 최근 값이 이김). */
+export function readThemeHistory(): Record<string, string> {
+  let cached: Record<string, string> = {};
+  try {
+    const parsed = JSON.parse(readFileSync(THEME_LOG_PATH, 'utf-8'));
+    if (parsed && typeof parsed === 'object') cached = parsed as Record<string, string>;
+  } catch {
+    cached = {};
+  }
+
+  const merged = { ...readSeed() };
+  for (const [id, iso] of Object.entries(cached)) {
+    const prev = Date.parse(merged[id] ?? '');
+    const next = Date.parse(iso);
+    if (!Number.isFinite(prev) || (Number.isFinite(next) && next > prev)) merged[id] = iso;
+  }
+  return merged;
 }
 
 /** 쿨다운이 지나지 않은 테마인가 */

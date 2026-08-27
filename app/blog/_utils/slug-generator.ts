@@ -79,6 +79,8 @@ export function generateSlug(title: string, fallbackKeyword?: string): string {
     slugBase = `stock-analysis-${hashSlugSeed(seed)}`;
   }
 
-  const date = new Date().toISOString().slice(0, 10);
+  // KST 날짜를 쓴다. UTC로 두면 05:30 KST 발행이 전날 날짜 슬러그를 받아,
+  // 같은 KST 날짜의 실행이 서로 다른 날짜를 갖고 날짜 기반 충돌 보호도 어긋난다.
+  const date = new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10);
   return `${slugBase}-${date}-${hashSlugSeed(`${title}|${fallbackKeyword ?? ''}`)}`;
 }

@@ -147,6 +147,12 @@ export function checkFormat(
   if (placements.length) {
     const missingCaption = placements.filter((item) => !item.caption.trim());
     if (missingCaption.length) violations.push(`이미지 캡션 없음: ${missingCaption.map((i) => i.id).join(', ')}`);
+    // 캡션은 이미지 다음 문단으로 타이핑되므로 본문에 박힌다. 값 누락이 문자열로
+    // 새어 나가면 `테마 점수 undefined점`이 그대로 공개된다.
+    const polluted = placements.filter((item) => /undefined|NaN|null/.test(item.caption));
+    if (polluted.length) {
+      violations.push(`캡션에 값 누락이 문자열로 남음: ${polluted.map((i) => `${i.id}="${i.caption}"`).join(', ')}`);
+    }
     const excluded = placements.filter((item) => /outlook|pattern/.test(item.id) && draft.meta?.postType !== 'similar');
     if (excluded.length && (draft.meta?.postType === 'theme' || !draft.meta?.postType)) {
       violations.push(`theme 글에 전망·유사패턴 이미지: ${excluded.map((i) => i.id).join(', ')}`);

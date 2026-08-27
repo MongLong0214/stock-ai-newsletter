@@ -150,20 +150,18 @@ async function verifyEditorContent(editor: Frame, draft: Draft, insertedImages: 
     (await editor.locator('.se-component.se-text .se-text-paragraph').allInnerTexts().catch(() => [])).join(' '),
   );
 
-  const titleHead = norm(stripMarkers(draft.title)).slice(0, 12);
-  if (!flat.includes(titleHead)) return `제목 미입력 (기대: "${titleHead}...")`;
+  // 앞 12자만 보면 제목 후반부가 잘려도 통과한다. 전체를 대조한다.
+  const titleFull = norm(stripMarkers(draft.title));
+  if (!flat.includes(titleFull)) {
+    const head = titleFull.slice(0, 16);
+    return `제목이 초안과 다릅니다 (기대 ${titleFull.length}자, "${head}…" 전체 일치 실패)`;
+  }
 
   const plainBody = stripMarkers(draft.body);
   const bodyHead = norm(plainBody).slice(0, 20);
   if (!flat.includes(bodyHead)) return `본문 미입력 (기대: "${bodyHead}...")`;
 
-  const expected = norm(plainBody).length;
-  // 인용구 소제목은 별도 컴포넌트라 bodyOnly에 안 들어갈 수 있다 — 둘 중 큰 값을 쓴다.
-  const got = Math.max(bodyOnly.length, 0);
-  if (got < expected * 0.9) {
-    return `본문이 잘림 (기대 ${expected}자의 90% 이상, 실제 본문 컴포넌트 ${got}자)`;
-  }
-
+  // 텍스트 컴포넌트가 될 블록만 뽑는다 — 길이·문장부호 비교의 공통 기준이다.
   // 문장부호 유실 검출.
   //
   // 색상 팔레트 팝업이 열린 채로 다음 문자를 타이핑하면 첫 글자가 먹힌다. 실측에서
@@ -178,6 +176,20 @@ async function verifyEditorContent(editor: Frame, draft: Draft, insertedImages: 
   const gotPeriods = bodyOnly.split('.').length - 1;
   if (expectedPeriods > 0 && gotPeriods < expectedPeriods) {
     return `문장부호 유실 (마침표 기대 ${expectedPeriods}개, 실제 ${gotPeriods}개) — 색상 팝업이 입력을 먹었을 수 있습니다`;
+  }
+
+  // 길이 비교는 **양쪽을 같은 집합으로** 맞춰야 한다.
+  //
+  // `bodyOnly`(.se-component.se-text)에는 인용구 소제목과 CTA URL이 없다(별도 컴포넌트).
+  // 반대로 캡션은 이미지 다음 문단으로 타이핑되므로 들어 있다. 예전에는 캡션이 더해져
+  // 인용구·URL 누락을 우연히 상쇄했고, 캡션만 빼면 이번처럼 정상 글이 "잘림"으로 반려된다.
+  // 기대값은 텍스트 컴포넌트가 될 블록만, 실측값은 캡션을 뺀 값으로 둔다.
+  const captionChars = (draft.imagePlacements ?? [])
+    .reduce((n, item) => n + norm(item.caption ?? '').length, 0);
+  const expected = norm(expectedTextBlocks.join('')).length;
+  const got = Math.max(bodyOnly.length - captionChars, 0);
+  if (got < expected * 0.9) {
+    return `본문이 잘림 (기대 ${expected}자의 90% 이상, 실제 본문 컴포넌트 ${got}자)`;
   }
 
   const lastTextBlock = plainBody
@@ -267,19 +279,53 @@ async function selectCategory(editor: Frame, page: Page, name = 'StockMatrix'): 
 
 async function assertSnapshotFresh(draft: Draft): Promise<void> {
   const snap = draft.meta?.sourceSnapshot;
+  // 집계 글(ranking·evergreen)은 개별 테마 수치를 담지 않는다 — 대조 대상이 없다.
   if (!snap || !draft.themeId || snap.score == null || snap.change7d == null) return;
+
   const res = await fetch(`https://stockmatrix.co.kr/api/tli/themes/${draft.themeId}`, {
     signal: AbortSignal.timeout(30_000),
   });
   if (!res.ok) throw new Error(`상세 API ${res.status} — 초안을 재생성하라`);
-  const json = await res.json() as { data?: { score?: { change7d?: number; updatedAt?: string; value?: number } } };
+
+  const json = await res.json() as {
+    data?: {
+      score?: {
+        change7d?: number;
+        raw?: { newsLastWeek?: number; newsThisWeek?: number };
+        updatedAt?: string;
+        value?: number;
+      };
+      stockCount?: number;
+    };
+  };
   const live = json.data?.score;
-  if (!live) return;
-  if (live.value !== snap.score || live.change7d !== snap.change7d) {
-    throw new Error(
-      `초안 스냅샷과 현재 상세 API가 다릅니다 (초안 score=${snap.score} change7d=${snap.change7d}, ` +
-        `API score=${live.value} change7d=${live.change7d}). 초안을 재생성하라.`,
-    );
+  // 스키마가 바뀌어 값이 안 오면 "검증했다"고 볼 수 없다 — 통과시키지 않는다.
+  if (!live || live.value == null || live.change7d == null) {
+    throw new Error('상세 API 응답에 score가 없습니다 — 스키마 변경 가능. 초안을 재생성하라.');
+  }
+
+  // 본문·캡션이 인용하는 값 전부를 대조한다. score/change7d만 보면 기사 수·종목 수가
+  // 바뀐 채로 발행돼 본문과 캡처가 서로 다른 집계 시점을 가리킬 수 있다.
+  const mismatches: string[] = [];
+  const cmp = (label: string, drafted: number | undefined, current: number | undefined) => {
+    if (drafted == null || current == null) return;
+    if (drafted !== current) mismatches.push(`${label} 초안 ${drafted} ≠ API ${current}`);
+  };
+  cmp('score', snap.score, live.value);
+  cmp('change7d', snap.change7d, live.change7d);
+  cmp('newsThisWeek', snap.newsThisWeek, live.raw?.newsThisWeek);
+  cmp('newsLastWeek', snap.newsLastWeek, live.raw?.newsLastWeek);
+  if (snap.stockCount != null && json.data?.stockCount != null
+      && snap.stockCount > json.data.stockCount) {
+    mismatches.push(`stockCount 초안 ${snap.stockCount} > API ${json.data.stockCount}`);
+  }
+  if (draft.meta?.sourceUpdatedAt && live.updatedAt
+      && !live.updatedAt.startsWith(draft.meta.sourceUpdatedAt)) {
+    mismatches.push(`기준일 초안 ${draft.meta.sourceUpdatedAt} ≠ API ${live.updatedAt.slice(0, 10)}`);
+  }
+
+  if (mismatches.length) {
+    throw new Error(`초안 스냅샷과 현재 API가 다릅니다 (${mismatches.join(' / ')}). 초안을 재생성하라.`);
   }
 }
 
@@ -980,9 +1026,14 @@ async function main(): Promise<void> {
       // 칩의 클래스는 해시(tag_item__ISVjt)라 배포마다 바뀐다. 실측에서 태그 11개가
       // 정상 입력됐는데도 클래스 미스로 발행이 막혔다. 클래스 대신 **우리가 넣은 태그가
       // `#태그` 형태로 패널에 보이는지**를 센다 — 본문에는 '#'가 없어 오검출이 없다.
+      // 부분문자열로 세면 #제습기가 #제습기관련주 안에서 매칭돼, 실제로 빠진 태그가
+      // 통과한다. 뒤에 한글·영숫자가 붙지 않는 경계로 본다.
       const entered = await editor.evaluate((tags) => {
         const text = document.body.innerText;
-        return tags.filter((tag) => text.includes(`#${tag}`)).length;
+        return tags.filter((tag) => {
+          const escaped = tag.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          return new RegExp(`#${escaped}(?![가-힣A-Za-z0-9])`).test(text);
+        }).length;
       }, wanted);
       if (entered !== wanted.length) {
         throw new Error(
@@ -1026,6 +1077,16 @@ async function main(): Promise<void> {
       // 네이버가 명시적으로 발행 오류를 반환했다 = 게시되지 않았다. 표식을 남기면
       // 다음 날 실행이 "결과 미확인"으로 판단해 사람 확인을 요구하며 멈춘다(발행 0건).
       clearPublishPending();
+    }
+    if (outcome === 'timeout') {
+      // 결과 미확인. 발행 버튼은 눌렸으니 **게시됐을 가능성이 더 크다.**
+      // 기록하지 않으면 그 테마의 14일 쿨다운과 주간 카운트가 유실돼, 실제로 올라간
+      // 글과 같은 테마가 곧 다시 발행될 수 있다 — 저품질 트리거다.
+      // 보수적으로 기록한다: 안 올라갔다면 슬롯 하나를 잃을 뿐이고, 올라갔다면 중복을 막는다.
+      const attemptedAt = Date.now();
+      recordPublish(attemptedAt);
+      if (draft.themeId) recordTheme(draft.themeId, attemptedAt, THEME_COOLDOWN_DAYS);
+      console.warn('[Naver] 결과 미확인 — 게시됐을 수 있으므로 이력을 보수적으로 기록했습니다.');
     }
     if (outcome !== 'ok') {
       const detail = outcome === 'error'

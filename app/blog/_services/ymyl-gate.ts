@@ -10,6 +10,7 @@
 import { getServerSupabaseClient } from '@/lib/supabase/server-client';
 import { fetchAllRows } from '@/lib/supabase/paginate';
 import { RELATED_STOCK_RE } from './cluster-guard';
+import { INVESTMENT_SOLICITATION_RE } from '../_config/clickbait-patterns';
 
 /**
  * 모호 출처 인용 — 기관명 없이 통계를 주장하는 패턴.
@@ -27,12 +28,6 @@ const VAGUE_SOURCE_RE = new RegExp(
   `(정부\\s*통계|모\\s*기관|(?:${VAGUE_MODIFIER})\\s+(?:통계|조사|연구|자료|보고서)(?:\\s*결과)?|(?<![가-힣] ?)(?:한 조사|업계|통계|연구\\s*결과|조사\\s*결과))에\\s*따르면`,
 );
 
-/**
- * 매수·수익 단정 — 자본시장법상 투자권유·유사투자자문 경계 표현.
- * 제목 게이트(BANNED_TITLE_PATTERNS)는 제목만 봤다. 본문도 본다.
- */
-const INVESTMENT_SOLICITATION_RE =
-  /(지금\s*(매수|사야|들어가)|매수\s*(추천|타이밍|적기)|목표가\s*[\d,]+원|수익률?\s*\d+\s*%\s*(보장|확실)|무조건\s*(오른다|상승)|급등\s*(예정|확실))/;
 
 /** 자사 브랜드 표기 전부 */
 const BRAND_RE = /Stock\s?Matrix|스탁매트릭스/gi;

@@ -6,6 +6,8 @@
  * 것이 아니다.
  */
 
+import { INVESTMENT_SOLICITATION_RE } from '@/app/blog/_config/clickbait-patterns';
+
 export const QUOTE = '>> ';
 const b = (t: string) => `**${t}**`;
 const up = (t: string) => `[[r:${t}]]`;
@@ -54,7 +56,7 @@ export function composeRanking(rows: readonly RankingRow[], asOf: string, siteUr
         return `${numerals[i]} ${name} ${r.score}점 (${r.stageKo}, ${arrow})`;
       })
       .join('\n'),
-    slot('2-signals'),
+    slot('2-section'),
 
     `${QUOTE}상위 3개 테마 상세`,
     ...top.slice(0, 3).map((r, i) =>
@@ -63,7 +65,7 @@ export function composeRanking(rows: readonly RankingRow[], asOf: string, siteUr
       `최근 7일 변화는 ${r.change >= 0 ? `+${r.change}` : `${r.change}`}점으로, ` +
       `${r.change > 0 ? '관심이 늘고 있는' : r.change < 0 ? '관심이 줄고 있는' : '큰 변화가 없는'} 구간입니다.`,
     ),
-    slot('3-peak'),
+    slot('3-section'),
 
     `${QUOTE}점수는 무엇을 재나`,
     '생명주기 점수는 네이버 검색 관심도, 뉴스 모멘텀, 관련 종목의 활동성과 변동성 네 가지를 ' +
@@ -78,7 +80,7 @@ export function composeRanking(rows: readonly RankingRow[], asOf: string, siteUr
     '점수가 높다고 좋은 것도, 낮다고 나쁜 것도 아닙니다. 테마가 시장의 관심을 받는 ' +
       '주기 어디쯤에 있는지를 나타내는 값입니다. 7일 이동평균과 30일 기준선을 비교해 ' +
       '방향을 판단하며, 가중치는 과거 데이터로 조정했고 산출 과정은 공개되어 있습니다.',
-    slot('4-growth'),
+    slot('4-section'),
 
     `${QUOTE}정리`,
     `${asOf} 기준 최근 7일 상승 ${risers}개 / 하락 ${fallers}개입니다. 상위권은 ` +
@@ -218,6 +220,14 @@ const dateOf = (n: NewsItem): string | undefined => n.pubDate ?? n.date ?? undef
  */
 const AD_HEADLINE_RE = /(추천주|리딩|무료\s*수익|수익률\s*\d|매수\s*타이밍|급등주|비법|필독|주식\s*카페|무료\s*상담)/;
 
+/**
+ * 트랙 A YMYL 게이트와 같은 투자권유 판정을 기사 제목에도 적용한다.
+ *
+ * 인용이라도 본문에 실리면 같은 글에 실린 문장이다. 광고성 패턴만 걸러서는
+ * `"○○ 지금 사세요"`, `"목표가 12만원"` 같은 제목이 그대로 인용됐다.
+ */
+const SOLICITATION_HEADLINE_RE = INVESTMENT_SOLICITATION_RE;
+
 const normTitle = (t: string) => t.replace(/[^가-힣A-Za-z0-9]/g, '');
 
 /** ISO 날짜 → MM.DD. 파싱 실패하면 빈 문자열(표기 생략). */
@@ -242,7 +252,7 @@ const shortDate = (raw?: string): string => {
 export function filterNewsItems(news: readonly NewsItem[]): NewsItem[] {
   const seen = new Set<string>();
   return news
-    .filter((n) => n.title?.trim() && !AD_HEADLINE_RE.test(n.title))
+    .filter((n) => n.title?.trim() && !AD_HEADLINE_RE.test(n.title) && !SOLICITATION_HEADLINE_RE.test(n.title))
     .filter((n) => {
       const key = normTitle(n.title);
       if (!key || seen.has(key)) return false;

@@ -244,6 +244,21 @@ export function evaluateHumanization(
   if (invented.length > 0) {
     return reject(`원문에 없던 수치 추가 (${invented.slice(0, 5).join(', ')})`, rate);
   }
+  // 개수 증가도 창작이다. 기존 값을 재사용해 새 사실을 만드는 경로가 있다:
+  //   원문 "매출은 10% 증가했습니다"
+  //   윤문 "매출은 10% 증가했고 영업이익도 10% 증가했습니다"
+  // 키가 원문에 있다는 이유로 통과하던 구멍이다.
+  const duplicated = [...unitAfter.entries()]
+    .filter(([k, n]) => n > (unitBefore.get(k) ?? 0))
+    .map(([k]) => k);
+  if (duplicated.length > 0) {
+    return reject(`수치 반복 추가 (${duplicated.slice(0, 5).join(', ')})`, rate);
+  }
+  // 정보성 맨 숫자(두 자리 이상)의 신규 등장도 막는다 — "목표 지수는 85입니다" 같은 창작.
+  const newBare = [...bareAfter].filter((v) => v >= 10 && !bareBefore.has(v));
+  if (newBare.length > 0) {
+    return reject(`원문에 없던 수치 추가 (${newBare.slice(0, 5).join(', ')})`, rate);
+  }
 
   // SEO: 키워드 빈도가 품질 점수 기준(3회) 아래로 떨어지면 안 된다
   const keywordBefore = countKeyword(original, targetKeyword);

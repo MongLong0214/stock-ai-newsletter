@@ -415,6 +415,47 @@ async function capture(opts: {
   return images;
 }
 
+/**
+ * 집계 글(ranking·evergreen)의 이미지 id를 **위치 기반**으로 바꾼다.
+ *
+ * `/themes`의 단계 섹션은 조건부 렌더라 날마다 어떤 섹션이 잡히는지 달라진다
+ * (오늘의 시그널·초기·성장·정점·쇠퇴·재점화 중 렌더된 것만). 본문 슬롯을 섹션 이름으로
+ * 두면 캡처된 id와 어긋나 `배치되지 않은 이미지`로 발행이 막힌다.
+ * 히어로 뒤부터 `2-section`, `3-section`… 으로 다시 붙이면 어떤 조합이 잡혀도 맞는다.
+ * 캡션은 원래 섹션 기준으로 만들어졌으므로 그대로 옮긴다.
+ */
+function toPositionalIds(
+  images: Array<{ caption: string; name: string; path: string }>,
+): Array<{ caption: string; name: string; path: string }> {
+  let n = 1;
+  return images.map((img) => {
+    if (img.name.includes('hero')) return img;
+    n += 1;
+    return { ...img, name: `${n}-section` };
+  });
+}
+
+/**
+ * 본문에 슬롯이 있는 이미지만 남긴다.
+ *
+ * 캡처 후보와 본문 슬롯의 계약이 어긋나면 `planBodyActions`가 "배치되지 않은 이미지"로
+ * 발행을 막는다. 이번 세션에 세 번 겪었다(similar·news의 종목 분할, ranking·evergreen의
+ * 조건부 섹션). 후보를 늘리거나 줄일 때마다 양쪽을 맞추는 대신, **본문을 기준으로**
+ * 잘라내면 한쪽만 고쳐도 깨지지 않는다.
+ *
+ * 잘라내서 최소 장수에 못 미치면 writeDraft의 checkFormat이 잡는다.
+ */
+function limitToBodySlots(
+  body: string,
+  images: Array<{ caption: string; name: string; path: string }>,
+): Array<{ caption: string; name: string; path: string }> {
+  const slots = new Set([...body.matchAll(/\{\{image:([^}]+)\}\}/g)].map((m) => m[1]));
+  const kept = images.filter((img) => slots.has(img.name));
+  const dropped = images.filter((img) => !slots.has(img.name)).map((img) => img.name);
+  if (dropped.length) console.warn(`[Draft] 본문 슬롯 없는 이미지 제외: ${dropped.join(', ')}`);
+  return kept;
+}
+
 function persistRun(opts: {
   captureDir: string;
   draft: Omit<DraftPayload, 'imagePlacements' | 'images' | 'meta'>;
@@ -426,7 +467,7 @@ function persistRun(opts: {
   themeId: string;
   themeName: string;
 }): void {
-  const hashed = placementsFromCapture(opts.images);
+  const hashed = placementsFromCapture(limitToBodySlots(opts.draft.body, opts.images));
   const runId = makeRunId(opts.themeId);
   const finalDir = runDir(NAVER_STATE_DIR, runId);
   const imagePlacements = hashed.map((item) => ({
@@ -577,7 +618,7 @@ async function main(): Promise<void> {
         themeId: imageTheme.themeId,
         title: composed.title,
       },
-      images,
+      images: toPositionalIds(images),
       outPath,
       postType,
       snapshot: aggregateSnapshot,
