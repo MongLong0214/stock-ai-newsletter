@@ -22,7 +22,10 @@ const HISTORY_PATH = join(NAVER_STATE_DIR, 'publish-history.json');
  * 스팸 신호가 된다 — 네이버가 글쓰기 API를 없앤 이유가 정확히 대량 자동 발행이었다.
  * 코드로 상한을 걸어 실수로도 넘지 못하게 한다.
  */
-export const WEEKLY_PUBLISH_LIMIT = 3;
+export const WEEKLY_PUBLISH_LIMIT = Number(process.env.NAVER_WEEKLY_LIMIT) || 3;
+
+/** 테스트용 우회. NAVER_SKIP_LIMIT=1이면 상한 검사를 건너뛴다(발행 기록은 그대로 남긴다). */
+const skipLimit = () => process.env.NAVER_SKIP_LIMIT === '1';
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -76,6 +79,10 @@ export function recentPublishCount(history: string[], now: number): number {
 }
 
 export function canPublish(history: string[], now: number, limit = WEEKLY_PUBLISH_LIMIT): boolean {
+  if (skipLimit()) {
+    console.warn('[Naver] NAVER_SKIP_LIMIT=1 — 주간 상한 검사를 건너뜁니다(테스트 모드)');
+    return true;
+  }
   return recentPublishCount(history, now) < limit;
 }
 

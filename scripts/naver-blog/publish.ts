@@ -269,8 +269,14 @@ async function insertImage(page: Page, editor: Frame, file: string): Promise<boo
       return true;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
+      // 타임아웃이어도 업로드가 끝났을 수 있다 — 개수가 늘었으면 성공으로 보고
+      // 재시도하지 않는다. 안 그러면 같은 이미지가 중복 삽입된다(실측: 6장 → 16장).
+      if ((await countImages(editor)) > before) {
+        console.warn(`[Publish] 확인은 늦었지만 업로드됨 (${file})`);
+        return true;
+      }
       console.warn(`[Publish] 이미지 삽입 실패 ${attempt}/3 (${file}): ${message}`);
-      if (attempt < 3) await page.waitForTimeout(attempt * 2_500); // 2.5s → 5s 백오프
+      if (attempt < 3) await page.waitForTimeout(attempt * 2_500);
     }
   }
   return false;
@@ -453,7 +459,21 @@ async function main(): Promise<void> {
       .filter({ visible: true })
       .last();
     await confirmBtn.click({ timeout: 10_000 });
-    await page.waitForURL(/blog\.naver\.com\/(?!.*postwrite)/, { timeout: 30_000 });
+
+    // 네이버가 "발행 오류 — 문서 처리 중 오류가 발생하였습니다" 팝업을 낼 수 있다.
+    // URL 대기만 하면 30초 타임아웃으로 끝나 진짜 원인이 묻힌다.
+    const failure = editor.locator('text=/발행 오류|처리 중 오류/').first();
+    const outcome = await Promise.race([
+      page.waitForURL(/blog\.naver\.com\/(?!.*postwrite)/, { timeout: 45_000 }).then(() => 'ok' as const),
+      failure.waitFor({ state: 'visible', timeout: 45_000 }).then(() => 'error' as const),
+    ]).catch(() => 'timeout' as const);
+
+    if (outcome !== 'ok') {
+      const detail = outcome === 'error'
+        ? '네이버가 발행 오류를 반환했습니다(문서가 너무 크거나 이미지 처리 실패).'
+        : '발행 후 페이지 이동이 확인되지 않았습니다.';
+      throw new Error(`${detail} 스크린샷을 확인하세요.`);
+    }
 
     recordPublish(Date.now());
     console.log(`발행 완료: ${page.url()}`);

@@ -106,7 +106,7 @@ async function findSectionClip(page: Page, heading: string) {
     const next = heads.slice(idx + 1).find((h) => h.top > target.top + 60);
     const bottom = next ? next.top - 16 : Math.min(document.body.scrollHeight, top + 1_200);
 
-    const height = Math.min(Math.max(bottom - top, 0), 1_200);
+    const height = Math.min(Math.max(bottom - top, 0), 900);
     if (height < 150) return null;
 
     // 열 폭은 헤딩 텍스트 폭이 아니라 이를 감싸는 레이아웃 블록에서 잰다.
@@ -139,8 +139,9 @@ export async function captureThemeImages(
   const own = !browser;
   const b = browser ?? (await chromium.launch());
   const context = await b.newContext({
-    // 2배 밀도 — 네이버 본문 폭에서 흐릿하지 않게
-    deviceScaleFactor: 2,
+    // 1.5배 — 네이버 본문 폭(약 700px)에서 선명하면서 파일이 과하지 않다.
+    // 2배로 찍으면 관련종목 표가 1.6MB가 되고 문서 처리 오류를 유발한다(실측).
+    deviceScaleFactor: 1.5,
     locale: 'ko-KR',
     viewport: { width: 1400, height: 1000 },
   });
