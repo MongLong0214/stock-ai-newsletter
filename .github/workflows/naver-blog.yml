@@ -1,0 +1,96 @@
+name: Naver Blog (inside track)
+
+# 주 2회 자동 발행. 자사 블로그(상한 3편/일)와 달리 네이버는 볼륨 자체가 위험 신호라
+# scripts/naver-blog/session.ts의 WEEKLY_PUBLISH_LIMIT(3)이 코드로도 상한을 강제한다.
+on:
+  schedule:
+    - cron: '0 1 * * 2,5' # 화·금 10:00 KST
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'dry-run (입력만 하고 발행하지 않음)'
+        type: boolean
+        default: false
+
+concurrency:
+  group: naver-blog
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      # 상승 테마 중 네이버 실측 검색량 200 이상인 것만 채택한다.
+      # 전부 미달이면 여기서 실패하고 그 회차는 발행하지 않는다 — 빈칸을 채우지 않는다.
+      - name: Generate draft from TLI data
+        id: draft
+        env:
+          # 개별 3개 또는 NAVER_AD_CREDS(JSON) 중 있는 쪽을 쓴다 — credentialsFromEnv가 둘 다 받는다
+          NAVER_AD_CUSTOMER_ID: ${{ secrets.NAVER_AD_CUSTOMER_ID }}
+          NAVER_AD_API_KEY: ${{ secrets.NAVER_AD_API_KEY }}
+          NAVER_AD_SECRET_KEY: ${{ secrets.NAVER_AD_SECRET_KEY }}
+          NAVER_AD_CREDS: ${{ secrets.NAVER_AD_CREDS }}
+        run: npx tsx scripts/naver-blog/make-draft.ts --out .naver-blog/draft.json
+
+      # publish.ts가 발행 직전에 에디터 내용을 되읽어 초안과 대조한다.
+      # 셀렉터가 깨지면 검증에서 걸려 발행 없이 실패하므로 빈 글이 올라가지 않는다.
+      - name: Publish to Naver
+        env:
+          NAVER_SESSION_B64: ${{ secrets.NAVER_SESSION_B64 }}
+        run: |
+          MODE="--publish"
+          if [ "${{ inputs.dry_run }}" = "true" ]; then
+            MODE=""
+            echo "dry-run 모드"
+          fi
+          npx tsx scripts/naver-blog/publish.ts .naver-blog/draft.json --headless $MODE
+
+      # 실패해도 증거를 남긴다 — 셀렉터 문제인지 세션 만료인지 스크린샷으로만 판별된다
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: naver-blog-${{ github.run_id }}
+          path: |
+            .naver-blog/*.png
+            .naver-blog/draft.json
+          retention-days: 14
+          if-no-files-found: warn
+
+      # 세션은 사람이 로그인한 IP·기기에서 만들어진다. 러너의 데이터센터 IP에서 쓰면
+      # 네이버가 만료시킬 수 있고, 그때는 사람이 재로그인해야 한다(자동화 불가).
+      # 실패를 조용히 넘기지 않도록 이슈로 올린다.
+      - name: Open issue on failure
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const run = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `네이버 블로그 자동 발행 실패 (${new Date().toISOString().slice(0, 10)})`,
+              body: [
+                `[실행 로그](${run})의 아티팩트에서 스크린샷을 확인하세요.`,
+                '',
+                '흔한 원인 두 가지:',
+                '- **세션 만료** — `npm run naver:login` 후 `base64 -i .naver-blog/session.json`으로',
+                '  `NAVER_SESSION_B64` 시크릿을 갱신하세요. (자동화 불가 — 로그인 자동화는 계정을 위험하게 합니다)',
+                '- **스마트에디터 구조 변경** — `scripts/naver-blog/publish.ts` 상단 `SEL` 표를 갱신하세요.',
+                '  발행 전 검증이 걸렸다면 빈 글은 올라가지 않았습니다.',
+              ].join('\n'),
+              labels: ['naver-blog'],
+            });

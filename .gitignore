@@ -110,3 +110,4 @@ final-wave/
 
 # 네이버 로그인 세션·발행 기록 (자격증명)
 .naver-blog/
+scripts/blog-merge/title-rewrite-backup.jsonl

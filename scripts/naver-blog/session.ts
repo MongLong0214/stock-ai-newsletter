@@ -22,7 +22,10 @@ const HISTORY_PATH = join(NAVER_STATE_DIR, 'publish-history.json');
  * 스팸 신호가 된다 — 네이버가 글쓰기 API를 없앤 이유가 정확히 대량 자동 발행이었다.
  * 코드로 상한을 걸어 실수로도 넘지 못하게 한다.
  */
-export const WEEKLY_PUBLISH_LIMIT = 3;
+export const WEEKLY_PUBLISH_LIMIT = Number(process.env.NAVER_WEEKLY_LIMIT) || 3;
+
+/** 테스트용 우회. NAVER_SKIP_LIMIT=1이면 상한 검사를 건너뛴다(발행 기록은 그대로 남긴다). */
+const skipLimit = () => process.env.NAVER_SKIP_LIMIT === '1';
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -30,8 +33,32 @@ export function ensureStateDir(): void {
   if (!existsSync(NAVER_STATE_DIR)) mkdirSync(NAVER_STATE_DIR, { recursive: true });
 }
 
+/**
+ * 세션 확보. 로컬은 naver:login이 만든 파일, CI는 NAVER_SESSION_B64 시크릿에서 복원한다.
+ *
+ * CI 주의: 세션은 사람이 로그인한 IP·기기에서 만들어진다. GitHub Actions 러너는
+ * 데이터센터 IP라 네이버가 세션 탈취 신호로 볼 수 있다 — 조용히 만료되거나
+ * 재인증을 요구할 수 있으므로 publish 스크립트가 만료를 감지해 실패시킨다.
+ */
+export function ensureSession(): boolean {
+  if (existsSync(SESSION_PATH)) return true;
+
+  const encoded = process.env.NAVER_SESSION_B64;
+  if (!encoded) return false;
+
+  try {
+    ensureStateDir();
+    writeFileSync(SESSION_PATH, Buffer.from(encoded, 'base64').toString('utf-8'), 'utf-8');
+    console.log('[Naver] NAVER_SESSION_B64에서 세션 복원');
+    return true;
+  } catch (error) {
+    console.error('[Naver] 세션 복원 실패:', error);
+    return false;
+  }
+}
+
 export function hasSession(): boolean {
-  return existsSync(SESSION_PATH);
+  return ensureSession();
 }
 
 export function readHistory(): string[] {
@@ -52,6 +79,10 @@ export function recentPublishCount(history: string[], now: number): number {
 }
 
 export function canPublish(history: string[], now: number, limit = WEEKLY_PUBLISH_LIMIT): boolean {
+  if (skipLimit()) {
+    console.warn('[Naver] NAVER_SKIP_LIMIT=1 — 주간 상한 검사를 건너뜁니다(테스트 모드)');
+    return true;
+  }
   return recentPublishCount(history, now) < limit;
 }
 

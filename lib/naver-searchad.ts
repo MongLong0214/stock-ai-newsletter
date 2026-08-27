@@ -32,6 +32,20 @@ export interface SearchAdCredentials {
 
 /** process.env에서 자격증명을 읽는다 (GitHub Actions 등 서버 환경용). 없으면 null. */
 export function credentialsFromEnv(): SearchAdCredentials | null {
+  // 시크릿 3개 대신 JSON 하나로도 받는다: {"customerId":"...","apiKey":"...","secretKey":"..."}
+  const bundled = process.env.NAVER_AD_CREDS;
+  if (bundled) {
+    try {
+      const parsed = JSON.parse(bundled) as Partial<SearchAdCredentials>;
+      if (parsed.customerId && parsed.apiKey && parsed.secretKey) {
+        return { apiKey: parsed.apiKey, customerId: parsed.customerId, secretKey: parsed.secretKey };
+      }
+      console.warn('[SearchAd] NAVER_AD_CREDS에 customerId/apiKey/secretKey가 모두 필요합니다');
+    } catch {
+      console.warn('[SearchAd] NAVER_AD_CREDS가 유효한 JSON이 아닙니다');
+    }
+  }
+
   const customerId = process.env.NAVER_AD_CUSTOMER_ID;
   const apiKey = process.env.NAVER_AD_API_KEY;
   const secretKey = process.env.NAVER_AD_SECRET_KEY;

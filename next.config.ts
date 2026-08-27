@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { MERGED_BLOG_REDIRECTS } from './app/blog/_config/merged-redirects';
 
 const nextConfig: NextConfig = {
   /* config options here */
@@ -68,6 +69,13 @@ const nextConfig: NextConfig = {
         destination: '/icon-512.png',
         permanent: true,
       },
+      // 병합된 블로그 글 — 중복 클러스터의 패자를 승자로 영구 이동.
+      // 정적 맵이라 런타임 DB 조회가 없다.
+      ...MERGED_BLOG_REDIRECTS.map((r) => ({
+        source: r.from,
+        destination: r.to,
+        permanent: true,
+      })),
     ];
   },
 };
