@@ -36,6 +36,15 @@ import {
  */
 const SEL = {
   editorFrame: '#mainFrame',
+  // 실측: 이 버튼 클릭 시 filechooser 이벤트가 발생하고 multiple=true다.
+  // input[type=file]은 DOM에 없으므로 setInputFiles가 아니라 filechooser를 써야 한다.
+  imageButton: '.se-image-toolbar-button',
+  // 업로드 완료 판정 — 컴포넌트 존재가 아니라 네이버 CDN src가 붙었는지로 본다
+  uploadedImage: '.se-component.se-image img[src*="pstatic.net"]',
+  // 인용구는 2단계다: 툴바의 인용구 버튼 → 서브패널에서 스타일 선택.
+  // 서브패널 버튼(se-insert-menu-sub-panel-button)은 패널이 열리기 전엔 invisible이다.
+  quoteButton: '.se-quotation-toolbar-button, button:has-text("인용구")',
+  quoteStyle: '.se-insert-menu-sub-panel-button',
   recoveryCancel: '.se-popup-button-cancel',
   // 첫 사용 시 우측 도움말 패널이 발행 버튼을 덮는다 — 닫지 않으면 발행 클릭이 타임아웃난다
   helpClose: 'button[class*="close"], .se-help-panel-close-button, [aria-label="도움말 닫기"]',
@@ -48,6 +57,8 @@ const SEL = {
 
 interface Draft {
   body: string;
+  /** 캡처된 이미지 경로. FORMAT-SPEC상 최소 4장, 0장이면 발행 차단. */
+  images?: string[];
   outsideUrl?: string;
   tags?: string[];
   title: string;
@@ -84,7 +95,17 @@ function composeBody(draft: Draft): string {
  * 에디터에 실제로 들어간 내용을 되읽어 초안과 대조한다.
  * null이면 통과, 문자열이면 실패 사유.
  */
-async function verifyEditorContent(editor: Frame, draft: Draft): Promise<string | null> {
+async function verifyEditorContent(editor: Frame, draft: Draft, insertedImages: number): Promise<string | null> {
+  // 이미지는 FORMAT-SPEC상 최소 4장이고 0장은 발행 차단 조건이다.
+  // 부분 성공(4장 중 2장)도 미달로 본다 — 발행 후 수정은 문서 신뢰도 감점이라
+  // 깨진 글을 남기는 것보다 그 회차를 거르는 편이 싸다.
+  if (draft.images?.length) {
+    const onPage = await countImages(editor);
+    if (onPage < MIN_IMAGES) {
+      return `이미지 ${onPage}장 (최소 ${MIN_IMAGES}장, 삽입 시도 ${insertedImages}회)`;
+    }
+  }
+
   const rendered = await editor.locator('.se-content, .se-viewer, body').first().innerText().catch(() => '');
   if (!rendered.trim()) return '에디터에서 텍스트를 읽지 못함';
 
@@ -92,15 +113,16 @@ async function verifyEditorContent(editor: Frame, draft: Draft): Promise<string 
   const flat = norm(rendered);
 
   // 제목: 앞 12자만 대조 — 에디터가 줄바꿈을 넣을 수 있다
-  const titleHead = norm(draft.title).slice(0, 12);
+  const titleHead = norm(stripMarkers(draft.title)).slice(0, 12);
   if (!flat.includes(titleHead)) return `제목 미입력 (기대: "${titleHead}...")`;
 
-  // 본문: 첫 문단 앞 20자
-  const bodyHead = norm(draft.body).slice(0, 20);
+  // 본문: 첫 문단 앞 20자 (서식 마커는 타이핑되지 않으므로 제거하고 대조)
+  const plainBody = stripMarkers(draft.body);
+  const bodyHead = norm(plainBody).slice(0, 20);
   if (!flat.includes(bodyHead)) return `본문 미입력 (기대: "${bodyHead}...")`;
 
   // 본문 길이 — 문단 일부만 들어간 경우를 잡는다
-  const expected = norm(draft.body).length;
+  const expected = norm(plainBody).length;
   const got = flat.length;
   if (got < expected * 0.7) return `본문이 잘림 (기대 ${expected}자 이상, 실제 ${got}자)`;
 
@@ -117,19 +139,184 @@ async function getEditor(page: Page): Promise<Frame> {
   return frame;
 }
 
-/** 문단 단위로 입력한다. 에디터가 자체 문단 모델을 쓰기 때문에 값 주입 대신 키보드 입력을 쓴다. */
-async function typeParagraphs(page: Page, text: string): Promise<void> {
-  const paragraphs = text.split('\n\n').map((p) => p.trim()).filter(Boolean);
+/** make-draft가 넣는 마커 */
+const QUOTE_PREFIX = '>> ';
+/** FORMAT-SPEC §4 — 0장은 발행 차단, 부분 성공도 미달로 본다 */
+const MIN_IMAGES = 4;
+const BOLD_RE = /\*\*(.+?)\*\*/g;
+const COLOR_RE = /\[\[([rb]):(.+?)\]\]/g;
+
+/** 서식 마커를 제거한 순수 텍스트 — 검증 대조용 */
+export function stripMarkers(text: string): string {
+  return text
+    .replace(new RegExp(QUOTE_PREFIX, 'g'), '')
+    .replace(BOLD_RE, '$1')
+    .replace(COLOR_RE, '$2');
+}
+
+/**
+ * 한 문단을 입력한다. 볼드·색상 마커를 만나면 서식 토글 후 타이핑한다.
+ *
+ * 서식은 스마트에디터 단축키로 건다 — 툴바 버튼은 위치·클래스가 자주 바뀌지만
+ * Ctrl/Cmd+B 같은 단축키는 안정적이다. 색상은 단축키가 없어 이번 범위에서
+ * 적용하지 않고 볼드로 대체한다(강조 목적은 동일하게 달성된다).
+ */
+async function typeRich(page: Page, text: string): Promise<void> {
+  const mod = process.platform === 'darwin' ? 'Meta' : 'Control';
+  // 색상 마커는 볼드로 강등 — 색상 적용은 툴바 조작이 필요해 실패 위험이 크다
+  const normalized = text.replace(COLOR_RE, '**$2**');
+
+  let cursor = 0;
+  for (const match of normalized.matchAll(BOLD_RE)) {
+    const before = normalized.slice(cursor, match.index);
+    if (before) await page.keyboard.type(before, { delay: 8 });
+
+    await page.keyboard.press(`${mod}+b`);
+    await page.keyboard.type(match[1], { delay: 8 });
+    await page.keyboard.press(`${mod}+b`);
+
+    cursor = (match.index ?? 0) + match[0].length;
+  }
+  const rest = normalized.slice(cursor);
+  if (rest) await page.keyboard.type(rest, { delay: 8 });
+}
+
+/**
+ * 본문 입력 + 이미지 삽입.
+ *
+ * 이미지는 문단 사이에 넣는다(FORMAT-SPEC: 300~400자마다 1장). 타이핑을 끝낸 뒤
+ * 커서를 옮겨 삽입하는 방식은 커서 위치 제어가 불안정하므로, 타이핑 흐름 중간에
+ * 그 자리에서 삽입한다 — 커서가 이미 정확한 위치에 있기 때문이다.
+ */
+async function typeBody(page: Page, editor: Frame, draft: Draft): Promise<number> {
+  const paragraphs = draft.body.split('\n\n').map((p) => p.trim()).filter(Boolean);
+  const images = [...(draft.images ?? [])];
+  let inserted = 0;
+
+  // 이미지를 넣을 문단 인덱스 — 첫 문단 뒤부터 균등 배치
+  const slots = new Set<number>();
+  if (images.length > 0 && paragraphs.length > 1) {
+    const step = Math.max(1, Math.floor(paragraphs.length / images.length));
+    for (let i = 0; i < images.length; i++) slots.add(Math.min(i * step, paragraphs.length - 1));
+  }
+
   for (const [i, paragraph] of paragraphs.entries()) {
     if (i > 0) await page.keyboard.press('Enter');
-    await page.keyboard.type(paragraph, { delay: 12 });
-    // URL로 끝나는 문단은 Enter로 마무리 — 스마트에디터가 자동으로 하이퍼링크 카드로 변환한다.
-    // (평문 URL은 클릭이 안 되고, 링크 카드는 outside 유입 계측도 된다)
+
+    if (paragraph.startsWith(QUOTE_PREFIX)) {
+      const applied = await applyQuoteBlock(page, editor);
+      await page.keyboard.type(paragraph.slice(QUOTE_PREFIX.length), { delay: 8 });
+      // 인용구 블록에서 빠져나온다 — Enter 두 번이 스마트에디터의 블록 종료 관용이다
+      await page.keyboard.press('Enter');
+      if (applied) {
+        await page.keyboard.press('Enter');
+        await refocusBody(editor);
+      }
+      continue;
+    }
+
+    await typeRich(page, paragraph);
+
+    // URL 문단은 Enter로 오글링크 카드 변환을 유도한다
     if (/https?:\/\/\S+$/.test(paragraph)) {
       await page.keyboard.press('Enter');
-      await page.waitForTimeout(1_500); // oglink 카드 생성 대기
+      await page.waitForTimeout(1_500);
+    }
+
+    if (slots.has(i) && images.length > 0) {
+      const file = images.shift()!;
+      await page.keyboard.press('Enter');
+      if (await insertImage(page, editor, file)) inserted += 1;
+      await refocusBody(editor);
+      // 업로드를 초 단위로 연타하면 타이핑보다 강한 봇 신호가 된다
+      await page.waitForTimeout(1_800);
     }
   }
+
+  // 배치되지 못한 나머지는 본문 끝에 이어 붙인다 — 개수 미달로 발행이 막히지 않게
+  for (const file of images) {
+    await page.keyboard.press('Enter');
+    if (await insertImage(page, editor, file)) inserted += 1;
+    await refocusBody(editor);
+    await page.waitForTimeout(1_800);
+  }
+
+  return inserted;
+}
+
+/**
+ * 이미지 1장 삽입. 성공 여부를 돌려준다.
+ *
+ * input[type=file]이 DOM에 없으므로(실측) setInputFiles는 쓸 수 없다.
+ * 사진 버튼 클릭 → filechooser 이벤트 → setFiles 경로가 유일하게 동작한다.
+ * filechooser는 Page 레벨 이벤트라 input이 iframe 안에 있어도 page에서 받는다.
+ */
+async function insertImage(page: Page, editor: Frame, file: string): Promise<boolean> {
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    const before = await countImages(editor);
+    try {
+      const [chooser] = await Promise.all([
+        page.waitForEvent('filechooser', { timeout: 10_000 }),
+        editor.locator(SEL.imageButton).filter({ visible: true }).first().click({ timeout: 10_000 }),
+      ]);
+      await chooser.setFiles([file]);
+
+      // 컴포넌트가 생겼다고 업로드가 끝난 게 아니다 — 네이버 CDN(pstatic) src가 붙어야 완료다
+      await editor
+        .locator(SEL.uploadedImage)
+        .nth(before)
+        .waitFor({ state: 'visible', timeout: 30_000 });
+      return true;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.warn(`[Publish] 이미지 삽입 실패 ${attempt}/3 (${file}): ${message}`);
+      if (attempt < 3) await page.waitForTimeout(attempt * 2_500); // 2.5s → 5s 백오프
+    }
+  }
+  return false;
+}
+
+/**
+ * 본문 편집 영역으로 포커스를 되돌린다.
+ *
+ * 이미지 삽입·인용구 토글 뒤 포커스가 툴바나 패널로 빠진다. 그대로 타이핑하면
+ * 제목란이나 태그 입력으로 글자가 들어간다 — 되돌리기 어려운 실패다.
+ */
+/**
+ * 인용구 블록으로 전환. 성공하면 true.
+ *
+ * 실측 구조: 툴바의 「인용구」 버튼을 누르면 스타일 서브패널이 열리고,
+ * 그 안의 se-insert-menu-sub-panel-button 중 하나를 골라야 실제로 적용된다.
+ * 한 단계만 누르면 패널만 열린 채 텍스트가 평문으로 들어간다(실측: 인용구 0개).
+ */
+async function applyQuoteBlock(page: Page, editor: Frame): Promise<boolean> {
+  try {
+    const toolbarBtn = editor.locator(SEL.quoteButton).filter({ visible: true }).first();
+    if ((await toolbarBtn.count()) === 0) return false;
+    await toolbarBtn.click({ timeout: 5_000 });
+    await page.waitForTimeout(400);
+
+    // 첫 번째 스타일(기본 따옴표)을 고른다
+    const style = editor.locator(SEL.quoteStyle).filter({ visible: true }).first();
+    if ((await style.count()) === 0) {
+      await page.keyboard.press('Escape').catch(() => {});
+      return false;
+    }
+    await style.click({ timeout: 5_000 });
+    await page.waitForTimeout(400);
+    return true;
+  } catch {
+    await page.keyboard.press('Escape').catch(() => {});
+    return false;
+  }
+}
+
+async function refocusBody(editor: Frame): Promise<void> {
+  await editor.locator(SEL.body).last().click({ timeout: 5_000 }).catch(() => {});
+}
+
+async function countImages(editor: Frame): Promise<number> {
+  return editor.locator('.se-component.se-image, .se-module-image img').count().catch(() => 0);
 }
 
 async function main(): Promise<void> {
@@ -196,7 +383,7 @@ async function main(): Promise<void> {
     await page.keyboard.type(draft.title, { delay: 12 });
 
     await editor.locator(SEL.body).first().click();
-    await typeParagraphs(page, composeBody(draft));
+    const insertedImages = await typeBody(page, editor, draft);
 
     await page.screenshot({ path: shot, fullPage: true });
     console.log(`입력 완료. 스크린샷: ${shot}`);
@@ -205,7 +392,7 @@ async function main(): Promise<void> {
     // 셀렉터가 깨지면 클릭·타이핑이 조용히 빈 곳으로 가고, 그대로 발행하면 빈 글이 올라간다.
     // 실제로 스마트에디터 구조 변경으로 3회 깨진 적이 있다. 에디터에서 값을 되읽어
     // 초안과 대조한 뒤에만 발행 단계로 넘어간다.
-    const verdict = await verifyEditorContent(editor, draft);
+    const verdict = await verifyEditorContent(editor, draft, insertedImages);
     if (verdict) {
       throw new Error(`발행 전 검증 실패 — ${verdict}. 빈 글이 올라가지 않도록 중단한다.`);
     }
@@ -221,10 +408,24 @@ async function main(): Promise<void> {
       return;
     }
 
-    // 도움말/신기능 패널이 열려 있으면 발행 버튼을 가린다 — ESC와 닫기 버튼 둘 다 시도
+    // 도움말 패널이 발행 버튼의 pointer events를 가로챈다(실측: se-help-title 조상 컨테이너).
+    // ESC → 닫기 버튼 → DOM 제거 순으로 확실히 치운다.
     await page.keyboard.press('Escape').catch(() => {});
     const help = editor.locator(SEL.helpClose);
     if (await help.count()) await help.first().click({ timeout: 3_000 }).catch(() => {});
+    // 실측 클래스: article.se-help-panel.se-is-on. 이게 발행 버튼 위를 덮는다.
+    await editor
+      .evaluate(() => {
+        for (const el of document.querySelectorAll('.se-help-panel, .se-help-panel.se-is-on')) {
+          if (el instanceof HTMLElement) {
+            el.classList.remove('se-is-on');
+            el.style.display = 'none';
+            el.style.pointerEvents = 'none';
+          }
+        }
+      })
+      .catch(() => {});
+    await page.waitForTimeout(300);
 
     // 에디터에는 보이지 않는 "발행" 텍스트 요소가 여럿 있다 — visible 필터가 필수
     const openBtn = editor

@@ -14,12 +14,13 @@
 
 import { config } from 'dotenv';
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 
 const envPath = resolve(process.cwd(), '.env.local');
 if (existsSync(envPath)) config({ path: envPath });
 
 import { credentialsFromEnv, fetchKeywordVolumes } from '@/lib/naver-searchad';
+import { captureThemeImages } from './capture-images';
 
 const SITE = 'https://stockmatrix.co.kr';
 /** 이 미만 검색량이면 네이버에 써도 읽힐 가능성이 낮다 */
@@ -33,6 +34,12 @@ interface Mover {
   themeId: string;
 }
 
+interface Stock {
+  market: string;
+  name: string;
+  symbol: string;
+}
+
 interface ThemeDetail {
   name: string;
   score: {
@@ -42,35 +49,166 @@ interface ThemeDetail {
     updatedAt: string;
     value: number;
   };
-  topStocks?: string[];
+  /** 상세 API가 주는 실제 필드 — 목록 API의 topStocks와 다르다 */
+  stockCount?: number;
+  stocks?: Stock[];
 }
+
+/** 종목명 목록. 본문·태그·제목이 같은 소스를 봐야 개수가 어긋나지 않는다. */
+export const stockNames = (theme: ThemeDetail): string[] =>
+  (theme.stocks ?? []).map((s) => s.name).filter(Boolean);
 
 const pct = (n: number) => `${(n * 100).toFixed(0)}%`;
 
-/** 수치를 그대로 서술한다 — 해석·전망·권유를 넣지 않는다 (YMYL) */
+/** 발행 포맷 규격 — FORMAT-SPEC.md */
+export const FORMAT = {
+  bodyMax: 2500,
+  bodyMin: 1500,
+  minImages: 4,
+  tagsMax: 12,
+  tagsMin: 8,
+  titleMax: 45,
+  titleMin: 25,
+} as const;
+
+/** 인용구 박스(소제목) 표시. publish.ts가 이 접두를 보고 스마트에디터 인용구로 변환한다. */
+export const QUOTE_PREFIX = '>> ';
+
+/** 상승/하락 방향에 따른 색상 마커. publish.ts가 서식으로 바꾼다. */
+const up = (t: string) => `[[r:${t}]]`;
+const down = (t: string) => `[[b:${t}]]`;
+const b = (t: string) => `**${t}**`;
+
+/** 제목 — 규격 A) [테마명] 관련주 TOP N — [단계] 진입, 점수 NN점 (YYYY.MM) */
+export function composeTitle(theme: ThemeDetail, stockCount: number): string {
+  const [y, m] = theme.score.updatedAt.split('-');
+  const base = stockCount > 0
+    ? `${theme.name} 관련주 TOP ${stockCount} — ${theme.score.stageKo} 단계, 점수 ${theme.score.value}점 (${y}.${m})`
+    : `${theme.name} 테마 ${theme.score.stageKo} 단계 — 점수 ${theme.score.value}점 (${y}.${m})`;
+  // 45자 초과 시 단계 표기를 덜어낸다 (키워드·숫자는 유지)
+  return base.length <= FORMAT.titleMax
+    ? base
+    : `${theme.name} 관련주 TOP ${stockCount} — 점수 ${theme.score.value}점 (${y}.${m})`;
+}
+
+/**
+ * 본문 — FORMAT-SPEC 5블록 고정.
+ * 수치를 그대로 서술하고 해석·전망·권유는 넣지 않는다(YMYL). 서식만 규격에 맞춘다.
+ */
 export function composeBody(theme: ThemeDetail, themeId: string, change: number): string {
   const s = theme.score;
   const c = s.components;
   const r = s.raw;
-  const newsDir = r.newsThisWeek >= r.newsLastWeek ? '늘었습니다' : '줄었습니다';
-  const interestDir = r.recent7dAvg >= r.baseline30dAvg ? '웃돕니다' : '밑돕니다';
+  const stocks = stockNames(theme);
+  const newsDown = r.newsThisWeek < r.newsLastWeek;
+  const interestUp = r.recent7dAvg >= r.baseline30dAvg;
+  const changeText = change >= 0 ? up(`+${change}점`) : down(`${change}점`);
 
-  const parts = [
-    `${theme.name} 테마의 생명주기 점수가 ${s.value}점(100점 만점)입니다. 최근 7일 변화는 ${change >= 0 ? '+' : ''}${change}점이고, 단계는 '${s.stageKo}' 구간입니다. 기준일은 ${s.updatedAt}입니다.`,
-    `점수를 구성하는 네 요소는 검색 관심도 ${pct(c.interest)}, 뉴스 모멘텀 ${pct(c.newsMomentum)}, 활동성 ${pct(c.activity)}, 변동성 ${pct(c.volatility)} 수준입니다.`,
-    `뉴스는 이번 주 ${r.newsThisWeek}건으로 지난주 ${r.newsLastWeek}건보다 ${newsDir}. 검색 관심도의 7일 평균(${r.recent7dAvg.toFixed(1)})은 30일 평균(${r.baseline30dAvg.toFixed(1)})을 ${interestDir}.`,
-  ];
+  const blocks: string[] = [];
 
-  if (theme.topStocks?.length) {
-    parts.push(`이 테마로 묶이는 종목은 ${theme.topStocks.slice(0, 6).join(', ')} 등입니다.`);
-  }
-
-  parts.push(
-    '이 점수는 네이버 데이터랩 검색 트렌드와 뉴스 건수, KRX 시세를 매일 자동 집계해 계산한 참고용 데이터입니다. 특정 종목의 매수·매도를 권하는 것이 아니며, 투자 판단과 그 결과는 투자자 본인의 책임입니다.',
-    '점수 산출 방식과 가중치는 아래 페이지에 공개되어 있습니다.',
+  // [1] 후킹 도입부 — 제목 키워드를 첫 문장에 반복
+  blocks.push(
+    `${theme.name} 테마가 이번 주 ${b(`${s.value}점`)}을 기록하며 '${s.stageKo}' 단계에 들어섰습니다. ` +
+    `최근 7일 변화는 ${changeText}인데, 이 흐름을 어떤 종목이 이끌고 있는지 데이터로 확인해 보겠습니다.`,
   );
 
-  return parts.join('\n\n');
+  // [2] 점수 현황
+  blocks.push(`${QUOTE_PREFIX}점수 현황`);
+  blocks.push(
+    `${theme.name} 생명주기 점수는 ${b(`${s.value}점`)}(100점 만점), 전주 대비 ${changeText}입니다. ` +
+    `기준일은 ${s.updatedAt}입니다. 단계는 초기·성장·${b('정점')}·쇠퇴·휴면 다섯 구간 중 ` +
+    `${b(s.stageKo)} 구간에 해당합니다.`,
+  );
+
+  // [3] 왜 오르는가 — 차별화 데이터
+  blocks.push(`${QUOTE_PREFIX}점수를 만든 네 가지 요소`);
+  blocks.push(
+    `점수를 구성하는 네 요소 중 ${b(`검색 관심도가 ${pct(c.interest)}`)}로 가장 높습니다. ` +
+    `뉴스 모멘텀 ${b(pct(c.newsMomentum))}, 활동성 ${b(pct(c.activity))}, ` +
+    `변동성은 ${b(pct(c.volatility))} 수준입니다.`,
+  );
+  blocks.push(
+    `이번 주 관련 기사는 ${b(`${r.newsThisWeek}건`)}으로 지난주 ${r.newsLastWeek}건보다 ` +
+    `${newsDown ? down('줄었습니다') : up('늘었습니다')}. ` +
+    `검색 관심도의 7일 평균(${r.recent7dAvg.toFixed(1)})은 30일 평균(${r.baseline30dAvg.toFixed(1)})을 ` +
+    `${interestUp ? up('웃돕니다') : down('밑돕니다')}.`,
+  );
+
+  // [3-2] 지표별 의미 — 해석이 아니라 지표 정의 설명(사실)
+  blocks.push(
+    `각 요소가 무엇을 재는지 짚어두면 숫자를 읽기 쉽습니다. ${b('검색 관심도')}는 네이버 데이터랩에서 ` +
+    `해당 테마 키워드가 얼마나 검색되는지를, ${b('뉴스 모멘텀')}은 최근 기사량이 이전 기간 대비 ` +
+    `어떻게 변했는지를 봅니다. ${b('활동성')}은 관련 종목의 거래 상황을, ${b('변동성')}은 주가가 ` +
+    `얼마나 크게 움직였는지를 나타냅니다.`,
+  );
+
+  // [4] 관련종목
+  if (stocks.length) {
+    blocks.push(`${QUOTE_PREFIX}관련종목 ${stocks.length}개`);
+    const numerals = ['①', '②', '③', '④', '⑤', '⑥', '⑦', '⑧'];
+    blocks.push(
+      `이 테마로 묶이는 종목은 아래 ${stocks.length}개입니다. 시장 구분과 함께 정리했습니다.\n` +
+      (theme.stocks ?? []).slice(0, 8)
+        .map((st, i) => `${numerals[i]} ${b(st.name)} (${st.market} ${st.symbol})`)
+        .join('\n'),
+    );
+    blocks.push(
+      `종목별 현재가·등락률·거래량과 PER·PBR 같은 지표는 위 이미지의 표에서 확인할 수 있습니다. ` +
+      `이 목록은 테마 편입 기준에 따라 자동으로 갱신되며, 편입·제외 이력도 함께 관리됩니다.`,
+    );
+  }
+
+  // [4-2] 단계의 뜻 — 사실 설명
+  blocks.push(`${QUOTE_PREFIX}생명주기 단계는 무엇을 뜻하나`);
+  blocks.push(
+    `생명주기 단계는 점수의 절대값과 최근 추세를 함께 보고 ${b('초기')}·${b('성장')}·${b('정점')}·` +
+    `${b('쇠퇴')}·${b('휴면')} 다섯 구간 중 하나로 분류한 값입니다. 같은 점수라도 오르는 중인지 ` +
+    `내리는 중인지에 따라 다른 단계가 될 수 있습니다. 현재 ${theme.name}은 ${b(s.stageKo)} 구간입니다.`,
+  );
+
+  // [4-3] 데이터 갱신 주기 — 분량이 데이터에 좌우되므로 고정 설명으로 하한을 받친다.
+  // 규격(1,500자)은 발행 전 검증에서 강제되며, 여기 문장은 해석이 아니라 사실 설명이다.
+  blocks.push(`${QUOTE_PREFIX}데이터는 어떻게 갱신되나`);
+  blocks.push(
+    `점수는 매일 자동으로 다시 계산됩니다. 네이버 데이터랩에서 테마 키워드의 검색 추이를, ` +
+    `네이버 뉴스에서 관련 기사 건수를, KRX에서 관련 종목의 시세와 거래량을 수집한 뒤 ` +
+    `네 요소를 가중 합산합니다. 가중치는 과거 데이터로 조정했고 산출 과정은 공개되어 있습니다.`,
+  );
+  blocks.push(
+    `수집 범위는 최근 30일이며, 7일 이동평균과 30일 기준선을 비교해 방향을 판단합니다. ` +
+    `데이터가 부족한 테마는 점수를 내지 않고 비활성으로 둡니다. 오늘 기준 활성 테마만 ` +
+    `순위에 포함되며, 이 글의 수치는 모두 ${s.updatedAt} 집계분입니다.`,
+  );
+
+  // [5] 마무리 — 요약·고지·출처·CTA
+  blocks.push(`${QUOTE_PREFIX}정리`);
+  blocks.push(
+    `${theme.name} 테마는 검색 관심도 ${pct(c.interest)}, 뉴스 모멘텀 ${pct(c.newsMomentum)} 수준에서 ` +
+    `${s.stageKo} 구간을 지나고 있습니다.`,
+  );
+  blocks.push(
+    '이 점수는 네이버 데이터랩 검색 트렌드와 뉴스 건수, KRX 시세를 매일 자동 집계해 계산한 참고용 ' +
+    '데이터입니다. 특정 종목의 매수·매도를 권하는 것이 아니며, 투자 판단과 그 결과는 투자자 본인의 책임입니다.',
+  );
+  blocks.push(`사실 확인에 활용한 데이터: 네이버 데이터랩, KRX 시세 (기준일 ${s.updatedAt})`);
+  blocks.push('실시간 점수와 관련주 전체 목록은 여기서 확인할 수 있습니다.');
+  blocks.push(`${SITE}/themes/${themeId}`);
+
+  return blocks.join('\n\n');
+}
+
+/** 태그 — 종목명 40% + 테마명 20% + 일반 키워드 40%, 8~12개 */
+export function composeTags(theme: ThemeDetail): string[] {
+  const clean = (t: string) => t.replace(/[^가-힣A-Za-z0-9]/g, '');
+  const themeTag = clean(theme.name);
+  const tags = [
+    `${themeTag}관련주`,
+    themeTag,
+    ...stockNames(theme).slice(0, 5).map(clean),
+    '테마주', '주식데이터', '관련주정리', '종목분석',
+  ].filter((t) => t.length >= 2);
+
+  return [...new Set(tags)].slice(0, FORMAT.tagsMax);
 }
 
 async function getJson<T>(path: string): Promise<T> {
@@ -107,18 +245,45 @@ async function main(): Promise<void> {
   }
 
   const theme = await getJson<ThemeDetail>(`/api/tli/themes/${chosen.themeId}`);
+  const stocks = stockNames(theme);
+
+  // 이미지 캡처 — FORMAT-SPEC상 0장은 발행 차단 조건이므로 여기서 실패시킨다
+  const imageDir = join(dirname(outPath), 'images');
+  const images = await captureThemeImages(chosen.themeId, imageDir);
+  if (images.length < FORMAT.minImages) {
+    throw new Error(`이미지 ${images.length}장 — 최소 ${FORMAT.minImages}장 필요. 발행하지 않는다.`);
+  }
+
   const draft = {
-    title: `${theme.name} 테마 생명주기 점수 ${theme.score.value}점 — ${theme.score.updatedAt} 기준`,
-    tags: [theme.name, '테마주', '주식데이터'].slice(0, 10),
+    title: composeTitle(theme, stocks.length),
+    tags: composeTags(theme),
     body: composeBody(theme, chosen.themeId, chosen.change),
     outsideUrl: `${SITE}/themes/${chosen.themeId}`,
+    images: images.map((i) => i.path),
   };
+
+  // 규격 위반은 발행 전에 잡는다 — 네이버는 발행 후 수정을 신뢰도 감점으로 본다
+  const violations: string[] = [];
+  const plain = draft.body.replace(/>> |\*\*|\[\[[rb]:|\]\]/g, '');
+  if (draft.title.length < FORMAT.titleMin || draft.title.length > FORMAT.titleMax) {
+    violations.push(`제목 ${draft.title.length}자 (규격 ${FORMAT.titleMin}~${FORMAT.titleMax})`);
+  }
+  if (plain.length < FORMAT.bodyMin || plain.length > FORMAT.bodyMax) {
+    violations.push(`본문 ${plain.length}자 (규격 ${FORMAT.bodyMin}~${FORMAT.bodyMax})`);
+  }
+  if (draft.tags.length < FORMAT.tagsMin || draft.tags.length > FORMAT.tagsMax) {
+    violations.push(`태그 ${draft.tags.length}개 (규격 ${FORMAT.tagsMin}~${FORMAT.tagsMax})`);
+  }
+  if (violations.length) {
+    throw new Error(`FORMAT-SPEC 위반: ${violations.join(' / ')}`);
+  }
 
   mkdirSync(dirname(outPath), { recursive: true });
   writeFileSync(outPath, `${JSON.stringify(draft, null, 2)}\n`, 'utf-8');
   console.log(`초안 생성: ${outPath}`);
   console.log(`  테마: ${theme.name} (${theme.score.value}점, ${chosen.change >= 0 ? '+' : ''}${chosen.change})`);
-  console.log(`  제목: ${draft.title}`);
+  console.log(`  제목: ${draft.title} (${draft.title.length}자)`);
+  console.log(`  본문: ${draft.body.length}자 / 태그 ${draft.tags.length}개 / 이미지 ${images.length}장`);
 }
 
 main().catch((e) => { console.error(e instanceof Error ? e.message : e); process.exit(1); });

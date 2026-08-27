@@ -50,7 +50,8 @@
     "blog:clusters": "tsx scripts/blog-merge/analyze-clusters.ts",
     "blog:audit-titles": "tsx scripts/blog-merge/audit-titles.ts",
     "blog:rewrite-titles": "tsx scripts/blog-merge/rewrite-titles.ts",
-    "naver:draft": "tsx scripts/naver-blog/make-draft.ts"
+    "naver:draft": "tsx scripts/naver-blog/make-draft.ts",
+    "naver:capture": "tsx scripts/naver-blog/capture-images.ts"
   },
   "dependencies": {
     "@fontsource/noto-sans-kr": "^5.2.9",

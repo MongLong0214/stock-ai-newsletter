@@ -38,6 +38,10 @@ jobs:
       - name: Generate draft from TLI data
         id: draft
         env:
+          # 개별 3개 또는 NAVER_AD_CREDS(JSON) 중 있는 쪽을 쓴다 — credentialsFromEnv가 둘 다 받는다
+          NAVER_AD_CUSTOMER_ID: ${{ secrets.NAVER_AD_CUSTOMER_ID }}
+          NAVER_AD_API_KEY: ${{ secrets.NAVER_AD_API_KEY }}
+          NAVER_AD_SECRET_KEY: ${{ secrets.NAVER_AD_SECRET_KEY }}
           NAVER_AD_CREDS: ${{ secrets.NAVER_AD_CREDS }}
         run: npx tsx scripts/naver-blog/make-draft.ts --out .naver-blog/draft.json
 
