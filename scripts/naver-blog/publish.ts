@@ -842,24 +842,36 @@ async function measureColorDom(editor: Frame): Promise<{ chars: number; count: n
 
 async function typeBold(page: Page, editor: Frame, text: string): Promise<void> {
   await assertBodyFormattingToolbar(editor, '볼드');
+  await restoreCaretToEnd(editor);
   const before = await countBoldDom(editor);
+
+  // 성공 후 캐럿을 문단 끝으로 되돌린다.
+  //
+  // 토글 해제 키와 다음 타이핑이 겹치면 **볼드 직후 문자가 유실된다.** CI에서
+  // `최근 7일 … 35개, 내린 …` 문단이 프로브 불일치로 잡혔다(run 33060471623) —
+  // 볼드 다음의 `,`가 먹힌 것이다. 색상에서 같은 원인을 이미 확인했고 같은 방식으로 막는다.
+  const settle = async () => {
+    await restoreCaretToEnd(editor);
+    await page.waitForTimeout(120);
+  };
+
   const tryOnce = async (mod: string) => {
     await page.keyboard.press(`${mod}+b`);
     await page.keyboard.type(text, { delay: 8 });
     await page.keyboard.press(`${mod}+b`);
   };
   await tryOnce(process.platform === 'darwin' ? 'Meta' : 'Control');
-  if ((await countBoldDom(editor)) > before) return;
+  if ((await countBoldDom(editor)) > before) { await settle(); return; }
 
   await tryOnce(process.platform === 'darwin' ? 'Control' : 'Meta');
-  if ((await countBoldDom(editor)) > before) return;
+  if ((await countBoldDom(editor)) > before) { await settle(); return; }
 
   const btn = editor.locator(SEL.boldButton).filter({ visible: true }).first();
   if ((await btn.count()) > 0) {
     await btn.click({ timeout: 5_000 });
     await page.keyboard.type(text, { delay: 8 });
     await btn.click({ timeout: 5_000 }).catch(() => {});
-    if ((await countBoldDom(editor)) > before) return;
+    if ((await countBoldDom(editor)) > before) { await settle(); return; }
   }
   throw new Error(`볼드 적용 실패 ("${text.slice(0, 20)}") — 단축키·툴바 모두 실패, 발행 중단`);
 }
