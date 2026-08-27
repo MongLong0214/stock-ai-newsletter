@@ -45,6 +45,12 @@ const SEL = {
   // 서브패널 버튼(se-insert-menu-sub-panel-button)은 패널이 열리기 전엔 invisible이다.
   quoteButton: '.se-quotation-toolbar-button, button:has-text("인용구")',
   quoteStyle: '.se-insert-menu-sub-panel-button',
+  // 오글링크 팝업 실측 구조: 툴바 → input[type=url] → 검색 → 미리보기 → 확인
+  oglinkButton: '.se-oglink-toolbar-button',
+  oglinkInput: 'input.se-popup-oglink-input',
+  oglinkSearch: 'button.se-popup-oglink-button',
+  oglinkConfirm: 'button.se-popup-button-confirm',
+  oglinkPreview: '.se-popup-oglink-preview',
   recoveryCancel: '.se-popup-button-cancel',
   // 첫 사용 시 우측 도움말 패널이 발행 버튼을 덮는다 — 닫지 않으면 발행 클릭이 타임아웃난다
   helpClose: 'button[class*="close"], .se-help-panel-close-button, [aria-label="도움말 닫기"]',
@@ -126,8 +132,16 @@ async function verifyEditorContent(editor: Frame, draft: Draft, insertedImages: 
   const got = flat.length;
   if (got < expected * 0.7) return `본문이 잘림 (기대 ${expected}자 이상, 실제 ${got}자)`;
 
-  if (draft.outsideUrl && !flat.includes(norm(draft.outsideUrl))) {
-    return 'outside 딥링크 누락';
+  if (draft.outsideUrl) {
+    // 오글링크 카드로 변환되면 URL이 본문 텍스트에 남지 않는다 — 카드의 href로도 인정한다.
+    // 텍스트만 보면 정상 변환된 글이 '링크 누락'으로 반려된다(실측).
+    const hasCard = await editor
+      .locator(`.se-oglink a[href*="${new URL(draft.outsideUrl).host}"], .se-oglink-thumbnail`)
+      .count()
+      .catch(() => 0);
+    if (!flat.includes(norm(draft.outsideUrl)) && hasCard === 0) {
+      return 'outside 딥링크 누락 (평문·오글링크 카드 모두 없음)';
+    }
   }
 
   return null;
@@ -215,13 +229,21 @@ async function typeBody(page: Page, editor: Frame, draft: Draft): Promise<number
       continue;
     }
 
-    await typeRich(page, paragraph);
-
-    // URL 문단은 Enter로 오글링크 카드 변환을 유도한다
-    if (/https?:\/\/\S+$/.test(paragraph)) {
-      await page.keyboard.press('Enter');
-      await page.waitForTimeout(1_500);
+    // URL만 있는 문단은 오글링크 카드로 만든다. 타이핑 후 Enter로 유도하는 방식은
+    // 이미지 삽입 뒤 포커스가 옮겨간 상태에서 변환이 일어나지 않았다(실측: oglink 0).
+    // 툴바 팝업 경로는 결과를 확인할 수 있어 결정적이다.
+    const urlOnly = paragraph.match(/^(https?:\/\/\S+)$/);
+    if (urlOnly) {
+      if (await insertOgLink(page, editor, urlOnly[1])) {
+        await refocusBody(editor);
+        continue;
+      }
+      // 실패하면 평문 URL이라도 남긴다 — 링크가 아예 없는 것보단 낫다
+      await page.keyboard.type(paragraph, { delay: 8 });
+      continue;
     }
+
+    await typeRich(page, paragraph);
 
     if (slots.has(i) && images.length > 0) {
       const file = images.shift()!;
@@ -288,6 +310,43 @@ async function insertImage(page: Page, editor: Frame, file: string): Promise<boo
  * 이미지 삽입·인용구 토글 뒤 포커스가 툴바나 패널로 빠진다. 그대로 타이핑하면
  * 제목란이나 태그 입력으로 글자가 들어간다 — 되돌리기 어려운 실패다.
  */
+/**
+ * URL을 오글링크 카드로 삽입. 성공하면 true.
+ *
+ * 실측 구조: 툴바 버튼 → se-popup-oglink → input[type=url] → 검색 버튼 →
+ * 미리보기 로드 → 확인 버튼(로드 전까지 disabled). 확인 버튼의 disabled가
+ * 풀리는 것이 곧 미리보기 준비 완료 신호라 그것을 대기 조건으로 쓴다.
+ */
+async function insertOgLink(page: Page, editor: Frame, url: string): Promise<boolean> {
+  try {
+    await editor.locator(SEL.oglinkButton).first().click({ timeout: 8_000 });
+    const input = editor.locator(SEL.oglinkInput).first();
+    await input.waitFor({ state: 'visible', timeout: 8_000 });
+    await input.fill(url);
+    await editor.locator(SEL.oglinkSearch).first().click({ timeout: 5_000 });
+
+    // 확인 버튼이 활성화될 때까지 = 미리보기 로드 완료
+    const confirm = editor.locator(SEL.oglinkConfirm).first();
+    await confirm.waitFor({ state: 'visible', timeout: 5_000 });
+    // 팝업은 에디터 iframe 안에 있으므로 frame 컨텍스트에서 평가해야 한다
+    await editor.waitForFunction(
+      (sel) => {
+        const btn = document.querySelector(sel);
+        return btn instanceof HTMLButtonElement && !btn.disabled;
+      },
+      SEL.oglinkConfirm,
+      { timeout: 20_000 },
+    );
+    await confirm.click({ timeout: 5_000 });
+    await page.waitForTimeout(1_500);
+    return true;
+  } catch (error) {
+    console.warn(`[Publish] 오글링크 실패 (${url}): ${error instanceof Error ? error.message : error}`);
+    await page.keyboard.press('Escape').catch(() => {});
+    return false;
+  }
+}
+
 /**
  * 인용구 블록으로 전환. 성공하면 true.
  *
