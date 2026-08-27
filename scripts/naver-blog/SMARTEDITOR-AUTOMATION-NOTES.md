@@ -351,8 +351,26 @@ theme이 통과한 것은 **우연**이었다. 그래서 조합기 규칙을 이
 저장 실패를 `continue-on-error`로 넘기면 다음 실행이 이력을 잃는다 — **잡을 실패시켜야
 한다.**
 
-증거 아티팩트 경로는 `.naver-blog/**` 형태여야 한다. 디렉터리 표기(`.naver-blog/`)와
-개별 글롭 나열은 둘 다 0건이었다.
+증거 아티팩트는 **`include-hidden-files: true`가 없으면 한 건도 올라가지 않는다.**
+`.naver-blog`는 점으로 시작하는 숨은 디렉터리이고 `actions/upload-artifact` v4는 숨은
+파일을 기본 제외한다. 글롭을 세 가지로 바꿔봤지만(디렉터리 표기 `.naver-blog/`,
+개별 글롭 나열, `.naver-blog/**`) 전부 `total_count=0`이었다 — 글롭 문제가 아니었다.
+
+```yaml
+include-hidden-files: true
+path: |
+  .naver-blog/**
+  !.naver-blog/session.json
+if-no-files-found: error     # warn이면 또 조용히 죽는다
+```
+
+이 플래그를 켜는 순간 `!.naver-blog/session.json`이 실제로 부하를 받는 줄이 된다.
+세션 쿠키가 아티팩트로 새면 계정이 털린다 — **제외 줄을 지우지 말고, 켠 다음 실행에서
+아티팩트 내용에 세션이 없는지 직접 확인하라.**
+
+이게 왜 중요한가: 이 문서의 문자 유실 3건·복구 팝업·Papago 모달은 전부 로컬에서
+재현되지 않았다. 스크린샷이 유일한 진단 수단인데 그게 비어 있으면 CI-only 실패는
+추측으로만 고치게 된다.
 
 ## 10. 하지 말 것
 
