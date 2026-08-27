@@ -107,3 +107,6 @@ __pycache__/
 
 # Local QA evidence (루트 오배치 방지 — 정본은 .omo/evidence)
 final-wave/
+
+# 네이버 로그인 세션·발행 기록 (자격증명)
+.naver-blog/
