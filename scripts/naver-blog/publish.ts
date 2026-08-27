@@ -178,18 +178,21 @@ async function verifyEditorContent(editor: Frame, draft: Draft, insertedImages: 
     return `문장부호 유실 (마침표 기대 ${expectedPeriods}개, 실제 ${gotPeriods}개) — 색상 팝업이 입력을 먹었을 수 있습니다`;
   }
 
-  // 길이 비교는 **양쪽을 같은 집합으로** 맞춰야 한다.
+  // 누락 검출은 **길이 비율이 아니라 문단별 존재 확인**으로 한다.
   //
-  // `bodyOnly`(.se-component.se-text)에는 인용구 소제목과 CTA URL이 없다(별도 컴포넌트).
-  // 반대로 캡션은 이미지 다음 문단으로 타이핑되므로 들어 있다. 예전에는 캡션이 더해져
-  // 인용구·URL 누락을 우연히 상쇄했고, 캡션만 빼면 이번처럼 정상 글이 "잘림"으로 반려된다.
-  // 기대값은 텍스트 컴포넌트가 될 블록만, 실측값은 캡션을 뺀 값으로 둔다.
-  const captionChars = (draft.imagePlacements ?? [])
-    .reduce((n, item) => n + norm(item.caption ?? '').length, 0);
-  const expected = norm(expectedTextBlocks.join('')).length;
-  const got = Math.max(bodyOnly.length - captionChars, 0);
-  if (got < expected * 0.9) {
-    return `본문이 잘림 (기대 ${expected}자의 90% 이상, 실제 본문 컴포넌트 ${got}자)`;
+  // 비율은 회계가 맞아야 성립하는데, 캡션이 텍스트 문단으로 들어가는지 이미지 컴포넌트의
+  // 캡션 필드로 들어가는지가 환경마다 달랐다(로컬 통과 / CI 89.9%로 반려). 인용구·CTA URL도
+  // 별도 컴포넌트라 양쪽 집합을 맞추기가 계속 어긋났다.
+  //
+  // 문단마다 앞부분이 화면에 있는지 보면 회계가 필요 없고, 중간 문단 하나가 빠진 경우를
+  // 더 정확히 잡는다(마침표 없는 볼드 리드 블록도 잡힌다).
+  const missingBlocks = expectedTextBlocks.filter((block) => {
+    const probe = norm(block).slice(0, 15);
+    return probe.length >= 8 && !flat.includes(probe);
+  });
+  if (missingBlocks.length > 0) {
+    const sample = norm(missingBlocks[0]).slice(0, 20);
+    return `본문 문단 ${missingBlocks.length}개 누락 (예: "${sample}…")`;
   }
 
   const lastTextBlock = plainBody
