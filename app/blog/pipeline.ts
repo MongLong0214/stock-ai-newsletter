@@ -1,21 +1,24 @@
 /**
- * 4-Phase 블로그 파이프라인 오케스트레이터
+ * 블로그 파이프라인 오케스트레이터 — 게이트 우선 설계
  *
- * Phase 1: AI 키워드 생성 (Vertex AI Gemini + TLI 컨텍스트 + 롤링 윈도우 중복 제거)
- * Phase 2: 초안 생성 (SERP 검색 → 스크래핑 → AI 콘텐츠 생성, 저장 없이)
- * Phase 3: AI 선별 + 중복 검증 (기존 블로그 대비, 상위 N개 선택)
- * Phase 4: 저장 & 발행 + Google Indexing
+ * Phase 1: AI 키워드 후보 → 결정적 게이트 3단 (전 기간 클러스터 차단 → 중복 → 네이버 실측 검색량)
+ * Phase 2: 검색량 상위 DRAFT_LIMIT개만 초안 생성 (SERP 근거 필수 → 생성 → 윤문 필수 → YMYL 게이트)
+ * Phase 3: 게이트 통과분 중 검색량 상위 MAX_DAILY_PUBLISH개 발행, 나머지는 draft 보관
+ *
+ * 설계 원칙: 발행량은 상한이지 할당량이 아니다. 게이트를 통과한 글이 2개면 2개만
+ * 발행한다. 이전 구조는 7개를 채우기 위해 게이트가 실패할 때마다 게이트를 껐다
+ * (품질 미달 → 전체 진행, 윤문 실패 → AI 문체 그대로 발행, 검색 0건 → 모델 기억으로
+ * 생성). 이전의 "Phase 3 AI 선별"은 생성량(7) ≤ 선별상한(10)이라 조기 리턴이 항상
+ * 참인 죽은 코드였고, 카니벌리제이션(스테이블코인 21편·토스 11편)의 원인이었다.
  */
 
 import { searchGoogle } from './_services/serp-api';
 import { scrapeSearchResults, analyzeCompetitors, closeBrowser, getMetrics, resetMetrics } from './_services/web-scraper';
 import { generateBlogContent, generateSlug, calculateQualityScore } from './_services/content-generator';
 import { humanizeGeneratedContent } from './_services/humanizer';
+import { checkYmyl } from './_services/ymyl-gate';
 import { saveBlogPost, publishBlogPost } from './_services/blog-repository';
 import { generateKeywords } from './_services/keyword-generator';
-import { getServerSupabaseClient } from '@/lib/supabase/server-client';
-import { generateText } from '@/lib/llm/gemini-client';
-import { notifyGoogleIndexingBatch } from '@/lib/google-indexing';
 import type { BlogPostCreateInput, PipelineResult, PipelineMetrics, CompetitorAnalysis, GeneratedContent } from './_types/blog';
 
 // --- 상수 ---
@@ -38,11 +41,31 @@ const HUMANIZE_TRIP_THRESHOLD = 2;
 let humanizeConsecutiveFailures = 0;
 let humanizeDisabled = false;
 function resetHumanizeGate() { humanizeConsecutiveFailures = 0; humanizeDisabled = false; }
+function registerHumanizeFailure() {
+  humanizeConsecutiveFailures += 1;
+  if (humanizeConsecutiveFailures >= HUMANIZE_TRIP_THRESHOLD) {
+    humanizeDisabled = true;
+    console.warn(`[Humanize] 연속 ${HUMANIZE_TRIP_THRESHOLD}회 실패 — 이번 run 남은 초안은 생성 중단`);
+  }
+}
 const BATCH_DELAY_MS = 3_000;
-const SELECT_COUNT = 10;
-const EXISTING_POSTS_LIMIT = 150;
 const QUALITY_MIN_SCORE = 60;
-export const DAILY_POST_COUNT = 7;
+
+/**
+ * 하루 발행 상한. 할당량이 아니다 — 게이트 통과분이 이보다 적으면 적게 발행한다.
+ * 7에서 3으로 내린 근거: YMYL 금융 콘텐츠를 사람 검수 없이 자동 발행하는 구조에서
+ * 하루 7편(연 2,555편)은 Google scaled content abuse 패턴과 구분되지 않고,
+ * 실제로 1,306편 중 스테이블코인 21편·토스 11편의 카니벌을 만들었다.
+ * 상한 초과 통과분은 버리지 않고 draft로 보관한다.
+ */
+export const MAX_DAILY_PUBLISH = 3;
+/** Phase 2(SERP+스크래핑+생성+윤문) 진입 상한 — 25분 CI 예산 보호. 기존 7회보다 적다. */
+const DRAFT_LIMIT = 5;
+/** Phase 1 키워드 후보 수 — 게이트 탈락 여유분 */
+const KEYWORD_CANDIDATE_COUNT = 10;
+
+/** @deprecated MAX_DAILY_PUBLISH로 대체. 기존 호출부 호환용. */
+export const DAILY_POST_COUNT = MAX_DAILY_PUBLISH;
 
 // --- 타입 ---
 
@@ -51,6 +74,8 @@ type DraftSuccess = {
   blogPost: BlogPostCreateInput;
   metrics: PipelineMetrics;
   qualityScore: number;
+  /** 네이버 실측 월간 검색량 — 발행 우선순위 정렬 기준 */
+  searchVolume?: number;
 };
 
 type DraftFailure = {
@@ -100,8 +125,9 @@ function resolveHumanized(
   const after = calculateQualityScore(humanized, keyword, analysis);
 
   if (after < QUALITY_MIN_SCORE && before >= QUALITY_MIN_SCORE) {
-    console.warn(`[Humanize] 품질 점수 하락 (${before} → ${after} < ${QUALITY_MIN_SCORE}) — 원문 유지`);
-    return original;
+    // 이전에는 원문(AI 문체)으로 되돌려 발행했다 — "윤문 안 된 글 발행 금지" 불변과 모순.
+    // 윤문이 품질을 임계 밑으로 떨어뜨렸으면 그 글은 버린다.
+    throw new Error(`윤문 후 품질 미달 (${before} → ${after} < ${QUALITY_MIN_SCORE}) — 발행하지 않는다`);
   }
 
   if (after !== before) console.log(`[Humanize] 품질 점수 갱신 ${before} → ${after}`);
@@ -116,41 +142,58 @@ async function generateDraft(keyword: string, type: 'comparison' | 'guide' | 'li
   const metrics: PipelineMetrics = { totalTime: 0, pagesScraped: 0 };
 
   try {
+    // 브레이커가 열렸으면 SERP·스크래핑·생성 비용을 쓰기 전에 중단한다
+    if (humanizeDisabled) {
+      throw new Error('윤문 서킷브레이커 열림 — 남은 초안 생성 중단');
+    }
+
     const searchResults = await withTimeoutFallback(searchGoogle(keyword, 5), TIMEOUTS.search, [], 'Search');
-    if (!searchResults.length) { /* no search results — AI generates from own knowledge */ }
+    // 근거 수집 실패 = 초안 보류. 검색 결과 없이 진행하면 금융 사실을 모델 기억으로 쓴다 —
+    // 출처 없는 통계("정부 통계에 따르면 200% 급증")가 발행된 실제 경로였다.
+    if (!searchResults.length) {
+      throw new Error('검색 결과 0건 — 근거 없이 YMYL 콘텐츠를 생성하지 않는다');
+    }
 
     resetMetrics();
     const scraped = await withTimeoutFallback(scrapeSearchResults(searchResults), TIMEOUTS.scrape, [], 'Scrape');
     metrics.pagesScraped = scraped.length;
     getMetrics(); // finalize scraping metrics
 
+    if (!scraped.length) {
+      throw new Error('스크래핑 0건 — 근거 문서 없이 진행하지 않는다');
+    }
+
     const analysis = analyzeCompetitors(scraped, keyword);
     const generated = await withTimeout(generateBlogContent(keyword, analysis, type), TIMEOUTS.generate, 'AI');
 
-    // 윤문: AI 문체 제거. 품질 점수는 윤문 전 본문 기준으로 매겨져 있는데
-    // 30점짜리 길이 항목이 어절 수에서 파생되고 윤문 가드는 30% 감소까지 허용한다.
-    // 즉 점수가 그대로면 실제보다 부풀려진 값으로 발행 게이트를 통과할 수 있다.
-    // 서킷브레이커가 열렸으면 윤문 생략(원문 사용) — 저하된 서비스에 초당 낭비하지 않는다
-    let humanized = generated;
-    if (humanizeDisabled) {
-      console.warn('[Humanize] 서킷브레이커 열림 — 윤문 생략(원문 유지)');
-    } else {
-      try {
-        humanized = await withTimeout(humanizeGeneratedContent(generated, keyword), TIMEOUTS.humanize, 'Humanize');
-        humanizeConsecutiveFailures = 0;
-      } catch (e) {
-        // 타임아웃/에러 모두 원문 유지(graceful). 연속 실패가 임계에 닿으면 남은 초안 윤문 중단.
-        console.warn(`[Humanize] 실패(${err(e)}) — 원문 유지`);
-        humanized = generated;
-        humanizeConsecutiveFailures += 1;
-        if (humanizeConsecutiveFailures >= HUMANIZE_TRIP_THRESHOLD) {
-          humanizeDisabled = true;
-          console.warn(`[Humanize] 연속 ${HUMANIZE_TRIP_THRESHOLD}회 실패 — 이번 run 남은 초안은 윤문 생략`);
-        }
-      }
+    // 윤문은 필수 게이트다. 실패는 발행 금지, 의도적 스킵(킬스위치)만 원문 통과.
+    let outcome;
+    try {
+      outcome = await withTimeout(humanizeGeneratedContent(generated, keyword), TIMEOUTS.humanize, 'Humanize');
+    } catch (e) {
+      registerHumanizeFailure();
+      throw new Error(`윤문 실패(${err(e)}) — 윤문 안 된 글은 발행하지 않는다`);
     }
 
-    const content = resolveHumanized(generated, humanized, keyword, analysis);
+    // humanizeText는 내부 에러·가드 반려를 흡수하고 원문을 돌려주므로(accepted=false),
+    // 여기서 명시적으로 실패 처리해야 서킷브레이커가 실제 실패를 센다.
+    if (!outcome.accepted && !outcome.skipped) {
+      registerHumanizeFailure();
+      throw new Error('윤문 미채택(반려/에러) — 윤문 안 된 글은 발행하지 않는다');
+    }
+    humanizeConsecutiveFailures = 0;
+
+    // skipped(킬스위치·짧은 본문)면 원문으로 진행 — 운영자의 명시적 선택이다
+    const content = outcome.skipped
+      ? generated
+      : resolveHumanized(generated, outcome.content, keyword, analysis);
+
+    // YMYL 결정적 게이트 — 모호 출처·투자 권유 단정·브랜드 남용·유령 종목.
+    // 위반 시 재생성하지 않고 그 슬롯을 비운다.
+    const violations = await checkYmyl(content.content, keyword);
+    if (violations.length > 0) {
+      throw new Error(`YMYL 게이트 위반: ${violations.map((v) => `[${v.rule}] ${v.detail}`).join(' / ')}`);
+    }
 
     const post: BlogPostCreateInput = {
       slug: generateSlug(content.title, keyword),
@@ -176,91 +219,7 @@ async function generateDraft(keyword: string, type: 'comparison' | 'guide' | 'li
   }
 }
 
-// --- Phase 3: AI 선별 + 중복 검증 ---
-
-async function selectTopPosts(drafts: DraftSuccess[], count: number): Promise<DraftSuccess[]> {
-  if (drafts.length === 0) return [];
-  if (drafts.length <= count) return drafts;
-
-  const supabase = getServerSupabaseClient();
-  const { data: existingPosts, error: dbError } = await supabase
-    .from('blog_posts')
-    .select('title, target_keyword')
-    .order('created_at', { ascending: false })
-    .limit(EXISTING_POSTS_LIMIT);
-
-  if (dbError) console.warn('[Selection] DB 조회 실패:', dbError.message);
-
-  const existingList = (existingPosts || []).map(p => ({ title: p.title, keyword: p.target_keyword }));
-
-  const summaries = drafts.map((d, i) => ({
-    index: i,
-    title: d.blogPost.title,
-    keyword: d.blogPost.target_keyword,
-    metaTitle: d.blogPost.meta_title,
-    metaDescription: d.blogPost.meta_description,
-    faqCount: d.blogPost.faq_items?.length || 0,
-    contentLength: d.blogPost.content?.length || 0,
-    qualityScore: d.qualityScore,
-    contentPreview: d.blogPost.content?.substring(0, 400),
-  }));
-
-  const prompt = `당신은 시니어 SEO 콘텐츠 에디터입니다.
-
-## 임무
-다음 ${drafts.length}개의 블로그 초안 중에서 최종 발행할 ${count}개를 선별해주세요.
-
-## 절대 규칙 — 중복 제거 (최우선)
-아래 "기존 발행된 블로그" 목록과 주제/키워드/관점이 겹치는 초안은 반드시 탈락시키세요.
-- 같은 키워드를 다른 표현으로 쓴 것도 중복입니다 (예: "주식 초보 가이드" ↔ "주식 입문자 안내")
-- 같은 주제를 다른 각도로 쓴 것도 중복입니다 (예: "ETF 추천 2026" ↔ "올해 ETF 투자 전략")
-- 초안끼리 주제가 겹치는 경우, 품질이 더 높은 1개만 남기세요
-
-## 기존 발행된 블로그 (최근 ${existingList.length}개)
-${JSON.stringify(existingList.map(p => `${p.keyword} — ${p.title}`).slice(0, 100), null, 2)}
-
-## 선별 기준 (중복 아닌 것들 중에서)
-1. SEO 최적화 (키워드 적절성, 메타 태그 품질)
-2. 콘텐츠 깊이 (길이, 구조, FAQ)
-3. 주제 다양성 (선별된 ${count}개 내에서도 주제가 최대한 다양)
-4. 독자 가치 (실용적 정보, 차별화된 관점)
-
-## 초안 목록
-${JSON.stringify(summaries, null, 2)}
-
-## 응답 형식
-반드시 아래 JSON 형식으로만 응답하세요. 설명 없이 JSON만:
-{"selected": [0, 3, 5], "rejected_duplicates": [1, 4]}`;
-
-  try {
-    const response = await withTimeout(
-      generateText({ prompt, config: { temperature: 0.3 } }),
-      TIMEOUTS.selection,
-      'Selection',
-    );
-    const cleaned = response.replace(/```json?\s*/gi, '').replace(/```/gi, '').trim();
-    const parsed: unknown = JSON.parse(cleaned);
-    const obj = parsed as { selected?: number[]; rejected_duplicates?: number[] };
-    const indices: number[] = Array.isArray(obj.selected)
-      ? obj.selected
-      : (Array.isArray(parsed) ? parsed as number[] : []);
-
-    const selected = indices
-      .filter(i => typeof i === 'number' && i >= 0 && i < drafts.length)
-      .slice(0, count)
-      .map(i => drafts[i]);
-
-    if (selected.length > 0) return selected;
-    throw new Error('AI가 유효한 인덱스를 반환하지 않음');
-  } catch (e) {
-    console.warn(`[Selection] AI 선별 실패: ${err(e)} — 품질 점수 기준으로 폴백`);
-    return [...drafts]
-      .sort((a, b) => b.qualityScore - a.qualityScore)
-      .slice(0, count);
-  }
-}
-
-// --- Phase 4: 저장 & 발행 ---
+// --- Phase 3: 저장 & 발행 ---
 
 async function saveAndPublishPosts(posts: DraftSuccess[]): Promise<PipelineResult[]> {
   const results: PipelineResult[] = [];
@@ -269,11 +228,10 @@ async function saveAndPublishPosts(posts: DraftSuccess[]): Promise<PipelineResul
     try {
       draft.blogPost.status = 'published';
       const saved = await withTimeout(saveBlogPost(draft.blogPost), TIMEOUTS.save, 'DB');
+      // Google Indexing API 호출은 제거 — 공식적으로 JobPosting/BroadcastEvent 전용이라
+      // 일반 블로그 URL·sitemap 전송은 지원 대상이 아니다. 색인은 sitemap이 담당하고
+      // Bing·네이버 재크롤은 publishBlogPost 안의 IndexNow가 처리한다.
       await publishBlogPost(saved.slug).catch(e => console.warn('[Pipeline] publish 실패:', err(e)));
-      await notifyGoogleIndexingBatch([
-        `https://stockmatrix.co.kr/blog/${saved.slug}`,
-        'https://stockmatrix.co.kr/sitemap.xml',
-      ]).catch(e => console.warn('[Pipeline] 인덱싱 알림 실패:', err(e)));
 
       results.push({ success: true, blogPost: draft.blogPost, metrics: draft.metrics });
     } catch (e) {
@@ -298,10 +256,6 @@ export async function generateBlogPost(keyword: string, type: 'comparison' | 'gu
     try {
       const saved = await withTimeout(saveBlogPost(draft.blogPost), TIMEOUTS.save, 'DB');
       await publishBlogPost(saved.slug).catch(e => console.warn('[Pipeline] publish 실패:', err(e)));
-      await notifyGoogleIndexingBatch([
-        `https://stockmatrix.co.kr/blog/${saved.slug}`,
-        'https://stockmatrix.co.kr/sitemap.xml',
-      ]).catch(e => console.warn('[Pipeline] 인덱싱 알림 실패:', err(e)));
     } catch (e) {
       console.error(`[Pipeline] 저장 실패: ${err(e)}`);
       return { success: false, error: err(e), metrics: draft.metrics };
@@ -327,11 +281,13 @@ export async function generateWithDynamicKeywords(options: { publish?: boolean; 
   resetHumanizeGate();
 
   try {
-    // ━━━ Phase 1: 키워드 생성 ━━━
-    console.log(`[Pipeline] Phase 1: AI 키워드 생성 (${count}개)`);
+    // ━━━ Phase 1: 키워드 후보 생성 + 게이트 ━━━
+    // 발행 상한(count)이 아니라 후보 수를 요청한다 — 클러스터·중복·검색량 게이트가
+    // 걸러낸 뒤에도 DRAFT_LIMIT를 채울 여유가 있어야 한다.
+    console.log(`[Pipeline] Phase 1: AI 키워드 후보 ${KEYWORD_CANDIDATE_COUNT}개 생성 (발행 상한 ${Math.min(count, MAX_DAILY_PUBLISH)}개)`);
 
     const kwResult = await withTimeoutFallback(
-      generateKeywords(count),
+      generateKeywords(KEYWORD_CANDIDATE_COUNT),
       TIMEOUTS.keyword,
       { success: false, keywords: [], totalGenerated: 0, totalFiltered: 0, error: 'timeout' },
       'Keyword',
@@ -341,64 +297,61 @@ export async function generateWithDynamicKeywords(options: { publish?: boolean; 
       console.error(`[Pipeline] Phase 1 실패: ${kwResult.error || '키워드 없음'}`);
       return [];
     }
-    console.log(`[Pipeline] Phase 1 완료: ${kwResult.keywords.length}개 키워드`);
 
-    // ━━━ Phase 2: 초안 생성 (저장 없이) ━━━
-    console.log(`[Pipeline] Phase 2: ${kwResult.keywords.length}개 초안 생성`);
+    // 실측 검색량(게이트에서 estimatedSearchVolume에 기록됨) 내림차순으로
+    // DRAFT_LIMIT개만 Phase 2에 진입 — 초안 1개가 수 분(SERP+스크래핑+생성+윤문)이므로
+    // 여기서 줄이는 것이 25분 CI 예산과 비용을 지킨다.
+    const drafting = [...kwResult.keywords]
+      .sort((a, b) => (b.estimatedSearchVolume ?? 0) - (a.estimatedSearchVolume ?? 0))
+      .slice(0, DRAFT_LIMIT);
+    console.log(`[Pipeline] Phase 1 완료: 게이트 통과 ${kwResult.keywords.length}개 → 초안 대상 ${drafting.length}개`);
+
+    // ━━━ Phase 2: 초안 생성 (근거·윤문·YMYL 게이트 포함, 저장 없이) ━━━
+    console.log(`[Pipeline] Phase 2: ${drafting.length}개 초안 생성`);
 
     const drafts: DraftResult[] = [];
-    for (let i = 0; i < kwResult.keywords.length; i++) {
-      const kw = kwResult.keywords[i];
+    for (let i = 0; i < drafting.length; i++) {
+      const kw = drafting[i];
       const draft = await generateDraft(kw.keyword, kw.contentType);
+      if (draft.success) draft.searchVolume = kw.estimatedSearchVolume ?? 0;
       drafts.push(draft);
 
-      if (i < kwResult.keywords.length - 1) await new Promise(r => setTimeout(r, BATCH_DELAY_MS));
+      if (i < drafting.length - 1) await new Promise(r => setTimeout(r, BATCH_DELAY_MS));
     }
 
     await closeBrowser().catch(() => {});
 
     const successfulDrafts = drafts.filter((d): d is DraftSuccess => d.success);
-    console.log(`[Pipeline] Phase 2 완료: ${successfulDrafts.length}/${drafts.length} 성공`);
-
-    if (successfulDrafts.length === 0) return [];
-
-    // 품질 미달 필터
-    const qualityDrafts = successfulDrafts.filter(d => d.qualityScore >= QUALITY_MIN_SCORE);
-    // quality filter applied silently
-    if (qualityDrafts.length === 0) {
-      console.warn('[Pipeline] 품질 기준 통과 초안 없음 — 전체 초안으로 진행');
+    console.log(`[Pipeline] Phase 2 완료: ${successfulDrafts.length}/${drafts.length} 게이트 통과`);
+    if (successfulDrafts.length === 0) {
+      console.warn('[Pipeline] 게이트 통과 초안 없음 — 오늘은 발행하지 않는다 (할당량을 채우기 위해 게이트를 끄지 않는다)');
+      return [];
     }
-    const draftsForSelection = qualityDrafts.length > 0 ? qualityDrafts : successfulDrafts;
 
-    // ━━━ Phase 3: AI 선별 + 중복 검증 ━━━
-    const selectCount = Math.min(SELECT_COUNT, draftsForSelection.length);
-    console.log(`[Pipeline] Phase 3: AI 선별 + 중복 검증 — ${draftsForSelection.length}개 → 최대 ${selectCount}개`);
+    // ━━━ Phase 3: 저장 & 발행 — 검색량 상위 상한만 발행, 초과분은 draft 보관 ━━━
+    const ranked = [...successfulDrafts].sort((a, b) => (b.searchVolume ?? 0) - (a.searchVolume ?? 0));
+    const limit = Math.min(count, MAX_DAILY_PUBLISH);
+    const toPublish = publish ? ranked.slice(0, limit) : [];
+    const toDraft = publish ? ranked.slice(limit) : ranked;
 
-    const selected = await selectTopPosts(draftsForSelection, selectCount);
-    console.log(`[Pipeline] Phase 3 완료: ${selected.length}개 선별`);
-
-    if (!publish) {
-      const results: PipelineResult[] = [];
-      for (const draft of selected) {
-        try {
-          await withTimeout(saveBlogPost(draft.blogPost), TIMEOUTS.save, 'DB');
-          results.push({ success: true, blogPost: draft.blogPost, metrics: draft.metrics });
-        } catch (e) {
-          results.push({ success: false, error: err(e), metrics: draft.metrics });
-        }
+    const results: PipelineResult[] = [];
+    for (const draft of toDraft) {
+      try {
+        await withTimeout(saveBlogPost(draft.blogPost), TIMEOUTS.save, 'DB');
+        results.push({ success: true, blogPost: draft.blogPost, metrics: draft.metrics });
+      } catch (e) {
+        results.push({ success: false, error: err(e), metrics: draft.metrics });
       }
-      return results;
     }
 
-    // ━━━ Phase 4: 저장 & 발행 ━━━
-    console.log(`[Pipeline] Phase 4: ${selected.length}개 저장 & 발행`);
+    if (toPublish.length > 0) {
+      console.log(`[Pipeline] Phase 3: ${toPublish.length}개 발행 (상한 ${limit}), ${toDraft.length}개 draft 보관`);
+      results.push(...await saveAndPublishPosts(toPublish));
+    }
 
-    const published = await saveAndPublishPosts(selected);
-    const ok = published.filter(r => r.success).length;
-
-    console.log(`[Pipeline] 최종: ${ok}개 발행 / ${published.length - ok}개 실패`);
-
-    return published;
+    const ok = results.filter(r => r.success).length;
+    console.log(`[Pipeline] 최종: ${ok}/${results.length} 성공`);
+    return results;
   } catch (e) {
     console.error(`[Pipeline] ${err(e)}`);
     await closeBrowser().catch(() => {});

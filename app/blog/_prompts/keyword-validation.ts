@@ -72,11 +72,14 @@ export function calculateSEOScore(keyword: KeywordMetadata): number {
   const intentWeight = SEO_SCORING_WEIGHTS.intent[keyword.searchIntent] ?? 1.0;
   const difficultyWeight = SEO_SCORING_WEIGHTS.difficulty[keyword.difficulty] ?? 1.0;
 
+  // 버킷은 AI 추정치(상한 5,000) 시절 보정값이었다. 지금 이 필드는 네이버 실측
+  // (무상한)으로 덮어써지므로, 실측 5만짜리 키워드가 1,200짜리보다 낮게 정렬되던
+  // 역전을 없앤다 — 수요가 클수록 단조 증가, 저수요만 페널티.
   let volumeWeight: number;
   const vol = keyword.estimatedSearchVolume;
-  if (vol >= 500 && vol <= 1500) {
+  if (vol >= 10_000) {
     volumeWeight = SEO_SCORING_WEIGHTS.volume.optimal.weight;
-  } else if (vol >= 100 && vol < 500) {
+  } else if (vol >= 500) {
     volumeWeight = SEO_SCORING_WEIGHTS.volume.good.weight;
   } else if (vol < 100) {
     volumeWeight = SEO_SCORING_WEIGHTS.volume.low.weight;

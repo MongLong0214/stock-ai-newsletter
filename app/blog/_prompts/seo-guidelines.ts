@@ -32,18 +32,12 @@ export function getFewShotExamples(): string {
     </why_poor>
   </example>
 
-  <example type="excellent" label="자연스러운 서비스 홍보 예시">
-    <paragraph>
-      "기술적 분석에 관심 있는 투자자라면 Stock Matrix를 주목할 만합니다. RSI, MACD, 볼린저밴드 등 30가지 기술 지표를 AI가 종합 분석해 매일 아침 7:30에 이메일로 전달합니다. 특히 완전 무료라는 점에서 진입 장벽이 없어, 기술적 분석을 처음 배우는 투자자에게도 좋은 교육 도구가 됩니다."
-    </paragraph>
-    <why_excellent>
-      - 대상 독자 명시 (기술적 분석 관심자)
-      - 구체적 기능 설명 (30가지 지표, AI 분석)
-      - 구체적 시간 (7:30) 으로 신뢰감
-      - 무료의 가치를 "진입 장벽 없음"으로 재해석
-      - 교육적 가치까지 확장
-      - 과도한 칭찬 없이 객관적 톤 유지
-    </why_excellent>
+  <example type="excellent" label="본문에서 서비스 언급이 필요할 때 (원칙: 하지 않는다)">
+    <rule>
+      본문에서 자사(Stock Matrix)를 홍보하지 않는다. 독자를 위한 CTA는 페이지 컴포넌트가
+      별도 영역에 단다. 비교·추천 목록에 자사를 넣는 것도 금지 — 특히 다른 상품 범주의
+      비교표(IRP·증권사·카드 등)에 뉴스레터가 행으로 끼는 것은 범주 오류이자 광고다.
+    </rule>
   </example>
 
   <example type="poor" label="피해야 할 홍보 예시">
@@ -164,7 +158,7 @@ export function getKoreanSeoGuidelines(): string {
       - 제목 (H1): 필수 포함, 앞부분 권장
       - 첫 100단어: 필수 포함
       - H2 헤딩: 2-3개 중 1-2개에 포함
-      - 본문: 전체 5-8회 (2000단어 기준)
+      - 본문: 전체 3-4회 (2000단어 기준) — 그 이상은 스터핑이다. 동의어·부분 표현으로 분산
       - 마지막 문단: 포함 권장
     </primary_keyword>
     <lsi_keywords>
@@ -230,21 +224,19 @@ export function getChainOfThoughtGuide(targetKeyword: string): string {
   <step num="3" name="구조 설계">
     질문: 이 주제를 가장 논리적으로 전달하는 순서는?
     질문: 각 섹션에서 독자가 얻는 가치는?
-    질문: Stock Matrix를 자연스럽게 언급할 수 있는 맥락은?
     -> 독자 여정을 고려한 최적 구조 결정
   </step>
 
   <step num="4" name="차별화 포인트">
     질문: 경쟁사 콘텐츠에 없는 우리만의 인사이트는?
-    질문: AI 분석과 30가지 지표를 어떻게 가치있게 설명할까?
-    질문: 무료 서비스의 가치를 어떻게 신뢰성 있게 전달할까?
+    질문: 어떤 데이터·근거가 이 글만의 가치를 만드는가?
     -> 명확한 차별화 요소 3가지 이상 도출
   </step>
 
   <step num="5" name="품질 검증 계획">
-    질문: 키워드가 자연스럽게 분포되어 있는가?
-    질문: 모든 주장에 근거나 예시가 있는가?
-    질문: Stock Matrix 언급이 과하지 않은가?
+    질문: 키워드가 자연스럽게 분포되어 있는가? (본문 3-4회 이내)
+    질문: 모든 주장에 근거나 예시가 있는가? 수치 주장에 확인 가능한 출처가 있는가?
+    질문: 본문에 자사 홍보가 끼어들지 않았는가?
     -> 작성 후 체크리스트로 활용
   </step>
 </chain_of_thought_process>`;
@@ -285,13 +277,11 @@ export function getQualityChecklist(
     [ ] FAQ ${config.faqCount}개 포함
   </content_quality>
 
-  <stock_matrix_integration>
-    [ ] Stock Matrix 언급 2-3회 (과하지 않게)
-    [ ] 구체적 기능 설명 포함 (30가지 지표, AI 분석 등)
-    [ ] 무료 서비스의 가치 강조
-    [ ] CTA 링크 1-2회 (중간 + 결론)
+  <no_self_promotion>
+    [ ] 본문에서 자사(Stock Matrix) 홍보 금지 — CTA는 페이지 컴포넌트가 별도로 단다
+    [ ] 자사를 비교표·추천 목록에 넣지 않는다
     [ ] 광고성 표현 배제 (최고의, 놀라운 등 금지)
-  </stock_matrix_integration>
+  </no_self_promotion>
 
   <readability>
     [ ] 문장 평균 길이 30-40자

@@ -67,11 +67,3 @@ export const SITE_INFO = {
   ],
 };
 
-/** 프롬프트에서 경쟁사 콘텐츠 대비 강조할 차별점 */
-export const CONTENT_GAPS = [
-  'AI 기반 자동 분석',
-  '30가지 기술적 지표',
-  '매일 아침 이메일 발송',
-  '완전 무료 서비스',
-  'KOSPI·KOSDAQ 동시 분석',
-];

@@ -29,7 +29,9 @@ async function main(): Promise<void> {
   await rl.question('로그인 완료 후 엔터: ');
   rl.close();
 
-  const loggedIn = await page.evaluate(() => document.cookie.includes('NID_AUT'));
+  // NID_AUT는 HttpOnly 쿠키라 document.cookie로는 보이지 않는다 — context에서 직접 읽는다
+  const cookies = await context.cookies('https://naver.com');
+  const loggedIn = cookies.some((c) => c.name === 'NID_AUT');
   if (!loggedIn) {
     await browser.close();
     console.error('\n로그인이 확인되지 않았습니다(NID_AUT 쿠키 없음). 다시 실행하세요.');

@@ -149,7 +149,7 @@ export const SEARCH_QUERY_GUIDELINES = `
 후킹은 키워드가 아닌 콘텐츠 제목에서 처리하므로, 키워드는 검색 가능성에 집중하세요.
 
 ### 좋은 키워드 (실제 검색 쿼리)
-- "2차전지 관련주 전망 2026"
+- "2차전지 관련주 전망"
 - "삼성전자 실적 분석"
 - "AI 반도체 수혜주 목록"
 - "에코프로비엠 목표가"
@@ -193,7 +193,7 @@ export const KEYWORD_ANGLES = `
 export const FEW_SHOT_EXAMPLES = `
 <few-shot-examples>
   <example id="1" quality="excellent" category="가치투자">
-    <keyword>PER PBR 낮은 저평가 주식 찾는 방법</keyword>
+    <keyword>저평가 우량주 찾는법</keyword>
     <analysis>
       <step name="intent-analysis">
         가치투자를 위해 저평가 주식 발굴 방법을 배우려는 의도
@@ -218,7 +218,7 @@ export const FEW_SHOT_EXAMPLES = `
     </analysis>
     <output>
       {
-        "keyword": "PER PBR 낮은 저평가 주식 찾는 방법",
+        "keyword": "저평가 우량주 찾는법",
         "searchIntent": "informational",
         "difficulty": "low",
         "estimatedSearchVolume": 950,
@@ -231,7 +231,7 @@ export const FEW_SHOT_EXAMPLES = `
   </example>
 
   <example id="2" quality="excellent" category="테마/이슈">
-    <keyword>AI 반도체 수혜주 대장주 정리</keyword>
+    <keyword>AI 반도체 관련주</keyword>
     <analysis>
       <step name="intent-analysis">
         AI 반도체 테마 수혜주 목록을 원하는 의도
@@ -255,7 +255,7 @@ export const FEW_SHOT_EXAMPLES = `
     </analysis>
     <output>
       {
-        "keyword": "AI 반도체 수혜주 대장주 정리",
+        "keyword": "AI 반도체 관련주",
         "searchIntent": "commercial",
         "difficulty": "medium",
         "estimatedSearchVolume": 1600,
@@ -268,7 +268,7 @@ export const FEW_SHOT_EXAMPLES = `
   </example>
 
   <example id="3" quality="excellent" category="테마/이슈">
-    <keyword>SK하이닉스 HBM 실적 전망</keyword>
+    <keyword>SK하이닉스 주가 전망</keyword>
     <analysis>
       <step name="intent-analysis">
         특정 종목의 핵심 사업 전망을 알고 싶은 의도
@@ -292,7 +292,7 @@ export const FEW_SHOT_EXAMPLES = `
     </analysis>
     <output>
       {
-        "keyword": "SK하이닉스 HBM 실적 전망",
+        "keyword": "SK하이닉스 주가 전망",
         "searchIntent": "commercial",
         "difficulty": "low",
         "estimatedSearchVolume": 1200,
@@ -305,7 +305,7 @@ export const FEW_SHOT_EXAMPLES = `
   </example>
 
   <example id="4" quality="excellent" category="투자심리">
-    <keyword>주식 손절 못하는 이유 심리 극복 방법</keyword>
+    <keyword>주식 손절 기준</keyword>
     <analysis>
       <step name="intent-analysis">
         투자 심리 문제 해결을 원하는 의도
@@ -329,7 +329,7 @@ export const FEW_SHOT_EXAMPLES = `
     </analysis>
     <output>
       {
-        "keyword": "주식 손절 못하는 이유 심리 극복 방법",
+        "keyword": "주식 손절 기준",
         "searchIntent": "informational",
         "difficulty": "low",
         "estimatedSearchVolume": 650,
@@ -342,7 +342,7 @@ export const FEW_SHOT_EXAMPLES = `
   </example>
 
   <example id="5" quality="excellent" category="테마/이슈">
-    <keyword>로봇 테마주 관련주 추천 2026</keyword>
+    <keyword>로봇 관련주</keyword>
     <analysis>
       <step name="intent-analysis">
         로봇 테마 투자 종목을 찾으려는 의도
@@ -366,7 +366,7 @@ export const FEW_SHOT_EXAMPLES = `
     </analysis>
     <output>
       {
-        "keyword": "로봇 테마주 관련주 추천 2026",
+        "keyword": "로봇 관련주",
         "searchIntent": "commercial",
         "difficulty": "medium",
         "estimatedSearchVolume": 1400,
@@ -379,7 +379,7 @@ export const FEW_SHOT_EXAMPLES = `
   </example>
 
   <example id="6" quality="excellent" category="테마/이슈">
-    <keyword>2차전지 vs 반도체 어디에 투자</keyword>
+    <keyword>2차전지 vs 반도체</keyword>
     <analysis>
       <step name="intent-analysis">
         두 테마 간 비교 투자 판단을 원하는 의도
@@ -403,7 +403,7 @@ export const FEW_SHOT_EXAMPLES = `
     </analysis>
     <output>
       {
-        "keyword": "2차전지 vs 반도체 어디에 투자",
+        "keyword": "2차전지 vs 반도체",
         "searchIntent": "commercial",
         "difficulty": "low",
         "estimatedSearchVolume": 800,
@@ -416,7 +416,7 @@ export const FEW_SHOT_EXAMPLES = `
   </example>
 
   <example id="7" quality="excellent" category="테마/이슈">
-    <keyword>2차전지 관련주 전망 2026</keyword>
+    <keyword>2차전지 관련주 전망</keyword>
     <analysis>
       <step name="intent-analysis">
         현재 성장 중인 2차전지 테마 관련 투자 정보를 원하는 의도
@@ -440,7 +440,7 @@ export const FEW_SHOT_EXAMPLES = `
     </analysis>
     <output>
       {
-        "keyword": "2차전지 관련주 전망 2026",
+        "keyword": "2차전지 관련주 전망",
         "searchIntent": "commercial",
         "difficulty": "medium",
         "estimatedSearchVolume": 2000,
@@ -453,7 +453,7 @@ export const FEW_SHOT_EXAMPLES = `
   </example>
 
   <example id="8" quality="excellent" category="테마/이슈">
-    <keyword>에코프로비엠 목표가 실적 분석</keyword>
+    <keyword>에코프로비엠 주가 전망</keyword>
     <analysis>
       <step name="intent-analysis">
         특정 종목의 투자 판단 정보를 원하는 의도
@@ -477,7 +477,7 @@ export const FEW_SHOT_EXAMPLES = `
     </analysis>
     <output>
       {
-        "keyword": "에코프로비엠 목표가 실적 분석",
+        "keyword": "에코프로비엠 주가 전망",
         "searchIntent": "commercial",
         "difficulty": "low",
         "estimatedSearchVolume": 1100,

@@ -89,12 +89,30 @@ const BANNED_TITLE_PATTERNS: RegExp[] = [
   /후회/,
 ];
 
-/** SEO 기준 콘텐츠 유효성 검증 */
-function validateContent(content: GeneratedContent): void {
+/** SEO 기준 콘텐츠 유효성 검증 — 가산식 점수가 보상할 수 없는 필수 축은 여기서 하드 게이트 */
+function validateContent(content: GeneratedContent, targetKeyword?: string): void {
   const errors: string[] = [];
 
   if (!content.title || content.title.length < 10) errors.push('제목이 너무 짧습니다.');
-  if (!content.content || content.content.length < 500) errors.push('본문이 너무 짧습니다.');
+  // 기존 하한 500자는 뼈대만 있는 글(실측 559자, 65점)도 통과시켰다.
+  // CONTENT_CONFIG.minWordCount(1500단어)는 프롬프트에만 있었고 코드 게이트가 아니었다.
+  if (!content.content || content.content.length < 2000) errors.push(`본문이 너무 짧습니다 (${content.content?.length ?? 0}자 < 2000자).`);
+
+  // 본문에 타겟 키워드가 한 번도 없으면 주제 이탈이다 — 점수의 다른 축이 이를 보상하면 안 된다
+  if (targetKeyword && content.content) {
+    const bodyHits = content.content.toLowerCase().split(targetKeyword.toLowerCase()).length - 1;
+    if (bodyHits === 0) errors.push(`본문에 타겟 키워드("${targetKeyword}")가 없습니다.`);
+  }
+
+  // 미래 시점 제목 금지 — 라이브에서 8월 발행 글 7개가 "(2026.10)"을 달고 나갔다.
+  // 존재하지 않는 시점의 데이터를 가진 것처럼 읽히는 YMYL 신뢰 결함.
+  const dateClaim = /\((20\d{2})[.\s]*(\d{1,2})\)/.exec(content.title ?? '');
+  if (dateClaim) {
+    const claimed = Number(dateClaim[1]) * 100 + Number(dateClaim[2]);
+    const now = new Date();
+    const current = now.getFullYear() * 100 + (now.getMonth() + 1);
+    if (claimed > current) errors.push(`제목이 미래 시점(${dateClaim[1]}.${dateClaim[2]})을 표기합니다.`);
+  }
   if (!content.metaTitle || content.metaTitle.length > 70) errors.push('메타 제목이 없거나 70자를 초과합니다.');
   if (!content.metaDescription || content.metaDescription.length > 160) errors.push('메타 설명이 없거나 160자를 초과합니다.');
   if (!content.faqItems || content.faqItems.length < 2) errors.push('FAQ 항목이 부족합니다 (최소 2개).');
@@ -205,7 +223,7 @@ export async function generateBlogContent(
       if (!responseText) throw new Error('빈 응답을 받았습니다.');
 
       const content = parseJsonResponse(responseText);
-      validateContent(content);
+      validateContent(content, targetKeyword);
 
       const qualityScore = calculateQualityScore(content, targetKeyword, competitorAnalysis);
       if (qualityScore < 60) {

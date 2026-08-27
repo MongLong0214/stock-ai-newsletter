@@ -37,6 +37,8 @@ import {
 const SEL = {
   editorFrame: '#mainFrame',
   recoveryCancel: '.se-popup-button-cancel',
+  // 첫 사용 시 우측 도움말 패널이 발행 버튼을 덮는다 — 닫지 않으면 발행 클릭이 타임아웃난다
+  helpClose: 'button[class*="close"], .se-help-panel-close-button, [aria-label="도움말 닫기"]',
   title: '.se-section-documentTitle .se-text-paragraph',
   body: '.se-section-text .se-text-paragraph',
   openPublish: 'button:has-text("발행")',
@@ -90,6 +92,12 @@ async function typeParagraphs(page: Page, text: string): Promise<void> {
   for (const [i, paragraph] of paragraphs.entries()) {
     if (i > 0) await page.keyboard.press('Enter');
     await page.keyboard.type(paragraph, { delay: 12 });
+    // URL로 끝나는 문단은 Enter로 마무리 — 스마트에디터가 자동으로 하이퍼링크 카드로 변환한다.
+    // (평문 URL은 클릭이 안 되고, 링크 카드는 outside 유입 계측도 된다)
+    if (/https?:\/\/\S+$/.test(paragraph)) {
+      await page.keyboard.press('Enter');
+      await page.waitForTimeout(1_500); // oglink 카드 생성 대기
+    }
   }
 }
 
@@ -113,7 +121,7 @@ async function main(): Promise<void> {
 
   ensureStateDir();
   const browser = await chromium.launch({ headless });
-  const context = await browser.newContext({ storageState: SESSION_PATH, locale: 'ko-KR' });
+  const context = await browser.newContext({ storageState: SESSION_PATH, locale: 'ko-KR', viewport: { width: 1600, height: 900 } });
   const page = await context.newPage();
   const shot = join(NAVER_STATE_DIR, `draft-${Date.now()}.png`);
 
@@ -127,9 +135,22 @@ async function main(): Promise<void> {
       throw new Error('세션이 만료되었습니다. npm run naver:login 을 다시 실행하세요.');
     }
 
-    // "이전에 작성하던 글" 복구 팝업 — 있으면 닫는다.
-    const recovery = editor.locator(SEL.recoveryCancel);
-    if (await recovery.count()) await recovery.first().click().catch(() => {});
+    // "작성 중인 글이 있습니다" 복구 팝업 — "취소"로 새 글 시작 (임시저장분 무시).
+    // 팝업은 frame 안에 있을 수도, 최상위 페이지에 있을 수도 있고, role이 button이
+    // 아닐 수도 있다. 양쪽 스코프에서 텍스트+visible로 찾는다.
+    await page.waitForTimeout(2_000); // 팝업은 로드 후 비동기로 뜬다
+    for (const scope of [editor, page]) {
+      const cancel = scope
+        .locator('button, [role="button"], a')
+        .filter({ hasText: /^\s*취소\s*$/ })
+        .filter({ visible: true })
+        .first();
+      if ((await cancel.count()) > 0) {
+        await cancel.click({ timeout: 3_000 }).catch(() => {});
+        await page.waitForTimeout(500);
+        break;
+      }
+    }
 
     await editor.locator(SEL.title).first().click();
     await page.keyboard.type(draft.title, { delay: 12 });
@@ -150,7 +171,18 @@ async function main(): Promise<void> {
       return;
     }
 
-    await editor.locator(SEL.openPublish).first().click();
+    // 도움말/신기능 패널이 열려 있으면 발행 버튼을 가린다 — ESC와 닫기 버튼 둘 다 시도
+    await page.keyboard.press('Escape').catch(() => {});
+    const help = editor.locator(SEL.helpClose);
+    if (await help.count()) await help.first().click({ timeout: 3_000 }).catch(() => {});
+
+    // 에디터에는 보이지 않는 "발행" 텍스트 요소가 여럿 있다 — visible 필터가 필수
+    const openBtn = editor
+      .locator('button, [role="button"]')
+      .filter({ hasText: /발행/ })
+      .filter({ visible: true })
+      .first();
+    await openBtn.click({ timeout: 10_000 });
 
     if (draft.tags?.length) {
       const tagInput = editor.locator(SEL.tagInput).first();
@@ -163,8 +195,14 @@ async function main(): Promise<void> {
       }
     }
 
-    await editor.locator(SEL.confirmPublish).last().click();
-    await page.waitForURL(/blog\.naver\.com/, { timeout: 30_000 });
+    // 발행 설정 패널의 최종 확인 버튼 — 역시 visible 필터로
+    const confirmBtn = editor
+      .locator('button, [role="button"]')
+      .filter({ hasText: /^\s*발행\s*$/ })
+      .filter({ visible: true })
+      .last();
+    await confirmBtn.click({ timeout: 10_000 });
+    await page.waitForURL(/blog\.naver\.com\/(?!.*postwrite)/, { timeout: 30_000 });
 
     recordPublish(Date.now());
     console.log(`발행 완료: ${page.url()}`);

@@ -45,7 +45,8 @@
     "tli:stock-prices:backfill": "tsx scripts/tli/ops/run-stock-daily-price-backfill.ts",
     "tli:episode:peak-backfill": "tsx scripts/tli/ops/run-episode-peak-backfill.ts",
     "naver:login": "tsx scripts/naver-blog/login.ts",
-    "naver:publish": "tsx scripts/naver-blog/publish.ts"
+    "naver:publish": "tsx scripts/naver-blog/publish.ts",
+    "naver:demand": "tsx scripts/naver-ad/theme-demand.ts"
   },
   "dependencies": {
     "@fontsource/noto-sans-kr": "^5.2.9",
