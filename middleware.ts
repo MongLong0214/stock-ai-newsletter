@@ -21,9 +21,11 @@ const isValidMcpPath = (path: string): boolean => {
   return false
 }
 
-// robots.ts가 disallow하는 스크레이퍼/SEO 크롤러 — robots는 권고일 뿐이라 엣지에서 강제 차단한다.
-// 봇 폭주로부터 Supabase egress·Vercel 함수 호출을 보호(과금 폭탄 방지). 소문자 부분일치.
-const BLOCKED_BOT_UA = [
+// SEO·스크레이퍼 크롤러. robots는 권고일 뿐이라 엣지에서 강제한다.
+// 단 전면 차단은 하지 않는다 — 백링크 그래프가 페이지를 못 읽으면 이 도메인은
+// 외부 도구에서 "백링크 없음"으로 보인다. 페이지는 통과시키고 /api/ 만 막아
+// Supabase egress·함수 호출 과금은 그대로 방어한다. 소문자 부분일치.
+const API_BLOCKED_BOT_UA = [
   'bytespider',
   'ccbot',
   'amazonbot',
@@ -42,16 +44,16 @@ const BLOCKED_BOT_UA = [
   'serpstatbot',
 ]
 
-const isBlockedBot = (ua: string): boolean => {
+const isApiBlockedBot = (ua: string): boolean => {
   const lower = ua.toLowerCase()
-  return BLOCKED_BOT_UA.some((bot) => lower.includes(bot))
+  return API_BLOCKED_BOT_UA.some((bot) => lower.includes(bot))
 }
 
 export const middleware = (request: NextRequest) => {
   const ua = request.headers.get('user-agent') || ''
 
-  // 1) 악성/과도 크롤러는 페이지·API 어디서든 엣지에서 즉시 차단
-  if (isBlockedBot(ua)) {
+  // 1) 스크레이퍼/SEO 크롤러는 API만 차단한다. 페이지는 통과 — 링크 그래프에 잡혀야 한다.
+  if (isApiBlockedBot(ua) && request.nextUrl.pathname.startsWith('/api/')) {
     return new NextResponse('Forbidden', {
       status: 403,
       headers: { 'cache-control': 'private, no-store' },
