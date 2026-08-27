@@ -128,12 +128,13 @@ async function main(): Promise<void> {
   try {
     await page.goto(`https://blog.naver.com/${blogId}/postwrite`, { waitUntil: 'domcontentloaded' });
 
-    const editor = await getEditor(page);
-
-    // 세션이 만료되면 에디터 대신 로그인 페이지가 뜬다. 조용히 빈 글을 쓰지 않도록 먼저 확인.
+    // 세션이 만료되면 에디터 대신 로그인 페이지가 뜬다. 에디터를 찾기 전에 확인해야
+    // "프레임을 찾지 못했습니다"가 아니라 진짜 원인이 보고된다.
     if (page.url().includes('nid.naver.com')) {
-      throw new Error('세션이 만료되었습니다. npm run naver:login 을 다시 실행하세요.');
+      throw new Error('세션이 만료되었습니다. npm run naver:login 을 다시 실행하고 NAVER_SESSION_B64를 갱신하세요.');
     }
+
+    const editor = await getEditor(page);
 
     // "작성 중인 글이 있습니다" 복구 팝업 — "취소"로 새 글 시작 (임시저장분 무시).
     // 팝업은 frame 안에 있을 수도, 최상위 페이지에 있을 수도 있고, role이 button이

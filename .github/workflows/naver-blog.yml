@@ -1,0 +1,70 @@
+name: Naver Blog (inside track)
+
+# 주 2회. 자사 블로그(하루 7편 → 상한 3편)와 달리 네이버는 볼륨 자체가 위험 신호다.
+# scripts/naver-blog/session.ts의 WEEKLY_PUBLISH_LIMIT(3)이 코드로도 상한을 강제한다.
+on:
+  schedule:
+    - cron: '0 1 * * 2,5' # 화·금 10:00 KST
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: '실제 발행 (미체크 시 dry-run — 초안 입력 후 스크린샷만)'
+        type: boolean
+        default: false
+
+concurrency:
+  group: naver-blog
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Generate draft from TLI data
+        env:
+          NAVER_AD_CUSTOMER_ID: ${{ secrets.NAVER_AD_CUSTOMER_ID }}
+          NAVER_AD_API_KEY: ${{ secrets.NAVER_AD_API_KEY }}
+          NAVER_AD_SECRET_KEY: ${{ secrets.NAVER_AD_SECRET_KEY }}
+        run: npx tsx scripts/naver-blog/make-draft.ts --out .naver-blog/draft.json
+
+      # 스케줄 실행은 항상 dry-run이다. 실발행은 사람이 workflow_dispatch로
+      # publish=true를 눌렀을 때만 — 데이터센터 IP에서의 자동 발행은 계정 리스크가 크고,
+      # 셀렉터가 깨진 채 발행되면 빈 글이 올라간다.
+      - name: Publish to Naver
+        env:
+          NAVER_SESSION_B64: ${{ secrets.NAVER_SESSION_B64 }}
+          NAVER_BLOG_ID: ${{ secrets.NAVER_BLOG_ID }}
+        run: |
+          MODE=""
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.publish }}" = "true" ]; then
+            MODE="--publish"
+            echo "실발행 모드"
+          else
+            echo "dry-run 모드 (초안 입력 후 스크린샷만)"
+          fi
+          npx tsx scripts/naver-blog/publish.ts .naver-blog/draft.json --headless $MODE
+
+      # 실패해도 스크린샷은 남긴다 — 셀렉터가 깨졌는지 세션이 만료됐는지 여기서만 알 수 있다
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: naver-blog-${{ github.run_id }}
+          path: |
+            .naver-blog/*.png
+            .naver-blog/draft.json
+          retention-days: 14
+          if-no-files-found: warn

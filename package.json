@@ -48,7 +48,9 @@
     "naver:publish": "tsx scripts/naver-blog/publish.ts",
     "naver:demand": "tsx scripts/naver-ad/theme-demand.ts",
     "blog:clusters": "tsx scripts/blog-merge/analyze-clusters.ts",
-    "blog:audit-titles": "tsx scripts/blog-merge/audit-titles.ts"
+    "blog:audit-titles": "tsx scripts/blog-merge/audit-titles.ts",
+    "blog:rewrite-titles": "tsx scripts/blog-merge/rewrite-titles.ts",
+    "naver:draft": "tsx scripts/naver-blog/make-draft.ts"
   },
   "dependencies": {
     "@fontsource/noto-sans-kr": "^5.2.9",

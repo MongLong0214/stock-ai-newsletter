@@ -14,6 +14,7 @@ import { extractTOCItems } from '../_utils/toc-extractor';
 import type { BlogPost } from '../_types/blog';
 
 import { ReadingProgress } from './_components/reading-progress';
+import ViewTracker from './_components/view-tracker';
 import { TableOfContents } from './_components/table-of-contents';
 import { FAQAccordion } from './_components/faq-accordion';
 import { CTASection } from './_components/cta-section';
@@ -106,6 +107,7 @@ async function BlogPostPage({ params }: PageProps) {
   return (
     <>
       <SchemaScripts schemas={schemas} />
+      <ViewTracker slug={slug} />
       <ReadingProgress />
 
       <div className="relative min-h-screen pt-20 pb-16">

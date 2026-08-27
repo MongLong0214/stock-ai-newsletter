@@ -30,8 +30,32 @@ export function ensureStateDir(): void {
   if (!existsSync(NAVER_STATE_DIR)) mkdirSync(NAVER_STATE_DIR, { recursive: true });
 }
 
+/**
+ * 세션 확보. 로컬은 naver:login이 만든 파일, CI는 NAVER_SESSION_B64 시크릿에서 복원한다.
+ *
+ * CI 주의: 세션은 사람이 로그인한 IP·기기에서 만들어진다. GitHub Actions 러너는
+ * 데이터센터 IP라 네이버가 세션 탈취 신호로 볼 수 있다 — 조용히 만료되거나
+ * 재인증을 요구할 수 있으므로 publish 스크립트가 만료를 감지해 실패시킨다.
+ */
+export function ensureSession(): boolean {
+  if (existsSync(SESSION_PATH)) return true;
+
+  const encoded = process.env.NAVER_SESSION_B64;
+  if (!encoded) return false;
+
+  try {
+    ensureStateDir();
+    writeFileSync(SESSION_PATH, Buffer.from(encoded, 'base64').toString('utf-8'), 'utf-8');
+    console.log('[Naver] NAVER_SESSION_B64에서 세션 복원');
+    return true;
+  } catch (error) {
+    console.error('[Naver] 세션 복원 실패:', error);
+    return false;
+  }
+}
+
 export function hasSession(): boolean {
-  return existsSync(SESSION_PATH);
+  return ensureSession();
 }
 
 export function readHistory(): string[] {
