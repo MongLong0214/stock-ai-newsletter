@@ -444,10 +444,37 @@ async function typeColor(page: Page, editor: Frame, color: 'b' | 'r', text: stri
  */
 async function closeColorPopup(page: Page, editor: Frame): Promise<void> {
   const palette = editor.locator('.se-color-palette').filter({ visible: true }).first();
-  if ((await palette.count()) === 0) return;
-  await page.keyboard.press('Escape').catch(() => {});
-  await palette.waitFor({ state: 'hidden', timeout: 3_000 }).catch(() => {});
-  await page.waitForTimeout(150);
+  if ((await palette.count()) > 0) {
+    await page.keyboard.press('Escape').catch(() => {});
+    await palette.waitFor({ state: 'hidden', timeout: 3_000 }).catch(() => {});
+  }
+  await restoreCaretToEnd(editor);
+  await page.waitForTimeout(120);
+}
+
+/**
+ * 캐럿을 마지막 본문 문단 끝으로 되돌린다.
+ *
+ * 팝업을 닫는 것만으로는 부족했다 — Escape 후에도 포커스가 본문으로 확실히 돌아오지
+ * 않아 다음 입력의 첫 글자가 유실된다(실측 CI: 마침표 35개 기대 → 33개).
+ * 클릭으로 되돌리면 캐럿이 클릭 지점에 놓여 글자가 중간에 끼어든다. Range를 문단
+ * 내용 끝으로 접어 선택을 다시 심으면 이어쓰기 위치가 정확해진다.
+ */
+async function restoreCaretToEnd(editor: Frame): Promise<void> {
+  await editor
+    .evaluate(() => {
+      const paras = [...document.querySelectorAll('.se-component.se-text .se-text-paragraph')];
+      const last = paras[paras.length - 1];
+      if (!(last instanceof HTMLElement)) return;
+      last.focus?.();
+      const range = document.createRange();
+      range.selectNodeContents(last);
+      range.collapse(false);
+      const sel = window.getSelection();
+      sel?.removeAllRanges();
+      sel?.addRange(range);
+    })
+    .catch(() => {});
 }
 
 async function resetTypingColor(page: Page, editor: Frame): Promise<void> {
