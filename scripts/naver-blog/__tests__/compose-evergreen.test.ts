@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { composeEvergreen, EVERGREEN_TOPIC_COUNT } from '../compose-evergreen';
 import { FORMAT } from '../make-draft';
+import { stripFormat } from '../draft-model';
 
 const ctx = {
   sampledThemes: 238,
@@ -11,8 +12,7 @@ const ctx = {
   topStageKo: '성장',
 };
 
-/** writeDraft의 검증과 같은 방식으로 서식 마커를 걷어낸다 */
-const plain = (s: string) => s.replace(/>> |\*\*|\[\[[rb]:|\]\]/g, '');
+const plain = (s: string) => stripFormat(s);
 
 describe('composeEvergreen', () => {
   it('모든 주제가 FORMAT-SPEC을 만족한다', () => {

@@ -472,9 +472,28 @@ export function composeEvergreen(
   const topic = TOPICS[((evergreenIndex % TOPICS.length) + TOPICS.length) % TOPICS.length];
   const [y, m] = ctx.asOf.split('-');
 
+  const sectionBlocks = topic.sections.flatMap(([heading, ...paras], index) => {
+    const image = index === 0
+      ? ['{{image:2-score}}']
+      : index === 1
+        ? ['{{image:3-stages}}']
+        : index === 2
+          ? ['{{image:4-limits}}']
+          : [];
+    if (index < 3) return [`${QUOTE}${heading}`, ...paras, ...image];
+    return [`**${heading}**`, ...paras];
+  });
+
+  const facts =
+    `기준일은 ${b(ctx.asOf)}입니다. 단계별 상위 표본 ${b(`${ctx.sampledThemes}개`)} 가운데 ` +
+    `${b(`${ctx.risers7d}개`)}가 최근 7일 동안 점수가 올랐고, 최상위는 ${b(ctx.topName)}입니다. ` +
+    `점수는 ${b(`${ctx.topScore}점`)}, 단계는 ${b(ctx.topStageKo)}이며 수집 범위는 ${b('최근 30일')}입니다.`;
+
   const blocks = [
     topic.lead(ctx),
-    ...topic.sections.flatMap(([heading, ...paras]) => [`${QUOTE}${heading}`, ...paras]),
+    facts,
+    '{{image:1-hero}}',
+    ...sectionBlocks,
     `${QUOTE}정리`,
     topic.close(ctx),
     '이 점수는 네이버 데이터랩 검색 트렌드와 뉴스 건수, KRX 시세를 매일 자동 집계해 계산한 ' +

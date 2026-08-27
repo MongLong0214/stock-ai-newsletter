@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { composeNews } from '../compose-variants';
 import { FORMAT } from '../make-draft';
+import { stripFormat } from '../draft-model';
 
-const plain = (s: string) => s.replace(/>> |\*\*|\[\[[rb]:|\]\]/g, '');
+const plain = (s: string) => stripFormat(s);
 const news = (n: number) =>
   Array.from({ length: n }, (_, i) => ({
     date: `2026-08-${String(10 + (i % 17)).padStart(2, '0')}`,

@@ -1,52 +1,103 @@
 #!/usr/bin/env tsx
 /**
- * 테마 상세 페이지 스크린샷 캡처 — 네이버 발행용 이미지
+ * 테마 상세·목록·방법론 페이지 스크린샷 캡처 — 네이버 발행용 이미지
  *
- * FORMAT-SPEC: 이미지 최소 4장, 자사 페이지 실제 화면만 사용(외부 이미지 금지).
- * 0장은 발행 차단 조건이므로 이 모듈의 실패는 발행 실패로 이어져야 한다.
- *
- * 캡처 대상은 CSS 클래스가 아니라 **화면에 보이는 한국어 제목**으로 찾는다.
- * Tailwind 클래스(mb-8, grid grid-cols-1 …)는 스타일 변경마다 바뀌지만
- * "관련종목" 같은 섹션 제목은 콘텐츠라 훨씬 안정적이다.
+ * 파일 생성만으로 유효하다고 보지 않는다. 섹션 안에 데이터 선·종목 행이
+ * 실제로 있는지 검사하고, theme 글에서는 전망·유사패턴을 기본 제외한다.
  */
 
 import { mkdirSync, existsSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { chromium, type Browser, type Page } from 'playwright';
+import {
+  hasUsableDataLine,
+  isEmptyChartCopy,
+  shouldIncludeTrend,
+  shouldSplitStocks,
+  stockRowsMatch,
+} from './capture-validate';
+import { snapshotCaption, type SourceSnapshot } from './draft-model';
+import type { PostType } from './post-types';
 
 const SITE = 'https://stockmatrix.co.kr';
-
-/** 캡처 대상 — 순서가 곧 본문 삽입 순서다. required는 실패 시 발행을 막는다. */
-const TARGETS = [
-  // 히어로: 테마명·단계·게이지·점수구성요소·주요변동종목이 한 화면에 들어가는 최고 밀도 이미지
-  { heading: null, name: '1-hero', required: true },
-  { heading: '관련종목', name: '2-stocks', required: true },
-  { heading: '점수 추이', name: '3-trend', required: false },
-  { heading: '유사패턴', name: '4-pattern', required: false },
-  { heading: '테마전망', name: '5-outlook', required: false },
-  { heading: '관련뉴스', name: '6-news', required: false },
-] as const;
-
-/** 정상 캡처의 하한. 이 밑이면 렌더가 안 된 빈 영역으로 본다. */
 const MIN_IMAGE_BYTES = 15_000;
+const VIEWPORT_WIDTH = 1_400;
 
 export interface CapturedImage {
+  caption: string;
   name: string;
   path: string;
 }
 
-/**
- * 차트 렌더 대기.
- *
- * networkidle만으로는 부족하다 — Recharts는 데이터 도착 후 클라이언트에서 SVG를
- * 그리므로 네트워크가 조용해진 뒤에도 빈 영역일 수 있다. SVG가 실제로 나타나고
- * 애니메이션이 끝날 때까지 기다린다.
- */
-async function waitForCharts(page: Page): Promise<void> {
-  // networkidle은 쓰지 않는다 — 이 페이지는 클라이언트 렌더이고 시세 폴링이 있어
-  // 조용해지지 않거나 너무 늦게 온다. 그려진 결과 자체를 조건으로 본다.
+export interface CaptureRequest {
+  asOf?: string;
+  expectedStockCount?: number;
+  kind: PostType;
+  outDir: string;
+  snapshot?: SourceSnapshot;
+  themeId: string;
+  themeName?: string;
+}
 
-  // 점수 게이지: strokeDashoffset이 빈 원(=dasharray) 근처면 아직 애니메이션 전이다
+interface Target {
+  heading: string | null;
+  name: string;
+  needsDataLine?: boolean;
+  page: 'list' | 'methodology' | 'theme';
+  required: boolean;
+  splitStocks?: boolean;
+}
+
+const THEME_TARGETS: readonly Target[] = [
+  { heading: null, name: '1-hero', page: 'theme', required: true },
+  { heading: '관련종목', name: '2-stocks', page: 'theme', required: true, splitStocks: true },
+  { heading: '점수 추이', name: '3-trend', page: 'theme', required: false, needsDataLine: true },
+  { heading: '관련뉴스', name: '4-news', page: 'theme', required: false },
+];
+
+const SIMILAR_TARGETS: readonly Target[] = [
+  { heading: null, name: '1-hero', page: 'theme', required: true },
+  { heading: '관련종목', name: '2-stocks', page: 'theme', required: true, splitStocks: true },
+  { heading: '점수 추이', name: '3-trend', page: 'theme', required: false, needsDataLine: true },
+  { heading: '유사패턴', name: '4-pattern', page: 'theme', required: false },
+];
+
+const NEWS_TARGETS: readonly Target[] = [
+  { heading: null, name: '1-hero', page: 'theme', required: true },
+  { heading: '관련종목', name: '2-stocks', page: 'theme', required: false, splitStocks: true },
+  { heading: '관련뉴스', name: '4-news', page: 'theme', required: true },
+  { heading: '점수 추이', name: '3-trend', page: 'theme', required: false, needsDataLine: true },
+];
+
+const RANKING_TARGETS: readonly Target[] = [
+  { heading: null, name: '1-hero', page: 'list', required: true },
+  { heading: '오늘의 시그널', name: '2-signals', page: 'list', required: true },
+  { heading: '정점 단계', name: '3-peak', page: 'list', required: true },
+  { heading: '성장 단계', name: '4-growth', page: 'list', required: true },
+];
+
+const EVERGREEN_TARGETS: readonly Target[] = [
+  { heading: null, name: '1-hero', page: 'methodology', required: true },
+  { heading: '테마 점수란?', name: '2-score', page: 'methodology', required: true },
+  { heading: '점수를 이루는 4가지 요소', name: '3-stages', page: 'methodology', required: true },
+  { heading: '테마 상태 5단계와 재점화', name: '4-limits', page: 'methodology', required: true },
+];
+
+function targetsFor(kind: PostType): readonly Target[] {
+  if (kind === 'ranking') return RANKING_TARGETS;
+  if (kind === 'evergreen') return EVERGREEN_TARGETS;
+  if (kind === 'similar') return SIMILAR_TARGETS;
+  if (kind === 'news') return NEWS_TARGETS;
+  return THEME_TARGETS;
+}
+
+function pageUrl(target: Target, themeId: string): string {
+  if (target.page === 'list') return `${SITE}/themes`;
+  if (target.page === 'methodology') return `${SITE}/themes/methodology`;
+  return `${SITE}/themes/${themeId}`;
+}
+
+async function waitForThemeReady(page: Page): Promise<void> {
   await page
     .waitForFunction(() => {
       const circles = [...document.querySelectorAll('svg circle')];
@@ -57,49 +108,23 @@ async function waitForCharts(page: Page): Promise<void> {
       });
     }, null, { timeout: 10_000 })
     .catch(() => {
-      // 히어로(required)의 핵심이 이 게이지다. 경고만 하고 넘어가면 빈 원이 찍힌
-      // PNG가 "이미지 4장 확보"로 계산되어 그대로 발행된다. 여기서 끊는다 —
-      // 발행 실패는 이슈로 올라오지만, 빈 차트가 올라간 글은 아무도 모른다.
       throw new Error('점수 게이지가 렌더되지 않았습니다 (10초) — 빈 이미지를 발행하지 않습니다');
     });
 
-  // Recharts: path의 d가 실제 경로를 담고 컨테이너 폭이 잡혔는지
-  await page
-    .waitForFunction(() => {
-      const path = document.querySelector('.recharts-surface path[d]');
-      if (!path) return true; // 차트가 없는 페이지도 있다
-      const d = path.getAttribute('d') ?? '';
-      const box = path.closest('.recharts-wrapper')?.getBoundingClientRect();
-      return d.length > 40 && (box?.width ?? 0) > 100;
-    }, null, { timeout: 10_000 })
-    .catch(() => console.warn('[Capture] 차트 렌더 대기 시간 초과 — 계속 진행'));
-
-  // 스켈레톤·로딩 문구가 남아 있으면 빈 영역이 찍힌다
   await page
     .locator('text=/데이터를 준비하고 있어요|Loading|불러오는 중/')
     .first()
     .waitFor({ state: 'hidden', timeout: 8_000 })
     .catch(() => {});
-
-  // 프레이머모션 잔여 트랜지션(게이지 1.5s, 바 0.8s) 종료 여유
-  await page.waitForTimeout(2_000);
+  await page.waitForTimeout(1_500);
 }
 
-/**
- * 헤딩으로 섹션을 찾아 캡처 영역(x, y, w, h)을 돌려준다. 못 찾으면 null.
- *
- * 요소 핸들이 아니라 좌표를 쓰는 이유: 섹션 래퍼가 헤딩보다 훨씬 크거나
- * (페이지 전체) 작을 수 있어 조상 탐색이 불안정하다. 헤딩 위치에서
- * 다음 헤딩 직전까지를 잘라내는 편이 레이아웃 변경에 강하다.
- */
-async function findSectionClip(page: Page, heading: string) {
+type ClipRect = { height: number; width: number; x: number; y: number };
+
+async function findSectionClip(page: Page, heading: string): Promise<ClipRect | null> {
   return page.evaluate((text) => {
-    // 섹션 경계는 h1/h2만 쓴다. h3는 카드 내부 제목(개별 테마명·종목명)이라
-    // 경계로 삼으면 섹션이 80px짜리로 잘린다.
     const heads = [...document.querySelectorAll('h1,h2')]
       .map((h) => ({ el: h, top: h.getBoundingClientRect().top + window.scrollY }))
-      // DOM 순서가 아니라 화면 순서로 정렬한다 — 좌우 2단 그리드에서는
-      // "유사패턴"(y=2290)과 "점수 추이비교"(y=2296)처럼 DOM 순서가 뒤엉킨다
       .sort((a, b) => a.top - b.top);
 
     const wanted = text.replace(/\s+/g, '');
@@ -107,18 +132,12 @@ async function findSectionClip(page: Page, heading: string) {
     if (idx === -1) return null;
 
     const target = heads[idx];
-    const rect = target.el.getBoundingClientRect();
     const top = target.top - 16;
-
-    // 나란히 배치된 헤딩(세로 간격 60px 미만)은 같은 행이므로 경계로 쓰지 않는다
     const next = heads.slice(idx + 1).find((h) => h.top > target.top + 60);
     const bottom = next ? next.top - 16 : Math.min(document.body.scrollHeight, top + 1_200);
+    const height = Math.min(Math.max(bottom - top, 0), 1_400);
+    if (height < 80) return null;
 
-    const height = Math.min(Math.max(bottom - top, 0), 900);
-    if (height < 150) return null;
-
-    // 열 폭은 헤딩 텍스트 폭이 아니라 이를 감싸는 레이아웃 블록에서 잰다.
-    // 헤딩 rect.width는 글자 길이(63~108px)라 그걸로 자르면 세로 띠가 나온다.
     let column = target.el.parentElement;
     for (let i = 0; i < 5 && column; i++) {
       const w = column.getBoundingClientRect().width;
@@ -127,8 +146,6 @@ async function findSectionClip(page: Page, heading: string) {
     }
     const colRect = (column ?? target.el).getBoundingClientRect();
     const viewportWidth = document.documentElement.clientWidth;
-
-    // 뷰포트의 60% 미만이면 2단 그리드의 한 열로 보고 그 열만, 아니면 전체 폭
     const isColumn = colRect.width < viewportWidth * 0.6 && colRect.width > 200;
     const x = isColumn ? Math.max(0, Math.floor(colRect.left) - 24) : 0;
     const width = isColumn
@@ -139,78 +156,193 @@ async function findSectionClip(page: Page, heading: string) {
   }, heading);
 }
 
-export async function captureThemeImages(
-  themeId: string,
-  outDir: string,
-  browser?: Browser,
-): Promise<CapturedImage[]> {
+interface SectionInspect {
+  dataLineCount: number;
+  emptyCopy: boolean;
+  longestPath: number;
+  pathDs: string[];
+  stockRows: number;
+  text: string;
+}
+
+async function inspectSection(page: Page, clip: ClipRect): Promise<SectionInspect> {
+  return page.evaluate((box) => {
+    const paths = [...document.querySelectorAll('.recharts-surface path[d]')].filter((el) => {
+      const r = el.getBoundingClientRect();
+      const top = r.top + window.scrollY;
+      return top < box.y + box.height && top + r.height > box.y;
+    }).map((el) => el.getAttribute('d') ?? '');
+    const usable = paths.filter((d) => d.length >= 60);
+    const rows = [...document.querySelectorAll('a[aria-label$="상세 보기"]')].filter((el) => {
+      const r = el.getBoundingClientRect();
+      const top = r.top + window.scrollY;
+      return top < box.y + box.height && top + r.height > box.y;
+    });
+    const text = document.body.innerText;
+    return {
+      dataLineCount: usable.length,
+      emptyCopy: /비교선이 아직 없어요|데이터가 없어요|표시할 데이터가 없/.test(text),
+      longestPath: Math.max(0, ...paths.map((d) => d.length)),
+      pathDs: usable,
+      stockRows: rows.length,
+      text,
+    };
+  }, clip);
+}
+
+async function expandOverflow(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    const nodes = document.querySelectorAll('.overflow-y-auto');
+    for (let i = 0; i < nodes.length; i += 1) {
+      const el = nodes[i];
+      if (!(el instanceof HTMLElement)) continue;
+      el.style.maxHeight = 'none';
+      el.style.height = 'auto';
+      el.style.overflow = 'visible';
+    }
+  });
+}
+
+async function showStockRange(page: Page, start: number, end: number): Promise<void> {
+  await page.evaluate(([from, to]) => {
+    const rows = [...document.querySelectorAll('a[aria-label$="상세 보기"]')];
+    for (let i = 0; i < rows.length; i += 1) {
+      const row = rows[i];
+      if (row instanceof HTMLElement) row.style.display = i >= from && i < to ? '' : 'none';
+    }
+  }, [start, end]);
+}
+
+async function screenshotClip(page: Page, path: string, clip: { height: number; width: number; x: number; y: number }): Promise<void> {
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await page.waitForTimeout(300);
+  await page.screenshot({ path, clip, fullPage: true });
+  const bytes = statSync(path).size;
+  if (bytes < MIN_IMAGE_BYTES) {
+    throw new Error(`캡처가 비어 보입니다 (${Math.round(bytes / 1024)}KB < ${MIN_IMAGE_BYTES / 1024}KB)`);
+  }
+}
+
+function captionOf(name: string, req: CaptureRequest): string {
+  return snapshotCaption(name, req.themeName ?? 'StockMatrix', req.snapshot ?? {}, req.asOf);
+}
+
+export async function capturePostImages(req: CaptureRequest, browser?: Browser): Promise<CapturedImage[]> {
   const own = !browser;
   const b = browser ?? (await chromium.launch());
   const context = await b.newContext({
-    // 1.5배 — 네이버 본문 폭(약 700px)에서 선명하면서 파일이 과하지 않다.
-    // 2배로 찍으면 관련종목 표가 1.6MB가 되고 문서 처리 오류를 유발한다(실측).
     deviceScaleFactor: 1.5,
     locale: 'ko-KR',
-    viewport: { width: 1400, height: 1000 },
+    viewport: { width: VIEWPORT_WIDTH, height: 1_000 },
   });
   const page = await context.newPage();
-  if (!existsSync(outDir)) mkdirSync(outDir, { recursive: true });
+  if (!existsSync(req.outDir)) mkdirSync(req.outDir, { recursive: true });
 
   const images: CapturedImage[] = [];
+  const targets = targetsFor(req.kind);
+  let opened = '';
 
   try {
-    await page.goto(`${SITE}/themes/${themeId}`, { waitUntil: 'domcontentloaded' });
-    await waitForCharts(page);
+    for (const target of targets) {
+      const url = pageUrl(target, req.themeId);
+      if (opened !== url) {
+        await page.goto(url, { waitUntil: 'domcontentloaded' });
+        opened = url;
+        if (target.page === 'theme') await waitForThemeReady(page);
+        else await page.waitForTimeout(2_000);
+      }
 
-    for (const target of TARGETS) {
-      const path = join(outDir, `${target.name}.png`);
+      const path = join(req.outDir, `${target.name}.png`);
       try {
         if (target.heading === null) {
-          await page.screenshot({ path, clip: { x: 0, y: 0, width: 1400, height: 820 } });
-        } else {
-          // 1차 계산 → 그 위치로 스크롤(지연 렌더 유발) → 재계산.
-          // 스크롤로 레이아웃이 늘어나면 첫 좌표가 어긋나므로 반드시 다시 잰다.
-          const probe = await findSectionClip(page, target.heading);
-          if (!probe) {
-            if (target.required) throw new Error(`섹션 "${target.heading}"을 찾지 못함`);
-            console.warn(`[Capture] 섹션 "${target.heading}" 없음 — 건너뜀`);
+          await page.screenshot({ path, clip: { x: 0, y: 0, width: VIEWPORT_WIDTH, height: 820 } });
+          const bytes = statSync(path).size;
+          if (bytes < MIN_IMAGE_BYTES) throw new Error(`히어로 캡처가 비어 있습니다 (${bytes}B)`);
+          images.push({ name: target.name, path, caption: captionOf(target.name, req) });
+          continue;
+        }
+
+        await page
+          .locator('h1,h2')
+          .filter({ hasText: new RegExp(target.heading.replace(/\s+/g, '\\s*')) })
+          .first()
+          .waitFor({ state: 'attached', timeout: 15_000 });
+        if (target.splitStocks) await expandOverflow(page);
+        const probe = await findSectionClip(page, target.heading);
+        if (!probe) {
+          const headings = await page.locator('h1,h2').allInnerTexts().catch(() => []);
+          if (target.required) {
+            throw new Error(`섹션 "${target.heading}"을 찾지 못함 (h1/h2: ${headings.map((t) => t.replace(/\s+/g, '')).join(', ')})`);
+          }
+          console.warn(`[Capture] 섹션 "${target.heading}" 없음 — 건너뜀`);
+          continue;
+        }
+        await page.evaluate((y) => window.scrollTo(0, Math.max(0, y - 100)), probe.y);
+        await page.waitForTimeout(1_200);
+        await page.evaluate(() => window.scrollTo(0, 0));
+        await page.waitForTimeout(400);
+
+        if (target.splitStocks) await expandOverflow(page);
+
+        const clip = await findSectionClip(page, target.heading);
+        if (!clip) {
+          if (target.required) throw new Error(`섹션 "${target.heading}" 재계산 실패`);
+          continue;
+        }
+        const inspect = await inspectSection(page, clip);
+
+        if (target.needsDataLine) {
+          const empty = inspect.emptyCopy || isEmptyChartCopy(inspect.text);
+          const usable = hasUsableDataLine(inspect.pathDs.map((d) => ({ d })));
+          if (!shouldIncludeTrend({ emptyCopy: empty, dataLineCount: usable ? 1 : 0 })) {
+            if (target.required) throw new Error(`섹션 "${target.heading}"에 데이터 선이 없습니다`);
+            console.warn(`[Capture] ${target.name} 빈 차트 — 제외`);
             continue;
           }
-          await page.evaluate((y) => window.scrollTo(0, Math.max(0, y - 100)), probe.y);
-          // 뷰포트 진입으로 지연 렌더가 시작된다 — 차트가 그려질 때까지 기다린다.
-          // 스크롤 직후 캡처하면 축만 있고 선이 없는 빈 차트가 찍힌다(실측).
-          await page
-            .waitForFunction(() => {
-              const paths = [...document.querySelectorAll('.recharts-surface path[d]')];
-              if (paths.length === 0) return true; // 차트 없는 섹션
-              return paths.some((el) => (el.getAttribute('d') ?? '').length > 60);
-            }, null, { timeout: 8_000 })
-            .catch(() => {
-              throw new Error(`섹션 "${target.heading}" 차트가 렌더되지 않았습니다 (8초)`);
+        }
+
+        if (target.splitStocks && req.expectedStockCount) {
+          if (!stockRowsMatch(inspect.stockRows, req.expectedStockCount)) {
+            await expandOverflow(page);
+            const again = await inspectSection(page, clip);
+            if (!stockRowsMatch(again.stockRows, req.expectedStockCount)) {
+              throw new Error(`관련종목 ${req.expectedStockCount}개인데 ${again.stockRows}행만 보임`);
+            }
+          }
+          if (shouldSplitStocks(req.expectedStockCount)) {
+            const mid = Math.ceil(req.expectedStockCount / 2);
+            await showStockRange(page, 0, mid);
+            const firstClip = await findSectionClip(page, target.heading);
+            if (!firstClip) throw new Error('관련종목 전반부 클립 실패');
+            const firstPath = join(req.outDir, '2-stocks-a.png');
+            await screenshotClip(page, firstPath, firstClip);
+            images.push({
+              name: '2-stocks-a',
+              path: firstPath,
+              caption: captionOf('2-stocks-a', req),
             });
-          await page.waitForTimeout(1_500);
 
-          // 스크롤을 최상단으로 되돌리고 문서 절대좌표로 fullPage 캡처한다.
-          // 스크롤된 상태에서 clip을 쓰면 지연 렌더로 레이아웃 높이가 변한 만큼
-          // 좌표가 밀려 엉뚱한 영역이 찍힌다(실측: 차트가 빈 축만 나옴).
-          await page.evaluate(() => window.scrollTo(0, 0));
-          await page.waitForTimeout(500);
-
-          const clip = await findSectionClip(page, target.heading);
-          if (!clip) {
-            if (target.required) throw new Error(`섹션 "${target.heading}" 재계산 실패`);
-            console.warn(`[Capture] 섹션 "${target.heading}" 재계산 실패 — 건너뜀`);
+            await showStockRange(page, mid, req.expectedStockCount);
+            const secondClip = await findSectionClip(page, target.heading);
+            if (!secondClip) throw new Error('관련종목 후반부 클립 실패');
+            const secondPath = join(req.outDir, '2-stocks-b.png');
+            await screenshotClip(page, secondPath, secondClip);
+            images.push({
+              name: '2-stocks-b',
+              path: secondPath,
+              caption: captionOf('2-stocks-b', req),
+            });
+            await showStockRange(page, 0, req.expectedStockCount);
             continue;
           }
-          await page.screenshot({ path, clip, fullPage: true });
         }
-        // 빈 화면은 PNG가 거의 압축된다. 파일 크기 하한이 "렌더는 됐지만 내용이 없는"
-        // 캡처를 걸러내는 가장 싼 신호다(실측 정상 캡처 60KB~400KB).
-        const bytes = statSync(path).size;
-        if (bytes < MIN_IMAGE_BYTES) {
-          throw new Error(`캡처가 비어 보입니다 (${target.name}, ${Math.round(bytes / 1024)}KB < ${MIN_IMAGE_BYTES / 1024}KB)`);
-        }
-        images.push({ name: target.name, path });
+
+        await screenshotClip(page, path, clip);
+        images.push({
+          name: target.name,
+          path,
+          caption: captionOf(target.name, req),
+        });
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         if (target.required) throw new Error(`필수 캡처 실패 (${target.name}): ${message}`);
@@ -223,6 +355,15 @@ export async function captureThemeImages(
   }
 
   return images;
+}
+
+/** CLI·기존 호출 호환. theme 글 기준으로 캡처한다. */
+export async function captureThemeImages(
+  themeId: string,
+  outDir: string,
+  browser?: Browser,
+): Promise<CapturedImage[]> {
+  return capturePostImages({ kind: 'theme', outDir, themeId }, browser);
 }
 
 if (process.argv[1]?.includes('capture-images')) {

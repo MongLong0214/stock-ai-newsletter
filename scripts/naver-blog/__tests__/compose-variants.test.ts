@@ -18,7 +18,7 @@ describe('composeRanking', () => {
   const r = composeRanking(ROWS, '2026-08-27', 'https://stockmatrix.co.kr');
 
   it('규격 길이를 지킨다', () => {
-    const plain = r.body.replace(/>> |\*\*/g, '');
+    const plain = r.body.replace(/>> |\*\*|\[\[[rb]:|\]\]|\{\{image:[^}]+\}\}/g, '');
     expect(plain.length).toBeGreaterThanOrEqual(1500);
     expect(plain.length).toBeLessThanOrEqual(2500);
   });
@@ -45,7 +45,7 @@ describe('composeSimilar', () => {
   const r = composeSimilar('면세점', 68, '정점', COMPARISONS, '2026-08-27', 'https://stockmatrix.co.kr/themes/x');
 
   it('규격 길이를 지킨다 (비교 건수가 적어도)', () => {
-    const plain = r.body.replace(/>> |\*\*/g, '');
+    const plain = r.body.replace(/>> |\*\*|\[\[[rb]:|\]\]|\{\{image:[^}]+\}\}/g, '');
     expect(plain.length).toBeGreaterThanOrEqual(1500);
   });
 

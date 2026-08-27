@@ -1,9 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import { checkFormat, FORMAT } from '../format';
 
+const bolds = Array.from({ length: 10 }, (_, i) => `**항목${i}**`).join(' ');
 const valid = {
   body: [
-    '가'.repeat(1600),
+    `폐기물처리 관련주 5개를 묶은 테마 점수가 이번 주 45점을 기록했습니다. ${bolds}`,
+    '>> 점수 현황',
+    '점수 설명 '.repeat(80),
+    '>> 네 가지 요소',
+    '요소 설명 '.repeat(80),
+    '>> 관련종목 5개',
+    '종목 설명 '.repeat(80),
+    '>> 정리',
     '이 점수는 참고용 데이터입니다. 특정 종목의 매수·매도를 권하는 것이 아니며, 투자 판단과 그 결과는 투자자 본인의 책임입니다.',
   ].join('\n\n'),
   images: ['a.png', 'b.png', 'c.png', 'd.png'],
@@ -24,8 +32,7 @@ describe('checkFormat', () => {
   });
 
   it('이미지 필드가 아예 없어도 잡는다 — 예전에는 검사 자체를 건너뛰었다', () => {
-    const { images: _images, ...noImages } = valid;
-    expect(checkFormat(noImages)).toContainEqual(expect.stringContaining('이미지 0장'));
+    expect(checkFormat({ ...valid, images: undefined })).toContainEqual(expect.stringContaining('이미지 0장'));
   });
 
   it('YMYL 고지문이 없으면 잡는다', () => {

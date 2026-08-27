@@ -13,19 +13,32 @@
  */
 
 import { config } from 'dotenv';
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
+import { tmpdir } from 'node:os';
+import { randomBytes } from 'node:crypto';
 
 const envPath = resolve(process.cwd(), '.env.local');
 if (existsSync(envPath)) config({ path: envPath });
 
 import { credentialsFromEnv, fetchKeywordVolumes } from '@/lib/naver-searchad';
-import { captureThemeImages } from './capture-images';
+import { capturePostImages } from './capture-images';
 import { composeEvergreen } from './compose-evergreen';
-import { composeNews, composeRanking, composeSimilar, filterNewsItems, type ComparisonRow } from './compose-variants';
-import { checkFormat, FORMAT, QUOTE_PREFIX } from './format';
+import { composeNews, composeRanking, composeSimilar, filterNewsItems, type ComparisonRow, type NewsItem } from './compose-variants';
+import {
+  formatChange,
+  imageSlot,
+  pickDetailNumbers,
+  type DraftMeta,
+  type DraftPayload,
+  type ImagePlacement,
+  type SourceSnapshot,
+} from './draft-model';
+import { checkFormat, FORMAT, METHODOLOGY_PATH, QUOTE_PREFIX } from './format';
+import { planBodyActions } from './publish-plan';
 import { evergreenIndexForDate, THEME_COOLDOWN_DAYS, TYPE_PLANS, typeForDate, type PostType } from './post-types';
-import { isThemeOnCooldown, readThemeHistory } from './session';
+import { makeRunId, runDir, sha256File, writeRunAtomic } from './run-store';
+import { isThemeOnCooldown, NAVER_STATE_DIR, readThemeHistory } from './session';
 
 const SITE = 'https://stockmatrix.co.kr';
 /** 이 미만 검색량이면 네이버에 써도 읽힐 가능성이 낮다 */
@@ -54,9 +67,11 @@ interface Stock {
   symbol: string;
 }
 
-interface ThemeDetail {
+export interface ThemeDetail {
   name: string;
   score: {
+    /** 상세 API의 7일 변화. 본문·캡션·manifest의 단일 소스. 랭킹 change7d를 쓰지 않는다. */
+    change7d: number;
     components: { activity: number; interest: number; newsMomentum: number; volatility: number };
     raw: { baseline30dAvg: number; newsLastWeek: number; newsThisWeek: number; recent7dAvg: number };
     stageKo: string;
@@ -64,7 +79,8 @@ interface ThemeDetail {
     value: number;
   };
   comparisons?: ComparisonRow[];
-  recentNews?: { date?: string; press?: string; title: string }[];
+  /** 상세 API 실제 필드: source/pubDate. compose-variants가 구 이름도 함께 받는다. */
+  recentNews?: NewsItem[];
   /** 상세 API가 주는 실제 필드 — 목록 API의 topStocks와 다르다 */
   stockCount?: number;
   stocks?: Stock[];
@@ -88,6 +104,12 @@ export const stockNames = (theme: ThemeDetail): string[] =>
 
 const pct = (n: number) => `${(n * 100).toFixed(0)}%`;
 
+const topicWa = (name: string): string => {
+  const last = name.charCodeAt(name.length - 1);
+  if (last < 0xac00 || last > 0xd7a3) return `${name}는`;
+  return `${name}${(last - 0xac00) % 28 === 0 ? '는' : '은'}`;
+};
+
 export { FORMAT, QUOTE_PREFIX } from './format';
 
 /** 상승/하락 방향에 따른 색상 마커. publish.ts가 서식으로 바꾼다. */
@@ -108,36 +130,40 @@ export function composeTitle(theme: ThemeDetail, stockCount: number): string {
 }
 
 /**
- * 본문 — FORMAT-SPEC 5블록 고정.
- * 수치를 그대로 서술하고 해석·전망·권유는 넣지 않는다(YMYL). 서식만 규격에 맞춘다.
+ * 본문 — FORMAT-SPEC 5블록, 인용구 4개.
+ * 수치는 theme.score(상세 API)만 쓴다. 해석·전망·권유는 넣지 않는다(YMYL).
  */
-export function composeBody(theme: ThemeDetail, themeId: string, change: number): string {
+export function composeBody(theme: ThemeDetail, themeId: string): string {
   const s = theme.score;
   const c = s.components;
   const r = s.raw;
   const stocks = stockNames(theme);
+  const listed = listedStocks(theme);
   const totalStocks = (theme.stocks ?? []).length;
   const newsDown = r.newsThisWeek < r.newsLastWeek;
   const interestUp = r.recent7dAvg >= r.baseline30dAvg;
-  const changeText = change >= 0 ? up(`+${change}점`) : down(`${change}점`);
+  const changeText = s.change7d >= 0 ? up(formatChange(s.change7d)) : down(formatChange(s.change7d));
+  const stockLead = stocks.length
+    ? `${theme.name} 관련주 ${stocks.length}개를 묶은 테마 점수`
+    : `${theme.name} 관련주 테마 점수`;
 
   const blocks: string[] = [];
 
-  // [1] 후킹 도입부 — 제목 키워드를 첫 문장에 반복
   blocks.push(
-    `${theme.name} 테마가 이번 주 ${b(`${s.value}점`)}을 기록하며 '${s.stageKo}' 단계에 들어섰습니다. ` +
-    `최근 7일 변화는 ${changeText}인데, 이 흐름을 어떤 종목이 이끌고 있는지 데이터로 확인해 보겠습니다.`,
+    `${stockLead}가 이번 주 ${b(`${s.value}점`)}을 기록하며 '${s.stageKo}' 단계에 들어섰습니다. ` +
+    `최근 7일 변화는 ${changeText}이며, 관련 종목 ${stocks.length || totalStocks || 0}개의 ` +
+    `시세와 검색·뉴스 집계로 이 점수가 어떻게 만들어졌는지 데이터로 확인해 보겠습니다.`,
   );
+  blocks.push(imageSlot('1-hero'));
 
-  // [2] 점수 현황
   blocks.push(`${QUOTE_PREFIX}점수 현황`);
   blocks.push(
     `${theme.name} 생명주기 점수는 ${b(`${s.value}점`)}(100점 만점), 전주 대비 ${changeText}입니다. ` +
-    `기준일은 ${s.updatedAt}입니다. 단계는 초기·성장·${b('정점')}·쇠퇴·휴면 다섯 구간 중 ` +
-    `${b(s.stageKo)} 구간에 해당합니다.`,
+    `기준일은 ${s.updatedAt}입니다. 단계는 초기·성장·정점·쇠퇴·휴면 다섯 구간 중 ` +
+    `${b(s.stageKo)} 구간에 해당합니다. 점수는 0~100 사이 값이며 매일 ${s.updatedAt} 집계분으로 ` +
+    `다시 계산됩니다.`,
   );
 
-  // [3] 왜 오르는가 — 차별화 데이터
   blocks.push(`${QUOTE_PREFIX}점수를 만든 네 가지 요소`);
   blocks.push(
     `점수를 구성하는 네 요소 중 ${b(`검색 관심도가 ${pct(c.interest)}`)}로 가장 높습니다. ` +
@@ -150,57 +176,51 @@ export function composeBody(theme: ThemeDetail, themeId: string, change: number)
     `검색 관심도의 7일 평균(${r.recent7dAvg.toFixed(1)})은 30일 평균(${r.baseline30dAvg.toFixed(1)})을 ` +
     `${interestUp ? up('웃돕니다') : down('밑돕니다')}.`,
   );
-
-  // [3-2] 지표별 의미 — 해석이 아니라 지표 정의 설명(사실)
   blocks.push(
-    `각 요소가 무엇을 재는지 짚어두면 숫자를 읽기 쉽습니다. ${b('검색 관심도')}는 네이버 데이터랩에서 ` +
-    `해당 테마 키워드가 얼마나 검색되는지를, ${b('뉴스 모멘텀')}은 최근 기사량이 이전 기간 대비 ` +
-    `어떻게 변했는지를 봅니다. ${b('활동성')}은 관련 종목의 거래 상황을, ${b('변동성')}은 주가가 ` +
-    `얼마나 크게 움직였는지를 나타냅니다.`,
+    '각 요소가 무엇을 재는지 짚어두면 숫자를 읽기 쉽습니다. 검색 관심도는 네이버 데이터랩에서 ' +
+    '해당 테마 키워드가 얼마나 검색되는지를, 뉴스 모멘텀은 최근 기사량이 이전 기간 대비 ' +
+    '어떻게 변했는지를 봅니다. 활동성은 관련 종목의 거래 상황을, 변동성은 주가가 ' +
+    '얼마나 크게 움직였는지를 나타냅니다.',
   );
+  blocks.push(imageSlot('3-trend'));
 
-  // [4] 관련종목
-  if (stocks.length) {
-    blocks.push(`${QUOTE_PREFIX}관련종목 ${stocks.length}개`);
+  if (listed.length) {
+    blocks.push(`${QUOTE_PREFIX}관련종목 ${listed.length}개`);
     const numerals = ['①', '②', '③', '④', '⑤', '⑥', '⑦', '⑧'];
-    const scope = totalStocks > stocks.length
-      ? `이 테마로 묶이는 종목 ${totalStocks}개 중 상위 ${stocks.length}개입니다.`
-      : `이 테마로 묶이는 종목은 아래 ${stocks.length}개입니다.`;
+    const scope = totalStocks > listed.length
+      ? `이 테마로 묶이는 종목 ${totalStocks}개 중 상위 ${listed.length}개입니다.`
+      : `이 테마로 묶이는 종목은 아래 ${listed.length}개입니다.`;
     blocks.push(
       `${scope} 시장 구분과 함께 정리했습니다.\n` +
-      listedStocks(theme)
-        .map((st, i) => `${numerals[i]} ${b(st.name)} (${st.market} ${st.symbol})`)
-        .join('\n'),
+      listed.map((st, i) => `${numerals[i]} ${b(st.name)} (${st.market} ${st.symbol})`).join('\n'),
     );
+    blocks.push(imageSlot('2-stocks'));
+    blocks.push(imageSlot('2-stocks-a'));
     blocks.push(
       `종목별 현재가·등락률·거래량과 PER·PBR 같은 지표는 위 이미지의 표에서 확인할 수 있습니다. ` +
       `이 목록은 테마 편입 기준에 따라 자동으로 갱신되며, 편입·제외 이력도 함께 관리됩니다.`,
     );
+    blocks.push(imageSlot('2-stocks-b'));
   }
 
-  // [4-2] 단계의 뜻 — 사실 설명
-  blocks.push(`${QUOTE_PREFIX}생명주기 단계는 무엇을 뜻하나`);
   blocks.push(
-    `생명주기 단계는 점수의 절대값과 최근 추세를 함께 보고 ${b('초기')}·${b('성장')}·${b('정점')}·` +
-    `${b('쇠퇴')}·${b('휴면')} 다섯 구간 중 하나로 분류한 값입니다. 같은 점수라도 오르는 중인지 ` +
-    `내리는 중인지에 따라 다른 단계가 될 수 있습니다. 현재 ${theme.name}은 ${b(s.stageKo)} 구간입니다.`,
+    `${b('생명주기 단계는 무엇을 뜻하나')} 점수의 절대값과 최근 추세를 함께 보고 ` +
+    `초기·성장·정점·쇠퇴·휴면 다섯 구간 중 하나로 분류한 값입니다. 같은 점수라도 오르는 중인지 ` +
+    `내리는 중인지에 따라 다른 단계가 될 수 있습니다. 현재 ${topicWa(theme.name)} ${s.stageKo} 구간입니다.`,
   );
-
-  // [4-3] 데이터 갱신 주기 — 분량이 데이터에 좌우되므로 고정 설명으로 하한을 받친다.
-  // 규격(1,500자)은 발행 전 검증에서 강제되며, 여기 문장은 해석이 아니라 사실 설명이다.
-  blocks.push(`${QUOTE_PREFIX}데이터는 어떻게 갱신되나`);
   blocks.push(
-    `점수는 매일 자동으로 다시 계산됩니다. 네이버 데이터랩에서 테마 키워드의 검색 추이를, ` +
-    `네이버 뉴스에서 관련 기사 건수를, KRX에서 관련 종목의 시세와 거래량을 수집한 뒤 ` +
-    `네 요소를 가중 합산합니다. 가중치는 과거 데이터로 조정했고 산출 과정은 공개되어 있습니다.`,
+    `${b('데이터는 어떻게 갱신되나')} 점수는 매일 자동으로 다시 계산됩니다. 네이버 데이터랩에서 ` +
+    `테마 키워드의 검색 추이를, 네이버 뉴스에서 관련 기사 건수를, KRX에서 관련 종목의 시세와 ` +
+    `거래량을 수집한 뒤 네 요소를 가중 합산합니다. 가중치는 과거 데이터로 조정했고 ` +
+    `산출 과정은 공개되어 있습니다. 방법론은 ${SITE}${METHODOLOGY_PATH} 에서 확인할 수 있습니다.`,
   );
   blocks.push(
     `수집 범위는 최근 30일이며, 7일 이동평균과 30일 기준선을 비교해 방향을 판단합니다. ` +
     `데이터가 부족한 테마는 점수를 내지 않고 비활성으로 둡니다. 오늘 기준 활성 테마만 ` +
     `순위에 포함되며, 이 글의 수치는 모두 ${s.updatedAt} 집계분입니다.`,
   );
+  blocks.push(imageSlot('4-news'));
 
-  // [5] 마무리 — 요약·고지·출처·CTA
   blocks.push(`${QUOTE_PREFIX}정리`);
   blocks.push(
     `${theme.name} 테마는 검색 관심도 ${pct(c.interest)}, 뉴스 모멘텀 ${pct(c.newsMomentum)} 수준에서 ` +
@@ -231,27 +251,58 @@ export function composeTags(theme: ThemeDetail): string[] {
   return [...new Set(tags)].slice(0, FORMAT.tagsMax);
 }
 
-interface DraftPayload {
-  body: string;
-  images: string[];
-  outsideUrl: string;
-  tags: string[];
-  /** 발행 성공 시에만 쿨다운을 기록하도록 publish.ts로 넘긴다 */
-  themeId: string;
-  title: string;
+export function themeSnapshot(theme: ThemeDetail): SourceSnapshot {
+  return {
+    baseline30dAvg: theme.score.raw.baseline30dAvg,
+    change7d: theme.score.change7d,
+    newsLastWeek: theme.score.raw.newsLastWeek,
+    newsThisWeek: theme.score.raw.newsThisWeek,
+    recent7dAvg: theme.score.raw.recent7dAvg,
+    score: theme.score.value,
+    stageKo: theme.score.stageKo,
+    stockCount: listedStocks(theme).length,
+  };
+}
+
+export function placementsFromCapture(
+  captured: ReadonlyArray<{ caption: string; name: string; path: string }>,
+): ImagePlacement[] {
+  const now = new Date().toISOString();
+  return captured.map((image) => ({
+    afterBlock: image.name.includes('hero')
+      ? 'intro'
+      : image.name.includes('stocks')
+        ? 'stocks'
+        : image.name.includes('trend')
+          ? 'drivers'
+          : image.name.includes('news')
+            ? 'methodology'
+            : 'body',
+    caption: image.caption,
+    capturedAt: now,
+    id: image.name,
+    path: image.path,
+    sha256: sha256File(image.path),
+    sourceSection: image.name,
+  }));
 }
 
 /** 규격 검증 후 파일로 낸다 — 위반은 발행 전에 잡는다 */
 function writeDraft(outPath: string, draft: DraftPayload): void {
-  const plain = draft.body.replace(/>> |\*\*|\[\[[rb]:|\]\]/g, '');
   const violations = checkFormat(draft, { fileExists: existsSync });
   if (violations.length) throw new Error(`FORMAT-SPEC 위반: ${violations.join(' / ')}`);
+
+  // 배치 계획을 **초안 시점에** 세워본다. planBodyActions는 발행기에서 다시 호출되는데,
+  // 여기서 검사하지 않으면 브라우저를 다 띄우고 이미지까지 업로드한 뒤에 터진다.
+  // 실측: similar·news 본문의 통합 슬롯과 분할 캡처(2-stocks-a/b)가 어긋나 발행 단계에서만
+  // 실패했다. 초안 단계에서 끊으면 CI가 세션을 쓰기 전에 원인을 보여준다.
+  planBodyActions(draft.body, draft.imagePlacements ?? []);
 
   mkdirSync(dirname(outPath), { recursive: true });
   writeFileSync(outPath, `${JSON.stringify(draft, null, 2)}\n`, 'utf-8');
   console.log(`초안 생성: ${outPath}`);
   console.log(`  제목: ${draft.title} (${draft.title.length}자)`);
-  console.log(`  본문: ${plain.length}자 / 태그 ${draft.tags.length}개 / 이미지 ${draft.images.length}장`);
+  console.log(`  본문: ${draft.body.replace(/>> |\*\*|\[\[[rb]:|\]\]|\{\{image:[^}]+\}\}/g, '').length}자 / 태그 ${draft.tags.length}개 / 이미지 ${draft.images.length}장`);
 }
 
 /**
@@ -319,12 +370,89 @@ function pickImageTheme(candidates: readonly Candidate[], now: number): Candidat
   return [...candidates].sort((a, b) => lastUsed(a.themeId) - lastUsed(b.themeId))[0];
 }
 
-async function capture(themeId: string, outPath: string): Promise<string[]> {
-  const images = await captureThemeImages(themeId, join(dirname(outPath), 'images'));
+async function capture(opts: {
+  asOf?: string;
+  expectedStockCount?: number;
+  kind: PostType;
+  outDir: string;
+  snapshot?: SourceSnapshot;
+  themeId: string;
+  themeName?: string;
+}): Promise<Array<{ caption: string; name: string; path: string }>> {
+  const images = await capturePostImages({
+    asOf: opts.asOf,
+    expectedStockCount: opts.expectedStockCount,
+    kind: opts.kind,
+    outDir: opts.outDir,
+    snapshot: opts.snapshot,
+    themeId: opts.themeId,
+    themeName: opts.themeName,
+  });
   if (images.length < FORMAT.minImages) {
-    throw new Error(`이미지 ${images.length}장 — 최소 ${FORMAT.minImages}장 필요. 발행하지 않는다.`);
+    throw new Error(`유효 이미지 ${images.length}장 — 최소 ${FORMAT.minImages}장 필요. 발행하지 않는다.`);
   }
-  return images.map((i) => i.path);
+  if (images.length > FORMAT.maxImages) {
+    throw new Error(`유효 이미지 ${images.length}장 — 최대 ${FORMAT.maxImages}장. 발행하지 않는다.`);
+  }
+  return images;
+}
+
+function persistRun(opts: {
+  captureDir: string;
+  draft: Omit<DraftPayload, 'imagePlacements' | 'images' | 'meta'>;
+  images: Array<{ caption: string; name: string; path: string }>;
+  outPath: string;
+  postType: PostType;
+  snapshot?: SourceSnapshot;
+  sourceUpdatedAt?: string;
+  themeId: string;
+  themeName: string;
+}): void {
+  const hashed = placementsFromCapture(opts.images);
+  const runId = makeRunId(opts.themeId);
+  const finalDir = runDir(NAVER_STATE_DIR, runId);
+  const imagePlacements = hashed.map((item) => ({
+    ...item,
+    path: join(finalDir, 'images', `${item.id}.png`),
+  }));
+  const meta: DraftMeta = {
+    generatedAt: new Date().toISOString(),
+    imageManifest: imagePlacements,
+    postType: opts.postType,
+    sourceSnapshot: opts.snapshot,
+    sourceUpdatedAt: opts.sourceUpdatedAt,
+    themeId: opts.themeId,
+  };
+  const draft: DraftPayload = {
+    ...opts.draft,
+    imagePlacements,
+    images: imagePlacements.map((item) => item.path),
+    meta,
+    themeId: opts.themeId,
+  };
+  const precheck = checkFormat(
+    { ...draft, images: opts.images.map((image) => image.path), imagePlacements: hashed },
+    { fileExists: existsSync },
+  );
+  if (precheck.length) throw new Error(`FORMAT-SPEC 위반: ${precheck.join(' / ')}`);
+  console.log(`  테마: ${opts.themeName} / 유형: ${opts.postType}`);
+  try {
+    writeRunAtomic(NAVER_STATE_DIR, runId, [
+      ...opts.images.map((image) => ({
+        data: readFileSync(image.path),
+        relative: join('images', `${image.name}.png`),
+      })),
+      { data: `${JSON.stringify(draft, null, 2)}\n`, relative: 'draft.json' },
+      { data: `${JSON.stringify(meta, null, 2)}\n`, relative: 'manifest.json' },
+    ]);
+    writeDraft(opts.outPath, draft);
+  } finally {
+    rmSync(opts.captureDir, { recursive: true, force: true });
+  }
+}
+
+function newCaptureDir(): string {
+  return join(tmpdir(), `naver-capture-${randomBytes(4).toString('hex')}`);
 }
 
 /** 쿨다운 통과 + 네이버 실검색량 확인. 상승 테마를 먼저 본다. */
@@ -382,11 +510,18 @@ async function main(): Promise<void> {
   if (candidates.length === 0) throw new Error('점수가 산출된 테마 없음 — 발행 소재가 없다');
   const asOf = new Date(now).toISOString().slice(0, 10);
 
-  // 랭킹·상시 글은 개별 테마가 아니라 전체 집계를 쓴다. 이미지만 한 테마에서 가져온다.
+  // 랭킹·상시 글은 개별 테마가 아니라 전체 집계를 쓴다. 이미지는 목록/방법론 페이지에서 가져온다.
   if (postType === 'ranking' || postType === 'evergreen') {
     const imageTheme = pickImageTheme(candidates, now);
-    const images = await capture(imageTheme.themeId, outPath);
-
+    const captureDir = newCaptureDir();
+    const images = await capture({
+      asOf,
+      kind: postType,
+      outDir: captureDir,
+      snapshot: { score: candidates[0].score, change7d: candidates[0].change7d, stockCount: candidates.length },
+      themeId: imageTheme.themeId,
+      themeName: imageTheme.name,
+    });
     const composed = postType === 'ranking'
       ? composeRanking(
           candidates.map((c) => ({ change: c.change7d, name: c.name, score: c.score, stageKo: c.stageKo })),
@@ -402,24 +537,65 @@ async function main(): Promise<void> {
           topStageKo: candidates[0].stageKo,
         }, SITE);
 
-    writeDraft(outPath, {
-      body: composed.body,
+    persistRun({
+      captureDir,
+      draft: {
+        body: composed.body,
+        outsideUrl: postType === 'ranking' ? `${SITE}/themes` : `${SITE}${METHODOLOGY_PATH}`,
+        tags: composed.tags,
+        themeId: imageTheme.themeId,
+        title: composed.title,
+      },
       images,
-      outsideUrl: postType === 'ranking' ? `${SITE}/themes` : `${SITE}/themes/methodology`,
-      tags: composed.tags,
+      outPath,
+      postType,
+      snapshot: { score: candidates[0].score, change7d: candidates[0].change7d, stockCount: candidates.length },
+      sourceUpdatedAt: asOf,
       themeId: imageTheme.themeId,
-      title: composed.title,
+      themeName: imageTheme.name,
     });
     return;
   }
 
   const chosen = await pickTheme(candidates, now);
   const theme = await getJson<ThemeDetail>(`/api/tli/themes/${chosen.themeId}`);
+  if (typeof theme.score.change7d !== 'number') {
+    throw new Error('상세 API에 score.change7d가 없습니다 — 본문 숫자를 확정할 수 없어 중단합니다');
+  }
+  const picked = pickDetailNumbers(
+    { change7d: chosen.change7d, score: chosen.score },
+    { change7d: theme.score.change7d, score: theme.score.value },
+  );
+  if (picked.diverged) {
+    console.warn(
+      `[Draft] 랭킹과 상세 불일치 — 상세 API를 단일 소스로 사용합니다 ` +
+        `(score ${chosen.score}→${theme.score.value}, change7d ${chosen.change7d}→${theme.score.change7d})`,
+    );
+  }
   const themeUrl = `${SITE}/themes/${chosen.themeId}`;
-  const images = await capture(chosen.themeId, outPath);
+  const snapshot = themeSnapshot(theme);
+  const news = filterNewsItems(theme.recentNews ?? []);
+  let effectiveType: PostType = 'theme';
+  if (postType === 'similar' && (theme.comparisons?.length ?? 0) > 0) effectiveType = 'similar';
+  else if (postType === 'news' && news.length >= MIN_NEWS) effectiveType = 'news';
+  else if (postType === 'news' || postType === 'similar') {
+    const reason = postType === 'news' ? `기사 ${news.length}건 (최소 ${MIN_NEWS})` : '비교 데이터 없음';
+    console.warn(`[Draft] ${reason} — ranking 유형으로 대체`);
+    effectiveType = 'ranking';
+  }
 
-  // 유사 패턴 글 — 비교 데이터가 있을 때만. 없으면 theme으로 떨어진다.
-  if (postType === 'similar' && (theme.comparisons?.length ?? 0) > 0) {
+  const captureDir = newCaptureDir();
+  const images = await capture({
+    asOf: effectiveType === 'ranking' ? asOf : theme.score.updatedAt,
+    expectedStockCount: listedStocks(theme).length,
+    kind: effectiveType,
+    outDir: captureDir,
+    snapshot,
+    themeId: chosen.themeId,
+    themeName: theme.name,
+  });
+
+  if (effectiveType === 'similar') {
     const composed = composeSimilar(
       theme.name,
       theme.score.value,
@@ -428,14 +604,21 @@ async function main(): Promise<void> {
       theme.score.updatedAt,
       themeUrl,
     );
-    writeDraft(outPath, { ...composed, outsideUrl: themeUrl, images, themeId: chosen.themeId });
+    persistRun({
+      captureDir,
+      draft: { ...composed, outsideUrl: themeUrl, themeId: chosen.themeId },
+      images,
+      outPath,
+      postType: effectiveType,
+      snapshot,
+      sourceUpdatedAt: theme.score.updatedAt,
+      themeId: chosen.themeId,
+      themeName: theme.name,
+    });
     return;
   }
 
-  // 뉴스 글 — 기사가 충분할 때만
-  // 정제 후 건수로 판정한다 — 원시 5건이 전부 광고성이면 기사 0건짜리 뉴스 글이 된다
-  const news = filterNewsItems(theme.recentNews ?? []);
-  if (postType === 'news' && news.length >= MIN_NEWS) {
+  if (effectiveType === 'news') {
     const composed = composeNews(
       theme.name,
       theme.score.value,
@@ -446,37 +629,62 @@ async function main(): Promise<void> {
       theme.score.updatedAt,
       themeUrl,
     );
-    writeDraft(outPath, { ...composed, outsideUrl: themeUrl, images, themeId: chosen.themeId });
+    persistRun({
+      captureDir,
+      draft: { ...composed, outsideUrl: themeUrl, themeId: chosen.themeId },
+      images,
+      outPath,
+      postType: effectiveType,
+      snapshot,
+      sourceUpdatedAt: theme.score.updatedAt,
+      themeId: chosen.themeId,
+      themeName: theme.name,
+    });
     return;
   }
-  // 데이터가 모자라 유형을 못 쓰면 theme이 아니라 ranking으로 떨어뜨린다.
-  // theme은 이미 로테이션의 3/7이라, 폴백까지 theme으로 보내면 같은 템플릿이 몰린다.
-  if (postType === 'news' || postType === 'similar') {
-    const reason = postType === 'news' ? `기사 ${news.length}건 (최소 ${MIN_NEWS})` : '비교 데이터 없음';
-    console.warn(`[Draft] ${reason} — ranking 유형으로 대체`);
+
+  if (effectiveType === 'ranking') {
     const composed = composeRanking(
       candidates.map((c) => ({ change: c.change7d, name: c.name, score: c.score, stageKo: c.stageKo })),
       asOf,
       SITE,
     );
-    writeDraft(outPath, {
-      body: composed.body,
+    persistRun({
+      captureDir,
+      draft: {
+        body: composed.body,
+        outsideUrl: `${SITE}/themes`,
+        tags: composed.tags,
+        themeId: chosen.themeId,
+        title: composed.title,
+      },
       images,
-      outsideUrl: `${SITE}/themes`,
-      tags: composed.tags,
+      outPath,
+      postType: 'ranking',
+      snapshot,
+      sourceUpdatedAt: asOf,
       themeId: chosen.themeId,
-      title: composed.title,
+      themeName: theme.name,
     });
     return;
   }
 
-  writeDraft(outPath, {
-    title: composeTitle(theme, stockNames(theme).length),
-    tags: composeTags(theme),
-    body: composeBody(theme, chosen.themeId, chosen.change7d),
-    outsideUrl: themeUrl,
+  persistRun({
+    captureDir,
+    draft: {
+      body: composeBody(theme, chosen.themeId),
+      outsideUrl: themeUrl,
+      tags: composeTags(theme),
+      themeId: chosen.themeId,
+      title: composeTitle(theme, stockNames(theme).length),
+    },
     images,
+    outPath,
+    postType: 'theme',
+    snapshot,
+    sourceUpdatedAt: theme.score.updatedAt,
     themeId: chosen.themeId,
+    themeName: theme.name,
   });
 }
 

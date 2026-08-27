@@ -94,6 +94,9 @@ jobs:
           path: |
             .naver-blog/*.png
             .naver-blog/draft.json
+            .naver-blog/runs/*/draft.json
+            .naver-blog/runs/*/manifest.json
+            .naver-blog/runs/*/images/*.png
           retention-days: 14
           if-no-files-found: warn
 
