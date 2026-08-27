@@ -80,6 +80,37 @@ function composeBody(draft: Draft): string {
   return `${draft.body}\n\n실시간 점수와 관련주 전체 목록은 여기서 확인할 수 있습니다.\n${draft.outsideUrl}`;
 }
 
+/**
+ * 에디터에 실제로 들어간 내용을 되읽어 초안과 대조한다.
+ * null이면 통과, 문자열이면 실패 사유.
+ */
+async function verifyEditorContent(editor: Frame, draft: Draft): Promise<string | null> {
+  const rendered = await editor.locator('.se-content, .se-viewer, body').first().innerText().catch(() => '');
+  if (!rendered.trim()) return '에디터에서 텍스트를 읽지 못함';
+
+  const norm = (t: string) => t.replace(/\s+/g, '');
+  const flat = norm(rendered);
+
+  // 제목: 앞 12자만 대조 — 에디터가 줄바꿈을 넣을 수 있다
+  const titleHead = norm(draft.title).slice(0, 12);
+  if (!flat.includes(titleHead)) return `제목 미입력 (기대: "${titleHead}...")`;
+
+  // 본문: 첫 문단 앞 20자
+  const bodyHead = norm(draft.body).slice(0, 20);
+  if (!flat.includes(bodyHead)) return `본문 미입력 (기대: "${bodyHead}...")`;
+
+  // 본문 길이 — 문단 일부만 들어간 경우를 잡는다
+  const expected = norm(draft.body).length;
+  const got = flat.length;
+  if (got < expected * 0.7) return `본문이 잘림 (기대 ${expected}자 이상, 실제 ${got}자)`;
+
+  if (draft.outsideUrl && !flat.includes(norm(draft.outsideUrl))) {
+    return 'outside 딥링크 누락';
+  }
+
+  return null;
+}
+
 async function getEditor(page: Page): Promise<Frame> {
   const frame = page.frame({ name: 'mainFrame' }) ?? page.frames().find((f) => f.url().includes('postwrite'));
   if (!frame) throw new Error('에디터 프레임을 찾지 못했습니다 (셀렉터 재보정 필요)');
@@ -104,9 +135,6 @@ async function typeParagraphs(page: Page, text: string): Promise<void> {
 async function main(): Promise<void> {
   const { draftPath, publish, headless } = parseArgs();
   const draft = loadDraft(draftPath);
-  const blogId = process.env.NAVER_BLOG_ID;
-
-  if (!blogId) throw new Error('NAVER_BLOG_ID 환경변수가 필요합니다 (예: NAVER_BLOG_ID=myblog)');
   if (!hasSession()) throw new Error(`세션이 없습니다. 먼저 실행하세요: npm run naver:login`);
 
   const now = Date.now();
@@ -126,6 +154,17 @@ async function main(): Promise<void> {
   const shot = join(NAVER_STATE_DIR, `draft-${Date.now()}.png`);
 
   try {
+    // 블로그 ID는 비밀이 아니고(공개 URL) 세션 주인이 곧 발행 대상이다 —
+    // MyBlog 리다이렉트로 자동 감지해 설정 항목을 하나 줄인다.
+    // NAVER_BLOG_ID가 있으면 그것을 우선한다(다계정 운영 시).
+    let blogId = process.env.NAVER_BLOG_ID;
+    if (!blogId) {
+      await page.goto('https://blog.naver.com/MyBlog.naver', { waitUntil: 'domcontentloaded' });
+      blogId = page.url().match(/blog\.naver\.com\/([A-Za-z0-9_-]+)/)?.[1];
+      if (!blogId) throw new Error('세션에서 블로그 ID를 감지하지 못했습니다. NAVER_BLOG_ID를 설정하세요.');
+      console.log(`블로그 ID 자동 감지: ${blogId}`);
+    }
+
     await page.goto(`https://blog.naver.com/${blogId}/postwrite`, { waitUntil: 'domcontentloaded' });
 
     // 세션이 만료되면 에디터 대신 로그인 페이지가 뜬다. 에디터를 찾기 전에 확인해야
@@ -161,6 +200,16 @@ async function main(): Promise<void> {
 
     await page.screenshot({ path: shot, fullPage: true });
     console.log(`입력 완료. 스크린샷: ${shot}`);
+
+    // 발행 전 내용 검증 — 자동 발행의 전제.
+    // 셀렉터가 깨지면 클릭·타이핑이 조용히 빈 곳으로 가고, 그대로 발행하면 빈 글이 올라간다.
+    // 실제로 스마트에디터 구조 변경으로 3회 깨진 적이 있다. 에디터에서 값을 되읽어
+    // 초안과 대조한 뒤에만 발행 단계로 넘어간다.
+    const verdict = await verifyEditorContent(editor, draft);
+    if (verdict) {
+      throw new Error(`발행 전 검증 실패 — ${verdict}. 빈 글이 올라가지 않도록 중단한다.`);
+    }
+    console.log('발행 전 검증 통과 (제목·본문·링크 확인)');
 
     if (!publish) {
       console.log('\ndry-run 입니다. 브라우저에서 확인 후 직접 발행하세요.');
