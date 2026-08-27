@@ -46,6 +46,7 @@
     "tli:episode:peak-backfill": "tsx scripts/tli/ops/run-episode-peak-backfill.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-sesv2": "^3.1116.0",
     "@fontsource/noto-sans-kr": "^5.2.9",
     "@google/genai": "^1.30.0",
     "@radix-ui/react-slot": "^1.2.3",

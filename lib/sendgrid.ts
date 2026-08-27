@@ -1,4 +1,5 @@
 import sgMail from '@sendgrid/mail';
+import { sendOneEmailViaSes } from '@/lib/email/ses-mailer';
 
 /**
  * HTML 특수문자 이스케이프 (LLM 출력 삽입 시 XSS 방지)
@@ -119,24 +120,39 @@ export async function sendStockNewsletter(
   recipients: EmailRecipient[],
   data: StockNewsletterData
 ): Promise<void> {
-  // SendGrid 초기화 (API 키 + 발신자 정보 검증 포함)
-  initSendGrid();
+  // 발송 제공자 선택: EMAIL_PROVIDER=ses 이면 AWS SES, 그 외(미설정 포함)는 SendGrid.
+  // 기본이 SendGrid라 이 코드가 배포돼도 env를 바꾸기 전까지 동작은 그대로다(무위험 롤아웃).
+  const provider = (process.env.EMAIL_PROVIDER ?? 'sendgrid').toLowerCase();
+  if (provider !== 'ses') {
+    // SendGrid 초기화 (API 키 + 발신자 정보 검증 포함)
+    initSendGrid();
+  }
 
   const isCrash = parseCrashAlert(data.geminiAnalysis) !== null;
   const subject = isCrash
     ? `[Stock Matrix] ${data.date} 긴급 시장 분석`
     : `[Stock Matrix] ${data.date} AI 기술적 분석`;
+  const fromName = process.env.SENDGRID_FROM_NAME as string;
 
   try {
     // 각 수신자별로 개별 이메일 전송 (수신거부 링크 개인화)
     await Promise.all(
       recipients.map((recipient) => {
         const html = generateNewsletterHTML(data, recipient.email);
+        if (provider === 'ses') {
+          return sendOneEmailViaSes({
+            to: recipient.email,
+            fromEmail: (process.env.SES_FROM_EMAIL || process.env.SENDGRID_FROM_EMAIL) as string,
+            fromName,
+            subject,
+            html,
+          });
+        }
         return sgMail.send({
           to: recipient.email,
           from: {
             email: process.env.SENDGRID_FROM_EMAIL as string,
-            name: process.env.SENDGRID_FROM_NAME as string,
+            name: fromName,
           },
           subject,
           html,
@@ -144,9 +160,9 @@ export async function sendStockNewsletter(
       })
     );
 
-    console.log(`✅ 이메일 전송 완료: ${recipients.length}명`);
+    console.log(`✅ 이메일 전송 완료 (${provider}): ${recipients.length}명`);
   } catch (error) {
-    console.error('❌ SendGrid 이메일 전송 실패:', error);
+    console.error(`❌ 이메일 전송 실패 (${provider}):`, error);
     throw error;
   }
 }
