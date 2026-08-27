@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { siteConfig, schemaIds, ensureKSTTimezone, withOgImageVersion } from '@/lib/constants/seo/config'
+import { SCORE_COMPONENTS } from '@/lib/tli/constants/score-config'
 import { getServerSupabaseClient } from '@/lib/supabase/server-client'
 import { STAGE_CONFIG } from '@/lib/tli/types'
 import DetailContent from './_components/detail-content'
@@ -143,7 +144,20 @@ export default async function ThemeDetailPage({ params }: { params: Promise<{ id
       '@type': 'Thing',
       name: `${theme.name} 테마`,
       description: `한국 주식시장 ${theme.name} 관련 테마`,
+      // 라벨-값 그리드 — 화면에 보이는 수치와 같은 값만 넣는다.
+      additionalProperty: [
+        ...(theme.score != null ? [{ '@type': 'PropertyValue', name: '생명주기 점수', value: theme.score, maxValue: 100, minValue: 0 }] : []),
+        ...(stageKo ? [{ '@type': 'PropertyValue', name: '생명주기 단계', value: stageKo }] : []),
+        ...(theme.topStocks.length ? [{ '@type': 'PropertyValue', name: '주요 관련주', value: theme.topStocks.slice(0, 3).join(', ') }] : []),
+        { '@type': 'PropertyValue', name: '점수 가중치', value: SCORE_COMPONENTS.map((c) => `${c.label} ${c.weightLabel}`).join(' + ') },
+      ],
     },
+    // 어떤 공개 데이터에서 파생됐는지 밝힌다 — 인용 신뢰의 근거.
+    isBasedOn: [
+      { '@type': 'Dataset', name: '네이버 데이터랩 검색어 트렌드', url: 'https://datalab.naver.com/keyword/trendSearch.naver' },
+      { '@type': 'CreativeWork', name: '네이버 뉴스 검색', url: 'https://openapi.naver.com/' },
+    ],
+    citation: `${siteConfig.domain}/themes/methodology`,
     speakable: {
       '@type': 'SpeakableSpecification',
       xPath: ['/html/head/title', '/html/head/meta[@name=\'description\']/@content'],

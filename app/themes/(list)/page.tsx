@@ -4,6 +4,7 @@ import { siteConfig, withOgImageVersion } from '@/lib/constants/seo/config'
 import ThemesContent from '../_components/themes-content'
 import { getRankingServer } from '../_services/get-ranking-server'
 import { getKSTDateString } from '@/lib/tli/date-utils'
+import { SCORE_COMPONENTS } from '@/lib/tli/constants/score-config'
 
 /** 테마 목록 페이지 메타데이터 */
 export const metadata: Metadata = {
@@ -65,6 +66,9 @@ async function getActiveThemes() {
   }
 }
 
+/** JS 없이 노출하는 랭킹 행 수. 구조화 데이터도 같은 범위를 선언한다. */
+const SSR_ROW_COUNT = 20
+
 /** 테마 목록 페이지 */
 export default async function ThemesPage() {
   const asOfDate = getKSTDateString()
@@ -73,21 +77,43 @@ export default async function ThemesPage() {
     getRankingServer(asOfDate),
   ])
 
+  const allRanked = [
+    ...ranking.emerging,
+    ...ranking.growth,
+    ...ranking.peak,
+    ...ranking.decline,
+    ...ranking.reigniting,
+  ].sort((a, b) => b.score - a.score)
+
+  // 구조화 데이터는 JS 없이 실제로 노출되는 행(아래 sr-only 표)과 정확히 같은 범위를 선언한다.
+  const ssrRows = allRanked.slice(0, SSR_ROW_COUNT)
+
+  // 가중치 문구는 SCORE_COMPONENTS(= DEFAULT_TLI_PARAMS 파생)에서 만든다.
+  // 하드코딩하면 재최적화 때마다 방법론 페이지와 숫자가 어긋난다(실제로 어긋나 있었다).
+  const weightSummary = SCORE_COMPONENTS.map((c) => `${c.label} ${c.weightLabel}`).join(' + ')
+
   const itemListSchema = {
     '@context': 'https://schema.org',
     '@type': 'ItemList',
-    name: '주식 테마 생명주기 분석 목록',
-    description: 'AI가 분석하는 한국 주식시장 테마의 생명주기 점수와 단계',
-    numberOfItems: themes.length,
-    itemListElement: themes.map((theme, index) => ({
+    name: '주식 테마 생명주기 분석 랭킹',
+    description: `AI가 산출한 한국 주식시장 테마의 생명주기 점수와 단계 (${asOfDate} 기준, 점수 상위 ${ssrRows.length}개)`,
+    numberOfItems: ssrRows.length,
+    itemListOrder: 'https://schema.org/ItemListOrderDescending',
+    itemListElement: ssrRows.map((theme, index) => ({
       '@type': 'ListItem',
       position: index + 1,
       item: {
         '@type': 'Thing',
         '@id': `${siteConfig.domain}/themes/${theme.id}`,
         name: theme.name,
-        description: theme.description || `${theme.name} 테마 생명주기 분석`,
         url: `${siteConfig.domain}/themes/${theme.id}`,
+        // 라벨-값 그리드. 이름만 있는 목록은 답변엔진이 인용할 사실이 없다.
+        additionalProperty: [
+          { '@type': 'PropertyValue', name: '생명주기 점수', value: theme.score, maxValue: 100, minValue: 0 },
+          { '@type': 'PropertyValue', name: '생명주기 단계', value: theme.stageKo },
+          { '@type': 'PropertyValue', name: '주요 관련주', value: theme.topStocks.slice(0, 3).join(', ') },
+          { '@type': 'PropertyValue', name: '기준일', value: asOfDate },
+        ],
       },
     })),
   }
@@ -106,8 +132,16 @@ export default async function ThemesPage() {
     },
     temporalCoverage: `2024/..`,
     spatialCoverage: '대한민국',
+    // 신선도 신호. 매일 재계산되는 데이터인데 기준일이 없으면 답변엔진이 최신성을 판단할 수 없다.
+    dateModified: asOfDate,
+    // 1차 소스 표기 — 어떤 공개 데이터에서 파생됐는지 밝힌다.
+    isBasedOn: [
+      { '@type': 'Dataset', name: '네이버 데이터랩 검색어 트렌드', url: 'https://datalab.naver.com/keyword/trendSearch.naver' },
+      { '@type': 'CreativeWork', name: '네이버 뉴스 검색', url: 'https://openapi.naver.com/' },
+    ],
+    citation: `${siteConfig.domain}/themes/methodology`,
     variableMeasured: [
-      { '@type': 'PropertyValue', name: '생명주기 점수', description: '0~100 점수 (관심도 40% + 뉴스 모멘텀 35% + 활동 10% + 변동성 15%)' },
+      { '@type': 'PropertyValue', name: '생명주기 점수', description: `0~100 점수 (${weightSummary})`, maxValue: 100, minValue: 0 },
       { '@type': 'PropertyValue', name: '생명주기 단계', description: '초기(Early), 성장(Growth), 정점(Peak), 쇠퇴(Decay), 휴면(Dormant)' },
       { '@type': 'PropertyValue', name: '관련주 수', description: '테마에 속한 KOSPI·KOSDAQ 종목 수' },
     ],
@@ -127,14 +161,6 @@ export default async function ThemesPage() {
     ],
   }
 
-  const allRanked = [
-    ...ranking.emerging,
-    ...ranking.growth,
-    ...ranking.peak,
-    ...ranking.decline,
-    ...ranking.reigniting,
-  ].sort((a, b) => b.score - a.score)
-
   return (
     <>
       <script
@@ -151,13 +177,15 @@ export default async function ThemesPage() {
       <section className="sr-only" aria-label="테마 생명주기 분석 목록">
         <h2>한국 주식시장 테마 생명주기 분석</h2>
         <p>{themes.length}개 추적 테마 중 {ranking.summary.totalThemes}개 활성 테마의 AI 분석 랭킹. 네이버 검색 관심도, 뉴스 모멘텀, 주가 변동성을 종합하여 0~100점 점수와 5단계 생명주기를 산출합니다.</p>
+        <p>기준일: {asOfDate} (매일 갱신). 점수 가중치: {weightSummary}. 산출 과정은 <a href={`${siteConfig.domain}/themes/methodology`}>테마 추적 알고리즘</a>에 공개되어 있습니다.</p>
+        <p>데이터 출처: <a href="https://datalab.naver.com/keyword/trendSearch.naver">네이버 데이터랩 검색어 트렌드</a>, 네이버 뉴스 검색, KRX 시세.</p>
         {allRanked.length > 0 && (
           <table>
             <thead>
               <tr><th>테마명</th><th>점수</th><th>단계</th><th>주요 관련주</th></tr>
             </thead>
             <tbody>
-              {allRanked.slice(0, 20).map((t) => (
+              {ssrRows.map((t) => (
                 <tr key={t.id}>
                   <td>{t.name}</td>
                   <td>{t.score}/100</td>
