@@ -14,6 +14,13 @@ on:
         description: 'dry-run (입력만 하고 발행하지 않음)'
         type: boolean
         default: false
+      # 유형은 평소 KST 날짜에서 파생된다. 특정 유형을 러너에서 검증할 때만 강제한다
+      # (조건부 렌더 섹션·집계 캡션은 그 유형이 오는 날에만 밟는 경로다).
+      post_type:
+        description: '글 유형 강제 (비우면 날짜 파생)'
+        type: choice
+        default: ''
+        options: ['', theme, ranking, similar, news, evergreen]
 
 # 실패 시 이슈를 열려면 issues:write가 필요하다. 기본 권한(contents:read)만으로는
 # 403 "Resource not accessible by integration"이 나고, 무인 운영에서 실패 알림이
@@ -67,7 +74,13 @@ jobs:
           NAVER_AD_API_KEY: ${{ secrets.NAVER_AD_API_KEY }}
           NAVER_AD_SECRET_KEY: ${{ secrets.NAVER_AD_SECRET_KEY }}
           NAVER_AD_CREDS: ${{ secrets.NAVER_AD_CREDS }}
-        run: npx tsx scripts/naver-blog/make-draft.ts --out .naver-blog/draft.json
+        run: |
+          ARGS="--out .naver-blog/draft.json"
+          if [ -n "${{ inputs.post_type }}" ]; then
+            ARGS="$ARGS --type ${{ inputs.post_type }}"
+            echo "유형 강제: ${{ inputs.post_type }}"
+          fi
+          npx tsx scripts/naver-blog/make-draft.ts $ARGS
 
       # publish.ts가 발행 직전에 에디터 내용을 되읽어 초안과 대조한다.
       # 셀렉터가 깨지면 검증에서 걸려 발행 없이 실패하므로 빈 글이 올라가지 않는다.
