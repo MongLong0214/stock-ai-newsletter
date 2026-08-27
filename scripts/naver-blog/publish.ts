@@ -37,6 +37,7 @@ import {
   BLUE_HEX,
   detectBlogIdFromUrl,
   parseRich,
+  QUOTE_PREFIX,
   RED_HEX,
   RESET_HEX,
   resolveBlogId,
@@ -161,6 +162,22 @@ async function verifyEditorContent(editor: Frame, draft: Draft, insertedImages: 
   const got = Math.max(bodyOnly.length, 0);
   if (got < expected * 0.9) {
     return `본문이 잘림 (기대 ${expected}자의 90% 이상, 실제 본문 컴포넌트 ${got}자)`;
+  }
+
+  // 문장부호 유실 검출.
+  //
+  // 색상 팔레트 팝업이 열린 채로 다음 문자를 타이핑하면 첫 글자가 먹힌다. 실측에서
+  // 마침표 한 개가 사라져 두 문장이 한 줄로 붙은 채 공개됐다(logNo=224392242076).
+  // 길이 검증은 1자 차이로 걸리지 않으므로 마침표 수를 따로 센다.
+  // 인용구·URL 블록은 텍스트 컴포넌트에 안 들어가므로 기대값에서 뺀다.
+  const expectedTextBlocks = plainBody
+    .split(/\n{2,}/)
+    .map((b) => b.trim())
+    .filter((b) => b && !b.startsWith(QUOTE_PREFIX) && !/^https?:\/\/\S+$/.test(b));
+  const expectedPeriods = expectedTextBlocks.join(' ').split('.').length - 1;
+  const gotPeriods = bodyOnly.split('.').length - 1;
+  if (expectedPeriods > 0 && gotPeriods < expectedPeriods) {
+    return `문장부호 유실 (마침표 기대 ${expectedPeriods}개, 실제 ${gotPeriods}개) — 색상 팝업이 입력을 먹었을 수 있습니다`;
   }
 
   const lastTextBlock = plainBody
@@ -410,11 +427,27 @@ async function typeColor(page: Page, editor: Frame, color: 'b' | 'r', text: stri
   }
   await page.keyboard.type(text, { delay: 8 });
   await btn.click({ timeout: 3_000 }).catch(() => {});
-  await page.keyboard.press('Escape').catch(() => {}); // 팔레트 팝업이 남으면 다음 클릭을 가로챈다
+  await closeColorPopup(page, editor); // 팝업이 남으면 다음 입력의 첫 글자를 먹는다
   if ((await countColorDom(editor)) <= before) {
     throw new Error(`색상 적용이 DOM에 반영되지 않았습니다 (${hex}, "${text}") — 발행 중단`);
   }
   await resetTypingColor(page, editor);
+}
+
+/**
+ * 색상 팔레트 팝업을 닫고 닫힘을 확인한다.
+ *
+ * 팝업이 열린 채로 다음 문자를 타이핑하면 **첫 글자가 팝업에 먹힌다.** 실측:
+ * 발행글에서 `[[r:늘었습니다]].` 뒤의 마침표가 사라져 두 문장이 한 줄로 붙었다
+ * (logNo=224392242076, "늘었습니다 검색 관심도의 …"). 눈에 잘 띄지 않는 데다
+ * 길이 검증도 1자 차이로는 걸리지 않아 그대로 공개됐다.
+ */
+async function closeColorPopup(page: Page, editor: Frame): Promise<void> {
+  const palette = editor.locator('.se-color-palette').filter({ visible: true }).first();
+  if ((await palette.count()) === 0) return;
+  await page.keyboard.press('Escape').catch(() => {});
+  await palette.waitFor({ state: 'hidden', timeout: 3_000 }).catch(() => {});
+  await page.waitForTimeout(150);
 }
 
 async function resetTypingColor(page: Page, editor: Frame): Promise<void> {
@@ -423,9 +456,12 @@ async function resetTypingColor(page: Page, editor: Frame): Promise<void> {
   await btn.click({ timeout: 3_000 }).catch(() => {});
   await page.waitForTimeout(200);
   for (const hex of [RESET_HEX, '#333333', '#000000']) {
-    if (await pickPaletteColor(editor, hex)) return;
+    if (await pickPaletteColor(editor, hex)) {
+      await closeColorPopup(page, editor);
+      return;
+    }
   }
-  await page.keyboard.press('Escape').catch(() => {});
+  await closeColorPopup(page, editor);
 }
 
 async function typeRich(page: Page, editor: Frame, text: string): Promise<void> {
