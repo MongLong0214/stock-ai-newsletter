@@ -98,7 +98,11 @@ function parseJsonResponse(response: string): GeneratedContent {
  * 월이 1~12를 벗어나면 연월로 보지 않는다.
  */
 export function findFutureDateClaim(title: string, now: Date = new Date()): string | null {
-  const current = now.getFullYear() * 100 + (now.getMonth() + 1);
+  // KST로 환산한다. GitHub Actions 러너는 UTC라, KST 9월 1일 05:30(=UTC 8월 31일)에는
+  // 로컬 시간이 8월이어서 정상 제목 "(2026.09)"가 미래로 판정되고 그날 발행이 0건이 된다.
+  const kst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
+  const kstYear = kst.getUTCFullYear();
+  const current = kstYear * 100 + (kst.getUTCMonth() + 1);
 
   const withMonth = /(20\d{2})\s*[년.\-/]\s*(\d{1,2})\s*월?/g;
   for (const m of title.matchAll(withMonth)) {
@@ -109,7 +113,7 @@ export function findFutureDateClaim(title: string, now: Date = new Date()): stri
 
   // 연도만 표기된 경우 — "년"이 없어도 잡는다. "반도체 관련주 2027 전망"도 미래 표기다.
   for (const m of title.matchAll(/\b(20\d{2})\b/g)) {
-    if (Number(m[1]) > now.getFullYear()) return m[1];
+    if (Number(m[1]) > kstYear) return m[1];
   }
 
   return null;

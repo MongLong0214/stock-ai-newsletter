@@ -90,9 +90,19 @@ export function extractFigures(text: string): Set<string> {
   return new Set(matches.map((m) => m.replace(/[,]/g, '').replace(/\.0+$/, '')));
 }
 
-/** 수치에 붙는 단위 — 이게 바뀌면 다른 값이다 */
-const FIGURE_UNIT = '%|퍼센트|원|달러|배|억|만|조|천|건|일|년|월|주|개|명|포인트|bp|p';
-const FIGURE_TOKEN_RE = new RegExp(`(\\d[\\d,]*(?:\\.\\d+)?)\\s*(${FIGURE_UNIT})?`, 'g');
+/**
+ * 수치에 붙는 단위 — 이게 바뀌면 다른 값이다.
+ *
+ * 자릿수(억·만)와 단위(원·달러)를 나눠 받는다. 하나의 alternation으로 두면 정규식이
+ * 왼쪽부터 매칭해 `10억원`과 `10억달러`가 둘 다 `10억`으로 집계되고, 윤문이 원화를
+ * 달러로 바꿔도 "유실 없음"으로 통과한다.
+ */
+const FIGURE_SCALE = '조|억|만|천';
+const FIGURE_UNIT = '%|퍼센트|원|달러|엔|위안|배|건|일|년|월|주|개|명|포인트|bp';
+const FIGURE_TOKEN_RE = new RegExp(
+  `(\\d[\\d,]*(?:\\.\\d+)?)\\s*((?:${FIGURE_SCALE})?)\\s*((?:${FIGURE_UNIT})?)`,
+  'g',
+);
 
 /**
  * 단위까지 포함한 수치 토큰의 개수 맵.
@@ -110,7 +120,7 @@ export function countFigureTokens(text: string): Map<string, number> {
   const counts = new Map<string, number>();
   for (const m of withoutMarkers.matchAll(FIGURE_TOKEN_RE)) {
     const value = m[1].replace(/,/g, '').replace(/\.0+$/, '');
-    const token = `${value}${m[2] ?? ''}`;
+    const token = `${value}${m[2] ?? ''}${m[3] ?? ''}`;
     counts.set(token, (counts.get(token) ?? 0) + 1);
   }
   return counts;

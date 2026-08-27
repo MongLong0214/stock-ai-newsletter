@@ -90,3 +90,38 @@ describe('isClickbait — 활용형까지 잡는다', () => {
     }
   });
 });
+
+describe('findFutureDateClaim — KST 기준 (UTC 러너 회귀 방지)', () => {
+  it('KST로 9월이 됐으면 (2026.09)를 미래로 보지 않는다', () => {
+    // UTC 2026-08-31 20:30 == KST 2026-09-01 05:30. 크론이 도는 시각이다.
+    const utcRunner = new Date('2026-08-31T20:30:00Z');
+    expect(findFutureDateClaim('반도체 관련주 전망 (2026.09)', utcRunner)).toBeNull();
+  });
+
+  it('KST로도 아직 안 온 달은 미래로 잡는다', () => {
+    expect(findFutureDateClaim('반도체 관련주 전망 (2026.10)', new Date('2026-08-31T20:30:00Z'))).toBe('2026.10');
+  });
+});
+
+describe('countFigureTokens — 복합 단위', () => {
+  it('자릿수와 단위를 함께 묶어 원화·달러를 구분한다', () => {
+    const counts = countFigureTokens('매출 10억원과 수출 10억달러');
+    expect(counts.get('10억원')).toBe(1);
+    expect(counts.get('10억달러')).toBe(1);
+    expect(counts.get('10억')).toBeUndefined();
+  });
+});
+
+describe('checkYmyl 모호 출처 — 수식어 + 결과 조합', () => {
+  it('"최근 연구 결과에 따르면"을 잡는다', async () => {
+    const { checkYmyl } = await import('../ymyl-gate');
+    const v = await checkYmyl('최근 연구 결과에 따르면 응답자의 80% 이상이 그렇다.', '시장 분석');
+    expect(v.some((x) => x.rule === 'vague-source')).toBe(true);
+  });
+
+  it('기관명 인용은 계속 통과한다', async () => {
+    const { checkYmyl } = await import('../ymyl-gate');
+    const v = await checkYmyl('한국은행 통계에 따르면 금리가 동결됐다.', '시장 분석');
+    expect(v.filter((x) => x.rule === 'vague-source')).toHaveLength(0);
+  });
+});

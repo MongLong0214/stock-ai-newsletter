@@ -134,6 +134,7 @@ export async function fetchTLIContext(): Promise<TLIContext> {
           .in('theme_id', chunk)
           .eq('is_active', true)
           .order('relevance', { ascending: false })
+          .order('theme_id')
           .order('name')
           .range(from, to),
       ),
@@ -144,6 +145,7 @@ export async function fetchTLIContext(): Promise<TLIContext> {
           .in('theme_id', chunk)
           .gte('pub_date', getKSTDateString(-7))
           .order('pub_date', { ascending: false })
+          .order('theme_id')
           .order('title')
           .range(from, to),
       ),
@@ -153,6 +155,7 @@ export async function fetchTLIContext(): Promise<TLIContext> {
           .select('theme_id, keyword')
           .in('theme_id', chunk)
           .eq('is_primary', true)
+          .order('theme_id')
           .order('keyword')
           .range(from, to),
       ),

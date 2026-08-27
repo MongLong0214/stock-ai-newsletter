@@ -120,6 +120,7 @@ async function withTimeoutFallback<R>(p: Promise<R>, ms: number, fallback: R, la
  * 조회해 커밋됐으면 성공으로 판정한다 — 그러지 않으면 재실행이 같은 글을 또 쓴다.
  */
 async function saveWithReconcile(post: BlogPostCreateInput): Promise<void> {
+  const startedAt = Date.now();
   try {
     await withTimeout(saveBlogPost(post), TIMEOUTS.save, 'DB');
   } catch (e) {
@@ -128,8 +129,13 @@ async function saveWithReconcile(post: BlogPostCreateInput): Promise<void> {
     if (!err(e).includes('타임아웃')) throw e;
 
     const row = await findBlogPostStatus(post.slug).catch(() => null);
-    // 제목까지 대조해야 이번 upsert가 반영된 행인지 확인된다
     if (!row || row.title !== post.title) throw e;
+
+    // 제목만 보면 같은 날 같은 제목으로 만들어진 **이전** 행을 이번 저장으로 착각한다.
+    // updated_at이 이번 시도 이후여야 실제로 커밋된 것이다(시계 오차 5초 여유).
+    const updatedAt = Date.parse(row.updated_at ?? '');
+    if (!Number.isFinite(updatedAt) || updatedAt < startedAt - 5_000) throw e;
+
     console.warn(`[Pipeline] 저장 타임아웃이었으나 DB에 커밋됨 (${post.slug}, status=${row.status})`);
   }
 }
@@ -268,6 +274,16 @@ async function saveAndPublishPosts(posts: DraftSuccess[]): Promise<PipelineResul
 
   for (const draft of posts) {
     try {
+      // 상한을 한 번만 읽으면 로컬 실행과 Actions 실행이 겹칠 때 둘 다 0건을 읽고 각각 발행한다.
+      // 원자적 예약(RPC·트랜잭션)이 없는 동안은 발행 직전 재확인으로 창을 좁힌다.
+      const already = await countPublishedToday();
+      if (already >= MAX_DAILY_PUBLISH) {
+        const message = `하루 상한 도달 (${already}/${MAX_DAILY_PUBLISH}) — 남은 글은 발행하지 않는다`;
+        console.warn(`[Pipeline] ${message}`);
+        results.push({ success: false, error: message, metrics: draft.metrics });
+        continue;
+      }
+
       draft.blogPost.status = 'published';
       await saveWithReconcile(draft.blogPost);
       const saved = draft.blogPost;

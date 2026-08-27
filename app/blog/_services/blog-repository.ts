@@ -21,11 +21,16 @@ export async function saveBlogPost(
   // upsert(onConflict:'slug')는 같은 슬러그를 만나면 기존 행을 통째로 갈아엎는다.
   // 초안 저장이 이미 공개된 글을 draft로 내리면 색인된 URL이 404가 되고 되돌릴 수 없다.
   // generateSlug의 해시 접미사로 충돌 확률은 없앴지만, 여기서 한 번 더 막는다.
-  const { data: existing } = await supabase
+  const { data: existing, error: lookupError } = await supabase
     .from('blog_posts')
     .select('status')
     .eq('slug', input.slug)
     .maybeSingle<{ status: string }>();
+
+  // 조회 실패를 "행 없음"으로 읽으면 그 순간 보호가 사라진다 — 공개글을 덮어쓸 수 있다
+  if (lookupError) {
+    throw new Error(`슬러그 충돌 확인 실패(${input.slug}): ${lookupError.message} — 저장을 중단한다`);
+  }
 
   // published 행은 어떤 경우에도 파이프라인이 덮어쓰지 않는다. draft로 내리는 것뿐 아니라
   // published→published 갱신도 막는다 — 살아 있는 본문이 통째로 교체되고 되돌릴 수 없다.
@@ -97,13 +102,15 @@ export async function countPublishedToday(now: number = Date.now()): Promise<num
  * withTimeout은 Promise.race라 요청을 취소하지 못한다. 로컬 30초가 먼저 끊겨도
  * 서버는 31초에 커밋할 수 있고, 그러면 "저장 실패"로 기록된 글이 실제로는 공개돼 있다.
  */
-export async function findBlogPostStatus(slug: string): Promise<{ status: string; title: string } | null> {
+export async function findBlogPostStatus(
+  slug: string,
+): Promise<{ status: string; title: string; updated_at: string | null } | null> {
   const supabase = getServerSupabaseClient();
   const { data } = await supabase
     .from('blog_posts')
-    .select('status, title')
+    .select('status, title, updated_at')
     .eq('slug', slug)
-    .maybeSingle<{ status: string; title: string }>();
+    .maybeSingle<{ status: string; title: string; updated_at: string | null }>();
   return data ?? null;
 }
 
