@@ -125,8 +125,9 @@ function resolveHumanized(
   const after = calculateQualityScore(humanized, keyword, analysis);
 
   if (after < QUALITY_MIN_SCORE && before >= QUALITY_MIN_SCORE) {
-    console.warn(`[Humanize] 품질 점수 하락 (${before} → ${after} < ${QUALITY_MIN_SCORE}) — 원문 유지`);
-    return original;
+    // 이전에는 원문(AI 문체)으로 되돌려 발행했다 — "윤문 안 된 글 발행 금지" 불변과 모순.
+    // 윤문이 품질을 임계 밑으로 떨어뜨렸으면 그 글은 버린다.
+    throw new Error(`윤문 후 품질 미달 (${before} → ${after} < ${QUALITY_MIN_SCORE}) — 발행하지 않는다`);
   }
 
   if (after !== before) console.log(`[Humanize] 품질 점수 갱신 ${before} → ${after}`);
@@ -141,6 +142,11 @@ async function generateDraft(keyword: string, type: 'comparison' | 'guide' | 'li
   const metrics: PipelineMetrics = { totalTime: 0, pagesScraped: 0 };
 
   try {
+    // 브레이커가 열렸으면 SERP·스크래핑·생성 비용을 쓰기 전에 중단한다
+    if (humanizeDisabled) {
+      throw new Error('윤문 서킷브레이커 열림 — 남은 초안 생성 중단');
+    }
+
     const searchResults = await withTimeoutFallback(searchGoogle(keyword, 5), TIMEOUTS.search, [], 'Search');
     // 근거 수집 실패 = 초안 보류. 검색 결과 없이 진행하면 금융 사실을 모델 기억으로 쓴다 —
     // 출처 없는 통계("정부 통계에 따르면 200% 급증")가 발행된 실제 경로였다.
@@ -160,13 +166,7 @@ async function generateDraft(keyword: string, type: 'comparison' | 'guide' | 'li
     const analysis = analyzeCompetitors(scraped, keyword);
     const generated = await withTimeout(generateBlogContent(keyword, analysis, type), TIMEOUTS.generate, 'AI');
 
-    // 윤문은 필수 게이트다. 이전에는 윤문 실패 시 AI 문체 그대로 발행했지만
-    // (서킷브레이커 열림 = 원문 발행), YMYL에서 윤문 안 된 글은 발행하지 않는 게 맞다.
-    // 서킷브레이커는 이제 "원문으로 발행"이 아니라 "남은 초안 생성 중단(비용 절약)"을 의미한다.
-    if (humanizeDisabled) {
-      throw new Error('윤문 서킷브레이커 열림 — 이 초안은 발행하지 않는다');
-    }
-
+    // 윤문은 필수 게이트다. 실패는 발행 금지, 의도적 스킵(킬스위치)만 원문 통과.
     let outcome;
     try {
       outcome = await withTimeout(humanizeGeneratedContent(generated, keyword), TIMEOUTS.humanize, 'Humanize');
@@ -177,13 +177,16 @@ async function generateDraft(keyword: string, type: 'comparison' | 'guide' | 'li
 
     // humanizeText는 내부 에러·가드 반려를 흡수하고 원문을 돌려주므로(accepted=false),
     // 여기서 명시적으로 실패 처리해야 서킷브레이커가 실제 실패를 센다.
-    if (!outcome.accepted) {
+    if (!outcome.accepted && !outcome.skipped) {
       registerHumanizeFailure();
       throw new Error('윤문 미채택(반려/에러) — 윤문 안 된 글은 발행하지 않는다');
     }
     humanizeConsecutiveFailures = 0;
 
-    const content = resolveHumanized(generated, outcome.content, keyword, analysis);
+    // skipped(킬스위치·짧은 본문)면 원문으로 진행 — 운영자의 명시적 선택이다
+    const content = outcome.skipped
+      ? generated
+      : resolveHumanized(generated, outcome.content, keyword, analysis);
 
     // YMYL 결정적 게이트 — 모호 출처·투자 권유 단정·브랜드 남용·유령 종목.
     // 위반 시 재생성하지 않고 그 슬롯을 비운다.

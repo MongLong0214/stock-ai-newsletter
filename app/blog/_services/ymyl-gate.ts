@@ -9,13 +9,16 @@
 
 import { getServerSupabaseClient } from '@/lib/supabase/server-client';
 import { fetchAllRows } from '@/lib/supabase/paginate';
+import { RELATED_STOCK_RE } from './cluster-guard';
 
 /**
  * 모호 출처 인용 — 기관명 없이 통계를 주장하는 패턴.
  * 실측 사례를 그대로 잡는다: "정부 통계에 따르면 … 200% 급증", "통계에 따르면 80% 이상".
  * 구체 기관("금융감독원에 따르면", "한국거래소 자료에 따르면")은 걸리지 않는다.
  */
-const VAGUE_SOURCE_RE = /(정부\s*통계|한\s*조사|모\s*기관|업계|통계|연구\s*결과|조사\s*결과)에\s*따르면/;
+// (?<![가-힣] ?) — 앞에 한글(기관명)이 붙으면 구체 인용이므로 통과: "한국은행 통계에 따르면" OK.
+// 문장 첫머리나 비한글 뒤의 맨몸 "통계에 따르면"류만 모호 출처로 잡는다.
+const VAGUE_SOURCE_RE = /(정부\s*통계|모\s*기관|(?<![가-힣] ?)(?:한 조사|업계|통계|연구\s*결과|조사\s*결과))에\s*따르면/;
 
 /**
  * 매수·수익 단정 — 자본시장법상 투자권유·유사투자자문 경계 표현.
@@ -33,8 +36,6 @@ export const BRAND_MENTION_LIMIT = 1;
 
 /** 관련주류 글에서 실재 종목 최소 수 — 이 미만이면 근거 없는 리스트다 */
 export const MIN_REAL_STOCKS_FOR_LISTICLE = 3;
-
-const RELATED_STOCK_KEYWORD_RE = /관련주|수혜주|대장주|테마주/;
 
 export interface YmylViolation {
   readonly detail: string;
@@ -102,7 +103,7 @@ export async function checkYmyl(
     });
   }
 
-  if (RELATED_STOCK_KEYWORD_RE.test(targetKeyword)) {
+  if (RELATED_STOCK_RE.test(targetKeyword)) {
     const stockNames = await loadActiveStockNames();
     if (!stockNames) {
       // fail-closed: 검증할 수 없으면 발행하지 않는다. YMYL 게이트는 향상 장치가 아니라 안전장치다.

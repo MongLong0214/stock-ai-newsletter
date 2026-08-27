@@ -137,7 +137,8 @@ async function generateKeywordsWithAI(
       if (kw.keyword.length > 40) continue;
       if (isDuplicate(kw.keyword, allExistingKeywords, existingTitles)) continue;
 
-      // 관련주 클러스터는 전 기간 대비 차단 — 같은 테마 관련주 글은 새 URL이 아니라 갱신 대상
+      // 관련주 클러스터는 전 기간 대비 차단 — 같은 테마 관련주 글은 새 URL이 아니라 갱신 대상.
+      // 같은 run에서 먼저 통과한 키워드도 대조 대상이다 (한 배치에 같은 클러스터 변주가 옴).
       const collision = findClusterCollision(kw.keyword, allTimeKeywords);
       if (collision) {
         console.log(`[KeywordGen] 클러스터 중복 차단: "${kw.keyword}" ≈ 기존 "${collision}"`);
@@ -146,6 +147,7 @@ async function generateKeywordsWithAI(
 
       validKeywords.push(kw);
       allExistingKeywords.push(kw.keyword.toLowerCase().trim());
+      allTimeKeywords.push(kw.keyword.toLowerCase().trim());
     }
 
     return validKeywords;
@@ -173,7 +175,8 @@ async function applySearchVolumeGate(keywords: KeywordMetadata[]): Promise<Keywo
     return keywords;
   }
 
-  const normalize = (k: string) => k.replace(/\s+/g, '');
+  // 네이버는 relKeyword의 ASCII를 대문자로 돌려준다 — 케이스 폴딩 없이는 영문 키워드(RSI·ETF·PER)가 전부 미매칭
+  const normalize = (k: string) => k.replace(/\s+/g, '').toUpperCase();
   const passed: KeywordMetadata[] = [];
 
   for (let i = 0; i < keywords.length; i += HINT_KEYWORD_LIMIT) {
@@ -227,13 +230,19 @@ export async function generateKeywords(
         tliContext,
       );
 
-      newKeywords.forEach((kw) => {
+      // 볼륨 게이트를 루프 안에서 배치별로 적용 — 게이트 탈락이 재생성을 트리거해야
+      // 남은 재시도 횟수가 실제로 쓰인다 (루프 밖에 두면 탈락분만큼 그냥 모자란 채 끝난다)
+      const passed = await applySearchVolumeGate(newKeywords);
+      passed.forEach((kw) => {
         keywordMap.set(kw.keyword.toLowerCase(), kw);
         usedContent.keywords.push(kw.keyword);
       });
+      if (passed.length < newKeywords.length) {
+        console.log(`[KeywordGen] 시도 ${attempt}: ${newKeywords.length}개 중 ${passed.length}개 게이트 통과`);
+      }
     }
 
-    const allKeywords = await applySearchVolumeGate(Array.from(keywordMap.values()));
+    const allKeywords = Array.from(keywordMap.values());
     const scoreMap = new Map(allKeywords.map((kw) => [kw.keyword, calculateSEOScore(kw)]));
     const sortedKeywords = [...allKeywords].sort(
       (a, b) => (scoreMap.get(b.keyword) ?? 0) - (scoreMap.get(a.keyword) ?? 0)

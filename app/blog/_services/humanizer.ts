@@ -252,8 +252,10 @@ export async function humanizeText(content: string, targetKeyword: string): Prom
  * @param targetKeyword - SEO 타겟 키워드
  */
 export interface HumanizeOutcome {
-  /** 윤문본이 채택됐는가. false면 content는 원문 그대로다(반려·에러·비활성 모두 포함). */
+  /** 윤문본이 채택됐는가. false면 content는 원문 그대로다. */
   readonly accepted: boolean;
+  /** 의도적 스킵(BLOG_HUMANIZE=off, 본문 최소길이 미달) — 실패가 아니므로 발행을 막지 않는다 */
+  readonly skipped: boolean;
   readonly content: GeneratedContent;
 }
 
@@ -266,7 +268,12 @@ export async function humanizeGeneratedContent(
   content: GeneratedContent,
   targetKeyword: string
 ): Promise<HumanizeOutcome> {
+  // 운영자가 명시적으로 끈 경우(BLOG_HUMANIZE=off)와 본문이 짧아 윤문 대상이 아닌 경우는
+  // "실패"가 아니라 "스킵"이다 — 이걸 실패로 치면 킬스위치가 파이프라인 전체를 세운다.
+  if (!isEnabled() || content.content.length < HUMANIZE_CONFIG.minContentLength) {
+    return { accepted: false, skipped: true, content };
+  }
   const humanized = await humanizeText(content.content, targetKeyword);
   const accepted = humanized !== content.content;
-  return { accepted, content: accepted ? { ...content, content: humanized } : content };
+  return { accepted, skipped: false, content: accepted ? { ...content, content: humanized } : content };
 }

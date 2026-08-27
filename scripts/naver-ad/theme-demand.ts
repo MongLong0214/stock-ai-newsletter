@@ -48,8 +48,8 @@ export function chunk<T>(items: readonly T[], size: number): T[][] {
   return out;
 }
 
-/** 힌트 키워드는 공백이 무시되므로 조회 결과와 테마명을 맞출 때도 같은 정규화를 쓴다. */
-export const normalize = (s: string) => s.replace(/\s+/g, '');
+/** 힌트 키워드는 공백이 무시되고 ASCII는 대문자로 돌아온다 — 같은 정규화로 맞춘다. */
+export const normalize = (s: string) => s.replace(/\s+/g, '').toUpperCase();
 
 /** 조회 결과에서 테마명과 "<테마>관련주" 두 축의 검색량을 뽑는다. */
 export function pickVolumes(theme: string, rows: readonly KeywordVolume[]) {

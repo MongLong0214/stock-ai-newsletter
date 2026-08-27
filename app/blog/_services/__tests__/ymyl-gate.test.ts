@@ -25,6 +25,16 @@ describe('checkYmyl — 실제 발행물에서 나온 문제를 재현해 잡는
     expect(v.filter((x) => x.rule === 'vague-source')).toHaveLength(0);
   });
 
+  it('기관명이 붙은 "통계에 따르면"은 통과한다 (오탐 회귀 방지)', async () => {
+    for (const ok of ['한국은행 통계에 따르면 금리가 동결됐다.', '한국갤럽 조사 결과에 따르면 응답자의 60%가 찬성했다.']) {
+      const v = await checkYmyl(ok, '시장 분석');
+      expect(v.filter((x) => x.rule === 'vague-source'), ok).toHaveLength(0);
+    }
+    // 맨몸 "통계에 따르면"은 여전히 잡는다
+    const bad = await checkYmyl('통계에 따르면 직장인의 80% 이상이 그렇다.', '시장 분석');
+    expect(bad.some((x) => x.rule === 'vague-source')).toBe(true);
+  });
+
   it('투자 권유 단정을 잡는다', async () => {
     const v = await checkYmyl('전문가들은 지금 매수 타이밍이라고 본다. 목표가 85,000원.', '전망');
     expect(v.some((x) => x.rule === 'solicitation')).toBe(true);
