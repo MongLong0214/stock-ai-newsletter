@@ -17,6 +17,13 @@ const nextConfig: NextConfig = {
         source: '/:path*',
         headers: [
           {
+            // Vercel 기본값은 max-age만 붙는다. www가 유효한 인증서를 갖게 된 뒤에야
+            // includeSubDomains를 켤 수 있다 — 그 전에 켰다면 www를 접속 불가로 만들었다.
+            // preload는 등재 후 해제에 수개월이 걸리므로 hstspreload.org 제출 시점에 추가한다.
+            key: 'Strict-Transport-Security',
+            value: 'max-age=63072000; includeSubDomains',
+          },
+          {
             key: 'X-Frame-Options',
             value: 'DENY',
           },
