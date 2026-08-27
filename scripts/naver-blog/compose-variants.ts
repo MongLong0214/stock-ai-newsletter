@@ -49,18 +49,26 @@ export function composeRanking(rows: readonly RankingRow[], asOf: string, siteUr
     slot('1-hero'),
 
     `${QUOTE}점수 상위 ${top.length}개 테마`,
+    // 목록 항목에는 볼드를 쓰지 않는다.
+    //
+    // 번호 목록은 한 블록 안에서 `\n`으로 항목을 나누므로, 항목의 볼드는 **줄바꿈 직후
+    // 문단 시작 지점**에 놓인다. 그 위치의 서식 적용은 스마트에디터에서 신뢰할 수 없다
+    // (실측: 캐럿만 둔 토글은 다음 입력에 안 붙고, 선택 방식도 문단 경계에서 어긋난다).
+    // 볼드는 산문 문단에서만 쓴다 — 목록을 평문으로 둬도 규격(10~20회)을 만족한다.
+    // 조작 수를 줄이는 것이 최선의 안정화다(SMARTEDITOR-AUTOMATION-NOTES.md §6).
     top
       .map((r, i) => {
         const arrow = r.change > 0 ? `▲${r.change}` : r.change < 0 ? `▼${Math.abs(r.change)}` : '—';
-        const name = i < 3 ? b(r.name) : r.name;
-        return `${numerals[i]} ${name} ${r.score}점 (${r.stageKo}, ${arrow})`;
+        return `${numerals[i]} ${r.name} ${r.score}점 (${r.stageKo}, ${arrow})`;
       })
       .join('\n'),
     slot('2-section'),
 
     `${QUOTE}상위 3개 테마 상세`,
     ...top.slice(0, 3).map((r, i) =>
-      `${numerals[i]} ${b(r.name)}\n` +
+      // 블록 시작 지점의 볼드는 스마트에디터에서 신뢰할 수 없다 — 테마명은 평문으로 두고
+      // 뒤쪽 산문의 점수·단계만 강조한다(아래 §목록 항목 주석 참조).
+      `${numerals[i]} ${r.name}\n` +
       `점수 ${b(`${r.score}점`)}, 단계는 ${b(r.stageKo)}입니다. ` +
       `최근 7일 변화는 ${r.change >= 0 ? `+${r.change}` : `${r.change}`}점으로, ` +
       `${r.change > 0 ? '관심이 늘고 있는' : r.change < 0 ? '관심이 줄고 있는' : '큰 변화가 없는'} 구간입니다.`,
@@ -68,14 +76,14 @@ export function composeRanking(rows: readonly RankingRow[], asOf: string, siteUr
     slot('3-section'),
 
     `${QUOTE}점수는 무엇을 재나`,
-    '생명주기 점수는 네이버 검색 관심도, 뉴스 모멘텀, 관련 종목의 활동성과 변동성 네 가지를 ' +
-      '가중 합산한 0~100 사이 값입니다. 절대값과 최근 추세를 함께 보고 초기·성장·정점·쇠퇴·휴면 ' +
-      '다섯 단계 중 하나로 분류합니다.',
+    '생명주기 점수는 네이버 검색 관심도, 뉴스 모멘텀, 관련 종목의 활동성과 변동성 ' +
+      `${b('네 가지')}를 가중 합산한 ${b('0~100 사이 값')}입니다. 절대값과 최근 추세를 함께 보고 ` +
+      '초기·성장·정점·쇠퇴·휴면 다섯 단계 중 하나로 분류합니다.',
     '초기는 관심이 막 생기기 시작한 구간, 성장은 검색과 뉴스가 함께 늘어나는 구간입니다. ' +
       '정점은 점수가 가장 높은 지점이고, 쇠퇴는 관심이 줄어드는 구간, 휴면은 활동이 ' +
       '거의 없는 상태를 뜻합니다. 같은 60점이라도 오르는 중이면 성장, 내리는 중이면 쇠퇴가 됩니다.',
     '네이버 데이터랩에서 테마 키워드의 검색 추이를, 네이버 뉴스에서 관련 기사 건수를, ' +
-      'KRX에서 관련 종목의 시세와 거래량을 매일 수집합니다. 수집 범위는 최근 30일이며, ' +
+      `KRX에서 관련 종목의 시세와 거래량을 매일 수집합니다. 수집 범위는 ${b('최근 30일')}이며, ` +
       '데이터가 부족한 테마는 점수를 내지 않고 비활성으로 둡니다.',
     '점수가 높다고 좋은 것도, 낮다고 나쁜 것도 아닙니다. 테마가 시장의 관심을 받는 ' +
       '주기 어디쯤에 있는지를 나타내는 값입니다. 7일 이동평균과 30일 기준선을 비교해 ' +
@@ -133,7 +141,8 @@ export function composeSimilar(
 
     `${QUOTE}비교 대상 ${top.length}건`,
     ...top.map((r, i) =>
-      `${numerals[i]} ${b(r.pastTheme)} · 유사도 ${b(`${(r.similarity * 100).toFixed(0)}%`)}\n` +
+      // 블록 시작 지점의 볼드는 피한다 — 유사도만 강조한다
+      `${numerals[i]} ${r.pastTheme} · 유사도 ${b(`${(r.similarity * 100).toFixed(0)}%`)}\n` +
       `이 테마는 관심 발생 후 ${r.pastPeakDay}일째에 점수가 가장 높았고, ` +
       `한 사이클이 ${r.pastTotalDays}일 동안 이어졌습니다. ` +
       `현재 ${themeName}이 지나온 ${r.currentDay}일과 비교하면 ` +
@@ -288,8 +297,9 @@ export function composeNews(
     picked
       .map((n, i) => {
         const meta = [pressOf(n), shortDate(dateOf(n))].filter(Boolean).join(' · ');
-        const title = i < 4 ? b(n.title.trim()) : n.title.trim();
-        return `${numerals[i]} ${title}${meta ? `\n${meta}` : ''}`;
+        // 기사 제목은 블록 시작 지점이라 볼드를 쓰지 않는다(위 목록 항목 주석 참조).
+        // 뉴스 글의 볼드는 기사량·점수를 다루는 산문 문단에서 채운다.
+        return `${numerals[i]} ${n.title.trim()}${meta ? `\n${meta}` : ''}`;
       })
       .join('\n\n'),
     slot('4-news'),
@@ -299,8 +309,8 @@ export function composeNews(
       `${themeName}은 이번 주 ${b(`${thisWeek}건`)}, 지난주 ${b(`${lastWeek}건`)}으로 ` +
       `${diff > 0 ? '기사량이 늘었습니다' : diff < 0 ? '기사량이 줄었습니다' : '기사량이 같습니다'}. ` +
       `건수 자체보다 이전 기간 대비 얼마나 달라졌는지를 봅니다.`,
-    '기사량이 늘었다는 것은 그 테마가 언론에서 다뤄지는 빈도가 높아졌다는 사실만을 ' +
-      '뜻합니다. 기사의 논조나 내용은 반영하지 않습니다. 같은 사안을 여러 매체가 ' +
+    `기사량이 늘었다는 것은 그 테마가 언론에서 다뤄지는 ${b('빈도')}가 높아졌다는 사실만을 ` +
+      `뜻합니다. 기사의 ${b('논조나 내용은 반영하지 않습니다')}. 같은 사안을 여러 매체가 ` +
       '동시에 다루면 건수가 급증할 수 있고, 그 뒤 조용해지면 다시 빠르게 줄어듭니다.',
     presses.length
       ? `위 기사를 보도한 매체는 ${b(presses.slice(0, 6).join(', '))}${presses.length > 6 ? ` 외 ${presses.length - 6}곳` : ''}입니다. ` +
@@ -314,7 +324,7 @@ export function composeNews(
 
     `${QUOTE}뉴스가 점수에 반영되는 방식`,
     '생명주기 점수는 네이버 검색 관심도, 뉴스 모멘텀, 관련 종목의 활동성과 변동성 ' +
-      '네 가지를 가중 합산한 0~100 사이 값입니다. 뉴스 모멘텀은 그중 하나이며, ' +
+      `${b('네 가지')}를 가중 합산한 ${b('0~100 사이 값')}입니다. 뉴스 모멘텀은 그중 하나이며, ` +
       '기사량 하나로 점수가 정해지지는 않습니다.',
     slot('2-stocks-b'),
     '기사량이 늘어도 검색 관심도가 따라오지 않으면 점수 상승 폭은 제한적입니다. ' +

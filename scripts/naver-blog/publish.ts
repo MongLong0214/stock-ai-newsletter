@@ -343,207 +343,16 @@ export function stripMarkers(text: string): string {
   return stripFormat(text);
 }
 
-async function countBoldDom(editor: Frame): Promise<number> {
-  return editor.evaluate(() => {
-    let count = 0;
-    for (const el of document.querySelectorAll('.se-component:not(.se-section-documentTitle) span, .se-component b, .se-component strong')) {
-      const weight = getComputedStyle(el).fontWeight;
-      if (parseInt(weight, 10) >= 600 || weight === 'bold') count += 1;
-    }
-    return count;
-  });
-}
 
-/**
- * 색상 적용 실측 — 개수와 **글자 수**를 함께 센다.
- *
- * 개수만 세면 리셋 실패로 문단 전체가 빨강이 되어도 "색상 N개"로 통과한다
- * (실측 보고서에 빨강 번짐이 기록돼 있다). 색상 글자 수가 초안 마커의 글자 수보다
- * 크게 많으면 번진 것이다.
- */
-async function measureColorDom(editor: Frame): Promise<{ chars: number; count: number }> {
-  return editor.evaluate(() => {
-    let count = 0;
-    let chars = 0;
-    for (const el of document.querySelectorAll('.se-component span, .se-component font')) {
-      const color = getComputedStyle(el).color;
-      const match = color.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
-      if (!match) continue;
-      const r = Number(match[1]);
-      const g = Number(match[2]);
-      const b = Number(match[3]);
-      const red = r > 180 && g < 90 && b < 90;
-      const blue = b > 150 && r < 90 && g < 140;
-      if (!red && !blue) continue;
-      // 중첩 span을 이중 계산하지 않는다 — 같은 색의 자식이 있으면 부모는 건너뛴다
-      if (el.querySelector('span, font')) continue;
-      count += 1;
-      chars += (el.textContent ?? '').replace(/\s+/g, '').length;
-    }
-    return { chars, count };
-  });
-}
 
-async function countColorDom(editor: Frame): Promise<number> {
-  return (await measureColorDom(editor)).count;
-}
 
-async function typeBold(page: Page, editor: Frame, text: string): Promise<void> {
-  await assertBodyFormattingToolbar(editor, '볼드');
-  const before = await countBoldDom(editor);
-  const tryOnce = async (mod: string) => {
-    await page.keyboard.press(`${mod}+b`);
-    await page.keyboard.type(text, { delay: 8 });
-    await page.keyboard.press(`${mod}+b`);
-  };
-  await tryOnce(process.platform === 'darwin' ? 'Meta' : 'Control');
-  if ((await countBoldDom(editor)) > before) return;
 
-  await tryOnce(process.platform === 'darwin' ? 'Control' : 'Meta');
-  if ((await countBoldDom(editor)) > before) return;
 
-  const btn = editor.locator(SEL.boldButton).filter({ visible: true }).first();
-  if ((await btn.count()) > 0) {
-    await btn.click({ timeout: 5_000 });
-    await page.keyboard.type(text, { delay: 8 });
-    await btn.click({ timeout: 5_000 }).catch(() => {});
-    if ((await countBoldDom(editor)) > before) return;
-  }
-  throw new Error(`볼드 적용 실패 ("${text.slice(0, 20)}") — 단축키·툴바 모두 실패, 발행 중단`);
-}
 
-async function pickPaletteColor(editor: Frame, hex: string): Promise<boolean> {
-  // 반드시 팔레트 셀 안에서만 찾는다.
-  //
-  // 예전 구현은 실패 시 문서 전체(button/span/div/i/em)에서 배경색 근사 매칭으로
-  // 아무 요소나 클릭했다. 실측에서 그 폴백이 툴바의 「번역」 버튼을 눌러 Papago 모달이
-  // 본문을 덮었고, 이후 이미지 삽입이 filechooser 타임아웃으로 전부 실패했다.
-  // 팔레트 셀은 `.se-color-palette` + `data-color`(2026-08-27 실측 71개)로 특정된다.
-  const exact = editor
-    .locator(`.se-color-palette[data-color="${hex}"], [data-color="${hex}"].se-color-palette`)
-    .filter({ visible: true })
-    .first();
-  if ((await exact.count()) > 0) {
-    await exact.click({ timeout: 5_000 });
-    return true;
-  }
 
-  // 팔레트 안에서만 근사 매칭한다. 팔레트에 없는 색을 상수로 잡아둔 경우를 위한 안전망이며,
-  // 이 경로를 타면 경고를 남겨 상수를 실측값으로 고치게 한다.
-  const nearest = await editor.evaluate((targetHex) => {
-    const n = parseInt(targetHex.slice(1), 16);
-    const target = [(n >> 16) & 255, (n >> 8) & 255, n & 255];
-    let best: { el: HTMLElement; dist: number } | null = null;
-    for (const el of document.querySelectorAll('.se-color-palette[data-color]')) {
-      if (!(el instanceof HTMLElement)) continue;
-      const cellHex = el.getAttribute('data-color') ?? '';
-      if (!/^#[0-9a-fA-F]{6}$/.test(cellHex)) continue;
-      const c = parseInt(cellHex.slice(1), 16);
-      const dist =
-        Math.abs(((c >> 16) & 255) - target[0]) +
-        Math.abs(((c >> 8) & 255) - target[1]) +
-        Math.abs((c & 255) - target[2]);
-      if (!best || dist < best.dist) best = { el, dist };
-    }
-    if (!best || best.dist > 90) return null;
-    best.el.click();
-    return best.el.getAttribute('data-color');
-  }, hex);
 
-  if (nearest) {
-    console.warn(`[Publish] 팔레트에 ${hex}가 없어 ${nearest}로 대체했습니다 — 상수를 실측값으로 고치세요`);
-    return true;
-  }
-  return false;
-}
 
-async function typeColor(page: Page, editor: Frame, color: 'b' | 'r', text: string): Promise<void> {
-  const hex = color === 'r' ? RED_HEX : BLUE_HEX;
-  await assertBodyFormattingToolbar(editor, `색상 ${hex}`);
-  const btn = editor.locator(SEL.colorButton).filter({ visible: true }).first();
-  if ((await btn.count()) === 0) {
-    throw new Error('색상 툴바를 찾지 못했습니다 — 볼드로 강등하지 않고 발행을 중단합니다');
-  }
-  const before = await countColorDom(editor);
-  await btn.click({ timeout: 5_000 });
-  await page.waitForTimeout(300);
-  if (!(await pickPaletteColor(editor, hex))) {
-    await page.keyboard.press('Escape').catch(() => {});
-    throw new Error(`색상 ${hex} 팔레트 셀을 찾지 못했습니다 — 발행 중단`);
-  }
-  await page.keyboard.type(text, { delay: 8 });
-  await btn.click({ timeout: 3_000 }).catch(() => {});
-  await closeColorPopup(page, editor); // 팝업이 남으면 다음 입력의 첫 글자를 먹는다
-  if ((await countColorDom(editor)) <= before) {
-    throw new Error(`색상 적용이 DOM에 반영되지 않았습니다 (${hex}, "${text}") — 발행 중단`);
-  }
-  await resetTypingColor(page, editor);
-}
 
-/**
- * 색상 팔레트 팝업을 닫고 닫힘을 확인한다.
- *
- * 팝업이 열린 채로 다음 문자를 타이핑하면 **첫 글자가 팝업에 먹힌다.** 실측:
- * 발행글에서 `[[r:늘었습니다]].` 뒤의 마침표가 사라져 두 문장이 한 줄로 붙었다
- * (logNo=224392242076, "늘었습니다 검색 관심도의 …"). 눈에 잘 띄지 않는 데다
- * 길이 검증도 1자 차이로는 걸리지 않아 그대로 공개됐다.
- */
-async function closeColorPopup(page: Page, editor: Frame): Promise<void> {
-  const palette = editor.locator('.se-color-palette').filter({ visible: true }).first();
-  if ((await palette.count()) > 0) {
-    await page.keyboard.press('Escape').catch(() => {});
-    await palette.waitFor({ state: 'hidden', timeout: 3_000 }).catch(() => {});
-  }
-  await restoreCaretToEnd(editor);
-  await page.waitForTimeout(120);
-}
-
-/**
- * 캐럿을 마지막 본문 문단 끝으로 되돌린다.
- *
- * 팝업을 닫는 것만으로는 부족했다 — Escape 후에도 포커스가 본문으로 확실히 돌아오지
- * 않아 다음 입력의 첫 글자가 유실된다(실측 CI: 마침표 35개 기대 → 33개).
- * 클릭으로 되돌리면 캐럿이 클릭 지점에 놓여 글자가 중간에 끼어든다. Range를 문단
- * 내용 끝으로 접어 선택을 다시 심으면 이어쓰기 위치가 정확해진다.
- */
-async function restoreCaretToEnd(editor: Frame): Promise<void> {
-  await editor
-    .evaluate(() => {
-      const paras = [...document.querySelectorAll('.se-component.se-text .se-text-paragraph')];
-      const last = paras[paras.length - 1];
-      if (!(last instanceof HTMLElement)) return;
-      last.focus?.();
-      const range = document.createRange();
-      range.selectNodeContents(last);
-      range.collapse(false);
-      const sel = window.getSelection();
-      sel?.removeAllRanges();
-      sel?.addRange(range);
-    })
-    .catch(() => {});
-}
-
-async function resetTypingColor(page: Page, editor: Frame): Promise<void> {
-  const btn = editor.locator(SEL.colorButton).filter({ visible: true }).first();
-  if ((await btn.count()) === 0) return;
-  await btn.click({ timeout: 3_000 }).catch(() => {});
-  await page.waitForTimeout(200);
-  for (const hex of [RESET_HEX, '#333333', '#000000']) {
-    if (await pickPaletteColor(editor, hex)) {
-      await closeColorPopup(page, editor);
-      return;
-    }
-  }
-  await closeColorPopup(page, editor);
-}
-
-async function typeRich(page: Page, editor: Frame, text: string): Promise<void> {
-  for (const segment of parseRich(text)) {
-    if (segment.kind === 'text') await page.keyboard.type(segment.text, { delay: 8 });
-    else if (segment.kind === 'bold') await typeBold(page, editor, segment.text);
-    else await typeColor(page, editor, segment.color, segment.text);
-  }
-}
 
 async function startPlainParagraph(page: Page, editor: Frame): Promise<void> {
   await dismissHelp(editor, page);
@@ -875,6 +684,212 @@ async function assertBodyFormattingToolbar(editor: Frame, what: string): Promise
         ? '캐럿이 제목 컴포넌트에 있습니다 — 본문을 먼저 클릭해야 합니다.'
         : '툴바를 찾지 못했습니다 — 복구 팝업이 남아 있거나 셀렉터가 바뀌었습니다.'),
   );
+}
+
+/* ── 서식 계층: 실제 발행 3편을 통과한 구현(커밋 02416e1)을 그대로 유지한다. ──
+ * 선택 기반 리팩터를 시도했으나 문단 전체가 볼드가 되는 새 실패 모드를 만들었다.
+ * 검증된 코드를 유지하고, 취약 위치(블록 시작 지점 서식)는 조합기에서 피한다. */
+
+async function pickPaletteColor(editor: Frame, hex: string): Promise<boolean> {
+  // 반드시 팔레트 셀 안에서만 찾는다.
+  //
+  // 예전 구현은 실패 시 문서 전체(button/span/div/i/em)에서 배경색 근사 매칭으로
+  // 아무 요소나 클릭했다. 실측에서 그 폴백이 툴바의 「번역」 버튼을 눌러 Papago 모달이
+  // 본문을 덮었고, 이후 이미지 삽입이 filechooser 타임아웃으로 전부 실패했다.
+  // 팔레트 셀은 `.se-color-palette` + `data-color`(2026-08-27 실측 71개)로 특정된다.
+  const exact = editor
+    .locator(`.se-color-palette[data-color="${hex}"], [data-color="${hex}"].se-color-palette`)
+    .filter({ visible: true })
+    .first();
+  if ((await exact.count()) > 0) {
+    await exact.click({ timeout: 5_000 });
+    return true;
+  }
+
+  // 팔레트 안에서만 근사 매칭한다. 팔레트에 없는 색을 상수로 잡아둔 경우를 위한 안전망이며,
+  // 이 경로를 타면 경고를 남겨 상수를 실측값으로 고치게 한다.
+  const nearest = await editor.evaluate((targetHex) => {
+    const n = parseInt(targetHex.slice(1), 16);
+    const target = [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+    let best: { el: HTMLElement; dist: number } | null = null;
+    for (const el of document.querySelectorAll('.se-color-palette[data-color]')) {
+      if (!(el instanceof HTMLElement)) continue;
+      const cellHex = el.getAttribute('data-color') ?? '';
+      if (!/^#[0-9a-fA-F]{6}$/.test(cellHex)) continue;
+      const c = parseInt(cellHex.slice(1), 16);
+      const dist =
+        Math.abs(((c >> 16) & 255) - target[0]) +
+        Math.abs(((c >> 8) & 255) - target[1]) +
+        Math.abs((c & 255) - target[2]);
+      if (!best || dist < best.dist) best = { el, dist };
+    }
+    if (!best || best.dist > 90) return null;
+    best.el.click();
+    return best.el.getAttribute('data-color');
+  }, hex);
+
+  if (nearest) {
+    console.warn(`[Publish] 팔레트에 ${hex}가 없어 ${nearest}로 대체했습니다 — 상수를 실측값으로 고치세요`);
+    return true;
+  }
+  return false;
+}
+
+/**
+ * 색상 팔레트 팝업을 닫고 닫힘을 확인한다.
+ *
+ * 팝업이 열린 채로 다음 문자를 타이핑하면 **첫 글자가 팝업에 먹힌다.** 실측:
+ * 발행글에서 `[[r:늘었습니다]].` 뒤의 마침표가 사라져 두 문장이 한 줄로 붙었다
+ * (logNo=224392242076, "늘었습니다 검색 관심도의 …"). 눈에 잘 띄지 않는 데다
+ * 길이 검증도 1자 차이로는 걸리지 않아 그대로 공개됐다.
+ */
+async function closeColorPopup(page: Page, editor: Frame): Promise<void> {
+  const palette = editor.locator('.se-color-palette').filter({ visible: true }).first();
+  if ((await palette.count()) > 0) {
+    await page.keyboard.press('Escape').catch(() => {});
+    await palette.waitFor({ state: 'hidden', timeout: 3_000 }).catch(() => {});
+  }
+  await restoreCaretToEnd(editor);
+  await page.waitForTimeout(120);
+}
+
+/**
+ * 캐럿을 마지막 본문 문단 끝으로 되돌린다.
+ *
+ * 팝업을 닫는 것만으로는 부족했다 — Escape 후에도 포커스가 본문으로 확실히 돌아오지
+ * 않아 다음 입력의 첫 글자가 유실된다(실측 CI: 마침표 35개 기대 → 33개).
+ * 클릭으로 되돌리면 캐럿이 클릭 지점에 놓여 글자가 중간에 끼어든다. Range를 문단
+ * 내용 끝으로 접어 선택을 다시 심으면 이어쓰기 위치가 정확해진다.
+ */
+async function restoreCaretToEnd(editor: Frame): Promise<void> {
+  await editor
+    .evaluate(() => {
+      const paras = [...document.querySelectorAll('.se-component.se-text .se-text-paragraph')];
+      const last = paras[paras.length - 1];
+      if (!(last instanceof HTMLElement)) return;
+      last.focus?.();
+      const range = document.createRange();
+      range.selectNodeContents(last);
+      range.collapse(false);
+      const sel = window.getSelection();
+      sel?.removeAllRanges();
+      sel?.addRange(range);
+    })
+    .catch(() => {});
+}
+
+async function resetTypingColor(page: Page, editor: Frame): Promise<void> {
+  const btn = editor.locator(SEL.colorButton).filter({ visible: true }).first();
+  if ((await btn.count()) === 0) return;
+  await btn.click({ timeout: 3_000 }).catch(() => {});
+  await page.waitForTimeout(200);
+  for (const hex of [RESET_HEX, '#333333', '#000000']) {
+    if (await pickPaletteColor(editor, hex)) {
+      await closeColorPopup(page, editor);
+      return;
+    }
+  }
+  await closeColorPopup(page, editor);
+}
+
+async function countBoldDom(editor: Frame): Promise<number> {
+  return editor.evaluate(() => {
+    let count = 0;
+    for (const el of document.querySelectorAll('.se-component:not(.se-section-documentTitle) span, .se-component b, .se-component strong')) {
+      const weight = getComputedStyle(el).fontWeight;
+      if (parseInt(weight, 10) >= 600 || weight === 'bold') count += 1;
+    }
+    return count;
+  });
+}
+
+/**
+ * 색상 적용 실측 — 개수와 **글자 수**를 함께 센다.
+ *
+ * 개수만 세면 리셋 실패로 문단 전체가 빨강이 되어도 "색상 N개"로 통과한다
+ * (실측 보고서에 빨강 번짐이 기록돼 있다). 색상 글자 수가 초안 마커의 글자 수보다
+ * 크게 많으면 번진 것이다.
+ */
+async function countColorDom(editor: Frame): Promise<number> {
+  return (await measureColorDom(editor)).count;
+}
+
+async function measureColorDom(editor: Frame): Promise<{ chars: number; count: number }> {
+  return editor.evaluate(() => {
+    let count = 0;
+    let chars = 0;
+    for (const el of document.querySelectorAll('.se-component span, .se-component font')) {
+      const color = getComputedStyle(el).color;
+      const match = color.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
+      if (!match) continue;
+      const r = Number(match[1]);
+      const g = Number(match[2]);
+      const b = Number(match[3]);
+      const red = r > 180 && g < 90 && b < 90;
+      const blue = b > 150 && r < 90 && g < 140;
+      if (!red && !blue) continue;
+      // 중첩 span을 이중 계산하지 않는다 — 같은 색의 자식이 있으면 부모는 건너뛴다
+      if (el.querySelector('span, font')) continue;
+      count += 1;
+      chars += (el.textContent ?? '').replace(/\s+/g, '').length;
+    }
+    return { chars, count };
+  });
+}
+
+async function typeBold(page: Page, editor: Frame, text: string): Promise<void> {
+  await assertBodyFormattingToolbar(editor, '볼드');
+  const before = await countBoldDom(editor);
+  const tryOnce = async (mod: string) => {
+    await page.keyboard.press(`${mod}+b`);
+    await page.keyboard.type(text, { delay: 8 });
+    await page.keyboard.press(`${mod}+b`);
+  };
+  await tryOnce(process.platform === 'darwin' ? 'Meta' : 'Control');
+  if ((await countBoldDom(editor)) > before) return;
+
+  await tryOnce(process.platform === 'darwin' ? 'Control' : 'Meta');
+  if ((await countBoldDom(editor)) > before) return;
+
+  const btn = editor.locator(SEL.boldButton).filter({ visible: true }).first();
+  if ((await btn.count()) > 0) {
+    await btn.click({ timeout: 5_000 });
+    await page.keyboard.type(text, { delay: 8 });
+    await btn.click({ timeout: 5_000 }).catch(() => {});
+    if ((await countBoldDom(editor)) > before) return;
+  }
+  throw new Error(`볼드 적용 실패 ("${text.slice(0, 20)}") — 단축키·툴바 모두 실패, 발행 중단`);
+}
+
+async function typeColor(page: Page, editor: Frame, color: 'b' | 'r', text: string): Promise<void> {
+  const hex = color === 'r' ? RED_HEX : BLUE_HEX;
+  await assertBodyFormattingToolbar(editor, `색상 ${hex}`);
+  const btn = editor.locator(SEL.colorButton).filter({ visible: true }).first();
+  if ((await btn.count()) === 0) {
+    throw new Error('색상 툴바를 찾지 못했습니다 — 볼드로 강등하지 않고 발행을 중단합니다');
+  }
+  const before = await countColorDom(editor);
+  await btn.click({ timeout: 5_000 });
+  await page.waitForTimeout(300);
+  if (!(await pickPaletteColor(editor, hex))) {
+    await page.keyboard.press('Escape').catch(() => {});
+    throw new Error(`색상 ${hex} 팔레트 셀을 찾지 못했습니다 — 발행 중단`);
+  }
+  await page.keyboard.type(text, { delay: 8 });
+  await btn.click({ timeout: 3_000 }).catch(() => {});
+  await closeColorPopup(page, editor); // 팝업이 남으면 다음 입력의 첫 글자를 먹는다
+  if ((await countColorDom(editor)) <= before) {
+    throw new Error(`색상 적용이 DOM에 반영되지 않았습니다 (${hex}, "${text}") — 발행 중단`);
+  }
+  await resetTypingColor(page, editor);
+}
+
+async function typeRich(page: Page, editor: Frame, text: string): Promise<void> {
+  for (const segment of parseRich(text)) {
+    if (segment.kind === 'text') await page.keyboard.type(segment.text, { delay: 8 });
+    else if (segment.kind === 'bold') await typeBold(page, editor, segment.text);
+    else await typeColor(page, editor, segment.color, segment.text);
+  }
 }
 
 /**
