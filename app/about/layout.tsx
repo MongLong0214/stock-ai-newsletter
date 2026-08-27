@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { siteConfig, keywordsByCategory, withOgImageVersion } from '@/lib/constants/seo';
 
 export const metadata: Metadata = {
-  title: 'Stock Matrix 소개 - 30개 지표로 분석하는 AI 주식 뉴스레터',
+  title: '서비스 소개 - 30개 지표로 분석하는 AI 주식 뉴스레터',
   description:
     'AI가 RSI·MACD·볼린저밴드 등 30개 지표로 KOSPI·KOSDAQ 3종목을 분석, 매일 7:30 무료 이메일 발송하는 투자 뉴스레터.',
   keywords: [

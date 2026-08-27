@@ -4,7 +4,7 @@ import { siteConfig, keywordsByCategory, generateBreadcrumbSchema, schemaConfig,
 import { schemaIds } from '@/lib/constants/seo/config';
 
 export const metadata: Metadata = {
-  title: '무료 구독하기 — 매일 7:30 AI 주식분석 이메일 | Stock Matrix',
+  title: '무료 구독하기 — 매일 7:30 AI 주식분석 이메일',
   description:
     '이메일만 입력하면 5초 구독. 매일 7:30 AI가 30개 지표로 분석한 KOSPI·KOSDAQ 3종목을 무료 이메일로 받아보세요.',
   keywords: [
@@ -40,10 +40,6 @@ export const metadata: Metadata = {
     title: '무료 구독 - Stock Matrix',
     description: '매일 7:30 AI 주식분석 무료 이메일',
     images: [withOgImageVersion('/subscribe/opengraph-image')],
-  },
-  robots: {
-    index: true,
-    follow: true,
   },
 };
 

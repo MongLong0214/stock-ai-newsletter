@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { siteConfig, keywordsByCategory, withOgImageVersion } from '@/lib/constants/seo';
 
 export const metadata: Metadata = {
-  title: '기술적 지표 완벽 가이드 - RSI·MACD·볼린저밴드 | Stock Matrix',
+  title: '기술적 지표 완벽 가이드 - RSI·MACD·볼린저밴드',
   description:
     'RSI, MACD, 볼린저밴드, 이동평균선 등 30가지 기술적 지표의 의미와 활용법. AI 주식 분석 핵심 지표 완벽 가이드.',
   keywords: [

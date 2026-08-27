@@ -2,30 +2,6 @@ import { siteConfig, schemaIds } from '@/lib/constants/seo/config'
 import { loadMethodologyMetricsSummary } from '@/lib/tli/methodology-metrics'
 import MethodologyContent from './_components/methodology-content'
 
-const breadcrumbSchema = {
-  '@context': 'https://schema.org',
-  '@type': 'BreadcrumbList',
-  itemListElement: [
-    {
-      '@type': 'ListItem',
-      position: 1,
-      name: '홈',
-      item: siteConfig.domain,
-    },
-    {
-      '@type': 'ListItem',
-      position: 2,
-      name: '테마 분석',
-      item: `${siteConfig.domain}/themes`,
-    },
-    {
-      '@type': 'ListItem',
-      position: 3,
-      name: '테마 추적 알고리즘',
-    },
-  ],
-}
-
 const articleSchema = {
   '@context': 'https://schema.org',
   '@type': 'Article',
@@ -55,13 +31,6 @@ const MethodologyPage = async () => {
 
   return (
     <>
-      <script
-        id="methodology-breadcrumb-schema"
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{
-          __html: JSON.stringify(breadcrumbSchema).replace(/</g, '\\u003c'),
-        }}
-      />
       <script
         id="methodology-article-schema"
         type="application/ld+json"

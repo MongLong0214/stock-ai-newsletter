@@ -12,6 +12,8 @@ export interface SiteConfig {
   readonly stockCount: number;
   readonly indicatorCount: number;
   readonly markets: string;
+  /** 마케팅 카피에 쓰는 추적 테마 수의 하한. 실제 추적 수 이하로만 유지한다. */
+  readonly themeCountFloor: number;
 }
 
 export interface MetadataConfig {

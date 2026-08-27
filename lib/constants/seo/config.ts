@@ -11,13 +11,16 @@ type OgVersionEnv = Record<string, string | undefined>;
 
 export const siteConfig: SiteConfig = {
   domain: 'https://stockmatrix.co.kr',
-  serviceName: 'Stock Matrix',
+  serviceName: 'StockMatrix',
   serviceNameKo: '스탁매트릭스',
   deliveryTime: DELIVERY_TIME_DISPLAY,
   deliveryTimeShort: DELIVERY_TIME_SHORT,
   stockCount: 3,
   indicatorCount: 30,
   markets: 'KOSPI·KOSDAQ',
+  // 추적 테마 수는 매일 변한다(2026-08 기준 239개 추적 / 114개 활성).
+  // 카피에는 실제 값 이하의 하한만 쓴다 — 실제보다 큰 수를 주장하면 화면이 거짓을 말하게 된다.
+  themeCountFloor: 200,
 } as const;
 
 export function resolveOgImageVersion(env: OgVersionEnv): string {

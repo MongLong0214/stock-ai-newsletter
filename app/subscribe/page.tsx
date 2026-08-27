@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import Link from 'next/link';
 import { motion } from 'framer-motion';
 import {
   Loader2,
@@ -229,6 +230,24 @@ export default function SubscribePage() {
                     />
                     <div className="absolute inset-0 rounded-2xl bg-emerald-500/5 opacity-0 group-focus-within:opacity-100 transition-opacity duration-300 pointer-events-none" aria-hidden="true" />
                   </div>
+                </div>
+
+                {/* Privacy Consent — 개인정보 수집·이용 동의 (필수) */}
+                <div className="flex items-start gap-3">
+                  <input
+                    type="checkbox"
+                    id="privacy-consent"
+                    name="privacyConsent"
+                    required
+                    disabled={status === 'loading'}
+                    className="mt-1 h-4 w-4 shrink-0 accent-emerald-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40"
+                  />
+                  <label htmlFor="privacy-consent" className="text-sm text-slate-400 font-light leading-relaxed">
+                    뉴스레터 발송을 위한 이메일 주소 수집·이용에 동의합니다. (필수){' '}
+                    <Link href="/privacy" className="text-emerald-400/80 underline underline-offset-2 hover:text-emerald-300">
+                      개인정보처리방침
+                    </Link>
+                  </label>
                 </div>
 
                 {/* Submit Button */}

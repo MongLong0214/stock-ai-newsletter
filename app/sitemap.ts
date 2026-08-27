@@ -1,5 +1,6 @@
 import { MetadataRoute } from 'next';
 import { getServerSupabaseClient } from '@/lib/supabase/server-client';
+import { fetchAllRows } from '@/lib/supabase/paginate';
 import { siteConfig } from '@/lib/constants/seo/config';
 import { isValidBlogSlug } from './blog/_utils/slug-validator';
 
@@ -22,15 +23,14 @@ function withAlternates(url: string) {
 async function getPublishedBlogSlugs(): Promise<{ slug: string; published_at: string; updated_at: string | null }[]> {
   try {
     const supabase = getServerSupabaseClient();
-    const { data, error } = await supabase
-      .from('blog_posts')
-      .select('slug, published_at, updated_at')
-      .eq('status', 'published')
-      .order('published_at', { ascending: false });
-
-    if (error) throw error;
-
-    return data || [];
+    return await fetchAllRows((from, to) =>
+      supabase
+        .from('blog_posts')
+        .select('slug, published_at, updated_at')
+        .eq('status', 'published')
+        .order('published_at', { ascending: false })
+        .range(from, to),
+    );
   } catch (error) {
     console.error('[Sitemap] 발행 블로그 조회 실패', error);
     throw error;
@@ -40,12 +40,14 @@ async function getPublishedBlogSlugs(): Promise<{ slug: string; published_at: st
 async function getTopBlogTags(): Promise<string[]> {
   try {
     const supabase = getServerSupabaseClient();
-    const { data } = await supabase
-      .from('blog_posts')
-      .select('tags')
-      .eq('status', 'published');
-
-    if (!data) return [];
+    const data = await fetchAllRows<{ tags: string[] | null }>((from, to) =>
+      supabase
+        .from('blog_posts')
+        .select('tags')
+        .eq('status', 'published')
+        .order('published_at', { ascending: false })
+        .range(from, to),
+    );
 
     const tagCounts = new Map<string, number>();
     data.forEach((post) => {
@@ -63,12 +65,29 @@ async function getTopBlogTags(): Promise<string[]> {
   }
 }
 
+
+async function getActiveThemeIds(): Promise<{ id: string; updated_at: string | null }[]> {
+  try {
+    const supabase = getServerSupabaseClient();
+    return await fetchAllRows<{ id: string; updated_at: string | null }>((from, to) =>
+      supabase
+        .from('themes')
+        .select('id, updated_at')
+        .eq('is_active', true)
+        .range(from, to),
+    );
+  } catch {
+    return [];
+  }
+}
+
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const baseUrl = siteConfig.domain;
 
-  const [blogPosts, topTags] = await Promise.all([
+  const [blogPosts, topTags, themeIds] = await Promise.all([
     getPublishedBlogSlugs(),
     getTopBlogTags(),
+    getActiveThemeIds(),
   ]);
 
   // 동적 허브(홈·블로그·아카이브·테마 목록)의 lastmod = 발행 블로그의 실제 최신 갱신일.
@@ -88,6 +107,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${baseUrl}/themes`, lastModified: latestContentDate, changeFrequency: 'daily', priority: 0.9, alternates: withAlternates(`${baseUrl}/themes`) },
     { url: `${baseUrl}/themes/methodology`, lastModified: STATIC_PAGE_UPDATED, changeFrequency: 'monthly', priority: 0.8, alternates: withAlternates(`${baseUrl}/themes/methodology`) },
     { url: `${baseUrl}/developers`, lastModified: STATIC_PAGE_UPDATED, changeFrequency: 'monthly', priority: 0.6, alternates: withAlternates(`${baseUrl}/developers`) },
+    { url: `${baseUrl}/privacy`, lastModified: STATIC_PAGE_UPDATED, changeFrequency: 'yearly', priority: 0.3, alternates: withAlternates(`${baseUrl}/privacy`) },
+    { url: `${baseUrl}/terms`, lastModified: STATIC_PAGE_UPDATED, changeFrequency: 'yearly', priority: 0.3, alternates: withAlternates(`${baseUrl}/terms`) },
   ];
 
   const blogPages: MetadataRoute.Sitemap = blogPosts
@@ -114,8 +135,20 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     };
   });
 
-  // 테마 상세(/themes/[id])는 TLI v3 마이그레이션 동안 noindex → sitemap에서 제외한다.
-  // (noindex URL을 sitemap에 넣으면 "색인하라"는 신호와 모순되고 크롤 예산만 낭비.)
-  // 테마가 색인 전환되면 이 위치에 themePages를 다시 추가한다.
-  return [...staticPages, ...blogPages, ...tagPages];
+  // 테마 상세(/themes/[id]) — 색인 노출한다.
+  // 이 페이지들은 이미 index,follow + self-canonical로 서빙되고 generateStaticParams가
+  // is_active 테마를 전부 프리렌더한다. sitemap에서만 빼두면 색인은 되면서 발견만 느려지는
+  // 어중간한 상태가 되므로 실동작에 맞춰 포함한다.
+  const themePages: MetadataRoute.Sitemap = themeIds.map((theme) => {
+    const url = `${baseUrl}/themes/${theme.id}`;
+    return {
+      url,
+      lastModified: theme.updated_at ? new Date(theme.updated_at) : latestContentDate,
+      changeFrequency: 'daily',
+      priority: 0.7,
+      alternates: withAlternates(url),
+    };
+  });
+
+  return [...staticPages, ...blogPages, ...tagPages, ...themePages];
 }

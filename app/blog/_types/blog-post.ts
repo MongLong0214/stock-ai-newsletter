@@ -17,14 +17,8 @@ export interface SchemaData {
   '@id'?: string;
   headline: string;
   description: string;
-  author: {
-    '@type': 'Person';
-    '@id'?: string;
-    name: string;
-    jobTitle?: string;
-    url: string;
-    worksFor?: { '@id': string };
-  };
+  /** 저자는 Organization 노드(@id 참조). 실존 인물이 생기기 전까지 Person을 쓰지 않는다. */
+  author: { '@id': string };
   publisher: {
     '@type': 'Organization';
     '@id'?: string;

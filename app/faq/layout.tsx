@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { siteConfig, withOgImageVersion } from '@/lib/constants/seo/config';
 
 export const metadata: Metadata = {
-  title: '자주 묻는 질문 | Stock Matrix - 무료 AI 주식 분석 뉴스레터',
+  title: '자주 묻는 질문 - 무료 AI 주식 분석 뉴스레터',
   description:
     'Stock Matrix AI 주식 분석 뉴스레터에 대해 자주 묻는 질문과 답변입니다. 무료 구독, 기술적 분석 지표, 서비스 이용 방법 등을 확인하세요.',
   keywords: [

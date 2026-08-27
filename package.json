@@ -43,7 +43,9 @@
     "tli:m1:golden-vector": "PYTHONHASHSEED=0 OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 uv run --frozen --python 3.13.11 --script scripts/tli/learn/train_m1.py --golden-vector _unused.json lib/tli/__tests__/fixtures/m1-golden-vector.json",
     "tli:stock-prices:ingest": "tsx scripts/tli/ops/run-stock-daily-price-ingest.ts",
     "tli:stock-prices:backfill": "tsx scripts/tli/ops/run-stock-daily-price-backfill.ts",
-    "tli:episode:peak-backfill": "tsx scripts/tli/ops/run-episode-peak-backfill.ts"
+    "tli:episode:peak-backfill": "tsx scripts/tli/ops/run-episode-peak-backfill.ts",
+    "naver:login": "tsx scripts/naver-blog/login.ts",
+    "naver:publish": "tsx scripts/naver-blog/publish.ts"
   },
   "dependencies": {
     "@fontsource/noto-sans-kr": "^5.2.9",

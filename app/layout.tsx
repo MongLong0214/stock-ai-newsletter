@@ -128,7 +128,7 @@ export default function RootLayout({
         '@type': 'Organization',
         '@id': schemaIds.organization,
         name: siteConfig.serviceName,
-        alternateName: ['StockMatrix', siteConfig.serviceNameKo],
+        alternateName: ['Stock Matrix', siteConfig.serviceNameKo],
         url: siteConfig.domain,
         logo: `${siteConfig.domain}/icon-512.png`,
         image: {
@@ -177,15 +177,9 @@ export default function RootLayout({
         description: schemaConfig.websiteDesc,
         publisher: { '@id': schemaIds.organization },
         inLanguage: 'ko-KR',
+        // SearchAction 제거: /blog/tag/{term}은 정확 태그 매칭만 되고 그 외에는 404라
+        // Sitelinks Search Box가 사용자 쿼리를 받으면 거의 항상 실패한다. 실제 검색 라우트가 생기면 복구.
         potentialAction: [
-          {
-            '@type': 'SearchAction',
-            target: {
-              '@type': 'EntryPoint',
-              urlTemplate: `${siteConfig.domain}/blog/tag/{search_term_string}`,
-            },
-            'query-input': 'required name=search_term_string',
-          },
           {
             '@type': 'SubscribeAction',
             target: `${siteConfig.domain}/subscribe`,
@@ -294,8 +288,8 @@ export default function RootLayout({
             }}
           />
         )}
-        <Script
-          id="structured-data"
+        {/* next/script는 afterInteractive로 클라이언트에서 주입돼 JS 미실행 크롤러(GPTBot·ClaudeBot·PerplexityBot)가 못 본다. 평문 script로 SSR. */}
+        <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, '\\u003c') }}
         />
