@@ -6,6 +6,9 @@ import { generateText } from '@/lib/llm/gemini-client';
 import { buildKeywordGenerationPrompt } from '../_prompts/keyword-generation';
 import { validateKeywordMetadata, calculateSEOScore } from '../_prompts/keyword-validation';
 import { isDuplicate } from './keyword-similarity';
+import { findClusterCollision } from './cluster-guard';
+import { fetchAllRows } from '@/lib/supabase/paginate';
+import { credentialsFromEnv, fetchKeywordVolumes, HINT_KEYWORD_LIMIT } from '@/lib/naver-searchad';
 import { fetchTLIContext } from './tli-context';
 import type { TLIContext } from './tli-context';
 import type { KeywordMetadata } from '../_types/blog';
@@ -35,9 +38,15 @@ interface KeywordGenerationResult {
 }
 
 interface UsedContent {
+  /** 전 기간 target_keyword — 관련주 클러스터 가드용 (기간 만료 없음) */
+  allTimeKeywords: string[];
   keywords: string[];
   titles: string[];
 }
+
+/** 네이버 실측 월간 검색량 하한. 이 미만은 아무도 검색하지 않는 키워드다.
+ * 프롬프트의 허수 하한(100)과 겹치지 않게 200 — 실측 로그를 보고 조정한다. */
+export const MIN_SEARCH_VOLUME = 200;
 
 /** 롤링 윈도우 기반 사용 키워드/제목 조회 (고갈 방지) */
 async function getUsedContent(): Promise<UsedContent> {
@@ -49,24 +58,22 @@ async function getUsedContent(): Promise<UsedContent> {
   const days90Ago = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000).toISOString();
   const days30Ago = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
 
-  const [titlesRes, recentRes, shortTermRes] = await Promise.all([
-    // 전체 제목 (중복 방지용) — Supabase 기본 1000행 제한 방지
-    supabase.from('blog_posts').select('title').not('title', 'is', null).limit(5000),
-    // 90일 이내 target_keyword
-    supabase.from('blog_posts')
-      .select('target_keyword')
-      .not('target_keyword', 'is', null)
-      .gte('created_at', days90Ago),
-    // 30일 이내 secondary_keywords
-    supabase.from('blog_posts')
-      .select('secondary_keywords')
-      .gte('created_at', days30Ago),
+  // .limit(5000)은 PostgREST max_rows=1000에 잘린다(사이트맵과 같은 잘림) — 페이지네이션 필수
+  const [titles, allTime, recent, shortTerm] = await Promise.all([
+    fetchAllRows<{ title: string | null }>((from, to) =>
+      supabase.from('blog_posts').select('title').not('title', 'is', null).range(from, to)),
+    // 전 기간 target_keyword — 관련주 클러스터는 기간 만료 없이 차단한다
+    fetchAllRows<{ target_keyword: string | null }>((from, to) =>
+      supabase.from('blog_posts').select('target_keyword').not('target_keyword', 'is', null).range(from, to)),
+    fetchAllRows<{ target_keyword: string | null }>((from, to) =>
+      supabase.from('blog_posts').select('target_keyword').not('target_keyword', 'is', null)
+        .gte('created_at', days90Ago).range(from, to)),
+    fetchAllRows<{ secondary_keywords: string[] | null }>((from, to) =>
+      supabase.from('blog_posts').select('secondary_keywords').gte('created_at', days30Ago).range(from, to)),
   ]);
-
-  // Supabase 쿼리 에러 감지 (조용한 실패 방지)
-  if (titlesRes.error) console.error('[KeywordGenerator] 제목 조회 실패:', titlesRes.error.message);
-  if (recentRes.error) console.error('[KeywordGenerator] target_keyword 조회 실패:', recentRes.error.message);
-  if (shortTermRes.error) console.error('[KeywordGenerator] secondary_keywords 조회 실패:', shortTermRes.error.message);
+  const titlesRes = { data: titles };
+  const recentRes = { data: recent };
+  const shortTermRes = { data: shortTerm };
 
   const allKeywords = new Set<string>();
   const allTitles: string[] = [];
@@ -89,7 +96,11 @@ async function getUsedContent(): Promise<UsedContent> {
     }
   });
 
-  return { keywords: Array.from(allKeywords), titles: allTitles };
+  const allTimeKeywords = allTime
+    .map((row) => row.target_keyword?.toLowerCase().trim())
+    .filter((k): k is string => !!k);
+
+  return { allTimeKeywords, keywords: Array.from(allKeywords), titles: allTitles };
 }
 
 /** AI로 키워드를 생성하고 중복 제거 후 반환 */
@@ -97,6 +108,7 @@ async function generateKeywordsWithAI(
   count: number,
   usedKeywords: string[],
   existingTitles: string[],
+  allTimeKeywords: string[],
   tliContext?: TLIContext,
 ): Promise<KeywordMetadata[]> {
   const prompt = buildKeywordGenerationPrompt(count, usedKeywords, undefined, existingTitles, tliContext);
@@ -125,6 +137,13 @@ async function generateKeywordsWithAI(
       if (kw.keyword.length > 40) continue;
       if (isDuplicate(kw.keyword, allExistingKeywords, existingTitles)) continue;
 
+      // 관련주 클러스터는 전 기간 대비 차단 — 같은 테마 관련주 글은 새 URL이 아니라 갱신 대상
+      const collision = findClusterCollision(kw.keyword, allTimeKeywords);
+      if (collision) {
+        console.log(`[KeywordGen] 클러스터 중복 차단: "${kw.keyword}" ≈ 기존 "${collision}"`);
+        continue;
+      }
+
       validKeywords.push(kw);
       allExistingKeywords.push(kw.keyword.toLowerCase().trim());
     }
@@ -134,6 +153,52 @@ async function generateKeywordsWithAI(
     console.error('[KeywordGenerator] JSON 파싱 실패:', error);
     throw new Error('AI 응답 파싱 실패');
   }
+}
+
+/**
+ * 네이버 실측 검색량 게이트.
+ *
+ * AI가 채운 estimatedSearchVolume은 프롬프트가 "100 미만 금지"라고 해서 모델이
+ * 지어내는 허수였고, 그 허수가 SEO 점수 정렬 기준으로 쓰였다. 여기서 실측값으로
+ * 덮어쓰고, MIN_SEARCH_VOLUME 미만은 탈락시킨다 — 아무도 검색하지 않는 키워드로
+ * SerpAPI·스크래핑·생성·윤문 비용을 쓰지 않는다.
+ *
+ * 자격증명이 없으면 게이트를 생략하고 경고만 남긴다(fail-open) — 게이트는 향상
+ * 장치이지 발행을 0으로 만드는 장애 지점이 아니다.
+ */
+async function applySearchVolumeGate(keywords: KeywordMetadata[]): Promise<KeywordMetadata[]> {
+  const creds = credentialsFromEnv();
+  if (!creds) {
+    console.warn('[KeywordGen] NAVER_AD_* 자격증명 없음 — 검색량 게이트 생략 (estimatedSearchVolume은 AI 허수)');
+    return keywords;
+  }
+
+  const normalize = (k: string) => k.replace(/\s+/g, '');
+  const passed: KeywordMetadata[] = [];
+
+  for (let i = 0; i < keywords.length; i += HINT_KEYWORD_LIMIT) {
+    const batch = keywords.slice(i, i + HINT_KEYWORD_LIMIT);
+    try {
+      const volumes = await fetchKeywordVolumes(creds, batch.map((kw) => kw.keyword));
+      for (const kw of batch) {
+        const row = volumes.find((v) => normalize(v.keyword) === normalize(kw.keyword));
+        const total = row?.total ?? 0;
+        if (total < MIN_SEARCH_VOLUME) {
+          console.log(`[KeywordGen] 검색량 미달 탈락: "${kw.keyword}" (월 ${total} < ${MIN_SEARCH_VOLUME})`);
+          continue;
+        }
+        // 허수를 실측으로 교체 — 이후 SEO 점수 정렬이 실측 기반이 된다
+        passed.push({ ...kw, estimatedSearchVolume: total });
+      }
+    } catch (error) {
+      // API 장애 시 그 배치는 게이트 없이 통과 (fail-open) — 단 허수임을 로그로 남긴다
+      console.warn(`[KeywordGen] 검색량 조회 실패(배치 ${i / HINT_KEYWORD_LIMIT + 1}) — 게이트 생략:`, error);
+      passed.push(...batch);
+    }
+    if (i + HINT_KEYWORD_LIMIT < keywords.length) await new Promise((r) => setTimeout(r, 350));
+  }
+
+  return passed;
 }
 
 /** 키워드 생성 메인 함수 (재시도 + SEO 점수 정렬) */
@@ -158,6 +223,7 @@ export async function generateKeywords(
         Math.ceil(remainingCount * 1.5),
         usedContent.keywords,
         usedContent.titles,
+        usedContent.allTimeKeywords,
         tliContext,
       );
 
@@ -167,7 +233,7 @@ export async function generateKeywords(
       });
     }
 
-    const allKeywords = Array.from(keywordMap.values());
+    const allKeywords = await applySearchVolumeGate(Array.from(keywordMap.values()));
     const scoreMap = new Map(allKeywords.map((kw) => [kw.keyword, calculateSEOScore(kw)]));
     const sortedKeywords = [...allKeywords].sort(
       (a, b) => (scoreMap.get(b.keyword) ?? 0) - (scoreMap.get(a.keyword) ?? 0)

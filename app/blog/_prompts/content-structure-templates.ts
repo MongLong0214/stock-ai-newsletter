@@ -21,7 +21,8 @@ export function getContentStructureGuide(
     <purpose>핵심 차이점 한눈에 파악</purpose>
     <format>Markdown 테이블 필수</format>
     <columns>서비스명 | 가격 | 핵심 기능 | AI 분석 | 추천 대상</columns>
-    <note>Stock Matrix의 무료 + AI 분석 조합이 돋보이도록 구성</note>
+    <note>비교 대상은 검색 결과에 실재하는 동종 상품만. 자사 서비스를 행으로 넣지 않는다 —
+    비동종 상품 비교표(예: IRP 계좌 비교)에 뉴스레터가 끼면 신뢰가 무너진다.</note>
   </section>
 
   <section name="detailed_analysis" word_count="각 300-450">
@@ -32,15 +33,13 @@ export function getContentStructureGuide(
       - 단점 또는 한계 1-2가지 (신뢰도 확보용)
       - 적합한 사용자 유형
     </per_item>
-    <stock_matrix_position>3번째 또는 4번째로 소개 (자연스러움)</stock_matrix_position>
   </section>
 
   <section name="verdict_cta" word_count="250-350">
     <purpose>명확한 추천 및 행동 유도</purpose>
     <elements>
       - 상황별 추천 (초보자 / 중급자 / 전문가)
-      - Stock Matrix가 최적인 구체적 이유
-      - 자연스러운 CTA (도메인 링크 포함)
+      - 각 추천의 근거를 비교 데이터에서 인용
     </elements>
   </section>
 
@@ -72,7 +71,6 @@ export function getContentStructureGuide(
       - 왜 이 단계가 필요한지
       - 구체적 실행 방법
       - 흔한 실수와 해결법
-      - (해당시) Stock Matrix 활용법 언급
     </format>
     <step_count>4-6단계 권장</step_count>
   </section>
@@ -86,15 +84,6 @@ export function getContentStructureGuide(
     </elements>
   </section>
 
-  <section name="tool_recommendation" word_count="250-350">
-    <purpose>가이드 실행을 돕는 도구로 Stock Matrix 소개</purpose>
-    <approach>
-      - "이 가이드를 더 쉽게 실행하려면" 형태로 연결
-      - Stock Matrix의 구체적 기능이 어떻게 도움되는지
-      - 무료라는 진입장벽 없음 강조
-      - CTA 링크 삽입
-    </approach>
-  </section>
 
   <section name="faq" count="4">
     <requirements>
@@ -136,7 +125,7 @@ export function getContentStructureGuide(
     <purpose>상황별 선택 도움</purpose>
     <format>
       - 초보자라면: [추천 서비스]
-      - 기술적 분석 중심이라면: Stock Matrix
+      - 기술적 분석 중심이라면: [추천 서비스]
       - 유료 프리미엄 원한다면: [추천 서비스]
     </format>
   </section>
@@ -144,7 +133,7 @@ export function getContentStructureGuide(
   <section name="conclusion_cta" word_count="150-200">
     <elements>
       - 핵심 요약 (2-3문장)
-      - Stock Matrix 시작하기 CTA
+      - 다음 단계 안내 (CTA는 페이지 컴포넌트가 별도로 단다 — 본문에 넣지 않는다)
     </elements>
   </section>
 

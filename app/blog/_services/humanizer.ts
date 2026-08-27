@@ -13,6 +13,7 @@
 import { generateText } from '@/lib/llm/gemini-client';
 import { buildHumanizePrompt, HUMANIZE_BEGIN, HUMANIZE_END } from '../_prompts/humanize';
 import { HUMANIZE_CONFIG } from '../_config/pipeline-config';
+import { humanizeMadeItWorse, measureAiTell } from '../_utils/ai-tell-metrics';
 import {
   changeRateDetailed,
   stripSummaryBlock,
@@ -163,6 +164,13 @@ export function evaluateHumanization(
     return reject(`분량 과다 축소 (${wordsBefore} → ${wordsAfter} 어절)`, rate);
   }
 
+  // AI 티 델타 — 윤문의 존재 이유가 AI 문체 제거이므로 계량 축이 악화하면 반려.
+  // 절대 임계는 쓰지 않는다(사람 글과 AI 글의 절대값 분포가 겹친다는 걸 실측으로 확인).
+  const worse = humanizeMadeItWorse(measureAiTell(original), measureAiTell(cleaned));
+  if (worse) {
+    return reject(`AI 티 악화 — ${worse}`, rate);
+  }
+
   return {
     accepted: true,
     text: cleaned,
@@ -243,10 +251,22 @@ export async function humanizeText(content: string, targetKeyword: string): Prom
  * @param content - 생성된 블로그 콘텐츠
  * @param targetKeyword - SEO 타겟 키워드
  */
+export interface HumanizeOutcome {
+  /** 윤문본이 채택됐는가. false면 content는 원문 그대로다(반려·에러·비활성 모두 포함). */
+  readonly accepted: boolean;
+  readonly content: GeneratedContent;
+}
+
+/**
+ * humanizeText는 실패를 내부에서 흡수하고 원문을 돌려주므로 호출부가 성공과 실패를
+ * 구분할 수 없었다 — 파이프라인 서킷브레이커가 세던 것은 사실상 외부 타임아웃뿐이다.
+ * 채택 여부를 명시적으로 반환해 "윤문 안 된 글"을 파이프라인이 알고 처리하게 한다.
+ */
 export async function humanizeGeneratedContent(
   content: GeneratedContent,
   targetKeyword: string
-): Promise<GeneratedContent> {
+): Promise<HumanizeOutcome> {
   const humanized = await humanizeText(content.content, targetKeyword);
-  return humanized === content.content ? content : { ...content, content: humanized };
+  const accepted = humanized !== content.content;
+  return { accepted, content: accepted ? { ...content, content: humanized } : content };
 }

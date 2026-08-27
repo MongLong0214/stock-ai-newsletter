@@ -58,6 +58,10 @@ jobs:
           GOOGLE_CLOUD_PROJECT: ${{ secrets.GOOGLE_CLOUD_PROJECT }}
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          # 네이버 검색광고 API — 실측 검색량 게이트. 미설정 시 게이트는 생략된다(fail-open).
+          NAVER_AD_CUSTOMER_ID: ${{ secrets.NAVER_AD_CUSTOMER_ID }}
+          NAVER_AD_API_KEY: ${{ secrets.NAVER_AD_API_KEY }}
+          NAVER_AD_SECRET_KEY: ${{ secrets.NAVER_AD_SECRET_KEY }}
         run: |
-          echo "AI 동적 키워드 5개 생성"
+          echo "블로그 파이프라인 실행 (게이트 우선 — 발행은 상한, 할당량 아님)"
           npx tsx scripts/generate-blog-post.ts

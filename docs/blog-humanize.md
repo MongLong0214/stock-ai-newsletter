@@ -75,7 +75,7 @@ npx tsx scripts/humanize-diff.ts before.md after.md "타겟 키워드"
 이 단계는 **절대 실패를 전파하지 않는다.** 빈 응답·타임아웃·API 오류·가드 반려 모두
 원문을 반환하고 경고 로그만 남긴다. 윤문은 부가 품질 개선이므로 글 발행을 막아선 안 된다.
 
-파이프라인 레벨에서도 `withTimeoutFallback(..., TIMEOUTS.humanize /* 200s */, generated)`로
+파이프라인 레벨에서도 `withTimeout(..., TIMEOUTS.humanize /* 60s — pipeline.ts가 SSOT */)`로
 한 번 더 감싼다.
 
 ## 끄는 법
