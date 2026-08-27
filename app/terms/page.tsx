@@ -2,11 +2,6 @@ import type { Metadata } from 'next';
 import { siteConfig } from '@/lib/constants/seo/config';
 import LegalPage, { LegalSection } from '@/app/_components/legal/legal-page';
 
-/**
- * TODO(Isaac): 상호·사업자등록번호·대표자명·사업장 주소는 코드에서 알 수 없다.
- * 공개 전 실제 값으로 교체하고 법률 검토를 받을 것. [[privacy]] 페이지도 동일.
- */
-
 export const metadata: Metadata = {
   title: '이용약관',
   description:
@@ -55,8 +50,12 @@ function TermsPage() {
         </p>
       </LegalSection>
 
-      <LegalSection title="제5조 (이용료)">
+      <LegalSection title="제5조 (이용료 및 운영 주체)">
         <p>본 서비스는 전면 무료입니다. 이용료나 결제 수단이 존재하지 않습니다.</p>
+        <p>
+          사업자 등록 없이 개인이 운영하며, 영리를 목적으로 하지 않습니다. 문의는
+          aistockmatrix@gmail.com으로 접수합니다.
+        </p>
       </LegalSection>
 
       <LegalSection title="제6조 (이용자의 의무)">

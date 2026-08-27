@@ -2,16 +2,9 @@ import type { Metadata } from 'next';
 import { siteConfig } from '@/lib/constants/seo/config';
 import LegalPage, { LegalSection } from '@/app/_components/legal/legal-page';
 
-/**
- * TODO(Isaac): 아래 항목은 코드에서 알 수 없어 비워둘 수 없는 법정 기재사항이다.
- * 공개 전 반드시 실제 값으로 교체하고 법률 검토를 받을 것.
- *   - 상호 / 사업자등록번호 / 대표자명 / 사업장 주소
- *   - 개인정보보호책임자 성명·직위
- * 미기재 시 개인정보보호법 제30조 위반 소지가 남는다.
- */
+/** 사업자 등록 없이 개인이 운영하는 무료 서비스. 법인 관련 기재사항은 해당 없음. */
 const OPERATOR = {
   contactEmail: 'aistockmatrix@gmail.com',
-  privacyOfficer: '개인정보보호책임자 (미지정 — 공개 전 지정 필요)',
 } as const;
 
 export const metadata: Metadata = {
@@ -111,9 +104,12 @@ function PrivacyPolicyPage() {
         </p>
       </LegalSection>
 
-      <LegalSection title="10. 개인정보보호책임자 및 문의처">
+      <LegalSection title="10. 문의처">
+        <p>
+          본 서비스는 사업자 등록 없이 개인이 운영하는 무료 서비스이며, 개인정보 처리에 관한
+          문의와 열람·정정·삭제 요청은 아래로 접수합니다.
+        </p>
         <ul className="list-disc space-y-1 pl-5">
-          <li>개인정보보호책임자: {OPERATOR.privacyOfficer}</li>
           <li>문의: {OPERATOR.contactEmail}</li>
         </ul>
         <p>
