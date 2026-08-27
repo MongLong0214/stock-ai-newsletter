@@ -108,6 +108,17 @@ const FIGURE_TOKEN_RE = new RegExp(
   'g',
 );
 
+/**
+ * 같은 뜻의 단위를 하나로 모은다.
+ *
+ * 윤문이 `20퍼센트`를 `20%`로 바꾸는 것은 정당한 재표기인데, 별개 단위로 두면
+ * "수치 유실·단위 변형"으로 반려된다(실측 e2e에서 이 사유로 1편 반려).
+ */
+function normalizeUnit(unit: string): string {
+  if (unit === '퍼센트') return '%';
+  return unit;
+}
+
 interface FigureToken {
   /** 자릿수를 환산한 값 */
   readonly value: number;
@@ -129,7 +140,7 @@ function parseFigureTokens(text: string): FigureToken[] {
     const base = Number(m[1].replace(/,/g, ''));
     if (!Number.isFinite(base)) continue;
     const scale = [...(m[2] ?? '')].reduce((acc, ch) => acc * (FIGURE_SCALE[ch] ?? 1), 1);
-    tokens.push({ value: base * scale, unit: m[3] ?? '' });
+    tokens.push({ value: base * scale, unit: normalizeUnit(m[3] ?? '') });
   }
   return tokens;
 }

@@ -36,6 +36,7 @@ import {
 } from './draft-model';
 import { checkFormat, FORMAT, METHODOLOGY_PATH, QUOTE_PREFIX } from './format';
 import { planBodyActions } from './publish-plan';
+import { applyReadabilityLayout } from './readability';
 import { evergreenIndexForDate, THEME_COOLDOWN_DAYS, TYPE_PLANS, typeForDate, type PostType } from './post-types';
 import { makeRunId, runDir, sha256File, writeRunAtomic } from './run-store';
 import { isThemeOnCooldown, NAVER_STATE_DIR, readThemeHistory } from './session';
@@ -300,7 +301,10 @@ export function placementsFromCapture(
 }
 
 /** 규격 검증 후 파일로 낸다 — 위반은 발행 전에 잡는다 */
-function writeDraft(outPath: string, draft: DraftPayload): void {
+function writeDraft(outPath: string, draftInput: DraftPayload): void {
+  // 가독성 레이아웃을 검증 **전에** 적용한다 — 길이·인용구·볼드 검사가 최종 본문을 봐야 한다.
+  const draft: DraftPayload = { ...draftInput, body: applyReadabilityLayout(draftInput.body) };
+
   const violations = checkFormat(draft, { fileExists: existsSync });
   if (violations.length) throw new Error(`FORMAT-SPEC 위반: ${violations.join(' / ')}`);
 
