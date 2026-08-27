@@ -38,8 +38,9 @@ export function composeRanking(rows: readonly RankingRow[], asOf: string, siteUr
   const [y, m] = asOf.split('-');
 
   const blocks = [
-    `이번 주 한국 주식시장 테마 ${b(`${rows.length}개`)}의 생명주기 점수를 집계했습니다. ` +
-      `점수가 오른 테마가 ${b(`${risers}개`)}, 내린 테마가 ${b(`${fallers}개`)}입니다. 기준일은 ${asOf}입니다.`,
+    `한국 주식시장 테마 중 단계별 상위 ${b(`${rows.length}개`)}의 생명주기 점수를 모았습니다. ` +
+      `최근 7일 기준 점수가 오른 테마가 ${b(`${risers}개`)}, 내린 테마가 ${b(`${fallers}개`)}, ` +
+      `변화가 없는 테마가 ${b(`${rows.length - risers - fallers}개`)}입니다. 기준일은 ${asOf}입니다.`,
 
     `${QUOTE}점수 상위 ${top.length}개 테마`,
     top
@@ -82,7 +83,7 @@ export function composeRanking(rows: readonly RankingRow[], asOf: string, siteUr
       '활성 테마만 포함됩니다. 가중치는 과거 데이터로 조정했고 산출 과정은 공개되어 있습니다.',
 
     `${QUOTE}정리`,
-    `${asOf} 기준 상승 ${risers}개 / 하락 ${fallers}개입니다. 상위권은 ` +
+    `${asOf} 기준 최근 7일 상승 ${risers}개 / 하락 ${fallers}개입니다. 상위권은 ` +
       `${top.slice(0, 3).map((r) => r.name).join(', ')} 순이며, 전체 ${rows.length}개 테마의 ` +
       '점수와 관련주는 아래 페이지에서 확인할 수 있습니다.',
     '이 점수는 네이버 데이터랩 검색 트렌드와 뉴스 건수, KRX 시세를 매일 자동 집계해 계산한 ' +
@@ -188,6 +189,142 @@ export function composeSimilar(
       `${clean(themeName)}관련주`, clean(themeName),
       ...top.map((r) => clean(r.pastTheme)),
       '테마주', '유사패턴', '주식데이터', '종목분석', '테마분석',
+    ].filter((t) => t.length >= 2).slice(0, 12),
+  };
+}
+
+export interface NewsItem {
+  date?: string;
+  press?: string;
+  title: string;
+}
+
+/**
+ * 광고·투자권유성 헤드라인은 인용하지 않는다.
+ *
+ * 인용이라도 본문에 실리면 YMYL 관점에서는 같은 글에 실린 문장이다. 원문이
+ * 언론사 기사가 아니라 홍보성 배포자료인 경우가 대부분이라 걸러도 손실이 없다.
+ */
+const AD_HEADLINE_RE = /(추천주|리딩|무료\s*수익|수익률\s*\d|매수\s*타이밍|급등주|비법|필독|주식\s*카페|무료\s*상담)/;
+
+const normTitle = (t: string) => t.replace(/[^가-힣A-Za-z0-9]/g, '');
+
+/** ISO 날짜 → MM.DD. 파싱 실패하면 빈 문자열(표기 생략). */
+const shortDate = (raw?: string): string => {
+  const t = Date.parse(raw ?? '');
+  if (!Number.isFinite(t)) return '';
+  const d = new Date(t);
+  return `${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`;
+};
+
+/**
+ * 뉴스 흐름 — 날짜·매체가 매일 바뀌므로 같은 문장이 재생산되지 않는 유일한 유형이다.
+ *
+ * 기사 제목과 매체·날짜만 인용하고 본문은 옮기지 않는다. 해석·전망도 넣지 않는다.
+ */
+/**
+ * 인용 가능한 기사만 남긴다. 광고성 제목과 중복을 걷어낸다.
+ *
+ * 호출부(make-draft)가 최소 건수를 판정할 때도 이 함수를 써야 한다. 원시 배열로 세면
+ * 5건 중 5건이 광고성이어도 뉴스 유형에 진입해 "최근 기사 0건" 글이 나온다.
+ */
+export function filterNewsItems(news: readonly NewsItem[]): NewsItem[] {
+  const seen = new Set<string>();
+  return news
+    .filter((n) => n.title?.trim() && !AD_HEADLINE_RE.test(n.title))
+    .filter((n) => {
+      const key = normTitle(n.title);
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .slice(0, 10);
+}
+
+export function composeNews(
+  themeName: string,
+  score: number,
+  stageKo: string,
+  news: readonly NewsItem[],
+  thisWeek: number,
+  lastWeek: number,
+  asOf: string,
+  themeUrl: string,
+): { body: string; tags: string[]; title: string } {
+  const picked = filterNewsItems(news);
+
+  const presses = [...new Set(picked.map((n) => n.press).filter((p): p is string => Boolean(p)))];
+  const diff = thisWeek - lastWeek;
+  const [y, m] = asOf.split('-');
+
+  const blocks = [
+    `${themeName} 테마의 최근 기사를 모았습니다. 이번 주 관련 기사는 ${b(`${thisWeek}건`)}으로 ` +
+      `지난주 ${lastWeek}건 대비 ${b(diff >= 0 ? `+${diff}건` : `${diff}건`)}입니다. ` +
+      `${asOf} 기준 이 테마의 생명주기 점수는 ${b(`${score}점`)}, 단계는 ${b(stageKo)}입니다.`,
+
+    `${QUOTE}최근 기사 ${picked.length}건`,
+    picked
+      .map((n, i) => {
+        const meta = [n.press, shortDate(n.date)].filter(Boolean).join(' · ');
+        return `${numerals[i]} ${b(n.title.trim())}${meta ? `\n${meta}` : ''}`;
+      })
+      .join('\n\n'),
+
+    `${QUOTE}기사량은 어떻게 변했나`,
+    `뉴스 모멘텀은 최근 7일 기사 건수를 그 이전 기간과 비교한 값입니다. ` +
+      `${themeName}은 이번 주 ${b(`${thisWeek}건`)}, 지난주 ${b(`${lastWeek}건`)}으로 ` +
+      `${diff > 0 ? '기사량이 늘었습니다' : diff < 0 ? '기사량이 줄었습니다' : '기사량이 같습니다'}. ` +
+      `건수 자체보다 이전 기간 대비 얼마나 달라졌는지를 봅니다.`,
+    '기사량이 늘었다는 것은 그 테마가 언론에서 다뤄지는 빈도가 높아졌다는 사실만을 ' +
+      '뜻합니다. 기사의 논조나 내용은 반영하지 않습니다. 같은 사안을 여러 매체가 ' +
+      '동시에 다루면 건수가 급증할 수 있고, 그 뒤 조용해지면 다시 빠르게 줄어듭니다.',
+
+    `${QUOTE}어느 매체가 다뤘나`,
+    presses.length
+      ? `위 기사를 보도한 매체는 ${b(presses.slice(0, 6).join(', '))}${presses.length > 6 ? ` 외 ${presses.length - 6}곳` : ''}입니다. ` +
+        `매체가 여러 곳으로 퍼져 있으면 특정 매체의 연속 보도가 아니라 사안 자체가 ` +
+        `다뤄지고 있다는 뜻으로 읽을 수 있습니다.`
+      : '수집된 기사에 매체 정보가 표기되지 않았습니다. 매체 표기는 원문 제공 형식에 ' +
+        '따라 달라지며, 없더라도 건수 집계에는 영향을 주지 않습니다.',
+    '기사 수집은 네이버 뉴스 검색 결과를 기준으로 하며, 테마 키워드와 관련 종목명이 ' +
+      '함께 등장하는 기사를 대상으로 합니다. 광고성·홍보성 배포자료로 판단되는 항목은 ' +
+      '목록에서 제외했습니다.',
+
+    `${QUOTE}뉴스가 점수에 반영되는 방식`,
+    '생명주기 점수는 네이버 검색 관심도, 뉴스 모멘텀, 관련 종목의 활동성과 변동성 ' +
+      '네 가지를 가중 합산한 0~100 사이 값입니다. 뉴스 모멘텀은 그중 하나이며, ' +
+      '기사량 하나로 점수가 정해지지는 않습니다.',
+    '기사량이 늘어도 검색 관심도가 따라오지 않으면 점수 상승 폭은 제한적입니다. ' +
+      '반대로 기사량이 줄어도 검색이 유지되면 점수는 완만하게 내려갑니다. ' +
+      '네 요소가 서로 다른 방향을 가리키는 구간이 실제로 자주 나타납니다.',
+
+    `${QUOTE}기사를 읽을 때`,
+    '기사 제목은 사안을 압축한 표현이라 그 자체로 판단 근거가 되기 어렵습니다. ' +
+      '위 목록은 어떤 사안이 언제 어느 매체에서 다뤄졌는지를 보여주는 색인이며, ' +
+      '제목만으로 내용을 단정하지 않도록 원문 확인을 권합니다.',
+    '같은 테마라도 기사마다 다루는 종목과 사안이 다릅니다. 테마 단위 집계는 ' +
+      '개별 종목의 사정을 담지 못하므로, 종목별 내용은 각 기사와 공시를 직접 ' +
+      '확인하는 것이 정확합니다.',
+
+    `${QUOTE}정리`,
+    `${asOf} 기준 ${themeName}의 이번 주 기사는 ${thisWeek}건, 지난주는 ${lastWeek}건입니다. ` +
+      `생명주기 점수는 ${score}점이며 ${stageKo} 구간에 있습니다. ` +
+      `기사 목록과 점수 추이는 아래 페이지에서 함께 볼 수 있습니다.`,
+    '이 점수는 네이버 데이터랩 검색 트렌드와 뉴스 건수, KRX 시세를 매일 자동 집계해 계산한 ' +
+      '참고용 데이터입니다. 특정 종목의 매수·매도를 권하는 것이 아니며, 투자 판단과 그 결과는 ' +
+      '투자자 본인의 책임입니다.',
+    `사실 확인에 활용한 데이터: 네이버 뉴스, 네이버 데이터랩 (기준일 ${asOf})`,
+    themeUrl,
+  ];
+
+  const clean = (t: string) => t.replace(/[^가-힣A-Za-z0-9]/g, '');
+  return {
+    title: `${themeName} 관련 뉴스 ${picked.length}건 — 이번 주 기사 ${thisWeek}건 (${y}.${m})`,
+    body: blocks.join('\n\n'),
+    tags: [
+      `${clean(themeName)}관련주`, clean(themeName), `${clean(themeName)}뉴스`,
+      ...presses.slice(0, 3).map(clean),
+      '테마주', '주식뉴스', '종목분석', '주식데이터', '관련주정리',
     ].filter((t) => t.length >= 2).slice(0, 12),
   };
 }

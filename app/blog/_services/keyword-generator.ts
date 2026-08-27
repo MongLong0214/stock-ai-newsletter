@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { getServerSupabaseClient } from '@/lib/supabase/server-client';
 import { generateText } from '@/lib/llm/gemini-client';
 import { buildKeywordGenerationPrompt } from '../_prompts/keyword-generation';
-import { validateKeywordMetadata, calculateSEOScore } from '../_prompts/keyword-validation';
+import { validateKeywordItem, calculateSEOScore } from '../_prompts/keyword-validation';
 import { isDuplicate } from './keyword-similarity';
 import { findClusterCollision } from './cluster-guard';
 import { fetchAllRows } from '@/lib/supabase/paginate';
@@ -60,18 +60,21 @@ async function getUsedContent(): Promise<UsedContent> {
   const days90Ago = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000).toISOString();
   const days30Ago = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
 
-  // .limit(5000)은 PostgREST max_rows=1000에 잘린다(사이트맵과 같은 잘림) — 페이지네이션 필수
+  // .limit(5000)은 PostgREST max_rows=1000에 잘린다(사이트맵과 같은 잘림) — 페이지네이션 필수.
+  // .order('slug')를 붙이는 이유: offset 페이지네이션은 정렬이 고정돼야 한다. 정렬 없이
+  // .range()를 반복하면 그 사이 삽입·갱신으로 암묵 순서가 바뀌어 경계 행이 중복·누락된다
+  // (누락된 제목은 중복 방지 집합에 안 들어가고, 같은 주제가 또 발행된다).
   const [titles, allTime, recent, shortTerm] = await Promise.all([
     fetchAllRows<{ title: string | null }>((from, to) =>
-      supabase.from('blog_posts').select('title').not('title', 'is', null).range(from, to)),
+      supabase.from('blog_posts').select('title').not('title', 'is', null).order('slug').range(from, to)),
     // 전 기간 target_keyword — 관련주 클러스터는 기간 만료 없이 차단한다
     fetchAllRows<{ target_keyword: string | null }>((from, to) =>
-      supabase.from('blog_posts').select('target_keyword').not('target_keyword', 'is', null).range(from, to)),
+      supabase.from('blog_posts').select('target_keyword').not('target_keyword', 'is', null).order('slug').range(from, to)),
     fetchAllRows<{ target_keyword: string | null }>((from, to) =>
       supabase.from('blog_posts').select('target_keyword').not('target_keyword', 'is', null)
-        .gte('created_at', days90Ago).range(from, to)),
+        .gte('created_at', days90Ago).order('slug').range(from, to)),
     fetchAllRows<{ secondary_keywords: string[] | null }>((from, to) =>
-      supabase.from('blog_posts').select('secondary_keywords').gte('created_at', days30Ago).range(from, to)),
+      supabase.from('blog_posts').select('secondary_keywords').gte('created_at', days30Ago).order('slug').range(from, to)),
   ]);
   const titlesRes = { data: titles };
   const recentRes = { data: recent };
@@ -125,10 +128,6 @@ async function generateKeywordsWithAI(
     }
     const keywords: KeywordMetadata[] = parsed.data;
 
-    const validation = validateKeywordMetadata(keywords);
-    if (!validation.isValid) {
-      console.warn('[KeywordGenerator] 품질 경고:', validation.errors.slice(0, 3).join(', '));
-    }
 
     const validKeywords: KeywordMetadata[] = [];
     const allExistingKeywords = [...usedKeywords];
@@ -137,6 +136,12 @@ async function generateKeywordsWithAI(
       // Zod z.enum()이 searchIntent/difficulty/contentType/topicArea를 보장
       if (!kw.keyword) continue;
       if (kw.keyword.length > 40) continue;
+      // 경고만 하고 통과시키던 검증을 실제 탈락으로 바꿨다 — 거짓 게이트를 없앤다
+      const invalid = validateKeywordItem(kw);
+      if (invalid) {
+        console.log(`[KeywordGen] 메타데이터 미달 탈락: ${invalid}`);
+        continue;
+      }
       if (isDuplicate(kw.keyword, allExistingKeywords, existingTitles)) continue;
 
       // 관련주 클러스터는 전 기간 대비 차단 — 같은 테마 관련주 글은 새 URL이 아니라 갱신 대상.
@@ -167,14 +172,16 @@ async function generateKeywordsWithAI(
  * 덮어쓰고, MIN_SEARCH_VOLUME 미만은 탈락시킨다 — 아무도 검색하지 않는 키워드로
  * SerpAPI·스크래핑·생성·윤문 비용을 쓰지 않는다.
  *
- * 자격증명이 없으면 게이트를 생략하고 경고만 남긴다(fail-open) — 게이트는 향상
- * 장치이지 발행을 0으로 만드는 장애 지점이 아니다.
+ * fail-closed다. 자격증명이 없거나 API가 실패하면 그 후보는 탈락시킨다.
+ * fail-open이던 때는 게이트가 실제로 필요한 순간(시크릿 누락·429·5xx)에 정확히
+ * 꺼졌고, 그때 발행된 글의 정렬 기준이 AI가 지어낸 허수였다. 검증 못 한 키워드로
+ * SerpAPI·Gemini 비용을 쓰고 공개까지 하는 것보다 그날 발행 0이 싸다.
  */
 async function applySearchVolumeGate(keywords: KeywordMetadata[]): Promise<KeywordMetadata[]> {
   const creds = credentialsFromEnv();
   if (!creds) {
-    console.warn('[KeywordGen] NAVER_AD_* 자격증명 없음 — 검색량 게이트 생략 (estimatedSearchVolume은 AI 허수)');
-    return keywords;
+    console.error('[KeywordGen] NAVER_AD_* 자격증명 없음 — 검색량을 검증할 수 없어 전부 탈락시킨다');
+    return [];
   }
 
   // 네이버는 relKeyword의 ASCII를 대문자로 돌려준다 — 케이스 폴딩 없이는 영문 키워드(RSI·ETF·PER)가 전부 미매칭
@@ -196,9 +203,9 @@ async function applySearchVolumeGate(keywords: KeywordMetadata[]): Promise<Keywo
         passed.push({ ...kw, estimatedSearchVolume: total });
       }
     } catch (error) {
-      // API 장애 시 그 배치는 게이트 없이 통과 (fail-open) — 단 허수임을 로그로 남긴다
-      console.warn(`[KeywordGen] 검색량 조회 실패(배치 ${i / HINT_KEYWORD_LIMIT + 1}) — 게이트 생략:`, error);
-      passed.push(...batch);
+      // 그 배치는 검증되지 않았으므로 탈락시킨다. 다른 배치는 계속 시도한다 —
+      // 일시적 429가 하루 전체를 죽이지 않으면서, 허수가 통과하지도 않는다.
+      console.error(`[KeywordGen] 검색량 조회 실패(배치 ${i / HINT_KEYWORD_LIMIT + 1}) — 해당 배치 탈락:`, error);
     }
     if (i + HINT_KEYWORD_LIMIT < keywords.length) await new Promise((r) => setTimeout(r, 350));
   }

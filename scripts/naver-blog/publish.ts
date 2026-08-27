@@ -13,7 +13,7 @@
  *   { "title": "...", "tags": ["2차전지"], "body": "문단1\n\n문단2", "outsideUrl": "https://..." }
  */
 
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { chromium, type Frame, type Page } from 'playwright';
 import {
@@ -23,10 +23,16 @@ import {
   NAVER_STATE_DIR,
   readHistory,
   recentPublishCount,
+  clearPublishPending,
+  markPublishPending,
+  readPublishPending,
   recordPublish,
+  recordTheme,
   SESSION_PATH,
   WEEKLY_PUBLISH_LIMIT,
 } from './session';
+import { THEME_COOLDOWN_DAYS } from './post-types';
+import { checkFormat } from './format';
 
 /**
  * 스마트에디터 ONE 셀렉터.
@@ -67,6 +73,8 @@ interface Draft {
   images?: string[];
   outsideUrl?: string;
   tags?: string[];
+  /** 이 초안이 쓴 테마. 발행이 성공해야 쿨다운에 넣는다. */
+  themeId?: string;
   title: string;
 }
 
@@ -88,6 +96,12 @@ function loadDraft(path: string): Draft {
   const raw = JSON.parse(readFileSync(path, 'utf-8'));
   if (typeof raw.title !== 'string' || !raw.title.trim()) throw new Error('초안에 title이 없습니다');
   if (typeof raw.body !== 'string' || !raw.body.trim()) throw new Error('초안에 body가 없습니다');
+
+  // 규격 검사는 make-draft에만 있었다. publish를 직접 호출하거나 예전 draft.json을 넘기면
+  // 이미지·태그·고지문·본문 길이 검사를 전부 건너뛰고 발행된다. 발행 엔트리에서 다시 막는다.
+  const violations = checkFormat(raw as Draft, { fileExists: existsSync });
+  if (violations.length) throw new Error(`FORMAT-SPEC 위반으로 발행 중단: ${violations.join(' / ')}`);
+
   return raw as Draft;
 }
 
@@ -127,10 +141,23 @@ async function verifyEditorContent(editor: Frame, draft: Draft, insertedImages: 
   const bodyHead = norm(plainBody).slice(0, 20);
   if (!flat.includes(bodyHead)) return `본문 미입력 (기대: "${bodyHead}...")`;
 
-  // 본문 길이 — 문단 일부만 들어간 경우를 잡는다
+  // 본문 길이 — 문단 일부만 들어간 경우를 잡는다.
+  // 비율만 보면 30%가 사라져도 통과하고, flat에는 에디터 UI 텍스트까지 섞여 더 후해진다.
   const expected = norm(plainBody).length;
   const got = flat.length;
-  if (got < expected * 0.7) return `본문이 잘림 (기대 ${expected}자 이상, 실제 ${got}자)`;
+  if (got < expected * 0.9) return `본문이 잘림 (기대 ${expected}자 이상, 실제 ${got}자)`;
+
+  // 꼬리 앵커 — 비율보다 확실하다. 마지막 문단이 들어갔으면 중간이 통째로 빠지기 어렵다.
+  // URL만 있는 문단은 오글링크 카드로 바뀌어 본문 텍스트에서 사라지므로 제외한다.
+  const lastTextBlock = plainBody
+    .split(/\n{2,}/)
+    .map((b) => b.trim())
+    .filter((b) => b && !/^https?:\/\/\S+$/.test(b))
+    .at(-1);
+  if (lastTextBlock) {
+    const tail = norm(lastTextBlock).slice(0, 20);
+    if (!flat.includes(tail)) return `본문 끝부분 누락 (기대: "${tail}...")`;
+  }
 
   if (draft.outsideUrl) {
     // 오글링크 카드로 변환되면 URL이 본문 텍스트에 남지 않는다 — 카드의 href로도 인정한다.
@@ -389,6 +416,20 @@ async function main(): Promise<void> {
   const draft = loadDraft(draftPath);
   if (!hasSession()) throw new Error(`세션이 없습니다. 먼저 실행하세요: npm run naver:login`);
 
+  // 이전 실행이 발행 버튼을 누른 뒤 결과를 확인하지 못했다면, 그 글이 이미 올라갔을 수 있다.
+  // 같은 제목으로 다시 실행하면 중복 게시가 된다 — 사람이 확인할 때까지 멈춘다.
+  const pending = readPublishPending();
+  if (pending && pending.title === draft.title) {
+    throw new Error(
+      `이전 실행(${pending.at})이 같은 제목으로 발행을 시도했지만 결과가 확인되지 않았습니다.\n` +
+        '네이버 블로그에서 실제 게시 여부를 확인한 뒤 .naver-blog/state/pending-publish.json 을 지우고 다시 실행하세요.',
+    );
+  }
+  if (pending) {
+    console.warn(`[Naver] 이전 발행 표식(${pending.title})을 정리합니다 — 이번 초안과 다른 글입니다.`);
+    clearPublishPending();
+  }
+
   const now = Date.now();
   const history = readHistory();
   if (publish && !canPublish(history, now)) {
@@ -502,12 +543,23 @@ async function main(): Promise<void> {
 
     if (draft.tags?.length) {
       const tagInput = editor.locator(SEL.tagInput).first();
-      if (await tagInput.count()) {
-        for (const tag of draft.tags.slice(0, 10)) {
-          await tagInput.click();
-          await page.keyboard.type(tag, { delay: 12 });
-          await page.keyboard.press('Enter');
-        }
+      // 셀렉터가 바뀌면 조용히 건너뛰고 발행됐다. 태그 없는 글은 네이버에서 거의 노출되지 않는다.
+      if ((await tagInput.count()) === 0) {
+        throw new Error('태그 입력기를 찾지 못했습니다 (SEL.tagInput 재보정 필요) — 태그 없이 발행하지 않습니다');
+      }
+      const wanted = draft.tags.slice(0, 10);
+      for (const tag of wanted) {
+        await tagInput.click();
+        await page.keyboard.type(tag, { delay: 12 });
+        await page.keyboard.press('Enter');
+      }
+      // count()는 미매칭이면 0을 돌려준다 — 0을 "입력 실패"로 읽으면 네이버가 클래스명을
+      // 바꾼 날 태그가 정상 입력됐는데도 발행이 멈춘다. 0은 "검증 불가"로 본다.
+      const entered = await editor.locator('[class*="tag_item"], .tag_item__ISVjt').count().catch(() => 0);
+      if (entered === 0) {
+        console.warn('[Naver] 입력된 태그 수를 확인할 수 없습니다(클래스명 변경 가능) — 검증 생략');
+      } else if (entered < wanted.length) {
+        throw new Error(`태그가 ${entered}/${wanted.length}개만 입력됐습니다 — 발행하지 않습니다`);
       }
     }
 
@@ -517,6 +569,8 @@ async function main(): Promise<void> {
       .filter({ hasText: /^\s*발행\s*$/ })
       .filter({ visible: true })
       .last();
+    // 클릭 직후 응답이 끊기면 "올라갔는지 모르는" 상태가 된다. 표식을 먼저 남긴다.
+    markPublishPending(draft.title, Date.now());
     await confirmBtn.click({ timeout: 10_000 });
 
     // 네이버가 "발행 오류 — 문서 처리 중 오류가 발생하였습니다" 팝업을 낼 수 있다.
@@ -534,7 +588,12 @@ async function main(): Promise<void> {
       throw new Error(`${detail} 스크린샷을 확인하세요.`);
     }
 
-    recordPublish(Date.now());
+    // 기록은 발행이 실제로 끝난 뒤에만. 초안 생성 시점에 기록하면 발행이 깨진 날도
+    // 그 테마가 14일간 후보에서 빠져 소재만 잃는다.
+    const publishedAt = Date.now();
+    clearPublishPending();
+    recordPublish(publishedAt);
+    if (draft.themeId) recordTheme(draft.themeId, publishedAt, THEME_COOLDOWN_DAYS);
     console.log(`발행 완료: ${page.url()}`);
     console.log(`최근 7일 ${recentPublishCount(readHistory(), Date.now())}건 / 상한 ${WEEKLY_PUBLISH_LIMIT}건`);
   } catch (error) {

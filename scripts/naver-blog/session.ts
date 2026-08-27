@@ -7,15 +7,22 @@
  * 발행 스크립트는 그 세션을 재사용한다.
  */
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { chmodSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 
 /** 세션·발행 기록 저장 위치. 자격증명이 들어있으므로 반드시 gitignore. */
 export const NAVER_STATE_DIR = join(process.cwd(), '.naver-blog');
 export const SESSION_PATH = join(NAVER_STATE_DIR, 'session.json');
-const HISTORY_PATH = join(NAVER_STATE_DIR, 'publish-history.json');
+/**
+ * 발행 기록 디렉토리 — 세션과 분리한다.
+ *
+ * CI가 이 디렉토리만 actions/cache로 실행 간에 넘긴다. session.json과 한 폴더에 두면
+ * 로그인 쿠키가 캐시에 올라간다. 자격증명은 절대 캐시하지 않는다.
+ */
+export const PUBLISH_STATE_DIR = join(NAVER_STATE_DIR, 'state');
+const HISTORY_PATH = join(PUBLISH_STATE_DIR, 'publish-history.json');
 /** 테마별 마지막 발행 시각 — 같은 테마 재발행 쿨다운용 */
-const THEME_LOG_PATH = join(NAVER_STATE_DIR, 'theme-history.json');
+const THEME_LOG_PATH = join(PUBLISH_STATE_DIR, 'theme-history.json');
 
 /**
  * 주간 발행 상한 — 매일 1편 기준 7건.
@@ -35,7 +42,8 @@ const skipLimit = () => process.env.NAVER_SKIP_LIMIT === '1';
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
 export function ensureStateDir(): void {
-  if (!existsSync(NAVER_STATE_DIR)) mkdirSync(NAVER_STATE_DIR, { recursive: true });
+  if (!existsSync(NAVER_STATE_DIR)) mkdirSync(NAVER_STATE_DIR, { recursive: true, mode: 0o700 });
+  if (!existsSync(PUBLISH_STATE_DIR)) mkdirSync(PUBLISH_STATE_DIR, { recursive: true });
 }
 
 /**
@@ -53,7 +61,9 @@ export function ensureSession(): boolean {
 
   try {
     ensureStateDir();
-    writeFileSync(SESSION_PATH, Buffer.from(encoded, 'base64').toString('utf-8'), 'utf-8');
+    // 로그인 쿠키다. 공유 러너·공유 맥에서 다른 사용자가 읽지 못하게 소유자 전용으로 만든다.
+    writeFileSync(SESSION_PATH, Buffer.from(encoded, 'base64').toString('utf-8'), { encoding: 'utf-8', mode: 0o600 });
+    chmodSync(SESSION_PATH, 0o600);
     console.log('[Naver] NAVER_SESSION_B64에서 세션 복원');
     return true;
   } catch (error) {
@@ -99,10 +109,40 @@ export function recordPublish(now: number): void {
     return Number.isFinite(t) && now - t < WEEK_MS;
   });
   kept.push(new Date(now).toISOString());
-  mkdirSync(dirname(HISTORY_PATH), { recursive: true });
   writeFileSync(HISTORY_PATH, `${JSON.stringify(kept, null, 2)}\n`, 'utf-8');
 }
 
+
+const PENDING_PATH = join(PUBLISH_STATE_DIR, 'pending-publish.json');
+
+/**
+ * 발행 시도 표식.
+ *
+ * 최종 발행 버튼을 누른 직후 네이버는 저장했는데 응답·프로세스가 끊기면
+ * recordPublish가 실행되지 않는다. 그 상태에서 재실행하면 같은 글이 한 번 더 올라간다.
+ * 클릭 **전에** 표식을 남기고 성공 시 지우면, 남아 있는 표식이 곧 "결과 미확인"이다.
+ */
+export function markPublishPending(title: string, now: number): void {
+  ensureStateDir();
+  writeFileSync(PENDING_PATH, `${JSON.stringify({ title, at: new Date(now).toISOString() }, null, 2)}\n`, 'utf-8');
+}
+
+export function readPublishPending(): { at: string; title: string } | null {
+  try {
+    const parsed = JSON.parse(readFileSync(PENDING_PATH, 'utf-8'));
+    return typeof parsed?.title === 'string' ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+export function clearPublishPending(): void {
+  try {
+    if (existsSync(PENDING_PATH)) rmSync(PENDING_PATH);
+  } catch (error) {
+    console.warn('[Naver] 발행 표식 삭제 실패:', error);
+  }
+}
 
 /** 최근 발행한 테마 id → ISO 시각 */
 export function readThemeHistory(): Record<string, string> {

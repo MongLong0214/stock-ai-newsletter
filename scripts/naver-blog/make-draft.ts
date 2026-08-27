@@ -21,19 +21,30 @@ if (existsSync(envPath)) config({ path: envPath });
 
 import { credentialsFromEnv, fetchKeywordVolumes } from '@/lib/naver-searchad';
 import { captureThemeImages } from './capture-images';
-import { composeRanking, composeSimilar, type ComparisonRow, type RankingRow } from './compose-variants';
-import { THEME_COOLDOWN_DAYS, typeForHistory, type PostType } from './post-types';
-import { isThemeOnCooldown, readHistory, recordTheme } from './session';
+import { composeEvergreen } from './compose-evergreen';
+import { composeNews, composeRanking, composeSimilar, filterNewsItems, type ComparisonRow } from './compose-variants';
+import { checkFormat, FORMAT, QUOTE_PREFIX } from './format';
+import { evergreenIndexForDate, THEME_COOLDOWN_DAYS, TYPE_PLANS, typeForDate, type PostType } from './post-types';
+import { isThemeOnCooldown, readThemeHistory } from './session';
 
 const SITE = 'https://stockmatrix.co.kr';
 /** 이 미만 검색량이면 네이버에 써도 읽힐 가능성이 낮다 */
 const MIN_VOLUME = 200;
 
-interface Mover {
-  change: number;
-  currentScore: number;
-  currentStage: string;
+/**
+ * 발행 후보 테마.
+ *
+ * 출처를 /api/tli/changes(movers)에서 /api/tli/scores/ranking으로 바꿨다. changes는
+ * rising을 **10개로 잘라서** 반환하므로(app/api/tli/changes/route.ts:154) 후보가 10개뿐이고,
+ * 5/7 유형이 개별 테마를 쓰는 매일 발행 + 14일 쿨다운에서는 열흘이면 전부 쿨다운에 걸려
+ * 매일 실패한다. ranking은 단계별 최대 50개씩 주므로 후보가 수백 개다.
+ */
+interface Candidate {
+  /** 7일 변화. changes의 1일 변화를 쓰던 것을 본문 문구('최근 7일 변화')에 맞췄다. */
+  change7d: number;
   name: string;
+  score: number;
+  stageKo: string;
   themeId: string;
 }
 
@@ -59,25 +70,25 @@ interface ThemeDetail {
   stocks?: Stock[];
 }
 
+/** 본문에 실제로 나열하는 종목 수 상한. 제목의 TOP N도 이 값을 넘지 않는다. */
+export const MAX_LISTED_STOCKS = 8;
+
+/**
+ * 본문에 실제로 싣는 종목 목록.
+ *
+ * 제목은 stocks.length로 "TOP 12"라 쓰고 본문은 slice(0, 8)만 나열해 개수가 어긋났다.
+ * 제목·소제목·태그·목록이 전부 이 배열 하나를 본다.
+ */
+export const listedStocks = (theme: ThemeDetail): Stock[] =>
+  (theme.stocks ?? []).filter((s) => s.name).slice(0, MAX_LISTED_STOCKS);
+
 /** 종목명 목록. 본문·태그·제목이 같은 소스를 봐야 개수가 어긋나지 않는다. */
 export const stockNames = (theme: ThemeDetail): string[] =>
-  (theme.stocks ?? []).map((s) => s.name).filter(Boolean);
+  listedStocks(theme).map((s) => s.name);
 
 const pct = (n: number) => `${(n * 100).toFixed(0)}%`;
 
-/** 발행 포맷 규격 — FORMAT-SPEC.md */
-export const FORMAT = {
-  bodyMax: 2500,
-  bodyMin: 1500,
-  minImages: 4,
-  tagsMax: 12,
-  tagsMin: 8,
-  titleMax: 45,
-  titleMin: 25,
-} as const;
-
-/** 인용구 박스(소제목) 표시. publish.ts가 이 접두를 보고 스마트에디터 인용구로 변환한다. */
-export const QUOTE_PREFIX = '>> ';
+export { FORMAT, QUOTE_PREFIX } from './format';
 
 /** 상승/하락 방향에 따른 색상 마커. publish.ts가 서식으로 바꾼다. */
 const up = (t: string) => `[[r:${t}]]`;
@@ -105,6 +116,7 @@ export function composeBody(theme: ThemeDetail, themeId: string, change: number)
   const c = s.components;
   const r = s.raw;
   const stocks = stockNames(theme);
+  const totalStocks = (theme.stocks ?? []).length;
   const newsDown = r.newsThisWeek < r.newsLastWeek;
   const interestUp = r.recent7dAvg >= r.baseline30dAvg;
   const changeText = change >= 0 ? up(`+${change}점`) : down(`${change}점`);
@@ -151,9 +163,12 @@ export function composeBody(theme: ThemeDetail, themeId: string, change: number)
   if (stocks.length) {
     blocks.push(`${QUOTE_PREFIX}관련종목 ${stocks.length}개`);
     const numerals = ['①', '②', '③', '④', '⑤', '⑥', '⑦', '⑧'];
+    const scope = totalStocks > stocks.length
+      ? `이 테마로 묶이는 종목 ${totalStocks}개 중 상위 ${stocks.length}개입니다.`
+      : `이 테마로 묶이는 종목은 아래 ${stocks.length}개입니다.`;
     blocks.push(
-      `이 테마로 묶이는 종목은 아래 ${stocks.length}개입니다. 시장 구분과 함께 정리했습니다.\n` +
-      (theme.stocks ?? []).slice(0, 8)
+      `${scope} 시장 구분과 함께 정리했습니다.\n` +
+      listedStocks(theme)
         .map((st, i) => `${numerals[i]} ${b(st.name)} (${st.market} ${st.symbol})`)
         .join('\n'),
     );
@@ -221,22 +236,15 @@ interface DraftPayload {
   images: string[];
   outsideUrl: string;
   tags: string[];
+  /** 발행 성공 시에만 쿨다운을 기록하도록 publish.ts로 넘긴다 */
+  themeId: string;
   title: string;
 }
 
 /** 규격 검증 후 파일로 낸다 — 위반은 발행 전에 잡는다 */
 function writeDraft(outPath: string, draft: DraftPayload): void {
   const plain = draft.body.replace(/>> |\*\*|\[\[[rb]:|\]\]/g, '');
-  const violations: string[] = [];
-  if (draft.title.length < FORMAT.titleMin || draft.title.length > FORMAT.titleMax) {
-    violations.push(`제목 ${draft.title.length}자 (규격 ${FORMAT.titleMin}~${FORMAT.titleMax})`);
-  }
-  if (plain.length < FORMAT.bodyMin || plain.length > FORMAT.bodyMax) {
-    violations.push(`본문 ${plain.length}자 (규격 ${FORMAT.bodyMin}~${FORMAT.bodyMax})`);
-  }
-  if (draft.tags.length < FORMAT.tagsMin || draft.tags.length > FORMAT.tagsMax) {
-    violations.push(`태그 ${draft.tags.length}개 (규격 ${FORMAT.tagsMin}~${FORMAT.tagsMax})`);
-  }
+  const violations = checkFormat(draft, { fileExists: existsSync });
   if (violations.length) throw new Error(`FORMAT-SPEC 위반: ${violations.join(' / ')}`);
 
   mkdirSync(dirname(outPath), { recursive: true });
@@ -246,76 +254,169 @@ function writeDraft(outPath: string, draft: DraftPayload): void {
   console.log(`  본문: ${plain.length}자 / 태그 ${draft.tags.length}개 / 이미지 ${draft.images.length}장`);
 }
 
+/**
+ * 타임아웃 없는 fetch는 CI에서 잡이 무한 대기한다.
+ *
+ * 60초인 이유: /api/tli/scores/ranking은 단계별 상위 50개를 위해 활성 테마 전체의
+ * 점수·종목·뉴스를 배치 집계한다. 캐시가 식은 첫 호출이 30초를 넘길 수 있다.
+ */
 async function getJson<T>(path: string): Promise<T> {
-  const res = await fetch(`${SITE}${path}`);
+  const res = await fetch(`${SITE}${path}`, { signal: AbortSignal.timeout(60_000) });
   if (!res.ok) throw new Error(`${path} → ${res.status}`);
   return (await res.json()).data;
+}
+
+interface RankingItem {
+  change7d?: number;
+  id: string;
+  name: string;
+  score: number;
+  stageKo: string;
+}
+
+const STAGE_BUCKETS = ['emerging', 'growth', 'peak', 'decline', 'reigniting'] as const;
+
+/** 검색량 조회 비용 상한 — 5개씩 6배치 */
+const VOLUME_CHECK_MAX = 30;
+/** 뉴스 유형 최소 기사 수. 미만이면 theme으로 떨어진다. */
+const MIN_NEWS = 5;
+
+/** 단계별 버킷을 합쳐 점수순 후보 목록으로 만든다. reigniting은 다른 단계와 겹치므로 id로 중복 제거. */
+async function fetchCandidates(): Promise<Candidate[]> {
+  const ranking = await getJson<Partial<Record<(typeof STAGE_BUCKETS)[number], RankingItem[]>>>(
+    '/api/tli/scores/ranking?limit=50',
+  );
+  const byId = new Map<string, Candidate>();
+  for (const bucket of STAGE_BUCKETS) {
+    for (const t of ranking[bucket] ?? []) {
+      if (!t?.id || !t.name || byId.has(t.id)) continue;
+      byId.set(t.id, {
+        change7d: t.change7d ?? 0,
+        name: t.name,
+        score: t.score ?? 0,
+        stageKo: t.stageKo,
+        themeId: t.id,
+      });
+    }
+  }
+  return [...byId.values()].sort((a, b) => b.score - a.score);
+}
+
+/**
+ * 이미지 출처 테마.
+ *
+ * 랭킹·상시 글도 자사 페이지 캡처를 쓰므로 테마를 하나 고른다. 쿨다운을 무시하면
+ * 다음 날 그 테마의 개별 글이 나올 때 이미지 6장이 그대로 겹쳐 "동일 문서 반복"이 된다.
+ */
+function pickImageTheme(candidates: readonly Candidate[], now: number): Candidate {
+  const fresh = candidates.find((c) => !isThemeOnCooldown(c.themeId, now, THEME_COOLDOWN_DAYS));
+  if (fresh) return fresh;
+
+  // 전원 쿨다운이면 1위를 재사용하던 것을 고쳤다 — 그러면 같은 이미지 6장이 반복된다.
+  // 가장 오래전에 쓴 테마를 고르면 간격이 최대가 된다.
+  const history = readThemeHistory();
+  const lastUsed = (id: string) => Date.parse(history[id] ?? '') || 0;
+  return [...candidates].sort((a, b) => lastUsed(a.themeId) - lastUsed(b.themeId))[0];
+}
+
+async function capture(themeId: string, outPath: string): Promise<string[]> {
+  const images = await captureThemeImages(themeId, join(dirname(outPath), 'images'));
+  if (images.length < FORMAT.minImages) {
+    throw new Error(`이미지 ${images.length}장 — 최소 ${FORMAT.minImages}장 필요. 발행하지 않는다.`);
+  }
+  return images.map((i) => i.path);
+}
+
+/** 쿨다운 통과 + 네이버 실검색량 확인. 상승 테마를 먼저 본다. */
+async function pickTheme(candidates: readonly Candidate[], now: number): Promise<Candidate> {
+  const fresh = candidates.filter((c) => !isThemeOnCooldown(c.themeId, now, THEME_COOLDOWN_DAYS));
+  if (fresh.length === 0) {
+    throw new Error(`후보 ${candidates.length}개 전부 ${THEME_COOLDOWN_DAYS}일 쿨다운 — 오늘은 쓰지 않는다`);
+  }
+  const ordered = [...fresh].sort(
+    (a, b) => Number(b.change7d > 0) - Number(a.change7d > 0) || b.score - a.score,
+  );
+
+  const creds = credentialsFromEnv();
+  if (!creds) {
+    // fail-open이던 자리다. 시크릿이 비거나 이름이 틀리면 "실측 검색량 200 이상"이라는
+    // 약속이 조용히 사라지고, 아무도 검색하지 않는 테마 글이 매일 올라간다.
+    throw new Error(
+      'NAVER_AD_* 자격증명이 없습니다 — 검색량을 검증할 수 없어 발행하지 않습니다.\n' +
+        '.env.local 또는 GitHub Secrets에 NAVER_AD_CREDS(JSON) 또는 ' +
+        'NAVER_AD_CUSTOMER_ID/NAVER_AD_API_KEY/NAVER_AD_SECRET_KEY를 설정하세요.',
+    );
+  }
+
+  const norm = (k: string) => k.replace(/\s+/g, '').toUpperCase();
+  const scanned = Math.min(ordered.length, VOLUME_CHECK_MAX);
+  for (let i = 0; i < scanned; i += 5) {
+    const batch = ordered.slice(i, i + 5);
+    const volumes = await fetchKeywordVolumes(creds, batch.map((c) => c.name)).catch((e: unknown) => {
+      console.warn(`[Draft] 검색량 조회 실패: ${e instanceof Error ? e.message : String(e)}`);
+      return [];
+    });
+    const hit = batch.find(
+      (c) => (volumes.find((v) => norm(v.keyword) === norm(c.name))?.total ?? 0) >= MIN_VOLUME,
+    );
+    if (hit) return hit;
+    await new Promise((r) => setTimeout(r, 350));
+  }
+  throw new Error(`후보 ${scanned}개 전부 검색량 ${MIN_VOLUME} 미만 — 오늘은 쓰지 않는다`);
 }
 
 async function main(): Promise<void> {
   const outIdx = process.argv.indexOf('--out');
   const outPath = outIdx >= 0 ? process.argv[outIdx + 1] : '.naver-blog/draft.json';
+  const now = Date.now();
 
-  // 발행 회차로 유형을 정한다 — 같은 템플릿이 이틀 연속 나오지 않게
-  const postType: PostType = (process.argv.includes('--type')
+  // KST 날짜로 유형을 정한다 — 상태 복원이 실패해도 로테이션은 맞는다
+  const requested = process.argv.includes('--type')
     ? process.argv[process.argv.indexOf('--type') + 1]
-    : typeForHistory(readHistory().length)) as PostType;
+    : typeForDate(now);
+  if (!(requested in TYPE_PLANS)) throw new Error(`알 수 없는 글 유형: ${requested}`);
+  const postType = requested as PostType;
   console.log(`글 유형: ${postType}`);
 
-  const changes = await getJson<{ movers: { rising: Mover[] } }>('/api/tli/changes?period=1d');
-  const rising = [...(changes.movers?.rising ?? [])].sort((a, b) => b.currentScore - a.currentScore);
-  if (rising.length === 0) throw new Error('오늘 상승 테마 없음 — 발행 소재가 없다');
+  const candidates = await fetchCandidates();
+  if (candidates.length === 0) throw new Error('점수가 산출된 테마 없음 — 발행 소재가 없다');
+  const asOf = new Date(now).toISOString().slice(0, 10);
 
-  // 랭킹 글은 개별 테마가 아니라 전체 집계를 쓴다
-  if (postType === 'ranking') {
-    const rows: RankingRow[] = rising.map((m) => ({
-      change: m.change,
-      name: m.name,
-      score: m.currentScore,
-      stageKo: m.currentStage,
-    }));
-    const asOf = new Date().toISOString().slice(0, 10);
-    const composed = composeRanking(rows, asOf, SITE);
-    const images = await captureThemeImages(rising[0].themeId, join(dirname(outPath), 'images'));
-    if (images.length < FORMAT.minImages) {
-      throw new Error(`이미지 ${images.length}장 — 최소 ${FORMAT.minImages}장 필요`);
-    }
-    writeDraft(outPath, { ...composed, outsideUrl: `${SITE}/themes`, images: images.map((i) => i.path) });
+  // 랭킹·상시 글은 개별 테마가 아니라 전체 집계를 쓴다. 이미지만 한 테마에서 가져온다.
+  if (postType === 'ranking' || postType === 'evergreen') {
+    const imageTheme = pickImageTheme(candidates, now);
+    const images = await capture(imageTheme.themeId, outPath);
+
+    const composed = postType === 'ranking'
+      ? composeRanking(
+          candidates.map((c) => ({ change: c.change7d, name: c.name, score: c.score, stageKo: c.stageKo })),
+          asOf,
+          SITE,
+        )
+      : composeEvergreen(evergreenIndexForDate(now), {
+          asOf,
+          risers7d: candidates.filter((c) => c.change7d > 0).length,
+          sampledThemes: candidates.length,
+          topName: candidates[0].name,
+          topScore: candidates[0].score,
+          topStageKo: candidates[0].stageKo,
+        }, SITE);
+
+    writeDraft(outPath, {
+      body: composed.body,
+      images,
+      outsideUrl: postType === 'ranking' ? `${SITE}/themes` : `${SITE}/themes/methodology`,
+      tags: composed.tags,
+      themeId: imageTheme.themeId,
+      title: composed.title,
+    });
     return;
   }
 
-  // 검색량 검증: 네이버에서 실제로 검색되는 테마만 쓴다
-  const creds = credentialsFromEnv();
-  let chosen: Mover | undefined;
-
-  if (creds) {
-    for (let i = 0; i < rising.length; i += 5) {
-      const batch = rising.slice(i, i + 5);
-      const volumes = await fetchKeywordVolumes(creds, batch.map((m) => m.name)).catch(() => []);
-      const norm = (k: string) => k.replace(/\s+/g, '').toUpperCase();
-      chosen = batch.find((m) =>
-        (volumes.find((v) => norm(v.keyword) === norm(m.name))?.total ?? 0) >= MIN_VOLUME &&
-        !isThemeOnCooldown(m.themeId, Date.now(), THEME_COOLDOWN_DAYS),
-      );
-      if (chosen) break;
-      await new Promise((r) => setTimeout(r, 350));
-    }
-    if (!chosen) throw new Error(`상승 테마 ${rising.length}개 전부 검색량 ${MIN_VOLUME} 미만 — 오늘은 쓰지 않는다`);
-  } else {
-    console.warn('[Draft] NAVER_AD_* 없음 — 검색량 검증 생략, 점수 최상위 테마 사용');
-    chosen = rising.find((m) => !isThemeOnCooldown(m.themeId, Date.now(), THEME_COOLDOWN_DAYS)) ?? rising[0];
-  }
-
+  const chosen = await pickTheme(candidates, now);
   const theme = await getJson<ThemeDetail>(`/api/tli/themes/${chosen.themeId}`);
-  const stocks = stockNames(theme);
   const themeUrl = `${SITE}/themes/${chosen.themeId}`;
-
-  // 이미지 캡처 — FORMAT-SPEC상 0장은 발행 차단 조건
-  const images = await captureThemeImages(chosen.themeId, join(dirname(outPath), 'images'));
-  if (images.length < FORMAT.minImages) {
-    throw new Error(`이미지 ${images.length}장 — 최소 ${FORMAT.minImages}장 필요. 발행하지 않는다.`);
-  }
-  const imagePaths = images.map((i) => i.path);
+  const images = await capture(chosen.themeId, outPath);
 
   // 유사 패턴 글 — 비교 데이터가 있을 때만. 없으면 theme으로 떨어진다.
   if (postType === 'similar' && (theme.comparisons?.length ?? 0) > 0) {
@@ -327,19 +428,61 @@ async function main(): Promise<void> {
       theme.score.updatedAt,
       themeUrl,
     );
-    writeDraft(outPath, { ...composed, outsideUrl: themeUrl, images: imagePaths });
-    recordTheme(chosen.themeId, Date.now(), THEME_COOLDOWN_DAYS);
+    writeDraft(outPath, { ...composed, outsideUrl: themeUrl, images, themeId: chosen.themeId });
+    return;
+  }
+
+  // 뉴스 글 — 기사가 충분할 때만
+  // 정제 후 건수로 판정한다 — 원시 5건이 전부 광고성이면 기사 0건짜리 뉴스 글이 된다
+  const news = filterNewsItems(theme.recentNews ?? []);
+  if (postType === 'news' && news.length >= MIN_NEWS) {
+    const composed = composeNews(
+      theme.name,
+      theme.score.value,
+      theme.score.stageKo,
+      news,
+      theme.score.raw.newsThisWeek,
+      theme.score.raw.newsLastWeek,
+      theme.score.updatedAt,
+      themeUrl,
+    );
+    writeDraft(outPath, { ...composed, outsideUrl: themeUrl, images, themeId: chosen.themeId });
+    return;
+  }
+  // 데이터가 모자라 유형을 못 쓰면 theme이 아니라 ranking으로 떨어뜨린다.
+  // theme은 이미 로테이션의 3/7이라, 폴백까지 theme으로 보내면 같은 템플릿이 몰린다.
+  if (postType === 'news' || postType === 'similar') {
+    const reason = postType === 'news' ? `기사 ${news.length}건 (최소 ${MIN_NEWS})` : '비교 데이터 없음';
+    console.warn(`[Draft] ${reason} — ranking 유형으로 대체`);
+    const composed = composeRanking(
+      candidates.map((c) => ({ change: c.change7d, name: c.name, score: c.score, stageKo: c.stageKo })),
+      asOf,
+      SITE,
+    );
+    writeDraft(outPath, {
+      body: composed.body,
+      images,
+      outsideUrl: `${SITE}/themes`,
+      tags: composed.tags,
+      themeId: chosen.themeId,
+      title: composed.title,
+    });
     return;
   }
 
   writeDraft(outPath, {
-    title: composeTitle(theme, stocks.length),
+    title: composeTitle(theme, stockNames(theme).length),
     tags: composeTags(theme),
-    body: composeBody(theme, chosen.themeId, chosen.change),
+    body: composeBody(theme, chosen.themeId, chosen.change7d),
     outsideUrl: themeUrl,
-    images: imagePaths,
+    images,
+    themeId: chosen.themeId,
   });
-  recordTheme(chosen.themeId, Date.now(), THEME_COOLDOWN_DAYS);
 }
 
-main().catch((e) => { console.error(e instanceof Error ? e.message : e); process.exit(1); });
+// 직접 실행일 때만 돈다. 이 모듈은 FORMAT·compose* 를 내보내므로 테스트가 import하는데,
+// 가드가 없으면 import만으로 main()이 돌아 실제 API를 치고 process.exit(1)로 러너를 죽인다.
+// endsWith인 이유: includes('make-draft')는 make-draft.test.ts에서도 참이 된다.
+if (process.argv[1]?.endsWith('make-draft.ts')) {
+  main().catch((e) => { console.error(e instanceof Error ? e.message : e); process.exit(1); });
+}

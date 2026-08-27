@@ -10,7 +10,7 @@
  * "관련종목" 같은 섹션 제목은 콘텐츠라 훨씬 안정적이다.
  */
 
-import { mkdirSync, existsSync } from 'node:fs';
+import { mkdirSync, existsSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { chromium, type Browser, type Page } from 'playwright';
 
@@ -26,6 +26,9 @@ const TARGETS = [
   { heading: '테마전망', name: '5-outlook', required: false },
   { heading: '관련뉴스', name: '6-news', required: false },
 ] as const;
+
+/** 정상 캡처의 하한. 이 밑이면 렌더가 안 된 빈 영역으로 본다. */
+const MIN_IMAGE_BYTES = 15_000;
 
 export interface CapturedImage {
   name: string;
@@ -53,7 +56,12 @@ async function waitForCharts(page: Page): Promise<void> {
         return Number.isFinite(dash) && Number.isFinite(offset) && offset < dash * 0.98;
       });
     }, null, { timeout: 10_000 })
-    .catch(() => console.warn('[Capture] 게이지 애니메이션 대기 시간 초과 — 계속 진행'));
+    .catch(() => {
+      // 히어로(required)의 핵심이 이 게이지다. 경고만 하고 넘어가면 빈 원이 찍힌
+      // PNG가 "이미지 4장 확보"로 계산되어 그대로 발행된다. 여기서 끊는다 —
+      // 발행 실패는 이슈로 올라오지만, 빈 차트가 올라간 글은 아무도 모른다.
+      throw new Error('점수 게이지가 렌더되지 않았습니다 (10초) — 빈 이미지를 발행하지 않습니다');
+    });
 
   // Recharts: path의 d가 실제 경로를 담고 컨테이너 폭이 잡혔는지
   await page
@@ -177,7 +185,9 @@ export async function captureThemeImages(
               if (paths.length === 0) return true; // 차트 없는 섹션
               return paths.some((el) => (el.getAttribute('d') ?? '').length > 60);
             }, null, { timeout: 8_000 })
-            .catch(() => console.warn('[Capture] 차트 렌더 대기 초과 — 계속'));
+            .catch(() => {
+              throw new Error(`섹션 "${target.heading}" 차트가 렌더되지 않았습니다 (8초)`);
+            });
           await page.waitForTimeout(1_500);
 
           // 스크롤을 최상단으로 되돌리고 문서 절대좌표로 fullPage 캡처한다.
@@ -193,6 +203,12 @@ export async function captureThemeImages(
             continue;
           }
           await page.screenshot({ path, clip, fullPage: true });
+        }
+        // 빈 화면은 PNG가 거의 압축된다. 파일 크기 하한이 "렌더는 됐지만 내용이 없는"
+        // 캡처를 걸러내는 가장 싼 신호다(실측 정상 캡처 60KB~400KB).
+        const bytes = statSync(path).size;
+        if (bytes < MIN_IMAGE_BYTES) {
+          throw new Error(`캡처가 비어 보입니다 (${target.name}, ${Math.round(bytes / 1024)}KB < ${MIN_IMAGE_BYTES / 1024}KB)`);
         }
         images.push({ name: target.name, path });
       } catch (error) {

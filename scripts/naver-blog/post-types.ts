@@ -53,8 +53,10 @@ export const TYPE_PLANS: Readonly<Record<PostType, TypePlan>> = {
  * 꾸준한 발행을 활동성 신호로 본다. 위험한 것은 같은 템플릿의 반복이므로
  * 유형을 5종으로 나누고 같은 유형이 연속으로 나오지 않게 배치한다.
  *
- * 요일이 아니라 **발행 회차**로 도는 이유: 스케줄이 밀리거나 수동 실행이 섞여도
- * 순서가 유지된다.
+ * KST 날짜로 돈다. 발행 기록 수로 세던 것을 바꾼 이유: GitHub Actions 러너는 매 실행마다
+ * 새 VM이고 .naver-blog/ 는 gitignore라 CI에서는 readHistory()가 항상 []였다.
+ * 회차가 늘 0 → typeForHistory(0) → **매일 theme**. 로테이션이 운영에서 통째로 죽어 있었다.
+ * 날짜에서 뽑으면 상태 복원이 실패해도 유형은 항상 맞는다.
  *
  *   1 theme → 2 ranking → 3 theme → 4 similar → 5 theme → 6 news → 7 evergreen
  *
@@ -71,13 +73,28 @@ const ROTATION: readonly PostType[] = [
  * 매일 발행하면 상승 테마 목록이 며칠씩 겹친다. 쿨다운이 없으면 같은 테마 글이
  * 사흘 연속 나올 수 있고, 그것이 정확히 "동일 문구 반복"이 된다.
  */
+export const ROTATION_LENGTH = ROTATION.length;
+
 export const THEME_COOLDOWN_DAYS = 14;
 
 export function pickType(publishIndex: number): PostType {
-  return ROTATION[publishIndex % ROTATION.length];
+  return ROTATION[((publishIndex % ROTATION.length) + ROTATION.length) % ROTATION.length];
 }
 
-/** 발행 기록 수로 회차를 센다 — 별도 카운터를 두지 않는다. */
-export function typeForHistory(historyLength: number): PostType {
-  return pickType(historyLength);
+const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** KST 기준 일련일. 로테이션 주기(7)와 같아 요일마다 유형이 고정된다. */
+export function kstDayIndex(now: number): number {
+  return Math.floor((now + KST_OFFSET_MS) / DAY_MS);
+}
+
+/** 그날의 유형. 상태가 없어도 결정된다. */
+export function typeForDate(now: number): PostType {
+  return pickType(kstDayIndex(now));
+}
+
+/** evergreen은 7회에 한 번 오므로 주제 인덱스도 날짜에서 뽑는다(주제 7종 → 49일 주기). */
+export function evergreenIndexForDate(now: number): number {
+  return Math.floor(kstDayIndex(now) / ROTATION.length);
 }
