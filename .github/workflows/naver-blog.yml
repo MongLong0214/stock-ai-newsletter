@@ -1,10 +1,13 @@
 name: Naver Blog (inside track)
 
-# 주 2회 자동 발행. 자사 블로그(상한 3편/일)와 달리 네이버는 볼륨 자체가 위험 신호라
-# scripts/naver-blog/session.ts의 WEEKLY_PUBLISH_LIMIT(3)이 코드로도 상한을 강제한다.
+# 매일 1편. 빈도 자체는 문제가 아니다 — 네이버 C-Rank는 꾸준한 발행을 활동성 신호로
+# 보고 상위 블로그는 대부분 매일 쓴다. 위험한 것은 같은 템플릿의 반복이므로
+# post-types.ts의 5종 로테이션(theme/ranking/similar/news/evergreen)과
+# 14일 테마 쿨다운으로 그쪽을 막는다.
+# WEEKLY_PUBLISH_LIMIT(7)은 스케줄 중복·수동 실행이 겹칠 때의 폭주 방지용이다.
 on:
   schedule:
-    - cron: '0 1 * * 2,5' # 화·금 10:00 KST
+    - cron: '0 1 * * *' # 매일 10:00 KST
   workflow_dispatch:
     inputs:
       dry_run:

@@ -14,15 +14,20 @@ import { dirname, join } from 'node:path';
 export const NAVER_STATE_DIR = join(process.cwd(), '.naver-blog');
 export const SESSION_PATH = join(NAVER_STATE_DIR, 'session.json');
 const HISTORY_PATH = join(NAVER_STATE_DIR, 'publish-history.json');
+/** 테마별 마지막 발행 시각 — 같은 테마 재발행 쿨다운용 */
+const THEME_LOG_PATH = join(NAVER_STATE_DIR, 'theme-history.json');
 
 /**
- * 주간 발행 상한.
+ * 주간 발행 상한 — 매일 1편 기준 7건.
  *
- * 자사 블로그는 하루 7건(DAILY_POST_COUNT)으로 돌지만 그 볼륨을 네이버로 가져가면
- * 스팸 신호가 된다 — 네이버가 글쓰기 API를 없앤 이유가 정확히 대량 자동 발행이었다.
- * 코드로 상한을 걸어 실수로도 넘지 못하게 한다.
+ * 빈도 자체는 문제가 아니다. 네이버 C-Rank는 꾸준한 발행을 활동성 신호로 보고,
+ * 상위 블로그는 대부분 매일 쓴다. 위험한 것은 같은 템플릿의 반복이므로
+ * post-types.ts의 5종 로테이션과 테마 쿨다운으로 그쪽을 막는다.
+ *
+ * 이 상한은 폭주 방지용이다 — 스케줄이 중복 실행되거나 수동 실행이 겹쳐도
+ * 하루치를 크게 넘지 못하게 한다.
  */
-export const WEEKLY_PUBLISH_LIMIT = Number(process.env.NAVER_WEEKLY_LIMIT) || 3;
+export const WEEKLY_PUBLISH_LIMIT = Number(process.env.NAVER_WEEKLY_LIMIT) || 7;
 
 /** 테스트용 우회. NAVER_SKIP_LIMIT=1이면 상한 검사를 건너뛴다(발행 기록은 그대로 남긴다). */
 const skipLimit = () => process.env.NAVER_SKIP_LIMIT === '1';
@@ -96,4 +101,37 @@ export function recordPublish(now: number): void {
   kept.push(new Date(now).toISOString());
   mkdirSync(dirname(HISTORY_PATH), { recursive: true });
   writeFileSync(HISTORY_PATH, `${JSON.stringify(kept, null, 2)}\n`, 'utf-8');
+}
+
+
+/** 최근 발행한 테마 id → ISO 시각 */
+export function readThemeHistory(): Record<string, string> {
+  try {
+    const parsed = JSON.parse(readFileSync(THEME_LOG_PATH, 'utf-8'));
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+/** 쿨다운이 지나지 않은 테마인가 */
+export function isThemeOnCooldown(themeId: string, now: number, cooldownDays: number): boolean {
+  const last = readThemeHistory()[themeId];
+  if (!last) return false;
+  const t = Date.parse(last);
+  return Number.isFinite(t) && now - t < cooldownDays * 24 * 60 * 60 * 1000;
+}
+
+/** 테마 발행 기록. 쿨다운의 2배가 지난 항목은 정리한다. */
+export function recordTheme(themeId: string, now: number, cooldownDays: number): void {
+  ensureStateDir();
+  const keepMs = cooldownDays * 2 * 24 * 60 * 60 * 1000;
+  const history = readThemeHistory();
+  const kept: Record<string, string> = {};
+  for (const [id, iso] of Object.entries(history)) {
+    const t = Date.parse(iso);
+    if (Number.isFinite(t) && now - t < keepMs) kept[id] = iso;
+  }
+  kept[themeId] = new Date(now).toISOString();
+  writeFileSync(THEME_LOG_PATH, `${JSON.stringify(kept, null, 2)}\n`, 'utf-8');
 }

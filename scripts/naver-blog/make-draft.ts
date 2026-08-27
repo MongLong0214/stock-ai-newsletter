@@ -21,6 +21,9 @@ if (existsSync(envPath)) config({ path: envPath });
 
 import { credentialsFromEnv, fetchKeywordVolumes } from '@/lib/naver-searchad';
 import { captureThemeImages } from './capture-images';
+import { composeRanking, composeSimilar, type ComparisonRow, type RankingRow } from './compose-variants';
+import { THEME_COOLDOWN_DAYS, typeForHistory, type PostType } from './post-types';
+import { isThemeOnCooldown, readHistory, recordTheme } from './session';
 
 const SITE = 'https://stockmatrix.co.kr';
 /** 이 미만 검색량이면 네이버에 써도 읽힐 가능성이 낮다 */
@@ -49,6 +52,8 @@ interface ThemeDetail {
     updatedAt: string;
     value: number;
   };
+  comparisons?: ComparisonRow[];
+  recentNews?: { date?: string; press?: string; title: string }[];
   /** 상세 API가 주는 실제 필드 — 목록 API의 topStocks와 다르다 */
   stockCount?: number;
   stocks?: Stock[];
@@ -211,6 +216,36 @@ export function composeTags(theme: ThemeDetail): string[] {
   return [...new Set(tags)].slice(0, FORMAT.tagsMax);
 }
 
+interface DraftPayload {
+  body: string;
+  images: string[];
+  outsideUrl: string;
+  tags: string[];
+  title: string;
+}
+
+/** 규격 검증 후 파일로 낸다 — 위반은 발행 전에 잡는다 */
+function writeDraft(outPath: string, draft: DraftPayload): void {
+  const plain = draft.body.replace(/>> |\*\*|\[\[[rb]:|\]\]/g, '');
+  const violations: string[] = [];
+  if (draft.title.length < FORMAT.titleMin || draft.title.length > FORMAT.titleMax) {
+    violations.push(`제목 ${draft.title.length}자 (규격 ${FORMAT.titleMin}~${FORMAT.titleMax})`);
+  }
+  if (plain.length < FORMAT.bodyMin || plain.length > FORMAT.bodyMax) {
+    violations.push(`본문 ${plain.length}자 (규격 ${FORMAT.bodyMin}~${FORMAT.bodyMax})`);
+  }
+  if (draft.tags.length < FORMAT.tagsMin || draft.tags.length > FORMAT.tagsMax) {
+    violations.push(`태그 ${draft.tags.length}개 (규격 ${FORMAT.tagsMin}~${FORMAT.tagsMax})`);
+  }
+  if (violations.length) throw new Error(`FORMAT-SPEC 위반: ${violations.join(' / ')}`);
+
+  mkdirSync(dirname(outPath), { recursive: true });
+  writeFileSync(outPath, `${JSON.stringify(draft, null, 2)}\n`, 'utf-8');
+  console.log(`초안 생성: ${outPath}`);
+  console.log(`  제목: ${draft.title} (${draft.title.length}자)`);
+  console.log(`  본문: ${plain.length}자 / 태그 ${draft.tags.length}개 / 이미지 ${draft.images.length}장`);
+}
+
 async function getJson<T>(path: string): Promise<T> {
   const res = await fetch(`${SITE}${path}`);
   if (!res.ok) throw new Error(`${path} → ${res.status}`);
@@ -221,9 +256,33 @@ async function main(): Promise<void> {
   const outIdx = process.argv.indexOf('--out');
   const outPath = outIdx >= 0 ? process.argv[outIdx + 1] : '.naver-blog/draft.json';
 
+  // 발행 회차로 유형을 정한다 — 같은 템플릿이 이틀 연속 나오지 않게
+  const postType: PostType = (process.argv.includes('--type')
+    ? process.argv[process.argv.indexOf('--type') + 1]
+    : typeForHistory(readHistory().length)) as PostType;
+  console.log(`글 유형: ${postType}`);
+
   const changes = await getJson<{ movers: { rising: Mover[] } }>('/api/tli/changes?period=1d');
   const rising = [...(changes.movers?.rising ?? [])].sort((a, b) => b.currentScore - a.currentScore);
   if (rising.length === 0) throw new Error('오늘 상승 테마 없음 — 발행 소재가 없다');
+
+  // 랭킹 글은 개별 테마가 아니라 전체 집계를 쓴다
+  if (postType === 'ranking') {
+    const rows: RankingRow[] = rising.map((m) => ({
+      change: m.change,
+      name: m.name,
+      score: m.currentScore,
+      stageKo: m.currentStage,
+    }));
+    const asOf = new Date().toISOString().slice(0, 10);
+    const composed = composeRanking(rows, asOf, SITE);
+    const images = await captureThemeImages(rising[0].themeId, join(dirname(outPath), 'images'));
+    if (images.length < FORMAT.minImages) {
+      throw new Error(`이미지 ${images.length}장 — 최소 ${FORMAT.minImages}장 필요`);
+    }
+    writeDraft(outPath, { ...composed, outsideUrl: `${SITE}/themes`, images: images.map((i) => i.path) });
+    return;
+  }
 
   // 검색량 검증: 네이버에서 실제로 검색되는 테마만 쓴다
   const creds = credentialsFromEnv();
@@ -234,56 +293,53 @@ async function main(): Promise<void> {
       const batch = rising.slice(i, i + 5);
       const volumes = await fetchKeywordVolumes(creds, batch.map((m) => m.name)).catch(() => []);
       const norm = (k: string) => k.replace(/\s+/g, '').toUpperCase();
-      chosen = batch.find((m) => (volumes.find((v) => norm(v.keyword) === norm(m.name))?.total ?? 0) >= MIN_VOLUME);
+      chosen = batch.find((m) =>
+        (volumes.find((v) => norm(v.keyword) === norm(m.name))?.total ?? 0) >= MIN_VOLUME &&
+        !isThemeOnCooldown(m.themeId, Date.now(), THEME_COOLDOWN_DAYS),
+      );
       if (chosen) break;
       await new Promise((r) => setTimeout(r, 350));
     }
     if (!chosen) throw new Error(`상승 테마 ${rising.length}개 전부 검색량 ${MIN_VOLUME} 미만 — 오늘은 쓰지 않는다`);
   } else {
     console.warn('[Draft] NAVER_AD_* 없음 — 검색량 검증 생략, 점수 최상위 테마 사용');
-    chosen = rising[0];
+    chosen = rising.find((m) => !isThemeOnCooldown(m.themeId, Date.now(), THEME_COOLDOWN_DAYS)) ?? rising[0];
   }
 
   const theme = await getJson<ThemeDetail>(`/api/tli/themes/${chosen.themeId}`);
   const stocks = stockNames(theme);
+  const themeUrl = `${SITE}/themes/${chosen.themeId}`;
 
-  // 이미지 캡처 — FORMAT-SPEC상 0장은 발행 차단 조건이므로 여기서 실패시킨다
-  const imageDir = join(dirname(outPath), 'images');
-  const images = await captureThemeImages(chosen.themeId, imageDir);
+  // 이미지 캡처 — FORMAT-SPEC상 0장은 발행 차단 조건
+  const images = await captureThemeImages(chosen.themeId, join(dirname(outPath), 'images'));
   if (images.length < FORMAT.minImages) {
     throw new Error(`이미지 ${images.length}장 — 최소 ${FORMAT.minImages}장 필요. 발행하지 않는다.`);
   }
+  const imagePaths = images.map((i) => i.path);
 
-  const draft = {
+  // 유사 패턴 글 — 비교 데이터가 있을 때만. 없으면 theme으로 떨어진다.
+  if (postType === 'similar' && (theme.comparisons?.length ?? 0) > 0) {
+    const composed = composeSimilar(
+      theme.name,
+      theme.score.value,
+      theme.score.stageKo,
+      theme.comparisons!,
+      theme.score.updatedAt,
+      themeUrl,
+    );
+    writeDraft(outPath, { ...composed, outsideUrl: themeUrl, images: imagePaths });
+    recordTheme(chosen.themeId, Date.now(), THEME_COOLDOWN_DAYS);
+    return;
+  }
+
+  writeDraft(outPath, {
     title: composeTitle(theme, stocks.length),
     tags: composeTags(theme),
     body: composeBody(theme, chosen.themeId, chosen.change),
-    outsideUrl: `${SITE}/themes/${chosen.themeId}`,
-    images: images.map((i) => i.path),
-  };
-
-  // 규격 위반은 발행 전에 잡는다 — 네이버는 발행 후 수정을 신뢰도 감점으로 본다
-  const violations: string[] = [];
-  const plain = draft.body.replace(/>> |\*\*|\[\[[rb]:|\]\]/g, '');
-  if (draft.title.length < FORMAT.titleMin || draft.title.length > FORMAT.titleMax) {
-    violations.push(`제목 ${draft.title.length}자 (규격 ${FORMAT.titleMin}~${FORMAT.titleMax})`);
-  }
-  if (plain.length < FORMAT.bodyMin || plain.length > FORMAT.bodyMax) {
-    violations.push(`본문 ${plain.length}자 (규격 ${FORMAT.bodyMin}~${FORMAT.bodyMax})`);
-  }
-  if (draft.tags.length < FORMAT.tagsMin || draft.tags.length > FORMAT.tagsMax) {
-    violations.push(`태그 ${draft.tags.length}개 (규격 ${FORMAT.tagsMin}~${FORMAT.tagsMax})`);
-  }
-  if (violations.length) {
-    throw new Error(`FORMAT-SPEC 위반: ${violations.join(' / ')}`);
-  }
-
-  mkdirSync(dirname(outPath), { recursive: true });
-  writeFileSync(outPath, `${JSON.stringify(draft, null, 2)}\n`, 'utf-8');
-  console.log(`초안 생성: ${outPath}`);
-  console.log(`  테마: ${theme.name} (${theme.score.value}점, ${chosen.change >= 0 ? '+' : ''}${chosen.change})`);
-  console.log(`  제목: ${draft.title} (${draft.title.length}자)`);
-  console.log(`  본문: ${draft.body.length}자 / 태그 ${draft.tags.length}개 / 이미지 ${images.length}장`);
+    outsideUrl: themeUrl,
+    images: imagePaths,
+  });
+  recordTheme(chosen.themeId, Date.now(), THEME_COOLDOWN_DAYS);
 }
 
 main().catch((e) => { console.error(e instanceof Error ? e.message : e); process.exit(1); });
