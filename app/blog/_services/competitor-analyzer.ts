@@ -1,6 +1,5 @@
 /** 경쟁사 콘텐츠 분석 + 키워드 추출 */
 
-import { CONTENT_GAPS } from '../_config/pipeline-config';
 import type { ScrapedContent, CompetitorAnalysis } from '../_types/blog';
 
 // --- 정규식 상수 (루프 밖에서 한 번만 컴파일) ---
@@ -41,7 +40,8 @@ export function analyzeCompetitors(
       commonTopics: [],
       averageWordCount: 1500,
       keywordDensity: {},
-      contentGaps: [...CONTENT_GAPS],
+      // 경쟁사에서 도출된 gap이 아니면 넣지 않는다 — 자사 마케팅 상수를 '차별점'으로 위장 주입하면 모든 글이 광고가 된다
+      contentGaps: [],
       scrapedContents: [],
       competitorKeywords: [],
     };
@@ -116,7 +116,8 @@ export function analyzeCompetitors(
     commonTopics,
     averageWordCount,
     keywordDensity,
-    contentGaps: [...CONTENT_GAPS],
+    // 경쟁사에서 도출된 gap이 아니면 넣지 않는다 — 자사 마케팅 상수를 '차별점'으로 위장 주입하면 모든 글이 광고가 된다
+      contentGaps: [],
     scrapedContents,
     competitorKeywords,
   };

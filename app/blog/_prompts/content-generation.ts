@@ -51,7 +51,7 @@ function summarizeCompetitorAnalysis(analysis: CompetitorAnalysis): string {
     <avg_word_count>${averageWordCount}</avg_word_count>
     <target_word_count>${targetWordCount}</target_word_count>
     <common_topics>${commonTopics.join(', ') || '공통 토픽 없음'}</common_topics>
-    <content_gaps>${contentGaps.join(', ') || 'AI 분석, 30가지 지표, 무료 서비스'}</content_gaps>
+    <content_gaps>${contentGaps.join(', ') || '(도출된 gap 없음 — 주제 자체의 깊이로 차별화)'}</content_gaps>
   </summary>
 
   <competitors>
@@ -107,21 +107,11 @@ export function buildContentGenerationPrompt(
 ${targetKeyword}
 </target_keyword>
 
-<our_service>
-  <name>${SITE_INFO.name}</name>
-  <name_ko>${SITE_INFO.nameKo}</name_ko>
-  <domain>${SITE_INFO.domain}</domain>
-  <highlights>
-${SITE_INFO.highlights.map((h) => `    - ${h}`).join('\n')}
-  </highlights>
-  <integration_guidelines>
-    - 콘텐츠 전체에서 2-3회만 언급 (과하면 스팸으로 인식)
-    - 항상 독자에게 제공하는 가치 관점에서 설명
-    - "최고의", "완벽한" 같은 과장 표현 금지
-    - 구체적 기능(30가지 지표, AI 분석 등)으로 차별화
-    - CTA는 중간 1회 + 결론 1회로 제한
-  </integration_guidelines>
-</our_service>
+<no_self_promotion>
+  본문에서 자사 서비스(${SITE_INFO.name}/${SITE_INFO.nameKo})를 홍보하지 않는다.
+  비교표·추천 목록에 넣지 않고, CTA도 본문에 쓰지 않는다 — CTA는 페이지 컴포넌트가
+  별도 영역에 단다. 본문 브랜드 언급은 발행 게이트(상한 1회)에서 자동 반려된다.
+</no_self_promotion>
 
 ${competitorSummary}
 

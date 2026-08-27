@@ -45,8 +45,10 @@ interface UsedContent {
 }
 
 /** 네이버 실측 월간 검색량 하한. 이 미만은 아무도 검색하지 않는 키워드다.
- * 프롬프트의 허수 하한(100)과 겹치지 않게 200 — 실측 로그를 보고 조정한다. */
-export const MIN_SEARCH_VOLUME = 200;
+ * 기본 200 — e2e나 운영 조정은 BLOG_MIN_SEARCH_VOLUME 환경변수로.
+ * 실측(2026-08): 1,306편이 헤드 키워드를 소진한 상태라 통과율이 낮은 것이 정상이며,
+ * 그날 통과 0이면 발행 0이 맞다. 하한을 낮춰 채우는 것은 게이트를 끄는 것과 같다. */
+export const MIN_SEARCH_VOLUME = Number(process.env.BLOG_MIN_SEARCH_VOLUME) || 200;
 
 /** 롤링 윈도우 기반 사용 키워드/제목 조회 (고갈 방지) */
 async function getUsedContent(): Promise<UsedContent> {
