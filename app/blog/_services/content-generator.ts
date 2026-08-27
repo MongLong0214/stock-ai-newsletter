@@ -91,6 +91,9 @@ function parseJsonResponse(response: string): GeneratedContent {
 }
 
 
+/** 본문 마크다운 소제목 최소 개수 — 구조 없는 장문을 막는다 */
+const MIN_BODY_HEADINGS = 3;
+
 /**
  * 제목의 미래 연월 표기를 찾는다. 없으면 null.
  *
@@ -142,6 +145,17 @@ export function validateContent(content: GeneratedContent, targetKeyword?: strin
   if (!content.metaTitle || content.metaTitle.length > 70) errors.push('메타 제목이 없거나 70자를 초과합니다.');
   if (!content.metaDescription || content.metaDescription.length > 160) errors.push('메타 설명이 없거나 160자를 초과합니다.');
   if (!content.faqItems || content.faqItems.length < 2) errors.push('FAQ 항목이 부족합니다 (최소 2개).');
+
+  // 마크다운 소제목(## )은 필수다.
+  //
+  // 이 검사가 없어서 소제목 0개짜리 2,000자 본문이 생성되고, 윤문이 소제목 6개를
+  // 추가하면 humanizer의 "헤딩 구조 불변" 규칙에 걸려 그 글이 반려됐다
+  // (실측 e2e: 5편 중 2편이 이 사유). 근본 원인은 생성물에 구조가 없는 것이므로
+  // 여기서 막고 재생성시킨다. 소제목 없는 글은 가독성·SEO 양쪽에서 결함이다.
+  const headingCount = (content.content?.match(/^##\s/gm) ?? []).length;
+  if (headingCount < MIN_BODY_HEADINGS) {
+    errors.push(`본문 소제목(## )이 ${headingCount}개입니다 (최소 ${MIN_BODY_HEADINGS}개).`);
+  }
 
   const banned = ALL_PATTERNS.find((re) => re.test(content.title || ''));
   if (banned) errors.push(`제목에 낚시성 금지 표현 포함 (패턴: ${banned.source}). 사실형 제목으로 재생성 필요.`);

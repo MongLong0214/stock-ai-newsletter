@@ -94,12 +94,11 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: naver-blog-${{ github.run_id }}
+          # 글롭을 여러 줄로 나눴을 때 아무것도 안 잡혔다(실측 run 33052381833).
+          # 디렉터리째 올리고 자격증명만 제외한다 — 실패 원인 판별에 스크린샷이 필수다.
           path: |
-            .naver-blog/*.png
-            .naver-blog/draft.json
-            .naver-blog/runs/*/draft.json
-            .naver-blog/runs/*/manifest.json
-            .naver-blog/runs/*/images/*.png
+            .naver-blog/
+            !.naver-blog/session.json
           retention-days: 14
           if-no-files-found: warn
 
