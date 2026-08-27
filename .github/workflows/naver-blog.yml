@@ -114,15 +114,20 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: naver-blog-${{ github.run_id }}
-          # 글롭을 여러 줄로 나눴을 때 아무것도 안 잡혔다(실측 run 33052381833).
-          # 디렉터리째 올리고 자격증명만 제외한다 — 실패 원인 판별에 스크린샷이 필수다.
-          # 디렉터리 표기(`.naver-blog/`)와 개별 글롭 나열 모두 0건이었다
-          # (실측 run 33052381833, 33053124119). `**`가 문서화된 형태다.
+          # `.naver-blog`는 점으로 시작하는 숨은 디렉터리이고 upload-artifact v4는
+          # 숨은 파일을 기본 제외한다. 그래서 글롭을 어떻게 써도 0건이었다 —
+          # 디렉터리 표기·개별 글롭 나열·`**` 세 가지 모두 실패했다
+          # (실측 run 33052381833, 33053124119, 33061455051: total_count=0).
+          # 글롭 문제가 아니라 include-hidden-files 문제였다.
+          #
+          # 이 플래그를 켜면 session.json 제외가 실제로 부하를 받는 지점이 된다.
+          # 세션 쿠키가 아티팩트로 새면 계정이 털린다 — 제외 줄을 지우지 말 것.
+          include-hidden-files: true
           path: |
             .naver-blog/**
             !.naver-blog/session.json
           retention-days: 14
-          if-no-files-found: warn
+          if-no-files-found: error
 
       # 세션은 사람이 로그인한 IP·기기에서 만들어진다. 러너의 데이터센터 IP에서 쓰면
       # 네이버가 만료시킬 수 있고, 그때는 사람이 재로그인해야 한다(자동화 불가).
