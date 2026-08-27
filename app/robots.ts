@@ -60,18 +60,19 @@ export default function robots(): MetadataRoute.Robots {
             { userAgent: 'YouBot', allow: ['/', '/api/tli/'], disallow: ['/api/', '/unsubscribe/'] },
 
             // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-            // 🚫 과도한 크롤링/AI 학습 봇 전면 차단 (CPU 사용량 절감)
+            // 🔓 SEO·백링크 그래프 크롤러 — 페이지는 열고 /api/ 만 막는다
             // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-            { userAgent: 'Bytespider', disallow: '/' },
-            { userAgent: 'CCBot', disallow: '/' },
-            { userAgent: 'Amazonbot', disallow: '/' },
-            { userAgent: 'cohere-ai', disallow: '/' },
-            { userAgent: 'Diffbot', disallow: '/' },
-            { userAgent: 'AhrefsBot', disallow: '/' },
-            { userAgent: 'SemrushBot', disallow: '/' },
-            { userAgent: 'MJ12bot', disallow: '/' },
-            { userAgent: 'DotBot', disallow: '/' },
-            { userAgent: 'PetalBot', disallow: '/' },
+            // 전면 차단하면 무료·유료 백링크 도구가 전부 이 그래프 기반이라
+            // 외부에서 이 도메인을 평가할 때 "백링크 없음"으로 읽힌다.
+            // 링크 그래프는 페이지의 <a>만 보면 되므로 API 접근은 열어줄 이유가 없다.
+            // crawlDelay로 페이지 크롤 속도를 묶어 Vercel 함수 호출량을 억제한다.
+            ...['CCBot', 'AhrefsBot', 'SemrushBot', 'MJ12bot', 'DotBot', 'PetalBot',
+                'Amazonbot', 'cohere-ai', 'Diffbot', 'Bytespider'].map((userAgent) => ({
+                    userAgent,
+                    allow: '/',
+                    disallow: ['/api/', '/unsubscribe/'],
+                    crawlDelay: 10,
+                })),
 
             // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
             // 🌐 일반 봇 기본 규칙 (마지막에 위치)
