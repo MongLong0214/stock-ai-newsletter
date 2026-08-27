@@ -52,6 +52,22 @@ const body = (figures: string) =>
   ].join('\n\n');
 
 describe('evaluateHumanization — 수치 변형·창작 차단', () => {
+  it('목록 마커·서수 정리는 반려하지 않는다 — 오탐 회귀 방지', () => {
+    // 맨 숫자에 개수 비교를 걸었을 때 실측 3편 중 2편이 이 이유로 반려됐다
+    const original = body('10%').replace('수치를 봅니다.', '수치를 봅니다. 1) 첫째 2) 둘째 3) 셋째.');
+    const candidate = original.replace('1) 첫째 2) 둘째 3) 셋째.', '첫째와 둘째, 셋째를 차례로 봅니다.');
+    const verdict = evaluateHumanization(original, candidate, '주식 기술적 분석');
+    // 다른 가드(AI 티 등)에 걸릴 수는 있지만 **수치** 사유로는 반려되지 않아야 한다
+    expect(verdict.reason ?? '').not.toContain('수치');
+  });
+
+  it('5000만원 → 5천만원 재표기는 반려하지 않는다', () => {
+    const original = body('10%').replace('수치를 봅니다.', '수치를 봅니다. 공제 한도는 5000만원입니다.');
+    const candidate = original.replace('5000만원', '5천만원');
+    const verdict = evaluateHumanization(original, candidate, '주식 기술적 분석');
+    expect(verdict.accepted, verdict.reason ?? '').toBe(true);
+  });
+
   it('단위가 바뀌면 반려한다 — Set 비교로는 통과하던 구멍', () => {
     const original = body('10%');
     const candidate = original.replace(/10%/g, '10원');
@@ -103,12 +119,16 @@ describe('findFutureDateClaim — KST 기준 (UTC 러너 회귀 방지)', () => 
   });
 });
 
-describe('countFigureTokens — 복합 단위', () => {
-  it('자릿수와 단위를 함께 묶어 원화·달러를 구분한다', () => {
+describe('countFigureTokens — 자릿수 환산 + 단위 구분', () => {
+  it('원화와 달러를 구분한다', () => {
     const counts = countFigureTokens('매출 10억원과 수출 10억달러');
-    expect(counts.get('10억원')).toBe(1);
-    expect(counts.get('10억달러')).toBe(1);
-    expect(counts.get('10억')).toBeUndefined();
+    expect(counts.get('1000000000원')).toBe(1);
+    expect(counts.get('1000000000달러')).toBe(1);
+  });
+
+  it('5000만원과 5천만원을 같은 값으로 본다 — 한국어 재표기 허용', () => {
+    expect(countFigureTokens('공제 5000만원').get('500000000원'))
+      .toBe(countFigureTokens('공제 5천만원').get('500000000원'));
   });
 });
 
@@ -123,5 +143,31 @@ describe('checkYmyl 모호 출처 — 수식어 + 결과 조합', () => {
     const { checkYmyl } = await import('../ymyl-gate');
     const v = await checkYmyl('한국은행 통계에 따르면 금리가 동결됐다.', '시장 분석');
     expect(v.filter((x) => x.rule === 'vague-source')).toHaveLength(0);
+  });
+});
+
+describe('volumeProbes — 롱테일 구절이 아니라 주제(헤드)를 잰다', () => {
+  it('전체 구절·앞 두 어절·첫 어절을 조회 대상으로 만든다', async () => {
+    const { volumeProbes } = await import('../keyword-generator');
+    expect(volumeProbes('리비안 관련주 HL만도 vs TCC스틸')).toEqual([
+      '리비안 관련주 HL만도 vs TCC스틸',
+      '리비안 관련주',
+      '리비안',
+    ]);
+  });
+
+  it('두 어절 키워드는 중복 없이 두 개만 만든다', async () => {
+    const { volumeProbes } = await import('../keyword-generator');
+    expect(volumeProbes('IPO 일정')).toEqual(['IPO 일정', 'IPO']);
+  });
+
+  it('한 어절이면 하나만', async () => {
+    const { volumeProbes } = await import('../keyword-generator');
+    expect(volumeProbes('공모주')).toEqual(['공모주']);
+  });
+
+  it('한 글자 토큰은 힌트로 쓰지 않는다', async () => {
+    const { volumeProbes } = await import('../keyword-generator');
+    expect(volumeProbes('A 관련주 분석')).not.toContain('A');
   });
 });

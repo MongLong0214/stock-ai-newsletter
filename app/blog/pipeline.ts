@@ -27,9 +27,12 @@ const TIMEOUTS = {
   search: 60_000,
   scrape: 120_000,
   generate: 300_000,
-  // 정상 윤문은 ~25초. 200초는 hang 시 초안 7개 누적으로 25분 스크립트 한도를 터뜨렸다(CI 실패 근본원인).
-  // 60초면 정상은 통과(2.4배 여유)하고 hang은 빨리 끊어 fallback(원문 유지)한다.
-  humanize: 60_000,
+  // 정상 윤문 실측 27~39초(2026-08-27 e2e). 60초는 여유가 1.5배뿐이라 느린 응답이
+  // 시스템 장애로 집계돼 서킷브레이커가 열렸다(실측: 5편 중 3편이 생성조차 안 됨).
+  // 100초로 올려 오탐을 없애고, 내부 타이머(HUMANIZE_CONFIG.timeout)를 90초로 낮춰
+  // 안쪽이 먼저 끊기게 한다 — 그래야 "Humanize 타임아웃"이 아니라 실제 사유가 남는다.
+  // 5편 × 100초 = 8분으로 25분 스크립트 한도 안에 든다.
+  humanize: 100_000,
   save: 30_000,
   keyword: 300_000,
   selection: 120_000,
@@ -212,8 +215,14 @@ async function generateDraft(keyword: string, type: 'comparison' | 'guide' | 'li
     // humanizeText는 내부 에러·가드 반려를 흡수하고 원문을 돌려주므로(accepted=false),
     // 여기서 명시적으로 실패 처리해야 서킷브레이커가 실제 실패를 센다.
     if (!outcome.accepted && !outcome.skipped) {
-      registerHumanizeFailure();
-      throw new Error('윤문 미채택(반려/에러) — 윤문 안 된 글은 발행하지 않는다');
+      // 서킷브레이커는 **시스템 장애**만 센다.
+      //
+      // 콘텐츠 사유 반려(수치·헤딩·AI 티)는 그 글 하나의 문제다. 이것까지 세면
+      // 연속 2건 반려가 남은 초안 생성을 전부 막아 그날 발행이 0건이 된다
+      // (실측: 타임아웃 1건 + 헤딩 변경 1건에 남은 3편이 생성조차 되지 않았다).
+      // 브레이커의 목적은 윤문 API가 죽었을 때 Gemini 비용을 끊는 것이다.
+      if (outcome.status === 'error') registerHumanizeFailure();
+      throw new Error(`윤문 미채택(${outcome.status}) — 윤문 안 된 글은 발행하지 않는다`);
     }
     humanizeConsecutiveFailures = 0;
 

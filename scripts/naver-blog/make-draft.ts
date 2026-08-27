@@ -58,8 +58,20 @@ interface Candidate {
   name: string;
   score: number;
   stageKo: string;
+  /** 활성 관련종목 수 — 이미지 장수를 좌우한다(아래 MIN_STOCKS_FOR_SPLIT 주석) */
+  stockCount: number;
   themeId: string;
 }
+
+/**
+ * 종목 표 분할이 일어나는 최소 종목 수.
+ *
+ * theme 글의 이미지는 히어로 + 종목(분할 시 2장) + 뉴스로 4장을 채운다. 추이 차트는
+ * 비교 대상을 고르기 전까지 데이터 선이 없어 대개 제외되므로, 종목이 4개 이하면
+ * 분할이 일어나지 않아 3장이 되고 최소 4장 게이트에서 정상 소재가 발행 0건이 된다.
+ * 후보 선정 단계에서 분할이 가능한 테마를 우선한다.
+ */
+const MIN_STOCKS_FOR_SPLIT = 5;
 
 interface Stock {
   market: string;
@@ -323,6 +335,7 @@ interface RankingItem {
   name: string;
   score: number;
   stageKo: string;
+  stockCount?: number;
 }
 
 const STAGE_BUCKETS = ['emerging', 'growth', 'peak', 'decline', 'reigniting'] as const;
@@ -346,6 +359,7 @@ async function fetchCandidates(): Promise<Candidate[]> {
         name: t.name,
         score: t.score ?? 0,
         stageKo: t.stageKo,
+        stockCount: t.stockCount ?? 0,
         themeId: t.id,
       });
     }
@@ -461,8 +475,13 @@ async function pickTheme(candidates: readonly Candidate[], now: number): Promise
   if (fresh.length === 0) {
     throw new Error(`후보 ${candidates.length}개 전부 ${THEME_COOLDOWN_DAYS}일 쿨다운 — 오늘은 쓰지 않는다`);
   }
+  // 이미지 4장을 채울 수 있는 테마(종목 5개 이상) → 상승 → 점수 순.
+  // 종목이 적은 테마를 뽑으면 캡처가 3장에서 멈춰 그날 발행이 0건이 된다.
   const ordered = [...fresh].sort(
-    (a, b) => Number(b.change7d > 0) - Number(a.change7d > 0) || b.score - a.score,
+    (a, b) =>
+      Number(b.stockCount >= MIN_STOCKS_FOR_SPLIT) - Number(a.stockCount >= MIN_STOCKS_FOR_SPLIT)
+      || Number(b.change7d > 0) - Number(a.change7d > 0)
+      || b.score - a.score,
   );
 
   const creds = credentialsFromEnv();
@@ -514,11 +533,19 @@ async function main(): Promise<void> {
   if (postType === 'ranking' || postType === 'evergreen') {
     const imageTheme = pickImageTheme(candidates, now);
     const captureDir = newCaptureDir();
+    // 집계 글의 스냅샷에는 개별 테마의 score/change7d를 넣지 않는다.
+    //
+    // 이미지는 목록·방법론 페이지에서 오고(RANKING/EVERGREEN_TARGETS), themeId는
+    // 쿨다운 기록용 imageTheme다. 반면 본문 수치는 1위 테마(candidates[0])에서 온다.
+    // 둘을 같은 스냅샷에 담으면 발행 전 신선도 검사가 imageTheme 상세 API와 1위 수치를
+    // 비교해 거의 항상 불일치로 끝난다(1위가 쿨다운이면 imageTheme는 다른 테마다).
+    // 표본 크기만 남기고, 본문 내부 정합성은 checkFormat이 본다.
+    const aggregateSnapshot = { stockCount: candidates.length };
     const images = await capture({
       asOf,
       kind: postType,
       outDir: captureDir,
-      snapshot: { score: candidates[0].score, change7d: candidates[0].change7d, stockCount: candidates.length },
+      snapshot: aggregateSnapshot,
       themeId: imageTheme.themeId,
       themeName: imageTheme.name,
     });
@@ -549,7 +576,7 @@ async function main(): Promise<void> {
       images,
       outPath,
       postType,
-      snapshot: { score: candidates[0].score, change7d: candidates[0].change7d, stockCount: candidates.length },
+      snapshot: aggregateSnapshot,
       sourceUpdatedAt: asOf,
       themeId: imageTheme.themeId,
       themeName: imageTheme.name,

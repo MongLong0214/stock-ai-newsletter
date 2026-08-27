@@ -143,6 +143,12 @@ async function verifyEditorContent(editor: Frame, draft: Draft, insertedImages: 
   const norm = (t: string) => t.replace(/\s+/g, '');
   const flat = norm(rendered);
 
+  // 길이 비교는 **본문 텍스트 컴포넌트만** 합산한다. 에디터 루트 전체를 재면
+  // 제목·이미지 캡션·에디터 UI 문구가 길이를 보충해 중간 문단 누락을 가린다.
+  const bodyOnly = norm(
+    (await editor.locator('.se-component.se-text .se-text-paragraph').allInnerTexts().catch(() => [])).join(' '),
+  );
+
   const titleHead = norm(stripMarkers(draft.title)).slice(0, 12);
   if (!flat.includes(titleHead)) return `제목 미입력 (기대: "${titleHead}...")`;
 
@@ -151,8 +157,11 @@ async function verifyEditorContent(editor: Frame, draft: Draft, insertedImages: 
   if (!flat.includes(bodyHead)) return `본문 미입력 (기대: "${bodyHead}...")`;
 
   const expected = norm(plainBody).length;
-  const got = flat.length;
-  if (got < expected * 0.9) return `본문이 잘림 (기대 ${expected}자 이상, 실제 ${got}자)`;
+  // 인용구 소제목은 별도 컴포넌트라 bodyOnly에 안 들어갈 수 있다 — 둘 중 큰 값을 쓴다.
+  const got = Math.max(bodyOnly.length, 0);
+  if (got < expected * 0.9) {
+    return `본문이 잘림 (기대 ${expected}자의 90% 이상, 실제 본문 컴포넌트 ${got}자)`;
+  }
 
   const lastTextBlock = plainBody
     .split(/\n{2,}/)
@@ -188,10 +197,17 @@ async function verifyEditorContent(editor: Frame, draft: Draft, insertedImages: 
   if (boldCount < FORMAT.boldMin || boldCount > FORMAT.boldMax) {
     return `실제 볼드 ${boldCount}회 (규격 ${FORMAT.boldMin}~${FORMAT.boldMax})`;
   }
-  const colorCount = await countColorDom(editor);
-  const wantedColor = [...draft.body.matchAll(/\[\[([rb]):(.+?)\]\]/g)].length;
-  if (wantedColor > 0 && colorCount < wantedColor) {
-    return `실제 색상 ${colorCount}개 (초안 마커 ${wantedColor}개)`;
+  const colorMarkers = [...draft.body.matchAll(/\[\[([rb]):(.+?)\]\]/g)];
+  const wantedColor = colorMarkers.length;
+  const wantedColorChars = colorMarkers.reduce((n, m) => n + m[2].replace(/\s+/g, '').length, 0);
+  const color = await measureColorDom(editor);
+  if (wantedColor > 0 && color.count < wantedColor) {
+    return `실제 색상 ${color.count}개 (초안 마커 ${wantedColor}개)`;
+  }
+  // 번짐 검출: 색상 리셋이 실패하면 이후 문단 전체가 색을 물려받는다.
+  const colorBudget = Math.max(wantedColorChars * 2 + 20, 40);
+  if (color.chars > colorBudget) {
+    return `색상이 번졌습니다 (색상 글자 ${color.chars}자 > 허용 ${colorBudget}자, 마커 ${wantedColorChars}자) — 리셋 실패`;
   }
 
   const ctaAfter = await editor.evaluate(() => {
@@ -275,9 +291,17 @@ async function countBoldDom(editor: Frame): Promise<number> {
   });
 }
 
-async function countColorDom(editor: Frame): Promise<number> {
+/**
+ * 색상 적용 실측 — 개수와 **글자 수**를 함께 센다.
+ *
+ * 개수만 세면 리셋 실패로 문단 전체가 빨강이 되어도 "색상 N개"로 통과한다
+ * (실측 보고서에 빨강 번짐이 기록돼 있다). 색상 글자 수가 초안 마커의 글자 수보다
+ * 크게 많으면 번진 것이다.
+ */
+async function measureColorDom(editor: Frame): Promise<{ chars: number; count: number }> {
   return editor.evaluate(() => {
     let count = 0;
+    let chars = 0;
     for (const el of document.querySelectorAll('.se-component span, .se-component font')) {
       const color = getComputedStyle(el).color;
       const match = color.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
@@ -287,10 +311,18 @@ async function countColorDom(editor: Frame): Promise<number> {
       const b = Number(match[3]);
       const red = r > 180 && g < 90 && b < 90;
       const blue = b > 150 && r < 90 && g < 140;
-      if (red || blue) count += 1;
+      if (!red && !blue) continue;
+      // 중첩 span을 이중 계산하지 않는다 — 같은 색의 자식이 있으면 부모는 건너뛴다
+      if (el.querySelector('span, font')) continue;
+      count += 1;
+      chars += (el.textContent ?? '').replace(/\s+/g, '').length;
     }
-    return count;
+    return { chars, count };
   });
+}
+
+async function countColorDom(editor: Frame): Promise<number> {
+  return (await measureColorDom(editor)).count;
 }
 
 async function typeBold(page: Page, editor: Frame, text: string): Promise<void> {
@@ -902,6 +934,11 @@ async function main(): Promise<void> {
       failure.waitFor({ state: 'visible', timeout: 45_000 }).then(() => 'error' as const),
     ]).catch(() => 'timeout' as const);
 
+    if (outcome === 'error') {
+      // 네이버가 명시적으로 발행 오류를 반환했다 = 게시되지 않았다. 표식을 남기면
+      // 다음 날 실행이 "결과 미확인"으로 판단해 사람 확인을 요구하며 멈춘다(발행 0건).
+      clearPublishPending();
+    }
     if (outcome !== 'ok') {
       const detail = outcome === 'error'
         ? '네이버가 발행 오류를 반환했습니다(문서가 너무 크거나 이미지 처리 실패).'

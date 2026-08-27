@@ -169,7 +169,7 @@ async function generateKeywordsWithAI(
  *
  * AI가 채운 estimatedSearchVolume은 프롬프트가 "100 미만 금지"라고 해서 모델이
  * 지어내는 허수였고, 그 허수가 SEO 점수 정렬 기준으로 쓰였다. 여기서 실측값으로
- * 덮어쓰고, MIN_SEARCH_VOLUME 미만은 탈락시킨다 — 아무도 검색하지 않는 키워드로
+ * 덮어쓰고, MIN_SEARCH_VOLUME 미만은 탈락시킨다 — 아무도 검색하지 않는 주제로
  * SerpAPI·스크래핑·생성·윤문 비용을 쓰지 않는다.
  *
  * fail-closed다. 자격증명이 없거나 API가 실패하면 그 후보는 탈락시킨다.
@@ -177,6 +177,31 @@ async function generateKeywordsWithAI(
  * 꺼졌고, 그때 발행된 글의 정렬 기준이 AI가 지어낸 허수였다. 검증 못 한 키워드로
  * SerpAPI·Gemini 비용을 쓰고 공개까지 하는 것보다 그날 발행 0이 싸다.
  */
+/**
+ * 검색량 측정 대상 변형.
+ *
+ * 네이버 `/keywordstool`은 힌트 키워드에서 공백을 지워 하나의 토큰으로 조회한다.
+ * AI가 만드는 롱테일 구절은 그렇게 이어붙이면 아무도 검색하지 않는 문자열이 되어
+ * **항상 월 0**으로 돌아온다. 실측(2026-08-27):
+ *
+ *        0  리비안 관련주 HL만도 vs TCC스틸
+ *       20  리비안 관련주
+ *   12,590  리비안
+ *        0  삼성바이오로직스 목표가 전망
+ *  236,100  삼성바이오로직스
+ *
+ * 전체 구절만 재면 헤드 검색량이 23만인 주제도 탈락해 발행이 매일 0건이 된다.
+ * 그래서 전체 구절 + 앞 두 어절 + 첫 어절을 함께 조회하고 최댓값을 쓴다.
+ * 게이트가 묻는 것은 "이 주제를 검색하는 사람이 있는가"이고, 그 답은 헤드에 있다.
+ */
+export function volumeProbes(keyword: string): string[] {
+  const tokens = keyword.trim().split(/\s+/).filter(Boolean);
+  const probes = [keyword, tokens.slice(0, 2).join(' '), tokens[0]]
+    .map((p) => p?.trim())
+    .filter((p): p is string => Boolean(p) && p.length >= 2);
+  return [...new Set(probes)];
+}
+
 async function applySearchVolumeGate(keywords: KeywordMetadata[]): Promise<KeywordMetadata[]> {
   const creds = credentialsFromEnv();
   if (!creds) {
@@ -186,28 +211,48 @@ async function applySearchVolumeGate(keywords: KeywordMetadata[]): Promise<Keywo
 
   // 네이버는 relKeyword의 ASCII를 대문자로 돌려준다 — 케이스 폴딩 없이는 영문 키워드(RSI·ETF·PER)가 전부 미매칭
   const normalize = (k: string) => k.replace(/\s+/g, '').toUpperCase();
-  const passed: KeywordMetadata[] = [];
 
-  for (let i = 0; i < keywords.length; i += HINT_KEYWORD_LIMIT) {
-    const batch = keywords.slice(i, i + HINT_KEYWORD_LIMIT);
+  // 키워드별 변형을 한 번에 모아 유니크 힌트로 조회한다 — 같은 헤드를 공유하는
+  // 키워드가 여러 개면 호출 수가 줄어든다.
+  const probesByKeyword = new Map(keywords.map((kw) => [kw.keyword, volumeProbes(kw.keyword)]));
+  const hints = [...new Set([...probesByKeyword.values()].flat())];
+  const measured = new Map<string, number>();
+  const failed = new Set<string>();
+
+  for (let i = 0; i < hints.length; i += HINT_KEYWORD_LIMIT) {
+    const batch = hints.slice(i, i + HINT_KEYWORD_LIMIT);
     try {
-      const volumes = await fetchKeywordVolumes(creds, batch.map((kw) => kw.keyword));
-      for (const kw of batch) {
-        const row = volumes.find((v) => normalize(v.keyword) === normalize(kw.keyword));
-        const total = row?.total ?? 0;
-        if (total < MIN_SEARCH_VOLUME) {
-          console.log(`[KeywordGen] 검색량 미달 탈락: "${kw.keyword}" (월 ${total} < ${MIN_SEARCH_VOLUME})`);
-          continue;
-        }
-        // 허수를 실측으로 교체 — 이후 SEO 점수 정렬이 실측 기반이 된다
-        passed.push({ ...kw, estimatedSearchVolume: total });
+      const rows = await fetchKeywordVolumes(creds, batch);
+      for (const hint of batch) {
+        const row = rows.find((v) => normalize(v.keyword) === normalize(hint));
+        measured.set(normalize(hint), row?.total ?? 0);
       }
     } catch (error) {
-      // 그 배치는 검증되지 않았으므로 탈락시킨다. 다른 배치는 계속 시도한다 —
-      // 일시적 429가 하루 전체를 죽이지 않으면서, 허수가 통과하지도 않는다.
-      console.error(`[KeywordGen] 검색량 조회 실패(배치 ${i / HINT_KEYWORD_LIMIT + 1}) — 해당 배치 탈락:`, error);
+      // 그 배치는 검증되지 않았다. 다른 배치는 계속 시도한다 — 일시적 429가 하루
+      // 전체를 죽이지 않으면서, 검증 못 한 힌트가 통과하지도 않는다.
+      for (const hint of batch) failed.add(normalize(hint));
+      console.error(`[KeywordGen] 검색량 조회 실패(배치 ${Math.floor(i / HINT_KEYWORD_LIMIT) + 1}) — 해당 배치 탈락:`, error);
     }
-    if (i + HINT_KEYWORD_LIMIT < keywords.length) await new Promise((r) => setTimeout(r, 350));
+    if (i + HINT_KEYWORD_LIMIT < hints.length) await new Promise((r) => setTimeout(r, 350));
+  }
+
+  const passed: KeywordMetadata[] = [];
+  for (const kw of keywords) {
+    const probes = probesByKeyword.get(kw.keyword) ?? [kw.keyword];
+    const keys = probes.map(normalize);
+    // 변형 전부가 조회 실패면 검증 불가 — fail-closed
+    if (keys.every((k) => failed.has(k))) {
+      console.log(`[KeywordGen] 검색량 확인 불가 탈락: "${kw.keyword}"`);
+      continue;
+    }
+    const best = Math.max(0, ...keys.map((k) => measured.get(k) ?? 0));
+    if (best < MIN_SEARCH_VOLUME) {
+      console.log(`[KeywordGen] 검색량 미달 탈락: "${kw.keyword}" (월 ${best} < ${MIN_SEARCH_VOLUME}, 변형 ${probes.length}종)`);
+      continue;
+    }
+    // 허수를 실측으로 교체 — 이후 SEO 점수 정렬이 실측 기반이 된다.
+    // 이 값은 롱테일 구절이 아니라 **주제(헤드) 수요**의 대리값이다.
+    passed.push({ ...kw, estimatedSearchVolume: best });
   }
 
   return passed;

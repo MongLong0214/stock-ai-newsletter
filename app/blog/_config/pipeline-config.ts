@@ -50,7 +50,14 @@ export const HUMANIZE_CONFIG = {
   maxWordLossRatio: 0.3,
   /** 창작이 아니라 교정이므로 생성보다 낮게 */
   temperature: 0.4,
-  timeout: 180_000,
+  /**
+   * 파이프라인 외부 타이머(TIMEOUTS.humanize=100초)보다 낮게 둔다.
+   *
+   * 예전에는 안쪽 180초 > 바깥 60초라 바깥이 먼저 터졌고, 그러면 오류가 늘
+   * "Humanize 타임아웃"으로만 남아 실제 사유(빈 응답·반려·SDK 오류)가 묻혔다.
+   * 안쪽이 먼저 끊기면 AbortSignal로 요청도 실제로 취소된다.
+   */
+  timeout: 90_000,
 };
 
 export const SITE_INFO = {

@@ -77,9 +77,12 @@ jobs:
 
       # 발행 성공 여부와 무관하게 저장한다 — 실패한 회차도 시도 기록은 남아야 한다.
       # 키에 run_id를 넣는 이유: actions/cache는 같은 키를 덮어쓰지 못한다.
+      # continue-on-error를 쓰지 않는다: 발행은 성공했는데 상태 저장만 실패하면
+      # 다음 실행이 이전 캐시를 복원해 그 글의 recordPublish·recordTheme·pending 해제가
+      # 모두 사라진다(주간 상한 오산, 같은 테마 재선택). 조용히 넘기면 안 되고
+      # 잡을 실패시켜 이슈가 열리게 한다.
       - name: Save publish state
         if: always()
-        continue-on-error: true # 캐시 저장 실패가 발행 결과를 뒤집지 않게 한다
         uses: actions/cache/save@v4
         with:
           path: .naver-blog/state

@@ -39,7 +39,15 @@ export const WEEKLY_PUBLISH_LIMIT = Number(process.env.NAVER_WEEKLY_LIMIT) || 7;
 /** 테스트용 우회. NAVER_SKIP_LIMIT=1이면 상한 검사를 건너뛴다(발행 기록은 그대로 남긴다). */
 const skipLimit = () => process.env.NAVER_SKIP_LIMIT === '1';
 
-const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+/**
+ * 롤링 윈도우.
+ *
+ * 정확히 168시간으로 두면 매일 1편 + 상한 7편에서 경계가 충돌한다 — 7일 전 글이
+ * 10:08에 발행되고 오늘 게이트가 10:06에 돌면 그 글이 아직 윈도우 안이라
+ * 정상 8일째 발행이 거절된다. 러너 실행 시각 흔들림만으로 발생한다.
+ * 6시간 여유를 둬 경계 충돌을 없애면서 폭주 방지 기능은 유지한다.
+ */
+const WEEK_MS = 7 * 24 * 60 * 60 * 1000 - 6 * 60 * 60 * 1000;
 
 export function ensureStateDir(): void {
   if (!existsSync(NAVER_STATE_DIR)) mkdirSync(NAVER_STATE_DIR, { recursive: true, mode: 0o700 });

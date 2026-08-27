@@ -91,43 +91,60 @@ export function extractFigures(text: string): Set<string> {
 }
 
 /**
- * 수치에 붙는 단위 — 이게 바뀌면 다른 값이다.
+ * 수치 토큰 — 자릿수(천·만·억·조)와 단위(원·달러·%…)를 분리해 읽는다.
  *
- * 자릿수(억·만)와 단위(원·달러)를 나눠 받는다. 하나의 alternation으로 두면 정규식이
- * 왼쪽부터 매칭해 `10억원`과 `10억달러`가 둘 다 `10억`으로 집계되고, 윤문이 원화를
- * 달러로 바꿔도 "유실 없음"으로 통과한다.
+ * 두 가지를 동시에 만족해야 한다.
+ *   1) `10%`와 `10원`은 다른 값이다 (단위 변조 검출)
+ *   2) `5000만원`과 `5천만원`은 같은 값이다 (한국어 재표기 허용)
+ * 자릿수를 배수로 환산해 값을 정규화하면 둘 다 성립한다. 하나의 alternation으로
+ * 두면 `10억원`과 `10억달러`가 모두 `10억`으로 뭉개져 1)이 깨진다.
  */
-const FIGURE_SCALE = '조|억|만|천';
+const FIGURE_SCALE: Record<string, number> = { 천: 1e3, 만: 1e4, 억: 1e8, 조: 1e12 };
 const FIGURE_UNIT = '%|퍼센트|원|달러|엔|위안|배|건|일|년|월|주|개|명|포인트|bp';
+// 자릿수는 연달아 붙는다: `5천만` = 5 × 1e3 × 1e4 = 5e7 = `5000만`.
+// 하나만 받으면 `5천만원`이 `5천`(=5000, 단위 없음)으로 잘려 `5000만원`과 달라진다.
 const FIGURE_TOKEN_RE = new RegExp(
-  `(\\d[\\d,]*(?:\\.\\d+)?)\\s*((?:${FIGURE_SCALE})?)\\s*((?:${FIGURE_UNIT})?)`,
+  `(\\d[\\d,]*(?:\\.\\d+)?)\\s*([천만억조]*)\\s*((?:${FIGURE_UNIT})?)`,
   'g',
 );
 
-/**
- * 단위까지 포함한 수치 토큰의 개수 맵.
- *
- * 값만 Set으로 모으면 `10%`가 `10원`으로 바뀌어도, 같은 값이 두 번 나오다 한 번
- * 지워져도 "유실 없음"이 된다. 단위를 붙이고 개수를 세면 둘 다 잡힌다.
- */
-export function countFigureTokens(text: string): Map<string, number> {
+interface FigureToken {
+  /** 자릿수를 환산한 값 */
+  readonly value: number;
+  /** 단위. 빈 문자열이면 맨 숫자다. */
+  readonly unit: string;
+}
+
+function parseFigureTokens(text: string): FigureToken[] {
   // 전각(％ ０-９)을 반각으로 맞춘다. 모델이 표기만 정규화해도 "유실"로 오판하기 때문이다.
   const normalized = text
     .replace(/[０-９]/g, (d) => String.fromCharCode(d.charCodeAt(0) - 0xfee0))
     .replace(/％/g, '%')
     .replace(/，/g, ',');
+  // 목록 마커("1) ", "2. ")는 C-9 규칙상 정당하게 사라질 수 있으므로 제외한다.
   const withoutMarkers = normalized.replace(/^\s*\d+[.)]\s+/gm, '');
-  const counts = new Map<string, number>();
+
+  const tokens: FigureToken[] = [];
   for (const m of withoutMarkers.matchAll(FIGURE_TOKEN_RE)) {
-    const value = m[1].replace(/,/g, '').replace(/\.0+$/, '');
-    const token = `${value}${m[2] ?? ''}${m[3] ?? ''}`;
-    counts.set(token, (counts.get(token) ?? 0) + 1);
+    const base = Number(m[1].replace(/,/g, ''));
+    if (!Number.isFinite(base)) continue;
+    const scale = [...(m[2] ?? '')].reduce((acc, ch) => acc * (FIGURE_SCALE[ch] ?? 1), 1);
+    tokens.push({ value: base * scale, unit: m[3] ?? '' });
+  }
+  return tokens;
+}
+
+/** 단위가 붙은 토큰의 개수 맵 — 단위 변조·개수 유실을 잡는다 */
+export function countFigureTokens(text: string): Map<string, number> {
+  const counts = new Map<string, number>();
+  for (const t of parseFigureTokens(text)) {
+    const key = `${t.value}${t.unit}`;
+    counts.set(key, (counts.get(key) ?? 0) + 1);
   }
   return counts;
 }
 
-/** 단위가 붙은 토큰인가 — 지어낸 통계는 대부분 단위를 달고 온다 */
-const hasUnit = (token: string) => /\d\D+$/.test(token);
+
 
 /** 원문에 없던 볼드가 새로 생겼을 때만 제거 (하우스 스타일: 볼드 금지) */
 function stripIntroducedBold(original: string, candidate: string): string {
@@ -181,15 +198,38 @@ export function evaluateHumanization(
     return reject(`헤딩 구조 변경 (${headingsBefore} → ${headingsAfter})`, rate);
   }
 
-  // 철칙 #1: 수치는 100% 보존 — 값·단위·개수 모두
-  const before = countFigureTokens(original);
-  const after = countFigureTokens(cleaned);
-  const lost = [...before.entries()].filter(([token, n]) => (after.get(token) ?? 0) < n).map(([t]) => t);
-  if (lost.length > 0) {
-    return reject(`수치 유실·변형 (${lost.slice(0, 5).join(', ')})`, rate);
+  // 철칙 #1: 수치 보존. 단위가 붙은 값과 맨 숫자를 다르게 다룬다.
+  //
+  // 맨 숫자(1, 2, 3…)에 개수 비교를 걸면 목록 마커·서수 정리 같은 정당한 윤문이
+  // 전부 반려된다(실측: 3편 중 2편 반려 + 서킷브레이커 개방). 맨 숫자는 "값이
+  // 사라졌는가"만 본다(집합 비교, 기존 동작). 단위가 붙은 값은 개수까지 본다 —
+  // 단위 변조와 중복 삭제가 실제 위험이기 때문이다.
+  const beforeTokens = parseFigureTokens(original);
+  const afterTokens = parseFigureTokens(cleaned);
+
+  // 한 자리 맨 숫자(1~9)는 유실 검사에서 뺀다. 대부분 서수·목록 번호이고,
+  // 문장으로 풀어 쓰는 정당한 윤문이 전부 반려됐다(실측 3편 중 2편).
+  // RSI 30·70처럼 정보를 담은 값은 두 자리 이상이라 그대로 보호된다.
+  const informative = (t: { unit: string; value: number }) => !t.unit && t.value >= 10;
+  const bareBefore = new Set(beforeTokens.filter(informative).map((t) => t.value));
+  const bareAfter = new Set(afterTokens.filter((t) => !t.unit).map((t) => t.value));
+  const lostBare = [...bareBefore].filter((v) => !bareAfter.has(v));
+  if (lostBare.length > 0) {
+    return reject(`수치 유실 (${lostBare.slice(0, 5).join(', ')})`, rate);
+  }
+
+  const unitKey = (t: { unit: string; value: number }) => `${t.value}${t.unit}`;
+  const unitBefore = new Map<string, number>();
+  for (const t of beforeTokens.filter((x) => x.unit)) unitBefore.set(unitKey(t), (unitBefore.get(unitKey(t)) ?? 0) + 1);
+  const unitAfter = new Map<string, number>();
+  for (const t of afterTokens.filter((x) => x.unit)) unitAfter.set(unitKey(t), (unitAfter.get(unitKey(t)) ?? 0) + 1);
+
+  const lostUnit = [...unitBefore.entries()].filter(([k, n]) => (unitAfter.get(k) ?? 0) < n).map(([k]) => k);
+  if (lostUnit.length > 0) {
+    return reject(`수치 유실·단위 변형 (${lostUnit.slice(0, 5).join(', ')})`, rate);
   }
   // 없던 수치가 생기는 것은 윤문이 아니라 창작이다. YMYL에서는 지어낸 통계가 된다.
-  const invented = [...after.keys()].filter((token) => hasUnit(token) && !before.has(token));
+  const invented = [...unitAfter.keys()].filter((k) => !unitBefore.has(k));
   if (invented.length > 0) {
     return reject(`원문에 없던 수치 추가 (${invented.slice(0, 5).join(', ')})`, rate);
   }
@@ -322,6 +362,8 @@ export async function humanizeText(content: string, targetKeyword: string): Prom
 export interface HumanizeOutcome {
   /** 윤문본이 채택됐는가. false면 content는 원문 그대로다. */
   readonly accepted: boolean;
+  /** 실패 원인 구분 — 호출부가 시스템 장애와 콘텐츠 반려를 다르게 다룬다 */
+  readonly status: HumanizeStatus;
   /** 의도적 스킵(BLOG_HUMANIZE=off, 본문 최소길이 미달) — 실패가 아니므로 발행을 막지 않는다 */
   readonly skipped: boolean;
   readonly content: GeneratedContent;
@@ -340,11 +382,11 @@ export async function humanizeGeneratedContent(
   // "실패"가 아니라 "스킵"이다 — 이걸 실패로 치면 킬스위치가 파이프라인 전체를 세운다.
   const verdict = await humanizeWithVerdict(content.content, targetKeyword);
 
-  if (verdict.status === 'skipped') return { accepted: false, skipped: true, content };
+  if (verdict.status === 'skipped') return { accepted: false, skipped: true, status: verdict.status, content };
   // unchanged는 성공이다 — 원문을 그대로 쓰되 실패로 세지 않는다
-  if (verdict.status === 'unchanged') return { accepted: true, skipped: false, content };
+  if (verdict.status === 'unchanged') return { accepted: true, skipped: false, status: verdict.status, content };
   if (verdict.status === 'accepted') {
-    return { accepted: true, skipped: false, content: { ...content, content: verdict.text } };
+    return { accepted: true, skipped: false, status: verdict.status, content: { ...content, content: verdict.text } };
   }
-  return { accepted: false, skipped: false, content };
+  return { accepted: false, skipped: false, status: verdict.status, content };
 }

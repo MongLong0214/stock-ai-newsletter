@@ -156,6 +156,40 @@ async function findSectionClip(page: Page, heading: string): Promise<ClipRect | 
   }, heading);
 }
 
+/**
+ * 히어로 카드 영역.
+ *
+ * 첫 h1(테마명·페이지 제목)을 감싸는 카드 컨테이너를 찾아 그 사각형을 돌려준다.
+ * 카드가 화면보다 길면 잘리는 대신 전체를 담는다(높이 상한 1,500).
+ */
+async function findHeroClip(page: Page): Promise<ClipRect | null> {
+  return page.evaluate(() => {
+    const h1 = document.querySelector('h1');
+    if (!h1) return null;
+
+    // 카드로 볼 만한 조상: 폭이 넓고 배경/테두리를 가진 블록
+    let card: HTMLElement | null = h1.parentElement;
+    for (let i = 0; i < 8 && card; i += 1) {
+      const r = card.getBoundingClientRect();
+      const cs = getComputedStyle(card);
+      const framed = cs.borderRadius !== '0px' || cs.backgroundColor !== 'rgba(0, 0, 0, 0)';
+      if (r.width > 900 && r.height > 300 && framed) break;
+      card = card.parentElement;
+    }
+    if (!card) return null;
+
+    const r = card.getBoundingClientRect();
+    if (r.width < 600 || r.height < 200) return null;
+
+    const pad = 16;
+    const x = Math.max(0, Math.floor(r.left) - pad);
+    const y = Math.max(0, Math.floor(r.top + window.scrollY) - pad);
+    const width = Math.min(Math.ceil(r.width) + pad * 2, document.documentElement.clientWidth - x);
+    const height = Math.min(Math.ceil(r.height) + pad * 2, 1_500);
+    return { x, y, width, height };
+  });
+}
+
 interface SectionInspect {
   dataLineCount: number;
   emptyCopy: boolean;
@@ -178,7 +212,18 @@ async function inspectSection(page: Page, clip: ClipRect): Promise<SectionInspec
       const top = r.top + window.scrollY;
       return top < box.y + box.height && top + r.height > box.y;
     });
-    const text = document.body.innerText;
+    // 문서 전체 텍스트를 보면 안 된다. 테마 상세의 비교 워크스페이스는 비교 대상을
+    // 고르기 전까지 항상 "비교선이 아직 없어요"를 표시하므로, 전체를 검사하면
+    // 정상 추이 차트도 매번 "빈 차트"로 제외되고 이미지가 최소 장수에 못 미친다.
+    const text = [...document.querySelectorAll('p, span, h2, h3, li, td, button, div')]
+      .filter((el) => {
+        const r = el.getBoundingClientRect();
+        if (r.height === 0) return false;
+        const top = r.top + window.scrollY;
+        return top < box.y + box.height && top + r.height > box.y;
+      })
+      .map((el) => el.textContent ?? '')
+      .join(' ');
     return {
       dataLineCount: usable.length,
       emptyCopy: /비교선이 아직 없어요|데이터가 없어요|표시할 데이터가 없/.test(text),
@@ -255,7 +300,15 @@ export async function capturePostImages(req: CaptureRequest, browser?: Browser):
       const path = join(req.outDir, `${target.name}.png`);
       try {
         if (target.heading === null) {
-          await page.screenshot({ path, clip: { x: 0, y: 0, width: VIEWPORT_WIDTH, height: 820 } });
+          // 고정 rect(0,0,1400,820)는 상단에 사이트 내비·장식 배경 약 280px를 넣고
+          // 카드 하단(구성요소 바·주요 변동 종목)을 잘랐다(실측). 히어로 카드 자체를
+          // 찾아 그 영역만 찍는다. 못 찾으면 기존 고정 rect로 떨어진다.
+          const heroClip = await findHeroClip(page);
+          await page.screenshot({
+            path,
+            clip: heroClip ?? { x: 0, y: 0, width: VIEWPORT_WIDTH, height: 820 },
+            fullPage: heroClip != null,
+          });
           const bytes = statSync(path).size;
           if (bytes < MIN_IMAGE_BYTES) throw new Error(`히어로 캡처가 비어 있습니다 (${bytes}B)`);
           images.push({ name: target.name, path, caption: captionOf(target.name, req) });

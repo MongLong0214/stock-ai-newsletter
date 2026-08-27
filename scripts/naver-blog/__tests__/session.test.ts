@@ -11,9 +11,13 @@ describe('네이버 발행량 상한', () => {
     expect(recentPublishCount(history, NOW)).toBe(2);
   });
 
-  it('정확히 7일 경계는 만료로 본다', () => {
+  it('7일 경계에 6시간 여유를 둔다 — 매일 발행과 경계 충돌 방지', () => {
+    // 정확히 168시간으로 두면 7일 전 글이 10:08에 발행되고 오늘 게이트가 10:06에
+    // 돌 때 그 글이 아직 윈도우 안이라, 러너 실행 시각 흔들림만으로 정상 8일째
+    // 발행이 거절된다. 6시간 여유가 그 충돌을 없앤다.
     expect(recentPublishCount([daysAgo(7)], NOW)).toBe(0);
-    expect(recentPublishCount([daysAgo(6.99)], NOW)).toBe(1);
+    expect(recentPublishCount([daysAgo(6.9)], NOW)).toBe(0);
+    expect(recentPublishCount([daysAgo(6.5)], NOW)).toBe(1);
   });
 
   it('상한에 도달하면 막는다', () => {
