@@ -15,6 +15,13 @@ on:
         type: boolean
         default: false
 
+# 실패 시 이슈를 열려면 issues:write가 필요하다. 기본 권한(contents:read)만으로는
+# 403 "Resource not accessible by integration"이 나고, 무인 운영에서 실패 알림이
+# 조용히 사라진다(실측 run 33052741707).
+permissions:
+  contents: read
+  issues: write
+
 concurrency:
   group: naver-blog
   cancel-in-progress: false

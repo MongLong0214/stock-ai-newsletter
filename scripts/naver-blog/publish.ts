@@ -618,6 +618,48 @@ async function insertOgLink(page: Page, editor: Frame, url: string): Promise<boo
  * 가로채인 클릭은 "filechooser 타임아웃"처럼 엉뚱한 증상으로 나타나므로, 남아 있으면
  * 실패시켜 원인을 보이게 한다.
  */
+/**
+ * "작성 중인 글이 있습니다" 복구 팝업을 확실히 닫는다.
+ *
+ * dry-run이 본문을 입력하면 네이버가 임시저장을 남긴다. 그래서 **다음 실행은 반드시**
+ * 이 팝업을 만난다 — 실측 CI에서 1차 dry-run 뒤 2차가 제목 클릭 단계에서
+ * `<div class="se-container"> intercepts pointer events`로 죽었다(run 33052741707).
+ * 고정 대기 2초로는 부족하고, 닫힌 것을 확인하지 않으면 이후 모든 클릭이 가로채인다.
+ */
+async function dismissRecoveryPopup(page: Page, editor: Frame): Promise<void> {
+  const blocker = () =>
+    editor.locator('.se-popup-dim, .se-popup-alert').filter({ visible: true });
+
+  // 팝업은 로드 후 비동기로 뜬다. 최대 8초 기다리고 안 뜨면 그냥 통과한다.
+  await blocker().first().waitFor({ state: 'visible', timeout: 8_000 }).catch(() => {});
+  if ((await blocker().count()) === 0) return;
+
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    for (const scope of [editor, page]) {
+      const btn = scope
+        .locator('button, [role="button"], a')
+        .filter({ hasText: /^\s*(취소|새로\s*작성|아니오)\s*$/ })
+        .filter({ visible: true })
+        .first();
+      if ((await btn.count()) > 0) {
+        await btn.click({ timeout: 3_000 }).catch(() => {});
+        break;
+      }
+    }
+    await page.keyboard.press('Escape').catch(() => {});
+    await blocker().first().waitFor({ state: 'hidden', timeout: 4_000 }).catch(() => {});
+    if ((await blocker().count()) === 0) {
+      console.log(`[Naver] 복구 팝업 닫음 (${attempt}회차)`);
+      return;
+    }
+  }
+
+  throw new Error(
+    '작성 중인 글 복구 팝업을 닫지 못했습니다 — 이 상태에서는 모든 클릭이 오버레이에 가로채입니다. ' +
+      '팝업 버튼 셀렉터를 재확인하세요.',
+  );
+}
+
 async function clearOverlays(page: Page, editor: Frame): Promise<void> {
   await dismissHelp(editor, page);
 
@@ -806,34 +848,17 @@ async function main(): Promise<void> {
     const editor = await getEditor(page);
     await dismissHelp(editor, page);
 
-    // "작성 중인 글이 있습니다" 복구 팝업 — "취소"로 새 글 시작 (임시저장분 무시).
-    // 팝업은 frame 안에 있을 수도, 최상위 페이지에 있을 수도 있고, role이 button이
-    // 아닐 수도 있다. 양쪽 스코프에서 텍스트+visible로 찾는다.
-    await page.waitForTimeout(2_000); // 팝업은 로드 후 비동기로 뜬다
-    for (const scope of [editor, page]) {
-      const cancel = scope
-        .locator('button, [role="button"], a')
-        .filter({ hasText: /^\s*취소\s*$/ })
-        .filter({ visible: true })
-        .first();
-      if ((await cancel.count()) > 0) {
-        await cancel.click({ timeout: 3_000 }).catch(() => {});
-        await page.waitForTimeout(500);
-        break;
-      }
-    }
+    await dismissRecoveryPopup(page, editor);
 
-    // dim 오버레이가 남아 있으면 이후 툴바·본문 클릭이 전부 가로채인다.
-    // 실측에서 이것이 "색상 팔레트 셀을 찾지 못했습니다"로 위장돼 원인을 가렸다.
-    const dim = await editor.locator('.se-popup-dim').filter({ visible: true }).count();
-    if (dim > 0) {
-      throw new Error(
-        '작성 중인 글 복구 팝업이 닫히지 않았습니다 — 이 상태에서는 모든 클릭이 오버레이에 가로채입니다. ' +
-          '팝업 버튼 셀렉터를 재확인하세요.',
-      );
+    // 팝업을 닫은 직후에도 잔여 레이어가 클릭을 가로챌 수 있다 — 한 번 재시도한다.
+    const titleField = editor.locator(SEL.title).first();
+    try {
+      await titleField.click({ timeout: 15_000 });
+    } catch {
+      await dismissRecoveryPopup(page, editor);
+      await clearOverlays(page, editor);
+      await titleField.click({ timeout: 15_000 });
     }
-
-    await editor.locator(SEL.title).first().click();
     await page.keyboard.type(draft.title, { delay: 12 });
 
     await editor.locator(SEL.body).first().click();
