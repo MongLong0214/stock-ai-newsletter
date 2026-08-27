@@ -7,7 +7,7 @@ export const runtime = 'nodejs'
 export const revalidate = 86400
 
 export async function GET() {
-  let themeCount = 200
+  let themeCount = siteConfig.themeCountFloor
   let blogCount = 0
 
   try {

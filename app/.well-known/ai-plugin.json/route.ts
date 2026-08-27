@@ -8,7 +8,7 @@ export function GET() {
     name_for_human: 'StockMatrix 테마 분석',
     name_for_model: 'stockmatrix_themes',
     description_for_human:
-      '한국 주식시장 테마 생명주기를 AI로 분석합니다. 200+ 테마의 점수, 단계, 관련주를 확인하세요.',
+      `한국 주식시장 테마 생명주기를 AI로 분석합니다. ${siteConfig.themeCountFloor}+ 테마의 점수, 단계, 관련주를 확인하세요.`,
     description_for_model:
       'Korean stock market theme lifecycle analysis. Get theme rankings by stage (emerging/growth/peak/decline), search themes, get theme details with scores and related stocks. Data updated daily from KOSPI and KOSDAQ markets.',
     auth: { type: 'none' },

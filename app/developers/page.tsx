@@ -6,11 +6,11 @@ import { generateBreadcrumbSchema } from '@/lib/constants/seo/breadcrumb-schema'
 
 export const metadata: Metadata = {
   title: 'MCP 서버 — AI 주식 데이터 API 개발자 가이드',
-  description: 'StockMatrix MCP 서버로 250+ 한국 주식 테마의 생명주기 점수, 관련주, 뉴스를 AI 에이전트에서 자연어로 조회하세요. Claude Desktop, Cursor, VS Code, Claude Code에서 바로 사용 가능합니다.',
+  description: `StockMatrix MCP 서버로 ${siteConfig.themeCountFloor}+ 한국 주식 테마의 생명주기 점수, 관련주, 뉴스를 AI 에이전트에서 자연어로 조회하세요. Claude Desktop, Cursor, VS Code, Claude Code에서 바로 사용 가능합니다.`,
   alternates: { canonical: `${siteConfig.domain}/developers` },
   openGraph: {
     title: '개발자 — StockMatrix MCP 서버',
-    description: '250+ 한국 주식 테마의 생명주기 점수, 관련주, 뉴스를 AI 에이전트에서 직접 조회하세요.',
+    description: `${siteConfig.themeCountFloor}+ 한국 주식 테마의 생명주기 점수, 관련주, 뉴스를 AI 에이전트에서 직접 조회하세요.`,
     url: `${siteConfig.domain}/developers`,
     siteName: siteConfig.serviceName,
     type: 'website',
@@ -27,7 +27,7 @@ export const metadata: Metadata = {
   twitter: {
     card: 'summary_large_image',
     title: '개발자 — StockMatrix MCP 서버',
-    description: '250+ 한국 주식 테마의 생명주기 점수, 관련주, 뉴스를 AI 에이전트에서 직접 조회하세요.',
+    description: `${siteConfig.themeCountFloor}+ 한국 주식 테마의 생명주기 점수, 관련주, 뉴스를 AI 에이전트에서 직접 조회하세요.`,
     images: [withOgImageVersion('/developers/opengraph-image')],
   },
 }
