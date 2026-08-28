@@ -100,6 +100,9 @@ function buildApiSnapshotSection(
   const warningSignals = evidence && evidence.tier2Signals.length > 0
     ? evidence.tier2Signals.join(', ')
     : '없음';
+  const dowJonesLine = dowJones
+    ? `- Dow Jones (${dowJones.code}): ${dowJones.price.toFixed(2)} / ${dowJones.change >= 0 ? '+' : ''}${dowJones.change.toFixed(2)} / ${dowJones.changePct >= 0 ? '+' : ''}${dowJones.changePct.toFixed(2)}%${dowJones.validation === 'single_source' ? ' [single-source]' : ''}`
+    : '- Dow Jones (.DJI): unavailable [KIS 서빙 중단]';
 
   return `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 📡 API 숫자 스냅샷 (최우선 진실원)
@@ -108,7 +111,7 @@ function buildApiSnapshotSection(
 아래 숫자는 KIS + Serp + Naver에서 직접 수집한 값입니다. 이 값이 가장 우선이며 다시 검색해서 덮어쓰면 안 됩니다.
 
 - S&P 500 (SPX): ${sp500.price.toFixed(2)} / ${sp500.change >= 0 ? '+' : ''}${sp500.change.toFixed(2)} / ${sp500.changePct >= 0 ? '+' : ''}${sp500.changePct.toFixed(2)}%
-- Dow Jones (.DJI): ${dowJones.price.toFixed(2)} / ${dowJones.change >= 0 ? '+' : ''}${dowJones.change.toFixed(2)} / ${dowJones.changePct >= 0 ? '+' : ''}${dowJones.changePct.toFixed(2)}%
+${dowJonesLine}
 - NASDAQ Composite (${nasdaqComposite.code}): ${nasdaqComposite.price.toFixed(2)} / ${nasdaqComposite.change >= 0 ? '+' : ''}${nasdaqComposite.change.toFixed(2)} / ${nasdaqComposite.changePct >= 0 ? '+' : ''}${nasdaqComposite.changePct.toFixed(2)}%
 - KOSPI200 mini futures (${kospi200MiniFutures.contractName}, ${kospi200MiniFutures.code}): ${kospi200MiniFutures.price.toFixed(2)} / ${kospi200MiniFutures.change >= 0 ? '+' : ''}${kospi200MiniFutures.change.toFixed(2)} / ${kospi200MiniFutures.changePct >= 0 ? '+' : ''}${kospi200MiniFutures.changePct.toFixed(2)}%${snapshot.nightSession.isPreMarketHours ? ' [전일 주간장 종가]' : ''}
 ${snapshot.nightSession.kospiMiniFutures ? `- KOSPI200 mini futures (night session): ${snapshot.nightSession.kospiMiniFutures.price.toFixed(2)} / ${snapshot.nightSession.kospiMiniFutures.change >= 0 ? '+' : ''}${snapshot.nightSession.kospiMiniFutures.change.toFixed(2)} / ${snapshot.nightSession.kospiMiniFutures.changePct >= 0 ? '+' : ''}${snapshot.nightSession.kospiMiniFutures.changePct.toFixed(2)}% ★ 야간 실시간` : '- KOSPI200 mini futures (night session): unavailable'}
@@ -120,8 +123,8 @@ ${evidence?.kospiDataStale ? `⚠️ KOSPI 주간장 데이터(${kospi200MiniFut
 ${foreignerNetSelling ? `- Foreigner flow: ${summarizeForeignerFlow(foreignerNetSelling)}` : '- Foreigner flow: unavailable'}
 
 참고:
-- KIS: S&P 500 / Dow Jones / NASDAQ Composite / KOSPI200 mini futures
-- Serp: VIX / FX / 이벤트 검색
+- KIS: S&P 500 / Dow Jones(primary) / NASDAQ Composite / KOSPI200 mini futures
+- Serp: Dow Jones fallback / VIX / FX / 이벤트 검색
 - Naver Stock API: KOSPI 200 futures / Nikkei futures / Nikkei 225 index confirmation
 - Naver: VIX / FX / 외국인 순매도 / 뉴스 증거
 - 이미 숫자로 감지된 Tier 1 신호: ${hardSignals}

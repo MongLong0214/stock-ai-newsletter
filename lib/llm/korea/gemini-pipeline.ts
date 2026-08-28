@@ -528,7 +528,7 @@ function resolveMarketAssessmentFromSnapshot(
 
     const numericContext = [
         `S&P 500 ${sp500.changePct.toFixed(2)}%`,
-        `Dow ${dowJones.changePct.toFixed(2)}%`,
+        dowJones ? `Dow ${dowJones.changePct.toFixed(2)}%` : 'Dow unavailable [KIS 서빙 중단]',
         `NASDAQ Composite ${nasdaqComposite.changePct.toFixed(2)}%`,
         `${kospiLabel} ${effectiveKospi.changePct.toFixed(2)}%`,
         evidence.kospiDataStale ? `[KOSPI 주간장 ${kospi200MiniFutures.changePct.toFixed(2)}% stale — 글로벌 반등 불일치로 제외]` : null,

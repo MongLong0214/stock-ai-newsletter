@@ -178,7 +178,7 @@ export interface MarketAssessmentSnapshot {
   fetchedAt: string;
   indicators: {
     sp500: MarketIndicatorSnapshot;
-    dowJones: MarketIndicatorSnapshot;
+    dowJones: MarketIndicatorSnapshot | null;
     nasdaqComposite: MarketIndicatorSnapshot;
     kospi200MiniFutures: Kospi200MiniFuturesSnapshot;
     vix: MarketIndicatorSnapshot | null;
@@ -871,7 +871,7 @@ export function classifyDirectionCoherence(snapshot: MarketAssessmentSnapshot): 
 } {
   const { sp500, dowJones, nasdaqComposite, kospi200MiniFutures } = snapshot.indicators;
   const nightFutures = snapshot.nightSession.kospiMiniFutures;
-  const usChanges = [sp500.changePct, dowJones.changePct, nasdaqComposite.changePct];
+  const usChanges = getAvailableUsIndexChanges([sp500, dowJones, nasdaqComposite]);
   const anyEventDetected =
     snapshot.events.tariffs.detected ||
     snapshot.events.geopolitics.detected ||
@@ -1020,6 +1020,12 @@ async function getOverseasIndexQuote(
   const price = parseNumber(output.ovrs_nmix_prpr);
   const change = parseNumber(output.ovrs_nmix_prdy_vrss);
   const changePct = parseNumber(output.prdy_ctrt);
+
+  if (price === 0 && !output.hts_kor_isnm?.trim()) {
+    throw new Error(
+      `${label} returned price=0 with an empty name (KIS가 심볼 서빙을 중단한 패턴: ${symbol})`
+    );
+  }
 
   assertPositivePrice(price, label);
 
@@ -1681,6 +1687,24 @@ async function safeSupplementaryValue<T>(
   }
 }
 
+function getAvailableUsIndexChanges(
+  indicators: Array<MarketIndicatorSnapshot | null | undefined>
+): number[] {
+  const changes = indicators
+    .filter((indicator): indicator is MarketIndicatorSnapshot =>
+      Boolean(indicator && Number.isFinite(indicator.changePct))
+    )
+    .map((indicator) => indicator.changePct);
+
+  if (changes.length < 2) {
+    throw new Error(
+      `Market snapshot requires at least 2 available US indexes; only ${changes.length} available`
+    );
+  }
+
+  return changes;
+}
+
 export async function getKisMarketAssessmentSnapshot(): Promise<MarketAssessmentSnapshot> {
   const now = Date.now();
 
@@ -1691,7 +1715,29 @@ export async function getKisMarketAssessmentSnapshot(): Promise<MarketAssessment
   const sp500 = await getOverseasIndexQuote('SPX', 'S&P 500');
   await requestCooldown();
 
-  const dowJones = await getOverseasIndexQuote('.DJI', 'Dow Jones');
+  const dowJones = await safeSupplementaryValue(
+    'Dow Jones',
+    async () => {
+      try {
+        return await getOverseasIndexQuote('.DJI', 'Dow Jones');
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        console.warn(
+          `[Market Snapshot] Dow Jones KIS 수집 실패, Serp fallback 시도: ${errorMsg}`
+        );
+      }
+
+      await requestCooldown();
+      const fallback = await getSerpFinanceIndicator('.DJI:INDEXDJX', 'Dow Jones');
+
+      if (!fallback) {
+        console.warn('[Market Snapshot] Dow Jones Serp fallback도 값을 반환하지 않아 unavailable로 처리');
+      }
+
+      return fallback;
+    },
+    null
+  );
   await requestCooldown();
 
   const nasdaqComposite = await getOverseasIndexQuote('COMP', 'NASDAQ Composite');
@@ -1821,11 +1867,12 @@ export function evaluateMarketAssessmentSnapshot(
   const tier2Signals: string[] = [];
   const tier3Signals: string[] = [];
   const supportingNotes: string[] = [];
-  const usIndexChanges = [
-    snapshot.indicators.sp500.changePct,
-    snapshot.indicators.dowJones.changePct,
-    snapshot.indicators.nasdaqComposite.changePct,
-  ];
+  const usIndexChanges = getAvailableUsIndexChanges([
+    snapshot.indicators.sp500,
+    snapshot.indicators.dowJones,
+    snapshot.indicators.nasdaqComposite,
+  ]);
+  const usIndexCountLabel = usIndexChanges.length === 3 ? '2 of 3 US indexes' : '2 available US indexes';
 
   const nightFutures = snapshot.nightSession.kospiMiniFutures;
   const dayFutures = snapshot.indicators.kospi200MiniFutures;
@@ -1859,7 +1906,7 @@ export function evaluateMarketAssessmentSnapshot(
   }
 
   if (usIndexChanges.filter((value) => value <= -2.5).length >= 2) {
-    tier1Signals.push('2 of 3 US indexes <= -2.5%');
+    tier1Signals.push(`${usIndexCountLabel} <= -2.5%`);
   }
 
   if (!kospiDataStale && !hasKospiPriceConflict && effectiveKospi.changePct <= -2.5) {
@@ -1882,8 +1929,9 @@ export function evaluateMarketAssessmentSnapshot(
     }
   }
 
+  // 기존 임계 의미를 보존한다: 가용 지수가 2개뿐이면 "v <= -2 지수 >= 2개"는 둘 다 하락해야 한다.
   if (usIndexChanges.filter((value) => value <= -2).length >= 2) {
-    tier2Signals.push('2 of 3 US indexes <= -2.0%');
+    tier2Signals.push(`${usIndexCountLabel} <= -2.0%`);
   }
 
   if (
@@ -2023,7 +2071,9 @@ export function formatMarketAssessmentSnapshot(snapshot: MarketAssessmentSnapsho
 
   const lines = [
     `- S&P 500 (SPX): ${sp500.price.toFixed(2)} (${sp500.change >= 0 ? '+' : ''}${sp500.change.toFixed(2)}, ${sp500.changePct >= 0 ? '+' : ''}${sp500.changePct.toFixed(2)}%)`,
-    `- Dow Jones (.DJI): ${dowJones.price.toFixed(2)} (${dowJones.change >= 0 ? '+' : ''}${dowJones.change.toFixed(2)}, ${dowJones.changePct >= 0 ? '+' : ''}${dowJones.changePct.toFixed(2)}%)`,
+    dowJones
+      ? `- Dow Jones (${dowJones.code}): ${dowJones.price.toFixed(2)} (${dowJones.change >= 0 ? '+' : ''}${dowJones.change.toFixed(2)}, ${dowJones.changePct >= 0 ? '+' : ''}${dowJones.changePct.toFixed(2)}%)${dowJones.validation === 'single_source' ? ' [single-source]' : ''}`
+      : '- Dow Jones (.DJI): unavailable [KIS 서빙 중단]',
     `- NASDAQ Composite (${nasdaqComposite.code}): ${nasdaqComposite.price.toFixed(2)} (${nasdaqComposite.change >= 0 ? '+' : ''}${nasdaqComposite.change.toFixed(2)}, ${nasdaqComposite.changePct >= 0 ? '+' : ''}${nasdaqComposite.changePct.toFixed(2)}%)`,
     `- KOSPI200 mini futures (${kospi200MiniFutures.contractName}, ${kospi200MiniFutures.code}): ${kospi200MiniFutures.price.toFixed(2)} (${kospi200MiniFutures.change >= 0 ? '+' : ''}${kospi200MiniFutures.change.toFixed(2)}, ${kospi200MiniFutures.changePct >= 0 ? '+' : ''}${kospi200MiniFutures.changePct.toFixed(2)}%)${snapshot.nightSession.isPreMarketHours ? ' [daytime close]' : ''}`,
   ];
