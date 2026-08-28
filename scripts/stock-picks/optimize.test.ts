@@ -12,6 +12,8 @@ import {
   DEFAULT_COMPOSITE_PARAMETERS,
   DEFAULT_EARLY_TREND_PARAMETERS,
   DEFAULT_PULLBACK_REBOUND_PARAMETERS,
+  DEFAULT_VOLUME_BREAKOUT_BULLISH_CANDLE_PARAMETERS,
+  DEFAULT_VOLUME_BREAKOUT_NO_GAP_UP_PARAMETERS,
   DEFAULT_VOLUME_BREAKOUT_PARAMETERS,
   type StockMasterState,
 } from '@/scripts/stock-picks/strategies'
@@ -52,6 +54,7 @@ const makeFeature = (symbol: string, simDate: string): StockFeatureVector => ({
   trendR2_60: 0.8,
   trendSlope60: 0.01,
   distanceFromHigh60: 1,
+  gapFromPreviousClosePercent: -0.5,
   goldenCrossAge: 2,
   bullishCandle: true,
 })
@@ -75,6 +78,20 @@ describe('stock-picks walk-forward optimizer', () => {
 
   it('keeps every default strategy grid at or below 200 combinations', () => {
     for (const grid of Object.values(PARAMETER_GRIDS)) expect(grid.length).toBeLessThanOrEqual(200)
+    for (const name of [
+      'volumeBreakout',
+      'volumeBreakoutBullishCandle',
+      'volumeBreakoutNoGapUp',
+    ] as const) {
+      const grid = PARAMETER_GRIDS[name]
+      expect(grid).toHaveLength(108)
+      expect(new Set(grid.map((row) => row.minVolumePercentile))).toEqual(new Set([90, 95, 97, 99]))
+      expect(new Set(grid.map((row) => row.minDistanceFromHighPercent))).toEqual(new Set([-5, -2, 0]))
+      expect(new Set(grid.map((row) => row.maxRsi))).toEqual(new Set([65, 70, 75]))
+      expect(new Set(grid.map((row) => row.minTurnover))).toEqual(new Set([
+        500_000_000, 1_000_000_000, 3_000_000_000,
+      ]))
+    }
   })
 
   it('runs one full train-select then OOS-test fixture iteration deterministically', () => {
@@ -117,6 +134,8 @@ describe('stock-picks walk-forward optimizer', () => {
     const parameterGrids = {
       pullbackRebound: [DEFAULT_PULLBACK_REBOUND_PARAMETERS],
       volumeBreakout: [DEFAULT_VOLUME_BREAKOUT_PARAMETERS],
+      volumeBreakoutBullishCandle: [DEFAULT_VOLUME_BREAKOUT_BULLISH_CANDLE_PARAMETERS],
+      volumeBreakoutNoGapUp: [DEFAULT_VOLUME_BREAKOUT_NO_GAP_UP_PARAMETERS],
       earlyTrend: [DEFAULT_EARLY_TREND_PARAMETERS],
       composite: [DEFAULT_COMPOSITE_PARAMETERS],
     }
@@ -143,6 +162,8 @@ describe('stock-picks walk-forward optimizer', () => {
     })
     expect(first.strategies.composite.force3.segments[0].train.inSampleReference.precisionAt3).toBe(1)
     expect(first.compositeAblation.evaluationScope).toBe('out_of_sample')
+    expect(first.compositeAblation.method).toBe('score_weight_zero_gate_preserved')
+    expect(first.compositeAblation.excludedFeatures.map((row) => row.feature)).toContain('rsi14')
     expect(first.caveats.survivorshipBias).toContain('current stock_master')
   })
 })

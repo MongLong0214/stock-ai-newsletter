@@ -9,11 +9,14 @@ import {
 import { StockDataHandler, loadPriceBook, type PriceBook } from '@/scripts/stock-picks/data-handler'
 import { buildFeatureSeries, type StockFeatureVector } from '@/scripts/stock-picks/features'
 import {
+  COMPOSITE_ABLATION_EXCLUSIONS,
   COMPOSITE_ABLATION_FEATURES,
   DEFAULT_COMPOSITE_PARAMETERS,
   DEFAULT_EARLY_TREND_PARAMETERS,
   DEFAULT_PULLBACK_REBOUND_PARAMETERS,
   DEFAULT_VOLUME_BREAKOUT_PARAMETERS,
+  DEFAULT_VOLUME_BREAKOUT_BULLISH_CANDLE_PARAMETERS,
+  DEFAULT_VOLUME_BREAKOUT_NO_GAP_UP_PARAMETERS,
   createCachedFeatureStrategy,
   loadStockMasterStates,
   rankStrategyCandidates,
@@ -125,6 +128,8 @@ export interface OptimizationReport {
   readonly compositeAblation: {
     readonly evaluationScope: 'out_of_sample'
     readonly mode: 'force3'
+    readonly method: 'score_weight_zero_gate_preserved'
+    readonly excludedFeatures: typeof COMPOSITE_ABLATION_EXCLUSIONS
     readonly baselinePrecisionAt3: number | null
     readonly rows: ReadonlyArray<{
       readonly omittedFeature: AblationFeature
@@ -168,18 +173,20 @@ const buildPullbackGrid = (): PullbackReboundParameters[] => {
   return output
 }
 
-const buildBreakoutGrid = (): VolumeBreakoutParameters[] => {
+const buildBreakoutGrid = (
+  defaults: VolumeBreakoutParameters,
+): VolumeBreakoutParameters[] => {
   const output: VolumeBreakoutParameters[] = []
-  for (const minTurnover of [1_000_000_000, 3_000_000_000]) {
-    for (const minVolumePercentile of [90, 95, 97.5]) {
-      for (const minDistanceFromHighPercent of [-5, -2]) {
-        for (const minScore of [35, 50]) {
+  for (const minTurnover of [500_000_000, 1_000_000_000, 3_000_000_000]) {
+    for (const minVolumePercentile of [90, 95, 97, 99]) {
+      for (const minDistanceFromHighPercent of [-5, -2, 0]) {
+        for (const maxRsi of [65, 70, 75]) {
           output.push({
-            ...DEFAULT_VOLUME_BREAKOUT_PARAMETERS,
+            ...defaults,
             minTurnover,
             minVolumePercentile,
             minDistanceFromHighPercent,
-            minScore,
+            maxRsi,
           })
         }
       }
@@ -238,7 +245,9 @@ const buildCompositeGrid = (): CompositeParameters[] => {
 
 export const PARAMETER_GRIDS: ParameterGridMap = {
   pullbackRebound: buildPullbackGrid(),
-  volumeBreakout: buildBreakoutGrid(),
+  volumeBreakout: buildBreakoutGrid(DEFAULT_VOLUME_BREAKOUT_PARAMETERS),
+  volumeBreakoutBullishCandle: buildBreakoutGrid(DEFAULT_VOLUME_BREAKOUT_BULLISH_CANDLE_PARAMETERS),
+  volumeBreakoutNoGapUp: buildBreakoutGrid(DEFAULT_VOLUME_BREAKOUT_NO_GAP_UP_PARAMETERS),
   earlyTrend: buildEarlyTrendGrid(),
   composite: buildCompositeGrid(),
 }
@@ -578,6 +587,8 @@ const evaluateCompositeAblation = (
   return {
     evaluationScope: 'out_of_sample',
     mode: 'force3',
+    method: 'score_weight_zero_gate_preserved',
+    excludedFeatures: COMPOSITE_ABLATION_EXCLUSIONS,
     baselinePrecisionAt3: baselinePrecision,
     rows,
   }
@@ -652,6 +663,34 @@ export function runWalkForwardOptimization(input: {
   const breakoutAbstain = evaluateStrategyMode({
     name: 'volumeBreakout', grid: grids.volumeBreakout, mode: 'abstain', splits: input.splits, context,
   })
+  const breakoutBullishForce = evaluateStrategyMode({
+    name: 'volumeBreakoutBullishCandle',
+    grid: grids.volumeBreakoutBullishCandle,
+    mode: 'force3',
+    splits: input.splits,
+    context,
+  })
+  const breakoutBullishAbstain = evaluateStrategyMode({
+    name: 'volumeBreakoutBullishCandle',
+    grid: grids.volumeBreakoutBullishCandle,
+    mode: 'abstain',
+    splits: input.splits,
+    context,
+  })
+  const breakoutNoGapForce = evaluateStrategyMode({
+    name: 'volumeBreakoutNoGapUp',
+    grid: grids.volumeBreakoutNoGapUp,
+    mode: 'force3',
+    splits: input.splits,
+    context,
+  })
+  const breakoutNoGapAbstain = evaluateStrategyMode({
+    name: 'volumeBreakoutNoGapUp',
+    grid: grids.volumeBreakoutNoGapUp,
+    mode: 'abstain',
+    splits: input.splits,
+    context,
+  })
   const earlyForce = evaluateStrategyMode({
     name: 'earlyTrend', grid: grids.earlyTrend, mode: 'force3', splits: input.splits, context,
   })
@@ -667,6 +706,14 @@ export function runWalkForwardOptimization(input: {
   const strategies = {
     pullbackRebound: { force3: pullbackForce.publicReport, abstain: pullbackAbstain.publicReport },
     volumeBreakout: { force3: breakoutForce.publicReport, abstain: breakoutAbstain.publicReport },
+    volumeBreakoutBullishCandle: {
+      force3: breakoutBullishForce.publicReport,
+      abstain: breakoutBullishAbstain.publicReport,
+    },
+    volumeBreakoutNoGapUp: {
+      force3: breakoutNoGapForce.publicReport,
+      abstain: breakoutNoGapAbstain.publicReport,
+    },
     earlyTrend: { force3: earlyForce.publicReport, abstain: earlyAbstain.publicReport },
     composite: { force3: compositeForce.publicReport, abstain: compositeAbstain.publicReport },
   }
@@ -710,6 +757,8 @@ export function runWalkForwardOptimization(input: {
     abstainLift: {
       pullbackRebound: lift('pullbackRebound'),
       volumeBreakout: lift('volumeBreakout'),
+      volumeBreakoutBullishCandle: lift('volumeBreakoutBullishCandle'),
+      volumeBreakoutNoGapUp: lift('volumeBreakoutNoGapUp'),
       earlyTrend: lift('earlyTrend'),
       composite: lift('composite'),
     },

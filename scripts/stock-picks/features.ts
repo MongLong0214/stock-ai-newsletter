@@ -5,6 +5,7 @@ import {
   consecutiveUpDays,
   distanceFromHigh,
   ema,
+  gapFromPreviousClosePercent,
   macdHistogram,
   obvSlope,
   position52w,
@@ -56,6 +57,8 @@ export interface StockFeatureVector {
   readonly trendSlope60: number | null
   /** 현재 종가와 직전 60거래일 최고 종가의 거리로, 돌파 시 양수다. */
   readonly distanceFromHigh60: number | null
+  /** 신호일 시가와 직전 거래일 종가 사이의 갭으로, 양수면 갭상승이다. */
+  readonly gapFromPreviousClosePercent: number | null
   readonly goldenCrossAge: number | null
   readonly bullishCandle: boolean | null
 }
@@ -146,6 +149,7 @@ const buildVector = (input: {
     trendR2_60: trend60?.r2 ?? null,
     trendSlope60: trend60?.slope ?? null,
     distanceFromHigh60: distanceFromHigh(closes, 60),
+    gapFromPreviousClosePercent: gapFromPreviousClosePercent(closes.at(-2), currentOpen),
     goldenCrossAge: calculateGoldenCrossAge(closes),
     bullishCandle: currentOpen === null || currentClose === null ? null : currentClose > currentOpen,
   }

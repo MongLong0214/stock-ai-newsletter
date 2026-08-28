@@ -34,6 +34,7 @@ describe('stock-picks feature builder', () => {
       position52wObservations: 70,
       position52wFullWindow: false,
     })
+    expect(feature.gapFromPreviousClosePercent).toBeCloseTo(-9 / 1_078 * 100, 12)
     expect(feature.averageTurnover20).toBe(1_069_500)
     expect(feature.trendSlope60).toBeGreaterThan(0)
     expect(feature.rsi14).toBe(100)

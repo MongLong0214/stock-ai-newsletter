@@ -254,6 +254,18 @@ export function volumeRatio(values: readonly NullableNumber[], period = 20): num
   return average > 0 ? window.at(-1)! / average : null
 }
 
+/** 신호일 시가가 직전 거래일 종가에서 벌어진 비율이다. 양수면 갭상승이다. */
+export function gapFromPreviousClosePercent(
+  previousClose: NullableNumber | undefined,
+  currentOpen: NullableNumber | undefined,
+): number | null {
+  if (
+    !isFiniteNumber(previousClose) || previousClose <= 0
+    || !isFiniteNumber(currentOpen) || currentOpen <= 0
+  ) return null
+  return (currentOpen / previousClose - 1) * 100
+}
+
 export function rollingPercentileRank(values: readonly NullableNumber[], period: number): number | null {
   const window = numericWindow(values, period)
   if (!window) return null

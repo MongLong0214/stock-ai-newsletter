@@ -6,6 +6,7 @@ import {
   consecutiveUpDays,
   distanceFromHigh,
   ema,
+  gapFromPreviousClosePercent,
   macdHistogram,
   obvSlope,
   position52w,
@@ -82,6 +83,11 @@ describe('stock-picks indicator golden vectors', () => {
     expect(distanceFromHigh([80, 90, 100, 105], 3)).toBeCloseTo(5, 12)
   })
 
+  it('calculates the signal-day opening gap from the previous close', () => {
+    expect(gapFromPreviousClosePercent(100, 103)).toBeCloseTo(3, 12)
+    expect(gapFromPreviousClosePercent(null, 103)).toBeNull()
+  })
+
   it('returns null when required tail history is short or missing', () => {
     expect(wilderRsi([1, 2, 3], 3)).toBeNull()
     expect(macdHistogram([1, 2, 3], 2, 3, 2)).toBeNull()
@@ -97,5 +103,6 @@ describe('stock-picks indicator golden vectors', () => {
     expect(consecutiveUpDays([1])).toBeNull()
     expect(trendR2([1, 2], 3)).toBeNull()
     expect(distanceFromHigh([1, 2, null, 3], 3)).toBeNull()
+    expect(gapFromPreviousClosePercent(0, 3)).toBeNull()
   })
 })

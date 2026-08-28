@@ -4,7 +4,13 @@ import type { StockFeatureVector } from '@/scripts/stock-picks/features'
 const DEFAULT_MIN_TURNOVER = 1_000_000_000
 const PICKS_PER_DATE = 3
 
-export type StrategyName = 'pullbackRebound' | 'volumeBreakout' | 'earlyTrend' | 'composite'
+export type StrategyName =
+  | 'pullbackRebound'
+  | 'volumeBreakout'
+  | 'volumeBreakoutBullishCandle'
+  | 'volumeBreakoutNoGapUp'
+  | 'earlyTrend'
+  | 'composite'
 export type SelectionMode = 'force3' | 'abstain'
 export type AblationFeature = keyof StockFeatureVector
 
@@ -30,6 +36,10 @@ export interface PullbackReboundParameters extends CommonParameters {
 export interface VolumeBreakoutParameters extends CommonParameters {
   readonly minVolumePercentile: number
   readonly minDistanceFromHighPercent: number
+  /** 과거 저장 파라미터는 70으로 해석한다. 새 최적화 그리드는 항상 값을 명시한다. */
+  readonly maxRsi?: number
+  readonly requireBullishCandle?: boolean
+  readonly excludeGapUp?: boolean
 }
 
 export interface EarlyTrendParameters extends CommonParameters {
@@ -53,6 +63,8 @@ export interface CompositeParameters extends CommonParameters {
 export interface StrategyParameterMap {
   readonly pullbackRebound: PullbackReboundParameters
   readonly volumeBreakout: VolumeBreakoutParameters
+  readonly volumeBreakoutBullishCandle: VolumeBreakoutParameters
+  readonly volumeBreakoutNoGapUp: VolumeBreakoutParameters
   readonly earlyTrend: EarlyTrendParameters
   readonly composite: CompositeParameters
 }
@@ -72,6 +84,19 @@ export const DEFAULT_VOLUME_BREAKOUT_PARAMETERS: VolumeBreakoutParameters = {
   minScore: 45,
   minVolumePercentile: 95,
   minDistanceFromHighPercent: -3,
+  maxRsi: 70,
+  requireBullishCandle: false,
+  excludeGapUp: false,
+}
+
+export const DEFAULT_VOLUME_BREAKOUT_BULLISH_CANDLE_PARAMETERS: VolumeBreakoutParameters = {
+  ...DEFAULT_VOLUME_BREAKOUT_PARAMETERS,
+  requireBullishCandle: true,
+}
+
+export const DEFAULT_VOLUME_BREAKOUT_NO_GAP_UP_PARAMETERS: VolumeBreakoutParameters = {
+  ...DEFAULT_VOLUME_BREAKOUT_PARAMETERS,
+  excludeGapUp: true,
 }
 
 export const DEFAULT_EARLY_TREND_PARAMETERS: EarlyTrendParameters = {
@@ -99,17 +124,15 @@ export const DEFAULT_COMPOSITE_PARAMETERS: CompositeParameters = {
 export const DEFAULT_STRATEGY_PARAMETERS: StrategyParameterMap = {
   pullbackRebound: DEFAULT_PULLBACK_REBOUND_PARAMETERS,
   volumeBreakout: DEFAULT_VOLUME_BREAKOUT_PARAMETERS,
+  volumeBreakoutBullishCandle: DEFAULT_VOLUME_BREAKOUT_BULLISH_CANDLE_PARAMETERS,
+  volumeBreakoutNoGapUp: DEFAULT_VOLUME_BREAKOUT_NO_GAP_UP_PARAMETERS,
   earlyTrend: DEFAULT_EARLY_TREND_PARAMETERS,
   composite: DEFAULT_COMPOSITE_PARAMETERS,
 }
 
 export const COMPOSITE_ABLATION_FEATURES: readonly AblationFeature[] = [
-  'rsi14',
-  'sma60',
   'sma20DistancePercent',
   'trendR2_60',
-  'trendSlope60',
-  'bullishCandle',
   'volumeRatio20',
   'volumePercentile60',
   'distanceFromHigh60',
@@ -120,7 +143,43 @@ export const COMPOSITE_ABLATION_FEATURES: readonly AblationFeature[] = [
   'trendR2_20Change',
 ]
 
+export const COMPOSITE_ABLATION_EXCLUSIONS: ReadonlyArray<{
+  readonly feature: AblationFeature
+  readonly reason: string
+}> = [
+  {
+    feature: 'rsi14',
+    reason: '공통 과매수 하드 게이트이므로 OOS ablation 대상에서 제외한다.',
+  },
+  {
+    feature: 'sma60',
+    reason: 'pullbackRebound 적격성 게이트일 뿐 직접 점수 가중치가 없다.',
+  },
+  {
+    feature: 'trendSlope60',
+    reason: 'pullbackRebound 적격성 게이트일 뿐 직접 점수 가중치가 없다.',
+  },
+  {
+    feature: 'bullishCandle',
+    reason: '적격성 하드 게이트이므로 연속형 점수 기여 ablation에서 제외한다.',
+  },
+]
+
 const clamp01 = (value: number): number => Math.min(1, Math.max(0, value))
+
+interface ScoreComponent {
+  readonly feature: AblationFeature
+  readonly weight: number
+  readonly score: number
+}
+
+/** ablation은 입력값이나 게이트를 지우지 않고 해당 점수 성분의 가중치만 0으로 만든다. */
+const sumScoreComponents = (
+  components: readonly ScoreComponent[],
+  omittedFeature?: AblationFeature,
+): number => components.reduce((sum, component) => (
+  sum + (component.feature === omittedFeature ? 0 : component.weight * component.score)
+), 0)
 
 const flagged = (value: unknown): boolean => {
   if (typeof value === 'boolean') return value
@@ -133,6 +192,7 @@ export function passesCommonGate(
   feature: StockFeatureVector,
   master: StockMasterState | undefined,
   minTurnover = DEFAULT_MIN_TURNOVER,
+  maxRsi = 70,
 ): boolean {
   if (!master?.is_active) return false
   if (
@@ -142,8 +202,8 @@ export function passesCommonGate(
   ) return false
   if (feature.averageTurnover20 === null || feature.averageTurnover20 < minTurnover) return false
   if (feature.close === null || feature.close < 1_000) return false
-  // 기존 제품의 Stoch/Williams 과매수 제외 의도를 RSI>70 단일 기준으로 단순화한다.
-  if (feature.rsi14 === null || feature.rsi14 > 70) return false
+  // 기존 제품의 Stoch/Williams 과매수 제외 의도를 RSI 상한 단일 기준으로 단순화한다.
+  if (feature.rsi14 === null || feature.rsi14 > maxRsi) return false
   return true
 }
 
@@ -151,6 +211,7 @@ export function scorePullbackRebound(
   feature: StockFeatureVector,
   master: StockMasterState | undefined,
   parameters: PullbackReboundParameters,
+  omittedScoreFeature?: AblationFeature,
 ): number | null {
   if (!passesCommonGate(feature, master, parameters.minTurnover)) return null
   const {
@@ -173,20 +234,32 @@ export function scorePullbackRebound(
   const rsiScore = clamp01(1 - Math.abs(rsi14 - rsiCenter) / rsiHalfRange)
   const proximityScore = clamp01(1 - Math.abs(smaDistance) / parameters.maxSma20DistancePercent)
   const recoveryScore = clamp01((currentVolumeRatio - parameters.minVolumeRatio) / Math.max(0.1, 2 - parameters.minVolumeRatio))
-  return 25 * trendScore + 25 * rsiScore + 20 * proximityScore + 15 + 15 * recoveryScore
+  return sumScoreComponents([
+    { feature: 'trendR2_60', weight: 25, score: trendScore },
+    { feature: 'rsi14', weight: 25, score: rsiScore },
+    { feature: 'sma20DistancePercent', weight: 20, score: proximityScore },
+    { feature: 'bullishCandle', weight: 15, score: 1 },
+    { feature: 'volumeRatio20', weight: 15, score: recoveryScore },
+  ], omittedScoreFeature)
 }
 
 export function scoreVolumeBreakout(
   feature: StockFeatureVector,
   master: StockMasterState | undefined,
   parameters: VolumeBreakoutParameters,
+  omittedScoreFeature?: AblationFeature,
 ): number | null {
-  if (!passesCommonGate(feature, master, parameters.minTurnover)) return null
+  if (!passesCommonGate(feature, master, parameters.minTurnover, parameters.maxRsi ?? 70)) return null
   const percentile = feature.volumePercentile60
   const distance = feature.distanceFromHigh60
   if (
     percentile === null || percentile < parameters.minVolumePercentile
     || distance === null || distance < parameters.minDistanceFromHighPercent
+    || (parameters.requireBullishCandle && feature.bullishCandle !== true)
+    || (
+      parameters.excludeGapUp
+      && (feature.gapFromPreviousClosePercent === null || feature.gapFromPreviousClosePercent > 0)
+    )
   ) return null
 
   const volumeScore = clamp01(
@@ -195,13 +268,17 @@ export function scoreVolumeBreakout(
   const breakoutScore = clamp01(
     (distance - parameters.minDistanceFromHighPercent) / Math.max(1, 5 - parameters.minDistanceFromHighPercent),
   )
-  return 60 * volumeScore + 40 * breakoutScore
+  return sumScoreComponents([
+    { feature: 'volumePercentile60', weight: 60, score: volumeScore },
+    { feature: 'distanceFromHigh60', weight: 40, score: breakoutScore },
+  ], omittedScoreFeature)
 }
 
 export function scoreEarlyTrend(
   feature: StockFeatureVector,
   master: StockMasterState | undefined,
   parameters: EarlyTrendParameters,
+  omittedScoreFeature?: AblationFeature,
 ): number | null {
   if (!passesCommonGate(feature, master, parameters.minTurnover)) return null
   const { goldenCrossAge, adx14, adx14Change, trendR2_20: trendFit, trendR2_20Change: trendChange } = feature
@@ -217,32 +294,32 @@ export function scoreEarlyTrend(
   const adxScore = clamp01((adx14 - parameters.minAdx) / 25)
   const fitScore = clamp01((trendFit - parameters.minTrendR2) / Math.max(0.01, parameters.maxTrendR2 - parameters.minTrendR2))
   const accelerationScore = clamp01((adx14Change + trendChange * 100) / 10)
-  return 30 * recencyScore + 25 * adxScore + 20 * fitScore + 25 * accelerationScore
+  return sumScoreComponents([
+    { feature: 'goldenCrossAge', weight: 30, score: recencyScore },
+    { feature: 'adx14', weight: 25, score: adxScore },
+    { feature: 'trendR2_20', weight: 20, score: fitScore },
+    // 기존 결합 공식을 유지하면서 두 입력에 각각 절반의 점수 가중치를 귀속한다.
+    { feature: 'adx14Change', weight: 12.5, score: accelerationScore },
+    { feature: 'trendR2_20Change', weight: 12.5, score: accelerationScore },
+  ], omittedScoreFeature)
 }
 
 export function scoreComposite(
   feature: StockFeatureVector,
   master: StockMasterState | undefined,
   parameters: CompositeParameters,
+  omittedScoreFeature?: AblationFeature,
 ): number | null {
   if (!passesCommonGate(feature, master, parameters.minTurnover)) return null
   const scores = [
-    { score: scorePullbackRebound(feature, master, { ...parameters.pullback, minTurnover: parameters.minTurnover }), weight: parameters.weightPullback },
-    { score: scoreVolumeBreakout(feature, master, { ...parameters.breakout, minTurnover: parameters.minTurnover }), weight: parameters.weightBreakout },
-    { score: scoreEarlyTrend(feature, master, { ...parameters.earlyTrend, minTurnover: parameters.minTurnover }), weight: parameters.weightEarlyTrend },
+    { score: scorePullbackRebound(feature, master, { ...parameters.pullback, minTurnover: parameters.minTurnover }, omittedScoreFeature), weight: parameters.weightPullback },
+    { score: scoreVolumeBreakout(feature, master, { ...parameters.breakout, minTurnover: parameters.minTurnover }, omittedScoreFeature), weight: parameters.weightBreakout },
+    { score: scoreEarlyTrend(feature, master, { ...parameters.earlyTrend, minTurnover: parameters.minTurnover }, omittedScoreFeature), weight: parameters.weightEarlyTrend },
   ]
   if (scores.every(({ score }) => score === null)) return null
   const totalWeight = scores.reduce((sum, row) => sum + Math.max(0, row.weight), 0)
   if (totalWeight === 0) return null
   return scores.reduce((sum, row) => sum + (row.score ?? 0) * Math.max(0, row.weight), 0) / totalWeight
-}
-
-const omitFeature = (feature: StockFeatureVector, key?: AblationFeature): StockFeatureVector => {
-  if (!key) return feature
-  const value = feature[key]
-  if (typeof value === 'boolean') return { ...feature, [key]: false }
-  if (typeof value === 'number' && key === 'position52wObservations') return { ...feature, [key]: 0 }
-  return { ...feature, [key]: null }
 }
 
 export function scoreStrategy<K extends StrategyName>(input: {
@@ -252,17 +329,40 @@ export function scoreStrategy<K extends StrategyName>(input: {
   readonly parameters: StrategyParameterMap[K]
   readonly omittedFeature?: AblationFeature
 }): number | null {
-  const feature = omitFeature(input.feature, input.omittedFeature)
   if (input.name === 'pullbackRebound') {
-    return scorePullbackRebound(feature, input.master, input.parameters as PullbackReboundParameters)
+    return scorePullbackRebound(
+      input.feature,
+      input.master,
+      input.parameters as PullbackReboundParameters,
+      input.omittedFeature,
+    )
   }
-  if (input.name === 'volumeBreakout') {
-    return scoreVolumeBreakout(feature, input.master, input.parameters as VolumeBreakoutParameters)
+  if (
+    input.name === 'volumeBreakout'
+    || input.name === 'volumeBreakoutBullishCandle'
+    || input.name === 'volumeBreakoutNoGapUp'
+  ) {
+    return scoreVolumeBreakout(
+      input.feature,
+      input.master,
+      input.parameters as VolumeBreakoutParameters,
+      input.omittedFeature,
+    )
   }
   if (input.name === 'earlyTrend') {
-    return scoreEarlyTrend(feature, input.master, input.parameters as EarlyTrendParameters)
+    return scoreEarlyTrend(
+      input.feature,
+      input.master,
+      input.parameters as EarlyTrendParameters,
+      input.omittedFeature,
+    )
   }
-  return scoreComposite(feature, input.master, input.parameters as CompositeParameters)
+  return scoreComposite(
+    input.feature,
+    input.master,
+    input.parameters as CompositeParameters,
+    input.omittedFeature,
+  )
 }
 
 export function rankStrategyCandidates<K extends StrategyName>(input: {

@@ -2,9 +2,14 @@ import { describe, expect, it } from 'vitest'
 
 import type { StockFeatureVector } from '@/scripts/stock-picks/features'
 import {
+  COMPOSITE_ABLATION_FEATURES,
   DEFAULT_PULLBACK_REBOUND_PARAMETERS,
+  DEFAULT_VOLUME_BREAKOUT_BULLISH_CANDLE_PARAMETERS,
+  DEFAULT_VOLUME_BREAKOUT_NO_GAP_UP_PARAMETERS,
+  DEFAULT_VOLUME_BREAKOUT_PARAMETERS,
   passesCommonGate,
   rankStrategyCandidates,
+  scoreStrategy,
   type StockMasterState,
 } from '@/scripts/stock-picks/strategies'
 
@@ -42,6 +47,7 @@ const feature = (symbol: string, overrides: Partial<StockFeatureVector> = {}): S
   trendR2_60: 0.8,
   trendSlope60: 0.01,
   distanceFromHigh60: -1,
+  gapFromPreviousClosePercent: -0.5,
   goldenCrossAge: 3,
   bullishCandle: true,
   ...overrides,
@@ -97,5 +103,79 @@ describe('stock-picks strategy gates and ranking', () => {
     expect(rankStrategyCandidates({
       name: 'pullbackRebound', features: [candidate], masters, parameters, mode: 'abstain',
     })).toHaveLength(0)
+  })
+
+  it('applies the bullish-candle and no-gap-up breakout variants deterministically', () => {
+    const features = [
+      feature('C', { bullishCandle: true, gapFromPreviousClosePercent: -1 }),
+      feature('A', { bullishCandle: true, gapFromPreviousClosePercent: 0 }),
+      feature('B', { bullishCandle: false, gapFromPreviousClosePercent: 1 }),
+    ]
+    const masters = new Map(features.map((row) => [row.symbol, master(row.symbol)]))
+    const bullishInput = {
+      name: 'volumeBreakoutBullishCandle' as const,
+      features,
+      masters,
+      parameters: DEFAULT_VOLUME_BREAKOUT_BULLISH_CANDLE_PARAMETERS,
+      mode: 'force3' as const,
+    }
+    const noGapInput = {
+      name: 'volumeBreakoutNoGapUp' as const,
+      features,
+      masters,
+      parameters: DEFAULT_VOLUME_BREAKOUT_NO_GAP_UP_PARAMETERS,
+      mode: 'force3' as const,
+    }
+
+    expect(rankStrategyCandidates(bullishInput)).toEqual(rankStrategyCandidates(bullishInput))
+    expect(rankStrategyCandidates(bullishInput).map((row) => row.symbol)).toEqual(['A', 'C'])
+    expect(rankStrategyCandidates(noGapInput)).toEqual(rankStrategyCandidates(noGapInput))
+    expect(rankStrategyCandidates(noGapInput).map((row) => row.symbol)).toEqual(['A', 'C'])
+  })
+
+  it('keeps gates intact when ablation zeros only a score contribution', () => {
+    const valid = feature('A', { rsi14: 45 })
+    const overbought = feature('A', { rsi14: 71 })
+    const state = master('A')
+    const baseline = scoreStrategy({
+      name: 'pullbackRebound',
+      feature: valid,
+      master: state,
+      parameters: DEFAULT_PULLBACK_REBOUND_PARAMETERS,
+    })
+    const ablated = scoreStrategy({
+      name: 'pullbackRebound',
+      feature: valid,
+      master: state,
+      parameters: DEFAULT_PULLBACK_REBOUND_PARAMETERS,
+      omittedFeature: 'rsi14',
+    })
+
+    expect(COMPOSITE_ABLATION_FEATURES).not.toContain('rsi14')
+    expect(ablated).not.toBeNull()
+    expect(ablated).toBeLessThan(baseline!)
+    expect(scoreStrategy({
+      name: 'pullbackRebound',
+      feature: overbought,
+      master: state,
+      parameters: DEFAULT_PULLBACK_REBOUND_PARAMETERS,
+      omittedFeature: 'rsi14',
+    })).toBeNull()
+  })
+
+  it('uses the fold-selected RSI cap in the breakout hard gate', () => {
+    const state = master('A')
+    expect(scoreStrategy({
+      name: 'volumeBreakout',
+      feature: feature('A', { rsi14: 74 }),
+      master: state,
+      parameters: { ...DEFAULT_VOLUME_BREAKOUT_PARAMETERS, maxRsi: 75 },
+    })).not.toBeNull()
+    expect(scoreStrategy({
+      name: 'volumeBreakout',
+      feature: feature('A', { rsi14: 66 }),
+      master: state,
+      parameters: { ...DEFAULT_VOLUME_BREAKOUT_PARAMETERS, maxRsi: 65 },
+    })).toBeNull()
   })
 })
