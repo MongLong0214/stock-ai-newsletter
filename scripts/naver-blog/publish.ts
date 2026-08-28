@@ -191,8 +191,12 @@ async function verifyEditorContent(editor: Frame, draft: Draft, insertedImages: 
     return probe.length >= 8 && !flat.includes(probe);
   });
   if (missingBlocks.length > 0) {
-    const sample = norm(missingBlocks[0]).slice(0, 20);
-    return `본문 문단 ${missingBlocks.length}개 누락 (예: "${sample}…")`;
+    // 기대값만 찍으면 헤드리스 CI에서 원인을 못 좁힌다 — 글자가 먹혔는지, 문단이 통째로
+    // 안 들어갔는지는 **에디터에 실제로 뭐가 있는지**를 봐야 갈린다. 같이 찍는다.
+    const want = norm(missingBlocks[0]);
+    const at = flat.indexOf(want.slice(0, 6));
+    const actual = at >= 0 ? `${flat.slice(at, at + 24)}…` : '(앵커조차 없음 — 문단 자체가 누락)';
+    return `본문 문단 ${missingBlocks.length}개 누락 (기대 "${want.slice(0, 24)}…" / 실제 "${actual}")`;
   }
 
   const lastTextBlock = plainBody
@@ -890,6 +894,14 @@ async function typeColor(page: Page, editor: Frame, color: 'b' | 'r', text: stri
     await page.keyboard.press('Escape').catch(() => {});
     throw new Error(`색상 ${hex} 팔레트 셀을 찾지 못했습니다 — 발행 중단`);
   }
+  // 팔레트가 열린 채로 타이핑하면 **첫 글자를 팝업이 먹는다.** 그 방어를 지금까지 타이핑
+  // "뒤"에만 걸어놨는데, 실제 유실은 색상 구간의 **첫 글자**에서 났다: ranking 유형
+  // "…테마가 [[r:31개]], …"에서 3이 사라져 문단 프로브가 불일치했다(6회 중 4회 실패,
+  // run 33058461565·33060065203·33060471623·33142342221). 다른 유형은 한 문단에 색상이
+  // 몰리지 않아 드러나지 않았을 뿐 같은 경로다.
+  // 색상 상태는 팝업이 아니라 에디터에 남는다(그래서 resetTypingColor가 따로 필요하다).
+  // 먼저 닫아도 색은 유지된다.
+  await closeColorPopup(page, editor);
   await page.keyboard.type(text, { delay: 8 });
   await btn.click({ timeout: 3_000 }).catch(() => {});
   await closeColorPopup(page, editor); // 팝업이 남으면 다음 입력의 첫 글자를 먹는다
