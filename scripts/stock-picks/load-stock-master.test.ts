@@ -80,16 +80,25 @@ describe('KIS stock master parser', () => {
       name: 'ETF SAMPLE',
       fieldValues: { [indexes.securityGroup]: 'EF' },
     })
+    const letteredStock = buildMasterLine({
+      market: 'KOSDAQ',
+      code: '12345K',
+      name: 'LETTERED PREFERRED',
+      fieldValues: { [indexes.securityGroup]: 'ST' },
+    })
     const result = parseKisMasterFile(Buffer.concat([
       stock,
       Buffer.from('\n'),
       etf,
+      Buffer.from('\n'),
+      letteredStock,
       Buffer.from('\nBROKEN\n'),
     ]), 'KOSDAQ')
 
     expect(result.rows).toHaveLength(1)
     expect(result.rows[0]?.symbol).toBe('KOSDAQ:035720')
     expect(result.skippedNonStockCount).toBe(1)
-    expect(result.errors).toEqual([{ lineNumber: 3, reason: '행 길이 부족: 6 bytes' }])
+    expect(result.skippedLetteredCodeCount).toBe(1)
+    expect(result.errors).toEqual([{ lineNumber: 4, reason: '행 길이 부족: 6 bytes' }])
   })
 })

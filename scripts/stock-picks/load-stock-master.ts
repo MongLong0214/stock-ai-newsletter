@@ -22,7 +22,13 @@ export interface KisMasterParseResult {
   readonly rows: StockMasterInput[]
   readonly errors: KisMasterParseError[]
   readonly skippedNonStockCount: number
+  readonly skippedLetteredCodeCount: number
 }
+
+type KisMasterLineResult =
+  | { readonly kind: 'row'; readonly row: StockMasterInput }
+  | { readonly kind: 'non_stock' }
+  | { readonly kind: 'lettered_code' }
 
 interface MasterLayout {
   readonly fileName: string
@@ -129,7 +135,7 @@ const parseTailFields = (tail: Buffer, widths: readonly number[]): string[] => {
 
 const isYes = (value: string): boolean => value.toUpperCase() === 'Y'
 
-export function parseKisMasterLine(line: Uint8Array, market: StockMarket): StockMasterInput | null {
+const parseKisMasterLineResult = (line: Uint8Array, market: StockMarket): KisMasterLineResult => {
   const layout = KIS_MASTER_LAYOUTS[market]
   const bytes = Buffer.from(line)
   if (bytes.length <= 21 + layout.tailByteLength) {
@@ -144,7 +150,8 @@ export function parseKisMasterLine(line: Uint8Array, market: StockMarket): Stock
   const indexes = layout.flagIndexes
   const securityGroup = fields[indexes.securityGroup] ?? ''
 
-  if (securityGroup !== 'ST') return null
+  if (securityGroup !== 'ST') return { kind: 'non_stock' }
+  if (/[A-Za-z]/.test(code)) return { kind: 'lettered_code' }
   if (!/^\d{6}$/.test(code)) throw new Error(`주권 단축코드 형식 오류: ${code || '(empty)'}`)
   if (!name) throw new Error('종목명 누락')
 
@@ -167,12 +174,20 @@ export function parseKisMasterLine(line: Uint8Array, market: StockMarket): Stock
   }
 
   return {
-    symbol: `${market}:${code}`,
-    name,
-    market,
-    is_active: ![tradingSuspended, liquidationTrading, managedStock].some(isYes),
-    status_flags: statusFlags,
+    kind: 'row',
+    row: {
+      symbol: `${market}:${code}`,
+      name,
+      market,
+      is_active: ![tradingSuspended, liquidationTrading, managedStock].some(isYes),
+      status_flags: statusFlags,
+    },
   }
+}
+
+export function parseKisMasterLine(line: Uint8Array, market: StockMarket): StockMasterInput | null {
+  const result = parseKisMasterLineResult(line, market)
+  return result.kind === 'row' ? result.row : null
 }
 
 const splitLines = (content: Buffer): Buffer[] => {
@@ -192,12 +207,14 @@ export function parseKisMasterFile(content: Uint8Array, market: StockMarket): Ki
   const rows: StockMasterInput[] = []
   const errors: KisMasterParseError[] = []
   let skippedNonStockCount = 0
+  let skippedLetteredCodeCount = 0
 
   for (const [index, line] of splitLines(Buffer.from(content)).entries()) {
     try {
-      const row = parseKisMasterLine(line, market)
-      if (row === null) skippedNonStockCount++
-      else rows.push(row)
+      const result = parseKisMasterLineResult(line, market)
+      if (result.kind === 'row') rows.push(result.row)
+      else if (result.kind === 'lettered_code') skippedLetteredCodeCount++
+      else skippedNonStockCount++
     } catch (error: unknown) {
       errors.push({
         lineNumber: index + 1,
@@ -206,7 +223,7 @@ export function parseKisMasterFile(content: Uint8Array, market: StockMarket): Ki
     }
   }
 
-  return { rows, errors, skippedNonStockCount }
+  return { rows, errors, skippedNonStockCount, skippedLetteredCodeCount }
 }
 
 const extractMasterFile = async (archive: Buffer, fileName: string): Promise<Buffer> => {
@@ -259,7 +276,7 @@ export async function loadStockMaster(): Promise<void> {
     const result = await downloadAndParseMaster(market)
     logParseErrors(market, result.errors)
     console.log(
-      `   parsed=${result.rows.length} skipped_non_stock=${result.skippedNonStockCount} parse_failed=${result.errors.length}`,
+      `   parsed=${result.rows.length} skipped_non_stock=${result.skippedNonStockCount} skipped_lettered_code=${result.skippedLetteredCodeCount} parse_failed=${result.errors.length}`,
     )
     results.push(result)
   }
@@ -276,7 +293,15 @@ export async function loadStockMaster(): Promise<void> {
   if (failedCount > 0) throw new Error(`종목 마스터 저장 실패: ${failedCount}/${rows.length}행`)
 
   const parseFailedCount = results.reduce((sum, result) => sum + result.errors.length, 0)
-  console.log(JSON.stringify({ parsedRows: rows.length, upsertedRows: rows.length, parseFailedCount }))
+  const skippedNonStockCount = results.reduce((sum, result) => sum + result.skippedNonStockCount, 0)
+  const skippedLetteredCodeCount = results.reduce((sum, result) => sum + result.skippedLetteredCodeCount, 0)
+  console.log(JSON.stringify({
+    parsedRows: rows.length,
+    upsertedRows: rows.length,
+    skippedNonStockCount,
+    skippedLetteredCodeCount,
+    parseFailedCount,
+  }))
 }
 
 const isDirectRun = /load-stock-master\.(?:ts|js)$/.test(process.argv[1] ?? '')
