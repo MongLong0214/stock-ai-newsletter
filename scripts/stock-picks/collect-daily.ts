@@ -5,8 +5,10 @@ import {
   type StockDailyPriceCollectionReport,
 } from '@/scripts/tli/prices/kis-daily-price-collector'
 
-export const DEFAULT_DAILY_COLLECTION_CALL_BUDGET = 2600
-export const DEFAULT_DAILY_COLLECTION_DEADLINE_MS = 25 * 60 * 1000
+// WHY: 2026-08-28 실측 2,431종목, 683ms/콜 기준으로 상장 증가 헤드룸을 확보한다.
+export const DEFAULT_DAILY_COLLECTION_CALL_BUDGET = 3000
+// WHY: 2026-08-28 실측 2,431종목, 683ms/콜이 25분 deadline을 초과했다.
+export const DEFAULT_DAILY_COLLECTION_DEADLINE_MS = 40 * 60 * 1000
 export const DAILY_COLLECTION_TRADING_DAYS = 7
 
 type CollectPriceRange = typeof collectAndPersistStockDailyPriceRange
