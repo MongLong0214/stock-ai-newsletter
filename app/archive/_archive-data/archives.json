@@ -2,6 +2,62 @@
   "newsletters": [
     {
       "type": "stock",
+      "date": "2026-08-28",
+      "stocks": [
+        {
+          "ticker": "KOSPI:000660",
+          "name": "SK하이닉스",
+          "close_price": 1730000,
+          "rationale": "SMA 완전정배열 유지|EMA 상승추세 강화|RSI 56.74 안정적 강세구간|MACD 17929 매수신호|거래량 3.16M(전일비 108% 증가)|ADX 25.6 추세확립|Williams %R -3.15 강세|Stochastic(9,6) 97.12 초강세|ATR 32571 적정 변동성|피보나치 피벗 R1(1730453) 도달|엔비디아 실적 기반 반도체 업황 개선|외국인 및 기관 동반 순매수",
+          "signals": {
+            "trend_score": 95,
+            "momentum_score": 89,
+            "volume_score": 92,
+            "volatility_score": 90,
+            "pattern_score": 91,
+            "sentiment_score": 94,
+            "overall_score": 92
+          },
+          "verified_date": "2026-08-27"
+        },
+        {
+          "ticker": "KOSPI:267260",
+          "name": "HD현대일렉트릭",
+          "close_price": 821000,
+          "rationale": "전일비 12.0% 급등(821,000)|볼린저밴드 상단 돌파 시도|거래량 226,942주(전일비 210% 폭증)|SMA 5/10/20 정배열 초기진입|RSI 65.0 모멘텀 가속|PER 33.68배(업종평균 49.3 대비 저평가)|외국인 소진율 34.49% 기록|AI 데이터센터 전력설비 수요 모멘텀|장중 고가 823,000 돌파 시도|52주 신고가(143만) 대비 기술적 반등 구간|전기장비 업종 지수 대비 상대적 강세",
+          "signals": {
+            "trend_score": 96,
+            "momentum_score": 93,
+            "volume_score": 95,
+            "volatility_score": 88,
+            "pattern_score": 94,
+            "sentiment_score": 92,
+            "overall_score": 94
+          },
+          "verified_date": "2026-08-27"
+        },
+        {
+          "ticker": "KOSPI:010130",
+          "name": "고려아연",
+          "close_price": 1372000,
+          "rationale": "경영권 분쟁(MBK/영풍 vs 최윤범) 재료 지속|SMA 5일선(1,368,000) 지지 확인|EMA 우상향 흐름 유지|RSI 58.7 모멘텀 강화|MFI 72 자금유출입 지표 긍정|CMF 0.18 기관 매집세 포착|CCI 바닥권 반등 시그널|거래대금 238억원 기록|52주 최고가(218.8만) 대비 가격 매력도 발생|비철금속 섹터 대장주 수급 유입|기술적 눌림목 구간 탈피 시도",
+          "signals": {
+            "trend_score": 88,
+            "momentum_score": 88,
+            "volume_score": 88,
+            "volatility_score": 88,
+            "pattern_score": 90,
+            "sentiment_score": 96,
+            "overall_score": 89
+          },
+          "verified_date": "2026-08-27"
+        }
+      ],
+      "sentAt": "2026-08-28T00:44:52.598+00:00",
+      "subscriberCount": 316
+    },
+    {
+      "type": "stock",
       "date": "2026-08-27",
       "stocks": [
         {
@@ -11302,5 +11358,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-08-27T04:07:39.381Z"
+  "lastUpdated": "2026-08-28T00:45:34.287Z"
 }
