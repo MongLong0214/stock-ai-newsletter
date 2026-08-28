@@ -1,6 +1,20 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import { resolveNewsletterAnalysis } from '@/scripts/prepare-newsletter'
+const mocks = vi.hoisted(() => ({
+  assessMarket: vi.fn(),
+  collectDaily: vi.fn(),
+  createClient: vi.fn(),
+  generateCodePicks: vi.fn(),
+  getLlmAnalysis: vi.fn(),
+}))
+
+vi.mock('@supabase/supabase-js', () => ({ createClient: mocks.createClient }))
+vi.mock('@/lib/llm/korea/gemini-pipeline', () => ({ executeMarketAssessment: mocks.assessMarket }))
+vi.mock('@/lib/llm/stock-analysis', () => ({ getStockAnalysis: mocks.getLlmAnalysis }))
+vi.mock('@/scripts/stock-picks/collect-daily', () => ({ collectDailyStockPrices: mocks.collectDaily }))
+vi.mock('@/scripts/stock-picks/generate-picks', () => ({ generatePicks: mocks.generateCodePicks }))
+
+import { prepareNewsletter, resolveNewsletterAnalysis } from '@/scripts/prepare-newsletter'
 
 const NORMAL_ASSESSMENT = {
   verdict: 'NORMAL' as const,
@@ -91,6 +105,44 @@ describe('prepare-newsletter stock-pick wiring', () => {
       expect(getLlmAnalysis).toHaveBeenCalledWith({ marketAssessment: crashAssessment })
     } finally {
       consoleLogSpy.mockRestore()
+    }
+  })
+
+  it("upserts picks_source='crash' for a CRASH_ALERT newsletter", async () => {
+    const select = vi.fn(async () => ({ error: null }))
+    const upsert = vi.fn(() => ({ select }))
+    const from = vi.fn(() => ({ upsert }))
+    mocks.createClient.mockReturnValue({ from })
+    mocks.assessMarket.mockResolvedValue({
+      verdict: 'CRASH_ALERT',
+      confidence: 94,
+      summary: 'upsert crash fixture',
+    })
+    mocks.getLlmAnalysis.mockResolvedValue({
+      geminiAnalysis: '{"type":"crash_alert"}',
+    })
+    vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', 'https://example.supabase.co')
+    vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY', 'test-service-role-key')
+    const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+    try {
+      await prepareNewsletter()
+
+      expect(from).toHaveBeenCalledWith('newsletter_content')
+      expect(upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          gemini_analysis: '{"type":"crash_alert"}',
+          picks_source: 'crash',
+        }),
+        { onConflict: 'newsletter_date' },
+      )
+      expect(select).toHaveBeenCalledOnce()
+      expect(mocks.collectDaily).not.toHaveBeenCalled()
+      expect(mocks.generateCodePicks).not.toHaveBeenCalled()
+    } finally {
+      consoleLogSpy.mockRestore()
+      vi.unstubAllEnvs()
+      vi.clearAllMocks()
     }
   })
 })

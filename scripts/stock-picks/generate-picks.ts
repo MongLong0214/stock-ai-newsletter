@@ -2,6 +2,7 @@ import type { StockData, StockSignals } from '@/lib/llm/_types/stock-data'
 import { validateStockData } from '@/lib/llm/korea/stock-json'
 import { getKSTDateString } from '@/lib/tli/date-utils'
 import { addKoreanTradingDays } from '@/lib/tli/trading-calendar'
+import { KOREAN_MARKET_HOLIDAYS_BY_YEAR } from '@/app/archive/_utils/market/_constants/holidays'
 import {
   getRawPrice,
   loadPriceBook,
@@ -23,14 +24,18 @@ const PRICE_HISTORY_TRADING_DAYS = 120
 const REQUIRED_PICK_COUNT = 3
 
 /**
- * optimize-result 2026-08-28의 volumeBreakout force3 최신 fold 선택값.
- * 전체 walk-forward OOS precision@3 = 39.04% (114/292 labeled picks).
+ * optimize-v3(2026-08-28, 공급 하한 반영)의 volumeBreakoutNoGapUp 최빈 fold 선택값.
+ * 전체 walk-forward OOS precision@3 = 43.0% (99/230), 고유 티커 214·최다 0.8%.
+ * excludeGapUp: 갭상승 종목은 익일 시가가 이미 높아 +10% 여지가 소진 — 제외가 실측 우위.
+ * 조용한 장에선 후보가 마르며(후보<3 throw) prepare가 LLM fallback으로 처리한다 — 의도된 abstain.
  */
 export const PRODUCTION_VOLUME_BREAKOUT_PARAMETERS: VolumeBreakoutParameters = {
-  minTurnover: 1_000_000_000,
-  minScore: 35,
-  minVolumePercentile: 95,
-  minDistanceFromHighPercent: -2,
+  minTurnover: 500_000_000,
+  minScore: 45,
+  minVolumePercentile: 90,
+  minDistanceFromHighPercent: 0,
+  maxRsi: 75,
+  excludeGapUp: true,
 }
 
 export interface StockPickMaster extends StockMasterState {
@@ -62,6 +67,10 @@ export async function loadStockPickMasters(): Promise<StockPickMaster[]> {
 export function getExpectedSignalDate(todayKst: string): string {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(todayKst)) {
     throw new Error(`todayKst 형식은 YYYY-MM-DD여야 합니다: ${todayKst}`)
+  }
+  const calendarYear = Number(todayKst.slice(0, 4))
+  if (!KOREAN_MARKET_HOLIDAYS_BY_YEAR[calendarYear]) {
+    throw new Error(`한국 증시 휴장일 캘린더 미등록 연도: ${calendarYear}`)
   }
   return addKoreanTradingDays(todayKst, -1)
 }

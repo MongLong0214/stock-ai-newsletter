@@ -154,7 +154,7 @@ export async function sendStockNewsletter(
 /**
  * 뉴스레터 HTML 템플릿 생성
  */
-function generateNewsletterHTML(data: StockNewsletterData, email: string): string {
+export function generateNewsletterHTML(data: StockNewsletterData, email: string): string {
   const isCrash = parseCrashAlert(data.geminiAnalysis) !== null;
 
   const headerTitle = isCrash ? '긴급 시장 분석' : '오늘의 AI 기술적 분석';
