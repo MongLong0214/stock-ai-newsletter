@@ -86,55 +86,61 @@ export class StockDataHandler {
   }
 }
 
-const PRICE_BOOK_PAGE_SIZE = 1000
+const PRICE_BOOK_SYMBOL_CONCURRENCY = 10
+/** 심볼당 최대 행 상한 — 2년 일봉 ~500행이라 3,000이면 여유. 초과 시 조용히 자르지 않고 실패. */
+const PRICE_BOOK_PER_SYMBOL_LIMIT = 3000
 
 /**
- * keyset 커서 → PostgREST or 조건.
+ * 심볼 단위 로딩.
  *
- * OFFSET 페이지네이션은 1.1M행에서 깊어질수록 매 페이지 앞행 전체를 스캔해
- * statement timeout(57014)으로 죽는다(실측). PK (symbol, trade_date) 시크로 대체:
- * "symbol > s OR (symbol = s AND trade_date > d)" — 페이지당 인덱스 시크 O(1).
+ * OFFSET 페이지네이션은 깊은 페이지에서, keyset(or 조건)은 플래너가 간헐적으로
+ * 풀스캔 계획을 태워(1,081페이지째 57014 실측) 둘 다 statement timeout으로 죽었다.
+ * 심볼당 1쿼리는 PK(symbol, trade_date) 프리픽스 인덱스 레인지 스캔이라
+ * 플래너가 흔들릴 여지가 없다. stock_master + KOSPI 지수만 로드하므로
+ * TLI의 구표기(접두사 없는 코드) 행은 자연히 제외된다.
  */
-export function buildKeysetCondition(cursor: { symbol: string; tradeDate: string }): string {
-  // symbol에 콜론이 포함되므로(KOSPI:005930) PostgREST 예약문자 회피를 위해 쌍따옴표 인용
-  const s = `"${cursor.symbol}"`
-  return `symbol.gt.${s},and(symbol.eq.${s},trade_date.gt.${cursor.tradeDate})`
-}
-
 export async function loadPriceBook(input: {
   readonly startDate?: string
   readonly endDate?: string
 } = {}): Promise<PriceBook> {
   const { supabaseAdmin } = await import('@/scripts/tli/shared/supabase-admin')
+  const { fetchAllRows } = await import('@/lib/supabase/paginate')
+  const { KOSPI_INDEX_SYMBOL } = await import('@/scripts/tli/prices/stock-daily-prices')
+
+  const masterRows = await fetchAllRows<{ symbol: string }>((from, to) =>
+    supabaseAdmin.from('stock_master').select('symbol').order('symbol', { ascending: true }).range(from, to),
+  )
+  const symbols = [KOSPI_INDEX_SYMBOL, ...masterRows.map((row) => row.symbol)]
 
   const rows: StockDailyPriceRow[] = []
-  let cursor: { symbol: string; tradeDate: string } | null = null
-  let pageCount = 0
+  let loadedSymbols = 0
 
-  for (;;) {
+  const loadSymbol = async (symbol: string): Promise<void> => {
     let query = supabaseAdmin
       .from('stock_daily_prices')
       .select('symbol, trade_date, open, high, low, close, volume, source')
-      .order('symbol', { ascending: true })
+      .eq('symbol', symbol)
       .order('trade_date', { ascending: true })
-      .limit(PRICE_BOOK_PAGE_SIZE)
+      .limit(PRICE_BOOK_PER_SYMBOL_LIMIT)
     if (input.startDate) query = query.gte('trade_date', input.startDate)
     if (input.endDate) query = query.lte('trade_date', input.endDate)
-    if (cursor) query = query.or(buildKeysetCondition(cursor))
 
     const { data, error } = await query
-    if (error) throw new Error(`stock_daily_prices keyset 조회 실패 (${pageCount + 1}페이지): ${error.message}`)
-    if (!data || data.length === 0) break
-
-    rows.push(...(data as StockDailyPriceRow[]))
-    pageCount += 1
-    if (pageCount % 100 === 0) console.log(`   ⏳ PriceBook 로딩 중… ${rows.length.toLocaleString()}행 (${pageCount}페이지)`)
-
-    if (data.length < PRICE_BOOK_PAGE_SIZE) break
-    const last = data[data.length - 1] as StockDailyPriceRow
-    cursor = { symbol: last.symbol, tradeDate: last.trade_date }
+    if (error) throw new Error(`stock_daily_prices 심볼 조회 실패 (${symbol}): ${error.message}`)
+    if (data && data.length >= PRICE_BOOK_PER_SYMBOL_LIMIT) {
+      throw new Error(`심볼 행 수가 상한(${PRICE_BOOK_PER_SYMBOL_LIMIT})에 도달 — 조용한 절단 방지 위해 중단: ${symbol}`)
+    }
+    if (data) rows.push(...(data as StockDailyPriceRow[]))
+    loadedSymbols += 1
+    if (loadedSymbols % 500 === 0) {
+      console.log(`   ⏳ PriceBook 로딩 중… ${loadedSymbols}/${symbols.length} 심볼, ${rows.length.toLocaleString()}행`)
+    }
   }
 
-  console.log(`   ✅ PriceBook 로딩 완료: ${rows.length.toLocaleString()}행 (${pageCount}페이지)`)
+  for (let i = 0; i < symbols.length; i += PRICE_BOOK_SYMBOL_CONCURRENCY) {
+    await Promise.all(symbols.slice(i, i + PRICE_BOOK_SYMBOL_CONCURRENCY).map(loadSymbol))
+  }
+
+  console.log(`   ✅ PriceBook 로딩 완료: ${symbols.length}심볼, ${rows.length.toLocaleString()}행`)
   return buildPriceBook(rows)
 }
