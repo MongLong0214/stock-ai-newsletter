@@ -82,13 +82,37 @@ const createNewsletterClient = () => {
   })
 }
 
-export async function prepareNewsletter(): Promise<void> {
-  console.log('🚀 뉴스레터 준비 작업 시작...\n')
-  const { geminiAnalysis, picksSource } = await resolveNewsletterAnalysis()
+export interface PrepareNewsletterOptions {
+  /** true면 분석·픽 생성까지 전부 실행하되 DB 저장을 생략 — CI 실검수용. */
+  readonly dryRun?: boolean
+  /**
+   * 신선도 게이트 기준일 재정의(YYYY-MM-DD). 장 마감 후 CI 검수에서 다음 발행 시점을
+   * 시뮬레이션할 때 쓴다. 발송분 오염 방지를 위해 dryRun에서만 허용한다.
+   */
+  readonly simulateTodayKst?: string
+}
+
+export async function prepareNewsletter(options: PrepareNewsletterOptions = {}): Promise<void> {
+  if (options.simulateTodayKst && !options.dryRun) {
+    throw new Error('simulateTodayKst는 dry-run에서만 허용됩니다 (발송분 오염 방지)')
+  }
+  console.log(`🚀 뉴스레터 준비 작업 시작...${options.dryRun ? ' [DRY-RUN]' : ''}\n`)
+  const { geminiAnalysis, picksSource } = await resolveNewsletterAnalysis(
+    options.simulateTodayKst
+      ? { generateCodePicks: () => generatePicks({ todayKst: options.simulateTodayKst }) }
+      : {},
+  )
   console.log('✅ 뉴스레터 분석 완료\n')
 
   const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' })
   console.log(`📅 뉴스레터 날짜: ${today}`)
+
+  if (options.dryRun) {
+    console.log(`\nDRY_RUN_RESULT picks_source=${picksSource} analysis_chars=${geminiAnalysis.length}`)
+    console.log(geminiAnalysis.slice(0, 2_000))
+    console.log('\n✅ dry-run — DB 저장 생략')
+    return
+  }
 
   // is_sent를 payload에 넣지 않아 기존 발송 상태를 그대로 보존한다.
   const { error } = await createNewsletterClient()
@@ -120,7 +144,12 @@ export async function prepareNewsletter(): Promise<void> {
 
 const isDirectRun = /prepare-newsletter\.(?:ts|js)$/.test(process.argv[1] ?? '')
 if (isDirectRun) {
-  prepareNewsletter().then(() => {
+  const args = process.argv.slice(2)
+  const simulateInline = args.find((arg) => arg.startsWith('--simulate-today='))
+  prepareNewsletter({
+    dryRun: args.includes('--dry-run'),
+    simulateTodayKst: simulateInline?.slice('--simulate-today='.length),
+  }).then(() => {
     process.exit(0)
   }).catch((error: unknown) => {
     console.error('❌ 뉴스레터 준비 실패:', error)

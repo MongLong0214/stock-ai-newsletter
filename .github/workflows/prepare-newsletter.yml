@@ -5,6 +5,15 @@ on:
     # 평일 오전 6:00 KST (UTC 21:00 전날, 월-금요일만)
     - cron: '0 21 * * 0-4'
   workflow_dispatch: # 수동 실행 가능
+    inputs:
+      dry_run:
+        description: 'DB 저장 없이 전 과정 실검수 (CI E2E용)'
+        type: boolean
+        default: false
+      simulate_today:
+        description: '신선도 게이트 기준일 시뮬레이션 (YYYY-MM-DD, dry_run 전용)'
+        type: string
+        default: ''
 
 jobs:
   check-market:
@@ -126,7 +135,7 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: |
           echo "🚀 Starting AI analysis and content preparation..."
-          npx tsx scripts/prepare-newsletter.ts
+          npx tsx scripts/prepare-newsletter.ts ${{ inputs.dry_run == true && '--dry-run' || '' }} ${{ inputs.simulate_today != '' && format('--simulate-today={0}', inputs.simulate_today) || '' }}
 
       - name: Cleanup credentials
         if: always()
