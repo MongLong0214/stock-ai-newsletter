@@ -59,7 +59,7 @@ function formatError(error: unknown): string {
  * const stocks = JSON.parse(result);
  * ```
  */
-export async function getGeminiRecommendation(): Promise<string> {
+export async function getGeminiRecommendation(marketAssessment?: MarketAssessment): Promise<string> {
   if (!process.env.GOOGLE_CLOUD_PROJECT) {
     throw new Error('GOOGLE_CLOUD_PROJECT 환경 변수가 설정되지 않았습니다.');
   }
@@ -70,7 +70,7 @@ export async function getGeminiRecommendation(): Promise<string> {
 
   try {
     // ━━━━━ Step 1: 시장 평가 (대폭락 가능성 판정) ━━━━━
-    const assessment: MarketAssessment = await executeMarketAssessment();
+    const assessment: MarketAssessment = marketAssessment ?? await executeMarketAssessment();
 
     // ━━━━━ Step 2: 분기 — CRASH_ALERT vs NORMAL ━━━━━
     if (assessment.verdict === 'CRASH_ALERT') {
