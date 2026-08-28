@@ -22,4 +22,12 @@ describe('TradingDayIndex', () => {
       '2026-01-06',
     ])
   })
+
+  it('finds the first trading day on or after an indexed or non-indexed date', () => {
+    const index = new TradingDayIndex(['2026-01-02', '2026-01-05', '2026-01-06'])
+
+    expect(index.firstTradingDayOnOrAfter('2026-01-05')).toBe('2026-01-05')
+    expect(index.firstTradingDayOnOrAfter('2026-01-03')).toBe('2026-01-05')
+    expect(index.firstTradingDayOnOrAfter('2026-01-07')).toBeNull()
+  })
 })

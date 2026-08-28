@@ -35,6 +35,20 @@ export class TradingDayIndex {
     return this.tradingDays[index + offset] ?? null
   }
 
+  firstTradingDayOnOrAfter(date: string): string | null {
+    let low = 0
+    let high = this.tradingDays.length
+
+    while (low < high) {
+      const middle = low + Math.floor((high - low) / 2)
+      const middleDate = this.tradingDays[middle]
+      if (middleDate !== undefined && middleDate < date) low = middle + 1
+      else high = middle
+    }
+
+    return this.tradingDays[low] ?? null
+  }
+
   tradingDaysBetween(startDate: string, endDate: string): string[] {
     if (startDate > endDate) return []
     const startIndex = this.indexByDate.get(startDate)

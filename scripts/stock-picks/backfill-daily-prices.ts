@@ -1,10 +1,15 @@
 import { readFile, rename, writeFile } from 'node:fs/promises'
 
-import { getDailyRangeClosePrices, type KisDailyRangePricePoint } from '@/app/archive/_utils/api/kis/client'
+import {
+  getDailyRangeClosePrices,
+  getIndexDailyRangeClosePrices,
+  type KisDailyRangePricePoint,
+} from '@/app/archive/_utils/api/kis/client'
 import { getKSTDateString } from '@/lib/tli/date-utils'
 import { getKoreanTradingDatesBetween } from '@/lib/tli/trading-calendar'
 import { KIS_DAILY_PRICE_RATE_LIMIT_PER_SECOND } from '@/scripts/tli/prices/kis-daily-price-collector'
 import {
+  KOSPI_INDEX_SYMBOL,
   loadActiveStockMasterSymbols,
   upsertStockDailyPrices,
   type StockDailyPriceInput,
@@ -14,6 +19,7 @@ const DEFAULT_BACKFILL_YEARS = 2
 const DEFAULT_STATE_PATH = '.stock-picks-backfill.json'
 const TRADING_DAYS_PER_CALL = 100
 const STATE_VERSION = 1
+const KOSPI_INDEX_CODE = '0001'
 
 export interface BackfillDateRange {
   readonly startDate: string
@@ -194,6 +200,7 @@ export async function backfillStockDailyPrices(input: {
   readonly statePath?: string
   readonly delayMs?: number
   readonly fetchDailyRangePrices?: FetchDailyRangePrices
+  readonly fetchIndexDailyRangePrices?: FetchDailyRangePrices
   readonly persistDailyPrices?: PersistDailyPrices
   readonly loadSymbols?: LoadSymbols
 }): Promise<StockDailyPriceBackfillReport> {
@@ -208,10 +215,14 @@ export async function backfillStockDailyPrices(input: {
   const statePath = input.statePath ?? DEFAULT_STATE_PATH
   const delayMs = input.delayMs ?? Math.ceil(1000 / KIS_DAILY_PRICE_RATE_LIMIT_PER_SECOND)
   const fetchDailyRangePrices = input.fetchDailyRangePrices ?? getDailyRangeClosePrices
+  const fetchIndexDailyRangePrices = input.fetchIndexDailyRangePrices ?? getIndexDailyRangeClosePrices
   const persistDailyPrices = input.persistDailyPrices ?? upsertStockDailyPrices
   const loadSymbols = input.loadSymbols ?? loadActiveStockMasterSymbols
   const ranges = buildBackfillDateRanges({ startDate, endDate })
-  const symbols = [...new Set((await loadSymbols()).filter(Boolean))].sort()
+  const stockSymbols = [...new Set(
+    (await loadSymbols()).filter((symbol) => Boolean(symbol) && symbol !== KOSPI_INDEX_SYMBOL),
+  )].sort()
+  const symbols = [KOSPI_INDEX_SYMBOL, ...stockSymbols]
   const state = await readState({ statePath, startDate, endDate, rangeCount: ranges.length })
   const completedBeforeRun = symbols.filter((symbol) => state.completed[symbol] !== undefined).length
   let attemptedCalls = 0
@@ -235,11 +246,11 @@ export async function backfillStockDailyPrices(input: {
       attemptedCalls++
 
       try {
-        const points = await fetchDailyRangePrices(
-          symbol,
-          toKisDate(range.startDate),
-          toKisDate(range.endDate),
-        )
+        const startKisDate = toKisDate(range.startDate)
+        const endKisDate = toKisDate(range.endDate)
+        const points = symbol === KOSPI_INDEX_SYMBOL
+          ? await fetchIndexDailyRangePrices(KOSPI_INDEX_CODE, startKisDate, endKisDate)
+          : await fetchDailyRangePrices(symbol, startKisDate, endKisDate)
         const rows = buildInputs(symbol, points, range)
         let persisted = 0
         if (rows.length > 0) {

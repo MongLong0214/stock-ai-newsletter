@@ -2,7 +2,12 @@ import { readFile, mkdir, writeFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 
 import { createRandom3Strategy } from '@/scripts/stock-picks/backtest'
-import { StockDataHandler, loadPriceBook, type PriceBook } from '@/scripts/stock-picks/data-handler'
+import {
+  getRawPrice,
+  StockDataHandler,
+  loadPriceBook,
+  type PriceBook,
+} from '@/scripts/stock-picks/data-handler'
 import { labelPick, type StockPickLabel } from '@/scripts/stock-picks/label'
 import { TradingDayIndex, loadTradingDayIndex } from '@/scripts/stock-picks/trading-days'
 
@@ -22,10 +27,18 @@ interface StockMasterRow {
   readonly is_active: boolean
 }
 
+export type ArchivePickNullReason =
+  | 'unmapped'
+  | 'nonTradingUnresolved'
+  | 'immature'
+  | 'missingEntryOpen'
+  | 'missingWindowData'
+
 interface EvaluatedArchivePick extends ArchivePick {
   readonly mappedSymbol: string | null
   readonly masterName: string | null
   readonly label: StockPickLabel | null
+  readonly nullReason: ArchivePickNullReason | null
 }
 
 interface MappingIssueGroup {
@@ -44,6 +57,7 @@ export interface ArchiveEvaluationReport {
   readonly nameMismatchCount: number
   readonly labeledPickCount: number
   readonly nullPickCount: number
+  readonly nullBreakdown: Readonly<Record<ArchivePickNullReason, number>>
   readonly touchedPickCount: number
   readonly precisionAt3: number | null
   readonly nullRate: number
@@ -135,6 +149,50 @@ const mean = (values: readonly number[]): number | null => (
   values.length > 0 ? values.reduce((sum, value) => sum + value, 0) / values.length : null
 )
 
+const getArchiveLabelSignalDate = (
+  publicationDate: string,
+  tradingDays: TradingDayIndex,
+): string | null => {
+  const entryDate = tradingDays.firstTradingDayOnOrAfter(publicationDate)
+  return entryDate ? tradingDays.nextTradingDay(entryDate, -1) : null
+}
+
+const evaluateMappedArchivePick = (input: {
+  readonly symbol: string
+  readonly publicationDate: string
+  readonly prices: PriceBook
+  readonly tradingDays: TradingDayIndex
+}): { label: StockPickLabel | null; nullReason: ArchivePickNullReason | null } => {
+  const entryDate = input.tradingDays.firstTradingDayOnOrAfter(input.publicationDate)
+  if (!entryDate) return { label: null, nullReason: 'nonTradingUnresolved' }
+
+  const labelSignalDate = input.tradingDays.nextTradingDay(entryDate, -1)
+  if (!labelSignalDate) return { label: null, nullReason: 'nonTradingUnresolved' }
+
+  const windowDates: string[] = []
+  for (let offset = 0; offset < 5; offset++) {
+    const windowDate = input.tradingDays.nextTradingDay(entryDate, offset)
+    if (!windowDate) return { label: null, nullReason: 'immature' }
+    windowDates.push(windowDate)
+  }
+
+  const entryOpen = getRawPrice(input.prices, input.symbol, entryDate)?.open
+  if (entryOpen === null || entryOpen === undefined) {
+    return { label: null, nullReason: 'missingEntryOpen' }
+  }
+
+  const windowRows = windowDates.map((date) => getRawPrice(input.prices, input.symbol, date))
+  const hasMissingWindowData = windowRows.some((row) => row?.high === null || row?.high === undefined)
+    || windowRows[4]?.close === null
+    || windowRows[4]?.close === undefined
+  if (hasMissingWindowData) return { label: null, nullReason: 'missingWindowData' }
+
+  const label = labelPick(input.symbol, labelSignalDate, input.prices, input.tradingDays)
+  return label
+    ? { label, nullReason: null }
+    : { label: null, nullReason: 'missingWindowData' }
+}
+
 function evaluateRandomBaseline(input: {
   readonly signalDates: readonly string[]
   readonly universe: readonly string[]
@@ -153,9 +211,12 @@ function evaluateRandomBaseline(input: {
 
     for (const signalDate of input.signalDates) {
       const symbols = strategy(dataHandler.at(signalDate), input.universe, signalDate)
+      const labelSignalDate = getArchiveLabelSignalDate(signalDate, input.tradingDays)
       for (const symbol of symbols) {
         total++
-        const label = labelPick(symbol, signalDate, input.prices, input.tradingDays)
+        const label = labelSignalDate
+          ? labelPick(symbol, labelSignalDate, input.prices, input.tradingDays)
+          : null
         if (!label) continue
         labeled++
         if (label.touched) touched++
@@ -182,13 +243,19 @@ export function evaluateArchivePicks(input: {
   const masterBySymbol = new Map(input.stockMasterRows.map((row) => [row.symbol, row]))
   const picks: EvaluatedArchivePick[] = input.archivePicks.map((archivePick) => {
     const master = masterBySymbol.get(archivePick.ticker)
+    const evaluation = master
+      ? evaluateMappedArchivePick({
+          symbol: master.symbol,
+          publicationDate: archivePick.signalDate,
+          prices: input.prices,
+          tradingDays: input.tradingDays,
+        })
+      : { label: null, nullReason: 'unmapped' as const }
     return {
       ...archivePick,
       mappedSymbol: master?.symbol ?? null,
       masterName: master?.name ?? null,
-      label: master
-        ? labelPick(master.symbol, archivePick.signalDate, input.prices, input.tradingDays)
-        : null,
+      ...evaluation,
     }
   })
 
@@ -206,6 +273,16 @@ export function evaluateArchivePicks(input: {
     tradingDays: input.tradingDays,
   })
   const precisionAt3 = labels.length > 0 ? touchedPickCount / labels.length : null
+  const nullBreakdown: Record<ArchivePickNullReason, number> = {
+    unmapped: 0,
+    nonTradingUnresolved: 0,
+    immature: 0,
+    missingEntryOpen: 0,
+    missingWindowData: 0,
+  }
+  for (const pick of picks) {
+    if (pick.nullReason) nullBreakdown[pick.nullReason]++
+  }
 
   return {
     archivePath: input.archivePath ?? ARCHIVES_PATH,
@@ -215,6 +292,7 @@ export function evaluateArchivePicks(input: {
     nameMismatchCount: picks.filter((pick) => pick.masterName !== null && pick.archiveName !== pick.masterName).length,
     labeledPickCount: labels.length,
     nullPickCount: picks.length - labels.length,
+    nullBreakdown,
     touchedPickCount,
     precisionAt3,
     nullRate: picks.length > 0 ? (picks.length - labels.length) / picks.length : 0,
@@ -240,6 +318,7 @@ function printArchiveEvaluation(report: ArchiveEvaluationReport): void {
     nameMismatchCount: report.nameMismatchCount,
     labeledPickCount: report.labeledPickCount,
     nullPickCount: report.nullPickCount,
+    nullBreakdown: report.nullBreakdown,
     touchedPickCount: report.touchedPickCount,
     precisionAt3: report.precisionAt3,
     nullRate: report.nullRate,

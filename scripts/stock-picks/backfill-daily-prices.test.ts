@@ -31,8 +31,8 @@ describe('stock daily price backfill', () => {
     const directory = await mkdtemp(join(tmpdir(), 'stock-backfill-'))
     const statePath = join(directory, 'state.json')
     const calls: string[] = []
-    const fetchDailyRangePrices = vi.fn(async (_symbol: string, startDate: string, endDate: string) => {
-      calls.push(`${startDate}:${endDate}`)
+    const fetchDailyRangePrices = vi.fn(async (symbol: string, startDate: string, endDate: string) => {
+      calls.push(`${symbol}:${startDate}:${endDate}`)
       return [{
         date: fromKisDate(endDate),
         open: null,
@@ -53,6 +53,7 @@ describe('stock daily price backfill', () => {
         statePath,
         delayMs: 0,
         fetchDailyRangePrices,
+        fetchIndexDailyRangePrices: fetchDailyRangePrices,
         persistDailyPrices,
         loadSymbols,
       })
@@ -60,7 +61,7 @@ describe('stock daily price backfill', () => {
         attemptedCalls: 1,
         successCount: 0,
         failureCount: 0,
-        remainingCount: 1,
+        remainingCount: 2,
       })
 
       const second = await backfillStockDailyPrices({
@@ -70,15 +71,59 @@ describe('stock daily price backfill', () => {
         statePath,
         delayMs: 0,
         fetchDailyRangePrices,
+        fetchIndexDailyRangePrices: fetchDailyRangePrices,
         persistDailyPrices,
         loadSymbols,
       })
       expect(second).toMatchObject({
-        successCount: 1,
+        successCount: 2,
         failureCount: 0,
         remainingCount: 0,
       })
       expect(new Set(calls).size).toBe(calls.length)
+      expect(calls.some((call) => call.startsWith('0001:'))).toBe(true)
+      expect(calls.some((call) => call.startsWith('KOSPI:005930:'))).toBe(true)
+    } finally {
+      await rm(directory, { recursive: true, force: true })
+    }
+  })
+
+  it('backfills the KOSPI index under the bare KOSPI symbol', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'stock-backfill-index-'))
+    const statePath = join(directory, 'state.json')
+
+    try {
+      const persistedSymbols: string[] = []
+      const fetchIndexDailyRangePrices = vi.fn(async (_indexCode, _startDate, endDate) => [{
+        date: fromKisDate(endDate),
+        open: 100,
+        high: 110,
+        low: 90,
+        close: 105,
+        volume: 1000,
+      }])
+      const report = await backfillStockDailyPrices({
+        callBudget: 10,
+        endDate: '2026-08-28',
+        years: 1,
+        statePath,
+        delayMs: 0,
+        loadSymbols: async () => [],
+        fetchIndexDailyRangePrices,
+        persistDailyPrices: async (rows) => {
+          persistedSymbols.push(...rows.map((row) => row.symbol))
+          return rows.length
+        },
+      })
+
+      expect(report).toMatchObject({
+        targetSymbols: 1,
+        successCount: 1,
+        failureCount: 0,
+        remainingCount: 0,
+      })
+      expect(fetchIndexDailyRangePrices).toHaveBeenCalledWith('0001', expect.any(String), expect.any(String))
+      expect(new Set(persistedSymbols)).toEqual(new Set(['KOSPI']))
     } finally {
       await rm(directory, { recursive: true, force: true })
     }
@@ -96,8 +141,8 @@ describe('stock daily price backfill', () => {
         years: 1,
         statePath,
         delayMs: 0,
-        loadSymbols: async () => ['KOSPI:005930'],
-        fetchDailyRangePrices: async (_symbol, _startDate, endDate) => [{
+        loadSymbols: async () => [],
+        fetchIndexDailyRangePrices: async (_indexCode, _startDate, endDate) => [{
           date: fromKisDate(endDate),
           open: 100,
           high: 110,
@@ -113,7 +158,7 @@ describe('stock daily price backfill', () => {
         successCount: 0,
         failureCount: 1,
         remainingCount: 1,
-        failedSymbols: ['KOSPI:005930'],
+        failedSymbols: ['KOSPI'],
       })
     } finally {
       consoleErrorSpy.mockRestore()
