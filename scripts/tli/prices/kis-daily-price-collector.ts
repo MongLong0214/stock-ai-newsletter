@@ -28,6 +28,7 @@ export interface StockDailyPriceCollectionReport {
   readonly failureCount: number
   /** 실제 조회를 시도했지만 응답이 없거나 오류가 난 심볼 */
   readonly failedSymbols: readonly string[]
+  /** 호출 예산 또는 전체 수집 deadline으로 조회하지 못한 심볼 수 */
   readonly skippedForBudget: number
   readonly persistedRows: number
   readonly successRate: number
@@ -83,6 +84,8 @@ export async function collectAndPersistStockDailyPriceRange(input: {
   readonly callBudget?: number
   readonly rateLimitPerSecond?: number
   readonly delayMs?: number
+  /** 전체 심볼 수집 deadline. 미지정 시 기존처럼 시간 제한 없이 실행한다. */
+  readonly deadlineMs?: number
   readonly fetchDailyRangeClosePrices?: FetchDailyRangeClosePrices
   readonly fetchIndexDailyRangeClosePrices?: FetchDailyRangeClosePrices
   readonly persistDailyPrices?: PersistDailyPrices
@@ -91,6 +94,11 @@ export async function collectAndPersistStockDailyPriceRange(input: {
   const callBudget = input.callBudget ?? DEFAULT_KIS_DAILY_PRICE_CALL_BUDGET
   const rateLimitPerSecond = input.rateLimitPerSecond ?? KIS_DAILY_PRICE_RATE_LIMIT_PER_SECOND
   const delayMs = input.delayMs ?? Math.ceil(1000 / rateLimitPerSecond)
+  const deadlineMs = input.deadlineMs
+  if (deadlineMs !== undefined && (!Number.isFinite(deadlineMs) || deadlineMs <= 0)) {
+    throw new Error(`deadlineMs는 양수여야 합니다: ${deadlineMs}`)
+  }
+  const startedAt = Date.now()
   const fetchDailyRangeClosePrices = input.fetchDailyRangeClosePrices ?? getDailyRangeClosePrices
   const fetchIndexDailyRangeClosePrices = input.fetchIndexDailyRangeClosePrices ?? getIndexDailyRangeClosePrices
   const persistDailyPrices = input.persistDailyPrices ?? upsertStockDailyPrices
@@ -113,8 +121,14 @@ export async function collectAndPersistStockDailyPriceRange(input: {
   const persistedDates = new Set<string>()
   const failedSymbols: string[] = []
 
+  let attemptedCalls = 0
   for (let index = 0; index < symbolsToAttempt.length; index++) {
+    if (deadlineMs !== undefined && Date.now() - startedAt >= deadlineMs) {
+      console.warn(`   ⚠️ 일봉 수집 deadline 초과: ${deadlineMs}ms, 남은 심볼 수집 중단`)
+      break
+    }
     const symbol = symbolsToAttempt[index]
+    attemptedCalls++
     try {
       const points = symbol === KOSPI_INDEX_SYMBOL
         ? await fetchIndexDailyRangeClosePrices(KOSPI_INDEX_CODE, startKisDate, endKisDate)
@@ -144,11 +158,11 @@ export async function collectAndPersistStockDailyPriceRange(input: {
     }
 
     if (delayMs > 0 && index < symbolsToAttempt.length - 1) {
-      await sleep(delayMs)
+      const remainingMs = deadlineMs === undefined ? delayMs : deadlineMs - (Date.now() - startedAt)
+      if (remainingMs > 0) await sleep(Math.min(delayMs, remainingMs))
     }
   }
 
-  const attemptedCalls = symbolsToAttempt.length
   const failureCount = failedSymbols.length
   const successCount = attemptedCalls - failureCount
 

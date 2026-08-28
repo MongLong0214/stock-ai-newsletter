@@ -4,6 +4,7 @@ import {
   collectDailyStockPrices,
   DAILY_COLLECTION_TRADING_DAYS,
   DEFAULT_DAILY_COLLECTION_CALL_BUDGET,
+  DEFAULT_DAILY_COLLECTION_DEADLINE_MS,
 } from '@/scripts/stock-picks/collect-daily'
 import { KIS_DAILY_PRICE_RATE_LIMIT_PER_SECOND } from '@/scripts/tli/prices/kis-daily-price-collector'
 
@@ -37,6 +38,7 @@ describe('daily stock price collection', () => {
         universe: 'full',
         callBudget: DEFAULT_DAILY_COLLECTION_CALL_BUDGET,
         rateLimitPerSecond: KIS_DAILY_PRICE_RATE_LIMIT_PER_SECOND,
+        deadlineMs: DEFAULT_DAILY_COLLECTION_DEADLINE_MS,
       })
       expect(report).toMatchObject({
         endDate: '2026-08-28',

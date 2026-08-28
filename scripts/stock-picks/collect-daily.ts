@@ -6,6 +6,7 @@ import {
 } from '@/scripts/tli/prices/kis-daily-price-collector'
 
 export const DEFAULT_DAILY_COLLECTION_CALL_BUDGET = 2600
+export const DEFAULT_DAILY_COLLECTION_DEADLINE_MS = 25 * 60 * 1000
 export const DAILY_COLLECTION_TRADING_DAYS = 7
 
 type CollectPriceRange = typeof collectAndPersistStockDailyPriceRange
@@ -21,12 +22,17 @@ export interface DailyStockPriceCollectionReport extends StockDailyPriceCollecti
  */
 export async function collectDailyStockPrices(input: {
   readonly callBudget?: number
+  readonly deadlineMs?: number
   readonly endDate?: string
   readonly collectPriceRange?: CollectPriceRange
 } = {}): Promise<DailyStockPriceCollectionReport> {
   const callBudget = input.callBudget ?? DEFAULT_DAILY_COLLECTION_CALL_BUDGET
   if (!Number.isInteger(callBudget) || callBudget <= 0) {
     throw new Error(`callBudget은 양의 정수여야 합니다: ${callBudget}`)
+  }
+  const deadlineMs = input.deadlineMs ?? DEFAULT_DAILY_COLLECTION_DEADLINE_MS
+  if (!Number.isFinite(deadlineMs) || deadlineMs <= 0) {
+    throw new Error(`deadlineMs는 양수여야 합니다: ${deadlineMs}`)
   }
 
   const endDate = input.endDate ?? getKSTDateString()
@@ -37,6 +43,7 @@ export async function collectDailyStockPrices(input: {
     universe: 'full',
     callBudget,
     rateLimitPerSecond: KIS_DAILY_PRICE_RATE_LIMIT_PER_SECOND,
+    deadlineMs,
   })
   const dailyReport: DailyStockPriceCollectionReport = {
     ...report,
@@ -49,7 +56,7 @@ export async function collectDailyStockPrices(input: {
     console.error(`   ❌ 일봉 수집 실패 심볼 ${dailyReport.failedSymbols.length}개: ${dailyReport.failedSymbols.join(', ')}`)
   }
   if (dailyReport.skippedForBudget > 0) {
-    console.error(`   ❌ 콜 예산으로 생략된 심볼: ${dailyReport.skippedForBudget}개`)
+    console.error(`   ❌ 콜 예산/deadline으로 생략된 심볼: ${dailyReport.skippedForBudget}개`)
   }
 
   return dailyReport
@@ -62,10 +69,10 @@ const readOption = (args: readonly string[], name: string): string | undefined =
   return index >= 0 ? args[index + 1] : undefined
 }
 
-const readPositiveInteger = (value: string | undefined, fallback: number): number => {
+const readPositiveInteger = (value: string | undefined, fallback: number, name: string): number => {
   if (value === undefined) return fallback
   const parsed = Number.parseInt(value, 10)
-  if (!Number.isInteger(parsed) || parsed <= 0) throw new Error(`--call-budget은 양의 정수여야 합니다: ${value}`)
+  if (!Number.isInteger(parsed) || parsed <= 0) throw new Error(`${name}은 양의 정수여야 합니다: ${value}`)
   return parsed
 }
 
@@ -75,6 +82,7 @@ const printUsage = (): void => {
     '',
     'Options:',
     `  --call-budget=N  KIS 호출 예산 (기본 ${DEFAULT_DAILY_COLLECTION_CALL_BUDGET})`,
+    `  --deadline-minutes=N  전체 수집 제한시간(분, 기본 ${DEFAULT_DAILY_COLLECTION_DEADLINE_MS / 60_000})`,
     '  --end-date=DATE  종료일 YYYY-MM-DD (기본 오늘 KST)',
   ].join('\n'))
 }
@@ -89,7 +97,13 @@ if (isDirectRun) {
       callBudget: readPositiveInteger(
         readOption(args, '--call-budget'),
         DEFAULT_DAILY_COLLECTION_CALL_BUDGET,
+        '--call-budget',
       ),
+      deadlineMs: readPositiveInteger(
+        readOption(args, '--deadline-minutes'),
+        DEFAULT_DAILY_COLLECTION_DEADLINE_MS / 60_000,
+        '--deadline-minutes',
+      ) * 60_000,
       endDate: readOption(args, '--end-date'),
     }).then((report) => {
       if (report.failureCount > 0 || report.skippedForBudget > 0) process.exitCode = 1

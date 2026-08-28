@@ -5,6 +5,7 @@ import type { StockFeatureVector } from '@/scripts/stock-picks/features'
 import {
   PARAMETER_GRIDS,
   createWalkForwardSplits,
+  runFrozenProductionEvaluation,
   runWalkForwardOptimization,
   type WalkForwardSplit,
 } from '@/scripts/stock-picks/optimize'
@@ -165,5 +166,20 @@ describe('stock-picks walk-forward optimizer', () => {
     expect(first.compositeAblation.method).toBe('score_weight_zero_gate_preserved')
     expect(first.compositeAblation.excludedFeatures.map((row) => row.feature)).toContain('rsi14')
     expect(first.caveats.survivorshipBias).toContain('current stock_master')
+
+    const frozen = runFrozenProductionEvaluation(input)
+    expect(frozen.evaluationPolicy).toMatchObject({
+      evaluationScope: 'walk_forward_test_dates',
+      parameterSelection: 'frozen_no_fold_reselection',
+      strategy: 'volumeBreakout',
+      mode: 'force3',
+    })
+    expect(frozen.parameters.minScore).toBe(0)
+    expect(frozen.aggregate).toMatchObject({
+      totalDates: 2,
+      totalPicks: 6,
+      labeledPicks: 6,
+      precisionAt3: 1,
+    })
   })
 })

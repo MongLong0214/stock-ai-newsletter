@@ -163,6 +163,41 @@ describe('stock daily prices', () => {
     expect(report.skippedForBudget).toBe(2)
   })
 
+  it('stops at the collection deadline and counts all remaining symbols as skipped', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-02T00:00:00.000Z'))
+    const fetchDailyRangeClosePrices = vi.fn().mockResolvedValue([])
+    const fetchIndexDailyRangeClosePrices = vi.fn(async () => {
+      vi.setSystemTime(new Date('2026-07-02T00:00:01.000Z'))
+      return [{ date: '2026-07-02', close: 2655.1, volume: null }]
+    })
+    const persistDailyPrices = vi.fn(async (rows: readonly StockDailyPriceInput[]) => rows.length)
+    const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    try {
+      const report = await collectAndPersistStockDailyPriceRange({
+        endDate: '2026-07-02',
+        days: 1,
+        deadlineMs: 500,
+        delayMs: 0,
+        fetchDailyRangeClosePrices,
+        fetchIndexDailyRangeClosePrices,
+        persistDailyPrices,
+        loadSymbols: async () => ['005930', '000660'],
+      })
+
+      expect(report.attemptedCalls).toBe(1)
+      expect(report.successCount).toBe(1)
+      expect(report.skippedForBudget).toBe(2)
+      expect(fetchDailyRangeClosePrices).not.toHaveBeenCalled()
+      expect(persistDailyPrices).toHaveBeenCalledOnce()
+      expect(consoleWarnSpy).toHaveBeenCalledWith(expect.stringContaining('deadline 초과'))
+    } finally {
+      consoleWarnSpy.mockRestore()
+      vi.useRealTimers()
+    }
+  })
+
   it('does not duplicate KOSPI when it is already present in the loaded symbols', async () => {
     const fetchDailyRangeClosePrices = vi.fn().mockResolvedValue([])
     const fetchIndexDailyRangeClosePrices = vi.fn().mockResolvedValue([])

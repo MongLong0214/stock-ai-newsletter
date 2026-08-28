@@ -8,6 +8,7 @@ import {
 } from '@/scripts/stock-picks/backtest'
 import { StockDataHandler, loadPriceBook, type PriceBook } from '@/scripts/stock-picks/data-handler'
 import { buildFeatureSeries, type StockFeatureVector } from '@/scripts/stock-picks/features'
+import { PRODUCTION_VOLUME_BREAKOUT_PARAMETERS } from '@/scripts/stock-picks/generate-picks'
 import {
   COMPOSITE_ABLATION_EXCLUSIONS,
   COMPOSITE_ABLATION_FEATURES,
@@ -143,6 +144,24 @@ export interface OptimizationReport {
     readonly survivorshipBias: string
     readonly referenceBaselineScope: string
   }
+}
+
+export interface FrozenProductionEvaluationReport {
+  readonly generatedAt: string
+  readonly evaluationPolicy: {
+    readonly evaluationScope: 'walk_forward_test_dates'
+    readonly parameterSelection: 'frozen_no_fold_reselection'
+    readonly strategy: 'volumeBreakout'
+    readonly mode: 'force3'
+  }
+  readonly parameters: VolumeBreakoutParameters
+  readonly dateRange: {
+    readonly evaluationStart: string
+    readonly evaluationEnd: string
+    readonly evaluationDays: number
+    readonly foldCount: number
+  }
+  readonly aggregate: OosMetricSummary
 }
 
 type ParameterGridMap = {
@@ -784,6 +803,58 @@ export function runWalkForwardOptimization(input: {
   }
 }
 
+/** 프로덕션 파라미터를 재선택 없이 각 walk-forward test 구간에 그대로 적용한다. */
+export function runFrozenProductionEvaluation(input: {
+  readonly prices: PriceBook
+  readonly tradingDays: TradingDayIndex
+  readonly masters: readonly StockMasterState[]
+  readonly featuresByDate: ReadonlyMap<string, readonly StockFeatureVector[]>
+  readonly splits: readonly WalkForwardSplit[]
+  readonly generatedAt?: string
+}): FrozenProductionEvaluationReport {
+  if (input.splits.length === 0) throw new Error('유효한 walk-forward 분할이 없습니다')
+  const context: EvaluationContext = {
+    universe: input.masters.filter((row) => row.is_active).map((row) => row.symbol).sort(),
+    prices: input.prices,
+    tradingDays: input.tradingDays,
+    featuresByDate: input.featuresByDate,
+    masters: new Map(input.masters.map((row) => [row.symbol, row])),
+  }
+  const reports = input.splits.map((split) => evaluateDates({
+    name: 'volumeBreakout',
+    parameters: PRODUCTION_VOLUME_BREAKOUT_PARAMETERS,
+    mode: 'force3',
+    dates: split.testDates,
+    context,
+  }))
+  const candidateCounts = input.splits.flatMap((split) => countCandidates({
+    name: 'volumeBreakout',
+    parameters: PRODUCTION_VOLUME_BREAKOUT_PARAMETERS,
+    mode: 'force3',
+    dates: split.testDates,
+    context,
+  }))
+  const evaluationDates = [...new Set(input.splits.flatMap((split) => split.testDates))]
+
+  return {
+    generatedAt: input.generatedAt ?? new Date().toISOString(),
+    evaluationPolicy: {
+      evaluationScope: 'walk_forward_test_dates',
+      parameterSelection: 'frozen_no_fold_reselection',
+      strategy: 'volumeBreakout',
+      mode: 'force3',
+    },
+    parameters: PRODUCTION_VOLUME_BREAKOUT_PARAMETERS,
+    dateRange: {
+      evaluationStart: evaluationDates[0],
+      evaluationEnd: evaluationDates.at(-1)!,
+      evaluationDays: evaluationDates.length,
+      foldCount: input.splits.length,
+    },
+    aggregate: summarizeReports(reports, candidateCounts),
+  }
+}
+
 const readOption = (args: readonly string[], name: string): string | undefined => {
   const inline = args.find((arg) => arg.startsWith(`${name}=`))
   if (inline) return inline.slice(name.length + 1)
@@ -798,6 +869,7 @@ const printUsage = (): void => {
     'Options:',
     '  --out PATH   OOS walk-forward JSON 결과 경로 (필수)',
     '  --days N     최근 평가 거래일 수 (기본 220)',
+    '  --frozen     프로덕션 volumeBreakout 파라미터를 fold 재선택 없이 평가',
   ].join('\n'))
 }
 
@@ -832,18 +904,32 @@ async function runCli(args: readonly string[]): Promise<void> {
     },
   })
   const splits = createWalkForwardSplits(evaluationDates)
-  const report = runWalkForwardOptimization({ prices, tradingDays, masters, featuresByDate, splits })
+  const frozen = args.includes('--frozen')
+  const report = frozen
+    ? runFrozenProductionEvaluation({ prices, tradingDays, masters, featuresByDate, splits })
+    : runWalkForwardOptimization({ prices, tradingDays, masters, featuresByDate, splits })
   const outputPath = resolve(process.cwd(), out)
   await mkdir(dirname(outputPath), { recursive: true })
   await writeFile(outputPath, `${JSON.stringify(report, null, 2)}\n`, 'utf8')
-  console.log(JSON.stringify({
-    outputPath,
-    folds: report.dateRange.foldCount,
-    oos: Object.fromEntries((Object.keys(report.strategies) as StrategyName[]).map((name) => [name, {
-      force3: report.strategies[name].force3.aggregate.precisionAt3,
-      abstain: report.strategies[name].abstain.aggregate.precisionAt3,
-    }])),
-  }, null, 2))
+  if (frozen) {
+    const frozenReport = report as FrozenProductionEvaluationReport
+    console.log(JSON.stringify({
+      outputPath,
+      folds: frozenReport.dateRange.foldCount,
+      frozenPrecisionAt3: frozenReport.aggregate.precisionAt3,
+      labeledPicks: frozenReport.aggregate.labeledPicks,
+    }, null, 2))
+  } else {
+    const optimizationReport = report as OptimizationReport
+    console.log(JSON.stringify({
+      outputPath,
+      folds: optimizationReport.dateRange.foldCount,
+      oos: Object.fromEntries((Object.keys(optimizationReport.strategies) as StrategyName[]).map((name) => [name, {
+        force3: optimizationReport.strategies[name].force3.aggregate.precisionAt3,
+        abstain: optimizationReport.strategies[name].abstain.aggregate.precisionAt3,
+      }])),
+    }, null, 2))
+  }
 }
 
 const isDirectRun = /optimize\.(?:ts|js)$/.test(process.argv[1] ?? '')

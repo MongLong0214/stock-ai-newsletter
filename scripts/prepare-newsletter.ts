@@ -14,12 +14,19 @@ import {
 } from '@/lib/llm/stock-analysis'
 import { collectDailyStockPrices } from '@/scripts/stock-picks/collect-daily'
 import { generatePicks } from '@/scripts/stock-picks/generate-picks'
+import { loadStockMaster } from '@/scripts/stock-picks/load-stock-master'
 
 // 로컬 환경에서만 .env.local 로드 (GitHub Actions는 환경변수 직접 사용)
 const envPath = resolve(process.cwd(), '.env.local')
 if (existsSync(envPath)) config({ path: envPath })
 
 export type PicksSource = 'code' | 'llm_fallback' | 'crash'
+export const MIN_DAILY_COLLECTION_SUCCESS_RATE = 0.95
+
+interface DailyCollectionCoverageReport {
+  readonly successRate: number
+  readonly skippedForBudget: number
+}
 
 export interface NewsletterAnalysisResult {
   readonly geminiAnalysis: string
@@ -28,9 +35,10 @@ export interface NewsletterAnalysisResult {
 
 export interface NewsletterPipelineDependencies {
   readonly assessMarket?: () => Promise<MarketAssessment>
-  readonly collectDaily?: () => Promise<unknown>
+  readonly collectDaily?: () => Promise<DailyCollectionCoverageReport>
   readonly generateCodePicks?: () => Promise<string>
   readonly getLlmAnalysis?: (options?: StockAnalysisOptions) => Promise<StockAnalysisResult>
+  readonly refreshStockMaster?: () => Promise<void>
 }
 
 /**
@@ -44,6 +52,7 @@ export async function resolveNewsletterAnalysis(
   const collectDaily = dependencies.collectDaily ?? collectDailyStockPrices
   const generateCodePicks = dependencies.generateCodePicks ?? generatePicks
   const getLlmAnalysis = dependencies.getLlmAnalysis ?? getStockAnalysis
+  const refreshStockMaster = dependencies.refreshStockMaster ?? loadStockMaster
   const assessment = await assessMarket()
 
   if (assessment.verdict === 'CRASH_ALERT') {
@@ -54,7 +63,22 @@ export async function resolveNewsletterAnalysis(
 
   console.log('\n✅ [NORMAL] 일일 수집 → 코드 종목 추천 Pipeline 실행')
   try {
-    await collectDaily()
+    await refreshStockMaster()
+  } catch (error: unknown) {
+    const reason = error instanceof Error ? error.message : String(error)
+    console.warn(`⚠️ 종목 마스터 일일 갱신 실패 — 기존 마스터로 계속 진행: ${reason}`)
+  }
+  try {
+    const collection = await collectDaily()
+    if (
+      collection.successRate < MIN_DAILY_COLLECTION_SUCCESS_RATE
+      || collection.skippedForBudget > 0
+    ) {
+      throw new Error(
+        `일일 수집 커버리지 게이트 실패: successRate=${collection.successRate.toFixed(4)}`
+        + ` (minimum=${MIN_DAILY_COLLECTION_SUCCESS_RATE}), skippedForBudget=${collection.skippedForBudget}`,
+      )
+    }
     const geminiAnalysis = await generateCodePicks()
     console.log('PICKS_SOURCE=code')
     return { geminiAnalysis, picksSource: 'code' }
@@ -114,8 +138,24 @@ export async function prepareNewsletter(options: PrepareNewsletterOptions = {}):
     return
   }
 
-  // is_sent를 payload에 넣지 않아 기존 발송 상태를 그대로 보존한다.
-  const { error } = await createNewsletterClient()
+  const client = createNewsletterClient()
+  const { data: existingNewsletter, error: lookupError } = await client
+    .from('newsletter_content')
+    .select('is_sent')
+    .eq('newsletter_date', today)
+    .maybeSingle()
+
+  if (lookupError) {
+    console.error('❌ Database error:', lookupError)
+    throw new Error(`Database error: ${lookupError.message}`)
+  }
+  if (existingNewsletter?.is_sent === true) {
+    console.log('🛡️ 이미 발송된 뉴스레터 — 내용 보존')
+    return
+  }
+
+  // is_sent를 payload에 넣지 않아 미발송 행의 기존 발송 상태를 그대로 보존한다.
+  const { error } = await client
     .from('newsletter_content')
     .upsert(
       {

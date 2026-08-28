@@ -112,8 +112,9 @@ async function sendNewsletter() {
     console.log('📧 이메일 발송 중...\n');
 
     // 5. SendGrid로 뉴스레터 전송
+    let sendResult: Awaited<ReturnType<typeof sendStockNewsletter>>;
     try {
-      await sendStockNewsletter(
+      sendResult = await sendStockNewsletter(
         subscribers.map((s) => ({ email: s.email, name: s.name || undefined })),
         newsletterData
       );
@@ -141,14 +142,39 @@ async function sendNewsletter() {
       throw sendError;
     }
 
+    if (sendResult.failed.length > 0) {
+      console.error(`❌ 이메일 발송 실패 수: ${sendResult.failed.length}명`);
+      console.error('   실패 대상 (인덱스/도메인만):', sendResult.failed);
+    }
+
+    if (sendResult.sent === 0) {
+      try {
+        const { data: rolledBackContent, error: rollbackError } = await supabase
+          .from('newsletter_content')
+          .update({ is_sent: false })
+          .eq('newsletter_date', today)
+          .eq('is_sent', true)
+          .select('newsletter_date')
+          .single();
+
+        if (rollbackError || !rolledBackContent) {
+          throw rollbackError || new Error(`Newsletter content for ${today} was not rolled back.`);
+        }
+
+        console.log('↩️ 전량 발송 실패로 is_sent=false 롤백 완료');
+      } catch (rollbackError) {
+        console.error(`\n${'🚨'.repeat(40)}`);
+        console.error('🚨 전량 발송 실패 후 is_sent 롤백 실패:', rollbackError);
+        console.error(`${'🚨'.repeat(40)}\n`);
+      }
+
+      throw new Error(`전체 이메일 발송 실패: 0/${subscribers.length}명 성공`);
+    }
+
     console.log('\n━'.repeat(80));
-    console.log('✨ 뉴스레터 발송 완료!');
+    console.log(sendResult.failed.length > 0 ? '⚠️ 뉴스레터 부분 발송 완료' : '✨ 뉴스레터 발송 완료!');
     console.log('━'.repeat(80));
-    console.log(`\n📬 ${subscribers.length}명에게 뉴스레터 발송 완료`);
-    console.log('\n구독자 목록:');
-    subscribers.forEach((sub, index) => {
-      console.log(`  ${index + 1}. ${sub.email}${sub.name ? ` (${sub.name})` : ''}`);
-    });
+    console.log(`\n📬 발송 성공 ${sendResult.sent}명, 실패 ${sendResult.failed.length}명`);
 
     // 6. DB 업데이트 (발송 완료 표시)
     const { error: updateError } = await supabase
@@ -156,7 +182,7 @@ async function sendNewsletter() {
       .update({
         is_sent: true,
         sent_at: new Date().toISOString(),
-        subscriber_count: subscribers.length,
+        subscriber_count: sendResult.sent,
       })
       .eq('newsletter_date', today);
 
@@ -186,7 +212,7 @@ async function sendNewsletter() {
       // 트위터 실패해도 프로세스는 성공으로 처리
     }
 
-    process.exit(0);
+    process.exit(sendResult.failed.length > 0 ? 1 : 0);
   } catch (error) {
     console.error('❌ 뉴스레터 발송 실패:', error);
     process.exit(1);

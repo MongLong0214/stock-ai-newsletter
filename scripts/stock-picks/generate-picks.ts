@@ -20,7 +20,8 @@ import {
   type TradingDayIndex,
 } from '@/scripts/stock-picks/trading-days'
 
-const PRICE_HISTORY_TRADING_DAYS = 120
+// optimize의 FEATURE_WARMUP_DAYS와 같은 320거래일을 써 장기 피처 계산 창을 통일한다.
+const PRICE_HISTORY_TRADING_DAYS = 320
 const REQUIRED_PICK_COUNT = 3
 
 /**
@@ -31,7 +32,8 @@ const REQUIRED_PICK_COUNT = 3
  */
 export const PRODUCTION_VOLUME_BREAKOUT_PARAMETERS: VolumeBreakoutParameters = {
   minTurnover: 500_000_000,
-  minScore: 45,
+  // force3에서는 minScore를 적용하지 않고 전략 게이트만 유효하다.
+  minScore: 0,
   minVolumePercentile: 90,
   minDistanceFromHighPercent: 0,
   maxRsi: 75,

@@ -18,8 +18,8 @@ const FOUR_SYMBOLS = [...SYMBOLS, 'KOSPI:000004'] as const
 
 const makeFixture = (symbols: readonly string[] = SYMBOLS) => {
   const dates = Array.from(
-    { length: 120 },
-    (_value, index) => addKoreanTradingDays(SIGNAL_DATE, index - 119),
+    { length: 320 },
+    (_value, index) => addKoreanTradingDays(SIGNAL_DATE, index - 319),
   )
   const rows: StockDailyPriceRow[] = symbols.flatMap((symbol, symbolIndex) => dates.map((tradeDate, index) => {
     const base = 2_000 + symbolIndex * 100
