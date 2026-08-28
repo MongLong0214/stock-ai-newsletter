@@ -38,6 +38,16 @@ export interface StockNewsletterData {
   date: string;
 }
 
+export interface StockNewsletterSendFailure {
+  readonly index: number;
+  readonly domain: string;
+}
+
+export interface StockNewsletterSendResult {
+  readonly sent: number;
+  readonly failed: readonly StockNewsletterSendFailure[];
+}
+
 interface StockSignals {
   trend_score: number;
   momentum_score: number;
@@ -118,7 +128,7 @@ export function parseCrashAlert(jsonString: string): CrashAlertData | null {
 export async function sendStockNewsletter(
   recipients: EmailRecipient[],
   data: StockNewsletterData
-): Promise<void> {
+): Promise<StockNewsletterSendResult> {
   // SendGrid 초기화 (API 키 + 발신자 정보 검증 포함)
   initSendGrid();
 
@@ -127,34 +137,47 @@ export async function sendStockNewsletter(
     ? `[Stock Matrix] ${data.date} 긴급 시장 분석`
     : `[Stock Matrix] ${data.date} AI 기술적 분석`;
 
-  try {
-    // 각 수신자별로 개별 이메일 전송 (수신거부 링크 개인화)
-    await Promise.all(
-      recipients.map((recipient) => {
-        const html = generateNewsletterHTML(data, recipient.email);
-        return sgMail.send({
-          to: recipient.email,
-          from: {
-            email: process.env.SENDGRID_FROM_EMAIL as string,
-            name: process.env.SENDGRID_FROM_NAME as string,
-          },
-          subject,
-          html,
-        });
-      })
-    );
+  // 각 수신자별로 개별 이메일 전송 (수신거부 링크 개인화)
+  const settled = await Promise.allSettled(
+    recipients.map(async (recipient) => {
+      const html = generateNewsletterHTML(data, recipient.email);
+      await sgMail.send({
+        to: recipient.email,
+        from: {
+          email: process.env.SENDGRID_FROM_EMAIL as string,
+          name: process.env.SENDGRID_FROM_NAME as string,
+        },
+        subject,
+        html,
+      });
+    })
+  );
+  const failed = settled.flatMap((result, index) => {
+    if (result.status === 'fulfilled') return [];
+    const email = recipients[index]?.email ?? '';
+    const separator = email.lastIndexOf('@');
+    const domain = separator >= 0 && separator < email.length - 1
+      ? email.slice(separator + 1).toLowerCase()
+      : 'unknown';
+    return [{ index, domain }];
+  });
+  const sendResult: StockNewsletterSendResult = {
+    sent: recipients.length - failed.length,
+    failed,
+  };
 
-    console.log(`✅ 이메일 전송 완료: ${recipients.length}명`);
-  } catch (error) {
-    console.error('❌ SendGrid 이메일 전송 실패:', error);
-    throw error;
+  console.log(`✅ 이메일 전송 성공: ${sendResult.sent}명, 실패: ${failed.length}명`);
+  if (failed.length > 0) {
+    console.error('❌ SendGrid 부분 실패 (인덱스/도메인만 기록):', failed);
   }
+
+  return sendResult;
 }
 
 /**
  * 뉴스레터 HTML 템플릿 생성
  */
-function generateNewsletterHTML(data: StockNewsletterData, email: string): string {
+export function generateNewsletterHTML(data: StockNewsletterData, email: string): string {
   const isCrash = parseCrashAlert(data.geminiAnalysis) !== null;
 
   const headerTitle = isCrash ? '긴급 시장 분석' : '오늘의 AI 기술적 분석';

@@ -4,6 +4,9 @@
   "include": [
     "scripts/naver-blog/**/*.ts",
     "scripts/blog-merge/**/*.ts",
+    "scripts/stock-picks/**/*.ts",
+    "scripts/tli/prices/**/*.ts",
+    "scripts/tli/ops/run-stock-daily-price-*.ts",
     "scripts/generate-blog-post.ts",
     "scripts/e2e-pipeline-dryrun.ts"
   ],

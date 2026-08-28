@@ -1,4 +1,5 @@
 import { getGeminiRecommendation } from './korea/gemini';
+import type { MarketAssessment } from './korea/gemini-pipeline';
 
 /**
  * 주식 분석 결과
@@ -6,6 +7,11 @@ import { getGeminiRecommendation } from './korea/gemini';
 export interface StockAnalysisResult {
   /** Gemini 분석 결과 JSON 문자열 */
   geminiAnalysis: string;
+}
+
+export interface StockAnalysisOptions {
+  /** prepare 단계에서 이미 끝낸 시장평가를 재사용해 중복 평가를 막는다. */
+  readonly marketAssessment?: MarketAssessment;
 }
 
 /**
@@ -18,12 +24,12 @@ export interface StockAnalysisResult {
  *
  * @returns 주식 분석 결과 (3개 추천 종목 JSON)
  */
-export async function getStockAnalysis(): Promise<StockAnalysisResult> {
+export async function getStockAnalysis(options: StockAnalysisOptions = {}): Promise<StockAnalysisResult> {
   console.log('🤖 Gemini 주식 분석 시작...\n');
 
   const startTime = Date.now();
   try {
-    const geminiAnalysis = await getGeminiRecommendation();
+    const geminiAnalysis = await getGeminiRecommendation(options.marketAssessment);
     const endTime = Date.now();
     const duration = ((endTime - startTime) / 1000).toFixed(2);
 

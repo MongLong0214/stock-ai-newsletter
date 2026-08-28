@@ -384,6 +384,9 @@ export async function getIndexDailyClosePrice(indexCode: string, date: string): 
 /** 기간 일봉 데이터 포인트 (기간조회 1콜 응답의 각 영업일자 행) */
 export interface KisDailyRangePricePoint {
   readonly date: string;
+  readonly open: number | null;
+  readonly high: number | null;
+  readonly low: number | null;
   readonly close: number;
   readonly volume: number | null;
 }
@@ -393,13 +396,31 @@ function toIsoDate(kisDate: string): string | null {
   return `${kisDate.slice(0, 4)}-${kisDate.slice(4, 6)}-${kisDate.slice(6, 8)}`;
 }
 
-function parseRangePriceRow(row: Record<string, string>, closeField: string, parseClose: (v: string) => number): KisDailyRangePricePoint | null {
+export function parseRangePriceRow(row: Record<string, string>, closeField: string, parseClose: (v: string) => number): KisDailyRangePricePoint | null {
   const date = toIsoDate(row.stck_bsop_date);
   const close = parseClose(row[closeField]);
   if (!date || !Number.isFinite(close) || close <= 0) return null;
 
+  const open = parseOptionalInt(row.stck_oprc);
+  let high = parseOptionalInt(row.stck_hgpr);
+  let low = parseOptionalInt(row.stck_lwpr);
+  const validOpen = open !== null && open > 0 ? open : null;
+  high = high !== null && high > 0 ? high : null;
+  low = low !== null && low > 0 ? low : null;
+  if (high !== null && low !== null && high < low) {
+    high = null;
+    low = null;
+  }
+
   const volume = parseInt(row.acml_vol, 10);
-  return { date, close, volume: Number.isFinite(volume) ? volume : null };
+  return {
+    date,
+    open: validOpen,
+    high,
+    low,
+    close,
+    volume: Number.isFinite(volume) ? volume : null,
+  };
 }
 
 /**

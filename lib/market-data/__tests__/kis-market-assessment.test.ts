@@ -144,6 +144,24 @@ function createNaverDomesticIndexBasicResponse(
   });
 }
 
+function createNaverWorldIndexBasicPayload(
+  closePrice: string,
+  change: string,
+  changePct: string,
+  direction: 'RISING' | 'FALLING' | 'UNCHANGED' = 'RISING'
+): object {
+  return {
+    itemCode: '.DJI',
+    symbolCode: '.DJI',
+    stockName: '다우 산업',
+    closePrice,
+    compareToPreviousClosePrice: change,
+    compareToPreviousPrice: { name: direction },
+    fluctuationsRatio: changePct,
+    localTradedAt: '2026-08-27T17:30:00-04:00',
+  };
+}
+
 function createNaverNationFuturesResponse(items: Array<{
   futuresName: string;
   futuresNameEng?: string;
@@ -210,6 +228,97 @@ function createForeignerIframeHtml(): string {
   `;
 }
 
+function createMinimalSnapshotFetchMock(options: {
+  dowKisRows?: Array<{ stck_bsop_date: string; ovrs_nmix_prpr: string }>;
+  dowNaverPayload?: unknown;
+  dowSerpPayload?: unknown;
+} = {}) {
+  return vi.fn<typeof fetch>(async (input) => {
+    const url = new URL(String(input));
+
+    if (url.pathname.endsWith('/oauth2/tokenP')) {
+      return createJsonResponse({ access_token: 'token-1' });
+    }
+
+    if (url.pathname.endsWith('/inquire-time-indexchartprice')) {
+      const symbol = url.searchParams.get('FID_INPUT_ISCD');
+      const values = symbol === 'SPX'
+        ? { name: 'S&P500', price: '5900.00', change: '-190.00', changePct: '-3.12' }
+        : symbol === 'COMP'
+          ? { name: '나스닥 종합', price: '21500.00', change: '-620.00', changePct: '-2.80' }
+          : { name: '', price: '0.00', change: '0.00', changePct: '0.00' };
+
+      return createJsonResponse({
+        rt_cd: '0',
+        output1: {
+          hts_kor_isnm: values.name,
+          ovrs_nmix_prpr: values.price,
+          ovrs_nmix_prdy_vrss: values.change,
+          prdy_ctrt: values.changePct,
+        },
+      });
+    }
+
+    if (url.pathname.endsWith('/inquire-daily-chartprice')) {
+      return createJsonResponse({
+        rt_cd: '0',
+        output1: { ovrs_nmix_prpr: '0.00' },
+        output2: options.dowKisRows ?? [],
+      });
+    }
+
+    if (url.pathname.endsWith('/display-board-futures')) {
+      return createJsonResponse({
+        rt_cd: '0',
+        output: [{
+          futs_shrn_iscd: 'A05603',
+          hts_kor_isnm: '미니F 202603',
+          futs_prpr: '798.50',
+          futs_prdy_vrss: '-24.80',
+          futs_prdy_ctrt: '-3.01',
+          hts_rmnn_dynu: '3',
+        }],
+      });
+    }
+
+    if (url.pathname.endsWith('/inquire-price')) {
+      return createJsonResponse({ rt_cd: '0', output: {} });
+    }
+
+    if (url.hostname === 'serpapi.com') {
+      if (url.searchParams.get('q') === '.DJI:INDEXDJX') {
+        return createJsonResponse(options.dowSerpPayload ?? {});
+      }
+
+      return createJsonResponse(
+        url.searchParams.get('engine') === 'google' ? { organic_results: [] } : {}
+      );
+    }
+
+    if (url.hostname === 'openapi.naver.com') {
+      return createJsonResponse({ total: 0, items: [] });
+    }
+
+    if (url.hostname === 'm.stock.naver.com') {
+      return createJsonResponse({});
+    }
+
+    if (url.hostname === 'api.stock.naver.com') {
+      if (url.pathname === '/index/.DJI/basic') {
+        return createJsonResponse(options.dowNaverPayload ?? {});
+      }
+
+      return createJsonResponse([]);
+    }
+
+    if (url.hostname === 'search.naver.com' || url.hostname === 'finance.naver.com') {
+      return createHtmlResponse('<html><body></body></html>');
+    }
+
+    throw new Error(`Unhandled test URL: ${url.toString()}`);
+  });
+}
+
 describe('kis-market-assessment', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
@@ -224,7 +333,7 @@ describe('kis-market-assessment', () => {
 
   it('builds a cached KIS snapshot and selects the nearest mini futures contract', async () => {
     const fetchMock = vi
-      .fn<() => Promise<Response>>()
+      .fn<typeof fetch>()
       .mockResolvedValueOnce(createJsonResponse({ access_token: 'token-1' }))
       .mockResolvedValueOnce(
         createJsonResponse({
@@ -240,13 +349,15 @@ describe('kis-market-assessment', () => {
       .mockResolvedValueOnce(
         createJsonResponse({
           rt_cd: '0',
-          output1: {
-            hts_kor_isnm: '다우존스 산업지수',
-            ovrs_nmix_prpr: '42000.00',
-            ovrs_nmix_prdy_vrss: '-900.00',
-            prdy_ctrt: '-2.10',
-          },
+          output1: { ovrs_nmix_prpr: '0.00' },
+          output2: [
+            { stck_bsop_date: '20260826', ovrs_nmix_prpr: '42,900.00' },
+            { stck_bsop_date: '20260827', ovrs_nmix_prpr: '42,000.00' },
+          ],
         })
+      )
+      .mockResolvedValueOnce(
+        createJsonResponse(createNaverWorldIndexBasicPayload('42,000.00', '900.00', '2.10', 'FALLING'))
       )
       .mockResolvedValueOnce(
         createJsonResponse({
@@ -390,7 +501,11 @@ describe('kis-market-assessment', () => {
     const snapshot = await getKisMarketAssessmentSnapshot();
 
     expect(snapshot.indicators.sp500.code).toBe('SPX');
-    expect(snapshot.indicators.dowJones.code).toBe('.DJI');
+    expect(snapshot.indicators.dowJones?.code).toBe('.DJI');
+    expect(snapshot.indicators.dowJones?.source).toBe('MULTI_SOURCE');
+    expect(snapshot.indicators.dowJones?.validation).toBe('cross_checked');
+    expect(snapshot.indicators.dowJones?.price).toBe(42000);
+    expect(snapshot.indicators.dowJones?.change).toBe(-900);
     expect(snapshot.indicators.nasdaqComposite.code).toBe('COMP');
     expect(snapshot.indicators.kospi200MiniFutures.code).toBe('A05603');
     expect(snapshot.indicators.kospi200MiniFutures.contractName).toBe('미니F 202603');
@@ -409,7 +524,12 @@ describe('kis-market-assessment', () => {
     expect(snapshot.events.tariffs.sourceCount).toBeGreaterThanOrEqual(3);
 
     const firstSnapshotFetchCount = fetchMock.mock.calls.length;
-    expect(firstSnapshotFetchCount).toBe(snapshot.nightSession.isPreMarketHours ? 26 : 25);
+    expect(firstSnapshotFetchCount).toBe(snapshot.nightSession.isPreMarketHours ? 27 : 26);
+    expect(
+      fetchMock.mock.calls.some(([input]) =>
+        new URL(String(input)).searchParams.get('q') === '.DJI:INDEXDJX'
+      )
+    ).toBe(false);
 
     const cachedSnapshot = await getKisMarketAssessmentSnapshot();
     expect(cachedSnapshot).toEqual(snapshot);
@@ -437,6 +557,107 @@ describe('kis-market-assessment', () => {
     await expect(getKisMarketAssessmentSnapshot()).rejects.toThrow('S&P 500 returned an invalid price');
   });
 
+  it('diagnoses the KIS zero-price and empty-name serving-stop pattern', async () => {
+    const fetchMock = vi
+      .fn<() => Promise<Response>>()
+      .mockResolvedValueOnce(createJsonResponse({ access_token: 'token-1' }))
+      .mockResolvedValueOnce(
+        createJsonResponse({
+          rt_cd: '0',
+          output1: {
+            hts_kor_isnm: '',
+            ovrs_nmix_prpr: '0.00',
+            ovrs_nmix_prdy_vrss: '0.00',
+            prdy_ctrt: '0.00',
+          },
+        })
+      );
+
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(getKisMarketAssessmentSnapshot()).rejects.toThrow(
+      'KIS가 심볼 서빙을 중단한 패턴: SPX'
+    );
+  });
+
+  it('sorts KIS Dow daily rows and computes the latest close change', async () => {
+    const fetchMock = createMinimalSnapshotFetchMock({
+      dowKisRows: [
+        { stck_bsop_date: '20260825', ovrs_nmix_prpr: '53,100.00' },
+        { stck_bsop_date: '20260827', ovrs_nmix_prpr: '53,569.44' },
+        { stck_bsop_date: '20260826', ovrs_nmix_prpr: '53,410.12' },
+      ],
+    });
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    vi.stubGlobal('fetch', fetchMock);
+
+    const snapshot = await getKisMarketAssessmentSnapshot();
+
+    expect(snapshot.indicators.dowJones?.source).toBe('KIS');
+    expect(snapshot.indicators.dowJones?.validation).toBe('single_source');
+    expect(snapshot.indicators.dowJones?.price).toBe(53569.44);
+    expect(snapshot.indicators.dowJones?.change).toBeCloseTo(159.32, 8);
+    expect(snapshot.indicators.dowJones?.changePct).toBeCloseTo(0.2983, 4);
+  });
+
+  it('falls back from KIS Dow failure to Naver and parses comma-formatted values', async () => {
+    const fetchMock = createMinimalSnapshotFetchMock({
+      dowNaverPayload: createNaverWorldIndexBasicPayload(
+        '53,569.44',
+        '159.32',
+        '0.30'
+      ),
+    });
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    vi.stubGlobal('fetch', fetchMock);
+
+    const snapshot = await getKisMarketAssessmentSnapshot();
+
+    expect(snapshot.indicators.dowJones).toMatchObject({
+      code: '.DJI',
+      source: 'NAVER_STOCK_API',
+      validation: 'single_source',
+      price: 53569.44,
+      change: 159.32,
+      changePct: 0.3,
+    });
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('Dow Jones KIS 일봉 수집 실패, Naver fallback 시도')
+    );
+  });
+
+  it('rejects a KIS Dow daily response with fewer than two rows', async () => {
+    const fetchMock = createMinimalSnapshotFetchMock({
+      dowKisRows: [
+        { stck_bsop_date: '20260827', ovrs_nmix_prpr: '53,569.44' },
+      ],
+    });
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    vi.stubGlobal('fetch', fetchMock);
+
+    const snapshot = await getKisMarketAssessmentSnapshot();
+
+    expect(snapshot.indicators.dowJones).toBeNull();
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('KIS daily chart returned fewer than 2 valid rows')
+    );
+  });
+
+  it('returns and evaluates a snapshot when all Dow sources are unavailable', async () => {
+    const fetchMock = createMinimalSnapshotFetchMock();
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    vi.stubGlobal('fetch', fetchMock);
+
+    const snapshot = await getKisMarketAssessmentSnapshot();
+    const evidence = evaluateMarketAssessmentSnapshot(snapshot);
+
+    expect(snapshot.indicators.dowJones).toBeNull();
+    expect(evidence.tier1Signals).toContain('2 available US indexes <= -2.5%');
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('Dow Jones Serp 수집 실패, unavailable로 처리')
+    );
+  });
+
   it('derives tier signals from the exact KIS snapshot', async () => {
     const fetchMock = vi
       .fn<() => Promise<Response>>()
@@ -455,13 +676,14 @@ describe('kis-market-assessment', () => {
       .mockResolvedValueOnce(
         createJsonResponse({
           rt_cd: '0',
-          output1: {
-            hts_kor_isnm: '다우존스 산업지수',
-            ovrs_nmix_prpr: '42000.00',
-            ovrs_nmix_prdy_vrss: '-1100.00',
-            prdy_ctrt: '-2.62',
-          },
+          output2: [
+            { stck_bsop_date: '20260827', ovrs_nmix_prpr: '42000.00' },
+            { stck_bsop_date: '20260826', ovrs_nmix_prpr: '43100.00' },
+          ],
         })
+      )
+      .mockResolvedValueOnce(
+        createJsonResponse(createNaverWorldIndexBasicPayload('42,000.00', '1,100.00', '2.55', 'FALLING'))
       )
       .mockResolvedValueOnce(
         createJsonResponse({
@@ -911,7 +1133,7 @@ describe('kis-market-assessment', () => {
 
   function makeCoherenceSnapshot(overrides: {
       sp500Pct?: number;
-      dowPct?: number;
+      dowPct?: number | null;
       nasdaqPct?: number;
       kospiPct?: number;
       nightKospiPct?: number | null;
@@ -932,7 +1154,9 @@ describe('kis-market-assessment', () => {
         fetchedAt: ts,
         indicators: {
           sp500: mkIndicator('SPX', 'S&P 500', overrides.sp500Pct ?? 0),
-          dowJones: mkIndicator('.DJI', 'Dow Jones', overrides.dowPct ?? 0),
+          dowJones: overrides.dowPct === null
+            ? null
+            : mkIndicator('.DJI', 'Dow Jones', overrides.dowPct ?? 0),
           nasdaqComposite: mkIndicator('COMP', 'NASDAQ', overrides.nasdaqPct ?? 0),
           kospi200MiniFutures: {
             ...mkIndicator('A05604', 'KOSPI200 mini futures', overrides.kospiPct ?? 0),
@@ -975,6 +1199,42 @@ describe('kis-market-assessment', () => {
         },
       };
     }
+
+  it('continues local evaluation when Dow is unavailable', () => {
+    const snapshot = makeCoherenceSnapshot({
+      sp500Pct: -3.1,
+      dowPct: null,
+      nasdaqPct: -2.8,
+      kospiPct: -3,
+    });
+
+    const evidence = evaluateMarketAssessmentSnapshot(snapshot);
+    const prompt = getMarketAssessmentPrompt({ snapshot, evidence });
+
+    expect(evidence.directionCoherence).toBe('coherent_crash');
+    expect(evidence.tier1Signals).toContain('2 available US indexes <= -2.5%');
+    expect(prompt).toContain('Dow Jones (.DJI): unavailable [all sources failed]');
+  });
+
+  it('rejects local evaluation when fewer than two US indexes are available', () => {
+    const snapshot = makeCoherenceSnapshot({
+      sp500Pct: -3.1,
+      dowPct: null,
+      nasdaqPct: -2.8,
+      kospiPct: -3,
+    });
+    const oneIndexSnapshot = {
+      ...snapshot,
+      indicators: {
+        ...snapshot.indicators,
+        sp500: null,
+      },
+    } as unknown as MarketAssessmentSnapshot;
+
+    expect(() => evaluateMarketAssessmentSnapshot(oneIndexSnapshot)).toThrow(
+      'Market snapshot requires at least 2 available US indexes; only 1 available'
+    );
+  });
 
   describe('classifyDirectionCoherence', () => {
     it('night session up → coherent_normal', () => {

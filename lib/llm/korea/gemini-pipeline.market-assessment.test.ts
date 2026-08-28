@@ -38,7 +38,7 @@ describe('executeMarketAssessment', () => {
     mockGetKisMarketAssessmentSnapshot.mockResolvedValue({
       indicators: {
         sp500: { changePct: -3.4, change: -200, price: 6000 },
-        dowJones: { changePct: -2.7, change: -900, price: 42000 },
+        dowJones: null,
         nasdaqComposite: { changePct: -2.6, change: -500, price: 22000 },
         kospi200MiniFutures: { changePct: -2.8, change: -23, price: 800 },
         vix: { price: 36.2, change: 11.4, changePct: 45.2, validation: 'cross_checked' },
@@ -69,6 +69,7 @@ describe('executeMarketAssessment', () => {
     const result = await executeMarketAssessment();
 
     expect(result.verdict).toBe('CRASH_ALERT');
+    expect(result.summary).toContain('Dow unavailable [all sources failed]');
     expect(mockGenerateContent).not.toHaveBeenCalled();
   });
 

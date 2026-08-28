@@ -61,12 +61,15 @@ export async function POST(request: NextRequest) {
     };
 
     // 4. SendGrid로 뉴스레터 전송
-    await sendStockNewsletter(
+    const sendResult = await sendStockNewsletter(
       subscribers.map((s) => ({ email: s.email, name: s.name || undefined })),
       newsletterData
     );
+    if (sendResult.failed.length > 0) {
+      throw new Error(`뉴스레터 이메일 발송 실패: ${sendResult.failed.length}명`);
+    }
 
-    console.log(`Job completed: ${subscribers.length} subscribers`);
+    console.log(`Job completed: ${sendResult.sent} subscribers`);
 
     return NextResponse.json(
       {

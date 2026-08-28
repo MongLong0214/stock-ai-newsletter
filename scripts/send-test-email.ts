@@ -49,7 +49,10 @@ async function sendTestEmail() {
     console.log('📧 이메일 발송 중...\n');
 
     // SendGrid로 뉴스레터 전송
-    await sendStockNewsletter([testRecipient], newsletterData);
+    const sendResult = await sendStockNewsletter([testRecipient], newsletterData);
+    if (sendResult.failed.length > 0) {
+      throw new Error('테스트 이메일 발송 실패');
+    }
 
     console.log('\n━'.repeat(80));
     console.log('✨ 테스트 이메일 발송 완료!');

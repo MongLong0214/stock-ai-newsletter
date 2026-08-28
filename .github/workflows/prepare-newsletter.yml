@@ -5,6 +5,15 @@ on:
     # 평일 오전 6:00 KST (UTC 21:00 전날, 월-금요일만)
     - cron: '0 21 * * 0-4'
   workflow_dispatch: # 수동 실행 가능
+    inputs:
+      dry_run:
+        description: 'DB 저장 없이 전 과정 실검수 (CI E2E용)'
+        type: boolean
+        default: false
+      simulate_today:
+        description: '신선도 게이트 기준일 시뮬레이션 (YYYY-MM-DD, dry_run 전용)'
+        type: string
+        default: ''
 
 jobs:
   check-market:
@@ -12,6 +21,18 @@ jobs:
     outputs:
       should_run: ${{ steps.check.outputs.should_run }}
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
       - name: Check Korean market day
         id: check
         run: |
@@ -23,60 +44,15 @@ jobs:
           fi
 
           KST_DATE=$(TZ=Asia/Seoul date +%Y-%m-%d)
-          KST_DOW=$(TZ=Asia/Seoul date +%u)
-          echo "📅 KST 날짜: $KST_DATE (요일: $KST_DOW)"
-
-          # 주말 체크 (6=토, 7=일) — cron 보완용 안전장치
-          if [ "$KST_DOW" -ge 6 ]; then
+          echo "📅 KST 날짜: $KST_DATE"
+          IS_TRADING_DAY=$(KST_DATE="$KST_DATE" npx tsx -e "import tradingCalendar from './lib/tli/trading-calendar.ts'; process.stdout.write(String(tradingCalendar.isKoreanTradingDate(process.env.KST_DATE!)))")
+          if [ "$IS_TRADING_DAY" = "true" ]; then
+            echo "should_run=true" >> $GITHUB_OUTPUT
+            echo "✅ 개장일 — 실행"
+          else
             echo "should_run=false" >> $GITHUB_OUTPUT
-            echo "🚫 주말 — 건너뜀"
-            exit 0
+            echo "🚫 휴장일 ($KST_DATE) — 건너뜀"
           fi
-
-          # 대한민국 공휴일 + KRX 휴장일 (매년 초 업데이트 필요)
-          HOLIDAYS=(
-            # — 2025 —
-            "2025-01-01"  # 신정
-            "2025-01-28" "2025-01-29" "2025-01-30"  # 설날
-            "2025-03-03"  # 삼일절 대체공휴일
-            "2025-05-01"  # 근로자의 날
-            "2025-05-05"  # 어린이날 + 부처님오신날
-            "2025-05-06"  # 대체공휴일
-            "2025-06-06"  # 현충일
-            "2025-08-15"  # 광복절
-            "2025-10-03"  # 개천절
-            "2025-10-06" "2025-10-07"  # 추석
-            "2025-10-08"  # 추석 대체공휴일
-            "2025-10-09"  # 한글날
-            "2025-12-25"  # 성탄절
-            "2025-12-31"  # 연말 휴장
-            # — 2026 —
-            "2026-01-01"  # 신정
-            "2026-02-16" "2026-02-17" "2026-02-18"  # 설날
-            "2026-03-02"  # 삼일절 대체공휴일
-            "2026-05-01"  # 근로자의 날
-            "2026-05-05"  # 어린이날
-            "2026-05-25"  # 부처님오신날 대체공휴일
-            "2026-06-03"  # 지방선거일
-            "2026-08-17"  # 광복절 대체공휴일
-            "2026-09-24" "2026-09-25"  # 추석
-            "2026-09-28"  # 추석 대체공휴일
-            "2026-10-05"  # 개천절 대체공휴일
-            "2026-10-09"  # 한글날
-            "2026-12-25"  # 성탄절
-            "2026-12-31"  # 연말 휴장
-          )
-
-          for holiday in "${HOLIDAYS[@]}"; do
-            if [ "$KST_DATE" = "$holiday" ]; then
-              echo "should_run=false" >> $GITHUB_OUTPUT
-              echo "🚫 공휴일/휴장일 ($KST_DATE) — 건너뜀"
-              exit 0
-            fi
-          done
-
-          echo "should_run=true" >> $GITHUB_OUTPUT
-          echo "✅ 개장일 — 실행"
 
   prepare-newsletter:
     needs: check-market
@@ -126,7 +102,13 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: |
           echo "🚀 Starting AI analysis and content preparation..."
-          npx tsx scripts/prepare-newsletter.ts
+          set -o pipefail
+          PREPARE_LOG=$(mktemp)
+          npx tsx scripts/prepare-newsletter.ts ${{ inputs.dry_run == true && '--dry-run' || '' }} ${{ inputs.simulate_today != '' && format('--simulate-today={0}', inputs.simulate_today) || '' }} 2>&1 | tee "$PREPARE_LOG"
+          if grep -q 'PICKS_SOURCE=llm_fallback' "$PREPARE_LOG"; then
+            echo "::warning::코드 픽 실패 — LLM fallback으로 발행됨"
+            echo "### ⚠️ 코드 픽 실패 — LLM fallback으로 발행됨" >> "$GITHUB_STEP_SUMMARY"
+          fi
 
       - name: Cleanup credentials
         if: always()

@@ -81,7 +81,24 @@ async function sendNewsletter() {
 
     const geminiAnalysis = newsletterContent.gemini_analysis;
 
-    // 3. 뉴스레터 데이터 생성
+    // 3. 발송 전 선점 처리 (동일 뉴스레터 중복 발송 방지)
+    console.log('🔒 뉴스레터 발송 상태 선점 중...');
+    const { data: claimedContent, error: claimError } = await supabase
+      .from('newsletter_content')
+      .update({ is_sent: true })
+      .eq('newsletter_date', today)
+      .eq('is_sent', false)
+      .select('newsletter_date')
+      .single();
+
+    if (claimError || !claimedContent) {
+      console.error('❌ 뉴스레터 발송 상태 선점 실패:', claimError);
+      throw new Error(`Failed to claim newsletter content for ${today}. Sending aborted.`);
+    }
+
+    console.log('✅ 뉴스레터 발송 상태 선점 완료\n');
+
+    // 4. 뉴스레터 데이터 생성
     const newsletterData = {
       geminiAnalysis,
       date: new Date().toLocaleDateString('ko-KR', {
@@ -94,28 +111,78 @@ async function sendNewsletter() {
 
     console.log('📧 이메일 발송 중...\n');
 
-    // 4. SendGrid로 뉴스레터 전송
-    await sendStockNewsletter(
-      subscribers.map((s) => ({ email: s.email, name: s.name || undefined })),
-      newsletterData
-    );
+    // 5. SendGrid로 뉴스레터 전송
+    let sendResult: Awaited<ReturnType<typeof sendStockNewsletter>>;
+    try {
+      sendResult = await sendStockNewsletter(
+        subscribers.map((s) => ({ email: s.email, name: s.name || undefined })),
+        newsletterData
+      );
+    } catch (sendError) {
+      try {
+        const { data: rolledBackContent, error: rollbackError } = await supabase
+          .from('newsletter_content')
+          .update({ is_sent: false })
+          .eq('newsletter_date', today)
+          .eq('is_sent', true)
+          .select('newsletter_date')
+          .single();
+
+        if (rollbackError || !rolledBackContent) {
+          throw rollbackError || new Error(`Newsletter content for ${today} was not rolled back.`);
+        }
+
+        console.log('↩️ 발송 실패로 is_sent=false 롤백 완료');
+      } catch (rollbackError) {
+        console.error(`\n${'🚨'.repeat(40)}`);
+        console.error('🚨 발송 실패 후 is_sent 롤백 실패:', rollbackError);
+        console.error(`${'🚨'.repeat(40)}\n`);
+      }
+
+      throw sendError;
+    }
+
+    if (sendResult.failed.length > 0) {
+      console.error(`❌ 이메일 발송 실패 수: ${sendResult.failed.length}명`);
+      console.error('   실패 대상 (인덱스/도메인만):', sendResult.failed);
+    }
+
+    if (sendResult.sent === 0) {
+      try {
+        const { data: rolledBackContent, error: rollbackError } = await supabase
+          .from('newsletter_content')
+          .update({ is_sent: false })
+          .eq('newsletter_date', today)
+          .eq('is_sent', true)
+          .select('newsletter_date')
+          .single();
+
+        if (rollbackError || !rolledBackContent) {
+          throw rollbackError || new Error(`Newsletter content for ${today} was not rolled back.`);
+        }
+
+        console.log('↩️ 전량 발송 실패로 is_sent=false 롤백 완료');
+      } catch (rollbackError) {
+        console.error(`\n${'🚨'.repeat(40)}`);
+        console.error('🚨 전량 발송 실패 후 is_sent 롤백 실패:', rollbackError);
+        console.error(`${'🚨'.repeat(40)}\n`);
+      }
+
+      throw new Error(`전체 이메일 발송 실패: 0/${subscribers.length}명 성공`);
+    }
 
     console.log('\n━'.repeat(80));
-    console.log('✨ 뉴스레터 발송 완료!');
+    console.log(sendResult.failed.length > 0 ? '⚠️ 뉴스레터 부분 발송 완료' : '✨ 뉴스레터 발송 완료!');
     console.log('━'.repeat(80));
-    console.log(`\n📬 ${subscribers.length}명에게 뉴스레터 발송 완료`);
-    console.log('\n구독자 목록:');
-    subscribers.forEach((sub, index) => {
-      console.log(`  ${index + 1}. ${sub.email}${sub.name ? ` (${sub.name})` : ''}`);
-    });
+    console.log(`\n📬 발송 성공 ${sendResult.sent}명, 실패 ${sendResult.failed.length}명`);
 
-    // 5. DB 업데이트 (발송 완료 표시)
+    // 6. DB 업데이트 (발송 완료 표시)
     const { error: updateError } = await supabase
       .from('newsletter_content')
       .update({
         is_sent: true,
         sent_at: new Date().toISOString(),
-        subscriber_count: subscribers.length,
+        subscriber_count: sendResult.sent,
       })
       .eq('newsletter_date', today);
 
@@ -123,7 +190,7 @@ async function sendNewsletter() {
       console.error('⚠️ DB 업데이트 실패 (뉴스레터는 정상 발송됨):', updateError);
     }
 
-    // 6. X(Twitter) 자동 게시
+    // 7. X(Twitter) 자동 게시
     try {
       console.log('\n━'.repeat(80));
       console.log('🐦 X(Twitter) 자동 게시 시작...');
@@ -145,7 +212,7 @@ async function sendNewsletter() {
       // 트위터 실패해도 프로세스는 성공으로 처리
     }
 
-    process.exit(0);
+    process.exit(sendResult.failed.length > 0 ? 1 : 0);
   } catch (error) {
     console.error('❌ 뉴스레터 발송 실패:', error);
     process.exit(1);
