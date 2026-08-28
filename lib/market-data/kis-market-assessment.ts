@@ -3,6 +3,7 @@ import type { Element } from 'domhandler';
 import { validateKisEnv } from '@/lib/_utils/env-validator';
 
 const FETCH_TIMEOUT_MS = 8_000;
+const NAVER_INDEX_TIMEOUT_MS = 5_000;
 const REQUEST_DELAY_MS = 350;
 const TOKEN_TTL_MS = 23 * 60 * 60 * 1000;
 const SNAPSHOT_TTL_MS = 30_000;
@@ -120,6 +121,15 @@ interface KisOverseasIndexOutput {
 
 interface KisOverseasIndexResponse extends KisErrorResponse {
   output1?: KisOverseasIndexOutput;
+}
+
+interface KisOverseasDailyChartRow {
+  stck_bsop_date?: string;
+  ovrs_nmix_prpr?: string;
+}
+
+interface KisOverseasDailyChartResponse extends KisErrorResponse {
+  output2?: KisOverseasDailyChartRow[];
 }
 
 interface KisDomesticFuturesRow {
@@ -313,9 +323,13 @@ async function requestCooldown(): Promise<void> {
   }
 }
 
-async function fetchWithTimeout(url: string, options: RequestInit): Promise<Response> {
+async function fetchWithTimeout(
+  url: string,
+  options: RequestInit,
+  timeoutMs = FETCH_TIMEOUT_MS
+): Promise<Response> {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
     return await fetch(url, { ...options, signal: controller.signal });
@@ -449,6 +463,18 @@ function parseNumber(value: string | undefined): number {
 
   const parsed = Number.parseFloat(value.replace(/,/g, ''));
   return Number.isFinite(parsed) ? parsed : Number.NaN;
+}
+
+function formatKisDate(date: Date): string {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Seoul',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(date);
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+
+  return `${values.year}${values.month}${values.day}`;
 }
 
 function parseSignedMovement(movement: SerpApiPriceMovement | undefined): {
@@ -996,6 +1022,50 @@ async function getKospiNightSessionInquiry(
   }
 }
 
+async function getKisOverseasDailyIndexIndicator(
+  symbol: string,
+  label: string
+): Promise<MarketIndicatorSnapshot> {
+  const now = new Date();
+  const tenDaysAgo = new Date(now.getTime() - 10 * 24 * 60 * 60 * 1000);
+  const response = await kisGet<KisOverseasDailyChartResponse>(
+    '/uapi/overseas-price/v1/quotations/inquire-daily-chartprice',
+    {
+      FID_COND_MRKT_DIV_CODE: 'N',
+      FID_INPUT_ISCD: symbol,
+      FID_INPUT_DATE_1: formatKisDate(tenDaysAgo),
+      FID_INPUT_DATE_2: formatKisDate(now),
+      FID_PERIOD_DIV_CODE: 'D',
+    },
+    'FHKST03030100'
+  );
+  const dailyRows = (Array.isArray(response.output2) ? response.output2 : [])
+    .map((row) => ({
+      date: row.stck_bsop_date?.trim() ?? '',
+      price: parseNumber(row.ovrs_nmix_prpr),
+    }))
+    .filter((row) => /^\d{8}$/.test(row.date) && Number.isFinite(row.price) && row.price > 0)
+    .sort((left, right) => right.date.localeCompare(left.date));
+
+  if (dailyRows.length < 2) {
+    throw new Error(`${label} KIS daily chart returned fewer than 2 valid rows`);
+  }
+
+  const [latest, previous] = dailyRows;
+  const change = latest.price - previous.price;
+  const changePct = (latest.price / previous.price - 1) * 100;
+
+  return withSingleSourceValidation({
+    code: symbol,
+    label,
+    source: 'KIS',
+    price: latest.price,
+    change,
+    changePct,
+    fetchedAt: new Date().toISOString(),
+  });
+}
+
 async function getOverseasIndexQuote(
   symbol: string,
   label: string
@@ -1125,6 +1195,52 @@ async function getSerpFinanceIndicator(
     price,
     change: movement.change,
     changePct: movement.changePct,
+    fetchedAt: new Date().toISOString(),
+  });
+}
+
+async function getNaverWorldIndexIndicator(
+  indexCode: string,
+  label: string
+): Promise<MarketIndicatorSnapshot | null> {
+  const response = await fetchWithTimeout(
+    `https://api.stock.naver.com/index/${encodeURIComponent(indexCode)}/basic`,
+    {
+      method: 'GET',
+      headers: {
+        Accept: 'application/json',
+        'User-Agent': 'Mozilla/5.0',
+      },
+    },
+    NAVER_INDEX_TIMEOUT_MS
+  );
+
+  if (!response.ok) {
+    throw new Error(`Naver world index request failed: HTTP ${response.status}`);
+  }
+
+  const data = (await response.json()) as NaverDomesticIndexBasicResponse;
+  const price = parseNumber(data.closePrice);
+  const change = parseSignedNaverApiNumber(
+    data.compareToPreviousClosePrice,
+    data.compareToPreviousPrice
+  );
+  const changePct = parseSignedNaverApiNumber(
+    data.fluctuationsRatio,
+    data.compareToPreviousPrice
+  );
+
+  if (!Number.isFinite(price) || price <= 0 || !Number.isFinite(change) || !Number.isFinite(changePct)) {
+    return null;
+  }
+
+  return withSingleSourceValidation({
+    code: indexCode,
+    label,
+    source: 'NAVER_STOCK_API',
+    price,
+    change,
+    changePct,
     fetchedAt: new Date().toISOString(),
   });
 }
@@ -1435,6 +1551,113 @@ async function getCrossValidatedIndicator(
   return primary;
 }
 
+interface OverseasIndexSourceChainConfig {
+  label: string;
+  kisSymbol: string;
+  naverCode: string;
+  serpQuery: string;
+  tolerances?: {
+    priceTolerancePct?: number;
+    changeTolerance?: number;
+    changePctTolerance?: number;
+  };
+}
+
+async function tryIndicatorSource(
+  label: string,
+  sourceLabel: string,
+  nextSourceLabel: string | null,
+  loader: () => Promise<MarketIndicatorSnapshot | null>
+): Promise<MarketIndicatorSnapshot | null> {
+  try {
+    const indicator = await loader();
+
+    if (!indicator) {
+      throw new Error('returned no usable data');
+    }
+
+    return indicator;
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    const nextStep = nextSourceLabel
+      ? `, ${nextSourceLabel} fallback 시도`
+      : ', unavailable로 처리';
+    console.warn(`[Market Snapshot] ${label} ${sourceLabel} 수집 실패${nextStep}: ${errorMsg}`);
+    return null;
+  }
+}
+
+function findCrossCheckedIndicator(
+  indicators: MarketIndicatorSnapshot[],
+  tolerances: OverseasIndexSourceChainConfig['tolerances']
+): MarketIndicatorSnapshot | null {
+  for (let primaryIndex = 0; primaryIndex < indicators.length - 1; primaryIndex += 1) {
+    for (let secondaryIndex = primaryIndex + 1; secondaryIndex < indicators.length; secondaryIndex += 1) {
+      const primary = indicators[primaryIndex];
+      const secondary = indicators[secondaryIndex];
+      const secondarySource = secondary.source === 'KIS' || secondary.source === 'MULTI_SOURCE'
+        ? secondary.secondarySource
+        : secondary.source;
+
+      if (secondarySource && isMarketIndicatorConsistent(primary, secondary, tolerances)) {
+        return withCrossValidation(primary, secondarySource);
+      }
+    }
+  }
+
+  return null;
+}
+
+async function getOverseasIndexWithFallbackChain(
+  config: OverseasIndexSourceChainConfig
+): Promise<MarketIndicatorSnapshot | null> {
+  const kis = await tryIndicatorSource(config.label, 'KIS 일봉', 'Naver', () =>
+    getKisOverseasDailyIndexIndicator(config.kisSymbol, config.label)
+  );
+  await requestCooldown();
+
+  const naver = await tryIndicatorSource(config.label, 'Naver', 'Serp', () =>
+    getNaverWorldIndexIndicator(config.naverCode, config.label)
+  );
+  const firstSources = [kis, naver].filter(
+    (indicator): indicator is MarketIndicatorSnapshot => indicator !== null
+  );
+  const firstCrossChecked = findCrossCheckedIndicator(firstSources, config.tolerances);
+
+  if (firstCrossChecked) {
+    return firstCrossChecked;
+  }
+
+  if (firstSources.length === 2) {
+    console.warn(
+      `[Market Snapshot] ${config.label} KIS/Naver 교차검증 불일치, Serp fallback 시도`
+    );
+  }
+
+  await requestCooldown();
+  const serp = await tryIndicatorSource(config.label, 'Serp', null, () =>
+    getSerpFinanceIndicator(config.serpQuery, config.label)
+  );
+  const available = [...firstSources, serp].filter(
+    (indicator): indicator is MarketIndicatorSnapshot => indicator !== null
+  );
+  const crossChecked = findCrossCheckedIndicator(available, config.tolerances);
+
+  if (crossChecked) {
+    return crossChecked;
+  }
+
+  if (available.length > 1) {
+    console.warn(
+      `[Market Snapshot] ${config.label} 교차검증 불일치: ${available
+        .map((indicator) => `${indicator.source} ${indicator.price.toFixed(4)}`)
+        .join(' / ')}`
+    );
+  }
+
+  return available[0] ?? null;
+}
+
 async function getNaverForeignerNetSelling(): Promise<ForeignerNetSellingSnapshot | null> {
   const response = await fetchWithTimeout(
     'https://finance.naver.com/sise/sise_deal_rank_iframe.naver?sosok=01&investor_gubun=9000&type=sell',
@@ -1715,29 +1938,12 @@ export async function getKisMarketAssessmentSnapshot(): Promise<MarketAssessment
   const sp500 = await getOverseasIndexQuote('SPX', 'S&P 500');
   await requestCooldown();
 
-  const dowJones = await safeSupplementaryValue(
-    'Dow Jones',
-    async () => {
-      try {
-        return await getOverseasIndexQuote('.DJI', 'Dow Jones');
-      } catch (error) {
-        const errorMsg = error instanceof Error ? error.message : String(error);
-        console.warn(
-          `[Market Snapshot] Dow Jones KIS 수집 실패, Serp fallback 시도: ${errorMsg}`
-        );
-      }
-
-      await requestCooldown();
-      const fallback = await getSerpFinanceIndicator('.DJI:INDEXDJX', 'Dow Jones');
-
-      if (!fallback) {
-        console.warn('[Market Snapshot] Dow Jones Serp fallback도 값을 반환하지 않아 unavailable로 처리');
-      }
-
-      return fallback;
-    },
-    null
-  );
+  const dowJones = await getOverseasIndexWithFallbackChain({
+    label: 'Dow Jones',
+    kisSymbol: '.DJI',
+    naverCode: '.DJI',
+    serpQuery: '.DJI:INDEXDJX',
+  });
   await requestCooldown();
 
   const nasdaqComposite = await getOverseasIndexQuote('COMP', 'NASDAQ Composite');
@@ -2073,7 +2279,7 @@ export function formatMarketAssessmentSnapshot(snapshot: MarketAssessmentSnapsho
     `- S&P 500 (SPX): ${sp500.price.toFixed(2)} (${sp500.change >= 0 ? '+' : ''}${sp500.change.toFixed(2)}, ${sp500.changePct >= 0 ? '+' : ''}${sp500.changePct.toFixed(2)}%)`,
     dowJones
       ? `- Dow Jones (${dowJones.code}): ${dowJones.price.toFixed(2)} (${dowJones.change >= 0 ? '+' : ''}${dowJones.change.toFixed(2)}, ${dowJones.changePct >= 0 ? '+' : ''}${dowJones.changePct.toFixed(2)}%)${dowJones.validation === 'single_source' ? ' [single-source]' : ''}`
-      : '- Dow Jones (.DJI): unavailable [KIS 서빙 중단]',
+      : '- Dow Jones (.DJI): unavailable [all sources failed]',
     `- NASDAQ Composite (${nasdaqComposite.code}): ${nasdaqComposite.price.toFixed(2)} (${nasdaqComposite.change >= 0 ? '+' : ''}${nasdaqComposite.change.toFixed(2)}, ${nasdaqComposite.changePct >= 0 ? '+' : ''}${nasdaqComposite.changePct.toFixed(2)}%)`,
     `- KOSPI200 mini futures (${kospi200MiniFutures.contractName}, ${kospi200MiniFutures.code}): ${kospi200MiniFutures.price.toFixed(2)} (${kospi200MiniFutures.change >= 0 ? '+' : ''}${kospi200MiniFutures.change.toFixed(2)}, ${kospi200MiniFutures.changePct >= 0 ? '+' : ''}${kospi200MiniFutures.changePct.toFixed(2)}%)${snapshot.nightSession.isPreMarketHours ? ' [daytime close]' : ''}`,
   ];

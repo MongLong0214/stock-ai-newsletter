@@ -102,7 +102,7 @@ function buildApiSnapshotSection(
     : '없음';
   const dowJonesLine = dowJones
     ? `- Dow Jones (${dowJones.code}): ${dowJones.price.toFixed(2)} / ${dowJones.change >= 0 ? '+' : ''}${dowJones.change.toFixed(2)} / ${dowJones.changePct >= 0 ? '+' : ''}${dowJones.changePct.toFixed(2)}%${dowJones.validation === 'single_source' ? ' [single-source]' : ''}`
-    : '- Dow Jones (.DJI): unavailable [KIS 서빙 중단]';
+    : '- Dow Jones (.DJI): unavailable [all sources failed]';
 
   return `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 📡 API 숫자 스냅샷 (최우선 진실원)
@@ -123,9 +123,9 @@ ${evidence?.kospiDataStale ? `⚠️ KOSPI 주간장 데이터(${kospi200MiniFut
 ${foreignerNetSelling ? `- Foreigner flow: ${summarizeForeignerFlow(foreignerNetSelling)}` : '- Foreigner flow: unavailable'}
 
 참고:
-- KIS: S&P 500 / Dow Jones(primary) / NASDAQ Composite / KOSPI200 mini futures
-- Serp: Dow Jones fallback / VIX / FX / 이벤트 검색
-- Naver Stock API: KOSPI 200 futures / Nikkei futures / Nikkei 225 index confirmation
+- KIS: S&P 500 / Dow Jones daily(primary) / NASDAQ Composite / KOSPI200 mini futures
+- Naver Stock API: Dow Jones secondary / KOSPI 200 futures / Nikkei futures / Nikkei 225 index confirmation
+- Serp: Dow Jones final fallback / VIX / FX / 이벤트 검색
 - Naver: VIX / FX / 외국인 순매도 / 뉴스 증거
 - 이미 숫자로 감지된 Tier 1 신호: ${hardSignals}
 - 이미 숫자로 감지된 Tier 2 신호: ${warningSignals}

@@ -69,7 +69,7 @@ describe('executeMarketAssessment', () => {
     const result = await executeMarketAssessment();
 
     expect(result.verdict).toBe('CRASH_ALERT');
-    expect(result.summary).toContain('Dow unavailable [KIS 서빙 중단]');
+    expect(result.summary).toContain('Dow unavailable [all sources failed]');
     expect(mockGenerateContent).not.toHaveBeenCalled();
   });
 
