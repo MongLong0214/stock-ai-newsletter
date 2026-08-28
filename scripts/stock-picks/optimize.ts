@@ -788,7 +788,12 @@ if (isDirectRun) {
   const args = process.argv.slice(2)
   if (args.includes('--help') || args.includes('-h')) printUsage()
   else runCli(args).catch((error: unknown) => {
-    console.error(error instanceof Error ? error.message : String(error))
+    // Supabase 오류 등 non-Error throw가 "[object Object]"로 뭉개지지 않도록 전체 직렬화
+    console.error(
+      error instanceof Error
+        ? error.stack ?? error.message
+        : JSON.stringify(error, Object.getOwnPropertyNames(error ?? {})),
+    )
     process.exit(1)
   })
 }
