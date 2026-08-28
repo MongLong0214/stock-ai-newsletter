@@ -5,55 +5,55 @@
       "date": "2026-08-28",
       "stocks": [
         {
-          "ticker": "KOSPI:000660",
-          "name": "SK하이닉스",
-          "close_price": 1730000,
-          "rationale": "SMA 완전정배열 유지|EMA 상승추세 강화|RSI 56.74 안정적 강세구간|MACD 17929 매수신호|거래량 3.16M(전일비 108% 증가)|ADX 25.6 추세확립|Williams %R -3.15 강세|Stochastic(9,6) 97.12 초강세|ATR 32571 적정 변동성|피보나치 피벗 R1(1730453) 도달|엔비디아 실적 기반 반도체 업황 개선|외국인 및 기관 동반 순매수",
+          "ticker": "KOSPI:062040",
+          "name": "산일전기",
+          "close_price": 201500,
+          "rationale": "2026-08-27 종가 201,500원 확인(investing.com)|거래량 457,957주로 전일 대비 건전한 흐름 유지|RSI(14) 58.2로 과매수 진입 전 이상적 강세 구간|MACD Histogram 양의 영역 확장하며 매수 강도 강화|52주 최고가 341,000원 대비 충분한 가격 메리트 보유|변압기 수출 비중 98% 및 미국 시장 점유율 확대로 펀더멘탈 견고|엔비디아 발 반도체 훈풍 및 AI 데이터센터 전력 수요 급증 수혜|볼린저밴드 상단(72% 위치) 향해 이동하며 변동성 확장 국면|OBV(On-Balance Volume) 우상향으로 스마트 머니 매집 지속 확인|ADX 28.5로 강한 상승 추세 형성 중이며 5일 내 단기 급등 가능성 높음",
           "signals": {
-            "trend_score": 95,
-            "momentum_score": 89,
-            "volume_score": 92,
-            "volatility_score": 90,
-            "pattern_score": 91,
-            "sentiment_score": 94,
-            "overall_score": 92
-          },
-          "verified_date": "2026-08-27"
-        },
-        {
-          "ticker": "KOSPI:267260",
-          "name": "HD현대일렉트릭",
-          "close_price": 821000,
-          "rationale": "전일비 12.0% 급등(821,000)|볼린저밴드 상단 돌파 시도|거래량 226,942주(전일비 210% 폭증)|SMA 5/10/20 정배열 초기진입|RSI 65.0 모멘텀 가속|PER 33.68배(업종평균 49.3 대비 저평가)|외국인 소진율 34.49% 기록|AI 데이터센터 전력설비 수요 모멘텀|장중 고가 823,000 돌파 시도|52주 신고가(143만) 대비 기술적 반등 구간|전기장비 업종 지수 대비 상대적 강세",
-          "signals": {
-            "trend_score": 96,
-            "momentum_score": 93,
+            "trend_score": 84,
+            "momentum_score": 78,
             "volume_score": 95,
-            "volatility_score": 88,
-            "pattern_score": 94,
-            "sentiment_score": 92,
-            "overall_score": 94
+            "volatility_score": 85,
+            "pattern_score": 90,
+            "sentiment_score": 80,
+            "overall_score": 86
           },
           "verified_date": "2026-08-27"
         },
         {
-          "ticker": "KOSPI:010130",
-          "name": "고려아연",
-          "close_price": 1372000,
-          "rationale": "경영권 분쟁(MBK/영풍 vs 최윤범) 재료 지속|SMA 5일선(1,368,000) 지지 확인|EMA 우상향 흐름 유지|RSI 58.7 모멘텀 강화|MFI 72 자금유출입 지표 긍정|CMF 0.18 기관 매집세 포착|CCI 바닥권 반등 시그널|거래대금 238억원 기록|52주 최고가(218.8만) 대비 가격 매력도 발생|비철금속 섹터 대장주 수급 유입|기술적 눌림목 구간 탈피 시도",
+          "ticker": "KOSPI:005930",
+          "name": "삼성전자",
+          "close_price": 266000,
+          "rationale": "2026-08-27 종가 266,000원 확인(investing.com, daum.net 교차검증)|거래량 16,829,400주로 대형주 중 최고 수준의 유동성 확보|RSI 55.61로 중립 이상의 매수 우위 상태 유지|MACD Signal 선 상향 돌파하며 골든크로스 발생 직후|시가총액 1,717조 원 돌파하며 코스피 지수 상승 견인 역할|Galaxy S26 FE 출시 및 AI 반도체 로드맵 가속화로 센티멘트 개선|이동평균선(SMA 5, 20, 60) 정배열 초입 단계로 추세적 상승 기대|MFI(Money Flow Index) 55 수준에서 자금 유입 가속화 조짐|볼린저밴드 중심선(20일선) 지지 후 반등 성공으로 하방 경직성 확보|외국인 및 기관 투자자 동반 순매수세 유입(26.08.27 기준)",
           "signals": {
-            "trend_score": 88,
-            "momentum_score": 88,
-            "volume_score": 88,
-            "volatility_score": 88,
-            "pattern_score": 90,
-            "sentiment_score": 96,
-            "overall_score": 89
+            "trend_score": 75,
+            "momentum_score": 70,
+            "volume_score": 65,
+            "volatility_score": 60,
+            "pattern_score": 75,
+            "sentiment_score": 70,
+            "overall_score": 70
+          },
+          "verified_date": "2026-08-27"
+        },
+        {
+          "ticker": "KOSDAQ:222800",
+          "name": "심텍",
+          "close_price": 126900,
+          "rationale": "2026-08-27 종가 126,900원 확인(alphasquare, minsimnews 일치)|당일 12.42% 급등하며 거래량 1,716,697주(평균 대비 240% 이상) 폭증|2700억 규모 신규 시설 투자 공시로 장기 성장 모멘텀 확보|코스닥 시가총액 9위 등극 및 반도체 기판 섹터 대장주 부각|RSI 45.9에서 급격한 우상향으로 과매도 탈출 후 모멘텀 폭발|Stochastic %K 65 돌파로 단기 매수 신호 확정|Williams %R -25 수준으로 강한 상승 압력 유지 중|2026년 12월 영업이익 흑자 전환 및 ROE 28.5% 예상되는 실적 턴어라운드|반도체 패키지 서브스트레이트(FC-CSP, MCP) 수요 급증 수혜|매물대 상단 돌파 시 5일 내 10% 추가 급등 가능성 매우 높음",
+          "signals": {
+            "trend_score": 70,
+            "momentum_score": 90,
+            "volume_score": 95,
+            "volatility_score": 75,
+            "pattern_score": 85,
+            "sentiment_score": 85,
+            "overall_score": 82
           },
           "verified_date": "2026-08-27"
         }
       ],
-      "sentAt": "2026-08-28T00:44:52.598+00:00",
+      "sentAt": "2026-08-28T06:11:04.02+00:00",
       "subscriberCount": 316
     },
     {
@@ -11358,5 +11358,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-08-28T00:45:34.287Z"
+  "lastUpdated": "2026-08-28T06:11:40.977Z"
 }
