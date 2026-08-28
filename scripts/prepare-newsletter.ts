@@ -19,11 +19,11 @@ import { generatePicks } from '@/scripts/stock-picks/generate-picks'
 const envPath = resolve(process.cwd(), '.env.local')
 if (existsSync(envPath)) config({ path: envPath })
 
-export type PicksSource = 'code' | 'llm_fallback'
+export type PicksSource = 'code' | 'llm_fallback' | 'crash'
 
 export interface NewsletterAnalysisResult {
   readonly geminiAnalysis: string
-  readonly picksSource: PicksSource | null
+  readonly picksSource: PicksSource
 }
 
 export interface NewsletterPipelineDependencies {
@@ -49,7 +49,7 @@ export async function resolveNewsletterAnalysis(
   if (assessment.verdict === 'CRASH_ALERT') {
     console.log('\n🚨 [CRASH_ALERT] 기존 폭락 분석 Pipeline 실행')
     const result = await getLlmAnalysis({ marketAssessment: assessment })
-    return { geminiAnalysis: result.geminiAnalysis, picksSource: null }
+    return { geminiAnalysis: result.geminiAnalysis, picksSource: 'crash' }
   }
 
   console.log('\n✅ [NORMAL] 일일 수집 → 코드 종목 추천 Pipeline 실행')
@@ -84,7 +84,7 @@ const createNewsletterClient = () => {
 
 export async function prepareNewsletter(): Promise<void> {
   console.log('🚀 뉴스레터 준비 작업 시작...\n')
-  const { geminiAnalysis } = await resolveNewsletterAnalysis()
+  const { geminiAnalysis, picksSource } = await resolveNewsletterAnalysis()
   console.log('✅ 뉴스레터 분석 완료\n')
 
   const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' })
@@ -97,6 +97,7 @@ export async function prepareNewsletter(): Promise<void> {
       {
         newsletter_date: today,
         gemini_analysis: geminiAnalysis,
+        picks_source: picksSource,
         created_at: new Date().toISOString(),
       },
       { onConflict: 'newsletter_date' },

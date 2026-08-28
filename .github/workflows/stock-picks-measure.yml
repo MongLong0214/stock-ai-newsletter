@@ -1,0 +1,50 @@
+name: Measure Stock Pick Forward Accuracy
+
+on:
+  schedule:
+    # 토요일 10:00 KST
+    - cron: '0 1 * * 6'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  measure:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Measure forward accuracy
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          set -o pipefail
+          npm run stocks:measure 2>&1 | tee stock-picks-measure.log
+
+      - name: Write job summary
+        if: always()
+        run: |
+          {
+            echo '## Stock pick forward accuracy'
+            echo '```text'
+            if [ -f stock-picks-measure.log ]; then
+              cat stock-picks-measure.log
+            else
+              echo 'Measurement did not produce output.'
+            fi
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -45,6 +45,8 @@
     "tli:stock-prices:backfill": "tsx scripts/tli/ops/run-stock-daily-price-backfill.ts",
     "tli:episode:peak-backfill": "tsx scripts/tli/ops/run-episode-peak-backfill.ts",
     "stocks:master": "tsx scripts/stock-picks/load-stock-master.ts",
+    "stocks:collect-daily": "tsx scripts/stock-picks/collect-daily.ts",
+    "stocks:measure": "tsx scripts/stock-picks/measure-forward.ts",
     "naver:login": "tsx scripts/naver-blog/login.ts",
     "naver:publish": "tsx scripts/naver-blog/publish.ts",
     "naver:demand": "tsx scripts/naver-ad/theme-demand.ts",

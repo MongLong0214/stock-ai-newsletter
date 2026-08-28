@@ -84,7 +84,7 @@ describe('prepare-newsletter stock-pick wiring', () => {
 
       expect(result).toEqual({
         geminiAnalysis: '{"type":"crash_alert"}',
-        picksSource: null,
+        picksSource: 'crash',
       })
       expect(collectDaily).not.toHaveBeenCalled()
       expect(generateCodePicks).not.toHaveBeenCalled()
