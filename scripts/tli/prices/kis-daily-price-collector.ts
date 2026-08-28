@@ -2,6 +2,7 @@ import { getDailyRangeClosePrices, getIndexDailyRangeClosePrices, type KisDailyR
 import { isKoreanTradingDate } from '@/lib/tli/trading-calendar'
 import {
   KOSPI_INDEX_SYMBOL,
+  loadActiveStockMasterSymbols,
   loadActiveThemeStockSymbols,
   upsertStockDailyPrices,
   type StockDailyPriceInput,
@@ -9,6 +10,7 @@ import {
 
 export const DEFAULT_KIS_DAILY_PRICE_CALL_BUDGET = 1000
 export const KIS_DAILY_PRICE_RATE_LIMIT_PER_SECOND = 2
+export type StockDailyPriceUniverse = 'theme' | 'full'
 
 /** KOSPI 지수 조회용 KIS 업종 코드 (0001 = 코스피) */
 const KOSPI_INDEX_CODE = '0001'
@@ -66,7 +68,7 @@ export function getRecentTradingDates(input: {
 }
 
 /**
- * 심볼 단위 기간조회로 일봉(종가+거래량)을 수집·적재
+ * 심볼 단위 기간조회로 일봉(OHLCV)을 수집·적재
  *
  * PRD 원 설계: 기간조회 1콜 = 최대 100영업일. 날짜×심볼 단건 호출 대신
  * 심볼당 1콜(days일 창)로 조회해 콜 예산이 며칠 만에 소진되는 문제를 해소한다.
@@ -75,6 +77,7 @@ export function getRecentTradingDates(input: {
 export async function collectAndPersistStockDailyPriceRange(input: {
   readonly endDate: string
   readonly days: number
+  readonly universe?: StockDailyPriceUniverse
   readonly callBudget?: number
   readonly rateLimitPerSecond?: number
   readonly delayMs?: number
@@ -89,7 +92,8 @@ export async function collectAndPersistStockDailyPriceRange(input: {
   const fetchDailyRangeClosePrices = input.fetchDailyRangeClosePrices ?? getDailyRangeClosePrices
   const fetchIndexDailyRangeClosePrices = input.fetchIndexDailyRangeClosePrices ?? getIndexDailyRangeClosePrices
   const persistDailyPrices = input.persistDailyPrices ?? upsertStockDailyPrices
-  const loadSymbols = input.loadSymbols ?? loadActiveThemeStockSymbols
+  const loadSymbols = input.loadSymbols
+    ?? (input.universe === 'full' ? loadActiveStockMasterSymbols : loadActiveThemeStockSymbols)
 
   const tradeDates = getRecentTradingDates({ endDate: input.endDate, days: input.days })
   const tradeDateSet = new Set(tradeDates)
@@ -122,6 +126,9 @@ export async function collectAndPersistStockDailyPriceRange(input: {
           prices.push({
             symbol,
             tradeDate: point.date,
+            open: point.open,
+            high: point.high,
+            low: point.low,
             close: point.close,
             volume: point.volume,
             source: 'kis',
@@ -170,9 +177,20 @@ export async function collectAndPersistStockDailyPriceRange(input: {
   }
 }
 
-/** 당일 증분 수집 — 1일 창 기간조회(당일~당일)로 거래량까지 함께 적재 */
-export async function collectDailyStockPricesForDate(tradeDate: string): Promise<StockDailyPriceCollectionReport> {
-  return collectAndPersistStockDailyPriceRange({ endDate: tradeDate, days: 1 })
+/** 당일 증분 수집 — 1일 창 기간조회(당일~당일)로 OHLCV 적재 */
+export async function collectDailyStockPricesForDate(
+  tradeDate: string,
+  options: {
+    readonly universe?: StockDailyPriceUniverse
+    readonly callBudget?: number
+  } = {},
+): Promise<StockDailyPriceCollectionReport> {
+  return collectAndPersistStockDailyPriceRange({
+    endDate: tradeDate,
+    days: 1,
+    universe: options.universe,
+    callBudget: options.callBudget,
+  })
 }
 
 /** 최근 N영업일 백필 — 심볼당 1콜(days일 창) */
@@ -180,6 +198,7 @@ export async function backfillRecentStockDailyPrices(input: {
   readonly endDate: string
   readonly days?: number
   readonly callBudget?: number
+  readonly universe?: StockDailyPriceUniverse
   readonly delayMs?: number
   readonly fetchDailyRangeClosePrices?: FetchDailyRangeClosePrices
   readonly fetchIndexDailyRangeClosePrices?: FetchDailyRangeClosePrices
@@ -189,6 +208,7 @@ export async function backfillRecentStockDailyPrices(input: {
     endDate: input.endDate,
     days: input.days ?? 30,
     callBudget: input.callBudget,
+    universe: input.universe,
     delayMs: input.delayMs,
     fetchDailyRangeClosePrices: input.fetchDailyRangeClosePrices,
     fetchIndexDailyRangeClosePrices: input.fetchIndexDailyRangeClosePrices,
