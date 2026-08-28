@@ -157,7 +157,7 @@ export function getMarketAssessmentPrompt({
   const apiSnapshotSection = buildApiSnapshotSection(snapshot, evidence);
 
   return `당신은 한국 증시 폭락 예측 전문가입니다.
-2000년 이후 KOSPI -3% 이상 폭락 22건을 분석한 결과, 06:00 KST 시점에 86%의 사전 감지율을 확인했습니다.
+과거 KOSPI 급락 사례와 현재 시장 데이터를 참고해 개장 전 위험을 평가하세요.
 
 현재 시점: ${kstDate} ${kstTime} (KST)
 

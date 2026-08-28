@@ -1,4 +1,4 @@
-import { FinishReason, GoogleGenAI } from '@google/genai';
+import { FinishReason, GoogleGenAI, type GenerateContentResponse } from '@google/genai';
 import {
     createDateContext,
     getCommonPrinciples,
@@ -64,6 +64,26 @@ function startProgressTimer(label: string, intervalMs = 10000): { stop: () => vo
             clearInterval(timer);
         },
     };
+}
+
+/**
+ * Gemini 응답별 실제 토큰 사용량과 검색 쿼리 수를 한 줄 JSON으로 기록
+ */
+function logGenerateContentUsage(stage: string, response: GenerateContentResponse): void {
+    const usage = response.usageMetadata;
+    const webSearchQueries = response.candidates?.[0]?.groundingMetadata?.webSearchQueries;
+
+    console.log(
+        JSON.stringify({
+            event: 'gemini_usage',
+            stage,
+            promptTokenCount: usage?.promptTokenCount ?? null,
+            candidatesTokenCount: usage?.candidatesTokenCount ?? null,
+            thoughtsTokenCount: usage?.thoughtsTokenCount ?? null,
+            totalTokenCount: usage?.totalTokenCount ?? null,
+            webSearchQueriesCount: webSearchQueries?.length ?? null,
+        })
+    );
 }
 
 /**
@@ -209,6 +229,7 @@ async function executeStage(
 
             progress.stop();
             const apiElapsed = Date.now() - apiStartTime;
+            logGenerateContentUsage(`STAGE ${stage.stageNumber}`, response);
             const text = response.text ?? '';
             console.log(`   ✅ API 응답 수신: ${text.length.toLocaleString()} chars (${formatElapsed(apiElapsed)})`);
 
@@ -459,6 +480,7 @@ async function executeSearchMarketAssessmentFallback(snapshotError: string): Pro
                 () => abortController.abort()
             );
 
+            logGenerateContentUsage('MARKET ASSESSMENT FALLBACK', response);
             const parsed = parseMarketAssessmentResponse(response.text || '');
             const resolved =
                 parsed.verdict === 'CRASH_ALERT' && parsed.confidence < 70
@@ -617,6 +639,7 @@ export async function executeCrashAnalysisPipeline(assessmentSummary: string): P
                 () => abortController.abort()
             );
 
+            logGenerateContentUsage('CRASH ANALYSIS STAGE 1', response);
             searchResult = response.text || '';
             if (searchResult.trim().length < PIPELINE_CONFIG.MIN_STAGE_OUTPUT_CHARS) {
                 throw new Error(
@@ -663,6 +686,7 @@ export async function executeCrashAnalysisPipeline(assessmentSummary: string): P
                 () => abortController.abort()
             );
 
+            logGenerateContentUsage('CRASH ANALYSIS STAGE 2', response);
             const text = response.text || '';
             if (text.trim().length < PIPELINE_CONFIG.MIN_STAGE_OUTPUT_CHARS) {
                 throw new Error(

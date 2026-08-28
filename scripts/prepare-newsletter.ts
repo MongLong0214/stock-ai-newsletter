@@ -55,7 +55,6 @@ async function prepareNewsletter() {
         {
           newsletter_date: today,
           gemini_analysis: geminiAnalysis,
-          is_sent: false,
           created_at: new Date().toISOString(),
         },
         {
