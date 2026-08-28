@@ -21,6 +21,18 @@ describe('stock daily prices', () => {
     expect(migration).not.toMatch(/\bDROP\s+TABLE\b/i)
   })
 
+  it('adds nullable OHLC columns and a service-role-only stock master additively', async () => {
+    const migration = await readFile('supabase/migrations/057_stock_ohlc_and_master.sql', 'utf8')
+
+    expect(migration).toContain('ADD COLUMN open NUMERIC')
+    expect(migration).toContain('ADD COLUMN high NUMERIC')
+    expect(migration).toContain('ADD COLUMN low NUMERIC')
+    expect(migration).toContain('CHECK (high IS NULL OR low IS NULL OR high >= low)')
+    expect(migration).toContain('CREATE TABLE public.stock_master')
+    expect(migration).toContain('CREATE POLICY service_role_all_stock_master')
+    expect(migration).not.toMatch(/\bDROP\s+TABLE\b/i)
+  })
+
   it('dedupes daily prices by symbol and trade date before upsert', () => {
     const rows = dedupeStockDailyPriceRows([
       { symbol: '005930', tradeDate: '2026-07-01', close: 70000, volume: 100 },
@@ -32,11 +44,39 @@ describe('stock daily prices', () => {
       {
         symbol: '005930',
         trade_date: '2026-07-01',
+        open: null,
+        high: null,
+        low: null,
         close: 70100,
         volume: 120,
         source: 'kis',
       },
     ])
+  })
+
+  it('forms OHLC upsert rows while allowing nullable source values', () => {
+    const rows = dedupeStockDailyPriceRows([
+      {
+        symbol: 'KOSPI:005930',
+        tradeDate: '2026-08-27',
+        open: 70000,
+        high: null,
+        low: null,
+        close: 72800,
+        volume: null,
+      },
+    ])
+
+    expect(rows).toEqual([{
+      symbol: 'KOSPI:005930',
+      trade_date: '2026-08-27',
+      open: 70000,
+      high: null,
+      low: null,
+      close: 72800,
+      volume: null,
+      source: 'kis',
+    }])
   })
 
   it('selects top active symbols per theme and deduplicates shared stocks', () => {
@@ -58,8 +98,8 @@ describe('stock daily prices', () => {
 
   it('makes one period-range call per symbol (plus KOSPI) instead of one call per date×symbol pair', async () => {
     const fetchDailyRangeClosePrices = vi.fn().mockResolvedValue([
-      { date: '2026-07-01', close: 70000, volume: 1000 },
-      { date: '2026-07-02', close: 70500, volume: 1200 },
+      { date: '2026-07-01', open: 69000, high: 71000, low: 68500, close: 70000, volume: 1000 },
+      { date: '2026-07-02', open: null, high: null, low: null, close: 70500, volume: 1200 },
     ])
     const fetchIndexDailyRangeClosePrices = vi.fn().mockResolvedValue([
       { date: '2026-07-01', close: 2650.5, volume: null },
@@ -89,6 +129,14 @@ describe('stock daily prices', () => {
     expect(report.successCount).toBe(3)
     expect(report.persistedRows).toBe(6)
     expect(report.dateCoverageRate).toBe(1)
+    expect(persistDailyPrices).toHaveBeenCalledWith(expect.arrayContaining([expect.objectContaining({
+      symbol: '005930',
+      tradeDate: '2026-07-01',
+      open: 69000,
+      high: 71000,
+      low: 68500,
+      close: 70000,
+    })]))
   })
 
   it('always includes KOSPI even when absent from the loaded symbols, and never drops it via the budget cap', async () => {
