@@ -1,0 +1,47 @@
+# v2 파이프라인 CI 실검수 (브랜치 전용 — 머지 전 삭제 예정)
+# dispatch 권한 403 우회: push 트리거는 권한이 필요 없다.
+name: Stock Picks CI Test (dry-run)
+
+on:
+  push:
+    branches: [feat/stock-pipeline-v2]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  dry-run-prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Prepare dry-run (실환경 E2E — DB 저장 없음)
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          KIS_APP_KEY: ${{ secrets.KIS_APP_KEY }}
+          KIS_APP_SECRET: ${{ secrets.KIS_APP_SECRET }}
+          KIS_BASE_URL: ${{ secrets.KIS_BASE_URL }}
+          GOOGLE_CLOUD_PROJECT: ${{ secrets.GOOGLE_CLOUD_PROJECT }}
+          GOOGLE_CLOUD_CREDENTIALS: ${{ secrets.GOOGLE_CLOUD_CREDENTIALS }}
+          SERP_API_KEY: ${{ secrets.SERP_API_KEY }}
+        run: |
+          if [ -n "$GOOGLE_CLOUD_CREDENTIALS" ]; then
+            echo "$GOOGLE_CLOUD_CREDENTIALS" > "$HOME/gcloud-key.json"
+            export GOOGLE_APPLICATION_CREDENTIALS="$HOME/gcloud-key.json"
+          fi
+          npx tsx scripts/prepare-newsletter.ts --dry-run --simulate-today=2026-08-31
+          rm -f "$HOME/gcloud-key.json"
+      - name: Forward measure (읽기 전용)
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: npx tsx scripts/stock-picks/measure-forward.ts | tail -40 >> "$GITHUB_STEP_SUMMARY" || npx tsx scripts/stock-picks/measure-forward.ts
