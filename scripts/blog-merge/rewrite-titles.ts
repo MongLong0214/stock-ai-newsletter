@@ -27,7 +27,7 @@ if (process.env.GOOGLE_APPLICATION_CREDENTIALS && !existsSync(process.env.GOOGLE
 import { getServerSupabaseClient } from '@/lib/supabase/server-client';
 import { fetchAllRows } from '@/lib/supabase/paginate';
 import { generateText } from '@/lib/llm/gemini-client';
-import { ALL_PATTERNS, isClickbait } from './clickbait-patterns';
+import { ALL_PATTERNS, isClickbait } from '@/app/blog/_config/clickbait-patterns';
 
 /** 되돌리기용 원본 기록 */
 const BACKUP_LOG = 'scripts/blog-merge/title-rewrite-backup.jsonl';
@@ -39,7 +39,7 @@ interface Post {
   title: string;
 }
 
-export function buildPrompt(post: Post): string {
+export function buildPrompt(post: Post, retryReason?: string): string {
   return `당신은 한국 주식 정보 사이트의 에디터다. 아래 블로그 글 제목이 낚시성이라 사실형으로 다시 쓴다.
 
 ## 원본 제목
@@ -47,15 +47,16 @@ ${post.title}
 
 ## 타겟 키워드
 ${post.target_keyword ?? '(없음)'}
-
+${retryReason ? `\n## 직전 시도가 반려된 이유\n${retryReason}\n이 문제를 반드시 피해서 다시 써라.\n` : ''}
 ## 규칙
 - 원본이 다루는 종목·테마·시점을 그대로 유지한다. 새 사실을 지어내지 않는다.
 - 타겟 키워드를 제목 앞부분에 자연스럽게 포함한다.
-- 금지 표현: 모르면 / 고점에 물 / 후회 / 남들 다 / 나만 손해 / 안 보면 / 지금 아니면 /
-  충격 / 놓치면 / 소외됩니다 / 구경만 / ~의 비밀 / 진짜 이유 / 확률 N% / 날렸습니다 /
-  아직도 ~하시나요 / 물립니다
+- 금지 표현(활용형 포함): 모르면 / 고점에 물 / 후회 / 남들 다 / 나만 손해 / 안 보면 /
+  지금 아니면 / 충격 / 놓치면·놓치는·놓치실 / 소외됩니다 / 구경만 / ~의 비밀 / 진짜 이유 /
+  확률 N% / 날렸습니다 / 아직도 ~하시나요·~건가요 / 물립니다 / 큰일 납니다 /
+  ~했다간 / 진짜는 따로 / 반드시 확인 / 꼭 확인 / 급등 직전 / 폭락 전
 - 공포·조급함·과장을 쓰지 않는다. 독자가 무엇을 얻는지만 말한다.
-- 45자 이내. 대괄호 레이블 금지. 이모지 금지.
+- 45자 이내. 대괄호 레이블 금지. 이모지 금지. 따옴표·물음표 금지.
 - 좋은 예: "카카오뱅크 관련주 7종목 — 지분 구조와 IT 파트너십 정리 (2026.08)"
 - 좋은 예: "2차전지 관련주 전망 — 생명주기 점수와 관련주 현황"
 
@@ -64,12 +65,16 @@ ${post.target_keyword ?? '(없음)'}
 
 /** 모델이 붙이는 따옴표·접두어를 걷어낸다 */
 export function cleanTitle(raw: string): string {
-  return raw
+  const first = raw
     .trim()
     .split('\n')[0]
     .replace(/^["'`\s]+|["'`\s]+$/g, '')
     .replace(/^(제목|title)\s*[:：]\s*/i, '')
     .trim();
+
+  // 여는 따옴표만 벗겨내면 `이미 늦었나?"` 처럼 짝 잃은 따옴표가 남는다
+  const quotes = (first.match(/["'“”]/g) ?? []).length;
+  return (quotes % 2 === 1 ? first.replace(/["'“”]/g, '') : first).trim();
 }
 
 /** 재작성 결과 수용 여부. 게이트를 다시 통과해야 하고, 실질적으로 달라져야 한다. */
@@ -114,10 +119,12 @@ async function main(): Promise<void> {
     let rewritten = '';
     let reason: string | null = '시도 없음';
 
-    // 게이트를 통과할 때까지 최대 2회 — 그래도 안 되면 원본 유지
-    for (let attempt = 0; attempt < 2; attempt++) {
+    // 게이트를 통과할 때까지 최대 3회. 반려 사유를 되먹여야 같은 실수를 반복하지 않는다
+    // (사유 없이 재시도했더니 "놓치는"을 그대로 유지한 결과가 반복됐다).
+    for (let attempt = 0; attempt < 3; attempt++) {
       try {
-        rewritten = cleanTitle(await generateText({ prompt: buildPrompt(post), config: { temperature: 0.4 } }));
+        const prompt = buildPrompt(post, attempt === 0 ? undefined : reason ?? undefined);
+        rewritten = cleanTitle(await generateText({ prompt, config: { temperature: attempt === 0 ? 0.4 : 0.7 } }));
         reason = isAcceptable(post.title, rewritten);
         if (!reason) break;
       } catch (e) {

@@ -90,6 +90,73 @@ export function extractFigures(text: string): Set<string> {
   return new Set(matches.map((m) => m.replace(/[,]/g, '').replace(/\.0+$/, '')));
 }
 
+/**
+ * 수치 토큰 — 자릿수(천·만·억·조)와 단위(원·달러·%…)를 분리해 읽는다.
+ *
+ * 두 가지를 동시에 만족해야 한다.
+ *   1) `10%`와 `10원`은 다른 값이다 (단위 변조 검출)
+ *   2) `5000만원`과 `5천만원`은 같은 값이다 (한국어 재표기 허용)
+ * 자릿수를 배수로 환산해 값을 정규화하면 둘 다 성립한다. 하나의 alternation으로
+ * 두면 `10억원`과 `10억달러`가 모두 `10억`으로 뭉개져 1)이 깨진다.
+ */
+const FIGURE_SCALE: Record<string, number> = { 천: 1e3, 만: 1e4, 억: 1e8, 조: 1e12 };
+const FIGURE_UNIT = '%|퍼센트|원|달러|엔|위안|배|건|일|년|월|주|개|명|포인트|bp';
+// 자릿수는 연달아 붙는다: `5천만` = 5 × 1e3 × 1e4 = 5e7 = `5000만`.
+// 하나만 받으면 `5천만원`이 `5천`(=5000, 단위 없음)으로 잘려 `5000만원`과 달라진다.
+const FIGURE_TOKEN_RE = new RegExp(
+  `(\\d[\\d,]*(?:\\.\\d+)?)\\s*([천만억조]*)\\s*((?:${FIGURE_UNIT})?)`,
+  'g',
+);
+
+/**
+ * 같은 뜻의 단위를 하나로 모은다.
+ *
+ * 윤문이 `20퍼센트`를 `20%`로 바꾸는 것은 정당한 재표기인데, 별개 단위로 두면
+ * "수치 유실·단위 변형"으로 반려된다(실측 e2e에서 이 사유로 1편 반려).
+ */
+function normalizeUnit(unit: string): string {
+  if (unit === '퍼센트') return '%';
+  return unit;
+}
+
+interface FigureToken {
+  /** 자릿수를 환산한 값 */
+  readonly value: number;
+  /** 단위. 빈 문자열이면 맨 숫자다. */
+  readonly unit: string;
+}
+
+function parseFigureTokens(text: string): FigureToken[] {
+  // 전각(％ ０-９)을 반각으로 맞춘다. 모델이 표기만 정규화해도 "유실"로 오판하기 때문이다.
+  const normalized = text
+    .replace(/[０-９]/g, (d) => String.fromCharCode(d.charCodeAt(0) - 0xfee0))
+    .replace(/％/g, '%')
+    .replace(/，/g, ',');
+  // 목록 마커("1) ", "2. ")는 C-9 규칙상 정당하게 사라질 수 있으므로 제외한다.
+  const withoutMarkers = normalized.replace(/^\s*\d+[.)]\s+/gm, '');
+
+  const tokens: FigureToken[] = [];
+  for (const m of withoutMarkers.matchAll(FIGURE_TOKEN_RE)) {
+    const base = Number(m[1].replace(/,/g, ''));
+    if (!Number.isFinite(base)) continue;
+    const scale = [...(m[2] ?? '')].reduce((acc, ch) => acc * (FIGURE_SCALE[ch] ?? 1), 1);
+    tokens.push({ value: base * scale, unit: normalizeUnit(m[3] ?? '') });
+  }
+  return tokens;
+}
+
+/** 단위가 붙은 토큰의 개수 맵 — 단위 변조·개수 유실을 잡는다 */
+export function countFigureTokens(text: string): Map<string, number> {
+  const counts = new Map<string, number>();
+  for (const t of parseFigureTokens(text)) {
+    const key = `${t.value}${t.unit}`;
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+  return counts;
+}
+
+
+
 /** 원문에 없던 볼드가 새로 생겼을 때만 제거 (하우스 스타일: 볼드 금지) */
 function stripIntroducedBold(original: string, candidate: string): string {
   if (original.includes('**')) return candidate;
@@ -142,12 +209,55 @@ export function evaluateHumanization(
     return reject(`헤딩 구조 변경 (${headingsBefore} → ${headingsAfter})`, rate);
   }
 
-  // 철칙 #1: 수치는 100% 보존
-  const figuresBefore = extractFigures(original);
-  const figuresAfter = extractFigures(cleaned);
-  const lost = [...figuresBefore].filter((f) => !figuresAfter.has(f));
-  if (lost.length > 0) {
-    return reject(`수치 유실 (${lost.slice(0, 5).join(', ')})`, rate);
+  // 철칙 #1: 수치 보존. 단위가 붙은 값과 맨 숫자를 다르게 다룬다.
+  //
+  // 맨 숫자(1, 2, 3…)에 개수 비교를 걸면 목록 마커·서수 정리 같은 정당한 윤문이
+  // 전부 반려된다(실측: 3편 중 2편 반려 + 서킷브레이커 개방). 맨 숫자는 "값이
+  // 사라졌는가"만 본다(집합 비교, 기존 동작). 단위가 붙은 값은 개수까지 본다 —
+  // 단위 변조와 중복 삭제가 실제 위험이기 때문이다.
+  const beforeTokens = parseFigureTokens(original);
+  const afterTokens = parseFigureTokens(cleaned);
+
+  // 한 자리 맨 숫자(1~9)는 유실 검사에서 뺀다. 대부분 서수·목록 번호이고,
+  // 문장으로 풀어 쓰는 정당한 윤문이 전부 반려됐다(실측 3편 중 2편).
+  // RSI 30·70처럼 정보를 담은 값은 두 자리 이상이라 그대로 보호된다.
+  const informative = (t: { unit: string; value: number }) => !t.unit && t.value >= 10;
+  const bareBefore = new Set(beforeTokens.filter(informative).map((t) => t.value));
+  const bareAfter = new Set(afterTokens.filter((t) => !t.unit).map((t) => t.value));
+  const lostBare = [...bareBefore].filter((v) => !bareAfter.has(v));
+  if (lostBare.length > 0) {
+    return reject(`수치 유실 (${lostBare.slice(0, 5).join(', ')})`, rate);
+  }
+
+  const unitKey = (t: { unit: string; value: number }) => `${t.value}${t.unit}`;
+  const unitBefore = new Map<string, number>();
+  for (const t of beforeTokens.filter((x) => x.unit)) unitBefore.set(unitKey(t), (unitBefore.get(unitKey(t)) ?? 0) + 1);
+  const unitAfter = new Map<string, number>();
+  for (const t of afterTokens.filter((x) => x.unit)) unitAfter.set(unitKey(t), (unitAfter.get(unitKey(t)) ?? 0) + 1);
+
+  const lostUnit = [...unitBefore.entries()].filter(([k, n]) => (unitAfter.get(k) ?? 0) < n).map(([k]) => k);
+  if (lostUnit.length > 0) {
+    return reject(`수치 유실·단위 변형 (${lostUnit.slice(0, 5).join(', ')})`, rate);
+  }
+  // 없던 수치가 생기는 것은 윤문이 아니라 창작이다. YMYL에서는 지어낸 통계가 된다.
+  const invented = [...unitAfter.keys()].filter((k) => !unitBefore.has(k));
+  if (invented.length > 0) {
+    return reject(`원문에 없던 수치 추가 (${invented.slice(0, 5).join(', ')})`, rate);
+  }
+  // 개수 증가도 창작이다. 기존 값을 재사용해 새 사실을 만드는 경로가 있다:
+  //   원문 "매출은 10% 증가했습니다"
+  //   윤문 "매출은 10% 증가했고 영업이익도 10% 증가했습니다"
+  // 키가 원문에 있다는 이유로 통과하던 구멍이다.
+  const duplicated = [...unitAfter.entries()]
+    .filter(([k, n]) => n > (unitBefore.get(k) ?? 0))
+    .map(([k]) => k);
+  if (duplicated.length > 0) {
+    return reject(`수치 반복 추가 (${duplicated.slice(0, 5).join(', ')})`, rate);
+  }
+  // 정보성 맨 숫자(두 자리 이상)의 신규 등장도 막는다 — "목표 지수는 85입니다" 같은 창작.
+  const newBare = [...bareAfter].filter((v) => v >= 10 && !bareBefore.has(v));
+  if (newBare.length > 0) {
+    return reject(`원문에 없던 수치 추가 (${newBare.slice(0, 5).join(', ')})`, rate);
   }
 
   // SEO: 키워드 빈도가 품질 점수 기준(3회) 아래로 떨어지면 안 된다
@@ -187,20 +297,35 @@ function isEnabled(): boolean {
 }
 
 /**
- * 본문 1건 윤문 — 실패 시 원문 반환
+ * 윤문 결과 상태.
+ *
+ * `unchanged`가 따로 있는 이유: 문자열 비교로 성공/실패를 추론하면 "고칠 게 없어
+ * 그대로 돌려준 정상 응답"이 반려와 구분되지 않는다. 호출부(pipeline)는 반려를
+ * 서킷브레이커로 세므로, 그 오인이 두 번 겹치면 그날 파이프라인 전체가 멈춘다.
+ */
+export type HumanizeStatus = 'accepted' | 'error' | 'rejected' | 'skipped' | 'unchanged';
+
+export interface HumanizeResult {
+  readonly reason?: string;
+  readonly status: HumanizeStatus;
+  readonly text: string;
+}
+
+/**
+ * 본문 1건 윤문 — 판정과 결과를 함께 돌려준다.
  *
  * @param content - 윤문 대상 마크다운 본문
  * @param targetKeyword - SEO 타겟 키워드
  */
-export async function humanizeText(content: string, targetKeyword: string): Promise<string> {
+export async function humanizeWithVerdict(content: string, targetKeyword: string): Promise<HumanizeResult> {
   if (!isEnabled()) {
     console.log('[Humanize] 비활성화됨 (BLOG_HUMANIZE=off) — 원문 유지');
-    return content;
+    return { status: 'skipped', text: content, reason: 'BLOG_HUMANIZE=off' };
   }
 
   if (content.length < HUMANIZE_CONFIG.minContentLength) {
     console.log(`[Humanize] 본문이 짧아 건너뜀 (${content.length}자)`);
-    return content;
+    return { status: 'skipped', text: content, reason: `본문 ${content.length}자` };
   }
 
   const start = Date.now();
@@ -217,7 +342,7 @@ export async function humanizeText(content: string, targetKeyword: string): Prom
 
     if (!response) {
       console.warn('[Humanize] 빈 응답 — 원문 유지');
-      return content;
+      return { status: 'error', text: content, reason: '빈 응답' };
     }
 
     const verdict = evaluateHumanization(content, extractHumanized(response), targetKeyword);
@@ -225,7 +350,7 @@ export async function humanizeText(content: string, targetKeyword: string): Prom
 
     if (!verdict.accepted) {
       console.warn(`[Humanize] 반려 (${elapsed}ms): ${verdict.reason} — 원문 유지`);
-      return content;
+      return { status: 'rejected', text: content, reason: verdict.reason ?? undefined };
     }
 
     const rate = `${(verdict.changeRate * 100).toFixed(1)}%`;
@@ -235,12 +360,21 @@ export async function humanizeText(content: string, targetKeyword: string): Prom
       console.log(`[Humanize] 채택 (${elapsed}ms, 변경률 ${rate})`);
     }
 
-    return verdict.text;
+    // 모델이 고칠 게 없다고 판단해 원문을 그대로 돌려준 경우다. 정상 성공이다.
+    if (verdict.text === content) {
+      return { status: 'unchanged', text: content, reason: '변경 없음(원문이 이미 통과)' };
+    }
+    return { status: 'accepted', text: verdict.text, reason: verdict.reason ?? undefined };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     console.warn(`[Humanize] 실패 (${Date.now() - start}ms): ${message} — 원문 유지`);
-    return content;
+    return { status: 'error', text: content, reason: message };
   }
+}
+
+/** 본문만 필요한 호출부용 얇은 래퍼 */
+export async function humanizeText(content: string, targetKeyword: string): Promise<string> {
+  return (await humanizeWithVerdict(content, targetKeyword)).text;
 }
 
 /**
@@ -254,15 +388,17 @@ export async function humanizeText(content: string, targetKeyword: string): Prom
 export interface HumanizeOutcome {
   /** 윤문본이 채택됐는가. false면 content는 원문 그대로다. */
   readonly accepted: boolean;
+  /** 실패 원인 구분 — 호출부가 시스템 장애와 콘텐츠 반려를 다르게 다룬다 */
+  readonly status: HumanizeStatus;
   /** 의도적 스킵(BLOG_HUMANIZE=off, 본문 최소길이 미달) — 실패가 아니므로 발행을 막지 않는다 */
   readonly skipped: boolean;
   readonly content: GeneratedContent;
 }
 
 /**
- * humanizeText는 실패를 내부에서 흡수하고 원문을 돌려주므로 호출부가 성공과 실패를
- * 구분할 수 없었다 — 파이프라인 서킷브레이커가 세던 것은 사실상 외부 타임아웃뿐이다.
- * 채택 여부를 명시적으로 반환해 "윤문 안 된 글"을 파이프라인이 알고 처리하게 한다.
+ * 판정을 그대로 올려보낸다. 예전에는 `humanized !== content.content` 문자열 비교로
+ * 채택 여부를 추론했는데, 그러면 정상적인 "변경 없음"이 반려로 잡혀 서킷브레이커가
+ * 열린다. 상태값을 그대로 쓰면 그 오인이 없다.
  */
 export async function humanizeGeneratedContent(
   content: GeneratedContent,
@@ -270,10 +406,13 @@ export async function humanizeGeneratedContent(
 ): Promise<HumanizeOutcome> {
   // 운영자가 명시적으로 끈 경우(BLOG_HUMANIZE=off)와 본문이 짧아 윤문 대상이 아닌 경우는
   // "실패"가 아니라 "스킵"이다 — 이걸 실패로 치면 킬스위치가 파이프라인 전체를 세운다.
-  if (!isEnabled() || content.content.length < HUMANIZE_CONFIG.minContentLength) {
-    return { accepted: false, skipped: true, content };
+  const verdict = await humanizeWithVerdict(content.content, targetKeyword);
+
+  if (verdict.status === 'skipped') return { accepted: false, skipped: true, status: verdict.status, content };
+  // unchanged는 성공이다 — 원문을 그대로 쓰되 실패로 세지 않는다
+  if (verdict.status === 'unchanged') return { accepted: true, skipped: false, status: verdict.status, content };
+  if (verdict.status === 'accepted') {
+    return { accepted: true, skipped: false, status: verdict.status, content: { ...content, content: verdict.text } };
   }
-  const humanized = await humanizeText(content.content, targetKeyword);
-  const accepted = humanized !== content.content;
-  return { accepted, skipped: false, content: accepted ? { ...content, content: humanized } : content };
+  return { accepted: false, skipped: false, status: verdict.status, content };
 }

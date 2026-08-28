@@ -12,6 +12,8 @@ export async function notifyIndexNow(urls: string[]): Promise<void> {
   try {
     const res = await fetch('https://api.indexnow.org/indexnow', {
       method: 'POST',
+      // 발행 흐름 안에서 동기적으로 기다린다 — 상대가 멈추면 잡이 통째로 묶인다
+      signal: AbortSignal.timeout(10_000),
       headers: { 'Content-Type': 'application/json; charset=utf-8' },
       body: JSON.stringify({
         host: INDEXNOW_HOST,

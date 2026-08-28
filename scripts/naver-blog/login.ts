@@ -9,6 +9,7 @@
  */
 
 import { createInterface } from 'node:readline/promises';
+import { chmodSync } from 'node:fs';
 import { chromium } from 'playwright';
 import { ensureStateDir, SESSION_PATH } from './session';
 
@@ -39,6 +40,7 @@ async function main(): Promise<void> {
   }
 
   await context.storageState({ path: SESSION_PATH });
+  chmodSync(SESSION_PATH, 0o600); // 로그인 쿠키 — 소유자만 읽게 한다
   await browser.close();
 
   console.log(`\n세션 저장: ${SESSION_PATH}`);

@@ -52,7 +52,8 @@
     "blog:rewrite-titles": "tsx scripts/blog-merge/rewrite-titles.ts",
     "naver:draft": "tsx scripts/naver-blog/make-draft.ts",
     "naver:capture": "tsx scripts/naver-blog/capture-images.ts",
-    "blog:merge": "tsx scripts/blog-merge/merge-clusters.ts"
+    "blog:merge": "tsx scripts/blog-merge/merge-clusters.ts",
+    "typecheck:scripts": "tsc -p tsconfig.scripts.json"
   },
   "dependencies": {
     "@fontsource/noto-sans-kr": "^5.2.9",

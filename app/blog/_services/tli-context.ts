@@ -1,6 +1,7 @@
 /** TLI 데이터를 블로그 키워드 생성 프롬프트용으로 가공 */
 
 import { getServerSupabaseClient } from '@/lib/supabase/server-client';
+import { fetchAllRows } from '@/lib/supabase/paginate';
 import { getKSTDateString } from '@/lib/tli/date-utils';
 import type { Stage } from '@/lib/tli/types/db';
 import { QUALITY_GATE } from '@/lib/tli/constants/quality-gate';
@@ -43,6 +44,27 @@ export interface TLIContext {
   isEmpty: boolean;
 }
 
+/** .in() URL 길이 한계를 피하는 id 청크 크기 */
+const ID_CHUNK = 100;
+
+/**
+ * theme_id 목록으로 전량 조회.
+ *
+ * .range() 없는 select는 PostgREST max_rows(1000)에서 **에러 없이** 잘린다.
+ * theme_stocks는 활성 테마 241개 × 종목 여러 개라 이미 1000을 넘고, 잘린 뒤로는
+ * 뒤쪽 테마의 종목·뉴스가 통째로 비어 그 빈 컨텍스트로 키워드가 만들어졌다.
+ */
+async function fetchByThemeIds<T>(
+  ids: string[],
+  build: (chunk: string[]) => (from: number, to: number) => PromiseLike<{ data: T[] | null; error: unknown }>,
+): Promise<T[]> {
+  const rows: T[] = [];
+  for (let i = 0; i < ids.length; i += ID_CHUNK) {
+    rows.push(...(await fetchAllRows<T>(build(ids.slice(i, i + ID_CHUNK)))));
+  }
+  return rows;
+}
+
 /** TLI DB에서 트렌딩 테마 데이터를 가져와 프롬프트용으로 가공 */
 export async function fetchTLIContext(): Promise<TLIContext> {
   const now = getKSTDateString();
@@ -51,12 +73,11 @@ export async function fetchTLIContext(): Promise<TLIContext> {
     const supabase = getServerSupabaseClient();
 
     // 1) 활성 테마 + 최신 lifecycle_scores 조회
-    const { data: themes } = await supabase
-      .from('themes')
-      .select('id, name')
-      .eq('is_active', true);
+    const themes = await fetchAllRows<{ id: string; name: string }>((from, to) =>
+      supabase.from('themes').select('id, name').eq('is_active', true).order('id').range(from, to),
+    );
 
-    if (!themes || themes.length === 0) {
+    if (themes.length === 0) {
       return { themes: [], fetchedAt: now, isEmpty: true };
     }
 
@@ -64,14 +85,20 @@ export async function fetchTLIContext(): Promise<TLIContext> {
 
     // 2) 최신 점수 조회 (3일 이내)
     const threeDaysAgo = getKSTDateString(-3);
-    const { data: scores } = await supabase
-      .from('lifecycle_scores')
-      .select('theme_id, score, stage, is_reigniting, calculated_at')
-      .in('theme_id', themeIds)
-      .gte('calculated_at', threeDaysAgo)
-      .order('calculated_at', { ascending: false });
+    type ScoreRow = { calculated_at: string; is_reigniting: boolean; score: number; stage: string; theme_id: string };
+    const scores = await fetchByThemeIds<ScoreRow>(themeIds, (chunk) => (from, to) =>
+      supabase
+        .from('lifecycle_scores')
+        .select('theme_id, score, stage, is_reigniting, calculated_at')
+        .in('theme_id', chunk)
+        .gte('calculated_at', threeDaysAgo)
+        // calculated_at만으로는 동점 시 페이지 경계에서 순서가 흔들린다 — theme_id로 고정한다
+        .order('calculated_at', { ascending: false })
+        .order('theme_id')
+        .range(from, to),
+    );
 
-    if (!scores || scores.length === 0) {
+    if (scores.length === 0) {
       return { themes: [], fetchedAt: now, isEmpty: true };
     }
 
@@ -98,31 +125,46 @@ export async function fetchTLIContext(): Promise<TLIContext> {
 
     const activeIds = activeThemes.map((t) => t.id);
 
-    // 3) 종목, 뉴스, 키워드 병렬 조회
-    const [stocksRes, newsRes, keywordsRes] = await Promise.all([
-      supabase
-        .from('theme_stocks')
-        .select('theme_id, name')
-        .in('theme_id', activeIds)
-        .eq('is_active', true)
-        .order('relevance', { ascending: false }),
-      supabase
-        .from('theme_news_articles')
-        .select('theme_id, title, pub_date')
-        .in('theme_id', activeIds)
-        .gte('pub_date', getKSTDateString(-7))
-        .order('pub_date', { ascending: false }),
-      supabase
-        .from('theme_keywords')
-        .select('theme_id, keyword')
-        .in('theme_id', activeIds)
-        .eq('is_primary', true),
+    // 3) 종목, 뉴스, 키워드 병렬 조회 (전량 페이지네이션)
+    const [stocks, news, keywords] = await Promise.all([
+      fetchByThemeIds<{ name: string; theme_id: string }>(activeIds, (chunk) => (from, to) =>
+        supabase
+          .from('theme_stocks')
+          .select('theme_id, name')
+          .in('theme_id', chunk)
+          .eq('is_active', true)
+          .order('relevance', { ascending: false })
+          .order('theme_id')
+          .order('name')
+          .range(from, to),
+      ),
+      fetchByThemeIds<{ pub_date: string; theme_id: string; title: string }>(activeIds, (chunk) => (from, to) =>
+        supabase
+          .from('theme_news_articles')
+          .select('theme_id, title, pub_date')
+          .in('theme_id', chunk)
+          .gte('pub_date', getKSTDateString(-7))
+          .order('pub_date', { ascending: false })
+          .order('theme_id')
+          .order('title')
+          .range(from, to),
+      ),
+      fetchByThemeIds<{ keyword: string; theme_id: string }>(activeIds, (chunk) => (from, to) =>
+        supabase
+          .from('theme_keywords')
+          .select('theme_id, keyword')
+          .in('theme_id', chunk)
+          .eq('is_primary', true)
+          .order('theme_id')
+          .order('keyword')
+          .range(from, to),
+      ),
     ]);
 
     // 테마별 데이터 그룹핑
-    const stocksByTheme = groupBy(stocksRes.data ?? [], 'theme_id');
-    const newsByTheme = groupBy(newsRes.data ?? [], 'theme_id');
-    const keywordsByTheme = groupBy(keywordsRes.data ?? [], 'theme_id');
+    const stocksByTheme = groupBy(stocks, 'theme_id');
+    const newsByTheme = groupBy(news, 'theme_id');
+    const keywordsByTheme = groupBy(keywords, 'theme_id');
 
     // 4) 테마별 컨텍스트 구성 (런타임 stage 검증 + non-null 가드)
     const themeContexts: TLIThemeContext[] = [];

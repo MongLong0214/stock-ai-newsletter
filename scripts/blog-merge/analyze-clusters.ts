@@ -19,7 +19,7 @@ if (existsSync(envPath)) config({ path: envPath });
 import { getServerSupabaseClient } from '@/lib/supabase/server-client';
 import { fetchAllRows } from '@/lib/supabase/paginate';
 import { isSameCluster, RELATED_STOCK_RE } from '@/app/blog/_services/cluster-guard';
-import { isClickbait } from './clickbait-patterns';
+import { isClickbait } from '@/app/blog/_config/clickbait-patterns';
 
 interface Post {
   content: string | null;

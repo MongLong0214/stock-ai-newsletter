@@ -14,10 +14,10 @@
 
 import { searchGoogle } from './_services/serp-api';
 import { scrapeSearchResults, analyzeCompetitors, closeBrowser, getMetrics, resetMetrics } from './_services/web-scraper';
-import { generateBlogContent, generateSlug, calculateQualityScore } from './_services/content-generator';
+import { generateBlogContent, generateSlug, calculateQualityScore, validateContent } from './_services/content-generator';
 import { humanizeGeneratedContent } from './_services/humanizer';
 import { checkYmyl } from './_services/ymyl-gate';
-import { saveBlogPost, publishBlogPost } from './_services/blog-repository';
+import { countPublishedToday, findBlogPostStatus, saveBlogPost, publishBlogPost } from './_services/blog-repository';
 import { generateKeywords } from './_services/keyword-generator';
 import type { BlogPostCreateInput, PipelineResult, PipelineMetrics, CompetitorAnalysis, GeneratedContent } from './_types/blog';
 
@@ -27,9 +27,12 @@ const TIMEOUTS = {
   search: 60_000,
   scrape: 120_000,
   generate: 300_000,
-  // 정상 윤문은 ~25초. 200초는 hang 시 초안 7개 누적으로 25분 스크립트 한도를 터뜨렸다(CI 실패 근본원인).
-  // 60초면 정상은 통과(2.4배 여유)하고 hang은 빨리 끊어 fallback(원문 유지)한다.
-  humanize: 60_000,
+  // 정상 윤문 실측 27~39초(2026-08-27 e2e). 60초는 여유가 1.5배뿐이라 느린 응답이
+  // 시스템 장애로 집계돼 서킷브레이커가 열렸다(실측: 5편 중 3편이 생성조차 안 됨).
+  // 100초로 올려 오탐을 없애고, 내부 타이머(HUMANIZE_CONFIG.timeout)를 90초로 낮춰
+  // 안쪽이 먼저 끊기게 한다 — 그래야 "Humanize 타임아웃"이 아니라 실제 사유가 남는다.
+  // 5편 × 100초 = 8분으로 25분 스크립트 한도 안에 든다.
+  humanize: 100_000,
   save: 30_000,
   keyword: 300_000,
   selection: 120_000,
@@ -103,7 +106,41 @@ async function withTimeout<R>(p: Promise<R>, ms: number, label: string): Promise
 }
 
 async function withTimeoutFallback<R>(p: Promise<R>, ms: number, fallback: R, label: string): Promise<R> {
-  try { return await withTimeout(p, ms, label); } catch { console.warn(`[Pipeline] ${label} 타임아웃 — fallback`); return fallback; }
+  try {
+    return await withTimeout(p, ms, label);
+  } catch (e) {
+    // 예전에는 전부 "타임아웃"으로 찍었다. SerpAPI 401도 타임아웃으로 보고돼
+    // 인증 문제를 며칠씩 놓쳤다 — 실제 사유를 남긴다.
+    console.warn(`[Pipeline] ${label} 실패 — fallback 사용: ${err(e)}`);
+    return fallback;
+  }
+}
+
+/**
+ * 저장 + 타임아웃 화해.
+ *
+ * 타임아웃은 요청을 취소하지 못하므로 "실패"가 곧 "저장 안 됨"이 아니다. 실제 행을
+ * 조회해 커밋됐으면 성공으로 판정한다 — 그러지 않으면 재실행이 같은 글을 또 쓴다.
+ */
+async function saveWithReconcile(post: BlogPostCreateInput): Promise<void> {
+  const startedAt = Date.now();
+  try {
+    await withTimeout(saveBlogPost(post), TIMEOUTS.save, 'DB');
+  } catch (e) {
+    // 타임아웃일 때만 화해한다. 제약조건 위반 같은 진짜 실패까지 "행이 있으니 성공"으로
+    // 바꾸면, 예전 draft 행을 이번 글로 착각해 그대로 공개하게 된다.
+    if (!err(e).includes('타임아웃')) throw e;
+
+    const row = await findBlogPostStatus(post.slug).catch(() => null);
+    if (!row || row.title !== post.title) throw e;
+
+    // 제목만 보면 같은 날 같은 제목으로 만들어진 **이전** 행을 이번 저장으로 착각한다.
+    // updated_at이 이번 시도 이후여야 실제로 커밋된 것이다(시계 오차 5초 여유).
+    const updatedAt = Date.parse(row.updated_at ?? '');
+    if (!Number.isFinite(updatedAt) || updatedAt < startedAt - 5_000) throw e;
+
+    console.warn(`[Pipeline] 저장 타임아웃이었으나 DB에 커밋됨 (${post.slug}, status=${row.status})`);
+  }
 }
 
 /**
@@ -178,8 +215,14 @@ async function generateDraft(keyword: string, type: 'comparison' | 'guide' | 'li
     // humanizeText는 내부 에러·가드 반려를 흡수하고 원문을 돌려주므로(accepted=false),
     // 여기서 명시적으로 실패 처리해야 서킷브레이커가 실제 실패를 센다.
     if (!outcome.accepted && !outcome.skipped) {
-      registerHumanizeFailure();
-      throw new Error('윤문 미채택(반려/에러) — 윤문 안 된 글은 발행하지 않는다');
+      // 서킷브레이커는 **시스템 장애**만 센다.
+      //
+      // 콘텐츠 사유 반려(수치·헤딩·AI 티)는 그 글 하나의 문제다. 이것까지 세면
+      // 연속 2건 반려가 남은 초안 생성을 전부 막아 그날 발행이 0건이 된다
+      // (실측: 타임아웃 1건 + 헤딩 변경 1건에 남은 3편이 생성조차 되지 않았다).
+      // 브레이커의 목적은 윤문 API가 죽었을 때 Gemini 비용을 끊는 것이다.
+      if (outcome.status === 'error') registerHumanizeFailure();
+      throw new Error(`윤문 미채택(${outcome.status}) — 윤문 안 된 글은 발행하지 않는다`);
     }
     humanizeConsecutiveFailures = 0;
 
@@ -188,9 +231,23 @@ async function generateDraft(keyword: string, type: 'comparison' | 'guide' | 'li
       ? generated
       : resolveHumanized(generated, outcome.content, keyword, analysis);
 
+    // 하드 게이트는 생성 직후에만 돌았다. 윤문이 본문을 20~30% 줄이므로 2,000자 하한을
+    // 통과했던 글이 윤문 뒤 1,400자가 되어도 아무도 다시 보지 않았다. 최종본으로 재검사한다.
+    validateContent(content, keyword);
+
     // YMYL 결정적 게이트 — 모호 출처·투자 권유 단정·브랜드 남용·유령 종목.
     // 위반 시 재생성하지 않고 그 슬롯을 비운다.
-    const violations = await checkYmyl(content.content, keyword);
+    const violations = await checkYmyl(
+      {
+        body: content.content,
+        description: content.description,
+        faqItems: content.faqItems,
+        metaDescription: content.metaDescription,
+        metaTitle: content.metaTitle,
+        title: content.title,
+      },
+      keyword,
+    );
     if (violations.length > 0) {
       throw new Error(`YMYL 게이트 위반: ${violations.map((v) => `[${v.rule}] ${v.detail}`).join(' / ')}`);
     }
@@ -226,8 +283,19 @@ async function saveAndPublishPosts(posts: DraftSuccess[]): Promise<PipelineResul
 
   for (const draft of posts) {
     try {
+      // 상한을 한 번만 읽으면 로컬 실행과 Actions 실행이 겹칠 때 둘 다 0건을 읽고 각각 발행한다.
+      // 원자적 예약(RPC·트랜잭션)이 없는 동안은 발행 직전 재확인으로 창을 좁힌다.
+      const already = await countPublishedToday();
+      if (already >= MAX_DAILY_PUBLISH) {
+        const message = `하루 상한 도달 (${already}/${MAX_DAILY_PUBLISH}) — 남은 글은 발행하지 않는다`;
+        console.warn(`[Pipeline] ${message}`);
+        results.push({ success: false, error: message, metrics: draft.metrics });
+        continue;
+      }
+
       draft.blogPost.status = 'published';
-      const saved = await withTimeout(saveBlogPost(draft.blogPost), TIMEOUTS.save, 'DB');
+      await saveWithReconcile(draft.blogPost);
+      const saved = draft.blogPost;
       // Google Indexing API 호출은 제거 — 공식적으로 JobPosting/BroadcastEvent 전용이라
       // 일반 블로그 URL·sitemap 전송은 지원 대상이 아니다. 색인은 sitemap이 담당하고
       // Bing·네이버 재크롤은 publishBlogPost 안의 IndexNow가 처리한다.
@@ -254,7 +322,8 @@ export async function generateBlogPost(keyword: string, type: 'comparison' | 'gu
   if (publish) {
     draft.blogPost.status = 'published';
     try {
-      const saved = await withTimeout(saveBlogPost(draft.blogPost), TIMEOUTS.save, 'DB');
+      await saveWithReconcile(draft.blogPost);
+      const saved = draft.blogPost;
       await publishBlogPost(saved.slug).catch(e => console.warn('[Pipeline] publish 실패:', err(e)));
     } catch (e) {
       console.error(`[Pipeline] 저장 실패: ${err(e)}`);
@@ -330,14 +399,20 @@ export async function generateWithDynamicKeywords(options: { publish?: boolean; 
 
     // ━━━ Phase 3: 저장 & 발행 — 검색량 상위 상한만 발행, 초과분은 draft 보관 ━━━
     const ranked = [...successfulDrafts].sort((a, b) => (b.searchVolume ?? 0) - (a.searchVolume ?? 0));
-    const limit = Math.min(count, MAX_DAILY_PUBLISH);
+    // 상한은 하루 단위다. 이번 실행분만 세면 재실행·수동 실행이 그대로 누적 발행된다.
+    const publishedToday = publish ? await countPublishedToday() : 0;
+    const remaining = Math.max(0, MAX_DAILY_PUBLISH - publishedToday);
+    if (publish && remaining === 0) {
+      console.warn(`[Pipeline] 오늘 이미 ${publishedToday}편 발행 — 상한 ${MAX_DAILY_PUBLISH} 도달, 전부 draft 보관`);
+    }
+    const limit = Math.min(count, remaining);
     const toPublish = publish ? ranked.slice(0, limit) : [];
     const toDraft = publish ? ranked.slice(limit) : ranked;
 
     const results: PipelineResult[] = [];
     for (const draft of toDraft) {
       try {
-        await withTimeout(saveBlogPost(draft.blogPost), TIMEOUTS.save, 'DB');
+        await saveWithReconcile(draft.blogPost);
         results.push({ success: true, blogPost: draft.blogPost, metrics: draft.metrics });
       } catch (e) {
         results.push({ success: false, error: err(e), metrics: draft.metrics });

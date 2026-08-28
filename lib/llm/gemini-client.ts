@@ -31,11 +31,25 @@ function initializeGemini(): GoogleGenAI {
   });
 }
 
-async function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
-  const timeout = new Promise<never>((_, reject) =>
-    setTimeout(() => reject(new Error(`Timeout after ${timeoutMs}ms`)), timeoutMs)
-  );
-  return Promise.race([promise, timeout]);
+/**
+ * 타임아웃.
+ *
+ * Promise.race만으로는 SDK 요청이 계속 돌아 과금된다(재시도까지 겹치면 동시에 세 건).
+ * 호출부가 넘긴 AbortController를 함께 끊어 실제로 요청을 취소한다.
+ */
+async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, abort?: AbortController): Promise<T> {
+  let timer: NodeJS.Timeout;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => {
+      abort?.abort();
+      reject(new Error(`Timeout after ${timeoutMs}ms`));
+    }, timeoutMs);
+  });
+  try {
+    return await Promise.race([promise, timeout]);
+  } finally {
+    clearTimeout(timer!);
+  }
 }
 
 export async function generateText(options: GenerateTextOptions): Promise<string> {
@@ -46,12 +60,14 @@ export async function generateText(options: GenerateTextOptions): Promise<string
   } = options;
 
   const genAI = initializeGemini();
+  const controller = new AbortController();
 
   const response = await withTimeout(
     genAI.models.generateContent({
       model: config.model || GEMINI_API_CONFIG.MODEL,
       contents: [{ role: 'user', parts: [{ text: prompt }] }],
       config: {
+        abortSignal: controller.signal,
         maxOutputTokens: config.maxOutputTokens || GEMINI_API_CONFIG.MAX_OUTPUT_TOKENS,
         temperature: config.temperature ?? GEMINI_API_CONFIG.TEMPERATURE,
         topP: config.topP ?? GEMINI_API_CONFIG.TOP_P,
@@ -62,7 +78,8 @@ export async function generateText(options: GenerateTextOptions): Promise<string
         },
       },
     }),
-    timeout
+    timeout,
+    controller,
   );
 
   return response.text || '';

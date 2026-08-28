@@ -13,7 +13,7 @@
  *   { "title": "...", "tags": ["2차전지"], "body": "문단1\n\n문단2", "outsideUrl": "https://..." }
  */
 
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { chromium, type Frame, type Page } from 'playwright';
 import {
@@ -23,10 +23,30 @@ import {
   NAVER_STATE_DIR,
   readHistory,
   recentPublishCount,
+  clearPublishPending,
+  markPublishPending,
+  readPublishPending,
   recordPublish,
+  recordTheme,
   SESSION_PATH,
   WEEKLY_PUBLISH_LIMIT,
 } from './session';
+import { THEME_COOLDOWN_DAYS } from './post-types';
+import { checkFormat, FORMAT } from './format';
+import {
+  BLUE_HEX,
+  detectBlogIdFromUrl,
+  parseRich,
+  QUOTE_PREFIX,
+  RED_HEX,
+  RESET_HEX,
+  resolveBlogId,
+  stripFormat,
+  tagsToEnter,
+  type DraftPayload,
+} from './draft-model';
+import { assertHashesMatch } from './run-store';
+import { assertNoCtaTail, planBodyActions } from './publish-plan';
 
 /**
  * 스마트에디터 ONE 셀렉터.
@@ -59,16 +79,14 @@ const SEL = {
   openPublish: 'button:has-text("발행")',
   tagInput: '#tag-input, .tag_input__rvUB5',
   confirmPublish: '.confirm_btn__WEaBq, button:has-text("발행"):visible',
+  boldButton: '.se-bold-toolbar-button, button[data-name="bold"]',
+  colorButton: '.se-font-color-toolbar-button, .se-color-toolbar-button, button[data-name="font-color"]',
+  textButton: '.se-text-toolbar-button, button[data-name="text"]',
+  quotation: '.se-quotation, .se-component.se-quotation',
+  categoryLayer: '[class*="category"], .select_category, [class*="Category"]',
 } as const;
 
-interface Draft {
-  body: string;
-  /** 캡처된 이미지 경로. FORMAT-SPEC상 최소 4장, 0장이면 발행 차단. */
-  images?: string[];
-  outsideUrl?: string;
-  tags?: string[];
-  title: string;
-}
+type Draft = DraftPayload;
 
 function parseArgs() {
   const args = process.argv.slice(2);
@@ -88,27 +106,35 @@ function loadDraft(path: string): Draft {
   const raw = JSON.parse(readFileSync(path, 'utf-8'));
   if (typeof raw.title !== 'string' || !raw.title.trim()) throw new Error('초안에 title이 없습니다');
   if (typeof raw.body !== 'string' || !raw.body.trim()) throw new Error('초안에 body가 없습니다');
+  if (!Array.isArray(raw.imagePlacements) || raw.imagePlacements.length < FORMAT.minImages) {
+    throw new Error('imagePlacements가 없습니다 — 초안을 재생성하라 (npm run naver:draft)');
+  }
+
+  const violations = checkFormat(raw as Draft, { fileExists: existsSync });
+  if (violations.length) throw new Error(`FORMAT-SPEC 위반으로 발행 중단: ${violations.join(' / ')}`);
+
+  assertHashesMatch(raw.imagePlacements.map((item: { path: string; sha256: string }) => ({
+    path: item.path,
+    sha256: item.sha256,
+  })));
+
   return raw as Draft;
 }
 
-/** 본문 + outside 링크. inside(블로그)에서 outside(자기 도메인)로 보내는 것이 투트랙의 요점이다. */
-function composeBody(draft: Draft): string {
-  if (!draft.outsideUrl) return draft.body;
-  return `${draft.body}\n\n실시간 점수와 관련주 전체 목록은 여기서 확인할 수 있습니다.\n${draft.outsideUrl}`;
-}
+/** 본문은 초안에 이미 CTA URL을 포함한다. 여기서 한 번 더 붙이면 CTA 뒤에 문단이 생긴다. */
 
 /**
  * 에디터에 실제로 들어간 내용을 되읽어 초안과 대조한다.
  * null이면 통과, 문자열이면 실패 사유.
  */
 async function verifyEditorContent(editor: Frame, draft: Draft, insertedImages: number): Promise<string | null> {
-  // 이미지는 FORMAT-SPEC상 최소 4장이고 0장은 발행 차단 조건이다.
-  // 부분 성공(4장 중 2장)도 미달로 본다 — 발행 후 수정은 문서 신뢰도 감점이라
-  // 깨진 글을 남기는 것보다 그 회차를 거르는 편이 싸다.
   if (draft.images?.length) {
     const onPage = await countImages(editor);
     if (onPage < MIN_IMAGES) {
       return `이미지 ${onPage}장 (최소 ${MIN_IMAGES}장, 삽입 시도 ${insertedImages}회)`;
+    }
+    if (onPage > FORMAT.maxImages) {
+      return `이미지 ${onPage}장 (최대 ${FORMAT.maxImages})`;
     }
   }
 
@@ -118,23 +144,68 @@ async function verifyEditorContent(editor: Frame, draft: Draft, insertedImages: 
   const norm = (t: string) => t.replace(/\s+/g, '');
   const flat = norm(rendered);
 
-  // 제목: 앞 12자만 대조 — 에디터가 줄바꿈을 넣을 수 있다
-  const titleHead = norm(stripMarkers(draft.title)).slice(0, 12);
-  if (!flat.includes(titleHead)) return `제목 미입력 (기대: "${titleHead}...")`;
+  // 길이 비교는 **본문 텍스트 컴포넌트만** 합산한다. 에디터 루트 전체를 재면
+  // 제목·이미지 캡션·에디터 UI 문구가 길이를 보충해 중간 문단 누락을 가린다.
+  const bodyOnly = norm(
+    (await editor.locator('.se-component.se-text .se-text-paragraph').allInnerTexts().catch(() => [])).join(' '),
+  );
 
-  // 본문: 첫 문단 앞 20자 (서식 마커는 타이핑되지 않으므로 제거하고 대조)
+  // 앞 12자만 보면 제목 후반부가 잘려도 통과한다. 전체를 대조한다.
+  const titleFull = norm(stripMarkers(draft.title));
+  if (!flat.includes(titleFull)) {
+    const head = titleFull.slice(0, 16);
+    return `제목이 초안과 다릅니다 (기대 ${titleFull.length}자, "${head}…" 전체 일치 실패)`;
+  }
+
   const plainBody = stripMarkers(draft.body);
   const bodyHead = norm(plainBody).slice(0, 20);
   if (!flat.includes(bodyHead)) return `본문 미입력 (기대: "${bodyHead}...")`;
 
-  // 본문 길이 — 문단 일부만 들어간 경우를 잡는다
-  const expected = norm(plainBody).length;
-  const got = flat.length;
-  if (got < expected * 0.7) return `본문이 잘림 (기대 ${expected}자 이상, 실제 ${got}자)`;
+  // 텍스트 컴포넌트가 될 블록만 뽑는다 — 길이·문장부호 비교의 공통 기준이다.
+  // 문장부호 유실 검출.
+  //
+  // 색상 팔레트 팝업이 열린 채로 다음 문자를 타이핑하면 첫 글자가 먹힌다. 실측에서
+  // 마침표 한 개가 사라져 두 문장이 한 줄로 붙은 채 공개됐다(logNo=224392242076).
+  // 길이 검증은 1자 차이로 걸리지 않으므로 마침표 수를 따로 센다.
+  // 인용구·URL 블록은 텍스트 컴포넌트에 안 들어가므로 기대값에서 뺀다.
+  const expectedTextBlocks = plainBody
+    .split(/\n{2,}/)
+    .map((b) => b.trim())
+    .filter((b) => b && !b.startsWith(QUOTE_PREFIX) && !/^https?:\/\/\S+$/.test(b));
+  const expectedPeriods = expectedTextBlocks.join(' ').split('.').length - 1;
+  const gotPeriods = bodyOnly.split('.').length - 1;
+  if (expectedPeriods > 0 && gotPeriods < expectedPeriods) {
+    return `문장부호 유실 (마침표 기대 ${expectedPeriods}개, 실제 ${gotPeriods}개) — 색상 팝업이 입력을 먹었을 수 있습니다`;
+  }
+
+  // 누락 검출은 **길이 비율이 아니라 문단별 존재 확인**으로 한다.
+  //
+  // 비율은 회계가 맞아야 성립하는데, 캡션이 텍스트 문단으로 들어가는지 이미지 컴포넌트의
+  // 캡션 필드로 들어가는지가 환경마다 달랐다(로컬 통과 / CI 89.9%로 반려). 인용구·CTA URL도
+  // 별도 컴포넌트라 양쪽 집합을 맞추기가 계속 어긋났다.
+  //
+  // 문단마다 앞부분이 화면에 있는지 보면 회계가 필요 없고, 중간 문단 하나가 빠진 경우를
+  // 더 정확히 잡는다(마침표 없는 볼드 리드 블록도 잡힌다).
+  const missingBlocks = expectedTextBlocks.filter((block) => {
+    const probe = norm(block).slice(0, 15);
+    return probe.length >= 8 && !flat.includes(probe);
+  });
+  if (missingBlocks.length > 0) {
+    const sample = norm(missingBlocks[0]).slice(0, 20);
+    return `본문 문단 ${missingBlocks.length}개 누락 (예: "${sample}…")`;
+  }
+
+  const lastTextBlock = plainBody
+    .split(/\n{2,}/)
+    .map((b) => b.trim())
+    .filter((b) => b && !/^https?:\/\/\S+$/.test(b) && !b.startsWith('{{image:'))
+    .at(-1);
+  if (lastTextBlock) {
+    const tail = norm(lastTextBlock).slice(0, 20);
+    if (!flat.includes(tail)) return `본문 끝부분 누락 (기대: "${tail}...")`;
+  }
 
   if (draft.outsideUrl) {
-    // 오글링크 카드로 변환되면 URL이 본문 텍스트에 남지 않는다 — 카드의 href로도 인정한다.
-    // 텍스트만 보면 정상 변환된 글이 '링크 누락'으로 반려된다(실측).
     const hasCard = await editor
       .locator(`.se-oglink a[href*="${new URL(draft.outsideUrl).host}"], .se-oglink-thumbnail`)
       .count()
@@ -144,7 +215,121 @@ async function verifyEditorContent(editor: Frame, draft: Draft, insertedImages: 
     }
   }
 
+  const quoteCount = await editor.locator(SEL.quotation).count().catch(() => 0);
+  if (quoteCount < FORMAT.quoteMin || quoteCount > FORMAT.quoteMax) {
+    return `인용구 ${quoteCount}개 (규격 ${FORMAT.quoteMin}~${FORMAT.quoteMax})`;
+  }
+  const quoteTexts = await editor.locator(SEL.quotation).allInnerTexts().catch(() => []);
+  for (const text of quoteTexts) {
+    const compact = text.replace(/\s+/g, ' ').trim();
+    if (compact.length > 40) return `인용구에 본문이 섞임: "${compact.slice(0, 40)}..."`;
+  }
+
+  const boldCount = await countBoldDom(editor);
+  if (boldCount < FORMAT.boldMin || boldCount > FORMAT.boldMax) {
+    return `실제 볼드 ${boldCount}회 (규격 ${FORMAT.boldMin}~${FORMAT.boldMax})`;
+  }
+  const colorMarkers = [...draft.body.matchAll(/\[\[([rb]):(.+?)\]\]/g)];
+  const wantedColor = colorMarkers.length;
+  const wantedColorChars = colorMarkers.reduce((n, m) => n + m[2].replace(/\s+/g, '').length, 0);
+  const color = await measureColorDom(editor);
+  if (wantedColor > 0 && color.count < wantedColor) {
+    return `실제 색상 ${color.count}개 (초안 마커 ${wantedColor}개)`;
+  }
+  // 번짐 검출: 색상 리셋이 실패하면 이후 문단 전체가 색을 물려받는다.
+  const colorBudget = Math.max(wantedColorChars * 2 + 20, 40);
+  if (color.chars > colorBudget) {
+    return `색상이 번졌습니다 (색상 글자 ${color.chars}자 > 허용 ${colorBudget}자, 마커 ${wantedColorChars}자) — 리셋 실패`;
+  }
+
+  const ctaAfter = await editor.evaluate(() => {
+    const components = [...document.querySelectorAll('.se-component')];
+    const cta = components.findIndex((el) => el.classList.contains('se-oglink') || el.querySelector('.se-oglink'));
+    if (cta === -1) return -1;
+    return components.slice(cta + 1).filter((el) => el.classList.contains('se-image') || el.classList.contains('se-quotation')).length;
+  }).catch(() => 0);
+  if (ctaAfter > 0) return `CTA 뒤 컴포넌트 ${ctaAfter}개`;
+
   return null;
+}
+
+function formatVerifyError(reason: string, shot: string): string {
+  return [
+    '발행 전 검증 실패 — 발행 버튼을 누르지 않습니다.',
+    `실패 항목: ${reason}`,
+    '수정 또는 재생성 명령: npm run naver:draft -- --out .naver-blog/verify/draft.json',
+    `검증 스크린샷 경로: ${shot}`,
+  ].join('\n');
+}
+
+async function selectCategory(editor: Frame, page: Page, name = 'StockMatrix'): Promise<void> {
+  const layer = editor.locator(SEL.categoryLayer).first();
+  if ((await layer.count()) === 0) {
+    throw new Error('카테고리 선택 UI를 찾지 못했습니다 — 마지막 사용값에 의존하지 않고 중단합니다');
+  }
+  await layer.click({ timeout: 5_000 }).catch(() => {});
+  await page.waitForTimeout(300);
+  const option = editor.getByText(name, { exact: true }).filter({ visible: true }).first();
+  if ((await option.count()) === 0) {
+    throw new Error(`카테고리 "${name}" 옵션이 없습니다`);
+  }
+  await option.click({ timeout: 5_000 });
+  const selected = await layer.innerText().catch(() => '');
+  if (!selected.includes(name)) {
+    throw new Error(`카테고리 선택 실패 (실제: "${selected.slice(0, 40)}")`);
+  }
+}
+
+async function assertSnapshotFresh(draft: Draft): Promise<void> {
+  const snap = draft.meta?.sourceSnapshot;
+  // 집계 글(ranking·evergreen)은 개별 테마 수치를 담지 않는다 — 대조 대상이 없다.
+  if (!snap || !draft.themeId || snap.score == null || snap.change7d == null) return;
+
+  const res = await fetch(`https://stockmatrix.co.kr/api/tli/themes/${draft.themeId}`, {
+    signal: AbortSignal.timeout(30_000),
+  });
+  if (!res.ok) throw new Error(`상세 API ${res.status} — 초안을 재생성하라`);
+
+  const json = await res.json() as {
+    data?: {
+      score?: {
+        change7d?: number;
+        raw?: { newsLastWeek?: number; newsThisWeek?: number };
+        updatedAt?: string;
+        value?: number;
+      };
+      stockCount?: number;
+    };
+  };
+  const live = json.data?.score;
+  // 스키마가 바뀌어 값이 안 오면 "검증했다"고 볼 수 없다 — 통과시키지 않는다.
+  if (!live || live.value == null || live.change7d == null) {
+    throw new Error('상세 API 응답에 score가 없습니다 — 스키마 변경 가능. 초안을 재생성하라.');
+  }
+
+  // 본문·캡션이 인용하는 값 전부를 대조한다. score/change7d만 보면 기사 수·종목 수가
+  // 바뀐 채로 발행돼 본문과 캡처가 서로 다른 집계 시점을 가리킬 수 있다.
+  const mismatches: string[] = [];
+  const cmp = (label: string, drafted: number | undefined, current: number | undefined) => {
+    if (drafted == null || current == null) return;
+    if (drafted !== current) mismatches.push(`${label} 초안 ${drafted} ≠ API ${current}`);
+  };
+  cmp('score', snap.score, live.value);
+  cmp('change7d', snap.change7d, live.change7d);
+  cmp('newsThisWeek', snap.newsThisWeek, live.raw?.newsThisWeek);
+  cmp('newsLastWeek', snap.newsLastWeek, live.raw?.newsLastWeek);
+  if (snap.stockCount != null && json.data?.stockCount != null
+      && snap.stockCount > json.data.stockCount) {
+    mismatches.push(`stockCount 초안 ${snap.stockCount} > API ${json.data.stockCount}`);
+  }
+  if (draft.meta?.sourceUpdatedAt && live.updatedAt
+      && !live.updatedAt.startsWith(draft.meta.sourceUpdatedAt)) {
+    mismatches.push(`기준일 초안 ${draft.meta.sourceUpdatedAt} ≠ API ${live.updatedAt.slice(0, 10)}`);
+  }
+
+  if (mismatches.length) {
+    throw new Error(`초안 스냅샷과 현재 API가 다릅니다 (${mismatches.join(' / ')}). 초안을 재생성하라.`);
+  }
 }
 
 async function getEditor(page: Page): Promise<Frame> {
@@ -153,114 +338,104 @@ async function getEditor(page: Page): Promise<Frame> {
   return frame;
 }
 
-/** make-draft가 넣는 마커 */
-const QUOTE_PREFIX = '>> ';
-/** FORMAT-SPEC §4 — 0장은 발행 차단, 부분 성공도 미달로 본다 */
-const MIN_IMAGES = 4;
-const BOLD_RE = /\*\*(.+?)\*\*/g;
-const COLOR_RE = /\[\[([rb]):(.+?)\]\]/g;
+/** FORMAT-SPEC — 0장은 발행 차단, 부분 성공도 미달로 본다 */
+const MIN_IMAGES = FORMAT.minImages;
 
 /** 서식 마커를 제거한 순수 텍스트 — 검증 대조용 */
 export function stripMarkers(text: string): string {
-  return text
-    .replace(new RegExp(QUOTE_PREFIX, 'g'), '')
-    .replace(BOLD_RE, '$1')
-    .replace(COLOR_RE, '$2');
+  return stripFormat(text);
 }
 
-/**
- * 한 문단을 입력한다. 볼드·색상 마커를 만나면 서식 토글 후 타이핑한다.
- *
- * 서식은 스마트에디터 단축키로 건다 — 툴바 버튼은 위치·클래스가 자주 바뀌지만
- * Ctrl/Cmd+B 같은 단축키는 안정적이다. 색상은 단축키가 없어 이번 범위에서
- * 적용하지 않고 볼드로 대체한다(강조 목적은 동일하게 달성된다).
- */
-async function typeRich(page: Page, text: string): Promise<void> {
-  const mod = process.platform === 'darwin' ? 'Meta' : 'Control';
-  // 색상 마커는 볼드로 강등 — 색상 적용은 툴바 조작이 필요해 실패 위험이 크다
-  const normalized = text.replace(COLOR_RE, '**$2**');
 
-  let cursor = 0;
-  for (const match of normalized.matchAll(BOLD_RE)) {
-    const before = normalized.slice(cursor, match.index);
-    if (before) await page.keyboard.type(before, { delay: 8 });
 
-    await page.keyboard.press(`${mod}+b`);
-    await page.keyboard.type(match[1], { delay: 8 });
-    await page.keyboard.press(`${mod}+b`);
 
-    cursor = (match.index ?? 0) + match[0].length;
+
+
+
+
+
+
+
+
+async function startPlainParagraph(page: Page, editor: Frame): Promise<void> {
+  await dismissHelp(editor, page);
+  const lastQuote = editor.locator(SEL.quotation).last();
+  if ((await lastQuote.count()) > 0) {
+    const box = await lastQuote.boundingBox();
+    if (box) {
+      await page.mouse.click(box.x + Math.min(80, box.width / 2), box.y + box.height + 28);
+      await page.waitForTimeout(200);
+    }
   }
-  const rest = normalized.slice(cursor);
-  if (rest) await page.keyboard.type(rest, { delay: 8 });
+  const plus = editor.locator('[class*="plus"], .se-add-component, .se-canvas-bottom-button').filter({ visible: true }).last();
+  if ((await plus.count()) > 0) {
+    await plus.click({ timeout: 3_000 }).catch(() => {});
+  }
+  const textBtn = editor.locator(SEL.textButton).filter({ visible: true }).first();
+  if ((await textBtn.count()) > 0) {
+    await textBtn.click({ timeout: 5_000 });
+    await page.waitForTimeout(400);
+  }
+  const inQuote = await editor.evaluate(() => {
+    const node = document.getSelection()?.anchorNode;
+    const el = node instanceof Element ? node : node?.parentElement;
+    return Boolean(el?.closest('.se-quotation, .se-component.se-quotation'));
+  }).catch(() => false);
+  if (inQuote) {
+    const outside = editor.locator('.se-component:not(.se-quotation) .se-text-paragraph').last();
+    if ((await outside.count()) > 0) await outside.click({ timeout: 5_000 });
+  }
 }
 
-/**
- * 본문 입력 + 이미지 삽입.
- *
- * 이미지는 문단 사이에 넣는다(FORMAT-SPEC: 300~400자마다 1장). 타이핑을 끝낸 뒤
- * 커서를 옮겨 삽입하는 방식은 커서 위치 제어가 불안정하므로, 타이핑 흐름 중간에
- * 그 자리에서 삽입한다 — 커서가 이미 정확한 위치에 있기 때문이다.
- */
+async function assertQuoteTitle(editor: Frame, expected: string): Promise<void> {
+  const last = editor.locator(SEL.quotation).last();
+  if ((await last.count()) === 0) throw new Error(`인용구 컴포넌트가 없습니다 (기대: ${expected})`);
+  const raw = (await last.innerText()).replace(/내용을 입력하세요\.?|출처 입력/g, '');
+  const text = raw.replace(/\s+/g, ' ').trim();
+  const want = expected.replace(/\s+/g, ' ').trim();
+  if (text !== want) {
+    throw new Error(`인용구가 소제목 한 줄이 아닙니다. 기대="${want}" 실제="${text.slice(0, 80)}"`);
+  }
+}
+
 async function typeBody(page: Page, editor: Frame, draft: Draft): Promise<number> {
-  const paragraphs = draft.body.split('\n\n').map((p) => p.trim()).filter(Boolean);
-  const images = [...(draft.images ?? [])];
+  const actions = planBodyActions(draft.body, draft.imagePlacements ?? []);
+  assertNoCtaTail(actions);
   let inserted = 0;
 
-  // 이미지를 넣을 문단 인덱스 — 첫 문단 뒤부터 균등 배치
-  const slots = new Set<number>();
-  if (images.length > 0 && paragraphs.length > 1) {
-    const step = Math.max(1, Math.floor(paragraphs.length / images.length));
-    for (let i = 0; i < images.length; i++) slots.add(Math.min(i * step, paragraphs.length - 1));
-  }
+  for (const [i, action] of actions.entries()) {
+    if (i > 0 && action.kind !== 'image') await page.keyboard.press('Enter');
 
-  for (const [i, paragraph] of paragraphs.entries()) {
-    if (i > 0) await page.keyboard.press('Enter');
-
-    if (paragraph.startsWith(QUOTE_PREFIX)) {
+    if (action.kind === 'quote') {
       const applied = await applyQuoteBlock(page, editor);
-      await page.keyboard.type(paragraph.slice(QUOTE_PREFIX.length), { delay: 8 });
-      // 인용구 블록에서 빠져나온다 — Enter 두 번이 스마트에디터의 블록 종료 관용이다
-      await page.keyboard.press('Enter');
-      if (applied) {
-        await page.keyboard.press('Enter');
-        await refocusBody(editor);
-      }
+      if (!applied) throw new Error(`인용구 적용 실패: ${action.text}`);
+      await page.keyboard.type(action.text, { delay: 8 });
+      await assertQuoteTitle(editor, action.text);
+      await startPlainParagraph(page, editor);
       continue;
     }
 
-    // URL만 있는 문단은 오글링크 카드로 만든다. 타이핑 후 Enter로 유도하는 방식은
-    // 이미지 삽입 뒤 포커스가 옮겨간 상태에서 변환이 일어나지 않았다(실측: oglink 0).
-    // 툴바 팝업 경로는 결과를 확인할 수 있어 결정적이다.
-    const urlOnly = paragraph.match(/^(https?:\/\/\S+)$/);
-    if (urlOnly) {
-      if (await insertOgLink(page, editor, urlOnly[1])) {
+    if (action.kind === 'oglink') {
+      if (await insertOgLink(page, editor, action.url)) {
         await refocusBody(editor);
         continue;
       }
-      // 실패하면 평문 URL이라도 남긴다 — 링크가 아예 없는 것보단 낫다
-      await page.keyboard.type(paragraph, { delay: 8 });
+      await page.keyboard.type(action.url, { delay: 8 });
       continue;
     }
 
-    await typeRich(page, paragraph);
-
-    if (slots.has(i) && images.length > 0) {
-      const file = images.shift()!;
+    if (action.kind === 'image') {
       await page.keyboard.press('Enter');
-      if (await insertImage(page, editor, file)) inserted += 1;
+      if (await insertImage(page, editor, action.path)) inserted += 1;
+      else throw new Error(`이미지 삽입 실패: ${action.path}`);
+      await startPlainParagraph(page, editor);
+      if (action.caption) await page.keyboard.type(action.caption, { delay: 8 });
       await refocusBody(editor);
-      // 업로드를 초 단위로 연타하면 타이핑보다 강한 봇 신호가 된다
       await page.waitForTimeout(1_800);
+      continue;
     }
-  }
 
-  // 배치되지 못한 나머지는 본문 끝에 이어 붙인다 — 개수 미달로 발행이 막히지 않게
-  for (const file of images) {
-    await page.keyboard.press('Enter');
-    if (await insertImage(page, editor, file)) inserted += 1;
-    await refocusBody(editor);
-    await page.waitForTimeout(1_800);
+    await typeRich(page, editor, action.text);
   }
 
   return inserted;
@@ -277,6 +452,9 @@ async function insertImage(page: Page, editor: Frame, file: string): Promise<boo
   for (let attempt = 1; attempt <= 3; attempt++) {
     const before = await countImages(editor);
     try {
+      // 오버레이가 하나라도 떠 있으면 사진 버튼 클릭이 가로채여 filechooser가 열리지 않는다.
+      // 실측: 번역(Papago) 모달과 도움말 패널이 그렇게 3회 재시도를 전부 태웠다.
+      await clearOverlays(page, editor);
       const [chooser] = await Promise.all([
         page.waitForEvent('filechooser', { timeout: 10_000 }),
         editor.locator(SEL.imageButton).filter({ visible: true }).first().click({ timeout: 10_000 }),
@@ -354,22 +532,128 @@ async function insertOgLink(page: Page, editor: Frame, url: string): Promise<boo
  * 그 안의 se-insert-menu-sub-panel-button 중 하나를 골라야 실제로 적용된다.
  * 한 단계만 누르면 패널만 열린 채 텍스트가 평문으로 들어간다(실측: 인용구 0개).
  */
+/**
+ * 에디터 위에 뜬 오버레이를 걷어낸다.
+ *
+ * 도움말 패널은 닫아도 다시 열리고, 번역(Papago)·복구 팝업은 dim으로 클릭을 가로챈다.
+ * 가로채인 클릭은 "filechooser 타임아웃"처럼 엉뚱한 증상으로 나타나므로, 남아 있으면
+ * 실패시켜 원인을 보이게 한다.
+ */
+/**
+ * "작성 중인 글이 있습니다" 복구 팝업을 확실히 닫는다.
+ *
+ * dry-run이 본문을 입력하면 네이버가 임시저장을 남긴다. 그래서 **다음 실행은 반드시**
+ * 이 팝업을 만난다 — 실측 CI에서 1차 dry-run 뒤 2차가 제목 클릭 단계에서
+ * `<div class="se-container"> intercepts pointer events`로 죽었다(run 33052741707).
+ * 고정 대기 2초로는 부족하고, 닫힌 것을 확인하지 않으면 이후 모든 클릭이 가로채인다.
+ */
+async function dismissRecoveryPopup(page: Page, editor: Frame): Promise<void> {
+  const blocker = () =>
+    editor.locator('.se-popup-dim, .se-popup-alert').filter({ visible: true });
+
+  // 팝업은 로드 후 비동기로 뜬다. 최대 8초 기다리고 안 뜨면 그냥 통과한다.
+  await blocker().first().waitFor({ state: 'visible', timeout: 8_000 }).catch(() => {});
+  if ((await blocker().count()) === 0) return;
+
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    for (const scope of [editor, page]) {
+      const btn = scope
+        .locator('button, [role="button"], a')
+        .filter({ hasText: /^\s*(취소|새로\s*작성|아니오)\s*$/ })
+        .filter({ visible: true })
+        .first();
+      if ((await btn.count()) > 0) {
+        await btn.click({ timeout: 3_000 }).catch(() => {});
+        break;
+      }
+    }
+    await page.keyboard.press('Escape').catch(() => {});
+    await blocker().first().waitFor({ state: 'hidden', timeout: 4_000 }).catch(() => {});
+    if ((await blocker().count()) === 0) {
+      console.log(`[Naver] 복구 팝업 닫음 (${attempt}회차)`);
+      return;
+    }
+  }
+
+  throw new Error(
+    '작성 중인 글 복구 팝업을 닫지 못했습니다 — 이 상태에서는 모든 클릭이 오버레이에 가로채입니다. ' +
+      '팝업 버튼 셀렉터를 재확인하세요.',
+  );
+}
+
+async function clearOverlays(page: Page, editor: Frame): Promise<void> {
+  await dismissHelp(editor, page);
+
+  for (const scope of [editor, page]) {
+    const close = scope
+      .locator('button, [role="button"], a')
+      .filter({ hasText: /^\s*(닫기|취소|완료)\s*$/ })
+      .filter({ visible: true })
+      .first();
+    if ((await close.count()) > 0) {
+      await close.click({ timeout: 2_000 }).catch(() => {});
+      await page.waitForTimeout(300);
+    }
+  }
+  await page.keyboard.press('Escape').catch(() => {});
+
+  const blockers = await editor
+    .locator('.se-popup-dim, .se-popup-alert, [class*="papago"], [class*="translation-layer"]')
+    .filter({ visible: true })
+    .count()
+    .catch(() => 0);
+  if (blockers > 0) {
+    throw new Error(
+      `에디터 위에 오버레이 ${blockers}개가 남아 클릭이 가로채입니다 (번역·복구·도움말 팝업). 스크린샷을 확인하세요.`,
+    );
+  }
+}
+
+async function dismissHelp(editor: Frame, page: Page): Promise<void> {
+  await page.keyboard.press('Escape').catch(() => {});
+  const help = editor.locator(SEL.helpClose);
+  if (await help.count()) await help.first().click({ timeout: 3_000 }).catch(() => {});
+  await editor
+    .evaluate(() => {
+      for (const el of document.querySelectorAll('.se-help-panel, .se-help-panel.se-is-on')) {
+        if (el instanceof HTMLElement) {
+          el.classList.remove('se-is-on');
+          el.style.display = 'none';
+          el.style.pointerEvents = 'none';
+        }
+      }
+    })
+    .catch(() => {});
+}
+
 async function applyQuoteBlock(page: Page, editor: Frame): Promise<boolean> {
   try {
-    const toolbarBtn = editor.locator(SEL.quoteButton).filter({ visible: true }).first();
-    if ((await toolbarBtn.count()) === 0) return false;
-    await toolbarBtn.click({ timeout: 5_000 });
+    await dismissHelp(editor, page);
+    const before = await editor.locator(SEL.quotation).count();
+    const toolbarBtn = editor.locator('button:has-text("인용구")').filter({ visible: true }).first();
+    if ((await toolbarBtn.count()) === 0) {
+      const fallback = editor.locator(SEL.quoteButton).filter({ visible: true }).first();
+      if ((await fallback.count()) === 0) return false;
+      await fallback.click({ timeout: 5_000 });
+    } else {
+      await toolbarBtn.click({ timeout: 5_000 });
+    }
     await page.waitForTimeout(400);
 
-    // 첫 번째 스타일(기본 따옴표)을 고른다
     const style = editor.locator(SEL.quoteStyle).filter({ visible: true }).first();
-    if ((await style.count()) === 0) {
-      await page.keyboard.press('Escape').catch(() => {});
-      return false;
+    if ((await style.count()) > 0) {
+      await style.click({ timeout: 5_000 });
+      await page.waitForTimeout(400);
     }
-    await style.click({ timeout: 5_000 });
-    await page.waitForTimeout(400);
-    return true;
+    const after = await editor.locator(SEL.quotation).count();
+    if (after > before) return true;
+    const last = editor.locator(SEL.quotation).last();
+    if (after === before && (await last.count()) > 0) {
+      const text = (await last.innerText()).replace(/\s+/g, '');
+      if (/내용을입력하세요/.test(text) || text.length === 0) return true;
+    }
+    await page.keyboard.press('Escape').catch(() => {});
+    return false;
   } catch {
     await page.keyboard.press('Escape').catch(() => {});
     return false;
@@ -377,17 +661,296 @@ async function applyQuoteBlock(page: Page, editor: Frame): Promise<boolean> {
 }
 
 async function refocusBody(editor: Frame): Promise<void> {
+  const outside = editor.locator('.se-component:not(.se-quotation) .se-text-paragraph').last();
+  if ((await outside.count()) > 0) {
+    await outside.click({ timeout: 5_000 }).catch(() => {});
+    return;
+  }
   await editor.locator(SEL.body).last().click({ timeout: 5_000 }).catch(() => {});
 }
 
+/**
+ * 서식 툴바가 본문 모드인지 확인한다.
+ *
+ * 스마트에디터는 캐럿 위치에 따라 속성 툴바를 **교체**한다. 제목 컴포넌트에 캐럿이
+ * 있으면 `title-font-size`만 남고 `bold`·`font-color` 버튼은 DOM에서 사라진다
+ * (2026-08-27 실측). 그 상태에서 색상을 적용하려 하면 "팔레트 셀을 찾지 못했습니다"
+ * 같은 엉뚱한 오류가 나서 진짜 원인이 묻힌다. 여기서 원인을 확정한다.
+ */
+async function assertBodyFormattingToolbar(editor: Frame, what: string): Promise<void> {
+  const bold = await editor.locator('button[data-name="bold"]').filter({ visible: true }).count();
+  if (bold > 0) return;
+  const titleMode = await editor.locator('button[data-name="title-font-size"]').filter({ visible: true }).count();
+  throw new Error(
+    `서식 툴바가 본문 모드가 아닙니다 (${what}). ` +
+      (titleMode > 0
+        ? '캐럿이 제목 컴포넌트에 있습니다 — 본문을 먼저 클릭해야 합니다.'
+        : '툴바를 찾지 못했습니다 — 복구 팝업이 남아 있거나 셀렉터가 바뀌었습니다.'),
+  );
+}
+
+/* ── 서식 계층: 실제 발행 3편을 통과한 구현(커밋 02416e1)을 그대로 유지한다. ──
+ * 선택 기반 리팩터를 시도했으나 문단 전체가 볼드가 되는 새 실패 모드를 만들었다.
+ * 검증된 코드를 유지하고, 취약 위치(블록 시작 지점 서식)는 조합기에서 피한다. */
+
+async function pickPaletteColor(editor: Frame, hex: string): Promise<boolean> {
+  // 반드시 팔레트 셀 안에서만 찾는다.
+  //
+  // 예전 구현은 실패 시 문서 전체(button/span/div/i/em)에서 배경색 근사 매칭으로
+  // 아무 요소나 클릭했다. 실측에서 그 폴백이 툴바의 「번역」 버튼을 눌러 Papago 모달이
+  // 본문을 덮었고, 이후 이미지 삽입이 filechooser 타임아웃으로 전부 실패했다.
+  // 팔레트 셀은 `.se-color-palette` + `data-color`(2026-08-27 실측 71개)로 특정된다.
+  const exact = editor
+    .locator(`.se-color-palette[data-color="${hex}"], [data-color="${hex}"].se-color-palette`)
+    .filter({ visible: true })
+    .first();
+  if ((await exact.count()) > 0) {
+    await exact.click({ timeout: 5_000 });
+    return true;
+  }
+
+  // 팔레트 안에서만 근사 매칭한다. 팔레트에 없는 색을 상수로 잡아둔 경우를 위한 안전망이며,
+  // 이 경로를 타면 경고를 남겨 상수를 실측값으로 고치게 한다.
+  const nearest = await editor.evaluate((targetHex) => {
+    const n = parseInt(targetHex.slice(1), 16);
+    const target = [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+    let best: { el: HTMLElement; dist: number } | null = null;
+    for (const el of document.querySelectorAll('.se-color-palette[data-color]')) {
+      if (!(el instanceof HTMLElement)) continue;
+      const cellHex = el.getAttribute('data-color') ?? '';
+      if (!/^#[0-9a-fA-F]{6}$/.test(cellHex)) continue;
+      const c = parseInt(cellHex.slice(1), 16);
+      const dist =
+        Math.abs(((c >> 16) & 255) - target[0]) +
+        Math.abs(((c >> 8) & 255) - target[1]) +
+        Math.abs((c & 255) - target[2]);
+      if (!best || dist < best.dist) best = { el, dist };
+    }
+    if (!best || best.dist > 90) return null;
+    best.el.click();
+    return best.el.getAttribute('data-color');
+  }, hex);
+
+  if (nearest) {
+    console.warn(`[Publish] 팔레트에 ${hex}가 없어 ${nearest}로 대체했습니다 — 상수를 실측값으로 고치세요`);
+    return true;
+  }
+  return false;
+}
+
+/**
+ * 색상 팔레트 팝업을 닫고 닫힘을 확인한다.
+ *
+ * 팝업이 열린 채로 다음 문자를 타이핑하면 **첫 글자가 팝업에 먹힌다.** 실측:
+ * 발행글에서 `[[r:늘었습니다]].` 뒤의 마침표가 사라져 두 문장이 한 줄로 붙었다
+ * (logNo=224392242076, "늘었습니다 검색 관심도의 …"). 눈에 잘 띄지 않는 데다
+ * 길이 검증도 1자 차이로는 걸리지 않아 그대로 공개됐다.
+ */
+async function closeColorPopup(page: Page, editor: Frame): Promise<void> {
+  const palette = editor.locator('.se-color-palette').filter({ visible: true }).first();
+  if ((await palette.count()) > 0) {
+    await page.keyboard.press('Escape').catch(() => {});
+    await palette.waitFor({ state: 'hidden', timeout: 3_000 }).catch(() => {});
+  }
+  await restoreCaretToEnd(editor);
+  await page.waitForTimeout(120);
+}
+
+/**
+ * 캐럿을 마지막 본문 문단 끝으로 되돌린다.
+ *
+ * 팝업을 닫는 것만으로는 부족했다 — Escape 후에도 포커스가 본문으로 확실히 돌아오지
+ * 않아 다음 입력의 첫 글자가 유실된다(실측 CI: 마침표 35개 기대 → 33개).
+ * 클릭으로 되돌리면 캐럿이 클릭 지점에 놓여 글자가 중간에 끼어든다. Range를 문단
+ * 내용 끝으로 접어 선택을 다시 심으면 이어쓰기 위치가 정확해진다.
+ */
+async function restoreCaretToEnd(editor: Frame): Promise<void> {
+  await editor
+    .evaluate(() => {
+      const paras = [...document.querySelectorAll('.se-component.se-text .se-text-paragraph')];
+      const last = paras[paras.length - 1];
+      if (!(last instanceof HTMLElement)) return;
+      last.focus?.();
+      const range = document.createRange();
+      range.selectNodeContents(last);
+      range.collapse(false);
+      const sel = window.getSelection();
+      sel?.removeAllRanges();
+      sel?.addRange(range);
+    })
+    .catch(() => {});
+}
+
+async function resetTypingColor(page: Page, editor: Frame): Promise<void> {
+  const btn = editor.locator(SEL.colorButton).filter({ visible: true }).first();
+  if ((await btn.count()) === 0) return;
+  await btn.click({ timeout: 3_000 }).catch(() => {});
+  await page.waitForTimeout(200);
+  for (const hex of [RESET_HEX, '#333333', '#000000']) {
+    if (await pickPaletteColor(editor, hex)) {
+      await closeColorPopup(page, editor);
+      return;
+    }
+  }
+  await closeColorPopup(page, editor);
+}
+
+async function countBoldDom(editor: Frame): Promise<number> {
+  return editor.evaluate(() => {
+    let count = 0;
+    for (const el of document.querySelectorAll('.se-component:not(.se-section-documentTitle) span, .se-component b, .se-component strong')) {
+      const weight = getComputedStyle(el).fontWeight;
+      if (parseInt(weight, 10) >= 600 || weight === 'bold') count += 1;
+    }
+    return count;
+  });
+}
+
+/**
+ * 색상 적용 실측 — 개수와 **글자 수**를 함께 센다.
+ *
+ * 개수만 세면 리셋 실패로 문단 전체가 빨강이 되어도 "색상 N개"로 통과한다
+ * (실측 보고서에 빨강 번짐이 기록돼 있다). 색상 글자 수가 초안 마커의 글자 수보다
+ * 크게 많으면 번진 것이다.
+ */
+async function countColorDom(editor: Frame): Promise<number> {
+  return (await measureColorDom(editor)).count;
+}
+
+async function measureColorDom(editor: Frame): Promise<{ chars: number; count: number }> {
+  return editor.evaluate(() => {
+    let count = 0;
+    let chars = 0;
+    for (const el of document.querySelectorAll('.se-component span, .se-component font')) {
+      const color = getComputedStyle(el).color;
+      const match = color.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
+      if (!match) continue;
+      const r = Number(match[1]);
+      const g = Number(match[2]);
+      const b = Number(match[3]);
+      const red = r > 180 && g < 90 && b < 90;
+      const blue = b > 150 && r < 90 && g < 140;
+      if (!red && !blue) continue;
+      // 중첩 span을 이중 계산하지 않는다 — 같은 색의 자식이 있으면 부모는 건너뛴다
+      if (el.querySelector('span, font')) continue;
+      count += 1;
+      chars += (el.textContent ?? '').replace(/\s+/g, '').length;
+    }
+    return { chars, count };
+  });
+}
+
+async function typeBold(page: Page, editor: Frame, text: string): Promise<void> {
+  await assertBodyFormattingToolbar(editor, '볼드');
+  await restoreCaretToEnd(editor);
+  const before = await countBoldDom(editor);
+
+  // 성공 후 캐럿을 문단 끝으로 되돌린다.
+  //
+  // 토글 해제 키와 다음 타이핑이 겹치면 **볼드 직후 문자가 유실된다.** CI에서
+  // `최근 7일 … 35개, 내린 …` 문단이 프로브 불일치로 잡혔다(run 33060471623) —
+  // 볼드 다음의 `,`가 먹힌 것이다. 색상에서 같은 원인을 이미 확인했고 같은 방식으로 막는다.
+  const settle = async () => {
+    await restoreCaretToEnd(editor);
+    await page.waitForTimeout(120);
+  };
+
+  const tryOnce = async (mod: string) => {
+    await page.keyboard.press(`${mod}+b`);
+    await page.keyboard.type(text, { delay: 8 });
+    await page.keyboard.press(`${mod}+b`);
+  };
+  await tryOnce(process.platform === 'darwin' ? 'Meta' : 'Control');
+  if ((await countBoldDom(editor)) > before) { await settle(); return; }
+
+  await tryOnce(process.platform === 'darwin' ? 'Control' : 'Meta');
+  if ((await countBoldDom(editor)) > before) { await settle(); return; }
+
+  const btn = editor.locator(SEL.boldButton).filter({ visible: true }).first();
+  if ((await btn.count()) > 0) {
+    await btn.click({ timeout: 5_000 });
+    await page.keyboard.type(text, { delay: 8 });
+    await btn.click({ timeout: 5_000 }).catch(() => {});
+    if ((await countBoldDom(editor)) > before) { await settle(); return; }
+  }
+  throw new Error(`볼드 적용 실패 ("${text.slice(0, 20)}") — 단축키·툴바 모두 실패, 발행 중단`);
+}
+
+async function typeColor(page: Page, editor: Frame, color: 'b' | 'r', text: string): Promise<void> {
+  const hex = color === 'r' ? RED_HEX : BLUE_HEX;
+  await assertBodyFormattingToolbar(editor, `색상 ${hex}`);
+  const btn = editor.locator(SEL.colorButton).filter({ visible: true }).first();
+  if ((await btn.count()) === 0) {
+    throw new Error('색상 툴바를 찾지 못했습니다 — 볼드로 강등하지 않고 발행을 중단합니다');
+  }
+  const before = await countColorDom(editor);
+  await btn.click({ timeout: 5_000 });
+  await page.waitForTimeout(300);
+  if (!(await pickPaletteColor(editor, hex))) {
+    await page.keyboard.press('Escape').catch(() => {});
+    throw new Error(`색상 ${hex} 팔레트 셀을 찾지 못했습니다 — 발행 중단`);
+  }
+  await page.keyboard.type(text, { delay: 8 });
+  await btn.click({ timeout: 3_000 }).catch(() => {});
+  await closeColorPopup(page, editor); // 팝업이 남으면 다음 입력의 첫 글자를 먹는다
+  if ((await countColorDom(editor)) <= before) {
+    throw new Error(`색상 적용이 DOM에 반영되지 않았습니다 (${hex}, "${text}") — 발행 중단`);
+  }
+  await resetTypingColor(page, editor);
+}
+
+async function typeRich(page: Page, editor: Frame, text: string): Promise<void> {
+  for (const segment of parseRich(text)) {
+    if (segment.kind === 'text') await page.keyboard.type(segment.text, { delay: 8 });
+    else if (segment.kind === 'bold') await typeBold(page, editor, segment.text);
+    else await typeColor(page, editor, segment.color, segment.text);
+  }
+}
+
+/**
+ * 에디터에 들어간 이미지 **컴포넌트** 수.
+ *
+ * 예전에는 `.se-component.se-image, .se-module-image img` 합집합을 셌다. 후자는 전자의
+ * 자식이라 장당 2회 계산됐고(4장 → 8), 그 결과 두 가지가 동시에 깨졌다:
+ *   1) 발행 전 검증이 "이미지 8장 (최대 7)"으로 정상 글을 반려했다.
+ *   2) insertImage가 `nth(before)`로 존재하지 않는 인덱스를 기다려 장당 30초를 태웠다.
+ * 컴포넌트만 센다.
+ */
 async function countImages(editor: Frame): Promise<number> {
-  return editor.locator('.se-component.se-image, .se-module-image img').count().catch(() => 0);
+  return editor.locator('.se-component.se-image').count().catch(() => 0);
 }
 
 async function main(): Promise<void> {
   const { draftPath, publish, headless } = parseArgs();
   const draft = loadDraft(draftPath);
   if (!hasSession()) throw new Error(`세션이 없습니다. 먼저 실행하세요: npm run naver:login`);
+
+  // 이전 실행이 발행 버튼을 누른 뒤 결과를 확인하지 못했다면, 그 글이 이미 올라갔을 수 있다.
+  // 같은 제목으로 다시 실행하면 중복 게시가 된다 — 사람이 확인할 때까지 멈춘다.
+  const pending = readPublishPending();
+  if (pending && pending.title === draft.title) {
+    throw new Error(
+      `이전 실행(${pending.at})이 같은 제목으로 발행을 시도했지만 결과가 확인되지 않았습니다.\n` +
+        '네이버 블로그에서 실제 게시 여부를 확인한 뒤 .naver-blog/state/pending-publish.json 을 지우고 다시 실행하세요.',
+    );
+  }
+  if (pending) {
+    // 제목이 달라도 최근 표식은 자동으로 지우지 않는다. A 글이 실제로 올라갔는지
+    // 모르는 상태에서 표식을 없애면, 나중에 A를 다시 실행할 때 중복 게시를 못 막는다.
+    const ageMs = Date.now() - Date.parse(pending.at);
+    const STALE_MS = 24 * 60 * 60 * 1000;
+    if (Number.isFinite(ageMs) && ageMs < STALE_MS) {
+      throw new Error(
+        `이전 실행(${pending.at})이 "${pending.title}" 발행을 시도했지만 결과가 확인되지 않았습니다.\n` +
+          '네이버 블로그에서 그 글의 게시 여부를 먼저 확인하세요.\n' +
+          '확인 후 .naver-blog/state/pending-publish.json 을 지우고 다시 실행하세요.',
+      );
+    }
+    console.warn(`[Naver] 24시간 지난 발행 표식(${pending.title})을 정리합니다.`);
+    clearPublishPending();
+  }
+
+  await assertSnapshotFresh(draft);
 
   const now = Date.now();
   const history = readHistory();
@@ -406,16 +969,12 @@ async function main(): Promise<void> {
   const shot = join(NAVER_STATE_DIR, `draft-${Date.now()}.png`);
 
   try {
-    // 블로그 ID는 비밀이 아니고(공개 URL) 세션 주인이 곧 발행 대상이다 —
-    // MyBlog 리다이렉트로 자동 감지해 설정 항목을 하나 줄인다.
-    // NAVER_BLOG_ID가 있으면 그것을 우선한다(다계정 운영 시).
-    let blogId = process.env.NAVER_BLOG_ID;
-    if (!blogId) {
-      await page.goto('https://blog.naver.com/MyBlog.naver', { waitUntil: 'domcontentloaded' });
-      blogId = page.url().match(/blog\.naver\.com\/([A-Za-z0-9_-]+)/)?.[1];
-      if (!blogId) throw new Error('세션에서 블로그 ID를 감지하지 못했습니다. NAVER_BLOG_ID를 설정하세요.');
-      console.log(`블로그 ID 자동 감지: ${blogId}`);
-    }
+    // 세션 주인을 MyBlog 리다이렉트로 확인한다. NAVER_BLOG_ID가 있으면 우선하되,
+    // 세션 계정이 대상(stock-matrix)과 다르면 로그인 재실행을 요구한다.
+    await page.goto('https://blog.naver.com/MyBlog.naver', { waitUntil: 'domcontentloaded' });
+    const detected = detectBlogIdFromUrl(page.url());
+    const blogId = resolveBlogId(detected, process.env.NAVER_BLOG_ID);
+    console.log(`블로그 ID: ${blogId}${detected && detected !== blogId ? ` (감지 ${detected})` : ''}`);
 
     await page.goto(`https://blog.naver.com/${blogId}/postwrite`, { waitUntil: 'domcontentloaded' });
 
@@ -426,25 +985,19 @@ async function main(): Promise<void> {
     }
 
     const editor = await getEditor(page);
+    await dismissHelp(editor, page);
 
-    // "작성 중인 글이 있습니다" 복구 팝업 — "취소"로 새 글 시작 (임시저장분 무시).
-    // 팝업은 frame 안에 있을 수도, 최상위 페이지에 있을 수도 있고, role이 button이
-    // 아닐 수도 있다. 양쪽 스코프에서 텍스트+visible로 찾는다.
-    await page.waitForTimeout(2_000); // 팝업은 로드 후 비동기로 뜬다
-    for (const scope of [editor, page]) {
-      const cancel = scope
-        .locator('button, [role="button"], a')
-        .filter({ hasText: /^\s*취소\s*$/ })
-        .filter({ visible: true })
-        .first();
-      if ((await cancel.count()) > 0) {
-        await cancel.click({ timeout: 3_000 }).catch(() => {});
-        await page.waitForTimeout(500);
-        break;
-      }
+    await dismissRecoveryPopup(page, editor);
+
+    // 팝업을 닫은 직후에도 잔여 레이어가 클릭을 가로챌 수 있다 — 한 번 재시도한다.
+    const titleField = editor.locator(SEL.title).first();
+    try {
+      await titleField.click({ timeout: 15_000 });
+    } catch {
+      await dismissRecoveryPopup(page, editor);
+      await clearOverlays(page, editor);
+      await titleField.click({ timeout: 15_000 });
     }
-
-    await editor.locator(SEL.title).first().click();
     await page.keyboard.type(draft.title, { delay: 12 });
 
     await editor.locator(SEL.body).first().click();
@@ -459,26 +1012,14 @@ async function main(): Promise<void> {
     // 초안과 대조한 뒤에만 발행 단계로 넘어간다.
     const verdict = await verifyEditorContent(editor, draft, insertedImages);
     if (verdict) {
-      throw new Error(`발행 전 검증 실패 — ${verdict}. 빈 글이 올라가지 않도록 중단한다.`);
+      throw new Error(formatVerifyError(verdict, shot));
     }
-    console.log('발행 전 검증 통과 (제목·본문·링크 확인)');
-
-    if (!publish) {
-      console.log('\ndry-run 입니다. 브라우저에서 확인 후 직접 발행하세요.');
-      console.log('실제 발행까지 자동으로 하려면 --publish 를 붙이세요.');
-      if (!headless) {
-        console.log('창을 닫으면 종료됩니다.');
-        await page.waitForEvent('close', { timeout: 0 });
-      }
-      return;
-    }
+    console.log('발행 전 검증 통과 (제목·본문·인용구·볼드·색상·이미지·CTA)');
 
     // 도움말 패널이 발행 버튼의 pointer events를 가로챈다(실측: se-help-title 조상 컨테이너).
-    // ESC → 닫기 버튼 → DOM 제거 순으로 확실히 치운다.
     await page.keyboard.press('Escape').catch(() => {});
     const help = editor.locator(SEL.helpClose);
     if (await help.count()) await help.first().click({ timeout: 3_000 }).catch(() => {});
-    // 실측 클래스: article.se-help-panel.se-is-on. 이게 발행 버튼 위를 덮는다.
     await editor
       .evaluate(() => {
         for (const el of document.querySelectorAll('.se-help-panel, .se-help-panel.se-is-on')) {
@@ -492,7 +1033,6 @@ async function main(): Promise<void> {
       .catch(() => {});
     await page.waitForTimeout(300);
 
-    // 에디터에는 보이지 않는 "발행" 텍스트 요소가 여럿 있다 — visible 필터가 필수
     const openBtn = editor
       .locator('button, [role="button"]')
       .filter({ hasText: /발행/ })
@@ -500,15 +1040,49 @@ async function main(): Promise<void> {
       .first();
     await openBtn.click({ timeout: 10_000 });
 
+    await selectCategory(editor, page);
+
     if (draft.tags?.length) {
       const tagInput = editor.locator(SEL.tagInput).first();
-      if (await tagInput.count()) {
-        for (const tag of draft.tags.slice(0, 10)) {
-          await tagInput.click();
-          await page.keyboard.type(tag, { delay: 12 });
-          await page.keyboard.press('Enter');
-        }
+      if ((await tagInput.count()) === 0) {
+        throw new Error('태그 입력기를 찾지 못했습니다 (SEL.tagInput 재보정 필요) — 태그 없이 발행하지 않습니다');
       }
+      const wanted = tagsToEnter(draft.tags);
+      for (const tag of wanted) {
+        await tagInput.click();
+        await page.keyboard.type(tag, { delay: 12 });
+        await page.keyboard.press('Enter');
+      }
+      // 칩의 클래스는 해시(tag_item__ISVjt)라 배포마다 바뀐다. 실측에서 태그 11개가
+      // 정상 입력됐는데도 클래스 미스로 발행이 막혔다. 클래스 대신 **우리가 넣은 태그가
+      // `#태그` 형태로 패널에 보이는지**를 센다 — 본문에는 '#'가 없어 오검출이 없다.
+      // 부분문자열로 세면 #제습기가 #제습기관련주 안에서 매칭돼, 실제로 빠진 태그가
+      // 통과한다. 뒤에 한글·영숫자가 붙지 않는 경계로 본다.
+      const entered = await editor.evaluate((tags) => {
+        const text = document.body.innerText;
+        return tags.filter((tag) => {
+          const escaped = tag.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          return new RegExp(`#${escaped}(?![가-힣A-Za-z0-9])`).test(text);
+        }).length;
+      }, wanted);
+      if (entered !== wanted.length) {
+        throw new Error(
+          `태그가 ${entered}/${wanted.length}개만 확인됩니다 — 초안과 불일치, 발행하지 않습니다`,
+        );
+      }
+    }
+
+    await page.screenshot({ path: shot, fullPage: true });
+    console.log(`설정 패널 스크린샷: ${shot}`);
+
+    if (!publish) {
+      console.log('\ndry-run 입니다. 브라우저에서 확인 후 직접 발행하세요.');
+      console.log('실제 발행까지 자동으로 하려면 --publish 를 붙이세요.');
+      if (!headless) {
+        console.log('창을 닫으면 종료됩니다.');
+        await page.waitForEvent('close', { timeout: 0 });
+      }
+      return;
     }
 
     // 발행 설정 패널의 최종 확인 버튼 — 역시 visible 필터로
@@ -517,6 +1091,8 @@ async function main(): Promise<void> {
       .filter({ hasText: /^\s*발행\s*$/ })
       .filter({ visible: true })
       .last();
+    // 클릭 직후 응답이 끊기면 "올라갔는지 모르는" 상태가 된다. 표식을 먼저 남긴다.
+    markPublishPending(draft.title, Date.now());
     await confirmBtn.click({ timeout: 10_000 });
 
     // 네이버가 "발행 오류 — 문서 처리 중 오류가 발생하였습니다" 팝업을 낼 수 있다.
@@ -527,6 +1103,21 @@ async function main(): Promise<void> {
       failure.waitFor({ state: 'visible', timeout: 45_000 }).then(() => 'error' as const),
     ]).catch(() => 'timeout' as const);
 
+    if (outcome === 'error') {
+      // 네이버가 명시적으로 발행 오류를 반환했다 = 게시되지 않았다. 표식을 남기면
+      // 다음 날 실행이 "결과 미확인"으로 판단해 사람 확인을 요구하며 멈춘다(발행 0건).
+      clearPublishPending();
+    }
+    if (outcome === 'timeout') {
+      // 결과 미확인. 발행 버튼은 눌렸으니 **게시됐을 가능성이 더 크다.**
+      // 기록하지 않으면 그 테마의 14일 쿨다운과 주간 카운트가 유실돼, 실제로 올라간
+      // 글과 같은 테마가 곧 다시 발행될 수 있다 — 저품질 트리거다.
+      // 보수적으로 기록한다: 안 올라갔다면 슬롯 하나를 잃을 뿐이고, 올라갔다면 중복을 막는다.
+      const attemptedAt = Date.now();
+      recordPublish(attemptedAt);
+      if (draft.themeId) recordTheme(draft.themeId, attemptedAt, THEME_COOLDOWN_DAYS);
+      console.warn('[Naver] 결과 미확인 — 게시됐을 수 있으므로 이력을 보수적으로 기록했습니다.');
+    }
     if (outcome !== 'ok') {
       const detail = outcome === 'error'
         ? '네이버가 발행 오류를 반환했습니다(문서가 너무 크거나 이미지 처리 실패).'
@@ -534,7 +1125,16 @@ async function main(): Promise<void> {
       throw new Error(`${detail} 스크린샷을 확인하세요.`);
     }
 
-    recordPublish(Date.now());
+    // 기록은 발행이 실제로 끝난 뒤에만. 초안 생성 시점에 기록하면 발행이 깨진 날도
+    // 그 테마가 14일간 후보에서 빠져 소재만 잃는다.
+    //
+    // 순서가 중요하다: 이력을 먼저 쓰고 표식을 나중에 지운다. 반대로 하면 그 사이
+    // 프로세스가 죽었을 때 "게시는 됐는데 이력도 표식도 없는" 상태가 되어,
+    // 재실행이 중복 게시하고 주간 상한도 넘긴다.
+    const publishedAt = Date.now();
+    recordPublish(publishedAt);
+    if (draft.themeId) recordTheme(draft.themeId, publishedAt, THEME_COOLDOWN_DAYS);
+    clearPublishPending();
     console.log(`발행 완료: ${page.url()}`);
     console.log(`최근 7일 ${recentPublishCount(readHistory(), Date.now())}건 / 상한 ${WEEKLY_PUBLISH_LIMIT}건`);
   } catch (error) {

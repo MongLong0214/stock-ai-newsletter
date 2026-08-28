@@ -4,6 +4,7 @@ import { GoogleGenAI } from '@google/genai';
 import { GEMINI_API_CONFIG } from '@/lib/llm/_config/pipeline-config';
 import { PIPELINE_CONFIG } from '../_config/pipeline-config';
 import { buildContentGenerationPrompt } from '../_prompts/content-generation';
+import { ALL_PATTERNS } from '../_config/clickbait-patterns';
 import type { CompetitorAnalysis, GeneratedContent } from '../_types/blog';
 
 // 하위 호환: pipeline.ts에서 이 경로로 import
@@ -22,7 +23,20 @@ function initializeGemini(): GoogleGenAI {
   });
 }
 
-/** 런타임 GeneratedContent 타입 가드 */
+/**
+ * 런타임 GeneratedContent 타입 가드.
+ *
+ * faqItems는 Array.isArray만 보면 `["질문1","질문2"]` 같은 문자열 배열이 통과한다.
+ * 그 배열은 FAQ 아코디언(item.question/item.answer)과 FAQPage JSON-LD로 그대로 흘러가
+ * 빈 FAQ와 잘못된 구조화 데이터를 만든다. 원소 형태까지 본다.
+ */
+function isFaqItem(v: unknown): v is { answer: string; question: string } {
+  if (!v || typeof v !== 'object') return false;
+  const item = v as Record<string, unknown>;
+  return typeof item.question === 'string' && item.question.trim().length > 0
+    && typeof item.answer === 'string' && item.answer.trim().length > 0;
+}
+
 function isGeneratedContent(obj: unknown): obj is GeneratedContent {
   if (!obj || typeof obj !== 'object') return false;
   const content = obj as Record<string, unknown>;
@@ -31,7 +45,11 @@ function isGeneratedContent(obj: unknown): obj is GeneratedContent {
     typeof content.content === 'string' &&
     typeof content.metaTitle === 'string' &&
     typeof content.metaDescription === 'string' &&
-    Array.isArray(content.faqItems)
+    typeof content.description === 'string' &&
+    Array.isArray(content.suggestedTags) &&
+    content.suggestedTags.every((t) => typeof t === 'string') &&
+    Array.isArray(content.faqItems) &&
+    content.faqItems.every(isFaqItem)
   );
 }
 
@@ -72,25 +90,40 @@ function parseJsonResponse(response: string): GeneratedContent {
   return parsed;
 }
 
+
+/** 본문 마크다운 소제목 최소 개수 — 구조 없는 장문을 막는다 */
+const MIN_BODY_HEADINGS = 3;
+
 /**
- * 낚시성 제목 금지어 — 금융 YMYL/AI 인용을 해치는 공포·과장·낚시 패턴.
- * 프롬프트로 1차 차단하되, 여기서 하드 게이트로 재생성을 강제한다.
+ * 제목의 미래 연월 표기를 찾는다. 없으면 null.
+ *
+ * 지원 표기: `(2027.01)` `[2027.1]` `2027년 1월` `2027-01` `2027.01` 그리고 연도 단독(`2027년`).
+ * 월이 1~12를 벗어나면 연월로 보지 않는다.
  */
-const BANNED_TITLE_PATTERNS: RegExp[] = [
-  /모르면/,
-  /고점에\s*물/,
-  /확률\s*\d+\s*%/,
-  /아직도.*(하시나요|보시나요|계신가요)/,
-  /나만\s*손해/,
-  /안\s*보면/,
-  /지금\s*아니면/,
-  /충격/,
-  /(?:^|\s)썰(?:\s|$|\.)/,
-  /후회/,
-];
+export function findFutureDateClaim(title: string, now: Date = new Date()): string | null {
+  // KST로 환산한다. GitHub Actions 러너는 UTC라, KST 9월 1일 05:30(=UTC 8월 31일)에는
+  // 로컬 시간이 8월이어서 정상 제목 "(2026.09)"가 미래로 판정되고 그날 발행이 0건이 된다.
+  const kst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
+  const kstYear = kst.getUTCFullYear();
+  const current = kstYear * 100 + (kst.getUTCMonth() + 1);
+
+  const withMonth = /(20\d{2})\s*[년.\-/]\s*(\d{1,2})\s*월?/g;
+  for (const m of title.matchAll(withMonth)) {
+    const month = Number(m[2]);
+    if (month < 1 || month > 12) continue;
+    if (Number(m[1]) * 100 + month > current) return `${m[1]}.${String(month).padStart(2, '0')}`;
+  }
+
+  // 연도만 표기된 경우 — "년"이 없어도 잡는다. "반도체 관련주 2027 전망"도 미래 표기다.
+  for (const m of title.matchAll(/\b(20\d{2})\b/g)) {
+    if (Number(m[1]) > kstYear) return m[1];
+  }
+
+  return null;
+}
 
 /** SEO 기준 콘텐츠 유효성 검증 — 가산식 점수가 보상할 수 없는 필수 축은 여기서 하드 게이트 */
-function validateContent(content: GeneratedContent, targetKeyword?: string): void {
+export function validateContent(content: GeneratedContent, targetKeyword?: string): void {
   const errors: string[] = [];
 
   if (!content.title || content.title.length < 10) errors.push('제목이 너무 짧습니다.');
@@ -106,18 +139,25 @@ function validateContent(content: GeneratedContent, targetKeyword?: string): voi
 
   // 미래 시점 제목 금지 — 라이브에서 8월 발행 글 7개가 "(2026.10)"을 달고 나갔다.
   // 존재하지 않는 시점의 데이터를 가진 것처럼 읽히는 YMYL 신뢰 결함.
-  const dateClaim = /\((20\d{2})[.\s]*(\d{1,2})\)/.exec(content.title ?? '');
-  if (dateClaim) {
-    const claimed = Number(dateClaim[1]) * 100 + Number(dateClaim[2]);
-    const now = new Date();
-    const current = now.getFullYear() * 100 + (now.getMonth() + 1);
-    if (claimed > current) errors.push(`제목이 미래 시점(${dateClaim[1]}.${dateClaim[2]})을 표기합니다.`);
-  }
+  // 괄호 점 표기만 잡던 것을 "2027년 1월", "[2027.01]", "2027-01", 연도 단독까지 넓혔다.
+  const futureClaim = findFutureDateClaim(content.title ?? '');
+  if (futureClaim) errors.push(`제목이 미래 시점(${futureClaim})을 표기합니다.`);
   if (!content.metaTitle || content.metaTitle.length > 70) errors.push('메타 제목이 없거나 70자를 초과합니다.');
   if (!content.metaDescription || content.metaDescription.length > 160) errors.push('메타 설명이 없거나 160자를 초과합니다.');
   if (!content.faqItems || content.faqItems.length < 2) errors.push('FAQ 항목이 부족합니다 (최소 2개).');
 
-  const banned = BANNED_TITLE_PATTERNS.find((re) => re.test(content.title || ''));
+  // 마크다운 소제목(## )은 필수다.
+  //
+  // 이 검사가 없어서 소제목 0개짜리 2,000자 본문이 생성되고, 윤문이 소제목 6개를
+  // 추가하면 humanizer의 "헤딩 구조 불변" 규칙에 걸려 그 글이 반려됐다
+  // (실측 e2e: 5편 중 2편이 이 사유). 근본 원인은 생성물에 구조가 없는 것이므로
+  // 여기서 막고 재생성시킨다. 소제목 없는 글은 가독성·SEO 양쪽에서 결함이다.
+  const headingCount = (content.content?.match(/^##\s/gm) ?? []).length;
+  if (headingCount < MIN_BODY_HEADINGS) {
+    errors.push(`본문 소제목(## )이 ${headingCount}개입니다 (최소 ${MIN_BODY_HEADINGS}개).`);
+  }
+
+  const banned = ALL_PATTERNS.find((re) => re.test(content.title || ''));
   if (banned) errors.push(`제목에 낚시성 금지 표현 포함 (패턴: ${banned.source}). 사실형 제목으로 재생성 필요.`);
 
   if (errors.length > 0) {
@@ -201,12 +241,17 @@ export async function generateBlogContent(
   for (let attempt = 1; attempt <= PIPELINE_CONFIG.retryAttempts; attempt++) {
     const attemptStartTime = Date.now();
 
+    // 타임아웃이 요청을 취소하지 않으면 재시도가 겹쳐 같은 프롬프트가 동시에 세 번 과금된다
+    const controller = new AbortController();
+    let timer: NodeJS.Timeout | undefined;
+
     try {
       const response = await Promise.race([
         genAI.models.generateContent({
           model: GEMINI_API_CONFIG.MODEL,
           contents: [{ role: 'user', parts: [{ text: prompt }] }],
           config: {
+            abortSignal: controller.signal,
             maxOutputTokens: GEMINI_API_CONFIG.MAX_OUTPUT_TOKENS,
             temperature: GEMINI_API_CONFIG.TEMPERATURE,
             topP: GEMINI_API_CONFIG.TOP_P,
@@ -214,9 +259,12 @@ export async function generateBlogContent(
             responseMimeType: GEMINI_API_CONFIG.RESPONSE_MIME_TYPE,
           },
         }),
-        new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error('Timeout after 120000ms')), 120000)
-        ),
+        new Promise<never>((_, reject) => {
+          timer = setTimeout(() => {
+            controller.abort();
+            reject(new Error('Timeout after 120000ms'));
+          }, 120000);
+        }),
       ]);
 
       const responseText = response.text || '';
@@ -242,6 +290,10 @@ export async function generateBlogContent(
         const jitter = Math.random() * 0.3 * baseDelay;
         await new Promise((resolve) => setTimeout(resolve, baseDelay + jitter));
       }
+    } finally {
+      // 성공했을 때 타이머를 남기면 120초 뒤 abort가 걸린다(다음 시도까지 끊는다)
+      clearTimeout(timer);
+      controller.abort();
     }
   }
 

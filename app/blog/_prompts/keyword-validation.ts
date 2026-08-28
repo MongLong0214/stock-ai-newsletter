@@ -22,6 +22,23 @@ const VALID_DIFFICULTIES: KeywordDifficulty[] = ['low', 'medium', 'high'];
 const VALID_CONTENT_TYPES: ContentType[] = ['comparison', 'guide', 'listicle', 'review'];
 const VALID_TOPIC_AREAS: TopicArea[] = ['technical', 'value', 'strategy', 'market', 'discovery', 'psychology', 'education', 'execution', 'theme', 'event'];
 
+/**
+ * 개별 키워드 검증 — 파이프라인이 실제로 탈락시키는 조건. null이면 통과.
+ *
+ * estimatedSearchVolume은 보지 않는다. AI 추정치이고 곧 네이버 실측으로 덮어써지므로
+ * 여기서 범위를 재는 것은 허수를 검증하는 셈이다(그 검사 때문에 isValid가 거의 항상
+ * false가 되어 경고가 소음이 됐고, 결국 아무것도 막지 않는 거짓 게이트로 남았다).
+ */
+export function validateKeywordItem(kw: KeywordMetadata): string | null {
+  if (kw.keyword.trim().split(/\s+/).length < 2) return `단일 단어 키워드 ("${kw.keyword}")`;
+  if (kw.reasoning.length < 50) return `reasoning 부족 (${kw.reasoning.length}자 < 50)`;
+  if (!VALID_INTENTS.includes(kw.searchIntent)) return `searchIntent "${kw.searchIntent}"`;
+  if (!VALID_DIFFICULTIES.includes(kw.difficulty)) return `difficulty "${kw.difficulty}"`;
+  if (!VALID_CONTENT_TYPES.includes(kw.contentType)) return `contentType "${kw.contentType}"`;
+  if (!VALID_TOPIC_AREAS.includes(kw.topicArea)) return `topicArea "${kw.topicArea}"`;
+  return null;
+}
+
 /** 생성된 키워드 메타데이터 품질 검증 */
 export function validateKeywordMetadata(keywords: KeywordMetadata[]): {
   isValid: boolean;

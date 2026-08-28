@@ -87,6 +87,8 @@ export async function fetchKeywordVolumes(
   });
 
   const res = await fetch(`${BASE_URL}${path}?${query}`, {
+    // 타임아웃이 없으면 응답이 멈춘 채로 CI job timeout(15분)까지 대기한다
+    signal: AbortSignal.timeout(15_000),
     headers: {
       'X-API-KEY': creds.apiKey,
       'X-Customer': creds.customerId,

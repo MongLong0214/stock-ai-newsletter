@@ -22,7 +22,8 @@ import { closeBrowser } from '@/app/blog/_services/web-scraper';
 
 async function main() {
   console.log('=== E2E DRY-RUN 시작 (publish: false) ===');
-  console.log('NAVER_AD 크리덴셜:', process.env.NAVER_AD_API_KEY ? '있음' : '없음(게이트 생략됨)');
+  // 게이트는 fail-closed다 — 자격증명이 없으면 키워드가 0개가 되어 draft도 안 나온다
+  console.log('NAVER_AD 크리덴셜:', process.env.NAVER_AD_API_KEY ? '있음' : '없음 → 키워드 전량 탈락 예정');
   const started = Date.now();
   const results = await generateWithDynamicKeywords({ publish: false });
   console.log(`\n=== E2E 결과 (${Math.round((Date.now() - started) / 1000)}s) ===`);
