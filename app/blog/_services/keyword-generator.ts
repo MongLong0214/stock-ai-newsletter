@@ -108,6 +108,18 @@ async function getUsedContent(): Promise<UsedContent> {
   return { allTimeKeywords, keywords: Array.from(allKeywords), titles: allTitles };
 }
 
+/**
+ * LLM 응답에서 JSON 배열 구간만 잘라낸다.
+ * 모델이 배열 앞뒤에 설명이나 두 번째 코드펜스를 덧붙이면 통째 파싱이 깨지기 때문이다.
+ */
+export function extractJsonArray(response: string): string | null {
+  const cleaned = response.replace(/```json\s*/gi, '').replace(/```\s*/gi, '').trim();
+  const start = cleaned.indexOf('[');
+  const end = cleaned.lastIndexOf(']');
+  if (start === -1 || end < start) return null;
+  return cleaned.slice(start, end + 1);
+}
+
 /** AI로 키워드를 생성하고 중복 제거 후 반환 */
 async function generateKeywordsWithAI(
   count: number,
@@ -119,8 +131,13 @@ async function generateKeywordsWithAI(
   const prompt = buildKeywordGenerationPrompt(count, usedKeywords, undefined, existingTitles, tliContext);
   const response = await generateText({ prompt });
 
+  const jsonText = extractJsonArray(response);
+  if (!jsonText) {
+    console.warn('[KeywordGen] AI 응답에서 JSON 배열을 찾지 못함:', response.slice(0, 200));
+    return [];
+  }
+
   try {
-    const jsonText = response.trim().replace(/^```json\s*/i, '').replace(/\s*```$/i, '').trim();
     const parsed = keywordsArraySchema.safeParse(JSON.parse(jsonText));
     if (!parsed.success) {
       console.warn('[KeywordGen] AI 응답 Zod 검증 실패:', parsed.error.message);
@@ -159,8 +176,9 @@ async function generateKeywordsWithAI(
 
     return validKeywords;
   } catch (error) {
+    // 던지면 generateKeywords의 재시도 루프까지 같이 죽는다 — 이 배치만 버리고 다음 시도로
     console.error('[KeywordGenerator] JSON 파싱 실패:', error);
-    throw new Error('AI 응답 파싱 실패');
+    return [];
   }
 }
 
