@@ -26,6 +26,8 @@ export interface StockDailyPriceCollectionReport {
   readonly successCount: number
   /** 조회 실패 또는 매칭되는 거래일 데이터가 0건인 심볼 수 */
   readonly failureCount: number
+  /** 실제 조회를 시도했지만 응답이 없거나 오류가 난 심볼 */
+  readonly failedSymbols: readonly string[]
   readonly skippedForBudget: number
   readonly persistedRows: number
   readonly successRate: number
@@ -109,7 +111,7 @@ export async function collectAndPersistStockDailyPriceRange(input: {
 
   const prices: StockDailyPriceInput[] = []
   const persistedDates = new Set<string>()
-  let failureCount = 0
+  const failedSymbols: string[] = []
 
   for (let index = 0; index < symbolsToAttempt.length; index++) {
     const symbol = symbolsToAttempt[index]
@@ -120,7 +122,7 @@ export async function collectAndPersistStockDailyPriceRange(input: {
 
       const tradingPoints = points.filter((point) => tradeDateSet.has(point.date))
       if (tradingPoints.length === 0) {
-        failureCount++
+        failedSymbols.push(symbol)
       } else {
         for (const point of tradingPoints) {
           prices.push({
@@ -137,7 +139,7 @@ export async function collectAndPersistStockDailyPriceRange(input: {
         }
       }
     } catch (error: unknown) {
-      failureCount++
+      failedSymbols.push(symbol)
       console.warn('   ⚠️ KIS 기간 일봉 조회 실패:', error instanceof Error ? error.message : String(error))
     }
 
@@ -147,6 +149,7 @@ export async function collectAndPersistStockDailyPriceRange(input: {
   }
 
   const attemptedCalls = symbolsToAttempt.length
+  const failureCount = failedSymbols.length
   const successCount = attemptedCalls - failureCount
 
   let persistedRows = 0
@@ -170,6 +173,7 @@ export async function collectAndPersistStockDailyPriceRange(input: {
     attemptedCalls,
     successCount,
     failureCount,
+    failedSymbols,
     skippedForBudget: Math.max(0, requestedSymbols.length - attemptedCalls),
     persistedRows,
     successRate: attemptedCalls > 0 ? successCount / attemptedCalls : 0,
