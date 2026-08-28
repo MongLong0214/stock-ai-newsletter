@@ -25,7 +25,9 @@ import type { BlogPostCreateInput, PipelineResult, PipelineMetrics, CompetitorAn
 
 const TIMEOUTS = {
   search: 60_000,
-  scrape: 120_000,
+  // 배치 안쪽 예산(LIMITS.BATCH_BUDGET_MS=90초)이 먼저 끊고 부분 성공분을 돌려주도록
+  // 바깥은 확실히 위에 둔다. 바깥이 먼저 터지면 fallback []가 되어 성공한 문서까지 버려진다.
+  scrape: 180_000,
   generate: 300_000,
   // 안쪽(HUMANIZE_CONFIG.timeout=150초)이 먼저 끊기게 두고 바깥은 그보다 위에 둔다 —
   // 그래야 "Humanize 타임아웃"이 아니라 실제 사유가 남는다.

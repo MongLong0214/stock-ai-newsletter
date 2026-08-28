@@ -20,6 +20,14 @@ export interface ScrapeOptions {
 const LIMITS = {
   MIN_HTML: 500,
   SCRAPE_DELAY: 800,
+  /**
+   * 배치 예산. 바깥(TIMEOUTS.scrape)이 먼저 터지면 **이미 성공한 문서까지 전부** 버려지고
+   * 초안이 "스크래핑 0건"으로 죽는다(실측 run 33142726945: 5편 중 2편이 이걸로 사망).
+   * URL당 최대 30초 × 3회 재시도라 느린 URL 한둘이 배치를 통째로 날린다.
+   * 안쪽에서 예산을 보고 남은 URL을 포기하면 부분 성공분이 살아남는다 —
+   * 근거 문서는 5건이 아니라 1건만 있어도 초안이 나온다.
+   */
+  BATCH_BUDGET_MS: 90_000,
 } as const;
 
 const DOMAIN_CONFIGS: Record<string, DomainConfig> = {
@@ -155,10 +163,16 @@ export async function scrapeSearchResults(
 ): Promise<ScrapedContent[]> {
   const scrapedContents: ScrapedContent[] = [];
   const total = searchResults.length;
+  const startedAt = Date.now();
   let succeeded = 0;
 
   for (let i = 0; i < searchResults.length; i++) {
     const result = searchResults[i];
+
+    if (i > 0 && Date.now() - startedAt > LIMITS.BATCH_BUDGET_MS) {
+      console.warn(`   예산 초과 — 남은 ${total - i}건 생략 (성공 ${succeeded}건으로 진행)`);
+      break;
+    }
 
     const content = await scrapeUrl(result.link, {
       referer: 'https://www.google.co.kr/search?q=' + encodeURIComponent(result.title),
