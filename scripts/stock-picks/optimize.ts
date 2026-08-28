@@ -348,12 +348,26 @@ const evaluateDates = <K extends StrategyName>(input: {
   })
 }
 
+/**
+ * in-sample에서 매일 3픽을 채운 비율. 실측(optimize-v2): 타율만으로 선택하면
+ * 9개 fold 중 5개가 후보 0인 세팅을 골라 OOS가 통째로 굶었다. 공급은 in-sample
+ * 정보만 쓰므로 이 제약은 OOS 누출이 아니다.
+ */
+const supplyRatio = (report: BacktestReport): number =>
+  report.totalDates > 0 ? report.totalPicks / (report.totalDates * 3) : 0
+
+const FULL_SUPPLY_RATIO = 0.9
+
 const betterTrainingReport = <K extends StrategyName>(
   candidate: { report: BacktestReport; parameters: StrategyParameterMap[K] },
   current: { report: BacktestReport; parameters: StrategyParameterMap[K] } | null,
   mode: SelectionMode,
 ): boolean => {
   if (!current) return true
+  // 공급 계층 우선: in-sample에서 90% 이상 날짜에 3픽을 채운 세팅이 못 채운 세팅을 항상 이긴다
+  const candidateSupplied = supplyRatio(candidate.report) >= FULL_SUPPLY_RATIO
+  const currentSupplied = supplyRatio(current.report) >= FULL_SUPPLY_RATIO
+  if (candidateSupplied !== currentSupplied) return candidateSupplied
   const candidatePrecision = candidate.report.precisionAt3 ?? -1
   const currentPrecision = current.report.precisionAt3 ?? -1
   if (candidatePrecision !== currentPrecision) return candidatePrecision > currentPrecision
