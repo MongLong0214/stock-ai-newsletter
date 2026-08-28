@@ -38,6 +38,7 @@ const makeFeature = (symbol: string, simDate: string): StockFeatureVector => ({
   sma20Slope5: 0.01,
   sma20DistancePercent: 0.5,
   atrPercent14: 3,
+  atrPercentile60: 50,
   adx14: 25,
   adx14Previous: 24,
   adx14Change: 1,

@@ -99,6 +99,21 @@ export const DEFAULT_VOLUME_BREAKOUT_NO_GAP_UP_PARAMETERS: VolumeBreakoutParamet
   excludeGapUp: true,
 }
 
+/**
+ * WHY: 전조 채굴 98,276건에서 ATR14 분리도 0.726이 1위였지만 같은 기간의 라벨을 본
+ * 결과이므로 프로덕션 게이트에는 넣지 않는다. 게이트는 프로덕션과 동결하고 랭킹만
+ * 포워드 섀도우로 측정한다. 포워드 픽 ≥40개 && 섀도우−프로덕션 ≥ +3%p이면
+ * 자동 승격하지 않고 Isaac 결정 안건으로 올린다.
+ */
+export const VOLUME_BREAKOUT_ATR_RANK_PARAMETERS: VolumeBreakoutParameters = {
+  minTurnover: 500_000_000,
+  minScore: 0,
+  minVolumePercentile: 90,
+  minDistanceFromHighPercent: 0,
+  maxRsi: 75,
+  excludeGapUp: true,
+}
+
 export const DEFAULT_EARLY_TREND_PARAMETERS: EarlyTrendParameters = {
   minTurnover: DEFAULT_MIN_TURNOVER,
   minScore: 45,
@@ -389,6 +404,52 @@ export function rankStrategyCandidates<K extends StrategyName>(input: {
     return [{ symbol: feature.symbol, score }]
   }).sort((left, right) => right.score - left.score || left.symbol.localeCompare(right.symbol))
     .slice(0, input.pickCount ?? PICKS_PER_DATE)
+}
+
+/** 사전등록 섀도우: 프로덕션 게이트 통과 집합을 ATR14 rolling percentile로만 재정렬한다. */
+export function rankVolumeBreakoutAtrRankCandidates(input: {
+  readonly features: readonly StockFeatureVector[]
+  readonly masters: ReadonlyMap<string, StockMasterState>
+  readonly universe?: ReadonlySet<string>
+}): Array<{ symbol: string; score: number }> {
+  return input.features.flatMap((feature) => {
+    if (input.universe && !input.universe.has(feature.symbol)) return []
+    const score = scoreVolumeBreakout(
+      feature,
+      input.masters.get(feature.symbol),
+      VOLUME_BREAKOUT_ATR_RANK_PARAMETERS,
+    )
+    if (score === null) return []
+    return [{
+      symbol: feature.symbol,
+      score,
+      atrPercentile: feature.atrPercentile60,
+    }]
+  }).sort((left, right) => (
+    (right.atrPercentile ?? -1) - (left.atrPercentile ?? -1)
+    || right.score - left.score
+    || left.symbol.localeCompare(right.symbol)
+  )).slice(0, PICKS_PER_DATE)
+    .map(({ symbol, score }) => ({ symbol, score }))
+}
+
+export function createVolumeBreakoutAtrRankStrategy(input: {
+  readonly featuresByDate: ReadonlyMap<string, readonly StockFeatureVector[]>
+  readonly masters: ReadonlyMap<string, StockMasterState>
+}): StockPickStrategy {
+  let cachedUniverse: readonly string[] | null = null
+  let cachedUniverseSet: ReadonlySet<string> | undefined
+  return (_handler, universe, simDate) => {
+    if (cachedUniverse !== universe) {
+      cachedUniverse = universe
+      cachedUniverseSet = new Set(universe)
+    }
+    return rankVolumeBreakoutAtrRankCandidates({
+      features: input.featuresByDate.get(simDate) ?? [],
+      masters: input.masters,
+      universe: cachedUniverseSet,
+    }).map((row) => row.symbol)
+  }
 }
 
 export function createCachedFeatureStrategy<K extends StrategyName>(input: {

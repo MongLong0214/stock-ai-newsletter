@@ -1,14 +1,17 @@
 import { describe, expect, it } from 'vitest'
 
 import type { StockFeatureVector } from '@/scripts/stock-picks/features'
+import { PRODUCTION_VOLUME_BREAKOUT_PARAMETERS } from '@/scripts/stock-picks/generate-picks'
 import {
   COMPOSITE_ABLATION_FEATURES,
   DEFAULT_PULLBACK_REBOUND_PARAMETERS,
   DEFAULT_VOLUME_BREAKOUT_BULLISH_CANDLE_PARAMETERS,
   DEFAULT_VOLUME_BREAKOUT_NO_GAP_UP_PARAMETERS,
   DEFAULT_VOLUME_BREAKOUT_PARAMETERS,
+  VOLUME_BREAKOUT_ATR_RANK_PARAMETERS,
   passesCommonGate,
   rankStrategyCandidates,
+  rankVolumeBreakoutAtrRankCandidates,
   scoreStrategy,
   type StockMasterState,
 } from '@/scripts/stock-picks/strategies'
@@ -30,6 +33,7 @@ const feature = (symbol: string, overrides: Partial<StockFeatureVector> = {}): S
   sma20Slope5: 0.01,
   sma20DistancePercent: 0.5,
   atrPercent14: 3,
+  atrPercentile60: 50,
   adx14: 25,
   adx14Previous: 24,
   adx14Change: 1,
@@ -177,5 +181,60 @@ describe('stock-picks strategy gates and ranking', () => {
       master: state,
       parameters: { ...DEFAULT_VOLUME_BREAKOUT_PARAMETERS, maxRsi: 65 },
     })).toBeNull()
+  })
+
+  it('ranks the preregistered shadow by ATR14 rolling percentile, then the production score', () => {
+    const features = [
+      feature('A', {
+        atrPercent14: 9,
+        atrPercentile60: 90,
+        volumePercentile60: 91,
+        distanceFromHigh60: 0,
+      }),
+      feature('B', {
+        atrPercent14: 2,
+        atrPercentile60: 20,
+        volumePercentile60: 99,
+        distanceFromHigh60: 4,
+      }),
+      feature('C', {
+        atrPercent14: 3,
+        atrPercentile60: 90,
+        volumePercentile60: 95,
+        distanceFromHigh60: 1,
+      }),
+    ]
+    const masters = new Map(features.map((row) => [row.symbol, master(row.symbol)]))
+
+    expect(rankVolumeBreakoutAtrRankCandidates({ features, masters }).map((row) => row.symbol))
+      .toEqual(['C', 'A', 'B'])
+  })
+
+  it('keeps the ATR shadow gate identical to the frozen production breakout gate', () => {
+    const features = [
+      feature('VALID', { distanceFromHigh60: 0, volumePercentile60: 90 }),
+      feature('RSI', { distanceFromHigh60: 0, rsi14: 75.01 }),
+      feature('GAP', { distanceFromHigh60: 0, gapFromPreviousClosePercent: 0.01 }),
+      feature('DISTANCE', { distanceFromHigh60: -0.01 }),
+      feature('VOLUME', { distanceFromHigh60: 0, volumePercentile60: 89.99 }),
+      feature('TURNOVER', { distanceFromHigh60: 0, averageTurnover20: 499_999_999 }),
+    ]
+    const masters = new Map(features.map((row) => [row.symbol, master(row.symbol)]))
+    const productionSymbols = rankStrategyCandidates({
+      name: 'volumeBreakout',
+      features,
+      masters,
+      parameters: PRODUCTION_VOLUME_BREAKOUT_PARAMETERS,
+      mode: 'force3',
+      pickCount: features.length,
+    }).map((row) => row.symbol).sort()
+    const shadowSymbols = rankVolumeBreakoutAtrRankCandidates({
+      features,
+      masters,
+    }).map((row) => row.symbol).sort()
+
+    expect(VOLUME_BREAKOUT_ATR_RANK_PARAMETERS).toEqual(PRODUCTION_VOLUME_BREAKOUT_PARAMETERS)
+    expect(shadowSymbols).toEqual(productionSymbols)
+    expect(shadowSymbols).toEqual(['VALID'])
   })
 })

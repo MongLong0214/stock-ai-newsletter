@@ -14,6 +14,8 @@ const DATES = [
   '2026-01-08',
   '2026-01-09',
   '2026-01-12',
+  '2026-01-13',
+  '2026-01-14',
 ] as const
 
 const buildRows = (input: {
@@ -107,5 +109,25 @@ describe('labelPick', () => {
     const prices = buildPriceBook(buildRows({ highs: [101, 109, 108, 107, 106] }))
 
     expect(labelPick(SYMBOL, DATES[0], prices, tradingDays)?.touched).toBe(false)
+  })
+
+  it('counts D6 through D8 touches only in the informational eight-holding-day horizon', () => {
+    const tradingDays = new TradingDayIndex(DATES)
+    const prices = buildPriceBook(buildRows({
+      highs: [101, 102, 103, 104, 105, 110, 109, 108],
+    }))
+
+    expect(labelPick(SYMBOL, DATES[0], prices, tradingDays)?.touched).toBe(false)
+    expect(labelPick(SYMBOL, DATES[0], prices, tradingDays, 8)).toMatchObject({
+      maxHigh: 110,
+      touched: true,
+    })
+    expect(labelPick(
+      SYMBOL,
+      DATES[0],
+      prices,
+      new TradingDayIndex(DATES.slice(0, -1)),
+      8,
+    )).toBeNull()
   })
 })

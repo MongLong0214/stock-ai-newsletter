@@ -23,6 +23,7 @@ const feature = (symbol: string, simDate: string, rsi14: number): StockFeatureVe
   sma20Slope5: 0.01,
   sma20DistancePercent: 0,
   atrPercent14: 3,
+  atrPercentile60: 50,
   adx14: 20,
   adx14Previous: 19,
   adx14Change: 1,

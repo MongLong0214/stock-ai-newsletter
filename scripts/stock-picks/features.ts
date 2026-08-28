@@ -38,6 +38,8 @@ export interface StockFeatureVector {
   readonly sma20Slope5: number | null
   readonly sma20DistancePercent: number | null
   readonly atrPercent14: number | null
+  /** 0~100 범위의 최근 60거래일 ATR14 mid-rank percentile이다. */
+  readonly atrPercentile60: number | null
   readonly adx14: number | null
   readonly adx14Previous: number | null
   readonly adx14Change: number | null
@@ -94,6 +96,7 @@ const buildVector = (input: {
   readonly lows: readonly NullableNumber[]
   readonly closes: readonly NullableNumber[]
   readonly volumes: readonly NullableNumber[]
+  readonly atrPercent14Values: readonly NullableNumber[]
 }): StockFeatureVector => {
   const { opens, highs, lows, closes, volumes } = input
   const currentClose = closes.at(-1) ?? null
@@ -128,7 +131,11 @@ const buildVector = (input: {
     sma20DistancePercent: currentClose === null || currentSma20 === null
       ? null
       : (currentClose / currentSma20 - 1) * 100,
-    atrPercent14: atrPercent(highs, lows, closes, 14),
+    atrPercent14: input.atrPercent14Values.at(-1) ?? null,
+    atrPercentile60: (() => {
+      const rank = rollingPercentileRank(input.atrPercent14Values, 60)
+      return rank === null ? null : rank * 100
+    })(),
     adx14: currentAdx,
     adx14Previous: previousAdx,
     adx14Change: difference(currentAdx, previousAdx),
@@ -171,6 +178,7 @@ export function buildFeatureSeries(input: {
   const lows: NullableNumber[] = []
   const closes: NullableNumber[] = []
   const volumes: NullableNumber[] = []
+  const atrPercent14Values: NullableNumber[] = []
   const output: StockFeatureVector[] = []
 
   for (const simDate of dates) {
@@ -180,6 +188,12 @@ export function buildFeatureSeries(input: {
     lows.push(row?.low ?? null)
     closes.push(row?.close ?? null)
     volumes.push(row?.volume ?? null)
+    atrPercent14Values.push(atrPercent(
+      highs.slice(-FEATURE_HISTORY_DAYS),
+      lows.slice(-FEATURE_HISTORY_DAYS),
+      closes.slice(-FEATURE_HISTORY_DAYS),
+      14,
+    ))
     if (input.includeFromDate && simDate < input.includeFromDate) continue
 
     output.push(buildVector({
@@ -190,6 +204,7 @@ export function buildFeatureSeries(input: {
       lows: lows.slice(-FEATURE_HISTORY_DAYS),
       closes: closes.slice(-FEATURE_HISTORY_DAYS),
       volumes: volumes.slice(-FEATURE_HISTORY_DAYS),
+      atrPercent14Values: atrPercent14Values.slice(-FEATURE_HISTORY_DAYS),
     }))
   }
   return output

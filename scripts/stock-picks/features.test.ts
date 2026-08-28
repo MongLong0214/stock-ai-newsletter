@@ -5,7 +5,7 @@ import { buildFeatureSeries, buildFeatureVector } from '@/scripts/stock-picks/fe
 import { TradingDayIndex } from '@/scripts/stock-picks/trading-days'
 import type { StockDailyPriceRow } from '@/scripts/tli/prices/stock-daily-prices'
 
-const dates = Array.from({ length: 70 }, (_value, index) => `2026-${String(Math.floor(index / 28) + 1).padStart(2, '0')}-${String(index % 28 + 1).padStart(2, '0')}`)
+const dates = Array.from({ length: 80 }, (_value, index) => `2026-${String(Math.floor(index / 28) + 1).padStart(2, '0')}-${String(index % 28 + 1).padStart(2, '0')}`)
 const symbol = 'KOSPI:000001'
 
 const buildRows = (missingLastVolume = false): StockDailyPriceRow[] => dates.map((tradeDate, index) => ({
@@ -28,14 +28,15 @@ describe('stock-picks feature builder', () => {
     expect(feature).toMatchObject({
       symbol,
       simDate: dates.at(-1),
-      close: 1_079,
+      close: 1_089,
       volume: 1_000,
       bullishCandle: true,
-      position52wObservations: 70,
+      position52wObservations: 80,
       position52wFullWindow: false,
     })
-    expect(feature.gapFromPreviousClosePercent).toBeCloseTo(-9 / 1_078 * 100, 12)
-    expect(feature.averageTurnover20).toBe(1_069_500)
+    expect(feature.gapFromPreviousClosePercent).toBeCloseTo(-9 / 1_088 * 100, 12)
+    expect(feature.averageTurnover20).toBe(1_079_500)
+    expect(feature.atrPercentile60).toBeCloseTo(0.5 / 60 * 100, 12)
     expect(feature.trendSlope60).toBeGreaterThan(0)
     expect(feature.rsi14).toBe(100)
   })
