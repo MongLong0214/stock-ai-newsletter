@@ -1,0 +1,37 @@
+name: Newsletter Sent Watchdog
+
+on:
+  schedule:
+    # 평일 오전 8:10 KST (UTC 전날, 월-금요일만)
+    - cron: '10 23 * * 0-4'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-newsletter-sent:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify newsletter sent
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY }}
+          SENDGRID_FROM_EMAIL: ${{ secrets.SENDGRID_FROM_EMAIL }}
+          NEWSLETTER_ALERT_EMAIL: ${{ vars.NEWSLETTER_ALERT_EMAIL }}
+        run: npx tsx scripts/verify-newsletter-sent.ts
