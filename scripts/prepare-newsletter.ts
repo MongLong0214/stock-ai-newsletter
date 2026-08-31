@@ -109,6 +109,8 @@ const createNewsletterClient = () => {
 export interface PrepareNewsletterOptions {
   /** true면 분석·픽 생성까지 전부 실행하되 DB 저장을 생략 — CI 실검수용. */
   readonly dryRun?: boolean
+  /** 백업 cron에서는 이미 생성된 코드 픽을 보존하고, 미생성·fallback 행만 복구한다. */
+  readonly backupRun?: boolean
   /**
    * 신선도 게이트 기준일 재정의(YYYY-MM-DD). 장 마감 후 CI 검수에서 다음 발행 시점을
    * 시뮬레이션할 때 쓴다. 발송분 오염 방지를 위해 dryRun에서만 허용한다.
@@ -120,7 +122,35 @@ export async function prepareNewsletter(options: PrepareNewsletterOptions = {}):
   if (options.simulateTodayKst && !options.dryRun) {
     throw new Error('simulateTodayKst는 dry-run에서만 허용됩니다 (발송분 오염 방지)')
   }
-  console.log(`🚀 뉴스레터 준비 작업 시작...${options.dryRun ? ' [DRY-RUN]' : ''}\n`)
+  const modeLabel = [options.dryRun ? 'DRY-RUN' : '', options.backupRun ? 'BACKUP' : '']
+    .filter(Boolean)
+    .join(', ')
+  console.log(`🚀 뉴스레터 준비 작업 시작...${modeLabel ? ` [${modeLabel}]` : ''}\n`)
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' })
+  console.log(`📅 뉴스레터 날짜: ${today}`)
+
+  const client = options.dryRun ? null : createNewsletterClient()
+  if (client) {
+    const { data: existingNewsletter, error: lookupError } = await client
+      .from('newsletter_content')
+      .select('is_sent, picks_source')
+      .eq('newsletter_date', today)
+      .maybeSingle()
+
+    if (lookupError) {
+      console.error('❌ Database error:', lookupError)
+      throw new Error(`Database error: ${lookupError.message}`)
+    }
+    if (existingNewsletter?.is_sent === true) {
+      console.log('🛡️ 이미 발송된 뉴스레터 — 내용 보존')
+      return
+    }
+    if (options.backupRun && existingNewsletter?.picks_source === 'code') {
+      console.log('🛡️ 이미 코드 픽 존재 — 백업 실행 건너뜀')
+      return
+    }
+  }
+
   const { geminiAnalysis, picksSource } = await resolveNewsletterAnalysis(
     options.simulateTodayKst
       ? { generateCodePicks: () => generatePicks({ todayKst: options.simulateTodayKst }) }
@@ -128,31 +158,13 @@ export async function prepareNewsletter(options: PrepareNewsletterOptions = {}):
   )
   console.log('✅ 뉴스레터 분석 완료\n')
 
-  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' })
-  console.log(`📅 뉴스레터 날짜: ${today}`)
-
   if (options.dryRun) {
     console.log(`\nDRY_RUN_RESULT picks_source=${picksSource} analysis_chars=${geminiAnalysis.length}`)
     console.log(geminiAnalysis.slice(0, 2_000))
     console.log('\n✅ dry-run — DB 저장 생략')
     return
   }
-
-  const client = createNewsletterClient()
-  const { data: existingNewsletter, error: lookupError } = await client
-    .from('newsletter_content')
-    .select('is_sent')
-    .eq('newsletter_date', today)
-    .maybeSingle()
-
-  if (lookupError) {
-    console.error('❌ Database error:', lookupError)
-    throw new Error(`Database error: ${lookupError.message}`)
-  }
-  if (existingNewsletter?.is_sent === true) {
-    console.log('🛡️ 이미 발송된 뉴스레터 — 내용 보존')
-    return
-  }
+  if (!client) throw new Error('newsletter client 초기화 실패')
 
   // is_sent를 payload에 넣지 않아 미발송 행의 기존 발송 상태를 그대로 보존한다.
   const { error } = await client
@@ -179,7 +191,7 @@ export async function prepareNewsletter(options: PrepareNewsletterOptions = {}):
   console.log('\n📝 저장된 데이터:')
   console.log(`  날짜: ${today}`)
   console.log(`  분석 길이: ${geminiAnalysis.length} characters`)
-  console.log('  발송 예정: 07:30 KST\n')
+  console.log('  발송 예정: 07:27 KST\n')
 }
 
 const isDirectRun = /prepare-newsletter\.(?:ts|js)$/.test(process.argv[1] ?? '')
@@ -188,6 +200,7 @@ if (isDirectRun) {
   const simulateInline = args.find((arg) => arg.startsWith('--simulate-today='))
   prepareNewsletter({
     dryRun: args.includes('--dry-run'),
+    backupRun: args.includes('--backup-run'),
     simulateTodayKst: simulateInline?.slice('--simulate-today='.length),
   }).then(() => {
     process.exit(0)

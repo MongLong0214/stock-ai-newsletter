@@ -65,7 +65,7 @@ export async function loadStockPickMasters(): Promise<StockPickMaster[]> {
     .range(from, to))
 }
 
-/** 06:00 KST 발행 준비 시점에 완전히 끝난 가장 최근 거래일이다. */
+/** 뉴스레터 준비 시점에 완전히 끝난 가장 최근 거래일이다. */
 export function getExpectedSignalDate(todayKst: string): string {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(todayKst)) {
     throw new Error(`todayKst 형식은 YYYY-MM-DD여야 합니다: ${todayKst}`)
@@ -77,13 +77,21 @@ export function getExpectedSignalDate(todayKst: string): string {
   return addKoreanTradingDays(todayKst, -1)
 }
 
-export function assertFreshSignalDate(signalDate: string, todayKst: string): void {
+/**
+ * 마지막 실측일을 검증하고, 완전히 끝난 캔들까지만 사용할 신호일을 반환한다.
+ * 기존 호출부 호환을 위해 export 이름과 두 인자 시그니처는 유지한다.
+ */
+export function assertFreshSignalDate(lastDate: string, todayKst: string): string {
   const expectedSignalDate = getExpectedSignalDate(todayKst)
-  if (signalDate !== expectedSignalDate) {
+  if (lastDate < expectedSignalDate) {
     throw new Error(
-      `주가 데이터 신선도 게이트 실패: signalDate=${signalDate}, expected=${expectedSignalDate}, todayKst=${todayKst}`,
+      `주가 데이터 신선도 게이트 실패: signalDate=${lastDate}, expected=${expectedSignalDate}, todayKst=${todayKst}`,
     )
   }
+  if (lastDate > expectedSignalDate) {
+    console.warn(`⚠️ 당일 미완성 캔들 감지 → signalDate=${expectedSignalDate}로 트리밍 (lastDate=${lastDate})`)
+  }
+  return expectedSignalDate
 }
 
 const clamp = (value: number, minimum: number, maximum: number): number => (
@@ -241,11 +249,20 @@ export async function generatePicks(input: {
   const loadMasters = input.dependencies?.loadMasters ?? loadStockPickMasters
 
   const tradingDays = await loadTradingDays()
-  const signalDate = tradingDays.lastDate
-  if (!signalDate) throw new Error('KOSPI 실측 거래일이 없습니다')
-  assertFreshSignalDate(signalDate, todayKst)
+  const lastDate = tradingDays.lastDate
+  if (!lastDate) throw new Error('KOSPI 실측 거래일이 없습니다')
+  const signalDate = assertFreshSignalDate(lastDate, todayKst)
+  const signalDateIndex = tradingDays.indexByDate.get(signalDate)
+  if (signalDateIndex === undefined) {
+    throw new Error(
+      `주가 데이터 신선도 게이트 실패: expected=${signalDate}가 KOSPI 실측 거래일 인덱스에 없습니다`,
+    )
+  }
 
-  const historyDates = tradingDays.tradingDays.slice(-PRICE_HISTORY_TRADING_DAYS)
+  const historyDates = tradingDays.tradingDays.slice(
+    Math.max(0, signalDateIndex - PRICE_HISTORY_TRADING_DAYS + 1),
+    signalDateIndex + 1,
+  )
   const startDate = historyDates[0]
   if (!startDate || historyDates.length < PRICE_HISTORY_TRADING_DAYS) {
     throw new Error(`피처 계산용 거래일 부족: ${historyDates.length}/${PRICE_HISTORY_TRADING_DAYS}`)
