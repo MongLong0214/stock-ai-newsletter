@@ -90,6 +90,35 @@ describe('production stock pick generator', () => {
     }
   })
 
+  it('trims an incomplete current-day candle and keeps historyDates ending at signalDate', async () => {
+    const fixture = makeFixture()
+    const loadPrices = vi.fn(async () => fixture.prices)
+    const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    try {
+      const json = await generatePicks({
+        todayKst: TODAY_KST,
+        dependencies: {
+          loadTradingDays: async () => new TradingDayIndex([...fixture.dates, TODAY_KST]),
+          loadPrices,
+          loadMasters: async () => fixture.masters,
+        },
+      })
+
+      expect(JSON.parse(json)).toHaveLength(3)
+      expect(loadPrices).toHaveBeenCalledWith({
+        startDate: fixture.dates[0],
+        endDate: SIGNAL_DATE,
+      })
+      expect(consoleWarnSpy).toHaveBeenCalledOnce()
+      expect(consoleWarnSpy).toHaveBeenCalledWith(expect.stringContaining(
+        `당일 미완성 캔들 감지 → signalDate=${SIGNAL_DATE}로 트리밍`,
+      ))
+    } finally {
+      consoleWarnSpy.mockRestore()
+    }
+  })
+
   it('throws when the last measured trading date is stale for today in KST', async () => {
     const fixture = makeFixture()
     await expect(generatePicks({
@@ -100,6 +129,30 @@ describe('production stock pick generator', () => {
         loadMasters: async () => fixture.masters,
       },
     })).rejects.toThrow(/신선도 게이트 실패/)
+  })
+
+  it('throws when the expected signal date is missing from the measured trading-day index', async () => {
+    const fixture = makeFixture()
+    const datesWithoutExpected = [
+      ...fixture.dates.filter((date) => date !== SIGNAL_DATE),
+      TODAY_KST,
+    ]
+    const loadPrices = vi.fn(async () => fixture.prices)
+    const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    try {
+      await expect(generatePicks({
+        todayKst: TODAY_KST,
+        dependencies: {
+          loadTradingDays: async () => new TradingDayIndex(datesWithoutExpected),
+          loadPrices,
+          loadMasters: async () => fixture.masters,
+        },
+      })).rejects.toThrow(/expected=2026-08-27가 KOSPI 실측 거래일 인덱스에 없습니다/)
+      expect(loadPrices).not.toHaveBeenCalled()
+    } finally {
+      consoleWarnSpy.mockRestore()
+    }
   })
 
   it('naturally excludes a symbol with no signalDate row', async () => {

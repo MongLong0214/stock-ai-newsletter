@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
   assessMarket: vi.fn(),
@@ -25,7 +25,32 @@ const NORMAL_ASSESSMENT = {
 }
 const HEALTHY_COLLECTION = { successRate: 1, skippedForBudget: 0 }
 
+const mockNewsletterClient = (existingNewsletter: {
+  readonly is_sent: boolean
+  readonly picks_source: 'code' | 'llm_fallback' | 'crash' | null
+} | null) => {
+  const maybeSingle = vi.fn(async () => ({ data: existingNewsletter, error: null }))
+  const eq = vi.fn(() => ({ maybeSingle }))
+  const lookupSelect = vi.fn(() => ({ eq }))
+  const writeSelect = vi.fn(async () => ({ error: null }))
+  const upsert = vi.fn(() => ({ select: writeSelect }))
+  const from = vi.fn(() => ({ select: lookupSelect, upsert }))
+  mocks.createClient.mockReturnValue({ from })
+  return { from, lookupSelect, upsert, writeSelect }
+}
+
+const mockSuccessfulCodePipeline = () => {
+  mocks.assessMarket.mockResolvedValue(NORMAL_ASSESSMENT)
+  mocks.refreshStockMaster.mockResolvedValue(undefined)
+  mocks.collectDaily.mockResolvedValue(HEALTHY_COLLECTION)
+  mocks.generateCodePicks.mockResolvedValue('[{"source":"code"}]')
+}
+
 describe('prepare-newsletter stock-pick wiring', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
   it('uses the legacy LLM analysis when code pick generation fails', async () => {
     const collectDaily = vi.fn(async () => HEALTHY_COLLECTION)
     const generateCodePicks = vi.fn(async () => {
@@ -197,7 +222,7 @@ describe('prepare-newsletter stock-pick wiring', () => {
         }),
         { onConflict: 'newsletter_date' },
       )
-      expect(lookupSelect).toHaveBeenCalledWith('is_sent')
+      expect(lookupSelect).toHaveBeenCalledWith('is_sent, picks_source')
       expect(writeSelect).toHaveBeenCalledOnce()
       expect(mocks.collectDaily).not.toHaveBeenCalled()
       expect(mocks.generateCodePicks).not.toHaveBeenCalled()
@@ -208,30 +233,84 @@ describe('prepare-newsletter stock-pick wiring', () => {
     }
   })
 
-  it('preserves an already-sent newsletter row instead of upserting generated content', async () => {
-    const maybeSingle = vi.fn(async () => ({ data: { is_sent: true }, error: null }))
-    const eq = vi.fn(() => ({ maybeSingle }))
-    const lookupSelect = vi.fn(() => ({ eq }))
-    const upsert = vi.fn()
-    const from = vi.fn(() => ({ select: lookupSelect, upsert }))
-    mocks.createClient.mockReturnValue({ from })
-    mocks.assessMarket.mockResolvedValue(NORMAL_ASSESSMENT)
-    mocks.refreshStockMaster.mockResolvedValue(undefined)
-    mocks.collectDaily.mockResolvedValue(HEALTHY_COLLECTION)
-    mocks.generateCodePicks.mockResolvedValue('[{"source":"code"}]')
+  it('preserves an already-sent newsletter row during a backup run', async () => {
+    const { upsert } = mockNewsletterClient({ is_sent: true, picks_source: 'llm_fallback' })
+    mockSuccessfulCodePipeline()
     vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', 'https://example.supabase.co')
     vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY', 'test-service-role-key')
     const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
 
     try {
-      await prepareNewsletter()
+      await prepareNewsletter({ backupRun: true })
 
       expect(upsert).not.toHaveBeenCalled()
+      expect(mocks.assessMarket).not.toHaveBeenCalled()
       expect(consoleLogSpy).toHaveBeenCalledWith('🛡️ 이미 발송된 뉴스레터 — 내용 보존')
     } finally {
       consoleLogSpy.mockRestore()
       vi.unstubAllEnvs()
       vi.clearAllMocks()
+    }
+  })
+
+  it("skips a backup run when today's row already has picks_source='code'", async () => {
+    const { upsert } = mockNewsletterClient({ is_sent: false, picks_source: 'code' })
+    mockSuccessfulCodePipeline()
+    vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', 'https://example.supabase.co')
+    vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY', 'test-service-role-key')
+    const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+    try {
+      await prepareNewsletter({ backupRun: true })
+
+      expect(upsert).not.toHaveBeenCalled()
+      expect(mocks.assessMarket).not.toHaveBeenCalled()
+      expect(consoleLogSpy).toHaveBeenCalledWith('🛡️ 이미 코드 픽 존재 — 백업 실행 건너뜀')
+    } finally {
+      consoleLogSpy.mockRestore()
+      vi.unstubAllEnvs()
+    }
+  })
+
+  it("regenerates an existing llm_fallback row and promotes it to picks_source='code'", async () => {
+    const { upsert } = mockNewsletterClient({ is_sent: false, picks_source: 'llm_fallback' })
+    mockSuccessfulCodePipeline()
+    vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', 'https://example.supabase.co')
+    vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY', 'test-service-role-key')
+    const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+    try {
+      await prepareNewsletter({ backupRun: true })
+
+      expect(mocks.generateCodePicks).toHaveBeenCalledOnce()
+      expect(upsert).toHaveBeenCalledWith(
+        expect.objectContaining({ picks_source: 'code' }),
+        { onConflict: 'newsletter_date' },
+      )
+    } finally {
+      consoleLogSpy.mockRestore()
+      vi.unstubAllEnvs()
+    }
+  })
+
+  it("creates today's row when a backup run finds no existing newsletter", async () => {
+    const { upsert } = mockNewsletterClient(null)
+    mockSuccessfulCodePipeline()
+    vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', 'https://example.supabase.co')
+    vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY', 'test-service-role-key')
+    const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+    try {
+      await prepareNewsletter({ backupRun: true })
+
+      expect(mocks.generateCodePicks).toHaveBeenCalledOnce()
+      expect(upsert).toHaveBeenCalledWith(
+        expect.objectContaining({ picks_source: 'code' }),
+        { onConflict: 'newsletter_date' },
+      )
+    } finally {
+      consoleLogSpy.mockRestore()
+      vi.unstubAllEnvs()
     }
   })
 })
