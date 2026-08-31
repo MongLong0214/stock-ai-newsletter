@@ -2,6 +2,62 @@
   "newsletters": [
     {
       "type": "stock",
+      "date": "2026-08-31",
+      "stocks": [
+        {
+          "ticker": "KOSPI:053690",
+          "name": "한미글로벌",
+          "close_price": 23000,
+          "rationale": "2026-08-28 종가 23,000원 확인(hankyung.com, investing.com 일치)|RSI 52.4로 과매수 없는 강세 구간 진입|MACD 시그널선 상향 돌파 유지|ADX 28.1로 상승 추세 강화 확인|건전한 거래량 51.6만주 발생(전일 대비 증가)|볼린저밴드 중심선 위 안정적 안착(위치 58%)|ATR 2.8% 수준으로 변동성 관리 양호|이동평균선(5/20/60) 완전 정배열 형성|OBV 매집 강도 지속 상승|애널리스트 투자의견 '매수' 등급(2.00) 유지|주당 배당금 400원 예정으로 하방 경직성 확보|KOSPI 지수 -1.79% 폭락장에서도 0.88% 상승하며 시장 대비 상대적 강세(Relative Strength) 증명",
+          "signals": {
+            "trend_score": 98,
+            "momentum_score": 95,
+            "volume_score": 92,
+            "volatility_score": 94,
+            "pattern_score": 96,
+            "sentiment_score": 93,
+            "overall_score": 95
+          },
+          "verified_date": "2026-08-28"
+        },
+        {
+          "ticker": "KOSDAQ:196170",
+          "name": "알테오젠",
+          "close_price": 320000,
+          "rationale": "2026-08-28 종가 320,000원 확인(daum.net, investing.com 일치)|당일 2.73% 상승하며 코스닥 지수(+0.09%) 대비 압도적 수익률 기록|RSI 56.4로 상승 모멘텀 지속 중|EMA 20일선 지지 후 재반등 성공|평균 거래량 61.5만주로 유동성 풍부|ADX 31.2로 강력한 추세성 입증|OBV 역사적 신고가 근접하며 기관/외인 매집 확인|볼린저밴드 상단(62% 위치) 향한 확장 국면|MFI 68로 자금 유입 강세 지속|목표주가 평균 372,051원 대비 저평가 매력|엔비디아 호실적 여파로 인한 바이오/AI 융합 섹터 수혜|삼성전자/하이닉스 급락 속에서 대안 투자처로 부상하며 자금 쏠림 현상 포착",
+          "signals": {
+            "trend_score": 97,
+            "momentum_score": 98,
+            "volume_score": 95,
+            "volatility_score": 91,
+            "pattern_score": 96,
+            "sentiment_score": 95,
+            "overall_score": 96
+          },
+          "verified_date": "2026-08-28"
+        },
+        {
+          "ticker": "KOSPI:000100",
+          "name": "유한양행",
+          "close_price": 84900,
+          "rationale": "2026-08-28 종가 84,900원 확인(gsifn.io, investing.com 일치)|폭락장 속에서 +2.66% 급등하며 방어주 및 주도주 역할 동시 수행|RSI 54.8로 매수 최적 구간 위치|MACD 양의 영역에서 골든크로스 발생|거래량 18.1만주로 전일 대비 증가하며 상승 신뢰도 확보|이동평균선 20일선 지지 및 5일선 골든크로스|ADX 29.5로 추세 강화 단계 진입|볼린저밴드 상단 68% 위치하며 강세 구간 진입|OBV 신고가 경신으로 매집 신호 강화|Ichimoku 클라우드 상단 돌파(호전 완성)|잭슨홀 미팅 우려에 따른 경기 방어적 성격의 제약 섹터 선호 현상|외국인/기관 동반 순매수 유입 확인",
+          "signals": {
+            "trend_score": 96,
+            "momentum_score": 97,
+            "volume_score": 98,
+            "volatility_score": 95,
+            "pattern_score": 98,
+            "sentiment_score": 94,
+            "overall_score": 97
+          },
+          "verified_date": "2026-08-28"
+        }
+      ],
+      "sentAt": "2026-08-31T00:15:31.878+00:00",
+      "subscriberCount": 316
+    },
+    {
+      "type": "stock",
       "date": "2026-08-28",
       "stocks": [
         {
@@ -11358,5 +11414,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-08-28T06:25:07.851Z"
+  "lastUpdated": "2026-08-31T00:16:13.448Z"
 }
