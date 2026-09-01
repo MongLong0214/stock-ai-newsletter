@@ -107,7 +107,7 @@ function DetailContent({ id }: DetailContentProps) {
             </Link>
           </motion.div>
 
-          <DetailHeader theme={themeWithLiveStocks} />
+          <DetailHeader theme={themeWithLiveStocks} liveStatus={liveStatus} />
 
           <div className="mb-8">
             <ThemePrediction
