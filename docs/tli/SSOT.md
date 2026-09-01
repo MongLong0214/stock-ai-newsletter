@@ -17,6 +17,7 @@
 | v3 | 2026-07-22 | (흡수) 제헌절 CI 사고, study lock, gta-v2 배선, B-Abl 활성화 |
 | v4 | 2026-07-27 | 문서 통합 개시. PR #104(만기 SSOT)·#105(앵커 척도) 머지, study 시계 1주차 시작, master plan git 이동 |
 | **v5** | **2026-07-29** | **Supabase egress 384% 초과 근본 수정** — 배치 feature 로더 per-theme 중복 로드 제거, 봇 방어 미들웨어, 뉴스 30일 보존 정리 |
+| **v6** | **2026-09-01** | **검증되지 않은 유사 테마 표면 sunset** — 비교 UI만 숨기고 코드·API·파이프라인·데이터는 보존 |
 
 ## 문서 지도
 
@@ -152,6 +153,16 @@ study lock이 켠 스냅샷 고정(FK ON DELETE RESTRICT)과 v2 저장기의 교
 **잔여 리스크**: 이번 주기 egress는 이미 초과라 되돌릴 수 없음. Phase A로 다음 주기부터 5GB 한도 내 복귀 → Fair Use 하드 제한 가능성 낮음. Pro 업그레이드는 Isaac이 거절.
 
 **교훈 (불변 규칙 ⑭)**: 참조 데이터를 테마/엔티티 루프 안에서 로드하지 말 것 — base_date/전역 단위로 1회 로드 후 재사용. 루프 안 로드는 egress가 O(N)으로 조용히 폭증한다. 정기적으로 `supabase inspect db outliers|calls|traffic-profile`로 쿼리 프로파일을 점검.
+
+### 사건 8 — 검증되지 않은 유사 테마 표면 sunset (9/1, v6)
+
+**실측**: `analog_candidates_v1`에서 무관 테마 쌍에도 similarity 1.000이 표시됐다(희귀금속↔무선충전기술 등). 표본 1,000건 중 177건(17.7%)은 selection score가 표시 pillar와 불일치했다. 원인은 순위→백분율 변환(`exp(-DTW)`, Mutual Rank)과 3-surface max 집계다.
+
+**계약 판정**: 3월 analog PRD는 역사 문서이며, master plan은 comparison L4를 범위 밖에 둔다. 자동 유사 테마 카드는 어느 현행 계약에도 미래 예측 계약이 없으므로 검증 전 노출 금지 원칙에 따라 sunset한다.
+
+**조치**: 비교 카드 섹션·헤더 칩·선택 유사도 표시를 숨겼다. 코드·API·데이터는 보존해 git revert 한 번으로 복원 가능하다. 파이프라인 step 4.25, analog 테이블, study 경로는 변경하지 않았다.
+
+**재개 조건**: L4 공개 gate 통과와 Isaac의 Layer 2 evidence UX 승인 후, analog가 Layer 2 확률에 incremental value를 갖는지 새 버전으로 검증한 뒤에만 복귀한다. raw similarity 노출은 영구 포기한다.
 
 ## 6. 불변 규칙 (사고 이력에서 나온 것 — 재발 방지)
 

@@ -76,11 +76,6 @@ ${indicatorBlocks}
 점수 하락 시 3개 독립 이진 신호를 검사: (1) 관심도 기울기 < 0, (2) 이번 주 뉴스 < 지난주 뉴스, (3) 방향성 변동성 지수 < 0.4.
 2개 이상 신호가 일치할 때만 하락 확정(다수결). 그렇지 않으면 이전 점수 × 0.947을 하한으로 사용.
 
-### 테마 비교 (유사 패턴)
-- Feature Similarity: 가중치 동적(0.40~1.00). 상호 순위(양방향 순위곱의 제곱근), z-score·코사인 폴백.
-- Curve Similarity: 가중치 동적(0.00~0.60). 형태 RMSE(35%) + 도함수 피어슨 상관(30%) + DTW 거리(35%). 최소 14일 데이터 필요.
-- Keyword Similarity: 표시용. 테마 키워드 자카드 계수.
-
 ## API Endpoints
 
 - \`GET /api/tli/scores/ranking?limit=10&sort=score\` — 단계별 테마 랭킹 (limit 1-50, sort: score/change7d/newsCount7d)

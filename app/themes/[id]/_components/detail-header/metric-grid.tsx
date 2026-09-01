@@ -7,19 +7,17 @@ import {
   ArrowDownRight,
   BarChart3,
   Newspaper,
-  Activity,
 } from 'lucide-react'
 import type { ThemeDetail } from '@/lib/tli/types'
 
 /* ── 색상 통합 맵 ──────────────────────────────────────────────── */
 
-type MetricColor = 'emerald' | 'red' | 'sky' | 'purple' | 'amber' | 'slate'
+type MetricColor = 'emerald' | 'red' | 'sky' | 'amber' | 'slate'
 
 const COLOR_MAP: Record<MetricColor, { card: string; icon: string; value: string }> = {
   emerald: { card: 'border-emerald-500/30 bg-emerald-500/5', icon: 'text-emerald-500', value: 'text-emerald-400' },
   red:     { card: 'border-red-500/30 bg-red-500/5',         icon: 'text-red-500',     value: 'text-red-400' },
   sky:     { card: 'border-sky-500/30 bg-sky-500/5',         icon: 'text-sky-500',     value: 'text-sky-400' },
-  purple:  { card: 'border-purple-500/30 bg-purple-500/5',   icon: 'text-purple-500',  value: 'text-purple-400' },
   amber:   { card: 'border-amber-500/30 bg-amber-500/5',     icon: 'text-amber-500',   value: 'text-amber-400' },
   slate:   { card: 'border-slate-500/30 bg-slate-500/5',     icon: 'text-slate-500',   value: 'text-slate-400' },
 }
@@ -58,7 +56,7 @@ interface MetricGridProps {
 
 export default function MetricGrid({ theme, themeAge }: MetricGridProps) {
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 mt-4">
+    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 mt-4">
       {themeAge != null && (
         <MetricCard icon={<Calendar className="w-4 h-4" />} label="테마 나이" value={themeAge > 365 ? '1년+' : `${themeAge}일`} color="emerald" />
       )}
@@ -76,9 +74,6 @@ export default function MetricGrid({ theme, themeAge }: MetricGridProps) {
       />
       <MetricCard icon={<BarChart3 className="w-4 h-4" />} label="관련 종목" value={`${theme.stockCount}개`} color="sky" />
       <MetricCard icon={<Newspaper className="w-4 h-4" />} label="뉴스" value={`${theme.newsCount}건`} color="sky" />
-      {theme.comparisons.length > 0 && (
-        <MetricCard icon={<Activity className="w-4 h-4" />} label="유사 패턴" value={`${theme.comparisons.length}개`} color="purple" />
-      )}
     </div>
   )
 }

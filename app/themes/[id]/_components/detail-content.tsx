@@ -1,7 +1,7 @@
 /** 테마 상세 메인 컨텐츠 */
 'use client'
 
-import { useState, useCallback, useMemo } from 'react'
+import { useMemo } from 'react'
 import { motion, useReducedMotion } from 'framer-motion'
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
@@ -26,24 +26,7 @@ interface DetailContentProps {
 function DetailContent({ id }: DetailContentProps) {
   const shouldReduceMotion = useReducedMotion()
   const { data: theme, isLoading, error } = useGetThemeDetail(id)
-  const [selectedComparisonIds, setSelectedComparisonIds] = useState<string[]>([])
   const { liveSnapshots, liveStatus } = useKisStockSnapshots(theme?.stocks ?? [])
-
-  const handleToggleComparison = useCallback((comparisonId: string) => {
-    setSelectedComparisonIds((prev) =>
-      prev.includes(comparisonId)
-        ? prev.filter((id) => id !== comparisonId)
-        : [...prev, comparisonId],
-    )
-  }, [])
-
-  const handleRemoveComparison = useCallback((comparisonId: string) => {
-    setSelectedComparisonIds((prev) => prev.filter((id) => id !== comparisonId))
-  }, [])
-
-  const handleClearComparisons = useCallback(() => {
-    setSelectedComparisonIds([])
-  }, [])
 
   const liveStocks = useMemo<Stock[]>(() => (
     (theme?.stocks ?? []).map((stock) => {
@@ -141,14 +124,8 @@ function DetailContent({ id }: DetailContentProps) {
           <ComparisonWorkspace
             themeName={theme.name}
             currentData={theme.lifecycleCurve}
-            comparisons={theme.comparisons}
-            selectedComparisonIds={selectedComparisonIds}
-            onToggleComparison={handleToggleComparison}
-            onClearComparisons={handleClearComparisons}
-            onRemoveComparison={handleRemoveComparison}
             newsTimeline={theme.newsTimeline}
             interestTimeline={theme.interestTimeline}
-            isPrePeak={theme.score.stage === 'Emerging' || theme.score.stage === 'Growth'}
             shouldReduceMotion={shouldReduceMotion ?? false}
           />
 

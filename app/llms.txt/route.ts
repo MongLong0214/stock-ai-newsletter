@@ -45,7 +45,6 @@ ${siteConfig.markets} ${siteConfig.stockCount}개 종목의 참고용 데이터�
 ${themeCount}개 이상의 주식 테마를 실시간 추적하여 생명주기 단계를 분석합니다.
 - 네이버 검색 관심도, 뉴스 모멘텀, 주가 변동성을 종합하여 0~100점 점수 산출
 - 5단계 생명주기: 초기(Early) → 성장(Growth) → 정점(Peak) → 쇠퇴(Decay) → 휴면(Dormant)
-- 유사 패턴 비교를 통한 참고 지표 제공
 
 ## Key Features
 
