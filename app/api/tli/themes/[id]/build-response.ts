@@ -5,6 +5,7 @@
 import type { ThemeDetail } from '@/lib/tli/types'
 import { toStage, getStageKo, isScoreComponents } from '@/lib/tli/types'
 import type { ComparisonResult } from '@/lib/tli/types/api'
+import type { ComparisonServingProvenance } from './comparison-v4-reader'
 
 interface ThemeBasic {
   id: string
@@ -22,7 +23,7 @@ interface ScoreData {
   components: unknown
 }
 
-interface BuildThemeDetailParams {
+interface BuildThemeDetailParams extends ComparisonServingProvenance {
   theme: ThemeBasic
   latestScore: ScoreData | null
   dayAgoScore: ScoreData | null
@@ -79,6 +80,8 @@ export function buildThemeDetailResponse(params: BuildThemeDetailParams): ThemeD
     newsArticles,
     keywords,
     comparisonResults,
+    comparisonSource,
+    comparisonGenerationVersion,
     allScores,
     newsList,
     interestList,
@@ -150,6 +153,8 @@ export function buildThemeDetailResponse(params: BuildThemeDetailParams): ThemeD
       source: a.source,
       pubDate: a.pub_date,
     })),
+    comparisonSource,
+    comparisonGenerationVersion,
     comparisons: comparisonResults,
     lifecycleCurve: allScores.map((s) => ({
       date: s.calculated_at,

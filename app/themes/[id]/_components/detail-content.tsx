@@ -142,13 +142,14 @@ function DetailContent({ id }: DetailContentProps) {
             themeName={theme.name}
             currentData={theme.lifecycleCurve}
             comparisons={theme.comparisons}
+            comparisonSource={theme.comparisonSource}
+            comparisonGenerationVersion={theme.comparisonGenerationVersion}
             selectedComparisonIds={selectedComparisonIds}
             onToggleComparison={handleToggleComparison}
             onClearComparisons={handleClearComparisons}
             onRemoveComparison={handleRemoveComparison}
             newsTimeline={theme.newsTimeline}
             interestTimeline={theme.interestTimeline}
-            isPrePeak={theme.score.stage === 'Emerging' || theme.score.stage === 'Growth'}
             shouldReduceMotion={shouldReduceMotion ?? false}
           />
 

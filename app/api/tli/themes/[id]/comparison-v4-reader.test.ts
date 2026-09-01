@@ -7,10 +7,12 @@ import {
   buildCompletedAnalogComparisonRows,
   buildLevel4ServingMetadata,
   filterAnalogRowsWithCurveData,
+  getAnalogGenerationVersion,
   hasActiveComparisonV4ServingControl,
   getComparisonV4ReaderMode,
   isComparisonV4ServingEnabled,
   mapV2CandidatesToLegacyComparisons,
+  quarantineDtwContractViolations,
   resolvePinnedServingArtifactVersions,
   selectPublishedComparisonRun,
 } from './comparison-v4-reader'
@@ -84,6 +86,29 @@ describe('comparison v4 reader', () => {
     ])
   })
 
+  it('reads the actual analog retrieval policy version', () => {
+    expect(getAnalogGenerationVersion({ retrieval_spec_version: '1.0' }))
+      .toBe('retrieval_spec_version:1.0')
+    expect(getAnalogGenerationVersion({})).toBe('analog_candidates_v1')
+  })
+
+  it('quarantines only DTW values outside [0,1] and keeps null signals', () => {
+    const result = quarantineDtwContractViolations([
+      { id: 'null-signal', dtw_distance: null },
+      { id: 'lower-bound', dtw_distance: 0 },
+      { id: 'upper-bound', dtw_distance: 1 },
+      { id: 'too-large', dtw_distance: 1.000001 },
+      { id: 'negative', dtw_distance: -0.000001 },
+    ])
+
+    expect(result.quarantinedCount).toBe(2)
+    expect(result.validRows.map((row) => row.id)).toEqual([
+      'null-signal',
+      'lower-bound',
+      'upper-bound',
+    ])
+  })
+
   it('builds completed analog comparison rows from query snapshot artifacts', () => {
     const rows = buildCompletedAnalogComparisonRows({
       currentDay: 41,
@@ -97,6 +122,9 @@ describe('comparison v4 reader', () => {
           curve_sim: 0.8,
           keyword_sim: 0.1,
           rank: 1,
+          dtw_distance: 0.2,
+          retrieval_surface: 'dtw_baseline',
+          policy_versions: { retrieval_spec_version: '1.0' },
         },
       ],
       evidenceByCandidateId: new Map([
@@ -137,6 +165,9 @@ describe('comparison v4 reader', () => {
         past_decline_days: 25,
         supportCount: 18,
         confidenceTier: 'high',
+        comparisonLane: 'completed_analog',
+        retrievalSurface: 'dtw_baseline',
+        generationVersion: 'retrieval_spec_version:1.0',
       }),
     ])
   })
@@ -176,6 +207,9 @@ describe('comparison v4 reader', () => {
           curve_sim: 0.8,
           keyword_sim: 0.1,
           rank: 1,
+          dtw_distance: null,
+          retrieval_surface: 'price_volume_knn',
+          policy_versions: { retrieval_spec_version: '1.0' },
         },
       ],
       evidenceByCandidateId: new Map([

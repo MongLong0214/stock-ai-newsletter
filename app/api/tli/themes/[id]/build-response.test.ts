@@ -7,6 +7,9 @@ describe('buildThemeDetailResponse', () => {
     const comparison: ComparisonResult = {
       pastTheme: 'Past Theme',
       pastThemeId: 'past-1',
+      comparisonLane: 'completed_analog',
+      retrievalSurface: 'dtw_baseline',
+      generationVersion: 'retrieval_spec_version:1.0',
       similarity: 0.73,
       currentDay: 12,
       pastPeakDay: 20,
@@ -47,6 +50,8 @@ describe('buildThemeDetailResponse', () => {
       newsArticles: [],
       keywords: [],
       comparisonResults: [comparison],
+      comparisonSource: 'analog',
+      comparisonGenerationVersion: 'retrieval_spec_version:1.0',
       allScores: [],
       newsList: [],
       interestList: [],
@@ -62,12 +67,19 @@ describe('buildThemeDetailResponse', () => {
       weightVersion: 'w-2026-03-12',
       sourceSurface: 'v2_certification',
     })
+    expect(result).toMatchObject({
+      comparisonSource: 'analog',
+      comparisonGenerationVersion: 'retrieval_spec_version:1.0',
+    })
   })
 
   it('preserves cycle-completion comparison metadata in the ThemeDetail payload', () => {
     const comparison: ComparisonResult = {
       pastTheme: 'Past Theme',
       pastThemeId: 'past-1',
+      comparisonLane: 'active_peer',
+      retrievalSurface: 'comparison_v2',
+      generationVersion: 'algorithm_version:comparison-v4-shadow-v1',
       similarity: 0.73,
       currentDay: 41,
       pastPeakDay: 20,
@@ -104,6 +116,8 @@ describe('buildThemeDetailResponse', () => {
       newsArticles: [],
       keywords: [],
       comparisonResults: [comparison],
+      comparisonSource: 'v2_active_peer',
+      comparisonGenerationVersion: 'algorithm_version:comparison-v4-shadow-v1',
       allScores: [],
       newsList: [],
       interestList: [],
@@ -135,6 +149,8 @@ describe('buildThemeDetailResponse', () => {
       newsArticles: [],
       keywords: [],
       comparisonResults: [],
+      comparisonSource: 'none',
+      comparisonGenerationVersion: null,
       allScores: [],
       newsList: [],
       interestList: [],
@@ -161,6 +177,8 @@ describe('buildThemeDetailResponse', () => {
       newsArticles: [],
       keywords: ['전기자전거', ' 전기자전거 ', '전고체', '전고체', ''],
       comparisonResults: [],
+      comparisonSource: 'none',
+      comparisonGenerationVersion: null,
       allScores: [],
       newsList: [],
       interestList: [],

@@ -54,7 +54,7 @@ export async function generateMetadata({
   const descParts = [`${theme.name} 테마 생명주기 분석.`]
   if (stageKo && theme.score != null) descParts.push(`현재 ${stageKo} 단계, 점수 ${theme.score}점.`)
   if (stocksText) descParts.push(`주요 종목: ${stocksText}.`)
-  descParts.push('단계별 추이, 유사 패턴 비교, 관련 종목을 확인하세요.')
+  descParts.push('단계별 추이, 자동 비교 후보, 관련 종목을 확인하세요.')
   const description = theme.description || descParts.join(' ')
 
   const keywords = [

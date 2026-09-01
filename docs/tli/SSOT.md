@@ -17,6 +17,7 @@
 | v3 | 2026-07-22 | (흡수) 제헌절 CI 사고, study lock, gta-v2 배선, B-Abl 활성화 |
 | v4 | 2026-07-27 | 문서 통합 개시. PR #104(만기 SSOT)·#105(앵커 척도) 머지, study 시계 1주차 시작, master plan git 이동 |
 | **v5** | **2026-07-29** | **Supabase egress 384% 초과 근본 수정** — 배치 feature 로더 per-theme 중복 로드 제거, 봇 방어 미들웨어, 뉴스 30일 보존 정리 |
+| **v6** | **2026-09-01** | **비교 화면 주장 무결성 수정** — 허위 정밀도·등급·pillar·순위·파생 ETA를 비노출하고 lane/검색 방식/실제 생성 버전을 명시, DTW 계약 위반 격리, 활성 피어 폴백 보존 |
 
 ## 문서 지도
 
@@ -152,6 +153,14 @@ study lock이 켠 스냅샷 고정(FK ON DELETE RESTRICT)과 v2 저장기의 교
 **잔여 리스크**: 이번 주기 egress는 이미 초과라 되돌릴 수 없음. Phase A로 다음 주기부터 5GB 한도 내 복귀 → Fair Use 하드 제한 가능성 낮음. Pro 업그레이드는 Isaac이 거절.
 
 **교훈 (불변 규칙 ⑭)**: 참조 데이터를 테마/엔티티 루프 안에서 로드하지 말 것 — base_date/전역 단위로 1회 로드 후 재사용. 루프 안 로드는 egress가 O(N)으로 조용히 폭증한다. 정기적으로 `supabase inspect db outliers|calls|traffic-profile`로 쿼리 프로파일을 점검.
+
+### 사건 8 — 비교 이중 서빙·허위 정밀도·pillar 불일치 (9/1 화면 주장 차단)
+
+**실측**: `analog_candidates_v1` 1,195건에서 `similarity_score` max=1.000, P95=0.893이었고, 희귀금속←무선충전기술·희귀금속←엔젤산업·리모델링/인테리어←무선충전기술이 100%, 니켈←엔젤산업이 89.9%로 표시됐다. 표본 1,000건 중 177건(17.7%)은 `similarity_score`가 화면에 표시하던 어떤 pillar와도 일치하지 않았다. 집계기가 승리 surface와 무관하게 `featureSim=max`, `curveSim=max`, `dtwDistance=min`을 합성하고, kNN(feature)·DTW(curve)·regime(feature/cosine 50:50)의 의미가 다른 점수를 한 순위로 노출한 것이 원인이다. 완결 analog가 없을 때 V2 활성 피어를 대신 서빙하는 이중 경로도 화면에서 구분되지 않았다. 정규화 곡선 계약상 `[0,1]`이어야 하는 `dtw_distance`가 1을 넘은 행은 5건(0.6%), max=15.83이었다.
+
+**조치**: 후보 생성·저장·study contract(`comparison-v4-shadow-v1`)·PIT 빈티지는 동결했다. 화면과 상세 서빙에서 유사도 백분율·정성 등급·pillar bar·ordinal/top 표기·후보 기반 정점 ETA·종합 인사이트를 비노출하고, 카드는 이름순 최대 5개 자동 후보로만 제시한다. 완결 관측 후보와 진행 중 관측 후보 대체 표시를 별도 lane으로 명시하며, 사건 3의 좀비 곡선 필터와 V2 활성 피어 폴백은 보존한다. `retrieval_surface`와 실제 analog `retrieval_spec_version` 또는 V2 `algorithm_version`을 기존 쿼리 컬럼으로 읽어 노출한다. `dtw_distance`의 유한한 범위 밖 값만 데이터 오류로 격리하고 건수를 로그로 남기며, null 신호는 격리하지 않는다.
+
+**미해결**: 이 조치는 오매칭 자체를 고친 것이 아니다. 니켈↔엔젤산업 같은 후보 쌍은 카드에 남을 수 있으며, 업종·사업 연관성이나 의미적 유사성을 주장하지 않을 뿐이다. 오매칭 해소에는 동결된 생성 계약을 별도 절차로 재설계한 뒤 전체 후보를 전면 재계산해야 한다.
 
 ## 6. 불변 규칙 (사고 이력에서 나온 것 — 재발 방지)
 

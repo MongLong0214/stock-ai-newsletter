@@ -82,7 +82,7 @@ export function GET() {
           operationId: 'getThemeDetail',
           summary: 'Get theme detail by ID',
           description:
-            'Returns detailed information for a single theme including score breakdown, related stocks with prices, recent news articles, similar themes, and timeline data for lifecycle curve visualization.',
+            'Returns detailed information for a single theme including score breakdown, related stocks with prices, recent news articles, automatically retrieved comparison candidates, and timeline data. Comparison candidates do not validate industry, business, semantic, future-flow, or investment-performance similarity.',
           parameters: [
             {
               name: 'id',
@@ -650,7 +650,17 @@ export function GET() {
             comparisons: {
               type: 'array',
               items: { $ref: '#/components/schemas/Comparison' },
-              description: 'Similar themes by lifecycle pattern',
+              description: 'Automatically retrieved comparison candidates; not a validated similarity result',
+            },
+            comparisonSource: {
+              type: 'string',
+              enum: ['analog', 'v2_active_peer', 'none'],
+              description: 'Serving path used for the comparison candidates; separate from comparisonLane',
+            },
+            comparisonGenerationVersion: {
+              type: 'string',
+              nullable: true,
+              description: 'Actual analog retrieval policy version or V2 run algorithm version',
             },
             lifecycleCurve: {
               type: 'array',
@@ -691,6 +701,8 @@ export function GET() {
             'stocks',
             'newsCount',
             'recentNews',
+            'comparisonSource',
+            'comparisonGenerationVersion',
             'comparisons',
             'lifecycleCurve',
             'newsTimeline',
@@ -800,13 +812,28 @@ export function GET() {
         },
         Comparison: {
           type: 'object',
-          description: 'Similar theme comparison with lifecycle pattern matching',
+          description: 'Automatic numeric-search candidate; no industry, business, semantic, future-flow, or performance similarity is asserted',
           properties: {
             pastTheme: { type: 'string', description: 'Name of the compared past theme' },
             pastThemeId: { type: 'string', format: 'uuid' },
+            comparisonLane: {
+              type: 'string',
+              enum: ['completed_analog', 'active_peer'],
+              description: 'Lifecycle lane; active_peer is a substitute when completed comparison lines are unavailable',
+            },
+            retrievalSurface: {
+              type: 'string',
+              enum: ['price_volume_knn', 'dtw_baseline', 'regime_filtered_nn', 'future_aligned_reranker', 'comparison_v2', 'unknown'],
+              description: 'Selection method read from the stored candidate or V2 serving path',
+            },
+            generationVersion: {
+              type: 'string',
+              nullable: true,
+              description: 'Actual retrieval_spec_version or V2 algorithm_version',
+            },
             similarity: {
               type: 'number',
-              description: 'Composite similarity score (0-0.99)',
+              description: 'Internal compatibility score; not a validated similarity or probability and not displayed',
             },
             currentDay: {
               type: 'integer',
@@ -837,7 +864,7 @@ export function GET() {
             },
             estimatedDaysToPeak: {
               type: 'integer',
-              description: 'Estimated days until current theme peaks',
+              description: 'Legacy compatibility value; candidate-derived peak ETA is not displayed',
             },
             message: {
               type: 'string',
@@ -846,17 +873,17 @@ export function GET() {
             featureSim: {
               type: 'number',
               nullable: true,
-              description: 'Feature vector similarity (0-1)',
+              description: 'Internal feature-surface value; not displayed as selection evidence',
             },
             curveSim: {
               type: 'number',
               nullable: true,
-              description: 'Lifecycle curve shape similarity (0-1)',
+              description: 'Internal curve-surface value; not displayed as selection evidence',
             },
             keywordSim: {
               type: 'number',
               nullable: true,
-              description: 'Keyword overlap similarity (0-1)',
+              description: 'Internal keyword value; not displayed as selection evidence',
             },
             lifecycleCurve: {
               type: 'array',
@@ -912,7 +939,7 @@ export function GET() {
               description: 'Source surface that produced the serving artifact',
             },
           },
-          required: ['pastTheme', 'pastThemeId', 'similarity', 'currentDay', 'estimatedDaysToPeak', 'message'],
+          required: ['pastTheme', 'pastThemeId', 'comparisonLane', 'retrievalSurface', 'generationVersion', 'similarity', 'currentDay', 'estimatedDaysToPeak', 'message'],
         },
         HistoryEntry: {
           type: 'object',

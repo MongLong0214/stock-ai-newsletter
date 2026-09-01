@@ -160,7 +160,7 @@ describe('build-comparisons v2 support', () => {
     expect(result.completedCycleDays).toBeNull()
     expect(result.cycleCompletionStatus).toBe('observed')
     expect(result.isPastActive).toBe(true)
-    expect(result.message).toContain('현재 관측 구간')
+    expect(result.message).toContain('진행 중 관측 데이터')
     expect(result.message).not.toContain('쇠퇴했지만')
   })
 
@@ -246,7 +246,7 @@ describe('build-comparisons v2 support', () => {
     ] as never)
 
     expect(result[0].comparisonLane).toBe('active_peer')
-    expect(result[0].message).toContain('현재 관측 구간')
+    expect(result[0].message).toContain('진행 중 관측 데이터')
     expect(result[0].message).not.toContain('쇠퇴했지만')
   })
 })

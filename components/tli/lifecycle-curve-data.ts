@@ -7,7 +7,6 @@ export interface LifecycleCurveProps {
   comparisonData?: Array<{
     themeName: string
     data: Array<{ day: number; value: number }>
-    similarity: number
   }>
   newsTimeline?: Array<{ date: string; count: number }>
   interestTimeline?: Array<{ date: string; value: number }>

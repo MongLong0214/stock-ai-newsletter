@@ -58,7 +58,10 @@ export interface ThemeSignalCard {
 export interface ComparisonResult {
   pastTheme: string
   pastThemeId: string
-  comparisonLane?: 'completed_analog' | 'active_peer'
+  comparisonLane: 'completed_analog' | 'active_peer'
+  retrievalSurface: 'price_volume_knn' | 'dtw_baseline' | 'regime_filtered_nn' | 'future_aligned_reranker' | 'comparison_v2' | 'unknown'
+  /** 실제 analog retrieval policy 또는 V2 run에서 읽은 버전. */
+  generationVersion: string | null
   similarity: number
   currentDay: number
   pastPeakDay: number
@@ -173,6 +176,10 @@ export interface ThemeDetail {
   /** 뉴스 기사 총 수 (카드와 동일 기준) */
   newsCount: number;
   recentNews: NewsArticle[];
+  /** 비교 후보가 실제로 온 서빙 경로. 생명주기 lane과는 별도 축이다. */
+  comparisonSource: 'analog' | 'v2_active_peer' | 'none';
+  /** 실제 analog retrieval policy 또는 V2 run에서 읽은 버전. */
+  comparisonGenerationVersion: string | null;
   comparisons: ComparisonResult[];
   lifecycleCurve: Array<{
     date: string;

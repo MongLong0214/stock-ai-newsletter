@@ -11,6 +11,9 @@ import type { ComparisonResult, LifecycleCurvePoint } from '@/lib/tli/types/api'
 export interface V2CandidateForBuild {
   candidate_theme_id: string
   similarity_score: number
+  comparison_lane?: 'completed_analog' | 'active_peer'
+  retrieval_surface?: ComparisonResult['retrievalSurface']
+  generation_version?: string | null
   current_day: number
   past_peak_day: number
   past_total_days: number
@@ -26,39 +29,11 @@ export interface V2CandidateForBuild {
 
 function buildNormalizedComparisonMessage(input: {
   pastThemeName: string
-  currentDay: number
-  pastPeakDay: number
   pastTotalDays: number
-  estimatedDaysToPeak: number
   isCompletedCycle: boolean
-  completedCycleDays: number | null
 }) {
-  if (input.pastTotalDays < 14) {
-    return `과거 데이터 ${input.pastTotalDays}일로 비교 신뢰도가 낮아요`
-  }
-
-  if (
-    input.isCompletedCycle
-    && input.completedCycleDays != null
-    && input.currentDay > input.completedCycleDays
-    && input.estimatedDaysToPeak === 0
-  ) {
-    return `${input.pastThemeName} 완결 주기(${formatDays(input.completedCycleDays)})를 넘어섰어요`
-  }
-
-  if (input.currentDay >= input.pastTotalDays && input.estimatedDaysToPeak === 0) {
-    return `${input.pastThemeName}의 현재 관측 구간(${formatDays(input.pastTotalDays)})을 넘어섰어요`
-  }
-
-  if (input.estimatedDaysToPeak > 0) {
-    return `${input.pastThemeName} 기준 진행률 ${Math.round((input.currentDay / input.pastTotalDays) * 100)}%, 정점까지 약 ${input.estimatedDaysToPeak}일 남음`
-  }
-
-  if (input.pastPeakDay > 0) {
-    return `${input.pastThemeName} 정점(${input.pastPeakDay}일차) 부근 진입 추정`
-  }
-
-  return '초기 단계, 추세 확인 중'
+  const lane = input.isCompletedCycle ? '완결 관측 데이터' : '진행 중 관측 데이터'
+  return `${input.pastThemeName} · ${lane} · 관측 구간 ${formatDays(input.pastTotalDays)}`
 }
 
 export const buildComparisonResultFromV2Candidate = (
@@ -77,7 +52,10 @@ export const buildComparisonResultFromV2Candidate = (
   return {
     pastTheme: context.pastThemeName,
     pastThemeId: candidate.candidate_theme_id,
-    comparisonLane: candidate.past_final_stage ? 'completed_analog' : 'active_peer',
+    comparisonLane: candidate.comparison_lane
+      ?? (candidate.past_final_stage ? 'completed_analog' : 'active_peer'),
+    retrievalSurface: candidate.retrieval_surface ?? 'unknown',
+    generationVersion: candidate.generation_version ?? null,
     similarity: candidate.similarity_score,
     currentDay,
     pastPeakDay,
@@ -89,12 +67,8 @@ export const buildComparisonResultFromV2Candidate = (
     estimatedDaysToPeak,
     message: buildNormalizedComparisonMessage({
       pastThemeName: context.pastThemeName,
-      currentDay,
-      pastPeakDay,
       pastTotalDays,
-      estimatedDaysToPeak,
       isCompletedCycle: candidate.past_final_stage != null,
-      completedCycleDays,
     }),
     lifecycleCurve: context.lifecycleCurve,
     featureSim: candidate.feature_sim ?? null,
@@ -138,6 +112,9 @@ export interface ComparisonRow {
   calibration_version?: string | null
   weight_version?: string | null
   source_surface?: 'legacy_diagnostic' | 'v2_certification' | 'replay_equivalent' | null
+  comparison_lane?: 'completed_analog' | 'active_peer'
+  retrieval_surface?: ComparisonResult['retrievalSurface']
+  generation_version?: string | null
 }
 
 const CURVE_PAGE_SIZE = 1000
@@ -203,7 +180,7 @@ export async function buildComparisonResults(
     }
   }
 
-  return comparisons.map((comp) => {
+  const results: ComparisonResult[] = comparisons.map((comp) => {
     const pastTotalDays = Math.min(comp.past_total_days, 365)
     // DB에서 읽은 값도 캡 적용 (스크립트 재실행 전 기존 데이터 대응)
     const currentDay = Math.min(comp.current_day, 365)
@@ -215,7 +192,10 @@ export async function buildComparisonResults(
     return {
       pastTheme: pastThemeName,
       pastThemeId: comp.past_theme_id,
-      comparisonLane: comp.past_final_stage ? 'completed_analog' : 'active_peer',
+      comparisonLane: comp.comparison_lane
+        ?? (comp.past_final_stage ? 'completed_analog' : 'active_peer'),
+      retrievalSurface: comp.retrieval_surface ?? 'unknown',
+      generationVersion: comp.generation_version ?? null,
       similarity: comp.similarity_score,
       currentDay,
       pastPeakDay,
@@ -227,12 +207,8 @@ export async function buildComparisonResults(
       estimatedDaysToPeak,
       message: buildNormalizedComparisonMessage({
         pastThemeName,
-        currentDay,
-        pastPeakDay,
         pastTotalDays,
-        estimatedDaysToPeak,
         isCompletedCycle: comp.past_final_stage != null,
-        completedCycleDays,
       }),
       lifecycleCurve: pastThemeCurves[comp.past_theme_id] || [],
       featureSim: comp.feature_sim ?? null,
@@ -251,4 +227,14 @@ export async function buildComparisonResults(
       sourceSurface: comp.sourceSurface ?? comp.source_surface ?? null,
     }
   })
+
+  const laneOrder: Record<NonNullable<ComparisonResult['comparisonLane']>, number> = {
+    completed_analog: 0,
+    active_peer: 1,
+  }
+
+  return results.sort((left, right) => (
+    laneOrder[left.comparisonLane] - laneOrder[right.comparisonLane]
+    || left.pastTheme.localeCompare(right.pastTheme, 'ko')
+  ))
 }

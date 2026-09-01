@@ -1,4 +1,5 @@
 import { getServerSupabaseClient } from '@/lib/supabase/server-client'
+import type { RetrievalSurface } from '@/lib/tli/analog/types'
 import { resolveLevel4ConfidenceTier } from '@/lib/tli/comparison/level4-serving'
 import { isCertificationSourceSurface, type Level4ServingMetadata } from '@/lib/tli/comparison/level4-types'
 import { fetchLatestCertificationCalibrationArtifact } from '@/scripts/tli/level4/calibration-artifact'
@@ -12,6 +13,15 @@ export { isCertificationSourceSurface } from '@/lib/tli/comparison/level4-types'
 import { resolveComparisonV4ServingVersion } from '@/scripts/tli/comparison/v4/control'
 
 export const DEFAULT_COMPARISON_V4_SERVING_VERSION = 'latest'
+
+export type ComparisonRetrievalSurface = RetrievalSurface | 'comparison_v2' | 'unknown'
+export type ComparisonServingSource = 'analog' | 'v2_active_peer' | 'none'
+
+export interface ComparisonServingProvenance {
+  comparisonSource: ComparisonServingSource
+  /** 실제 analog retrieval policy 또는 V2 run의 algorithm_version. */
+  comparisonGenerationVersion: string | null
+}
 
 export interface PublishedComparisonRun {
   id: string
@@ -40,6 +50,9 @@ interface ComparisonV2CandidateRow {
   calibrationVersion?: string | null
   weightVersion?: string | null
   sourceSurface?: Level4ServingMetadata['source_surface'] | null
+  comparisonLane?: 'completed_analog' | 'active_peer'
+  retrievalSurface?: ComparisonRetrievalSurface
+  generationVersion?: string | null
 }
 
 interface CalibrationArtifactServingRow {
@@ -62,7 +75,10 @@ interface AnalogCandidateServingRow {
   feature_sim: number | null
   curve_sim: number | null
   keyword_sim: number | null
+  dtw_distance: number | null
   rank: number
+  retrieval_surface: RetrievalSurface
+  policy_versions: Record<string, unknown>
 }
 
 interface AnalogEvidenceServingRow {
@@ -301,8 +317,35 @@ export function mapV2CandidatesToLegacyComparisons(
       calibrationVersion: row.calibrationVersion ?? level4?.calibration_version ?? null,
       weightVersion: row.weightVersion ?? level4?.weight_version ?? null,
       sourceSurface: row.sourceSurface ?? level4?.source_surface ?? null,
+      comparison_lane: row.comparisonLane,
+      retrieval_surface: row.retrievalSurface ?? 'unknown',
+      generation_version: row.generationVersion ?? null,
     }
   })
+}
+
+export function getAnalogGenerationVersion(policyVersions: Record<string, unknown>) {
+  const retrievalSpecVersion = policyVersions.retrieval_spec_version
+  return typeof retrievalSpecVersion === 'string' && retrievalSpecVersion.length > 0
+    ? `retrieval_spec_version:${retrievalSpecVersion}`
+    : 'analog_candidates_v1'
+}
+
+/** 정규화 곡선의 DTW 거리 계약([0,1])만 적용한다. null은 신호 부재이므로 유지한다. */
+export function quarantineDtwContractViolations<T extends { dtw_distance: number | null }>(rows: T[]) {
+  const validRows: T[] = []
+  let quarantinedCount = 0
+
+  for (const row of rows) {
+    const distance = row.dtw_distance
+    if (distance !== null && (!Number.isFinite(distance) || distance < 0 || distance > 1)) {
+      quarantinedCount += 1
+      continue
+    }
+    validRows.push(row)
+  }
+
+  return { validRows, quarantinedCount }
 }
 
 function normalizeAnalogSummary(
@@ -367,6 +410,9 @@ export function buildCompletedAnalogComparisonRows(input: {
     supportCount: number
     confidenceTier: 'high' | 'medium' | 'low'
     sourceSurface: Level4ServingMetadata['source_surface']
+    comparisonLane: 'completed_analog' | 'active_peer'
+    retrievalSurface: RetrievalSurface
+    generationVersion: string
   }> = []
 
   for (const candidate of input.candidates) {
@@ -392,6 +438,9 @@ export function buildCompletedAnalogComparisonRows(input: {
       supportCount: evidence.analog_support_count,
       confidenceTier: evidence.evidence_quality,
       sourceSurface: 'v2_certification',
+      comparisonLane: episode?.is_active ? 'active_peer' : 'completed_analog',
+      retrievalSurface: candidate.retrieval_surface,
+      generationVersion: getAnalogGenerationVersion(candidate.policy_versions),
     })
   }
 
@@ -415,7 +464,7 @@ async function loadLatestCompletedAnalogRows(themeId: string) {
 
   const { data: candidates, error: candidateError } = await supabase
     .from('analog_candidates_v1')
-    .select('id, candidate_theme_id, candidate_episode_id, similarity_score, feature_sim, curve_sim, keyword_sim, rank')
+    .select('id, candidate_theme_id, candidate_episode_id, similarity_score, feature_sim, curve_sim, keyword_sim, dtw_distance, rank, retrieval_surface, policy_versions')
     .eq('query_snapshot_id', snapshot.id)
     .order('rank', { ascending: true })
     .limit(5)
@@ -424,7 +473,22 @@ async function loadLatestCompletedAnalogRows(themeId: string) {
     return { data: [], error: candidateError ?? null }
   }
 
-  const candidateIds = candidates.map((candidate) => candidate.id)
+  const {
+    validRows: contractValidCandidates,
+    quarantinedCount,
+  } = quarantineDtwContractViolations(candidates as AnalogCandidateServingRow[])
+
+  if (quarantinedCount > 0) {
+    console.warn(
+      `[TLI comparison] quarantined ${quarantinedCount} analog candidate(s) with dtw_distance outside [0,1] for theme ${themeId}`,
+    )
+  }
+
+  if (contractValidCandidates.length === 0) {
+    return { data: [], error: null }
+  }
+
+  const candidateIds = contractValidCandidates.map((candidate) => candidate.id)
   const { data: evidenceRows, error: evidenceError } = await supabase
     .from('analog_evidence_v1')
     .select('candidate_id, candidate_episode_id, analog_future_path_summary, retrieval_reason, mismatch_summary, evidence_quality, evidence_quality_score, analog_support_count, candidate_concentration_gini, top1_analog_weight')
@@ -435,7 +499,7 @@ async function loadLatestCompletedAnalogRows(themeId: string) {
     return { data: [], error: evidenceError ?? null }
   }
 
-  const episodeIds = [...new Set(candidates.map((candidate) => candidate.candidate_episode_id))]
+  const episodeIds = [...new Set(contractValidCandidates.map((candidate) => candidate.candidate_episode_id))]
   const { data: episodeRows, error: episodeError } = await supabase
     .from('episode_registry_v1')
     .select('id, is_active')
@@ -447,7 +511,7 @@ async function loadLatestCompletedAnalogRows(themeId: string) {
 
   const analogRows = buildCompletedAnalogComparisonRows({
     currentDay: snapshot.days_since_episode_start,
-    candidates: candidates as AnalogCandidateServingRow[],
+    candidates: contractValidCandidates,
     evidenceByCandidateId: new Map(
       evidenceRows.map((row) => [row.candidate_id, row as AnalogEvidenceServingRow]),
     ),
@@ -455,14 +519,17 @@ async function loadLatestCompletedAnalogRows(themeId: string) {
       (episodeRows ?? []).map((row) => [row.id, row as EpisodeServingRow]),
     ),
   })
+  const completedAnalogRows = analogRows.filter(
+    (row) => row.comparisonLane === 'completed_analog',
+  )
 
   const themeIdsWithCurves = await loadThemeIdsWithCurveData(
     supabase,
-    analogRows.map((row) => row.candidate_theme_id),
+    completedAnalogRows.map((row) => row.candidate_theme_id),
   )
 
   return {
-    data: filterAnalogRowsWithCurveData(analogRows, themeIdsWithCurves),
+    data: filterAnalogRowsWithCurveData(completedAnalogRows, themeIdsWithCurves),
     error: null,
   }
 }
@@ -474,19 +541,102 @@ async function fetchFromServingView(themeId: string) {
   try {
     artifact = await resolveServingCalibrationArtifact(supabase, controlRow)
   } catch (error) {
-    return { data: null, error: { code: 'CERTIFICATION_REQUIRED', message: error instanceof Error ? error.message : String(error) } }
+    return {
+      data: null,
+      error: { code: 'CERTIFICATION_REQUIRED', message: error instanceof Error ? error.message : String(error) },
+      comparisonSource: 'none' as const,
+      comparisonGenerationVersion: null,
+    }
   }
   const { data, error } = await supabase
     .from('v_comparison_v4_serving')
-    .select('candidate_theme_id, similarity_score, current_day, past_peak_day, past_total_days, message, feature_sim, curve_sim, keyword_sim, past_peak_score, past_final_stage, past_decline_days')
+    .select('candidate_theme_id, similarity_score, current_day, past_peak_day, past_total_days, message, feature_sim, curve_sim, keyword_sim, past_peak_score, past_final_stage, past_decline_days, algorithm_version')
     .eq('theme_id', themeId)
     .order('rank', { ascending: true })
     .limit(3)
 
-  if (error) return { data: null, error }
+  if (error) {
+    return {
+      data: null,
+      error,
+      comparisonSource: 'none' as const,
+      comparisonGenerationVersion: null,
+    }
+  }
+
+  const algorithmVersion = data?.[0]?.algorithm_version ?? null
   return {
-    data: mapV2CandidatesToLegacyComparisons((data || []) as ComparisonV2CandidateRow[], artifact),
+    data: mapV2CandidatesToLegacyComparisons((data || []).map((row) => ({
+      ...row,
+      comparisonLane: row.past_final_stage ? 'completed_analog' as const : 'active_peer' as const,
+      retrievalSurface: 'comparison_v2' as const,
+      generationVersion: algorithmVersion ? `algorithm_version:${algorithmVersion}` : null,
+    })), artifact),
     error: null,
+    comparisonSource: data?.length ? 'v2_active_peer' as const : 'none' as const,
+    comparisonGenerationVersion: algorithmVersion ? `algorithm_version:${algorithmVersion}` : null,
+  }
+}
+
+async function fetchLegacyV2ComparisonRows(
+  themeId: string,
+  algorithmVersion: string,
+  artifact: CalibrationArtifactServingRow,
+) {
+  const supabase = getServerSupabaseClient()
+  const { data: runs, error: runError } = await supabase
+    .from('theme_comparison_runs_v2')
+    .select('id, candidate_pool, publish_ready, status, created_at, algorithm_version')
+    .eq('current_theme_id', themeId)
+    .eq('status', 'published')
+    .order('created_at', { ascending: false })
+
+  if (runError) {
+    return {
+      data: null,
+      error: runError,
+      comparisonSource: 'none' as const,
+      comparisonGenerationVersion: null,
+    }
+  }
+
+  const selected = selectPublishedComparisonRun((runs || []) as PublishedComparisonRun[], algorithmVersion)
+  if (!selected) {
+    return {
+      data: [],
+      error: null,
+      comparisonSource: 'none' as const,
+      comparisonGenerationVersion: null,
+    }
+  }
+
+  const { data, error } = await supabase
+    .from('theme_comparison_candidates_v2')
+    .select('candidate_theme_id, similarity_score, current_day, past_peak_day, past_total_days, message, feature_sim, curve_sim, keyword_sim, past_peak_score, past_final_stage, past_decline_days')
+    .eq('run_id', selected.id)
+    .order('rank', { ascending: true })
+    .limit(3)
+
+  if (error) {
+    return {
+      data: null,
+      error,
+      comparisonSource: 'none' as const,
+      comparisonGenerationVersion: null,
+    }
+  }
+
+  const generationVersion = `algorithm_version:${selected.algorithm_version}`
+  return {
+    data: mapV2CandidatesToLegacyComparisons((data || []).map((row) => ({
+      ...row,
+      comparisonLane: row.past_final_stage ? 'completed_analog' as const : 'active_peer' as const,
+      retrievalSurface: 'comparison_v2' as const,
+      generationVersion,
+    })), artifact),
+    error: null,
+    comparisonSource: data?.length ? 'v2_active_peer' as const : 'none' as const,
+    comparisonGenerationVersion: data?.length ? generationVersion : null,
   }
 }
 
@@ -507,49 +657,33 @@ export async function fetchPublishedComparisonRowsV4(themeId: string) {
   try {
     artifact = await resolveServingCalibrationArtifact(supabase, controlRow)
   } catch (error) {
-    return { data: null, error: { code: 'CERTIFICATION_REQUIRED', message: error instanceof Error ? error.message : String(error) } }
+    return {
+      data: null,
+      error: { code: 'CERTIFICATION_REQUIRED', message: error instanceof Error ? error.message : String(error) },
+      comparisonSource: 'none' as const,
+      comparisonGenerationVersion: null,
+    }
   }
 
   const analogRows = await loadLatestCompletedAnalogRows(themeId)
   if (analogRows.error) {
-    return { data: null, error: analogRows.error }
-  }
-  if (analogRows.data.length > 0) {
     return {
-      data: mapV2CandidatesToLegacyComparisons(analogRows.data as ComparisonV2CandidateRow[], artifact),
-      error: null,
+      data: null,
+      error: analogRows.error,
+      comparisonSource: 'none' as const,
+      comparisonGenerationVersion: null,
     }
   }
 
-  const { data: runs, error: runError } = await supabase
-    .from('theme_comparison_runs_v2')
-    .select('id, candidate_pool, publish_ready, status, created_at, algorithm_version')
-    .eq('current_theme_id', themeId)
-    .eq('status', 'published')
-    .order('created_at', { ascending: false })
-
-  if (runError) {
-    return { data: null, error: runError }
+  if (analogRows.data.length > 0) {
+    const generationVersion = analogRows.data[0]?.generationVersion ?? null
+    return {
+      data: mapV2CandidatesToLegacyComparisons(analogRows.data as ComparisonV2CandidateRow[], artifact),
+      error: null,
+      comparisonSource: 'analog' as const,
+      comparisonGenerationVersion: generationVersion,
+    }
   }
 
-  const selected = selectPublishedComparisonRun((runs || []) as PublishedComparisonRun[], algorithmVersion)
-  if (!selected) {
-    return { data: [], error: null }
-  }
-
-  const { data, error } = await supabase
-    .from('theme_comparison_candidates_v2')
-    .select('candidate_theme_id, similarity_score, current_day, past_peak_day, past_total_days, message, feature_sim, curve_sim, keyword_sim, past_peak_score, past_final_stage, past_decline_days')
-    .eq('run_id', selected.id)
-    .order('rank', { ascending: true })
-    .limit(3)
-
-  if (error) {
-    return { data: null, error }
-  }
-
-  return {
-    data: mapV2CandidatesToLegacyComparisons((data || []) as ComparisonV2CandidateRow[], artifact),
-    error: null,
-  }
+  return fetchLegacyV2ComparisonRows(themeId, algorithmVersion, artifact)
 }

@@ -122,6 +122,8 @@ export async function GET(
       newsArticles,
       keywords,
       comparisonResults,
+      comparisonSource: comparisonsRes.comparisonSource ?? 'none',
+      comparisonGenerationVersion: comparisonsRes.comparisonGenerationVersion ?? null,
       allScores,
       newsList,
       interestList,

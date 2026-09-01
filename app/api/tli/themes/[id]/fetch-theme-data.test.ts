@@ -106,6 +106,8 @@ describe('fetchThemeData v4 migration', () => {
     const fetchPublishedComparisonRowsV4 = vi.fn().mockResolvedValue({
       data: [{ id: 'v4-row', past_theme_id: 'past-1', similarity_score: 0.7 }],
       error: null,
+      comparisonSource: 'analog',
+      comparisonGenerationVersion: 'retrieval_spec_version:1.0',
     })
 
     vi.doMock('@/lib/supabase', () => ({

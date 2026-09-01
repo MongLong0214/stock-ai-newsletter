@@ -1,6 +1,6 @@
 /** 공통 글래스 카드 컨테이너 */
 import { cn } from '@/lib/utils'
-import { type ReactNode } from 'react'
+import React, { type ReactNode } from 'react'
 
 interface GlassCardProps {
   children: ReactNode

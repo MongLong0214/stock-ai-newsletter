@@ -4,6 +4,7 @@ import {
   generateInsight,
   getComparisonPositionText,
   getIndependentFlowAlertText,
+  shouldShowPeakEta,
   shouldShowIndependentFlowAlert,
 } from './logic'
 
@@ -11,6 +12,8 @@ function makeComparison(overrides: Partial<ComparisonResult> = {}): ComparisonRe
   return {
     pastTheme: '과거 테마',
     pastThemeId: 'past-1',
+    retrievalSurface: 'comparison_v2',
+    generationVersion: 'algorithm_version:comparison-v4-shadow-v1',
     similarity: 0.8,
     currentDay: 41,
     pastPeakDay: 15,
@@ -70,37 +73,22 @@ describe('comparison list interpretation', () => {
   it('uses observational wording for active analogs even when they exceed the observed window', () => {
     const comparison = makeComparison()
 
-    expect(getComparisonPositionText(comparison)).toContain('현재 관측 구간')
+    expect(getComparisonPositionText(comparison)).toContain('관측 구간')
     expect(getComparisonPositionText(comparison)).not.toContain('쇠퇴')
   })
 
-  it('reports completed analog dominance separately from active peers in the insight text', () => {
+  it('does not expose candidate-derived peak ETA or aggregate insight text', () => {
+    const completed = makeComparison({
+      estimatedDaysToPeak: 8,
+      comparisonLane: 'completed_analog',
+      retrievalSurface: 'dtw_baseline',
+    })
     const text = generateInsight([
-      makeComparison({
-        similarity: 0.82,
-        pastFinalStage: 'Dormant',
-        pastDeclineDays: 20,
-        completedCycleDays: 40,
-        cycleCompletionStatus: 'completed',
-        isPastActive: false,
-        comparisonLane: 'completed_analog',
-      }),
-      makeComparison({
-        similarity: 0.79,
-        pastFinalStage: 'Dormant',
-        pastDeclineDays: 18,
-        completedCycleDays: 38,
-        cycleCompletionStatus: 'completed',
-        isPastActive: false,
-        comparisonLane: 'completed_analog',
-      }),
-      makeComparison({
-        similarity: 0.91,
-        comparisonLane: 'active_peer',
-      }),
+      completed,
+      makeComparison(),
     ])
 
-    expect(text).toContain('완결 아날로그')
-    expect(text).toContain('활성 피어')
+    expect(shouldShowPeakEta(completed, true)).toBe(false)
+    expect(text).toBeNull()
   })
 })

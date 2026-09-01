@@ -5,7 +5,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import PillarBars from './pillar-bars'
 
 describe('PillarBars', () => {
-  it('renders a computed zero keyword similarity as 0% instead of 미산출', () => {
+  it('renders a computed zero keyword signal as 신호 없음 instead of 미산출', () => {
     const html = renderToStaticMarkup(
       <PillarBars
         featureSim={0.8}
@@ -15,7 +15,8 @@ describe('PillarBars', () => {
       />,
     )
 
-    expect(html).toContain('0%')
+    expect(html).toContain('신호 없음')
+    expect(html).not.toContain('%')
     expect(html).not.toContain('미산출')
   })
 

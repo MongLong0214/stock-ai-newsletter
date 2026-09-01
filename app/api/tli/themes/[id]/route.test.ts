@@ -90,6 +90,8 @@ describe('theme detail route', () => {
       stocksRes: { data: [], error: null },
       comparisonsRes: {
         data: null,
+        comparisonSource: 'none',
+        comparisonGenerationVersion: null,
         error: {
           code: 'CERTIFICATION_REQUIRED',
           message: 'Active serving control row is missing a pinned calibration artifact',
@@ -110,5 +112,11 @@ describe('theme detail route', () => {
     })
 
     expect(response.status).toBe(200)
+    const json = await response.json()
+    expect(json.data).toMatchObject({
+      comparisonSource: 'none',
+      comparisonGenerationVersion: null,
+      comparisons: [],
+    })
   })
 })

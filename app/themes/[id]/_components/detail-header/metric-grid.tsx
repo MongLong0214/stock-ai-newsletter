@@ -77,7 +77,7 @@ export default function MetricGrid({ theme, themeAge }: MetricGridProps) {
       <MetricCard icon={<BarChart3 className="w-4 h-4" />} label="관련 종목" value={`${theme.stockCount}개`} color="sky" />
       <MetricCard icon={<Newspaper className="w-4 h-4" />} label="뉴스" value={`${theme.newsCount}건`} color="sky" />
       {theme.comparisons.length > 0 && (
-        <MetricCard icon={<Activity className="w-4 h-4" />} label="유사 패턴" value={`${theme.comparisons.length}개`} color="purple" />
+        <MetricCard icon={<Activity className="w-4 h-4" />} label="자동 비교 후보" value={`${theme.comparisons.length}개`} color="purple" />
       )}
     </div>
   )

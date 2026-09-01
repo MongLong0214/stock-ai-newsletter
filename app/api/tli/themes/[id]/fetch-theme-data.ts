@@ -4,7 +4,10 @@
 
 import { supabase } from '@/lib/supabase'
 import { isTableNotFound } from '@/lib/tli/api-utils'
-import { fetchPublishedComparisonRowsV4 } from './comparison-v4-reader'
+import {
+  fetchPublishedComparisonRowsV4,
+  type ComparisonServingProvenance,
+} from './comparison-v4-reader'
 
 interface FetchThemeDataParams {
   id: string
@@ -59,7 +62,7 @@ export interface FetchThemeDataResult {
   latestScoreRes: SupabaseRes<ScoreRow>
   scoresRes: SupabaseRes<ScoreRow>
   stocksRes: SupabaseRes<StockRow>
-  comparisonsRes: SupabaseRes<{ id: string; past_theme_id: string; similarity_score: number; current_day: number; past_peak_day: number; past_total_days: number; message: string | null; feature_sim: number | null; curve_sim: number | null; keyword_sim: number | null; past_peak_score: number | null; past_final_stage: string | null; past_decline_days: number | null }>
+  comparisonsRes: SupabaseRes<{ id: string; past_theme_id: string; similarity_score: number; current_day: number; past_peak_day: number; past_total_days: number; message: string | null; feature_sim: number | null; curve_sim: number | null; keyword_sim: number | null; past_peak_score: number | null; past_final_stage: string | null; past_decline_days: number | null }> & ComparisonServingProvenance
   newsRes: SupabaseRes<{ time: string; article_count: number }>
   interestRes: SupabaseRes<{ time: string; normalized: number }>
   newsArticlesRes: SupabaseRes<{ title: string; link: string; source: string | null; pub_date: string }>

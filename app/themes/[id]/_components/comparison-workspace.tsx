@@ -17,13 +17,14 @@ interface ComparisonWorkspaceProps {
   themeName: string
   currentData: Array<{ date: string; score: number }>
   comparisons: ComparisonResult[]
+  comparisonSource: 'analog' | 'v2_active_peer' | 'none'
+  comparisonGenerationVersion: string | null
   selectedComparisonIds: string[]
   onToggleComparison: (comparisonId: string) => void
   onClearComparisons: () => void
   onRemoveComparison: (comparisonId: string) => void
   newsTimeline?: Array<{ date: string; count: number }>
   interestTimeline?: Array<{ date: string; value: number }>
-  isPrePeak: boolean
   shouldReduceMotion?: boolean
 }
 
@@ -31,13 +32,14 @@ function ComparisonWorkspace({
   themeName,
   currentData,
   comparisons,
+  comparisonSource,
+  comparisonGenerationVersion,
   selectedComparisonIds,
   onToggleComparison,
   onClearComparisons,
   onRemoveComparison,
   newsTimeline,
   interestTimeline,
-  isPrePeak,
   shouldReduceMotion = false,
 }: ComparisonWorkspaceProps) {
   const selectedComparisons = useMemo(() => {
@@ -51,7 +53,6 @@ function ComparisonWorkspace({
     selectedComparisons.map((comparison, index) => ({
       comparison,
       color: COMPARISON_COLORS[index % COMPARISON_COLORS.length],
-      order: index + 1,
     }))
   ), [selectedComparisons])
 
@@ -64,7 +65,6 @@ function ComparisonWorkspace({
         day: dayIdx,
         value: point.score,
       })),
-      similarity: comparison.similarity,
     }))
   }, [selectedSeries])
 
@@ -82,9 +82,10 @@ function ComparisonWorkspace({
       >
         <ComparisonList
           comparisons={comparisons}
+          comparisonSource={comparisonSource}
+          comparisonGenerationVersion={comparisonGenerationVersion}
           selectedComparisonIds={selectedComparisonIds}
           onToggleComparison={onToggleComparison}
-          isPrePeak={isPrePeak}
         />
       </div>
 
@@ -108,7 +109,7 @@ function ComparisonWorkspace({
                 </div>
               </div>
               <p className="mt-1 text-sm leading-relaxed text-slate-400 break-keep">
-                현재 흐름과 선택한 유사 패턴을 한 차트에서 비교합니다.
+                현재 테마와 선택한 자동 후보의 관심도 점수 데이터를 한 차트에서 나란히 봅니다.
               </p>
             </div>
           </div>
@@ -148,14 +149,18 @@ function ComparisonWorkspace({
                 />
 
                 {selectedSeries.length > 0 ? (
-                  selectedSeries.map(({ comparison, color, order }) => (
+                  selectedSeries.map(({ comparison, color }) => (
                     <SeriesToken
                       key={comparison.pastThemeId}
                       title={comparison.pastTheme}
-                      subtitle={comparison.comparisonLane === 'completed_analog' ? `비교선 ${String(order).padStart(2, '0')} · 완결 아날로그` : `비교선 ${String(order).padStart(2, '0')} · 활성 피어`}
+                      subtitle={comparison.comparisonLane === 'completed_analog'
+                        ? `완결 관측 후보 · ${comparison.retrievalSurface}`
+                        : comparison.retrievalSurface === 'comparison_v2'
+                          ? `진행 중 관측 후보 · 대체 표시 · ${comparison.retrievalSurface}`
+                          : `진행 중 관측 후보 · ${comparison.retrievalSurface}`}
                       color={color}
-                      valueLabel="유사도"
-                      value={`${Math.round(comparison.similarity * 100)}%`}
+                      valueLabel="생성 버전"
+                      value={comparison.generationVersion ?? '확인 불가'}
                       accent="slate"
                       onRemove={() => onRemoveComparison(comparison.pastThemeId)}
                     />
@@ -165,7 +170,7 @@ function ComparisonWorkspace({
                     <div>
                       <p className="text-sm font-medium leading-snug text-slate-100 break-keep">비교선이 아직 없어요</p>
                       <p className="mt-1 text-xs leading-relaxed text-slate-400 break-keep">
-                        유사 패턴 카드를 선택하면 차트가 바로 갱신됩니다.
+                        자동 비교 후보 카드에서 데이터 나란히 보기를 선택하세요.
                       </p>
                     </div>
                   </div>

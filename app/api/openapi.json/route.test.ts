@@ -8,6 +8,9 @@ describe('openapi route contract', () => {
     const comparison = spec.components.schemas.Comparison
 
     expect(comparison.properties.currentDay).toBeDefined()
+    expect(comparison.properties.comparisonLane).toBeDefined()
+    expect(comparison.properties.retrievalSurface).toBeDefined()
+    expect(comparison.properties.generationVersion).toBeDefined()
     expect(comparison.properties.pastPeakDay).toBeDefined()
     expect(comparison.properties.pastTotalDays).toBeDefined()
     expect(comparison.properties.message).toBeDefined()
@@ -26,6 +29,8 @@ describe('openapi route contract', () => {
     const themeDetail = spec.components.schemas.ThemeDetail
 
     expect(themeDetail.required).toContain('comparisons')
+    expect(themeDetail.required).toContain('comparisonSource')
+    expect(themeDetail.required).toContain('comparisonGenerationVersion')
     expect(themeDetail.required).toContain('lifecycleCurve')
   })
 
@@ -37,7 +42,6 @@ describe('openapi route contract', () => {
     expect(themeDetail.properties.forecast).toBeUndefined()
     expect(themeDetail.properties.analogEvidence).toBeUndefined()
     expect(themeDetail.properties.forecastControl).toBeUndefined()
-    expect(themeDetail.properties.comparisonSource).toBeUndefined()
   })
 
   it('documents ranking signals as an optional additive field', async () => {
