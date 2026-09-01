@@ -164,6 +164,37 @@ study lock이 켠 스냅샷 고정(FK ON DELETE RESTRICT)과 v2 저장기의 교
 
 **재개 조건**: L4 공개 gate 통과와 Isaac의 Layer 2 evidence UX 승인 후, analog가 Layer 2 확률에 incremental value를 갖는지 새 버전으로 검증한 뒤에만 복귀한다. raw similarity 노출은 영구 포기한다.
 
+**재개 경로 상세 (2026-09-01 Isaac 확인 — "데이터가 차면 자동 부활"이 아니다)**:
+
+이 기능은 TLI 데이터 수집이 완성되면 자동으로 살아나는 것이 아니라, 3단계 관문을 순서대로 통과해야 한다.
+
+1. **데이터 축적 (필요조건, 자동 진행 중 — 추가로 켤 것 없음)**
+   - 완결 episode 25 → **50** 필요. 테마가 죽어야(notSeen≥30d + 14d 저점수) 늘어난다.
+     2026-07 백로그 일괄 25개 이후 6주간 +0 — 시장 국면(테마 사망률)에 종속된 무기한 지표다.
+   - matured PIT-valid eval rows 264 → **5,000** 필요. 주간 origin 축적(~194~200테마/주,
+     `tli_forecast_origin_manifests`, study용으로 이미 가동 중)이 재료다. 별도 snapshot builder는
+     만들지 않는다(제2 PIT 저장면 금지 — 기존 immutable manifest 체계와 중복).
+   - 앵커 backfill로 과거(7/07 이전)를 부풀리는 것은 불가 판정: raw_value가 정수 반올림값 +
+     앵커는 당시 요청의 7일 중앙값 의존이라 정확 복원이 안 된다(규칙 12). 축적은 forward-only.
+2. **검증 통과 (관문 — 자동 아님, 별도 작업)**
+   - 누수 없는 미래 경로 라벨 구축: 단위는 (query episode, cutoff t), horizon 5/10/20거래일,
+     candidate의 미래 20일이 query cutoff 이전에 전부 관측된 것만. rolling-origin, train-only 정규화,
+     weekly cohort block bootstrap (analog PRD §12 계약 그대로).
+   - retrieval gate(analog PRD §13.3, replay holdout 기준 — 당시 예측 저장 없이도 평가 가능):
+     FuturePathCorr@5 하한 +0.02, PeakHit@5 하한 +0.03 (price-only kNN·legacy 양쪽 대비).
+   - **여기서 떨어지면 영구 종료** — "곡선이 닮아 보임"에 미래 예측력이 없다고 판명되는 것이며,
+     기준을 바꿔 통과시키지 않는다(§9).
+3. **제품 복귀 (형태 변경)**
+   - 옛 형태(유사도 %·등급·순위)로는 복귀하지 않는다. 복귀 형태는 L4 공개 예측 기능의
+     **evidence 컴포넌트**(검증된 확률 + 근거 사례 + 불확실성) — analog PRD §2.1의 원래 계약.
+   - 현실적 시점: 빨라야 2027(축적 ~2027-02 + L3 판정 ~2027 중반과 맞물림).
+
+**폐기된 우회로 (재시도 금지, 각 사유 실증됨)**: ① composite.ts 섹터 패널티 수정 — 화면은
+analog_candidates_v1을 읽어 무효 ② 서빙 단일화 + 분포기반 abstention — 125/239 빈 화면으로
+사건 1·3 충돌(PR #170 폐기) ③ 부분 주장 제거만 — 선택 상태·헤더 칩·SEO 메타에서 누출 실증
+④ 섹터 사전 확장 — analog 경로에 sectorMatch 자체가 없어 무효, 완결 corpus 25개 중 21개가 etc라
+확장해도 대응 후보 부재.
+
 ## 6. 불변 규칙 (사고 이력에서 나온 것 — 재발 방지)
 
 1. **실제 페이지 렌더를 확인하라** — API·CI green ≠ 사용자 화면 정상 (사건 1).
