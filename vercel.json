@@ -1,4 +1,18 @@
 {
   "ignoreCommand": "bash scripts/vercel-should-build.sh",
-  "regions": ["icn1"]
+  "regions": ["icn1"],
+  "crons": [
+    {
+      "path": "/api/cron/newsletter-prepare",
+      "schedule": "10 21 * * 0-4"
+    },
+    {
+      "path": "/api/cron/newsletter-send",
+      "schedule": "27 22 * * 0-4"
+    },
+    {
+      "path": "/api/cron/newsletter-watchdog",
+      "schedule": "15 23 * * 0-4"
+    }
+  ]
 }

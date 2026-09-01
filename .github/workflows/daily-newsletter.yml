@@ -7,6 +7,12 @@ on:
     - cron: '50 22 * * 0-4'
   workflow_dispatch: # 수동 실행 가능
 
+# 지연 발화한 유령 스케줄이 진행 중 발송과 겹치지 않게 직렬화한다.
+# (send-newsletter.ts의 is_sent 원자 클레임이 최종 방어선)
+concurrency:
+  group: daily-newsletter
+  cancel-in-progress: false
+
 jobs:
   check-market:
     runs-on: ubuntu-latest
