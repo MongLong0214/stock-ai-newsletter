@@ -1,14 +1,11 @@
 name: Daily Stock Newsletter
 
+# 트리거: Vercel Cron 07:27 KST → /api/cron/newsletter-send → workflow_dispatch.
+# GitHub schedule 지연·드랍 상시화로 제거 (PR #165 참조). is_sent 원자 클레임이 중복 발송을 막는다.
 on:
-  schedule:
-    # 평일 오전 7:27/7:50 KST (UTC 전날, 월-금요일만)
-    - cron: '27 22 * * 0-4'
-    - cron: '50 22 * * 0-4'
-  workflow_dispatch: # 수동 실행 가능
+  workflow_dispatch: # Vercel Cron + 수동 실행
 
-# 지연 발화한 유령 스케줄이 진행 중 발송과 겹치지 않게 직렬화한다.
-# (send-newsletter.ts의 is_sent 원자 클레임이 최종 방어선)
+# 동시 dispatch를 직렬화한다. (send-newsletter.ts의 is_sent 원자 클레임이 최종 방어선)
 concurrency:
   group: daily-newsletter
   cancel-in-progress: false
@@ -16,6 +13,7 @@ concurrency:
 jobs:
   check-market:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     outputs:
       should_run: ${{ steps.check.outputs.should_run }}
     steps:
@@ -65,6 +63,7 @@ jobs:
     needs: check-market
     if: needs.check-market.outputs.should_run == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 15
 
     steps:
       - name: Checkout code
@@ -104,12 +103,6 @@ jobs:
           SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY }}
           SENDGRID_FROM_EMAIL: ${{ secrets.SENDGRID_FROM_EMAIL }}
           SENDGRID_FROM_NAME: ${{ secrets.SENDGRID_FROM_NAME }}
-
-          # Twitter/X API
-          TWITTER_API_KEY: ${{ secrets.TWITTER_API_KEY }}
-          TWITTER_API_SECRET: ${{ secrets.TWITTER_API_SECRET }}
-          TWITTER_ACCESS_TOKEN: ${{ secrets.TWITTER_ACCESS_TOKEN }}
-          TWITTER_ACCESS_SECRET: ${{ secrets.TWITTER_ACCESS_SECRET }}
 
           # Application
           NEXT_PUBLIC_APP_URL: ${{ secrets.NEXT_PUBLIC_APP_URL }}

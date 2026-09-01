@@ -1,10 +1,8 @@
 name: Update Archive Data
 
+# 트리거: 뉴스레터 발송 완료(workflow_run) 시 자동. cron은 발송 지연 시 빈 내용을 굽는
+# 역순서 위험 + GitHub schedule 지연 상시화로 제거했다.
 on:
-  # 매일 오전 8:00 KST (UTC 23:00 전날) - 뉴스레터 발송 후 10분 뒤
-  schedule:
-    - cron: '0 23 * * 0-4'  # 평일만 (일-목요일 UTC 23:00 = 월-금요일 KST 08:00)
-
   # 수동 실행 가능
   workflow_dispatch:
 
@@ -14,9 +12,14 @@ on:
     types:
       - completed
 
+concurrency:
+  group: update-archive
+  cancel-in-progress: false
+
 jobs:
   update-archive:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     permissions:
       contents: write
 

@@ -10,8 +10,7 @@ if (existsSync(envPath)) {
 }
 
 import { createClient } from '@supabase/supabase-js';
-import { sendStockNewsletter, parseCrashAlert } from '@/lib/sendgrid';
-import { postNewsletterToTwitter, postCrashAlertToTwitter } from '@/lib/twitter';
+import { sendStockNewsletter } from '@/lib/sendgrid';
 
 // 환경변수 검증
 if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
@@ -188,28 +187,6 @@ async function sendNewsletter() {
 
     if (updateError) {
       console.error('⚠️ DB 업데이트 실패 (뉴스레터는 정상 발송됨):', updateError);
-    }
-
-    // 7. X(Twitter) 자동 게시
-    try {
-      console.log('\n━'.repeat(80));
-      console.log('🐦 X(Twitter) 자동 게시 시작...');
-      console.log('━'.repeat(80) + '\n');
-
-      const crashAlertData = parseCrashAlert(geminiAnalysis);
-      if (crashAlertData) {
-        // Crash Alert: 텍스트 트윗 게시 (구조 검증 완료)
-        await postCrashAlertToTwitter(crashAlertData);
-      } else {
-        // 일반: 기존 이미지 + 텍스트 트윗
-        const analysisData = JSON.parse(geminiAnalysis);
-        await postNewsletterToTwitter(analysisData);
-      }
-
-      console.log('✅ X(Twitter) 자동 게시 완료!\n');
-    } catch (twitterError) {
-      console.error('⚠️ X(Twitter) 게시 실패 (뉴스레터는 정상 발송됨):', twitterError);
-      // 트위터 실패해도 프로세스는 성공으로 처리
     }
 
     process.exit(sendResult.failed.length > 0 ? 1 : 0);

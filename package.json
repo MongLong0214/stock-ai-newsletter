@@ -8,7 +8,6 @@
     "start": "next start",
     "lint": "eslint",
     "send-newsletter": "tsx scripts/send-newsletter.ts",
-    "test-twitter": "tsx scripts/test-twitter.ts",
     "generate-blog": "tsx scripts/generate-blog-post.ts",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -90,7 +89,6 @@
     "remark-gfm": "^4.0.1",
     "remark-rehype": "^11.1.2",
     "tailwind-merge": "^3.4.0",
-    "twitter-api-v2": "^1.27.0",
     "undici": "^7.21.0",
     "unified": "^11.0.5",
     "zod": "^4.1.12"

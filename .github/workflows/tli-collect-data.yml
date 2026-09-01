@@ -193,7 +193,7 @@ jobs:
               `- warningFailures: ${result.warningFailures || 0}`,
             ].join('\n');
 
-            const duplicateWindowMs = 24 * 60 * 60 * 1000;
+            // 같은 원인 크리티컬이 열려 있는 한 새 이슈를 만들지 않는다 (과거 24h 창 → #88/89/91처럼 누적됨)
             const existing = await github.rest.issues.listForRepo({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -201,14 +201,7 @@ jobs:
               labels: 'tli-critical',
               per_page: 20,
             });
-            const duplicate = existing.data.find((issue) => {
-              const createdAt = new Date(issue.created_at).getTime();
-              const ageMs = now.getTime() - createdAt;
-              return issue.body?.includes(marker)
-                && Number.isFinite(createdAt)
-                && ageMs >= 0
-                && ageMs <= duplicateWindowMs;
-            });
+            const duplicate = existing.data.find((issue) => issue.body?.includes(marker));
             if (duplicate) {
               await github.rest.issues.createComment({
                 owner: context.repo.owner,
@@ -216,7 +209,7 @@ jobs:
                 issue_number: duplicate.number,
                 body,
               });
-              console.log(`최근 24시간 내 동일 critical 이슈 #${duplicate.number}에 코멘트했습니다.`);
+              console.log(`열린 동일 critical 이슈 #${duplicate.number}에 코멘트했습니다.`);
               return;
             }
             await github.rest.issues.create({
@@ -259,12 +252,13 @@ jobs:
             }).formatToParts(now);
             const part = (type) => kstParts.find((item) => item.type === type)?.value;
             const date = `${part('year')}-${part('month')}-${part('day')}`;
-            const title = `⚠️ TLI warning digest (${date})`;
+            // 롤링 단일 이슈: 날짜가 제목에 들어가면 매일 새 이슈가 쌓인다 (2026-09-01 전수조사에서 34개 정리)
+            const title = '⚠️ TLI warning digest (rolling)';
             const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
             const rawMode = result.mode || 'unknown';
             const safeMode = ['full', 'news-only'].includes(rawMode) ? rawMode : 'unknown';
             const body = [
-              `## TLI warning digest`,
+              `## TLI warning digest — ${date}`,
               ``,
               `| 항목 | 값 |`,
               `|------|-----|`,
@@ -292,7 +286,7 @@ jobs:
                 issue_number: digest.number,
                 body,
               });
-              console.log(`오늘 warning digest #${digest.number}에 코멘트했습니다.`);
+              console.log(`롤링 warning digest #${digest.number}에 코멘트했습니다.`);
               return;
             }
 
