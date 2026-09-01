@@ -12,6 +12,7 @@ import {
 } from '../stock-list-utils'
 
 const MAX_TOP_MOVERS = 4
+const TOP_MOVER_SKELETON_ROWS = Array.from({ length: MAX_TOP_MOVERS })
 
 interface TopMoversStock {
   symbol: string
@@ -24,9 +25,37 @@ interface TopMoversStock {
 
 interface TopMoversProps {
   stocks: TopMoversStock[]
+  liveStatus: 'idle' | 'loading' | 'success' | 'error'
 }
 
-export default function TopMovers({ stocks }: TopMoversProps) {
+function TopMoversSkeleton({ stockCount }: { stockCount: number }) {
+  return (
+    <div className="space-y-2.5 animate-pulse" aria-hidden="true">
+      {TOP_MOVER_SKELETON_ROWS.map((_, index) => (
+        <div key={index} className="rounded-xl border border-slate-700/20 bg-slate-800/20 p-3.5">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-1">
+                <div className="w-20 h-5 rounded bg-slate-700/50" />
+                <div className="w-12 h-4 rounded bg-slate-800/50" />
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-16 h-4 rounded bg-slate-800/40" />
+                <div className="w-20 h-4 rounded bg-slate-800/40" />
+              </div>
+            </div>
+            <div className="w-16 h-5 rounded-md bg-slate-800/50 shrink-0" />
+          </div>
+        </div>
+      ))}
+      {stockCount > MAX_TOP_MOVERS && (
+        <div className="h-[19px] pt-1" />
+      )}
+    </div>
+  )
+}
+
+export default function TopMovers({ stocks, liveStatus }: TopMoversProps) {
   const shouldReduceMotion = useReducedMotion()
 
   const topMovers = useMemo(() => {
@@ -39,6 +68,9 @@ export default function TopMovers({ stocks }: TopMoversProps) {
     ).slice(0, MAX_TOP_MOVERS)
   }, [stocks])
 
+  const isWaitingForLiveStocks = topMovers.length > 0
+    && (liveStatus === 'idle' || liveStatus === 'loading')
+
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
@@ -47,7 +79,9 @@ export default function TopMovers({ stocks }: TopMoversProps) {
           <span className="text-[10px] font-mono text-slate-600">등락률 내림차순</span>
         )}
       </div>
-      {topMovers.length > 0 ? (
+      {isWaitingForLiveStocks ? (
+        <TopMoversSkeleton stockCount={stocks.length} />
+      ) : topMovers.length > 0 ? (
         <div className="space-y-2.5">
           {topMovers.map((stock, idx) => {
             const pct = stock.priceChangePct ?? 0

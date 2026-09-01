@@ -17,9 +17,10 @@ const MAX_VISIBLE_KEYWORDS = 8
 
 interface DetailHeaderProps {
   theme: ThemeDetail
+  liveStatus: 'idle' | 'loading' | 'success' | 'error'
 }
 
-function DetailHeader({ theme }: DetailHeaderProps) {
+function DetailHeader({ theme, liveStatus }: DetailHeaderProps) {
   const shouldReduceMotion = useReducedMotion()
 
   const themeAge = useMemo(() => {
@@ -102,7 +103,7 @@ function DetailHeader({ theme }: DetailHeaderProps) {
         {/* ── Row 2: 점수 구성 + 주요 종목 ───────────────────────── */}
         <div className="mt-6 pt-6 border-t border-slate-700/40 grid grid-cols-1 lg:grid-cols-2 gap-6">
           <ScoreComponents components={theme.score.components} />
-          <TopMovers stocks={theme.stocks} />
+          <TopMovers stocks={theme.stocks} liveStatus={liveStatus} />
         </div>
       </motion.div>
     </GlassCard>
