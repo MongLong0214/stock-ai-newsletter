@@ -7,16 +7,12 @@ import { cn } from '@/lib/utils'
 import type { ComparisonResult } from '@/lib/tli/types'
 import { formatDays } from '@/lib/tli/date-utils'
 import { COMPARISON_COLORS } from '@/lib/tli/constants/comparison-colors'
-import InfoTooltip from '@/components/tli/info-tooltip'
-import { TOOLTIP_TEXTS } from '@/lib/tli/constants/tooltip-texts'
-import PillarBars, { getSimilarityColor, getSimilarityBadge } from './pillar-bars'
 import {
   getConfidenceAlertText,
   getIndependentFlowAlertText,
   getComparisonPositionText,
   getObservedWindowDays,
   shouldShowIndependentFlowAlert,
-  shouldShowPeakEta,
 } from './logic'
 
 interface ComparisonCardProps {
@@ -35,11 +31,7 @@ export default function ComparisonCard({
   isSelected,
   selectedLineIndex = null,
   onToggle,
-  isPrePeak = true,
 }: ComparisonCardProps) {
-  const simColor = getSimilarityColor(comp.similarity)
-  const simPercent = Math.min(99, Math.round(comp.similarity * 100))
-  const badge = getSimilarityBadge(comp.similarity)
   const selectedLineColor = selectedLineIndex != null
     ? COMPARISON_COLORS[selectedLineIndex % COMPARISON_COLORS.length]
     : null
@@ -88,7 +80,7 @@ export default function ComparisonCard({
       onClick={onToggle}
       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onToggle() } }}
     >
-      {/* 헤더: 테마명 + 종합 유사도 */}
+      {/* 헤더: 테마명 */}
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
           <div className="flex flex-wrap items-center gap-2">
@@ -105,39 +97,13 @@ export default function ComparisonCard({
             )}
           </div>
           <span className={cn(
-            'inline-block mt-2 text-[11px] font-mono px-2 py-0.5 rounded border',
-            badge.bg, badge.text, badge.border,
-          )}>
-            {badge.label}
-          </span>
-          <span className={cn(
             'inline-block mt-2 ml-2 text-[11px] font-mono px-2 py-0.5 rounded border',
             laneClass,
           )}>
             {laneLabel}
           </span>
         </div>
-        <div className="flex flex-col items-end shrink-0">
-          <div className="flex items-baseline gap-0.5">
-            <span className="text-[28px] font-mono font-bold leading-none tabular-nums" style={{ color: simColor }}>
-              {simPercent}
-            </span>
-            <span className="text-sm font-mono text-slate-500">%</span>
-          </div>
-          <span className="text-[10px] font-mono text-slate-500 mt-1 flex items-center gap-1">
-            종합 유사도
-            <InfoTooltip content={TOOLTIP_TEXTS.similarity} />
-          </span>
-        </div>
       </div>
-
-      {/* 세부 지표 바 */}
-      <PillarBars
-        featureSim={comp.featureSim}
-        curveSim={comp.curveSim}
-        keywordSim={comp.keywordSim}
-        idx={idx}
-      />
 
       {/* 과거 주기 타임라인 */}
       {showTimeline ? (
@@ -195,12 +161,7 @@ export default function ComparisonCard({
         </div>
       )}
 
-      {/* 상태 알림 (estimatedDaysToPeak > 0 과 isBeyondCycle은 상호 배타적) */}
-      {shouldShowPeakEta(comp, isPrePeak) && (
-        <AlertRow color="amber">
-          과거 패턴 기준, 정점까지 약 <span className="font-medium">{comp.estimatedDaysToPeak}일</span> 추정
-        </AlertRow>
-      )}
+      {/* 상태 알림 */}
       {showIndependentAlert && independentFlowAlert && (
         <AlertRow color="purple">
           {independentFlowAlert}
