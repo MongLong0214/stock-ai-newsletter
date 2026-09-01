@@ -2,9 +2,10 @@ import { createOgLayout } from '@/lib/og-template';
 import { createOgImageResponse } from '@/lib/og-image-response';
 
 export const runtime = 'nodejs';
-export const revalidate = 86400;
+// 태그 라벨은 거의 바뀌지 않으므로 반복 크롤링의 이미지 재렌더링을 줄인다.
+export const revalidate = 604800;
 
-// 빌드 타임 프리렌더 제외 → 첫 요청 시 온디맨드 렌더 후 ISR 캐시(하루).
+// 빌드 타임 프리렌더 제외 → 첫 요청 시 온디맨드 렌더 후 7일간 ISR 캐시.
 export function generateStaticParams() {
   return [];
 }

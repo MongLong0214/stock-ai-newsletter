@@ -49,11 +49,22 @@ const isApiBlockedBot = (ua: string): boolean => {
   return API_BLOCKED_BOT_UA.some((bot) => lower.includes(bot))
 }
 
+// Satori로 PNG를 렌더하는 동적 OG 경로다. Ahrefs·Semrush 같은 링크 분석기는
+// 페이지의 링크 그래프만 읽으면 되므로 이 이미지를 생성할 이유가 없다.
+// Google·Naver·소셜 미리보기·AI 검색 봇은 API_BLOCKED_BOT_UA에 없어서 그대로 통과한다.
+const isExpensiveOgImagePath = (pathname: string): boolean =>
+  /^\/blog\/(?:tag\/)?[^/]+\/opengraph-image$/.test(pathname) ||
+  /^\/themes\/[^/]+\/opengraph-image$/.test(pathname)
+
 export const middleware = (request: NextRequest) => {
   const ua = request.headers.get('user-agent') || ''
 
-  // 1) 스크레이퍼/SEO 크롤러는 API만 차단한다. 페이지는 통과 — 링크 그래프에 잡혀야 한다.
-  if (isApiBlockedBot(ua) && request.nextUrl.pathname.startsWith('/api/')) {
+  // 1) 스크레이퍼/SEO 크롤러는 API와 비용이 큰 동적 OG 이미지만 차단한다.
+  // 페이지 본문은 통과시켜 외부 링크 그래프·검색 색인은 유지한다.
+  if (isApiBlockedBot(ua) && (
+    request.nextUrl.pathname.startsWith('/api/') ||
+    isExpensiveOgImagePath(request.nextUrl.pathname)
+  )) {
     return new NextResponse('Forbidden', {
       status: 403,
       headers: { 'cache-control': 'private, no-store' },
