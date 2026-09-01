@@ -4,11 +4,27 @@ import { createOgLayout } from '@/lib/og-template';
 import { createOgImageResponse } from '@/lib/og-image-response';
 
 export const runtime = 'nodejs';
-export const revalidate = 86400;
+export const revalidate = 604800;
 
-// 빌드 타임 프리렌더 제외 → 첫 요청 시 온디맨드 렌더 후 ISR 캐시(하루).
-export function generateStaticParams() {
-  return [];
+// 최근 글의 OG 이미지는 빌드 시 생성해 크롤러 첫 방문에도 함수 렌더링을 피한다.
+// 나머지 롱테일 글은 dynamicParams 기본값으로 온디맨드 생성 후 7일간 ISR 캐시된다.
+const BLOG_OG_PRERENDER_LIMIT = 100;
+
+export async function generateStaticParams() {
+  try {
+    const supabase = getServerSupabaseClient();
+    const { data, error } = await supabase
+      .from('blog_posts')
+      .select('slug')
+      .eq('status', 'published')
+      .order('published_at', { ascending: false })
+      .limit(BLOG_OG_PRERENDER_LIMIT);
+
+    if (error) return [];
+    return data?.map((post) => ({ slug: post.slug })) || [];
+  } catch {
+    return [];
+  }
 }
 
 export const alt = 'Stock Matrix 블로그';

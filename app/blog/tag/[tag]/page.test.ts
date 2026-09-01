@@ -3,7 +3,8 @@ import { describe, expect, it } from 'vitest';
 import * as tagPage from './page';
 
 describe('blog tag hub runtime strategy', () => {
-  it('forces dynamic rendering so live tag pages do not depend on build-time prerender state', () => {
-    expect(tagPage.dynamic).toBe('force-dynamic');
+  it('uses six-hour ISR instead of rendering anew for every crawler request', () => {
+    expect(tagPage.dynamic).toBe('force-static');
+    expect(tagPage.revalidate).toBe(21600);
   });
 });

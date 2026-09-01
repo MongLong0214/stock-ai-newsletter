@@ -16,7 +16,9 @@ interface PageProps {
   params: Promise<{ tag: string }>;
 }
 
-export const dynamic = 'force-dynamic';
+// 태그 목록은 글 발행 시에만 바뀌므로 강제 정적으로 ISR 제공한다.
+// force-dynamic이면 크롤러 요청마다 Supabase 조회와 페이지 렌더링이 발생해 비용이 급증한다.
+export const dynamic = 'force-static';
 
 const getPostsByTag = cache(async (tag: string): Promise<BlogPostListItem[]> => {
   const supabase = getServerSupabaseClient();
@@ -164,4 +166,4 @@ async function TagHubPage({ params }: PageProps) {
 
 export default TagHubPage;
 
-export const revalidate = 3600;
+export const revalidate = 21600;
