@@ -16,6 +16,12 @@ on:
         type: string
         default: ''
 
+# GitHub 스케줄 이벤트가 최대 3시간 지연 발화하므로(2026-09-01 실측 +3h24m) 유령 실행이
+# 진행 중인 실행과 겹칠 수 있다. 직렬화해 KIS 동시 수집 충돌을 막는다.
+concurrency:
+  group: prepare-newsletter
+  cancel-in-progress: false
+
 jobs:
   check-market:
     runs-on: ubuntu-latest
@@ -112,7 +118,7 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           DRY_RUN: ${{ inputs.dry_run || 'false' }}
           SIMULATE_TODAY: ${{ inputs.simulate_today || '' }}
-          BACKUP_RUN: ${{ github.event_name == 'schedule' && github.event.schedule == '40 21 * * 0-4' }}
+          BACKUP_RUN: ${{ github.event_name == 'schedule' }}
         run: |
           set -euo pipefail
           echo "🚀 Starting AI analysis and content preparation..."

@@ -218,6 +218,16 @@ NAVER_CLIENT_ID=xxx                        # 네이버 API
 NAVER_CLIENT_SECRET=xxx                    # 네이버 API
 ```
 
+### Vercel 뉴스레터 Cron
+
+기존 `NEXT_PUBLIC_SUPABASE_URL`과 함께 아래 값을 Vercel 환경변수에 설정한다.
+
+- `CRON_SECRET`: Vercel Cron Bearer 인증값(설정 완료)
+- `GH_DISPATCH_TOKEN`: `MongLong0214/stock-ai-newsletter` 한 저장소만 대상으로 하고, Repository permissions에서 Actions `Read and write`만 부여한 fine-grained PAT
+- `SUPABASE_SERVICE_ROLE_KEY`: `newsletter_content` 상태 조회용 service role key
+- `SENDGRID_API_KEY`: watchdog 누락 알림 발송용
+- `SENDGRID_FROM_EMAIL`: watchdog 알림 발신 주소
+
 ---
 
 ## 5. 처음 세팅할 때 (순서대로)
