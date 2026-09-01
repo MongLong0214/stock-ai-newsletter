@@ -1,8 +1,10 @@
 name: Newsletter Sent Watchdog
 
+# 주 워치독은 Vercel(08:15 KST, /api/cron/newsletter-watchdog)이다. 이 cron은 Vercel 자체 장애까지
+# 잡는 교차 인프라 백업 알림 — GitHub schedule 특성상 몇 시간 늦게 울릴 수 있지만 알림은 늦어도 유효하다.
 on:
   schedule:
-    # 평일 오전 8:10 KST (UTC 전날, 월-금요일만)
+    # 평일 오전 8:10 KST 예정 (지연 발화 허용)
     - cron: '10 23 * * 0-4'
   workflow_dispatch:
 

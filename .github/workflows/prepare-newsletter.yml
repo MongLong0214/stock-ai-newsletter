@@ -1,11 +1,9 @@
 name: Prepare Stock Newsletter
 
+# 트리거: Vercel Cron 06:10 KST → /api/cron/newsletter-prepare → workflow_dispatch.
+# GitHub schedule은 2026-08-27부터 2~7시간 지연·드랍이 상시화되어 제거했다 (PR #165 참조).
 on:
-  schedule:
-    # 평일 오전 6:10/6:40 KST (UTC 전날, 월-금요일만)
-    - cron: '10 21 * * 0-4'
-    - cron: '40 21 * * 0-4'
-  workflow_dispatch: # 수동 실행 가능
+  workflow_dispatch: # Vercel Cron + 수동 실행
     inputs:
       dry_run:
         description: 'DB 저장 없이 전 과정 실검수 (CI E2E용)'
@@ -16,8 +14,7 @@ on:
         type: string
         default: ''
 
-# GitHub 스케줄 이벤트가 최대 3시간 지연 발화하므로(2026-09-01 실측 +3h24m) 유령 실행이
-# 진행 중인 실행과 겹칠 수 있다. 직렬화해 KIS 동시 수집 충돌을 막는다.
+# 동시 dispatch(수동+Vercel)를 직렬화해 KIS 동시 수집 충돌을 막는다.
 concurrency:
   group: prepare-newsletter
   cancel-in-progress: false
@@ -25,6 +22,7 @@ concurrency:
 jobs:
   check-market:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     outputs:
       should_run: ${{ steps.check.outputs.should_run }}
     steps:
@@ -74,6 +72,7 @@ jobs:
     needs: check-market
     if: needs.check-market.outputs.should_run == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 60
 
     steps:
       - name: Checkout code
@@ -118,7 +117,6 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           DRY_RUN: ${{ inputs.dry_run || 'false' }}
           SIMULATE_TODAY: ${{ inputs.simulate_today || '' }}
-          BACKUP_RUN: ${{ github.event_name == 'schedule' }}
         run: |
           set -euo pipefail
           echo "🚀 Starting AI analysis and content preparation..."
@@ -128,9 +126,6 @@ jobs:
           fi
           if [ -n "$SIMULATE_TODAY" ]; then
             PREPARE_ARGS+=("--simulate-today=$SIMULATE_TODAY")
-          fi
-          if [ "$BACKUP_RUN" = "true" ]; then
-            PREPARE_ARGS+=(--backup-run)
           fi
           PREPARE_LOG=$(mktemp)
           npx tsx scripts/prepare-newsletter.ts "${PREPARE_ARGS[@]}" 2>&1 | tee "$PREPARE_LOG"
