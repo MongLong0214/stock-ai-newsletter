@@ -63,6 +63,9 @@ function ComparisonList({
               ? '선택한 패턴은 왼쪽 점수 추이 그래프에 바로 반영됩니다.'
               : '카드를 고르면 점수 추이 그래프에 비교선이 추가됩니다.'}
           </p>
+          <p className="text-xs font-mono text-slate-500 mt-1">
+            수치 기반 자동 추출 결과입니다. 업종·사업 연관성이나 향후 흐름을 검증한 값이 아닙니다.
+          </p>
         </div>
 
         {comparisons.length === 0 ? (
