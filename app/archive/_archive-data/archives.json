@@ -2,6 +2,59 @@
   "newsletters": [
     {
       "type": "stock",
+      "date": "2026-09-02",
+      "stocks": [
+        {
+          "ticker": "KOSDAQ:307870",
+          "name": "비투엔",
+          "close_price": 1274,
+          "rationale": "기준일 종가 1,274원|당일 등락 9.8% 상승|RSI 71.9 강세|거래량비율 416% 급증|60일 거래량 백분위 99.2점|60일 신고가 6.8% 돌파|20일선 괴리 26.9%|20일 추세 기울기 1.16%/일|20일 추세 적합도 R2 50.5점|60일 추세 적합도 R2 0.1점|MACD 히스토그램 30.36|ATR14 8.8%|ADX14 31.0점|OBV20 기울기 370379|101거래일 가격위치 72.3%|연속상승 3일|골든크로스 감지 1회·경과 2일|20일 평균거래대금 13.4억원|volumeBreakout 전략점수 95.0점",
+          "signals": {
+            "trend_score": 88,
+            "momentum_score": 79,
+            "volume_score": 85,
+            "volatility_score": 0,
+            "pattern_score": 83,
+            "sentiment_score": 84,
+            "overall_score": 76
+          }
+        },
+        {
+          "ticker": "KOSDAQ:047770",
+          "name": "코데즈컴바인",
+          "close_price": 3950,
+          "rationale": "기준일 종가 3,950원|당일 등락 13.3% 상승|RSI 69.0 강세|거래량비율 473% 급증|60일 거래량 백분위 97.5점|60일 신고가 6.8% 돌파|20일선 괴리 26.2%|20일 추세 기울기 2.09%/일|20일 추세 적합도 R2 74.2점|60일 추세 적합도 R2 2.3점|MACD 히스토그램 75.22|ATR14 8.5%|ADX14 34.3점|OBV20 기울기 1729764|101거래일 가격위치 53.7%|연속상승 1일|골든크로스 감지 1회·경과 4일|20일 평균거래대금 121.4억원|volumeBreakout 전략점수 85.0점",
+          "signals": {
+            "trend_score": 94,
+            "momentum_score": 73,
+            "volume_score": 86,
+            "volatility_score": 0,
+            "pattern_score": 76,
+            "sentiment_score": 71,
+            "overall_score": 74
+          }
+        },
+        {
+          "ticker": "KOSPI:271980",
+          "name": "제일약품",
+          "close_price": 11410,
+          "rationale": "기준일 종가 11,410원|당일 등락 7.8% 상승|RSI 69.3 강세|거래량비율 619% 급증|60일 거래량 백분위 97.5점|60일 신고가 5.3% 돌파|20일선 괴리 11.0%|20일 추세 기울기 0.02%/일|20일 추세 적합도 R2 0.2점|60일 추세 적합도 R2 0.1점|MACD 히스토그램 109.82|ATR14 6.0%|ADX14 31.7점|OBV20 기울기 58079|101거래일 가격위치 42.7%|연속상승 4일|골든크로스 감지 1회·경과 2일|20일 평균거래대금 16.5억원|volumeBreakout 전략점수 85.0점",
+          "signals": {
+            "trend_score": 64,
+            "momentum_score": 75,
+            "volume_score": 85,
+            "volatility_score": 40,
+            "pattern_score": 76,
+            "sentiment_score": 61,
+            "overall_score": 71
+          }
+        }
+      ],
+      "sentAt": "2026-09-01T22:28:49.094+00:00",
+      "subscriberCount": 317
+    },
+    {
+      "type": "stock",
       "date": "2026-09-01",
       "stocks": [
         {
@@ -11467,5 +11520,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-09-01T01:00:26.842Z"
+  "lastUpdated": "2026-09-01T22:29:25.298Z"
 }
