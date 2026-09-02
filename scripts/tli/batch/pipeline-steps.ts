@@ -11,7 +11,7 @@ import { collectBablPhaseSnapshot } from '@/scripts/tli/collectors/babl-phase-sn
 import { evaluateComparisonOutcomes } from '@/scripts/tli/comparison/evaluate-comparisons'
 import { submitToIndexNow, buildThemeUrls } from '@/lib/indexnow'
 import { getKSTDateString } from '@/lib/tli/date-utils'
-import { isKoreanTradingDate } from '@/lib/tli/trading-calendar'
+import { addKoreanTradingDays, isKoreanTradingDate } from '@/lib/tli/trading-calendar'
 import { materializePhase0Artifacts } from '@/scripts/tli/comparison/materialize-phase0-artifacts'
 import { countExpiredPendingLabels, runDailyLabelPhase } from '@/scripts/tli/labels/daily-label-phase'
 import { runGtAV2FoundationPhase } from '@/scripts/tli/labels/gta-v2-daily'
@@ -30,35 +30,67 @@ export { collectDataSources } from '@/scripts/tli/batch/collection-pipeline'
 
 interface AnalysisResult { criticalFailures: number; warningFailures: number }
 
-type InterestObservationCounter = (tradingDate: string) => Promise<number>
+type InterestObservationLatestDateReader = (tradingDate: string) => Promise<string | null>
 
-const countInterestObservationsForDate: InterestObservationCounter = async (tradingDate) => {
+const EMPTY_OBSERVATION_QUERY_RESPONSE = '(빈 응답 — statement timeout 가능성)'
+
+/**
+ * DataLab은 당일 데이터를 주지 않고 직전 거래일도 09:00에는 미수집일 수 있다.
+ * 수집 실패는 커버리지 게이트가 즉시 critical로 잡으므로, 이 워치독은 조용한 누적 갭의
+ * 백스톱으로만 동작하며 2거래일 지연을 허용한다.
+ */
+export const INTEREST_OBSERVATION_MAX_LAG_TRADING_DAYS = 2
+
+const readLatestInterestObservationTradingDate: InterestObservationLatestDateReader = async () => {
   const { supabaseAdmin } = await import('@/scripts/tli/shared/supabase-admin')
-  const { count, error } = await supabaseAdmin
+  const { data, error } = await supabaseAdmin
     .from('tli_interest_observations')
-    .select('id', { count: 'exact', head: true })
-    .eq('trading_date', tradingDate)
+    .select('trading_date')
+    .order('trading_date', { ascending: false })
+    .limit(1)
+    .maybeSingle()
 
-  if (error) throw new Error(`interest observation count 실패: ${error.message}`)
-  return count ?? 0
+  if (error) {
+    const message = error.message.trim() || EMPTY_OBSERVATION_QUERY_RESPONSE
+    throw new Error(`interest observation 최신 거래일 조회 실패: ${message}`)
+  }
+  return data?.trading_date ?? null
+}
+
+export function isInterestObservationGap(input: {
+  readonly latestObserved: string | null
+  readonly today: string
+  readonly maxLagTradingDays: number
+}): boolean {
+  if (input.latestObserved === null) return true
+  return input.latestObserved < addKoreanTradingDays(input.today, -input.maxLagTradingDays)
 }
 
 export async function runInterestObservationGapWatchdog(
   tradingDate: string,
-  countInterestObservations: InterestObservationCounter = countInterestObservationsForDate,
+  readLatestObservedTradingDate: InterestObservationLatestDateReader = readLatestInterestObservationTradingDate,
 ): Promise<number> {
   if (!isKoreanTradingDate(tradingDate)) return 0
 
   try {
-    const observationCount = await countInterestObservations(tradingDate)
-    if (observationCount > 0) return 0
+    const latestObservedTradingDate = await readLatestObservedTradingDate(tradingDate)
+    if (!isInterestObservationGap({
+      latestObserved: latestObservedTradingDate,
+      today: tradingDate,
+      maxLagTradingDays: INTEREST_OBSERVATION_MAX_LAG_TRADING_DAYS,
+    })) return 0
 
-    console.warn('⚠️ 거래일 interest observation 누락 감지', { tradingDate, observationCount })
+    console.warn('⚠️ interest observation 최신 거래일 지연 감지', {
+      latestObservedTradingDate,
+      maxLagTradingDays: INTEREST_OBSERVATION_MAX_LAG_TRADING_DAYS,
+      today: tradingDate,
+    })
     return 1
   } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error)
     console.warn('⚠️ interest observation 누락 점검 실패', {
       tradingDate,
-      error: error instanceof Error ? error.message : String(error),
+      error: message.trim() || EMPTY_OBSERVATION_QUERY_RESPONSE,
     })
     return 1
   }
