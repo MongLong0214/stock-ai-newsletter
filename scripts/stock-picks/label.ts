@@ -25,6 +25,7 @@ const hasValidOhlc = (row: StockDailyPriceRow | undefined): row is StockDailyPri
   readonly open: number
   readonly high: number
   readonly low: number
+  readonly close: number
 } => Boolean(
   row
   && finitePositive(row.open)
@@ -86,7 +87,7 @@ export function labelPick(
 
   const windowRows = windowDates.map((date) => getRawPrice(prices, symbol, date))
   const entryRow = windowRows[0]
-  if (!hasValidOhlc(entryRow) || windowRows.some((row) => !hasValidOhlc(row))) {
+  if (!hasValidOhlc(entryRow) || !windowRows.every(hasValidOhlc)) {
     return dataErrorLabel(entryDate, entryRow, windowRows)
   }
 

@@ -13,6 +13,18 @@ export type StrategyName =
   | 'composite'
 export type SelectionMode = 'force3' | 'abstain'
 export type AblationFeature = keyof StockFeatureVector
+export type TieredFillTier = 'breakout' | 'relaxedBreakout' | 'volumeOnly'
+
+export interface TieredFillPick {
+  readonly symbol: string
+  readonly tier: TieredFillTier
+}
+
+export const DEFAULT_TIERED_FILL_TIERS: readonly TieredFillTier[] = [
+  'breakout',
+  'relaxedBreakout',
+  'volumeOnly',
+]
 
 export interface StockMasterState {
   readonly symbol: string
@@ -404,6 +416,101 @@ export function rankStrategyCandidates<K extends StrategyName>(input: {
     return [{ symbol: feature.symbol, score }]
   }).sort((left, right) => right.score - left.score || left.symbol.localeCompare(right.symbol))
     .slice(0, input.pickCount ?? PICKS_PER_DATE)
+}
+
+export function rankVolumeOnlyCandidates(input: {
+  readonly features: readonly StockFeatureVector[]
+  readonly masters: ReadonlyMap<string, StockMasterState>
+  readonly parameters: VolumeBreakoutParameters
+  readonly universe?: ReadonlySet<string>
+  readonly pickCount?: number
+}): Array<{ symbol: string; volumePercentile: number }> {
+  return input.features.flatMap((feature) => {
+    if (input.universe && !input.universe.has(feature.symbol)) return []
+    if (feature.volumePercentile60 === null) return []
+    if (!passesCommonGate(
+      feature,
+      input.masters.get(feature.symbol),
+      input.parameters.minTurnover,
+      input.parameters.maxRsi ?? 70,
+    )) return []
+    return [{ symbol: feature.symbol, volumePercentile: feature.volumePercentile60 }]
+  }).sort((left, right) => (
+    right.volumePercentile - left.volumePercentile
+    || left.symbol.localeCompare(right.symbol)
+  )).slice(0, input.pickCount ?? PICKS_PER_DATE)
+}
+
+export function rankTieredFillCandidates(input: {
+  readonly features: readonly StockFeatureVector[]
+  readonly masters: ReadonlyMap<string, StockMasterState>
+  readonly parameters: VolumeBreakoutParameters
+  readonly tiers?: ReadonlyArray<TieredFillTier>
+  readonly universe?: ReadonlySet<string>
+}): TieredFillPick[] {
+  const tiers = input.tiers ?? DEFAULT_TIERED_FILL_TIERS
+  const remainingUniverse = new Set(
+    input.universe ?? input.features.map((feature) => feature.symbol),
+  )
+  const picks: TieredFillPick[] = []
+
+  for (const tier of tiers) {
+    const pickCount = PICKS_PER_DATE - picks.length
+    if (pickCount <= 0) break
+    const symbols = tier === 'volumeOnly'
+      ? rankVolumeOnlyCandidates({
+          features: input.features,
+          masters: input.masters,
+          parameters: input.parameters,
+          universe: remainingUniverse,
+          pickCount,
+        }).map((row) => row.symbol)
+      : rankStrategyCandidates({
+          name: 'volumeBreakoutNoGapUp',
+          features: input.features,
+          masters: input.masters,
+          parameters: tier === 'relaxedBreakout'
+            ? {
+                ...input.parameters,
+                minDistanceFromHighPercent: -3,
+                minVolumePercentile: 80,
+              }
+            : input.parameters,
+          mode: 'force3',
+          universe: remainingUniverse,
+          pickCount,
+        }).map((row) => row.symbol)
+
+    for (const symbol of symbols) {
+      if (!remainingUniverse.delete(symbol)) continue
+      picks.push({ symbol, tier })
+    }
+  }
+
+  return picks
+}
+
+export function createTieredFillStrategy(input: {
+  readonly featuresByDate: ReadonlyMap<string, readonly StockFeatureVector[]>
+  readonly masters: ReadonlyMap<string, StockMasterState>
+  readonly parameters: VolumeBreakoutParameters
+  readonly tiers?: ReadonlyArray<TieredFillTier>
+}): StockPickStrategy {
+  let cachedUniverse: readonly string[] | null = null
+  let cachedUniverseSet: ReadonlySet<string> | undefined
+  return (_handler, universe, simDate) => {
+    if (cachedUniverse !== universe) {
+      cachedUniverse = universe
+      cachedUniverseSet = new Set(universe)
+    }
+    return rankTieredFillCandidates({
+      features: input.featuresByDate.get(simDate) ?? [],
+      masters: input.masters,
+      parameters: input.parameters,
+      tiers: input.tiers,
+      universe: cachedUniverseSet,
+    }).map((row) => row.symbol)
+  }
 }
 
 /** 사전등록 섀도우: 프로덕션 게이트 통과 집합을 ATR14 rolling percentile로만 재정렬한다. */

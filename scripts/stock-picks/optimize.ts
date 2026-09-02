@@ -35,9 +35,11 @@ import {
   DEFAULT_VOLUME_BREAKOUT_BULLISH_CANDLE_PARAMETERS,
   DEFAULT_VOLUME_BREAKOUT_NO_GAP_UP_PARAMETERS,
   createCachedFeatureStrategy,
+  createTieredFillStrategy,
   loadStockMasterStates,
   passesCommonGate,
   rankStrategyCandidates,
+  rankTieredFillCandidates,
   type AblationFeature,
   type CompositeParameters,
   type EarlyTrendParameters,
@@ -46,6 +48,7 @@ import {
   type StockMasterState,
   type StrategyName,
   type StrategyParameterMap,
+  type TieredFillTier,
   type VolumeBreakoutParameters,
 } from '@/scripts/stock-picks/strategies'
 import { TradingDayIndex, loadTradingDayIndex } from '@/scripts/stock-picks/trading-days'
@@ -88,6 +91,24 @@ export interface OosMetricSummary {
     readonly topTickerShare: number
     readonly herfindahlIndex: number
     readonly topTickers: ReadonlyArray<{ symbol: string; picks: number; share: number }>
+  }
+}
+
+export type ExploratoryMetricSummary = Omit<OosMetricSummary, 'evaluationScope'> & {
+  readonly evaluationScope: 'exploratory_dev_window'
+}
+
+/**
+ * WHY: 이 실험은 v0 선택에 사용한 같은 개발 날짜를 다시 보므로 sealed holdout이 아니다.
+ * 수치는 승격 근거가 아니라 다음 포워드 실험에서 사전등록할 tier를 고르는 용도로만 쓴다.
+ */
+export type TieredFillExperimentReport = ExploratoryMetricSummary & {
+  readonly tiers: ReadonlyArray<TieredFillTier>
+  readonly picksByTier: Readonly<Record<TieredFillTier, number>>
+  readonly hitsByTier: Readonly<Record<TieredFillTier, number>>
+  readonly pairedDailyDelta: {
+    readonly experimentMinusProduction: PairedComparisonSummary
+    readonly experimentMinusVolumeOnly: PairedComparisonSummary
   }
 }
 
@@ -207,6 +228,10 @@ export interface FrozenProductionEvaluationReport {
   readonly pairedDailyDelta: {
     readonly productionMinusVolumeOnly: PairedComparisonSummary
     readonly productionMinusPolicyRandom: PairedComparisonSummary
+  }
+  readonly experiments: {
+    readonly tieredFill: TieredFillExperimentReport
+    readonly breakoutThenVolumeOnly: TieredFillExperimentReport
   }
 }
 
@@ -1000,6 +1025,73 @@ const summarizePairedComparison = (
   }
 }
 
+const emptyTierCounts = (): Record<TieredFillTier, number> => ({
+  breakout: 0,
+  relaxedBreakout: 0,
+  volumeOnly: 0,
+})
+
+const evaluateTieredFillExperiment = (input: {
+  readonly splits: readonly WalkForwardSplit[]
+  readonly context: EvaluationContext
+  readonly tiers: ReadonlyArray<TieredFillTier>
+  readonly productionReports: readonly BacktestReport[]
+  readonly volumeOnlyReports: readonly BacktestReport[]
+}): TieredFillExperimentReport => {
+  const strategy = createTieredFillStrategy({
+    featuresByDate: input.context.featuresByDate,
+    masters: input.context.masters,
+    parameters: PRODUCTION_VOLUME_BREAKOUT_PARAMETERS,
+    tiers: input.tiers,
+  })
+  const reports = input.splits.map((split) => runBacktest({
+    strategyName: `tieredFill:${input.tiers.join('+')}`,
+    strategy,
+    universe: input.context.universe,
+    prices: input.context.prices,
+    tradingDays: input.context.tradingDays,
+    startDate: split.testDates[0],
+    endDate: split.testDates.at(-1),
+    calculateSlotPrecisionCi: false,
+  }))
+  const universe = new Set(input.context.universe)
+  const candidateCounts: number[] = []
+  const picksByTier = emptyTierCounts()
+  const hitsByTier = emptyTierCounts()
+
+  for (const report of reports) {
+    for (const day of report.daily) {
+      const tieredPicks = rankTieredFillCandidates({
+        features: input.context.featuresByDate.get(day.simDate) ?? [],
+        masters: input.context.masters,
+        parameters: PRODUCTION_VOLUME_BREAKOUT_PARAMETERS,
+        tiers: input.tiers,
+        universe,
+      })
+      candidateCounts.push(tieredPicks.length)
+      const tierBySymbol = new Map(tieredPicks.map((pick) => [pick.symbol, pick.tier]))
+      for (const pick of day.picks) {
+        const tier = tierBySymbol.get(pick.symbol)
+        if (!tier) throw new Error(`${day.simDate} ${pick.symbol}의 tier를 찾을 수 없습니다`)
+        picksByTier[tier]++
+        if (pick.label?.touched) hitsByTier[tier]++
+      }
+    }
+  }
+
+  return {
+    ...summarizeReports(reports, candidateCounts),
+    evaluationScope: 'exploratory_dev_window',
+    tiers: [...input.tiers],
+    picksByTier,
+    hitsByTier,
+    pairedDailyDelta: {
+      experimentMinusProduction: summarizePairedComparison(reports, input.productionReports),
+      experimentMinusVolumeOnly: summarizePairedComparison(reports, input.volumeOnlyReports),
+    },
+  }
+}
+
 /** 프로덕션 파라미터를 재선택 없이 각 walk-forward test 구간에 그대로 적용한다. */
 export function runFrozenProductionEvaluation(input: {
   readonly prices: PriceBook
@@ -1033,6 +1125,20 @@ export function runFrozenProductionEvaluation(input: {
   }))
   const evaluationDates = [...new Set(input.splits.flatMap((split) => split.testDates))]
   const baselines = evaluateBaselines(input.splits, context)
+  const tieredFill = evaluateTieredFillExperiment({
+    splits: input.splits,
+    context,
+    tiers: ['breakout', 'relaxedBreakout', 'volumeOnly'],
+    productionReports: reports,
+    volumeOnlyReports: baselines.volumeOnly3.reports,
+  })
+  const breakoutThenVolumeOnly = evaluateTieredFillExperiment({
+    splits: input.splits,
+    context,
+    tiers: ['breakout', 'volumeOnly'],
+    productionReports: reports,
+    volumeOnlyReports: baselines.volumeOnly3.reports,
+  })
 
   return {
     generatedAt: input.generatedAt ?? new Date().toISOString(),
@@ -1066,6 +1172,10 @@ export function runFrozenProductionEvaluation(input: {
         reports,
         baselines.policyRandom3.reports,
       ),
+    },
+    experiments: {
+      tieredFill,
+      breakoutThenVolumeOnly,
     },
   }
 }
@@ -1147,6 +1257,11 @@ async function runCli(args: readonly string[]): Promise<void> {
       folds: frozenReport.dateRange.foldCount,
       frozenPrecisionAt3: frozenReport.aggregate.precisionAt3,
       frozenSlotPrecisionAt3: frozenReport.aggregate.slotPrecisionAt3,
+      slotPrecisionAt3: {
+        production: frozenReport.aggregate.slotPrecisionAt3,
+        tieredFill: frozenReport.experiments.tieredFill.slotPrecisionAt3,
+        breakoutThenVolumeOnly: frozenReport.experiments.breakoutThenVolumeOnly.slotPrecisionAt3,
+      },
       labeledPicks: frozenReport.aggregate.labeledPicks,
     }, null, 2))
   } else {

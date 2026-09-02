@@ -10,7 +10,7 @@ import {
 import type { StockFeatureVector } from '@/scripts/stock-picks/features'
 import { labelPick, type StockPickLabel } from '@/scripts/stock-picks/label'
 import {
-  passesCommonGate,
+  rankVolumeOnlyCandidates,
   type StockMasterState,
   type VolumeBreakoutParameters,
 } from '@/scripts/stock-picks/strategies'
@@ -33,6 +33,10 @@ export interface LabelStatusCounts {
   readonly miss: number
   readonly unexpected_untradeable: number
   readonly data_error: number
+}
+
+type MutableLabelStatusCounts = {
+  -readonly [K in keyof LabelStatusCounts]: LabelStatusCounts[K]
 }
 
 export type StockPickStrategy = (
@@ -151,19 +155,12 @@ export const createVolumeOnlyStrategy = (
       cachedUniverse = universe
       universeSet = new Set(universe)
     }
-    return (featuresByDate.get(simDate) ?? []).flatMap((feature) => {
-      if (!universeSet.has(feature.symbol) || feature.volumePercentile60 === null) return []
-      if (!passesCommonGate(
-        feature,
-        masters.get(feature.symbol),
-        parameters.minTurnover,
-        parameters.maxRsi ?? 70,
-      )) return []
-      return [{ symbol: feature.symbol, volumePercentile: feature.volumePercentile60 }]
-    }).sort((left, right) => (
-      right.volumePercentile - left.volumePercentile
-      || left.symbol.localeCompare(right.symbol)
-    )).slice(0, PICKS_PER_DATE).map((row) => row.symbol)
+    return rankVolumeOnlyCandidates({
+      features: featuresByDate.get(simDate) ?? [],
+      masters,
+      parameters,
+      universe: universeSet,
+    }).map((row) => row.symbol)
   }
 }
 
@@ -198,7 +195,7 @@ const mean = (values: readonly number[]): number | null => (
   values.length > 0 ? values.reduce((sum, value) => sum + value, 0) / values.length : null
 )
 
-const emptyStatusCounts = (): LabelStatusCounts => ({
+const emptyStatusCounts = (): MutableLabelStatusCounts => ({
   hit: 0,
   miss: 0,
   unexpected_untradeable: 0,

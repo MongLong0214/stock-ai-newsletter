@@ -240,5 +240,89 @@ describe('stock-picks walk-forward optimizer', () => {
       excludedDates: { onlyProduction: 0, onlyBaseline: 0, total: 0 },
       slotPrecisionAt3DeltaCi: { mean: 0, lower95: 0, upper95: 0 },
     })
+    expect(frozen.experiments.tieredFill).toMatchObject({
+      evaluationScope: 'exploratory_dev_window',
+      tiers: ['breakout', 'relaxedBreakout', 'volumeOnly'],
+      picksByTier: { breakout: 6, relaxedBreakout: 0, volumeOnly: 0 },
+      hitsByTier: { breakout: 6, relaxedBreakout: 0, volumeOnly: 0 },
+      totalPicks: 6,
+      slotPrecisionAt3: 1,
+    })
+    expect(frozen.experiments.breakoutThenVolumeOnly).toMatchObject({
+      evaluationScope: 'exploratory_dev_window',
+      tiers: ['breakout', 'volumeOnly'],
+      picksByTier: { breakout: 6, relaxedBreakout: 0, volumeOnly: 0 },
+      hitsByTier: { breakout: 6, relaxedBreakout: 0, volumeOnly: 0 },
+      totalPicks: 6,
+      slotPrecisionAt3: 1,
+    })
+  })
+
+  it('attributes exploratory picks and hits to each fill tier', () => {
+    const simDate = '2026-04-01'
+    const futureDates = ['2026-04-02', '2026-04-03', '2026-04-06', '2026-04-07', '2026-04-08']
+    const allDates = [simDate, ...futureDates]
+    const symbols = ['BREAKOUT', 'RELAXED', 'VOLUME']
+    const rows: StockDailyPriceRow[] = symbols.flatMap((symbol) => allDates.map((tradeDate) => ({
+      symbol,
+      trade_date: tradeDate,
+      open: 100,
+      high: 111,
+      low: 95,
+      close: 105,
+      volume: 1_000,
+      source: 'kis',
+    })))
+    const masters: StockMasterState[] = symbols.map((symbol) => ({
+      symbol,
+      is_active: true,
+      status_flags: {},
+    }))
+    const featuresByDate = new Map([[simDate, [
+      { ...makeFeature('VOLUME', simDate), volumePercentile60: 99, distanceFromHigh60: -4 },
+      { ...makeFeature('RELAXED', simDate), volumePercentile60: 85, distanceFromHigh60: -1 },
+      { ...makeFeature('BREAKOUT', simDate), volumePercentile60: 99, distanceFromHigh60: 1 },
+    ]]])
+    const split: WalkForwardSplit = {
+      index: 0,
+      trainMonths: ['2026-01', '2026-02', '2026-03'],
+      testMonths: ['2026-04'],
+      trainDates: ['2026-03-30'],
+      purgedDates: ['2026-03-31'],
+      testDates: [simDate],
+    }
+
+    const frozen = runFrozenProductionEvaluation({
+      prices: buildPriceBook(rows),
+      tradingDays: new TradingDayIndex(allDates),
+      masters,
+      featuresByDate,
+      splits: [split],
+      generatedAt: '2026-08-28T00:00:00.000Z',
+    })
+
+    expect(frozen.aggregate.totalPicks).toBe(1)
+    expect(frozen.experiments.tieredFill).toMatchObject({
+      evaluationScope: 'exploratory_dev_window',
+      totalPicks: 3,
+      slotCoverage: 1,
+      picksByTier: { breakout: 1, relaxedBreakout: 1, volumeOnly: 1 },
+      hitsByTier: { breakout: 1, relaxedBreakout: 1, volumeOnly: 1 },
+      pairedDailyDelta: {
+        experimentMinusProduction: {
+          excludedDates: { onlyProduction: 0, onlyBaseline: 0, total: 0 },
+          slotPrecisionAt3DeltaCi: { mean: 2 / 3, lower95: 2 / 3, upper95: 2 / 3 },
+        },
+        experimentMinusVolumeOnly: {
+          slotPrecisionAt3DeltaCi: { mean: 0, lower95: 0, upper95: 0 },
+        },
+      },
+    })
+    expect(frozen.experiments.breakoutThenVolumeOnly).toMatchObject({
+      evaluationScope: 'exploratory_dev_window',
+      totalPicks: 3,
+      picksByTier: { breakout: 1, relaxedBreakout: 0, volumeOnly: 2 },
+      hitsByTier: { breakout: 1, relaxedBreakout: 0, volumeOnly: 2 },
+    })
   })
 })
