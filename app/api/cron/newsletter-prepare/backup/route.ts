@@ -5,7 +5,6 @@ import {
   createDispatchId,
   dispatchGitHubWorkflow,
 } from '@/lib/github-actions-dispatch'
-import { sendNewsletterAlertEmail } from '@/lib/newsletter/alert'
 import { getNewsletterStatus } from '@/lib/newsletter/status'
 import { isKoreanTradingDate } from '@/lib/tli/trading-calendar'
 
@@ -49,30 +48,26 @@ export async function GET(request: Request) {
     }
 
     const requestedDispatchId = createDispatchId(date)
+    // WHY: primary dispatch may be dropped, fail, or leave fallback content; backup mode preserves code picks.
     const dispatch = await dispatchGitHubWorkflow(WORKFLOW_FILE, {
-      inputs: { target_date: date, dispatch_id: requestedDispatchId },
+      inputs: {
+        target_date: date,
+        dispatch_id: requestedDispatchId,
+        backup_run: 'true',
+      },
     })
-    if (dispatch.tokenExpiresInDays !== null && dispatch.tokenExpiresInDays < 14) {
-      await sendNewsletterAlertEmail({
-        subject: `[Stock Matrix] GitHub Actions PAT 만료 D-${dispatch.tokenExpiresInDays}`,
-        lines: [
-          `대상 날짜: ${date}`,
-          `dispatch_id: ${dispatch.dispatchId}`,
-          `GH_DISPATCH_TOKEN 만료까지 ${dispatch.tokenExpiresInDays}일 남았습니다.`,
-        ],
-      })
-    }
     return NextResponse.json({
       success: true,
       dispatched: true,
+      backup: true,
       workflow: WORKFLOW_FILE,
       date,
       dispatchId: dispatch.dispatchId,
     })
   } catch (error) {
-    console.error('Newsletter prepare cron failed:', error)
+    console.error('Newsletter prepare backup cron failed:', error)
     return NextResponse.json(
-      { success: false, error: 'Newsletter prepare cron failed' },
+      { success: false, error: 'Newsletter prepare backup cron failed' },
       { status: 500 },
     )
   }

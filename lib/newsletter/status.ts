@@ -3,6 +3,8 @@ import { createClient } from '@supabase/supabase-js'
 export interface NewsletterStatusRow {
   readonly is_sent: boolean
   readonly picks_source: string | null
+  readonly sent_at: string | null
+  readonly subscriber_count: number | null
 }
 
 type NewsletterStatusEnvironment = Readonly<Record<string, string | undefined>>
@@ -22,7 +24,7 @@ export async function getNewsletterStatus(
   })
   const { data, error } = await supabase
     .from('newsletter_content')
-    .select('is_sent, picks_source')
+    .select('is_sent, picks_source, sent_at, subscriber_count')
     .eq('newsletter_date', date)
     .maybeSingle()
 

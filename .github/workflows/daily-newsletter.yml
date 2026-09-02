@@ -1,124 +1,60 @@
 name: Daily Stock Newsletter
+run-name: Send ${{ inputs.target_date || 'today' }} ${{ inputs.dispatch_id || 'manual' }}
 
-# 트리거: Vercel Cron 07:27 KST → /api/cron/newsletter-send → workflow_dispatch.
-# GitHub schedule 지연·드랍 상시화로 제거 (PR #165 참조). is_sent 원자 클레임이 중복 발송을 막는다.
 on:
-  workflow_dispatch: # Vercel Cron + 수동 실행
+  workflow_dispatch:
+    inputs:
+      target_date:
+        description: '발행 대상 날짜 (YYYY-MM-DD)'
+        type: string
+        default: ''
+      dispatch_id:
+        description: 'Vercel cron correlation ID'
+        type: string
+        default: ''
 
-# 동시 dispatch를 직렬화한다. (send-newsletter.ts의 is_sent 원자 클레임이 최종 방어선)
 concurrency:
   group: daily-newsletter
   cancel-in-progress: false
 
 jobs:
-  check-market:
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    outputs:
-      should_run: ${{ steps.check.outputs.should_run }}
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Check Korean market day
-        id: check
-        run: |
-          set -euo pipefail
-
-          # 수동 실행은 항상 허용
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "should_run=true" >> $GITHUB_OUTPUT
-            echo "🔧 수동 실행 — 휴장일 체크 건너뜀"
-            exit 0
-          fi
-
-          KST_DATE=$(TZ=Asia/Seoul date +%Y-%m-%d)
-          echo "📅 KST 날짜: $KST_DATE"
-          IS_TRADING_DAY=$(KST_DATE="$KST_DATE" npx tsx -e "import { isKoreanTradingDate } from './lib/tli/trading-calendar.ts'; process.stdout.write(String(isKoreanTradingDate(process.env.KST_DATE!)))")
-          case "$IS_TRADING_DAY" in
-            true)
-              echo "should_run=true" >> "$GITHUB_OUTPUT"
-              echo "✅ 개장일 — 실행"
-              ;;
-            false)
-              echo "should_run=false" >> "$GITHUB_OUTPUT"
-              echo "🚫 휴장일 ($KST_DATE) — 건너뜀"
-              ;;
-            *)
-              echo "::error::휴장일 판정 결과가 boolean이 아닙니다: $IS_TRADING_DAY"
-              exit 1
-              ;;
-          esac
-
   send-newsletter:
-    needs: check-market
-    if: needs.check-market.outputs.should_run == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
-          node-version: '20'
+          node-version: '24'
           cache: 'npm'
 
       - name: Install dependencies
         run: npm ci
-
-      - name: Setup Google Cloud credentials
-        run: |
-          echo '${{ secrets.GOOGLE_CLOUD_CREDENTIALS }}' > $HOME/gcloud-key.json
-          echo "GOOGLE_APPLICATION_CREDENTIALS=$HOME/gcloud-key.json" >> $GITHUB_ENV
 
       - name: Send Newsletter
         env:
-          # API Keys
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          # GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}  # 사용 안 함 (Vertex AI 사용)
-
-          # Google Cloud (Vertex AI) - Gemini 전용
-          GOOGLE_CLOUD_PROJECT: ${{ secrets.GOOGLE_CLOUD_PROJECT }}
-          GOOGLE_CLOUD_LOCATION: us-central1
-
-          # Supabase
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-
-          # SendGrid
           SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY }}
           SENDGRID_FROM_EMAIL: ${{ secrets.SENDGRID_FROM_EMAIL }}
           SENDGRID_FROM_NAME: ${{ secrets.SENDGRID_FROM_NAME }}
-
-          # Application
+          NEWSLETTER_ALERT_EMAIL: ${{ vars.NEWSLETTER_ALERT_EMAIL }}
           NEXT_PUBLIC_APP_URL: ${{ secrets.NEXT_PUBLIC_APP_URL }}
+          TARGET_DATE: ${{ inputs.target_date || '' }}
+          DISPATCH_ID: ${{ inputs.dispatch_id || '' }}
         run: |
-          echo "📧 Starting newsletter sending from prepared content..."
-          npx tsx scripts/send-newsletter.ts
+          set -euo pipefail
+          SEND_ARGS=()
+          if [ -n "$TARGET_DATE" ]; then SEND_ARGS+=("--target-date=$TARGET_DATE"); fi
+          if [ -n "$DISPATCH_ID" ]; then SEND_ARGS+=("--dispatch-id=$DISPATCH_ID"); fi
+          npx tsx scripts/send-newsletter.ts "${SEND_ARGS[@]}" 2>&1 | tee "$RUNNER_TEMP/send-newsletter.log"
 
-      - name: Cleanup credentials
-        if: always()
-        run: rm -f $HOME/gcloud-key.json
-
-      - name: Notify on success
-        if: success()
-        run: echo "✅ Newsletter sent successfully!"
-
-      - name: Notify on failure
+      - name: Alert on failure
         if: failure()
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
@@ -126,6 +62,16 @@ jobs:
           SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY }}
           SENDGRID_FROM_EMAIL: ${{ secrets.SENDGRID_FROM_EMAIL }}
           NEWSLETTER_ALERT_EMAIL: ${{ vars.NEWSLETTER_ALERT_EMAIL }}
+          DISPATCH_ID: ${{ inputs.dispatch_id || '' }}
+          TARGET_DATE: ${{ inputs.target_date || '' }}
         run: |
-          echo "❌ Newsletter sending failed!!"
-          npx tsx scripts/verify-newsletter-sent.ts
+          npx tsx scripts/verify-newsletter-sent.ts || true
+          npx tsx scripts/ops/notify-pipeline-failure.ts --stage=send
+
+      - name: Upload send log
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: send-${{ inputs.target_date || 'today' }}-${{ github.run_id }}
+          path: ${{ runner.temp }}/send-newsletter.log
+          retention-days: 30

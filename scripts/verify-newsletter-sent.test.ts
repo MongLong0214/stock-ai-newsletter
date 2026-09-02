@@ -76,7 +76,12 @@ describe('newsletter sent watchdog', () => {
 
   it('reports a fatal error when today\'s row is not sent', async () => {
     const setup = makeDependencies({
-      newsletter: { is_sent: false, picks_source: 'code' },
+      newsletter: {
+        is_sent: false,
+        picks_source: 'code',
+        sent_at: null,
+        subscriber_count: null,
+      },
       sendgridApiKey: 'test-sendgrid-key',
     })
 
@@ -90,7 +95,12 @@ describe('newsletter sent watchdog', () => {
 
   it('returns success for a sent code-picks newsletter', async () => {
     const setup = makeDependencies({
-      newsletter: { is_sent: true, picks_source: 'code' },
+      newsletter: {
+        is_sent: true,
+        picks_source: 'code',
+        sent_at: '2026-08-31T00:00:00.000Z',
+        subscriber_count: 10,
+      },
     })
 
     await expect(verifyNewsletterSent(setup.dependencies)).resolves.toBe(0)
@@ -102,7 +112,12 @@ describe('newsletter sent watchdog', () => {
 
   it("warns but returns success for a sent newsletter with picks_source='llm_fallback'", async () => {
     const setup = makeDependencies({
-      newsletter: { is_sent: true, picks_source: 'llm_fallback' },
+      newsletter: {
+        is_sent: true,
+        picks_source: 'llm_fallback',
+        sent_at: '2026-08-31T00:00:00.000Z',
+        subscriber_count: 10,
+      },
     })
 
     await expect(verifyNewsletterSent(setup.dependencies)).resolves.toBe(0)
@@ -116,7 +131,12 @@ describe('newsletter sent watchdog', () => {
 
   it('returns failure without attempting email when the SendGrid key is missing', async () => {
     const setup = makeDependencies({
-      newsletter: { is_sent: false, picks_source: 'code' },
+      newsletter: {
+        is_sent: false,
+        picks_source: 'code',
+        sent_at: null,
+        subscriber_count: null,
+      },
     })
 
     await expect(verifyNewsletterSent(setup.dependencies)).resolves.toBe(1)
@@ -124,6 +144,41 @@ describe('newsletter sent watchdog', () => {
     expect(setup.sendAlertEmail).not.toHaveBeenCalled()
     expect(setup.logger.error).toHaveBeenCalledWith(
       'SENDGRID_API_KEY 없음 — 알림 메일을 시도하지 않습니다.',
+    )
+  })
+
+  it('fails when is_sent was claimed but sent_at was never confirmed', async () => {
+    const setup = makeDependencies({
+      newsletter: {
+        is_sent: true,
+        picks_source: 'code',
+        sent_at: null,
+        subscriber_count: null,
+      },
+      sendgridApiKey: 'test-sendgrid-key',
+    })
+
+    await expect(verifyNewsletterSent(setup.dependencies)).resolves.toBe(1)
+
+    expect(setup.sendAlertEmail).toHaveBeenCalledWith(expect.objectContaining({
+      subject: expect.stringContaining('발송 선점 후 미확정 (sent_at 없음)'),
+    }))
+  })
+
+  it('warns when a confirmed sent row records zero subscribers', async () => {
+    const setup = makeDependencies({
+      newsletter: {
+        is_sent: true,
+        picks_source: 'code',
+        sent_at: '2026-08-31T00:00:00.000Z',
+        subscriber_count: 0,
+      },
+    })
+
+    await expect(verifyNewsletterSent(setup.dependencies)).resolves.toBe(0)
+
+    expect(setup.logger.warn).toHaveBeenCalledWith(
+      `⚠️ ${TODAY_KST} 뉴스레터 subscriber_count=0 입니다.`,
     )
   })
 })

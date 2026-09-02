@@ -18,14 +18,16 @@ function initSendGrid() {
   if (!apiKey) {
     throw new Error('SENDGRID_API_KEY is required');
   }
-  if (!process.env.SENDGRID_FROM_EMAIL) {
+  const fromEmail = process.env.SENDGRID_FROM_EMAIL;
+  if (!fromEmail) {
     throw new Error('SENDGRID_FROM_EMAIL is required');
   }
-  if (!process.env.SENDGRID_FROM_NAME) {
+  const fromName = process.env.SENDGRID_FROM_NAME;
+  if (!fromName) {
     throw new Error('SENDGRID_FROM_NAME is required');
   }
   sgMail.setApiKey(apiKey);
-  return true;
+  return { fromEmail, fromName };
 }
 
 export interface EmailRecipient {
@@ -46,6 +48,7 @@ export interface StockNewsletterSendFailure {
 export interface StockNewsletterSendResult {
   readonly sent: number;
   readonly failed: readonly StockNewsletterSendFailure[];
+  readonly retried: number;
 }
 
 interface StockSignals {
@@ -122,6 +125,48 @@ export function parseCrashAlert(jsonString: string): CrashAlertData | null {
   }
 }
 
+const SENDGRID_RETRY_DELAYS_MS = [500, 2_000, 6_000] as const;
+const NETWORK_ERROR_CODES = new Set([
+  'EAI_AGAIN',
+  'ECONNREFUSED',
+  'ECONNRESET',
+  'ENETDOWN',
+  'ENETUNREACH',
+  'ESOCKETTIMEDOUT',
+  'ETIMEDOUT',
+  'UND_ERR_CONNECT_TIMEOUT',
+  'UND_ERR_HEADERS_TIMEOUT',
+  'UND_ERR_SOCKET',
+]);
+
+function getSendConcurrency(): number {
+  const parsed = Number.parseInt(process.env.SENDGRID_SEND_CONCURRENCY ?? '', 10);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : 10;
+}
+
+function errorStatus(error: unknown): number | null {
+  if (!error || typeof error !== 'object') return null;
+  const candidate = error as {
+    readonly code?: unknown;
+    readonly response?: { readonly statusCode?: unknown };
+  };
+  const rawStatus = candidate.response?.statusCode ?? candidate.code;
+  const status = typeof rawStatus === 'string' ? Number(rawStatus) : rawStatus;
+  return typeof status === 'number' && Number.isInteger(status) ? status : null;
+}
+
+export function isTransientSendGridError(error: unknown): boolean {
+  const status = errorStatus(error);
+  if (status === 429 || (status !== null && status >= 500 && status <= 599)) return true;
+  if (!error || typeof error !== 'object') return false;
+  const code = (error as { readonly code?: unknown }).code;
+  return typeof code === 'string' && NETWORK_ERROR_CODES.has(code);
+}
+
+function sleep(milliseconds: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
+
 /**
  * SendGrid로 주식 뉴스레터 이메일 전송
  */
@@ -130,40 +175,61 @@ export async function sendStockNewsletter(
   data: StockNewsletterData
 ): Promise<StockNewsletterSendResult> {
   // SendGrid 초기화 (API 키 + 발신자 정보 검증 포함)
-  initSendGrid();
+  const { fromEmail, fromName } = initSendGrid();
 
   const isCrash = parseCrashAlert(data.geminiAnalysis) !== null;
   const subject = isCrash
     ? `[Stock Matrix] ${data.date} 긴급 시장 분석`
     : `[Stock Matrix] ${data.date} AI 기술적 분석`;
 
-  // 각 수신자별로 개별 이메일 전송 (수신거부 링크 개인화)
-  const settled = await Promise.allSettled(
-    recipients.map(async (recipient) => {
+  let nextIndex = 0;
+  let retried = 0;
+  const failed: StockNewsletterSendFailure[] = [];
+  const workerCount = Math.min(getSendConcurrency(), recipients.length);
+
+  // WHY: personalized unsubscribe links require one request per recipient, so workers bound pressure.
+  const workers = Array.from({ length: workerCount }, async () => {
+    while (nextIndex < recipients.length) {
+      const index = nextIndex;
+      nextIndex += 1;
+      const recipient = recipients[index];
+      if (!recipient) continue;
       const html = generateNewsletterHTML(data, recipient.email);
-      await sgMail.send({
-        to: recipient.email,
-        from: {
-          email: process.env.SENDGRID_FROM_EMAIL as string,
-          name: process.env.SENDGRID_FROM_NAME as string,
-        },
-        subject,
-        html,
-      });
-    })
-  );
-  const failed = settled.flatMap((result, index) => {
-    if (result.status === 'fulfilled') return [];
-    const email = recipients[index]?.email ?? '';
-    const separator = email.lastIndexOf('@');
-    const domain = separator >= 0 && separator < email.length - 1
-      ? email.slice(separator + 1).toLowerCase()
-      : 'unknown';
-    return [{ index, domain }];
+      let delivered = false;
+
+      for (let attempt = 0; attempt <= SENDGRID_RETRY_DELAYS_MS.length; attempt += 1) {
+        try {
+          await sgMail.send({
+            to: recipient.email,
+            from: { email: fromEmail, name: fromName },
+            subject,
+            html,
+          });
+          delivered = true;
+          break;
+        } catch (error) {
+          const retryDelay = SENDGRID_RETRY_DELAYS_MS[attempt];
+          if (retryDelay === undefined || !isTransientSendGridError(error)) break;
+          retried += 1;
+          await sleep(retryDelay);
+        }
+      }
+
+      if (!delivered) {
+        const separator = recipient.email.lastIndexOf('@');
+        const domain = separator >= 0 && separator < recipient.email.length - 1
+          ? recipient.email.slice(separator + 1).toLowerCase()
+          : 'unknown';
+        failed.push({ index, domain });
+      }
+    }
   });
+  await Promise.all(workers);
+  failed.sort((left, right) => left.index - right.index);
   const sendResult: StockNewsletterSendResult = {
     sent: recipients.length - failed.length,
     failed,
+    retried,
   };
 
   console.log(`✅ 이메일 전송 성공: ${sendResult.sent}명, 실패: ${failed.length}명`);

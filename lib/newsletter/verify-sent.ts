@@ -140,8 +140,18 @@ export async function verifyNewsletterSent(
   if (!newsletter.is_sent) {
     return reportFatal({ date, reason: '준비됐으나 미발송', dependencies })
   }
+  if (!newsletter.sent_at) {
+    return reportFatal({
+      date,
+      reason: '발송 선점 후 미확정 (sent_at 없음)',
+      dependencies,
+    })
+  }
 
   logger.log(`✅ ${date} 뉴스레터 발송 확인`)
+  if (newsletter.subscriber_count === 0) {
+    logger.warn(`⚠️ ${date} 뉴스레터 subscriber_count=0 입니다.`)
+  }
   if (newsletter.picks_source !== 'code') {
     logger.warn(
       `⚠️ ${date} 뉴스레터는 발송됐지만 picks_source=${newsletter.picks_source ?? 'null'} 입니다.`,

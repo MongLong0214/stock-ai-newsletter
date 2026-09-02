@@ -22,7 +22,7 @@ import { appendFileSync, existsSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 const envPath = resolve(process.cwd(), '.env.local');
-if (existsSync(envPath)) config({ path: envPath });
+if (process.env.VITEST !== 'true' && existsSync(envPath)) config({ path: envPath });
 
 import { getServerSupabaseClient } from '@/lib/supabase/server-client';
 import { fetchAllRows } from '@/lib/supabase/paginate';
@@ -139,4 +139,10 @@ async function main(): Promise<void> {
   console.log('\n다음: next.config.ts가 이 맵을 읽도록 배선하고 배포해야 301이 실제로 동작합니다.');
 }
 
-main().catch((e) => { console.error(e); process.exit(1); });
+const isDirectRun = /merge-clusters\.(?:ts|js)$/.test(process.argv[1] ?? '');
+if (isDirectRun) {
+  main().catch((error) => {
+    console.error(error);
+    process.exitCode = 1;
+  });
+}

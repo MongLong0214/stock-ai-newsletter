@@ -110,7 +110,10 @@ async function main(): Promise<void> {
   console.log(`\n검색량 0인 테마: ${noDemand}/${rows.length} — 이 테마들은 랜딩을 만들어도 유입이 없다.`);
 }
 
-main().catch((error) => {
-  console.error(error);
-  process.exit(1);
-});
+const isDirectRun = /theme-demand\.(?:ts|js)$/.test(process.argv[1] ?? '');
+if (isDirectRun) {
+  main().catch((error) => {
+    console.error(error);
+    process.exitCode = 1;
+  });
+}

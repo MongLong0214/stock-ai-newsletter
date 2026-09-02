@@ -7,8 +7,20 @@
       "schedule": "10 21 * * 0-4"
     },
     {
+      "path": "/api/cron/newsletter-prepare/backup",
+      "schedule": "50 21 * * 0-4"
+    },
+    {
+      "path": "/api/cron/newsletter-watchdog/prepared",
+      "schedule": "5 22 * * 0-4"
+    },
+    {
       "path": "/api/cron/newsletter-send",
       "schedule": "27 22 * * 0-4"
+    },
+    {
+      "path": "/api/cron/newsletter-send/retry",
+      "schedule": "45 22 * * 0-4"
     },
     {
       "path": "/api/cron/newsletter-watchdog",

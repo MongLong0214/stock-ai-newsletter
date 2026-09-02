@@ -1,0 +1,185 @@
+import { afterEach, describe, expect, it, vi } from 'vitest'
+
+import {
+  fetchActiveSubscribers,
+  parseSendNewsletterCliArgs,
+  runSendNewsletter,
+  type NewsletterContentRow,
+  type SendNewsletterRepository,
+  type SubscriberRow,
+} from './send-newsletter'
+
+const TARGET_DATE = '2026-09-02'
+const READY_CONTENT: NewsletterContentRow = {
+  newsletter_date: TARGET_DATE,
+  gemini_analysis: '[]',
+  picks_source: 'code',
+}
+const SUBSCRIBER: SubscriberRow = {
+  id: 'subscriber-1',
+  email: 'reader@example.com',
+  name: 'Reader',
+  created_at: '2026-01-01T00:00:00.000Z',
+}
+
+function makeLogger() {
+  return {
+    log: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+  }
+}
+
+function makeRepository(overrides: Partial<SendNewsletterRepository> = {}): SendNewsletterRepository {
+  return {
+    fetchActiveSubscribers: vi.fn(async () => [SUBSCRIBER]),
+    fetchUnsentContent: vi.fn(async () => READY_CONTENT),
+    claim: vi.fn(async () => undefined),
+    rollback: vi.fn(async () => undefined),
+    confirmSent: vi.fn(async () => undefined),
+    ...overrides,
+  }
+}
+
+afterEach(() => {
+  vi.useRealTimers()
+  vi.restoreAllMocks()
+})
+
+describe('send newsletter CLI', () => {
+  it('parses target date and dispatch correlation ID', () => {
+    expect(parseSendNewsletterCliArgs([
+      '--target-date=2026-09-02',
+      '--dispatch-id=dispatch-fixture',
+    ])).toEqual({
+      targetDate: '2026-09-02',
+      dispatchId: 'dispatch-fixture',
+    })
+  })
+})
+
+describe('runSendNewsletter', () => {
+  it('polls missing and incomplete content every 30 seconds until it is ready', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime('2026-09-02T00:00:00.000Z')
+    const fetchUnsentContent = vi.fn()
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({
+        newsletter_date: TARGET_DATE,
+        gemini_analysis: '   ',
+        picks_source: null,
+      })
+      .mockResolvedValueOnce(READY_CONTENT)
+    const repository = makeRepository({ fetchUnsentContent })
+    const logger = makeLogger()
+    const send = vi.fn(async () => ({ sent: 1, failed: [], retried: 0 }))
+
+    const resultPromise = runSendNewsletter(
+      { targetDate: TARGET_DATE, dispatchId: 'dispatch-fixture' },
+      {
+        env: { SEND_WAIT_FOR_CONTENT_MINUTES: '2' },
+        repository,
+        send,
+        logger,
+      },
+    )
+    await vi.advanceTimersByTimeAsync(60_000)
+
+    await expect(resultPromise).resolves.toBe(0)
+    expect(fetchUnsentContent).toHaveBeenCalledTimes(3)
+    const heartbeatLines = logger.log.mock.calls
+      .map(([value]) => String(value))
+      .filter((value) => value.includes('send_waiting_for_content'))
+    expect(heartbeatLines).toHaveLength(2)
+    expect(send).toHaveBeenCalledOnce()
+  })
+
+  it('alerts and exits successfully when no active subscribers exist', async () => {
+    const repository = makeRepository({
+      fetchActiveSubscribers: vi.fn(async () => []),
+    })
+    const sendAlert = vi.fn(async () => true)
+    const send = vi.fn()
+    const logger = makeLogger()
+
+    await expect(runSendNewsletter(
+      { targetDate: TARGET_DATE, dispatchId: 'dispatch-fixture' },
+      { env: {}, repository, sendAlert, send, logger },
+    )).resolves.toBe(0)
+
+    expect(sendAlert).toHaveBeenCalledWith(expect.objectContaining({
+      subject: expect.stringContaining('활성 구독자 0명'),
+    }))
+    expect(send).not.toHaveBeenCalled()
+    expect(logger.log).toHaveBeenCalledWith(JSON.stringify({
+      event: 'send_skipped',
+      reason: 'no_active_subscribers',
+    }))
+  })
+
+  it('retries sent_at confirmation three times after the initial failure', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime('2026-09-02T00:00:00.000Z')
+    const confirmSent = vi.fn()
+      .mockRejectedValueOnce(new Error('first'))
+      .mockRejectedValueOnce(new Error('second'))
+      .mockRejectedValueOnce(new Error('third'))
+      .mockResolvedValueOnce(undefined)
+    const repository = makeRepository({ confirmSent })
+    const logger = makeLogger()
+
+    const resultPromise = runSendNewsletter(
+      { targetDate: TARGET_DATE, dispatchId: 'dispatch-fixture' },
+      {
+        env: {},
+        repository,
+        send: vi.fn(async () => ({ sent: 1, failed: [], retried: 0 })),
+        logger,
+      },
+    )
+    await vi.advanceTimersByTimeAsync(8_500)
+
+    await expect(resultPromise).resolves.toBe(0)
+    expect(confirmSent).toHaveBeenCalledTimes(4)
+    expect(logger.error).not.toHaveBeenCalled()
+    expect(logger.log.mock.calls.flat().join(' ')).toContain('send_run_summary')
+  })
+})
+
+describe('subscriber pagination', () => {
+  it('requests deterministic 1,000-row pages ordered by created_at and id', async () => {
+    const ranges: Array<[number, number]> = []
+    const orders: string[] = []
+    const firstPage = Array.from({ length: 1_000 }, (_, index): SubscriberRow => ({
+      ...SUBSCRIBER,
+      id: `subscriber-${index}`,
+      email: `reader-${index}@example.com`,
+    }))
+    const finalPage: SubscriberRow[] = [{
+      ...SUBSCRIBER,
+      id: 'subscriber-1000',
+      email: 'reader-1000@example.com',
+    }]
+    const query = {
+      select: vi.fn(() => query),
+      eq: vi.fn(() => query),
+      order: vi.fn((column: string) => {
+        orders.push(column)
+        return query
+      }),
+      range: vi.fn(async (from: number, to: number) => {
+        ranges.push([from, to])
+        return { data: from === 0 ? firstPage : finalPage, error: null }
+      }),
+    }
+    const client = {
+      from: vi.fn(() => query),
+    } as unknown as Parameters<typeof fetchActiveSubscribers>[0]
+
+    const subscribers = await fetchActiveSubscribers(client)
+
+    expect(subscribers).toHaveLength(1_001)
+    expect(orders).toEqual(['created_at', 'id', 'created_at', 'id'])
+    expect(ranges).toEqual([[0, 999], [1_000, 1_999]])
+  })
+})
