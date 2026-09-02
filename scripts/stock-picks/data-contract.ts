@@ -3,9 +3,13 @@ import {
   findMissingTradingDays,
   type TradingDayIndex,
 } from '@/scripts/stock-picks/trading-days'
-import type { StockDailyPriceRow } from '@/scripts/tli/prices/stock-daily-prices'
+import {
+  KOSPI_INDEX_SYMBOL,
+  type StockDailyPriceRow,
+} from '@/scripts/tli/prices/stock-daily-prices'
 
 const PHANTOM_DEFECT_START_DATE = '2026-08-01'
+const RESEARCH_SYMBOL_PATTERN = /^KOS(?:PI|DAQ):/
 
 export interface ResearchDatasetValidation {
   readonly ok: boolean
@@ -13,6 +17,7 @@ export interface ResearchDatasetValidation {
   readonly phantomRows: number
   readonly invalidOhlcRows: number
   readonly symbolsWithGaps: number
+  readonly skippedSymbols: number
 }
 
 const finitePositive = (value: unknown): value is number => (
@@ -60,8 +65,13 @@ export function validateResearchDataset(input: {
   let phantomRows = 0
   let invalidOhlcRows = 0
   let symbolsWithGaps = 0
+  let skippedSymbols = 0
 
-  for (const symbolRows of input.prices.values()) {
+  for (const [symbol, symbolRows] of input.prices) {
+    if (symbol === KOSPI_INDEX_SYMBOL || !RESEARCH_SYMBOL_PATTERN.test(symbol)) {
+      skippedSymbols++
+      continue
+    }
     const rows = [...symbolRows.values()].filter((row) => (
       row.trade_date >= input.fromDate && row.trade_date <= input.toDate
     ))
@@ -79,5 +89,6 @@ export function validateResearchDataset(input: {
     phantomRows,
     invalidOhlcRows,
     symbolsWithGaps,
+    skippedSymbols,
   }
 }

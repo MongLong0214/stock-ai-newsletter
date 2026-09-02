@@ -31,10 +31,12 @@ export interface NewsletterContentRow {
   readonly newsletter_date: string
   readonly gemini_analysis: string | null
   readonly picks_source: string | null
+  readonly is_sent: boolean
 }
 
 export interface SendNewsletterRepository {
   fetchActiveSubscribers(): Promise<SubscriberRow[]>
+  fetchContent(date: string): Promise<NewsletterContentRow | null>
   fetchUnsentContent(date: string): Promise<NewsletterContentRow | null>
   claim(date: string): Promise<void>
   rollback(date: string): Promise<void>
@@ -99,10 +101,19 @@ export function createSendNewsletterRepository(
 
   return {
     fetchActiveSubscribers: () => fetchActiveSubscribers(client),
+    async fetchContent(date) {
+      const { data, error } = await client
+        .from('newsletter_content')
+        .select('newsletter_date, gemini_analysis, picks_source, is_sent')
+        .eq('newsletter_date', date)
+        .maybeSingle()
+      if (error) throw databaseError(error)
+      return data
+    },
     async fetchUnsentContent(date) {
       const { data, error } = await client
         .from('newsletter_content')
-        .select('newsletter_date, gemini_analysis, picks_source')
+        .select('newsletter_date, gemini_analysis, picks_source, is_sent')
         .eq('newsletter_date', date)
         .eq('is_sent', false)
         .maybeSingle()
@@ -324,15 +335,26 @@ export async function runSendNewsletter(
     }
 
     logger.log(`✅ ${subscribers.length}명의 구독자 발견`)
-    const newsletterContent = await waitForPreparedContent({
-      repository,
-      targetDate,
-      dispatchId,
-      waitMinutes: waitForContentMinutes(env),
-      sleep,
-      now,
-      logger,
-    })
+    let newsletterContent: NewsletterContentRow
+    if (options.dryRun) {
+      const content = await repository.fetchContent(targetDate)
+      if (!contentIsReady(content)) {
+        throw new Error(
+          `Newsletter content for ${targetDate} not found. Please run prepare-newsletter first.`,
+        )
+      }
+      newsletterContent = content
+    } else {
+      newsletterContent = await waitForPreparedContent({
+        repository,
+        targetDate,
+        dispatchId,
+        waitMinutes: waitForContentMinutes(env),
+        sleep,
+        now,
+        logger,
+      })
+    }
     logger.log('✅ 뉴스레터 콘텐츠 로드 완료')
 
     if (options.dryRun) {
@@ -347,6 +369,7 @@ export async function runSendNewsletter(
         event: 'send_dry_run',
         targetDate,
         subscribers: subscribers.length,
+        isSent: newsletterContent.is_sent,
         picksSource: newsletterContent.picks_source,
         htmlBytes: Buffer.byteLength(html, 'utf8'),
         isCrash: parseCrashAlert(newsletterContent.gemini_analysis ?? '') !== null,

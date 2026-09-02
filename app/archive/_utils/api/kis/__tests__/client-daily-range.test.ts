@@ -7,6 +7,7 @@ vi.mock('@/app/archive/_utils/api/kis/token-storage', () => ({
 
 import {
   fetchDailyRangePriceRows,
+  fetchIndexDailyRangePriceRows,
   getDailyRangeClosePrices,
   parseRangePriceRow,
   resetKisClientCacheForTest,
@@ -119,5 +120,38 @@ describe('throwing daily range fetch', () => {
       .rejects.toMatchObject({ kind: 'rate_limit', code: 'EGW00201' });
     await expect(getDailyRangeClosePrices('KOSPI:005930', '20260901', '20260901'))
       .resolves.toEqual([]);
+  });
+
+  it('maps KIS index OHLC fields as decimal index points', async () => {
+    const fetchMock = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ access_token: 'fixture-token' }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        rt_cd: '0',
+        output2: [{
+          stck_bsop_date: '20250321',
+          bstp_nmix_oprc: '2643.21',
+          bstp_nmix_hgpr: '2649.88',
+          bstp_nmix_lwpr: '2631.45',
+          bstp_nmix_prpr: '2643.13',
+          acml_vol: '498765432',
+        }],
+      }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(fetchIndexDailyRangePriceRows('0001', '20250321', '20250321'))
+      .resolves.toEqual([{
+        date: '2025-03-21',
+        open: 2643.21,
+        high: 2649.88,
+        low: 2631.45,
+        close: 2643.13,
+        volume: 498765432,
+      }]);
   });
 });

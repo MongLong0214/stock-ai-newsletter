@@ -525,31 +525,51 @@ export interface KisDailyRangePricePoint {
   readonly volume: number | null;
 }
 
+interface KisRangePriceFields {
+  readonly open: string;
+  readonly high: string;
+  readonly low: string;
+  readonly volume: string;
+}
+
+const STOCK_RANGE_PRICE_FIELDS: KisRangePriceFields = {
+  open: 'stck_oprc',
+  high: 'stck_hgpr',
+  low: 'stck_lwpr',
+  volume: 'acml_vol',
+};
+
 function toIsoDate(kisDate: string): string | null {
   if (!/^\d{8}$/.test(kisDate)) return null;
   return `${kisDate.slice(0, 4)}-${kisDate.slice(4, 6)}-${kisDate.slice(6, 8)}`;
 }
 
-export function parseRangePriceRow(row: Record<string, string>, closeField: string, parseClose: (v: string) => number): KisDailyRangePricePoint | null {
+export function parseRangePriceRow(
+  row: Record<string, string>,
+  closeField: string,
+  parsePrice: (value: string) => number,
+  fields: KisRangePriceFields = STOCK_RANGE_PRICE_FIELDS,
+): KisDailyRangePricePoint | null {
   const date = toIsoDate(row.stck_bsop_date);
-  const close = parseClose(row[closeField]);
+  const close = parsePrice(row[closeField]);
   if (!date || !Number.isFinite(close) || close <= 0) return null;
 
-  const open = parseOptionalInt(row.stck_oprc);
-  let high = parseOptionalInt(row.stck_hgpr);
-  let low = parseOptionalInt(row.stck_lwpr);
-  const validOpen = open !== null && open > 0 ? open : null;
-  high = high !== null && high > 0 ? high : null;
-  low = low !== null && low > 0 ? low : null;
+  const parseOptionalPrice = (field: string): number | null => {
+    const parsed = parsePrice(row[field]);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+  };
+  const open = parseOptionalPrice(fields.open);
+  let high = parseOptionalPrice(fields.high);
+  let low = parseOptionalPrice(fields.low);
   if (high !== null && low !== null && high < low) {
     high = null;
     low = null;
   }
 
-  const volume = parseInt(row.acml_vol, 10);
+  const volume = parseInt(row[fields.volume], 10);
   return {
     date,
-    open: validOpen,
+    open,
     high,
     low,
     close,
@@ -606,7 +626,8 @@ async function fetchRangePriceRows(input: {
   readonly path: string;
   readonly trId: string;
   readonly closeField: string;
-  readonly parseClose: (value: string) => number;
+  readonly fields: KisRangePriceFields;
+  readonly parsePrice: (value: string) => number;
   readonly adjusted: boolean;
 }): Promise<KisDailyRangePricePoint[]> {
   const config = getKisConfig();
@@ -700,7 +721,7 @@ async function fetchRangePriceRows(input: {
 
   return data.output2
     .filter((row): row is Record<string, string> => typeof row === 'object' && row !== null)
-    .map((row) => parseRangePriceRow(row, input.closeField, input.parseClose))
+    .map((row) => parseRangePriceRow(row, input.closeField, input.parsePrice, input.fields))
     .filter((point): point is KisDailyRangePricePoint => point !== null);
 }
 
@@ -717,7 +738,8 @@ export async function fetchDailyRangePriceRows(
     path: '/uapi/domestic-stock/v1/quotations/inquire-daily-itemchartprice',
     trId: 'FHKST03010100',
     closeField: 'stck_clpr',
-    parseClose: (value) => Number.parseInt(value, 10),
+    fields: STOCK_RANGE_PRICE_FIELDS,
+    parsePrice: (value) => Number.parseInt(value, 10),
     adjusted: true,
   });
 }
@@ -735,7 +757,13 @@ export async function fetchIndexDailyRangePriceRows(
     path: '/uapi/domestic-stock/v1/quotations/inquire-daily-indexchartprice',
     trId: 'FHKUP03500100',
     closeField: 'bstp_nmix_prpr',
-    parseClose: (value) => Number.parseFloat(value),
+    fields: {
+      open: 'bstp_nmix_oprc',
+      high: 'bstp_nmix_hgpr',
+      low: 'bstp_nmix_lwpr',
+      volume: 'acml_vol',
+    },
+    parsePrice: (value) => Number.parseFloat(value),
     adjusted: false,
   });
 }

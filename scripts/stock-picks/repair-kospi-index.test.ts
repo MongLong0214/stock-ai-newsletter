@@ -82,4 +82,59 @@ describe('KOSPI index gap repair', () => {
     expect(result.persistedRows).toBe(expected.length - 2)
     expect(result.remainingMissing).toEqual([])
   })
+
+  it('persists legacy-shaped index points with null OHLC when close is valid', async () => {
+    const date = '2026-01-02'
+    const stored = new Set<string>()
+    const persist = vi.fn(async (rows: readonly StockDailyPriceInput[]) => {
+      for (const row of rows) stored.add(row.tradeDate)
+      return rows.length
+    })
+
+    const result = await repairKospiIndex({ from: date, to: date, apply: true }, {
+      loadExistingDates: async () => [...stored],
+      fetchRange: async () => [{
+        date,
+        open: null,
+        high: null,
+        low: null,
+        close: 2643.13,
+        volume: 498_765_432,
+      }],
+      persist,
+      ensureToken: async () => undefined,
+      sleep: async () => undefined,
+      logger: { log: vi.fn() },
+    })
+
+    expect(persist).toHaveBeenCalledWith([expect.objectContaining({
+      symbol: 'KOSPI',
+      tradeDate: date,
+      open: null,
+      high: null,
+      low: null,
+      close: 2643.13,
+    })])
+    expect(result.persistedRows).toBe(1)
+    expect(result.remainingMissing).toEqual([])
+  })
+
+  it('still rejects a non-positive close when index OHLC is null', async () => {
+    const date = '2026-01-02'
+
+    await expect(repairKospiIndex({ from: date, to: date }, {
+      loadExistingDates: async () => [],
+      fetchRange: async () => [{
+        date,
+        open: null,
+        high: null,
+        low: null,
+        close: 0,
+        volume: null,
+      }],
+      ensureToken: async () => undefined,
+      sleep: async () => undefined,
+      logger: { log: vi.fn() },
+    })).rejects.toThrow(`KOSPI repair OHLC invariant 실패: ${date}`)
+  })
 })

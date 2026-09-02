@@ -104,11 +104,13 @@ async function loadKospiDates(): Promise<string[]> {
 
 const toValidatedInput = (point: KisDailyRangePricePoint): StockDailyPriceInput => {
   const { open, high, low, close } = point
+  const hasCompleteOhlc = open !== null && high !== null && low !== null
   if (
-    open === null || high === null || low === null
-    || !Number.isFinite(open) || !Number.isFinite(high)
-    || !Number.isFinite(low) || !Number.isFinite(close)
-    || low <= 0 || high < low || open < low || open > high || close < low || close > high
+    !Number.isFinite(close) || close <= 0
+    || (hasCompleteOhlc && (
+      !Number.isFinite(open) || !Number.isFinite(high) || !Number.isFinite(low)
+      || low <= 0 || high < low || open < low || open > high || close < low || close > high
+    ))
   ) {
     throw new Error(`KOSPI repair OHLC invariant 실패: ${point.date}`)
   }

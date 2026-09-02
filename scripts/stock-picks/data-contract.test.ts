@@ -3,7 +3,10 @@ import { describe, expect, it } from 'vitest'
 import { buildPriceBook } from '@/scripts/stock-picks/data-handler'
 import { validateResearchDataset } from '@/scripts/stock-picks/data-contract'
 import { TradingDayIndex } from '@/scripts/stock-picks/trading-days'
-import type { StockDailyPriceRow } from '@/scripts/tli/prices/stock-daily-prices'
+import {
+  KOSPI_INDEX_SYMBOL,
+  type StockDailyPriceRow,
+} from '@/scripts/tli/prices/stock-daily-prices'
 
 const row = (
   symbol: string,
@@ -66,6 +69,41 @@ describe('research dataset contract', () => {
       phantomRows: 1,
       invalidOhlcRows: 1,
       symbolsWithGaps: 0,
+      skippedSymbols: 0,
+    })
+  })
+
+  it('skips the KOSPI index and bare legacy symbols from all per-symbol scans', () => {
+    const dates = ['2026-08-03', '2026-08-04']
+    const prices = buildPriceBook([
+      row(KOSPI_INDEX_SYMBOL, dates[0], {
+        open: null,
+        high: null,
+        low: null,
+      }),
+      row('005930', dates[0], {
+        open: 100,
+        high: 100,
+        low: 100,
+        close: 100,
+        volume: 0,
+      }),
+      ...dates.map((date) => row('KOSPI:005930', date)),
+      ...dates.map((date) => row('KOSDAQ:035720', date)),
+    ])
+
+    expect(validateResearchDataset({
+      tradingDays: new TradingDayIndex(dates),
+      prices,
+      fromDate: dates[0],
+      toDate: dates[1],
+    })).toEqual({
+      ok: true,
+      missingTradingDays: [],
+      phantomRows: 0,
+      invalidOhlcRows: 0,
+      symbolsWithGaps: 0,
+      skippedSymbols: 2,
     })
   })
 

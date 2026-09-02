@@ -14,6 +14,7 @@ const READY_CONTENT: NewsletterContentRow = {
   newsletter_date: TARGET_DATE,
   gemini_analysis: '[]',
   picks_source: 'code',
+  is_sent: false,
 }
 const SUBSCRIBER: SubscriberRow = {
   id: 'subscriber-1',
@@ -33,6 +34,7 @@ function makeLogger() {
 function makeRepository(overrides: Partial<SendNewsletterRepository> = {}): SendNewsletterRepository {
   return {
     fetchActiveSubscribers: vi.fn(async () => [SUBSCRIBER]),
+    fetchContent: vi.fn(async () => ({ ...READY_CONTENT, is_sent: true })),
     fetchUnsentContent: vi.fn(async () => READY_CONTENT),
     claim: vi.fn(async () => undefined),
     rollback: vi.fn(async () => undefined),
@@ -73,7 +75,8 @@ describe('runSendNewsletter', () => {
     )).resolves.toBe(0)
 
     expect(repository.fetchActiveSubscribers).toHaveBeenCalledOnce()
-    expect(repository.fetchUnsentContent).toHaveBeenCalledWith(TARGET_DATE)
+    expect(repository.fetchContent).toHaveBeenCalledWith(TARGET_DATE)
+    expect(repository.fetchUnsentContent).not.toHaveBeenCalled()
     expect(repository.claim).not.toHaveBeenCalled()
     expect(repository.rollback).not.toHaveBeenCalled()
     expect(repository.confirmSent).not.toHaveBeenCalled()
@@ -89,6 +92,7 @@ describe('runSendNewsletter', () => {
       event: 'send_dry_run',
       targetDate: TARGET_DATE,
       subscribers: 1,
+      isSent: true,
       picksSource: 'code',
       isCrash: false,
     })
@@ -105,6 +109,7 @@ describe('runSendNewsletter', () => {
         newsletter_date: TARGET_DATE,
         gemini_analysis: '   ',
         picks_source: null,
+        is_sent: false,
       })
       .mockResolvedValueOnce(READY_CONTENT)
     const repository = makeRepository({ fetchUnsentContent })
@@ -124,6 +129,7 @@ describe('runSendNewsletter', () => {
 
     await expect(resultPromise).resolves.toBe(0)
     expect(fetchUnsentContent).toHaveBeenCalledTimes(3)
+    expect(repository.fetchContent).not.toHaveBeenCalled()
     const heartbeatLines = logger.log.mock.calls
       .map(([value]) => String(value))
       .filter((value) => value.includes('send_waiting_for_content'))
