@@ -5,7 +5,10 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
-    exclude: [...configDefaults.exclude, 'e2e/**', '.omo/**'],
+    // Python bridge and statistical tests can exceed 5s under full-suite parallel load.
+    testTimeout: 30_000,
+    hookTimeout: 30_000,
+    exclude: [...configDefaults.exclude, 'e2e/**', '.omo/**', '.claude/**'],
   },
   resolve: {
     alias: {

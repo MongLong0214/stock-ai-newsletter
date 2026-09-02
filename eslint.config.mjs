@@ -21,6 +21,7 @@ const eslintConfig = [
       "coverage/**",
       "mcp/.smithery/**",
       "test-results/**",
+      ".claude/**",
       "next-env.d.ts",
     ],
   },
