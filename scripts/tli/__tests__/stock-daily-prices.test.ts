@@ -131,6 +131,10 @@ describe('stock daily prices', () => {
     expect(report.successCount).toBe(3)
     expect(report.persistedRows).toBe(6)
     expect(report.dateCoverageRate).toBe(1)
+    expect(report.perDateSymbolCounts).toEqual({
+      '2026-07-01': 3,
+      '2026-07-02': 3,
+    })
     expect(persistDailyPrices).toHaveBeenCalledWith(expect.arrayContaining([expect.objectContaining({
       symbol: '005930',
       tradeDate: '2026-07-01',

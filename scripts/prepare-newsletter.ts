@@ -28,6 +28,7 @@ import { loadStockMaster } from '@/scripts/stock-picks/load-stock-master'
 export type PicksSource = 'code' | 'llm_fallback' | 'crash'
 export const MIN_DAILY_COLLECTION_SUCCESS_RATE = 0.95
 export const MIN_EXACT_DATE_COVERAGE_RATE = 0.97
+export const MIN_HISTORICAL_DATE_COVERAGE_RATE = 0.8
 export const DEFAULT_PREPARE_DEADLINE_MINUTES = 38
 const MIN_LLM_FALLBACK_REMAINING_MS = 6 * 60_000
 
@@ -42,6 +43,7 @@ interface DailyCollectionCoverageReport {
   readonly retriedSymbols?: readonly string[]
   readonly recoveredSymbols?: readonly string[]
   readonly persistedRows?: number
+  readonly perDateSymbolCounts?: Readonly<Record<string, number>>
 }
 
 export interface NewsletterAnalysisResult {
@@ -86,16 +88,23 @@ const elapsedMs = (startedAt: number): number => Date.now() - startedAt
 const remainingMs = (deadlineAt: number): number => deadlineAt - Date.now()
 const remainingSec = (deadlineAt: number): number => Math.max(0, Math.floor(remainingMs(deadlineAt) / 1_000))
 
-class PrepareDeadlineError extends Error {
-  constructor(readonly stage: string) {
-    super(`prepare deadline exceeded before ${stage}`)
-    this.name = 'PrepareDeadlineError'
-  }
+type PrepareDeadlineError = Error & {
+  readonly kind: 'prepare_deadline'
+  readonly stage: string
 }
+
+const createPrepareDeadlineError = (stage: string): PrepareDeadlineError => Object.assign(
+  new Error(`prepare deadline exceeded before ${stage}`),
+  { kind: 'prepare_deadline' as const, stage },
+)
+
+const isPrepareDeadlineError = (error: unknown): error is PrepareDeadlineError => (
+  error instanceof Error && 'kind' in error && error.kind === 'prepare_deadline'
+)
 
 function abortForDeadline(stage: string): never {
   console.error(JSON.stringify({ event: 'prepare_aborted', reason: 'deadline' }))
-  throw new PrepareDeadlineError(stage)
+  throw createPrepareDeadlineError(stage)
 }
 
 async function runNewsletterPipeline(input: {
@@ -185,6 +194,23 @@ async function runNewsletterPipeline(input: {
       warnings.push(warning)
       console.warn(`⚠️ ${warning}`)
     }
+    const attemptedSymbols = collection.attemptedCalls ?? 0
+    const sparseHistoricalDates = attemptedSymbols > 0
+      ? Object.entries(collection.perDateSymbolCounts ?? {})
+          .filter(([date, count]) => (
+            date !== input.signalDate
+            && count / attemptedSymbols < MIN_HISTORICAL_DATE_COVERAGE_RATE
+          ))
+          .sort(([leftDate], [rightDate]) => leftDate.localeCompare(rightDate))
+      : []
+    if (sparseHistoricalDates.length > 0) {
+      const details = sparseHistoricalDates.map(([date, count]) => (
+        `${date}=${count}/${attemptedSymbols}`
+      )).join(', ')
+      const warning = `일봉 수집 창 희소 날짜 — ${details}`
+      warnings.push(warning)
+      console.warn(`⚠️ ${warning}`)
+    }
 
     if (remainingMs(input.deadlineAt) <= 0) abortForDeadline('code picks')
     const picksStartedAt = Date.now()
@@ -209,7 +235,7 @@ async function runNewsletterPipeline(input: {
       budget,
     }
   } catch (error) {
-    if (error instanceof PrepareDeadlineError) throw error
+    if (isPrepareDeadlineError(error)) throw error
     const reason = error instanceof Error ? error.message : String(error)
     console.error(`\n${'━'.repeat(80)}`)
     console.error('🚨 코드 종목 추천 Pipeline 실패 — 기존 LLM Pipeline fallback')

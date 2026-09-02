@@ -52,6 +52,10 @@ const HEALTHY_COLLECTION = {
   retriedSymbols: [],
   recoveredSymbols: [],
   persistedRows: 21,
+  perDateSymbolCounts: {
+    '2026-08-31': 3,
+    [SIGNAL_DATE]: 3,
+  },
 }
 const CODE_PICKS = JSON.stringify([
   { ticker: 'KOSPI:000001', name: '테스트1', close_price: 1000 },
@@ -176,6 +180,30 @@ describe('prepare-newsletter stock-pick wiring', () => {
     expect(result).toEqual({ geminiAnalysis: CODE_PICKS, picksSource: 'code' })
     expect(getLlmAnalysis).not.toHaveBeenCalled()
     expect(logSpy).toHaveBeenCalledWith('PICKS_SOURCE=code')
+  })
+
+  it('warns without gating code picks when a historical collection date is below 80%', async () => {
+    const getLlmAnalysis = vi.fn()
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    vi.spyOn(console, 'log').mockImplementation(() => {})
+
+    const result = await resolveNewsletterAnalysis({
+      assessMarket: async () => NORMAL_ASSESSMENT,
+      collectDaily: async () => ({
+        ...HEALTHY_COLLECTION,
+        perDateSymbolCounts: {
+          '2026-08-31': 2,
+          [SIGNAL_DATE]: 3,
+        },
+      }),
+      generateCodePicks: async () => CODE_PICKS,
+      getLlmAnalysis,
+      refreshStockMaster: vi.fn(async () => {}),
+    })
+
+    expect(result.picksSource).toBe('code')
+    expect(getLlmAnalysis).not.toHaveBeenCalled()
+    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('2026-08-31=2/3'))
   })
 
   it.each([

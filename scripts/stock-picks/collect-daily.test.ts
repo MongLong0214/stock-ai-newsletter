@@ -33,6 +33,15 @@ describe('daily stock price collection', () => {
       failureKinds: { empty: 1 },
       exactDateSuccessCount: 2,
       exactDateCoverageRate: 2 / 3,
+      perDateSymbolCounts: {
+        '2026-08-20': 3,
+        '2026-08-21': 3,
+        '2026-08-24': 3,
+        '2026-08-25': 3,
+        '2026-08-26': 3,
+        '2026-08-27': 3,
+        '2026-08-28': 3,
+      },
     }))
     const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
     const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
@@ -56,7 +65,9 @@ describe('daily stock price collection', () => {
         endDate: '2026-08-28',
         tradingDays: 7,
         failedSymbols: ['KOSDAQ:000002'],
+        perDateSymbolCounts: { '2026-08-28': 3 },
       })
+      expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('"perDateSymbolCounts"'))
     } finally {
       consoleErrorSpy.mockRestore()
       consoleLogSpy.mockRestore()
@@ -104,6 +115,7 @@ describe('daily stock price collection', () => {
       failureKinds: {},
       exactDateSuccessCount: 0,
       exactDateCoverageRate: 0,
+      perDateSymbolCounts: { '2026-09-02': 1 },
     }))
 
     try {

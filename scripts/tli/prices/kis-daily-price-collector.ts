@@ -49,6 +49,7 @@ export interface StockDailyPriceCollectionReport {
   readonly failureKinds: Readonly<Record<string, number>>
   readonly exactDateSuccessCount: number
   readonly exactDateCoverageRate: number
+  readonly perDateSymbolCounts: Readonly<Record<string, number>>
 }
 
 type FetchDailyRangePriceRows = (
@@ -153,6 +154,7 @@ export async function collectAndPersistStockDailyPriceRange(input: {
 
   const prices: StockDailyPriceInput[] = []
   const persistedDates = new Set<string>()
+  const symbolsByDate = new Map(sortedDates.map((date) => [date, new Set<string>()]))
   const failures = new Map<string, CollectionFailureKind>()
   const successfulSymbols = new Set<string>()
   const exactDateSymbols = new Set<string>()
@@ -216,6 +218,7 @@ export async function collectAndPersistStockDailyPriceRange(input: {
         source: 'kis',
       })
       persistedDates.add(point.date)
+      symbolsByDate.get(point.date)?.add(symbol)
     }
     return accepted
   }
@@ -384,6 +387,9 @@ export async function collectAndPersistStockDailyPriceRange(input: {
     exactDateCoverageRate: attemptedStockSymbols > 0
       ? exactDateSymbols.size / attemptedStockSymbols
       : 0,
+    perDateSymbolCounts: Object.fromEntries(
+      sortedDates.map((date) => [date, symbolsByDate.get(date)?.size ?? 0]),
+    ),
   }
 }
 

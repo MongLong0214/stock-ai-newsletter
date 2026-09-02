@@ -42,6 +42,13 @@ describe('research dataset contract', () => {
       ok: false,
       missingTradingDays: ['2026-01-05', '2026-01-07'],
       symbolsWithGaps: 1,
+      sparseDates: [{
+        date: '2026-01-06',
+        symbolsWithRow: 1,
+        symbolsWithVolume: 1,
+        ratio: 0.5,
+      }],
+      gapDatesTop: [{ date: '2026-01-06', missingSymbols: 1 }],
     })
   })
 
@@ -69,6 +76,13 @@ describe('research dataset contract', () => {
       phantomRows: 1,
       invalidOhlcRows: 1,
       symbolsWithGaps: 0,
+      sparseDates: [{
+        date: '2026-08-03',
+        symbolsWithRow: 1,
+        symbolsWithVolume: 0,
+        ratio: 0,
+      }],
+      gapDatesTop: [],
       skippedSymbols: 0,
     })
   })
@@ -103,7 +117,41 @@ describe('research dataset contract', () => {
       phantomRows: 0,
       invalidOhlcRows: 0,
       symbolsWithGaps: 0,
+      sparseDates: [],
+      gapDatesTop: [],
       skippedSymbols: 2,
+    })
+  })
+
+  it('rejects a PriceBook with one sparse trading date and exposes its missing-row count', () => {
+    const dates = ['2026-08-03', '2026-08-04']
+    const symbols = [
+      'KOSPI:000001',
+      'KOSPI:000002',
+      'KOSPI:000003',
+      'KOSDAQ:000004',
+      'KOSDAQ:000005',
+    ]
+    const prices = buildPriceBook(symbols.flatMap((symbol, index) => [
+      row(symbol, dates[0]),
+      ...(index === 0 ? [row(symbol, dates[1])] : []),
+    ]))
+
+    expect(validateResearchDataset({
+      tradingDays: new TradingDayIndex(dates),
+      prices,
+      fromDate: dates[0],
+      toDate: dates[1],
+    })).toMatchObject({
+      ok: false,
+      symbolsWithGaps: 4,
+      sparseDates: [{
+        date: dates[1],
+        symbolsWithRow: 1,
+        symbolsWithVolume: 1,
+        ratio: 0.2,
+      }],
+      gapDatesTop: [{ date: dates[1], missingSymbols: 4 }],
     })
   })
 
@@ -116,6 +164,6 @@ describe('research dataset contract', () => {
       prices,
       fromDate: dates[0],
       toDate: dates[1],
-    }).ok).toBe(true)
+    })).toMatchObject({ ok: true, sparseDates: [], gapDatesTop: [] })
   })
 })

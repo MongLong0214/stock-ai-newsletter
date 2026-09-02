@@ -271,9 +271,14 @@ async function runCli(args: readonly string[]): Promise<void> {
   console.log(JSON.stringify({ event: 'research_data_contract', ...dataContract }))
   if (
     !args.includes('--allow-dirty-data')
-    && (dataContract.missingTradingDays.length > 0 || dataContract.invalidOhlcRows > 0)
+    && !dataContract.ok
   ) {
-    throw new Error('연구 데이터 계약 실패: --allow-dirty-data 없이는 precursor 채굴을 실행하지 않습니다')
+    throw new Error(
+      '연구 데이터 계약 실패:'
+      + ` sparseDates=${JSON.stringify(dataContract.sparseDates)}`
+      + ` gapDatesTop=${JSON.stringify(dataContract.gapDatesTop)};`
+      + ' --allow-dirty-data 없이는 precursor 채굴을 실행하지 않습니다',
+    )
   }
 
   console.log(`이벤트 전일 피처 사전계산: symbols=${masters.length} signalDays=${signalDates.length}`)
