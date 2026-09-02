@@ -4,7 +4,7 @@ import { siteConfig } from '@/lib/constants/seo/config';
 
 export const runtime = 'nodejs';
 export const revalidate = 86400;
-export const alt = 'Stock Matrix - MCP 서버 개발자 가이드';
+export const alt = 'StockMatrix - MCP 서버 개발자 가이드';
 export const size = {
   width: 1200,
   height: 630,

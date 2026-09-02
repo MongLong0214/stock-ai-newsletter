@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { siteConfig } from '@/lib/constants/seo/config';
 import { cn } from '@/lib/utils';
 import { formatDateKo } from '../../_utils/date-formatter';
 import type { BlogPostListItem } from '../../_types/blog';
@@ -47,7 +48,7 @@ function BlogCard({ post, index }: { post: BlogPostListItem; index: number }) {
         <div className="flex items-center justify-between gap-3 mb-5">
           <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-[11px] font-extrabold uppercase tracking-wider rounded-full bg-gradient-to-r from-emerald-500/25 to-teal-500/15 text-emerald-400 border border-emerald-500/40">
             <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full" />
-            Stock Matrix
+            {siteConfig.serviceName}
           </span>
 
           {post.published_at && (

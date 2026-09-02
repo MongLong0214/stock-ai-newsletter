@@ -6,9 +6,9 @@ import { isValidBlogSlug } from '../blog/_utils/slug-validator';
 export const revalidate = 3600;
 
 const FEED_ITEM_LIMIT = 50;
-const CHANNEL_TITLE = 'Stock Matrix 블로그';
+const CHANNEL_TITLE = `${siteConfig.serviceName} 블로그`;
 const CHANNEL_DESCRIPTION =
-  'KOSPI·KOSDAQ 주식 분석, 30개 기술적 지표, 테마·종목 투자 가이드 — Stock Matrix 블로그 최신 글';
+  `KOSPI·KOSDAQ 주식 분석, 30개 기술적 지표, 테마·종목 투자 가이드 — ${siteConfig.serviceName} 블로그 최신 글`;
 
 interface FeedPost {
   slug: string;

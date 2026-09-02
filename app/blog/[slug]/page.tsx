@@ -124,7 +124,7 @@ async function BlogPostPage({ params }: PageProps) {
               <article>
                 <header className="mb-10">
                   <span className="inline-block px-3 py-1 mb-4 text-sm font-medium rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                    Stock Matrix
+                    {siteConfig.serviceName}
                   </span>
 
                   <h1 className="text-3xl md:text-4xl lg:text-[2.5rem] font-bold mb-6 leading-tight text-white">

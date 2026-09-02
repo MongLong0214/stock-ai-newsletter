@@ -24,7 +24,7 @@ describe('sendStockNewsletter', () => {
   it('settles every recipient and reports failed indices/domains without email addresses', async () => {
     vi.stubEnv('SENDGRID_API_KEY', 'test-api-key')
     vi.stubEnv('SENDGRID_FROM_EMAIL', 'sender@stockmatrix.co.kr')
-    vi.stubEnv('SENDGRID_FROM_NAME', 'Stock Matrix')
+    vi.stubEnv('SENDGRID_FROM_NAME', 'StockMatrix')
     mocks.send
       .mockResolvedValueOnce([{ statusCode: 202 }])
       .mockRejectedValueOnce(new Error('rejected recipient: private-user@failed.example'))

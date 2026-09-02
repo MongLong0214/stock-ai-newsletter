@@ -3,7 +3,7 @@ import { createOgImageResponse } from '@/lib/og-image-response';
 
 export const runtime = 'nodejs';
 export const revalidate = 86400;
-export const alt = 'Stock Matrix - 30가지 기술적 지표 완벽 가이드';
+export const alt = 'StockMatrix - 30가지 기술적 지표 완벽 가이드';
 export const size = {
   width: 1200,
   height: 630,

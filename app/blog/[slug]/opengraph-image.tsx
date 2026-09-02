@@ -27,7 +27,7 @@ export async function generateStaticParams() {
   }
 }
 
-export const alt = 'Stock Matrix 블로그';
+export const alt = 'StockMatrix 블로그';
 export const size = {
   width: 1200,
   height: 630,

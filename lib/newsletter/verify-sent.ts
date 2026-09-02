@@ -1,5 +1,6 @@
 import sgMail from '@sendgrid/mail'
 
+import { siteConfig } from '@/lib/constants/seo/config'
 import { isKoreanTradingDate } from '@/lib/tli/trading-calendar'
 import {
   getNewsletterStatus,
@@ -86,9 +87,9 @@ async function reportFatal(input: {
     apiKey,
     to,
     from,
-    subject: `[Stock Matrix] ${input.date} 뉴스레터 발송 누락 — ${input.reason}`,
+    subject: `[${siteConfig.serviceName}] ${input.date} 뉴스레터 발송 누락 — ${input.reason}`,
     text: [
-      'Stock Matrix 뉴스레터 발송 누락 워치독 알림',
+      `${siteConfig.serviceName} 뉴스레터 발송 누락 워치독 알림`,
       `KST 날짜: ${input.date}`,
       `원인: ${input.reason}`,
       `조치 링크: ${actionsUrl}`,

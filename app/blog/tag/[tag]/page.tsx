@@ -45,7 +45,7 @@ function createTagBreadcrumbSchema(tag: string) {
     '@context': 'https://schema.org',
     '@type': 'BreadcrumbList',
     itemListElement: [
-      { '@type': 'ListItem', position: 1, name: 'Stock Matrix', item: siteConfig.domain },
+      { '@type': 'ListItem', position: 1, name: siteConfig.serviceName, item: siteConfig.domain },
       { '@type': 'ListItem', position: 2, name: '블로그', item: `${siteConfig.domain}/blog` },
       { '@type': 'ListItem', position: 3, name: tag, item: `${siteConfig.domain}/blog/tag/${encodeURIComponent(tag)}` },
     ],
@@ -61,8 +61,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     return { title: '페이지를 찾을 수 없습니다', robots: { index: false, follow: false } };
   }
 
-  const title = `${decodedTag} 관련 주식 분석 - Stock Matrix`;
-  const description = `${decodedTag} 태그가 포함된 AI 주식 분석 블로그 글을 모아봤습니다. Stock Matrix에서 제공하는 ${decodedTag} 관련 인사이트를 확인하세요.`;
+  const title = `${decodedTag} 관련 주식 분석 - ${siteConfig.serviceName}`;
+  const description = `${decodedTag} 태그가 포함된 AI 주식 분석 블로그 글을 모아봤습니다. ${siteConfig.serviceName}에서 제공하는 ${decodedTag} 관련 인사이트를 확인하세요.`;
   const url = `${siteConfig.domain}/blog/tag/${encodeURIComponent(decodedTag)}`;
 
   return {
@@ -83,7 +83,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
           ),
           width: 1200,
           height: 630,
-          alt: `${decodedTag} - Stock Matrix`,
+          alt: `${decodedTag} - ${siteConfig.serviceName}`,
         },
       ],
     },
