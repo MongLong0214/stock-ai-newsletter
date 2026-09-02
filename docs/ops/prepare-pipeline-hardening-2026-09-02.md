@@ -3,7 +3,7 @@
 > 대상: `prepare-newsletter` → `daily-newsletter` → watchdog 발행 체인과 `scripts/stock-picks/*` 종목 선정 로직.
 > 증거: GitHub run 33559616526(2026-09-02 06:10 KST) 전문 로그, Supabase 실측 프로브, 코드 정적 분석,
 > sol(gpt-5.6-sol) 2트랙 감사 + 최종 적대적 리뷰, 문헌 리서치(sonnet 2건), 실데이터 드라이런·핸들러 E2E·frozen 재평가.
-> 브랜치 `feat/prepare-pipeline-enterprise`, 커밋 7개 (§4).
+> 브랜치 `feat/prepare-pipeline-enterprise`, 코드 커밋 7개 + 문서 2개 (§4).
 
 ## 1. 결론 요약
 
