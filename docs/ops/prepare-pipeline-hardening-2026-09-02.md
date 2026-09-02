@@ -78,7 +78,7 @@
 | `d336ee0` | 실데이터 검증 결함 4건: `HOLIDAYS_2024`, 계약 게이트 지수 제외, 지수 OHLC 파싱, dry-run 조회 |
 | `501635a` | 계층형 슬롯 채움 탐색 실험(연구 한정) |
 | `7df3181` | **sol 최종 리뷰 반영**: 미확정 선점 복구 재발송(중복 가능·누락 방지), dispatch 단일 POST+`display_title` 매칭, 불리언 정규화, prepare 절대 데드라인(38분)·fallback red, 토큰 거부 1회 재발급, crash 오경보 제거, physicalCalls, SendGrid 타임아웃/데드라인, 라우트 회귀 테스트 복원 |
-| (Task 7) | 희소 날짜 데이터 계약 게이트(날짜별 종목 밀도 <80% → 실패), 수집 리포트 날짜별 심볼 수, 커스텀 Error 관례 교정 |
+| `c031f9c` | 희소 날짜 데이터 계약 게이트(날짜별 거래량>0 종목 비율 <80% → 실패, `gapDatesTop`), 수집 리포트 `perDateSymbolCounts` + prepare 경고, 커스텀 Error 관례 교정. 첫 실행에서 09-02 유령 행(당일 아침 구 코드가 적재, 익일 수집이 덮어씀)을 정확히 잡아냄 |
 
 데이터 수리(프로덕션 DB, 추가 삽입만): KOSPI 지수 결손 100일 백필(`repair-kospi-index.ts --apply`, remainingMissing 0), 2026-04-02 전 종목 백필(2,422행; 실패 12는 당시 미상장).
 
@@ -105,8 +105,8 @@
 
 ## 6. 검증 방법 (재현 가능)
 
-- 단위: `npx tsc --noEmit`, `npx eslint .`, `npx vitest run` — 328 파일 / 3,702 테스트 통과 (Task 7 이전 기준).
-- env 주입 전체 스위트(TLI env 의존 41파일 포함): 메인 체크아웃 cwd에서 `vitest run --root <워크트리>` (`tli-boundary-manifest`는 cwd 트리 스캔 오탐).
+- 단위: `npx tsc --noEmit`, `npx eslint .`, `npx vitest run` — 328 파일 / 3,704 테스트 통과.
+- env 주입 전체 스위트(TLI env 의존 41파일 포함): 메인 체크아웃 cwd에서 `vitest run --root <워크트리>` (`tli-boundary-manifest`·prepare 워크플로우 YAML 읽기 테스트 2건은 cwd 상대경로라 메인 트리를 읽어 오탐; 워크트리 cwd에서는 통과).
 - 실데이터: `prepare-newsletter.ts --dry-run --force`(21.9분), 라우트 핸들러 E2E(`CRON_SECRET` 프로세스 주입), `send-newsletter.ts --dry-run --target-date=...`, `repair-kospi-index.ts`(dry-run→apply), `optimize.ts --frozen`(전/중간/후 3회).
 - 워크트리엔 `.env.local`이 없으므로 실데이터 실행은 `cd <메인> && <워크트리>/node_modules/.bin/tsx --tsconfig <워크트리>/tsconfig.json <스크립트>`.
 
