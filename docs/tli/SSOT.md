@@ -268,7 +268,7 @@ analog_candidates_v1을 읽어 무효 ② 서빙 단일화 + 분포기반 absten
 | origin 생성 | `scripts/tli/origins/` (`lock-study-contract.ts`는 **재실행 금지**) |
 | origin clean 판정 | `scripts/tli/origins/origin-eligibility.ts`(규칙) · `origin-roster.ts`(RPC) · `run-origin-eligibility.ts`(`npm run tli:origins:eligibility`) · `study-origin-eligibility-source.ts`(dataset/평가기 공용 필터) |
 | DataLab quota/reuse | `scripts/tli/collectors/naver-datalab-quota.ts` · `naver-datalab-reuse.ts` · `naver-datalab-api.ts`(`NaverDatalabQuotaError`) |
-| TLI dispatch (Vercel Cron) | `app/api/cron/tli-datalab/route.ts` · `lib/tli/datalab-collection-status.ts` · `vercel.json` crons |
+| TLI dispatch (Vercel Cron) | `app/api/cron/tli-datalab/route.ts` · `vercel.json` crons |
 | 라벨 gta-v2 | `lib/tli/labels/gt-a-v2.ts` · `scripts/tli/labels/finalize-gt-a-v2.ts` · `scripts/tli/labels/gta-v2-daily.ts`(step 4.15) |
 | 만기 SSOT | `lib/tli/trading-calendar.ts` `getLatestMaturedBaseDate` |
 | 점수 척도 SSOT | `lib/tli/interest-scale.ts` (+ `score-config.ts` `getNoiseFloor`) |
@@ -291,7 +291,7 @@ analog_candidates_v1을 읽어 무효 ② 서빙 단일화 + 분포기반 absten
 | 수시 | `/themes` visibleThemes 45+ 회복 (사건 6 수정 효과) | 미회복 시 재조사 |
 | 8/5 이후 | parity `staleInputExcludedCount` 증가 정지 (사건 5 혼합 빈티지 창 이탈) | 계속 늘면 사건 5 재발 |
 | **12월** | **2027 휴장일 KRX 공식 발표 대조** | 테이블은 이미 존재(잠정값) — 공식 발표와 diff |
-| **매주 월요일 저녁** | `tli_study_origin_eligibility_latest` 최신 origin `eligible` | ineligible이면 critical 이슈 + 사건 9 재발 조사 |
+| **매주 월요일 저녁** | `tli_study_origin_eligibility_latest` 최신 origin `eligible` | 신규 ineligible이면 critical 이슈(회귀는 나이 무관 critical) + 사건 9 재발 조사. 기존 ineligible의 재기록은 pass다 |
 | 매일 | `tli_datalab_quota_ledger` attempts ≤ 600 | 600 초과면 reuse 실패/spillover 조사 |
 | 9/8경 | 8/31 origin 라벨 final → 성숙 후 재판정 eligible 유지 | `label_accounting_incomplete`면 라벨 파이프라인 조사 |
 | P1 | legacy 4,880 exclusion reason backfill(추측 금지, 복원 불가는 명시) · flywheel consumer + GSC/GA4 귀속 · DB 월간 증가율 | — |
