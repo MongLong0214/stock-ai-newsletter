@@ -100,7 +100,7 @@ function createBreadcrumbSchema(postTitle: string) {
     '@context': 'https://schema.org',
     '@type': 'BreadcrumbList',
     itemListElement: [
-      { '@type': 'ListItem', position: 1, name: 'Stock Matrix', item: siteConfig.domain },
+      { '@type': 'ListItem', position: 1, name: siteConfig.serviceName, item: siteConfig.domain },
       { '@type': 'ListItem', position: 2, name: '블로그', item: `${siteConfig.domain}/blog` },
       { '@type': 'ListItem', position: 3, name: postTitle },
     ],
