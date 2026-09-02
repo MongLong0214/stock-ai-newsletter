@@ -138,8 +138,22 @@ export async function loadConfirmatoryFeatureBatchFromSupabase(
   request: ConfirmatoryFeatureBatchRequest,
 ): Promise<ConfirmatoryFeatureBatch> {
   const { supabaseAdmin } = await import('@/scripts/tli/shared/supabase-admin')
+  const { loadEligibleStudyOriginBindings } = await import(
+    '@/scripts/tli/origins/study-origin-eligibility-source'
+  )
+  const source = createSupabaseConfirmatoryFeatureBatchDataSource(supabaseAdmin)
   return loadConfirmatoryFeatureBatch(
     request,
-    createSupabaseConfirmatoryFeatureBatchDataSource(supabaseAdmin),
+    {
+      ...source,
+      async loadStudyOriginBundle(studyOriginManifestId) {
+        const bundle = await source.loadStudyOriginBundle(studyOriginManifestId)
+        if (bundle === null) return null
+        const eligibleBindings = await loadEligibleStudyOriginBindings(bundle.studyContract.id)
+        return eligibleBindings.some(
+          (binding) => binding.study_origin_manifest_id === studyOriginManifestId,
+        ) ? bundle : null
+      },
+    },
   )
 }

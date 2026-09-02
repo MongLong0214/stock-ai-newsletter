@@ -3,6 +3,7 @@ import { load } from 'js-yaml'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   TLI_COLLECT_SCHEDULE_MODES,
+  resolveTliCollectDispatch,
   resolveTliCollectMode,
 } from '../ops/resolve-collect-mode'
 
@@ -71,12 +72,74 @@ describe('resolveTliCollectMode', () => {
   it.each([
     ['full', 'full'],
     ['news-only', 'news-only'],
+    ['datalab-only', 'datalab-only'],
   ])('maps dispatch input %s to %s', (dispatchMode, expected) => {
     expect(resolveTliCollectMode({ eventName: 'workflow_dispatch', dispatchMode })).toBe(expected)
   })
 
   it('defaults an empty dispatch input to full', () => {
     expect(resolveTliCollectMode({ eventName: 'workflow_dispatch', dispatchMode: '' })).toBe('full')
+  })
+
+  it('parses dispatch refresh, intended date, and run key', () => {
+    expect(resolveTliCollectDispatch({
+      eventName: 'workflow_dispatch',
+      dispatchMode: 'datalab-only',
+      dispatchDatalabRefresh: 'force',
+      dispatchIntendedKstDate: '2026-09-02',
+      dispatchRunKey: 'datalab-0900:2026-09-02',
+      runnerKstDate: '2026-09-02',
+    })).toEqual({
+      mode: 'datalab-only',
+      datalabRefresh: 'force',
+      intendedKstDate: '2026-09-02',
+      runKey: 'datalab-0900:2026-09-02',
+      skipReason: null,
+    })
+  })
+
+  it('defaults an empty dispatch refresh to reuse', () => {
+    expect(resolveTliCollectDispatch({
+      eventName: 'workflow_dispatch',
+      dispatchMode: '',
+      dispatchDatalabRefresh: '',
+      dispatchIntendedKstDate: '',
+      runnerKstDate: '2026-09-02',
+    })).toEqual({
+      mode: 'full',
+      datalabRefresh: 'reuse',
+      intendedKstDate: null,
+      runKey: null,
+      skipReason: null,
+    })
+  })
+
+  it('marks a delayed dispatch on a different KST date as a quiet skip', () => {
+    expect(resolveTliCollectDispatch({
+      eventName: 'workflow_dispatch',
+      dispatchMode: 'datalab-only',
+      dispatchIntendedKstDate: '2026-09-01',
+      runnerKstDate: '2026-09-02',
+    })).toEqual({
+      mode: 'datalab-only',
+      datalabRefresh: 'reuse',
+      intendedKstDate: '2026-09-01',
+      runKey: null,
+      skipReason: 'stale_dispatch',
+    })
+  })
+
+  it('rejects an invalid intended KST date and refresh value', () => {
+    expect(() => resolveTliCollectDispatch({
+      eventName: 'workflow_dispatch',
+      dispatchIntendedKstDate: '2026-02-30',
+      runnerKstDate: '2026-09-02',
+    })).toThrow(/invalid intended KST date/)
+    expect(() => resolveTliCollectDispatch({
+      eventName: 'workflow_dispatch',
+      dispatchDatalabRefresh: 'maybe',
+      runnerKstDate: '2026-09-02',
+    })).toThrow(/unknown datalab refresh/)
   })
 
   // 기존 wall-clock 버그 재현: 00:00 cron이 60분 지연돼 01:xx UTC에 시작하면 `date -u +%H`는 full을 낸다.
@@ -153,7 +216,30 @@ describe('tli-collect-data.yml contract', () => {
     expect(step.run).toContain('scripts/tli/ops/resolve-collect-mode.ts')
     expect(step.env?.TLI_COLLECT_SCHEDULE).toBe('${{ github.event.schedule }}')
     expect(step.env?.TLI_COLLECT_DISPATCH_MODE).toBe('${{ github.event.inputs.mode }}')
+    expect(step.env?.TLI_COLLECT_DISPATCH_DATALAB_REFRESH).toBe('${{ github.event.inputs.datalab_refresh }}')
+    expect(step.env?.TLI_COLLECT_DISPATCH_INTENDED_KST_DATE).toBe('${{ github.event.inputs.intended_kst_date }}')
+    expect(step.env?.TLI_COLLECT_DISPATCH_RUN_KEY).toBe('${{ github.event.inputs.run_key }}')
     expect(step.run).not.toMatch(/date -u/)
+
+    const resolver = readFileSync('scripts/tli/ops/resolve-collect-mode.ts', 'utf8')
+    expect(resolver).toContain("appendFileSync(outputPath, `skip_reason=${result.skipReason ?? ''}\\n`)")
+    expect(resolver).toContain('::warning::stale DataLab dispatch skipped')
+  })
+
+  it('declares datalab-only dispatch controls and wires force refresh to collection', () => {
+    const inputs = collectWorkflow.on.workflow_dispatch?.inputs
+    expect(inputs?.mode?.options).toEqual(['full', 'news-only', 'datalab-only'])
+    expect(inputs?.datalab_refresh?.options).toEqual(['reuse', 'force'])
+    expect(inputs?.datalab_refresh?.default).toBe('reuse')
+    expect(inputs).toHaveProperty('intended_kst_date')
+    expect(inputs).toHaveProperty('run_key')
+
+    const collection = stepByName(collectSteps, 'Run TLI Data Collection & Scoring')
+    expect(collection.if).toBe("steps.mode.outputs.skip_reason == ''")
+    expect(collection.env?.TLI_DATALAB_FORCE_REFRESH)
+      .toBe("${{ steps.mode.outputs.datalab_refresh == 'force' && 'true' || 'false' }}")
+    expect(collection.env?.TLI_DATALAB_DAILY_CEILING)
+      .toBe('${{ vars.TLI_DATALAB_DAILY_CEILING }}')
   })
 
   it('never hides scientific gate failures behind continue-on-error', () => {
@@ -164,11 +250,13 @@ describe('tli-collect-data.yml contract', () => {
     const step = stepByName(collectSteps, 'Upload scientific gate artifacts')
     expect(step.uses).toMatch(/^actions\/upload-artifact@/)
     expect(step.if).toContain('always()')
+    expect(step.if).toContain("steps.mode.outputs.skip_reason == ''")
   })
 
   it('fails the workflow only on the critical contract exit code', () => {
     const step = stepByName(collectSteps, 'Scientific gate result')
     expect(step.if).toContain('always()')
+    expect(step.if).toContain("steps.mode.outputs.skip_reason == ''")
     expect(step.env?.PARITY_STATUS).toBe('${{ steps.parity.outputs.status }}')
     expect(step.env?.WATCHLIST_STATUS).toBe('${{ steps.watchlist.outputs.status }}')
     expect(step.run).toContain('3) echo "::error::')
@@ -176,8 +264,12 @@ describe('tli-collect-data.yml contract', () => {
   })
 
   it('exposes both gate exit codes as step outputs', () => {
-    expect(stepByName(collectSteps, 'Prediction parity report').run).toContain('echo "status=${status}" >> "$GITHUB_OUTPUT"')
-    expect(stepByName(collectSteps, 'TLI watchlist canary').run).toContain('echo "status=${status}" >> "$GITHUB_OUTPUT"')
+    const parity = stepByName(collectSteps, 'Prediction parity report')
+    const watchlist = stepByName(collectSteps, 'TLI watchlist canary')
+    expect(parity.if).toContain("steps.mode.outputs.skip_reason == ''")
+    expect(watchlist.if).toContain("steps.mode.outputs.skip_reason == ''")
+    expect(parity.run).toContain('echo "status=${status}" >> "$GITHUB_OUTPUT"')
+    expect(watchlist.run).toContain('echo "status=${status}" >> "$GITHUB_OUTPUT"')
   })
 })
 

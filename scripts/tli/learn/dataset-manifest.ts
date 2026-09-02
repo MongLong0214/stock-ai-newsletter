@@ -21,6 +21,7 @@ import {
   type KeysetColumns,
   type KeysetCursor,
 } from '@/scripts/tli/shared/keyset'
+import { loadEligibleStudyOriginBindings } from '@/scripts/tli/origins/study-origin-eligibility-source'
 
 export const DATASET_MANIFEST_VERSION = 'tli-dataset-manifest-v1'
 export const CONFIRMATORY_LABEL_TYPE = 'gt_a'
@@ -206,17 +207,7 @@ export const createSupabaseDatasetDataSource = (): DatasetDataSource => ({
   },
 
   async loadStudyOriginBindings(studyContractId) {
-    const { data, error } = await supabaseAdmin
-      .from('tli_study_origin_manifests')
-      .select('id, forecast_origin_manifest_id')
-      .eq('study_contract_id', studyContractId)
-      .order('id', { ascending: true })
-    if (error) throw new Error(`study-origin binding query failed: ${error.message}`)
-    return ((data ?? []) as readonly { readonly id: string; readonly forecast_origin_manifest_id: string }[])
-      .map((row) => ({
-        study_origin_manifest_id: row.id,
-        forecast_origin_manifest_id: row.forecast_origin_manifest_id,
-      }))
+    return loadEligibleStudyOriginBindings(studyContractId)
   },
 
   async loadConfirmatoryLabelPage({ forecastOriginManifestIds, asOfCutoff, after, pageSize }) {

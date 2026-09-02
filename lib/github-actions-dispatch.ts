@@ -17,6 +17,7 @@ export class GitHubDispatchError extends Error {
 export async function dispatchGitHubWorkflow(
   workflowFile: string,
   token: string | undefined = process.env.GH_DISPATCH_TOKEN,
+  inputs?: Record<string, string>,
 ): Promise<void> {
   if (!token) {
     throw new Error('GH_DISPATCH_TOKEN is not set')
@@ -37,7 +38,7 @@ export async function dispatchGitHubWorkflow(
           'User-Agent': GITHUB_USER_AGENT,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ ref: 'main' }),
+        body: JSON.stringify(inputs === undefined ? { ref: 'main' } : { ref: 'main', inputs }),
         signal: controller.signal,
       },
     )

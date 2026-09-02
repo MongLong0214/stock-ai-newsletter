@@ -4,6 +4,7 @@ import type {
   ScientificPredictionScoringInput,
   ScientificScoreFinalizer,
 } from './theme-predictions-v3-scientific-types'
+import { loadEligibleStudyOriginBindings } from '../origins/study-origin-eligibility-source'
 
 const cycleSchema = z.object({
   id: z.string(), status: z.string(), study_contract_id: z.string(),
@@ -106,9 +107,15 @@ export async function loadScientificPredictionScoringInput(input: {
   const cycle = exactLoaded(cycles, 'experiment cycle')
   const origin = exactLoaded(origins, 'experiment origin')
   const [studyOrigins, forecasts, evidenceArtifacts, predictions] = await Promise.all([
-    readRows('study origin', supabaseAdmin.from('tli_study_origin_manifests').select(
-      'id, study_contract_id, forecast_origin_manifest_id',
-    ).eq('id', origin.study_origin_manifest_id), studyOriginSchema),
+    loadEligibleStudyOriginBindings(cycle.study_contract_id).then((bindings) => studyOriginSchema.array().parse(
+      bindings
+        .filter((binding) => binding.study_origin_manifest_id === origin.study_origin_manifest_id)
+        .map((binding) => ({
+          id: binding.study_origin_manifest_id,
+          study_contract_id: cycle.study_contract_id,
+          forecast_origin_manifest_id: binding.forecast_origin_manifest_id,
+        })),
+    )),
     readRows('forecast origin', supabaseAdmin.from('tli_forecast_origin_manifests').select(
       'id, origin_date, forecast_cutoff, expected_theme_ids, expected_theme_count',
     ).eq('id', origin.forecast_origin_manifest_id), forecastSchema),

@@ -8,6 +8,7 @@ const THEME_A = '11111111-1111-4111-8111-111111111111'
 const THEME_B = '22222222-2222-4222-8222-222222222222'
 const DATALAB_WINDOW = { start: '2026-06-15', end: '2026-06-19' }
 const NEWS_WINDOW = { start: '2026-06-08', end: '2026-06-22' }
+const reserveAttempt = async () => undefined
 
 const mockFetchJson = (payload: unknown) =>
   vi.fn(async () => new Response(JSON.stringify(payload), { status: 200 }))
@@ -43,7 +44,7 @@ describe('collector fail-loud report', () => {
       [{ id: THEME_A, name: 'A', naverKeywords: ['a'] }],
       DATALAB_WINDOW.start,
       DATALAB_WINDOW.end,
-      { transport },
+      { transport, reserveAttempt },
     )
 
     expect(result).toEqual({
@@ -63,7 +64,7 @@ describe('collector fail-loud report', () => {
       ],
       DATALAB_WINDOW.start,
       DATALAB_WINDOW.end,
-      { transport },
+      { transport, reserveAttempt },
     )
 
     expect(result.metrics).toHaveLength(1)
@@ -79,7 +80,7 @@ describe('collector fail-loud report', () => {
     const report = await collectForecastInterestRuns(
       [{ id: THEME_A, name: 'A', naverKeywords: ['a'] }],
       '2026-06-22',
-      { transport },
+      { transport, reserveAttempt },
     )
 
     expect(report).toEqual({ requested: 1, succeeded: 0, failed: 1, persistenceFailed: 1 })

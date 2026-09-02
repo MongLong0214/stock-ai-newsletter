@@ -1,4 +1,6 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
+
+vi.mock('@/scripts/tli/shared/supabase-admin', () => ({ supabaseAdmin: {} }))
 
 import { canonicalJsonV1, canonicalJsonV1Sha256 } from '@/lib/tli/canonical-json'
 import { getKoreanTradingDateWindow } from '@/lib/tli/trading-calendar'
@@ -7,6 +9,7 @@ import { buildKeywordGroupSpec, keywordGroupSha256 } from '../collectors/collect
 import { buildForecastOriginManifestPayload } from '../origins/forecast-origin-manifest'
 import {
   newsExpectedDates,
+  loadForecastThemeSources,
   recordedKeywordGroupSpec,
   selectPitForecastSources,
   type PitInterestRunCandidate,
@@ -47,6 +50,32 @@ const withNews = (sources: ReturnType<typeof selectPitForecastSources>) => sourc
 }))
 
 describe('Monday origin source PIT selection', () => {
+  it('roster 결손 테마를 abstain source로 합치고 selected source를 우선해 theme ID로 정렬한다', async () => {
+    const selectedSpec = buildKeywordGroupSpec({ groupName: '선택 B', keywords: ['selected-b'] })
+    const rosterSpec = buildKeywordGroupSpec({ groupName: 'roster B', keywords: ['roster-b'] })
+    const selected = interestCandidate({
+      themeId: THEME_B,
+      keywordGroupSpec: selectedSpec,
+      keywordGroupSha256: keywordGroupSha256(selectedSpec),
+    })
+    const sources = await loadForecastThemeSources({ originDate: MONDAY }, {
+      loadInterestRunCandidates: async () => [selected],
+      loadNewsObservationIds: async () => Array.from(
+        { length: 14 },
+        (_, index) => `10000000-0000-4000-8000-${String(index).padStart(12, '0')}`,
+      ),
+      loadRoster: async () => new Map([
+        [THEME_A, { runId: 'run-a', keywordGroupSpec: OLD_SPEC }],
+        [THEME_B, { runId: 'run-b', keywordGroupSpec: rosterSpec }],
+      ]),
+    })
+
+    expect(sources.map((source) => source.themeId)).toEqual([THEME_A, THEME_B])
+    expect(sources[0]).toMatchObject({ interestRun: null, newsObservationIds: null, rosterEligible: true })
+    expect(sources[1].interestRun?.id).toBe(selected.id)
+    expect(sources[1].keywordGroupSpec).toEqual(selectedSpec)
+  })
+
   it('주말과 휴장일을 건너뛴 최근 14개 KOSPI 거래일을 news slot으로 쓴다', () => {
     // Given: 지방선거일·현충일 대체휴일과 두 번의 주말이 포함된 14달력일 구간.
     const originDate = '2026-06-15'

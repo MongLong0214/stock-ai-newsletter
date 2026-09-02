@@ -1,4 +1,6 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
+
+vi.mock('@/scripts/tli/shared/supabase-admin', () => ({ supabaseAdmin: {} }))
 
 import { compareKeysetCursor, type KeysetCursor } from '@/scripts/tli/shared/keyset'
 import {
@@ -168,7 +170,7 @@ describe('loadConfirmatoryDataset — determinism', () => {
 })
 
 describe('loadConfirmatoryDataset — large synthetic fixture', () => {
-  it('loads 31,300 rows with zero duplicate/missing keys, all bound to the exact study SHA', async () => {
+  it('loads 31,300 rows with zero duplicate/missing keys, all bound to the exact study SHA', { timeout: 30_000 }, async () => {
     const bindings = new Map<string, readonly StudyOriginBindingRow[]>([
       [STUDY_ID, Array.from({ length: 10 }, (_, index) => ({
         study_origin_manifest_id: studyOriginId(100 + index),

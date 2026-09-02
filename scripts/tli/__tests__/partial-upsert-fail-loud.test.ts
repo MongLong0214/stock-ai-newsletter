@@ -10,6 +10,7 @@ const collectionMocks = vi.hoisted(() => ({
   upsertNewsArticles: vi.fn(),
   upsertThemeStocks: vi.fn(),
   runMondayOrigins: vi.fn(),
+  evaluateAndRecordStudyOriginEligibility: vi.fn(),
 }))
 
 vi.mock('@/scripts/tli/collectors/naver-news', () => ({
@@ -20,12 +21,27 @@ vi.mock('@/scripts/tli/collectors/naver-datalab', () => ({
   collectNaverDatalab: collectionMocks.collectNaverDatalab,
 }))
 
+vi.mock('@/scripts/tli/collectors/naver-datalab-reuse', async () => {
+  const actual = await vi.importActual<typeof import('@/scripts/tli/collectors/naver-datalab-reuse')>(
+    '@/scripts/tli/collectors/naver-datalab-reuse',
+  )
+  return {
+    ...actual,
+    loadTodayCompleteDatalabRuns: vi.fn(async () => new Map()),
+    isDatalabForceRefresh: vi.fn(() => false),
+  }
+})
+
 vi.mock('@/scripts/tli/collectors/naver-finance-themes', () => ({
   collectNaverFinanceStocks: collectionMocks.collectNaverFinanceStocks,
 }))
 
 vi.mock('@/scripts/tli/origins/run-monday-origins', () => ({
   runMondayOrigins: collectionMocks.runMondayOrigins,
+}))
+
+vi.mock('@/scripts/tli/origins/run-origin-eligibility', () => ({
+  evaluateAndRecordStudyOriginEligibility: collectionMocks.evaluateAndRecordStudyOriginEligibility,
 }))
 
 vi.mock('@/scripts/tli/shared/data-ops', () => ({
@@ -129,6 +145,18 @@ describe('partial batch upsert fail-loud propagation', () => {
       asOfDate: '2026-03-20',
       skippedReason: 'up_to_date',
       origins: [],
+    })
+    collectionMocks.evaluateAndRecordStudyOriginEligibility.mockResolvedValue({
+      evaluations: [],
+      summary: {
+        evaluatedCount: 0,
+        eligibleCount: 0,
+        ineligibleCount: 0,
+        insertedCount: 0,
+        newlyRecordedIneligibleCount: 0,
+        severity: 'pass',
+        exitCode: 0,
+      },
     })
   })
 

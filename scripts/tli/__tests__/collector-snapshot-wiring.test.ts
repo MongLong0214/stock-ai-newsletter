@@ -20,6 +20,7 @@ const RUN_ID = '44444444-4444-4444-8444-444444444444'
 const BASE_DATE = '2026-06-22'
 const NEWS_START = '2026-06-08'
 const NEWS_END = '2026-06-22'
+const reserveAttempt = async () => undefined
 
 interface ParsedAppend {
   readonly run: Record<string, unknown>
@@ -72,7 +73,7 @@ describe('DataLab collector → immutable snapshot 배선', () => {
       [{ id: THEME_A, name: 'A', naverKeywords: ['a'] }],
       '2026-06-15',
       '2026-06-19',
-      { transport },
+      { transport, reserveAttempt },
     )
 
     expect(calls).toHaveLength(1)
@@ -92,8 +93,8 @@ describe('DataLab collector → immutable snapshot 배선', () => {
 
     const { transport, calls } = makeTransport()
     const themes = [{ id: THEME_A, name: 'A', naverKeywords: ['a'] }]
-    await collectNaverDatalab(themes, '2026-06-15', '2026-06-19', { transport })
-    await collectNaverDatalab(themes, '2026-06-15', '2026-06-19', { transport })
+    await collectNaverDatalab(themes, '2026-06-15', '2026-06-19', { transport, reserveAttempt })
+    await collectNaverDatalab(themes, '2026-06-15', '2026-06-19', { transport, reserveAttempt })
 
     expect(calls).toHaveLength(2)
     const first = parse(calls[0]).run
@@ -117,7 +118,7 @@ describe('DataLab collector → immutable snapshot 배선', () => {
       [{ id: THEME_A, name: 'A', naverKeywords: ['a'] }],
       '2026-06-15',
       '2026-06-19',
-      { transport },
+      { transport, reserveAttempt },
     )
 
     expect(result.metrics).toEqual([])
@@ -138,7 +139,7 @@ describe('DataLab collector → immutable snapshot 배선', () => {
       ],
       '2026-06-15',
       '2026-06-19',
-      { transport },
+      { transport, reserveAttempt },
     )
 
     const { run } = parse(calls[0])
@@ -154,7 +155,7 @@ describe('DataLab collector → immutable snapshot 배선', () => {
       [{ id: THEME_A, name: 'A', naverKeywords: ['a'] }],
       '2026-06-15',
       '2026-06-19',
-      { transport },
+      { transport, reserveAttempt },
     )
 
     expect(result.metrics).toEqual([])
@@ -175,7 +176,7 @@ describe('DataLab collector → immutable snapshot 배선', () => {
     const report = await collectForecastInterestRuns(
       [{ id: THEME_A, name: 'A', naverKeywords: ['a'] }],
       BASE_DATE,
-      { transport },
+      { transport, reserveAttempt },
     )
 
     expect(report).toEqual({ requested: 1, succeeded: 1, failed: 0, persistenceFailed: 0 })

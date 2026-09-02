@@ -9,6 +9,7 @@ import type {
 
 const THEME_ID = '11111111-1111-4111-8111-111111111111'
 const THEME = { id: THEME_ID, name: 'HBM', naverKeywords: ['HBM'] }
+const reserveAttempt = async () => undefined
 
 const mockFetchJson = (payload: unknown) =>
   vi.fn(async () => new Response(JSON.stringify(payload), { status: 200 }))
@@ -57,7 +58,7 @@ describe('Naver response Zod boundary', () => {
     }))
     const { calls, transport } = captureTransport()
 
-    const result = await collectNaverDatalab([THEME], '2026-06-15', '2026-06-19', { transport })
+    const result = await collectNaverDatalab([THEME], '2026-06-15', '2026-06-19', { transport, reserveAttempt })
 
     expect(result.metrics).toEqual([])
     expect(result.report).toEqual({ requested: 1, succeeded: 0, failed: 1, persistenceFailed: 0 })
@@ -81,7 +82,7 @@ describe('Naver response Zod boundary', () => {
     }))
     const { calls, transport } = captureTransport()
 
-    const result = await collectNaverDatalab([THEME], '2026-06-15', '2026-06-19', { transport })
+    const result = await collectNaverDatalab([THEME], '2026-06-15', '2026-06-19', { transport, reserveAttempt })
 
     expect(result.metrics).toEqual([])
     expect(parseRun(calls[0]).run.failure_summary?.reason).toBe('naver_datalab_response_invalid')
@@ -97,7 +98,7 @@ describe('Naver response Zod boundary', () => {
     }))
     const { calls, transport } = captureTransport()
 
-    const result = await collectNaverDatalab([THEME], '2026-06-15', '2026-06-19', { transport })
+    const result = await collectNaverDatalab([THEME], '2026-06-15', '2026-06-19', { transport, reserveAttempt })
 
     expect(result.metrics).toEqual([expect.objectContaining({ rawValue: 0, normalized: 0 })])
     expect(result.report).toEqual({ requested: 1, succeeded: 1, failed: 0, persistenceFailed: 0 })
@@ -175,7 +176,7 @@ describe('Naver response Zod boundary', () => {
       throw new Error('failed-run receipt rejected')
     }
 
-    const result = await collectNaverDatalab([THEME], '2026-06-15', '2026-06-19', { transport })
+    const result = await collectNaverDatalab([THEME], '2026-06-15', '2026-06-19', { transport, reserveAttempt })
 
     expect(result).toEqual({
       metrics: [],
