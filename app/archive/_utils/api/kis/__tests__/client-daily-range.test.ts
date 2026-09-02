@@ -1,6 +1,16 @@
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { parseRangePriceRow } from '@/app/archive/_utils/api/kis/client';
+vi.mock('@/app/archive/_utils/api/kis/token-storage', () => ({
+  getTokenFromStorage: vi.fn(async () => null),
+  saveTokenToStorage: vi.fn(async () => undefined),
+}));
+
+import {
+  fetchDailyRangePriceRows,
+  getDailyRangeClosePrices,
+  parseRangePriceRow,
+  resetKisClientCacheForTest,
+} from '@/app/archive/_utils/api/kis/client';
 
 const parseClose = (value: string): number => Number.parseInt(value, 10);
 
@@ -57,5 +67,57 @@ describe('parseRangePriceRow', () => {
       close: 70500,
       volume: 10,
     });
+  });
+});
+
+describe('throwing daily range fetch', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllEnvs();
+    vi.stubEnv('KIS_BASE_URL', 'https://example.com');
+    vi.stubEnv('KIS_APP_KEY', 'testkey');
+    vi.stubEnv('KIS_APP_SECRET', 'dGVzdA==');
+    vi.spyOn(console, 'log').mockImplementation(() => {});
+    resetKisClientCacheForTest();
+  });
+
+  it.each([
+    { status: 429, kind: 'rate_limit' },
+    { status: 401, kind: 'token' },
+    { status: 403, kind: 'token' },
+    { status: 500, kind: 'http' },
+  ])('classifies non-JSON HTTP $status responses as $kind', async ({ status, kind }) => {
+    const fetchMock = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ access_token: 'fixture-token' }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }))
+      .mockResolvedValueOnce(new Response('not-json', { status }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(fetchDailyRangePriceRows('KOSPI:005930', '20260901', '20260901'))
+      .rejects.toMatchObject({ kind, status });
+  });
+
+  it('classifies KIS API rate-limit codes and keeps the legacy wrapper non-throwing', async () => {
+    const fetchMock = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ access_token: 'fixture-token' }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }))
+      .mockResolvedValue(new Response(JSON.stringify({
+        rt_cd: '1',
+        msg_cd: 'EGW00201',
+        msg1: 'rate limited',
+      }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(fetchDailyRangePriceRows('KOSPI:005930', '20260901', '20260901'))
+      .rejects.toMatchObject({ kind: 'rate_limit', code: 'EGW00201' });
+    await expect(getDailyRangeClosePrices('KOSPI:005930', '20260901', '20260901'))
+      .resolves.toEqual([]);
   });
 });

@@ -46,6 +46,26 @@ export function addKoreanTradingDays(dateString: string, offsetDays: number): st
   return cursor
 }
 
+export function getLastFinalizedTradingDate(now: Date = new Date()): string {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Seoul',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(now)
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]))
+  const todayKst = `${values.year}-${values.month}-${values.day}`
+  const minutesKst = Number(values.hour) * 60 + Number(values.minute)
+
+  if (isKoreanTradingDate(todayKst) && minutesKst >= 15 * 60 + 40) {
+    return todayKst
+  }
+  return addKoreanTradingDays(todayKst, -1)
+}
+
 /**
  * `today` 기준으로 지평(거래일 `horizonDays`일)이 완전히 끝난 가장 최근 base_date
  *

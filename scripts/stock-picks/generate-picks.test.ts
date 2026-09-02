@@ -1,3 +1,7 @@
+import { mkdtemp, readFile, rm } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+
 import { describe, expect, it, vi } from 'vitest'
 
 import { validateStockData } from '@/lib/llm/korea/stock-json'
@@ -5,6 +9,7 @@ import { addKoreanTradingDays } from '@/lib/tli/trading-calendar'
 import { buildPriceBook } from '@/scripts/stock-picks/data-handler'
 import {
   generatePicks,
+  generatePicksWithMeta,
   getExpectedSignalDate,
   type StockPickMaster,
 } from '@/scripts/stock-picks/generate-picks'
@@ -79,6 +84,11 @@ describe('production stock pick generator', () => {
 
     expect(validateStockData(picks)).toBe(true)
     expect(picks).toHaveLength(3)
+    expect((picks as Array<{ ticker: string }>).map((pick) => pick.ticker)).toEqual([
+      'KOSDAQ:000003',
+      'KOSPI:000001',
+      'KOSPI:000002',
+    ])
     expect(loadPrices).toHaveBeenCalledWith({
       startDate: fixture.dates[0],
       endDate: SIGNAL_DATE,
@@ -218,5 +228,81 @@ describe('production stock pick generator', () => {
         loadMasters: async () => fixture.masters,
       },
     })).rejects.toThrow(/volumeBreakout 후보 부족: 0\/3/)
+  })
+
+  it('emits funnel and generated observability without changing the pick contract', async () => {
+    const fixture = makeFixture()
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    const dependencies = {
+      loadTradingDays: async () => new TradingDayIndex(fixture.dates),
+      loadPrices: async () => fixture.prices,
+      loadMasters: async () => fixture.masters,
+    }
+
+    try {
+      const result = await generatePicksWithMeta({ todayKst: TODAY_KST, dependencies })
+      const legacyJson = await generatePicks({ todayKst: TODAY_KST, dependencies })
+      const events = logSpy.mock.calls.map(([line]) => JSON.parse(String(line)))
+
+      expect(result.json).toBe(legacyJson)
+      expect(result.picks).toEqual(JSON.parse(legacyJson))
+      expect(events.filter((event) => event.event === 'stock_picks_funnel')).toHaveLength(2)
+      expect(events.find((event) => event.event === 'stock_picks_funnel')).toMatchObject({
+        signalDate: SIGNAL_DATE,
+        activeMasters: 3,
+        withFreshKisRow: 3,
+        withCompleteFeatures: 3,
+        gatePassed: 3,
+        picked: 3,
+      })
+      expect(events.find((event) => event.event === 'stock_picks_generated')).toMatchObject({
+        signalDate: SIGNAL_DATE,
+        strategy: 'volumeBreakoutNoGapUp',
+        picks: expect.arrayContaining([expect.objectContaining({ rank: 1 })]),
+      })
+      expect(result.meta.parametersHash).toMatch(/^[a-f0-9]{64}$/)
+    } finally {
+      logSpy.mockRestore()
+    }
+  })
+
+  it('writes a full stock-picks snapshot when configured', async () => {
+    const fixture = makeFixture()
+    const temporaryDirectory = await mkdtemp(join(tmpdir(), 'stock-picks-'))
+    const snapshotPath = join(temporaryDirectory, 'nested', 'snapshot.json')
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    vi.stubEnv('STOCK_PICKS_SNAPSHOT_PATH', snapshotPath)
+    vi.stubEnv('GITHUB_SHA', 'fixture-sha')
+
+    try {
+      const result = await generatePicksWithMeta({
+        todayKst: TODAY_KST,
+        dependencies: {
+          loadTradingDays: async () => new TradingDayIndex(fixture.dates),
+          loadPrices: async () => fixture.prices,
+          loadMasters: async () => fixture.masters,
+        },
+      })
+      const snapshot = JSON.parse(await readFile(snapshotPath, 'utf8'))
+
+      expect(snapshot).toMatchObject({
+        signalDate: SIGNAL_DATE,
+        gitSha: 'fixture-sha',
+        strategy: 'volumeBreakoutNoGapUp',
+        parametersHash: result.meta.parametersHash,
+        funnel: result.meta.funnel,
+      })
+      expect(snapshot.picks).toHaveLength(3)
+      expect(snapshot.picks[0]).toEqual(expect.objectContaining({
+        symbol: expect.any(String),
+        score: expect.any(Number),
+        rank: 1,
+      }))
+      expect(snapshot.topCandidates).toHaveLength(3)
+    } finally {
+      vi.unstubAllEnvs()
+      logSpy.mockRestore()
+      await rm(temporaryDirectory, { recursive: true, force: true })
+    }
   })
 })

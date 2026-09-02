@@ -9,17 +9,22 @@
 
 import { validateKisEnv } from '@/lib/_utils/env-validator';
 import { getTokenFromStorage, saveTokenToStorage } from './token-storage';
-import { checkRateLimit } from './rate-limiter';
 import type { KisToken, KisStockPrice, KisErrorResponse, KisConfig, BatchPriceResult } from './types';
 
 // 메모리 캐시
 const tokenCache: { token: KisToken | null } = { token: null };
+let tokenResolutionInFlight: Promise<KisTokenResolution> | null = null;
+let lastIssueAttemptAt = 0;
 
 // 환경 변수 캐시 (런타임에 로드)
 let configCache: KisConfig | null = null;
 
 /** KIS API 요청 타임아웃 (ms) */
 const FETCH_TIMEOUT_MS = 8_000;
+const TOKEN_SAFETY_MARGIN_MS = 5 * 60_000;
+const TOKEN_DEFAULT_TTL_MS = 23 * 60 * 60_000;
+const TOKEN_EXPIRY_RESPONSE_MARGIN_MS = 10 * 60_000;
+const TOKEN_ISSUE_COOLDOWN_MS = 61_000;
 
 /** 종목 간 요청 간격 (ms) — KIS API rate limit 방지 */
 const INTER_REQUEST_DELAY_MS = 100;
@@ -103,6 +108,72 @@ function parseKisError(data: unknown): string {
   return 'Unknown API error';
 }
 
+export type KisApiErrorKind = 'http' | 'api' | 'timeout' | 'parse' | 'rate_limit' | 'token';
+export type KisApiError = Error & {
+  readonly kind: KisApiErrorKind;
+  readonly status?: number;
+  readonly code?: string;
+};
+
+export function createKisApiError(
+  kind: KisApiErrorKind,
+  message: string,
+  meta: { readonly status?: number; readonly code?: string } = {}
+): KisApiError {
+  return Object.assign(new Error(message), { kind, ...meta });
+}
+
+export function getKisApiErrorKind(error: unknown): KisApiErrorKind | null {
+  if (!(error instanceof Error) || !('kind' in error)) return null;
+  const kind = error.kind;
+  return kind === 'http' || kind === 'api' || kind === 'timeout' || kind === 'parse'
+    || kind === 'rate_limit' || kind === 'token'
+    ? kind
+    : null;
+}
+
+interface KisTokenResolution {
+  readonly token: KisToken;
+  readonly source: 'memory' | 'storage' | 'issued';
+}
+
+interface KisTokenResponse extends KisErrorResponse {
+  readonly access_token?: unknown;
+  readonly access_token_token_expired?: unknown;
+  readonly error_code?: unknown;
+}
+
+function getKisErrorCode(data: unknown): string | undefined {
+  if (!data || typeof data !== 'object') return undefined;
+  const candidate = data as { readonly msg_cd?: unknown; readonly error_code?: unknown };
+  if (typeof candidate.error_code === 'string') return candidate.error_code;
+  return typeof candidate.msg_cd === 'string' ? candidate.msg_cd : undefined;
+}
+
+function parseKstTokenExpiry(value: unknown): number | null {
+  if (typeof value !== 'string') return null;
+  const match = value.match(/^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})$/);
+  if (!match) return null;
+  const [, year, month, day, hour, minute, second] = match;
+  const parsed = Date.UTC(
+    Number(year),
+    Number(month) - 1,
+    Number(day),
+    Number(hour) - 9,
+    Number(minute),
+    Number(second),
+  );
+  return Number.isFinite(parsed) ? parsed - TOKEN_EXPIRY_RESPONSE_MARGIN_MS : null;
+}
+
+function logTokenResolution(resolution: KisTokenResolution): void {
+  console.log(JSON.stringify({
+    event: 'kis_token',
+    source: resolution.source,
+    expiresInMin: Math.max(0, Math.floor((resolution.token.expires_at - Date.now()) / 60_000)),
+  }));
+}
+
 /**
  * KIS API를 통해 새 토큰 발급
  */
@@ -113,81 +184,144 @@ async function issueNewToken(): Promise<KisToken> {
     throw new Error('KIS API credentials not configured');
   }
 
-  const response = await fetch(`${config.KIS_BASE_URL}/oauth2/tokenP`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      grant_type: 'client_credentials',
-      appkey: config.KIS_APP_KEY,
-      appsecret: config.KIS_APP_SECRET,
-    }),
-  });
-
-  if (!response.ok) {
-    let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
-    try {
-      const errorData = await response.json();
-      errorMessage = parseKisError(errorData);
-      console.error('[KIS] Token request failed:', {
-        status: response.status,
-        statusText: response.statusText,
-        error: errorData,
-      });
-    } catch {
-      const errorText = await response.text();
-      console.error('[KIS] Token request failed:', {
-        status: response.status,
-        statusText: response.statusText,
-        body: errorText,
-      });
+  lastIssueAttemptAt = Date.now();
+  let response: Response;
+  try {
+    response = await fetchWithTimeout(`${config.KIS_BASE_URL}/oauth2/tokenP`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        grant_type: 'client_credentials',
+        appkey: config.KIS_APP_KEY,
+        appsecret: config.KIS_APP_SECRET,
+      }),
+    });
+  } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw createKisApiError('timeout', 'KIS token request timed out');
     }
-    throw new Error(`Failed to get access token: ${errorMessage}`);
+    throw createKisApiError(
+      'token',
+      `KIS token request failed: ${error instanceof Error ? error.message : String(error)}`,
+    );
   }
 
-  const data = await response.json();
+  let data: KisTokenResponse = {};
+  try {
+    const parsed: unknown = await response.json();
+    data = typeof parsed === 'object' && parsed !== null ? parsed as KisTokenResponse : {};
+  } catch (error) {
+    if (response.ok) {
+      throw createKisApiError(
+        'parse',
+        `KIS token response JSON parse failed: ${error instanceof Error ? error.message : String(error)}`,
+        { status: response.status },
+      );
+    }
+  }
 
-  if (!data.access_token) {
-    console.error('[KIS] Invalid token response:', data);
-    throw new Error('Invalid token response: missing access_token');
+  const responseCode = getKisErrorCode(data);
+  if (!response.ok || responseCode === 'EGW00133') {
+    throw createKisApiError(
+      'token',
+      `Failed to get access token: ${parseKisError(data)}`,
+      { status: response.status, code: responseCode },
+    );
+  }
+
+  if (typeof data.access_token !== 'string' || data.access_token.trim().length === 0) {
+    throw createKisApiError('token', 'Invalid token response: missing access_token');
   }
 
   const now = Date.now();
+  const responseExpiry = parseKstTokenExpiry(data.access_token_token_expired);
 
-  // 토큰 객체 생성 (유효기간 24시간, 안전을 위해 23시간으로 설정)
   return {
     access_token: data.access_token,
-    expires_at: now + 23 * 60 * 60 * 1000,
+    expires_at: responseExpiry ?? now + TOKEN_DEFAULT_TTL_MS,
   };
 }
 
-/**
- * 접근 토큰 발급 (2-tier 캐싱: 메모리 → Supabase)
- */
-async function getAccessToken(): Promise<string> {
+function isCooldownError(error: unknown): boolean {
+  return error instanceof Error
+    && ((error as Partial<KisApiError>).status === 403
+      || (error as Partial<KisApiError>).code === 'EGW00133');
+}
+
+async function issueTokenWithCooldownRetry(): Promise<KisToken> {
+  try {
+    return await issueNewToken();
+  } catch (error) {
+    if (!isCooldownError(error)) throw error;
+    const jitterMs = Math.floor(Math.random() * 1_001);
+    const waitMs = Math.max(0, lastIssueAttemptAt + TOKEN_ISSUE_COOLDOWN_MS + jitterMs - Date.now());
+    if (waitMs > 0) await delay(waitMs);
+    return issueNewToken();
+  }
+}
+
+async function resolveAccessToken(minRemainingMs: number): Promise<KisTokenResolution> {
   const now = Date.now();
-
-  // 1. 메모리 캐시 확인
-  if (tokenCache.token && tokenCache.token.expires_at > now) {
-    return tokenCache.token.access_token;
+  if (tokenCache.token && tokenCache.token.expires_at > now + minRemainingMs) {
+    return { token: tokenCache.token, source: 'memory' };
   }
 
-  // 2. Supabase에서 조회
   const storedToken = await getTokenFromStorage();
-  if (storedToken) {
-    tokenCache.token = storedToken;
-    return storedToken.access_token;
+  const bestCachedToken = [tokenCache.token, storedToken]
+    .filter((token): token is KisToken => token !== null)
+    .sort((left, right) => right.expires_at - left.expires_at)[0];
+  if (bestCachedToken && bestCachedToken.expires_at > now + minRemainingMs) {
+    tokenCache.token = bestCachedToken;
+    return { token: bestCachedToken, source: 'storage' };
   }
 
-  // 3. 새 토큰 발급
-  checkRateLimit('token');
-  const newToken = await issueNewToken();
+  const token = await issueTokenWithCooldownRetry();
+  tokenCache.token = token;
+  await saveTokenToStorage(token);
+  return { token, source: 'issued' };
+}
 
-  tokenCache.token = newToken;
-  saveTokenToStorage(newToken).catch(() => {});
+async function getTokenResolution(minRemainingMs: number): Promise<KisTokenResolution> {
+  if (!tokenResolutionInFlight) {
+    tokenResolutionInFlight = resolveAccessToken(minRemainingMs)
+      .then((resolution) => {
+        logTokenResolution(resolution);
+        return resolution;
+      })
+      .finally(() => {
+        tokenResolutionInFlight = null;
+      });
+  }
+  const resolution = await tokenResolutionInFlight;
+  if (resolution.source !== 'issued' && resolution.token.expires_at <= Date.now() + minRemainingMs) {
+    return getTokenResolution(minRemainingMs);
+  }
+  return resolution;
+}
 
-  return newToken.access_token;
+export async function getKisAccessToken(): Promise<string> {
+  return (await getTokenResolution(TOKEN_SAFETY_MARGIN_MS)).token.access_token;
+}
+
+const getAccessToken = getKisAccessToken;
+
+export async function ensureKisAccessToken(input: {
+  readonly minRemainingMs: number;
+}): Promise<{ readonly source: KisTokenResolution['source']; readonly expiresAt: number }> {
+  if (!Number.isFinite(input.minRemainingMs) || input.minRemainingMs < 0) {
+    throw new Error(`minRemainingMs must be a non-negative number: ${input.minRemainingMs}`);
+  }
+  const resolution = await getTokenResolution(Math.max(TOKEN_SAFETY_MARGIN_MS, input.minRemainingMs));
+  return { source: resolution.source, expiresAt: resolution.token.expires_at };
+}
+
+export function resetKisClientCacheForTest(): void {
+  tokenCache.token = null;
+  tokenResolutionInFlight = null;
+  lastIssueAttemptAt = 0;
+  configCache = null;
 }
 
 /**
@@ -435,37 +569,7 @@ export async function getDailyRangeClosePrices(
   endDate: string
 ): Promise<KisDailyRangePricePoint[]> {
   try {
-    const config = getKisConfig();
-    const token = await getAccessToken();
-
-    const params = new URLSearchParams({
-      FID_COND_MRKT_DIV_CODE: 'J',
-      FID_INPUT_ISCD: cleanTicker(ticker),
-      FID_INPUT_DATE_1: startDate,
-      FID_INPUT_DATE_2: endDate,
-      FID_PERIOD_DIV_CODE: 'D',
-      FID_ORG_ADJ_PRC: '0',
-    });
-
-    const res = await fetchWithTimeout(
-      `${config.KIS_BASE_URL}/uapi/domestic-stock/v1/quotations/inquire-daily-itemchartprice?${params}`,
-      {
-        headers: {
-          'Content-Type': 'application/json',
-          authorization: `Bearer ${token}`,
-          appkey: config.KIS_APP_KEY,
-          appsecret: config.KIS_APP_SECRET,
-          tr_id: 'FHKST03010100',
-        },
-      }
-    );
-
-    const data = await res.json();
-    if (!res.ok || data.rt_cd !== '0' || !Array.isArray(data.output2)) return [];
-
-    return data.output2
-      .map((row: Record<string, string>) => parseRangePriceRow(row, 'stck_clpr', (v) => parseInt(v, 10)))
-      .filter((point: KisDailyRangePricePoint | null): point is KisDailyRangePricePoint => point !== null);
+    return await fetchDailyRangePriceRows(ticker, startDate, endDate);
   } catch {
     return [];
   }
@@ -483,39 +587,157 @@ export async function getIndexDailyRangeClosePrices(
   endDate: string
 ): Promise<KisDailyRangePricePoint[]> {
   try {
-    const config = getKisConfig();
-    const token = await getAccessToken();
-
-    const params = new URLSearchParams({
-      FID_COND_MRKT_DIV_CODE: 'U',
-      FID_INPUT_ISCD: indexCode,
-      FID_INPUT_DATE_1: startDate,
-      FID_INPUT_DATE_2: endDate,
-      FID_PERIOD_DIV_CODE: 'D',
-    });
-
-    const res = await fetchWithTimeout(
-      `${config.KIS_BASE_URL}/uapi/domestic-stock/v1/quotations/inquire-daily-indexchartprice?${params}`,
-      {
-        headers: {
-          'Content-Type': 'application/json',
-          authorization: `Bearer ${token}`,
-          appkey: config.KIS_APP_KEY,
-          appsecret: config.KIS_APP_SECRET,
-          tr_id: 'FHKUP03500100',
-        },
-      }
-    );
-
-    const data = await res.json();
-    if (!res.ok || data.rt_cd !== '0' || !Array.isArray(data.output2)) return [];
-
-    return data.output2
-      .map((row: Record<string, string>) => parseRangePriceRow(row, 'bstp_nmix_prpr', (v) => parseFloat(v)))
-      .filter((point: KisDailyRangePricePoint | null): point is KisDailyRangePricePoint => point !== null);
+    return await fetchIndexDailyRangePriceRows(indexCode, startDate, endDate);
   } catch {
     return [];
   }
+}
+
+interface KisRangeResponse extends KisErrorResponse {
+  readonly error_code?: string;
+  readonly output2?: unknown;
+}
+
+async function fetchRangePriceRows(input: {
+  readonly code: string;
+  readonly startDate: string;
+  readonly endDate: string;
+  readonly marketCode: 'J' | 'U';
+  readonly path: string;
+  readonly trId: string;
+  readonly closeField: string;
+  readonly parseClose: (value: string) => number;
+  readonly adjusted: boolean;
+}): Promise<KisDailyRangePricePoint[]> {
+  const config = getKisConfig();
+  const token = await getAccessToken();
+  const params = new URLSearchParams({
+    FID_COND_MRKT_DIV_CODE: input.marketCode,
+    FID_INPUT_ISCD: input.code,
+    FID_INPUT_DATE_1: input.startDate,
+    FID_INPUT_DATE_2: input.endDate,
+    FID_PERIOD_DIV_CODE: 'D',
+    ...(input.adjusted ? { FID_ORG_ADJ_PRC: '0' } : {}),
+  });
+
+  let response: Response;
+  try {
+    response = await fetchWithTimeout(`${config.KIS_BASE_URL}${input.path}?${params}`, {
+      headers: {
+        'Content-Type': 'application/json',
+        authorization: `Bearer ${token}`,
+        appkey: config.KIS_APP_KEY,
+        appsecret: config.KIS_APP_SECRET,
+        tr_id: input.trId,
+      },
+    });
+  } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw createKisApiError('timeout', `KIS daily range request timed out: ${input.code}`);
+    }
+    if (getKisApiErrorKind(error)) throw error;
+    throw createKisApiError(
+      'http',
+      `KIS daily range request failed: ${error instanceof Error ? error.message : String(error)}`,
+    );
+  }
+
+  let data: KisRangeResponse;
+  try {
+    data = await response.json() as KisRangeResponse;
+  } catch (error) {
+    if (response.status === 429) {
+      throw createKisApiError('rate_limit', `KIS daily range rate limited: ${input.code}`, {
+        status: response.status,
+      });
+    }
+    if (response.status === 401 || response.status === 403) {
+      throw createKisApiError('token', `KIS daily range token rejected: ${input.code}`, {
+        status: response.status,
+      });
+    }
+    if (!response.ok) {
+      throw createKisApiError('http', `KIS daily range HTTP ${response.status}: ${input.code}`, {
+        status: response.status,
+      });
+    }
+    throw createKisApiError(
+      'parse',
+      `KIS daily range JSON parse failed: ${error instanceof Error ? error.message : String(error)}`,
+      { status: response.status },
+    );
+  }
+  if (!data || typeof data !== 'object') {
+    throw createKisApiError('parse', `KIS daily range response is not an object: ${input.code}`, {
+      status: response.status,
+    });
+  }
+  const code = getKisErrorCode(data);
+  if (response.status === 429 || code === 'EGW00201') {
+    throw createKisApiError('rate_limit', `KIS daily range rate limited: ${input.code}`, {
+      status: response.status,
+      code,
+    });
+  }
+  if (response.status === 401 || response.status === 403 || code === 'EGW00133') {
+    throw createKisApiError('token', `KIS daily range token rejected: ${input.code}`, {
+      status: response.status,
+      code,
+    });
+  }
+  if (!response.ok) {
+    throw createKisApiError('http', `KIS daily range HTTP ${response.status}: ${input.code}`, {
+      status: response.status,
+      code,
+    });
+  }
+  if (data.rt_cd !== '0') {
+    throw createKisApiError('api', `KIS daily range API error: ${parseKisError(data)}`, { code });
+  }
+  if (!Array.isArray(data.output2)) {
+    throw createKisApiError('parse', `KIS daily range output2 is not an array: ${input.code}`);
+  }
+
+  return data.output2
+    .filter((row): row is Record<string, string> => typeof row === 'object' && row !== null)
+    .map((row) => parseRangePriceRow(row, input.closeField, input.parseClose))
+    .filter((point): point is KisDailyRangePricePoint => point !== null);
+}
+
+export async function fetchDailyRangePriceRows(
+  ticker: string,
+  startKisDate: string,
+  endKisDate: string,
+): Promise<KisDailyRangePricePoint[]> {
+  return fetchRangePriceRows({
+    code: cleanTicker(ticker),
+    startDate: startKisDate,
+    endDate: endKisDate,
+    marketCode: 'J',
+    path: '/uapi/domestic-stock/v1/quotations/inquire-daily-itemchartprice',
+    trId: 'FHKST03010100',
+    closeField: 'stck_clpr',
+    parseClose: (value) => Number.parseInt(value, 10),
+    adjusted: true,
+  });
+}
+
+export async function fetchIndexDailyRangePriceRows(
+  indexCode: string,
+  startKisDate: string,
+  endKisDate: string,
+): Promise<KisDailyRangePricePoint[]> {
+  return fetchRangePriceRows({
+    code: indexCode,
+    startDate: startKisDate,
+    endDate: endKisDate,
+    marketCode: 'U',
+    path: '/uapi/domestic-stock/v1/quotations/inquire-daily-indexchartprice',
+    trId: 'FHKUP03500100',
+    closeField: 'bstp_nmix_prpr',
+    parseClose: (value) => Number.parseFloat(value),
+    adjusted: false,
+  });
 }
 
 /**

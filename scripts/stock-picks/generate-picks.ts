@@ -1,8 +1,12 @@
+import { createHash } from 'node:crypto'
+import { mkdir, writeFile } from 'node:fs/promises'
+import { dirname } from 'node:path'
+
+import { KOREAN_MARKET_HOLIDAYS_BY_YEAR } from '@/app/archive/_utils/market/_constants/holidays'
 import type { StockData, StockSignals } from '@/lib/llm/_types/stock-data'
 import { validateStockData } from '@/lib/llm/korea/stock-json'
 import { getKSTDateString } from '@/lib/tli/date-utils'
 import { addKoreanTradingDays } from '@/lib/tli/trading-calendar'
-import { KOREAN_MARKET_HOLIDAYS_BY_YEAR } from '@/app/archive/_utils/market/_constants/holidays'
 import {
   getRawPrice,
   loadPriceBook,
@@ -16,6 +20,7 @@ import {
   type VolumeBreakoutParameters,
 } from '@/scripts/stock-picks/strategies'
 import {
+  findMissingTradingDays,
   loadTradingDayIndex,
   type TradingDayIndex,
 } from '@/scripts/stock-picks/trading-days'
@@ -27,7 +32,7 @@ const REQUIRED_PICK_COUNT = 3
 /**
  * optimize-v3(2026-08-28, 공급 하한 반영)의 volumeBreakoutNoGapUp 최빈 fold 선택값.
  * 전체 walk-forward OOS precision@3 = 43.0% (99/230), 고유 티커 214·최다 0.8%.
- * excludeGapUp: 갭상승 종목은 익일 시가가 이미 높아 +10% 여지가 소진 — 제외가 실측 우위.
+ * excludeGapUp: 신호일 시가가 전일 종가보다 높은 종목을 제외한 구성이 실측 우위다.
  * 조용한 장에선 후보가 마르며(후보<3 throw) prepare가 LLM fallback으로 처리한다 — 의도된 abstain.
  */
 export const PRODUCTION_VOLUME_BREAKOUT_PARAMETERS: VolumeBreakoutParameters = {
@@ -52,6 +57,35 @@ export interface GeneratePicksDependencies {
   readonly loadTradingDays?: LoadTradingDays
   readonly loadPrices?: LoadPrices
   readonly loadMasters?: LoadMasters
+}
+
+export interface StockPicksFunnel {
+  readonly signalDate: string
+  readonly activeMasters: number
+  readonly withFreshKisRow: number
+  readonly withCompleteFeatures: number
+  readonly gatePassed: number
+  readonly picked: number
+}
+
+export interface RankedStockFeature extends StockFeatureVector {
+  readonly score: number
+  readonly rank: number
+}
+
+export interface GeneratePicksMeta {
+  readonly signalDate: string
+  readonly strategy: 'volumeBreakoutNoGapUp'
+  readonly parameters: VolumeBreakoutParameters
+  readonly parametersHash: string
+  readonly funnel: StockPicksFunnel
+  readonly rankedCandidates: readonly RankedStockFeature[]
+}
+
+export interface GeneratePicksResult {
+  readonly json: string
+  readonly picks: readonly StockData[]
+  readonly meta: GeneratePicksMeta
 }
 
 export async function loadStockPickMasters(): Promise<StockPickMaster[]> {
@@ -239,10 +273,10 @@ export function buildRationale(feature: StockFeatureVector, strategyScore: numbe
   ].join('|')
 }
 
-export async function generatePicks(input: {
+export async function generatePicksWithMeta(input: {
   readonly todayKst?: string
   readonly dependencies?: GeneratePicksDependencies
-} = {}): Promise<string> {
+} = {}): Promise<GeneratePicksResult> {
   const todayKst = input.todayKst ?? getKSTDateString()
   const loadTradingDays = input.dependencies?.loadTradingDays ?? loadTradingDayIndex
   const loadPrices = input.dependencies?.loadPrices ?? loadPriceBook
@@ -267,6 +301,12 @@ export async function generatePicks(input: {
   if (!startDate || historyDates.length < PRICE_HISTORY_TRADING_DAYS) {
     throw new Error(`피처 계산용 거래일 부족: ${historyDates.length}/${PRICE_HISTORY_TRADING_DAYS}`)
   }
+  const missingTradingDays = findMissingTradingDays(tradingDays, startDate, signalDate)
+  if (missingTradingDays.length > 0) {
+    console.warn(
+      `⚠️ 320거래일 피처 창의 캘린더 거래일 누락: count=${missingTradingDays.length}`,
+    )
+  }
 
   const [prices, masters] = await Promise.all([
     loadPrices({ startDate, endDate: signalDate }),
@@ -288,14 +328,15 @@ export async function generatePicks(input: {
     return feature && hasCalculatedOutputMetrics(feature) ? [feature] : []
   })
   const featuresBySymbol = new Map(features.map((feature) => [feature.symbol, feature]))
-  const ranked = rankStrategyCandidates({
-    name: 'volumeBreakout',
+  const rankedCandidates = rankStrategyCandidates({
+    name: 'volumeBreakoutNoGapUp',
     features,
     masters: mastersBySymbol,
     parameters: PRODUCTION_VOLUME_BREAKOUT_PARAMETERS,
     mode: 'force3',
-    pickCount: REQUIRED_PICK_COUNT,
+    pickCount: features.length,
   })
+  const ranked = rankedCandidates.slice(0, REQUIRED_PICK_COUNT)
   if (ranked.length !== REQUIRED_PICK_COUNT) {
     throw new Error(`volumeBreakout 후보 부족: ${ranked.length}/${REQUIRED_PICK_COUNT}`)
   }
@@ -316,7 +357,86 @@ export async function generatePicks(input: {
   })
 
   if (!validateStockData(picks)) throw new Error('코드 픽이 StockDataArray 호환 계약을 통과하지 못했습니다')
-  return JSON.stringify(picks)
+
+  const parametersHash = createHash('sha256')
+    .update(JSON.stringify(PRODUCTION_VOLUME_BREAKOUT_PARAMETERS))
+    .digest('hex')
+  const rankedFeatures: RankedStockFeature[] = rankedCandidates.flatMap(({ symbol, score }, index) => {
+    const feature = featuresBySymbol.get(symbol)
+    return feature ? [{ ...feature, score, rank: index + 1 }] : []
+  })
+  const funnel: StockPicksFunnel = {
+    signalDate,
+    activeMasters: masters.filter((master) => master.is_active).length,
+    withFreshKisRow: eligibleMasters.length,
+    withCompleteFeatures: features.length,
+    gatePassed: rankedCandidates.length,
+    picked: picks.length,
+  }
+  console.log(JSON.stringify({ event: 'stock_picks_funnel', ...funnel }))
+
+  const toObservableCandidate = (candidate: RankedStockFeature) => {
+    const master = mastersBySymbol.get(candidate.symbol)
+    return {
+      rank: candidate.rank,
+      ticker: candidate.symbol,
+      name: master?.name ?? candidate.symbol,
+      close: candidate.close,
+      score: candidate.score,
+      volumePercentile60: candidate.volumePercentile60,
+      distanceFromHigh60: candidate.distanceFromHigh60,
+      atrPercent14: candidate.atrPercent14,
+      averageTurnover20: candidate.averageTurnover20,
+      rsi14: candidate.rsi14,
+      gapFromPreviousClosePercent: candidate.gapFromPreviousClosePercent,
+    }
+  }
+  console.log(JSON.stringify({
+    event: 'stock_picks_generated',
+    signalDate,
+    strategy: 'volumeBreakoutNoGapUp',
+    parameters: PRODUCTION_VOLUME_BREAKOUT_PARAMETERS,
+    parametersHash,
+    picks: rankedFeatures.slice(0, REQUIRED_PICK_COUNT).map(toObservableCandidate),
+    topCandidates: rankedFeatures.slice(0, 20).map(toObservableCandidate),
+  }))
+
+  const snapshotPath = process.env.STOCK_PICKS_SNAPSHOT_PATH
+  if (snapshotPath) {
+    await mkdir(dirname(snapshotPath), { recursive: true })
+    await writeFile(snapshotPath, `${JSON.stringify({
+      signalDate,
+      generatedAt: new Date().toISOString(),
+      gitSha: process.env.GITHUB_SHA ?? null,
+      strategy: 'volumeBreakoutNoGapUp',
+      parameters: PRODUCTION_VOLUME_BREAKOUT_PARAMETERS,
+      parametersHash,
+      funnel,
+      picks: rankedFeatures.slice(0, REQUIRED_PICK_COUNT),
+      topCandidates: rankedFeatures.slice(0, 20),
+    }, null, 2)}\n`, 'utf8')
+  }
+
+  const json = JSON.stringify(picks)
+  return {
+    json,
+    picks,
+    meta: {
+      signalDate,
+      strategy: 'volumeBreakoutNoGapUp',
+      parameters: PRODUCTION_VOLUME_BREAKOUT_PARAMETERS,
+      parametersHash,
+      funnel,
+      rankedCandidates: rankedFeatures,
+    },
+  }
+}
+
+export async function generatePicks(input: {
+  readonly todayKst?: string
+  readonly dependencies?: GeneratePicksDependencies
+} = {}): Promise<string> {
+  return (await generatePicksWithMeta(input)).json
 }
 
 const isDirectRun = /generate-picks\.(?:ts|js)$/.test(process.argv[1] ?? '')

@@ -4,6 +4,7 @@ import {
   calculateCrashScore,
   classifyDirectionCoherence,
   evaluateMarketAssessmentSnapshot,
+  formatMarketAssessmentSnapshot,
   getKisMarketAssessmentSnapshot,
   getRegimeMultiplier,
   getVixRegime,
@@ -655,6 +656,28 @@ describe('kis-market-assessment', () => {
     expect(evidence.tier1Signals).toContain('2 available US indexes <= -2.5%');
     expect(warnSpy).toHaveBeenCalledWith(
       expect.stringContaining('Dow Jones Serp 수집 실패, unavailable로 처리')
+    );
+  });
+
+  it('opens the Serp quota circuit and skips all later Serp and event-signal requests', async () => {
+    const fetchMock = createMinimalSnapshotFetchMock({
+      dowSerpPayload: { error: 'You have run out of searches for this month.' },
+    });
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    vi.stubGlobal('fetch', fetchMock);
+
+    const snapshot = await getKisMarketAssessmentSnapshot();
+    const requestedUrls = fetchMock.mock.calls.map(([input]) => new URL(String(input)));
+
+    expect(requestedUrls.filter((url) => url.hostname === 'serpapi.com')).toHaveLength(1);
+    expect(requestedUrls.filter((url) => url.hostname === 'openapi.naver.com')).toHaveLength(0);
+    expect(Object.values(snapshot.events)).toHaveLength(5);
+    expect(Object.values(snapshot.events).every((event) => (
+      event.detected === false && event.evidence.length === 0
+    ))).toBe(true);
+    expect(snapshot.degradedSources).toEqual(['serpapi: quota exhausted']);
+    expect(formatMarketAssessmentSnapshot(snapshot)).toContain(
+      '- Degraded sources: serpapi: quota exhausted'
     );
   });
 

@@ -1,6 +1,8 @@
-import sgMail from '@sendgrid/mail'
-
 import { isKoreanTradingDate } from '@/lib/tli/trading-calendar'
+import {
+  DEFAULT_NEWSLETTER_ALERT_EMAIL,
+  sendNewsletterAlertEmail,
+} from '@/lib/newsletter/alert'
 import {
   getNewsletterStatus,
   type NewsletterStatusRow,
@@ -8,7 +10,7 @@ import {
 
 export { type NewsletterStatusRow } from '@/lib/newsletter/status'
 
-export const DEFAULT_NEWSLETTER_ALERT_EMAIL = 'wonil@mdbtech.co.kr'
+export { DEFAULT_NEWSLETTER_ALERT_EMAIL } from '@/lib/newsletter/alert'
 
 const DEFAULT_ACTIONS_URL =
   'https://github.com/MongLong0214/stock-ai-newsletter/actions/workflows/daily-newsletter.yml'
@@ -49,16 +51,6 @@ function getActionsUrl(env: WatchdogEnvironment): string {
   return DEFAULT_ACTIONS_URL
 }
 
-async function sendAlertEmail(email: NewsletterAlertEmail): Promise<void> {
-  sgMail.setApiKey(email.apiKey)
-  await sgMail.send({
-    to: email.to,
-    from: email.from,
-    subject: email.subject,
-    text: email.text,
-  })
-}
-
 async function reportFatal(input: {
   readonly date: string
   readonly reason: string
@@ -96,8 +88,17 @@ async function reportFatal(input: {
   }
 
   try {
-    await (input.dependencies.sendAlertEmail ?? sendAlertEmail)(email)
-    logger.log(`📨 발송 누락 알림 메일 전송 완료: ${to}`)
+    let delivered = true
+    if (input.dependencies.sendAlertEmail) {
+      await input.dependencies.sendAlertEmail(email)
+    } else {
+      delivered = await sendNewsletterAlertEmail({
+        subject: email.subject,
+        lines: email.text.split('\n'),
+        env,
+      })
+    }
+    if (delivered) logger.log(`📨 발송 누락 알림 메일 전송 완료: ${to}`)
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
     logger.error(`알림 메일 전송 실패: ${message}`)

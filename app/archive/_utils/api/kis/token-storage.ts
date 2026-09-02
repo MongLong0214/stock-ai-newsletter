@@ -6,25 +6,29 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import type { Database, KisToken, KisTokenRow, KisTokenInsert } from './types';
 
 const TOKEN_ID = 'kis_access_token';
+const TOKEN_SAFETY_MARGIN_MS = 5 * 60_000;
 
 let supabaseClient: SupabaseClient<Database> | null = null;
 
 /**
  * Supabase 클라이언트 초기화 (lazy initialization)
  */
-function getSupabase(): SupabaseClient<Database> {
+function hasSupabaseConfig(): boolean {
+  return Boolean(
+    process.env.NEXT_PUBLIC_SUPABASE_URL
+    && (process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY),
+  );
+}
+
+function getSupabase(): SupabaseClient<Database> | null {
+  if (!hasSupabaseConfig()) return null;
   if (!supabaseClient) {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     // kis_tokens는 RLS로 service_role 전용. 서버(API 라우트)에서만 실행되므로 service_role 우선.
     const supabaseKey =
       process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-    if (!supabaseUrl || !supabaseKey) {
-      throw new Error(
-        'Supabase credentials not configured. ' +
-          'Please set NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY environment variables.'
-      );
-    }
+    if (!supabaseUrl || !supabaseKey) return null;
 
     supabaseClient = createClient<Database>(supabaseUrl, supabaseKey);
   }
@@ -37,11 +41,17 @@ function getSupabase(): SupabaseClient<Database> {
 export async function getTokenFromStorage(): Promise<KisToken | null> {
   try {
     const supabase = getSupabase();
-    const { data: tokenData } = await supabase
+    if (!supabase) return null;
+    const { data: tokenData, error } = await supabase
       .from('kis_tokens')
       .select('*')
       .eq('id', TOKEN_ID)
       .single();
+
+    if (error) {
+      console.error('[KIS Token Storage] Failed to get token from Supabase:', error);
+      return null;
+    }
 
     if (!tokenData) {
       return null;
@@ -51,7 +61,7 @@ export async function getTokenFromStorage(): Promise<KisToken | null> {
     const now = Date.now();
 
     // 토큰이 만료되었으면 null 반환
-    if (row.expires_at <= now) {
+    if (row.expires_at <= now + TOKEN_SAFETY_MARGIN_MS) {
       return null;
     }
 
@@ -72,14 +82,22 @@ export async function getTokenFromStorage(): Promise<KisToken | null> {
 export async function saveTokenToStorage(token: KisToken): Promise<void> {
   try {
     const supabase = getSupabase();
+    if (!supabase) return;
     const tokenRow: KisTokenInsert = {
       id: TOKEN_ID,
       access_token: token.access_token,
       expires_at: token.expires_at,
       updated_at: new Date().toISOString(),
     };
-    await supabase.from('kis_tokens').upsert(tokenRow);
+    const { error } = await supabase.from('kis_tokens').upsert(tokenRow);
+    if (error) {
+      console.error('[KIS Token Storage] upsert failed:', error.message);
+    }
   } catch (error) {
     console.error('[KIS Token Storage] Failed to save token to Supabase:', error);
   }
+}
+
+export function resetKisTokenStorageForTest(): void {
+  supabaseClient = null;
 }

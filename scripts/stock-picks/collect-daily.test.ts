@@ -5,6 +5,7 @@ import {
   DAILY_COLLECTION_TRADING_DAYS,
   DEFAULT_DAILY_COLLECTION_CALL_BUDGET,
   DEFAULT_DAILY_COLLECTION_DEADLINE_MS,
+  getStockPicksKisRateLimitPerSecond,
 } from '@/scripts/stock-picks/collect-daily'
 import { KIS_DAILY_PRICE_RATE_LIMIT_PER_SECOND } from '@/scripts/tli/prices/kis-daily-price-collector'
 
@@ -22,6 +23,14 @@ describe('daily stock price collection', () => {
       persistedRows: 14,
       successRate: 2 / 3,
       dateCoverageRate: 1,
+      droppedNotFinalizedRows: 0,
+      droppedPhantomRows: 0,
+      indexFailed: false,
+      retriedSymbols: [],
+      recoveredSymbols: [],
+      failureKinds: { empty: 1 },
+      exactDateSuccessCount: 2,
+      exactDateCoverageRate: 2 / 3,
     }))
     const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
     const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
@@ -39,6 +48,7 @@ describe('daily stock price collection', () => {
         callBudget: DEFAULT_DAILY_COLLECTION_CALL_BUDGET,
         rateLimitPerSecond: KIS_DAILY_PRICE_RATE_LIMIT_PER_SECOND,
         deadlineMs: DEFAULT_DAILY_COLLECTION_DEADLINE_MS,
+        finalizedThroughDate: '2026-08-28',
       })
       expect(report).toMatchObject({
         endDate: '2026-08-28',
@@ -49,5 +59,21 @@ describe('daily stock price collection', () => {
       consoleErrorSpy.mockRestore()
       consoleLogSpy.mockRestore()
     }
+  })
+
+  it('uses the stock-picks-specific rate when it is a valid integer', () => {
+    expect(getStockPicksKisRateLimitPerSecond({
+      STOCK_PICKS_KIS_RATE_LIMIT_PER_SECOND: '7',
+    })).toBe(7)
+  })
+
+  it.each(['0', '11', '1.5', 'fast'])('rejects an invalid stock-picks-specific rate: %s', (value) => {
+    expect(() => getStockPicksKisRateLimitPerSecond({
+      STOCK_PICKS_KIS_RATE_LIMIT_PER_SECOND: value,
+    })).toThrow('1..10')
+  })
+
+  it('uses the shared default when no stock-picks-specific rate is configured', () => {
+    expect(getStockPicksKisRateLimitPerSecond({})).toBe(KIS_DAILY_PRICE_RATE_LIMIT_PER_SECOND)
   })
 })

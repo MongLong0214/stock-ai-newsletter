@@ -1,316 +1,381 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { mkdtemp, readFile, rm } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
+  alert: vi.fn(),
   assessMarket: vi.fn(),
   collectDaily: vi.fn(),
   createClient: vi.fn(),
+  ensureToken: vi.fn(),
   generateCodePicks: vi.fn(),
   getLlmAnalysis: vi.fn(),
   refreshStockMaster: vi.fn(),
 }))
 
 vi.mock('@supabase/supabase-js', () => ({ createClient: mocks.createClient }))
+vi.mock('@/app/archive/_utils/api/kis/client', () => ({ ensureKisAccessToken: mocks.ensureToken }))
 vi.mock('@/lib/llm/korea/gemini-pipeline', () => ({ executeMarketAssessment: mocks.assessMarket }))
 vi.mock('@/lib/llm/stock-analysis', () => ({ getStockAnalysis: mocks.getLlmAnalysis }))
+vi.mock('@/lib/newsletter/alert', () => ({ sendNewsletterAlertEmail: mocks.alert }))
 vi.mock('@/scripts/stock-picks/collect-daily', () => ({ collectDailyStockPrices: mocks.collectDaily }))
-vi.mock('@/scripts/stock-picks/generate-picks', () => ({ generatePicks: mocks.generateCodePicks }))
+vi.mock('@/scripts/stock-picks/generate-picks', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/scripts/stock-picks/generate-picks')>()
+  return { ...actual, generatePicksWithMeta: mocks.generateCodePicks }
+})
 vi.mock('@/scripts/stock-picks/load-stock-master', () => ({ loadStockMaster: mocks.refreshStockMaster }))
 
-import { prepareNewsletter, resolveNewsletterAnalysis } from '@/scripts/prepare-newsletter'
+import {
+  parsePrepareNewsletterCliArgs,
+  prepareNewsletter,
+  resolveNewsletterAnalysis,
+  runPrepareNewsletterCli,
+} from '@/scripts/prepare-newsletter'
 
+const TARGET_DATE = '2026-09-02'
+const SIGNAL_DATE = '2026-09-01'
 const NORMAL_ASSESSMENT = {
   verdict: 'NORMAL' as const,
   confidence: 90,
   summary: '정상 시장 fixture',
 }
-const HEALTHY_COLLECTION = { successRate: 1, skippedForBudget: 0 }
+const HEALTHY_COLLECTION = {
+  successRate: 1,
+  skippedForBudget: 0,
+  exactDateCoverageRate: 1,
+  attemptedCalls: 3,
+  successCount: 3,
+  failureCount: 0,
+  indexFailed: false,
+  retriedSymbols: [],
+  recoveredSymbols: [],
+  persistedRows: 21,
+}
+const CODE_PICKS = JSON.stringify([
+  { ticker: 'KOSPI:000001', name: '테스트1', close_price: 1000 },
+  { ticker: 'KOSPI:000002', name: '테스트2', close_price: 2000 },
+  { ticker: 'KOSPI:000003', name: '테스트3', close_price: 3000 },
+])
 
-const mockNewsletterClient = (existingNewsletter: {
+const GENERATED_RESULT = {
+  json: CODE_PICKS,
+  picks: JSON.parse(CODE_PICKS),
+  meta: {
+    signalDate: SIGNAL_DATE,
+    strategy: 'volumeBreakoutNoGapUp',
+    parameters: {},
+    parametersHash: 'fixture-hash',
+    funnel: {
+      signalDate: SIGNAL_DATE,
+      activeMasters: 4,
+      withFreshKisRow: 4,
+      withCompleteFeatures: 4,
+      gatePassed: 4,
+      picked: 3,
+    },
+    rankedCandidates: [
+      { symbol: 'KOSPI:000001', score: 91 },
+      { symbol: 'KOSPI:000002', score: 87 },
+      { symbol: 'KOSPI:000003', score: 83 },
+      { symbol: 'KOSPI:000004', score: 80 },
+    ],
+  },
+}
+
+interface NewsletterRow {
   readonly is_sent: boolean
   readonly picks_source: 'code' | 'llm_fallback' | 'crash' | null
-} | null) => {
-  const maybeSingle = vi.fn(async () => ({ data: existingNewsletter, error: null }))
-  const eq = vi.fn(() => ({ maybeSingle }))
-  const lookupSelect = vi.fn(() => ({ eq }))
-  const writeSelect = vi.fn(async () => ({ error: null }))
-  const upsert = vi.fn(() => ({ select: writeSelect }))
-  const from = vi.fn(() => ({ select: lookupSelect, upsert }))
-  mocks.createClient.mockReturnValue({ from })
-  return { from, lookupSelect, upsert, writeSelect }
 }
 
-const mockSuccessfulCodePipeline = () => {
-  mocks.assessMarket.mockResolvedValue(NORMAL_ASSESSMENT)
-  mocks.refreshStockMaster.mockResolvedValue(undefined)
-  mocks.collectDaily.mockResolvedValue(HEALTHY_COLLECTION)
-  mocks.generateCodePicks.mockResolvedValue('[{"source":"code"}]')
+const mockNewsletterClient = (input: {
+  readonly reads: Array<NewsletterRow | null>
+  readonly updateData?: readonly { readonly newsletter_date: string }[]
+  readonly updateError?: { readonly message: string; readonly code?: string } | null
+  readonly insertError?: { readonly message: string; readonly code?: string } | null
+}) => {
+  const reads = [...input.reads]
+  const maybeSingle = vi.fn(async () => ({ data: reads.shift() ?? null, error: null }))
+  const readEq = vi.fn(() => ({ maybeSingle }))
+  const select = vi.fn(() => ({ eq: readEq }))
+  const updateSelect = vi.fn(async () => ({
+    data: input.updateData ?? [{ newsletter_date: TARGET_DATE }],
+    error: input.updateError ?? null,
+  }))
+  const updateBuilder = {
+    eq: vi.fn(),
+    select: updateSelect,
+  }
+  updateBuilder.eq.mockReturnValue(updateBuilder)
+  const update = vi.fn(() => updateBuilder)
+  const insertSelect = vi.fn(async () => ({ error: input.insertError ?? null }))
+  const insert = vi.fn(() => ({ select: insertSelect }))
+  const from = vi.fn(() => ({ insert, select, update }))
+  mocks.createClient.mockReturnValue({ from })
+  return { from, insert, insertSelect, update, updateSelect }
 }
+
+const findSummary = (logSpy: ReturnType<typeof vi.spyOn>) => logSpy.mock.calls
+  .map(([line]) => String(line))
+  .filter((line) => line.startsWith('{'))
+  .map((line) => JSON.parse(line))
+  .find((value) => value.event === 'prepare_run_summary')
 
 describe('prepare-newsletter stock-pick wiring', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mocks.alert.mockResolvedValue(undefined)
+    mocks.assessMarket.mockResolvedValue(NORMAL_ASSESSMENT)
+    mocks.collectDaily.mockResolvedValue(HEALTHY_COLLECTION)
+    mocks.ensureToken.mockResolvedValue({ source: 'issued', expiresAt: Date.now() + 60_000 })
+    mocks.generateCodePicks.mockResolvedValue(GENERATED_RESULT)
+    mocks.getLlmAnalysis.mockResolvedValue({ geminiAnalysis: '[{"fallback":true}]' })
+    mocks.refreshStockMaster.mockResolvedValue(undefined)
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+    vi.unstubAllEnvs()
   })
 
   it('uses the legacy LLM analysis when code pick generation fails', async () => {
-    const collectDaily = vi.fn(async () => HEALTHY_COLLECTION)
     const generateCodePicks = vi.fn(async () => {
       throw new Error('synthetic code-pick failure')
     })
     const getLlmAnalysis = vi.fn(async () => ({ geminiAnalysis: '[{"fallback":true}]' }))
-    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
-    const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
 
-    try {
-      const result = await resolveNewsletterAnalysis({
-        assessMarket: async () => NORMAL_ASSESSMENT,
-        collectDaily,
-        generateCodePicks,
-        getLlmAnalysis,
-        refreshStockMaster: vi.fn(async () => {}),
-      })
+    const result = await resolveNewsletterAnalysis({
+      assessMarket: async () => NORMAL_ASSESSMENT,
+      collectDaily: async () => HEALTHY_COLLECTION,
+      generateCodePicks,
+      getLlmAnalysis,
+      refreshStockMaster: vi.fn(async () => {}),
+    })
 
-      expect(result).toEqual({
-        geminiAnalysis: '[{"fallback":true}]',
-        picksSource: 'llm_fallback',
-      })
-      expect(collectDaily).toHaveBeenCalledOnce()
-      expect(generateCodePicks).toHaveBeenCalledOnce()
-      expect(getLlmAnalysis).toHaveBeenCalledWith({ marketAssessment: NORMAL_ASSESSMENT })
-      expect(consoleLogSpy).toHaveBeenCalledWith('PICKS_SOURCE=llm_fallback')
-    } finally {
-      consoleErrorSpy.mockRestore()
-      consoleLogSpy.mockRestore()
-    }
+    expect(result).toEqual({ geminiAnalysis: '[{"fallback":true}]', picksSource: 'llm_fallback' })
+    expect(getLlmAnalysis).toHaveBeenCalledWith({ marketAssessment: NORMAL_ASSESSMENT })
+    expect(logSpy).toHaveBeenCalledWith('PICKS_SOURCE=llm_fallback')
   })
 
   it('keeps the LLM fallback idle when code picks succeed', async () => {
     const getLlmAnalysis = vi.fn()
-    const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
 
-    try {
-      const result = await resolveNewsletterAnalysis({
-        assessMarket: async () => NORMAL_ASSESSMENT,
-        collectDaily: vi.fn(async () => HEALTHY_COLLECTION),
-        generateCodePicks: async () => '[{"source":"code"}]',
-        getLlmAnalysis,
-        refreshStockMaster: vi.fn(async () => {}),
-      })
+    const result = await resolveNewsletterAnalysis({
+      assessMarket: async () => NORMAL_ASSESSMENT,
+      collectDaily: async () => HEALTHY_COLLECTION,
+      generateCodePicks: async () => CODE_PICKS,
+      getLlmAnalysis,
+      refreshStockMaster: vi.fn(async () => {}),
+    })
 
-      expect(result).toEqual({
-        geminiAnalysis: '[{"source":"code"}]',
-        picksSource: 'code',
-      })
-      expect(getLlmAnalysis).not.toHaveBeenCalled()
-      expect(consoleLogSpy).toHaveBeenCalledWith('PICKS_SOURCE=code')
-    } finally {
-      consoleLogSpy.mockRestore()
-    }
+    expect(result).toEqual({ geminiAnalysis: CODE_PICKS, picksSource: 'code' })
+    expect(getLlmAnalysis).not.toHaveBeenCalled()
+    expect(logSpy).toHaveBeenCalledWith('PICKS_SOURCE=code')
   })
 
   it.each([
-    { report: { successRate: 0.9499, skippedForBudget: 0 }, reason: 'successRate=0.9499' },
-    { report: { successRate: 1, skippedForBudget: 1 }, reason: 'skippedForBudget=1' },
-  ])('falls back to LLM when daily collection coverage is insufficient: $reason', async ({ report, reason }) => {
-    const generateCodePicks = vi.fn()
-    const getLlmAnalysis = vi.fn(async () => ({ geminiAnalysis: '[{"fallback":true}]' }))
-    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
-    const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    { report: { ...HEALTHY_COLLECTION, successRate: 0.9499 }, reason: 'successRate=0.9499' },
+    { report: { ...HEALTHY_COLLECTION, skippedForBudget: 1 }, reason: 'skippedForBudget=1' },
+    { report: { ...HEALTHY_COLLECTION, exactDateCoverageRate: 0.9699 }, reason: 'exactDateCoverageRate=0.9699' },
+  ])('falls back when the daily collection coverage gate fails: $reason', async ({ report, reason }) => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    vi.spyOn(console, 'log').mockImplementation(() => {})
 
-    try {
-      const result = await resolveNewsletterAnalysis({
-        assessMarket: async () => NORMAL_ASSESSMENT,
-        collectDaily: async () => report,
-        generateCodePicks,
-        getLlmAnalysis,
-        refreshStockMaster: vi.fn(async () => {}),
-      })
-
-      expect(result.picksSource).toBe('llm_fallback')
-      expect(generateCodePicks).not.toHaveBeenCalled()
-      expect(consoleErrorSpy.mock.calls.flat().join(' ')).toContain(reason)
-    } finally {
-      consoleErrorSpy.mockRestore()
-      consoleLogSpy.mockRestore()
-    }
-  })
-
-  it('warns on stock-master refresh failure and continues with collection and code picks', async () => {
-    const refreshStockMaster = vi.fn(async () => {
-      throw new Error('synthetic master failure')
+    const result = await resolveNewsletterAnalysis({
+      assessMarket: async () => NORMAL_ASSESSMENT,
+      collectDaily: async () => report,
+      generateCodePicks: vi.fn(),
+      getLlmAnalysis: async () => ({ geminiAnalysis: '[{"fallback":true}]' }),
+      refreshStockMaster: vi.fn(async () => {}),
     })
-    const collectDaily = vi.fn(async () => HEALTHY_COLLECTION)
-    const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
-    const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
 
-    try {
-      const result = await resolveNewsletterAnalysis({
-        assessMarket: async () => NORMAL_ASSESSMENT,
-        collectDaily,
-        generateCodePicks: async () => '[{"source":"code"}]',
-        getLlmAnalysis: vi.fn(),
-        refreshStockMaster,
-      })
-
-      expect(result.picksSource).toBe('code')
-      expect(consoleWarnSpy).toHaveBeenCalledWith(expect.stringContaining('기존 마스터로 계속 진행'))
-      expect(refreshStockMaster.mock.invocationCallOrder[0]).toBeLessThan(collectDaily.mock.invocationCallOrder[0])
-    } finally {
-      consoleWarnSpy.mockRestore()
-      consoleLogSpy.mockRestore()
-    }
+    expect(result.picksSource).toBe('llm_fallback')
+    expect(console.error.mock.calls.flat().join(' ')).toContain(reason)
   })
 
-  it('preserves the existing crash-analysis path without collecting stock prices', async () => {
-    const crashAssessment = {
-      verdict: 'CRASH_ALERT' as const,
-      confidence: 91,
-      summary: '폭락 경보 fixture',
-    }
+  it('preserves the crash-analysis path without collecting stock prices', async () => {
     const collectDaily = vi.fn()
-    const generateCodePicks = vi.fn()
     const getLlmAnalysis = vi.fn(async () => ({ geminiAnalysis: '{"type":"crash_alert"}' }))
-    const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    vi.spyOn(console, 'log').mockImplementation(() => {})
 
-    try {
-      const result = await resolveNewsletterAnalysis({
-        assessMarket: async () => crashAssessment,
-        collectDaily,
-        generateCodePicks,
-        getLlmAnalysis,
-      })
-
-      expect(result).toEqual({
-        geminiAnalysis: '{"type":"crash_alert"}',
-        picksSource: 'crash',
-      })
-      expect(collectDaily).not.toHaveBeenCalled()
-      expect(generateCodePicks).not.toHaveBeenCalled()
-      expect(getLlmAnalysis).toHaveBeenCalledWith({ marketAssessment: crashAssessment })
-    } finally {
-      consoleLogSpy.mockRestore()
-    }
-  })
-
-  it("upserts picks_source='crash' for a CRASH_ALERT newsletter", async () => {
-    const maybeSingle = vi.fn(async () => ({ data: null, error: null }))
-    const eq = vi.fn(() => ({ maybeSingle }))
-    const lookupSelect = vi.fn(() => ({ eq }))
-    const writeSelect = vi.fn(async () => ({ error: null }))
-    const upsert = vi.fn(() => ({ select: writeSelect }))
-    const from = vi.fn(() => ({ select: lookupSelect, upsert }))
-    mocks.createClient.mockReturnValue({ from })
-    mocks.assessMarket.mockResolvedValue({
-      verdict: 'CRASH_ALERT',
-      confidence: 94,
-      summary: 'upsert crash fixture',
+    const result = await resolveNewsletterAnalysis({
+      assessMarket: async () => ({ ...NORMAL_ASSESSMENT, verdict: 'CRASH_ALERT' }),
+      collectDaily,
+      generateCodePicks: vi.fn(),
+      getLlmAnalysis,
     })
-    mocks.getLlmAnalysis.mockResolvedValue({
-      geminiAnalysis: '{"type":"crash_alert"}',
+
+    expect(result).toEqual({ geminiAnalysis: '{"type":"crash_alert"}', picksSource: 'crash' })
+    expect(collectDaily).not.toHaveBeenCalled()
+  })
+
+  it('parses target date, force, and dispatch-id CLI flags', () => {
+    expect(parsePrepareNewsletterCliArgs([
+      '--dry-run',
+      '--backup-run',
+      '--simulate-today=2026-09-01',
+      '--target-date=2026-09-02',
+      '--force',
+      '--dispatch-id=dispatch-42',
+    ])).toEqual({
+      dryRun: true,
+      backupRun: true,
+      simulateTodayKst: '2026-09-01',
+      targetDate: '2026-09-02',
+      force: true,
+      runId: 'dispatch-42',
+    })
+  })
+
+  it('skips a non-trading target date unless force is set', async () => {
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+    await prepareNewsletter({ dryRun: true, targetDate: '2026-08-30' })
+
+    expect(mocks.ensureToken).not.toHaveBeenCalled()
+    expect(mocks.assessMarket).not.toHaveBeenCalled()
+    expect(logSpy).toHaveBeenCalledWith(JSON.stringify({
+      event: 'prepare_skipped',
+      reason: 'non_trading_day',
+      targetDate: '2026-08-30',
+    }))
+
+    await prepareNewsletter({ dryRun: true, force: true, targetDate: '2026-08-30' })
+    expect(mocks.assessMarket).toHaveBeenCalledOnce()
+    expect(mocks.collectDaily).toHaveBeenCalledWith({ endDate: '2026-08-28' })
+    expect(mocks.generateCodePicks).toHaveBeenCalledWith({ todayKst: '2026-08-30' })
+  })
+
+  it('records token warmup, signal date, run id, collection, and picks in the summary', async () => {
+    mocks.ensureToken.mockResolvedValue({ source: 'storage', expiresAt: Date.now() + 7_200_000 })
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+    await prepareNewsletter({ dryRun: true, targetDate: TARGET_DATE, runId: 'run-123' })
+
+    expect(mocks.ensureToken).toHaveBeenCalledWith({ minRemainingMs: 90 * 60_000 })
+    expect(mocks.collectDaily).toHaveBeenCalledWith({ endDate: SIGNAL_DATE })
+    expect(mocks.generateCodePicks).toHaveBeenCalledWith({ todayKst: TARGET_DATE })
+    expect(findSummary(logSpy)).toMatchObject({
+      event: 'prepare_run_summary',
+      targetDate: TARGET_DATE,
+      signalDate: SIGNAL_DATE,
+      runId: 'run-123',
+      picksSource: 'code',
+      tokenWarmup: 'storage',
+      collection: { exactDateCoverageRate: 1, persistedRows: 21 },
+      candidateCount: 4,
+      picks: [
+        { rank: 1, ticker: 'KOSPI:000001', score: 91 },
+        { rank: 2, ticker: 'KOSPI:000002', score: 87 },
+        { rank: 3, ticker: 'KOSPI:000003', score: 83 },
+      ],
+    })
+  })
+
+  it('writes the same structured summary to PREPARE_SUMMARY_PATH', async () => {
+    const temporaryDirectory = await mkdtemp(join(tmpdir(), 'prepare-summary-'))
+    const summaryPath = join(temporaryDirectory, 'nested', 'summary.json')
+    vi.stubEnv('PREPARE_SUMMARY_PATH', summaryPath)
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+    try {
+      await prepareNewsletter({ dryRun: true, targetDate: TARGET_DATE, runId: 'file-run' })
+      const fileSummary = JSON.parse(await readFile(summaryPath, 'utf8'))
+
+      expect(fileSummary).toEqual(findSummary(logSpy))
+      expect(fileSummary).toMatchObject({
+        event: 'prepare_run_summary',
+        targetDate: TARGET_DATE,
+        runId: 'file-run',
+      })
+    } finally {
+      await rm(temporaryDirectory, { recursive: true, force: true })
+    }
+  })
+
+  it('rejects invalid target dates before doing work', async () => {
+    vi.spyOn(console, 'log').mockImplementation(() => {})
+
+    await expect(prepareNewsletter({ dryRun: true, targetDate: '2026-02-30' }))
+      .rejects.toThrow('유효한 날짜')
+    expect(mocks.ensureToken).not.toHaveBeenCalled()
+    expect(mocks.assessMarket).not.toHaveBeenCalled()
+  })
+
+  it('falls back and alerts when exact-date coverage is below the gate', async () => {
+    mocks.collectDaily.mockResolvedValue({ ...HEALTHY_COLLECTION, exactDateCoverageRate: 0.5 })
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+    await prepareNewsletter({ dryRun: true, targetDate: TARGET_DATE })
+
+    expect(mocks.generateCodePicks).not.toHaveBeenCalled()
+    expect(mocks.alert).toHaveBeenCalledWith(expect.objectContaining({
+      subject: `[Stock Matrix] ${TARGET_DATE} 코드 픽 실패 — LLM fallback으로 발행 예정`,
+      lines: expect.arrayContaining([
+        expect.stringContaining('exactDateCoverageRate=0.5000'),
+        'exactDateCoverageRate=0.5',
+      ]),
+    }))
+    expect(findSummary(logSpy)).toMatchObject({
+      picksSource: 'llm_fallback',
+      picks: [],
+      warnings: expect.arrayContaining([expect.stringContaining('exactDateCoverageRate=0.5000')]),
+    })
+  })
+
+  it('does not overwrite a row that becomes sent during the final CAS update', async () => {
+    const client = mockNewsletterClient({
+      reads: [
+        { is_sent: false, picks_source: 'llm_fallback' },
+        { is_sent: true, picks_source: 'llm_fallback' },
+      ],
+      updateData: [],
     })
     vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', 'https://example.supabase.co')
     vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY', 'test-service-role-key')
-    const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
 
-    try {
-      await prepareNewsletter()
+    await prepareNewsletter({ targetDate: TARGET_DATE })
 
-      expect(from).toHaveBeenCalledWith('newsletter_content')
-      expect(upsert).toHaveBeenCalledWith(
-        expect.objectContaining({
-          gemini_analysis: '{"type":"crash_alert"}',
-          picks_source: 'crash',
-        }),
-        { onConflict: 'newsletter_date' },
-      )
-      expect(lookupSelect).toHaveBeenCalledWith('is_sent, picks_source')
-      expect(writeSelect).toHaveBeenCalledOnce()
-      expect(mocks.collectDaily).not.toHaveBeenCalled()
-      expect(mocks.generateCodePicks).not.toHaveBeenCalled()
-    } finally {
-      consoleLogSpy.mockRestore()
-      vi.unstubAllEnvs()
-      vi.clearAllMocks()
-    }
+    expect(client.update).toHaveBeenCalledWith(expect.objectContaining({ picks_source: 'code' }))
+    expect(client.insert).not.toHaveBeenCalled()
+    expect(logSpy).toHaveBeenCalledWith(JSON.stringify({
+      event: 'prepare_write_skipped',
+      reason: 'already_sent',
+    }))
   })
 
-  it('preserves an already-sent newsletter row during a backup run', async () => {
-    const { upsert } = mockNewsletterClient({ is_sent: true, picks_source: 'llm_fallback' })
-    mockSuccessfulCodePipeline()
+  it('inserts a new newsletter row and writes the structured summary', async () => {
+    const client = mockNewsletterClient({ reads: [null] })
     vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', 'https://example.supabase.co')
     vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY', 'test-service-role-key')
-    const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
 
-    try {
-      await prepareNewsletter({ backupRun: true })
+    await prepareNewsletter({ targetDate: TARGET_DATE })
 
-      expect(upsert).not.toHaveBeenCalled()
-      expect(mocks.assessMarket).not.toHaveBeenCalled()
-      expect(consoleLogSpy).toHaveBeenCalledWith('🛡️ 이미 발송된 뉴스레터 — 내용 보존')
-    } finally {
-      consoleLogSpy.mockRestore()
-      vi.unstubAllEnvs()
-      vi.clearAllMocks()
-    }
+    expect(client.insert).toHaveBeenCalledWith(expect.objectContaining({
+      newsletter_date: TARGET_DATE,
+      picks_source: 'code',
+    }))
+    expect(findSummary(logSpy)).toMatchObject({ event: 'prepare_run_summary', picksSource: 'code' })
   })
 
-  it("skips a backup run when today's row already has picks_source='code'", async () => {
-    const { upsert } = mockNewsletterClient({ is_sent: false, picks_source: 'code' })
-    mockSuccessfulCodePipeline()
-    vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', 'https://example.supabase.co')
-    vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY', 'test-service-role-key')
-    const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+  it('alerts and returns exit code 1 on an unhandled CLI failure', async () => {
+    mocks.assessMarket.mockRejectedValue(new Error('synthetic hard failure'))
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    vi.spyOn(console, 'log').mockImplementation(() => {})
 
-    try {
-      await prepareNewsletter({ backupRun: true })
+    const result = await runPrepareNewsletterCli(['--dry-run', `--target-date=${TARGET_DATE}`])
 
-      expect(upsert).not.toHaveBeenCalled()
-      expect(mocks.assessMarket).not.toHaveBeenCalled()
-      expect(consoleLogSpy).toHaveBeenCalledWith('🛡️ 이미 코드 픽 존재 — 백업 실행 건너뜀')
-    } finally {
-      consoleLogSpy.mockRestore()
-      vi.unstubAllEnvs()
-    }
-  })
-
-  it("regenerates an existing llm_fallback row and promotes it to picks_source='code'", async () => {
-    const { upsert } = mockNewsletterClient({ is_sent: false, picks_source: 'llm_fallback' })
-    mockSuccessfulCodePipeline()
-    vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', 'https://example.supabase.co')
-    vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY', 'test-service-role-key')
-    const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
-
-    try {
-      await prepareNewsletter({ backupRun: true })
-
-      expect(mocks.generateCodePicks).toHaveBeenCalledOnce()
-      expect(upsert).toHaveBeenCalledWith(
-        expect.objectContaining({ picks_source: 'code' }),
-        { onConflict: 'newsletter_date' },
-      )
-    } finally {
-      consoleLogSpy.mockRestore()
-      vi.unstubAllEnvs()
-    }
-  })
-
-  it("creates today's row when a backup run finds no existing newsletter", async () => {
-    const { upsert } = mockNewsletterClient(null)
-    mockSuccessfulCodePipeline()
-    vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', 'https://example.supabase.co')
-    vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY', 'test-service-role-key')
-    const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
-
-    try {
-      await prepareNewsletter({ backupRun: true })
-
-      expect(mocks.generateCodePicks).toHaveBeenCalledOnce()
-      expect(upsert).toHaveBeenCalledWith(
-        expect.objectContaining({ picks_source: 'code' }),
-        { onConflict: 'newsletter_date' },
-      )
-    } finally {
-      consoleLogSpy.mockRestore()
-      vi.unstubAllEnvs()
-    }
+    expect(result).toBe(1)
+    expect(mocks.alert).toHaveBeenCalledWith(expect.objectContaining({
+      subject: `[Stock Matrix] ${TARGET_DATE} prepare 실패 — 수동 조치 필요`,
+      lines: [expect.stringContaining('synthetic hard failure')],
+    }))
   })
 })

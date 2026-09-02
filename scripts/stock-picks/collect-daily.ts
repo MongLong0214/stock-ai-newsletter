@@ -1,4 +1,4 @@
-import { getKSTDateString } from '@/lib/tli/date-utils'
+import { getLastFinalizedTradingDate } from '@/lib/tli/trading-calendar'
 import {
   collectAndPersistStockDailyPriceRange,
   KIS_DAILY_PRICE_RATE_LIMIT_PER_SECOND,
@@ -16,6 +16,18 @@ type CollectPriceRange = typeof collectAndPersistStockDailyPriceRange
 export interface DailyStockPriceCollectionReport extends StockDailyPriceCollectionReport {
   readonly endDate: string
   readonly tradingDays: number
+}
+
+export const getStockPicksKisRateLimitPerSecond = (
+  env: Readonly<Record<string, string | undefined>> = process.env,
+): number => {
+  const raw = env.STOCK_PICKS_KIS_RATE_LIMIT_PER_SECOND
+  if (raw === undefined) return KIS_DAILY_PRICE_RATE_LIMIT_PER_SECOND
+  const parsed = Number(raw)
+  if (!Number.isInteger(parsed) || parsed < 1 || parsed > 10) {
+    throw new Error(`STOCK_PICKS_KIS_RATE_LIMIT_PER_SECOND는 1..10 정수여야 합니다: ${raw}`)
+  }
+  return parsed
 }
 
 /**
@@ -37,15 +49,17 @@ export async function collectDailyStockPrices(input: {
     throw new Error(`deadlineMs는 양수여야 합니다: ${deadlineMs}`)
   }
 
-  const endDate = input.endDate ?? getKSTDateString()
+  const endDate = input.endDate ?? getLastFinalizedTradingDate()
+  const rateLimitPerSecond = getStockPicksKisRateLimitPerSecond()
   const collectPriceRange = input.collectPriceRange ?? collectAndPersistStockDailyPriceRange
   const report = await collectPriceRange({
     endDate,
     days: DAILY_COLLECTION_TRADING_DAYS,
     universe: 'full',
     callBudget,
-    rateLimitPerSecond: KIS_DAILY_PRICE_RATE_LIMIT_PER_SECOND,
+    rateLimitPerSecond,
     deadlineMs,
+    finalizedThroughDate: endDate,
   })
   const dailyReport: DailyStockPriceCollectionReport = {
     ...report,
@@ -85,7 +99,7 @@ const printUsage = (): void => {
     'Options:',
     `  --call-budget=N  KIS 호출 예산 (기본 ${DEFAULT_DAILY_COLLECTION_CALL_BUDGET})`,
     `  --deadline-minutes=N  전체 수집 제한시간(분, 기본 ${DEFAULT_DAILY_COLLECTION_DEADLINE_MS / 60_000})`,
-    '  --end-date=DATE  종료일 YYYY-MM-DD (기본 오늘 KST)',
+    '  --end-date=DATE  종료일 YYYY-MM-DD (기본 마지막 완결 거래일)',
   ].join('\n'))
 }
 
