@@ -14,6 +14,7 @@ import { fetchAllRows } from '@/lib/supabase/paginate'
 
 const CONTENT_POLL_INTERVAL_MS = 30_000
 const DEFAULT_WAIT_FOR_CONTENT_MINUTES = 12
+const DEFAULT_SEND_DEADLINE_MINUTES = 15
 const CONFIRM_RETRY_DELAYS_MS = [500, 2_000, 6_000] as const
 
 type NewsletterClient = ReturnType<typeof createClient>
@@ -32,12 +33,13 @@ export interface NewsletterContentRow {
   readonly gemini_analysis: string | null
   readonly picks_source: string | null
   readonly is_sent: boolean
+  readonly sent_at: string | null
 }
 
 export interface SendNewsletterRepository {
   fetchActiveSubscribers(): Promise<SubscriberRow[]>
   fetchContent(date: string): Promise<NewsletterContentRow | null>
-  fetchUnsentContent(date: string): Promise<NewsletterContentRow | null>
+  fetchSendableContent(date: string): Promise<NewsletterContentRow | null>
   claim(date: string): Promise<void>
   rollback(date: string): Promise<void>
   confirmSent(date: string, sentAt: string, subscriberCount: number): Promise<void>
@@ -104,18 +106,18 @@ export function createSendNewsletterRepository(
     async fetchContent(date) {
       const { data, error } = await client
         .from('newsletter_content')
-        .select('newsletter_date, gemini_analysis, picks_source, is_sent')
+        .select('newsletter_date, gemini_analysis, picks_source, is_sent, sent_at')
         .eq('newsletter_date', date)
         .maybeSingle()
       if (error) throw databaseError(error)
       return data
     },
-    async fetchUnsentContent(date) {
+    async fetchSendableContent(date) {
       const { data, error } = await client
         .from('newsletter_content')
-        .select('newsletter_date, gemini_analysis, picks_source, is_sent')
+        .select('newsletter_date, gemini_analysis, picks_source, is_sent, sent_at')
         .eq('newsletter_date', date)
-        .eq('is_sent', false)
+        .or('is_sent.eq.false,and(is_sent.eq.true,sent_at.is.null)')
         .maybeSingle()
       if (error) throw databaseError(error)
       return data
@@ -183,6 +185,17 @@ function waitForContentMinutes(env: SendEnvironment): number {
     : DEFAULT_WAIT_FOR_CONTENT_MINUTES
 }
 
+function sendDeadlineMinutes(env: SendEnvironment): number {
+  const rawMinutes = env.SEND_DEADLINE_MINUTES
+  if (rawMinutes === undefined || rawMinutes.trim() === '') {
+    return DEFAULT_SEND_DEADLINE_MINUTES
+  }
+  const parsed = Number(rawMinutes)
+  return Number.isFinite(parsed) && parsed > 0
+    ? parsed
+    : DEFAULT_SEND_DEADLINE_MINUTES
+}
+
 function contentIsReady(content: NewsletterContentRow | null): content is NewsletterContentRow {
   if (!content) return false
   return content.picks_source !== null || (content.gemini_analysis?.trim().length ?? 0) > 0
@@ -196,13 +209,17 @@ async function waitForPreparedContent(input: {
   readonly sleep: (milliseconds: number) => Promise<void>
   readonly now: () => number
   readonly logger: SendLogger
-}): Promise<NewsletterContentRow> {
+}): Promise<NewsletterContentRow | null> {
   const deadline = input.now() + input.waitMinutes * 60_000
   let poll = 0
 
   for (;;) {
-    const content = await input.repository.fetchUnsentContent(input.targetDate)
+    const content = await input.repository.fetchSendableContent(input.targetDate)
     if (contentIsReady(content)) return content
+    if (!content) {
+      const current = await input.repository.fetchContent(input.targetDate)
+      if (current?.sent_at) return null
+    }
     const remainingMs = deadline - input.now()
     if (remainingMs <= 0) {
       throw new Error(
@@ -261,7 +278,9 @@ async function confirmSentWithRetry(input: {
       await input.sleep(retryDelay)
     }
   }
-  input.logger.error('⚠️ DB 업데이트 실패 (뉴스레터는 정상 발송됨):', lastError)
+  throw new Error(
+    `발송 완료 DB 업데이트 실패 (이메일은 이미 발송됨): ${lastError instanceof Error ? lastError.message : String(lastError)}`,
+  )
 }
 
 function koreanDateLabel(targetDate: string): string {
@@ -288,6 +307,7 @@ function sendSummary(input: {
     subscribers: input.subscribers,
     sent: input.result.sent,
     failed: input.result.failed.length,
+    failed_count: input.result.failed.length,
     durationSec: Math.round((input.now() - input.startedAt) / 100) / 10,
   })
 }
@@ -306,6 +326,17 @@ export async function runSendNewsletter(
   const targetDate = options.targetDate || getTodayKst()
   const dispatchId = options.dispatchId || env.DISPATCH_ID || ''
   const startedAt = now()
+  const sendAlert = dependencies.sendAlert ?? sendNewsletterAlertEmail
+  const alertSafely = async (
+    alert: Parameters<typeof sendNewsletterAlertEmail>[0],
+  ): Promise<boolean> => {
+    try {
+      return await sendAlert(alert)
+    } catch (error) {
+      logger.error('운영 알림 전송 실패:', error)
+      return false
+    }
+  }
   assertIsoDate(targetDate)
 
   logger.log('🚀 뉴스레터 발송 작업 시작...')
@@ -322,7 +353,7 @@ export async function runSendNewsletter(
         event: 'send_skipped',
         reason: 'no_active_subscribers',
       }))
-      await (dependencies.sendAlert ?? sendNewsletterAlertEmail)({
+      await alertSafely({
         subject: `[Stock Matrix] ${targetDate} 활성 구독자 0명 — 발송 생략`,
         lines: [
           `target_date: ${targetDate}`,
@@ -345,7 +376,7 @@ export async function runSendNewsletter(
       }
       newsletterContent = content
     } else {
-      newsletterContent = await waitForPreparedContent({
+      const content = await waitForPreparedContent({
         repository,
         targetDate,
         dispatchId,
@@ -354,6 +385,11 @@ export async function runSendNewsletter(
         now,
         logger,
       })
+      if (!content) {
+        logger.log(JSON.stringify({ event: 'send_skipped', reason: 'already_sent' }))
+        return 0
+      }
+      newsletterContent = content
     }
     logger.log('✅ 뉴스레터 콘텐츠 로드 완료')
 
@@ -377,9 +413,28 @@ export async function runSendNewsletter(
       return 0
     }
 
-    logger.log('🔒 뉴스레터 발송 상태 선점 중...')
-    await repository.claim(targetDate)
-    logger.log('✅ 뉴스레터 발송 상태 선점 완료')
+    const recoveringUnconfirmedClaim = newsletterContent.is_sent && !newsletterContent.sent_at
+    if (recoveringUnconfirmedClaim) {
+      // WHY: without a per-recipient ledger we cannot know who SendGrid already accepted;
+      // a duplicate for some recipients is safer than omitting the newsletter for everyone.
+      logger.warn(JSON.stringify({
+        event: 'send_recovering_unconfirmed_claim',
+        targetDate,
+      }))
+      await alertSafely({
+        subject: `[Stock Matrix] ${targetDate} 발송 선점 미확정 복구 — 재발송 (중복 가능)`,
+        lines: [
+          `target_date: ${targetDate}`,
+          `dispatch_id: ${dispatchId || 'none'}`,
+          '이전 발송의 수신자별 수락 여부를 확인할 수 없어 전체 활성 구독자에게 재발송합니다.',
+        ],
+        env,
+      })
+    } else {
+      logger.log('🔒 뉴스레터 발송 상태 선점 중...')
+      await repository.claim(targetDate)
+      logger.log('✅ 뉴스레터 발송 상태 선점 완료')
+    }
 
     let result: SendResult
     try {
@@ -392,20 +447,37 @@ export async function runSendNewsletter(
           geminiAnalysis: newsletterContent.gemini_analysis ?? '',
           date: koreanDateLabel(targetDate),
         },
+        {
+          deadlineAt: now() + sendDeadlineMinutes(env) * 60_000,
+          now,
+        },
       )
     } catch (sendError) {
-      await rollbackClaim({
-        repository,
-        targetDate,
-        logger,
-        context: '발송 실패',
-      })
+      if (!recoveringUnconfirmedClaim) {
+        await rollbackClaim({
+          repository,
+          targetDate,
+          logger,
+          context: '발송 실패',
+        })
+      }
       throw sendError
     }
 
     if (result.failed.length > 0) {
       logger.error(`❌ 이메일 발송 실패 수: ${result.failed.length}명`)
       logger.error('실패 대상 (인덱스/도메인만):', result.failed)
+      const failedDomains = [...new Set(result.failed.map((failure) => failure.domain))]
+      await alertSafely({
+        subject: `[Stock Matrix] ${targetDate} 뉴스레터 부분 발송 실패 ${result.failed.length}명`,
+        lines: [
+          `failed_count: ${result.failed.length}`,
+          `failed_domains: ${failedDomains.join(', ') || 'unknown'}`,
+          `sent_count: ${result.sent}`,
+          `dispatch_id: ${dispatchId || 'none'}`,
+        ],
+        env,
+      })
     }
     logger.log(sendSummary({
       targetDate,
@@ -416,12 +488,14 @@ export async function runSendNewsletter(
       now,
     }))
     if (result.sent === 0) {
-      await rollbackClaim({
-        repository,
-        targetDate,
-        logger,
-        context: '전량 발송 실패',
-      })
+      if (!recoveringUnconfirmedClaim) {
+        await rollbackClaim({
+          repository,
+          targetDate,
+          logger,
+          context: '전량 발송 실패',
+        })
+      }
       throw new Error(`전체 이메일 발송 실패: 0/${subscribers.length}명 성공`)
     }
 

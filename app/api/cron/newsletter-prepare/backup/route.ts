@@ -53,7 +53,7 @@ export async function GET(request: Request) {
       inputs: {
         target_date: date,
         dispatch_id: requestedDispatchId,
-        backup_run: 'true',
+        backup_run: true,
       },
     })
     return NextResponse.json({
@@ -63,6 +63,7 @@ export async function GET(request: Request) {
       workflow: WORKFLOW_FILE,
       date,
       dispatchId: dispatch.dispatchId,
+      verified: dispatch.verified,
     })
   } catch (error) {
     console.error('Newsletter prepare backup cron failed:', error)

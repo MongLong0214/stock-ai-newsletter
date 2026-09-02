@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
   dispatchGitHubWorkflow,
-  GitHubDispatchError,
+  normalizeWorkflowInputs,
   readTokenExpiryDays,
 } from './github-actions-dispatch'
 
@@ -17,10 +17,10 @@ function dispatchResponse(expiry?: string): Response {
   })
 }
 
-function runsResponse(createdAt?: string): Response {
+function runsResponse(createdAt?: string, displayTitle = ''): Response {
   return Response.json({
     workflow_runs: createdAt
-      ? [{ created_at: createdAt, head_branch: 'main' }]
+      ? [{ created_at: createdAt, head_branch: 'main', display_title: displayTitle }]
       : [],
   })
 }
@@ -30,6 +30,7 @@ describe('dispatchGitHubWorkflow', () => {
     vi.useFakeTimers()
     vi.setSystemTime(NOW)
     vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined)
   })
 
   afterEach(() => {
@@ -41,7 +42,10 @@ describe('dispatchGitHubWorkflow', () => {
   it('posts inputs and confirms a newly-created workflow_dispatch run', async () => {
     const fetchMock = vi.fn()
       .mockResolvedValueOnce(dispatchResponse('2026-09-12T00:00:00.000Z'))
-      .mockResolvedValueOnce(runsResponse('2026-09-02T00:00:01.000Z'))
+      .mockResolvedValueOnce(runsResponse(
+        '2026-09-02T00:00:01.000Z',
+        'Prepare 2026-09-02 2026-09-02-primary',
+      ))
     vi.stubGlobal('fetch', fetchMock)
 
     await expect(dispatchGitHubWorkflow('prepare-newsletter.yml', {
@@ -54,6 +58,7 @@ describe('dispatchGitHubWorkflow', () => {
     })).resolves.toEqual({
       dispatchId: '2026-09-02-primary',
       tokenExpiresInDays: 10,
+      verified: true,
     })
 
     expect(fetchMock).toHaveBeenNthCalledWith(
@@ -76,7 +81,7 @@ describe('dispatchGitHubWorkflow', () => {
     )
   })
 
-  it('dispatches once more with a new dispatch ID when no first run appears', async () => {
+  it('posts only once and returns verified false when no matching run appears', async () => {
     let postCount = 0
     let getCount = 0
     const postedBodies: string[] = []
@@ -87,7 +92,7 @@ describe('dispatchGitHubWorkflow', () => {
         return dispatchResponse()
       }
       getCount += 1
-      return runsResponse(getCount === 5 ? '2026-09-02T00:00:10.000Z' : undefined)
+      return runsResponse()
     })
     vi.stubGlobal('fetch', fetchMock)
 
@@ -98,19 +103,28 @@ describe('dispatchGitHubWorkflow', () => {
         dispatch_id: '2026-09-02-first',
       },
     })
-    await vi.advanceTimersByTimeAsync(12_000)
+    await vi.advanceTimersByTimeAsync(9_000)
 
     const result = await resultPromise
-    expect(postCount).toBe(2)
-    expect(getCount).toBe(5)
-    expect(result.dispatchId).toMatch(/^2026-09-02-[0-9a-f]{8}$/)
-    expect(postedBodies[0]).toContain('2026-09-02-first')
-    expect(postedBodies[1]).toContain(result.dispatchId)
+    expect(postCount).toBe(1)
+    expect(getCount).toBe(4)
+    expect(result).toMatchObject({
+      dispatchId: '2026-09-02-first',
+      verified: false,
+    })
+    expect(console.warn).toHaveBeenCalledWith(JSON.stringify({
+      event: 'dispatch_unverified',
+      workflowFile: 'daily-newsletter.yml',
+      dispatchId: '2026-09-02-first',
+    }))
+    expect(postedBodies).toEqual([expect.stringContaining('2026-09-02-first')])
   })
 
-  it('throws status 0 after two acknowledged dispatches create no visible run', async () => {
+  it('does not accept an unrelated run created at the same time', async () => {
     const fetchMock = vi.fn(async (_url: string | URL, init?: RequestInit) => (
-      init?.method === 'POST' ? dispatchResponse() : runsResponse()
+      init?.method === 'POST'
+        ? dispatchResponse()
+        : runsResponse('2026-09-02T00:00:01.000Z', 'Prepare unrelated-dispatch')
     ))
     vi.stubGlobal('fetch', fetchMock)
 
@@ -118,12 +132,24 @@ describe('dispatchGitHubWorkflow', () => {
       token: 'test-token',
       inputs: { target_date: '2026-09-02', dispatch_id: 'first' },
     })
-    const rejection = expect(resultPromise).rejects.toMatchObject({
-      status: 0,
-    } satisfies Partial<GitHubDispatchError>)
-    await vi.advanceTimersByTimeAsync(24_000)
-    await rejection
-    expect(fetchMock.mock.calls.filter((call) => call[1]?.method === 'POST')).toHaveLength(2)
+    await vi.advanceTimersByTimeAsync(9_000)
+
+    await expect(resultPromise).resolves.toMatchObject({ verified: false, dispatchId: 'first' })
+    expect(fetchMock.mock.calls.filter((call) => call[1]?.method === 'POST')).toHaveLength(1)
+  })
+
+  it('normalizes workflow inputs without stringifying booleans', () => {
+    expect(normalizeWorkflowInputs({
+      backup_run: true,
+      dry_run: false,
+      target_date: '2026-09-02',
+      legacy_false: 'false',
+    })).toEqual({
+      backup_run: true,
+      dry_run: false,
+      target_date: '2026-09-02',
+      legacy_false: 'false',
+    })
   })
 })
 

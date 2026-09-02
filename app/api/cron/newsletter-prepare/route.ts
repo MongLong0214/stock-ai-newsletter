@@ -68,6 +68,7 @@ export async function GET(request: Request) {
       workflow: WORKFLOW_FILE,
       date,
       dispatchId: dispatch.dispatchId,
+      verified: dispatch.verified,
     })
   } catch (error) {
     console.error('Newsletter prepare cron failed:', error)

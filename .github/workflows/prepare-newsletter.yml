@@ -1,5 +1,5 @@
 name: Prepare Stock Newsletter
-run-name: Prepare ${{ inputs.target_date || 'today' }} ${{ inputs.dispatch_id || 'manual' }}${{ inputs.backup_run && ' [backup]' || '' }}${{ inputs.dry_run && ' [dry]' || '' }}
+run-name: Prepare ${{ inputs.target_date || 'today' }} ${{ inputs.dispatch_id || 'manual' }}${{ (inputs.backup_run == true || inputs.backup_run == 'true') && ' [backup]' || '' }}${{ (inputs.dry_run == true || inputs.dry_run == 'true') && ' [dry]' || '' }}
 
 on:
   workflow_dispatch:
@@ -30,13 +30,13 @@ on:
         default: false
 
 concurrency:
-  group: prepare-newsletter-${{ inputs.dry_run && 'dry' || 'prod' }}
+  group: prepare-newsletter-${{ (inputs.dry_run == true || inputs.dry_run == 'true') && 'dry' || 'prod' }}
   cancel-in-progress: false
 
 jobs:
   prepare-newsletter:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 45
 
     steps:
       - name: Checkout code
@@ -57,7 +57,7 @@ jobs:
           echo "GOOGLE_APPLICATION_CREDENTIALS=$HOME/gcloud-key.json" >> "$GITHUB_ENV"
 
       - name: Prepare Newsletter
-        timeout-minutes: 55
+        timeout-minutes: 42
         env:
           KIS_APP_KEY: ${{ secrets.KIS_APP_KEY }}
           KIS_APP_SECRET: ${{ secrets.KIS_APP_SECRET }}
@@ -79,6 +79,7 @@ jobs:
           BACKUP_RUN: ${{ inputs.backup_run || 'false' }}
           DISPATCH_ID: ${{ inputs.dispatch_id || '' }}
           FORCE_RUN: ${{ inputs.force || 'false' }}
+          PREPARE_DEADLINE_MINUTES: '38'
           PREPARE_SUMMARY_PATH: ${{ runner.temp }}/prepare-summary.json
           STOCK_PICKS_SNAPSHOT_PATH: ${{ runner.temp }}/stock-picks-snapshot.json
         run: |
@@ -99,7 +100,8 @@ jobs:
           PREPARE_EXIT=${PIPESTATUS[0]}
           set -e
           if grep -q 'PICKS_SOURCE=llm_fallback' "$RUNNER_TEMP/prepare-newsletter.log"; then
-            echo "::warning::코드 픽 실패 — LLM fallback으로 발행됨"
+            echo "::error::코드 픽 실패 — LLM fallback으로 발행됨"
+            exit 1
           fi
           exit "$PREPARE_EXIT"
 

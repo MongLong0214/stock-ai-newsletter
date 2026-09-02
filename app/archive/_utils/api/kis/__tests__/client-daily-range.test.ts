@@ -84,8 +84,6 @@ describe('throwing daily range fetch', () => {
 
   it.each([
     { status: 429, kind: 'rate_limit' },
-    { status: 401, kind: 'token' },
-    { status: 403, kind: 'token' },
     { status: 500, kind: 'http' },
   ])('classifies non-JSON HTTP $status responses as $kind', async ({ status, kind }) => {
     const fetchMock = vi.fn<typeof fetch>()
@@ -98,6 +96,62 @@ describe('throwing daily range fetch', () => {
 
     await expect(fetchDailyRangePriceRows('KOSPI:005930', '20260901', '20260901'))
       .rejects.toMatchObject({ kind, status });
+  });
+
+  it('invalidates a rejected data-call token, refreshes once, and retries successfully', async () => {
+    const fetchMock = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ access_token: 'rejected-token' }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }))
+      .mockResolvedValueOnce(new Response('not-json', { status: 401 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ access_token: 'fresh-token' }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        rt_cd: '0',
+        output2: [{
+          stck_bsop_date: '20260901',
+          stck_oprc: '70000',
+          stck_hgpr: '71000',
+          stck_lwpr: '69000',
+          stck_clpr: '70500',
+          acml_vol: '100',
+        }],
+      }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(fetchDailyRangePriceRows('KOSPI:005930', '20260901', '20260901'))
+      .resolves.toHaveLength(1);
+
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+    expect(new Headers(fetchMock.mock.calls[1]?.[1]?.headers).get('authorization'))
+      .toBe('Bearer rejected-token');
+    expect(new Headers(fetchMock.mock.calls[3]?.[1]?.headers).get('authorization'))
+      .toBe('Bearer fresh-token');
+  });
+
+  it('throws after the refreshed token is rejected a second time', async () => {
+    const fetchMock = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ access_token: 'rejected-token' }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }))
+      .mockResolvedValueOnce(new Response('not-json', { status: 401 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ access_token: 'fresh-token' }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }))
+      .mockResolvedValueOnce(new Response('not-json', { status: 403 }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(fetchDailyRangePriceRows('KOSPI:005930', '20260901', '20260901'))
+      .rejects.toMatchObject({ kind: 'token', status: 403 });
+    expect(fetchMock).toHaveBeenCalledTimes(4);
   });
 
   it('classifies KIS API rate-limit codes and keeps the legacy wrapper non-throwing', async () => {

@@ -33,6 +33,7 @@ export interface StockDailyPriceCollectionReport {
   readonly rateLimitPerSecond: number
   readonly requestedRows: number
   readonly attemptedCalls: number
+  readonly physicalCalls: number
   readonly successCount: number
   readonly failureCount: number
   readonly failedSymbols: readonly string[]
@@ -160,6 +161,7 @@ export async function collectAndPersistStockDailyPriceRange(input: {
   const attemptedSymbols = new Set<string>()
   let droppedNotFinalizedRows = 0
   let droppedPhantomRows = 0
+  let physicalCalls = 0
   let previousCallStart: number | null = null
   let lastHeartbeatAt = startedAt
   let lastHeartbeatProcessed = 0
@@ -256,6 +258,7 @@ export async function collectAndPersistStockDailyPriceRange(input: {
       if (attempt > 0) retriedSymbols.add(KOSPI_INDEX_SYMBOL)
       let retryKind: CollectionFailureKind | null = null
       try {
+        physicalCalls++
         const points = normalizePoints(
           KOSPI_INDEX_SYMBOL,
           await fetchIndexDailyRange(KOSPI_INDEX_CODE, startKisDate, endKisDate),
@@ -290,6 +293,7 @@ export async function collectAndPersistStockDailyPriceRange(input: {
     if (!(await pace())) break
     attemptedSymbols.add(symbol)
     try {
+      physicalCalls++
       const points = normalizePoints(symbol, await fetchDailyRange(symbol, startKisDate, endKisDate))
       if (points.length === 0) failures.set(symbol, 'empty')
       else markSuccess(symbol, points)
@@ -315,6 +319,7 @@ export async function collectAndPersistStockDailyPriceRange(input: {
       if (deadlineExceeded() || !(await pace())) break
       retriedSymbols.add(symbol)
       try {
+        physicalCalls++
         const points = normalizePoints(symbol, await fetchDailyRange(symbol, startKisDate, endKisDate))
         if (points.length === 0) failures.set(symbol, 'empty')
         else {
@@ -347,7 +352,7 @@ export async function collectAndPersistStockDailyPriceRange(input: {
       persistedRows = await persistDailyPrices(prices)
     } catch (error) {
       console.error(
-        `   ❌ 일봉 주가 저장 실패 (수집 단계 리포트: attempted=${attemptedCalls}, success=${successCount}, failure=${failureCount}, rows=${prices.length}):`,
+        `   ❌ 일봉 주가 저장 실패 (수집 단계 리포트: attempted=${attemptedCalls}, physical=${physicalCalls}, success=${successCount}, failure=${failureCount}, rows=${prices.length}):`,
         error instanceof Error ? error.message : String(error),
       )
       throw error
@@ -361,6 +366,7 @@ export async function collectAndPersistStockDailyPriceRange(input: {
     rateLimitPerSecond,
     requestedRows: requestedSymbols.length,
     attemptedCalls,
+    physicalCalls,
     successCount,
     failureCount,
     failedSymbols,

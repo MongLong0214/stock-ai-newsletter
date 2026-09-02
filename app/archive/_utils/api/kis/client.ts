@@ -13,6 +13,7 @@ import type { KisToken, KisStockPrice, KisErrorResponse, KisConfig, BatchPriceRe
 
 // 메모리 캐시
 const tokenCache: { token: KisToken | null } = { token: null };
+const staleAccessTokens = new Set<string>();
 let tokenResolutionInFlight: Promise<KisTokenResolution> | null = null;
 let lastIssueAttemptAt = 0;
 
@@ -264,13 +265,19 @@ async function issueTokenWithCooldownRetry(): Promise<KisToken> {
 
 async function resolveAccessToken(minRemainingMs: number): Promise<KisTokenResolution> {
   const now = Date.now();
-  if (tokenCache.token && tokenCache.token.expires_at > now + minRemainingMs) {
+  if (
+    tokenCache.token
+    && !staleAccessTokens.has(tokenCache.token.access_token)
+    && tokenCache.token.expires_at > now + minRemainingMs
+  ) {
     return { token: tokenCache.token, source: 'memory' };
   }
 
   const storedToken = await getTokenFromStorage();
   const bestCachedToken = [tokenCache.token, storedToken]
-    .filter((token): token is KisToken => token !== null)
+    .filter((token): token is KisToken => (
+      token !== null && !staleAccessTokens.has(token.access_token)
+    ))
     .sort((left, right) => right.expires_at - left.expires_at)[0];
   if (bestCachedToken && bestCachedToken.expires_at > now + minRemainingMs) {
     tokenCache.token = bestCachedToken;
@@ -305,6 +312,14 @@ export async function getKisAccessToken(): Promise<string> {
   return (await getTokenResolution(TOKEN_SAFETY_MARGIN_MS)).token.access_token;
 }
 
+export function invalidateKisAccessToken(rejectedAccessToken?: string): void {
+  const staleToken = rejectedAccessToken ?? tokenCache.token?.access_token
+  if (staleToken) staleAccessTokens.add(staleToken)
+  if (!rejectedAccessToken || tokenCache.token?.access_token === rejectedAccessToken) {
+    tokenCache.token = null
+  }
+}
+
 const getAccessToken = getKisAccessToken;
 
 export async function ensureKisAccessToken(input: {
@@ -319,6 +334,7 @@ export async function ensureKisAccessToken(input: {
 
 export function resetKisClientCacheForTest(): void {
   tokenCache.token = null;
+  staleAccessTokens.clear();
   tokenResolutionInFlight = null;
   lastIssueAttemptAt = 0;
   configCache = null;
@@ -618,7 +634,7 @@ interface KisRangeResponse extends KisErrorResponse {
   readonly output2?: unknown;
 }
 
-async function fetchRangePriceRows(input: {
+interface FetchRangePriceRowsInput {
   readonly code: string;
   readonly startDate: string;
   readonly endDate: string;
@@ -629,9 +645,13 @@ async function fetchRangePriceRows(input: {
   readonly fields: KisRangePriceFields;
   readonly parsePrice: (value: string) => number;
   readonly adjusted: boolean;
-}): Promise<KisDailyRangePricePoint[]> {
+}
+
+async function fetchRangePriceRowsWithToken(
+  input: FetchRangePriceRowsInput,
+  token: string,
+): Promise<KisDailyRangePricePoint[]> {
   const config = getKisConfig();
-  const token = await getAccessToken();
   const params = new URLSearchParams({
     FID_COND_MRKT_DIV_CODE: input.marketCode,
     FID_INPUT_ISCD: input.code,
@@ -723,6 +743,23 @@ async function fetchRangePriceRows(input: {
     .filter((row): row is Record<string, string> => typeof row === 'object' && row !== null)
     .map((row) => parseRangePriceRow(row, input.closeField, input.parsePrice, input.fields))
     .filter((point): point is KisDailyRangePricePoint => point !== null);
+}
+
+async function fetchRangePriceRows(
+  input: FetchRangePriceRowsInput,
+): Promise<KisDailyRangePricePoint[]> {
+  let token = await getAccessToken()
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      return await fetchRangePriceRowsWithToken(input, token)
+    } catch (error) {
+      if (getKisApiErrorKind(error) !== 'token') throw error
+      invalidateKisAccessToken(token)
+      if (attempt > 0) throw error
+      token = await getKisAccessToken()
+    }
+  }
+  throw createKisApiError('token', `KIS daily range token rejected twice: ${input.code}`)
 }
 
 export async function fetchDailyRangePriceRows(

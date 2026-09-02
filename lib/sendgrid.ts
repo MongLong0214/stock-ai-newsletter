@@ -126,6 +126,7 @@ export function parseCrashAlert(jsonString: string): CrashAlertData | null {
 }
 
 const SENDGRID_RETRY_DELAYS_MS = [500, 2_000, 6_000] as const;
+const DEFAULT_SENDGRID_REQUEST_TIMEOUT_MS = 15_000;
 const NETWORK_ERROR_CODES = new Set([
   'EAI_AGAIN',
   'ECONNREFUSED',
@@ -142,6 +143,11 @@ const NETWORK_ERROR_CODES = new Set([
 function getSendConcurrency(): number {
   const parsed = Number.parseInt(process.env.SENDGRID_SEND_CONCURRENCY ?? '', 10);
   return Number.isInteger(parsed) && parsed > 0 ? parsed : 10;
+}
+
+function getSendGridRequestTimeoutMs(): number {
+  const parsed = Number.parseInt(process.env.SENDGRID_REQUEST_TIMEOUT_MS ?? '', 10);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : DEFAULT_SENDGRID_REQUEST_TIMEOUT_MS;
 }
 
 function errorStatus(error: unknown): number | null {
@@ -167,12 +173,45 @@ function sleep(milliseconds: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
 
+function recipientDomain(email: string): string {
+  const separator = email.lastIndexOf('@');
+  return separator >= 0 && separator < email.length - 1
+    ? email.slice(separator + 1).toLowerCase()
+    : 'unknown';
+}
+
+async function sendWithTimeout(
+  message: Parameters<typeof sgMail.send>[0],
+  timeoutMs: number,
+): Promise<void> {
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  const timeoutPromise = new Promise<never>((_resolve, reject) => {
+    timeout = setTimeout(() => {
+      reject(Object.assign(new Error(`SendGrid request timed out after ${timeoutMs}ms`), {
+        code: 'ETIMEDOUT',
+        name: 'SendGridTimeoutError',
+      }));
+    }, timeoutMs);
+  });
+  try {
+    await Promise.race([sgMail.send(message), timeoutPromise]);
+  } finally {
+    if (timeout !== undefined) clearTimeout(timeout);
+  }
+}
+
+export interface StockNewsletterSendOptions {
+  readonly deadlineAt?: number;
+  readonly now?: () => number;
+}
+
 /**
  * SendGrid로 주식 뉴스레터 이메일 전송
  */
 export async function sendStockNewsletter(
   recipients: EmailRecipient[],
-  data: StockNewsletterData
+  data: StockNewsletterData,
+  options: StockNewsletterSendOptions = {},
 ): Promise<StockNewsletterSendResult> {
   // SendGrid 초기화 (API 키 + 발신자 정보 검증 포함)
   const { fromEmail, fromName } = initSendGrid();
@@ -186,10 +225,14 @@ export async function sendStockNewsletter(
   let retried = 0;
   const failed: StockNewsletterSendFailure[] = [];
   const workerCount = Math.min(getSendConcurrency(), recipients.length);
+  const requestTimeoutMs = getSendGridRequestTimeoutMs();
+  const now = options.now ?? Date.now;
+  const deadlineAt = options.deadlineAt ?? Number.POSITIVE_INFINITY;
 
   // WHY: personalized unsubscribe links require one request per recipient, so workers bound pressure.
   const workers = Array.from({ length: workerCount }, async () => {
     while (nextIndex < recipients.length) {
+      if (now() >= deadlineAt) break;
       const index = nextIndex;
       nextIndex += 1;
       const recipient = recipients[index];
@@ -198,33 +241,38 @@ export async function sendStockNewsletter(
       let delivered = false;
 
       for (let attempt = 0; attempt <= SENDGRID_RETRY_DELAYS_MS.length; attempt += 1) {
+        const remainingMs = deadlineAt - now();
+        if (remainingMs <= 0) break;
         try {
-          await sgMail.send({
+          await sendWithTimeout({
             to: recipient.email,
             from: { email: fromEmail, name: fromName },
             subject,
             html,
-          });
+          }, Math.min(requestTimeoutMs, remainingMs));
           delivered = true;
           break;
         } catch (error) {
           const retryDelay = SENDGRID_RETRY_DELAYS_MS[attempt];
           if (retryDelay === undefined || !isTransientSendGridError(error)) break;
+          if (deadlineAt - now() <= retryDelay) break;
           retried += 1;
           await sleep(retryDelay);
         }
       }
 
       if (!delivered) {
-        const separator = recipient.email.lastIndexOf('@');
-        const domain = separator >= 0 && separator < recipient.email.length - 1
-          ? recipient.email.slice(separator + 1).toLowerCase()
-          : 'unknown';
-        failed.push({ index, domain });
+        failed.push({ index, domain: recipientDomain(recipient.email) });
       }
     }
   });
   await Promise.all(workers);
+  while (nextIndex < recipients.length) {
+    const index = nextIndex;
+    nextIndex += 1;
+    const recipient = recipients[index];
+    if (recipient) failed.push({ index, domain: recipientDomain(recipient.email) });
+  }
   failed.sort((left, right) => left.index - right.index);
   const sendResult: StockNewsletterSendResult = {
     sent: recipients.length - failed.length,

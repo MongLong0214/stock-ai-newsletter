@@ -127,6 +127,7 @@ describe('stock daily prices', () => {
     expect(fetchDailyRangeClosePrices).toHaveBeenCalledWith('000660', '20260701', '20260702')
     expect(report.requestedRows).toBe(3)
     expect(report.attemptedCalls).toBe(3)
+    expect(report.physicalCalls).toBe(3)
     expect(report.successCount).toBe(3)
     expect(report.persistedRows).toBe(6)
     expect(report.dateCoverageRate).toBe(1)
@@ -247,6 +248,8 @@ describe('stock daily prices', () => {
     expect(fetchIndexDailyRangeClosePrices).toHaveBeenCalledTimes(3)
     expect(fetchDailyRangeClosePrices).not.toHaveBeenCalled()
     expect(report.failureCount).toBe(1)
+    expect(report.attemptedCalls).toBe(1)
+    expect(report.physicalCalls).toBe(3)
     expect(report.successCount).toBe(0)
     expect(report.indexFailed).toBe(true)
     vi.useRealTimers()
@@ -304,7 +307,7 @@ describe('stock daily prices', () => {
     ).rejects.toThrow(persistError)
 
     expect(consoleErrorSpy).toHaveBeenCalledWith(
-      expect.stringContaining('attempted=2, success=2, failure=0'),
+      expect.stringContaining('attempted=2, physical=2, success=2, failure=0'),
       persistError.message,
     )
 

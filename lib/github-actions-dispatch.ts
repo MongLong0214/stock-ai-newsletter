@@ -10,7 +10,7 @@ const RUN_CLOCK_SKEW_MS = 5_000
 const RUN_POLL_ATTEMPTS = 4
 const RUN_POLL_INTERVAL_MS = 3_000
 
-type WorkflowInputs = Readonly<Record<string, string | boolean>>
+export type WorkflowInputs = Readonly<Record<string, string | boolean>>
 
 export interface GitHubDispatchOptions {
   readonly inputs?: WorkflowInputs
@@ -20,11 +20,14 @@ export interface GitHubDispatchOptions {
 export interface GitHubDispatchResult {
   readonly dispatchId: string
   readonly tokenExpiresInDays: number | null
+  readonly verified: boolean
 }
 
 interface GitHubWorkflowRun {
   readonly created_at?: unknown
   readonly head_branch?: unknown
+  readonly display_title?: unknown
+  readonly name?: unknown
 }
 
 export class GitHubDispatchError extends Error {
@@ -101,7 +104,18 @@ async function postDispatch(input: {
   return response
 }
 
-function containsMatchingRun(payload: unknown, earliestCreatedAt: number): boolean {
+export function normalizeWorkflowInputs(inputs: WorkflowInputs): WorkflowInputs {
+  return Object.fromEntries(Object.entries(inputs).map(([key, value]) => [
+    key,
+    typeof value === 'boolean' ? value : String(value),
+  ]))
+}
+
+function containsMatchingRun(
+  payload: unknown,
+  dispatchId: string,
+  earliestCreatedAt: number,
+): boolean {
   if (!payload || typeof payload !== 'object') return false
   const workflowRuns = (payload as { workflow_runs?: unknown }).workflow_runs
   if (!Array.isArray(workflowRuns)) return false
@@ -110,13 +124,18 @@ function containsMatchingRun(payload: unknown, earliestCreatedAt: number): boole
       return false
     }
     const createdAt = new Date(candidate.created_at).getTime()
-    return Number.isFinite(createdAt) && createdAt >= earliestCreatedAt
+    const titles = [candidate.display_title, candidate.name]
+      .filter((value): value is string => typeof value === 'string')
+    return Number.isFinite(createdAt)
+      && createdAt >= earliestCreatedAt
+      && titles.some((title) => title.includes(dispatchId))
   })
 }
 
 async function verifyRunCreated(input: {
   readonly workflowFile: string
   readonly token: string
+  readonly dispatchId: string
   readonly dispatchStartedAt: number
   readonly signal: AbortSignal
 }): Promise<boolean> {
@@ -137,6 +156,7 @@ async function verifyRunCreated(input: {
     }
     if (containsMatchingRun(
       await response.json(),
+      input.dispatchId,
       input.dispatchStartedAt - RUN_CLOCK_SKEW_MS,
     )) {
       return true
@@ -146,13 +166,6 @@ async function verifyRunCreated(input: {
     }
   }
   return false
-}
-
-function retryInputs(inputs: WorkflowInputs): WorkflowInputs {
-  const targetDate = typeof inputs.target_date === 'string'
-    ? inputs.target_date
-    : new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' })
-  return { ...inputs, dispatch_id: createDispatchId(targetDate) }
 }
 
 export async function dispatchGitHubWorkflow(
@@ -167,38 +180,37 @@ export async function dispatchGitHubWorkflow(
     () => controller.abort(new Error('GitHub workflow dispatch verification timed out')),
     DISPATCH_BUDGET_MS,
   )
-  let inputs: WorkflowInputs = options.inputs ?? {}
-  let tokenExpiresInDays: number | null = null
+  const inputs = normalizeWorkflowInputs(options.inputs ?? {})
+  const dispatchId = typeof inputs.dispatch_id === 'string'
+    ? inputs.dispatch_id
+    : createDispatchId(
+      typeof inputs.target_date === 'string' ? inputs.target_date : 'dispatch',
+    )
 
   try {
-    for (let dispatchAttempt = 1; dispatchAttempt <= 2; dispatchAttempt += 1) {
-      const dispatchStartedAt = Date.now()
-      const response = await postDispatch({
+    const dispatchStartedAt = Date.now()
+    const response = await postDispatch({
+      workflowFile,
+      token,
+      inputs: { ...inputs, dispatch_id: dispatchId },
+      signal: controller.signal,
+    })
+    const tokenExpiresInDays = readTokenExpiryDays(response.headers)
+    const verified = await verifyRunCreated({
+      workflowFile,
+      token,
+      dispatchId,
+      dispatchStartedAt,
+      signal: controller.signal,
+    })
+    if (!verified) {
+      console.warn(JSON.stringify({
+        event: 'dispatch_unverified',
         workflowFile,
-        token,
-        inputs,
-        signal: controller.signal,
-      })
-      tokenExpiresInDays = readTokenExpiryDays(response.headers) ?? tokenExpiresInDays
-      if (await verifyRunCreated({
-        workflowFile,
-        token,
-        dispatchStartedAt,
-        signal: controller.signal,
-      })) {
-        const dispatchId = typeof inputs.dispatch_id === 'string'
-          ? inputs.dispatch_id
-          : createDispatchId(
-            typeof inputs.target_date === 'string' ? inputs.target_date : 'dispatch',
-          )
-        return { dispatchId, tokenExpiresInDays }
-      }
-
-      // WHY: a 204 only acknowledges the request; a missing run is retried with a new correlation ID.
-      inputs = retryInputs(inputs)
+        dispatchId,
+      }))
     }
-
-    throw new GitHubDispatchError(0, 'Workflow run was not created after two dispatches')
+    return { dispatchId, tokenExpiresInDays, verified }
   } finally {
     clearTimeout(timeout)
   }

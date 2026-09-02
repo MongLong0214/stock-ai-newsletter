@@ -9,6 +9,7 @@ import {
 export const DEFAULT_DAILY_COLLECTION_CALL_BUDGET = 3000
 // WHY: 2026-08-28 실측 2,431종목, 683ms/콜이 25분 deadline을 초과했다.
 export const DEFAULT_DAILY_COLLECTION_DEADLINE_MS = 40 * 60 * 1000
+export const DAILY_COLLECTION_POST_RESERVE_MS = 8 * 60 * 1000
 export const DAILY_COLLECTION_TRADING_DAYS = 7
 
 type CollectPriceRange = typeof collectAndPersistStockDailyPriceRange
@@ -37,6 +38,7 @@ export const getStockPicksKisRateLimitPerSecond = (
 export async function collectDailyStockPrices(input: {
   readonly callBudget?: number
   readonly deadlineMs?: number
+  readonly deadlineAt?: number
   readonly endDate?: string
   readonly collectPriceRange?: CollectPriceRange
 } = {}): Promise<DailyStockPriceCollectionReport> {
@@ -44,7 +46,13 @@ export async function collectDailyStockPrices(input: {
   if (!Number.isInteger(callBudget) || callBudget <= 0) {
     throw new Error(`callBudget은 양의 정수여야 합니다: ${callBudget}`)
   }
-  const deadlineMs = input.deadlineMs ?? DEFAULT_DAILY_COLLECTION_DEADLINE_MS
+  const remainingCollectionBudget = input.deadlineAt === undefined
+    ? DEFAULT_DAILY_COLLECTION_DEADLINE_MS
+    : input.deadlineAt - Date.now() - DAILY_COLLECTION_POST_RESERVE_MS
+  const deadlineMs = Math.min(
+    input.deadlineMs ?? DEFAULT_DAILY_COLLECTION_DEADLINE_MS,
+    remainingCollectionBudget,
+  )
   if (!Number.isFinite(deadlineMs) || deadlineMs <= 0) {
     throw new Error(`deadlineMs는 양수여야 합니다: ${deadlineMs}`)
   }

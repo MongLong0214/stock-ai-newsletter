@@ -135,6 +135,7 @@ describe('prepare-newsletter stock-pick wiring', () => {
   })
 
   afterEach(() => {
+    vi.useRealTimers()
     vi.restoreAllMocks()
     vi.unstubAllEnvs()
   })
@@ -221,6 +222,7 @@ describe('prepare-newsletter stock-pick wiring', () => {
       '--target-date=2026-09-02',
       '--force',
       '--dispatch-id=dispatch-42',
+      '--deadline-minutes=37',
     ])).toEqual({
       dryRun: true,
       backupRun: true,
@@ -228,6 +230,7 @@ describe('prepare-newsletter stock-pick wiring', () => {
       targetDate: '2026-09-02',
       force: true,
       runId: 'dispatch-42',
+      deadlineMinutes: 37,
     })
   })
 
@@ -246,7 +249,10 @@ describe('prepare-newsletter stock-pick wiring', () => {
 
     await prepareNewsletter({ dryRun: true, force: true, targetDate: '2026-08-30' })
     expect(mocks.assessMarket).toHaveBeenCalledOnce()
-    expect(mocks.collectDaily).toHaveBeenCalledWith({ endDate: '2026-08-28' })
+    expect(mocks.collectDaily).toHaveBeenCalledWith(expect.objectContaining({
+      endDate: '2026-08-28',
+      deadlineAt: expect.any(Number),
+    }))
     expect(mocks.generateCodePicks).toHaveBeenCalledWith({ todayKst: '2026-08-30' })
   })
 
@@ -257,7 +263,10 @@ describe('prepare-newsletter stock-pick wiring', () => {
     await prepareNewsletter({ dryRun: true, targetDate: TARGET_DATE, runId: 'run-123' })
 
     expect(mocks.ensureToken).toHaveBeenCalledWith({ minRemainingMs: 90 * 60_000 })
-    expect(mocks.collectDaily).toHaveBeenCalledWith({ endDate: SIGNAL_DATE })
+    expect(mocks.collectDaily).toHaveBeenCalledWith(expect.objectContaining({
+      endDate: SIGNAL_DATE,
+      deadlineAt: expect.any(Number),
+    }))
     expect(mocks.generateCodePicks).toHaveBeenCalledWith({ todayKst: TARGET_DATE })
     expect(findSummary(logSpy)).toMatchObject({
       event: 'prepare_run_summary',
@@ -268,6 +277,11 @@ describe('prepare-newsletter stock-pick wiring', () => {
       tokenWarmup: 'storage',
       collection: { exactDateCoverageRate: 1, persistedRows: 21 },
       candidateCount: 4,
+      budget: {
+        deadlineMinutes: 38,
+        remainingSecAtCollection: expect.any(Number),
+        remainingSecAtPicks: expect.any(Number),
+      },
       picks: [
         { rank: 1, ticker: 'KOSPI:000001', score: 91 },
         { rank: 2, ticker: 'KOSPI:000002', score: 87 },
@@ -377,5 +391,48 @@ describe('prepare-newsletter stock-pick wiring', () => {
       subject: `[Stock Matrix] ${TARGET_DATE} prepare 실패 — 수동 조치 필요`,
       lines: [expect.stringContaining('synthetic hard failure')],
     }))
+  })
+
+  it('does not start LLM fallback when fewer than six minutes remain', async () => {
+    vi.useFakeTimers()
+    const startedAt = new Date('2026-09-02T00:00:00.000Z')
+    vi.setSystemTime(startedAt)
+    const client = mockNewsletterClient({ reads: [null] })
+    vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', 'https://example.supabase.co')
+    vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY', 'test-service-role-key')
+    mocks.collectDaily.mockImplementation(async () => {
+      vi.setSystemTime(new Date(startedAt.getTime() + 5 * 60_000))
+      throw new Error('collection deadline')
+    })
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    vi.spyOn(console, 'log').mockImplementation(() => {})
+
+    const result = await runPrepareNewsletterCli([
+      `--target-date=${TARGET_DATE}`,
+      '--deadline-minutes=10',
+    ])
+
+    expect(result).toBe(1)
+    expect(mocks.getLlmAnalysis).not.toHaveBeenCalled()
+    expect(client.insert).not.toHaveBeenCalled()
+    expect(client.update).not.toHaveBeenCalled()
+    expect(mocks.alert).toHaveBeenCalledWith(expect.objectContaining({
+      subject: `[Stock Matrix] ${TARGET_DATE} prepare 실패 — 수동 조치 필요`,
+      lines: [expect.stringContaining('prepare deadline exceeded before LLM fallback')],
+    }))
+    expect(errorSpy).toHaveBeenCalledWith(JSON.stringify({
+      event: 'prepare_aborted',
+      reason: 'deadline',
+    }))
+  })
+
+  it('keeps the workflow inside the recovery window and marks LLM fallback red', async () => {
+    const workflow = await readFile('.github/workflows/prepare-newsletter.yml', 'utf8')
+
+    expect(workflow).toContain('timeout-minutes: 45')
+    expect(workflow).toContain('timeout-minutes: 42')
+    expect(workflow).toContain("PREPARE_DEADLINE_MINUTES: '38'")
+    expect(workflow).toContain('::error::코드 픽 실패 — LLM fallback으로 발행됨')
+    expect(workflow).toMatch(/PICKS_SOURCE=llm_fallback[\s\S]*exit 1/)
   })
 })

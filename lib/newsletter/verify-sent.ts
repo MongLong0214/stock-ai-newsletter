@@ -4,6 +4,7 @@ import {
   sendNewsletterAlertEmail,
 } from '@/lib/newsletter/alert'
 import {
+  countActiveSubscribers,
   getNewsletterStatus,
   type NewsletterStatusRow,
 } from '@/lib/newsletter/status'
@@ -35,6 +36,7 @@ export interface NewsletterWatchdogDependencies {
   readonly getTodayKst?: () => string
   readonly isTradingDay?: (date: string) => boolean
   readonly fetchNewsletter?: (date: string) => Promise<NewsletterStatusRow | null>
+  readonly countActiveSubscribers?: () => Promise<number>
   readonly sendAlertEmail?: (email: NewsletterAlertEmail) => Promise<void>
   readonly env?: WatchdogEnvironment
   readonly logger?: WatchdogLogger
@@ -155,6 +157,23 @@ export async function verifyNewsletterSent(
   if (newsletter.picks_source !== 'code') {
     logger.warn(
       `⚠️ ${date} 뉴스레터는 발송됐지만 picks_source=${newsletter.picks_source ?? 'null'} 입니다.`,
+    )
+  }
+  try {
+    const activeSubscriberCount = await (
+      dependencies.countActiveSubscribers ?? (() => countActiveSubscribers(env))
+    )()
+    if (
+      newsletter.subscriber_count !== null
+      && newsletter.subscriber_count < activeSubscriberCount
+    ) {
+      logger.warn(
+        `⚠️ subscriber_count(${newsletter.subscriber_count}) < active subscribers(${activeSubscriberCount})`,
+      )
+    }
+  } catch (error) {
+    logger.warn(
+      `⚠️ 활성 구독자 수 조회 실패: ${error instanceof Error ? error.message : String(error)}`,
     )
   }
   return 0

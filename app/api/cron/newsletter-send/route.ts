@@ -38,7 +38,7 @@ export async function GET(request: Request) {
         date,
       })
     }
-    if (newsletter.is_sent) {
+    if (newsletter.sent_at) {
       return NextResponse.json({
         success: true,
         skipped: true,
@@ -47,6 +47,9 @@ export async function GET(request: Request) {
       })
     }
 
+    const recoveryReason = newsletter.is_sent
+      ? 'recover_unconfirmed_claim'
+      : undefined
     const requestedDispatchId = createDispatchId(date)
     const dispatch = await dispatchGitHubWorkflow(WORKFLOW_FILE, {
       inputs: { target_date: date, dispatch_id: requestedDispatchId },
@@ -57,6 +60,8 @@ export async function GET(request: Request) {
       workflow: WORKFLOW_FILE,
       date,
       dispatchId: dispatch.dispatchId,
+      verified: dispatch.verified,
+      reason: recoveryReason,
     })
   } catch (error) {
     console.error('Newsletter send cron failed:', error)

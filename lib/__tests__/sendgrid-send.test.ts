@@ -137,4 +137,58 @@ describe('sendStockNewsletter', () => {
 
     await expect(resultPromise).resolves.toEqual({ sent: 1, failed: [], retried: 1 })
   })
+
+  it('times out a stuck recipient request and retries it as a transient failure', async () => {
+    vi.useFakeTimers()
+    vi.stubEnv('SENDGRID_API_KEY', 'test-api-key')
+    vi.stubEnv('SENDGRID_FROM_EMAIL', 'sender@stockmatrix.co.kr')
+    vi.stubEnv('SENDGRID_FROM_NAME', 'Stock Matrix')
+    vi.stubEnv('SENDGRID_REQUEST_TIMEOUT_MS', '100')
+    vi.spyOn(console, 'log').mockImplementation(() => {})
+    mocks.send
+      .mockImplementationOnce(() => new Promise(() => {}))
+      .mockResolvedValueOnce([{ statusCode: 202 }])
+
+    const resultPromise = sendStockNewsletter(
+      [{ email: 'timeout@example.com' }],
+      { date: '2026년 9월 2일', geminiAnalysis: '[]' },
+    )
+    await vi.advanceTimersByTimeAsync(600)
+
+    await expect(resultPromise).resolves.toEqual({ sent: 1, failed: [], retried: 1 })
+    expect(mocks.send).toHaveBeenCalledTimes(2)
+  })
+
+  it('stops starting recipients at the global deadline and reports the remainder', async () => {
+    vi.useFakeTimers()
+    vi.stubEnv('SENDGRID_API_KEY', 'test-api-key')
+    vi.stubEnv('SENDGRID_FROM_EMAIL', 'sender@stockmatrix.co.kr')
+    vi.stubEnv('SENDGRID_FROM_NAME', 'Stock Matrix')
+    vi.stubEnv('SENDGRID_SEND_CONCURRENCY', '1')
+    vi.spyOn(console, 'log').mockImplementation(() => {})
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    mocks.send.mockResolvedValue([{ statusCode: 202 }])
+    const now = vi.fn()
+      .mockReturnValueOnce(0)
+      .mockReturnValueOnce(0)
+      .mockReturnValue(100)
+
+    await expect(sendStockNewsletter(
+      [
+        { email: 'first@example.com' },
+        { email: 'second@remaining.example' },
+        { email: 'third@remaining.example' },
+      ],
+      { date: '2026년 9월 2일', geminiAnalysis: '[]' },
+      { deadlineAt: 100, now },
+    )).resolves.toEqual({
+      sent: 1,
+      failed: [
+        { index: 1, domain: 'remaining.example' },
+        { index: 2, domain: 'remaining.example' },
+      ],
+      retried: 0,
+    })
+    expect(mocks.send).toHaveBeenCalledOnce()
+  })
 })

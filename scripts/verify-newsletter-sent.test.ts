@@ -12,6 +12,7 @@ function makeDependencies(input: {
   readonly tradingDay?: boolean
   readonly newsletter?: NewsletterStatusRow | null
   readonly sendgridApiKey?: string
+  readonly activeSubscriberCount?: number
 }) {
   const fetchNewsletter = vi.fn(async () => input.newsletter ?? null)
   const sendAlertEmail = vi.fn(async (email: NewsletterAlertEmail) => {
@@ -22,6 +23,9 @@ function makeDependencies(input: {
     warn: vi.fn(),
     error: vi.fn(),
   }
+  const countActiveSubscribers = vi.fn(async () => (
+    input.activeSubscriberCount ?? input.newsletter?.subscriber_count ?? 0
+  ))
   const env = {
     SENDGRID_API_KEY: input.sendgridApiKey,
     SENDGRID_FROM_EMAIL: 'alerts@stockmatrix.co.kr',
@@ -34,6 +38,7 @@ function makeDependencies(input: {
       getTodayKst: () => TODAY_KST,
       isTradingDay: () => input.tradingDay ?? true,
       fetchNewsletter,
+      countActiveSubscribers,
       sendAlertEmail,
       env,
       logger,
@@ -41,6 +46,7 @@ function makeDependencies(input: {
     fetchNewsletter,
     sendAlertEmail,
     logger,
+    countActiveSubscribers,
   }
 }
 
@@ -179,6 +185,25 @@ describe('newsletter sent watchdog', () => {
 
     expect(setup.logger.warn).toHaveBeenCalledWith(
       `⚠️ ${TODAY_KST} 뉴스레터 subscriber_count=0 입니다.`,
+    )
+  })
+
+  it('warns when the confirmed count is below the current active subscriber count', async () => {
+    const setup = makeDependencies({
+      newsletter: {
+        is_sent: true,
+        picks_source: 'code',
+        sent_at: '2026-08-31T00:00:00.000Z',
+        subscriber_count: 9,
+      },
+      activeSubscriberCount: 10,
+    })
+
+    await expect(verifyNewsletterSent(setup.dependencies)).resolves.toBe(0)
+
+    expect(setup.countActiveSubscribers).toHaveBeenCalledOnce()
+    expect(setup.logger.warn).toHaveBeenCalledWith(
+      '⚠️ subscriber_count(9) < active subscribers(10)',
     )
   })
 })

@@ -39,7 +39,9 @@ export async function GET(request: Request) {
       )
     }
 
-    if (newsletter.picks_source !== 'code') {
+    if (newsletter.picks_source === 'crash') {
+      console.log(JSON.stringify({ event: 'crash_alert_content', date }))
+    } else if (newsletter.picks_source === 'llm_fallback' || newsletter.picks_source === null) {
       await sendNewsletterAlertEmail({
         subject: `[Stock Matrix] ${date} LLM fallback 콘텐츠로 발송 예정`,
         lines: [

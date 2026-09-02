@@ -45,11 +45,17 @@ function cronRequest(token: string | null = CRON_SECRET): Request {
   return new Request('http://localhost/api/cron/newsletter', { headers })
 }
 
-function status(input: { isSent?: boolean; picksSource?: string | null } = {}) {
+function status(input: {
+  isSent?: boolean
+  picksSource?: string | null
+  sentAt?: string | null
+} = {}) {
   return {
     is_sent: input.isSent ?? false,
     picks_source: input.picksSource ?? 'code',
-    sent_at: input.isSent ? '2026-09-02T00:00:00.000Z' : null,
+    sent_at: input.sentAt !== undefined
+      ? input.sentAt
+      : input.isSent ? '2026-09-02T00:00:00.000Z' : null,
     subscriber_count: input.isSent ? 42 : null,
   }
 }
@@ -68,6 +74,7 @@ describe('newsletter Vercel cron routes', () => {
     ) => ({
       dispatchId: options.inputs?.dispatch_id,
       tokenExpiresInDays: null,
+      verified: true,
     }))
     vi.spyOn(console, 'error').mockImplementation(() => undefined)
   })
@@ -88,6 +95,22 @@ describe('newsletter Vercel cron routes', () => {
 
     expect(response.status).toBe(401)
     expect(mocks.isKoreanTradingDate).not.toHaveBeenCalled()
+  })
+
+  it('returns 401 for an invalid Bearer token', async () => {
+    const response = await prepareNewsletter(cronRequest('wrong-secret'))
+
+    expect(response.status).toBe(401)
+    expect(mocks.isKoreanTradingDate).not.toHaveBeenCalled()
+  })
+
+  it('lets a valid Bearer token reach the trading-day check', async () => {
+    mocks.isKoreanTradingDate.mockReturnValue(false)
+
+    const response = await prepareNewsletter(cronRequest())
+
+    expect(response.status).toBe(200)
+    expect(mocks.isKoreanTradingDate).toHaveBeenCalledOnce()
   })
 
   it.each([
@@ -120,6 +143,7 @@ describe('newsletter Vercel cron routes', () => {
     expect(await response.json()).toEqual(expect.objectContaining({
       dispatched: true,
       dispatchId: expect.stringMatching(/-fixture$/),
+      verified: true,
     }))
     expect(mocks.dispatchGitHubWorkflow).toHaveBeenCalledWith(
       'prepare-newsletter.yml',
@@ -134,6 +158,7 @@ describe('newsletter Vercel cron routes', () => {
     mocks.dispatchGitHubWorkflow.mockResolvedValue({
       dispatchId: 'expiry-fixture',
       tokenExpiresInDays: 3,
+      verified: true,
     })
 
     const response = await prepareNewsletter(cronRequest())
@@ -142,6 +167,35 @@ describe('newsletter Vercel cron routes', () => {
     expect(mocks.sendNewsletterAlertEmail).toHaveBeenCalledWith(expect.objectContaining({
       subject: expect.stringContaining('PAT 만료 D-3'),
     }))
+  })
+
+  it('returns 200 with verified false when dispatch was acknowledged but not visible yet', async () => {
+    mocks.dispatchGitHubWorkflow.mockResolvedValue({
+      dispatchId: 'unverified-fixture',
+      tokenExpiresInDays: null,
+      verified: false,
+    })
+
+    const response = await prepareNewsletter(cronRequest())
+
+    expect(response.status).toBe(200)
+    expect(await response.json()).toEqual(expect.objectContaining({
+      dispatched: true,
+      dispatchId: 'unverified-fixture',
+      verified: false,
+    }))
+  })
+
+  it.each([
+    [status({ picksSource: 'code' }), 'code_picks_exist'],
+    [status({ isSent: true, picksSource: 'llm_fallback' }), 'already_sent'],
+  ])('skips primary prepare for an existing terminal row', async (newsletter, reason) => {
+    mocks.getNewsletterStatus.mockResolvedValue(newsletter)
+
+    const response = await prepareNewsletter(cronRequest())
+
+    expect(await response.json()).toEqual(expect.objectContaining({ skipped: true, reason }))
+    expect(mocks.dispatchGitHubWorkflow).not.toHaveBeenCalled()
   })
 
   it.each([
@@ -167,7 +221,7 @@ describe('newsletter Vercel cron routes', () => {
     expect(response.status).toBe(200)
     expect(mocks.dispatchGitHubWorkflow).toHaveBeenCalledWith(
       'prepare-newsletter.yml',
-      { inputs: expect.objectContaining({ backup_run: 'true' }) },
+      { inputs: expect.objectContaining({ backup_run: true }) },
     )
   })
 
@@ -192,6 +246,43 @@ describe('newsletter Vercel cron routes', () => {
     expect(mocks.sendNewsletterAlertEmail).toHaveBeenCalledWith(expect.objectContaining({
       subject: expect.stringContaining('LLM fallback 콘텐츠로 발송 예정'),
     }))
+  })
+
+  it('keeps crash-alert content green without sending a fallback alert', async () => {
+    mocks.getNewsletterStatus.mockResolvedValue(status({ picksSource: 'crash' }))
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined)
+
+    const response = await runPreparedWatchdog(cronRequest())
+
+    expect(response.status).toBe(200)
+    expect(mocks.sendNewsletterAlertEmail).not.toHaveBeenCalled()
+    expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('crash_alert_content'))
+  })
+
+  it.each([
+    ['a missing row', null, 'not_prepared'],
+    ['an already confirmed row', status({ isSent: true }), 'already_sent'],
+  ])('skips primary send for %s', async (_description, newsletter, reason) => {
+    mocks.getNewsletterStatus.mockResolvedValue(newsletter)
+
+    const response = await sendNewsletter(cronRequest())
+
+    expect(await response.json()).toEqual(expect.objectContaining({ skipped: true, reason }))
+    expect(mocks.dispatchGitHubWorkflow).not.toHaveBeenCalled()
+  })
+
+  it('dispatches primary send for an unconfirmed claim with the recovery reason', async () => {
+    mocks.getNewsletterStatus.mockResolvedValue(status({ isSent: true, sentAt: null }))
+
+    const response = await sendNewsletter(cronRequest())
+
+    expect(response.status).toBe(200)
+    expect(await response.json()).toEqual(expect.objectContaining({
+      dispatched: true,
+      reason: 'recover_unconfirmed_claim',
+      verified: true,
+    }))
+    expect(mocks.dispatchGitHubWorkflow).toHaveBeenCalledOnce()
   })
 
   it('uses the second send slot idempotently after the first claim', async () => {
@@ -226,5 +317,24 @@ describe('newsletter Vercel cron routes', () => {
     expect(await response.json()).toEqual(expect.objectContaining({
       reason: 'newsletter_not_sent',
     }))
+  })
+
+  it.each([401, 422])('returns 500 when GitHub dispatch responds %i and preserves body in the logged error', async (httpStatus) => {
+    const dispatchError = Object.assign(new Error(`GitHub workflow dispatch failed (${httpStatus})`), {
+      status: httpStatus,
+      responseBody: `fixture-body-${httpStatus}`,
+    })
+    mocks.dispatchGitHubWorkflow.mockRejectedValue(dispatchError)
+
+    const response = await prepareNewsletter(cronRequest())
+
+    expect(response.status).toBe(500)
+    expect(console.error).toHaveBeenCalledWith(
+      'Newsletter prepare cron failed:',
+      expect.objectContaining({
+        status: httpStatus,
+        responseBody: `fixture-body-${httpStatus}`,
+      }),
+    )
   })
 })

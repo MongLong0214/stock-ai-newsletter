@@ -28,6 +28,8 @@ import { loadStockMaster } from '@/scripts/stock-picks/load-stock-master'
 export type PicksSource = 'code' | 'llm_fallback' | 'crash'
 export const MIN_DAILY_COLLECTION_SUCCESS_RATE = 0.95
 export const MIN_EXACT_DATE_COVERAGE_RATE = 0.97
+export const DEFAULT_PREPARE_DEADLINE_MINUTES = 38
+const MIN_LLM_FALLBACK_REMAINING_MS = 6 * 60_000
 
 interface DailyCollectionCoverageReport {
   readonly successRate: number
@@ -51,7 +53,10 @@ type CodePicksResult = string | GeneratePicksResult
 
 export interface NewsletterPipelineDependencies {
   readonly assessMarket?: () => Promise<MarketAssessment>
-  readonly collectDaily?: (input?: { readonly endDate?: string }) => Promise<DailyCollectionCoverageReport>
+  readonly collectDaily?: (input?: {
+    readonly endDate?: string
+    readonly deadlineAt?: number
+  }) => Promise<DailyCollectionCoverageReport>
   readonly generateCodePicks?: (input?: { readonly todayKst?: string }) => Promise<CodePicksResult>
   readonly getLlmAnalysis?: (options?: StockAnalysisOptions) => Promise<StockAnalysisResult>
   readonly refreshStockMaster?: () => Promise<void>
@@ -71,13 +76,32 @@ interface NewsletterPipelineResult extends NewsletterAnalysisResult {
   readonly fallbackReason: string | null
   readonly durationsMs: PipelineDurations
   readonly warnings: readonly string[]
+  readonly budget: {
+    readonly remainingSecAtCollection: number | null
+    readonly remainingSecAtPicks: number | null
+  }
 }
 
 const elapsedMs = (startedAt: number): number => Date.now() - startedAt
+const remainingMs = (deadlineAt: number): number => deadlineAt - Date.now()
+const remainingSec = (deadlineAt: number): number => Math.max(0, Math.floor(remainingMs(deadlineAt) / 1_000))
+
+class PrepareDeadlineError extends Error {
+  constructor(readonly stage: string) {
+    super(`prepare deadline exceeded before ${stage}`)
+    this.name = 'PrepareDeadlineError'
+  }
+}
+
+function abortForDeadline(stage: string): never {
+  console.error(JSON.stringify({ event: 'prepare_aborted', reason: 'deadline' }))
+  throw new PrepareDeadlineError(stage)
+}
 
 async function runNewsletterPipeline(input: {
   readonly targetDate: string
   readonly signalDate: string
+  readonly deadlineAt: number
   readonly dependencies?: NewsletterPipelineDependencies
 }): Promise<NewsletterPipelineResult> {
   const dependencies = input.dependencies ?? {}
@@ -89,16 +113,24 @@ async function runNewsletterPipeline(input: {
   const refreshStockMaster = dependencies.refreshStockMaster ?? loadStockMaster
   const durationsMs: PipelineDurations = { assessment: 0, master: 0, collection: 0, picks: 0 }
   const warnings: string[] = []
+  const budget: NewsletterPipelineResult['budget'] = {
+    remainingSecAtCollection: null,
+    remainingSecAtPicks: null,
+  }
 
+  if (remainingMs(input.deadlineAt) <= 0) abortForDeadline('market assessment')
   const assessmentStartedAt = Date.now()
   const assessment = await assessMarket()
   durationsMs.assessment = elapsedMs(assessmentStartedAt)
 
   if (assessment.verdict === 'CRASH_ALERT') {
     console.log('\n🚨 [CRASH_ALERT] 기존 폭락 분석 Pipeline 실행')
+    if (remainingMs(input.deadlineAt) <= 0) abortForDeadline('crash analysis')
     const picksStartedAt = Date.now()
+    budget.remainingSecAtPicks = remainingSec(input.deadlineAt)
     const result = await getLlmAnalysis({ marketAssessment: assessment })
     durationsMs.picks = elapsedMs(picksStartedAt)
+    if (remainingMs(input.deadlineAt) <= 0) abortForDeadline('crash analysis completion')
     return {
       geminiAnalysis: result.geminiAnalysis,
       picksSource: 'crash',
@@ -108,6 +140,7 @@ async function runNewsletterPipeline(input: {
       fallbackReason: null,
       durationsMs,
       warnings,
+      budget,
     }
   }
 
@@ -126,9 +159,14 @@ async function runNewsletterPipeline(input: {
 
   let collection: DailyCollectionCoverageReport | null = null
   try {
+    budget.remainingSecAtCollection = remainingSec(input.deadlineAt)
     const collectionStartedAt = Date.now()
-    collection = await collectDaily({ endDate: input.signalDate })
+    collection = await collectDaily({
+      endDate: input.signalDate,
+      deadlineAt: input.deadlineAt,
+    })
     durationsMs.collection = elapsedMs(collectionStartedAt)
+    if (remainingMs(input.deadlineAt) <= 0) abortForDeadline('collection completion')
     const exactDateCoverageRate = collection.exactDateCoverageRate ?? 1
     if (
       collection.successRate < MIN_DAILY_COLLECTION_SUCCESS_RATE
@@ -148,9 +186,12 @@ async function runNewsletterPipeline(input: {
       console.warn(`⚠️ ${warning}`)
     }
 
+    if (remainingMs(input.deadlineAt) <= 0) abortForDeadline('code picks')
     const picksStartedAt = Date.now()
+    budget.remainingSecAtPicks = remainingSec(input.deadlineAt)
     const codeResult = await generateCodePicks({ todayKst: input.targetDate })
     durationsMs.picks = elapsedMs(picksStartedAt)
+    if (remainingMs(input.deadlineAt) <= 0) abortForDeadline('code picks completion')
     const generated = typeof codeResult === 'string'
       ? null
       : codeResult
@@ -165,18 +206,26 @@ async function runNewsletterPipeline(input: {
       fallbackReason: null,
       durationsMs,
       warnings,
+      budget,
     }
   } catch (error) {
+    if (error instanceof PrepareDeadlineError) throw error
     const reason = error instanceof Error ? error.message : String(error)
     console.error(`\n${'━'.repeat(80)}`)
     console.error('🚨 코드 종목 추천 Pipeline 실패 — 기존 LLM Pipeline fallback')
     console.error(error instanceof Error ? error.stack ?? error.message : String(error))
     console.error(`${'━'.repeat(80)}\n`)
-    console.log('PICKS_SOURCE=llm_fallback')
     warnings.push(`LLM fallback: ${reason}`)
+    const fallbackRemainingMs = remainingMs(input.deadlineAt)
+    budget.remainingSecAtPicks = Math.max(0, Math.floor(fallbackRemainingMs / 1_000))
+    if (fallbackRemainingMs < MIN_LLM_FALLBACK_REMAINING_MS) {
+      abortForDeadline('LLM fallback')
+    }
+    console.log('PICKS_SOURCE=llm_fallback')
     const picksStartedAt = Date.now()
     const result = await getLlmAnalysis({ marketAssessment: assessment })
     durationsMs.picks += elapsedMs(picksStartedAt)
+    if (remainingMs(input.deadlineAt) <= 0) abortForDeadline('LLM fallback completion')
     return {
       geminiAnalysis: result.geminiAnalysis,
       picksSource: 'llm_fallback',
@@ -186,6 +235,7 @@ async function runNewsletterPipeline(input: {
       fallbackReason: reason,
       durationsMs,
       warnings,
+      budget,
     }
   }
 }
@@ -194,9 +244,11 @@ export async function resolveNewsletterAnalysis(
   dependencies: NewsletterPipelineDependencies = {},
 ): Promise<NewsletterAnalysisResult> {
   const targetDate = getKSTDateString()
+  const deadlineAt = Date.now() + DEFAULT_PREPARE_DEADLINE_MINUTES * 60_000
   const result = await runNewsletterPipeline({
     targetDate,
     signalDate: getExpectedSignalDate(targetDate),
+    deadlineAt,
     dependencies,
   })
   return { geminiAnalysis: result.geminiAnalysis, picksSource: result.picksSource }
@@ -295,6 +347,7 @@ export interface PrepareNewsletterOptions {
   readonly targetDate?: string
   readonly force?: boolean
   readonly runId?: string
+  readonly deadlineMinutes?: number
 }
 
 interface PrepareRunSummary {
@@ -333,6 +386,11 @@ interface PrepareRunSummary {
     readonly total: number
   }
   readonly warnings: readonly string[]
+  readonly budget: {
+    readonly deadlineMinutes: number
+    readonly remainingSecAtCollection: number | null
+    readonly remainingSecAtPicks: number | null
+  }
 }
 
 const assertIsoDate = (value: string, name: string): void => {
@@ -369,6 +427,15 @@ const parsePicks = (json: string): StockData[] => {
 
 export async function prepareNewsletter(options: PrepareNewsletterOptions = {}): Promise<void> {
   const totalStartedAt = Date.now()
+  const configuredDeadline = options.deadlineMinutes
+    ?? (process.env.PREPARE_DEADLINE_MINUTES === undefined
+      ? DEFAULT_PREPARE_DEADLINE_MINUTES
+      : Number(process.env.PREPARE_DEADLINE_MINUTES))
+  if (!Number.isFinite(configuredDeadline) || configuredDeadline <= 0) {
+    throw new Error(`PREPARE_DEADLINE_MINUTES는 양수여야 합니다: ${configuredDeadline}`)
+  }
+  const deadlineMinutes = configuredDeadline
+  const deadlineAt = totalStartedAt + deadlineMinutes * 60_000
   if (options.simulateTodayKst && !options.dryRun) {
     throw new Error('simulateTodayKst는 dry-run에서만 허용됩니다 (발송분 오염 방지)')
   }
@@ -409,7 +476,11 @@ export async function prepareNewsletter(options: PrepareNewsletterOptions = {}):
     console.warn(`⚠️ ${warning}`)
   }
 
-  const pipeline = await runNewsletterPipeline({ targetDate: signalTargetDate, signalDate })
+  const pipeline = await runNewsletterPipeline({
+    targetDate: signalTargetDate,
+    signalDate,
+    deadlineAt,
+  })
   warnings.push(...pipeline.warnings)
   console.log('✅ 뉴스레터 분석 완료\n')
 
@@ -427,6 +498,7 @@ export async function prepareNewsletter(options: PrepareNewsletterOptions = {}):
       ],
     })
   }
+  if (remainingMs(deadlineAt) <= 0) abortForDeadline('summary and database write')
 
   const rawPicks = pipeline.picksSource === 'code' ? parsePicks(pipeline.geminiAnalysis) : []
   const scoreBySymbol = new Map(
@@ -468,6 +540,10 @@ export async function prepareNewsletter(options: PrepareNewsletterOptions = {}):
       total: elapsedMs(totalStartedAt) / 1000,
     },
     warnings,
+    budget: {
+      deadlineMinutes,
+      ...pipeline.budget,
+    },
   }
 
   if (options.dryRun) {
@@ -478,6 +554,7 @@ export async function prepareNewsletter(options: PrepareNewsletterOptions = {}):
     return
   }
   if (!client) throw new Error('newsletter client 초기화 실패')
+  if (remainingMs(deadlineAt) <= 0) abortForDeadline('database write')
 
   const writeResult = await writeNewsletterWithCas({
     client,
@@ -515,6 +592,9 @@ export function parsePrepareNewsletterCliArgs(args: readonly string[]): PrepareN
     targetDate: readOption(args, '--target-date'),
     force: args.includes('--force'),
     runId: readOption(args, '--dispatch-id'),
+    deadlineMinutes: readOption(args, '--deadline-minutes') === undefined
+      ? undefined
+      : Number(readOption(args, '--deadline-minutes')),
   }
 }
 
