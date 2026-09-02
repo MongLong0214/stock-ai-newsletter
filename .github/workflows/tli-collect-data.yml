@@ -22,6 +22,23 @@ on:
         options:
           - full
           - news-only
+          - datalab-only
+      datalab_refresh:
+        description: 'DataLab 동일 요청 재사용 또는 강제 새로고침'
+        required: false
+        default: 'reuse'
+        type: choice
+        options:
+          - reuse
+          - force
+      intended_kst_date:
+        description: '지연 실행 차단용 의도한 KST 날짜 (YYYY-MM-DD)'
+        required: false
+        type: string
+      run_key:
+        description: '운영 로그 상관관계 키'
+        required: false
+        type: string
 
 # 동시 실행 방지: 진행 중이면 대기 (cancel 대신 queue)
 concurrency:
@@ -56,9 +73,13 @@ jobs:
         env:
           TLI_COLLECT_SCHEDULE: ${{ github.event.schedule }}
           TLI_COLLECT_DISPATCH_MODE: ${{ github.event.inputs.mode }}
+          TLI_COLLECT_DISPATCH_DATALAB_REFRESH: ${{ github.event.inputs.datalab_refresh }}
+          TLI_COLLECT_DISPATCH_INTENDED_KST_DATE: ${{ github.event.inputs.intended_kst_date }}
+          TLI_COLLECT_DISPATCH_RUN_KEY: ${{ github.event.inputs.run_key }}
         run: npx tsx scripts/tli/ops/resolve-collect-mode.ts
 
       - name: Run TLI Data Collection & Scoring
+        if: steps.mode.outputs.skip_reason == ''
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
@@ -68,6 +89,8 @@ jobs:
           KIS_APP_SECRET: ${{ secrets.KIS_APP_SECRET }}
           KIS_BASE_URL: ${{ secrets.KIS_BASE_URL }}
           TLI_MODE: ${{ steps.mode.outputs.mode }}
+          TLI_DATALAB_FORCE_REFRESH: ${{ steps.mode.outputs.datalab_refresh == 'force' && 'true' || 'false' }}
+          TLI_DATALAB_DAILY_CEILING: ${{ vars.TLI_DATALAB_DAILY_CEILING }}
           INDEXNOW_KEY: ${{ secrets.INDEXNOW_KEY }}
           TLI_COMPARISON_V4_SHADOW_ENABLED: 'true'
           # NOTE: SERVING_ENABLED는 파이프라인에서는 미사용 (Vercel 앱 서버에서 별도 설정 필요)
@@ -80,7 +103,7 @@ jobs:
       # exit code 규약: 0 pass / 1 operational failure / 2 warning / 3 critical (scientific-gate-exit.ts)
       - name: Prediction parity report
         id: parity
-        if: steps.mode.outputs.mode == 'full'
+        if: steps.mode.outputs.mode == 'full' && steps.mode.outputs.skip_reason == ''
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
@@ -97,7 +120,7 @@ jobs:
 
       - name: TLI watchlist canary
         id: watchlist
-        if: steps.mode.outputs.mode == 'full'
+        if: steps.mode.outputs.mode == 'full' && steps.mode.outputs.skip_reason == ''
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
@@ -115,7 +138,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload scientific gate artifacts
-        if: always() && steps.mode.outputs.mode == 'full'
+        if: always() && steps.mode.outputs.mode == 'full' && steps.mode.outputs.skip_reason == ''
         uses: actions/upload-artifact@v4
         with:
           name: tli-scientific-gate-${{ github.run_id }}-${{ github.run_attempt }}
@@ -127,7 +150,7 @@ jobs:
 
       # critical contract failure(3)만 workflow를 실패시킨다. 일반 경고(1,2)는 주석만 남긴다.
       - name: Scientific gate result
-        if: always() && steps.mode.outputs.mode == 'full'
+        if: always() && steps.mode.outputs.mode == 'full' && steps.mode.outputs.skip_reason == ''
         env:
           PARITY_STATUS: ${{ steps.parity.outputs.status }}
           WATCHLIST_STATUS: ${{ steps.watchlist.outputs.status }}
@@ -153,7 +176,7 @@ jobs:
           script: |
             const fs = require('fs');
             const rawMode = process.env.TLI_MODE || 'unknown';
-            const safeMode = ['full', 'news-only'].includes(rawMode) ? rawMode : 'unknown';
+            const safeMode = ['full', 'news-only', 'datalab-only'].includes(rawMode) ? rawMode : 'unknown';
             const now = new Date();
             const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
             const fallbackResult = {
@@ -256,7 +279,7 @@ jobs:
             const title = '⚠️ TLI warning digest (rolling)';
             const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
             const rawMode = result.mode || 'unknown';
-            const safeMode = ['full', 'news-only'].includes(rawMode) ? rawMode : 'unknown';
+            const safeMode = ['full', 'news-only', 'datalab-only'].includes(rawMode) ? rawMode : 'unknown';
             const body = [
               `## TLI warning digest — ${date}`,
               ``,

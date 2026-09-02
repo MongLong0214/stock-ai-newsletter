@@ -9,7 +9,12 @@ import { shouldCollectTliStocks } from '@/lib/tli/trading-calendar';
 import { collectDataSources, runCalibrationPhase, runAnalysisPipeline, runInterestObservationGapWatchdog, shouldAbortAnalysisPipeline, submitIndexNowStep } from '@/scripts/tli/batch/pipeline-steps';
 import { collectDailyStockPricesForDate } from '@/scripts/tli/prices/kis-daily-price-collector';
 
-type RunMode = 'full' | 'news-only'
+export type RunMode = 'full' | 'news-only' | 'datalab-only'
+
+export const resolveTliRunMode = (value = process.env.TLI_MODE): RunMode => {
+  if (value === 'news-only' || value === 'datalab-only') return value
+  return 'full'
+}
 
 export interface TliMainPipelineResult {
   mode: RunMode
@@ -28,7 +33,7 @@ export async function writeTliMainPipelineResult(result: TliMainPipelineResult):
 }
 
 export async function runTliMainPipeline(): Promise<TliMainPipelineResult> {
-  const mode: RunMode = (process.env.TLI_MODE === 'news-only') ? 'news-only' : 'full';
+  const mode = resolveTliRunMode()
   const kstNow = getKSTDate();
   const dayOfWeek = kstNow.getUTCDay();
 
@@ -69,7 +74,11 @@ export async function runTliMainPipeline(): Promise<TliMainPipelineResult> {
       warningFailures += await runInterestObservationGapWatchdog(endDate);
     }
 
-    if (collection.criticalFailures === 0 && shouldCollectTliStocks({ mode, kstDate: endDate })) {
+    if (
+      mode === 'full'
+      && collection.criticalFailures === 0
+      && shouldCollectTliStocks({ mode, kstDate: endDate })
+    ) {
       try {
         const priceReport = await collectDailyStockPricesForDate(endDate);
         if (priceReport.failureCount > 0) warningFailures++;
@@ -111,7 +120,12 @@ export async function runTliMainPipeline(): Promise<TliMainPipelineResult> {
 
     // 요약
     const duration = ((Date.now() - startTime) / 1000).toFixed(2);
-    console.log(`\n✨ TLI ${mode === 'news-only' ? '뉴스 수집' : '전체 수집 및 점수 계산'} 완료!`);
+    const runLabel = mode === 'news-only'
+      ? '뉴스 수집'
+      : mode === 'datalab-only'
+        ? 'DataLab 수집'
+        : '전체 수집 및 점수 계산'
+    console.log(`\n✨ TLI ${runLabel} 완료!`);
     console.log(`⏱️  소요 시간: ${duration}초 | 📊 처리된 테마: ${themes.length}개`);
 
     if (criticalFailures > 0) console.log(`⚠️  치명적 실패: ${criticalFailures}건`);
@@ -147,7 +161,7 @@ if (isDirectRun) {
     })
     .catch(async (error: unknown) => {
       console.error('❌ 치명적 오류:', error instanceof Error ? error.message : String(error))
-      const mode: RunMode = (process.env.TLI_MODE === 'news-only') ? 'news-only' : 'full'
+      const mode = resolveTliRunMode()
       await writeTliMainPipelineResult({
         mode,
         themeCount: 0,

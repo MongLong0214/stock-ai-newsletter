@@ -39,6 +39,7 @@ vi.mock('@/scripts/tli/shared/supabase-admin', () => ({
         lte: (col: string, val: string) => { state.lte = [col, val]; return builder },
         order: () => builder,
         limit: () => builder,
+        maybeSingle: async () => ({ data: null, error: null }),
         update: (payload: Record<string, unknown>) => { state.update = payload; return builder },
         then: (resolve: (value: { data?: unknown; error: null; count?: number }) => void) => {
           if (table === 'theme_predictions_v3' && state.update) {

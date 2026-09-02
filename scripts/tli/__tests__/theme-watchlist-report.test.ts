@@ -1,8 +1,9 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { FEATURE_NAMES } from '../../../lib/tli/features/build-features'
 import {
   THEME_WATCHLIST_PREDICTION_SERVING_ROLE,
   resolveThemeWatchlistModelVersion,
+  runThemeWatchlistReport,
 } from '../ops/run-theme-watchlist-report'
 import {
   buildThemeWatchlistReport,
@@ -10,6 +11,25 @@ import {
   type ThemeWatchlistPredictionRow,
   type ThemeWatchlistScoredRow,
 } from '../ops/theme-watchlist-report'
+
+const watchlistDbMocks = vi.hoisted(() => ({
+  registryResponse: {
+    data: null as Record<string, unknown> | null,
+    error: null as { message: string } | null,
+  },
+}))
+
+vi.mock('../shared/supabase-admin', () => ({
+  supabaseAdmin: {
+    from: vi.fn(() => ({
+      select: vi.fn(() => ({
+        eq: vi.fn(() => ({
+          maybeSingle: vi.fn(async () => watchlistDbMocks.registryResponse),
+        })),
+      })),
+    })),
+  },
+}))
 
 const featurePayload = (valuesByName: Readonly<Record<string, number>>): ThemeWatchlistPredictionRow['features'] => ({
   featureSchema: FEATURE_NAMES,
@@ -165,29 +185,189 @@ describe('theme watchlist report pure logic', () => {
 })
 
 describe('theme watchlist report runner', () => {
+  afterEach(() => {
+    watchlistDbMocks.registryResponse = { data: null, error: null }
+  })
+
   it('uses challenger as the production prediction serving role', () => {
     expect(THEME_WATCHLIST_PREDICTION_SERVING_ROLE).toBe('challenger')
   })
 
   it('resolves an override model version without reading the registry', async () => {
-    const loadRegistryModelVersion = vi.fn(async () => 'registry-version')
+    const loadRegistryModel = vi.fn(async () => ({
+      modelVersion: 'registry-version',
+      containment: 'active' as const,
+    }))
 
     await expect(resolveThemeWatchlistModelVersion([
       '--model-version=m1-override-2026w28',
-    ], loadRegistryModelVersion)).resolves.toEqual({
+    ], loadRegistryModel)).resolves.toEqual({
       modelVersion: 'm1-override-2026w28',
       modelVersionSource: 'override',
+      containment: null,
+      registryModelMissing: false,
     })
-    expect(loadRegistryModelVersion).not.toHaveBeenCalled()
+    expect(loadRegistryModel).not.toHaveBeenCalled()
   })
 
   it('records registry as the source when no override is supplied', async () => {
-    const loadRegistryModelVersion = vi.fn(async () => 'registry-version')
+    const loadRegistryModel = vi.fn(async () => ({
+      modelVersion: 'registry-version',
+      containment: 'blocked' as const,
+    }))
 
-    await expect(resolveThemeWatchlistModelVersion([], loadRegistryModelVersion)).resolves.toEqual({
+    await expect(resolveThemeWatchlistModelVersion([], loadRegistryModel)).resolves.toEqual({
       modelVersion: 'registry-version',
       modelVersionSource: 'registry',
+      containment: 'blocked',
+      registryModelMissing: false,
     })
-    expect(loadRegistryModelVersion).toHaveBeenCalledTimes(1)
+    expect(loadRegistryModel).toHaveBeenCalledTimes(1)
+  })
+
+  it('returns an explicit missing registry model when no challenger row exists', async () => {
+    await expect(resolveThemeWatchlistModelVersion([])).resolves.toEqual({
+      modelVersion: '',
+      modelVersionSource: 'registry',
+      containment: null,
+      registryModelMissing: true,
+    })
+  })
+
+  it('still throws when the challenger registry query fails', async () => {
+    watchlistDbMocks.registryResponse = {
+      data: null,
+      error: { message: 'registry unavailable' },
+    }
+
+    await expect(resolveThemeWatchlistModelVersion([])).rejects.toThrow(
+      'model_registry challenger 조회 실패: registry unavailable',
+    )
+  })
+})
+
+describe('theme watchlist report blocked artifacts', () => {
+  const initialExitCode = process.exitCode
+
+  afterEach(() => {
+    process.exitCode = initialExitCode
+    watchlistDbMocks.registryResponse = { data: null, error: null }
+    vi.restoreAllMocks()
+  })
+
+  it('prints challenger-missing blocked JSON with exit 2 without reading predictions or writing files', async () => {
+    const log = vi.spyOn(console, 'log').mockImplementation(() => undefined)
+    const loadLatestPredictionDate = vi.fn(async () => '2026-09-01')
+    const loadPredictionRows = vi.fn(async () => [] as ThemeWatchlistPredictionRow[])
+    const writeJson = vi.fn()
+    const writeText = vi.fn()
+
+    await runThemeWatchlistReport([], {
+      loadRegistryModel: async () => null,
+      loadLatestPredictionDate,
+      loadPredictionRows,
+      writeJson,
+      writeText,
+      today: '2026-09-02',
+    })
+
+    expect(JSON.parse(String(log.mock.calls.at(-1)?.[0]))).toEqual({
+      status: 'blocked',
+      reason: 'challenger_missing',
+      modelVersion: '',
+      latestPredictionDate: null,
+    })
+    expect(process.exitCode).toBe(2)
+    expect(loadLatestPredictionDate).not.toHaveBeenCalled()
+    expect(loadPredictionRows).not.toHaveBeenCalled()
+    expect(writeJson).not.toHaveBeenCalled()
+    expect(writeText).not.toHaveBeenCalled()
+  })
+
+  it('prints blocked JSON with exit 2 and writes no report for a contained challenger', async () => {
+    const log = vi.spyOn(console, 'log').mockImplementation(() => undefined)
+    const loadPredictionRows = vi.fn(async () => [] as ThemeWatchlistPredictionRow[])
+    const writeJson = vi.fn()
+    const writeText = vi.fn()
+
+    await runThemeWatchlistReport([], {
+      loadRegistryModel: async () => ({ modelVersion: 'm1-contained', containment: 'blocked' }),
+      loadLatestPredictionDate: async () => '2026-09-01',
+      loadPredictionRows,
+      writeJson,
+      writeText,
+      today: '2026-09-02',
+    })
+
+    expect(JSON.parse(String(log.mock.calls.at(-1)?.[0]))).toEqual({
+      status: 'blocked',
+      reason: 'challenger_blocked',
+      modelVersion: 'm1-contained',
+      latestPredictionDate: '2026-09-01',
+    })
+    expect(process.exitCode).toBe(2)
+    expect(loadPredictionRows).not.toHaveBeenCalled()
+    expect(writeJson).not.toHaveBeenCalled()
+    expect(writeText).not.toHaveBeenCalled()
+  })
+
+  it('prints stale blocked JSON with exit 2 before loading report rows', async () => {
+    const log = vi.spyOn(console, 'log').mockImplementation(() => undefined)
+    const loadRegistryModel = vi.fn(async () => ({
+      modelVersion: 'registry-version',
+      containment: 'blocked' as const,
+    }))
+    const loadPredictionRows = vi.fn(async () => [] as ThemeWatchlistPredictionRow[])
+    const writeJson = vi.fn()
+    const writeText = vi.fn()
+
+    await runThemeWatchlistReport(['--model-version=m1-override'], {
+      loadRegistryModel,
+      loadLatestPredictionDate: async () => '2026-08-31',
+      loadPredictionRows,
+      writeJson,
+      writeText,
+      today: '2026-09-02',
+    })
+
+    expect(JSON.parse(String(log.mock.calls.at(-1)?.[0]))).toEqual({
+      status: 'blocked',
+      reason: 'legacy_predictions_stale',
+      modelVersion: 'm1-override',
+      latestPredictionDate: '2026-08-31',
+    })
+    expect(process.exitCode).toBe(2)
+    expect(loadRegistryModel).not.toHaveBeenCalled()
+    expect(loadPredictionRows).not.toHaveBeenCalled()
+    expect(writeJson).not.toHaveBeenCalled()
+    expect(writeText).not.toHaveBeenCalled()
+  })
+
+  it('keeps the existing stdout shape and report files for a fresh active challenger', async () => {
+    const log = vi.spyOn(console, 'log').mockImplementation(() => undefined)
+    const writeJson = vi.fn()
+    const writeText = vi.fn()
+
+    await runThemeWatchlistReport([], {
+      loadRegistryModel: async () => ({ modelVersion: 'm1-active', containment: 'active' }),
+      loadLatestPredictionDate: async () => '2026-09-01',
+      loadPredictionRows: async () => [predictionRow('theme-a', 0.75)],
+      loadLatestScoredRows: async () => [scoredRow('theme-a', 0.75, true)],
+      loadThemeNames: async () => names,
+      writeJson,
+      writeText,
+      today: '2026-09-02',
+    })
+
+    expect(JSON.parse(String(log.mock.calls.at(-1)?.[0]))).toEqual({
+      date: '2026-09-01',
+      modelVersion: 'm1-active',
+      modelVersionSource: 'registry',
+      risingCount: 1,
+      coverage: 1,
+    })
+    expect(process.exitCode).toBe(0)
+    expect(writeJson).toHaveBeenCalledOnce()
+    expect(writeText).toHaveBeenCalledOnce()
   })
 })

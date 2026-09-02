@@ -65,7 +65,7 @@ export async function runInterestObservationGapWatchdog(
 }
 
 export function shouldAbortAnalysisPipeline(input: {
-  mode: 'full' | 'news-only'
+  mode: 'full' | 'news-only' | 'datalab-only'
   datalabFailed: boolean
   criticalFailures: number
 }) {
@@ -186,7 +186,9 @@ export async function runAnalysisPipeline(themes: ThemeWithKeywords[], today = g
     console.error('❌ B-Abl phase snapshot 실패:', error instanceof Error ? error.message : String(error))
   }
 
-  warningFailures += await runMondayOriginsStep(today)
+  const origins = await runMondayOriginsStep(today, 'full')
+  warningFailures += origins.warningFailures
+  criticalFailures += origins.criticalFailures
 
   // Step 7: 예측 평가
   console.log('\n📊 7단계: 예측 평가')

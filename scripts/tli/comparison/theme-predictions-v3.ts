@@ -31,6 +31,7 @@ export * from '@/scripts/tli/comparison/theme-predictions-v3-records'
 export interface ThemePredictionsV3SnapshotResult {
   readonly championRows: number
   readonly challengerRows: number
+  readonly skippedReason?: 'champion_invalidated' | 'champion_blocked'
 }
 
 interface PredictionSnapshotV2PhaseRow {
@@ -43,6 +44,15 @@ interface ModelRegistryEntry {
   readonly model_version: string
   readonly model_type: string
   readonly coefficients: unknown
+  readonly scientific_claim_status: string
+  readonly scientific_release_status: string
+}
+
+type ModelContainment = 'active' | 'invalidated' | 'blocked' | 'missing'
+
+interface LoadedModelRegistryEntry {
+  readonly entry: ModelRegistryEntry | null
+  readonly containment: ModelContainment
 }
 
 interface QueryError {
@@ -74,14 +84,21 @@ const fetchAllRows = async <T>(createQuery: () => RangeQuery<T>): Promise<T[]> =
 }
 
 /** model_registry에서 champion/challenger 아티팩트를 조회 (SSOT = DB, 로컬 파일 경로 의존 제거 — A1) */
-async function loadModelRegistryEntry(status: 'champion' | 'challenger'): Promise<ModelRegistryEntry | null> {
+async function loadModelRegistryEntry(status: 'champion' | 'challenger'): Promise<LoadedModelRegistryEntry> {
   const { data, error } = await supabaseAdmin
     .from('model_registry')
-    .select('model_version, model_type, coefficients')
+    .select('model_version, model_type, coefficients, scientific_claim_status, scientific_release_status')
     .eq('status', status)
     .maybeSingle()
   if (error) throw new Error(`model_registry ${status} 조회 실패: ${error.message}`)
-  return data ?? null
+  if (data === null) return { entry: null, containment: 'missing' }
+  if (data.scientific_claim_status === 'invalidated') {
+    return { entry: data, containment: 'invalidated' }
+  }
+  if (data.scientific_release_status === 'blocked') {
+    return { entry: data, containment: 'blocked' }
+  }
+  return { entry: data, containment: 'active' }
 }
 
 async function loadV2SnapshotsForDate(predictionDate: string): Promise<PredictionSnapshotV2PhaseRow[]> {
@@ -163,13 +180,28 @@ export async function snapshotThemePredictionsV3(input?: {
     return { championRows: 0, challengerRows: 0 }
   }
 
-  const snapshots = await loadV2SnapshotsForDate(predictionDate)
-  if (snapshots.length === 0) return { championRows: 0, challengerRows: 0 }
-
-  const [champion, challenger] = await Promise.all([
+  const [snapshots, loadedChampion, loadedChallenger] = await Promise.all([
+    loadV2SnapshotsForDate(predictionDate),
     loadModelRegistryEntry('champion'),
     loadModelRegistryEntry('challenger'),
   ])
+
+  if (loadedChampion.containment === 'invalidated' || loadedChampion.containment === 'blocked') {
+    console.log(`   ⊘ legacy v3 예측 생성 중단 — champion ${loadedChampion.entry?.model_version} ${loadedChampion.containment}`)
+    return {
+      championRows: 0,
+      challengerRows: 0,
+      skippedReason: `champion_${loadedChampion.containment}`,
+    }
+  }
+
+  if (snapshots.length === 0) return { championRows: 0, challengerRows: 0 }
+
+  const champion = loadedChampion.entry
+  const challenger = loadedChallenger.containment === 'active' ? loadedChallenger.entry : null
+  if (loadedChallenger.containment === 'invalidated' || loadedChallenger.containment === 'blocked') {
+    console.log(`   ⊘ legacy v3 challenger 예측 생성 생략 — challenger ${loadedChallenger.entry?.model_version} ${loadedChallenger.containment}`)
+  }
   const recentBaseRate = await loadRecentFinalBaseRate(predictionDate)
   if (!champion) {
     console.warn('   ⚠️ model_registry에 champion이 없음 — b-abl 휴리스틱 폴백으로 부트스트랩')

@@ -34,6 +34,8 @@ export type BablMissingReason =
 export interface ForecastThemeSource {
   readonly themeId: string
   readonly keywordGroupSpec: KeywordGroupSpec
+  /** origin roster 포함 여부. 기존 caller가 생략하면 roster theme로 취급한다. */
+  readonly rosterEligible?: boolean
   /** cutoff 이하 최신 complete single run. 20 거래일 slot을 모두 가진 run만 전달해야 한다. */
   readonly interestRun: { readonly id: string; readonly responseSha256: string } | null
   /** article_date 오름차순 14개. 하나라도 없으면 null (row 부재는 0건이 아니라 source missing). */

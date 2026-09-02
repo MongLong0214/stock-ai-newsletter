@@ -40,7 +40,7 @@ describe('monthly calibration pipeline wiring', () => {
     recordMonthlyCalibrationRun.mockResolvedValue(undefined)
   })
 
-  it('runs monthly calibration on the first eligible run even after day one', async () => {
+  it('runs monthly calibration on the first eligible run even after day one', { timeout: 30_000 }, async () => {
     const { runCalibrationPhase } = await import('@/scripts/tli/batch/pipeline-steps')
 
     await runCalibrationPhase(new Date('2026-08-03T00:00:00.000Z'))

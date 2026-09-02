@@ -11,6 +11,7 @@ import { loadAttentionStudyContracts, type AttentionStudyContract } from '@/scri
 import { buildForecastOriginManifestPayload, buildStudyOriginManifestPayload, FORECAST_MANIFEST_VERSION, forecastCutoffUtc } from './forecast-origin-manifest'
 import type { ForecastThemeSource, StudyBablCandidate } from './forecast-origin-manifest'
 import { loadForecastThemeSources, loadStudyBablCandidates } from './origin-sources'
+import { loadOriginRoster } from './origin-roster'
 
 export const CREATE_FORECAST_ORIGIN_MANIFEST_RPC = 'create_tli_forecast_origin_manifest'
 export const BIND_STUDY_ORIGIN_RPC = 'bind_tli_study_origin'
@@ -20,6 +21,8 @@ export interface MondayOriginManifestReport {
   readonly forecastManifestId: string
   readonly forecastChildCount: number
   readonly usableChildCount: number
+  readonly abstainChildCount?: number
+  readonly rosterThemeCount?: number
   readonly studyOriginManifestIds: readonly string[]
 }
 
@@ -34,6 +37,7 @@ export interface ExistingForecastOrigin {
   readonly originDate: string
   readonly expectedThemeIds: readonly string[]
   readonly usableChildCount: number
+  readonly rosterThemeCount?: number
 }
 
 export interface ExistingStudyBinding {
@@ -172,6 +176,7 @@ export interface MondayOriginDeps {
   ) => Promise<Map<string, StudyBablCandidate[]>>
   readonly createForecastManifest?: (payload: JsonObject) => Promise<string>
   readonly bindStudyOrigin?: (payload: JsonObject) => Promise<string>
+  readonly loadRosterThemeCount?: (input: { readonly originDate: string }) => Promise<number>
   readonly now?: Date
 }
 
@@ -208,6 +213,8 @@ export const runMondayOrigins = async (
   const createForecastManifest =
     deps.createForecastManifest ?? ((payload) => callManifestRpc(CREATE_FORECAST_ORIGIN_MANIFEST_RPC, payload))
   const bindStudyOrigin = deps.bindStudyOrigin ?? ((payload) => callManifestRpc(BIND_STUDY_ORIGIN_RPC, payload))
+  const loadRosterThemeCount = deps.loadRosterThemeCount
+    ?? (async ({ originDate }) => (await loadOriginRoster({ originDate })).size)
 
   const allStudies = await loadStudies()
   const origins: MondayOriginManifestReport[] = []
@@ -215,6 +222,7 @@ export const runMondayOrigins = async (
   for (const originDate of eligibleDates) {
     let forecast = existingByDate.get(originDate)
     let forecastCreated = false
+    let rosterThemeCount = forecast?.rosterThemeCount ?? null
 
     if (!forecast) {
       console.log(`\n🗓️  ${originDate} forecast origin manifest 생성 (cutoff ${forecastCutoffUtc(originDate)})`)
@@ -231,14 +239,19 @@ export const runMondayOrigins = async (
           (source) => source.interestRun !== null && source.newsObservationIds?.length === 14,
         ).length,
       }
+      const hasRosterMarkers = themeSources.some((source) => source.rosterEligible !== undefined)
+      rosterThemeCount = hasRosterMarkers
+        ? themeSources.filter((source) => source.rosterEligible === true).length
+        : themeSources.length
       forecastCreated = true
-      console.log(`   ✅ forecast manifest ${forecast.id} (child ${forecast.expectedThemeIds.length}, usable ${forecast.usableChildCount})`)
+      console.log(`   ✅ forecast manifest ${forecast.id} (child ${forecast.expectedThemeIds.length}, usable ${forecast.usableChildCount}, abstain ${forecast.expectedThemeIds.length - forecast.usableChildCount})`)
     }
 
     const studies = selectBindableStudies(allStudies, originDate).filter(
       (study) => !bindingKeys.has(bindingKey(forecast.id, study.id)),
     )
     if (!forecastCreated && studies.length === 0) continue
+    if (rosterThemeCount === null) rosterThemeCount = await loadRosterThemeCount({ originDate })
 
     const studyOriginManifestIds: string[] = []
 
@@ -269,6 +282,8 @@ export const runMondayOrigins = async (
       forecastManifestId: forecast.id,
       forecastChildCount: forecast.expectedThemeIds.length,
       usableChildCount: forecast.usableChildCount,
+      abstainChildCount: forecast.expectedThemeIds.length - forecast.usableChildCount,
+      rosterThemeCount,
       studyOriginManifestIds,
     })
   }
