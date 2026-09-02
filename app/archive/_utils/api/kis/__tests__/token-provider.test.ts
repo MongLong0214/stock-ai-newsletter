@@ -46,6 +46,21 @@ describe('KIS token provider', () => {
     expect(storageMocks.saveTokenToStorage).toHaveBeenCalledTimes(1);
   });
 
+  it('logs token resolution only for storage or issuance, not memory hits', async () => {
+    const logSpy = vi.mocked(console.log);
+    vi.stubGlobal('fetch', vi.fn<typeof fetch>().mockResolvedValue(jsonResponse({
+      access_token: 'memory-token',
+    })));
+
+    await getKisAccessToken();
+    await getKisAccessToken();
+
+    const tokenEvents = logSpy.mock.calls
+      .map(([line]) => JSON.parse(String(line)) as { event?: string; source?: string })
+      .filter((event) => event.event === 'kis_token');
+    expect(tokenEvents).toEqual([expect.objectContaining({ source: 'issued' })]);
+  });
+
   it('waits at least 61 seconds and retries once after EGW00133', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(NOW);

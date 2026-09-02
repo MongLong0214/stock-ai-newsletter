@@ -1,6 +1,7 @@
 // allow: SIZE_OK - Legacy research backtest coordinator; T-007 only centralizes KST date sourcing.
 import { config } from 'dotenv'
-config({ path: '.env.local' })
+const isUnitTest = process.env.VITEST === 'true'
+if (!isUnitTest) config({ path: '.env.local' })
 import { mkdir, writeFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 
@@ -307,4 +308,10 @@ async function main() {
   console.log('\n✅ 백테스트 완료')
 }
 
-main().catch(console.error)
+const isDirectRun = /backtest-comparisons\.(?:ts|js)$/.test(process.argv[1] ?? '')
+if (isDirectRun) {
+  main().catch((error: unknown) => {
+    console.error(error instanceof Error ? error.message : String(error))
+    process.exitCode = 1
+  })
+}

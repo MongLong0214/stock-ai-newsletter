@@ -1,4 +1,9 @@
-import { runBacktest, type BacktestReport } from '@/scripts/stock-picks/backtest'
+import {
+  runBacktest,
+  type BacktestReport,
+  type LabelStatusCounts,
+} from '@/scripts/stock-picks/backtest'
+import { validateResearchDataset } from '@/scripts/stock-picks/data-contract'
 import { getRawPrice, loadPriceBook, type PriceBook } from '@/scripts/stock-picks/data-handler'
 import type { StockFeatureVector } from '@/scripts/stock-picks/features'
 import { PRODUCTION_VOLUME_BREAKOUT_PARAMETERS } from '@/scripts/stock-picks/generate-picks'
@@ -51,6 +56,7 @@ export interface ForwardAccuracySummary {
   readonly labeledPicks: number
   readonly nullPicks: number
   readonly touchedPicks: number
+  readonly statusCounts: LabelStatusCounts
   readonly hitRate: number | null
   readonly nullRate: number
 }
@@ -110,13 +116,23 @@ const normalizeSource = (source: string | null): ForwardPicksSource => (
 const summarize = (picks: readonly EvaluatedPick[]): ForwardAccuracySummary => {
   const labels = picks.flatMap((pick) => pick.label ? [pick.label] : [])
   const touchedPicks = labels.filter((label) => label.touched).length
+  const conditionalLabelCount = labels.filter((label) => label.status !== 'data_error').length
   const nullPicks = picks.length - labels.length
+  const statusCounts: LabelStatusCounts = {
+    hit: labels.filter((label) => label.status === 'hit').length,
+    miss: labels.filter((label) => label.status === 'miss').length,
+    unexpected_untradeable: labels.filter((label) => (
+      label.status === 'unexpected_untradeable'
+    )).length,
+    data_error: labels.filter((label) => label.status === 'data_error').length,
+  }
   return {
     totalPicks: picks.length,
     labeledPicks: labels.length,
     nullPicks,
     touchedPicks,
-    hitRate: labels.length > 0 ? touchedPicks / labels.length : null,
+    statusCounts,
+    hitRate: conditionalLabelCount > 0 ? touchedPicks / conditionalLabelCount : null,
     nullRate: picks.length > 0 ? nullPicks / picks.length : 0,
   }
 }
@@ -379,6 +395,10 @@ export function printForwardMeasurementReport(report: ForwardMeasurementReport):
     hits: row.touchedPicks,
     hitRate: percent(row.hitRate),
     nullRate: percent(row.nullRate),
+    statusHit: row.statusCounts.hit,
+    statusMiss: row.statusCounts.miss,
+    statusUnexpectedUntradeable: row.statusCounts.unexpected_untradeable,
+    statusDataError: row.statusCounts.data_error,
   })))
   console.table(report.recent4Weeks.map((week) => ({
     period: `${week.startDate}~${week.endDate}`,
@@ -441,6 +461,13 @@ if (isDirectRun) {
     const prices = priceStartDate
       ? await loadPriceBook({ startDate: priceStartDate, endDate: asOfDate })
       : new Map()
+    const dataContract = validateResearchDataset({
+      tradingDays,
+      prices,
+      fromDate: priceStartDate ?? startDate,
+      toDate: asOfDate,
+    })
+    console.log(JSON.stringify({ event: 'research_data_contract', ...dataContract }))
     const featuresByDate = shadowEvaluationStart && shadowHistoryDates.length > 0
       ? precomputeFeatureMap({
           prices,
@@ -468,6 +495,6 @@ if (isDirectRun) {
     printForwardMeasurementReport(report)
   }).catch((error: unknown) => {
     console.error(error instanceof Error ? error.message : String(error))
-    process.exit(1)
+    process.exitCode = 1
   })
 }

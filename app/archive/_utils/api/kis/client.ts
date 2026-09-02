@@ -287,7 +287,7 @@ async function getTokenResolution(minRemainingMs: number): Promise<KisTokenResol
   if (!tokenResolutionInFlight) {
     tokenResolutionInFlight = resolveAccessToken(minRemainingMs)
       .then((resolution) => {
-        logTokenResolution(resolution);
+        if (resolution.source !== 'memory') logTokenResolution(resolution);
         return resolution;
       })
       .finally(() => {

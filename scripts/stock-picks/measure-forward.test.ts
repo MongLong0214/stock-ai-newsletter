@@ -142,19 +142,26 @@ describe('measureForwardPicks', () => {
     expect(report.immaturePickCount).toBe(1)
     expect(report.overall).toEqual({
       totalPicks: 4,
-      labeledPicks: 2,
-      nullPicks: 2,
+      labeledPicks: 4,
+      nullPicks: 0,
       touchedPicks: 1,
       hitRate: 0.5,
-      nullRate: 0.5,
+      nullRate: 0,
+      statusCounts: {
+        hit: 1,
+        miss: 1,
+        unexpected_untradeable: 0,
+        data_error: 2,
+      },
     })
     expect(report.byPicksSource.code.totalPicks).toBe(2)
     expect(report.byPicksSource.llm_fallback.hitRate).toBe(0)
     expect(report.byPicksSource.crash.totalPicks).toBe(0)
-    expect(report.byPicksSource.null.nullPicks).toBe(1)
+    expect(report.byPicksSource.code.statusCounts.data_error).toBe(1)
+    expect(report.byPicksSource.null.statusCounts.data_error).toBe(1)
     expect(report.nullBreakdown).toEqual({
-      missingEntryOpen: 1,
-      missingWindowData: 1,
+      missingEntryOpen: 0,
+      missingWindowData: 0,
     })
     expect(report.recent4Weeks).toHaveLength(4)
     expect(report.informational8HoldingDays.labeledPicks).toBe(0)

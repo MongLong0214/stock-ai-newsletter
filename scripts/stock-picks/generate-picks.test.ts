@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -82,6 +83,10 @@ describe('production stock pick generator', () => {
     })
     const picks: unknown = JSON.parse(json)
 
+    // Byte-level guard: research artifact refactors must not change production pick JSON.
+    expect(createHash('sha256').update(json).digest('hex')).toBe(
+      'ba54e73bfe9c357da082ef6064486576227c80dc17529951998a213492680799',
+    )
     expect(validateStockData(picks)).toBe(true)
     expect(picks).toHaveLength(3)
     expect((picks as Array<{ ticker: string }>).map((pick) => pick.ticker)).toEqual([

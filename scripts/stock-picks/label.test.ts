@@ -23,6 +23,7 @@ const buildRows = (input: {
   readonly highs?: readonly (number | null)[]
   readonly lows?: readonly (number | null)[]
   readonly close5d?: number
+  readonly entryVolume?: number | null
 } = {}): StockDailyPriceRow[] => DATES.map((tradeDate, index) => {
   const high = index >= 1 ? input.highs?.[index - 1] : undefined
   const low = index >= 1 ? input.lows?.[index - 1] : undefined
@@ -33,7 +34,7 @@ const buildRows = (input: {
     high: index >= 1 ? (high === undefined ? 105 : high) : 105,
     low: index >= 1 ? (low === undefined ? 95 : low) : 95,
     close: index === 5 ? (input.close5d ?? 105) : 100,
-    volume: 1000,
+    volume: index === 1 ? (input.entryVolume ?? 1000) : 1000,
     source: 'kis',
   }
 })
@@ -47,8 +48,10 @@ describe('labelPick', () => {
     expect(label).toMatchObject({
       entryDate: DATES[1],
       entry: 100,
+      entryVolume: 1000,
       maxHigh: 110,
       touched: true,
+      status: 'hit',
     })
     expect(label?.return5d).toBeCloseTo(0.05)
     expect(label?.maxDrawdown).toBeCloseTo(-0.05)
@@ -72,18 +75,25 @@ describe('labelPick', () => {
     expect(labelPick(SYMBOL, DATES[0], prices, tradingDays)).toBeNull()
   })
 
-  it('returns null when the next-trading-day open is missing', () => {
+  it('returns data_error when the next-trading-day open is missing', () => {
     const tradingDays = new TradingDayIndex(DATES)
     const prices = buildPriceBook(buildRows({ entryOpen: null }))
 
-    expect(labelPick(SYMBOL, DATES[0], prices, tradingDays)).toBeNull()
+    expect(labelPick(SYMBOL, DATES[0], prices, tradingDays)).toMatchObject({
+      entry: null,
+      touched: false,
+      status: 'data_error',
+    })
   })
 
-  it('returns null when any high in the five-day window is missing', () => {
+  it('returns data_error when any high in the five-day window is missing', () => {
     const tradingDays = new TradingDayIndex(DATES)
     const prices = buildPriceBook(buildRows({ highs: [105, 106, null, 108, 109] }))
 
-    expect(labelPick(SYMBOL, DATES[0], prices, tradingDays)).toBeNull()
+    expect(labelPick(SYMBOL, DATES[0], prices, tradingDays)).toMatchObject({
+      touched: false,
+      status: 'data_error',
+    })
   })
 
   it('labels a clear success and computes the close return and low-based drawdown', () => {
@@ -97,8 +107,10 @@ describe('labelPick', () => {
     expect(labelPick(SYMBOL, DATES[0], prices, tradingDays)).toEqual({
       entryDate: DATES[1],
       entry: 100,
+      entryVolume: 1000,
       maxHigh: 111,
       touched: true,
+      status: 'hit',
       return5d: 0.040000000000000036,
       maxDrawdown: -0.06000000000000005,
     })
@@ -108,7 +120,57 @@ describe('labelPick', () => {
     const tradingDays = new TradingDayIndex(DATES)
     const prices = buildPriceBook(buildRows({ highs: [101, 109, 108, 107, 106] }))
 
-    expect(labelPick(SYMBOL, DATES[0], prices, tradingDays)?.touched).toBe(false)
+    expect(labelPick(SYMBOL, DATES[0], prices, tradingDays)).toMatchObject({
+      touched: false,
+      status: 'miss',
+    })
+  })
+
+  it('labels a valid zero-volume entry session as unexpected_untradeable', () => {
+    const tradingDays = new TradingDayIndex(DATES)
+    const rows = buildRows({ entryVolume: 0 })
+    rows[1] = { ...rows[1], open: 100, high: 105, low: 95, close: 101 }
+
+    expect(labelPick(SYMBOL, DATES[0], buildPriceBook(rows), tradingDays)).toMatchObject({
+      entryVolume: 0,
+      touched: false,
+      status: 'unexpected_untradeable',
+    })
+  })
+
+  it('classifies a missing entry volume as a data error', () => {
+    const tradingDays = new TradingDayIndex(DATES)
+    const rows = buildRows()
+    rows[1] = { ...rows[1], volume: null }
+
+    expect(labelPick(SYMBOL, DATES[0], buildPriceBook(rows), tradingDays)).toMatchObject({
+      entryVolume: null,
+      touched: false,
+      status: 'data_error',
+    })
+  })
+
+  it('classifies a flat zero-volume entry followed by normal rows as a phantom data error', () => {
+    const tradingDays = new TradingDayIndex(DATES)
+    const rows = buildRows({ entryVolume: 0 })
+    rows[1] = { ...rows[1], open: 100, high: 100, low: 100, close: 100 }
+
+    expect(labelPick(SYMBOL, DATES[0], buildPriceBook(rows), tradingDays)).toMatchObject({
+      entryVolume: 0,
+      touched: false,
+      status: 'data_error',
+    })
+  })
+
+  it('classifies OHLC invariant violations anywhere in the window as data_error', () => {
+    const tradingDays = new TradingDayIndex(DATES)
+    const rows = buildRows()
+    rows[3] = { ...rows[3], open: 110, high: 105, low: 95 }
+
+    expect(labelPick(SYMBOL, DATES[0], buildPriceBook(rows), tradingDays)).toMatchObject({
+      touched: false,
+      status: 'data_error',
+    })
   })
 
   it('counts D6 through D8 touches only in the informational eight-holding-day horizon', () => {

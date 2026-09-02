@@ -46,6 +46,7 @@ describe('TradingDayIndex', () => {
           { symbol: 'KOSPI:000660', trade_date: '2026-01-06', volume: 20 },
           { symbol: 'KOSPI:005930', trade_date: '2026-01-07', volume: 0 },
         ],
+        '2026-01-07',
       )
 
       expect(index.tradingDays).toEqual(['2026-01-02', '2026-01-05', '2026-01-06'])
@@ -59,18 +60,42 @@ describe('TradingDayIndex', () => {
     }
   })
 
-  it('drops weekends and Korean market holidays from all sources', () => {
+  it('keeps positive-volume anchor evidence even when the calendar says closed', () => {
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
 
     try {
       const index = buildTradingDayIndex(
         [{ trade_date: '2026-01-01' }, { trade_date: '2026-01-03' }],
-        [{ symbol: 'KOSPI:005930', trade_date: '2026-01-02', volume: 10 }],
+        [
+          { symbol: 'KOSPI:005930', trade_date: '2026-01-01', volume: 10 },
+          { symbol: 'KOSPI:005930', trade_date: '2026-01-02', volume: 10 },
+        ],
+        '2026-01-03',
       )
 
-      expect(index.tradingDays).toEqual(['2026-01-02'])
+      expect(index.tradingDays).toEqual(['2026-01-01', '2026-01-02'])
       expect(JSON.parse(String(logSpy.mock.calls[0]?.[0]))).toMatchObject({
-        droppedNonTradingDates: 2,
+        droppedNonTradingDates: 1,
+        calendarConflicts: ['2026-01-01'],
+      })
+    } finally {
+      logSpy.mockRestore()
+    }
+  })
+
+  it('drops dates after the last finalized trading session', () => {
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+    try {
+      const index = buildTradingDayIndex(
+        [{ trade_date: '2026-09-01' }, { trade_date: '2026-09-02' }],
+        [{ symbol: 'KOSPI:005930', trade_date: '2026-09-02', volume: 10 }],
+        '2026-09-01',
+      )
+
+      expect(index.tradingDays).toEqual(['2026-09-01'])
+      expect(JSON.parse(String(logSpy.mock.calls[0]?.[0]))).toMatchObject({
+        droppedUnfinalizedDates: 1,
       })
     } finally {
       logSpy.mockRestore()

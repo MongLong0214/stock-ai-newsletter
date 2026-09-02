@@ -51,14 +51,51 @@ describe('send newsletter CLI', () => {
     expect(parseSendNewsletterCliArgs([
       '--target-date=2026-09-02',
       '--dispatch-id=dispatch-fixture',
+      '--dry-run',
     ])).toEqual({
       targetDate: '2026-09-02',
       dispatchId: 'dispatch-fixture',
+      dryRun: true,
     })
   })
 })
 
 describe('runSendNewsletter', () => {
+  it('renders the first recipient in dry-run without SendGrid or database writes', async () => {
+    const repository = makeRepository()
+    const send = vi.fn()
+    const sendAlert = vi.fn()
+    const logger = makeLogger()
+
+    await expect(runSendNewsletter(
+      { targetDate: TARGET_DATE, dispatchId: 'dispatch-fixture', dryRun: true },
+      { env: {}, repository, send, sendAlert, logger },
+    )).resolves.toBe(0)
+
+    expect(repository.fetchActiveSubscribers).toHaveBeenCalledOnce()
+    expect(repository.fetchUnsentContent).toHaveBeenCalledWith(TARGET_DATE)
+    expect(repository.claim).not.toHaveBeenCalled()
+    expect(repository.rollback).not.toHaveBeenCalled()
+    expect(repository.confirmSent).not.toHaveBeenCalled()
+    expect(send).not.toHaveBeenCalled()
+    expect(sendAlert).not.toHaveBeenCalled()
+    const event = logger.log.mock.calls
+      .map(([value]) => String(value))
+      .map((value) => {
+        try { return JSON.parse(value) as Record<string, unknown> } catch { return null }
+      })
+      .find((value) => value?.event === 'send_dry_run')
+    expect(event).toMatchObject({
+      event: 'send_dry_run',
+      targetDate: TARGET_DATE,
+      subscribers: 1,
+      picksSource: 'code',
+      isCrash: false,
+    })
+    expect(event?.htmlBytes).toEqual(expect.any(Number))
+    expect(event?.htmlBytes).toBeGreaterThan(0)
+  })
+
   it('polls missing and incomplete content every 30 seconds until it is ready', async () => {
     vi.useFakeTimers()
     vi.setSystemTime('2026-09-02T00:00:00.000Z')

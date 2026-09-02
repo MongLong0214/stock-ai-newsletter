@@ -5,7 +5,11 @@ import { createClient } from '@supabase/supabase-js'
 import { config as loadDotenv } from 'dotenv'
 
 import { sendNewsletterAlertEmail } from '@/lib/newsletter/alert'
-import { sendStockNewsletter } from '@/lib/sendgrid'
+import {
+  generateNewsletterHTML,
+  parseCrashAlert,
+  sendStockNewsletter,
+} from '@/lib/sendgrid'
 import { fetchAllRows } from '@/lib/supabase/paginate'
 
 const CONTENT_POLL_INTERVAL_MS = 30_000
@@ -46,6 +50,7 @@ interface SendLogger {
 export interface SendNewsletterOptions {
   readonly targetDate?: string
   readonly dispatchId?: string
+  readonly dryRun?: boolean
 }
 
 export interface SendNewsletterDependencies {
@@ -300,7 +305,7 @@ export async function runSendNewsletter(
     logger.log('📊 Supabase에서 구독자 가져오는 중...')
     const subscribers = await repository.fetchActiveSubscribers()
 
-    if (subscribers.length === 0) {
+    if (subscribers.length === 0 && !options.dryRun) {
       logger.warn('⚠️ 활성 구독자가 없습니다.')
       logger.log(JSON.stringify({
         event: 'send_skipped',
@@ -329,6 +334,25 @@ export async function runSendNewsletter(
       logger,
     })
     logger.log('✅ 뉴스레터 콘텐츠 로드 완료')
+
+    if (options.dryRun) {
+      const firstRecipient = subscribers[0]
+      const html = firstRecipient
+        ? generateNewsletterHTML({
+            geminiAnalysis: newsletterContent.gemini_analysis ?? '',
+            date: koreanDateLabel(targetDate),
+          }, firstRecipient.email)
+        : ''
+      logger.log(JSON.stringify({
+        event: 'send_dry_run',
+        targetDate,
+        subscribers: subscribers.length,
+        picksSource: newsletterContent.picks_source,
+        htmlBytes: Buffer.byteLength(html, 'utf8'),
+        isCrash: parseCrashAlert(newsletterContent.gemini_analysis ?? '') !== null,
+      }))
+      return 0
+    }
 
     logger.log('🔒 뉴스레터 발송 상태 선점 중...')
     await repository.claim(targetDate)
@@ -403,6 +427,7 @@ export function parseSendNewsletterCliArgs(args: readonly string[]): SendNewslet
   return {
     targetDate: readOption(args, '--target-date'),
     dispatchId: readOption(args, '--dispatch-id'),
+    dryRun: args.includes('--dry-run'),
   }
 }
 

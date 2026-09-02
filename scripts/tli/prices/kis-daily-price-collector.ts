@@ -101,6 +101,10 @@ const isPhantomPoint = (point: KisDailyRangePricePoint, runDateKst: string): boo
   && point.low === point.close
 )
 
+/**
+ * 심볼당 한 번의 기간조회로 수집하되 KOSPI를 먼저 확인하고, 실패 심볼은 재시도 큐로
+ * 복구하며, 아직 확정되지 않은 세션은 적재하지 않는다.
+ */
 export async function collectAndPersistStockDailyPriceRange(input: {
   readonly endDate: string
   readonly days: number

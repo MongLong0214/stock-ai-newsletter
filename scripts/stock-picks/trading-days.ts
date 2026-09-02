@@ -1,4 +1,5 @@
 import {
+  getLastFinalizedTradingDate,
   getKoreanTradingDatesBetween,
   isKoreanTradingDate,
 } from '@/lib/tli/trading-calendar'
@@ -92,6 +93,7 @@ export async function loadTradingDayIndex(): Promise<TradingDayIndex> {
 export function buildTradingDayIndex(
   kospiRows: readonly TradingDayRow[],
   anchorRows: readonly TradingDayRow[],
+  finalizedThroughDate = getLastFinalizedTradingDate(),
 ): TradingDayIndex {
   // WHY: KOSPI 한 번의 수집 실패나 지수 공백이 실제 거래일을 지우지 않도록 매 세션 거래하는
   // 최유동 KOSPI 두 종목을 보강하되, phantom·거래정지는 거래량 조건으로 제외한다.
@@ -101,7 +103,15 @@ export function buildTradingDayIndex(
     .map((row) => row.trade_date)
     .filter(Boolean))
   const allDates = new Set([...kospiDates, ...anchorDates])
-  const validDates = [...allDates].filter((date) => isKoreanTradingDate(date))
+  const calendarConflicts = [...anchorDates]
+    .filter((date) => date <= finalizedThroughDate && !isKoreanTradingDate(date))
+    .sort()
+  // WHY: 양수 거래량 앵커는 실제 체결 증거이므로 휴일표보다 우선한다. 캘린더 필터는
+  // 실거래 증거가 없는 KOSPI-only 날짜에만 적용하고, 미완결 세션 상한은 양쪽에 강제한다.
+  const validDates = [...allDates].filter((date) => (
+    date <= finalizedThroughDate
+    && (anchorDates.has(date) || isKoreanTradingDate(date))
+  ))
   const validDateSet = new Set(validDates)
   const anchorOnlyDates = [...anchorDates]
     .filter((date) => !kospiDates.has(date) && validDateSet.has(date)).length
@@ -111,7 +121,13 @@ export function buildTradingDayIndex(
     event: 'trading_day_index',
     kospiDates: [...kospiDates].filter((date) => validDateSet.has(date)).length,
     anchorOnlyDates,
-    droppedNonTradingDates: [...allDates].filter((date) => !validDateSet.has(date)).length,
+    droppedNonTradingDates: [...allDates].filter((date) => (
+      date <= finalizedThroughDate
+      && !anchorDates.has(date)
+      && !isKoreanTradingDate(date)
+    )).length,
+    calendarConflicts,
+    droppedUnfinalizedDates: [...allDates].filter((date) => date > finalizedThroughDate).length,
     first: index.firstDate,
     last: index.lastDate,
   }))

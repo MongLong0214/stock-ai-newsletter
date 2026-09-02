@@ -16,6 +16,11 @@ describe('TLI trading calendar stock collection gate', () => {
     expect(shouldCollectTliStocks({ mode: 'full', kstDate: '2026-01-01' })).toBe(false)
   })
 
+  it('closes for the 2025 presidential election and stays open after a weekend Memorial Day', () => {
+    expect(isKoreanTradingDate('2025-06-03')).toBe(false)
+    expect(isKoreanTradingDate('2026-06-08')).toBe(true)
+  })
+
   it('skips stocks on weekends and news-only runs', () => {
     expect(isKoreanTradingDate('2026-01-03')).toBe(false)
     expect(shouldCollectTliStocks({ mode: 'full', kstDate: '2026-01-03' })).toBe(false)

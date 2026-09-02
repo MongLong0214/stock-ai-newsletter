@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { dirname } from 'node:path'
 
@@ -15,6 +14,10 @@ import {
 } from '@/scripts/stock-picks/data-handler'
 import { buildFeatureSeries, type StockFeatureVector } from '@/scripts/stock-picks/features'
 import {
+  PRODUCTION_STRATEGY,
+  PRODUCTION_VOLUME_BREAKOUT_PARAMETERS,
+} from '@/scripts/stock-picks/production-strategy'
+import {
   rankStrategyCandidates,
   type StockMasterState,
   type VolumeBreakoutParameters,
@@ -29,21 +32,7 @@ import {
 const PRICE_HISTORY_TRADING_DAYS = 320
 const REQUIRED_PICK_COUNT = 3
 
-/**
- * optimize-v3(2026-08-28, 공급 하한 반영)의 volumeBreakoutNoGapUp 최빈 fold 선택값.
- * 전체 walk-forward OOS precision@3 = 43.0% (99/230), 고유 티커 214·최다 0.8%.
- * excludeGapUp: 신호일 시가가 전일 종가보다 높은 종목을 제외한 구성이 실측 우위다.
- * 조용한 장에선 후보가 마르며(후보<3 throw) prepare가 LLM fallback으로 처리한다 — 의도된 abstain.
- */
-export const PRODUCTION_VOLUME_BREAKOUT_PARAMETERS: VolumeBreakoutParameters = {
-  minTurnover: 500_000_000,
-  // force3에서는 minScore를 적용하지 않고 전략 게이트만 유효하다.
-  minScore: 0,
-  minVolumePercentile: 90,
-  minDistanceFromHighPercent: 0,
-  maxRsi: 75,
-  excludeGapUp: true,
-}
+export { PRODUCTION_VOLUME_BREAKOUT_PARAMETERS } from '@/scripts/stock-picks/production-strategy'
 
 export interface StockPickMaster extends StockMasterState {
   readonly name: string
@@ -358,9 +347,7 @@ export async function generatePicksWithMeta(input: {
 
   if (!validateStockData(picks)) throw new Error('코드 픽이 StockDataArray 호환 계약을 통과하지 못했습니다')
 
-  const parametersHash = createHash('sha256')
-    .update(JSON.stringify(PRODUCTION_VOLUME_BREAKOUT_PARAMETERS))
-    .digest('hex')
+  const parametersHash = PRODUCTION_STRATEGY.parametersHash
   const rankedFeatures: RankedStockFeature[] = rankedCandidates.flatMap(({ symbol, score }, index) => {
     const feature = featuresBySymbol.get(symbol)
     return feature ? [{ ...feature, score, rank: index + 1 }] : []
