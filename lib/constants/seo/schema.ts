@@ -6,6 +6,18 @@
 import type { SchemaConfig } from './types';
 import { siteConfig } from './config';
 
+export const NAVER_DATALAB_DATASET_SCHEMA = {
+  '@type': 'Dataset',
+  name: '네이버 데이터랩 검색어 트렌드',
+  description: '네이버 통합검색에서 특정 검색어가 검색된 횟수를 기간 내 최대값 100 기준 상대 지표로 제공하는 네이버의 공개 검색 트렌드 데이터.',
+  url: 'https://datalab.naver.com/keyword/trendSearch.naver',
+  creator: {
+    '@type': 'Organization',
+    name: '네이버',
+    url: 'https://www.naver.com',
+  },
+} as const;
+
 const {
   serviceName,
   markets,

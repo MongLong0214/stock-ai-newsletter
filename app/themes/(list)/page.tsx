@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { createClient } from '@supabase/supabase-js'
 import { siteConfig, withOgImageVersion } from '@/lib/constants/seo/config'
+import { NAVER_DATALAB_DATASET_SCHEMA } from '@/lib/constants/seo/schema'
 import ThemesContent from '../_components/themes-content'
 import { getRankingServer } from '../_services/get-ranking-server'
 import { getKSTDateString } from '@/lib/tli/date-utils'
@@ -136,7 +137,7 @@ export default async function ThemesPage() {
     dateModified: asOfDate,
     // 1차 소스 표기 — 어떤 공개 데이터에서 파생됐는지 밝힌다.
     isBasedOn: [
-      { '@type': 'Dataset', name: '네이버 데이터랩 검색어 트렌드', url: 'https://datalab.naver.com/keyword/trendSearch.naver' },
+      NAVER_DATALAB_DATASET_SCHEMA,
       { '@type': 'CreativeWork', name: '네이버 뉴스 검색', url: 'https://openapi.naver.com/' },
     ],
     citation: `${siteConfig.domain}/themes/methodology`,

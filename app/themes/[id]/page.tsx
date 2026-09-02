@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { siteConfig, schemaIds, ensureKSTTimezone, withOgImageVersion } from '@/lib/constants/seo/config'
+import { NAVER_DATALAB_DATASET_SCHEMA } from '@/lib/constants/seo/schema'
 import { SCORE_COMPONENTS } from '@/lib/tli/constants/score-config'
 import { getServerSupabaseClient } from '@/lib/supabase/server-client'
 import { STAGE_CONFIG } from '@/lib/tli/types'
@@ -154,7 +155,7 @@ export default async function ThemeDetailPage({ params }: { params: Promise<{ id
     },
     // 어떤 공개 데이터에서 파생됐는지 밝힌다 — 인용 신뢰의 근거.
     isBasedOn: [
-      { '@type': 'Dataset', name: '네이버 데이터랩 검색어 트렌드', url: 'https://datalab.naver.com/keyword/trendSearch.naver' },
+      NAVER_DATALAB_DATASET_SCHEMA,
       { '@type': 'CreativeWork', name: '네이버 뉴스 검색', url: 'https://openapi.naver.com/' },
     ],
     citation: `${siteConfig.domain}/themes/methodology`,
