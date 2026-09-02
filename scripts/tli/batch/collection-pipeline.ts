@@ -83,12 +83,17 @@ export const runMondayOriginsStep = async (
       originDates: report.origins.map((origin) => origin.originDate),
       scope: 'pending',
     })
-    // WHY: pending origin이 성숙하면서 label accounting verdict가 신규 ineligible로
-    // 바뀐 경우도 즉시 critical로 드러나야 조용한 dataset 제외를 막을 수 있다.
-    if (eligibility.summary.newlyRecordedIneligibleCount > 0) {
-      console.error(`❌ origin eligibility 신규 ineligible ${eligibility.summary.newlyRecordedIneligibleCount}건`)
+    const { severity, newlyRecordedIneligibleCount } = eligibility.summary
+    // WHY: 최근 origin의 붕괴만 즉시 차단하고, 과거 origin의 최초 ineligible 기록은 경고로 남긴다.
+    if (severity === 'critical') {
+      console.error(`❌ origin eligibility severity=${severity}, 신규 ineligible=${newlyRecordedIneligibleCount}건`)
       return { warningFailures: 0, criticalFailures: 1 }
     }
+    if (severity === 'warning') {
+      console.warn(`⚠️ origin eligibility severity=${severity}, 신규 ineligible=${newlyRecordedIneligibleCount}건`)
+      return { warningFailures: 1, criticalFailures: 0 }
+    }
+    console.log(`   ✅ origin eligibility severity=${severity}, 신규 ineligible=${newlyRecordedIneligibleCount}건`)
     return { warningFailures: 0, criticalFailures: 0 }
   } catch (error: unknown) {
     console.error(

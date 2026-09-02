@@ -11,6 +11,11 @@
 
 import { supabaseAdmin } from '../shared/supabase-admin'
 import {
+  keysetOrExpression,
+  paginateByKeyset,
+  type KeysetCursor,
+} from '../shared/keyset'
+import {
   callFinalizeGtAV2Label,
   createGtAV2PendingLabels,
   resolveGtAV2Finalize,
@@ -68,14 +73,49 @@ export interface GtAV2FoundationPhaseResult {
   readonly failures: number
 }
 
-const loadKospiTradingDates = async (): Promise<string[]> => {
-  const { data, error } = await supabaseAdmin
+interface KospiTradingDateRow {
+  readonly trade_date: string
+}
+
+export type KospiTradingDateTransport = (input: {
+  readonly after: KeysetCursor | null
+  readonly pageSize: number
+}) => Promise<readonly KospiTradingDateRow[]>
+
+const KOSPI_TRADING_DATE_PAGE_SIZE = 1_000
+// The shared primitive has a three-part cursor; repeating the unique trade date preserves its total order.
+const KOSPI_TRADING_DATE_KEYSET = {
+  first: 'trade_date',
+  second: 'trade_date',
+  third: 'trade_date',
+} as const
+
+const supabaseKospiTradingDateTransport: KospiTradingDateTransport = async ({ after, pageSize }) => {
+  let query = supabaseAdmin
     .from('stock_daily_prices')
     .select('trade_date')
     .eq('symbol', 'KOSPI')
+  if (after !== null) query = query.or(keysetOrExpression(KOSPI_TRADING_DATE_KEYSET, after))
+  const { data, error } = await query
     .order('trade_date', { ascending: true })
+    .limit(pageSize)
   if (error) throw new Error(`KOSPI 거래일 조회 실패: ${error.message}`)
-  return (data ?? []).map((row) => row.trade_date as string)
+  return (data ?? []) as KospiTradingDateRow[]
+}
+
+export const loadKospiTradingDates = async (
+  transport: KospiTradingDateTransport = supabaseKospiTradingDateTransport,
+): Promise<string[]> => {
+  const rows = await paginateByKeyset({
+    pageSize: KOSPI_TRADING_DATE_PAGE_SIZE,
+    fetchPage: (after) => transport({ after, pageSize: KOSPI_TRADING_DATE_PAGE_SIZE }),
+    keyOf: (row: KospiTradingDateRow) => ({
+      first: row.trade_date,
+      second: row.trade_date,
+      third: row.trade_date,
+    }),
+  })
+  return rows.map((row) => row.trade_date)
 }
 
 const loadForecastChildren = async (manifestId: string): Promise<Map<string, ForecastChildRow>> => {

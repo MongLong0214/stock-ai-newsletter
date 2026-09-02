@@ -117,7 +117,10 @@ describe('runMondayOriginsStep failure severity', () => {
     skippedReason: 'up_to_date' as const,
     origins: [],
   }
-  const eligibilityReport = (newlyRecordedIneligibleCount: number) => ({
+  const eligibilityReport = (
+    severity: 'pass' | 'warning' | 'critical',
+    newlyRecordedIneligibleCount: number,
+  ) => ({
     evaluations: [],
     summary: {
       evaluatedCount: newlyRecordedIneligibleCount,
@@ -125,13 +128,14 @@ describe('runMondayOriginsStep failure severity', () => {
       ineligibleCount: newlyRecordedIneligibleCount,
       insertedCount: newlyRecordedIneligibleCount,
       newlyRecordedIneligibleCount,
-      severity: newlyRecordedIneligibleCount > 0 ? 'critical' as const : 'pass' as const,
-      exitCode: newlyRecordedIneligibleCount > 0 ? 3 : 0,
+      severity,
+      exitCode: severity === 'critical' ? 3 : severity === 'warning' ? 2 : 0,
     },
   })
 
   beforeEach(() => {
     vi.spyOn(console, 'log').mockImplementation(() => undefined)
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined)
     vi.spyOn(console, 'error').mockImplementation(() => undefined)
   })
 
@@ -142,12 +146,23 @@ describe('runMondayOriginsStep failure severity', () => {
   it('keeps a newly recorded ineligible origin critical in full mode', async () => {
     await expect(runMondayOriginsStep('2026-09-02', 'full', {
       runOrigins: vi.fn(async () => originReport),
-      evaluateEligibility: vi.fn(async () => eligibilityReport(1)),
+      evaluateEligibility: vi.fn(async () => eligibilityReport('critical', 1)),
     })).resolves.toEqual({ warningFailures: 0, criticalFailures: 1 })
   })
 
+  it('keeps a newly recorded historical ineligible origin warning-only', async () => {
+    await expect(runMondayOriginsStep('2026-09-02', 'full', {
+      runOrigins: vi.fn(async () => originReport),
+      evaluateEligibility: vi.fn(async () => eligibilityReport('warning', 1)),
+    })).resolves.toEqual({ warningFailures: 1, criticalFailures: 0 })
+
+    expect(console.warn).toHaveBeenCalledWith(
+      '⚠️ origin eligibility severity=warning, 신규 ineligible=1건',
+    )
+  })
+
   it('evaluates pending eligibility even when origin generation is up to date', async () => {
-    const evaluateEligibility = vi.fn(async () => eligibilityReport(0))
+    const evaluateEligibility = vi.fn(async () => eligibilityReport('pass', 0))
 
     await expect(runMondayOriginsStep('2026-09-02', 'full', {
       runOrigins: vi.fn(async () => originReport),

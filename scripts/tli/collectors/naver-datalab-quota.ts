@@ -27,6 +27,10 @@ export const resolveDatalabDailyCeiling = (
     warn(`⚠️ TLI_DATALAB_DAILY_CEILING='${value}'가 양의 정수가 아니어서 기본값 ${DEFAULT_TLI_DATALAB_DAILY_CEILING}을 사용합니다`)
     return DEFAULT_TLI_DATALAB_DAILY_CEILING
   }
+  if (parsed > DEFAULT_TLI_DATALAB_DAILY_CEILING) {
+    warn(`⚠️ TLI_DATALAB_DAILY_CEILING='${value}'가 관리 상한 ${DEFAULT_TLI_DATALAB_DAILY_CEILING}을 초과해 상한값을 사용합니다`)
+    return DEFAULT_TLI_DATALAB_DAILY_CEILING
+  }
   return parsed
 }
 

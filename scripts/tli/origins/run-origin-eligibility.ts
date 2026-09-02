@@ -1,6 +1,5 @@
 import { canonicalJsonV1, compareUtf8Bytes } from '@/lib/tli/canonical-json'
 import { getKSTDateString } from '@/lib/tli/date-utils'
-import { addKoreanTradingDays } from '@/lib/tli/trading-calendar'
 import {
   loadAttentionStudyContracts,
   type AttentionStudyContract,
@@ -15,13 +14,16 @@ import {
   scientificGateExitCode,
   type ScientificGateSeverity,
 } from '@/scripts/tli/ops/scientific-gate-exit'
+import {
+  deriveGtAV2Windows,
+  loadKospiTradingDates,
+} from '@/scripts/tli/labels/gta-v2-daily'
 import { keysetOrExpression, paginateByKeyset } from '@/scripts/tli/shared/keyset'
 import { supabaseAdmin } from '@/scripts/tli/shared/supabase-admin'
 import { z } from 'zod'
 import {
   evaluateOriginEligibility,
   ORIGIN_ELIGIBILITY_RULE_VERSION,
-  ORIGIN_LABEL_MATURITY_GRACE_TRADING_DAYS,
   type OriginEligibilityResult,
   type OriginLabelAccounting,
 } from './origin-eligibility'
@@ -64,6 +66,7 @@ const latestEligibilityRowSchema = z.object({
   study_origin_manifest_id: z.string().uuid(),
   payload_sha256: z.string().regex(/^[0-9a-f]{64}$/),
   matured: z.boolean(),
+  verdict: z.enum(['eligible', 'ineligible']),
 })
 
 export interface StudyOriginEligibilityBinding {
@@ -88,6 +91,7 @@ export interface RecordedOriginEligibility {
 export interface LatestOriginEligibilityPayload {
   readonly payloadSha256: string
   readonly matured: boolean
+  readonly verdict: OriginEligibilityResult['verdict']
 }
 
 export type OriginEligibilityEvaluationScope = 'all' | 'pending'
@@ -114,6 +118,7 @@ export interface OriginEligibilityRunDeps {
   readonly loadLabelAccounting?: (
     binding: StudyOriginEligibilityBinding,
   ) => Promise<OriginLabelAccounting>
+  readonly loadKospiTradingDates?: () => Promise<string[]>
   readonly loadLatestPayloads?: (
     studyOriginManifestIds: readonly string[],
   ) => Promise<ReadonlyMap<string, LatestOriginEligibilityPayload>>
@@ -138,6 +143,7 @@ export const filterPendingOriginEligibilityBindings = (
     const latest = latestPayloads.get(binding.studyOriginManifestId)
     return latest === undefined
       || latest.matured === false
+      || latest.verdict === 'ineligible'
       || requestedOriginDates.has(binding.originDate)
   })
 }
@@ -264,7 +270,7 @@ const loadLatestPayloads = async (
     const ids = studyOriginManifestIds.slice(index, index + ID_CHUNK_SIZE)
     const { data, error } = await supabaseAdmin
       .from('tli_study_origin_eligibility_latest')
-      .select('study_origin_manifest_id, payload_sha256, matured')
+      .select('study_origin_manifest_id, payload_sha256, matured, verdict')
       .eq('rule_version', ORIGIN_ELIGIBILITY_RULE_VERSION)
       .in('study_origin_manifest_id', ids)
     if (error) throw new Error(`latest origin eligibility 조회 실패: ${error.message}`)
@@ -272,6 +278,7 @@ const loadLatestPayloads = async (
       latest.set(row.study_origin_manifest_id, {
         payloadSha256: row.payload_sha256,
         matured: row.matured,
+        verdict: row.verdict,
       })
     }
   }
@@ -307,17 +314,20 @@ const insertOriginEligibility = async (
 
 export const evaluateAndRecordStudyOriginEligibility = async (input: {
   readonly today?: string
+  readonly now?: Date
   readonly originDates?: readonly string[]
   readonly scope?: OriginEligibilityEvaluationScope
   readonly dryRun?: boolean
   readonly deps?: OriginEligibilityRunDeps
 } = {}): Promise<OriginEligibilityRunReport> => {
   const today = input.today ?? getKSTDateString()
+  const now = input.now ?? new Date()
   const deps = input.deps ?? {}
   const loadStudies = deps.loadStudies ?? loadAttentionStudyContracts
   const loadBindings = deps.loadBindings ?? loadStudyOriginBindings
   const loadRoster = deps.loadRoster ?? loadOriginRoster
   const loadLabelAccounting = deps.loadLabelAccounting ?? loadOriginLabelAccounting
+  const loadKospiDates = deps.loadKospiTradingDates ?? loadKospiTradingDates
   const loadLatest = deps.loadLatestPayloads ?? loadLatestPayloads
   const insertEligibility = deps.insertEligibility ?? insertOriginEligibility
   const originDateFilter = input.originDates === undefined ? null : new Set(input.originDates)
@@ -348,14 +358,16 @@ export const evaluateAndRecordStudyOriginEligibility = async (input: {
 
   const latestPayloads = allLatestPayloads
     ?? await loadLatest(bindings.map((binding) => binding.studyOriginManifestId))
+  // WHY: 모든 origin의 maturity는 같은 KOSPI 실측 스냅샷에서 파생하고, origin마다 DB를 재조회하지 않는다.
+  const kospiDates = bindings.length > 0 ? await loadKospiDates() : []
   const evaluations: RecordedOriginEligibility[] = []
 
   for (const binding of bindings) {
     const roster = await loadRoster({ originDate: binding.originDate })
-    const matured = today >= addKoreanTradingDays(
-      binding.originDate,
-      CONFIRMATORY_HORIZON_DAYS + ORIGIN_LABEL_MATURITY_GRACE_TRADING_DAYS,
-    )
+    const windows = deriveGtAV2Windows(kospiDates, binding.originDate)
+    const matured = windows !== null
+      && windows.graceDeadline !== null
+      && now >= windows.graceDeadline
     const labelAccounting = matured ? await loadLabelAccounting(binding) : null
     const result = evaluateOriginEligibility({
       originDate: binding.originDate,

@@ -57,18 +57,22 @@ export const loadOriginRoster = async (
   const loadRows = deps.loadRows ?? (async (originDate) => supabaseAdmin.rpc('tli_origin_roster', {
     p_origin_date: originDate,
   }))
-  const warn = deps.warn ?? console.warn
   const { data, error } = await loadRows(input.originDate)
   if (error) throw new Error(`origin roster 조회 실패: ${error.message}`)
 
+  const rows = originRosterRowSchema.array().parse(data ?? [])
+  // WHY: PostgREST may silently cap RPC rows at 1,000, which would shrink the universe denominator.
+  if (rows.length >= 1_000) {
+    throw new Error('origin roster가 PostgREST 상한(1000)에 도달했습니다 — 절단 가능성. RPC 페이지네이션 필요')
+  }
+
   const roster: OriginRoster = new Map()
-  for (const row of originRosterRowSchema.array().parse(data ?? [])) {
+  for (const row of rows) {
     const keywordGroupSpec = row.keyword_group_hash === null
       ? null
       : recordedKeywordGroupSpec(row.request_payload, row.keyword_group_hash)
     if (keywordGroupSpec === null) {
-      warn(`⚠️ origin roster keyword spec 복원 실패: ${row.theme_id} (${row.run_id})`)
-      continue
+      throw new Error(`origin roster keyword spec 복원 실패: ${row.theme_id} (${row.run_id})`)
     }
     roster.set(row.theme_id, { runId: row.run_id, keywordGroupSpec })
   }

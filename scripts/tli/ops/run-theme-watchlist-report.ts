@@ -131,6 +131,7 @@ export interface ResolvedThemeWatchlistModelVersion {
   readonly modelVersion: string
   readonly modelVersionSource: ThemeWatchlistModelVersionSource
   readonly containment: ThemeWatchlistContainment | null
+  readonly registryModelMissing: boolean
 }
 
 export type ThemeWatchlistContainment = 'active' | 'invalidated' | 'blocked'
@@ -142,7 +143,7 @@ export interface ThemeWatchlistRegistryModel {
 
 export interface ThemeWatchlistBlockedResult {
   readonly status: 'blocked'
-  readonly reason: 'challenger_invalidated' | 'challenger_blocked' | 'legacy_predictions_stale'
+  readonly reason: 'challenger_missing' | 'challenger_invalidated' | 'challenger_blocked' | 'legacy_predictions_stale'
   readonly modelVersion: string
   readonly latestPredictionDate: string | null
 }
@@ -155,7 +156,7 @@ const registryContainment = (
   return 'active'
 }
 
-async function loadCurrentChallengerModel(): Promise<ThemeWatchlistRegistryModel> {
+async function loadCurrentChallengerModel(): Promise<ThemeWatchlistRegistryModel | null> {
   const supabase = await getSupabaseAdmin()
   const { data, error } = await supabase
     .from('model_registry')
@@ -164,7 +165,7 @@ async function loadCurrentChallengerModel(): Promise<ThemeWatchlistRegistryModel
     .maybeSingle()
 
   if (error) throw new Error(`model_registry challenger 조회 실패: ${error.message}`)
-  if (data === null) throw new Error('model_registry current challenger 조회 실패: challenger 행이 없습니다')
+  if (data === null) return null
   const row = modelRegistryRowSchema.parse(data)
   return {
     modelVersion: row.model_version,
@@ -174,19 +175,28 @@ async function loadCurrentChallengerModel(): Promise<ThemeWatchlistRegistryModel
 
 export async function resolveThemeWatchlistModelVersion(
   args: readonly string[],
-  loadRegistryModel: () => Promise<ThemeWatchlistRegistryModel> = loadCurrentChallengerModel,
+  loadRegistryModel: () => Promise<ThemeWatchlistRegistryModel | null> = loadCurrentChallengerModel,
 ): Promise<ResolvedThemeWatchlistModelVersion> {
   const override = readArg(args, 'model-version')
   if (override !== null) {
     const modelVersion = override.trim()
     if (modelVersion.length === 0) throw new Error('--model-version는 비어 있을 수 없습니다')
-    return { modelVersion, modelVersionSource: 'override', containment: null }
+    return { modelVersion, modelVersionSource: 'override', containment: null, registryModelMissing: false }
   }
   const registryModel = await loadRegistryModel()
+  if (registryModel === null) {
+    return {
+      modelVersion: '',
+      modelVersionSource: 'registry',
+      containment: null,
+      registryModelMissing: true,
+    }
+  }
   return {
     modelVersion: registryModel.modelVersion,
     modelVersionSource: 'registry',
     containment: registryModel.containment,
+    registryModelMissing: false,
   }
 }
 
@@ -280,9 +290,19 @@ async function loadThemeNames(themeIds: readonly string[]): Promise<Map<string, 
 export const resolveThemeWatchlistBlockedResult = (input: {
   readonly modelVersion: string
   readonly containment: ThemeWatchlistContainment | null
+  readonly registryModelMissing: boolean
   readonly latestPredictionDate: string | null
   readonly today: string
 }): ThemeWatchlistBlockedResult | null => {
+  if (input.registryModelMissing) {
+    return {
+      status: 'blocked',
+      reason: 'challenger_missing',
+      modelVersion: '',
+      latestPredictionDate: null,
+    }
+  }
+
   if (input.containment === 'invalidated' || input.containment === 'blocked') {
     return {
       status: 'blocked',
@@ -305,7 +325,7 @@ export const resolveThemeWatchlistBlockedResult = (input: {
 }
 
 export interface ThemeWatchlistReportDeps {
-  readonly loadRegistryModel?: () => Promise<ThemeWatchlistRegistryModel>
+  readonly loadRegistryModel?: () => Promise<ThemeWatchlistRegistryModel | null>
   readonly loadLatestPredictionDate?: (modelVersion: string) => Promise<string | null>
   readonly loadPredictionRows?: (modelVersion: string, date: string) => Promise<ThemeWatchlistPredictionRow[]>
   readonly loadLatestScoredRows?: (modelVersion: string) => Promise<ThemeWatchlistScoredRow[]>
@@ -327,14 +347,17 @@ export async function runThemeWatchlistReport(
   const top = readPositiveIntegerArg(args, 'top', DEFAULT_TOP)
   const bottom = readPositiveIntegerArg(args, 'bottom', DEFAULT_BOTTOM)
   const requestedDate = readDateArg(args)
-  const { modelVersion, modelVersionSource, containment } = await resolveThemeWatchlistModelVersion(
+  const { modelVersion, modelVersionSource, containment, registryModelMissing } = await resolveThemeWatchlistModelVersion(
     args,
     deps.loadRegistryModel,
   )
-  const latestPredictionDate = await (deps.loadLatestPredictionDate ?? loadLatestPredictionDate)(modelVersion)
+  const latestPredictionDate = registryModelMissing
+    ? null
+    : await (deps.loadLatestPredictionDate ?? loadLatestPredictionDate)(modelVersion)
   const blocked = resolveThemeWatchlistBlockedResult({
     modelVersion,
     containment,
+    registryModelMissing,
     latestPredictionDate,
     today: deps.today ?? getKSTDateString(),
   })

@@ -3,13 +3,13 @@ import { NextResponse } from 'next/server'
 import { verifyCronBearerToken } from '@/lib/cron-auth'
 import { dispatchGitHubWorkflow } from '@/lib/github-actions-dispatch'
 import { getKSTDateString } from '@/lib/tli/date-utils'
-import { hasCompleteDatalabCollection } from '@/lib/tli/datalab-collection-status'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
 
 const WORKFLOW_FILE = 'tli-collect-data.yml'
 
+// WHY: 일부 complete run은 전체 수집 완료를 뜻하지 않으므로 항상 dispatch하고, 동일 일자 재사용과 workflow concurrency로 중복 요청을 막는다.
 export async function GET(request: Request) {
   if (!verifyCronBearerToken(request.headers.get('authorization'))) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -18,15 +18,6 @@ export async function GET(request: Request) {
   const date = getKSTDateString()
 
   try {
-    if (await hasCompleteDatalabCollection(date)) {
-      return NextResponse.json({
-        success: true,
-        skipped: true,
-        reason: 'datalab_already_collected',
-        date,
-      })
-    }
-
     const inputs = {
       mode: 'datalab-only',
       datalab_refresh: 'reuse',

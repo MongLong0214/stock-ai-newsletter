@@ -3,7 +3,6 @@ import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vites
 const mocks = vi.hoisted(() => ({
   dispatchGitHubWorkflow: vi.fn(),
   getKSTDateString: vi.fn(() => '2026-09-02'),
-  hasCompleteDatalabCollection: vi.fn(),
 }))
 
 vi.mock('@/lib/github-actions-dispatch', () => ({
@@ -12,10 +11,6 @@ vi.mock('@/lib/github-actions-dispatch', () => ({
 
 vi.mock('@/lib/tli/date-utils', () => ({
   getKSTDateString: mocks.getKSTDateString,
-}))
-
-vi.mock('@/lib/tli/datalab-collection-status', () => ({
-  hasCompleteDatalabCollection: mocks.hasCompleteDatalabCollection,
 }))
 
 import { GET } from './route'
@@ -32,7 +27,6 @@ describe('TLI DataLab Vercel cron route', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     process.env.CRON_SECRET = CRON_SECRET
-    mocks.hasCompleteDatalabCollection.mockResolvedValue(false)
     mocks.dispatchGitHubWorkflow.mockResolvedValue(undefined)
     vi.spyOn(console, 'error').mockImplementation(() => undefined)
   })
@@ -46,27 +40,10 @@ describe('TLI DataLab Vercel cron route', () => {
     else process.env.CRON_SECRET = originalCronSecret
   })
 
-  it('returns 401 without querying or dispatching for an invalid bearer token', async () => {
+  it('returns 401 without dispatching for an invalid bearer token', async () => {
     const response = await GET(cronRequest('wrong'))
 
     expect(response.status).toBe(401)
-    expect(mocks.hasCompleteDatalabCollection).not.toHaveBeenCalled()
-    expect(mocks.dispatchGitHubWorkflow).not.toHaveBeenCalled()
-  })
-
-  it("skips when a complete DataLab run exists for today's request window", async () => {
-    mocks.hasCompleteDatalabCollection.mockResolvedValue(true)
-
-    const response = await GET(cronRequest())
-
-    expect(response.status).toBe(200)
-    expect(await response.json()).toEqual({
-      success: true,
-      skipped: true,
-      reason: 'datalab_already_collected',
-      date: '2026-09-02',
-    })
-    expect(mocks.hasCompleteDatalabCollection).toHaveBeenCalledWith('2026-09-02')
     expect(mocks.dispatchGitHubWorkflow).not.toHaveBeenCalled()
   })
 
@@ -86,8 +63,15 @@ describe('TLI DataLab Vercel cron route', () => {
     )
   })
 
-  it('returns 500 when the status query or dispatch fails', async () => {
-    mocks.hasCompleteDatalabCollection.mockRejectedValue(new Error('database unavailable'))
+  it('dispatches again on an already collected day so reuse can reduce outbound requests to zero', async () => {
+    await GET(cronRequest())
+    await GET(cronRequest())
+
+    expect(mocks.dispatchGitHubWorkflow).toHaveBeenCalledTimes(2)
+  })
+
+  it('returns 500 when dispatch fails', async () => {
+    mocks.dispatchGitHubWorkflow.mockRejectedValue(new Error('dispatch unavailable'))
 
     const response = await GET(cronRequest())
 

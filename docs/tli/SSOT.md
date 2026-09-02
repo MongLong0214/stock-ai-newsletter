@@ -38,12 +38,12 @@
 
 - **study 시계: clean origin 3개 확정(7/27·8/3·8/24) + 8/31 라벨 pending.** 8/10은 universe 붕괴(30/220)로 **ineligible** — 사건 9. #26 도달 예상 **~2027-02-15**(2027-02-08 설날 휴장으로 1주 추가 지연). study contract `tli-attention-study-v1` lock 7/22, first_origin_date=2026-07-27.
 - **clean 판정은 CI 그린이 아니라 `origin-eligibility-v2`(§2)다.** roster 기준 usable coverage ≥70% + expected ⊆ roster + (성숙 후) label accounting 100%·source-gap ≤1%. 판정은 `tli_study_origin_eligibility`(append-only)에 기록되고 dataset/평가기는 eligible origin만 읽는다(판정 없는 origin도 제외 — fail-closed).
-- **DataLab 1,000/일 한도 운영**: 1 full run = 299 요청. 09:00 Vercel dispatch(`/api/cron/tli-datalab` → `datalab-only`)가 먼저 수집하고 16:30·19:00 run은 동일 요청을 **재사용**(요청 0). DB ledger 상한 900, 429는 재시도 없이 즉시 중단. **수동 full dispatch는 기본 reuse — `datalab_refresh=force`는 예외적으로만.**
+- **DataLab 1,000/일 한도 운영**: 1 full run = 299 요청. 09:00 Vercel dispatch(`/api/cron/tli-datalab` → `datalab-only`)가 먼저 수집하고 이후 run은 동일 요청을 **재사용**한다(9/2 실측 2회차: 재사용 267 / 재요청 32 — 재요청분은 DataLab에 직전 거래일 데이터가 아직 없는 저볼륨 테마로, 신선도 하한 미달분만 다시 받는 정상 동작). DB ledger 상한 900(env로 낮출 수만 있음), 429는 그 요청을 재시도하지 않고 실패로 기록한다(루프는 계속되며 총량은 ledger가 막는다). **수동 full dispatch는 기본 reuse — `datalab_refresh=force`는 남은 한도 확인 후에만.**
 - **TLI v3 재구축 = 완료·배포·축적 국면.** 예측 API는 검증된 champion cycle 전까지 **의도적 empty** (`dataSource:"none"` = 정상). 승격/노출 플래그(`TLI_M1_PROMOTION_ENABLED`·`TLI_M1_REGISTRATION_ENABLED`·`TLI_PREDICTIONS_V3_EXPOSURE_ENABLED`) 전부 미설정 유지.
 - **gta-v2 foundation 라벨(step 4.15)·B-Abl phase 수집(step 6.5) 가동 중.** origin·라벨·B-Abl이 매일 자동 축적된다.
 - **점수는 anchor 척도로 전환됨** (PR #105, 7/27 머지) — 2026-07-07 앵커 투입이 일으킨 raw_value 스케일 붕괴의 근본 수정. 점수 p50 43→58 전망, visibleThemes 회복 예상.
 - **예측 채점 만기 기준 SSOT 통일 + 비거래일 고아 자기치유** (PR #104, 7/27 머지) — 만기 미채점 609→185로 적체 게이트 통과 예상.
-- **legacy `theme_predictions_v3` 신규 행 생성 중단**(9/2): champion/challenger가 invalidated/blocked면 행을 만들지 않는다. watchlist canary·parity는 명시적 `blocked` 아티팩트(exit 2)를 남긴다. 공개 서빙은 scientific 뷰만 읽어 UI 영향 0.
+- **legacy `theme_predictions_v3` 신규 행 생성 중단**(9/2): champion/challenger가 invalidated/blocked면 행을 만들지 않는다. watchlist canary는 containment(challenger 부재·invalidated·blocked)나 stale 예측이면 리포트 대신 `blocked` JSON + exit 2를 남긴다(실E2E에서 challenger 행 자체가 없어 크래시하던 것을 교정). parity는 0건이어도 정상 JSON + exit 2 warning이며 blocked 아티팩트를 만들지 않는다. 공개 서빙은 scientific 뷰만 읽어 UI 영향 0.
 - **인프라 현재값**: Supabase **Pro**(사건 7 당시 Free), DB 약 1.13GB(append-only 단조 증가 — 월간 증가율 P1), Vercel 리전 **`icn1`**(사건 7의 `sin1`은 `99ead71`에서 복귀), GitHub 스케줄 지연 실측 **2~10시간**(자정 spillover 3회 관측). Bot Protection Challenge는 curl류만 걸리고 Googlebot 통과(GSC 실측 9/2).
 - **작업 규칙**: TLI 작업 전 master plan Read. 조기 승격·노출 우회는 어떤 이유로도 금지. 코드 변경 위임 정책은 `~/.claude/CLAUDE.md`.
 
@@ -72,7 +72,7 @@
 이후: Todo 16 candidate cycle(사전등록·전향 최소 16주) → L3 판정(~2027 중반) → L4 canary 4주.
 
 - lock은 소급 불가(`locked_at < first_origin_date` RPC 강제) — 7/13·7/20은 universal 축적 전용.
-- **"clean" = `origin-eligibility-v2` eligible** (`scripts/tli/origins/origin-eligibility.ts`, 9/2 도입 — 사건 9). 판정 기준(outcome 비참조): ① roster(cutoff 이전 7일 내 complete single-theme DataLab run을 가진 테마, RPC `tli_origin_roster`) 대비 **usable coverage ≥70%** ② expected ⊆ roster ③ 성숙 후(horizon 5 + grace 3 거래일) expected 전 테마 label terminal(final/excluded) 100% + `source_gap_sla` ≤1%. 판정은 `tli_study_origin_eligibility`에 append-only 기록, `tli_study_origin_eligibility_latest` 뷰가 최신값. dataset loader·평가기 origin schedule은 **eligible만** 읽고, 판정 행이 없는 origin도 제외한다(fail-closed). 파이프라인 6.6단계가 origin 생성 직후 판정해 ineligible이면 critical로 이슈를 만든다. **CI 그린 ≠ 시계 유지** — 이 판정이 시계다.
+- **"clean" = `origin-eligibility-v2` eligible** (`scripts/tli/origins/origin-eligibility.ts`, 9/2 도입 — 사건 9). 판정 기준(outcome 비참조): ① roster(cutoff 이전 7일 내 complete single-theme DataLab run을 가진 테마, RPC `tli_origin_roster`) 대비 **usable coverage ≥70%** ② expected ⊆ roster ③ 성숙 후(horizon 5 + grace 3 거래일) expected 전 테마 label terminal(final/excluded) 100% + `source_gap_sla` ≤1%. 성숙 기준은 라벨 finalizer와 같은 함수·같은 시각이다 — KOSPI 실측에서 파생한 `deriveGtAV2Windows().graceDeadline`(horizon 뒤 3번째 거래일 **18:00 KST**). 판정은 `tli_study_origin_eligibility`에 append-only 기록, `tli_study_origin_eligibility_latest` 뷰가 최신값. dataset loader·평가기 origin schedule은 **eligible만** 읽고, 판정 행이 없는 origin도 제외한다(fail-closed). 파이프라인 6.6단계가 매 run **pending 범위**(판정 없음·미성숙·직전 ineligible·이번 origin)를 재평가하므로 라벨이 뒤늦게 완결되면 ineligible이 eligible로 회복된다. 심각도는 평가기 판정을 따른다 — 최근 7일 내 origin의 ineligible만 critical, 과거 origin의 최초 기록은 warning. **CI 그린 ≠ 시계 유지** — 이 판정이 시계다.
 - study 계약: id `8c7144f8-f685-4838-8bdc-251f1716e602`, babl_algorithm_version `comparison-v4-shadow-v1`, evidence `docs/evidence/tli-v3-scientific-rebuild/studies/8c7144f8-…/`. **contract_version UNIQUE — 재발행 불가.**
 
 ## 3. 운영 파이프라인
@@ -94,16 +94,16 @@
 
 | cron | KST | 역할 |
 |---|---|---|
-| **Vercel** `0 0 * * 1-6` → `/api/cron/tli-datalab` | 월~토 09:00 | **DataLab 선수집** — `workflow_dispatch(mode=datalab-only, intended_kst_date, run_key)`. 오늘 complete run이 있으면 dispatch 안 함 |
-| `30 7 * * 1-5` | 평일 16:30 | full 수집+점수 (DataLab은 09:00분 재사용 → 요청 0) |
-| `0 10 * * 1-5` | 평일 19:00 | full 이중화 (v6까지 문서 누락. 요청은 재사용으로 0) |
+| **Vercel** `0 0 * * 1-6` → `/api/cron/tli-datalab` | 월~토 09:00 | **DataLab 선수집** — `workflow_dispatch(mode=datalab-only, intended_kst_date, run_key)`. 사전 완료 판정은 두지 않는다(부분 완료를 완료로 오판하면 선수집이 통째로 사라진다). 중복은 재사용과 workflow concurrency가 막는다 |
+| `30 7 * * 1-5` | 평일 16:30 | full 수집+점수 (DataLab은 09:00분 재사용, 신선도 미달분만 재요청) |
+| `0 10 * * 1-5` | 평일 19:00 | full 이중화 (v6까지 문서 누락. 요청은 대부분 재사용으로 상쇄) |
 | `0 0 * * 1-6` | 월~토 09:00 | news 수집 (+origin backfill) |
 | `0 17 * * 6` | 일 02:00 | 주말 full (테마 발견 슬롯 — 비거래일 예측 스냅샷은 스킵됨) |
 | `30 9 * * 1` | 월 18:30 | Monday origin 생성 |
 
 `tli-weekly-learn.yml`: 토 21:00 UTC (promotion/registration disabled로 zero-RPC).
 
-**DataLab quota 운영 (사건 9)**: 1 full run = 299 요청(interest 배치 60 + forecast 테마별 239), 한도 1,000/일(KST 자정 리셋 가정). ① 동일 `request_sha256`가 오늘 complete + fresh(source_max_date ≥ min(window end, 직전 거래일))면 API 호출 없이 저장 응답을 재사용 ② DB ledger `tli_datalab_quota_ledger` + RPC `reserve_tli_datalab_quota`가 **HTTP 시도 단위**로 원자 예약, 상한 `TLI_DATALAB_DAILY_CEILING`(기본 900) ③ 429 `Query limit exceeded`는 `NaverDatalabQuotaError`로 즉시 중단(재시도 0). **수동 dispatch는 기본 reuse** — `-f datalab_refresh=force`는 남은 한도를 확인한 뒤에만.
+**DataLab quota 운영 (사건 9)**: 1 full run = 299 요청(interest 배치 60 + forecast 테마별 239), 한도 1,000/일(KST 자정 리셋 가정). ① 동일 `request_sha256`가 오늘 complete + fresh(source_max_date ≥ min(window end, 직전 거래일))면 API 호출 없이 저장 응답을 재사용 ② DB ledger `tli_datalab_quota_ledger` + RPC `reserve_tli_datalab_quota`가 **HTTP 시도 단위**로 원자 예약, 상한 `TLI_DATALAB_DAILY_CEILING`(기본이자 관리 상한 900 — env로 낮출 수만 있다) ③ 429 `Query limit exceeded`는 `NaverDatalabQuotaError`로 그 요청의 재시도를 중단(재시도 0)하고 실패로 기록한다 — 루프 자체는 계속되며 총량은 ledger가 막는다. **수동 dispatch는 기본 reuse** — `-f datalab_refresh=force`는 남은 한도를 확인한 뒤에만.
 
 **운영 특성**: 발화 안 하면 `gh workflow run tli-collect-data.yml -f mode=full|news-only|datalab-only` 수동 dispatch(reuse 기본이라 quota 안전). Monday origin은 cron+backfill 이중 안전망(PIT-파생이라 늦은 생성도 payload 동일). 과학 런타임 고정: uv 0.9.25 + CPython 3.13.11 + frozen lockfile + PYTHONHASHSEED=0. **이중 lockfile**: 의존성 변경 시 `pnpm-lock.yaml`(Vercel)+`package-lock.json`(Actions) 동시 갱신.
 
@@ -228,11 +228,13 @@ analog_candidates_v1을 읽어 무효 ② 서빙 단일화 + 분포기반 absten
 1. **universe fail-closed** — roster(RPC `tli_origin_roster`: cutoff 이전 7일 내 complete single-theme run 보유 테마)에 있지만 eligible run이 없는 테마를 `interest_run_unavailable` abstain child로 manifest에 명시. expected universe ≈ roster(~220)로 안정화.
 2. **`origin-eligibility-v2`** — §2 기준. 마이그레이션 059(`tli_study_origin_eligibility` + latest 뷰 + roster RPC) + 061(roster RPC가 관측 테마 1개뿐인 **배치** run을 single-theme으로 오인하던 것을 request payload의 비앵커 그룹 수=1 조건으로 교정 — 프로덕션 드라이런에서 발견). `npm run tli:origins:eligibility`로 전 origin 재판정(8/10만 ineligible, 나머지 coverage 87.8~89.1%). dataset loader·평가기 origin 목록은 eligible만. 6.6단계 직후 자동 판정, ineligible은 critical.
 3. **DataLab quota** — 마이그레이션 060(ledger + 원자 예약 RPC), 동일 요청 재사용, 429 non-retry, 수동 dispatch 기본 reuse(`datalab_refresh=force` 예외).
-4. **09:00 Vercel dispatch** — `/api/cron/tli-datalab` → `datalab-only`(intended_kst_date 불일치 시 실행 거부). cutoff와 9시간 거리.
+4. **09:00 Vercel dispatch** — `/api/cron/tli-datalab` → `datalab-only`. intended_kst_date가 runner의 KST 날짜와 다르면(지연 발화) 워크플로를 실패시키지 않고 조용히 skip한다. cutoff와 9시간 거리.
 5. **legacy 예측 생성 중단** — champion/challenger containment(invalidated/blocked)면 `theme_predictions_v3` 신규 행 0. watchlist·parity는 `blocked` 아티팩트(exit 2).
 6. **SSOT 정정** — 본 v7.
 
 **시계 영향**: clean 확정 3(7/27·8/3·8/24) + 8/31 pending. #26 = **2027-02-15**(기존 02-01 대비 2주 — 8/10 손실 1주 + 2027-02-08 설날 1주).
+
+**최종 리뷰에서 추가로 걸러낸 것 (sol NO-SHIP → 수정 후 재판정)**: ①09:00 dispatch가 complete run 1건만 보고 선수집 전체를 생략하던 오판 → 사전 판정 제거(중복은 재사용·concurrency가 막는다) ②eligibility 성숙 판정이 계산 캘린더·날짜 단위라 계약(18:00 KST)보다 최대 9시간 일렀고 그 오판이 고착 → 라벨 finalizer와 동일한 KOSPI 실측 `graceDeadline` 사용 + 직전 ineligible도 재평가 대상 ③roster 파싱 실패를 warn 후 드롭 → fail-closed throw ④과거 origin의 최초 ineligible까지 무조건 critical → 평가기 severity 존중 ⑤challenger 행 부재 시 watchlist 크래시(실E2E 발견) → `challenger_missing` blocked. 덤으로 KOSPI 거래일 로더의 PostgREST 1,000행 절단 방어.
 
 **교훈 (불변 규칙 ⑮⑯⑰)**: 분모는 "성공한 것"이 아니라 "의도한 것"이어야 한다. 외부 API 한도는 코드가 아니라 DB 원장으로 공유 관리한다. cutoff 민감 수집은 지연이 상습인 스케줄러에 맡기지 않는다.
 

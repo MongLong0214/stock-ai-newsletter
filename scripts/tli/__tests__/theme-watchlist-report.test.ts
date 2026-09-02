@@ -12,6 +12,25 @@ import {
   type ThemeWatchlistScoredRow,
 } from '../ops/theme-watchlist-report'
 
+const watchlistDbMocks = vi.hoisted(() => ({
+  registryResponse: {
+    data: null as Record<string, unknown> | null,
+    error: null as { message: string } | null,
+  },
+}))
+
+vi.mock('../shared/supabase-admin', () => ({
+  supabaseAdmin: {
+    from: vi.fn(() => ({
+      select: vi.fn(() => ({
+        eq: vi.fn(() => ({
+          maybeSingle: vi.fn(async () => watchlistDbMocks.registryResponse),
+        })),
+      })),
+    })),
+  },
+}))
+
 const featurePayload = (valuesByName: Readonly<Record<string, number>>): ThemeWatchlistPredictionRow['features'] => ({
   featureSchema: FEATURE_NAMES,
   values: FEATURE_NAMES.map((name) => valuesByName[name] ?? 0),
@@ -166,6 +185,10 @@ describe('theme watchlist report pure logic', () => {
 })
 
 describe('theme watchlist report runner', () => {
+  afterEach(() => {
+    watchlistDbMocks.registryResponse = { data: null, error: null }
+  })
+
   it('uses challenger as the production prediction serving role', () => {
     expect(THEME_WATCHLIST_PREDICTION_SERVING_ROLE).toBe('challenger')
   })
@@ -182,6 +205,7 @@ describe('theme watchlist report runner', () => {
       modelVersion: 'm1-override-2026w28',
       modelVersionSource: 'override',
       containment: null,
+      registryModelMissing: false,
     })
     expect(loadRegistryModel).not.toHaveBeenCalled()
   })
@@ -196,8 +220,29 @@ describe('theme watchlist report runner', () => {
       modelVersion: 'registry-version',
       modelVersionSource: 'registry',
       containment: 'blocked',
+      registryModelMissing: false,
     })
     expect(loadRegistryModel).toHaveBeenCalledTimes(1)
+  })
+
+  it('returns an explicit missing registry model when no challenger row exists', async () => {
+    await expect(resolveThemeWatchlistModelVersion([])).resolves.toEqual({
+      modelVersion: '',
+      modelVersionSource: 'registry',
+      containment: null,
+      registryModelMissing: true,
+    })
+  })
+
+  it('still throws when the challenger registry query fails', async () => {
+    watchlistDbMocks.registryResponse = {
+      data: null,
+      error: { message: 'registry unavailable' },
+    }
+
+    await expect(resolveThemeWatchlistModelVersion([])).rejects.toThrow(
+      'model_registry challenger 조회 실패: registry unavailable',
+    )
   })
 })
 
@@ -206,7 +251,37 @@ describe('theme watchlist report blocked artifacts', () => {
 
   afterEach(() => {
     process.exitCode = initialExitCode
+    watchlistDbMocks.registryResponse = { data: null, error: null }
     vi.restoreAllMocks()
+  })
+
+  it('prints challenger-missing blocked JSON with exit 2 without reading predictions or writing files', async () => {
+    const log = vi.spyOn(console, 'log').mockImplementation(() => undefined)
+    const loadLatestPredictionDate = vi.fn(async () => '2026-09-01')
+    const loadPredictionRows = vi.fn(async () => [] as ThemeWatchlistPredictionRow[])
+    const writeJson = vi.fn()
+    const writeText = vi.fn()
+
+    await runThemeWatchlistReport([], {
+      loadRegistryModel: async () => null,
+      loadLatestPredictionDate,
+      loadPredictionRows,
+      writeJson,
+      writeText,
+      today: '2026-09-02',
+    })
+
+    expect(JSON.parse(String(log.mock.calls.at(-1)?.[0]))).toEqual({
+      status: 'blocked',
+      reason: 'challenger_missing',
+      modelVersion: '',
+      latestPredictionDate: null,
+    })
+    expect(process.exitCode).toBe(2)
+    expect(loadLatestPredictionDate).not.toHaveBeenCalled()
+    expect(loadPredictionRows).not.toHaveBeenCalled()
+    expect(writeJson).not.toHaveBeenCalled()
+    expect(writeText).not.toHaveBeenCalled()
   })
 
   it('prints blocked JSON with exit 2 and writes no report for a contained challenger', async () => {

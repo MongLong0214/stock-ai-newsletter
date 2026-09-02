@@ -134,13 +134,16 @@ describe('Naver DataLab quota-aware API boundary', () => {
 })
 
 describe('shared DataLab quota ledger client', () => {
-  it('uses the default for a missing or invalid ceiling and warns on invalid input', () => {
+  it('uses the default for missing or invalid input and clamps values above the managed ceiling', () => {
     const warn = vi.fn()
     expect(resolveDatalabDailyCeiling(undefined, warn)).toBe(DEFAULT_TLI_DATALAB_DAILY_CEILING)
-    expect(resolveDatalabDailyCeiling('901', warn)).toBe(901)
+    expect(resolveDatalabDailyCeiling('900', warn)).toBe(900)
+    expect(resolveDatalabDailyCeiling('899', warn)).toBe(899)
+    expect(resolveDatalabDailyCeiling('901', warn)).toBe(DEFAULT_TLI_DATALAB_DAILY_CEILING)
     expect(resolveDatalabDailyCeiling('0', warn)).toBe(DEFAULT_TLI_DATALAB_DAILY_CEILING)
     expect(resolveDatalabDailyCeiling('9.5', warn)).toBe(DEFAULT_TLI_DATALAB_DAILY_CEILING)
-    expect(warn).toHaveBeenCalledTimes(2)
+    expect(warn).toHaveBeenCalledTimes(3)
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining("TLI_DATALAB_DAILY_CEILING='901'"))
   })
 
   it('throws a typed quota error when the atomic reservation is denied', async () => {

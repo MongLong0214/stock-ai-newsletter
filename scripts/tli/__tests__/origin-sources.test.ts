@@ -7,6 +7,7 @@ import { getKoreanTradingDateWindow } from '@/lib/tli/trading-calendar'
 import { calendarDatesBetween } from '../collectors/collection-run-contract'
 import { buildKeywordGroupSpec, keywordGroupSha256 } from '../collectors/collection-run-contract'
 import { buildForecastOriginManifestPayload } from '../origins/forecast-origin-manifest'
+import { loadOriginRoster } from '../origins/origin-roster'
 import {
   newsExpectedDates,
   loadForecastThemeSources,
@@ -233,5 +234,41 @@ describe('Monday origin source PIT selection', () => {
 
     // Then: mutable theme_keywords 조회 없이 hash가 묶은 exact Monday spec을 얻는다.
     expect(selected).toEqual(OLD_SPEC)
+  })
+
+  it('roster keyword spec 복원 실패 시 테마를 버리지 않고 fail-closed한다', async () => {
+    const runId = '20000000-0000-4000-8000-000000000099'
+
+    await expect(loadOriginRoster({ originDate: MONDAY }, {
+      loadRows: async () => ({
+        data: [{
+          theme_id: THEME_A,
+          run_id: runId,
+          keyword_group_hash: keywordGroupSha256(OLD_SPEC),
+          request_payload: { keywordGroups: [] },
+          completed_at: '2026-07-13T08:55:00.000Z',
+        }],
+        error: null,
+      }),
+    })).rejects.toThrow(`origin roster keyword spec 복원 실패: ${THEME_A} (${runId})`)
+  })
+
+  it('origin roster RPC가 PostgREST 1,000행 상한에 도달하면 절단 가능성을 fail-loud한다', async () => {
+    const runId = '20000000-0000-4000-8000-000000000100'
+    const row = {
+      theme_id: THEME_A,
+      run_id: runId,
+      keyword_group_hash: keywordGroupSha256(OLD_SPEC),
+      request_payload: {
+        keywordGroups: [{ groupName: OLD_SPEC.group_name, keywords: [...OLD_SPEC.keywords] }],
+      },
+      completed_at: '2026-07-13T08:55:00.000Z',
+    }
+
+    await expect(loadOriginRoster({ originDate: MONDAY }, {
+      loadRows: async () => ({ data: Array.from({ length: 1_000 }, () => row), error: null }),
+    })).rejects.toThrow(
+      'origin roster가 PostgREST 상한(1000)에 도달했습니다 — 절단 가능성. RPC 페이지네이션 필요',
+    )
   })
 })
