@@ -16,6 +16,7 @@ import {
   MessageSquare,
 } from 'lucide-react'
 import Link from 'next/link'
+import { siteConfig } from '@/lib/constants/seo/config'
 
 const TOOLS = [
   {
@@ -237,7 +238,7 @@ function DevelopersContent() {
             MCP 서버
           </h1>
           <p className="text-lg text-slate-300 font-light tracking-wide leading-relaxed max-w-2xl mx-auto">
-            10개 도구로 200+ 한국 주식 테마의 생명주기 점수, 예측, 비교, 변동을 자연어로 조회하세요
+            10개 도구로 {siteConfig.themeCountFloor}+ 한국 주식 테마의 생명주기 점수, 예측, 비교, 변동을 자연어로 조회하세요
           </p>
         </motion.div>
 

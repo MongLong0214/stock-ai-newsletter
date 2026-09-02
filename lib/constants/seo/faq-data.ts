@@ -13,6 +13,8 @@
  * 3순위: RSI, MACD, 이메일 구독
  */
 
+import { siteConfig } from './config';
+
 export interface FAQItem {
   question: string;
   answer: string;
@@ -106,7 +108,7 @@ export const faqData: FAQItem[] = [
   {
     question: '테마 생명주기 분석이란 무엇인가요?',
     answer:
-      'StockMatrix의 테마 생명주기 분석(TLI)은 반도체, 2차전지, AI, 방산 등 200개 이상의 주식 테마를 추적하여 각 테마가 현재 어떤 단계에 있는지 분석하는 기능입니다. 네이버 검색 관심도, 뉴스 빈도, 감성 분석, 주가 변동성을 종합하여 0~100점의 점수를 산출하고, 초기(Early) → 성장(Growth) → 정점(Peak) → 쇠퇴(Decay) → 휴면(Dormant)의 5단계 생명주기로 분류합니다. 테마별 상세 페이지에서 관련 종목, 뉴스, 생명주기 곡선을 확인할 수 있습니다.',
+      `StockMatrix의 테마 생명주기 분석(TLI)은 반도체, 2차전지, AI, 방산 등 ${siteConfig.themeCountFloor}개 이상의 주식 테마를 추적하여 각 테마가 현재 어떤 단계에 있는지 분석하는 기능입니다. 네이버 검색 관심도, 뉴스 빈도, 감성 분석, 주가 변동성을 종합하여 0~100점의 점수를 산출하고, 초기(Early) → 성장(Growth) → 정점(Peak) → 쇠퇴(Decay) → 휴면(Dormant)의 5단계 생명주기로 분류합니다. 테마별 상세 페이지에서 관련 종목, 뉴스, 생명주기 곡선을 확인할 수 있습니다.`,
     category: 'service',
   },
   {
@@ -124,7 +126,7 @@ export const faqData: FAQItem[] = [
   {
     question: '테마 분석도 무료인가요?',
     answer:
-      '네, 테마 생명주기 분석은 완전 무료입니다. 별도의 회원가입이나 로그인 없이 누구나 테마 목록(/themes)과 상세 분석 페이지를 자유롭게 이용할 수 있습니다. 200개 이상의 테마 점수, 생명주기 단계, 관련 종목, 뉴스 헤드라인까지 모든 정보가 무료로 제공됩니다.',
+      `네, 테마 생명주기 분석은 완전 무료입니다. 별도의 회원가입이나 로그인 없이 누구나 테마 목록(/themes)과 상세 분석 페이지를 자유롭게 이용할 수 있습니다. ${siteConfig.themeCountFloor}개 이상의 테마 점수, 생명주기 단계, 관련 종목, 뉴스 헤드라인까지 모든 정보가 무료로 제공됩니다.`,
     category: 'service',
   },
 

@@ -1,5 +1,6 @@
 import { createOgLayout } from '@/lib/og-template';
 import { createOgImageResponse } from '@/lib/og-image-response';
+import { siteConfig } from '@/lib/constants/seo/config';
 
 export const runtime = 'nodejs';
 export const revalidate = 86400;
@@ -14,7 +15,7 @@ export default async function Image() {
   return createOgImageResponse(
     createOgLayout({
       title: 'MCP 서버',
-      subtitle: '200+ 한국 주식 테마 데이터 API',
+      subtitle: `${siteConfig.themeCountFloor}+ 한국 주식 테마 데이터 API`,
     }),
     size
   );

@@ -3,6 +3,7 @@
  *
  *   npm run naver:demand              # 상위 40개 출력
  *   npm run naver:demand -- --all     # 전체 CSV
+ *   npm run naver:demand -- --with-brand # 테마명 자체 검색량도 별도 배치로 조회
  *
  * 왜 필요한가: TLI 점수는 "이 테마가 지금 뜨고 있나"를 말하지만 "사람들이 이 말을
  * 검색창에 얼마나 치나"는 말하지 않는다. 점수가 높아도 아무도 검색하지 않는 테마에
@@ -11,6 +12,9 @@
  */
 
 import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
+import { createClient } from '@supabase/supabase-js';
 import {
   fetchKeywordVolumes,
   HINT_KEYWORD_LIMIT,
@@ -18,28 +22,45 @@ import {
   type SearchAdCredentials,
 } from '@/lib/naver-searchad';
 
-const THEMES_API = 'https://stockmatrix.co.kr/api/tli/themes';
 /** 네이버 검색광고 API 호출 간격. 초당 다발 호출 시 429가 난다. */
 const THROTTLE_MS = 350;
 
 interface Theme {
   id: string;
   name: string;
-  score: number;
-  stageKo: string;
-  stockCount: number;
 }
 
-function readCredentials(): SearchAdCredentials {
+interface ScriptCredentials {
+  searchAd: SearchAdCredentials;
+  serviceRoleKey: string;
+  supabaseUrl: string;
+}
+
+interface ThemeDemandRow extends Theme {
+  brand?: number;
+  related: number;
+  themeStock: number;
+}
+
+function readCredentials(): ScriptCredentials {
   const env = readFileSync('.env.local', 'utf-8');
   const get = (k: string) => env.match(new RegExp(`^${k}=(.+)$`, 'm'))?.[1]?.trim().replace(/^["']|["']$/g, '');
   const customerId = get('NAVER_AD_CUSTOMER_ID');
   const apiKey = get('NAVER_AD_API_KEY');
   const secretKey = get('NAVER_AD_SECRET_KEY');
+  const supabaseUrl = get('NEXT_PUBLIC_SUPABASE_URL');
+  const serviceRoleKey = get('SUPABASE_SERVICE_ROLE_KEY');
   if (!customerId || !apiKey || !secretKey) {
     throw new Error('.env.local에 NAVER_AD_CUSTOMER_ID / NAVER_AD_API_KEY / NAVER_AD_SECRET_KEY가 필요합니다');
   }
-  return { apiKey, customerId, secretKey };
+  if (!supabaseUrl || !serviceRoleKey) {
+    throw new Error('.env.local에 NEXT_PUBLIC_SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY가 필요합니다');
+  }
+  return {
+    searchAd: { apiKey, customerId, secretKey },
+    serviceRoleKey,
+    supabaseUrl,
+  };
 }
 
 export function chunk<T>(items: readonly T[], size: number): T[][] {
@@ -51,66 +72,126 @@ export function chunk<T>(items: readonly T[], size: number): T[][] {
 /** 힌트 키워드는 공백이 무시되고 ASCII는 대문자로 돌아온다 — 같은 정규화로 맞춘다. */
 export const normalize = (s: string) => s.replace(/\s+/g, '').toUpperCase();
 
-/** 조회 결과에서 테마명과 "<테마>관련주" 두 축의 검색량을 뽑는다. */
-export function pickVolumes(theme: string, rows: readonly KeywordVolume[]) {
-  const key = normalize(theme);
-  const exact = rows.find((r) => normalize(r.keyword) === key);
-  const related = rows.find((r) => normalize(r.keyword) === `${key}관련주`);
-  return { exact: exact?.total ?? 0, related: related?.total ?? 0 };
+export function demandKeywords(theme: string) {
+  return {
+    brand: theme,
+    related: `${theme} 관련주`,
+    themeStock: `${theme} 테마주`,
+  };
+}
+
+/** 직접 힌트로 보낸 "관련주"와 "테마주" 두 축의 검색량을 뽑는다. */
+export function pickVolumes(theme: string, rows: readonly KeywordVolume[], withBrand = false) {
+  const keywords = demandKeywords(theme);
+  const findTotal = (keyword: string) => rows.find((row) => normalize(row.keyword) === normalize(keyword))?.total ?? 0;
+  const volumes = {
+    related: findTotal(keywords.related),
+    themeStock: findTotal(keywords.themeStock),
+  };
+
+  return withBrand ? { ...volumes, brand: findTotal(keywords.brand) } : volumes;
+}
+
+async function fetchActiveThemes(supabaseUrl: string, serviceRoleKey: string): Promise<Theme[]> {
+  const supabase = createClient(supabaseUrl, serviceRoleKey, { auth: { persistSession: false } });
+  // 검색 수요 축에 필요 없는 점수·단계·종목 수는 시점이 다른 테이블의 추가 조회를 피하려고 제외한다.
+  const { data, error } = await supabase
+    .from('themes')
+    .select('id, name')
+    .eq('is_active', true)
+    .order('name');
+
+  if (error) throw new Error(`활성 테마 조회 실패: ${error.message}`);
+  return data ?? [];
+}
+
+async function fetchAxisVolumes(
+  credentials: SearchAdCredentials,
+  label: string,
+  keywords: readonly string[],
+): Promise<KeywordVolume[]> {
+  const rows: KeywordVolume[] = [];
+  const batches = chunk(keywords, HINT_KEYWORD_LIMIT);
+
+  console.error(`${label} ${keywords.length}개 조회 중... (배치 ${HINT_KEYWORD_LIMIT}개, ${THROTTLE_MS}ms 간격)`);
+  for (const [index, batch] of batches.entries()) {
+    try {
+      const volumes = await fetchKeywordVolumes(credentials, batch);
+      const requested = new Set(batch.map(normalize));
+      rows.push(...volumes.filter((row) => requested.has(normalize(row.keyword))));
+    } catch (error) {
+      // 한 배치가 실패해도 전체를 버리지 않는다. 누락된 키워드는 pickVolumes에서 0이 된다.
+      console.error(`  ${label} 배치 ${index + 1} 실패: ${(error as Error).message}`);
+    }
+    if (index % 10 === 9) console.error(`  ${index + 1}/${batches.length}`);
+    await new Promise((done) => setTimeout(done, THROTTLE_MS));
+  }
+
+  return rows;
 }
 
 async function main(): Promise<void> {
   const showAll = process.argv.includes('--all');
-  const creds = readCredentials();
+  const withBrand = process.argv.includes('--with-brand');
+  const credentials = readCredentials();
+  const themes = await fetchActiveThemes(credentials.supabaseUrl, credentials.serviceRoleKey);
+  console.error(`활성 테마 ${themes.length}개 조회 완료`);
 
-  const res = await fetch(THEMES_API);
-  const themes: Theme[] = (await res.json()).data;
-  console.error(`테마 ${themes.length}개 조회 중... (배치 ${HINT_KEYWORD_LIMIT}개, ${THROTTLE_MS}ms 간격)`);
+  const keywordSets = themes.map((theme) => demandKeywords(theme.name));
+  const relatedRows = await fetchAxisVolumes(
+    credentials.searchAd,
+    '관련주',
+    keywordSets.map((keywords) => keywords.related),
+  );
+  const themeStockRows = await fetchAxisVolumes(
+    credentials.searchAd,
+    '테마주',
+    keywordSets.map((keywords) => keywords.themeStock),
+  );
+  const brandRows = withBrand
+    ? await fetchAxisVolumes(credentials.searchAd, '테마명', keywordSets.map((keywords) => keywords.brand))
+    : [];
+  const volumes = [...relatedRows, ...themeStockRows, ...brandRows];
+  const rows: ThemeDemandRow[] = themes.map((theme) => ({
+    ...theme,
+    ...pickVolumes(theme.name, volumes, withBrand),
+  }));
 
-  const rows: (Theme & { exact: number; related: number })[] = [];
-  const batches = chunk(themes, HINT_KEYWORD_LIMIT);
-
-  for (const [i, batch] of batches.entries()) {
-    try {
-      const volumes = await fetchKeywordVolumes(creds, batch.map((t) => t.name));
-      for (const theme of batch) rows.push({ ...theme, ...pickVolumes(theme.name, volumes) });
-    } catch (error) {
-      // 한 배치가 실패해도 전체를 버리지 않는다. 실패분은 0으로 남고 stderr에 남긴다.
-      console.error(`  배치 ${i + 1} 실패: ${(error as Error).message}`);
-      for (const theme of batch) rows.push({ ...theme, exact: 0, related: 0 });
-    }
-    if (i % 10 === 9) console.error(`  ${i + 1}/${batches.length}`);
-    await new Promise((r) => setTimeout(r, THROTTLE_MS));
-  }
-
-  rows.sort((a, b) => b.exact + b.related - (a.exact + a.related));
+  rows.sort((a, b) => b.related + b.themeStock - (a.related + a.themeStock));
 
   if (showAll) {
-    console.log('theme,score,stage,stocks,exact_volume,related_volume,url');
+    console.log(`theme,related_volume,theme_stock_volume${withBrand ? ',brand_volume' : ''},url`);
     for (const r of rows) {
-      console.log(`"${r.name}",${r.score},${r.stageKo},${r.stockCount},${r.exact},${r.related},https://stockmatrix.co.kr/themes/${r.id}`);
+      console.log(`"${r.name}",${r.related},${r.themeStock}${withBrand ? `,${r.brand ?? 0}` : ''},https://stockmatrix.co.kr/themes/${r.id}`);
     }
     return;
   }
 
   console.log('\n검색 수요 상위 40 (월간, PC+모바일)\n');
-  console.log('테마명'.padEnd(26) + '검색량'.padStart(9) + '관련주'.padStart(9) + '  TLI점수  단계');
-  console.log('─'.repeat(66));
+  console.log(
+    '테마명'.padEnd(26) +
+      '관련주'.padStart(9) +
+      '테마주'.padStart(9) +
+      (withBrand ? '테마명'.padStart(9) : ''),
+  );
+  console.log('─'.repeat(withBrand ? 53 : 44));
   for (const r of rows.slice(0, 40)) {
     console.log(
       r.name.slice(0, 24).padEnd(26) +
-        String(r.exact).padStart(9) +
         String(r.related).padStart(9) +
-        String(r.score).padStart(9) +
-        '  ' + r.stageKo,
+        String(r.themeStock).padStart(9) +
+        (withBrand ? String(r.brand ?? 0).padStart(9) : ''),
     );
   }
 
-  const noDemand = rows.filter((r) => r.exact + r.related === 0).length;
+  const noDemand = rows.filter((r) => r.related + r.themeStock === 0).length;
   console.log(`\n검색량 0인 테마: ${noDemand}/${rows.length} — 이 테마들은 랜딩을 만들어도 유입이 없다.`);
 }
 
-main().catch((error) => {
-  console.error(error);
-  process.exit(1);
-});
+const isDirectExecution = process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href;
+if (isDirectExecution) {
+  main().catch((error) => {
+    console.error(error);
+    process.exit(1);
+  });
+}
