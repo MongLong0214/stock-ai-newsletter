@@ -18,7 +18,7 @@
 | v4 | 2026-07-27 | 문서 통합 개시. PR #104(만기 SSOT)·#105(앵커 척도) 머지, study 시계 1주차 시작, master plan git 이동 |
 | **v5** | **2026-07-29** | **Supabase egress 384% 초과 근본 수정** — 배치 feature 로더 per-theme 중복 로드 제거, 봇 방어 미들웨어, 뉴스 30일 보존 정리 |
 | **v6** | **2026-09-01** | **검증되지 않은 유사 테마 표면 sunset** — 비교 UI만 숨기고 코드·API·파이프라인·데이터는 보존 |
-| **v7** | **2026-09-02** | **전수 심층 리뷰(sol 적대 리뷰 포함) → P0 6건** — 8/10 origin false-clean 사건, origin universe fail-closed + `origin-eligibility-v2`, DataLab quota ledger/reuse/429 non-retry, 09:00 Vercel dispatch, legacy 예측 생성 중단, stale 정정(Pro·icn1·지연 실측) |
+| **v7** | **2026-09-02** | **전수 심층 리뷰(sol 적대 리뷰 포함) → P0 6건 + 기존 문제 2건(워치독 타임아웃·Clarity CSP)** — 8/10 origin false-clean 사건, origin universe fail-closed + `origin-eligibility-v2`, DataLab quota ledger/reuse/429 non-retry, 09:00 Vercel dispatch, legacy 예측 생성 중단, stale 정정(Pro·icn1·지연 실측) |
 
 ## 문서 지도
 
@@ -104,6 +104,8 @@
 `tli-weekly-learn.yml`: 토 21:00 UTC (promotion/registration disabled로 zero-RPC).
 
 **DataLab quota 운영 (사건 9)**: 1 full run = 299 요청(interest 배치 60 + forecast 테마별 239), 한도 1,000/일(KST 자정 리셋 가정). ① 동일 `request_sha256`가 오늘 complete + fresh(source_max_date ≥ min(window end, 직전 거래일))면 API 호출 없이 저장 응답을 재사용 ② DB ledger `tli_datalab_quota_ledger` + RPC `reserve_tli_datalab_quota`가 **HTTP 시도 단위**로 원자 예약, 상한 `TLI_DATALAB_DAILY_CEILING`(기본이자 관리 상한 900 — env로 낮출 수만 있다) ③ 429 `Query limit exceeded`는 `NaverDatalabQuotaError`로 그 요청의 재시도를 중단(재시도 0)하고 실패로 기록한다 — 루프 자체는 계속되며 총량은 ledger가 막는다. **수동 dispatch는 기본 reuse** — `-f datalab_refresh=force`는 남은 한도를 확인한 뒤에만.
+
+**관측 갭 워치독 (9/2 교정)**: news-only run이 `tli_interest_observations`의 **최신 거래일**을 보고 2거래일 이상 뒤처지면 warning을 낸다. 이전에는 "오늘 날짜에 행이 있는가"를 물었는데 ①DataLab은 당일 데이터를 주지 않아 구조적 오탐이고 ②`count(*) where trading_date=X`가 7.3초로 PostgREST 8초 타임아웃에 걸려 매 실행 실패했다(취소 오류는 메시지가 비어 진단도 막혔다). 마이그레이션 062의 `(trading_date DESC)` 인덱스로 973ms→3.9ms. 수집 실패 자체는 커버리지 게이트가 즉시 critical로 잡으므로 이 워치독은 조용한 누적 갭의 백스톱이다.
 
 **운영 특성**: 발화 안 하면 `gh workflow run tli-collect-data.yml -f mode=full|news-only|datalab-only` 수동 dispatch(reuse 기본이라 quota 안전). Monday origin은 cron+backfill 이중 안전망(PIT-파생이라 늦은 생성도 payload 동일). 과학 런타임 고정: uv 0.9.25 + CPython 3.13.11 + frozen lockfile + PYTHONHASHSEED=0. **이중 lockfile**: 의존성 변경 시 `pnpm-lock.yaml`(Vercel)+`package-lock.json`(Actions) 동시 갱신.
 
@@ -263,7 +265,7 @@ analog_candidates_v1을 읽어 무효 ② 서빙 단일화 + 분포기반 absten
 | 영역 | 경로 |
 |---|---|
 | 과학 계약 (동결) | `docs/tli/scientific-rebuild-master-plan.md` |
-| 마이그레이션 | `supabase/migrations/045~061_*.sql` (059 origin eligibility·roster RPC, 060 DataLab quota ledger, 061 roster RPC dedicated-run 필터) |
+| 마이그레이션 | `supabase/migrations/045~062_*.sql` (059 origin eligibility·roster RPC, 060 DataLab quota ledger, 061 roster RPC dedicated-run 필터, 062 관측 trading_date 인덱스) |
 | 수집기 | `scripts/tli/collectors/` |
 | origin 생성 | `scripts/tli/origins/` (`lock-study-contract.ts`는 **재실행 금지**) |
 | origin clean 판정 | `scripts/tli/origins/origin-eligibility.ts`(규칙) · `origin-roster.ts`(RPC) · `run-origin-eligibility.ts`(`npm run tli:origins:eligibility`) · `study-origin-eligibility-source.ts`(dataset/평가기 공용 필터) |
@@ -294,6 +296,7 @@ analog_candidates_v1을 읽어 무효 ② 서빙 단일화 + 분포기반 absten
 | **매주 월요일 저녁** | `tli_study_origin_eligibility_latest` 최신 origin `eligible` | 신규 ineligible이면 critical 이슈(회귀는 나이 무관 critical) + 사건 9 재발 조사. 기존 ineligible의 재기록은 pass다 |
 | 매일 | `tli_datalab_quota_ledger` attempts ≤ 600 | 600 초과면 reuse 실패/spillover 조사 |
 | 9/8경 | 8/31 origin 라벨 final → 성숙 후 재판정 eligible 유지 | `label_accounting_incomplete`면 라벨 파이프라인 조사 |
+| 매일 | 관측 갭 워치독: 최신 `trading_date`가 2거래일 이상 뒤처지지 않음 | 뒤처지면 warning — DataLab 수집 중단 여부 조사 |
 | P1 | legacy 4,880 exclusion reason backfill(추측 금지, 복원 불가는 명시) · flywheel consumer + GSC/GA4 귀속 · DB 월간 증가율 | — |
 | 비차단 후속 | 완결 아날로그 곡선 materialize · 옵티마이저 anchor 척도 과제(#105 문서 권고) | — |
 | 조사 종결 | ~~7/18 27테마 오비활성화~~ — **정상 확인(2026-07-29)**: 28개 비활성 테마 전부 lifecycle_scores 이력 0(truncation 피해 아님), 25개는 interest 데이터 전무, naver_seen_streak=1(<2 임계값). 저신호 테마의 정상 비활성이며 강제 재활성은 순손해(DataLab 낭비+즉시 재비활성). 조치 불필요. | — |
