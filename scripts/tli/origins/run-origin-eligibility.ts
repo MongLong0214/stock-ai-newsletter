@@ -86,6 +86,7 @@ export interface RecordedOriginEligibility {
   readonly originDate: string
   readonly result: OriginEligibilityResult
   readonly action: 'inserted' | 'dry_run' | 'skipped_unchanged'
+  readonly previousVerdict: OriginEligibilityResult['verdict'] | null
 }
 
 export interface LatestOriginEligibilityPayload {
@@ -100,6 +101,7 @@ export interface OriginEligibilityRunSummary {
   readonly evaluatedCount: number
   readonly eligibleCount: number
   readonly ineligibleCount: number
+  readonly standingIneligibleCount: number
   readonly insertedCount: number
   readonly newlyRecordedIneligibleCount: number
   readonly severity: ScientificGateSeverity
@@ -158,13 +160,28 @@ export const classifyOriginEligibilitySeverity = (
   evaluations: readonly {
     readonly originDate: string
     readonly result: Pick<OriginEligibilityResult, 'verdict'>
+    readonly action: RecordedOriginEligibility['action']
+    readonly previousVerdict: OriginEligibilityResult['verdict'] | null
   }[],
   today: string,
 ): ScientificGateSeverity => {
-  const ineligible = evaluations.filter((evaluation) => evaluation.result.verdict === 'ineligible')
-  if (ineligible.length === 0) return 'pass'
+  const changedIneligible = evaluations.filter(
+    (evaluation) => evaluation.action !== 'skipped_unchanged'
+      && evaluation.result.verdict === 'ineligible',
+  )
+  if (changedIneligible.some((evaluation) => evaluation.previousVerdict === 'eligible')) {
+    return 'critical'
+  }
   const criticalCutoff = subtractCalendarDays(today, 7)
-  return ineligible.some((evaluation) => evaluation.originDate >= criticalCutoff) ? 'critical' : 'warning'
+  if (changedIneligible.some(
+    (evaluation) => evaluation.previousVerdict === null
+      && evaluation.originDate >= criticalCutoff,
+  )) {
+    return 'critical'
+  }
+  return changedIneligible.some((evaluation) => evaluation.previousVerdict === null)
+    ? 'warning'
+    : 'pass'
 }
 
 const loadStudyOriginBindings = async (
@@ -378,8 +395,9 @@ export const evaluateAndRecordStudyOriginEligibility = async (input: {
       matured,
       labelAccounting,
     })
+    const latestPayload = latestPayloads.get(binding.studyOriginManifestId)
     const shouldAppend = shouldAppendOriginEligibility(
-      latestPayloads.get(binding.studyOriginManifestId)?.payloadSha256,
+      latestPayload?.payloadSha256,
       result.payloadSha256,
     )
     let action: RecordedOriginEligibility['action'] = 'skipped_unchanged'
@@ -396,14 +414,19 @@ export const evaluateAndRecordStudyOriginEligibility = async (input: {
       originDate: binding.originDate,
       result,
       action,
+      previousVerdict: latestPayload?.verdict ?? null,
     })
   }
 
   const severity = classifyOriginEligibilitySeverity(evaluations, today)
+  const standingIneligibleCount = evaluations.filter(
+    (evaluation) => evaluation.result.verdict === 'ineligible',
+  ).length
   const summary: OriginEligibilityRunSummary = {
     evaluatedCount: evaluations.length,
     eligibleCount: evaluations.filter((evaluation) => evaluation.result.verdict === 'eligible').length,
-    ineligibleCount: evaluations.filter((evaluation) => evaluation.result.verdict === 'ineligible').length,
+    ineligibleCount: standingIneligibleCount,
+    standingIneligibleCount,
     insertedCount: evaluations.filter((evaluation) => evaluation.action === 'inserted').length,
     newlyRecordedIneligibleCount: evaluations.filter(
       (evaluation) => evaluation.action === 'inserted' && evaluation.result.verdict === 'ineligible',

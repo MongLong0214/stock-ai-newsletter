@@ -120,12 +120,14 @@ describe('runMondayOriginsStep failure severity', () => {
   const eligibilityReport = (
     severity: 'pass' | 'warning' | 'critical',
     newlyRecordedIneligibleCount: number,
+    standingIneligibleCount = newlyRecordedIneligibleCount,
   ) => ({
     evaluations: [],
     summary: {
-      evaluatedCount: newlyRecordedIneligibleCount,
+      evaluatedCount: standingIneligibleCount,
       eligibleCount: 0,
-      ineligibleCount: newlyRecordedIneligibleCount,
+      ineligibleCount: standingIneligibleCount,
+      standingIneligibleCount,
       insertedCount: newlyRecordedIneligibleCount,
       newlyRecordedIneligibleCount,
       severity,
@@ -174,6 +176,16 @@ describe('runMondayOriginsStep failure severity', () => {
       originDates: [],
       scope: 'pending',
     })
+  })
+
+  it('does not raise a pipeline failure for an unchanged standing ineligible origin', async () => {
+    await expect(runMondayOriginsStep('2026-09-02', 'full', {
+      runOrigins: vi.fn(async () => originReport),
+      evaluateEligibility: vi.fn(async () => eligibilityReport('pass', 0, 1)),
+    })).resolves.toEqual({ warningFailures: 0, criticalFailures: 0 })
+
+    expect(console.warn).not.toHaveBeenCalled()
+    expect(console.error).not.toHaveBeenCalled()
   })
 
   it('keeps eligibility infrastructure failures retryable with the existing mode severity', async () => {

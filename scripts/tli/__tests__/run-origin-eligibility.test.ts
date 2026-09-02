@@ -16,9 +16,13 @@ import {
 const evaluation = (
   originDate: string,
   verdict: OriginEligibilityResult['verdict'],
-): { readonly originDate: string; readonly result: Pick<OriginEligibilityResult, 'verdict'> } => ({
+  action: 'inserted' | 'dry_run' | 'skipped_unchanged' = 'inserted',
+  previousVerdict: OriginEligibilityResult['verdict'] | null = null,
+) => ({
   originDate,
   result: { verdict },
+  action,
+  previousVerdict,
 })
 
 const binding = (
@@ -45,15 +49,20 @@ const evaluateSingleOrigin = async (input: {
   readonly now: Date
   readonly kospiDates?: readonly string[]
   readonly latest?: ReadonlyMap<string, LatestOriginEligibilityPayload>
+  readonly labelAccounting?: { readonly terminal: number; readonly pending: number; readonly sourceGap: number }
+  readonly dryRun?: boolean
 }) => {
   const studyOrigin = binding('31111111-1111-4111-8111-111111111111', '2026-07-20')
-  const loadLabelAccounting = vi.fn(async () => ({ terminal: 1, pending: 0, sourceGap: 0 }))
+  const loadLabelAccounting = vi.fn(async () => (
+    input.labelAccounting ?? { terminal: 1, pending: 0, sourceGap: 0 }
+  ))
   const loadKospiTradingDates = vi.fn(async () => [...(input.kospiDates ?? KOSPI_DATES)])
   const insertEligibility = vi.fn(async () => undefined)
   const report = await evaluateAndRecordStudyOriginEligibility({
     today: '2026-09-02',
     now: input.now,
     scope: 'pending',
+    dryRun: input.dryRun,
     deps: {
       loadStudies: async () => [{
         id: studyOrigin.studyContractId,
@@ -132,8 +141,10 @@ describe('pending origin eligibility scope', () => {
     expect(report.evaluations).toHaveLength(1)
     expect(report.evaluations[0]).toMatchObject({
       action: 'inserted',
+      previousVerdict: 'ineligible',
       result: { matured: true, verdict: 'eligible', labelTerminalCount: 1 },
     })
+    expect(report.summary.severity).toBe('pass')
     expect(insertEligibility).toHaveBeenCalledOnce()
     expect(insertEligibility.mock.calls[0]?.[1].payloadSha256).not.toBe('a'.repeat(64))
   })
@@ -168,25 +179,97 @@ describe('origin eligibility maturity', () => {
 })
 
 describe('origin eligibility exit code', () => {
-  it('최근 7일 origin의 ineligible은 critical 3이다', () => {
+  it('변화 없는 standing ineligible은 pass 0이다', () => {
     const severity = classifyOriginEligibilitySeverity(
-      [evaluation('2026-08-27', 'ineligible')],
+      [evaluation('2026-08-10', 'ineligible', 'skipped_unchanged', 'ineligible')],
+      '2026-09-02',
+    )
+    expect(severity).toBe('pass')
+    expect(scientificGateExitCode(severity)).toBe(0)
+  })
+
+  it('eligible에서 ineligible로 회귀하면 과거 origin도 critical 3이다', () => {
+    const severity = classifyOriginEligibilitySeverity(
+      [evaluation('2026-07-20', 'ineligible', 'inserted', 'eligible')],
       '2026-09-02',
     )
     expect(severity).toBe('critical')
     expect(scientificGateExitCode(severity)).toBe(3)
   })
 
-  it('과거 ineligible은 warning 2이고 전부 eligible이면 0이다', () => {
-    const warning = classifyOriginEligibilitySeverity(
+  it('직전 verdict 없는 최근 origin의 최초 ineligible은 critical이다', () => {
+    expect(classifyOriginEligibilitySeverity(
+      [evaluation('2026-08-27', 'ineligible')],
+      '2026-09-02',
+    )).toBe('critical')
+  })
+
+  it('직전 verdict 없는 과거 origin의 bootstrap ineligible은 warning 2이다', () => {
+    const severity = classifyOriginEligibilitySeverity(
       [evaluation('2026-08-24', 'ineligible')],
       '2026-09-02',
     )
-    const pass = classifyOriginEligibilitySeverity(
-      [evaluation('2026-08-31', 'eligible')],
+    expect(severity).toBe('warning')
+    expect(scientificGateExitCode(severity)).toBe(2)
+  })
+
+  it('ineligible에서 eligible로 회복을 기록하면 pass이다', () => {
+    expect(classifyOriginEligibilitySeverity(
+      [evaluation('2026-08-31', 'eligible', 'inserted', 'ineligible')],
       '2026-09-02',
-    )
-    expect(scientificGateExitCode(warning)).toBe(2)
-    expect(scientificGateExitCode(pass)).toBe(0)
+    )).toBe('pass')
+  })
+
+  it('기존 ineligible의 payload만 바뀌어 재기록되면 pass이다', () => {
+    expect(classifyOriginEligibilitySeverity(
+      [evaluation('2026-08-10', 'ineligible', 'inserted', 'ineligible')],
+      '2026-09-02',
+    )).toBe('pass')
+  })
+
+  it('dry-run에서 기록될 ineligible 회귀도 severity에 반영한다', () => {
+    expect(classifyOriginEligibilitySeverity(
+      [evaluation('2026-07-20', 'ineligible', 'dry_run', 'eligible')],
+      '2026-09-02',
+    )).toBe('critical')
+  })
+})
+
+describe('origin eligibility change summary', () => {
+  it('동일한 standing ineligible을 재평가하면 pass이고 standing 수만 유지한다', async () => {
+    const first = await evaluateSingleOrigin({
+      now: new Date('2026-07-30T18:00:00+09:00'),
+      labelAccounting: { terminal: 0, pending: 1, sourceGap: 0 },
+    })
+    const firstEvaluation = first.report.evaluations[0]
+    expect(firstEvaluation?.result.verdict).toBe('ineligible')
+
+    const latest = new Map<string, LatestOriginEligibilityPayload>([[
+      first.studyOrigin.studyOriginManifestId,
+      {
+        payloadSha256: firstEvaluation?.result.payloadSha256 ?? '',
+        matured: true,
+        verdict: 'ineligible',
+      },
+    ]])
+    const rerun = await evaluateSingleOrigin({
+      now: new Date('2026-07-30T18:00:00+09:00'),
+      labelAccounting: { terminal: 0, pending: 1, sourceGap: 0 },
+      latest,
+    })
+
+    expect(rerun.report.evaluations[0]).toMatchObject({
+      action: 'skipped_unchanged',
+      previousVerdict: 'ineligible',
+      result: { verdict: 'ineligible' },
+    })
+    expect(rerun.report.summary).toMatchObject({
+      ineligibleCount: 1,
+      standingIneligibleCount: 1,
+      insertedCount: 0,
+      newlyRecordedIneligibleCount: 0,
+      severity: 'pass',
+      exitCode: 0,
+    })
   })
 })

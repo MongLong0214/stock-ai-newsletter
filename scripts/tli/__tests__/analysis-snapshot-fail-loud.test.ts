@@ -118,6 +118,7 @@ describe('analysis snapshot fail-loud contract', () => {
         evaluatedCount: 0,
         eligibleCount: 0,
         ineligibleCount: 0,
+        standingIneligibleCount: 0,
         insertedCount: 0,
         newlyRecordedIneligibleCount: 0,
         severity: 'pass',
