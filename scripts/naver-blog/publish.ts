@@ -47,6 +47,7 @@ import {
 } from './draft-model';
 import { assertHashesMatch } from './run-store';
 import { assertNoCtaTail, planBodyActions } from './publish-plan';
+import { describeSiteFailure, siteBypassHeaders } from './site-access';
 
 /**
  * 스마트에디터 ONE 셀렉터.
@@ -289,10 +290,12 @@ async function assertSnapshotFresh(draft: Draft): Promise<void> {
   // 집계 글(ranking·evergreen)은 개별 테마 수치를 담지 않는다 — 대조 대상이 없다.
   if (!snap || !draft.themeId || snap.score == null || snap.change7d == null) return;
 
-  const res = await fetch(`https://stockmatrix.co.kr/api/tli/themes/${draft.themeId}`, {
+  const detailPath = `/api/tli/themes/${draft.themeId}`;
+  const res = await fetch(`https://stockmatrix.co.kr${detailPath}`, {
+    headers: siteBypassHeaders(),
     signal: AbortSignal.timeout(30_000),
   });
-  if (!res.ok) throw new Error(`상세 API ${res.status} — 초안을 재생성하라`);
+  if (!res.ok) throw new Error(`${describeSiteFailure(detailPath, res.status)} — 초안을 재생성하라`);
 
   const json = await res.json() as {
     data?: {
