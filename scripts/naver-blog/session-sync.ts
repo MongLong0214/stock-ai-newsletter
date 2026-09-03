@@ -39,6 +39,7 @@ import {
   resolveBlogId,
 } from './draft-model';
 import { ensureSession, ensureStateDir, SESSION_PATH } from './session';
+import { accountBlockError, detectAccountBlock, isAccountBlocked } from './account-state';
 
 const SECRET_NAME = 'NAVER_SESSION_B64';
 /** 네이버가 흔들릴 때 사람을 부르지 않는다 — 일시 오류는 재시도로 흡수한다. */
@@ -68,7 +69,7 @@ export function hasAuthCookies(state: StorageState): boolean {
   return (state.cookies ?? []).some((c) => c.name === 'NID_AUT' && /naver/.test(c.domain));
 }
 
-export type FailureKind = 'expired' | 'transient';
+export type FailureKind = 'blocked' | 'expired' | 'transient';
 
 /**
  * 사람을 불러야 하는 실패와 재시도로 풀리는 실패를 가른다.
@@ -78,6 +79,9 @@ export type FailureKind = 'expired' | 'transient';
  * 발행이 조용히 밀린다.
  */
 export function classifyFailure(message: string): FailureKind {
+  // 계정 차단(보호조치·캡차·이용제한)은 재시도로 절대 풀리지 않고, 재시도 자체가
+  // 접근 빈도를 늘려 상황을 악화시킨다. 가장 먼저 갈라낸다.
+  if (isAccountBlocked(message)) return 'blocked';
   if (/세션이 만료|nid\.naver\.com|세션 계정|로그인이 필요|NID_AUT 쿠키 없음/.test(message)) {
     return 'expired';
   }
@@ -99,6 +103,14 @@ async function probeSession(browser: Browser): Promise<string> {
       timeout: 30_000,
       waitUntil: 'domcontentloaded',
     });
+    // 보호조치·캡차·이용제한을 **세션 만료보다 먼저** 판정한다. 순서를 바꾸면
+    // 보호조치를 "재로그인하세요"로 오진해 감시 중인 계정에 접근을 더한다.
+    const firstBlock = detectAccountBlock({
+      text: await page.locator('body').innerText().catch(() => ''),
+      url: page.url(),
+    });
+    if (firstBlock) throw accountBlockError(firstBlock);
+
     const detected = detectBlogIdFromUrl(page.url());
     const blogId = resolveBlogId(detected, process.env.NAVER_BLOG_ID);
 
@@ -108,9 +120,11 @@ async function probeSession(browser: Browser): Promise<string> {
       timeout: 45_000,
       waitUntil: 'domcontentloaded',
     });
-    if (page.url().includes('nid.naver.com')) {
-      throw new Error('세션이 만료되었습니다 (에디터가 로그인 페이지로 리다이렉트)');
-    }
+    const editorBlock = detectAccountBlock({
+      text: await page.locator('body').innerText().catch(() => ''),
+      url: page.url(),
+    });
+    if (editorBlock) throw accountBlockError(editorBlock);
     // 에디터 프레임은 **이름**으로 찾는다(id 셀렉터로는 안 잡힌다 — publish.ts getEditor와 동일).
     const deadline = Date.now() + 20_000;
     let frame = null as ReturnType<typeof page.frame>;
@@ -152,8 +166,9 @@ async function verifyWithRetry(): Promise<{ blogId: string; changed: boolean }> 
       return { blogId, changed: before !== after };
     } catch (error) {
       lastError = error instanceof Error ? error.message : String(error);
-      // 만료는 재시도해도 절대 풀리지 않는다 — 사람을 부른다.
-      if (classifyFailure(lastError) === 'expired') break;
+      // 만료·계정차단은 재시도해도 절대 풀리지 않는다 — 사람을 부른다.
+      // 특히 계정차단에서 재시도하면 접근 빈도가 늘어 상황이 악화된다.
+      if (classifyFailure(lastError) !== 'transient') break;
       console.warn(`[Naver] 세션 확인 ${attempt}/${MAX_ATTEMPTS} 실패(일시 오류로 판단): ${lastError}`);
     } finally {
       await browser.close();
@@ -217,7 +232,18 @@ async function main(): Promise<void> {
     result = await verifyWithRetry();
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    if (classifyFailure(message) === 'expired') {
+    const kind = classifyFailure(message);
+    if (kind === 'blocked') {
+      console.error(
+        [
+          message,
+          '',
+          '자동 발행을 켜지 마세요. 계정 상태가 정상으로 확인된 뒤 Isaac이 명시적으로 재개해야 합니다.',
+        ].join('\n'),
+      );
+      process.exit(1);
+    }
+    if (kind === 'expired') {
       console.error(
         [
           `세션 만료 — 사람이 한 번 로그인해야 합니다: ${message}`,

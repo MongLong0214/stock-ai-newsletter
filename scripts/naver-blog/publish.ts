@@ -49,6 +49,7 @@ import {
 import { assertHashesMatch } from './run-store';
 import { assertNoCtaTail, planBodyActions } from './publish-plan';
 import { describeSiteFailure, siteBypassHeaders } from './site-access';
+import { accountBlockError, detectAccountBlock } from './account-state';
 
 // 발행 전 신선도 검사가 자사 API를 호출한다 — 방화벽 우회 비밀값이 .env.local에 있다.
 // CI는 워크플로우 env로 주입하므로 파일이 없어도 된다. (make-draft.ts와 같은 방식)
@@ -271,6 +272,33 @@ async function verifyEditorContent(editor: Frame, draft: Draft, insertedImages: 
   if (ctaAfter > 0) return `CTA 뒤 컴포넌트 ${ctaAfter}개`;
 
   return null;
+}
+
+export type PublishOutcome = 'editor-error' | 'ok' | 'page-error' | 'timeout';
+
+/**
+ * 발행 실패 사유별 안내. **성격이 다른 실패를 같은 문구로 묶지 않는다.**
+ *
+ * 2026-09-03: 전면 에러 페이지(서버측 거부)를 "문서가 너무 크거나 이미지 처리 실패"로
+ * 안내해 문서 크기·이미지를 몇 시간 조사하게 만들었다. 실제 원인은 계정 보호조치였다.
+ * page-error에서는 문서 원인을 단정하지 않고 계정 상태를 먼저 의심하게 한다.
+ */
+export function publishFailureDetail(outcome: PublishOutcome): string {
+  if (outcome === 'editor-error') {
+    return [
+      '네이버가 에디터 안에서 발행 오류를 반환했습니다. 글은 게시되지 않았습니다.',
+      '이 경로는 문서 자체가 원인일 수 있습니다 — 문서 크기, 이미지 개수·용량을 보세요.',
+    ].join('\n');
+  }
+  if (outcome === 'page-error') {
+    return [
+      '네이버가 전면 에러 페이지를 반환했습니다. 글은 게시되지 않았습니다.',
+      '이것은 문서 문제가 아닐 가능성이 큽니다 — 서버측 거부입니다.',
+      '계정 상태를 먼저 확인하세요: 보호조치·이용제한·추가 인증 여부.',
+      '문서 크기나 이미지를 조사하기 전에 사람이 네이버에 직접 로그인해 계정 화면을 보세요.',
+    ].join('\n');
+  }
+  return '발행 후 페이지 이동이 확인되지 않았습니다. 게시 여부를 블로그에서 직접 확인하세요.';
 }
 
 function formatVerifyError(reason: string, shot: string): string {
@@ -996,7 +1024,16 @@ async function main(): Promise<void> {
   const browser = await chromium.launch({ headless });
   const context = await browser.newContext({ storageState: SESSION_PATH, locale: 'ko-KR', viewport: { width: 1600, height: 900 } });
   const page = await context.newPage();
-  const shot = join(NAVER_STATE_DIR, `draft-${Date.now()}.png`);
+  // 단계별로 다른 파일에 남긴다.
+  //
+  // 예전에는 세 단계가 같은 경로를 덮어써서 아티팩트에 **최종 실패 화면 1장만** 남았고
+  // (실측 run 33705246009) 입력·설정 단계의 증거가 사라졌다. 실패 조사에서 가장
+  // 필요한 것이 그 중간 화면이다.
+  const stamp = Date.now();
+  const shotPath = (stage: string) => join(NAVER_STATE_DIR, `draft-${stamp}-${stage}.png`);
+  const inputShot = shotPath('input');
+  const settingsShot = shotPath('settings');
+  const failureShot = shotPath('failure');
 
   try {
     // 세션 주인을 MyBlog 리다이렉트로 확인한다. NAVER_BLOG_ID가 있으면 우선하되,
@@ -1008,11 +1045,18 @@ async function main(): Promise<void> {
 
     await page.goto(`https://blog.naver.com/${blogId}/postwrite`, { waitUntil: 'domcontentloaded' });
 
-    // 세션이 만료되면 에디터 대신 로그인 페이지가 뜬다. 에디터를 찾기 전에 확인해야
-    // "프레임을 찾지 못했습니다"가 아니라 진짜 원인이 보고된다.
-    if (page.url().includes('nid.naver.com')) {
-      throw new Error('세션이 만료되었습니다. npm run naver:login 을 다시 실행하고 NAVER_SESSION_B64를 갱신하세요.');
-    }
+    // 계정 상태를 **에디터를 만지기 전에** 판정한다.
+    //
+    // 예전 코드는 nid.naver.com 리다이렉트를 전부 "세션 만료"로 보고 "다시 로그인하세요"를
+    // 안내했다. 보호조치·캡차 화면도 같은 도메인에 뜨므로 그때마다 오진했고, 감시 중인
+    // 계정에 재로그인을 유도해 2026-09-03 보호조치 2회차를 불렀다. 판정 순서를 지키는
+    // account-state가 그 오진을 막는다. 감지되면 재시도 없이 즉시 끝낸다.
+    const blockProbe = {
+      text: await page.locator('body').innerText().catch(() => ''),
+      url: page.url(),
+    };
+    const blocked = detectAccountBlock(blockProbe);
+    if (blocked) throw accountBlockError(blocked);
 
     const editor = await getEditor(page);
     await dismissHelp(editor, page);
@@ -1033,8 +1077,8 @@ async function main(): Promise<void> {
     await editor.locator(SEL.body).first().click();
     const insertedImages = await typeBody(page, editor, draft);
 
-    await page.screenshot({ path: shot, fullPage: true });
-    console.log(`입력 완료. 스크린샷: ${shot}`);
+    await page.screenshot({ path: inputShot, fullPage: true });
+    console.log(`입력 완료. 스크린샷: ${inputShot}`);
 
     // 발행 전 내용 검증 — 자동 발행의 전제.
     // 셀렉터가 깨지면 클릭·타이핑이 조용히 빈 곳으로 가고, 그대로 발행하면 빈 글이 올라간다.
@@ -1042,7 +1086,7 @@ async function main(): Promise<void> {
     // 초안과 대조한 뒤에만 발행 단계로 넘어간다.
     const verdict = await verifyEditorContent(editor, draft, insertedImages);
     if (verdict) {
-      throw new Error(formatVerifyError(verdict, shot));
+      throw new Error(formatVerifyError(verdict, inputShot));
     }
     // 통과했다는 사실만 찍으면 "무엇이 몇 개 들어갔는지"는 매번 아티팩트를 뒤져야 한다.
     // 실측 수치를 남기면 CI 로그만으로 서식이 실제로 붙었는지 보인다.
@@ -1110,8 +1154,8 @@ async function main(): Promise<void> {
       }
     }
 
-    await page.screenshot({ path: shot, fullPage: true });
-    console.log(`설정 패널 스크린샷: ${shot}`);
+    await page.screenshot({ path: settingsShot, fullPage: true });
+    console.log(`설정 패널 스크린샷: ${settingsShot}`);
 
     if (!publish) {
       console.log('\ndry-run 입니다. 브라우저에서 확인 후 직접 발행하세요.');
@@ -1146,14 +1190,19 @@ async function main(): Promise<void> {
     // pending 표식이 다음 실행까지 막는다(실측: 재시도가 "이미 발행했습니다"로 거절됨).
     const editorFailure = editor.locator('text=/발행 오류|처리 중 오류/').first();
     const pageFailure = page.locator('text=/예기치 못한 에러가 발생|페이지를 찾을 수 없습니다/').first();
+    // 두 실패를 하나로 합치지 않는다.
+    //
+    // 합쳐 놓으면 메시지가 "문서가 너무 크거나 이미지 처리 실패"를 가리키는데, 실제로
+    // 발생한 것은 전면 에러 페이지(서버측 거부)였다. 그 오도 때문에 문서 크기·이미지를
+    // 몇 시간 조사했고 진짜 원인(계정 보호조치)에 도달하지 못했다.
     const outcome = await Promise.race([
       page.waitForURL(/blog\.naver\.com\/(?!.*postwrite)/, { timeout: 45_000 }).then(() => 'ok' as const),
-      editorFailure.waitFor({ state: 'visible', timeout: 45_000 }).then(() => 'error' as const),
-      pageFailure.waitFor({ state: 'visible', timeout: 45_000 }).then(() => 'error' as const),
+      editorFailure.waitFor({ state: 'visible', timeout: 45_000 }).then(() => 'editor-error' as const),
+      pageFailure.waitFor({ state: 'visible', timeout: 45_000 }).then(() => 'page-error' as const),
     ]).catch(() => 'timeout' as const);
 
-    if (outcome === 'error') {
-      // 네이버가 명시적으로 발행 오류를 반환했다 = 게시되지 않았다. 표식을 남기면
+    if (outcome === 'editor-error' || outcome === 'page-error') {
+      // 네이버가 명시적으로 실패를 반환했다 = 게시되지 않았다. 표식을 남기면
       // 다음 날 실행이 "결과 미확인"으로 판단해 사람 확인을 요구하며 멈춘다(발행 0건).
       clearPublishPending();
     }
@@ -1168,10 +1217,7 @@ async function main(): Promise<void> {
       console.warn('[Naver] 결과 미확인 — 게시됐을 수 있으므로 이력을 보수적으로 기록했습니다.');
     }
     if (outcome !== 'ok') {
-      const detail = outcome === 'error'
-        ? '네이버가 발행 오류를 반환했습니다(문서가 너무 크거나 이미지 처리 실패). 글은 게시되지 않았습니다.'
-        : '발행 후 페이지 이동이 확인되지 않았습니다.';
-      throw new Error(`${detail} 스크린샷을 확인하세요.`);
+      throw new Error(`${publishFailureDetail(outcome)}\n검증 스크린샷: ${failureShot}`);
     }
 
     // 기록은 발행이 실제로 끝난 뒤에만. 초안 생성 시점에 기록하면 발행이 깨진 날도
@@ -1187,8 +1233,8 @@ async function main(): Promise<void> {
     console.log(`발행 완료: ${page.url()}`);
     console.log(`최근 7일 ${recentPublishCount(readHistory(), Date.now())}건 / 상한 ${WEEKLY_PUBLISH_LIMIT}건`);
   } catch (error) {
-    await page.screenshot({ path: shot, fullPage: true }).catch(() => {});
-    console.error(`\n실패. 화면 상태: ${shot}`);
+    await page.screenshot({ path: failureShot, fullPage: true }).catch(() => {});
+    console.error(`\n실패. 화면 상태: ${failureShot}`);
     console.error('셀렉터가 바뀐 경우 publish.ts 상단 SEL 표만 갱신하면 됩니다.');
     throw error;
   } finally {
@@ -1196,7 +1242,13 @@ async function main(): Promise<void> {
   }
 }
 
-main().catch((error) => {
-  console.error(error);
-  process.exit(1);
-});
+// 엔트리 가드 — 다른 모듈이 import했을 때 발행기가 돌지 않게 한다.
+//
+// 가드가 없으면 순수 함수 하나를 테스트하려고 import하는 것만으로 브라우저가 뜨고
+// **네이버에 접속한다.** make-draft.ts·session-sync.ts와 같은 방식으로 막는다.
+if (process.argv[1]?.endsWith('publish.ts')) {
+  main().catch((error) => {
+    console.error(error);
+    process.exit(1);
+  });
+}
