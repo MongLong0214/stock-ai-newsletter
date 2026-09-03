@@ -17,7 +17,7 @@
  * 재시도는 접근 빈도를 늘려 상황을 악화시킨다. 사람을 부르고 즉시 끝낸다.
  */
 
-export type AccountBlockKind = 'protection' | 'captcha' | 'restricted' | 'session-expired';
+export type AccountBlockKind = 'captcha' | 'protection' | 'restricted' | 'session-expired' | 'unknown-block';
 
 export interface AccountBlock {
   /** 사람이 해야 할 일 — 자동화가 할 수 있는 것은 없다 */
@@ -37,15 +37,37 @@ export interface AccountBlock {
 const PROTECTION_URL = /nid\.naver\.com\/user2\/help\/(idSafetyRelease|contactInfo)|\/user2\/help\/idSafety/i;
 const PROTECTION_TEXT = /보호하고 있습니다|보호조치|계정이 보호|본인확인이 필요|안전하게 보호/;
 
-/** 캡차·추가 인증. 사람이 풀어야 한다 — 자동으로 풀지 않는다(그게 이번 사고를 키웠다). */
+/**
+ * 캡차·추가 인증. 사람이 풀어야 한다 — 자동으로 풀지 않는다(그게 이번 사고를 키웠다).
+ *
+ * **실측 문구를 반드시 포함해야 한다.** 초판은 `추가 인증`만 넣었는데 실제 화면은
+ * `추가 확인`이었다(2026-09-03 11:2x 실측). 한 글자 차이로 캡차가 session-expired로
+ * 오진됐고, 그 처방이 "직접 로그인하세요"였다 — 이 모듈이 막으려던 실패 모드 그 자체다.
+ *
+ * 실측 화면(URL은 /nidlogin.login이라 URL 패턴으로는 안 잡힌다):
+ *   "보안을 위해 추가 확인을 해주세요 / 모든 물건의 총 구매 금액은 얼마입니까?
+ *    정답을 입력해 주세요 / 새로고침 음성듣기 확인"
+ */
 const CAPTCHA_URL = /captcha|nidcaptcha/i;
-const CAPTCHA_TEXT = /보안문자|자동입력 방지|자동입력방지|캡차|이미지에 보이는 문자|추가 인증/;
+const CAPTCHA_TEXT = /보안문자|자동입력\s?방지|캡차|이미지에 보이는 문자|추가 인증|추가 확인|정답을 입력/;
 
 /** 이용제한·게시 제한. 발행을 시도해도 막히거나 계정을 더 위험하게 만든다. */
 const RESTRICTED_TEXT = /이용이 제한|이용제한|사용이 제한|게시(물)? 작성이 제한|일시적으로 제한|스팸.*신고|블로그가 폐쇄/;
 
-/** 단순 세션 만료 — 위 신호가 하나도 없을 때만 이걸로 본다. */
-const LOGIN_URL = /nid\.naver\.com\/(nidlogin|login)/i;
+const NID_DOMAIN = /nid\.naver\.com/i;
+
+/**
+ * **정상 로그인 폼임을 적극적으로 확인하는** 신호.
+ *
+ * 예전에는 `nid.naver.com`이면 무조건 session-expired로 떨어뜨렸다. 차단 화면을 전부
+ * 열거하는 건 불가능하므로(캡차가 한 글자 차이로 빠진 것이 증거) 그 기본값은 미지 화면에
+ * 대해 가장 위험한 처방("다시 로그인하세요")을 내린다.
+ *
+ * 그래서 방향을 뒤집는다: 로그인 폼 신호가 **보일 때만** 세션 만료로 보고,
+ * nid 도메인인데 신호가 없으면 unknown-block으로 떨어뜨려 사람이 계정 상태를 먼저 보게 한다.
+ * 실측 캡차 화면에는 이 신호가 하나도 없다.
+ */
+const LOGIN_FORM_TEXT = /로그인 상태 유지|IP\s?보안|아이디 찾기|비밀번호 찾기|회원가입/;
 
 export interface PageProbe {
   text: string;
@@ -93,14 +115,28 @@ export function detectAccountBlock(probe: PageProbe): AccountBlock | null {
     };
   }
 
-  if (LOGIN_URL.test(url)) {
+  if (NID_DOMAIN.test(url)) {
+    // 정상 로그인 폼이 **확인될 때만** 단순 만료로 본다.
+    if (LOGIN_FORM_TEXT.test(text)) {
+      return {
+        action:
+          'npm run naver:login 으로 사람이 직접 로그인하세요. '
+          + '단 보호조치·캡차 화면이 함께 보이면 로그인을 반복하지 말고 계정 상태를 먼저 확인하세요.',
+        kind: 'session-expired',
+        retryable: false,
+        summary: '세션이 만료되었습니다',
+      };
+    }
+    // 로그인 폼이 아닌 nid 화면 = 우리가 모르는 차단 화면일 수 있다.
+    // 미지 화면의 기본값은 "로그인하세요"가 아니라 "계정 상태를 먼저 확인하세요"다.
     return {
       action:
-        'npm run naver:login 으로 사람이 직접 로그인하세요. '
-        + '단 보호조치·캡차 화면이 함께 보이면 로그인을 반복하지 말고 계정 상태를 먼저 확인하세요.',
-      kind: 'session-expired',
+        '사람이 브라우저로 네이버에 직접 접속해 **계정 상태를 먼저 확인**하세요 '
+        + '(보호조치·추가 인증·이용제한 여부). 정상으로 확인된 뒤에만 로그인하세요. '
+        + '로그인을 먼저 반복하지 마세요 — 감시 중인 계정에서 접근을 늘립니다.',
+      kind: 'unknown-block',
       retryable: false,
-      summary: '세션이 만료되었습니다',
+      summary: '알 수 없는 네이버 인증 화면입니다 (로그인 폼이 아님)',
     };
   }
 

@@ -12,6 +12,22 @@
 | launchd 일일 작업 | **미등록(bootout 완료)** | `launchctl list \| grep stockmatrix` → 출력 없음 |
 | 로컬 수동 실행 | 금지 (`--dry-run`도 금지) | — |
 
+### ⚠️ launchd 상태는 문서를 믿지 말고 명령으로 확인한다
+
+```bash
+launchctl list | grep stockmatrix                                  # 출력 없으면 미등록
+launchctl print "gui/$(id -u)/com.stockmatrix.naver-blog"          # 예약(Hour/Minute) 확인
+```
+
+**현재 상태**: plist 존재, **bootout 완료(비활성)**, **한 번도 실행된 적 없음**
+(로그 파일 `~/Library/Logs/stockmatrix-naver-blog.log` 미생성으로 확인).
+
+**왜 이 경고가 있는가**: 인수 문서에는 "plist는 생성됐으나 미등록"이라고 적혀 있었지만
+**실제로는 등록되어 매일 10:00 예약이 활성**이었다. 원인은 상태를 문서로 믿고
+`launchctl list`로 확인하지 않은 것이다 — 등록을 시도한 주체의 샌드박스가 launchd 도메인을
+보지 못해 "안 보임"을 "등록 안 됨"으로 단정했다. **"안 보임"은 "없음"이 아니다.**
+launchd 상태를 주장하는 모든 문서(이 문서 포함)는 위 두 명령으로 재확인한 뒤 신뢰한다.
+
 ### launchd 상태 정정 (2026-09-03 실측)
 
 인수 문서는 launchd 작업이 "plist는 생성됐으나 **미등록**"이라고 기록했지만, **실제로는 등록되어
@@ -49,7 +65,9 @@ plist 파일은 **삭제하지 않았다.** 재개 시 되살릴 수 있다(§4)
 - 네이버 도메인에 요청을 보내는 모든 스크립트
 
 **허용**: 코드 수정, 문서화, 네이버 접촉이 없는 단위 테스트.
-`npx vitest run scripts/naver-blog`는 전부 픽스처 기반이라 안전하다(121 tests).
+`npx vitest run scripts/naver-blog`는 전부 픽스처 기반이라 안전하다(128 tests).
+테스트에 playwright·chromium import가 0건이고, `publish.ts`는 엔트리 가드가 있어
+import만으로 브라우저가 뜨지 않는다 — 이 두 조건을 깨지 말 것.
 
 ## 3. 로컬 러너 — 저장소로 옮기지 않는다 (결정)
 
@@ -148,9 +166,16 @@ npx tsx scripts/naver-blog/make-draft.ts --out .naver-blog/draft.json || exit $?
 
 **launchd (로컬 — 권장 경로)**
 
+되살리기 **전에** §4-1 재개 조건 7개가 전부 충족됐는지 확인한다. 이 명령은 다음 10:00부터
+발행을 실행한다 — 조건 확인 없이 실행하면 냉각 기간을 무효로 만든다.
+
 ```bash
+# 1) 재개 조건 충족 확인 (§4-1) — 건너뛰지 말 것
+# 2) 등록
 launchctl bootstrap "gui/$(id -u)" ~/Library/LaunchAgents/com.stockmatrix.naver-blog.plist
-launchctl list | grep stockmatrix   # 등록 확인
+# 3) 등록·예약 확인 (문서가 아니라 명령으로)
+launchctl list | grep stockmatrix
+launchctl print "gui/$(id -u)/com.stockmatrix.naver-blog" | grep -iE "Hour|Minute|state"
 ```
 
 끄기: `launchctl bootout "gui/$(id -u)/com.stockmatrix.naver-blog"`
