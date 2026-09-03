@@ -6,9 +6,11 @@ import {
 } from '@/lib/newsletter/alert'
 import {
   countActiveSubscribers,
+  countDeliveriesByStatus,
   getNewsletterStatus,
   type NewsletterStatusRow,
 } from '@/lib/newsletter/status'
+import type { NewsletterDeliveryCounts } from '@/lib/newsletter/delivery'
 
 export { type NewsletterStatusRow } from '@/lib/newsletter/status'
 
@@ -38,9 +40,11 @@ export interface NewsletterWatchdogDependencies {
   readonly isTradingDay?: (date: string) => boolean
   readonly fetchNewsletter?: (date: string) => Promise<NewsletterStatusRow | null>
   readonly countActiveSubscribers?: () => Promise<number>
+  readonly countDeliveriesByStatus?: (date: string) => Promise<NewsletterDeliveryCounts>
   readonly sendAlertEmail?: (email: NewsletterAlertEmail) => Promise<void>
   readonly env?: WatchdogEnvironment
   readonly logger?: WatchdogLogger
+  readonly now?: () => number
 }
 
 function getTodayKst(): string {
@@ -141,17 +145,48 @@ export async function verifyNewsletterSent(
     return reportFatal({ date, reason: '발행 파이프라인 미실행', dependencies })
   }
   if (!newsletter.is_sent) {
-    return reportFatal({ date, reason: '준비됐으나 미발송', dependencies })
-  }
-  if (!newsletter.sent_at) {
-    return reportFatal({
-      date,
-      reason: '발송 선점 후 미확정 (sent_at 없음)',
-      dependencies,
-    })
+    let deliveryCounts: NewsletterDeliveryCounts
+    try {
+      deliveryCounts = await (
+        dependencies.countDeliveriesByStatus
+        ?? ((targetDate) => countDeliveriesByStatus(targetDate, env))
+      )(date)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      return reportFatal({
+        date,
+        reason: `발송 원장 조회 실패 (${message})`,
+        dependencies,
+      })
+    }
+    const ledgerRows = Object.values(deliveryCounts).reduce((sum, count) => sum + count, 0)
+    const leaseUntil = newsletter.sending_lease_until
+      ? Date.parse(newsletter.sending_lease_until)
+      : Number.NaN
+    const leaseIsFreeOrStale = newsletter.sending_lease_until === null
+      || (Number.isFinite(leaseUntil) && leaseUntil < (dependencies.now ?? Date.now)())
+    const reason = ledgerRows > 0 && leaseIsFreeOrStale
+      ? `발송 미완료 (재시도 대기: retryable=${deliveryCounts.failedRetryable}, pending=${deliveryCounts.pending})`
+      : '준비됐으나 미발송'
+    return reportFatal({ date, reason, dependencies })
   }
 
   logger.log(`✅ ${date} 뉴스레터 발송 확인`)
+  try {
+    const deliveryCounts = await (
+      dependencies.countDeliveriesByStatus
+      ?? ((targetDate) => countDeliveriesByStatus(targetDate, env))
+    )(date)
+    if (deliveryCounts.unknown > 0 || deliveryCounts.failedTerminal > 0) {
+      logger.warn(
+        `⚠️ ${date} 뉴스레터 delivery 경고: unknown=${deliveryCounts.unknown}, failed_terminal=${deliveryCounts.failedTerminal}`,
+      )
+    }
+  } catch (error) {
+    logger.warn(
+      `⚠️ 발송 원장 조회 실패: ${error instanceof Error ? error.message : String(error)}`,
+    )
+  }
   if (newsletter.subscriber_count === 0) {
     logger.warn(`⚠️ ${date} 뉴스레터 subscriber_count=0 입니다.`)
   }

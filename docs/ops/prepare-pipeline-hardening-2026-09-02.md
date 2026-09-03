@@ -79,6 +79,7 @@
 | `501635a` | 계층형 슬롯 채움 탐색 실험(연구 한정) |
 | `7df3181` | **sol 최종 리뷰 반영**: 미확정 선점 복구 재발송(중복 가능·누락 방지), dispatch 단일 POST+`display_title` 매칭, 불리언 정규화, prepare 절대 데드라인(38분)·fallback red, 토큰 거부 1회 재발급, crash 오경보 제거, physicalCalls, SendGrid 타임아웃/데드라인, 라우트 회귀 테스트 복원 |
 | `c031f9c` | 희소 날짜 데이터 계약 게이트(날짜별 거래량>0 종목 비율 <80% → 실패, `gapDatesTop`), 수집 리포트 `perDateSymbolCounts` + prepare 경고, 커스텀 Error 관례 교정. 첫 실행에서 09-02 유령 행(당일 아침 구 코드가 적재, 익일 수집이 덮어씀)을 정확히 잡아냄 |
+| Task 9a | **exactly-once 발송**: `063_newsletter_delivery_ledger.sql`의 20분 sending lease와 수신자별 delivery ledger, retryable 수신자만 재시도 |
 
 데이터 수리(프로덕션 DB, 추가 삽입만): KOSPI 지수 결손 100일 백필(`repair-kospi-index.ts --apply`, remainingMissing 0), 2026-04-02 전 종목 백필(2,422행; 실패 12는 당시 미상장).
 
@@ -90,7 +91,7 @@
 | 06:50 | Vercel cron | prepare backup (`--backup-run`: code 픽 있으면 no-op, fallback/무행 재생성) | 07:05 워치독 알림 |
 | 07:05 | Vercel 함수 직접 판정 | 콘텐츠 준비 확인 — 무행 500+메일, fallback 메일, crash는 정상 | 수동 dispatch |
 | 07:27 | Vercel cron → dispatch | send primary (행 없으면 12분 polling) | 07:45 retry |
-| 07:45 | Vercel cron | send retry — 미발송 또는 **미확정 선점(`is_sent=true, sent_at=null`) 복구 재발송** | 08:15 워치독 |
+| 07:45 | Vercel cron | send retry — 만료·해제된 lease를 다시 잡고 원장의 `pending`·`failed_retryable` 수신자만 재시도 | 08:15 워치독 |
 | 08:10 / 08:15 | GitHub cron / Vercel | 발송 확인(`sent_at`·구독자 수 대비) → 메일 | 수동 |
 
 | 실패 | 감지 | 복구 |
@@ -99,9 +100,11 @@
 | prepare 코드 픽 실패 → LLM fallback | 워크플로우 red + 메일 + 07:05 메일 | 06:50 backup 재생성 |
 | prepare 예산 초과 | `prepare_aborted` + 메일, 행 미기록 | 06:50 backup |
 | KIS 토큰 403 / 데이터 호출 거부 | cooldown 재시도 / 무효화+재발급 | 재시도 큐 → 정확일 게이트 |
-| 발송 워커 사망 (선점 후) | `sent_at` null | 07:45 retry가 전원 재발송(중복 가능) + 메일 |
-| 발송 부분 실패 | exit 1 + 메일(실패 수·도메인) | 수신자 레저 도입 전까지 수동 |
+| 발송 워커 사망 (lease 만료 후) | 만료 lease + delivery ledger | 07:45 retry가 `pending`·`failed_retryable`만 재개 |
+| 발송 부분 실패 | `send_incomplete` + 상태별 원장 집계 메일 | lease 해제 후 07:45 retry; `accepted`·`failed_terminal`·`unknown`은 자동 재발송 금지 |
 | 확정 update 실패 | throw → red | 07:45 retry 복구 경로 |
+
+`newsletter_deliveries`는 최초 lease 획득 시점의 활성 구독자를 발송 대상으로 고정한다. SendGrid 2xx만 `accepted`, 재시도 소진 429·5xx·네트워크 오류는 `failed_retryable`, 그 밖의 4xx는 `failed_terminal`, 요청 전송 뒤 타임아웃은 중복 위험 때문에 `unknown`으로 기록한다. `pending`과 `failed_retryable`이 없어야만 `newsletter_content.is_sent=true`로 확정한다.
 
 ## 6. 검증 방법 (재현 가능)
 

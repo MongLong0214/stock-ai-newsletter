@@ -1,10 +1,20 @@
 import { createClient } from '@supabase/supabase-js'
 
+import {
+  countNewsletterDeliveryStatuses,
+  type NewsletterDeliveryCounts,
+  type NewsletterDeliveryStatus,
+} from '@/lib/newsletter/delivery'
+
 export interface NewsletterStatusRow {
   readonly is_sent: boolean
   readonly picks_source: string | null
   readonly sent_at: string | null
   readonly subscriber_count: number | null
+  readonly gemini_analysis: string | null
+  readonly sending_owner: string | null
+  readonly sending_lease_until: string | null
+  readonly sending_started_at: string | null
 }
 
 type NewsletterStatusEnvironment = Readonly<Record<string, string | undefined>>
@@ -28,7 +38,7 @@ export async function getNewsletterStatus(
   const supabase = createStatusClient(env)
   const { data, error } = await supabase
     .from('newsletter_content')
-    .select('is_sent, picks_source, sent_at, subscriber_count')
+    .select('is_sent, picks_source, sent_at, subscriber_count, gemini_analysis, sending_owner, sending_lease_until, sending_started_at')
     .eq('newsletter_date', date)
     .maybeSingle()
 
@@ -48,4 +58,19 @@ export async function countActiveSubscribers(
   if (error) throw new Error(`Database error: ${error.message}`)
   if (count === null) throw new Error('Database error: active subscriber count is unavailable')
   return count
+}
+
+export async function countDeliveriesByStatus(
+  date: string,
+  env: NewsletterStatusEnvironment = process.env,
+): Promise<NewsletterDeliveryCounts> {
+  const supabase = createStatusClient(env)
+  const { data, error } = await supabase
+    .from('newsletter_deliveries')
+    .select('status')
+    .eq('newsletter_date', date)
+
+  if (error) throw new Error(`Database error: ${error.message}`)
+  const rows = (data ?? []) as Array<{ readonly status: NewsletterDeliveryStatus }>
+  return countNewsletterDeliveryStatuses(rows)
 }

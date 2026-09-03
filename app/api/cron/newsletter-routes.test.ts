@@ -49,14 +49,20 @@ function status(input: {
   isSent?: boolean
   picksSource?: string | null
   sentAt?: string | null
+  leaseUntil?: string | null
+  geminiAnalysis?: string | null
 } = {}) {
   return {
     is_sent: input.isSent ?? false,
-    picks_source: input.picksSource ?? 'code',
+    picks_source: input.picksSource !== undefined ? input.picksSource : 'code',
     sent_at: input.sentAt !== undefined
       ? input.sentAt
       : input.isSent ? '2026-09-02T00:00:00.000Z' : null,
     subscriber_count: input.isSent ? 42 : null,
+    gemini_analysis: input.geminiAnalysis !== undefined ? input.geminiAnalysis : '[]',
+    sending_owner: input.leaseUntil ? 'lease-owner' : null,
+    sending_lease_until: input.leaseUntil ?? null,
+    sending_started_at: input.leaseUntil ? '2026-09-02T00:00:00.000Z' : null,
   }
 }
 
@@ -271,17 +277,53 @@ describe('newsletter Vercel cron routes', () => {
     expect(mocks.dispatchGitHubWorkflow).not.toHaveBeenCalled()
   })
 
-  it('dispatches primary send for an unconfirmed claim with the recovery reason', async () => {
+  it('skips send when the row exists but content is not ready', async () => {
+    mocks.getNewsletterStatus.mockResolvedValue(status({
+      picksSource: null,
+      geminiAnalysis: ' ',
+    }))
+
+    const response = await sendNewsletter(cronRequest())
+
+    expect(await response.json()).toEqual(expect.objectContaining({
+      skipped: true,
+      reason: 'not_prepared',
+    }))
+    expect(mocks.dispatchGitHubWorkflow).not.toHaveBeenCalled()
+  })
+
+  it('treats is_sent as terminal even when sent_at is null', async () => {
     mocks.getNewsletterStatus.mockResolvedValue(status({ isSent: true, sentAt: null }))
 
     const response = await sendNewsletter(cronRequest())
 
     expect(response.status).toBe(200)
     expect(await response.json()).toEqual(expect.objectContaining({
-      dispatched: true,
-      reason: 'recover_unconfirmed_claim',
-      verified: true,
+      skipped: true,
+      reason: 'already_sent',
     }))
+    expect(mocks.dispatchGitHubWorkflow).not.toHaveBeenCalled()
+  })
+
+  it('skips send while another worker holds a live lease', async () => {
+    mocks.getNewsletterStatus.mockResolvedValue(status({ leaseUntil: '2099-01-01T00:00:00.000Z' }))
+
+    const response = await sendNewsletter(cronRequest())
+
+    expect(await response.json()).toEqual(expect.objectContaining({
+      skipped: true,
+      reason: 'lease_held',
+    }))
+    expect(mocks.dispatchGitHubWorkflow).not.toHaveBeenCalled()
+  })
+
+  it('dispatches send after an expired lease', async () => {
+    mocks.getNewsletterStatus.mockResolvedValue(status({ leaseUntil: '2020-01-01T00:00:00.000Z' }))
+
+    const response = await retrySendNewsletter(cronRequest())
+
+    expect(response.status).toBe(200)
+    expect(await response.json()).toEqual(expect.objectContaining({ dispatched: true }))
     expect(mocks.dispatchGitHubWorkflow).toHaveBeenCalledOnce()
   })
 

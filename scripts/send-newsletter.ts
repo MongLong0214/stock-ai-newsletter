@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto'
 import { existsSync } from 'node:fs'
 import { resolve } from 'node:path'
 
@@ -5,21 +6,32 @@ import { createClient } from '@supabase/supabase-js'
 import { config as loadDotenv } from 'dotenv'
 
 import { siteConfig } from '@/lib/constants/seo/config'
+import {
+  countNewsletterDeliveryStatuses,
+  type NewsletterDeliveryCounts,
+  type NewsletterDeliveryStatus,
+} from '@/lib/newsletter/delivery'
 import { sendNewsletterAlertEmail } from '@/lib/newsletter/alert'
 import {
   generateNewsletterHTML,
   parseCrashAlert,
   sendStockNewsletter,
+  type EmailRecipient,
+  type StockNewsletterDeliveryOutcome,
 } from '@/lib/sendgrid'
 import { fetchAllRows } from '@/lib/supabase/paginate'
 
 const CONTENT_POLL_INTERVAL_MS = 30_000
 const DEFAULT_WAIT_FOR_CONTENT_MINUTES = 12
 const DEFAULT_SEND_DEADLINE_MINUTES = 15
+const LEASE_DURATION_MS = 20 * 60_000
+const LEASE_RENEW_INTERVAL_MS = 5 * 60_000
+const DELIVERY_UPSERT_BATCH_SIZE = 500
+const DELIVERY_WRITE_BATCH_SIZE = 50
+const DELIVERY_WRITE_FLUSH_MS = 2_000
 const CONFIRM_RETRY_DELAYS_MS = [500, 2_000, 6_000] as const
 
 type NewsletterClient = ReturnType<typeof createClient>
-type SendResult = Awaited<ReturnType<typeof sendStockNewsletter>>
 type SendEnvironment = Readonly<Record<string, string | undefined>>
 
 export interface SubscriberRow {
@@ -35,15 +47,67 @@ export interface NewsletterContentRow {
   readonly picks_source: string | null
   readonly is_sent: boolean
   readonly sent_at: string | null
+  readonly sending_owner: string | null
+  readonly sending_lease_until: string | null
+  readonly sending_started_at: string | null
+}
+
+export interface NewsletterDeliveryRow {
+  readonly newsletter_date: string
+  readonly subscriber_id: string
+  readonly email_domain: string
+  readonly status: NewsletterDeliveryStatus
+  readonly attempt_count: number
+  readonly last_error_code: string | null
+  readonly provider_message_id: string | null
+  readonly accepted_at: string | null
+  readonly updated_at: string
+}
+
+export interface NewsletterDeliveryWrite {
+  readonly newsletter_date: string
+  readonly subscriber_id: string
+  readonly email_domain: string
+  readonly status: NewsletterDeliveryStatus
+  readonly attempt_count: number
+  readonly last_error_code: string | null
+  readonly provider_message_id: string | null
+  readonly accepted_at: string | null
+  readonly updated_at: string
+}
+
+export interface NewsletterLedgerSnapshot {
+  readonly inserted: number
+  readonly existing: number
 }
 
 export interface SendNewsletterRepository {
   fetchActiveSubscribers(): Promise<SubscriberRow[]>
   fetchContent(date: string): Promise<NewsletterContentRow | null>
   fetchSendableContent(date: string): Promise<NewsletterContentRow | null>
-  claim(date: string): Promise<void>
-  rollback(date: string): Promise<void>
-  confirmSent(date: string, sentAt: string, subscriberCount: number): Promise<void>
+  acquireLease(input: {
+    readonly date: string
+    readonly runId: string
+    readonly nowIso: string
+    readonly leaseUntilIso: string
+    readonly sendingStartedAt: string
+  }): Promise<boolean>
+  renewLease(date: string, runId: string, leaseUntilIso: string): Promise<boolean>
+  releaseLease(date: string, runId: string): Promise<void>
+  snapshotDeliveries(
+    date: string,
+    subscribers: readonly SubscriberRow[],
+    updatedAt: string,
+  ): Promise<NewsletterLedgerSnapshot>
+  fetchDeliveriesToSend(date: string): Promise<NewsletterDeliveryRow[]>
+  countDeliveries(date: string): Promise<NewsletterDeliveryCounts>
+  writeDeliveryUpdates(updates: readonly NewsletterDeliveryWrite[]): Promise<void>
+  confirmSent(
+    date: string,
+    runId: string,
+    sentAt: string,
+    subscriberCount: number,
+  ): Promise<void>
 }
 
 interface SendLogger {
@@ -66,6 +130,8 @@ export interface SendNewsletterDependencies {
   readonly sleep?: (milliseconds: number) => Promise<void>
   readonly now?: () => number
   readonly logger?: SendLogger
+  readonly deliveryWriteFlushMs?: number
+  readonly leaseRenewIntervalMs?: number
 }
 
 function databaseError(error: unknown): Error {
@@ -73,6 +139,21 @@ function databaseError(error: unknown): Error {
     return new Error(`Database error: ${String(error.message)}`)
   }
   return new Error(`Database error: ${String(error)}`)
+}
+
+function emailDomain(email: string): string {
+  const separator = email.lastIndexOf('@')
+  return separator >= 0 && separator < email.length - 1
+    ? email.slice(separator + 1).toLowerCase()
+    : 'unknown'
+}
+
+function chunksOf<T>(rows: readonly T[], size: number): T[][] {
+  const chunks: T[][] = []
+  for (let index = 0; index < rows.length; index += size) {
+    chunks.push(rows.slice(index, index + size))
+  }
+  return chunks
 }
 
 export async function fetchActiveSubscribers(
@@ -91,23 +172,31 @@ export function createSendNewsletterRepository(
   env: SendEnvironment = process.env,
 ): SendNewsletterRepository {
   const supabaseUrl = env.NEXT_PUBLIC_SUPABASE_URL
-  const supabaseKey = env.SUPABASE_SERVICE_ROLE_KEY || env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  const supabaseKey = env.SUPABASE_SERVICE_ROLE_KEY
   if (!supabaseUrl) throw new Error('NEXT_PUBLIC_SUPABASE_URL is not set')
-  if (!supabaseKey) {
-    throw new Error('SUPABASE_SERVICE_ROLE_KEY or NEXT_PUBLIC_SUPABASE_ANON_KEY is not set')
-  }
+  if (!supabaseKey) throw new Error('SUPABASE_SERVICE_ROLE_KEY is not set')
 
   const client = createClient(supabaseUrl, supabaseKey, {
     auth: { persistSession: false },
     db: { schema: 'public' },
   })
+  const contentColumns = [
+    'newsletter_date',
+    'gemini_analysis',
+    'picks_source',
+    'is_sent',
+    'sent_at',
+    'sending_owner',
+    'sending_lease_until',
+    'sending_started_at',
+  ].join(', ')
 
   return {
     fetchActiveSubscribers: () => fetchActiveSubscribers(client),
     async fetchContent(date) {
       const { data, error } = await client
         .from('newsletter_content')
-        .select('newsletter_date, gemini_analysis, picks_source, is_sent, sent_at')
+        .select(contentColumns)
         .eq('newsletter_date', date)
         .maybeSingle()
       if (error) throw databaseError(error)
@@ -116,47 +205,127 @@ export function createSendNewsletterRepository(
     async fetchSendableContent(date) {
       const { data, error } = await client
         .from('newsletter_content')
-        .select('newsletter_date, gemini_analysis, picks_source, is_sent, sent_at')
+        .select(contentColumns)
         .eq('newsletter_date', date)
-        .or('is_sent.eq.false,and(is_sent.eq.true,sent_at.is.null)')
+        .eq('is_sent', false)
         .maybeSingle()
       if (error) throw databaseError(error)
       return data
     },
-    async claim(date) {
+    async acquireLease(input) {
       const { data, error } = await client
         .from('newsletter_content')
-        .update({ is_sent: true })
+        .update({
+          sending_owner: input.runId,
+          sending_lease_until: input.leaseUntilIso,
+          sending_started_at: input.sendingStartedAt,
+        })
+        .eq('newsletter_date', input.date)
+        .eq('is_sent', false)
+        .or(`sending_lease_until.is.null,sending_lease_until.lt.${input.nowIso}`)
+        .select('newsletter_date')
+      if (error) throw databaseError(error)
+      return (data?.length ?? 0) > 0
+    },
+    async renewLease(date, runId, leaseUntilIso) {
+      const { data, error } = await client
+        .from('newsletter_content')
+        .update({ sending_lease_until: leaseUntilIso })
         .eq('newsletter_date', date)
         .eq('is_sent', false)
+        .eq('sending_owner', runId)
         .select('newsletter_date')
-        .single()
-      if (error || !data) {
-        throw new Error(`Failed to claim newsletter content for ${date}. Sending aborted.`)
-      }
+      if (error) throw databaseError(error)
+      return (data?.length ?? 0) > 0
     },
-    async rollback(date) {
-      const { data, error } = await client
-        .from('newsletter_content')
-        .update({ is_sent: false })
-        .eq('newsletter_date', date)
-        .eq('is_sent', true)
-        .select('newsletter_date')
-        .single()
-      if (error || !data) {
-        throw error || new Error(`Newsletter content for ${date} was not rolled back.`)
-      }
-    },
-    async confirmSent(date, sentAt, subscriberCount) {
+    async releaseLease(date, runId) {
       const { error } = await client
+        .from('newsletter_content')
+        .update({ sending_owner: null, sending_lease_until: null })
+        .eq('newsletter_date', date)
+        .eq('is_sent', false)
+        .eq('sending_owner', runId)
+      if (error) throw databaseError(error)
+    },
+    async snapshotDeliveries(date, subscribers, updatedAt) {
+      const existingRows = await fetchAllRows<{ readonly subscriber_id: string }>((from, to) => client
+        .from('newsletter_deliveries')
+        .select('subscriber_id')
+        .eq('newsletter_date', date)
+        .range(from, to))
+      const existingIds = new Set(existingRows.map((row) => row.subscriber_id))
+      const rows = subscribers.map((subscriber) => ({
+        newsletter_date: date,
+        subscriber_id: String(subscriber.id),
+        email_domain: emailDomain(subscriber.email),
+        status: 'pending' as const,
+        updated_at: updatedAt,
+      }))
+      for (const chunk of chunksOf(rows, DELIVERY_UPSERT_BATCH_SIZE)) {
+        const { error } = await client
+          .from('newsletter_deliveries')
+          .upsert(chunk, {
+            onConflict: 'newsletter_date,subscriber_id',
+            ignoreDuplicates: true,
+          })
+        if (error) throw databaseError(error)
+      }
+      const existing = subscribers.filter((subscriber) => existingIds.has(String(subscriber.id))).length
+      return { inserted: subscribers.length - existing, existing }
+    },
+    async fetchDeliveriesToSend(date) {
+      return fetchAllRows<NewsletterDeliveryRow>((from, to) => client
+        .from('newsletter_deliveries')
+        .select([
+          'newsletter_date',
+          'subscriber_id',
+          'email_domain',
+          'status',
+          'attempt_count',
+          'last_error_code',
+          'provider_message_id',
+          'accepted_at',
+          'updated_at',
+        ].join(', '))
+        .eq('newsletter_date', date)
+        .in('status', ['pending', 'failed_retryable'])
+        .order('subscriber_id', { ascending: true })
+        .range(from, to))
+    },
+    async countDeliveries(date) {
+      const rows = await fetchAllRows<{ readonly status: NewsletterDeliveryStatus }>((from, to) => client
+        .from('newsletter_deliveries')
+        .select('status')
+        .eq('newsletter_date', date)
+        .range(from, to))
+      return countNewsletterDeliveryStatuses(rows)
+    },
+    async writeDeliveryUpdates(updates) {
+      for (const chunk of chunksOf(updates, DELIVERY_WRITE_BATCH_SIZE)) {
+        const { error } = await client
+          .from('newsletter_deliveries')
+          .upsert(chunk, { onConflict: 'newsletter_date,subscriber_id' })
+        if (error) throw databaseError(error)
+      }
+    },
+    async confirmSent(date, runId, sentAt, subscriberCount) {
+      const { data, error } = await client
         .from('newsletter_content')
         .update({
           is_sent: true,
           sent_at: sentAt,
           subscriber_count: subscriberCount,
+          sending_owner: null,
+          sending_lease_until: null,
         })
         .eq('newsletter_date', date)
+        .eq('is_sent', false)
+        .eq('sending_owner', runId)
+        .select('newsletter_date')
       if (error) throw databaseError(error)
+      if ((data?.length ?? 0) === 0) {
+        throw new Error(`Newsletter lease ownership was lost before completion for ${date}.`)
+      }
     },
   }
 }
@@ -219,7 +388,7 @@ async function waitForPreparedContent(input: {
     if (contentIsReady(content)) return content
     if (!content) {
       const current = await input.repository.fetchContent(input.targetDate)
-      if (current?.sent_at) return null
+      if (current?.is_sent) return null
     }
     const remainingMs = deadline - input.now()
     if (remainingMs <= 0) {
@@ -240,23 +409,10 @@ async function waitForPreparedContent(input: {
   }
 }
 
-async function rollbackClaim(input: {
-  readonly repository: SendNewsletterRepository
-  readonly targetDate: string
-  readonly logger: SendLogger
-  readonly context: string
-}): Promise<void> {
-  try {
-    await input.repository.rollback(input.targetDate)
-    input.logger.log(`↩️ ${input.context}로 is_sent=false 롤백 완료`)
-  } catch (rollbackError) {
-    input.logger.error(`🚨 ${input.context} 후 is_sent 롤백 실패:`, rollbackError)
-  }
-}
-
 async function confirmSentWithRetry(input: {
   readonly repository: SendNewsletterRepository
   readonly targetDate: string
+  readonly runId: string
   readonly sentAt: string
   readonly subscriberCount: number
   readonly sleep: (milliseconds: number) => Promise<void>
@@ -267,6 +423,7 @@ async function confirmSentWithRetry(input: {
     try {
       await input.repository.confirmSent(
         input.targetDate,
+        input.runId,
         input.sentAt,
         input.subscriberCount,
       )
@@ -293,22 +450,130 @@ function koreanDateLabel(targetDate: string): string {
   })
 }
 
-function sendSummary(input: {
+class DeliveryWriteQueue {
+  private readonly pending: Array<{
+    readonly update: NewsletterDeliveryWrite
+    readonly resolve: () => void
+    readonly reject: (error: unknown) => void
+  }> = []
+
+  private timer: ReturnType<typeof setTimeout> | null = null
+  private activeFlush: Promise<void> | null = null
+
+  constructor(
+    private readonly repository: SendNewsletterRepository,
+    private readonly flushMs: number,
+  ) {}
+
+  enqueue(update: NewsletterDeliveryWrite): Promise<void> {
+    const completion = new Promise<void>((resolvePromise, rejectPromise) => {
+      this.pending.push({ update, resolve: resolvePromise, reject: rejectPromise })
+    })
+    if (this.pending.length >= DELIVERY_WRITE_BATCH_SIZE) {
+      void this.flushBatch().catch(() => undefined)
+    } else {
+      this.schedule()
+    }
+    return completion
+  }
+
+  async flushAll(): Promise<void> {
+    while (this.activeFlush || this.pending.length > 0) {
+      if (this.activeFlush) await this.activeFlush
+      else await this.flushBatch()
+    }
+  }
+
+  private schedule(): void {
+    if (this.timer !== null || this.activeFlush) return
+    this.timer = setTimeout(() => {
+      this.timer = null
+      void this.flushBatch().catch(() => undefined)
+    }, this.flushMs)
+  }
+
+  private flushBatch(): Promise<void> {
+    if (this.activeFlush) return this.activeFlush
+    if (this.timer !== null) {
+      clearTimeout(this.timer)
+      this.timer = null
+    }
+    const entries = this.pending.splice(0, DELIVERY_WRITE_BATCH_SIZE)
+    if (entries.length === 0) return Promise.resolve()
+
+    const flush = this.repository.writeDeliveryUpdates(entries.map((entry) => entry.update))
+      .then(() => entries.forEach((entry) => entry.resolve()))
+      .catch((error: unknown) => {
+        entries.forEach((entry) => entry.reject(error))
+        throw error
+      })
+      .finally(() => {
+        this.activeFlush = null
+        if (this.pending.length > 0) this.schedule()
+      })
+    this.activeFlush = flush
+    return flush
+  }
+}
+
+function startLeaseRenewal(input: {
+  readonly repository: SendNewsletterRepository
   readonly targetDate: string
-  readonly dispatchId: string
-  readonly subscribers: number
-  readonly result: SendResult
+  readonly runId: string
+  readonly now: () => number
+  readonly logger: SendLogger
+  readonly intervalMs: number
+}) {
+  let lost = false
+  let renewal: Promise<void> | null = null
+  const timer = setInterval(() => {
+    if (renewal || lost) return
+    renewal = input.repository.renewLease(
+      input.targetDate,
+      input.runId,
+      new Date(input.now() + LEASE_DURATION_MS).toISOString(),
+    ).then((renewed) => {
+      if (!renewed) {
+        lost = true
+        input.logger.error(JSON.stringify({
+          event: 'send_lease_lost',
+          targetDate: input.targetDate,
+          runId: input.runId,
+        }))
+      }
+    }).catch((error: unknown) => {
+      lost = true
+      input.logger.error('발송 리스 갱신 실패:', error)
+    }).finally(() => {
+      renewal = null
+    })
+  }, input.intervalMs)
+
+  return {
+    isHeld: () => !lost,
+    async stop(): Promise<void> {
+      clearInterval(timer)
+      if (renewal) await renewal
+    },
+  }
+}
+
+function deliverySummary(input: {
+  readonly targetDate: string
+  readonly runId: string
+  readonly counts: NewsletterDeliveryCounts
   readonly startedAt: number
   readonly now: () => number
 }): string {
   return JSON.stringify({
     event: 'send_run_summary',
     targetDate: input.targetDate,
-    dispatchId: input.dispatchId,
-    subscribers: input.subscribers,
-    sent: input.result.sent,
-    failed: input.result.failed.length,
-    failed_count: input.result.failed.length,
+    runId: input.runId,
+    accepted: input.counts.accepted,
+    failedRetryable: input.counts.failedRetryable,
+    failedTerminal: input.counts.failedTerminal,
+    unknown: input.counts.unknown,
+    pending: input.counts.pending,
     durationSec: Math.round((input.now() - input.startedAt) / 100) / 10,
   })
 }
@@ -325,7 +590,7 @@ export async function runSendNewsletter(
       setTimeout(resolveSleep, milliseconds)
     }))
   const targetDate = options.targetDate || getTodayKst()
-  const dispatchId = options.dispatchId || env.DISPATCH_ID || ''
+  const runId = options.dispatchId || env.GITHUB_RUN_ID || randomUUID()
   const startedAt = now()
   const sendAlert = dependencies.sendAlert ?? sendNewsletterAlertEmail
   const alertSafely = async (
@@ -341,8 +606,9 @@ export async function runSendNewsletter(
   assertIsoDate(targetDate)
 
   logger.log('🚀 뉴스레터 발송 작업 시작...')
-  logger.log(`📅 target_date=${targetDate} dispatch_id=${dispatchId || 'none'}`)
+  logger.log(`📅 target_date=${targetDate} run_id=${runId}`)
 
+  let acquiredRepository: SendNewsletterRepository | null = null
   try {
     const repository = dependencies.repository ?? createSendNewsletterRepository(env)
     logger.log('📊 Supabase에서 구독자 가져오는 중...')
@@ -350,15 +616,12 @@ export async function runSendNewsletter(
 
     if (subscribers.length === 0 && !options.dryRun) {
       logger.warn('⚠️ 활성 구독자가 없습니다.')
-      logger.log(JSON.stringify({
-        event: 'send_skipped',
-        reason: 'no_active_subscribers',
-      }))
+      logger.log(JSON.stringify({ event: 'send_skipped', reason: 'no_active_subscribers' }))
       await alertSafely({
         subject: `[${siteConfig.serviceName}] ${targetDate} 활성 구독자 0명 — 발송 생략`,
         lines: [
           `target_date: ${targetDate}`,
-          `dispatch_id: ${dispatchId || 'none'}`,
+          `run_id: ${runId}`,
           'subscribers 테이블과 구독 상태를 확인하세요.',
         ],
         env,
@@ -380,7 +643,7 @@ export async function runSendNewsletter(
       const content = await waitForPreparedContent({
         repository,
         targetDate,
-        dispatchId,
+        dispatchId: runId,
         waitMinutes: waitForContentMinutes(env),
         sleep,
         now,
@@ -395,6 +658,7 @@ export async function runSendNewsletter(
     logger.log('✅ 뉴스레터 콘텐츠 로드 완료')
 
     if (options.dryRun) {
+      const ledgerStatusCounts = await repository.countDeliveries(targetDate)
       const firstRecipient = subscribers[0]
       const html = firstRecipient
         ? generateNewsletterHTML({
@@ -410,40 +674,71 @@ export async function runSendNewsletter(
         picksSource: newsletterContent.picks_source,
         htmlBytes: Buffer.byteLength(html, 'utf8'),
         isCrash: parseCrashAlert(newsletterContent.gemini_analysis ?? '') !== null,
+        ledgerStatusCounts,
       }))
       return 0
     }
 
-    const recoveringUnconfirmedClaim = newsletterContent.is_sent && !newsletterContent.sent_at
-    if (recoveringUnconfirmedClaim) {
-      // WHY: without a per-recipient ledger we cannot know who SendGrid already accepted;
-      // a duplicate for some recipients is safer than omitting the newsletter for everyone.
-      logger.warn(JSON.stringify({
-        event: 'send_recovering_unconfirmed_claim',
-        targetDate,
-      }))
-      await alertSafely({
-        subject: `[${siteConfig.serviceName}] ${targetDate} 발송 선점 미확정 복구 — 재발송 (중복 가능)`,
-        lines: [
-          `target_date: ${targetDate}`,
-          `dispatch_id: ${dispatchId || 'none'}`,
-          '이전 발송의 수신자별 수락 여부를 확인할 수 없어 전체 활성 구독자에게 재발송합니다.',
-        ],
-        env,
-      })
-    } else {
-      logger.log('🔒 뉴스레터 발송 상태 선점 중...')
-      await repository.claim(targetDate)
-      logger.log('✅ 뉴스레터 발송 상태 선점 완료')
+    const claimNow = now()
+    const acquired = await repository.acquireLease({
+      date: targetDate,
+      runId,
+      nowIso: new Date(claimNow).toISOString(),
+      leaseUntilIso: new Date(claimNow + LEASE_DURATION_MS).toISOString(),
+      sendingStartedAt: newsletterContent.sending_started_at ?? new Date(claimNow).toISOString(),
+    })
+    if (!acquired) {
+      logger.log(JSON.stringify({ event: 'send_skipped', reason: 'lease_held' }))
+      return 0
     }
+    acquiredRepository = repository
+    logger.log(JSON.stringify({ event: 'send_lease_acquired', targetDate, runId }))
 
-    let result: SendResult
+    const snapshot = await repository.snapshotDeliveries(
+      targetDate,
+      subscribers,
+      new Date(now()).toISOString(),
+    )
+    logger.log(JSON.stringify({
+      event: 'send_ledger_snapshot',
+      targetDate,
+      inserted: snapshot.inserted,
+      existing: snapshot.existing,
+    }))
+
+    const subscribersById = new Map(
+      subscribers.map((subscriber) => [String(subscriber.id), subscriber]),
+    )
+    const deliveryRows = await repository.fetchDeliveriesToSend(targetDate)
+    const attemptsBySubscriberId = new Map(
+      deliveryRows.map((delivery) => [delivery.subscriber_id, delivery.attempt_count]),
+    )
+    const recipients: EmailRecipient[] = deliveryRows.flatMap((delivery) => {
+      const subscriber = subscribersById.get(delivery.subscriber_id)
+      return subscriber
+        ? [{
+            subscriberId: delivery.subscriber_id,
+            email: subscriber.email,
+            ...(subscriber.name ? { name: subscriber.name } : {}),
+          }]
+        : []
+    })
+    const writeQueue = new DeliveryWriteQueue(
+      repository,
+      dependencies.deliveryWriteFlushMs ?? DELIVERY_WRITE_FLUSH_MS,
+    )
+    const lease = startLeaseRenewal({
+      repository,
+      targetDate,
+      runId,
+      now,
+      logger,
+      intervalMs: dependencies.leaseRenewIntervalMs ?? LEASE_RENEW_INTERVAL_MS,
+    })
+
     try {
-      result = await (dependencies.send ?? sendStockNewsletter)(
-        subscribers.map((subscriber) => ({
-          email: subscriber.email,
-          name: subscriber.name || undefined,
-        })),
+      await (dependencies.send ?? sendStockNewsletter)(
+        recipients,
         {
           geminiAnalysis: newsletterContent.gemini_analysis ?? '',
           date: koreanDateLabel(targetDate),
@@ -451,66 +746,114 @@ export async function runSendNewsletter(
         {
           deadlineAt: now() + sendDeadlineMinutes(env) * 60_000,
           now,
+          shouldContinue: lease.isHeld,
+          beforeSend: async (recipient) => {
+            const attemptCount = (attemptsBySubscriberId.get(recipient.subscriberId) ?? 0) + 1
+            attemptsBySubscriberId.set(recipient.subscriberId, attemptCount)
+            await writeQueue.enqueue({
+              newsletter_date: targetDate,
+              subscriber_id: recipient.subscriberId,
+              email_domain: emailDomain(recipient.email),
+              status: 'sending',
+              attempt_count: attemptCount,
+              last_error_code: null,
+              provider_message_id: null,
+              accepted_at: null,
+              updated_at: new Date(now()).toISOString(),
+            })
+          },
+          onResult: async (recipient, outcome: StockNewsletterDeliveryOutcome) => {
+            await writeQueue.enqueue({
+              newsletter_date: targetDate,
+              subscriber_id: recipient.subscriberId,
+              email_domain: emailDomain(recipient.email),
+              status: outcome.status,
+              attempt_count: attemptsBySubscriberId.get(recipient.subscriberId) ?? 1,
+              last_error_code: outcome.errorCode ?? null,
+              provider_message_id: outcome.messageId ?? null,
+              accepted_at: outcome.status === 'accepted' ? new Date(now()).toISOString() : null,
+              updated_at: new Date(now()).toISOString(),
+            })
+          },
         },
       )
-    } catch (sendError) {
-      if (!recoveringUnconfirmedClaim) {
-        await rollbackClaim({
-          repository,
-          targetDate,
-          logger,
-          context: '발송 실패',
-        })
-      }
-      throw sendError
+      await writeQueue.flushAll()
+    } catch (error) {
+      await writeQueue.flushAll().catch((flushError: unknown) => {
+        logger.error('발송 원장 flush 실패:', flushError)
+      })
+      await lease.stop()
+      throw error
+    }
+    await lease.stop()
+
+    const counts = await repository.countDeliveries(targetDate)
+    logger.log(deliverySummary({ targetDate, runId, counts, startedAt, now }))
+    const incomplete = counts.pending > 0
+      || counts.failedRetryable > 0
+      || counts.sending > 0
+      || !lease.isHeld()
+    if (incomplete) {
+      await repository.releaseLease(targetDate, runId)
+      acquiredRepository = null
+      logger.error(JSON.stringify({
+        event: 'send_incomplete',
+        targetDate,
+        runId,
+        ...counts,
+      }))
+      await alertSafely({
+        subject: `[${siteConfig.serviceName}] ${targetDate} 뉴스레터 발송 미완료`,
+        lines: [
+          `accepted: ${counts.accepted}`,
+          `failed_retryable: ${counts.failedRetryable}`,
+          `failed_terminal: ${counts.failedTerminal}`,
+          `unknown: ${counts.unknown}`,
+          `pending: ${counts.pending}`,
+          `sending: ${counts.sending}`,
+          `run_id: ${runId}`,
+        ],
+        env,
+      })
+      return 1
     }
 
-    if (result.failed.length > 0) {
-      logger.error(`❌ 이메일 발송 실패 수: ${result.failed.length}명`)
-      logger.error('실패 대상 (인덱스/도메인만):', result.failed)
-      const failedDomains = [...new Set(result.failed.map((failure) => failure.domain))]
+    await confirmSentWithRetry({
+      repository,
+      targetDate,
+      runId,
+      sentAt: new Date(now()).toISOString(),
+      subscriberCount: counts.accepted,
+      sleep,
+      logger,
+    })
+    acquiredRepository = null
+    if (counts.unknown > 0 || counts.failedTerminal > 0) {
       await alertSafely({
-        subject: `[${siteConfig.serviceName}] ${targetDate} 뉴스레터 부분 발송 실패 ${result.failed.length}명`,
+        subject: `[${siteConfig.serviceName}] ${targetDate} 뉴스레터 발송 완료 — 수동 확인 필요`,
         lines: [
-          `failed_count: ${result.failed.length}`,
-          `failed_domains: ${failedDomains.join(', ') || 'unknown'}`,
-          `sent_count: ${result.sent}`,
-          `dispatch_id: ${dispatchId || 'none'}`,
+          `unknown: ${counts.unknown}`,
+          `failed_terminal: ${counts.failedTerminal}`,
+          `accepted: ${counts.accepted}`,
+          `run_id: ${runId}`,
+          'unknown은 중복 위험 때문에 자동 재발송하지 않습니다.',
         ],
         env,
       })
     }
-    logger.log(sendSummary({
+    logger.log(JSON.stringify({
+      event: 'send_completed',
       targetDate,
-      dispatchId,
-      subscribers: subscribers.length,
-      result,
-      startedAt,
-      now,
+      runId,
+      accepted: counts.accepted,
     }))
-    if (result.sent === 0) {
-      if (!recoveringUnconfirmedClaim) {
-        await rollbackClaim({
-          repository,
-          targetDate,
-          logger,
-          context: '전량 발송 실패',
-        })
-      }
-      throw new Error(`전체 이메일 발송 실패: 0/${subscribers.length}명 성공`)
-    }
-
-    logger.log(`📬 발송 성공 ${result.sent}명, 실패 ${result.failed.length}명, 재시도 ${result.retried}회`)
-    await confirmSentWithRetry({
-      repository,
-      targetDate,
-      sentAt: new Date(now()).toISOString(),
-      subscriberCount: result.sent,
-      sleep,
-      logger,
-    })
-    return result.failed.length > 0 ? 1 : 0
+    return 0
   } catch (error) {
+    if (acquiredRepository) {
+      await acquiredRepository.releaseLease(targetDate, runId).catch((releaseError: unknown) => {
+        logger.error('발송 작업 실패 후 리스 해제 실패:', releaseError)
+      })
+    }
     logger.error('❌ 뉴스레터 발송 실패:', error)
     return 1
   }
