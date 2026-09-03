@@ -13,8 +13,9 @@
  *   { "title": "...", "tags": ["2차전지"], "body": "문단1\n\n문단2", "outsideUrl": "https://..." }
  */
 
+import { config } from 'dotenv';
 import { existsSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import { chromium, type Frame, type Page } from 'playwright';
 import {
   canPublish,
@@ -48,6 +49,11 @@ import {
 import { assertHashesMatch } from './run-store';
 import { assertNoCtaTail, planBodyActions } from './publish-plan';
 import { describeSiteFailure, siteBypassHeaders } from './site-access';
+
+// 발행 전 신선도 검사가 자사 API를 호출한다 — 방화벽 우회 비밀값이 .env.local에 있다.
+// CI는 워크플로우 env로 주입하므로 파일이 없어도 된다. (make-draft.ts와 같은 방식)
+const envPath = resolve(process.cwd(), '.env.local');
+if (existsSync(envPath)) config({ path: envPath });
 
 /**
  * 스마트에디터 ONE 셀렉터.
@@ -211,12 +217,21 @@ async function verifyEditorContent(editor: Frame, draft: Draft, insertedImages: 
   }
 
   if (draft.outsideUrl) {
-    const hasCard = await editor
-      .locator(`.se-oglink a[href*="${new URL(draft.outsideUrl).host}"], .se-oglink-thumbnail`)
+    const host = new URL(draft.outsideUrl).host;
+    // 에디터 DOM의 오글링크 카드에는 **`<a href>`가 없다**(실측 2026-09-03).
+    // 링크는 컴포넌트 데이터에 있고 앵커는 발행된 글에서만 생긴다. 썸네일
+    // (`se-oglink-thumbnail`)도 OG 이미지가 로드될 때만 붙으므로 카드 유무 판정에
+    // 쓸 수 없다 — 카드가 정상인데도 "딥링크 누락"으로 발행이 막혔다.
+    // 실제 구조: `div.se-component.se-oglink` > `.se-oglink-title` / `.se-oglink-url`.
+    const cardCount = await editor
+      .locator('.se-component.se-oglink, .se-module-oglink')
       .count()
       .catch(() => 0);
-    if (!flat.includes(norm(draft.outsideUrl)) && hasCard === 0) {
-      return 'outside 딥링크 누락 (평문·오글링크 카드 모두 없음)';
+    const cardUrls = await editor.locator('.se-oglink-url').allInnerTexts().catch(() => []);
+    const cardPointsToUs = cardUrls.some((text) => text.includes(host));
+    if (!flat.includes(norm(draft.outsideUrl)) && !(cardCount > 0 && cardPointsToUs)) {
+      return `outside 딥링크 누락 (평문 URL 없음 / 오글링크 카드 ${cardCount}개, `
+        + `카드 도메인 ${JSON.stringify(cardUrls)} ≠ ${host})`;
     }
   }
 
@@ -1029,7 +1044,15 @@ async function main(): Promise<void> {
     if (verdict) {
       throw new Error(formatVerifyError(verdict, shot));
     }
-    console.log('발행 전 검증 통과 (제목·본문·인용구·볼드·색상·이미지·CTA)');
+    // 통과했다는 사실만 찍으면 "무엇이 몇 개 들어갔는지"는 매번 아티팩트를 뒤져야 한다.
+    // 실측 수치를 남기면 CI 로그만으로 서식이 실제로 붙었는지 보인다.
+    console.log(
+      '발행 전 검증 통과 — '
+      + `인용구 ${await editor.locator(SEL.quotation).count()}개 · `
+      + `볼드 ${await countBoldDom(editor)}회 · `
+      + `색상 ${(await measureColorDom(editor)).count}개 · `
+      + `이미지 ${await countImages(editor)}장`,
+    );
 
     // 도움말 패널이 발행 버튼의 pointer events를 가로챈다(실측: se-help-title 조상 컨테이너).
     await page.keyboard.press('Escape').catch(() => {});
