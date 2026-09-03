@@ -1,6 +1,6 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
-import { deriveGtAV2Windows } from '../labels/gta-v2-daily'
+import { deriveGtAV2Windows, loadKospiTradingDates } from '../labels/gta-v2-daily'
 
 // 2026-07 KOSPI 실측: 7/17(제헌절 재지정)·주말 휴장이 반영된 거래일 시퀀스.
 const KOSPI_DATES = [
@@ -9,6 +9,32 @@ const KOSPI_DATES = [
   '2026-07-20', '2026-07-21', '2026-07-22', '2026-07-23', '2026-07-24',
   '2026-07-27', '2026-07-28', '2026-07-29', '2026-07-30',
 ]
+
+describe('loadKospiTradingDates', () => {
+  it('1,001행을 keyset 2페이지로 합쳐 오름차순·중복 없이 반환한다', async () => {
+    const rows = Array.from({ length: 1_001 }, (_, index) => ({
+      trade_date: new Date(Date.UTC(2024, 0, index + 1)).toISOString().slice(0, 10),
+    }))
+    const transport = vi.fn()
+      .mockResolvedValueOnce(rows.slice(0, 1_000))
+      .mockResolvedValueOnce(rows.slice(1_000))
+
+    const dates = await loadKospiTradingDates(transport)
+
+    expect(dates).toEqual(rows.map((row) => row.trade_date))
+    expect(new Set(dates).size).toBe(1_001)
+    expect(transport).toHaveBeenCalledTimes(2)
+    expect(transport.mock.calls[0]?.[0]).toEqual({ after: null, pageSize: 1_000 })
+    expect(transport.mock.calls[1]?.[0]).toEqual({
+      after: {
+        first: rows[999].trade_date,
+        second: rows[999].trade_date,
+        third: rows[999].trade_date,
+      },
+      pageSize: 1_000,
+    })
+  })
+})
 
 describe('deriveGtAV2Windows', () => {
   it('base 포함 직전 5 + 이후 5 거래일을 KOSPI 실측에서 파생한다 (7/17 휴장 반영)', () => {

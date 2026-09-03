@@ -1,5 +1,6 @@
 export interface CollectionReport {
   readonly requested: number
+  readonly reused?: number
   readonly succeeded: number
   readonly failed: number
   readonly persistenceFailed: number

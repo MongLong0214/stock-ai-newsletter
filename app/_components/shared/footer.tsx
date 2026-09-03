@@ -4,7 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { Mail, Twitter, Instagram, ChevronDown, ChevronUp } from 'lucide-react';
 import { internalLinks } from '@/lib/constants/seo/internal-links';
-import { socialConfig } from '@/lib/constants/seo';
+import { siteConfig, socialConfig } from '@/lib/constants/seo';
 
 function Footer() {
   const [isDisclaimerOpen, setIsDisclaimerOpen] = useState(false);
@@ -23,7 +23,7 @@ function Footer() {
               <div className="space-y-6">
                 <div>
                   <h2 className="text-2xl font-light text-emerald-400 tracking-tight mb-3">
-                    Stock Matrix
+                    {siteConfig.serviceName}
                   </h2>
                   <p className="text-slate-400 text-sm leading-relaxed font-light">
                     매일 오전 7시 30분, AI가 KOSPI·KOSDAQ 3종목을 분석하고 투자 테마 생명주기를 추적합니다
@@ -94,7 +94,7 @@ function Footer() {
                       <Link
                         href="/about"
                         className="text-slate-400 hover:text-emerald-400 text-sm transition-colors duration-200 block"
-                        title="Stock Matrix 서비스 소개"
+                        title={`${siteConfig.serviceName} 서비스 소개`}
                       >
                         서비스 소개
                       </Link>

@@ -4,6 +4,7 @@ import { resolve } from 'node:path'
 import { createClient } from '@supabase/supabase-js'
 import { config as loadDotenv } from 'dotenv'
 
+import { siteConfig } from '@/lib/constants/seo/config'
 import { sendNewsletterAlertEmail } from '@/lib/newsletter/alert'
 import {
   generateNewsletterHTML,
@@ -354,7 +355,7 @@ export async function runSendNewsletter(
         reason: 'no_active_subscribers',
       }))
       await alertSafely({
-        subject: `[Stock Matrix] ${targetDate} 활성 구독자 0명 — 발송 생략`,
+        subject: `[${siteConfig.serviceName}] ${targetDate} 활성 구독자 0명 — 발송 생략`,
         lines: [
           `target_date: ${targetDate}`,
           `dispatch_id: ${dispatchId || 'none'}`,
@@ -422,7 +423,7 @@ export async function runSendNewsletter(
         targetDate,
       }))
       await alertSafely({
-        subject: `[Stock Matrix] ${targetDate} 발송 선점 미확정 복구 — 재발송 (중복 가능)`,
+        subject: `[${siteConfig.serviceName}] ${targetDate} 발송 선점 미확정 복구 — 재발송 (중복 가능)`,
         lines: [
           `target_date: ${targetDate}`,
           `dispatch_id: ${dispatchId || 'none'}`,
@@ -469,7 +470,7 @@ export async function runSendNewsletter(
       logger.error('실패 대상 (인덱스/도메인만):', result.failed)
       const failedDomains = [...new Set(result.failed.map((failure) => failure.domain))]
       await alertSafely({
-        subject: `[Stock Matrix] ${targetDate} 뉴스레터 부분 발송 실패 ${result.failed.length}명`,
+        subject: `[${siteConfig.serviceName}] ${targetDate} 뉴스레터 부분 발송 실패 ${result.failed.length}명`,
         lines: [
           `failed_count: ${result.failed.length}`,
           `failed_domains: ${failedDomains.join(', ') || 'unknown'}`,

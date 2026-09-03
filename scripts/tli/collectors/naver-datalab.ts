@@ -1,5 +1,6 @@
 import { config } from 'dotenv'
-config({ path: '.env.local', quiet: true })
+if (process.env.NODE_ENV !== 'test') config({ path: '.env.local', quiet: true })
+import { canonicalJsonV1Sha256 } from '../../../lib/tli/canonical-json'
 import { sleep } from '../shared/utils'
 import { ANCHOR_KEYWORD } from './datalab-anchor'
 import {
@@ -26,6 +27,11 @@ import {
   toInterestObservations,
 } from './naver-datalab-observations'
 import { appendFailedInterestRun, INTEREST_CONTRACT_VERSION } from './naver-datalab-run'
+import {
+  isDatalabForceRefresh,
+  isReusableRun,
+  parseReusableDatalabResponse,
+} from './naver-datalab-reuse'
 import {
   isDatalabAnchorEnabled,
   splitDatalabThemeBatches,
@@ -70,10 +76,14 @@ export async function collectNaverDatalab(
 
   const metrics: InterestMetric[] = [];
   let requested = 0
+  let reused = 0
   let succeeded = 0
   let failed = 0
   let persistenceFailed = 0
   const anchorEnabled = isDatalabAnchorEnabled()
+  const forceRefresh = options.forceRefresh ?? isDatalabForceRefresh()
+  const apiCall = options.callDatalab
+    ?? ((request: NaverDatalabRequest) => callNaverDatalab(request, { reserveAttempt: options.reserveAttempt }))
   const batches = splitDatalabThemeBatches(themes, anchorEnabled)
 
   for (let i = 0; i < batches.length; i++) {
@@ -94,34 +104,53 @@ export async function collectNaverDatalab(
       continue;
     }
 
-    requested++
-
     const request: NaverDatalabRequest = { startDate, endDate, timeUnit: 'date', keywordGroups };
     const requestPayload = toDatalabRequestPayload(request)
+    const requestSha256 = canonicalJsonV1Sha256(requestPayload)
     const batchSpecs: KeywordGroupSpec[] = themesWithKeywords.map(resolveThemeKeywordGroup)
     const keywordGroupHash = datalabBatchKeywordGroupHash(batchSpecs)
     const requestedThemes = themesWithKeywords.map((theme) => ({ themeId: theme.id, groupName: theme.name }))
     const requestedAt = new Date().toISOString()
 
-    let response: NaverDatalabResponse
-    try {
-      response = await callNaverDatalab(request);
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : String(error)
-      console.error(`   ❌ 배치 처리 실패:`, message);
-      failed++
-      const persisted = await appendFailedInterestRun({
-        startDate,
-        endDate,
-        requestPayload,
-        keywordGroupHash,
-        requestedThemes,
-        requestedAt,
-        failureSummary: { reason: datalabFailureReason(error), message },
-        transport: options.transport,
-      })
-      if (!persisted) persistenceFailed++
-      continue;
+    let response: NaverDatalabResponse | undefined
+    let reusedRunId: string | null = null
+    const reusableRun = forceRefresh ? undefined : options.reuseRuns?.get(requestSha256)
+    if (
+      reusableRun
+      && options.previousTradingDate
+      && isReusableRun(reusableRun, { requestWindowEnd: endDate, previousTradingDate: options.previousTradingDate })
+    ) {
+      try {
+        response = parseReusableDatalabResponse(reusableRun)
+        reusedRunId = reusableRun.id
+        reused++
+        console.log(`   ♻️ 재사용: ${reusableRun.id}`)
+      } catch (error: unknown) {
+        console.warn('   ⚠️ 저장된 DataLab 응답 복원 실패 — 새 요청으로 대체:', error instanceof Error ? error.message : String(error))
+      }
+    }
+
+    if (!response) {
+      requested++
+      try {
+        response = await apiCall(request)
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : String(error)
+        console.error(`   ❌ 배치 처리 실패:`, message);
+        failed++
+        const persisted = await appendFailedInterestRun({
+          startDate,
+          endDate,
+          requestPayload,
+          keywordGroupHash,
+          requestedThemes,
+          requestedAt,
+          failureSummary: { reason: datalabFailureReason(error), message },
+          transport: options.transport,
+        })
+        if (!persisted) persistenceFailed++
+        continue;
+      }
     }
 
     const collectedAt = new Date().toISOString()
@@ -153,6 +182,11 @@ export async function collectNaverDatalab(
     const missingThemes = requestedThemes.filter(t => !respondedThemeIds.includes(t.themeId));
     if (missingThemes.length > 0) {
       console.warn(`   ⚠️ DataLab 응답 누락 (${missingThemes.length}개): ${missingThemes.map(t => t.groupName).join(', ')}`);
+    }
+
+    if (reusedRunId !== null) {
+      metrics.push(...toInterestMetrics(observations))
+      continue
     }
 
     const append = buildInterestCollectionRun({
@@ -202,5 +236,10 @@ export async function collectNaverDatalab(
   }
 
   console.log(`\n   ✅ ${metrics.length}개 관심도 메트릭 수집 완료`);
-  return { metrics, report: { requested, succeeded, failed, persistenceFailed } };
+  return {
+    metrics,
+    report: reused > 0
+      ? { requested, reused, succeeded, failed, persistenceFailed }
+      : { requested, succeeded, failed, persistenceFailed },
+  };
 }

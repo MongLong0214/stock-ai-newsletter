@@ -18,9 +18,9 @@ export interface GitHubDispatchOptions {
 }
 
 export interface GitHubDispatchResult {
-  readonly dispatchId: string
+  readonly dispatchId: string | null
   readonly tokenExpiresInDays: number | null
-  readonly verified: boolean
+  readonly verified: boolean | null
 }
 
 interface GitHubWorkflowRun {
@@ -82,7 +82,7 @@ async function wait(milliseconds: number, signal: AbortSignal): Promise<void> {
 async function postDispatch(input: {
   readonly workflowFile: string
   readonly token: string
-  readonly inputs: WorkflowInputs
+  readonly inputs?: WorkflowInputs
   readonly signal: AbortSignal
 }): Promise<Response> {
   const response = await fetch(
@@ -90,7 +90,9 @@ async function postDispatch(input: {
     {
       method: 'POST',
       headers: githubHeaders(input.token),
-      body: JSON.stringify({ ref: GITHUB_REF, inputs: input.inputs }),
+      body: JSON.stringify(input.inputs === undefined
+        ? { ref: GITHUB_REF }
+        : { ref: GITHUB_REF, inputs: input.inputs }),
       signal: input.signal,
     },
   )
@@ -180,22 +182,30 @@ export async function dispatchGitHubWorkflow(
     () => controller.abort(new Error('GitHub workflow dispatch verification timed out')),
     DISPATCH_BUDGET_MS,
   )
-  const inputs = normalizeWorkflowInputs(options.inputs ?? {})
-  const dispatchId = typeof inputs.dispatch_id === 'string'
+  const inputs = options.inputs === undefined
+    ? undefined
+    : normalizeWorkflowInputs(options.inputs)
+  const dispatchId = typeof inputs?.dispatch_id === 'string'
     ? inputs.dispatch_id
-    : createDispatchId(
-      typeof inputs.target_date === 'string' ? inputs.target_date : 'dispatch',
-    )
+    : null
 
   try {
     const dispatchStartedAt = Date.now()
     const response = await postDispatch({
       workflowFile,
       token,
-      inputs: { ...inputs, dispatch_id: dispatchId },
+      inputs,
       signal: controller.signal,
     })
     const tokenExpiresInDays = readTokenExpiryDays(response.headers)
+    if (dispatchId === null) {
+      console.log(JSON.stringify({
+        event: 'dispatch_verification_skipped',
+        workflowFile,
+        reason: 'dispatch_id_missing',
+      }))
+      return { dispatchId, tokenExpiresInDays, verified: null }
+    }
     const verified = await verifyRunCreated({
       workflowFile,
       token,

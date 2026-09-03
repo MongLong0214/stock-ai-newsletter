@@ -34,7 +34,7 @@ export function getFewShotExamples(): string {
 
   <example type="excellent" label="본문에서 서비스 언급이 필요할 때 (원칙: 하지 않는다)">
     <rule>
-      본문에서 자사(Stock Matrix)를 홍보하지 않는다. 독자를 위한 CTA는 페이지 컴포넌트가
+      본문에서 자사(StockMatrix)를 홍보하지 않는다. 독자를 위한 CTA는 페이지 컴포넌트가
       별도 영역에 단다. 비교·추천 목록에 자사를 넣는 것도 금지 — 특히 다른 상품 범주의
       비교표(IRP·증권사·카드 등)에 뉴스레터가 행으로 끼는 것은 범주 오류이자 광고다.
     </rule>
@@ -42,7 +42,7 @@ export function getFewShotExamples(): string {
 
   <example type="poor" label="피해야 할 홍보 예시">
     <paragraph>
-      "Stock Matrix는 최고의 주식 분석 서비스입니다! 무료이니 지금 바로 가입하세요! 후회하지 않을 겁니다!"
+      "StockMatrix는 최고의 주식 분석 서비스입니다! 무료이니 지금 바로 가입하세요! 후회하지 않을 겁니다!"
     </paragraph>
     <why_poor>
       - "최고의" 같은 과장된 표현
@@ -278,7 +278,7 @@ export function getQualityChecklist(
   </content_quality>
 
   <no_self_promotion>
-    [ ] 본문에서 자사(Stock Matrix) 홍보 금지 — CTA는 페이지 컴포넌트가 별도로 단다
+    [ ] 본문에서 자사(StockMatrix) 홍보 금지 — CTA는 페이지 컴포넌트가 별도로 단다
     [ ] 자사를 비교표·추천 목록에 넣지 않는다
     [ ] 광고성 표현 배제 (최고의, 놀라운 등 금지)
   </no_self_promotion>

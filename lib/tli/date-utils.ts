@@ -4,6 +4,13 @@
 export const KST_OFFSET_MS = 9 * 60 * 60 * 1000
 export const DAY_MS = 86_400_000
 
+const KST_DATE_FORMATTER = new Intl.DateTimeFormat('en-CA', {
+  timeZone: 'Asia/Seoul',
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+})
+
 /** KST 기준 Date 객체 반환 (offsetDays: 음수 = 과거, 양수 = 미래) */
 export function getKSTDate(offsetDays = 0): Date {
   return new Date(Date.now() + KST_OFFSET_MS + offsetDays * DAY_MS)
@@ -12,6 +19,14 @@ export function getKSTDate(offsetDays = 0): Date {
 /** KST 기준 날짜 문자열 (YYYY-MM-DD) */
 export function getKSTDateString(offsetDays = 0): string {
   return getKSTDate(offsetDays).toISOString().split('T')[0]
+}
+
+/** 타임스탬프를 KST 기준 날짜(YYYY-MM-DD)로 변환. 값이 없거나 잘못되면 null. */
+export function formatKSTDateFromTimestamp(timestamp: string | null): string | null {
+  if (!timestamp) return null
+
+  const date = new Date(timestamp)
+  return Number.isNaN(date.getTime()) ? null : KST_DATE_FORMATTER.format(date)
 }
 
 export function formatKoreanDate(dateString: string, format: 'short' | 'long'): string {

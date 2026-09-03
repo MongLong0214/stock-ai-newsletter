@@ -17,7 +17,7 @@ export const metadata: Metadata = {
     canonical: `${siteConfig.domain}/about`,
   },
   openGraph: {
-    title: 'Stock Matrix - AI가 30개 지표로 분석하는 무료 주식 뉴스레터',
+    title: `${siteConfig.serviceName} - AI가 30개 지표로 분석하는 무료 주식 뉴스레터`,
     description:
       '매일 아침 7시 30분, AI가 RSI·MACD·볼린저밴드 등 30개 지표로 KOSPI/KOSDAQ 3종목 분석',
     url: `${siteConfig.domain}/about`,
@@ -29,13 +29,13 @@ export const metadata: Metadata = {
         url: withOgImageVersion('/about/opengraph-image'),
         width: 1200,
         height: 630,
-        alt: 'Stock Matrix AI 주식 분석 서비스',
+        alt: `${siteConfig.serviceName} AI 주식 분석 서비스`,
       },
     ],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Stock Matrix - AI 주식 분석 뉴스레터',
+    title: `${siteConfig.serviceName} - AI 주식 분석 뉴스레터`,
     description: '30개 기술지표 AI 분석, 매일 7:30 무료 발송',
     images: [withOgImageVersion('/about/opengraph-image')],
   },

@@ -17,7 +17,7 @@ export const internalLinks = {
     {
       text: '서비스 소개',
       url: `${siteConfig.domain}/about`,
-      title: 'Stock Matrix AI 주식 분석 서비스 소개',
+      title: `${siteConfig.serviceName} AI 주식 분석 서비스 소개`,
     },
     {
       text: '기술적 지표 가이드',
@@ -27,7 +27,7 @@ export const internalLinks = {
     {
       text: '자주 묻는 질문',
       url: `${siteConfig.domain}/faq`,
-      title: 'Stock Matrix 주식 뉴스레터 FAQ',
+      title: `${siteConfig.serviceName} 주식 뉴스레터 FAQ`,
     },
     {
       text: '무료 구독하기',
@@ -53,7 +53,7 @@ export const internalLinks = {
       {
         text: '자주 묻는 질문 보기',
         url: `${siteConfig.domain}/faq`,
-        title: 'Stock Matrix FAQ',
+        title: `${siteConfig.serviceName} FAQ`,
       },
     ],
 
@@ -65,7 +65,7 @@ export const internalLinks = {
         title: '지금 무료 구독',
       },
       {
-        text: 'Stock Matrix 서비스 자세히 보기',
+        text: `${siteConfig.serviceName} 서비스 자세히 보기`,
         url: `${siteConfig.domain}/about`,
         title: '서비스 소개',
       },

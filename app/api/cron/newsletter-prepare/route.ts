@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 
+import { siteConfig } from '@/lib/constants/seo/config'
 import { verifyCronBearerToken } from '@/lib/cron-auth'
 import {
   createDispatchId,
@@ -54,7 +55,7 @@ export async function GET(request: Request) {
     })
     if (dispatch.tokenExpiresInDays !== null && dispatch.tokenExpiresInDays < 14) {
       await sendNewsletterAlertEmail({
-        subject: `[Stock Matrix] GitHub Actions PAT 만료 D-${dispatch.tokenExpiresInDays}`,
+        subject: `[${siteConfig.serviceName}] GitHub Actions PAT 만료 D-${dispatch.tokenExpiresInDays}`,
         lines: [
           `대상 날짜: ${date}`,
           `dispatch_id: ${dispatch.dispatchId}`,

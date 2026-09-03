@@ -26,7 +26,7 @@ const datalabResultSchema = z.object({
   data: z.array(datalabPointSchema),
 }).strict()
 
-const naverDatalabResponseSchema = z.object({
+export const naverDatalabResponseSchema = z.object({
   startDate: isoDateSchema.optional(),
   endDate: isoDateSchema.optional(),
   timeUnit: z.enum(['date', 'week', 'month']).optional(),
@@ -54,12 +54,21 @@ export class NaverDatalabResponseError extends Error {
   }
 }
 
+export class NaverDatalabQuotaError extends Error {
+  readonly reason = 'naver_datalab_quota_exceeded'
+
+  constructor(message: string) {
+    super(message)
+    this.name = 'NaverDatalabQuotaError'
+  }
+}
+
 const validationMessage = (error: z.ZodError): string =>
   error.issues
     .map((issue) => `${issue.path.join('.') || '<root>'}: ${issue.message}`)
     .join('; ')
 
-const parseDatalabResponse = (payload: unknown): NaverDatalabResponse => {
+export const parseDatalabResponse = (payload: unknown): NaverDatalabResponse => {
   const parsed = naverDatalabResponseSchema.safeParse(payload)
   if (!parsed.success) {
     throw new NaverDatalabResponseError(`네이버 DataLab 응답 스키마 오류: ${validationMessage(parsed.error)}`)
@@ -78,10 +87,20 @@ const getNaverCredentials = () => {
 
 export const callNaverDatalab = async (
   request: NaverDatalabRequest,
+  options: { readonly reserveAttempt?: () => Promise<void> } = {},
 ): Promise<NaverDatalabResponse> => {
   const { clientId, clientSecret } = getNaverCredentials()
+  const reserveAttempt = options.reserveAttempt ?? (async () => {
+    const [{ reserveDatalabQuota }, { getKSTDateString }] = await Promise.all([
+      import('./naver-datalab-quota'),
+      import('../../../lib/tli/date-utils'),
+    ])
+    // WHY: Naver DataLab의 일일 한도는 KST 자정에 초기화된다는 운영 가정과 ledger 날짜를 맞춘다.
+    await reserveDatalabQuota({ kstDate: getKSTDateString(), count: 1 })
+  })
   const response = await withRetry(
     async () => {
+      await reserveAttempt()
       const candidate = await fetch('https://openapi.naver.com/v1/datalab/search', {
         method: 'POST',
         headers: {
@@ -93,12 +112,17 @@ export const callNaverDatalab = async (
         signal: AbortSignal.timeout(30000),
       })
       if (!candidate.ok) {
-        throw new Error(`네이버 API 오류 (${candidate.status}): ${await candidate.text()}`)
+        const body = await candidate.text()
+        if (candidate.status === 429 || body.includes('Query limit exceeded')) {
+          throw new NaverDatalabQuotaError(`네이버 API quota 초과 (${candidate.status}): ${body}`)
+        }
+        throw new Error(`네이버 API 오류 (${candidate.status}): ${body}`)
       }
       return candidate
     },
     3,
     '네이버 DataLab API 호출',
+    { shouldRetry: (error) => !(error instanceof NaverDatalabQuotaError) },
   )
 
   let payload: unknown
@@ -113,7 +137,7 @@ export const callNaverDatalab = async (
 }
 
 export const datalabFailureReason = (error: unknown): string =>
-  error instanceof NaverDatalabResponseError
+  error instanceof NaverDatalabQuotaError || error instanceof NaverDatalabResponseError
     ? error.reason
     : 'naver_datalab_request_failed'
 

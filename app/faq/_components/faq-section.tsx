@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { faqData } from '@/lib/constants/seo/faq-data';
+import { siteConfig } from '@/lib/constants/seo/config';
 import FAQAccordionItem from './faq-accordion-item';
 
 function FAQSection() {
@@ -35,7 +36,7 @@ function FAQSection() {
             자주 묻는 질문
           </h1>
           <p className="text-lg text-slate-300 font-light tracking-wide">
-            Stock Matrix AI 주식 분석 뉴스레터에 대한 궁금증을 해결해드립니다
+            {siteConfig.serviceName} AI 주식 분석 뉴스레터에 대한 궁금증을 해결해드립니다
           </p>
         </motion.div>
 
@@ -70,12 +71,12 @@ function FAQSection() {
               아직 궁금한 점이 있으신가요?
             </h3>
             <p className="text-slate-300 font-light tracking-wide mb-4">
-              Stock Matrix 팀이 친절하게 답변해드립니다
+              {siteConfig.serviceName} 팀이 친절하게 답변해드립니다
             </p>
             <a
               href="mailto:aistockmatrix@gmail.com"
               className="inline-flex items-center gap-2 px-6 py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-medium rounded-3xl transition-all duration-700 transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 focus:ring-offset-slate-900"
-              aria-label="Stock Matrix 이메일 문의하기"
+              aria-label={`${siteConfig.serviceName} 이메일 문의하기`}
             >
               <svg
                 className="w-5 h-5"

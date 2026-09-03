@@ -6,8 +6,20 @@ import { UnsupportedLegacyArtifactError } from '@/lib/tli/model/predict'
 const registryMocks = vi.hoisted(() => ({
   snapshotRows: [] as Array<{ theme_id: string; snapshot_date: string; phase: string }>,
   recentLabelRows: [] as Array<{ base_date: string; y_binary: boolean | null }>,
-  championEntry: null as { model_version: string; model_type: string; coefficients: unknown } | null,
-  challengerEntry: null as { model_version: string; model_type: string; coefficients: unknown } | null,
+  championEntry: null as {
+    model_version: string
+    model_type: string
+    coefficients: unknown
+    scientific_claim_status: 'unvalidated' | 'eligible' | 'invalidated'
+    scientific_release_status: 'blocked' | 'internal' | 'public'
+  } | null,
+  challengerEntry: null as {
+    model_version: string
+    model_type: string
+    coefficients: unknown
+    scientific_claim_status: 'unvalidated' | 'eligible' | 'invalidated'
+    scientific_release_status: 'blocked' | 'internal' | 'public'
+  } | null,
   upsertLegacyPredictionsV3: vi.fn(async (_rows: Array<Record<string, unknown>>) => {
     void _rows
     return _rows.length
@@ -161,6 +173,8 @@ describe('snapshotThemePredictionsV3 — model_registry-driven scoring (A1)', ()
       model_version: 'm1-2026w27',
       model_type: 'm1_logistic',
       coefficients: { ...legacyM1Artifact(), train_event_rate: 0.5 },
+      scientific_claim_status: 'eligible',
+      scientific_release_status: 'internal',
     }
     const { snapshotThemePredictionsV3 } = await import('@/scripts/tli/comparison/theme-predictions-v3')
 
@@ -212,16 +226,86 @@ describe('snapshotThemePredictionsV3 — model_registry-driven scoring (A1)', ()
     })
   })
 
+  it('stops all legacy row creation for an invalidated champion', async () => {
+    registryMocks.championEntry = {
+      model_version: 'm1-invalidated',
+      model_type: 'm1_logistic',
+      coefficients: legacyM1Artifact(),
+      scientific_claim_status: 'invalidated',
+      scientific_release_status: 'blocked',
+    }
+    const { snapshotThemePredictionsV3 } = await import('@/scripts/tli/comparison/theme-predictions-v3')
+
+    await expect(snapshotThemePredictionsV3({ today: '2026-07-06' })).resolves.toEqual({
+      championRows: 0,
+      challengerRows: 0,
+      skippedReason: 'champion_invalidated',
+    })
+    expect(registryMocks.upsertLegacyPredictionsV3).not.toHaveBeenCalled()
+    expect(registryMocks.loadSharedFeatureRows).not.toHaveBeenCalled()
+  })
+
+  it('stops all legacy row creation for a blocked champion', async () => {
+    registryMocks.championEntry = {
+      model_version: 'b-abl-v1',
+      model_type: 'b_abl',
+      coefficients: {},
+      scientific_claim_status: 'unvalidated',
+      scientific_release_status: 'blocked',
+    }
+    const { snapshotThemePredictionsV3 } = await import('@/scripts/tli/comparison/theme-predictions-v3')
+
+    await expect(snapshotThemePredictionsV3({ today: '2026-07-06' })).resolves.toEqual({
+      championRows: 0,
+      challengerRows: 0,
+      skippedReason: 'champion_blocked',
+    })
+    expect(registryMocks.upsertLegacyPredictionsV3).not.toHaveBeenCalled()
+    expect(registryMocks.loadSharedFeatureRows).not.toHaveBeenCalled()
+  })
+
+  it('writes only the active champion when the challenger is blocked', async () => {
+    registryMocks.championEntry = {
+      model_version: 'b-abl-active',
+      model_type: 'b_abl',
+      coefficients: {},
+      scientific_claim_status: 'eligible',
+      scientific_release_status: 'internal',
+    }
+    registryMocks.challengerEntry = {
+      model_version: 'm1-blocked',
+      model_type: 'm1_logistic',
+      coefficients: legacyM1Artifact(),
+      scientific_claim_status: 'eligible',
+      scientific_release_status: 'blocked',
+    }
+    const { snapshotThemePredictionsV3 } = await import('@/scripts/tli/comparison/theme-predictions-v3')
+
+    await expect(snapshotThemePredictionsV3({ today: '2026-07-06' })).resolves.toEqual({
+      championRows: 1,
+      challengerRows: 0,
+    })
+    expect(upsertRows()).toHaveLength(1)
+    expect(firstUpsertRow()).toMatchObject({
+      serving_role: 'champion',
+      model_version: 'b-abl-active',
+    })
+  })
+
   it('keeps the champion row when a legacy v1 challenger fails at its isolated boundary', async () => {
     registryMocks.championEntry = {
       model_version: 'b-abl-v1',
       model_type: 'b_abl',
       coefficients: {},
+      scientific_claim_status: 'eligible',
+      scientific_release_status: 'internal',
     }
     registryMocks.challengerEntry = {
       model_version: 'm1-2026w27',
       model_type: 'm1_logistic',
       coefficients: legacyM1Artifact(),
+      scientific_claim_status: 'eligible',
+      scientific_release_status: 'internal',
     }
     const { snapshotThemePredictionsV3 } = await import('@/scripts/tli/comparison/theme-predictions-v3')
 

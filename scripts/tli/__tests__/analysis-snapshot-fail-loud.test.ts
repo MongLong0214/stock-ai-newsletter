@@ -12,6 +12,7 @@ const mocks = vi.hoisted(() => ({
   calculateThemeComparisons: vi.fn(),
   collectBablPhaseSnapshot: vi.fn(),
   runMondayOrigins: vi.fn(),
+  evaluateAndRecordStudyOriginEligibility: vi.fn(),
   evaluatePredictions: vi.fn(),
   evaluateThemePredictionsV3: vi.fn(),
   countExpiredPendingPredictions: vi.fn(),
@@ -55,6 +56,9 @@ vi.mock('@/scripts/tli/collectors/babl-phase-snapshot', () => ({
 }))
 vi.mock('@/scripts/tli/origins/run-monday-origins', () => ({
   runMondayOrigins: mocks.runMondayOrigins,
+}))
+vi.mock('@/scripts/tli/origins/run-origin-eligibility', () => ({
+  evaluateAndRecordStudyOriginEligibility: mocks.evaluateAndRecordStudyOriginEligibility,
 }))
 vi.mock('@/scripts/tli/comparison/evaluate-predictions', () => ({
   evaluatePredictions: mocks.evaluatePredictions,
@@ -108,6 +112,19 @@ describe('analysis snapshot fail-loud contract', () => {
     mocks.snapshotThemePredictionsV3.mockResolvedValue({ championRows: 0, challengerRows: 0 })
     mocks.collectBablPhaseSnapshot.mockResolvedValue(undefined)
     mocks.runMondayOrigins.mockResolvedValue({ skippedReason: 'up_to_date', origins: [] })
+    mocks.evaluateAndRecordStudyOriginEligibility.mockResolvedValue({
+      evaluations: [],
+      summary: {
+        evaluatedCount: 0,
+        eligibleCount: 0,
+        ineligibleCount: 0,
+        standingIneligibleCount: 0,
+        insertedCount: 0,
+        newlyRecordedIneligibleCount: 0,
+        severity: 'pass',
+        exitCode: 0,
+      },
+    })
     mocks.evaluatePredictions.mockResolvedValue(undefined)
     mocks.evaluateThemePredictionsV3.mockResolvedValue({
       cutoffDate: '2026-07-06', updates: 0, metrics: 0, skippedPending: 0,

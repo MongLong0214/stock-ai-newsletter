@@ -30,6 +30,7 @@ describe('dispatchGitHubWorkflow', () => {
     vi.useFakeTimers()
     vi.setSystemTime(NOW)
     vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    vi.spyOn(console, 'log').mockImplementation(() => undefined)
     vi.spyOn(console, 'warn').mockImplementation(() => undefined)
   })
 
@@ -136,6 +137,52 @@ describe('dispatchGitHubWorkflow', () => {
 
     await expect(resultPromise).resolves.toMatchObject({ verified: false, dispatchId: 'first' })
     expect(fetchMock.mock.calls.filter((call) => call[1]?.method === 'POST')).toHaveLength(1)
+  })
+
+  it('keeps the legacy body and skips verification when inputs are omitted', async () => {
+    const fetchMock = vi.fn(async () => dispatchResponse())
+    vi.stubGlobal('fetch', fetchMock)
+
+    await expect(dispatchGitHubWorkflow('prepare-newsletter.yml', {
+      token: 'token',
+    })).resolves.toEqual({
+      dispatchId: null,
+      tokenExpiresInDays: null,
+      verified: null,
+    })
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining('/prepare-newsletter.yml/dispatches'),
+      expect.objectContaining({ body: JSON.stringify({ ref: 'main' }) }),
+    )
+  })
+
+  it('serializes inputs without injecting a dispatch_id and skips verification', async () => {
+    const fetchMock = vi.fn(async () => dispatchResponse())
+    vi.stubGlobal('fetch', fetchMock)
+    const inputs = {
+      mode: 'datalab-only',
+      datalab_refresh: 'reuse',
+      intended_kst_date: '2026-09-02',
+      run_key: 'datalab-0900:2026-09-02',
+    }
+
+    await expect(dispatchGitHubWorkflow('tli-collect-data.yml', {
+      inputs,
+      token: 'token',
+    })).resolves.toMatchObject({ dispatchId: null, verified: null })
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining('/tli-collect-data.yml/dispatches'),
+      expect.objectContaining({ body: JSON.stringify({ ref: 'main', inputs }) }),
+    )
+    expect(console.log).toHaveBeenCalledWith(JSON.stringify({
+      event: 'dispatch_verification_skipped',
+      workflowFile: 'tli-collect-data.yml',
+      reason: 'dispatch_id_missing',
+    }))
   })
 
   it('normalizes workflow inputs without stringifying booleans', () => {

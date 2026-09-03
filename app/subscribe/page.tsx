@@ -19,6 +19,7 @@ import AnimatedBackground from '@/components/animated-background';
 import { useCountdownToTomorrow } from '@/hooks/use-countdown-to-tomorrow';
 import { isDisposableEmail } from 'disposable-email-domains-js';
 import { trackEvent } from '@/lib/analytics/ga';
+import { siteConfig } from '@/lib/constants/seo/config';
 
 const subscribeSchema = z.object({
   email: z.string()
@@ -152,7 +153,7 @@ export default function SubscribePage() {
                 </div>
                 <div className="flex items-center gap-2 text-emerald-400/80">
                   <TrendingUp className="w-5 h-5" aria-hidden="true" />
-                  <span className="text-sm">웹사이트에서 200+ 테마 추적</span>
+                  <span className="text-sm">웹사이트에서 {siteConfig.themeCountFloor}+ 테마 추적</span>
                 </div>
               </div>
             </motion.div>

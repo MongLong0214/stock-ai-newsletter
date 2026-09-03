@@ -1,3 +1,4 @@
+import { siteConfig } from '@/lib/constants/seo/config'
 import { sendNewsletterAlertEmail } from '@/lib/newsletter/alert'
 
 type PipelineStage = 'prepare' | 'send'
@@ -50,7 +51,7 @@ export async function notifyPipelineFailure(
   let delivered = false
   try {
     delivered = await (dependencies.sendAlert ?? sendNewsletterAlertEmail)({
-      subject: `[Stock Matrix] ${targetDate} newsletter ${stage} pipeline failure`,
+      subject: `[${siteConfig.serviceName}] ${targetDate} newsletter ${stage} pipeline failure`,
       lines: [
         `stage: ${stage}`,
         `target_date: ${targetDate}`,

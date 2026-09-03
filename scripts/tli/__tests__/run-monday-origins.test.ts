@@ -1,5 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 
+vi.mock('@/scripts/tli/shared/supabase-admin', () => ({ supabaseAdmin: {} }))
+
 import { canonicalJsonV1, canonicalJsonV1Sha256 } from '@/lib/tli/canonical-json'
 import type { AttentionStudyContract } from '../collectors/babl-phase-snapshot'
 import { buildKeywordGroupSpec, keywordGroupSha256 } from '../collectors/collection-run-contract'
@@ -58,6 +60,7 @@ const existingForecast = (
   originDate: MONDAY,
   expectedThemeIds,
   usableChildCount: expectedThemeIds.length,
+  rosterThemeCount: expectedThemeIds.length,
 })
 
 const existingBinding = (): ExistingStudyBinding => ({
@@ -177,6 +180,8 @@ describe('runMondayOrigins', () => {
     expect(origin.forecastManifestId).toBe('ffffffff-ffff-4fff-8fff-ffffffffffff')
     expect(origin.forecastChildCount).toBe(193)
     expect(origin.usableChildCount).toBe(193)
+    expect(origin.abstainChildCount).toBe(0)
+    expect(origin.rosterThemeCount).toBe(193)
     expect(origin.studyOriginManifestIds).toHaveLength(1)
 
     const forecastPayload = (deps.createForecastManifest as ReturnType<typeof vi.fn>).mock.calls[0][0] as Record<string, unknown>
@@ -210,6 +215,8 @@ describe('runMondayOrigins', () => {
     const report = await runMondayOrigins(MONDAY, deps)
     expect(report.origins[0].forecastChildCount).toBe(2)
     expect(report.origins[0].usableChildCount).toBe(1)
+    expect(report.origins[0].abstainChildCount).toBe(1)
+    expect(report.origins[0].rosterThemeCount).toBe(2)
 
     const payload = (deps.createForecastManifest as ReturnType<typeof vi.fn>).mock.calls[0][0] as Record<string, unknown>
     const children = payload.theme_inputs as Array<{ input_status: string; abstain_reason: string | null }>

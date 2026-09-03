@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { ArrowRight, Mail } from 'lucide-react';
 import { trackEvent } from '@/lib/analytics/ga';
+import { siteConfig } from '@/lib/constants/seo/config';
 
 /**
  * CTA 섹션 컴포넌트
@@ -23,7 +24,7 @@ export function CTASection({ slug }: { slug?: string } = {}) {
         </div>
 
         <p className="text-slate-300 mb-6 max-w-xl">
-          Stock Matrix는 30개 기술지표를 분석해 매일 오전 7시 30분 유망 종목 3개를 선정합니다.
+          {siteConfig.serviceName}는 30개 기술지표를 분석해 매일 오전 7시 30분 유망 종목 3개를 선정합니다.
           무료로 구독하고 데이터 기반 투자를 시작하세요.
         </p>
 

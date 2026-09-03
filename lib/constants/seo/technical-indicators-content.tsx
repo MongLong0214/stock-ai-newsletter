@@ -4,20 +4,22 @@
  * Keywords: 기술적 지표, RSI, MACD, 볼린저밴드, 이동평균선, 스토캐스틱, 기술적 분석
  */
 
+import { siteConfig } from './config';
+
 export const technicalIndicatorsContent = {
   title: "30가지 기술적 지표로 분석하는 AI 주식 투자 전략",
 
   introduction: {
     heading: "기술적 지표란 무엇인가요?",
     content: `<strong>기술적 지표</strong>는 주가의 과거 데이터를 수학적으로 분석하여 미래 가격 움직임을 예측하는 도구입니다.
-    Stock Matrix는 30가지 이상의 <strong>기술적 분석</strong> 지표를 AI로 통합 분석하여,
+    ${siteConfig.serviceName}는 30가지 이상의 <strong>기술적 분석</strong> 지표를 AI로 통합 분석하여,
     단일 지표만으로는 놓칠 수 있는 매매 시그널을 포착합니다.
     개별 투자자가 수십 개의 지표를 동시에 모니터링하기는 어렵지만,
     AI는 실시간으로 모든 지표를 종합하여 객관적인 투자 인사이트를 제공합니다.`
   },
 
   mainIndicators: {
-    heading: "Stock Matrix가 활용하는 핵심 기술적 지표",
+    heading: `${siteConfig.serviceName}가 활용하는 핵심 기술적 지표`,
     indicators: [
       {
         id: "rsi",
@@ -111,7 +113,7 @@ export const technicalIndicatorsContent = {
 
   aiIntegration: {
     heading: "AI가 30가지 지표를 종합 분석하는 방법",
-    content: `Stock Matrix의 AI는 RSI, MACD, 볼린저밴드, 이동평균선, 스토캐스틱, CCI, ADX, OBV, 일목균형표, ATR, SuperTrend 등
+    content: `${siteConfig.serviceName}의 AI는 RSI, MACD, 볼린저밴드, 이동평균선, 스토캐스틱, CCI, ADX, OBV, 일목균형표, ATR, SuperTrend 등
     <strong>30가지 이상의 기술적 지표</strong>를 동시에 분석합니다.
 
     단일 지표만 보면 잘못된 신호(False Signal)를 받을 수 있지만,
@@ -129,7 +131,7 @@ export const technicalIndicatorsContent = {
 
   // SEO Metadata
   seo: {
-    title: "기술적 지표 완벽 가이드 | RSI, MACD, 볼린저밴드 활용법 - Stock Matrix",
+    title: `기술적 지표 완벽 가이드 | RSI, MACD, 볼린저밴드 활용법 - ${siteConfig.serviceName}`,
     description: "RSI, MACD, 볼린저밴드 등 30가지 기술적 지표를 AI로 종합 분석하는 방법. 이동평균선 골든크로스, 스토캐스틱 매매 타이밍까지 완벽 정리",
     keywords: [
       "기술적 지표",
@@ -222,11 +224,11 @@ export function TechnicalIndicatorsContent() {
             "description": technicalIndicatorsContent.seo.description,
             "author": {
               "@type": "Organization",
-              "name": "Stock Matrix"
+              "name": siteConfig.serviceName
             },
             "publisher": {
               "@type": "Organization",
-              "name": "Stock Matrix",
+              "name": siteConfig.serviceName,
               "url": "https://stockmatrix.co.kr"
             },
             "keywords": technicalIndicatorsContent.seo.keywords.join(", "),

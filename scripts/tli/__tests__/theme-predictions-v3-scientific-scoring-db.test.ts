@@ -42,6 +42,8 @@ vi.mock('@/scripts/tli/shared/supabase-admin', () => {
     in(column: string, values: readonly unknown[]): QueryBuilder
     order(column: string): QueryBuilder
     range(from: number, to: number): QueryBuilder
+    or(expression: string): QueryBuilder
+    limit(count: number): QueryBuilder
   }
 
   const query = (table: string): QueryBuilder => {
@@ -65,6 +67,11 @@ vi.mock('@/scripts/tli/shared/supabase-admin', () => {
       },
       range: (from, to) => {
         range = [from, to]
+        return builder
+      },
+      or: () => builder,
+      limit: (count) => {
+        range = [range[0], range[0] + count - 1]
         return builder
       },
       then: (onfulfilled, onrejected) => {
@@ -115,6 +122,11 @@ const seedDb = (): void => {
     tli_experiment_cycles: fixture.cycles.map((row) => ({ ...row })),
     tli_experiment_origin_manifests: fixture.origins.map((row) => ({ ...row })),
     tli_study_origin_manifests: fixture.studyOrigins.map((row) => ({ ...row })),
+    tli_study_origin_eligibility_latest: fixture.studyOrigins.map((row) => ({
+      study_origin_manifest_id: row.id,
+      rule_version: 'origin-eligibility-v2',
+      verdict: 'eligible',
+    })),
     tli_forecast_origin_manifests: fixture.forecasts.map((row) => ({ ...row })),
     tli_evidence_artifacts: fixture.evidenceArtifacts.map((row) => ({ ...row })),
     tli_evidence_attestations: fixture.evidenceAttestations.map((row) => ({ ...row })),

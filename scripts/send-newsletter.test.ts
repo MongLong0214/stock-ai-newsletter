@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
+import { siteConfig } from '@/lib/constants/seo/config'
 import {
   fetchActiveSubscribers,
   parseSendNewsletterCliArgs,
@@ -216,7 +217,7 @@ describe('runSendNewsletter', () => {
     )
     expect(repository.confirmSent).toHaveBeenCalledOnce()
     expect(sendAlert).toHaveBeenCalledWith(expect.objectContaining({
-      subject: `[Stock Matrix] ${TARGET_DATE} 발송 선점 미확정 복구 — 재발송 (중복 가능)`,
+      subject: `[${siteConfig.serviceName}] ${TARGET_DATE} 발송 선점 미확정 복구 — 재발송 (중복 가능)`,
     }))
     expect(logger.warn).toHaveBeenCalledWith(JSON.stringify({
       event: 'send_recovering_unconfirmed_claim',

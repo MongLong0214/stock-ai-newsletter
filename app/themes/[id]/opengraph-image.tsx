@@ -11,7 +11,7 @@ export function generateStaticParams() {
   return [];
 }
 
-export const alt = '테마 생명주기 분석 - Stock Matrix';
+export const alt = '테마 생명주기 분석 - StockMatrix';
 export const size = {
   width: 1200,
   height: 630,

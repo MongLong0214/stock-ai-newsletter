@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 
+import { siteConfig } from '@/lib/constants/seo/config'
 import { verifyCronBearerToken } from '@/lib/cron-auth'
 import { sendNewsletterAlertEmail } from '@/lib/newsletter/alert'
 import { getNewsletterStatus } from '@/lib/newsletter/status'
@@ -27,7 +28,7 @@ export async function GET(request: Request) {
     const newsletter = await getNewsletterStatus(date)
     if (!newsletter) {
       await sendNewsletterAlertEmail({
-        subject: `[Stock Matrix] ${date} 콘텐츠 미준비 (07:05)`,
+        subject: `[${siteConfig.serviceName}] ${date} 콘텐츠 미준비 (07:05)`,
         lines: [
           `대상 날짜: ${date}`,
           '06:10 primary와 06:50 backup prepare 상태를 확인하세요.',
@@ -43,7 +44,7 @@ export async function GET(request: Request) {
       console.log(JSON.stringify({ event: 'crash_alert_content', date }))
     } else if (newsletter.picks_source === 'llm_fallback' || newsletter.picks_source === null) {
       await sendNewsletterAlertEmail({
-        subject: `[Stock Matrix] ${date} LLM fallback 콘텐츠로 발송 예정`,
+        subject: `[${siteConfig.serviceName}] ${date} LLM fallback 콘텐츠로 발송 예정`,
         lines: [
           `대상 날짜: ${date}`,
           `picks_source: ${newsletter.picks_source ?? 'null'}`,

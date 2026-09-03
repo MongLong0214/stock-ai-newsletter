@@ -1,10 +1,14 @@
 import type { Metadata } from 'next'
 import { siteConfig, schemaIds, ensureKSTTimezone, withOgImageVersion } from '@/lib/constants/seo/config'
+import { NAVER_DATALAB_DATASET_SCHEMA } from '@/lib/constants/seo/schema'
 import { SCORE_COMPONENTS } from '@/lib/tli/constants/score-config'
 import { getServerSupabaseClient } from '@/lib/supabase/server-client'
+import { formatKSTDateFromTimestamp } from '@/lib/tli/date-utils'
 import { STAGE_CONFIG } from '@/lib/tli/types'
 import DetailContent from './_components/detail-content'
 import ThemeDetailAnalytics from './_components/theme-detail-analytics'
+import { themeKeywordVariants } from './theme-keyword-variants'
+import { buildThemeMetadataTitle } from './theme-metadata-title'
 import { getThemeSeoData } from './theme-seo-data'
 
 /** 1시간마다 재검증 (ISR) */
@@ -46,18 +50,21 @@ export async function generateMetadata({
     ? STAGE_CONFIG[theme.stage as keyof typeof STAGE_CONFIG].label
     : null
   const stocksText = theme.topStocks.length > 0 ? theme.topStocks.slice(0, 3).join(', ') : null
+  const asOfDate = formatKSTDateFromTimestamp(theme.updatedAt)
 
-  const title = stageKo && theme.score != null
-    ? `${theme.name} 관련주 — ${stageKo} 단계 · 점수 ${theme.score}/100`
-    : `${theme.name} 관련주 — 테마 생명주기 분석`
+  // WHY: 검색 수요가 있는 탄소배출권·비대면진료 같은 한정어가 잘리지 않도록
+  // titleTemplate 포함 접미부를 38자에서 27자로 줄였다. 최장 32자 이름도 총 59자다.
+  const title = buildThemeMetadataTitle(theme.name, stageKo, theme.score)
 
   const descParts = [`${theme.name} 테마 생명주기 분석.`]
-  if (stageKo && theme.score != null) descParts.push(`현재 ${stageKo} 단계, 점수 ${theme.score}점.`)
+  if (stageKo && theme.score != null) {
+    descParts.push(`현재 ${stageKo} 단계, 점수 ${theme.score}점${asOfDate ? ` (${asOfDate} 기준)` : ''}.`)
+  }
   if (stocksText) descParts.push(`주요 종목: ${stocksText}.`)
   descParts.push('단계별 추이, 생명주기 차트, 관련 종목을 확인하세요.')
   const description = theme.description || descParts.join(' ')
 
-  const keywords = [
+  const keywords = [...new Set([
     `${theme.name} 관련주`,
     `${theme.name} 테마주`,
     `${theme.name} 테마`,
@@ -67,7 +74,8 @@ export async function generateMetadata({
     '테마 생명주기',
     '테마주 분석',
     ...theme.topStocks.slice(0, 3),
-  ]
+    ...themeKeywordVariants(theme.name),
+  ])]
 
   return {
     title,
@@ -109,6 +117,8 @@ export default async function ThemeDetailPage({ params }: { params: Promise<{ id
   const stageKo = theme?.stage && theme.stage in STAGE_CONFIG
     ? STAGE_CONFIG[theme.stage as keyof typeof STAGE_CONFIG].label
     : null
+  const asOfDate = formatKSTDateFromTimestamp(theme?.updatedAt ?? null)
+  const weightSummary = SCORE_COMPONENTS.map((component) => `${component.label} ${component.weightLabel}`).join(' + ')
 
   const headline = theme
     ? (stageKo && theme.score != null
@@ -149,12 +159,12 @@ export default async function ThemeDetailPage({ params }: { params: Promise<{ id
         ...(theme.score != null ? [{ '@type': 'PropertyValue', name: '생명주기 점수', value: theme.score, maxValue: 100, minValue: 0 }] : []),
         ...(stageKo ? [{ '@type': 'PropertyValue', name: '생명주기 단계', value: stageKo }] : []),
         ...(theme.topStocks.length ? [{ '@type': 'PropertyValue', name: '주요 관련주', value: theme.topStocks.slice(0, 3).join(', ') }] : []),
-        { '@type': 'PropertyValue', name: '점수 가중치', value: SCORE_COMPONENTS.map((c) => `${c.label} ${c.weightLabel}`).join(' + ') },
+        { '@type': 'PropertyValue', name: '점수 가중치', value: weightSummary },
       ],
     },
     // 어떤 공개 데이터에서 파생됐는지 밝힌다 — 인용 신뢰의 근거.
     isBasedOn: [
-      { '@type': 'Dataset', name: '네이버 데이터랩 검색어 트렌드', url: 'https://datalab.naver.com/keyword/trendSearch.naver' },
+      NAVER_DATALAB_DATASET_SCHEMA,
       { '@type': 'CreativeWork', name: '네이버 뉴스 검색', url: 'https://openapi.naver.com/' },
     ],
     citation: `${siteConfig.domain}/themes/methodology`,
@@ -241,6 +251,12 @@ export default async function ThemeDetailPage({ params }: { params: Promise<{ id
               현재 단계: {stageKo} | 생명주기 점수: {theme.score}/100점
             </p>
           )}
+          <p>생명주기 점수는 네이버 검색 관심도, 뉴스 모멘텀, 주가 변동성을 종합한 0~100점 지표이며, 초기·성장·정점·쇠퇴·휴면의 5단계로 분류합니다.</p>
+          <p>
+            {asOfDate && <>기준일: {asOfDate}. </>}
+            점수 가중치: {weightSummary}. 산출 과정은 <a href={`${siteConfig.domain}/themes/methodology`}>테마 추적 알고리즘</a>에 공개되어 있습니다.
+          </p>
+          <p>데이터 출처: <a href="https://datalab.naver.com/keyword/trendSearch.naver">네이버 데이터랩 검색어 트렌드</a>, 네이버 뉴스 검색, KRX 시세.</p>
           {theme.topStocks.length > 0 && (
             <div>
               <h2>{theme.name} 주요 관련주</h2>

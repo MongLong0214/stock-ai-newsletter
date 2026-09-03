@@ -11,6 +11,9 @@ import { keywordGroupSha256, type KeywordGroupSpec } from '@/scripts/tli/collect
 import type { AttentionStudyContract } from '@/scripts/tli/collectors/babl-phase-snapshot'
 import { forecastCutoffUtc, INTEREST_INPUT_SLOTS, NEWS_INPUT_SLOTS } from './forecast-origin-manifest'
 import type { ForecastThemeSource, StudyBablCandidate } from './forecast-origin-manifest'
+import { loadOriginRoster, recordedKeywordGroupSpec, type OriginRoster } from './origin-roster'
+
+export { recordedKeywordGroupSpec } from './origin-roster'
 
 // ── Pure selectors ──
 
@@ -24,21 +27,6 @@ export interface PitInterestRunCandidate {
   readonly keywordGroupSpec: KeywordGroupSpec
   readonly keywordGroupSha256: string
   readonly tradingDates: readonly string[]
-}
-
-const recordedInterestRequestSchema = z.object({
-  keywordGroups: z.array(z.object({ groupName: z.string().min(1), keywords: z.array(z.string().min(1)).min(1) })).min(1),
-})
-
-export const recordedKeywordGroupSpec = (
-  requestPayload: unknown,
-  expectedSha256: string,
-): KeywordGroupSpec | null => {
-  const request = recordedInterestRequestSchema.parse(requestPayload)
-  const matches = request.keywordGroups
-    .map((group) => ({ group_name: group.groupName, keywords: [...group.keywords] }))
-    .filter((spec) => keywordGroupSha256(spec) === expectedSha256)
-  return matches.length === 1 ? matches[0] : null
 }
 
 // RPC(046)는 stock_daily_prices에서 `trade_date <= baseDate LIMIT slots`로 창을 계산하므로
@@ -239,28 +227,57 @@ const loadNewsObservationIds = async (input: {
   return selectNewsObservationIds(rows, input.expectedDates)
 }
 
+export interface ForecastThemeSourceDeps {
+  readonly loadInterestRunCandidates?: (
+    input: { readonly originDate: string; readonly cutoffIso: string },
+  ) => Promise<PitInterestRunCandidate[]>
+  readonly loadNewsObservationIds?: (input: {
+    readonly themeId: string
+    readonly keywordGroupSha256: string
+    readonly expectedDates: readonly string[]
+    readonly cutoffIso: string
+  }) => Promise<string[] | null>
+  readonly loadRoster?: (input: { readonly originDate: string }) => Promise<OriginRoster>
+}
+
 export const loadForecastThemeSources = async (
   input: { readonly originDate: string },
+  deps: ForecastThemeSourceDeps = {},
 ): Promise<ForecastThemeSource[]> => {
   const cutoffIso = forecastCutoffUtc(input.originDate)
   const expectedDates = newsExpectedDates(input.originDate)
+  const loadInterestCandidates = deps.loadInterestRunCandidates ?? loadPitInterestRunCandidates
+  const loadNewsIds = deps.loadNewsObservationIds ?? loadNewsObservationIds
+  const roster = await (deps.loadRoster ?? loadOriginRoster)({ originDate: input.originDate })
   const selectedSources = selectPitForecastSources(
-    await loadPitInterestRunCandidates({ originDate: input.originDate, cutoffIso }),
+    await loadInterestCandidates({ originDate: input.originDate, cutoffIso }),
     input.originDate,
   )
   const sources: ForecastThemeSource[] = []
 
   for (const source of selectedSources) {
-    const newsObservationIds = await loadNewsObservationIds({
+    const newsObservationIds = await loadNewsIds({
       themeId: source.themeId,
       keywordGroupSha256: keywordGroupSha256(source.keywordGroupSpec),
       expectedDates,
       cutoffIso,
     })
-    sources.push({ ...source, newsObservationIds })
+    sources.push({ ...source, newsObservationIds, rosterEligible: roster.has(source.themeId) })
   }
 
-  return sources
+  const selectedThemeIds = new Set(selectedSources.map((source) => source.themeId))
+  for (const [themeId, rosterTheme] of roster) {
+    if (selectedThemeIds.has(themeId)) continue
+    sources.push({
+      themeId,
+      keywordGroupSpec: rosterTheme.keywordGroupSpec,
+      rosterEligible: true,
+      interestRun: null,
+      newsObservationIds: null,
+    })
+  }
+
+  return sources.sort((left, right) => compareUtf8Bytes(left.themeId, right.themeId))
 }
 
 export const loadStudyBablCandidates = async (input: {

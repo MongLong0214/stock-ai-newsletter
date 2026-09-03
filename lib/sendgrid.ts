@@ -1,5 +1,7 @@
 import sgMail from '@sendgrid/mail';
 
+import { siteConfig } from '@/lib/constants/seo/config';
+
 /**
  * HTML 특수문자 이스케이프 (LLM 출력 삽입 시 XSS 방지)
  */
@@ -218,8 +220,8 @@ export async function sendStockNewsletter(
 
   const isCrash = parseCrashAlert(data.geminiAnalysis) !== null;
   const subject = isCrash
-    ? `[Stock Matrix] ${data.date} 긴급 시장 분석`
-    : `[Stock Matrix] ${data.date} AI 기술적 분석`;
+    ? `[${siteConfig.serviceName}] ${data.date} 긴급 시장 분석`
+    : `[${siteConfig.serviceName}] ${data.date} AI 기술적 분석`;
 
   let nextIndex = 0;
   let retried = 0;
@@ -323,7 +325,7 @@ export function generateNewsletterHTML(data: StockNewsletterData, email: string)
               <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
                 <tr>
                   <td style="text-align: center;">
-                    <p style="margin: 0 0 12px 0; padding: 0; font-size: 13px; font-weight: 600; color: ${accentColor}; letter-spacing: 0.05em; text-transform: uppercase; line-height: 1;">Stock Matrix</p>
+                    <p style="margin: 0 0 12px 0; padding: 0; font-size: 13px; font-weight: 600; color: ${accentColor}; letter-spacing: 0.05em; text-transform: uppercase; line-height: 1;">${siteConfig.serviceName}</p>
                     <h1 style="margin: 0 0 8px 0; padding: 0; font-size: 26px; font-weight: 700; letter-spacing: -0.03em; color: #FFFFFF; line-height: 1.2;">${headerTitle}</h1>
                     <p style="margin: 0 0 12px 0; padding: 0; font-size: 14px; font-weight: 400; color: #94A3B8; letter-spacing: 0.02em; line-height: 1.5;">${headerSubtitle}</p>
                     <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin: 0 auto;">
@@ -379,7 +381,7 @@ export function generateNewsletterHTML(data: StockNewsletterData, email: string)
           <!-- Footer -->
           <tr>
             <td style="padding: 32px 40px; background-color: #F8FAFC; border-radius: 0 0 8px 8px; text-align: center;">
-              <p style="margin: 0 0 16px 0; padding: 0; font-size: 12px; font-weight: 400; color: #94A3B8; line-height: 1.5;">Stock Matrix</p>
+              <p style="margin: 0 0 16px 0; padding: 0; font-size: 12px; font-weight: 400; color: #94A3B8; line-height: 1.5;">${siteConfig.serviceName}</p>
               <a href="${process.env.NEXT_PUBLIC_APP_URL || 'https://stockmatrix.co.kr'}/unsubscribe?email=${encodeURIComponent(email)}" style="display: inline-block; padding: 8px 16px; font-size: 12px; font-weight: 500; color: #64748B; text-decoration: none; border: 1px solid #E2E8F0; border-radius: 6px; transition: all 0.2s;">구독 취소</a>
             </td>
           </tr>

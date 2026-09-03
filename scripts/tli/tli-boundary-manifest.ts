@@ -90,6 +90,8 @@ export const TLI_BOUNDARY_MANIFEST: Record<string, TliFileCategory> = {
   'scripts/tli/collectors/naver-datalab-api.ts': 'runtime',
   'scripts/tli/collectors/naver-datalab-forecast.ts': 'runtime',
   'scripts/tli/collectors/naver-datalab-observations.ts': 'runtime',
+  'scripts/tli/collectors/naver-datalab-quota.ts': 'runtime',
+  'scripts/tli/collectors/naver-datalab-reuse.ts': 'runtime',
   'scripts/tli/collectors/naver-datalab-run.ts': 'runtime',
   'scripts/tli/collectors/naver-datalab-settings.ts': 'runtime',
   'scripts/tli/collectors/naver-datalab-types.ts': 'runtime',
@@ -104,8 +106,12 @@ export const TLI_BOUNDARY_MANIFEST: Record<string, TliFileCategory> = {
   'scripts/tli/collectors/babl-phase-snapshot.ts': 'runtime',
 
   'scripts/tli/origins/forecast-origin-manifest.ts': 'runtime',
+  'scripts/tli/origins/origin-eligibility.ts': 'runtime',
+  'scripts/tli/origins/origin-roster.ts': 'runtime',
   'scripts/tli/origins/origin-sources.ts': 'runtime',
+  'scripts/tli/origins/run-origin-eligibility.ts': 'runtime',
   'scripts/tli/origins/run-monday-origins.ts': 'runtime',
+  'scripts/tli/origins/study-origin-eligibility-source.ts': 'runtime',
   'scripts/tli/origins/lock-study-contract.ts': 'ops',
 
   'scripts/tli/e2e/cli-args.ts': 'ops',

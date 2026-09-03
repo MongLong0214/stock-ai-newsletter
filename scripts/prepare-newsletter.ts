@@ -6,6 +6,7 @@ import { createClient } from '@supabase/supabase-js'
 import { config } from 'dotenv'
 
 import { ensureKisAccessToken } from '@/app/archive/_utils/api/kis/client'
+import { siteConfig } from '@/lib/constants/seo/config'
 import type { StockData } from '@/lib/llm/_types/stock-data'
 import type { MarketAssessment } from '@/lib/llm/korea/gemini-pipeline'
 import { executeMarketAssessment } from '@/lib/llm/korea/gemini-pipeline'
@@ -513,7 +514,7 @@ export async function prepareNewsletter(options: PrepareNewsletterOptions = {}):
   if (pipeline.picksSource === 'llm_fallback') {
     const collection = pipeline.collection
     await sendNewsletterAlertEmail({
-      subject: `[Stock Matrix] ${targetDate} 코드 픽 실패 — LLM fallback으로 발행 예정`,
+      subject: `[${siteConfig.serviceName}] ${targetDate} 코드 픽 실패 — LLM fallback으로 발행 예정`,
       lines: [
         `실패 원인: ${pipeline.fallbackReason ?? 'unknown'}`,
         `attemptedCalls=${collection?.attemptedCalls ?? 0}`,
@@ -635,7 +636,7 @@ export async function runPrepareNewsletterCli(args: readonly string[]): Promise<
       : getKSTDateString()
     console.error('❌ 뉴스레터 준비 실패:', error)
     await sendNewsletterAlertEmail({
-      subject: `[Stock Matrix] ${date} prepare 실패 — 수동 조치 필요`,
+      subject: `[${siteConfig.serviceName}] ${date} prepare 실패 — 수동 조치 필요`,
       lines: [error instanceof Error ? error.stack ?? error.message : String(error)],
     })
     return 1

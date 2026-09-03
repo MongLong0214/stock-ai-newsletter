@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { motion } from 'framer-motion';
+import { siteConfig } from '@/lib/constants/seo/config';
 import { EASING } from './_constants';
 
 function Logo() {
@@ -33,7 +34,7 @@ function Logo() {
           className="text-base sm:text-lg font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-emerald-400 via-emerald-300 to-emerald-400 bg-size-200 animate-gradient"
           whileHover={{ scale: 1.02 }}
         >
-          Stock Matrix
+          {siteConfig.serviceName}
         </motion.span>
         <span className="text-[9px] sm:text-[10px] text-emerald-500/60 font-light tracking-widest uppercase">
           AI Analysis

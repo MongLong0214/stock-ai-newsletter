@@ -18,6 +18,7 @@
     "tli:run": "tsx scripts/tli/batch/collect-and-score.ts",
     "tli:compare": "tsx scripts/tli/batch/run-comparisons.ts",
     "tli:origins": "tsx scripts/tli/origins/run-monday-origins.ts",
+    "tli:origins:eligibility": "tsx scripts/tli/origins/run-origin-eligibility.ts",
     "tli:level4:calibrate": "tsx scripts/tli/ops/run-level4-calibration.ts",
     "tli:level4:certify": "tsx scripts/tli/ops/run-level4-certification.ts",
     "tli:level4:drift": "tsx scripts/tli/ops/run-level4-drift.ts",

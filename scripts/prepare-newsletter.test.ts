@@ -4,6 +4,8 @@ import { join } from 'node:path'
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { siteConfig } from '@/lib/constants/seo/config'
+
 const mocks = vi.hoisted(() => ({
   alert: vi.fn(),
   assessMarket: vi.fn(),
@@ -357,7 +359,7 @@ describe('prepare-newsletter stock-pick wiring', () => {
 
     expect(mocks.generateCodePicks).not.toHaveBeenCalled()
     expect(mocks.alert).toHaveBeenCalledWith(expect.objectContaining({
-      subject: `[Stock Matrix] ${TARGET_DATE} 코드 픽 실패 — LLM fallback으로 발행 예정`,
+      subject: `[${siteConfig.serviceName}] ${TARGET_DATE} 코드 픽 실패 — LLM fallback으로 발행 예정`,
       lines: expect.arrayContaining([
         expect.stringContaining('exactDateCoverageRate=0.5000'),
         'exactDateCoverageRate=0.5',
@@ -416,7 +418,7 @@ describe('prepare-newsletter stock-pick wiring', () => {
 
     expect(result).toBe(1)
     expect(mocks.alert).toHaveBeenCalledWith(expect.objectContaining({
-      subject: `[Stock Matrix] ${TARGET_DATE} prepare 실패 — 수동 조치 필요`,
+      subject: `[${siteConfig.serviceName}] ${TARGET_DATE} prepare 실패 — 수동 조치 필요`,
       lines: [expect.stringContaining('synthetic hard failure')],
     }))
   })
@@ -445,7 +447,7 @@ describe('prepare-newsletter stock-pick wiring', () => {
     expect(client.insert).not.toHaveBeenCalled()
     expect(client.update).not.toHaveBeenCalled()
     expect(mocks.alert).toHaveBeenCalledWith(expect.objectContaining({
-      subject: `[Stock Matrix] ${TARGET_DATE} prepare 실패 — 수동 조치 필요`,
+      subject: `[${siteConfig.serviceName}] ${TARGET_DATE} prepare 실패 — 수동 조치 필요`,
       lines: [expect.stringContaining('prepare deadline exceeded before LLM fallback')],
     }))
     expect(errorSpy).toHaveBeenCalledWith(JSON.stringify({

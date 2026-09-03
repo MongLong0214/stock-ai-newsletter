@@ -1,5 +1,7 @@
 import type { CollectionReport } from './collection-report'
 import type { CollectionRunTransport } from './collection-run-store'
+import type { NaverDatalabRequest, NaverDatalabResponse } from './naver-datalab-api'
+import type { ReusableDatalabRun } from './naver-datalab-reuse'
 
 export interface DatalabTheme {
   readonly id: string
@@ -17,6 +19,11 @@ export interface InterestMetric {
 
 export interface DatalabCollectionOptions {
   readonly transport?: CollectionRunTransport
+  readonly reuseRuns?: ReadonlyMap<string, ReusableDatalabRun>
+  readonly previousTradingDate?: string
+  readonly forceRefresh?: boolean
+  readonly reserveAttempt?: () => Promise<void>
+  readonly callDatalab?: (request: NaverDatalabRequest) => Promise<NaverDatalabResponse>
 }
 
 export interface DatalabCollectionResult {

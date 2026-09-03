@@ -3,6 +3,10 @@
   "regions": ["icn1"],
   "crons": [
     {
+      "path": "/api/cron/tli-datalab",
+      "schedule": "0 0 * * 1-6"
+    },
+    {
       "path": "/api/cron/newsletter-prepare",
       "schedule": "10 21 * * 0-4"
     },

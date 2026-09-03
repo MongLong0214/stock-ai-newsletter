@@ -2,6 +2,7 @@
 
 import React, {JSX} from 'react';
 import { motion } from 'framer-motion';
+import { siteConfig } from '@/lib/constants/seo/config';
 
 
 function ServiceIntroSection(): JSX.Element {
@@ -40,7 +41,7 @@ function ServiceIntroSection(): JSX.Element {
           className="space-y-6 text-slate-300 font-light tracking-wide leading-relaxed"
         >
           <p className="text-base md:text-lg">
-            <strong className="text-emerald-400 font-normal">Stock Matrix</strong>는{' '}
+            <strong className="text-emerald-400 font-normal">{siteConfig.serviceName}</strong>는{' '}
             <strong className="font-normal">AI 주식 분석</strong> 전문 무료 뉴스레터입니다.{' '}
             <strong className="font-normal">RSI(상대강도지수)</strong>,{' '}
             <strong className="font-normal">MACD(이동평균수렴확산)</strong>,{' '}
@@ -61,7 +62,7 @@ function ServiceIntroSection(): JSX.Element {
           <p className="text-base md:text-lg">
             또한 <strong className="text-emerald-400 font-normal">테마 생명주기 분석(TLI)</strong> 기능을 통해
             반도체, 2차전지, AI, 방산 등{' '}
-            <strong className="font-normal">200개 이상의 주식 테마</strong>를 실시간으로 추적합니다.
+            <strong className="font-normal">{siteConfig.themeCountFloor}개 이상의 주식 테마</strong>를 실시간으로 추적합니다.
             네이버 검색 관심도, 뉴스 빈도, 감성 분석, 주가 변동성을 종합하여{' '}
             <strong className="font-normal">0~100점의 테마 점수</strong>를 산출하고,{' '}
             <strong className="font-normal">초기 → 성장 → 정점 → 쇠퇴 → 휴면</strong>의
@@ -175,7 +176,7 @@ function ServiceIntroSection(): JSX.Element {
                 </svg>
                 <span>
                   <strong className="text-white font-normal">테마 생명주기 분석</strong>:
-                  200+ 테마의 점수·단계·관련 종목을 무료 추적
+                  {' '}{siteConfig.themeCountFloor}+ 테마의 점수·단계·관련 종목을 무료 추적
                 </span>
               </li>
               <li className="flex items-center">
@@ -201,7 +202,7 @@ function ServiceIntroSection(): JSX.Element {
 
           {/* Disclaimer */}
           <p className="text-base md:text-lg">
-            <strong className="text-white font-normal">Stock Matrix</strong>는 투자 권유나
+            <strong className="text-white font-normal">{siteConfig.serviceName}</strong>는 투자 권유나
             매매 추천이 아닌{' '}
             <strong className="font-normal">참고용 기술적 분석 데이터</strong>만 제공하는{' '}
             <strong className="font-normal">무료 투자 뉴스레터</strong>입니다. AI가 분석한{' '}

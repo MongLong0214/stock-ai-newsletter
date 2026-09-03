@@ -4,7 +4,7 @@ import { siteConfig, keywordsByCategory, withOgImageVersion } from '@/lib/consta
 export const metadata: Metadata = {
   title: '뉴스레터 분석 기록 - AI 주식 분석',
   description:
-    '과거 발송된 Stock Matrix AI 주식 뉴스레터를 날짜별로 확인하세요. RSI, MACD, 볼린저밴드 등 30개 기술적 지표 분석 결과와 추천 종목 히스토리를 제공합니다.',
+    `과거 발송된 ${siteConfig.serviceName} AI 주식 뉴스레터를 날짜별로 확인하세요. RSI, MACD, 볼린저밴드 등 30개 기술적 지표 분석 결과와 추천 종목 히스토리를 제공합니다.`,
   keywords: [
     ...keywordsByCategory.brand,
     ...keywordsByCategory.service,
@@ -21,7 +21,7 @@ export const metadata: Metadata = {
     canonical: `${siteConfig.domain}/archive`,
   },
   openGraph: {
-    title: 'Stock Matrix 뉴스레터 분석 기록 - AI 주식 분석',
+    title: `${siteConfig.serviceName} 뉴스레터 분석 기록 - AI 주식 분석`,
     description:
       '과거 발송된 AI 주식 분석 뉴스레터를 날짜별로 확인하고 추천 종목 히스토리를 살펴보세요',
     url: `${siteConfig.domain}/archive`,
@@ -33,13 +33,13 @@ export const metadata: Metadata = {
         url: withOgImageVersion('/archive/opengraph-image'),
         width: 1200,
         height: 630,
-        alt: 'Stock Matrix 뉴스레터 분석 기록',
+        alt: `${siteConfig.serviceName} 뉴스레터 분석 기록`,
       },
     ],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Stock Matrix 뉴스레터 분석 기록',
+    title: `${siteConfig.serviceName} 뉴스레터 분석 기록`,
     description: 'AI 주식 분석 뉴스레터 히스토리 확인',
     images: [withOgImageVersion('/archive/opengraph-image')],
   },
@@ -74,7 +74,7 @@ export default function ArchiveLayout({
     '@type': 'CollectionPage',
     name: '뉴스레터 분석 기록',
     description:
-      '과거 발송된 Stock Matrix AI 주식 뉴스레터를 날짜별로 확인하세요. RSI, MACD, 볼린저밴드 등 30개 기술적 지표 분석 결과와 추천 종목 히스토리를 제공합니다.',
+      `과거 발송된 ${siteConfig.serviceName} AI 주식 뉴스레터를 날짜별로 확인하세요. RSI, MACD, 볼린저밴드 등 30개 기술적 지표 분석 결과와 추천 종목 히스토리를 제공합니다.`,
     url: `${siteConfig.domain}/archive`,
     inLanguage: 'ko-KR',
     isPartOf: {

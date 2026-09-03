@@ -25,7 +25,7 @@ describe('sendStockNewsletter', () => {
   it('settles every recipient and reports failed indices/domains without email addresses', async () => {
     vi.stubEnv('SENDGRID_API_KEY', 'test-api-key')
     vi.stubEnv('SENDGRID_FROM_EMAIL', 'sender@stockmatrix.co.kr')
-    vi.stubEnv('SENDGRID_FROM_NAME', 'Stock Matrix')
+    vi.stubEnv('SENDGRID_FROM_NAME', 'StockMatrix')
     mocks.send
       .mockResolvedValueOnce([{ statusCode: 202 }])
       .mockRejectedValueOnce(new Error('rejected recipient: private-user@failed.example'))
@@ -55,7 +55,7 @@ describe('sendStockNewsletter', () => {
   it('bounds in-flight sends with the configured worker count', async () => {
     vi.stubEnv('SENDGRID_API_KEY', 'test-api-key')
     vi.stubEnv('SENDGRID_FROM_EMAIL', 'sender@stockmatrix.co.kr')
-    vi.stubEnv('SENDGRID_FROM_NAME', 'Stock Matrix')
+    vi.stubEnv('SENDGRID_FROM_NAME', 'StockMatrix')
     vi.stubEnv('SENDGRID_SEND_CONCURRENCY', '2')
     vi.spyOn(console, 'log').mockImplementation(() => {})
 
@@ -82,7 +82,7 @@ describe('sendStockNewsletter', () => {
     vi.useFakeTimers()
     vi.stubEnv('SENDGRID_API_KEY', 'test-api-key')
     vi.stubEnv('SENDGRID_FROM_EMAIL', 'sender@stockmatrix.co.kr')
-    vi.stubEnv('SENDGRID_FROM_NAME', 'Stock Matrix')
+    vi.stubEnv('SENDGRID_FROM_NAME', 'StockMatrix')
     vi.spyOn(console, 'log').mockImplementation(() => {})
     mocks.send
       .mockRejectedValueOnce({ response: { statusCode: 429 } })
@@ -103,7 +103,7 @@ describe('sendStockNewsletter', () => {
   it('fails non-429 4xx responses immediately without retrying', async () => {
     vi.stubEnv('SENDGRID_API_KEY', 'test-api-key')
     vi.stubEnv('SENDGRID_FROM_EMAIL', 'sender@stockmatrix.co.kr')
-    vi.stubEnv('SENDGRID_FROM_NAME', 'Stock Matrix')
+    vi.stubEnv('SENDGRID_FROM_NAME', 'StockMatrix')
     vi.spyOn(console, 'log').mockImplementation(() => {})
     vi.spyOn(console, 'error').mockImplementation(() => {})
     mocks.send.mockRejectedValue({ response: { statusCode: 400 } })
@@ -123,7 +123,7 @@ describe('sendStockNewsletter', () => {
     vi.useFakeTimers()
     vi.stubEnv('SENDGRID_API_KEY', 'test-api-key')
     vi.stubEnv('SENDGRID_FROM_EMAIL', 'sender@stockmatrix.co.kr')
-    vi.stubEnv('SENDGRID_FROM_NAME', 'Stock Matrix')
+    vi.stubEnv('SENDGRID_FROM_NAME', 'StockMatrix')
     vi.spyOn(console, 'log').mockImplementation(() => {})
     mocks.send
       .mockRejectedValueOnce({ response: { statusCode: 503 } })
@@ -142,7 +142,7 @@ describe('sendStockNewsletter', () => {
     vi.useFakeTimers()
     vi.stubEnv('SENDGRID_API_KEY', 'test-api-key')
     vi.stubEnv('SENDGRID_FROM_EMAIL', 'sender@stockmatrix.co.kr')
-    vi.stubEnv('SENDGRID_FROM_NAME', 'Stock Matrix')
+    vi.stubEnv('SENDGRID_FROM_NAME', 'StockMatrix')
     vi.stubEnv('SENDGRID_REQUEST_TIMEOUT_MS', '100')
     vi.spyOn(console, 'log').mockImplementation(() => {})
     mocks.send
@@ -163,7 +163,7 @@ describe('sendStockNewsletter', () => {
     vi.useFakeTimers()
     vi.stubEnv('SENDGRID_API_KEY', 'test-api-key')
     vi.stubEnv('SENDGRID_FROM_EMAIL', 'sender@stockmatrix.co.kr')
-    vi.stubEnv('SENDGRID_FROM_NAME', 'Stock Matrix')
+    vi.stubEnv('SENDGRID_FROM_NAME', 'StockMatrix')
     vi.stubEnv('SENDGRID_SEND_CONCURRENCY', '1')
     vi.spyOn(console, 'log').mockImplementation(() => {})
     vi.spyOn(console, 'error').mockImplementation(() => {})

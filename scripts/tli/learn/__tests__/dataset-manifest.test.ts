@@ -1,4 +1,6 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
+
+vi.mock('@/scripts/tli/shared/supabase-admin', () => ({ supabaseAdmin: {} }))
 
 import { compareKeysetCursor, type KeysetCursor } from '@/scripts/tli/shared/keyset'
 import {

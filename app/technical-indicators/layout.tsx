@@ -22,7 +22,7 @@ export const metadata: Metadata = {
     canonical: `${siteConfig.domain}/technical-indicators`,
   },
   openGraph: {
-    title: '30가지 기술적 지표 완벽 가이드 - Stock Matrix',
+    title: `30가지 기술적 지표 완벽 가이드 - ${siteConfig.serviceName}`,
     description:
       'RSI, MACD, 볼린저밴드 등 AI가 활용하는 30개 기술지표의 의미와 매매 시그널 해석법',
     url: `${siteConfig.domain}/technical-indicators`,
@@ -34,7 +34,7 @@ export const metadata: Metadata = {
         url: withOgImageVersion('/technical-indicators/opengraph-image'),
         width: 1200,
         height: 630,
-        alt: '기술적 지표 가이드 - Stock Matrix',
+        alt: `기술적 지표 가이드 - ${siteConfig.serviceName}`,
       },
     ],
   },

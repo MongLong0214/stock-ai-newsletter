@@ -8,6 +8,7 @@ import Footer from './_components/shared/footer';
 import QueryProvider from './_components/shared/providers/query-provider';
 import ScrollToTop from '@/components/scroll-to-top';
 import GoogleAnalytics from '@/components/analytics/google-analytics';
+import { shouldRenderAnalytics } from './analytics-env';
 import {
   siteConfig,
   metadataConfig,
@@ -111,6 +112,8 @@ export const metadata: Metadata = {
   },
 };
 
+export { shouldRenderAnalytics } from './analytics-env';
+
 export default function RootLayout({
   children,
 }: {
@@ -121,6 +124,8 @@ export default function RootLayout({
   const clarityId = 'y5lv55fx8e';
   const shouldRenderVercelTelemetry =
     process.env.VERCEL === '1' || Boolean(process.env.NEXT_PUBLIC_VERCEL_ENV);
+  // 로컬·E2E 트래픽이 프로덕션 GA4 속성을 오염시켜 유입 페이지 2위가 E2E mock 테마였다.
+  const renderAnalytics = shouldRenderAnalytics();
   const jsonLd = {
     '@context': 'https://schema.org',
     '@graph': [
@@ -264,9 +269,13 @@ export default function RootLayout({
       <head>
         <link rel="preconnect" href={process.env.NEXT_PUBLIC_SUPABASE_URL} />
         <link rel="dns-prefetch" href={process.env.NEXT_PUBLIC_SUPABASE_URL} />
-        <link rel="preconnect" href="https://www.googletagmanager.com" />
-        <link rel="preconnect" href="https://www.google-analytics.com" crossOrigin="anonymous" />
-        {gaId && (
+        {renderAnalytics ? (
+          <>
+            <link rel="preconnect" href="https://www.googletagmanager.com" />
+            <link rel="preconnect" href="https://www.google-analytics.com" crossOrigin="anonymous" />
+          </>
+        ) : null}
+        {gaId && renderAnalytics ? (
           <>
             <script
               async
@@ -278,8 +287,8 @@ export default function RootLayout({
               }}
             />
           </>
-        )}
-        {clarityId && (
+        ) : null}
+        {clarityId && renderAnalytics ? (
           <Script
             id="ms-clarity"
             strategy="afterInteractive"
@@ -287,7 +296,7 @@ export default function RootLayout({
               __html: `(function(c,l,a,r,i,t,y){c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);})(window,document,"clarity","script","${clarityId}");`,
             }}
           />
-        )}
+        ) : null}
         {/* next/script는 afterInteractive로 클라이언트에서 주입돼 JS 미실행 크롤러(GPTBot·ClaudeBot·PerplexityBot)가 못 본다. 평문 script로 SSR. */}
         <script
           type="application/ld+json"
@@ -304,7 +313,7 @@ export default function RootLayout({
         </QueryProvider>
 
         {shouldRenderVercelTelemetry ? <Analytics /> : null}
-        <GoogleAnalytics />
+        {renderAnalytics ? <GoogleAnalytics /> : null}
       </body>
     </html>
   );

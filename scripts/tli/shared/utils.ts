@@ -10,12 +10,14 @@ export async function withRetry<T>(
   fn: () => Promise<T>,
   retries = 3,
   context = 'API call',
+  options: { readonly shouldRetry?: (error: unknown) => boolean } = {},
 ): Promise<T> {
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
       return await fn()
     } catch (error: unknown) {
       console.error(`   ${context} 시도 ${attempt}/${retries} 실패:`, error instanceof Error ? error.message : String(error))
+      if (options.shouldRetry?.(error) === false) throw error
       if (attempt === retries) throw error
       await sleep(1000 * Math.pow(2, attempt - 1))
     }
