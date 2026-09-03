@@ -400,7 +400,14 @@ if-no-files-found: error     # warn이면 또 조용히 죽는다
 제목 모드 판별        button[data-name="title-font-size"]   ← 이게 보이면 캐럿이 제목에 있다
 팔레트 셀            .se-color-palette[data-color="#ff0010"]
 오글링크 버튼        .se-oglink-toolbar-button
-오글링크 카드        .se-oglink
+오글링크 카드        .se-oglink   (div.se-component.se-oglink)
+오글링크 제목·도메인  .se-oglink-title / .se-oglink-url
+
+오글링크 카드에는 에디터 DOM 기준 `<a href>`가 **없다**(2026-09-03 실측). 링크는
+컴포넌트 데이터에 있고 앵커는 발행된 글에서만 생긴다. `.se-oglink-thumbnail`도 OG
+이미지가 로드될 때만 붙는다 — 둘 중 어느 것으로도 카드 유무를 판정하면 정상 카드를
+누락으로 오판해 발행이 막힌다. 카드 존재는 `.se-oglink` 컴포넌트로, 대상 확인은
+`.se-oglink-url` 텍스트의 도메인으로 본다.
 복구 팝업 오버레이    .se-popup-dim / .se-popup-alert
 도움말 패널          .se-help-panel.se-is-on
 ```
