@@ -19,7 +19,9 @@ import {
 } from '@/scripts/stock-picks/production-strategy'
 import {
   rankStrategyCandidates,
+  rankTieredFillCandidates,
   type StockMasterState,
+  type TieredFillTier,
   type VolumeBreakoutParameters,
 } from '@/scripts/stock-picks/strategies'
 import {
@@ -58,13 +60,16 @@ export interface StockPicksFunnel {
 }
 
 export interface RankedStockFeature extends StockFeatureVector {
+  readonly name: string
   readonly score: number
   readonly rank: number
+  readonly tier: TieredFillTier
 }
 
 export interface GeneratePicksMeta {
   readonly signalDate: string
-  readonly strategy: 'volumeBreakoutNoGapUp'
+  readonly strategy: typeof PRODUCTION_STRATEGY.name
+  readonly strategyVersion: typeof PRODUCTION_STRATEGY.version
   readonly parameters: VolumeBreakoutParameters
   readonly parametersHash: string
   readonly funnel: StockPicksFunnel
@@ -225,7 +230,11 @@ const hasCalculatedOutputMetrics = (feature: StockFeatureVector): boolean => [
   feature.distanceFromHigh60,
 ].every((value) => value !== null && Number.isFinite(value)) && feature.bullishCandle !== null
 
-export function buildRationale(feature: StockFeatureVector, strategyScore: number): string {
+export function buildRationale(
+  feature: StockFeatureVector,
+  strategyScore: number,
+  tier: TieredFillTier,
+): string {
   const close = finiteOr(feature.close, 0)
   const open = finiteOr(feature.open, close)
   const dailyReturn = open > 0 ? (close / open - 1) * 100 : 0
@@ -259,6 +268,7 @@ export function buildRationale(feature: StockFeatureVector, strategyScore: numbe
     `골든크로스 감지 ${goldenCrossAge >= 0 ? 1 : 0}회·경과 ${goldenCrossAge}일`,
     `20일 평균거래대금 ${fixed(finiteOr(feature.averageTurnover20) / 100_000_000, 1)}억원`,
     `volumeBreakout 전략점수 ${strategyScore.toFixed(1)}점`,
+    `선정 경로 ${tier === 'breakout' ? '거래량 돌파' : '거래량 상위 보충'}`,
   ].join('|')
 }
 
@@ -317,7 +327,7 @@ export async function generatePicksWithMeta(input: {
     return feature && hasCalculatedOutputMetrics(feature) ? [feature] : []
   })
   const featuresBySymbol = new Map(features.map((feature) => [feature.symbol, feature]))
-  const rankedCandidates = rankStrategyCandidates({
+  const breakoutCandidates = rankStrategyCandidates({
     name: 'volumeBreakoutNoGapUp',
     features,
     masters: mastersBySymbol,
@@ -325,12 +335,45 @@ export async function generatePicksWithMeta(input: {
     mode: 'force3',
     pickCount: features.length,
   })
-  const ranked = rankedCandidates.slice(0, REQUIRED_PICK_COUNT)
-  if (ranked.length !== REQUIRED_PICK_COUNT) {
-    throw new Error(`volumeBreakout 후보 부족: ${ranked.length}/${REQUIRED_PICK_COUNT}`)
+  const breakoutScores = new Map(breakoutCandidates.map((candidate) => (
+    [candidate.symbol, candidate.score]
+  )))
+  const selectedCandidates = rankTieredFillCandidates({
+    features,
+    masters: mastersBySymbol,
+    parameters: PRODUCTION_VOLUME_BREAKOUT_PARAMETERS,
+    tiers: PRODUCTION_STRATEGY.fillTiers,
+  })
+  const rankedCandidates = rankTieredFillCandidates({
+    features,
+    masters: mastersBySymbol,
+    parameters: PRODUCTION_VOLUME_BREAKOUT_PARAMETERS,
+    tiers: PRODUCTION_STRATEGY.fillTiers,
+    pickCount: features.length,
+  })
+  const rankedFeatures: RankedStockFeature[] = rankedCandidates.flatMap(({ symbol, tier }, index) => {
+    const feature = featuresBySymbol.get(symbol)
+    const master = mastersBySymbol.get(symbol)
+    if (!feature || !master) return []
+    const score = tier === 'breakout'
+      ? breakoutScores.get(symbol)
+      : feature.volumePercentile60
+    return score === undefined || score === null
+      ? []
+      : [{ ...feature, name: master.name, score, rank: index + 1, tier }]
+  })
+  const rankedFeaturesBySymbol = new Map(rankedFeatures.map((candidate) => (
+    [candidate.symbol, candidate]
+  )))
+  const ranked = selectedCandidates.flatMap((candidate) => {
+    const rankedFeature = rankedFeaturesBySymbol.get(candidate.symbol)
+    return rankedFeature ? [rankedFeature] : []
+  })
+  if (selectedCandidates.length !== REQUIRED_PICK_COUNT || ranked.length !== REQUIRED_PICK_COUNT) {
+    throw new Error(`volumeOnly 후보 부족: ${ranked.length}/${REQUIRED_PICK_COUNT}`)
   }
 
-  const picks: StockData[] = ranked.map(({ symbol, score }) => {
+  const picks: StockData[] = ranked.map(({ symbol, score, tier }) => {
     const master = mastersBySymbol.get(symbol)
     const feature = featuresBySymbol.get(symbol)
     if (!master || !feature || feature.close === null || !Number.isInteger(feature.close) || feature.close <= 0) {
@@ -340,7 +383,7 @@ export async function generatePicksWithMeta(input: {
       ticker: symbol,
       name: master.name,
       close_price: feature.close,
-      rationale: buildRationale(feature, score),
+      rationale: buildRationale(feature, score, tier),
       signals: buildSignals(feature),
     }
   })
@@ -348,10 +391,6 @@ export async function generatePicksWithMeta(input: {
   if (!validateStockData(picks)) throw new Error('코드 픽이 StockDataArray 호환 계약을 통과하지 못했습니다')
 
   const parametersHash = PRODUCTION_STRATEGY.parametersHash
-  const rankedFeatures: RankedStockFeature[] = rankedCandidates.flatMap(({ symbol, score }, index) => {
-    const feature = featuresBySymbol.get(symbol)
-    return feature ? [{ ...feature, score, rank: index + 1 }] : []
-  })
   const funnel: StockPicksFunnel = {
     signalDate,
     activeMasters: masters.filter((master) => master.is_active).length,
@@ -370,6 +409,7 @@ export async function generatePicksWithMeta(input: {
       name: master?.name ?? candidate.symbol,
       close: candidate.close,
       score: candidate.score,
+      tier: candidate.tier,
       volumePercentile60: candidate.volumePercentile60,
       distanceFromHigh60: candidate.distanceFromHigh60,
       atrPercent14: candidate.atrPercent14,
@@ -378,12 +418,18 @@ export async function generatePicksWithMeta(input: {
       gapFromPreviousClosePercent: candidate.gapFromPreviousClosePercent,
     }
   }
+  const picksByTier = Object.fromEntries(PRODUCTION_STRATEGY.fillTiers.map((tier) => [
+    tier,
+    ranked.filter((candidate) => candidate.tier === tier).length,
+  ]))
   console.log(JSON.stringify({
     event: 'stock_picks_generated',
     signalDate,
-    strategy: 'volumeBreakoutNoGapUp',
+    strategy: PRODUCTION_STRATEGY.name,
+    strategyVersion: PRODUCTION_STRATEGY.version,
     parameters: PRODUCTION_VOLUME_BREAKOUT_PARAMETERS,
     parametersHash,
+    picksByTier,
     picks: rankedFeatures.slice(0, REQUIRED_PICK_COUNT).map(toObservableCandidate),
     topCandidates: rankedFeatures.slice(0, 20).map(toObservableCandidate),
   }))
@@ -395,7 +441,8 @@ export async function generatePicksWithMeta(input: {
       signalDate,
       generatedAt: new Date().toISOString(),
       gitSha: process.env.GITHUB_SHA ?? null,
-      strategy: 'volumeBreakoutNoGapUp',
+      strategy: PRODUCTION_STRATEGY.name,
+      strategyVersion: PRODUCTION_STRATEGY.version,
       parameters: PRODUCTION_VOLUME_BREAKOUT_PARAMETERS,
       parametersHash,
       funnel,
@@ -410,7 +457,8 @@ export async function generatePicksWithMeta(input: {
     picks,
     meta: {
       signalDate,
-      strategy: 'volumeBreakoutNoGapUp',
+      strategy: PRODUCTION_STRATEGY.name,
+      strategyVersion: PRODUCTION_STRATEGY.version,
       parameters: PRODUCTION_VOLUME_BREAKOUT_PARAMETERS,
       parametersHash,
       funnel,

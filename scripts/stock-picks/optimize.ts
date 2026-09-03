@@ -199,7 +199,7 @@ export interface FrozenProductionEvaluationReport {
   readonly evaluationPolicy: {
     readonly evaluationScope: 'walk_forward_test_dates'
     readonly parameterSelection: 'frozen_no_fold_reselection'
-    readonly strategy: 'volumeBreakoutNoGapUp'
+    readonly strategy: 'volumeBreakoutNoGapUp+volumeOnlyFill'
     readonly mode: 'force3'
   }
   readonly strategy: typeof PRODUCTION_STRATEGY
@@ -221,6 +221,7 @@ export interface FrozenProductionEvaluationReport {
   }
   readonly aggregate: OosMetricSummary
   readonly baselines: {
+    readonly productionV0: OosMetricSummary
     readonly oosRandom3: OosMetricSummary
     readonly oosPolicyRandom3: OosMetricSummary
     readonly oosVolumeOnly3: OosMetricSummary
@@ -1109,14 +1110,14 @@ export function runFrozenProductionEvaluation(input: {
     featuresByDate: input.featuresByDate,
     masters: new Map(input.masters.map((row) => [row.symbol, row])),
   }
-  const reports = input.splits.map((split) => evaluateDates({
+  const productionV0Reports = input.splits.map((split) => evaluateDates({
     name: 'volumeBreakoutNoGapUp',
     parameters: PRODUCTION_VOLUME_BREAKOUT_PARAMETERS,
     mode: 'force3',
     dates: split.testDates,
     context,
   }))
-  const candidateCounts = input.splits.flatMap((split) => countCandidates({
+  const productionV0CandidateCounts = input.splits.flatMap((split) => countCandidates({
     name: 'volumeBreakoutNoGapUp',
     parameters: PRODUCTION_VOLUME_BREAKOUT_PARAMETERS,
     mode: 'force3',
@@ -1125,18 +1126,34 @@ export function runFrozenProductionEvaluation(input: {
   }))
   const evaluationDates = [...new Set(input.splits.flatMap((split) => split.testDates))]
   const baselines = evaluateBaselines(input.splits, context)
+  const eligiblePoolByDate = buildEligiblePoolByDate(context)
+  const eligibleCounts = new Map([...eligiblePoolByDate.entries()].map(([date, symbols]) => (
+    [date, symbols.length]
+  )))
+  const production = evaluateBaseline(
+    input.splits,
+    context,
+    'volumeBreakoutNoGapUp+volumeOnlyFill:production',
+    createTieredFillStrategy({
+      featuresByDate: context.featuresByDate,
+      masters: context.masters,
+      parameters: PRODUCTION_VOLUME_BREAKOUT_PARAMETERS,
+      tiers: PRODUCTION_STRATEGY.fillTiers,
+    }),
+    eligibleCounts,
+  )
   const tieredFill = evaluateTieredFillExperiment({
     splits: input.splits,
     context,
     tiers: ['breakout', 'relaxedBreakout', 'volumeOnly'],
-    productionReports: reports,
+    productionReports: production.reports,
     volumeOnlyReports: baselines.volumeOnly3.reports,
   })
   const breakoutThenVolumeOnly = evaluateTieredFillExperiment({
     splits: input.splits,
     context,
     tiers: ['breakout', 'volumeOnly'],
-    productionReports: reports,
+    productionReports: production.reports,
     volumeOnlyReports: baselines.volumeOnly3.reports,
   })
 
@@ -1145,7 +1162,7 @@ export function runFrozenProductionEvaluation(input: {
     evaluationPolicy: {
       evaluationScope: 'walk_forward_test_dates',
       parameterSelection: 'frozen_no_fold_reselection',
-      strategy: 'volumeBreakoutNoGapUp',
+      strategy: 'volumeBreakoutNoGapUp+volumeOnlyFill',
       mode: 'force3',
     },
     strategy: PRODUCTION_STRATEGY,
@@ -1157,19 +1174,20 @@ export function runFrozenProductionEvaluation(input: {
       evaluationDays: evaluationDates.length,
       foldCount: input.splits.length,
     },
-    aggregate: summarizeReports(reports, candidateCounts),
+    aggregate: production.summary,
     baselines: {
+      productionV0: summarizeReports(productionV0Reports, productionV0CandidateCounts),
       oosRandom3: baselines.random3.summary,
       oosPolicyRandom3: baselines.policyRandom3.summary,
       oosVolumeOnly3: baselines.volumeOnly3.summary,
     },
     pairedDailyDelta: {
       productionMinusVolumeOnly: summarizePairedComparison(
-        reports,
+        production.reports,
         baselines.volumeOnly3.reports,
       ),
       productionMinusPolicyRandom: summarizePairedComparison(
-        reports,
+        production.reports,
         baselines.policyRandom3.reports,
       ),
     },
@@ -1264,6 +1282,7 @@ async function runCli(args: readonly string[]): Promise<void> {
       frozenSlotPrecisionAt3: frozenReport.aggregate.slotPrecisionAt3,
       slotPrecisionAt3: {
         production: frozenReport.aggregate.slotPrecisionAt3,
+        productionV0: frozenReport.baselines.productionV0.slotPrecisionAt3,
         tieredFill: frozenReport.experiments.tieredFill.slotPrecisionAt3,
         breakoutThenVolumeOnly: frozenReport.experiments.breakoutThenVolumeOnly.slotPrecisionAt3,
       },

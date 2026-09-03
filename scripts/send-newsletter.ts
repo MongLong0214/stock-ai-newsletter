@@ -94,6 +94,7 @@ export interface SendNewsletterRepository {
   }): Promise<boolean>
   renewLease(date: string, runId: string, leaseUntilIso: string): Promise<boolean>
   releaseLease(date: string, runId: string): Promise<void>
+  markStaleSendingAsUnknown(date: string, updatedAt: string): Promise<number>
   snapshotDeliveries(
     date: string,
     subscribers: readonly SubscriberRow[],
@@ -246,6 +247,16 @@ export function createSendNewsletterRepository(
         .eq('is_sent', false)
         .eq('sending_owner', runId)
       if (error) throw databaseError(error)
+    },
+    async markStaleSendingAsUnknown(date, updatedAt) {
+      const { data, error } = await client
+        .from('newsletter_deliveries')
+        .update({ status: 'unknown', updated_at: updatedAt })
+        .eq('newsletter_date', date)
+        .eq('status', 'sending')
+        .select('subscriber_id')
+      if (error) throw databaseError(error)
+      return data?.length ?? 0
     },
     async snapshotDeliveries(date, subscribers, updatedAt) {
       const existingRows = await fetchAllRows<{ readonly subscriber_id: string }>((from, to) => client
@@ -693,6 +704,16 @@ export async function runSendNewsletter(
     }
     acquiredRepository = repository
     logger.log(JSON.stringify({ event: 'send_lease_acquired', targetDate, runId }))
+
+    // A prior worker may have reached SendGrid before dying. Never auto-resend that ambiguous request.
+    const staleSendingCount = await repository.markStaleSendingAsUnknown(
+      targetDate,
+      new Date(now()).toISOString(),
+    )
+    logger.log(JSON.stringify({
+      event: 'send_stale_sending_marked_unknown',
+      count: staleSendingCount,
+    }))
 
     const snapshot = await repository.snapshotDeliveries(
       targetDate,

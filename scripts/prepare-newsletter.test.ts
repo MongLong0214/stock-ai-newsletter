@@ -14,6 +14,7 @@ const mocks = vi.hoisted(() => ({
   ensureToken: vi.fn(),
   generateCodePicks: vi.fn(),
   getLlmAnalysis: vi.fn(),
+  persistSnapshot: vi.fn(),
   refreshStockMaster: vi.fn(),
 }))
 
@@ -28,6 +29,9 @@ vi.mock('@/scripts/stock-picks/generate-picks', async (importOriginal) => {
   return { ...actual, generatePicksWithMeta: mocks.generateCodePicks }
 })
 vi.mock('@/scripts/stock-picks/load-stock-master', () => ({ loadStockMaster: mocks.refreshStockMaster }))
+vi.mock('@/scripts/stock-picks/pick-snapshots', () => ({
+  persistStockPickSnapshot: mocks.persistSnapshot,
+}))
 
 import {
   parsePrepareNewsletterCliArgs,
@@ -70,7 +74,8 @@ const GENERATED_RESULT = {
   picks: JSON.parse(CODE_PICKS),
   meta: {
     signalDate: SIGNAL_DATE,
-    strategy: 'volumeBreakoutNoGapUp',
+    strategy: 'volumeBreakoutNoGapUp+volumeOnlyFill',
+    strategyVersion: 'v1-2026-09-03',
     parameters: {},
     parametersHash: 'fixture-hash',
     funnel: {
@@ -82,10 +87,10 @@ const GENERATED_RESULT = {
       picked: 3,
     },
     rankedCandidates: [
-      { symbol: 'KOSPI:000001', score: 91 },
-      { symbol: 'KOSPI:000002', score: 87 },
-      { symbol: 'KOSPI:000003', score: 83 },
-      { symbol: 'KOSPI:000004', score: 80 },
+      { symbol: 'KOSPI:000001', name: '테스트1', score: 91, rank: 1, tier: 'breakout' },
+      { symbol: 'KOSPI:000002', name: '테스트2', score: 87, rank: 2, tier: 'breakout' },
+      { symbol: 'KOSPI:000003', name: '테스트3', score: 83, rank: 3, tier: 'volumeOnly' },
+      { symbol: 'KOSPI:000004', name: '테스트4', score: 80, rank: 4, tier: 'volumeOnly' },
     ],
   },
 }
@@ -137,6 +142,7 @@ describe('prepare-newsletter stock-pick wiring', () => {
     mocks.ensureToken.mockResolvedValue({ source: 'issued', expiresAt: Date.now() + 60_000 })
     mocks.generateCodePicks.mockResolvedValue(GENERATED_RESULT)
     mocks.getLlmAnalysis.mockResolvedValue({ geminiAnalysis: '[{"fallback":true}]' })
+    mocks.persistSnapshot.mockResolvedValue(undefined)
     mocks.refreshStockMaster.mockResolvedValue(undefined)
   })
 
@@ -298,6 +304,7 @@ describe('prepare-newsletter stock-pick wiring', () => {
       deadlineAt: expect.any(Number),
     }))
     expect(mocks.generateCodePicks).toHaveBeenCalledWith({ todayKst: TARGET_DATE })
+    expect(mocks.persistSnapshot).not.toHaveBeenCalled()
     expect(findSummary(logSpy)).toMatchObject({
       event: 'prepare_run_summary',
       targetDate: TARGET_DATE,
@@ -406,7 +413,33 @@ describe('prepare-newsletter stock-pick wiring', () => {
       newsletter_date: TARGET_DATE,
       picks_source: 'code',
     }))
+    expect(mocks.persistSnapshot).toHaveBeenCalledWith(expect.objectContaining({
+      signal_date: SIGNAL_DATE,
+      strategy: 'volumeBreakoutNoGapUp+volumeOnlyFill',
+      strategy_version: 'v1-2026-09-03',
+      parameters_hash: 'fixture-hash',
+      run_id: null,
+      picks: expect.arrayContaining([expect.objectContaining({ tier: 'breakout' })]),
+      top_candidates: expect.arrayContaining([expect.objectContaining({ tier: 'volumeOnly' })]),
+    }))
     expect(findSummary(logSpy)).toMatchObject({ event: 'prepare_run_summary', picksSource: 'code' })
+  })
+
+  it('warns but still writes the newsletter when snapshot persistence fails', async () => {
+    const client = mockNewsletterClient({ reads: [null] })
+    vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', 'https://example.supabase.co')
+    vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY', 'test-service-role-key')
+    mocks.persistSnapshot.mockRejectedValue(new Error('snapshot unavailable'))
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+    await prepareNewsletter({ targetDate: TARGET_DATE })
+
+    expect(client.insert).toHaveBeenCalled()
+    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('snapshot unavailable'))
+    expect(findSummary(logSpy)).toMatchObject({
+      warnings: expect.arrayContaining([expect.stringContaining('snapshot unavailable')]),
+    })
   })
 
   it('alerts and returns exit code 1 on an unhandled CLI failure', async () => {

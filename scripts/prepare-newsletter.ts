@@ -25,6 +25,7 @@ import {
   type GeneratePicksResult,
 } from '@/scripts/stock-picks/generate-picks'
 import { loadStockMaster } from '@/scripts/stock-picks/load-stock-master'
+import { persistStockPickSnapshot } from '@/scripts/stock-picks/pick-snapshots'
 
 export type PicksSource = 'code' | 'llm_fallback' | 'crash'
 export const MIN_DAILY_COLLECTION_SUCCESS_RATE = 0.95
@@ -579,6 +580,29 @@ export async function prepareNewsletter(options: PrepareNewsletterOptions = {}):
     console.log('\n✅ dry-run — DB 저장 생략')
     await emitPrepareSummary(summary)
     return
+  }
+
+  if (pipeline.picksSource === 'code' && pipeline.generated) {
+    try {
+      await persistStockPickSnapshot({
+        signal_date: pipeline.generated.meta.signalDate,
+        strategy: pipeline.generated.meta.strategy,
+        strategy_version: pipeline.generated.meta.strategyVersion,
+        parameters_hash: pipeline.generated.meta.parametersHash,
+        generated_at: new Date().toISOString(),
+        git_sha: process.env.GITHUB_SHA ?? null,
+        run_id: runId,
+        funnel: pipeline.generated.meta.funnel,
+        picks: pipeline.generated.meta.rankedCandidates.slice(0, 3),
+        top_candidates: pipeline.generated.meta.rankedCandidates.slice(0, 20),
+      })
+    } catch (error) {
+      const warning = `stock pick snapshot 저장 실패 — 뉴스레터 저장은 계속 진행: ${
+        error instanceof Error ? error.message : String(error)
+      }`
+      warnings.push(warning)
+      console.warn(`⚠️ ${warning}`)
+    }
   }
   if (!client) throw new Error('newsletter client 초기화 실패')
   if (remainingMs(deadlineAt) <= 0) abortForDeadline('database write')

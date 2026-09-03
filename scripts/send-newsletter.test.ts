@@ -95,6 +95,15 @@ function makeRepository(input: {
     acquireLease: vi.fn(async () => input.acquireLease ?? true),
     renewLease: vi.fn(async () => true),
     releaseLease: vi.fn(async () => undefined),
+    markStaleSendingAsUnknown: vi.fn(async (_date, updatedAt) => {
+      let marked = 0
+      rows.forEach((row, subscriberId) => {
+        if (row.status !== 'sending') return
+        rows.set(subscriberId, { ...row, status: 'unknown', updated_at: updatedAt })
+        marked += 1
+      })
+      return marked
+    }),
     snapshotDeliveries: vi.fn(async (date, activeSubscribers, updatedAt) => {
       let inserted = 0
       let existing = 0
@@ -356,6 +365,36 @@ describe('runSendNewsletter', () => {
       expect.any(String),
       2,
     )
+  })
+
+  it('marks a previous worker sending row unknown and completes without resending it', async () => {
+    const { repository, rows } = makeRepository({
+      deliveries: [delivery('subscriber-1', 'sending', 1)],
+    })
+    const send = makeSend()
+    const logger = makeLogger()
+
+    await expect(runSendNewsletter(
+      { targetDate: TARGET_DATE, dispatchId: 'recovery-slot' },
+      { env: {}, repository, send, logger, deliveryWriteFlushMs: 0 },
+    )).resolves.toBe(0)
+
+    expect(repository.markStaleSendingAsUnknown).toHaveBeenCalledWith(
+      TARGET_DATE,
+      expect.any(String),
+    )
+    expect(rows.get('subscriber-1')?.status).toBe('unknown')
+    expect(send).toHaveBeenCalledWith([], expect.any(Object), expect.any(Object))
+    expect(repository.confirmSent).toHaveBeenCalledWith(
+      TARGET_DATE,
+      'recovery-slot',
+      expect.any(String),
+      0,
+    )
+    expect(logger.log).toHaveBeenCalledWith(JSON.stringify({
+      event: 'send_stale_sending_marked_unknown',
+      count: 1,
+    }))
   })
 
   it('releases the lease and exits 1 while retryable deliveries remain', async () => {

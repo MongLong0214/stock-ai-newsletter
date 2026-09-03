@@ -1,29 +1,15 @@
-import {
-  runBacktest,
-  type BacktestReport,
-  type LabelStatusCounts,
-} from '@/scripts/stock-picks/backtest'
+import type { LabelStatusCounts } from '@/scripts/stock-picks/backtest'
 import { validateResearchDataset } from '@/scripts/stock-picks/data-contract'
 import { getRawPrice, loadPriceBook, type PriceBook } from '@/scripts/stock-picks/data-handler'
-import type { StockFeatureVector } from '@/scripts/stock-picks/features'
-import { PRODUCTION_VOLUME_BREAKOUT_PARAMETERS } from '@/scripts/stock-picks/generate-picks'
 import { labelPick, type StockPickLabel } from '@/scripts/stock-picks/label'
-import { precomputeFeatureMap } from '@/scripts/stock-picks/optimize'
-import {
-  createCachedFeatureStrategy,
-  createVolumeBreakoutAtrRankStrategy,
-  loadStockMasterStates,
-  type StockMasterState,
-} from '@/scripts/stock-picks/strategies'
+import type { StockPickSnapshot } from '@/scripts/stock-picks/pick-snapshots'
+import { loadStockPickSnapshots } from '@/scripts/stock-picks/pick-snapshots'
+import { PRODUCTION_STRATEGY } from '@/scripts/stock-picks/production-strategy'
 import { TradingDayIndex, loadTradingDayIndex } from '@/scripts/stock-picks/trading-days'
 
 const DEFAULT_LOOKBACK_DAYS = 60
 const RECENT_WEEK_COUNT = 4
 const INFORMATIONAL_HOLDING_DAYS = 8
-const SHADOW_FEATURE_WARMUP_DAYS = 320
-
-export const SHADOW_FORWARD_START_DATE = '2026-08-31'
-
 export type ForwardPicksSource = 'code' | 'llm_fallback' | 'crash' | null
 export type ForwardNullReason = 'missingEntryOpen' | 'missingWindowData'
 type SourceKey = Exclude<ForwardPicksSource, null> | 'null'
@@ -67,18 +53,21 @@ export interface ForwardWeeklySummary extends ForwardAccuracySummary {
 }
 
 export interface ShadowForwardStrategySummary {
+  readonly dayCount: number
   readonly pickCount: number
-  readonly maturePickCount: number
+  readonly labeledPickCount: number
   readonly hitCount: number
-  readonly hitRate: number | null
+  readonly slotDenominator: number
+  readonly slotPrecisionAt3: number | null
 }
 
 export interface ShadowForwardComparison {
-  readonly startDate: typeof SHADOW_FORWARD_START_DATE
+  readonly startDate: string
   readonly endDate: string
-  readonly production: ShadowForwardStrategySummary
-  readonly volumeBreakoutAtrRank: ShadowForwardStrategySummary
-  readonly hitRateDifferencePercentagePoints: number | null
+  readonly snapshotCount: number
+  readonly publishedV1: ShadowForwardStrategySummary
+  readonly productionV0Only: ShadowForwardStrategySummary
+  readonly slotPrecisionDifferencePercentagePoints: number | null
 }
 
 export interface ForwardMeasurementReport {
@@ -137,19 +126,27 @@ const summarize = (picks: readonly EvaluatedPick[]): ForwardAccuracySummary => {
   }
 }
 
-const summarizeBacktest = (report: BacktestReport): ShadowForwardStrategySummary => ({
-  pickCount: report.totalPicks,
-  maturePickCount: report.labeledPicks,
-  hitCount: report.touchedPicks,
-  hitRate: report.precisionAt3,
-})
-
-const emptyShadowComparison = (asOfDate: string): ShadowForwardComparison => ({
-  startDate: SHADOW_FORWARD_START_DATE,
+const emptyShadowComparison = (startDate: string, asOfDate: string): ShadowForwardComparison => ({
+  startDate,
   endDate: asOfDate,
-  production: { pickCount: 0, maturePickCount: 0, hitCount: 0, hitRate: null },
-  volumeBreakoutAtrRank: { pickCount: 0, maturePickCount: 0, hitCount: 0, hitRate: null },
-  hitRateDifferencePercentagePoints: null,
+  snapshotCount: 0,
+  publishedV1: {
+    dayCount: 0,
+    pickCount: 0,
+    labeledPickCount: 0,
+    hitCount: 0,
+    slotDenominator: 0,
+    slotPrecisionAt3: null,
+  },
+  productionV0Only: {
+    dayCount: 0,
+    pickCount: 0,
+    labeledPickCount: 0,
+    hitCount: 0,
+    slotDenominator: 0,
+    slotPrecisionAt3: null,
+  },
+  slotPrecisionDifferencePercentagePoints: null,
 })
 
 const parsePublishedPicks = (row: PublishedNewsletterRow): {
@@ -222,49 +219,51 @@ const evaluatePick = (
 export function measureShadowForwardComparison(input: {
   readonly prices: PriceBook
   readonly tradingDays: TradingDayIndex
-  readonly featuresByDate: ReadonlyMap<string, readonly StockFeatureVector[]>
-  readonly masters: readonly StockMasterState[]
+  readonly snapshots: readonly StockPickSnapshot[]
+  readonly startDate: string
   readonly asOfDate: string
 }): ShadowForwardComparison {
-  const masters = new Map(input.masters.map((master) => [master.symbol, master]))
-  const universe = input.masters.map((master) => master.symbol)
-  const productionReport = runBacktest({
-    strategyName: 'volumeBreakout:production',
-    strategy: createCachedFeatureStrategy({
-      name: 'volumeBreakout',
-      featuresByDate: input.featuresByDate,
-      masters,
-      parameters: PRODUCTION_VOLUME_BREAKOUT_PARAMETERS,
-      mode: 'force3',
-    }),
-    universe,
-    prices: input.prices,
-    tradingDays: input.tradingDays,
-    startDate: SHADOW_FORWARD_START_DATE,
-    endDate: input.asOfDate,
+  const snapshots = input.snapshots.filter((snapshot) => (
+    snapshot.strategy === PRODUCTION_STRATEGY.name
+    && snapshot.signal_date >= input.startDate
+    && snapshot.signal_date <= input.asOfDate
+  ))
+  const matureSnapshots = snapshots.filter((snapshot) => {
+    const entryDate = input.tradingDays.nextTradingDay(snapshot.signal_date, 1)
+    const maturityDate = entryDate ? input.tradingDays.nextTradingDay(entryDate, 4) : null
+    return maturityDate !== null && maturityDate <= input.asOfDate
   })
-  const shadowReport = runBacktest({
-    strategyName: 'volumeBreakoutAtrRank:shadow',
-    strategy: createVolumeBreakoutAtrRankStrategy({
-      featuresByDate: input.featuresByDate,
-      masters,
-    }),
-    universe,
-    prices: input.prices,
-    tradingDays: input.tradingDays,
-    startDate: SHADOW_FORWARD_START_DATE,
-    endDate: input.asOfDate,
-  })
-  const production = summarizeBacktest(productionReport)
-  const volumeBreakoutAtrRank = summarizeBacktest(shadowReport)
+  const summarizeSnapshots = (
+    select: (snapshot: StockPickSnapshot) => ReadonlyArray<StockPickSnapshot['picks'][number]>,
+  ): ShadowForwardStrategySummary => {
+    const labels = matureSnapshots.flatMap((snapshot) => select(snapshot).map((candidate) => (
+      labelPick(candidate.symbol, snapshot.signal_date, input.prices, input.tradingDays)
+    )))
+    const hitCount = labels.filter((label) => label?.touched).length
+    const slotDenominator = matureSnapshots.length * 3
+    return {
+      dayCount: matureSnapshots.length,
+      pickCount: labels.length,
+      labeledPickCount: labels.filter((label) => label !== null).length,
+      hitCount,
+      slotDenominator,
+      slotPrecisionAt3: slotDenominator > 0 ? hitCount / slotDenominator : null,
+    }
+  }
+  const publishedV1 = summarizeSnapshots((snapshot) => snapshot.picks.slice(0, 3))
+  const productionV0Only = summarizeSnapshots((snapshot) => (
+    snapshot.top_candidates.filter((candidate) => candidate.tier === 'breakout').slice(0, 3)
+  ))
   return {
-    startDate: SHADOW_FORWARD_START_DATE,
+    startDate: input.startDate,
     endDate: input.asOfDate,
-    production,
-    volumeBreakoutAtrRank,
-    hitRateDifferencePercentagePoints: production.hitRate === null || volumeBreakoutAtrRank.hitRate === null
+    snapshotCount: snapshots.length,
+    publishedV1,
+    productionV0Only,
+    slotPrecisionDifferencePercentagePoints: publishedV1.slotPrecisionAt3 === null
+      || productionV0Only.slotPrecisionAt3 === null
       ? null
-      : (volumeBreakoutAtrRank.hitRate - production.hitRate) * 100,
+      : (publishedV1.slotPrecisionAt3 - productionV0Only.slotPrecisionAt3) * 100,
   }
 }
 
@@ -341,7 +340,7 @@ export function measureForwardPicks(input: {
     byPicksSource,
     nullBreakdown,
     recent4Weeks,
-    shadowComparison: input.shadowComparison ?? emptyShadowComparison(input.asOfDate),
+    shadowComparison: input.shadowComparison ?? emptyShadowComparison(startDate, input.asOfDate),
   }
 }
 
@@ -367,18 +366,18 @@ const percentagePoints = (value: number | null): string => (
 )
 
 export function renderShadowForwardComparisonSection(comparison: ShadowForwardComparison): string {
-  if (comparison.production.pickCount === 0 && comparison.volumeBreakoutAtrRank.pickCount === 0) {
+  if (comparison.snapshotCount === 0) {
     return [
-      `ATR14 사전등록 섀도우 (신호일 ${comparison.startDate} 이후, 제품 기준 5보유일)`,
-      '포워드 데이터 대기 중',
+      `저장 스냅샷 v1-v0 포워드 비교 (신호일 ${comparison.startDate}~${comparison.endDate})`,
+      '스냅샷 대기 중',
     ].join('\n')
   }
   return [
-    `ATR14 사전등록 섀도우 (신호일 ${comparison.startDate} 이후, 제품 기준 5보유일)`,
-    '| 전략 | 픽 수 | 성숙 수 | 적중 수 | 타율 | 차이(%p) |',
-    '| --- | ---: | ---: | ---: | ---: | ---: |',
-    `| production | ${comparison.production.pickCount} | ${comparison.production.maturePickCount} | ${comparison.production.hitCount} | ${percent(comparison.production.hitRate)} | - |`,
-    `| volumeBreakoutAtrRank | ${comparison.volumeBreakoutAtrRank.pickCount} | ${comparison.volumeBreakoutAtrRank.maturePickCount} | ${comparison.volumeBreakoutAtrRank.hitCount} | ${percent(comparison.volumeBreakoutAtrRank.hitRate)} | ${percentagePoints(comparison.hitRateDifferencePercentagePoints)} |`,
+    `저장 스냅샷 v1-v0 포워드 비교 (신호일 ${comparison.startDate}~${comparison.endDate}, 제품 기준 5보유일)`,
+    '| 전략 | 성숙 일수 | 픽 수 | 라벨 수 | 슬롯 적중 | slotPrecision@3 | 차이(%p) |',
+    '| --- | ---: | ---: | ---: | ---: | ---: | ---: |',
+    `| v1 (published) | ${comparison.publishedV1.dayCount} | ${comparison.publishedV1.pickCount} | ${comparison.publishedV1.labeledPickCount} | ${comparison.publishedV1.hitCount}/${comparison.publishedV1.slotDenominator} | ${percent(comparison.publishedV1.slotPrecisionAt3)} | ${percentagePoints(comparison.slotPrecisionDifferencePercentagePoints)} |`,
+    `| v0-only | ${comparison.productionV0Only.dayCount} | ${comparison.productionV0Only.pickCount} | ${comparison.productionV0Only.labeledPickCount} | ${comparison.productionV0Only.hitCount}/${comparison.productionV0Only.slotDenominator} | ${percent(comparison.productionV0Only.slotPrecisionAt3)} | - |`,
   ].join('\n')
 }
 
@@ -432,31 +431,22 @@ if (isDirectRun) {
   Promise.all([
     loadPublishedNewsletters(startDate, asOfDate),
     loadTradingDayIndex(),
-    loadStockMasterStates(),
-  ]).then(async ([newsletters, tradingDays, masters]) => {
+    loadStockPickSnapshots({ from: startDate, to: asOfDate }),
+  ]).then(async ([newsletters, tradingDays, snapshots]) => {
     const publishedPicks = newsletters.flatMap((row) => parsePublishedPicks(row).picks)
     const maturePicks = publishedPicks.flatMap((pick) => {
       const mature = maturePick(pick, tradingDays, asOfDate)
       return mature ? [mature] : []
     })
 
-    const shadowEvaluationStart = tradingDays.firstTradingDayOnOrAfter(SHADOW_FORWARD_START_DATE)
-    const shadowEndIndex = tradingDays.tradingDays.findLastIndex((date) => date <= asOfDate)
-    const shadowStartIndex = shadowEvaluationStart
-      ? tradingDays.indexByDate.get(shadowEvaluationStart)
-      : undefined
-    const shadowHistoryDates = (
-      shadowStartIndex !== undefined
-      && shadowEndIndex >= shadowStartIndex
-    )
-      ? tradingDays.tradingDays.slice(
-          Math.max(0, shadowStartIndex - SHADOW_FEATURE_WARMUP_DAYS),
-          shadowEndIndex + 1,
-        )
-      : []
+    const matureSnapshotSignalDates = snapshots.map((snapshot) => snapshot.signal_date).filter((date) => {
+      const entryDate = tradingDays.nextTradingDay(date, 1)
+      const maturityDate = entryDate ? tradingDays.nextTradingDay(entryDate, 4) : null
+      return maturityDate !== null && maturityDate <= asOfDate
+    })
     const priceStartDate = [
       maturePicks.map((pick) => pick.entryDate).sort()[0],
-      shadowHistoryDates[0],
+      matureSnapshotSignalDates.map((date) => tradingDays.nextTradingDay(date, 1)).sort()[0],
     ].filter((date): date is string => date !== undefined).sort()[0]
     const prices = priceStartDate
       ? await loadPriceBook({ startDate: priceStartDate, endDate: asOfDate })
@@ -468,20 +458,11 @@ if (isDirectRun) {
       toDate: asOfDate,
     })
     console.log(JSON.stringify({ event: 'research_data_contract', ...dataContract }))
-    const featuresByDate = shadowEvaluationStart && shadowHistoryDates.length > 0
-      ? precomputeFeatureMap({
-          prices,
-          tradingDays,
-          masters,
-          historyDates: shadowHistoryDates,
-          evaluationStart: shadowEvaluationStart,
-        })
-      : new Map<string, readonly StockFeatureVector[]>()
     const shadowComparison = measureShadowForwardComparison({
       prices,
       tradingDays,
-      featuresByDate,
-      masters,
+      snapshots,
+      startDate,
       asOfDate,
     })
     const report = measureForwardPicks({

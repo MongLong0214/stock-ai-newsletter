@@ -209,13 +209,13 @@ describe('stock-picks walk-forward optimizer', () => {
     expect(frozen.evaluationPolicy).toMatchObject({
       evaluationScope: 'walk_forward_test_dates',
       parameterSelection: 'frozen_no_fold_reselection',
-      strategy: 'volumeBreakoutNoGapUp',
+      strategy: 'volumeBreakoutNoGapUp+volumeOnlyFill',
       mode: 'force3',
     })
     expect(frozen.parameters.minScore).toBe(0)
     expect(frozen.strategy).toMatchObject({
-      name: 'volumeBreakoutNoGapUp',
-      version: 'v0-2026-08-28',
+      name: 'volumeBreakoutNoGapUp+volumeOnlyFill',
+      version: 'v1-2026-09-03',
       parametersHash: expect.stringMatching(/^[a-f0-9]{64}$/),
     })
     expect(frozen.datasetFingerprint).toEqual({
@@ -236,6 +236,7 @@ describe('stock-picks walk-forward optimizer', () => {
     })
     expect(frozen.baselines.oosPolicyRandom3.slotPrecisionAt3).toBe(1)
     expect(frozen.baselines.oosVolumeOnly3.slotPrecisionAt3).toBe(1)
+    expect(frozen.baselines.productionV0.slotPrecisionAt3).toBe(1)
     expect(frozen.pairedDailyDelta.productionMinusVolumeOnly).toMatchObject({
       excludedDates: { onlyProduction: 0, onlyBaseline: 0, total: 0 },
       slotPrecisionAt3DeltaCi: { mean: 0, lower95: 0, upper95: 0 },
@@ -301,7 +302,8 @@ describe('stock-picks walk-forward optimizer', () => {
       generatedAt: '2026-08-28T00:00:00.000Z',
     })
 
-    expect(frozen.aggregate.totalPicks).toBe(1)
+    expect(frozen.aggregate.totalPicks).toBe(3)
+    expect(frozen.baselines.productionV0.totalPicks).toBe(1)
     expect(frozen.experiments.tieredFill).toMatchObject({
       evaluationScope: 'exploratory_dev_window',
       totalPicks: 3,
@@ -311,7 +313,7 @@ describe('stock-picks walk-forward optimizer', () => {
       pairedDailyDelta: {
         experimentMinusProduction: {
           excludedDates: { onlyProduction: 0, onlyBaseline: 0, total: 0 },
-          slotPrecisionAt3DeltaCi: { mean: 2 / 3, lower95: 2 / 3, upper95: 2 / 3 },
+          slotPrecisionAt3DeltaCi: { mean: 0, lower95: 0, upper95: 0 },
         },
         experimentMinusVolumeOnly: {
           slotPrecisionAt3DeltaCi: { mean: 0, lower95: 0, upper95: 0 },

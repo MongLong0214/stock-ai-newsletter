@@ -1,16 +1,14 @@
 import { describe, expect, it } from 'vitest'
 
 import { buildPriceBook } from '@/scripts/stock-picks/data-handler'
-import type { StockFeatureVector } from '@/scripts/stock-picks/features'
 import {
   measureForwardPicks,
   measureShadowForwardComparison,
   renderShadowForwardComparisonSection,
-  SHADOW_FORWARD_START_DATE,
   type PublishedNewsletterRow,
   type ShadowForwardComparison,
 } from '@/scripts/stock-picks/measure-forward'
-import type { StockMasterState } from '@/scripts/stock-picks/strategies'
+import type { StockPickSnapshot } from '@/scripts/stock-picks/pick-snapshots'
 import { TradingDayIndex } from '@/scripts/stock-picks/trading-days'
 import type { StockDailyPriceRow } from '@/scripts/tli/prices/stock-daily-prices'
 
@@ -47,52 +45,6 @@ const newsletter = (
   newsletter_date: date,
   picks_source: source,
   gemini_analysis: JSON.stringify(tickers.map((ticker) => ({ ticker }))),
-})
-
-const shadowFeature = (symbol: string, simDate: string, atrPercentile60: number): StockFeatureVector => ({
-  symbol,
-  simDate,
-  open: 1_900,
-  high: 2_050,
-  low: 1_850,
-  close: 2_000,
-  volume: 1_000_000,
-  averageTurnover20: 2_000_000_000,
-  rsi14: 45,
-  macdHistogram: 1,
-  sma20: 1_990,
-  sma60: 1_800,
-  ema20: 1_990,
-  sma20Slope5: 0.01,
-  sma20DistancePercent: 0.5,
-  atrPercent14: 3,
-  atrPercentile60,
-  adx14: 25,
-  adx14Previous: 24,
-  adx14Change: 1,
-  obvSlope20: 100,
-  volumeRatio20: 1.2,
-  volumePercentile60: 95,
-  position52w: 0.8,
-  position52wObservations: 100,
-  position52wFullWindow: false,
-  consecutiveUpDays: 1,
-  trendR2_20: 0.6,
-  trendSlope20: 0.01,
-  trendR2_20Previous: 0.55,
-  trendR2_20Change: 0.05,
-  trendR2_60: 0.8,
-  trendSlope60: 0.01,
-  distanceFromHigh60: 0,
-  gapFromPreviousClosePercent: 0,
-  goldenCrossAge: 3,
-  bullishCandle: true,
-})
-
-const stockMaster = (symbol: string): StockMasterState => ({
-  symbol,
-  is_active: true,
-  status_flags: {},
 })
 
 describe('measureForwardPicks', () => {
@@ -196,64 +148,117 @@ describe('measureForwardPicks', () => {
     })
   })
 
-  it('excludes signal dates before the preregistered shadow start date', () => {
+  it('compares published v1 with v0-only breakout picks from stored snapshots', () => {
     const dates = [
-      '2026-08-28',
-      SHADOW_FORWARD_START_DATE,
-      '2026-09-01',
       '2026-09-02',
       '2026-09-03',
       '2026-09-04',
       '2026-09-07',
+      '2026-09-08',
+      '2026-09-09',
     ]
-    const oldSymbols = ['KOSPI:100001', 'KOSPI:100002', 'KOSPI:100003']
-    const newSymbols = ['KOSPI:200001', 'KOSPI:200002', 'KOSPI:200003']
-    const symbols = [...oldSymbols, ...newSymbols]
-    const prices = buildPriceBook(symbols.flatMap((symbol) => dates.map((tradeDate): StockDailyPriceRow => ({
+    const symbols = ['BREAKOUT_HIT', 'BREAKOUT_MISS_A', 'VOLUME_HIT', 'BREAKOUT_MISS_B']
+    const hitSymbols = new Set(['BREAKOUT_HIT', 'VOLUME_HIT'])
+    const prices = buildPriceBook(symbols.flatMap((symbol) => dates.map((tradeDate, index): StockDailyPriceRow => ({
       symbol,
       trade_date: tradeDate,
       open: 100,
-      high: 110,
+      high: index >= 1 && hitSymbols.has(symbol) ? 110 : 109,
       low: 95,
       close: 100,
       volume: 1_000,
       source: 'kis',
     }))))
-    const featuresByDate = new Map([
-      [dates[0], oldSymbols.map((symbol, index) => shadowFeature(symbol, dates[0], 10 + index))],
-      [dates[1], newSymbols.map((symbol, index) => shadowFeature(symbol, dates[1], 10 + index))],
-    ])
+    const candidate = (
+      symbol: string,
+      tier: 'breakout' | 'volumeOnly',
+      rank: number,
+    ) => ({ symbol, tier, rank }) as StockPickSnapshot['picks'][number]
+    const publishedPicks = [
+      candidate('BREAKOUT_HIT', 'breakout', 1),
+      candidate('BREAKOUT_MISS_A', 'breakout', 2),
+      candidate('VOLUME_HIT', 'volumeOnly', 3),
+    ]
+    const snapshot = {
+      signal_date: dates[0],
+      strategy: 'volumeBreakoutNoGapUp+volumeOnlyFill',
+      strategy_version: 'v1-2026-09-03',
+      parameters_hash: 'fixture-hash',
+      generated_at: '2026-09-03T00:00:00.000Z',
+      git_sha: null,
+      run_id: null,
+      funnel: {
+        signalDate: dates[0],
+        activeMasters: 4,
+        withFreshKisRow: 4,
+        withCompleteFeatures: 4,
+        gatePassed: 4,
+        picked: 3,
+      },
+      picks: publishedPicks,
+      top_candidates: [
+        ...publishedPicks,
+        candidate('BREAKOUT_MISS_B', 'breakout', 4),
+      ],
+    } as StockPickSnapshot
 
     const comparison = measureShadowForwardComparison({
       prices,
       tradingDays: new TradingDayIndex(dates),
-      featuresByDate,
-      masters: symbols.map(stockMaster),
+      snapshots: [snapshot],
+      startDate: dates[0],
       asOfDate: dates.at(-1)!,
     })
 
-    expect(comparison.startDate).toBe(SHADOW_FORWARD_START_DATE)
-    expect(comparison.production).toMatchObject({ pickCount: 3, maturePickCount: 3 })
-    expect(comparison.volumeBreakoutAtrRank).toMatchObject({ pickCount: 3, maturePickCount: 3 })
+    expect(comparison.publishedV1).toMatchObject({
+      dayCount: 1,
+      pickCount: 3,
+      labeledPickCount: 3,
+      hitCount: 2,
+      slotDenominator: 3,
+      slotPrecisionAt3: 2 / 3,
+    })
+    expect(comparison.productionV0Only).toMatchObject({
+      dayCount: 1,
+      pickCount: 3,
+      labeledPickCount: 3,
+      hitCount: 1,
+      slotDenominator: 3,
+      slotPrecisionAt3: 1 / 3,
+    })
+    expect(comparison.slotPrecisionDifferencePercentagePoints).toBeCloseTo(100 / 3)
   })
 
   it('renders the side-by-side shadow comparison and the zero-data waiting message', () => {
     const comparison: ShadowForwardComparison = {
-      startDate: SHADOW_FORWARD_START_DATE,
+      startDate: '2026-09-02',
       endDate: '2026-09-30',
-      production: { pickCount: 45, maturePickCount: 40, hitCount: 20, hitRate: 0.5 },
-      volumeBreakoutAtrRank: { pickCount: 45, maturePickCount: 40, hitCount: 30, hitRate: 0.75 },
-      hitRateDifferencePercentagePoints: 25,
+      snapshotCount: 15,
+      publishedV1: {
+        dayCount: 10,
+        pickCount: 30,
+        labeledPickCount: 30,
+        hitCount: 15,
+        slotDenominator: 30,
+        slotPrecisionAt3: 0.5,
+      },
+      productionV0Only: {
+        dayCount: 10,
+        pickCount: 20,
+        labeledPickCount: 20,
+        hitCount: 6,
+        slotDenominator: 30,
+        slotPrecisionAt3: 0.2,
+      },
+      slotPrecisionDifferencePercentagePoints: 30,
     }
     const rendered = renderShadowForwardComparisonSection(comparison)
 
-    expect(rendered).toContain('| production | 45 | 40 | 20 | 50.0% | - |')
-    expect(rendered).toContain('| volumeBreakoutAtrRank | 45 | 40 | 30 | 75.0% | +25.0%p |')
+    expect(rendered).toContain('| v1 (published) | 10 | 30 | 30 | 15/30 | 50.0% | +30.0%p |')
+    expect(rendered).toContain('| v0-only | 10 | 20 | 20 | 6/30 | 20.0% | - |')
     expect(renderShadowForwardComparisonSection({
       ...comparison,
-      production: { pickCount: 0, maturePickCount: 0, hitCount: 0, hitRate: null },
-      volumeBreakoutAtrRank: { pickCount: 0, maturePickCount: 0, hitCount: 0, hitRate: null },
-      hitRateDifferencePercentagePoints: null,
-    })).toContain('포워드 데이터 대기 중')
+      snapshotCount: 0,
+    })).toContain('스냅샷 대기 중')
   })
 })

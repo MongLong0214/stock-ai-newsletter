@@ -68,6 +68,20 @@
 4. gs-quant: 포팅 가치 없음(우리 RSI Wilder·백분위 동점 0.5 가중은 표준과 일치, backtests에 purge/embargo 없음). 문헌: Cooper(1999) 거래량 조건부 지속이 규칙 전제를 지지; RSI 게이트 근거 약함(자체 AUC .54); 30% 상한가가 +10% 터치를 기계적으로 만드는 가능성은 변동성 매칭 플라시보로 검증 필요; +5%p 검출 파워는 iid 258일, 클러스터·중첩 반영 시 3~6년 → 포워드 누적 + 사전등록이 유일한 정직한 길.
 5. 연구 프로토콜 순서(사전등록): E2 게이트 감사(RSI×가격하한 2×2, 갭 규칙) → E4~E6 피처 증분(logVolumeZ20, atrExpansion60, rangeExpansion20, CLV, distanceToHigh) → 동일가중 rank aggregation V1 → L2 logistic. GBDT 보류.
 
+### 3.4 v1 결정
+
+2026-09-03에 실험 B를 프로덕션 v1으로 승격했다. v0의 돌파 티어와 순위는 그대로 두고, 빈 슬롯만 같은 공통 게이트 풀에서 `volumePercentile60` 내림차순으로 결정적으로 채운다. LLM fallback은 신선 데이터나 평가 경로가 없는 **하드 파이프라인 실패**에만 사용하며 슬롯 필러로는 사용하지 않는다.
+
+| 근거 | 측정값 |
+|---|---|
+| production v0, repaired frozen dev window 180일 | slotPrecision@3 **36.1%** [29.8, 42.4], 빈 슬롯 19% |
+| 현재 빈 슬롯의 LLM fallback 포워드 실측 | 31~32% |
+| v1: breakout → volumeOnly | slotPrecision@3 **46.3%** [41.3, 51.1] |
+| v1 − v0 paired | **+10.2%p** [+5.4, +15.7] |
+| volumeOnly 보충 티어 단독 | 55/102 적중(53.9%) |
+
+보충 규칙은 그리드 탐색 없이 정한 단순 규칙이다. 이후 어떤 전략 변경도 예측 당일 `stock_pick_snapshots`에 저장된 픽으로 포워드 비교한 결과를 거쳐서만 승격한다. 재계산된 과거 피처나 사후 재구성 픽은 승격 근거로 사용하지 않는다.
+
 ## 4. 구현 (커밋 순)
 
 | 커밋 | 내용 |
@@ -80,6 +94,7 @@
 | `7df3181` | **sol 최종 리뷰 반영**: 미확정 선점 복구 재발송(중복 가능·누락 방지), dispatch 단일 POST+`display_title` 매칭, 불리언 정규화, prepare 절대 데드라인(38분)·fallback red, 토큰 거부 1회 재발급, crash 오경보 제거, physicalCalls, SendGrid 타임아웃/데드라인, 라우트 회귀 테스트 복원 |
 | `c031f9c` | 희소 날짜 데이터 계약 게이트(날짜별 거래량>0 종목 비율 <80% → 실패, `gapDatesTop`), 수집 리포트 `perDateSymbolCounts` + prepare 경고, 커스텀 Error 관례 교정. 첫 실행에서 09-02 유령 행(당일 아침 구 코드가 적재, 익일 수집이 덮어씀)을 정확히 잡아냄 |
 | Task 9a | **exactly-once 발송**: `063_newsletter_delivery_ledger.sql`의 20분 sending lease와 수신자별 delivery ledger, retryable 수신자만 재시도 |
+| Task 9b | **프로덕션 픽 v1 + 포워드 전환**: breakout 우선·volumeOnly 결정적 3슬롯 채움, 상태 플래그 하드 배제, `064_stock_pick_snapshots.sql` 예측 스냅샷 영속, 저장 스냅샷 기반 v1-v0 측정 |
 
 데이터 수리(프로덕션 DB, 추가 삽입만): KOSPI 지수 결손 100일 백필(`repair-kospi-index.ts --apply`, remainingMissing 0), 2026-04-02 전 종목 백필(2,422행; 실패 12는 당시 미상장).
 
@@ -100,7 +115,7 @@
 | prepare 코드 픽 실패 → LLM fallback | 워크플로우 red + 메일 + 07:05 메일 | 06:50 backup 재생성 |
 | prepare 예산 초과 | `prepare_aborted` + 메일, 행 미기록 | 06:50 backup |
 | KIS 토큰 403 / 데이터 호출 거부 | cooldown 재시도 / 무효화+재발급 | 재시도 큐 → 정확일 게이트 |
-| 발송 워커 사망 (lease 만료 후) | 만료 lease + delivery ledger | 07:45 retry가 `pending`·`failed_retryable`만 재개 |
+| 발송 워커 사망 (lease 만료 후) | 만료 lease + delivery ledger | 다음 lease 획득자가 남은 `sending`을 `unknown`으로 전환·알림하고 자동 재발송하지 않음 |
 | 발송 부분 실패 | `send_incomplete` + 상태별 원장 집계 메일 | lease 해제 후 07:45 retry; `accepted`·`failed_terminal`·`unknown`은 자동 재발송 금지 |
 | 확정 update 실패 | throw → red | 07:45 retry 복구 경로 |
 
@@ -108,17 +123,16 @@
 
 ## 6. 검증 방법 (재현 가능)
 
-- 단위: `npx tsc --noEmit`, `npx eslint .`, `npx vitest run` — 328 파일 / 3,704 테스트 통과.
+- 단위: `npx tsc --noEmit`, `npm run typecheck:scripts`, `npx eslint .`, `npx vitest run` — 343 파일 / 3,818 테스트 통과(eslint 오류 0, 기존 경고 22).
 - env 주입 전체 스위트(TLI env 의존 41파일 포함): 메인 체크아웃 cwd에서 `vitest run --root <워크트리>` (`tli-boundary-manifest`·prepare 워크플로우 YAML 읽기 테스트 2건은 cwd 상대경로라 메인 트리를 읽어 오탐; 워크트리 cwd에서는 통과).
 - 실데이터: `prepare-newsletter.ts --dry-run --force`(21.9분), 라우트 핸들러 E2E(`CRON_SECRET` 프로세스 주입), `send-newsletter.ts --dry-run --target-date=...`, `repair-kospi-index.ts`(dry-run→apply), `optimize.ts --frozen`(전/중간/후 3회).
 - 워크트리엔 `.env.local`이 없으므로 실데이터 실행은 `cd <메인> && <워크트리>/node_modules/.bin/tsx --tsconfig <워크트리>/tsconfig.json <스크립트>`.
 
 ## 7. Isaac 결정 필요
 
-1. **수신자 단위 delivery ledger + sending lease(스키마)** — exactly-once 발송. 현재는 "미확정 선점 → 전원 재발송(중복 가능)" 잠정 정책.
-2. **실험 B(breakout → volumeOnly 채움)의 사전등록 포워드 섀도우** 개시 — `stock_pick_snapshots` 테이블(예측 당일 스냅샷 영속) 승인 필요. 현재는 아티팩트(90일)에만 저장.
-3. `market_sessions` SSOT 테이블 vs 현행 앵커 인덱스 유지.
-4. KIS 수집 속도 2→5/s 카나리(`STOCK_PICKS_KIS_RATE_LIMIT_PER_SECOND`), 계정 종류(실전/모의) 확인.
-5. LLM fallback을 계속 픽 필러로 인정할지(실험 B는 결정적 대안), primary objective(expectedHits vs anyHit), 투자경고·단기과열 하드 배제, 독자당 배정액→ADV 하한.
-6. SerpApi 쿼터 복구 여부, `GH_DISPATCH_TOKEN` 만료일(D-14 알림 신설).
-7. 캘린더 유지보수: 매년 12월 다음 해 표 갱신 + 임시공휴일 즉시 반영(라우트·인덱스·연구 게이트가 전부 의존).
+결정 완료(2026-09-03): **KIS 호출 제한은 2/s로 유지**한다. 프로덕션 공통 게이트에서 투자경고·투자위험(`market_warning_code` 02·03), 단기과열 지정·연장(`short_term_overheat_code` 2·3), 투자주의환기(`investment_caution=Y`), 투자위험예고(`market_warning_risk_notice=Y`)를 배제한다. 1일성 소프트 플래그인 투자주의(`market_warning_code=01`)는 유지한다.
+
+1. `market_sessions` SSOT 테이블 vs 현행 앵커 인덱스 유지.
+2. primary objective(expectedHits vs anyHit), 독자당 배정액→ADV 하한.
+3. SerpApi 쿼터 복구 여부, `GH_DISPATCH_TOKEN` 만료일(D-14 알림 신설).
+4. 캘린더 유지보수: 매년 12월 다음 해 표 갱신 + 임시공휴일 즉시 반영(라우트·인덱스·연구 게이트가 전부 의존).

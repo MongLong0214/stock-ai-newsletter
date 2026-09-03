@@ -40,8 +40,13 @@ export const PRODUCTION_VOLUME_BREAKOUT_PARAMETERS: VolumeBreakoutParameters = {
 }
 
 export const PRODUCTION_STRATEGY = {
-  name: 'volumeBreakoutNoGapUp',
-  version: 'v0-2026-08-28',
+  name: 'volumeBreakoutNoGapUp+volumeOnlyFill',
+  version: 'v1-2026-09-03',
   parameters: PRODUCTION_VOLUME_BREAKOUT_PARAMETERS,
-  parametersHash: hashCanonicalJson(PRODUCTION_VOLUME_BREAKOUT_PARAMETERS),
+  fillTiers: ['breakout', 'volumeOnly'] as const,
+  parametersHash: hashCanonicalJson({
+    parameters: PRODUCTION_VOLUME_BREAKOUT_PARAMETERS,
+    fillTiers: ['breakout', 'volumeOnly'],
+    gateVersion: 'status-flags-v1',
+  }),
 } as const

@@ -82,6 +82,30 @@ describe('stock-picks strategy gates and ranking', () => {
     expect(passesCommonGate(feature('A', { close: 999 }), master('A'))).toBe(false)
   })
 
+  it('excludes hard KIS warning flags while retaining soft investment caution code 01', () => {
+    expect(passesCommonGate(feature('A'), master('A', {
+      status_flags: { market_warning_code: ' 02 ' },
+    }))).toBe(false)
+    expect(passesCommonGate(feature('A'), master('A', {
+      status_flags: { market_warning_code: '03' },
+    }))).toBe(false)
+    expect(passesCommonGate(feature('A'), master('A', {
+      status_flags: { short_term_overheat_code: ' 2 ' },
+    }))).toBe(false)
+    expect(passesCommonGate(feature('A'), master('A', {
+      status_flags: { short_term_overheat_code: '3' },
+    }))).toBe(false)
+    expect(passesCommonGate(feature('A'), master('A', {
+      status_flags: { investment_caution: 'Y' },
+    }))).toBe(false)
+    expect(passesCommonGate(feature('A'), master('A', {
+      status_flags: { market_warning_risk_notice: ' Y ' },
+    }))).toBe(false)
+    expect(passesCommonGate(feature('A'), master('A', {
+      status_flags: { market_warning_code: '01' },
+    }))).toBe(true)
+  })
+
   it('is deterministic and breaks equal-score ties by symbol', () => {
     const features = [feature('C'), feature('A'), feature('B')]
     const masters = new Map(features.map((row) => [row.symbol, master(row.symbol)]))

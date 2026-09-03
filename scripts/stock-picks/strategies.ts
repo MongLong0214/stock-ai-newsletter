@@ -215,6 +215,8 @@ const flagged = (value: unknown): boolean => {
   return ['Y', 'YES', 'TRUE', 'T', '1'].includes(value.trim().toUpperCase())
 }
 
+const trimmedCode = (value: unknown): string => typeof value === 'string' ? value.trim() : ''
+
 export function passesCommonGate(
   feature: StockFeatureVector,
   master: StockMasterState | undefined,
@@ -222,10 +224,15 @@ export function passesCommonGate(
   maxRsi = 70,
 ): boolean {
   if (!master?.is_active) return false
+  const statusFlags = master.status_flags
   if (
-    flagged(master.status_flags?.managed_stock)
-    || flagged(master.status_flags?.trading_suspended)
-    || flagged(master.status_flags?.liquidation_trading)
+    flagged(statusFlags?.managed_stock)
+    || flagged(statusFlags?.trading_suspended)
+    || flagged(statusFlags?.liquidation_trading)
+    || ['02', '03'].includes(trimmedCode(statusFlags?.market_warning_code))
+    || ['2', '3'].includes(trimmedCode(statusFlags?.short_term_overheat_code))
+    || flagged(statusFlags?.investment_caution)
+    || flagged(statusFlags?.market_warning_risk_notice)
   ) return false
   if (feature.averageTurnover20 === null || feature.averageTurnover20 < minTurnover) return false
   if (feature.close === null || feature.close < 1_000) return false
@@ -447,15 +454,17 @@ export function rankTieredFillCandidates(input: {
   readonly parameters: VolumeBreakoutParameters
   readonly tiers?: ReadonlyArray<TieredFillTier>
   readonly universe?: ReadonlySet<string>
+  readonly pickCount?: number
 }): TieredFillPick[] {
   const tiers = input.tiers ?? DEFAULT_TIERED_FILL_TIERS
+  const targetPickCount = input.pickCount ?? PICKS_PER_DATE
   const remainingUniverse = new Set(
     input.universe ?? input.features.map((feature) => feature.symbol),
   )
   const picks: TieredFillPick[] = []
 
   for (const tier of tiers) {
-    const pickCount = PICKS_PER_DATE - picks.length
+    const pickCount = targetPickCount - picks.length
     if (pickCount <= 0) break
     const symbols = tier === 'volumeOnly'
       ? rankVolumeOnlyCandidates({
