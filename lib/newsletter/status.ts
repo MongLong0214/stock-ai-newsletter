@@ -5,6 +5,7 @@ import {
   type NewsletterDeliveryCounts,
   type NewsletterDeliveryStatus,
 } from '@/lib/newsletter/delivery'
+import { fetchAllRows } from '@/lib/supabase/paginate'
 
 export interface NewsletterStatusRow {
   readonly is_sent: boolean
@@ -65,12 +66,18 @@ export async function countDeliveriesByStatus(
   env: NewsletterStatusEnvironment = process.env,
 ): Promise<NewsletterDeliveryCounts> {
   const supabase = createStatusClient(env)
-  const { data, error } = await supabase
-    .from('newsletter_deliveries')
-    .select('status')
-    .eq('newsletter_date', date)
-
-  if (error) throw new Error(`Database error: ${error.message}`)
-  const rows = (data ?? []) as Array<{ readonly status: NewsletterDeliveryStatus }>
-  return countNewsletterDeliveryStatuses(rows)
+  try {
+    const rows = await fetchAllRows<{ readonly status: NewsletterDeliveryStatus }>((from, to) => supabase
+      .from('newsletter_deliveries')
+      .select('status')
+      .eq('newsletter_date', date)
+      .order('subscriber_id', { ascending: true })
+      .range(from, to))
+    return countNewsletterDeliveryStatuses(rows)
+  } catch (error) {
+    if (error && typeof error === 'object' && 'message' in error) {
+      throw new Error(`Database error: ${String(error.message)}`)
+    }
+    throw new Error(`Database error: ${String(error)}`)
+  }
 }

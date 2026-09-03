@@ -2,7 +2,7 @@
 
 > 대상: `prepare-newsletter` → `daily-newsletter` → watchdog 발행 체인과 `scripts/stock-picks/*` 종목 선정 로직.
 > 증거: GitHub run 33559616526(2026-09-02 06:10 KST) 전문 로그, Supabase 실측 프로브, 코드 정적 분석,
-> sol(gpt-5.6-sol) 2트랙 감사 + 최종 적대적 리뷰, 문헌 리서치(sonnet 2건), 실데이터 드라이런·핸들러 E2E·frozen 재평가.
+> sol(gpt-5.6-sol) 2트랙 감사 + 최종 적대적 리뷰, Grok(grok-4.6) 2차 적대적 리뷰(§5.1), 문헌 리서치(sonnet 2건), 실데이터 드라이런·핸들러 E2E·frozen 재평가.
 > 브랜치 `feat/prepare-pipeline-enterprise`, 코드 커밋 7개 + 문서 2개 (§4).
 
 ## 1. 결론 요약
@@ -43,6 +43,8 @@
 
 핸들러 레벨 E2E(실 Supabase 읽기, dispatch 부작용 경로 제외): 6개 라우트 모두 미인증 401(fail-closed), 정상 인증 시 당일 상태에 맞는 판정(`already_sent` skip, prepared 워치독 `picksSource=code`, sent 워치독 OK). `send-newsletter --dry-run`: 구독자 317명 pagination, 오늘 콘텐츠 렌더 67,768 bytes, 부작용 0.
 
+09-03 v1 코드 드라이런(Task 9a/9b 반영 후, 신호일 09-02): 호출 2,431/실패 0/재시도 0, `tokenWarmup=storage`(발급 0), 정확일 커버리지 100%, 유령·미확정 행 0, 수집 17,017행, 총 21.8분. 퍼널 `activeMasters 2430 → withFreshKisRow 2430 → withCompleteFeatures 2412 → 공통 게이트 1085 → 3`, `picksByTier {breakout:3, volumeOnly:0}` — 이날은 돌파 후보가 3개 이상이어서 보충 티어를 쓰지 않았다. 같은 날 `send --dry-run`: 구독자 317명, 원장 상태 카운트 전부 0(lease 실행 전이라 정상).
+
 ## 3. 종목 선정 로직 평가 (목표 2)
 
 ### 3.1 현행 전략 v0와 이전 주장
@@ -80,7 +82,17 @@
 | v1 − v0 paired | **+10.2%p** [+5.4, +15.7] |
 | volumeOnly 보충 티어 단독 | 55/102 적중(53.9%) |
 
-보충 규칙은 그리드 탐색 없이 정한 단순 규칙이다. 이후 어떤 전략 변경도 예측 당일 `stock_pick_snapshots`에 저장된 픽으로 포워드 비교한 결과를 거쳐서만 승격한다. 재계산된 과거 피처나 사후 재구성 픽은 승격 근거로 사용하지 않는다.
+승격 후 프로덕션 코드 경로(`PRODUCTION_STRATEGY`, `generate-picks`와 같은 `rankTieredFillCandidates`)로 09-03 `optimize --frozen` 재평가(같은 180일·9 fold, 데이터 계약 ok):
+
+| 지표 | v1 (production) | v0 (`productionV0` 베이스라인) |
+|---|---|---|
+| slotPrecision@3 [95% CI] | **46.5%** [41.7, 51.3] (251/540) | 36.1% [29.8, 42.4] (195/540, 라벨 434) |
+| 슬롯 커버리지 | 100% | 80.4% |
+| anyHit / twoPlusHit | 83.3% / 45.0% | 68.9% / 32.8% |
+| paired 일별 차이 v1 − v0 | **+10.4%p** [+6.5, +15.2] (180일 중 v1 우세 42일, 열세 0일, 동률 138일) | — |
+| paired v1 − volumeOnly3 / − policyRandom3 | +5.0%p [−0.9, +10.9] / +18.5%p [+12.6, +24.1] | — |
+
+v1은 v0 픽을 그대로 포함하고 빈 슬롯만 채우므로 어떤 날도 v0보다 나빠질 수 없다(열세 0일이 그 구조를 확인한다). 보충 규칙은 그리드 탐색 없이 정한 단순 규칙이다. 이후 어떤 전략 변경도 예측 당일 `stock_pick_snapshots`에 저장된 픽으로 포워드 비교한 결과를 거쳐서만 승격한다. 재계산된 과거 피처나 사후 재구성 픽은 승격 근거로 사용하지 않는다.
 
 ## 4. 구현 (커밋 순)
 
@@ -93,8 +105,9 @@
 | `501635a` | 계층형 슬롯 채움 탐색 실험(연구 한정) |
 | `7df3181` | **sol 최종 리뷰 반영**: 미확정 선점 복구 재발송(중복 가능·누락 방지), dispatch 단일 POST+`display_title` 매칭, 불리언 정규화, prepare 절대 데드라인(38분)·fallback red, 토큰 거부 1회 재발급, crash 오경보 제거, physicalCalls, SendGrid 타임아웃/데드라인, 라우트 회귀 테스트 복원 |
 | `c031f9c` | 희소 날짜 데이터 계약 게이트(날짜별 거래량>0 종목 비율 <80% → 실패, `gapDatesTop`), 수집 리포트 `perDateSymbolCounts` + prepare 경고, 커스텀 Error 관례 교정. 첫 실행에서 09-02 유령 행(당일 아침 구 코드가 적재, 익일 수집이 덮어씀)을 정확히 잡아냄 |
-| Task 9a | **exactly-once 발송**: `063_newsletter_delivery_ledger.sql`의 20분 sending lease와 수신자별 delivery ledger, retryable 수신자만 재시도 |
-| Task 9b | **프로덕션 픽 v1 + 포워드 전환**: breakout 우선·volumeOnly 결정적 3슬롯 채움, 상태 플래그 하드 배제, `064_stock_pick_snapshots.sql` 예측 스냅샷 영속, 저장 스냅샷 기반 v1-v0 측정 |
+| `6afa889` (Task 9a) | **exactly-once 발송**: `063_newsletter_delivery_ledger.sql`의 sending lease(최초 20분)와 수신자별 delivery ledger, retryable 수신자만 재시도 |
+| `eeffbcc` (Task 9b) | **프로덕션 픽 v1 + 포워드 전환**: breakout 우선·volumeOnly 결정적 3슬롯 채움, 상태 플래그 하드 배제, `064_stock_pick_snapshots.sql` 예측 스냅샷 영속, 저장 스냅샷 기반 v1-v0 측정, 남은 `sending`→`unknown` 복구 |
+| Task 10 | **Grok 2차 리뷰 반영(§5.1)**: lease 20→12분(07:45 재개 창 18분보다 짧게), 원장 카운트 전량 조회+`subscriber_id` 정렬(워치독·완료 판정 1,000행 절단 제거), 스냅샷 이후 비활성 구독자 `failed_terminal/INACTIVE_SUBSCRIBER`, `.or()` ISO 값 인용 |
 
 데이터 수리(프로덕션 DB, 추가 삽입만): KOSPI 지수 결손 100일 백필(`repair-kospi-index.ts --apply`, remainingMissing 0), 2026-04-02 전 종목 백필(2,422행; 실패 12는 당시 미상장).
 
@@ -119,13 +132,29 @@
 | 발송 부분 실패 | `send_incomplete` + 상태별 원장 집계 메일 | lease 해제 후 07:45 retry; `accepted`·`failed_terminal`·`unknown`은 자동 재발송 금지 |
 | 확정 update 실패 | throw → red | 07:45 retry 복구 경로 |
 
-`newsletter_deliveries`는 최초 lease 획득 시점의 활성 구독자를 발송 대상으로 고정한다. SendGrid 2xx만 `accepted`, 재시도 소진 429·5xx·네트워크 오류는 `failed_retryable`, 그 밖의 4xx는 `failed_terminal`, 요청 전송 뒤 타임아웃은 중복 위험 때문에 `unknown`으로 기록한다. `pending`과 `failed_retryable`이 없어야만 `newsletter_content.is_sent=true`로 확정한다.
+`newsletter_deliveries`는 최초 lease 획득 시점의 활성 구독자를 발송 대상으로 고정한다. SendGrid 2xx만 `accepted`, 재시도 소진 429·5xx·네트워크 오류는 `failed_retryable`, 그 밖의 4xx는 `failed_terminal`, 요청 전송 뒤 타임아웃은 중복 위험 때문에 `unknown`으로 기록한다. 스냅샷 이후 구독을 취소한 수신자의 `pending`·`failed_retryable` 행은 다음 실행이 `failed_terminal/INACTIVE_SUBSCRIBER`로 종결한다(1명 취소가 그날 완료 확정을 영구히 막는 경로 차단). `pending`·`failed_retryable`·`sending`이 없고 lease를 계속 보유한 경우에만 `newsletter_content.is_sent=true`로 확정한다. 확정 뒤 신규 구독자는 그날 메일을 받지 않는다(스냅샷 의미).
+
+lease TTL은 12분, 갱신 5분이다. 07:27 획득 직후 워커가 죽으면 늦어도 07:41에 만료돼 07:45 retry가 자동 재개한다. 살아 있는 워커는 갱신으로 07:45에도 lease를 유지하므로 중복 실행은 없다. 원장 카운트(발송 완료 판정·워치독)는 전부 `fetchAllRows` + `subscriber_id` 정렬로 PostgREST `max_rows=1000` 절단 없이 센다.
+
+### 5.1 Grok(grok-4.6) 2차 적대적 리뷰 (2026-09-03)
+
+판정 `approve-with-fixes`. sol 1차 리뷰의 P0-1(`is_sent` 선점)·P0-2(부분 실패 영구 탈락)는 lease+ledger로 **닫힘**, P1-1 double POST·P1-3 SendGrid 타임아웃·P1-6 토큰 거부·P1-8 불리언은 닫힘, v1 픽커·origin/main 머지는 차단 이슈 0. 차단급 P1 3건 + 권장 1건을 Task 10으로 반영했다(위 표). 비차단 잔존(수용):
+
+| ID | 내용 | 수용 근거 |
+|---|---|---|
+| P2-2 | SendGrid 타임아웃이 `Promise.race`라 실제 HTTP를 abort하지 않음 | 원장 의미(`unknown`)는 정확. 소켓 누수는 1회성 워커 프로세스 종료로 해소 |
+| P2-3 | 원장 write에 lease fencing 없음 | 5분 갱신·12분 TTL의 정상 경로에서는 열리지 않음 |
+| P2-4 | 워치독이 `is_sent=true`+`unknown`을 성공으로 봄(warn) | send 경로의 수동 확인 메일이 본 알림 |
+| P2-5 | 스냅샷 persist 실패는 경고 후 발송 진행 | 발행이 연구 산출물보다 우선 |
+| P2-6 | `DEFAULT_TIERED_FILL_TIERS`(relaxed 포함)가 v1과 다름 | 프로덕션·frozen 호출부 전부 `PRODUCTION_STRATEGY.fillTiers` 명시 |
+| P1-4 | 코드 픽 임의 예외도 LLM fallback으로 감 | 워크플로우 red + 메일로 관측. fallback 비활성화는 별도 결정 |
+| P1-9 | sealed holdout·PIT 유니버스 없음 | 포워드 스냅샷 측정으로 대체(§3.4) |
 
 ## 6. 검증 방법 (재현 가능)
 
 - 단위: `npx tsc --noEmit`, `npm run typecheck:scripts`, `npx eslint .`, `npx vitest run` — 343 파일 / 3,818 테스트 통과(eslint 오류 0, 기존 경고 22).
 - env 주입 전체 스위트(TLI env 의존 41파일 포함): 메인 체크아웃 cwd에서 `vitest run --root <워크트리>` (`tli-boundary-manifest`·prepare 워크플로우 YAML 읽기 테스트 2건은 cwd 상대경로라 메인 트리를 읽어 오탐; 워크트리 cwd에서는 통과).
-- 실데이터: `prepare-newsletter.ts --dry-run --force`(21.9분), 라우트 핸들러 E2E(`CRON_SECRET` 프로세스 주입), `send-newsletter.ts --dry-run --target-date=...`, `repair-kospi-index.ts`(dry-run→apply), `optimize.ts --frozen`(전/중간/후 3회).
+- 실데이터: `prepare-newsletter.ts --dry-run --force`(09-02 21.9분, 09-03 v1 21.8분), 라우트 핸들러 E2E(`CRON_SECRET` 프로세스 주입), `send-newsletter.ts --dry-run --target-date=...`(09-02·09-03), `repair-kospi-index.ts`(dry-run→apply), `optimize.ts --frozen`(전/중간/후 + v1 프로덕션 확인, 총 4회).
 - 워크트리엔 `.env.local`이 없으므로 실데이터 실행은 `cd <메인> && <워크트리>/node_modules/.bin/tsx --tsconfig <워크트리>/tsconfig.json <스크립트>`.
 
 ## 7. Isaac 결정 필요

@@ -255,6 +255,7 @@ describe('runSendNewsletter', () => {
   })
 
   it('acquires the lease and snapshots new recipients while preserving accepted rows', async () => {
+    const nowMs = Date.parse('2026-09-02T22:27:00.000Z')
     const { repository, rows } = makeRepository({
       subscribers: SUBSCRIBERS.slice(0, 2),
       deliveries: [delivery('subscriber-1', 'accepted', 1)],
@@ -264,12 +265,14 @@ describe('runSendNewsletter', () => {
 
     await expect(runSendNewsletter(
       { targetDate: TARGET_DATE, dispatchId: 'lease-owner' },
-      { env: {}, repository, send, logger, deliveryWriteFlushMs: 0 },
+      { env: {}, repository, send, logger, deliveryWriteFlushMs: 0, now: () => nowMs },
     )).resolves.toBe(0)
 
     expect(repository.acquireLease).toHaveBeenCalledWith(expect.objectContaining({
       date: TARGET_DATE,
       runId: 'lease-owner',
+      nowIso: new Date(nowMs).toISOString(),
+      leaseUntilIso: new Date(nowMs + 12 * 60_000).toISOString(),
     }))
     expect(send).toHaveBeenCalledWith(
       [{ subscriberId: 'subscriber-2', email: 'second@example.org' }],
@@ -289,6 +292,43 @@ describe('runSendNewsletter', () => {
       targetDate: TARGET_DATE,
       inserted: 1,
       existing: 1,
+    }))
+  })
+
+  it('marks inactive subscribers terminal so pending rows cannot block completion', async () => {
+    const { repository, rows } = makeRepository({
+      subscribers: [SUBSCRIBERS[0]],
+      deliveries: [
+        delivery('subscriber-1', 'pending'),
+        delivery('subscriber-2', 'pending'),
+      ],
+    })
+    const send = makeSend()
+    const logger = makeLogger()
+
+    await expect(runSendNewsletter(
+      { targetDate: TARGET_DATE, dispatchId: 'inactive-run' },
+      { env: {}, repository, send, logger, deliveryWriteFlushMs: 0 },
+    )).resolves.toBe(0)
+
+    expect(rows.get('subscriber-2')).toMatchObject({
+      status: 'failed_terminal',
+      last_error_code: 'INACTIVE_SUBSCRIBER',
+    })
+    expect(send).toHaveBeenCalledWith(
+      [{ subscriberId: 'subscriber-1', email: 'first@example.com', name: 'First' }],
+      expect.any(Object),
+      expect.any(Object),
+    )
+    expect(repository.confirmSent).toHaveBeenCalledWith(
+      TARGET_DATE,
+      'inactive-run',
+      expect.any(String),
+      1,
+    )
+    expect(logger.log).toHaveBeenCalledWith(JSON.stringify({
+      event: 'send_inactive_subscribers_terminal',
+      count: 1,
     }))
   })
 

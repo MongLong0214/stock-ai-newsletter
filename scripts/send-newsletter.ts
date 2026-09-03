@@ -24,7 +24,8 @@ import { fetchAllRows } from '@/lib/supabase/paginate'
 const CONTENT_POLL_INTERVAL_MS = 30_000
 const DEFAULT_WAIT_FOR_CONTENT_MINUTES = 12
 const DEFAULT_SEND_DEADLINE_MINUTES = 15
-const LEASE_DURATION_MS = 20 * 60_000
+// 07:27 획득 직후 워커가 죽어도 07:45 retry 전에 lease가 만료돼야 한다. 정상 워커는 5분마다 갱신한다.
+const LEASE_DURATION_MS = 12 * 60_000
 const LEASE_RENEW_INTERVAL_MS = 5 * 60_000
 const DELIVERY_UPSERT_BATCH_SIZE = 500
 const DELIVERY_WRITE_BATCH_SIZE = 50
@@ -223,7 +224,7 @@ export function createSendNewsletterRepository(
         })
         .eq('newsletter_date', input.date)
         .eq('is_sent', false)
-        .or(`sending_lease_until.is.null,sending_lease_until.lt.${input.nowIso}`)
+        .or(`sending_lease_until.is.null,sending_lease_until.lt."${input.nowIso}"`)
         .select('newsletter_date')
       if (error) throw databaseError(error)
       return (data?.length ?? 0) > 0
@@ -263,6 +264,7 @@ export function createSendNewsletterRepository(
         .from('newsletter_deliveries')
         .select('subscriber_id')
         .eq('newsletter_date', date)
+        .order('subscriber_id', { ascending: true })
         .range(from, to))
       const existingIds = new Set(existingRows.map((row) => row.subscriber_id))
       const rows = subscribers.map((subscriber) => ({
@@ -308,6 +310,7 @@ export function createSendNewsletterRepository(
         .from('newsletter_deliveries')
         .select('status')
         .eq('newsletter_date', date)
+        .order('subscriber_id', { ascending: true })
         .range(from, to))
       return countNewsletterDeliveryStatuses(rows)
     },
@@ -744,6 +747,27 @@ export async function runSendNewsletter(
           }]
         : []
     })
+    // 스냅샷 이후 구독 취소된 수신자가 pending으로 남으면 그날 완료 판정이 영구히 막힌다.
+    const inactiveDeliveries = deliveryRows.filter(
+      (delivery) => !subscribersById.has(delivery.subscriber_id),
+    )
+    if (inactiveDeliveries.length > 0) {
+      await repository.writeDeliveryUpdates(inactiveDeliveries.map((delivery) => ({
+        newsletter_date: delivery.newsletter_date,
+        subscriber_id: delivery.subscriber_id,
+        email_domain: delivery.email_domain,
+        status: 'failed_terminal',
+        attempt_count: delivery.attempt_count,
+        last_error_code: 'INACTIVE_SUBSCRIBER',
+        provider_message_id: delivery.provider_message_id,
+        accepted_at: delivery.accepted_at,
+        updated_at: new Date(now()).toISOString(),
+      })))
+      logger.log(JSON.stringify({
+        event: 'send_inactive_subscribers_terminal',
+        count: inactiveDeliveries.length,
+      }))
+    }
     const writeQueue = new DeliveryWriteQueue(
       repository,
       dependencies.deliveryWriteFlushMs ?? DELIVERY_WRITE_FLUSH_MS,
