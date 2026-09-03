@@ -17,7 +17,7 @@ import {
 } from '@/lib/llm/stock-analysis'
 import { sendNewsletterAlertEmail } from '@/lib/newsletter/alert'
 import { getKSTDateString } from '@/lib/tli/date-utils'
-import { isKoreanTradingDate } from '@/lib/tli/trading-calendar'
+import { getLastFinalizedTradingDate, isKoreanTradingDate } from '@/lib/tli/trading-calendar'
 import { collectDailyStockPrices } from '@/scripts/stock-picks/collect-daily'
 import {
   generatePicksWithMeta,
@@ -476,6 +476,14 @@ export async function prepareNewsletter(options: PrepareNewsletterOptions = {}):
   }
   const signalTargetDate = options.simulateTodayKst ?? targetDate
   const signalDate = getExpectedSignalDate(signalTargetDate)
+  // WHY: 장 마감 확정 전 미래 발행일 실행이 미확정 신호일로 수집·LLM fallback까지 가지 않도록 파이프라인 진입 전에 실패시킨다.
+  const lastFinalizedDate = getLastFinalizedTradingDate()
+  if (signalDate > lastFinalizedDate) {
+    throw new Error(
+      `신호일 미확정: signalDate=${signalDate} > lastFinalized=${lastFinalizedDate} (targetDate=${targetDate})`
+      + ' — 장 마감 확정(15:40 KST) 전에는 미래 발행일로 실행할 수 없습니다',
+    )
+  }
   const runId = options.runId ?? process.env.DISPATCH_ID ?? process.env.GITHUB_RUN_ID ?? null
   const modeLabel = [options.dryRun ? 'DRY-RUN' : '', options.backupRun ? 'BACKUP' : '']
     .filter(Boolean)

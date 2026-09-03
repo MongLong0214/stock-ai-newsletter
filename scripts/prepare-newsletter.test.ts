@@ -460,6 +460,17 @@ describe('prepare-newsletter stock-pick wiring', () => {
     }))
   })
 
+  it('hard-fails a future target date before collection or LLM fallback', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-09-03T02:50:00Z'))
+    vi.spyOn(console, 'log').mockImplementation(() => {})
+
+    await expect(prepareNewsletter({ targetDate: '2026-09-04', dryRun: true }))
+      .rejects.toThrow('신호일 미확정')
+    expect(mocks.collectDaily).not.toHaveBeenCalled()
+    expect(mocks.getLlmAnalysis).not.toHaveBeenCalled()
+  })
+
   it('does not start LLM fallback when fewer than six minutes remain', async () => {
     vi.useFakeTimers()
     const startedAt = new Date('2026-09-02T00:00:00.000Z')
