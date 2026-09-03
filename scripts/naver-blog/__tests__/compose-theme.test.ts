@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { composeBody, composeTags, composeTitle, type ThemeDetail } from '../make-draft';
 import { checkFormat, FORMAT } from '../format';
-import { countBold, countColor, countQuotes, firstSentence, stripFormat } from '../draft-model';
+import { countBold, countColor, countQuotes, firstSentence, stripFormat, type ImagePlacement } from '../draft-model';
+import { applyReadabilityLayout } from '../readability';
+import { planBodyActions } from '../publish-plan';
 
 const DUTY_FREE: ThemeDetail = {
   name: '면세점',
@@ -108,5 +110,74 @@ describe('composeBody', () => {
       tags,
       title: composeTitle(DUTY_FREE, 8),
     })).toEqual([]);
+  });
+});
+
+/**
+ * 이미지 배치 간격 — FORMAT-SPEC §4의 숫자는 실측값이므로 여기서 고정한다.
+ *
+ * 개수·연속배치·CTA 뒤 검사는 planBodyActions가 런타임에 막는다. 하지만 "이미지 사이에
+ * 읽을 텍스트가 얼마나 있나"는 어디서도 재지 않아서, 조합기 문구를 손대면 한쪽에 몰려도
+ * 아무도 모른다. 발행 경로에 하한을 박으면 8자짜리 합성 픽스처까지 전부 막히고
+ * 무인 발행이 사소한 문구 수정에 걸리므로, 실제 조합기 출력만 여기서 잰다.
+ */
+describe('이미지 배치 간격', () => {
+  const place = (id: string): ImagePlacement => ({
+    afterBlock: 'body',
+    caption: `${id} 캡션`,
+    capturedAt: '2026-08-26T00:00:00.000Z',
+    id,
+    path: `/tmp/${id}.png`,
+    sha256: 'abc',
+    sourceSection: id,
+  });
+
+  /** 이미지마다 그 앞에 놓인 본문·인용구 글자 수(공백 제외) */
+  const gapsOf = (ids: readonly string[]): Array<{ before: number; id: string }> => {
+    const actions = planBodyActions(applyReadabilityLayout(composeBody(DUTY_FREE, THEME_ID)), ids.map(place));
+    const gaps: Array<{ before: number; id: string }> = [];
+    let acc = 0;
+    for (const action of actions) {
+      if (action.kind === 'image') {
+        gaps.push({ before: acc, id: action.path.replace(/^.*\//, '').replace(/\.png$/, '') });
+        acc = 0;
+        continue;
+      }
+      if (action.kind === 'paragraph' || action.kind === 'quote') {
+        acc += stripFormat(action.text).replace(/\s/g, '').length;
+      }
+    }
+    return gaps;
+  };
+
+  // 8종목이면 관련종목 표가 4개씩 두 장으로 나뉜다(shouldSplitStocks) — 실제 발행 경로다.
+  it('분할 캡처(8종목) 실측 간격', () => {
+    expect(gapsOf(['1-hero', '3-trend', '2-stocks-a', '2-stocks-b', '4-news'])).toEqual([
+      { before: 98, id: '1-hero' },
+      { before: 380, id: '3-trend' },
+      { before: 188, id: '2-stocks-a' },
+      { before: 82, id: '2-stocks-b' },
+      { before: 397, id: '4-news' },
+    ]);
+  });
+
+  it('미분할(4종목 이하) 실측 간격', () => {
+    expect(gapsOf(['1-hero', '3-trend', '2-stocks', '4-news'])).toEqual([
+      { before: 98, id: '1-hero' },
+      { before: 380, id: '3-trend' },
+      { before: 188, id: '2-stocks' },
+      { before: 479, id: '4-news' },
+    ]);
+  });
+
+  it('이미지 앞에 최소 한 문단은 있다 — 몰림 방지', () => {
+    for (const ids of [
+      ['1-hero', '3-trend', '2-stocks-a', '2-stocks-b', '4-news'],
+      ['1-hero', '3-trend', '2-stocks', '4-news'],
+    ]) {
+      for (const gap of gapsOf(ids)) {
+        expect(gap.before, `${gap.id} 앞 텍스트`).toBeGreaterThanOrEqual(80);
+      }
+    }
   });
 });
