@@ -36,6 +36,7 @@ import {
 } from './draft-model';
 import { checkFormat, FORMAT, METHODOLOGY_PATH, QUOTE_PREFIX } from './format';
 import { planBodyActions } from './publish-plan';
+import { describeSiteFailure, siteBypassHeaders } from './site-access';
 import { applyReadabilityLayout } from './readability';
 import { evergreenIndexForDate, THEME_COOLDOWN_DAYS, TYPE_PLANS, typeForDate, type PostType } from './post-types';
 import { makeRunId, runDir, sha256File, writeRunAtomic } from './run-store';
@@ -328,8 +329,11 @@ function writeDraft(outPath: string, draftInput: DraftPayload): void {
  * 점수·종목·뉴스를 배치 집계한다. 캐시가 식은 첫 호출이 30초를 넘길 수 있다.
  */
 async function getJson<T>(path: string): Promise<T> {
-  const res = await fetch(`${SITE}${path}`, { signal: AbortSignal.timeout(60_000) });
-  if (!res.ok) throw new Error(`${path} → ${res.status}`);
+  const res = await fetch(`${SITE}${path}`, {
+    headers: siteBypassHeaders(),
+    signal: AbortSignal.timeout(60_000),
+  });
+  if (!res.ok) throw new Error(describeSiteFailure(path, res.status));
   return (await res.json()).data;
 }
 

@@ -18,6 +18,7 @@ import {
 } from './capture-validate';
 import { snapshotCaption, type SourceSnapshot } from './draft-model';
 import type { PostType } from './post-types';
+import { siteBypassHeaders } from './site-access';
 
 const SITE = 'https://stockmatrix.co.kr';
 const MIN_IMAGE_BYTES = 15_000;
@@ -299,8 +300,10 @@ function captionOf(name: string, req: CaptureRequest): string {
 export async function capturePostImages(req: CaptureRequest, browser?: Browser): Promise<CapturedImage[]> {
   const own = !browser;
   const b = browser ?? (await chromium.launch());
+  // 이 컨텍스트는 자사 페이지만 연다 — 방화벽 챌린지 우회 헤더를 붙여도 안전하다.
   const context = await b.newContext({
     deviceScaleFactor: 1.5,
+    extraHTTPHeaders: siteBypassHeaders(),
     locale: 'ko-KR',
     viewport: { width: VIEWPORT_WIDTH, height: 1_000 },
   });
