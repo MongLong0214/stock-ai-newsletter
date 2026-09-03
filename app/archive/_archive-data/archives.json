@@ -2,6 +2,59 @@
   "newsletters": [
     {
       "type": "stock",
+      "date": "2026-09-04",
+      "stocks": [
+        {
+          "ticker": "KOSPI:138040",
+          "name": "메리츠금융지주",
+          "close_price": 136900,
+          "rationale": "기준일 종가 136,900원|당일 등락 5.6% 상승|RSI 73.8 강세|거래량비율 178% 평균상회|60일 거래량 백분위 97.5점|60일 신고가 5.5% 돌파|20일선 괴리 12.9%|20일 추세 기울기 0.20%/일|20일 추세 적합도 R2 7.0점|60일 추세 적합도 R2 58.7점|MACD 히스토그램 1539.23|ATR14 4.1%|ADX14 20.2점|OBV20 기울기 53695|252거래일 가격위치 79.6%|연속상승 6일|골든크로스 감지 1회·경과 32일|20일 평균거래대금 334.7억원|volumeBreakout 전략점수 85.0점|선정 경로 거래량 돌파",
+          "signals": {
+            "trend_score": 66,
+            "momentum_score": 79,
+            "volume_score": 76,
+            "volatility_score": 77,
+            "pattern_score": 63,
+            "sentiment_score": 80,
+            "overall_score": 72
+          }
+        },
+        {
+          "ticker": "KOSPI:015230",
+          "name": "대창단조",
+          "close_price": 6500,
+          "rationale": "기준일 종가 6,500원|당일 등락 6.9% 상승|RSI 62.5 강세|거래량비율 292% 급증|60일 거래량 백분위 97.5점|60일 신고가 0.8% 돌파|20일선 괴리 5.6%|20일 추세 기울기 0.38%/일|20일 추세 적합도 R2 50.9점|60일 추세 적합도 R2 8.5점|MACD 히스토그램 13.15|ATR14 3.8%|ADX14 22.1점|OBV20 기울기 41103|252거래일 가격위치 56.8%|연속상승 1일|골든크로스 감지 1회·경과 7일|20일 평균거래대금 5.8억원|volumeBreakout 전략점수 51.2점|선정 경로 거래량 돌파",
+          "signals": {
+            "trend_score": 70,
+            "momentum_score": 61,
+            "volume_score": 87,
+            "volatility_score": 85,
+            "pattern_score": 63,
+            "sentiment_score": 62,
+            "overall_score": 72
+          }
+        },
+        {
+          "ticker": "KOSDAQ:032940",
+          "name": "원익",
+          "close_price": 8580,
+          "rationale": "기준일 종가 8,580원|당일 등락 18.2% 상승|RSI 70.3 강세|거래량비율 856% 급증|60일 거래량 백분위 99.2점|60일 고점까지 0.3%|20일선 괴리 34.1%|20일 추세 기울기 1.38%/일|20일 추세 적합도 R2 48.0점|60일 추세 적합도 R2 3.8점|MACD 히스토그램 255.21|ATR14 9.7%|ADX14 23.6점|OBV20 기울기 631218|252거래일 가격위치 39.2%|연속상승 1일|골든크로스 감지 1회·경과 2일|20일 평균거래대금 138.1억원|volumeBreakout 전략점수 99.2점|선정 경로 거래량 상위 보충",
+          "signals": {
+            "trend_score": 87,
+            "momentum_score": 74,
+            "volume_score": 84,
+            "volatility_score": 0,
+            "pattern_score": 62,
+            "sentiment_score": 66,
+            "overall_score": 69
+          }
+        }
+      ],
+      "sentAt": "2026-09-03T22:34:58.424+00:00",
+      "subscriberCount": 317
+    },
+    {
+      "type": "stock",
       "date": "2026-09-03",
       "stocks": [
         {
@@ -11573,5 +11626,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-09-02T22:29:34.792Z"
+  "lastUpdated": "2026-09-03T22:38:23.264Z"
 }
