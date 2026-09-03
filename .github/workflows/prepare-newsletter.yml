@@ -109,8 +109,10 @@ jobs:
         if: always()
         run: rm -f "$HOME/gcloud-key.json"
 
+      # 요약 렌더링은 관측성이며 본체 성공을 실패로 바꾸거나 실패 알림을 유발하면 안 된다.
       - name: Write job summary
         if: always()
+        continue-on-error: true
         run: npx tsx scripts/ops/render-prepare-summary.ts "$RUNNER_TEMP/prepare-summary.json" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload run artifact
