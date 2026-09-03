@@ -1135,10 +1135,21 @@ async function main(): Promise<void> {
 
     // 네이버가 "발행 오류 — 문서 처리 중 오류가 발생하였습니다" 팝업을 낼 수 있다.
     // URL 대기만 하면 30초 타임아웃으로 끝나 진짜 원인이 묻힌다.
-    const failure = editor.locator('text=/발행 오류|처리 중 오류/').first();
+    // 네이버는 실패를 두 가지 형태로 알린다.
+    //  1) 에디터 안 팝업 — "발행 오류 / 문서 처리 중 오류가 발생하였습니다"
+    //  2) **전면 에러 페이지** — "페이지를 찾을 수 없습니다 / 요청하신 페이지를 처리하는 도중
+    //     예기치 못한 에러가 발생했습니다" (실측 2026-09-03, 연속 2회. 이 화면이 뜬 뒤
+    //     PostTitleListAsync의 totalCount가 그대로였다 = 글이 생성되지 않았다)
+    //
+    // 2)는 에디터 iframe이 아니라 페이지 전체가 바뀌므로 editor 컨텍스트로는 절대 안 잡힌다.
+    // 놓치면 timeout으로 빠져 **게시되지 않은 글을 발행 이력에 기록**하고, 하루 1편 게이트와
+    // pending 표식이 다음 실행까지 막는다(실측: 재시도가 "이미 발행했습니다"로 거절됨).
+    const editorFailure = editor.locator('text=/발행 오류|처리 중 오류/').first();
+    const pageFailure = page.locator('text=/예기치 못한 에러가 발생|페이지를 찾을 수 없습니다/').first();
     const outcome = await Promise.race([
       page.waitForURL(/blog\.naver\.com\/(?!.*postwrite)/, { timeout: 45_000 }).then(() => 'ok' as const),
-      failure.waitFor({ state: 'visible', timeout: 45_000 }).then(() => 'error' as const),
+      editorFailure.waitFor({ state: 'visible', timeout: 45_000 }).then(() => 'error' as const),
+      pageFailure.waitFor({ state: 'visible', timeout: 45_000 }).then(() => 'error' as const),
     ]).catch(() => 'timeout' as const);
 
     if (outcome === 'error') {
@@ -1158,7 +1169,7 @@ async function main(): Promise<void> {
     }
     if (outcome !== 'ok') {
       const detail = outcome === 'error'
-        ? '네이버가 발행 오류를 반환했습니다(문서가 너무 크거나 이미지 처리 실패).'
+        ? '네이버가 발행 오류를 반환했습니다(문서가 너무 크거나 이미지 처리 실패). 글은 게시되지 않았습니다.'
         : '발행 후 페이지 이동이 확인되지 않았습니다.';
       throw new Error(`${detail} 스크린샷을 확인하세요.`);
     }
