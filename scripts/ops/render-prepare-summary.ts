@@ -102,8 +102,9 @@ export async function renderPrepareSummaryFile(path: string): Promise<string> {
 const isDirectRun = /render-prepare-summary\.(?:ts|js)$/.test(process.argv[1] ?? '')
 if (isDirectRun) {
   const path = process.argv[2] || process.env.PREPARE_SUMMARY_PATH
-  const output = path
-    ? await renderPrepareSummaryFile(path)
-    : '## Newsletter preparation summary\n\nSummary JSON path is missing.\n'
-  process.stdout.write(output)
+  // tsx는 루트 package.json에 type=module이 없어 CJS로 변환하므로 top-level await를 쓸 수 없다.
+  const render = path
+    ? renderPrepareSummaryFile(path)
+    : Promise.resolve('## Newsletter preparation summary\n\nSummary JSON path is missing.\n')
+  void render.then((output) => { process.stdout.write(output) })
 }
