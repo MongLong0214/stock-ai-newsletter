@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import {
   collectDailyStockPrices,
@@ -11,6 +11,10 @@ import {
 import { KIS_DAILY_PRICE_RATE_LIMIT_PER_SECOND } from '@/scripts/tli/prices/kis-daily-price-collector'
 
 describe('daily stock price collection', () => {
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
   it('collects the active full universe and KOSPI over one seven-day range per symbol', async () => {
     const collectPriceRange = vi.fn(async () => ({
       callBudget: DEFAULT_DAILY_COLLECTION_CALL_BUDGET,
@@ -64,6 +68,7 @@ describe('daily stock price collection', () => {
       expect(report).toMatchObject({
         endDate: '2026-08-28',
         tradingDays: 7,
+        finalizedThroughDate: '2026-08-28',
         failedSymbols: ['KOSDAQ:000002'],
         perDateSymbolCounts: { '2026-08-28': 3 },
       })
@@ -117,6 +122,8 @@ describe('daily stock price collection', () => {
       exactDateCoverageRate: 0,
       perDateSymbolCounts: { '2026-09-02': 1 },
     }))
+    const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
 
     try {
       await collectDailyStockPrices({
@@ -129,7 +136,112 @@ describe('daily stock price collection', () => {
         deadlineMs: 20 * 60_000 - DAILY_COLLECTION_POST_RESERVE_MS,
       }))
     } finally {
+      consoleWarnSpy.mockRestore()
+      consoleLogSpy.mockRestore()
       vi.useRealTimers()
+    }
+  })
+
+  it('clamps finalizedThroughDate to the last finalized session during regular hours', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-09-03T02:50:00Z'))
+    const collectPriceRange = vi.fn(async () => ({
+      callBudget: DEFAULT_DAILY_COLLECTION_CALL_BUDGET,
+      rateLimitPerSecond: KIS_DAILY_PRICE_RATE_LIMIT_PER_SECOND,
+      requestedRows: 1,
+      attemptedCalls: 1,
+      physicalCalls: 1,
+      successCount: 1,
+      failureCount: 0,
+      failedSymbols: [],
+      skippedForBudget: 0,
+      persistedRows: 1,
+      successRate: 1,
+      dateCoverageRate: 1,
+      droppedNotFinalizedRows: 0,
+      droppedPhantomRows: 0,
+      indexFailed: false,
+      retriedSymbols: [],
+      recoveredSymbols: [],
+      failureKinds: {},
+      exactDateSuccessCount: 1,
+      exactDateCoverageRate: 1,
+      perDateSymbolCounts: { '2026-09-02': 1 },
+    }))
+    const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+    try {
+      const report = await collectDailyStockPrices({
+        endDate: '2026-09-03',
+        collectPriceRange,
+      })
+
+      expect(collectPriceRange).toHaveBeenCalledWith({
+        endDate: '2026-09-03',
+        days: DAILY_COLLECTION_TRADING_DAYS,
+        universe: 'full',
+        callBudget: DEFAULT_DAILY_COLLECTION_CALL_BUDGET,
+        rateLimitPerSecond: KIS_DAILY_PRICE_RATE_LIMIT_PER_SECOND,
+        deadlineMs: DEFAULT_DAILY_COLLECTION_DEADLINE_MS,
+        finalizedThroughDate: '2026-09-02',
+      })
+      expect(report.finalizedThroughDate).toBe('2026-09-02')
+      expect(consoleWarnSpy).toHaveBeenCalledWith(JSON.stringify({
+        event: 'stock_daily_collection_finalized_clamped',
+        endDate: '2026-09-03',
+        finalizedThroughDate: '2026-09-02',
+      }))
+    } finally {
+      consoleWarnSpy.mockRestore()
+      consoleLogSpy.mockRestore()
+    }
+  })
+
+  it('does not clamp finalizedThroughDate when endDate is already finalized', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-09-03T02:50:00Z'))
+    const collectPriceRange = vi.fn(async () => ({
+      callBudget: DEFAULT_DAILY_COLLECTION_CALL_BUDGET,
+      rateLimitPerSecond: KIS_DAILY_PRICE_RATE_LIMIT_PER_SECOND,
+      requestedRows: 1,
+      attemptedCalls: 1,
+      physicalCalls: 1,
+      successCount: 1,
+      failureCount: 0,
+      failedSymbols: [],
+      skippedForBudget: 0,
+      persistedRows: 1,
+      successRate: 1,
+      dateCoverageRate: 1,
+      droppedNotFinalizedRows: 0,
+      droppedPhantomRows: 0,
+      indexFailed: false,
+      retriedSymbols: [],
+      recoveredSymbols: [],
+      failureKinds: {},
+      exactDateSuccessCount: 1,
+      exactDateCoverageRate: 1,
+      perDateSymbolCounts: { '2026-09-02': 1 },
+    }))
+    const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+    try {
+      const report = await collectDailyStockPrices({
+        endDate: '2026-09-02',
+        collectPriceRange,
+      })
+
+      expect(collectPriceRange).toHaveBeenCalledWith(expect.objectContaining({
+        endDate: '2026-09-02',
+        finalizedThroughDate: '2026-09-02',
+      }))
+      expect(report.finalizedThroughDate).toBe('2026-09-02')
+      expect(consoleWarnSpy).not.toHaveBeenCalled()
+    } finally {
+      consoleWarnSpy.mockRestore()
+      consoleLogSpy.mockRestore()
     }
   })
 })
