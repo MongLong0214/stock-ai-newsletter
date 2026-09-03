@@ -136,6 +136,10 @@ const findSummary = (logSpy: ReturnType<typeof vi.spyOn>) => logSpy.mock.calls
 describe('prepare-newsletter stock-pick wiring', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    // Actions 실행 환경의 run 식별자가 스냅샷 run_id/git_sha 단언에 새어 들어오지 않게 고정
+    vi.stubEnv('DISPATCH_ID', undefined)
+    vi.stubEnv('GITHUB_RUN_ID', undefined)
+    vi.stubEnv('GITHUB_SHA', undefined)
     mocks.alert.mockResolvedValue(undefined)
     mocks.assessMarket.mockResolvedValue(NORMAL_ASSESSMENT)
     mocks.collectDaily.mockResolvedValue(HEALTHY_COLLECTION)
