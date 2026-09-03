@@ -78,10 +78,9 @@ describe('Monday origin source PIT selection', () => {
   })
 
   it('주말과 휴장일을 건너뛴 최근 14개 KOSPI 거래일을 news slot으로 쓴다', () => {
-    // Given: 지방선거일·현충일 대체휴일과 두 번의 주말이 포함된 14달력일 구간.
+    // Given: 지방선거일·현충일과 두 번의 주말이 포함되고 6/8은 정상 개장한 구간.
     const originDate = '2026-06-15'
     const expectedTradingDates = [
-      '2026-05-22',
       '2026-05-26',
       '2026-05-27',
       '2026-05-28',
@@ -90,6 +89,7 @@ describe('Monday origin source PIT selection', () => {
       '2026-06-02',
       '2026-06-04',
       '2026-06-05',
+      '2026-06-08',
       '2026-06-09',
       '2026-06-10',
       '2026-06-11',

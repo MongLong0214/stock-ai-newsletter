@@ -1,3 +1,8 @@
+import { createHash } from 'node:crypto'
+import { mkdtemp, readFile, rm } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+
 import { describe, expect, it, vi } from 'vitest'
 
 import { validateStockData } from '@/lib/llm/korea/stock-json'
@@ -5,6 +10,7 @@ import { addKoreanTradingDays } from '@/lib/tli/trading-calendar'
 import { buildPriceBook } from '@/scripts/stock-picks/data-handler'
 import {
   generatePicks,
+  generatePicksWithMeta,
   getExpectedSignalDate,
   type StockPickMaster,
 } from '@/scripts/stock-picks/generate-picks'
@@ -29,7 +35,7 @@ const makeFixture = (symbols: readonly string[] = SYMBOLS) => {
     const previousClose = base + (index - 1) * 2 + ((index - 1) % 2 === 1 ? 10 : -10)
     const priorMaxClose = base + (dates.length - 3) * 2 + 10
     const close = isSignalDay
-      ? Math.round(priorMaxClose * 1.003)
+      ? Math.round(priorMaxClose * (symbolIndex === 2 ? 0.995 : 1.003))
       : base + index * 2 + (index % 2 === 1 ? 10 : -10)
     return {
       symbol,
@@ -77,8 +83,17 @@ describe('production stock pick generator', () => {
     })
     const picks: unknown = JSON.parse(json)
 
+    // Byte-level guard updated 2026-09-03: v1 adds deterministic volume-only fill and tier rationale.
+    expect(createHash('sha256').update(json).digest('hex')).toBe(
+      '5617cdd9ec55cef091088c01ba5b7a321992b5f62e46e9792656c290024e2599',
+    )
     expect(validateStockData(picks)).toBe(true)
     expect(picks).toHaveLength(3)
+    expect((picks as Array<{ ticker: string }>).map((pick) => pick.ticker)).toEqual([
+      'KOSPI:000001',
+      'KOSPI:000002',
+      'KOSDAQ:000003',
+    ])
     expect(loadPrices).toHaveBeenCalledWith({
       startDate: fixture.dates[0],
       endDate: SIGNAL_DATE,
@@ -86,6 +101,7 @@ describe('production stock pick generator', () => {
     for (const pick of picks as Array<{ rationale: string; signals: Record<string, number> }>) {
       expect(pick.rationale.split('|').length).toBeGreaterThanOrEqual(12)
       expect(pick.rationale.length).toBeGreaterThanOrEqual(50)
+      expect(pick.rationale).toMatch(/선정 경로 (거래량 돌파|거래량 상위 보충)$/)
       expect(Object.values(pick.signals).every(Number.isInteger)).toBe(true)
     }
   })
@@ -217,6 +233,91 @@ describe('production stock pick generator', () => {
         loadPrices: async () => prices,
         loadMasters: async () => fixture.masters,
       },
-    })).rejects.toThrow(/volumeBreakout 후보 부족: 0\/3/)
+    })).rejects.toThrow(/volumeOnly 후보 부족: 0\/3/)
+  })
+
+  it('emits funnel and generated observability without changing the pick contract', async () => {
+    const fixture = makeFixture()
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    const dependencies = {
+      loadTradingDays: async () => new TradingDayIndex(fixture.dates),
+      loadPrices: async () => fixture.prices,
+      loadMasters: async () => fixture.masters,
+    }
+
+    try {
+      const result = await generatePicksWithMeta({ todayKst: TODAY_KST, dependencies })
+      const legacyJson = await generatePicks({ todayKst: TODAY_KST, dependencies })
+      const events = logSpy.mock.calls.map(([line]) => JSON.parse(String(line)))
+
+      expect(result.json).toBe(legacyJson)
+      expect(result.picks).toEqual(JSON.parse(legacyJson))
+      expect(events.filter((event) => event.event === 'stock_picks_funnel')).toHaveLength(2)
+      expect(events.find((event) => event.event === 'stock_picks_funnel')).toMatchObject({
+        signalDate: SIGNAL_DATE,
+        activeMasters: 3,
+        withFreshKisRow: 3,
+        withCompleteFeatures: 3,
+        gatePassed: 3,
+        picked: 3,
+      })
+      expect(events.find((event) => event.event === 'stock_picks_generated')).toMatchObject({
+        signalDate: SIGNAL_DATE,
+        strategy: 'volumeBreakoutNoGapUp+volumeOnlyFill',
+        strategyVersion: 'v1-2026-09-03',
+        picksByTier: { breakout: 2, volumeOnly: 1 },
+        picks: expect.arrayContaining([expect.objectContaining({ rank: 1, tier: 'breakout' })]),
+      })
+      expect(result.meta.parametersHash).toMatch(/^[a-f0-9]{64}$/)
+    } finally {
+      logSpy.mockRestore()
+    }
+  })
+
+  it('writes a full stock-picks snapshot when configured', async () => {
+    const fixture = makeFixture()
+    const temporaryDirectory = await mkdtemp(join(tmpdir(), 'stock-picks-'))
+    const snapshotPath = join(temporaryDirectory, 'nested', 'snapshot.json')
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    vi.stubEnv('STOCK_PICKS_SNAPSHOT_PATH', snapshotPath)
+    vi.stubEnv('GITHUB_SHA', 'fixture-sha')
+
+    try {
+      const result = await generatePicksWithMeta({
+        todayKst: TODAY_KST,
+        dependencies: {
+          loadTradingDays: async () => new TradingDayIndex(fixture.dates),
+          loadPrices: async () => fixture.prices,
+          loadMasters: async () => fixture.masters,
+        },
+      })
+      const snapshot = JSON.parse(await readFile(snapshotPath, 'utf8'))
+
+      expect(snapshot).toMatchObject({
+        signalDate: SIGNAL_DATE,
+        gitSha: 'fixture-sha',
+        strategy: 'volumeBreakoutNoGapUp+volumeOnlyFill',
+        strategyVersion: 'v1-2026-09-03',
+        parametersHash: result.meta.parametersHash,
+        funnel: result.meta.funnel,
+      })
+      expect(snapshot.picks).toHaveLength(3)
+      expect(snapshot.picks[0]).toEqual(expect.objectContaining({
+        symbol: expect.any(String),
+        score: expect.any(Number),
+        rank: 1,
+        tier: 'breakout',
+      }))
+      expect(snapshot.topCandidates).toHaveLength(3)
+      expect(snapshot.topCandidates.map((candidate: { tier: string }) => candidate.tier)).toEqual([
+        'breakout',
+        'breakout',
+        'volumeOnly',
+      ])
+    } finally {
+      vi.unstubAllEnvs()
+      logSpy.mockRestore()
+      await rm(temporaryDirectory, { recursive: true, force: true })
+    }
   })
 })

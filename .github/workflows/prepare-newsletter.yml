@@ -1,87 +1,51 @@
 name: Prepare Stock Newsletter
+run-name: Prepare ${{ inputs.target_date || 'today' }} ${{ inputs.dispatch_id || 'manual' }}${{ (inputs.backup_run == true || inputs.backup_run == 'true') && ' [backup]' || '' }}${{ (inputs.dry_run == true || inputs.dry_run == 'true') && ' [dry]' || '' }}
 
-# 트리거: Vercel Cron 06:10 KST → /api/cron/newsletter-prepare → workflow_dispatch.
-# GitHub schedule은 2026-08-27부터 2~7시간 지연·드랍이 상시화되어 제거했다 (PR #165 참조).
 on:
-  workflow_dispatch: # Vercel Cron + 수동 실행
+  workflow_dispatch:
     inputs:
       dry_run:
-        description: 'DB 저장 없이 전 과정 실검수 (CI E2E용)'
+        description: 'DB 저장 없이 전 과정 실검수'
         type: boolean
         default: false
       simulate_today:
         description: '신선도 게이트 기준일 시뮬레이션 (YYYY-MM-DD, dry_run 전용)'
         type: string
         default: ''
+      target_date:
+        description: '발행 대상 날짜 (YYYY-MM-DD)'
+        type: string
+        default: ''
+      backup_run:
+        description: '기존 code 픽을 보존하는 백업 실행'
+        type: boolean
+        default: false
+      dispatch_id:
+        description: 'Vercel cron correlation ID'
+        type: string
+        default: ''
+      force:
+        description: '비거래일에도 강제 실행'
+        type: boolean
+        default: false
 
-# 동시 dispatch(수동+Vercel)를 직렬화해 KIS 동시 수집 충돌을 막는다.
 concurrency:
-  group: prepare-newsletter
+  group: prepare-newsletter-${{ (inputs.dry_run == true || inputs.dry_run == 'true') && 'dry' || 'prod' }}
   cancel-in-progress: false
 
 jobs:
-  check-market:
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    outputs:
-      should_run: ${{ steps.check.outputs.should_run }}
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Check Korean market day
-        id: check
-        run: |
-          set -euo pipefail
-
-          # 수동 실행은 항상 허용
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "should_run=true" >> $GITHUB_OUTPUT
-            echo "🔧 수동 실행 — 휴장일 체크 건너뜀"
-            exit 0
-          fi
-
-          KST_DATE=$(TZ=Asia/Seoul date +%Y-%m-%d)
-          echo "📅 KST 날짜: $KST_DATE"
-          IS_TRADING_DAY=$(KST_DATE="$KST_DATE" npx tsx -e "import { isKoreanTradingDate } from './lib/tli/trading-calendar.ts'; process.stdout.write(String(isKoreanTradingDate(process.env.KST_DATE!)))")
-          case "$IS_TRADING_DAY" in
-            true)
-              echo "should_run=true" >> "$GITHUB_OUTPUT"
-              echo "✅ 개장일 — 실행"
-              ;;
-            false)
-              echo "should_run=false" >> "$GITHUB_OUTPUT"
-              echo "🚫 휴장일 ($KST_DATE) — 건너뜀"
-              ;;
-            *)
-              echo "::error::휴장일 판정 결과가 boolean이 아닙니다: $IS_TRADING_DAY"
-              exit 1
-              ;;
-          esac
-
   prepare-newsletter:
-    needs: check-market
-    if: needs.check-market.outputs.should_run == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 45
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
-          node-version: '20'
+          node-version: '24'
           cache: 'npm'
 
       - name: Install dependencies
@@ -89,59 +53,83 @@ jobs:
 
       - name: Setup Google Cloud credentials
         run: |
-          echo '${{ secrets.GOOGLE_CLOUD_CREDENTIALS }}' > $HOME/gcloud-key.json
-          echo "GOOGLE_APPLICATION_CREDENTIALS=$HOME/gcloud-key.json" >> $GITHUB_ENV
+          echo '${{ secrets.GOOGLE_CLOUD_CREDENTIALS }}' > "$HOME/gcloud-key.json"
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$HOME/gcloud-key.json" >> "$GITHUB_ENV"
 
-      - name: Prepare Newsletter (AI Analysis)
-        timeout-minutes: 60
+      - name: Prepare Newsletter
+        timeout-minutes: 42
         env:
-          # KIS API - 시장 스냅샷 수집용
           KIS_APP_KEY: ${{ secrets.KIS_APP_KEY }}
           KIS_APP_SECRET: ${{ secrets.KIS_APP_SECRET }}
           KIS_BASE_URL: ${{ secrets.KIS_BASE_URL }}
-
-          # Google Cloud (Vertex AI) - Gemini 전용
           GOOGLE_CLOUD_PROJECT: ${{ secrets.GOOGLE_CLOUD_PROJECT }}
           GOOGLE_CLOUD_LOCATION: us-central1
-
-          # SerpAPI (VIX, USD/KRW, USD/JPY, Event signals)
           SERP_API_KEY: ${{ secrets.SERP_API_KEY }}
-
-          # Naver (뉴스 수집, 이벤트 감지)
           NAVER_CLIENT_ID: ${{ secrets.NAVER_CLIENT_ID }}
           NAVER_CLIENT_SECRET: ${{ secrets.NAVER_CLIENT_SECRET }}
-
-          # Supabase
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY }}
+          SENDGRID_FROM_EMAIL: ${{ secrets.SENDGRID_FROM_EMAIL }}
+          NEWSLETTER_ALERT_EMAIL: ${{ vars.NEWSLETTER_ALERT_EMAIL }}
           DRY_RUN: ${{ inputs.dry_run || 'false' }}
           SIMULATE_TODAY: ${{ inputs.simulate_today || '' }}
+          TARGET_DATE: ${{ inputs.target_date || '' }}
+          BACKUP_RUN: ${{ inputs.backup_run || 'false' }}
+          DISPATCH_ID: ${{ inputs.dispatch_id || '' }}
+          FORCE_RUN: ${{ inputs.force || 'false' }}
+          PREPARE_DEADLINE_MINUTES: '38'
+          PREPARE_SUMMARY_PATH: ${{ runner.temp }}/prepare-summary.json
+          STOCK_PICKS_SNAPSHOT_PATH: ${{ runner.temp }}/stock-picks-snapshot.json
         run: |
           set -euo pipefail
-          echo "🚀 Starting AI analysis and content preparation..."
+          export PREPARE_SUMMARY_PATH="$RUNNER_TEMP/prepare-summary.json"
+          export STOCK_PICKS_SNAPSHOT_PATH="$RUNNER_TEMP/stock-picks-snapshot.json"
+          export DISPATCH_ID
           PREPARE_ARGS=()
-          if [ "$DRY_RUN" = "true" ]; then
-            PREPARE_ARGS+=(--dry-run)
+          if [ -n "$TARGET_DATE" ]; then PREPARE_ARGS+=("--target-date=$TARGET_DATE"); fi
+          if [ "$BACKUP_RUN" = "true" ]; then PREPARE_ARGS+=(--backup-run); fi
+          if [ -n "$DISPATCH_ID" ]; then PREPARE_ARGS+=("--dispatch-id=$DISPATCH_ID"); fi
+          if [ "$FORCE_RUN" = "true" ]; then PREPARE_ARGS+=(--force); fi
+          if [ "$DRY_RUN" = "true" ]; then PREPARE_ARGS+=(--dry-run); fi
+          if [ -n "$SIMULATE_TODAY" ]; then PREPARE_ARGS+=("--simulate-today=$SIMULATE_TODAY"); fi
+
+          set +e
+          npx tsx scripts/prepare-newsletter.ts "${PREPARE_ARGS[@]}" 2>&1 | tee "$RUNNER_TEMP/prepare-newsletter.log"
+          PREPARE_EXIT=${PIPESTATUS[0]}
+          set -e
+          if grep -q 'PICKS_SOURCE=llm_fallback' "$RUNNER_TEMP/prepare-newsletter.log"; then
+            echo "::error::코드 픽 실패 — LLM fallback으로 발행됨"
+            exit 1
           fi
-          if [ -n "$SIMULATE_TODAY" ]; then
-            PREPARE_ARGS+=("--simulate-today=$SIMULATE_TODAY")
-          fi
-          PREPARE_LOG=$(mktemp)
-          npx tsx scripts/prepare-newsletter.ts "${PREPARE_ARGS[@]}" 2>&1 | tee "$PREPARE_LOG"
-          if grep -q 'PICKS_SOURCE=llm_fallback' "$PREPARE_LOG"; then
-            echo "::warning::코드 픽 실패 — LLM fallback으로 발행됨"
-            echo "### ⚠️ 코드 픽 실패 — LLM fallback으로 발행됨" >> "$GITHUB_STEP_SUMMARY"
-          fi
+          exit "$PREPARE_EXIT"
 
       - name: Cleanup credentials
         if: always()
-        run: rm -f $HOME/gcloud-key.json
+        run: rm -f "$HOME/gcloud-key.json"
 
-      - name: Notify on success
-        if: success()
-        run: echo "✅ Newsletter content prepared successfully! Ready for 07:27 KST sending."
+      - name: Write job summary
+        if: always()
+        run: npx tsx scripts/ops/render-prepare-summary.ts "$RUNNER_TEMP/prepare-summary.json" >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Notify on failure
+      - name: Upload run artifact
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: prepare-${{ inputs.target_date || 'today' }}-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/prepare-newsletter.log
+            ${{ runner.temp }}/prepare-summary.json
+            ${{ runner.temp }}/stock-picks-snapshot.json
+          retention-days: 90
+
+      - name: Alert on failure
         if: failure()
-        run: echo "❌ Newsletter preparation failed!!"
+        env:
+          SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY }}
+          SENDGRID_FROM_EMAIL: ${{ secrets.SENDGRID_FROM_EMAIL }}
+          NEWSLETTER_ALERT_EMAIL: ${{ vars.NEWSLETTER_ALERT_EMAIL }}
+          DISPATCH_ID: ${{ inputs.dispatch_id || '' }}
+          TARGET_DATE: ${{ inputs.target_date || '' }}
+        run: npx tsx scripts/ops/notify-pipeline-failure.ts --stage=prepare

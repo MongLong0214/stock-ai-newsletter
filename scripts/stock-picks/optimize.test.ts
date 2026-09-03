@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
+import { createVolumeOnlyStrategy, type StockPickStrategy } from '@/scripts/stock-picks/backtest'
 import { buildPriceBook } from '@/scripts/stock-picks/data-handler'
 import type { StockFeatureVector } from '@/scripts/stock-picks/features'
 import {
@@ -62,6 +63,28 @@ const makeFeature = (symbol: string, simDate: string): StockFeatureVector => ({
 })
 
 describe('stock-picks walk-forward optimizer', () => {
+  it('ranks only common-gate-eligible stocks by volume percentile with symbol tie-breaks', () => {
+    const simDate = '2026-01-02'
+    const features = new Map([[simDate, [
+      { ...makeFeature('B', simDate), volumePercentile60: 98 },
+      { ...makeFeature('A', simDate), volumePercentile60: 98 },
+      { ...makeFeature('C', simDate), volumePercentile60: 99 },
+      { ...makeFeature('D', simDate), volumePercentile60: 100, rsi14: 71 },
+    ]]])
+    const masters = new Map(['A', 'B', 'C', 'D'].map((symbol) => [symbol, {
+      symbol,
+      is_active: true,
+      status_flags: null,
+    } satisfies StockMasterState]))
+    const strategy = createVolumeOnlyStrategy(features, masters, DEFAULT_VOLUME_BREAKOUT_PARAMETERS)
+
+    expect(strategy(
+      {} as Parameters<StockPickStrategy>[0],
+      ['A', 'B', 'C', 'D'],
+      simDate,
+    )).toEqual(['C', 'A', 'B'])
+  })
+
   it('purges the final five train trading days before the test label boundary', () => {
     const dates = [
       ...Array.from({ length: 8 }, (_value, index) => `2026-01-${String(index + 1).padStart(2, '0')}`),
@@ -160,7 +183,21 @@ describe('stock-picks walk-forward optimizer', () => {
       totalPicks: 6,
       labeledPicks: 6,
       precisionAt3: 1,
+      slotPrecisionAt3: 1,
+      slotCoverage: 1,
+      anyHitRate: 1,
+      twoPlusHitRate: 1,
       nullRate: 0,
+    })
+    expect(first.baselines.oosPolicyRandom3).toMatchObject({
+      totalDates: 2,
+      totalPicks: 6,
+      slotPrecisionAt3: 1,
+    })
+    expect(first.baselines.oosVolumeOnly3).toMatchObject({
+      totalDates: 2,
+      totalPicks: 6,
+      slotPrecisionAt3: 1,
     })
     expect(first.strategies.composite.force3.segments[0].train.inSampleReference.precisionAt3).toBe(1)
     expect(first.compositeAblation.evaluationScope).toBe('out_of_sample')
@@ -172,15 +209,122 @@ describe('stock-picks walk-forward optimizer', () => {
     expect(frozen.evaluationPolicy).toMatchObject({
       evaluationScope: 'walk_forward_test_dates',
       parameterSelection: 'frozen_no_fold_reselection',
-      strategy: 'volumeBreakout',
+      strategy: 'volumeBreakoutNoGapUp+volumeOnlyFill',
       mode: 'force3',
     })
     expect(frozen.parameters.minScore).toBe(0)
+    expect(frozen.strategy).toMatchObject({
+      name: 'volumeBreakoutNoGapUp+volumeOnlyFill',
+      version: 'v1-2026-09-03',
+      parametersHash: expect.stringMatching(/^[a-f0-9]{64}$/),
+    })
+    expect(frozen.datasetFingerprint).toEqual({
+      tradingDays: {
+        first: allDates[0],
+        last: allDates.at(-1),
+        count: allDates.length,
+      },
+      priceRows: rows.length,
+      symbols: symbols.length,
+    })
     expect(frozen.aggregate).toMatchObject({
       totalDates: 2,
       totalPicks: 6,
       labeledPicks: 6,
       precisionAt3: 1,
+      slotPrecisionAt3: 1,
+    })
+    expect(frozen.baselines.oosPolicyRandom3.slotPrecisionAt3).toBe(1)
+    expect(frozen.baselines.oosVolumeOnly3.slotPrecisionAt3).toBe(1)
+    expect(frozen.baselines.productionV0.slotPrecisionAt3).toBe(1)
+    expect(frozen.pairedDailyDelta.productionMinusVolumeOnly).toMatchObject({
+      excludedDates: { onlyProduction: 0, onlyBaseline: 0, total: 0 },
+      slotPrecisionAt3DeltaCi: { mean: 0, lower95: 0, upper95: 0 },
+    })
+    expect(frozen.experiments.tieredFill).toMatchObject({
+      evaluationScope: 'exploratory_dev_window',
+      tiers: ['breakout', 'relaxedBreakout', 'volumeOnly'],
+      picksByTier: { breakout: 6, relaxedBreakout: 0, volumeOnly: 0 },
+      hitsByTier: { breakout: 6, relaxedBreakout: 0, volumeOnly: 0 },
+      totalPicks: 6,
+      slotPrecisionAt3: 1,
+    })
+    expect(frozen.experiments.breakoutThenVolumeOnly).toMatchObject({
+      evaluationScope: 'exploratory_dev_window',
+      tiers: ['breakout', 'volumeOnly'],
+      picksByTier: { breakout: 6, relaxedBreakout: 0, volumeOnly: 0 },
+      hitsByTier: { breakout: 6, relaxedBreakout: 0, volumeOnly: 0 },
+      totalPicks: 6,
+      slotPrecisionAt3: 1,
+    })
+  })
+
+  it('attributes exploratory picks and hits to each fill tier', () => {
+    const simDate = '2026-04-01'
+    const futureDates = ['2026-04-02', '2026-04-03', '2026-04-06', '2026-04-07', '2026-04-08']
+    const allDates = [simDate, ...futureDates]
+    const symbols = ['BREAKOUT', 'RELAXED', 'VOLUME']
+    const rows: StockDailyPriceRow[] = symbols.flatMap((symbol) => allDates.map((tradeDate) => ({
+      symbol,
+      trade_date: tradeDate,
+      open: 100,
+      high: 111,
+      low: 95,
+      close: 105,
+      volume: 1_000,
+      source: 'kis',
+    })))
+    const masters: StockMasterState[] = symbols.map((symbol) => ({
+      symbol,
+      is_active: true,
+      status_flags: {},
+    }))
+    const featuresByDate = new Map([[simDate, [
+      { ...makeFeature('VOLUME', simDate), volumePercentile60: 99, distanceFromHigh60: -4 },
+      { ...makeFeature('RELAXED', simDate), volumePercentile60: 85, distanceFromHigh60: -1 },
+      { ...makeFeature('BREAKOUT', simDate), volumePercentile60: 99, distanceFromHigh60: 1 },
+    ]]])
+    const split: WalkForwardSplit = {
+      index: 0,
+      trainMonths: ['2026-01', '2026-02', '2026-03'],
+      testMonths: ['2026-04'],
+      trainDates: ['2026-03-30'],
+      purgedDates: ['2026-03-31'],
+      testDates: [simDate],
+    }
+
+    const frozen = runFrozenProductionEvaluation({
+      prices: buildPriceBook(rows),
+      tradingDays: new TradingDayIndex(allDates),
+      masters,
+      featuresByDate,
+      splits: [split],
+      generatedAt: '2026-08-28T00:00:00.000Z',
+    })
+
+    expect(frozen.aggregate.totalPicks).toBe(3)
+    expect(frozen.baselines.productionV0.totalPicks).toBe(1)
+    expect(frozen.experiments.tieredFill).toMatchObject({
+      evaluationScope: 'exploratory_dev_window',
+      totalPicks: 3,
+      slotCoverage: 1,
+      picksByTier: { breakout: 1, relaxedBreakout: 1, volumeOnly: 1 },
+      hitsByTier: { breakout: 1, relaxedBreakout: 1, volumeOnly: 1 },
+      pairedDailyDelta: {
+        experimentMinusProduction: {
+          excludedDates: { onlyProduction: 0, onlyBaseline: 0, total: 0 },
+          slotPrecisionAt3DeltaCi: { mean: 0, lower95: 0, upper95: 0 },
+        },
+        experimentMinusVolumeOnly: {
+          slotPrecisionAt3DeltaCi: { mean: 0, lower95: 0, upper95: 0 },
+        },
+      },
+    })
+    expect(frozen.experiments.breakoutThenVolumeOnly).toMatchObject({
+      evaluationScope: 'exploratory_dev_window',
+      totalPicks: 3,
+      picksByTier: { breakout: 1, relaxedBreakout: 0, volumeOnly: 2 },
+      hitsByTier: { breakout: 1, relaxedBreakout: 0, volumeOnly: 2 },
     })
   })
 })

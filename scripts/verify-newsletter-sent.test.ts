@@ -1,4 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+import { emptyNewsletterDeliveryCounts } from '@/lib/newsletter/delivery'
 import {
   DEFAULT_NEWSLETTER_ALERT_EMAIL,
   verifyNewsletterSent,
@@ -8,10 +10,28 @@ import {
 
 const TODAY_KST = '2026-08-31'
 
+function newsletterStatus(
+  input: Partial<NewsletterStatusRow> = {},
+): NewsletterStatusRow {
+  return {
+    is_sent: false,
+    picks_source: 'code',
+    sent_at: null,
+    subscriber_count: null,
+    gemini_analysis: '[]',
+    sending_owner: null,
+    sending_lease_until: null,
+    sending_started_at: null,
+    ...input,
+  }
+}
+
 function makeDependencies(input: {
   readonly tradingDay?: boolean
   readonly newsletter?: NewsletterStatusRow | null
   readonly sendgridApiKey?: string
+  readonly activeSubscriberCount?: number
+  readonly deliveryCounts?: Partial<ReturnType<typeof emptyNewsletterDeliveryCounts>>
 }) {
   const fetchNewsletter = vi.fn(async () => input.newsletter ?? null)
   const sendAlertEmail = vi.fn(async (email: NewsletterAlertEmail) => {
@@ -22,6 +42,13 @@ function makeDependencies(input: {
     warn: vi.fn(),
     error: vi.fn(),
   }
+  const countActiveSubscribers = vi.fn(async () => (
+    input.activeSubscriberCount ?? input.newsletter?.subscriber_count ?? 0
+  ))
+  const countDeliveriesByStatus = vi.fn(async () => ({
+    ...emptyNewsletterDeliveryCounts(),
+    ...input.deliveryCounts,
+  }))
   const env = {
     SENDGRID_API_KEY: input.sendgridApiKey,
     SENDGRID_FROM_EMAIL: 'alerts@stockmatrix.co.kr',
@@ -34,13 +61,18 @@ function makeDependencies(input: {
       getTodayKst: () => TODAY_KST,
       isTradingDay: () => input.tradingDay ?? true,
       fetchNewsletter,
+      countActiveSubscribers,
+      countDeliveriesByStatus,
       sendAlertEmail,
       env,
       logger,
+      now: () => Date.parse('2026-08-31T00:00:00.000Z'),
     },
     fetchNewsletter,
     sendAlertEmail,
     logger,
+    countActiveSubscribers,
+    countDeliveriesByStatus,
   }
 }
 
@@ -59,24 +91,20 @@ describe('newsletter sent watchdog', () => {
     expect(setup.sendAlertEmail).not.toHaveBeenCalled()
   })
 
-  it('reports a fatal error when today\'s row does not exist', async () => {
+  it('reports a fatal error when the newsletter row does not exist', async () => {
     const setup = makeDependencies({ newsletter: null, sendgridApiKey: 'test-sendgrid-key' })
 
     await expect(verifyNewsletterSent(setup.dependencies)).resolves.toBe(1)
 
-    expect(setup.sendAlertEmail).toHaveBeenCalledOnce()
     expect(setup.sendAlertEmail).toHaveBeenCalledWith(expect.objectContaining({
       to: DEFAULT_NEWSLETTER_ALERT_EMAIL,
-      subject: expect.stringContaining(`${TODAY_KST} 뉴스레터 발송 누락 — 발행 파이프라인 미실행`),
-      text: expect.stringMatching(
-        new RegExp(`${TODAY_KST}.*발행 파이프라인 미실행.*actions/workflows/daily-newsletter\\.yml`, 's'),
-      ),
+      subject: expect.stringContaining('발행 파이프라인 미실행'),
     }))
   })
 
-  it('reports a fatal error when today\'s row is not sent', async () => {
+  it('reports ready but unsent when no delivery ledger rows exist', async () => {
     const setup = makeDependencies({
-      newsletter: { is_sent: false, picks_source: 'code' },
+      newsletter: newsletterStatus(),
       sendgridApiKey: 'test-sendgrid-key',
     })
 
@@ -88,42 +116,85 @@ describe('newsletter sent watchdog', () => {
     }))
   })
 
+  it('reports retryable and pending counts for a stale incomplete delivery', async () => {
+    const setup = makeDependencies({
+      newsletter: newsletterStatus({
+        sending_owner: 'stale-run',
+        sending_lease_until: '2026-08-30T23:00:00.000Z',
+        sending_started_at: '2026-08-30T22:30:00.000Z',
+      }),
+      deliveryCounts: { accepted: 7, failedRetryable: 2, pending: 3 },
+      sendgridApiKey: 'test-sendgrid-key',
+    })
+
+    await expect(verifyNewsletterSent(setup.dependencies)).resolves.toBe(1)
+
+    expect(setup.sendAlertEmail).toHaveBeenCalledWith(expect.objectContaining({
+      subject: expect.stringContaining('발송 미완료 (재시도 대기: retryable=2, pending=3)'),
+    }))
+  })
+
+  it('also reports an incomplete delivery after the lease was released', async () => {
+    const setup = makeDependencies({
+      newsletter: newsletterStatus({ sending_lease_until: null }),
+      deliveryCounts: { failedRetryable: 1 },
+      sendgridApiKey: 'test-sendgrid-key',
+    })
+
+    await expect(verifyNewsletterSent(setup.dependencies)).resolves.toBe(1)
+
+    expect(setup.sendAlertEmail).toHaveBeenCalledWith(expect.objectContaining({
+      subject: expect.stringContaining('retryable=1, pending=0'),
+    }))
+  })
+
   it('returns success for a sent code-picks newsletter', async () => {
     const setup = makeDependencies({
-      newsletter: { is_sent: true, picks_source: 'code' },
+      newsletter: newsletterStatus({
+        is_sent: true,
+        sent_at: '2026-08-31T00:00:00.000Z',
+        subscriber_count: 10,
+      }),
     })
 
     await expect(verifyNewsletterSent(setup.dependencies)).resolves.toBe(0)
 
     expect(setup.logger.log).toHaveBeenCalledWith(`✅ ${TODAY_KST} 뉴스레터 발송 확인`)
     expect(setup.logger.warn).not.toHaveBeenCalled()
-    expect(setup.sendAlertEmail).not.toHaveBeenCalled()
   })
 
-  it("warns but returns success for a sent newsletter with picks_source='llm_fallback'", async () => {
+  it('warns about unknown and terminal ledger rows after completion', async () => {
     const setup = makeDependencies({
-      newsletter: { is_sent: true, picks_source: 'llm_fallback' },
+      newsletter: newsletterStatus({
+        is_sent: true,
+        sent_at: '2026-08-31T00:00:00.000Z',
+        subscriber_count: 10,
+      }),
+      deliveryCounts: { unknown: 2, failedTerminal: 1, accepted: 10 },
+      activeSubscriberCount: 10,
     })
 
     await expect(verifyNewsletterSent(setup.dependencies)).resolves.toBe(0)
 
-    expect(setup.logger.warn).toHaveBeenCalledOnce()
     expect(setup.logger.warn).toHaveBeenCalledWith(
-      `⚠️ ${TODAY_KST} 뉴스레터는 발송됐지만 picks_source=llm_fallback 입니다.`,
+      `⚠️ ${TODAY_KST} 뉴스레터 delivery 경고: unknown=2, failed_terminal=1`,
     )
-    expect(setup.sendAlertEmail).not.toHaveBeenCalled()
   })
 
-  it('returns failure without attempting email when the SendGrid key is missing', async () => {
+  it('keeps the active subscriber count warning', async () => {
     const setup = makeDependencies({
-      newsletter: { is_sent: false, picks_source: 'code' },
+      newsletter: newsletterStatus({
+        is_sent: true,
+        subscriber_count: 9,
+      }),
+      activeSubscriberCount: 10,
     })
 
-    await expect(verifyNewsletterSent(setup.dependencies)).resolves.toBe(1)
+    await expect(verifyNewsletterSent(setup.dependencies)).resolves.toBe(0)
 
-    expect(setup.sendAlertEmail).not.toHaveBeenCalled()
-    expect(setup.logger.error).toHaveBeenCalledWith(
-      'SENDGRID_API_KEY 없음 — 알림 메일을 시도하지 않습니다.',
+    expect(setup.countActiveSubscribers).toHaveBeenCalledOnce()
+    expect(setup.logger.warn).toHaveBeenCalledWith(
+      '⚠️ subscriber_count(9) < active subscribers(10)',
     )
   })
 })

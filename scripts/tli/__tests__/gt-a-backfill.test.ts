@@ -21,9 +21,9 @@ describe('GT-A backfill helpers', () => {
     })).toEqual(['2026-01-05', '2026-01-06', '2026-01-07', '2026-01-08', '2026-01-09'])
   })
 
-  it('skips KRX public holidays (not just weekends) across the 2026-06-03 local election day boundary', () => {
-    // 2026-06-03 (Wed) = 제9회 지방선거일, 2026-06-08 (Mon) = 현충일 대체공휴일 — both KRX holidays
-    // sandwiching the 2026-06-06/07 weekend.
+  it('skips the 2026 local election and keeps the open Monday after Memorial Day', () => {
+    // 2026-06-03 (Wed) is the local-election closure. Memorial Day is not eligible for
+    // a substitute holiday, so 2026-06-08 (Mon) remains a trading day.
     expect(getKoreanTradingDatesBetween({
       startDate: '2026-06-01',
       endDate: '2026-06-10',
@@ -33,7 +33,8 @@ describe('GT-A backfill helpers', () => {
       // 2026-06-03 skipped (holiday, not a weekend)
       '2026-06-04',
       '2026-06-05',
-      // 2026-06-06/07 skipped (weekend), 2026-06-08 skipped (holiday)
+      // 2026-06-06/07 skipped (weekend)
+      '2026-06-08',
       '2026-06-09',
       '2026-06-10',
     ])

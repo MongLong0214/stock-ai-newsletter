@@ -2,6 +2,7 @@ import { mkdir, writeFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 
 import { labelPick } from '@/scripts/stock-picks/label'
+import { validateResearchDataset } from '@/scripts/stock-picks/data-contract'
 import { loadPriceBook, type PriceBook } from '@/scripts/stock-picks/data-handler'
 import type { StockFeatureVector } from '@/scripts/stock-picks/features'
 import { precomputeFeatureMap } from '@/scripts/stock-picks/optimize'
@@ -239,6 +240,7 @@ const printUsage = (): void => {
     '',
     'Options:',
     '  --out PATH   최근 2년 이벤트 전일 피처 랭킹 JSON 경로 (필수)',
+    '  --allow-dirty-data  누락 거래일/OHLC 오류가 있어도 채굴을 계속',
   ].join('\n'))
 }
 
@@ -260,6 +262,24 @@ async function runCli(args: readonly string[]): Promise<void> {
     startDate: historyDates[0],
     endDate: tradingDays.lastDate ?? signalEnd,
   })
+  const dataContract = validateResearchDataset({
+    tradingDays,
+    prices,
+    fromDate: historyDates[0] ?? signalStart,
+    toDate: tradingDays.lastDate ?? signalEnd,
+  })
+  console.log(JSON.stringify({ event: 'research_data_contract', ...dataContract }))
+  if (
+    !args.includes('--allow-dirty-data')
+    && !dataContract.ok
+  ) {
+    throw new Error(
+      '연구 데이터 계약 실패:'
+      + ` sparseDates=${JSON.stringify(dataContract.sparseDates)}`
+      + ` gapDatesTop=${JSON.stringify(dataContract.gapDatesTop)};`
+      + ' --allow-dirty-data 없이는 precursor 채굴을 실행하지 않습니다',
+    )
+  }
 
   console.log(`이벤트 전일 피처 사전계산: symbols=${masters.length} signalDays=${signalDates.length}`)
   const featuresByDate = precomputeFeatureMap({
@@ -300,6 +320,6 @@ if (isDirectRun) {
         ? error.stack ?? error.message
         : JSON.stringify(error, Object.getOwnPropertyNames(error ?? {})),
     )
-    process.exit(1)
+    process.exitCode = 1
   })
 }

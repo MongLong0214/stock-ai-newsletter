@@ -13,6 +13,18 @@ export type StrategyName =
   | 'composite'
 export type SelectionMode = 'force3' | 'abstain'
 export type AblationFeature = keyof StockFeatureVector
+export type TieredFillTier = 'breakout' | 'relaxedBreakout' | 'volumeOnly'
+
+export interface TieredFillPick {
+  readonly symbol: string
+  readonly tier: TieredFillTier
+}
+
+export const DEFAULT_TIERED_FILL_TIERS: readonly TieredFillTier[] = [
+  'breakout',
+  'relaxedBreakout',
+  'volumeOnly',
+]
 
 export interface StockMasterState {
   readonly symbol: string
@@ -203,6 +215,8 @@ const flagged = (value: unknown): boolean => {
   return ['Y', 'YES', 'TRUE', 'T', '1'].includes(value.trim().toUpperCase())
 }
 
+const trimmedCode = (value: unknown): string => typeof value === 'string' ? value.trim() : ''
+
 export function passesCommonGate(
   feature: StockFeatureVector,
   master: StockMasterState | undefined,
@@ -210,10 +224,15 @@ export function passesCommonGate(
   maxRsi = 70,
 ): boolean {
   if (!master?.is_active) return false
+  const statusFlags = master.status_flags
   if (
-    flagged(master.status_flags?.managed_stock)
-    || flagged(master.status_flags?.trading_suspended)
-    || flagged(master.status_flags?.liquidation_trading)
+    flagged(statusFlags?.managed_stock)
+    || flagged(statusFlags?.trading_suspended)
+    || flagged(statusFlags?.liquidation_trading)
+    || ['02', '03'].includes(trimmedCode(statusFlags?.market_warning_code))
+    || ['2', '3'].includes(trimmedCode(statusFlags?.short_term_overheat_code))
+    || flagged(statusFlags?.investment_caution)
+    || flagged(statusFlags?.market_warning_risk_notice)
   ) return false
   if (feature.averageTurnover20 === null || feature.averageTurnover20 < minTurnover) return false
   if (feature.close === null || feature.close < 1_000) return false
@@ -404,6 +423,103 @@ export function rankStrategyCandidates<K extends StrategyName>(input: {
     return [{ symbol: feature.symbol, score }]
   }).sort((left, right) => right.score - left.score || left.symbol.localeCompare(right.symbol))
     .slice(0, input.pickCount ?? PICKS_PER_DATE)
+}
+
+export function rankVolumeOnlyCandidates(input: {
+  readonly features: readonly StockFeatureVector[]
+  readonly masters: ReadonlyMap<string, StockMasterState>
+  readonly parameters: VolumeBreakoutParameters
+  readonly universe?: ReadonlySet<string>
+  readonly pickCount?: number
+}): Array<{ symbol: string; volumePercentile: number }> {
+  return input.features.flatMap((feature) => {
+    if (input.universe && !input.universe.has(feature.symbol)) return []
+    if (feature.volumePercentile60 === null) return []
+    if (!passesCommonGate(
+      feature,
+      input.masters.get(feature.symbol),
+      input.parameters.minTurnover,
+      input.parameters.maxRsi ?? 70,
+    )) return []
+    return [{ symbol: feature.symbol, volumePercentile: feature.volumePercentile60 }]
+  }).sort((left, right) => (
+    right.volumePercentile - left.volumePercentile
+    || left.symbol.localeCompare(right.symbol)
+  )).slice(0, input.pickCount ?? PICKS_PER_DATE)
+}
+
+export function rankTieredFillCandidates(input: {
+  readonly features: readonly StockFeatureVector[]
+  readonly masters: ReadonlyMap<string, StockMasterState>
+  readonly parameters: VolumeBreakoutParameters
+  readonly tiers?: ReadonlyArray<TieredFillTier>
+  readonly universe?: ReadonlySet<string>
+  readonly pickCount?: number
+}): TieredFillPick[] {
+  const tiers = input.tiers ?? DEFAULT_TIERED_FILL_TIERS
+  const targetPickCount = input.pickCount ?? PICKS_PER_DATE
+  const remainingUniverse = new Set(
+    input.universe ?? input.features.map((feature) => feature.symbol),
+  )
+  const picks: TieredFillPick[] = []
+
+  for (const tier of tiers) {
+    const pickCount = targetPickCount - picks.length
+    if (pickCount <= 0) break
+    const symbols = tier === 'volumeOnly'
+      ? rankVolumeOnlyCandidates({
+          features: input.features,
+          masters: input.masters,
+          parameters: input.parameters,
+          universe: remainingUniverse,
+          pickCount,
+        }).map((row) => row.symbol)
+      : rankStrategyCandidates({
+          name: 'volumeBreakoutNoGapUp',
+          features: input.features,
+          masters: input.masters,
+          parameters: tier === 'relaxedBreakout'
+            ? {
+                ...input.parameters,
+                minDistanceFromHighPercent: -3,
+                minVolumePercentile: 80,
+              }
+            : input.parameters,
+          mode: 'force3',
+          universe: remainingUniverse,
+          pickCount,
+        }).map((row) => row.symbol)
+
+    for (const symbol of symbols) {
+      if (!remainingUniverse.delete(symbol)) continue
+      picks.push({ symbol, tier })
+    }
+  }
+
+  return picks
+}
+
+export function createTieredFillStrategy(input: {
+  readonly featuresByDate: ReadonlyMap<string, readonly StockFeatureVector[]>
+  readonly masters: ReadonlyMap<string, StockMasterState>
+  readonly parameters: VolumeBreakoutParameters
+  readonly tiers?: ReadonlyArray<TieredFillTier>
+}): StockPickStrategy {
+  let cachedUniverse: readonly string[] | null = null
+  let cachedUniverseSet: ReadonlySet<string> | undefined
+  return (_handler, universe, simDate) => {
+    if (cachedUniverse !== universe) {
+      cachedUniverse = universe
+      cachedUniverseSet = new Set(universe)
+    }
+    return rankTieredFillCandidates({
+      features: input.featuresByDate.get(simDate) ?? [],
+      masters: input.masters,
+      parameters: input.parameters,
+      tiers: input.tiers,
+      universe: cachedUniverseSet,
+    }).map((row) => row.symbol)
+  }
 }
 
 /** 사전등록 섀도우: 프로덕션 게이트 통과 집합을 ATR14 rolling percentile로만 재정렬한다. */

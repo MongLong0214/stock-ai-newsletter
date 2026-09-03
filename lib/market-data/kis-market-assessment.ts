@@ -1,19 +1,17 @@
 import * as cheerio from 'cheerio';
 import type { Element } from 'domhandler';
+import {
+  getKisAccessToken,
+  resetKisClientCacheForTest,
+} from '@/app/archive/_utils/api/kis/client';
 import { validateKisEnv } from '@/lib/_utils/env-validator';
 
 const FETCH_TIMEOUT_MS = 8_000;
 const NAVER_INDEX_TIMEOUT_MS = 5_000;
 const REQUEST_DELAY_MS = 350;
-const TOKEN_TTL_MS = 23 * 60 * 60 * 1000;
 const SNAPSHOT_TTL_MS = 30_000;
 
 type KisConfig = ReturnType<typeof validateKisEnv>;
-
-interface KisToken {
-  accessToken: string;
-  expiresAt: number;
-}
 
 interface KisErrorResponse {
   rt_cd?: string;
@@ -186,6 +184,7 @@ export interface Kospi200MiniFuturesSnapshot extends MarketIndicatorSnapshot {
 
 export interface MarketAssessmentSnapshot {
   fetchedAt: string;
+  degradedSources?: string[];
   indicators: {
     sp500: MarketIndicatorSnapshot;
     dowJones: MarketIndicatorSnapshot | null;
@@ -271,13 +270,13 @@ export interface EventSignals {
   pandemic: EventSignal;
 }
 
-const tokenCache: { value: KisToken | null } = { value: null };
 const snapshotCache: { value: MarketAssessmentSnapshot | null; expiresAt: number } = {
   value: null,
   expiresAt: 0,
 };
 
 let configCache: KisConfig | null = null;
+let serpDisabledReason: string | null = null;
 
 function getConfig(): KisConfig {
   if (!configCache) {
@@ -288,10 +287,14 @@ function getConfig(): KisConfig {
 }
 
 function getSerpApiKey(): string {
+  if (serpDisabledReason) {
+    throw new Error(`SerpAPI disabled: ${serpDisabledReason}`);
+  }
   const apiKey = process.env.SERP_API_KEY;
 
   if (!apiKey) {
-    throw new Error('SERP_API_KEY 환경 변수가 설정되지 않았습니다.');
+    serpDisabledReason = 'serpapi: api key missing';
+    throw new Error(`SerpAPI disabled: ${serpDisabledReason}`);
   }
 
   return apiKey;
@@ -359,11 +362,31 @@ async function serpGet<T>(
     method: 'GET',
   });
 
-  if (!response.ok) {
+  let data: SerpApiSearchResponse = {};
+  let responseBody = '';
+  try {
+    responseBody = await response.text();
+    const parsed: unknown = JSON.parse(responseBody);
+    if (typeof parsed !== 'object' || parsed === null) throw new Error('invalid SerpAPI JSON');
+    data = parsed as SerpApiSearchResponse;
+  } catch {
+    if (/run out of searches/i.test(responseBody)) {
+      serpDisabledReason = 'serpapi: quota exhausted';
+    } else if (response.status === 401 || response.status === 403 || response.status === 429) {
+      serpDisabledReason = `serpapi: HTTP ${response.status}`;
+    }
     throw new Error(`SerpAPI request failed: HTTP ${response.status}`);
   }
 
-  const data = await response.json();
+  if (/run out of searches/i.test(responseBody)) {
+    serpDisabledReason = 'serpapi: quota exhausted';
+  } else if (response.status === 401 || response.status === 403 || response.status === 429) {
+    serpDisabledReason = `serpapi: HTTP ${response.status}`;
+  }
+
+  if (!response.ok) {
+    throw new Error(`SerpAPI request failed: HTTP ${response.status}`);
+  }
 
   if (data.error) {
     throw new Error(`SerpAPI request failed: ${data.error}`);
@@ -372,59 +395,9 @@ async function serpGet<T>(
   return data as T;
 }
 
-async function issueAccessToken(): Promise<KisToken> {
-  const config = getConfig();
-
-  const response = await fetchWithTimeout(`${config.KIS_BASE_URL}/oauth2/tokenP`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      grant_type: 'client_credentials',
-      appkey: config.KIS_APP_KEY,
-      appsecret: config.KIS_APP_SECRET,
-    }),
-  });
-
-  if (!response.ok) {
-    let message = `HTTP ${response.status}`;
-
-    try {
-      message = parseKisError(await response.json());
-    } catch {
-      // noop
-    }
-
-    throw new Error(`Failed to issue KIS access token: ${message}`);
-  }
-
-  const data = await response.json();
-
-  if (!data.access_token) {
-    throw new Error('Failed to issue KIS access token: missing access_token');
-  }
-
-  return {
-    accessToken: data.access_token as string,
-    expiresAt: Date.now() + TOKEN_TTL_MS,
-  };
-}
-
-async function getAccessToken(): Promise<string> {
-  const now = Date.now();
-
-  if (tokenCache.value && tokenCache.value.expiresAt > now) {
-    return tokenCache.value.accessToken;
-  }
-
-  tokenCache.value = await issueAccessToken();
-  return tokenCache.value.accessToken;
-}
-
 async function kisGet<T>(path: string, params: Record<string, string>, trId: string): Promise<T> {
   const config = getConfig();
-  const token = await getAccessToken();
+  const token = await getKisAccessToken();
   const url = `${config.KIS_BASE_URL}${path}?${new URLSearchParams(params).toString()}`;
 
   const response = await fetchWithTimeout(url, {
@@ -1831,6 +1804,10 @@ function makeEventSignal(
 }
 
 async function getEventSignals(): Promise<EventSignals> {
+  if (serpDisabledReason || !process.env.SERP_API_KEY) {
+    if (!serpDisabledReason) serpDisabledReason = 'serpapi: api key missing';
+    return emptyEventSignals();
+  }
   const configs: Array<{
     key: keyof EventSignals;
     serpQuery: string;
@@ -2039,6 +2016,7 @@ export async function getKisMarketAssessmentSnapshot(): Promise<MarketAssessment
 
   const snapshot: MarketAssessmentSnapshot = {
     fetchedAt: new Date().toISOString(),
+    degradedSources: serpDisabledReason ? [serpDisabledReason] : [],
     indicators: {
       sp500,
       dowJones,
@@ -2284,6 +2262,10 @@ export function formatMarketAssessmentSnapshot(snapshot: MarketAssessmentSnapsho
     `- KOSPI200 mini futures (${kospi200MiniFutures.contractName}, ${kospi200MiniFutures.code}): ${kospi200MiniFutures.price.toFixed(2)} (${kospi200MiniFutures.change >= 0 ? '+' : ''}${kospi200MiniFutures.change.toFixed(2)}, ${kospi200MiniFutures.changePct >= 0 ? '+' : ''}${kospi200MiniFutures.changePct.toFixed(2)}%)${snapshot.nightSession.isPreMarketHours ? ' [daytime close]' : ''}`,
   ];
 
+  if ((snapshot.degradedSources?.length ?? 0) > 0) {
+    lines.push(`- Degraded sources: ${snapshot.degradedSources?.join(', ')}`);
+  }
+
   if (snapshot.nightSession.kospiMiniFutures) {
     const nf = snapshot.nightSession.kospiMiniFutures;
     lines.push(
@@ -2324,8 +2306,9 @@ export function formatMarketAssessmentSnapshot(snapshot: MarketAssessmentSnapsho
 }
 
 export function resetKisMarketAssessmentCacheForTest(): void {
-  tokenCache.value = null;
+  resetKisClientCacheForTest();
   snapshotCache.value = null;
   snapshotCache.expiresAt = 0;
   configCache = null;
+  serpDisabledReason = null;
 }

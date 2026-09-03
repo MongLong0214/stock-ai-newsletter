@@ -20,17 +20,20 @@ function initSendGrid() {
   if (!apiKey) {
     throw new Error('SENDGRID_API_KEY is required');
   }
-  if (!process.env.SENDGRID_FROM_EMAIL) {
+  const fromEmail = process.env.SENDGRID_FROM_EMAIL;
+  if (!fromEmail) {
     throw new Error('SENDGRID_FROM_EMAIL is required');
   }
-  if (!process.env.SENDGRID_FROM_NAME) {
+  const fromName = process.env.SENDGRID_FROM_NAME;
+  if (!fromName) {
     throw new Error('SENDGRID_FROM_NAME is required');
   }
   sgMail.setApiKey(apiKey);
-  return true;
+  return { fromEmail, fromName };
 }
 
 export interface EmailRecipient {
+  subscriberId: string;
   email: string;
   name?: string;
 }
@@ -48,6 +51,21 @@ export interface StockNewsletterSendFailure {
 export interface StockNewsletterSendResult {
   readonly sent: number;
   readonly failed: readonly StockNewsletterSendFailure[];
+  readonly retried: number;
+  readonly outcomes: readonly StockNewsletterDeliveryOutcome[];
+}
+
+export type StockNewsletterDeliveryStatus =
+  | 'accepted'
+  | 'failed_retryable'
+  | 'failed_terminal'
+  | 'unknown';
+
+export interface StockNewsletterDeliveryOutcome {
+  readonly subscriberId: string;
+  readonly status: StockNewsletterDeliveryStatus;
+  readonly errorCode?: string;
+  readonly messageId?: string;
 }
 
 interface StockSignals {
@@ -124,48 +142,270 @@ export function parseCrashAlert(jsonString: string): CrashAlertData | null {
   }
 }
 
+const SENDGRID_RETRY_DELAYS_MS = [500, 2_000, 6_000] as const;
+const DEFAULT_SENDGRID_REQUEST_TIMEOUT_MS = 15_000;
+const NETWORK_ERROR_CODES = new Set([
+  'EAI_AGAIN',
+  'ECONNREFUSED',
+  'ECONNRESET',
+  'ENETDOWN',
+  'ENETUNREACH',
+  'ESOCKETTIMEDOUT',
+  'ETIMEDOUT',
+  'UND_ERR_CONNECT_TIMEOUT',
+  'UND_ERR_HEADERS_TIMEOUT',
+  'UND_ERR_SOCKET',
+]);
+
+function getSendConcurrency(): number {
+  const parsed = Number.parseInt(process.env.SENDGRID_SEND_CONCURRENCY ?? '', 10);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : 10;
+}
+
+function getSendGridRequestTimeoutMs(): number {
+  const parsed = Number.parseInt(process.env.SENDGRID_REQUEST_TIMEOUT_MS ?? '', 10);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : DEFAULT_SENDGRID_REQUEST_TIMEOUT_MS;
+}
+
+function errorStatus(error: unknown): number | null {
+  if (!error || typeof error !== 'object') return null;
+  const candidate = error as {
+    readonly code?: unknown;
+    readonly response?: { readonly statusCode?: unknown };
+  };
+  const rawStatus = candidate.response?.statusCode ?? candidate.code;
+  const status = typeof rawStatus === 'string' ? Number(rawStatus) : rawStatus;
+  return typeof status === 'number' && Number.isInteger(status) ? status : null;
+}
+
+export function isTransientSendGridError(error: unknown): boolean {
+  const status = errorStatus(error);
+  if (status === 429 || (status !== null && status >= 500 && status <= 599)) return true;
+  if (!error || typeof error !== 'object') return false;
+  const code = (error as { readonly code?: unknown }).code;
+  return typeof code === 'string' && NETWORK_ERROR_CODES.has(code);
+}
+
+function sleep(milliseconds: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
+
+function recipientDomain(email: string): string {
+  const separator = email.lastIndexOf('@');
+  return separator >= 0 && separator < email.length - 1
+    ? email.slice(separator + 1).toLowerCase()
+    : 'unknown';
+}
+
+async function sendWithTimeout(
+  message: Parameters<typeof sgMail.send>[0],
+  timeoutMs: number,
+): Promise<unknown> {
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  const timeoutPromise = new Promise<never>((_resolve, reject) => {
+    timeout = setTimeout(() => {
+      reject(Object.assign(new Error(`SendGrid request timed out after ${timeoutMs}ms`), {
+        code: 'ETIMEDOUT',
+        kind: 'sendgrid_request_timeout',
+        name: 'SendGridTimeoutError',
+      }));
+    }, timeoutMs);
+  });
+  try {
+    return await Promise.race([sgMail.send(message), timeoutPromise]);
+  } finally {
+    if (timeout !== undefined) clearTimeout(timeout);
+  }
+}
+
+function isOwnedRequestTimeout(error: unknown): boolean {
+  return Boolean(
+    error
+    && typeof error === 'object'
+    && 'kind' in error
+    && error.kind === 'sendgrid_request_timeout',
+  );
+}
+
+function deliveryErrorCode(error: unknown): string {
+  const status = errorStatus(error);
+  if (status !== null) return `HTTP_${status}`;
+  if (error && typeof error === 'object' && 'code' in error && typeof error.code === 'string') {
+    return error.code;
+  }
+  return 'UNKNOWN';
+}
+
+function responseMetadata(result: unknown): {
+  readonly statusCode: number | null;
+  readonly messageId?: string;
+} {
+  if (!Array.isArray(result) || !result[0] || typeof result[0] !== 'object') {
+    return { statusCode: null };
+  }
+  const response = result[0] as {
+    readonly statusCode?: unknown;
+    readonly headers?: unknown;
+  };
+  const statusCode = typeof response.statusCode === 'number' ? response.statusCode : null;
+  if (!response.headers || typeof response.headers !== 'object') return { statusCode };
+  const headers = response.headers as Record<string, unknown>;
+  const rawMessageId = headers['x-message-id'] ?? headers['X-Message-Id'];
+  const messageId = Array.isArray(rawMessageId) ? rawMessageId[0] : rawMessageId;
+  return typeof messageId === 'string' && messageId.length > 0
+    ? { statusCode, messageId }
+    : { statusCode };
+}
+
+function responseStatusError(statusCode: number): Error {
+  return Object.assign(new Error(`SendGrid responded with status ${statusCode}`), {
+    kind: 'sendgrid_response_status',
+    response: { statusCode },
+  });
+}
+
+export interface StockNewsletterSendOptions {
+  readonly deadlineAt?: number;
+  readonly now?: () => number;
+  readonly beforeSend?: (recipient: EmailRecipient) => Promise<void>;
+  readonly onResult?: (
+    recipient: EmailRecipient,
+    outcome: StockNewsletterDeliveryOutcome,
+  ) => Promise<void>;
+  readonly shouldContinue?: () => boolean;
+}
+
 /**
  * SendGrid로 주식 뉴스레터 이메일 전송
  */
 export async function sendStockNewsletter(
   recipients: EmailRecipient[],
-  data: StockNewsletterData
+  data: StockNewsletterData,
+  options: StockNewsletterSendOptions = {},
 ): Promise<StockNewsletterSendResult> {
   // SendGrid 초기화 (API 키 + 발신자 정보 검증 포함)
-  initSendGrid();
+  const { fromEmail, fromName } = initSendGrid();
 
   const isCrash = parseCrashAlert(data.geminiAnalysis) !== null;
   const subject = isCrash
     ? `[${siteConfig.serviceName}] ${data.date} 긴급 시장 분석`
     : `[${siteConfig.serviceName}] ${data.date} AI 기술적 분석`;
 
-  // 각 수신자별로 개별 이메일 전송 (수신거부 링크 개인화)
-  const settled = await Promise.allSettled(
-    recipients.map(async (recipient) => {
+  let nextIndex = 0;
+  let retried = 0;
+  let callbackError: unknown;
+  const failed: StockNewsletterSendFailure[] = [];
+  const outcomesByIndex: Array<StockNewsletterDeliveryOutcome | undefined> = [];
+  const workerCount = Math.min(getSendConcurrency(), recipients.length);
+  const requestTimeoutMs = getSendGridRequestTimeoutMs();
+  const now = options.now ?? Date.now;
+  const deadlineAt = options.deadlineAt ?? Number.POSITIVE_INFINITY;
+
+  // WHY: personalized unsubscribe links require one request per recipient, so workers bound pressure.
+  const workers = Array.from({ length: workerCount }, async () => {
+    while (nextIndex < recipients.length) {
+      if (
+        callbackError !== undefined
+        || now() >= deadlineAt
+        || options.shouldContinue?.() === false
+      ) break;
+      const index = nextIndex;
+      nextIndex += 1;
+      const recipient = recipients[index];
+      if (!recipient) continue;
       const html = generateNewsletterHTML(data, recipient.email);
-      await sgMail.send({
-        to: recipient.email,
-        from: {
-          email: process.env.SENDGRID_FROM_EMAIL as string,
-          name: process.env.SENDGRID_FROM_NAME as string,
-        },
-        subject,
-        html,
-      });
-    })
-  );
-  const failed = settled.flatMap((result, index) => {
-    if (result.status === 'fulfilled') return [];
-    const email = recipients[index]?.email ?? '';
-    const separator = email.lastIndexOf('@');
-    const domain = separator >= 0 && separator < email.length - 1
-      ? email.slice(separator + 1).toLowerCase()
-      : 'unknown';
-    return [{ index, domain }];
+      try {
+        await options.beforeSend?.(recipient);
+      } catch (error) {
+        callbackError ??= error;
+        break;
+      }
+      let outcome: StockNewsletterDeliveryOutcome | undefined;
+
+      for (let attempt = 0; attempt <= SENDGRID_RETRY_DELAYS_MS.length; attempt += 1) {
+        const remainingMs = deadlineAt - now();
+        if (remainingMs <= 0) break;
+        try {
+          const response = await sendWithTimeout({
+            to: recipient.email,
+            from: { email: fromEmail, name: fromName },
+            subject,
+            html,
+          }, Math.min(requestTimeoutMs, remainingMs));
+          const metadata = responseMetadata(response);
+          if (
+            metadata.statusCode !== null
+            && (metadata.statusCode < 200 || metadata.statusCode >= 300)
+          ) {
+            throw responseStatusError(metadata.statusCode);
+          }
+          outcome = {
+            subscriberId: recipient.subscriberId,
+            status: 'accepted',
+            ...(metadata.messageId ? { messageId: metadata.messageId } : {}),
+          };
+          break;
+        } catch (error) {
+          if (isOwnedRequestTimeout(error)) {
+            // WHY: 요청 전송 뒤 타임아웃은 공급자 수락 여부를 모르므로 자동 재발송하지 않는다.
+            outcome = {
+              subscriberId: recipient.subscriberId,
+              status: 'unknown',
+              errorCode: 'ETIMEDOUT',
+            };
+            break;
+          }
+          const retryDelay = SENDGRID_RETRY_DELAYS_MS[attempt];
+          const retryable = isTransientSendGridError(error);
+          if (
+            retryDelay === undefined
+            || !retryable
+            || deadlineAt - now() <= retryDelay
+          ) {
+            outcome = {
+              subscriberId: recipient.subscriberId,
+              status: retryable ? 'failed_retryable' : 'failed_terminal',
+              errorCode: deliveryErrorCode(error),
+            };
+            break;
+          }
+          retried += 1;
+          await sleep(retryDelay);
+        }
+      }
+
+      outcome ??= {
+        subscriberId: recipient.subscriberId,
+        status: 'failed_retryable',
+        errorCode: 'DEADLINE_EXCEEDED',
+      };
+      outcomesByIndex[index] = outcome;
+      try {
+        await options.onResult?.(recipient, outcome);
+      } catch (error) {
+        callbackError ??= error;
+        break;
+      }
+      if (outcome.status !== 'accepted') {
+        failed.push({ index, domain: recipientDomain(recipient.email) });
+      }
+    }
   });
+  await Promise.all(workers);
+  if (callbackError !== undefined) throw callbackError;
+  while (nextIndex < recipients.length) {
+    const index = nextIndex;
+    nextIndex += 1;
+    const recipient = recipients[index];
+    if (recipient) failed.push({ index, domain: recipientDomain(recipient.email) });
+  }
+  failed.sort((left, right) => left.index - right.index);
+  const outcomes = outcomesByIndex.flatMap((outcome) => outcome ? [outcome] : []);
   const sendResult: StockNewsletterSendResult = {
-    sent: recipients.length - failed.length,
+    sent: outcomes.filter((outcome) => outcome.status === 'accepted').length,
     failed,
+    retried,
+    outcomes,
   };
 
   console.log(`✅ 이메일 전송 성공: ${sendResult.sent}명, 실패: ${failed.length}명`);

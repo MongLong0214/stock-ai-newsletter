@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
+import type { StockPickStrategy } from '@/scripts/stock-picks/backtest'
 import type { StockFeatureVector } from '@/scripts/stock-picks/features'
 import { PRODUCTION_VOLUME_BREAKOUT_PARAMETERS } from '@/scripts/stock-picks/generate-picks'
 import {
@@ -9,8 +10,10 @@ import {
   DEFAULT_VOLUME_BREAKOUT_NO_GAP_UP_PARAMETERS,
   DEFAULT_VOLUME_BREAKOUT_PARAMETERS,
   VOLUME_BREAKOUT_ATR_RANK_PARAMETERS,
+  createTieredFillStrategy,
   passesCommonGate,
   rankStrategyCandidates,
+  rankTieredFillCandidates,
   rankVolumeBreakoutAtrRankCandidates,
   scoreStrategy,
   type StockMasterState,
@@ -79,6 +82,30 @@ describe('stock-picks strategy gates and ranking', () => {
     expect(passesCommonGate(feature('A', { close: 999 }), master('A'))).toBe(false)
   })
 
+  it('excludes hard KIS warning flags while retaining soft investment caution code 01', () => {
+    expect(passesCommonGate(feature('A'), master('A', {
+      status_flags: { market_warning_code: ' 02 ' },
+    }))).toBe(false)
+    expect(passesCommonGate(feature('A'), master('A', {
+      status_flags: { market_warning_code: '03' },
+    }))).toBe(false)
+    expect(passesCommonGate(feature('A'), master('A', {
+      status_flags: { short_term_overheat_code: ' 2 ' },
+    }))).toBe(false)
+    expect(passesCommonGate(feature('A'), master('A', {
+      status_flags: { short_term_overheat_code: '3' },
+    }))).toBe(false)
+    expect(passesCommonGate(feature('A'), master('A', {
+      status_flags: { investment_caution: 'Y' },
+    }))).toBe(false)
+    expect(passesCommonGate(feature('A'), master('A', {
+      status_flags: { market_warning_risk_notice: ' Y ' },
+    }))).toBe(false)
+    expect(passesCommonGate(feature('A'), master('A', {
+      status_flags: { market_warning_code: '01' },
+    }))).toBe(true)
+  })
+
   it('is deterministic and breaks equal-score ties by symbol', () => {
     const features = [feature('C'), feature('A'), feature('B')]
     const masters = new Map(features.map((row) => [row.symbol, master(row.symbol)]))
@@ -135,6 +162,60 @@ describe('stock-picks strategy gates and ranking', () => {
     expect(rankStrategyCandidates(bullishInput).map((row) => row.symbol)).toEqual(['A', 'C'])
     expect(rankStrategyCandidates(noGapInput)).toEqual(rankStrategyCandidates(noGapInput))
     expect(rankStrategyCandidates(noGapInput).map((row) => row.symbol)).toEqual(['A', 'C'])
+  })
+
+  it('fills tiers in order without duplicates and preserves production picks as the prefix', () => {
+    const simDate = '2026-08-28'
+    const features = [
+      feature('VOLUME', { volumePercentile60: 99, distanceFromHigh60: -4 }),
+      feature('RELAXED', { volumePercentile60: 85, distanceFromHigh60: -1 }),
+      feature('BREAKOUT', { volumePercentile60: 99, distanceFromHigh60: 1 }),
+      feature('OUTSIDE', { volumePercentile60: 100, distanceFromHigh60: 5 }),
+    ]
+    const universe = ['BREAKOUT', 'RELAXED', 'VOLUME']
+    const universeSet = new Set(universe)
+    const masters = new Map(features.map((row) => [row.symbol, master(row.symbol)]))
+    const production = rankStrategyCandidates({
+      name: 'volumeBreakoutNoGapUp',
+      features,
+      masters,
+      parameters: PRODUCTION_VOLUME_BREAKOUT_PARAMETERS,
+      mode: 'force3',
+      universe: universeSet,
+    }).map((row) => row.symbol)
+    const input = {
+      features,
+      masters,
+      parameters: PRODUCTION_VOLUME_BREAKOUT_PARAMETERS,
+      universe: universeSet,
+    }
+
+    const first = rankTieredFillCandidates(input)
+    expect(first).toEqual([
+      { symbol: 'BREAKOUT', tier: 'breakout' },
+      { symbol: 'RELAXED', tier: 'relaxedBreakout' },
+      { symbol: 'VOLUME', tier: 'volumeOnly' },
+    ])
+    expect(rankTieredFillCandidates(input)).toEqual(first)
+    expect(first.slice(0, production.length).map((row) => row.symbol)).toEqual(production)
+    expect(new Set(first.map((row) => row.symbol)).size).toBe(first.length)
+    expect(rankTieredFillCandidates({
+      ...input,
+      tiers: ['breakout', 'volumeOnly'],
+    })).toEqual([
+      { symbol: 'BREAKOUT', tier: 'breakout' },
+      { symbol: 'VOLUME', tier: 'volumeOnly' },
+      { symbol: 'RELAXED', tier: 'volumeOnly' },
+    ])
+
+    const strategy = createTieredFillStrategy({
+      featuresByDate: new Map([[simDate, features]]),
+      masters,
+      parameters: PRODUCTION_VOLUME_BREAKOUT_PARAMETERS,
+    })
+    const handler = {} as Parameters<StockPickStrategy>[0]
+    expect(strategy(handler, universe, simDate)).toEqual(first.map((row) => row.symbol))
+    expect(strategy(handler, universe, simDate)).toEqual(first.map((row) => row.symbol))
   })
 
   it('keeps gates intact when ablation zeros only a score contribution', () => {

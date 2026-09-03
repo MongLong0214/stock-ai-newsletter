@@ -1,7 +1,12 @@
 import { NextResponse } from 'next/server'
 
+import { siteConfig } from '@/lib/constants/seo/config'
 import { verifyCronBearerToken } from '@/lib/cron-auth'
-import { dispatchGitHubWorkflow } from '@/lib/github-actions-dispatch'
+import {
+  createDispatchId,
+  dispatchGitHubWorkflow,
+} from '@/lib/github-actions-dispatch'
+import { sendNewsletterAlertEmail } from '@/lib/newsletter/alert'
 import { getNewsletterStatus } from '@/lib/newsletter/status'
 import { isKoreanTradingDate } from '@/lib/tli/trading-calendar'
 
@@ -44,12 +49,27 @@ export async function GET(request: Request) {
       })
     }
 
-    await dispatchGitHubWorkflow(WORKFLOW_FILE)
+    const requestedDispatchId = createDispatchId(date)
+    const dispatch = await dispatchGitHubWorkflow(WORKFLOW_FILE, {
+      inputs: { target_date: date, dispatch_id: requestedDispatchId },
+    })
+    if (dispatch.tokenExpiresInDays !== null && dispatch.tokenExpiresInDays < 14) {
+      await sendNewsletterAlertEmail({
+        subject: `[${siteConfig.serviceName}] GitHub Actions PAT 만료 D-${dispatch.tokenExpiresInDays}`,
+        lines: [
+          `대상 날짜: ${date}`,
+          `dispatch_id: ${dispatch.dispatchId}`,
+          `GH_DISPATCH_TOKEN 만료까지 ${dispatch.tokenExpiresInDays}일 남았습니다.`,
+        ],
+      })
+    }
     return NextResponse.json({
       success: true,
       dispatched: true,
       workflow: WORKFLOW_FILE,
       date,
+      dispatchId: dispatch.dispatchId,
+      verified: dispatch.verified,
     })
   } catch (error) {
     console.error('Newsletter prepare cron failed:', error)

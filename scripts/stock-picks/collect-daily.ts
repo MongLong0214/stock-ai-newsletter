@@ -1,4 +1,4 @@
-import { getKSTDateString } from '@/lib/tli/date-utils'
+import { getLastFinalizedTradingDate } from '@/lib/tli/trading-calendar'
 import {
   collectAndPersistStockDailyPriceRange,
   KIS_DAILY_PRICE_RATE_LIMIT_PER_SECOND,
@@ -9,6 +9,7 @@ import {
 export const DEFAULT_DAILY_COLLECTION_CALL_BUDGET = 3000
 // WHY: 2026-08-28 실측 2,431종목, 683ms/콜이 25분 deadline을 초과했다.
 export const DEFAULT_DAILY_COLLECTION_DEADLINE_MS = 40 * 60 * 1000
+export const DAILY_COLLECTION_POST_RESERVE_MS = 8 * 60 * 1000
 export const DAILY_COLLECTION_TRADING_DAYS = 7
 
 type CollectPriceRange = typeof collectAndPersistStockDailyPriceRange
@@ -18,6 +19,18 @@ export interface DailyStockPriceCollectionReport extends StockDailyPriceCollecti
   readonly tradingDays: number
 }
 
+export const getStockPicksKisRateLimitPerSecond = (
+  env: Readonly<Record<string, string | undefined>> = process.env,
+): number => {
+  const raw = env.STOCK_PICKS_KIS_RATE_LIMIT_PER_SECOND
+  if (raw === undefined) return KIS_DAILY_PRICE_RATE_LIMIT_PER_SECOND
+  const parsed = Number(raw)
+  if (!Number.isInteger(parsed) || parsed < 1 || parsed > 10) {
+    throw new Error(`STOCK_PICKS_KIS_RATE_LIMIT_PER_SECOND는 1..10 정수여야 합니다: ${raw}`)
+  }
+  return parsed
+}
+
 /**
  * stock_master 활성 전종목과 KOSPI 지수를 심볼당 한 번의 기간조회로 갱신한다.
  * stock_daily_prices의 (symbol, trade_date) upsert를 사용하므로 재실행은 멱등이다.
@@ -25,6 +38,7 @@ export interface DailyStockPriceCollectionReport extends StockDailyPriceCollecti
 export async function collectDailyStockPrices(input: {
   readonly callBudget?: number
   readonly deadlineMs?: number
+  readonly deadlineAt?: number
   readonly endDate?: string
   readonly collectPriceRange?: CollectPriceRange
 } = {}): Promise<DailyStockPriceCollectionReport> {
@@ -32,20 +46,28 @@ export async function collectDailyStockPrices(input: {
   if (!Number.isInteger(callBudget) || callBudget <= 0) {
     throw new Error(`callBudget은 양의 정수여야 합니다: ${callBudget}`)
   }
-  const deadlineMs = input.deadlineMs ?? DEFAULT_DAILY_COLLECTION_DEADLINE_MS
+  const remainingCollectionBudget = input.deadlineAt === undefined
+    ? DEFAULT_DAILY_COLLECTION_DEADLINE_MS
+    : input.deadlineAt - Date.now() - DAILY_COLLECTION_POST_RESERVE_MS
+  const deadlineMs = Math.min(
+    input.deadlineMs ?? DEFAULT_DAILY_COLLECTION_DEADLINE_MS,
+    remainingCollectionBudget,
+  )
   if (!Number.isFinite(deadlineMs) || deadlineMs <= 0) {
     throw new Error(`deadlineMs는 양수여야 합니다: ${deadlineMs}`)
   }
 
-  const endDate = input.endDate ?? getKSTDateString()
+  const endDate = input.endDate ?? getLastFinalizedTradingDate()
+  const rateLimitPerSecond = getStockPicksKisRateLimitPerSecond()
   const collectPriceRange = input.collectPriceRange ?? collectAndPersistStockDailyPriceRange
   const report = await collectPriceRange({
     endDate,
     days: DAILY_COLLECTION_TRADING_DAYS,
     universe: 'full',
     callBudget,
-    rateLimitPerSecond: KIS_DAILY_PRICE_RATE_LIMIT_PER_SECOND,
+    rateLimitPerSecond,
     deadlineMs,
+    finalizedThroughDate: endDate,
   })
   const dailyReport: DailyStockPriceCollectionReport = {
     ...report,
@@ -85,7 +107,7 @@ const printUsage = (): void => {
     'Options:',
     `  --call-budget=N  KIS 호출 예산 (기본 ${DEFAULT_DAILY_COLLECTION_CALL_BUDGET})`,
     `  --deadline-minutes=N  전체 수집 제한시간(분, 기본 ${DEFAULT_DAILY_COLLECTION_DEADLINE_MS / 60_000})`,
-    '  --end-date=DATE  종료일 YYYY-MM-DD (기본 오늘 KST)',
+    '  --end-date=DATE  종료일 YYYY-MM-DD (기본 마지막 완결 거래일)',
   ].join('\n'))
 }
 

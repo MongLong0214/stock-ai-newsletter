@@ -1,14 +1,30 @@
+/**
+ * Walk-forward 연구 러너: random/policy-random/volume-only 기준선, 3슬롯 제품 metric,
+ * frozen artifact와 실행 전 데이터 계약 gate를 한 결과에 묶는다.
+ */
 import { mkdir, writeFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 
 import {
+  createPolicyRandomStrategy,
   createRandom3Strategy,
+  createVolumeOnlyStrategy,
+  movingBlockBootstrapCi,
+  pairedDailyDelta,
   runBacktest,
   type BacktestReport,
+  type BootstrapConfidenceInterval,
+  type LabelStatusCounts,
+  type PairedDailyDeltaRow,
+  type StockPickStrategy,
 } from '@/scripts/stock-picks/backtest'
+import { validateResearchDataset } from '@/scripts/stock-picks/data-contract'
 import { StockDataHandler, loadPriceBook, type PriceBook } from '@/scripts/stock-picks/data-handler'
 import { buildFeatureSeries, type StockFeatureVector } from '@/scripts/stock-picks/features'
-import { PRODUCTION_VOLUME_BREAKOUT_PARAMETERS } from '@/scripts/stock-picks/generate-picks'
+import {
+  PRODUCTION_STRATEGY,
+  PRODUCTION_VOLUME_BREAKOUT_PARAMETERS,
+} from '@/scripts/stock-picks/production-strategy'
 import {
   COMPOSITE_ABLATION_EXCLUSIONS,
   COMPOSITE_ABLATION_FEATURES,
@@ -19,8 +35,11 @@ import {
   DEFAULT_VOLUME_BREAKOUT_BULLISH_CANDLE_PARAMETERS,
   DEFAULT_VOLUME_BREAKOUT_NO_GAP_UP_PARAMETERS,
   createCachedFeatureStrategy,
+  createTieredFillStrategy,
   loadStockMasterStates,
+  passesCommonGate,
   rankStrategyCandidates,
+  rankTieredFillCandidates,
   type AblationFeature,
   type CompositeParameters,
   type EarlyTrendParameters,
@@ -29,6 +48,7 @@ import {
   type StockMasterState,
   type StrategyName,
   type StrategyParameterMap,
+  type TieredFillTier,
   type VolumeBreakoutParameters,
 } from '@/scripts/stock-picks/strategies'
 import { TradingDayIndex, loadTradingDayIndex } from '@/scripts/stock-picks/trading-days'
@@ -48,7 +68,7 @@ export interface WalkForwardSplit {
   readonly testDates: readonly string[]
 }
 
-interface OosMetricSummary {
+export interface OosMetricSummary {
   readonly evaluationScope: 'out_of_sample'
   readonly totalDates: number
   readonly totalPicks: number
@@ -56,6 +76,14 @@ interface OosMetricSummary {
   readonly nullPicks: number
   readonly touchedPicks: number
   readonly precisionAt3: number | null
+  readonly slotPrecisionAt3: number | null
+  readonly slotPrecisionAt3Ci: BootstrapConfidenceInterval
+  readonly slotCoverage: number | null
+  readonly anyHitRate: number | null
+  readonly twoPlusHitRate: number | null
+  readonly dailyHits: readonly number[]
+  readonly statusCounts: LabelStatusCounts
+  readonly dataErrorRate: number
   readonly nullRate: number
   readonly averageDailyCandidateCount: number
   readonly pickDistribution: {
@@ -63,6 +91,24 @@ interface OosMetricSummary {
     readonly topTickerShare: number
     readonly herfindahlIndex: number
     readonly topTickers: ReadonlyArray<{ symbol: string; picks: number; share: number }>
+  }
+}
+
+export type ExploratoryMetricSummary = Omit<OosMetricSummary, 'evaluationScope'> & {
+  readonly evaluationScope: 'exploratory_dev_window'
+}
+
+/**
+ * WHY: 이 실험은 v0 선택에 사용한 같은 개발 날짜를 다시 보므로 sealed holdout이 아니다.
+ * 수치는 승격 근거가 아니라 다음 포워드 실험에서 사전등록할 tier를 고르는 용도로만 쓴다.
+ */
+export type TieredFillExperimentReport = ExploratoryMetricSummary & {
+  readonly tiers: ReadonlyArray<TieredFillTier>
+  readonly picksByTier: Readonly<Record<TieredFillTier, number>>
+  readonly hitsByTier: Readonly<Record<TieredFillTier, number>>
+  readonly pairedDailyDelta: {
+    readonly experimentMinusProduction: PairedComparisonSummary
+    readonly experimentMinusVolumeOnly: PairedComparisonSummary
   }
 }
 
@@ -113,6 +159,8 @@ export interface OptimizationReport {
   }
   readonly baselines: {
     readonly oosRandom3: OosMetricSummary
+    readonly oosPolicyRandom3: OosMetricSummary
+    readonly oosVolumeOnly3: OosMetricSummary
     readonly providedReferences: {
       readonly randomFullPeriod: 0.215
       readonly llmPipelineFullPeriod: 0.307
@@ -151,10 +199,20 @@ export interface FrozenProductionEvaluationReport {
   readonly evaluationPolicy: {
     readonly evaluationScope: 'walk_forward_test_dates'
     readonly parameterSelection: 'frozen_no_fold_reselection'
-    readonly strategy: 'volumeBreakout'
+    readonly strategy: 'volumeBreakoutNoGapUp+volumeOnlyFill'
     readonly mode: 'force3'
   }
+  readonly strategy: typeof PRODUCTION_STRATEGY
   readonly parameters: VolumeBreakoutParameters
+  readonly datasetFingerprint: {
+    readonly tradingDays: {
+      readonly first: string | null
+      readonly last: string | null
+      readonly count: number
+    }
+    readonly priceRows: number
+    readonly symbols: number
+  }
   readonly dateRange: {
     readonly evaluationStart: string
     readonly evaluationEnd: string
@@ -162,6 +220,30 @@ export interface FrozenProductionEvaluationReport {
     readonly foldCount: number
   }
   readonly aggregate: OosMetricSummary
+  readonly baselines: {
+    readonly productionV0: OosMetricSummary
+    readonly oosRandom3: OosMetricSummary
+    readonly oosPolicyRandom3: OosMetricSummary
+    readonly oosVolumeOnly3: OosMetricSummary
+  }
+  readonly pairedDailyDelta: {
+    readonly productionMinusVolumeOnly: PairedComparisonSummary
+    readonly productionMinusPolicyRandom: PairedComparisonSummary
+  }
+  readonly experiments: {
+    readonly tieredFill: TieredFillExperimentReport
+    readonly breakoutThenVolumeOnly: TieredFillExperimentReport
+  }
+}
+
+interface PairedComparisonSummary {
+  readonly daily: readonly PairedDailyDeltaRow[]
+  readonly excludedDates: {
+    readonly onlyProduction: number
+    readonly onlyBaseline: number
+    readonly total: number
+  }
+  readonly slotPrecisionAt3DeltaCi: BootstrapConfidenceInterval
 }
 
 type ParameterGridMap = {
@@ -364,6 +446,7 @@ const evaluateDates = <K extends StrategyName>(input: {
     tradingDays: input.context.tradingDays,
     startDate,
     endDate,
+    calculateSlotPrecisionCi: false,
   })
 }
 
@@ -455,6 +538,16 @@ const summarizeReports = (
   const labeledPicks = reports.reduce((sum, report) => sum + report.labeledPicks, 0)
   const nullPicks = reports.reduce((sum, report) => sum + report.nullPicks, 0)
   const touchedPicks = reports.reduce((sum, report) => sum + report.touchedPicks, 0)
+  const dailyHits = reports.flatMap((report) => report.dailyHits)
+  const statusCounts: LabelStatusCounts = {
+    hit: reports.reduce((sum, report) => sum + report.statusCounts.hit, 0),
+    miss: reports.reduce((sum, report) => sum + report.statusCounts.miss, 0),
+    unexpected_untradeable: reports.reduce((sum, report) => (
+      sum + report.statusCounts.unexpected_untradeable
+    ), 0),
+    data_error: reports.reduce((sum, report) => sum + report.statusCounts.data_error, 0),
+  }
+  const slotDenominator = totalDates * 3
   const pickCounts = new Map<string, number>()
   for (const report of reports) {
     for (const day of report.daily) {
@@ -473,7 +566,24 @@ const summarizeReports = (
     labeledPicks,
     nullPicks,
     touchedPicks,
-    precisionAt3: labeledPicks > 0 ? touchedPicks / labeledPicks : null,
+    precisionAt3: labeledPicks - statusCounts.data_error > 0
+      ? touchedPicks / (labeledPicks - statusCounts.data_error)
+      : null,
+    slotPrecisionAt3: slotDenominator > 0 ? touchedPicks / slotDenominator : null,
+    slotPrecisionAt3Ci: movingBlockBootstrapCi(
+      dailyHits.map((hits) => hits / 3),
+      { seed: RANDOM_BASELINE_SEED },
+    ),
+    slotCoverage: slotDenominator > 0 ? totalPicks / slotDenominator : null,
+    anyHitRate: totalDates > 0
+      ? dailyHits.filter((hits) => hits >= 1).length / totalDates
+      : null,
+    twoPlusHitRate: totalDates > 0
+      ? dailyHits.filter((hits) => hits >= 2).length / totalDates
+      : null,
+    dailyHits,
+    statusCounts,
+    dataErrorRate: totalPicks > 0 ? statusCounts.data_error / totalPicks : 0,
     nullRate: totalPicks > 0 ? nullPicks / totalPicks : 0,
     averageDailyCandidateCount: candidateCounts.length > 0
       ? candidateCounts.reduce((sum, count) => sum + count, 0) / candidateCounts.length
@@ -572,21 +682,94 @@ const evaluateStrategyMode = <K extends StrategyName>(input: {
   }
 }
 
-const evaluateRandomBaseline = (
+interface EvaluatedBaseline {
+  readonly summary: OosMetricSummary
+  readonly reports: readonly BacktestReport[]
+}
+
+const evaluateBaseline = (
   splits: readonly WalkForwardSplit[],
   context: EvaluationContext,
-): OosMetricSummary => {
-  const random3 = createRandom3Strategy(RANDOM_BASELINE_SEED)
+  strategyName: string,
+  strategy: StockPickStrategy,
+  candidateCountByDate: ReadonlyMap<string, number>,
+): EvaluatedBaseline => {
   const reports = splits.map((split) => runBacktest({
-    strategyName: 'random3:oos',
-    strategy: random3,
+    strategyName,
+    strategy,
     universe: context.universe,
     prices: context.prices,
     tradingDays: context.tradingDays,
     startDate: split.testDates[0],
     endDate: split.testDates.at(-1),
+    calculateSlotPrecisionCi: false,
   }))
-  return summarizeReports(reports, splits.flatMap((split) => split.testDates.map(() => context.universe.length)))
+  const candidateCounts = splits.flatMap((split) => split.testDates.map((date) => (
+    candidateCountByDate.get(date) ?? 0
+  )))
+  return { summary: summarizeReports(reports, candidateCounts), reports }
+}
+
+const buildEligiblePoolByDate = (
+  context: EvaluationContext,
+): ReadonlyMap<string, readonly string[]> => {
+  const universe = new Set(context.universe)
+  return new Map([...context.featuresByDate.entries()].map(([date, features]) => [
+    date,
+    features.filter((feature) => (
+      universe.has(feature.symbol)
+      && passesCommonGate(
+        feature,
+        context.masters.get(feature.symbol),
+        PRODUCTION_VOLUME_BREAKOUT_PARAMETERS.minTurnover,
+        PRODUCTION_VOLUME_BREAKOUT_PARAMETERS.maxRsi ?? 70,
+      )
+    )).map((feature) => feature.symbol).sort(),
+  ]))
+}
+
+const evaluateBaselines = (
+  splits: readonly WalkForwardSplit[],
+  context: EvaluationContext,
+): {
+  readonly random3: EvaluatedBaseline
+  readonly policyRandom3: EvaluatedBaseline
+  readonly volumeOnly3: EvaluatedBaseline
+} => {
+  const eligiblePoolByDate = buildEligiblePoolByDate(context)
+  const eligibleCounts = new Map([...eligiblePoolByDate.entries()].map(([date, symbols]) => (
+    [date, symbols.length]
+  )))
+  const universeCounts = new Map(splits.flatMap((split) => split.testDates).map((date) => (
+    [date, context.universe.length]
+  )))
+  return {
+    random3: evaluateBaseline(
+      splits,
+      context,
+      'random3:oos',
+      createRandom3Strategy(RANDOM_BASELINE_SEED),
+      universeCounts,
+    ),
+    policyRandom3: evaluateBaseline(
+      splits,
+      context,
+      'policyRandom3:oos',
+      createPolicyRandomStrategy(eligiblePoolByDate, RANDOM_BASELINE_SEED),
+      eligibleCounts,
+    ),
+    volumeOnly3: evaluateBaseline(
+      splits,
+      context,
+      'volumeOnly3:oos',
+      createVolumeOnlyStrategy(
+        context.featuresByDate,
+        context.masters,
+        PRODUCTION_VOLUME_BREAKOUT_PARAMETERS,
+      ),
+      eligibleCounts,
+    ),
+  }
 }
 
 const evaluateCompositeAblation = (
@@ -762,6 +945,7 @@ export function runWalkForwardOptimization(input: {
     ...split.purgedDates,
     ...split.testDates,
   ]))]
+  const baselines = evaluateBaselines(input.splits, context)
 
   return {
     generatedAt: input.generatedAt ?? new Date().toISOString(),
@@ -779,7 +963,9 @@ export function runWalkForwardOptimization(input: {
       foldCount: input.splits.length,
     },
     baselines: {
-      oosRandom3: evaluateRandomBaseline(input.splits, context),
+      oosRandom3: baselines.random3.summary,
+      oosPolicyRandom3: baselines.policyRandom3.summary,
+      oosVolumeOnly3: baselines.volumeOnly3.summary,
       providedReferences: {
         randomFullPeriod: 0.215,
         llmPipelineFullPeriod: 0.307,
@@ -803,6 +989,110 @@ export function runWalkForwardOptimization(input: {
   }
 }
 
+export function buildDatasetFingerprint(input: {
+  readonly tradingDays: TradingDayIndex
+  readonly prices: PriceBook
+}): FrozenProductionEvaluationReport['datasetFingerprint'] {
+  return {
+    tradingDays: {
+      first: input.tradingDays.firstDate,
+      last: input.tradingDays.lastDate,
+      count: input.tradingDays.tradingDays.length,
+    },
+    priceRows: [...input.prices.values()].reduce((sum, rows) => sum + rows.size, 0),
+    symbols: input.prices.size,
+  }
+}
+
+const summarizePairedComparison = (
+  productionReports: readonly BacktestReport[],
+  baselineReports: readonly BacktestReport[],
+): PairedComparisonSummary => {
+  const paired = pairedDailyDelta(
+    { daily: productionReports.flatMap((report) => report.daily) },
+    { daily: baselineReports.flatMap((report) => report.daily) },
+  )
+  return {
+    daily: [...paired],
+    excludedDates: {
+      onlyProduction: paired.excludedDates.onlyA,
+      onlyBaseline: paired.excludedDates.onlyB,
+      total: paired.excludedDates.total,
+    },
+    slotPrecisionAt3DeltaCi: movingBlockBootstrapCi(
+      paired.map((row) => row.delta / 3),
+      { seed: RANDOM_BASELINE_SEED },
+    ),
+  }
+}
+
+const emptyTierCounts = (): Record<TieredFillTier, number> => ({
+  breakout: 0,
+  relaxedBreakout: 0,
+  volumeOnly: 0,
+})
+
+const evaluateTieredFillExperiment = (input: {
+  readonly splits: readonly WalkForwardSplit[]
+  readonly context: EvaluationContext
+  readonly tiers: ReadonlyArray<TieredFillTier>
+  readonly productionReports: readonly BacktestReport[]
+  readonly volumeOnlyReports: readonly BacktestReport[]
+}): TieredFillExperimentReport => {
+  const strategy = createTieredFillStrategy({
+    featuresByDate: input.context.featuresByDate,
+    masters: input.context.masters,
+    parameters: PRODUCTION_VOLUME_BREAKOUT_PARAMETERS,
+    tiers: input.tiers,
+  })
+  const reports = input.splits.map((split) => runBacktest({
+    strategyName: `tieredFill:${input.tiers.join('+')}`,
+    strategy,
+    universe: input.context.universe,
+    prices: input.context.prices,
+    tradingDays: input.context.tradingDays,
+    startDate: split.testDates[0],
+    endDate: split.testDates.at(-1),
+    calculateSlotPrecisionCi: false,
+  }))
+  const universe = new Set(input.context.universe)
+  const candidateCounts: number[] = []
+  const picksByTier = emptyTierCounts()
+  const hitsByTier = emptyTierCounts()
+
+  for (const report of reports) {
+    for (const day of report.daily) {
+      const tieredPicks = rankTieredFillCandidates({
+        features: input.context.featuresByDate.get(day.simDate) ?? [],
+        masters: input.context.masters,
+        parameters: PRODUCTION_VOLUME_BREAKOUT_PARAMETERS,
+        tiers: input.tiers,
+        universe,
+      })
+      candidateCounts.push(tieredPicks.length)
+      const tierBySymbol = new Map(tieredPicks.map((pick) => [pick.symbol, pick.tier]))
+      for (const pick of day.picks) {
+        const tier = tierBySymbol.get(pick.symbol)
+        if (!tier) throw new Error(`${day.simDate} ${pick.symbol}의 tier를 찾을 수 없습니다`)
+        picksByTier[tier]++
+        if (pick.label?.touched) hitsByTier[tier]++
+      }
+    }
+  }
+
+  return {
+    ...summarizeReports(reports, candidateCounts),
+    evaluationScope: 'exploratory_dev_window',
+    tiers: [...input.tiers],
+    picksByTier,
+    hitsByTier,
+    pairedDailyDelta: {
+      experimentMinusProduction: summarizePairedComparison(reports, input.productionReports),
+      experimentMinusVolumeOnly: summarizePairedComparison(reports, input.volumeOnlyReports),
+    },
+  }
+}
+
 /** 프로덕션 파라미터를 재선택 없이 각 walk-forward test 구간에 그대로 적용한다. */
 export function runFrozenProductionEvaluation(input: {
   readonly prices: PriceBook
@@ -820,38 +1110,91 @@ export function runFrozenProductionEvaluation(input: {
     featuresByDate: input.featuresByDate,
     masters: new Map(input.masters.map((row) => [row.symbol, row])),
   }
-  const reports = input.splits.map((split) => evaluateDates({
-    name: 'volumeBreakout',
+  const productionV0Reports = input.splits.map((split) => evaluateDates({
+    name: 'volumeBreakoutNoGapUp',
     parameters: PRODUCTION_VOLUME_BREAKOUT_PARAMETERS,
     mode: 'force3',
     dates: split.testDates,
     context,
   }))
-  const candidateCounts = input.splits.flatMap((split) => countCandidates({
-    name: 'volumeBreakout',
+  const productionV0CandidateCounts = input.splits.flatMap((split) => countCandidates({
+    name: 'volumeBreakoutNoGapUp',
     parameters: PRODUCTION_VOLUME_BREAKOUT_PARAMETERS,
     mode: 'force3',
     dates: split.testDates,
     context,
   }))
   const evaluationDates = [...new Set(input.splits.flatMap((split) => split.testDates))]
+  const baselines = evaluateBaselines(input.splits, context)
+  const eligiblePoolByDate = buildEligiblePoolByDate(context)
+  const eligibleCounts = new Map([...eligiblePoolByDate.entries()].map(([date, symbols]) => (
+    [date, symbols.length]
+  )))
+  const production = evaluateBaseline(
+    input.splits,
+    context,
+    'volumeBreakoutNoGapUp+volumeOnlyFill:production',
+    createTieredFillStrategy({
+      featuresByDate: context.featuresByDate,
+      masters: context.masters,
+      parameters: PRODUCTION_VOLUME_BREAKOUT_PARAMETERS,
+      tiers: PRODUCTION_STRATEGY.fillTiers,
+    }),
+    eligibleCounts,
+  )
+  const tieredFill = evaluateTieredFillExperiment({
+    splits: input.splits,
+    context,
+    tiers: ['breakout', 'relaxedBreakout', 'volumeOnly'],
+    productionReports: production.reports,
+    volumeOnlyReports: baselines.volumeOnly3.reports,
+  })
+  const breakoutThenVolumeOnly = evaluateTieredFillExperiment({
+    splits: input.splits,
+    context,
+    tiers: ['breakout', 'volumeOnly'],
+    productionReports: production.reports,
+    volumeOnlyReports: baselines.volumeOnly3.reports,
+  })
 
   return {
     generatedAt: input.generatedAt ?? new Date().toISOString(),
     evaluationPolicy: {
       evaluationScope: 'walk_forward_test_dates',
       parameterSelection: 'frozen_no_fold_reselection',
-      strategy: 'volumeBreakout',
+      strategy: 'volumeBreakoutNoGapUp+volumeOnlyFill',
       mode: 'force3',
     },
+    strategy: PRODUCTION_STRATEGY,
     parameters: PRODUCTION_VOLUME_BREAKOUT_PARAMETERS,
+    datasetFingerprint: buildDatasetFingerprint(input),
     dateRange: {
       evaluationStart: evaluationDates[0],
       evaluationEnd: evaluationDates.at(-1)!,
       evaluationDays: evaluationDates.length,
       foldCount: input.splits.length,
     },
-    aggregate: summarizeReports(reports, candidateCounts),
+    aggregate: production.summary,
+    baselines: {
+      productionV0: summarizeReports(productionV0Reports, productionV0CandidateCounts),
+      oosRandom3: baselines.random3.summary,
+      oosPolicyRandom3: baselines.policyRandom3.summary,
+      oosVolumeOnly3: baselines.volumeOnly3.summary,
+    },
+    pairedDailyDelta: {
+      productionMinusVolumeOnly: summarizePairedComparison(
+        production.reports,
+        baselines.volumeOnly3.reports,
+      ),
+      productionMinusPolicyRandom: summarizePairedComparison(
+        production.reports,
+        baselines.policyRandom3.reports,
+      ),
+    },
+    experiments: {
+      tieredFill,
+      breakoutThenVolumeOnly,
+    },
   }
 }
 
@@ -870,6 +1213,7 @@ const printUsage = (): void => {
     '  --out PATH   OOS walk-forward JSON 결과 경로 (필수)',
     '  --days N     최근 평가 거래일 수 (기본 220)',
     '  --frozen     프로덕션 volumeBreakout 파라미터를 fold 재선택 없이 평가',
+    '  --allow-dirty-data  누락 거래일/OHLC 오류가 있어도 연구 실행을 계속',
   ].join('\n'))
 }
 
@@ -892,6 +1236,24 @@ async function runCli(args: readonly string[]): Promise<void> {
     startDate: historyDates[0],
     endDate: tradingDays.lastDate ?? evaluationEnd,
   })
+  const dataContract = validateResearchDataset({
+    tradingDays,
+    prices,
+    fromDate: historyDates[0] ?? evaluationStart,
+    toDate: tradingDays.lastDate ?? evaluationEnd,
+  })
+  console.log(JSON.stringify({ event: 'research_data_contract', ...dataContract }))
+  if (
+    !args.includes('--allow-dirty-data')
+    && !dataContract.ok
+  ) {
+    throw new Error(
+      '연구 데이터 계약 실패:'
+      + ` sparseDates=${JSON.stringify(dataContract.sparseDates)}`
+      + ` gapDatesTop=${JSON.stringify(dataContract.gapDatesTop)};`
+      + ' --allow-dirty-data 없이는 optimize를 실행하지 않습니다',
+    )
+  }
   console.log(`피처 사전계산: symbols=${masters.length} evaluationDays=${evaluationDates.length}`)
   const featuresByDate = precomputeFeatureMap({
     prices,
@@ -917,6 +1279,13 @@ async function runCli(args: readonly string[]): Promise<void> {
       outputPath,
       folds: frozenReport.dateRange.foldCount,
       frozenPrecisionAt3: frozenReport.aggregate.precisionAt3,
+      frozenSlotPrecisionAt3: frozenReport.aggregate.slotPrecisionAt3,
+      slotPrecisionAt3: {
+        production: frozenReport.aggregate.slotPrecisionAt3,
+        productionV0: frozenReport.baselines.productionV0.slotPrecisionAt3,
+        tieredFill: frozenReport.experiments.tieredFill.slotPrecisionAt3,
+        breakoutThenVolumeOnly: frozenReport.experiments.breakoutThenVolumeOnly.slotPrecisionAt3,
+      },
       labeledPicks: frozenReport.aggregate.labeledPicks,
     }, null, 2))
   } else {
@@ -943,6 +1312,6 @@ if (isDirectRun) {
         ? error.stack ?? error.message
         : JSON.stringify(error, Object.getOwnPropertyNames(error ?? {})),
     )
-    process.exit(1)
+    process.exitCode = 1
   })
 }

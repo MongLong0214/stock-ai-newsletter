@@ -1,15 +1,20 @@
-import sgMail from '@sendgrid/mail'
-
 import { siteConfig } from '@/lib/constants/seo/config'
 import { isKoreanTradingDate } from '@/lib/tli/trading-calendar'
 import {
+  DEFAULT_NEWSLETTER_ALERT_EMAIL,
+  sendNewsletterAlertEmail,
+} from '@/lib/newsletter/alert'
+import {
+  countActiveSubscribers,
+  countDeliveriesByStatus,
   getNewsletterStatus,
   type NewsletterStatusRow,
 } from '@/lib/newsletter/status'
+import type { NewsletterDeliveryCounts } from '@/lib/newsletter/delivery'
 
 export { type NewsletterStatusRow } from '@/lib/newsletter/status'
 
-export const DEFAULT_NEWSLETTER_ALERT_EMAIL = 'wonil@mdbtech.co.kr'
+export { DEFAULT_NEWSLETTER_ALERT_EMAIL } from '@/lib/newsletter/alert'
 
 const DEFAULT_ACTIONS_URL =
   'https://github.com/MongLong0214/stock-ai-newsletter/actions/workflows/daily-newsletter.yml'
@@ -34,9 +39,12 @@ export interface NewsletterWatchdogDependencies {
   readonly getTodayKst?: () => string
   readonly isTradingDay?: (date: string) => boolean
   readonly fetchNewsletter?: (date: string) => Promise<NewsletterStatusRow | null>
+  readonly countActiveSubscribers?: () => Promise<number>
+  readonly countDeliveriesByStatus?: (date: string) => Promise<NewsletterDeliveryCounts>
   readonly sendAlertEmail?: (email: NewsletterAlertEmail) => Promise<void>
   readonly env?: WatchdogEnvironment
   readonly logger?: WatchdogLogger
+  readonly now?: () => number
 }
 
 function getTodayKst(): string {
@@ -48,16 +56,6 @@ function getActionsUrl(env: WatchdogEnvironment): string {
     return `${env.GITHUB_SERVER_URL}/${env.GITHUB_REPOSITORY}/actions/workflows/daily-newsletter.yml`
   }
   return DEFAULT_ACTIONS_URL
-}
-
-async function sendAlertEmail(email: NewsletterAlertEmail): Promise<void> {
-  sgMail.setApiKey(email.apiKey)
-  await sgMail.send({
-    to: email.to,
-    from: email.from,
-    subject: email.subject,
-    text: email.text,
-  })
 }
 
 async function reportFatal(input: {
@@ -97,8 +95,17 @@ async function reportFatal(input: {
   }
 
   try {
-    await (input.dependencies.sendAlertEmail ?? sendAlertEmail)(email)
-    logger.log(`📨 발송 누락 알림 메일 전송 완료: ${to}`)
+    let delivered = true
+    if (input.dependencies.sendAlertEmail) {
+      await input.dependencies.sendAlertEmail(email)
+    } else {
+      delivered = await sendNewsletterAlertEmail({
+        subject: email.subject,
+        lines: email.text.split('\n'),
+        env,
+      })
+    }
+    if (delivered) logger.log(`📨 발송 누락 알림 메일 전송 완료: ${to}`)
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
     logger.error(`알림 메일 전송 실패: ${message}`)
@@ -138,13 +145,71 @@ export async function verifyNewsletterSent(
     return reportFatal({ date, reason: '발행 파이프라인 미실행', dependencies })
   }
   if (!newsletter.is_sent) {
-    return reportFatal({ date, reason: '준비됐으나 미발송', dependencies })
+    let deliveryCounts: NewsletterDeliveryCounts
+    try {
+      deliveryCounts = await (
+        dependencies.countDeliveriesByStatus
+        ?? ((targetDate) => countDeliveriesByStatus(targetDate, env))
+      )(date)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      return reportFatal({
+        date,
+        reason: `발송 원장 조회 실패 (${message})`,
+        dependencies,
+      })
+    }
+    const ledgerRows = Object.values(deliveryCounts).reduce((sum, count) => sum + count, 0)
+    const leaseUntil = newsletter.sending_lease_until
+      ? Date.parse(newsletter.sending_lease_until)
+      : Number.NaN
+    const leaseIsFreeOrStale = newsletter.sending_lease_until === null
+      || (Number.isFinite(leaseUntil) && leaseUntil < (dependencies.now ?? Date.now)())
+    const reason = ledgerRows > 0 && leaseIsFreeOrStale
+      ? `발송 미완료 (재시도 대기: retryable=${deliveryCounts.failedRetryable}, pending=${deliveryCounts.pending})`
+      : '준비됐으나 미발송'
+    return reportFatal({ date, reason, dependencies })
   }
 
   logger.log(`✅ ${date} 뉴스레터 발송 확인`)
+  try {
+    const deliveryCounts = await (
+      dependencies.countDeliveriesByStatus
+      ?? ((targetDate) => countDeliveriesByStatus(targetDate, env))
+    )(date)
+    if (deliveryCounts.unknown > 0 || deliveryCounts.failedTerminal > 0) {
+      logger.warn(
+        `⚠️ ${date} 뉴스레터 delivery 경고: unknown=${deliveryCounts.unknown}, failed_terminal=${deliveryCounts.failedTerminal}`,
+      )
+    }
+  } catch (error) {
+    logger.warn(
+      `⚠️ 발송 원장 조회 실패: ${error instanceof Error ? error.message : String(error)}`,
+    )
+  }
+  if (newsletter.subscriber_count === 0) {
+    logger.warn(`⚠️ ${date} 뉴스레터 subscriber_count=0 입니다.`)
+  }
   if (newsletter.picks_source !== 'code') {
     logger.warn(
       `⚠️ ${date} 뉴스레터는 발송됐지만 picks_source=${newsletter.picks_source ?? 'null'} 입니다.`,
+    )
+  }
+  try {
+    const activeSubscriberCount = await (
+      dependencies.countActiveSubscribers ?? (() => countActiveSubscribers(env))
+    )()
+    if (
+      newsletter.subscriber_count !== null
+      && newsletter.subscriber_count < activeSubscriberCount
+    ) {
+      logger.warn(
+        `⚠️ subscriber_count(${newsletter.subscriber_count}) < active subscribers(${activeSubscriberCount})`,
+      )
+    }
+  } catch (error) {
+    logger.warn(
+      `⚠️ 활성 구독자 수 조회 실패: ${error instanceof Error ? error.message : String(error)}`,
     )
   }
   return 0

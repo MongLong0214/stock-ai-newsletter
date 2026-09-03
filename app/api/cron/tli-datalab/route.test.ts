@@ -27,7 +27,11 @@ describe('TLI DataLab Vercel cron route', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     process.env.CRON_SECRET = CRON_SECRET
-    mocks.dispatchGitHubWorkflow.mockResolvedValue(undefined)
+    mocks.dispatchGitHubWorkflow.mockResolvedValue({
+      dispatchId: null,
+      tokenExpiresInDays: null,
+      verified: null,
+    })
     vi.spyOn(console, 'error').mockImplementation(() => undefined)
   })
 
@@ -53,14 +57,21 @@ describe('TLI DataLab Vercel cron route', () => {
     expect(response.status).toBe(200)
     expect(mocks.dispatchGitHubWorkflow).toHaveBeenCalledWith(
       'tli-collect-data.yml',
-      undefined,
-      {
+      { inputs: {
         mode: 'datalab-only',
         datalab_refresh: 'reuse',
         intended_kst_date: '2026-09-02',
         run_key: 'datalab-0900:2026-09-02',
-      },
+      } },
     )
+    await expect(response.json()).resolves.toEqual({
+      success: true,
+      dispatched: true,
+      workflow: 'tli-collect-data.yml',
+      date: '2026-09-02',
+      dispatchId: null,
+      verified: null,
+    })
   })
 
   it('dispatches again on an already collected day so reuse can reduce outbound requests to zero', async () => {

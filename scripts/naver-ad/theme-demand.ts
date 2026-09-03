@@ -12,8 +12,6 @@
  */
 
 import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
-import { pathToFileURL } from 'node:url';
 import { createClient } from '@supabase/supabase-js';
 import {
   fetchKeywordVolumes,
@@ -188,10 +186,10 @@ async function main(): Promise<void> {
   console.log(`\n검색량 0인 테마: ${noDemand}/${rows.length} — 이 테마들은 랜딩을 만들어도 유입이 없다.`);
 }
 
-const isDirectExecution = process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href;
-if (isDirectExecution) {
+const isDirectRun = /theme-demand\.(?:ts|js)$/.test(process.argv[1] ?? '');
+if (isDirectRun) {
   main().catch((error) => {
     console.error(error);
-    process.exit(1);
+    process.exitCode = 1;
   });
 }

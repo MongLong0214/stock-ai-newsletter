@@ -24,12 +24,14 @@ export async function GET(request: Request) {
       intended_kst_date: date,
       run_key: `datalab-0900:${date}`,
     }
-    await dispatchGitHubWorkflow(WORKFLOW_FILE, undefined, inputs)
+    const dispatch = await dispatchGitHubWorkflow(WORKFLOW_FILE, { inputs })
     return NextResponse.json({
       success: true,
       dispatched: true,
       workflow: WORKFLOW_FILE,
       date,
+      dispatchId: dispatch.dispatchId,
+      verified: dispatch.verified,
     })
   } catch (error) {
     console.error('TLI DataLab cron failed:', error)
