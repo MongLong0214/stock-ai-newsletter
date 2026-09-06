@@ -2,6 +2,59 @@
   "newsletters": [
     {
       "type": "stock",
+      "date": "2026-09-07",
+      "stocks": [
+        {
+          "ticker": "KOSDAQ:049430",
+          "name": "코메론",
+          "close_price": 22450,
+          "rationale": "기준일 종가 22,450원|당일 등락 7.2% 상승|RSI 68.0 강세|거래량비율 393% 급증|60일 거래량 백분위 99.2점|60일 신고가 3.9% 돌파|20일선 괴리 7.9%|20일 추세 기울기 0.15%/일|20일 추세 적합도 R2 10.0점|60일 추세 적합도 R2 47.6점|MACD 히스토그램 83.23|ATR14 4.2%|ADX14 20.9점|OBV20 기울기 3057|252거래일 가격위치 94.5%|연속상승 2일|골든크로스 감지 1회·경과 38일|20일 평균거래대금 5.8억원|volumeBreakout 전략점수 86.5점|선정 경로 거래량 돌파",
+          "signals": {
+            "trend_score": 62,
+            "momentum_score": 66,
+            "volume_score": 84,
+            "volatility_score": 76,
+            "pattern_score": 64,
+            "sentiment_score": 74,
+            "overall_score": 71
+          }
+        },
+        {
+          "ticker": "KOSDAQ:484120",
+          "name": "도우인시스",
+          "close_price": 21500,
+          "rationale": "기준일 종가 21,500원|당일 등락 5.4% 상승|RSI 62.9 강세|거래량비율 262% 급증|60일 거래량 백분위 97.5점|60일 신고가 1.9% 돌파|20일선 괴리 10.3%|20일 추세 기울기 -0.14%/일|20일 추세 적합도 R2 1.5점|60일 추세 적합도 R2 23.1점|MACD 히스토그램 91.70|ATR14 6.9%|ADX14 16.0점|OBV20 기울기 11290|252거래일 가격위치 40.1%|연속상승 3일|골든크로스 감지 1회·경과 14일|20일 평균거래대금 9.6억원|volumeBreakout 전략점수 60.2점|선정 경로 거래량 돌파",
+          "signals": {
+            "trend_score": 72,
+            "momentum_score": 67,
+            "volume_score": 82,
+            "volatility_score": 21,
+            "pattern_score": 52,
+            "sentiment_score": 54,
+            "overall_score": 63
+          }
+        },
+        {
+          "ticker": "KOSPI:108670",
+          "name": "LX하우시스",
+          "close_price": 35800,
+          "rationale": "기준일 종가 35,800원|당일 등락 2.3% 상승|RSI 58.0 중립|거래량비율 191% 평균상회|60일 거래량 백분위 94.2점|60일 신고가 0.7% 돌파|20일선 괴리 3.5%|20일 추세 기울기 0.14%/일|20일 추세 적합도 R2 15.1점|60일 추세 적합도 R2 34.1점|MACD 히스토그램 16.71|ATR14 4.1%|ADX14 16.3점|OBV20 기울기 -102|252거래일 가격위치 54.7%|연속상승 2일|골든크로스 감지 1회·경과 15일|20일 평균거래대금 8.2억원|volumeBreakout 전략점수 30.6점|선정 경로 거래량 돌파",
+          "signals": {
+            "trend_score": 54,
+            "momentum_score": 61,
+            "volume_score": 72,
+            "volatility_score": 77,
+            "pattern_score": 52,
+            "sentiment_score": 61,
+            "overall_score": 62
+          }
+        }
+      ],
+      "sentAt": "2026-09-06T22:30:54.998+00:00",
+      "subscriberCount": 318
+    },
+    {
+      "type": "stock",
       "date": "2026-09-04",
       "stocks": [
         {
@@ -11626,5 +11679,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-09-03T22:38:23.264Z"
+  "lastUpdated": "2026-09-06T22:31:31.447Z"
 }
