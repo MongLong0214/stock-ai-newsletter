@@ -17,6 +17,7 @@ type CollectPriceRange = typeof collectAndPersistStockDailyPriceRange
 export interface DailyStockPriceCollectionReport extends StockDailyPriceCollectionReport {
   readonly endDate: string
   readonly tradingDays: number
+  readonly finalizedThroughDate: string
 }
 
 export const getStockPicksKisRateLimitPerSecond = (
@@ -58,6 +59,16 @@ export async function collectDailyStockPrices(input: {
   }
 
   const endDate = input.endDate ?? getLastFinalizedTradingDate()
+  // 미래 target_date 수동 실행이 장중 캔들을 확정 행처럼 적재하지 않도록 확정 기준일은 실제 시계를 넘지 않는다.
+  const lastFinalizedDate = getLastFinalizedTradingDate()
+  const finalizedThroughDate = endDate < lastFinalizedDate ? endDate : lastFinalizedDate
+  if (endDate !== finalizedThroughDate) {
+    console.warn(JSON.stringify({
+      event: 'stock_daily_collection_finalized_clamped',
+      endDate,
+      finalizedThroughDate,
+    }))
+  }
   const rateLimitPerSecond = getStockPicksKisRateLimitPerSecond()
   const collectPriceRange = input.collectPriceRange ?? collectAndPersistStockDailyPriceRange
   const report = await collectPriceRange({
@@ -67,12 +78,13 @@ export async function collectDailyStockPrices(input: {
     callBudget,
     rateLimitPerSecond,
     deadlineMs,
-    finalizedThroughDate: endDate,
+    finalizedThroughDate,
   })
   const dailyReport: DailyStockPriceCollectionReport = {
     ...report,
     endDate,
     tradingDays: DAILY_COLLECTION_TRADING_DAYS,
+    finalizedThroughDate,
   }
 
   console.log(JSON.stringify({ event: 'stock_daily_collection', ...dailyReport }))
