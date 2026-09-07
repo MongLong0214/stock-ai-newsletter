@@ -68,6 +68,20 @@ const master = (symbol: string, overrides: Partial<StockMasterState> = {}): Stoc
 })
 
 describe('stock-picks strategy gates and ranking', () => {
+  it('rejects invalid or untraded signal candles in both breakout and fill tiers', () => {
+    for (const overrides of [
+      { volume: 0 }, { volume: -1 }, { close: NaN }, { open: null },
+      { high: 1_900 }, { low: 2_010 }, { averageTurnover20: Infinity }, { rsi14: -1 },
+    ]) {
+      const candidate = feature('A', { distanceFromHigh60: 1, ...overrides })
+      const masters = new Map([['A', master('A')]])
+      expect(passesCommonGate(candidate, masters.get('A'))).toBe(false)
+      expect(rankTieredFillCandidates({
+        features: [candidate], masters, parameters: PRODUCTION_VOLUME_BREAKOUT_PARAMETERS,
+      })).toEqual([])
+    }
+  })
+
   it('excludes overbought and below-liquidity candidates', () => {
     const state = master('A')
     expect(passesCommonGate(feature('A', { rsi14: 70 }), state)).toBe(true)

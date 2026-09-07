@@ -1,15 +1,25 @@
 import * as cheerio from 'cheerio';
+import { AsyncLocalStorage } from 'node:async_hooks';
 import type { Element } from 'domhandler';
 import {
   getKisAccessToken,
   resetKisClientCacheForTest,
 } from '@/app/archive/_utils/api/kis/client';
 import { validateKisEnv } from '@/lib/_utils/env-validator';
+import { getUsSessionCloseTime } from './us-market-calendar';
+import {
+  assessMarketDataQuality, decideMarketRisk, MARKET_RISK_POLICY_VERSION,
+  parseKisObservedAt, parseObservedAt, quoteQuality,
+  type MarketDataQuality, type MarketRiskVerdict,
+} from './market-assessment-policy';
 
 const FETCH_TIMEOUT_MS = 8_000;
 const NAVER_INDEX_TIMEOUT_MS = 5_000;
 const REQUEST_DELAY_MS = 350;
 const SNAPSHOT_TTL_MS = 30_000;
+const SNAPSHOT_TIMEOUT_MS = 90_000;
+const snapshotRequestContext = new AsyncLocalStorage<AbortSignal>();
+let snapshotInFlight: Promise<MarketAssessmentSnapshot> | null = null;
 
 type KisConfig = ReturnType<typeof validateKisEnv>;
 
@@ -119,6 +129,7 @@ interface KisOverseasIndexOutput {
 
 interface KisOverseasIndexResponse extends KisErrorResponse {
   output1?: KisOverseasIndexOutput;
+  output2?: Array<{ stck_bsop_date?: string; stck_cntg_hour?: string; optn_prpr?: string }>;
 }
 
 interface KisOverseasDailyChartRow {
@@ -143,20 +154,9 @@ interface KisDomesticFuturesResponse extends KisErrorResponse {
   output?: KisDomesticFuturesRow[];
 }
 
-interface KisFuturesInquirePriceOutput {
-  hts_kor_isnm?: string;
-  futs_prpr?: string;
-  futs_prdy_vrss?: string;
-  futs_prdy_ctrt?: string;
-  acml_vol?: string;
-}
-
-interface KisFuturesInquirePriceResponse extends KisErrorResponse {
-  output?: KisFuturesInquirePriceOutput;
-}
-
 type MarketIndicatorSource =
   | 'KIS'
+  | 'CBOE'
   | 'SERP_API'
   | 'NAVER_FINANCE'
   | 'NAVER_STOCK_API'
@@ -169,12 +169,17 @@ export interface MarketIndicatorSnapshot {
   code: string;
   label: string;
   source: MarketIndicatorSource;
+  primarySource?: MarketIndicatorSource;
   price: number;
   change: number;
   changePct: number;
   validation: MarketIndicatorValidation;
   secondarySource?: Exclude<MarketIndicatorSource, 'KIS' | 'MULTI_SOURCE'> | null;
   fetchedAt: string;
+  observedAt?: string | null;
+  observedAtPrecision?: 'tick' | 'session_close';
+  session?: 'day' | 'night';
+  sourceConflict?: boolean;
 }
 
 export interface Kospi200MiniFuturesSnapshot extends MarketIndicatorSnapshot {
@@ -186,13 +191,15 @@ export interface MarketAssessmentSnapshot {
   fetchedAt: string;
   degradedSources?: string[];
   indicators: {
-    sp500: MarketIndicatorSnapshot;
+    sp500: MarketIndicatorSnapshot | null;
     dowJones: MarketIndicatorSnapshot | null;
-    nasdaqComposite: MarketIndicatorSnapshot;
-    kospi200MiniFutures: Kospi200MiniFuturesSnapshot;
+    nasdaqComposite: MarketIndicatorSnapshot | null;
+    kospi200MiniFutures: Kospi200MiniFuturesSnapshot | null;
     vix: MarketIndicatorSnapshot | null;
     usdKrw: MarketIndicatorSnapshot | null;
     usdJpy: MarketIndicatorSnapshot | null;
+    kospi?: MarketIndicatorSnapshot | null;
+    kosdaq?: MarketIndicatorSnapshot | null;
   };
   nightSession: {
     kospiMiniFutures: Kospi200MiniFuturesSnapshot | null;
@@ -209,6 +216,12 @@ export interface MarketAssessmentSnapshot {
 export type ConfidenceLabel = 'warning' | 'strong' | 'critical';
 
 export interface MarketAssessmentEvidence {
+  policyVersion: string;
+  verdict: MarketRiskVerdict;
+  severity: 'warning' | 'critical';
+  reasonCodes: string[];
+  dataQuality: MarketDataQuality;
+  effectiveKoreaIndicator: MarketIndicatorSnapshot | null;
   tier1Signals: string[];
   tier2Signals: string[];
   tier3Signals: string[];
@@ -236,6 +249,7 @@ export interface SearchIndicatorSnapshot {
   confirmed: boolean;
   proxy: boolean;
   fetchedAt: string;
+  observedAt?: string | null;
   source: 'SERP_API' | 'NAVER_STOCK_API';
 }
 
@@ -320,6 +334,7 @@ function delay(ms: number): Promise<void> {
 }
 
 async function requestCooldown(): Promise<void> {
+  if (snapshotRequestContext.getStore()?.aborted) return;
   const delayMs = getRequestDelayMs();
   if (delayMs > 0) {
     await delay(delayMs);
@@ -335,7 +350,13 @@ async function fetchWithTimeout(
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
-    return await fetch(url, { ...options, signal: controller.signal });
+    const response = await fetch(url, {
+      ...options,
+      signal: AbortSignal.any([controller.signal, ...[options.signal, snapshotRequestContext.getStore()].filter((s): s is AbortSignal => !!s)]),
+    });
+    // Consume the body before clearing the timeout (fetch resolves at headers).
+    const body = await response.arrayBuffer();
+    return new Response(body, { status: response.status, statusText: response.statusText, headers: response.headers });
   } finally {
     clearTimeout(timeout);
   }
@@ -434,7 +455,9 @@ async function kisGet<T>(path: string, params: Record<string, string>, trId: str
 function parseNumber(value: string | undefined): number {
   if (!value) return Number.NaN;
 
-  const parsed = Number.parseFloat(value.replace(/,/g, ''));
+  const normalized = value.replace(/,/g, '').trim();
+  if (!/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)$/.test(normalized)) return Number.NaN;
+  const parsed = Number(normalized);
   return Number.isFinite(parsed) ? parsed : Number.NaN;
 }
 
@@ -455,15 +478,15 @@ function parseSignedMovement(movement: SerpApiPriceMovement | undefined): {
   changePct: number;
 } {
   if (!movement) {
-    return { change: 0, changePct: 0 };
+    return { change: Number.NaN, changePct: Number.NaN };
   }
 
   const sign = movement.movement === 'Down' ? -1 : 1;
   const rawChange =
     typeof movement.value === 'number' ? movement.value :
     typeof movement.price === 'number' ? movement.price :
-    0;
-  const rawChangePct = typeof movement.percentage === 'number' ? movement.percentage : 0;
+    Number.NaN;
+  const rawChangePct = typeof movement.percentage === 'number' ? movement.percentage : Number.NaN;
 
   return {
     change: sign * Math.abs(rawChange),
@@ -526,10 +549,6 @@ function parseNaverDigitSpans($root: cheerio.Cheerio<Element>): number | null {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
-function resolveDirectionSign(compare: NaverCompareToPreviousPrice | undefined): number {
-  return compare?.name === 'FALLING' ? -1 : 1;
-}
-
 function parseSignedNaverApiNumber(
   value: string | undefined,
   compare: NaverCompareToPreviousPrice | undefined
@@ -540,43 +559,10 @@ function parseSignedNaverApiNumber(
     return Number.NaN;
   }
 
-  return resolveDirectionSign(compare) * Math.abs(parsed);
-}
-
-function formatTrillionKrwFromMillion(amountMillion: number): string {
-  return `${(amountMillion / 1_000_000).toFixed(2)}T KRW`;
-}
-
-function summarizeForeignerNetSelling(snapshot: ForeignerNetSellingSnapshot | null): string | null {
-  if (!snapshot || snapshot.topRows.length === 0) {
-    return null;
-  }
-
-  return `Foreigner top5 net sell ${formatTrillionKrwFromMillion(snapshot.topSellAmountMillion)}${snapshot.dominantStock ? ` (${snapshot.dominantStock} lead)` : ''}`;
-}
-
-function formatSearchIndicator(indicator: SearchIndicatorSnapshot | null): string | null {
-  if (!indicator?.price) {
-    return null;
-  }
-
-  const tags: string[] = [];
-
-  if (indicator.proxy) {
-    tags.push('proxy');
-  }
-
-  if (!indicator.confirmed) {
-    tags.push('single-source');
-  }
-
-  const tagSuffix = tags.length > 0 ? ` [${tags.join(', ')}]` : '';
-
-  if (typeof indicator.changePct === 'number') {
-    return `${indicator.label} ${indicator.changePct >= 0 ? '+' : ''}${indicator.changePct.toFixed(2)}%${tagSuffix}`;
-  }
-
-  return `${indicator.label} ${indicator.price.toFixed(2)}${tagSuffix}`;
+  if (!compare?.name) return parsed;
+  if (compare.name === 'UNCHANGED') return parsed === 0 ? 0 : Number.NaN;
+  if (compare.name === 'RISING' && parsed < 0) return Number.NaN;
+  return (compare.name === 'FALLING' ? -1 : 1) * Math.abs(parsed);
 }
 
 function calculatePriceGapPct(referencePrice: number, comparisonPrice: number | null | undefined): number | null {
@@ -608,6 +594,11 @@ function isMarketIndicatorConsistent(
   const changeOk = hasComparableChange && Math.abs(left.change - right.change) <= changeTolerance;
   const changePctOk = hasComparableChangePct && Math.abs(left.changePct - right.changePct) <= changePctTolerance;
 
+  if (left.sourceConflict || right.sourceConflict) return false;
+  if (Math.abs(left.changePct) > 0.05 && Math.abs(right.changePct) > 0.05 && Math.sign(left.changePct) !== Math.sign(right.changePct)) return false;
+  // Matching values from different sessions do not validate each other.
+  if (!left.observedAt || !right.observedAt || Math.abs(Date.parse(left.observedAt) - Date.parse(right.observedAt)) > 45 * 60_000) return false;
+
   if (hasComparablePrice && hasComparableChange && hasComparableChangePct) {
     return priceOk && (changeOk || changePctOk);
   }
@@ -621,27 +612,6 @@ function isMarketIndicatorConsistent(
   }
 
   return priceOk || changeOk || changePctOk;
-}
-
-function formatIndicatorForSupport(indicator: MarketIndicatorSnapshot | null): string | null {
-  if (!indicator) {
-    return null;
-  }
-
-  const tags: string[] = [];
-
-  if (indicator.validation === 'single_source') {
-    tags.push('single-source');
-  } else if (indicator.validation === 'cross_checked') {
-    tags.push('cross-checked');
-  }
-
-  if (indicator.secondarySource) {
-    tags.push(indicator.secondarySource.toLowerCase());
-  }
-
-  const tagSuffix = tags.length > 0 ? ` [${tags.join(', ')}]` : '';
-  return `${indicator.label} ${indicator.price.toFixed(2)} (${indicator.change >= 0 ? '+' : ''}${indicator.change.toFixed(2)}, ${indicator.changePct >= 0 ? '+' : ''}${indicator.changePct.toFixed(2)}%)${tagSuffix}`;
 }
 
 function assertPositivePrice(price: number, label: string): void {
@@ -677,6 +647,7 @@ function withCrossValidation(
   return {
     ...indicator,
     source: 'MULTI_SOURCE',
+    primarySource: indicator.primarySource ?? indicator.source,
     validation: 'cross_checked',
     secondarySource,
   };
@@ -691,10 +662,7 @@ const VIX_REGIME_BOUNDARIES: Array<{ max: number; regime: VixRegime }> = [
 ];
 
 const REGIME_MULTIPLIERS: Record<VixRegime, number> = {
-  low: 1.5,
-  normal: 1.0,
-  elevated: 0.7,
-  extreme: 0.4,
+  low: 1, normal: 1, elevated: 1, extreme: 1,
 };
 
 export function getVixRegime(vixPrice: number | null): VixRegime {
@@ -719,133 +687,41 @@ export interface SignalScoreDetail {
   validated: boolean;
 }
 
-const SIGNAL_WEIGHTS = {
-  us: 0.30,
-  kospi: 0.25,
-  vix: 0.20,
-  fx: 0.10,
-  event: 0.15,
-} as const;
-
-const COHERENCE_ADJUST: Record<DirectionCoherence, { kospi: number; event: number }> = {
-  coherent_normal: { kospi: 1.0, event: 1.0 },
-  coherent_crash: { kospi: 1.0, event: 1.0 },
-  stale_recovery: { kospi: 0.0, event: 1.0 },
-  korea_specific: { kospi: 1.2, event: 1.5 },
-  mixed: { kospi: 0.5, event: 1.0 },
-};
-
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
 }
 
 export function calculateCrashScore(
   snapshot: MarketAssessmentSnapshot,
-  coherence: DirectionCoherence,
-  vixRegime: VixRegime
+  _coherence: DirectionCoherence,
+  _vixRegime: VixRegime,
+  usable?: Record<string, MarketIndicatorSnapshot | undefined>
 ): { crashScore: number; signalDetails: SignalScoreDetail[] } {
-  const { sp500, vix, usdKrw } = snapshot.indicators;
-  const effectiveKospi = snapshot.nightSession.kospiMiniFutures ?? snapshot.indicators.kospi200MiniFutures;
-  const adjust = COHERENCE_ADJUST[coherence];
-  const regimeMult = getRegimeMultiplier(vixRegime);
-
-  const eventCount = [
-    snapshot.events.tariffs,
-    snapshot.events.geopolitics,
-    snapshot.events.centralBankSurprise,
-    snapshot.events.financialInstitutionFailure,
-    snapshot.events.pandemic,
-  ].filter((e) => e.detected).length;
-
-  const usNorm = clamp((Math.abs(Math.min(sp500.changePct, 0)) / 3) * 100, 0, 100);
-  const kospiNorm = clamp((Math.abs(Math.min(effectiveKospi.changePct, 0)) / 2.5) * 100, 0, 100);
-  const vixNorm = vix && vix.change > 0 ? clamp(((vix.price - 20) / 30) * 100, 0, 100) : 0;
-  const fxNorm = usdKrw ? clamp((Math.max(0, usdKrw.change) / 20) * 100, 0, 100) : 0;
-  const eventNorm = clamp((eventCount / 3) * 100, 0, 100);
-
-  const vixValidated = vix?.validation === 'cross_checked';
-  const fxValidated = usdKrw?.validation === 'cross_checked';
-
-  const details: SignalScoreDetail[] = [
-    {
-      name: 'US',
-      normalizedDrop: usNorm,
-      weight: SIGNAL_WEIGHTS.us,
-      multiplier: 1.0,
-      coherenceAdjust: 1.0,
-      contribution: usNorm * SIGNAL_WEIGHTS.us,
-      validated: true,
-    },
-    {
-      name: 'KOSPI',
-      normalizedDrop: kospiNorm,
-      weight: SIGNAL_WEIGHTS.kospi,
-      multiplier: 1.0,
-      coherenceAdjust: adjust.kospi,
-      contribution: kospiNorm * SIGNAL_WEIGHTS.kospi * adjust.kospi,
-      validated: true,
-    },
-    {
-      name: 'VIX',
-      normalizedDrop: vixNorm,
-      weight: SIGNAL_WEIGHTS.vix * (vixValidated ? 1.0 : 0.6),
-      multiplier: regimeMult,
-      coherenceAdjust: 1.0,
-      contribution: vixNorm * SIGNAL_WEIGHTS.vix * (vixValidated ? 1.0 : 0.6) * regimeMult,
-      validated: vixValidated,
-    },
-    {
-      name: 'FX',
-      normalizedDrop: fxNorm,
-      weight: SIGNAL_WEIGHTS.fx * (fxValidated ? 1.0 : 0.6),
-      multiplier: 1.0,
-      coherenceAdjust: 1.0,
-      contribution: fxNorm * SIGNAL_WEIGHTS.fx * (fxValidated ? 1.0 : 0.6),
-      validated: fxValidated,
-    },
-    {
-      name: 'Event',
-      normalizedDrop: eventNorm,
-      weight: SIGNAL_WEIGHTS.event,
-      multiplier: 1.0,
-      coherenceAdjust: adjust.event,
-      contribution: eventNorm * SIGNAL_WEIGHTS.event * adjust.event,
-      validated: true,
-    },
+  const i = usable ?? { ...snapshot.indicators, nightFutures: snapshot.nightSession.kospiMiniFutures ?? undefined };
+  const down = (v: MarketIndicatorSnapshot | null | undefined) => v && Number.isFinite(v.changePct) ? Math.max(0, -v.changePct) : 0;
+  const us = [i.sp500, i.dowJones, i.nasdaqComposite].filter((x): x is MarketIndicatorSnapshot => !!x && Number.isFinite(x.changePct));
+  const usDrops = us.map(down).sort((a, b) => b - a);
+  const usDrop = Math.max(down(i.sp500), usDrops.length >= 2 ? (usDrops[0] + usDrops[1]) / 2 : 0);
+  const koreaDrop = Math.max(down(i.nightFutures ?? i.kospi200MiniFutures), down(i.kospi), down(i.kosdaq));
+  // VIX measures expected volatility, not direction. Its level must not become
+  // less risky at regime boundaries or vanish simply because it fell today.
+  const vix = i.vix;
+  const vixStress = vix && Number.isFinite(vix.price) && Number.isFinite(vix.change)
+    ? Math.max((vix.price - 20) / 30, Math.max(0, vix.change) / 15) : 0;
+  const fxStress = i.usdKrw && Number.isFinite(i.usdKrw.changePct) ? Math.max(0, i.usdKrw.changePct) / 1.5 : 0;
+  const definitions: Array<[string, number, number, boolean]> = [
+    ['US', usDrop / 3, 0.35, us.length >= 2],
+    ['KOSPI', koreaDrop / 3, 0.35, !!(i.nightFutures ?? i.kospi200MiniFutures ?? i.kospi ?? i.kosdaq)],
+    ['VIX', vixStress, 0.20, !!vix],
+    ['FX', fxStress, 0.10, !!i.usdKrw],
+    // Search keyword matches are unverified context, not independent crash votes.
+    ['Event', 0, 0, false],
   ];
-
-  const crashScore = clamp(
-    details.reduce((sum, d) => sum + d.contribution, 0),
-    0,
-    100
-  );
-
-  return { crashScore, signalDetails: details };
-}
-
-const COHERENCE_BONUS: Record<DirectionCoherence, number> = {
-  coherent_crash: 5,
-  korea_specific: 3,
-  mixed: 0,
-  stale_recovery: -20,
-  coherent_normal: 0,
-};
-
-export function calculateConfidence(
-  crashScore: number,
-  crossValidationRatio: number,
-  coherence: DirectionCoherence,
-  hasNightData: boolean,
-  isCrash: boolean
-): number {
-  if (!isCrash) {
-    return clamp(95 - crashScore * 0.5, 60, 95);
-  }
-  const base = crashScore * 0.85 + 15;
-  const validationBonus = crossValidationRatio * 8;
-  const coherenceBonus = COHERENCE_BONUS[coherence];
-  const nightBonus = hasNightData ? 5 : 0;
-  return clamp(base + validationBonus + coherenceBonus + nightBonus, 50, 99);
+  const signalDetails = definitions.map(([name, value, weight, validated]) => ({
+    name, normalizedDrop: clamp(value * 100, 0, 100), weight,
+    multiplier: 1, coherenceAdjust: 1, contribution: clamp(value * 100, 0, 100) * weight, validated,
+  }));
+  return { crashScore: Math.round(clamp(signalDetails.reduce((sum, d) => sum + d.contribution, 0), 0, 100) * 100) / 100, signalDetails };
 }
 
 export function getConfidenceLabel(confidence: number): ConfidenceLabel {
@@ -868,72 +744,15 @@ export function classifyDirectionCoherence(snapshot: MarketAssessmentSnapshot): 
   kospiDataStale: boolean;
   stalenessNote: string | null;
 } {
-  const { sp500, dowJones, nasdaqComposite, kospi200MiniFutures } = snapshot.indicators;
-  const nightFutures = snapshot.nightSession.kospiMiniFutures;
-  const usChanges = getAvailableUsIndexChanges([sp500, dowJones, nasdaqComposite]);
-  const anyEventDetected =
-    snapshot.events.tariffs.detected ||
-    snapshot.events.geopolitics.detected ||
-    snapshot.events.centralBankSurprise.detected ||
-    snapshot.events.financialInstitutionFailure.detected ||
-    snapshot.events.pandemic.detected;
-
-  // §1: Night session data available
-  if (nightFutures) {
-    if (nightFutures.changePct > -0.5) {
-      return { coherence: 'coherent_normal', kospiDataStale: false, stalenessNote: null };
-    }
-    if (nightFutures.changePct <= -2.5 && usChanges.filter((v) => v <= -2).length >= 2) {
-      return { coherence: 'coherent_crash', kospiDataStale: false, stalenessNote: null };
-    }
-    if (nightFutures.changePct <= -1.5 && anyEventDetected) {
-      return { coherence: 'korea_specific', kospiDataStale: false, stalenessNote: null };
-    }
-    return { coherence: 'mixed', kospiDataStale: false, stalenessNote: null };
-  }
-
-  // §2: Pre-market, no night data
-  if (snapshot.nightSession.isPreMarketHours) {
-    const dayFutures = kospi200MiniFutures;
-    const kospiDown = dayFutures.changePct <= -1.5;
-    const usPositiveCount = usChanges.filter((v) => v > 0.3).length;
-    const usStronglyPositive = usPositiveCount >= 2;
-    const allUsZero = usChanges.every((v) => v === 0);
-    const vixCalm = !snapshot.indicators.vix || snapshot.indicators.vix.change < 5;
-    const fxCalm = !snapshot.indicators.usdKrw || snapshot.indicators.usdKrw.change < 10;
-
-    // US holiday
-    if (allUsZero && kospiDown) {
-      return { coherence: 'mixed', kospiDataStale: false, stalenessNote: null };
-    }
-
-    if (kospiDown && usStronglyPositive && vixCalm && fxCalm && !anyEventDetected) {
-      // Stale candidate — check Nikkei/foreigner exceptions
-      const nikkei = snapshot.supplementary.nikkeiFutures;
-      if (nikkei?.confirmed && typeof nikkei.changePct === 'number' && nikkei.changePct <= -2) {
-        return { coherence: 'mixed', kospiDataStale: false, stalenessNote: null };
-      }
-      const foreigner = snapshot.supplementary.foreignerNetSelling;
-      if (foreigner && foreigner.topSellAmountMillion >= 2_000_000) {
-        return { coherence: 'korea_specific', kospiDataStale: false, stalenessNote: null };
-      }
-      const note = `KOSPI200 미니선물 ${dayFutures.changePct.toFixed(2)}%는 전일 주간장 종가 기준이며, 글로벌 시장 반등과 불일치하여 폭락 시그널에서 제외`;
-      return { coherence: 'stale_recovery', kospiDataStale: true, stalenessNote: note };
-    }
-
-    if (kospiDown && !usStronglyPositive && !allUsZero) {
-      return { coherence: 'coherent_crash', kospiDataStale: false, stalenessNote: null };
-    }
-
-    if (kospiDown && anyEventDetected) {
-      return { coherence: 'korea_specific', kospiDataStale: false, stalenessNote: null };
-    }
-
-    return { coherence: 'mixed', kospiDataStale: false, stalenessNote: null };
-  }
-
-  // §3: Daytime session
-  return { coherence: 'coherent_normal', kospiDataStale: false, stalenessNote: null };
+  const us = [snapshot.indicators.sp500, snapshot.indicators.dowJones, snapshot.indicators.nasdaqComposite]
+    .filter((x): x is MarketIndicatorSnapshot => !!x && Number.isFinite(x.changePct));
+  const korea = snapshot.nightSession.kospiMiniFutures ?? snapshot.indicators.kospi200MiniFutures;
+  const usDown = us.filter(x => x.changePct <= -1.5).length >= 2;
+  const koreaDown = !!korea && korea.changePct <= -1.5;
+  const coherence: DirectionCoherence = usDown && koreaDown ? 'coherent_crash'
+    : koreaDown ? 'korea_specific' : usDown ? 'mixed' : 'coherent_normal';
+  // Market disagreement is not evidence of a stale timestamp.
+  return { coherence, kospiDataStale: false, stalenessNote: null };
 }
 
 function getKstHour(): number {
@@ -948,51 +767,6 @@ function getKstHour(): number {
 function isKstPreMarketHours(): boolean {
   const hour = getKstHour();
   return hour >= 18 || hour < 9;
-}
-
-async function getKospiNightSessionInquiry(
-  contractCode: string,
-  daySessionPrice: number
-): Promise<Kospi200MiniFuturesSnapshot | null> {
-  try {
-    const response = await kisGet<KisFuturesInquirePriceResponse>(
-      '/uapi/domestic-futureoption/v1/quotations/inquire-price',
-      {
-        FID_COND_MRKT_DIV_CODE: 'F',
-        FID_INPUT_ISCD: contractCode,
-      },
-      'FHMIF10000000'
-    );
-
-    const output = response.output;
-    if (!output) return null;
-
-    const price = parseNumber(output.futs_prpr);
-    const change = parseNumber(output.futs_prdy_vrss);
-    const changePct = parseNumber(output.futs_prdy_ctrt);
-    const volume = parseNumber(output.acml_vol);
-
-    if (!Number.isFinite(price) || price <= 0) return null;
-
-    const priceDiffPct = Math.abs(((price - daySessionPrice) / daySessionPrice) * 100);
-    const hasVolume = Number.isFinite(volume) && volume > 0;
-
-    if (priceDiffPct < 0.3 && !hasVolume) return null;
-
-    return withDirectValidation({
-      code: contractCode,
-      label: 'KOSPI200 mini futures (night)',
-      contractName: output.hts_kor_isnm ?? 'Night session',
-      remainingDays: null,
-      source: 'KIS',
-      price,
-      change: Number.isFinite(change) ? change : 0,
-      changePct: Number.isFinite(changePct) ? changePct : 0,
-      fetchedAt: new Date().toISOString(),
-    });
-  } catch {
-    return null;
-  }
 }
 
 async function getKisOverseasDailyIndexIndicator(
@@ -1035,6 +809,8 @@ async function getKisOverseasDailyIndexIndicator(
     price: latest.price,
     change,
     changePct,
+    observedAt: parseKisObservedAt(latest.date, getUsSessionCloseTime(`${latest.date.slice(0, 4)}-${latest.date.slice(4, 6)}-${latest.date.slice(6, 8)}`).replace(':', '') + '00', 'America/New_York'),
+    observedAtPrecision: 'session_close',
     fetchedAt: new Date().toISOString(),
   });
 }
@@ -1071,16 +847,27 @@ async function getOverseasIndexQuote(
   }
 
   assertPositivePrice(price, label);
+  if (!Number.isFinite(change) || !Number.isFinite(changePct)) throw new Error(`${label} missing change data`);
+  const latestTick = response.output2?.find(row => Math.abs(parseNumber(row.optn_prpr) - price) <= Math.max(0.02, price * 0.00001));
 
   return withDirectValidation({
     code: symbol,
     label,
     source: 'KIS',
     price,
-    change: Number.isFinite(change) ? change : 0,
-    changePct: Number.isFinite(changePct) ? changePct : 0,
+    change,
+    changePct,
+    observedAt: parseKisObservedAt(latestTick?.stck_bsop_date, latestTick?.stck_cntg_hour, 'America/New_York'),
     fetchedAt: new Date().toISOString(),
   });
+}
+
+async function getRequiredUsIndex(symbol: string, naverCode: string, label: string, serpQuery: string): Promise<MarketIndicatorSnapshot> {
+  const primary = await tryIndicatorSource(label, 'KIS quote', 'dated index sources', () => getOverseasIndexQuote(symbol, label));
+  if (primary && quoteQuality(primary, Date.now()) === 'usable') return primary;
+  const fallback = await getOverseasIndexWithFallbackChain({ label, kisSymbol: symbol, naverCode, serpQuery });
+  if (!fallback) throw new Error(`${label}: all numeric sources unavailable`);
+  return fallback;
 }
 
 function selectFrontMonthMiniFuture(rows: KisDomesticFuturesRow[]): KisDomesticFuturesRow {
@@ -1091,6 +878,7 @@ function selectFrontMonthMiniFuture(rows: KisDomesticFuturesRow[]): KisDomesticF
     }))
     .filter(({ row }) => typeof row.hts_kor_isnm === 'string' && row.hts_kor_isnm.startsWith('미니F '))
     .filter(({ row }) => Number.isFinite(parseNumber(row.futs_prpr)))
+    .filter(({ row, remainingDays }) => parseNumber(row.futs_prpr) > 0 && Number.isFinite(remainingDays) && remainingDays >= 0 && !!row.futs_shrn_iscd)
     .sort((left, right) => {
       const leftDays = Number.isFinite(left.remainingDays) ? left.remainingDays : Number.MAX_SAFE_INTEGER;
       const rightDays = Number.isFinite(right.remainingDays) ? right.remainingDays : Number.MAX_SAFE_INTEGER;
@@ -1122,6 +910,7 @@ async function getKospi200MiniFutures(): Promise<Kospi200MiniFuturesSnapshot> {
   const changePct = parseNumber(contract.futs_prdy_ctrt);
 
   assertPositivePrice(price, 'KOSPI200 mini futures');
+  if (!Number.isFinite(change) || !Number.isFinite(changePct)) throw new Error('KOSPI200 mini futures missing change data');
 
   const remainingDays = Number.parseInt(contract.hts_rmnn_dynu ?? '', 10);
 
@@ -1132,8 +921,10 @@ async function getKospi200MiniFutures(): Promise<Kospi200MiniFuturesSnapshot> {
     remainingDays: Number.isFinite(remainingDays) ? remainingDays : null,
     source: 'KIS',
     price,
-    change: Number.isFinite(change) ? change : 0,
-    changePct: Number.isFinite(changePct) ? changePct : 0,
+    change,
+    changePct,
+    observedAt: null, // Display board has no observation time; contextual only.
+    session: 'day',
     fetchedAt: new Date().toISOString(),
   });
 }
@@ -1160,6 +951,7 @@ async function getSerpFinanceIndicator(
   }
 
   const movement = parseSignedMovement(response.summary.price_movement);
+  if (!Number.isFinite(movement.change) || !Number.isFinite(movement.changePct)) return null;
 
   return withSingleSourceValidation({
     code: query,
@@ -1169,6 +961,27 @@ async function getSerpFinanceIndicator(
     change: movement.change,
     changePct: movement.changePct,
     fetchedAt: new Date().toISOString(),
+  });
+}
+
+async function getCboeVixIndicator(): Promise<MarketIndicatorSnapshot | null> {
+  const response = await fetchWithTimeout('https://cdn.cboe.com/api/global/us_indices/daily_prices/VIX_History.csv', { method: 'GET' });
+  if (!response.ok) throw new Error(`CBOE VIX history: HTTP ${response.status}`);
+  const lines = (await response.text()).trim().split(/\r?\n/);
+  if (lines[0] !== 'DATE,OPEN,HIGH,LOW,CLOSE') throw new Error('Unexpected CBOE VIX history schema');
+  const rows = lines.slice(1).map(line => {
+    const [date, , , , close] = line.split(',');
+    const match = date?.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+    return { date: match ? `${match[3]}${match[1]}${match[2]}` : '', price: parseNumber(close) };
+  }).filter(row => row.date && row.price > 0).sort((a, b) => b.date.localeCompare(a.date));
+  if (rows.length < 2 || rows[0].date === rows[1].date) return null;
+  const [latest, previous] = rows;
+  const sessionDate = `${latest.date.slice(0, 4)}-${latest.date.slice(4, 6)}-${latest.date.slice(6, 8)}`;
+  return withSingleSourceValidation({
+    code: 'VIX', label: 'VIX', source: 'CBOE', price: latest.price,
+    change: latest.price - previous.price, changePct: (latest.price / previous.price - 1) * 100,
+    observedAt: parseKisObservedAt(latest.date, getUsSessionCloseTime(sessionDate).replace(':', '') + '00', 'America/New_York'),
+    observedAtPrecision: 'session_close', fetchedAt: new Date().toISOString(),
   });
 }
 
@@ -1214,6 +1027,7 @@ async function getNaverWorldIndexIndicator(
     price,
     change,
     changePct,
+    observedAt: parseObservedAt(data.localTradedAt, 'America/New_York'),
     fetchedAt: new Date().toISOString(),
   });
 }
@@ -1248,7 +1062,7 @@ async function getNaverFinanceExchangeIndicator(
     pctNormalized.startsWith('-');
   const sign = negative ? -1 : 1;
 
-  if (!price || !changeAbs || !Number.isFinite(parsedChangePct)) {
+  if (!price || changeAbs === null || !Number.isFinite(parsedChangePct)) {
     return null;
   }
 
@@ -1259,6 +1073,7 @@ async function getNaverFinanceExchangeIndicator(
     price,
     change: sign * Math.abs(changeAbs),
     changePct: sign * Math.abs(parsedChangePct),
+    observedAt: parseObservedAt($('.exchange_info .date').first().text(), 'Asia/Seoul'),
     fetchedAt: new Date().toISOString(),
   });
 }
@@ -1306,6 +1121,7 @@ async function getNaverSearchVixIndicator(): Promise<MarketIndicatorSnapshot | n
     price,
     change: sign * Math.abs(changeAbs),
     changePct,
+    observedAt: parseObservedAt(root.find('.stk_info em').first().text(), 'America/New_York'),
     fetchedAt: new Date().toISOString(),
   });
 }
@@ -1321,6 +1137,7 @@ function toSupplementaryIndicatorSnapshot(input: {
   confirmed: boolean;
   source: SearchIndicatorSnapshot['source'];
   snippet?: string;
+  observedAt?: string | null;
 }): SearchIndicatorSnapshot {
   return {
     label: input.label,
@@ -1336,6 +1153,7 @@ function toSupplementaryIndicatorSnapshot(input: {
     confirmed: input.confirmed,
     proxy: false,
     fetchedAt: new Date().toISOString(),
+    observedAt: input.observedAt ?? null,
     source: input.source,
   };
 }
@@ -1375,7 +1193,18 @@ async function getNaverDomesticIndexSupplementaryIndicator(
     changePct,
     confirmed: false,
     source: 'NAVER_STOCK_API',
+    observedAt: parseObservedAt(data.localTradedAt, 'Asia/Seoul'),
     snippet: `${data.stockName ?? label} ${price.toFixed(2)} (${changePct >= 0 ? '+' : ''}${changePct.toFixed(2)}%)`,
+  });
+}
+
+async function getKoreanSpotIndex(code: string): Promise<MarketIndicatorSnapshot | null> {
+  const quote = await getNaverDomesticIndexSupplementaryIndicator(code, code);
+  if (!quote || quote.price === null || quote.change === null || quote.changePct === null) return null;
+  return withSingleSourceValidation({
+    code, label: code, source: 'NAVER_STOCK_API',
+    price: quote.price, change: quote.change, changePct: quote.changePct,
+    observedAt: quote.observedAt, fetchedAt: quote.fetchedAt, session: 'day',
   });
 }
 
@@ -1493,9 +1322,9 @@ async function getCrossValidatedIndicator(
     changePctTolerance?: number;
   } = {}
 ): Promise<MarketIndicatorSnapshot | null> {
-  const primary = await primaryLoader();
+  const primary = await safeSupplementaryValue(`${label} primary`, primaryLoader, null);
   await requestCooldown();
-  const secondary = await secondaryLoader();
+  const secondary = await safeSupplementaryValue(`${label} secondary`, secondaryLoader, null);
 
   if (!primary && !secondary) {
     return null;
@@ -1509,6 +1338,15 @@ async function getCrossValidatedIndicator(
     return primary;
   }
 
+  const korea = label.startsWith('USD/');
+  const primaryUsable = quoteQuality(primary, Date.now(), korea) === 'usable';
+  const secondaryUsable = quoteQuality(secondary, Date.now(), korea) === 'usable';
+  if (primaryUsable && !secondaryUsable) return primary;
+  if (secondaryUsable && !primaryUsable) return secondary;
+
+  if (!primary.observedAt && secondary.observedAt) return secondary;
+  if (!secondary.observedAt && primary.observedAt) return primary;
+
   if (isMarketIndicatorConsistent(primary, secondary, options)) {
     return withCrossValidation(
       primary,
@@ -1521,7 +1359,7 @@ async function getCrossValidatedIndicator(
   console.warn(
     `[Market Snapshot] ${label} 교차검증 불일치: ${primary.source} ${primary.price.toFixed(4)} / ${primary.change.toFixed(4)} vs ${secondary.source} ${secondary.price.toFixed(4)} / ${secondary.change.toFixed(4)}`
   );
-  return primary;
+  return { ...primary, sourceConflict: true };
 }
 
 interface OverseasIndexSourceChainConfig {
@@ -1628,7 +1466,9 @@ async function getOverseasIndexWithFallbackChain(
     );
   }
 
-  return available[0] ?? null;
+  const dated = available.filter(quote => !!quote.observedAt);
+  if (dated.length > 1) return { ...dated[0], sourceConflict: true };
+  return dated[0] ?? available[0] ?? null;
 }
 
 async function getNaverForeignerNetSelling(): Promise<ForeignerNetSellingSnapshot | null> {
@@ -1734,7 +1574,7 @@ function isRecentNews(pubDate: string, recentDays = 7): boolean {
   }
 
   const ageMs = Date.now() - published.getTime();
-  return ageMs <= recentDays * 24 * 60 * 60 * 1000;
+  return ageMs >= 0 && ageMs <= recentDays * 24 * 60 * 60 * 1000;
 }
 
 async function collectSerpEventEvidence(query: string, patterns: RegExp[]): Promise<string[]> {
@@ -1887,32 +1727,25 @@ async function safeSupplementaryValue<T>(
   }
 }
 
-function getAvailableUsIndexChanges(
-  indicators: Array<MarketIndicatorSnapshot | null | undefined>
-): number[] {
-  const changes = indicators
-    .filter((indicator): indicator is MarketIndicatorSnapshot =>
-      Boolean(indicator && Number.isFinite(indicator.changePct))
-    )
-    .map((indicator) => indicator.changePct);
-
-  if (changes.length < 2) {
-    throw new Error(
-      `Market snapshot requires at least 2 available US indexes; only ${changes.length} available`
-    );
+export async function getKisMarketAssessmentSnapshot(): Promise<MarketAssessmentSnapshot> {
+  if (snapshotCache.value && snapshotCache.expiresAt > Date.now()) return structuredClone(snapshotCache.value);
+  if (!snapshotInFlight) {
+    snapshotInFlight = snapshotRequestContext.run(AbortSignal.timeout(SNAPSHOT_TIMEOUT_MS), collectMarketAssessmentSnapshot)
+      .finally(() => { snapshotInFlight = null; });
   }
-
-  return changes;
+  return structuredClone(await snapshotInFlight);
 }
 
-export async function getKisMarketAssessmentSnapshot(): Promise<MarketAssessmentSnapshot> {
+async function collectMarketAssessmentSnapshot(): Promise<MarketAssessmentSnapshot> {
   const now = Date.now();
 
   if (snapshotCache.value && snapshotCache.expiresAt > now) {
     return snapshotCache.value;
   }
 
-  const sp500 = await getOverseasIndexQuote('SPX', 'S&P 500');
+  // Retry circuits are scoped to one snapshot so quota recovery is not permanent.
+  serpDisabledReason = null;
+  const sp500 = await safeSupplementaryValue('S&P 500', () => getRequiredUsIndex('SPX', '.INX', 'S&P 500', '.INX:INDEXSP'), null);
   await requestCooldown();
 
   const dowJones = await getOverseasIndexWithFallbackChain({
@@ -1923,12 +1756,15 @@ export async function getKisMarketAssessmentSnapshot(): Promise<MarketAssessment
   });
   await requestCooldown();
 
-  const nasdaqComposite = await getOverseasIndexQuote('COMP', 'NASDAQ Composite');
+  const nasdaqComposite = await safeSupplementaryValue('NASDAQ', () => getRequiredUsIndex('COMP', '.IXIC', 'NASDAQ Composite', '.IXIC:INDEXNASDAQ'), null);
 
   await requestCooldown();
 
-  const kospi200MiniFutures = await getKospi200MiniFutures();
+  const kospi200MiniFutures = await safeSupplementaryValue('KOSPI200 mini futures', () => getKospi200MiniFutures(), null);
   await requestCooldown();
+
+  const kospi = await safeSupplementaryValue('KOSPI spot', () => getKoreanSpotIndex('KOSPI'), null);
+  const kosdaq = await safeSupplementaryValue('KOSDAQ spot', () => getKoreanSpotIndex('KOSDAQ'), null);
 
   const kospi200Futures = await safeSupplementaryValue(
     'KOSPI 200 futures',
@@ -1942,8 +1778,9 @@ export async function getKisMarketAssessmentSnapshot(): Promise<MarketAssessment
     () =>
       getCrossValidatedIndicator(
         'VIX',
-        () => getSerpFinanceIndicator('VIX:INDEXCBOE', 'VIX'),
-        () => getNaverSearchVixIndicator(),
+        () => getCboeVixIndicator(),
+        async () => (await safeSupplementaryValue('Naver VIX API', () => getNaverWorldIndexIndicator('.VIX', 'VIX'), null))
+          ?? getNaverSearchVixIndicator(),
         { priceTolerancePct: 2, changeTolerance: 1.5, changePctTolerance: 0.75 }
       ),
     null
@@ -2003,20 +1840,17 @@ export async function getKisMarketAssessmentSnapshot(): Promise<MarketAssessment
   const events = await safeSupplementaryValue('Event signals', () => getEventSignals(), emptyEventSignals());
 
   const preMarketHours = isKstPreMarketHours();
-  let nightKospiMiniFutures: Kospi200MiniFuturesSnapshot | null = null;
-
-  if (preMarketHours) {
-    await requestCooldown();
-    nightKospiMiniFutures = await safeSupplementaryValue(
-      'KOSPI200 night session inquiry',
-      () => getKospiNightSessionInquiry(kospi200MiniFutures.code, kospi200MiniFutures.price),
-      null
-    );
-  }
+  // A daytime quote with cumulative volume does not prove night trading.
+  // Until a timestamped night-session feed is configured, use dated spot indexes.
+  const nightKospiMiniFutures = null;
 
   const snapshot: MarketAssessmentSnapshot = {
     fetchedAt: new Date().toISOString(),
-    degradedSources: serpDisabledReason ? [serpDisabledReason] : [],
+    degradedSources: [
+      ...(serpDisabledReason ? [serpDisabledReason] : []),
+      ...(snapshotRequestContext.getStore()?.aborted ? ['snapshot deadline exceeded; partial data only'] : []),
+      'timestamped night futures unavailable; dated Korea spot used',
+    ],
     indicators: {
       sp500,
       dowJones,
@@ -2025,6 +1859,8 @@ export async function getKisMarketAssessmentSnapshot(): Promise<MarketAssessment
       vix,
       usdKrw,
       usdJpy,
+      kospi,
+      kosdaq,
     },
     nightSession: {
       kospiMiniFutures: nightKospiMiniFutures,
@@ -2038,271 +1874,68 @@ export async function getKisMarketAssessmentSnapshot(): Promise<MarketAssessment
     events,
   };
 
-  snapshotCache.value = snapshot;
-  snapshotCache.expiresAt = now + SNAPSHOT_TTL_MS;
+  // Retain a verified severe price warning even if optional feeds hit the deadline.
+  // Failed/partial-deadline snapshots are not cached, so the next call can recover.
+  if (!snapshotRequestContext.getStore()?.aborted && assessMarketDataQuality(snapshot, Date.now()).quality.status !== 'unavailable') {
+    snapshotCache.value = structuredClone(snapshot);
+    snapshotCache.expiresAt = Date.now() + SNAPSHOT_TTL_MS;
+  }
 
   return snapshot;
 }
 
 export function evaluateMarketAssessmentSnapshot(
-  snapshot: MarketAssessmentSnapshot
+  snapshot: MarketAssessmentSnapshot,
+  now: Date = new Date(snapshot.fetchedAt)
 ): MarketAssessmentEvidence {
+  const { quality, usableIndicators: i } = assessMarketDataQuality(snapshot, now.getTime());
+  const effectiveKoreaIndicator = i.nightFutures ?? i.kospi200MiniFutures ?? i.kospi ?? i.kosdaq ?? null;
+  const us = [i.sp500, i.dowJones, i.nasdaqComposite].filter((x): x is MarketIndicatorSnapshot => !!x);
+  const usDown = us.filter(x => x.changePct <= -1.5).length >= 2;
+  const koreaDown = !!effectiveKoreaIndicator && effectiveKoreaIndicator.changePct <= -1.5;
+  const directionCoherence: DirectionCoherence = usDown && koreaDown ? 'coherent_crash'
+    : koreaDown ? 'korea_specific' : usDown ? 'mixed' : 'coherent_normal';
+  const vixRegime = getVixRegime(i.vix?.price ?? null);
+  const { crashScore, signalDetails } = calculateCrashScore(snapshot, directionCoherence, vixRegime, i);
+  const decision = decideMarketRisk({ crashScore, quality, indicators: i });
   const tier1Signals: string[] = [];
   const tier2Signals: string[] = [];
-  const tier3Signals: string[] = [];
-  const supportingNotes: string[] = [];
-  const usIndexChanges = getAvailableUsIndexChanges([
-    snapshot.indicators.sp500,
-    snapshot.indicators.dowJones,
-    snapshot.indicators.nasdaqComposite,
-  ]);
-  const usIndexCountLabel = usIndexChanges.length === 3 ? '2 of 3 US indexes' : '2 available US indexes';
-
-  const nightFutures = snapshot.nightSession.kospiMiniFutures;
-  const dayFutures = snapshot.indicators.kospi200MiniFutures;
-  const effectiveKospi = nightFutures ?? dayFutures;
-  const hasNightData = nightFutures !== null;
-
-  const coherenceResult = classifyDirectionCoherence(snapshot);
-  const kospiDataStale = coherenceResult.kospiDataStale;
-  const stalenessNote = coherenceResult.stalenessNote;
-
-  if (kospiDataStale && stalenessNote) {
-    supportingNotes.push(stalenessNote);
+  for (const indicator of [...us, ...[effectiveKoreaIndicator, i.kospi, i.kosdaq].filter((x): x is MarketIndicatorSnapshot => !!x)]) {
+    const text = `${indicator.label} ${indicator.changePct.toFixed(2)}% [observed ${indicator.observedAt}]`;
+    if (indicator.changePct <= -2.5 && !tier1Signals.includes(text)) tier1Signals.push(text);
+    else if (indicator.changePct <= -1.5 && !tier2Signals.includes(text)) tier2Signals.push(text);
   }
-
-  const kospiPriceGapPct = calculatePriceGapPct(
-    effectiveKospi.price,
-    snapshot.supplementary.kospi200Futures?.confirmed
-      ? snapshot.supplementary.kospi200Futures.price
-      : null
-  );
-  const hasKospiPriceConflict = !kospiDataStale && typeof kospiPriceGapPct === 'number' && kospiPriceGapPct >= 1.5;
-
-  const nikkeiChangePct = snapshot.supplementary.nikkeiFutures?.changePct;
-  const hasConfirmedNikkeiSignal = snapshot.supplementary.nikkeiFutures?.confirmed === true;
-  const hasValidatedVix = snapshot.indicators.vix?.validation === 'cross_checked';
-  const hasValidatedUsdKrw = snapshot.indicators.usdKrw?.validation === 'cross_checked';
-  const hasValidatedUsdJpy = snapshot.indicators.usdJpy?.validation === 'cross_checked';
-
-  if (snapshot.indicators.sp500.changePct <= -3) {
-    tier1Signals.push(`S&P 500 ${snapshot.indicators.sp500.changePct.toFixed(2)}%`);
-  }
-
-  if (usIndexChanges.filter((value) => value <= -2.5).length >= 2) {
-    tier1Signals.push(`${usIndexCountLabel} <= -2.5%`);
-  }
-
-  if (!kospiDataStale && !hasKospiPriceConflict && effectiveKospi.changePct <= -2.5) {
-    const label = hasNightData ? 'KOSPI200 mini futures (night)' : 'KOSPI200 mini futures';
-    tier1Signals.push(`${label} ${effectiveKospi.changePct.toFixed(2)}%`);
-  }
-
-  if (snapshot.indicators.vix && hasValidatedVix) {
-    if (snapshot.indicators.vix.price >= 35 || snapshot.indicators.vix.change >= 10) {
-      tier1Signals.push(
-        `VIX ${snapshot.indicators.vix.price.toFixed(2)} / ${snapshot.indicators.vix.change.toFixed(2)}pt`
-      );
-    } else if (
-      snapshot.indicators.vix.price >= 25 ||
-      snapshot.indicators.vix.change >= 5
-    ) {
-      tier2Signals.push(
-        `VIX ${snapshot.indicators.vix.price.toFixed(2)} / ${snapshot.indicators.vix.change.toFixed(2)}pt`
-      );
-    }
-  }
-
-  // 기존 임계 의미를 보존한다: 가용 지수가 2개뿐이면 "v <= -2 지수 >= 2개"는 둘 다 하락해야 한다.
-  if (usIndexChanges.filter((value) => value <= -2).length >= 2) {
-    tier2Signals.push(`${usIndexCountLabel} <= -2.0%`);
-  }
-
-  if (
-    !kospiDataStale &&
-    !hasKospiPriceConflict &&
-    effectiveKospi.changePct <= -1.5 &&
-    effectiveKospi.changePct > -2.5
-  ) {
-    const label = hasNightData ? 'KOSPI200 mini futures (night)' : 'KOSPI200 mini futures';
-    tier2Signals.push(`${label} ${effectiveKospi.changePct.toFixed(2)}%`);
-  }
-
-  if (snapshot.indicators.usdKrw && hasValidatedUsdKrw && snapshot.indicators.usdKrw.change >= 15) {
-    tier2Signals.push(`USD/KRW +${snapshot.indicators.usdKrw.change.toFixed(2)} KRW`);
-  }
-
-  if (snapshot.indicators.usdJpy && hasValidatedUsdJpy && Math.abs(snapshot.indicators.usdJpy.change) >= 5) {
-    tier2Signals.push(`USD/JPY ${snapshot.indicators.usdJpy.change.toFixed(2)} JPY`);
-  }
-
-  if (hasConfirmedNikkeiSignal && typeof nikkeiChangePct === 'number' && nikkeiChangePct <= -3) {
-    tier2Signals.push(`Nikkei futures ${nikkeiChangePct.toFixed(2)}%`);
-  }
-
-  if (
-    snapshot.supplementary.foreignerNetSelling &&
-    snapshot.supplementary.foreignerNetSelling.topSellAmountMillion >= 2_000_000 &&
-    (
-      (snapshot.indicators.usdKrw?.change ?? 0) >= 10 ||
-      effectiveKospi.changePct <= -1 ||
-      usIndexChanges.filter((value) => value <= -1.5).length >= 2 ||
-      (hasConfirmedNikkeiSignal && typeof nikkeiChangePct === 'number' && nikkeiChangePct <= -2)
-    )
-  ) {
-    tier2Signals.push(
-      `Foreigner net sell ${formatTrillionKrwFromMillion(snapshot.supplementary.foreignerNetSelling.topSellAmountMillion)}`
-    );
-  }
-
-  const kospiDirectNote = formatSearchIndicator(snapshot.supplementary.kospi200Futures);
-  if (kospiDirectNote) {
-    supportingNotes.push(kospiDirectNote);
-  }
-
-  const vixSupport = snapshot.indicators.vix && snapshot.indicators.vix.validation !== 'cross_checked'
-    ? formatIndicatorForSupport(snapshot.indicators.vix)
-    : null;
-  if (vixSupport) {
-    supportingNotes.push(vixSupport);
-  }
-
-  const usdKrwSupport = snapshot.indicators.usdKrw && snapshot.indicators.usdKrw.validation !== 'cross_checked'
-    ? formatIndicatorForSupport(snapshot.indicators.usdKrw)
-    : null;
-  if (usdKrwSupport) {
-    supportingNotes.push(usdKrwSupport);
-  }
-
-  const usdJpySupport = snapshot.indicators.usdJpy && snapshot.indicators.usdJpy.validation !== 'cross_checked'
-    ? formatIndicatorForSupport(snapshot.indicators.usdJpy)
-    : null;
-  if (usdJpySupport) {
-    supportingNotes.push(usdJpySupport);
-  }
-
-  if (hasKospiPriceConflict && snapshot.supplementary.kospi200Futures?.price) {
-    supportingNotes.push(
-      `KOSPI quote mismatch ${snapshot.supplementary.kospi200Futures.price.toFixed(2)} vs mini ${effectiveKospi.price.toFixed(2)}`
-    );
-  }
-
-  if (hasNightData) {
-    supportingNotes.push(
-      `Night session: ${nightFutures.price.toFixed(2)} (${nightFutures.changePct >= 0 ? '+' : ''}${nightFutures.changePct.toFixed(2)}%) [${nightFutures.contractName}]`
-    );
-  }
-
-  const nikkeiNote = formatSearchIndicator(snapshot.supplementary.nikkeiFutures);
-  if (nikkeiNote) {
-    supportingNotes.push(nikkeiNote);
-  }
-
-  const foreignerFlow = summarizeForeignerNetSelling(snapshot.supplementary.foreignerNetSelling);
-  if (foreignerFlow) {
-    supportingNotes.push(foreignerFlow);
-  }
-
-  if (snapshot.events.tariffs.detected) tier3Signals.push('Tariff / trade conflict');
-  if (snapshot.events.geopolitics.detected) tier3Signals.push('Geopolitical shock');
-  if (snapshot.events.centralBankSurprise.detected) tier3Signals.push('Central bank surprise');
-  if (snapshot.events.financialInstitutionFailure.detected) tier3Signals.push('Financial institution stress');
-  if (snapshot.events.pandemic.detected) tier3Signals.push('Pandemic / outbreak');
-
-  const directionCoherence = coherenceResult.coherence;
-  const vixRegime = getVixRegime(snapshot.indicators.vix?.price ?? null);
-  const { crashScore, signalDetails } = calculateCrashScore(snapshot, directionCoherence, vixRegime);
-  const crossValidationRatio = calculateCrossValidationRatio(snapshot);
-  const isCrash = crashScore >= 55;
-  const confidence = calculateConfidence(crashScore, crossValidationRatio, directionCoherence, snapshot.nightSession.kospiMiniFutures !== null, isCrash);
-  const confidenceLabel = getConfidenceLabel(confidence);
-
+  if (i.vix && i.vix.price >= 25) tier2Signals.push(`VIX ${i.vix.price.toFixed(2)} (volatility, not direction)`);
+  if (i.usdKrw && i.usdKrw.changePct >= 1) tier2Signals.push(`USD/KRW +${i.usdKrw.changePct.toFixed(2)}%`);
+  const kospiDataStale = quality.indicators.kospi200MiniFutures !== 'usable';
+  const stalenessNote = kospiDataStale ? `KOSPI200 mini futures excluded: ${quality.indicators.kospi200MiniFutures}` : null;
   return {
-    tier1Signals,
-    tier2Signals,
-    tier3Signals,
-    supportingNotes,
-    kospiDataStale,
-    stalenessNote,
-    crashScore,
-    confidence,
-    confidenceLabel,
-    directionCoherence,
-    vixRegime,
-    crossValidationRatio,
-    signalDetails,
+    policyVersion: MARKET_RISK_POLICY_VERSION,
+    verdict: decision.verdict, severity: decision.severity, reasonCodes: decision.reasons,
+    dataQuality: quality, effectiveKoreaIndicator,
+    tier1Signals, tier2Signals,
+    tier3Signals: Object.entries(snapshot.events).filter(([, value]) => value.detected).map(([key]) => `${key} [unverified search context; not scored]`),
+    supportingNotes: [
+      ...quality.issues, ...(snapshot.degradedSources ?? []),
+      ...(snapshot.supplementary.foreignerNetSelling ? ['Foreigner top-sell ranking is NOT aggregate market net flow; not scored.'] : []),
+      'Risk score and data coverage are not calibrated crash probabilities. NORMAL means no rule triggered, not a safety guarantee.',
+    ],
+    kospiDataStale, stalenessNote, crashScore,
+    confidence: quality.score, // Legacy field: data coverage only; never gates a warning.
+    confidenceLabel: decision.severity === 'critical' ? 'critical' : 'warning',
+    directionCoherence, vixRegime,
+    crossValidationRatio: calculateCrossValidationRatio(snapshot), signalDetails,
   };
 }
 
 export function formatMarketAssessmentSnapshot(snapshot: MarketAssessmentSnapshot): string {
-  const { sp500, dowJones, nasdaqComposite, kospi200MiniFutures, vix, usdKrw, usdJpy } = snapshot.indicators;
-  const formatIndicatorLine = (indicator: MarketIndicatorSnapshot): string => {
-    const tags: string[] = [];
-
-    if (indicator.validation === 'cross_checked') {
-      tags.push('cross-checked');
-    } else if (indicator.validation === 'single_source') {
-      tags.push('single-source');
-    }
-
-    if (indicator.secondarySource) {
-      tags.push(indicator.secondarySource.toLowerCase());
-    }
-
-    const suffix = tags.length > 0 ? ` [${tags.join(', ')}]` : '';
-    return `${indicator.label}: ${indicator.price.toFixed(4)} (${indicator.change >= 0 ? '+' : ''}${indicator.change.toFixed(4)}, ${indicator.changePct >= 0 ? '+' : ''}${indicator.changePct.toFixed(4)}%)${suffix}`;
-  };
-
-  const lines = [
-    `- S&P 500 (SPX): ${sp500.price.toFixed(2)} (${sp500.change >= 0 ? '+' : ''}${sp500.change.toFixed(2)}, ${sp500.changePct >= 0 ? '+' : ''}${sp500.changePct.toFixed(2)}%)`,
-    dowJones
-      ? `- Dow Jones (${dowJones.code}): ${dowJones.price.toFixed(2)} (${dowJones.change >= 0 ? '+' : ''}${dowJones.change.toFixed(2)}, ${dowJones.changePct >= 0 ? '+' : ''}${dowJones.changePct.toFixed(2)}%)${dowJones.validation === 'single_source' ? ' [single-source]' : ''}`
-      : '- Dow Jones (.DJI): unavailable [all sources failed]',
-    `- NASDAQ Composite (${nasdaqComposite.code}): ${nasdaqComposite.price.toFixed(2)} (${nasdaqComposite.change >= 0 ? '+' : ''}${nasdaqComposite.change.toFixed(2)}, ${nasdaqComposite.changePct >= 0 ? '+' : ''}${nasdaqComposite.changePct.toFixed(2)}%)`,
-    `- KOSPI200 mini futures (${kospi200MiniFutures.contractName}, ${kospi200MiniFutures.code}): ${kospi200MiniFutures.price.toFixed(2)} (${kospi200MiniFutures.change >= 0 ? '+' : ''}${kospi200MiniFutures.change.toFixed(2)}, ${kospi200MiniFutures.changePct >= 0 ? '+' : ''}${kospi200MiniFutures.changePct.toFixed(2)}%)${snapshot.nightSession.isPreMarketHours ? ' [daytime close]' : ''}`,
-  ];
-
-  if ((snapshot.degradedSources?.length ?? 0) > 0) {
-    lines.push(`- Degraded sources: ${snapshot.degradedSources?.join(', ')}`);
-  }
-
-  if (snapshot.nightSession.kospiMiniFutures) {
-    const nf = snapshot.nightSession.kospiMiniFutures;
-    lines.push(
-      `- KOSPI200 mini futures (night): ${nf.price.toFixed(2)} (${nf.change >= 0 ? '+' : ''}${nf.change.toFixed(2)}, ${nf.changePct >= 0 ? '+' : ''}${nf.changePct.toFixed(2)}%) ★ effective`
-    );
-  }
-
-  if (vix) {
-    lines.push(`- ${formatIndicatorLine(vix)}`);
-  }
-
-  if (usdKrw) {
-    lines.push(`- ${formatIndicatorLine(usdKrw)}`);
-  }
-
-  if (usdJpy) {
-    lines.push(`- ${formatIndicatorLine(usdJpy)}`);
-  }
-
-  if (snapshot.supplementary.kospi200Futures?.price) {
-    lines.push(
-      `- KOSPI 200 futures: ${snapshot.supplementary.kospi200Futures.price.toFixed(2)}${typeof snapshot.supplementary.kospi200Futures.changePct === 'number' ? ` (${snapshot.supplementary.kospi200Futures.changePct >= 0 ? '+' : ''}${snapshot.supplementary.kospi200Futures.changePct.toFixed(2)}%)` : ''} (${snapshot.supplementary.kospi200Futures.title})`
-    );
-  }
-
-  if (snapshot.supplementary.nikkeiFutures?.price) {
-    lines.push(
-      `- Nikkei futures: ${snapshot.supplementary.nikkeiFutures.price.toFixed(2)}${typeof snapshot.supplementary.nikkeiFutures.changePct === 'number' ? ` (${snapshot.supplementary.nikkeiFutures.changePct >= 0 ? '+' : ''}${snapshot.supplementary.nikkeiFutures.changePct.toFixed(2)}%)` : ''} (${snapshot.supplementary.nikkeiFutures.title})`
-    );
-  }
-
-  const foreignerFlow = summarizeForeignerNetSelling(snapshot.supplementary.foreignerNetSelling);
-  if (foreignerFlow) {
-    lines.push(`- Foreigner flow: ${foreignerFlow}`);
-  }
-
-  return lines.join('\n');
+  const entries = Object.entries({ ...snapshot.indicators, nightFutures: snapshot.nightSession.kospiMiniFutures });
+  return [
+    ...entries.map(([key, quote]) => quote
+      ? `- ${quote.label} (${quote.code}): ${quote.price.toFixed(2)} (${quote.changePct.toFixed(2)}%) [${quote.source}; ${quote.validation}; observed=${quote.observedAt ?? 'UNKNOWN'}; fetched=${quote.fetchedAt}]`
+      : `- ${key}: unavailable`),
+    `- Degraded sources: ${(snapshot.degradedSources ?? []).join(', ')}`,
+  ].join('\n');
 }
 
 export function resetKisMarketAssessmentCacheForTest(): void {
@@ -2311,4 +1944,5 @@ export function resetKisMarketAssessmentCacheForTest(): void {
   snapshotCache.expiresAt = 0;
   configCache = null;
   serpDisabledReason = null;
+  snapshotInFlight = null;
 }

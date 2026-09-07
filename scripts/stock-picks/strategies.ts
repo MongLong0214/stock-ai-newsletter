@@ -224,6 +224,15 @@ export function passesCommonGate(
   maxRsi = 70,
 ): boolean {
   if (!master?.is_active) return false
+  // 과거 평균 거래대금이 높아도 신호일 거래가 없거나 캔들이 깨졌으면 추천하지 않는다.
+  const { open, high, low, close, volume, averageTurnover20, rsi14 } = feature
+  if ([open, high, low, close, volume, averageTurnover20, rsi14]
+    .some((value) => value === null || !Number.isFinite(value))) return false
+  if (
+    open! <= 0 || low! <= 0 || volume! <= 0
+    || high! < low! || open! < low! || open! > high!
+    || close! < low! || close! > high! || rsi14! < 0 || rsi14! > 100
+  ) return false
   const statusFlags = master.status_flags
   if (
     flagged(statusFlags?.managed_stock)

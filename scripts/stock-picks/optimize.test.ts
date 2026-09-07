@@ -215,7 +215,7 @@ describe('stock-picks walk-forward optimizer', () => {
     expect(frozen.parameters.minScore).toBe(0)
     expect(frozen.strategy).toMatchObject({
       name: 'volumeBreakoutNoGapUp+volumeOnlyFill',
-      version: 'v1-2026-09-03',
+      version: 'v1.1-2026-09-07',
       parametersHash: expect.stringMatching(/^[a-f0-9]{64}$/),
     })
     expect(frozen.datasetFingerprint).toEqual({

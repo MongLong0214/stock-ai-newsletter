@@ -11,7 +11,7 @@ describe('frozen production strategy artifact', () => {
   it('keeps the canonical frozen-parameter hash stable', () => {
     expect(PRODUCTION_STRATEGY).toMatchObject({
       name: 'volumeBreakoutNoGapUp+volumeOnlyFill',
-      version: 'v1-2026-09-03',
+      version: 'v1.1-2026-09-07',
       parameters: PRODUCTION_VOLUME_BREAKOUT_PARAMETERS,
       fillTiers: ['breakout', 'volumeOnly'],
     })
@@ -25,11 +25,11 @@ describe('frozen production strategy artifact', () => {
       hashCanonicalJson({
         parameters: PRODUCTION_VOLUME_BREAKOUT_PARAMETERS,
         fillTiers: ['breakout', 'volumeOnly'],
-        gateVersion: 'status-flags-v1',
+        gateVersion: 'status-flags-valid-candle-v2',
       }),
     )
     expect(PRODUCTION_STRATEGY.parametersHash).toBe(
-      'e92cdc70170b45a2e9c589b0082c56f370c2ba8a2d255d9e5916875345c7c94e',
+      '981aa91b3db42c62fc0dd220f44c9d9624ebe0e1e7463a5c5783c5f67fed969c',
     )
   })
 })

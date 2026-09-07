@@ -1,3 +1,4 @@
+import { getLastFinalizedTradingDate } from '@/lib/tli/trading-calendar'
 import type { LabelStatusCounts } from '@/scripts/stock-picks/backtest'
 import { validateResearchDataset } from '@/scripts/stock-picks/data-contract'
 import { getRawPrice, loadPriceBook, type PriceBook } from '@/scripts/stock-picks/data-handler'
@@ -45,6 +46,20 @@ export interface ForwardAccuracySummary {
   readonly statusCounts: LabelStatusCounts
   readonly hitRate: number | null
   readonly nullRate: number
+  readonly evaluablePicks: number
+  /** 성숙한 모든 추천을 분모에 포함한다. 오류를 제외한 hitRate와 구분한다. */
+  readonly allPickHitRate: number | null
+  readonly returns5d: {
+    readonly roundTripCostBps: number
+    readonly evaluablePicks: number
+    readonly positivePicks: number
+    readonly positiveRate: number | null
+    readonly meanNetReturn: number | null
+    readonly medianNetReturn: number | null
+    readonly worstNetReturn: number | null
+    readonly meanMaxAdverseExcursion: number | null
+    readonly touchedButNotProfitablePicks: number
+  }
 }
 
 export interface ForwardWeeklySummary extends ForwardAccuracySummary {
@@ -102,11 +117,24 @@ const normalizeSource = (source: string | null): ForwardPicksSource => (
   source === 'code' || source === 'llm_fallback' || source === 'crash' ? source : null
 )
 
-const summarize = (picks: readonly EvaluatedPick[]): ForwardAccuracySummary => {
+const summarize = (picks: readonly EvaluatedPick[], roundTripCostBps = 0): ForwardAccuracySummary => {
   const labels = picks.flatMap((pick) => pick.label ? [pick.label] : [])
   const touchedPicks = labels.filter((label) => label.touched).length
   const conditionalLabelCount = labels.filter((label) => label.status !== 'data_error').length
   const nullPicks = picks.length - labels.length
+  // +10% 장중 터치와 5일 종가 청산 수익은 별개다. 비용은 진입금액 대비 왕복 bps 가정이다.
+  const tradeableLabels = labels.filter((label) => (
+    (label.status === 'hit' || label.status === 'miss')
+    && label.return5d !== null && Number.isFinite(label.return5d)
+  ))
+  const netReturns = tradeableLabels.map((label) => label.return5d! - roundTripCostBps / 10_000)
+    .sort((a, b) => a - b)
+  const positivePicks = netReturns.filter((value) => value > 0).length
+  const adverseExcursions = tradeableLabels.flatMap((label) => (
+    label.maxDrawdown !== null && Number.isFinite(label.maxDrawdown) ? [label.maxDrawdown] : []
+  ))
+  const mean = (values: readonly number[]): number | null => values.length > 0
+    ? values.reduce((sum, value) => sum + value, 0) / values.length : null
   const statusCounts: LabelStatusCounts = {
     hit: labels.filter((label) => label.status === 'hit').length,
     miss: labels.filter((label) => label.status === 'miss').length,
@@ -123,6 +151,23 @@ const summarize = (picks: readonly EvaluatedPick[]): ForwardAccuracySummary => {
     statusCounts,
     hitRate: conditionalLabelCount > 0 ? touchedPicks / conditionalLabelCount : null,
     nullRate: picks.length > 0 ? nullPicks / picks.length : 0,
+    evaluablePicks: conditionalLabelCount,
+    allPickHitRate: picks.length > 0 ? touchedPicks / picks.length : null,
+    returns5d: {
+      roundTripCostBps,
+      evaluablePicks: netReturns.length,
+      positivePicks,
+      positiveRate: netReturns.length > 0 ? positivePicks / netReturns.length : null,
+      meanNetReturn: mean(netReturns),
+      medianNetReturn: netReturns.length > 0
+        ? (netReturns[Math.floor((netReturns.length - 1) / 2)]! + netReturns[Math.floor(netReturns.length / 2)]!) / 2
+        : null,
+      worstNetReturn: netReturns[0] ?? null,
+      meanMaxAdverseExcursion: mean(adverseExcursions),
+      touchedButNotProfitablePicks: tradeableLabels.filter((label) => (
+        label.touched && label.return5d! - roundTripCostBps / 10_000 <= 0
+      )).length,
+    },
   }
 }
 
@@ -274,7 +319,12 @@ export function measureForwardPicks(input: {
   readonly asOfDate: string
   readonly lookbackDays?: number
   readonly shadowComparison?: ShadowForwardComparison
+  readonly roundTripCostBps?: number
 }): ForwardMeasurementReport {
+  const roundTripCostBps = input.roundTripCostBps ?? 0
+  if (!Number.isFinite(roundTripCostBps) || roundTripCostBps < 0) {
+    throw new Error(`roundTripCostBps는 0 이상의 유한수여야 합니다: ${roundTripCostBps}`)
+  }
   const lookbackDays = input.lookbackDays ?? DEFAULT_LOOKBACK_DAYS
   if (!Number.isInteger(lookbackDays) || lookbackDays <= 0) {
     throw new Error(`lookbackDays는 양의 정수여야 합니다: ${lookbackDays}`)
@@ -302,7 +352,7 @@ export function measureForwardPicks(input: {
 
   const byPicksSource = Object.fromEntries(SOURCE_KEYS.map((key) => [
     key,
-    summarize(evaluated.filter((pick) => sourceKey(pick.picksSource) === key)),
+    summarize(evaluated.filter((pick) => sourceKey(pick.picksSource) === key), roundTripCostBps),
   ])) as Record<SourceKey, ForwardAccuracySummary>
 
   const nullBreakdown: Record<ForwardNullReason, number> = {
@@ -322,7 +372,7 @@ export function measureForwardPicks(input: {
       endDate,
       ...summarize(evaluated.filter((pick) => (
         pick.publicationDate >= weekStartDate && pick.publicationDate <= endDate
-      ))),
+      )), roundTripCostBps),
     }
   })
 
@@ -335,8 +385,8 @@ export function measureForwardPicks(input: {
     crashNewsletterCount: parsed.filter((result) => result.kind === 'crash').length,
     loadedPickCount: publishedPicks.length,
     immaturePickCount: publishedPicks.length - maturePicks.length,
-    overall: summarize(evaluated),
-    informational8HoldingDays: summarize(informational8Evaluated),
+    overall: summarize(evaluated, roundTripCostBps),
+    informational8HoldingDays: summarize(informational8Evaluated, roundTripCostBps),
     byPicksSource,
     nullBreakdown,
     recent4Weeks,
@@ -408,8 +458,11 @@ export function printForwardMeasurementReport(report: ForwardMeasurementReport):
     hitRate: percent(week.hitRate),
     nullRate: percent(week.nullRate),
   })))
-  console.log(`제품 기준: 5보유일 타율 ${percent(report.overall.hitRate)} (${report.overall.touchedPicks}/${report.overall.labeledPicks})`)
-  console.log(`참고: 8보유일 확장 시 타율 ${percent(report.informational8HoldingDays.hitRate)} (${report.informational8HoldingDays.touchedPicks}/${report.informational8HoldingDays.labeledPicks})`)
+  console.log(`제품 기준: 5보유일 타율 ${percent(report.overall.hitRate)} (${report.overall.touchedPicks}/${report.overall.evaluablePicks}, 데이터 오류 제외)`)
+  console.log(`전체 성숙 추천 기준: ${percent(report.overall.allPickHitRate)} (${report.overall.touchedPicks}/${report.overall.totalPicks}, 오류 포함)`)
+  const returns = report.overall.returns5d
+  console.log(`5일 종가 청산 가정 (왕복 비용 ${returns.roundTripCostBps}bps): 수익 양수 비율 ${percent(returns.positiveRate)} (${returns.positivePicks}/${returns.evaluablePicks}), 평균 수익 ${percent(returns.meanNetReturn)}, 중앙값 ${percent(returns.medianNetReturn)}, 최악 ${percent(returns.worstNetReturn)}, +10% 터치 후 비수익 ${returns.touchedButNotProfitablePicks}건`)
+  console.log(`참고: 8보유일 확장 시 타율 ${percent(report.informational8HoldingDays.hitRate)} (${report.informational8HoldingDays.touchedPicks}/${report.informational8HoldingDays.evaluablePicks})`)
   // 워크플로우가 이 로그를 GITHUB_STEP_SUMMARY에 그대로 적재하므로 같은 섹션이 양쪽에 노출된다.
   console.log(renderShadowForwardComparisonSection(report.shadowComparison))
 }
@@ -425,7 +478,8 @@ const readDays = (args: readonly string[]): number => {
 const isDirectRun = /measure-forward\.(?:ts|js)$/.test(process.argv[1] ?? '')
 if (isDirectRun) {
   const lookbackDays = readDays(process.argv.slice(2))
-  const asOfDate = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' })
+  const asOfDate = getLastFinalizedTradingDate()
+  const roundTripCostBps = Number(process.argv.slice(2).find((arg) => arg.startsWith('--cost-bps='))?.slice('--cost-bps='.length) ?? 0)
   const startDate = addCalendarDays(asOfDate, -(lookbackDays - 1))
 
   Promise.all([
@@ -472,6 +526,7 @@ if (isDirectRun) {
       asOfDate,
       lookbackDays,
       shadowComparison,
+      roundTripCostBps,
     })
     printForwardMeasurementReport(report)
   }).catch((error: unknown) => {

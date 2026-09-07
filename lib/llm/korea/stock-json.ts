@@ -51,6 +51,7 @@ export function validateStockData(data: unknown): data is StockDataArray {
     }
     return false;
   }
+  if (new Set(data.map((item) => item?.ticker)).size !== data.length) return false;
 
   return data.every((item): item is StockData => {
     if (!item || typeof item !== 'object') return false;
@@ -60,8 +61,8 @@ export function validateStockData(data: unknown): data is StockDataArray {
 
     // 필수 필드 및 타입 검증
     if (typeof ticker !== 'string' || !/^KOS(PI|DAQ):\d{6}$/.test(ticker)) return false;
-    if (typeof name !== 'string' || name.length === 0) return false;
-    if (typeof close_price !== 'number' || close_price <= 0) return false;
+    if (typeof name !== 'string' || name.trim().length === 0) return false;
+    if (typeof close_price !== 'number' || !Number.isInteger(close_price) || close_price <= 0) return false;
     if (typeof rationale !== 'string' || rationale.length < 50) return false;
 
     // signals 점수 검증

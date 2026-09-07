@@ -2,6 +2,8 @@ import { executeGeminiPipeline, executeMarketAssessment, executeCrashAnalysisPip
 import type { MarketAssessment } from './gemini-pipeline';
 import { PIPELINE_CONFIG } from '../_config/pipeline-config';
 import { extractAndValidateJSON, extractAndValidateCrashJSON } from './stock-json';
+import { bindCrashAssessment, buildDeterministicCrashAlert } from './crash-alert';
+import { MarketAssessmentUnavailableError } from '@/lib/market-data/market-assessment-policy';
 
 /**
  * 에러 포맷팅
@@ -60,10 +62,6 @@ function formatError(error: unknown): string {
  * ```
  */
 export async function getGeminiRecommendation(marketAssessment?: MarketAssessment): Promise<string> {
-  if (!process.env.GOOGLE_CLOUD_PROJECT) {
-    throw new Error('GOOGLE_CLOUD_PROJECT 환경 변수가 설정되지 않았습니다.');
-  }
-
   console.log(
     `[Gemini] Using Vertex AI Multi-Stage Pipeline (Project: ${process.env.GOOGLE_CLOUD_PROJECT})`
   );
@@ -71,14 +69,23 @@ export async function getGeminiRecommendation(marketAssessment?: MarketAssessmen
   try {
     // ━━━━━ Step 1: 시장 평가 (대폭락 가능성 판정) ━━━━━
     const assessment: MarketAssessment = marketAssessment ?? await executeMarketAssessment();
+    if (assessment.verdict !== 'NORMAL' && assessment.verdict !== 'CRASH_ALERT') throw new MarketAssessmentUnavailableError('유효한 시장 판정 없음');
+    if (assessment.verdict === 'NORMAL' && assessment.dataQuality?.status === 'unavailable') throw new MarketAssessmentUnavailableError('필수 데이터 부족');
 
     // ━━━━━ Step 2: 분기 — CRASH_ALERT vs NORMAL ━━━━━
     if (assessment.verdict === 'CRASH_ALERT') {
-      console.log(`\n🚨 [CRASH_ALERT] 대폭락 예상 → 폭락 분석 Pipeline 실행`);
-      return await executeCrashAnalysisWithRetry(assessment.summary);
+      console.log(`\n🚨 [CRASH_ALERT] 위험 경고 기준 충족 → 폭락 분석 Pipeline 실행`);
+      try {
+        if (!process.env.GOOGLE_CLOUD_PROJECT) return buildDeterministicCrashAlert(assessment);
+        return await executeCrashAnalysisWithRetry(assessment);
+      } catch (error) {
+        console.warn('[Crash Analysis] 상세 분석 실패; 검증된 숫자로 기본 경고 제공', error instanceof Error ? error.message : String(error));
+        return buildDeterministicCrashAlert(assessment);
+      }
     }
 
-    console.log(`\n✅ [NORMAL] 시장 정상 → 종목 추천 Pipeline 실행`);
+    if (!process.env.GOOGLE_CLOUD_PROJECT) throw new Error('GOOGLE_CLOUD_PROJECT 환경 변수가 설정되지 않았습니다.');
+    console.log(`\n✅ [NORMAL] 위험 경고 기준 미충족 → 종목 추천 Pipeline 실행`);
 
     return await executeStockPipelineWithRetry();
   } catch (error) {
@@ -90,7 +97,7 @@ export async function getGeminiRecommendation(marketAssessment?: MarketAssessmen
 /**
  * 폭락 분석 Pipeline (Outer Retry)
  */
-async function executeCrashAnalysisWithRetry(assessmentSummary: string): Promise<string> {
+async function executeCrashAnalysisWithRetry(assessment: MarketAssessment): Promise<string> {
   for (let attempt = 1; attempt <= PIPELINE_CONFIG.OUTER_MAX_RETRY; attempt++) {
     const retryDelay = Math.min(
       PIPELINE_CONFIG.OUTER_BASE_RETRY_DELAY * Math.pow(2, attempt - 1),
@@ -100,7 +107,7 @@ async function executeCrashAnalysisWithRetry(assessmentSummary: string): Promise
     console.log(`[Crash Analysis] 시도 ${attempt}/${PIPELINE_CONFIG.OUTER_MAX_RETRY}`);
 
     try {
-      const result = await executeCrashAnalysisPipeline(assessmentSummary);
+      const result = await executeCrashAnalysisPipeline(assessment.summary);
       if (!result) throw new Error('Empty response from Crash Analysis Pipeline');
 
       console.log(`\n${'━'.repeat(80)}`);
@@ -113,7 +120,7 @@ async function executeCrashAnalysisWithRetry(assessmentSummary: string): Promise
 
       if (validJSON) {
         console.log(`✅ [Crash Analysis] 유효한 JSON 응답 받음`);
-        return validJSON;
+        return JSON.stringify(bindCrashAssessment(JSON.parse(validJSON), assessment));
       }
 
       console.warn(`⚠️ [Crash Analysis] JSON 검증 실패 (${attempt}/${PIPELINE_CONFIG.OUTER_MAX_RETRY})`);

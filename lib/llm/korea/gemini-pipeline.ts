@@ -1,3 +1,4 @@
+import { MarketAssessmentUnavailableError, type MarketDataQuality } from '@/lib/market-data/market-assessment-policy';
 import { FinishReason, GoogleGenAI, type GenerateContentResponse } from '@google/genai';
 import {
     createDateContext,
@@ -11,7 +12,6 @@ import {
     getStage6FinalVerification,
     getCrashAnalysisSearchPrompt,
     getCrashAnalysisJsonPrompt,
-    getMarketAssessmentPrompt,
 } from '../../prompts/korea';
 import { PIPELINE_CONFIG, GEMINI_API_CONFIG } from '../_config/pipeline-config';
 import { extractAndValidateJSON } from './stock-json';
@@ -410,147 +410,59 @@ export async function executeGeminiPipeline(): Promise<string> {
  * 시장 평가 결과 타입
  */
 export interface MarketAssessment {
+    /** Legacy field confidence below means data coverage, NOT a crash probability. */
+    policyVersion?: string;
+    riskScore?: number;
+    severity?: 'warning' | 'critical';
+    dataQuality?: MarketDataQuality;
+    reasonCodes?: string[];
+    marketOverview?: Record<string, string>;
     verdict: 'NORMAL' | 'CRASH_ALERT';
     confidence: number;
     summary: string;
-}
-
-function parseMarketAssessmentResponse(text: string): MarketAssessment {
-    const candidate = text.trim();
-    const jsonBlock = candidate.match(/\{[\s\S]*\}/)?.[0] ?? candidate;
-    const parsed = JSON.parse(jsonBlock) as Partial<MarketAssessment>;
-
-    if (parsed.verdict !== 'NORMAL' && parsed.verdict !== 'CRASH_ALERT') {
-        throw new Error('시장 평가 응답 verdict가 유효하지 않습니다.');
-    }
-
-    if (typeof parsed.confidence !== 'number' || parsed.confidence < 0 || parsed.confidence > 100) {
-        throw new Error('시장 평가 응답 confidence가 유효하지 않습니다.');
-    }
-
-    if (typeof parsed.summary !== 'string' || parsed.summary.trim().length === 0) {
-        throw new Error('시장 평가 응답 summary가 비어 있습니다.');
-    }
-
-    return {
-        verdict: parsed.verdict,
-        confidence: Math.round(parsed.confidence),
-        summary: parsed.summary.trim(),
-    };
-}
-
-async function executeSearchMarketAssessmentFallback(snapshotError: string): Promise<MarketAssessment> {
-    if (!process.env.GOOGLE_CLOUD_PROJECT) {
-        throw new Error(`시장 스냅샷 확보 실패 후 fallback 불가: ${snapshotError}`);
-    }
-
-    console.warn(`⚠️ 시장 스냅샷 확보 실패. Gemini search fallback 진입: ${snapshotError}`);
-
-    const genAI = new GoogleGenAI({
-        vertexai: true,
-        project: process.env.GOOGLE_CLOUD_PROJECT,
-        location: PIPELINE_CONFIG.VERTEX_AI_LOCATION,
-    });
-
-    const prompt = getMarketAssessmentPrompt({
-        executionDate: new Date(),
-        snapshot: null,
-        evidence: null,
-    });
-
-    for (let attempt = 1; attempt <= PIPELINE_CONFIG.STAGE_MAX_RETRY; attempt++) {
-        try {
-            const abortController = new AbortController();
-            const response = await withTimeout(
-                genAI.models.generateContent({
-                    model: GEMINI_API_CONFIG.MODEL,
-                    contents: [{ role: 'user', parts: [{ text: prompt }] }],
-                    config: {
-                        abortSignal: abortController.signal,
-                        tools: [{ googleSearch: {} }],
-                        maxOutputTokens: GEMINI_API_CONFIG.MAX_OUTPUT_TOKENS,
-                        temperature: GEMINI_API_CONFIG.TEMPERATURE,
-                        topP: GEMINI_API_CONFIG.TOP_P,
-                        topK: GEMINI_API_CONFIG.TOP_K,
-                        // googleSearch 도구와 JSON 모드는 함께 쓸 수 없음 — 텍스트에서 JSON 추출
-                        responseMimeType: GEMINI_API_CONFIG.RESPONSE_MIME_TYPE,
-                    },
-                }),
-                PIPELINE_CONFIG.STAGE_TIMEOUT,
-                () => abortController.abort()
-            );
-
-            logGenerateContentUsage('MARKET ASSESSMENT FALLBACK', response);
-            const parsed = parseMarketAssessmentResponse(response.text || '');
-            const resolved =
-                parsed.verdict === 'CRASH_ALERT' && parsed.confidence < 70
-                    ? {
-                        verdict: 'NORMAL' as const,
-                        confidence: 69,
-                        summary: `Gemini search fallback에서 낮은 신뢰 crash 신호가 감지됐지만 confidence 기준 미달로 NORMAL 처리했습니다. ${parsed.summary}`,
-                    }
-                    : parsed;
-
-            console.log(`✅ 시장 평가 완료 (Gemini fallback): ${resolved.verdict} (confidence: ${resolved.confidence})`);
-            console.log(`   요약: ${resolved.summary}`);
-            return resolved;
-        } catch (error) {
-            const errorMsg = error instanceof Error ? error.message : String(error);
-            console.warn(`⚠️ 시장 평가 fallback 시도 ${attempt}/${PIPELINE_CONFIG.STAGE_MAX_RETRY} 실패: ${errorMsg}`);
-
-            if (attempt === PIPELINE_CONFIG.STAGE_MAX_RETRY) {
-                throw new Error(`시장 스냅샷 확보 실패 후 Gemini fallback도 실패: ${errorMsg}`);
-            }
-
-            const delay = PIPELINE_CONFIG.STAGE_INITIAL_RETRY_DELAY * Math.pow(2, attempt - 1);
-            await new Promise((resolve) => setTimeout(resolve, delay));
-        }
-    }
-
-    throw new Error(`시장 스냅샷 확보 실패 후 Gemini fallback도 실패: ${snapshotError}`);
 }
 
 function resolveMarketAssessmentFromSnapshot(
     snapshot: MarketAssessmentSnapshot,
     evidence: MarketAssessmentEvidence
 ): MarketAssessment {
-    const { sp500, dowJones, nasdaqComposite, kospi200MiniFutures, vix, usdKrw, usdJpy } = snapshot.indicators;
-    const tier1Count = evidence.tier1Signals.length;
-    const tier3Count = evidence.tier3Signals.length;
-    const supportingSummary = evidence.supportingNotes.slice(0, 3).join(' / ');
-    const formatSupplementaryIndicator = (label: string, indicator: typeof vix | typeof usdKrw | typeof usdJpy, unit: string) =>
-        indicator
-            ? `${label} ${indicator.change.toFixed(2)}${unit}${indicator.validation === 'cross_checked' ? ' [cross-checked]' : indicator.validation === 'single_source' ? ' [single-source]' : ''}`
-            : null;
-
-    const effectiveKospi = snapshot.nightSession.kospiMiniFutures ?? kospi200MiniFutures;
-    const kospiLabel = snapshot.nightSession.kospiMiniFutures ? 'KOSPI200 mini futures (night)' : 'KOSPI200 mini futures';
-
-    const numericContext = [
-        `S&P 500 ${sp500.changePct.toFixed(2)}%`,
-        dowJones ? `Dow ${dowJones.changePct.toFixed(2)}%` : 'Dow unavailable [all sources failed]',
-        `NASDAQ Composite ${nasdaqComposite.changePct.toFixed(2)}%`,
-        `${kospiLabel} ${effectiveKospi.changePct.toFixed(2)}%`,
-        evidence.kospiDataStale ? `[KOSPI 주간장 ${kospi200MiniFutures.changePct.toFixed(2)}% stale — 글로벌 반등 불일치로 제외]` : null,
-        vix ? `VIX ${vix.price.toFixed(2)} (${vix.change.toFixed(2)}pt)${vix.validation === 'cross_checked' ? ' [cross-checked]' : vix.validation === 'single_source' ? ' [single-source]' : ''}` : null,
-        formatSupplementaryIndicator('USD/KRW', usdKrw, ' KRW'),
-        formatSupplementaryIndicator('USD/JPY', usdJpy, ' JPY'),
-    ].filter(Boolean).join(', ');
-
-    const scoreContext = `[SCORE: ${evidence.crashScore}/100] [COHERENCE: ${evidence.directionCoherence}] [VIX_REGIME: ${evidence.vixRegime}]`;
-
-    if (evidence.crashScore >= 55 && evidence.confidence >= 70) {
-        return {
-            verdict: 'CRASH_ALERT',
-            confidence: evidence.confidence,
-            summary: `${scoreContext} crashScore ${evidence.crashScore} ≥ 55. ${tier1Count > 0 ? `Tier 1: ${evidence.tier1Signals.join(', ')}. ` : ''}${tier3Count > 0 ? `이벤트: ${evidence.tier3Signals.join(', ')}. ` : ''}${numericContext}.${supportingSummary ? ` 보강: ${supportingSummary}.` : ''}`,
-        };
+    if (evidence.verdict === 'UNAVAILABLE') {
+        throw new MarketAssessmentUnavailableError(evidence.dataQuality.issues.join(', '));
     }
-
+    const quote = evidence.effectiveKoreaIndicator;
+    const usable = (key: keyof MarketAssessmentSnapshot['indicators']) => evidence.dataQuality.indicators[key] === 'usable' ? snapshot.indicators[key] : null;
+    const percent = (key: keyof MarketAssessmentSnapshot['indicators']) => {
+        const q = usable(key);
+        return q ? `${q.changePct.toFixed(2)}% (관측 ${q.observedAt})` : '확인 불가';
+    };
+    const vix = usable('vix');
+    const fx = usable('usdKrw');
+    const summary = [
+        `[POLICY: ${evidence.policyVersion}] [SCORE: ${evidence.crashScore}/100; not a probability]`,
+        `[SEVERITY: ${evidence.verdict === 'CRASH_ALERT' ? evidence.severity : 'none'}]`,
+        `[DATA: ${evidence.dataQuality.status}; coverage ${evidence.dataQuality.score}/100]`,
+        `판정 근거: ${evidence.reasonCodes.join(', ')}.`,
+        ...evidence.tier1Signals, ...evidence.tier2Signals,
+        quote ? `${quote.label} ${quote.changePct.toFixed(2)}% [${quote.observedAt}]` : '한국 시세 미확보',
+        snapshot.indicators.dowJones ? '' : 'Dow unavailable [all sources failed]',
+        evidence.supportingNotes.join(' / '),
+        'NORMAL은 경고 규칙 미충족이며 안전 보장이 아닙니다. 위험 점수와 coverage는 폭락 확률이 아닙니다.',
+    ].filter(Boolean).join(' ');
     return {
-        verdict: 'NORMAL',
-        confidence: evidence.confidence,
-        summary: `${scoreContext} ${evidence.crashScore >= 55 ? `crashScore ${evidence.crashScore} ≥ 55이나 confidence ${evidence.confidence} < 70으로 NORMAL 다운그레이드. ` : `crashScore ${evidence.crashScore} < 55. `}${numericContext}.${evidence.kospiDataStale ? ` ${evidence.stalenessNote}.` : ''}${supportingSummary ? ` 보강: ${supportingSummary}.` : ''}${tier3Count > 0 ? ` 이벤트 참고: ${evidence.tier3Signals.join(', ')}.` : ''}`,
+        verdict: evidence.verdict, confidence: evidence.dataQuality.score, summary,
+        policyVersion: evidence.policyVersion, riskScore: evidence.crashScore,
+        severity: evidence.severity, dataQuality: evidence.dataQuality,
+        reasonCodes: evidence.reasonCodes,
+        marketOverview: {
+            sp500_close: percent('sp500'), nasdaq_close: percent('nasdaqComposite'), dow_close: percent('dowJones'),
+            kospi_spot: percent('kospi'), kosdaq_spot: percent('kosdaq'),
+            kospi_futures: evidence.dataQuality.indicators.nightFutures === 'usable' && snapshot.nightSession.kospiMiniFutures
+                ? `${snapshot.nightSession.kospiMiniFutures.changePct.toFixed(2)}% (야간; ${snapshot.nightSession.kospiMiniFutures.observedAt})`
+                : evidence.dataQuality.indicators.kospi200MiniFutures === 'usable' ? `${percent('kospi200MiniFutures')} (주간)` : '확인 불가',
+            kosdaq_futures: '확인 불가 (KOSDAQ 현물과 별개)',
+            vix: vix ? `${vix.price.toFixed(2)} (관측 ${vix.observedAt})` : '확인 불가',
+            usd_krw: fx ? `${fx.price.toFixed(2)}원 (${fx.changePct.toFixed(2)}%; 관측 ${fx.observedAt})` : '확인 불가',
+        },
     };
 }
 
@@ -569,7 +481,7 @@ export async function executeMarketAssessment(): Promise<MarketAssessment> {
 
     try {
         const snapshot = await getKisMarketAssessmentSnapshot();
-        const evidence = evaluateMarketAssessmentSnapshot(snapshot);
+        const evidence = evaluateMarketAssessmentSnapshot(snapshot, new Date());
         console.log('📡 시장 스냅샷 확보 완료');
         console.log(formatMarketAssessmentSnapshot(snapshot));
         if (evidence.tier1Signals.length > 0) {
@@ -585,7 +497,8 @@ export async function executeMarketAssessment(): Promise<MarketAssessment> {
         return resolved;
     } catch (error) {
         const errorMsg = error instanceof Error ? error.message : String(error);
-        return executeSearchMarketAssessmentFallback(errorMsg);
+        if (error instanceof MarketAssessmentUnavailableError) throw error;
+        throw new MarketAssessmentUnavailableError(errorMsg);
     }
 }
 

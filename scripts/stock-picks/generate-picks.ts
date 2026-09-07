@@ -13,6 +13,7 @@ import {
   type PriceBook,
 } from '@/scripts/stock-picks/data-handler'
 import { buildFeatureSeries, type StockFeatureVector } from '@/scripts/stock-picks/features'
+import { buildTechnicalContextMap, type TechnicalContext } from '@/scripts/stock-picks/technical-context'
 import {
   PRODUCTION_STRATEGY,
   PRODUCTION_VOLUME_BREAKOUT_PARAMETERS,
@@ -60,6 +61,7 @@ export interface StockPicksFunnel {
 }
 
 export interface RankedStockFeature extends StockFeatureVector {
+  readonly technicalContext?: TechnicalContext
   readonly name: string
   readonly score: number
   readonly rank: number
@@ -204,7 +206,7 @@ const directionLabel = (value: number): string => value > 0 ? '상승' : value <
 const rsiLabel = (value: number): string => value >= 60 ? '강세' : value <= 40 ? '약세' : '중립'
 const volumeLabel = (ratio: number): string => ratio >= 2 ? '급증' : ratio >= 1 ? '평균상회' : '평균하회'
 
-const hasCalculatedOutputMetrics = (feature: StockFeatureVector): boolean => [
+export const hasCalculatedOutputMetrics = (feature: StockFeatureVector): boolean => [
   feature.open,
   feature.high,
   feature.low,
@@ -327,6 +329,12 @@ export async function generatePicksWithMeta(input: {
     return feature && hasCalculatedOutputMetrics(feature) ? [feature] : []
   })
   const featuresBySymbol = new Map(features.map((feature) => [feature.symbol, feature]))
+  const technicalContexts = buildTechnicalContextMap({
+    handler,
+    symbols: masters.filter((master) => master.is_active).map((master) => master.symbol),
+    dates: historyDates,
+    includeFromDate: signalDate,
+  }).get(signalDate)
   const breakoutCandidates = rankStrategyCandidates({
     name: 'volumeBreakoutNoGapUp',
     features,
@@ -360,7 +368,7 @@ export async function generatePicksWithMeta(input: {
       : feature.volumePercentile60
     return score === undefined || score === null
       ? []
-      : [{ ...feature, name: master.name, score, rank: index + 1, tier }]
+      : [{ ...feature, name: master.name, score, rank: index + 1, tier, technicalContext: technicalContexts?.get(symbol) }]
   })
   const rankedFeaturesBySymbol = new Map(rankedFeatures.map((candidate) => (
     [candidate.symbol, candidate]
@@ -416,6 +424,7 @@ export async function generatePicksWithMeta(input: {
       averageTurnover20: candidate.averageTurnover20,
       rsi14: candidate.rsi14,
       gapFromPreviousClosePercent: candidate.gapFromPreviousClosePercent,
+      technicalContext: candidate.technicalContext,
     }
   }
   const picksByTier = Object.fromEntries(PRODUCTION_STRATEGY.fillTiers.map((tier) => [

@@ -1,9 +1,10 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import { buildPriceBook } from '@/scripts/stock-picks/data-handler'
 import {
   measureForwardPicks,
   measureShadowForwardComparison,
+  printForwardMeasurementReport,
   renderShadowForwardComparisonSection,
   type PublishedNewsletterRow,
   type ShadowForwardComparison,
@@ -92,13 +93,15 @@ describe('measureForwardPicks', () => {
     expect(report.crashNewsletterCount).toBe(1)
     expect(report.loadedPickCount).toBe(5)
     expect(report.immaturePickCount).toBe(1)
-    expect(report.overall).toEqual({
+    expect(report.overall).toMatchObject({
       totalPicks: 4,
       labeledPicks: 4,
       nullPicks: 0,
       touchedPicks: 1,
       hitRate: 0.5,
       nullRate: 0,
+      evaluablePicks: 2,
+      allPickHitRate: 0.25,
       statusCounts: {
         hit: 1,
         miss: 1,
@@ -117,6 +120,44 @@ describe('measureForwardPicks', () => {
     })
     expect(report.recent4Weeks).toHaveLength(4)
     expect(report.informational8HoldingDays.labeledPicks).toBe(0)
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {})
+    const table = vi.spyOn(console, 'table').mockImplementation(() => {})
+    try {
+      printForwardMeasurementReport(report)
+      expect(log).toHaveBeenCalledWith('제품 기준: 5보유일 타율 50.0% (1/2, 데이터 오류 제외)')
+      expect(log).toHaveBeenCalledWith('전체 성숙 추천 기준: 25.0% (1/4, 오류 포함)')
+    } finally {
+      log.mockRestore()
+      table.mockRestore()
+    }
+  })
+
+  it('separates intraday target touches from profitable exits and applies explicit costs', () => {
+    const symbols = ['TOUCH_LOSS', 'SMALL_GAIN', 'GAIN']
+    const exitCloses = [95, 100.2, 105]
+    const prices = buildPriceBook(symbols.flatMap((symbol, symbolIndex) => (
+      buildRows({ symbol, maxHigh: symbolIndex === 0 ? 110 : 109 }).map((row, dayIndex) => ({
+        ...row, close: dayIndex === DATES.length - 1 ? exitCloses[symbolIndex]! : 100,
+      }))
+    )))
+    const input = {
+      newsletters: [newsletter('2026-01-05', 'code', symbols)],
+      prices, tradingDays: new TradingDayIndex(DATES), asOfDate: '2026-01-09',
+    }
+    expect(measureForwardPicks(input).overall.returns5d.positivePicks).toBe(2)
+    const report = measureForwardPicks({ ...input, roundTripCostBps: 30 })
+    expect(report.overall.touchedPicks).toBe(1)
+    expect(report.overall.returns5d).toMatchObject({
+      roundTripCostBps: 30, evaluablePicks: 3, positivePicks: 1,
+      positiveRate: 1 / 3, touchedButNotProfitablePicks: 1,
+    })
+    expect(report.overall.returns5d.meanNetReturn).toBeCloseTo(-0.0023333333)
+    expect(report.overall.returns5d.medianNetReturn).toBeCloseTo(-0.001)
+    expect(report.overall.returns5d.worstNetReturn).toBeCloseTo(-0.053)
+    expect(report.byPicksSource.code.returns5d).toEqual(report.overall.returns5d)
+    for (const cost of [-1, NaN, Infinity]) {
+      expect(() => measureForwardPicks({ ...input, roundTripCostBps: cost })).toThrow(/roundTripCostBps/)
+    }
   })
 
   it('reports a D6 touch only in the informational eight-holding-day metric', () => {

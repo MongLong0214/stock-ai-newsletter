@@ -41,8 +41,8 @@ const makeFixture = (symbols: readonly string[] = SYMBOLS) => {
       symbol,
       trade_date: tradeDate,
       open: isSignalDay ? previousClose : close - 5,
-      high: close + 15,
-      low: close - 15,
+      high: Math.max(close, isSignalDay ? previousClose : close - 5) + 15,
+      low: Math.min(close, isSignalDay ? previousClose : close - 5) - 15,
       close,
       volume: isSignalDay ? 5_000_000 + symbolIndex * 100_000 : 1_000_000 + index * 1_000,
       source: 'kis',
@@ -83,9 +83,9 @@ describe('production stock pick generator', () => {
     })
     const picks: unknown = JSON.parse(json)
 
-    // Byte-level guard updated 2026-09-03: v1 adds deterministic volume-only fill and tier rationale.
+    // 2026-09-07: fixture 캔들의 시가를 고저 범위 안에 포함해 ATR/ADX 출력을 갱신한다.
     expect(createHash('sha256').update(json).digest('hex')).toBe(
-      '5617cdd9ec55cef091088c01ba5b7a321992b5f62e46e9792656c290024e2599',
+      '0d426820038645883d62f8093be2ad8e9debfac33df28d56e38b5bcd193b65d7',
     )
     expect(validateStockData(picks)).toBe(true)
     expect(picks).toHaveLength(3)
@@ -264,7 +264,7 @@ describe('production stock pick generator', () => {
       expect(events.find((event) => event.event === 'stock_picks_generated')).toMatchObject({
         signalDate: SIGNAL_DATE,
         strategy: 'volumeBreakoutNoGapUp+volumeOnlyFill',
-        strategyVersion: 'v1-2026-09-03',
+        strategyVersion: 'v1.1-2026-09-07',
         picksByTier: { breakout: 2, volumeOnly: 1 },
         picks: expect.arrayContaining([expect.objectContaining({ rank: 1, tier: 'breakout' })]),
       })
@@ -297,7 +297,7 @@ describe('production stock pick generator', () => {
         signalDate: SIGNAL_DATE,
         gitSha: 'fixture-sha',
         strategy: 'volumeBreakoutNoGapUp+volumeOnlyFill',
-        strategyVersion: 'v1-2026-09-03',
+        strategyVersion: 'v1.1-2026-09-07',
         parametersHash: result.meta.parametersHash,
         funnel: result.meta.funnel,
       })
@@ -307,6 +307,13 @@ describe('production stock pick generator', () => {
         score: expect.any(Number),
         rank: 1,
         tier: 'breakout',
+        technicalContext: expect.objectContaining({
+          version: 'technical-context-v1',
+          chaikinMoneyFlow21: expect.any(Number),
+          breadthUniverseSymbols: 3,
+          // fixture에 없는 시장 지수를 보합으로 꾸며내지 않는다.
+          relativeReturn20PercentagePoints: null,
+        }),
       }))
       expect(snapshot.topCandidates).toHaveLength(3)
       expect(snapshot.topCandidates.map((candidate: { tier: string }) => candidate.tier)).toEqual([

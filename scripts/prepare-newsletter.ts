@@ -10,6 +10,8 @@ import { siteConfig } from '@/lib/constants/seo/config'
 import type { StockData } from '@/lib/llm/_types/stock-data'
 import type { MarketAssessment } from '@/lib/llm/korea/gemini-pipeline'
 import { executeMarketAssessment } from '@/lib/llm/korea/gemini-pipeline'
+import { validateStockData } from '@/lib/llm/korea/stock-json'
+import { MarketAssessmentUnavailableError, MAX_MARKET_OBSERVATION_AGE_MS } from '@/lib/market-data/market-assessment-policy'
 import {
   getStockAnalysis,
   type StockAnalysisOptions,
@@ -32,7 +34,6 @@ export const MIN_DAILY_COLLECTION_SUCCESS_RATE = 0.95
 export const MIN_EXACT_DATE_COVERAGE_RATE = 0.97
 export const MIN_HISTORICAL_DATE_COVERAGE_RATE = 0.8
 export const DEFAULT_PREPARE_DEADLINE_MINUTES = 38
-const MIN_LLM_FALLBACK_REMAINING_MS = 6 * 60_000
 
 interface DailyCollectionCoverageReport {
   readonly successRate: number
@@ -77,7 +78,6 @@ interface NewsletterPipelineResult extends NewsletterAnalysisResult {
   readonly assessment: MarketAssessment
   readonly collection: DailyCollectionCoverageReport | null
   readonly generated: GeneratePicksResult | null
-  readonly fallbackReason: string | null
   readonly durationsMs: PipelineDurations
   readonly warnings: readonly string[]
   readonly budget: {
@@ -123,37 +123,49 @@ async function runNewsletterPipeline(input: {
   const getLlmAnalysis = dependencies.getLlmAnalysis ?? getStockAnalysis
   const refreshStockMaster = dependencies.refreshStockMaster ?? loadStockMaster
   const durationsMs: PipelineDurations = { assessment: 0, master: 0, collection: 0, picks: 0 }
+  let collection: DailyCollectionCoverageReport | null = null
   const warnings: string[] = []
   const budget: NewsletterPipelineResult['budget'] = {
     remainingSecAtCollection: null,
     remainingSecAtPicks: null,
   }
 
-  if (remainingMs(input.deadlineAt) <= 0) abortForDeadline('market assessment')
-  const assessmentStartedAt = Date.now()
-  const assessment = await assessMarket()
-  durationsMs.assessment = elapsedMs(assessmentStartedAt)
+  let lastAssessmentStartedAt = 0
+  const assessCurrentMarket = async (): Promise<MarketAssessment> => {
+    if (remainingMs(input.deadlineAt) <= 0) abortForDeadline('market assessment')
+    lastAssessmentStartedAt = Date.now()
+    const current = await assessMarket()
+    durationsMs.assessment += elapsedMs(lastAssessmentStartedAt)
+    if (current.verdict !== 'NORMAL' && current.verdict !== 'CRASH_ALERT') {
+      throw new MarketAssessmentUnavailableError('유효한 시장 판정 없음')
+    }
+    if (current.dataQuality?.status === 'unavailable' && current.verdict === 'NORMAL') {
+      throw new MarketAssessmentUnavailableError('필수 데이터 부족 상태의 NORMAL 판정 거부')
+    }
+    return current
+  }
+  let assessment = await assessCurrentMarket()
 
-  if (assessment.verdict === 'CRASH_ALERT') {
+  const createCrashResult = async (): Promise<NewsletterPipelineResult> => {
     console.log('\n🚨 [CRASH_ALERT] 기존 폭락 분석 Pipeline 실행')
     if (remainingMs(input.deadlineAt) <= 0) abortForDeadline('crash analysis')
     const picksStartedAt = Date.now()
     budget.remainingSecAtPicks = remainingSec(input.deadlineAt)
     const result = await getLlmAnalysis({ marketAssessment: assessment })
-    durationsMs.picks = elapsedMs(picksStartedAt)
+    durationsMs.picks += elapsedMs(picksStartedAt)
     if (remainingMs(input.deadlineAt) <= 0) abortForDeadline('crash analysis completion')
     return {
       geminiAnalysis: result.geminiAnalysis,
       picksSource: 'crash',
       assessment,
-      collection: null,
+      collection,
       generated: null,
-      fallbackReason: null,
       durationsMs,
       warnings,
       budget,
     }
   }
+  if (assessment.verdict === 'CRASH_ALERT') return createCrashResult()
 
   console.log('\n✅ [NORMAL] 일일 수집 → 코드 종목 추천 Pipeline 실행')
   const masterStartedAt = Date.now()
@@ -168,7 +180,6 @@ async function runNewsletterPipeline(input: {
     durationsMs.master = elapsedMs(masterStartedAt)
   }
 
-  let collection: DailyCollectionCoverageReport | null = null
   try {
     budget.remainingSecAtCollection = remainingSec(input.deadlineAt)
     const collectionStartedAt = Date.now()
@@ -178,16 +189,21 @@ async function runNewsletterPipeline(input: {
     })
     durationsMs.collection = elapsedMs(collectionStartedAt)
     if (remainingMs(input.deadlineAt) <= 0) abortForDeadline('collection completion')
-    const exactDateCoverageRate = collection.exactDateCoverageRate ?? 1
+    const exactDateCoverageRate = collection.exactDateCoverageRate
     if (
-      collection.successRate < MIN_DAILY_COLLECTION_SUCCESS_RATE
-      || collection.skippedForBudget > 0
+      !Number.isFinite(collection.successRate)
+      || collection.successRate < MIN_DAILY_COLLECTION_SUCCESS_RATE
+      || collection.successRate > 1
+      || collection.skippedForBudget !== 0
+      || exactDateCoverageRate === undefined
+      || !Number.isFinite(exactDateCoverageRate)
       || exactDateCoverageRate < MIN_EXACT_DATE_COVERAGE_RATE
+      || exactDateCoverageRate > 1
     ) {
       throw new Error(
         `일일 수집 커버리지 게이트 실패: successRate=${collection.successRate.toFixed(4)}`
         + ` (minimum=${MIN_DAILY_COLLECTION_SUCCESS_RATE}), skippedForBudget=${collection.skippedForBudget}`
-        + `, exactDateCoverageRate=${exactDateCoverageRate.toFixed(4)}`
+        + `, exactDateCoverageRate=${exactDateCoverageRate?.toFixed(4) ?? 'missing'}`
         + ` (minimum=${MIN_EXACT_DATE_COVERAGE_RATE})`,
       )
     }
@@ -224,6 +240,19 @@ async function runNewsletterPipeline(input: {
       ? null
       : codeResult
     const geminiAnalysis = typeof codeResult === 'string' ? codeResult : codeResult.json
+    const picks: unknown = JSON.parse(geminiAnalysis)
+    if (!validateStockData(picks)) throw new Error('Prepare 코드 픽 출력 계약 실패: 유효한 서로 다른 3종목 필요')
+    if (generated && generated.meta.signalDate !== input.signalDate) {
+      throw new Error(`Prepare 신호일 불일치: ${generated.meta.signalDate} != ${input.signalDate}`)
+    }
+    // A full-universe collection may take 20-30 minutes. Do not publish stocks
+    // against a NORMAL decision older than the quote policy's freshness window.
+    if (elapsedMs(lastAssessmentStartedAt) >= MAX_MARKET_OBSERVATION_AGE_MS) {
+      warnings.push('종목 수집 중 시장 판정 유효기간 경과 — 저장 전 시장 재평가')
+      assessment = await assessCurrentMarket()
+      if (assessment.verdict === 'CRASH_ALERT') return createCrashResult()
+    }
+    if (remainingMs(input.deadlineAt) <= 0) abortForDeadline('final market assessment completion')
     console.log('PICKS_SOURCE=code')
     return {
       geminiAnalysis,
@@ -231,40 +260,17 @@ async function runNewsletterPipeline(input: {
       assessment,
       collection,
       generated,
-      fallbackReason: null,
       durationsMs,
       warnings,
       budget,
     }
   } catch (error) {
     if (isPrepareDeadlineError(error)) throw error
-    const reason = error instanceof Error ? error.message : String(error)
     console.error(`\n${'━'.repeat(80)}`)
-    console.error('🚨 코드 종목 추천 Pipeline 실패 — 기존 LLM Pipeline fallback')
+    console.error('🚨 코드 종목 추천 Pipeline 실패 — 검증되지 않은 LLM 종목으로 대체하지 않고 중단')
     console.error(error instanceof Error ? error.stack ?? error.message : String(error))
     console.error(`${'━'.repeat(80)}\n`)
-    warnings.push(`LLM fallback: ${reason}`)
-    const fallbackRemainingMs = remainingMs(input.deadlineAt)
-    budget.remainingSecAtPicks = Math.max(0, Math.floor(fallbackRemainingMs / 1_000))
-    if (fallbackRemainingMs < MIN_LLM_FALLBACK_REMAINING_MS) {
-      abortForDeadline('LLM fallback')
-    }
-    console.log('PICKS_SOURCE=llm_fallback')
-    const picksStartedAt = Date.now()
-    const result = await getLlmAnalysis({ marketAssessment: assessment })
-    durationsMs.picks += elapsedMs(picksStartedAt)
-    if (remainingMs(input.deadlineAt) <= 0) abortForDeadline('LLM fallback completion')
-    return {
-      geminiAnalysis: result.geminiAnalysis,
-      picksSource: 'llm_fallback',
-      assessment,
-      collection,
-      generated: null,
-      fallbackReason: reason,
-      durationsMs,
-      warnings,
-      budget,
-    }
+    throw error
   }
 }
 
@@ -386,6 +392,14 @@ interface PrepareRunSummary {
   readonly picksSource: PicksSource
   readonly verdict: MarketAssessment['verdict']
   readonly confidence: number
+  readonly marketRisk: {
+    readonly policyVersion: string | null
+    readonly riskScore: number | null
+    readonly dataQuality: MarketAssessment['dataQuality'] | null
+    readonly reasonCodes: readonly string[]
+    readonly marketOverview: Readonly<Record<string, string>> | null
+    readonly confidenceMeaning: 'data_coverage_not_probability'
+  }
   readonly tokenWarmup: 'memory' | 'storage' | 'issued' | 'failed'
   readonly collection: {
     readonly attemptedCalls: number
@@ -512,20 +526,6 @@ export async function prepareNewsletter(options: PrepareNewsletterOptions = {}):
   warnings.push(...pipeline.warnings)
   console.log('✅ 뉴스레터 분석 완료\n')
 
-  if (pipeline.picksSource === 'llm_fallback') {
-    const collection = pipeline.collection
-    await sendNewsletterAlertEmail({
-      subject: `[${siteConfig.serviceName}] ${targetDate} 코드 픽 실패 — LLM fallback으로 발행 예정`,
-      lines: [
-        `실패 원인: ${pipeline.fallbackReason ?? 'unknown'}`,
-        `attemptedCalls=${collection?.attemptedCalls ?? 0}`,
-        `successCount=${collection?.successCount ?? 0}`,
-        `failureCount=${collection?.failureCount ?? 0}`,
-        `exactDateCoverageRate=${collection?.exactDateCoverageRate ?? 0}`,
-        `skippedForBudget=${collection?.skippedForBudget ?? 0}`,
-      ],
-    })
-  }
   if (remainingMs(deadlineAt) <= 0) abortForDeadline('summary and database write')
 
   const rawPicks = pipeline.picksSource === 'code' ? parsePicks(pipeline.geminiAnalysis) : []
@@ -540,6 +540,14 @@ export async function prepareNewsletter(options: PrepareNewsletterOptions = {}):
     picksSource: pipeline.picksSource,
     verdict: pipeline.assessment.verdict,
     confidence: pipeline.assessment.confidence,
+    marketRisk: {
+      policyVersion: pipeline.assessment.policyVersion ?? null,
+      riskScore: pipeline.assessment.riskScore ?? null,
+      dataQuality: pipeline.assessment.dataQuality ?? null,
+      reasonCodes: pipeline.assessment.reasonCodes ?? [],
+      marketOverview: pipeline.assessment.marketOverview ?? null,
+      confidenceMeaning: 'data_coverage_not_probability',
+    },
     tokenWarmup,
     collection: {
       attemptedCalls: pipeline.collection?.attemptedCalls ?? 0,
@@ -577,11 +585,32 @@ export async function prepareNewsletter(options: PrepareNewsletterOptions = {}):
   if (options.dryRun) {
     console.log(`\nDRY_RUN_RESULT picks_source=${pipeline.picksSource} analysis_chars=${pipeline.geminiAnalysis.length}`)
     console.log(pipeline.geminiAnalysis.slice(0, 2_000))
-    console.log('\n✅ dry-run — DB 저장 생략')
+    console.log('\n✅ dry-run — 뉴스레터·픽 스냅샷 저장 생략 (마스터·일봉 갱신은 실행됨)')
     await emitPrepareSummary(summary)
     return
   }
 
+  if (!client) throw new Error('newsletter client 초기화 실패')
+  if (remainingMs(deadlineAt) <= 0) abortForDeadline('database write')
+
+  const writeResult = await writeNewsletterWithCas({
+    client,
+    targetDate,
+    existing: existingNewsletter,
+    payload: {
+      newsletter_date: targetDate,
+      gemini_analysis: pipeline.geminiAnalysis,
+      picks_source: pipeline.picksSource,
+      created_at: new Date().toISOString(),
+    },
+  })
+  if (writeResult === 'already_sent') {
+    await emitPrepareSummary(summary)
+    return
+  }
+
+  // Persist evidence only for a newsletter this run actually wrote. A competing
+  // sender must not leave the sent content paired with a different pick snapshot.
   if (pipeline.picksSource === 'code' && pipeline.generated) {
     try {
       await persistStockPickSnapshot({
@@ -597,29 +626,14 @@ export async function prepareNewsletter(options: PrepareNewsletterOptions = {}):
         top_candidates: pipeline.generated.meta.rankedCandidates.slice(0, 20),
       })
     } catch (error) {
-      const warning = `stock pick snapshot 저장 실패 — 뉴스레터 저장은 계속 진행: ${
+      const warning = `stock pick snapshot 저장 실패 — 저장된 뉴스레터는 유지: ${
         error instanceof Error ? error.message : String(error)
       }`
       warnings.push(warning)
       console.warn(`⚠️ ${warning}`)
     }
   }
-  if (!client) throw new Error('newsletter client 초기화 실패')
-  if (remainingMs(deadlineAt) <= 0) abortForDeadline('database write')
-
-  const writeResult = await writeNewsletterWithCas({
-    client,
-    targetDate,
-    existing: existingNewsletter,
-    payload: {
-      newsletter_date: targetDate,
-      gemini_analysis: pipeline.geminiAnalysis,
-      picks_source: pipeline.picksSource,
-      created_at: new Date().toISOString(),
-    },
-  })
   await emitPrepareSummary(summary)
-  if (writeResult === 'already_sent') return
 
   console.log(`\n${'━'.repeat(80)}`)
   console.log('✨ 뉴스레터 준비 완료!')
@@ -659,7 +673,7 @@ export async function runPrepareNewsletterCli(args: readonly string[]): Promise<
       ? options.targetDate
       : getKSTDateString()
     console.error('❌ 뉴스레터 준비 실패:', error)
-    await sendNewsletterAlertEmail({
+    if (!options.dryRun) await sendNewsletterAlertEmail({
       subject: `[${siteConfig.serviceName}] ${date} prepare 실패 — 수동 조치 필요`,
       lines: [error instanceof Error ? error.stack ?? error.message : String(error)],
     })

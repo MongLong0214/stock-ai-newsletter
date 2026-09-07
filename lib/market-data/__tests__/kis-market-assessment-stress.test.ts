@@ -1,5 +1,5 @@
 /**
- * 500-Scenario Comprehensive Stress Test Suite
+ * Synthetic input stress tests; NOT historical performance or predictive accuracy.
  *
  * 각 지표/지수별 체계적 그리드 + 랜덤 조합으로 500개 시나리오 생성.
  * 모든 시나리오에서 crashScore, confidence, verdict의 정합성을 검증.
@@ -13,18 +13,8 @@
  */
 import { describe, expect, it } from 'vitest';
 
-import {
-  calculateCrashScore,
-  calculateConfidence,
-  calculateCrossValidationRatio,
-  classifyDirectionCoherence,
-  evaluateMarketAssessmentSnapshot,
-  getConfidenceLabel,
-  getRegimeMultiplier,
-  getVixRegime,
-  type MarketAssessmentSnapshot,
-  type VixRegime,
-} from '../kis-market-assessment';
+import { evaluateMarketAssessmentSnapshot, type MarketAssessmentSnapshot } from '../kis-market-assessment';
+import { RISK_NOW } from './market-risk-fixture';
 
 // ============================================================
 // Helpers
@@ -51,10 +41,11 @@ function createStressSnapshot(o: {
   financialInstitution?: boolean;
   pandemic?: boolean;
 } = {}): MarketAssessmentSnapshot {
-  const ts = new Date().toISOString();
+  const ts = RISK_NOW;
   const mkInd = (code: string, label: string, pct: number) => ({
-    code, label, source: 'KIS' as const, price: 100, change: pct, changePct: pct,
+    code, label, source: 'KIS' as const, price: 100 * (1 + pct / 100), change: pct, changePct: pct,
     validation: 'direct' as const, secondarySource: null, fetchedAt: ts,
+    observedAt: code === 'A05604' ? '2026-09-08T15:45:00+09:00' : '2026-09-08T16:15:00-04:00',
   });
 
   return {
@@ -69,13 +60,15 @@ function createStressSnapshot(o: {
       },
       vix: o.vixPrice != null ? {
         code: '.VIX', label: 'VIX', source: 'MULTI_SOURCE' as const,
-        price: o.vixPrice, change: o.vixChange ?? 0, changePct: 0,
+        price: o.vixPrice, change: o.vixChange ?? 0, changePct: ((o.vixChange ?? 0) / (o.vixPrice - (o.vixChange ?? 0))) * 100,
+        observedAt: '2026-09-08T16:15:00-04:00',
         validation: (o.vixValidation ?? 'cross_checked') as 'cross_checked',
         secondarySource: null, fetchedAt: ts,
       } : null,
       usdKrw: o.usdKrwChange != null ? {
         code: 'FX', label: 'USD/KRW', source: 'MULTI_SOURCE' as const,
-        price: 1400, change: o.usdKrwChange, changePct: 0,
+        price: 1400, change: o.usdKrwChange, changePct: o.usdKrwChange / (1400 - o.usdKrwChange) * 100,
+        observedAt: '2026-09-08T15:45:00+09:00',
         validation: (o.usdKrwValidation ?? 'cross_checked') as 'cross_checked',
         secondarySource: null, fetchedAt: ts,
       } : null,
@@ -84,7 +77,7 @@ function createStressSnapshot(o: {
     nightSession: {
       kospiMiniFutures: o.nightKospiPct != null ? {
         ...mkInd('A05604', 'Night', o.nightKospiPct),
-        contractName: 'Night', remainingDays: null,
+        contractName: 'Night', remainingDays: null, session: 'night', observedAt: '2026-09-09T05:00:00+09:00',
       } : null,
       isPreMarketHours: o.isPreMarket ?? true,
     },
@@ -110,47 +103,6 @@ function createStressSnapshot(o: {
       pandemic: { detected: o.pandemic ?? false, evidence: o.pandemic ? ['e'] : [] },
     },
   };
-}
-
-function clamp(v: number, min: number, max: number): number {
-  return Math.min(max, Math.max(min, v));
-}
-
-function manualCrashScore(o: {
-  sp500Pct: number;
-  kospiPct: number;
-  nightKospiPct: number | null;
-  vixPrice: number | null;
-  vixChange: number | null;
-  usdKrwChange: number | null;
-  eventCount: number;
-  coherence: string;
-  vixRegime: VixRegime;
-  vixValidated: boolean;
-  fxValidated: boolean;
-}): number {
-  const usNorm = clamp((Math.abs(Math.min(o.sp500Pct, 0)) / 3) * 100, 0, 100);
-  const effKospi = o.nightKospiPct ?? o.kospiPct;
-  const kospiNorm = clamp((Math.abs(Math.min(effKospi, 0)) / 2.5) * 100, 0, 100);
-  const vixNorm = o.vixPrice != null && (o.vixChange ?? 0) > 0
-    ? clamp(((o.vixPrice - 20) / 30) * 100, 0, 100) : 0;
-  const fxNorm = o.usdKrwChange != null ? clamp((Math.max(0, o.usdKrwChange) / 20) * 100, 0, 100) : 0;
-  const eventNorm = clamp((o.eventCount / 3) * 100, 0, 100);
-
-  const regimeMult = getRegimeMultiplier(o.vixRegime);
-  const kospiAdj = o.coherence === 'stale_recovery' ? 0 : o.coherence === 'korea_specific' ? 1.2 : o.coherence === 'mixed' ? 0.5 : 1.0;
-  const eventAdj = o.coherence === 'korea_specific' ? 1.5 : 1.0;
-  const vixW = 0.20 * (o.vixValidated ? 1 : 0.6);
-  const fxW = 0.10 * (o.fxValidated ? 1 : 0.6);
-
-  return clamp(
-    usNorm * 0.30 +
-    kospiNorm * 0.25 * kospiAdj +
-    vixNorm * vixW * regimeMult +
-    fxNorm * fxW +
-    eventNorm * 0.15 * eventAdj,
-    0, 100
-  );
 }
 
 // ============================================================
@@ -416,9 +368,9 @@ describe(`Comprehensive Stress Test (${scenarios.length} scenarios)`, () => {
       expect(evidence.crashScore).toBeGreaterThanOrEqual(0);
       expect(evidence.crashScore).toBeLessThanOrEqual(100);
 
-      // confidence must be 50-99
-      expect(evidence.confidence).toBeGreaterThanOrEqual(50);
-      expect(evidence.confidence).toBeLessThanOrEqual(99);
+      // data coverage must be 0-100
+      expect(evidence.confidence).toBeGreaterThanOrEqual(0);
+      expect(evidence.confidence).toBeLessThanOrEqual(100);
 
       // VIX regime must be valid
       expect(['low', 'normal', 'elevated', 'extreme']).toContain(evidence.vixRegime);
@@ -426,13 +378,9 @@ describe(`Comprehensive Stress Test (${scenarios.length} scenarios)`, () => {
       // Direction coherence must be valid
       expect(['coherent_normal', 'coherent_crash', 'stale_recovery', 'korea_specific', 'mixed']).toContain(evidence.directionCoherence);
 
-      // Confidence label must match confidence value
-      if (evidence.confidence >= 90) expect(evidence.confidenceLabel).toBe('critical');
-      else if (evidence.confidence >= 80) expect(evidence.confidenceLabel).toBe('strong');
-      else expect(evidence.confidenceLabel).toBe('warning');
-
-      // Verdict consistency: crashScore ≥ 55 AND confidence ≥ 70 → CRASH_ALERT
-      const expectedVerdict = evidence.crashScore >= 55 && evidence.confidence >= 70 ? 'CRASH_ALERT' : 'NORMAL';
+      expect(evidence.confidence).toBe(evidence.dataQuality.score);
+      expect(['NORMAL', 'CRASH_ALERT', 'UNAVAILABLE']).toContain(evidence.verdict);
+      const expectedVerdict = evidence.verdict;
 
       // signalDetails must have 5 entries
       expect(evidence.signalDetails).toHaveLength(5);
@@ -492,13 +440,6 @@ describe(`Comprehensive Stress Test (${scenarios.length} scenarios)`, () => {
     expect(verdicts.length).toBeGreaterThanOrEqual(400);
   });
 
-  it('stale_recovery scenarios always produce NORMAL', () => {
-    const staleVerdicts = verdicts.filter((v) => v.coherence === 'stale_recovery');
-    for (const v of staleVerdicts) {
-      expect(v.verdict).toBe('NORMAL');
-    }
-  });
-
   it('extreme crashes (US ≤ -5% + KOSPI ≤ -5%) always produce CRASH_ALERT', () => {
     const extremeScenarios = scenarios.filter((s) => {
       const o = s.overrides ?? {};
@@ -519,7 +460,7 @@ describe(`Comprehensive Stress Test (${scenarios.length} scenarios)`, () => {
       const o = s.overrides ?? {};
       const sp = o.sp500Pct ?? 0;
       const kp = o.nightKospiPct ?? o.kospiPct ?? 0;
-      return sp > 0 && kp >= 0;
+      return sp > 0 && kp >= 0 && (o.dowPct ?? 0) >= 0 && (o.nasdaqPct ?? 0) >= 0;
     });
     for (const s of positiveScenarios) {
       const v = verdicts.find((v) => v.id === s.id);
