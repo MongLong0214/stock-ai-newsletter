@@ -2,6 +2,59 @@
   "newsletters": [
     {
       "type": "stock",
+      "date": "2026-09-08",
+      "stocks": [
+        {
+          "ticker": "KOSPI:053690",
+          "name": "한미글로벌",
+          "close_price": 24200,
+          "rationale": "기준일 종가 24,200원|당일 등락 6.1% 상승|RSI 67.1 강세|거래량비율 184% 평균상회|60일 거래량 백분위 95.8점|60일 신고가 5.2% 돌파|20일선 괴리 21.1%|20일 추세 기울기 1.32%/일|20일 추세 적합도 R2 42.1점|60일 추세 적합도 R2 10.0점|MACD 히스토그램 409.78|ATR14 7.6%|ADX14 23.9점|OBV20 기울기 323517|252거래일 가격위치 52.7%|연속상승 3일|골든크로스 감지 1회·경과 7일|20일 평균거래대금 93.2억원|volumeBreakout 전략점수 75.0점|선정 경로 거래량 돌파",
+          "signals": {
+            "trend_score": 86,
+            "momentum_score": 76,
+            "volume_score": 86,
+            "volatility_score": 8,
+            "pattern_score": 72,
+            "sentiment_score": 78,
+            "overall_score": 73
+          }
+        },
+        {
+          "ticker": "KOSDAQ:012210",
+          "name": "삼미금속",
+          "close_price": 10200,
+          "rationale": "기준일 종가 10,200원|당일 등락 17.8% 상승|RSI 71.5 강세|거래량비율 1278% 급증|60일 거래량 백분위 99.2점|60일 신고가 0.7% 돌파|20일선 괴리 25.3%|20일 추세 기울기 1.13%/일|20일 추세 적합도 R2 58.2점|60일 추세 적합도 R2 0.0점|MACD 히스토그램 128.48|ATR14 10.1%|ADX14 34.9점|OBV20 기울기 544734|252거래일 가격위치 42.3%|연속상승 3일|골든크로스 감지 1회·경과 5일|20일 평균거래대금 128.4억원|volumeBreakout 전략점수 99.2점|선정 경로 거래량 상위 보충",
+          "signals": {
+            "trend_score": 90,
+            "momentum_score": 74,
+            "volume_score": 84,
+            "volatility_score": 0,
+            "pattern_score": 61,
+            "sentiment_score": 74,
+            "overall_score": 70
+          }
+        },
+        {
+          "ticker": "KOSDAQ:041930",
+          "name": "SY동아",
+          "close_price": 5170,
+          "rationale": "기준일 종가 5,170원|당일 등락 3.4% 상승|RSI 66.8 강세|거래량비율 1268% 급증|60일 거래량 백분위 99.2점|60일 고점까지 7.2%|20일선 괴리 6.1%|20일 추세 기울기 0.22%/일|20일 추세 적합도 R2 33.8점|60일 추세 적합도 R2 0.7점|MACD 히스토그램 29.93|ATR14 6.2%|ADX14 24.0점|OBV20 기울기 -41651|252거래일 가격위치 29.0%|연속상승 1일|골든크로스 감지 1회·경과 4일|20일 평균거래대금 23.7억원|volumeBreakout 전략점수 99.2점|선정 경로 거래량 상위 보충",
+          "signals": {
+            "trend_score": 65,
+            "momentum_score": 64,
+            "volume_score": 83,
+            "volatility_score": 36,
+            "pattern_score": 45,
+            "sentiment_score": 50,
+            "overall_score": 61
+          }
+        }
+      ],
+      "sentAt": "2026-09-07T22:30:53.974+00:00",
+      "subscriberCount": 317
+    },
+    {
+      "type": "stock",
       "date": "2026-09-07",
       "stocks": [
         {
@@ -11679,5 +11732,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-09-06T22:31:31.447Z"
+  "lastUpdated": "2026-09-07T22:31:35.630Z"
 }
