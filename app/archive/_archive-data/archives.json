@@ -2,6 +2,59 @@
   "newsletters": [
     {
       "type": "stock",
+      "date": "2026-09-09",
+      "stocks": [
+        {
+          "ticker": "KOSDAQ:053260",
+          "name": "금강철강",
+          "close_price": 6660,
+          "rationale": "기준일 종가 6,660원|당일 등락 4.2% 상승|RSI 67.5 강세|거래량비율 469% 급증|60일 거래량 백분위 99.2점|60일 신고가 3.9% 돌파|20일선 괴리 16.6%|20일 추세 기울기 0.28%/일|20일 추세 적합도 R2 4.8점|60일 추세 적합도 R2 15.0점|MACD 히스토그램 104.15|ATR14 9.9%|ADX14 38.1점|OBV20 기울기 589119|252거래일 가격위치 75.1%|연속상승 2일|골든크로스 감지 1회·경과 13일|20일 평균거래대금 104.8억원|volumeBreakout 전략점수 86.2점|선정 경로 거래량 돌파",
+          "signals": {
+            "trend_score": 76,
+            "momentum_score": 73,
+            "volume_score": 86,
+            "volatility_score": 0,
+            "pattern_score": 67,
+            "sentiment_score": 70,
+            "overall_score": 68
+          }
+        },
+        {
+          "ticker": "KOSPI:015230",
+          "name": "대창단조",
+          "close_price": 6690,
+          "rationale": "기준일 종가 6,690원|당일 등락 3.7% 상승|RSI 67.0 강세|거래량비율 109% 평균상회|60일 거래량 백분위 90.8점|60일 신고가 1.8% 돌파|20일선 괴리 6.9%|20일 추세 기울기 0.44%/일|20일 추세 적합도 R2 54.9점|60일 추세 적합도 R2 22.6점|MACD 히스토그램 36.57|ATR14 3.6%|ADX14 25.8점|OBV20 기울기 41270|252거래일 가격위치 66.8%|연속상승 4일|골든크로스 감지 1회·경과 10일|20일 평균거래대금 6.3억원|volumeBreakout 전략점수 19.6점|선정 경로 거래량 돌파",
+          "signals": {
+            "trend_score": 74,
+            "momentum_score": 72,
+            "volume_score": 77,
+            "volatility_score": 89,
+            "pattern_score": 64,
+            "sentiment_score": 76,
+            "overall_score": 74
+          }
+        },
+        {
+          "ticker": "KOSDAQ:019990",
+          "name": "에너토크",
+          "close_price": 5500,
+          "rationale": "기준일 종가 5,500원|당일 등락 9.6% 상승|RSI 62.9 강세|거래량비율 1244% 급증|60일 거래량 백분위 99.2점|60일 고점까지 15.9%|20일선 괴리 9.6%|20일 추세 기울기 -0.01%/일|20일 추세 적합도 R2 0.0점|60일 추세 적합도 R2 20.9점|MACD 히스토그램 29.74|ATR14 6.7%|ADX14 14.6점|OBV20 기울기 35507|252거래일 가격위치 21.7%|연속상승 3일|골든크로스 감지 0회·경과 -1일|20일 평균거래대금 5.3억원|volumeBreakout 전략점수 99.2점|선정 경로 거래량 상위 보충",
+          "signals": {
+            "trend_score": 56,
+            "momentum_score": 68,
+            "volume_score": 84,
+            "volatility_score": 26,
+            "pattern_score": 36,
+            "sentiment_score": 51,
+            "overall_score": 57
+          }
+        }
+      ],
+      "sentAt": "2026-09-08T22:30:57.108+00:00",
+      "subscriberCount": 317
+    },
+    {
+      "type": "stock",
       "date": "2026-09-08",
       "stocks": [
         {
@@ -11732,5 +11785,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-09-07T22:31:35.630Z"
+  "lastUpdated": "2026-09-08T22:31:36.228Z"
 }
