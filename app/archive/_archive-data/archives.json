@@ -2,6 +2,59 @@
   "newsletters": [
     {
       "type": "stock",
+      "date": "2026-09-10",
+      "stocks": [
+        {
+          "ticker": "KOSDAQ:187660",
+          "name": "페니트리움바이오",
+          "close_price": 7420,
+          "rationale": "기준일 종가 7,420원|당일 등락 32.0% 상승|RSI 72.1 강세|거래량비율 247% 급증|60일 거래량 백분위 99.2점|60일 신고가 12.7% 돌파|20일선 괴리 60.1%|20일 추세 기울기 2.56%/일|20일 추세 적합도 R2 48.3점|60일 추세 적합도 R2 8.9점|MACD 히스토그램 341.39|ATR14 10.1%|ADX14 22.0점|OBV20 기울기 996273|252거래일 가격위치 32.4%|연속상승 1일|골든크로스 감지 0회·경과 -1일|20일 평균거래대금 92.1억원|volumeBreakout 전략점수 95.0점|선정 경로 거래량 돌파",
+          "signals": {
+            "trend_score": 87,
+            "momentum_score": 74,
+            "volume_score": 86,
+            "volatility_score": 0,
+            "pattern_score": 63,
+            "sentiment_score": 64,
+            "overall_score": 69
+          }
+        },
+        {
+          "ticker": "KOSDAQ:302430",
+          "name": "이노메트리",
+          "close_price": 8810,
+          "rationale": "기준일 종가 8,810원|당일 등락 14.6% 상승|RSI 67.9 강세|거래량비율 584% 급증|60일 거래량 백분위 99.2점|60일 신고가 7.4% 돌파|20일선 괴리 29.3%|20일 추세 기울기 2.38%/일|20일 추세 적합도 R2 67.3점|60일 추세 적합도 R2 1.7점|MACD 히스토그램 122.41|ATR14 10.7%|ADX14 38.8점|OBV20 기울기 441462|252거래일 가격위치 70.8%|연속상승 2일|골든크로스 감지 1회·경과 5일|20일 평균거래대금 68.5억원|volumeBreakout 전략점수 95.0점|선정 경로 거래량 돌파",
+          "signals": {
+            "trend_score": 92,
+            "momentum_score": 72,
+            "volume_score": 86,
+            "volatility_score": 0,
+            "pattern_score": 79,
+            "sentiment_score": 80,
+            "overall_score": 75
+          }
+        },
+        {
+          "ticker": "KOSPI:096770",
+          "name": "SK이노베이션",
+          "close_price": 153500,
+          "rationale": "기준일 종가 153,500원|당일 등락 11.7% 상승|RSI 70.1 강세|거래량비율 166% 평균상회|60일 거래량 백분위 95.8점|60일 신고가 11.0% 돌파|20일선 괴리 19.5%|20일 추세 기울기 0.67%/일|20일 추세 적합도 R2 27.5점|60일 추세 적합도 R2 67.4점|MACD 히스토그램 2185.55|ATR14 5.9%|ADX14 22.8점|OBV20 기울기 118090|252거래일 가격위치 100.0%|연속상승 2일|골든크로스 감지 1회·경과 26일|20일 평균거래대금 1471.7억원|volumeBreakout 전략점수 75.0점|선정 경로 거래량 돌파",
+          "signals": {
+            "trend_score": 80,
+            "momentum_score": 73,
+            "volume_score": 73,
+            "volatility_score": 43,
+            "pattern_score": 68,
+            "sentiment_score": 84,
+            "overall_score": 72
+          }
+        }
+      ],
+      "sentAt": "2026-09-09T22:30:56.93+00:00",
+      "subscriberCount": 318
+    },
+    {
+      "type": "stock",
       "date": "2026-09-09",
       "stocks": [
         {
@@ -11785,5 +11838,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-09-08T22:31:36.228Z"
+  "lastUpdated": "2026-09-09T22:31:37.727Z"
 }
