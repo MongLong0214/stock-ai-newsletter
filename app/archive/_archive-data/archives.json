@@ -2,6 +2,59 @@
   "newsletters": [
     {
       "type": "stock",
+      "date": "2026-09-11",
+      "stocks": [
+        {
+          "ticker": "KOSDAQ:327260",
+          "name": "RF머트리얼즈",
+          "close_price": 43400,
+          "rationale": "기준일 종가 43,400원|당일 등락 3.2% 상승|RSI 66.1 강세|거래량비율 231% 급증|60일 거래량 백분위 97.5점|60일 신고가 2.6% 돌파|20일선 괴리 21.3%|20일 추세 기울기 0.48%/일|20일 추세 적합도 R2 14.7점|60일 추세 적합도 R2 32.8점|MACD 히스토그램 412.65|ATR14 10.3%|ADX14 25.1점|OBV20 기울기 286084|252거래일 가격위치 71.4%|연속상승 3일|골든크로스 감지 1회·경과 14일|20일 평균거래대금 281.5억원|volumeBreakout 전략점수 65.8점|선정 경로 거래량 돌파",
+          "signals": {
+            "trend_score": 67,
+            "momentum_score": 71,
+            "volume_score": 83,
+            "volatility_score": 0,
+            "pattern_score": 62,
+            "sentiment_score": 75,
+            "overall_score": 65
+          }
+        },
+        {
+          "ticker": "KOSDAQ:156100",
+          "name": "엘앤케이바이오",
+          "close_price": 5590,
+          "rationale": "기준일 종가 5,590원|당일 등락 9.4% 상승|RSI 73.1 강세|거래량비율 171% 평균상회|60일 거래량 백분위 90.8점|60일 신고가 4.5% 돌파|20일선 괴리 29.4%|20일 추세 기울기 1.06%/일|20일 추세 적합도 R2 36.5점|60일 추세 적합도 R2 5.7점|MACD 히스토그램 165.61|ATR14 7.4%|ADX14 35.4점|OBV20 기울기 63702|252거래일 가격위치 21.3%|연속상승 2일|골든크로스 감지 1회·경과 0일|20일 평균거래대금 8.0억원|volumeBreakout 전략점수 40.9점|선정 경로 거래량 돌파",
+          "signals": {
+            "trend_score": 84,
+            "momentum_score": 77,
+            "volume_score": 77,
+            "volatility_score": 13,
+            "pattern_score": 72,
+            "sentiment_score": 64,
+            "overall_score": 70
+          }
+        },
+        {
+          "ticker": "KOSPI:014280",
+          "name": "금강공업",
+          "close_price": 4760,
+          "rationale": "기준일 종가 4,760원|당일 등락 1.5% 상승|RSI 71.3 강세|거래량비율 201% 급증|60일 거래량 백분위 95.8점|60일 신고가 0.3% 돌파|20일선 괴리 8.3%|20일 추세 기울기 0.08%/일|20일 추세 적합도 R2 2.3점|60일 추세 적합도 R2 28.4점|MACD 히스토그램 29.37|ATR14 5.5%|ADX14 28.8점|OBV20 기울기 118584|252거래일 가격위치 30.2%|연속상승 4일|골든크로스 감지 1회·경과 13일|20일 평균거래대금 14.2억원|volumeBreakout 전략점수 37.5점|선정 경로 거래량 돌파",
+          "signals": {
+            "trend_score": 62,
+            "momentum_score": 73,
+            "volume_score": 80,
+            "volatility_score": 51,
+            "pattern_score": 47,
+            "sentiment_score": 58,
+            "overall_score": 64
+          }
+        }
+      ],
+      "sentAt": "2026-09-10T22:30:55.179+00:00",
+      "subscriberCount": 318
+    },
+    {
+      "type": "stock",
       "date": "2026-09-10",
       "stocks": [
         {
@@ -11838,5 +11891,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-09-09T22:31:37.727Z"
+  "lastUpdated": "2026-09-10T22:31:33.608Z"
 }
