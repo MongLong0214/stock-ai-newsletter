@@ -172,6 +172,14 @@ async function scrapeNaverFinanceTheme(
       page += 1;
     }
 
+    // API가 "이 테마엔 종목이 0개"라고 **명시적으로** 답한 경우는 파싱 실패가 아니다.
+    // 게이트에 넘기면 invalidExpectedRows+zeroRows로 매 실행 실패로 집계된다.
+    // 전면 장애는 여전히 잡힌다 — 모든 테마가 비면 수집 0건이라 붕괴 판정이 걸린다.
+    if (expectedRows === 0 && stocks.length === 0) {
+      console.log(`   ⊘ 빈 테마 (네이버 totalCount=0)`);
+      return [];
+    }
+
     const metrics = validateNaverFinanceThemeStocks(stocks, { expectedRows });
     console.log(
       `   ✓ 수집 게이트 통과: 커버리지 ${(metrics.rowCoverage * 100).toFixed(1)}%, 파싱 성공률 ${(metrics.schemaParseRate * 100).toFixed(1)}%`
