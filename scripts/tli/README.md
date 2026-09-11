@@ -223,7 +223,14 @@ collectNaverNews(
 ---
 
 ### `collectors/naver-finance-themes.ts`
-Scrapes Naver Finance theme pages for stock listings.
+Collects theme stock listings from the Naver stock JSON API
+(`m.stock.naver.com/api/stocks/theme/{no}`).
+
+> 2026-09-10: `finance.naver.com/sise/sise_group_detail.naver` began 301-redirecting to
+> `stock.naver.com`, which is client-rendered — the old `table.type_5` HTML scrape returned
+> zero rows for all 239 themes. The collector now uses the JSON API. `expectedRows` comes from
+> the API's `totalCount`, and market comes from `stockExchangeType.name` instead of guessing
+> from the leading digit of the symbol.
 
 **Function:**
 ```typescript
@@ -330,8 +337,11 @@ All collectors implement retry logic and rate limiting. If you encounter rate li
 - Check Supabase service role key has write permissions
 
 ### Parsing Errors (Naver Finance)
-- Website structure may change
-- Check cheerio selectors in `naver-finance-themes.ts`
+- **Check the collapse diagnostic first.** On total collapse the error prints response
+  shape (HTTP status, redirect, final URL, size, stock count). A redirect means the
+  endpoint moved or is blocked — the 200 you got is not the resource you asked for.
+- API response schema may change — verify `itemCode` / `stockName` / `closePriceRaw` /
+  `fluctuationsRatio` / `accumulatedTradingVolumeRaw` / `stockExchangeType.name`
 - Verify `naver_theme_id` values are correct
 
 ---
