@@ -211,6 +211,37 @@ export async function recordThemeStockMembershipHistory(input: {
 }
 
 /** 테마-종목 매핑 저장 + 미출현 종목 비활성화 (+ bitemporal history 기록) */
+/**
+ * (theme_id, symbol) 중복 제거 — **한 건이 배치 전체를 날린다.**
+ *
+ * Postgres는 하나의 INSERT ... ON CONFLICT 문 안에서 같은 충돌 키가 두 번 나오면
+ * "ON CONFLICT DO UPDATE command cannot affect row a second time"으로 **배치 전체**를
+ * 거부한다. 실측(2026-09-11): 중복 때문에 500건 배치가 통째로 실패해 5,725건 중 500건이
+ * 저장되지 않았고 수집 단계가 치명적 실패로 끝났다.
+ *
+ * 수집기가 유일성을 보장하는 게 맞지만, 상류가 무엇을 주든 쓰기 경로는 깨지지 않아야 한다.
+ * 나중 값을 남긴다(같은 종목이면 최신 시세가 뒤에 온다).
+ */
+export function dedupeThemeStocks<T extends { symbol: string; themeId: string }>(
+  stocks: readonly T[],
+): T[] {
+  const byKey = new Map(stocks.map(s => [`${s.themeId}|${s.symbol}`, s]))
+  if (byKey.size !== stocks.length) {
+    const seen = new Set<string>()
+    const samples = stocks
+      .filter(s => {
+        const key = `${s.themeId}|${s.symbol}`
+        if (seen.has(key)) return true
+        seen.add(key)
+        return false
+      })
+      .slice(0, 3)
+      .map(s => `${s.themeId}/${s.symbol}`)
+    console.warn(`   ⚠️ 테마-종목 중복 ${stocks.length - byKey.size}건 제거: ${samples.join(', ')}`)
+  }
+  return [...byKey.values()]
+}
+
 export async function upsertThemeStocks(
   stocks: Array<{
     themeId: string;
@@ -223,6 +254,8 @@ export async function upsertThemeStocks(
   }>,
   observedDate: string = getKSTDateString(),
 ) {
+  stocks = dedupeThemeStocks(stocks)
+
   // history를 current cache보다 먼저 확정한다. cache 실패가 확정된 PIT 기록을 훼손하지 못한다.
   await recordThemeStockMembershipHistory({
     observed: stocks.map(s => ({
