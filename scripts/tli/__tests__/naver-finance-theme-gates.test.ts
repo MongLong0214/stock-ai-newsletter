@@ -99,7 +99,7 @@ describe('Naver finance theme scraper gates', () => {
     const rows = [
       buildNaverThemeRow('100000'),
       ...Array.from({ length: 19 }, buildMalformedNaverThemeRow),
-    ].join('');
+    ];
     vi.stubGlobal('fetch', vi.fn(async () => new Response(buildNaverThemePage(rows), { status: 200 })));
 
     await expect(
@@ -108,16 +108,16 @@ describe('Naver finance theme scraper gates', () => {
   });
 
   it('isolates a single theme gate failure and preserves the other healthy theme results', async () => {
-    const healthyRows = Array.from({ length: 20 }, (_, index) => buildNaverThemeRow(String(200000 + index))).join('');
+    const healthyRows = Array.from({ length: 20 }, (_, index) => buildNaverThemeRow(String(200000 + index)));
     const failingRows = [
       buildNaverThemeRow('300000'),
       ...Array.from({ length: 19 }, buildMalformedNaverThemeRow),
-    ].join('');
+    ];
 
     vi.stubGlobal(
       'fetch',
       vi.fn(async (url: string) =>
-        url.includes('no=999')
+        url.includes('/theme/999')
           ? new Response(buildNaverThemePage(failingRows), { status: 200 })
           : new Response(buildNaverThemePage(healthyRows), { status: 200 }),
       ),
@@ -139,7 +139,7 @@ describe('Naver finance theme scraper gates', () => {
     const failingRows = [
       buildNaverThemeRow('300000'),
       ...Array.from({ length: 19 }, buildMalformedNaverThemeRow),
-    ].join('');
+    ];
     vi.stubGlobal('fetch', vi.fn(async () => new Response(buildNaverThemePage(failingRows), { status: 200 })));
 
     await expect(
@@ -165,33 +165,35 @@ describe('shouldRejectStockCollection', () => {
   });
 });
 
-function buildNaverThemePage(rows: string): string {
-  return `<html><body><table class="type_5"><tbody>${rows}</tbody></table></body></html>`;
+/**
+ * 2026-09-10 이후 수집기는 HTML이 아니라 JSON API를 읽는다.
+ * `totalCount`가 게이트의 expectedRows이므로 행 수와 같게 둔다(구 DOM 행수 계산과 동일 의미).
+ */
+function buildNaverThemePage(rows: readonly unknown[]): string {
+  return JSON.stringify({ stocks: rows, totalCount: rows.length });
 }
 
-function buildMalformedNaverThemeRow(): string {
-  return `
-    <tr>
-      <td><span class="name_area"><a href="/item/main.naver?bad=code">Broken Stock</a></span></td>
-      <td>reason</td>
-    </tr>
-  `;
+/** 종목코드가 6자리가 아니라 Zod 스키마에서 떨어진다 — 파싱 성공률 게이트를 때린다 */
+function buildMalformedNaverThemeRow(): unknown {
+  return {
+    accumulatedTradingVolumeRaw: '100000',
+    closePriceRaw: '50000',
+    compareToPreviousPrice: { name: 'RISING' },
+    fluctuationsRatio: '2.4',
+    itemCode: 'BADCODE',
+    stockExchangeType: { name: 'KOSPI' },
+    stockName: 'Broken Stock',
+  };
 }
 
-function buildNaverThemeRow(symbol: string): string {
-  return `
-    <tr>
-      <td><span class="name_area"><a href="/item/main.naver?code=${symbol}">Stock ${symbol}</a></span></td>
-      <td>reason</td>
-      <td>50,000</td>
-      <td><span class="blind">상승</span></td>
-      <td>2.4%</td>
-      <td>49,900</td>
-      <td>50,100</td>
-      <td>100,000</td>
-      <td>5,000</td>
-      <td>90,000</td>
-      <td>forum</td>
-    </tr>
-  `;
+function buildNaverThemeRow(symbol: string): unknown {
+  return {
+    accumulatedTradingVolumeRaw: '100000',
+    closePriceRaw: '50000',
+    compareToPreviousPrice: { name: 'RISING' },
+    fluctuationsRatio: '2.4',
+    itemCode: symbol,
+    stockExchangeType: { name: 'KOSPI' },
+    stockName: `Stock ${symbol}`,
+  };
 }

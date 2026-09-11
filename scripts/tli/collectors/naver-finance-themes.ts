@@ -1,4 +1,3 @@
-import * as cheerio from 'cheerio';
 import { sleep, withRetry } from '@/scripts/tli/shared/utils';
 import {
   NaverFinanceThemeGateError,
@@ -21,18 +20,19 @@ interface ThemeStock {
 }
 
 /**
- * 붕괴 원인 판별용 페이지 지문.
+ * 붕괴 원인 판별용 응답 지문.
  *
- * 게이트는 "몇 행이 파싱됐나"만 알려주므로 셀렉터 파손과 차단·점검 페이지를 구분하지
- * 못한다. 2026-09-10 실측에서 게이트 4종(invalidExpectedRows·zeroRows·minimumCoverage·
- * schemaParseRate)이 239/239 테마에 동시에 떴는데, 이는 전부 "행 0개"의 파생일 뿐이라
- * 원인을 좁혀주지 못했다. 그래서 응답 자체의 모양을 같이 남긴다.
+ * 게이트는 "몇 행이 파싱됐나"만 알려주므로 원인을 좁혀주지 못한다. 2026-09-10 실측에서
+ * 게이트 4종이 239/239 테마에 동시에 떴지만 전부 "행 0개"의 파생이었고, 진짜 원인은
+ * **네이버가 finance.naver.com/sise를 stock.naver.com으로 이전한 것**이었다.
+ * `redirected`/`finalUrl`만 남겼어도 즉시 드러났을 사고다. 그래서 그걸 남긴다.
  */
-interface PageShape {
+interface ResponseShape {
   bytes: number;
+  finalUrl: string;
+  redirected: boolean;
   status: number;
-  tableCount: number;
-  title: string;
+  stockCount: number;
 }
 
 function tally(values: readonly string[]): string {
@@ -46,116 +46,140 @@ function tally(values: readonly string[]): string {
 }
 
 /**
- * 게이트 실패 페이지들의 공통 모양으로 원인을 좁힌다.
+ * 실패 응답들의 공통 모양으로 원인을 좁힌다.
  *
- * 핵심 분기: 테이블이 **아예 없으면** 셀렉터 파손보다 차단·점검 페이지가 유력하다.
- * 셀렉터가 어긋난 경우에는 보통 테이블은 남고 행 파싱만 실패하기 때문이다.
+ * 리다이렉트 여부를 가장 먼저 본다 — 엔드포인트 이전·차단은 리다이렉트로 나타나고,
+ * 그때 200을 받아도 그건 우리가 요청한 리소스가 아니다.
  */
-export function summarizePageShapes(shapes: readonly PageShape[]): string {
-  if (shapes.length === 0) return '   진단: 수집된 페이지 지문 없음';
+export function summarizeResponseShapes(shapes: readonly ResponseShape[]): string {
+  if (shapes.length === 0) return '   진단: 수집된 응답 지문 없음';
 
-  const withTable = shapes.filter((shape) => shape.tableCount > 0).length;
+  const redirected = shapes.filter((shape) => shape.redirected);
   const bytes = shapes.map((shape) => shape.bytes);
-  const verdict = withTable === 0
-    ? 'table.type_5가 한 건도 없다 → 차단·점검 페이지 가능성이 크다 (셀렉터 파손이면 보통 테이블은 남고 행 파싱만 실패한다)'
-    : `table.type_5가 ${withTable}/${shapes.length}건에서 발견됐다 → 셀렉터·컬럼 구조 변경 가능성이 크다`;
+  const verdict = redirected.length > 0
+    ? `${redirected.length}/${shapes.length}건이 리다이렉트됐다 → 엔드포인트 이전·차단이다. 받은 200은 요청한 리소스가 아니다`
+    : '리다이렉트는 없다 → 응답 스키마 변경이나 빈 응답 쪽을 보라';
 
   return [
     `   진단 표본 ${shapes.length}건`,
     `     HTTP: ${tally(shapes.map((shape) => String(shape.status)))}`,
-    `     본문 크기: ${Math.min(...bytes).toLocaleString()}~${Math.max(...bytes).toLocaleString()}바이트`,
-    `     title: ${tally(shapes.map((shape) => shape.title || '(빈 제목)'))}`,
+    `     리다이렉트: ${redirected.length}/${shapes.length}건`,
+    `     최종 URL: ${tally(shapes.map((shape) => shape.finalUrl))}`,
+    `     응답 크기: ${Math.min(...bytes).toLocaleString()}~${Math.max(...bytes).toLocaleString()}바이트`,
+    `     종목 수: ${tally(shapes.map((shape) => String(shape.stockCount)))}`,
     `     해석: ${verdict}`,
   ].join('\n');
 }
 
-/** 네이버 금융 테마 페이지 스크래핑 */
+/** 네이버 종목 API 응답 중 우리가 쓰는 필드만 */
+interface NaverThemeApiStock {
+  accumulatedTradingVolumeRaw?: string;
+  closePriceRaw?: string;
+  compareToPreviousPrice?: { name?: string };
+  fluctuationsRatio?: string;
+  itemCode?: string;
+  stockExchangeType?: { name?: string };
+  stockName?: string;
+}
+
+interface NaverThemeApiResponse {
+  stocks?: NaverThemeApiStock[];
+  totalCount?: number;
+}
+
+const API_PAGE_SIZE = 100;
+
+const toNumber = (value: string | undefined): number | null => {
+  if (value === undefined || value === '') return null;
+  const num = Number(value.replace(/,/g, ''));
+  return Number.isFinite(num) ? num : null;
+};
+
+/**
+ * 테마 종목 수집.
+ *
+ * 2026-09-10부터 `finance.naver.com/sise/sise_group_detail.naver`가
+ * `stock.naver.com`으로 301 리다이렉트되면서 HTML 테이블(`table.type_5`)이 사라졌다.
+ * 새 화면은 CSR이라 HTML에 데이터가 없다 — 같은 데이터를 주는 JSON API로 옮긴다.
+ *
+ * 부수 효과로 두 가지가 정확해진다.
+ *  - `expectedRows`를 DOM 행수가 아니라 API의 `totalCount`로 받는다(권위 있는 값).
+ *  - 시장 구분을 종목코드 첫 자리 추정이 아니라 `stockExchangeType.name`으로 받는다.
+ */
 async function scrapeNaverFinanceTheme(
   themeId: string,
   naverThemeId: string,
-  failureShapes: PageShape[],
+  failureShapes: ResponseShape[],
 ): Promise<ThemeStock[]> {
-  const url = `https://finance.naver.com/sise/sise_group_detail.naver?type=theme&no=${naverThemeId}`;
   // catch에서 참조해야 하므로 try 밖에 둔다
-  let shape: PageShape | null = null;
+  let shape: ResponseShape | null = null;
 
   try {
-    const response = await withRetry(
-      async () => {
-        const res = await fetch(url, { signal: AbortSignal.timeout(30000) });
-        if (!res.ok) throw new Error(`HTTP 오류 ${res.status}`);
-        return res;
-      },
-      3,
-      `테마 ${naverThemeId} 종목 스크래핑`
-    );
-
-    // 네이버 금융은 EUC-KR 인코딩 사용
-    const buffer = await response.arrayBuffer();
-    const html = new TextDecoder('euc-kr').decode(buffer);
-    const $ = cheerio.load(html);
-    shape = {
-      bytes: buffer.byteLength,
-      status: response.status,
-      tableCount: $('table.type_5').length,
-      title: $('title').first().text().trim().slice(0, 60),
-    };
     const stocks: ThemeStock[] = [];
-    const expectedRows = $('table.type_5 tbody tr')
-      .filter((_, row) => $(row).find('td:first-child .name_area a').length > 0)
-      .length;
+    let expectedRows = 0;
+    let page = 1;
 
-    // 종목 테이블 파싱 (종목 링크는 첫 번째 td의 .name_area 안에 있음)
-    $('table.type_5 tbody tr').each((_, row) => {
-      const $row = $(row);
-      const $link = $row.find('td:first-child .name_area a');
-      const href = $link.attr('href') || '';
-      const stockCode = href.match(/code=(\d{6})/)?.[1] || '';
-      if (!stockCode) return;
+    // totalCount가 페이지 크기를 넘으면 이어서 받는다 — 부족분은 커버리지 게이트가 잡지만,
+    // 애초에 다 받아오는 게 맞다.
+    for (;;) {
+      const url = `https://m.stock.naver.com/api/stocks/theme/${naverThemeId}?page=${page}&pageSize=${API_PAGE_SIZE}`;
+      const response = await withRetry(
+        async () => {
+          const res = await fetch(url, { signal: AbortSignal.timeout(30000) });
+          if (!res.ok) throw new Error(`HTTP 오류 ${res.status}`);
+          return res;
+        },
+        3,
+        `테마 ${naverThemeId} 종목 수집`
+      );
 
-      const stockName = $link.text().trim();
-      if (!stockName) return;
+      const body = await response.text();
+      const payload = JSON.parse(body) as NaverThemeApiResponse;
+      const pageStocks = payload.stocks ?? [];
+      if (page === 1) {
+        expectedRows = payload.totalCount ?? 0;
+        shape = {
+          bytes: body.length,
+          finalUrl: response.url,
+          redirected: response.redirected,
+          status: response.status,
+          stockCount: pageStocks.length,
+        };
+      }
 
-      // 테이블 컬럼 구조 (11 TDs):
-      // td[0]=종목명, td[1]=편입사유, td[2]=현재가, td[3]=전일비, td[4]=등락률,
-      // td[5]=매수호가, td[6]=매도호가, td[7]=거래량, td[8]=거래대금, td[9]=전일거래량, td[10]=토론
-      const $tds = $row.find('td');
-      const parseNum = (text: string): number | null => {
-        // 한글 prefix 제거 (상승, 하락, 상한가, 하한가 등) + 화살표 제거
-        const cleaned = text.replace(/[,%\s가-힣+▲▼△▽]/g, '');
-        const num = Number(cleaned);
-        return isFinite(num) && cleaned !== '' ? num : null;
-      };
+      for (const item of pageStocks) {
+        const symbol = item.itemCode ?? '';
+        const name = item.stockName?.trim() ?? '';
+        if (!symbol || !name) continue;
 
-      const currentPrice = parseNum($tds.eq(2).text());
-      const priceChangeRaw = parseNum($tds.eq(4).text());
-      // 등락률 부호 감지: 하락 시 음수로 변환
-      const isNegative = $tds.eq(3).find('img[src*="ico_down"], .blind:contains("하락")').length > 0
-        || $tds.eq(4).text().includes('-');
-      const priceChangePct = priceChangeRaw !== null && isNegative && priceChangeRaw > 0
-        ? -priceChangeRaw
-        : priceChangeRaw;
-      const volume = parseNum($tds.eq(7).text());
+        // 등락률은 부호를 포함해 내려오지만, 방향 필드가 하락인데 양수면 음수로 맞춘다.
+        const ratio = toNumber(item.fluctuationsRatio);
+        const falling = item.compareToPreviousPrice?.name === 'FALLING';
+        const priceChangePct = ratio !== null && falling && ratio > 0 ? -ratio : ratio;
 
-      stocks.push({
-        themeId,
-        symbol: stockCode,
-        name: stockName,
-        market: stockCode.startsWith('0') ? 'KOSPI' : 'KOSDAQ',
-        currentPrice,
-        priceChangePct,
-        volume,
-      });
-    });
+        stocks.push({
+          themeId,
+          symbol,
+          name,
+          market: item.stockExchangeType?.name ?? (symbol.startsWith('0') ? 'KOSPI' : 'KOSDAQ'),
+          currentPrice: toNumber(item.closePriceRaw),
+          priceChangePct,
+          volume: toNumber(item.accumulatedTradingVolumeRaw),
+        });
+      }
+
+      if (pageStocks.length === 0 || stocks.length >= expectedRows || page >= 10) break;
+      page += 1;
+    }
 
     const metrics = validateNaverFinanceThemeStocks(stocks, { expectedRows });
     console.log(
-      `   ✓ 스크래퍼 게이트 통과: 커버리지 ${(metrics.rowCoverage * 100).toFixed(1)}%, 파싱 성공률 ${(metrics.schemaParseRate * 100).toFixed(1)}%`
+      `   ✓ 수집 게이트 통과: 커버리지 ${(metrics.rowCoverage * 100).toFixed(1)}%, 파싱 성공률 ${(metrics.schemaParseRate * 100).toFixed(1)}%`
     );
 
     return stocks;
   } catch (error: unknown) {
-    console.error(`   ❌ 테마 ${naverThemeId} 스크래핑 실패:`, error instanceof Error ? error.message : String(error));
+    console.error(`   ❌ 테마 ${naverThemeId} 종목 수집 실패:`, error instanceof Error ? error.message : String(error));
     if (error instanceof NaverFinanceThemeGateError) {
       if (shape) failureShapes.push(shape);
       throw error;
@@ -183,7 +207,7 @@ export async function collectNaverFinanceStocks(themes: Theme[]): Promise<ThemeS
   console.log(`   처리할 테마: ${themes.filter(t => t.naverThemeId).length}개`);
 
   const allStocks: ThemeStock[] = [];
-  const failureShapes: PageShape[] = [];
+  const failureShapes: ResponseShape[] = [];
   let attemptedThemeCount = 0;
   let gateFailedCount = 0;
 
@@ -228,7 +252,7 @@ export async function collectNaverFinanceStocks(themes: Theme[]): Promise<ThemeS
     throw new Error(
       [
         `네이버 금융 테마 스크래퍼 전면 붕괴 감지 (게이트 실패 ${gateFailedCount}/${attemptedThemeCount}개 테마, 수집 종목 ${allStocks.length}건)`,
-        summarizePageShapes(failureShapes),
+        summarizeResponseShapes(failureShapes),
       ].join('\n')
     );
   }
