@@ -4,7 +4,12 @@ import { fetchAllRows } from '@/lib/supabase/paginate';
 import { siteConfig } from '@/lib/constants/seo/config';
 import { isValidBlogSlug } from './blog/_utils/slug-validator';
 
-export const revalidate = 86400;
+// 테마 상세 페이지의 ISR(3600)과 주기를 맞춘다.
+//
+// 24시간이었을 때, 비활성화된 테마가 최대 하루 동안 사이트맵에 남았다. 그 사이 사이트맵은
+// "색인하라", 페이지는 noindex로 "하지 마라"를 동시에 내보내 신호가 충돌하고 크롤 예산이
+// 샜다. 비활성 필터(is_active)는 원래 있었으므로 문제는 필터가 아니라 **갱신 지연**이다.
+export const revalidate = 3600;
 
 // 정적 페이지 실제 편집일 — 콘텐츠를 실제로 고칠 때만 수동 갱신한다.
 // 빌드·배포만으로 lastmod를 갱신하지 않는다(lastmod 신뢰도 유지).
@@ -139,6 +144,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // 이 페이지들은 이미 index,follow + self-canonical로 서빙되고 generateStaticParams가
   // is_active 테마를 전부 프리렌더한다. sitemap에서만 빼두면 색인은 되면서 발견만 느려지는
   // 어중간한 상태가 되므로 실동작에 맞춰 포함한다.
+  // 비활성 테마는 getActiveThemeIds가 제외하고, 그 페이지는 404를 낸다(page.tsx notFound).
   const themePages: MetadataRoute.Sitemap = themeIds.map((theme) => {
     const url = `${baseUrl}/themes/${theme.id}`;
     return {
