@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { notFound } from 'next/navigation'
 import { siteConfig, schemaIds, ensureKSTTimezone, withOgImageVersion } from '@/lib/constants/seo/config'
 import { NAVER_DATALAB_DATASET_SCHEMA } from '@/lib/constants/seo/schema'
 import { SCORE_COMPONENTS } from '@/lib/tli/constants/score-config'
@@ -114,19 +115,25 @@ export default async function ThemeDetailPage({ params }: { params: Promise<{ id
   const { id } = await params
   const theme = await getThemeSeoData(id)
 
-  const stageKo = theme?.stage && theme.stage in STAGE_CONFIG
+  // 없는 테마는 **404로 끝낸다.**
+  //
+  // 예전에는 200 + noindex로 본문 껍데기를 렌더했다(soft-404). 검색엔진은 그것을
+  // "존재하는 페이지"로 취급해 크롤 예산을 계속 쓰고, 사이트맵의 색인 신호와 정면으로
+  // 충돌한다. 조회 실패는 getThemeSeoData가 throw하므로 여기 null은 진짜 부재다 —
+  // 일시적 DB 장애가 하드 404로 새어 나가지 않는다.
+  if (!theme) notFound()
+
+  const stageKo = theme.stage && theme.stage in STAGE_CONFIG
     ? STAGE_CONFIG[theme.stage as keyof typeof STAGE_CONFIG].label
     : null
-  const asOfDate = formatKSTDateFromTimestamp(theme?.updatedAt ?? null)
+  const asOfDate = formatKSTDateFromTimestamp(theme.updatedAt)
   const weightSummary = SCORE_COMPONENTS.map((component) => `${component.label} ${component.weightLabel}`).join(' + ')
 
-  const headline = theme
-    ? (stageKo && theme.score != null
-      ? `${theme.name} 관련주 — ${stageKo} 단계 · 점수 ${theme.score}/100`
-      : `${theme.name} 테마 분석`)
-    : null
+  const headline = stageKo && theme.score != null
+    ? `${theme.name} 관련주 — ${stageKo} 단계 · 점수 ${theme.score}/100`
+    : `${theme.name} 테마 분석`
 
-  const articleSchema = theme ? {
+  const articleSchema = {
     '@context': 'https://schema.org',
     '@type': 'Article',
     '@id': schemaIds.articleId(`/themes/${id}`),
@@ -173,9 +180,9 @@ export default async function ThemeDetailPage({ params }: { params: Promise<{ id
       xPath: ['/html/head/title', '/html/head/meta[@name=\'description\']/@content'],
     },
     isAccessibleForFree: true,
-  } : null
+  }
 
-  const breadcrumbSchema = theme ? {
+  const breadcrumbSchema = {
     '@context': 'https://schema.org',
     '@type': 'BreadcrumbList',
     itemListElement: [
@@ -183,9 +190,9 @@ export default async function ThemeDetailPage({ params }: { params: Promise<{ id
       { '@type': 'ListItem', position: 2, name: '테마 분석', item: `${siteConfig.domain}/themes` },
       { '@type': 'ListItem', position: 3, name: `${theme.name} 관련주` },
     ],
-  } : null
+  }
 
-  const faqSchema = theme && stageKo ? {
+  const faqSchema = stageKo ? {
     '@context': 'https://schema.org',
     '@type': 'FAQPage',
     mainEntity: [
@@ -212,28 +219,22 @@ export default async function ThemeDetailPage({ params }: { params: Promise<{ id
 
   return (
     <>
-      {theme && (
-        <ThemeDetailAnalytics
-          themeId={id}
-          themeName={theme.name}
-          themeStage={theme.stage}
-          themeScore={theme.score}
-        />
-      )}
-      {articleSchema && (
-        <script
-          id="theme-article-schema"
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(articleSchema).replace(/</g, '\\u003c') }}
-        />
-      )}
-      {breadcrumbSchema && (
-        <script
-          id="theme-breadcrumb-schema"
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema).replace(/</g, '\\u003c') }}
-        />
-      )}
+      <ThemeDetailAnalytics
+        themeId={id}
+        themeName={theme.name}
+        themeStage={theme.stage}
+        themeScore={theme.score}
+      />
+      <script
+        id="theme-article-schema"
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(articleSchema).replace(/</g, '\\u003c') }}
+      />
+      <script
+        id="theme-breadcrumb-schema"
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema).replace(/</g, '\\u003c') }}
+      />
       {faqSchema && (
         <script
           id="theme-faq-schema"
@@ -242,33 +243,31 @@ export default async function ThemeDetailPage({ params }: { params: Promise<{ id
         />
       )}
       {/* SSR 콘텐츠: JS 미실행 AI 크롤러용 */}
-      {theme && (
-        <section className="sr-only" data-speakable aria-label={`${theme.name} 테마 분석 요약`}>
-          <h2 className="theme-headline">{headline}</h2>
-          <p>{theme.description || `${theme.name} 테마의 AI 생명주기 분석`}</p>
-          {stageKo && theme.score != null && (
-            <p className="theme-score">
-              현재 단계: {stageKo} | 생명주기 점수: {theme.score}/100점
-            </p>
-          )}
-          <p>생명주기 점수는 네이버 검색 관심도, 뉴스 모멘텀, 주가 변동성을 종합한 0~100점 지표이며, 초기·성장·정점·쇠퇴·휴면의 5단계로 분류합니다.</p>
-          <p>
-            {asOfDate && <>기준일: {asOfDate}. </>}
-            점수 가중치: {weightSummary}. 산출 과정은 <a href={`${siteConfig.domain}/themes/methodology`}>테마 추적 알고리즘</a>에 공개되어 있습니다.
+      <section className="sr-only" data-speakable aria-label={`${theme.name} 테마 분석 요약`}>
+        <h2 className="theme-headline">{headline}</h2>
+        <p>{theme.description || `${theme.name} 테마의 AI 생명주기 분석`}</p>
+        {stageKo && theme.score != null && (
+          <p className="theme-score">
+            현재 단계: {stageKo} | 생명주기 점수: {theme.score}/100점
           </p>
-          <p>데이터 출처: <a href="https://datalab.naver.com/keyword/trendSearch.naver">네이버 데이터랩 검색어 트렌드</a>, 네이버 뉴스 검색, KRX 시세.</p>
-          {theme.topStocks.length > 0 && (
-            <div>
-              <h2>{theme.name} 주요 관련주</h2>
-              <ul>
-                {theme.topStocks.map((stock) => (
-                  <li key={stock}>{stock}</li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </section>
-      )}
+        )}
+        <p>생명주기 점수는 네이버 검색 관심도, 뉴스 모멘텀, 주가 변동성을 종합한 0~100점 지표이며, 초기·성장·정점·쇠퇴·휴면의 5단계로 분류합니다.</p>
+        <p>
+          {asOfDate && <>기준일: {asOfDate}. </>}
+          점수 가중치: {weightSummary}. 산출 과정은 <a href={`${siteConfig.domain}/themes/methodology`}>테마 추적 알고리즘</a>에 공개되어 있습니다.
+        </p>
+        <p>데이터 출처: <a href="https://datalab.naver.com/keyword/trendSearch.naver">네이버 데이터랩 검색어 트렌드</a>, 네이버 뉴스 검색, KRX 시세.</p>
+        {theme.topStocks.length > 0 && (
+          <div>
+            <h2>{theme.name} 주요 관련주</h2>
+            <ul>
+              {theme.topStocks.map((stock) => (
+                <li key={stock}>{stock}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </section>
       <DetailContent id={id} />
     </>
   )
