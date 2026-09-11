@@ -20,9 +20,64 @@ interface ThemeStock {
   volume: number | null;
 }
 
+/**
+ * 붕괴 원인 판별용 페이지 지문.
+ *
+ * 게이트는 "몇 행이 파싱됐나"만 알려주므로 셀렉터 파손과 차단·점검 페이지를 구분하지
+ * 못한다. 2026-09-10 실측에서 게이트 4종(invalidExpectedRows·zeroRows·minimumCoverage·
+ * schemaParseRate)이 239/239 테마에 동시에 떴는데, 이는 전부 "행 0개"의 파생일 뿐이라
+ * 원인을 좁혀주지 못했다. 그래서 응답 자체의 모양을 같이 남긴다.
+ */
+interface PageShape {
+  bytes: number;
+  status: number;
+  tableCount: number;
+  title: string;
+}
+
+function tally(values: readonly string[]): string {
+  const counts = new Map<string, number>();
+  for (const value of values) counts.set(value, (counts.get(value) ?? 0) + 1);
+  return [...counts.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 3)
+    .map(([value, count]) => `"${value}" ${count}건`)
+    .join(', ');
+}
+
+/**
+ * 게이트 실패 페이지들의 공통 모양으로 원인을 좁힌다.
+ *
+ * 핵심 분기: 테이블이 **아예 없으면** 셀렉터 파손보다 차단·점검 페이지가 유력하다.
+ * 셀렉터가 어긋난 경우에는 보통 테이블은 남고 행 파싱만 실패하기 때문이다.
+ */
+export function summarizePageShapes(shapes: readonly PageShape[]): string {
+  if (shapes.length === 0) return '   진단: 수집된 페이지 지문 없음';
+
+  const withTable = shapes.filter((shape) => shape.tableCount > 0).length;
+  const bytes = shapes.map((shape) => shape.bytes);
+  const verdict = withTable === 0
+    ? 'table.type_5가 한 건도 없다 → 차단·점검 페이지 가능성이 크다 (셀렉터 파손이면 보통 테이블은 남고 행 파싱만 실패한다)'
+    : `table.type_5가 ${withTable}/${shapes.length}건에서 발견됐다 → 셀렉터·컬럼 구조 변경 가능성이 크다`;
+
+  return [
+    `   진단 표본 ${shapes.length}건`,
+    `     HTTP: ${tally(shapes.map((shape) => String(shape.status)))}`,
+    `     본문 크기: ${Math.min(...bytes).toLocaleString()}~${Math.max(...bytes).toLocaleString()}바이트`,
+    `     title: ${tally(shapes.map((shape) => shape.title || '(빈 제목)'))}`,
+    `     해석: ${verdict}`,
+  ].join('\n');
+}
+
 /** 네이버 금융 테마 페이지 스크래핑 */
-async function scrapeNaverFinanceTheme(themeId: string, naverThemeId: string): Promise<ThemeStock[]> {
+async function scrapeNaverFinanceTheme(
+  themeId: string,
+  naverThemeId: string,
+  failureShapes: PageShape[],
+): Promise<ThemeStock[]> {
   const url = `https://finance.naver.com/sise/sise_group_detail.naver?type=theme&no=${naverThemeId}`;
+  // catch에서 참조해야 하므로 try 밖에 둔다
+  let shape: PageShape | null = null;
 
   try {
     const response = await withRetry(
@@ -39,6 +94,12 @@ async function scrapeNaverFinanceTheme(themeId: string, naverThemeId: string): P
     const buffer = await response.arrayBuffer();
     const html = new TextDecoder('euc-kr').decode(buffer);
     const $ = cheerio.load(html);
+    shape = {
+      bytes: buffer.byteLength,
+      status: response.status,
+      tableCount: $('table.type_5').length,
+      title: $('title').first().text().trim().slice(0, 60),
+    };
     const stocks: ThemeStock[] = [];
     const expectedRows = $('table.type_5 tbody tr')
       .filter((_, row) => $(row).find('td:first-child .name_area a').length > 0)
@@ -96,6 +157,7 @@ async function scrapeNaverFinanceTheme(themeId: string, naverThemeId: string): P
   } catch (error: unknown) {
     console.error(`   ❌ 테마 ${naverThemeId} 스크래핑 실패:`, error instanceof Error ? error.message : String(error));
     if (error instanceof NaverFinanceThemeGateError) {
+      if (shape) failureShapes.push(shape);
       throw error;
     }
     return [];
@@ -121,6 +183,7 @@ export async function collectNaverFinanceStocks(themes: Theme[]): Promise<ThemeS
   console.log(`   처리할 테마: ${themes.filter(t => t.naverThemeId).length}개`);
 
   const allStocks: ThemeStock[] = [];
+  const failureShapes: PageShape[] = [];
   let attemptedThemeCount = 0;
   let gateFailedCount = 0;
 
@@ -135,7 +198,7 @@ export async function collectNaverFinanceStocks(themes: Theme[]): Promise<ThemeS
 
     let stocks: ThemeStock[];
     try {
-      stocks = await scrapeNaverFinanceTheme(theme.id, theme.naverThemeId);
+      stocks = await scrapeNaverFinanceTheme(theme.id, theme.naverThemeId, failureShapes);
     } catch (error: unknown) {
       if (error instanceof NaverFinanceThemeGateError) {
         gateFailedCount++;
@@ -160,8 +223,13 @@ export async function collectNaverFinanceStocks(themes: Theme[]): Promise<ThemeS
   }
 
   if (shouldRejectThemeStockCollection({ attemptedThemeCount, gateFailedCount, collectedStockCount: allStocks.length })) {
+    // 원인을 단정하지 않는다. "셀렉터 파손 가능성"이라고 못 박았더니 실제 원인이
+    // 차단·점검 페이지였던 2026-09-10 사고에서 조사가 셀렉터 쪽으로 쏠렸다.
     throw new Error(
-      `네이버 금융 테마 스크래퍼 전면 붕괴 감지 (게이트 실패 ${gateFailedCount}/${attemptedThemeCount}개 테마, 수집 종목 ${allStocks.length}건) — 셀렉터 파손 가능성`
+      [
+        `네이버 금융 테마 스크래퍼 전면 붕괴 감지 (게이트 실패 ${gateFailedCount}/${attemptedThemeCount}개 테마, 수집 종목 ${allStocks.length}건)`,
+        summarizePageShapes(failureShapes),
+      ].join('\n')
     );
   }
 
