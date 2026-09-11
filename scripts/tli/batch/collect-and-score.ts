@@ -6,7 +6,9 @@ import { discoverAndManageThemes } from '@/scripts/tli/themes/discover-themes';
 import { autoActivate, autoDeactivate } from '@/scripts/tli/themes/theme-lifecycle';
 import { getKSTDate, getKSTDateString } from '@/lib/tli/date-utils';
 import { shouldCollectTliStocks } from '@/lib/tli/trading-calendar';
-import { collectDataSources, runCalibrationPhase, runAnalysisPipeline, runInterestObservationGapWatchdog, shouldAbortAnalysisPipeline, submitIndexNowStep } from '@/scripts/tli/batch/pipeline-steps';
+import { collectDataSources, runCalibrationPhase, runAnalysisPipeline, runInterestObservationGapWatchdog, shouldAbortAnalysisPipeline, submitIndexNowStep,
+  runLabelBookkeepingPhase,
+} from '@/scripts/tli/batch/pipeline-steps';
 import { collectDailyStockPricesForDate } from '@/scripts/tli/prices/kis-daily-price-collector';
 
 export type RunMode = 'full' | 'news-only' | 'datalab-only'
@@ -94,12 +96,23 @@ export async function runTliMainPipeline(): Promise<TliMainPipelineResult> {
 
     // Steps 3.5-8: 교정 + 분석 (full 모드, DataLab 성공 시)
     if (mode === 'full') {
+      // 라벨 장부는 수집 실패와 **무관하게** 돌린다.
+      //
+      // grace 시계는 수집기 상태와 상관없이 흐른다. 2026-09-10 네이버 사이트 이전으로
+      // 종목 수집이 붕괴했을 때 이 단계가 "4~8단계 생략"에 끌려 들어갔고, 하필 그 구간에
+      // origin 2026-08-31의 grace가 만료돼 pending 라벨 1건이 종료되지 못했다.
+      // 다음 날 origin이 성숙하며 terminal 193 < expected 194 → critical로 파이프라인이 멈췄다.
+      // 이 단계는 DataLab 관측치와 KOSPI 거래일만 쓰고 종목 데이터를 쓰지 않는다.
+      const labels = await runLabelBookkeepingPhase(endDate);
+      criticalFailures += labels.criticalFailures;
+      warningFailures += labels.warningFailures;
+
       if (shouldAbortAnalysisPipeline({
         mode,
         datalabFailed: collection.datalabFailed,
         criticalFailures: collection.criticalFailures,
       })) {
-        console.log('\n⊘ 수집 단계 치명적 실패로 후속 단계 생략 (4~8단계)');
+        console.log('\n⊘ 수집 단계 치명적 실패로 후속 분석 생략 (4.25~8단계)');
       } else {
         await runCalibrationPhase(kstNow);
 
