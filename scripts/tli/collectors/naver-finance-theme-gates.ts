@@ -77,7 +77,12 @@ export class NaverFinanceThemeGateError extends Error {
 const NaverFinanceThemeStockSchema = z
   .object({
     themeId: z.string().min(1),
-    symbol: z.string().regex(/^\d{6}$/),
+    // KRX 단축코드는 **숫자 6자리가 아니다.** 신규상장·SPAC에는 영숫자 코드가 붙는다
+    // (실측: 0130H0 엔에이치스팩33호, 0220W0 한화머시너리앤서비스홀딩스, 0082N0 카나프테라퓨틱스).
+    // 숫자만 허용하던 동안 구 HTML 스크래퍼는 이들을 조용히 건너뛰어 데이터가 샜고
+    // (SPAC 테마 69개 중 31개 유실), JSON API로 옮긴 뒤에는 파싱률 게이트에 걸려
+    // 테마가 통째로 버려졌다. 같은 원인이 증상만 바꿔 나타난 것이다.
+    symbol: z.string().regex(/^[0-9A-Z]{6}$/),
     name: z.string().min(1),
     market: z.union([z.literal('KOSPI'), z.literal('KOSDAQ')]),
     currentPrice: z.number().finite(),

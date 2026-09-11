@@ -151,6 +151,81 @@ describe('Naver finance theme scraper gates', () => {
   });
 });
 
+describe('KRX 영숫자 단축코드', () => {
+  /**
+   * 2026-09-11 회귀.
+   *
+   * KRX는 신규상장·SPAC에 영숫자 단축코드를 발급한다(0130H0 엔에이치스팩33호,
+   * 0220W0 한화머시너리앤서비스홀딩스). 스키마가 숫자 6자리만 허용하던 동안
+   * 구 HTML 스크래퍼는 이들을 조용히 건너뛰어 데이터가 샜고(SPAC 테마 69개 중 31개 유실),
+   * JSON API 이전 후에는 파싱률 게이트에 걸려 테마가 통째로 버려졌다.
+   */
+  const gateRow = (symbol: string) => ({
+    themeId: 'theme-ai',
+    symbol,
+    name: `stock ${symbol}`,
+    market: 'KOSPI',
+    currentPrice: 50000,
+    priceChangePct: 1.2,
+    volume: 100000,
+  })
+
+  it('영숫자 코드를 유효한 종목으로 받는다', () => {
+    const rows = [gateRow('0130H0'), gateRow('0220W0')]
+
+    expect(() => validateNaverFinanceThemeStocks(rows, { expectedRows: 2 })).not.toThrow()
+  })
+
+  it('숫자 코드도 그대로 받는다', () => {
+    expect(() => validateNaverFinanceThemeStocks([gateRow('005930')], { expectedRows: 1 }))
+      .not.toThrow()
+  })
+
+  it('6자리가 아니거나 소문자면 여전히 거부한다', () => {
+    for (const bad of ['00593', '0059300', 'abc123', '00-930', '']) {
+      expect(
+        () => validateNaverFinanceThemeStocks([gateRow(bad)], { expectedRows: 1 }),
+        bad,
+      ).toThrow(NaverFinanceThemeGateError)
+    }
+  })
+})
+
+describe('빈 테마 (네이버 totalCount=0)', () => {
+  /**
+   * API가 "이 테마엔 종목이 0개"라고 명시적으로 답한 것은 파싱 실패가 아니다.
+   * 게이트에 넘기면 매 실행 invalidExpectedRows+zeroRows로 실패 집계된다.
+   */
+  it('빈 테마는 게이트 실패 없이 건너뛰고 나머지는 수집한다', async () => {
+    const healthy = Array.from({ length: 20 }, (_, i) => buildNaverThemeRow(String(200000 + i)))
+    vi.stubGlobal('fetch', vi.fn(async (url: string) =>
+      url.includes('/theme/268')
+        ? new Response(JSON.stringify({ stocks: [], totalCount: 0 }), { status: 200 })
+        : new Response(buildNaverThemePage(healthy), { status: 200 }),
+    ))
+
+    const stocks = await collectNaverFinanceStocks([
+      { id: 'theme-empty', naverThemeId: '268' },
+      { id: 'theme-ok', naverThemeId: '111' },
+    ])
+
+    // 빈 테마는 기여 0건, 정상 테마는 그대로 — 붕괴 판정도 걸리지 않는다
+    expect(stocks).toHaveLength(20)
+    expect(stocks.every((s) => s.themeId === 'theme-ok')).toBe(true)
+  })
+
+  it('모든 테마가 비면 여전히 붕괴로 잡는다 — 안전장치는 유지된다', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(
+      JSON.stringify({ stocks: [], totalCount: 0 }), { status: 200 },
+    )))
+
+    await expect(collectNaverFinanceStocks([
+      { id: 'a', naverThemeId: '1' },
+      { id: 'b', naverThemeId: '2' },
+    ])).rejects.toThrow(/붕괴/)
+  })
+})
+
 describe('shouldRejectStockCollection', () => {
   it('rejects when the collected count falls below 70% of the previous active baseline', () => {
     expect(shouldRejectStockCollection({ prevCount: 1000, collectedCount: 650 })).toBe(true);
