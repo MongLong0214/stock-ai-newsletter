@@ -106,23 +106,28 @@ export function shouldAbortAnalysisPipeline(input: {
 }
 
 /** Steps 4-8: 점수 계산 + 비교 + 예측 + 평가 */
-export async function runAnalysisPipeline(themes: ThemeWithKeywords[], today = getKSTDateString()): Promise<AnalysisResult> {
-  let criticalFailures = 0
-  let warningFailures = 0
-
-  // Step 4: 라이프사이클 점수
-  console.log('\n🧮 4단계: 라이프사이클 점수 계산')
-  try {
-    await calculateAndSaveScores(themes)
-  } catch (error: unknown) {
-    criticalFailures++
-    console.error('❌ 점수 계산 실패:', error instanceof Error ? error.message : String(error))
-  }
+/**
+ * 라벨 생성·확정 단계 (4.1 / 4.15).
+ *
+ * **수집 실패와 분리해서 돌린다.** 이 단계는 DataLab 관측치와 KOSPI 거래일만 쓰고
+ * 종목 수집 결과(theme_stocks)를 전혀 쓰지 않는데, 예전에는 분석 파이프라인 안에 있어서
+ * 종목 수집이 치명 실패하면 "4~8단계 생략"에 함께 끌려 들어갔다.
+ *
+ * 그 결합이 2026-09-11 사고를 만들었다. 9/10 네이버 사이트 이전으로 종목 수집이 붕괴하자
+ * 4.15단계가 건너뛰어졌는데, 하필 origin 2026-08-31의 grace 만료가 9/10 18:00 KST였다.
+ * 만료된 pending 라벨 1건이 `excluded`로 종료되지 못한 채 남았고, 다음 날 origin이 성숙하며
+ * terminal 193 < expected 194 → eligible→ineligible 전이 → origin eligibility critical로
+ * 파이프라인이 멈췄다. **수집기 장애가 연구 장부를 오염시킨 것이다.**
+ *
+ * grace 시계는 수집기 상태와 무관하게 흐르므로, 이 단계도 무관하게 돌아야 한다.
+ */
+export async function runLabelBookkeepingPhase(today = getKSTDateString()): Promise<AnalysisResult> {
+  const result = { criticalFailures: 0, warningFailures: 0 }
 
   console.log('\n🏷️ 4.1단계: Ground Truth 라벨 생성/확정')
   try {
     const labels = await runDailyLabelPhase(today)
-    warningFailures += labels.warningFailures
+    result.warningFailures += labels.warningFailures
     const gtAFinalCount = labels.gtAFinalized.reduce((sum, r) => sum + r.finalCount, 0)
     const gtACensoredCount = labels.gtAFinalized.reduce((sum, r) => sum + r.censoredCount, 0)
     const gtAExcludedCount = labels.gtAFinalized.reduce((sum, r) => sum + r.excludedCount, 0)
@@ -135,7 +140,7 @@ export async function runAnalysisPipeline(themes: ThemeWithKeywords[], today = g
       countExpiredPendingLabels({ labelType: 'gt_a', cutoffDate: labels.finalizeCutoffDate }), countExpiredPendingLabels({ labelType: 'gt_b', cutoffDate: labels.finalizeCutoffDate }),
     ])
     if (gtABacklog > EXPIRED_PENDING_CRITICAL_THRESHOLD || gtBBacklog > EXPIRED_PENDING_CRITICAL_THRESHOLD) {
-      criticalFailures++
+      result.criticalFailures++
       let versionDetail: string
       try {
         const [gtAV1Backlog, gtAV2Backlog, gtBV1Backlog] = await Promise.all([
@@ -150,21 +155,37 @@ export async function runAnalysisPipeline(themes: ThemeWithKeywords[], today = g
       console.error(`❌ 라벨 확정 적체 위험(전체 버전): GT-A 만기pending=${gtABacklog}, GT-B 만기pending=${gtBBacklog}, ${versionDetail} (${EXPIRED_PENDING_CRITICAL_THRESHOLD} 초과)`)
     }
   } catch (error: unknown) {
-    warningFailures++
+    result.warningFailures++
     console.warn('   ⚠️ Ground Truth 라벨 단계 실패:', error instanceof Error ? error.message : String(error))
   }
 
   console.log('\n🏷️ 4.15단계: gta-v2 foundation 라벨 생성/확정')
   try {
     const gtAV2 = await runGtAV2FoundationPhase(today)
-    if (gtAV2.failures > 0) warningFailures++
+    if (gtAV2.failures > 0) result.warningFailures++
     console.log(`   ✅ gta-v2 pending 생성=${gtAV2.pendingCreated}, 확정=${gtAV2.finalized}, 유지=${gtAV2.keptPending}, 실패=${gtAV2.failures}`)
   } catch (error: unknown) {
-    warningFailures++
+    result.warningFailures++
     console.warn('   ⚠️ gta-v2 foundation 라벨 단계 실패:', error instanceof Error ? error.message : String(error))
   }
 
   // Step 4.5: 비교 임계값 자동 튜닝
+  return result
+}
+
+export async function runAnalysisPipeline(themes: ThemeWithKeywords[], today = getKSTDateString()): Promise<AnalysisResult> {
+  let criticalFailures = 0
+  let warningFailures = 0
+
+  // Step 4: 라이프사이클 점수
+  console.log('\n🧮 4단계: 라이프사이클 점수 계산')
+  try {
+    await calculateAndSaveScores(themes)
+  } catch (error: unknown) {
+    criticalFailures++
+    console.error('❌ 점수 계산 실패:', error instanceof Error ? error.message : String(error))
+  }
+
   console.log('\n🧱 4.25단계: phase0 analog artifact materialization')
   try {
     const result = await materializePhase0Artifacts()

@@ -149,9 +149,11 @@ describe('analysis snapshot fail-loud contract', () => {
       if (input.labelerVersion === 'gtb-v1') return 723
       return input.labelType === 'gt_a' ? 269 : 723
     })
-    const { runAnalysisPipeline } = await import('@/scripts/tli/batch/pipeline-steps')
+    // 라벨 장부는 수집 실패와 분리하려고 runLabelBookkeepingPhase로 옮겼다.
+    // 적체 fail-loud 계약은 그대로여야 한다.
+    const { runLabelBookkeepingPhase } = await import('@/scripts/tli/batch/pipeline-steps')
 
-    const result = await runAnalysisPipeline([], '2026-07-13')
+    const result = await runLabelBookkeepingPhase('2026-07-13')
 
     expect(result).toEqual({ criticalFailures: 1, warningFailures: 0 })
     expect(mocks.countExpiredPendingLabels).toHaveBeenCalledWith(expect.objectContaining({

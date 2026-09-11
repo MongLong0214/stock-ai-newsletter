@@ -53,6 +53,13 @@ export function deriveGtAV2Windows(
   return { pastDates: past, futureDates: future, horizonDate, graceDeadline }
 }
 
+const PENDING_LABEL_PAGE_SIZE = 1000
+const PENDING_LABEL_KEYSET = {
+  first: 'base_date',
+  second: 'theme_id',
+  third: 'forecast_origin_manifest_id',
+} as const
+
 interface PendingGtAV2LabelRow {
   readonly theme_id: string
   readonly base_date: string
@@ -189,13 +196,31 @@ export async function runGtAV2FoundationPhase(today: string): Promise<GtAV2Found
     })
   }
 
-  const { data: pendingLabels, error: pendingError } = await supabaseAdmin
-    .from('theme_labels')
-    .select('theme_id, base_date, forecast_origin_manifest_id')
-    .eq('labeler_version', 'gta-v2')
-    .eq('label_status', 'pending')
-    .order('base_date', { ascending: true })
-  if (pendingError) throw new Error(`gta-v2 pending 라벨 조회 실패: ${pendingError.message}`)
+  // 키셋 페이지네이션 — PostgREST 기본 1000행 상한에 잘리면 초과분 pending 라벨이
+  // 조용히 확정되지 않고 남는다. origin 하나가 200건 넘게 만들므로 몇 주면 상한에 닿는다.
+  const pendingLabels = await paginateByKeyset({
+    pageSize: PENDING_LABEL_PAGE_SIZE,
+    keyOf: (row: PendingGtAV2LabelRow) => ({
+      first: row.base_date,
+      second: row.theme_id,
+      third: row.forecast_origin_manifest_id,
+    }),
+    fetchPage: async (after) => {
+      let query = supabaseAdmin
+        .from('theme_labels')
+        .select('theme_id, base_date, forecast_origin_manifest_id')
+        .eq('labeler_version', 'gta-v2')
+        .eq('label_status', 'pending')
+      if (after !== null) query = query.or(keysetOrExpression(PENDING_LABEL_KEYSET, after))
+      const { data, error } = await query
+        .order('base_date')
+        .order('theme_id')
+        .order('forecast_origin_manifest_id')
+        .limit(PENDING_LABEL_PAGE_SIZE)
+      if (error) throw new Error(`gta-v2 pending 라벨 조회 실패: ${error.message}`)
+      return (data ?? []) as PendingGtAV2LabelRow[]
+    },
+  })
 
   const kospiDates = await loadKospiTradingDates()
   const asOf = new Date().toISOString()
@@ -206,7 +231,7 @@ export async function runGtAV2FoundationPhase(today: string): Promise<GtAV2Found
   let failures = 0
   let firstFailure: string | null = null
 
-  for (const label of (pendingLabels ?? []) as PendingGtAV2LabelRow[]) {
+  for (const label of pendingLabels) {
     const child = childrenByManifest.get(label.forecast_origin_manifest_id)?.get(label.theme_id)
     if (!child) {
       failures++

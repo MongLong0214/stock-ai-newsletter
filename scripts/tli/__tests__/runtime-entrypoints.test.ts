@@ -15,6 +15,7 @@ const collectDataSources = vi.fn()
 const runInterestObservationGapWatchdog = vi.fn()
 const runCalibrationPhase = vi.fn()
 const runAnalysisPipeline = vi.fn()
+const runLabelBookkeepingPhase = vi.fn(async () => ({ criticalFailures: 0, warningFailures: 0 }))
 const shouldAbortAnalysisPipeline = vi.fn()
 const submitIndexNowStep = vi.fn()
 const calculateThemeComparisons = vi.fn()
@@ -56,6 +57,7 @@ vi.mock('@/scripts/tli/batch/pipeline-steps', () => ({
   runInterestObservationGapWatchdog,
   runCalibrationPhase,
   runAnalysisPipeline,
+  runLabelBookkeepingPhase,
   shouldAbortAnalysisPipeline,
   submitIndexNowStep,
 }))
@@ -153,6 +155,14 @@ describe('runtime entrypoints', () => {
     expect(collectDailyStockPricesForDate).not.toHaveBeenCalled()
     expect(runAnalysisPipeline).not.toHaveBeenCalled()
     expect(exitSpy).not.toHaveBeenCalled()
+
+    // 2026-09-11 회귀: 수집이 치명 실패해도 라벨 장부는 돌아야 한다.
+    //
+    // 예전에는 라벨 확정이 분석 파이프라인 안에 있어 "4~8단계 생략"에 함께 끌려갔다.
+    // 9/10 네이버 사이트 이전으로 종목 수집이 붕괴한 그 구간에 origin 2026-08-31의
+    // grace가 만료됐고, pending 라벨 1건이 종료되지 못해 다음 날 origin eligibility가
+    // critical로 파이프라인을 멈췄다. grace 시계는 수집기 상태와 무관하게 흐른다.
+    expect(runLabelBookkeepingPhase).toHaveBeenCalled()
   })
 
   it('returns exitCode 1 when analysis reports a critical snapshot failure', async () => {
