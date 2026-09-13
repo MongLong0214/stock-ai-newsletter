@@ -2,6 +2,59 @@
   "newsletters": [
     {
       "type": "stock",
+      "date": "2026-09-14",
+      "stocks": [
+        {
+          "ticker": "KOSPI:003350",
+          "name": "한국화장품제조",
+          "close_price": 15710,
+          "rationale": "기준일 종가 15,710원|당일 등락 21.7% 상승|RSI 71.3 강세|거래량비율 543% 급증|60일 거래량 백분위 99.2점|60일 신고가 4.9% 돌파|20일선 괴리 21.4%|20일 추세 기울기 1.26%/일|20일 추세 적합도 R2 39.7점|60일 추세 적합도 R2 75.1점|MACD 히스토그램 -23.51|ATR14 7.9%|ADX14 39.5점|OBV20 기울기 1160888|252거래일 가격위치 100.0%|연속상승 1일|골든크로스 감지 1회·경과 21일|20일 평균거래대금 306.5억원|volumeBreakout 전략점수 94.5점|선정 경로 거래량 돌파",
+          "signals": {
+            "trend_score": 85,
+            "momentum_score": 61,
+            "volume_score": 86,
+            "volatility_score": 1,
+            "pattern_score": 67,
+            "sentiment_score": 87,
+            "overall_score": 70
+          }
+        },
+        {
+          "ticker": "KOSDAQ:443670",
+          "name": "에스피소프트",
+          "close_price": 4725,
+          "rationale": "기준일 종가 4,725원|당일 등락 32.2% 상승|RSI 70.9 강세|거래량비율 397% 급증|60일 거래량 백분위 97.5점|60일 신고가 8.6% 돌파|20일선 괴리 33.6%|20일 추세 기울기 2.22%/일|20일 추세 적합도 R2 66.2점|60일 추세 적합도 R2 40.0점|MACD 히스토그램 70.59|ATR14 8.3%|ADX14 34.2점|OBV20 기울기 675889|252거래일 가격위치 50.8%|연속상승 1일|골든크로스 감지 1회·경과 10일|20일 평균거래대금 103.6억원|volumeBreakout 전략점수 85.0점|선정 경로 거래량 돌파",
+          "signals": {
+            "trend_score": 92,
+            "momentum_score": 71,
+            "volume_score": 85,
+            "volatility_score": 0,
+            "pattern_score": 68,
+            "sentiment_score": 70,
+            "overall_score": 71
+          }
+        },
+        {
+          "ticker": "KOSDAQ:475230",
+          "name": "엔알비",
+          "close_price": 11170,
+          "rationale": "기준일 종가 11,170원|당일 등락 11.0% 상승|RSI 66.3 강세|거래량비율 233% 급증|60일 거래량 백분위 94.2점|60일 신고가 2.9% 돌파|20일선 괴리 16.0%|20일 추세 기울기 0.93%/일|20일 추세 적합도 R2 34.7점|60일 추세 적합도 R2 22.5점|MACD 히스토그램 21.55|ATR14 7.7%|ADX14 32.2점|OBV20 기울기 17528|252거래일 가격위치 23.6%|연속상승 2일|골든크로스 감지 1회·경과 10일|20일 평균거래대금 12.3억원|volumeBreakout 전략점수 47.8점|선정 경로 거래량 돌파",
+          "signals": {
+            "trend_score": 81,
+            "momentum_score": 64,
+            "volume_score": 78,
+            "volatility_score": 7,
+            "pattern_score": 56,
+            "sentiment_score": 63,
+            "overall_score": 64
+          }
+        }
+      ],
+      "sentAt": "2026-09-13T22:30:53.506+00:00",
+      "subscriberCount": 320
+    },
+    {
+      "type": "stock",
       "date": "2026-09-11",
       "stocks": [
         {
@@ -11891,5 +11944,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-09-10T22:31:33.608Z"
+  "lastUpdated": "2026-09-13T22:31:32.634Z"
 }
