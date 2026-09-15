@@ -1,6 +1,59 @@
 {
   "newsletters": [
     {
+      "type": "stock",
+      "date": "2026-09-16",
+      "stocks": [
+        {
+          "ticker": "KOSDAQ:053300",
+          "name": "한국정보인증",
+          "close_price": 5500,
+          "rationale": "기준일 종가 5,500원|당일 등락 7.8% 상승|RSI 72.8 강세|거래량비율 1541% 급증|60일 거래량 백분위 99.2점|60일 신고가 7.2% 돌파|20일선 괴리 10.5%|20일 추세 기울기 0.57%/일|20일 추세 적합도 R2 61.0점|60일 추세 적합도 R2 57.5점|MACD 히스토그램 23.21|ATR14 4.4%|ADX14 27.9점|OBV20 기울기 107482|252거래일 가격위치 42.7%|연속상승 1일|골든크로스 감지 1회·경과 12일|20일 평균거래대금 23.3억원|volumeBreakout 전략점수 95.0점|선정 경로 거래량 돌파",
+          "signals": {
+            "trend_score": 85,
+            "momentum_score": 65,
+            "volume_score": 84,
+            "volatility_score": 73,
+            "pattern_score": 63,
+            "sentiment_score": 60,
+            "overall_score": 74
+          }
+        },
+        {
+          "ticker": "KOSDAQ:056190",
+          "name": "SFA",
+          "close_price": 28800,
+          "rationale": "기준일 종가 28,800원|당일 등락 15.4% 상승|RSI 73.6 강세|거래량비율 440% 급증|60일 거래량 백분위 99.2점|60일 신고가 10.6% 돌파|20일선 괴리 17.9%|20일 추세 기울기 0.35%/일|20일 추세 적합도 R2 23.2점|60일 추세 적합도 R2 18.1점|MACD 히스토그램 273.87|ATR14 4.7%|ADX14 15.4점|OBV20 기울기 51415|252거래일 가격위치 61.3%|연속상승 2일|골든크로스 감지 1회·경과 12일|20일 평균거래대금 29.1억원|volumeBreakout 전략점수 95.0점|선정 경로 거래량 돌파",
+          "signals": {
+            "trend_score": 72,
+            "momentum_score": 71,
+            "volume_score": 86,
+            "volatility_score": 65,
+            "pattern_score": 68,
+            "sentiment_score": 66,
+            "overall_score": 73
+          }
+        },
+        {
+          "ticker": "KOSPI:004020",
+          "name": "현대제철",
+          "close_price": 35150,
+          "rationale": "기준일 종가 35,150원|당일 등락 7.3% 상승|RSI 69.0 강세|거래량비율 253% 급증|60일 거래량 백분위 99.2점|60일 신고가 3.8% 돌파|20일선 괴리 13.0%|20일 추세 기울기 1.15%/일|20일 추세 적합도 R2 87.5점|60일 추세 적합도 R2 39.0점|MACD 히스토그램 324.69|ATR14 5.2%|ADX14 33.2점|OBV20 기울기 250378|252거래일 가격위치 48.4%|연속상승 1일|골든크로스 감지 1회·경과 10일|20일 평균거래대금 218.0억원|volumeBreakout 전략점수 85.7점|선정 경로 거래량 돌파",
+          "signals": {
+            "trend_score": 94,
+            "momentum_score": 67,
+            "volume_score": 84,
+            "volatility_score": 57,
+            "pattern_score": 64,
+            "sentiment_score": 69,
+            "overall_score": 75
+          }
+        }
+      ],
+      "sentAt": "2026-09-15T22:31:01.917+00:00",
+      "subscriberCount": 320
+    },
+    {
       "type": "crash_alert",
       "date": "2026-09-15",
       "crashAlert": {
@@ -11991,5 +12044,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-09-14T22:31:24.995Z"
+  "lastUpdated": "2026-09-15T22:32:16.251Z"
 }
