@@ -2,6 +2,59 @@
   "newsletters": [
     {
       "type": "stock",
+      "date": "2026-09-17",
+      "stocks": [
+        {
+          "ticker": "KOSDAQ:406820",
+          "name": "뷰티스킨",
+          "close_price": 2540,
+          "rationale": "기준일 종가 2,540원|당일 등락 30.8% 상승|RSI 73.5 강세|거래량비율 976% 급증|60일 거래량 백분위 97.5점|60일 신고가 10.2% 돌파|20일선 괴리 29.5%|20일 추세 기울기 0.41%/일|20일 추세 적합도 R2 12.7점|60일 추세 적합도 R2 28.4점|MACD 히스토그램 39.14|ATR14 7.1%|ADX14 36.8점|OBV20 기울기 188396|252거래일 가격위치 18.5%|연속상승 1일|골든크로스 감지 1회·경과 14일|20일 평균거래대금 10.9억원|volumeBreakout 전략점수 85.0점|선정 경로 거래량 돌파",
+          "signals": {
+            "trend_score": 65,
+            "momentum_score": 72,
+            "volume_score": 84,
+            "volatility_score": 19,
+            "pattern_score": 55,
+            "sentiment_score": 50,
+            "overall_score": 63
+          }
+        },
+        {
+          "ticker": "KOSDAQ:413630",
+          "name": "씨피시스템",
+          "close_price": 4725,
+          "rationale": "기준일 종가 4,725원|당일 등락 5.5% 상승|RSI 65.5 강세|거래량비율 643% 급증|60일 거래량 백분위 95.8점|60일 신고가 5.0% 돌파|20일선 괴리 18.7%|20일 추세 기울기 1.36%/일|20일 추세 적합도 R2 62.4점|60일 추세 적합도 R2 53.7점|MACD 히스토그램 44.89|ATR14 9.2%|ADX14 32.4점|OBV20 기울기 2139189|252거래일 가격위치 76.1%|연속상승 2일|골든크로스 감지 1회·경과 31일|20일 평균거래대금 185.4억원|volumeBreakout 전략점수 75.0점|선정 경로 거래량 돌파",
+          "signals": {
+            "trend_score": 88,
+            "momentum_score": 69,
+            "volume_score": 85,
+            "volatility_score": 0,
+            "pattern_score": 62,
+            "sentiment_score": 82,
+            "overall_score": 70
+          }
+        },
+        {
+          "ticker": "KOSDAQ:263860",
+          "name": "지니언스",
+          "close_price": 19680,
+          "rationale": "기준일 종가 19,680원|당일 등락 3.2% 상승|RSI 71.0 강세|거래량비율 369% 급증|60일 거래량 백분위 97.5점|60일 신고가 1.4% 돌파|20일선 괴리 22.3%|20일 추세 기울기 1.38%/일|20일 추세 적합도 R2 54.7점|60일 추세 적합도 R2 74.4점|MACD 히스토그램 346.80|ATR14 7.4%|ADX14 29.6점|OBV20 기울기 164836|252거래일 가격위치 47.3%|연속상승 1일|골든크로스 감지 1회·경과 21일|20일 평균거래대금 72.9억원|volumeBreakout 전략점수 56.5점|선정 경로 거래량 돌파",
+          "signals": {
+            "trend_score": 89,
+            "momentum_score": 73,
+            "volume_score": 86,
+            "volatility_score": 13,
+            "pattern_score": 45,
+            "sentiment_score": 69,
+            "overall_score": 67
+          }
+        }
+      ],
+      "sentAt": "2026-09-16T22:31:02.949+00:00",
+      "subscriberCount": 320
+    },
+    {
+      "type": "stock",
       "date": "2026-09-16",
       "stocks": [
         {
@@ -12044,5 +12097,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-09-15T22:32:16.251Z"
+  "lastUpdated": "2026-09-16T22:31:38.162Z"
 }
