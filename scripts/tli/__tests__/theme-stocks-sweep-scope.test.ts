@@ -1,5 +1,11 @@
-import { describe, expect, it } from 'vitest'
-import { buildSweepScope } from '@/scripts/tli/shared/data-ops'
+import { describe, expect, it, vi } from 'vitest'
+
+// 빈 목록이면 DB를 건드리기 전에 끝나야 한다 — 건드리면 이 mock이 터진다.
+vi.mock('@/scripts/tli/shared/supabase-admin', () => ({
+  supabaseAdmin: { from: () => { throw new Error('빈 목록에 DB를 건드렸다') } },
+}))
+
+import { buildSweepScope, deactivateThemeStocks } from '@/scripts/tli/shared/data-ops'
 
 const stock = (themeId: string, symbol: string) => ({ themeId, symbol })
 
@@ -49,5 +55,15 @@ describe('buildSweepScope', () => {
     const scope = buildSweepScope([stock('extra', '005930')], ['t1'])
 
     expect(scope.get('extra')).toEqual(new Set(['005930']))
+  })
+})
+
+/**
+ * `.in('theme_id', [])`를 그대로 보내면 필터가 무력화돼 **전량 비활성화**로 번질 수 있다.
+ * 빈 목록은 DB에 닿기 전에 no-op으로 끝나야 한다.
+ */
+describe('deactivateThemeStocks', () => {
+  it('빈 목록이면 DB를 건드리지 않고 0을 돌려준다', async () => {
+    await expect(deactivateThemeStocks([])).resolves.toBe(0)
   })
 })

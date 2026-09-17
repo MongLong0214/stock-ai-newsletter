@@ -148,12 +148,7 @@ export async function countActiveThemeStocks(themeIds?: readonly string[]): Prom
   return count ?? 0
 }
 
-/**
- * 테마가 비활성화되면 그 테마의 종목도 함께 내린다(cascade).
- *
- * 수집기는 활성 테마만 돈다. 그래서 테마만 비활성화하고 종목을 두면 그 종목들은
- * **영원히 활성으로 남는다** — 실측에서 2026-03-27자 행까지 남아 있었다.
- */
+/** 지정한 테마들의 활성 종목을 내린다. */
 export async function deactivateThemeStocks(themeIds: readonly string[]): Promise<number> {
   if (themeIds.length === 0) return 0
 
@@ -166,6 +161,30 @@ export async function deactivateThemeStocks(themeIds: readonly string[]): Promis
 
   if (error) throw new Error(`테마 종목 비활성화 실패: ${error.message}`)
   return data?.length ?? 0
+}
+
+/**
+ * 비활성 테마에 붙은 활성 종목을 내린다 — 이벤트가 아니라 **리컨실리에이션**이다.
+ *
+ * 수집기는 활성 테마만 돈다. 그래서 테마만 내리고 종목을 두면 그 종목들은 어떤 sweep도
+ * 닿지 않아 **영원히 활성으로 남는다.** 실측(2026-09-17)에서 비활성 테마 30개에 860건이
+ * 남아 있었고 최고령 행은 2026-03-27자였다.
+ *
+ * 비활성화 지점마다 cascade를 거는 대신 매 런 전량 대조하는 이유는, cascade는 새 호출
+ * 경로가 생기면 조용히 새고 과거에 새어나간 행을 영원히 복구하지 못하기 때문이다.
+ * 대조는 그 두 가지를 모두 자가 치유한다.
+ */
+export async function reconcileInactiveThemeStocks(): Promise<number> {
+  const { data, error } = await supabaseAdmin
+    .from('themes')
+    .select('id')
+    .eq('is_active', false)
+
+  if (error) throw new Error(`비활성 테마 조회 실패: ${error.message}`)
+
+  const deactivated = await deactivateThemeStocks((data ?? []).map((row) => row.id))
+  if (deactivated > 0) console.log(`   🔕 비활성 테마의 잔여 종목 ${deactivated}건 정리`)
+  return deactivated
 }
 
 const MEMBERSHIP_SOURCE = 'naver'
