@@ -55,11 +55,19 @@ vi.mock('@/scripts/tli/origins/run-origin-eligibility', () => ({
 }))
 
 import { collectDataSources, runMondayOriginsStep } from '../batch/collection-pipeline'
+import type { ThemeWithKeywords } from '../shared/data-ops'
 
-const THEME = {
+const THEME: ThemeWithKeywords = {
   id: '11111111-1111-4111-8111-111111111111',
   name: 'HBM',
+  name_en: null,
+  description: null,
   naver_theme_id: '100',
+  is_active: true,
+  first_spike_date: null,
+  created_at: '2026-01-01T00:00:00.000Z',
+  updated_at: '2026-01-01T00:00:00.000Z',
+  keywords: ['HBM'],
   naverKeywords: ['HBM'],
 }
 

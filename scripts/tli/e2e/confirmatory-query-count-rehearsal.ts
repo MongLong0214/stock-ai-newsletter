@@ -367,13 +367,14 @@ const countMethodCalls = (
   source: ConfirmatoryFeatureBatchDataSource,
 ): { source: ConfirmatoryFeatureBatchDataSource; calls: Record<string, number> } => {
   const calls: Record<string, number> = {}
-  const wrapped = {} as ConfirmatoryFeatureBatchDataSource
+  // 인터페이스가 readonly라 대상 타입에 바로 담을 수 없다 — 가변 맵에 모은 뒤 한 번만 캐스팅한다.
+  const wrapped: Record<string, (...args: unknown[]) => unknown> = {}
   for (const key of Object.keys(source) as (keyof ConfirmatoryFeatureBatchDataSource)[]) {
     calls[key] = 0
     const original = source[key] as (...args: unknown[]) => unknown
-    wrapped[key] = ((...args: unknown[]) => { calls[key] += 1; return original(...args) }) as never
+    wrapped[key] = (...args: unknown[]) => { calls[key] += 1; return original(...args) }
   }
-  return { source: wrapped, calls }
+  return { source: wrapped as unknown as ConfirmatoryFeatureBatchDataSource, calls }
 }
 
 interface RunResult {

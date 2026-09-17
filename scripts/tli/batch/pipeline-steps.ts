@@ -9,7 +9,8 @@ import { evaluateThemePredictionsV3 } from '@/scripts/tli/comparison/theme-predi
 import { evaluatePredictions } from '@/scripts/tli/comparison/evaluate-predictions'
 import { collectBablPhaseSnapshot } from '@/scripts/tli/collectors/babl-phase-snapshot'
 import { evaluateComparisonOutcomes } from '@/scripts/tli/comparison/evaluate-comparisons'
-import { submitToIndexNow, buildThemeUrls } from '@/lib/indexnow'
+import { notifyIndexNow } from '@/lib/indexnow'
+import { siteConfig } from '@/lib/constants/seo/config'
 import { getKSTDateString } from '@/lib/tli/date-utils'
 import { addKoreanTradingDays, isKoreanTradingDate } from '@/lib/tli/trading-calendar'
 import { materializePhase0Artifacts } from '@/scripts/tli/comparison/materialize-phase0-artifacts'
@@ -277,14 +278,9 @@ export async function submitIndexNowStep(themes: ThemeWithKeywords[]): Promise<v
   console.log('\n🔔 9단계: IndexNow URL 제출')
 
   try {
-    const themeIds = themes.map(t => t.id)
-    const urls = buildThemeUrls(themeIds)
-    const result = await submitToIndexNow(urls)
-    if (result.submitted > 0) {
-      console.log(`   ✅ ${result.submitted}개 URL 제출 완료`)
-    } else if (result.errors.length > 0) {
-      console.warn(`   ⚠️ IndexNow 제출 실패: ${result.errors[0]}`)
-    }
+    const urls = themes.map((theme) => `${siteConfig.domain}/themes/${theme.id}`)
+    await notifyIndexNow(urls)
+    console.log(`   ✅ ${urls.length}개 URL 제출`)
   } catch (error: unknown) {
     console.warn('   ⚠️ IndexNow 제출 실패 (무시):', error instanceof Error ? error.message : String(error))
   }

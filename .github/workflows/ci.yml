@@ -38,6 +38,11 @@ jobs:
       - name: Typecheck
         run: npx tsc --noEmit
 
+      # 루트 tsconfig는 scripts/를 통째로 exclude한다. 이 스텝이 없으면 scripts/tli는
+      # 어디서도 타입체크되지 않는다 — 존재하지 않는 export를 import해도 CI가 통과한다.
+      - name: Typecheck (scripts)
+        run: npm run typecheck:scripts
+
       - name: Lint
         run: npx eslint .
 

@@ -103,8 +103,8 @@ describe('stock daily prices', () => {
       { date: '2026-07-02', open: null, high: null, low: null, close: 70500, volume: 1200 },
     ])
     const fetchIndexDailyRangeClosePrices = vi.fn().mockResolvedValue([
-      { date: '2026-07-01', close: 2650.5, volume: null },
-      { date: '2026-07-02', close: 2655.1, volume: null },
+      { date: '2026-07-01', open: null, high: null, low: null, close: 2650.5, volume: null },
+      { date: '2026-07-02', open: null, high: null, low: null, close: 2655.1, volume: null },
     ])
     const persistDailyPrices = vi.fn(async (rows: readonly StockDailyPriceInput[]) => rows.length)
     const loadSymbols = vi.fn(async () => ['005930', '000660'])
@@ -148,7 +148,7 @@ describe('stock daily prices', () => {
   it('always includes KOSPI even when absent from the loaded symbols, and never drops it via the budget cap', async () => {
     const fetchDailyRangeClosePrices = vi.fn().mockResolvedValue([])
     const fetchIndexDailyRangeClosePrices = vi.fn().mockResolvedValue([
-      { date: '2026-07-02', close: 2655.1, volume: null },
+      { date: '2026-07-02', open: null, high: null, low: null, close: 2655.1, volume: null },
     ])
     const persistDailyPrices = vi.fn(async () => 0)
     const loadSymbols = vi.fn(async () => ['005930', '000660', '035420'])
@@ -177,7 +177,7 @@ describe('stock daily prices', () => {
     const fetchDailyRangeClosePrices = vi.fn().mockResolvedValue([])
     const fetchIndexDailyRangeClosePrices = vi.fn(async () => {
       vi.setSystemTime(new Date('2026-07-02T00:00:01.000Z'))
-      return [{ date: '2026-07-02', close: 2655.1, volume: null }]
+      return [{ date: '2026-07-02', open: null, high: null, low: null, close: 2655.1, volume: null }]
     })
     const persistDailyPrices = vi.fn(async (rows: readonly StockDailyPriceInput[]) => rows.length)
     const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
@@ -210,7 +210,7 @@ describe('stock daily prices', () => {
   it('does not duplicate KOSPI when it is already present in the loaded symbols', async () => {
     const fetchDailyRangeClosePrices = vi.fn().mockResolvedValue([])
     const fetchIndexDailyRangeClosePrices = vi.fn().mockResolvedValue([
-      { date: '2026-07-02', close: 2655.1, volume: null },
+      { date: '2026-07-02', open: null, high: null, low: null, close: 2655.1, volume: null },
     ])
     const persistDailyPrices = vi.fn(async () => 0)
     const loadSymbols = vi.fn(async () => ['005930', KOSPI_INDEX_SYMBOL])
@@ -261,9 +261,9 @@ describe('stock daily prices', () => {
 
   it('reports symbol-level success/failure counts and success rate', async () => {
     const fetchDailyRangeClosePrices = vi.fn()
-      .mockResolvedValueOnce([{ date: '2026-07-01', close: 70000, volume: 100 }])
+      .mockResolvedValueOnce([{ date: '2026-07-01', open: null, high: null, low: null, close: 70000, volume: 100 }])
       .mockResolvedValueOnce([])
-    const fetchIndexDailyRangeClosePrices = vi.fn().mockResolvedValue([{ date: '2026-07-01', close: 2650, volume: null }])
+    const fetchIndexDailyRangeClosePrices = vi.fn().mockResolvedValue([{ date: '2026-07-01', open: null, high: null, low: null, close: 2650, volume: null }])
     const persistDailyPrices = vi.fn(async (rows: readonly StockDailyPriceInput[]) => rows.length)
     const loadSymbols = vi.fn(async () => ['005930', '000660'])
 
@@ -291,8 +291,8 @@ describe('stock daily prices', () => {
   })
 
   it('logs the collection-phase report and rethrows when persistence fails, instead of swallowing it', async () => {
-    const fetchDailyRangeClosePrices = vi.fn().mockResolvedValue([{ date: '2026-07-01', close: 70000, volume: 100 }])
-    const fetchIndexDailyRangeClosePrices = vi.fn().mockResolvedValue([{ date: '2026-07-01', close: 2650, volume: null }])
+    const fetchDailyRangeClosePrices = vi.fn().mockResolvedValue([{ date: '2026-07-01', open: null, high: null, low: null, close: 70000, volume: 100 }])
+    const fetchIndexDailyRangeClosePrices = vi.fn().mockResolvedValue([{ date: '2026-07-01', open: null, high: null, low: null, close: 2650, volume: null }])
     const persistError = new Error('일봉 주가 전량 저장 실패 (2건)')
     const persistDailyPrices = vi.fn().mockRejectedValue(persistError)
     const loadSymbols = vi.fn(async () => ['005930'])
@@ -319,8 +319,8 @@ describe('stock daily prices', () => {
   })
 
   it('computes date coverage rate below 1 when a requested trading day has no data from any symbol', async () => {
-    const fetchDailyRangeClosePrices = vi.fn().mockResolvedValue([{ date: '2026-07-01', close: 70000, volume: 100 }])
-    const fetchIndexDailyRangeClosePrices = vi.fn().mockResolvedValue([{ date: '2026-07-01', close: 2650, volume: null }])
+    const fetchDailyRangeClosePrices = vi.fn().mockResolvedValue([{ date: '2026-07-01', open: null, high: null, low: null, close: 70000, volume: 100 }])
+    const fetchIndexDailyRangeClosePrices = vi.fn().mockResolvedValue([{ date: '2026-07-01', open: null, high: null, low: null, close: 2650, volume: null }])
     const persistDailyPrices = vi.fn(async (rows: readonly StockDailyPriceInput[]) => rows.length)
     const loadSymbols = vi.fn(async () => ['005930'])
 
@@ -346,7 +346,7 @@ describe('stock daily prices', () => {
       finalizedThroughDate: '2026-09-01',
       delayMs: 0,
       loadSymbols: async () => ['KOSPI:005930'],
-      fetchIndexDailyRangeClosePrices: async () => [{ date: '2026-09-01', close: 3200, volume: null }],
+      fetchIndexDailyRangeClosePrices: async () => [{ date: '2026-09-01', open: null, high: null, low: null, close: 3200, volume: null }],
       fetchDailyRangeClosePrices: async () => [
         { date: '2026-09-02', open: 70000, high: 71000, low: 69000, close: 70500, volume: 100 },
         { date: '2026-09-01', open: 69000, high: 70000, low: 68000, close: 69500, volume: 100 },
@@ -372,7 +372,7 @@ describe('stock daily prices', () => {
         finalizedThroughDate: '2026-09-02',
         delayMs: 0,
         loadSymbols: async () => ['KOSPI:005930'],
-        fetchIndexDailyRangeClosePrices: async () => [{ date: '2026-09-02', close: 3200, volume: null }],
+        fetchIndexDailyRangeClosePrices: async () => [{ date: '2026-09-02', open: null, high: null, low: null, close: 3200, volume: null }],
         fetchDailyRangeClosePrices: async () => [
           { date: '2026-09-02', open: 70000, high: 70000, low: 70000, close: 70000, volume: 0 },
           { date: '2026-09-01', open: 69000, high: 69000, low: 69000, close: 69000, volume: 0 },
@@ -425,7 +425,7 @@ describe('stock daily prices', () => {
     vi.useFakeTimers()
     const fetchDailyRangeClosePrices = vi.fn()
       .mockRejectedValueOnce(createKisApiError('http', 'temporary'))
-      .mockResolvedValueOnce([{ date: '2026-09-01', close: 70000, volume: 100 }])
+      .mockResolvedValueOnce([{ date: '2026-09-01', open: null, high: null, low: null, close: 70000, volume: 100 }])
     const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
     try {
       const reportPromise = collectAndPersistStockDailyPriceRange({
@@ -433,7 +433,7 @@ describe('stock daily prices', () => {
         days: 1,
         delayMs: 0,
         loadSymbols: async () => ['KOSPI:005930'],
-        fetchIndexDailyRangeClosePrices: async () => [{ date: '2026-09-01', close: 3200, volume: null }],
+        fetchIndexDailyRangeClosePrices: async () => [{ date: '2026-09-01', open: null, high: null, low: null, close: 3200, volume: null }],
         fetchDailyRangeClosePrices,
         persistDailyPrices: async (rows) => rows.length,
       })
@@ -452,15 +452,15 @@ describe('stock daily prices', () => {
 
   it('computes exact-date coverage across attempted stock symbols', async () => {
     const fetchDailyRangeClosePrices = vi.fn(async (symbol: string) => symbol === 'KOSPI:005930'
-      ? [{ date: '2026-09-01', close: 70000, volume: 100 }]
-      : [{ date: '2026-08-31', close: 120000, volume: 100 }])
+      ? [{ date: '2026-09-01', open: null, high: null, low: null, close: 70000, volume: 100 }]
+      : [{ date: '2026-08-31', open: null, high: null, low: null, close: 120000, volume: 100 }])
     const report = await collectAndPersistStockDailyPriceRange({
       endDate: '2026-09-01',
       days: 2,
       finalizedThroughDate: '2026-09-01',
       delayMs: 0,
       loadSymbols: async () => ['KOSPI:005930', 'KOSPI:000660'],
-      fetchIndexDailyRangeClosePrices: async () => [{ date: '2026-09-01', close: 3200, volume: null }],
+      fetchIndexDailyRangeClosePrices: async () => [{ date: '2026-09-01', open: null, high: null, low: null, close: 3200, volume: null }],
       fetchDailyRangeClosePrices,
       persistDailyPrices: async (rows) => rows.length,
     })
@@ -476,7 +476,7 @@ describe('stock daily prices', () => {
     const advanceResponse = async () => {
       starts.push(Date.now())
       vi.setSystemTime(Date.now() + 400)
-      return [{ date: '2026-09-01', close: 100, volume: 100 }]
+      return [{ date: '2026-09-01', open: null, high: null, low: null, close: 100, volume: 100 }]
     }
     try {
       const reportPromise = collectAndPersistStockDailyPriceRange({
@@ -508,8 +508,8 @@ describe('stock daily prices', () => {
         finalizedThroughDate: '2026-09-01',
         delayMs: 0,
         loadSymbols: async () => symbols,
-        fetchIndexDailyRangeClosePrices: async () => [{ date: '2026-09-01', close: 3200, volume: null }],
-        fetchDailyRangeClosePrices: async () => [{ date: '2026-09-01', close: 100, volume: 100 }],
+        fetchIndexDailyRangeClosePrices: async () => [{ date: '2026-09-01', open: null, high: null, low: null, close: 3200, volume: null }],
+        fetchDailyRangeClosePrices: async () => [{ date: '2026-09-01', open: null, high: null, low: null, close: 100, volume: 100 }],
         persistDailyPrices: async (rows) => rows.length,
       })
       const heartbeats = consoleLogSpy.mock.calls
@@ -530,7 +530,7 @@ describe('stock daily prices', () => {
       finalizedThroughDate: '2026-09-01',
       delayMs: 0,
       loadSymbols: async () => ['KOSPI:005930'],
-      fetchIndexDailyRangeClosePrices: async () => [{ date: '2026-09-01', close: 3200, volume: null }],
+      fetchIndexDailyRangeClosePrices: async () => [{ date: '2026-09-01', open: null, high: null, low: null, close: 3200, volume: null }],
       fetchDailyRangeClosePrices,
       persistDailyPrices: async (rows) => rows.length,
     })

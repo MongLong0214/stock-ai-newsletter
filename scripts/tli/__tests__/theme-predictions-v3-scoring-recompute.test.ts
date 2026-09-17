@@ -13,7 +13,7 @@ const dbMocks = vi.hoisted(() => ({
   scoredRowsByKey: new Map<string, Record<string, unknown>[]>(),
   updateCalls: [] as Record<string, unknown>[],
   legacyScopeCalls: 0,
-  batchUpsert: vi.fn(async () => 0),
+  batchUpsert: vi.fn<(table: string, rows: Array<Record<string, unknown>>) => Promise<number>>(async () => 0),
 }))
 
 vi.mock('@/scripts/tli/shared/supabase-admin', () => ({
@@ -99,6 +99,7 @@ describe('evaluateThemePredictionsV3 — model_metrics_daily full recompute (C2)
     expect(dbMocks.legacyScopeCalls).toBe(3)
     const [, rows] = dbMocks.batchUpsert.mock.calls[0]
     expect(rows).toHaveLength(1)
+    if (!rows) throw new Error('rows 없음')
     // n_scored reflects all 3 rows for the day, not just the 1 row scored in this batch.
     expect(rows[0]).toMatchObject({
       metric_date: '2026-07-06',

@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
 // --- Supabase mock ---
 const mockSelect = vi.fn()
-const mockFrom = vi.fn(() => ({ select: mockSelect }))
+const mockFrom = vi.fn<(table: string) => { select: typeof mockSelect }>(() => ({ select: mockSelect }))
 const mockInsert = vi.fn()
 const mockUpdate = vi.fn()
 const mockDelete = vi.fn()

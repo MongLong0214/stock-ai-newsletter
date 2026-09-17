@@ -57,7 +57,8 @@ describe('prospective gate evidence builders', () => {
     })
     const dataset: ProspectiveFinalDataset = {
       cycleId, plannedOrigins: 16, sequenceStart: 1, sequenceEnd: 16,
-      decisionOriginDate: '2026-10-19', rows: [], completeness,
+      decisionOriginDate: '2026-10-19', eligibleOrigins: [], originAccounting: [],
+      rows: [], completeness,
       criticalIncidentCount: 0, incidents: [], gateInputSha256: sha('a'),
       frozenHashes: hashes, expectedFrozenHashes: hashes,
     }
