@@ -2,6 +2,59 @@
   "newsletters": [
     {
       "type": "stock",
+      "date": "2026-09-18",
+      "stocks": [
+        {
+          "ticker": "KOSPI:480370",
+          "name": "씨케이솔루션",
+          "close_price": 2080,
+          "rationale": "기준일 종가 2,080원|당일 등락 23.1% 상승|RSI 71.4 강세|거래량비율 465% 급증|60일 거래량 백분위 97.5점|60일 신고가 6.4% 돌파|20일선 괴리 33.9%|20일 추세 기울기 2.02%/일|20일 추세 적합도 R2 84.6점|60일 추세 적합도 R2 41.4점|MACD 히스토그램 44.72|ATR14 8.4%|ADX14 42.9점|OBV20 기울기 280827|252거래일 가격위치 34.0%|연속상승 1일|골든크로스 감지 1회·경과 13일|20일 평균거래대금 10.1억원|volumeBreakout 전략점수 85.0점|선정 경로 거래량 돌파",
+          "signals": {
+            "trend_score": 96,
+            "momentum_score": 74,
+            "volume_score": 86,
+            "volatility_score": 0,
+            "pattern_score": 60,
+            "sentiment_score": 65,
+            "overall_score": 70
+          }
+        },
+        {
+          "ticker": "KOSDAQ:340450",
+          "name": "지씨지놈",
+          "close_price": 7000,
+          "rationale": "기준일 종가 7,000원|당일 등락 4.6% 상승|RSI 74.5 강세|거래량비율 344% 급증|60일 거래량 백분위 97.5점|60일 신고가 4.0% 돌파|20일선 괴리 20.5%|20일 추세 기울기 0.89%/일|20일 추세 적합도 R2 53.1점|60일 추세 적합도 R2 74.4점|MACD 히스토그램 106.83|ATR14 5.3%|ADX14 20.9점|OBV20 기울기 26245|252거래일 가격위치 53.8%|연속상승 4일|골든크로스 감지 1회·경과 21일|20일 평균거래대금 7.9억원|volumeBreakout 전략점수 77.1점|선정 경로 거래량 돌파",
+          "signals": {
+            "trend_score": 83,
+            "momentum_score": 79,
+            "volume_score": 85,
+            "volatility_score": 55,
+            "pattern_score": 54,
+            "sentiment_score": 80,
+            "overall_score": 74
+          }
+        },
+        {
+          "ticker": "KOSPI:372910",
+          "name": "한컴라이프케어",
+          "close_price": 2190,
+          "rationale": "기준일 종가 2,190원|당일 등락 10.6% 상승|RSI 74.6 강세|거래량비율 464% 급증|60일 거래량 백분위 95.8점|60일 신고가 6.1% 돌파|20일선 괴리 16.0%|20일 추세 기울기 0.58%/일|20일 추세 적합도 R2 55.2점|60일 추세 적합도 R2 63.8점|MACD 히스토그램 26.20|ATR14 5.4%|ADX14 50.0점|OBV20 기울기 514936|252거래일 가격위치 31.9%|연속상승 1일|골든크로스 감지 1회·경과 15일|20일 평균거래대금 18.8억원|volumeBreakout 전략점수 75.0점|선정 경로 거래량 돌파",
+          "signals": {
+            "trend_score": 82,
+            "momentum_score": 70,
+            "volume_score": 86,
+            "volatility_score": 52,
+            "pattern_score": 57,
+            "sentiment_score": 57,
+            "overall_score": 71
+          }
+        }
+      ],
+      "sentAt": "2026-09-17T22:30:48.255+00:00",
+      "subscriberCount": 319
+    },
+    {
+      "type": "stock",
       "date": "2026-09-17",
       "stocks": [
         {
@@ -12097,5 +12150,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-09-16T22:31:38.162Z"
+  "lastUpdated": "2026-09-17T22:31:25.768Z"
 }
