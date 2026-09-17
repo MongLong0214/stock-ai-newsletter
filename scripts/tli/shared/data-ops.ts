@@ -219,11 +219,25 @@ const insertMembershipHistoryRows = async (rows: readonly MembershipHistoryInser
  */
 export async function recordThemeStockMembershipHistory(input: {
   observed: readonly ObservedThemeStock[]
+  /**
+   * **관측에 성공한** 테마 — diff 범위. 생략하면 종목이 나온 테마로 한정한다.
+   *
+   * 네이버가 "종목 0개"라고 명시적으로 답한 테마도 관측 성공이다. 종목에서 역산하면
+   * 이런 테마가 범위에서 빠져 **열린 version이 영원히 안 닫히고**, as-of 질의가
+   * "지금도 구성종목"이라고 답한다 — 로드맵이 해소하려던 바스켓 survivorship이다.
+   *
+   * 게이트 실패·에러로 결과를 모르는 테마는 넣지 않는다. 관측하지 못한 것을 범위에
+   * 넣으면 없던 membership 종료를 조작하게 된다.
+   */
+  observedThemeIds?: readonly string[]
   observedDate: string
   recordedAt?: string
   collectionRunId?: string | null
 }): Promise<{ opened: number; closed: number; appended: number }> {
-  const observedThemeIds = [...new Set(input.observed.map(s => s.themeId))]
+  const observedThemeIds = [...new Set([
+    ...(input.observedThemeIds ?? []),
+    ...input.observed.map(s => s.themeId),
+  ])]
   if (observedThemeIds.length === 0) return { opened: 0, closed: 0, appended: 0 }
 
   // orderBy: 이 읽기는 append-only 원장의 diff 기준점이다. 페이지 간 순서가 흔들려 열린 version을
@@ -351,6 +365,7 @@ export async function upsertThemeStocks(
       relevance: MEMBERSHIP_RELEVANCE,
       market: s.market,
     })),
+    observedThemeIds: syncedThemeIds,
     observedDate,
   })
 
