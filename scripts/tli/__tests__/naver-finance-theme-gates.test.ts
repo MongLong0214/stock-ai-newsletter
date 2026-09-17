@@ -279,3 +279,68 @@ function buildNaverThemeRow(symbol: string): unknown {
     stockName: `Stock ${symbol}`,
   };
 }
+
+describe('valueRange 경계 — KRX 법정 범위', () => {
+  const row = (over: Partial<{ currentPrice: number; priceChangePct: number; volume: number }> = {}) => ({
+    themeId: 'theme-a',
+    symbol: '458350',
+    name: '에스팀',
+    market: 'KOSPI' as const,
+    currentPrice: 34_000,
+    priceChangePct: 1.2,
+    volume: 1_000,
+    ...over,
+  })
+
+  const validate = (over: Parameters<typeof row>[0]) =>
+    () => validateNaverFinanceThemeStocks([row(over)], { expectedRows: 1 })
+
+  /**
+   * 이 테스트가 이 블록의 존재 이유다.
+   *
+   * 게이트 목적은 시장 이상치 제거가 아니라 소스 열화·파싱 붕괴 탐지다. 평시 가격제한폭
+   * (±30%)을 경계로 쓰면 합법적인 신규상장 시세 한 건이 테마 전체(수십 종목)를 버린다.
+   * 실측: 에스팀(458350) 2026-03-09 +300%, 종가 34,000원.
+   */
+  it('신규상장일 따상(+300%)을 통과시킨다 — 공모가의 400%가 KRX 상한이다', () => {
+    expect(validate({ priceChangePct: 300 })).not.toThrow()
+  })
+
+  it('신규상장일 하한(-40%)을 통과시킨다 — 공모가의 60%', () => {
+    expect(validate({ priceChangePct: -40 })).not.toThrow()
+  })
+
+  it('정리매매 급락(-95%)을 통과시킨다 — 가격제한폭이 없다', () => {
+    expect(validate({ priceChangePct: -95 })).not.toThrow()
+  })
+
+  it('법정 상한을 넘으면 여전히 막는다 — 파싱 붕괴 탐지력은 유지된다', () => {
+    expect(validate({ priceChangePct: 301 })).toThrow(NaverFinanceThemeGateError)
+    expect(validate({ priceChangePct: -101 })).toThrow(NaverFinanceThemeGateError)
+  })
+
+  it('등락률 칸에 거래량이 들어오는 전형적 파싱 붕괴를 잡는다', () => {
+    expect(validate({ priceChangePct: 1_234_567 })).toThrow(NaverFinanceThemeGateError)
+  })
+
+  /**
+   * 2026-09-17 회귀: 로그에 `valueRange`만 찍혀 어떤 종목의 어떤 값이 걸렸는지 알 수 없었고
+   * 원인 규명에 조사를 한 바퀴 더 돌아야 했다. 2026-09-10 리다이렉트 사고와 같은 실패 방식이다.
+   */
+  it('실패 메시지가 종목·필드·값·허용범위를 싣는다', () => {
+    expect(validate({ priceChangePct: 999 })).toThrow(/458350/)
+    expect(validate({ priceChangePct: 999 })).toThrow(/priceChangePct=999/)
+    expect(validate({ priceChangePct: 999 })).toThrow(/허용 -100~300/)
+  })
+
+  it('여러 필드가 걸리면 전부 싣는다', () => {
+    let message = ''
+    try {
+      validate({ currentPrice: 0, volume: -1 })()
+    } catch (error) {
+      message = error instanceof Error ? error.message : ''
+    }
+    expect(message).toContain('currentPrice=0')
+    expect(message).toContain('volume=-1')
+  })
+})

@@ -4,7 +4,23 @@ export const NAVER_FINANCE_THEME_GATE_DEFAULTS = {
   minimumCoverage: 0.7,
   minimumSchemaParseRate: 0.95,
   currentPriceRange: { min: 1, max: 10_000_000 },
-  priceChangePctRange: { min: -30, max: 30 },
+  /**
+   * **KRX가 법적으로 허용하는 범위**다. 평시 가격제한폭(±30%)이 아니다.
+   *
+   * 이 게이트의 목적은 시장 이상치 제거가 아니라 **소스 열화·파싱 붕괴 탐지**다
+   * (PRD R10 / H.4). 그래서 경계는 "실제로 나올 수 있는 값"이어야 하고, 평시
+   * 제한폭을 쓰면 합법적인 시세가 테마를 통째로 버리게 만든다.
+   *
+   * - 상한 +300%: 신규상장일은 공모가의 60~400% 범위에서 거래된다(2023-06-26 시행).
+   *   실측 — 에스팀(458350) 2026-03-09 +300%, 종가 34,000원. 게이트 도입(2026-07-06)
+   *   전이라 저장됐고, 도입 후였다면 그 테마 전체가 버려졌다.
+   * - 하한 -100%: 정리매매 종목에는 가격제한폭이 없다. 가격이 0이 될 수 없으므로
+   *   -100%가 물리적 바닥이다.
+   *
+   * 파싱이 깨지면 값은 이 범위를 크게 벗어난다(등락률 칸에 거래량·가격이 들어오면
+   * 수천~수백만). 탐지력은 유지된다.
+   */
+  priceChangePctRange: { min: -100, max: 300 },
   volumeRange: { min: 0, max: 5_000_000_000 },
 } as const;
 
@@ -61,7 +77,34 @@ export type NaverFinanceThemeGateIssue =
       readonly minimum: number;
       readonly malformedRows: readonly number[];
     }
-  | { readonly kind: 'valueRange'; readonly rows: readonly number[] };
+  | {
+      readonly kind: 'valueRange';
+      readonly rows: readonly number[];
+      /**
+       * 어떤 종목의 어떤 값이 왜 걸렸는지. `kind`만 남기면 로그만 보고 원인을 가릴 수 없어
+       * 조사를 한 바퀴 더 돌아야 한다 — 2026-09-10 리다이렉트 사고와 같은 실패 방식이다.
+       */
+      readonly violations: readonly ValueRangeViolation[];
+    };
+
+export type ValueRangeViolation = {
+  readonly index: number;
+  readonly symbol: string;
+  readonly field: 'currentPrice' | 'priceChangePct' | 'volume';
+  readonly value: number;
+  readonly min: number;
+  readonly max: number;
+};
+
+const describeIssue = (issue: NaverFinanceThemeGateIssue): string => {
+  if (issue.kind !== 'valueRange') return issue.kind;
+  const shown = issue.violations
+    .slice(0, 3)
+    .map((v) => `${v.symbol} ${v.field}=${v.value} (허용 ${v.min}~${v.max})`)
+    .join('; ');
+  const rest = issue.violations.length > 3 ? ` 외 ${issue.violations.length - 3}건` : '';
+  return `valueRange[${shown}${rest}]`;
+};
 
 export class NaverFinanceThemeGateError extends Error {
   readonly name = 'NaverFinanceThemeGateError';
@@ -70,7 +113,7 @@ export class NaverFinanceThemeGateError extends Error {
     readonly issues: readonly NaverFinanceThemeGateIssue[],
     readonly metrics: NaverFinanceThemeGateMetrics,
   ) {
-    super(`Naver finance theme scraper gate failed: ${issues.map((issue) => issue.kind).join(', ')}`);
+    super(`Naver finance theme scraper gate failed: ${issues.map(describeIssue).join(', ')}`);
   }
 }
 
@@ -178,12 +221,14 @@ function collectIssues(
     });
   }
 
-  const valueRangeRows = parsedRows
-    .filter((row) => !hasSaneValues(row.value))
-    .map((row) => row.index);
+  const violations = parsedRows.flatMap((row) => findValueRangeViolations(row.index, row.value));
 
-  if (valueRangeRows.length > 0) {
-    issues.push({ kind: 'valueRange', rows: valueRangeRows });
+  if (violations.length > 0) {
+    issues.push({
+      kind: 'valueRange',
+      rows: [...new Set(violations.map((v) => v.index))],
+      violations,
+    });
   }
 
   return issues;
@@ -197,11 +242,17 @@ function findMalformedRows(
   return rows.flatMap((_, index) => (validIndexes.has(index) ? [] : [index]));
 }
 
-function hasSaneValues(row: NaverFinanceThemeStock): boolean {
-  return (
-    isWithinRange(row.currentPrice, NAVER_FINANCE_THEME_GATE_DEFAULTS.currentPriceRange) &&
-    isWithinRange(row.priceChangePct, NAVER_FINANCE_THEME_GATE_DEFAULTS.priceChangePctRange) &&
-    isWithinRange(row.volume, NAVER_FINANCE_THEME_GATE_DEFAULTS.volumeRange)
+const VALUE_RANGE_FIELDS = [
+  { field: 'currentPrice', range: NAVER_FINANCE_THEME_GATE_DEFAULTS.currentPriceRange },
+  { field: 'priceChangePct', range: NAVER_FINANCE_THEME_GATE_DEFAULTS.priceChangePctRange },
+  { field: 'volume', range: NAVER_FINANCE_THEME_GATE_DEFAULTS.volumeRange },
+] as const;
+
+function findValueRangeViolations(index: number, row: NaverFinanceThemeStock): ValueRangeViolation[] {
+  return VALUE_RANGE_FIELDS.flatMap(({ field, range }) =>
+    isWithinRange(row[field], range)
+      ? []
+      : [{ index, symbol: row.symbol, field, value: row[field], min: range.min, max: range.max }],
   );
 }
 

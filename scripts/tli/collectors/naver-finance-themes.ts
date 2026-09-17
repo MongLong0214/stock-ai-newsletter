@@ -248,9 +248,8 @@ export async function collectNaverFinanceStocks(themes: Theme[]): Promise<ThemeS
     } catch (error: unknown) {
       if (error instanceof NaverFinanceThemeGateError) {
         gateFailedCount++;
-        console.warn(
-          `   ⚠️ 테마 ${theme.id} 게이트 실패로 건너뜀: ${error.issues.map((issue) => issue.kind).join(', ')}`
-        );
+        // kind만 남기면 로그만 보고 원인을 가릴 수 없다 — error.message가 위반 값을 싣는다.
+        console.warn(`   ⚠️ 테마 ${theme.id} 게이트 실패로 건너뜀: ${error.message}`);
         await sleep(3000);
         continue;
       }
