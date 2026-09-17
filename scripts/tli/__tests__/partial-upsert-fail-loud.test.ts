@@ -136,7 +136,7 @@ describe('partial batch upsert fail-loud propagation', () => {
       metrics: [{ themeId: 'theme-1', date: '2026-03-20', rawValue: 7, normalized: 100 }],
       report: { requested: 1, succeeded: 1, failed: 0, persistenceFailed: 0 },
     })
-    collectionMocks.collectNaverFinanceStocks.mockResolvedValue([])
+    collectionMocks.collectNaverFinanceStocks.mockResolvedValue({ stocks: [], syncedThemeIds: [] })
     collectionMocks.upsertInterestMetrics.mockResolvedValue(0)
     collectionMocks.upsertNewsMetrics.mockResolvedValue(0)
     collectionMocks.upsertNewsArticles.mockResolvedValue(0)

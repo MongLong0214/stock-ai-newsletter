@@ -3,6 +3,7 @@ config({ path: '.env.local' })
 
 import { supabaseAdmin } from '@/scripts/tli/shared/supabase-admin'
 import { batchQuery } from '@/scripts/tli/shared/supabase-batch'
+import { deactivateThemeStocks } from '@/scripts/tli/shared/data-ops'
 import { daysAgo } from '@/scripts/tli/shared/utils'
 import { buildOngoingStateChangeRow, buildCloseRowPatch } from '@/scripts/tli/themes/theme-state-history'
 import {
@@ -147,6 +148,13 @@ export async function cleanupScorelessZombieThemes(input: {
       continue
     }
 
+    // 테마를 내리면 종목도 같이 내린다(cascade). 수집기는 활성 테마만 돌기 때문에
+    // 여기서 안 내리면 그 종목들은 영원히 활성으로 남는다.
+    await deactivateThemeStocks([candidate.id]).catch((error: unknown) => {
+      console.warn(`   ⚠️ 종목 cascade 비활성화 실패 (${candidate.name}):`, error instanceof Error ? error.message : String(error))
+      return 0
+    })
+
     await recordStateChange({
       themeId: candidate.id,
       newIsActive: false,
@@ -271,6 +279,12 @@ export async function autoDeactivate() {
       .from('themes')
       .update({ is_active: false })
       .eq('id', theme.id)
+
+    // 테마를 내리면 종목도 같이 내린다(cascade) — 위와 같은 이유다.
+    await deactivateThemeStocks([theme.id]).catch((error: unknown) => {
+      console.warn(`   ⚠️ 종목 cascade 비활성화 실패 (${theme.name}):`, error instanceof Error ? error.message : String(error))
+      return 0
+    })
 
     const todayStr = today.toISOString().split('T')[0]
     await recordStateChange({

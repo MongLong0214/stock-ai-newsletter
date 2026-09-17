@@ -119,7 +119,7 @@ export async function populateKeywords(
 
     // 2) 네이버 금융에서 종목명 추출 → 키워드로 활용
     try {
-      const stocks = await collectNaverFinanceStocks([
+      const { stocks } = await collectNaverFinanceStocks([
         { id: theme.id, naverThemeId: theme.naverThemeId }
       ])
 
