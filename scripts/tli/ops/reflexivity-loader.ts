@@ -49,7 +49,8 @@ interface QueryError {
 }
 
 interface RangeQuery<T> {
-  range(from: number, to: number): Promise<{
+  // PostgrestFilterBuilder는 thenable이지 Promise가 아니다 — PromiseLike로 받아야 맞는다.
+  range(from: number, to: number): PromiseLike<{
     readonly data: readonly T[] | null
     readonly error: QueryError | null
   }>

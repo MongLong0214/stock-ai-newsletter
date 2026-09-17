@@ -138,7 +138,8 @@ export interface StudyBablCandidate {
   readonly poolMatchesSource: boolean
 }
 
-export interface StudyThemeInput {
+/** interface는 암묵적 index signature가 없어 JsonObject를 만족하지 못한다 — type이어야 한다. */
+export type StudyThemeInput = {
   readonly theme_id: string
   readonly babl_observation_id: string | null
   readonly babl_input_sha256: string | null

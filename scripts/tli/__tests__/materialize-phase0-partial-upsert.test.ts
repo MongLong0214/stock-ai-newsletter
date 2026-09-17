@@ -153,7 +153,7 @@ describe('phase0 materialization partial upsert handling', () => {
     // Then: the registry upsert preserves the non-null peak instead of writing null over it.
     const episodeUpsert = materializeMocks.batchUpsert.mock.calls.find(([table]) => table === 'episode_registry_v1')
     expect(episodeUpsert).toBeDefined()
-    const rows = episodeUpsert?.[1] as readonly Array<{ readonly primary_peak_date: string | null; readonly peak_score: number | null }>
+    const rows = episodeUpsert?.[1] as ReadonlyArray<{ readonly primary_peak_date: string | null; readonly peak_score: number | null }>
     expect(rows[0]).toMatchObject({
       primary_peak_date: '2026-03-05',
       peak_score: 64.14,

@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const dataOpsMocks = vi.hoisted(() => ({
-  batchUpsert: vi.fn(async () => 0),
+  batchUpsert: vi.fn<(table: string, rows: Array<Record<string, unknown>>) => Promise<number>>(async () => 0),
 }))
 
 vi.mock('@/scripts/tli/shared/supabase-batch', async (importOriginal) => {
@@ -77,6 +77,6 @@ describe('upsertInterestMetrics anchor_scaled_value preservation', () => {
         normalized: 0.2,
       },
     ])
-    expect(olderRows.every(row => !Object.hasOwn(row, 'anchor_scaled_value'))).toBe(true)
+    expect(olderRows?.every((row) => !Object.hasOwn(row, 'anchor_scaled_value'))).toBe(true)
   })
 })

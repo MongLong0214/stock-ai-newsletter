@@ -57,7 +57,7 @@ const evaluateSingleOrigin = async (input: {
     input.labelAccounting ?? { terminal: 1, pending: 0, sourceGap: 0 }
   ))
   const loadKospiTradingDates = vi.fn(async () => [...(input.kospiDates ?? KOSPI_DATES)])
-  const insertEligibility = vi.fn(async () => undefined)
+  const insertEligibility = vi.fn<(client: unknown, row: { payloadSha256: string }) => Promise<undefined>>(async () => undefined)
   const report = await evaluateAndRecordStudyOriginEligibility({
     today: '2026-09-02',
     now: input.now,

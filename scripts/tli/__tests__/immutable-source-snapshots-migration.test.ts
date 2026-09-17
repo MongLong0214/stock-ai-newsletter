@@ -256,6 +256,6 @@ describe('TLI immutable source snapshot migration', () => {
   it('does not change current caches, collectors, or later Todo schemas', () => {
     expect(sql).not.toMatch(/ALTER\s+TABLE\s+public\.(?:interest_metrics|news_metrics|theme_stocks|theme_labels|theme_predictions_v3)/i)
     expect(sql).not.toMatch(/CREATE\s+TABLE\s+public\.theme_stock_membership_history/i)
-    expect(sql).not.toMatch(/\bgta-v2\b.*(?:INSERT|UPDATE)\s+INTO\s+public\.theme_labels/is)
+    expect(sql).not.toMatch(/\bgta-v2\b[\s\S]*(?:INSERT|UPDATE)\s+INTO\s+public\.theme_labels/i)
   })
 })

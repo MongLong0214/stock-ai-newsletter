@@ -70,7 +70,7 @@ const BATCH_SIZE = 50
 
 /** 배치로 분할하여 전체 행 가져오기 */
 async function fetchInBatches<T>(
-  supabase: ReturnType<typeof createClient>,
+  supabase: ReturnType<typeof getSupabaseClient>,
   table: string,
   selectColumns: string,
   themeIds: string[],
