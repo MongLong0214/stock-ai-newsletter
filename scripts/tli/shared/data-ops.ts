@@ -117,7 +117,28 @@ export async function upsertNewsMetrics(
 }
 
 /** 활성 테마-종목 매핑 총 개수 조회 (수집 붕괴 감지용 직전 기준선) */
-export async function countActiveThemeStocks(): Promise<number> {
+/**
+ * 붕괴 탐지의 기준선.
+ *
+ * **반드시 이번 런이 동기화한 테마로 한정해야 한다.** 테이블 전체를 세면 수집 대상이
+ * 아닌 행(비활성 테마의 종목, 네이버에서 사라진 테마의 잔여 종목)까지 분모에 들어가
+ * 기준선이 계속 부풀고, 임계값(70%)이 같이 올라가 **정상 런이 붕괴로 오판**된다.
+ *
+ * 실측(2026-09-17): 활성 6,975건 중 1,086건(15.6%)이 수집 불가능한 잔여 행이었다.
+ * 그 상태의 임계값은 4,882건인데 실제 수집은 5,889건 — 여유가 17%뿐이었다.
+ *
+ * 같은 테마 집합의 before/after를 비교하므로 run-over-run 비교와 동치다.
+ */
+export async function countActiveThemeStocks(themeIds?: readonly string[]): Promise<number> {
+  if (themeIds !== undefined) {
+    if (themeIds.length === 0) return 0
+    const rows = await batchQuery<{ id: string }>(
+      'theme_stocks', 'id', [...themeIds],
+      q => q.eq('is_active', true),
+    )
+    return rows.length
+  }
+
   const { count, error } = await supabaseAdmin
     .from('theme_stocks')
     .select('*', { count: 'exact', head: true })
@@ -125,6 +146,45 @@ export async function countActiveThemeStocks(): Promise<number> {
 
   if (error) throw new Error(`활성 테마 종목 개수 조회 실패: ${error.message}`)
   return count ?? 0
+}
+
+/** 지정한 테마들의 활성 종목을 내린다. */
+export async function deactivateThemeStocks(themeIds: readonly string[]): Promise<number> {
+  if (themeIds.length === 0) return 0
+
+  const { data, error } = await supabaseAdmin
+    .from('theme_stocks')
+    .update({ is_active: false, updated_at: new Date().toISOString() })
+    .in('theme_id', [...themeIds])
+    .eq('is_active', true)
+    .select('id')
+
+  if (error) throw new Error(`테마 종목 비활성화 실패: ${error.message}`)
+  return data?.length ?? 0
+}
+
+/**
+ * 비활성 테마에 붙은 활성 종목을 내린다 — 이벤트가 아니라 **리컨실리에이션**이다.
+ *
+ * 수집기는 활성 테마만 돈다. 그래서 테마만 내리고 종목을 두면 그 종목들은 어떤 sweep도
+ * 닿지 않아 **영원히 활성으로 남는다.** 실측(2026-09-17)에서 비활성 테마 30개에 860건이
+ * 남아 있었고 최고령 행은 2026-03-27자였다.
+ *
+ * 비활성화 지점마다 cascade를 거는 대신 매 런 전량 대조하는 이유는, cascade는 새 호출
+ * 경로가 생기면 조용히 새고 과거에 새어나간 행을 영원히 복구하지 못하기 때문이다.
+ * 대조는 그 두 가지를 모두 자가 치유한다.
+ */
+export async function reconcileInactiveThemeStocks(): Promise<number> {
+  const { data, error } = await supabaseAdmin
+    .from('themes')
+    .select('id')
+    .eq('is_active', false)
+
+  if (error) throw new Error(`비활성 테마 조회 실패: ${error.message}`)
+
+  const deactivated = await deactivateThemeStocks((data ?? []).map((row) => row.id))
+  if (deactivated > 0) console.log(`   🔕 비활성 테마의 잔여 종목 ${deactivated}건 정리`)
+  return deactivated
 }
 
 const MEMBERSHIP_SOURCE = 'naver'
@@ -242,6 +302,31 @@ export function dedupeThemeStocks<T extends { symbol: string; themeId: string }>
   return [...byKey.values()]
 }
 
+/**
+ * mark-and-sweep의 범위(테마 → 이번에 본 종목 집합).
+ *
+ * **범위는 "종목이 나온 테마"가 아니라 "성공적으로 동기화된 테마"다.**
+ * 둘을 같은 것으로 보면 네이버에서 빈 테마가 된 경우(수집 결과 0건) 그 테마가
+ * 범위에서 빠져 잔여 종목이 영원히 활성으로 남는다(실측: 밸류업 테마 212건).
+ *
+ * 반대로 게이트 실패·에러로 결과를 모르는 테마는 **절대 범위에 넣지 않는다** —
+ * 소스가 잠깐 비었을 때 멀쩡한 종목을 대량 비활성화하게 된다. 부분 실패에는
+ * sweep하지 않는 것이 mark-and-sweep의 핵심 안전 규칙이다.
+ */
+export function buildSweepScope(
+  stocks: ReadonlyArray<{ themeId: string; symbol: string }>,
+  syncedThemeIds?: readonly string[],
+): Map<string, Set<string>> {
+  const symbolsByTheme = new Map<string, Set<string>>()
+  for (const themeId of syncedThemeIds ?? []) symbolsByTheme.set(themeId, new Set())
+  for (const s of stocks) {
+    const set = symbolsByTheme.get(s.themeId) ?? new Set<string>()
+    set.add(s.symbol)
+    symbolsByTheme.set(s.themeId, set)
+  }
+  return symbolsByTheme
+}
+
 export async function upsertThemeStocks(
   stocks: Array<{
     themeId: string;
@@ -253,6 +338,8 @@ export async function upsertThemeStocks(
     volume: number | null;
   }>,
   observedDate: string = getKSTDateString(),
+  /** 성공적으로 동기화된 테마 — sweep 범위. 생략하면 종목이 나온 테마로 한정한다. */
+  syncedThemeIds?: readonly string[],
 ) {
   stocks = dedupeThemeStocks(stocks)
 
@@ -287,15 +374,10 @@ export async function upsertThemeStocks(
     '테마 종목',
   )
 
-  // 이번 수집에 없는 종목 비활성화 (테마별)
+  // 이번 수집에 없는 종목 비활성화 — mark and sweep
   let deactivateFailedCount = 0
   let lastDeactivateError: string | null = null
-  const symbolsByTheme = new Map<string, Set<string>>()
-  for (const s of stocks) {
-    const set = symbolsByTheme.get(s.themeId) ?? new Set()
-    set.add(s.symbol)
-    symbolsByTheme.set(s.themeId, set)
-  }
+  const symbolsByTheme = buildSweepScope(stocks, syncedThemeIds)
 
   const themeIds = [...symbolsByTheme.keys()]
   if (themeIds.length > 0) {

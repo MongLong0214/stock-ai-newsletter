@@ -3,6 +3,7 @@ config({ path: '.env.local' })
 
 import { supabaseAdmin } from '@/scripts/tli/shared/supabase-admin'
 import { batchQuery } from '@/scripts/tli/shared/supabase-batch'
+import { reconcileInactiveThemeStocks } from '@/scripts/tli/shared/data-ops'
 import { daysAgo } from '@/scripts/tli/shared/utils'
 import { buildOngoingStateChangeRow, buildCloseRowPatch } from '@/scripts/tli/themes/theme-state-history'
 import {
@@ -285,4 +286,11 @@ export async function autoDeactivate() {
   }
 
   console.log(`\n   📊 ${deactivatedCount}개 테마 비활성화`)
+
+  // 테마를 내렸으면 그 종목도 내려야 한다. 이번에 내린 것뿐 아니라 **비활성 테마 전량**을
+  // 대조한다 — 과거에 cascade 없이 내려간 테마의 잔여 종목까지 여기서 회수된다.
+  await reconcileInactiveThemeStocks().catch((error: unknown) => {
+    console.warn('   ⚠️ 비활성 테마 종목 대조 실패:', error instanceof Error ? error.message : String(error))
+    return 0
+  })
 }

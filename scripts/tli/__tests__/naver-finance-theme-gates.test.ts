@@ -124,7 +124,7 @@ describe('Naver finance theme scraper gates', () => {
     );
 
     // 4개 테마 중 1개만 게이트 실패(25%) → 30% 붕괴 임계값 미만이라 격리만 되고 throw는 발생하지 않아야 함
-    const stocks = await collectNaverFinanceStocks([
+    const { stocks, syncedThemeIds } = await collectNaverFinanceStocks([
       { id: 'theme-broken', naverThemeId: '999' },
       { id: 'theme-ok-1', naverThemeId: '111' },
       { id: 'theme-ok-2', naverThemeId: '222' },
@@ -133,6 +133,10 @@ describe('Naver finance theme scraper gates', () => {
 
     expect(stocks.length).toBe(60);
     expect(stocks.every((stock) => stock.themeId !== 'theme-broken')).toBe(true);
+    // 게이트 실패 테마는 sweep 범위에 절대 들어가지 않는다 — 결과를 모르는 테마를
+    // 범위에 넣으면 소스가 잠깐 비었을 때 멀쩡한 종목이 대량 비활성화된다.
+    expect(syncedThemeIds).not.toContain('theme-broken');
+    expect([...syncedThemeIds].sort()).toEqual(['theme-ok-1', 'theme-ok-2', 'theme-ok-3']);
   });
 
   it('throws systemic collapse when every attempted theme (2+) fails its gate', async () => {
@@ -204,7 +208,7 @@ describe('빈 테마 (네이버 totalCount=0)', () => {
         : new Response(buildNaverThemePage(healthy), { status: 200 }),
     ))
 
-    const stocks = await collectNaverFinanceStocks([
+    const { stocks, syncedThemeIds } = await collectNaverFinanceStocks([
       { id: 'theme-empty', naverThemeId: '268' },
       { id: 'theme-ok', naverThemeId: '111' },
     ])
@@ -212,6 +216,9 @@ describe('빈 테마 (네이버 totalCount=0)', () => {
     // 빈 테마는 기여 0건, 정상 테마는 그대로 — 붕괴 판정도 걸리지 않는다
     expect(stocks).toHaveLength(20)
     expect(stocks.every((s) => s.themeId === 'theme-ok')).toBe(true)
+    // 네이버가 "0개"라고 명시한 테마는 **동기화 성공**이다. sweep 범위에 넣어야
+    // 그 테마의 잔여 종목이 정리된다(실측: 밸류업 테마 212건이 영원히 활성이었다).
+    expect([...syncedThemeIds].sort()).toEqual(['theme-empty', 'theme-ok'])
   })
 
   it('모든 테마가 비면 여전히 붕괴로 잡는다 — 안전장치는 유지된다', async () => {

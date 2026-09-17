@@ -231,14 +231,16 @@ export async function collectDataSources(
     console.log('\n📈 3단계: 네이버 금융 종목 수집')
 
     try {
-      const stocks = await collectNaverFinanceStocks(themes.map(t => ({
+      const { stocks, syncedThemeIds } = await collectNaverFinanceStocks(themes.map(t => ({
         id: t.id, naverThemeId: t.naver_theme_id,
       })))
-      const prevCount = await countActiveThemeStocks()
+      // 기준선은 **이번에 동기화한 테마**로 한정한다 — 테이블 전체를 세면 수집 대상이
+      // 아닌 잔여 행까지 분모에 들어가 임계값이 부풀고 정상 런이 붕괴로 오판된다.
+      const prevCount = await countActiveThemeStocks(syncedThemeIds)
       if (shouldRejectStockCollection({ prevCount, collectedCount: stocks.length })) {
-        throw new Error(`네이버 금융 종목 수집 붕괴 감지: 직전 활성 종목 ${prevCount}건 → 이번 수집 ${stocks.length}건 (70% 미만)`)
+        throw new Error(`네이버 금융 종목 수집 붕괴 감지: 동기화 테마의 직전 활성 종목 ${prevCount}건 → 이번 수집 ${stocks.length}건 (70% 미만)`)
       }
-      await upsertThemeStocks(stocks, endDate)
+      await upsertThemeStocks(stocks, endDate, syncedThemeIds)
     } catch (error: unknown) {
       criticalFailures++
       console.error('❌ 종목 수집 실패:', error instanceof Error ? error.message : String(error))

@@ -209,12 +209,26 @@ function shouldRejectThemeStockCollection(input: {
   return gateFailureRatio > GATE_FAILURE_COLLAPSE_RATIO || input.collectedStockCount === 0;
 }
 
+export interface ThemeStockCollection {
+  /**
+   * **성공적으로 동기화된** 테마.
+   *
+   * 게이트를 통과했거나 네이버가 명시적으로 "종목 0개"라고 답한 테마만 담는다.
+   * 게이트 실패·에러로 결과를 모르는 테마는 넣지 않는다 — mark-and-sweep에서
+   * 이 집합이 곧 sweep 범위이고, 실패한 테마를 넣으면 **소스가 잠깐 비었을 때
+   * 멀쩡한 종목을 대량 비활성화**한다.
+   */
+  readonly syncedThemeIds: readonly string[];
+  readonly stocks: ThemeStock[];
+}
+
 /** 네이버 금융 테마 종목 수집 */
-export async function collectNaverFinanceStocks(themes: Theme[]): Promise<ThemeStock[]> {
+export async function collectNaverFinanceStocks(themes: Theme[]): Promise<ThemeStockCollection> {
   console.log('📈 네이버 금융 테마 종목 수집 중...');
   console.log(`   처리할 테마: ${themes.filter(t => t.naverThemeId).length}개`);
 
   const allStocks: ThemeStock[] = [];
+  const syncedThemeIds: string[] = [];
   const failureShapes: ResponseShape[] = [];
   let attemptedThemeCount = 0;
   let gateFailedCount = 0;
@@ -243,6 +257,9 @@ export async function collectNaverFinanceStocks(themes: Theme[]): Promise<ThemeS
       throw error;
     }
 
+    // 여기까지 왔으면 이 테마는 성공적으로 동기화됐다(게이트 통과 또는 빈 테마).
+    syncedThemeIds.push(theme.id);
+
     if (stocks.length > 0) {
       console.log(`   ✓ ${stocks.length}개 종목 발견`);
       allStocks.push(...stocks);
@@ -266,5 +283,5 @@ export async function collectNaverFinanceStocks(themes: Theme[]): Promise<ThemeS
   }
 
   console.log(`\n   ✅ ${allStocks.length}개 테마-종목 매핑 수집 완료${gateFailedCount > 0 ? ` (게이트 실패 ${gateFailedCount}개 테마 제외)` : ''}`);
-  return allStocks;
+  return { stocks: allStocks, syncedThemeIds };
 }
