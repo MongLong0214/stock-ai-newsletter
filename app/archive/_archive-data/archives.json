@@ -2,6 +2,59 @@
   "newsletters": [
     {
       "type": "stock",
+      "date": "2026-09-21",
+      "stocks": [
+        {
+          "ticker": "KOSDAQ:274090",
+          "name": "켄코아에어로스페이스",
+          "close_price": 13220,
+          "rationale": "기준일 종가 13,220원|당일 등락 14.7% 상승|RSI 73.9 강세|거래량비율 1210% 급증|60일 거래량 백분위 99.2점|60일 신고가 3.8% 돌파|20일선 괴리 30.1%|20일 추세 기울기 0.56%/일|20일 추세 적합도 R2 19.2점|60일 추세 적합도 R2 1.3점|MACD 히스토그램 325.00|ATR14 6.8%|ADX14 18.4점|OBV20 기울기 158054|252거래일 가격위치 21.1%|연속상승 4일|골든크로스 감지 0회·경과 -1일|20일 평균거래대금 59.2억원|volumeBreakout 전략점수 85.1점|선정 경로 거래량 돌파",
+          "signals": {
+            "trend_score": 67,
+            "momentum_score": 82,
+            "volume_score": 84,
+            "volatility_score": 23,
+            "pattern_score": 57,
+            "sentiment_score": 63,
+            "overall_score": 67
+          }
+        },
+        {
+          "ticker": "KOSDAQ:484120",
+          "name": "도우인시스",
+          "close_price": 23250,
+          "rationale": "기준일 종가 23,250원|당일 등락 10.5% 상승|RSI 65.7 강세|거래량비율 374% 급증|60일 거래량 백분위 97.5점|60일 신고가 8.1% 돌파|20일선 괴리 20.1%|20일 추세 기울기 0.57%/일|20일 추세 적합도 R2 21.7점|60일 추세 적합도 R2 51.4점|MACD 히스토그램 181.48|ATR14 6.5%|ADX14 16.8점|OBV20 기울기 19365|252거래일 가격위치 52.3%|연속상승 2일|골든크로스 감지 1회·경과 24일|20일 평균거래대금 11.6억원|volumeBreakout 전략점수 85.0점|선정 경로 거래량 돌파",
+          "signals": {
+            "trend_score": 67,
+            "momentum_score": 68,
+            "volume_score": 86,
+            "volatility_score": 30,
+            "pattern_score": 56,
+            "sentiment_score": 67,
+            "overall_score": 66
+          }
+        },
+        {
+          "ticker": "KOSDAQ:078350",
+          "name": "한양디지텍",
+          "close_price": 25550,
+          "rationale": "기준일 종가 25,550원|당일 등락 15.9% 상승|RSI 69.1 강세|거래량비율 580% 급증|60일 거래량 백분위 97.5점|60일 신고가 4.9% 돌파|20일선 괴리 28.5%|20일 추세 기울기 -0.50%/일|20일 추세 적합도 R2 8.0점|60일 추세 적합도 R2 4.1점|MACD 히스토그램 530.77|ATR14 6.9%|ADX14 23.3점|OBV20 기울기 35235|252거래일 가격위치 48.9%|연속상승 3일|골든크로스 감지 1회·경과 13일|20일 평균거래대금 67.7억원|volumeBreakout 전략점수 84.4점|선정 경로 거래량 돌파",
+          "signals": {
+            "trend_score": 57,
+            "momentum_score": 79,
+            "volume_score": 83,
+            "volatility_score": 22,
+            "pattern_score": 63,
+            "sentiment_score": 51,
+            "overall_score": 64
+          }
+        }
+      ],
+      "sentAt": "2026-09-20T22:30:48.168+00:00",
+      "subscriberCount": 320
+    },
+    {
+      "type": "stock",
       "date": "2026-09-18",
       "stocks": [
         {
@@ -12150,5 +12203,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-09-17T22:31:25.768Z"
+  "lastUpdated": "2026-09-20T22:31:27.448Z"
 }
