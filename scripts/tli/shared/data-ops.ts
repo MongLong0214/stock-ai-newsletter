@@ -214,8 +214,8 @@ const insertMembershipHistoryRows = async (rows: readonly MembershipHistoryInser
  * 존재하지 않았던 membership 종료 사실을 조작하게 된다.
  * 과거 구간을 created_at으로 추정 backfill하지 않는다. 관측 이전은 absent가 정답이다.
  *
- * WHY 순차 close→append: supabase-js에 트랜잭션이 없어 키 단위로 닫고 즉시 대체 version을 넣는다.
- * 실패는 즉시 throw해 조용한 부분 기록을 만들지 않는다 (Todo 6에서 단일 RPC 트랜잭션으로 승격 예정).
+ * WHY 전이 RPC: close와 모든 replacement를 200개씩 하나의 DB 트랜잭션으로 기록한다.
+ * 실패한 청크는 통째로 롤백되므로 닫힌 version만 남는 고아 이력을 만들지 않는다.
  */
 export async function recordThemeStockMembershipHistory(input: {
   observed: readonly ObservedThemeStock[]
@@ -261,21 +261,25 @@ export async function recordThemeStockMembershipHistory(input: {
   await insertMembershipHistoryRows(diff.opens)
 
   let appended = diff.opens.length
-  for (const transition of diff.transitions) {
-    const { error } = await supabaseAdmin
-      .from(MEMBERSHIP_HISTORY_TABLE)
-      .update({ superseded_at: transition.close.superseded_at })
-      .eq('id', transition.close.id)
-      .is('superseded_at', null)
-
+  for (let i = 0; i < diff.transitions.length; i += 200) {
+    const transitions = diff.transitions.slice(i, i + 200)
+    const expectedAppended = transitions.reduce((count, transition) => count + transition.replacements.length, 0)
+    const { data, error } = await supabaseAdmin.rpc('apply_theme_stock_membership_transitions', {
+      p_transitions: transitions,
+    })
+    const range = `${i + 1}~${i + transitions.length}`
     if (error) {
       throw new Error(
-        `테마-종목 membership version close 실패 (${transition.themeId}/${transition.symbol}): ${error.message}`,
+        `테마-종목 membership transition RPC 실패 (${range}): ${error.message}`,
       )
     }
-
-    await insertMembershipHistoryRows(transition.replacements)
-    appended += transition.replacements.length
+    if (data?.closed !== transitions.length || data?.appended !== expectedAppended) {
+      throw new Error(
+        `테마-종목 membership transition RPC 행수 불일치 (${range}): `
+        + `closed ${data?.closed}/${transitions.length}, appended ${data?.appended}/${expectedAppended}`,
+      )
+    }
+    appended += expectedAppended
   }
 
   console.log(

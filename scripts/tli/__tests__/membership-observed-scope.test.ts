@@ -2,7 +2,16 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const openRows: Array<Record<string, unknown>> = []
 const inserted: Array<Record<string, unknown>> = []
-const closed: string[] = []
+const rpc = vi.fn(async (
+  _name: string,
+  args: { p_transitions: Array<{ replacements: unknown[] }> },
+): Promise<{ data: { closed: number; appended: number } | null; error: { message: string } | null }> => ({
+  data: {
+    closed: args.p_transitions.length,
+    appended: args.p_transitions.reduce((count, transition) => count + transition.replacements.length, 0),
+  },
+  error: null,
+}))
 
 vi.mock('@/scripts/tli/shared/supabase-batch', () => ({
   batchQuery: async () => openRows,
@@ -14,12 +23,8 @@ vi.mock('@/scripts/tli/shared/supabase-admin', () => ({
   supabaseAdmin: {
     from: () => ({
       insert: async (rows: Array<Record<string, unknown>>) => { inserted.push(...rows); return { error: null } },
-      update: (patch: { superseded_at: string }) => ({
-        eq: (_column: string, id: string) => ({
-          is: async () => { closed.push(id); void patch; return { error: null } },
-        }),
-      }),
     }),
+    rpc: (name: string, args: { p_transitions: Array<{ replacements: unknown[] }> }) => rpc(name, args),
   },
 }))
 
@@ -53,7 +58,7 @@ describe('recordThemeStockMembershipHistory 관측 범위', () => {
   beforeEach(() => {
     openRows.length = 0
     inserted.length = 0
-    closed.length = 0
+    rpc.mockClear()
     vi.spyOn(console, 'log').mockImplementation(() => undefined)
   })
 
@@ -67,10 +72,15 @@ describe('recordThemeStockMembershipHistory 관측 범위', () => {
     })
 
     expect(result.closed).toBe(1)
-    expect(closed).toEqual(['empty-005930'])
-    expect(inserted).toEqual([expect.objectContaining({
-      theme_id: 'empty', symbol: '005930', valid_from: '2026-09-01', valid_to: '2026-09-17',
-    })])
+    expect(rpc).toHaveBeenCalledWith('apply_theme_stock_membership_transitions', {
+      p_transitions: [expect.objectContaining({
+        close: expect.objectContaining({ id: 'empty-005930' }),
+        replacements: [expect.objectContaining({
+          theme_id: 'empty', symbol: '005930', valid_from: '2026-09-01', valid_to: '2026-09-17',
+        })],
+      })],
+    })
+    expect(inserted).toEqual([])
   })
 
   it('범위에 없는 테마는 건드리지 않는다 — 게이트 실패를 매핑 제거로 오판하지 않는다', async () => {
@@ -82,7 +92,7 @@ describe('recordThemeStockMembershipHistory 관측 범위', () => {
       observedDate: '2026-09-17',
     })
 
-    expect(closed).toEqual([])
+    expect(rpc).not.toHaveBeenCalled()
     expect(result.opened).toBe(1)
   })
 
@@ -94,7 +104,7 @@ describe('recordThemeStockMembershipHistory 관측 범위', () => {
       observedDate: '2026-09-17',
     })
 
-    expect(closed).toEqual([])
+    expect(rpc).not.toHaveBeenCalled()
   })
 
   it('관측한 테마가 하나도 없으면 아무것도 하지 않는다', async () => {
@@ -107,6 +117,66 @@ describe('recordThemeStockMembershipHistory 관측 범위', () => {
     })
 
     expect(result).toEqual({ opened: 0, closed: 0, appended: 0 })
-    expect(closed).toEqual([])
+    expect(rpc).not.toHaveBeenCalled()
+  })
+
+  it('전이 201개를 200개와 1개 RPC 청크로 나눈다', async () => {
+    for (let i = 0; i < 201; i += 1) openRows.push(openVersion(`theme-${i}`, '005930'))
+
+    const result = await recordThemeStockMembershipHistory({
+      observed: [],
+      observedThemeIds: openRows.map(row => row.theme_id as string),
+      observedDate: '2026-09-17',
+    })
+
+    expect(rpc).toHaveBeenCalledTimes(2)
+    expect(rpc.mock.calls[0]?.[1].p_transitions).toHaveLength(200)
+    expect(rpc.mock.calls[1]?.[1].p_transitions).toHaveLength(1)
+    expect(result).toEqual({ opened: 0, closed: 201, appended: 201 })
+  })
+
+  it('RPC 오류를 청크 범위와 함께 즉시 throw한다', async () => {
+    openRows.push(openVersion('empty', '005930'))
+    rpc.mockResolvedValueOnce({ data: null, error: { message: 'insert rejected' } })
+
+    await expect(recordThemeStockMembershipHistory({
+      observed: [],
+      observedThemeIds: ['empty'],
+      observedDate: '2026-09-17',
+    })).rejects.toThrow('membership transition RPC 실패 (1~1): insert rejected')
+    expect(rpc).toHaveBeenCalledTimes(1)
+  })
+
+  it.each([
+    { closed: 0, appended: 1 },
+    { closed: 1, appended: 0 },
+  ])('RPC 반환 행수가 다르면 throw한다: %j', async (data) => {
+    openRows.push(openVersion('empty', '005930'))
+    rpc.mockResolvedValueOnce({ data, error: null })
+
+    await expect(recordThemeStockMembershipHistory({
+      observed: [],
+      observedThemeIds: ['empty'],
+      observedDate: '2026-09-17',
+    })).rejects.toThrow('membership transition RPC 행수 불일치 (1~1)')
+  })
+
+  it('같은 날 제거로 replacement가 비면 close-only 전이가 성공한다', async () => {
+    openRows.push({ ...openVersion('empty', '005930'), valid_from: '2026-09-17' })
+
+    const result = await recordThemeStockMembershipHistory({
+      observed: [],
+      observedThemeIds: ['empty'],
+      observedDate: '2026-09-17',
+    })
+
+    expect(result).toEqual({ opened: 0, closed: 1, appended: 0 })
+    expect(rpc).toHaveBeenCalledWith('apply_theme_stock_membership_transitions', {
+      p_transitions: [expect.objectContaining({
+        close: expect.objectContaining({ id: 'empty-005930' }),
+        replacements: [],
+      })],
+    })
+    expect(inserted).toEqual([])
   })
 })

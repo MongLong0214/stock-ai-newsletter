@@ -8,9 +8,14 @@ const migrationPath = join(
 )
 
 const TABLE = 'public.theme_stock_membership_history'
+const transitionMigrationPath = join(
+  process.cwd(),
+  'supabase/migrations/065_tli_membership_transition_rpc.sql',
+)
 
 let sql = ''
 let normalizedSql = ''
+let transitionSql = ''
 /** `--` 주석을 제거한 실행 SQL — 주석의 설명 문구가 금지 패턴 스캔을 오탐시키지 않게 한다 */
 let executableSql = ''
 
@@ -18,6 +23,48 @@ beforeAll(() => {
   sql = readFileSync(migrationPath, 'utf8')
   normalizedSql = sql.replace(/\s+/g, ' ').trim()
   executableSql = sql.replace(/^\s*--.*$/gm, '')
+  transitionSql = readFileSync(transitionMigrationPath, 'utf8').replace(/\s+/g, ' ').trim()
+})
+
+describe('TLI membership transition RPC migration', () => {
+  it('wraps a service-role-only security-definer RPC in an additive migration', () => {
+    expect(transitionSql).toMatch(/^BEGIN;/)
+    expect(transitionSql).toMatch(/COMMIT;$/)
+    expect(transitionSql).toContain(
+      'CREATE OR REPLACE FUNCTION public.apply_theme_stock_membership_transitions(p_transitions JSONB) RETURNS JSONB LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog',
+    )
+    expect(transitionSql).toContain(
+      'REVOKE EXECUTE ON FUNCTION public.apply_theme_stock_membership_transitions(JSONB) FROM PUBLIC, anon, authenticated',
+    )
+    expect(transitionSql).toContain(
+      'GRANT EXECUTE ON FUNCTION public.apply_theme_stock_membership_transitions(JSONB) TO service_role',
+    )
+    expect(transitionSql).not.toMatch(/\b(?:DROP|DELETE|TRUNCATE)\b/i)
+  })
+
+  it('serializes transitions, validates replacement arrays, and permits close-only transitions', () => {
+    expect(transitionSql).toContain(
+      "PERFORM pg_advisory_xact_lock(hashtextextended('tli-membership-history-v1', 0))",
+    )
+    expect(transitionSql).toContain('public.tli_jsonb_object_key_count(v_transition) <> cardinality(v_transition_keys)')
+    expect(transitionSql).toContain("jsonb_typeof(v_transition -> 'replacements') IS DISTINCT FROM 'array'")
+    expect(transitionSql).toContain('public.tli_jsonb_object_key_count(v_close) <> cardinality(v_close_keys)')
+    expect(transitionSql).toContain('public.tli_jsonb_object_key_count(v_replacement) <> cardinality(v_replacement_keys)')
+    expect(transitionSql).not.toContain('jsonb_array_length(v_replacements) = 0')
+    expect(transitionSql).toContain('v_close_id = ANY(v_close_ids)')
+    expect(transitionSql).toContain("(v_replacement ->> 'recorded_at')::TIMESTAMPTZ IS DISTINCT FROM v_close_at")
+  })
+
+  it('closes one exact row, appends typed replacements, and checks both row counts', () => {
+    expect(transitionSql).toContain(
+      'UPDATE public.theme_stock_membership_history SET superseded_at = v_close_at WHERE id = v_close_id AND superseded_at IS NULL AND theme_id = v_theme_id AND symbol = v_symbol',
+    )
+    expect(transitionSql).toContain('FROM jsonb_to_recordset(v_replacements) AS replacement(')
+    expect(transitionSql).toContain('GET DIAGNOSTICS v_affected_count = ROW_COUNT')
+    expect(transitionSql).toContain('v_affected_count IS DISTINCT FROM 1')
+    expect(transitionSql).toContain('v_affected_count IS DISTINCT FROM jsonb_array_length(v_replacements)')
+    expect(transitionSql).toContain("RETURN jsonb_build_object('closed', v_closed_count, 'appended', v_appended_count)")
+  })
 })
 
 function tableBody(): string {
