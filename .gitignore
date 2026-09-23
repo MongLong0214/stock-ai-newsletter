@@ -78,9 +78,6 @@ scripts/tli/research/optimizer/optimized-params.json
 mcp/.omx/
 .omo/
 
-# Serena AI memories
-.serena/memories/
-
 # Playwright MCP logs (중복 확인)
 .playwright-mcp/
 
@@ -96,9 +93,6 @@ test-results/
 
 # Supabase CLI temp
 supabase/.temp/
-
-# MCP Serena memories (sub-project)
-mcp/.serena/memories/
 
 # Python
 __pycache__/
