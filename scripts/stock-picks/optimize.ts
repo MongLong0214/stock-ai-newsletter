@@ -20,6 +20,7 @@ import {
 } from '@/scripts/stock-picks/backtest'
 import { validateResearchDataset } from '@/scripts/stock-picks/data-contract'
 import { StockDataHandler, loadPriceBook, type PriceBook } from '@/scripts/stock-picks/data-handler'
+import { featureCacheKey, featureSourceHash, readFeatureCache, writeFeatureCache } from '@/scripts/stock-picks/feature-cache'
 import { buildFeatureSeries, type StockFeatureVector } from '@/scripts/stock-picks/features'
 import {
   LEGACY_VOLUME_BREAKOUT_STRATEGY,
@@ -824,6 +825,22 @@ export function precomputeFeatureMap(input: {
   const featuresByDate = new Map<string, StockFeatureVector[]>()
   const lastFeatureDate = input.historyDates.at(-1)
   if (!lastFeatureDate) return featuresByDate
+
+  // 같은 입력이면 결과가 결정적이다. 가설을 여러 개 돌려보려면 이 8분이 병목이다.
+  const cacheKey = {
+    symbolCount: input.masters.length,
+    historyStart: input.historyDates[0] ?? '',
+    historyEnd: lastFeatureDate,
+    evaluationStart: input.evaluationStart,
+    priceRowCount: [...input.prices.values()].reduce((sum, rows) => sum + rows.size, 0),
+    featureSourceHash: featureSourceHash(),
+  }
+  const cached = readFeatureCache(cacheKey)
+  if (cached) {
+    console.log(`피처 캐시 적중 (${featureCacheKey(cacheKey)})`)
+    return cached
+  }
+
   const handler = new StockDataHandler(input.prices, input.tradingDays).at(lastFeatureDate)
 
   input.masters.forEach((master, index) => {
@@ -844,6 +861,7 @@ export function precomputeFeatureMap(input: {
   for (const dayFeatures of featuresByDate.values()) {
     dayFeatures.sort((left, right) => left.symbol.localeCompare(right.symbol))
   }
+  writeFeatureCache(cacheKey, featuresByDate)
   return featuresByDate
 }
 
