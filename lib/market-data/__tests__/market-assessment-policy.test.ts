@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { evaluateMarketAssessmentSnapshot as evaluate, calculateCrashScore, getVixRegime } from '../kis-market-assessment';
-import { parseKisObservedAt, parseObservedAt, quoteQuality } from '../market-assessment-policy';
+import { assessMarketDataQuality, parseKisObservedAt, parseObservedAt, quoteQuality } from '../market-assessment-policy';
 import { riskSnapshot, riskQuote, RISK_NOW } from './market-risk-fixture';
 
 describe('market risk v2: timestamps, missing data and warning policy', () => {
@@ -102,6 +102,28 @@ describe('market risk v2: timestamps, missing data and warning policy', () => {
     const now = Date.parse('2026-09-09T14:00:00+09:00');
     const q = { ...riskQuote('KOSPI', 0, true), observedAt: '2026-09-09T09:00:00+09:00', fetchedAt: new Date(now).toISOString() };
     expect(quoteQuality(q, now, true)).toBe('stale');
+  });
+  it.each([
+    ['2026-09-23T15:50:00+09:00', 'usable'],
+    ['2026-09-23T16:30:00+09:00', 'stale'],
+    ['2026-09-23T23:00:00+09:00', 'stale'],
+    ['2026-09-24T06:00:00+09:00', 'stale'],
+  ] as const)('uses a rolling FX quote age at %s', (time, expected) => {
+    const now = Date.parse(time);
+    const snapshot = riskSnapshot();
+    for (const key of ['usdKrw', 'usdJpy'] as const) {
+      snapshot.indicators[key] = {
+        ...snapshot.indicators[key]!, observedAt: '2026-09-23T15:31:00+09:00', fetchedAt: time,
+      };
+      expect(quoteQuality(snapshot.indicators[key], now, 'fx')).toBe(expected);
+    }
+    expect(assessMarketDataQuality(snapshot, now).quality.indicators).toMatchObject({ usdKrw: expected, usdJpy: expected });
+  });
+  it('keeps future and old-fetch checks for FX quotes', () => {
+    const now = Date.parse('2026-09-23T15:50:00+09:00');
+    const q = { ...riskQuote('USD/KRW'), observedAt: '2026-09-23T15:31:00+09:00', fetchedAt: new Date(now).toISOString() };
+    expect(quoteQuality({ ...q, observedAt: new Date(now + 6 * 60_000).toISOString() }, now, 'fx')).toBe('invalid');
+    expect(quoteQuality({ ...q, fetchedAt: new Date(now - 11 * 60_000).toISOString() }, now, 'fx')).toBe('stale');
   });
   it('accepts Friday completed US session at Monday Korea premarket', () => {
     const now = Date.parse('2026-09-07T06:00:00+09:00');

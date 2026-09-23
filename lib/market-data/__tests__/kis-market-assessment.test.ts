@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { evaluateMarketAssessmentSnapshot, getKisMarketAssessmentSnapshot, resetKisMarketAssessmentCacheForTest } from '../kis-market-assessment';
+import { evaluateMarketAssessmentSnapshot, getKisMarketAssessmentSnapshot, parseSerpFinanceObservedAt, resetKisMarketAssessmentCacheForTest } from '../kis-market-assessment';
 import { RISK_NOW } from './market-risk-fixture';
 
 const json = (data: unknown) => new Response(JSON.stringify(data), { headers: { 'content-type': 'application/json' } });
@@ -9,6 +9,7 @@ function providerMock(options: {
   missingDow?: boolean; invalidContract?: boolean; cboeVix?: boolean;
   dayChartFailure?: boolean; dayChartPrice?: string; dayChartTime?: string; dayChartDate?: string; dayPreviousClose?: string; nightPriceFailure?: boolean;
   nightChartFailure?: boolean; nightChartTime?: string; nightChartDate?: string; nightPrice?: string; nightChartPrice?: string; nightBase?: string;
+  serpFinance?: Record<string, unknown>;
 } = {}) {
   return vi.fn<typeof fetch>(async input => {
     const u = new URL(String(input));
@@ -67,6 +68,9 @@ function providerMock(options: {
     });
     if (u.hostname === 'serpapi.com') {
       if (options.brokenSerp) return json({ error: 'You have run out of searches for this month.' });
+      if (u.searchParams.get('engine') === 'google_finance' && options.serpFinance?.[u.searchParams.get('q') ?? '']) {
+        return json(options.serpFinance[u.searchParams.get('q') ?? '']);
+      }
       return json(u.searchParams.get('engine') === 'google' ? { organic_results: [] } : {});
     }
     if (u.hostname === 'search.naver.com') return new Response(`<section class="_cs_stock"><span class="stk_nm">VIX</span><span class="spt_con"><strong>18</strong></span><span class="n_ch"><em>0</em><em>(0%)</em></span><p class="stk_info"><em>2026.09.08. 16:15</em></p></section>`);
@@ -279,5 +283,252 @@ describe('market source acquisition v2', () => {
     const snapshot = await getKisMarketAssessmentSnapshot();
     expect(snapshot.indicators.sp500?.observedAt).not.toContain('2026-08-01');
     expect(evaluateMarketAssessmentSnapshot(snapshot).verdict).toBe('NORMAL');
+  });
+
+  it.each([
+    ['Sep 23, 6:31:19 AM UTC', '2026-09-23T06:31:19.000Z'],
+    ['Sep 23, 6:29:19 AM UTC', '2026-09-23T06:29:19.000Z'],
+    ['Sep 22, 4:36:35 PM GMT-4', '2026-09-22T20:36:35.000Z'],
+    ['Sep 22, 4:36:45 PM GMT-4', '2026-09-22T20:36:45.000Z'],
+    ['Sep 22, 5:15:59 PM GMT-4', '2026-09-22T21:15:59.000Z'],
+    ['Sep 22, 4:36:35 PM GMT-4 · INDEXSP', '2026-09-22T20:36:35.000Z'],
+    ['Sep 22, 4:36:35 PM GMT-04:30', '2026-09-22T21:06:35.000Z'],
+    ['Closed: Jun 16, 7:59:48 PM GMT-4', '2026-06-16T23:59:48.000Z'],
+    ['Sep 23, 6:31:19 AM UTC+5:30', '2026-09-23T01:01:19.000Z'],
+  ])('parses Serp Finance quote time %s', (value, expected) => {
+    expect(parseSerpFinanceObservedAt(value, '2026-09-23T06:40:00.000Z')).toBe(expected);
+  });
+  it('parses a zero-padded hour with a UTC offset', () => {
+    expect(parseSerpFinanceObservedAt('Oct 17, 04:27:10 PM UTC-4', '2026-10-18T00:00:00.000Z')).toBe('2026-10-17T20:27:10.000Z');
+  });
+  it('uses the prior UTC year when a yearless Serp quote would be in the future', () => {
+    expect(parseSerpFinanceObservedAt('Dec 31, 11:59:00 PM UTC', '2027-01-01T00:02:00.000Z')).toBe('2026-12-31T23:59:00.000Z');
+  });
+  it('uses the next local year when its timezone places the quote near the fetch time', () => {
+    expect(parseSerpFinanceObservedAt('Jan 1, 12:01:00 AM GMT+14', '2026-12-31T10:02:00.000Z')).toBe('2026-12-31T10:01:00.000Z');
+  });
+  it.each([
+    'Sep 23 2026, 06:37:19 AM UTC', 'Sep 23, 6:31 AM UTC', 'Sep 23, 13:31:19 PM UTC',
+    'Sep 31, 6:31:19 AM UTC', 'Feb 29, 6:31:19 AM UTC', 'Sep 23, 6:31:19 AM GMT-4:60',
+    'Sep 23, 6:31:19 AM GMT+14:30', 'Sep 23, 6:31:19 AM GMT+15',
+    'Sep 23, 6:31:19 AM GMT',
+    'Sep 23, 6:31:19 AM UTC trailing',
+  ])('leaves malformed Serp quote time undated: %s', value => {
+    expect(parseSerpFinanceObservedAt(value, '2026-09-23T06:40:00.000Z')).toBeNull();
+  });
+  it('uses the extension alongside the Serp FX price, ignoring summary.date', async () => {
+    vi.setSystemTime(new Date('2026-09-23T06:40:00.000Z'));
+    vi.stubGlobal('fetch', providerMock({ serpFinance: { 'USD-KRW': { summary: {
+      price: '1358.51', date: 'Sep 23 2026, 06:37:19 AM UTC', extensions: ['Sep 23, 6:31:19 AM UTC'],
+      price_movement: { value: 0, percentage: 0 },
+    } } } }));
+    const quote = (await getKisMarketAssessmentSnapshot()).indicators.usdKrw;
+    expect(quote?.source).toBe('SERP_API');
+    expect(quote?.price).toBe(1358.51);
+    expect(quote?.observedAt).toBe('2026-09-23T06:31:19.000Z');
+  });
+  it('selects fresh Naver FX when the Serp quote is older than 45 minutes', async () => {
+    vi.setSystemTime(new Date('2026-09-23T16:30:00+09:00'));
+    const base = providerMock({ serpFinance: { 'USD-KRW': { summary: {
+      price: '1358', extensions: ['Sep 23, 6:31:00 AM UTC'], price_movement: { value: 0, percentage: 0 },
+    } } } });
+    vi.stubGlobal('fetch', vi.fn<typeof fetch>((url, init) => {
+      const u = new URL(String(url));
+      if (u.hostname === 'finance.naver.com' && u.searchParams.get('marketindexCd') === 'FX_USDKRW') {
+        return Promise.resolve(new Response('<p class="no_today"><em><span class="no1"></span><span class="no3"></span><span class="no5"></span><span class="no8"></span></em></p><p class="no_exday"><em><span class="no0"></span></em><em>(0%)</em></p><div class="exchange_info"><span class="date">2026.09.23 16:25</span></div>'));
+      }
+      return base(url, init);
+    }));
+    const quote = (await getKisMarketAssessmentSnapshot()).indicators.usdKrw;
+    expect(quote?.source).toBe('NAVER_FINANCE');
+    expect(quote?.observedAt).toBe('2026-09-23T07:25:00.000Z');
+  });
+
+  it('retries one transient Serp Finance no-results error and keeps the successful quote', async () => {
+    vi.setSystemTime(new Date('2026-09-23T06:40:00.000Z'));
+    const base = providerMock({ serpFinance: { 'USD-KRW': { summary: {
+      price: '1358.51', extensions: ['Sep 23, 6:31:19 AM UTC'], price_movement: { value: 0, percentage: 0 },
+    } } } });
+    let attempts = 0;
+    vi.stubGlobal('fetch', vi.fn<typeof fetch>((url, init) => {
+      const u = new URL(String(url));
+      if (u.hostname === 'serpapi.com' && u.searchParams.get('q') === 'USD-KRW' && ++attempts === 1) {
+        return Promise.resolve(json({ error: "Google Finance hasn't returned any results for this query." }));
+      }
+      return base(url, init);
+    }));
+    expect((await getKisMarketAssessmentSnapshot()).indicators.usdKrw?.price).toBe(1358.51);
+    expect(attempts).toBe(2);
+  });
+  it('propagates a second no-results error to the existing FX fallback', async () => {
+    const base = providerMock();
+    let attempts = 0;
+    vi.stubGlobal('fetch', vi.fn<typeof fetch>((url, init) => {
+      const u = new URL(String(url));
+      if (u.hostname === 'serpapi.com' && u.searchParams.get('q') === 'USD-KRW') {
+        attempts += 1;
+        return Promise.resolve(json({ error: "Google Finance hasn't returned any results for this query." }));
+      }
+      return base(url, init);
+    }));
+    await getKisMarketAssessmentSnapshot();
+    expect(attempts).toBe(2);
+    expect(console.warn).toHaveBeenCalledWith(expect.stringContaining("USD/KRW primary 수집 실패: SerpAPI request failed: Google Finance hasn't returned any results for this query."));
+  });
+  it('does not retry other Serp Finance errors', async () => {
+    const base = providerMock();
+    let attempts = 0;
+    vi.stubGlobal('fetch', vi.fn<typeof fetch>((url, init) => {
+      const u = new URL(String(url));
+      if (u.hostname === 'serpapi.com' && u.searchParams.get('q') === 'USD-KRW') {
+        attempts += 1;
+        return Promise.resolve(json({ error: 'temporary upstream error' }));
+      }
+      return base(url, init);
+    }));
+    await getKisMarketAssessmentSnapshot();
+    expect(attempts).toBe(1);
+  });
+  it('does not retry no-results errors from index Serp fallback', async () => {
+    const base = providerMock({ brokenUs: true });
+    let attempts = 0;
+    vi.stubGlobal('fetch', vi.fn<typeof fetch>((url, init) => {
+      const u = new URL(String(url));
+      if (u.hostname === 'serpapi.com' && u.searchParams.get('q') === '.INX:INDEXSP') {
+        attempts += 1;
+        return Promise.resolve(json({ error: "Google Finance hasn't returned any results for this query." }));
+      }
+      return base(url, init);
+    }));
+    await getKisMarketAssessmentSnapshot();
+    expect(attempts).toBe(1);
+  });
+  it('stops Serp event calls after its first timeout while Naver continues', async () => {
+    vi.stubEnv('NAVER_CLIENT_ID', 'test-id');
+    vi.stubEnv('NAVER_CLIENT_SECRET', 'test-secret');
+    const base = providerMock();
+    const fetch = vi.fn<typeof globalThis.fetch>((url, init) => {
+      const u = new URL(String(url));
+      if (u.hostname === 'serpapi.com' && u.searchParams.get('engine') === 'google') {
+        if (u.searchParams.get('q')?.startsWith('tariff')) return Promise.reject(new DOMException('This operation was aborted', 'AbortError'));
+        return Promise.resolve(json({ organic_results: [{ title: u.searchParams.get('q'), link: 'https://source.example/story' }] }));
+      }
+      if (u.hostname === 'openapi.naver.com') return Promise.resolve(json({ total: 2, items: ['a', 'b'].map(domain => ({
+        title: u.searchParams.get('query'), originallink: `https://${domain}.example/story`, pubDate: RISK_NOW,
+      })) }));
+      return base(url, init);
+    });
+    vi.stubGlobal('fetch', fetch);
+    const events = (await getKisMarketAssessmentSnapshot()).events;
+    expect(events.tariffs.evidence).toHaveLength(2);
+    expect(events.tariffs.evidence.every(item => item.startsWith('[NAVER:'))).toBe(true);
+    expect(events.tariffs.detected).toBe(false);
+    for (const key of ['geopolitics', 'centralBankSurprise', 'financialInstitutionFailure', 'pandemic'] as const) {
+      expect(events[key].detected).toBe(false);
+      expect(events[key].evidence).toHaveLength(2);
+      expect(events[key].evidence.every(item => item.startsWith('[NAVER:'))).toBe(true);
+    }
+    expect(fetch.mock.calls.filter(([url]) => {
+      const u = new URL(String(url));
+      return u.hostname === 'serpapi.com' && u.searchParams.get('engine') === 'google';
+    })).toHaveLength(1);
+    expect(fetch.mock.calls.filter(([url]) => new URL(String(url)).hostname === 'openapi.naver.com')).toHaveLength(5);
+    expect(vi.mocked(console.warn).mock.calls.filter(([message]) => String(message).includes('Serp event signals 수집 실패'))).toEqual([
+      [expect.stringContaining('tariffs Serp event signals 수집 실패: This operation was aborted')],
+    ]);
+  });
+  it('stops Naver event calls after its first failure while Serp continues', async () => {
+    vi.stubEnv('NAVER_CLIENT_ID', 'test-id');
+    vi.stubEnv('NAVER_CLIENT_SECRET', 'test-secret');
+    const base = providerMock();
+    const fetch = vi.fn<typeof globalThis.fetch>((url, init) => {
+      const u = new URL(String(url));
+      if (u.hostname === 'openapi.naver.com') return Promise.reject(new Error('Naver unavailable'));
+      if (u.hostname === 'serpapi.com' && u.searchParams.get('engine') === 'google') {
+        return Promise.resolve(json({ organic_results: [{ title: u.searchParams.get('q'), link: 'https://source.example/story' }] }));
+      }
+      return base(url, init);
+    });
+    vi.stubGlobal('fetch', fetch);
+    const events = (await getKisMarketAssessmentSnapshot()).events;
+    expect(fetch.mock.calls.filter(([url]) => new URL(String(url)).hostname === 'openapi.naver.com')).toHaveLength(1);
+    expect(fetch.mock.calls.filter(([url]) => {
+      const u = new URL(String(url));
+      return u.hostname === 'serpapi.com' && u.searchParams.get('engine') === 'google';
+    })).toHaveLength(5);
+    expect(events.tariffs.evidence).toHaveLength(1);
+    expect(events.pandemic.evidence).toHaveLength(1);
+    expect(vi.mocked(console.warn).mock.calls.filter(([message]) => String(message).includes('Naver event signals 수집 실패'))).toEqual([
+      [expect.stringContaining('tariffs Naver event signals 수집 실패: Naver unavailable')],
+    ]);
+  });
+  it('starts no further event calls once the 30-second budget is exhausted', async () => {
+    vi.stubEnv('NAVER_CLIENT_ID', 'test-id');
+    vi.stubEnv('NAVER_CLIENT_SECRET', 'test-secret');
+    const base = providerMock();
+    const fetch = vi.fn<typeof globalThis.fetch>((url, init) => {
+      const u = new URL(String(url));
+      if (u.hostname === 'serpapi.com' && u.searchParams.get('engine') === 'google') {
+        vi.setSystemTime(new Date(Date.now() + 30_000));
+        return Promise.resolve(json({ organic_results: [{ title: u.searchParams.get('q'), link: 'https://source.example/story' }] }));
+      }
+      return base(url, init);
+    });
+    vi.stubGlobal('fetch', fetch);
+    const events = (await getKisMarketAssessmentSnapshot()).events;
+    expect(fetch.mock.calls.filter(([url]) => {
+      const u = new URL(String(url));
+      return u.hostname === 'serpapi.com' && u.searchParams.get('engine') === 'google';
+    })).toHaveLength(1);
+    expect(fetch.mock.calls.filter(([url]) => new URL(String(url)).hostname === 'openapi.naver.com')).toHaveLength(0);
+    expect(events.tariffs.evidence).toHaveLength(1);
+    expect(events.geopolitics.evidence).toHaveLength(0);
+    expect(events.pandemic.evidence).toHaveLength(0);
+  });
+  it('keeps all five Serp and Naver event calls when both providers succeed', async () => {
+    vi.stubEnv('NAVER_CLIENT_ID', 'test-id');
+    vi.stubEnv('NAVER_CLIENT_SECRET', 'test-secret');
+    const base = providerMock();
+    const fetch = vi.fn<typeof globalThis.fetch>((url, init) => {
+      const u = new URL(String(url));
+      if (u.hostname === 'serpapi.com' && u.searchParams.get('engine') === 'google') {
+        return Promise.resolve(json({ organic_results: [{ title: u.searchParams.get('q'), link: 'https://source.example/story' }] }));
+      }
+      if (u.hostname === 'openapi.naver.com') return Promise.resolve(json({ total: 2, items: ['a', 'b'].map(domain => ({
+        title: u.searchParams.get('query'), originallink: `https://${domain}.example/story`, pubDate: RISK_NOW,
+      })) }));
+      return base(url, init);
+    });
+    vi.stubGlobal('fetch', fetch);
+    const events = (await getKisMarketAssessmentSnapshot()).events;
+    expect(fetch.mock.calls.filter(([url]) => {
+      const u = new URL(String(url));
+      return u.hostname === 'serpapi.com' && u.searchParams.get('engine') === 'google';
+    })).toHaveLength(5);
+    expect(fetch.mock.calls.filter(([url]) => new URL(String(url)).hostname === 'openapi.naver.com')).toHaveLength(5);
+    expect(events.tariffs.detected).toBe(true);
+    expect(events.pandemic.detected).toBe(true);
+  });
+  it('propagates the snapshot deadline during an event call', async () => {
+    vi.stubEnv('NAVER_CLIENT_ID', 'test-id');
+    vi.stubEnv('NAVER_CLIENT_SECRET', 'test-secret');
+    const deadline = new AbortController();
+    vi.spyOn(AbortSignal, 'timeout').mockReturnValue(deadline.signal);
+    const base = providerMock();
+    const fetch = vi.fn<typeof globalThis.fetch>((url, init) => {
+      const u = new URL(String(url));
+      if (u.hostname === 'serpapi.com' && u.searchParams.get('engine') === 'google') {
+        deadline.abort();
+        return Promise.reject(new DOMException('This operation was aborted', 'AbortError'));
+      }
+      return base(url, init);
+    });
+    vi.stubGlobal('fetch', fetch);
+    const snapshot = await getKisMarketAssessmentSnapshot();
+    expect(snapshot.degradedSources).toContain('snapshot deadline exceeded; partial data only');
+    expect(snapshot.events.tariffs.evidence).toHaveLength(0);
+    expect(snapshot.events.pandemic.evidence).toHaveLength(0);
+    expect(fetch.mock.calls.filter(([url]) => new URL(String(url)).hostname === 'openapi.naver.com')).toHaveLength(0);
+    expect(vi.mocked(console.warn).mock.calls.filter(([message]) => String(message).includes('Serp event signals 수집 실패'))).toHaveLength(0);
   });
 });

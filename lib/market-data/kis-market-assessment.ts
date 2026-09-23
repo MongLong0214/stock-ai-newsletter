@@ -18,6 +18,7 @@ const NAVER_INDEX_TIMEOUT_MS = 5_000;
 const REQUEST_DELAY_MS = 350;
 const SNAPSHOT_TTL_MS = 30_000;
 const SNAPSHOT_TIMEOUT_MS = 90_000;
+const EVENT_SIGNALS_BUDGET_MS = 30_000;
 const snapshotRequestContext = new AsyncLocalStorage<AbortSignal>();
 let snapshotInFlight: Promise<MarketAssessmentSnapshot> | null = null;
 
@@ -51,6 +52,7 @@ interface SerpApiFinanceResponse {
     currency?: string;
     market?: string;
     price_movement?: SerpApiPriceMovement;
+    extensions?: string[];
   };
   error?: string;
 }
@@ -998,14 +1000,24 @@ async function getNightKospi200MiniFutures(day: Kospi200MiniFuturesSnapshot, day
 
 async function getSerpFinanceIndicator(
   query: string,
-  label: string
+  label: string,
+  options: { retryNoResults?: boolean } = {}
 ): Promise<MarketIndicatorSnapshot | null> {
-  const response = await serpGet<SerpApiFinanceResponse>({
+  const params = {
     engine: 'google_finance',
     q: query,
     hl: 'en',
     gl: 'us',
-  });
+  };
+  let response: SerpApiFinanceResponse;
+  try {
+    response = await serpGet<SerpApiFinanceResponse>(params);
+  } catch (error) {
+    if (!options.retryNoResults || snapshotRequestContext.getStore()?.aborted || !(error instanceof Error)
+      || error.message !== "SerpAPI request failed: Google Finance hasn't returned any results for this query.") throw error;
+    await requestCooldown();
+    response = await serpGet<SerpApiFinanceResponse>(params);
+  }
 
   if (!response.summary?.price) {
     return null;
@@ -1019,6 +1031,7 @@ async function getSerpFinanceIndicator(
 
   const movement = parseSignedMovement(response.summary.price_movement);
   if (!Number.isFinite(movement.change) || !Number.isFinite(movement.changePct)) return null;
+  const fetchedAt = new Date().toISOString();
 
   return withSingleSourceValidation({
     code: query,
@@ -1027,8 +1040,31 @@ async function getSerpFinanceIndicator(
     price,
     change: movement.change,
     changePct: movement.changePct,
-    fetchedAt: new Date().toISOString(),
+    // SerpAPI keeps extensions with summary.price; observed FX extensions preceded summary.date in live data while DJI matched it.
+    observedAt: parseSerpFinanceObservedAt(response.summary.extensions?.[0], fetchedAt),
+    fetchedAt,
   });
+}
+
+export function parseSerpFinanceObservedAt(value: string | undefined, fetchedAt: string): string | null {
+  const match = typeof value === 'string'
+    ? value.split(' · ')[0].match(/^(?:Closed: )?(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) (\d{1,2}), (\d{1,2}):(\d{2}):(\d{2}) (AM|PM) ((?:UTC|GMT)(?:([+-])(\d{1,2})(?::(\d{2}))?)?)$/)
+    : null;
+  if (!match) return null;
+  const [, month, day, hour, minute, second, meridiem, zone, sign, offsetHour, offsetMinute] = match;
+  if ((zone !== 'UTC' && !sign) || +day < 1 || +hour < 1 || +hour > 12 || +minute > 59 || +second > 59
+    || +(offsetHour ?? 0) > 14 || +(offsetMinute ?? 0) > 59
+    || (+offsetHour === 14 && +(offsetMinute ?? 0) !== 0)) return null;
+  const monthNumber = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'].indexOf(month) + 1;
+  const offset = zone === 'UTC' ? 'Z' : `${sign}${(offsetHour ?? '').padStart(2, '0')}:${(offsetMinute ?? '00').padStart(2, '0')}`;
+  const time = `${String(+hour % 12 + (meridiem === 'PM' ? 12 : 0)).padStart(2, '0')}:${minute}:${second}${offset}`;
+  const build = (year: number) => parseObservedAt(`${year}-${String(monthNumber).padStart(2, '0')}-${day.padStart(2, '0')}T${time}`, 'UTC');
+  const fetched = Date.parse(fetchedAt);
+  if (!Number.isFinite(fetched)) return null;
+  const year = new Date(fetched).getUTCFullYear();
+  return [year - 1, year, year + 1].map(build)
+    .filter((candidate): candidate is string => candidate !== null && Date.parse(candidate) <= fetched + 5 * 60_000)
+    .sort((a, b) => Math.abs(fetched - Date.parse(a)) - Math.abs(fetched - Date.parse(b)))[0] ?? null;
 }
 
 async function getCboeVixIndicator(): Promise<MarketIndicatorSnapshot | null> {
@@ -1405,9 +1441,9 @@ async function getCrossValidatedIndicator(
     return primary;
   }
 
-  const korea = label.startsWith('USD/');
-  const primaryUsable = quoteQuality(primary, Date.now(), korea) === 'usable';
-  const secondaryUsable = quoteQuality(secondary, Date.now(), korea) === 'usable';
+  const market = label.startsWith('USD/') ? 'fx' : false;
+  const primaryUsable = quoteQuality(primary, Date.now(), market) === 'usable';
+  const secondaryUsable = quoteQuality(secondary, Date.now(), market) === 'usable';
   if (primaryUsable && !secondaryUsable) return primary;
   if (secondaryUsable && !primaryUsable) return secondary;
 
@@ -1687,15 +1723,40 @@ async function getEventSignals(): Promise<EventSignals> {
   ];
 
   const signals = emptyEventSignals();
+  const startedAt = Date.now();
+  const withinBudget = () => Date.now() - startedAt < EVENT_SIGNALS_BUDGET_MS;
+  let serpAvailable = true;
+  let naverAvailable = true;
+  const collectEvidence = async (label: string, loader: () => Promise<string[]>, disable: () => void): Promise<string[]> => {
+    try {
+      return await loader();
+    } catch (error) {
+      if (snapshotRequestContext.getStore()?.aborted) throw error;
+      disable();
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      console.warn(`[Market Snapshot] ${label} 수집 실패: ${errorMsg}`);
+      return [];
+    }
+  };
 
   for (let index = 0; index < configs.length; index += 1) {
+    snapshotRequestContext.getStore()?.throwIfAborted();
+    if (!withinBudget()) break;
     const config = configs[index];
-    const serpEvidence = await collectSerpEventEvidence(config.serpQuery, config.patterns);
-    await requestCooldown();
-    const naverEvidence = await collectNaverEventEvidence(config.naverQuery, config.patterns);
+    const serpEvidence = serpAvailable
+      ? await collectEvidence(`${config.key} Serp event signals`, () => collectSerpEventEvidence(config.serpQuery, config.patterns), () => { serpAvailable = false; })
+      : [];
+    let naverEvidence: string[] = [];
+    if (naverAvailable && withinBudget()) {
+      await requestCooldown();
+      snapshotRequestContext.getStore()?.throwIfAborted();
+      if (withinBudget()) {
+        naverEvidence = await collectEvidence(`${config.key} Naver event signals`, () => collectNaverEventEvidence(config.naverQuery, config.patterns), () => { naverAvailable = false; });
+      }
+    }
     signals[config.key] = makeEventSignal(serpEvidence, naverEvidence);
 
-    if (index < configs.length - 1) {
+    if (index < configs.length - 1 && withinBudget() && (serpAvailable || naverAvailable)) {
       await requestCooldown();
     }
   }
@@ -1797,7 +1858,7 @@ async function collectMarketAssessmentSnapshot(): Promise<MarketAssessmentSnapsh
     () =>
       getCrossValidatedIndicator(
         'USD/KRW',
-        () => getSerpFinanceIndicator('USD-KRW', 'USD/KRW'),
+        () => getSerpFinanceIndicator('USD-KRW', 'USD/KRW', { retryNoResults: true }),
         () =>
           getNaverFinanceExchangeIndicator(
             'https://finance.naver.com/marketindex/exchangeDetail.naver?marketindexCd=FX_USDKRW',
@@ -1816,7 +1877,7 @@ async function collectMarketAssessmentSnapshot(): Promise<MarketAssessmentSnapsh
     () =>
       getCrossValidatedIndicator(
         'USD/JPY',
-        () => getSerpFinanceIndicator('USD-JPY', 'USD/JPY'),
+        () => getSerpFinanceIndicator('USD-JPY', 'USD/JPY', { retryNoResults: true }),
         () =>
           getNaverFinanceExchangeIndicator(
             'https://finance.naver.com/marketindex/worldExchangeDetail.naver?marketindexCd=FX_USDJPY',
