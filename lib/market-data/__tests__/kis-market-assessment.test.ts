@@ -6,7 +6,7 @@ const json = (data: unknown) => new Response(JSON.stringify(data), { headers: { 
 function providerMock(options: {
   brokenUs?: boolean; missingChange?: boolean; downSignMissing?: boolean;
   brokenSerp?: boolean; missingMini?: boolean; staleUs?: boolean; dowConflict?: boolean;
-  missingDow?: boolean; invalidContract?: boolean; cboeVix?: boolean;
+  missingDow?: boolean; invalidContract?: boolean; cboeVix?: boolean; cboeCsv?: string; naverVixQuote?: Record<string, unknown>;
   dayChartFailure?: boolean; dayChartPrice?: string; dayChartTime?: string; dayChartDate?: string; dayPreviousClose?: string; nightPriceFailure?: boolean;
   nightChartFailure?: boolean; nightChartTime?: string; nightChartDate?: string; nightPrice?: string; nightChartPrice?: string; nightBase?: string;
   serpFinance?: Record<string, unknown>;
@@ -16,7 +16,7 @@ function providerMock(options: {
     if (u.pathname.endsWith('/oauth2/tokenP')) return json({ access_token: 'test-token' });
     if (u.hostname === 'cdn.cboe.com') {
       if (!options.cboeVix) throw new Error('CBOE unavailable fixture');
-      return new Response('DATE,OPEN,HIGH,LOW,CLOSE\n09/04/2026,18,18,18,18\n09/08/2026,18,18,18,18\n');
+      return new Response(options.cboeCsv ?? 'DATE,OPEN,HIGH,LOW,CLOSE\n09/04/2026,18,18,18,18\n09/08/2026,18,18,18,18\n');
     }
     if (u.pathname.endsWith('/inquire-time-indexchartprice')) {
       if (options.brokenUs) return json({ rt_cd: '0', output1: { ovrs_nmix_prpr: '0' } });
@@ -51,9 +51,9 @@ function providerMock(options: {
       }, { stck_bsop_date: '20260908', stck_cntg_hour: '120000', futs_prpr: '100' }] });
     }
     if (u.hostname === 'api.stock.naver.com' && u.pathname.endsWith('/basic')) {
-      if (u.pathname.includes('.VIX')) return json(options.cboeVix ? {
+      if (u.pathname.includes('.VIX')) return json(options.cboeVix ? (options.naverVixQuote ?? {
         closePrice: '18', compareToPreviousClosePrice: '0', fluctuationsRatio: '0', localTradedAt: '2026-09-08T16:15:00-04:00',
-      } : {});
+      }) : {});
       if (options.missingDow || options.brokenUs || options.missingChange) return json({});
       return json({ closePrice: options.dowConflict ? '150' : '100', compareToPreviousClosePrice: options.dowConflict ? '50' : '0',
         fluctuationsRatio: options.dowConflict ? '50' : '0', compareToPreviousPrice: { name: options.dowConflict ? 'RISING' : 'UNCHANGED' },
@@ -247,10 +247,63 @@ describe('market source acquisition v2', () => {
   it('cross-checks official CBOE closes against a dated VIX quote', async () => {
     vi.stubGlobal('fetch', providerMock({ cboeVix: true }));
     const snapshot = await getKisMarketAssessmentSnapshot();
+    expect(snapshot.indicators.vix).toMatchObject({ source: 'MULTI_SOURCE', secondarySource: 'NAVER_STOCK_API' });
     expect(snapshot.indicators.vix?.validation).toBe('cross_checked');
     expect(snapshot.indicators.vix?.primarySource).toBe('CBOE');
     expect(snapshot.indicators.vix?.observedAtPrecision).toBe('session_close');
+    expect(snapshot.indicators.vix?.sourceConflict).toBeUndefined();
     expect(evaluateMarketAssessmentSnapshot(snapshot).dataQuality.indicators.vix).toBe('usable');
+  });
+  it('selects the newer usable VIX quote when its prior close matches CBOE', async () => {
+    vi.setSystemTime(new Date('2026-09-23T07:43:00.000Z'));
+    const info = vi.spyOn(console, 'info').mockImplementation(() => {});
+    vi.stubGlobal('fetch', providerMock({
+      cboeVix: true,
+      cboeCsv: 'DATE,OPEN,HIGH,LOW,CLOSE\n09/21/2026,14.87,14.87,14.87,14.87\n09/22/2026,14.21,14.21,14.21,14.21\n',
+      naverVixQuote: {
+        closePrice: '14.18', compareToPreviousClosePrice: '-0.03', fluctuationsRatio: '-0.21',
+        compareToPreviousPrice: { name: 'FALLING' }, localTradedAt: '2026-09-23T03:40:00-04:00',
+      },
+    }));
+    const snapshot = await getKisMarketAssessmentSnapshot();
+    expect(snapshot.indicators.vix).toMatchObject({
+      source: 'NAVER_STOCK_API', price: 14.18, validation: 'single_source', secondarySource: null,
+      observedAt: '2026-09-23T07:40:00.000Z',
+    });
+    expect(snapshot.indicators.vix?.sourceConflict).toBeUndefined();
+    expect(evaluateMarketAssessmentSnapshot(snapshot).dataQuality.indicators.vix).toBe('usable');
+    expect(info).toHaveBeenCalledWith(expect.stringContaining('VIX 관측 시각 차이: CBOE 2026-09-22T20:00:00.000Z vs NAVER_STOCK_API 2026-09-23T07:40:00.000Z'));
+    expect(console.warn).not.toHaveBeenCalledWith(expect.stringContaining('VIX 교차검증 불일치'));
+  });
+  it('keeps a conflict when a newer VIX timestamp lacks prior-close continuity', async () => {
+    vi.setSystemTime(new Date('2026-09-23T07:43:00.000Z'));
+    vi.stubGlobal('fetch', providerMock({
+      cboeVix: true,
+      cboeCsv: 'DATE,OPEN,HIGH,LOW,CLOSE\n09/21/2026,14.87,14.87,14.87,14.87\n09/22/2026,14.21,14.21,14.21,14.21\n',
+      naverVixQuote: {
+        closePrice: '40', compareToPreviousClosePrice: '0.5', fluctuationsRatio: '1.27',
+        compareToPreviousPrice: { name: 'RISING' }, localTradedAt: '2026-09-23T03:40:00-04:00',
+      },
+    }));
+    const snapshot = await getKisMarketAssessmentSnapshot();
+    expect(snapshot.indicators.vix).toMatchObject({ source: 'CBOE', price: 14.21, sourceConflict: true });
+    expect(evaluateMarketAssessmentSnapshot(snapshot).dataQuality.indicators.vix).toBe('conflict');
+    expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('VIX 교차검증 불일치'));
+  });
+  it('keeps a conflict when usable VIX quotes disagree within the same observation window', async () => {
+    vi.setSystemTime(new Date('2026-09-23T07:43:00.000Z'));
+    vi.stubGlobal('fetch', providerMock({
+      cboeVix: true,
+      cboeCsv: 'DATE,OPEN,HIGH,LOW,CLOSE\n09/21/2026,14.87,14.87,14.87,14.87\n09/22/2026,14.21,14.21,14.21,14.21\n',
+      naverVixQuote: {
+        closePrice: '18', compareToPreviousClosePrice: '3.79', fluctuationsRatio: '26.67',
+        compareToPreviousPrice: { name: 'RISING' }, localTradedAt: '2026-09-22T16:15:00-04:00',
+      },
+    }));
+    const snapshot = await getKisMarketAssessmentSnapshot();
+    expect(snapshot.indicators.vix?.sourceConflict).toBe(true);
+    expect(evaluateMarketAssessmentSnapshot(snapshot).dataQuality.indicators.vix).toBe('conflict');
+    expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('VIX 교차검증 불일치'));
   });
   it('continues when only Dow is unavailable', async () => {
     vi.stubGlobal('fetch', providerMock({ missingDow: true }));
@@ -342,6 +395,25 @@ describe('market source acquisition v2', () => {
     const quote = (await getKisMarketAssessmentSnapshot()).indicators.usdKrw;
     expect(quote?.source).toBe('NAVER_FINANCE');
     expect(quote?.observedAt).toBe('2026-09-23T07:25:00.000Z');
+  });
+  it('keeps an FX conflict when a future quote has no price continuity with a usable older quote', async () => {
+    vi.setSystemTime(new Date('2026-09-23T07:30:00.000Z'));
+    const base = providerMock({ serpFinance: { 'USD-KRW': { summary: {
+      price: '1358.51', extensions: ['Sep 23, 6:45:00 AM UTC'], price_movement: { value: 0, percentage: 0 },
+    } } } });
+    vi.stubGlobal('fetch', vi.fn<typeof fetch>((url, init) => {
+      const u = new URL(String(url));
+      if (u.hostname === 'finance.naver.com' && u.searchParams.get('marketindexCd') === 'FX_USDKRW') {
+        return Promise.resolve(new Response('<p class="no_today"><em><span class="no1"></span><span class="no4"></span><span class="no0"></span><span class="no0"></span></em></p><p class="no_exday"><em><span class="no1"></span></em><em>(0.07%)</em></p><div class="exchange_info"><span class="date">2026.09.23 16:34</span></div>'));
+      }
+      return base(url, init);
+    }));
+    const snapshot = await getKisMarketAssessmentSnapshot();
+    expect(snapshot.indicators.usdKrw).toMatchObject({
+      source: 'SERP_API', price: 1358.51, observedAt: '2026-09-23T06:45:00.000Z', sourceConflict: true,
+    });
+    expect(evaluateMarketAssessmentSnapshot(snapshot).dataQuality.indicators.usdKrw).toBe('conflict');
+    expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('USD/KRW 교차검증 불일치'));
   });
 
   it('retries one transient Serp Finance no-results error and keeps the successful quote', async () => {
