@@ -558,6 +558,8 @@ function calculatePriceGapPct(referencePrice: number, comparisonPrice: number | 
   return Math.abs(((comparisonPrice - referencePrice) / referencePrice) * 100);
 }
 
+const MARKET_INDICATOR_OBSERVATION_TOLERANCE_MS = 45 * 60_000;
+
 function isMarketIndicatorConsistent(
   left: MarketIndicatorSnapshot,
   right: MarketIndicatorSnapshot,
@@ -582,7 +584,7 @@ function isMarketIndicatorConsistent(
   if (left.sourceConflict || right.sourceConflict) return false;
   if (Math.abs(left.changePct) > 0.05 && Math.abs(right.changePct) > 0.05 && Math.sign(left.changePct) !== Math.sign(right.changePct)) return false;
   // Matching values from different sessions do not validate each other.
-  if (!left.observedAt || !right.observedAt || Math.abs(Date.parse(left.observedAt) - Date.parse(right.observedAt)) > 45 * 60_000) return false;
+  if (!left.observedAt || !right.observedAt || Math.abs(Date.parse(left.observedAt) - Date.parse(right.observedAt)) > MARKET_INDICATOR_OBSERVATION_TOLERANCE_MS) return false;
 
   if (hasComparablePrice && hasComparableChange && hasComparableChangePct) {
     return priceOk && (changeOk || changePctOk);
@@ -1449,6 +1451,20 @@ async function getCrossValidatedIndicator(
 
   if (!primary.observedAt && secondary.observedAt) return secondary;
   if (!secondary.observedAt && primary.observedAt) return primary;
+
+  if (primaryUsable && secondaryUsable && primary.observedAt && secondary.observedAt) {
+    const primaryObservedAt = Date.parse(primary.observedAt);
+    const secondaryObservedAt = Date.parse(secondary.observedAt);
+    if (Math.abs(primaryObservedAt - secondaryObservedAt) > MARKET_INDICATOR_OBSERVATION_TOLERANCE_MS) {
+      const newer = primaryObservedAt > secondaryObservedAt ? primary : secondary;
+      const older = newer === primary ? secondary : primary;
+      const previousCloseGapPct = calculatePriceGapPct(older.price, newer.price - newer.change);
+      if (previousCloseGapPct !== null && previousCloseGapPct <= (options.priceTolerancePct ?? 1)) {
+        console.info(`[Market Snapshot] ${label} 관측 시각 차이: ${primary.source} ${primary.observedAt} vs ${secondary.source} ${secondary.observedAt}`);
+        return newer;
+      }
+    }
+  }
 
   if (isMarketIndicatorConsistent(primary, secondary, options)) {
     return withCrossValidation(
