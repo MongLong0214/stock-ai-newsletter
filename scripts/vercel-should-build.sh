@@ -13,7 +13,6 @@ if ! changed_files="$(
     ':(exclude,glob)*.md' \
     ':(exclude,glob)**/*.md' \
     ':(exclude,glob).github/**' \
-    ':(exclude,glob).serena/**' \
     ':(exclude,glob)mcp/**'
 )"; then
   exit 1
