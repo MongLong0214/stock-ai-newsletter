@@ -63,7 +63,7 @@ vi.mock('@/scripts/stock-picks/trading-days', async (importOriginal) => {
 vi.mock('@/scripts/stock-picks/generate-picks', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/scripts/stock-picks/generate-picks')>()
   return { ...actual, generatePicksWithMeta: (input: Parameters<typeof actual.generatePicksWithMeta>[0]) => (
-    actual.generatePicksWithMeta({ ...input, dependencies: { loadMasters: async () => state.masters } })
+    actual.generatePicksWithMeta({ ...input, dependencies: { loadMasters: async () => state.masters, loadRecentPublishedSymbols: async () => new Set<string>() } })
   ) }
 })
 const database = vi.hoisted(() => ({ from: vi.fn() }))
@@ -97,7 +97,7 @@ describe('Prepare boundary-isolated E2E', () => {
     state.refreshMaster.mockResolvedValue(undefined)
     state.alert.mockResolvedValue(undefined)
     state.masters = Array.from({ length: 6 }, (_, index) => ({
-      symbol: `KOSPI:${String(index + 1).padStart(6, '0')}`,
+      symbol: `KOSPI:${String((index + 1) * 10).padStart(6, '0')}`,
       name: `E2E종목${index + 1}`, is_active: true, status_flags: {},
     }))
     const dates = Array.from({ length: 320 }, (_, index) => addKoreanTradingDays(SIGNAL, index - 319))
@@ -151,7 +151,12 @@ describe('Prepare boundary-isolated E2E', () => {
     expect(validateStockData(picks)).toBe(true)
     expect(state.newsletter?.picks_source).toBe('code')
     expect(state.fetchDaily).toHaveBeenCalledTimes(7)
-    expect(state.snapshots).toHaveLength(1)
+    expect(state.snapshots).toHaveLength(4)
+    expect(state.snapshots.map((row) => row.strategy)).toEqual([
+      'lowVolatilityStable', 'shadow:A-volumeBreakout-v1.1',
+      'shadow:B-random', 'shadow:J-randomConstrained',
+    ])
+    expect(state.snapshots.every((row) => (row.picks as unknown[]).length === 3)).toBe(true)
     const snapshot = state.snapshots[0]
     expect(snapshot.signal_date).toBe(SIGNAL)
     const candidates = snapshot.picks as Array<{ symbol: string; close: number; technicalContext: unknown }>

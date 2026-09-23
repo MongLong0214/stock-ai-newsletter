@@ -9,18 +9,20 @@ import { validateStockData } from '@/lib/llm/korea/stock-json'
 import { addKoreanTradingDays } from '@/lib/tli/trading-calendar'
 import { buildPriceBook } from '@/scripts/stock-picks/data-handler'
 import {
+  buildRationale,
   generatePicks,
   generatePicksWithMeta,
   getExpectedSignalDate,
   type StockPickMaster,
 } from '@/scripts/stock-picks/generate-picks'
+import * as strategies from '@/scripts/stock-picks/strategies'
 import { TradingDayIndex } from '@/scripts/stock-picks/trading-days'
 import type { StockDailyPriceRow } from '@/scripts/tli/prices/stock-daily-prices'
 
 const SIGNAL_DATE = '2026-08-27'
 const TODAY_KST = '2026-08-28'
-const SYMBOLS = ['KOSPI:000001', 'KOSPI:000002', 'KOSDAQ:000003'] as const
-const FOUR_SYMBOLS = [...SYMBOLS, 'KOSPI:000004'] as const
+const SYMBOLS = ['KOSPI:000010', 'KOSPI:000020', 'KOSDAQ:000030'] as const
+const FOUR_SYMBOLS = [...SYMBOLS, 'KOSPI:000040'] as const
 
 const makeFixture = (symbols: readonly string[] = SYMBOLS) => {
   const dates = Array.from(
@@ -79,20 +81,21 @@ describe('production stock pick generator', () => {
         loadTradingDays: async () => new TradingDayIndex(fixture.dates),
         loadPrices,
         loadMasters: async () => fixture.masters,
+        loadRecentPublishedSymbols: async () => new Set<string>(),
       },
     })
     const picks: unknown = JSON.parse(json)
 
-    // 2026-09-07: fixture 캔들의 시가를 고저 범위 안에 포함해 ATR/ADX 출력을 갱신한다.
+    // 저변동 전략의 결정적 픽과 근거 문자열을 고정한다.
     expect(createHash('sha256').update(json).digest('hex')).toBe(
-      '0d426820038645883d62f8093be2ad8e9debfac33df28d56e38b5bcd193b65d7',
+      'edfb4ab1566d249f2c31f10e2ac832058d3bcce7389e5ae275c9a575a75ec1ee',
     )
     expect(validateStockData(picks)).toBe(true)
     expect(picks).toHaveLength(3)
     expect((picks as Array<{ ticker: string }>).map((pick) => pick.ticker)).toEqual([
-      'KOSPI:000001',
-      'KOSPI:000002',
-      'KOSDAQ:000003',
+      'KOSDAQ:000030',
+      'KOSPI:000020',
+      'KOSPI:000010',
     ])
     expect(loadPrices).toHaveBeenCalledWith({
       startDate: fixture.dates[0],
@@ -101,7 +104,7 @@ describe('production stock pick generator', () => {
     for (const pick of picks as Array<{ rationale: string; signals: Record<string, number> }>) {
       expect(pick.rationale.split('|').length).toBeGreaterThanOrEqual(12)
       expect(pick.rationale.length).toBeGreaterThanOrEqual(50)
-      expect(pick.rationale).toMatch(/선정 경로 (거래량 돌파|거래량 상위 보충)$/)
+      expect(pick.rationale).toMatch(/변동성 안정 순위 [1-3]위\|선정 경로 저변동 안정$/)
       expect(Object.values(pick.signals).every(Number.isInteger)).toBe(true)
     }
   })
@@ -118,6 +121,7 @@ describe('production stock pick generator', () => {
           loadTradingDays: async () => new TradingDayIndex([...fixture.dates, TODAY_KST]),
           loadPrices,
           loadMasters: async () => fixture.masters,
+        loadRecentPublishedSymbols: async () => new Set<string>(),
         },
       })
 
@@ -143,6 +147,7 @@ describe('production stock pick generator', () => {
         loadTradingDays: async () => new TradingDayIndex(fixture.dates),
         loadPrices: async () => fixture.prices,
         loadMasters: async () => fixture.masters,
+        loadRecentPublishedSymbols: async () => new Set<string>(),
       },
     })).rejects.toThrow(/신선도 게이트 실패/)
   })
@@ -163,6 +168,7 @@ describe('production stock pick generator', () => {
           loadTradingDays: async () => new TradingDayIndex(datesWithoutExpected),
           loadPrices,
           loadMasters: async () => fixture.masters,
+        loadRecentPublishedSymbols: async () => new Set<string>(),
         },
       })).rejects.toThrow(/expected=2026-08-27가 KOSPI 실측 거래일 인덱스에 없습니다/)
       expect(loadPrices).not.toHaveBeenCalled()
@@ -184,6 +190,7 @@ describe('production stock pick generator', () => {
         loadTradingDays: async () => new TradingDayIndex(fixture.dates),
         loadPrices: async () => prices,
         loadMasters: async () => fixture.masters,
+        loadRecentPublishedSymbols: async () => new Set<string>(),
       },
     })
     const picks = JSON.parse(json) as Array<{ ticker: string }>
@@ -206,6 +213,7 @@ describe('production stock pick generator', () => {
         loadTradingDays: async () => new TradingDayIndex(fixture.dates),
         loadPrices: async () => prices,
         loadMasters: async () => fixture.masters,
+        loadRecentPublishedSymbols: async () => new Set<string>(),
       },
     })
     const picks = JSON.parse(json) as Array<{ ticker: string }>
@@ -232,8 +240,9 @@ describe('production stock pick generator', () => {
         loadTradingDays: async () => new TradingDayIndex(fixture.dates),
         loadPrices: async () => prices,
         loadMasters: async () => fixture.masters,
+        loadRecentPublishedSymbols: async () => new Set<string>(),
       },
-    })).rejects.toThrow(/volumeOnly 후보 부족: 0\/3/)
+    })).rejects.toThrow(/저변동 후보 부족: 0\/3/)
   })
 
   it('emits funnel and generated observability without changing the pick contract', async () => {
@@ -243,6 +252,7 @@ describe('production stock pick generator', () => {
       loadTradingDays: async () => new TradingDayIndex(fixture.dates),
       loadPrices: async () => fixture.prices,
       loadMasters: async () => fixture.masters,
+        loadRecentPublishedSymbols: async () => new Set<string>(),
     }
 
     try {
@@ -263,14 +273,91 @@ describe('production stock pick generator', () => {
       })
       expect(events.find((event) => event.event === 'stock_picks_generated')).toMatchObject({
         signalDate: SIGNAL_DATE,
-        strategy: 'volumeBreakoutNoGapUp+volumeOnlyFill',
-        strategyVersion: 'v1.1-2026-09-07',
-        picksByTier: { breakout: 2, volumeOnly: 1 },
-        picks: expect.arrayContaining([expect.objectContaining({ rank: 1, tier: 'breakout' })]),
+        strategy: 'lowVolatilityStable',
+        strategyVersion: 'v2-2026-09-23',
+        picksByTier: { lowVolatility: 3 },
+        picks: expect.arrayContaining([expect.objectContaining({ rank: 1, tier: 'lowVolatility' })]),
       })
       expect(result.meta.parametersHash).toMatch(/^[a-f0-9]{64}$/)
+      expect(result.meta.rankedCandidates.map((candidate) => candidate.score)).toEqual(
+        [...result.meta.rankedCandidates.map((candidate) => candidate.score)].sort((a, b) => a - b),
+      )
+      expect(result.meta.shadows.map((shadow) => shadow.strategy)).toEqual([
+        'shadow:A-volumeBreakout-v1.1', 'shadow:B-random', 'shadow:J-randomConstrained',
+      ])
+      expect(result.meta.shadows.every((shadow) => shadow.picks.length === 3)).toBe(true)
+      expect(result.meta.shadows[0]?.picks.map((pick) => pick.tier)).toEqual([
+        'breakout', 'breakout', 'volumeOnly',
+      ])
+      expect(result.picks[0]?.rationale.split('|').slice(0, 18)).toEqual(
+        buildRationale(result.meta.rankedCandidates[0]!, 0, 'breakout').split('|').slice(0, 18),
+      )
+      expect(result.picks.map((pick) => pick.rationale.split('|').slice(-2))).toEqual([
+        ['변동성 안정 순위 1위', '선정 경로 저변동 안정'],
+        ['변동성 안정 순위 2위', '선정 경로 저변동 안정'],
+        ['변동성 안정 순위 3위', '선정 경로 저변동 안정'],
+      ])
+      expect(events.find((event) => event.event === 'stock_picks_generated').shadows)
+        .toEqual(result.meta.shadows.map((shadow) => ({ strategy: shadow.strategy,
+          picks: shadow.picks.map((pick) => pick.symbol) })))
     } finally {
       logSpy.mockRestore()
+    }
+  })
+
+  it('excludes recently published symbols from production and constrained random shadow', async () => {
+    const fixture = makeFixture(FOUR_SYMBOLS)
+    const loadRecentPublishedSymbols = vi.fn(async () => new Set<string>([FOUR_SYMBOLS[0]]))
+    const result = await generatePicksWithMeta({ todayKst: TODAY_KST, dependencies: {
+      loadTradingDays: async () => new TradingDayIndex(fixture.dates),
+      loadPrices: async () => fixture.prices,
+      loadMasters: async () => fixture.masters,
+      loadRecentPublishedSymbols,
+    } })
+    expect(loadRecentPublishedSymbols).toHaveBeenCalledWith({
+      signalDate: SIGNAL_DATE,
+      tradingDays: expect.any(TradingDayIndex),
+      lookbackTradingDays: 20,
+    })
+    expect(result.picks.map((pick) => pick.ticker)).not.toContain(FOUR_SYMBOLS[0])
+    expect(result.meta.shadows.find((shadow) => shadow.strategy === 'shadow:J-randomConstrained')
+      ?.picks.map((pick) => pick.symbol)).not.toContain(FOUR_SYMBOLS[0])
+  })
+
+  it.each([
+    ['A', 'shadow:A-volumeBreakout-v1.1'],
+    ['B', 'shadow:B-random'],
+    ['J', 'shadow:J-randomConstrained'],
+  ] as const)('keeps three production picks and other shadows when shadow %s throws', async (target, strategy) => {
+    const fixture = makeFixture()
+    const dependencies = {
+      loadTradingDays: async () => new TradingDayIndex(fixture.dates),
+      loadPrices: async () => fixture.prices,
+      loadMasters: async () => fixture.masters,
+      loadRecentPublishedSymbols: async () => new Set<string>(),
+    }
+    const baseline = await generatePicksWithMeta({ todayKst: TODAY_KST, dependencies })
+    const warning = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const rankRandom = strategies.rankSeededRandomCandidates
+    if (target === 'A') {
+      vi.spyOn(strategies, 'rankStrategyCandidates').mockImplementation(() => { throw new Error('shadow failed') })
+    } else {
+      vi.spyOn(strategies, 'rankSeededRandomCandidates').mockImplementation((input) => {
+        if (input.seed.endsWith(`:${target}`)) throw new Error('shadow failed')
+        return rankRandom(input)
+      })
+    }
+    try {
+      const result = await generatePicksWithMeta({ todayKst: TODAY_KST, dependencies })
+      expect(result.picks).toHaveLength(3)
+      expect(result.json).toBe(baseline.json)
+      expect(result.meta.shadows.map((shadow) => shadow.strategy)).toEqual(
+        baseline.meta.shadows.map((shadow) => shadow.strategy).filter((name) => name !== strategy),
+      )
+      expect(warning).toHaveBeenCalledWith(expect.stringContaining(`${strategy} 섀도우 계산 실패`),
+        expect.any(Error))
+    } finally {
+      vi.restoreAllMocks()
     }
   })
 
@@ -289,6 +376,7 @@ describe('production stock pick generator', () => {
           loadTradingDays: async () => new TradingDayIndex(fixture.dates),
           loadPrices: async () => fixture.prices,
           loadMasters: async () => fixture.masters,
+        loadRecentPublishedSymbols: async () => new Set<string>(),
         },
       })
       const snapshot = JSON.parse(await readFile(snapshotPath, 'utf8'))
@@ -296,8 +384,8 @@ describe('production stock pick generator', () => {
       expect(snapshot).toMatchObject({
         signalDate: SIGNAL_DATE,
         gitSha: 'fixture-sha',
-        strategy: 'volumeBreakoutNoGapUp+volumeOnlyFill',
-        strategyVersion: 'v1.1-2026-09-07',
+        strategy: 'lowVolatilityStable',
+        strategyVersion: 'v2-2026-09-23',
         parametersHash: result.meta.parametersHash,
         funnel: result.meta.funnel,
       })
@@ -306,7 +394,7 @@ describe('production stock pick generator', () => {
         symbol: expect.any(String),
         score: expect.any(Number),
         rank: 1,
-        tier: 'breakout',
+        tier: 'lowVolatility',
         technicalContext: expect.objectContaining({
           version: 'technical-context-v1',
           chaikinMoneyFlow21: expect.any(Number),
@@ -317,9 +405,9 @@ describe('production stock pick generator', () => {
       }))
       expect(snapshot.topCandidates).toHaveLength(3)
       expect(snapshot.topCandidates.map((candidate: { tier: string }) => candidate.tier)).toEqual([
-        'breakout',
-        'breakout',
-        'volumeOnly',
+        'lowVolatility',
+        'lowVolatility',
+        'lowVolatility',
       ])
     } finally {
       vi.unstubAllEnvs()

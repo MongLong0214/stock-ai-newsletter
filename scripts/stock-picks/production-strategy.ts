@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto'
 
-import type { VolumeBreakoutParameters } from '@/scripts/stock-picks/strategies'
+import { LOW_VOLATILITY_STABLE_PARAMETERS, type VolumeBreakoutParameters } from '@/scripts/stock-picks/strategies'
 
 export function canonicalJson(value: unknown): string {
   if (value === null || typeof value === 'string' || typeof value === 'boolean') {
@@ -39,7 +39,7 @@ export const PRODUCTION_VOLUME_BREAKOUT_PARAMETERS: VolumeBreakoutParameters = {
   excludeGapUp: true,
 }
 
-export const PRODUCTION_STRATEGY = {
+export const LEGACY_VOLUME_BREAKOUT_STRATEGY = {
   name: 'volumeBreakoutNoGapUp+volumeOnlyFill',
   version: 'v1.1-2026-09-07',
   parameters: PRODUCTION_VOLUME_BREAKOUT_PARAMETERS,
@@ -48,5 +48,16 @@ export const PRODUCTION_STRATEGY = {
     parameters: PRODUCTION_VOLUME_BREAKOUT_PARAMETERS,
     fillTiers: ['breakout', 'volumeOnly'],
     gateVersion: 'status-flags-valid-candle-v2',
+  }),
+} as const
+
+export const PRODUCTION_STRATEGY = {
+  name: 'lowVolatilityStable',
+  version: 'v2-2026-09-23',
+  parameters: LOW_VOLATILITY_STABLE_PARAMETERS,
+  parametersHash: hashCanonicalJson({
+    parameters: LOW_VOLATILITY_STABLE_PARAMETERS,
+    gateVersion: 'status-flags-valid-candle-v2',
+    preferredRule: 'krx-code-last-digit-nonzero',
   }),
 } as const

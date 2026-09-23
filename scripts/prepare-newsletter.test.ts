@@ -78,8 +78,8 @@ const GENERATED_RESULT = {
   picks: JSON.parse(CODE_PICKS),
   meta: {
     signalDate: SIGNAL_DATE,
-    strategy: 'volumeBreakoutNoGapUp+volumeOnlyFill',
-    strategyVersion: 'v1-2026-09-03',
+    strategy: 'lowVolatilityStable',
+    strategyVersion: 'v2-2026-09-23',
     parameters: {},
     parametersHash: 'fixture-hash',
     funnel: {
@@ -91,11 +91,18 @@ const GENERATED_RESULT = {
       picked: 3,
     },
     rankedCandidates: [
-      { symbol: 'KOSPI:000001', name: '테스트1', score: 91, rank: 1, tier: 'breakout' },
-      { symbol: 'KOSPI:000002', name: '테스트2', score: 87, rank: 2, tier: 'breakout' },
-      { symbol: 'KOSPI:000003', name: '테스트3', score: 83, rank: 3, tier: 'volumeOnly' },
-      { symbol: 'KOSPI:000004', name: '테스트4', score: 80, rank: 4, tier: 'volumeOnly' },
+      { symbol: 'KOSPI:000001', name: '테스트1', score: 1, rank: 1, tier: 'lowVolatility' },
+      { symbol: 'KOSPI:000002', name: '테스트2', score: 2, rank: 2, tier: 'lowVolatility' },
+      { symbol: 'KOSPI:000003', name: '테스트3', score: 3, rank: 3, tier: 'lowVolatility' },
+      { symbol: 'KOSPI:000004', name: '테스트4', score: 4, rank: 4, tier: 'lowVolatility' },
     ],
+    shadows: ['shadow:A-volumeBreakout-v1.1', 'shadow:B-random', 'shadow:J-randomConstrained']
+      .map((strategy) => ({ strategy, strategyVersion: 'fixture-v1', parametersHash: `${strategy}-hash`,
+        picks: [
+          { symbol: 'KOSPI:000001', rank: 1, tier: 'volumeOnly' },
+          { symbol: 'KOSPI:000002', rank: 2, tier: 'volumeOnly' },
+          { symbol: 'KOSPI:000003', rank: 3, tier: 'volumeOnly' },
+        ] })),
   },
 }
 
@@ -334,9 +341,9 @@ describe('prepare-newsletter stock-pick wiring', () => {
         remainingSecAtPicks: expect.any(Number),
       },
       picks: [
-        { rank: 1, ticker: 'KOSPI:000001', score: 91 },
-        { rank: 2, ticker: 'KOSPI:000002', score: 87 },
-        { rank: 3, ticker: 'KOSPI:000003', score: 83 },
+        { rank: 1, ticker: 'KOSPI:000001', score: 1 },
+        { rank: 2, ticker: 'KOSPI:000002', score: 2 },
+        { rank: 3, ticker: 'KOSPI:000003', score: 3 },
       ],
     })
   })
@@ -422,13 +429,20 @@ describe('prepare-newsletter stock-pick wiring', () => {
     }))
     expect(mocks.persistSnapshot).toHaveBeenCalledWith(expect.objectContaining({
       signal_date: SIGNAL_DATE,
-      strategy: 'volumeBreakoutNoGapUp+volumeOnlyFill',
-      strategy_version: 'v1-2026-09-03',
+      strategy: 'lowVolatilityStable',
+      strategy_version: 'v2-2026-09-23',
       parameters_hash: 'fixture-hash',
       run_id: null,
-      picks: expect.arrayContaining([expect.objectContaining({ tier: 'breakout' })]),
-      top_candidates: expect.arrayContaining([expect.objectContaining({ tier: 'volumeOnly' })]),
+      picks: expect.arrayContaining([expect.objectContaining({ tier: 'lowVolatility' })]),
+      top_candidates: expect.arrayContaining([expect.objectContaining({ tier: 'lowVolatility' })]),
     }))
+    expect(mocks.persistSnapshot).toHaveBeenCalledTimes(4)
+    for (const shadow of GENERATED_RESULT.meta.shadows) {
+      expect(mocks.persistSnapshot).toHaveBeenCalledWith(expect.objectContaining({
+        strategy: shadow.strategy, strategy_version: shadow.strategyVersion,
+        parameters_hash: shadow.parametersHash, picks: shadow.picks,
+      }))
+    }
     expect(findSummary(logSpy)).toMatchObject({ event: 'prepare_run_summary', picksSource: 'code' })
   })
 
@@ -446,6 +460,26 @@ describe('prepare-newsletter stock-pick wiring', () => {
     expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('snapshot unavailable'))
     expect(findSummary(logSpy)).toMatchObject({
       warnings: expect.arrayContaining([expect.stringContaining('snapshot unavailable')]),
+    })
+  })
+
+  it('continues saving later shadows and the newsletter when one shadow snapshot fails', async () => {
+    const client = mockNewsletterClient({ reads: [null] })
+    vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', 'https://example.supabase.co')
+    vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY', 'test-service-role-key')
+    mocks.persistSnapshot.mockImplementation(async (snapshot: { strategy: string }) => {
+      if (snapshot.strategy === 'shadow:B-random') throw new Error('shadow unavailable')
+    })
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+    await prepareNewsletter({ targetDate: TARGET_DATE })
+
+    expect(client.insert).toHaveBeenCalled()
+    expect(mocks.persistSnapshot).toHaveBeenCalledTimes(4)
+    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('shadow unavailable'))
+    expect(findSummary(logSpy)).toMatchObject({
+      warnings: expect.arrayContaining([expect.stringContaining('shadow unavailable')]),
     })
   })
 

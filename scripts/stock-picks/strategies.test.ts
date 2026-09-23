@@ -9,10 +9,14 @@ import {
   DEFAULT_VOLUME_BREAKOUT_BULLISH_CANDLE_PARAMETERS,
   DEFAULT_VOLUME_BREAKOUT_NO_GAP_UP_PARAMETERS,
   DEFAULT_VOLUME_BREAKOUT_PARAMETERS,
+  LOW_VOLATILITY_STABLE_PARAMETERS,
   VOLUME_BREAKOUT_ATR_RANK_PARAMETERS,
   createTieredFillStrategy,
+  isPreferredShare,
   passesCommonGate,
   rankStrategyCandidates,
+  rankLowVolatilityStableCandidates,
+  rankSeededRandomCandidates,
   rankTieredFillCandidates,
   rankVolumeBreakoutAtrRankCandidates,
   scoreStrategy,
@@ -68,6 +72,77 @@ const master = (symbol: string, overrides: Partial<StockMasterState> = {}): Stoc
 })
 
 describe('stock-picks strategy gates and ranking', () => {
+  it('classifies preferred shares by the final code character', () => {
+    expect(['005930', '005935', 'KOSPI:003547', 'KOSDAQ:0130H0', 'KOSPI:159910', '097955']
+      .map(isPreferredShare)).toEqual([false, true, true, false, false, true])
+  })
+
+  it('ranks stable candidates by ascending ATR, excludes constraints, and breaks ties by symbol', () => {
+    const candidates = [
+      feature('KOSPI:000030', { atrPercent14: 2 }),
+      feature('KOSPI:000020', { atrPercent14: 1 }),
+      feature('KOSPI:000010', { atrPercent14: 1 }),
+      feature('KOSPI:000015', { atrPercent14: 0.5 }),
+      feature('KOSPI:000040', { open: 2_000, close: 2_199.8, high: 2_250, atrPercent14: 3 }),
+      feature('KOSPI:000050', { open: 2_000, close: 2_200, high: 2_250, atrPercent14: 0.1 }),
+      feature('KOSPI:000060', { rsi14: 76, atrPercent14: 0.1 }),
+      feature('KOSPI:000070', { atrPercent14: null }),
+    ]
+    const masters = new Map(candidates.map((candidate) => [candidate.symbol, master(candidate.symbol)]))
+    const input = { features: candidates, masters, parameters: LOW_VOLATILITY_STABLE_PARAMETERS,
+      excludeSymbols: new Set(['KOSPI:000030']), pickCount: 10 }
+    expect(rankLowVolatilityStableCandidates(input)).toEqual([
+      'KOSPI:000010', 'KOSPI:000020', 'KOSPI:000040',
+    ])
+    expect(rankLowVolatilityStableCandidates({ ...input, features: [...candidates].reverse() }))
+      .toEqual(rankLowVolatilityStableCandidates(input))
+  })
+
+  it('requires both intraday and previous-close returns below the signal limit for H and J', () => {
+    const gapUp = feature('KOSPI:000010', {
+      open: 1_120, close: 1_130, high: 1_140, low: 1_110,
+      gapFromPreviousClosePercent: 12,
+    })
+    const belowLimit = feature('KOSPI:000020', {
+      open: 1_090, close: 1_099.9, high: 1_110, low: 1_080,
+      gapFromPreviousClosePercent: 9,
+    })
+    const unknownGap = feature('KOSPI:000030', {
+      open: 1_090, close: 1_099, high: 1_110, low: 1_080,
+      gapFromPreviousClosePercent: null,
+    })
+    const features = [gapUp, belowLimit, unknownGap]
+    const masters = new Map(features.map((candidate) => [candidate.symbol, master(candidate.symbol)]))
+    expect(rankLowVolatilityStableCandidates({
+      features, masters, parameters: LOW_VOLATILITY_STABLE_PARAMETERS,
+      excludeSymbols: new Set(),
+    })).toEqual([belowLimit.symbol])
+    expect(rankSeededRandomCandidates({
+      features, masters, minTurnover: LOW_VOLATILITY_STABLE_PARAMETERS.minTurnover,
+      maxRsi: LOW_VOLATILITY_STABLE_PARAMETERS.maxRsi, excludePreferred: true,
+      maxSignalDayReturn: LOW_VOLATILITY_STABLE_PARAMETERS.maxSignalDayReturn,
+      seed: 'signal:J',
+    })).toEqual([belowLimit.symbol])
+  })
+
+  it('shuffles deterministically and applies optional random constraints', () => {
+    const candidates = Array.from({ length: 20 }, (_, index) => feature(`KOSPI:${String((index + 1) * 10).padStart(6, '0')}`))
+    candidates.push(feature('KOSPI:000015', { atrPercent14: 0.1 }))
+    candidates.push(feature('KOSPI:000220', { close: 2_200, high: 2_250 }))
+    candidates.push(feature('KOSPI:000230', { rsi14: 90 }))
+    const masters = new Map(candidates.map((candidate) => [candidate.symbol, master(candidate.symbol)]))
+    const base = { features: candidates, masters, minTurnover: 500_000_000, maxRsi: 75,
+      excludePreferred: false, seed: '2026-09-23:B', pickCount: 20 }
+    const first = rankSeededRandomCandidates(base)
+    expect(rankSeededRandomCandidates(base)).toEqual(first)
+    expect(rankSeededRandomCandidates({ ...base, seed: '2026-09-23:J' })).not.toEqual(first)
+    const constrained = rankSeededRandomCandidates({ ...base, excludePreferred: true,
+      maxSignalDayReturn: 0.10, excludeSymbols: new Set([first[0]!]) })
+    expect(constrained).not.toContain('KOSPI:000015')
+    expect(constrained).not.toContain('KOSPI:000220')
+    expect(constrained).not.toContain('KOSPI:000230')
+    expect(constrained).not.toContain(first[0])
+  })
   it('rejects invalid or untraded signal candles in both breakout and fill tiers', () => {
     for (const overrides of [
       { volume: 0 }, { volume: -1 }, { close: NaN }, { open: null },
