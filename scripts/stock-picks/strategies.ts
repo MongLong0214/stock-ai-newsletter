@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto'
+
 import type { StockPickStrategy } from '@/scripts/stock-picks/backtest'
 import type { StockFeatureVector } from '@/scripts/stock-picks/features'
 
@@ -13,7 +15,7 @@ export type StrategyName =
   | 'composite'
 export type SelectionMode = 'force3' | 'abstain'
 export type AblationFeature = keyof StockFeatureVector
-export type TieredFillTier = 'breakout' | 'relaxedBreakout' | 'volumeOnly'
+export type TieredFillTier = 'breakout' | 'relaxedBreakout' | 'volumeOnly' | 'lowVolatility'
 
 export interface TieredFillPick {
   readonly symbol: string
@@ -25,6 +27,17 @@ export const DEFAULT_TIERED_FILL_TIERS: readonly TieredFillTier[] = [
   'relaxedBreakout',
   'volumeOnly',
 ]
+
+export const LOW_VOLATILITY_STABLE_PARAMETERS = {
+  minTurnover: 500_000_000,
+  maxRsi: 75,
+  maxSignalDayReturn: 0.10,
+  recentPickTradingDays: 20,
+} as const
+
+export const isPreferredShare = (symbol: string): boolean => (
+  (symbol.split(':').at(-1) ?? '').at(-1) !== '0'
+)
 
 export interface StockMasterState {
   readonly symbol: string
@@ -248,6 +261,66 @@ export function passesCommonGate(
   // 기존 제품의 Stoch/Williams 과매수 제외 의도를 RSI 상한 단일 기준으로 단순화한다.
   if (feature.rsi14 === null || feature.rsi14 > maxRsi) return false
   return true
+}
+
+const passesSignalDayReturn = (feature: StockFeatureVector, maximum: number): boolean => (
+  feature.open !== null && feature.open > 0
+  && feature.close !== null && feature.close > 0
+  && feature.gapFromPreviousClosePercent !== null
+  && Number.isFinite(feature.gapFromPreviousClosePercent)
+  && feature.close / feature.open - 1 < maximum
+  && (1 + feature.gapFromPreviousClosePercent / 100) * (feature.close / feature.open) - 1 < maximum
+)
+
+export function rankLowVolatilityStableCandidates(input: {
+  readonly features: readonly StockFeatureVector[]
+  readonly masters: ReadonlyMap<string, StockMasterState>
+  readonly parameters: typeof LOW_VOLATILITY_STABLE_PARAMETERS
+  readonly excludeSymbols: ReadonlySet<string>
+  readonly pickCount?: number
+}): string[] {
+  return input.features.filter((feature) => (
+    passesCommonGate(feature, input.masters.get(feature.symbol), input.parameters.minTurnover, input.parameters.maxRsi)
+    && !isPreferredShare(feature.symbol)
+    && passesSignalDayReturn(feature, input.parameters.maxSignalDayReturn)
+    && !input.excludeSymbols.has(feature.symbol)
+    && feature.atrPercent14 !== null && Number.isFinite(feature.atrPercent14)
+  )).sort((left, right) => (
+    left.atrPercent14! - right.atrPercent14!
+    || left.symbol.localeCompare(right.symbol)
+  )).slice(0, input.pickCount ?? PICKS_PER_DATE).map((feature) => feature.symbol)
+}
+
+export function rankSeededRandomCandidates(input: {
+  readonly features: readonly StockFeatureVector[]
+  readonly masters: ReadonlyMap<string, StockMasterState>
+  readonly minTurnover: number
+  readonly maxRsi: number
+  readonly excludeSymbols?: ReadonlySet<string>
+  readonly excludePreferred: boolean
+  readonly maxSignalDayReturn?: number
+  readonly seed: string
+  readonly pickCount?: number
+}): string[] {
+  const symbols = input.features.filter((feature) => (
+    passesCommonGate(feature, input.masters.get(feature.symbol), input.minTurnover, input.maxRsi)
+    && (!input.excludePreferred || !isPreferredShare(feature.symbol))
+    && (input.maxSignalDayReturn === undefined || passesSignalDayReturn(feature, input.maxSignalDayReturn))
+    && !input.excludeSymbols?.has(feature.symbol)
+  )).map((feature) => feature.symbol).sort()
+  const digest = createHash('sha256').update(input.seed).digest()
+  let state = digest.readUInt32LE(0) || 0x6d2b79f5
+  const random = (): number => {
+    state ^= state << 13
+    state ^= state >>> 17
+    state ^= state << 5
+    return (state >>> 0) / 0x1_0000_0000
+  }
+  for (let index = symbols.length - 1; index > 0; index--) {
+    const other = Math.floor(random() * (index + 1))
+    ;[symbols[index], symbols[other]] = [symbols[other]!, symbols[index]!]
+  }
+  return symbols.slice(0, input.pickCount ?? PICKS_PER_DATE)
 }
 
 export function scorePullbackRebound(

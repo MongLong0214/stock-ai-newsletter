@@ -5,7 +5,7 @@ import { getRawPrice, loadPriceBook, type PriceBook } from '@/scripts/stock-pick
 import { labelPick, type StockPickLabel } from '@/scripts/stock-picks/label'
 import type { StockPickSnapshot } from '@/scripts/stock-picks/pick-snapshots'
 import { loadStockPickSnapshots } from '@/scripts/stock-picks/pick-snapshots'
-import { PRODUCTION_STRATEGY } from '@/scripts/stock-picks/production-strategy'
+import { LEGACY_VOLUME_BREAKOUT_STRATEGY, PRODUCTION_STRATEGY } from '@/scripts/stock-picks/production-strategy'
 import { TradingDayIndex, loadTradingDayIndex } from '@/scripts/stock-picks/trading-days'
 
 const DEFAULT_LOOKBACK_DAYS = 60
@@ -100,7 +100,29 @@ export interface ForwardMeasurementReport {
   readonly nullBreakdown: Readonly<Record<ForwardNullReason, number>>
   readonly recent4Weeks: readonly ForwardWeeklySummary[]
   readonly shadowComparison: ShadowForwardComparison
+  readonly strategyComparison: readonly StrategyForwardSummary[]
+  readonly pairedStrategyComparison: readonly PairedStrategyForwardSummary[]
 }
+
+export interface StrategyForwardSummary {
+  readonly strategy: string
+  readonly pickCount: number
+  readonly labeledPickCount: number
+  readonly touchRate5d: number | null
+  readonly meanCloseReturn5d: number | null
+  readonly entryBullishRate: number | null
+}
+
+export interface PairedStrategyForwardSummary extends StrategyForwardSummary {
+  readonly commonDayCount: number
+}
+
+const PAIRED_STRATEGIES = [
+  PRODUCTION_STRATEGY.name,
+  'shadow:A-volumeBreakout-v1.1',
+  'shadow:B-random',
+  'shadow:J-randomConstrained',
+] as const
 
 const SOURCE_KEYS: readonly SourceKey[] = ['code', 'llm_fallback', 'crash', 'null']
 
@@ -194,8 +216,8 @@ const emptyShadowComparison = (startDate: string, asOfDate: string): ShadowForwa
   slotPrecisionDifferencePercentagePoints: null,
 })
 
-const parsePublishedPicks = (row: PublishedNewsletterRow): {
-  readonly kind: 'stock' | 'crash' | 'invalid'
+export const parsePublishedPicks = (row: PublishedNewsletterRow): {
+  readonly kind: 'stock' | 'crash' | 'empty' | 'invalid'
   readonly picks: PublishedPick[]
 } => {
   let parsed: unknown
@@ -215,17 +237,22 @@ const parsePublishedPicks = (row: PublishedNewsletterRow): {
   }
   if (!Array.isArray(parsed)) return { kind: 'invalid', picks: [] }
 
-  const picks = parsed.flatMap((candidate): PublishedPick[] => {
-    if (typeof candidate !== 'object' || candidate === null || Array.isArray(candidate)) return []
+  if (parsed.length === 0) return { kind: 'empty', picks: [] }
+
+  const picks: PublishedPick[] = []
+  for (const candidate of parsed) {
+    if (typeof candidate !== 'object' || candidate === null || Array.isArray(candidate)) {
+      return { kind: 'invalid', picks: [] }
+    }
     const symbol = (candidate as Record<string, unknown>).ticker
-    if (typeof symbol !== 'string' || symbol.length === 0) return []
-    return [{
+    if (typeof symbol !== 'string' || symbol.length === 0) return { kind: 'invalid', picks: [] }
+    picks.push({
       publicationDate: row.newsletter_date.slice(0, 10),
       symbol,
       picksSource: normalizeSource(row.picks_source),
-    }]
-  })
-  return { kind: picks.length > 0 ? 'stock' : 'invalid', picks }
+    })
+  }
+  return { kind: 'stock', picks }
 }
 
 const maturePick = (
@@ -269,7 +296,7 @@ export function measureShadowForwardComparison(input: {
   readonly asOfDate: string
 }): ShadowForwardComparison {
   const snapshots = input.snapshots.filter((snapshot) => (
-    snapshot.strategy === PRODUCTION_STRATEGY.name
+    snapshot.strategy === LEGACY_VOLUME_BREAKOUT_STRATEGY.name
     && snapshot.signal_date >= input.startDate
     && snapshot.signal_date <= input.asOfDate
   ))
@@ -312,6 +339,84 @@ export function measureShadowForwardComparison(input: {
   }
 }
 
+export function measureStrategyForwardComparison(input: {
+  readonly prices: PriceBook
+  readonly tradingDays: TradingDayIndex
+  readonly snapshots: readonly StockPickSnapshot[]
+  readonly startDate: string
+  readonly asOfDate: string
+}): StrategyForwardSummary[] {
+  const grouped = new Map<string, Array<{ symbol: string; signalDate: string }>>()
+  for (const snapshot of input.snapshots) {
+    if (snapshot.signal_date < input.startDate || snapshot.signal_date > input.asOfDate) continue
+    const entryDate = input.tradingDays.nextTradingDay(snapshot.signal_date, 1)
+    const maturityDate = entryDate ? input.tradingDays.nextTradingDay(entryDate, 4) : null
+    if (!maturityDate || maturityDate > input.asOfDate) continue
+    const rows = grouped.get(snapshot.strategy) ?? []
+    rows.push(...snapshot.picks.map((pick) => ({ symbol: pick.symbol, signalDate: snapshot.signal_date })))
+    grouped.set(snapshot.strategy, rows)
+  }
+  const rate = (numerator: number, denominator: number): number | null => denominator > 0 ? numerator / denominator : null
+  return [...grouped.entries()].sort(([left], [right]) => left.localeCompare(right)).map(([strategy, picks]) => {
+    const labeled = picks.map((pick) => ({
+      ...pick, label: labelPick(pick.symbol, pick.signalDate, input.prices, input.tradingDays),
+    }))
+    const evaluable = labeled.filter((pick) => pick.label?.status === 'hit' || pick.label?.status === 'miss')
+    const returns = evaluable.flatMap((pick) => pick.label?.return5d === null || pick.label?.return5d === undefined
+      ? [] : [pick.label.return5d])
+    const entryCandles = labeled.flatMap((pick) => {
+      const entryDate = input.tradingDays.nextTradingDay(pick.signalDate, 1)
+      const row = entryDate ? getRawPrice(input.prices, pick.symbol, entryDate) : undefined
+      return row && row.open !== null && row.close !== null && row.open > 0 && row.close > 0
+        ? [{ open: row.open, close: row.close }] : []
+    })
+    return {
+      strategy,
+      pickCount: picks.length,
+      labeledPickCount: labeled.filter((pick) => pick.label !== null).length,
+      touchRate5d: rate(evaluable.filter((pick) => pick.label?.touched).length, evaluable.length),
+      meanCloseReturn5d: returns.length > 0 ? returns.reduce((sum, value) => sum + value, 0) / returns.length : null,
+      entryBullishRate: rate(entryCandles.filter((row) => row.close > row.open).length, entryCandles.length),
+    }
+  })
+}
+
+export function measurePairedStrategyForwardComparison(input: {
+  readonly prices: PriceBook
+  readonly tradingDays: TradingDayIndex
+  readonly snapshots: readonly StockPickSnapshot[]
+  readonly startDate: string
+  readonly asOfDate: string
+}): PairedStrategyForwardSummary[] {
+  const datesByStrategy = new Map(PAIRED_STRATEGIES.map((strategy) => [strategy, new Set<string>()]))
+  for (const snapshot of input.snapshots) {
+    const dates = datesByStrategy.get(snapshot.strategy as typeof PAIRED_STRATEGIES[number])
+    if (!dates || snapshot.signal_date < input.startDate || snapshot.signal_date > input.asOfDate) continue
+    const entryDate = input.tradingDays.nextTradingDay(snapshot.signal_date, 1)
+    const maturityDate = entryDate ? input.tradingDays.nextTradingDay(entryDate, 4) : null
+    if (maturityDate && maturityDate <= input.asOfDate) dates.add(snapshot.signal_date)
+  }
+  const commonDates = new Set([...datesByStrategy.get(PAIRED_STRATEGIES[0])!].filter((date) => (
+    PAIRED_STRATEGIES.every((strategy) => datesByStrategy.get(strategy)?.has(date))
+  )))
+  const summaries = new Map(measureStrategyForwardComparison({
+    ...input,
+    snapshots: input.snapshots.filter((snapshot) => (
+      commonDates.has(snapshot.signal_date) && datesByStrategy.has(snapshot.strategy as typeof PAIRED_STRATEGIES[number])
+    )),
+  }).map((summary) => [summary.strategy, summary]))
+  return PAIRED_STRATEGIES.map((strategy) => ({
+    strategy,
+    pickCount: 0,
+    labeledPickCount: 0,
+    touchRate5d: null,
+    meanCloseReturn5d: null,
+    entryBullishRate: null,
+    ...summaries.get(strategy),
+    commonDayCount: commonDates.size,
+  }))
+}
+
 export function measureForwardPicks(input: {
   readonly newsletters: readonly PublishedNewsletterRow[]
   readonly prices: PriceBook
@@ -319,6 +424,8 @@ export function measureForwardPicks(input: {
   readonly asOfDate: string
   readonly lookbackDays?: number
   readonly shadowComparison?: ShadowForwardComparison
+  readonly strategyComparison?: readonly StrategyForwardSummary[]
+  readonly pairedStrategyComparison?: readonly PairedStrategyForwardSummary[]
   readonly roundTripCostBps?: number
 }): ForwardMeasurementReport {
   const roundTripCostBps = input.roundTripCostBps ?? 0
@@ -391,6 +498,8 @@ export function measureForwardPicks(input: {
     nullBreakdown,
     recent4Weeks,
     shadowComparison: input.shadowComparison ?? emptyShadowComparison(startDate, input.asOfDate),
+    strategyComparison: input.strategyComparison ?? [],
+    pairedStrategyComparison: input.pairedStrategyComparison ?? [],
   }
 }
 
@@ -465,6 +574,24 @@ export function printForwardMeasurementReport(report: ForwardMeasurementReport):
   console.log(`참고: 8보유일 확장 시 타율 ${percent(report.informational8HoldingDays.hitRate)} (${report.informational8HoldingDays.touchedPicks}/${report.informational8HoldingDays.evaluablePicks})`)
   // 워크플로우가 이 로그를 GITHUB_STEP_SUMMARY에 그대로 적재하므로 같은 섹션이 양쪽에 노출된다.
   console.log(renderShadowForwardComparisonSection(report.shadowComparison))
+  console.table(report.strategyComparison.map((row) => ({
+    strategy: row.strategy,
+    picks: row.pickCount,
+    labeled: row.labeledPickCount,
+    touchRate5d: percent(row.touchRate5d),
+    meanCloseReturn5d: percent(row.meanCloseReturn5d),
+    entryBullishRate: percent(row.entryBullishRate),
+  })))
+  console.log('프로덕션·섀도우 동일 신호일 짝 비교 (성숙한 공통 신호일만)')
+  console.table(report.pairedStrategyComparison.map((row) => ({
+    strategy: row.strategy,
+    commonDays: row.commonDayCount,
+    picks: row.pickCount,
+    labeled: row.labeledPickCount,
+    touchRate5d: percent(row.touchRate5d),
+    meanCloseReturn5d: percent(row.meanCloseReturn5d),
+    entryBullishRate: percent(row.entryBullishRate),
+  })))
 }
 
 const readDays = (args: readonly string[]): number => {
@@ -526,6 +653,8 @@ if (isDirectRun) {
       asOfDate,
       lookbackDays,
       shadowComparison,
+      strategyComparison: measureStrategyForwardComparison({ prices, tradingDays, snapshots, startDate, asOfDate }),
+      pairedStrategyComparison: measurePairedStrategyForwardComparison({ prices, tradingDays, snapshots, startDate, asOfDate }),
       roundTripCostBps,
     })
     printForwardMeasurementReport(report)

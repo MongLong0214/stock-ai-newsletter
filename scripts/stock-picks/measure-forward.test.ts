@@ -3,7 +3,9 @@ import { describe, expect, it, vi } from 'vitest'
 import { buildPriceBook } from '@/scripts/stock-picks/data-handler'
 import {
   measureForwardPicks,
+  measurePairedStrategyForwardComparison,
   measureShadowForwardComparison,
+  measureStrategyForwardComparison,
   printForwardMeasurementReport,
   renderShadowForwardComparisonSection,
   type PublishedNewsletterRow,
@@ -49,6 +51,80 @@ const newsletter = (
 })
 
 describe('measureForwardPicks', () => {
+  it('compares production and every shadow only on mature shared signal dates', () => {
+    const dates = [...DATES, '2026-01-12']
+    const strategies = [
+      'lowVolatilityStable', 'shadow:A-volumeBreakout-v1.1',
+      'shadow:B-random', 'shadow:J-randomConstrained',
+    ]
+    const prices = buildPriceBook(['COMMON', 'EXTRA'].flatMap((symbol) => dates.map((tradeDate, index): StockDailyPriceRow => ({
+      symbol, trade_date: tradeDate, open: 100,
+      high: symbol === 'COMMON' && index >= 1 ? 111 : 105,
+      low: 95, close: symbol === 'EXTRA' && index === 6 ? 120 : 100,
+      volume: 1_000, source: 'kis',
+    }))))
+    const snapshot = (strategy: string, signalDate: string, symbol: string) => ({
+      signal_date: signalDate, strategy, picks: [{ symbol }],
+    } as unknown as StockPickSnapshot)
+    const snapshots = [
+      ...strategies.map((strategy) => snapshot(strategy, dates[0]!, 'COMMON')),
+      snapshot('lowVolatilityStable', dates[1]!, 'EXTRA'),
+      snapshot('shadow:A-volumeBreakout-v1.1', dates[1]!, 'EXTRA'),
+    ]
+    const input = { prices, tradingDays: new TradingDayIndex(dates), snapshots,
+      startDate: dates[0]!, asOfDate: dates[6]! }
+    expect(measureStrategyForwardComparison(input).find((row) => row.strategy === 'lowVolatilityStable')
+      ?.pickCount).toBe(2)
+    const paired = measurePairedStrategyForwardComparison(input)
+    expect(paired.map((row) => row.strategy)).toEqual(strategies)
+    expect(paired.every((row) => row.commonDayCount === 1 && row.pickCount === 1)).toBe(true)
+    expect(paired.every((row) => row.touchRate5d === 1)).toBe(true)
+
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {})
+    const table = vi.spyOn(console, 'table').mockImplementation(() => {})
+    try {
+      printForwardMeasurementReport(measureForwardPicks({
+        newsletters: [], prices, tradingDays: input.tradingDays, asOfDate: input.asOfDate,
+        pairedStrategyComparison: paired,
+      }))
+      expect(table.mock.calls.at(-1)?.[0]).toEqual(expect.arrayContaining([
+        expect.objectContaining({ strategy: 'lowVolatilityStable', commonDays: 1, picks: 1 }),
+      ]))
+    } finally {
+      log.mockRestore()
+      table.mockRestore()
+    }
+  })
+
+  it('compares mature stored picks by strategy, including entry candle direction', () => {
+    const prices = buildPriceBook([
+      ...buildRows({ symbol: 'WIN', maxHigh: 112 }).map((row, index) => ({
+        ...row, close: index === 1 ? 105 : index === 5 ? 106 : 100,
+      })),
+      ...buildRows({ symbol: 'LOSE', maxHigh: 109 }).map((row, index) => ({
+        ...row, close: index === 1 ? 95 : index === 5 ? 94 : 100,
+      })),
+      ...buildRows({ symbol: 'BROKEN', maxHigh: 109, missingHighDate: DATES[3] }).map((row, index) => ({
+        ...row, close: index === 1 ? 105 : 100,
+      })),
+    ])
+    const snapshot = (strategy: string, symbol: string, signalDate: string = DATES[0]) => ({
+      signal_date: signalDate, strategy, picks: [{ symbol }],
+    } as unknown as StockPickSnapshot)
+    const comparison = measureStrategyForwardComparison({ prices, tradingDays: new TradingDayIndex(DATES),
+      snapshots: [snapshot('lowVolatilityStable', 'WIN'), snapshot('shadow:B-random', 'LOSE'),
+        snapshot('shadow:B-random', 'BROKEN'),
+        snapshot('shadow:B-random', 'WIN', DATES[4])],
+      startDate: DATES[0], asOfDate: DATES[5] })
+    expect(comparison).toMatchObject([
+      { strategy: 'lowVolatilityStable', pickCount: 1, labeledPickCount: 1,
+        touchRate5d: 1, entryBullishRate: 1 },
+      { strategy: 'shadow:B-random', pickCount: 2, labeledPickCount: 2,
+        touchRate5d: 0, entryBullishRate: 0.5 },
+    ])
+    expect(comparison[0]?.meanCloseReturn5d).toBeCloseTo(0.06)
+    expect(comparison[1]?.meanCloseReturn5d).toBeCloseTo(-0.06)
+  })
   it('measures only mature published picks and splits source and null results', () => {
     const hit = 'KOSPI:000001'
     const miss = 'KOSPI:000002'

@@ -640,6 +640,28 @@ export async function prepareNewsletter(options: PrepareNewsletterOptions = {}):
       warnings.push(warning)
       console.warn(`⚠️ ${warning}`)
     }
+    for (const shadow of pipeline.generated.meta.shadows ?? []) {
+      try {
+        await persistStockPickSnapshot({
+          signal_date: pipeline.generated.meta.signalDate,
+          strategy: shadow.strategy,
+          strategy_version: shadow.strategyVersion,
+          parameters_hash: shadow.parametersHash,
+          generated_at: new Date().toISOString(),
+          git_sha: process.env.GITHUB_SHA ?? null,
+          run_id: runId,
+          funnel: pipeline.generated.meta.funnel,
+          picks: shadow.picks,
+          top_candidates: shadow.picks,
+        })
+      } catch (error) {
+        const warning = `${shadow.strategy} stock pick snapshot 저장 실패 — 저장된 뉴스레터는 유지: ${
+          error instanceof Error ? error.message : String(error)
+        }`
+        warnings.push(warning)
+        console.warn(`⚠️ ${warning}`)
+      }
+    }
   }
   await emitPrepareSummary(summary)
 

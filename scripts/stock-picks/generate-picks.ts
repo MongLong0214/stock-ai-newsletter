@@ -13,17 +13,22 @@ import {
   type PriceBook,
 } from '@/scripts/stock-picks/data-handler'
 import { buildFeatureSeries, type StockFeatureVector } from '@/scripts/stock-picks/features'
+import { parsePublishedPicks } from '@/scripts/stock-picks/measure-forward'
 import { buildTechnicalContextMap, type TechnicalContext } from '@/scripts/stock-picks/technical-context'
 import {
+  hashCanonicalJson,
+  LEGACY_VOLUME_BREAKOUT_STRATEGY,
   PRODUCTION_STRATEGY,
   PRODUCTION_VOLUME_BREAKOUT_PARAMETERS,
 } from '@/scripts/stock-picks/production-strategy'
 import {
+  LOW_VOLATILITY_STABLE_PARAMETERS,
+  rankLowVolatilityStableCandidates,
+  rankSeededRandomCandidates,
   rankStrategyCandidates,
   rankTieredFillCandidates,
   type StockMasterState,
   type TieredFillTier,
-  type VolumeBreakoutParameters,
 } from '@/scripts/stock-picks/strategies'
 import {
   findMissingTradingDays,
@@ -49,6 +54,11 @@ export interface GeneratePicksDependencies {
   readonly loadTradingDays?: LoadTradingDays
   readonly loadPrices?: LoadPrices
   readonly loadMasters?: LoadMasters
+  readonly loadRecentPublishedSymbols?: (input: {
+    readonly signalDate: string
+    readonly tradingDays: TradingDayIndex
+    readonly lookbackTradingDays: number
+  }) => Promise<ReadonlySet<string>>
 }
 
 export interface StockPicksFunnel {
@@ -72,10 +82,42 @@ export interface GeneratePicksMeta {
   readonly signalDate: string
   readonly strategy: typeof PRODUCTION_STRATEGY.name
   readonly strategyVersion: typeof PRODUCTION_STRATEGY.version
-  readonly parameters: VolumeBreakoutParameters
+  readonly parameters: typeof LOW_VOLATILITY_STABLE_PARAMETERS
   readonly parametersHash: string
   readonly funnel: StockPicksFunnel
   readonly rankedCandidates: readonly RankedStockFeature[]
+  readonly shadows: ReadonlyArray<{
+    readonly strategy: string
+    readonly strategyVersion: string
+    readonly parametersHash: string
+    readonly picks: RankedStockFeature[]
+  }>
+}
+
+export async function loadRecentPublishedSymbols(input: {
+  readonly signalDate: string
+  readonly tradingDays: TradingDayIndex
+  readonly lookbackTradingDays: number
+}): Promise<ReadonlySet<string>> {
+  const signalIndex = input.tradingDays.indexByDate.get(input.signalDate)
+  if (signalIndex === undefined) throw new Error(`거래일 인덱스에 신호일이 없습니다: ${input.signalDate}`)
+  const startDate = input.tradingDays.tradingDays[Math.max(0, signalIndex - input.lookbackTradingDays + 1)]!
+  const { fetchAllRows } = await import('@/lib/supabase/paginate')
+  const { supabaseAdmin } = await import('@/scripts/tli/shared/supabase-admin')
+  const rows = await fetchAllRows<{ newsletter_date: string; gemini_analysis: string; picks_source: string | null }>((from, to) => supabaseAdmin
+    .from('newsletter_content')
+    .select('newsletter_date, gemini_analysis, picks_source')
+    .gte('newsletter_date', startDate)
+    .lte('newsletter_date', input.signalDate)
+    .order('newsletter_date', { ascending: true })
+    .range(from, to))
+  return new Set(rows.flatMap((row) => {
+    const parsed = parsePublishedPicks(row)
+    if (parsed.kind === 'invalid') {
+      throw new Error(`발행 종목 파싱 실패: newsletter_date=${row.newsletter_date}`)
+    }
+    return parsed.picks.map((pick) => pick.symbol)
+  }))
 }
 
 export interface GeneratePicksResult {
@@ -236,6 +278,7 @@ export function buildRationale(
   feature: StockFeatureVector,
   strategyScore: number,
   tier: TieredFillTier,
+  rank?: number,
 ): string {
   const close = finiteOr(feature.close, 0)
   const open = finiteOr(feature.open, close)
@@ -269,8 +312,8 @@ export function buildRationale(
     `연속상승 ${finiteOr(feature.consecutiveUpDays, 0).toFixed(0)}일`,
     `골든크로스 감지 ${goldenCrossAge >= 0 ? 1 : 0}회·경과 ${goldenCrossAge}일`,
     `20일 평균거래대금 ${fixed(finiteOr(feature.averageTurnover20) / 100_000_000, 1)}억원`,
-    `volumeBreakout 전략점수 ${strategyScore.toFixed(1)}점`,
-    `선정 경로 ${tier === 'breakout' ? '거래량 돌파' : '거래량 상위 보충'}`,
+    tier === 'lowVolatility' ? `변동성 안정 순위 ${rank ?? 0}위` : `volumeBreakout 전략점수 ${strategyScore.toFixed(1)}점`,
+    `선정 경로 ${tier === 'lowVolatility' ? '저변동 안정' : tier === 'breakout' ? '거래량 돌파' : '거래량 상위 보충'}`,
   ].join('|')
 }
 
@@ -282,6 +325,7 @@ export async function generatePicksWithMeta(input: {
   const loadTradingDays = input.dependencies?.loadTradingDays ?? loadTradingDayIndex
   const loadPrices = input.dependencies?.loadPrices ?? loadPriceBook
   const loadMasters = input.dependencies?.loadMasters ?? loadStockPickMasters
+  const loadRecent = input.dependencies?.loadRecentPublishedSymbols ?? loadRecentPublishedSymbols
 
   const tradingDays = await loadTradingDays()
   const lastDate = tradingDays.lastDate
@@ -335,53 +379,103 @@ export async function generatePicksWithMeta(input: {
     dates: historyDates,
     includeFromDate: signalDate,
   }).get(signalDate)
-  const breakoutCandidates = rankStrategyCandidates({
-    name: 'volumeBreakoutNoGapUp',
+  const recentPublishedSymbols = await loadRecent({
+    signalDate,
+    tradingDays,
+    lookbackTradingDays: LOW_VOLATILITY_STABLE_PARAMETERS.recentPickTradingDays,
+  })
+  const rankedSymbols = rankLowVolatilityStableCandidates({
     features,
     masters: mastersBySymbol,
-    parameters: PRODUCTION_VOLUME_BREAKOUT_PARAMETERS,
-    mode: 'force3',
+    parameters: LOW_VOLATILITY_STABLE_PARAMETERS,
+    excludeSymbols: recentPublishedSymbols,
     pickCount: features.length,
   })
-  const breakoutScores = new Map(breakoutCandidates.map((candidate) => (
-    [candidate.symbol, candidate.score]
-  )))
-  const selectedCandidates = rankTieredFillCandidates({
-    features,
-    masters: mastersBySymbol,
-    parameters: PRODUCTION_VOLUME_BREAKOUT_PARAMETERS,
-    tiers: PRODUCTION_STRATEGY.fillTiers,
-  })
-  const rankedCandidates = rankTieredFillCandidates({
-    features,
-    masters: mastersBySymbol,
-    parameters: PRODUCTION_VOLUME_BREAKOUT_PARAMETERS,
-    tiers: PRODUCTION_STRATEGY.fillTiers,
-    pickCount: features.length,
-  })
-  const rankedFeatures: RankedStockFeature[] = rankedCandidates.flatMap(({ symbol, tier }, index) => {
+  const rankedFeatures: RankedStockFeature[] = rankedSymbols.flatMap((symbol, index) => {
     const feature = featuresBySymbol.get(symbol)
     const master = mastersBySymbol.get(symbol)
-    if (!feature || !master) return []
-    const score = tier === 'breakout'
-      ? breakoutScores.get(symbol)
-      : feature.volumePercentile60
-    return score === undefined || score === null
-      ? []
-      : [{ ...feature, name: master.name, score, rank: index + 1, tier, technicalContext: technicalContexts?.get(symbol) }]
+    if (!feature || !master || feature.atrPercent14 === null) return []
+    // score는 ATR% 원값이며 낮을수록 좋은 순위다.
+    return [{ ...feature, name: master.name, score: feature.atrPercent14, rank: index + 1,
+      tier: 'lowVolatility', technicalContext: technicalContexts?.get(symbol) }]
   })
-  const rankedFeaturesBySymbol = new Map(rankedFeatures.map((candidate) => (
-    [candidate.symbol, candidate]
-  )))
-  const ranked = selectedCandidates.flatMap((candidate) => {
-    const rankedFeature = rankedFeaturesBySymbol.get(candidate.symbol)
-    return rankedFeature ? [rankedFeature] : []
-  })
-  if (selectedCandidates.length !== REQUIRED_PICK_COUNT || ranked.length !== REQUIRED_PICK_COUNT) {
-    throw new Error(`volumeOnly 후보 부족: ${ranked.length}/${REQUIRED_PICK_COUNT}`)
+  const ranked = rankedFeatures.slice(0, REQUIRED_PICK_COUNT)
+  if (ranked.length !== REQUIRED_PICK_COUNT) {
+    throw new Error(`저변동 후보 부족: ${ranked.length}/${REQUIRED_PICK_COUNT}`)
   }
 
-  const picks: StockData[] = ranked.map(({ symbol, score, tier }) => {
+  const shadows: GeneratePicksMeta['shadows'][number][] = []
+  const addShadow = (strategy: string, strategyVersion: string, parametersHash: string,
+    candidates: readonly { symbol: string; tier: TieredFillTier; score: number }[]) => {
+    if (candidates.length < REQUIRED_PICK_COUNT) {
+      console.warn(`⚠️ ${strategy} 섀도우 후보 부족: ${candidates.length}/${REQUIRED_PICK_COUNT}`)
+      return
+    }
+    const picks = candidates.slice(0, REQUIRED_PICK_COUNT).flatMap(({ symbol, tier, score }, index) => {
+      const feature = featuresBySymbol.get(symbol)
+      const master = mastersBySymbol.get(symbol)
+      return feature && master
+        ? [{ ...feature, name: master.name, score, rank: index + 1, tier,
+          technicalContext: technicalContexts?.get(symbol) }]
+        : []
+    })
+    if (picks.length < REQUIRED_PICK_COUNT) {
+      console.warn(`⚠️ ${strategy} 섀도우 후보 부족: ${picks.length}/${REQUIRED_PICK_COUNT}`)
+      return
+    }
+    shadows.push({ strategy, strategyVersion, parametersHash, picks })
+  }
+  try {
+    const breakoutCandidates = rankStrategyCandidates({
+      name: 'volumeBreakoutNoGapUp',
+      features,
+      masters: mastersBySymbol,
+      parameters: PRODUCTION_VOLUME_BREAKOUT_PARAMETERS,
+      mode: 'force3',
+      pickCount: features.length,
+    })
+    const breakoutScores = new Map(breakoutCandidates.map((candidate) => (
+      [candidate.symbol, candidate.score]
+    )))
+    const legacyCandidates = rankTieredFillCandidates({
+      features,
+      masters: mastersBySymbol,
+      parameters: PRODUCTION_VOLUME_BREAKOUT_PARAMETERS,
+      tiers: LEGACY_VOLUME_BREAKOUT_STRATEGY.fillTiers,
+    })
+    addShadow('shadow:A-volumeBreakout-v1.1', LEGACY_VOLUME_BREAKOUT_STRATEGY.version,
+      LEGACY_VOLUME_BREAKOUT_STRATEGY.parametersHash, legacyCandidates.map(({ symbol, tier }) => ({
+        symbol, tier, score: tier === 'breakout' ? breakoutScores.get(symbol) ?? 0
+          : featuresBySymbol.get(symbol)?.volumePercentile60 ?? 0,
+      })))
+  } catch (error) {
+    console.warn('⚠️ shadow:A-volumeBreakout-v1.1 섀도우 계산 실패:', error)
+  }
+  const randomBase = { features, masters: mastersBySymbol,
+    minTurnover: LOW_VOLATILITY_STABLE_PARAMETERS.minTurnover,
+    maxRsi: LOW_VOLATILITY_STABLE_PARAMETERS.maxRsi, pickCount: REQUIRED_PICK_COUNT }
+  try {
+    const randomB = rankSeededRandomCandidates({ ...randomBase, excludePreferred: false, seed: `${signalDate}:B` })
+    addShadow('shadow:B-random', 'v1-2026-09-23', hashCanonicalJson({
+      gateVersion: 'status-flags-valid-candle-v2', seedRule: 'signalDate:B',
+      minTurnover: randomBase.minTurnover, maxRsi: randomBase.maxRsi,
+    }), randomB.map((symbol, index) => ({ symbol, tier: 'volumeOnly', score: index + 1 })))
+  } catch (error) {
+    console.warn('⚠️ shadow:B-random 섀도우 계산 실패:', error)
+  }
+  try {
+    const randomJ = rankSeededRandomCandidates({ ...randomBase, excludePreferred: true,
+      maxSignalDayReturn: LOW_VOLATILITY_STABLE_PARAMETERS.maxSignalDayReturn,
+      excludeSymbols: recentPublishedSymbols, seed: `${signalDate}:J` })
+    addShadow('shadow:J-randomConstrained', 'v1-2026-09-23', hashCanonicalJson({
+      parameters: LOW_VOLATILITY_STABLE_PARAMETERS, gateVersion: 'status-flags-valid-candle-v2',
+      preferredRule: 'krx-code-last-digit-nonzero', seedRule: 'signalDate:J',
+    }), randomJ.map((symbol, index) => ({ symbol, tier: 'volumeOnly', score: index + 1 })))
+  } catch (error) {
+    console.warn('⚠️ shadow:J-randomConstrained 섀도우 계산 실패:', error)
+  }
+
+  const picks: StockData[] = ranked.map(({ symbol, score, tier, rank }) => {
     const master = mastersBySymbol.get(symbol)
     const feature = featuresBySymbol.get(symbol)
     if (!master || !feature || feature.close === null || !Number.isInteger(feature.close) || feature.close <= 0) {
@@ -391,7 +485,7 @@ export async function generatePicksWithMeta(input: {
       ticker: symbol,
       name: master.name,
       close_price: feature.close,
-      rationale: buildRationale(feature, score, tier),
+      rationale: buildRationale(feature, score, tier, rank),
       signals: buildSignals(feature),
     }
   })
@@ -404,7 +498,7 @@ export async function generatePicksWithMeta(input: {
     activeMasters: masters.filter((master) => master.is_active).length,
     withFreshKisRow: eligibleMasters.length,
     withCompleteFeatures: features.length,
-    gatePassed: rankedCandidates.length,
+    gatePassed: rankedSymbols.length,
     picked: picks.length,
   }
   console.log(JSON.stringify({ event: 'stock_picks_funnel', ...funnel }))
@@ -427,20 +521,18 @@ export async function generatePicksWithMeta(input: {
       technicalContext: candidate.technicalContext,
     }
   }
-  const picksByTier = Object.fromEntries(PRODUCTION_STRATEGY.fillTiers.map((tier) => [
-    tier,
-    ranked.filter((candidate) => candidate.tier === tier).length,
-  ]))
+  const picksByTier = { lowVolatility: ranked.length }
   console.log(JSON.stringify({
     event: 'stock_picks_generated',
     signalDate,
     strategy: PRODUCTION_STRATEGY.name,
     strategyVersion: PRODUCTION_STRATEGY.version,
-    parameters: PRODUCTION_VOLUME_BREAKOUT_PARAMETERS,
+    parameters: LOW_VOLATILITY_STABLE_PARAMETERS,
     parametersHash,
     picksByTier,
     picks: rankedFeatures.slice(0, REQUIRED_PICK_COUNT).map(toObservableCandidate),
     topCandidates: rankedFeatures.slice(0, 20).map(toObservableCandidate),
+    shadows: shadows.map((shadow) => ({ strategy: shadow.strategy, picks: shadow.picks.map((pick) => pick.symbol) })),
   }))
 
   const snapshotPath = process.env.STOCK_PICKS_SNAPSHOT_PATH
@@ -452,10 +544,10 @@ export async function generatePicksWithMeta(input: {
       gitSha: process.env.GITHUB_SHA ?? null,
       strategy: PRODUCTION_STRATEGY.name,
       strategyVersion: PRODUCTION_STRATEGY.version,
-      parameters: PRODUCTION_VOLUME_BREAKOUT_PARAMETERS,
+      parameters: LOW_VOLATILITY_STABLE_PARAMETERS,
       parametersHash,
       funnel,
-      picks: rankedFeatures.slice(0, REQUIRED_PICK_COUNT),
+      picks: ranked,
       topCandidates: rankedFeatures.slice(0, 20),
     }, null, 2)}\n`, 'utf8')
   }
@@ -468,10 +560,11 @@ export async function generatePicksWithMeta(input: {
       signalDate,
       strategy: PRODUCTION_STRATEGY.name,
       strategyVersion: PRODUCTION_STRATEGY.version,
-      parameters: PRODUCTION_VOLUME_BREAKOUT_PARAMETERS,
+      parameters: LOW_VOLATILITY_STABLE_PARAMETERS,
       parametersHash,
       funnel,
       rankedCandidates: rankedFeatures,
+      shadows,
     },
   }
 }

@@ -6,7 +6,7 @@ import { loadPriceBook, StockDataHandler, type PriceBook } from '@/scripts/stock
 import type { StockFeatureVector } from '@/scripts/stock-picks/features'
 import { hasCalculatedOutputMetrics } from '@/scripts/stock-picks/generate-picks'
 import { precomputeFeatureMap } from '@/scripts/stock-picks/optimize'
-import { PRODUCTION_STRATEGY, PRODUCTION_VOLUME_BREAKOUT_PARAMETERS } from '@/scripts/stock-picks/production-strategy'
+import { LEGACY_VOLUME_BREAKOUT_STRATEGY, PRODUCTION_VOLUME_BREAKOUT_PARAMETERS } from '@/scripts/stock-picks/production-strategy'
 import { loadStockMasterStates, rankTieredFillCandidates, type StockMasterState } from '@/scripts/stock-picks/strategies'
 import { buildTechnicalContextMap, type TechnicalContext } from '@/scripts/stock-picks/technical-context'
 import { loadTradingDayIndex, type TradingDayIndex } from '@/scripts/stock-picks/trading-days'
@@ -75,7 +75,7 @@ export function evaluateTechnicalContexts(input: {
         ))
         const ranked = rankTieredFillCandidates({
           features, masters, parameters: PRODUCTION_VOLUME_BREAKOUT_PARAMETERS,
-          tiers: keepsThree ? PRODUCTION_STRATEGY.fillTiers : ['breakout'],
+          tiers: keepsThree ? LEGACY_VOLUME_BREAKOUT_STRATEGY.fillTiers : ['breakout'],
           pickCount: name === 'confirmedFirstFill3' ? features.length : 3,
         })
         if (name === 'confirmedFirstFill3') {
@@ -137,7 +137,7 @@ async function runCli() {
     generatedAt: new Date().toISOString(),
     evaluationScope: 'exploratory_historical_comparison_not_unseen_holdout',
     dates: { start: dates[0], end: dates.at(-1), signalDays: dates.length },
-    productionStrategy: PRODUCTION_STRATEGY,
+    productionStrategy: LEGACY_VOLUME_BREAKOUT_STRATEGY,
     execution: { entry: 'next_session_open', exit: 'fifth_holding_session_close', roundTripCostBps: costBps },
     hypotheses: {
       confirmedFirstFill3: 'confirmed breakout candidates first; fill remaining slots in original production order; exactly 3 when available',

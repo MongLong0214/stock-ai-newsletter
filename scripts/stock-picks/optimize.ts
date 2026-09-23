@@ -22,7 +22,7 @@ import { validateResearchDataset } from '@/scripts/stock-picks/data-contract'
 import { StockDataHandler, loadPriceBook, type PriceBook } from '@/scripts/stock-picks/data-handler'
 import { buildFeatureSeries, type StockFeatureVector } from '@/scripts/stock-picks/features'
 import {
-  PRODUCTION_STRATEGY,
+  LEGACY_VOLUME_BREAKOUT_STRATEGY,
   PRODUCTION_VOLUME_BREAKOUT_PARAMETERS,
 } from '@/scripts/stock-picks/production-strategy'
 import {
@@ -51,7 +51,10 @@ import {
   type TieredFillTier,
   type VolumeBreakoutParameters,
 } from '@/scripts/stock-picks/strategies'
+
 import { TradingDayIndex, loadTradingDayIndex } from '@/scripts/stock-picks/trading-days'
+
+type LegacyTieredFillTier = Exclude<TieredFillTier, 'lowVolatility'>
 
 const DEFAULT_EVALUATION_DAYS = 220
 const FEATURE_WARMUP_DAYS = 320
@@ -103,9 +106,9 @@ export type ExploratoryMetricSummary = Omit<OosMetricSummary, 'evaluationScope'>
  * 수치는 승격 근거가 아니라 다음 포워드 실험에서 사전등록할 tier를 고르는 용도로만 쓴다.
  */
 export type TieredFillExperimentReport = ExploratoryMetricSummary & {
-  readonly tiers: ReadonlyArray<TieredFillTier>
-  readonly picksByTier: Readonly<Record<TieredFillTier, number>>
-  readonly hitsByTier: Readonly<Record<TieredFillTier, number>>
+  readonly tiers: ReadonlyArray<LegacyTieredFillTier>
+  readonly picksByTier: Readonly<Record<LegacyTieredFillTier, number>>
+  readonly hitsByTier: Readonly<Record<LegacyTieredFillTier, number>>
   readonly pairedDailyDelta: {
     readonly experimentMinusProduction: PairedComparisonSummary
     readonly experimentMinusVolumeOnly: PairedComparisonSummary
@@ -202,7 +205,7 @@ export interface FrozenProductionEvaluationReport {
     readonly strategy: 'volumeBreakoutNoGapUp+volumeOnlyFill'
     readonly mode: 'force3'
   }
-  readonly strategy: typeof PRODUCTION_STRATEGY
+  readonly strategy: typeof LEGACY_VOLUME_BREAKOUT_STRATEGY
   readonly parameters: VolumeBreakoutParameters
   readonly datasetFingerprint: {
     readonly tradingDays: {
@@ -1026,7 +1029,7 @@ const summarizePairedComparison = (
   }
 }
 
-const emptyTierCounts = (): Record<TieredFillTier, number> => ({
+const emptyTierCounts = (): Record<LegacyTieredFillTier, number> => ({
   breakout: 0,
   relaxedBreakout: 0,
   volumeOnly: 0,
@@ -1035,7 +1038,7 @@ const emptyTierCounts = (): Record<TieredFillTier, number> => ({
 const evaluateTieredFillExperiment = (input: {
   readonly splits: readonly WalkForwardSplit[]
   readonly context: EvaluationContext
-  readonly tiers: ReadonlyArray<TieredFillTier>
+  readonly tiers: ReadonlyArray<LegacyTieredFillTier>
   readonly productionReports: readonly BacktestReport[]
   readonly volumeOnlyReports: readonly BacktestReport[]
 }): TieredFillExperimentReport => {
@@ -1074,6 +1077,7 @@ const evaluateTieredFillExperiment = (input: {
       for (const pick of day.picks) {
         const tier = tierBySymbol.get(pick.symbol)
         if (!tier) throw new Error(`${day.simDate} ${pick.symbol}의 tier를 찾을 수 없습니다`)
+        if (tier === 'lowVolatility') throw new Error('동결 연구 평가에 저변동 tier가 포함됐습니다')
         picksByTier[tier]++
         if (pick.label?.touched) hitsByTier[tier]++
       }
@@ -1138,7 +1142,7 @@ export function runFrozenProductionEvaluation(input: {
       featuresByDate: context.featuresByDate,
       masters: context.masters,
       parameters: PRODUCTION_VOLUME_BREAKOUT_PARAMETERS,
-      tiers: PRODUCTION_STRATEGY.fillTiers,
+      tiers: LEGACY_VOLUME_BREAKOUT_STRATEGY.fillTiers,
     }),
     eligibleCounts,
   )
@@ -1165,7 +1169,7 @@ export function runFrozenProductionEvaluation(input: {
       strategy: 'volumeBreakoutNoGapUp+volumeOnlyFill',
       mode: 'force3',
     },
-    strategy: PRODUCTION_STRATEGY,
+    strategy: LEGACY_VOLUME_BREAKOUT_STRATEGY,
     parameters: PRODUCTION_VOLUME_BREAKOUT_PARAMETERS,
     datasetFingerprint: buildDatasetFingerprint(input),
     dateRange: {
