@@ -280,9 +280,16 @@ export function buildRationale(
   tier: TieredFillTier,
   rank?: number,
 ): string {
-  const close = finiteOr(feature.close, 0)
-  const open = finiteOr(feature.open, close)
-  const dailyReturn = open > 0 ? (close / open - 1) * 100 : 0
+  const close = feature.close
+  const open = feature.open
+  const gap = feature.gapFromPreviousClosePercent
+  if (
+    close === null || !Number.isFinite(close) || close <= 0
+    || open === null || !Number.isFinite(open) || open <= 0
+    || gap === null || !Number.isFinite(gap) || 1 + gap / 100 <= 0
+  ) throw new Error(`당일 등락 계산 불가: ${feature.symbol}`)
+  const dailyReturn = ((1 + gap / 100) * (close / open) - 1) * 100
+  if (!Number.isFinite(dailyReturn)) throw new Error(`당일 등락 계산 불가: ${feature.symbol}`)
   const rsi = finiteOr(feature.rsi14)
   const volumeRatio = finiteOr(feature.volumeRatio20, 0)
   const highDistance = finiteOr(feature.distanceFromHigh60, 0)

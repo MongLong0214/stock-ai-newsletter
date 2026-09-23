@@ -109,6 +109,48 @@ describe('production stock pick generator', () => {
     }
   })
 
+  it('labels a down candle above the previous close as a positive daily return', async () => {
+    const fixture = makeFixture()
+    const result = await generatePicksWithMeta({
+      todayKst: TODAY_KST,
+      dependencies: {
+        loadTradingDays: async () => new TradingDayIndex(fixture.dates),
+        loadPrices: async () => fixture.prices,
+        loadMasters: async () => fixture.masters,
+        loadRecentPublishedSymbols: async () => new Set<string>(),
+      },
+    })
+    const previousClose = 100
+    const open = 103
+    const close = 102
+    const feature = {
+      ...result.meta.rankedCandidates[0]!,
+      open,
+      close,
+      gapFromPreviousClosePercent: (open / previousClose - 1) * 100,
+    }
+
+    expect(buildRationale(feature, 0, 'lowVolatility').split('|')[1]).toBe('당일 등락 2.0% 상승')
+  })
+
+  it('throws when the previous-close gap is missing from a rationale feature', async () => {
+    const fixture = makeFixture()
+    const result = await generatePicksWithMeta({
+      todayKst: TODAY_KST,
+      dependencies: {
+        loadTradingDays: async () => new TradingDayIndex(fixture.dates),
+        loadPrices: async () => fixture.prices,
+        loadMasters: async () => fixture.masters,
+        loadRecentPublishedSymbols: async () => new Set<string>(),
+      },
+    })
+    const feature = { ...result.meta.rankedCandidates[0]!, gapFromPreviousClosePercent: null }
+
+    expect(() => buildRationale(feature, 0, 'lowVolatility')).toThrow(
+      `당일 등락 계산 불가: ${feature.symbol}`,
+    )
+  })
+
   it('trims an incomplete current-day candle and keeps historyDates ending at signalDate', async () => {
     const fixture = makeFixture()
     const loadPrices = vi.fn(async () => fixture.prices)
