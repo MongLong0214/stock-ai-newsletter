@@ -60,7 +60,7 @@ export interface MembershipHistoryTransition {
 export interface MembershipHistoryDiff {
   /** 열린 version이 없는 신규 매핑 — 충돌 없이 일괄 append 가능 */
   readonly opens: readonly MembershipHistoryInsert[]
-  /** 제거/속성 변경 — close 후 replacement append (키 단위 순차 적용) */
+  /** 제거/속성 변경 — close와 replacement append를 청크별 RPC로 원자적 적용 */
   readonly transitions: readonly MembershipHistoryTransition[]
 }
 
@@ -107,7 +107,7 @@ const buildReplacements = (input: {
   const replacements: MembershipHistoryInsert[] = []
 
   // 기존 version이 실제로 유효했던 business-time 구간만 닫힌 segment로 보존한다.
-  // valid_from >= observedDate면 유효 구간이 비어 있으므로(system-time 정정) segment를 만들지 않는다.
+  // valid_from >= observedDate면 유효 구간이 비어 segment를 만들지 않는다; observed=null이면 close-only(system-time 정정) 전이다.
   if (input.row.valid_from < input.observedDate) {
     replacements.push({
       theme_id: input.row.theme_id,
