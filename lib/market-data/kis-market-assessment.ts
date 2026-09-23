@@ -154,6 +154,15 @@ interface KisDomesticFuturesResponse extends KisErrorResponse {
   output?: KisDomesticFuturesRow[];
 }
 
+interface KisMiniFuturesChartResponse extends KisErrorResponse {
+  output1?: { futs_prdy_clpr?: string };
+  output2?: Array<{ stck_bsop_date?: string; stck_cntg_hour?: string; futs_prpr?: string }>;
+}
+
+interface KisMiniFuturesPriceResponse extends KisErrorResponse {
+  output1?: { futs_prpr?: string; futs_sdpr?: string };
+}
+
 type MarketIndicatorSource =
   | 'KIS'
   | 'CBOE'
@@ -208,7 +217,6 @@ export interface MarketAssessmentSnapshot {
   supplementary: {
     kospi200Futures: SearchIndicatorSnapshot | null;
     nikkeiFutures: SearchIndicatorSnapshot | null;
-    foreignerNetSelling: ForeignerNetSellingSnapshot | null;
   };
   events: EventSignals;
 }
@@ -251,23 +259,6 @@ export interface SearchIndicatorSnapshot {
   fetchedAt: string;
   observedAt?: string | null;
   source: 'SERP_API' | 'NAVER_STOCK_API';
-}
-
-export interface ForeignerNetSellingRow {
-  name: string;
-  quantityK: number;
-  amountMillion: number;
-  volume: number;
-}
-
-export interface ForeignerNetSellingSnapshot {
-  date: string | null;
-  dominantStock: string | null;
-  topRows: ForeignerNetSellingRow[];
-  topSellAmountMillion: number;
-  topSellQuantityK: number;
-  fetchedAt: string;
-  source: 'NAVER_FINANCE';
 }
 
 export interface EventSignal {
@@ -492,14 +483,6 @@ function parseSignedMovement(movement: SerpApiPriceMovement | undefined): {
     change: sign * Math.abs(rawChange),
     changePct: sign * Math.abs(rawChangePct),
   };
-}
-
-function parseSignedInteger(value: string | undefined): number {
-  if (!value) return Number.NaN;
-
-  const normalized = value.replace(/,/g, '').trim();
-  const parsed = Number.parseInt(normalized, 10);
-  return Number.isFinite(parsed) ? parsed : Number.NaN;
 }
 
 function stripHtml(text: string): string {
@@ -877,8 +860,7 @@ function selectFrontMonthMiniFuture(rows: KisDomesticFuturesRow[]): KisDomesticF
       remainingDays: Number.parseInt(row.hts_rmnn_dynu ?? '', 10),
     }))
     .filter(({ row }) => typeof row.hts_kor_isnm === 'string' && row.hts_kor_isnm.startsWith('미니F '))
-    .filter(({ row }) => Number.isFinite(parseNumber(row.futs_prpr)))
-    .filter(({ row, remainingDays }) => parseNumber(row.futs_prpr) > 0 && Number.isFinite(remainingDays) && remainingDays >= 0 && !!row.futs_shrn_iscd)
+    .filter(({ row, remainingDays }) => Number.isFinite(remainingDays) && remainingDays >= 0 && !!row.futs_shrn_iscd)
     .sort((left, right) => {
       const leftDays = Number.isFinite(left.remainingDays) ? left.remainingDays : Number.MAX_SAFE_INTEGER;
       const rightDays = Number.isFinite(right.remainingDays) ? right.remainingDays : Number.MAX_SAFE_INTEGER;
@@ -892,7 +874,57 @@ function selectFrontMonthMiniFuture(rows: KisDomesticFuturesRow[]): KisDomesticF
   return candidates[0].row;
 }
 
-async function getKospi200MiniFutures(): Promise<Kospi200MiniFuturesSnapshot> {
+function parseKisKoreanExtendedObservedAt(date: string | undefined, time: string | undefined): string | null {
+  if (!date || !time || !/^\d{8}$/.test(date) || !/^\d{6}$/.test(time)) return null;
+  const hour = Number(time.slice(0, 2));
+  if (hour < 24) return parseKisObservedAt(date, time, 'Asia/Seoul');
+  if (hour > 47 || !parseKisObservedAt(date, '000000', 'Asia/Seoul')) return null;
+  const nextDay = new Date(Date.UTC(Number(date.slice(0, 4)), Number(date.slice(4, 6)) - 1, Number(date.slice(6, 8)) + 1));
+  return parseKisObservedAt(
+    nextDay.toISOString().slice(0, 10).replace(/-/g, ''),
+    `${String(hour - 24).padStart(2, '0')}${time.slice(2)}`,
+    'Asia/Seoul'
+  );
+}
+
+interface MiniFuturesChartObservation {
+  price: number;
+  observedAt: string;
+  sessionDate: string;
+  sessionTime: string;
+  previousClose: number | null;
+}
+
+async function getMiniFuturesChartObservation(code: string, market: 'F' | 'CM'): Promise<MiniFuturesChartObservation | null> {
+  const response = await kisGet<KisMiniFuturesChartResponse>(
+    '/uapi/domestic-futureoption/v1/quotations/inquire-time-fuopchartprice',
+    {
+      FID_COND_MRKT_DIV_CODE: market,
+      FID_INPUT_ISCD: code,
+      FID_HOUR_CLS_CODE: '60',
+      FID_PW_DATA_INCU_YN: 'Y',
+      FID_FAKE_TICK_INCU_YN: 'N',
+      FID_INPUT_DATE_1: formatKisDate(new Date()),
+      FID_INPUT_HOUR_1: '',
+    },
+    'FHKIF03020200'
+  );
+  const latest = response.output2?.[0]; // KIS returns the newest minute first.
+  const price = parseNumber(latest?.futs_prpr);
+  const observedAt = parseKisKoreanExtendedObservedAt(latest?.stck_bsop_date, latest?.stck_cntg_hour);
+  const previousClose = market === 'F' ? parseNumber(response.output1?.futs_prdy_clpr) : null;
+  if (!Number.isFinite(price) || price <= 0 || !observedAt
+    || (market === 'F' && (previousClose === null || !Number.isFinite(previousClose) || previousClose <= 0))) return null;
+  return {
+    price,
+    observedAt,
+    sessionDate: latest!.stck_bsop_date!,
+    sessionTime: latest!.stck_cntg_hour!,
+    previousClose,
+  };
+}
+
+async function getKospi200MiniFutures(): Promise<{ snapshot: Kospi200MiniFuturesSnapshot; dayObservation: MiniFuturesChartObservation | null }> {
   const response = await kisGet<KisDomesticFuturesResponse>(
     '/uapi/domestic-futureoption/v1/quotations/display-board-futures',
     {
@@ -909,22 +941,57 @@ async function getKospi200MiniFutures(): Promise<Kospi200MiniFuturesSnapshot> {
   const change = parseNumber(contract.futs_prdy_vrss);
   const changePct = parseNumber(contract.futs_prdy_ctrt);
 
-  assertPositivePrice(price, 'KOSPI200 mini futures');
-  if (!Number.isFinite(change) || !Number.isFinite(changePct)) throw new Error('KOSPI200 mini futures missing change data');
-
   const remainingDays = Number.parseInt(contract.hts_rmnn_dynu ?? '', 10);
+  await requestCooldown();
+  const observation = await safeSupplementaryValue('KOSPI200 mini futures chart', () => getMiniFuturesChartObservation(contract.futs_shrn_iscd!, 'F'), null);
+  if (!observation) {
+    assertPositivePrice(price, 'KOSPI200 mini futures');
+    if (!Number.isFinite(change) || !Number.isFinite(changePct)) throw new Error('KOSPI200 mini futures missing change data');
+  }
 
-  return withDirectValidation({
+  const snapshot = withDirectValidation({
     code: contract.futs_shrn_iscd ?? 'UNKNOWN',
     label: 'KOSPI200 mini futures',
     contractName: contract.hts_kor_isnm ?? 'Unknown contract',
     remainingDays: Number.isFinite(remainingDays) ? remainingDays : null,
     source: 'KIS',
-    price,
-    change,
-    changePct,
-    observedAt: null, // Display board has no observation time; contextual only.
+    price: observation?.price ?? price,
+    change: observation ? observation.price - observation.previousClose! : change,
+    changePct: observation ? (observation.price - observation.previousClose!) / observation.previousClose! * 100 : changePct,
+    observedAt: observation?.observedAt ?? null,
     session: 'day',
+    fetchedAt: new Date().toISOString(),
+  });
+  return { snapshot, dayObservation: observation };
+}
+
+async function getNightKospi200MiniFutures(day: Kospi200MiniFuturesSnapshot, dayObservation: MiniFuturesChartObservation): Promise<Kospi200MiniFuturesSnapshot | null> {
+  const response = await kisGet<KisMiniFuturesPriceResponse>(
+    '/uapi/domestic-futureoption/v1/quotations/inquire-price',
+    { FID_COND_MRKT_DIV_CODE: 'CM', FID_INPUT_ISCD: day.code },
+    'FHMIF10000000'
+  );
+  const base = parseNumber(response.output1?.futs_sdpr);
+  if (!Number.isFinite(base) || base <= 0) return null;
+  await requestCooldown();
+  const observation = await getMiniFuturesChartObservation(day.code, 'CM');
+  if (!observation) return null;
+  const dayClose = observation.sessionDate === dayObservation.sessionDate
+    ? dayObservation.sessionTime >= '154500' ? dayObservation.price : null
+    : observation.sessionDate < dayObservation.sessionDate ? dayObservation.previousClose : null;
+  if (dayClose === null || Math.abs(base - dayClose) > 0.01 + 1e-9) return null;
+  const change = observation.price - dayClose;
+  return withDirectValidation({
+    code: day.code,
+    label: 'KOSPI200 mini futures (night)',
+    contractName: day.contractName,
+    remainingDays: day.remainingDays,
+    source: 'KIS',
+    price: observation.price,
+    change,
+    changePct: change / dayClose * 100,
+    observedAt: observation.observedAt,
+    session: 'night',
     fetchedAt: new Date().toISOString(),
   });
 }
@@ -1471,73 +1538,6 @@ async function getOverseasIndexWithFallbackChain(
   return dated[0] ?? available[0] ?? null;
 }
 
-async function getNaverForeignerNetSelling(): Promise<ForeignerNetSellingSnapshot | null> {
-  const response = await fetchWithTimeout(
-    'https://finance.naver.com/sise/sise_deal_rank_iframe.naver?sosok=01&investor_gubun=9000&type=sell',
-    {
-      method: 'GET',
-      headers: {
-        'Accept-Language': 'ko-KR,ko;q=0.9,en;q=0.8',
-        'User-Agent': 'Mozilla/5.0',
-      },
-    }
-  );
-
-  if (!response.ok) {
-    throw new Error(`Naver Finance request failed: HTTP ${response.status}`);
-  }
-
-  const buffer = Buffer.from(await response.arrayBuffer());
-  const html = new TextDecoder('euc-kr').decode(buffer);
-  const $ = cheerio.load(html);
-  const rows: ForeignerNetSellingRow[] = [];
-
-  $('table.type_1 tr').each((_, element) => {
-    const $row = $(element);
-    const cells = $row.find('td');
-
-    if (cells.length !== 4) {
-      return;
-    }
-
-    const name = $row.find('a.tltle').attr('title')?.trim() || $row.find('a.tltle').text().trim();
-    const quantityK = parseSignedInteger($(cells[1]).text());
-    const amountMillion = Math.abs(parseSignedInteger($(cells[2]).text()));
-    const volume = parseSignedInteger($(cells[3]).text());
-
-    if (!name || !Number.isFinite(quantityK) || !Number.isFinite(amountMillion) || !Number.isFinite(volume)) {
-      return;
-    }
-
-    rows.push({
-      name,
-      quantityK: Math.abs(quantityK),
-      amountMillion,
-      volume,
-    });
-  });
-
-  const topRows = rows.slice(0, 5);
-
-  if (topRows.length === 0) {
-    return null;
-  }
-
-  const topSellAmountMillion = topRows.reduce((sum, row) => sum + row.amountMillion, 0);
-  const topSellQuantityK = topRows.reduce((sum, row) => sum + row.quantityK, 0);
-  const date = $('.sise_guide_date').first().text().trim() || null;
-
-  return {
-    date,
-    dominantStock: topRows[0]?.name ?? null,
-    topRows,
-    topSellAmountMillion,
-    topSellQuantityK,
-    fetchedAt: new Date().toISOString(),
-    source: 'NAVER_FINANCE',
-  };
-}
-
 async function searchNaverNews(query: string, display = 10): Promise<NaverNewsResponse | null> {
   const credentials = getNaverCredentials();
 
@@ -1760,7 +1760,12 @@ async function collectMarketAssessmentSnapshot(): Promise<MarketAssessmentSnapsh
 
   await requestCooldown();
 
-  const kospi200MiniFutures = await safeSupplementaryValue('KOSPI200 mini futures', () => getKospi200MiniFutures(), null);
+  const dayMiniFutures = await safeSupplementaryValue('KOSPI200 mini futures', () => getKospi200MiniFutures(), null);
+  const kospi200MiniFutures = dayMiniFutures?.snapshot ?? null;
+  await requestCooldown();
+  const nightKospiMiniFutures = kospi200MiniFutures && dayMiniFutures?.dayObservation
+    ? await safeSupplementaryValue('KOSPI200 mini futures night', () => getNightKospi200MiniFutures(kospi200MiniFutures, dayMiniFutures.dayObservation!), null)
+    : null;
   await requestCooldown();
 
   const kospi = await safeSupplementaryValue('KOSPI spot', () => getKoreanSpotIndex('KOSPI'), null);
@@ -1805,6 +1810,7 @@ async function collectMarketAssessmentSnapshot(): Promise<MarketAssessmentSnapsh
   );
   await requestCooldown();
 
+  // FX@JPY KIS daily rows do not prove a session close, so do not add KIS-derived observedAt.
   const usdJpy = await safeSupplementaryValue(
     'USD/JPY',
     () =>
@@ -1830,26 +1836,17 @@ async function collectMarketAssessmentSnapshot(): Promise<MarketAssessmentSnapsh
   );
   await requestCooldown();
 
-  const foreignerNetSelling = await safeSupplementaryValue(
-    'Foreigner net selling',
-    () => getNaverForeignerNetSelling(),
-    null
-  );
-  await requestCooldown();
-
   const events = await safeSupplementaryValue('Event signals', () => getEventSignals(), emptyEventSignals());
 
   const preMarketHours = isKstPreMarketHours();
-  // A daytime quote with cumulative volume does not prove night trading.
-  // Until a timestamped night-session feed is configured, use dated spot indexes.
-  const nightKospiMiniFutures = null;
+  // The CM price and minute chart jointly establish the night-session quote and its observation time.
 
   const snapshot: MarketAssessmentSnapshot = {
     fetchedAt: new Date().toISOString(),
     degradedSources: [
       ...(serpDisabledReason ? [serpDisabledReason] : []),
       ...(snapshotRequestContext.getStore()?.aborted ? ['snapshot deadline exceeded; partial data only'] : []),
-      'timestamped night futures unavailable; dated Korea spot used',
+      ...(!nightKospiMiniFutures ? ['timestamped night futures unavailable; dated Korea spot used'] : []),
     ],
     indicators: {
       sp500,
@@ -1869,7 +1866,6 @@ async function collectMarketAssessmentSnapshot(): Promise<MarketAssessmentSnapsh
     supplementary: {
       kospi200Futures,
       nikkeiFutures,
-      foreignerNetSelling,
     },
     events,
   };
@@ -1917,7 +1913,6 @@ export function evaluateMarketAssessmentSnapshot(
     tier3Signals: Object.entries(snapshot.events).filter(([, value]) => value.detected).map(([key]) => `${key} [unverified search context; not scored]`),
     supportingNotes: [
       ...quality.issues, ...(snapshot.degradedSources ?? []),
-      ...(snapshot.supplementary.foreignerNetSelling ? ['Foreigner top-sell ranking is NOT aggregate market net flow; not scored.'] : []),
       'Risk score and data coverage are not calibrated crash probabilities. NORMAL means no rule triggered, not a safety guarantee.',
     ],
     kospiDataStale, stalenessNote, crashScore,

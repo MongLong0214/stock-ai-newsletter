@@ -26,7 +26,6 @@ interface SnapshotOverrides {
   usdKrwChange: number | null;
   nikkeiPct: number | null;
   nikkeiConfirmed: boolean;
-  foreignerAmountMillion: number | null;
   tariffs: boolean;
   geopolitics: boolean;
   centralBank: boolean;
@@ -46,7 +45,6 @@ const DEFAULTS: SnapshotOverrides = {
   usdKrwChange: 0,
   nikkeiPct: null,
   nikkeiConfirmed: false,
-  foreignerAmountMillion: null,
   tariffs: false,
   geopolitics: false,
   centralBank: false,
@@ -142,18 +140,6 @@ function createBacktestSnapshot(overrides: Partial<SnapshotOverrides> = {}): Mar
               proxy: false,
               fetchedAt: ts,
               source: 'NAVER_STOCK_API' as const,
-            }
-          : null,
-      foreignerNetSelling:
-        o.foreignerAmountMillion != null
-          ? {
-              date: null,
-              dominantStock: null,
-              topRows: [],
-              topSellAmountMillion: o.foreignerAmountMillion,
-              topSellQuantityK: 0,
-              fetchedAt: ts,
-              source: 'NAVER_FINANCE' as const,
             }
           : null,
     },

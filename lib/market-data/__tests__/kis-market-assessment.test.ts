@@ -7,6 +7,8 @@ function providerMock(options: {
   brokenUs?: boolean; missingChange?: boolean; downSignMissing?: boolean;
   brokenSerp?: boolean; missingMini?: boolean; staleUs?: boolean; dowConflict?: boolean;
   missingDow?: boolean; invalidContract?: boolean; cboeVix?: boolean;
+  dayChartFailure?: boolean; dayChartPrice?: string; dayChartTime?: string; dayChartDate?: string; dayPreviousClose?: string; nightPriceFailure?: boolean;
+  nightChartFailure?: boolean; nightChartTime?: string; nightChartDate?: string; nightPrice?: string; nightChartPrice?: string; nightBase?: string;
 } = {}) {
   return vi.fn<typeof fetch>(async input => {
     const u = new URL(String(input));
@@ -35,6 +37,18 @@ function providerMock(options: {
       { futs_shrn_iscd: 'NEAR', hts_kor_isnm: '미니F near', futs_prpr: options.invalidContract ? '0' : '100', futs_prdy_vrss: '0', futs_prdy_ctrt: '0', hts_rmnn_dynu: '1' },
       { futs_shrn_iscd: 'NEXT', hts_kor_isnm: '미니F next', futs_prpr: '100', futs_prdy_vrss: '0', futs_prdy_ctrt: '0', hts_rmnn_dynu: '30' },
     ] });
+    if (u.pathname.endsWith('/inquire-price')) return json({ rt_cd: '0', output1: options.nightPriceFailure ? {} : {
+      futs_prpr: options.nightPrice ?? '100', futs_sdpr: options.nightBase ?? '100', futs_prdy_vrss: '0', futs_prdy_ctrt: '0',
+    } });
+    if (u.pathname.endsWith('/inquire-time-fuopchartprice')) {
+      const night = u.searchParams.get('FID_COND_MRKT_DIV_CODE') === 'CM';
+      return json({ rt_cd: '0', output1: night ? {} : { futs_prdy_clpr: options.dayPreviousClose ?? '100' },
+        output2: (night ? options.nightChartFailure : options.dayChartFailure) ? [] : [{
+        stck_bsop_date: night ? (options.nightChartDate ?? '20260908') : (options.dayChartDate ?? '20260908'),
+        stck_cntg_hour: night ? (options.nightChartTime ?? '300000') : (options.dayChartTime ?? '154500'),
+        futs_prpr: night ? (options.nightChartPrice ?? options.nightPrice ?? '100') : (options.dayChartPrice ?? '100'),
+      }, { stck_bsop_date: '20260908', stck_cntg_hour: '120000', futs_prpr: '100' }] });
+    }
     if (u.hostname === 'api.stock.naver.com' && u.pathname.endsWith('/basic')) {
       if (u.pathname.includes('.VIX')) return json(options.cboeVix ? {
         closePrice: '18', compareToPreviousClosePrice: '0', fluctuationsRatio: '0', localTradedAt: '2026-09-08T16:15:00-04:00',
@@ -56,7 +70,7 @@ function providerMock(options: {
       return json(u.searchParams.get('engine') === 'google' ? { organic_results: [] } : {});
     }
     if (u.hostname === 'search.naver.com') return new Response(`<section class="_cs_stock"><span class="stk_nm">VIX</span><span class="spt_con"><strong>18</strong></span><span class="n_ch"><em>0</em><em>(0%)</em></span><p class="stk_info"><em>2026.09.08. 16:15</em></p></section>`);
-    if (u.hostname === 'finance.naver.com' && u.pathname.includes('Detail')) return new Response(`<p class="no_today"><em><span class="no1"></span><span class="no0"></span><span class="no0"></span></em></p><p class="no_exday"><em><span class="no0"></span></em><em>(0%)</em></p><div class="exchange_info"><span class="date">2026.09.09 05:30</span></div>`);
+    if (u.hostname === 'finance.naver.com' && u.pathname.includes('Detail')) return new Response('<p class="no_today"><em><span class="no1"></span><span class="no0"></span><span class="no0"></span></em></p><p class="no_exday"><em><span class="no0"></span></em><em>(0%)</em></p><div class="exchange_info"><span class="date">2026.09.09 05:30</span></div>');
     if (u.hostname === 'openapi.naver.com') return json({ total: 0, items: [] });
     if (u.hostname === 'api.stock.naver.com') return json([]);
     if (u.hostname === 'finance.naver.com') return new Response('<html></html>');
@@ -79,24 +93,103 @@ describe('market source acquisition v2', () => {
   });
   afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks(); vi.unstubAllGlobals(); vi.unstubAllEnvs(); });
 
-  it('collects timestamped US and Korea spot prices without inventing a night session', async () => {
+  it('collects timestamped day and night mini futures from the selected front month', async () => {
     const fetch = providerMock();
     vi.stubGlobal('fetch', fetch);
     const snapshot = await getKisMarketAssessmentSnapshot();
     expect(snapshot.indicators.sp500?.observedAt).toBe('2026-09-08T20:15:00.000Z');
     expect(snapshot.indicators.kospi?.observedAt).toBe('2026-09-08T06:45:00.000Z');
     expect(snapshot.indicators.kosdaq).not.toBeNull();
-    expect(snapshot.indicators.kospi200MiniFutures?.observedAt).toBeNull();
-    expect(snapshot.nightSession.kospiMiniFutures).toBeNull();
-    expect(fetch.mock.calls.some(([url]) => String(url).includes('/inquire-price?'))).toBe(false);
-    expect(evaluateMarketAssessmentSnapshot(snapshot).verdict).toBe('NORMAL');
+    expect(snapshot.indicators.kospi200MiniFutures?.observedAt).toBe('2026-09-08T06:45:00.000Z');
+    expect(snapshot.indicators.kospi200MiniFutures?.price).toBe(100);
+    expect(snapshot.nightSession.kospiMiniFutures?.observedAt).toBe('2026-09-08T21:00:00.000Z');
+    expect(snapshot.nightSession.kospiMiniFutures?.price).toBe(100);
+    expect(snapshot.nightSession.kospiMiniFutures?.session).toBe('night');
+    expect(snapshot.degradedSources).not.toContain('timestamped night futures unavailable; dated Korea spot used');
+    const chartUrls = fetch.mock.calls.map(([url]) => new URL(String(url))).filter(url => url.pathname.endsWith('/inquire-time-fuopchartprice'));
+    expect(chartUrls.map(url => [url.searchParams.get('FID_COND_MRKT_DIV_CODE'), url.searchParams.get('FID_INPUT_ISCD')])).toEqual([['F', 'NEAR'], ['CM', 'NEAR']]);
+    const assessment = evaluateMarketAssessmentSnapshot(snapshot);
+    expect(assessment.dataQuality.indicators.kospi200MiniFutures).toBe('usable');
+    expect(assessment.dataQuality.indicators.nightFutures).toBe('usable');
+    expect(assessment.verdict).toBe('NORMAL');
   });
-  it('selects an unexpired positive-price front-month contract', async () => {
+  it('selects the nearest unexpired contract independently of its board price', async () => {
     vi.stubGlobal('fetch', providerMock());
     expect((await getKisMarketAssessmentSnapshot()).indicators.kospi200MiniFutures?.code).toBe('NEAR');
     resetKisMarketAssessmentCacheForTest();
     vi.stubGlobal('fetch', providerMock({ invalidContract: true }));
-    expect((await getKisMarketAssessmentSnapshot()).indicators.kospi200MiniFutures?.code).toBe('NEXT');
+    const next = await getKisMarketAssessmentSnapshot();
+    expect(next.indicators.kospi200MiniFutures?.code).toBe('NEAR');
+    expect(next.indicators.kospi200MiniFutures?.price).toBe(100);
+    expect(next.indicators.kospi200MiniFutures?.observedAt).toBe('2026-09-08T06:45:00.000Z');
+    expect(next.nightSession.kospiMiniFutures?.code).toBe('NEAR');
+  });
+  it('uses the latest day minute price and time with the previous close from the same chart response', async () => {
+    vi.stubGlobal('fetch', providerMock({ dayChartPrice: '105', dayPreviousClose: '100', nightBase: '100' }));
+    const day = (await getKisMarketAssessmentSnapshot()).indicators.kospi200MiniFutures;
+    expect(day?.price).toBe(105);
+    expect(day?.change).toBe(5);
+    expect(day?.changePct).toBe(5);
+    expect(day?.observedAt).toBe('2026-09-08T06:45:00.000Z');
+  });
+  it.each([{ dayChartFailure: true }, { dayChartPrice: 'bad' }, { dayChartTime: 'bad' }, { dayPreviousClose: 'bad' }])('keeps board price undated and night unavailable when day minute is invalid: %j', async options => {
+    vi.stubGlobal('fetch', providerMock(options));
+    const snapshot = await getKisMarketAssessmentSnapshot();
+    const day = snapshot.indicators.kospi200MiniFutures;
+    expect(day?.price).toBe(100);
+    expect(day?.observedAt).toBeNull();
+    expect(snapshot.nightSession.kospiMiniFutures).toBeNull();
+  });
+  it.each([
+    ['235900', '2026-09-08T14:59:00.000Z'],
+    ['240000', '2026-09-08T15:00:00.000Z'],
+    ['300000', '2026-09-08T21:00:00.000Z'],
+  ])('converts KRX night clock %s to %s', async (time, expected) => {
+    vi.stubGlobal('fetch', providerMock({ dayChartDate: '20260909', dayChartTime: '090000', nightChartTime: time, nightChartPrice: '1134.04', nightPrice: '1200', dayPreviousClose: '1106.62', nightBase: '1106.62' }));
+    const night = (await getKisMarketAssessmentSnapshot()).nightSession.kospiMiniFutures;
+    expect(night?.observedAt).toBe(expected);
+    expect(night?.price).toBe(1134.04);
+    expect(night?.change).toBeCloseTo(27.42);
+    expect(night?.changePct).toBeCloseTo(2.48, 2);
+  });
+  it('uses the previous day session close for a morning night quote', async () => {
+    vi.setSystemTime(new Date('2026-09-09T10:00:00+09:00'));
+    vi.stubGlobal('fetch', providerMock({ dayChartDate: '20260909', dayChartTime: '090000', dayChartPrice: '1118', dayPreviousClose: '1106.62', nightChartDate: '20260908', nightChartPrice: '1115.62', nightBase: '1106.62' }));
+    const night = (await getKisMarketAssessmentSnapshot()).nightSession.kospiMiniFutures;
+    expect(night?.price).toBe(1115.62);
+    expect(night?.change).toBeCloseTo(9);
+    expect(night?.changePct).toBeCloseTo(9 / 1106.62 * 100);
+  });
+  it('uses the last day minute of the same session for an evening night quote', async () => {
+    vi.stubGlobal('fetch', providerMock({ dayChartPrice: '1115.62', dayPreviousClose: '1106.62', nightChartPrice: '1124.62', nightBase: '1115.62' }));
+    const night = (await getKisMarketAssessmentSnapshot()).nightSession.kospiMiniFutures;
+    expect(night?.price).toBe(1124.62);
+    expect(night?.change).toBeCloseTo(9);
+    expect(night?.changePct).toBeCloseTo(9 / 1115.62 * 100);
+  });
+  it.each(['1115.60', '1115.64', 'bad'])('rejects a night base that does not match the session day close: %s', async nightBase => {
+    vi.stubGlobal('fetch', providerMock({ dayChartPrice: '1115.62', dayPreviousClose: '1106.62', nightBase }));
+    expect((await getKisMarketAssessmentSnapshot()).nightSession.kospiMiniFutures).toBeNull();
+  });
+  it('accepts a night base within 0.01 of the day close', async () => {
+    vi.stubGlobal('fetch', providerMock({ dayChartPrice: '1115.62', dayPreviousClose: '1106.62', nightBase: '1115.63', nightChartPrice: '1124.62' }));
+    const night = (await getKisMarketAssessmentSnapshot()).nightSession.kospiMiniFutures;
+    expect(night?.price).toBe(1124.62);
+    expect(night?.change).toBeCloseTo(9);
+  });
+  it('rejects a same-day night quote before the day session closes', async () => {
+    vi.stubGlobal('fetch', providerMock({ dayChartTime: '154459', dayChartPrice: '1115.62', dayPreviousClose: '1106.62', nightBase: '1115.62' }));
+    expect((await getKisMarketAssessmentSnapshot()).nightSession.kospiMiniFutures).toBeNull();
+  });
+  it('rejects a night session newer than the latest day session', async () => {
+    vi.stubGlobal('fetch', providerMock({ dayChartDate: '20260907', nightChartDate: '20260908' }));
+    expect((await getKisMarketAssessmentSnapshot()).nightSession.kospiMiniFutures).toBeNull();
+  });
+  it.each([{ nightPriceFailure: true }, { nightChartFailure: true }, { nightChartTime: 'bad' }])('leaves unavailable or undated night data null: %j', async options => {
+    vi.stubGlobal('fetch', providerMock(options));
+    const snapshot = await getKisMarketAssessmentSnapshot();
+    expect(snapshot.nightSession.kospiMiniFutures).toBeNull();
+    expect(snapshot.degradedSources).toContain('timestamped night futures unavailable; dated Korea spot used');
   });
   it('deduplicates concurrent requests and isolates cache values from consumer mutation', async () => {
     const fetch = providerMock();
