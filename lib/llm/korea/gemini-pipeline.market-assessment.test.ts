@@ -57,6 +57,6 @@ describe('executeMarketAssessment: authoritative deterministic verdict', () => {
     expect(result.verdict).toBe('NORMAL');
     expect(result.summary).toContain('안전 보장이 아닙니다');
     expect(result.summary).toContain('not a probability');
-    expect(result.policyVersion).toBe('2026-09-07.v2');
+    expect(result.policyVersion).toBe('2026-09-23.v3');
   });
 });

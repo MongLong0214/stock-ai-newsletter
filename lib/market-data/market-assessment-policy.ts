@@ -3,7 +3,7 @@ import { isKoreanTradingDate } from '@/lib/tli/trading-calendar';
 import { getUsSessionCloseTime, hasUsMarketCalendar, isUsTradingDate } from './us-market-calendar';
 import type { MarketAssessmentSnapshot, MarketIndicatorSnapshot } from './kis-market-assessment';
 
-export const MARKET_RISK_POLICY_VERSION = '2026-09-07.v2';
+export const MARKET_RISK_POLICY_VERSION = '2026-09-23.v3';
 export const MAX_MARKET_OBSERVATION_AGE_MS = 10 * 60_000;
 export type MarketRiskVerdict = 'NORMAL' | 'CRASH_ALERT' | 'UNAVAILABLE';
 export type QuoteQuality = 'usable' | 'missing' | 'invalid' | 'undated' | 'stale' | 'conflict' | 'calendar_unknown';
@@ -73,7 +73,7 @@ function isStale(observed: number, now: number, korea: boolean, session: 'day' |
   return true;
 }
 
-export function quoteQuality(indicator: MarketIndicatorSnapshot | null | undefined, now: number, korea = false): QuoteQuality {
+export function quoteQuality(indicator: MarketIndicatorSnapshot | null | undefined, now: number, korea: boolean | 'fx' = false): QuoteQuality {
   if (!indicator) return 'missing';
   if (![indicator.price, indicator.change, indicator.changePct].every(Number.isFinite)
     || indicator.price <= 0 || indicator.price - indicator.change <= 0 || indicator.changePct <= -100
@@ -85,20 +85,21 @@ export function quoteQuality(indicator: MarketIndicatorSnapshot | null | undefin
   const fetched = Date.parse(indicator.fetchedAt);
   if (!Number.isFinite(observed)) return 'undated';
   if (!Number.isFinite(now) || !Number.isFinite(fetched) || observed > now + 5 * 60_000 || fetched > now + 5 * 60_000) return 'invalid';
-  if (!korea && !hasUsMarketCalendar(localDate(now, 'America/New_York'))) return 'calendar_unknown';
-  if (now - fetched > MAX_MARKET_OBSERVATION_AGE_MS || isStale(observed, now, korea, indicator.session)) return 'stale';
+  if (korea === false && !hasUsMarketCalendar(localDate(now, 'America/New_York'))) return 'calendar_unknown';
+  if (now - fetched > MAX_MARKET_OBSERVATION_AGE_MS
+    || (korea === 'fx' ? now - observed > 45 * 60_000 : isStale(observed, now, korea, indicator.session))) return 'stale';
   return 'usable';
 }
 
 export function assessMarketDataQuality(snapshot: MarketAssessmentSnapshot, now: number) {
-  const entries: Array<[string, MarketIndicatorSnapshot | null | undefined, boolean]> = [
+  const entries: Array<[string, MarketIndicatorSnapshot | null | undefined, boolean | 'fx']> = [
     ['sp500', snapshot.indicators.sp500, false], ['dowJones', snapshot.indicators.dowJones, false],
     ['nasdaqComposite', snapshot.indicators.nasdaqComposite, false],
     ['kospi200MiniFutures', snapshot.indicators.kospi200MiniFutures, true],
     ['nightFutures', snapshot.nightSession.kospiMiniFutures, true],
     ['kospi', snapshot.indicators.kospi, true], ['kosdaq', snapshot.indicators.kosdaq, true],
-    ['vix', snapshot.indicators.vix, false], ['usdKrw', snapshot.indicators.usdKrw, true],
-    ['usdJpy', snapshot.indicators.usdJpy, true],
+    ['vix', snapshot.indicators.vix, false], ['usdKrw', snapshot.indicators.usdKrw, 'fx'],
+    ['usdJpy', snapshot.indicators.usdJpy, 'fx'],
   ];
   const indicators = Object.fromEntries(entries.map(([key, value, korea]) => [key, quoteQuality(value, now, korea)]));
   // The old price-difference/volume heuristic cannot authenticate a night session.
