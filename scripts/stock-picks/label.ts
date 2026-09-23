@@ -15,6 +15,13 @@ export interface StockPickLabel {
   readonly status: StockPickLabelStatus
   readonly return5d: number | null
   readonly maxDrawdown: number | null
+  /**
+   * D1~D5 중 상승 마감한 날 수. D1은 진입가(D1 시가) 대비, D2~D5는 전일 종가 대비다.
+   *
+   * "1주일 꾸준히 오를 종목"의 경로 조건. return5d만 보면 도중에 크게 빠졌다 회복한
+   * 종목도 통과하고, 하루 급등 뒤 4일 흘러내린 종목도 통과한다.
+   */
+  readonly upDayCount: number | null
 }
 
 const finitePositive = (value: unknown): value is number => (
@@ -56,6 +63,7 @@ const dataErrorLabel = (
     status: 'data_error',
     return5d: null,
     maxDrawdown: null,
+    upDayCount: null,
   }
 }
 
@@ -106,10 +114,19 @@ export function labelPick(
     return dataErrorLabel(entryDate, entryRow, windowRows)
   }
 
+  const countUpDays = (rows: readonly { open: number; close: number }[]): number => rows.reduce(
+    (count, row, index) => {
+      const reference = index === 0 ? row.open : rows[index - 1]!.close
+      return count + (row.close > reference ? 1 : 0)
+    },
+    0,
+  )
+
   const highs = windowRows.map((row) => row.high)
   const maxHigh = Math.max(...highs)
   const productWindowRows = windowRows.slice(0, PRODUCT_HOLDING_DAYS)
   const close5d = productWindowRows[PRODUCT_HOLDING_DAYS - 1]?.close as number
+  const upDayCount = countUpDays(productWindowRows)
 
   if (entryVolume === 0) {
     return {
@@ -121,6 +138,7 @@ export function labelPick(
       status: 'unexpected_untradeable',
       return5d: close5d / entry - 1,
       maxDrawdown: Math.min(0, Math.min(...productWindowRows.map((row) => row.low)) / entry - 1),
+      upDayCount,
     }
   }
 
@@ -142,5 +160,6 @@ export function labelPick(
     status: touched ? 'hit' : 'miss',
     return5d: close5d / entry - 1,
     maxDrawdown,
+    upDayCount,
   }
 }

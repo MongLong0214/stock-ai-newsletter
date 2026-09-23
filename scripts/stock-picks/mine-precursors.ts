@@ -1,7 +1,7 @@
 import { mkdir, writeFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 
-import { labelPick } from '@/scripts/stock-picks/label'
+import { labelPick, type StockPickLabel } from '@/scripts/stock-picks/label'
 import { validateResearchDataset } from '@/scripts/stock-picks/data-contract'
 import { loadPriceBook, type PriceBook } from '@/scripts/stock-picks/data-handler'
 import type { StockFeatureVector } from '@/scripts/stock-picks/features'
@@ -68,7 +68,10 @@ export interface PrecursorMiningReport {
   readonly generatedAt: string
   readonly policy: {
     readonly lookbackCalendarYears: 2
-    readonly event: 'next_open_to_5_holding_day_high_plus_10_percent_touch'
+    readonly event:
+      | 'next_open_to_5_holding_day_high_plus_10_percent_touch'
+      | 'next_open_to_5th_holding_day_close_return_positive'
+      | 'steady_rise_return3pct_drawdown5pct_updays3'
     readonly eligibility: 'average_turnover_20_only'
     readonly minimumAverageTurnover20: number
     readonly featureTimestamp: 'signal_day_only'
@@ -158,6 +161,31 @@ const rankFeatures = (
   return unranked.map((row, index) => ({ rank: index + 1, ...row }))
 }
 
+/**
+ * 사건 정의. 제품 기본 라벨은 "5일 내 장중 고가 +10% 터치"인데, 이건 방향이 아니라
+ * **변동성**을 잰다 — 실측(2026-09-22): 이 라벨로 뽑은 전략은 수익 라벨로 재평가하면
+ * 전부 무작위(41.7%) 미달이었다. 그래서 수익 기준 사건도 채굴할 수 있어야 한다.
+ */
+export const PRECURSOR_EVENTS = {
+  touch10: (label: StockPickLabel) => label.touched,
+  closePositive: (label: StockPickLabel) => label.return5d !== null && label.return5d > 0,
+  /**
+   * "1주일 꾸준히 오를 종목" — 제품이 실제로 찾아야 하는 사건.
+   *
+   * 수익 ≥+3%(제자리 배제) · 최대낙폭 ≥-5%(도중 급락 배제) · 상승 마감일 ≥3/5(하루 급등 뒤
+   * 흘러내림 배제). 실측 기저율 17.7%(235,349 라벨) — 학습 가능한 대역이다.
+   */
+  steadyRise: (label: StockPickLabel) => (
+    label.return5d !== null && label.return5d >= STEADY_RISE.minReturn5d
+    && label.maxDrawdown !== null && label.maxDrawdown >= STEADY_RISE.minMaxDrawdown
+    && label.upDayCount !== null && label.upDayCount >= STEADY_RISE.minUpDays
+  ),
+} as const
+
+export const STEADY_RISE = { minReturn5d: 0.03, minMaxDrawdown: -0.05, minUpDays: 3 } as const
+
+export type PrecursorEventName = keyof typeof PRECURSOR_EVENTS
+
 export function minePrecursors(input: {
   readonly prices: PriceBook
   readonly tradingDays: TradingDayIndex
@@ -165,12 +193,16 @@ export function minePrecursors(input: {
   readonly signalDates: readonly string[]
   readonly minTurnover?: number
   readonly generatedAt?: string
+  /** 생략하면 제품 기본 라벨(터치). */
+  readonly event?: PrecursorEventName
 }): PrecursorMiningReport {
   const signalDates = [...new Set(input.signalDates.filter(Boolean))].sort()
   const signalStart = signalDates[0]
   const signalEnd = signalDates.at(-1)
   if (!signalStart || !signalEnd) throw new Error('이벤트 채굴 신호일이 없습니다')
   const minTurnover = input.minTurnover ?? MIN_TURNOVER
+  const eventName: PrecursorEventName = input.event ?? 'touch10'
+  const isEvent = PRECURSOR_EVENTS[eventName]
   const labeledRows: LabeledFeature[] = []
 
   for (const signalDate of signalDates) {
@@ -178,7 +210,7 @@ export function minePrecursors(input: {
       if (feature.averageTurnover20 === null || feature.averageTurnover20 < minTurnover) continue
       const label = labelPick(feature.symbol, signalDate, input.prices, input.tradingDays)
       if (!label) continue
-      labeledRows.push({ feature, event: label.touched })
+      labeledRows.push({ feature, event: isEvent(label) })
     }
   }
 
@@ -192,7 +224,11 @@ export function minePrecursors(input: {
     generatedAt: input.generatedAt ?? new Date().toISOString(),
     policy: {
       lookbackCalendarYears: LOOKBACK_CALENDAR_YEARS,
-      event: 'next_open_to_5_holding_day_high_plus_10_percent_touch',
+      event: eventName === 'closePositive'
+        ? 'next_open_to_5th_holding_day_close_return_positive'
+        : eventName === 'steadyRise'
+          ? 'steady_rise_return3pct_drawdown5pct_updays3'
+          : 'next_open_to_5_holding_day_high_plus_10_percent_touch',
       eligibility: 'average_turnover_20_only',
       minimumAverageTurnover20: minTurnover,
       featureTimestamp: 'signal_day_only',
@@ -240,6 +276,8 @@ const printUsage = (): void => {
     '',
     'Options:',
     '  --out PATH   최근 2년 이벤트 전일 피처 랭킹 JSON 경로 (필수)',
+    '  --event NAME touch10(기본) 또는 closePositive (5일 종가 수익>0)',
+    '  --signal-start DATE / --signal-end DATE  채굴 구간 (학습/홀드아웃 분할용)',
     '  --allow-dirty-data  누락 거래일/OHLC 오류가 있어도 채굴을 계속',
   ].join('\n'))
 }
@@ -252,9 +290,12 @@ async function runCli(args: readonly string[]): Promise<void> {
   const maturedDates = tradingDays.tradingDays.slice(0, -LABEL_LOOKAHEAD_DAYS)
   const signalEnd = maturedDates.at(-1)
   if (!signalEnd) throw new Error('5보유일 라벨이 성숙한 거래일이 없습니다')
-  const signalDates = maturedDates.filter((date) => date >= twoYearsBefore(signalEnd))
+  // 학습/홀드아웃 분할용. 같은 구간에서 채굴하고 같은 구간에서 검증하면 누출이다.
+  const rangeStart = readOption(args, '--signal-start') ?? twoYearsBefore(signalEnd)
+  const rangeEnd = readOption(args, '--signal-end') ?? signalEnd
+  const signalDates = maturedDates.filter((date) => date >= rangeStart && date <= rangeEnd)
   const signalStart = signalDates[0]
-  if (!signalStart) throw new Error('최근 2년 신호일이 없습니다')
+  if (!signalStart) throw new Error(`신호일이 없습니다: ${rangeStart}~${rangeEnd}`)
   const signalStartIndex = tradingDays.indexByDate.get(signalStart)!
   const historyStartIndex = Math.max(0, signalStartIndex - FEATURE_WARMUP_DAYS)
   const historyDates = tradingDays.tradingDays.slice(historyStartIndex, signalStartIndex + signalDates.length)
@@ -292,7 +333,11 @@ async function runCli(args: readonly string[]): Promise<void> {
       if (completed % 100 === 0 || completed === total) console.log(`피처 ${completed}/${total}`)
     },
   })
-  const report = minePrecursors({ prices, tradingDays, featuresByDate, signalDates })
+  const eventArg = readOption(args, '--event') ?? 'touch10'
+  if (eventArg !== 'touch10' && eventArg !== 'closePositive' && eventArg !== 'steadyRise') {
+    throw new Error(`--event는 touch10 | closePositive | steadyRise 중 하나여야 합니다: ${eventArg}`)
+  }
+  const report = minePrecursors({ prices, tradingDays, featuresByDate, signalDates, event: eventArg })
   const outputPath = resolve(process.cwd(), out)
   await mkdir(dirname(outputPath), { recursive: true })
   await writeFile(outputPath, `${JSON.stringify(report, null, 2)}\n`, 'utf8')

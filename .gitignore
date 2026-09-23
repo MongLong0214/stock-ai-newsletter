@@ -114,3 +114,6 @@ scripts/blog-merge/title-rewrite-backup.jsonl
 
 # Stock picks v2 resumable backfill state
 .stock-picks-backfill.json*
+
+# 연구용 피처 캐시 (결정적 재계산 가능)
+.cache/
