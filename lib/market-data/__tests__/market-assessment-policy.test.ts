@@ -86,10 +86,9 @@ describe('market risk v2: timestamps, missing data and warning policy', () => {
     expect(e.signalDetails.find(x => x.name === 'VIX')!.contribution).toBeGreaterThan(0);
     expect(e.verdict).toBe('NORMAL');
   });
-  it('keyword matches and sell rankings alone do not cast crash votes', () => {
+  it('keyword matches alone do not cast crash votes', () => {
     const s = riskSnapshot();
     for (const event of Object.values(s.events)) event.detected = true;
-    s.supplementary.foreignerNetSelling = { date: null, dominantStock: null, topRows: [], topSellAmountMillion: 10_000_000, topSellQuantityK: 0, fetchedAt: RISK_NOW, source: 'NAVER_FINANCE' };
     expect(evaluate(s).crashScore).toBe(0);
     expect(evaluate(s).verdict).toBe('NORMAL');
   });

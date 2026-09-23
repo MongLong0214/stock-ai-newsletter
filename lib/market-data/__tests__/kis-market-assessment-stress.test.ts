@@ -34,7 +34,6 @@ function createStressSnapshot(o: {
   usdKrwValidation?: 'cross_checked' | 'single_source' | 'direct';
   nikkeiPct?: number | null;
   nikkeiConfirmed?: boolean;
-  foreignerAmountMillion?: number | null;
   tariffs?: boolean;
   geopolitics?: boolean;
   centralBank?: boolean;
@@ -88,11 +87,6 @@ function createStressSnapshot(o: {
         price: 50000, change: null, changePct: o.nikkeiPct,
         confirmed: o.nikkeiConfirmed ?? false, proxy: false, fetchedAt: ts,
         source: 'NAVER_STOCK_API' as const,
-      } : null,
-      foreignerNetSelling: o.foreignerAmountMillion != null ? {
-        date: null, dominantStock: null, topRows: [],
-        topSellAmountMillion: o.foreignerAmountMillion, topSellQuantityK: 0,
-        fetchedAt: ts, source: 'NAVER_FINANCE' as const,
       } : null,
     },
     events: {
@@ -217,7 +211,6 @@ for (const vixVal of ['cross_checked', 'single_source'] as const) {
 for (const kospiPct of [-4, -3, -2, -1.5, -1, 0]) {
   addScenario('USholiday', { sp500Pct: 0, dowPct: 0, nasdaqPct: 0, kospiPct });
   addScenario('USholiday+nikkei', { sp500Pct: 0, dowPct: 0, nasdaqPct: 0, kospiPct, nikkeiPct: -3, nikkeiConfirmed: true });
-  addScenario('USholiday+foreigner', { sp500Pct: 0, dowPct: 0, nasdaqPct: 0, kospiPct, foreignerAmountMillion: 2_500_000 });
 }
 
 // ─── Category 11: Extreme / Null 경계 (20개) ───

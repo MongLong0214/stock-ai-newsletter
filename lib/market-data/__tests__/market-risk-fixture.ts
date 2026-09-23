@@ -22,7 +22,7 @@ export function riskSnapshot(): MarketAssessmentSnapshot {
       usdJpy: { ...riskQuote('USD/JPY', 0, true), price: 145 },
     },
     nightSession: { kospiMiniFutures: null, isPreMarketHours: true },
-    supplementary: { kospi200Futures: null, nikkeiFutures: null, foreignerNetSelling: null },
+    supplementary: { kospi200Futures: null, nikkeiFutures: null },
     events: {
       tariffs: { detected: false, evidence: [] }, geopolitics: { detected: false, evidence: [] },
       centralBankSurprise: { detected: false, evidence: [] }, financialInstitutionFailure: { detected: false, evidence: [] },
