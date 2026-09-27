@@ -2,6 +2,59 @@
   "newsletters": [
     {
       "type": "stock",
+      "date": "2026-09-28",
+      "stocks": [
+        {
+          "ticker": "KOSPI:035250",
+          "name": "강원랜드",
+          "close_price": 14320,
+          "rationale": "기준일 종가 14,320원|당일 등락 -0.3% 하락|RSI 41.7 중립|거래량비율 94% 평균하회|60일 거래량 백분위 25.8점|60일 고점까지 5.0%|20일선 괴리 -2.1%|20일 추세 기울기 -0.12%/일|20일 추세 적합도 R2 35.4점|60일 추세 적합도 R2 0.6점|MACD 히스토그램 -51.87|ATR14 1.7%|ADX14 16.3점|OBV20 기울기 58239|252거래일 가격위치 3.9%|연속상승 0일|골든크로스 감지 1회·경과 9일|20일 평균거래대금 34.5억원|변동성 안정 순위 1위|선정 경로 저변동 안정",
+          "signals": {
+            "trend_score": 42,
+            "momentum_score": 42,
+            "volume_score": 50,
+            "volatility_score": 75,
+            "pattern_score": 22,
+            "sentiment_score": 33,
+            "overall_score": 42
+          }
+        },
+        {
+          "ticker": "KOSPI:214320",
+          "name": "이노션",
+          "close_price": 18050,
+          "rationale": "기준일 종가 18,050원|당일 등락 -0.1% 하락|RSI 32.8 약세|거래량비율 88% 평균하회|60일 거래량 백분위 20.8점|60일 고점까지 8.1%|20일선 괴리 -2.6%|20일 추세 기울기 -0.30%/일|20일 추세 적합도 R2 87.5점|60일 추세 적합도 R2 3.2점|MACD 히스토그램 -50.63|ATR14 1.8%|ADX14 35.6점|OBV20 기울기 -37938|252거래일 가격위치 25.9%|연속상승 0일|골든크로스 감지 1회·경과 21일|20일 평균거래대금 10.5억원|변동성 안정 순위 2위|선정 경로 저변동 안정",
+          "signals": {
+            "trend_score": 51,
+            "momentum_score": 40,
+            "volume_score": 23,
+            "volatility_score": 76,
+            "pattern_score": 14,
+            "sentiment_score": 37,
+            "overall_score": 36
+          }
+        },
+        {
+          "ticker": "KOSPI:005300",
+          "name": "롯데칠성",
+          "close_price": 95800,
+          "rationale": "기준일 종가 95,800원|당일 등락 0.9% 상승|RSI 43.2 중립|거래량비율 77% 평균하회|60일 거래량 백분위 7.5점|60일 고점까지 7.9%|20일선 괴리 -1.4%|20일 추세 기울기 -0.26%/일|20일 추세 적합도 R2 74.3점|60일 추세 적합도 R2 34.4점|MACD 히스토그램 -159.74|ATR14 1.8%|ADX14 20.3점|OBV20 기울기 -3267|252거래일 가격위치 3.3%|연속상승 3일|골든크로스 감지 0회·경과 -1일|20일 평균거래대금 13.2억원|변동성 안정 순위 3위|선정 경로 저변동 안정",
+          "signals": {
+            "trend_score": 51,
+            "momentum_score": 59,
+            "volume_score": 24,
+            "volatility_score": 77,
+            "pattern_score": 31,
+            "sentiment_score": 40,
+            "overall_score": 43
+          }
+        }
+      ],
+      "sentAt": "2026-09-27T22:30:51.542+00:00",
+      "subscriberCount": 321
+    },
+    {
+      "type": "stock",
       "date": "2026-09-23",
       "stocks": [
         {
@@ -12309,5 +12362,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-09-23T00:44:33.960Z"
+  "lastUpdated": "2026-09-27T22:31:25.244Z"
 }
