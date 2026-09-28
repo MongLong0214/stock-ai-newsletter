@@ -1,5 +1,5 @@
 import { supabaseAdmin } from '@/scripts/tli/shared/supabase-admin'
-import { batchQuery, groupByThemeId } from '@/scripts/tli/shared/supabase-batch'
+import { BASE_DELAY_MS, MAX_RETRIES, batchQuery, groupByThemeId, sleep } from '@/scripts/tli/shared/supabase-batch'
 import { calculateLifecycleScore } from '@/lib/tli/calculator'
 import { resolveInterestLevel, resolveRunInterestScale } from '@/lib/tli/interest-scale'
 import { describeNoiseFloorCalibration } from '@/lib/tli/constants/score-config'
@@ -23,6 +23,65 @@ export interface PrevScoreRecord {
 }
 
 const MAX_PREV_SCORE_RECORDS = 5
+const PREV_SCORE_CHUNK_SIZE = 300
+const PREV_SCORE_PAGE_SIZE = 1000
+
+export async function loadPrevScores(themeIds: string[], today: string): Promise<PrevScoreRecord[]> {
+  const scores: PrevScoreRecord[] = []
+
+  for (let i = 0; i < themeIds.length; i += PREV_SCORE_CHUNK_SIZE) {
+    const chunk = themeIds.slice(i, i + PREV_SCORE_CHUNK_SIZE)
+    const chunkRange = `${i}~${i + chunk.length}`
+    let fetched = 0
+    let total: number | null = null
+
+    do {
+      let data: PrevScoreRecord[] | null = null
+      let count: number | null = null
+      let lastError: string | null = null
+
+      for (let retry = 0; retry < MAX_RETRIES; retry++) {
+        const result = await supabaseAdmin.rpc('tli_latest_lifecycle_scores', {
+          p_theme_ids: chunk,
+          p_before: today,
+          p_limit: MAX_PREV_SCORE_RECORDS,
+        }, { count: 'exact' })
+          .order('theme_id')
+          .order('calculated_at', { ascending: false })
+          .range(fetched, fetched + PREV_SCORE_PAGE_SIZE - 1)
+
+        if (!result.error) {
+          data = result.data as PrevScoreRecord[] | null
+          count = result.count ?? null
+          lastError = null
+          break
+        }
+
+        lastError = result.error.message
+        if (retry < MAX_RETRIES - 1) {
+          console.warn(`   ⚠️ tli_latest_lifecycle_scores 청크 ${chunkRange} 시도 ${retry + 2}/${MAX_RETRIES}:`, lastError)
+          await sleep(BASE_DELAY_MS * Math.pow(2, retry))
+        }
+      }
+
+      if (lastError !== null) {
+        console.error(`   ⚠️ tli_latest_lifecycle_scores 청크 ${chunkRange} ${MAX_RETRIES}회 시도 후 실패:`, lastError)
+        throw new Error(`tli_latest_lifecycle_scores 청크 ${chunkRange} 조회 실패: ${lastError}`)
+      }
+      if (count === null) throw new Error(`tli_latest_lifecycle_scores 청크 ${chunkRange} count(exact) 누락`)
+      if (total === null) total = count
+      const rows = (data ?? []) as PrevScoreRecord[]
+      if (rows.length === 0 && fetched < total) {
+        throw new Error(`tli_latest_lifecycle_scores 청크 ${chunkRange} 결과 잘림: ${fetched}/${total}행`)
+      }
+      if (count !== total) throw new Error(`tli_latest_lifecycle_scores 청크 ${chunkRange} count 변경: ${fetched}/${total}행, 현재 count ${count}`)
+      scores.push(...rows)
+      fetched += rows.length
+    } while (fetched < total)
+  }
+
+  return scores
+}
 
 export function buildPrevScoreMap(allPrevScores: PrevScoreRecord[]): Map<string, PrevScoreRecord[]> {
   const prevScoreMap = new Map<string, PrevScoreRecord[]>()
@@ -71,12 +130,7 @@ export async function calculateAndSaveScores(themes: ThemeWithKeywords[]) {
       'theme_id',
       { failOnError: true },
     ),
-    batchQuery<PrevScoreRecord>(
-      'lifecycle_scores', 'theme_id, stage, score, smoothed_score, raw_score, components, calculated_at', themeIds,
-      q => q.lt('calculated_at', today).order('calculated_at', { ascending: false }),
-      'theme_id',
-      { failOnError: true },
-    ),
+    loadPrevScores(themeIds, today),
     batchQuery<{ theme_id: string; price_change_pct: number | null; volume: number | null }>(
       'theme_stocks', 'theme_id, price_change_pct, volume', themeIds,
       undefined,
@@ -90,6 +144,7 @@ export async function calculateAndSaveScores(themes: ThemeWithKeywords[]) {
   const newsByTheme = groupByThemeId(allNews)
   const stocksByTheme = groupByThemeId(allStocks)
 
+  // RPC는 테마별 calculated_at 내림차순으로 반환하므로 map의 앞 5건이 최신 5건이다.
   const prevScoreMap = buildPrevScoreMap(allPrevScores)
 
   const interestCache = new Map<string, InterestMetric[]>()
