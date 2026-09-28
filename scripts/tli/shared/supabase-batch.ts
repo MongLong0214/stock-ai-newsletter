@@ -2,12 +2,12 @@ import { supabaseAdmin } from '@/scripts/tli/shared/supabase-admin'
 import { assertBatchUpsertComplete } from '@/scripts/tli/shared/batch-upsert-failures'
 export { BatchUpsertPartialFailureError, assertBatchUpsertComplete } from '@/scripts/tli/shared/batch-upsert-failures'
 
-function sleep(ms: number) { return new Promise(r => setTimeout(r, ms)) }
+export function sleep(ms: number) { return new Promise(r => setTimeout(r, ms)) }
 
 const PAGE_SIZE = 1000
 const CHUNK_SIZE = 300
-const MAX_RETRIES = 3
-const BASE_DELAY_MS = 1000
+export const MAX_RETRIES = 3
+export const BASE_DELAY_MS = 1000
 
 interface BatchUpsertOptions {
   readonly failOnPartial?: boolean

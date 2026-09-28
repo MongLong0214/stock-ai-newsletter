@@ -20,6 +20,7 @@
 | **v6** | **2026-09-01** | **검증되지 않은 유사 테마 표면 sunset** — 비교 UI만 숨기고 코드·API·파이프라인·데이터는 보존 |
 | **v7** | **2026-09-02** | **전수 심층 리뷰(sol 적대 리뷰 포함) → P0 6건 + 기존 문제 2건(워치독 타임아웃·Clarity CSP)** — 8/10 origin false-clean 사건, origin universe fail-closed + `origin-eligibility-v2`, DataLab quota ledger/reuse/429 non-retry, 09:00 Vercel dispatch, legacy 예측 생성 중단, stale 정정(Pro·icn1·지연 실측) |
 | **v8** | **2026-09-23** | **membership 전이 원자화** — 065 service-role RPC가 close와 대체 version append를 청크별 단일 트랜잭션으로 수행해 고아 이력을 방지; 같은 날 열고 다시 미관측된 매핑은 대체 행 0개의 close-only(system-time 정정) 전이로 처리 |
+| **v9** | **2026-09-28** | **과거 점수 로딩 성능+정확성 수정: 테마별 최근 5건 RPC(066)** — 전체 이력 OFFSET 스캔의 8초 타임아웃(09-24 실패)과 `ORDER BY calculated_at`만 사용한 비고유 정렬의 페이지 경계 중복 692건·누락 692건(40테마 최근 5건 오류)을 해소. 새 RPC 결과 1,184행이 SQL 정답과 일치하여 해당 테마의 EMA/Bollinger/히스테리시스 입력이 설계된 최근 5건으로 바뀜 |
 
 ## 문서 지도
 
@@ -266,7 +267,7 @@ analog_candidates_v1을 읽어 무효 ② 서빙 단일화 + 분포기반 absten
 | 영역 | 경로 |
 |---|---|
 | 과학 계약 (동결) | `docs/tli/scientific-rebuild-master-plan.md` |
-| 마이그레이션 | `supabase/migrations/045~065_*.sql` (059 origin eligibility·roster RPC, 060 DataLab quota ledger, 061 roster RPC dedicated-run 필터, 062 관측 trading_date 인덱스, 065 membership close+append 원자화 RPC) |
+| 마이그레이션 | `supabase/migrations/045~066_*.sql` (059 origin eligibility·roster RPC, 060 DataLab quota ledger, 061 roster RPC dedicated-run 필터, 062 관측 trading_date 인덱스, 065 membership close+append 원자화 RPC, 066 테마별 최근 5건 점수 조회 RPC) |
 | 수집기 | `scripts/tli/collectors/` |
 | origin 생성 | `scripts/tli/origins/` (`lock-study-contract.ts`는 **재실행 금지**) |
 | origin clean 판정 | `scripts/tli/origins/origin-eligibility.ts`(규칙) · `origin-roster.ts`(RPC) · `run-origin-eligibility.ts`(`npm run tli:origins:eligibility`) · `study-origin-eligibility-source.ts`(dataset/평가기 공용 필터) |
