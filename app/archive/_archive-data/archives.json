@@ -2,6 +2,59 @@
   "newsletters": [
     {
       "type": "stock",
+      "date": "2026-09-29",
+      "stocks": [
+        {
+          "ticker": "KOSPI:033270",
+          "name": "유나이티드제약",
+          "close_price": 17630,
+          "rationale": "기준일 종가 17,630원|당일 등락 0.0% 상승|RSI 40.1 중립|거래량비율 70% 평균하회|60일 거래량 백분위 32.5점|60일 고점까지 4.7%|20일선 괴리 -2.4%|20일 추세 기울기 -0.14%/일|20일 추세 적합도 R2 29.3점|60일 추세 적합도 R2 37.7점|MACD 히스토그램 -78.52|ATR14 1.8%|ADX14 14.8점|OBV20 기울기 16630|252거래일 가격위치 21.5%|연속상승 0일|골든크로스 감지 1회·경과 25일|20일 평균거래대금 5.7억원|변동성 안정 순위 1위|선정 경로 저변동 안정",
+          "signals": {
+            "trend_score": 41,
+            "momentum_score": 41,
+            "volume_score": 59,
+            "volatility_score": 76,
+            "pattern_score": 14,
+            "sentiment_score": 38,
+            "overall_score": 43
+          }
+        },
+        {
+          "ticker": "KOSPI:030000",
+          "name": "제일기획",
+          "close_price": 17810,
+          "rationale": "기준일 종가 17,810원|당일 등락 0.7% 상승|RSI 37.3 약세|거래량비율 58% 평균하회|60일 거래량 백분위 32.5점|60일 고점까지 10.9%|20일선 괴리 -3.6%|20일 추세 기울기 -0.57%/일|20일 추세 적합도 R2 72.7점|60일 추세 적합도 R2 15.4점|MACD 히스토그램 -105.75|ATR14 1.8%|ADX14 28.0점|OBV20 기울기 -243719|252거래일 가격위치 8.7%|연속상승 4일|골든크로스 감지 1회·경과 29일|20일 평균거래대금 71.7억원|변동성 안정 순위 2위|선정 경로 저변동 안정",
+          "signals": {
+            "trend_score": 43,
+            "momentum_score": 57,
+            "volume_score": 24,
+            "volatility_score": 77,
+            "pattern_score": 20,
+            "sentiment_score": 40,
+            "overall_score": 39
+          }
+        },
+        {
+          "ticker": "KOSPI:383800",
+          "name": "LX홀딩스",
+          "close_price": 8220,
+          "rationale": "기준일 종가 8,220원|당일 등락 1.1% 상승|RSI 57.4 중립|거래량비율 239% 급증|60일 거래량 백분위 97.5점|60일 고점까지 1.1%|20일선 괴리 1.4%|20일 추세 기울기 -0.06%/일|20일 추세 적합도 R2 12.2점|60일 추세 적합도 R2 63.4점|MACD 히스토그램 -0.18|ATR14 1.9%|ADX14 15.7점|OBV20 기울기 6866|252거래일 가격위치 39.7%|연속상승 4일|골든크로스 감지 1회·경과 25일|20일 평균거래대금 6.0억원|변동성 안정 순위 3위|선정 경로 저변동 안정",
+          "signals": {
+            "trend_score": 44,
+            "momentum_score": 66,
+            "volume_score": 79,
+            "volatility_score": 77,
+            "pattern_score": 37,
+            "sentiment_score": 59,
+            "overall_score": 59
+          }
+        }
+      ],
+      "sentAt": "2026-09-28T22:30:55.879+00:00",
+      "subscriberCount": 321
+    },
+    {
+      "type": "stock",
       "date": "2026-09-28",
       "stocks": [
         {
@@ -12362,5 +12415,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-09-27T22:31:25.244Z"
+  "lastUpdated": "2026-09-28T22:31:28.628Z"
 }
