@@ -1,6 +1,7 @@
 import { getServerSupabaseClient } from '@/lib/supabase/server-client'
+import { isScoreComponents } from '@/lib/tli/types'
 import type { ThemeListItem, ThemeRanking } from '@/lib/tli/types'
-import { getMinRawInterest } from '@/lib/tli/constants/score-config'
+import { getNoiseFloor } from '@/lib/tli/constants/score-config'
 import { QUALITY_GATE } from '@/lib/tli/constants/quality-gate'
 import { buildQualityGateBuckets } from '@/lib/tli/quality-gate'
 import { buildSignalCardsFromPools } from '@/lib/tli/theme-signals'
@@ -244,6 +245,22 @@ export function buildCountMaps(
   return { stockCountMap, stockNamesMap, avgStockChangeMap, newsCountMap }
 }
 
+/** 최신 점수 행의 관심도 척도로 급상승 노이즈 필터 통과 여부를 계산한다. */
+export function buildSurgingNoisePassMap(
+  scores: Array<{ theme_id: string; components: unknown }>,
+): Map<string, boolean> {
+  const passMap = new Map<string, boolean>()
+  for (const score of scores) {
+    if (passMap.has(score.theme_id)) continue
+    const raw = isScoreComponents(score.components) ? score.components.raw : null
+    passMap.set(
+      score.theme_id,
+      raw?.raw_interest_avg != null && raw.raw_interest_avg >= getNoiseFloor(raw.interest_scale ?? 'raw'),
+    )
+  }
+  return passMap
+}
+
 /**
  * 랭킹 요약 통계 계산
  * - 단계별 집계
@@ -253,7 +270,7 @@ export function buildCountMaps(
  */
 export function calculateRankingSummary(
   activeThemes: ThemeListItem[],
-  rawInterestAvgMap?: Map<string, number>,
+  surgingNoisePassMap?: Map<string, boolean>,
 ) {
   const byStage: Record<string, number> = {}
   for (const t of activeThemes) {
@@ -277,7 +294,7 @@ export function calculateRankingSummary(
       t.change7d > 3 &&
       t.newsCount7d >= 2 &&
       t.sparkline.length >= 3 &&
-      (rawInterestAvgMap ? (rawInterestAvgMap.get(t.id) ?? 0) >= getMinRawInterest() : true)
+      (surgingNoisePassMap ? (surgingNoisePassMap.get(t.id) ?? false) : true)
   )
   const surging = surgingCandidates.length > 0
     ? surgingCandidates.reduce((max, t) => (t.change7d > max.change7d ? t : max))
@@ -302,7 +319,7 @@ export function calculateRankingSummary(
 
 export function buildThemeRanking(
   themeData: ThemeListItem[],
-  rawInterestAvgMap?: Map<string, number>,
+  surgingNoisePassMap?: Map<string, boolean>,
 ): ThemeRanking {
   const eligibleBuckets = buildQualityGateBuckets(themeData)
   const displayedBuckets = {
@@ -319,7 +336,7 @@ export function buildThemeRanking(
     ...eligibleBuckets.decline,
     ...eligibleBuckets.reigniting,
   ]
-  const summary = calculateRankingSummary(activeThemes, rawInterestAvgMap)
+  const summary = calculateRankingSummary(activeThemes, surgingNoisePassMap)
   const signals = buildSignalCardsFromPools(eligibleBuckets)
   const visibleThemes = [
     ...displayedBuckets.emerging,

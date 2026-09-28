@@ -2,7 +2,7 @@ import { supabase } from '@/lib/supabase'
 import { getStageKo, toStage, isScoreComponents } from '@/lib/tli/types'
 import { apiSuccess, handleApiError, isTableNotFound, placeholderResponse } from '@/lib/tli/api-utils'
 import type { ThemeListItem, ThemeRanking } from '@/lib/tli/types'
-import { EMPTY_RANKING, SCORE_QUERY_BATCH_SIZE, SCORE_QUERY_WINDOW_DAYS, buildScoreMetaMap, buildCountMaps, buildThemeRanking, batchLoadStockData, batchLoadNewsCounts, applyFreshnessDecayToThemeData } from './ranking-helpers'
+import { EMPTY_RANKING, SCORE_QUERY_BATCH_SIZE, SCORE_QUERY_WINDOW_DAYS, buildScoreMetaMap, buildCountMaps, buildSurgingNoisePassMap, buildThemeRanking, batchLoadStockData, batchLoadNewsCounts, applyFreshnessDecayToThemeData } from './ranking-helpers'
 import { getKSTDateString } from '@/lib/tli/date-utils'
 
 // 생명주기 단계별 랭킹 (배치 쿼리 최적화)
@@ -133,17 +133,8 @@ export async function GET(request: Request) {
     const todayStr = getKSTDateString()
     const normalizedThemeData = applyFreshnessDecayToThemeData(themeData, scoreMetaByTheme, todayStr)
 
-    // surging 노이즈 방지: components에서 raw_interest_avg 추출
-    const rawInterestAvgMap = new Map<string, number>()
-    for (const s of scores) {
-      if (rawInterestAvgMap.has(s.theme_id)) continue
-      const comp = isScoreComponents(s.components) ? s.components : null
-      if (comp?.raw?.raw_interest_avg != null) {
-        rawInterestAvgMap.set(s.theme_id, comp.raw.raw_interest_avg)
-      }
-    }
-
-    const ranking = buildThemeRanking(normalizedThemeData, rawInterestAvgMap)
+    const surgingNoisePassMap = buildSurgingNoisePassMap(scores)
+    const ranking = buildThemeRanking(normalizedThemeData, surgingNoisePassMap)
 
     // limit/sort 후처리
     const sortKey = (sort === 'change7d' || sort === 'newsCount7d') ? sort : 'score' as const

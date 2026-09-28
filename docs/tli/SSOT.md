@@ -22,6 +22,7 @@
 | **v8** | **2026-09-23** | **membership 전이 원자화** — 065 service-role RPC가 close와 대체 version append를 청크별 단일 트랜잭션으로 수행해 고아 이력을 방지; 같은 날 열고 다시 미관측된 매핑은 대체 행 0개의 close-only(system-time 정정) 전이로 처리 |
 | **v9** | **2026-09-28** | **과거 점수 로딩 성능+정확성 수정: 테마별 최근 5건 RPC(066)** — 전체 이력 OFFSET 스캔의 8초 타임아웃(09-24 실패)과 `ORDER BY calculated_at`만 사용한 비고유 정렬의 페이지 경계 중복 692건·누락 692건(40테마 최근 5건 오류)을 해소. 새 RPC 결과 1,184행이 SQL 정답과 일치하여 해당 테마의 EMA/Bollinger/히스테리시스 입력이 설계된 최근 5건으로 바뀜 |
 | **v10** | **2026-09-28** | **TLI 문서를 SSOT·master plan 두 개로 수렴 — runbook·README 유효 내용 이관, 나머지 삭제(git 이력 보존)** |
+| **v11** | **2026-09-28** | **/themes 급상승 복구** — 랭킹 요약의 급상승 노이즈 필터가 앵커 척도 `raw_interest_avg`(7/27 사건 6 이후 전 테마)를 raw 임계값 4와 비교해 급상승이 항상 null이던 문제를 행별 `interest_scale` 기준 `getNoiseFloor`로 수정, 빈 구분선 제거 |
 
 ## 문서 지도
 
