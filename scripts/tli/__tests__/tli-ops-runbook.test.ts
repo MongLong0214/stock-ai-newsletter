@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { beforeAll, describe, expect, it } from 'vitest'
 
-const runbookPath = join(process.cwd(), 'docs/tli-ops-runbook.md')
+const runbookPath = join(process.cwd(), 'docs/tli/SSOT.md')
 
 let runbook = ''
 
@@ -10,7 +10,7 @@ beforeAll(() => {
   runbook = readFileSync(runbookPath, 'utf8')
 })
 
-describe('TLI scientific migration forward-recovery runbook', () => {
+describe('TLI SSOT migration forward-recovery appendix', () => {
   it('covers every committed migration from 045 through 052', () => {
     expect(runbook).toContain('## Migrations 045–052 Forward Recovery')
     for (const migration of ['045', '046', '047', '048', '049', '050', '051', '052']) {

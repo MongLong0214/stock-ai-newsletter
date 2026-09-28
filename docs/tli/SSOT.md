@@ -21,6 +21,7 @@
 | **v7** | **2026-09-02** | **전수 심층 리뷰(sol 적대 리뷰 포함) → P0 6건 + 기존 문제 2건(워치독 타임아웃·Clarity CSP)** — 8/10 origin false-clean 사건, origin universe fail-closed + `origin-eligibility-v2`, DataLab quota ledger/reuse/429 non-retry, 09:00 Vercel dispatch, legacy 예측 생성 중단, stale 정정(Pro·icn1·지연 실측) |
 | **v8** | **2026-09-23** | **membership 전이 원자화** — 065 service-role RPC가 close와 대체 version append를 청크별 단일 트랜잭션으로 수행해 고아 이력을 방지; 같은 날 열고 다시 미관측된 매핑은 대체 행 0개의 close-only(system-time 정정) 전이로 처리 |
 | **v9** | **2026-09-28** | **과거 점수 로딩 성능+정확성 수정: 테마별 최근 5건 RPC(066)** — 전체 이력 OFFSET 스캔의 8초 타임아웃(09-24 실패)과 `ORDER BY calculated_at`만 사용한 비고유 정렬의 페이지 경계 중복 692건·누락 692건(40테마 최근 5건 오류)을 해소. 새 RPC 결과 1,184행이 SQL 정답과 일치하여 해당 테마의 EMA/Bollinger/히스테리시스 입력이 설계된 최근 5건으로 바뀜 |
+| **v10** | **2026-09-28** | **TLI 문서를 SSOT·master plan 두 개로 수렴 — runbook·README 유효 내용 이관, 나머지 삭제(git 이력 보존)** |
 
 ## 문서 지도
 
@@ -28,9 +29,10 @@
 |---|---|---|
 | **이 문서** (`docs/tli/SSOT.md`) | 상태·운영·사건 이력 SSOT | 살아있음 — 변화 시 즉시 |
 | [`docs/tli/scientific-rebuild-master-plan.md`](./scientific-rebuild-master-plan.md) | v3 과학 재구축 실행 계약 (**동결**) — Todo 1~17, estimand, 통계 기준 | 동결 — 수정 금지. 2026-07-27 `.omo/plans/`에서 git으로 이동 (SHA-256 `641228fc…76fa`, 바이트 동일) |
-| `scripts/tli/README.md` | 코드 트리 런타임 계약 (만기 규칙 등) | 코드와 함께 |
-| `docs/tli-anchor-scale-regression-2026-07-26.md` | 앵커 척도 회귀 진단 전문 (사건 6 상세) | 기록 — 동결 |
-| `docs/tli-ops-runbook.md`, `docs/prd/PRD-tli-v3-rebuild.md`, 기타 `docs/tli-*` | 역사 기록 (superseded 배너 유지) | 동결 — 참고용 |
+| `docs/evidence/` | 과학 증거 산출물 | 보존 |
+| `docs/tli/db-vacuum-2026-07-29.sql` | DB VACUUM 실행 기록 | 보존 |
+
+그 외 TLI 문서는 2026-09-28 삭제 — 필요 시 git 이력(삭제 직전 커밋)에서 복원.
 
 과학적 주장·실행 기준은 master plan이 우선한다. 이 문서는 그 계약 아래의 **현재 위치**를 말한다.
 
@@ -111,6 +113,17 @@
 
 **운영 특성**: 발화 안 하면 `gh workflow run tli-collect-data.yml -f mode=full|news-only|datalab-only` 수동 dispatch(reuse 기본이라 quota 안전). Monday origin은 cron+backfill 이중 안전망(PIT-파생이라 늦은 생성도 payload 동일). 과학 런타임 고정: uv 0.9.25 + CPython 3.13.11 + frozen lockfile + PYTHONHASHSEED=0. **이중 lockfile**: 의존성 변경 시 `pnpm-lock.yaml`(Vercel)+`package-lock.json`(Actions) 동시 갱신.
 
+**Legacy label finalization**: `gta-v1` GT-A와 `gtb-v1` GT-B는 버전 포함 전체 identity로 만기 처리한다. 최신 완료 거래일에서 5거래일 전을 cutoff으로 삼아 비거래일에도 현재 cutoff의 누락·pending만 재시도하고 terminal 행은 건너뛴다. 이전 pending 날짜는 전체 페이지를 훑어 재시도하며, terminal 쓰기는 500행씩 나눠 migration 054의 exact-update RPC로 처리한다(일부 또는 0행 매치면 배치 실패). GT-A 만기 결과 0건과 GT-B 가격 부족 pending은 경고한다. 적체 감시는 `gta-v2`를 포함한 전체 버전을 센다.
+
+**Naver Finance 종목 수집**: HTML 테이블 스크레이프 대신 `m.stock.naver.com/api/stocks/theme/{no}` JSON API를 사용한다. 기대 행 수는 `totalCount`, 시장은 `stockExchangeType.name`을 우선 사용한다.
+
+## Scientific Promotion and Exposure Freeze
+
+- Current state: promotion and exposure are frozen. All legacy M1 models are `invalidated` / `blocked`; B-Abl is `unvalidated` / `blocked`.
+- Promotion remains blocked unless `TLI_M1_PROMOTION_ENABLED === 'true'` and the frozen candidate cycle passes the master plan's prospective gate. The flag alone does not unlock promotion.
+- Exposure remains empty unless `TLI_PREDICTIONS_V3_EXPOSURE_ENABLED === 'true'`, the registry row has `status='champion'`, `scientific_claim_status='eligible'`, and `scientific_release_status='public'`, and the prediction exactly joins that registry row by `experiment_cycle_id`, model version, and `role='candidate'`. The flag alone does not unlock exposure.
+- Unfreeze condition: complete master plan Todos 16-17 for the same frozen candidate, including Todo 16 data-floor, power simulation, preregistration, and cycle start, followed by Todo 17's full prospective and four-canary gates. Any failed or incomplete gate keeps promotion and exposure blocked.
+
 ## 4. 상태 점검 방법
 
 ```bash
@@ -146,6 +159,8 @@ SELECT id, first_origin_date, babl_algorithm_version, locked_at FROM tli_attenti
 
 마이그레이션 리허설: 로컬 스크래치 PG (`prod-schema.sql` 덤프 + postgres:17 컨테이너, `env -u JWT_SECRET`). 배포 순서: **스키마 먼저 → 앱 나중.**
 
+054·055 리허설은 각각 `scripts/tli/e2e/rehearse-migration-054.sh <prod-schema-through-048.sql>`와 `env -u JWT_SECRET scripts/tli/e2e/rehearse-migration-055.sh <prod-schema-through-048.sql>`로 실행한다. `load_tli_latest_public_scientific_predictions_v3`를 호출하는 예측 로더 배포 **전에 migration 055를 적용**한다.
+
 ## 5. 사건 이력 (누적)
 
 ### 사건 1 — /themes 빈 화면 P0 (7/14 수정, `dc3855b`)
@@ -165,7 +180,7 @@ study lock이 켠 스냅샷 고정(FK ON DELETE RESTRICT)과 v2 저장기의 교
 
 ### 사건 6 — 앵커 척도 회귀: 점수 붕괴 + 채점 적체 (7/27 머지, PR #104 `6807ef4` · #105 `6bb2ec8`)
 2026-07-07 DataLab 앵커 투입이 `raw_value` 스케일을 ~7배 압축(그룹 통합 max=100 정규화, 반올림에 48%가 0), 절대 임계값 기반 점수 계산이 붕괴 — 감쇠 대상 36.9%→88.1%, p50 51→31, visibleThemes 45+→38. 별개로 예측 채점 만기 기준이 라벨과 달라(비거래일 2거래일 어긋남) + 주말 크론이 라벨 불가능한 비거래일 예측을 매주 생성 → 만기 미채점 609건으로 게이트 폭발.
-수정: **#104** 만기 기준 `getLatestMaturedBaseDate` SSOT 통일 + 비거래일 스냅샷 차단 + 고아 자기치유(excluded). **#105** 절대 수준을 `anchor_scaled_value`로 전환 — 척도를 런 단위 확정(`lib/tli/interest-scale.ts` SSOT), `MIN_ANCHOR_INTEREST=0.003`은 감쇠 대상 비율(36.9%) 역산, stage 8거래일 재생으로 0/241 변동 확인. 진단 전문: `docs/tli-anchor-scale-regression-2026-07-26.md`.
+수정: **#104** 만기 기준 `getLatestMaturedBaseDate` SSOT 통일 + 비거래일 스냅샷 차단 + 고아 자기치유(excluded). **#105** 절대 수준을 `anchor_scaled_value`로 전환 — 척도를 런 단위 확정(`lib/tli/interest-scale.ts` SSOT), `MIN_ANCHOR_INTEREST=0.003`은 감쇠 대상 비율(36.9%) 역산, stage 8거래일 재생으로 0/241 변동 확인. 진단 전문은 git 이력 참조.
 
 ### 사건 7 — Supabase egress 384% 초과 (7/29 수정, `b6c391a` + DB 정리)
 
@@ -284,6 +299,19 @@ analog_candidates_v1을 읽어 무효 ② 서빙 단일화 + 분포기반 absten
 | 테마 목록 (사용자 화면) | `app/themes/(list)/page.tsx` → `useGetRanking` (SSR `get-ranking-server.ts`) |
 | e2e 드라이버 | `npm run tli:e2e:dry-run` |
 | study evidence | `docs/evidence/tli-v3-scientific-rebuild/studies/` |
+| 런타임 | `npm run tli:run` — 전체 수집·점수·비교·예측·평가 |
+| 비교 재생성 | `npm run tli:compare` — phase0 아날로그·v4 후보 재생성 |
+| Level-4 교정 | `npm run tli:level4:calibrate` — 인증 등급 교정 산출물 |
+| Level-4 가중치 | `npm run tli:level4:weights` — 평가 행 기반 가중치 선택 |
+| Level-4 drift | `npm run tli:level4:drift` — drift·hold 판정 |
+| Level-4 인증 | `npm run tli:level4:certify` — 서빙 상태·산출물 인증 리포트 |
+| v4 승격 | `npm run tli:v4:promote -- <run-id> [run-id...]` — 게이트 검증 후 승격; `TLI_COMPARISON_V4_PRODUCTION_VERSION`, `TLI_COMPARISON_V4_CALIBRATION_VERSION`, `TLI_COMPARISON_V4_WEIGHT_VERSION`, `TLI_COMPARISON_V4_DRIFT_VERSION` 필요 |
+| phase0 산출물 | `npm run tli:phase0:materialize` — episode/query/label/analog 산출물 구축 |
+| phase0 bridge | `npm run tli:phase0:bridge` — parity·전환 준비 검증 |
+| 상태 이력 보정 | `npm run tli:state-history:backfill` — episode 구축 전 테마별 baseline 확보 |
+| 첫 급등일 보정 | `npm run tli:first-spike:repair` — 기본 대상 `2026-02-06`, `TLI_FIRST_SPIKE_REPAIR_DATES`로 변경 |
+| 앵커 안정성 | `npm run tli:anchor:stability -- --as-of=YYYY-MM-DD` — 14일 `interest_metrics.raw_value / anchor_scaled_value` 관측, 백업 후보는 `--observations=path/to/observations.json`; 후보 미제공 시 `primary_only_report`, 낮은 CV 후보는 `issueProposal` (리포트만으로 T-106 완료 아님) |
+| shadow 전환 | `npm run tli:shadow:transition -- --as-of=YYYY-MM-DD` — champion shadow 14일·metrics 7일·archived/rolled_back 복귀 대상 확인; `ready_for_operator_cutover`도 서빙 전환은 하지 않음 |
 
 ## 8. Watch / 예정
 
@@ -308,3 +336,106 @@ analog_candidates_v1을 읽어 무효 ② 서빙 단일화 + 분포기반 absten
 - 테스트 green·좋은 retrospective metric·많은 pending prediction·예쁜 차트는 **완료 증거가 아니다.**
 - L3(모델 효능)은 사전 고정된 전향 gate(최소 16주)를 **실제로** 통과해야만 인정. 실패 시 효능을 기각하고 L2 유지 — 기준을 바꾸거나 재탐색해 성공으로 만들지 않는다.
 - 가격·수익·투자알파 주장은 GT-B(별도, 미착수) 전까지 금지.
+
+# 부록 — 마이그레이션 복구
+
+## Migrations 045–052 Forward Recovery
+
+These migrations define one scientific schema generation. Once any of them has committed, recovery is forward-only. **Never run a down migration** or reconstruct a prior function, trigger, grant, threshold, or scientific state from memory. A transaction wrapper protects an uncommitted migration; it is not a post-deploy rollback mechanism.
+
+### Evidence to preserve before deployment
+
+Create a release directory named by the application Git SHA and record all command exits. Keep the directory outside the deployment host.
+
+1. Record the application Git SHA, migration file SHA-256 values, PostgreSQL version, and the current rows in `supabase_migrations.schema_migrations`.
+2. Take both a `pg_dump --schema-only` snapshot and a `pg_dump --data-only` snapshot. Encrypt and access-control the data snapshot because it can contain production data.
+3. Export row counts and the exact rows affected by 045 from `model_registry` and `theme_labels`; this is the required preimage for deterministic state recovery.
+4. Export `pg_get_functiondef` for TLI functions, `pg_get_triggerdef` for TLI triggers, and `information_schema.role_table_grants` for affected public tables. Preserve the output checksum beside the dump checksums.
+5. Confirm the snapshots restore into an isolated PostgreSQL 17 instance before changing production.
+
+Do not continue if a dump is incomplete, its checksum cannot be reproduced, the restore probe fails, or the running application Git SHA is not the reviewed release SHA.
+
+### Migration recovery matrix
+
+| Migration | Preserve and verify | Compatible recovery action |
+| --- | --- | --- |
+| 045 | Exact pre-change `model_registry` and `theme_labels` rows; revoked legacy RPC grants | Keep containment active. Repair only from the preserved preimage with a reviewed forward-fix; never re-enable legacy promotion RPCs as a rollback shortcut. |
+| 046 | Source snapshot parent/observation counts, hashes, functions, and deferred triggers | Retain immutable rows. Restore the canonical function/trigger definitions with a forward migration and re-run byte-equivalence checks. |
+| 047 | Membership-history row counts, interval bounds, and current-as-of results | Append or correct history through a reviewed forward-fix; do not collapse history back into current membership. |
+| 048 | Versioned label identity, GTA-v2 rows, immutability trigger, and indexes | Keep the five-column identity. Resolve any old-key collision explicitly before considering an older application binary. |
+| 049 | Cycles, evidence, attestations, origin manifests, release events, prediction identities, functions, triggers, and grants | Preserve the cycle graph and release ledger. Repair definitions additively; do not drop cycle/evidence rows or restore the old prediction identity. |
+| 050 | Collection append function, Git-attestation behavior, observation counts/hashes, and table/function grants | Restore the reviewed exclusive append RPC and exact ACLs through a forward migration; do not reopen direct collection inserts. |
+| 051 | Observation validator definition and its parent/row trigger binding | Reapply the reviewed binding fix and validate both parent and observation paths; do not restore the stale `NEW` binding. |
+| 052 | Abstain-sentinel guard function/trigger, rejected fixture behavior, and grants | Reapply the canonical guard through a forward migration and repeat malformed-sentinel negative probes. |
+
+### Application rollback decision
+
+An application binary may be rolled back only when its recorded compatibility manifest supports the already-committed database generation. In particular, an application that assumes the pre-048 label identity, the pre-049 prediction identity, direct collection inserts before 050, the stale 051 trigger binding, or no 052 sentinel guard is incompatible. Keep traffic on the current compatible binary or deploy a reviewed compatibility hotfix; do not change the database backward to fit an older binary.
+
+Before choosing an application rollback, compare the candidate binary's Git SHA and database assumptions with the preserved release manifest in a restored PostgreSQL copy. Exercise collection, scientific scoring, lifecycle, canary failure, public hold/resume, and public-view fail-closed behavior there. Production remains frozen if any path is unproved.
+
+### Verification queries
+
+Capture results and checksums before deployment, after deployment, and after any forward-fix.
+
+```sql
+SELECT version, name
+FROM supabase_migrations.schema_migrations
+WHERE version BETWEEN '045' AND '052'
+ORDER BY version;
+
+SELECT p.proname, pg_get_functiondef(p.oid)
+FROM pg_proc AS p
+JOIN pg_namespace AS n ON n.oid = p.pronamespace
+WHERE n.nspname = 'public' AND p.proname LIKE '%tli%'
+ORDER BY p.proname;
+
+SELECT c.relname AS table_name, t.tgname, pg_get_triggerdef(t.oid)
+FROM pg_trigger AS t
+JOIN pg_class AS c ON c.oid = t.tgrelid
+JOIN pg_namespace AS n ON n.oid = c.relnamespace
+WHERE n.nspname = 'public' AND NOT t.tgisinternal
+  AND (c.relname LIKE 'tli_%' OR c.relname IN ('model_registry', 'theme_labels', 'theme_predictions_v3'))
+ORDER BY c.relname, t.tgname;
+
+SELECT table_name, grantee, privilege_type
+FROM information_schema.role_table_grants
+WHERE table_schema = 'public'
+  AND table_name IN ('model_registry', 'theme_labels', 'theme_predictions_v3',
+                     'tli_collection_runs', 'tli_collection_observations')
+ORDER BY table_name, grantee, privilege_type;
+```
+
+#### 045 deterministic state recovery
+
+Compare the preserved preimage with the post-045 rows by primary key and write an explicit reviewed repair set. If the preimage was not captured, deterministic restoration of the overwritten scientific state is impossible: stop, keep containment active, and escalate instead of guessing prior values.
+
+#### 048/049 identity collision check
+
+Run this on the restored copy before any older application is considered. Any returned row proves the old four-column label identity cannot represent the current data and blocks application rollback.
+
+```sql
+SELECT theme_id, base_date, horizon_days, label_type, count(*) AS versions
+FROM public.theme_labels
+GROUP BY theme_id, base_date, horizon_days, label_type
+HAVING count(*) > 1;
+```
+
+Also verify that every scientific prediction still joins its exact cycle, origin, model version, role, and label version. Never delete a colliding version to make this query empty.
+
+#### 050–052 function, trigger, and ACL verification
+
+Diff the normalized `pg_get_functiondef`, `pg_get_triggerdef`, and `role_table_grants` outputs against the reviewed release evidence. Then run the collection append, trigger-binding, Git-SHA compatibility, and abstain-sentinel negative rehearsal suites. A definition-only match without executable probes is insufficient.
+
+### Forward-fix procedure
+
+1. Freeze TLI collection, scientific scoring, promotion, canary, and public-release writers. Keep public exposure fail-closed when release state is uncertain.
+2. Restore the preserved schema-only and data-only snapshots into isolated PostgreSQL 17 and reproduce the incident with the exact application Git SHA.
+3. Author the smallest additive forward migration from the checked-in 045–052 definitions. Do not edit an already-applied migration and do not change formulas, thresholds, scientific identities, or immutable evidence.
+4. Apply the forward-fix to the restored copy. Run the verification queries, affected migration tests, collection rehearsal, lifecycle rehearsal, and public-view probes. Compare counts, hashes, definitions, triggers, and ACLs with the preserved evidence.
+5. Take a fresh production backup and checksum, apply the reviewed forward migration once, repeat the same gates, and retain all receipts with the incident record.
+6. Unfreeze only the writers whose exact probes pass. Promotion and exposure remain frozen until every scientific gate for the same cycle is again evidenced.
+
+### Stop conditions
+
+Stop the recovery and keep the system fail-closed when any preimage or checksum is missing; the 048/049 collision query returns unexpected rows; a function, trigger, or ACL differs from the reviewed definition; immutable row counts or hashes change; an application binary lacks an explicit compatibility record; a rehearsal fails; or a repair would require editing an applied migration, deleting evidence, or changing a formula, threshold, identity, or scientific state contract.
