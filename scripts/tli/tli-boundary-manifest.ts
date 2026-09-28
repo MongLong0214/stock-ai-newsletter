@@ -7,7 +7,6 @@ export type TliFileCategory =
   | 'archive_candidate'
 
 export const TLI_BOUNDARY_MANIFEST: Record<string, TliFileCategory> = {
-  'scripts/tli/README.md': 'docs',
   'scripts/tli/tli-boundary-manifest.ts': 'docs',
   'scripts/tli/tli-runtime-surface.ts': 'runtime',
 
