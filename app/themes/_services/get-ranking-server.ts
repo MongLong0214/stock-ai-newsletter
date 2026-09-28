@@ -3,7 +3,7 @@ import { getServerSupabaseClient } from '@/lib/supabase/server-client'
 import { getStageKo, toStage, isScoreComponents } from '@/lib/tli/types'
 import { isTableNotFound } from '@/lib/tli/api-utils'
 import type { ThemeListItem, ThemeRanking } from '@/lib/tli/types'
-import { EMPTY_RANKING, SCORE_QUERY_BATCH_SIZE, SCORE_QUERY_WINDOW_DAYS, buildScoreMetaMap, buildCountMaps, buildThemeRanking, batchLoadStockData, batchLoadNewsCounts, applyFreshnessDecayToThemeData } from '@/app/api/tli/scores/ranking/ranking-helpers'
+import { EMPTY_RANKING, SCORE_QUERY_BATCH_SIZE, SCORE_QUERY_WINDOW_DAYS, buildScoreMetaMap, buildCountMaps, buildSurgingNoisePassMap, buildThemeRanking, batchLoadStockData, batchLoadNewsCounts, applyFreshnessDecayToThemeData } from '@/app/api/tli/scores/ranking/ranking-helpers'
 import { getKSTDateString } from '@/lib/tli/date-utils'
 
 /** 서버 사이드 랭킹 데이터 조회 (API 라우트 경유 없이 직접 Supabase 호출) */
@@ -120,16 +120,8 @@ export async function getRankingServer(todayStr = getKSTDateString()): Promise<T
 
     const normalizedThemeData = applyFreshnessDecayToThemeData(themeData, scoreMetaByTheme, todayStr)
 
-    const rawInterestAvgMap = new Map<string, number>()
-    for (const s of scores) {
-      if (rawInterestAvgMap.has(s.theme_id)) continue
-      const comp = isScoreComponents(s.components) ? s.components : null
-      if (comp?.raw?.raw_interest_avg != null) {
-        rawInterestAvgMap.set(s.theme_id, comp.raw.raw_interest_avg)
-      }
-    }
-
-    return buildThemeRanking(normalizedThemeData, rawInterestAvgMap)
+    const surgingNoisePassMap = buildSurgingNoisePassMap(scores)
+    return buildThemeRanking(normalizedThemeData, surgingNoisePassMap)
   } catch (error) {
     console.error('[TLI] 랭킹 서버 조회 실패:', error instanceof Error ? error.message : String(error))
     return EMPTY_RANKING

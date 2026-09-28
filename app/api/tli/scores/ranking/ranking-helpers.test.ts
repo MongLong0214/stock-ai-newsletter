@@ -16,6 +16,7 @@ import {
   applyFreshnessDecayToThemeData,
   batchLoadNewsCounts,
   buildCountMaps,
+  buildSurgingNoisePassMap,
   buildThemeRanking,
 } from './ranking-helpers'
 
@@ -40,6 +41,16 @@ function makeTheme(overrides: Partial<ThemeListItem> = {}): ThemeListItem {
     newsCount7d: overrides.newsCount7d ?? 3,
     confidenceLevel: overrides.confidenceLevel,
     avgStockChange: overrides.avgStockChange ?? null,
+  }
+}
+
+function makeComponents(rawInterestAvg: number | undefined, interestScale?: 'raw' | 'anchor') {
+  return {
+    interest_score: 0,
+    news_momentum: 0,
+    volatility_score: 0,
+    maturity_ratio: 0,
+    raw: { raw_interest_avg: rawInterestAvg, interest_scale: interestScale },
   }
 }
 
@@ -105,13 +116,59 @@ describe('buildThemeRanking', () => {
 
     const ranking = buildThemeRanking(
       [noisySurge, credibleSurge],
-      new Map([
-        ['noisy', 2],
-        ['credible', 9],
+      buildSurgingNoisePassMap([
+        { theme_id: 'noisy', components: makeComponents(2) },
+        { theme_id: 'credible', components: makeComponents(9) },
       ]),
     )
 
     expect(ranking.summary.surging?.id).toBe('credible')
+  })
+
+  it('uses the anchor noise floor when selecting the surging theme', () => {
+    const ranking = buildThemeRanking(
+      [
+        makeTheme({ id: 'below', change7d: 11 }),
+        makeTheme({ id: 'at-floor', change7d: 8 }),
+      ],
+      buildSurgingNoisePassMap([
+        { theme_id: 'below', components: makeComponents(0.00299, 'anchor') },
+        { theme_id: 'at-floor', components: makeComponents(0.003, 'anchor') },
+      ]),
+    )
+
+    expect(ranking.summary.surging?.id).toBe('at-floor')
+  })
+
+  it('allows a surging theme when no noise map is provided', () => {
+    const ranking = buildThemeRanking([makeTheme({ change7d: 8 })])
+
+    expect(ranking.summary.surging?.id).toBe('theme-1')
+  })
+
+  it('uses the raw noise floor for rows without an interest scale', () => {
+    const passMap = buildSurgingNoisePassMap([
+      { theme_id: 'below', components: makeComponents(3.99) },
+      { theme_id: 'at-floor', components: makeComponents(4) },
+    ])
+
+    expect(passMap.get('below')).toBe(false)
+    expect(passMap.get('at-floor')).toBe(true)
+  })
+
+  it('keeps the first score row for each theme', () => {
+    const passMap = buildSurgingNoisePassMap([
+      { theme_id: 'first-passes', components: makeComponents(0.003, 'anchor') },
+      { theme_id: 'first-fails', components: makeComponents(0.002, 'anchor') },
+      { theme_id: 'missing-interest', components: makeComponents(undefined, 'anchor') },
+      { theme_id: 'first-passes', components: makeComponents(0.001, 'anchor') },
+      { theme_id: 'first-fails', components: makeComponents(0.1, 'anchor') },
+      { theme_id: 'missing-interest', components: makeComponents(0.1, 'anchor') },
+    ])
+
+    expect(passMap.get('first-passes')).toBe(true)
+    expect(passMap.get('first-fails')).toBe(false)
+    expect(passMap.get('missing-interest')).toBe(false)
   })
 
   it('applies freshness decay through the shared theme normalization helper', () => {

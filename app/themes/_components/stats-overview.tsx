@@ -39,7 +39,7 @@ function StatsOverview({ summary }: StatsOverviewProps) {
           </div>
 
           {/* 구분선 */}
-          <div className="hidden sm:block h-10 w-px bg-white/10" />
+          {stageEntries.length > 0 && <div className="hidden sm:block h-10 w-px bg-white/10" />}
 
           {/* 단계별 카운트 */}
           <div className="flex items-center gap-3 flex-wrap">
@@ -68,7 +68,7 @@ function StatsOverview({ summary }: StatsOverviewProps) {
           </div>
 
           {/* 구분선 */}
-          <div className="hidden lg:block h-10 w-px bg-white/10" />
+          {summary.hottestTheme && <div className="hidden lg:block h-10 w-px bg-white/10" />}
 
           {/* 주도 테마 */}
           {summary.hottestTheme && (
@@ -92,7 +92,7 @@ function StatsOverview({ summary }: StatsOverviewProps) {
           )}
 
           {/* 구분선 */}
-          <div className="hidden lg:block h-10 w-px bg-white/10" />
+          {summary.surging && <div className="hidden lg:block h-10 w-px bg-white/10" />}
 
           {/* 급상승 테마 */}
           {summary.surging && (
