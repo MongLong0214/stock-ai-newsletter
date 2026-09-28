@@ -11,6 +11,8 @@ interface StatsOverviewProps {
   summary: ThemeRanking['summary']
 }
 
+const SEPARATOR_BEFORE_CLASSES = 'before:absolute before:top-1/2 before:h-10 before:w-px before:-translate-y-1/2 before:bg-white/10 before:hidden lg:before:block lg:before:-left-3'
+
 /** 테마 요약 통계 바 컴포넌트 */
 function StatsOverview({ summary }: StatsOverviewProps) {
   const stageEntries = Object.entries(summary.byStage).filter(
@@ -25,7 +27,7 @@ function StatsOverview({ summary }: StatsOverviewProps) {
       className="mb-8"
     >
       <div className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-xl p-5 shadow-[0_4px_30px_rgba(0,0,0,0.3)]">
-        <div className="flex flex-wrap items-center gap-4 lg:gap-6">
+        <div className="flex flex-wrap items-center gap-4 overflow-x-clip px-2 -mx-2 lg:gap-6">
           {/* 총 테마 수 */}
           <div className="flex items-center gap-2">
             <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-emerald-500/15 border border-emerald-500/20">
@@ -38,41 +40,37 @@ function StatsOverview({ summary }: StatsOverviewProps) {
             </div>
           </div>
 
-          {/* 구분선 */}
-          {stageEntries.length > 0 && <div className="hidden sm:block h-10 w-px bg-white/10" />}
-
           {/* 단계별 카운트 */}
-          <div className="flex items-center gap-3 flex-wrap">
-            {stageEntries.map(([stage, count]) => {
-              const config = STAGE_CONFIG[stage as keyof typeof STAGE_CONFIG]
-              if (!config) return null
-              return (
-                <div
-                  key={stage}
-                  className={cn(
-                    'flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-medium',
-                    config.bg,
-                    config.border,
-                    config.text
-                  )}
-                >
+          {stageEntries.length > 0 && (
+            <div className={cn('relative flex items-center gap-3 flex-wrap sm:before:block sm:before:-left-2 sm:before:-translate-x-px lg:before:translate-x-0', SEPARATOR_BEFORE_CLASSES)}>
+              {stageEntries.map(([stage, count]) => {
+                const config = STAGE_CONFIG[stage as keyof typeof STAGE_CONFIG]
+                if (!config) return null
+                return (
                   <div
-                    className="w-1.5 h-1.5 rounded-full"
-                    style={{ backgroundColor: config.color }}
-                  />
-                  <span>{config.label}</span>
-                  <span className="font-mono font-bold">{count}</span>
-                </div>
-              )
-            })}
-          </div>
-
-          {/* 구분선 */}
-          {summary.hottestTheme && <div className="hidden lg:block h-10 w-px bg-white/10" />}
+                    key={stage}
+                    className={cn(
+                      'flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-medium',
+                      config.bg,
+                      config.border,
+                      config.text
+                    )}
+                  >
+                    <div
+                      className="w-1.5 h-1.5 rounded-full"
+                      style={{ backgroundColor: config.color }}
+                    />
+                    <span>{config.label}</span>
+                    <span className="font-mono font-bold">{count}</span>
+                  </div>
+                )
+              })}
+            </div>
+          )}
 
           {/* 주도 테마 */}
           {summary.hottestTheme && (
-            <Link href={`/themes/${summary.hottestTheme.id}`} className="flex items-center gap-2 hover:opacity-80 transition-opacity">
+            <Link href={`/themes/${summary.hottestTheme.id}`} className={cn('relative flex items-center gap-2 hover:opacity-80 transition-opacity', SEPARATOR_BEFORE_CLASSES)}>
               <div
                 className="flex items-center justify-center w-8 h-8 rounded-lg bg-amber-500/15 border border-amber-500/20"
                 style={{ boxShadow: '0 0 12px rgba(245, 158, 11, 0.15)' }}
@@ -91,12 +89,9 @@ function StatsOverview({ summary }: StatsOverviewProps) {
             </Link>
           )}
 
-          {/* 구분선 */}
-          {summary.surging && <div className="hidden lg:block h-10 w-px bg-white/10" />}
-
           {/* 급상승 테마 */}
           {summary.surging && (
-            <Link href={`/themes/${summary.surging.id}`} className="flex items-center gap-2 hover:opacity-80 transition-opacity">
+            <Link href={`/themes/${summary.surging.id}`} className={cn('relative flex items-center gap-2 hover:opacity-80 transition-opacity', SEPARATOR_BEFORE_CLASSES)}>
               <div
                 className="flex items-center justify-center w-8 h-8 rounded-lg bg-emerald-500/15 border border-emerald-500/20"
                 style={{ boxShadow: '0 0 12px rgba(16, 185, 129, 0.15)' }}
@@ -115,11 +110,8 @@ function StatsOverview({ summary }: StatsOverviewProps) {
             </Link>
           )}
 
-          {/* 구분선 */}
-          <div className="hidden lg:block h-10 w-px bg-white/10" />
-
           {/* 평균 점수 */}
-          <div className="flex items-center gap-2">
+          <div className={cn('relative flex items-center gap-2', SEPARATOR_BEFORE_CLASSES)}>
             <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-sky-500/15 border border-sky-500/20">
               <BarChart3 className="w-4 h-4 text-sky-400" />
             </div>
