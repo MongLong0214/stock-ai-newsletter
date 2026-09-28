@@ -6,6 +6,7 @@ import {
   resetKisClientCacheForTest,
 } from '@/app/archive/_utils/api/kis/client';
 import { validateKisEnv } from '@/lib/_utils/env-validator';
+import { addKoreanTradingDays } from '@/lib/tli/trading-calendar';
 import { getUsSessionCloseTime } from './us-market-calendar';
 import {
   assessMarketDataQuality, decideMarketRisk, MARKET_RISK_POLICY_VERSION,
@@ -157,8 +158,11 @@ interface KisDomesticFuturesResponse extends KisErrorResponse {
 }
 
 interface KisMiniFuturesChartResponse extends KisErrorResponse {
-  output1?: { futs_prdy_clpr?: string };
   output2?: Array<{ stck_bsop_date?: string; stck_cntg_hour?: string; futs_prpr?: string }>;
+}
+
+interface KisMiniFuturesDailyResponse extends KisErrorResponse {
+  output2?: Array<{ stck_bsop_date?: string; futs_prpr?: string }>;
 }
 
 interface KisMiniFuturesPriceResponse extends KisErrorResponse {
@@ -895,8 +899,25 @@ interface MiniFuturesChartObservation {
   price: number;
   observedAt: string;
   sessionDate: string;
-  sessionTime: string;
-  previousClose: number | null;
+}
+
+async function getMiniFuturesDailyCloses(code: string): Promise<Array<{ date: string; price: number }>> {
+  const now = new Date();
+  const response = await kisGet<KisMiniFuturesDailyResponse>(
+    '/uapi/domestic-futureoption/v1/quotations/inquire-daily-fuopchartprice',
+    {
+      FID_COND_MRKT_DIV_CODE: 'F',
+      FID_INPUT_ISCD: code,
+      FID_INPUT_DATE_1: formatKisDate(new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)),
+      FID_INPUT_DATE_2: formatKisDate(now),
+      FID_PERIOD_DIV_CODE: 'D',
+    },
+    'FHKIF03020100'
+  );
+  return (Array.isArray(response.output2) ? response.output2 : [])
+    .map(row => ({ date: row.stck_bsop_date ?? '', price: parseNumber(row.futs_prpr) }))
+    .filter(row => /^\d{8}$/.test(row.date) && Number.isFinite(row.price) && row.price > 0)
+    .sort((left, right) => right.date.localeCompare(left.date));
 }
 
 async function getMiniFuturesChartObservation(code: string, market: 'F' | 'CM'): Promise<MiniFuturesChartObservation | null> {
@@ -916,19 +937,15 @@ async function getMiniFuturesChartObservation(code: string, market: 'F' | 'CM'):
   const latest = response.output2?.[0]; // KIS returns the newest minute first.
   const price = parseNumber(latest?.futs_prpr);
   const observedAt = parseKisKoreanExtendedObservedAt(latest?.stck_bsop_date, latest?.stck_cntg_hour);
-  const previousClose = market === 'F' ? parseNumber(response.output1?.futs_prdy_clpr) : null;
-  if (!Number.isFinite(price) || price <= 0 || !observedAt
-    || (market === 'F' && (previousClose === null || !Number.isFinite(previousClose) || previousClose <= 0))) return null;
+  if (!Number.isFinite(price) || price <= 0 || !observedAt) return null;
   return {
     price,
     observedAt,
     sessionDate: latest!.stck_bsop_date!,
-    sessionTime: latest!.stck_cntg_hour!,
-    previousClose,
   };
 }
 
-async function getKospi200MiniFutures(): Promise<{ snapshot: Kospi200MiniFuturesSnapshot; dayObservation: MiniFuturesChartObservation | null }> {
+async function getKospi200MiniFutures(): Promise<{ snapshot: Kospi200MiniFuturesSnapshot; dailyCloses: Array<{ date: string; price: number }> }> {
   const response = await kisGet<KisDomesticFuturesResponse>(
     '/uapi/domestic-futureoption/v1/quotations/display-board-futures',
     {
@@ -947,8 +964,15 @@ async function getKospi200MiniFutures(): Promise<{ snapshot: Kospi200MiniFutures
 
   const remainingDays = Number.parseInt(contract.hts_rmnn_dynu ?? '', 10);
   await requestCooldown();
+  const dailyCloses = await safeSupplementaryValue('KOSPI200 mini futures daily chart', () => getMiniFuturesDailyCloses(contract.futs_shrn_iscd!), []);
+  await requestCooldown();
   const observation = await safeSupplementaryValue('KOSPI200 mini futures chart', () => getMiniFuturesChartObservation(contract.futs_shrn_iscd!, 'F'), null);
-  if (!observation) {
+  const sessionDate = observation?.sessionDate;
+  const previousTradingDate = sessionDate && addKoreanTradingDays(
+    `${sessionDate.slice(0, 4)}-${sessionDate.slice(4, 6)}-${sessionDate.slice(6, 8)}`, -1
+  ).replaceAll('-', '');
+  const previousClose = dailyCloses.find(row => row.date === previousTradingDate)?.price;
+  if (!observation || !previousClose) {
     assertPositivePrice(price, 'KOSPI200 mini futures');
     if (!Number.isFinite(change) || !Number.isFinite(changePct)) throw new Error('KOSPI200 mini futures missing change data');
   }
@@ -959,17 +983,17 @@ async function getKospi200MiniFutures(): Promise<{ snapshot: Kospi200MiniFutures
     contractName: contract.hts_kor_isnm ?? 'Unknown contract',
     remainingDays: Number.isFinite(remainingDays) ? remainingDays : null,
     source: 'KIS',
-    price: observation?.price ?? price,
-    change: observation ? observation.price - observation.previousClose! : change,
-    changePct: observation ? (observation.price - observation.previousClose!) / observation.previousClose! * 100 : changePct,
-    observedAt: observation?.observedAt ?? null,
+    price: previousClose ? observation!.price : price,
+    change: previousClose ? observation!.price - previousClose : change,
+    changePct: previousClose ? (observation!.price - previousClose) / previousClose * 100 : changePct,
+    observedAt: previousClose ? observation!.observedAt : null,
     session: 'day',
     fetchedAt: new Date().toISOString(),
   });
-  return { snapshot, dayObservation: observation };
+  return { snapshot, dailyCloses };
 }
 
-async function getNightKospi200MiniFutures(day: Kospi200MiniFuturesSnapshot, dayObservation: MiniFuturesChartObservation): Promise<Kospi200MiniFuturesSnapshot | null> {
+async function getNightKospi200MiniFutures(day: Kospi200MiniFuturesSnapshot, dailyCloses: Array<{ date: string; price: number }>): Promise<Kospi200MiniFuturesSnapshot | null> {
   const response = await kisGet<KisMiniFuturesPriceResponse>(
     '/uapi/domestic-futureoption/v1/quotations/inquire-price',
     { FID_COND_MRKT_DIV_CODE: 'CM', FID_INPUT_ISCD: day.code },
@@ -980,10 +1004,13 @@ async function getNightKospi200MiniFutures(day: Kospi200MiniFuturesSnapshot, day
   await requestCooldown();
   const observation = await getMiniFuturesChartObservation(day.code, 'CM');
   if (!observation) return null;
-  const dayClose = observation.sessionDate === dayObservation.sessionDate
-    ? dayObservation.sessionTime >= '154500' ? dayObservation.price : null
-    : observation.sessionDate < dayObservation.sessionDate ? dayObservation.previousClose : null;
-  if (dayClose === null || Math.abs(base - dayClose) > 0.01 + 1e-9) return null;
+  const now = new Date();
+  const currentKstTime = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Asia/Seoul', hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+  }).format(now);
+  if (observation.sessionDate === formatKisDate(now) && currentKstTime < '15:45') return null;
+  const dayClose = dailyCloses.find(row => row.date === observation.sessionDate)?.price;
+  if (!dayClose || Math.abs(base - dayClose) > 0.01 + 1e-9) return null;
   const change = observation.price - dayClose;
   return withDirectValidation({
     code: day.code,
@@ -1840,8 +1867,8 @@ async function collectMarketAssessmentSnapshot(): Promise<MarketAssessmentSnapsh
   const dayMiniFutures = await safeSupplementaryValue('KOSPI200 mini futures', () => getKospi200MiniFutures(), null);
   const kospi200MiniFutures = dayMiniFutures?.snapshot ?? null;
   await requestCooldown();
-  const nightKospiMiniFutures = kospi200MiniFutures && dayMiniFutures?.dayObservation
-    ? await safeSupplementaryValue('KOSPI200 mini futures night', () => getNightKospi200MiniFutures(kospi200MiniFutures, dayMiniFutures.dayObservation!), null)
+  const nightKospiMiniFutures = kospi200MiniFutures && dayMiniFutures?.dailyCloses.length
+    ? await safeSupplementaryValue('KOSPI200 mini futures night', () => getNightKospi200MiniFutures(kospi200MiniFutures, dayMiniFutures.dailyCloses), null)
     : null;
   await requestCooldown();
 

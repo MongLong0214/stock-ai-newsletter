@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { evaluateMarketAssessmentSnapshot, getKisMarketAssessmentSnapshot, parseSerpFinanceObservedAt, resetKisMarketAssessmentCacheForTest } from '../kis-market-assessment';
+import { quoteQuality } from '../market-assessment-policy';
 import { RISK_NOW } from './market-risk-fixture';
 
 const json = (data: unknown) => new Response(JSON.stringify(data), { headers: { 'content-type': 'application/json' } });
@@ -7,8 +8,9 @@ function providerMock(options: {
   brokenUs?: boolean; missingChange?: boolean; downSignMissing?: boolean;
   brokenSerp?: boolean; missingMini?: boolean; staleUs?: boolean; dowConflict?: boolean;
   missingDow?: boolean; invalidContract?: boolean; cboeVix?: boolean; cboeCsv?: string; naverVixQuote?: Record<string, unknown>;
-  dayChartFailure?: boolean; dayChartPrice?: string; dayChartTime?: string; dayChartDate?: string; dayPreviousClose?: string; nightPriceFailure?: boolean;
-  nightChartFailure?: boolean; nightChartTime?: string; nightChartDate?: string; nightPrice?: string; nightChartPrice?: string; nightBase?: string;
+  dayChartFailure?: boolean; dayChartPrice?: string; dayChartTime?: string; dayChartDate?: string; dayPreviousClose?: string; dailyChartFailure?: boolean;
+  dailyRows?: Array<{ stck_bsop_date: string; futs_prpr: string }>;
+  nightPriceFailure?: boolean; nightChartFailure?: boolean; nightChartTime?: string; nightChartDate?: string; nightPrice?: string; nightChartPrice?: string; nightBase?: string;
   serpFinance?: Record<string, unknown>;
 } = {}) {
   return vi.fn<typeof fetch>(async input => {
@@ -38,6 +40,13 @@ function providerMock(options: {
       { futs_shrn_iscd: 'NEAR', hts_kor_isnm: '미니F near', futs_prpr: options.invalidContract ? '0' : '100', futs_prdy_vrss: '0', futs_prdy_ctrt: '0', hts_rmnn_dynu: '1' },
       { futs_shrn_iscd: 'NEXT', hts_kor_isnm: '미니F next', futs_prpr: '100', futs_prdy_vrss: '0', futs_prdy_ctrt: '0', hts_rmnn_dynu: '30' },
     ] });
+    if (u.pathname.endsWith('/inquire-daily-fuopchartprice')) return options.dailyChartFailure
+      ? json({ rt_cd: '1', msg1: 'daily chart unavailable' })
+      : json({ rt_cd: '0', output2: options.dailyRows ?? [
+        { stck_bsop_date: '20260909', futs_prpr: '100' },
+        { stck_bsop_date: '20260908', futs_prpr: '100' },
+        { stck_bsop_date: '20260907', futs_prpr: '100' },
+      ] });
     if (u.pathname.endsWith('/inquire-price')) return json({ rt_cd: '0', output1: options.nightPriceFailure ? {} : {
       futs_prpr: options.nightPrice ?? '100', futs_sdpr: options.nightBase ?? '100', futs_prdy_vrss: '0', futs_prdy_ctrt: '0',
     } });
@@ -112,6 +121,10 @@ describe('market source acquisition v2', () => {
     expect(snapshot.degradedSources).not.toContain('timestamped night futures unavailable; dated Korea spot used');
     const chartUrls = fetch.mock.calls.map(([url]) => new URL(String(url))).filter(url => url.pathname.endsWith('/inquire-time-fuopchartprice'));
     expect(chartUrls.map(url => [url.searchParams.get('FID_COND_MRKT_DIV_CODE'), url.searchParams.get('FID_INPUT_ISCD')])).toEqual([['F', 'NEAR'], ['CM', 'NEAR']]);
+    const dailyUrls = fetch.mock.calls.map(([url]) => new URL(String(url))).filter(url => url.pathname.endsWith('/inquire-daily-fuopchartprice'));
+    expect(dailyUrls).toHaveLength(1);
+    expect(dailyUrls[0].searchParams.get('FID_INPUT_ISCD')).toBe('NEAR');
+    expect(dailyUrls[0].searchParams.get('FID_PERIOD_DIV_CODE')).toBe('D');
     const assessment = evaluateMarketAssessmentSnapshot(snapshot);
     expect(assessment.dataQuality.indicators.kospi200MiniFutures).toBe('usable');
     expect(assessment.dataQuality.indicators.nightFutures).toBe('usable');
@@ -128,65 +141,141 @@ describe('market source acquisition v2', () => {
     expect(next.indicators.kospi200MiniFutures?.observedAt).toBe('2026-09-08T06:45:00.000Z');
     expect(next.nightSession.kospiMiniFutures?.code).toBe('NEAR');
   });
-  it('uses the latest day minute price and time with the previous close from the same chart response', async () => {
-    vi.stubGlobal('fetch', providerMock({ dayChartPrice: '105', dayPreviousClose: '100', nightBase: '100' }));
+  it('uses the latest day minute price and time with the prior daily close', async () => {
+    vi.stubGlobal('fetch', providerMock({ dayChartPrice: '105', dayPreviousClose: '105', nightBase: '100' }));
     const day = (await getKisMarketAssessmentSnapshot()).indicators.kospi200MiniFutures;
     expect(day?.price).toBe(105);
     expect(day?.change).toBe(5);
     expect(day?.changePct).toBe(5);
     expect(day?.observedAt).toBe('2026-09-08T06:45:00.000Z');
   });
-  it.each([{ dayChartFailure: true }, { dayChartPrice: 'bad' }, { dayChartTime: 'bad' }, { dayPreviousClose: 'bad' }])('keeps board price undated and night unavailable when day minute is invalid: %j', async options => {
-    vi.stubGlobal('fetch', providerMock(options));
+  it('keeps the 2026-09-23 close change after output1 rolls to the new business day', async () => {
+    vi.setSystemTime(new Date('2026-09-28T06:37:00+09:00'));
+    vi.stubGlobal('fetch', providerMock({
+      dayChartDate: '20260923', dayChartPrice: '1122.06', dayPreviousClose: '1122.06',
+      dailyRows: [
+        { stck_bsop_date: '20260928', futs_prpr: '1108.02' },
+        { stck_bsop_date: '20260923', futs_prpr: '1122.06' },
+        { stck_bsop_date: '20260922', futs_prpr: '1106.62' },
+      ],
+    }));
+    const day = (await getKisMarketAssessmentSnapshot()).indicators.kospi200MiniFutures;
+    expect(day?.price).toBe(1122.06);
+    expect(day?.change).toBeCloseTo(15.44);
+    expect(day?.changePct).toBeCloseTo(1.40, 2);
+    expect(day?.observedAt).toBe('2026-09-23T06:45:00.000Z');
+  });
+  it('uses the 2026-09-23 close across the Chuseok break for a 2026-09-28 minute', async () => {
+    vi.setSystemTime(new Date('2026-09-28T12:00:00+09:00'));
+    const fetch = providerMock({
+      dayChartDate: '20260928', dayChartTime: '120000', dayChartPrice: '1103.74', dayPreviousClose: '1108.02',
+      dailyRows: [
+        { stck_bsop_date: '20260928', futs_prpr: '1108.02' },
+        { stck_bsop_date: '20260923', futs_prpr: '1122.06' },
+        { stck_bsop_date: '20260922', futs_prpr: '1106.62' },
+      ],
+    });
+    vi.stubGlobal('fetch', fetch);
+    const day = (await getKisMarketAssessmentSnapshot()).indicators.kospi200MiniFutures;
+    expect(day?.price).toBe(1103.74);
+    expect(day?.change).toBeCloseTo(-18.32);
+    expect(day?.changePct).toBeCloseTo(-18.32 / 1122.06 * 100);
+    expect(day?.observedAt).toBe('2026-09-28T03:00:00.000Z');
+    const dailyUrl = fetch.mock.calls.map(([url]) => new URL(String(url))).find(url => url.pathname.endsWith('/inquire-daily-fuopchartprice'));
+    expect(dailyUrl?.searchParams.get('FID_INPUT_DATE_1')).toBe('20260829');
+    expect(dailyUrl?.searchParams.get('FID_INPUT_DATE_2')).toBe('20260928');
+  });
+  it('keeps the board quote undated when the immediate prior trading day is missing', async () => {
+    vi.setSystemTime(new Date('2026-09-28T12:00:00+09:00'));
+    vi.stubGlobal('fetch', providerMock({
+      dayChartDate: '20260928', dayChartTime: '120000', dayChartPrice: '1103.74',
+      dailyRows: [
+        { stck_bsop_date: '20260928', futs_prpr: '1108.02' },
+        { stck_bsop_date: '20260922', futs_prpr: '1106.62' },
+      ],
+    }));
+    const day = (await getKisMarketAssessmentSnapshot()).indicators.kospi200MiniFutures;
+    expect(day?.price).toBe(100);
+    expect(day?.change).toBe(0);
+    expect(day?.observedAt).toBeNull();
+    expect(quoteQuality(day, Date.now(), true)).toBe('undated');
+  });
+  it.each([{ dayChartFailure: true }, { dayChartPrice: 'bad' }, { dayChartTime: 'bad' }, { dailyChartFailure: true }, { dailyRows: [{ stck_bsop_date: '20260908', futs_prpr: '100' }] }])('keeps the board price undated when day minute or prior daily close is unavailable: %j', async options => {
+    vi.stubGlobal('fetch', providerMock({ dayChartPrice: '105', ...options }));
     const snapshot = await getKisMarketAssessmentSnapshot();
     const day = snapshot.indicators.kospi200MiniFutures;
     expect(day?.price).toBe(100);
+    expect(day?.change).toBe(0);
+    expect(day?.changePct).toBe(0);
     expect(day?.observedAt).toBeNull();
-    expect(snapshot.nightSession.kospiMiniFutures).toBeNull();
+    if (options.dailyChartFailure) expect(snapshot.nightSession.kospiMiniFutures).toBeNull();
   });
   it.each([
     ['235900', '2026-09-08T14:59:00.000Z'],
     ['240000', '2026-09-08T15:00:00.000Z'],
     ['300000', '2026-09-08T21:00:00.000Z'],
   ])('converts KRX night clock %s to %s', async (time, expected) => {
-    vi.stubGlobal('fetch', providerMock({ dayChartDate: '20260909', dayChartTime: '090000', nightChartTime: time, nightChartPrice: '1134.04', nightPrice: '1200', dayPreviousClose: '1106.62', nightBase: '1106.62' }));
+    vi.stubGlobal('fetch', providerMock({ dayChartDate: '20260909', dayChartTime: '090000', nightChartTime: time, nightChartPrice: '1134.04', nightPrice: '1200', dayPreviousClose: '1106.62', nightBase: '1106.62', dailyRows: [
+      { stck_bsop_date: '20260909', futs_prpr: '1118' }, { stck_bsop_date: '20260908', futs_prpr: '1106.62' },
+    ] }));
     const night = (await getKisMarketAssessmentSnapshot()).nightSession.kospiMiniFutures;
     expect(night?.observedAt).toBe(expected);
     expect(night?.price).toBe(1134.04);
     expect(night?.change).toBeCloseTo(27.42);
     expect(night?.changePct).toBeCloseTo(2.48, 2);
   });
-  it('uses the previous day session close for a morning night quote', async () => {
-    vi.setSystemTime(new Date('2026-09-09T10:00:00+09:00'));
-    vi.stubGlobal('fetch', providerMock({ dayChartDate: '20260909', dayChartTime: '090000', dayChartPrice: '1118', dayPreviousClose: '1106.62', nightChartDate: '20260908', nightChartPrice: '1115.62', nightBase: '1106.62' }));
+  it('checks the night session base against the close on its own date', async () => {
+    vi.setSystemTime(new Date('2026-09-23T10:00:00+09:00'));
+    vi.stubGlobal('fetch', providerMock({ dayChartDate: '20260923', dayChartTime: '090000', dayChartPrice: '1118', dayPreviousClose: '1106.62', nightChartDate: '20260922', nightChartPrice: '1115.62', nightBase: '1106.62', dailyRows: [
+      { stck_bsop_date: '20260923', futs_prpr: '1118' }, { stck_bsop_date: '20260922', futs_prpr: '1106.62' },
+    ] }));
     const night = (await getKisMarketAssessmentSnapshot()).nightSession.kospiMiniFutures;
     expect(night?.price).toBe(1115.62);
     expect(night?.change).toBeCloseTo(9);
     expect(night?.changePct).toBeCloseTo(9 / 1106.62 * 100);
+    expect(night?.observedAt).toBe('2026-09-22T21:00:00.000Z');
   });
-  it('uses the last day minute of the same session for an evening night quote', async () => {
-    vi.stubGlobal('fetch', providerMock({ dayChartPrice: '1115.62', dayPreviousClose: '1106.62', nightChartPrice: '1124.62', nightBase: '1115.62' }));
+  it('uses the daily close of the night session', async () => {
+    vi.stubGlobal('fetch', providerMock({ dayChartPrice: '1115.62', dayPreviousClose: '1106.62', nightChartPrice: '1124.62', nightBase: '1115.62', dailyRows: [
+      { stck_bsop_date: '20260908', futs_prpr: '1115.62' }, { stck_bsop_date: '20260907', futs_prpr: '1106.62' },
+    ] }));
     const night = (await getKisMarketAssessmentSnapshot()).nightSession.kospiMiniFutures;
     expect(night?.price).toBe(1124.62);
     expect(night?.change).toBeCloseTo(9);
     expect(night?.changePct).toBeCloseTo(9 / 1115.62 * 100);
   });
   it.each(['1115.60', '1115.64', 'bad'])('rejects a night base that does not match the session day close: %s', async nightBase => {
-    vi.stubGlobal('fetch', providerMock({ dayChartPrice: '1115.62', dayPreviousClose: '1106.62', nightBase }));
+    vi.stubGlobal('fetch', providerMock({ dayChartPrice: '1115.62', dayPreviousClose: '1106.62', nightBase, dailyRows: [
+      { stck_bsop_date: '20260908', futs_prpr: '1115.62' }, { stck_bsop_date: '20260907', futs_prpr: '1106.62' },
+    ] }));
     expect((await getKisMarketAssessmentSnapshot()).nightSession.kospiMiniFutures).toBeNull();
   });
   it('accepts a night base within 0.01 of the day close', async () => {
-    vi.stubGlobal('fetch', providerMock({ dayChartPrice: '1115.62', dayPreviousClose: '1106.62', nightBase: '1115.63', nightChartPrice: '1124.62' }));
+    vi.stubGlobal('fetch', providerMock({ dayChartPrice: '1115.62', dayPreviousClose: '1106.62', nightBase: '1115.63', nightChartPrice: '1124.62', dailyRows: [
+      { stck_bsop_date: '20260908', futs_prpr: '1115.62' }, { stck_bsop_date: '20260907', futs_prpr: '1106.62' },
+    ] }));
     const night = (await getKisMarketAssessmentSnapshot()).nightSession.kospiMiniFutures;
     expect(night?.price).toBe(1124.62);
     expect(night?.change).toBeCloseTo(9);
   });
-  it('rejects a same-day night quote before the day session closes', async () => {
-    vi.stubGlobal('fetch', providerMock({ dayChartTime: '154459', dayChartPrice: '1115.62', dayPreviousClose: '1106.62', nightBase: '1115.62' }));
+  it('checks the night date against daily closes even when the day minute is unavailable', async () => {
+    vi.stubGlobal('fetch', providerMock({ dayChartFailure: true, nightChartDate: '20260908' }));
+    expect((await getKisMarketAssessmentSnapshot()).nightSession.kospiMiniFutures?.change).toBe(0);
+  });
+  it('rejects a night date missing from the daily chart', async () => {
+    vi.stubGlobal('fetch', providerMock({ nightChartDate: '20260906' }));
     expect((await getKisMarketAssessmentSnapshot()).nightSession.kospiMiniFutures).toBeNull();
   });
-  it('rejects a night session newer than the latest day session', async () => {
-    vi.stubGlobal('fetch', providerMock({ dayChartDate: '20260907', nightChartDate: '20260908' }));
+  it('rejects today\'s night base before the 15:45 KST day close', async () => {
+    vi.setSystemTime(new Date('2026-09-28T15:44:00+09:00'));
+    vi.stubGlobal('fetch', providerMock({
+      dayChartDate: '20260928', dayChartTime: '154400',
+      nightChartDate: '20260928', nightBase: '1115.62',
+      dailyRows: [
+        { stck_bsop_date: '20260928', futs_prpr: '1115.62' },
+        { stck_bsop_date: '20260923', futs_prpr: '1106.62' },
+      ],
+    }));
     expect((await getKisMarketAssessmentSnapshot()).nightSession.kospiMiniFutures).toBeNull();
   });
   it.each([{ nightPriceFailure: true }, { nightChartFailure: true }, { nightChartTime: 'bad' }])('leaves unavailable or undated night data null: %j', async options => {
