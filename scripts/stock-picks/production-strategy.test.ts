@@ -2,12 +2,15 @@ import { describe, expect, it } from 'vitest'
 
 import {
   LEGACY_VOLUME_BREAKOUT_STRATEGY,
+  LOW_VOLATILITY_STABLE_STRATEGY,
   PRODUCTION_STRATEGY,
+  PRODUCTION_TARGET_MODEL,
   PRODUCTION_VOLUME_BREAKOUT_PARAMETERS,
   canonicalJson,
   hashCanonicalJson,
 } from '@/scripts/stock-picks/production-strategy'
-import { LOW_VOLATILITY_STABLE_PARAMETERS } from '@/scripts/stock-picks/strategies'
+import { BULLISH_TARGET_PARAMETERS, LOW_VOLATILITY_STABLE_PARAMETERS } from '@/scripts/stock-picks/strategies'
+import { addKoreanTradingDays } from '@/lib/tli/trading-calendar'
 
 describe('frozen production strategy artifact', () => {
   it('keeps the canonical frozen-parameter hash stable', () => {
@@ -33,15 +36,28 @@ describe('frozen production strategy artifact', () => {
     expect(LEGACY_VOLUME_BREAKOUT_STRATEGY.parametersHash).toBe(
       '981aa91b3db42c62fc0dd220f44c9d9624ebe0e1e7463a5c5783c5f67fed969c',
     )
-    expect(PRODUCTION_STRATEGY).toMatchObject({
+    expect(LOW_VOLATILITY_STABLE_STRATEGY).toMatchObject({
       name: 'lowVolatilityStable',
       version: 'v2-2026-09-23',
       parameters: LOW_VOLATILITY_STABLE_PARAMETERS,
     })
-    expect(PRODUCTION_STRATEGY.parametersHash).toBe(hashCanonicalJson({
+    expect(LOW_VOLATILITY_STABLE_STRATEGY.parametersHash).toBe(hashCanonicalJson({
       parameters: LOW_VOLATILITY_STABLE_PARAMETERS,
       gateVersion: 'status-flags-valid-candle-v2',
       preferredRule: 'krx-code-last-digit-nonzero',
     }))
+  })
+
+  it('hashes the frozen target model with its pool gates and keeps training-label availability', () => {
+    expect(PRODUCTION_STRATEGY).toMatchObject({
+      name: 'bullishTarget5d', version: 'v3-2026-09-29',
+      objective: 'bullishThenTouch10Within5TradingDays', parameters: BULLISH_TARGET_PARAMETERS,
+    })
+    expect(PRODUCTION_STRATEGY.parametersHash).toBe(hashCanonicalJson({
+      parameters: BULLISH_TARGET_PARAMETERS, model: PRODUCTION_TARGET_MODEL,
+      gateVersion: 'status-flags-valid-candle-v2', preferredRule: 'krx-code-last-digit-nonzero',
+    }))
+    expect(PRODUCTION_TARGET_MODEL.trainedLabelsThrough)
+      .toBe(addKoreanTradingDays(PRODUCTION_TARGET_MODEL.trainedSignalThrough!, 5))
   })
 })

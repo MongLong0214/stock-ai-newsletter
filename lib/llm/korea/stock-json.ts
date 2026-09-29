@@ -1,5 +1,6 @@
 import { PIPELINE_CONFIG } from '../_config/pipeline-config';
 import type { StockDataArray, StockData, StockSignals } from '../_types/stock-data';
+import { hasCompleteStockSelection } from '@/lib/newsletter/stock-selection';
 
 /**
  * 주식 신호 데이터 검증 (Type Guard)
@@ -52,6 +53,7 @@ export function validateStockData(data: unknown): data is StockDataArray {
     return false;
   }
   if (new Set(data.map((item) => item?.ticker)).size !== data.length) return false;
+  if (data.some((item) => item?.selection !== undefined) && !hasCompleteStockSelection(data)) return false;
 
   return data.every((item): item is StockData => {
     if (!item || typeof item !== 'object') return false;

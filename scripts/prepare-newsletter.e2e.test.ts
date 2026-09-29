@@ -1,11 +1,12 @@
 /** Prepare integration E2E: real orchestration, risk policy, collector, indicators,
- * selector, JSON validation and CAS. Only external providers/storage are in memory.
+ * selector/model, JSON validation, CAS and email rendering. Only external providers/storage are in memory.
  * This proves execution behavior, not predictive accuracy or live provider availability.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { MarketAssessmentSnapshot } from '@/lib/market-data/kis-market-assessment'
 import type { StockPickMaster } from '@/scripts/stock-picks/generate-picks'
 import type { StockDailyPriceRow } from '@/scripts/tli/prices/stock-daily-prices'
+import type { StockData } from '@/lib/llm/_types/stock-data'
 
 const state = vi.hoisted(() => ({
   rows: [] as StockDailyPriceRow[],
@@ -14,6 +15,7 @@ const state = vi.hoisted(() => ({
   snapshot: null as MarketAssessmentSnapshot | null,
   newsletter: null as Record<string, unknown> | null,
   snapshots: [] as Record<string, unknown>[],
+  corruptSelection: null as 'incomplete' | 'duplicate' | null,
   fetchDaily: vi.fn(),
   refreshMaster: vi.fn(),
   alert: vi.fn(),
@@ -62,9 +64,17 @@ vi.mock('@/scripts/stock-picks/trading-days', async (importOriginal) => {
 })
 vi.mock('@/scripts/stock-picks/generate-picks', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/scripts/stock-picks/generate-picks')>()
-  return { ...actual, generatePicksWithMeta: (input: Parameters<typeof actual.generatePicksWithMeta>[0]) => (
-    actual.generatePicksWithMeta({ ...input, dependencies: { loadMasters: async () => state.masters, loadRecentPublishedSymbols: async () => new Set<string>() } })
-  ) }
+  return { ...actual, generatePicksWithMeta: async (input: Parameters<typeof actual.generatePicksWithMeta>[0]) => {
+    const result = await actual.generatePicksWithMeta({ ...input, dependencies: {
+      loadMasters: async () => state.masters, loadRecentPublishedSymbols: async () => new Set<string>(),
+    } })
+    if (!state.corruptSelection) return result
+    // Exercise Prepare's persisted-JSON boundary after the real selector/model succeeds.
+    const picks = JSON.parse(result.json) as StockData[]
+    if (state.corruptSelection === 'incomplete') delete picks[0]!.selection
+    else picks[0]!.selection = { ...picks[1]!.selection! }
+    return { ...result, json: JSON.stringify(picks) }
+  } }
 })
 const database = vi.hoisted(() => ({ from: vi.fn() }))
 vi.mock('@supabase/supabase-js', () => ({ createClient: () => database }))
@@ -73,6 +83,7 @@ vi.mock('@/scripts/tli/shared/supabase-admin', () => ({ supabaseAdmin: database 
 import { validateStockData } from '@/lib/llm/korea/stock-json'
 import { riskQuote, riskSnapshot, RISK_NOW } from '@/lib/market-data/__tests__/market-risk-fixture'
 import { addKoreanTradingDays } from '@/lib/tli/trading-calendar'
+import { generateNewsletterHTML } from '@/lib/sendgrid'
 import { runPrepareNewsletterCli } from '@/scripts/prepare-newsletter'
 
 const TARGET = '2026-09-09'
@@ -93,6 +104,7 @@ describe('Prepare boundary-isolated E2E', () => {
     vi.stubEnv('STOCK_PICKS_SNAPSHOT_PATH', '')
     state.newsletter = null
     state.snapshots = []
+    state.corruptSelection = null
     state.snapshot = riskSnapshot()
     state.refreshMaster.mockResolvedValue(undefined)
     state.alert.mockResolvedValue(undefined)
@@ -147,24 +159,61 @@ describe('Prepare boundary-isolated E2E', () => {
 
   it('collects finalized candles, calculates real features, ranks 3 and saves matching snapshot/newsletter', async () => {
     expect(await runPrepareNewsletterCli([`--target-date=${TARGET}`])).toBe(0)
-    const picks = JSON.parse(String(state.newsletter?.gemini_analysis))
+    const picks = JSON.parse(String(state.newsletter?.gemini_analysis)) as StockData[]
     expect(validateStockData(picks)).toBe(true)
     expect(state.newsletter?.picks_source).toBe('code')
     expect(state.fetchDaily).toHaveBeenCalledTimes(7)
-    expect(state.snapshots).toHaveLength(4)
-    expect(state.snapshots.map((row) => row.strategy)).toEqual([
-      'lowVolatilityStable', 'shadow:A-volumeBreakout-v1.1',
-      'shadow:B-random', 'shadow:J-randomConstrained',
-    ])
+    expect(state.snapshots).toHaveLength(5)
+    expect(state.snapshots.map((row) => row.strategy)).toEqual(expect.arrayContaining([
+      'bullishTarget5d', 'shadow:A-volumeBreakout-v1.1',
+      'shadow:B-random', 'shadow:J-randomConstrained', 'shadow:lowVolatility-v2',
+    ]))
     expect(state.snapshots.every((row) => (row.picks as unknown[]).length === 3)).toBe(true)
     const snapshot = state.snapshots[0]
+    expect(snapshot.strategy).toBe('bullishTarget5d')
+    expect(snapshot.strategy_version).toMatch(/^v3/)
     expect(snapshot.signal_date).toBe(SIGNAL)
-    const candidates = snapshot.picks as Array<{ symbol: string; close: number; technicalContext: unknown }>
+    const candidates = snapshot.picks as Array<{ symbol: string; rank: number; close: number; technicalContext: unknown }>
     expect(candidates.map(row => row.symbol)).toEqual(picks.map((pick: { ticker: string }) => pick.ticker))
+    expect(candidates.map(row => row.rank)).toEqual([1, 2, 3])
+    expect(picks.map(pick => pick.selection)).toEqual([1, 2, 3].map(rank => ({
+      strategy: 'bullishTarget5d', rank, objective: 'bullishThenTouch10Within5TradingDays',
+    })))
     expect(candidates.every(row => row.technicalContext)).toBe(true)
     for (const row of candidates) expect(row.close).toBe(state.stored.get(`${row.symbol}|${SIGNAL}`)?.close)
+    const html = generateNewsletterHTML({
+      date: TARGET, geminiAnalysis: String(state.newsletter?.gemini_analysis),
+    }, 'reader@example.com')
+    // Order must come from persisted rank even if an intermediate consumer reorders the array.
+    const reorderedHtml = generateNewsletterHTML({
+      date: TARGET, geminiAnalysis: JSON.stringify([...picks].reverse()),
+    }, 'reader@example.com')
+    for (const rendered of [html, reorderedHtml]) {
+      const positions = picks.map(pick => rendered.indexOf(pick.name))
+      expect(positions.every(position => position >= 0)).toBe(true)
+      expect(positions[0]).toBeLessThan(positions[1])
+      expect(positions[1]).toBeLessThan(positions[2])
+    }
+    for (const rank of [1, 2, 3]) expect(html).toContain(`선정 순위 ${rank}위`)
+    expect(html).toContain('추천일 양봉 마감(종가 &gt; 시가)')
+    expect(html).toContain('추천일 포함 5거래일 안에 추천일 시가 대비 장중 +10% 도달')
+    expect(html).toContain('기술 참고 점수')
+    expect(html).toContain('상승 확률이 아닙니다')
+    expect(html).not.toContain('종합 점수')
+    expect(html).not.toMatch(/undefined|NaN/)
     expect(state.model).not.toHaveBeenCalled()
     expect(state.alert).not.toHaveBeenCalled()
+    expect(fetch).not.toHaveBeenCalled()
+  })
+
+  it.each(['incomplete', 'duplicate'] as const)('rejects %s selection ranks before storing any output', async (corruptSelection) => {
+    state.corruptSelection = corruptSelection
+    expect(await runPrepareNewsletterCli([`--target-date=${TARGET}`])).toBe(1)
+    expect(state.fetchDaily).toHaveBeenCalledTimes(7)
+    expect(state.newsletter).toBeNull()
+    expect(state.snapshots).toHaveLength(0)
+    expect(state.model).not.toHaveBeenCalled()
+    expect(state.alert).toHaveBeenCalledOnce()
     expect(fetch).not.toHaveBeenCalled()
   })
 

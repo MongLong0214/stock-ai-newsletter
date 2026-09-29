@@ -21,6 +21,13 @@ export interface StockSignals {
   overall_score: number;
 }
 
+/** 실제 선정 순서와 평가 목표. 기술 점수 또는 상승 확률과 구분한다. */
+export interface StockSelection {
+  strategy: string;
+  rank: 1 | 2 | 3;
+  objective: 'bullishThenTouch10Within5TradingDays';
+}
+
 /**
  * 주식 종목 데이터
  *
@@ -57,6 +64,8 @@ export interface StockData {
   close_price: number;
   rationale: string;
   signals: StockSignals;
+  /** 신규 선정 결과에만 포함하며 기존 뉴스레터와 호환된다. */
+  selection?: StockSelection;
 }
 
 /**

@@ -2,6 +2,8 @@
  * 분석 기록 페이지 타입 정의
  */
 
+import type { StockSelection } from '@/lib/llm/_types/stock-data';
+
 /**
  * 날짜 문자열 타입 (YYYY-MM-DD)
  */
@@ -60,6 +62,8 @@ export interface StockData {
   rationale: string;
   /** 기술적 분석 시그널 */
   signals: StockSignals;
+  /** 실제 선정 순위와 목표 (기존 기록에는 없음) */
+  selection?: StockSelection;
 }
 
 /**

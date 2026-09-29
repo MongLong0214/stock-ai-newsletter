@@ -64,6 +64,40 @@ const makeCodePickData = (): StockNewsletterData => ({
 })
 
 describe('generateNewsletterHTML', () => {
+  it('keeps legacy technical-score ordering and labels', () => {
+    const html = generateNewsletterHTML(makeCodePickData(), 'reader@example.com')
+    expect(html.indexOf('SK하이닉스')).toBeLessThan(html.indexOf('삼성전자'))
+    expect(html.indexOf('삼성전자')).toBeLessThan(html.indexOf('JYP Ent.'))
+    expect(html).toContain('종합 점수')
+    expect(html).not.toContain('선정 목표:')
+    expect(html).not.toContain('선정 순위')
+  })
+
+  it('renders actual selection rank and the joint five-day target independently of technical score', () => {
+    const data = makeCodePickData()
+    const stocks = JSON.parse(data.geminiAnalysis).map((stock: object, index: number) => ({
+      ...stock,
+      selection: {
+        strategy: 'test-five-day-target',
+        rank: index + 1,
+        objective: 'bullishThenTouch10Within5TradingDays',
+      },
+    }))
+    data.geminiAnalysis = JSON.stringify(stocks.reverse())
+    const html = generateNewsletterHTML(data, 'reader@example.com')
+
+    expect(html.indexOf('삼성전자')).toBeLessThan(html.indexOf('SK하이닉스'))
+    expect(html.indexOf('SK하이닉스')).toBeLessThan(html.indexOf('JYP Ent.'))
+    expect(html).toContain('선정 순위 1위')
+    expect(html).toContain('선정 순위 2위')
+    expect(html).toContain('선정 순위 3위')
+    expect(html).toContain('추천일 양봉 마감(종가 &gt; 시가)')
+    expect(html).toContain('추천일 포함 5거래일 안에 추천일 시가 대비 장중 +10% 도달')
+    expect(html).toContain('기술 참고 점수')
+    expect(html).toContain('상승 확률이 아닙니다')
+    expect(html).not.toContain('종합 점수')
+  })
+
   it('renders the production code-pick shape without missing-value artifacts', () => {
     const html = generateNewsletterHTML(makeCodePickData(), 'reader@example.com')
 

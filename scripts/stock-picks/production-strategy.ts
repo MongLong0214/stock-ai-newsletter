@@ -1,6 +1,8 @@
 import { createHash } from 'node:crypto'
 
-import { LOW_VOLATILITY_STABLE_PARAMETERS, type VolumeBreakoutParameters } from '@/scripts/stock-picks/strategies'
+import { BULLISH_TARGET_PARAMETERS, LOW_VOLATILITY_STABLE_PARAMETERS, type VolumeBreakoutParameters } from '@/scripts/stock-picks/strategies'
+import frozenTargetModel from '@/scripts/stock-picks/models/bullish-target-v3.json'
+import type { TargetModelArtifact } from '@/scripts/stock-picks/target-model'
 
 export function canonicalJson(value: unknown): string {
   if (value === null || typeof value === 'string' || typeof value === 'boolean') {
@@ -51,12 +53,29 @@ export const LEGACY_VOLUME_BREAKOUT_STRATEGY = {
   }),
 } as const
 
-export const PRODUCTION_STRATEGY = {
+export const LOW_VOLATILITY_STABLE_STRATEGY = {
   name: 'lowVolatilityStable',
   version: 'v2-2026-09-23',
   parameters: LOW_VOLATILITY_STABLE_PARAMETERS,
   parametersHash: hashCanonicalJson({
     parameters: LOW_VOLATILITY_STABLE_PARAMETERS,
+    gateVersion: 'status-flags-valid-candle-v2',
+    preferredRule: 'krx-code-last-digit-nonzero',
+  }),
+} as const
+
+export const PRODUCTION_TARGET_MODEL = frozenTargetModel as TargetModelArtifact & {
+  readonly trainedLabelsThrough: string
+}
+
+export const PRODUCTION_STRATEGY = {
+  name: 'bullishTarget5d',
+  version: 'v3-2026-09-29',
+  objective: 'bullishThenTouch10Within5TradingDays',
+  parameters: BULLISH_TARGET_PARAMETERS,
+  parametersHash: hashCanonicalJson({
+    parameters: BULLISH_TARGET_PARAMETERS,
+    model: PRODUCTION_TARGET_MODEL,
     gateVersion: 'status-flags-valid-candle-v2',
     preferredRule: 'krx-code-last-digit-nonzero',
   }),

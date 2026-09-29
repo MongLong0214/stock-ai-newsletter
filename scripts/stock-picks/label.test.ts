@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { buildPriceBook } from '@/scripts/stock-picks/data-handler'
-import { labelPick } from '@/scripts/stock-picks/label'
+import { labelEntryDay, labelPick } from '@/scripts/stock-picks/label'
 import { TradingDayIndex } from '@/scripts/stock-picks/trading-days'
 import type { StockDailyPriceRow } from '@/scripts/tli/prices/stock-daily-prices'
 
@@ -112,6 +112,10 @@ describe('labelPick', () => {
       touched: true,
       status: 'hit',
       return5d: 0.040000000000000036,
+      entryReturn: 0,
+      entryBullish: false,
+      bullishAndTouched10In5d: false,
+      targetExitReturn5d: 0.1,
       maxDrawdown: -0.06000000000000005,
       // D1~D4 종가 100(보합), D5만 104 — 상승 마감은 D5 하루뿐이다.
       upDayCount: 1,
@@ -231,7 +235,9 @@ describe('labelPick', () => {
     expect(labelPick(SYMBOL, DATES[0], prices, tradingDays, 8)).toMatchObject({
       maxHigh: 110,
       touched: true,
+      bullishAndTouched10In5d: false,
     })
+    expect(labelPick(SYMBOL, DATES[0], prices, tradingDays, 8)?.targetExitReturn5d).toBeCloseTo(0.05)
     expect(labelPick(
       SYMBOL,
       DATES[0],
@@ -239,5 +245,48 @@ describe('labelPick', () => {
       new TradingDayIndex(DATES.slice(0, -1)),
       8,
     )).toBeNull()
+  })
+
+  it.each([
+    { entryClose: 103, high: 110, bullish: true, joint: true, targetReturn: 0.1 },
+    { entryClose: 99, high: 110, bullish: false, joint: false, targetReturn: 0.1 },
+    { entryClose: 100, high: 110, bullish: false, joint: false, targetReturn: 0.1 },
+    { entryClose: 103, high: 109, bullish: true, joint: false, targetReturn: -0.05 },
+  ])('separates entry candle, target touch and target-exit proxy: $entryClose / $high', ({
+    entryClose, high, bullish, joint, targetReturn,
+  }) => {
+    const rows = buildRows({ highs: [high, 105, 105, 105, 105], close5d: 95 })
+    rows[1] = { ...rows[1]!, close: entryClose }
+    const label = labelPick(SYMBOL, DATES[0], buildPriceBook(rows), new TradingDayIndex(DATES))
+    expect(label).toMatchObject({ entryBullish: bullish, bullishAndTouched10In5d: joint })
+    expect(label?.entryReturn).toBeCloseTo(entryClose / 100 - 1)
+    expect(label?.return5d).toBeCloseTo(-0.05)
+    expect(label?.targetExitReturn5d).toBeCloseTo(targetReturn)
+  })
+
+  it('preserves a valid entry candle when later data is invalid without counting a joint hit', () => {
+    const rows = buildRows({ highs: [110, null, 105, 105, 105] })
+    rows[1] = { ...rows[1]!, close: 103 }
+    expect(labelPick(SYMBOL, DATES[0], buildPriceBook(rows), new TradingDayIndex(DATES))).toMatchObject({
+      status: 'data_error', entryBullish: true, touched: false,
+      bullishAndTouched10In5d: null, targetExitReturn5d: null,
+    })
+  })
+})
+
+describe('labelEntryDay', () => {
+  it('evaluates a finalized entry day without future prices or a mature calendar', () => {
+    const rows = buildRows().slice(1, 2).map((row) => ({ ...row, close: 103 }))
+    expect(labelEntryDay(SYMBOL, DATES[1], buildPriceBook(rows))).toMatchObject({
+      entryDate: DATES[1], entry: 100, close: 103, entryBullish: true,
+    })
+  })
+
+  it.each([
+    { close: Number.NaN }, { open: Infinity }, { close: 106 },
+    { volume: 0 }, { volume: null }, { volume: -1 }, { high: null },
+  ])('rejects invalid or untradeable entry data: %j', (invalid) => {
+    const row = { ...buildRows()[1]!, ...invalid }
+    expect(labelEntryDay(SYMBOL, DATES[1], buildPriceBook([row]))).toBeNull()
   })
 })
