@@ -2,6 +2,74 @@
   "newsletters": [
     {
       "type": "stock",
+      "date": "2026-09-30",
+      "stocks": [
+        {
+          "ticker": "KOSDAQ:475830",
+          "name": "오름테라퓨틱",
+          "close_price": 22500,
+          "rationale": "기준일 종가 22,500원|당일 등락 -7.2% 하락|RSI 20.7 약세|거래량비율 152% 평균상회|60일 거래량 백분위 95.8점|60일 고점까지 69.0%|20일선 괴리 -51.2%|20일 추세 기울기 -5.19%/일|20일 추세 적합도 R2 76.2점|60일 추세 적합도 R2 3.3점|MACD 히스토그램 -3242.25|ATR14 21.4%|ADX14 31.6점|OBV20 기울기 -408012|252거래일 가격위치 0.0%|연속상승 0일|골든크로스 감지 1회·경과 25일|20일 평균거래대금 142.4억원|공동 목표 모델 순위 1위|선정 목표 발행일 양봉·시가 대비 5거래일 내 +10% 터치",
+          "signals": {
+            "trend_score": 19,
+            "momentum_score": 27,
+            "volume_score": 53,
+            "volatility_score": 0,
+            "pattern_score": 8,
+            "sentiment_score": 17,
+            "overall_score": 24
+          },
+          "selection": {
+            "strategy": "bullishTarget5d",
+            "rank": 1,
+            "objective": "bullishThenTouch10Within5TradingDays"
+          }
+        },
+        {
+          "ticker": "KOSDAQ:024850",
+          "name": "HLB이노베이션",
+          "close_price": 16140,
+          "rationale": "기준일 종가 16,140원|당일 등락 -18.0% 하락|RSI 53.7 중립|거래량비율 525% 급증|60일 거래량 백분위 99.2점|60일 고점까지 18.0%|20일선 괴리 3.8%|20일 추세 기울기 0.32%/일|20일 추세 적합도 R2 5.0점|60일 추세 적합도 R2 58.5점|MACD 히스토그램 30.23|ATR14 10.4%|ADX14 22.1점|OBV20 기울기 30076|252거래일 가격위치 44.2%|연속상승 0일|골든크로스 감지 1회·경과 22일|20일 평균거래대금 59.8억원|공동 목표 모델 순위 2위|선정 목표 발행일 양봉·시가 대비 5거래일 내 +10% 터치",
+          "signals": {
+            "trend_score": 64,
+            "momentum_score": 49,
+            "volume_score": 84,
+            "volatility_score": 0,
+            "pattern_score": 19,
+            "sentiment_score": 53,
+            "overall_score": 50
+          },
+          "selection": {
+            "strategy": "bullishTarget5d",
+            "rank": 2,
+            "objective": "bullishThenTouch10Within5TradingDays"
+          }
+        },
+        {
+          "ticker": "KOSDAQ:026910",
+          "name": "광진실업",
+          "close_price": 2350,
+          "rationale": "기준일 종가 2,350원|당일 등락 -5.8% 하락|RSI 28.7 약세|거래량비율 76% 평균하회|60일 거래량 백분위 69.2점|60일 고점까지 63.8%|20일선 괴리 -27.4%|20일 추세 기울기 -1.51%/일|20일 추세 적합도 R2 50.4점|60일 추세 적합도 R2 86.8점|MACD 히스토그램 -68.55|ATR14 19.6%|ADX14 21.8점|OBV20 기울기 -76109|252거래일 가격위치 18.0%|연속상승 0일|골든크로스 감지 0회·경과 -1일|20일 평균거래대금 7.0억원|공동 목표 모델 순위 3위|선정 목표 발행일 양봉·시가 대비 5거래일 내 +10% 터치",
+          "signals": {
+            "trend_score": 13,
+            "momentum_score": 29,
+            "volume_score": 40,
+            "volatility_score": 0,
+            "pattern_score": 25,
+            "sentiment_score": 23,
+            "overall_score": 24
+          },
+          "selection": {
+            "strategy": "bullishTarget5d",
+            "rank": 3,
+            "objective": "bullishThenTouch10Within5TradingDays"
+          }
+        }
+      ],
+      "sentAt": "2026-09-29T22:30:57.407+00:00",
+      "subscriberCount": 321
+    },
+    {
+      "type": "stock",
       "date": "2026-09-29",
       "stocks": [
         {
@@ -12415,5 +12483,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-09-28T22:31:28.628Z"
+  "lastUpdated": "2026-09-29T22:31:35.178Z"
 }
