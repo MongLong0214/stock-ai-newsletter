@@ -15,7 +15,7 @@ const state = vi.hoisted(() => ({
   snapshot: null as MarketAssessmentSnapshot | null,
   newsletter: null as Record<string, unknown> | null,
   snapshots: [] as Record<string, unknown>[],
-  corruptSelection: null as 'incomplete' | 'duplicate' | null,
+  corruptSelection: null as 'incomplete' | 'duplicate' | 'all-missing' | 'wrong-strategy' | 'wrong-ticker' | 'swapped-ranks' | 'wrong-price' | 'snapshot-price' | 'snapshot-name' | 'model-identity' | null,
   fetchDaily: vi.fn(),
   refreshMaster: vi.fn(),
   alert: vi.fn(),
@@ -72,7 +72,25 @@ vi.mock('@/scripts/stock-picks/generate-picks', async (importOriginal) => {
     // Exercise Prepare's persisted-JSON boundary after the real selector/model succeeds.
     const picks = JSON.parse(result.json) as StockData[]
     if (state.corruptSelection === 'incomplete') delete picks[0]!.selection
-    else picks[0]!.selection = { ...picks[1]!.selection! }
+    if (state.corruptSelection === 'duplicate') picks[0]!.selection = { ...picks[1]!.selection! }
+    if (state.corruptSelection === 'all-missing') for (const pick of picks) delete pick.selection
+    if (state.corruptSelection === 'wrong-strategy') for (const pick of picks) pick.selection!.strategy = 'wrong-model'
+    if (state.corruptSelection === 'wrong-ticker') picks[0]!.ticker = 'KOSPI:999990'
+    if (state.corruptSelection === 'swapped-ranks') {
+      picks[0]!.selection!.rank = 2
+      picks[1]!.selection!.rank = 1
+    }
+    if (state.corruptSelection === 'wrong-price') picks[0]!.close_price += 500
+    if (state.corruptSelection === 'snapshot-price') return { ...result, meta: { ...result.meta,
+      rankedCandidates: result.meta.rankedCandidates.map((candidate, index) => index === 0
+        ? { ...candidate, close: candidate.close! + 500 } : candidate),
+    } }
+    if (state.corruptSelection === 'snapshot-name') return { ...result, meta: { ...result.meta,
+      rankedCandidates: result.meta.rankedCandidates.map((candidate, index) => index === 0
+        ? { ...candidate, name: '다른 회사' } : candidate),
+    } }
+    if (state.corruptSelection === 'model-identity') return { ...result, meta: { ...result.meta, parametersHash: 'wrong-model-hash' } }
+
     return { ...result, json: JSON.stringify(picks) }
   } }
 })
@@ -84,7 +102,9 @@ import { validateStockData } from '@/lib/llm/korea/stock-json'
 import { riskQuote, riskSnapshot, RISK_NOW } from '@/lib/market-data/__tests__/market-risk-fixture'
 import { addKoreanTradingDays } from '@/lib/tli/trading-calendar'
 import { generateNewsletterHTML } from '@/lib/sendgrid'
+import { createKisApiError } from '@/app/archive/_utils/api/kis/client'
 import { runPrepareNewsletterCli } from '@/scripts/prepare-newsletter'
+import { DEFAULT_DAILY_COLLECTION_CALL_BUDGET } from '@/scripts/stock-picks/collect-daily'
 
 const TARGET = '2026-09-09'
 const SIGNAL = '2026-09-08'
@@ -140,14 +160,21 @@ describe('Prepare boundary-isolated E2E', () => {
       } }
       if (table !== 'newsletter_content') throw new Error(`Unexpected E2E table: ${table}`)
       return {
-        select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: state.newsletter, error: null }) }) }),
+        select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: structuredClone(state.newsletter), error: null }) }) }),
         insert: (row: Record<string, unknown>) => ({ select: async () => {
           if (state.newsletter) return { error: { code: '23505' } }
           state.newsletter = { ...row, is_sent: false }; return { data: [row], error: null }
         } }),
         update: (row: Record<string, unknown>) => {
-          const builder = { eq: () => builder, select: async () => {
-            if (!state.newsletter || state.newsletter.is_sent) return { data: [], error: null }
+          const filters = new Map<string, unknown>()
+          const builder = { eq: (key: string, value: unknown) => {
+            filters.set(key, value)
+            return builder
+          }, select: async () => {
+            // Apply the actual CAS predicates; an omitted is_sent filter must not be masked by the fixture.
+            if (!state.newsletter || [...filters].some(([key, value]) => state.newsletter![key] !== value)) {
+              return { data: [], error: null }
+            }
             state.newsletter = { ...state.newsletter, ...row }; return { data: [row], error: null }
           } }
           return builder
@@ -206,7 +233,7 @@ describe('Prepare boundary-isolated E2E', () => {
     expect(fetch).not.toHaveBeenCalled()
   })
 
-  it.each(['incomplete', 'duplicate'] as const)('rejects %s selection ranks before storing any output', async (corruptSelection) => {
+  it.each(['incomplete', 'duplicate', 'all-missing', 'wrong-strategy', 'wrong-ticker', 'swapped-ranks', 'wrong-price', 'snapshot-price', 'snapshot-name', 'model-identity'] as const)('rejects %s selection corruption before storing any output', async (corruptSelection) => {
     state.corruptSelection = corruptSelection
     expect(await runPrepareNewsletterCli([`--target-date=${TARGET}`])).toBe(1)
     expect(state.fetchDaily).toHaveBeenCalledTimes(7)
@@ -223,6 +250,115 @@ describe('Prepare boundary-isolated E2E', () => {
     expect(state.newsletter.gemini_analysis).toBe('original')
     expect(state.fetchDaily).not.toHaveBeenCalled()
     expect(state.snapshots).toHaveLength(0)
+  })
+
+  it('recovers a transient provider timeout through the real retry queue with identical picks', async () => {
+    const initialPrices = new Map(state.stored)
+    expect(await runPrepareNewsletterCli([`--target-date=${TARGET}`])).toBe(0)
+    const expectedJson = state.newsletter!.gemini_analysis
+    const expectedCandidates = structuredClone(state.snapshots[0]!.picks)
+    const fetchDaily = state.fetchDaily.getMockImplementation()!
+    const failedSymbol = state.masters[0]!.symbol
+    state.newsletter = null
+    state.snapshots = []
+    state.stored = initialPrices
+    state.fetchDaily.mockClear()
+    let failedOnce = false
+    state.fetchDaily.mockImplementation(async (symbol: string, start: string, end: string) => {
+      if (symbol === failedSymbol && !failedOnce) {
+        failedOnce = true
+        throw createKisApiError('timeout', 'Temporary fixture provider timeout')
+      }
+      return fetchDaily(symbol, start, end)
+    })
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+    expect(await runPrepareNewsletterCli([`--target-date=${TARGET}`])).toBe(0)
+    expect(state.fetchDaily).toHaveBeenCalledTimes(8)
+    expect(state.fetchDaily.mock.calls.filter(([symbol]) => symbol === failedSymbol)).toHaveLength(2)
+    expect(state.newsletter!.gemini_analysis).toBe(expectedJson)
+    expect(state.snapshots).toHaveLength(5)
+    expect(state.snapshots[0]!.picks).toEqual(expectedCandidates)
+    const collectionLog = log.mock.calls.find(([line]) => typeof line === 'string'
+      && line.startsWith('{"event":"stock_daily_collection",'))?.[0]
+    expect(JSON.parse(String(collectionLog))).toMatchObject({
+      attemptedCalls: 7, physicalCalls: 8, successCount: 7, failureCount: 0,
+      retriedSymbols: [failedSymbol], recoveredSymbols: [failedSymbol], exactDateCoverageRate: 1,
+    })
+    expect(state.alert).not.toHaveBeenCalled()
+    expect(state.model).not.toHaveBeenCalled()
+    expect(fetch).not.toHaveBeenCalled()
+  })
+
+  it('fails closed when the real collector exhausts its call budget despite complete attempted-symbol coverage', async () => {
+    // Prepare uses the production call budget. One more requested symbol than that budget must block publication.
+    const providerRows = state.rows.filter(row => row.symbol === 'KOSPI'
+      && row.trade_date >= addKoreanTradingDays(SIGNAL, -6))
+      .map(row => ({ date: row.trade_date, open: row.open, high: row.high,
+        low: row.low, close: row.close, volume: row.volume }))
+    state.masters = Array.from({ length: DEFAULT_DAILY_COLLECTION_CALL_BUDGET }, (_, index) => ({
+      symbol: `KOSPI:${String(index + 1).padStart(6, '0')}`,
+      name: `Budget종목${index + 1}`, is_active: true, status_flags: {},
+    }))
+    state.fetchDaily.mockImplementation(async () => {
+      // Advance only wall-clock time as though the provider used its 100 ms pacing interval.
+      vi.setSystemTime(Date.now() + 100)
+      return providerRows
+    })
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+    expect(await runPrepareNewsletterCli([`--target-date=${TARGET}`])).toBe(1)
+    expect(state.fetchDaily).toHaveBeenCalledTimes(DEFAULT_DAILY_COLLECTION_CALL_BUDGET)
+    const collectionLog = log.mock.calls.find(([line]) => typeof line === 'string'
+      && line.startsWith('{"event":"stock_daily_collection",'))?.[0]
+    expect(JSON.parse(String(collectionLog))).toMatchObject({
+      callBudget: DEFAULT_DAILY_COLLECTION_CALL_BUDGET,
+      attemptedCalls: DEFAULT_DAILY_COLLECTION_CALL_BUDGET,
+      physicalCalls: DEFAULT_DAILY_COLLECTION_CALL_BUDGET,
+      skippedForBudget: 1, successRate: 1, exactDateCoverageRate: 1,
+    })
+    expect(state.newsletter).toBeNull()
+    expect(state.snapshots).toHaveLength(0)
+    expect(state.alert).toHaveBeenCalledOnce()
+    expect(state.model).not.toHaveBeenCalled()
+    expect(fetch).not.toHaveBeenCalled()
+  })
+
+  it.each([false, true])('preserves a newsletter sent during acquisition across the CAS race (existing=%s)', async (existing) => {
+    state.newsletter = existing ? {
+      newsletter_date: TARGET, is_sent: false, picks_source: 'code', gemini_analysis: 'prior-unsent',
+    } : null
+    const competingNewsletter = {
+      newsletter_date: TARGET, is_sent: true, picks_source: 'code', gemini_analysis: 'already-sent-by-competing-worker',
+    }
+    const fetchDaily = state.fetchDaily.getMockImplementation()!
+    state.fetchDaily.mockImplementationOnce(async (symbol: string, start: string, end: string) => {
+      state.newsletter = structuredClone(competingNewsletter)
+      return fetchDaily(symbol, start, end)
+    })
+
+    expect(await runPrepareNewsletterCli([`--target-date=${TARGET}`])).toBe(0)
+    expect(state.fetchDaily).toHaveBeenCalledTimes(7)
+    expect(state.newsletter).toEqual(competingNewsletter)
+    expect(state.snapshots).toHaveLength(0)
+    expect(state.alert).not.toHaveBeenCalled()
+    expect(state.model).not.toHaveBeenCalled()
+    expect(fetch).not.toHaveBeenCalled()
+  })
+
+  it('skips acquisition on a backup run when unsent code picks already exist', async () => {
+    const prepared = {
+      newsletter_date: TARGET, is_sent: false, picks_source: 'code', gemini_analysis: 'already-prepared-code-picks',
+    }
+    state.newsletter = structuredClone(prepared)
+    expect(await runPrepareNewsletterCli([`--target-date=${TARGET}`, '--backup-run'])).toBe(0)
+    expect(state.newsletter).toEqual(prepared)
+    expect(state.fetchDaily).not.toHaveBeenCalled()
+    expect(state.refreshMaster).not.toHaveBeenCalled()
+    expect(state.snapshots).toHaveLength(0)
+    expect(state.alert).not.toHaveBeenCalled()
+    expect(state.model).not.toHaveBeenCalled()
+    expect(fetch).not.toHaveBeenCalled()
   })
 
   it('fails closed on an incomplete signal-day universe without switching to LLM stocks', async () => {

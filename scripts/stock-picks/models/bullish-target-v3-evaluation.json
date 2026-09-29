@@ -401,8 +401,8 @@
   "verification": {
     "tests": {
       "files": 363,
-      "passed": 4117,
-      "prepareE2E": 8
+      "passed": 4130,
+      "prepareE2E": 21
     },
     "typecheck": "app and scripts passed",
     "lint": "0 errors, 15 preexisting warnings",
@@ -434,7 +434,8 @@
       "horizontalOverflow": false,
       "pageErrors": 0,
       "emailRankOrder": true,
-      "priceApi": "mocked; independent live KIS check above"
+      "priceApi": "mocked; independent live KIS check above",
+      "rankSingleLine": true
     }
   }
 }

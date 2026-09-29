@@ -112,7 +112,7 @@ export default function NewsletterCard({
             </span>
             <div
               className={`
-                text-5xl sm:text-6xl font-black tabular-nums
+                ${selectionRank ? 'text-4xl sm:text-5xl whitespace-nowrap' : 'text-5xl sm:text-6xl'} font-black tabular-nums
                 bg-gradient-to-br ${selectionRank ? 'from-emerald-300 to-teal-400' : overallGradient}
                 bg-clip-text text-transparent
                 drop-shadow-[0_0_20px_rgba(16,185,129,0.5)]
