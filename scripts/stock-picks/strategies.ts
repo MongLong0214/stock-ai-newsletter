@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto'
 
 import type { StockPickStrategy } from '@/scripts/stock-picks/backtest'
 import type { StockFeatureVector } from '@/scripts/stock-picks/features'
+import { scoreTargetModel, type TargetModelArtifact } from '@/scripts/stock-picks/target-model'
 
 const DEFAULT_MIN_TURNOVER = 1_000_000_000
 const PICKS_PER_DATE = 3
@@ -15,7 +16,7 @@ export type StrategyName =
   | 'composite'
 export type SelectionMode = 'force3' | 'abstain'
 export type AblationFeature = keyof StockFeatureVector
-export type TieredFillTier = 'breakout' | 'relaxedBreakout' | 'volumeOnly' | 'lowVolatility'
+export type TieredFillTier = 'breakout' | 'relaxedBreakout' | 'volumeOnly' | 'lowVolatility' | 'bullishTarget5d'
 
 export interface TieredFillPick {
   readonly symbol: string
@@ -34,6 +35,8 @@ export const LOW_VOLATILITY_STABLE_PARAMETERS = {
   maxSignalDayReturn: 0.10,
   recentPickTradingDays: 20,
 } as const
+
+export const BULLISH_TARGET_PARAMETERS = { ...LOW_VOLATILITY_STABLE_PARAMETERS } as const
 
 export const isPreferredShare = (symbol: string): boolean => (
   (symbol.split(':').at(-1) ?? '').at(-1) !== '0'
@@ -272,6 +275,35 @@ const passesSignalDayReturn = (feature: StockFeatureVector, maximum: number): bo
   && (1 + feature.gapFromPreviousClosePercent / 100) * (feature.close / feature.open) - 1 < maximum
 )
 
+const passesTargetPoolGate = (
+  feature: StockFeatureVector,
+  master: StockMasterState | undefined,
+  parameters: typeof LOW_VOLATILITY_STABLE_PARAMETERS,
+  excluded: ReadonlySet<string>,
+): boolean => (
+  passesCommonGate(feature, master, parameters.minTurnover, parameters.maxRsi)
+  && !isPreferredShare(feature.symbol)
+  && passesSignalDayReturn(feature, parameters.maxSignalDayReturn)
+  && !excluded.has(feature.symbol)
+  && feature.atrPercent14 !== null && Number.isFinite(feature.atrPercent14)
+)
+
+export function rankBullishTargetCandidates(input: {
+  readonly features: readonly StockFeatureVector[]
+  readonly masters: ReadonlyMap<string, StockMasterState>
+  readonly parameters: typeof BULLISH_TARGET_PARAMETERS
+  readonly excludeSymbols: ReadonlySet<string>
+  readonly model: TargetModelArtifact
+  readonly pickCount?: number
+}): Array<{ symbol: string; score: number }> {
+  return input.features.flatMap((feature) => {
+    if (!passesTargetPoolGate(feature, input.masters.get(feature.symbol), input.parameters, input.excludeSymbols)) return []
+    const score = scoreTargetModel(feature, input.model)
+    return score === null ? [] : [{ symbol: feature.symbol, score }]
+  }).sort((left, right) => right.score - left.score || left.symbol.localeCompare(right.symbol))
+    .slice(0, input.pickCount ?? PICKS_PER_DATE)
+}
+
 export function rankLowVolatilityStableCandidates(input: {
   readonly features: readonly StockFeatureVector[]
   readonly masters: ReadonlyMap<string, StockMasterState>
@@ -280,11 +312,7 @@ export function rankLowVolatilityStableCandidates(input: {
   readonly pickCount?: number
 }): string[] {
   return input.features.filter((feature) => (
-    passesCommonGate(feature, input.masters.get(feature.symbol), input.parameters.minTurnover, input.parameters.maxRsi)
-    && !isPreferredShare(feature.symbol)
-    && passesSignalDayReturn(feature, input.parameters.maxSignalDayReturn)
-    && !input.excludeSymbols.has(feature.symbol)
-    && feature.atrPercent14 !== null && Number.isFinite(feature.atrPercent14)
+    passesTargetPoolGate(feature, input.masters.get(feature.symbol), input.parameters, input.excludeSymbols)
   )).sort((left, right) => (
     left.atrPercent14! - right.atrPercent14!
     || left.symbol.localeCompare(right.symbol)

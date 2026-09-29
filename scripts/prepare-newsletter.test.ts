@@ -4,6 +4,8 @@ import { join } from 'node:path'
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { PRODUCTION_STRATEGY } from '@/scripts/stock-picks/production-strategy'
+
 import { siteConfig } from '@/lib/constants/seo/config'
 import { MarketAssessmentUnavailableError } from '@/lib/market-data/market-assessment-policy'
 
@@ -68,7 +70,7 @@ const CODE_PICKS = JSON.stringify([
   { ticker: 'KOSPI:000001', name: '테스트1', close_price: 1000 },
   { ticker: 'KOSPI:000002', name: '테스트2', close_price: 2000 },
   { ticker: 'KOSPI:000003', name: '테스트3', close_price: 3000 },
-].map((pick) => ({ ...pick, rationale: '관측한 가격과 거래량에 기반한 검증용 기술적 분석입니다. 미래 수익이나 상승 확률을 보장하지 않습니다.',
+].map((pick, index) => ({ ...pick, selection: { strategy: PRODUCTION_STRATEGY.name, rank: index + 1, objective: PRODUCTION_STRATEGY.objective }, rationale: '관측한 가격과 거래량에 기반한 검증용 기술적 분석입니다. 미래 수익이나 상승 확률을 보장하지 않습니다.',
   signals: { trend_score: 50, momentum_score: 50, volume_score: 50, volatility_score: 50,
     pattern_score: 50, sentiment_score: 50, overall_score: 50 },
 })))
@@ -78,10 +80,10 @@ const GENERATED_RESULT = {
   picks: JSON.parse(CODE_PICKS),
   meta: {
     signalDate: SIGNAL_DATE,
-    strategy: 'lowVolatilityStable',
-    strategyVersion: 'v2-2026-09-23',
-    parameters: {},
-    parametersHash: 'fixture-hash',
+    strategy: PRODUCTION_STRATEGY.name,
+    strategyVersion: PRODUCTION_STRATEGY.version,
+    parameters: PRODUCTION_STRATEGY.parameters,
+    parametersHash: PRODUCTION_STRATEGY.parametersHash,
     funnel: {
       signalDate: SIGNAL_DATE,
       activeMasters: 4,
@@ -91,10 +93,10 @@ const GENERATED_RESULT = {
       picked: 3,
     },
     rankedCandidates: [
-      { symbol: 'KOSPI:000001', name: '테스트1', score: 1, rank: 1, tier: 'lowVolatility' },
-      { symbol: 'KOSPI:000002', name: '테스트2', score: 2, rank: 2, tier: 'lowVolatility' },
-      { symbol: 'KOSPI:000003', name: '테스트3', score: 3, rank: 3, tier: 'lowVolatility' },
-      { symbol: 'KOSPI:000004', name: '테스트4', score: 4, rank: 4, tier: 'lowVolatility' },
+      { symbol: 'KOSPI:000001', name: '테스트1', close: 1000, score: 1, rank: 1, tier: 'bullishTarget5d' },
+      { symbol: 'KOSPI:000002', name: '테스트2', close: 2000, score: 2, rank: 2, tier: 'bullishTarget5d' },
+      { symbol: 'KOSPI:000003', name: '테스트3', close: 3000, score: 3, rank: 3, tier: 'bullishTarget5d' },
+      { symbol: 'KOSPI:000004', name: '테스트4', score: 4, rank: 4, tier: 'bullishTarget5d' },
     ],
     shadows: ['shadow:A-volumeBreakout-v1.1', 'shadow:B-random', 'shadow:J-randomConstrained']
       .map((strategy) => ({ strategy, strategyVersion: 'fixture-v1', parametersHash: `${strategy}-hash`,
@@ -429,12 +431,12 @@ describe('prepare-newsletter stock-pick wiring', () => {
     }))
     expect(mocks.persistSnapshot).toHaveBeenCalledWith(expect.objectContaining({
       signal_date: SIGNAL_DATE,
-      strategy: 'lowVolatilityStable',
-      strategy_version: 'v2-2026-09-23',
-      parameters_hash: 'fixture-hash',
+      strategy: PRODUCTION_STRATEGY.name,
+      strategy_version: PRODUCTION_STRATEGY.version,
+      parameters_hash: PRODUCTION_STRATEGY.parametersHash,
       run_id: null,
-      picks: expect.arrayContaining([expect.objectContaining({ tier: 'lowVolatility' })]),
-      top_candidates: expect.arrayContaining([expect.objectContaining({ tier: 'lowVolatility' })]),
+      picks: expect.arrayContaining([expect.objectContaining({ tier: 'bullishTarget5d' })]),
+      top_candidates: expect.arrayContaining([expect.objectContaining({ tier: 'bullishTarget5d' })]),
     }))
     expect(mocks.persistSnapshot).toHaveBeenCalledTimes(4)
     for (const shadow of GENERATED_RESULT.meta.shadows) {

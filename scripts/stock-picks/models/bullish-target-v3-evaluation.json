@@ -1,0 +1,441 @@
+{
+  "splits": {
+    "train": [
+      "2025-12-23",
+      "2026-04-22"
+    ],
+    "validation": [
+      "2026-04-30",
+      "2026-06-16"
+    ],
+    "test": [
+      "2026-06-24",
+      "2026-09-17"
+    ],
+    "purgeTradingDays": 5
+  },
+  "selected": "directJoint",
+  "evaluationScope": "temporal_test_of_frozen_candidate_historical_dates_previously_researched_not_prospective",
+  "caveats": [
+    "Current master survivorship and historical status bias",
+    "Same dates appeared in prior repository research",
+    "30bps illustrative round-trip cost, no fill guarantee",
+    "Overlapping five-day outcomes, daily picks correlated",
+    "Cold-start cooldown at each evaluation boundary"
+  ],
+  "asOfDate": "2026-09-28",
+  "dataDownloadedAt": "2026-09-29T08:18:36.800Z",
+  "activeMasters": 2431,
+  "dataQuality": {
+    "ok": true,
+    "missingTradingDays": [],
+    "phantomRows": 2745,
+    "invalidOhlcRows": 0,
+    "symbolsWithGaps": 269,
+    "sparseDates": [],
+    "gapDatesTop": [
+      {
+        "date": "2026-04-06",
+        "missingSymbols": 220
+      },
+      {
+        "date": "2026-06-08",
+        "missingSymbols": 219
+      },
+      {
+        "date": "2026-09-23",
+        "missingSymbols": 212
+      },
+      {
+        "date": "2026-09-28",
+        "missingSymbols": 212
+      },
+      {
+        "date": "2026-09-22",
+        "missingSymbols": 211
+      },
+      {
+        "date": "2026-09-21",
+        "missingSymbols": 209
+      },
+      {
+        "date": "2026-09-14",
+        "missingSymbols": 208
+      },
+      {
+        "date": "2026-09-18",
+        "missingSymbols": 208
+      },
+      {
+        "date": "2026-09-17",
+        "missingSymbols": 206
+      },
+      {
+        "date": "2026-09-10",
+        "missingSymbols": 205
+      }
+    ],
+    "skippedSymbols": 1
+  },
+  "model": {
+    "kind": "directJoint",
+    "trainedSignalFrom": "2025-12-23",
+    "trainedSignalThrough": "2026-06-16",
+    "selection": "validation joint rate, then entry bullish rate, then target-exit proxy",
+    "objective": "bullishThenTouch10Within5TradingDays",
+    "version": "v3-2026-09-29",
+    "trainedLabelsThrough": "2026-06-23"
+  },
+  "definition": "Entry D1 regular-session open; bullish means D1 close > open; +10% touch uses D1-D5 high; joint requires both; five-day close and target-exit proxy are separate. Rates use all 3 planned slots per date; invalid outcome counts as no success. Return metrics exclude invalid outcomes.",
+  "validation": [
+    {
+      "name": "lowVolatility",
+      "days": 30,
+      "picks": 90,
+      "slotCoverage": 1.0,
+      "dataErrors": 0,
+      "bullishRate": 0.35555555555555557,
+      "touchRate": 0.044444444444444446,
+      "jointRate": 0.03333333333333333,
+      "meanEntryReturn": -0.00627643337236733,
+      "meanCloseNetReturn": -0.021298622875806694,
+      "medianCloseNetReturn": -0.023526058225493304,
+      "meanTargetExitNetProxy": -0.02139864786996874,
+      "worstCloseNetReturn": -0.16917647058823526,
+      "meanMAE": -0.04808794085013619,
+      "roundTripCostBps": 30
+    },
+    {
+      "name": "legacy",
+      "days": 30,
+      "picks": 90,
+      "slotCoverage": 1.0,
+      "dataErrors": 0,
+      "bullishRate": 0.4,
+      "touchRate": 0.37777777777777777,
+      "jointRate": 0.25555555555555554,
+      "meanEntryReturn": -0.016379592294791002,
+      "meanCloseNetReturn": -0.05045957347545402,
+      "medianCloseNetReturn": -0.06605153921868107,
+      "meanTargetExitNetProxy": -0.044221056334382884,
+      "worstCloseNetReturn": -0.39092076018682553,
+      "meanMAE": -0.13734386827344644,
+      "roundTripCostBps": 30
+    },
+    {
+      "name": "random",
+      "days": 30,
+      "picks": 90,
+      "slotCoverage": 1.0,
+      "dataErrors": 0,
+      "bullishRate": 0.3888888888888889,
+      "touchRate": 0.2222222222222222,
+      "jointRate": 0.15555555555555556,
+      "meanEntryReturn": -0.010182911664174529,
+      "meanCloseNetReturn": -0.03181432920384173,
+      "medianCloseNetReturn": -0.05294347443788472,
+      "meanTargetExitNetProxy": -0.036780083839297394,
+      "worstCloseNetReturn": -0.2944529914529914,
+      "meanMAE": -0.10173774975457466,
+      "roundTripCostBps": 30
+    },
+    {
+      "name": "highVolatility",
+      "days": 30,
+      "picks": 90,
+      "slotCoverage": 1.0,
+      "dataErrors": 1,
+      "bullishRate": 0.3111111111111111,
+      "touchRate": 0.4222222222222222,
+      "jointRate": 0.26666666666666666,
+      "meanEntryReturn": -0.009670113797001927,
+      "meanCloseNetReturn": -0.07498085429205488,
+      "medianCloseNetReturn": -0.10531023102310233,
+      "meanTargetExitNetProxy": -0.045332753389148134,
+      "worstCloseNetReturn": -0.31993989071038254,
+      "meanMAE": -0.16544440340696606,
+      "roundTripCostBps": 30
+    },
+    {
+      "name": "directJoint",
+      "days": 30,
+      "picks": 90,
+      "slotCoverage": 1.0,
+      "dataErrors": 1,
+      "bullishRate": 0.37777777777777777,
+      "touchRate": 0.5666666666666667,
+      "jointRate": 0.35555555555555557,
+      "meanEntryReturn": -0.01069366428088886,
+      "meanCloseNetReturn": -0.059418589026684565,
+      "medianCloseNetReturn": -0.07733155080213905,
+      "meanTargetExitNetProxy": -0.016332509509657773,
+      "worstCloseNetReturn": -0.378,
+      "meanMAE": -0.1628056501446594,
+      "roundTripCostBps": 30
+    },
+    {
+      "name": "conditionalJoint",
+      "days": 30,
+      "picks": 90,
+      "slotCoverage": 1.0,
+      "dataErrors": 1,
+      "bullishRate": 0.34444444444444444,
+      "touchRate": 0.43333333333333335,
+      "jointRate": 0.26666666666666666,
+      "meanEntryReturn": -0.02256304056075708,
+      "meanCloseNetReturn": -0.05731545138892705,
+      "medianCloseNetReturn": -0.07733155080213905,
+      "meanTargetExitNetProxy": -0.05026937953625535,
+      "worstCloseNetReturn": -0.38901823708206684,
+      "meanMAE": -0.15567791388882213,
+      "roundTripCostBps": 30
+    }
+  ],
+  "test": [
+    {
+      "name": "lowVolatility",
+      "days": 60,
+      "picks": 180,
+      "slotCoverage": 1.0,
+      "dataErrors": 0,
+      "bullishRate": 0.5277777777777778,
+      "touchRate": 0.05555555555555555,
+      "jointRate": 0.03333333333333333,
+      "meanEntryReturn": 0.002853508875531487,
+      "meanCloseNetReturn": 0.0012597277309726665,
+      "medianCloseNetReturn": -0.0013838004671338196,
+      "meanTargetExitNetProxy": 0.0026173737925809415,
+      "worstCloseNetReturn": -0.1656429479034307,
+      "meanMAE": -0.030516121708820235,
+      "roundTripCostBps": 30
+    },
+    {
+      "name": "legacy",
+      "days": 60,
+      "picks": 180,
+      "slotCoverage": 1.0,
+      "dataErrors": 1,
+      "bullishRate": 0.40555555555555556,
+      "touchRate": 0.43333333333333335,
+      "jointRate": 0.25555555555555554,
+      "meanEntryReturn": -0.006835512913289616,
+      "meanCloseNetReturn": -0.018468011805695253,
+      "medianCloseNetReturn": -0.020509727626459192,
+      "meanTargetExitNetProxy": 0.003510653917131268,
+      "worstCloseNetReturn": -0.4031677852348994,
+      "meanMAE": -0.10335673704205323,
+      "roundTripCostBps": 30
+    },
+    {
+      "name": "random",
+      "days": 60,
+      "picks": 180,
+      "slotCoverage": 1.0,
+      "dataErrors": 0,
+      "bullishRate": 0.43333333333333335,
+      "touchRate": 0.26666666666666666,
+      "jointRate": 0.16111111111111112,
+      "meanEntryReturn": 0.0021758732967659547,
+      "meanCloseNetReturn": 0.005247753373185146,
+      "medianCloseNetReturn": -0.006292391917984361,
+      "meanTargetExitNetProxy": 0.0027313255527746214,
+      "worstCloseNetReturn": -0.3367209302325581,
+      "meanMAE": -0.06784806064088825,
+      "roundTripCostBps": 30
+    },
+    {
+      "name": "highVolatility",
+      "days": 60,
+      "picks": 180,
+      "slotCoverage": 1.0,
+      "dataErrors": 0,
+      "bullishRate": 0.46111111111111114,
+      "touchRate": 0.5277777777777778,
+      "jointRate": 0.3,
+      "meanEntryReturn": 0.0007592292926120613,
+      "meanCloseNetReturn": 0.013320730271238555,
+      "medianCloseNetReturn": -0.0297169823534098,
+      "meanTargetExitNetProxy": 0.007281584434931551,
+      "worstCloseNetReturn": -0.3553076923076923,
+      "meanMAE": -0.11168567233398259,
+      "roundTripCostBps": 30
+    },
+    {
+      "name": "directJoint",
+      "days": 60,
+      "picks": 180,
+      "slotCoverage": 1.0,
+      "dataErrors": 0,
+      "bullishRate": 0.4777777777777778,
+      "touchRate": 0.5611111111111111,
+      "jointRate": 0.4111111111111111,
+      "meanEntryReturn": 0.001946819834095074,
+      "meanCloseNetReturn": -0.00505501925910532,
+      "medianCloseNetReturn": -0.013808402418999607,
+      "meanTargetExitNetProxy": 0.005159757512717965,
+      "worstCloseNetReturn": -0.42221005385996413,
+      "meanMAE": -0.1280135618430172,
+      "roundTripCostBps": 30
+    }
+  ],
+  "recentPicks": [
+    {
+      "date": "2026-09-28",
+      "name": "강원랜드",
+      "ticker": "KOSPI:035250",
+      "score": 42,
+      "reference": 14320,
+      "entry": 14380,
+      "first_close": 14450,
+      "latest": 14400,
+      "high": 14570,
+      "low": 14270,
+      "day1": 0.48678720445063384,
+      "total": 0.13908205841446364,
+      "reference_return": 0.5586592178770999,
+      "best": 1.3212795549374157,
+      "worst": -0.76495132127955
+    },
+    {
+      "date": "2026-09-28",
+      "name": "이노션",
+      "ticker": "KOSPI:214320",
+      "score": 36,
+      "reference": 18050,
+      "entry": 18050,
+      "first_close": 18230,
+      "latest": 18160,
+      "high": 18300,
+      "low": 17910,
+      "day1": 0.9972299168975018,
+      "total": 0.6094182825484795,
+      "reference_return": 0.6094182825484795,
+      "best": 1.3850415512465464,
+      "worst": -0.7756232686980558
+    },
+    {
+      "date": "2026-09-28",
+      "name": "롯데칠성",
+      "ticker": "KOSPI:005300",
+      "score": 43,
+      "reference": 95800,
+      "entry": 95500,
+      "first_close": 96600,
+      "latest": 95400,
+      "high": 96800,
+      "low": 95000,
+      "day1": 1.1518324607329822,
+      "total": -0.10471204188481353,
+      "reference_return": -0.41753653444676075,
+      "best": 1.3612565445026092,
+      "worst": -0.5235602094240788
+    },
+    {
+      "date": "2026-09-29",
+      "name": "유나이티드제약",
+      "ticker": "KOSPI:033270",
+      "score": 43,
+      "reference": 17630,
+      "entry": 17750,
+      "first_close": 17660,
+      "latest": 17660,
+      "high": 17770,
+      "low": 17430,
+      "day1": -0.5070422535211283,
+      "total": -0.5070422535211283,
+      "reference_return": 0.1701644923425949,
+      "best": 0.11267605633802358,
+      "worst": -1.802816901408455
+    },
+    {
+      "date": "2026-09-29",
+      "name": "제일기획",
+      "ticker": "KOSPI:030000",
+      "score": 39,
+      "reference": 17810,
+      "entry": 17820,
+      "first_close": 17870,
+      "latest": 17870,
+      "high": 17900,
+      "low": 17740,
+      "day1": 0.2805836139169404,
+      "total": 0.2805836139169404,
+      "reference_return": 0.3368893879842849,
+      "best": 0.44893378226711356,
+      "worst": -0.44893378226711356
+    },
+    {
+      "date": "2026-09-29",
+      "name": "LX홀딩스",
+      "ticker": "KOSPI:383800",
+      "score": 59,
+      "reference": 8220,
+      "entry": 8230,
+      "first_close": 8140,
+      "latest": 8140,
+      "high": 8230,
+      "low": 8060,
+      "day1": -1.0935601458080146,
+      "total": -1.0935601458080146,
+      "reference_return": -0.9732360097323589,
+      "best": 0.0,
+      "worst": -2.0656136087484844
+    }
+  ],
+  "recentDefinition": "Publication-day regular-session open to 2026-09-29 regular-session close; zero trading costs; equal weight averages; 1 or 2 completed holding days, not mature 5-day results",
+  "conclusion": "Joint objective improved, but high-probability D1 bullish requirement is not established. D1 bullish rate is lower than low-volatility baseline; tail loss and mean adverse excursion are materially larger. No claim of guaranteed returns or calibrated probabilities.",
+  "reproducibility": {
+    "export": "npx tsx scripts/stock-picks/export-target-research.ts --input-dir SNAPSHOT --output-dir DATASET",
+    "fit": "uv run --script scripts/stock-picks/train-target-model.py --input-dir DATASET --output-dir RESULTS --final-test",
+    "snapshotFiles": [
+      "metadata.json",
+      "prices.ndjson"
+    ],
+    "sha256": {
+      "metadata.json": "7abd5faf6f091b0d08bac2d071087f97a03e3f861277dd7f64bfa77cb764f5f1",
+      "prices.ndjson": "5b362aadf3a2c3e5974aa7c107adf69281d6ba265dc3e3f57fdddc1670fd9daf",
+      "compact.ndjson": "155dff619936d93a38761ee2433191583ebb4aa55691c3ff00a64962d2578fc7"
+    },
+    "verification": "Full 2431-master/180-date rebuild with committed exporter produced 238826 eligible-pool rows. Frozen model artifact reproduced exactly with committed training script; no future-price input to features."
+  },
+  "verification": {
+    "tests": {
+      "files": 363,
+      "passed": 4130,
+      "prepareE2E": 21
+    },
+    "typecheck": "app and scripts passed",
+    "lint": "0 errors, 15 preexisting warnings",
+    "productionBuild": "passed",
+    "readOnlyLive": {
+      "status": "passed",
+      "signalDate": "2026-09-28",
+      "activeMasters": 2431,
+      "freshValidRows": 2430,
+      "selectedAndIndexOhlcvRowsCompared": 28,
+      "differences": 0,
+      "blockedWriteAttempts": 0,
+      "marketDataCoverage": 70,
+      "marketVerdict": "NORMAL; degraded provider data; no warning rule triggered"
+    },
+    "externalBoundaries": "Prepare E2E mocks external providers/storage. Live check reads real providers and KIS but never writes production or delivers email.",
+    "productionRuntimeReplay": {
+      "days": 60,
+      "picks": 180,
+      "comparison": "Exact stock order matched Python selection on all dates"
+    },
+    "browser": {
+      "build": "production",
+      "archiveWidths": [
+        1440,
+        375
+      ],
+      "correctRankOrder": true,
+      "horizontalOverflow": false,
+      "pageErrors": 0,
+      "emailRankOrder": true,
+      "priceApi": "mocked; independent live KIS check above",
+      "rankSingleLine": true
+    }
+  }
+}

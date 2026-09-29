@@ -51,10 +51,95 @@ const newsletter = (
 })
 
 describe('measureForwardPicks', () => {
+  it('reports finalized D1 candles independently of D5 maturity and excludes future or invalid entry data', () => {
+    const symbols = ['BULL', 'BEAR', 'INVALID', 'UNTRADEABLE', 'FUTURE']
+    const rows = symbols.map((symbol): StockDailyPriceRow => ({
+      symbol, trade_date: symbol === 'FUTURE' ? DATES[2] : DATES[1],
+      open: 100, high: 110, low: 90,
+      close: symbol === 'BEAR' ? 99 : symbol === 'INVALID' ? 111 : 104,
+      volume: symbol === 'UNTRADEABLE' ? 0 : 1_000, source: 'kis',
+    }))
+    const prices = buildPriceBook(rows)
+    const report = measureForwardPicks({
+      newsletters: [
+        newsletter(DATES[1], 'code', ['BULL', 'INVALID', 'UNTRADEABLE']),
+        newsletter(DATES[1], 'llm_fallback', ['BEAR']),
+        newsletter(DATES[2], 'code', ['FUTURE']),
+      ],
+      prices, tradingDays: new TradingDayIndex(DATES), asOfDate: DATES[1],
+    })
+    expect(report.overall.totalPicks).toBe(0)
+    expect(report.immaturePickCount).toBe(4)
+    expect(report.entryDay).toMatchObject({
+      totalPicks: 4, evaluablePicks: 2, bullishPicks: 1, bullishRate: 0.5, allPickBullishRate: 0.25,
+    })
+    expect(report.entryDay.meanReturn).toBeCloseTo(0.015)
+    expect(report.entryDayByPicksSource.code).toMatchObject({ totalPicks: 3, evaluablePicks: 1, bullishRate: 1 })
+    expect(report.entryDayByPicksSource.llm_fallback.bullishRate).toBe(0)
+    // A calendar containing no D2~D5 still permits the known D1 outcome.
+    expect(measureForwardPicks({
+      newsletters: [newsletter(DATES[1], 'code', ['BULL'])], prices,
+      tradingDays: new TradingDayIndex(DATES.slice(0, 2)), asOfDate: DATES[1],
+    }).entryDay.bullishRate).toBe(1)
+  })
+
+  it('reports mature joint outcomes and target-exit proxies separately by source with explicit costs', () => {
+    const outcomes = [
+      { symbol: 'JOINT', high: 110, close1: 103, close5: 95, source: 'code' },
+      { symbol: 'BEAR_TOUCH', high: 110, close1: 99, close5: 105, source: 'code' },
+      { symbol: 'BULL_MISS', high: 109, close1: 103, close5: 95, source: 'llm_fallback' },
+      { symbol: 'BROKEN', high: 110, close1: 103, close5: 100, source: 'code' },
+    ]
+    const prices = buildPriceBook(outcomes.flatMap((outcome) => buildRows({
+      symbol: outcome.symbol, maxHigh: outcome.high,
+      missingHighDate: outcome.symbol === 'BROKEN' ? DATES[3] : undefined,
+    }).map((row, index) => ({ ...row, close: index === 1 ? outcome.close1 : index === 5 ? outcome.close5 : 100 }))))
+    const report = measureForwardPicks({
+      newsletters: outcomes.map((outcome) => newsletter(DATES[1], outcome.source, [outcome.symbol])),
+      prices, tradingDays: new TradingDayIndex(DATES), asOfDate: DATES[5], roundTripCostBps: 30,
+    })
+    expect(report.overall.jointOutcome5d).toEqual({
+      evaluablePicks: 3, hitPicks: 1, hitRate: 1 / 3, allPickHitRate: 1 / 4,
+    })
+    expect(report.byPicksSource.code.jointOutcome5d).toMatchObject({ evaluablePicks: 2, hitPicks: 1, hitRate: 0.5 })
+    expect(report.byPicksSource.llm_fallback.jointOutcome5d.hitRate).toBe(0)
+    expect(report.overall.targetExitProxy5d).toMatchObject({ roundTripCostBps: 30, evaluablePicks: 3, positiveRate: 2 / 3 })
+    expect(report.overall.targetExitProxy5d.meanGrossReturn).toBeCloseTo(0.05)
+    expect(report.overall.targetExitProxy5d.meanNetReturn).toBeCloseTo(0.047)
+    expect(report.overall.returns5d.meanGrossReturn).toBeCloseTo(-0.05 / 3)
+    expect(report.overall.returns5d.meanNetReturn).toBeCloseTo(-0.05 / 3 - 0.003)
+    expect(report.overall.returns5d.touchedButNotProfitablePicks).toBe(1)
+  })
+
+  it('keeps a strategy\'s mature comparison separate from its latest finalized D1 candles', () => {
+    const prices = buildPriceBook(buildRows({ symbol: 'BULL', maxHigh: 110 }).map((row, index) => ({
+      ...row, close: index === 1 || index === 5 ? 103 : 100,
+    })))
+    const snapshot = (strategy: string, signalDate: string) => ({
+      signal_date: signalDate, strategy, picks: [{ symbol: 'BULL' }],
+    } as unknown as StockPickSnapshot)
+    const comparison = measureStrategyForwardComparison({
+      snapshots: [snapshot('existing', DATES[0]), snapshot('existing', DATES[4]), snapshot('new', DATES[4]),
+        snapshot('future', DATES[5])],
+      prices, tradingDays: new TradingDayIndex(DATES), startDate: DATES[0], asOfDate: DATES[5], roundTripCostBps: 30,
+    })
+    expect(comparison.map((row) => row.strategy)).toEqual(['existing', 'new'])
+    expect(comparison[0]).toMatchObject({
+      pickCount: 1, entryBullishRate: 1, entryDay: { totalPicks: 2, evaluablePicks: 2, bullishRate: 1 },
+      jointOutcome5d: { evaluablePicks: 1, hitPicks: 1, hitRate: 1 },
+      targetExitProxy5d: { roundTripCostBps: 30, evaluablePicks: 1, meanNetReturn: 0.097 },
+    })
+    expect(comparison[0]?.meanNetCloseReturn5d).toBeCloseTo(0.027)
+    expect(comparison[1]).toMatchObject({
+      pickCount: 0, entryBullishRate: null, touchRate5d: null,
+      entryDay: { evaluablePicks: 1, bullishRate: 1 }, jointOutcome5d: { evaluablePicks: 0, hitRate: null },
+    })
+  })
+
   it('compares production and every shadow only on mature shared signal dates', () => {
     const dates = [...DATES, '2026-01-12']
     const strategies = [
-      'lowVolatilityStable', 'shadow:A-volumeBreakout-v1.1',
+      'bullishTarget5d', 'shadow:lowVolatility-v2', 'shadow:A-volumeBreakout-v1.1',
       'shadow:B-random', 'shadow:J-randomConstrained',
     ]
     const prices = buildPriceBook(['COMMON', 'EXTRA'].flatMap((symbol) => dates.map((tradeDate, index): StockDailyPriceRow => ({
@@ -68,12 +153,12 @@ describe('measureForwardPicks', () => {
     } as unknown as StockPickSnapshot)
     const snapshots = [
       ...strategies.map((strategy) => snapshot(strategy, dates[0]!, 'COMMON')),
-      snapshot('lowVolatilityStable', dates[1]!, 'EXTRA'),
+      snapshot('bullishTarget5d', dates[1]!, 'EXTRA'),
       snapshot('shadow:A-volumeBreakout-v1.1', dates[1]!, 'EXTRA'),
     ]
     const input = { prices, tradingDays: new TradingDayIndex(dates), snapshots,
       startDate: dates[0]!, asOfDate: dates[6]! }
-    expect(measureStrategyForwardComparison(input).find((row) => row.strategy === 'lowVolatilityStable')
+    expect(measureStrategyForwardComparison(input).find((row) => row.strategy === 'bullishTarget5d')
       ?.pickCount).toBe(2)
     const paired = measurePairedStrategyForwardComparison(input)
     expect(paired.map((row) => row.strategy)).toEqual(strategies)
@@ -88,7 +173,7 @@ describe('measureForwardPicks', () => {
         pairedStrategyComparison: paired,
       }))
       expect(table.mock.calls.at(-1)?.[0]).toEqual(expect.arrayContaining([
-        expect.objectContaining({ strategy: 'lowVolatilityStable', commonDays: 1, picks: 1 }),
+        expect.objectContaining({ strategy: 'bullishTarget5d', commonDays: 1, picks: 1 }),
       ]))
     } finally {
       log.mockRestore()

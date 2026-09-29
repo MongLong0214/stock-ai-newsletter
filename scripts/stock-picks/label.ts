@@ -14,6 +14,12 @@ export interface StockPickLabel {
   readonly touched: boolean
   readonly status: StockPickLabelStatus
   readonly return5d: number | null
+  readonly entryReturn: number | null
+  readonly entryBullish: boolean | null
+  /** D1 양봉과 D1~D5 장중 +10% 도달을 모두 만족했는지. */
+  readonly bullishAndTouched10In5d: boolean | null
+  /** +10% 도달 시 10%, 미도달 시 D5 종가 수익. 비용 전 OHLC 모형이며 체결 보장이 아니다. */
+  readonly targetExitReturn5d: number | null
   readonly maxDrawdown: number | null
   /**
    * D1~D5 중 상승 마감한 날 수. D1은 진입가(D1 시가) 대비, D2~D5는 전일 종가 대비다.
@@ -26,6 +32,35 @@ export interface StockPickLabel {
 
 const finitePositive = (value: unknown): value is number => (
   typeof value === 'number' && Number.isFinite(value) && value > 0
+)
+
+export interface StockPickEntryDayLabel {
+  readonly entryDate: string
+  readonly entry: number
+  readonly close: number
+  readonly entryReturn: number
+  readonly entryBullish: boolean
+}
+
+/** 호출자가 entryDate의 장 마감을 확인해야 한다. D2~D5 데이터는 필요하지 않다. */
+export function labelEntryDay(
+  symbol: string,
+  entryDate: string,
+  prices: PriceBook,
+): StockPickEntryDayLabel | null {
+  const row = getRawPrice(prices, symbol, entryDate)
+  if (!hasValidOhlc(row) || !finitePositive(row.volume)) return null
+  return {
+    entryDate,
+    entry: row.open,
+    close: row.close,
+    entryReturn: row.close / row.open - 1,
+    entryBullish: row.close > row.open,
+  }
+}
+
+const touchedTenPercent = (entry: number, maxHigh: number): boolean => (
+  Math.round(maxHigh) * 100 >= Math.round(entry) * 110
 )
 
 const hasValidOhlc = (row: StockDailyPriceRow | undefined): row is StockDailyPriceRow & {
@@ -62,6 +97,12 @@ const dataErrorLabel = (
     touched: false,
     status: 'data_error',
     return5d: null,
+    entryReturn: hasValidOhlc(entryRow) && finitePositive(entryRow.volume)
+      ? entryRow.close / entryRow.open - 1 : null,
+    entryBullish: hasValidOhlc(entryRow) && finitePositive(entryRow.volume)
+      ? entryRow.close > entryRow.open : null,
+    bullishAndTouched10In5d: null,
+    targetExitReturn5d: null,
     maxDrawdown: null,
     upDayCount: null,
   }
@@ -137,6 +178,10 @@ export function labelPick(
       touched: false,
       status: 'unexpected_untradeable',
       return5d: close5d / entry - 1,
+      entryReturn: null,
+      entryBullish: null,
+      bullishAndTouched10In5d: null,
+      targetExitReturn5d: null,
       maxDrawdown: Math.min(0, Math.min(...productWindowRows.map((row) => row.low)) / entry - 1),
       upDayCount,
     }
@@ -144,9 +189,8 @@ export function labelPick(
 
   // KRX 가격은 원 단위 정수 호가다. EPSILON 보정 대신 양쪽을 원 단위 정수로
   // 반올림한 뒤 100:110 정수 비율로 비교해 정확히 +10%인 경계를 포함한다.
-  const entryWon = Math.round(entry)
-  const maxHighWon = Math.round(maxHigh)
-  const touched = maxHighWon * 100 >= entryWon * 110
+  const touched = touchedTenPercent(entry, maxHigh)
+  const touched5d = touchedTenPercent(entry, Math.max(...productWindowRows.map((row) => row.high)))
 
   const lows = productWindowRows.map((row) => row.low)
   const maxDrawdown = Math.min(0, Math.min(...lows) / entry - 1)
@@ -159,6 +203,10 @@ export function labelPick(
     touched,
     status: touched ? 'hit' : 'miss',
     return5d: close5d / entry - 1,
+    entryReturn: entryRow.close / entry - 1,
+    entryBullish: entryRow.close > entry,
+    bullishAndTouched10In5d: entryRow.close > entry && touched5d,
+    targetExitReturn5d: touched5d ? 0.1 : close5d / entry - 1,
     maxDrawdown,
     upDayCount,
   }

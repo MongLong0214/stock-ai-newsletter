@@ -18,6 +18,7 @@ import {
   type StockAnalysisResult,
 } from '@/lib/llm/stock-analysis'
 import { sendNewsletterAlertEmail } from '@/lib/newsletter/alert'
+import { hasCompleteStockSelection } from '@/lib/newsletter/stock-selection'
 import { getKSTDateString } from '@/lib/tli/date-utils'
 import { getLastFinalizedTradingDate, isKoreanTradingDate } from '@/lib/tli/trading-calendar'
 import { collectDailyStockPrices } from '@/scripts/stock-picks/collect-daily'
@@ -28,6 +29,7 @@ import {
 } from '@/scripts/stock-picks/generate-picks'
 import { loadStockMaster } from '@/scripts/stock-picks/load-stock-master'
 import { persistStockPickSnapshot } from '@/scripts/stock-picks/pick-snapshots'
+import { canonicalJson, PRODUCTION_STRATEGY } from '@/scripts/stock-picks/production-strategy'
 
 export type PicksSource = 'code' | 'llm_fallback' | 'crash'
 export const MIN_DAILY_COLLECTION_SUCCESS_RATE = 0.95
@@ -244,6 +246,29 @@ async function runNewsletterPipeline(input: {
     if (!validateStockData(picks)) throw new Error('Prepare 코드 픽 출력 계약 실패: 유효한 서로 다른 3종목 필요')
     if (generated && generated.meta.signalDate !== input.signalDate) {
       throw new Error(`Prepare 신호일 불일치: ${generated.meta.signalDate} != ${input.signalDate}`)
+    }
+    if (generated) {
+      const selected = generated.meta.rankedCandidates.slice(0, 3)
+      // The legacy archive shape is intentionally permissive. New code output must
+      // also bind the published payload to the model result recorded as evidence.
+      if (!hasCompleteStockSelection(picks)
+        || generated.meta.strategy !== PRODUCTION_STRATEGY.name
+        || generated.meta.strategyVersion !== PRODUCTION_STRATEGY.version
+        || generated.meta.parametersHash !== PRODUCTION_STRATEGY.parametersHash
+        || canonicalJson(generated.meta.parameters) !== canonicalJson(PRODUCTION_STRATEGY.parameters)
+        || canonicalJson(picks) !== canonicalJson(generated.picks)
+        || selected.length !== picks.length
+        || picks.some((pick, index) => (
+          pick.selection?.strategy !== PRODUCTION_STRATEGY.name
+          || pick.selection.objective !== PRODUCTION_STRATEGY.objective
+          || pick.selection.rank !== index + 1
+          || selected[index]?.rank !== index + 1
+          || selected[index]?.symbol !== pick.ticker
+          || selected[index]?.name !== pick.name
+          || selected[index]?.close !== pick.close_price
+        ))) {
+        throw new Error('Prepare 코드 픽과 선정 모델/스냅샷 불일치')
+      }
     }
     // A full-universe collection may take 20-30 minutes. Do not publish stocks
     // against a NORMAL decision older than the quote policy's freshness window.

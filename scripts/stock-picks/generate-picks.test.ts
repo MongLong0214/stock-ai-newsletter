@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto'
 import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -16,6 +15,8 @@ import {
   type StockPickMaster,
 } from '@/scripts/stock-picks/generate-picks'
 import * as strategies from '@/scripts/stock-picks/strategies'
+import { PRODUCTION_TARGET_MODEL } from '@/scripts/stock-picks/production-strategy'
+import { scoreTargetModel } from '@/scripts/stock-picks/target-model'
 import { TradingDayIndex } from '@/scripts/stock-picks/trading-days'
 import type { StockDailyPriceRow } from '@/scripts/tli/prices/stock-daily-prices'
 
@@ -86,17 +87,13 @@ describe('production stock pick generator', () => {
     })
     const picks: unknown = JSON.parse(json)
 
-    // 저변동 전략의 결정적 픽과 근거 문자열을 고정한다.
-    expect(createHash('sha256').update(json).digest('hex')).toBe(
-      'edfb4ab1566d249f2c31f10e2ac832058d3bcce7389e5ae275c9a575a75ec1ee',
-    )
     expect(validateStockData(picks)).toBe(true)
     expect(picks).toHaveLength(3)
-    expect((picks as Array<{ ticker: string }>).map((pick) => pick.ticker)).toEqual([
-      'KOSDAQ:000030',
-      'KOSPI:000020',
-      'KOSPI:000010',
-    ])
+    expect((picks as Array<{ ticker: string }>).map((pick) => pick.ticker).sort()).toEqual([...SYMBOLS].sort())
+    expect((picks as Array<{ selection: unknown }>).map((pick) => pick.selection)).toEqual(
+      [1, 2, 3].map((rank) => ({ strategy: 'bullishTarget5d', rank,
+        objective: 'bullishThenTouch10Within5TradingDays' })),
+    )
     expect(loadPrices).toHaveBeenCalledWith({
       startDate: fixture.dates[0],
       endDate: SIGNAL_DATE,
@@ -104,9 +101,41 @@ describe('production stock pick generator', () => {
     for (const pick of picks as Array<{ rationale: string; signals: Record<string, number> }>) {
       expect(pick.rationale.split('|').length).toBeGreaterThanOrEqual(12)
       expect(pick.rationale.length).toBeGreaterThanOrEqual(50)
-      expect(pick.rationale).toMatch(/변동성 안정 순위 [1-3]위\|선정 경로 저변동 안정$/)
+      expect(pick.rationale).toMatch(/공동 목표 모델 순위 [1-3]위\|선정 목표 발행일 양봉·시가 대비 5거래일 내 \+10% 터치$/)
       expect(Object.values(pick.signals).every(Number.isInteger)).toBe(true)
     }
+  })
+
+  it('rejects signals before all frozen-model training outcomes were observable without loading prices', async () => {
+    const fixture = makeFixture()
+    const loadPrices = vi.fn(async () => fixture.prices)
+    await expect(generatePicks({ todayKst: PRODUCTION_TARGET_MODEL.trainedLabelsThrough, dependencies: {
+      loadTradingDays: async () => new TradingDayIndex(fixture.dates), loadPrices,
+    } })).rejects.toThrow(/모델 학습 라벨 관측일 이전/)
+    expect(loadPrices).not.toHaveBeenCalled()
+  })
+
+  it('uses learned model order rather than ATR order or symbol tie-breaking', async () => {
+    const fixture = makeFixture()
+    const result = await generatePicksWithMeta({ todayKst: TODAY_KST, dependencies: {
+      loadTradingDays: async () => new TradingDayIndex(fixture.dates),
+      loadPrices: async () => fixture.prices, loadMasters: async () => fixture.masters,
+      loadRecentPublishedSymbols: async () => new Set<string>(),
+    } })
+    const base = result.meta.rankedCandidates[0]!
+    const candidates = [
+      { ...base, symbol: 'KOSPI:000010', atrPercent14: 4, gapFromPreviousClosePercent: 8 },
+      { ...base, symbol: 'KOSPI:000020', atrPercent14: 4, gapFromPreviousClosePercent: -7 },
+    ]
+    const masters = new Map(candidates.map((candidate) => [candidate.symbol,
+      { symbol: candidate.symbol, is_active: true, status_flags: {} }]))
+    const ranking = strategies.rankBullishTargetCandidates({ features: candidates, masters,
+      parameters: strategies.BULLISH_TARGET_PARAMETERS, excludeSymbols: new Set(), model: PRODUCTION_TARGET_MODEL })
+    expect(ranking.map((candidate) => candidate.symbol)).toEqual(['KOSPI:000020', 'KOSPI:000010'])
+    expect(ranking[0]!.score).toBeGreaterThan(ranking[1]!.score)
+    expect(result.meta.rankedCandidates.map((candidate) => candidate.score)).toEqual(
+      result.meta.rankedCandidates.map((candidate) => scoreTargetModel(candidate, PRODUCTION_TARGET_MODEL)),
+    )
   })
 
   it('labels a down candle above the previous close as a positive daily return', async () => {
@@ -284,7 +313,7 @@ describe('production stock pick generator', () => {
         loadMasters: async () => fixture.masters,
         loadRecentPublishedSymbols: async () => new Set<string>(),
       },
-    })).rejects.toThrow(/저변동 후보 부족: 0\/3/)
+    })).rejects.toThrow(/공동 목표 후보 부족: 0\/3/)
   })
 
   it('emits funnel and generated observability without changing the pick contract', async () => {
@@ -315,29 +344,29 @@ describe('production stock pick generator', () => {
       })
       expect(events.find((event) => event.event === 'stock_picks_generated')).toMatchObject({
         signalDate: SIGNAL_DATE,
-        strategy: 'lowVolatilityStable',
-        strategyVersion: 'v2-2026-09-23',
-        picksByTier: { lowVolatility: 3 },
-        picks: expect.arrayContaining([expect.objectContaining({ rank: 1, tier: 'lowVolatility' })]),
+        strategy: 'bullishTarget5d',
+        strategyVersion: 'v3-2026-09-29',
+        picksByTier: { bullishTarget5d: 3 },
+        picks: expect.arrayContaining([expect.objectContaining({ rank: 1, tier: 'bullishTarget5d' })]),
       })
       expect(result.meta.parametersHash).toMatch(/^[a-f0-9]{64}$/)
       expect(result.meta.rankedCandidates.map((candidate) => candidate.score)).toEqual(
-        [...result.meta.rankedCandidates.map((candidate) => candidate.score)].sort((a, b) => a - b),
+        [...result.meta.rankedCandidates.map((candidate) => candidate.score)].sort((a, b) => b - a),
       )
       expect(result.meta.shadows.map((shadow) => shadow.strategy)).toEqual([
-        'shadow:A-volumeBreakout-v1.1', 'shadow:B-random', 'shadow:J-randomConstrained',
+        'shadow:lowVolatility-v2', 'shadow:A-volumeBreakout-v1.1', 'shadow:B-random', 'shadow:J-randomConstrained',
       ])
       expect(result.meta.shadows.every((shadow) => shadow.picks.length === 3)).toBe(true)
-      expect(result.meta.shadows[0]?.picks.map((pick) => pick.tier)).toEqual([
+      expect(result.meta.shadows.find((shadow) => shadow.strategy === 'shadow:A-volumeBreakout-v1.1')?.picks.map((pick) => pick.tier)).toEqual([
         'breakout', 'breakout', 'volumeOnly',
       ])
       expect(result.picks[0]?.rationale.split('|').slice(0, 18)).toEqual(
         buildRationale(result.meta.rankedCandidates[0]!, 0, 'breakout').split('|').slice(0, 18),
       )
       expect(result.picks.map((pick) => pick.rationale.split('|').slice(-2))).toEqual([
-        ['변동성 안정 순위 1위', '선정 경로 저변동 안정'],
-        ['변동성 안정 순위 2위', '선정 경로 저변동 안정'],
-        ['변동성 안정 순위 3위', '선정 경로 저변동 안정'],
+        ['공동 목표 모델 순위 1위', '선정 목표 발행일 양봉·시가 대비 5거래일 내 +10% 터치'],
+        ['공동 목표 모델 순위 2위', '선정 목표 발행일 양봉·시가 대비 5거래일 내 +10% 터치'],
+        ['공동 목표 모델 순위 3위', '선정 목표 발행일 양봉·시가 대비 5거래일 내 +10% 터치'],
       ])
       expect(events.find((event) => event.event === 'stock_picks_generated').shadows)
         .toEqual(result.meta.shadows.map((shadow) => ({ strategy: shadow.strategy,
@@ -367,6 +396,7 @@ describe('production stock pick generator', () => {
   })
 
   it.each([
+    ['lowVol', 'shadow:lowVolatility-v2'],
     ['A', 'shadow:A-volumeBreakout-v1.1'],
     ['B', 'shadow:B-random'],
     ['J', 'shadow:J-randomConstrained'],
@@ -381,7 +411,9 @@ describe('production stock pick generator', () => {
     const baseline = await generatePicksWithMeta({ todayKst: TODAY_KST, dependencies })
     const warning = vi.spyOn(console, 'warn').mockImplementation(() => {})
     const rankRandom = strategies.rankSeededRandomCandidates
-    if (target === 'A') {
+    if (target === 'lowVol') {
+      vi.spyOn(strategies, 'rankLowVolatilityStableCandidates').mockImplementation(() => { throw new Error('shadow failed') })
+    } else if (target === 'A') {
       vi.spyOn(strategies, 'rankStrategyCandidates').mockImplementation(() => { throw new Error('shadow failed') })
     } else {
       vi.spyOn(strategies, 'rankSeededRandomCandidates').mockImplementation((input) => {
@@ -426,8 +458,8 @@ describe('production stock pick generator', () => {
       expect(snapshot).toMatchObject({
         signalDate: SIGNAL_DATE,
         gitSha: 'fixture-sha',
-        strategy: 'lowVolatilityStable',
-        strategyVersion: 'v2-2026-09-23',
+        strategy: 'bullishTarget5d',
+        strategyVersion: 'v3-2026-09-29',
         parametersHash: result.meta.parametersHash,
         funnel: result.meta.funnel,
       })
@@ -436,7 +468,7 @@ describe('production stock pick generator', () => {
         symbol: expect.any(String),
         score: expect.any(Number),
         rank: 1,
-        tier: 'lowVolatility',
+        tier: 'bullishTarget5d',
         technicalContext: expect.objectContaining({
           version: 'technical-context-v1',
           chaikinMoneyFlow21: expect.any(Number),
@@ -447,9 +479,9 @@ describe('production stock pick generator', () => {
       }))
       expect(snapshot.topCandidates).toHaveLength(3)
       expect(snapshot.topCandidates.map((candidate: { tier: string }) => candidate.tier)).toEqual([
-        'lowVolatility',
-        'lowVolatility',
-        'lowVolatility',
+        'bullishTarget5d',
+        'bullishTarget5d',
+        'bullishTarget5d',
       ])
     } finally {
       vi.unstubAllEnvs()

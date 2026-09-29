@@ -55,7 +55,7 @@ import {
 
 import { TradingDayIndex, loadTradingDayIndex } from '@/scripts/stock-picks/trading-days'
 
-type LegacyTieredFillTier = Exclude<TieredFillTier, 'lowVolatility'>
+type LegacyTieredFillTier = Exclude<TieredFillTier, 'lowVolatility' | 'bullishTarget5d'>
 
 const DEFAULT_EVALUATION_DAYS = 220
 const FEATURE_WARMUP_DAYS = 320
@@ -1095,7 +1095,7 @@ const evaluateTieredFillExperiment = (input: {
       for (const pick of day.picks) {
         const tier = tierBySymbol.get(pick.symbol)
         if (!tier) throw new Error(`${day.simDate} ${pick.symbol}의 tier를 찾을 수 없습니다`)
-        if (tier === 'lowVolatility') throw new Error('동결 연구 평가에 저변동 tier가 포함됐습니다')
+        if (tier === 'lowVolatility' || tier === 'bullishTarget5d') throw new Error('동결 연구 평가에 비레거시 tier가 포함됐습니다')
         picksByTier[tier]++
         if (pick.label?.touched) hitsByTier[tier]++
       }
