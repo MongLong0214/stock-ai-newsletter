@@ -31,11 +31,13 @@ export function sortStocksForDisplay<T extends {
   return [...stocks].sort((left, right) => right.signals.overall_score - left.signals.overall_score);
 }
 
-/** 저장된 추천 근거에서 폐기된 모델 순위와 목표 안내만 표시하지 않는다. */
+/** 저장된 추천 근거에서 폐기된 선정 메타데이터만 표시하지 않는다. */
 export function getStockRationaleItems(rationale: string): string[] {
   return rationale.split('|').filter((item) => {
     const text = item.trim();
     return !/^공동 목표 모델 순위 [1-3]위$/.test(text)
-      && text !== '선정 목표 발행일 양봉·시가 대비 5거래일 내 +10% 터치';
+      && text !== '선정 목표 발행일 양봉·시가 대비 5거래일 내 +10% 터치'
+      && !/^변동성 안정 순위 [1-3]위$/.test(text)
+      && text !== '선정 경로 저변동 안정';
   });
 }
