@@ -15,7 +15,7 @@ const state = vi.hoisted(() => ({
   snapshot: null as MarketAssessmentSnapshot | null,
   newsletter: null as Record<string, unknown> | null,
   snapshots: [] as Record<string, unknown>[],
-  corruptSelection: null as 'incomplete' | 'duplicate' | 'all-missing' | 'wrong-strategy' | 'wrong-objective' | 'wrong-ticker' | 'swapped-ranks' | 'wrong-price' | 'snapshot-price' | 'snapshot-name' | 'model-identity' | 'parameters' | null,
+  corruptSelection: null as 'incomplete' | 'duplicate' | 'all-missing' | 'wrong-strategy' | 'wrong-objective' | 'wrong-ticker' | 'swapped-ranks' | 'wrong-price' | 'snapshot-price' | 'snapshot-name' | 'model-identity' | 'stale-score-hash' | 'stale-score-version' | 'parameters' | null,
   fetchDaily: vi.fn(),
   refreshMaster: vi.fn(),
   alert: vi.fn(),
@@ -94,6 +94,12 @@ vi.mock('@/scripts/stock-picks/generate-picks', async (importOriginal) => {
         ? { ...candidate, name: '다른 회사' } : candidate),
     } }
     if (state.corruptSelection === 'model-identity') return { ...result, meta: { ...result.meta, parametersHash: 'wrong-model-hash' } }
+    if (state.corruptSelection === 'stale-score-hash') return { ...result, meta: { ...result.meta,
+      parametersHash: LOW_VOLATILITY_STABLE_STRATEGY.parametersHash,
+    } }
+    if (state.corruptSelection === 'stale-score-version') return { ...result, meta: { ...result.meta,
+      strategyVersion: LOW_VOLATILITY_STABLE_STRATEGY.version,
+    } }
     if (state.corruptSelection === 'parameters') return { ...result, meta: { ...result.meta,
       parameters: { ...result.meta.parameters, recentPickTradingDays: 0 },
     } }
@@ -112,6 +118,7 @@ import { generateNewsletterHTML } from '@/lib/sendgrid'
 import { createKisApiError } from '@/app/archive/_utils/api/kis/client'
 import { runPrepareNewsletterCli } from '@/scripts/prepare-newsletter'
 import { DEFAULT_DAILY_COLLECTION_CALL_BUDGET } from '@/scripts/stock-picks/collect-daily'
+import { LOW_VOLATILITY_STABLE_STRATEGY, PRODUCTION_STRATEGY } from '@/scripts/stock-picks/production-strategy'
 
 const TARGET = '2026-09-09'
 const SIGNAL = '2026-09-08'
@@ -205,7 +212,7 @@ describe('Prepare boundary-isolated E2E', () => {
     expect(state.snapshots.every((row) => (row.picks as unknown[]).length === 3)).toBe(true)
     const snapshot = state.snapshots[0]
     expect(snapshot.strategy).toBe('lowVolatilityStable')
-    expect(snapshot.strategy_version).toBe('v2-2026-09-23')
+    expect(snapshot.strategy_version).toBe(PRODUCTION_STRATEGY.version)
     expect(snapshot.signal_date).toBe(SIGNAL)
     const candidates = snapshot.picks as Array<{ symbol: string; rank: number; close: number; technicalContext: unknown }>
     expect(candidates.map(row => row.symbol)).toEqual(picks.map((pick: { ticker: string }) => pick.ticker))
@@ -241,7 +248,7 @@ describe('Prepare boundary-isolated E2E', () => {
     expect(fetch).not.toHaveBeenCalled()
   })
 
-  it.each(['incomplete', 'duplicate', 'all-missing', 'wrong-strategy', 'wrong-objective', 'wrong-ticker', 'swapped-ranks', 'wrong-price', 'snapshot-price', 'snapshot-name', 'model-identity', 'parameters'] as const)('rejects %s selection corruption before storing any output', async (corruptSelection) => {
+  it.each(['incomplete', 'duplicate', 'all-missing', 'wrong-strategy', 'wrong-objective', 'wrong-ticker', 'swapped-ranks', 'wrong-price', 'snapshot-price', 'snapshot-name', 'model-identity', 'stale-score-hash', 'stale-score-version', 'parameters'] as const)('rejects %s selection corruption before storing any output', async (corruptSelection) => {
     state.corruptSelection = corruptSelection
     expect(await runPrepareNewsletterCli([`--target-date=${TARGET}`])).toBe(1)
     expect(state.fetchDaily).toHaveBeenCalledTimes(7)

@@ -403,7 +403,7 @@ describe('production stock pick generator', () => {
       expect(events.find((event) => event.event === 'stock_picks_generated')).toMatchObject({
         signalDate: SIGNAL_DATE,
         strategy: 'lowVolatilityStable',
-        strategyVersion: 'v2-2026-09-23',
+        strategyVersion: PRODUCTION_STRATEGY.version,
         picksByTier: { lowVolatility: 3 },
         picks: expect.arrayContaining([expect.objectContaining({ rank: 1, tier: 'lowVolatility' })]),
       })
@@ -518,7 +518,7 @@ describe('production stock pick generator', () => {
         signalDate: SIGNAL_DATE,
         gitSha: 'fixture-sha',
         strategy: 'lowVolatilityStable',
-        strategyVersion: 'v2-2026-09-23',
+        strategyVersion: PRODUCTION_STRATEGY.version,
         parametersHash: result.meta.parametersHash,
         funnel: result.meta.funnel,
       })

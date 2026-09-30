@@ -2,7 +2,7 @@ import { mkdir, writeFile } from 'node:fs/promises'
 import { dirname } from 'node:path'
 
 import { KOREAN_MARKET_HOLIDAYS_BY_YEAR } from '@/app/archive/_utils/market/_constants/holidays'
-import type { StockData, StockSignals } from '@/lib/llm/_types/stock-data'
+import type { StockData } from '@/lib/llm/_types/stock-data'
 import { validateStockData } from '@/lib/llm/korea/stock-json'
 import { getKSTDateString } from '@/lib/tli/date-utils'
 import { addKoreanTradingDays } from '@/lib/tli/trading-calendar'
@@ -13,6 +13,7 @@ import {
   type PriceBook,
 } from '@/scripts/stock-picks/data-handler'
 import { buildFeatureSeries, type StockFeatureVector } from '@/scripts/stock-picks/features'
+import { buildSignals, finiteOr } from '@/scripts/stock-picks/signals'
 import { parsePublishedPicks } from '@/scripts/stock-picks/measure-forward'
 import { buildTechnicalContextMap, type TechnicalContext } from '@/scripts/stock-picks/technical-context'
 import {
@@ -45,6 +46,7 @@ const PRICE_HISTORY_TRADING_DAYS = 320
 const REQUIRED_PICK_COUNT = 3
 
 export { PRODUCTION_VOLUME_BREAKOUT_PARAMETERS } from '@/scripts/stock-picks/production-strategy'
+export { buildSignals } from '@/scripts/stock-picks/signals'
 
 export interface StockPickMaster extends StockMasterState {
   readonly name: string
@@ -168,83 +170,6 @@ export function assertFreshSignalDate(lastDate: string, todayKst: string): strin
     console.warn(`⚠️ 당일 미완성 캔들 감지 → signalDate=${expectedSignalDate}로 트리밍 (lastDate=${lastDate})`)
   }
   return expectedSignalDate
-}
-
-const clamp = (value: number, minimum: number, maximum: number): number => (
-  Math.min(maximum, Math.max(minimum, value))
-)
-const clampScore = (value: number): number => Math.round(clamp(value, 0, 100))
-const average = (values: readonly number[]): number => (
-  values.reduce((sum, value) => sum + value, 0) / values.length
-)
-const finiteOr = (value: number | null, fallback = 50): number => (
-  value !== null && Number.isFinite(value) ? value : fallback
-)
-const centeredScore = (value: number | null, fullScale: number): number => (
-  value === null ? 50 : clampScore(50 + value / fullScale * 50)
-)
-
-/**
- * 레거시 7개 카테고리를 전부 관측 기술지표로만 산출한다.
- * sentiment_score도 뉴스/LLM 감성이 아니라 가격 위치·추세·연속상승의 수급심리 대용치다.
- */
-export function buildSignals(feature: StockFeatureVector): StockSignals {
-  const close = finiteOr(feature.close, 1)
-  const sma60Distance = feature.sma60 === null ? null : (close / feature.sma60 - 1) * 100
-  const macdPercent = feature.macdHistogram === null ? null : feature.macdHistogram / close * 100
-  const obvDailyVolume = feature.obvSlope20 === null || feature.volume === null || feature.volume === 0
-    ? null
-    : feature.obvSlope20 / feature.volume
-
-  const trendScore = clampScore(average([
-    centeredScore(feature.sma20DistancePercent, 10),
-    centeredScore(sma60Distance, 20),
-    centeredScore(feature.sma20Slope5 === null ? null : feature.sma20Slope5 * 100, 1),
-    clampScore(finiteOr(feature.trendR2_20, 0.5) * 100),
-  ]))
-  const momentumScore = clampScore(average([
-    clampScore(finiteOr(feature.rsi14)),
-    centeredScore(macdPercent, 2),
-    feature.bullishCandle === null ? 50 : feature.bullishCandle ? 65 : 35,
-    clampScore(50 + finiteOr(feature.consecutiveUpDays, 0) * 10),
-  ]))
-  const volumeScore = clampScore(average([
-    clampScore(finiteOr(feature.volumePercentile60)),
-    centeredScore(feature.volumeRatio20 === null ? null : feature.volumeRatio20 - 1, 2),
-    centeredScore(obvDailyVolume, 0.5),
-  ]))
-  const volatilityScore = feature.atrPercent14 === null
-    ? 50
-    : clampScore(100 - Math.abs(feature.atrPercent14 - 3) * 20)
-  const patternScore = clampScore(average([
-    centeredScore(feature.distanceFromHigh60, 5),
-    feature.bullishCandle === null ? 50 : feature.bullishCandle ? 70 : 30,
-    feature.goldenCrossAge === null ? 50 : clampScore(100 - feature.goldenCrossAge * 5),
-    clampScore(finiteOr(feature.position52w, 0.5) * 100),
-  ]))
-  const sentimentScore = clampScore(average([
-    clampScore(finiteOr(feature.position52w, 0.5) * 100),
-    centeredScore(feature.trendSlope20 === null ? null : feature.trendSlope20 * 100, 1),
-    clampScore(50 + finiteOr(feature.consecutiveUpDays, 0) * 10),
-  ]))
-  const overallScore = clampScore(
-    trendScore * 0.20
-    + momentumScore * 0.15
-    + volumeScore * 0.25
-    + volatilityScore * 0.10
-    + patternScore * 0.20
-    + sentimentScore * 0.10,
-  )
-
-  return {
-    trend_score: trendScore,
-    momentum_score: momentumScore,
-    volume_score: volumeScore,
-    volatility_score: volatilityScore,
-    pattern_score: patternScore,
-    sentiment_score: sentimentScore,
-    overall_score: overallScore,
-  }
 }
 
 const fixed = (value: number | null, digits = 1): string => finiteOr(value, 0).toFixed(digits)

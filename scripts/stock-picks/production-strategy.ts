@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto'
 import { BULLISH_TARGET_PARAMETERS, LOW_VOLATILITY_STABLE_PARAMETERS, type VolumeBreakoutParameters } from '@/scripts/stock-picks/strategies'
 import frozenTargetModel from '@/scripts/stock-picks/models/bullish-target-v3.json'
 import type { TargetModelArtifact } from '@/scripts/stock-picks/target-model'
+import { SIGNAL_SCORE_VERSION } from '@/scripts/stock-picks/signals'
 
 export function canonicalJson(value: unknown): string {
   if (value === null || typeof value === 'string' || typeof value === 'boolean') {
@@ -84,5 +85,12 @@ export const BULLISH_TARGET_STRATEGY = {
 
 export const PRODUCTION_STRATEGY = {
   ...LOW_VOLATILITY_STABLE_STRATEGY,
+  version: 'v2.1-2026-09-30',
   objective: 'lowVolatilityStable',
+  parametersHash: hashCanonicalJson({
+    parameters: LOW_VOLATILITY_STABLE_PARAMETERS,
+    gateVersion: 'status-flags-valid-candle-v2',
+    preferredRule: 'krx-code-last-digit-nonzero',
+    signalScoreVersion: SIGNAL_SCORE_VERSION,
+  }),
 } as const
