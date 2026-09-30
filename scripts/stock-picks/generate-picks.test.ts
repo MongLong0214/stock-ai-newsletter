@@ -108,6 +108,39 @@ describe('stock analysis summary', () => {
     ])
   })
 
+  const featureFromCandles = (previousClose: number, open: number, close: number) => {
+    const dates = [addKoreanTradingDays(SIGNAL_DATE, -1), SIGNAL_DATE]
+    const rows: StockDailyPriceRow[] = dates.map((trade_date, index) => {
+      const candleOpen = index === 0 ? previousClose : open
+      const candleClose = index === 0 ? previousClose : close
+      return { symbol: SYMBOLS[0], trade_date, open: candleOpen, close: candleClose,
+        high: Math.max(candleOpen, candleClose) + 5, low: Math.min(candleOpen, candleClose) - 5,
+        volume: 1_000_000, source: 'kis' }
+    })
+    const handler = new StockDataHandler(buildPriceBook(rows), new TradingDayIndex(dates)).at(SIGNAL_DATE)
+    return buildFeatureVector(handler, SYMBOLS[0])
+  }
+
+  it.each([
+    { previousClose: 1_001, open: 1_011 },
+    { previousClose: 1_003, open: 1_013 },
+    { previousClose: 1_001, open: 991 },
+    { previousClose: 1_003, open: 993 },
+  ])('labels an equal previous close as flat after a real gap: $previousClose → $open', ({ previousClose, open }) => {
+    const feature = featureFromCandles(previousClose, open, previousClose)
+    expect(buildAnalysisSummary(feature).split('|')[1]).toBe('전일 대비 0.0% 보합')
+    expect(buildAnalysisSummary(feature).split('|')[2]).toContain(open > previousClose ? '음봉' : '양봉')
+  })
+
+  it.each([
+    { previousClose: 1_001, open: 1_021, close: 1_011, expected: '전일 대비 +1.0% 상승' },
+    { previousClose: 1_001, open: 981, close: 991, expected: '전일 대비 -1.0% 하락' },
+    { previousClose: 1_000_000, open: 1_000_010, close: 1_000_001, expected: '전일 대비 0.0% 상승' },
+    { previousClose: 1_000_000, open: 999_990, close: 999_999, expected: '전일 대비 0.0% 하락' },
+  ])('preserves a genuine previous-close movement: $previousClose → $close', ({ previousClose, open, close, expected }) => {
+    expect(buildAnalysisSummary(featureFromCandles(previousClose, open, close)).split('|')[1]).toBe(expected)
+  })
+
   it('omits missing context instead of fabricating zero returns or benchmark comparisons', () => {
     const feature = rationaleFeature()
     const summary = buildAnalysisSummary(feature)

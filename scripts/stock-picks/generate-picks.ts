@@ -202,7 +202,9 @@ export function buildAnalysisSummary(feature: StockFeatureVector, context?: Tech
     !isFiniteNumber(open) || open <= 0 || !isFiniteNumber(close) || close <= 0
     || !isFiniteNumber(gap) || 1 + gap / 100 <= 0
   ) throw new Error(`당일 등락 계산 불가: ${feature.symbol}`)
-  const dailyReturn = ((1 + gap / 100) * (close / open) - 1) * 100
+  const dailyReturnRatio = (1 + gap / 100) * (close / open) - 1
+  // 전일 종가가 같을 때 비율 연산의 수 ULP 잔차만 보합으로 정규화한다.
+  const dailyReturn = Math.abs(dailyReturnRatio) <= Number.EPSILON * 4 ? 0 : dailyReturnRatio * 100
   const bodyReturn = (close / open - 1) * 100
   if (!Number.isFinite(dailyReturn) || !Number.isFinite(bodyReturn)) {
     throw new Error(`당일 등락 계산 불가: ${feature.symbol}`)
