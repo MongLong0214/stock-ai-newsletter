@@ -177,6 +177,101 @@ const directionLabel = (value: number): string => value > 0 ? '상승' : value <
 const rsiLabel = (value: number): string => value >= 60 ? '강세' : value <= 40 ? '약세' : '중립'
 const volumeLabel = (ratio: number): string => ratio >= 2 ? '급증' : ratio >= 1 ? '평균상회' : '평균하회'
 
+const isFiniteNumber = (value: number | null | undefined): value is number => (
+  typeof value === 'number' && Number.isFinite(value)
+)
+const signedFixed = (value: number, digits = 1): string => {
+  const rounded = Number(value.toFixed(digits))
+  return `${rounded > 0 ? '+' : ''}${rounded.toFixed(digits)}`
+}
+const highReferenceItem = (label: string, distancePercent: number | null | undefined, close: number): string | null => {
+  if (!isFiniteNumber(distancePercent) || distancePercent <= -100) return null
+  const referencePrice = close / (1 + distancePercent / 100)
+  if (!Number.isFinite(referencePrice) || referencePrice <= 0) return null
+  const reference = `${label} ${Math.round(referencePrice).toLocaleString('en-US')}원`
+  if (distancePercent > 0) return `${reference}·${signedFixed(distancePercent)}% 돌파`
+  if (distancePercent === 0) return `${reference} 도달`
+  // 종가/고점-1로 계산한 하락률과 현재 종가에서 고점까지 필요한 상승률은 분모가 다르다.
+  const requiredRise = (1 / (1 + distancePercent / 100) - 1) * 100
+  return Number.isFinite(requiredRise) ? `${reference}까지 +${requiredRise.toFixed(1)}%` : null
+}
+
+export function buildAnalysisSummary(feature: StockFeatureVector, context?: TechnicalContext): string {
+  const { open, high, low, close, gapFromPreviousClosePercent: gap } = feature
+  if (
+    !isFiniteNumber(open) || open <= 0 || !isFiniteNumber(close) || close <= 0
+    || !isFiniteNumber(gap) || 1 + gap / 100 <= 0
+  ) throw new Error(`당일 등락 계산 불가: ${feature.symbol}`)
+  const dailyReturnRatio = (1 + gap / 100) * (close / open) - 1
+  // 전일 종가가 같을 때 비율 연산의 수 ULP 잔차만 보합으로 정규화한다.
+  const dailyReturn = Math.abs(dailyReturnRatio) <= Number.EPSILON * 4 ? 0 : dailyReturnRatio * 100
+  const bodyReturn = (close / open - 1) * 100
+  if (!Number.isFinite(dailyReturn) || !Number.isFinite(bodyReturn)) {
+    throw new Error(`당일 등락 계산 불가: ${feature.symbol}`)
+  }
+  const items = [
+    `${feature.simDate} 종가 ${Math.round(close).toLocaleString('en-US')}원`,
+    `전일 대비 ${signedFixed(dailyReturn)}% ${directionLabel(dailyReturn)}`,
+    `시가 대비 ${signedFixed(bodyReturn)}% ${close > open ? '양봉' : close < open ? '음봉' : '보합봉'}`,
+  ]
+  const movingAverages = [
+    { label: '20일선', value: feature.sma20 },
+    { label: '60일선', value: feature.sma60 },
+  ].flatMap(({ label, value }) => {
+    if (!isFiniteNumber(value) || value <= 0) return []
+    const distance = (close / value - 1) * 100
+    return Number.isFinite(distance)
+      ? [`${label} ${Math.round(value).toLocaleString('en-US')}원·종가 ${Math.abs(distance).toFixed(1)}% ${distance > 0 ? '위' : distance < 0 ? '아래' : '일치'}`] : []
+  })
+  items.push(...movingAverages)
+  for (const { days, value } of [
+    { days: 5, value: context?.return5Percent }, { days: 20, value: context?.return20Percent },
+  ]) if (isFiniteNumber(value)) items.push(`최근 ${days}거래일 종가 ${signedFixed(value)}%`)
+  if (context?.benchmarkSymbol === 'KOSPI' && isFiniteNumber(context.relativeReturn20PercentagePoints)) {
+    items.push(`20거래일 KOSPI 대비 ${signedFixed(context.relativeReturn20PercentagePoints)}%p`)
+  }
+  for (const reference of [
+    highReferenceItem('직전 20거래일 장중 고점', context?.distanceFromPriorHigh20Percent, close),
+    highReferenceItem('직전 60거래일 최고 종가', feature.distanceFromHigh60, close),
+  ]) if (reference !== null) items.push(reference)
+  if (isFiniteNumber(feature.volumeRatio20) && feature.volumeRatio20 >= 0) {
+    items.push(`거래량 20일 평균의 ${feature.volumeRatio20.toFixed(2)}배`)
+  }
+  if (isFiniteNumber(feature.volumePercentile60) && feature.volumePercentile60 >= 0 && feature.volumePercentile60 <= 100) {
+    items.push(`최근 60거래일 중 거래량 상위 ${(100 - feature.volumePercentile60).toFixed(1)}%`)
+  }
+  if (isFiniteNumber(high) && isFiniteNumber(low) && high >= Math.max(open, close) && low <= Math.min(open, close)) {
+    const range = high - low
+    if (range > 0) items.push(
+      `당일 범위 종가 ${((close - low) / range * 100).toFixed(1)}%·윗꼬리 ${((high - Math.max(open, close)) / range * 100).toFixed(1)}%`,
+    )
+    else items.push('당일 고가·저가 동일')
+  }
+  if (isFiniteNumber(feature.atrPercent14) && feature.atrPercent14 >= 0) {
+    const atrWon = close * feature.atrPercent14 / 100
+    if (Number.isFinite(atrWon)) items.push(
+      `ATR14 평균 변동폭 ${feature.atrPercent14.toFixed(1)}%·약 ${Math.round(atrWon).toLocaleString('en-US')}원(갭 포함)`,
+    )
+  }
+  if (isFiniteNumber(feature.rsi14) && feature.rsi14 >= 0 && feature.rsi14 <= 100) {
+    items.push(`RSI14 ${feature.rsi14.toFixed(1)} ${rsiLabel(feature.rsi14)}`)
+  }
+  if (isFiniteNumber(feature.macdHistogram)) {
+    const macdPercent = feature.macdHistogram / close * 100
+    if (Number.isFinite(macdPercent)) items.push(`MACD 모멘텀 ${signedFixed(macdPercent, 2)}%(종가 대비)`)
+  }
+  if (isFiniteNumber(feature.averageTurnover20) && feature.averageTurnover20 >= 0) {
+    items.push(`20일 평균 거래대금 추정 ${(feature.averageTurnover20 / 100_000_000).toFixed(1)}억원`)
+  }
+  if (isFiniteNumber(feature.position52w) && feature.position52w >= 0 && feature.position52w <= 1
+    && Number.isInteger(feature.position52wObservations) && feature.position52wObservations >= 2) {
+    const window = feature.position52wFullWindow && feature.position52wObservations >= 252
+      ? '52주(252거래일)' : `최근 ${feature.position52wObservations}거래일`
+    items.push(`${window} 종가 범위 ${(feature.position52w * 100).toFixed(1)}% 위치(저점0·고점100)`)
+  }
+  return items.join('|')
+}
+
 export const hasCalculatedOutputMetrics = (feature: StockFeatureVector): boolean => [
   feature.open,
   feature.high,
@@ -427,7 +522,7 @@ export async function generatePicksWithMeta(input: {
     console.warn('⚠️ shadow:J-randomConstrained 섀도우 계산 실패:', error)
   }
 
-  const picks: StockData[] = ranked.map(({ symbol, score, tier, rank }) => {
+  const picks: StockData[] = ranked.map(({ symbol, rank }) => {
     const master = mastersBySymbol.get(symbol)
     const feature = featuresBySymbol.get(symbol)
     if (!master || !feature || feature.close === null || !Number.isInteger(feature.close) || feature.close <= 0) {
@@ -437,7 +532,7 @@ export async function generatePicksWithMeta(input: {
       ticker: symbol,
       name: master.name,
       close_price: feature.close,
-      rationale: buildRationale(feature, score, tier, rank),
+      rationale: buildAnalysisSummary(feature, technicalContexts?.get(symbol)),
       signals: buildSignals(feature),
       selection: {
         strategy: PRODUCTION_STRATEGY.name,

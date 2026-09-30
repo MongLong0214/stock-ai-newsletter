@@ -77,7 +77,7 @@ describe('generateNewsletterHTML', () => {
     const data = makeCodePickData()
     const stocks = JSON.parse(data.geminiAnalysis).map((stock: { rationale: string }, index: number) => ({
       ...stock,
-      rationale: `${stock.rationale}|공동 목표 모델 순위 ${index + 1}위|선정 목표 발행일 양봉·시가 대비 5거래일 내 +10% 터치`,
+      rationale: `${stock.rationale}|공동 목표 모델 순위 ${index + 1}위|선정 목표 발행일 양봉·시가 대비 5거래일 내 +10% 터치|변동성 안정 순위 ${index + 1}위|선정 경로 저변동 안정`,
       selection: {
         strategy: 'test-five-day-target',
         rank: index + 1,
@@ -92,7 +92,8 @@ describe('generateNewsletterHTML', () => {
     expect(html.match(/종합 점수/g)).toHaveLength(3)
     for (const score of [92, 87, 81]) expect(html).toContain(`>${score}점</span>`)
     for (const phrase of ['선정 순위', '선정 목표', '공동 목표 모델 순위', '기술 참고 점수',
-      '추천일 양봉 마감', '추천일 포함 5거래일', '상승 확률이 아닙니다']) {
+      '추천일 양봉 마감', '추천일 포함 5거래일', '상승 확률이 아닙니다',
+      '변동성 안정 순위', '선정 경로 저변동 안정']) {
       expect(html).not.toContain(phrase)
     }
     expect(html.match(/display: block; width: 4px; height: 4px; background-color: #0EA5E9/g))

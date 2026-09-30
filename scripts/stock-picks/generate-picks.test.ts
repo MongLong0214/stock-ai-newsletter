@@ -6,9 +6,12 @@ import { describe, expect, it, vi } from 'vitest'
 
 import { validateStockData } from '@/lib/llm/korea/stock-json'
 import { addKoreanTradingDays } from '@/lib/tli/trading-calendar'
-import { buildPriceBook } from '@/scripts/stock-picks/data-handler'
+import { buildPriceBook, StockDataHandler } from '@/scripts/stock-picks/data-handler'
+import { buildFeatureVector } from '@/scripts/stock-picks/features'
+import type { TechnicalContext } from '@/scripts/stock-picks/technical-context'
 import {
   buildRationale,
+  buildAnalysisSummary,
   generatePicks,
   generatePicksWithMeta,
   getExpectedSignalDate,
@@ -60,7 +63,152 @@ const makeFixture = (symbols: readonly string[] = SYMBOLS, signalDate = SIGNAL_D
   return { dates, rows, prices: buildPriceBook(rows), masters }
 }
 
+const rationaleFeature = () => {
+  const fixture = makeFixture([SYMBOLS[0]])
+  const feature = buildFeatureVector(new StockDataHandler(fixture.prices, new TradingDayIndex(fixture.dates)).at(SIGNAL_DATE), SYMBOLS[0])
+  return { ...feature, open: 10_300, high: 11_000, low: 9_000, close: 10_200,
+    gapFromPreviousClosePercent: 3, sma20: 9_800, sma60: 10_500, atrPercent14: 3.2,
+    volumeRatio20: 2.4, volumePercentile60: 88, rsi14: 62, macdHistogram: 51,
+    averageTurnover20: 1_500_000_000, position52w: 0.8, position52wObservations: 252,
+    position52wFullWindow: true, distanceFromHigh60: -20,
+  }
+}
+const rationaleContext = (): TechnicalContext => ({
+  version: 'technical-context-v1', benchmarkSymbol: 'KOSPI', return5Percent: -3.25,
+  return20Percent: 12.345, return60Percent: null, relativeReturn20PercentagePoints: 4.567,
+  relativeReturn60PercentagePoints: null, realizedVolatility20Percent: null,
+  bollingerWidth20Percent: null, closeLocation: null, upperWickRatio: null,
+  chaikinMoneyFlow21: null, distanceFromPriorHigh20Percent: -10,
+  benchmarkReturn20Percent: 7.778, benchmarkSma20DistancePercent: null,
+  breadthAboveSma20: null, breadthEligibleSymbols: 0, breadthUniverseSymbols: 0,
+})
+
+describe('stock analysis summary', () => {
+  it('explains observed directions, lookback windows, price references and units', () => {
+    const summary = buildAnalysisSummary(rationaleFeature(), rationaleContext()).split('|')
+    expect(summary).toEqual([
+      `${SIGNAL_DATE} 종가 10,200원`,
+      '전일 대비 +2.0% 상승',
+      '시가 대비 -1.0% 음봉',
+      '20일선 9,800원·종가 4.1% 위',
+      '60일선 10,500원·종가 2.9% 아래',
+      '최근 5거래일 종가 -3.3%',
+      '최근 20거래일 종가 +12.3%',
+      '20거래일 KOSPI 대비 +4.6%p',
+      '직전 20거래일 장중 고점 11,333원까지 +11.1%',
+      '직전 60거래일 최고 종가 12,750원까지 +25.0%',
+      '거래량 20일 평균의 2.40배',
+      '최근 60거래일 중 거래량 상위 12.0%',
+      '당일 범위 종가 60.0%·윗꼬리 35.0%',
+      'ATR14 평균 변동폭 3.2%·약 326원(갭 포함)',
+      'RSI14 62.0 강세',
+      'MACD 모멘텀 +0.50%(종가 대비)',
+      '20일 평균 거래대금 추정 15.0억원',
+      '52주(252거래일) 종가 범위 80.0% 위치(저점0·고점100)',
+    ])
+  })
+
+  const featureFromCandles = (previousClose: number, open: number, close: number) => {
+    const dates = [addKoreanTradingDays(SIGNAL_DATE, -1), SIGNAL_DATE]
+    const rows: StockDailyPriceRow[] = dates.map((trade_date, index) => {
+      const candleOpen = index === 0 ? previousClose : open
+      const candleClose = index === 0 ? previousClose : close
+      return { symbol: SYMBOLS[0], trade_date, open: candleOpen, close: candleClose,
+        high: Math.max(candleOpen, candleClose) + 5, low: Math.min(candleOpen, candleClose) - 5,
+        volume: 1_000_000, source: 'kis' }
+    })
+    const handler = new StockDataHandler(buildPriceBook(rows), new TradingDayIndex(dates)).at(SIGNAL_DATE)
+    return buildFeatureVector(handler, SYMBOLS[0])
+  }
+
+  it.each([
+    { previousClose: 1_001, open: 1_011 },
+    { previousClose: 1_003, open: 1_013 },
+    { previousClose: 1_001, open: 991 },
+    { previousClose: 1_003, open: 993 },
+  ])('labels an equal previous close as flat after a real gap: $previousClose → $open', ({ previousClose, open }) => {
+    const feature = featureFromCandles(previousClose, open, previousClose)
+    expect(buildAnalysisSummary(feature).split('|')[1]).toBe('전일 대비 0.0% 보합')
+    expect(buildAnalysisSummary(feature).split('|')[2]).toContain(open > previousClose ? '음봉' : '양봉')
+  })
+
+  it.each([
+    { previousClose: 1_001, open: 1_021, close: 1_011, expected: '전일 대비 +1.0% 상승' },
+    { previousClose: 1_001, open: 981, close: 991, expected: '전일 대비 -1.0% 하락' },
+    { previousClose: 1_000_000, open: 1_000_010, close: 1_000_001, expected: '전일 대비 0.0% 상승' },
+    { previousClose: 1_000_000, open: 999_990, close: 999_999, expected: '전일 대비 0.0% 하락' },
+  ])('preserves a genuine previous-close movement: $previousClose → $close', ({ previousClose, open, close, expected }) => {
+    expect(buildAnalysisSummary(featureFromCandles(previousClose, open, close)).split('|')[1]).toBe(expected)
+  })
+
+  it('omits missing context instead of fabricating zero returns or benchmark comparisons', () => {
+    const feature = rationaleFeature()
+    const summary = buildAnalysisSummary(feature)
+    expect(summary.split('|').length).toBeGreaterThanOrEqual(12)
+    expect(summary).not.toMatch(/최근 (5|20)거래일 종가|KOSPI|직전 20거래일 장중 고점|R2|ADX|OBV|골든크로스|순위|선정 목표|확률|NaN|undefined/)
+    expect(buildAnalysisSummary(feature, { ...rationaleContext(), return5Percent: null,
+      return20Percent: Number.NaN, relativeReturn20PercentagePoints: Number.POSITIVE_INFINITY,
+      distanceFromPriorHigh20Percent: null,
+    })).toBe(summary)
+    expect(buildAnalysisSummary(feature, { ...rationaleContext(), benchmarkSymbol: 'KOSDAQ' })).not.toContain('KOSPI 대비')
+  })
+
+  it('names a partial history by its actual close-price window', () => {
+    const summary = buildAnalysisSummary({ ...rationaleFeature(), position52wObservations: 80, position52wFullWindow: false })
+    expect(summary).toContain('최근 80거래일 종가 범위 80.0% 위치')
+    expect(summary).not.toContain('52주')
+  })
+
+  it('handles a flat candle without inventing a range position or wick ratio', () => {
+    const summary = buildAnalysisSummary({ ...rationaleFeature(), open: 10_200, high: 10_200, low: 10_200 })
+    expect(summary).toContain('시가 대비 0.0% 보합봉')
+    expect(summary).toContain('당일 고가·저가 동일')
+    expect(summary).not.toMatch(/당일 범위 종가|윗꼬리|NaN|Infinity/)
+  })
+
+  it('distinguishes breaking a prior high from reaching it and omits invalid high references', () => {
+    const feature = { ...rationaleFeature(), distanceFromHigh60: 5 }
+    expect(buildAnalysisSummary(feature, { ...rationaleContext(), distanceFromPriorHigh20Percent: 0 }))
+      .toContain('직전 20거래일 장중 고점 10,200원 도달|직전 60거래일 최고 종가 9,714원·+5.0% 돌파')
+    expect(buildAnalysisSummary({ ...feature, distanceFromHigh60: -100 },
+      { ...rationaleContext(), distanceFromPriorHigh20Percent: Number.NaN }))
+      .not.toMatch(/직전 (20|60)거래일/)
+  })
+
+  it('keeps legacy rationale available while the new summary contains observed facts', () => {
+    const feature = rationaleFeature()
+    expect(buildRationale(feature, 99, 'lowVolatility', 2)).toContain('변동성 안정 순위 2위|선정 경로 저변동 안정')
+    expect(buildAnalysisSummary(feature, rationaleContext())).not.toMatch(/변동성 안정 순위|선정 경로 저변동 안정/)
+  })
+})
+
 describe('production stock pick generator', () => {
+  it('publishes summary returns and KOSPI comparison from the actual historical price rows', async () => {
+    const fixture = makeFixture()
+    const benchmarkRows: StockDailyPriceRow[] = fixture.dates.map((trade_date) => ({
+      symbol: 'KOSPI', trade_date, open: 1_000, high: 1_005, low: 995, close: 1_000,
+      volume: 1_000_000, source: 'kis',
+    }))
+    const result = await generatePicksWithMeta({ todayKst: TODAY_KST, dependencies: {
+      loadTradingDays: async () => new TradingDayIndex(fixture.dates),
+      loadPrices: async () => buildPriceBook([...fixture.rows, ...benchmarkRows]),
+      loadMasters: async () => fixture.masters,
+      loadRecentPublishedSymbols: async () => new Set<string>(),
+    } })
+    for (const pick of result.picks) {
+      const rows = fixture.rows.filter((row) => row.symbol === pick.ticker)
+      const close = rows.at(-1)!.close
+      const return5 = (close / rows.at(-6)!.close - 1) * 100
+      const return20 = (close / rows.at(-21)!.close - 1) * 100
+      const priorHigh20 = Math.max(...rows.slice(-21, -1).map((row) => row.high!))
+      expect(pick.rationale).toContain(`최근 5거래일 종가 +${return5.toFixed(1)}%`)
+      expect(pick.rationale).toContain(`최근 20거래일 종가 +${return20.toFixed(1)}%`)
+      expect(pick.rationale).toContain(`20거래일 KOSPI 대비 +${return20.toFixed(1)}%p`)
+      expect(pick.rationale).toContain(`직전 20거래일 장중 고점 ${priorHigh20.toLocaleString('en-US')}원까지 +${((priorHigh20 / close - 1) * 100).toFixed(1)}%`)
+    }
+  })
+
+
   it('uses the preceding Friday when todayKst is Sunday', () => {
     expect(getExpectedSignalDate('2026-08-30')).toBe('2026-08-28')
   })
@@ -101,7 +249,7 @@ describe('production stock pick generator', () => {
     for (const pick of picks as Array<{ rationale: string; signals: Record<string, number> }>) {
       expect(pick.rationale.split('|').length).toBeGreaterThanOrEqual(12)
       expect(pick.rationale.length).toBeGreaterThanOrEqual(50)
-      expect(pick.rationale).not.toMatch(/공동 목표 모델 순위|선정 목표/)
+      expect(pick.rationale).not.toMatch(/공동 목표 모델 순위|선정 목표|변동성 안정 순위|선정 경로 저변동 안정/)
       expect(Object.values(pick.signals).every(Number.isInteger)).toBe(true)
     }
   })
@@ -418,14 +566,15 @@ describe('production stock pick generator', () => {
       expect(result.meta.shadows.find((shadow) => shadow.strategy === 'shadow:A-volumeBreakout-v1.1')?.picks.map((pick) => pick.tier)).toEqual([
         'breakout', 'breakout', 'volumeOnly',
       ])
-      expect(result.picks[0]?.rationale.split('|').slice(0, 18)).toEqual(
-        buildRationale(result.meta.rankedCandidates[0]!, 0, 'breakout').split('|').slice(0, 18),
-      )
       for (const [index, pick] of result.picks.entries()) {
+        const candidate = result.meta.rankedCandidates[index]!
         expect(pick.rationale.split('|')).toEqual(
-          buildRationale(result.meta.rankedCandidates[index]!, result.meta.rankedCandidates[index]!.score, 'lowVolatility', index + 1).split('|'),
+          buildAnalysisSummary(candidate, candidate.technicalContext).split('|'),
         )
-        expect(pick.rationale).not.toMatch(/공동 목표 모델 순위|선정 목표/)
+        expect(candidate.technicalContext?.return5Percent).not.toBeNull()
+        expect(pick.rationale).toContain(`최근 5거래일 종가 +${candidate.technicalContext!.return5Percent!.toFixed(1)}%`)
+        expect(pick.rationale).toContain(`최근 20거래일 종가 +${candidate.technicalContext!.return20Percent!.toFixed(1)}%`)
+        expect(pick.rationale).not.toMatch(/공동 목표 모델 순위|선정 목표|변동성 안정 순위|선정 경로 저변동 안정/)
       }
       expect(events.find((event) => event.event === 'stock_picks_generated').shadows)
         .toEqual(result.meta.shadows.map((shadow) => ({ strategy: shadow.strategy,
