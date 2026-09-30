@@ -93,10 +93,10 @@ const GENERATED_RESULT = {
       picked: 3,
     },
     rankedCandidates: [
-      { symbol: 'KOSPI:000001', name: '테스트1', close: 1000, score: 1, rank: 1, tier: 'bullishTarget5d' },
-      { symbol: 'KOSPI:000002', name: '테스트2', close: 2000, score: 2, rank: 2, tier: 'bullishTarget5d' },
-      { symbol: 'KOSPI:000003', name: '테스트3', close: 3000, score: 3, rank: 3, tier: 'bullishTarget5d' },
-      { symbol: 'KOSPI:000004', name: '테스트4', score: 4, rank: 4, tier: 'bullishTarget5d' },
+      { symbol: 'KOSPI:000001', name: '테스트1', close: 1000, score: 1, rank: 1, tier: 'lowVolatility' },
+      { symbol: 'KOSPI:000002', name: '테스트2', close: 2000, score: 2, rank: 2, tier: 'lowVolatility' },
+      { symbol: 'KOSPI:000003', name: '테스트3', close: 3000, score: 3, rank: 3, tier: 'lowVolatility' },
+      { symbol: 'KOSPI:000004', name: '테스트4', score: 4, rank: 4, tier: 'lowVolatility' },
     ],
     shadows: ['shadow:A-volumeBreakout-v1.1', 'shadow:B-random', 'shadow:J-randomConstrained']
       .map((strategy) => ({ strategy, strategyVersion: 'fixture-v1', parametersHash: `${strategy}-hash`,
@@ -435,8 +435,8 @@ describe('prepare-newsletter stock-pick wiring', () => {
       strategy_version: PRODUCTION_STRATEGY.version,
       parameters_hash: PRODUCTION_STRATEGY.parametersHash,
       run_id: null,
-      picks: expect.arrayContaining([expect.objectContaining({ tier: 'bullishTarget5d' })]),
-      top_candidates: expect.arrayContaining([expect.objectContaining({ tier: 'bullishTarget5d' })]),
+      picks: expect.arrayContaining([expect.objectContaining({ tier: 'lowVolatility' })]),
+      top_candidates: expect.arrayContaining([expect.objectContaining({ tier: 'lowVolatility' })]),
     }))
     expect(mocks.persistSnapshot).toHaveBeenCalledTimes(4)
     for (const shadow of GENERATED_RESULT.meta.shadows) {

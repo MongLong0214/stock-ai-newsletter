@@ -2,7 +2,7 @@ import sgMail from '@sendgrid/mail';
 
 import { siteConfig } from '@/lib/constants/seo/config';
 import type { StockSelection } from '@/lib/llm/_types/stock-data';
-import { hasCompleteStockSelection, sortStocksForDisplay, STOCK_SELECTION_TARGET, STOCK_REFERENCE_SCORE_NOTE } from '@/lib/newsletter/stock-selection';
+import { getStockRationaleItems, sortStocksForDisplay } from '@/lib/newsletter/stock-selection';
 
 /**
  * HTML 특수문자 이스케이프 (LLM 출력 삽입 시 XSS 방지)
@@ -757,14 +757,9 @@ function parseAndFormatAnalysis(jsonString: string): string {
       `;
     }
 
-    const hasSelection = hasCompleteStockSelection(stocks);
     const sortedStocks = sortStocksForDisplay<StockData>(stocks);
-    const selectionExplanation = hasSelection ? `
-      <p style="margin: 0 0 8px; font-size: 13px; line-height: 1.6; color: #334155;">${escapeHtml(STOCK_SELECTION_TARGET)}</p>
-      <p style="margin: 0 0 16px; font-size: 12px; line-height: 1.6; color: #64748B;">${escapeHtml(STOCK_REFERENCE_SCORE_NOTE)}</p>
-    ` : '';
 
-    return selectionExplanation + sortedStocks
+    return sortedStocks
       .map(
         (stock: StockData, index: number) => `
         <!-- Stock Card -->
@@ -776,7 +771,6 @@ function parseAndFormatAnalysis(jsonString: string): string {
               <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid #F1F5F9;">
                 <tr>
                   <td style="vertical-align: top; width: 60%;">
-                    ${hasSelection ? `<p style="margin: 0 0 6px; font-size: 13px; font-weight: 700; color: #0369A1;">선정 순위 ${stock.selection!.rank}위</p>` : ''}
                     <h3 style="margin: 0 0 6px 0; padding: 0; font-size: 18px; font-weight: 600; color: #0F172A; letter-spacing: -0.02em; line-height: 1.2;">${escapeHtml(stock.name)}</h3>
                     <p style="margin: 0; padding: 0; font-size: 12px; font-weight: 500; color: #94A3B8; letter-spacing: 0.02em; text-transform: uppercase; line-height: 1;">${escapeHtml(stock.ticker)}</p>
                   </td>
@@ -794,8 +788,7 @@ function parseAndFormatAnalysis(jsonString: string): string {
               <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin-bottom: 24px;">
                 <tr>
                   <td>
-                    ${stock.rationale
-                      .split('|')
+                    ${getStockRationaleItems(stock.rationale)
                       .map(
                         (r: string) => `
                       <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin-bottom: 8px;">
@@ -889,7 +882,7 @@ function parseAndFormatAnalysis(jsonString: string): string {
                 <!-- Overall Score -->
                 <tr>
                   <td style="width: 40%; padding: 12px 0 0 0; vertical-align: middle;">
-                    <p style="margin: 0; padding: 0; font-size: 16px; font-weight: 600; color: #0F172A; line-height: 1;">${hasSelection ? '기술 참고 점수' : '종합 점수'}</p>
+                    <p style="margin: 0; padding: 0; font-size: 16px; font-weight: 600; color: #0F172A; line-height: 1;">종합 점수</p>
                   </td>
                   <td style="width: 60%; padding: 12px 0 0 0; text-align: right; vertical-align: middle;">
                     <span style="display: inline-block; padding: 8px 18px; background-color: ${stock.signals.overall_score >= 70 ? '#10B981' : stock.signals.overall_score >= 40 ? '#F59E0B' : '#EF4444'}; border-radius: 6px; font-size: 18px; font-weight: 700; color: #FFFFFF; line-height: 1;">${stock.signals.overall_score}점</span>

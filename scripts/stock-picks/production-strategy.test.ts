@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  BULLISH_TARGET_STRATEGY,
+  FROZEN_BULLISH_TARGET_MODEL,
   LEGACY_VOLUME_BREAKOUT_STRATEGY,
   LOW_VOLATILITY_STABLE_STRATEGY,
   PRODUCTION_STRATEGY,
-  PRODUCTION_TARGET_MODEL,
   PRODUCTION_VOLUME_BREAKOUT_PARAMETERS,
   canonicalJson,
   hashCanonicalJson,
@@ -46,18 +47,28 @@ describe('frozen production strategy artifact', () => {
       gateVersion: 'status-flags-valid-candle-v2',
       preferredRule: 'krx-code-last-digit-nonzero',
     }))
+    expect(PRODUCTION_STRATEGY).toEqual({
+      ...LOW_VOLATILITY_STABLE_STRATEGY,
+      objective: 'lowVolatilityStable',
+    })
+    expect(PRODUCTION_STRATEGY.parametersHash).toBe(
+      '35bebdb2a6e26d4db47784c19fafc5d4bcaf985fb81c419cccf4eaeef442846d',
+    )
   })
 
   it('hashes the frozen target model with its pool gates and keeps training-label availability', () => {
-    expect(PRODUCTION_STRATEGY).toMatchObject({
+    expect(BULLISH_TARGET_STRATEGY).toMatchObject({
       name: 'bullishTarget5d', version: 'v3-2026-09-29',
       objective: 'bullishThenTouch10Within5TradingDays', parameters: BULLISH_TARGET_PARAMETERS,
     })
-    expect(PRODUCTION_STRATEGY.parametersHash).toBe(hashCanonicalJson({
-      parameters: BULLISH_TARGET_PARAMETERS, model: PRODUCTION_TARGET_MODEL,
+    expect(BULLISH_TARGET_STRATEGY.parametersHash).toBe(hashCanonicalJson({
+      parameters: BULLISH_TARGET_PARAMETERS, model: FROZEN_BULLISH_TARGET_MODEL,
       gateVersion: 'status-flags-valid-candle-v2', preferredRule: 'krx-code-last-digit-nonzero',
     }))
-    expect(PRODUCTION_TARGET_MODEL.trainedLabelsThrough)
-      .toBe(addKoreanTradingDays(PRODUCTION_TARGET_MODEL.trainedSignalThrough!, 5))
+    expect(BULLISH_TARGET_STRATEGY.parametersHash).toBe(
+      '4b2c349c751be708b98e810b4e77dd31b38680bf6f3967b9d7756011feadf1f9',
+    )
+    expect(FROZEN_BULLISH_TARGET_MODEL.trainedLabelsThrough)
+      .toBe(addKoreanTradingDays(FROZEN_BULLISH_TARGET_MODEL.trainedSignalThrough!, 5))
   })
 })

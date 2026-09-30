@@ -15,13 +15,13 @@ import PriceSection from './price-section';
 import { calculatePriceChange, calculateSettledPriceChange, getPreviousDate, getSettledDateDisplay } from './utils';
 import { RATIONALE_LAYOUT, SIGNAL_BADGES } from './constants';
 import type { NewsletterCardProps } from './types';
+import { getStockRationaleItems } from '@/lib/newsletter/stock-selection';
 
 /**
  * 뉴스레터 카드 메인 컴포넌트
  */
 export default function NewsletterCard({
   stock,
-  selectionRank,
   maxRationaleItems,
   newsletterDate,
   currentPrice,
@@ -56,7 +56,7 @@ export default function NewsletterCard({
   const previousDate = getPreviousDate(newsletterDate);
 
   // 추천 근거 분리
-  const rationaleItems = rationale.split('|');
+  const rationaleItems = getStockRationaleItems(rationale);
 
   // 추천 근거 영역 높이 계산
   const rationaleItemsHeight =
@@ -108,18 +108,18 @@ export default function NewsletterCard({
           {/* 전체 점수 (강조) - 고정 너비 */}
           <div className="flex flex-col items-end justify-between flex-shrink-0 w-[90px] min-h-[110px] py-1">
             <span className="text-[11px] uppercase tracking-widest text-slate-200 font-mono whitespace-nowrap">
-              {selectionRank ? '선정 순위' : '종합 점수'}
+              종합 점수
             </span>
             <div
               className={`
-                ${selectionRank ? 'text-4xl sm:text-5xl whitespace-nowrap' : 'text-5xl sm:text-6xl'} font-black tabular-nums
-                bg-gradient-to-br ${selectionRank ? 'from-emerald-300 to-teal-400' : overallGradient}
+                text-5xl sm:text-6xl font-black tabular-nums
+                bg-gradient-to-br ${overallGradient}
                 bg-clip-text text-transparent
                 drop-shadow-[0_0_20px_rgba(16,185,129,0.5)]
                 leading-none
               `}
             >
-              {selectionRank ? `${selectionRank}위` : signals.overall_score}
+              {signals.overall_score}
             </div>
           </div>
         </div>
@@ -194,10 +194,6 @@ export default function NewsletterCard({
         <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-4 font-mono">
           기술 시그널
         </h4>
-
-        {selectionRank ? (
-          <p className="text-sm text-slate-300">기술 참고 점수 {signals.overall_score}점</p>
-        ) : null}
 
         {SIGNAL_BADGES?.map(({ label, key }) => (
           <ScoreBadge key={key} label={label} score={signals[key]} />

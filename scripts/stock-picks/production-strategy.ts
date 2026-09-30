@@ -64,19 +64,25 @@ export const LOW_VOLATILITY_STABLE_STRATEGY = {
   }),
 } as const
 
-export const PRODUCTION_TARGET_MODEL = frozenTargetModel as TargetModelArtifact & {
+export const FROZEN_BULLISH_TARGET_MODEL = frozenTargetModel as TargetModelArtifact & {
   readonly trainedLabelsThrough: string
 }
 
-export const PRODUCTION_STRATEGY = {
+/** 동결한 v3 모델은 연구 섀도우에서만 평가한다. */
+export const BULLISH_TARGET_STRATEGY = {
   name: 'bullishTarget5d',
   version: 'v3-2026-09-29',
   objective: 'bullishThenTouch10Within5TradingDays',
   parameters: BULLISH_TARGET_PARAMETERS,
   parametersHash: hashCanonicalJson({
     parameters: BULLISH_TARGET_PARAMETERS,
-    model: PRODUCTION_TARGET_MODEL,
+    model: FROZEN_BULLISH_TARGET_MODEL,
     gateVersion: 'status-flags-valid-candle-v2',
     preferredRule: 'krx-code-last-digit-nonzero',
   }),
+} as const
+
+export const PRODUCTION_STRATEGY = {
+  ...LOW_VOLATILITY_STABLE_STRATEGY,
+  objective: 'lowVolatilityStable',
 } as const

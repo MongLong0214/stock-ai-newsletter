@@ -15,7 +15,7 @@ const state = vi.hoisted(() => ({
   snapshot: null as MarketAssessmentSnapshot | null,
   newsletter: null as Record<string, unknown> | null,
   snapshots: [] as Record<string, unknown>[],
-  corruptSelection: null as 'incomplete' | 'duplicate' | 'all-missing' | 'wrong-strategy' | 'wrong-ticker' | 'swapped-ranks' | 'wrong-price' | 'snapshot-price' | 'snapshot-name' | 'model-identity' | null,
+  corruptSelection: null as 'incomplete' | 'duplicate' | 'all-missing' | 'wrong-strategy' | 'wrong-objective' | 'wrong-ticker' | 'swapped-ranks' | 'wrong-price' | 'snapshot-price' | 'snapshot-name' | 'model-identity' | 'parameters' | null,
   fetchDaily: vi.fn(),
   refreshMaster: vi.fn(),
   alert: vi.fn(),
@@ -75,6 +75,10 @@ vi.mock('@/scripts/stock-picks/generate-picks', async (importOriginal) => {
     if (state.corruptSelection === 'duplicate') picks[0]!.selection = { ...picks[1]!.selection! }
     if (state.corruptSelection === 'all-missing') for (const pick of picks) delete pick.selection
     if (state.corruptSelection === 'wrong-strategy') for (const pick of picks) pick.selection!.strategy = 'wrong-model'
+    if (state.corruptSelection === 'wrong-objective') {
+      for (const pick of picks) pick.selection!.objective = 'bullishThenTouch10Within5TradingDays'
+      return { ...result, picks, json: JSON.stringify(picks) }
+    }
     if (state.corruptSelection === 'wrong-ticker') picks[0]!.ticker = 'KOSPI:999990'
     if (state.corruptSelection === 'swapped-ranks') {
       picks[0]!.selection!.rank = 2
@@ -90,6 +94,9 @@ vi.mock('@/scripts/stock-picks/generate-picks', async (importOriginal) => {
         ? { ...candidate, name: '다른 회사' } : candidate),
     } }
     if (state.corruptSelection === 'model-identity') return { ...result, meta: { ...result.meta, parametersHash: 'wrong-model-hash' } }
+    if (state.corruptSelection === 'parameters') return { ...result, meta: { ...result.meta,
+      parameters: { ...result.meta.parameters, recentPickTradingDays: 0 },
+    } }
 
     return { ...result, json: JSON.stringify(picks) }
   } }
@@ -192,48 +199,49 @@ describe('Prepare boundary-isolated E2E', () => {
     expect(state.fetchDaily).toHaveBeenCalledTimes(7)
     expect(state.snapshots).toHaveLength(5)
     expect(state.snapshots.map((row) => row.strategy)).toEqual(expect.arrayContaining([
-      'bullishTarget5d', 'shadow:A-volumeBreakout-v1.1',
-      'shadow:B-random', 'shadow:J-randomConstrained', 'shadow:lowVolatility-v2',
+      'lowVolatilityStable', 'shadow:A-volumeBreakout-v1.1',
+      'shadow:B-random', 'shadow:J-randomConstrained', 'shadow:bullishTarget-v3',
     ]))
     expect(state.snapshots.every((row) => (row.picks as unknown[]).length === 3)).toBe(true)
     const snapshot = state.snapshots[0]
-    expect(snapshot.strategy).toBe('bullishTarget5d')
-    expect(snapshot.strategy_version).toMatch(/^v3/)
+    expect(snapshot.strategy).toBe('lowVolatilityStable')
+    expect(snapshot.strategy_version).toBe('v2-2026-09-23')
     expect(snapshot.signal_date).toBe(SIGNAL)
     const candidates = snapshot.picks as Array<{ symbol: string; rank: number; close: number; technicalContext: unknown }>
     expect(candidates.map(row => row.symbol)).toEqual(picks.map((pick: { ticker: string }) => pick.ticker))
     expect(candidates.map(row => row.rank)).toEqual([1, 2, 3])
     expect(picks.map(pick => pick.selection)).toEqual([1, 2, 3].map(rank => ({
-      strategy: 'bullishTarget5d', rank, objective: 'bullishThenTouch10Within5TradingDays',
+      strategy: 'lowVolatilityStable', rank, objective: 'lowVolatilityStable',
     })))
     expect(candidates.every(row => row.technicalContext)).toBe(true)
     for (const row of candidates) expect(row.close).toBe(state.stored.get(`${row.symbol}|${SIGNAL}`)?.close)
     const html = generateNewsletterHTML({
       date: TARGET, geminiAnalysis: String(state.newsletter?.gemini_analysis),
     }, 'reader@example.com')
-    // Order must come from persisted rank even if an intermediate consumer reorders the array.
+    // Display order follows overall score while persisted selection metadata stays intact.
     const reorderedHtml = generateNewsletterHTML({
       date: TARGET, geminiAnalysis: JSON.stringify([...picks].reverse()),
     }, 'reader@example.com')
-    for (const rendered of [html, reorderedHtml]) {
-      const positions = picks.map(pick => rendered.indexOf(pick.name))
+    for (const [rendered, inputPicks] of [[html, picks], [reorderedHtml, [...picks].reverse()]] as const) {
+      const positions = [...inputPicks].sort((a, b) => b.signals.overall_score - a.signals.overall_score)
+        .map(pick => rendered.indexOf(pick.name))
       expect(positions.every(position => position >= 0)).toBe(true)
       expect(positions[0]).toBeLessThan(positions[1])
       expect(positions[1]).toBeLessThan(positions[2])
     }
-    for (const rank of [1, 2, 3]) expect(html).toContain(`선정 순위 ${rank}위`)
-    expect(html).toContain('추천일 양봉 마감(종가 &gt; 시가)')
-    expect(html).toContain('추천일 포함 5거래일 안에 추천일 시가 대비 장중 +10% 도달')
-    expect(html).toContain('기술 참고 점수')
-    expect(html).toContain('상승 확률이 아닙니다')
-    expect(html).not.toContain('종합 점수')
+    expect(html.match(/종합 점수/g)).toHaveLength(3)
+    for (const pick of picks) expect(html).toContain(`>${pick.signals.overall_score}점</span>`)
+    for (const phrase of ['선정 순위', '선정 목표', '공동 목표 모델 순위', '기술 참고 점수',
+      '추천일 양봉 마감', '추천일 포함 5거래일', '상승 확률이 아닙니다']) {
+      expect(html).not.toContain(phrase)
+    }
     expect(html).not.toMatch(/undefined|NaN/)
     expect(state.model).not.toHaveBeenCalled()
     expect(state.alert).not.toHaveBeenCalled()
     expect(fetch).not.toHaveBeenCalled()
   })
 
-  it.each(['incomplete', 'duplicate', 'all-missing', 'wrong-strategy', 'wrong-ticker', 'swapped-ranks', 'wrong-price', 'snapshot-price', 'snapshot-name', 'model-identity'] as const)('rejects %s selection corruption before storing any output', async (corruptSelection) => {
+  it.each(['incomplete', 'duplicate', 'all-missing', 'wrong-strategy', 'wrong-objective', 'wrong-ticker', 'swapped-ranks', 'wrong-price', 'snapshot-price', 'snapshot-name', 'model-identity', 'parameters'] as const)('rejects %s selection corruption before storing any output', async (corruptSelection) => {
     state.corruptSelection = corruptSelection
     expect(await runPrepareNewsletterCli([`--target-date=${TARGET}`])).toBe(1)
     expect(state.fetchDaily).toHaveBeenCalledTimes(7)

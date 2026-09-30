@@ -1,8 +1,5 @@
 import type { StockSelection } from '@/lib/llm/_types/stock-data';
 
-export const STOCK_SELECTION_TARGET = '선정 목표: 추천일 양봉 마감(종가 > 시가)과 추천일 포함 5거래일 안에 추천일 시가 대비 장중 +10% 도달';
-export const STOCK_REFERENCE_SCORE_NOTE = '기술 참고 점수는 관측 지표의 요약이며 상승 확률이 아닙니다.';
-
 export function isStockSelection(value: unknown): value is StockSelection {
   if (!value || typeof value !== 'object') return false;
   const selection = value as Record<string, unknown>;
@@ -11,10 +8,11 @@ export function isStockSelection(value: unknown): value is StockSelection {
     && typeof selection.rank === 'number'
     && Number.isInteger(selection.rank)
     && selection.rank >= 1 && selection.rank <= 3
-    && selection.objective === 'bullishThenTouch10Within5TradingDays';
+    && (selection.objective === 'lowVolatilityStable'
+      || selection.objective === 'bullishThenTouch10Within5TradingDays');
 }
 
-/** 세 종목의 순위가 모두 있을 때만 선정 순서를 사용할 수 있다. */
+/** 세 종목의 선정 메타데이터가 완전한지 확인한다. */
 export function hasCompleteStockSelection(stocks: readonly unknown[]): boolean {
   if (stocks.length !== 3) return false;
   const selections = stocks.map((stock) => (
@@ -22,15 +20,22 @@ export function hasCompleteStockSelection(stocks: readonly unknown[]): boolean {
   ));
   if (!selections.every(isStockSelection)) return false;
   return new Set(selections.map((selection) => selection.rank)).size === 3
-    && selections.every((selection) => selection.strategy === selections[0].strategy);
+    && selections.every((selection) => selection.strategy === selections[0].strategy
+      && selection.objective === selections[0].objective);
 }
 
-/** 기존 기록은 당시의 기술점수 정렬을 유지한다. 입력 배열은 변경하지 않는다. */
+/** 종합 점수 내림차순으로 표시한다. 입력 배열은 변경하지 않는다. */
 export function sortStocksForDisplay<T extends {
   signals: { overall_score: number };
-  selection?: StockSelection;
 }>(stocks: readonly T[]): T[] {
-  return hasCompleteStockSelection(stocks)
-    ? [...stocks].sort((left, right) => left.selection!.rank - right.selection!.rank)
-    : [...stocks].sort((left, right) => right.signals.overall_score - left.signals.overall_score);
+  return [...stocks].sort((left, right) => right.signals.overall_score - left.signals.overall_score);
+}
+
+/** 저장된 추천 근거에서 폐기된 모델 순위와 목표 안내만 표시하지 않는다. */
+export function getStockRationaleItems(rationale: string): string[] {
+  return rationale.split('|').filter((item) => {
+    const text = item.trim();
+    return !/^공동 목표 모델 순위 [1-3]위$/.test(text)
+      && text !== '선정 목표 발행일 양봉·시가 대비 5거래일 내 +10% 터치';
+  });
 }

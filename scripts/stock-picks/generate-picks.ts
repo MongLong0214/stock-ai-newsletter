@@ -16,11 +16,11 @@ import { buildFeatureSeries, type StockFeatureVector } from '@/scripts/stock-pic
 import { parsePublishedPicks } from '@/scripts/stock-picks/measure-forward'
 import { buildTechnicalContextMap, type TechnicalContext } from '@/scripts/stock-picks/technical-context'
 import {
+  BULLISH_TARGET_STRATEGY,
+  FROZEN_BULLISH_TARGET_MODEL,
   hashCanonicalJson,
   LEGACY_VOLUME_BREAKOUT_STRATEGY,
-  LOW_VOLATILITY_STABLE_STRATEGY,
   PRODUCTION_STRATEGY,
-  PRODUCTION_TARGET_MODEL,
   PRODUCTION_VOLUME_BREAKOUT_PARAMETERS,
 } from '@/scripts/stock-picks/production-strategy'
 import {
@@ -86,7 +86,7 @@ export interface GeneratePicksMeta {
   readonly signalDate: string
   readonly strategy: typeof PRODUCTION_STRATEGY.name
   readonly strategyVersion: typeof PRODUCTION_STRATEGY.version
-  readonly parameters: typeof BULLISH_TARGET_PARAMETERS
+  readonly parameters: typeof PRODUCTION_STRATEGY.parameters
   readonly parametersHash: string
   readonly funnel: StockPicksFunnel
   readonly rankedCandidates: readonly RankedStockFeature[]
@@ -323,10 +323,10 @@ export function buildRationale(
     `연속상승 ${finiteOr(feature.consecutiveUpDays, 0).toFixed(0)}일`,
     `골든크로스 감지 ${goldenCrossAge >= 0 ? 1 : 0}회·경과 ${goldenCrossAge}일`,
     `20일 평균거래대금 ${fixed(finiteOr(feature.averageTurnover20) / 100_000_000, 1)}억원`,
-    tier === 'bullishTarget5d' ? `공동 목표 모델 순위 ${rank ?? 0}위`
-      : tier === 'lowVolatility' ? `변동성 안정 순위 ${rank ?? 0}위` : `volumeBreakout 전략점수 ${strategyScore.toFixed(1)}점`,
-    tier === 'bullishTarget5d' ? '선정 목표 발행일 양봉·시가 대비 5거래일 내 +10% 터치'
-      : `선정 경로 ${tier === 'lowVolatility' ? '저변동 안정' : tier === 'breakout' ? '거래량 돌파' : '거래량 상위 보충'}`,
+    ...(tier === 'bullishTarget5d' ? [] : [
+      tier === 'lowVolatility' ? `변동성 안정 순위 ${rank ?? 0}위` : `volumeBreakout 전략점수 ${strategyScore.toFixed(1)}점`,
+      `선정 경로 ${tier === 'lowVolatility' ? '저변동 안정' : tier === 'breakout' ? '거래량 돌파' : '거래량 상위 보충'}`,
+    ]),
   ].join('|')
 }
 
@@ -349,9 +349,6 @@ export async function generatePicksWithMeta(input: {
     throw new Error(
       `주가 데이터 신선도 게이트 실패: expected=${signalDate}가 KOSPI 실측 거래일 인덱스에 없습니다`,
     )
-  }
-  if (signalDate < PRODUCTION_TARGET_MODEL.trainedLabelsThrough) {
-    throw new Error(`모델 학습 라벨 관측일 이전 신호일은 사용할 수 없습니다: signalDate=${signalDate}, trainedLabelsThrough=${PRODUCTION_TARGET_MODEL.trainedLabelsThrough}`)
   }
 
   const historyDates = tradingDays.tradingDays.slice(
@@ -398,27 +395,26 @@ export async function generatePicksWithMeta(input: {
   const recentPublishedSymbols = await loadRecent({
     signalDate,
     tradingDays,
-    lookbackTradingDays: BULLISH_TARGET_PARAMETERS.recentPickTradingDays,
+    lookbackTradingDays: LOW_VOLATILITY_STABLE_PARAMETERS.recentPickTradingDays,
   })
-  const rankedScores = rankBullishTargetCandidates({
+  const rankedSymbols = rankLowVolatilityStableCandidates({
     features,
     masters: mastersBySymbol,
-    parameters: BULLISH_TARGET_PARAMETERS,
-    model: PRODUCTION_TARGET_MODEL,
+    parameters: LOW_VOLATILITY_STABLE_PARAMETERS,
     excludeSymbols: recentPublishedSymbols,
     pickCount: features.length,
   })
-  const rankedFeatures: RankedStockFeature[] = rankedScores.flatMap(({ symbol, score }, index) => {
+  const rankedFeatures: RankedStockFeature[] = rankedSymbols.flatMap((symbol, index) => {
     const feature = featuresBySymbol.get(symbol)
     const master = mastersBySymbol.get(symbol)
-    if (!feature || !master) return []
-    // 공동 목표로 학습한 정렬값이며 보정된 성공 확률이 아니다.
-    return [{ ...feature, name: master.name, score, rank: index + 1,
-      tier: 'bullishTarget5d', technicalContext: technicalContexts?.get(symbol) }]
+    if (!feature || !master || feature.atrPercent14 === null) return []
+    // score는 ATR% 원값이며 낮을수록 좋은 순위다.
+    return [{ ...feature, name: master.name, score: feature.atrPercent14, rank: index + 1,
+      tier: 'lowVolatility', technicalContext: technicalContexts?.get(symbol) }]
   })
   const ranked = rankedFeatures.slice(0, REQUIRED_PICK_COUNT)
   if (ranked.length !== REQUIRED_PICK_COUNT) {
-    throw new Error(`공동 목표 후보 부족: ${ranked.length}/${REQUIRED_PICK_COUNT}`)
+    throw new Error(`저변동 후보 부족: ${ranked.length}/${REQUIRED_PICK_COUNT}`)
   }
 
   const shadows: GeneratePicksMeta['shadows'][number][] = []
@@ -443,16 +439,18 @@ export async function generatePicksWithMeta(input: {
     shadows.push({ strategy, strategyVersion, parametersHash, picks })
   }
   try {
-    const stableSymbols = rankLowVolatilityStableCandidates({
-      features, masters: mastersBySymbol, parameters: LOW_VOLATILITY_STABLE_PARAMETERS,
-      excludeSymbols: recentPublishedSymbols,
-    })
-    addShadow('shadow:lowVolatility-v2', LOW_VOLATILITY_STABLE_STRATEGY.version,
-      LOW_VOLATILITY_STABLE_STRATEGY.parametersHash, stableSymbols.map((symbol) => ({
-        symbol, tier: 'lowVolatility', score: featuresBySymbol.get(symbol)!.atrPercent14!,
-      })))
+    if (signalDate >= FROZEN_BULLISH_TARGET_MODEL.trainedLabelsThrough) {
+      const targetCandidates = rankBullishTargetCandidates({
+        features, masters: mastersBySymbol, parameters: BULLISH_TARGET_PARAMETERS,
+        model: FROZEN_BULLISH_TARGET_MODEL, excludeSymbols: recentPublishedSymbols,
+      })
+      addShadow('shadow:bullishTarget-v3', BULLISH_TARGET_STRATEGY.version,
+        BULLISH_TARGET_STRATEGY.parametersHash, targetCandidates.map((candidate) => ({
+          ...candidate, tier: 'bullishTarget5d',
+        })))
+    }
   } catch (error) {
-    console.warn('⚠️ shadow:lowVolatility-v2 섀도우 계산 실패:', error)
+    console.warn('⚠️ shadow:bullishTarget-v3 섀도우 계산 실패:', error)
   }
   try {
     const breakoutCandidates = rankStrategyCandidates({
@@ -532,7 +530,7 @@ export async function generatePicksWithMeta(input: {
     activeMasters: masters.filter((master) => master.is_active).length,
     withFreshKisRow: eligibleMasters.length,
     withCompleteFeatures: features.length,
-    gatePassed: rankedScores.length,
+    gatePassed: rankedSymbols.length,
     picked: picks.length,
   }
   console.log(JSON.stringify({ event: 'stock_picks_funnel', ...funnel }))
@@ -555,13 +553,13 @@ export async function generatePicksWithMeta(input: {
       technicalContext: candidate.technicalContext,
     }
   }
-  const picksByTier = { bullishTarget5d: ranked.length }
+  const picksByTier = { lowVolatility: ranked.length }
   console.log(JSON.stringify({
     event: 'stock_picks_generated',
     signalDate,
     strategy: PRODUCTION_STRATEGY.name,
     strategyVersion: PRODUCTION_STRATEGY.version,
-    parameters: BULLISH_TARGET_PARAMETERS,
+    parameters: PRODUCTION_STRATEGY.parameters,
     parametersHash,
     picksByTier,
     picks: rankedFeatures.slice(0, REQUIRED_PICK_COUNT).map(toObservableCandidate),
@@ -578,7 +576,7 @@ export async function generatePicksWithMeta(input: {
       gitSha: process.env.GITHUB_SHA ?? null,
       strategy: PRODUCTION_STRATEGY.name,
       strategyVersion: PRODUCTION_STRATEGY.version,
-      parameters: BULLISH_TARGET_PARAMETERS,
+      parameters: PRODUCTION_STRATEGY.parameters,
       parametersHash,
       funnel,
       picks: ranked,
@@ -594,7 +592,7 @@ export async function generatePicksWithMeta(input: {
       signalDate,
       strategy: PRODUCTION_STRATEGY.name,
       strategyVersion: PRODUCTION_STRATEGY.version,
-      parameters: BULLISH_TARGET_PARAMETERS,
+      parameters: PRODUCTION_STRATEGY.parameters,
       parametersHash,
       funnel,
       rankedCandidates: rankedFeatures,

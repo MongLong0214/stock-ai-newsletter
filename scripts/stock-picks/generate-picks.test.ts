@@ -15,7 +15,7 @@ import {
   type StockPickMaster,
 } from '@/scripts/stock-picks/generate-picks'
 import * as strategies from '@/scripts/stock-picks/strategies'
-import { PRODUCTION_TARGET_MODEL } from '@/scripts/stock-picks/production-strategy'
+import { BULLISH_TARGET_STRATEGY, FROZEN_BULLISH_TARGET_MODEL, PRODUCTION_STRATEGY } from '@/scripts/stock-picks/production-strategy'
 import { scoreTargetModel } from '@/scripts/stock-picks/target-model'
 import { TradingDayIndex } from '@/scripts/stock-picks/trading-days'
 import type { StockDailyPriceRow } from '@/scripts/tli/prices/stock-daily-prices'
@@ -25,10 +25,10 @@ const TODAY_KST = '2026-08-28'
 const SYMBOLS = ['KOSPI:000010', 'KOSPI:000020', 'KOSDAQ:000030'] as const
 const FOUR_SYMBOLS = [...SYMBOLS, 'KOSPI:000040'] as const
 
-const makeFixture = (symbols: readonly string[] = SYMBOLS) => {
+const makeFixture = (symbols: readonly string[] = SYMBOLS, signalDate = SIGNAL_DATE) => {
   const dates = Array.from(
     { length: 320 },
-    (_value, index) => addKoreanTradingDays(SIGNAL_DATE, index - 319),
+    (_value, index) => addKoreanTradingDays(signalDate, index - 319),
   )
   const rows: StockDailyPriceRow[] = symbols.flatMap((symbol, symbolIndex) => dates.map((tradeDate, index) => {
     const base = 2_000 + symbolIndex * 100
@@ -91,8 +91,8 @@ describe('production stock pick generator', () => {
     expect(picks).toHaveLength(3)
     expect((picks as Array<{ ticker: string }>).map((pick) => pick.ticker).sort()).toEqual([...SYMBOLS].sort())
     expect((picks as Array<{ selection: unknown }>).map((pick) => pick.selection)).toEqual(
-      [1, 2, 3].map((rank) => ({ strategy: 'bullishTarget5d', rank,
-        objective: 'bullishThenTouch10Within5TradingDays' })),
+      [1, 2, 3].map((rank) => ({ strategy: 'lowVolatilityStable', rank,
+        objective: 'lowVolatilityStable' })),
     )
     expect(loadPrices).toHaveBeenCalledWith({
       startDate: fixture.dates[0],
@@ -101,21 +101,37 @@ describe('production stock pick generator', () => {
     for (const pick of picks as Array<{ rationale: string; signals: Record<string, number> }>) {
       expect(pick.rationale.split('|').length).toBeGreaterThanOrEqual(12)
       expect(pick.rationale.length).toBeGreaterThanOrEqual(50)
-      expect(pick.rationale).toMatch(/공동 목표 모델 순위 [1-3]위\|선정 목표 발행일 양봉·시가 대비 5거래일 내 \+10% 터치$/)
+      expect(pick.rationale).not.toMatch(/공동 목표 모델 순위|선정 목표/)
       expect(Object.values(pick.signals).every(Number.isInteger)).toBe(true)
     }
   })
 
-  it('rejects signals before all frozen-model training outcomes were observable without loading prices', async () => {
-    const fixture = makeFixture()
+  it('keeps production available before frozen-model labels are observable and skips only the target shadow', async () => {
+    const todayKst = FROZEN_BULLISH_TARGET_MODEL.trainedLabelsThrough
+    const signalDate = addKoreanTradingDays(todayKst, -1)
+    const fixture = makeFixture(SYMBOLS, signalDate)
     const loadPrices = vi.fn(async () => fixture.prices)
-    await expect(generatePicks({ todayKst: PRODUCTION_TARGET_MODEL.trainedLabelsThrough, dependencies: {
-      loadTradingDays: async () => new TradingDayIndex(fixture.dates), loadPrices,
-    } })).rejects.toThrow(/모델 학습 라벨 관측일 이전/)
-    expect(loadPrices).not.toHaveBeenCalled()
+    const rankTarget = vi.spyOn(strategies, 'rankBullishTargetCandidates')
+    try {
+      const result = await generatePicksWithMeta({ todayKst, dependencies: {
+        loadTradingDays: async () => new TradingDayIndex(fixture.dates), loadPrices,
+        loadMasters: async () => fixture.masters,
+        loadRecentPublishedSymbols: async () => new Set<string>(),
+      } })
+      expect(result.picks).toHaveLength(3)
+      expect(result.meta.signalDate).toBe(signalDate)
+      expect(result.meta.strategy).toBe('lowVolatilityStable')
+      expect(loadPrices).toHaveBeenCalledOnce()
+      expect(rankTarget).not.toHaveBeenCalled()
+      expect(result.meta.shadows.map((shadow) => shadow.strategy)).toEqual([
+        'shadow:A-volumeBreakout-v1.1', 'shadow:B-random', 'shadow:J-randomConstrained',
+      ])
+    } finally {
+      rankTarget.mockRestore()
+    }
   })
 
-  it('uses learned model order rather than ATR order or symbol tie-breaking', async () => {
+  it('uses ATR order in production and retains frozen-model ordering only in its shadow', async () => {
     const fixture = makeFixture()
     const result = await generatePicksWithMeta({ todayKst: TODAY_KST, dependencies: {
       loadTradingDays: async () => new TradingDayIndex(fixture.dates),
@@ -130,12 +146,54 @@ describe('production stock pick generator', () => {
     const masters = new Map(candidates.map((candidate) => [candidate.symbol,
       { symbol: candidate.symbol, is_active: true, status_flags: {} }]))
     const ranking = strategies.rankBullishTargetCandidates({ features: candidates, masters,
-      parameters: strategies.BULLISH_TARGET_PARAMETERS, excludeSymbols: new Set(), model: PRODUCTION_TARGET_MODEL })
+      parameters: strategies.BULLISH_TARGET_PARAMETERS, excludeSymbols: new Set(), model: FROZEN_BULLISH_TARGET_MODEL })
     expect(ranking.map((candidate) => candidate.symbol)).toEqual(['KOSPI:000020', 'KOSPI:000010'])
     expect(ranking[0]!.score).toBeGreaterThan(ranking[1]!.score)
     expect(result.meta.rankedCandidates.map((candidate) => candidate.score)).toEqual(
-      result.meta.rankedCandidates.map((candidate) => scoreTargetModel(candidate, PRODUCTION_TARGET_MODEL)),
+      result.meta.rankedCandidates.map((candidate) => candidate.atrPercent14),
     )
+    const targetShadow = result.meta.shadows.find((shadow) => shadow.strategy === 'shadow:bullishTarget-v3')!
+    expect(targetShadow).toMatchObject({
+      strategyVersion: BULLISH_TARGET_STRATEGY.version,
+      parametersHash: BULLISH_TARGET_STRATEGY.parametersHash,
+    })
+    expect(targetShadow.picks.map((candidate) => candidate.score)).toEqual(
+      targetShadow.picks.map((candidate) => scoreTargetModel(candidate, FROZEN_BULLISH_TARGET_MODEL)),
+    )
+    expect(targetShadow.picks.map((candidate) => candidate.score)).toEqual(
+      [...targetShadow.picks.map((candidate) => candidate.score)].sort((left, right) => right - left),
+    )
+  })
+
+  it('selects three lower-ATR candidates ahead of an eligible high-ATR stock after an 18% fall', async () => {
+    const fixture = makeFixture(FOUR_SYMBOLS)
+    const distressedSymbol = FOUR_SYMBOLS[0]
+    const rows = fixture.rows.map((row) => {
+      if (row.symbol !== distressedSymbol) return row
+      const close = row.trade_date === SIGNAL_DATE ? Math.round(row.open! * 0.82) : row.close
+      return { ...row, close, high: Math.round(row.high! * 1.2),
+        low: Math.round(Math.min(row.low!, close!) * 0.8) }
+    })
+    const result = await generatePicksWithMeta({ todayKst: TODAY_KST, dependencies: {
+      loadTradingDays: async () => new TradingDayIndex(fixture.dates),
+      loadPrices: async () => buildPriceBook(rows), loadMasters: async () => fixture.masters,
+      loadRecentPublishedSymbols: async () => new Set<string>(),
+    } })
+    const distressed = result.meta.rankedCandidates.find((candidate) => candidate.symbol === distressedSymbol)!
+    expect(distressed.atrPercent14).toBeGreaterThan(20)
+    expect(distressed.close! / distressed.open! - 1).toBeCloseTo(-0.18, 2)
+    expect(distressed.rank).toBe(4)
+    expect(result.picks.map((pick) => pick.ticker).sort()).toEqual(FOUR_SYMBOLS.slice(1).sort())
+    const candidates = result.meta.rankedCandidates
+    expect(candidates.map((candidate) => candidate.score)).toEqual(
+      [...candidates.map((candidate) => candidate.atrPercent14!)].sort((left, right) => left - right),
+    )
+    expect(result.meta).toMatchObject({
+      strategy: PRODUCTION_STRATEGY.name,
+      strategyVersion: PRODUCTION_STRATEGY.version,
+      parameters: PRODUCTION_STRATEGY.parameters,
+      parametersHash: PRODUCTION_STRATEGY.parametersHash,
+    })
   })
 
   it('labels a down candle above the previous close as a positive daily return', async () => {
@@ -313,7 +371,7 @@ describe('production stock pick generator', () => {
         loadMasters: async () => fixture.masters,
         loadRecentPublishedSymbols: async () => new Set<string>(),
       },
-    })).rejects.toThrow(/공동 목표 후보 부족: 0\/3/)
+    })).rejects.toThrow(/저변동 후보 부족: 0\/3/)
   })
 
   it('emits funnel and generated observability without changing the pick contract', async () => {
@@ -344,17 +402,17 @@ describe('production stock pick generator', () => {
       })
       expect(events.find((event) => event.event === 'stock_picks_generated')).toMatchObject({
         signalDate: SIGNAL_DATE,
-        strategy: 'bullishTarget5d',
-        strategyVersion: 'v3-2026-09-29',
-        picksByTier: { bullishTarget5d: 3 },
-        picks: expect.arrayContaining([expect.objectContaining({ rank: 1, tier: 'bullishTarget5d' })]),
+        strategy: 'lowVolatilityStable',
+        strategyVersion: 'v2-2026-09-23',
+        picksByTier: { lowVolatility: 3 },
+        picks: expect.arrayContaining([expect.objectContaining({ rank: 1, tier: 'lowVolatility' })]),
       })
       expect(result.meta.parametersHash).toMatch(/^[a-f0-9]{64}$/)
       expect(result.meta.rankedCandidates.map((candidate) => candidate.score)).toEqual(
-        [...result.meta.rankedCandidates.map((candidate) => candidate.score)].sort((a, b) => b - a),
+        [...result.meta.rankedCandidates.map((candidate) => candidate.score)].sort((a, b) => a - b),
       )
       expect(result.meta.shadows.map((shadow) => shadow.strategy)).toEqual([
-        'shadow:lowVolatility-v2', 'shadow:A-volumeBreakout-v1.1', 'shadow:B-random', 'shadow:J-randomConstrained',
+        'shadow:bullishTarget-v3', 'shadow:A-volumeBreakout-v1.1', 'shadow:B-random', 'shadow:J-randomConstrained',
       ])
       expect(result.meta.shadows.every((shadow) => shadow.picks.length === 3)).toBe(true)
       expect(result.meta.shadows.find((shadow) => shadow.strategy === 'shadow:A-volumeBreakout-v1.1')?.picks.map((pick) => pick.tier)).toEqual([
@@ -363,11 +421,12 @@ describe('production stock pick generator', () => {
       expect(result.picks[0]?.rationale.split('|').slice(0, 18)).toEqual(
         buildRationale(result.meta.rankedCandidates[0]!, 0, 'breakout').split('|').slice(0, 18),
       )
-      expect(result.picks.map((pick) => pick.rationale.split('|').slice(-2))).toEqual([
-        ['공동 목표 모델 순위 1위', '선정 목표 발행일 양봉·시가 대비 5거래일 내 +10% 터치'],
-        ['공동 목표 모델 순위 2위', '선정 목표 발행일 양봉·시가 대비 5거래일 내 +10% 터치'],
-        ['공동 목표 모델 순위 3위', '선정 목표 발행일 양봉·시가 대비 5거래일 내 +10% 터치'],
-      ])
+      for (const [index, pick] of result.picks.entries()) {
+        expect(pick.rationale.split('|')).toEqual(
+          buildRationale(result.meta.rankedCandidates[index]!, result.meta.rankedCandidates[index]!.score, 'lowVolatility', index + 1).split('|'),
+        )
+        expect(pick.rationale).not.toMatch(/공동 목표 모델 순위|선정 목표/)
+      }
       expect(events.find((event) => event.event === 'stock_picks_generated').shadows)
         .toEqual(result.meta.shadows.map((shadow) => ({ strategy: shadow.strategy,
           picks: shadow.picks.map((pick) => pick.symbol) })))
@@ -396,7 +455,7 @@ describe('production stock pick generator', () => {
   })
 
   it.each([
-    ['lowVol', 'shadow:lowVolatility-v2'],
+    ['target', 'shadow:bullishTarget-v3'],
     ['A', 'shadow:A-volumeBreakout-v1.1'],
     ['B', 'shadow:B-random'],
     ['J', 'shadow:J-randomConstrained'],
@@ -411,8 +470,8 @@ describe('production stock pick generator', () => {
     const baseline = await generatePicksWithMeta({ todayKst: TODAY_KST, dependencies })
     const warning = vi.spyOn(console, 'warn').mockImplementation(() => {})
     const rankRandom = strategies.rankSeededRandomCandidates
-    if (target === 'lowVol') {
-      vi.spyOn(strategies, 'rankLowVolatilityStableCandidates').mockImplementation(() => { throw new Error('shadow failed') })
+    if (target === 'target') {
+      vi.spyOn(strategies, 'rankBullishTargetCandidates').mockImplementation(() => { throw new Error('shadow failed') })
     } else if (target === 'A') {
       vi.spyOn(strategies, 'rankStrategyCandidates').mockImplementation(() => { throw new Error('shadow failed') })
     } else {
@@ -458,8 +517,8 @@ describe('production stock pick generator', () => {
       expect(snapshot).toMatchObject({
         signalDate: SIGNAL_DATE,
         gitSha: 'fixture-sha',
-        strategy: 'bullishTarget5d',
-        strategyVersion: 'v3-2026-09-29',
+        strategy: 'lowVolatilityStable',
+        strategyVersion: 'v2-2026-09-23',
         parametersHash: result.meta.parametersHash,
         funnel: result.meta.funnel,
       })
@@ -468,7 +527,7 @@ describe('production stock pick generator', () => {
         symbol: expect.any(String),
         score: expect.any(Number),
         rank: 1,
-        tier: 'bullishTarget5d',
+        tier: 'lowVolatility',
         technicalContext: expect.objectContaining({
           version: 'technical-context-v1',
           chaikinMoneyFlow21: expect.any(Number),
@@ -479,9 +538,9 @@ describe('production stock pick generator', () => {
       }))
       expect(snapshot.topCandidates).toHaveLength(3)
       expect(snapshot.topCandidates.map((candidate: { tier: string }) => candidate.tier)).toEqual([
-        'bullishTarget5d',
-        'bullishTarget5d',
-        'bullishTarget5d',
+        'lowVolatility',
+        'lowVolatility',
+        'lowVolatility',
       ])
     } finally {
       vi.unstubAllEnvs()
