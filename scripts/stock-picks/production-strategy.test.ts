@@ -11,6 +11,7 @@ import {
   hashCanonicalJson,
 } from '@/scripts/stock-picks/production-strategy'
 import { BULLISH_TARGET_PARAMETERS, LOW_VOLATILITY_STABLE_PARAMETERS } from '@/scripts/stock-picks/strategies'
+import { SIGNAL_SCORE_VERSION } from '@/scripts/stock-picks/signals'
 import { addKoreanTradingDays } from '@/lib/tli/trading-calendar'
 
 describe('frozen production strategy artifact', () => {
@@ -47,12 +48,28 @@ describe('frozen production strategy artifact', () => {
       gateVersion: 'status-flags-valid-candle-v2',
       preferredRule: 'krx-code-last-digit-nonzero',
     }))
+    expect(LOW_VOLATILITY_STABLE_STRATEGY.parametersHash).toBe(
+      '35bebdb2a6e26d4db47784c19fafc5d4bcaf985fb81c419cccf4eaeef442846d',
+    )
+  })
+
+  it('identifies the corrected signal scores while retaining the frozen v2 selector', () => {
+    expect(SIGNAL_SCORE_VERSION).toBe('technical-signals-v2-2026-09-30')
     expect(PRODUCTION_STRATEGY).toEqual({
       ...LOW_VOLATILITY_STABLE_STRATEGY,
+      version: 'v2.1-2026-09-30',
       objective: 'lowVolatilityStable',
+      parametersHash: hashCanonicalJson({
+        parameters: LOW_VOLATILITY_STABLE_PARAMETERS,
+        gateVersion: 'status-flags-valid-candle-v2',
+        preferredRule: 'krx-code-last-digit-nonzero',
+        signalScoreVersion: SIGNAL_SCORE_VERSION,
+      }),
     })
+    expect(PRODUCTION_STRATEGY.parameters).toBe(LOW_VOLATILITY_STABLE_STRATEGY.parameters)
+    expect(PRODUCTION_STRATEGY.parametersHash).not.toBe(LOW_VOLATILITY_STABLE_STRATEGY.parametersHash)
     expect(PRODUCTION_STRATEGY.parametersHash).toBe(
-      '35bebdb2a6e26d4db47784c19fafc5d4bcaf985fb81c419cccf4eaeef442846d',
+      '3aebeed85a87338ee497e7d5ce10cd567949e8319c0193d361428cfee5f08a2f',
     )
   })
 
