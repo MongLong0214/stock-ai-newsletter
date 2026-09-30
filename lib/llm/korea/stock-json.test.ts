@@ -21,13 +21,25 @@ const makeStocks = (): StockData[] => [1, 2, 3].map((rank) => ({
 }));
 
 describe('stock selection JSON contract', () => {
-  it('preserves metadata through JSON extraction and uses actual rank instead of technical score', () => {
+  it('accepts restored low-volatility metadata while retaining historical target results', () => {
+    const stocks = makeStocks().map((stock) => ({ ...stock, selection: {
+      ...stock.selection!, strategy: 'lowVolatilityStable', objective: 'lowVolatilityStable' as const,
+    } }));
+    expect(validateStockData(stocks)).toBe(true);
+    expect(JSON.parse(extractAndValidateJSON(JSON.stringify(stocks))!)).toEqual(stocks);
+    expect(validateStockData(makeStocks())).toBe(true);
+    expect(validateStockData([{ ...stocks[0], selection: {
+      ...stocks[0].selection, objective: 'bullishThenTouch10Within5TradingDays',
+    } }, ...stocks.slice(1)])).toBe(false);
+  });
+
+  it('preserves metadata through JSON extraction while displaying descending technical scores', () => {
     const stocks = makeStocks();
     const reversed = [...stocks].reverse();
     const json = extractAndValidateJSON(`선정 결과\n${JSON.stringify(reversed)}`);
     expect(json).not.toBeNull();
     expect(JSON.parse(json!)).toEqual(reversed);
-    expect(sortStocksForDisplay<StockData>(JSON.parse(json!)).map((stock) => stock.name)).toEqual(stocks.map((stock) => stock.name));
+    expect(sortStocksForDisplay<StockData>(JSON.parse(json!)).map((stock) => stock.name)).toEqual(['종목 3', '종목 2', '종목 1']);
     expect(reversed.map((stock) => stock.selection!.rank)).toEqual([3, 2, 1]);
   });
 

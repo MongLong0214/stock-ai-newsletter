@@ -158,7 +158,7 @@ export interface PairedStrategyForwardSummary extends StrategyForwardSummary {
 
 const PAIRED_STRATEGIES = [
   PRODUCTION_STRATEGY.name,
-  'shadow:lowVolatility-v2',
+  'shadow:bullishTarget-v3',
   'shadow:A-volumeBreakout-v1.1',
   'shadow:B-random',
   'shadow:J-randomConstrained',

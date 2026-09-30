@@ -139,7 +139,7 @@ describe('measureForwardPicks', () => {
   it('compares production and every shadow only on mature shared signal dates', () => {
     const dates = [...DATES, '2026-01-12']
     const strategies = [
-      'bullishTarget5d', 'shadow:lowVolatility-v2', 'shadow:A-volumeBreakout-v1.1',
+      'lowVolatilityStable', 'shadow:bullishTarget-v3', 'shadow:A-volumeBreakout-v1.1',
       'shadow:B-random', 'shadow:J-randomConstrained',
     ]
     const prices = buildPriceBook(['COMMON', 'EXTRA'].flatMap((symbol) => dates.map((tradeDate, index): StockDailyPriceRow => ({
@@ -153,13 +153,19 @@ describe('measureForwardPicks', () => {
     } as unknown as StockPickSnapshot)
     const snapshots = [
       ...strategies.map((strategy) => snapshot(strategy, dates[0]!, 'COMMON')),
-      snapshot('bullishTarget5d', dates[1]!, 'EXTRA'),
+      snapshot('lowVolatilityStable', dates[1]!, 'EXTRA'),
       snapshot('shadow:A-volumeBreakout-v1.1', dates[1]!, 'EXTRA'),
+      snapshot('bullishTarget5d', dates[0]!, 'COMMON'),
+      snapshot('shadow:lowVolatility-v2', dates[0]!, 'COMMON'),
     ]
     const input = { prices, tradingDays: new TradingDayIndex(dates), snapshots,
       startDate: dates[0]!, asOfDate: dates[6]! }
-    expect(measureStrategyForwardComparison(input).find((row) => row.strategy === 'bullishTarget5d')
+    expect(measureStrategyForwardComparison(input).find((row) => row.strategy === 'lowVolatilityStable')
       ?.pickCount).toBe(2)
+    expect(measureStrategyForwardComparison(input)).toEqual(expect.arrayContaining([
+      expect.objectContaining({ strategy: 'bullishTarget5d', pickCount: 1 }),
+      expect.objectContaining({ strategy: 'shadow:lowVolatility-v2', pickCount: 1 }),
+    ]))
     const paired = measurePairedStrategyForwardComparison(input)
     expect(paired.map((row) => row.strategy)).toEqual(strategies)
     expect(paired.every((row) => row.commonDayCount === 1 && row.pickCount === 1)).toBe(true)
@@ -173,7 +179,7 @@ describe('measureForwardPicks', () => {
         pairedStrategyComparison: paired,
       }))
       expect(table.mock.calls.at(-1)?.[0]).toEqual(expect.arrayContaining([
-        expect.objectContaining({ strategy: 'bullishTarget5d', commonDays: 1, picks: 1 }),
+        expect.objectContaining({ strategy: 'lowVolatilityStable', commonDays: 1, picks: 1 }),
       ]))
     } finally {
       log.mockRestore()

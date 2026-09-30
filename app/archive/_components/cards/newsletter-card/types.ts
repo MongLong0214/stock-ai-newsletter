@@ -19,8 +19,6 @@ export interface StockPrice {
 export interface NewsletterCardProps {
   /** 주식 데이터 */
   stock: StockData;
-  /** 전체 선정 순위가 검증된 신규 결과에만 표시 */
-  selectionRank?: number;
   /** 표시할 최대 분석 근거 개수 */
   maxRationaleItems: number;
   /** 뉴스레터 발행일 */

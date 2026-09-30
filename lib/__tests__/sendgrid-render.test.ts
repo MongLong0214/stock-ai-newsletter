@@ -73,10 +73,11 @@ describe('generateNewsletterHTML', () => {
     expect(html).not.toContain('선정 순위')
   })
 
-  it('renders actual selection rank and the joint five-day target independently of technical score', () => {
+  it('renders original scores and technical rationale for stored picks with selection metadata', () => {
     const data = makeCodePickData()
-    const stocks = JSON.parse(data.geminiAnalysis).map((stock: object, index: number) => ({
+    const stocks = JSON.parse(data.geminiAnalysis).map((stock: { rationale: string }, index: number) => ({
       ...stock,
+      rationale: `${stock.rationale}|공동 목표 모델 순위 ${index + 1}위|선정 목표 발행일 양봉·시가 대비 5거래일 내 +10% 터치`,
       selection: {
         strategy: 'test-five-day-target',
         rank: index + 1,
@@ -86,16 +87,19 @@ describe('generateNewsletterHTML', () => {
     data.geminiAnalysis = JSON.stringify(stocks.reverse())
     const html = generateNewsletterHTML(data, 'reader@example.com')
 
-    expect(html.indexOf('삼성전자')).toBeLessThan(html.indexOf('SK하이닉스'))
-    expect(html.indexOf('SK하이닉스')).toBeLessThan(html.indexOf('JYP Ent.'))
-    expect(html).toContain('선정 순위 1위')
-    expect(html).toContain('선정 순위 2위')
-    expect(html).toContain('선정 순위 3위')
-    expect(html).toContain('추천일 양봉 마감(종가 &gt; 시가)')
-    expect(html).toContain('추천일 포함 5거래일 안에 추천일 시가 대비 장중 +10% 도달')
-    expect(html).toContain('기술 참고 점수')
-    expect(html).toContain('상승 확률이 아닙니다')
-    expect(html).not.toContain('종합 점수')
+    expect(html.indexOf('SK하이닉스')).toBeLessThan(html.indexOf('삼성전자'))
+    expect(html.indexOf('삼성전자')).toBeLessThan(html.indexOf('JYP Ent.'))
+    expect(html.match(/종합 점수/g)).toHaveLength(3)
+    for (const score of [92, 87, 81]) expect(html).toContain(`>${score}점</span>`)
+    for (const phrase of ['선정 순위', '선정 목표', '공동 목표 모델 순위', '기술 참고 점수',
+      '추천일 양봉 마감', '추천일 포함 5거래일', '상승 확률이 아닙니다']) {
+      expect(html).not.toContain(phrase)
+    }
+    expect(html.match(/display: block; width: 4px; height: 4px; background-color: #0EA5E9/g))
+      .toHaveLength(RATIONALE_ITEMS.length * 3)
+    for (const item of RATIONALE_ITEMS) expect(html).toContain(item)
+    expect(JSON.parse(data.geminiAnalysis)).toEqual(stocks)
+
   })
 
   it('renders the production code-pick shape without missing-value artifacts', () => {
