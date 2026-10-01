@@ -2,8 +2,10 @@ import type { GuardedStockDataHandler } from '@/scripts/stock-picks/data-handler
 import { hasValidResearchOhlc } from '@/scripts/stock-picks/data-contract'
 import type { StockFeatureVector } from '@/scripts/stock-picks/features'
 import type { TechnicalContext } from '@/scripts/stock-picks/technical-context'
+import { KOSPI_INDEX_SYMBOL, type StockDailyPriceRow } from '@/scripts/tli/prices/stock-daily-prices'
 
 export const OBSERVED_INPUT_VERSION = 'observed-50-v1-2026-09-30'
+export const MODEL_MARKET_SOURCE_VERSION = 'kis-market-21-20-v1'
 export const OBSERVED_INPUT_NAMES = [
   'atrPercent14', 'volumeRatio20', 'chaikinMoneyFlow21', 'distanceFromPriorHigh20Percent',
   'bollingerWidth20Percent', 'signalCloseCloseReturnPercent', 'gapFromPreviousClosePercent',
@@ -26,6 +28,31 @@ const finite = (v: unknown): v is number => typeof v === 'number' && Number.isFi
 const nullable = (v: unknown): Value => finite(v) ? v : null
 const sum = (values: readonly number[]): number => values.reduce((a, b) => a + b, 0)
 const ratio = (a: Value, b: Value): Value => a !== null && b !== null && b > 0 ? nullable(a / b) : null
+
+/** 모델의 KOSPI 20일 수익률과 시장 폭에 실제로 기여하는 창만 KIS 원천을 요구한다. */
+export function validateModelMarketSources(input: {
+  readonly handler: GuardedStockDataHandler
+  readonly symbols: readonly string[]
+  readonly dates: readonly string[]
+}): void {
+  const { handler, dates } = input
+  if (dates.at(-1) !== handler.simDate
+    || dates.some((date, index) => date > handler.simDate || (index > 0 && date <= dates[index - 1]!))) {
+    throw new Error('종합 점수 시장 피처 기준일 불일치')
+  }
+  const validateWindow = (symbol: string, length: number, valid: (row: StockDailyPriceRow) => boolean) => {
+    const window = dates.slice(-length).map(date => ({ date, row: handler.get(symbol, date) }))
+    // 기존 기술 관측값과 동일하게 불완전·무효 창은 결측으로 남긴다.
+    if (window.length !== length || !window.every(({ row }) => row && valid(row))) return
+    for (const { date, row } of window) if (row!.source !== 'kis') {
+      throw new Error(`종합 점수 시장 시세 원천 불일치: ${symbol}/${date}`)
+    }
+  }
+  validateWindow(KOSPI_INDEX_SYMBOL, 21, row => finite(row.close) && row.close > 0)
+  for (const symbol of new Set(input.symbols)) if (symbol !== KOSPI_INDEX_SYMBOL) {
+    validateWindow(symbol, 20, row => hasValidResearchOhlc(row) && finite(row.volume) && row.volume > 0)
+  }
+}
 
 /** 기존 18개는 실제 TS 관측값을 사용하고, 추가 32개는 과거 거래량 0도 보존한다. */
 export function buildObservedInputs50(input: {

@@ -184,6 +184,62 @@ describe('stock analysis summary', () => {
 })
 
 describe('production stock pick generator', () => {
+  it.each([
+    { change: 50, scores: [14, 14, 14] },
+    { change: -50, scores: [35, 35, 33] },
+  ])('rejects a non-KIS KOSPI return20 contributor ($change%) while keeping the KIS prediction', async ({ change, scores }) => {
+    const fixture = makeFixture()
+    expect(fixture.rows).toHaveLength(3 * 320)
+    expect(fixture.rows.every(row => row.source === 'kis')).toBe(true)
+    const benchmark: StockDailyPriceRow[] = fixture.dates.map((trade_date) => {
+      const price = trade_date === SIGNAL_DATE ? 1_000 * (1 + change / 100) : 1_000
+      return { symbol: 'KOSPI', trade_date, open: price, high: price, low: price,
+        close: price, volume: 1_000_000, source: 'kis' }
+    })
+    const run = (rows: readonly StockDailyPriceRow[]) => generatePicksWithMeta({ todayKst: TODAY_KST, dependencies: {
+      loadTradingDays: async () => new TradingDayIndex(fixture.dates),
+      loadPrices: async () => buildPriceBook([...fixture.rows, ...rows]),
+      loadMasters: async () => fixture.masters,
+      loadRecentPublishedSymbols: async () => new Set<string>(),
+    } })
+    const kis = await run(benchmark)
+    expect(kis.picks.map(pick => pick.signals.overall_score)).toEqual(scores)
+    expect(kis.meta.rankedCandidates.every(candidate => candidate.technicalContext?.benchmarkReturn20Percent === change)).toBe(true)
+    await expect(run(benchmark.map(row => row.trade_date === SIGNAL_DATE
+      ? { ...row, source: 'naver_backfill' } : row))).rejects.toThrow(/종합 점수 시장 시세 원천 불일치: KOSPI\//)
+  })
+
+  it('rejects non-KIS breadth rows from active masters excluded from the model candidate pool', async () => {
+    const fixture = makeFixture()
+    const siblings = Array.from({ length: 40 }, (_, index) => `KOSPI:${String((index + 100) * 10 + 1).padStart(6, '0')}`)
+    const masters = [...fixture.masters, ...siblings.map(symbol => ({
+      symbol, name: `시장참여${symbol}`, is_active: true, status_flags: {},
+    }))]
+    const benchmark: StockDailyPriceRow[] = fixture.dates.map(trade_date => ({
+      symbol: 'KOSPI', trade_date, open: 1_000, high: 1_000, low: 1_000,
+      close: 1_000, volume: 1_000_000, source: 'kis',
+    }))
+    // Only the 20-day breadth window is present; these preferred shares are never model candidates.
+    const breadth: StockDailyPriceRow[] = siblings.flatMap(symbol => fixture.dates.slice(-20).map((trade_date, index) => ({
+      symbol, trade_date, open: 10_000 - index * 20, high: 10_001 - index * 20,
+      low: 9_999 - index * 20, close: 10_000 - index * 20, volume: 1_000_000, source: 'kis',
+    })))
+    const run = (rows: readonly StockDailyPriceRow[]) => generatePicksWithMeta({ todayKst: TODAY_KST, dependencies: {
+      loadTradingDays: async () => new TradingDayIndex(fixture.dates),
+      loadPrices: async () => buildPriceBook([...fixture.rows, ...benchmark, ...rows]),
+      loadMasters: async () => masters,
+      loadRecentPublishedSymbols: async () => new Set<string>(),
+    } })
+    const kis = await run(breadth)
+    expect(kis.meta.rankedCandidates.map(candidate => candidate.symbol).sort()).toEqual([...SYMBOLS].sort())
+    expect(kis.picks.map(pick => pick.signals.overall_score)).toEqual([51, 51, 51])
+    expect(kis.meta.rankedCandidates[0]!.technicalContext).toMatchObject({
+      breadthUniverseSymbols: 43, breadthEligibleSymbols: 43, breadthAboveSma20: 3 / 43,
+    })
+    await expect(run(breadth.map(row => row.trade_date === fixture.dates.at(-20)
+      ? { ...row, source: 'naver_backfill' } : row))).rejects.toThrow(/종합 점수 시장 시세 원천 불일치: KOSPI:001001\//)
+  })
+
   it('publishes summary returns and KOSPI comparison from the actual historical price rows', async () => {
     const fixture = makeFixture()
     const benchmarkRows: StockDailyPriceRow[] = fixture.dates.map((trade_date) => ({

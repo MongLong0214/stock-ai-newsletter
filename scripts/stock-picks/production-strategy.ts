@@ -5,7 +5,7 @@ import frozenTargetModel from '@/scripts/stock-picks/models/bullish-target-v3.js
 import type { TargetModelArtifact } from '@/scripts/stock-picks/target-model'
 import { SIGNAL_SCORE_VERSION } from '@/scripts/stock-picks/signals'
 import frozenUtilityModel from '@/scripts/stock-picks/models/composite-utility-v1.json'
-import { OBSERVED_INPUT_VERSION } from '@/scripts/stock-picks/observed-inputs'
+import { MODEL_MARKET_SOURCE_VERSION, OBSERVED_INPUT_VERSION } from '@/scripts/stock-picks/observed-inputs'
 import { validateUtilityModel, type UtilityModelArtifact } from '@/scripts/stock-picks/utility-model'
 
 export function canonicalJson(value: unknown): string {
@@ -99,6 +99,7 @@ export const PRODUCTION_STRATEGY = {
     preferredRule: 'krx-code-last-digit-nonzero',
     signalScoreVersion: SIGNAL_SCORE_VERSION,
     observedInputVersion: OBSERVED_INPUT_VERSION,
+    modelMarketSourceVersion: MODEL_MARKET_SOURCE_VERSION,
     model: FROZEN_COMPOSITE_UTILITY_MODEL,
   }),
 } as const

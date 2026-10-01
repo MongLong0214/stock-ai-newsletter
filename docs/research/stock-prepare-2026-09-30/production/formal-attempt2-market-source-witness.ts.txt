@@ -1,0 +1,70 @@
+import {writeFileSync} from 'node:fs'
+import {addKoreanTradingDays} from '/tmp/stock-composite-production-review-fcbc108/lib/tli/trading-calendar'
+import {buildPriceBook} from '/tmp/stock-composite-production-review-fcbc108/scripts/stock-picks/data-handler'
+import {generatePicksWithMeta, type StockPickMaster} from '/tmp/stock-composite-production-review-fcbc108/scripts/stock-picks/generate-picks'
+import {TradingDayIndex} from '/tmp/stock-composite-production-review-fcbc108/scripts/stock-picks/trading-days'
+import type {StockDailyPriceRow} from '/tmp/stock-composite-production-review-fcbc108/scripts/tli/prices/stock-daily-prices'
+const SIGNAL_DATE='2026-09-30', TODAY_KST='2026-10-01'
+const SYMBOLS=['KOSPI:000010','KOSPI:000020','KOSDAQ:000030'] as const
+const makeFixture = (symbols: readonly string[] = SYMBOLS, signalDate = SIGNAL_DATE) => {
+  const dates = Array.from(
+    { length: 320 },
+    (_value, index) => addKoreanTradingDays(signalDate, index - 319),
+  )
+  const rows: StockDailyPriceRow[] = symbols.flatMap((symbol, symbolIndex) => dates.map((tradeDate, index) => {
+    const base = 2_000 + symbolIndex * 100
+    const isSignalDay = index === dates.length - 1
+    // 프로덕션 게이트(excludeGapUp·60일 신고가 돌파)를 통과하는 신호일 캔들:
+    // 시가 = 전일 종가(갭 0), 종가 = 직전 최고 종가(+10 홀수일 보정 포함) 대비 +0.3% 돌파
+    const previousClose = base + (index - 1) * 2 + ((index - 1) % 2 === 1 ? 10 : -10)
+    const priorMaxClose = base + (dates.length - 3) * 2 + 10
+    const close = isSignalDay
+      ? Math.round(priorMaxClose * (symbolIndex === 2 ? 0.995 : 1.003))
+      : base + index * 2 + (index % 2 === 1 ? 10 : -10)
+    return {
+      symbol,
+      trade_date: tradeDate,
+      open: isSignalDay ? previousClose : close - 5,
+      high: Math.max(close, isSignalDay ? previousClose : close - 5) + 15,
+      low: Math.min(close, isSignalDay ? previousClose : close - 5) - 15,
+      close,
+      volume: isSignalDay ? 5_000_000 + symbolIndex * 100_000 : 1_000_000 + index * 1_000,
+      source: 'kis',
+    }
+  }))
+  const masters: StockPickMaster[] = symbols.map((symbol, index) => ({
+    symbol,
+    name: `테스트종목${index + 1}`,
+    is_active: true,
+    status_flags: {},
+  }))
+  return { dates, rows, prices: buildPriceBook(rows), masters }
+}
+async function main() {
+  const f=makeFixture(); const report:any={head:'fcbc108b02bee43fbc4f5a6bae36a7ff31a17ea2',scope:'model market-source rejection witness',variants:[]}
+  globalThis.fetch=async()=>{throw Error('Unexpected network during read-only witness')}
+  const log=console.log; console.log=()=>{}
+  for (const change of [0,50,-50]) {
+    const benchmark=f.dates.map((trade_date,index):StockDailyPriceRow=>{
+      const price=index===319?1000*(1+change/100):1000
+      return {symbol:'KOSPI',trade_date,open:price,high:price,low:price,close:price,volume:1_000_000,source:(index===319&&change!==0?'naver_backfill':'kis')}
+    })
+    const rows=[...f.rows,...benchmark]
+    const result=await generatePicksWithMeta({todayKst:TODAY_KST,dependencies:{loadTradingDays:async()=>new TradingDayIndex(f.dates),loadPrices:async()=>buildPriceBook(rows),loadMasters:async()=>f.masters,loadRecentPublishedSymbols:async()=>new Set<string>()}})
+    report.variants.push({mixedBenchmark:change!==0,kospiSource:benchmark.at(-1)!.source,kospiReturn20:result.meta.rankedCandidates[0]!.technicalContext!.benchmarkReturn20Percent,picks:result.picks.map(x=>({ticker:x.ticker,score:x.signals.overall_score})),utilities:result.meta.rankedCandidates.map(x=>({ticker:x.symbol,utility:x.utility}))})
+  }
+  const extraSymbols=Array.from({length:40},(_,i)=>`KOSPI:${String((i+100)*10).padStart(6,'0')}`)
+  const moreMasters=[...f.masters,...extraSymbols.map(symbol=>({symbol,name:'market-only-'+symbol,is_active:true,status_flags:{}}))]
+  const kisBenchmark=f.dates.map((trade_date):StockDailyPriceRow=>({symbol:'KOSPI',trade_date,open:1000,high:1000,low:1000,close:1000,volume:1_000_000,source:'kis'}))
+  for(const mode of ['absent','mixed-down','mixed-up']) {
+    const extras=mode==='absent'?[]:extraSymbols.flatMap(symbol=>f.dates.map((trade_date,index):StockDailyPriceRow=>{
+      const price=mode==='mixed-down'?10000-index*20:1000+index*20
+      return {symbol,trade_date,open:price,high:price+1,low:price-1,close:price,volume:1_000_000,source:'naver_backfill'}
+    }))
+    const result=await generatePicksWithMeta({todayKst:TODAY_KST,dependencies:{loadTradingDays:async()=>new TradingDayIndex(f.dates),loadPrices:async()=>buildPriceBook([...f.rows,...kisBenchmark,...extras]),loadMasters:async()=>moreMasters,loadRecentPublishedSymbols:async()=>new Set<string>()}})
+    report.variants.push({marketOnlyNonKisMode:mode,activeMasters:result.meta.funnel.activeMasters,candidatePoolFreshKis:result.meta.funnel.withFreshKisRow,breadth:result.meta.rankedCandidates[0]!.technicalContext!.breadthAboveSma20,breadthEligible:result.meta.rankedCandidates[0]!.technicalContext!.breadthEligibleSymbols,picks:result.picks.map(x=>({ticker:x.ticker,score:x.signals.overall_score})),utilities:result.meta.rankedCandidates.map(x=>({ticker:x.symbol,utility:x.utility}))})
+  }
+  console.log=log
+  writeFileSync('/tmp/stock-composite-production-20260930/formal-attempt2-market-source-witness.json',JSON.stringify(report,null,2)); console.log(JSON.stringify(report))
+}
+main().catch(e=>{console.error(e);process.exitCode=1})

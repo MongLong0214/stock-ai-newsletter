@@ -14,7 +14,7 @@ import {
 } from '@/scripts/stock-picks/data-handler'
 import { buildFeatureSeries, type StockFeatureVector } from '@/scripts/stock-picks/features'
 import { buildSignals, finiteOr } from '@/scripts/stock-picks/signals'
-import { buildObservedInputs50 } from '@/scripts/stock-picks/observed-inputs'
+import { buildObservedInputs50, validateModelMarketSources } from '@/scripts/stock-picks/observed-inputs'
 import { scoreUtilityModel } from '@/scripts/stock-picks/utility-model'
 import { parsePublishedPicks } from '@/scripts/stock-picks/measure-forward'
 import { buildTechnicalContextMap, type TechnicalContext } from '@/scripts/stock-picks/technical-context'
@@ -414,9 +414,11 @@ export async function generatePicksWithMeta(input: {
     return feature && hasCalculatedOutputMetrics(feature) ? [feature] : []
   })
   const featuresBySymbol = new Map(features.map((feature) => [feature.symbol, feature]))
+  const activeSymbols = masters.filter((master) => master.is_active).map((master) => master.symbol)
+  validateModelMarketSources({ handler, symbols: activeSymbols, dates: historyDates })
   const technicalContexts = buildTechnicalContextMap({
     handler,
-    symbols: masters.filter((master) => master.is_active).map((master) => master.symbol),
+    symbols: activeSymbols,
     dates: historyDates,
     includeFromDate: signalDate,
   }).get(signalDate)

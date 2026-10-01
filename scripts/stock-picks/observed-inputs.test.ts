@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest'
 import frozenFixture from '@/scripts/stock-picks/fixtures/composite-observed-v1-parity.json'
 import { buildPriceBook, StockDataHandler } from '@/scripts/stock-picks/data-handler'
 import { buildFeatureSeries, type StockFeatureVector } from '@/scripts/stock-picks/features'
-import { buildObservedInputs50, OBSERVED_INPUT_NAMES, OBSERVED_INPUT_VERSION } from '@/scripts/stock-picks/observed-inputs'
+import { buildObservedInputs50, OBSERVED_INPUT_NAMES, OBSERVED_INPUT_VERSION, validateModelMarketSources } from '@/scripts/stock-picks/observed-inputs'
 import { FROZEN_COMPOSITE_UTILITY_MODEL } from '@/scripts/stock-picks/production-strategy'
 import { buildSignals } from '@/scripts/stock-picks/signals'
 import { buildTechnicalContextMap, type TechnicalContext } from '@/scripts/stock-picks/technical-context'
@@ -18,7 +18,7 @@ type Witness = {
 }
 const witnesses = frozenFixture.witnesses as unknown as Witness[]
 const first = witnesses[0]!
-const handlerFor = (w: Witness, rows = w.rawPrices320, dates = w.calendar320) => (
+const handlerFor = (w: Witness, rows: readonly StockDailyPriceRow[] = w.rawPrices320, dates = w.calendar320) => (
   new StockDataHandler(buildPriceBook(rows), new TradingDayIndex(dates)).at(w.signalDate)
 )
 const observed = (w: Witness, rows = w.rawPrices320, dates = w.calendar320) => buildObservedInputs50({
@@ -31,6 +31,67 @@ const assertValues = (actual: readonly (number | null)[], expected: readonly (nu
     else expect(Math.abs(actual[i]! - value), `${label}/${i}`).toBeLessThanOrEqual(1e-12 * Math.max(1, Math.abs(value)))
   })
 }
+
+describe('production model market sources', () => {
+  const benchmark = first.calendar320.map((trade_date): StockDailyPriceRow => ({
+    symbol: 'KOSPI', trade_date, open: null, high: null, low: null,
+    close: 1_000, volume: 0, source: 'kis',
+  }))
+  const validate = (rows: readonly StockDailyPriceRow[]) => validateModelMarketSources({
+    handler: handlerFor(first, rows), symbols: [first.symbol, first.symbol, 'KOSPI'], dates: first.calendar320,
+  })
+
+  it('guards the complete 21-close benchmark and 20-OHLCV breadth windows at their oldest contributing rows', () => {
+    expect(() => validate([...first.rawPrices320, ...benchmark])).not.toThrow()
+    expect(() => validate([...first.rawPrices320, ...benchmark.map(row => row.trade_date === first.calendar320.at(-21)
+      ? { ...row, source: 'naver_backfill' as const } : row)])).toThrow(/시장 시세 원천 불일치: KOSPI\//)
+    expect(() => validate([...benchmark, ...first.rawPrices320.map(row => row.trade_date === first.calendar320.at(-20)
+      ? { ...row, source: 'naver_backfill' as const } : row)])).toThrow(new RegExp(`시장 시세 원천 불일치: ${first.symbol}/`))
+  })
+
+  it('does not read market rows before the used windows or any future suffix', () => {
+    const future = '2026-09-21'
+    const rows: StockDailyPriceRow[] = [
+      ...benchmark.map(row => row.trade_date < first.calendar320.at(-21)! ? { ...row, source: 'naver_backfill' as const } : row),
+      ...first.rawPrices320.map(row => row.trade_date < first.calendar320.at(-20)! ? { ...row, source: 'naver_backfill' as const } : row),
+      ...[benchmark.at(-1)!, first.rawPrices320.at(-1)!].map(row => ({ ...row, trade_date: future, source: 'naver_backfill' as const })),
+    ]
+    const handler = handlerFor(first, rows, [...first.calendar320, future])
+    const get = vi.spyOn(handler, 'get')
+    validateModelMarketSources({ handler, symbols: [first.symbol, first.symbol, 'KOSPI'], dates: first.calendar320 })
+    expect(get.mock.calls.filter(([symbol]) => symbol === 'KOSPI').map(([, date]) => date)).toEqual(first.calendar320.slice(-21))
+    expect(get.mock.calls.filter(([symbol]) => symbol === first.symbol).map(([, date]) => date)).toEqual(first.calendar320.slice(-20))
+    get.mockClear()
+    expect(() => validateModelMarketSources({ handler, symbols: [first.symbol], dates: [...first.calendar320, future] }))
+      .toThrow(/시장 피처 기준일 불일치/)
+    expect(get).not.toHaveBeenCalled()
+  })
+
+  it.each(['missing', 'close-zero', 'close-NaN', 'open-null', 'volume-zero', 'volume-NaN'] as const)(
+    'preserves native missing market inputs for an incomplete or invalid %s window', (fault) => {
+      const missingDate = first.calendar320.at(-10)!
+      const benchmarkRows = benchmark.flatMap(row => {
+        if (row.trade_date === missingDate && fault === 'missing') return []
+        return [{ ...row, source: 'naver_backfill' as const,
+          ...(row.trade_date === missingDate ? { close: fault === 'close-NaN' ? Number.NaN : 0 } : {}) }]
+      })
+      const breadthRows = first.rawPrices320.flatMap(row => {
+        if (row.trade_date === missingDate && fault === 'missing') return []
+        return [{ ...row, source: 'naver_backfill' as const, ...(row.trade_date === missingDate
+          ? fault === 'close-zero' ? { close: 0 } : fault === 'close-NaN' ? { close: Number.NaN }
+            : fault === 'open-null' ? { open: null } : fault === 'volume-zero' ? { volume: 0 }
+              : fault === 'volume-NaN' ? { volume: Number.NaN } : {} : {}) }]
+      })
+      const handler = handlerFor(first, [...benchmarkRows, ...breadthRows])
+      expect(() => validateModelMarketSources({ handler, symbols: [first.symbol], dates: first.calendar320 })).not.toThrow()
+      const context = buildTechnicalContextMap({ handler, symbols: [first.symbol], dates: first.calendar320,
+        includeFromDate: first.signalDate }).get(first.signalDate)!.get(first.symbol)!
+      expect(context.benchmarkReturn20Percent).toBeNull()
+      expect(context.breadthAboveSma20).toBeNull()
+      expect(context.breadthEligibleSymbols).toBe(0)
+    },
+  )
+})
 
 describe('causal production observed 50 inputs', () => {
   it('matches actual KIS raw320, source TS indicators/context, frozen Python50 and native predictions', () => {

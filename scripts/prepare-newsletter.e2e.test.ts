@@ -546,6 +546,37 @@ describe('Prepare boundary-isolated E2E', () => {
     expect(fetch).not.toHaveBeenCalled()
   })
 
+  it.each(['benchmark', 'breadth'] as const)('fails closed before CAS publication on a non-KIS %s market contributor', async (kind) => {
+    const mixedDate = addKoreanTradingDays(SIGNAL, kind === 'benchmark' ? -20 : -19)
+    let symbol = 'KOSPI'
+    if (kind === 'breadth') {
+      symbol = 'KOSPI:000011'
+      state.masters.push({ symbol, name: '시장참여우선주', is_active: true, status_flags: {} })
+      const rows = state.rows.filter(row => row.symbol === state.masters[0]!.symbol)
+        .map(row => ({ ...row, symbol }))
+      state.rows.push(...rows)
+      for (const row of rows) if (row.trade_date < addKoreanTradingDays(SIGNAL, -6)) {
+        state.stored.set(`${symbol}|${row.trade_date}`, row)
+      }
+    }
+    const key = `${symbol}|${mixedDate}`
+    const row = state.stored.get(key)!
+    expect(row.source).toBe('kis')
+    state.stored.set(key, { ...row, source: 'naver_backfill' })
+    expect([...state.stored.values()].filter(price => price.symbol !== symbol)
+      .every(price => price.source === 'kis')).toBe(true)
+
+    expect(await runPrepareNewsletterCli([`--target-date=${TARGET}`])).toBe(1)
+    expect(state.fetchDaily).toHaveBeenCalledTimes(kind === 'breadth' ? 8 : 7)
+    expect(state.generated).toBeNull()
+    expect(state.newsletter).toBeNull()
+    expect(state.newsletterWriteAttempts).toBe(0)
+    expect(state.snapshots).toHaveLength(0)
+    expect(state.alert).toHaveBeenCalledOnce()
+    expect(state.model).not.toHaveBeenCalled()
+    expect(fetch).not.toHaveBeenCalled()
+  })
+
   it('rejects historical issuance before the frozen model labels matured instead of scoring with future training', async () => {
     const historicalTarget = FROZEN_COMPOSITE_UTILITY_MODEL.trainedLabelsThrough
     const historicalSignal = addKoreanTradingDays(historicalTarget, -1)
