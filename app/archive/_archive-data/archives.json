@@ -2,6 +2,74 @@
   "newsletters": [
     {
       "type": "stock",
+      "date": "2026-10-02",
+      "stocks": [
+        {
+          "ticker": "KOSDAQ:072950",
+          "name": "빛샘전자",
+          "close_price": 15290,
+          "rationale": "2026-10-01 종가 15,290원|전일 대비 +0.7% 상승|시가 대비 +2.0% 양봉|20일선 11,547원·종가 32.4% 위|60일선 9,175원·종가 66.7% 위|최근 5거래일 종가 +17.6%|최근 20거래일 종가 +80.5%|20거래일 KOSPI 대비 +78.5%p|직전 20거래일 장중 고점 16,670원까지 +9.0%|직전 60거래일 최고 종가 15,180원·+0.7% 돌파|거래량 20일 평균의 1.02배|최근 60거래일 중 거래량 상위 10.8%|당일 범위 종가 41.4%·윗꼬리 58.6%|ATR14 평균 변동폭 9.9%·약 1,520원(갭 포함)|RSI14 72.1 강세|MACD 모멘텀 +2.09%(종가 대비)|20일 평균 거래대금 추정 543.2억원|52주(252거래일) 종가 범위 55.7% 위치(저점0·고점100)",
+          "signals": {
+            "trend_score": 99,
+            "momentum_score": 77,
+            "volume_score": 80,
+            "volatility_score": 0,
+            "pattern_score": 71,
+            "sentiment_score": 75,
+            "overall_score": 74
+          },
+          "selection": {
+            "strategy": "compositeUtility",
+            "rank": 1,
+            "objective": "compositeUtility"
+          }
+        },
+        {
+          "ticker": "KOSDAQ:285800",
+          "name": "진영",
+          "close_price": 4465,
+          "rationale": "2026-10-01 종가 4,465원|전일 대비 +0.6% 상승|시가 대비 +0.6% 양봉|20일선 4,123원·종가 8.3% 위|60일선 1,924원·종가 132.1% 위|최근 5거래일 종가 -3.9%|직전 60거래일 최고 종가 5,580원까지 +25.0%|거래량 20일 평균의 0.09배|최근 60거래일 중 거래량 상위 72.5%|당일 범위 종가 67.9%·윗꼬리 32.1%|ATR14 평균 변동폭 10.5%·약 469원(갭 포함)|RSI14 63.0 강세|MACD 모멘텀 -2.09%(종가 대비)|20일 평균 거래대금 추정 14.7억원|최근 79거래일 종가 범위 77.2% 위치(저점0·고점100)",
+          "signals": {
+            "trend_score": 89,
+            "momentum_score": 47,
+            "volume_score": 48,
+            "volatility_score": 0,
+            "pattern_score": 55,
+            "sentiment_score": 70,
+            "overall_score": 72
+          },
+          "selection": {
+            "strategy": "compositeUtility",
+            "rank": 2,
+            "objective": "compositeUtility"
+          }
+        },
+        {
+          "ticker": "KOSDAQ:456010",
+          "name": "아이씨티케이",
+          "close_price": 23550,
+          "rationale": "2026-10-01 종가 23,550원|전일 대비 +2.2% 상승|시가 대비 +2.6% 양봉|20일선 19,183원·종가 22.8% 위|60일선 16,752원·종가 40.6% 위|최근 5거래일 종가 +5.8%|최근 20거래일 종가 +52.6%|20거래일 KOSPI 대비 +50.6%p|직전 20거래일 장중 고점 28,150원까지 +19.5%|직전 60거래일 최고 종가 26,450원까지 +12.3%|거래량 20일 평균의 0.77배|최근 60거래일 중 거래량 상위 17.5%|당일 범위 종가 96.8%·윗꼬리 3.2%|ATR14 평균 변동폭 8.5%·약 1,990원(갭 포함)|RSI14 63.8 강세|MACD 모멘텀 +2.21%(종가 대비)|20일 평균 거래대금 추정 220.5억원|52주(252거래일) 종가 범위 49.3% 위치(저점0·고점100)",
+          "signals": {
+            "trend_score": 99,
+            "momentum_score": 72,
+            "volume_score": 76,
+            "volatility_score": 0,
+            "pattern_score": 55,
+            "sentiment_score": 70,
+            "overall_score": 71
+          },
+          "selection": {
+            "strategy": "compositeUtility",
+            "rank": 3,
+            "objective": "compositeUtility"
+          }
+        }
+      ],
+      "sentAt": "2026-10-01T22:30:53.625+00:00",
+      "subscriberCount": 321
+    },
+    {
+      "type": "stock",
       "date": "2026-10-01",
       "stocks": [
         {
@@ -12551,5 +12619,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-09-30T22:31:22.648Z"
+  "lastUpdated": "2026-10-01T22:31:26.763Z"
 }
