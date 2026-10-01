@@ -61,7 +61,7 @@ describe('frozen production strategy artifact', () => {
     expect(MODEL_MARKET_SOURCE_VERSION).toBe('kis-market-21-20-v1')
     expect(PRODUCTION_STRATEGY).toEqual({
       name: 'compositeUtility',
-      version: 'v4.1-2026-10-01',
+      version: 'v4.2-2026-10-01',
       objective: 'compositeUtility',
       parameters: LOW_VOLATILITY_STABLE_PARAMETERS,
       parametersHash: hashCanonicalJson({
@@ -78,11 +78,11 @@ describe('frozen production strategy artifact', () => {
     })
     expect(PRODUCTION_STRATEGY.parameters).toBe(LOW_VOLATILITY_STABLE_STRATEGY.parameters)
     expect(PRODUCTION_STRATEGY.parametersHash).not.toBe(LOW_VOLATILITY_STABLE_STRATEGY.parametersHash)
-    expect(PRODUCTION_STRATEGY.parametersHash).toBe('9be0ca6f1383468bff5d8eaddfef2c5e2a2a29e7c6060bfb72e0c65a25c7f7ec')
+    expect(PRODUCTION_STRATEGY.parametersHash).toBe('fa9f1666db9b5b7a5bf4d19b4d122547ab8b5b732b230452661a687165cf86cc')
     expect(FROZEN_COMPOSITE_UTILITY_MODEL.trainedLabelsThrough).toBe('2026-09-29')
     expect(FROZEN_COMPOSITE_UTILITY_MODEL).toMatchObject({
-      schemaVersion: 2, modelVersion: 'composite-utility-v2', normalization: {
-        version: UTILITY_SCORE_VERSION, center: 50, pointsPerStandardDeviation: 20,
+      schemaVersion: 3, modelVersion: 'composite-utility-v3', normalization: {
+        version: UTILITY_SCORE_VERSION, center: 50, oneStandardDeviationScore: 70, tailCurvature: 5.25,
         mean: 0.329215672917516, standardDeviation: 0.07781234949998984,
         referencePanels: 421, referenceRows: 506470, referenceThrough: '2026-09-29',
         referenceLastSignal: '2026-09-18', source: 'kis',

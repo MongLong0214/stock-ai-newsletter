@@ -1,13 +1,14 @@
 import { OBSERVED_INPUT_NAMES, OBSERVED_INPUT_VERSION } from '@/scripts/stock-picks/observed-inputs'
 
-export const UTILITY_SCORE_VERSION = 'utility-reference-z20-v1'
+export const UTILITY_SCORE_VERSION = 'utility-reference-smooth-v1'
 
 export interface UtilityScoreNormalization {
   readonly version: typeof UTILITY_SCORE_VERSION
   readonly mean: number
   readonly standardDeviation: number
   readonly center: 50
-  readonly pointsPerStandardDeviation: 20
+  readonly oneStandardDeviationScore: 70
+  readonly tailCurvature: 5.25
   readonly referencePanels: number
   readonly referenceRows: number
   readonly referenceThrough: string
@@ -28,7 +29,7 @@ export interface UtilityTreeNode {
 }
 
 export interface UtilityModelArtifact {
-  readonly schemaVersion: 2
+  readonly schemaVersion: 3
   readonly modelVersion: string
   readonly trainedLabelsThrough: string
   readonly observedInputVersion: string
@@ -49,7 +50,8 @@ function validateNormalization(normalization: UtilityScoreNormalization): void {
     || !Number.isFinite(normalization.mean) || normalization.mean < 0 || normalization.mean > 1
     || !Number.isFinite(normalization.standardDeviation)
     || normalization.standardDeviation <= 0 || normalization.standardDeviation > 0.5
-    || normalization.center !== 50 || normalization.pointsPerStandardDeviation !== 20
+    || normalization.center !== 50 || normalization.oneStandardDeviationScore !== 70
+    || normalization.tailCurvature !== 5.25
     || !Number.isSafeInteger(normalization.referencePanels) || normalization.referencePanels <= 0
     || !Number.isSafeInteger(normalization.referenceRows) || normalization.referenceRows < normalization.referencePanels
     || !validDate(normalization.referenceThrough) || !validDate(normalization.referenceLastSignal)
@@ -66,14 +68,17 @@ export function normalizeUtilityScore(normalization: UtilityScoreNormalization, 
   validateNormalization(normalization)
   if (!Number.isFinite(utility)) throw new Error('종합 점수 추론 실패')
   const clippedUtility = Math.min(1, Math.max(0, utility))
-  const standardized = normalization.center + normalization.pointsPerStandardDeviation
-    * (clippedUtility - normalization.mean) / normalization.standardDeviation
-  return Math.floor(Math.min(100, Math.max(0, standardized)) + 0.5)
+  const delta = clippedUtility - normalization.mean
+  // 5.25=(50/(70-50))²-1: 평균 50·+1σ 70을 유지하며 상단을 100점에 뭉개지 않는다.
+  const standardized = normalization.center + normalization.center
+    * delta / Math.hypot(delta, Math.sqrt(normalization.tailCurvature) * normalization.standardDeviation)
+  if (!Number.isFinite(standardized)) throw new Error('종합 점수 추론 실패')
+  return Math.floor(standardized + 0.5)
 }
 
 /** HGB 리프 값은 학습률이 이미 반영되어 있으며 결측 분기도 저장된 모델을 따른다. */
 export function validateUtilityModel(model: UtilityModelArtifact): UtilityModelArtifact {
-  if (model.schemaVersion !== 2 || model.modelVersion !== 'composite-utility-v2'
+  if (model.schemaVersion !== 3 || model.modelVersion !== 'composite-utility-v3'
     || model.observedInputVersion !== OBSERVED_INPUT_VERSION
     || !validDate(model.trainedLabelsThrough)
     || !Number.isFinite(model.baselinePrediction)

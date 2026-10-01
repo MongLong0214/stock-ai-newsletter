@@ -25,7 +25,7 @@ PARAMS = dict(loss='squared_error', max_iter=100, max_leaf_nodes=7, max_depth=3,
               max_bins=255, random_state=42, early_stopping=False)
 CONFIG = dict(family='A', complexity='small', riskDefinition='L0=netD5<0',
               **{'lambda': .65, 'inputCount': 50, 'id': 'L0-A-small-lambda0.65-inputs50'})
-SCORE_VERSION = 'utility-reference-z20-v1'
+SCORE_VERSION = 'utility-reference-smooth-v1'
 
 def sha(path):
     with pathlib.Path(path).open('rb') as f:
@@ -51,8 +51,8 @@ def portable_predict(model, values):
     return value
 
 def rounded_score(v, reference):
-    z = (min(1, max(0, v)) - reference['mean']) / reference['standardDeviation']
-    return math.floor(min(100, max(0, reference['center'] + reference['pointsPerStandardDeviation'] * z)) + .5)
+    delta = min(1, max(0, v)) - reference['mean']
+    return math.floor(reference['center'] + reference['center'] * delta / math.hypot(delta, math.sqrt(reference['tailCurvature']) * reference['standardDeviation']) + .5)
 
 def compact_json(value, indent=0):
     """Keep generated numeric arrays compact; do not archive the training corpus."""
@@ -155,12 +155,12 @@ def main():
     reference_sd = float(np.sqrt(np.average((reference_predictions - reference_mean) ** 2, weights=weights)))
     assert math.isfinite(reference_sd) and reference_sd > 0, 'Cannot normalize a constant training predictor'
     reference = dict(version=SCORE_VERSION, mean=reference_mean, standardDeviation=reference_sd,
-                     center=50, pointsPerStandardDeviation=20, referencePanels=len(counts),
+                     center=50, oneStandardDeviationScore=70, tailCurvature=5.25, referencePanels=len(counts),
                      referenceRows=len(y), referenceThrough=per_date[-1]['labelMaturityDate'],
                      referenceLastSignal=per_date[-1]['signalDate'], source='kis',
                      weighting='equal signal date, strict matured training rows', fitInputSha256=input_sha)
     assert model.n_iter_ == 100
-    result = dict(schemaVersion=2, modelVersion='composite-utility-v2',
+    result = dict(schemaVersion=3, modelVersion='composite-utility-v3',
                   trainedLabelsThrough=per_date[-1]['labelMaturityDate'],
                   trainingLastSignalDate=per_date[-1]['signalDate'], trainingAsOf=args.as_of,
                   observedInputVersion='observed-50-v1-2026-09-30', featureNames=feature_names,
@@ -168,7 +168,7 @@ def main():
                   leafValuesAlreadyIncludeLearningRate=True,
                   normalization=reference,
                   scoreMap=dict(version=SCORE_VERSION, utilityClamp=[0, 1], scoreClamp=[0, 100],
-                    rounding='floor(clip(50+20*(clip(prediction,0,1)-mean)/standardDeviation,0,100)+0.5)'),
+                    rounding='floor(50+50*delta/hypot(delta,sqrt(5.25)*standardDeviation)+0.5); delta=clip(prediction,0,1)-mean'),
                   targetDefinition=dict(eventOrder=['touch10', 'D1bullish', 'D5netNegative'],
                     formula='(.8*T10 + .2*D1bullish + .65*(1-L0))/(1+.65)',
                     entry='next actual trading session open', horizon=5, roundTripCostBps=30,
@@ -217,7 +217,7 @@ def main():
     output.write_text(compact_json(result) + '\n')
     audit['portableArtifactSha256'] = sha(output)
     (audit_dir / 'audit.json').write_text(json.dumps(audit, ensure_ascii=False, indent=2))
-    (audit_dir / 'fixtures.json').write_text(compact_json(dict(schemaVersion=2, scoreVersion=SCORE_VERSION,
+    (audit_dir / 'fixtures.json').write_text(compact_json(dict(schemaVersion=3, scoreVersion=SCORE_VERSION,
                                                            featureNames=feature_names, cases=fixtures)) + '\n')
     (audit_dir / 'observed-keys.json').write_text(json.dumps([keys[i] for i in np.flatnonzero(strict)[sample_indices]], ensure_ascii=False))
     print('FIXED_FIT_EXPORT_DONE', output, audit['portableArtifactSha256'], 'PARITY', len(cases), score_difference, flush=True)

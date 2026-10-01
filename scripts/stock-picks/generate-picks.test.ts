@@ -186,8 +186,8 @@ describe('stock analysis summary', () => {
 
 describe('production stock pick generator', () => {
   it.each([
-    { change: 50, scores: [2, 2, 0] },
-    { change: -50, scores: [54, 54, 51] },
+    { change: 50, scores: [14, 14, 13] },
+    { change: -50, scores: [55, 55, 51] },
   ])('rejects a non-KIS KOSPI return20 contributor ($change%) while keeping the KIS prediction', async ({ change, scores }) => {
     const fixture = makeFixture()
     expect(fixture.rows).toHaveLength(3 * 320)
@@ -233,7 +233,7 @@ describe('production stock pick generator', () => {
     } })
     const kis = await run(breadth)
     expect(kis.meta.rankedCandidates.map(candidate => candidate.symbol).sort()).toEqual([...SYMBOLS].sort())
-    expect(kis.picks.map(pick => pick.signals.overall_score)).toEqual([97, 97, 97])
+    expect(kis.picks.map(pick => pick.signals.overall_score)).toEqual([86, 86, 86])
     expect(kis.meta.rankedCandidates[0]!.technicalContext).toMatchObject({
       breadthUniverseSymbols: 43, breadthEligibleSymbols: 43, breadthAboveSma20: 3 / 43,
     })

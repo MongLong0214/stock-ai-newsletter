@@ -90,7 +90,7 @@ export const FROZEN_COMPOSITE_UTILITY_MODEL = validateUtilityModel(frozenUtility
 
 export const PRODUCTION_STRATEGY = {
   name: 'compositeUtility',
-  version: 'v4.1-2026-10-01',
+  version: 'v4.2-2026-10-01',
   objective: 'compositeUtility',
   parameters: LOW_VOLATILITY_STABLE_PARAMETERS,
   parametersHash: hashCanonicalJson({
