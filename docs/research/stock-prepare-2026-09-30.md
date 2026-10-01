@@ -120,19 +120,6 @@ KIS 기존150/235일 모델과 NAVER 분기 고정8모델을 사용해 최신421
 
 최근60일에서100점 포화가45.56%이고54/60일의 선정 구성이 달라졌다. 높은 표시 점수만으로 이 악화를 정당화할 수 없으므로 **현재 선형 z20 후보의 main 반영을 보류하고 상단 분해능을 다시 검토한다.** 전체 Prepare 성공과 코드 리뷰 통과는 이 추천 품질 반례를 해소하지 않는다. 실제 native/캐시2,385행, 기존 원장415일·1,245선정과 대조해 일치했다. 원본은 `/tmp/stock-normalization-independent-20261001/kis-chronological-candidate.json` 및 동명 선정 원장이다.
 
-## 포화 수정 후보: 고정 smooth 환산
-
-위 반례를 보고 `z=(clip(utility,0,1)−당시학습평균)/당시학습표준편차`, `score=floor(50+50*z/sqrt(z*z+5.25)+0.5)`라는 단일 함수를 고정했다. 평균50·+1σ70·−1σ30을 유지하고 hard clipping의 상단 포화를 피한다. 모델·학습·다른 컷을 바꾸거나 계수를 탐색하지 않았다. 이 후속 가설 역시 이미 관측한 자료로 진단했으므로 독립 성능 검증이 아니다.
-
-| 자료 | 확정/추천 | T10 | L0 | 평균D5net | 세 점수≥70인 날 | 100점 추천 |
-|---|---:|---:|---:|---:|---:|---:|
-|TRAIN240|715/720|37.48%|57.48%|−0.377%|86/240|0/720|
-|NAVER489|1461/1467|43.53%|58.80%|−0.139%|489/489|0/1467|
-|KIS180|537/540|48.23%|59.96%|−0.844%|136/180|0/540|
-|KIS최근60|178/180|48.31%|56.74%|+0.598%|54/60|0/180|
-
-KIS최근60의 선형 후보 악화는 완화됐지만 TRAIN은 선형 후보보다 나쁘고 KIS180의 손실 비율도 기존 효용보다 높다. 전 구간 개선·손실30%·높은 추천일 양봉 달성으로 설명하지 않는다. 점수는 학습 분포에 대한 위치이며 상승 확률이 아니다. NAVER 당시 reference11개·native13,727행·729캐시 SHA·5,787정책일을 검산했고 불일치0이었다. 원본은 `/tmp/stock-normalization-independent-20261001/{naver-smooth-diagnostic,kis-smooth-diagnostic}.json`과 해당 원장·소스다. 최종 운영 반영은 실제 수정 코드의 실행·버전 결속 검증 후 기록한다.
-
 ## 10/1 상단 포화 수정: 고정 기준의 연속 환산
 
 R3-001에서 효용0.54·0.55·0.56·0.80이 모두100점이 되어 거래대금으로 강한 후보가 밀리는 재현을 확인했다. 최종 후보는 `round(50+50×z/sqrt(z²+5.25))`, `z=(clip(utility,0,1)−성숙 TRAIN 평균)/TRAIN 표준편차`다. 상수5.25는 평균50·+1표준편차70이라는 두 기준에서 `(50/20)²−1`로 유도했고 성과로 탐색하지 않았다. +2σ83·+3σ90·+4σ93이며 당일 순위·하한 보너스는 없다. 런타임과 Trainer는 동치인 `delta/hypot(delta,sqrt(5.25)×표준편차)`를 사용해 아주 작은 표준편차에서도 오버플로를 피한다. 정수점수·거래대금·ASCII·정책 자체 CD20 계약은 유지한다.
@@ -156,11 +143,11 @@ R3-001에서 효용0.54·0.55·0.56·0.80이 모두100점이 되어 거래대금
 
 - 코드: `scripts/stock-picks/observed-inputs.ts`, `utility-model.ts`, `production-strategy.ts`, `generate-picks.ts`, `strategies.ts`와 Prepare 저장 전 점수 결속. 원18+가격·거래량 지속/수축·압축·낙폭/회복·다기간 구조32입력이다. 6항목 기술점수는 유지한다.
 - 모델: `scripts/stock-picks/models/composite-utility-v1.json`. HGB100트리, 최대7leaf/깊이3, minleaf100, LR0.05, L2=1, bins255, seed42, earlystop=false. 날짜 동일 가중치,421패널·506,470 strict행·119,819결측. 마지막 신호9/18, 라벨 성숙9/29. numpy2.5.3/sklearn1.9.1; 런타임 Python 불필요.
-- 최초 Trainer: `scripts/stock-picks/train-composite-utility.py`, SHA256 `4b3c88aed774ac8fb6c0151b9b84111bba6a20bab165479dbb41541182e10556`. 학습 입력·날짜·패키지 식별자는 모델 metadata에 남는다. 최초 모델 공백 정리 전 SHA256은 `381a8c6a3f95b8dd333460ab19e0487147da8a2e3714da5f64264442af176fae`, 정리 후는 `c21d1ff3aae3a8af89a6af311795c6126e9b13faa852abe2c49aaa06fb828ccb`다. 이 공백 정리에서는 모든 JSON 토큰이 같았다. 현재v2·witness는 위 최종 환산 모델을 가리킨다.
+- 최초 Trainer: `scripts/stock-picks/train-composite-utility.py`, SHA256 `4b3c88aed774ac8fb6c0151b9b84111bba6a20bab165479dbb41541182e10556`. 학습 입력·날짜·패키지 식별자는 모델 metadata에 남는다. 최초 모델 공백 정리 전 SHA256은 `381a8c6a3f95b8dd333460ab19e0487147da8a2e3714da5f64264442af176fae`, 정리 후는 `c21d1ff3aae3a8af89a6af311795c6126e9b13faa852abe2c49aaa06fb828ccb`다. 이 공백 정리에서는 모든 JSON 토큰이 같았다. 현재v3·witness는 위 최종 smooth 환산 모델을 가리킨다.
 - Parity fixture·행동 회귀 테스트는 결측 분기·경계·반올림·원천·선정·Prepare 실패 경로를 검증한다. 최초후보 fcbc108에서4,198테스트·타입검사·lint0오류(기존15경고)·build487페이지·Prepare E2E37개가 통과했다. 독립100트리 refit, TS/native1,952사례와 raw50입력100사례가 일치했다. [CI36794302986](https://github.com/MongLong0214/stock-ai-newsletter/actions/runs/36794302986). 과거 결과를 변경 후 전체검사로 재사용하지 않는다.
 - 10/1 아카이브 정리 후367파일·4,211테스트(Prepare E2E 포함), app/scripts 타입검사, `git diff --check` 통과. 모델·parity JSON 전체 토큰과 canonical 전략 hash가 같고 UI 파일·Summary·표시 정렬·표시 rationale 함수는 기준main1b0e2d2와 같았다. 이 검사는 실행 로직 보존을 확인하며 점수 설계·추천 품질 재검토는 진행 중이다.
 - 리뷰 R2-001: 후보320봉만 KIS로 검사해 KOSPI20일 수익과 전체 breadth에 혼합원천이 들어올 수 있었다. foreign benchmark19→14/35, foreign breadth19→51점 재현을 확인했다. fe73eee에서 실제 기여 KOSPI21일·active-master20일 원천을 한 번 검사하고 기존 결측을 유지하도록 수정했다. 동일5개 witness가 수정 전 실패·수정 후 통과했고 집중91테스트가 통과했다. hash 기대값은 f4cb2b5에서 정정했다.
-- 원천 수정 당시 canonical 전략 hash: `d56b1782cadfe3c98f0ffa6258b8b09b599e9ecc16d567cc2a052affedb9976f`(`kis-market-21-20-v1` 포함). 최초후보 `7c1eb45a…` 및 위v4.1과 구분한다. PR219 자동 리뷰는1회 중단·2회차R2-001 보고가 있었고 남은 자동 재검토는1회다.
+- 원천 수정 당시 canonical 전략 hash: `d56b1782cadfe3c98f0ffa6258b8b09b599e9ecc16d567cc2a052affedb9976f`(`kis-market-21-20-v1` 포함). 최초후보 `7c1eb45a…` 및 위v4.1과 구분한다. PR219 자동 리뷰는1회 중단·2회차R2-001·3회차R3-001 재현이 있었다. 자동 리뷰3회 한도를 소진했고 추가 회차로 초기화하지 않는다. 이후 수정은 보존한 반례와 실제 수정 코드의 회귀·실행 증거로 확인한다.
 - [전체 Prepare 시험36794297344](https://github.com/MongLong0214/stock-ai-newsletter/actions/runs/36794297344)는 fcbc108·수정 전 hash에서 성공했다. 2,434호출/2,433성공, exact-date99.9589%,17,020가격행 갱신,952후보,23분20.839초였다. 같은45·42·42를 골랐고 뉴스레터/픽스냅샷 저장·발송은 생략했다. 가격·마스터 쓰기는 실제 수행했다. 새 hash의 완료나 추천 품질 개선 증거가 아니다.
 - 원천 검사 수정 후 [전체 Prepare 시험36796445208](https://github.com/MongLong0214/stock-ai-newsletter/actions/runs/36796445208)도 fe73eee에서 성공했다(10/1 09:53 KST 완료). signal9/30→target10/1, `PICKS_SOURCE=code`, canonical hash `d56b1782…`가 실행 로그와 snapshot에서 일치했다. 2,434호출/2,433성공, exact-date99.9589%,17,020가격행 갱신,952후보,23분17.117초였다. 세 종목·45/42/42점은 같았고 뉴스레터/픽스냅샷 저장·발송을 생략했다. 저장 전 시장 재평가 NORMAL은 규칙 미충족이며 데이터 상태는 degraded였다. 원천 수정의 실제 실행 증거이며 추천 품질 문제의 해소 증거는 아니다. JSON 공백 정리 후06d567b의 [CI36798253498](https://github.com/MongLong0214/stock-ai-newsletter/actions/runs/36798253498)도 성공했다.
 - 10/1 정기[run36777694549](https://github.com/MongLong0214/stock-ai-newsletter/actions/runs/36777694549)는06:10 KST에 기존main1b0e2d2로 실행돼 경동제약·KT·CJ제일제당을 골랐다. 새 모델 운영으로 부르지 않는다. 스케줄은 main의 Prepare06:10/Send07:27 KST다.
