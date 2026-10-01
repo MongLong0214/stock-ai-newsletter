@@ -6,7 +6,7 @@
 
 30개 학습 설정과 기존 점수·가중치·시장 보정을 시험했지만 **+10% 도달 약40%와 모든 음수 수익 비율 약30%를 동시에 달성한 방식은 없었다.** 세 종목 모두 높은 점수와 높은 추천일 양봉 비율도 함께 달성하지 못했다.
 
-[PR219](https://github.com/MongLong0214/stock-ai-newsletter/pull/219)의 후보는 `L0-A-small, λ0.65, 50입력`이다. 10/1 점수·실제 후보에 대한 재검토로 Draft이며 아직 main에 없다. 실행 테스트 통과를 추천 품질 개선으로 해석하지 않는다. 중복 연구 스크립트·중간 모델·로그·선정 원장·manifest·복원 도구는 Git의 현재 파일에서 제거하고 이 기록과 운영 코드·모델·행동 회귀 테스트만 남겼다.
+[PR219](https://github.com/MongLong0214/stock-ai-newsletter/pull/219)의 최종 운영안은 `L0-A-small, λ0.65, 50입력`에 고정 학습 분포의 smooth 점수와 잠김 하락 후보 제외를 적용한 `v4.2-2026-10-01`이다. 최종 코드의 CI·build·실제 Prepare 시험이 통과했고 main 반영 상태는 PR에서 확인한다. 실행 테스트 통과를 추천 품질 개선으로 해석하지 않는다. 중복 연구 스크립트·중간 모델·로그·선정 원장·manifest·복원 도구는 Git의 현재 파일에서 제거하고 이 기록과 운영 코드·모델·행동 회귀 테스트만 남겼다.
 
 ## 측정과 평가 구성
 
@@ -141,7 +141,9 @@ R3-001에서 효용0.54·0.55·0.56·0.80이 모두100점이 되어 거래대금
 
 10/1 v4.2 전체367파일·4,217테스트(Prepare E2E40개 포함), app/scripts 타입검사·변경 TypeScript lint·프로덕션 build가 통과했다. 상단 포화 회귀는 원코드에서100/100/100/100으로 실패한 뒤88/89/90/97로 통과했고 실제 선정을 통해97점 후보가 거래대금으로 밀리지 않는 것도 검증한다. 고정 함수9개의 원문 비교 차이0·`git diff --check` 통과. 무관한 로컬 lockfile·DESIGN·SES 문서는 반영하지 않는다. 최종 정확한 SHA의 외부 Prepare와 마지막 리뷰는 별도 확인한다.
 
-cfd801e의 [CI36803250538](https://github.com/MongLong0214/stock-ai-newsletter/actions/runs/36803250538) 성공. 새 read-only live 검사에서도 위3종목을 선정했고 KIS28봉·140필드 차이0·쓰기0이다. 과거990예측 패널·1,230,005후보에 실제 운영 `normalizeUtilityScore`를 호출해 연구의 `z/sqrt`와 안정적인 `delta/hypot`의 정수점수 차이0을 확인했다. 해당 과거 정책은 모델/학습 기준값/정수순서/CD20을 그대로 사용하며 새 학습·탐색을 하지 않았다. 원본은 `/tmp/stock-pr219-smooth-replay-formula-20261001.json` 및 `/tmp/stock-composite-smooth-live-20261001.json`이다. [최종 Prepare36803261525](https://github.com/MongLong0214/stock-ai-newsletter/actions/runs/36803261525)는 cfd801e·target10/1·dry-run이며 완료 결과는 실행 아티팩트와 아래 최종 기록을 대조한다.
+cfd801e의 [CI36803250538](https://github.com/MongLong0214/stock-ai-newsletter/actions/runs/36803250538) 성공. 새 read-only live 검사에서도 위3종목을 선정했고 KIS28봉·140필드 차이0·쓰기0이다. 과거990예측 패널·1,230,005후보에 실제 운영 `normalizeUtilityScore`를 호출해 연구의 `z/sqrt`와 안정적인 `delta/hypot`의 정수점수 차이0을 확인했다. 해당 과거 정책은 모델/학습 기준값/정수순서/CD20을 그대로 사용하며 새 학습·탐색을 하지 않았다. 원본은 `/tmp/stock-pr219-smooth-replay-formula-20261001.json` 및 `/tmp/stock-composite-smooth-live-20261001.json`이다.
+
+[최종 실제 Prepare36803261525](https://github.com/MongLong0214/stock-ai-newsletter/actions/runs/36803261525)는 10/1 11:17 KST에 성공했다. 실행 SHA cfd801e·signal9/30·target10/1·v4.2·hash `fa9f1666…`가 snapshot과 일치했고 엑스게이트73·진영73·아스플로72를 종합점수·동점 거래대금 순으로 선정했다. active2,433→fresh2,432→complete2,400→gate951→3개, KIS2,434호출 중2,433성공·누락1개(KOSDAQ:468670의 empty 응답)·exact-date99.9589%·가격17,020행 갱신·총22분58.300초다. dry-run의 뉴스레터·픽 스냅샷 저장 및 발송은 생략했고 마스터·일봉 갱신은 실제 실행했다. 저장 전 시장 판정을 다시 평가해 NORMAL이었지만 야간선물 stale로 데이터 상태는 degraded90이며 안전성 보증이 아니다. 실제 아티팩트는 `/tmp/stock-normalization-independent-20261001/smooth-final-real-prepare/`에 있다. 10/2는 기존 거래일 함수에서 거래일이며 Prepare06:10/Send07:27 KST의 main 참조를 확인했다.
 
 ## 남긴 구현과 검증 근거
 
