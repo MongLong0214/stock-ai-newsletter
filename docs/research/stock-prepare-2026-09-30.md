@@ -135,9 +135,11 @@ R3-001에서 효용0.54·0.55·0.56·0.80이 모두100점이 되어 거래대금
 
 동일421일·506,470행을 고정 Trainer로 재학습해100트리·baseline·50입력·학습 hash·평균/표준편차가 그대로임을 확인했다. schema3/`composite-utility-v3`, 점수 `utility-reference-smooth-v1`, 전략 `v4.2-2026-10-01`, canonical hash `fa9f1666db9b5b7a5bf4d19b4d122547ab8b5b732b230452661a687165cf86cc`다. 모델 SHA256은 `4f5c9f061d69254d9c5f6dd986742ecb6f52768ee6d8f357d06a450c5d13d30c`. 실제 native/TypeScript3,900입력·600분기에서 효용·점수 차이0, 관측 입력 최고98점이었다. 상단 점수·실제 선정 회귀는 수정 전 실패를 확인했다. 원본은 `/tmp/stock-composite-smooth-stable-refit-20261001/`이다.
 
-9/30 마감 시세820,430봉·실제 재추천 제외 이력의 새 후보는 **엑스게이트356680 73점·진영285800 73점·아스플로159010 72점**이다. 전체active master2,433·fresh KIS2,432·951후보·쓰기시도0이며 미래 성과는 관측하지 않았다. UI 및 Summary·rationale·표시 정렬함수는 기존 기준과 동일하다. 이 시점에 PR219는 Draft이고 main에는 미반영이다. 수정 전 f6002aa의 [Prepare36800470633](https://github.com/MongLong0214/stock-ai-newsletter/actions/runs/36800470633)는 v4.1/hash9be0…·74/73/73으로 성공했으며 v4.2 실행 증거로 재사용하지 않는다.
+9/30 마감 시세820,430봉·실제 재추천 제외 이력의 새 후보는 **엑스게이트356680 73점·진영285800 73점·아스플로159010 72점**이다. 전체active master2,433·fresh KIS2,432·951후보·쓰기시도0이며 미래 성과는 관측하지 않았다. UI 및 Summary·rationale·표시 정렬함수는 기존 기준과 동일하다. 코드 기준은 cfd801e이며 병합 상태는 [PR219](https://github.com/MongLong0214/stock-ai-newsletter/pull/219)에서 확인한다. 수정 전 f6002aa의 [Prepare36800470633](https://github.com/MongLong0214/stock-ai-newsletter/actions/runs/36800470633)는 v4.1/hash9be0…·74/73/73으로 성공했으며 v4.2 실행 증거로 재사용하지 않는다.
 
 10/1 v4.2 전체367파일·4,217테스트(Prepare E2E40개 포함), app/scripts 타입검사·변경 TypeScript lint·프로덕션 build가 통과했다. 상단 포화 회귀는 원코드에서100/100/100/100으로 실패한 뒤88/89/90/97로 통과했고 실제 선정을 통해97점 후보가 거래대금으로 밀리지 않는 것도 검증한다. 고정 함수9개의 원문 비교 차이0·`git diff --check` 통과. 무관한 로컬 lockfile·DESIGN·SES 문서는 반영하지 않는다. 최종 정확한 SHA의 외부 Prepare와 마지막 리뷰는 별도 확인한다.
+
+cfd801e의 [CI36803250538](https://github.com/MongLong0214/stock-ai-newsletter/actions/runs/36803250538) 성공. 새 read-only live 검사에서도 위3종목을 선정했고 KIS28봉·140필드 차이0·쓰기0이다. 과거990예측 패널·1,230,005후보에 실제 운영 `normalizeUtilityScore`를 호출해 연구의 `z/sqrt`와 안정적인 `delta/hypot`의 정수점수 차이0을 확인했다. 해당 과거 정책은 모델/학습 기준값/정수순서/CD20을 그대로 사용하며 새 학습·탐색을 하지 않았다. 원본은 `/tmp/stock-pr219-smooth-replay-formula-20261001.json` 및 `/tmp/stock-composite-smooth-live-20261001.json`이다. [최종 Prepare36803261525](https://github.com/MongLong0214/stock-ai-newsletter/actions/runs/36803261525)는 cfd801e·target10/1·dry-run이며 완료 결과는 실행 아티팩트와 아래 최종 기록을 대조한다.
 
 ## 남긴 구현과 검증 근거
 
