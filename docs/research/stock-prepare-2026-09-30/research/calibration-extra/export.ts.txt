@@ -1,0 +1,91 @@
+import {createReadStream} from 'node:fs'
+import {readFile,writeFile,stat} from 'node:fs/promises'
+import {createInterface} from 'node:readline'
+import {createHash} from 'node:crypto'
+import {execFileSync} from 'node:child_process'
+import {buildFeatureSeries} from '/Users/isaac/WebstormProjects/stock-ai-newsletter/scripts/stock-picks/features.ts'
+import {buildTechnicalContextMap} from '/Users/isaac/WebstormProjects/stock-ai-newsletter/scripts/stock-picks/technical-context.ts'
+import {StockDataHandler} from '/Users/isaac/WebstormProjects/stock-ai-newsletter/scripts/stock-picks/data-handler.ts'
+import {TradingDayIndex} from '/Users/isaac/WebstormProjects/stock-ai-newsletter/scripts/stock-picks/trading-days.ts'
+import {buildSignals,SIGNAL_SCORE_VERSION} from '/Users/isaac/WebstormProjects/stock-ai-newsletter/scripts/stock-picks/signals.ts'
+import {hasCalculatedOutputMetrics} from '/Users/isaac/WebstormProjects/stock-ai-newsletter/scripts/stock-picks/generate-picks.ts'
+import {rankLowVolatilityStableCandidates,passesCommonGate,isPreferredShare,LOW_VOLATILITY_STABLE_PARAMETERS} from '/Users/isaac/WebstormProjects/stock-ai-newsletter/scripts/stock-picks/strategies.ts'
+import {labelPick} from '/Users/isaac/WebstormProjects/stock-ai-newsletter/scripts/stock-picks/label.ts'
+import {hasValidResearchOhlc} from '/Users/isaac/WebstormProjects/stock-ai-newsletter/scripts/stock-picks/data-contract.ts'
+const root='/Users/isaac/WebstormProjects/stock-ai-newsletter',base='/tmp/composite-score-research-20260930/calibration-extra'
+const rawPath='/tmp/stock-research-fresh-mature-20260930/input/prices.ndjson',metaPath='/tmp/stock-research-fresh-mature-20260930/input/metadata.json'
+const dates=['2025-12-16','2025-12-17','2025-12-18','2025-12-19','2025-12-22','2026-09-21','2026-09-22']
+const sha=(x:string|Buffer)=>createHash('sha256').update(x).digest('hex')
+async function hashFile(path:string){const h=createHash('sha256');for await(const c of createReadStream(path))h.update(c);return h.digest('hex')}
+async function save(name:string,text:string){const path=`${base}/${name}`;await writeFile(path,text,{flag:'wx'});return{path,sha256:sha(text),bytes:Buffer.byteLength(text)}}
+async function main(){
+ const startedAt=new Date().toISOString(),head=execFileSync('git',['rev-parse','HEAD'],{cwd:root,encoding:'utf8'}).trim()
+ const sourceFiles=['features.ts','indicators.ts','technical-context.ts','data-handler.ts','trading-days.ts','signals.ts','generate-picks.ts','strategies.ts','label.ts','data-contract.ts']
+ const sourceBefore=Object.fromEntries(await Promise.all(sourceFiles.map(async p=>[p,sha(await readFile(`${root}/scripts/stock-picks/${p}`))])))
+ const metaText=await readFile(metaPath,'utf8'),meta=JSON.parse(metaText),masters=meta.masters.filter((m:any)=>m.is_active),masterMap=new Map(masters.map((m:any)=>[m.symbol,m]))
+ if(masters.length!==2431||masterMap.size!==2431)throw new Error('Unexpected currentmaster snapshot')
+ const t=new TradingDayIndex(meta.tradingDays)
+ if(dates.some(d=>!t.indexByDate.has(d)))throw new Error('Unavailable requested signal date')
+ const maturity=Object.fromEntries(dates.map(date=>{const window=[1,2,3,4,5].map(i=>t.nextTradingDay(date,i));return[date,{observedWindow:window.filter(Boolean),mature:window.every(d=>d!==null&&d<=meta.asOfDate),maturityDate:window[4]}]}))
+ const before=await stat(rawPath),rawHash=createHash('sha256'),input=createReadStream(rawPath);input.on('data',c=>rawHash.update(c))
+ const prices=new Map<string,Map<string,any>>();let rawChunks=0,rawRows=0,duplicateSymbolChunks=0,duplicateDateRows=0,conflictingDateRows=0
+ const conflicts:any[]=[]
+ for await(const line of createInterface({input,crlfDelay:Infinity})){
+  if(!line.trim())continue;const[symbol,rows]=JSON.parse(line);rawChunks++;if(prices.has(symbol))duplicateSymbolChunks++
+  const map=prices.get(symbol)??new Map<string,any>()
+  for(const row of rows){rawRows++;if(row.symbol!==symbol)throw new Error('Raw symbol mismatch');if(map.has(row.trade_date)){duplicateDateRows++;if(JSON.stringify(map.get(row.trade_date))!==JSON.stringify(row)){conflictingDateRows++;if(conflicts.length<30)conflicts.push({symbol,date:row.trade_date})}}map.set(row.trade_date,row)}prices.set(symbol,map)
+ }
+ const inputHash=rawHash.digest('hex'),uniqueRows=[...prices.values()].reduce((n,p)=>n+p.size,0)
+ console.log(JSON.stringify({event:'loaded',rawChunks,rawRows,symbols:prices.size,uniqueRows,duplicateSymbolChunks,duplicateDateRows,conflictingDateRows,maturity}))
+ const groups=[dates.slice(0,5),dates.slice(5)]
+ const contexts=new Map<string,ReadonlyMap<string,any>>()
+ for(const group of groups){const last=group.at(-1)!;const history=t.tradingDays.filter(d=>d<=last);const built=buildTechnicalContextMap({handler:new StockDataHandler(prices,t).at(last),symbols:masters.map((m:any)=>m.symbol),dates:history,includeFromDate:group[0]});for(const date of group){const day=built.get(date);if(!day||day.size!==2431)throw new Error('Context universe mismatch');contexts.set(date,day)}}
+ let contextText='';const coverage:any={}
+ for(const date of dates)for(const master of masters){const context=contexts.get(date)!.get(master.symbol);for(const[k,v]of Object.entries(context)){coverage[k]??={nonNull:0,null:0};coverage[k][v===null?'null':'nonNull']++}contextText+=JSON.stringify({date,symbol:master.symbol,context})+'\n'}
+ const contextOutput=await save('context.ndjson',contextText)
+ const byDate=new Map(dates.map(d=>[d,[] as any[]]));const handlers=groups.map(g=>new StockDataHandler(prices,t).at(g.at(-1)!));const histories=groups.map(g=>t.tradingDays.filter(d=>d<=g.at(-1)!))
+ let featureCount=0
+ for(const[index,master]of masters.entries()){
+  for(let gi=0;gi<groups.length;gi++)for(const feature of buildFeatureSeries({handler:handlers[gi]!,symbol:master.symbol,dates:histories[gi]!,includeFromDate:groups[gi]![0]})){if(!byDate.has(feature.simDate))throw new Error('Unexpected panel feature date');byDate.get(feature.simDate)!.push(feature);featureCount++}
+  if((index+1)%500===0||index+1===masters.length)console.log(JSON.stringify({event:'features',masters:index+1,featureCount}))
+ }
+ let wideText='',eligibilityText='',labelReads=0,labelCalls=0,labelOutsideWindow=0;let allowed:Set<string>|null=null,allowedSymbol:string|null=null
+ const labelBook:any={get(symbol:string){return{get(date:string){labelReads++;if(!allowed?.has(date)||symbol!==allowedSymbol){labelOutsideWindow++;throw new Error('Unexpected label price access')}return prices.get(symbol)?.get(date)}}}}
+ const perDate:any[]=[];let invalidScores=0
+ for(const date of dates){
+  const fs=byDate.get(date)!;if(fs.length!==2431)throw new Error('Feature universe mismatch')
+  const pool=fs.filter(f=>prices.get(f.symbol)?.get(date)?.source==='kis'&&hasCalculatedOutputMetrics(f))
+  const eligible=rankLowVolatilityStableCandidates({features:pool,masters:masterMap as any,parameters:LOW_VOLATILITY_STABLE_PARAMETERS,excludeSymbols:new Set(),pickCount:pool.length})
+  const set=new Set(eligible)
+  eligibilityText+=JSON.stringify({date,runtimeEligibleSymbols:[...eligible].sort()})+'\n'
+  const summary:any={date,rows:fs.length,preCommonPool:pool.length,runtimeEligible:set.size,labelMature:maturity[date].mature,labelCalls:0,labelStatus:{}}
+  for(const feature of fs){
+   const row=prices.get(feature.symbol)?.get(date),currentKis=row?.source==='kis',calculated=hasCalculatedOutputMetrics(feature),preCommonPool=currentKis&&calculated
+   const dailyReturn=feature.open&&feature.close&&feature.gapFromPreviousClosePercent!==null?(1+feature.gapFromPreviousClosePercent/100)*(feature.close/feature.open)-1:null
+   const intraday=feature.open&&feature.close?feature.close/feature.open-1:null
+   const commonGate75=passesCommonGate(feature,masterMap.get(feature.symbol) as any,500_000_000,75)
+   const flags={currentMasterActive:true,currentKis,hasCalculatedOutputMetrics:calculated,preCommonPool,validCurrentOhlc:!!row&&hasValidResearchOhlc(row)&&row.volume>0,
+    turnoverAtLeast500m:feature.averageTurnover20!==null&&feature.averageTurnover20>=500_000_000,closeAtLeast1000:feature.close!==null&&feature.close>=1000,
+    rsiValid:feature.rsi14!==null&&Number.isFinite(feature.rsi14)&&feature.rsi14>=0&&feature.rsi14<=100,rsiAtMost75:feature.rsi14!==null&&feature.rsi14<=75,rsiAtMost70:feature.rsi14!==null&&feature.rsi14<=70,
+    notPreferredShare:!isPreferredShare(feature.symbol),signalDayReturnBelow10pct:dailyReturn!==null&&Number.isFinite(dailyReturn)&&dailyReturn<.1&&intraday!==null&&intraday<.1,
+    commonGate75,commonGate70:passesCommonGate(feature,masterMap.get(feature.symbol) as any,500_000_000,70),commonGateNoTurnoverFloor:passesCommonGate(feature,masterMap.get(feature.symbol) as any,0,75),
+    commonGateNoRsiCeiling:passesCommonGate(feature,masterMap.get(feature.symbol) as any,500_000_000,100),commonGateNoTurnoverFloorOrRsiCeiling:passesCommonGate(feature,masterMap.get(feature.symbol) as any,0,100),priorTargetEligible:set.has(feature.symbol)}
+   const explicit=preCommonPool&&commonGate75&&flags.notPreferredShare&&flags.signalDayReturnBelow10pct&&feature.atrPercent14!==null&&Number.isFinite(feature.atrPercent14)
+   if(explicit!==set.has(feature.symbol))throw new Error('Actual runtime eligibility and explicit audit differ')
+   const signals=buildSignals(feature)
+   if(Object.values(signals).some(v=>!Number.isInteger(v)||v<0||v>100)){invalidScores++;throw new Error('Invalid output score')}
+   let label=null
+   if(preCommonPool&&maturity[date].mature){allowed=new Set(maturity[date].observedWindow);allowedSymbol=feature.symbol;label=labelPick(feature.symbol,date,labelBook,t,5);allowed=null;allowedSymbol=null;labelCalls++;summary.labelCalls++;const status=label?.status??'null';summary.labelStatus[status]=(summary.labelStatus[status]??0)+1}
+   const researchHistory={featureHistoryCalendarSessions:t.indexByDate.get(date)!+1,effectiveFeatureWindowSessions:Math.min(320,t.indexByDate.get(date)!+1),position52wUsesNeutralScore:!(feature.position52wFullWindow&&feature.position52wObservations>=252),position52wObservations:feature.position52wObservations,position52wFullWindow:feature.position52wFullWindow}
+   wideText+=JSON.stringify({date,symbol:feature.symbol,feature,signals,flags,researchHistory,labelMature:maturity[date].mature,label})+'\n'
+  }
+  perDate.push(summary)
+ }
+ const wideOutput=await save('wide.ndjson',wideText),eligibilityOutput=await save('runtime-eligibility.ndjson',eligibilityText)
+ const sourceAfter=Object.fromEntries(await Promise.all(sourceFiles.map(async p=>[p,sha(await readFile(`${root}/scripts/stock-picks/${p}`))])))
+ const after=await stat(rawPath);if(before.size!==after.size||before.mtimeMs!==after.mtimeMs||inputHash!==await hashFile(rawPath))throw new Error('Raw input modified')
+ const manifest={startedAt,completedAt:new Date().toISOString(),repositoryHead:head,signalScoreVersion:SIGNAL_SCORE_VERSION,sourceBefore,sourceAfter,sourceChanged:sourceFiles.filter(p=>sourceBefore[p]!==sourceAfter[p]),scriptHash:sha(await readFile(`${base}/export.ts`)),rawInput:{path:rawPath,sha256:inputHash,rawChunks,rawRows,symbols:prices.size,uniqueRows,duplicateSymbolChunks,duplicateDateRows,conflictingDateRows,conflicts,duplicateMergePolicy:'symbol/date map; later chunk wins (same as buildPriceBook); all conflicts enumerated when <=30'},metadataInput:{path:metaPath,sha256:sha(metaText)},currentMasters:masters,currentMasterSnapshotAt:meta.downloadedAt,currentMasterSurvivorshipRetained:true,rawAsOfDate:meta.asOfDate,dates,maturity,outputs:{wide:wideOutput,context:contextOutput,eligibility:eligibilityOutput},perDate,coverage,labelCalls,labelReads,labelOutsideWindow,invalidScores,rawInputUnchanged:true,labelsUsedForEligibility:false,databaseCalls:0,scope:'Research-only extra calibration panels; December315-319-session prefixes are shorter than production320; September outcomes immature at raw9/29 as-of.'}
+ await save('manifest.json',JSON.stringify(manifest,null,2)+'\n')
+ console.log(JSON.stringify({event:'complete',outputs:manifest.outputs,perDate,labelCalls,labelReads,labelOutsideWindow,sourceChanged:manifest.sourceChanged,duplicateSymbolChunks,duplicateDateRows,conflictingDateRows}))
+}
+main().catch(e=>{console.error(e);process.exitCode=1})

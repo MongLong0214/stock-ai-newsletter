@@ -1,0 +1,1227 @@
+{
+  "startedAt": "2026-09-30T03:01:14.677Z",
+  "scriptPath": "/tmp/composite-score-research-20260930/export-research-context-and-wide.ts",
+  "scriptHash": "582d6d13564f53363adf8523721f986f2579e6459cd77ce3d7e432bf42cbd1ed",
+  "repositoryHeadAtTaskStart": "97b0c2ffa7b89a7ffdd4bae53e4c0e416e00f22f",
+  "sourceHashes": {
+    "technical-context.ts": "fa7b31791e0436e607b57be1c81b29b2544ddc775bcb003452297ba6adc668ee",
+    "features.ts": "dd0ab6bc70a00855e15c9efa7fe166f497f01a66a8eea298857a5acd7098c41d",
+    "indicators.ts": "3a55d64dbcb7ee96cef5df9ce4f347d5225bd2332cd842b6db86d09ec7c2877b",
+    "data-handler.ts": "3650e73ff9ae3a9e61bec4ca271c0fbd1ca62952c6ab665077f428ef821a50c0",
+    "trading-days.ts": "5b027a6685069dfac947b5e22942335193cb121cfc48c0f01d911983586a7946",
+    "signals.ts": "56dea5da2ffb7134eb1b9f70fe2349f359d0f699851c393549c2502ed0748763",
+    "generate-picks.ts": "2b16ecc02475adc326dd81ab969332d64e19ef0ee0d452e87b43e3366fbc3698",
+    "strategies.ts": "3bba43cc3cfa00ceb4b04b55ded60f82f3b0d1c2e8cce59c5e7952da220d3047",
+    "label.ts": "876f29d1313c4e233663d00c5d57e4e6e4cbde4980c26d2d53ba8aba6e081f62",
+    "data-contract.ts": "84ff2c35b0e88774df1c93369d44100146806bb0ace6a022eeaa9fd10bcb43dd"
+  },
+  "signalScoreVersion": "technical-signals-v2-2026-09-30",
+  "rawInput": {
+    "path": "/tmp/stock-research-fresh-mature-20260930/input/prices.ndjson",
+    "sha256": "c0fe673a5c0cef5197625d2ccd811c900bbe6655e81a66f4b797c6e741a1ce54",
+    "bytes": 166018453,
+    "symbols": 2643,
+    "rows": 1252081
+  },
+  "metadataInputs": [
+    {
+      "path": "/tmp/stock-target-rebuilt-20260929/metadata.json",
+      "sha256": "abd10d6d7173f9cadeb2651b56ca082fbe050810b9e90b3346fc9cea2c1e2ab3"
+    },
+    {
+      "path": "/tmp/stock-research-fresh-mature-20260930/input/metadata.json",
+      "sha256": "8f092baa7317c844fc879a1a516f0570ce65c929ff27d8ff71b76a59f48d207e"
+    }
+  ],
+  "masterAsOf": "2026-09-29T08:18:36.800Z",
+  "freshDownloadAt": "2026-09-30T02:17:23.824Z",
+  "currentMasterCount": 2431,
+  "currentMasterSurvivorshipRetained": true,
+  "benchmark": {
+    "symbol": "KOSPI",
+    "present": true,
+    "totalRows": 470,
+    "historyRows": 465,
+    "missingHistoryDates": [
+      "2024-08-28",
+      "2024-08-29",
+      "2024-08-30",
+      "2024-09-02",
+      "2024-09-03",
+      "2024-09-04",
+      "2024-09-05",
+      "2024-09-06",
+      "2024-09-09",
+      "2024-09-10",
+      "2024-09-11",
+      "2024-09-12",
+      "2024-09-13",
+      "2024-09-19",
+      "2024-09-20",
+      "2024-09-23",
+      "2024-09-24",
+      "2024-09-25",
+      "2024-09-26",
+      "2024-09-27",
+      "2024-09-30",
+      "2024-10-02",
+      "2024-10-04",
+      "2024-10-07",
+      "2024-10-08",
+      "2024-10-10",
+      "2024-10-11",
+      "2024-10-14",
+      "2024-10-15",
+      "2024-10-16",
+      "2024-10-17",
+      "2024-10-18",
+      "2024-10-21",
+      "2024-10-22",
+      "2024-10-23"
+    ],
+    "fakeBenchmarkUsed": false
+  },
+  "completedAt": "2026-09-30T03:02:07.548Z",
+  "output": {
+    "path": "/tmp/composite-score-research-20260930/wide-training.ndjson",
+    "sha256": "47a1c9af98f93297fa7c9a5586baf0c30103a85e7988ee53dcc99fa6adb8c950",
+    "bytes": 400777974,
+    "rows": 194480,
+    "dates": [
+      "2025-12-23",
+      "2025-12-24",
+      "2025-12-26",
+      "2025-12-29",
+      "2025-12-30",
+      "2026-01-02",
+      "2026-01-05",
+      "2026-01-06",
+      "2026-01-07",
+      "2026-01-08",
+      "2026-01-09",
+      "2026-01-12",
+      "2026-01-13",
+      "2026-01-14",
+      "2026-01-15",
+      "2026-01-16",
+      "2026-01-19",
+      "2026-01-20",
+      "2026-01-21",
+      "2026-01-22",
+      "2026-01-23",
+      "2026-01-26",
+      "2026-01-27",
+      "2026-01-28",
+      "2026-01-29",
+      "2026-01-30",
+      "2026-02-02",
+      "2026-02-03",
+      "2026-02-04",
+      "2026-02-05",
+      "2026-02-06",
+      "2026-02-09",
+      "2026-02-10",
+      "2026-02-11",
+      "2026-02-12",
+      "2026-02-13",
+      "2026-02-19",
+      "2026-02-20",
+      "2026-02-23",
+      "2026-02-24",
+      "2026-02-25",
+      "2026-02-26",
+      "2026-02-27",
+      "2026-03-03",
+      "2026-03-04",
+      "2026-03-05",
+      "2026-03-06",
+      "2026-03-09",
+      "2026-03-10",
+      "2026-03-11",
+      "2026-03-12",
+      "2026-03-13",
+      "2026-03-16",
+      "2026-03-17",
+      "2026-03-18",
+      "2026-03-19",
+      "2026-03-20",
+      "2026-03-23",
+      "2026-03-24",
+      "2026-03-25",
+      "2026-03-26",
+      "2026-03-27",
+      "2026-03-30",
+      "2026-03-31",
+      "2026-04-01",
+      "2026-04-02",
+      "2026-04-03",
+      "2026-04-06",
+      "2026-04-07",
+      "2026-04-08",
+      "2026-04-09",
+      "2026-04-10",
+      "2026-04-13",
+      "2026-04-14",
+      "2026-04-15",
+      "2026-04-16",
+      "2026-04-17",
+      "2026-04-20",
+      "2026-04-21",
+      "2026-04-22"
+    ]
+  },
+  "scope": "currentmaster wider pool",
+  "counts": {
+    "rows": 194480,
+    "preCommonPool": 190290,
+    "commonGate75": 113581,
+    "commonGate70": 109254,
+    "priorTargetEligible": 107571,
+    "labelCalls": 190290,
+    "labelRawReads": 951450,
+    "labelOutsideTrainCalls": 0,
+    "labelOutsideAllowedWindowReads": 0,
+    "invalidScores": 0
+  },
+  "labelStatuses": {
+    "miss": 145852,
+    "hit": 43468,
+    "unexpected_untradeable": 738,
+    "data_error": 232
+  },
+  "perDate": {
+    "2025-12-23": {
+      "rows": 2431,
+      "preCommonPool": 2374,
+      "commonGate75": 1223,
+      "priorTargetEligible": 1182,
+      "labelStatus": {
+        "miss": 2012,
+        "hit": 357,
+        "unexpected_untradeable": 4,
+        "data_error": 1
+      }
+    },
+    "2025-12-24": {
+      "rows": 2431,
+      "preCommonPool": 2373,
+      "commonGate75": 1224,
+      "priorTargetEligible": 1173,
+      "labelStatus": {
+        "hit": 465,
+        "miss": 1905,
+        "unexpected_untradeable": 3
+      }
+    },
+    "2025-12-26": {
+      "rows": 2431,
+      "preCommonPool": 2373,
+      "commonGate75": 1229,
+      "priorTargetEligible": 1176,
+      "labelStatus": {
+        "hit": 537,
+        "miss": 1833,
+        "unexpected_untradeable": 3
+      }
+    },
+    "2025-12-29": {
+      "rows": 2431,
+      "preCommonPool": 2373,
+      "commonGate75": 1239,
+      "priorTargetEligible": 1179,
+      "labelStatus": {
+        "hit": 499,
+        "miss": 1869,
+        "unexpected_untradeable": 3,
+        "data_error": 2
+      }
+    },
+    "2025-12-30": {
+      "rows": 2431,
+      "preCommonPool": 2373,
+      "commonGate75": 1239,
+      "priorTargetEligible": 1191,
+      "labelStatus": {
+        "hit": 495,
+        "miss": 1875,
+        "unexpected_untradeable": 3
+      }
+    },
+    "2026-01-02": {
+      "rows": 2431,
+      "preCommonPool": 2373,
+      "commonGate75": 1231,
+      "priorTargetEligible": 1153,
+      "labelStatus": {
+        "hit": 357,
+        "miss": 2013,
+        "unexpected_untradeable": 3
+      }
+    },
+    "2026-01-05": {
+      "rows": 2431,
+      "preCommonPool": 2374,
+      "commonGate75": 1220,
+      "priorTargetEligible": 1165,
+      "labelStatus": {
+        "miss": 2048,
+        "hit": 322,
+        "data_error": 2,
+        "unexpected_untradeable": 2
+      }
+    },
+    "2026-01-06": {
+      "rows": 2431,
+      "preCommonPool": 2374,
+      "commonGate75": 1232,
+      "priorTargetEligible": 1189,
+      "labelStatus": {
+        "hit": 333,
+        "miss": 2037,
+        "data_error": 2,
+        "unexpected_untradeable": 2
+      }
+    },
+    "2026-01-07": {
+      "rows": 2431,
+      "preCommonPool": 2374,
+      "commonGate75": 1240,
+      "priorTargetEligible": 1196,
+      "labelStatus": {
+        "miss": 1973,
+        "hit": 398,
+        "data_error": 1,
+        "unexpected_untradeable": 2
+      }
+    },
+    "2026-01-08": {
+      "rows": 2431,
+      "preCommonPool": 2374,
+      "commonGate75": 1256,
+      "priorTargetEligible": 1212,
+      "labelStatus": {
+        "hit": 507,
+        "miss": 1864,
+        "data_error": 2,
+        "unexpected_untradeable": 1
+      }
+    },
+    "2026-01-09": {
+      "rows": 2431,
+      "preCommonPool": 2374,
+      "commonGate75": 1254,
+      "priorTargetEligible": 1199,
+      "labelStatus": {
+        "hit": 477,
+        "miss": 1895,
+        "data_error": 1,
+        "unexpected_untradeable": 1
+      }
+    },
+    "2026-01-12": {
+      "rows": 2431,
+      "preCommonPool": 2374,
+      "commonGate75": 1268,
+      "priorTargetEligible": 1208,
+      "labelStatus": {
+        "hit": 444,
+        "miss": 1926,
+        "unexpected_untradeable": 2,
+        "data_error": 2
+      }
+    },
+    "2026-01-13": {
+      "rows": 2431,
+      "preCommonPool": 2374,
+      "commonGate75": 1266,
+      "priorTargetEligible": 1207,
+      "labelStatus": {
+        "miss": 1886,
+        "hit": 485,
+        "unexpected_untradeable": 2,
+        "data_error": 1
+      }
+    },
+    "2026-01-14": {
+      "rows": 2431,
+      "preCommonPool": 2374,
+      "commonGate75": 1264,
+      "priorTargetEligible": 1218,
+      "labelStatus": {
+        "hit": 491,
+        "miss": 1880,
+        "data_error": 1,
+        "unexpected_untradeable": 2
+      }
+    },
+    "2026-01-15": {
+      "rows": 2431,
+      "preCommonPool": 2374,
+      "commonGate75": 1270,
+      "priorTargetEligible": 1209,
+      "labelStatus": {
+        "hit": 470,
+        "miss": 1902,
+        "unexpected_untradeable": 2
+      }
+    },
+    "2026-01-16": {
+      "rows": 2431,
+      "preCommonPool": 2374,
+      "commonGate75": 1277,
+      "priorTargetEligible": 1226,
+      "labelStatus": {
+        "hit": 580,
+        "miss": 1791,
+        "unexpected_untradeable": 3
+      }
+    },
+    "2026-01-19": {
+      "rows": 2431,
+      "preCommonPool": 2374,
+      "commonGate75": 1263,
+      "priorTargetEligible": 1191,
+      "labelStatus": {
+        "hit": 636,
+        "miss": 1732,
+        "data_error": 3,
+        "unexpected_untradeable": 3
+      }
+    },
+    "2026-01-20": {
+      "rows": 2431,
+      "preCommonPool": 2373,
+      "commonGate75": 1278,
+      "priorTargetEligible": 1218,
+      "labelStatus": {
+        "hit": 704,
+        "miss": 1667,
+        "unexpected_untradeable": 2
+      }
+    },
+    "2026-01-21": {
+      "rows": 2431,
+      "preCommonPool": 2374,
+      "commonGate75": 1290,
+      "priorTargetEligible": 1219,
+      "labelStatus": {
+        "hit": 761,
+        "miss": 1608,
+        "unexpected_untradeable": 2,
+        "data_error": 3
+      }
+    },
+    "2026-01-22": {
+      "rows": 2431,
+      "preCommonPool": 2375,
+      "commonGate75": 1321,
+      "priorTargetEligible": 1247,
+      "labelStatus": {
+        "hit": 771,
+        "miss": 1600,
+        "unexpected_untradeable": 2,
+        "data_error": 2
+      }
+    },
+    "2026-01-23": {
+      "rows": 2431,
+      "preCommonPool": 2375,
+      "commonGate75": 1354,
+      "priorTargetEligible": 1270,
+      "labelStatus": {
+        "hit": 720,
+        "miss": 1653,
+        "unexpected_untradeable": 2
+      }
+    },
+    "2026-01-26": {
+      "rows": 2431,
+      "preCommonPool": 2375,
+      "commonGate75": 1345,
+      "priorTargetEligible": 1259,
+      "labelStatus": {
+        "hit": 662,
+        "miss": 1711,
+        "unexpected_untradeable": 2
+      }
+    },
+    "2026-01-27": {
+      "rows": 2431,
+      "preCommonPool": 2375,
+      "commonGate75": 1334,
+      "priorTargetEligible": 1283,
+      "labelStatus": {
+        "hit": 575,
+        "miss": 1798,
+        "unexpected_untradeable": 2
+      }
+    },
+    "2026-01-28": {
+      "rows": 2431,
+      "preCommonPool": 2375,
+      "commonGate75": 1309,
+      "priorTargetEligible": 1233,
+      "labelStatus": {
+        "hit": 528,
+        "miss": 1844,
+        "unexpected_untradeable": 2,
+        "data_error": 1
+      }
+    },
+    "2026-01-29": {
+      "rows": 2431,
+      "preCommonPool": 2376,
+      "commonGate75": 1284,
+      "priorTargetEligible": 1223,
+      "labelStatus": {
+        "hit": 494,
+        "miss": 1879,
+        "unexpected_untradeable": 3
+      }
+    },
+    "2026-01-30": {
+      "rows": 2431,
+      "preCommonPool": 2376,
+      "commonGate75": 1302,
+      "priorTargetEligible": 1258,
+      "labelStatus": {
+        "hit": 539,
+        "miss": 1834,
+        "unexpected_untradeable": 3
+      }
+    },
+    "2026-02-02": {
+      "rows": 2431,
+      "preCommonPool": 2376,
+      "commonGate75": 1428,
+      "priorTargetEligible": 1374,
+      "labelStatus": {
+        "hit": 580,
+        "miss": 1792,
+        "unexpected_untradeable": 3,
+        "data_error": 1
+      }
+    },
+    "2026-02-03": {
+      "rows": 2431,
+      "preCommonPool": 2377,
+      "commonGate75": 1394,
+      "priorTargetEligible": 1295,
+      "labelStatus": {
+        "hit": 509,
+        "miss": 1865,
+        "unexpected_untradeable": 2,
+        "data_error": 1
+      }
+    },
+    "2026-02-04": {
+      "rows": 2431,
+      "preCommonPool": 2378,
+      "commonGate75": 1379,
+      "priorTargetEligible": 1314,
+      "labelStatus": {
+        "miss": 1908,
+        "hit": 464,
+        "unexpected_untradeable": 2,
+        "data_error": 4
+      }
+    },
+    "2026-02-05": {
+      "rows": 2431,
+      "preCommonPool": 2378,
+      "commonGate75": 1441,
+      "priorTargetEligible": 1392,
+      "labelStatus": {
+        "hit": 779,
+        "miss": 1595,
+        "unexpected_untradeable": 2,
+        "data_error": 2
+      }
+    },
+    "2026-02-06": {
+      "rows": 2431,
+      "preCommonPool": 2378,
+      "commonGate75": 1483,
+      "priorTargetEligible": 1404,
+      "labelStatus": {
+        "miss": 1738,
+        "hit": 637,
+        "unexpected_untradeable": 2,
+        "data_error": 1
+      }
+    },
+    "2026-02-09": {
+      "rows": 2431,
+      "preCommonPool": 2377,
+      "commonGate75": 1472,
+      "priorTargetEligible": 1376,
+      "labelStatus": {
+        "hit": 554,
+        "miss": 1822,
+        "unexpected_untradeable": 1
+      }
+    },
+    "2026-02-10": {
+      "rows": 2431,
+      "preCommonPool": 2378,
+      "commonGate75": 1476,
+      "priorTargetEligible": 1417,
+      "labelStatus": {
+        "hit": 554,
+        "miss": 1823,
+        "unexpected_untradeable": 1
+      }
+    },
+    "2026-02-11": {
+      "rows": 2431,
+      "preCommonPool": 2379,
+      "commonGate75": 1492,
+      "priorTargetEligible": 1432,
+      "labelStatus": {
+        "hit": 614,
+        "miss": 1764,
+        "data_error": 1
+      }
+    },
+    "2026-02-12": {
+      "rows": 2431,
+      "preCommonPool": 2380,
+      "commonGate75": 1488,
+      "priorTargetEligible": 1439,
+      "labelStatus": {
+        "hit": 663,
+        "miss": 1715,
+        "data_error": 1,
+        "unexpected_untradeable": 1
+      }
+    },
+    "2026-02-13": {
+      "rows": 2431,
+      "preCommonPool": 2381,
+      "commonGate75": 1495,
+      "priorTargetEligible": 1450,
+      "labelStatus": {
+        "hit": 721,
+        "miss": 1658,
+        "data_error": 1,
+        "unexpected_untradeable": 1
+      }
+    },
+    "2026-02-19": {
+      "rows": 2431,
+      "preCommonPool": 2381,
+      "commonGate75": 1461,
+      "priorTargetEligible": 1381,
+      "labelStatus": {
+        "hit": 606,
+        "miss": 1771,
+        "data_error": 2,
+        "unexpected_untradeable": 2
+      }
+    },
+    "2026-02-20": {
+      "rows": 2431,
+      "preCommonPool": 2382,
+      "commonGate75": 1447,
+      "priorTargetEligible": 1399,
+      "labelStatus": {
+        "hit": 563,
+        "miss": 1817,
+        "unexpected_untradeable": 2
+      }
+    },
+    "2026-02-23": {
+      "rows": 2431,
+      "preCommonPool": 2383,
+      "commonGate75": 1448,
+      "priorTargetEligible": 1390,
+      "labelStatus": {
+        "hit": 589,
+        "miss": 1792,
+        "unexpected_untradeable": 2
+      }
+    },
+    "2026-02-24": {
+      "rows": 2431,
+      "preCommonPool": 2383,
+      "commonGate75": 1491,
+      "priorTargetEligible": 1428,
+      "labelStatus": {
+        "hit": 413,
+        "miss": 1966,
+        "unexpected_untradeable": 3,
+        "data_error": 1
+      }
+    },
+    "2026-02-25": {
+      "rows": 2431,
+      "preCommonPool": 2383,
+      "commonGate75": 1518,
+      "priorTargetEligible": 1456,
+      "labelStatus": {
+        "hit": 300,
+        "miss": 2080,
+        "unexpected_untradeable": 3
+      }
+    },
+    "2026-02-26": {
+      "rows": 2431,
+      "preCommonPool": 2383,
+      "commonGate75": 1559,
+      "priorTargetEligible": 1504,
+      "labelStatus": {
+        "miss": 2108,
+        "hit": 270,
+        "unexpected_untradeable": 4,
+        "data_error": 1
+      }
+    },
+    "2026-02-27": {
+      "rows": 2431,
+      "preCommonPool": 2383,
+      "commonGate75": 1601,
+      "priorTargetEligible": 1552,
+      "labelStatus": {
+        "miss": 2141,
+        "hit": 237,
+        "unexpected_untradeable": 4,
+        "data_error": 1
+      }
+    },
+    "2026-03-03": {
+      "rows": 2431,
+      "preCommonPool": 2383,
+      "commonGate75": 1645,
+      "priorTargetEligible": 1587,
+      "labelStatus": {
+        "hit": 409,
+        "miss": 1969,
+        "unexpected_untradeable": 4,
+        "data_error": 1
+      }
+    },
+    "2026-03-04": {
+      "rows": 2431,
+      "preCommonPool": 2383,
+      "commonGate75": 1688,
+      "priorTargetEligible": 1649,
+      "labelStatus": {
+        "hit": 1068,
+        "miss": 1310,
+        "unexpected_untradeable": 4,
+        "data_error": 1
+      }
+    },
+    "2026-03-05": {
+      "rows": 2431,
+      "preCommonPool": 2383,
+      "commonGate75": 1674,
+      "priorTargetEligible": 933,
+      "labelStatus": {
+        "miss": 1743,
+        "hit": 635,
+        "unexpected_untradeable": 4,
+        "data_error": 1
+      }
+    },
+    "2026-03-06": {
+      "rows": 2431,
+      "preCommonPool": 2384,
+      "commonGate75": 1673,
+      "priorTargetEligible": 1553,
+      "labelStatus": {
+        "hit": 850,
+        "miss": 1530,
+        "unexpected_untradeable": 4
+      }
+    },
+    "2026-03-09": {
+      "rows": 2431,
+      "preCommonPool": 2384,
+      "commonGate75": 1661,
+      "priorTargetEligible": 1605,
+      "labelStatus": {
+        "miss": 1726,
+        "hit": 654,
+        "unexpected_untradeable": 4
+      }
+    },
+    "2026-03-10": {
+      "rows": 2431,
+      "preCommonPool": 2384,
+      "commonGate75": 1655,
+      "priorTargetEligible": 1526,
+      "labelStatus": {
+        "miss": 1820,
+        "hit": 560,
+        "unexpected_untradeable": 4
+      }
+    },
+    "2026-03-11": {
+      "rows": 2431,
+      "preCommonPool": 2384,
+      "commonGate75": 1649,
+      "priorTargetEligible": 1545,
+      "labelStatus": {
+        "miss": 1848,
+        "hit": 531,
+        "unexpected_untradeable": 4,
+        "data_error": 1
+      }
+    },
+    "2026-03-12": {
+      "rows": 2431,
+      "preCommonPool": 2384,
+      "commonGate75": 1636,
+      "priorTargetEligible": 1557,
+      "labelStatus": {
+        "hit": 568,
+        "miss": 1812,
+        "unexpected_untradeable": 4
+      }
+    },
+    "2026-03-13": {
+      "rows": 2431,
+      "preCommonPool": 2384,
+      "commonGate75": 1620,
+      "priorTargetEligible": 1528,
+      "labelStatus": {
+        "hit": 482,
+        "miss": 1898,
+        "unexpected_untradeable": 2,
+        "data_error": 2
+      }
+    },
+    "2026-03-16": {
+      "rows": 2431,
+      "preCommonPool": 2385,
+      "commonGate75": 1613,
+      "priorTargetEligible": 1551,
+      "labelStatus": {
+        "hit": 438,
+        "miss": 1943,
+        "unexpected_untradeable": 2,
+        "data_error": 2
+      }
+    },
+    "2026-03-17": {
+      "rows": 2431,
+      "preCommonPool": 2387,
+      "commonGate75": 1603,
+      "priorTargetEligible": 1537,
+      "labelStatus": {
+        "hit": 408,
+        "miss": 1974,
+        "unexpected_untradeable": 2,
+        "data_error": 3
+      }
+    },
+    "2026-03-18": {
+      "rows": 2431,
+      "preCommonPool": 2388,
+      "commonGate75": 1589,
+      "priorTargetEligible": 1507,
+      "labelStatus": {
+        "hit": 462,
+        "miss": 1923,
+        "unexpected_untradeable": 1,
+        "data_error": 2
+      }
+    },
+    "2026-03-19": {
+      "rows": 2431,
+      "preCommonPool": 2388,
+      "commonGate75": 1575,
+      "priorTargetEligible": 1517,
+      "labelStatus": {
+        "hit": 450,
+        "miss": 1937,
+        "unexpected_untradeable": 1
+      }
+    },
+    "2026-03-20": {
+      "rows": 2431,
+      "preCommonPool": 2389,
+      "commonGate75": 1555,
+      "priorTargetEligible": 1461,
+      "labelStatus": {
+        "hit": 420,
+        "miss": 1968,
+        "unexpected_untradeable": 1
+      }
+    },
+    "2026-03-23": {
+      "rows": 2431,
+      "preCommonPool": 2390,
+      "commonGate75": 1560,
+      "priorTargetEligible": 1510,
+      "labelStatus": {
+        "hit": 423,
+        "miss": 1966,
+        "unexpected_untradeable": 1
+      }
+    },
+    "2026-03-24": {
+      "rows": 2431,
+      "preCommonPool": 2390,
+      "commonGate75": 1535,
+      "priorTargetEligible": 1460,
+      "labelStatus": {
+        "hit": 400,
+        "miss": 1989,
+        "unexpected_untradeable": 1
+      }
+    },
+    "2026-03-25": {
+      "rows": 2431,
+      "preCommonPool": 2390,
+      "commonGate75": 1517,
+      "priorTargetEligible": 1410,
+      "labelStatus": {
+        "miss": 2114,
+        "hit": 274,
+        "unexpected_untradeable": 1,
+        "data_error": 1
+      }
+    },
+    "2026-03-26": {
+      "rows": 2431,
+      "preCommonPool": 2392,
+      "commonGate75": 1502,
+      "priorTargetEligible": 1451,
+      "labelStatus": {
+        "miss": 1964,
+        "unexpected_untradeable": 1,
+        "hit": 425,
+        "data_error": 2
+      }
+    },
+    "2026-03-27": {
+      "rows": 2431,
+      "preCommonPool": 2393,
+      "commonGate75": 1487,
+      "priorTargetEligible": 1417,
+      "labelStatus": {
+        "hit": 485,
+        "miss": 1905,
+        "unexpected_untradeable": 1,
+        "data_error": 2
+      }
+    },
+    "2026-03-30": {
+      "rows": 2431,
+      "preCommonPool": 2392,
+      "commonGate75": 1469,
+      "priorTargetEligible": 1412,
+      "labelStatus": {
+        "miss": 1884,
+        "hit": 480,
+        "data_error": 27,
+        "unexpected_untradeable": 1
+      }
+    },
+    "2026-03-31": {
+      "rows": 2431,
+      "preCommonPool": 2393,
+      "commonGate75": 1460,
+      "priorTargetEligible": 1422,
+      "labelStatus": {
+        "hit": 399,
+        "miss": 1966,
+        "data_error": 26,
+        "unexpected_untradeable": 2
+      }
+    },
+    "2026-04-01": {
+      "rows": 2431,
+      "preCommonPool": 2393,
+      "commonGate75": 1411,
+      "priorTargetEligible": 1231,
+      "labelStatus": {
+        "miss": 2073,
+        "hit": 292,
+        "data_error": 26,
+        "unexpected_untradeable": 2
+      }
+    },
+    "2026-04-02": {
+      "rows": 2431,
+      "preCommonPool": 2391,
+      "commonGate75": 1402,
+      "priorTargetEligible": 1363,
+      "labelStatus": {
+        "miss": 1888,
+        "hit": 475,
+        "data_error": 26,
+        "unexpected_untradeable": 2
+      }
+    },
+    "2026-04-03": {
+      "rows": 2431,
+      "preCommonPool": 2391,
+      "commonGate75": 1389,
+      "priorTargetEligible": 1322,
+      "labelStatus": {
+        "miss": 1801,
+        "hit": 562,
+        "data_error": 25,
+        "unexpected_untradeable": 3
+      }
+    },
+    "2026-04-06": {
+      "rows": 2431,
+      "preCommonPool": 2367,
+      "commonGate75": 1374,
+      "priorTargetEligible": 1330,
+      "labelStatus": {
+        "hit": 678,
+        "miss": 1679,
+        "unexpected_untradeable": 8,
+        "data_error": 2
+      }
+    },
+    "2026-04-07": {
+      "rows": 2431,
+      "preCommonPool": 2367,
+      "commonGate75": 1370,
+      "priorTargetEligible": 1333,
+      "labelStatus": {
+        "hit": 733,
+        "miss": 1616,
+        "unexpected_untradeable": 15,
+        "data_error": 3
+      }
+    },
+    "2026-04-08": {
+      "rows": 2431,
+      "preCommonPool": 2367,
+      "commonGate75": 1367,
+      "priorTargetEligible": 1211,
+      "labelStatus": {
+        "miss": 1587,
+        "hit": 754,
+        "unexpected_untradeable": 23,
+        "data_error": 3
+      }
+    },
+    "2026-04-09": {
+      "rows": 2431,
+      "preCommonPool": 2368,
+      "commonGate75": 1376,
+      "priorTargetEligible": 1327,
+      "labelStatus": {
+        "hit": 872,
+        "miss": 1460,
+        "unexpected_untradeable": 33,
+        "data_error": 3
+      }
+    },
+    "2026-04-10": {
+      "rows": 2431,
+      "preCommonPool": 2368,
+      "commonGate75": 1370,
+      "priorTargetEligible": 1287,
+      "labelStatus": {
+        "hit": 979,
+        "miss": 1344,
+        "unexpected_untradeable": 44,
+        "data_error": 1
+      }
+    },
+    "2026-04-13": {
+      "rows": 2431,
+      "preCommonPool": 2368,
+      "commonGate75": 1355,
+      "priorTargetEligible": 1281,
+      "labelStatus": {
+        "miss": 1533,
+        "hit": 778,
+        "unexpected_untradeable": 55,
+        "data_error": 2
+      }
+    },
+    "2026-04-14": {
+      "rows": 2431,
+      "preCommonPool": 2370,
+      "commonGate75": 1359,
+      "priorTargetEligible": 1278,
+      "labelStatus": {
+        "hit": 637,
+        "miss": 1673,
+        "unexpected_untradeable": 58,
+        "data_error": 2
+      }
+    },
+    "2026-04-15": {
+      "rows": 2431,
+      "preCommonPool": 2370,
+      "commonGate75": 1361,
+      "priorTargetEligible": 1293,
+      "labelStatus": {
+        "miss": 1762,
+        "hit": 546,
+        "unexpected_untradeable": 58,
+        "data_error": 4
+      }
+    },
+    "2026-04-16": {
+      "rows": 2431,
+      "preCommonPool": 2370,
+      "commonGate75": 1387,
+      "priorTargetEligible": 1317,
+      "labelStatus": {
+        "miss": 1803,
+        "hit": 505,
+        "unexpected_untradeable": 60,
+        "data_error": 2
+      }
+    },
+    "2026-04-17": {
+      "rows": 2431,
+      "preCommonPool": 2370,
+      "commonGate75": 1394,
+      "priorTargetEligible": 1336,
+      "labelStatus": {
+        "miss": 1788,
+        "hit": 519,
+        "unexpected_untradeable": 62,
+        "data_error": 1
+      }
+    },
+    "2026-04-20": {
+      "rows": 2431,
+      "preCommonPool": 2371,
+      "commonGate75": 1396,
+      "priorTargetEligible": 1336,
+      "labelStatus": {
+        "miss": 1786,
+        "hit": 522,
+        "unexpected_untradeable": 58,
+        "data_error": 5
+      }
+    },
+    "2026-04-21": {
+      "rows": 2431,
+      "preCommonPool": 2371,
+      "commonGate75": 1413,
+      "priorTargetEligible": 1352,
+      "labelStatus": {
+        "miss": 1711,
+        "hit": 596,
+        "unexpected_untradeable": 58,
+        "data_error": 6
+      }
+    },
+    "2026-04-22": {
+      "rows": 2431,
+      "preCommonPool": 2371,
+      "commonGate75": 1406,
+      "priorTargetEligible": 1349,
+      "labelStatus": {
+        "hit": 539,
+        "miss": 1769,
+        "unexpected_untradeable": 54,
+        "data_error": 9
+      }
+    }
+  },
+  "latestLabelPriceDate": "2026-04-29",
+  "inputUnchanged": true,
+  "sourceHashesAfter": {
+    "technical-context.ts": "fa7b31791e0436e607b57be1c81b29b2544ddc775bcb003452297ba6adc668ee",
+    "features.ts": "dd0ab6bc70a00855e15c9efa7fe166f497f01a66a8eea298857a5acd7098c41d",
+    "indicators.ts": "3a55d64dbcb7ee96cef5df9ce4f347d5225bd2332cd842b6db86d09ec7c2877b",
+    "data-handler.ts": "3650e73ff9ae3a9e61bec4ca271c0fbd1ca62952c6ab665077f428ef821a50c0",
+    "trading-days.ts": "5b027a6685069dfac947b5e22942335193cb121cfc48c0f01d911983586a7946",
+    "signals.ts": "56dea5da2ffb7134eb1b9f70fe2349f359d0f699851c393549c2502ed0748763",
+    "generate-picks.ts": "970d6dd5018e19352840052e5ecc3ca5349dacce3e5f92edf089664202109b33",
+    "strategies.ts": "3bba43cc3cfa00ceb4b04b55ded60f82f3b0d1c2e8cce59c5e7952da220d3047",
+    "label.ts": "876f29d1313c4e233663d00c5d57e4e6e4cbde4980c26d2d53ba8aba6e081f62",
+    "data-contract.ts": "84ff2c35b0e88774df1c93369d44100146806bb0ace6a022eeaa9fd10bcb43dd"
+  },
+  "sourceFilesChangedWhileRunning": [
+    "generate-picks.ts"
+  ],
+  "featureParitySample": [
+    {
+      "date": "2025-12-23",
+      "symbol": "KOSDAQ:000250",
+      "signals": {
+        "trend_score": 61,
+        "momentum_score": 47,
+        "volume_score": 66,
+        "volatility_score": 42,
+        "pattern_score": 46,
+        "sentiment_score": 67,
+        "overall_score": 56
+      }
+    },
+    {
+      "date": "2025-12-24",
+      "symbol": "KOSDAQ:000250",
+      "signals": {
+        "trend_score": 52,
+        "momentum_score": 43,
+        "volume_score": 69,
+        "volatility_score": 40,
+        "pattern_score": 46,
+        "sentiment_score": 63,
+        "overall_score": 54
+      }
+    },
+    {
+      "date": "2025-12-26",
+      "symbol": "KOSDAQ:000250",
+      "signals": {
+        "trend_score": 54,
+        "momentum_score": 53,
+        "volume_score": 66,
+        "volatility_score": 44,
+        "pattern_score": 57,
+        "sentiment_score": 64,
+        "overall_score": 57
+      }
+    },
+    {
+      "date": "2025-12-29",
+      "symbol": "KOSDAQ:000250",
+      "signals": {
+        "trend_score": 62,
+        "momentum_score": 58,
+        "volume_score": 60,
+        "volatility_score": 49,
+        "pattern_score": 63,
+        "sentiment_score": 70,
+        "overall_score": 61
+      }
+    },
+    {
+      "date": "2025-12-30",
+      "symbol": "KOSDAQ:000250",
+      "signals": {
+        "trend_score": 61,
+        "momentum_score": 54,
+        "volume_score": 42,
+        "volatility_score": 52,
+        "pattern_score": 63,
+        "sentiment_score": 63,
+        "overall_score": 55
+      }
+    }
+  ],
+  "gateParameters": {
+    "minTurnover": 500000000,
+    "maxRsi": 75,
+    "maxSignalDayReturn": 0.1,
+    "recentPickTradingDays": 20
+  },
+  "featureHistoryRange": [
+    "2024-08-28",
+    "2026-04-22"
+  ],
+  "featureWindowSessions": 320,
+  "labelsForRows": "only currentKis && hasCalculatedOutputMetrics; all TRAIN current-active master feature rows exported",
+  "noOutcomeUseBeyondTrainSignals": true,
+  "labelPriceAccess": "each labelPick call restricted to exactly signal+1 through signal+5 and the current symbol",
+  "noSourcePointFilesOpened": true
+}

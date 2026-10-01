@@ -1,0 +1,194 @@
+{
+  "observedAt": "2026-09-30T07:40:29.466Z",
+  "purpose": "Read-only KRX J/adjusted0 D1 OHLCV of actual 2026-09-30 prepare artifact picks after KRX close; five-session outcome immature",
+  "symbols": [
+    "KOSDAQ:475830",
+    "KOSDAQ:024850",
+    "KOSDAQ:026910"
+  ],
+  "calls": [
+    {
+      "requestedAt": "2026-09-30T07:40:26.614Z",
+      "method": "GET",
+      "path": "/uapi/domestic-stock/v1/quotations/inquire-daily-itemchartprice",
+      "query": {
+        "FID_COND_MRKT_DIV_CODE": "J",
+        "FID_INPUT_ISCD": "475830",
+        "FID_INPUT_DATE_1": "20260930",
+        "FID_INPUT_DATE_2": "20260930",
+        "FID_PERIOD_DIV_CODE": "D",
+        "FID_ORG_ADJ_PRC": "0"
+      },
+      "status": 200,
+      "elapsedMs": 168,
+      "rt_cd": "0",
+      "msg_cd": "MCA00000",
+      "output2FieldNames": [
+        "stck_bsop_date",
+        "stck_clpr",
+        "stck_oprc",
+        "stck_hgpr",
+        "stck_lwpr",
+        "acml_vol",
+        "acml_tr_pbmn",
+        "flng_cls_code",
+        "prtt_rate",
+        "mod_yn",
+        "prdy_vrss_sign",
+        "prdy_vrss",
+        "revl_issu_reas"
+      ],
+      "rawRows": [
+        {
+          "stck_bsop_date": "20260930",
+          "stck_oprc": "22300",
+          "stck_hgpr": "23150",
+          "stck_lwpr": "21650",
+          "stck_clpr": "22100",
+          "acml_vol": "359007",
+          "prtt_rate": "0.00",
+          "revl_issu_reas": "",
+          "mod_yn": "N"
+        }
+      ]
+    },
+    {
+      "requestedAt": "2026-09-30T07:40:27.264Z",
+      "method": "GET",
+      "path": "/uapi/domestic-stock/v1/quotations/inquire-daily-itemchartprice",
+      "query": {
+        "FID_COND_MRKT_DIV_CODE": "J",
+        "FID_INPUT_ISCD": "024850",
+        "FID_INPUT_DATE_1": "20260930",
+        "FID_INPUT_DATE_2": "20260930",
+        "FID_PERIOD_DIV_CODE": "D",
+        "FID_ORG_ADJ_PRC": "0"
+      },
+      "status": 200,
+      "elapsedMs": 19,
+      "rt_cd": "0",
+      "msg_cd": "MCA00000",
+      "output2FieldNames": [
+        "stck_bsop_date",
+        "stck_clpr",
+        "stck_oprc",
+        "stck_hgpr",
+        "stck_lwpr",
+        "acml_vol",
+        "acml_tr_pbmn",
+        "flng_cls_code",
+        "prtt_rate",
+        "mod_yn",
+        "prdy_vrss_sign",
+        "prdy_vrss",
+        "revl_issu_reas"
+      ],
+      "rawRows": [
+        {
+          "stck_bsop_date": "20260930",
+          "stck_oprc": "16240",
+          "stck_hgpr": "17340",
+          "stck_lwpr": "15230",
+          "stck_clpr": "16230",
+          "acml_vol": "405969",
+          "prtt_rate": "0.00",
+          "revl_issu_reas": "",
+          "mod_yn": "N"
+        }
+      ]
+    },
+    {
+      "requestedAt": "2026-09-30T07:40:28.365Z",
+      "method": "GET",
+      "path": "/uapi/domestic-stock/v1/quotations/inquire-daily-itemchartprice",
+      "query": {
+        "FID_COND_MRKT_DIV_CODE": "J",
+        "FID_INPUT_ISCD": "026910",
+        "FID_INPUT_DATE_1": "20260930",
+        "FID_INPUT_DATE_2": "20260930",
+        "FID_PERIOD_DIV_CODE": "D",
+        "FID_ORG_ADJ_PRC": "0"
+      },
+      "status": 200,
+      "elapsedMs": 15,
+      "rt_cd": "0",
+      "msg_cd": "MCA00000",
+      "output2FieldNames": [
+        "stck_bsop_date",
+        "stck_clpr",
+        "stck_oprc",
+        "stck_hgpr",
+        "stck_lwpr",
+        "acml_vol",
+        "acml_tr_pbmn",
+        "flng_cls_code",
+        "prtt_rate",
+        "mod_yn",
+        "prdy_vrss_sign",
+        "prdy_vrss",
+        "revl_issu_reas"
+      ],
+      "rawRows": [
+        {
+          "stck_bsop_date": "20260930",
+          "stck_oprc": "2330",
+          "stck_hgpr": "2390",
+          "stck_lwpr": "2110",
+          "stck_clpr": "2275",
+          "acml_vol": "55916",
+          "prtt_rate": "0.00",
+          "revl_issu_reas": "",
+          "mod_yn": "N"
+        }
+      ]
+    }
+  ],
+  "outputs": [
+    {
+      "symbol": "KOSDAQ:475830",
+      "rows": [
+        {
+          "date": "2026-09-30",
+          "open": 22300,
+          "high": 23150,
+          "low": 21650,
+          "close": 22100,
+          "volume": 359007
+        }
+      ]
+    },
+    {
+      "symbol": "KOSDAQ:024850",
+      "rows": [
+        {
+          "date": "2026-09-30",
+          "open": 16240,
+          "high": 17340,
+          "low": 15230,
+          "close": 16230,
+          "volume": 405969
+        }
+      ]
+    },
+    {
+      "symbol": "KOSDAQ:026910",
+      "rows": [
+        {
+          "date": "2026-09-30",
+          "open": 2330,
+          "high": 2390,
+          "low": 2110,
+          "close": 2275,
+          "volume": 55916
+        }
+      ]
+    }
+  ],
+  "priceCalls": 3,
+  "blockedWrites": 0,
+  "productExternalWrites": 0,
+  "sourceClientSha256Before": "5496e63699cd992a47e70021e7cfeebd0c1cd5a6ba90225c8d994809a8bd92a9",
+  "sourceClientSha256After": "5496e63699cd992a47e70021e7cfeebd0c1cd5a6ba90225c8d994809a8bd92a9",
+  "returnedCloseField": "stck_clpr",
+  "newNaver2023_2024LabelsRead": false
+}

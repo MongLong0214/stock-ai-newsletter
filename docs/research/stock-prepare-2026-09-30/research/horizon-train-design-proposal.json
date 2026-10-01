@@ -1,0 +1,67 @@
+{
+  "scope": "Research proposal only, not implemented or promoted; justification from first80 TRAIN only and primary sources. No additional policy evaluated. Historical validation/test already seen and cannot tune against them.",
+  "trainingFindings": {
+    "overallDailySpearmanTouch": 0.08076591089209935,
+    "overallDailySpearmanD1bullish": -0.006321693433401646,
+    "overallDailySpearmanD5net": -0.0023348325423597,
+    "trendSentimentPearson": 0.8811661685273682,
+    "categoryEffectiveRank": 3.674800236621143
+  },
+  "structuralChanges": [
+    {
+      "change": "Each raw signal receives one modeled channel, instead of repeated category votes",
+      "channels": [
+        "signedTrend20ATR=20*100*trendSlope20/ATRpercent",
+        "breakoutATR=distanceFromHigh60/ATRpercent",
+        "volumeInnovation=log(volumeRatio20)",
+        "recentReturnATR=exactPrior5CloseReturnPercent/ATRpercent",
+        "extensionATR=max(0,sma20DistancePercent/ATRpercent)",
+        "longTrendDistressATR=max(0,-60*100*trendSlope60/ATRpercent)"
+      ],
+      "note": "Channels still economically correlated; deduplication removes exact repeated position/upDays/candle votes but does not imply independent signals. Do not invert trend/volume just to fit weak negative return correlations."
+    },
+    {
+      "change": "Separate upside event and downside/realized payoff, rather than treating technical strength as probability",
+      "targets": [
+        "touch10 AND D5net>0",
+        "D5net<=-5%",
+        "D5net<=-10%",
+        "D1bullish",
+        "conservative target10/stop5/D5 net payoff"
+      ],
+      "note": "Independent probability heads must preserve logical event inclusion; actual model calibration required, no selected-score rescaling."
+    },
+    {
+      "change": "Fit directions/scales/weights only using chronological maturity-aware folds inside first80 training dates",
+      "fixedEvaluationPrinciple": "Forecast fold date cannot use any training row with D5 maturity >= forecast date; freeze one formula before reused val/test replay; no threshold grid. Training fold performance is not a fresh holdout."
+    },
+    {
+      "change": "Apply a monotonic extension/distress risk penalty and retain original observed downside outcomes",
+      "formulaFamily": "Base reward-risk index=100*(0.10*p(touch10 AND D5net>0))/(0.10*p(touch10 AND D5net>0)+0.05*p(loss5)+0.05*p(loss10)+0.003); final=min(100,max(0,round(Base*exp(-lambdaExtension*extensionATR-lambdaDistress*longTrendDistressATR))))",
+      "constraints": "lambdaExtension,lambdaDistress>=0; fit/freeze only training temporal folds; index is not event probability. Existing earlier full-feature reward-risk variant failed, so a deduplicated risk-aware version requires new evidence rather than promotion by analogy."
+    }
+  ],
+  "recommendation": "Current evidence supports correcting ranking contract, identifying duplicate/extension problems, and honest outcomes. It does not justify choosing new numeric weights or guaranteeing three high-score profitable picks daily. No production-ready score improvement established.",
+  "primaryReferences": [
+    {
+      "url": "https://www.nber.org/papers/w21329",
+      "authors": "Robert Novy-Marx",
+      "finding": "Choosing signal signs/weights among many combinations can severely overfit. Limits proposal to one frozen family and training-only folds; paper does not validate this score."
+    },
+    {
+      "url": "https://repub.eur.nl/pub/25718/AnotherLook_2011.pdf",
+      "authors": "de Groot, Huij, Zhou",
+      "finding": "Weekly diversified reversal net returns depend on liquidity and turnover costs; cannot justify flipping short-day trend direction or +10% Korean three-pick claims."
+    },
+    {
+      "url": "https://www.bauer.uh.edu/tgeorge/papers/gh4-paper.pdf",
+      "authors": "George, Hwang",
+      "finding": "Current close/trailing12month high predicts medium-horizon diversified momentum in original study. Existing range-position is different, and 5day long-only +10 requires direct evidence."
+    },
+    {
+      "url": "https://www.lsvasset.com/pdf/research-papers/Price-Momentum-Trad-Vol-2000.pdf",
+      "authors": "Lee, Swaminathan",
+      "finding": "Volume and momentum interact by stage; prior average share turnover differs from current volume ratio. Cannot assume ever-larger current volume monotonically improves next5day profit."
+    }
+  ]
+}

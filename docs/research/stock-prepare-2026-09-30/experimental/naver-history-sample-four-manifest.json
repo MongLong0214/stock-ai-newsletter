@@ -1,0 +1,203 @@
+{
+  "schema": "naver-fchart-raw-ohlcv-flags-v1",
+  "source": "naver-fchart",
+  "symbols": [
+    "KOSPI:005930",
+    "KOSDAQ:086520",
+    "KOSDAQ:035900",
+    "KOSPI"
+  ],
+  "sourceDirectory": "/tmp/composite-score-experimental-20260930/naver-history",
+  "sourceStillCollectingOtherSymbols": true,
+  "sampleCopiedExactCommittedBytes": true,
+  "cutoff": "2026-09-29",
+  "masterSnapshotPath": "/tmp/composite-score-experimental-20260930/naver-history/master-snapshot.json",
+  "masterSnapshotSha256": "45d0f4419f49f2bdf4eacc8dbbf68e35c2f9de1f6d082ec3573ac3d5a5235c00",
+  "samplePath": "/tmp/composite-score-experimental-20260930/naver-history-sample-four.ndjson",
+  "sampleSha256": "658f30ba1c9a0ef7a9258233ce5c1f70938e80f655e415ca61e70bf926b34e12",
+  "sampleBytes": 3048710,
+  "sampleRows": 7996,
+  "checkpoints": [
+    {
+      "attempts": [
+        {
+          "attempt": 1,
+          "contentType": "text/xml;charset=EUC-KR",
+          "elapsedSeconds": 0.117,
+          "rawSha256": "b01e8dec493bebaef5bd1a22fb01b0248215276f1182c07564ecf1e160242922",
+          "responseBytes": 132785,
+          "result": "success",
+          "startedAt": "2026-09-30T06:53:41.548018+00:00",
+          "status": 200,
+          "url": "https://fchart.stock.naver.com/sise.nhn?symbol=005930&timeframe=day&count=2000&requestType=0"
+        }
+      ],
+      "chart": {
+        "count": "2000",
+        "name": "삼성전자",
+        "origintime": "19900103",
+        "precision": "0",
+        "symbol": "005930",
+        "timeframe": "day"
+      },
+      "duplicateDates": 0,
+      "excludedAfterCutoff": 1,
+      "fetchedAt": "2026-09-30T06:53:41.683502+00:00",
+      "finishedAt": "2026-09-30T06:53:41.686667+00:00",
+      "firstDate": "2018-08-03",
+      "firstRawDate": "2018-08-03",
+      "flagCounts": {},
+      "lastDate": "2026-09-29",
+      "lastRawDate": "2026-09-30",
+      "normalizedBytes": 764212,
+      "normalizedOffset": 1187215348,
+      "normalizedRows": 1999,
+      "normalizedSha256": "7c70fa61a292c1743607f366de8fec3fc0c8683ff0997c2540afcf633ea39a12",
+      "rawBytes": 132785,
+      "rawPath": "raw/KOSPI_005930.xml",
+      "rawRows": 2000,
+      "rawSha256": "b01e8dec493bebaef5bd1a22fb01b0248215276f1182c07564ecf1e160242922",
+      "status": "success",
+      "symbol": "KOSPI:005930",
+      "wireEncoding": "EUC-KR"
+    },
+    {
+      "attempts": [
+        {
+          "attempt": 1,
+          "contentType": "text/xml;charset=EUC-KR",
+          "elapsedSeconds": 0.052,
+          "rawSha256": "c3c26a47ad9e83969036f3d0c65d3823893772b60d202baaacd4c797df218611",
+          "responseBytes": 128049,
+          "result": "success",
+          "startedAt": "2026-09-30T06:32:33.191070+00:00",
+          "status": 200,
+          "url": "https://fchart.stock.naver.com/sise.nhn?symbol=086520&timeframe=day&count=2000&requestType=0"
+        }
+      ],
+      "chart": {
+        "count": "2000",
+        "name": "에코프로",
+        "origintime": "20070720",
+        "precision": "0",
+        "symbol": "086520",
+        "timeframe": "day"
+      },
+      "duplicateDates": 0,
+      "excludedAfterCutoff": 1,
+      "fetchedAt": "2026-09-30T06:32:33.261323+00:00",
+      "finishedAt": "2026-09-30T06:32:33.261731+00:00",
+      "firstDate": "2018-08-03",
+      "firstRawDate": "2018-08-03",
+      "flagCounts": {
+        "invalidOhlc": 71,
+        "nonPositivePrice": 30,
+        "ohlcContainmentViolation": 41,
+        "roundingLikeContainmentViolation": 41,
+        "suspensionLike": 30,
+        "zeroVolume": 30
+      },
+      "lastDate": "2026-09-29",
+      "lastRawDate": "2026-09-30",
+      "normalizedBytes": 761239,
+      "normalizedOffset": 444197021,
+      "normalizedRows": 1999,
+      "normalizedSha256": "a8c4c94d16b97ae3f5c1ae3ae6a3b44662ef2393f066949498fb1e080196e0be",
+      "rawBytes": 128049,
+      "rawPath": "raw/KOSDAQ_086520.xml",
+      "rawRows": 2000,
+      "rawSha256": "c3c26a47ad9e83969036f3d0c65d3823893772b60d202baaacd4c797df218611",
+      "status": "success",
+      "symbol": "KOSDAQ:086520",
+      "wireEncoding": "EUC-KR"
+    },
+    {
+      "attempts": [
+        {
+          "attempt": 1,
+          "contentType": "text/xml;charset=EUC-KR",
+          "elapsedSeconds": 0.139,
+          "rawSha256": "82dbb4bac18acfd0bbdd4c892cd1730cfe9b0dd90ce805d52c4903481a878d16",
+          "responseBytes": 128964,
+          "result": "success",
+          "startedAt": "2026-09-30T06:25:49.823262+00:00",
+          "status": 200,
+          "url": "https://fchart.stock.naver.com/sise.nhn?symbol=035900&timeframe=day&count=2000&requestType=0"
+        }
+      ],
+      "chart": {
+        "count": "2000",
+        "name": "JYP Ent.",
+        "origintime": "20010830",
+        "precision": "0",
+        "symbol": "035900",
+        "timeframe": "day"
+      },
+      "duplicateDates": 0,
+      "excludedAfterCutoff": 1,
+      "fetchedAt": "2026-09-30T06:25:49.980003+00:00",
+      "finishedAt": "2026-09-30T06:25:49.980395+00:00",
+      "firstDate": "2018-08-03",
+      "firstRawDate": "2018-08-03",
+      "flagCounts": {},
+      "lastDate": "2026-09-29",
+      "lastRawDate": "2026-09-30",
+      "normalizedBytes": 762398,
+      "normalizedOffset": 143476433,
+      "normalizedRows": 1999,
+      "normalizedSha256": "5c5a20d9a879f5c44a7f354fa0610846eef356e0ca7ec3d7e0186e7e22b74c11",
+      "rawBytes": 128964,
+      "rawPath": "raw/KOSDAQ_035900.xml",
+      "rawRows": 2000,
+      "rawSha256": "82dbb4bac18acfd0bbdd4c892cd1730cfe9b0dd90ce805d52c4903481a878d16",
+      "status": "success",
+      "symbol": "KOSDAQ:035900",
+      "wireEncoding": "EUC-KR"
+    },
+    {
+      "attempts": [
+        {
+          "attempt": 1,
+          "contentType": "text/xml;charset=EUC-KR",
+          "elapsedSeconds": 0.327,
+          "rawSha256": "5bd72c361af1124efaaa05d245cddc0a9aa9ea2963d0f8c5a7182099be18df51",
+          "responseBytes": 143617,
+          "result": "success",
+          "startedAt": "2026-09-30T06:22:21.134623+00:00",
+          "status": 200,
+          "url": "https://fchart.stock.naver.com/sise.nhn?symbol=KOSPI&timeframe=day&count=2000&requestType=0"
+        }
+      ],
+      "chart": {
+        "count": "2000",
+        "name": "코스피",
+        "origintime": "19900104",
+        "precision": "2",
+        "symbol": "KOSPI",
+        "timeframe": "day"
+      },
+      "duplicateDates": 0,
+      "excludedAfterCutoff": 1,
+      "fetchedAt": "2026-09-30T06:22:21.490403+00:00",
+      "finishedAt": "2026-09-30T06:22:21.490827+00:00",
+      "firstDate": "2018-08-03",
+      "firstRawDate": "2018-08-03",
+      "flagCounts": {},
+      "lastDate": "2026-09-29",
+      "lastRawDate": "2026-09-30",
+      "normalizedBytes": 760861,
+      "normalizedOffset": 0,
+      "normalizedRows": 1999,
+      "normalizedSha256": "306fb7a6ae172314a67a593dc074aee785602a5af31881b0981edd1bc8cd7b95",
+      "rawBytes": 143617,
+      "rawPath": "raw/KOSPI.xml",
+      "rawRows": 2000,
+      "rawSha256": "5bd72c361af1124efaaa05d245cddc0a9aa9ea2963d0f8c5a7182099be18df51",
+      "status": "success",
+      "symbol": "KOSPI",
+      "wireEncoding": "EUC-KR"
+    }
+  ],
+  "performanceComputed": false,
+  "labelsComputed": false
+}

@@ -1,0 +1,134 @@
+import { createReadStream, createWriteStream } from 'node:fs'
+import { readFile, writeFile, stat, rename } from 'node:fs/promises'
+import { createHash } from 'node:crypto'
+import { createInterface } from 'node:readline'
+import { once } from 'node:events'
+import { buildSignals, SIGNAL_SCORE_VERSION } from './signals-main.ts'
+
+const base = '/tmp/composite-score-research-20260930'
+const sourceCommit = '97b0c2ffa7b89a7ffdd4bae53e4c0e416e00f22f'
+const scoreKeys = ['trend_score','momentum_score','volume_score','volatility_score','pattern_score','sentiment_score','overall_score'] as const
+const inputs = [
+  {provenance: 'primary', path: '/tmp/upside-scored.ndjson'},
+  {provenance: 'fresh-mature', path: '/tmp/stock-research-fresh-mature-20260930/scored.ndjson'},
+]
+const sha256 = (data: string | Buffer) => createHash('sha256').update(data).digest('hex')
+async function fileHash(path: string) {
+  const hash = createHash('sha256')
+  for await (const chunk of createReadStream(path)) hash.update(chunk)
+  return hash.digest('hex')
+}
+async function main() {
+  const sourceText = await readFile(`${base}/signals-main.ts`)
+  const scriptText = await readFile(`${base}/export-current-signals.ts`)
+  const outputPath = `${base}/current-signals.ndjson`
+  const output = createWriteStream(`${outputPath}.partial`, { flags: 'wx' })
+  const outputHash = createHash('sha256')
+  const summaries: any[] = []
+  let totalRows = 0
+  const globalKeys = new Map<string,string>()
+  let overlappingDateSymbolAcrossProvenances = 0
+  let overlappingDateSymbolScoreDifferences = 0
+  for (const input of inputs) {
+    const before = await stat(input.path)
+    const hash = createHash('sha256')
+    const stream = createReadStream(input.path)
+    stream.on('data', chunk => hash.update(chunk))
+    const lines = createInterface({input: stream, crlfDelay: Infinity})
+    const summary: any = {
+      ...input, bytes: before.size, dateCount: 0, pointCount: 0, eligibleCount: 0,
+      firstDate: null, lastDate: null, scoreAtLeast70Count: 0,
+      mismatchedDateSymbol: 0, duplicateDateSymbol: 0, invalidScores: 0,
+      featureMutations: 0, oldSignalsCompared: 0, oldSignalsAnyChanged: 0,
+      missingFeatureFields: {}, nullFeatureFields: {},
+      scoreChanges: Object.fromEntries(scoreKeys.map(key => [key,{changedCount:0,deltaSum:0,deltaMin:Infinity,deltaMax:-Infinity}])),
+      outputScoreRanges: Object.fromEntries(scoreKeys.map(key => [key,{min:Infinity,max:-Infinity}])),
+      pointsByDate: [],
+    }
+    const localKeys = new Set<string>()
+    const dates = new Set<string>()
+    for await (const line of lines) {
+      if (!line.trim()) continue
+      const row = JSON.parse(line)
+      if (!Array.isArray(row) || row.length !== 2 || typeof row[0] !== 'string' || !Array.isArray(row[1])) throw new Error(`Unexpected input format: ${input.path}`)
+      const [date, points] = row
+      if (dates.has(date)) throw new Error(`Repeated date block: ${input.path} ${date}`)
+      dates.add(date)
+      summary.pointsByDate.push({date,points:points.length})
+      summary.firstDate = summary.firstDate === null || date < summary.firstDate ? date : summary.firstDate
+      summary.lastDate = summary.lastDate === null || date > summary.lastDate ? date : summary.lastDate
+      let dayOutput = ''
+      for (const point of points) {
+        const f = point.feature
+        if (!f || typeof f !== 'object') throw new Error(`Missing point.feature: ${date} ${point.symbol}`)
+        if (point.symbol !== f.symbol || date !== f.simDate) {summary.mismatchedDateSymbol++;throw new Error(`Feature key mismatch: ${date} ${point.symbol}`)}
+        const key = `${date}|${point.symbol}`
+        if (localKeys.has(key)) {summary.duplicateDateSymbol++;throw new Error(`Duplicate ${key}`)}
+        localKeys.add(key)
+        for (const field of ['close','sma20','sma60','sma20DistancePercent','sma20Slope5','trendR2_20','trendSlope20','rsi14','macdHistogram','bullishCandle','consecutiveUpDays','volume','volumeRatio20','volumePercentile60','obvSlope20','atrPercent14','distanceFromHigh60','position52w','position52wObservations','position52wFullWindow']) {
+          if (!(field in f)) summary.missingFeatureFields[field] = (summary.missingFeatureFields[field] || 0) + 1
+          if (f[field] === null) summary.nullFeatureFields[field] = (summary.nullFeatureFields[field] || 0) + 1
+        }
+        const beforeFeature = JSON.stringify(f)
+        const signals = buildSignals(f)
+        if (JSON.stringify(f) !== beforeFeature) {summary.featureMutations++;throw new Error(`Feature mutation ${key}`)}
+        for (const scoreKey of scoreKeys) {
+          const score = signals[scoreKey]
+          if (!Number.isInteger(score) || score < 0 || score > 100) {summary.invalidScores++;throw new Error(`Invalid ${scoreKey} ${key}`)}
+          const range = summary.outputScoreRanges[scoreKey]
+          range.min = Math.min(range.min,score);range.max = Math.max(range.max,score)
+        }
+        const serializedSignals = JSON.stringify(signals)
+        if (globalKeys.has(key)) {
+          overlappingDateSymbolAcrossProvenances++
+          if (globalKeys.get(key) !== serializedSignals) overlappingDateSymbolScoreDifferences++
+        } else globalKeys.set(key,serializedSignals)
+        if (point.signals && scoreKeys.every(scoreKey=>Number.isFinite(point.signals[scoreKey]))) {
+          summary.oldSignalsCompared++
+          let anyChanged = false
+          for (const scoreKey of scoreKeys) {
+            const delta = signals[scoreKey] - point.signals[scoreKey]
+            const changes = summary.scoreChanges[scoreKey]
+            changes.deltaSum += delta
+            changes.deltaMin = Math.min(changes.deltaMin,delta)
+            changes.deltaMax = Math.max(changes.deltaMax,delta)
+            if (delta !== 0) {changes.changedCount++;anyChanged = true}
+          }
+          if (anyChanged) summary.oldSignalsAnyChanged++
+        }
+        if (point.eligible) summary.eligibleCount++
+        if (signals.overall_score >= 70) summary.scoreAtLeast70Count++
+        dayOutput += JSON.stringify({provenance:input.provenance,date,symbol:point.symbol,signals})+'\n'
+        summary.pointCount++;totalRows++
+      }
+      outputHash.update(dayOutput)
+      if (!output.write(dayOutput)) await once(output,'drain')
+    }
+    summary.dateCount = dates.size
+    summary.sha256 = hash.digest('hex')
+    const after = await stat(input.path)
+    summary.sourceUnchanged = before.size === after.size && before.mtimeMs === after.mtimeMs && summary.sha256 === await fileHash(input.path)
+    if (!summary.sourceUnchanged) throw new Error(`Input changed while exporting ${input.path}`)
+    for (const scoreKey of scoreKeys) {
+      const changes = summary.scoreChanges[scoreKey]
+      changes.meanDelta = changes.deltaSum / summary.oldSignalsCompared
+      delete changes.deltaSum
+    }
+    summaries.push(summary)
+    console.log(JSON.stringify({provenance:input.provenance,dateCount:summary.dateCount,pointCount:summary.pointCount,range:[summary.firstDate,summary.lastDate],oldSignalsAnyChanged:summary.oldSignalsAnyChanged,sha256:summary.sha256}))
+  }
+  output.end()
+  await once(output,'finish')
+  await rename(`${outputPath}.partial`,outputPath)
+  const manifest = {
+    createdAt: new Date().toISOString(), sourceCommit, signalScoreVersion: SIGNAL_SCORE_VERSION,
+    scoreModule: 'scripts/stock-picks/signals.ts', snapshotPath: `${base}/signals-main.ts`,
+    sourceCodeSha256:sha256(sourceText), executablePath:`${base}/export-current-signals.ts`,executableSha256:sha256(scriptText),
+    output:{path:outputPath,format:'one JSON object per point: {provenance,date,symbol,signals}',sha256:outputHash.digest('hex'),bytes:(await stat(outputPath)).size,totalRows,scoreKeys},
+    audit:{actualBuildSignalsInvocations:totalRows,sourceSignalsNeverUsedForCalculation:true,inputsUnchanged:summaries.every(s=>s.sourceUnchanged),overlappingDateSymbolAcrossProvenances,overlappingDateSymbolScoreDifferences},
+    sources:summaries,
+  }
+  await writeFile(`${base}/current-signals-manifest.json`,JSON.stringify(manifest,null,2)+'\n')
+  console.log(JSON.stringify({output:manifest.output,audit:manifest.audit,sourceCodeSha256:manifest.sourceCodeSha256,manifest:`${base}/current-signals-manifest.json`}))
+}
+main().catch(error=>{console.error(error);process.exitCode=1})

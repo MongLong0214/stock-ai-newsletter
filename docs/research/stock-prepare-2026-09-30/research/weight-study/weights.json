@@ -1,0 +1,1454 @@
+{
+  "first40_arithmetic": {
+    "scope": "first40",
+    "family": "arithmetic",
+    "categories": [
+      "trend_score",
+      "momentum_score",
+      "volume_score",
+      "volatility_score",
+      "pattern_score",
+      "sentiment_score"
+    ],
+    "weightMillionths": [
+      50000,
+      227604,
+      144538,
+      214517,
+      230959,
+      132382
+    ],
+    "weights": {
+      "trend_score": 0.05,
+      "momentum_score": 0.227604,
+      "volume_score": 0.144538,
+      "volatility_score": 0.214517,
+      "pattern_score": 0.230959,
+      "sentiment_score": 0.132382
+    },
+    "rawOptimizerWeights": [
+      0.05,
+      0.22760378041894144,
+      0.1445384682051433,
+      0.21451670509353776,
+      0.23095920017913107,
+      0.1323818461032464
+    ],
+    "roundingAdjustments": [],
+    "weightSum": 1.0,
+    "trendSentimentSum": 0.182382,
+    "objectiveFrozen": 0.09394823735677589,
+    "objectiveRaw": 0.09394823735673372,
+    "objectiveEqual": 0.09713626807773507,
+    "objectiveOriginalCurrentWeights": 0.1008647678761636,
+    "trainingRows": 50958,
+    "missingTrainingUtilityLabels": 18,
+    "trainingDays": 40,
+    "trainingDateCounts": [
+      {
+        "date": "2025-12-23",
+        "validLabels": 1182,
+        "missingLabels": 0
+      },
+      {
+        "date": "2025-12-24",
+        "validLabels": 1173,
+        "missingLabels": 0
+      },
+      {
+        "date": "2025-12-26",
+        "validLabels": 1175,
+        "missingLabels": 1
+      },
+      {
+        "date": "2025-12-29",
+        "validLabels": 1179,
+        "missingLabels": 0
+      },
+      {
+        "date": "2025-12-30",
+        "validLabels": 1190,
+        "missingLabels": 1
+      },
+      {
+        "date": "2026-01-02",
+        "validLabels": 1153,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-01-05",
+        "validLabels": 1165,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-01-06",
+        "validLabels": 1189,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-01-07",
+        "validLabels": 1196,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-01-08",
+        "validLabels": 1212,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-01-09",
+        "validLabels": 1199,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-01-12",
+        "validLabels": 1208,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-01-13",
+        "validLabels": 1207,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-01-14",
+        "validLabels": 1217,
+        "missingLabels": 1
+      },
+      {
+        "date": "2026-01-15",
+        "validLabels": 1209,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-01-16",
+        "validLabels": 1224,
+        "missingLabels": 2
+      },
+      {
+        "date": "2026-01-19",
+        "validLabels": 1191,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-01-20",
+        "validLabels": 1218,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-01-21",
+        "validLabels": 1219,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-01-22",
+        "validLabels": 1247,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-01-23",
+        "validLabels": 1270,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-01-26",
+        "validLabels": 1259,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-01-27",
+        "validLabels": 1283,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-01-28",
+        "validLabels": 1233,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-01-29",
+        "validLabels": 1221,
+        "missingLabels": 2
+      },
+      {
+        "date": "2026-01-30",
+        "validLabels": 1257,
+        "missingLabels": 1
+      },
+      {
+        "date": "2026-02-02",
+        "validLabels": 1373,
+        "missingLabels": 1
+      },
+      {
+        "date": "2026-02-03",
+        "validLabels": 1294,
+        "missingLabels": 1
+      },
+      {
+        "date": "2026-02-04",
+        "validLabels": 1313,
+        "missingLabels": 1
+      },
+      {
+        "date": "2026-02-05",
+        "validLabels": 1392,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-02-06",
+        "validLabels": 1404,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-02-09",
+        "validLabels": 1376,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-02-10",
+        "validLabels": 1417,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-02-11",
+        "validLabels": 1433,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-02-12",
+        "validLabels": 1438,
+        "missingLabels": 1
+      },
+      {
+        "date": "2026-02-13",
+        "validLabels": 1449,
+        "missingLabels": 1
+      },
+      {
+        "date": "2026-02-19",
+        "validLabels": 1379,
+        "missingLabels": 2
+      },
+      {
+        "date": "2026-02-20",
+        "validLabels": 1398,
+        "missingLabels": 1
+      },
+      {
+        "date": "2026-02-23",
+        "validLabels": 1389,
+        "missingLabels": 1
+      },
+      {
+        "date": "2026-02-24",
+        "validLabels": 1427,
+        "missingLabels": 1
+      }
+    ],
+    "trainSignalFrom": "2025-12-23",
+    "trainSignalThrough": "2026-02-24",
+    "lastTrainingLabelMaturity": "2026-03-04",
+    "activationDate": "2026-03-05",
+    "allMaturitiesStrictlyEarlier": true,
+    "solver": {
+      "method": "SLSQP",
+      "success": true,
+      "status": 0,
+      "message": "Optimization terminated successfully",
+      "iterations": 17,
+      "ftol": 1e-12,
+      "maxiter": 1000
+    },
+    "trainingQuadraticSha256": "d777c1c71e8b12a670fbfa0b05bccddbfc23285a7d4e0342cdf5c3e2652602e7"
+  },
+  "first40_geometric": {
+    "scope": "first40",
+    "family": "geometric",
+    "categories": [
+      "trend_score",
+      "momentum_score",
+      "volume_score",
+      "volatility_score",
+      "pattern_score",
+      "sentiment_score"
+    ],
+    "weightMillionths": [
+      50000,
+      104021,
+      50000,
+      308316,
+      437663,
+      50000
+    ],
+    "weights": {
+      "trend_score": 0.05,
+      "momentum_score": 0.104021,
+      "volume_score": 0.05,
+      "volatility_score": 0.308316,
+      "pattern_score": 0.437663,
+      "sentiment_score": 0.05
+    },
+    "rawOptimizerWeights": [
+      0.05,
+      0.10402103756292605,
+      0.05,
+      0.3083156856329669,
+      0.4376632768041071,
+      0.05
+    ],
+    "roundingAdjustments": [],
+    "weightSum": 1.0,
+    "trendSentimentSum": 0.1,
+    "objectiveFrozen": 0.1881788529078255,
+    "objectiveRaw": 0.18817885290780959,
+    "objectiveEqual": 0.19910768271393875,
+    "objectiveOriginalCurrentWeights": 0.2030198548055301,
+    "trainingRows": 50958,
+    "missingTrainingUtilityLabels": 18,
+    "trainingDays": 40,
+    "trainingDateCounts": [
+      {
+        "date": "2025-12-23",
+        "validLabels": 1182,
+        "missingLabels": 0
+      },
+      {
+        "date": "2025-12-24",
+        "validLabels": 1173,
+        "missingLabels": 0
+      },
+      {
+        "date": "2025-12-26",
+        "validLabels": 1175,
+        "missingLabels": 1
+      },
+      {
+        "date": "2025-12-29",
+        "validLabels": 1179,
+        "missingLabels": 0
+      },
+      {
+        "date": "2025-12-30",
+        "validLabels": 1190,
+        "missingLabels": 1
+      },
+      {
+        "date": "2026-01-02",
+        "validLabels": 1153,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-01-05",
+        "validLabels": 1165,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-01-06",
+        "validLabels": 1189,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-01-07",
+        "validLabels": 1196,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-01-08",
+        "validLabels": 1212,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-01-09",
+        "validLabels": 1199,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-01-12",
+        "validLabels": 1208,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-01-13",
+        "validLabels": 1207,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-01-14",
+        "validLabels": 1217,
+        "missingLabels": 1
+      },
+      {
+        "date": "2026-01-15",
+        "validLabels": 1209,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-01-16",
+        "validLabels": 1224,
+        "missingLabels": 2
+      },
+      {
+        "date": "2026-01-19",
+        "validLabels": 1191,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-01-20",
+        "validLabels": 1218,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-01-21",
+        "validLabels": 1219,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-01-22",
+        "validLabels": 1247,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-01-23",
+        "validLabels": 1270,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-01-26",
+        "validLabels": 1259,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-01-27",
+        "validLabels": 1283,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-01-28",
+        "validLabels": 1233,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-01-29",
+        "validLabels": 1221,
+        "missingLabels": 2
+      },
+      {
+        "date": "2026-01-30",
+        "validLabels": 1257,
+        "missingLabels": 1
+      },
+      {
+        "date": "2026-02-02",
+        "validLabels": 1373,
+        "missingLabels": 1
+      },
+      {
+        "date": "2026-02-03",
+        "validLabels": 1294,
+        "missingLabels": 1
+      },
+      {
+        "date": "2026-02-04",
+        "validLabels": 1313,
+        "missingLabels": 1
+      },
+      {
+        "date": "2026-02-05",
+        "validLabels": 1392,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-02-06",
+        "validLabels": 1404,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-02-09",
+        "validLabels": 1376,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-02-10",
+        "validLabels": 1417,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-02-11",
+        "validLabels": 1433,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-02-12",
+        "validLabels": 1438,
+        "missingLabels": 1
+      },
+      {
+        "date": "2026-02-13",
+        "validLabels": 1449,
+        "missingLabels": 1
+      },
+      {
+        "date": "2026-02-19",
+        "validLabels": 1379,
+        "missingLabels": 2
+      },
+      {
+        "date": "2026-02-20",
+        "validLabels": 1398,
+        "missingLabels": 1
+      },
+      {
+        "date": "2026-02-23",
+        "validLabels": 1389,
+        "missingLabels": 1
+      },
+      {
+        "date": "2026-02-24",
+        "validLabels": 1427,
+        "missingLabels": 1
+      }
+    ],
+    "trainSignalFrom": "2025-12-23",
+    "trainSignalThrough": "2026-02-24",
+    "lastTrainingLabelMaturity": "2026-03-04",
+    "activationDate": "2026-03-05",
+    "allMaturitiesStrictlyEarlier": true,
+    "solver": {
+      "method": "SLSQP",
+      "success": true,
+      "status": 0,
+      "message": "Optimization terminated successfully",
+      "iterations": 13,
+      "ftol": 1e-12,
+      "maxiter": 1000
+    },
+    "trainingQuadraticSha256": "ba6cb42dde947f232d09efbcf5e1a2c1f8015dd4068e0bbd2698ea9744791c29"
+  },
+  "first80_arithmetic": {
+    "scope": "first80",
+    "family": "arithmetic",
+    "categories": [
+      "trend_score",
+      "momentum_score",
+      "volume_score",
+      "volatility_score",
+      "pattern_score",
+      "sentiment_score"
+    ],
+    "weightMillionths": [
+      50000,
+      261161,
+      158393,
+      183401,
+      198692,
+      148353
+    ],
+    "weights": {
+      "trend_score": 0.05,
+      "momentum_score": 0.261161,
+      "volume_score": 0.158393,
+      "volatility_score": 0.183401,
+      "pattern_score": 0.198692,
+      "sentiment_score": 0.148353
+    },
+    "rawOptimizerWeights": [
+      0.05,
+      0.26116131268240667,
+      0.15839320385112285,
+      0.18340083287117145,
+      0.19869163014046007,
+      0.14835302045483903
+    ],
+    "roundingAdjustments": [],
+    "weightSum": 1.0,
+    "trendSentimentSum": 0.198353,
+    "objectiveFrozen": 0.09694868295198039,
+    "objectiveRaw": 0.09694868295199045,
+    "objectiveEqual": 0.09969350500450685,
+    "objectiveOriginalCurrentWeights": 0.10296358173179436,
+    "trainingRows": 107352,
+    "missingTrainingUtilityLabels": 221,
+    "trainingDays": 80,
+    "trainingDateCounts": [
+      {
+        "date": "2025-12-23",
+        "validLabels": 1182,
+        "missingLabels": 0
+      },
+      {
+        "date": "2025-12-24",
+        "validLabels": 1173,
+        "missingLabels": 0
+      },
+      {
+        "date": "2025-12-26",
+        "validLabels": 1175,
+        "missingLabels": 1
+      },
+      {
+        "date": "2025-12-29",
+        "validLabels": 1179,
+        "missingLabels": 0
+      },
+      {
+        "date": "2025-12-30",
+        "validLabels": 1190,
+        "missingLabels": 1
+      },
+      {
+        "date": "2026-01-02",
+        "validLabels": 1153,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-01-05",
+        "validLabels": 1165,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-01-06",
+        "validLabels": 1189,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-01-07",
+        "validLabels": 1196,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-01-08",
+        "validLabels": 1212,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-01-09",
+        "validLabels": 1199,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-01-12",
+        "validLabels": 1208,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-01-13",
+        "validLabels": 1207,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-01-14",
+        "validLabels": 1217,
+        "missingLabels": 1
+      },
+      {
+        "date": "2026-01-15",
+        "validLabels": 1209,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-01-16",
+        "validLabels": 1224,
+        "missingLabels": 2
+      },
+      {
+        "date": "2026-01-19",
+        "validLabels": 1191,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-01-20",
+        "validLabels": 1218,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-01-21",
+        "validLabels": 1219,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-01-22",
+        "validLabels": 1247,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-01-23",
+        "validLabels": 1270,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-01-26",
+        "validLabels": 1259,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-01-27",
+        "validLabels": 1283,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-01-28",
+        "validLabels": 1233,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-01-29",
+        "validLabels": 1221,
+        "missingLabels": 2
+      },
+      {
+        "date": "2026-01-30",
+        "validLabels": 1257,
+        "missingLabels": 1
+      },
+      {
+        "date": "2026-02-02",
+        "validLabels": 1373,
+        "missingLabels": 1
+      },
+      {
+        "date": "2026-02-03",
+        "validLabels": 1294,
+        "missingLabels": 1
+      },
+      {
+        "date": "2026-02-04",
+        "validLabels": 1313,
+        "missingLabels": 1
+      },
+      {
+        "date": "2026-02-05",
+        "validLabels": 1392,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-02-06",
+        "validLabels": 1404,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-02-09",
+        "validLabels": 1376,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-02-10",
+        "validLabels": 1417,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-02-11",
+        "validLabels": 1433,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-02-12",
+        "validLabels": 1438,
+        "missingLabels": 1
+      },
+      {
+        "date": "2026-02-13",
+        "validLabels": 1449,
+        "missingLabels": 1
+      },
+      {
+        "date": "2026-02-19",
+        "validLabels": 1379,
+        "missingLabels": 2
+      },
+      {
+        "date": "2026-02-20",
+        "validLabels": 1398,
+        "missingLabels": 1
+      },
+      {
+        "date": "2026-02-23",
+        "validLabels": 1389,
+        "missingLabels": 1
+      },
+      {
+        "date": "2026-02-24",
+        "validLabels": 1427,
+        "missingLabels": 1
+      },
+      {
+        "date": "2026-02-25",
+        "validLabels": 1456,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-02-26",
+        "validLabels": 1504,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-02-27",
+        "validLabels": 1552,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-03-03",
+        "validLabels": 1587,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-03-04",
+        "validLabels": 1649,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-03-05",
+        "validLabels": 933,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-03-06",
+        "validLabels": 1553,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-03-09",
+        "validLabels": 1605,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-03-10",
+        "validLabels": 1526,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-03-11",
+        "validLabels": 1545,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-03-12",
+        "validLabels": 1557,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-03-13",
+        "validLabels": 1528,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-03-16",
+        "validLabels": 1551,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-03-17",
+        "validLabels": 1537,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-03-18",
+        "validLabels": 1507,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-03-19",
+        "validLabels": 1517,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-03-20",
+        "validLabels": 1461,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-03-23",
+        "validLabels": 1510,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-03-24",
+        "validLabels": 1460,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-03-25",
+        "validLabels": 1410,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-03-26",
+        "validLabels": 1451,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-03-27",
+        "validLabels": 1417,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-03-30",
+        "validLabels": 1399,
+        "missingLabels": 13
+      },
+      {
+        "date": "2026-03-31",
+        "validLabels": 1406,
+        "missingLabels": 16
+      },
+      {
+        "date": "2026-04-01",
+        "validLabels": 1217,
+        "missingLabels": 15
+      },
+      {
+        "date": "2026-04-02",
+        "validLabels": 1342,
+        "missingLabels": 21
+      },
+      {
+        "date": "2026-04-03",
+        "validLabels": 1298,
+        "missingLabels": 24
+      },
+      {
+        "date": "2026-04-06",
+        "validLabels": 1314,
+        "missingLabels": 16
+      },
+      {
+        "date": "2026-04-07",
+        "validLabels": 1314,
+        "missingLabels": 19
+      },
+      {
+        "date": "2026-04-08",
+        "validLabels": 1197,
+        "missingLabels": 14
+      },
+      {
+        "date": "2026-04-09",
+        "validLabels": 1313,
+        "missingLabels": 14
+      },
+      {
+        "date": "2026-04-10",
+        "validLabels": 1276,
+        "missingLabels": 11
+      },
+      {
+        "date": "2026-04-13",
+        "validLabels": 1277,
+        "missingLabels": 4
+      },
+      {
+        "date": "2026-04-14",
+        "validLabels": 1277,
+        "missingLabels": 1
+      },
+      {
+        "date": "2026-04-15",
+        "validLabels": 1292,
+        "missingLabels": 1
+      },
+      {
+        "date": "2026-04-16",
+        "validLabels": 1317,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-04-17",
+        "validLabels": 1332,
+        "missingLabels": 4
+      },
+      {
+        "date": "2026-04-20",
+        "validLabels": 1329,
+        "missingLabels": 7
+      },
+      {
+        "date": "2026-04-21",
+        "validLabels": 1343,
+        "missingLabels": 9
+      },
+      {
+        "date": "2026-04-22",
+        "validLabels": 1335,
+        "missingLabels": 14
+      }
+    ],
+    "trainSignalFrom": "2025-12-23",
+    "trainSignalThrough": "2026-04-22",
+    "lastTrainingLabelMaturity": "2026-04-29",
+    "activationDate": "2026-04-30",
+    "allMaturitiesStrictlyEarlier": true,
+    "solver": {
+      "method": "SLSQP",
+      "success": true,
+      "status": 0,
+      "message": "Optimization terminated successfully",
+      "iterations": 12,
+      "ftol": 1e-12,
+      "maxiter": 1000
+    },
+    "trainingQuadraticSha256": "c4fd6f84e6e8c325e2be056a9554c2aa6902907592aa66792499b293dca70109"
+  },
+  "first80_geometric": {
+    "scope": "first80",
+    "family": "geometric",
+    "categories": [
+      "trend_score",
+      "momentum_score",
+      "volume_score",
+      "volatility_score",
+      "pattern_score",
+      "sentiment_score"
+    ],
+    "weightMillionths": [
+      69290,
+      79783,
+      74190,
+      346899,
+      379838,
+      50000
+    ],
+    "weights": {
+      "trend_score": 0.06929,
+      "momentum_score": 0.079783,
+      "volume_score": 0.07419,
+      "volatility_score": 0.346899,
+      "pattern_score": 0.379838,
+      "sentiment_score": 0.05
+    },
+    "rawOptimizerWeights": [
+      0.06928969623397106,
+      0.07978306805496303,
+      0.07418963127387482,
+      0.34689929483730125,
+      0.3798383095998899,
+      0.05
+    ],
+    "roundingAdjustments": [],
+    "weightSum": 1.0,
+    "trendSentimentSum": 0.11929,
+    "objectiveFrozen": 0.17173643712242498,
+    "objectiveRaw": 0.17173643712231237,
+    "objectiveEqual": 0.18397428514153452,
+    "objectiveOriginalCurrentWeights": 0.18992598894018348,
+    "trainingRows": 107352,
+    "missingTrainingUtilityLabels": 221,
+    "trainingDays": 80,
+    "trainingDateCounts": [
+      {
+        "date": "2025-12-23",
+        "validLabels": 1182,
+        "missingLabels": 0
+      },
+      {
+        "date": "2025-12-24",
+        "validLabels": 1173,
+        "missingLabels": 0
+      },
+      {
+        "date": "2025-12-26",
+        "validLabels": 1175,
+        "missingLabels": 1
+      },
+      {
+        "date": "2025-12-29",
+        "validLabels": 1179,
+        "missingLabels": 0
+      },
+      {
+        "date": "2025-12-30",
+        "validLabels": 1190,
+        "missingLabels": 1
+      },
+      {
+        "date": "2026-01-02",
+        "validLabels": 1153,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-01-05",
+        "validLabels": 1165,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-01-06",
+        "validLabels": 1189,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-01-07",
+        "validLabels": 1196,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-01-08",
+        "validLabels": 1212,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-01-09",
+        "validLabels": 1199,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-01-12",
+        "validLabels": 1208,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-01-13",
+        "validLabels": 1207,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-01-14",
+        "validLabels": 1217,
+        "missingLabels": 1
+      },
+      {
+        "date": "2026-01-15",
+        "validLabels": 1209,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-01-16",
+        "validLabels": 1224,
+        "missingLabels": 2
+      },
+      {
+        "date": "2026-01-19",
+        "validLabels": 1191,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-01-20",
+        "validLabels": 1218,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-01-21",
+        "validLabels": 1219,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-01-22",
+        "validLabels": 1247,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-01-23",
+        "validLabels": 1270,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-01-26",
+        "validLabels": 1259,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-01-27",
+        "validLabels": 1283,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-01-28",
+        "validLabels": 1233,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-01-29",
+        "validLabels": 1221,
+        "missingLabels": 2
+      },
+      {
+        "date": "2026-01-30",
+        "validLabels": 1257,
+        "missingLabels": 1
+      },
+      {
+        "date": "2026-02-02",
+        "validLabels": 1373,
+        "missingLabels": 1
+      },
+      {
+        "date": "2026-02-03",
+        "validLabels": 1294,
+        "missingLabels": 1
+      },
+      {
+        "date": "2026-02-04",
+        "validLabels": 1313,
+        "missingLabels": 1
+      },
+      {
+        "date": "2026-02-05",
+        "validLabels": 1392,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-02-06",
+        "validLabels": 1404,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-02-09",
+        "validLabels": 1376,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-02-10",
+        "validLabels": 1417,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-02-11",
+        "validLabels": 1433,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-02-12",
+        "validLabels": 1438,
+        "missingLabels": 1
+      },
+      {
+        "date": "2026-02-13",
+        "validLabels": 1449,
+        "missingLabels": 1
+      },
+      {
+        "date": "2026-02-19",
+        "validLabels": 1379,
+        "missingLabels": 2
+      },
+      {
+        "date": "2026-02-20",
+        "validLabels": 1398,
+        "missingLabels": 1
+      },
+      {
+        "date": "2026-02-23",
+        "validLabels": 1389,
+        "missingLabels": 1
+      },
+      {
+        "date": "2026-02-24",
+        "validLabels": 1427,
+        "missingLabels": 1
+      },
+      {
+        "date": "2026-02-25",
+        "validLabels": 1456,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-02-26",
+        "validLabels": 1504,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-02-27",
+        "validLabels": 1552,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-03-03",
+        "validLabels": 1587,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-03-04",
+        "validLabels": 1649,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-03-05",
+        "validLabels": 933,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-03-06",
+        "validLabels": 1553,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-03-09",
+        "validLabels": 1605,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-03-10",
+        "validLabels": 1526,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-03-11",
+        "validLabels": 1545,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-03-12",
+        "validLabels": 1557,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-03-13",
+        "validLabels": 1528,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-03-16",
+        "validLabels": 1551,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-03-17",
+        "validLabels": 1537,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-03-18",
+        "validLabels": 1507,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-03-19",
+        "validLabels": 1517,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-03-20",
+        "validLabels": 1461,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-03-23",
+        "validLabels": 1510,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-03-24",
+        "validLabels": 1460,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-03-25",
+        "validLabels": 1410,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-03-26",
+        "validLabels": 1451,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-03-27",
+        "validLabels": 1417,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-03-30",
+        "validLabels": 1399,
+        "missingLabels": 13
+      },
+      {
+        "date": "2026-03-31",
+        "validLabels": 1406,
+        "missingLabels": 16
+      },
+      {
+        "date": "2026-04-01",
+        "validLabels": 1217,
+        "missingLabels": 15
+      },
+      {
+        "date": "2026-04-02",
+        "validLabels": 1342,
+        "missingLabels": 21
+      },
+      {
+        "date": "2026-04-03",
+        "validLabels": 1298,
+        "missingLabels": 24
+      },
+      {
+        "date": "2026-04-06",
+        "validLabels": 1314,
+        "missingLabels": 16
+      },
+      {
+        "date": "2026-04-07",
+        "validLabels": 1314,
+        "missingLabels": 19
+      },
+      {
+        "date": "2026-04-08",
+        "validLabels": 1197,
+        "missingLabels": 14
+      },
+      {
+        "date": "2026-04-09",
+        "validLabels": 1313,
+        "missingLabels": 14
+      },
+      {
+        "date": "2026-04-10",
+        "validLabels": 1276,
+        "missingLabels": 11
+      },
+      {
+        "date": "2026-04-13",
+        "validLabels": 1277,
+        "missingLabels": 4
+      },
+      {
+        "date": "2026-04-14",
+        "validLabels": 1277,
+        "missingLabels": 1
+      },
+      {
+        "date": "2026-04-15",
+        "validLabels": 1292,
+        "missingLabels": 1
+      },
+      {
+        "date": "2026-04-16",
+        "validLabels": 1317,
+        "missingLabels": 0
+      },
+      {
+        "date": "2026-04-17",
+        "validLabels": 1332,
+        "missingLabels": 4
+      },
+      {
+        "date": "2026-04-20",
+        "validLabels": 1329,
+        "missingLabels": 7
+      },
+      {
+        "date": "2026-04-21",
+        "validLabels": 1343,
+        "missingLabels": 9
+      },
+      {
+        "date": "2026-04-22",
+        "validLabels": 1335,
+        "missingLabels": 14
+      }
+    ],
+    "trainSignalFrom": "2025-12-23",
+    "trainSignalThrough": "2026-04-22",
+    "lastTrainingLabelMaturity": "2026-04-29",
+    "activationDate": "2026-04-30",
+    "allMaturitiesStrictlyEarlier": true,
+    "solver": {
+      "method": "SLSQP",
+      "success": true,
+      "status": 0,
+      "message": "Optimization terminated successfully",
+      "iterations": 18,
+      "ftol": 1e-12,
+      "maxiter": 1000
+    },
+    "trainingQuadraticSha256": "3bcbdd647157c50e0016a106333b39f6899a09e9aee50b65288748b873e908c7"
+  }
+}

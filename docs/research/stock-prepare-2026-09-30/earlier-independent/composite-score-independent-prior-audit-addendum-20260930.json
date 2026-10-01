@@ -1,0 +1,17 @@
+{
+  "originalAudit": "/tmp/composite-score-independent-prior-audit-20260930.json",
+  "predictiveAndOutcomeDifferences": 0,
+  "singleProtectedHashDifference": "/tmp/composite-score-research-20260930/regime-train-study/write-user-report.py",
+  "recordedHash": "fde47c96ddd143900ef83b1e2c164fce8690f4fd464f4cc55bc2e536a691efa5",
+  "observedHash": "877623909e219a3c63ac2e4db0b58da933d3510aa1252700bd42f3bc43109436",
+  "classification": "Report-only Downloads Markdown writer was updated after the prior run to render new study results. Independently read current code: reads completed JSON reports/ledgers and writes human report; not imported/called by four study scorers, does not fit or select stock models or mutate source model/ledgers. Original audit exit1 and hash discrepancy preserved; not represented as all files immutable.",
+  "researchSourceAndModelAndLedgerHashDifferences": 0,
+  "ownerExplanation": "quant_horizon_research explicitly confirmed report-only writer timing change; not selection, model or diagnostic source.",
+  "subsequentRestoration": {
+    "currentHash": "fde47c96ddd143900ef83b1e2c164fce8690f4fd464f4cc55bc2e536a691efa5",
+    "matchesOriginalProtectedHash": true,
+    "updatedReportWriterMovedTo": "/tmp/stock-score-report-assembler-20260930.py",
+    "historicalTimingDifferencePreserved": true,
+    "modelOrSelectionChanges": false
+  }
+}

@@ -12,6 +12,7 @@ import {
   type ShadowForwardComparison,
 } from '@/scripts/stock-picks/measure-forward'
 import type { StockPickSnapshot } from '@/scripts/stock-picks/pick-snapshots'
+import { PRODUCTION_STRATEGY } from '@/scripts/stock-picks/production-strategy'
 import { TradingDayIndex } from '@/scripts/stock-picks/trading-days'
 import type { StockDailyPriceRow } from '@/scripts/tli/prices/stock-daily-prices'
 
@@ -139,7 +140,7 @@ describe('measureForwardPicks', () => {
   it('compares production and every shadow only on mature shared signal dates', () => {
     const dates = [...DATES, '2026-01-12']
     const strategies = [
-      'lowVolatilityStable', 'shadow:bullishTarget-v3', 'shadow:A-volumeBreakout-v1.1',
+      PRODUCTION_STRATEGY.name, 'shadow:bullishTarget-v3', 'shadow:A-volumeBreakout-v1.1',
       'shadow:B-random', 'shadow:J-randomConstrained',
     ]
     const prices = buildPriceBook(['COMMON', 'EXTRA'].flatMap((symbol) => dates.map((tradeDate, index): StockDailyPriceRow => ({
@@ -153,17 +154,19 @@ describe('measureForwardPicks', () => {
     } as unknown as StockPickSnapshot)
     const snapshots = [
       ...strategies.map((strategy) => snapshot(strategy, dates[0]!, 'COMMON')),
-      snapshot('lowVolatilityStable', dates[1]!, 'EXTRA'),
+      snapshot(PRODUCTION_STRATEGY.name, dates[1]!, 'EXTRA'),
       snapshot('shadow:A-volumeBreakout-v1.1', dates[1]!, 'EXTRA'),
       snapshot('bullishTarget5d', dates[0]!, 'COMMON'),
+      snapshot('lowVolatilityStable', dates[0]!, 'COMMON'),
       snapshot('shadow:lowVolatility-v2', dates[0]!, 'COMMON'),
     ]
     const input = { prices, tradingDays: new TradingDayIndex(dates), snapshots,
       startDate: dates[0]!, asOfDate: dates[6]! }
-    expect(measureStrategyForwardComparison(input).find((row) => row.strategy === 'lowVolatilityStable')
+    expect(measureStrategyForwardComparison(input).find((row) => row.strategy === PRODUCTION_STRATEGY.name)
       ?.pickCount).toBe(2)
     expect(measureStrategyForwardComparison(input)).toEqual(expect.arrayContaining([
       expect.objectContaining({ strategy: 'bullishTarget5d', pickCount: 1 }),
+      expect.objectContaining({ strategy: 'lowVolatilityStable', pickCount: 1 }),
       expect.objectContaining({ strategy: 'shadow:lowVolatility-v2', pickCount: 1 }),
     ]))
     const paired = measurePairedStrategyForwardComparison(input)
@@ -179,7 +182,7 @@ describe('measureForwardPicks', () => {
         pairedStrategyComparison: paired,
       }))
       expect(table.mock.calls.at(-1)?.[0]).toEqual(expect.arrayContaining([
-        expect.objectContaining({ strategy: 'lowVolatilityStable', commonDays: 1, picks: 1 }),
+        expect.objectContaining({ strategy: PRODUCTION_STRATEGY.name, commonDays: 1, picks: 1 }),
       ]))
     } finally {
       log.mockRestore()

@@ -1,0 +1,251 @@
+{
+  "observedAt": "2026-09-30T07:41:22.869Z",
+  "purpose": "Read-only KRX J/adjusted0 D1 OHLCV of actual 2026-09-29 prepare artifact picks after KRX close; five-session outcome immature",
+  "symbols": [
+    "KOSPI:033270",
+    "KOSPI:030000",
+    "KOSPI:383800"
+  ],
+  "calls": [
+    {
+      "requestedAt": "2026-09-30T07:41:20.117Z",
+      "method": "GET",
+      "path": "/uapi/domestic-stock/v1/quotations/inquire-daily-itemchartprice",
+      "query": {
+        "FID_COND_MRKT_DIV_CODE": "J",
+        "FID_INPUT_ISCD": "033270",
+        "FID_INPUT_DATE_1": "20260929",
+        "FID_INPUT_DATE_2": "20260930",
+        "FID_PERIOD_DIV_CODE": "D",
+        "FID_ORG_ADJ_PRC": "0"
+      },
+      "status": 200,
+      "elapsedMs": 142,
+      "rt_cd": "0",
+      "msg_cd": "MCA00000",
+      "output2FieldNames": [
+        "stck_bsop_date",
+        "stck_clpr",
+        "stck_oprc",
+        "stck_hgpr",
+        "stck_lwpr",
+        "acml_vol",
+        "acml_tr_pbmn",
+        "flng_cls_code",
+        "prtt_rate",
+        "mod_yn",
+        "prdy_vrss_sign",
+        "prdy_vrss",
+        "revl_issu_reas"
+      ],
+      "rawRows": [
+        {
+          "stck_bsop_date": "20260930",
+          "stck_oprc": "17690",
+          "stck_hgpr": "17740",
+          "stck_lwpr": "17530",
+          "stck_clpr": "17700",
+          "acml_vol": "25442",
+          "prtt_rate": "0.00",
+          "revl_issu_reas": "",
+          "mod_yn": "N"
+        },
+        {
+          "stck_bsop_date": "20260929",
+          "stck_oprc": "17750",
+          "stck_hgpr": "17750",
+          "stck_lwpr": "17430",
+          "stck_clpr": "17690",
+          "acml_vol": "20332",
+          "prtt_rate": "0.00",
+          "revl_issu_reas": "",
+          "mod_yn": "N"
+        }
+      ]
+    },
+    {
+      "requestedAt": "2026-09-30T07:41:20.667Z",
+      "method": "GET",
+      "path": "/uapi/domestic-stock/v1/quotations/inquire-daily-itemchartprice",
+      "query": {
+        "FID_COND_MRKT_DIV_CODE": "J",
+        "FID_INPUT_ISCD": "030000",
+        "FID_INPUT_DATE_1": "20260929",
+        "FID_INPUT_DATE_2": "20260930",
+        "FID_PERIOD_DIV_CODE": "D",
+        "FID_ORG_ADJ_PRC": "0"
+      },
+      "status": 200,
+      "elapsedMs": 82,
+      "rt_cd": "0",
+      "msg_cd": "MCA00000",
+      "output2FieldNames": [
+        "stck_bsop_date",
+        "stck_clpr",
+        "stck_oprc",
+        "stck_hgpr",
+        "stck_lwpr",
+        "acml_vol",
+        "acml_tr_pbmn",
+        "flng_cls_code",
+        "prtt_rate",
+        "mod_yn",
+        "prdy_vrss_sign",
+        "prdy_vrss",
+        "revl_issu_reas"
+      ],
+      "rawRows": [
+        {
+          "stck_bsop_date": "20260930",
+          "stck_oprc": "18510",
+          "stck_hgpr": "18930",
+          "stck_lwpr": "18250",
+          "stck_clpr": "18750",
+          "acml_vol": "1141559",
+          "prtt_rate": "0.00",
+          "revl_issu_reas": "",
+          "mod_yn": "N"
+        },
+        {
+          "stck_bsop_date": "20260929",
+          "stck_oprc": "17820",
+          "stck_hgpr": "17900",
+          "stck_lwpr": "17740",
+          "stck_clpr": "17880",
+          "acml_vol": "175762",
+          "prtt_rate": "0.00",
+          "revl_issu_reas": "",
+          "mod_yn": "N"
+        }
+      ]
+    },
+    {
+      "requestedAt": "2026-09-30T07:41:21.768Z",
+      "method": "GET",
+      "path": "/uapi/domestic-stock/v1/quotations/inquire-daily-itemchartprice",
+      "query": {
+        "FID_COND_MRKT_DIV_CODE": "J",
+        "FID_INPUT_ISCD": "383800",
+        "FID_INPUT_DATE_1": "20260929",
+        "FID_INPUT_DATE_2": "20260930",
+        "FID_PERIOD_DIV_CODE": "D",
+        "FID_ORG_ADJ_PRC": "0"
+      },
+      "status": 200,
+      "elapsedMs": 27,
+      "rt_cd": "0",
+      "msg_cd": "MCA00000",
+      "output2FieldNames": [
+        "stck_bsop_date",
+        "stck_clpr",
+        "stck_oprc",
+        "stck_hgpr",
+        "stck_lwpr",
+        "acml_vol",
+        "acml_tr_pbmn",
+        "flng_cls_code",
+        "prtt_rate",
+        "mod_yn",
+        "prdy_vrss_sign",
+        "prdy_vrss",
+        "revl_issu_reas"
+      ],
+      "rawRows": [
+        {
+          "stck_bsop_date": "20260930",
+          "stck_oprc": "8150",
+          "stck_hgpr": "8170",
+          "stck_lwpr": "8040",
+          "stck_clpr": "8060",
+          "acml_vol": "42861",
+          "prtt_rate": "0.00",
+          "revl_issu_reas": "",
+          "mod_yn": "N"
+        },
+        {
+          "stck_bsop_date": "20260929",
+          "stck_oprc": "8230",
+          "stck_hgpr": "8230",
+          "stck_lwpr": "8070",
+          "stck_clpr": "8130",
+          "acml_vol": "48039",
+          "prtt_rate": "0.00",
+          "revl_issu_reas": "",
+          "mod_yn": "N"
+        }
+      ]
+    }
+  ],
+  "outputs": [
+    {
+      "symbol": "KOSPI:033270",
+      "rows": [
+        {
+          "date": "2026-09-30",
+          "open": 17690,
+          "high": 17740,
+          "low": 17530,
+          "close": 17700,
+          "volume": 25442
+        },
+        {
+          "date": "2026-09-29",
+          "open": 17750,
+          "high": 17750,
+          "low": 17430,
+          "close": 17690,
+          "volume": 20332
+        }
+      ]
+    },
+    {
+      "symbol": "KOSPI:030000",
+      "rows": [
+        {
+          "date": "2026-09-30",
+          "open": 18510,
+          "high": 18930,
+          "low": 18250,
+          "close": 18750,
+          "volume": 1141559
+        },
+        {
+          "date": "2026-09-29",
+          "open": 17820,
+          "high": 17900,
+          "low": 17740,
+          "close": 17880,
+          "volume": 175762
+        }
+      ]
+    },
+    {
+      "symbol": "KOSPI:383800",
+      "rows": [
+        {
+          "date": "2026-09-30",
+          "open": 8150,
+          "high": 8170,
+          "low": 8040,
+          "close": 8060,
+          "volume": 42861
+        },
+        {
+          "date": "2026-09-29",
+          "open": 8230,
+          "high": 8230,
+          "low": 8070,
+          "close": 8130,
+          "volume": 48039
+        }
+      ]
+    }
+  ],
+  "priceCalls": 3,
+  "blockedWrites": 0,
+  "productExternalWrites": 0,
+  "sourceClientSha256Before": "5496e63699cd992a47e70021e7cfeebd0c1cd5a6ba90225c8d994809a8bd92a9",
+  "sourceClientSha256After": "5496e63699cd992a47e70021e7cfeebd0c1cd5a6ba90225c8d994809a8bd92a9",
+  "returnedCloseField": "stck_clpr",
+  "newNaver2023_2024LabelsRead": false
+}

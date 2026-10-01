@@ -1,0 +1,20 @@
+{
+  "frozenAtUTC": "2026-09-30T07:20:01.909472+00:00",
+  "beforeModelFits": true,
+  "noNewPrimaryOutcomesInspected": true,
+  "sourceHashes": {
+    "/tmp/composite-score-experimental-20260930/naver-protocol.json": "377ed12d88de69989043bd7ef21b4b057a44c2fbab90ba19f4f679189e69033c",
+    "/tmp/composite-score-experimental-20260930/naver-research.py": "cadd301d2a92f1a0a6ec12eefed15892b9a21cc3b64ee5785e1ed01191d5d13f",
+    "/tmp/composite-score-experimental-20260930/fixed-models.py": "5d140b420ef95c47f95f8cba351f3c0432b15dde6e4ee12952ca6f63e29986ec",
+    "/tmp/composite-score-experimental-20260930/naver-cache/manifest.json": "69ca312eda945fff89fb70bf775c99448377ee1a92aed227fae34d83943834b2",
+    "/tmp/composite-score-experimental-20260930/naver-cache.py": "ef95585a5d670d503159876dfa37773e4a5cc25e3cef13dfb684be2277465046",
+    "/tmp/composite-score-experimental-20260930/naver-ts-observed/source-parity-causality-audit.json": "6bff9f68042144f6480c0bf68661b76ca994b5c2724a3750575dcc9a71b4c0df",
+    "/tmp/composite-score-experimental-20260930/naver-ts-observed/compact-integrity-audit.json": "01b3d4391afcebf6c6b5fcf68d02cef5884647445baae8537cf84d844c4bb18a",
+    "/tmp/composite-score-experimental-20260930/naver-cache/X50.npy": "5feb55b902cdc07391cffe4d6be132795c27c153df4d7d2aa198b575391c1565",
+    "/tmp/composite-score-experimental-20260930/naver-cache/sourceSignals7.npy": "7a06bc58cc6cfdbd5e9aa76eb11aee178928e7c58fe2880caf0b86a532948a2d",
+    "/tmp/composite-score-experimental-20260930/naver-cache/turnover.npy": "1bef279ce0209d92028dc4dad7cb58916aa08a9546752c9e6fae78b0e0523602",
+    "/tmp/composite-score-experimental-20260930/naver-cache/symbols.npy": "cf34dab4950837ed13838c0a9a7c6286721eb631243feb7cbe737318e8b2251b",
+    "/tmp/composite-score-experimental-20260930/naver-cache/offsets.npy": "c89d0abe3e585572b1e8e80e39b00403ce475bb7d258a09a73ddd3fdc1bdf343",
+    "/tmp/composite-score-experimental-20260930/naver-cache/rawBars.npy": "a7948c928c2419dce07fd7b1ca63d4522ffe71a90294c6623a8bfad294845842"
+  }
+}

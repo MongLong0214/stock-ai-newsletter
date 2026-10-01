@@ -1,0 +1,13 @@
+{
+  "passed": true,
+  "signalDays": 1231,
+  "observations": 3693,
+  "currentEligible": 3366,
+  "relaxedAdditionalOnly": 185,
+  "duplicateKeys": 0,
+  "currentRelaxedOverlap": 0,
+  "source18AndSevenScoresIndependentWitnesses": 16,
+  "breadthMergedExact": true,
+  "sampleOnly": true,
+  "labelReads": 0
+}

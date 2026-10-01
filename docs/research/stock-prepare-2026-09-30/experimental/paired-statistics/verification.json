@@ -1,0 +1,36 @@
+{
+  "baselineDuplicateAudit": [
+    {
+      "policy": "currentOverall",
+      "allThreeLedgersEqual": true,
+      "matchedDates": 489,
+      "matchedPicksPerLedger": 1467,
+      "canonicalOriginalRosterSignalsBarsOutcomesSha256": "28108495aedd707e4866dac8f34dfed8e0dad978c0d0d3551cc4e1c482de21d2"
+    },
+    {
+      "policy": "ATRbaseline",
+      "allThreeLedgersEqual": true,
+      "matchedDates": 489,
+      "matchedPicksPerLedger": 1467,
+      "canonicalOriginalRosterSignalsBarsOutcomesSha256": "8ca45cc461a2fd0f791d4174429f1dcf86a8d99bd2d749deee147657f172f7fb"
+    }
+  ],
+  "syntheticTestsPassed": 7,
+  "allSelectedRawKeyAndFrozenLabelComparisons": 10269,
+  "pairedVsEnrichmentNumericComparisons": 1980,
+  "block20VsBlock10PointComparisons": 140,
+  "allDifferences": 0,
+  "artifactHashes": {
+    "paired_statistics.py": "5721fd0e3214801210bdbf3fdfffc5096f4cfa12f478b9679ac42a3268d7341f",
+    "test_paired_statistics.py": "f5286146fba8273dfd39cb3d85c0a80337f32a00281105fe25e7b1c55345c0e7",
+    "universe_enrichment.py": "3fbd8ec1a96dc9531d80011129b6e3b0718a131744adedfab6355796608826d6",
+    "block20_sensitivity.py": "8ad4dc8c9695c4289b2f76b8d4d0006058f069e3dda3bf93cf8c7a7f06dcc30e",
+    "frozen-inputs.json": "4735b295c56d643c66c1ccbe68bea177bfc470e4b986ba1223d0d91b8e9c9eb5",
+    "results/statistics.json": "c0a2a17c971fd596439b014b641b459c12ffc2f6bfd12a58a2f5db72df120539",
+    "results/population-enrichment.json": "67af5c9b5ad7fb3533ad3aabc3e0e31b8f2d9960002b025eb7e664eacbe1da47",
+    "results/block20-sensitivity.json": "1666d726ce0c22df84663579ce2769d44282d4960b9a6c0d72d17be5fb035680",
+    "summary.md": "7e5ee3031cf5079289deda85eec755495f04dbd05e990c5fa0f513a8f6280465"
+  },
+  "productSourceMutations": 0,
+  "databaseMutations": 0
+}

@@ -1,0 +1,246 @@
+{
+  "workstream": "short_horizon_korea_microstructure",
+  "asof": "2026-09-30",
+  "sources_reviewed": 80,
+  "search_calls": 7,
+  "unique_search_urls": 76,
+  "primary_studies": 13,
+  "reference_rows": 16,
+  "read_requests": 23,
+  "summary": "No reviewed primary source validates three Korean long-only recommendations all gaining at least 10% inside five sessions without loss. Evidence supports testable hypotheses and cost/microstructure constraints, with important Korean nonreplications.",
+  "rows": [
+    {
+      "title": "Fads, Martingales, and Market Efficiency",
+      "year": "1990",
+      "url": "https://academic.oup.com/qje/article-lookup/doi/10.2307/2937816",
+      "market": "US equities",
+      "holding": "Prior-week winners/losers, next-week returns",
+      "costs": "Abstract reports bid-ask and plausible-cost corrections",
+      "finding": "Weekly winners and losers reverse the following week; interpreted as liquidity-market inefficiency.",
+      "applicability": "Weekly horizon relevant; broad long-short portfolio, not three Korean long-only names or a 10% target.",
+      "quality": "Original QJE publisher abstract; full empirical tables not accessed"
+    },
+    {
+      "title": "Evaporating Liquidity",
+      "year": "2012 (2011 NBER paper)",
+      "url": "https://www.nber.org/system/files/working_papers/w17653/w17653.pdf",
+      "market": "US equities",
+      "holding": "Daily return-reversal portfolios using lags 1–5 days",
+      "costs": "Highlighted 1998–2010 strategy examples are before execution costs",
+      "finding": "Liquidity-provision returns vary strongly with VIX; high expected returns in market stress reflect constrained liquidity supply.",
+      "applicability": "A rising expected rebound payoff is not a no-loss guarantee; diversified market-hedged long-short result cannot justify selecting distressed high-ATR longs.",
+      "quality": "Original author NBER working paper with methodological detail"
+    },
+    {
+      "title": "Another look at trading costs and short-term reversal profits",
+      "year": "2012 (2011 accepted manuscript)",
+      "url": "https://repub.eur.nl/pub/25718/AnotherLook_2011.pdf",
+      "market": "US 1,500 largest stocks 1990–2009; Europe 1,000 largest 1995–2009",
+      "holding": "Weekly reversal portfolio",
+      "costs": "Keim–Madhavan model and Nomura trading cost estimates; US up to 30–50bp/week net, Europe up to 20bp/week under liquid-universe/low-turnover design",
+      "finding": "Avoiding costly small caps and reducing turnover materially changes whether reversal survives costs.",
+      "applicability": "Strong support for liquidity/cost constraints; payoff scale and diversification are far from three stocks each +10%.",
+      "quality": "Original accepted paper in university repository; authors include Robeco practitioners"
+    },
+    {
+      "title": "Short-term Momentum",
+      "year": "2022 (2021 author version)",
+      "url": "https://papers.ssrn.com/sol3/papers.cfm?abstract_id=3150525",
+      "market": "US and international equities",
+      "holding": "Previous-month return × share turnover; monthly short-term momentum",
+      "costs": "Author abstract reports survival after transaction costs",
+      "finding": "High-turnover stocks show continuation, low-turnover stocks reversal; continuation strongest in large liquid covered stocks.",
+      "applicability": "Turnover is not today's volume/20-day-average-volume; monthly findings do not validate 5-day Korean breakouts.",
+      "quality": "Original authors' SSRN accepted-version abstract; details not fully read"
+    },
+    {
+      "title": "한국주식시장의 단기반전과 단기모멘텀",
+      "year": "2023",
+      "url": "https://www.kci.go.kr/kciportal/landing/article.kci?arti_id=ART002987582",
+      "market": "Korean equities",
+      "holding": "Prior-month return; monthly short-term factor",
+      "costs": "Controls size/microstructure/arbitrage constraints/T+2; net-cost implementation not established by accessible abstract",
+      "finding": "No high-turnover short-term momentum replication; reversal persists across turnover groups and is stronger in small illiquid stocks.",
+      "applicability": "Direct negative transfer evidence against importing US high-turnover momentum wholesale; different horizon from 1–5 days.",
+      "quality": "KCI official journal record with original Korean/English abstract; DOI 10.22510/kjofm.2023.40.4.008"
+    },
+    {
+      "title": "비유동성 및 거래비용과 단기반전현상을 이용한 반대투자전략의 성과에 관한 연구",
+      "year": "2006",
+      "url": "https://hdl.handle.net/10371/32298",
+      "market": "Korea Stock Exchange stocks 1995–2005",
+      "holding": "Short-term contrarian strategies; exact rebalance interval not verified from abstract",
+      "costs": "Effective-spread transaction costs eliminate abnormal profits",
+      "finding": "Reversal is stronger with high turnover/illiquidity, but observed gross alpha vanishes after measured costs.",
+      "applicability": "Do not select illiquid crash rebounds because historical gross bounce looks large; old market period is a limitation.",
+      "quality": "Original publisher Seoul National University repository and original abstract"
+    },
+    {
+      "title": "Decomposing Short-Term Return Reversal",
+      "year": "2011 staff report",
+      "url": "https://www.newyorkfed.org/medialibrary/media/research/staff_reports/sr513.html",
+      "market": "US analyst-covered stocks, 1982–2009",
+      "holding": "Prior-month signal; one-month long-short portfolio",
+      "costs": "Spread-based estimate about 80.5bp/month vs three-factor alpha 1.34%/month",
+      "finding": "Reversal profits concentrate in residual nonfundamental price moves, not cash-flow news; industry and earnings-news decomposition matters.",
+      "applicability": "Supports separating liquidity shock from fundamental bad news; raw decline/high ATR is insufficient. Needs sector and point-in-time earnings/analyst data.",
+      "quality": "Original NY Fed research staff paper; estimates are historical, not modern Korean execution costs"
+    },
+    {
+      "title": "A tug of war: Overnight versus intraday expected returns",
+      "year": "2019 (2018 accepted version)",
+      "url": "https://researchonline.lse.ac.uk/id/eprint/87481/7/Polk_Tug%20of%20War.pdf",
+      "market": "Primarily US equity cross-section",
+      "holding": "Monthly portfolios, overnight/intraday return decomposition",
+      "costs": "Paper explicitly notes transaction costs reduce strategy attractiveness; not a net-cost 5-day stock-picking test",
+      "finding": "Return continuation within overnight or intraday components coexists with reversal across them. Momentum/reversal premia accrue overnight in the studied strategies.",
+      "applicability": "Forecast/measure recommendation-open-to-close separately from prior-close-to-open; daily close-to-close momentum cannot promise same-day green candles.",
+      "quality": "Original accepted refereed paper in LSE repository"
+    },
+    {
+      "title": "The short-term mean reversion of stock price and the change in trading volume",
+      "year": "2021",
+      "url": "https://pdfs.semanticscholar.org/5296/dc57788672bc83e44a1bf2c8a6d7cc8c0463.pdf",
+      "market": "KOSPI/KOSDAQ; tables 1987–2015 (introduction says through 2017)",
+      "holding": "Variance-ratio tests from 1 to 100 days, five-day base interval",
+      "costs": "No executable net-cost trading strategy established",
+      "finding": "Significant contemporaneous return/volume-change stocks exhibit sub-five-day continuation and longer reversal; post-2000 KOSDAQ sub-five-day continuation differs from KOSPI.",
+      "applicability": "A plausible OHLCV-only interaction hypothesis; statistical variance dynamics do not prove a 10% target hit strategy. Note source's sample-period inconsistency.",
+      "quality": "Original open-access article PDF mirror, DOI 10.1108/JDQS-01-2021-0003; full result paragraphs read"
+    },
+    {
+      "title": "Individual Investors and Post-Earnings-Announcement Drift: Evidence from Korea",
+      "year": "Undated author draft (sample fiscal 2000–2012)",
+      "url": "https://apjfs.org/file/download/6409?view=1",
+      "market": "Korean equities with daily investor-type trading",
+      "holding": "Post-announcement 20–60 trading days",
+      "costs": "Reported abnormal returns; net transaction-cost result not verified",
+      "finding": "Positive earnings-surprise quintile drift reaches 3.51% at 60 days; negative-surprise quintile −1.63% at 20 days. Drift linked to individual contrarian trading, foreigners anticipate/exploit surprises.",
+      "applicability": "Useful event-quality direction; holding period/average payoff do not justify five-day +10%. Requires timestamped earnings surprise and investor flow data.",
+      "quality": "Original author paper hosted by finance journal; exact publication year unresolved"
+    },
+    {
+      "title": "Stock Price Reactions to News and the Momentum Effect in the Korean Stock Market",
+      "year": "2014",
+      "url": "https://onlinelibrary.wiley.com/doi/10.1111/ajfs.12058",
+      "market": "Korean equities",
+      "holding": "News/momentum portfolios; exact interval not verified from publisher abstract",
+      "costs": "Authors associate asymmetric reactions with transaction costs; net executable strategy not verified",
+      "finding": "News losers show continued negative drift; winner reversals offset those momentum profits. Overall momentum strategy earns no profits in the studied sample.",
+      "applicability": "Strong reason not to treat any crash as a benign oversold rebound; news/catalyst sign matters. Does not establish long-only news-winner spikes.",
+      "quality": "Original Wiley journal abstract, Lee and Cho, APJFS43:556–588"
+    },
+    {
+      "title": "Trading Behavior, Performance, and Stock Preference of Foreigners, Local Institutions, and Individual Investors",
+      "year": "2011",
+      "url": "https://www.kci.go.kr/kciportal/landing/article.kci?arti_id=ART001546954",
+      "market": "Korean stocks, investor-type trading",
+      "holding": "Short-term performance; exact horizon not verified from accessible abstract",
+      "costs": "Net-cost result not established by accessible abstract",
+      "finding": "Foreigners' purchases outperform sales; foreigners prefer larger high-dividend stocks while individual investors prefer small high-leverage low-dividend stocks.",
+      "applicability": "Investor-flow data can be a separate candidate confirmation; cannot infer daily +10% success from aggregate investor outperformance.",
+      "quality": "KCI official record with original authors' abstract; DOI 10.1111/j.2041-6156.2011.01037.x"
+    },
+    {
+      "title": "Dynamic and Static Volatility Interruptions: Evidence from the Korean Stock Markets",
+      "year": "2022",
+      "url": "https://www.mdpi.com/1911-8074/15/3/105",
+      "market": "1,676 KRX stocks 2014; 1,685 stocks 2015",
+      "holding": "Intraday microstructure around VI introduction, 45 days before/after",
+      "costs": "Market-quality study, not net trading P&L strategy",
+      "finding": "VI events concentrate in small, low-priced, volatile names; dynamic VI contributes more to stabilization/discovery than static VI.",
+      "applicability": "High volatility and price-limit proximity have execution and stability implications, not inherently favorable expected return.",
+      "quality": "Original peer-reviewed paper using KRX-provided intraday data"
+    },
+    {
+      "title": "Guide to Trading in the Korean Stock Market",
+      "year": "Official guide retrieved 2026-09-30",
+      "url": "https://global.krx.co.kr/contents/GLB/01/0109/0109000000/guide_to_trading_in_the_korean_stock_market.pdf",
+      "market": "KRX",
+      "holding": "Intraday/open/close execution rules",
+      "costs": "Execution mechanics, no return estimate",
+      "finding": "Daily ±30% limits; opening/closing call auctions; VI switches to two-minute call auction and triggering quote is not executed at potential execution price.",
+      "applicability": "Daily high touching target is not proof that any quantity could exit there; use conservative fill and gap assumptions.",
+      "quality": "Official exchange guide; corroborated VI with current KRX regulation page"
+    },
+    {
+      "title": "종목별 변동성완화장치 and 단기과열완화제도",
+      "year": "Official rules retrieved 2026-09-30",
+      "url": "https://regulation.krx.co.kr/contents/RGL/03/03010408/RGL03010408.jsp",
+      "secondary_url": "https://regulation.krx.co.kr/contents/RGL/03/03010409/RGL03010409.jsp",
+      "market": "KRX Korean stocks",
+      "holding": "VI two-minute call; overheating designation three days of 30-minute calls",
+      "costs": "No continuous-execution assumption during designated periods",
+      "finding": "Overheating designation changes regular continuous matching to 30-minute call auctions for three sessions; designation can extend.",
+      "applicability": "Exclude or explicitly model designated/limited/halted names. OHLCV cannot recover executable stop/target sequence.",
+      "quality": "Current official KRX regulations, including 2025 NXT-related turnover treatment update"
+    },
+    {
+      "title": "한국투자증권 최선집행기준 설명서",
+      "year": "Current guide retrieved 2026-09-30",
+      "url": "https://file.koreainvestment.com/Storage/customer/guide/regards/nxt01.html",
+      "market": "KRX/NXT routed Korean equity orders",
+      "holding": "Intraday; NXT 08:00 premarket and after-hours differ from KRX",
+      "costs": "Distinguishes explicit commissions/fees from implicit market impact; execution also considers fill likelihood",
+      "finding": "Orders may route differently by session and venue; resting limit-order fills and automatic transfer are not guaranteed.",
+      "applicability": "Choose consistent KRX versus combined market data/entry definition; morning recommendation benchmark must match a tradable venue and time.",
+      "quality": "Broker's own official execution policy"
+    }
+  ],
+  "hypotheses": [
+    {
+      "hypothesis": "Liquidity-aware short-term reversal as a comparator only",
+      "data": "OHLCV: turnover value and Amihud-style impact proxy; shares outstanding needed for true share turnover",
+      "reason": "Reversal profits are sensitive to expensive small caps and costs; distress alone is not a catalyst",
+      "sources": [
+        "https://repub.eur.nl/pub/25718/AnotherLook_2011.pdf",
+        "https://hdl.handle.net/10371/32298",
+        "https://www.newyorkfed.org/medialibrary/media/research/staff_reports/sr513.html"
+      ]
+    },
+    {
+      "hypothesis": "Separate overnight gap and intraday return continuation",
+      "data": "Existing split-adjusted OHLCV, strictly prior to signal cutoff",
+      "reason": "Close-to-close momentum can combine opposite-sign overnight and intraday effects; evaluate same-day candle and five-day exit separately",
+      "sources": [
+        "https://researchonline.lse.ac.uk/id/eprint/87481/7/Polk_Tug%20of%20War.pdf"
+      ]
+    },
+    {
+      "hypothesis": "Volume-change interaction with trend/return rather than unconditional high-volume bonus",
+      "data": "Existing historical OHLCV permits lagged rolling return/volume-change correlation; fit only prior windows",
+      "reason": "Korean sub-five-day evidence is statistical and conditional; recent high-volume levels alone do not imply continuation",
+      "sources": [
+        "https://pdfs.semanticscholar.org/5296/dc57788672bc83e44a1bf2c8a6d7cc8c0463.pdf",
+        "https://www.kci.go.kr/kciportal/landing/article.kci?arti_id=ART002987582"
+      ]
+    },
+    {
+      "hypothesis": "Positive earnings/news with investor-flow confirmation; negative-event crash exclusion",
+      "data": "New timestamped DART earnings surprises, news/event classifications, daily foreign/institutional/individual net buying, PIT availability",
+      "reason": "Korean PEAD/news evidence distinguishes good and bad information; do not infer event quality from large ATR or oversold RSI",
+      "sources": [
+        "https://apjfs.org/file/download/6409?view=1",
+        "https://onlinelibrary.wiley.com/doi/10.1111/ajfs.12058",
+        "https://www.kci.go.kr/kciportal/landing/article.kci?arti_id=ART001546954"
+      ]
+    },
+    {
+      "hypothesis": "Tradeability-aware eligibility and conservative target/stop simulation",
+      "data": "New PIT trading-status/overheating/halts and limit state; tick or intraday bars if target-stop order matters; explicit slippage/fees/tax assumptions",
+      "reason": "KRX auctions and liquidity can invalidate OHLC touch fills and guaranteed loss caps",
+      "sources": [
+        "https://global.krx.co.kr/contents/GLB/01/0109/0109000000/guide_to_trading_in_the_korean_stock_market.pdf",
+        "https://regulation.krx.co.kr/contents/RGL/03/03010408/RGL03010408.jsp",
+        "https://file.koreainvestment.com/Storage/customer/guide/regards/nxt01.html"
+      ]
+    }
+  ],
+  "implementation_limits": [
+    "Keep UI and copy frozen. Apply original technical-score threshold as eligibility, never inflate/remap numeric scores.",
+    "Literature does not identify a validated exact technical-score cutoff or ATR cutoff for this product. Quantitative thresholds require chronological out-of-sample evaluation.",
+    "For daily OHLC, if both stop and target are touched and ordering is unknown, use a conservative ordering assumption and report ambiguity rather than assuming the target came first.",
+    "Backtest from recommendation-time executable entry (e.g. next KRX open with slippage), include gaps, suspensions/unfilled buys, costs and five-session final exit, alongside target-hit and adverse-excursion statistics.",
+    "Do not describe abstract-only findings as a replicated strategy; do not confuse long-short factor average returns with three individual long-only stock outcomes."
+  ]
+}

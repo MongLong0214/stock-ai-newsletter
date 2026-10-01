@@ -1,0 +1,66 @@
+{
+  "scope": "Independent Decimal OHLC oracle over all fixed selected KIS observations and all78 overlapping split aggregations; no model/selector execution",
+  "selectedObservations": 11070,
+  "independentAssertions": 247024,
+  "aggregateRows": 78,
+  "aggregateArithmeticAssertions": 3744,
+  "oracleCountsNonUniqueOverlappingPolicyObservations": {
+    "strict": 11022,
+    "ambiguous": 150,
+    "priorStopThenTarget": 806,
+    "gapStop": 325,
+    "zeroOrInvalidVolume": 45,
+    "missingOrInvalid": 3
+  },
+  "rawSourceWitnessBarCount": 25,
+  "witnesses": {
+    "gapStop": {
+      "study": "L0",
+      "partition": "inner",
+      "policy": "winnerA",
+      "signalDate": "2025-01-03",
+      "symbol": "KOSDAQ:058470"
+    },
+    "priorStopThenTarget": {
+      "study": "L0",
+      "partition": "inner",
+      "policy": "winnerA",
+      "signalDate": "2025-01-13",
+      "symbol": "KOSDAQ:046940"
+    },
+    "touchButD5Loss": {
+      "study": "L0",
+      "partition": "inner",
+      "policy": "winnerA",
+      "signalDate": "2025-02-07",
+      "symbol": "KOSPI:002900"
+    },
+    "ambiguous": {
+      "study": "L0",
+      "partition": "inner",
+      "policy": "winnerA",
+      "signalDate": "2025-08-01",
+      "symbol": "KOSDAQ:307930"
+    },
+    "zeroVolume": {
+      "study": "L0",
+      "partition": "inner",
+      "policy": "winnerA",
+      "signalDate": "2025-11-28",
+      "symbol": "KOSPI:084670"
+    }
+  },
+  "differences": [],
+  "newNaver2023_2024OutcomesRead": false,
+  "fitCalls": 0,
+  "sourceTruthLimitation": "Conditional on frozen KIS source; no real fills, adjusted-vintage audit or exchange-close equivalence claim",
+  "hashes": {
+    "/tmp/composite-score-experimental-20260930/independent-economic-diagnostic-audit.py": "c30d1b1e8959a90d23b7f1290150b6bfd111198cd0b9b02477b2250fe9f49fc0",
+    "/tmp/composite-score-experimental-20260930/outcome-diagnostic/kis-l0-actual/compact-summary.json": "00c43a7267f10f284aa197f8195b62508c19e9711bd58aff2f8eb2471780cd19",
+    "/tmp/composite-score-experimental-20260930/outcome-diagnostic/kis-l0-actual/selected-tickers-and-outcomes.json": "8f9635ff605bfd4b2509a42416186b57b90e2773b51ef6ad797bf0f1026abdff",
+    "/tmp/composite-score-experimental-20260930/kis-l0-inner-ledger.json": "ff77fd1d0a1474e09b60b2ee99b9668e59e6ed397e937467dbb49ffff7fb96db",
+    "/tmp/composite-score-experimental-20260930/kis-l0-outer-ledger.json": "506bade2cd76d01c61f6a179384a519c3bc596ce605ec1275e890a2df58456c5",
+    "/tmp/composite-score-experimental-20260930/kis-inner-ledger.json": "44d630c9962974f5aac50974a421d64bb548d21d82a0b4c6701e7cb2f028befc",
+    "/tmp/composite-score-experimental-20260930/kis-outer-ledger.json": "1c30e2fdfa78ede4f502b121af467868bce8786189dfcd1df112f9edb661a95c"
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "selectedInstances": 3744,
+  "strictInstances": 3736,
+  "unknownInstances": 8,
+  "FPHelperDifferences": 0,
+  "originalFloatDifferences": 0,
+  "modelPredictionDifferences": 0,
+  "publishedScoreDifferences": 0,
+  "sixCategoryDifferences": 0,
+  "selectedOrderDifferences": 0,
+  "cooldownViolations": 0,
+  "modelMaturityViolations": 0,
+  "sourceHashDifferences": 0,
+  "passed": true,
+  "generatedAtUTC": "2026-09-30T07:59:32.624801+00:00",
+  "auditSourceSha256": "3ee643aef24fc2e70fb0cdbef0a24f5cee16f91faa8fb18359142a41b98a7f16",
+  "reportSha256": "696676369ad2a256cd90d465ce48eedf90066f802c9f86bb8ffdd80cd995fb33",
+  "innerLedgerSha256": "51903ee80e8d6856c136a53543a704a64dc191c81cc77699dd7481a0fc1c62fa",
+  "outerLedgerSha256": "4cd79efc078972f05835ff83891b472b2280ea1915cefc999687931d76c88eb2",
+  "productMutations": 0
+}

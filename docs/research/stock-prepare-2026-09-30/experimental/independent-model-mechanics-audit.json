@@ -1,0 +1,62 @@
+{
+  "scope": "Pure functions of actual frozen-model helper extracted by AST; no sklearn/lightgbm imports, no fit/calibrator fit/data/labels read. 24config event-state utility/grade/gain/parameter mapping, date weighting and published integer score boundaries independently checked. Does not validate data caller or trained models.",
+  "sourcePath": "/tmp/composite-score-experimental-20260930/fixed-models.py",
+  "sourceSha256": "5d140b420ef95c47f95f8cba351f3c0432b15dde6e4ee12952ca6f63e29986ec",
+  "configurations": 24,
+  "jointStatesPerConfiguration": 8,
+  "utilityStateChecks": 192,
+  "lambdaGradeGains": {
+    "0.35": [
+      0.0,
+      0.14814814814814814,
+      0.25925925925925924,
+      0.40740740740740744,
+      0.5925925925925926,
+      0.7407407407407407,
+      0.8518518518518517,
+      1.0
+    ],
+    "0.65": [
+      0.0,
+      0.12121212121212123,
+      0.393939393939394,
+      0.4848484848484849,
+      0.5151515151515152,
+      0.6060606060606061,
+      0.8787878787878789,
+      1.0
+    ],
+    "1.0": [
+      0.0,
+      0.1,
+      0.4,
+      0.5,
+      0.6,
+      0.9,
+      1.0
+    ]
+  },
+  "equalDateWeightFixture": [
+    2,
+    3,
+    5
+  ],
+  "publishedIntegerBoundaryFixture": [
+    0,
+    0,
+    0,
+    1,
+    49,
+    50,
+    99,
+    100,
+    100,
+    100
+  ],
+  "differences": [],
+  "callerRequirements": [
+    "Rows and queryCounts must correspond to date-contiguous strict training keys; queryCount=len(trainingDates).",
+    "All OOFlabelfuture maturity/calibration state must be checked in runner; helper itself has no actual calendar.",
+    "Quarterly same460 training length requires activation-distinct directory or bundle key to avoid prefix-id collisions."
+  ]
+}

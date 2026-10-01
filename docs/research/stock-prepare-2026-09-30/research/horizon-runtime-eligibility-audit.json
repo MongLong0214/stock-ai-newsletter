@@ -1,0 +1,35 @@
+{
+  "dates": 181,
+  "points": 239869,
+  "storedEligible": 227877,
+  "runtimeEligible": 227880,
+  "parameters": {
+    "minTurnover": 500000000,
+    "maxRsi": 75,
+    "maxSignalDayReturn": 0.1,
+    "recentPickTradingDays": 20
+  },
+  "differences": [
+    {
+      "date": "2026-02-11",
+      "symbol": "KOSDAQ:145020",
+      "stored": false,
+      "runtime": true
+    },
+    {
+      "date": "2026-04-01",
+      "symbol": "KOSDAQ:051370",
+      "stored": false,
+      "runtime": true
+    },
+    {
+      "date": "2026-06-12",
+      "symbol": "KOSDAQ:394280",
+      "stored": false,
+      "runtime": true
+    }
+  ],
+  "strategySourceSha256": "3bba43cc3cfa00ceb4b04b55ded60f82f3b0d1c2e8cce59c5e7952da220d3047",
+  "eligibilityOutputSha256": "873f004cb42ea462177713dc57c8f6dc9349b6af984e5c2d375fb4a58c888861",
+  "generatedAt": "2026-09-30T02:57:08.076Z"
+}

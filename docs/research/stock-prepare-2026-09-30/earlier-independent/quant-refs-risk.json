@@ -1,0 +1,178 @@
+{
+  "workstream": "risk_robustness",
+  "date": "2026-09-30",
+  "sources_reviewed": 80,
+  "search_calls": 9,
+  "fetch_urls": 15,
+  "unique_references": 14,
+  "scope": "Primary sources only. No repository edits. No evidence found for a guaranteed daily 3-stock, +10% within 5 sessions, no-loss strategy.",
+  "sources": [
+    {
+      "title": "Momentum Crashes",
+      "authors": "Kent Daniel; Tobias J. Moskowitz",
+      "year": "2016 (2014 NBER working paper read)",
+      "url": "https://www.nber.org/papers/w20439",
+      "fulltext": "https://www.nber.org/system/files/working_papers/w20439/w20439.pdf",
+      "market_horizon": "U.S. common stocks 1927–2013; prior 12-to-2-month returns, monthly rebalanced decile portfolios; international/other asset-class replication.",
+      "costs": "Principal cumulative-return illustration explicitly assumes no transaction costs.",
+      "finding": "Momentum long-short portfolios suffer persistent crashes, especially high-volatility rebounds after market declines; much of this is the short loser portfolio rising sharply. Dynamic strategy exposure helps in the paper's experiments.",
+      "quality": "Original authors, NBER full-text working paper; later peer-reviewed JFE publication. Disclosed AQR relationship.",
+      "application": "Stress-state and tail-risk awareness, not evidence that a long-only daily 3-stock crash-rebound basket is safe. Do not transplant long-short crash results as a proven long-only reject rule."
+    },
+    {
+      "title": "Momentum Has Its Moments",
+      "authors": "Pedro Barroso; Pedro Santa-Clara",
+      "year": "2015",
+      "url": "https://papers.ssrn.com/sol3/papers.cfm?abstract_id=2041429",
+      "market_horizon": "Cross-sectional equity momentum portfolios; multi-month formation, risk-managed portfolio leverage. Fetched author abstract, not final full text.",
+      "costs": "Fetched abstract does not establish net retail KR execution returns.",
+      "finding": "Authors find momentum risk is time-varying and predictable, and scaling its exposure materially reduces historical crash risk.",
+      "quality": "Author SSRN page identifies JFE 116(1):111–120; claims here limited to abstract.",
+      "application": "Risk scaling is a position/exposure decision. This newsletter chooses names, so it cannot claim to implement the paper solely by changing ATR rank."
+    },
+    {
+      "title": "Volatility-Managed Portfolios",
+      "authors": "Alan Moreira; Tyler Muir",
+      "year": "2017",
+      "url": "https://amoreira2.github.io/alan-moreira.github.io/VolPortfolios_published.pdf",
+      "market_horizon": "Monthly U.S. equity factors and currency carry; monthly returns scaled by inverse previous-month realized variance.",
+      "costs": "Paper discusses realistic costs and tight leverage constraints; this is not a KR retail 5-day stock-selection estimate.",
+      "finding": "Taking less portfolio risk after high realized volatility improves risk-adjusted results in studied factors; volatility and expected return do not rise proportionately.",
+      "quality": "Original published Journal of Finance paper on author's site; full-text extraction read.",
+      "application": "High volatility alone is not a reward signal. Explicitly distinct from cross-sectional low-volatility name selection and from +10% hit classification."
+    },
+    {
+      "title": "On the Performance of Volatility-Managed Portfolios",
+      "authors": "Scott Cederburg; Michael S. O'Doherty; Feifei Wang; Xuemin (Sterling) Yan",
+      "year": "2020",
+      "url": "https://www.lehigh.edu/~xuy219/research/COWY.pdf",
+      "market_horizon": "103 equity strategies; real-time out-of-sample combinations of managed/unmanaged portfolios.",
+      "costs": "Main negative result concerns implementability and unstable estimated weights, not a promised net trading result.",
+      "finding": "Managed portfolios do not systematically outperform direct counterparts. Feasible out-of-sample combinations generally have lower Sharpe/utility; instability in spanning regressions explains degradation. Some momentum/ROE/BAB results remain positive.",
+      "quality": "Peer-reviewed JFE 138:95–117; final paper on coauthor university site; explicit contrary replication evidence.",
+      "application": "Do not sell risk management as universally performance-improving. Test the exact feasible selector with past-only parameters and the actual holding horizon."
+    },
+    {
+      "title": "Maxing Out: Stocks as Lotteries and the Cross-Section of Expected Returns",
+      "authors": "Turan G. Bali; Nusret Cakici; Robert F. Whitelaw",
+      "year": "2011 (2009 NBER working paper read)",
+      "url": "https://www.nber.org/papers/w14804",
+      "fulltext": "https://www.nber.org/system/files/working_papers/w14804/w14804.pdf",
+      "market_horizon": "U.S. equities July 1962–December 2005; prior-month maximum daily return, next-month portfolio returns.",
+      "costs": "Cross-sectional return evidence; not a net 5-day retail execution strategy.",
+      "finding": "Higher past-month maximum daily returns predict lower average subsequent returns after multiple controls. Lottery-like upside appeal can coexist with poor expected return.",
+      "quality": "Original NBER full text; later JFE 99(2):427–446. Distinct from claiming ATR is itself MAX.",
+      "application": "Evaluate recent extreme spikes and distress separately from upside touch probability. Never use high ATR or one large prior up-day as sufficient evidence of positive expected return."
+    },
+    {
+      "title": "Benchmarks as Limits to Arbitrage: Understanding the Low-Volatility Anomaly",
+      "authors": "Malcolm Baker; Brendan Bradley; Jeffrey Wurgler",
+      "year": "2011",
+      "url": "https://pages.stern.nyu.edu/~jwurgler/papers/faj-benchmarks.pdf",
+      "market_horizon": "U.S. CRSP January 1968–December 2008; monthly quintile sorts on up to 60 months of volatility/beta; top-1,000-stock robustness.",
+      "costs": "Displayed portfolios explicitly exclude transaction costs; yearly rebalancing robustness discussed.",
+      "finding": "Low-volatility/low-beta diversified portfolios historically outperform high-risk counterparts, with benchmarking constraints offered as an explanation.",
+      "quality": "Published Financial Analysts Journal paper on coauthor university site; author asset-manager affiliations disclosed.",
+      "application": "Useful warning against maximizing volatility, but no evidence for picking the 3 minimum-ATR names to gain 10% within 5 sessions; long-horizon portfolio evidence differs."
+    },
+    {
+      "title": "A Taxonomy of Anomalies and Their Trading Costs",
+      "authors": "Robert Novy-Marx; Mihail Velikov",
+      "year": "2016 (2014 NBER working paper read)",
+      "url": "https://www.nber.org/papers/w20721",
+      "fulltext": "https://www.nber.org/system/files/working_papers/w20721/w20721.pdf",
+      "market_horizon": "U.S. cross-sectional anomaly portfolios, varied trading frequencies/turnover.",
+      "costs": "Directly models costs and mitigation. Few high-turnover strategies remain significant; buy/hold spread reduces unnecessary turnover.",
+      "finding": "Transaction costs reduce all studied strategies' profit and significance. Equal weighting often worsens net results because it loads on expensive-to-trade names.",
+      "quality": "Original NBER full text; published RFS 29(1):104–147. Relevant authors' industry ties disclosed.",
+      "application": "Retain measurable liquidity requirements and evaluate net returns. A daily new 3-stock product is not economically equivalent to low-turnover factor portfolios; don't infer no-cost touch as user gain."
+    },
+    {
+      "title": "Trading Costs",
+      "authors": "Andrea Frazzini; Ronen Israel; Tobias J. Moskowitz",
+      "year": "2018",
+      "url": "https://papers.ssrn.com/sol3/papers.cfm?abstract_id=3229719",
+      "market_horizon": "1.7 trillion USD of real institutional executions, 21 developed equity markets, 19 years.",
+      "costs": "Explicit realized costs/price impact across trade type, size, stock, time and exchange; abstract reports costs lower than older models.",
+      "finding": "Cost estimates should reflect actual execution and capacity; optimized institutional trading can be materially cheaper than generic estimates.",
+      "quality": "Original author working paper based on proprietary practitioner execution data; single-manager selection limits generalization; abstract fetched.",
+      "application": "Do not assign institutional optimized fills to retail newsletter users. Use transparent spread/slippage/tax assumptions and sensitivity; avoid arbitrary universal slippage claims."
+    },
+    {
+      "title": "What You See Is Not What You Get: The Costs of Trading Market Anomalies",
+      "authors": "Andrew J. Patton; Brian M. Weller",
+      "year": "2020",
+      "url": "https://public.econ.duke.edu/~ap172/Patton_Weller_2020_JFE.pdf",
+      "market_horizon": "U.S. mutual-fund implementations of value/momentum exposures versus on-paper factor returns.",
+      "costs": "Estimates all-in implementation costs including investability constraints rather than only quoted commissions.",
+      "finding": "Typical mutual funds in their sample realize low value returns and no momentum returns after implementation costs; single skilled manager costs may not generalize.",
+      "quality": "Peer-reviewed JFE 137:515–549 full text on coauthor university site; useful counterweight to single-manager execution studies.",
+      "application": "Evaluate recommendation outcomes from an executable user entry and actual exit definition. A high touched 10% before a deep drawdown is not the same as realized profit."
+    },
+    {
+      "title": "When Do Stop-Loss Rules Stop Losses?",
+      "authors": "Kathryn M. Kaminski; Andrew W. Lo",
+      "year": "2014",
+      "url": "https://dspace.mit.edu/entities/publication/bb69ca4b-0cdc-487f-831d-63b2e84fafee",
+      "market_horizon": "Published version: daily index-futures data and buy-and-hold strategies; benefits in certain longer sampling intervals.",
+      "costs": "Final institutional abstract does not establish retail-stock cost-adjusted 5-day exits. Earlier 2007/2010 drafts use different monthly stock/bond samples and must not be conflated.",
+      "finding": "Stop-loss value is conditional on the price process and implementation; certain rules can reduce volatility and raise expected returns, rather than stopping all losses.",
+      "quality": "MIT repository record for final Journal of Financial Markets 18:234–254 original manuscript. Earlier author SSRN draft separately read.",
+      "application": "A stop is an execution rule, not a selection guarantee. Don't add hypothetical stops to recommendation success unless user execution is modeled; daily OHLC cannot resolve same-day target/stop order."
+    },
+    {
+      "title": "Stop Orders in Select Futures Markets",
+      "authors": "Nicholas Fett; Lihong McPhail",
+      "year": "2017",
+      "url": "https://www.cftc.gov/sites/default/files/Stoploss_final_ada.pdf",
+      "market_horizon": "Audit-trail orders/trades in E-mini S&P 500, 10-year Treasury-note and WTI futures, 2014–2016.",
+      "costs": "Observes placement/execution, slippage and exchange protection levels; not KR-stock stop execution.",
+      "finding": "Stop-order trades cluster with volatility; stop-market slippage can be significant and behavior differs by participants/products.",
+      "quality": "Primary CFTC Office of Chief Economist staff paper using regulatory order data, not a Commission guarantee or equity study.",
+      "application": "Even an actual stop price is not a guaranteed fill price. Evaluate gap/illiquidity losses; never assert 'loss impossible' because a stop level was assigned."
+    },
+    {
+      "title": "Replicating Anomalies",
+      "authors": "Kewei Hou; Chen Xue; Lu Zhang",
+      "year": "2020",
+      "url": "https://global-q.org/uploads/1/2/2/6/122679606/houxuezhang2020rfs.pdf",
+      "market_horizon": "Large U.S. anomaly replication library, 452 variables; decile portfolios with NYSE breakpoints/value weighting.",
+      "costs": "Microcap/investability sensitivity and multiple testing; not all-in execution validation of every strategy.",
+      "finding": "65% fail a single-test significance threshold after microcap mitigation; 82% fail the multiple-test threshold. Replicated effects are often smaller than originally reported.",
+      "quality": "Final peer-reviewed RFS 33:2019–2133 full text on authors' research site. Final counts differ from earlier NBER draft (447 variables), so do not mix versions.",
+      "application": "Treat tiny/illiquid-stock gains and repeated parameter searches skeptically. A famous factor name is not enough to validate this exact KR/5-day/3-name policy."
+    },
+    {
+      "title": "…and the Cross-Section of Expected Returns",
+      "authors": "Campbell R. Harvey; Yan Liu; Heqing Zhu",
+      "year": "2016 (2015 author manuscript read)",
+      "url": "https://papers.ssrn.com/sol3/papers.cfm?abstract_id=2249314",
+      "market_horizon": "Asset-pricing factor literature and multiple-testing framework, not a security-selection portfolio.",
+      "costs": "Methodological evidence, not cost-adjusted returns.",
+      "finding": "Searching many related factors and publication selection raises the evidence hurdle beyond an isolated conventional t-test.",
+      "quality": "Original author SSRN manuscript; published RFS 29(1):5–68. Author profile now Caroline Zhu; publication author Heqing Zhu.",
+      "application": "Keep the number of tried strategy variants visible in analysis. Reusing the existing 180 days cannot be re-labelled untouched out-of-sample after choosing a winner on it."
+    },
+    {
+      "title": "The Probability of Backtest Overfitting",
+      "authors": "David H. Bailey; Jonathan Borwein; Marcos López de Prado; Qiji Jim Zhu",
+      "year": "2015 author manuscript",
+      "url": "https://papers.ssrn.com/sol3/papers.cfm?abstract_id=2326253",
+      "market_horizon": "Investment-backtest selection methodology; combinatorially symmetric cross-validation.",
+      "costs": "No standalone trading return claim.",
+      "finding": "Holdout results can be unreliable after many strategy configurations are selected; proposes quantifying probability of backtest overfitting.",
+      "quality": "Original author manuscript on SSRN; fetched version dated February 27, 2015, listed forthcoming in Journal of Computational Finance.",
+      "application": "Do not repeatedly tune against the same validation data and declare success. Chronological evaluation with overlapping 5-day labels kept out of training is an engineering requirement; this citation does not validate any particular threshold."
+    }
+  ],
+  "implementation": [
+    "Keep UI and existing overall-score formula unchanged. If a minimum overall score is required, apply it to the actual score before selection; do not inflate or relabel it as probability.",
+    "Separate upside-touch target from realized user outcome. Compare 5-day net close return, probability of net loss and downside excursion alongside touch; +10% intraday can coexist with loss.",
+    "Treat extreme ATR and recent lottery-like spikes as risk information rather than automatically positive ranking inputs. Any cutoffs must be justified against this market/horizon, not copied from factor papers.",
+    "Portfolio volatility scaling, stops, and take-profit orders are execution or sizing rules. A recommendation-only product does not implement them merely by printing names.",
+    "Retain freshness and liquidity checks. Use executable next-session entry, conservative cost/slippage assumptions, and explicit handling of both target and stop hit on one daily bar if simulating exits.",
+    "Use past-only train/tune dates with label horizon separation; already-reused history is research evaluation, not untouched OOS. Avoid a large hyperparameter sweep solely to obtain attractive backtest numbers.",
+    "Always returning exactly 3 while imposing a genuine high-score floor can be infeasible on some days. Do not silently lower the floor or substitute low-quality candidates; surface this product constraint internally for parent resolution.",
+    "None of these references justify guaranteeing that every user avoids losses or earns +10%. Three concentrated long positions retain stock, market, execution, and gap risk."
+  ]
+}

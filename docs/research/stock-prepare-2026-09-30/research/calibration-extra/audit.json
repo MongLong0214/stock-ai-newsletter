@@ -1,0 +1,75 @@
+{
+  "dates": [
+    "2025-12-16",
+    "2025-12-17",
+    "2025-12-18",
+    "2025-12-19",
+    "2025-12-22",
+    "2026-09-21",
+    "2026-09-22"
+  ],
+  "wideRows": 17017,
+  "contextRows": 17017,
+  "eligibleMemberships": 7802,
+  "outputHashesIndependentlyVerified": {
+    "wide": "a84c55f9234fdda0600a2cf22550a17d65959062d1f44a070a8c3f9476588ceb",
+    "context": "b49baf80fa0507e93395b77652c9af4631d62c7f23e71b42a18fe5935f4f86d2",
+    "eligibility": "e95b58c11971b73a9dc236d0507d0f1986ef09628e4cdbdab816b6c6c9dd1ec3"
+  },
+  "rawInputHashVerified": true,
+  "featureCurrentOhlcvMatchesRaw": true,
+  "wideContextKeysIdentical": true,
+  "allCurrentMastersPerDate": 2431,
+  "runtimeMembershipMatchesEveryWideFlag": true,
+  "runtimeEligibilityComputedByActualTS": true,
+  "eligibilityUsedNoFutureLabels": true,
+  "sourceStableDuringExport": true,
+  "counts": {
+    "labels": 11867,
+    "label_miss": 10327,
+    "validLabelsIndependentlyRecomputed": 11840,
+    "label_hit": 1513,
+    "label_data_error": 10,
+    "label_unexpected_untradeable": 17
+  },
+  "perDate": {
+    "2025-12-16": {
+      "rows": 2431,
+      "labels": 2373
+    },
+    "2025-12-17": {
+      "rows": 2431,
+      "labels": 2373
+    },
+    "2025-12-18": {
+      "rows": 2431,
+      "labels": 2373
+    },
+    "2025-12-19": {
+      "rows": 2431,
+      "labels": 2374
+    },
+    "2025-12-22": {
+      "rows": 2431,
+      "labels": 2374
+    },
+    "2026-09-21": {
+      "rows": 2431,
+      "immatureNullLabels": 2431
+    },
+    "2026-09-22": {
+      "rows": 2431,
+      "immatureNullLabels": 2431
+    }
+  },
+  "immatureDatesAllLabelsNull": [
+    "2026-09-21",
+    "2026-09-22"
+  ],
+  "benchmark20DayMetricsIndependentlyRecomputedDays": 7,
+  "labelOutsideAllowedWindowReads": 0,
+  "duplicateChunksMerged": 0,
+  "duplicateDateRowsMerged": 0,
+  "originalArtifactsModified": false,
+  "databaseOrExternalWriteCalls": 0
+}

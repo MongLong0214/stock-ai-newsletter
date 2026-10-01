@@ -1,0 +1,222 @@
+{
+  "symbols": [
+    {
+      "symbol": "KOSDAQ:036220",
+      "master": {
+        "is_active": true,
+        "name": "오상헬스케어",
+        "status_flags": {
+          "investment_caution": "N",
+          "liquidation_trading": "N",
+          "managed_stock": "N",
+          "market_warning_code": "00",
+          "market_warning_risk_notice": "N",
+          "reverse_listing": "N",
+          "security_group_code": "ST",
+          "short_term_overheat_code": "0",
+          "trading_suspended": "N",
+          "unfaithful_disclosure": "N"
+        },
+        "symbol": "KOSDAQ:036220"
+      },
+      "chartMetadata": {
+        "count": "2000",
+        "name": "오상헬스케어",
+        "origintime": "20070605",
+        "precision": "0",
+        "symbol": "036220",
+        "timeframe": "day"
+      },
+      "requestUrl": "https://fchart.stock.naver.com/sise.nhn?symbol=036220&timeframe=day&count=2000&requestType=0",
+      "responseSha256": "6873e64d3944146d306666a703016e29a0588e4c56f596d7fd38f69443cc958a",
+      "sameResponseHashAcrossSymbols": 1,
+      "rawHashConfirmed": true,
+      "chartSymbolMatchesRequestedCode": true,
+      "chartNameEqualsCurrentMaster": true,
+      "normalizedRows": 1999,
+      "firstDate": "2010-10-07",
+      "lastDate": "2026-09-29",
+      "rowsByYear": {
+        "2010": 61,
+        "2011": 248,
+        "2012": 248,
+        "2013": 247,
+        "2014": 245,
+        "2015": 248,
+        "2016": 83,
+        "2024": 196,
+        "2025": 242,
+        "2026": 181
+      },
+      "missingIndexDatesByYear": {
+        "2018": 99,
+        "2019": 246,
+        "2020": 248,
+        "2021": 248,
+        "2022": 246,
+        "2023": 245,
+        "2024": 48
+      },
+      "missingRuns": [
+        {
+          "first": "2018-08-03",
+          "last": "2024-03-12",
+          "sessions": 1380
+        }
+      ],
+      "outsideIndexCalendarRows": 1380,
+      "flags": {
+        "invalidOhlc": 56,
+        "nonPositivePrice": 56,
+        "suspensionLike": 56,
+        "zeroVolume": 56
+      },
+      "independentXmlMetadataConfirmed": true
+    },
+    {
+      "symbol": "KOSDAQ:101970",
+      "master": {
+        "is_active": true,
+        "name": "우양에이치씨",
+        "status_flags": {
+          "investment_caution": "N",
+          "liquidation_trading": "N",
+          "managed_stock": "N",
+          "market_warning_code": "00",
+          "market_warning_risk_notice": "N",
+          "reverse_listing": "N",
+          "security_group_code": "ST",
+          "short_term_overheat_code": "0",
+          "trading_suspended": "N",
+          "unfaithful_disclosure": "N"
+        },
+        "symbol": "KOSDAQ:101970"
+      },
+      "chartMetadata": {
+        "count": "1016",
+        "name": "우양에이치씨",
+        "origintime": "20120726",
+        "precision": "0",
+        "symbol": "101970",
+        "timeframe": "day"
+      },
+      "requestUrl": "https://fchart.stock.naver.com/sise.nhn?symbol=101970&timeframe=day&count=2000&requestType=0",
+      "responseSha256": "5f4f7bf7f9e134b88f964dacd5399c8cf3a3b99738487688665af8acb19b1235",
+      "sameResponseHashAcrossSymbols": 1,
+      "rawHashConfirmed": true,
+      "chartSymbolMatchesRequestedCode": true,
+      "chartNameEqualsCurrentMaster": true,
+      "normalizedRows": 1015,
+      "firstDate": "2012-07-26",
+      "lastDate": "2026-09-29",
+      "rowsByYear": {
+        "2012": 107,
+        "2013": 247,
+        "2014": 245,
+        "2015": 49,
+        "2025": 186,
+        "2026": 181
+      },
+      "missingIndexDatesByYear": {
+        "2018": 99,
+        "2019": 246,
+        "2020": 248,
+        "2021": 248,
+        "2022": 246,
+        "2023": 245,
+        "2024": 244,
+        "2025": 56
+      },
+      "missingRuns": [
+        {
+          "first": "2018-08-03",
+          "last": "2025-03-27",
+          "sessions": 1632
+        }
+      ],
+      "outsideIndexCalendarRows": 648,
+      "flags": {
+        "invalidOhlc": 65,
+        "nonPositivePrice": 52,
+        "ohlcContainmentViolation": 13,
+        "roundingLikeContainmentViolation": 13,
+        "suspensionLike": 52,
+        "zeroVolume": 52
+      },
+      "independentXmlMetadataConfirmed": true
+    },
+    {
+      "symbol": "KOSDAQ:198940",
+      "master": {
+        "is_active": true,
+        "name": "한주라이트메탈",
+        "status_flags": {
+          "investment_caution": "N",
+          "liquidation_trading": "N",
+          "managed_stock": "N",
+          "market_warning_code": "00",
+          "market_warning_risk_notice": "N",
+          "reverse_listing": "N",
+          "security_group_code": "ST",
+          "short_term_overheat_code": "0",
+          "trading_suspended": "N",
+          "unfaithful_disclosure": "N"
+        },
+        "symbol": "KOSDAQ:198940"
+      },
+      "chartMetadata": {
+        "count": "1522",
+        "name": "한주라이트메탈",
+        "origintime": "20140812",
+        "precision": "0",
+        "symbol": "198940",
+        "timeframe": "day"
+      },
+      "requestUrl": "https://fchart.stock.naver.com/sise.nhn?symbol=198940&timeframe=day&count=2000&requestType=0",
+      "responseSha256": "8d2107febb286112cfdee707dbb2f015fd0b882813e9ad6aaafc57dfd35fd8ff",
+      "sameResponseHashAcrossSymbols": 1,
+      "rawHashConfirmed": true,
+      "chartSymbolMatchesRequestedCode": true,
+      "chartNameEqualsCurrentMaster": true,
+      "normalizedRows": 1521,
+      "firstDate": "2014-08-12",
+      "lastDate": "2026-09-29",
+      "rowsByYear": {
+        "2014": 94,
+        "2015": 248,
+        "2016": 246,
+        "2017": 34,
+        "2023": 232,
+        "2024": 244,
+        "2025": 242,
+        "2026": 181
+      },
+      "missingIndexDatesByYear": {
+        "2018": 99,
+        "2019": 246,
+        "2020": 248,
+        "2021": 248,
+        "2022": 246,
+        "2023": 13
+      },
+      "missingRuns": [
+        {
+          "first": "2018-08-03",
+          "last": "2023-01-18",
+          "sessions": 1100
+        }
+      ],
+      "outsideIndexCalendarRows": 622,
+      "flags": {
+        "invalidOhlc": 14,
+        "nonPositivePrice": 14,
+        "suspensionLike": 456,
+        "zeroVolume": 456
+      },
+      "independentXmlMetadataConfirmed": true
+    }
+  ],
+  "globalRawHashCollisionGroups": 0,
+  "interpretation": "Identity and gaps measured from preserved response bytes; no refetch, label or outcome calculation. Root cause of the source gaps is not inferred from prices.",
+  "calendarCompressed": false
+}

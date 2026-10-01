@@ -1,0 +1,43 @@
+{
+  "passed": true,
+  "sourceBefore": {
+    "data-handler.ts": "3650e73ff9ae3a9e61bec4ca271c0fbd1ca62952c6ab665077f428ef821a50c0",
+    "features.ts": "dd0ab6bc70a00855e15c9efa7fe166f497f01a66a8eea298857a5acd7098c41d",
+    "technical-context.ts": "fa7b31791e0436e607b57be1c81b29b2544ddc775bcb003452297ba6adc668ee",
+    "data-contract.ts": "84ff2c35b0e88774df1c93369d44100146806bb0ace6a022eeaa9fd10bcb43dd",
+    "trading-days.ts": "5b027a6685069dfac947b5e22942335193cb121cfc48c0f01d911983586a7946",
+    "indicators.ts": "3a55d64dbcb7ee96cef5df9ce4f347d5225bd2332cd842b6db86d09ec7c2877b",
+    "signals.ts": "56dea5da2ffb7134eb1b9f70fe2349f359d0f699851c393549c2502ed0748763",
+    "strategies.ts": "7a672b0b28e4f720a5e24db1c34fab25fc87a53bd1ce65cc9a126604a24fb1e5",
+    "label.ts": "876f29d1313c4e233663d00c5d57e4e6e4cbde4980c26d2d53ba8aba6e081f62"
+  },
+  "sourceAfter": {
+    "data-handler.ts": "3650e73ff9ae3a9e61bec4ca271c0fbd1ca62952c6ab665077f428ef821a50c0",
+    "features.ts": "dd0ab6bc70a00855e15c9efa7fe166f497f01a66a8eea298857a5acd7098c41d",
+    "technical-context.ts": "fa7b31791e0436e607b57be1c81b29b2544ddc775bcb003452297ba6adc668ee",
+    "data-contract.ts": "84ff2c35b0e88774df1c93369d44100146806bb0ace6a022eeaa9fd10bcb43dd",
+    "trading-days.ts": "5b027a6685069dfac947b5e22942335193cb121cfc48c0f01d911983586a7946",
+    "indicators.ts": "3a55d64dbcb7ee96cef5df9ce4f347d5225bd2332cd842b6db86d09ec7c2877b",
+    "signals.ts": "56dea5da2ffb7134eb1b9f70fe2349f359d0f699851c393549c2502ed0748763",
+    "strategies.ts": "7a672b0b28e4f720a5e24db1c34fab25fc87a53bd1ce65cc9a126604a24fb1e5",
+    "label.ts": "876f29d1313c4e233663d00c5d57e4e6e4cbde4980c26d2d53ba8aba6e081f62"
+  },
+  "sourceChanged": false,
+  "inputSha256": "fe2000dacd2aca2017a7a02a8c0ba55de03709e46639aaa9e4ed2d6060207cb5",
+  "outputSha256": "91bac79cb640a350fa461aec89df448301a1bc6eab8f03dfc28471f3bdaed0f6",
+  "rows": 12,
+  "parityChecks": 12,
+  "directFutureBlocked": 4,
+  "futureMutationFactor": 100,
+  "networkAccessDisabled": true,
+  "labelReads": 0,
+  "fitOrTuning": false,
+  "dates": [
+    "2023-06-30",
+    "2023-12-28",
+    "2024-06-28",
+    "2024-12-20"
+  ],
+  "minimumHistorySessions": 369,
+  "breadthUniverse": "3 probe stocks only; not market breadth"
+}

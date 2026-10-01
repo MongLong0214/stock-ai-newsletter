@@ -15,7 +15,12 @@ const state = vi.hoisted(() => ({
   snapshot: null as MarketAssessmentSnapshot | null,
   newsletter: null as Record<string, unknown> | null,
   snapshots: [] as Record<string, unknown>[],
-  corruptSelection: null as 'incomplete' | 'duplicate' | 'all-missing' | 'wrong-strategy' | 'wrong-objective' | 'wrong-ticker' | 'swapped-ranks' | 'wrong-price' | 'snapshot-price' | 'snapshot-name' | 'model-identity' | 'stale-score-hash' | 'stale-score-version' | 'parameters' | null,
+  generated: null as Awaited<ReturnType<typeof import('@/scripts/stock-picks/generate-picks').generatePicksWithMeta>> | null,
+  newsletterWriteAttempts: 0,
+  exposeFutureRows: false,
+  futureRowsLoaded: 0,
+  futureValueReads: 0,
+  corruptSelection: null as 'incomplete' | 'duplicate' | 'all-missing' | 'wrong-strategy' | 'wrong-objective' | 'wrong-ticker' | 'swapped-ranks' | 'wrong-price' | 'wrong-overall-score' | 'wrong-category-score' | 'snapshot-score' | 'snapshot-price' | 'snapshot-name' | 'model-identity' | 'stale-score-hash' | 'stale-score-version' | 'parameters' | null,
   fetchDaily: vi.fn(),
   refreshMaster: vi.fn(),
   alert: vi.fn(),
@@ -51,9 +56,12 @@ vi.mock('@/scripts/stock-picks/data-handler', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/scripts/stock-picks/data-handler')>()
   return {
     ...actual,
-    loadPriceBook: async ({ startDate, endDate }: { startDate: string; endDate: string }) => actual.buildPriceBook(
-      [...state.stored.values()].filter(row => row.trade_date >= startDate && row.trade_date <= endDate),
-    ),
+    loadPriceBook: async ({ startDate, endDate }: { startDate: string; endDate: string }) => {
+      const rows = [...state.stored.values()].filter(row => row.trade_date >= startDate
+        && (state.exposeFutureRows || row.trade_date <= endDate))
+      state.futureRowsLoaded += rows.filter(row => row.trade_date > endDate).length
+      return actual.buildPriceBook(rows)
+    },
   }
 })
 vi.mock('@/scripts/stock-picks/trading-days', async (importOriginal) => {
@@ -68,6 +76,7 @@ vi.mock('@/scripts/stock-picks/generate-picks', async (importOriginal) => {
     const result = await actual.generatePicksWithMeta({ ...input, dependencies: {
       loadMasters: async () => state.masters, loadRecentPublishedSymbols: async () => new Set<string>(),
     } })
+    state.generated = result
     if (!state.corruptSelection) return result
     // Exercise Prepare's persisted-JSON boundary after the real selector/model succeeds.
     const picks = JSON.parse(result.json) as StockData[]
@@ -85,6 +94,18 @@ vi.mock('@/scripts/stock-picks/generate-picks', async (importOriginal) => {
       picks[1]!.selection!.rank = 1
     }
     if (state.corruptSelection === 'wrong-price') picks[0]!.close_price += 500
+    if (state.corruptSelection === 'wrong-overall-score') {
+      picks[0]!.signals.overall_score = (picks[0]!.signals.overall_score + 1) % 101
+      return { ...result, picks, json: JSON.stringify(picks) }
+    }
+    if (state.corruptSelection === 'wrong-category-score') {
+      picks[0]!.signals.momentum_score = (picks[0]!.signals.momentum_score + 1) % 101
+      return { ...result, picks, json: JSON.stringify(picks) }
+    }
+    if (state.corruptSelection === 'snapshot-score') return { ...result, meta: { ...result.meta,
+      rankedCandidates: result.meta.rankedCandidates.map((candidate, index) => index === 0
+        ? { ...candidate, score: (candidate.score + 1) % 101 } : candidate),
+    } }
     if (state.corruptSelection === 'snapshot-price') return { ...result, meta: { ...result.meta,
       rankedCandidates: result.meta.rankedCandidates.map((candidate, index) => index === 0
         ? { ...candidate, close: candidate.close! + 500 } : candidate),
@@ -112,23 +133,46 @@ vi.mock('@supabase/supabase-js', () => ({ createClient: () => database }))
 vi.mock('@/scripts/tli/shared/supabase-admin', () => ({ supabaseAdmin: database }))
 
 import { validateStockData } from '@/lib/llm/korea/stock-json'
-import { riskQuote, riskSnapshot, RISK_NOW } from '@/lib/market-data/__tests__/market-risk-fixture'
+import { riskQuote, riskSnapshot } from '@/lib/market-data/__tests__/market-risk-fixture'
 import { addKoreanTradingDays } from '@/lib/tli/trading-calendar'
 import { generateNewsletterHTML } from '@/lib/sendgrid'
 import { createKisApiError } from '@/app/archive/_utils/api/kis/client'
 import { runPrepareNewsletterCli } from '@/scripts/prepare-newsletter'
 import { DEFAULT_DAILY_COLLECTION_CALL_BUDGET } from '@/scripts/stock-picks/collect-daily'
-import { LOW_VOLATILITY_STABLE_STRATEGY, PRODUCTION_STRATEGY } from '@/scripts/stock-picks/production-strategy'
+import { FROZEN_COMPOSITE_UTILITY_MODEL, LOW_VOLATILITY_STABLE_STRATEGY, PRODUCTION_STRATEGY } from '@/scripts/stock-picks/production-strategy'
+import { buildSignals } from '@/scripts/stock-picks/signals'
+import { buildPriceBook, StockDataHandler } from '@/scripts/stock-picks/data-handler'
+import { buildTradingDayIndex } from '@/scripts/stock-picks/trading-days'
+import { buildObservedInputs50 } from '@/scripts/stock-picks/observed-inputs'
+import { scoreUtilityModel } from '@/scripts/stock-picks/utility-model'
 
-const TARGET = '2026-09-09'
-const SIGNAL = '2026-09-08'
+const TARGET = '2026-10-01'
+const SIGNAL = '2026-09-30'
+const E2E_NOW = `${TARGET}T06:00:00+09:00`
+
+function freshRiskQuote(code: string, changePct = 0, korea = false) {
+  return { ...riskQuote(code, changePct, korea), fetchedAt: E2E_NOW,
+    observedAt: `${SIGNAL}${korea ? 'T15:45:00+09:00' : 'T16:15:00-04:00'}` }
+}
+
+function freshRiskSnapshot(): MarketAssessmentSnapshot {
+  const snapshot = riskSnapshot()
+  snapshot.fetchedAt = E2E_NOW
+  for (const quote of Object.values(snapshot.indicators)) {
+    if (!quote) continue
+    quote.fetchedAt = E2E_NOW
+    quote.observedAt = `${SIGNAL}${quote.observedAt?.endsWith('+09:00')
+      ? 'T15:45:00+09:00' : 'T16:15:00-04:00'}`
+  }
+  return snapshot
+}
 
 describe('Prepare boundary-isolated E2E', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     // Keep real async timers for the collector's rate limiter; freeze only the wall clock.
     vi.useFakeTimers({ toFake: ['Date'] })
-    vi.setSystemTime(new Date(RISK_NOW))
+    vi.setSystemTime(new Date(E2E_NOW))
     vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('Unexpected external network in fixture E2E') }))
     vi.stubEnv('GOOGLE_CLOUD_PROJECT', '')
     vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', 'https://fixture.invalid')
@@ -138,8 +182,13 @@ describe('Prepare boundary-isolated E2E', () => {
     vi.stubEnv('STOCK_PICKS_SNAPSHOT_PATH', '')
     state.newsletter = null
     state.snapshots = []
+    state.generated = null
+    state.newsletterWriteAttempts = 0
+    state.exposeFutureRows = false
+    state.futureRowsLoaded = 0
+    state.futureValueReads = 0
     state.corruptSelection = null
-    state.snapshot = riskSnapshot()
+    state.snapshot = freshRiskSnapshot()
     state.refreshMaster.mockResolvedValue(undefined)
     state.alert.mockResolvedValue(undefined)
     state.masters = Array.from({ length: 6 }, (_, index) => ({
@@ -175,11 +224,12 @@ describe('Prepare boundary-isolated E2E', () => {
       if (table !== 'newsletter_content') throw new Error(`Unexpected E2E table: ${table}`)
       return {
         select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: structuredClone(state.newsletter), error: null }) }) }),
-        insert: (row: Record<string, unknown>) => ({ select: async () => {
+        insert: (row: Record<string, unknown>) => { state.newsletterWriteAttempts++; return { select: async () => {
           if (state.newsletter) return { error: { code: '23505' } }
           state.newsletter = { ...row, is_sent: false }; return { data: [row], error: null }
-        } }),
+        } } },
         update: (row: Record<string, unknown>) => {
+          state.newsletterWriteAttempts++
           const filters = new Map<string, unknown>()
           const builder = { eq: (key: string, value: unknown) => {
             filters.set(key, value)
@@ -206,22 +256,52 @@ describe('Prepare boundary-isolated E2E', () => {
     expect(state.fetchDaily).toHaveBeenCalledTimes(7)
     expect(state.snapshots).toHaveLength(5)
     expect(state.snapshots.map((row) => row.strategy)).toEqual(expect.arrayContaining([
-      'lowVolatilityStable', 'shadow:A-volumeBreakout-v1.1',
+      PRODUCTION_STRATEGY.name, 'shadow:A-volumeBreakout-v1.1',
       'shadow:B-random', 'shadow:J-randomConstrained', 'shadow:bullishTarget-v3',
     ]))
     expect(state.snapshots.every((row) => (row.picks as unknown[]).length === 3)).toBe(true)
     const snapshot = state.snapshots[0]
-    expect(snapshot.strategy).toBe('lowVolatilityStable')
+    expect(snapshot.strategy).toBe(PRODUCTION_STRATEGY.name)
     expect(snapshot.strategy_version).toBe(PRODUCTION_STRATEGY.version)
     expect(snapshot.signal_date).toBe(SIGNAL)
-    const candidates = snapshot.picks as Array<{ symbol: string; rank: number; close: number; technicalContext: unknown }>
+    const candidates = snapshot.picks as Array<{ symbol: string; rank: number; close: number; score: number; technicalContext: unknown }>
     expect(candidates.map(row => row.symbol)).toEqual(picks.map((pick: { ticker: string }) => pick.ticker))
     expect(candidates.map(row => row.rank)).toEqual([1, 2, 3])
     expect(picks.map(pick => pick.selection)).toEqual([1, 2, 3].map(rank => ({
-      strategy: 'lowVolatilityStable', rank, objective: 'lowVolatilityStable',
+      strategy: PRODUCTION_STRATEGY.name, rank, objective: PRODUCTION_STRATEGY.objective,
     })))
     expect(candidates.every(row => row.technicalContext)).toBe(true)
     for (const row of candidates) expect(row.close).toBe(state.stored.get(`${row.symbol}|${SIGNAL}`)?.close)
+    expect(candidates.map(row => row.score)).toEqual(picks.map(pick => pick.signals.overall_score))
+    expect(state.generated!.meta.funnel).toMatchObject({
+      withFreshKisRow: 6, withCompleteFeatures: 6, gatePassed: 6, picked: 3,
+    })
+    // Real frozen-model predictions differ in the decimals but round to the same
+    // published score. Higher turnover wins even against a higher hidden utility.
+    const ranked = state.generated!.meta.rankedCandidates
+    expect(ranked).toHaveLength(6)
+    expect(new Set(ranked.map(candidate => candidate.score)).size).toBe(1)
+    expect(new Set(ranked.map(candidate => candidate.utility)).size).toBeGreaterThan(1)
+    expect(Math.max(...ranked.slice(3).map(candidate => candidate.utility!)))
+      .toBeGreaterThan(Math.min(...ranked.slice(0, 3).map(candidate => candidate.utility!)))
+    expect(picks.map(pick => pick.ticker)).toEqual(['KOSPI:000060', 'KOSPI:000050', 'KOSPI:000040'])
+    expect(ranked.map(candidate => candidate.averageTurnover20))
+      .toEqual([...ranked.map(candidate => candidate.averageTurnover20)].sort((a, b) => b! - a!))
+    const index = buildTradingDayIndex(state.rows.filter(row => row.symbol === 'KOSPI'), [])
+    const handler = new StockDataHandler(buildPriceBook([...state.stored.values()]), index).at(SIGNAL)
+    expect(state.generated!.meta.rankedCandidates.length).toBeGreaterThanOrEqual(3)
+    for (const [pickIndex, candidate] of state.generated!.meta.rankedCandidates.slice(0, 3).entries()) {
+      const inputs = buildObservedInputs50({ feature: candidate, context: candidate.technicalContext!,
+        handler, dates: index.tradingDays })
+      expect(inputs).toHaveLength(50)
+      const predicted = scoreUtilityModel(FROZEN_COMPOSITE_UTILITY_MODEL, inputs)
+      expect(candidate.utility).toBe(predicted.utility)
+      expect(candidate.score).toBe(Math.floor(predicted.utility * 100 + 0.5))
+      expect(picks[pickIndex]!.signals).toEqual({ ...buildSignals(candidate), overall_score: predicted.score })
+      expect(candidate.score).toBeGreaterThanOrEqual(0)
+      expect(candidate.score).toBeLessThanOrEqual(100)
+      expect(Number.isInteger(candidate.score)).toBe(true)
+    }
     const html = generateNewsletterHTML({
       date: TARGET, geminiAnalysis: String(state.newsletter?.gemini_analysis),
     }, 'reader@example.com')
@@ -248,11 +328,72 @@ describe('Prepare boundary-isolated E2E', () => {
     expect(fetch).not.toHaveBeenCalled()
   })
 
-  it.each(['incomplete', 'duplicate', 'all-missing', 'wrong-strategy', 'wrong-objective', 'wrong-ticker', 'swapped-ranks', 'wrong-price', 'snapshot-price', 'snapshot-name', 'model-identity', 'stale-score-hash', 'stale-score-version', 'parameters'] as const)('rejects %s selection corruption before storing any output', async (corruptSelection) => {
+  it('keeps the real model and published picks unchanged when future outcome candles are present but unreadable', async () => {
+    expect(await runPrepareNewsletterCli([`--target-date=${TARGET}`])).toBe(0)
+    const expectedJson = state.newsletter!.gemini_analysis
+    const expectedCandidates = structuredClone(state.snapshots[0]!.picks)
+    state.newsletter = null
+    state.snapshots = []
+    state.exposeFutureRows = true
+    for (const master of state.masters) {
+      const signalRow = state.stored.get(`${master.symbol}|${SIGNAL}`)!
+      for (let offset = 1; offset <= 5; offset++) {
+        const row = { ...signalRow, trade_date: addKoreanTradingDays(SIGNAL, offset) }
+        for (const field of ['open', 'high', 'low', 'close', 'volume'] as const) {
+          Object.defineProperty(row, field, { enumerable: true, get: () => {
+            state.futureValueReads++
+            throw new Error(`Future outcome read: ${row.symbol}/${row.trade_date}/${field}`)
+          } })
+        }
+        state.stored.set(`${row.symbol}|${row.trade_date}`, row)
+      }
+    }
+
+    expect(await runPrepareNewsletterCli([`--target-date=${TARGET}`])).toBe(0)
+    // These 30 future candles reach the real PriceBook. An empty fixture cannot pass this witness.
+    expect(state.futureRowsLoaded).toBe(30)
+    expect(state.futureValueReads).toBe(0)
+    expect(state.newsletter!.gemini_analysis).toBe(expectedJson)
+    expect(state.snapshots[0]!.picks).toEqual(expectedCandidates)
+    expect(state.model).not.toHaveBeenCalled()
+    expect(state.alert).not.toHaveBeenCalled()
+    expect(fetch).not.toHaveBeenCalled()
+  })
+
+  it('uses exact integer-score and turnover ties followed by ASCII ticker order with the real model', async () => {
+    const templateSymbol = state.masters[0]!.symbol
+    const templates = new Map(state.rows.filter(row => row.symbol === templateSymbol)
+      .map(row => [row.trade_date, row]))
+    state.rows = state.rows.map(row => row.symbol === 'KOSPI' ? row
+      : { ...templates.get(row.trade_date)!, symbol: row.symbol })
+    const collectedFrom = addKoreanTradingDays(SIGNAL, -6)
+    state.stored = new Map(state.rows.filter(row => row.trade_date < collectedFrom)
+      .map(row => [`${row.symbol}|${row.trade_date}`, row]))
+    state.masters.reverse()
+
+    expect(await runPrepareNewsletterCli([`--target-date=${TARGET}`])).toBe(0)
+    const candidates = state.generated!.meta.rankedCandidates
+    expect(candidates).toHaveLength(6)
+    expect(new Set(candidates.map(row => row.score)).size).toBe(1)
+    expect(Number.isInteger(candidates[0]!.score)).toBe(true)
+    expect(new Set(candidates.map(row => row.averageTurnover20)).size).toBe(1)
+    const picks = JSON.parse(String(state.newsletter!.gemini_analysis)) as StockData[]
+    expect(picks.map(pick => pick.ticker)).toEqual(['KOSPI:000010', 'KOSPI:000020', 'KOSPI:000030'])
+    expect(picks.map(pick => pick.signals.overall_score)).toEqual(candidates.slice(0, 3).map(row => row.score))
+    expect((state.snapshots[0]!.picks as Array<{ symbol: string }>).map(row => row.symbol))
+      .toEqual(picks.map(pick => pick.ticker))
+    expect(state.fetchDaily).toHaveBeenCalledTimes(7)
+    expect(state.model).not.toHaveBeenCalled()
+    expect(state.alert).not.toHaveBeenCalled()
+    expect(fetch).not.toHaveBeenCalled()
+  })
+
+  it.each(['incomplete', 'duplicate', 'all-missing', 'wrong-strategy', 'wrong-objective', 'wrong-ticker', 'swapped-ranks', 'wrong-price', 'wrong-overall-score', 'wrong-category-score', 'snapshot-score', 'snapshot-price', 'snapshot-name', 'model-identity', 'stale-score-hash', 'stale-score-version', 'parameters'] as const)('rejects %s selection corruption before storing any output', async (corruptSelection) => {
     state.corruptSelection = corruptSelection
     expect(await runPrepareNewsletterCli([`--target-date=${TARGET}`])).toBe(1)
     expect(state.fetchDaily).toHaveBeenCalledTimes(7)
     expect(state.newsletter).toBeNull()
+    expect(state.newsletterWriteAttempts).toBe(0)
     expect(state.snapshots).toHaveLength(0)
     expect(state.model).not.toHaveBeenCalled()
     expect(state.alert).toHaveBeenCalledOnce()
@@ -385,6 +526,89 @@ describe('Prepare boundary-isolated E2E', () => {
     expect(state.alert).toHaveBeenCalledOnce()
   })
 
+  it('fails closed before publication when historical model inputs mix KIS and backfill sources', async () => {
+    const mixedDate = addKoreanTradingDays(SIGNAL, -20)
+    for (const master of state.masters) {
+      const key = `${master.symbol}|${mixedDate}`
+      const row = state.stored.get(key)!
+      expect(row.source).toBe('kis')
+      state.stored.set(key, { ...row, source: 'naver_backfill' })
+    }
+
+    expect(await runPrepareNewsletterCli([`--target-date=${TARGET}`])).toBe(1)
+    expect(state.fetchDaily).toHaveBeenCalledTimes(7)
+    expect(state.generated).toBeNull()
+    expect(state.newsletter).toBeNull()
+    expect(state.newsletterWriteAttempts).toBe(0)
+    expect(state.snapshots).toHaveLength(0)
+    expect(state.alert).toHaveBeenCalledOnce()
+    expect(state.model).not.toHaveBeenCalled()
+    expect(fetch).not.toHaveBeenCalled()
+  })
+
+  it('rejects historical issuance before the frozen model labels matured instead of scoring with future training', async () => {
+    const historicalTarget = FROZEN_COMPOSITE_UTILITY_MODEL.trainedLabelsThrough
+    const historicalSignal = addKoreanTradingDays(historicalTarget, -1)
+    expect(historicalSignal < FROZEN_COMPOSITE_UTILITY_MODEL.trainedLabelsThrough).toBe(true)
+
+    expect(await runPrepareNewsletterCli([`--target-date=${historicalTarget}`])).toBe(1)
+    expect(state.fetchDaily).toHaveBeenCalledTimes(7)
+    expect(state.generated).toBeNull()
+    expect(state.newsletter).toBeNull()
+    expect(state.newsletterWriteAttempts).toBe(0)
+    expect(state.snapshots).toHaveLength(0)
+    expect(state.alert).toHaveBeenCalledOnce()
+    expect(state.model).not.toHaveBeenCalled()
+    expect(fetch).not.toHaveBeenCalled()
+  })
+
+  it.each(['stale', 'invalid-OHLC', 'zero-volume'] as const)(
+    'fails closed on a %s finalized universe without manufacturing valid model picks', async (fault) => {
+      const symbol = state.masters[0]!.symbol
+      state.rows = state.rows.flatMap(row => {
+        if (row.symbol === 'KOSPI' || row.trade_date !== SIGNAL
+          || (fault === 'stale' && row.symbol !== symbol)) return [row]
+        if (fault === 'stale') return []
+        return [{ ...row, ...(fault === 'invalid-OHLC' ? { low: row.high! + 1 } : { volume: 0 }) }]
+      })
+
+      expect(await runPrepareNewsletterCli([`--target-date=${TARGET}`])).toBe(1)
+      expect(state.fetchDaily).toHaveBeenCalledTimes(7)
+      expect(state.newsletter).toBeNull()
+      expect(state.newsletterWriteAttempts).toBe(0)
+      expect(state.snapshots).toHaveLength(0)
+      expect(state.alert).toHaveBeenCalledOnce()
+      expect(state.model).not.toHaveBeenCalled()
+      expect(fetch).not.toHaveBeenCalled()
+    },
+  )
+
+  it.each(['invalid-OHLC', 'zero-volume'] as const)(
+    'excludes a %s candidate and publishes three independently valid model picks', async (fault) => {
+      const rejectedSymbol = state.masters[0]!.symbol
+      state.rows = state.rows.map(row => row.symbol !== rejectedSymbol || row.trade_date !== SIGNAL ? row
+        : { ...row, ...(fault === 'invalid-OHLC' ? { low: row.high! + 1 } : { volume: 0 }) })
+
+      expect(await runPrepareNewsletterCli([`--target-date=${TARGET}`])).toBe(0)
+      const picks = JSON.parse(String(state.newsletter!.gemini_analysis)) as StockData[]
+      expect(picks).toHaveLength(3)
+      expect(picks.map(pick => pick.ticker)).not.toContain(rejectedSymbol)
+      expect(state.generated!.meta.funnel.gatePassed).toBe(5)
+      expect(state.snapshots).toHaveLength(5)
+      for (const pick of picks) {
+        const row = state.stored.get(`${pick.ticker}|${SIGNAL}`)!
+        expect(row.volume).toBeGreaterThan(0)
+        expect(row.low).toBeLessThanOrEqual(row.open!)
+        expect(row.low).toBeLessThanOrEqual(row.close)
+        expect(row.high).toBeGreaterThanOrEqual(row.open!)
+        expect(row.high).toBeGreaterThanOrEqual(row.close)
+      }
+      expect(state.model).not.toHaveBeenCalled()
+      expect(state.alert).not.toHaveBeenCalled()
+      expect(fetch).not.toHaveBeenCalled()
+    },
+  )
+
   it('does not manufacture a third pick when status filters leave only two', async () => {
     state.masters = state.masters.map((master, index) => ({ ...master,
       status_flags: index >= 2 ? { trading_suspended: 'Y' } : {},
@@ -396,7 +620,7 @@ describe('Prepare boundary-isolated E2E', () => {
   })
 
   it('stores a numeric crash alert without stocks or a model even when other market sources are missing', async () => {
-    state.snapshot!.indicators.sp500 = riskQuote('S&P 500', -6)
+    state.snapshot!.indicators.sp500 = freshRiskQuote('S&P 500', -6)
     state.snapshot!.indicators.nasdaqComposite = null
     state.snapshot!.indicators.dowJones = null
     expect(await runPrepareNewsletterCli([`--target-date=${TARGET}`])).toBe(0)

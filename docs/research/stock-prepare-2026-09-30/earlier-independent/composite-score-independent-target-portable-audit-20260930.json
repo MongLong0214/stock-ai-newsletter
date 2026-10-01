@@ -1,0 +1,26 @@
+{
+  "scope": "Actual research portable TypeScript score applied to every earlier235 and outer181 runtime-eligible observed point under both frozen TRAIN-only model artifacts. Observed atoms are calculated directly from source feature/context; no label/outcome reading or fitting. Integer-score hashes are canonical date/symbol order for independent Python parity comparison. No repo changes.",
+  "counts": {
+    "candidateInputs": 501213,
+    "unscorable": 2519,
+    "scoreCalls": 997388,
+    "edgeCases": 8
+  },
+  "actual": {
+    "first150": {
+      "scorablePoints": 498694,
+      "sortedDateSymbolIntegerScoreSha256": "0bc9dae6847a782b3b45b1edcdc62fb92968e78850aada2ab58d00dfb2f13434"
+    },
+    "all235": {
+      "scorablePoints": 498694,
+      "sortedDateSymbolIntegerScoreSha256": "65ae50420c641fd2df785972e17bd00329e96cfc4169aaee8fc1f28f202ce6f6"
+    }
+  },
+  "hashes": {
+    "/tmp/composite-score-research-20260930/raw-composite-study/models.json": "550f1453990c80fec46aaddc6927470cb645ae035869810d4a5a20c4663717b0",
+    "/tmp/composite-score-research-20260930/raw-composite-study/score-portable.ts": "feefbd77f39c0f5fa56ef80fa63969f7cb38903a16e59f20207cc9c7b1a17c70",
+    "/tmp/composite-score-research-20260930/earlier-training/earlier-runtime-eligibility.ndjson": "7eb04e1dffe96d321da87e018942fdab74fd3d319e7fb0dc92d8a90a1dd94b48",
+    "/tmp/composite-score-research-20260930/horizon-runtime-eligibility.ndjson": "873f004cb42ea462177713dc57c8f6dc9349b6af984e5c2d375fb4a58c888861",
+    "/tmp/composite-score-independent-target-portable-audit-20260930.ts": "e1391384b1c8abc6d78d95aee9bb1be5982b5d5006200aabb9f99818f1258ebe"
+  }
+}

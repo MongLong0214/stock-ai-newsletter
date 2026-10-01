@@ -1,0 +1,953 @@
+{
+  "createdAt": "2026-09-30T02:47:06.963Z",
+  "sourceCommit": "97b0c2ffa7b89a7ffdd4bae53e4c0e416e00f22f",
+  "signalScoreVersion": "technical-signals-v2-2026-09-30",
+  "scoreModule": "scripts/stock-picks/signals.ts",
+  "snapshotPath": "/tmp/composite-score-research-20260930/signals-main.ts",
+  "sourceCodeSha256": "56dea5da2ffb7134eb1b9f70fe2349f359d0f699851c393549c2502ed0748763",
+  "executablePath": "/tmp/composite-score-research-20260930/export-current-signals.ts",
+  "executableSha256": "75843937c1f856f35e311fb566d951ae27d7fc8a11d2e67ceabbfdec75c0fc04",
+  "output": {
+    "path": "/tmp/composite-score-research-20260930/current-signals.ndjson",
+    "format": "one JSON object per point: {provenance,date,symbol,signals}",
+    "sha256": "5f52f780c9eb7aeb1faaaf4fc816a2a129ed3a21a867814533545793f548c2d0",
+    "bytes": 52070145,
+    "totalRows": 239869,
+    "scoreKeys": [
+      "trend_score",
+      "momentum_score",
+      "volume_score",
+      "volatility_score",
+      "pattern_score",
+      "sentiment_score",
+      "overall_score"
+    ]
+  },
+  "audit": {
+    "actualBuildSignalsInvocations": 239869,
+    "sourceSignalsNeverUsedForCalculation": true,
+    "inputsUnchanged": true,
+    "overlappingDateSymbolAcrossProvenances": 0,
+    "overlappingDateSymbolScoreDifferences": 0
+  },
+  "sources": [
+    {
+      "provenance": "primary",
+      "path": "/tmp/upside-scored.ndjson",
+      "bytes": 476203573,
+      "dateCount": 180,
+      "pointCount": 238826,
+      "eligibleCount": 226875,
+      "firstDate": "2025-12-23",
+      "lastDate": "2026-09-17",
+      "scoreAtLeast70Count": 15408,
+      "mismatchedDateSymbol": 0,
+      "duplicateDateSymbol": 0,
+      "invalidScores": 0,
+      "featureMutations": 0,
+      "oldSignalsCompared": 238826,
+      "oldSignalsAnyChanged": 238744,
+      "missingFeatureFields": {},
+      "nullFeatureFields": {},
+      "scoreChanges": {
+        "trend_score": {
+          "changedCount": 235897,
+          "deltaMin": -25,
+          "deltaMax": 13,
+          "meanDelta": 0.9771716647266211
+        },
+        "momentum_score": {
+          "changedCount": 0,
+          "deltaMin": 0,
+          "deltaMax": 0,
+          "meanDelta": 0
+        },
+        "volume_score": {
+          "changedCount": 170750,
+          "deltaMin": -16,
+          "deltaMax": 16,
+          "meanDelta": 0.16221851892172545
+        },
+        "volatility_score": {
+          "changedCount": 0,
+          "deltaMin": 0,
+          "deltaMax": 0,
+          "meanDelta": 0
+        },
+        "pattern_score": {
+          "changedCount": 213574,
+          "deltaMin": -25,
+          "deltaMax": 37,
+          "meanDelta": 3.969731101303878
+        },
+        "sentiment_score": {
+          "changedCount": 7363,
+          "deltaMin": -17,
+          "deltaMax": 17,
+          "meanDelta": 0.2249671308818973
+        },
+        "overall_score": {
+          "changedCount": 213159,
+          "deltaMin": -11,
+          "deltaMax": 11,
+          "meanDelta": 1.0518787736678585
+        }
+      },
+      "outputScoreRanges": {
+        "trend_score": {
+          "min": 0,
+          "max": 100
+        },
+        "momentum_score": {
+          "min": 21,
+          "max": 85
+        },
+        "volume_score": {
+          "min": 9,
+          "max": 100
+        },
+        "volatility_score": {
+          "min": 0,
+          "max": 100
+        },
+        "pattern_score": {
+          "min": 8,
+          "max": 93
+        },
+        "sentiment_score": {
+          "min": 17,
+          "max": 100
+        },
+        "overall_score": {
+          "min": 10,
+          "max": 92
+        }
+      },
+      "pointsByDate": [
+        {
+          "date": "2025-12-23",
+          "points": 1213
+        },
+        {
+          "date": "2025-12-24",
+          "points": 1214
+        },
+        {
+          "date": "2025-12-26",
+          "points": 1219
+        },
+        {
+          "date": "2025-12-29",
+          "points": 1229
+        },
+        {
+          "date": "2025-12-30",
+          "points": 1229
+        },
+        {
+          "date": "2026-01-02",
+          "points": 1221
+        },
+        {
+          "date": "2026-01-05",
+          "points": 1211
+        },
+        {
+          "date": "2026-01-06",
+          "points": 1223
+        },
+        {
+          "date": "2026-01-07",
+          "points": 1231
+        },
+        {
+          "date": "2026-01-08",
+          "points": 1247
+        },
+        {
+          "date": "2026-01-09",
+          "points": 1245
+        },
+        {
+          "date": "2026-01-12",
+          "points": 1258
+        },
+        {
+          "date": "2026-01-13",
+          "points": 1254
+        },
+        {
+          "date": "2026-01-14",
+          "points": 1252
+        },
+        {
+          "date": "2026-01-15",
+          "points": 1258
+        },
+        {
+          "date": "2026-01-16",
+          "points": 1264
+        },
+        {
+          "date": "2026-01-19",
+          "points": 1249
+        },
+        {
+          "date": "2026-01-20",
+          "points": 1264
+        },
+        {
+          "date": "2026-01-21",
+          "points": 1276
+        },
+        {
+          "date": "2026-01-22",
+          "points": 1309
+        },
+        {
+          "date": "2026-01-23",
+          "points": 1341
+        },
+        {
+          "date": "2026-01-26",
+          "points": 1333
+        },
+        {
+          "date": "2026-01-27",
+          "points": 1320
+        },
+        {
+          "date": "2026-01-28",
+          "points": 1294
+        },
+        {
+          "date": "2026-01-29",
+          "points": 1270
+        },
+        {
+          "date": "2026-01-30",
+          "points": 1289
+        },
+        {
+          "date": "2026-02-02",
+          "points": 1414
+        },
+        {
+          "date": "2026-02-03",
+          "points": 1380
+        },
+        {
+          "date": "2026-02-04",
+          "points": 1366
+        },
+        {
+          "date": "2026-02-05",
+          "points": 1428
+        },
+        {
+          "date": "2026-02-06",
+          "points": 1470
+        },
+        {
+          "date": "2026-02-09",
+          "points": 1459
+        },
+        {
+          "date": "2026-02-10",
+          "points": 1463
+        },
+        {
+          "date": "2026-02-11",
+          "points": 1480
+        },
+        {
+          "date": "2026-02-12",
+          "points": 1477
+        },
+        {
+          "date": "2026-02-13",
+          "points": 1485
+        },
+        {
+          "date": "2026-02-19",
+          "points": 1451
+        },
+        {
+          "date": "2026-02-20",
+          "points": 1438
+        },
+        {
+          "date": "2026-02-23",
+          "points": 1440
+        },
+        {
+          "date": "2026-02-24",
+          "points": 1483
+        },
+        {
+          "date": "2026-02-25",
+          "points": 1510
+        },
+        {
+          "date": "2026-02-26",
+          "points": 1551
+        },
+        {
+          "date": "2026-02-27",
+          "points": 1593
+        },
+        {
+          "date": "2026-03-03",
+          "points": 1637
+        },
+        {
+          "date": "2026-03-04",
+          "points": 1680
+        },
+        {
+          "date": "2026-03-05",
+          "points": 1666
+        },
+        {
+          "date": "2026-03-06",
+          "points": 1665
+        },
+        {
+          "date": "2026-03-09",
+          "points": 1653
+        },
+        {
+          "date": "2026-03-10",
+          "points": 1647
+        },
+        {
+          "date": "2026-03-11",
+          "points": 1641
+        },
+        {
+          "date": "2026-03-12",
+          "points": 1628
+        },
+        {
+          "date": "2026-03-13",
+          "points": 1612
+        },
+        {
+          "date": "2026-03-16",
+          "points": 1606
+        },
+        {
+          "date": "2026-03-17",
+          "points": 1597
+        },
+        {
+          "date": "2026-03-18",
+          "points": 1584
+        },
+        {
+          "date": "2026-03-19",
+          "points": 1570
+        },
+        {
+          "date": "2026-03-20",
+          "points": 1551
+        },
+        {
+          "date": "2026-03-23",
+          "points": 1557
+        },
+        {
+          "date": "2026-03-24",
+          "points": 1532
+        },
+        {
+          "date": "2026-03-25",
+          "points": 1514
+        },
+        {
+          "date": "2026-03-26",
+          "points": 1499
+        },
+        {
+          "date": "2026-03-27",
+          "points": 1486
+        },
+        {
+          "date": "2026-03-30",
+          "points": 1468
+        },
+        {
+          "date": "2026-03-31",
+          "points": 1460
+        },
+        {
+          "date": "2026-04-01",
+          "points": 1410
+        },
+        {
+          "date": "2026-04-02",
+          "points": 1400
+        },
+        {
+          "date": "2026-04-03",
+          "points": 1387
+        },
+        {
+          "date": "2026-04-06",
+          "points": 1372
+        },
+        {
+          "date": "2026-04-07",
+          "points": 1368
+        },
+        {
+          "date": "2026-04-08",
+          "points": 1365
+        },
+        {
+          "date": "2026-04-09",
+          "points": 1373
+        },
+        {
+          "date": "2026-04-10",
+          "points": 1367
+        },
+        {
+          "date": "2026-04-13",
+          "points": 1352
+        },
+        {
+          "date": "2026-04-14",
+          "points": 1357
+        },
+        {
+          "date": "2026-04-15",
+          "points": 1359
+        },
+        {
+          "date": "2026-04-16",
+          "points": 1384
+        },
+        {
+          "date": "2026-04-17",
+          "points": 1391
+        },
+        {
+          "date": "2026-04-20",
+          "points": 1393
+        },
+        {
+          "date": "2026-04-21",
+          "points": 1409
+        },
+        {
+          "date": "2026-04-22",
+          "points": 1402
+        },
+        {
+          "date": "2026-04-23",
+          "points": 1428
+        },
+        {
+          "date": "2026-04-24",
+          "points": 1397
+        },
+        {
+          "date": "2026-04-27",
+          "points": 1372
+        },
+        {
+          "date": "2026-04-28",
+          "points": 1390
+        },
+        {
+          "date": "2026-04-29",
+          "points": 1389
+        },
+        {
+          "date": "2026-04-30",
+          "points": 1425
+        },
+        {
+          "date": "2026-05-04",
+          "points": 1418
+        },
+        {
+          "date": "2026-05-06",
+          "points": 1431
+        },
+        {
+          "date": "2026-05-07",
+          "points": 1479
+        },
+        {
+          "date": "2026-05-08",
+          "points": 1475
+        },
+        {
+          "date": "2026-05-11",
+          "points": 1480
+        },
+        {
+          "date": "2026-05-12",
+          "points": 1511
+        },
+        {
+          "date": "2026-05-13",
+          "points": 1519
+        },
+        {
+          "date": "2026-05-14",
+          "points": 1528
+        },
+        {
+          "date": "2026-05-15",
+          "points": 1559
+        },
+        {
+          "date": "2026-05-18",
+          "points": 1568
+        },
+        {
+          "date": "2026-05-19",
+          "points": 1564
+        },
+        {
+          "date": "2026-05-20",
+          "points": 1563
+        },
+        {
+          "date": "2026-05-21",
+          "points": 1561
+        },
+        {
+          "date": "2026-05-22",
+          "points": 1548
+        },
+        {
+          "date": "2026-05-26",
+          "points": 1544
+        },
+        {
+          "date": "2026-05-27",
+          "points": 1558
+        },
+        {
+          "date": "2026-05-28",
+          "points": 1558
+        },
+        {
+          "date": "2026-05-29",
+          "points": 1548
+        },
+        {
+          "date": "2026-06-01",
+          "points": 1543
+        },
+        {
+          "date": "2026-06-02",
+          "points": 1542
+        },
+        {
+          "date": "2026-06-04",
+          "points": 1535
+        },
+        {
+          "date": "2026-06-05",
+          "points": 1511
+        },
+        {
+          "date": "2026-06-08",
+          "points": 1484
+        },
+        {
+          "date": "2026-06-09",
+          "points": 1463
+        },
+        {
+          "date": "2026-06-10",
+          "points": 1443
+        },
+        {
+          "date": "2026-06-11",
+          "points": 1412
+        },
+        {
+          "date": "2026-06-12",
+          "points": 1390
+        },
+        {
+          "date": "2026-06-15",
+          "points": 1382
+        },
+        {
+          "date": "2026-06-16",
+          "points": 1357
+        },
+        {
+          "date": "2026-06-17",
+          "points": 1337
+        },
+        {
+          "date": "2026-06-18",
+          "points": 1330
+        },
+        {
+          "date": "2026-06-19",
+          "points": 1319
+        },
+        {
+          "date": "2026-06-22",
+          "points": 1315
+        },
+        {
+          "date": "2026-06-23",
+          "points": 1316
+        },
+        {
+          "date": "2026-06-24",
+          "points": 1306
+        },
+        {
+          "date": "2026-06-25",
+          "points": 1288
+        },
+        {
+          "date": "2026-06-26",
+          "points": 1278
+        },
+        {
+          "date": "2026-06-29",
+          "points": 1270
+        },
+        {
+          "date": "2026-06-30",
+          "points": 1244
+        },
+        {
+          "date": "2026-07-01",
+          "points": 1226
+        },
+        {
+          "date": "2026-07-02",
+          "points": 1220
+        },
+        {
+          "date": "2026-07-03",
+          "points": 1215
+        },
+        {
+          "date": "2026-07-06",
+          "points": 1207
+        },
+        {
+          "date": "2026-07-07",
+          "points": 1200
+        },
+        {
+          "date": "2026-07-08",
+          "points": 1197
+        },
+        {
+          "date": "2026-07-09",
+          "points": 1197
+        },
+        {
+          "date": "2026-07-10",
+          "points": 1190
+        },
+        {
+          "date": "2026-07-13",
+          "points": 1186
+        },
+        {
+          "date": "2026-07-14",
+          "points": 1178
+        },
+        {
+          "date": "2026-07-15",
+          "points": 1166
+        },
+        {
+          "date": "2026-07-16",
+          "points": 1162
+        },
+        {
+          "date": "2026-07-20",
+          "points": 1148
+        },
+        {
+          "date": "2026-07-21",
+          "points": 1141
+        },
+        {
+          "date": "2026-07-22",
+          "points": 1122
+        },
+        {
+          "date": "2026-07-23",
+          "points": 1114
+        },
+        {
+          "date": "2026-07-24",
+          "points": 1114
+        },
+        {
+          "date": "2026-07-27",
+          "points": 1096
+        },
+        {
+          "date": "2026-07-28",
+          "points": 1090
+        },
+        {
+          "date": "2026-07-29",
+          "points": 1096
+        },
+        {
+          "date": "2026-07-30",
+          "points": 1093
+        },
+        {
+          "date": "2026-07-31",
+          "points": 1094
+        },
+        {
+          "date": "2026-08-03",
+          "points": 1090
+        },
+        {
+          "date": "2026-08-04",
+          "points": 1088
+        },
+        {
+          "date": "2026-08-05",
+          "points": 1091
+        },
+        {
+          "date": "2026-08-06",
+          "points": 1084
+        },
+        {
+          "date": "2026-08-07",
+          "points": 1079
+        },
+        {
+          "date": "2026-08-10",
+          "points": 1078
+        },
+        {
+          "date": "2026-08-11",
+          "points": 1077
+        },
+        {
+          "date": "2026-08-12",
+          "points": 1076
+        },
+        {
+          "date": "2026-08-13",
+          "points": 1073
+        },
+        {
+          "date": "2026-08-14",
+          "points": 1076
+        },
+        {
+          "date": "2026-08-18",
+          "points": 1096
+        },
+        {
+          "date": "2026-08-19",
+          "points": 1094
+        },
+        {
+          "date": "2026-08-20",
+          "points": 1100
+        },
+        {
+          "date": "2026-08-21",
+          "points": 1094
+        },
+        {
+          "date": "2026-08-24",
+          "points": 1094
+        },
+        {
+          "date": "2026-08-25",
+          "points": 1095
+        },
+        {
+          "date": "2026-08-26",
+          "points": 1111
+        },
+        {
+          "date": "2026-08-27",
+          "points": 1089
+        },
+        {
+          "date": "2026-08-28",
+          "points": 1087
+        },
+        {
+          "date": "2026-08-31",
+          "points": 1076
+        },
+        {
+          "date": "2026-09-01",
+          "points": 1079
+        },
+        {
+          "date": "2026-09-02",
+          "points": 1073
+        },
+        {
+          "date": "2026-09-03",
+          "points": 1080
+        },
+        {
+          "date": "2026-09-04",
+          "points": 1088
+        },
+        {
+          "date": "2026-09-07",
+          "points": 1091
+        },
+        {
+          "date": "2026-09-08",
+          "points": 1075
+        },
+        {
+          "date": "2026-09-09",
+          "points": 1068
+        },
+        {
+          "date": "2026-09-10",
+          "points": 1065
+        },
+        {
+          "date": "2026-09-11",
+          "points": 1053
+        },
+        {
+          "date": "2026-09-14",
+          "points": 1047
+        },
+        {
+          "date": "2026-09-15",
+          "points": 1033
+        },
+        {
+          "date": "2026-09-16",
+          "points": 1030
+        },
+        {
+          "date": "2026-09-17",
+          "points": 1023
+        }
+      ],
+      "sha256": "388bdb24afb58aad1fd78a7f6f7e3b353e630e65041d51f8995ac0c0d9b421a5",
+      "sourceUnchanged": true
+    },
+    {
+      "provenance": "fresh-mature",
+      "path": "/tmp/stock-research-fresh-mature-20260930/scored.ndjson",
+      "bytes": 2059403,
+      "dateCount": 1,
+      "pointCount": 1043,
+      "eligibleCount": 1002,
+      "firstDate": "2026-09-18",
+      "lastDate": "2026-09-18",
+      "scoreAtLeast70Count": 57,
+      "mismatchedDateSymbol": 0,
+      "duplicateDateSymbol": 0,
+      "invalidScores": 0,
+      "featureMutations": 0,
+      "oldSignalsCompared": 1043,
+      "oldSignalsAnyChanged": 0,
+      "missingFeatureFields": {},
+      "nullFeatureFields": {},
+      "scoreChanges": {
+        "trend_score": {
+          "changedCount": 0,
+          "deltaMin": 0,
+          "deltaMax": 0,
+          "meanDelta": 0
+        },
+        "momentum_score": {
+          "changedCount": 0,
+          "deltaMin": 0,
+          "deltaMax": 0,
+          "meanDelta": 0
+        },
+        "volume_score": {
+          "changedCount": 0,
+          "deltaMin": 0,
+          "deltaMax": 0,
+          "meanDelta": 0
+        },
+        "volatility_score": {
+          "changedCount": 0,
+          "deltaMin": 0,
+          "deltaMax": 0,
+          "meanDelta": 0
+        },
+        "pattern_score": {
+          "changedCount": 0,
+          "deltaMin": 0,
+          "deltaMax": 0,
+          "meanDelta": 0
+        },
+        "sentiment_score": {
+          "changedCount": 0,
+          "deltaMin": 0,
+          "deltaMax": 0,
+          "meanDelta": 0
+        },
+        "overall_score": {
+          "changedCount": 0,
+          "deltaMin": 0,
+          "deltaMax": 0,
+          "meanDelta": 0
+        }
+      },
+      "outputScoreRanges": {
+        "trend_score": {
+          "min": 1,
+          "max": 99
+        },
+        "momentum_score": {
+          "min": 28,
+          "max": 85
+        },
+        "volume_score": {
+          "min": 12,
+          "max": 100
+        },
+        "volatility_score": {
+          "min": 0,
+          "max": 100
+        },
+        "pattern_score": {
+          "min": 8,
+          "max": 93
+        },
+        "sentiment_score": {
+          "min": 17,
+          "max": 93
+        },
+        "overall_score": {
+          "min": 16,
+          "max": 82
+        }
+      },
+      "pointsByDate": [
+        {
+          "date": "2026-09-18",
+          "points": 1043
+        }
+      ],
+      "sha256": "ad2d7ef3a368d82267884d7b6b8b459a6a731b71ad15e8876d59ba72968a933b",
+      "sourceUnchanged": true
+    }
+  ]
+}

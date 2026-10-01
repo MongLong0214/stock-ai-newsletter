@@ -1,0 +1,60 @@
+{
+  "scope": "TRAINfold1 first150 raw-label/input reconstruction and four available small lambda.35 spot refits; no PRIMARY signal outcomes",
+  "allObservedCacheOriginal18Rows": 1559349,
+  "original18Source7TurnoverDifferences": 0,
+  "rawTrainBarObjectsDecoded": 294759,
+  "rawTrainFirstBar": "2020-01-03",
+  "rawTrainLastBar": "2020-08-13",
+  "rawTrainCacheDifferences": 0,
+  "strictRows": 166126,
+  "completeIndependentRefits": [
+    {
+      "bundle": "A-small-lambda0.35-inputs18-prefix150",
+      "strictRows": 166126,
+      "inputSha256": "bbea754e72c35df296b96644dd216d95e4b2bdea4a498bce69dc2b6f584df73a",
+      "all100TreeSha256": "be7bcd9fe6565a13a7cffad7666c75fc3584a384f9b0ea12b7b2d8cfbd637a7a",
+      "assessmentObservedPredictionDate": "2020-10-23",
+      "predictionRows": 1280,
+      "seconds": 11.96753045800142
+    },
+    {
+      "bundle": "A-small-lambda0.35-inputs50-prefix150",
+      "strictRows": 166126,
+      "inputSha256": "b36f30addabd4cc0e9e08ab7cb982c40e63614cb1bea6ffc9332cad8d91083ab",
+      "all100TreeSha256": "968d061e80507a0afb969da7a21b3ef8d7d603c1273b402dd0ef17e949161bb4",
+      "assessmentObservedPredictionDate": "2020-10-23",
+      "predictionRows": 1280,
+      "seconds": 32.996189291006885
+    },
+    {
+      "bundle": "B-small-lambda0.35-inputs18-prefix150",
+      "strictRows": 166126,
+      "inputSha256": "bbea754e72c35df296b96644dd216d95e4b2bdea4a498bce69dc2b6f584df73a",
+      "all100TreeSha256": "8a791efbc8eb9a4d9ad61677bec386e9350eb80e8c80024eb1e41917f4c050dc",
+      "assessmentObservedPredictionDate": "2020-10-23",
+      "predictionRows": 1280,
+      "seconds": 0.6045662499964237
+    },
+    {
+      "bundle": "B-small-lambda0.35-inputs50-prefix150",
+      "strictRows": 166126,
+      "inputSha256": "b36f30addabd4cc0e9e08ab7cb982c40e63614cb1bea6ffc9332cad8d91083ab",
+      "all100TreeSha256": "a9dead12e03a46703666382a8490497272e621053411d837526e79ed3187ba9c",
+      "assessmentObservedPredictionDate": "2020-10-23",
+      "predictionRows": 1280,
+      "seconds": 0.9072766250028508
+    }
+  ],
+  "notYetAvailable": [],
+  "differences": [],
+  "newNaver2023_2024SignalOutcomesRead": false,
+  "sourceTruthLimitation": "Conditional on frozen NAVER source; no point-in-time adjusted vintage or KIS exchange-close equivalence proof",
+  "sourceHashes": {
+    "/tmp/composite-score-experimental-20260930/independent-naver-first-model-audit.py": "caac2a7e04a35793754deeb30bae57d41f8e74f356d8902696e364c090510e1d",
+    "/tmp/composite-score-experimental-20260930/naver-protocol.json": "377ed12d88de69989043bd7ef21b4b057a44c2fbab90ba19f4f679189e69033c",
+    "/tmp/composite-score-experimental-20260930/naver-research.py": "cadd301d2a92f1a0a6ec12eefed15892b9a21cc3b64ee5785e1ed01191d5d13f",
+    "/tmp/composite-score-experimental-20260930/fixed-models.py": "5d140b420ef95c47f95f8cba351f3c0432b15dde6e4ee12952ca6f63e29986ec",
+    "/tmp/composite-score-experimental-20260930/naver-cache/manifest.json": "69ca312eda945fff89fb70bf775c99448377ee1a92aed227fae34d83943834b2",
+    "/tmp/composite-score-experimental-20260930/naver-history/prices.ndjson": "6347d11d70043a9016f751f8f4c1de31f4498c20d29f7e69688b8e76dbd003a8"
+  }
+}

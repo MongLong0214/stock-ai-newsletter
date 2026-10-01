@@ -1,0 +1,577 @@
+{
+  "topDatesByPriceDisagreementFraction": [
+    {
+      "date": "2026-09-14",
+      "comparedRows": 2424,
+      "closeDifferent": 2099,
+      "anyPriceDifferent": 2169,
+      "anyOhlcvDifferent": 2169,
+      "highDifferent": 743,
+      "lowDifferent": 610,
+      "openDifferent": 6,
+      "volumeDifferent": 1,
+      "anyPriceDifferentFraction": 0.8948019801980198,
+      "firstCloseDifferenceExample": {
+        "symbol": "KOSDAQ:000250",
+        "naver": {
+          "open": 158100,
+          "high": 160000,
+          "low": 155100,
+          "close": 155800,
+          "volume": 57391
+        },
+        "kis": {
+          "open": 158100,
+          "high": 160000,
+          "low": 155100,
+          "close": 157800,
+          "volume": 57391
+        }
+      }
+    },
+    {
+      "date": "2026-09-17",
+      "comparedRows": 2430,
+      "closeDifferent": 2064,
+      "anyPriceDifferent": 2122,
+      "anyOhlcvDifferent": 2122,
+      "highDifferent": 710,
+      "lowDifferent": 296,
+      "openDifferent": 11,
+      "anyPriceDifferentFraction": 0.8732510288065843,
+      "firstCloseDifferenceExample": {
+        "symbol": "KOSDAQ:000250",
+        "naver": {
+          "open": 157600,
+          "high": 164200,
+          "low": 156900,
+          "close": 162500,
+          "volume": 59022
+        },
+        "kis": {
+          "open": 157600,
+          "high": 164200,
+          "low": 156900,
+          "close": 163500,
+          "volume": 59022
+        }
+      }
+    },
+    {
+      "date": "2026-09-15",
+      "comparedRows": 2428,
+      "highDifferent": 634,
+      "closeDifferent": 2056,
+      "anyPriceDifferent": 2115,
+      "anyOhlcvDifferent": 2115,
+      "lowDifferent": 367,
+      "openDifferent": 10,
+      "anyPriceDifferentFraction": 0.8710873146622735,
+      "firstCloseDifferenceExample": {
+        "symbol": "KOSDAQ:000250",
+        "naver": {
+          "open": 156300,
+          "high": 163400,
+          "low": 154700,
+          "close": 158700,
+          "volume": 63089
+        },
+        "kis": {
+          "open": 156300,
+          "high": 161800,
+          "low": 154700,
+          "close": 157500,
+          "volume": 63089
+        }
+      }
+    },
+    {
+      "date": "2026-09-29",
+      "comparedRows": 2429,
+      "closeDifferent": 2061,
+      "anyPriceDifferent": 2115,
+      "anyOhlcvDifferent": 2115,
+      "highDifferent": 688,
+      "lowDifferent": 281,
+      "anyPriceDifferentFraction": 0.8707286949361878,
+      "firstCloseDifferenceExample": {
+        "symbol": "KOSDAQ:000250",
+        "naver": {
+          "open": 162100,
+          "high": 168000,
+          "low": 158400,
+          "close": 166300,
+          "volume": 82461
+        },
+        "kis": {
+          "open": 162100,
+          "high": 168000,
+          "low": 158400,
+          "close": 166100,
+          "volume": 82461
+        }
+      }
+    },
+    {
+      "date": "2026-09-21",
+      "comparedRows": 2430,
+      "closeDifferent": 2055,
+      "anyPriceDifferent": 2107,
+      "anyOhlcvDifferent": 2107,
+      "highDifferent": 590,
+      "lowDifferent": 349,
+      "openDifferent": 7,
+      "anyPriceDifferentFraction": 0.8670781893004115,
+      "firstCloseDifferenceExample": {
+        "symbol": "KOSDAQ:000250",
+        "naver": {
+          "open": 161100,
+          "high": 163400,
+          "low": 160300,
+          "close": 161400,
+          "volume": 48445
+        },
+        "kis": {
+          "open": 161100,
+          "high": 163400,
+          "low": 160300,
+          "close": 161700,
+          "volume": 48445
+        }
+      }
+    },
+    {
+      "date": "2026-09-23",
+      "comparedRows": 2430,
+      "closeDifferent": 2042,
+      "anyPriceDifferent": 2107,
+      "anyOhlcvDifferent": 2107,
+      "highDifferent": 544,
+      "lowDifferent": 357,
+      "openDifferent": 6,
+      "anyPriceDifferentFraction": 0.8670781893004115,
+      "firstCloseDifferenceExample": {
+        "symbol": "KOSDAQ:000250",
+        "naver": {
+          "open": 162000,
+          "high": 167400,
+          "low": 162000,
+          "close": 166600,
+          "volume": 62923
+        },
+        "kis": {
+          "open": 162000,
+          "high": 167400,
+          "low": 162000,
+          "close": 165700,
+          "volume": 62923
+        }
+      }
+    },
+    {
+      "date": "2026-09-28",
+      "comparedRows": 2430,
+      "lowDifferent": 435,
+      "closeDifferent": 2037,
+      "anyPriceDifferent": 2103,
+      "anyOhlcvDifferent": 2103,
+      "highDifferent": 560,
+      "openDifferent": 2,
+      "anyPriceDifferentFraction": 0.8654320987654321,
+      "firstCloseDifferenceExample": {
+        "symbol": "KOSDAQ:000250",
+        "naver": {
+          "open": 169200,
+          "high": 170800,
+          "low": 161800,
+          "close": 162300,
+          "volume": 89011
+        },
+        "kis": {
+          "open": 169200,
+          "high": 170800,
+          "low": 162300,
+          "close": 162500,
+          "volume": 89011
+        }
+      }
+    },
+    {
+      "date": "2026-09-18",
+      "comparedRows": 2430,
+      "closeDifferent": 2036,
+      "anyPriceDifferent": 2102,
+      "anyOhlcvDifferent": 2102,
+      "highDifferent": 544,
+      "lowDifferent": 413,
+      "openDifferent": 9,
+      "anyPriceDifferentFraction": 0.8650205761316873,
+      "firstCloseDifferenceExample": {
+        "symbol": "KOSDAQ:000250",
+        "naver": {
+          "open": 163600,
+          "high": 163600,
+          "low": 158600,
+          "close": 160700,
+          "volume": 60459
+        },
+        "kis": {
+          "open": 163600,
+          "high": 163600,
+          "low": 158600,
+          "close": 159600,
+          "volume": 60459
+        }
+      }
+    },
+    {
+      "date": "2026-09-22",
+      "comparedRows": 2430,
+      "closeDifferent": 2016,
+      "anyPriceDifferent": 2099,
+      "anyOhlcvDifferent": 2099,
+      "highDifferent": 469,
+      "lowDifferent": 604,
+      "openDifferent": 7,
+      "anyPriceDifferentFraction": 0.8637860082304527,
+      "firstCloseDifferenceExample": {
+        "symbol": "KOSDAQ:000250",
+        "naver": {
+          "open": 162900,
+          "high": 163800,
+          "low": 158500,
+          "close": 161800,
+          "volume": 65829
+        },
+        "kis": {
+          "open": 162900,
+          "high": 163800,
+          "low": 158500,
+          "close": 162600,
+          "volume": 65829
+        }
+      }
+    },
+    {
+      "date": "2026-09-16",
+      "comparedRows": 2430,
+      "highDifferent": 645,
+      "closeDifferent": 2016,
+      "anyPriceDifferent": 2091,
+      "anyOhlcvDifferent": 2091,
+      "lowDifferent": 331,
+      "openDifferent": 11,
+      "anyPriceDifferentFraction": 0.8604938271604938,
+      "firstCloseDifferenceExample": {
+        "symbol": "KOSDAQ:000250",
+        "naver": {
+          "open": 157000,
+          "high": 157400,
+          "low": 153800,
+          "close": 156900,
+          "volume": 39710
+        },
+        "kis": {
+          "open": 157000,
+          "high": 157000,
+          "low": 153800,
+          "close": 156100,
+          "volume": 39710
+        }
+      }
+    },
+    {
+      "date": "2024-09-24",
+      "comparedRows": 2255,
+      "openDifferent": 121,
+      "highDifferent": 112,
+      "lowDifferent": 115,
+      "volumeDifferent": 77,
+      "anyPriceDifferent": 161,
+      "anyOhlcvDifferent": 191,
+      "closeDifferent": 65,
+      "anyPriceDifferentFraction": 0.07139689578713969,
+      "firstCloseDifferenceExample": {
+        "symbol": "KOSDAQ:010170",
+        "naver": {
+          "open": 860,
+          "high": 860,
+          "low": 843,
+          "close": 849,
+          "volume": 114988
+        },
+        "kis": {
+          "open": 861,
+          "high": 861,
+          "low": 843,
+          "close": 850,
+          "volume": 114988
+        }
+      }
+    },
+    {
+      "date": "2024-09-04",
+      "comparedRows": 2254,
+      "highDifferent": 121,
+      "closeDifferent": 71,
+      "volumeDifferent": 74,
+      "anyPriceDifferent": 159,
+      "anyOhlcvDifferent": 184,
+      "lowDifferent": 115,
+      "openDifferent": 123,
+      "anyPriceDifferentFraction": 0.07054125998225377,
+      "firstCloseDifferenceExample": {
+        "symbol": "KOSDAQ:008830",
+        "naver": {
+          "open": 4666,
+          "high": 4931,
+          "low": 4666,
+          "close": 4743,
+          "volume": 44726
+        },
+        "kis": {
+          "open": 4666,
+          "high": 4932,
+          "low": 4666,
+          "close": 4744,
+          "volume": 44727
+        }
+      }
+    },
+    {
+      "date": "2024-09-05",
+      "comparedRows": 2254,
+      "highDifferent": 124,
+      "lowDifferent": 115,
+      "volumeDifferent": 80,
+      "anyPriceDifferent": 159,
+      "anyOhlcvDifferent": 190,
+      "openDifferent": 112,
+      "closeDifferent": 71,
+      "anyPriceDifferentFraction": 0.07054125998225377,
+      "firstCloseDifferenceExample": {
+        "symbol": "KOSDAQ:012210",
+        "naver": {
+          "open": 2635,
+          "high": 2640,
+          "low": 2075,
+          "close": 2550,
+          "volume": 929
+        },
+        "kis": {
+          "open": 5275,
+          "high": 5285,
+          "low": 4154,
+          "close": 5105,
+          "volume": 464
+        }
+      }
+    },
+    {
+      "date": "2024-09-09",
+      "comparedRows": 2254,
+      "openDifferent": 117,
+      "highDifferent": 109,
+      "lowDifferent": 124,
+      "closeDifferent": 73,
+      "anyPriceDifferent": 159,
+      "anyOhlcvDifferent": 186,
+      "volumeDifferent": 76,
+      "anyPriceDifferentFraction": 0.07054125998225377,
+      "firstCloseDifferenceExample": {
+        "symbol": "KOSDAQ:008830",
+        "naver": {
+          "open": 4355,
+          "high": 4614,
+          "low": 4355,
+          "close": 4588,
+          "volume": 22590
+        },
+        "kis": {
+          "open": 4356,
+          "high": 4615,
+          "low": 4356,
+          "close": 4589,
+          "volume": 22590
+        }
+      }
+    },
+    {
+      "date": "2024-09-13",
+      "comparedRows": 2254,
+      "closeDifferent": 68,
+      "anyPriceDifferent": 159,
+      "anyOhlcvDifferent": 191,
+      "highDifferent": 110,
+      "volumeDifferent": 84,
+      "openDifferent": 121,
+      "lowDifferent": 112,
+      "anyPriceDifferentFraction": 0.07054125998225377,
+      "firstCloseDifferenceExample": {
+        "symbol": "KOSDAQ:008830",
+        "naver": {
+          "open": 4789,
+          "high": 4815,
+          "low": 4679,
+          "close": 4698,
+          "volume": 55549
+        },
+        "kis": {
+          "open": 4789,
+          "high": 4815,
+          "low": 4679,
+          "close": 4699,
+          "volume": 55549
+        }
+      }
+    },
+    {
+      "date": "2024-09-02",
+      "comparedRows": 2254,
+      "openDifferent": 124,
+      "lowDifferent": 116,
+      "closeDifferent": 65,
+      "volumeDifferent": 77,
+      "anyPriceDifferent": 158,
+      "anyOhlcvDifferent": 184,
+      "highDifferent": 115,
+      "anyPriceDifferentFraction": 0.07009760425909495,
+      "firstCloseDifferenceExample": {
+        "symbol": "KOSDAQ:008830",
+        "naver": {
+          "open": 4976,
+          "high": 5048,
+          "low": 4724,
+          "close": 4983,
+          "volume": 46473
+        },
+        "kis": {
+          "open": 4977,
+          "high": 5048,
+          "low": 4725,
+          "close": 4984,
+          "volume": 46474
+        }
+      }
+    },
+    {
+      "date": "2024-08-30",
+      "comparedRows": 2254,
+      "volumeDifferent": 73,
+      "anyOhlcvDifferent": 185,
+      "openDifferent": 115,
+      "highDifferent": 103,
+      "lowDifferent": 119,
+      "anyPriceDifferent": 156,
+      "closeDifferent": 61,
+      "anyPriceDifferentFraction": 0.06921029281277728,
+      "firstCloseDifferenceExample": {
+        "symbol": "KOSDAQ:012210",
+        "naver": {
+          "open": 3100,
+          "high": 3100,
+          "low": 3100,
+          "close": 3100,
+          "volume": 0
+        },
+        "kis": {
+          "open": 6206,
+          "high": 6206,
+          "low": 6206,
+          "close": 6206,
+          "volume": 0
+        }
+      }
+    },
+    {
+      "date": "2024-09-20",
+      "comparedRows": 2254,
+      "volumeDifferent": 74,
+      "anyOhlcvDifferent": 185,
+      "highDifferent": 113,
+      "closeDifferent": 65,
+      "anyPriceDifferent": 156,
+      "openDifferent": 113,
+      "lowDifferent": 110,
+      "anyPriceDifferentFraction": 0.06921029281277728,
+      "firstCloseDifferenceExample": {
+        "symbol": "KOSDAQ:008830",
+        "naver": {
+          "open": 4705,
+          "high": 4821,
+          "low": 4705,
+          "close": 4737,
+          "volume": 47011
+        },
+        "kis": {
+          "open": 4705,
+          "high": 4822,
+          "low": 4705,
+          "close": 4738,
+          "volume": 47012
+        }
+      }
+    },
+    {
+      "date": "2024-09-23",
+      "comparedRows": 2255,
+      "openDifferent": 105,
+      "lowDifferent": 113,
+      "closeDifferent": 71,
+      "anyPriceDifferent": 156,
+      "anyOhlcvDifferent": 188,
+      "highDifferent": 114,
+      "volumeDifferent": 74,
+      "anyPriceDifferentFraction": 0.06917960088691796,
+      "firstCloseDifferenceExample": {
+        "symbol": "KOSDAQ:008830",
+        "naver": {
+          "open": 4737,
+          "high": 4828,
+          "low": 4646,
+          "close": 4737,
+          "volume": 41327
+        },
+        "kis": {
+          "open": 4738,
+          "high": 4828,
+          "low": 4647,
+          "close": 4738,
+          "volume": 41327
+        }
+      }
+    },
+    {
+      "date": "2024-08-28",
+      "comparedRows": 2253,
+      "openDifferent": 107,
+      "highDifferent": 115,
+      "lowDifferent": 123,
+      "closeDifferent": 69,
+      "anyPriceDifferent": 155,
+      "anyOhlcvDifferent": 186,
+      "volumeDifferent": 78,
+      "anyPriceDifferentFraction": 0.06879715934309809,
+      "firstCloseDifferenceExample": {
+        "symbol": "KOSDAQ:008830",
+        "naver": {
+          "open": 4983,
+          "high": 5164,
+          "low": 4976,
+          "close": 4976,
+          "volume": 20984
+        },
+        "kis": {
+          "open": 4984,
+          "high": 5165,
+          "low": 4977,
+          "close": 4977,
+          "volume": 20984
+        }
+      }
+    }
+  ],
+  "labelsComputed": false,
+  "performanceComputed": false,
+  "rawValuesEdited": false
+}

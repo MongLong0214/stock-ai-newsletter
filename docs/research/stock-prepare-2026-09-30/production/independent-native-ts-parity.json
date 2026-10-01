@@ -1,0 +1,11 @@
+{
+  "scope": "Actual production TypeScript predictor versus independently refitted native sklearn over observed, all-null/zero, single-missing, every finite threshold equality and adjacent IEEE754 cases",
+  "cases": 1952,
+  "differences": 0,
+  "snapshotModelSha256": "381a8c6a3f95b8dd333460ab19e0487147da8a2e3714da5f64264442af176fae",
+  "productionPredictorSha256": "bf1fd3f8529c2ae25ef23f3fcdffed9691cb6f98aeedcb70b213c391a4d01828",
+  "predictorObservedInputModuleSha256": "7c3abd6c96a4bd3ed6ea9f94d6c6e996808f771d1f70c2601375693159242d44",
+  "dateAdapter": "trainedLabelsThrough from captured metadata.latestLabelMaturity; final production artifact adapter not yet reviewed",
+  "productionEdits": 0,
+  "newFitsInThisTSComparison": 0
+}

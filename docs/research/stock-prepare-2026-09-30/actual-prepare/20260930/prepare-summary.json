@@ -1,0 +1,105 @@
+{
+  "event": "prepare_run_summary",
+  "targetDate": "2026-09-30",
+  "signalDate": "2026-09-29",
+  "runId": "2026-09-30-da068a54",
+  "picksSource": "code",
+  "verdict": "NORMAL",
+  "confidence": 60,
+  "marketRisk": {
+    "policyVersion": "2026-09-23.v3",
+    "riskScore": 5.63,
+    "dataQuality": {
+      "status": "degraded",
+      "score": 60,
+      "indicators": {
+        "sp500": "usable",
+        "dowJones": "usable",
+        "nasdaqComposite": "usable",
+        "kospi200MiniFutures": "missing",
+        "nightFutures": "missing",
+        "kospi": "usable",
+        "kosdaq": "usable",
+        "vix": "usable",
+        "usdKrw": "missing",
+        "usdJpy": "missing"
+      },
+      "issues": [
+        "kospi200MiniFutures: missing",
+        "nightFutures: missing",
+        "usdKrw: missing",
+        "usdJpy: missing"
+      ]
+    },
+    "reasonCodes": [
+      "NO_WARNING_RULE_TRIGGERED"
+    ],
+    "marketOverview": {
+      "sp500_close": "-0.17% (관측 2026-09-29T20:38:00.000Z)",
+      "nasdaq_close": "-0.09% (관측 2026-09-29T20:15:00.000Z)",
+      "dow_close": "-0.26% (관측 2026-09-29T20:00:00.000Z)",
+      "kospi_spot": "-0.27% (관측 2026-09-29T11:15:00.000Z)",
+      "kosdaq_spot": "0.38% (관측 2026-09-29T11:15:00.000Z)",
+      "kospi_futures": "확인 불가",
+      "kosdaq_futures": "확인 불가 (KOSDAQ 현물과 별개)",
+      "vix": "16.04 (관측 2026-09-29T20:15:01.000Z)",
+      "usd_krw": "확인 불가"
+    },
+    "confidenceMeaning": "data_coverage_not_probability"
+  },
+  "tokenWarmup": "issued",
+  "collection": {
+    "attemptedCalls": 2433,
+    "successCount": 2432,
+    "failureCount": 1,
+    "exactDateCoverageRate": 0.9995888157894737,
+    "indexFailed": false,
+    "skippedForBudget": 0,
+    "retriedSymbols": [
+      "KOSDAQ:469480"
+    ],
+    "recoveredSymbols": [
+      "KOSDAQ:469480"
+    ],
+    "persistedRows": 17018
+  },
+  "picks": [
+    {
+      "rank": 1,
+      "ticker": "KOSDAQ:475830",
+      "name": "오름테라퓨틱",
+      "close_price": 22500,
+      "score": 0.5133590856557751
+    },
+    {
+      "rank": 2,
+      "ticker": "KOSDAQ:024850",
+      "name": "HLB이노베이션",
+      "close_price": 16140,
+      "score": 0.4598243579566694
+    },
+    {
+      "rank": 3,
+      "ticker": "KOSDAQ:026910",
+      "name": "광진실업",
+      "close_price": 2350,
+      "score": 0.45041059752428636
+    }
+  ],
+  "candidateCount": 955,
+  "durationsSec": {
+    "assessment": 26.809,
+    "master": 6.356,
+    "collection": 1244.139,
+    "picks": 87.061,
+    "total": 1367.412
+  },
+  "warnings": [
+    "종목 수집 중 시장 판정 유효기간 경과 — 저장 전 시장 재평가"
+  ],
+  "budget": {
+    "deadlineMinutes": 38,
+    "remainingSecAtCollection": 2256,
+    "remainingSecAtPicks": 1012
+  }
+}

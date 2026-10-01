@@ -1,0 +1,1094 @@
+{
+  "winnerA": {
+    "days": 80,
+    "full3Days": 80,
+    "picks": 240,
+    "slotCoverage": 1.0,
+    "zeroVolumePicks": 2,
+    "missingBarPicks": 0,
+    "strictPositiveVolume": {
+      "labels": 238,
+      "missingLabels": 2,
+      "touchCount": 113,
+      "touchRate": 0.47478991596638653,
+      "D1bullishCount": 101,
+      "D1bullishRate": 0.42436974789915966,
+      "touchAndPositiveD5Count": 95,
+      "meanNet5d": 0.008603473483549274,
+      "medianNet5d": -0.0016522911051213259,
+      "positiveD5NetRate": 0.4957983193277311,
+      "loss5Count": 86,
+      "loss5Rate": 0.36134453781512604,
+      "loss10Count": 37,
+      "loss10Rate": 0.15546218487394958,
+      "worstNet5d": -0.32692473118279575,
+      "meanMAE": -0.0815880027429495,
+      "worstMAE": -0.4061224489795918,
+      "meanTargetNetProxy": 0.011241307252468838,
+      "medianTargetNetProxy": 0.029884615384615287,
+      "targetProxyLoss5Count": 73,
+      "targetProxyLoss10Count": 33,
+      "pooledMeanUtilityProxy": -0.015504557437775093,
+      "anyNegativeD5NetCount": 120,
+      "anyNegativeD5NetRate": 0.5042016806722689,
+      "touchAndLoss5Count": 13,
+      "touchAndNonNegativeD5Count": 95,
+      "touchAndNonNegativeD5Rate": 0.39915966386554624,
+      "touchAndNegativeD5Count": 18,
+      "touchAndNegativeD5Rate": 0.07563025210084033,
+      "touchAndPositiveD5Rate": 0.39915966386554624,
+      "T_x_L5_JointCounts": {
+        "0_0": 52,
+        "0_1": 73,
+        "1_0": 100,
+        "1_1": 13
+      }
+    },
+    "rawObservationalMarks": {
+      "labels": 240,
+      "missingLabels": 0,
+      "touchCount": 115,
+      "touchRate": 0.4791666666666667,
+      "D1bullishCount": 101,
+      "D1bullishRate": 0.42083333333333334,
+      "touchAndPositiveD5Count": 96,
+      "meanNet5d": 0.011646662650377027,
+      "medianNet5d": -0.0016522911051213259,
+      "positiveD5NetRate": 0.49583333333333335,
+      "loss5Count": 87,
+      "loss5Rate": 0.3625,
+      "loss10Count": 38,
+      "loss10Rate": 0.15833333333333333,
+      "worstNet5d": -0.32692473118279575,
+      "meanMAE": -0.08244976825885644,
+      "worstMAE": -0.4061224489795918,
+      "meanTargetNetProxy": 0.011955963025364932,
+      "medianTargetNetProxy": 0.03437320566304236,
+      "targetProxyLoss5Count": 73,
+      "targetProxyLoss10Count": 33,
+      "pooledMeanUtilityProxy": -0.014567019459126966,
+      "anyNegativeD5NetCount": 121,
+      "anyNegativeD5NetRate": 0.5041666666666667,
+      "touchAndLoss5Count": 14,
+      "touchAndNonNegativeD5Count": 96,
+      "touchAndNonNegativeD5Rate": 0.4,
+      "touchAndNegativeD5Count": 19,
+      "touchAndNegativeD5Rate": 0.07916666666666666,
+      "touchAndPositiveD5Rate": 0.4,
+      "T_x_L5_JointCounts": {
+        "0_0": 52,
+        "0_1": 73,
+        "1_0": 101,
+        "1_1": 14
+      }
+    },
+    "dateBalancedStrictMeans": {
+      "utility": -0.016121781338135466,
+      "targetNetProxy": 0.010849415419194014,
+      "net5d": 0.00830207018893508,
+      "touch": 0.47291666666666665,
+      "entryBullish": 0.42291666666666666
+    },
+    "strictCoveredDates": 80,
+    "scoreMin": 33,
+    "scoreMean": 40.270833333333336,
+    "scoreMax": 63,
+    "scoreAtLeast70Picks": 0,
+    "all3ScoreAtLeast70Days": 0,
+    "all3TouchDays": 8,
+    "all3D1BullishDays": 5,
+    "all3PositiveD5Days": 16,
+    "shortfallDays": [],
+    "tieDiagnostics": {
+      "activeDays": 80,
+      "integerVsRawTop3DifferentDays": 60,
+      "all3IntegerTiedDays": 10,
+      "eligibleAllScoreMax0Days": 0
+    },
+    "selectedUtilityCalibrationBins": [
+      {
+        "from": 0.0,
+        "through": 0.1,
+        "points": 0,
+        "meanExpectedUtility": null,
+        "meanActualUtility": null,
+        "outcomes": {
+          "labels": 0,
+          "missingLabels": 0
+        }
+      },
+      {
+        "from": 0.1,
+        "through": 0.2,
+        "points": 0,
+        "meanExpectedUtility": null,
+        "meanActualUtility": null,
+        "outcomes": {
+          "labels": 0,
+          "missingLabels": 0
+        }
+      },
+      {
+        "from": 0.2,
+        "through": 0.3,
+        "points": 0,
+        "meanExpectedUtility": null,
+        "meanActualUtility": null,
+        "outcomes": {
+          "labels": 0,
+          "missingLabels": 0
+        }
+      },
+      {
+        "from": 0.3,
+        "through": 0.4,
+        "points": 127,
+        "meanExpectedUtility": 0.37268520577626724,
+        "meanActualUtility": 0.44261512765449773,
+        "outcomes": {
+          "labels": 127,
+          "missingLabels": 0,
+          "touchCount": 55,
+          "touchRate": 0.4330708661417323,
+          "D1bullishCount": 52,
+          "D1bullishRate": 0.4094488188976378,
+          "touchAndPositiveD5Count": 47,
+          "meanNet5d": -0.008282274701085526,
+          "medianNet5d": -0.004745200698080263,
+          "positiveD5NetRate": 0.4645669291338583,
+          "loss5Count": 51,
+          "loss5Rate": 0.4015748031496063,
+          "loss10Count": 21,
+          "loss10Rate": 0.16535433070866143,
+          "worstNet5d": -0.32692473118279575,
+          "meanMAE": -0.0804173568347807,
+          "worstMAE": -0.3413978494623656,
+          "meanTargetNetProxy": 0.0026162541314954965,
+          "medianTargetNetProxy": 0.012112317457624647,
+          "targetProxyLoss5Count": 45,
+          "targetProxyLoss10Count": 20,
+          "pooledMeanUtilityProxy": -0.02932334962676014,
+          "anyNegativeD5NetCount": 68,
+          "anyNegativeD5NetRate": 0.5354330708661418,
+          "touchAndLoss5Count": 6,
+          "touchAndNonNegativeD5Count": 47,
+          "touchAndNonNegativeD5Rate": 0.3700787401574803,
+          "touchAndNegativeD5Count": 8,
+          "touchAndNegativeD5Rate": 0.06299212598425197,
+          "touchAndPositiveD5Rate": 0.3700787401574803,
+          "T_x_L5_JointCounts": {
+            "0_0": 27,
+            "0_1": 45,
+            "1_0": 49,
+            "1_1": 6
+          }
+        }
+      },
+      {
+        "from": 0.4,
+        "through": 0.5,
+        "points": 101,
+        "meanExpectedUtility": 0.42304996128446976,
+        "meanActualUtility": 0.4881488148814882,
+        "outcomes": {
+          "labels": 101,
+          "missingLabels": 0,
+          "touchCount": 49,
+          "touchRate": 0.48514851485148514,
+          "D1bullishCount": 45,
+          "D1bullishRate": 0.44554455445544555,
+          "touchAndPositiveD5Count": 40,
+          "meanNet5d": 0.016596333003903473,
+          "medianNet5d": 0.0003026247175387268,
+          "positiveD5NetRate": 0.504950495049505,
+          "loss5Count": 33,
+          "loss5Rate": 0.32673267326732675,
+          "loss10Count": 16,
+          "loss10Rate": 0.15841584158415842,
+          "worstNet5d": -0.2787983636843494,
+          "meanMAE": -0.08664080870459434,
+          "worstMAE": -0.4061224489795918,
+          "meanTargetNetProxy": 0.015404334233544292,
+          "medianTargetNetProxy": 0.03199999999999992,
+          "targetProxyLoss5Count": 27,
+          "targetProxyLoss10Count": 13,
+          "pooledMeanUtilityProxy": -0.007600766883082161,
+          "anyNegativeD5NetCount": 50,
+          "anyNegativeD5NetRate": 0.49504950495049505,
+          "touchAndLoss5Count": 6,
+          "touchAndNonNegativeD5Count": 40,
+          "touchAndNonNegativeD5Rate": 0.39603960396039606,
+          "touchAndNegativeD5Count": 9,
+          "touchAndNegativeD5Rate": 0.0891089108910891,
+          "touchAndPositiveD5Rate": 0.39603960396039606,
+          "T_x_L5_JointCounts": {
+            "0_0": 25,
+            "0_1": 27,
+            "1_0": 43,
+            "1_1": 6
+          }
+        }
+      },
+      {
+        "from": 0.5,
+        "through": 0.6,
+        "points": 7,
+        "meanExpectedUtility": 0.5389876097919607,
+        "meanActualUtility": 0.9307359307359307,
+        "outcomes": {
+          "labels": 7,
+          "missingLabels": 0,
+          "touchCount": 7,
+          "touchRate": 1,
+          "D1bullishCount": 3,
+          "D1bullishRate": 0.42857142857142855,
+          "touchAndPositiveD5Count": 7,
+          "meanNet5d": 0.18423687360783772,
+          "medianNet5d": 0.17361097852028629,
+          "positiveD5NetRate": 1,
+          "loss5Count": 0,
+          "loss5Rate": 0,
+          "loss10Count": 0,
+          "loss10Rate": 0,
+          "worstNet5d": 0.07071007371007376,
+          "meanMAE": -0.03971864322865356,
+          "worstMAE": -0.08309925093632964,
+          "meanTargetNetProxy": 0.097,
+          "medianTargetNetProxy": 0.097,
+          "targetProxyLoss5Count": 0,
+          "targetProxyLoss10Count": 0,
+          "pooledMeanUtilityProxy": 0.10771428571428572,
+          "anyNegativeD5NetCount": 0,
+          "anyNegativeD5NetRate": 0,
+          "touchAndLoss5Count": 0,
+          "touchAndNonNegativeD5Count": 7,
+          "touchAndNonNegativeD5Rate": 1,
+          "touchAndNegativeD5Count": 0,
+          "touchAndNegativeD5Rate": 0,
+          "touchAndPositiveD5Rate": 1,
+          "T_x_L5_JointCounts": {
+            "0_0": 0,
+            "0_1": 0,
+            "1_0": 7,
+            "1_1": 0
+          }
+        }
+      },
+      {
+        "from": 0.6,
+        "through": 0.7,
+        "points": 3,
+        "meanExpectedUtility": 0.6270772430935075,
+        "meanActualUtility": 0.494949494949495,
+        "outcomes": {
+          "labels": 3,
+          "missingLabels": 0,
+          "touchCount": 2,
+          "touchRate": 0.6666666666666666,
+          "D1bullishCount": 1,
+          "D1bullishRate": 0.3333333333333333,
+          "touchAndPositiveD5Count": 1,
+          "meanNet5d": 0.044529275824491475,
+          "medianNet5d": -0.07590640394088666,
+          "positiveD5NetRate": 0.3333333333333333,
+          "loss5Count": 2,
+          "loss5Rate": 0.6666666666666666,
+          "loss10Count": 0,
+          "loss10Rate": 0,
+          "worstNet5d": -0.08567090620031792,
+          "meanMAE": -0.05872938434674294,
+          "worstMAE": -0.08585055643879169,
+          "meanTargetNetProxy": 0.03610969793322736,
+          "medianTargetNetProxy": 0.097,
+          "targetProxyLoss5Count": 1,
+          "targetProxyLoss10Count": 0,
+          "pooledMeanUtilityProxy": 0.015886062533121387,
+          "anyNegativeD5NetCount": 2,
+          "anyNegativeD5NetRate": 0.6666666666666666,
+          "touchAndLoss5Count": 1,
+          "touchAndNonNegativeD5Count": 1,
+          "touchAndNonNegativeD5Rate": 0.3333333333333333,
+          "touchAndNegativeD5Count": 1,
+          "touchAndNegativeD5Rate": 0.3333333333333333,
+          "touchAndPositiveD5Rate": 0.3333333333333333,
+          "T_x_L5_JointCounts": {
+            "0_0": 0,
+            "0_1": 1,
+            "1_0": 1,
+            "1_1": 1
+          }
+        }
+      },
+      {
+        "from": 0.7,
+        "through": 0.8,
+        "points": 0,
+        "meanExpectedUtility": null,
+        "meanActualUtility": null,
+        "outcomes": {
+          "labels": 0,
+          "missingLabels": 0
+        }
+      },
+      {
+        "from": 0.8,
+        "through": 0.9,
+        "points": 0,
+        "meanExpectedUtility": null,
+        "meanActualUtility": null,
+        "outcomes": {
+          "labels": 0,
+          "missingLabels": 0
+        }
+      },
+      {
+        "from": 0.9,
+        "through": 1.0,
+        "points": 0,
+        "meanExpectedUtility": null,
+        "meanActualUtility": null,
+        "outcomes": {
+          "labels": 0,
+          "missingLabels": 0
+        }
+      }
+    ],
+    "expectedUtilityCalibration": {
+      "strictPoints": 238,
+      "meanPredicted": 0.402156353870343,
+      "meanActual": 0.47695441813088874,
+      "MSE": 0.18369188608369416
+    }
+  },
+  "winnerB": {
+    "days": 80,
+    "full3Days": 80,
+    "picks": 240,
+    "slotCoverage": 1.0,
+    "zeroVolumePicks": 1,
+    "missingBarPicks": 0,
+    "strictPositiveVolume": {
+      "labels": 239,
+      "missingLabels": 1,
+      "touchCount": 96,
+      "touchRate": 0.401673640167364,
+      "D1bullishCount": 98,
+      "D1bullishRate": 0.4100418410041841,
+      "touchAndPositiveD5Count": 81,
+      "meanNet5d": 0.00632649018557554,
+      "medianNet5d": -0.009993006993006977,
+      "positiveD5NetRate": 0.4686192468619247,
+      "loss5Count": 78,
+      "loss5Rate": 0.3263598326359833,
+      "loss10Count": 34,
+      "loss10Rate": 0.14225941422594143,
+      "worstNet5d": -0.24613569438917626,
+      "meanMAE": -0.07714958584172031,
+      "worstMAE": -0.3187425387982491,
+      "meanTargetNetProxy": 0.006188722378595741,
+      "medianTargetNetProxy": 0.013455696202531734,
+      "targetProxyLoss5Count": 74,
+      "targetProxyLoss10Count": 32,
+      "pooledMeanUtilityProxy": -0.019756110726224293,
+      "anyNegativeD5NetCount": 127,
+      "anyNegativeD5NetRate": 0.5313807531380753,
+      "touchAndLoss5Count": 4,
+      "touchAndNonNegativeD5Count": 81,
+      "touchAndNonNegativeD5Rate": 0.3389121338912134,
+      "touchAndNegativeD5Count": 15,
+      "touchAndNegativeD5Rate": 0.06276150627615062,
+      "touchAndPositiveD5Rate": 0.3389121338912134,
+      "T_x_L5_JointCounts": {
+        "0_0": 69,
+        "0_1": 74,
+        "1_0": 92,
+        "1_1": 4
+      }
+    },
+    "rawObservationalMarks": {
+      "labels": 240,
+      "missingLabels": 0,
+      "touchCount": 97,
+      "touchRate": 0.4041666666666667,
+      "D1bullishCount": 99,
+      "D1bullishRate": 0.4125,
+      "touchAndPositiveD5Count": 81,
+      "meanNet5d": 0.006146591769828099,
+      "medianNet5d": -0.010186540396872498,
+      "positiveD5NetRate": 0.4666666666666667,
+      "loss5Count": 78,
+      "loss5Rate": 0.325,
+      "loss10Count": 34,
+      "loss10Rate": 0.14166666666666666,
+      "worstNet5d": -0.24613569438917626,
+      "meanMAE": -0.07702155283172539,
+      "worstMAE": -0.3187425387982491,
+      "meanTargetNetProxy": 0.006567102702018259,
+      "medianTargetNetProxy": 0.013519722064781584,
+      "targetProxyLoss5Count": 74,
+      "targetProxyLoss10Count": 32,
+      "pooledMeanUtilityProxy": -0.019165460264865028,
+      "anyNegativeD5NetCount": 128,
+      "anyNegativeD5NetRate": 0.5333333333333333,
+      "touchAndLoss5Count": 4,
+      "touchAndNonNegativeD5Count": 81,
+      "touchAndNonNegativeD5Rate": 0.3375,
+      "touchAndNegativeD5Count": 16,
+      "touchAndNegativeD5Rate": 0.06666666666666667,
+      "touchAndPositiveD5Rate": 0.3375,
+      "T_x_L5_JointCounts": {
+        "0_0": 69,
+        "0_1": 74,
+        "1_0": 93,
+        "1_1": 4
+      }
+    },
+    "dateBalancedStrictMeans": {
+      "utility": -0.019928778054375564,
+      "targetNetProxy": 0.006002500104972914,
+      "net5d": 0.006139693879423631,
+      "touch": 0.39999999999999997,
+      "entryBullish": 0.4125
+    },
+    "strictCoveredDates": 80,
+    "scoreMin": 36,
+    "scoreMean": 37.170833333333334,
+    "scoreMax": 41,
+    "scoreAtLeast70Picks": 0,
+    "all3ScoreAtLeast70Days": 0,
+    "all3TouchDays": 5,
+    "all3D1BullishDays": 6,
+    "all3PositiveD5Days": 7,
+    "shortfallDays": [],
+    "tieDiagnostics": {
+      "activeDays": 80,
+      "integerVsRawTop3DifferentDays": 0,
+      "all3IntegerTiedDays": 17,
+      "eligibleAllScoreMax0Days": 0
+    },
+    "selectedUtilityCalibrationBins": [
+      {
+        "from": 0.0,
+        "through": 0.1,
+        "points": 0,
+        "meanExpectedUtility": null,
+        "meanActualUtility": null,
+        "outcomes": {
+          "labels": 0,
+          "missingLabels": 0
+        }
+      },
+      {
+        "from": 0.1,
+        "through": 0.2,
+        "points": 0,
+        "meanExpectedUtility": null,
+        "meanActualUtility": null,
+        "outcomes": {
+          "labels": 0,
+          "missingLabels": 0
+        }
+      },
+      {
+        "from": 0.2,
+        "through": 0.3,
+        "points": 0,
+        "meanExpectedUtility": null,
+        "meanActualUtility": null,
+        "outcomes": {
+          "labels": 0,
+          "missingLabels": 0
+        }
+      },
+      {
+        "from": 0.3,
+        "through": 0.4,
+        "points": 230,
+        "meanExpectedUtility": 0.3698472626725344,
+        "meanActualUtility": 0.4288537549407115,
+        "outcomes": {
+          "labels": 230,
+          "missingLabels": 0,
+          "touchCount": 93,
+          "touchRate": 0.4043478260869565,
+          "D1bullishCount": 94,
+          "D1bullishRate": 0.40869565217391307,
+          "touchAndPositiveD5Count": 78,
+          "meanNet5d": 0.006093342580900625,
+          "medianNet5d": -0.010186540396872498,
+          "positiveD5NetRate": 0.4652173913043478,
+          "loss5Count": 74,
+          "loss5Rate": 0.3217391304347826,
+          "loss10Count": 32,
+          "loss10Rate": 0.1391304347826087,
+          "worstNet5d": -0.22964624808575806,
+          "meanMAE": -0.07616761528610226,
+          "worstMAE": -0.26640926640926643,
+          "meanTargetNetProxy": 0.007143179460906572,
+          "medianTargetNetProxy": 0.013519722064781584,
+          "targetProxyLoss5Count": 70,
+          "targetProxyLoss10Count": 30,
+          "pooledMeanUtilityProxy": -0.017974991513973932,
+          "anyNegativeD5NetCount": 123,
+          "anyNegativeD5NetRate": 0.5347826086956522,
+          "touchAndLoss5Count": 4,
+          "touchAndNonNegativeD5Count": 78,
+          "touchAndNonNegativeD5Rate": 0.3391304347826087,
+          "touchAndNegativeD5Count": 15,
+          "touchAndNegativeD5Rate": 0.06521739130434782,
+          "touchAndPositiveD5Rate": 0.3391304347826087,
+          "T_x_L5_JointCounts": {
+            "0_0": 67,
+            "0_1": 70,
+            "1_0": 89,
+            "1_1": 4
+          }
+        }
+      },
+      {
+        "from": 0.4,
+        "through": 0.5,
+        "points": 9,
+        "meanExpectedUtility": 0.413601016310666,
+        "meanActualUtility": 0.43434343434343436,
+        "outcomes": {
+          "labels": 9,
+          "missingLabels": 0,
+          "touchCount": 3,
+          "touchRate": 0.3333333333333333,
+          "D1bullishCount": 4,
+          "D1bullishRate": 0.4444444444444444,
+          "touchAndPositiveD5Count": 3,
+          "meanNet5d": 0.012284706749490028,
+          "medianNet5d": 0.01226717557251911,
+          "positiveD5NetRate": 0.5555555555555556,
+          "loss5Count": 4,
+          "loss5Rate": 0.4444444444444444,
+          "loss10Count": 2,
+          "loss10Rate": 0.2222222222222222,
+          "worstNet5d": -0.24613569438917626,
+          "meanMAE": -0.102244388929737,
+          "worstMAE": -0.3187425387982491,
+          "meanTargetNetProxy": -0.018202958613792154,
+          "medianTargetNetProxy": 0.01226717557251911,
+          "targetProxyLoss5Count": 4,
+          "targetProxyLoss10Count": 2,
+          "pooledMeanUtilityProxy": -0.06527360170595582,
+          "anyNegativeD5NetCount": 4,
+          "anyNegativeD5NetRate": 0.4444444444444444,
+          "touchAndLoss5Count": 0,
+          "touchAndNonNegativeD5Count": 3,
+          "touchAndNonNegativeD5Rate": 0.3333333333333333,
+          "touchAndNegativeD5Count": 0,
+          "touchAndNegativeD5Rate": 0,
+          "touchAndPositiveD5Rate": 0.3333333333333333,
+          "T_x_L5_JointCounts": {
+            "0_0": 2,
+            "0_1": 4,
+            "1_0": 3,
+            "1_1": 0
+          }
+        }
+      },
+      {
+        "from": 0.5,
+        "through": 0.6,
+        "points": 0,
+        "meanExpectedUtility": null,
+        "meanActualUtility": null,
+        "outcomes": {
+          "labels": 0,
+          "missingLabels": 0
+        }
+      },
+      {
+        "from": 0.6,
+        "through": 0.7,
+        "points": 0,
+        "meanExpectedUtility": null,
+        "meanActualUtility": null,
+        "outcomes": {
+          "labels": 0,
+          "missingLabels": 0
+        }
+      },
+      {
+        "from": 0.7,
+        "through": 0.8,
+        "points": 0,
+        "meanExpectedUtility": null,
+        "meanActualUtility": null,
+        "outcomes": {
+          "labels": 0,
+          "missingLabels": 0
+        }
+      },
+      {
+        "from": 0.8,
+        "through": 0.9,
+        "points": 0,
+        "meanExpectedUtility": null,
+        "meanActualUtility": null,
+        "outcomes": {
+          "labels": 0,
+          "missingLabels": 0
+        }
+      },
+      {
+        "from": 0.9,
+        "through": 1.0,
+        "points": 0,
+        "meanExpectedUtility": null,
+        "meanActualUtility": null,
+        "outcomes": {
+          "labels": 0,
+          "missingLabels": 0
+        }
+      }
+    ],
+    "expectedUtilityCalibration": {
+      "strictPoints": 239,
+      "meanPredicted": 0.37149489356267323,
+      "meanActual": 0.4290604792696843,
+      "MSE": 0.17464314478710616
+    }
+  },
+  "currentOverall": {
+    "days": 80,
+    "full3Days": 80,
+    "picks": 240,
+    "slotCoverage": 1.0,
+    "zeroVolumePicks": 1,
+    "missingBarPicks": 0,
+    "strictPositiveVolume": {
+      "labels": 239,
+      "missingLabels": 1,
+      "touchCount": 66,
+      "touchRate": 0.27615062761506276,
+      "D1bullishCount": 82,
+      "D1bullishRate": 0.34309623430962344,
+      "touchAndPositiveD5Count": 56,
+      "meanNet5d": 0.004094322178009902,
+      "medianNet5d": -0.011196721311475418,
+      "positiveD5NetRate": 0.4393305439330544,
+      "loss5Count": 67,
+      "loss5Rate": 0.2803347280334728,
+      "loss10Count": 29,
+      "loss10Rate": 0.12133891213389121,
+      "worstNet5d": -0.219374269005848,
+      "meanMAE": -0.06258001159136568,
+      "worstMAE": -0.22729044834307988,
+      "meanTargetNetProxy": 0.0011505472043090983,
+      "medianTargetNetProxy": -0.004709401709401703,
+      "targetProxyLoss5Count": 61,
+      "targetProxyLoss10Count": 27,
+      "pooledMeanUtilityProxy": -0.022163458913993666,
+      "anyNegativeD5NetCount": 134,
+      "anyNegativeD5NetRate": 0.5606694560669456,
+      "touchAndLoss5Count": 6,
+      "touchAndNonNegativeD5Count": 56,
+      "touchAndNonNegativeD5Rate": 0.23430962343096234,
+      "touchAndNegativeD5Count": 10,
+      "touchAndNegativeD5Rate": 0.04184100418410042,
+      "touchAndPositiveD5Rate": 0.23430962343096234,
+      "T_x_L5_JointCounts": {
+        "0_0": 112,
+        "0_1": 61,
+        "1_0": 60,
+        "1_1": 6
+      }
+    },
+    "rawObservationalMarks": {
+      "labels": 240,
+      "missingLabels": 0,
+      "touchCount": 66,
+      "touchRate": 0.275,
+      "D1bullishCount": 82,
+      "D1bullishRate": 0.3416666666666667,
+      "touchAndPositiveD5Count": 56,
+      "meanNet5d": 0.003971334772497836,
+      "medianNet5d": -0.011219947466659937,
+      "positiveD5NetRate": 0.4375,
+      "loss5Count": 67,
+      "loss5Rate": 0.2791666666666667,
+      "loss10Count": 29,
+      "loss10Rate": 0.12083333333333333,
+      "worstNet5d": -0.219374269005848,
+      "meanMAE": -0.06249059434419623,
+      "worstMAE": -0.22729044834307988,
+      "meanTargetNetProxy": 0.0010398255278541188,
+      "medianTargetNetProxy": -0.005303136544156259,
+      "targetProxyLoss5Count": 61,
+      "targetProxyLoss10Count": 27,
+      "pooledMeanUtilityProxy": -0.022282966628059408,
+      "anyNegativeD5NetCount": 135,
+      "anyNegativeD5NetRate": 0.5625,
+      "touchAndLoss5Count": 6,
+      "touchAndNonNegativeD5Count": 56,
+      "touchAndNonNegativeD5Rate": 0.23333333333333334,
+      "touchAndNegativeD5Count": 10,
+      "touchAndNegativeD5Rate": 0.041666666666666664,
+      "touchAndPositiveD5Rate": 0.23333333333333334,
+      "T_x_L5_JointCounts": {
+        "0_0": 113,
+        "0_1": 61,
+        "1_0": 60,
+        "1_1": 6
+      }
+    },
+    "dateBalancedStrictMeans": {
+      "utility": -0.02188457129347275,
+      "targetNetProxy": 0.0013140231951474467,
+      "net5d": 0.004186008630267354,
+      "touch": 0.2770833333333333,
+      "entryBullish": 0.34375
+    },
+    "strictCoveredDates": 80,
+    "scoreMin": 75,
+    "scoreMean": 82.83333333333333,
+    "scoreMax": 89,
+    "scoreAtLeast70Picks": 240,
+    "all3ScoreAtLeast70Days": 80,
+    "all3TouchDays": 1,
+    "all3D1BullishDays": 5,
+    "all3PositiveD5Days": 10,
+    "shortfallDays": [],
+    "tieDiagnostics": {
+      "activeDays": 0,
+      "integerVsRawTop3DifferentDays": 0,
+      "all3IntegerTiedDays": 0,
+      "eligibleAllScoreMax0Days": 0
+    },
+    "selectedUtilityCalibrationBins": [
+      {
+        "from": 0.0,
+        "through": 0.1,
+        "points": 0,
+        "meanExpectedUtility": null,
+        "meanActualUtility": null,
+        "outcomes": {
+          "labels": 0,
+          "missingLabels": 0
+        }
+      },
+      {
+        "from": 0.1,
+        "through": 0.2,
+        "points": 0,
+        "meanExpectedUtility": null,
+        "meanActualUtility": null,
+        "outcomes": {
+          "labels": 0,
+          "missingLabels": 0
+        }
+      },
+      {
+        "from": 0.2,
+        "through": 0.3,
+        "points": 0,
+        "meanExpectedUtility": null,
+        "meanActualUtility": null,
+        "outcomes": {
+          "labels": 0,
+          "missingLabels": 0
+        }
+      },
+      {
+        "from": 0.3,
+        "through": 0.4,
+        "points": 0,
+        "meanExpectedUtility": null,
+        "meanActualUtility": null,
+        "outcomes": {
+          "labels": 0,
+          "missingLabels": 0
+        }
+      },
+      {
+        "from": 0.4,
+        "through": 0.5,
+        "points": 0,
+        "meanExpectedUtility": null,
+        "meanActualUtility": null,
+        "outcomes": {
+          "labels": 0,
+          "missingLabels": 0
+        }
+      },
+      {
+        "from": 0.5,
+        "through": 0.6,
+        "points": 0,
+        "meanExpectedUtility": null,
+        "meanActualUtility": null,
+        "outcomes": {
+          "labels": 0,
+          "missingLabels": 0
+        }
+      },
+      {
+        "from": 0.6,
+        "through": 0.7,
+        "points": 0,
+        "meanExpectedUtility": null,
+        "meanActualUtility": null,
+        "outcomes": {
+          "labels": 0,
+          "missingLabels": 0
+        }
+      },
+      {
+        "from": 0.7,
+        "through": 0.8,
+        "points": 0,
+        "meanExpectedUtility": null,
+        "meanActualUtility": null,
+        "outcomes": {
+          "labels": 0,
+          "missingLabels": 0
+        }
+      },
+      {
+        "from": 0.8,
+        "through": 0.9,
+        "points": 0,
+        "meanExpectedUtility": null,
+        "meanActualUtility": null,
+        "outcomes": {
+          "labels": 0,
+          "missingLabels": 0
+        }
+      },
+      {
+        "from": 0.9,
+        "through": 1.0,
+        "points": 0,
+        "meanExpectedUtility": null,
+        "meanActualUtility": null,
+        "outcomes": {
+          "labels": 0,
+          "missingLabels": 0
+        }
+      }
+    ]
+  },
+  "ATRbaseline": {
+    "days": 80,
+    "full3Days": 80,
+    "picks": 240,
+    "slotCoverage": 1.0,
+    "zeroVolumePicks": 0,
+    "missingBarPicks": 0,
+    "strictPositiveVolume": {
+      "labels": 240,
+      "missingLabels": 0,
+      "touchCount": 4,
+      "touchRate": 0.016666666666666666,
+      "D1bullishCount": 109,
+      "D1bullishRate": 0.45416666666666666,
+      "touchAndPositiveD5Count": 4,
+      "meanNet5d": -0.0022072100417190655,
+      "medianNet5d": -0.003,
+      "positiveD5NetRate": 0.4625,
+      "loss5Count": 9,
+      "loss5Rate": 0.0375,
+      "loss10Count": 0,
+      "loss10Rate": 0,
+      "worstNet5d": -0.09295584988962469,
+      "meanMAE": -0.020428260534480894,
+      "worstMAE": -0.1247240618101545,
+      "meanTargetNetProxy": -0.0014674740546880465,
+      "medianTargetNetProxy": -0.003,
+      "targetProxyLoss5Count": 9,
+      "targetProxyLoss10Count": 0,
+      "pooledMeanUtilityProxy": -0.0009456637283678896,
+      "anyNegativeD5NetCount": 129,
+      "anyNegativeD5NetRate": 0.5375,
+      "touchAndLoss5Count": 0,
+      "touchAndNonNegativeD5Count": 4,
+      "touchAndNonNegativeD5Rate": 0.016666666666666666,
+      "touchAndNegativeD5Count": 0,
+      "touchAndNegativeD5Rate": 0,
+      "touchAndPositiveD5Rate": 0.016666666666666666,
+      "T_x_L5_JointCounts": {
+        "0_0": 227,
+        "0_1": 9,
+        "1_0": 4,
+        "1_1": 0
+      }
+    },
+    "rawObservationalMarks": {
+      "labels": 240,
+      "missingLabels": 0,
+      "touchCount": 4,
+      "touchRate": 0.016666666666666666,
+      "D1bullishCount": 109,
+      "D1bullishRate": 0.45416666666666666,
+      "touchAndPositiveD5Count": 4,
+      "meanNet5d": -0.0022072100417190655,
+      "medianNet5d": -0.003,
+      "positiveD5NetRate": 0.4625,
+      "loss5Count": 9,
+      "loss5Rate": 0.0375,
+      "loss10Count": 0,
+      "loss10Rate": 0,
+      "worstNet5d": -0.09295584988962469,
+      "meanMAE": -0.020428260534480894,
+      "worstMAE": -0.1247240618101545,
+      "meanTargetNetProxy": -0.0014674740546880465,
+      "medianTargetNetProxy": -0.003,
+      "targetProxyLoss5Count": 9,
+      "targetProxyLoss10Count": 0,
+      "pooledMeanUtilityProxy": -0.0009456637283678896,
+      "anyNegativeD5NetCount": 129,
+      "anyNegativeD5NetRate": 0.5375,
+      "touchAndLoss5Count": 0,
+      "touchAndNonNegativeD5Count": 4,
+      "touchAndNonNegativeD5Rate": 0.016666666666666666,
+      "touchAndNegativeD5Count": 0,
+      "touchAndNegativeD5Rate": 0,
+      "touchAndPositiveD5Rate": 0.016666666666666666,
+      "T_x_L5_JointCounts": {
+        "0_0": 227,
+        "0_1": 9,
+        "1_0": 4,
+        "1_1": 0
+      }
+    },
+    "dateBalancedStrictMeans": {
+      "utility": -0.0009456637283678897,
+      "targetNetProxy": -0.0014674740546880465,
+      "net5d": -0.0022072100417190655,
+      "touch": 0.016666666666666666,
+      "entryBullish": 0.45416666666666666
+    },
+    "strictCoveredDates": 80,
+    "scoreMin": 30,
+    "scoreMean": 48.525,
+    "scoreMax": 77,
+    "scoreAtLeast70Picks": 6,
+    "all3ScoreAtLeast70Days": 0,
+    "all3TouchDays": 0,
+    "all3D1BullishDays": 12,
+    "all3PositiveD5Days": 15,
+    "shortfallDays": [],
+    "tieDiagnostics": {
+      "activeDays": 0,
+      "integerVsRawTop3DifferentDays": 0,
+      "all3IntegerTiedDays": 0,
+      "eligibleAllScoreMax0Days": 0
+    },
+    "selectedUtilityCalibrationBins": [
+      {
+        "from": 0.0,
+        "through": 0.1,
+        "points": 0,
+        "meanExpectedUtility": null,
+        "meanActualUtility": null,
+        "outcomes": {
+          "labels": 0,
+          "missingLabels": 0
+        }
+      },
+      {
+        "from": 0.1,
+        "through": 0.2,
+        "points": 0,
+        "meanExpectedUtility": null,
+        "meanActualUtility": null,
+        "outcomes": {
+          "labels": 0,
+          "missingLabels": 0
+        }
+      },
+      {
+        "from": 0.2,
+        "through": 0.3,
+        "points": 0,
+        "meanExpectedUtility": null,
+        "meanActualUtility": null,
+        "outcomes": {
+          "labels": 0,
+          "missingLabels": 0
+        }
+      },
+      {
+        "from": 0.3,
+        "through": 0.4,
+        "points": 0,
+        "meanExpectedUtility": null,
+        "meanActualUtility": null,
+        "outcomes": {
+          "labels": 0,
+          "missingLabels": 0
+        }
+      },
+      {
+        "from": 0.4,
+        "through": 0.5,
+        "points": 0,
+        "meanExpectedUtility": null,
+        "meanActualUtility": null,
+        "outcomes": {
+          "labels": 0,
+          "missingLabels": 0
+        }
+      },
+      {
+        "from": 0.5,
+        "through": 0.6,
+        "points": 0,
+        "meanExpectedUtility": null,
+        "meanActualUtility": null,
+        "outcomes": {
+          "labels": 0,
+          "missingLabels": 0
+        }
+      },
+      {
+        "from": 0.6,
+        "through": 0.7,
+        "points": 0,
+        "meanExpectedUtility": null,
+        "meanActualUtility": null,
+        "outcomes": {
+          "labels": 0,
+          "missingLabels": 0
+        }
+      },
+      {
+        "from": 0.7,
+        "through": 0.8,
+        "points": 0,
+        "meanExpectedUtility": null,
+        "meanActualUtility": null,
+        "outcomes": {
+          "labels": 0,
+          "missingLabels": 0
+        }
+      },
+      {
+        "from": 0.8,
+        "through": 0.9,
+        "points": 0,
+        "meanExpectedUtility": null,
+        "meanActualUtility": null,
+        "outcomes": {
+          "labels": 0,
+          "missingLabels": 0
+        }
+      },
+      {
+        "from": 0.9,
+        "through": 1.0,
+        "points": 0,
+        "meanExpectedUtility": null,
+        "meanActualUtility": null,
+        "outcomes": {
+          "labels": 0,
+          "missingLabels": 0
+        }
+      }
+    ]
+  }
+}

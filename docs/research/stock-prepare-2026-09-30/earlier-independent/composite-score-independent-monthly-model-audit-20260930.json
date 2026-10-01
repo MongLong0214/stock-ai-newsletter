@@ -1,0 +1,179 @@
+{
+  "scope": "Independent exact refits of ONE frozen monthly150 family. Exact18 observed inputs, same3heads and all fixed parameters. Checks each150 actualpanel raw strictY/nativeNaN weights and training-source hashes, closed-asof maturity, freshly computed bundle priors and every node of each stored head. No alternative fits/hypergrid or policies. Owner labels uint8 vs independent int64 canonicalized for source digest; class labels and learnt trees directly compared.",
+  "partial": false,
+  "counts": {
+    "trees": 4500,
+    "heads": 45,
+    "bundles": 15,
+    "trainingRowsAcrossOverlappingWindows": 2759628
+  },
+  "differenceCounts": {},
+  "differences": {},
+  "bundleAudits": [
+    {
+      "bundle": "inner-2025-08-19",
+      "trainingInputHashIncludingUInt8Labels": "2caf9951e25eecb269e17c238c7e104a42242cbbc0875c4b78adc2d8b2fb68be",
+      "exactTreeDifferences": 0,
+      "labelMaturity": "2025-08-19",
+      "trainPrior": {
+        "touch": 0.1847489503505484,
+        "D1bullish": 0.4466318259919135,
+        "loss5": 0.1968728000238797
+      }
+    },
+    {
+      "bundle": "inner-2025-09-01",
+      "trainingInputHashIncludingUInt8Labels": "e9206f6a81ffc97ea4b94c3dbdc9d18b2752272ba8521f87efb00a829dcb707d",
+      "exactTreeDifferences": 0,
+      "labelMaturity": "2025-09-01",
+      "trainPrior": {
+        "touch": 0.1790195142803385,
+        "D1bullish": 0.4385310417648747,
+        "loss5": 0.2022546087833124
+      }
+    },
+    {
+      "bundle": "inner-2025-10-01",
+      "trainingInputHashIncludingUInt8Labels": "71962a06618879771d9c9ca5ae4201f688cb3bdf7c381280d71051f1b87544fe",
+      "exactTreeDifferences": 0,
+      "labelMaturity": "2025-10-01",
+      "trainPrior": {
+        "touch": 0.17125605997663054,
+        "D1bullish": 0.433172768658492,
+        "loss5": 0.20161770426974826
+      }
+    },
+    {
+      "bundle": "inner-2025-11-03",
+      "trainingInputHashIncludingUInt8Labels": "531e711efbc06a8c8d525af0f77e6f602c283c5897aab759db45a300a0184ebc",
+      "exactTreeDifferences": 0,
+      "labelMaturity": "2025-11-03",
+      "trainPrior": {
+        "touch": 0.17517354827068068,
+        "D1bullish": 0.426522758337706,
+        "loss5": 0.1939290272398925
+      }
+    },
+    {
+      "bundle": "inner-2025-12-01",
+      "trainingInputHashIncludingUInt8Labels": "ff1f2705a8f6411d43e8ebed9b70237e4d641afa7cad0a3fbd72feaee6fe935e",
+      "exactTreeDifferences": 0,
+      "labelMaturity": "2025-12-01",
+      "trainPrior": {
+        "touch": 0.17019901418956296,
+        "D1bullish": 0.4180012696566947,
+        "loss5": 0.18951549678386811
+      }
+    },
+    {
+      "bundle": "outer-2025-12-23",
+      "trainingInputHashIncludingUInt8Labels": "528feafc97f2beab4ac70df452877d731f55532bd0374c4153d8cb2968174cac",
+      "exactTreeDifferences": 0,
+      "labelMaturity": "2025-12-23",
+      "trainPrior": {
+        "touch": 0.17006246531071434,
+        "D1bullish": 0.41749721852503713,
+        "loss5": 0.19077611299670394
+      }
+    },
+    {
+      "bundle": "outer-2026-01-02",
+      "trainingInputHashIncludingUInt8Labels": "0cfcdaaeac69ef87c5b5d7fe6a3962e82ce1c94df161df7ed794d08e2294cd8b",
+      "exactTreeDifferences": 0,
+      "labelMaturity": "2026-01-02",
+      "trainPrior": {
+        "touch": 0.17061299237693964,
+        "D1bullish": 0.4164743353436375,
+        "loss5": 0.18701648740699364
+      }
+    },
+    {
+      "bundle": "outer-2026-02-02",
+      "trainingInputHashIncludingUInt8Labels": "2b1fdab72ae716b4118b1ee0f19faccf51ffd93f01c9a02de9252d2fe1666736",
+      "exactTreeDifferences": 0,
+      "labelMaturity": "2026-02-02",
+      "trainPrior": {
+        "touch": 0.1793531227252998,
+        "D1bullish": 0.4167311568339128,
+        "loss5": 0.1915202693228292
+      }
+    },
+    {
+      "bundle": "outer-2026-03-03",
+      "trainingInputHashIncludingUInt8Labels": "ef240a031e2ef2933ebeaded435459c2b58063e78f9bd75fcbdcdaa889e60c2f",
+      "exactTreeDifferences": 0,
+      "labelMaturity": "2026-03-03",
+      "trainPrior": {
+        "touch": 0.19150835160637544,
+        "D1bullish": 0.4219657062834787,
+        "loss5": 0.19716837993641764
+      }
+    },
+    {
+      "bundle": "outer-2026-04-01",
+      "trainingInputHashIncludingUInt8Labels": "b100004d5f7482a18c54377e38427570fcb3c0c034bfe6c2cad599f0cb1e7a02",
+      "exactTreeDifferences": 0,
+      "labelMaturity": "2026-04-01",
+      "trainPrior": {
+        "touch": 0.20326165136729438,
+        "D1bullish": 0.42300944611263186,
+        "loss5": 0.21377715052314122
+      }
+    },
+    {
+      "bundle": "outer-2026-05-04",
+      "trainingInputHashIncludingUInt8Labels": "e2b4dfcdd5511e6905b3aa6f6b2d26930dd7336791d72c221e30b2edaff86f45",
+      "exactTreeDifferences": 0,
+      "labelMaturity": "2026-05-04",
+      "trainPrior": {
+        "touch": 0.2220223373016999,
+        "D1bullish": 0.42470318944791363,
+        "loss5": 0.2130736443917179
+      }
+    },
+    {
+      "bundle": "outer-2026-06-01",
+      "trainingInputHashIncludingUInt8Labels": "edcc1a3292de51b03fc11c11e3f2df90c02324a9bed6acf55030fe3ac380912d",
+      "exactTreeDifferences": 0,
+      "labelMaturity": "2026-06-01",
+      "trainPrior": {
+        "touch": 0.23032477428796302,
+        "D1bullish": 0.4183589186729168,
+        "loss5": 0.24904173969740495
+      }
+    },
+    {
+      "bundle": "outer-2026-07-01",
+      "trainingInputHashIncludingUInt8Labels": "eac704a535a9c08763093c66e613e38ef77108c15fb905f5b8d33793abddf936",
+      "exactTreeDifferences": 0,
+      "labelMaturity": "2026-07-01",
+      "trainPrior": {
+        "touch": 0.2389362681469961,
+        "D1bullish": 0.40762166948209194,
+        "loss5": 0.2898555469464222
+      }
+    },
+    {
+      "bundle": "outer-2026-08-03",
+      "trainingInputHashIncludingUInt8Labels": "80d25163246a660d915b741d00185992534f8382c1f10ad14b21566ec88c23f3",
+      "exactTreeDifferences": 0,
+      "labelMaturity": "2026-08-03",
+      "trainPrior": {
+        "touch": 0.2515859438739856,
+        "D1bullish": 0.40511269252925436,
+        "loss5": 0.3203490172819072
+      }
+    },
+    {
+      "bundle": "outer-2026-09-01",
+      "trainingInputHashIncludingUInt8Labels": "687bc20137e8a22d61177ef9ce6991bfa752ecb96ed892416dc801682cf14ae2",
+      "exactTreeDifferences": 0,
+      "labelMaturity": "2026-09-01",
+      "trainPrior": {
+        "touch": 0.27508751273125254,
+        "D1bullish": 0.4238002234869957,
+        "loss5": 0.3174588721367374
+      }
+    }
+  ]
+}

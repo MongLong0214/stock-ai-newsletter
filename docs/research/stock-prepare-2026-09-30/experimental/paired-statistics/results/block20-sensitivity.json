@@ -1,0 +1,1007 @@
+{
+  "schema": "fixed-primary-block20-sensitivity-v1",
+  "scope": "whole2023_2024 only; exact same five frozen candidates and two baselines",
+  "bootstrap": {
+    "blockSignalDays": 20,
+    "replicates": 1000,
+    "seed": 42,
+    "method": "noncircular overlapping moving blocks; truncate sampled final block",
+    "CI": "95% percentile, unadjusted descriptive intervals"
+  },
+  "pointEstimateEqualityChecks": 140,
+  "allPointEstimatesIdenticalToBlock10": true,
+  "originalBlock10Path": "/tmp/composite-score-experimental-20260930/paired-statistics/results/statistics.json",
+  "originalBlock10Sha256Before": "c0a2a17c971fd596439b014b641b459c12ffc2f6bfd12a58a2f5db72df120539",
+  "originalBlock10Sha256After": "c0a2a17c971fd596439b014b641b459c12ffc2f6bfd12a58a2f5db72df120539",
+  "sourceHashesBefore": {
+    "/tmp/composite-score-experimental-20260930/naver/winners-frozen-before-primary.json": "0408f20110eb3f628908547c5405963e147d2a730a50b1c00ab87247c802e123",
+    "/tmp/composite-score-experimental-20260930/naver-l0/winners-frozen-before-primary.json": "2c909a4fde1221629f1f50cd4731a6fed099a7a917b20a19672ec659425a4a15",
+    "/tmp/composite-score-experimental-20260930/first-passage-study/naver-winner-frozen-before-primary.json": "f0708565ea50f02bff86f2019a9051d9b5767094202944a0f029e3750ad0fd4a",
+    "/tmp/composite-score-experimental-20260930/outcome-diagnostic/outcome_diagnostic.py": "5657a863fb6e7a2ba00e7cd5269e3507f3eb240307fe01901fe267d01061dea9",
+    "/tmp/composite-score-experimental-20260930/naver/primary-ledger.json": "8f0573dc894ba1abec6998443a2b59a26fd35368c19fc7bc76c6e5c26713ba2b",
+    "/tmp/composite-score-experimental-20260930/naver-l0/primary-ledger.json": "c9c587c993d0fbc395493596626df497a2fc77fbe1346e7ed39c0868e4eec7cd",
+    "/tmp/composite-score-experimental-20260930/first-passage-study/naver-primary-ledger.json": "d2f8f9591634dc36e87836828a0c46cbfc0811a554084f0914816f256c33d0e0"
+  },
+  "sourceHashesAfter": {
+    "/tmp/composite-score-experimental-20260930/naver/winners-frozen-before-primary.json": "0408f20110eb3f628908547c5405963e147d2a730a50b1c00ab87247c802e123",
+    "/tmp/composite-score-experimental-20260930/naver-l0/winners-frozen-before-primary.json": "2c909a4fde1221629f1f50cd4731a6fed099a7a917b20a19672ec659425a4a15",
+    "/tmp/composite-score-experimental-20260930/first-passage-study/naver-winner-frozen-before-primary.json": "f0708565ea50f02bff86f2019a9051d9b5767094202944a0f029e3750ad0fd4a",
+    "/tmp/composite-score-experimental-20260930/outcome-diagnostic/outcome_diagnostic.py": "5657a863fb6e7a2ba00e7cd5269e3507f3eb240307fe01901fe267d01061dea9",
+    "/tmp/composite-score-experimental-20260930/naver/primary-ledger.json": "8f0573dc894ba1abec6998443a2b59a26fd35368c19fc7bc76c6e5c26713ba2b",
+    "/tmp/composite-score-experimental-20260930/naver-l0/primary-ledger.json": "c9c587c993d0fbc395493596626df497a2fc77fbe1346e7ed39c0868e4eec7cd",
+    "/tmp/composite-score-experimental-20260930/first-passage-study/naver-primary-ledger.json": "d2f8f9591634dc36e87836828a0c46cbfc0811a554084f0914816f256c33d0e0"
+  },
+  "sourceBytesUnchanged": true,
+  "modelFitSelectionOrTuning": false,
+  "productMutations": 0,
+  "result": {
+    "dateCount": 489,
+    "fromDate": "2023-01-02",
+    "throughDate": "2024-12-30",
+    "policies": {
+      "L5-winnerA": {
+        "counts": {
+          "selected": 1467,
+          "strictKnown": 1457,
+          "unknown": 10,
+          "all3KnownDays": 479,
+          "all3UnknownDays": 10,
+          "shortfallDays": 0
+        },
+        "metrics": {
+          "touch": {
+            "point": 0.4776938915579959,
+            "lower95": 0.45092318404021503,
+            "upper95": 0.5068408861257307,
+            "finiteBootstrapReplicates": 1000,
+            "numerator": 696.0,
+            "denominator": 1457
+          },
+          "L5": {
+            "point": 0.4296499656829101,
+            "lower95": 0.3961417490321757,
+            "upper95": 0.4666413513295505,
+            "finiteBootstrapReplicates": 1000,
+            "numerator": 626.0,
+            "denominator": 1457
+          },
+          "ANYnegativeD5": {
+            "point": 0.6005490734385724,
+            "lower95": 0.56240889228289,
+            "upper95": 0.6408125737390621,
+            "finiteBootstrapReplicates": 1000,
+            "numerator": 875.0,
+            "denominator": 1457
+          },
+          "netD5": {
+            "point": -0.003336303807981822,
+            "lower95": -0.016014371911624026,
+            "upper95": 0.008416597858258618,
+            "finiteBootstrapReplicates": 1000,
+            "numerator": -4.860994648229515,
+            "denominator": 1457
+          },
+          "FPnetLower": {
+            "point": -0.0007547021730449222,
+            "lower95": -0.0046168156684539205,
+            "upper95": 0.003419751608949919,
+            "finiteBootstrapReplicates": 1000,
+            "numerator": -1.0996010661264517,
+            "denominator": 1457
+          },
+          "FPnetUpper": {
+            "point": 0.0023338359189248835,
+            "lower95": -0.001644583101776361,
+            "upper95": 0.006050873865936567,
+            "finiteBootstrapReplicates": 1000,
+            "numerator": 3.400398933873555,
+            "denominator": 1457
+          }
+        },
+        "unknownEventBounds": {
+          "touch": {
+            "selected": 1467,
+            "knownTrue": 696,
+            "unknown": 10,
+            "minimumTrueRateAllSelected": 0.47443762781186094,
+            "maximumTrueRateAllSelected": 0.4812542603953647
+          },
+          "L5": {
+            "selected": 1467,
+            "knownTrue": 626,
+            "unknown": 10,
+            "minimumTrueRateAllSelected": 0.4267211997273347,
+            "maximumTrueRateAllSelected": 0.4335378323108384
+          },
+          "ANYnegativeD5": {
+            "selected": 1467,
+            "knownTrue": 875,
+            "unknown": 10,
+            "minimumTrueRateAllSelected": 0.5964553510565781,
+            "maximumTrueRateAllSelected": 0.6032719836400818
+          }
+        }
+      },
+      "L5-winnerB": {
+        "counts": {
+          "selected": 1467,
+          "strictKnown": 1458,
+          "unknown": 9,
+          "all3KnownDays": 481,
+          "all3UnknownDays": 8,
+          "shortfallDays": 0
+        },
+        "metrics": {
+          "touch": {
+            "point": 0.4101508916323731,
+            "lower95": 0.37767020593677214,
+            "upper95": 0.4358270418668497,
+            "finiteBootstrapReplicates": 1000,
+            "numerator": 598.0,
+            "denominator": 1458
+          },
+          "L5": {
+            "point": 0.4170096021947874,
+            "lower95": 0.38192208118000054,
+            "upper95": 0.45856638966257246,
+            "finiteBootstrapReplicates": 1000,
+            "numerator": 608.0,
+            "denominator": 1458
+          },
+          "ANYnegativeD5": {
+            "point": 0.6117969821673526,
+            "lower95": 0.5809211569050328,
+            "upper95": 0.6522864679850058,
+            "finiteBootstrapReplicates": 1000,
+            "numerator": 892.0,
+            "denominator": 1458
+          },
+          "netD5": {
+            "point": -0.011384913495869353,
+            "lower95": -0.023991882628504404,
+            "upper95": -0.00043400228089379337,
+            "finiteBootstrapReplicates": 1000,
+            "numerator": -16.599203876977516,
+            "denominator": 1458
+          },
+          "FPnetLower": {
+            "point": -0.0043900516445718974,
+            "lower95": -0.00800421315153401,
+            "upper95": -0.0004023570241853576,
+            "finiteBootstrapReplicates": 1000,
+            "numerator": -6.400695297785827,
+            "denominator": 1458
+          },
+          "FPnetUpper": {
+            "point": -0.0015093932083578962,
+            "lower95": -0.005283104889407839,
+            "upper95": 0.002169734266400884,
+            "finiteBootstrapReplicates": 1000,
+            "numerator": -2.2006952977858125,
+            "denominator": 1458
+          }
+        },
+        "unknownEventBounds": {
+          "touch": {
+            "selected": 1467,
+            "knownTrue": 598,
+            "unknown": 9,
+            "minimumTrueRateAllSelected": 0.4076346284935242,
+            "maximumTrueRateAllSelected": 0.41376959781867756
+          },
+          "L5": {
+            "selected": 1467,
+            "knownTrue": 608,
+            "unknown": 9,
+            "minimumTrueRateAllSelected": 0.41445126107702795,
+            "maximumTrueRateAllSelected": 0.42058623040218135
+          },
+          "ANYnegativeD5": {
+            "selected": 1467,
+            "knownTrue": 892,
+            "unknown": 9,
+            "minimumTrueRateAllSelected": 0.6080436264485344,
+            "maximumTrueRateAllSelected": 0.6141785957736878
+          }
+        }
+      },
+      "currentOverall": {
+        "counts": {
+          "selected": 1467,
+          "strictKnown": 1465,
+          "unknown": 2,
+          "all3KnownDays": 487,
+          "all3UnknownDays": 2,
+          "shortfallDays": 0
+        },
+        "metrics": {
+          "touch": {
+            "point": 0.2341296928327645,
+            "lower95": 0.2132567820445301,
+            "upper95": 0.2508629120116456,
+            "finiteBootstrapReplicates": 1000,
+            "numerator": 343.0,
+            "denominator": 1465
+          },
+          "L5": {
+            "point": 0.2764505119453925,
+            "lower95": 0.24676209952283573,
+            "upper95": 0.3103265641407336,
+            "finiteBootstrapReplicates": 1000,
+            "numerator": 405.0,
+            "denominator": 1465
+          },
+          "ANYnegativeD5": {
+            "point": 0.5815699658703072,
+            "lower95": 0.5487235215701055,
+            "upper95": 0.6116079097837674,
+            "finiteBootstrapReplicates": 1000,
+            "numerator": 852.0,
+            "denominator": 1465
+          },
+          "netD5": {
+            "point": -0.0032702449728126675,
+            "lower95": -0.00961282697134951,
+            "upper95": 0.003001075882434492,
+            "finiteBootstrapReplicates": 1000,
+            "numerator": -4.790908885170558,
+            "denominator": 1465
+          },
+          "FPnetLower": {
+            "point": -0.005360585410794218,
+            "lower95": -0.009113266204487033,
+            "upper95": -0.0013752251039997477,
+            "finiteBootstrapReplicates": 1000,
+            "numerator": -7.853257626813529,
+            "denominator": 1465
+          },
+          "FPnetUpper": {
+            "point": -0.003824749233319814,
+            "lower95": -0.0073341503528067285,
+            "upper95": -0.00011956350915324618,
+            "finiteBootstrapReplicates": 1000,
+            "numerator": -5.6032576268135275,
+            "denominator": 1465
+          }
+        },
+        "unknownEventBounds": {
+          "touch": {
+            "selected": 1467,
+            "knownTrue": 343,
+            "unknown": 2,
+            "minimumTrueRateAllSelected": 0.2338104976141786,
+            "maximumTrueRateAllSelected": 0.23517382413087934
+          },
+          "L5": {
+            "selected": 1467,
+            "knownTrue": 405,
+            "unknown": 2,
+            "minimumTrueRateAllSelected": 0.27607361963190186,
+            "maximumTrueRateAllSelected": 0.2774369461486026
+          },
+          "ANYnegativeD5": {
+            "selected": 1467,
+            "knownTrue": 852,
+            "unknown": 2,
+            "minimumTrueRateAllSelected": 0.5807770961145194,
+            "maximumTrueRateAllSelected": 0.5821404226312201
+          }
+        }
+      },
+      "ATRbaseline": {
+        "counts": {
+          "selected": 1467,
+          "strictKnown": 1463,
+          "unknown": 4,
+          "all3KnownDays": 485,
+          "all3UnknownDays": 4,
+          "shortfallDays": 0
+        },
+        "metrics": {
+          "touch": {
+            "point": 0.028708133971291867,
+            "lower95": 0.019795221843003412,
+            "upper95": 0.03885679623855979,
+            "finiteBootstrapReplicates": 1000,
+            "numerator": 42.0,
+            "denominator": 1463
+          },
+          "L5": {
+            "point": 0.04579630895420369,
+            "lower95": 0.028043296432849318,
+            "upper95": 0.06416382252559727,
+            "finiteBootstrapReplicates": 1000,
+            "numerator": 67.0,
+            "denominator": 1463
+          },
+          "ANYnegativeD5": {
+            "point": 0.5297334244702666,
+            "lower95": 0.481853686083586,
+            "upper95": 0.5756601080138393,
+            "finiteBootstrapReplicates": 1000,
+            "numerator": 775.0,
+            "denominator": 1463
+          },
+          "netD5": {
+            "point": -0.000496704167466788,
+            "lower95": -0.00327192481813631,
+            "upper95": 0.0026101498704096276,
+            "finiteBootstrapReplicates": 1000,
+            "numerator": -0.7266781970039109,
+            "denominator": 1463
+          },
+          "FPnetLower": {
+            "point": -0.0009182933681695472,
+            "lower95": -0.003506114608968487,
+            "upper95": 0.0018620472328421704,
+            "finiteBootstrapReplicates": 1000,
+            "numerator": -1.3434631976320475,
+            "denominator": 1463
+          },
+          "FPnetUpper": {
+            "point": -0.0009182933681695472,
+            "lower95": -0.003506114608968487,
+            "upper95": 0.0018620472328421704,
+            "finiteBootstrapReplicates": 1000,
+            "numerator": -1.3434631976320475,
+            "denominator": 1463
+          }
+        },
+        "unknownEventBounds": {
+          "touch": {
+            "selected": 1467,
+            "knownTrue": 42,
+            "unknown": 4,
+            "minimumTrueRateAllSelected": 0.028629856850715747,
+            "maximumTrueRateAllSelected": 0.03135650988411725
+          },
+          "L5": {
+            "selected": 1467,
+            "knownTrue": 67,
+            "unknown": 4,
+            "minimumTrueRateAllSelected": 0.04567143830947512,
+            "maximumTrueRateAllSelected": 0.04839809134287662
+          },
+          "ANYnegativeD5": {
+            "selected": 1467,
+            "knownTrue": 775,
+            "unknown": 4,
+            "minimumTrueRateAllSelected": 0.5282890252215405,
+            "maximumTrueRateAllSelected": 0.5310156782549421
+          }
+        }
+      },
+      "L0-winnerA": {
+        "counts": {
+          "selected": 1467,
+          "strictKnown": 1461,
+          "unknown": 6,
+          "all3KnownDays": 484,
+          "all3UnknownDays": 5,
+          "shortfallDays": 0
+        },
+        "metrics": {
+          "touch": {
+            "point": 0.43600273785078714,
+            "lower95": 0.39930696067339244,
+            "upper95": 0.46417174882038087,
+            "finiteBootstrapReplicates": 1000,
+            "numerator": 637.0,
+            "denominator": 1461
+          },
+          "L5": {
+            "point": 0.39630390143737165,
+            "lower95": 0.3625170998632011,
+            "upper95": 0.43754800801184035,
+            "finiteBootstrapReplicates": 1000,
+            "numerator": 579.0,
+            "denominator": 1461
+          },
+          "ANYnegativeD5": {
+            "point": 0.5824777549623545,
+            "lower95": 0.5489951046806979,
+            "upper95": 0.6201929644808744,
+            "finiteBootstrapReplicates": 1000,
+            "numerator": 851.0,
+            "denominator": 1461
+          },
+          "netD5": {
+            "point": -0.0017257919241360062,
+            "lower95": -0.013351086040748668,
+            "upper95": 0.008864590868231685,
+            "finiteBootstrapReplicates": 1000,
+            "numerator": -2.521382001162705,
+            "denominator": 1461
+          },
+          "FPnetLower": {
+            "point": -0.0018061792946341315,
+            "lower95": -0.006025065755145902,
+            "upper95": 0.002099636807520966,
+            "finiteBootstrapReplicates": 1000,
+            "numerator": -2.6388279494604663,
+            "denominator": 1461
+          },
+          "FPnetUpper": {
+            "point": 0.0010685640318545673,
+            "lower95": -0.0030974325374660263,
+            "upper95": 0.0046496306098403025,
+            "finiteBootstrapReplicates": 1000,
+            "numerator": 1.5611720505395228,
+            "denominator": 1461
+          }
+        },
+        "unknownEventBounds": {
+          "touch": {
+            "selected": 1467,
+            "knownTrue": 637,
+            "unknown": 6,
+            "minimumTrueRateAllSelected": 0.4342194955691888,
+            "maximumTrueRateAllSelected": 0.4383094751192911
+          },
+          "L5": {
+            "selected": 1467,
+            "knownTrue": 579,
+            "unknown": 6,
+            "minimumTrueRateAllSelected": 0.3946830265848671,
+            "maximumTrueRateAllSelected": 0.3987730061349693
+          },
+          "ANYnegativeD5": {
+            "selected": 1467,
+            "knownTrue": 851,
+            "unknown": 6,
+            "minimumTrueRateAllSelected": 0.580095432856169,
+            "maximumTrueRateAllSelected": 0.5841854124062713
+          }
+        }
+      },
+      "L0-winnerB": {
+        "counts": {
+          "selected": 1467,
+          "strictKnown": 1463,
+          "unknown": 4,
+          "all3KnownDays": 486,
+          "all3UnknownDays": 3,
+          "shortfallDays": 0
+        },
+        "metrics": {
+          "touch": {
+            "point": 0.41626794258373206,
+            "lower95": 0.38660814402009375,
+            "upper95": 0.43844259491825704,
+            "finiteBootstrapReplicates": 1000,
+            "numerator": 609.0,
+            "denominator": 1463
+          },
+          "L5": {
+            "point": 0.430622009569378,
+            "lower95": 0.4034096682911125,
+            "upper95": 0.46986404437531626,
+            "finiteBootstrapReplicates": 1000,
+            "numerator": 630.0,
+            "denominator": 1463
+          },
+          "ANYnegativeD5": {
+            "point": 0.596719070403281,
+            "lower95": 0.5744510125690515,
+            "upper95": 0.6298657267820974,
+            "finiteBootstrapReplicates": 1000,
+            "numerator": 873.0,
+            "denominator": 1463
+          },
+          "netD5": {
+            "point": -0.011590344433034682,
+            "lower95": -0.024245988882377948,
+            "upper95": -0.0023907213434833196,
+            "finiteBootstrapReplicates": 1000,
+            "numerator": -16.95667390552974,
+            "denominator": 1463
+          },
+          "FPnetLower": {
+            "point": -0.004602320981918312,
+            "lower95": -0.008896870986261698,
+            "upper95": -0.0010386160505957071,
+            "finiteBootstrapReplicates": 1000,
+            "numerator": -6.733195596546491,
+            "denominator": 1463
+          },
+          "FPnetUpper": {
+            "point": -0.0015264494849941777,
+            "lower95": -0.006058421756339314,
+            "upper95": 0.00196422126223446,
+            "finiteBootstrapReplicates": 1000,
+            "numerator": -2.233195596546482,
+            "denominator": 1463
+          }
+        },
+        "unknownEventBounds": {
+          "touch": {
+            "selected": 1467,
+            "knownTrue": 609,
+            "unknown": 4,
+            "minimumTrueRateAllSelected": 0.41513292433537835,
+            "maximumTrueRateAllSelected": 0.4178595773687798
+          },
+          "L5": {
+            "selected": 1467,
+            "knownTrue": 630,
+            "unknown": 4,
+            "minimumTrueRateAllSelected": 0.4294478527607362,
+            "maximumTrueRateAllSelected": 0.4321745057941377
+          },
+          "ANYnegativeD5": {
+            "selected": 1467,
+            "knownTrue": 873,
+            "unknown": 4,
+            "minimumTrueRateAllSelected": 0.5950920245398773,
+            "maximumTrueRateAllSelected": 0.5978186775732788
+          }
+        }
+      },
+      "FP-winnerFP": {
+        "counts": {
+          "selected": 1467,
+          "strictKnown": 1462,
+          "unknown": 5,
+          "all3KnownDays": 485,
+          "all3UnknownDays": 4,
+          "shortfallDays": 0
+        },
+        "metrics": {
+          "touch": {
+            "point": 0.2818057455540356,
+            "lower95": 0.2571814526438768,
+            "upper95": 0.30853642953421495,
+            "finiteBootstrapReplicates": 1000,
+            "numerator": 412.0,
+            "denominator": 1462
+          },
+          "L5": {
+            "point": 0.31874145006839943,
+            "lower95": 0.2859048270470979,
+            "upper95": 0.3578769976520488,
+            "finiteBootstrapReplicates": 1000,
+            "numerator": 466.0,
+            "denominator": 1462
+          },
+          "ANYnegativeD5": {
+            "point": 0.5800273597811217,
+            "lower95": 0.5478125768792074,
+            "upper95": 0.6186025122188632,
+            "finiteBootstrapReplicates": 1000,
+            "numerator": 848.0,
+            "denominator": 1462
+          },
+          "netD5": {
+            "point": -0.0021929599311636947,
+            "lower95": -0.0106799359072764,
+            "upper95": 0.0059282069529030335,
+            "finiteBootstrapReplicates": 1000,
+            "numerator": -3.206107419361322,
+            "denominator": 1462
+          },
+          "FPnetLower": {
+            "point": -0.004968820320297643,
+            "lower95": -0.00948145872764505,
+            "upper95": -0.0010075626133286717,
+            "finiteBootstrapReplicates": 1000,
+            "numerator": -7.264415308275154,
+            "denominator": 1462
+          },
+          "FPnetUpper": {
+            "point": -0.003840229349025415,
+            "lower95": -0.008300835930356078,
+            "upper95": -1.3968856327029735e-05,
+            "finiteBootstrapReplicates": 1000,
+            "numerator": -5.614415308275157,
+            "denominator": 1462
+          }
+        },
+        "unknownEventBounds": {
+          "touch": {
+            "selected": 1467,
+            "knownTrue": 412,
+            "unknown": 5,
+            "minimumTrueRateAllSelected": 0.28084526244035446,
+            "maximumTrueRateAllSelected": 0.2842535787321063
+          },
+          "L5": {
+            "selected": 1467,
+            "knownTrue": 466,
+            "unknown": 5,
+            "minimumTrueRateAllSelected": 0.3176550783912747,
+            "maximumTrueRateAllSelected": 0.3210633946830266
+          },
+          "ANYnegativeD5": {
+            "selected": 1467,
+            "knownTrue": 848,
+            "unknown": 5,
+            "minimumTrueRateAllSelected": 0.578050443081118,
+            "maximumTrueRateAllSelected": 0.5814587593728698
+          }
+        }
+      }
+    },
+    "pairedCandidateMinusBaseline": {
+      "L5-winnerA minus currentOverall": {
+        "touch": {
+          "point": 0.2435641987252314,
+          "lower95": 0.21547117465990587,
+          "upper95": 0.277618365947919,
+          "finiteBootstrapReplicates": 1000
+        },
+        "L5": {
+          "point": 0.1531994537375176,
+          "lower95": 0.11777000961031264,
+          "upper95": 0.1840548988690183,
+          "finiteBootstrapReplicates": 1000
+        },
+        "ANYnegativeD5": {
+          "point": 0.018979107568265263,
+          "lower95": -0.019335533518250587,
+          "upper95": 0.06406740847742513,
+          "finiteBootstrapReplicates": 1000
+        },
+        "netD5": {
+          "point": -6.605883516915467e-05,
+          "lower95": -0.011401588613326739,
+          "upper95": 0.011795079189684374,
+          "finiteBootstrapReplicates": 1000
+        },
+        "FPnetLower": {
+          "point": 0.004605883237749296,
+          "lower95": 0.0007360217134361701,
+          "upper95": 0.009419958629578727,
+          "finiteBootstrapReplicates": 1000
+        },
+        "FPnetUpper": {
+          "point": 0.006158585152244697,
+          "lower95": 0.0022175541519936994,
+          "upper95": 0.010555674853453711,
+          "finiteBootstrapReplicates": 1000
+        }
+      },
+      "L5-winnerA minus ATRbaseline": {
+        "touch": {
+          "point": 0.44898575758670406,
+          "lower95": 0.4205427933003407,
+          "upper95": 0.4774707615895124,
+          "finiteBootstrapReplicates": 1000
+        },
+        "L5": {
+          "point": 0.3838536567287064,
+          "lower95": 0.34843010019173604,
+          "upper95": 0.42392821068397185,
+          "finiteBootstrapReplicates": 1000
+        },
+        "ANYnegativeD5": {
+          "point": 0.07081564896830583,
+          "lower95": 0.01465035632778015,
+          "upper95": 0.13257806348392767,
+          "finiteBootstrapReplicates": 1000
+        },
+        "netD5": {
+          "point": -0.002839599640515034,
+          "lower95": -0.015234894248386588,
+          "upper95": 0.009780705550423539,
+          "finiteBootstrapReplicates": 1000
+        },
+        "FPnetLower": {
+          "point": 0.00016359119512462494,
+          "lower95": -0.00460485856459331,
+          "upper95": 0.004930950386573875,
+          "finiteBootstrapReplicates": 1000
+        },
+        "FPnetUpper": {
+          "point": 0.0032521292870944306,
+          "lower95": -0.0020124251895795972,
+          "upper95": 0.008032051077735858,
+          "finiteBootstrapReplicates": 1000
+        }
+      },
+      "L5-winnerB minus currentOverall": {
+        "touch": {
+          "point": 0.17602119879960862,
+          "lower95": 0.14413109028233886,
+          "upper95": 0.20539422590236295,
+          "finiteBootstrapReplicates": 1000
+        },
+        "L5": {
+          "point": 0.1405590902493949,
+          "lower95": 0.10253314816291252,
+          "upper95": 0.17976450270140623,
+          "finiteBootstrapReplicates": 1000
+        },
+        "ANYnegativeD5": {
+          "point": 0.030227016297045384,
+          "lower95": 0.00019124878843865275,
+          "upper95": 0.07361547577525106,
+          "finiteBootstrapReplicates": 1000
+        },
+        "netD5": {
+          "point": -0.008114668523056685,
+          "lower95": -0.020965467012380806,
+          "upper95": 0.0027761231391995054,
+          "finiteBootstrapReplicates": 1000
+        },
+        "FPnetLower": {
+          "point": 0.0009705337662223208,
+          "lower95": -0.0034920716266975955,
+          "upper95": 0.005927567436729734,
+          "finiteBootstrapReplicates": 1000
+        },
+        "FPnetUpper": {
+          "point": 0.002315356024961918,
+          "lower95": -0.0023573433428340654,
+          "upper95": 0.007357629527563985,
+          "finiteBootstrapReplicates": 1000
+        }
+      },
+      "L5-winnerB minus ATRbaseline": {
+        "touch": {
+          "point": 0.38144275766108127,
+          "lower95": 0.34970473144241115,
+          "upper95": 0.4066203722642163,
+          "finiteBootstrapReplicates": 1000
+        },
+        "L5": {
+          "point": 0.3712132932405837,
+          "lower95": 0.33822174859934895,
+          "upper95": 0.413203016200982,
+          "finiteBootstrapReplicates": 1000
+        },
+        "ANYnegativeD5": {
+          "point": 0.08206355769708595,
+          "lower95": 0.03514606497511159,
+          "upper95": 0.13719634915325973,
+          "finiteBootstrapReplicates": 1000
+        },
+        "netD5": {
+          "point": -0.010888209328402565,
+          "lower95": -0.023807836386679538,
+          "upper95": 0.00010782824115498521,
+          "finiteBootstrapReplicates": 1000
+        },
+        "FPnetLower": {
+          "point": -0.0034717582764023504,
+          "lower95": -0.007605207764284664,
+          "upper95": 0.0008766394119164024,
+          "finiteBootstrapReplicates": 1000
+        },
+        "FPnetUpper": {
+          "point": -0.000591099840188349,
+          "lower95": -0.004784287501060613,
+          "upper95": 0.003591326687522541,
+          "finiteBootstrapReplicates": 1000
+        }
+      },
+      "L0-winnerA minus currentOverall": {
+        "touch": {
+          "point": 0.20187304501802264,
+          "lower95": 0.16218025643741707,
+          "upper95": 0.23793782533833693,
+          "finiteBootstrapReplicates": 1000
+        },
+        "L5": {
+          "point": 0.11985338949197916,
+          "lower95": 0.07971443024389872,
+          "upper95": 0.15591133227331339,
+          "finiteBootstrapReplicates": 1000
+        },
+        "ANYnegativeD5": {
+          "point": 0.0009077890920473619,
+          "lower95": -0.034979543837712485,
+          "upper95": 0.047174350156037104,
+          "finiteBootstrapReplicates": 1000
+        },
+        "netD5": {
+          "point": 0.0015444530486766613,
+          "lower95": -0.009346681771130206,
+          "upper95": 0.012003630155957993,
+          "finiteBootstrapReplicates": 1000
+        },
+        "FPnetLower": {
+          "point": 0.0035544061161600867,
+          "lower95": -0.001520885411584495,
+          "upper95": 0.008698414815951041,
+          "finiteBootstrapReplicates": 1000
+        },
+        "FPnetUpper": {
+          "point": 0.004893313265174381,
+          "lower95": -0.0004362144326890627,
+          "upper95": 0.01001840340819216,
+          "finiteBootstrapReplicates": 1000
+        }
+      },
+      "L0-winnerA minus ATRbaseline": {
+        "touch": {
+          "point": 0.4072946038794953,
+          "lower95": 0.36881622662449987,
+          "upper95": 0.43763448449193915,
+          "finiteBootstrapReplicates": 1000
+        },
+        "L5": {
+          "point": 0.350507592483168,
+          "lower95": 0.3145921890714932,
+          "upper95": 0.3957656902106336,
+          "finiteBootstrapReplicates": 1000
+        },
+        "ANYnegativeD5": {
+          "point": 0.05274433049208793,
+          "lower95": 0.005399820628064282,
+          "upper95": 0.10718148760549903,
+          "finiteBootstrapReplicates": 1000
+        },
+        "netD5": {
+          "point": -0.0012290877566692182,
+          "lower95": -0.012426959121303807,
+          "upper95": 0.00944955022428261,
+          "finiteBootstrapReplicates": 1000
+        },
+        "FPnetLower": {
+          "point": -0.0008878859264645843,
+          "lower95": -0.005771078239102754,
+          "upper95": 0.0035623593453362277,
+          "finiteBootstrapReplicates": 1000
+        },
+        "FPnetUpper": {
+          "point": 0.0019868574000241144,
+          "lower95": -0.002957908666128441,
+          "upper95": 0.006177163345854582,
+          "finiteBootstrapReplicates": 1000
+        }
+      },
+      "L0-winnerB minus currentOverall": {
+        "touch": {
+          "point": 0.18213824975096757,
+          "lower95": 0.1517421921803944,
+          "upper95": 0.20937853452442037,
+          "finiteBootstrapReplicates": 1000
+        },
+        "L5": {
+          "point": 0.15417149762398552,
+          "lower95": 0.12343417495025187,
+          "upper95": 0.19316776760862653,
+          "finiteBootstrapReplicates": 1000
+        },
+        "ANYnegativeD5": {
+          "point": 0.0151491045329738,
+          "lower95": -0.010939632596580389,
+          "upper95": 0.05437851911286189,
+          "finiteBootstrapReplicates": 1000
+        },
+        "netD5": {
+          "point": -0.008320099460222014,
+          "lower95": -0.019094149483727223,
+          "upper95": -0.0004982653249381946,
+          "finiteBootstrapReplicates": 1000
+        },
+        "FPnetLower": {
+          "point": 0.000758264428875906,
+          "lower95": -0.004257750181105909,
+          "upper95": 0.0051134149175899885,
+          "finiteBootstrapReplicates": 1000
+        },
+        "FPnetUpper": {
+          "point": 0.0022982997483256364,
+          "lower95": -0.0029511370955770822,
+          "upper95": 0.006359214467357048,
+          "finiteBootstrapReplicates": 1000
+        }
+      },
+      "L0-winnerB minus ATRbaseline": {
+        "touch": {
+          "point": 0.3875598086124402,
+          "lower95": 0.3568735259420939,
+          "upper95": 0.41128364010907903,
+          "finiteBootstrapReplicates": 1000
+        },
+        "L5": {
+          "point": 0.38482570061517435,
+          "lower95": 0.35691473074335317,
+          "upper95": 0.428675799320949,
+          "finiteBootstrapReplicates": 1000
+        },
+        "ANYnegativeD5": {
+          "point": 0.06698564593301437,
+          "lower95": 0.0231538350524706,
+          "upper95": 0.12286963815965343,
+          "finiteBootstrapReplicates": 1000
+        },
+        "netD5": {
+          "point": -0.011093640265567894,
+          "lower95": -0.023163252445654998,
+          "upper95": -0.0017500052382576484,
+          "finiteBootstrapReplicates": 1000
+        },
+        "FPnetLower": {
+          "point": -0.0036840276137487652,
+          "lower95": -0.008787147208230955,
+          "upper95": 0.0007584030580614143,
+          "finiteBootstrapReplicates": 1000
+        },
+        "FPnetUpper": {
+          "point": -0.0006081561168246305,
+          "lower95": -0.0060557028717055025,
+          "upper95": 0.0035522064484789445,
+          "finiteBootstrapReplicates": 1000
+        }
+      },
+      "FP-winnerFP minus currentOverall": {
+        "touch": {
+          "point": 0.047676052721271095,
+          "lower95": 0.01759713618615253,
+          "upper95": 0.0860121060880155,
+          "finiteBootstrapReplicates": 1000
+        },
+        "L5": {
+          "point": 0.04229093812300694,
+          "lower95": 0.009145442373071645,
+          "upper95": 0.07590607507967462,
+          "finiteBootstrapReplicates": 1000
+        },
+        "ANYnegativeD5": {
+          "point": -0.0015426060891854387,
+          "lower95": -0.03769843196602629,
+          "upper95": 0.04117059665677962,
+          "finiteBootstrapReplicates": 1000
+        },
+        "netD5": {
+          "point": 0.0010772850416489728,
+          "lower95": -0.0069638414952492645,
+          "upper95": 0.008976304126570163,
+          "finiteBootstrapReplicates": 1000
+        },
+        "FPnetLower": {
+          "point": 0.00039176509049657516,
+          "lower95": -0.004698475635014715,
+          "upper95": 0.005510705273929523,
+          "finiteBootstrapReplicates": 1000
+        },
+        "FPnetUpper": {
+          "point": -1.5480115705600924e-05,
+          "lower95": -0.005196099105929079,
+          "upper95": 0.004925229742991607,
+          "finiteBootstrapReplicates": 1000
+        }
+      },
+      "FP-winnerFP minus ATRbaseline": {
+        "touch": {
+          "point": 0.25309761158274374,
+          "lower95": 0.2282969417196154,
+          "upper95": 0.28205352142723805,
+          "finiteBootstrapReplicates": 1000
+        },
+        "L5": {
+          "point": 0.27294514111419577,
+          "lower95": 0.24420070648787812,
+          "upper95": 0.3055138922662512,
+          "finiteBootstrapReplicates": 1000
+        },
+        "ANYnegativeD5": {
+          "point": 0.05029393531085513,
+          "lower95": 0.004951789069244048,
+          "upper95": 0.09783514522440034,
+          "finiteBootstrapReplicates": 1000
+        },
+        "netD5": {
+          "point": -0.0016962557636969067,
+          "lower95": -0.009792519459364246,
+          "upper95": 0.005701906206053967,
+          "finiteBootstrapReplicates": 1000
+        },
+        "FPnetLower": {
+          "point": -0.004050526952128096,
+          "lower95": -0.008646237675364392,
+          "upper95": -2.5584023547100082e-06,
+          "finiteBootstrapReplicates": 1000
+        },
+        "FPnetUpper": {
+          "point": -0.002921935980855868,
+          "lower95": -0.00749605052400347,
+          "upper95": 0.0008015909266655203,
+          "finiteBootstrapReplicates": 1000
+        }
+      }
+    }
+  }
+}

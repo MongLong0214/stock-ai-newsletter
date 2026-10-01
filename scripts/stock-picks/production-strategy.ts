@@ -4,6 +4,9 @@ import { BULLISH_TARGET_PARAMETERS, LOW_VOLATILITY_STABLE_PARAMETERS, type Volum
 import frozenTargetModel from '@/scripts/stock-picks/models/bullish-target-v3.json'
 import type { TargetModelArtifact } from '@/scripts/stock-picks/target-model'
 import { SIGNAL_SCORE_VERSION } from '@/scripts/stock-picks/signals'
+import frozenUtilityModel from '@/scripts/stock-picks/models/composite-utility-v1.json'
+import { OBSERVED_INPUT_VERSION } from '@/scripts/stock-picks/observed-inputs'
+import { validateUtilityModel, type UtilityModelArtifact } from '@/scripts/stock-picks/utility-model'
 
 export function canonicalJson(value: unknown): string {
   if (value === null || typeof value === 'string' || typeof value === 'boolean') {
@@ -83,14 +86,19 @@ export const BULLISH_TARGET_STRATEGY = {
   }),
 } as const
 
+export const FROZEN_COMPOSITE_UTILITY_MODEL = validateUtilityModel(frozenUtilityModel as UtilityModelArtifact)
+
 export const PRODUCTION_STRATEGY = {
-  ...LOW_VOLATILITY_STABLE_STRATEGY,
-  version: 'v2.1-2026-09-30',
-  objective: 'lowVolatilityStable',
+  name: 'compositeUtility',
+  version: 'v4-2026-09-30',
+  objective: 'compositeUtility',
+  parameters: LOW_VOLATILITY_STABLE_PARAMETERS,
   parametersHash: hashCanonicalJson({
     parameters: LOW_VOLATILITY_STABLE_PARAMETERS,
     gateVersion: 'status-flags-valid-candle-v2',
     preferredRule: 'krx-code-last-digit-nonzero',
     signalScoreVersion: SIGNAL_SCORE_VERSION,
+    observedInputVersion: OBSERVED_INPUT_VERSION,
+    model: FROZEN_COMPOSITE_UTILITY_MODEL,
   }),
 } as const

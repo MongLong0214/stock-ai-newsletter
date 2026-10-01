@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import {
   BULLISH_TARGET_STRATEGY,
   FROZEN_BULLISH_TARGET_MODEL,
+  FROZEN_COMPOSITE_UTILITY_MODEL,
   LEGACY_VOLUME_BREAKOUT_STRATEGY,
   LOW_VOLATILITY_STABLE_STRATEGY,
   PRODUCTION_STRATEGY,
@@ -12,6 +13,7 @@ import {
 } from '@/scripts/stock-picks/production-strategy'
 import { BULLISH_TARGET_PARAMETERS, LOW_VOLATILITY_STABLE_PARAMETERS } from '@/scripts/stock-picks/strategies'
 import { SIGNAL_SCORE_VERSION } from '@/scripts/stock-picks/signals'
+import { OBSERVED_INPUT_VERSION } from '@/scripts/stock-picks/observed-inputs'
 import { addKoreanTradingDays } from '@/lib/tli/trading-calendar'
 
 describe('frozen production strategy artifact', () => {
@@ -53,24 +55,33 @@ describe('frozen production strategy artifact', () => {
     )
   })
 
-  it('identifies the corrected signal scores while retaining the frozen v2 selector', () => {
+  it('identifies the whole composite utility model, observed inputs and unchanged eligibility parameters', () => {
     expect(SIGNAL_SCORE_VERSION).toBe('technical-signals-v2-2026-09-30')
     expect(PRODUCTION_STRATEGY).toEqual({
-      ...LOW_VOLATILITY_STABLE_STRATEGY,
-      version: 'v2.1-2026-09-30',
-      objective: 'lowVolatilityStable',
+      name: 'compositeUtility',
+      version: 'v4-2026-09-30',
+      objective: 'compositeUtility',
+      parameters: LOW_VOLATILITY_STABLE_PARAMETERS,
       parametersHash: hashCanonicalJson({
         parameters: LOW_VOLATILITY_STABLE_PARAMETERS,
         gateVersion: 'status-flags-valid-candle-v2',
         preferredRule: 'krx-code-last-digit-nonzero',
         signalScoreVersion: SIGNAL_SCORE_VERSION,
+        observedInputVersion: OBSERVED_INPUT_VERSION,
+        model: FROZEN_COMPOSITE_UTILITY_MODEL,
       }),
     })
     expect(PRODUCTION_STRATEGY.parameters).toBe(LOW_VOLATILITY_STABLE_STRATEGY.parameters)
     expect(PRODUCTION_STRATEGY.parametersHash).not.toBe(LOW_VOLATILITY_STABLE_STRATEGY.parametersHash)
-    expect(PRODUCTION_STRATEGY.parametersHash).toBe(
-      '3aebeed85a87338ee497e7d5ce10cd567949e8319c0193d361428cfee5f08a2f',
-    )
+    expect(PRODUCTION_STRATEGY.parametersHash).toBe('7c1eb45a10e6f7f502e5e2190327e472201c03b96259d1a2ffbde7ad6603d9b9')
+    expect(FROZEN_COMPOSITE_UTILITY_MODEL.trainedLabelsThrough).toBe('2026-09-29')
+    expect(FROZEN_COMPOSITE_UTILITY_MODEL.trees).toHaveLength(100)
+    expect(PRODUCTION_STRATEGY.parametersHash).not.toBe(hashCanonicalJson({
+      parameters: LOW_VOLATILITY_STABLE_PARAMETERS,
+      gateVersion: 'status-flags-valid-candle-v2', preferredRule: 'krx-code-last-digit-nonzero',
+      signalScoreVersion: SIGNAL_SCORE_VERSION, observedInputVersion: `${OBSERVED_INPUT_VERSION}-changed`,
+      model: FROZEN_COMPOSITE_UTILITY_MODEL,
+    }))
   })
 
   it('hashes the frozen target model with its pool gates and keeps training-label availability', () => {

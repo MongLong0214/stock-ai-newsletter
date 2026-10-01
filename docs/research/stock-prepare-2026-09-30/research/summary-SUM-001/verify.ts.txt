@@ -1,0 +1,25 @@
+import assert from 'node:assert/strict'
+import { writeFileSync } from 'node:fs'
+import { buildAnalysisSummary, buildRationale, buildSignals } from '/Users/isaac/WebstormProjects/stock-ai-newsletter/scripts/stock-picks/generate-picks.ts'
+import { buildAnalysisSummary as beforeSummary, buildRationale as beforeRationale, buildSignals as beforeSignals } from './generate-before.ts'
+import { buildFeatureVector } from '/Users/isaac/WebstormProjects/stock-ai-newsletter/scripts/stock-picks/features.ts'
+import { StockDataHandler, buildPriceBook } from '/Users/isaac/WebstormProjects/stock-ai-newsletter/scripts/stock-picks/data-handler.ts'
+import { TradingDayIndex } from '/Users/isaac/WebstormProjects/stock-ai-newsletter/scripts/stock-picks/trading-days.ts'
+const dates=['2026-08-26','2026-08-27']
+const cases=[{previousClose:1001,open:1011,close:1001},{previousClose:1003,open:1013,close:1003},{previousClose:1001,open:991,close:1001},{previousClose:1003,open:993,close:1003},{previousClose:1001,open:1021,close:1011},{previousClose:1001,open:981,close:991},{previousClose:1000000,open:1000010,close:1000001},{previousClose:1000000,open:999990,close:999999}]
+const witnesses=cases.map(input=>{
+ const rows=dates.map((trade_date,index)=>{
+  const open=index?input.open:input.previousClose;const close=index?input.close:input.previousClose
+  return {symbol:'KOSPI:000010',trade_date,open,high:Math.max(open,close)+5,low:Math.min(open,close)-5,close,volume:1000000,source:'kis' as const}
+ })
+ const feature=buildFeatureVector(new StockDataHandler(buildPriceBook(rows),new TradingDayIndex(dates)).at(dates[1]),'KOSPI:000010')
+ assert.deepEqual(buildSignals(feature),beforeSignals(feature))
+ assert.equal(buildRationale(feature,0,'lowVolatility'),beforeRationale(feature,0,'lowVolatility'))
+ const before=beforeSummary(feature).split('|')[1];const after=buildAnalysisSummary(feature).split('|')[1]
+ const flat=input.close===input.previousClose
+ if(flat)assert.equal(after,'전일 대비 0.0% 보합')
+ else assert.equal(before,after)
+ return {...input,rawPercent:((1+feature.gapFromPreviousClosePercent!/100)*(feature.close!/feature.open!)-1)*100,before,after,sameAllSignals:true,sameLegacyRationale:true}
+})
+writeFileSync('/tmp/composite-score-research-20260930/summary-SUM-001/evidence.json',JSON.stringify({base:'7522f63c0a3c2fce033cf236cfb9d9b7982323c0',legacySourceBytesUnchanged:true,witnesses},null,2))
+console.log(JSON.stringify(witnesses))

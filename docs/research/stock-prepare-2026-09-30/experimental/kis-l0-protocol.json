@@ -1,0 +1,329 @@
+{
+  "scope": "KIS L0 explicit any-negative sensitivity research; separate4variants before outcomes",
+  "shared": {
+    "families": {
+      "A": "HistGradientBoostingRegressor direct boundedgoalutility",
+      "B": "LightGBM4.7.0 LambdaMART per-signal-date query plus causal TRAIN-only isotonic"
+    },
+    "inputAblations": {
+      "original18": [
+        "atrPercent14",
+        "volumeRatio20",
+        "chaikinMoneyFlow21",
+        "distanceFromPriorHigh20Percent",
+        "bollingerWidth20Percent",
+        "signalCloseCloseReturnPercent",
+        "gapFromPreviousClosePercent",
+        "signalIntradayReturnPercent",
+        "rsi14",
+        "sma20DistancePercent",
+        "sma60DistancePercent",
+        "return5Percent",
+        "return20Percent",
+        "return60Percent",
+        "closeLocation",
+        "upperWickPercent",
+        "kospiReturn20Percent",
+        "breadthAboveSma20Percent"
+      ],
+      "expanded50": [
+        "atrPercent14",
+        "volumeRatio20",
+        "chaikinMoneyFlow21",
+        "distanceFromPriorHigh20Percent",
+        "bollingerWidth20Percent",
+        "signalCloseCloseReturnPercent",
+        "gapFromPreviousClosePercent",
+        "signalIntradayReturnPercent",
+        "rsi14",
+        "sma20DistancePercent",
+        "sma60DistancePercent",
+        "return5Percent",
+        "return20Percent",
+        "return60Percent",
+        "closeLocation",
+        "upperWickPercent",
+        "kospiReturn20Percent",
+        "breadthAboveSma20Percent",
+        "return1Percent",
+        "return2Percent",
+        "return3Percent",
+        "return10Percent",
+        "return40Percent",
+        "return120Percent",
+        "closeSma5DistancePercent",
+        "sma5ToSma20Ratio",
+        "return20ExcludingRecent5Percent",
+        "distanceFromPriorHigh5Percent",
+        "distanceFromPriorHigh10Percent",
+        "distanceFromPriorHigh60Percent",
+        "distanceFromPriorHigh120Percent",
+        "atr5ToAtr20Ratio",
+        "returnVolatility5To20Ratio",
+        "normalizedRange5To20Ratio",
+        "todayTrToPrior20MeanRatio",
+        "volumeMean3ToPrevious20Ratio",
+        "volumeMean5ToPrevious20Ratio",
+        "todayVolumeToPrior5MeanRatio",
+        "bullishVolumeShare5",
+        "upCloseVolumeShare10",
+        "todayTurnoverToPrior20MeanRatio",
+        "logAverageTurnover20",
+        "clvMean3",
+        "clvMean5",
+        "candleBodyMean3Percent",
+        "candleBodyMean5Percent",
+        "upperWickMean5",
+        "positiveCloseDays5",
+        "priorHigh20AgeSessions",
+        "drawdownFromPrior60ClosePeakPercent"
+      ]
+    },
+    "lambda": [
+      0.65
+    ],
+    "complexity": {
+      "small": {
+        "iterations": 100,
+        "leaves": 7,
+        "maxDepth": 3,
+        "minLeafRows": 100,
+        "L2": 1
+      }
+    },
+    "sharedModelParameters": {
+      "learningRate": 0.05,
+      "maxBins": 255,
+      "randomState": 42,
+      "earlyStopping": false,
+      "nativeNaN": true,
+      "featureFraction": 1,
+      "rowSubsample": 1
+    },
+    "BParameters": {
+      "objective": "lambdarank",
+      "deterministic": true,
+      "force_col_wise": true,
+      "num_threads": 4,
+      "lambdarank_norm": true,
+      "lambdarank_truncation_level": 6,
+      "metric": "None"
+    },
+    "fitAndCalibrationWeights": "N/(D*nStrictDate), each actual signal date equal contribution, mean row weight1; unknown excluded ONLY learner/calibration labels; no class weights",
+    "outcomes": {
+      "T": "5 valid positive-OHLCV bars, next actual trading open entry, intraday max high >= entry*110/100",
+      "B": "entry day close > entry day open",
+      "VGrouping": "(.8*T + .2*B + .65*(1-L0))/(1+.65)",
+      "L0": "5th actual trading close/entry open-1-.003 <0",
+      "negativeRiskMeaning": "No >=5% threshold here; any negativeD5 aftercost is counted"
+    },
+    "BGradeMapping": "enumerate all8 Boolean(T,L0,B) joint states, calculate V using fixed grouping, sort exact unique Vs, grade0..K-1; label_gain=sorted exact Vs, no quantization/sigmoid/percentile",
+    "scoreA": "floor(100*clip(predictedV,0,1)+.5)",
+    "scoreB": "floor(100*clip(causalIsotonic.predict(rawMargin),0,1)+.5); IsotonicRegression(increasing=True,out_of_bounds=clip,y_min=0,y_max=1)",
+    "selectionContract": {
+      "count": 3,
+      "ownCooldownSignalDays": 20,
+      "integerSort": [
+        "overall_score DESC",
+        "averageTurnover20 DESC",
+        "ASCII symbol ASC"
+      ],
+      "noLatentFloatingTiebreak": true,
+      "sixSourceCategoriesPreserved": true,
+      "unknownFutureSelectionsRetained": true,
+      "observedMissingInputsRetainedNative": true
+    },
+    "assessmentChoice": {
+      "oneSidedDistance": "max(0,.40-touchRate)^2+max(0,anyNegativeD5NetRate-.30)^2",
+      "strictOutcomeRates": "pooled selected known-positive-volume count, unknown separately disclosed",
+      "tiebreak": [
+        "higher meanD5net",
+        "higher meanTargetExitProxy",
+        "higher D1bullishRate",
+        "small before medium",
+        "lambda .35 before .65 before1.0",
+        "original18 before expanded50"
+      ],
+      "perFamilyWinnerCount": 1,
+      "neverUseValidationTestForConfigSelection": true
+    },
+    "frozenVariantCount": 4,
+    "observedFeaturePrefix": "all raw setup features maximum320 actual calendar bars; original18 exact current TS assignment; reject unbounded-prefix initial export",
+    "dataProtection": "no repo/UI/product/DB/email mutations; prior study bytes protected; new model/source/ledger files only under new experimental directory",
+    "diagnostics": [
+      "day/full3/high70/score distribution",
+      "integer vs raw ties observed-only",
+      "T×L5 joint outcomes",
+      "anynegative netD5",
+      "net mean/median/loss5/loss10/tails/MAE",
+      "target exit proxy notactualfills",
+      "utility-index calibration bins",
+      "natural breadth regimes",
+      "fixed10day circular block bootstrap1000seed42 descriptiveonly",
+      "raw OHLC/source/hash/maturity audit",
+      "preserve all missing-future selections"
+    ]
+  },
+  "trainingOnlyConfigurationFits": {
+    "prefixes": [
+      80,
+      105,
+      130
+    ],
+    "activationIndices": [
+      85,
+      110,
+      135
+    ],
+    "OOFDates": [
+      {
+        "start": 85,
+        "endExclusive": 105
+      },
+      {
+        "start": 110,
+        "endExclusive": 130
+      },
+      {
+        "start": 135,
+        "endExclusive": 150
+      }
+    ],
+    "OOFCandidates": "all actualruntimeeligible observed candidates, strictlabels only fit/calibration; symbol-major export rejoined by(date,symbol), actual model rows date-contiguous",
+    "ASelectionActiveFrom": 85,
+    "BSelectionActiveFrom": 110,
+    "BcalibrationSchedule": [
+      {
+        "activation": 110,
+        "OOFIntervals": [
+          [
+            85,
+            105
+          ]
+        ]
+      },
+      {
+        "activation": 135,
+        "OOFIntervals": [
+          [
+            85,
+            105
+          ],
+          [
+            110,
+            130
+          ]
+        ]
+      }
+    ],
+    "assessmentIntervals": [
+      [
+        110,
+        130
+      ],
+      [
+        135,
+        150
+      ]
+    ],
+    "assessmentSignalDays": 35,
+    "selectionSeed": "currentOriginalOverall owncd20 until respective scoring ready, advance every date including all gaps; reuse last model/calibrator betweenactivations"
+  },
+  "freezeTwoWinnersBeforeLaterResults": true,
+  "inner80": {
+    "trainingPrefix": 150,
+    "activationIndex": 155,
+    "assessmentIntervals": [
+      [
+        155,
+        235
+      ]
+    ],
+    "Bcalibration": "55 strict OOF dates from fixedprefix80/105/130; all mature beforeindex155",
+    "selectionSeed": "currentOriginalOverall days0..154 owncontinuouscd20, thenwinner ownstate"
+  },
+  "outer180PlusFresh": {
+    "learnerTrain": 235,
+    "activationDate": "2025-12-23",
+    "BcalibrationPrefixes": [
+      80,
+      105,
+      130,
+      155,
+      180,
+      205
+    ],
+    "BcalibrationOOFIntervals": [
+      [
+        85,
+        105
+      ],
+      [
+        110,
+        130
+      ],
+      [
+        135,
+        155
+      ],
+      [
+        160,
+        180
+      ],
+      [
+        185,
+        205
+      ],
+      [
+        210,
+        235
+      ]
+    ],
+    "OOFSignalDays": 125,
+    "selectionSeed": "empty on2025-12-23, own20 state all180 dates including10purge dates, fresh1 extends state",
+    "splits": "originalTrain80/purge5/validation30/purge5/test60; all are reuseddiagnostics, notpristineOOS"
+  },
+  "featureManifestGuard": "completed bounded320 spec/export/audit, original18 exactparity, actualruntimeeligible membership509015 over423panels; record finalinput hashes BEFORE anyfit; no initialunbounded export allowed",
+  "dependencyPins": {
+    "numpy": "2.5.3",
+    "scikit-learn": "1.9.1",
+    "lightgbm": "4.7.0"
+  },
+  "libomp": "DYLD_LIBRARY_PATH points only to pinnedsklearnwheel bundledlibomp; no KMP_DUPLICATE_LIB_OK or validationbypass",
+  "parentL5ProtocolSha256": "30c5978c644ce0b8afce2331c3dbcf34754ff077b192cd76ec771eee20864c5c",
+  "riskDefinition": "L0=netD5<0 after fixed30bps; negative exactlystrict, net0 is nonnegative",
+  "fixedConfigCount": 4,
+  "fixedConfigs": [
+    {
+      "family": "A",
+      "complexity": "small",
+      "lambda": 0.65,
+      "inputCount": 18,
+      "id": "L0-A-small-lambda0.65-inputs18"
+    },
+    {
+      "family": "A",
+      "complexity": "small",
+      "lambda": 0.65,
+      "inputCount": 50,
+      "id": "L0-A-small-lambda0.65-inputs50"
+    },
+    {
+      "family": "B",
+      "complexity": "small",
+      "lambda": 0.65,
+      "inputCount": 18,
+      "id": "L0-B-small-lambda0.65-inputs18"
+    },
+    {
+      "family": "B",
+      "complexity": "small",
+      "lambda": 0.65,
+      "inputCount": 50,
+      "id": "L0-B-small-lambda0.65-inputs50"
+    }
+  ],
+  "noL5OutcomeRetuning": true,
+  "freezeBeforeAnyScientificModelOutcomes": true,
+  "frozenAtUTC": "2026-09-30T06:51:41.645788+00:00"
+}

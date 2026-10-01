@@ -1,0 +1,10 @@
+{
+  "checks": [
+    "own CD5 excludes five previous signal panels",
+    "shortfalls advance own state",
+    "calendar gaps do not compress or add panels",
+    "integer/turnover/ASCII ties",
+    "under-three fail closed"
+  ],
+  "differences": []
+}

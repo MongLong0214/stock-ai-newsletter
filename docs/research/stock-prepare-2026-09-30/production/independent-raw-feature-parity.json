@@ -1,0 +1,14 @@
+{
+  "scope": "100 independently sampled raw KIS320 cases: actual current TS feature/context reconstruction, all50 observed input parity and native model integer-score parity; prior all-universe breadth reused, no future labels queried",
+  "cases": 100,
+  "numericChecks": 7173,
+  "nullChecks": 27,
+  "predictionChecks": 100,
+  "guardChecks": 300,
+  "maximumAbsoluteError": 8.881784197001252e-16,
+  "differences": 0,
+  "modelSha256": "381a8c6a3f95b8dd333460ab19e0487147da8a2e3714da5f64264442af176fae",
+  "observedInputSourceSha256": "7c3abd6c96a4bd3ed6ea9f94d6c6e996808f771d1f70c2601375693159242d44",
+  "productionEdits": 0,
+  "newFits": 0
+}

@@ -1,0 +1,339 @@
+{
+  "scope": "Post-hoc source quality diagnostic of already-reused KIS 2025-2026 selected ledger positions; no new Naver 2023-2024 label/outcome/model selection",
+  "denominatorWarning": "Each source retains all selected positions; unknowns remain unknown. Source-specific known denominators shown explicitly, paired comparisons in selected-cohort.json. These are post-hoc diagnostics, not new model performance evidence.",
+  "allUnique": {
+    "kis": {
+      "totalSelected": 3417,
+      "strictKnown": 3391,
+      "unknown": 26,
+      "touchCount": 1280,
+      "L0Count": 1974,
+      "L5Count": 1234,
+      "D1bullishCount": 1401,
+      "meanNetD5": -0.0069537612736197876,
+      "touchRateAmongKnown": 0.3774697729283397,
+      "L0RateAmongKnown": 0.5821291654379239,
+      "L5RateAmongKnown": 0.36390445296372753,
+      "D1bullishRateAmongKnown": 0.4131524624004718
+    },
+    "naver": {
+      "totalSelected": 3417,
+      "strictKnown": 3392,
+      "unknown": 25,
+      "touchCount": 1282,
+      "L0Count": 1973,
+      "L5Count": 1230,
+      "D1bullishCount": 1403,
+      "meanNetD5": -0.006729723287402175,
+      "touchRateAmongKnown": 0.3779481132075472,
+      "L0RateAmongKnown": 0.5816627358490566,
+      "L5RateAmongKnown": 0.3626179245283019,
+      "D1bullishRateAmongKnown": 0.41362028301886794
+    }
+  },
+  "byPolicy": {
+    "L5/boundedEventComposite": {
+      "kis": {
+        "totalSelected": 543,
+        "strictKnown": 538,
+        "unknown": 5,
+        "touchCount": 224,
+        "L0Count": 320,
+        "L5Count": 207,
+        "D1bullishCount": 239,
+        "meanNetD5": -0.013065539479574222,
+        "touchRateAmongKnown": 0.4163568773234201,
+        "L0RateAmongKnown": 0.5947955390334573,
+        "L5RateAmongKnown": 0.3847583643122677,
+        "D1bullishRateAmongKnown": 0.44423791821561337
+      },
+      "naver": {
+        "totalSelected": 543,
+        "strictKnown": 539,
+        "unknown": 4,
+        "touchCount": 225,
+        "L0Count": 320,
+        "L5Count": 207,
+        "D1bullishCount": 239,
+        "meanNetD5": -0.012728461566602258,
+        "touchRateAmongKnown": 0.4174397031539889,
+        "L0RateAmongKnown": 0.5936920222634509,
+        "L5RateAmongKnown": 0.38404452690166974,
+        "D1bullishRateAmongKnown": 0.44341372912801486
+      }
+    },
+    "L0/boundedEventComposite": {
+      "kis": {
+        "totalSelected": 543,
+        "strictKnown": 538,
+        "unknown": 5,
+        "touchCount": 224,
+        "L0Count": 320,
+        "L5Count": 207,
+        "D1bullishCount": 239,
+        "meanNetD5": -0.013065539479574222,
+        "touchRateAmongKnown": 0.4163568773234201,
+        "L0RateAmongKnown": 0.5947955390334573,
+        "L5RateAmongKnown": 0.3847583643122677,
+        "D1bullishRateAmongKnown": 0.44423791821561337
+      },
+      "naver": {
+        "totalSelected": 543,
+        "strictKnown": 539,
+        "unknown": 4,
+        "touchCount": 225,
+        "L0Count": 320,
+        "L5Count": 207,
+        "D1bullishCount": 239,
+        "meanNetD5": -0.012728461566602258,
+        "touchRateAmongKnown": 0.4174397031539889,
+        "L0RateAmongKnown": 0.5936920222634509,
+        "L5RateAmongKnown": 0.38404452690166974,
+        "D1bullishRateAmongKnown": 0.44341372912801486
+      }
+    },
+    "L0/winnerB": {
+      "kis": {
+        "totalSelected": 543,
+        "strictKnown": 538,
+        "unknown": 5,
+        "touchCount": 256,
+        "L0Count": 308,
+        "L5Count": 215,
+        "D1bullishCount": 228,
+        "meanNetD5": 0.006864245923776892,
+        "touchRateAmongKnown": 0.4758364312267658,
+        "L0RateAmongKnown": 0.5724907063197026,
+        "L5RateAmongKnown": 0.3996282527881041,
+        "D1bullishRateAmongKnown": 0.42379182156133827
+      },
+      "naver": {
+        "totalSelected": 543,
+        "strictKnown": 538,
+        "unknown": 5,
+        "touchCount": 256,
+        "L0Count": 309,
+        "L5Count": 215,
+        "D1bullishCount": 227,
+        "meanNetD5": 0.00683632041619892,
+        "touchRateAmongKnown": 0.4758364312267658,
+        "L0RateAmongKnown": 0.5743494423791822,
+        "L5RateAmongKnown": 0.3996282527881041,
+        "D1bullishRateAmongKnown": 0.42193308550185876
+      }
+    },
+    "L5/winnerA": {
+      "kis": {
+        "totalSelected": 543,
+        "strictKnown": 535,
+        "unknown": 8,
+        "touchCount": 253,
+        "L0Count": 314,
+        "L5Count": 226,
+        "D1bullishCount": 218,
+        "meanNetD5": -0.01170001250488086,
+        "touchRateAmongKnown": 0.47289719626168225,
+        "L0RateAmongKnown": 0.5869158878504673,
+        "L5RateAmongKnown": 0.4224299065420561,
+        "D1bullishRateAmongKnown": 0.4074766355140187
+      },
+      "naver": {
+        "totalSelected": 543,
+        "strictKnown": 535,
+        "unknown": 8,
+        "touchCount": 253,
+        "L0Count": 314,
+        "L5Count": 225,
+        "D1bullishCount": 218,
+        "meanNetD5": -0.011484943502457762,
+        "touchRateAmongKnown": 0.47289719626168225,
+        "L0RateAmongKnown": 0.5869158878504673,
+        "L5RateAmongKnown": 0.4205607476635514,
+        "D1bullishRateAmongKnown": 0.4074766355140187
+      }
+    },
+    "L5/winnerB": {
+      "kis": {
+        "totalSelected": 543,
+        "strictKnown": 537,
+        "unknown": 6,
+        "touchCount": 248,
+        "L0Count": 308,
+        "L5Count": 234,
+        "D1bullishCount": 198,
+        "meanNetD5": -0.007494921966627232,
+        "touchRateAmongKnown": 0.4618249534450652,
+        "L0RateAmongKnown": 0.5735567970204841,
+        "L5RateAmongKnown": 0.43575418994413406,
+        "D1bullishRateAmongKnown": 0.3687150837988827
+      },
+      "naver": {
+        "totalSelected": 543,
+        "strictKnown": 538,
+        "unknown": 5,
+        "touchCount": 249,
+        "L0Count": 306,
+        "L5Count": 235,
+        "D1bullishCount": 200,
+        "meanNetD5": -0.007015538090794653,
+        "touchRateAmongKnown": 0.4628252788104089,
+        "L0RateAmongKnown": 0.5687732342007435,
+        "L5RateAmongKnown": 0.4368029739776952,
+        "D1bullishRateAmongKnown": 0.37174721189591076
+      }
+    },
+    "L5/currentOverall": {
+      "kis": {
+        "totalSelected": 543,
+        "strictKnown": 540,
+        "unknown": 3,
+        "touchCount": 192,
+        "L0Count": 305,
+        "L5Count": 199,
+        "D1bullishCount": 221,
+        "meanNetD5": -0.004489565367635911,
+        "touchRateAmongKnown": 0.35555555555555557,
+        "L0RateAmongKnown": 0.5648148148148148,
+        "L5RateAmongKnown": 0.3685185185185185,
+        "D1bullishRateAmongKnown": 0.40925925925925927
+      },
+      "naver": {
+        "totalSelected": 543,
+        "strictKnown": 540,
+        "unknown": 3,
+        "touchCount": 192,
+        "L0Count": 306,
+        "L5Count": 199,
+        "D1bullishCount": 221,
+        "meanNetD5": -0.004552698893127066,
+        "touchRateAmongKnown": 0.35555555555555557,
+        "L0RateAmongKnown": 0.5666666666666667,
+        "L5RateAmongKnown": 0.3685185185185185,
+        "D1bullishRateAmongKnown": 0.40925925925925927
+      }
+    },
+    "L0/currentOverall": {
+      "kis": {
+        "totalSelected": 543,
+        "strictKnown": 540,
+        "unknown": 3,
+        "touchCount": 192,
+        "L0Count": 305,
+        "L5Count": 199,
+        "D1bullishCount": 221,
+        "meanNetD5": -0.004489565367635911,
+        "touchRateAmongKnown": 0.35555555555555557,
+        "L0RateAmongKnown": 0.5648148148148148,
+        "L5RateAmongKnown": 0.3685185185185185,
+        "D1bullishRateAmongKnown": 0.40925925925925927
+      },
+      "naver": {
+        "totalSelected": 543,
+        "strictKnown": 540,
+        "unknown": 3,
+        "touchCount": 192,
+        "L0Count": 306,
+        "L5Count": 199,
+        "D1bullishCount": 221,
+        "meanNetD5": -0.004552698893127066,
+        "touchRateAmongKnown": 0.35555555555555557,
+        "L0RateAmongKnown": 0.5666666666666667,
+        "L5RateAmongKnown": 0.3685185185185185,
+        "D1bullishRateAmongKnown": 0.40925925925925927
+      }
+    },
+    "L0/winnerA": {
+      "kis": {
+        "totalSelected": 543,
+        "strictKnown": 540,
+        "unknown": 3,
+        "touchCount": 263,
+        "L0Count": 313,
+        "L5Count": 230,
+        "D1bullishCount": 219,
+        "meanNetD5": -0.007135011457690912,
+        "touchRateAmongKnown": 0.48703703703703705,
+        "L0RateAmongKnown": 0.5796296296296296,
+        "L5RateAmongKnown": 0.42592592592592593,
+        "D1bullishRateAmongKnown": 0.40555555555555556
+      },
+      "naver": {
+        "totalSelected": 543,
+        "strictKnown": 540,
+        "unknown": 3,
+        "touchCount": 263,
+        "L0Count": 312,
+        "L5Count": 227,
+        "D1bullishCount": 219,
+        "meanNetD5": -0.00690986057368756,
+        "touchRateAmongKnown": 0.48703703703703705,
+        "L0RateAmongKnown": 0.5777777777777777,
+        "L5RateAmongKnown": 0.4203703703703704,
+        "D1bullishRateAmongKnown": 0.40555555555555556
+      }
+    },
+    "L5/ATRbaseline": {
+      "kis": {
+        "totalSelected": 543,
+        "strictKnown": 542,
+        "unknown": 1,
+        "touchCount": 32,
+        "L0Count": 319,
+        "L5Count": 82,
+        "D1bullishCount": 231,
+        "meanNetD5": -0.0046929014404700695,
+        "touchRateAmongKnown": 0.05904059040590406,
+        "L0RateAmongKnown": 0.5885608856088561,
+        "L5RateAmongKnown": 0.15129151291512916,
+        "D1bullishRateAmongKnown": 0.4261992619926199
+      },
+      "naver": {
+        "totalSelected": 543,
+        "strictKnown": 542,
+        "unknown": 1,
+        "touchCount": 33,
+        "L0Count": 319,
+        "L5Count": 80,
+        "D1bullishCount": 231,
+        "meanNetD5": -0.004054386451934345,
+        "touchRateAmongKnown": 0.06088560885608856,
+        "L0RateAmongKnown": 0.5885608856088561,
+        "L5RateAmongKnown": 0.14760147601476015,
+        "D1bullishRateAmongKnown": 0.4261992619926199
+      }
+    },
+    "L0/ATRbaseline": {
+      "kis": {
+        "totalSelected": 543,
+        "strictKnown": 542,
+        "unknown": 1,
+        "touchCount": 32,
+        "L0Count": 319,
+        "L5Count": 82,
+        "D1bullishCount": 231,
+        "meanNetD5": -0.0046929014404700695,
+        "touchRateAmongKnown": 0.05904059040590406,
+        "L0RateAmongKnown": 0.5885608856088561,
+        "L5RateAmongKnown": 0.15129151291512916,
+        "D1bullishRateAmongKnown": 0.4261992619926199
+      },
+      "naver": {
+        "totalSelected": 543,
+        "strictKnown": 542,
+        "unknown": 1,
+        "touchCount": 33,
+        "L0Count": 319,
+        "L5Count": 80,
+        "D1bullishCount": 231,
+        "meanNetD5": -0.004054386451934345,
+        "touchRateAmongKnown": 0.06088560885608856,
+        "L0RateAmongKnown": 0.5885608856088561,
+        "L5RateAmongKnown": 0.14760147601476015,
+        "D1bullishRateAmongKnown": 0.4261992619926199
+      }
+    }
+  },
+  "newNaver2023_2024LabelsRead": false,
+  "modelSelectionOrTuning": false,
+  "selectedCohortSha256": "383ba5a5af28ea464e3e772ae62ff9676e7838af605326c33f009ac59858fa7b"
+}

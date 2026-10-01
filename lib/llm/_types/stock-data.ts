@@ -25,7 +25,7 @@ export interface StockSignals {
 export interface StockSelection {
   strategy: string;
   rank: 1 | 2 | 3;
-  objective: 'lowVolatilityStable' | 'bullishThenTouch10Within5TradingDays';
+  objective: 'lowVolatilityStable' | 'bullishThenTouch10Within5TradingDays' | 'compositeUtility';
 }
 
 /**

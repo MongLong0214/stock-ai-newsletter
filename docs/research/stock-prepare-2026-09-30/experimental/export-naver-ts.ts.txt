@@ -1,0 +1,135 @@
+import { createReadStream, readFileSync, writeFileSync, openSync, writeSync, readSync, closeSync, statSync, renameSync, mkdirSync, existsSync } from 'node:fs'
+import { createInterface } from 'node:readline'
+import { createHash } from 'node:crypto'
+import { execFileSync } from 'node:child_process'
+import { TradingDayIndex } from '/Users/isaac/WebstormProjects/stock-ai-newsletter/scripts/stock-picks/trading-days.ts'
+import { SIGNAL_SCORE_VERSION } from '/Users/isaac/WebstormProjects/stock-ai-newsletter/scripts/stock-picks/signals.ts'
+import { PRODUCTION_STRATEGY } from '/Users/isaac/WebstormProjects/stock-ai-newsletter/scripts/stock-picks/production-strategy.ts'
+import { EXPECTED_SOURCE, ORIGINAL_INPUT_NAMES, SIGNAL_NAMES, RELAXED_OBSERVATION_PARAMETERS, assertVendorRows, computeObservedSymbol, type VendorRow } from './naver-ts-observed.ts'
+import type { StockMasterState } from '/Users/isaac/WebstormProjects/stock-ai-newsletter/scripts/stock-picks/strategies.ts'
+
+const base = '/tmp/composite-score-experimental-20260930'
+const root = '/Users/isaac/WebstormProjects/stock-ai-newsletter'
+const input = `${base}/naver-history`
+const sampleOnly = process.argv.includes('--sample')
+const out = `${base}/naver-ts-observed${sampleOnly ? '-sample' : ''}`
+const sha = (text: string | Buffer) => createHash('sha256').update(text).digest('hex')
+async function hashFile(path: string) { const h = createHash('sha256'); for await (const chunk of createReadStream(path)) h.update(chunk); return h.digest('hex') }
+const sourceFiles = ['data-handler.ts', 'features.ts', 'technical-context.ts', 'indicators.ts', 'data-contract.ts', 'trading-days.ts', 'signals.ts', 'strategies.ts', 'generate-picks.ts', 'production-strategy.ts']
+const hashes = () => Object.fromEntries(sourceFiles.map(name => [name, sha(readFileSync(`${root}/scripts/stock-picks/${name}`))]))
+globalThis.fetch = async () => { throw new Error('Offline NAVER feature exporter blocks network') }
+
+async function main() {
+  const startedAt = new Date().toISOString(), beforeSources = hashes()
+  const collectionPath = sampleOnly ? `${base}/naver-history-sample-four-manifest.json` : `${input}/manifest.json`
+  const collection = JSON.parse(readFileSync(collectionPath, 'utf8'))
+  if (!sampleOnly && collection.status !== 'complete') throw new Error('Collection is not complete; partial panels are forbidden')
+  if (sampleOnly && (collection.sampleCopiedExactCommittedBytes !== true || collection.symbols.length !== 4)) throw new Error('Sample input must be the frozen exact four-symbol snapshot')
+  const rawPath = sampleOnly ? `${base}/naver-history-sample-four.ndjson` : `${input}/prices.ndjson`, beforeRaw = statSync(rawPath), rawHash = await hashFile(rawPath)
+  const collectionHash = sampleOnly ? collection.sampleSha256 : collection.pricesSha256
+  if (collectionHash !== rawHash) throw new Error('Completed collection must expose matching frozen prices SHA256')
+  const masterText = readFileSync(`${input}/master-snapshot.json`, 'utf8')
+  const masters: StockMasterState[] = JSON.parse(masterText).masters.filter((m: StockMasterState) => m.is_active && (!sampleOnly || collection.symbols.includes(m.symbol)))
+  const symbols = masters.map(m => m.symbol), masterBySymbol = new Map(masters.map(m => [m.symbol, m]))
+  if (new Set(symbols).size !== symbols.length) throw new Error('Duplicate active master symbol')
+  let benchmark: VendorRow[] | undefined
+  for await (const line of createInterface({ input: createReadStream(rawPath), crlfDelay: Infinity })) {
+    const [symbol, rows] = JSON.parse(line)
+    if (symbol === 'KOSPI') { assertVendorRows(symbol, rows); benchmark = rows; break }
+  }
+  if (!benchmark?.length) throw new Error('Missing actual KOSPI calendar')
+  const index = new TradingDayIndex(benchmark.map(r => r.trade_date))
+  const dates = index.tradingDays.filter((d, i) => d >= '2020-01-01' && d <= '2024-12-31' && i >= 319)
+  if (dates[0] !== index.firstTradingDayOnOrAfter('2020-01-01')) throw new Error('2020 first signal lacks full320 calendar warmup')
+  const first2023 = dates.find(d => d >= '2023-01-01')!
+  const first2023Index = index.indexByDate.get(first2023)!
+  if (first2023Index - 5 - 504 < 319) throw new Error('First2023 lacks505 consecutive mature fullwarm panels')
+  const historyDates = index.tradingDays.slice(index.indexByDate.get(dates[0]!)! - 319, index.indexByDate.get(dates.at(-1)!)! + 1)
+  const dateIndex = new Map(dates.map((d, i) => [d, i])), symbolIndex = new Map(symbols.map((s, i) => [s, i]))
+  const eligibleCounts = dates.map(() => 0), relaxedAdditionalCounts = dates.map(() => 0), breadthEligible = dates.map(() => 0), breadthAbove = dates.map(() => 0)
+  const processed = new Set<string>(), symbolSpans: unknown[] = []
+  mkdirSync(out, { recursive: true })
+  const outputPath = `${out}/source18-signals7-turnover.f64`
+  if (existsSync(outputPath) || existsSync(`${out}/manifest.json`)) throw new Error('Completed NAVER observed export cannot be overwritten')
+  const fd = openSync(`${outputPath}.partial`, 'wx+'), columns = 28
+  const relaxedPath = `${out}/relaxed-momentum-additional-observations.f64`, relaxedColumns = 33
+  const relaxedFd = openSync(`${relaxedPath}.partial`, 'wx+')
+  let totalRows = 0, relaxedRows = 0, observations = 0, rawRows = 0
+  for await (const line of createInterface({ input: createReadStream(rawPath), crlfDelay: Infinity })) {
+    const [symbol, rows]: [string, VendorRow[]] = JSON.parse(line)
+    assertVendorRows(symbol, rows); rawRows += rows.length
+    if (symbol === 'KOSPI') continue
+    const master = masterBySymbol.get(symbol)
+    if (!master) throw new Error(`Raw symbol outside frozen active master: ${symbol}`)
+    if (processed.has(symbol)) throw new Error(`Duplicate raw symbol chunk: ${symbol}`)
+    processed.add(symbol)
+    const result = computeObservedSymbol({ master, rows, benchmark, index, historyDates, includeFromDate: dates[0]! })
+    const values: number[] = [], relaxedValues: number[] = [], start = totalRows
+    for (const point of result) {
+      const di = dateIndex.get(point.feature.simDate)!
+      if (di === undefined) throw new Error('Unexpected feature date')
+      observations++
+      breadthEligible[di]! += point.context.breadthEligibleSymbols
+      breadthAbove[di]! += point.context.breadthAboveSma20 === 1 ? 1 : 0
+      // Global breadth is merged below after all actual TS single-symbol contexts contribute.
+      const atoms = [...point.originalInputs18]; atoms[17] = null
+      const compact = [di, symbolIndex.get(symbol)!, ...atoms.map(x => x ?? NaN), ...SIGNAL_NAMES.map(k => point.sourceSignals[k]), point.feature.averageTurnover20!]
+      if (point.runtimeEligible) {
+        if (!point.relaxedMomentumGate) throw new Error('Current gate must remain a subset of relaxed observation gate')
+        values.push(...compact); eligibleCounts[di]!++; totalRows++
+      } else if (point.relaxedMomentumGate) {
+        relaxedValues.push(...compact, point.feature.open!, point.feature.high!, point.feature.low!, point.feature.close!, point.feature.volume!)
+        relaxedAdditionalCounts[di]!++; relaxedRows++
+      }
+    }
+    if (values.length !== (totalRows - start) * columns) throw new Error('Invalid compact row width')
+    const buf = Buffer.allocUnsafe(values.length * 8)
+    values.forEach((v, i) => buf.writeDoubleLE(v, i * 8)); writeSync(fd, buf)
+    const relaxedBuf = Buffer.allocUnsafe(relaxedValues.length * 8)
+    relaxedValues.forEach((v, i) => relaxedBuf.writeDoubleLE(v, i * 8)); writeSync(relaxedFd, relaxedBuf)
+    symbolSpans.push({ symbol, firstRow: start, rows: totalRows - start })
+    if (processed.size % 50 === 0) console.log(JSON.stringify({ event: 'progress', symbols: processed.size, totalSymbols: symbols.length, eligibleRows: totalRows, elapsedSeconds: (Date.now() - Date.parse(startedAt)) / 1000 }))
+  }
+  if (processed.size !== masters.length || symbols.some(s => !processed.has(s))) throw new Error('Incomplete frozen master export')
+  // Bounded chunk pass writes only the completed market-breadth column; no full object matrix.
+  for (const [descriptor, rows, width] of [[fd, totalRows, columns], [relaxedFd, relaxedRows, relaxedColumns]]) {
+    const chunk = Buffer.alloc(width! * 8 * 4096)
+    for (let row = 0; row < rows!; row += 4096) {
+      const bytes = Math.min(4096, rows! - row) * width! * 8, offset = row * width! * 8
+      if (readSync(descriptor!, chunk, 0, bytes, offset) !== bytes) throw new Error('Truncated compact output')
+      for (let r = 0; r < bytes / (width! * 8); r++) {
+        const di = chunk.readDoubleLE(r * width! * 8)
+        const breadth = breadthEligible[di]! > 0 ? breadthAbove[di]! / breadthEligible[di]! * 100 : NaN
+        chunk.writeDoubleLE(breadth, (r * width! + 19) * 8)
+      }
+      writeSync(descriptor!, chunk, 0, bytes, offset)
+    }
+    closeSync(descriptor!)
+  }
+  const afterRaw = statSync(rawPath), afterSources = hashes()
+  if (beforeRaw.size !== afterRaw.size || beforeRaw.mtimeMs !== afterRaw.mtimeMs || rawHash !== await hashFile(rawPath)) throw new Error('Frozen raw changed during export')
+  if (JSON.stringify(beforeSources) !== JSON.stringify(afterSources)) throw new Error('Product source changed during observed export')
+  renameSync(`${outputPath}.partial`, outputPath)
+  renameSync(`${relaxedPath}.partial`, relaxedPath)
+  const manifest = {
+    schema: 'naver-actual-ts-observed-v1', sampleOnly, startedAt, completedAt: new Date().toISOString(),
+    repositoryHead: execFileSync('git', ['-C', root, 'rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(),
+    raw: { path: rawPath, sha256: rawHash, bytes: beforeRaw.size, rows: rawRows, collectionManifest: collectionPath, collectionManifestSha256: sha(readFileSync(collectionPath)) },
+    master: { path: `${input}/master-snapshot.json`, sha256: sha(masterText), activeSymbols: masters.length, currentMasterSurvivorshipBias: true, pointInTimeHistoricalStatus: false },
+    protocol: { path: `${base}/naver-protocol.json`, sha256: sha(readFileSync(`${base}/naver-protocol.json`)) },
+    sourceHashes: beforeSources, sourceChanged: false, signalScoreVersion: SIGNAL_SCORE_VERSION, productionStrategy: PRODUCTION_STRATEGY,
+    exporterSha256: sha(readFileSync(`${base}/export-naver-ts.ts`)), moduleSha256: sha(readFileSync(`${base}/naver-ts-observed.ts`)),
+    source: EXPECTED_SOURCE, vendor: EXPECTED_SOURCE, providerRetagged: false, rawOhlcvRepaired: false,
+    sourceAdaptation: 'Only current-source acceptance changes kis to explicit naver-fchart offline; actual current hasCalculatedOutputMetrics and rankLowVolatilityStableCandidates gates, active master/status/preferred/500m turnover/RSI75/signal return<10% unchanged. No cooldown/selection performed; all eligible membership exported.',
+    technicalContext: 'Actual buildTechnicalContextMap per active symbol; full active universe breadth recombined from exact one-symbol eligible/above counts. Main context positive-volume historical row semantics retained; extra32 observed volume0 preservation is a separate frozen feature contract.',
+    calendarDates: index.tradingDays, signalDates: dates, symbols, masterNames: JSON.parse(masterText).masters.filter((m: StockMasterState) => m.is_active).map((m: StockMasterState & {name: string}) => m.name), eligibleCounts, breadthEligible, breadthAbove, breadthUniverse: masters.length,
+    featureWarmupCalendarBars: 320, historyDates, first2023, mature505WindowBeforeFirst2023: [index.tradingDays[first2023Index - 5 - 504], index.tradingDays[first2023Index - 5]],
+    observedRows: observations, eligibleRows: totalRows, symbolSpans,
+    output: { path: outputPath, sha256: await hashFile(outputPath), bytes: statSync(outputPath).size, rows: totalRows, columns, dtype: '<f8', rowOrder: 'symbol-contiguous, chronological within symbol', columnNames: ['signalIndex', 'symbolIndex', ...ORIGINAL_INPUT_NAMES, ...SIGNAL_NAMES, 'averageTurnover20'] },
+    relaxedMomentumObservationOnly: { parameters: RELAXED_OBSERVATION_PARAMETERS, rows: relaxedRows, perDateAdditionalCounts: relaxedAdditionalCounts, currentEligibleIncluded: false, currentProtocolMembershipChanged: false, labelReads: 0, purpose: 'Observed additional candidates only, no fit or outcomes; fixed RSI85/signal cap15%, every other actual production pool gate unchanged', output: { path: relaxedPath, sha256: await hashFile(relaxedPath), bytes: statSync(relaxedPath).size, rows: relaxedRows, columns: relaxedColumns, dtype: '<f8', columnNames: ['signalIndex', 'symbolIndex', ...ORIGINAL_INPUT_NAMES, ...SIGNAL_NAMES, 'averageTurnover20', 'open', 'high', 'low', 'close', 'volume'] } },
+    labelReads: 0, fitCalls: 0, stockSelections: 0, networkCalls: 0, productMutations: 0,
+  }
+  writeFileSync(`${out}/manifest.json`, JSON.stringify(manifest, null, 2) + '\n')
+  console.log(JSON.stringify({ event: 'complete', observedRows: observations, eligibleRows: totalRows, output: manifest.output }))
+}
+main().catch(error => { console.error(error); process.exitCode = 1 })

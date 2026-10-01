@@ -16,6 +16,7 @@ import {
   passesCommonGate,
   rankStrategyCandidates,
   rankLowVolatilityStableCandidates,
+  rankUtilityScoreCandidates,
   rankSeededRandomCandidates,
   rankTieredFillCandidates,
   rankVolumeBreakoutAtrRankCandidates,
@@ -72,6 +73,51 @@ const master = (symbol: string, overrides: Partial<StockMasterState> = {}): Stoc
 })
 
 describe('stock-picks strategy gates and ranking', () => {
+  it('selects the published integer utility score even when ATR and latent utility order disagree', () => {
+    const candidates = [
+      feature('KOSPI:000010', { atrPercent14: 0.5 }),
+      feature('KOSPI:000020', { atrPercent14: 5, averageTurnover20: 3_000_000_000 }),
+      feature('KOSPI:000030', { atrPercent14: 7 }),
+      feature('KOSPI:000040', { atrPercent14: 1 }),
+    ]
+    const masters = new Map(candidates.map((c) => [c.symbol, master(c.symbol)]))
+    const result = rankUtilityScoreCandidates({ features: candidates, masters,
+      scores: new Map([['KOSPI:000010', 12], ['KOSPI:000020', 65], ['KOSPI:000030', 65], ['KOSPI:000040', 64]]),
+      parameters: LOW_VOLATILITY_STABLE_PARAMETERS, excludeSymbols: new Set() })
+    expect(result).toEqual([{ symbol: 'KOSPI:000020', score: 65 }, { symbol: 'KOSPI:000030', score: 65 }, { symbol: 'KOSPI:000040', score: 64 }])
+    expect(rankLowVolatilityStableCandidates({ features: candidates, masters,
+      parameters: LOW_VOLATILITY_STABLE_PARAMETERS, excludeSymbols: new Set() }))
+      .toEqual(['KOSPI:000010', 'KOSPI:000040', 'KOSPI:000020'])
+  })
+
+  it('breaks equal integer scores by turnover then ASCII symbol and keeps the existing cooldown', () => {
+    const candidates = ['KOSPI:000010', 'KOSDAQ:000030', 'KOSDAQ:000020', 'KOSPI:000040'].map((s) => feature(s))
+    const masters = new Map(candidates.map((c) => [c.symbol, master(c.symbol)]))
+    const input = { features: candidates, masters, scores: new Map(candidates.map((c) => [c.symbol, 30])),
+      parameters: LOW_VOLATILITY_STABLE_PARAMETERS, excludeSymbols: new Set(['KOSDAQ:000020']) }
+    expect(rankUtilityScoreCandidates(input).map((p) => p.symbol)).toEqual(['KOSDAQ:000030', 'KOSPI:000010', 'KOSPI:000040'])
+    expect(() => rankUtilityScoreCandidates({ ...input, scores: new Map() })).toThrow(/후보 추론 누락/)
+    expect(() => rankUtilityScoreCandidates({ ...input, scores: new Map(candidates.map((c) => [c.symbol, 30.1])) })).toThrow(/후보 추론 누락/)
+    expect(() => rankUtilityScoreCandidates({ ...input, features: [candidates[0]!, candidates[0]!] })).toThrow(/중복/)
+  })
+
+  it('applies the frozen price, status, preferred, RSI, return and turnover gates before requiring scores', () => {
+    const candidates = [
+      feature('KOSPI:000010'),
+      feature('KOSPI:000025'),
+      feature('KOSPI:000030', { rsi14: 75.01 }),
+      feature('KOSPI:000040', { close: 2_090, high: 2_100, gapFromPreviousClosePercent: 0 }),
+      feature('KOSPI:000050', { averageTurnover20: 499_999_999 }),
+      feature('KOSPI:000060', { open: 999, close: 999, low: 990, high: 1_000 }),
+      feature('KOSPI:000070'),
+    ]
+    const masters = new Map(candidates.map((c) => [c.symbol, master(c.symbol)]))
+    masters.set('KOSPI:000070', master('KOSPI:000070', { status_flags: { trading_suspended: true } }))
+    expect(rankUtilityScoreCandidates({ features: candidates, masters, scores: new Map([['KOSPI:000010', 0]]),
+      parameters: LOW_VOLATILITY_STABLE_PARAMETERS, excludeSymbols: new Set() }))
+      .toEqual([{ symbol: 'KOSPI:000010', score: 0 }])
+  })
+
   it('classifies preferred shares by the final code character', () => {
     expect(['005930', '005935', 'KOSPI:003547', 'KOSDAQ:0130H0', 'KOSPI:159910', '097955']
       .map(isPreferredShare)).toEqual([false, true, true, false, false, true])

@@ -1,0 +1,28 @@
+{
+  "scope": "Independent entire observed NAVER binary/provenance verification only; no outcomes calculated",
+  "results": [
+    {
+      "name": "current",
+      "rows": 1559349,
+      "sha256": "e6a11318b5744be59e873fee1bdefd7eb00041e7a2a3f4ef2f6052bc652f5e25",
+      "columns": 28
+    },
+    {
+      "name": "additional",
+      "rows": 43258,
+      "sha256": "744aab716227cd6b93601aa6a2c7c1247b77a9b1e85a4e44a399a84cf9177682",
+      "columns": 33
+    }
+  ],
+  "signalDates": 1231,
+  "symbols": 2431,
+  "differences": [],
+  "newNaver2023_2024OutcomesRead": false,
+  "sourceTruthClaim": "Byte/source consistency only; does not establish point-in-time adjustments or exchange-close equivalence with KIS",
+  "sourceHashes": {
+    "/tmp/composite-score-experimental-20260930/independent-naver-observed-audit.py": "c8692832a951a4f696d24fa159340cbf45f66975799e6aa9a9ace72f2c058872",
+    "/tmp/composite-score-experimental-20260930/naver-ts-observed/manifest.json": "d5fbd1f448a838b90238ea2d2f4d4cb11aa453a15bc051530112608302cf36a4",
+    "/tmp/composite-score-experimental-20260930/naver-research.py": "cadd301d2a92f1a0a6ec12eefed15892b9a21cc3b64ee5785e1ed01191d5d13f",
+    "/tmp/composite-score-experimental-20260930/naver-protocol.json": "377ed12d88de69989043bd7ef21b4b057a44c2fbab90ba19f4f679189e69033c"
+  }
+}

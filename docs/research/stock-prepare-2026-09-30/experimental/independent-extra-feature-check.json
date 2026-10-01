@@ -1,0 +1,43 @@
+{
+  "scope": "Observed extra32 inputs source review with independent synthetic future-prefix invariance and direct raw-window arithmetic. No labels, model fit, actual new2023-24 price read or production edit.",
+  "featureCount": 32,
+  "checks": [
+    {
+      "at": "2025-01-25",
+      "prefixEqual": true,
+      "mutatedFutureEqual": true
+    },
+    {
+      "at": "2025-02-10",
+      "prefixEqual": true,
+      "mutatedFutureEqual": true
+    },
+    {
+      "at": "2025-03-02",
+      "prefixEqual": true,
+      "mutatedFutureEqual": true
+    },
+    {
+      "at": "2025-05-01",
+      "prefixEqual": true,
+      "mutatedFutureEqual": true
+    },
+    {
+      "at": "2025-06-10",
+      "prefixEqual": true,
+      "mutatedFutureEqual": true
+    },
+    {
+      "at": "2025-07-20",
+      "prefixEqual": true,
+      "mutatedFutureEqual": true
+    }
+  ],
+  "directWindowChecks": {
+    "todayVolumeToPrior5MeanRatio": 1.0139002452984465,
+    "volumeMean3ToPrevious20Ratio": 1.0557377049180328,
+    "volumeMean5ToPrevious20Ratio": 1.0611774866849,
+    "return20ExcludingRecent5Percent": 6.382017858680289
+  },
+  "differences": []
+}

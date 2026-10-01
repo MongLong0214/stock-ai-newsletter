@@ -1,0 +1,329 @@
+{
+  "scope": "Independent current math and training-only input audit. No outcome labels used for deciding transformations, weights or thresholds. No source/UI/copy edits. Not a formal PR review attempt.",
+  "sourceCommit": "97b0c2ffa7b89a7ffdd4bae53e4c0e416e00f22f",
+  "actualTSIndependentMathJoin": {
+    "rows": 239869,
+    "differences": [],
+    "unmatchedOutputRows": 0
+  },
+  "trainInputWindow": {
+    "from": "2025-12-23",
+    "through": "2026-04-22",
+    "signalDays": 80,
+    "eligibleRows": 107571
+  },
+  "categoryWeights": {
+    "trend_score": 0.2,
+    "momentum_score": 0.15,
+    "volume_score": 0.25,
+    "volatility_score": 0.1,
+    "pattern_score": 0.2,
+    "sentiment_score": 0.1
+  },
+  "effectiveAtomicWeightsBeforeRounding": {
+    "full252PricePosition": 0.08333333333333334,
+    "consecutiveUpDays": 0.07083333333333333,
+    "bullishCandle": 0.0875,
+    "eachTrendAtom": 0.05,
+    "eachVolumeAtom": 0.08333333333333333,
+    "ATR3Preference": 0.1,
+    "highDistance60": 0.05,
+    "SMA20ToSMA60": 0.05,
+    "dailyLogTrendSlope": 0.03333333333333333
+  },
+  "duplicateWitnesses": {
+    "bullishCandleTotalBullMinusBearOverallPoints": 3.125,
+    "consecutiveUpDaysOneAdditionalDayOverallPointsBelowSaturation": 0.7083333333333333,
+    "full252PricePosition50To100OverallPoints": 4.166666666666667
+  },
+  "trainCategoryRanges": {
+    "trend_score": {
+      "count": 107571,
+      "min": 1,
+      "max": 100,
+      "mean": 53.92133567597215,
+      "median": 53,
+      "zeroCount": 0,
+      "hundredCount": 9
+    },
+    "momentum_score": {
+      "count": 107571,
+      "min": 21,
+      "max": 85,
+      "mean": 51.191436353664095,
+      "median": 51,
+      "zeroCount": 0,
+      "hundredCount": 0
+    },
+    "volume_score": {
+      "count": 107571,
+      "min": 9,
+      "max": 100,
+      "mean": 53.29676213849458,
+      "median": 53,
+      "zeroCount": 0,
+      "hundredCount": 49
+    },
+    "volatility_score": {
+      "count": 107571,
+      "min": 0,
+      "max": 100,
+      "mean": 45.159968764815794,
+      "median": 47,
+      "zeroCount": 21051,
+      "hundredCount": 567
+    },
+    "pattern_score": {
+      "count": 107571,
+      "min": 8,
+      "max": 93,
+      "mean": 42.15493023212576,
+      "median": 44,
+      "zeroCount": 0,
+      "hundredCount": 0
+    },
+    "sentiment_score": {
+      "count": 107571,
+      "min": 17,
+      "max": 100,
+      "mean": 54.781548930473825,
+      "median": 54,
+      "zeroCount": 0,
+      "hundredCount": 111
+    },
+    "overall_score": {
+      "count": 107571,
+      "min": 12,
+      "max": 92,
+      "mean": 50.23533294289353,
+      "median": 50,
+      "zeroCount": 0,
+      "hundredCount": 0
+    }
+  },
+  "trainAtomRanges": {
+    "closeToSma20": {
+      "count": 107571,
+      "min": 0,
+      "max": 100,
+      "mean": 51.51141106803878,
+      "median": 51,
+      "zeroCount": 8834,
+      "hundredCount": 13912
+    },
+    "closeToSma60": {
+      "count": 107571,
+      "min": 0,
+      "max": 100,
+      "mean": 57.86097554173523,
+      "median": 56,
+      "zeroCount": 2698,
+      "hundredCount": 15482
+    },
+    "sma20DailyLogSlope": {
+      "count": 107571,
+      "min": 0,
+      "max": 100,
+      "mean": 54.55172862574486,
+      "median": 54,
+      "zeroCount": 5724,
+      "hundredCount": 13814
+    },
+    "signedTrendFit": {
+      "count": 107571,
+      "min": 1,
+      "max": 98,
+      "mean": 51.26143663254967,
+      "median": 50,
+      "zeroCount": 0,
+      "hundredCount": 0
+    },
+    "rsi": {
+      "count": 107571,
+      "min": 0,
+      "max": 75,
+      "mean": 51.22046834183934,
+      "median": 51,
+      "zeroCount": 10,
+      "hundredCount": 0
+    },
+    "macdPercent": {
+      "count": 107571,
+      "min": 0,
+      "max": 100,
+      "mean": 47.91646447462606,
+      "median": 49,
+      "zeroCount": 8247,
+      "hundredCount": 4954
+    },
+    "bullishCandleMomentum": {
+      "count": 107571,
+      "min": 35,
+      "max": 65,
+      "mean": 47.298853780293946,
+      "median": 35,
+      "zeroCount": 0,
+      "hundredCount": 0
+    },
+    "consecutiveUpDays": {
+      "count": 107571,
+      "min": 50,
+      "max": 100,
+      "mean": 57.82989839268948,
+      "median": 50,
+      "zeroCount": 0,
+      "hundredCount": 1596
+    },
+    "volumePercentile": {
+      "count": 107571,
+      "min": 1,
+      "max": 99,
+      "mean": 52.52932481802716,
+      "median": 56,
+      "zeroCount": 0,
+      "hundredCount": 0
+    },
+    "volumeRatio": {
+      "count": 107571,
+      "min": 26,
+      "max": 100,
+      "mean": 46.770077437227506,
+      "median": 43,
+      "zeroCount": 0,
+      "hundredCount": 2757
+    },
+    "normalizedObv": {
+      "count": 107571,
+      "min": 0,
+      "max": 100,
+      "mean": 60.59501166671315,
+      "median": 61,
+      "zeroCount": 2375,
+      "hundredCount": 14318
+    },
+    "atr3Preference": {
+      "count": 107571,
+      "min": 0,
+      "max": 100,
+      "mean": 45.159968764815794,
+      "median": 47,
+      "zeroCount": 21051,
+      "hundredCount": 567
+    },
+    "prior60HighDistance": {
+      "count": 107571,
+      "min": 0,
+      "max": 100,
+      "mean": 6.702680090358926,
+      "median": 0,
+      "zeroCount": 86572,
+      "hundredCount": 564
+    },
+    "bullishCandlePattern": {
+      "count": 107571,
+      "min": 30,
+      "max": 70,
+      "mean": 46.3984717070586,
+      "median": 30,
+      "zeroCount": 0,
+      "hundredCount": 0
+    },
+    "sma20ToSma60": {
+      "count": 107571,
+      "min": 0,
+      "max": 100,
+      "mean": 61.01439049557966,
+      "median": 71,
+      "zeroCount": 17485,
+      "hundredCount": 39956
+    },
+    "full252PricePosition": {
+      "count": 107571,
+      "min": 0,
+      "max": 100,
+      "mean": 54.00109694992145,
+      "median": 55,
+      "zeroCount": 1303,
+      "hundredCount": 2963
+    },
+    "dailyLogTrendSlope": {
+      "count": 107571,
+      "min": 0,
+      "max": 100,
+      "mean": 52.51095555493581,
+      "median": 52,
+      "zeroCount": 8970,
+      "hundredCount": 15540
+    },
+    "rawDistance60": {
+      "count": 107571,
+      "min": -80.51779935275081,
+      "max": 9.965635738831624,
+      "mean": -14.774381008571565,
+      "median": -13.10924369747899,
+      "zeroCount": 292,
+      "hundredCount": 0
+    },
+    "rawATR": {
+      "count": 107571,
+      "min": 0.9332058101415814,
+      "max": 29.515859100393815,
+      "mean": 6.03245122166269,
+      "median": 5.653538139747493,
+      "zeroCount": 0,
+      "hundredCount": 0
+    },
+    "rawRsi": {
+      "count": 107571,
+      "min": 1.0393044078682578e-06,
+      "max": 74.99932853229942,
+      "mean": 51.219591222710115,
+      "median": 50.83495638284737,
+      "zeroCount": 0,
+      "hundredCount": 0
+    },
+    "partial252": {
+      "count": 107571,
+      "min": false,
+      "max": true,
+      "mean": 0.03925779252772588,
+      "median": false,
+      "zeroCount": 103348,
+      "hundredCount": 0
+    },
+    "negativeTrend": {
+      "count": 107571,
+      "min": false,
+      "max": true,
+      "mean": 0.4810683176692603,
+      "median": false,
+      "zeroCount": 55822,
+      "hundredCount": 0
+    }
+  },
+  "distanceFromPrior60HighSignAudit": {
+    "definition": "Current close / maximum of previous60 closes excluding current -1, in percent; positive breakout is valid. Earlier <=0-only claim was incorrect and has been withdrawn.",
+    "positiveCount": 4812,
+    "negativeCount": 102467,
+    "zeroCount": 292,
+    "atOrBelowMinus5Count": 86422,
+    "atOrAbovePlus5Count": 550
+  },
+  "actualFeatureWitnesses": {
+    "positivePrior60HighBreakout": {
+      "date": "2025-12-23",
+      "symbol": "KOSDAQ:124500",
+      "raw": 8.947368421052637,
+      "atom": 100,
+      "pattern": 91
+    }
+  },
+  "judgment": "Four earlier math repairs remain internally consistent. Current arbitrary scales, feature duplication and ATR3 preference describe historical technical conditions; they do not establish a five-day surge/safety objective. Constrained weights need independent chronological training-only validation, not a post-test score uplift.",
+  "sourceHashes": {
+    "/tmp/composite-score-research-20260930/current-signals.ndjson": "5f52f780c9eb7aeb1faaaf4fc816a2a129ed3a21a867814533545793f548c2d0",
+    "/tmp/composite-score-research-20260930/current-signals-manifest.json": "69f2ba1ce7fd7190ce57ea95f8406183ab7e738fa3f15a2f4f9a27d1a7393f74",
+    "/tmp/composite-score-research-20260930/signals-main.ts": "56dea5da2ffb7134eb1b9f70fe2349f359d0f699851c393549c2502ed0748763",
+    "/Users/isaac/WebstormProjects/stock-ai-newsletter/scripts/stock-picks/indicators.ts": "3a55d64dbcb7ee96cef5df9ce4f347d5225bd2332cd842b6db86d09ec7c2877b",
+    "/tmp/composite-score-independent-math-audit-20260930.py": "f35972d6eb140a20c9a93acb15da0f1dfeb797425ad03e1ca98b9c558300f4a9"
+  }
+}

@@ -1,0 +1,75 @@
+{
+  "frozenAtUTC": "2026-09-30T07:01:37.379221+00:00",
+  "purpose": "Diagnostic of only CD5 versus CD20, preserving frozen models, integer scores and chronological activation/calibration schedules",
+  "comparators": [
+    "currentOverall",
+    "L5 TRAIN-selected family A winner",
+    "L5 TRAIN-selected family B winner",
+    "L0 TRAIN-selected family A winner",
+    "L0 TRAIN-selected family B winner"
+  ],
+  "cooldowns": [
+    5,
+    20
+  ],
+  "selection": "Published integer descending, averageTurnover20 descending, symbol ASCII ascending; three distinct every signal date or explicit shortfall, no float tie break",
+  "modelSelection": "Only existing CD20 TRAIN35 winner artifacts; no selection or retuning on CD5 or external inner/outer",
+  "scopes": {
+    "TRAIN35": "early dates [110:130]+[135:150], preserving every chronological prior/gap date and originalOverall preactivation history",
+    "inner80": "entire early235 advances own state, learner150 activates155; evaluate155:235",
+    "outer180Fresh": "empty state on first original180 signal date, advance all purges and fresh signal date; full original180 plus reused60 diagnostic and fresh one day"
+  },
+  "riskDefinitions": {
+    "T": "next-session open to five sessions inclusive intraday high >= 1.10*entry open",
+    "L0": "D5close/entryopen-1-0.003 < 0",
+    "L5": "D5close/entryopen-1-0.003 <= -0.05",
+    "B": "D1close > D1open"
+  },
+  "futureData": "Selection keeps unknown/missing future labels; outcomes reported only strict known five positive-volume actual calendar bars; no missing-calendar compression",
+  "checks": [
+    "CD20 roster/int score/selected outcome parity with owner existing ledgers must be zero differences",
+    "source hashes bound to frozen artifacts; never overwrite source/model/prediction/calibrator files",
+    "all selected unique (symbol,entry date), ticker repeats and potential overlapping positions counted",
+    "raw five-bar outcomes checked for selected instances",
+    "high70 means all three published integer scores >=70, reported without bonus"
+  ],
+  "bootstrap": {
+    "replicates": 1000,
+    "seed": 42,
+    "blockSignalDates": 10,
+    "method": "circular date-block resampling preserving within-date chosen stocks; descriptive interval only, no clean OOS claim"
+  },
+  "reportMetrics": [
+    "touch",
+    "L0",
+    "L5",
+    "D1 bullish",
+    "mean D5 net",
+    "target-exit proxy",
+    "three picks daily",
+    "all three scores>=70",
+    "integer ties",
+    "integer/raw roster differences",
+    "repeats",
+    "unique symbol-entry pairs",
+    "overlapping positions"
+  ],
+  "restrictions": [
+    "no model fit or calibrator fit",
+    "no production/repository/UI/wording/DB/email/archive changes",
+    "no NAVER 2023-2024 labels/outcomes read before independent NAVER TRAIN winner freeze",
+    "old original180 repeatedly reused diagnostic, not pristine holdout",
+    "touch is not confirmed execution or profit"
+  ],
+  "sourceHashesAtFreeze": {
+    "/tmp/composite-score-experimental-20260930/kis-protocol.json": "30c5978c644ce0b8afce2331c3dbcf34754ff077b192cd76ec771eee20864c5c",
+    "/tmp/composite-score-experimental-20260930/kis-l0-protocol.json": "3c76fbf4dba4ec521365394542802e8add4b6d4795d7856ed35284dab4cb9e5e",
+    "/tmp/composite-score-experimental-20260930/kis-research.py": "499cc52656d51e57406dfa24e177f7c1cc642b13e13b261757871f9b9974b0bc",
+    "/tmp/composite-score-experimental-20260930/kis-l0-research.py": "540848b82467a05da9e25d381eee3c6b7fc605ce748355a48974ddd501e9a3f8",
+    "/tmp/composite-score-experimental-20260930/fixed-models.py": "5d140b420ef95c47f95f8cba351f3c0432b15dde6e4ee12952ca6f63e29986ec",
+    "/tmp/composite-score-experimental-20260930/fixed-models-l0.py": "397aab9e08bae03a095b82388feff6a0ef651811a3a822484f9304e6d06eacd9",
+    "/tmp/composite-score-experimental-20260930/manifest.json": "a022227c6138a3e300b75c99f1fc4e3b8a2b9310e8c86a95822dd22b7d02a9d1",
+    "/tmp/composite-score-experimental-20260930/featurespec.json": "1d6a63e14ac0af074b820acb5a4ce4d03cc3444cb22e4a054e9415950bb986a8",
+    "/tmp/composite-score-experimental-20260930/audit.json": "a3006da54dde008c8e658543e79654238839bf18eb5a2d8fa95c830ee67d493e"
+  }
+}

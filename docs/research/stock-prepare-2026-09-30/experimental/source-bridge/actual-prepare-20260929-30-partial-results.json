@@ -1,0 +1,285 @@
+{
+  "schema": "actual-prepare-observed-partial-session-results-v1",
+  "asOfKoreaDate": "2026-09-30",
+  "market": "KRX regular session, checked after15:30KST",
+  "priceApiCalls": 6,
+  "sourceHashesBefore": {
+    "/tmp/stock-prepare-observed-20260929/stock-picks-snapshot.json": "e315f7613812928dfc8cbedee25b111558fc66e85a784a18d617f953af91b032",
+    "/tmp/stock-prepare-observed-20260929/prepare-summary.json": "de00aad3e9571dbcaed8fe3861c3d19cf062988bf8e2ccc75962c8ff324c0684",
+    "/tmp/composite-score-experimental-20260930/source-bridge/actual-prepare-20260929-live-kis.json": "ee25881f006448588c4765a5e1c085c0930d22da06a8bc7a3ebb365ec35dbfd1",
+    "/tmp/stock-prepare-observed-20260930/stock-picks-snapshot.json": "74f7b531df218e475c0ca556e724ba750799c9688fa5ae54153cfe71188dabd2",
+    "/tmp/stock-prepare-observed-20260930/prepare-summary.json": "89f7aac9b64ff2419aa3f77097075e128d50973e5230873e5fd7e8e6c98477a3",
+    "/tmp/composite-score-experimental-20260930/source-bridge/actual-prepare-20260930-live-kis.json": "8c7e7136fbc6f2e0e4ca99a30e27d84061b39e7c441611b4aa9acb1cd2b79c42"
+  },
+  "sourceHashesAfter": {
+    "/tmp/stock-prepare-observed-20260929/stock-picks-snapshot.json": "e315f7613812928dfc8cbedee25b111558fc66e85a784a18d617f953af91b032",
+    "/tmp/stock-prepare-observed-20260929/prepare-summary.json": "de00aad3e9571dbcaed8fe3861c3d19cf062988bf8e2ccc75962c8ff324c0684",
+    "/tmp/composite-score-experimental-20260930/source-bridge/actual-prepare-20260929-live-kis.json": "ee25881f006448588c4765a5e1c085c0930d22da06a8bc7a3ebb365ec35dbfd1",
+    "/tmp/stock-prepare-observed-20260930/stock-picks-snapshot.json": "74f7b531df218e475c0ca556e724ba750799c9688fa5ae54153cfe71188dabd2",
+    "/tmp/stock-prepare-observed-20260930/prepare-summary.json": "89f7aac9b64ff2419aa3f77097075e128d50973e5230873e5fd7e8e6c98477a3",
+    "/tmp/composite-score-experimental-20260930/source-bridge/actual-prepare-20260930-live-kis.json": "8c7e7136fbc6f2e0e4ca99a30e27d84061b39e7c441611b4aa9acb1cd2b79c42"
+  },
+  "sourceBytesUnchanged": true,
+  "newNaver2023_2024OutcomeReads": 0,
+  "costConvention": "Hypothetical round trip30bps subtracted from gross open-to-close mark; no actual fills or realized user PnL claimed",
+  "notFiveSessionFinalPerformance": true,
+  "productOrDatabaseMutations": 0,
+  "days": [
+    {
+      "recommendationDate": "2026-09-29",
+      "prepareWorkflowRunId": "36484308881",
+      "artifactGitSha": "277d64161f44e1e1b7ece2f7aaa10a7a14f2955b",
+      "artifactStrategy": "lowVolatilityStable",
+      "artifactStrategyVersion": "v2-2026-09-23",
+      "artifactSignalDate": "2026-09-28",
+      "artifactGeneratedAt": "2026-09-28T21:33:42.393Z",
+      "liveObservedAt": "2026-09-30T07:41:22.869Z",
+      "source": "KIS production helper, KRX J, adjusted0, raw stck_clpr",
+      "actualPrepareSelectionArtifact": true,
+      "emailDeliveryProvenByTheseArtifacts": false,
+      "separateFromResearchPaperPortfolios": true,
+      "picks": [
+        {
+          "symbol": "KOSPI:033270",
+          "name": "유나이티드제약",
+          "snapshotRankingValue": 1.7937305221525102,
+          "rankingValueIsDisplayedCompositeScore": false,
+          "signalAtrPercent14": 1.7937305221525102,
+          "entryDate": "2026-09-29",
+          "entryOpen": 17750,
+          "observedSessions": 2,
+          "D1bullish": false,
+          "D1doji": false,
+          "D1grossCloseReturn": -0.0033802816901408453,
+          "D1hypotheticalNetAfter30bps": -0.006380281690140845,
+          "latestObservedCloseDate": "2026-09-30",
+          "latestGrossCloseReturn": -0.0028169014084507044,
+          "latestHypotheticalNetAfter30bps": -0.005816901408450705,
+          "observedIntradayMaxFromEntry": 0.0,
+          "observedIntradayMinFromEntry": -0.018028169014084508,
+          "observedTouch10": false,
+          "fiveSessionMature": false,
+          "fiveSessionFinalResult": null,
+          "rawBars": [
+            {
+              "date": "2026-09-29",
+              "open": 17750,
+              "high": 17750,
+              "low": 17430,
+              "close": 17690,
+              "volume": 20332
+            },
+            {
+              "date": "2026-09-30",
+              "open": 17690,
+              "high": 17740,
+              "low": 17530,
+              "close": 17700,
+              "volume": 25442
+            }
+          ]
+        },
+        {
+          "symbol": "KOSPI:030000",
+          "name": "제일기획",
+          "snapshotRankingValue": 1.8275046930032253,
+          "rankingValueIsDisplayedCompositeScore": false,
+          "signalAtrPercent14": 1.8275046930032253,
+          "entryDate": "2026-09-29",
+          "entryOpen": 17820,
+          "observedSessions": 2,
+          "D1bullish": true,
+          "D1doji": false,
+          "D1grossCloseReturn": 0.003367003367003367,
+          "D1hypotheticalNetAfter30bps": 0.0003670033670033668,
+          "latestObservedCloseDate": "2026-09-30",
+          "latestGrossCloseReturn": 0.05218855218855219,
+          "latestHypotheticalNetAfter30bps": 0.049188552188552184,
+          "observedIntradayMaxFromEntry": 0.06228956228956229,
+          "observedIntradayMinFromEntry": -0.004489337822671156,
+          "observedTouch10": false,
+          "fiveSessionMature": false,
+          "fiveSessionFinalResult": null,
+          "rawBars": [
+            {
+              "date": "2026-09-29",
+              "open": 17820,
+              "high": 17900,
+              "low": 17740,
+              "close": 17880,
+              "volume": 175762
+            },
+            {
+              "date": "2026-09-30",
+              "open": 18510,
+              "high": 18930,
+              "low": 18250,
+              "close": 18750,
+              "volume": 1141559
+            }
+          ]
+        },
+        {
+          "symbol": "KOSPI:383800",
+          "name": "LX홀딩스",
+          "snapshotRankingValue": 1.8668682308235787,
+          "rankingValueIsDisplayedCompositeScore": false,
+          "signalAtrPercent14": 1.8668682308235787,
+          "entryDate": "2026-09-29",
+          "entryOpen": 8230,
+          "observedSessions": 2,
+          "D1bullish": false,
+          "D1doji": false,
+          "D1grossCloseReturn": -0.012150668286755772,
+          "D1hypotheticalNetAfter30bps": -0.015150668286755771,
+          "latestObservedCloseDate": "2026-09-30",
+          "latestGrossCloseReturn": -0.020656136087484813,
+          "latestHypotheticalNetAfter30bps": -0.023656136087484812,
+          "observedIntradayMaxFromEntry": 0.0,
+          "observedIntradayMinFromEntry": -0.023086269744835967,
+          "observedTouch10": false,
+          "fiveSessionMature": false,
+          "fiveSessionFinalResult": null,
+          "rawBars": [
+            {
+              "date": "2026-09-29",
+              "open": 8230,
+              "high": 8230,
+              "low": 8070,
+              "close": 8130,
+              "volume": 48039
+            },
+            {
+              "date": "2026-09-30",
+              "open": 8150,
+              "high": 8170,
+              "low": 8040,
+              "close": 8060,
+              "volume": 42861
+            }
+          ]
+        }
+      ],
+      "D1bullishCount": 1,
+      "D1grossEqualWeightMean": -0.004054648869964417,
+      "latestGrossEqualWeightMean": 0.009571838230872222,
+      "allFiveSessionResultsImmature": true
+    },
+    {
+      "recommendationDate": "2026-09-30",
+      "prepareWorkflowRunId": "36631489672",
+      "artifactGitSha": "87613f95379ca5f22393677dd7e1429f7085daa0",
+      "artifactStrategy": "bullishTarget5d",
+      "artifactStrategyVersion": "v3-2026-09-29",
+      "artifactSignalDate": "2026-09-29",
+      "artifactGeneratedAt": "2026-09-29T21:33:33.407Z",
+      "liveObservedAt": "2026-09-30T07:40:29.466Z",
+      "source": "KIS production helper, KRX J, adjusted0, raw stck_clpr",
+      "actualPrepareSelectionArtifact": true,
+      "emailDeliveryProvenByTheseArtifacts": false,
+      "separateFromResearchPaperPortfolios": true,
+      "picks": [
+        {
+          "symbol": "KOSDAQ:475830",
+          "name": "오름테라퓨틱",
+          "snapshotRankingValue": 0.5133590856557751,
+          "rankingValueIsDisplayedCompositeScore": false,
+          "signalAtrPercent14": 21.405947457250342,
+          "entryDate": "2026-09-30",
+          "entryOpen": 22300,
+          "observedSessions": 1,
+          "D1bullish": false,
+          "D1doji": false,
+          "D1grossCloseReturn": -0.008968609865470852,
+          "D1hypotheticalNetAfter30bps": -0.011968609865470853,
+          "latestObservedCloseDate": "2026-09-30",
+          "latestGrossCloseReturn": -0.008968609865470852,
+          "latestHypotheticalNetAfter30bps": -0.011968609865470853,
+          "observedIntradayMaxFromEntry": 0.03811659192825112,
+          "observedIntradayMinFromEntry": -0.02914798206278027,
+          "observedTouch10": false,
+          "fiveSessionMature": false,
+          "fiveSessionFinalResult": null,
+          "rawBars": [
+            {
+              "date": "2026-09-30",
+              "open": 22300,
+              "high": 23150,
+              "low": 21650,
+              "close": 22100,
+              "volume": 359007
+            }
+          ]
+        },
+        {
+          "symbol": "KOSDAQ:024850",
+          "name": "HLB이노베이션",
+          "snapshotRankingValue": 0.4598243579566694,
+          "rankingValueIsDisplayedCompositeScore": false,
+          "signalAtrPercent14": 10.438457390944619,
+          "entryDate": "2026-09-30",
+          "entryOpen": 16240,
+          "observedSessions": 1,
+          "D1bullish": false,
+          "D1doji": false,
+          "D1grossCloseReturn": -0.0006157635467980296,
+          "D1hypotheticalNetAfter30bps": -0.0036157635467980297,
+          "latestObservedCloseDate": "2026-09-30",
+          "latestGrossCloseReturn": -0.0006157635467980296,
+          "latestHypotheticalNetAfter30bps": -0.0036157635467980297,
+          "observedIntradayMaxFromEntry": 0.06773399014778325,
+          "observedIntradayMinFromEntry": -0.062192118226600986,
+          "observedTouch10": false,
+          "fiveSessionMature": false,
+          "fiveSessionFinalResult": null,
+          "rawBars": [
+            {
+              "date": "2026-09-30",
+              "open": 16240,
+              "high": 17340,
+              "low": 15230,
+              "close": 16230,
+              "volume": 405969
+            }
+          ]
+        },
+        {
+          "symbol": "KOSDAQ:026910",
+          "name": "광진실업",
+          "snapshotRankingValue": 0.45041059752428636,
+          "rankingValueIsDisplayedCompositeScore": false,
+          "signalAtrPercent14": 19.609737325549222,
+          "entryDate": "2026-09-30",
+          "entryOpen": 2330,
+          "observedSessions": 1,
+          "D1bullish": false,
+          "D1doji": false,
+          "D1grossCloseReturn": -0.023605150214592276,
+          "D1hypotheticalNetAfter30bps": -0.026605150214592276,
+          "latestObservedCloseDate": "2026-09-30",
+          "latestGrossCloseReturn": -0.023605150214592276,
+          "latestHypotheticalNetAfter30bps": -0.026605150214592276,
+          "observedIntradayMaxFromEntry": 0.02575107296137339,
+          "observedIntradayMinFromEntry": -0.0944206008583691,
+          "observedTouch10": false,
+          "fiveSessionMature": false,
+          "fiveSessionFinalResult": null,
+          "rawBars": [
+            {
+              "date": "2026-09-30",
+              "open": 2330,
+              "high": 2390,
+              "low": 2110,
+              "close": 2275,
+              "volume": 55916
+            }
+          ]
+        }
+      ],
+      "D1bullishCount": 0,
+      "D1grossEqualWeightMean": -0.011063174542287052,
+      "latestGrossEqualWeightMean": -0.011063174542287052,
+      "allFiveSessionResultsImmature": true
+    }
+  ]
+}

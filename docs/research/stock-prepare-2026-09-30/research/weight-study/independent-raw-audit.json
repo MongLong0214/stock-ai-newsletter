@@ -1,0 +1,30 @@
+{
+  "instances": 2349,
+  "rawBarDifferences": [],
+  "markDifferences": [],
+  "utilityDifferences": [],
+  "categoryDifferences": [],
+  "publishedScoreDifferences": [],
+  "maturityViolations": [],
+  "strictMissingInstances": 8,
+  "expectedUnavailableSourceLabels": [
+    {
+      "selection": [
+        "geometric",
+        "2026-06-26",
+        "KOSDAQ:051360"
+      ],
+      "sourceStatus": "unexpected_untradeable",
+      "zeroVolumeFlag": true
+    }
+  ],
+  "generatedAtUTC": "2026-09-30T03:23:56.856590+00:00",
+  "sourceHashes": {
+    "/tmp/stock-research-fresh-mature-20260930/input/prices.ndjson": "c0fe673a5c0cef5197625d2ccd811c900bbe6655e81a66f4b797c6e741a1ce54",
+    "/tmp/composite-score-research-20260930/current-signals.ndjson": "5f52f780c9eb7aeb1faaaf4fc816a2a129ed3a21a867814533545793f548c2d0",
+    "/tmp/composite-score-research-20260930/weight-study/weights.json": "4f5e237509ef685a44885989e88f74108b50b04fd8cf4bc5c47085175ea26c21",
+    "/tmp/composite-score-research-20260930/weight-study/inner-ledger.json": "c695ace25ab4e985fbcf0cf2a14f1c5e93c32ff3fa6f988f3d0d1e1c967338c1",
+    "/tmp/composite-score-research-20260930/weight-study/outer-ledger.json": "fd5ddb37280915176d9a72ef1a3624b8245256b5506c635e6e1f617afcea46a9",
+    "/tmp/composite-score-research-20260930/weight-study/independent-raw-audit.py": "f0553a2b52899adf13fe80548f795705822b8659ce9d0d1cf1abdfd53708f0b2"
+  }
+}

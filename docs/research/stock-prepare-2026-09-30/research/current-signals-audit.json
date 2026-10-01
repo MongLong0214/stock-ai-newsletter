@@ -1,0 +1,17 @@
+{
+  "actualMainCommit": "97b0c2ffa7b89a7ffdd4bae53e4c0e416e00f22f",
+  "signalScoreVersion": "technical-signals-v2-2026-09-30",
+  "snapshotByteForByteEqualsGitShow": true,
+  "outputFileReparsedIndependently": true,
+  "outputSha256Rechecked": true,
+  "rowCountRechecked": 239869,
+  "allScoresInteger0Through100": true,
+  "duplicateCompositeKeys": 0,
+  "inputFilesUnchanged": true,
+  "notes": [
+    "No source signals were used for recomputation.",
+    "Feature dates and symbols matched input point keys.",
+    "No historical master or as-of metadata existed in input; none was invented.",
+    "No selection sorting or floating-point tie score was introduced."
+  ]
+}

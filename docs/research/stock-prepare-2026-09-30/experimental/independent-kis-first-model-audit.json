@@ -1,0 +1,48 @@
+{
+  "scope": "Independent spot refits of available first80 small lambda.35 bundles; not all24 fits audited",
+  "sourceHashes": {
+    "/tmp/composite-score-experimental-20260930/independent-kis-first-model-audit.py": "b91ad85def88c8a0ad65cc52feedb3ca3d5924cc6f60a00229dfd7f1cb0e9f74",
+    "/tmp/composite-score-independent-monthly-input-20260930.npz": "8ec2855c730023befc968789d664b0f8c8db253ddaf2ade3bc4c6a797e94297c",
+    "/tmp/composite-score-experimental-20260930/extra-features.ndjson": "5c953745cef23f54ac619d2b80ce12b559436fce7f7e43ac30550f4c8f7579a2",
+    "/tmp/composite-score-experimental-20260930/kis-protocol.json": "30c5978c644ce0b8afce2331c3dbcf34754ff077b192cd76ec771eee20864c5c",
+    "/tmp/composite-score-experimental-20260930/kis-research.py": "499cc52656d51e57406dfa24e177f7c1cc642b13e13b261757871f9b9974b0bc",
+    "/tmp/composite-score-experimental-20260930/fixed-models.py": "5d140b420ef95c47f95f8cba351f3c0432b15dde6e4ee12952ca6f63e29986ec"
+  },
+  "fullObservedJoinRows": 509015,
+  "original18Parity": true,
+  "strictRawLabelsFromPreviouslyAudited423Panels": true,
+  "matrixPath": "/tmp/composite-score-experimental-20260930/independent-kis-inputs.npz",
+  "fits": [
+    {
+      "bundle": "A-small-lambda0.35-inputs18-prefix80",
+      "status": "COMPLETE",
+      "rowCount": 88487,
+      "inputSha256": "a3c934ab86f2aa8b5fda14d68b6f3a5714ebee46c7431ccc0d2f0f87bb7b517a",
+      "treeSha256": "3ecff4f11cd9739a2bb75feb4cff1642d61a8594d40d5e523bd5733c74a9fc55",
+      "predictionPanel": "2025-05-08",
+      "predictionRows": 1132,
+      "independentFitSeconds": 7.267751875013346
+    },
+    {
+      "bundle": "A-small-lambda0.35-inputs50-prefix80",
+      "status": "COMPLETE",
+      "rowCount": 88487,
+      "inputSha256": "02049726909ad2f71a55f88fafc956bd1a536431ee5bb5f3b6da940327405d60",
+      "treeSha256": "10cd255abe52f8d9f13ad2b67c36fe830104abef684137d924ac1353833e6607",
+      "predictionPanel": "2025-05-08",
+      "predictionRows": 1132,
+      "independentFitSeconds": 19.017489207995823
+    },
+    {
+      "bundle": "B-small-lambda0.35-inputs18-prefix80",
+      "status": "NOT_YET_AVAILABLE"
+    },
+    {
+      "bundle": "B-small-lambda0.35-inputs50-prefix80",
+      "status": "NOT_YET_AVAILABLE"
+    }
+  ],
+  "differences": [],
+  "newNaver2023_2024LabelsRead": false,
+  "productionChanged": false
+}

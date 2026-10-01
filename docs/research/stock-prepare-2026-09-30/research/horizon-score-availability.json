@@ -1,0 +1,56 @@
+{
+  "scope": "Fixed current score policy descriptive, no new policy or threshold tuning",
+  "scoreSourceCommit": "97b0c2ffa7b89a7ffdd4bae53e4c0e416e00f22f",
+  "generatedAtUTC": "2026-09-30T03:06:47.679716+00:00",
+  "bySplit": {
+    "train": {
+      "days": 80,
+      "all3ScoreAtLeast70Days": 80,
+      "selectedScoreAtLeast70": 240,
+      "integerCutoffTieDays": 56,
+      "selectedExtension": {
+        "sma20DistanceAbove15PercentCount": 143,
+        "rsiAbove70Count": 159,
+        "negativeTrendSlope20Count": 0,
+        "signalDayReturnAbove5PercentCount": 140
+      }
+    },
+    "validation": {
+      "days": 30,
+      "all3ScoreAtLeast70Days": 28,
+      "selectedScoreAtLeast70": 88,
+      "integerCutoffTieDays": 17,
+      "selectedExtension": {
+        "sma20DistanceAbove15PercentCount": 57,
+        "rsiAbove70Count": 52,
+        "negativeTrendSlope20Count": 0,
+        "signalDayReturnAbove5PercentCount": 55
+      }
+    },
+    "test": {
+      "days": 60,
+      "all3ScoreAtLeast70Days": 38,
+      "selectedScoreAtLeast70": 144,
+      "integerCutoffTieDays": 30,
+      "selectedExtension": {
+        "sma20DistanceAbove15PercentCount": 94,
+        "rsiAbove70Count": 58,
+        "negativeTrendSlope20Count": 1,
+        "signalDayReturnAbove5PercentCount": 75
+      }
+    },
+    "partialFreshSpotcheck": {
+      "days": 1,
+      "all3ScoreAtLeast70Days": 1,
+      "selectedScoreAtLeast70": 3,
+      "integerCutoffTieDays": 1,
+      "selectedExtension": {
+        "sma20DistanceAbove15PercentCount": 1,
+        "rsiAbove70Count": 0,
+        "negativeTrendSlope20Count": 0,
+        "signalDayReturnAbove5PercentCount": 0
+      }
+    }
+  },
+  "sourceLedgerSha256": "df99da2b0d6e515b535878a6dcbae8785b5ae75a7b08648784027864a95de573"
+}

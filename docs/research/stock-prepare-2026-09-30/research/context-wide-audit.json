@@ -1,0 +1,33 @@
+{
+  "contextOutputHashAndAllRowsVerified": true,
+  "contextRows": 440011,
+  "contextDays": 181,
+  "wideOutputHashAndAllRowsVerified": true,
+  "wideRows": 194480,
+  "wideDays": 80,
+  "allWideOutputDatesAreTraining": true,
+  "baselinePointOutcomesAccessedOnlyFirst80TrainingLines": true,
+  "baselineTrainingPoints": 112943,
+  "wideOverlapWithOriginalTrainingPoints": 112943,
+  "featureLabelAndCorrectedSignalMismatches": {
+    "feature": 0,
+    "label": 0,
+    "signals": 0
+  },
+  "counts": {
+    "labels": 190290,
+    "label_miss": 145852,
+    "preCommonPool": 190290,
+    "commonGate75_within_preCommonPool": 112943,
+    "commonGate70_within_preCommonPool": 108631,
+    "priorTargetEligible_within_preCommonPool": 107571,
+    "original_train_points_matched": 112943,
+    "label_hit": 43468,
+    "label_unexpected_untradeable": 738,
+    "label_data_error": 232
+  },
+  "hasCalculatedOutputMetricsMainAndCurrentByteIdentical": true,
+  "hasCalculatedOutputMetricsSha256": "c9c635514d23fa2cab345d0c72420b04427e4d9896528deb6b87f45d329b73ce",
+  "rawInputUnchangedDuringExport": true,
+  "noDatabaseOrNetworkCalls": true
+}

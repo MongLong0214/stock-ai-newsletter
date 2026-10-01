@@ -1,0 +1,32 @@
+{
+  "passed": true,
+  "signalDays": 1231,
+  "symbols": 2431,
+  "currentRelaxedOverlap": 0,
+  "duplicateKeys": 0,
+  "infiniteValues": 0,
+  "currentMembershipSeparate": true,
+  "results": {
+    "current": {
+      "rows": 1559349,
+      "uniqueDateSymbolPairs": 1559349,
+      "sha256": "e6a11318b5744be59e873fee1bdefd7eb00041e7a2a3f4ef2f6052bc652f5e25",
+      "dailyCountsExact": true,
+      "allSevenScoresIntegersIn0To100": true,
+      "sourceGateNumericLimitsExact": true,
+      "globalBreadthExact": true
+    },
+    "relaxedAdditional": {
+      "rows": 43258,
+      "uniqueDateSymbolPairs": 43258,
+      "sha256": "744aab716227cd6b93601aa6a2c7c1247b77a9b1e85a4e44a399a84cf9177682",
+      "dailyCountsExact": true,
+      "allSevenScoresIntegersIn0To100": true,
+      "sourceGateNumericLimitsExact": true,
+      "globalBreadthExact": true
+    }
+  },
+  "outcomesRead": 0,
+  "fits": 0,
+  "selections": 0
+}

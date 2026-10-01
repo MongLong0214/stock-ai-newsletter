@@ -1,0 +1,86 @@
+{
+  "base": "7522f63c0a3c2fce033cf236cfb9d9b7982323c0",
+  "legacySourceBytesUnchanged": true,
+  "witnesses": [
+    {
+      "previousClose": 1001,
+      "open": 1011,
+      "close": 1001,
+      "rawPercent": 2.220446049250313e-14,
+      "before": "전일 대비 0.0% 상승",
+      "after": "전일 대비 0.0% 보합",
+      "sameAllSignals": true,
+      "sameLegacyRationale": true
+    },
+    {
+      "previousClose": 1003,
+      "open": 1013,
+      "close": 1003,
+      "rawPercent": -1.1102230246251565e-14,
+      "before": "전일 대비 0.0% 하락",
+      "after": "전일 대비 0.0% 보합",
+      "sameAllSignals": true,
+      "sameLegacyRationale": true
+    },
+    {
+      "previousClose": 1001,
+      "open": 991,
+      "close": 1001,
+      "rawPercent": -1.1102230246251565e-14,
+      "before": "전일 대비 0.0% 하락",
+      "after": "전일 대비 0.0% 보합",
+      "sameAllSignals": true,
+      "sameLegacyRationale": true
+    },
+    {
+      "previousClose": 1003,
+      "open": 993,
+      "close": 1003,
+      "rawPercent": 0,
+      "before": "전일 대비 0.0% 보합",
+      "after": "전일 대비 0.0% 보합",
+      "sameAllSignals": true,
+      "sameLegacyRationale": true
+    },
+    {
+      "previousClose": 1001,
+      "open": 1021,
+      "close": 1011,
+      "rawPercent": 0.9990009990009874,
+      "before": "전일 대비 +1.0% 상승",
+      "after": "전일 대비 +1.0% 상승",
+      "sameAllSignals": true,
+      "sameLegacyRationale": true
+    },
+    {
+      "previousClose": 1001,
+      "open": 981,
+      "close": 991,
+      "rawPercent": -0.9990009990009985,
+      "before": "전일 대비 -1.0% 하락",
+      "after": "전일 대비 -1.0% 하락",
+      "sameAllSignals": true,
+      "sameLegacyRationale": true
+    },
+    {
+      "previousClose": 1000000,
+      "open": 1000010,
+      "close": 1000001,
+      "rawPercent": 0.0001000000000139778,
+      "before": "전일 대비 0.0% 상승",
+      "after": "전일 대비 0.0% 상승",
+      "sameAllSignals": true,
+      "sameLegacyRationale": true
+    },
+    {
+      "previousClose": 1000000,
+      "open": 999990,
+      "close": 999999,
+      "rawPercent": -0.00010000000000287557,
+      "before": "전일 대비 0.0% 하락",
+      "after": "전일 대비 0.0% 하락",
+      "sameAllSignals": true,
+      "sameLegacyRationale": true
+    }
+  ]
+}

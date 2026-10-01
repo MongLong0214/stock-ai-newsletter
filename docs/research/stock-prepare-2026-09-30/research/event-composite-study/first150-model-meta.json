@@ -1,0 +1,1425 @@
+{
+  "scope": "first150",
+  "family": "directEventHGBComposite",
+  "featureNames": [
+    "atrPercent14",
+    "volumeRatio20",
+    "chaikinMoneyFlow21",
+    "distanceFromPriorHigh20Percent",
+    "bollingerWidth20Percent",
+    "signalCloseCloseReturnPercent",
+    "gapFromPreviousClosePercent",
+    "signalIntradayReturnPercent",
+    "rsi14",
+    "sma20DistancePercent",
+    "sma60DistancePercent",
+    "return5Percent",
+    "return20Percent",
+    "return60Percent",
+    "closeLocation",
+    "upperWickPercent",
+    "kospiReturn20Percent",
+    "breadthAboveSma20Percent"
+  ],
+  "parameters": {
+    "max_iter": 100,
+    "max_leaf_nodes": 7,
+    "max_depth": 3,
+    "min_samples_leaf": 100,
+    "learning_rate": 0.05,
+    "l2_regularization": 1,
+    "early_stopping": false,
+    "random_state": 42,
+    "loss": "log_loss",
+    "max_bins": 255
+  },
+  "metadata": {
+    "touch": {
+      "positiveCount": 32024,
+      "pooledEventRate": 0.18464128598527435,
+      "dateBalancedWeightedEventRate": 0.18623739815446222,
+      "iterations": 100,
+      "baselineLogit": -1.4746464854868528
+    },
+    "D1bullish": {
+      "positiveCount": 77224,
+      "pooledEventRate": 0.4452516446704605,
+      "dateBalancedWeightedEventRate": 0.4462613245082303,
+      "iterations": 100,
+      "baselineLogit": -0.21578816074991997
+    },
+    "loss5": {
+      "positiveCount": 33748,
+      "pooledEventRate": 0.19458138019707216,
+      "dateBalancedWeightedEventRate": 0.19490047482823017,
+      "iterations": 100,
+      "baselineLogit": -1.4184768607538125
+    }
+  },
+  "trainingDates": [
+    "2024-12-26",
+    "2024-12-27",
+    "2024-12-30",
+    "2025-01-02",
+    "2025-01-03",
+    "2025-01-06",
+    "2025-01-07",
+    "2025-01-08",
+    "2025-01-09",
+    "2025-01-10",
+    "2025-01-13",
+    "2025-01-14",
+    "2025-01-15",
+    "2025-01-16",
+    "2025-01-17",
+    "2025-01-20",
+    "2025-01-21",
+    "2025-01-22",
+    "2025-01-23",
+    "2025-01-24",
+    "2025-01-31",
+    "2025-02-03",
+    "2025-02-04",
+    "2025-02-05",
+    "2025-02-06",
+    "2025-02-07",
+    "2025-02-10",
+    "2025-02-11",
+    "2025-02-12",
+    "2025-02-13",
+    "2025-02-14",
+    "2025-02-17",
+    "2025-02-18",
+    "2025-02-19",
+    "2025-02-20",
+    "2025-02-21",
+    "2025-02-24",
+    "2025-02-25",
+    "2025-02-26",
+    "2025-02-27",
+    "2025-02-28",
+    "2025-03-04",
+    "2025-03-05",
+    "2025-03-06",
+    "2025-03-07",
+    "2025-03-10",
+    "2025-03-11",
+    "2025-03-12",
+    "2025-03-13",
+    "2025-03-14",
+    "2025-03-17",
+    "2025-03-18",
+    "2025-03-19",
+    "2025-03-20",
+    "2025-03-21",
+    "2025-03-24",
+    "2025-03-25",
+    "2025-03-26",
+    "2025-03-27",
+    "2025-03-28",
+    "2025-03-31",
+    "2025-04-01",
+    "2025-04-02",
+    "2025-04-03",
+    "2025-04-04",
+    "2025-04-07",
+    "2025-04-08",
+    "2025-04-09",
+    "2025-04-10",
+    "2025-04-11",
+    "2025-04-14",
+    "2025-04-15",
+    "2025-04-16",
+    "2025-04-17",
+    "2025-04-18",
+    "2025-04-21",
+    "2025-04-22",
+    "2025-04-23",
+    "2025-04-24",
+    "2025-04-25",
+    "2025-04-28",
+    "2025-04-29",
+    "2025-04-30",
+    "2025-05-02",
+    "2025-05-07",
+    "2025-05-08",
+    "2025-05-09",
+    "2025-05-12",
+    "2025-05-13",
+    "2025-05-14",
+    "2025-05-15",
+    "2025-05-16",
+    "2025-05-19",
+    "2025-05-20",
+    "2025-05-21",
+    "2025-05-22",
+    "2025-05-23",
+    "2025-05-26",
+    "2025-05-27",
+    "2025-05-28",
+    "2025-05-29",
+    "2025-05-30",
+    "2025-06-02",
+    "2025-06-04",
+    "2025-06-05",
+    "2025-06-09",
+    "2025-06-10",
+    "2025-06-11",
+    "2025-06-12",
+    "2025-06-13",
+    "2025-06-16",
+    "2025-06-17",
+    "2025-06-18",
+    "2025-06-19",
+    "2025-06-20",
+    "2025-06-23",
+    "2025-06-24",
+    "2025-06-25",
+    "2025-06-26",
+    "2025-06-27",
+    "2025-06-30",
+    "2025-07-01",
+    "2025-07-02",
+    "2025-07-03",
+    "2025-07-04",
+    "2025-07-07",
+    "2025-07-08",
+    "2025-07-09",
+    "2025-07-10",
+    "2025-07-11",
+    "2025-07-14",
+    "2025-07-15",
+    "2025-07-16",
+    "2025-07-17",
+    "2025-07-18",
+    "2025-07-21",
+    "2025-07-22",
+    "2025-07-23",
+    "2025-07-24",
+    "2025-07-25",
+    "2025-07-28",
+    "2025-07-29",
+    "2025-07-30",
+    "2025-07-31",
+    "2025-08-01",
+    "2025-08-04",
+    "2025-08-05",
+    "2025-08-06",
+    "2025-08-07",
+    "2025-08-08"
+  ],
+  "trainingRows": 173439,
+  "trainingDateCounts": [
+    {
+      "date": "2024-12-26",
+      "eligible": 1111,
+      "strictFitLabels": 1109,
+      "missingLabels": 2,
+      "featureMissingFitPoints": 7,
+      "maturityDate": "2025-01-06"
+    },
+    {
+      "date": "2024-12-27",
+      "eligible": 1118,
+      "strictFitLabels": 1116,
+      "missingLabels": 2,
+      "featureMissingFitPoints": 8,
+      "maturityDate": "2025-01-07"
+    },
+    {
+      "date": "2024-12-30",
+      "eligible": 1096,
+      "strictFitLabels": 1094,
+      "missingLabels": 2,
+      "featureMissingFitPoints": 6,
+      "maturityDate": "2025-01-08"
+    },
+    {
+      "date": "2025-01-02",
+      "eligible": 1046,
+      "strictFitLabels": 1044,
+      "missingLabels": 2,
+      "featureMissingFitPoints": 7,
+      "maturityDate": "2025-01-09"
+    },
+    {
+      "date": "2025-01-03",
+      "eligible": 1072,
+      "strictFitLabels": 1070,
+      "missingLabels": 2,
+      "featureMissingFitPoints": 8,
+      "maturityDate": "2025-01-10"
+    },
+    {
+      "date": "2025-01-06",
+      "eligible": 1063,
+      "strictFitLabels": 1063,
+      "missingLabels": 0,
+      "featureMissingFitPoints": 7,
+      "maturityDate": "2025-01-13"
+    },
+    {
+      "date": "2025-01-07",
+      "eligible": 1096,
+      "strictFitLabels": 1096,
+      "missingLabels": 0,
+      "featureMissingFitPoints": 7,
+      "maturityDate": "2025-01-14"
+    },
+    {
+      "date": "2025-01-08",
+      "eligible": 1082,
+      "strictFitLabels": 1082,
+      "missingLabels": 0,
+      "featureMissingFitPoints": 7,
+      "maturityDate": "2025-01-15"
+    },
+    {
+      "date": "2025-01-09",
+      "eligible": 1076,
+      "strictFitLabels": 1076,
+      "missingLabels": 0,
+      "featureMissingFitPoints": 7,
+      "maturityDate": "2025-01-16"
+    },
+    {
+      "date": "2025-01-10",
+      "eligible": 1077,
+      "strictFitLabels": 1077,
+      "missingLabels": 0,
+      "featureMissingFitPoints": 7,
+      "maturityDate": "2025-01-17"
+    },
+    {
+      "date": "2025-01-13",
+      "eligible": 1084,
+      "strictFitLabels": 1084,
+      "missingLabels": 0,
+      "featureMissingFitPoints": 7,
+      "maturityDate": "2025-01-20"
+    },
+    {
+      "date": "2025-01-14",
+      "eligible": 1074,
+      "strictFitLabels": 1074,
+      "missingLabels": 0,
+      "featureMissingFitPoints": 6,
+      "maturityDate": "2025-01-21"
+    },
+    {
+      "date": "2025-01-15",
+      "eligible": 1060,
+      "strictFitLabels": 1060,
+      "missingLabels": 0,
+      "featureMissingFitPoints": 7,
+      "maturityDate": "2025-01-22"
+    },
+    {
+      "date": "2025-01-16",
+      "eligible": 1040,
+      "strictFitLabels": 1040,
+      "missingLabels": 0,
+      "featureMissingFitPoints": 8,
+      "maturityDate": "2025-01-23"
+    },
+    {
+      "date": "2025-01-17",
+      "eligible": 1045,
+      "strictFitLabels": 1045,
+      "missingLabels": 0,
+      "featureMissingFitPoints": 8,
+      "maturityDate": "2025-01-24"
+    },
+    {
+      "date": "2025-01-20",
+      "eligible": 1059,
+      "strictFitLabels": 1058,
+      "missingLabels": 1,
+      "featureMissingFitPoints": 9,
+      "maturityDate": "2025-01-31"
+    },
+    {
+      "date": "2025-01-21",
+      "eligible": 1064,
+      "strictFitLabels": 1063,
+      "missingLabels": 1,
+      "featureMissingFitPoints": 10,
+      "maturityDate": "2025-02-03"
+    },
+    {
+      "date": "2025-01-22",
+      "eligible": 1040,
+      "strictFitLabels": 1038,
+      "missingLabels": 2,
+      "featureMissingFitPoints": 10,
+      "maturityDate": "2025-02-04"
+    },
+    {
+      "date": "2025-01-23",
+      "eligible": 1072,
+      "strictFitLabels": 1070,
+      "missingLabels": 2,
+      "featureMissingFitPoints": 10,
+      "maturityDate": "2025-02-05"
+    },
+    {
+      "date": "2025-01-24",
+      "eligible": 1069,
+      "strictFitLabels": 1067,
+      "missingLabels": 2,
+      "featureMissingFitPoints": 7,
+      "maturityDate": "2025-02-06"
+    },
+    {
+      "date": "2025-01-31",
+      "eligible": 1063,
+      "strictFitLabels": 1062,
+      "missingLabels": 1,
+      "featureMissingFitPoints": 11,
+      "maturityDate": "2025-02-07"
+    },
+    {
+      "date": "2025-02-03",
+      "eligible": 1087,
+      "strictFitLabels": 1086,
+      "missingLabels": 1,
+      "featureMissingFitPoints": 11,
+      "maturityDate": "2025-02-10"
+    },
+    {
+      "date": "2025-02-04",
+      "eligible": 1067,
+      "strictFitLabels": 1067,
+      "missingLabels": 0,
+      "featureMissingFitPoints": 10,
+      "maturityDate": "2025-02-11"
+    },
+    {
+      "date": "2025-02-05",
+      "eligible": 1060,
+      "strictFitLabels": 1060,
+      "missingLabels": 0,
+      "featureMissingFitPoints": 11,
+      "maturityDate": "2025-02-12"
+    },
+    {
+      "date": "2025-02-06",
+      "eligible": 1048,
+      "strictFitLabels": 1048,
+      "missingLabels": 0,
+      "featureMissingFitPoints": 10,
+      "maturityDate": "2025-02-13"
+    },
+    {
+      "date": "2025-02-07",
+      "eligible": 1060,
+      "strictFitLabels": 1060,
+      "missingLabels": 0,
+      "featureMissingFitPoints": 10,
+      "maturityDate": "2025-02-14"
+    },
+    {
+      "date": "2025-02-10",
+      "eligible": 1040,
+      "strictFitLabels": 1040,
+      "missingLabels": 0,
+      "featureMissingFitPoints": 8,
+      "maturityDate": "2025-02-17"
+    },
+    {
+      "date": "2025-02-11",
+      "eligible": 1064,
+      "strictFitLabels": 1064,
+      "missingLabels": 0,
+      "featureMissingFitPoints": 10,
+      "maturityDate": "2025-02-18"
+    },
+    {
+      "date": "2025-02-12",
+      "eligible": 1079,
+      "strictFitLabels": 1079,
+      "missingLabels": 0,
+      "featureMissingFitPoints": 10,
+      "maturityDate": "2025-02-19"
+    },
+    {
+      "date": "2025-02-13",
+      "eligible": 1085,
+      "strictFitLabels": 1085,
+      "missingLabels": 0,
+      "featureMissingFitPoints": 10,
+      "maturityDate": "2025-02-20"
+    },
+    {
+      "date": "2025-02-14",
+      "eligible": 1092,
+      "strictFitLabels": 1092,
+      "missingLabels": 0,
+      "featureMissingFitPoints": 10,
+      "maturityDate": "2025-02-21"
+    },
+    {
+      "date": "2025-02-17",
+      "eligible": 1079,
+      "strictFitLabels": 1079,
+      "missingLabels": 0,
+      "featureMissingFitPoints": 12,
+      "maturityDate": "2025-02-24"
+    },
+    {
+      "date": "2025-02-18",
+      "eligible": 1072,
+      "strictFitLabels": 1072,
+      "missingLabels": 0,
+      "featureMissingFitPoints": 12,
+      "maturityDate": "2025-02-25"
+    },
+    {
+      "date": "2025-02-19",
+      "eligible": 1092,
+      "strictFitLabels": 1092,
+      "missingLabels": 0,
+      "featureMissingFitPoints": 12,
+      "maturityDate": "2025-02-26"
+    },
+    {
+      "date": "2025-02-20",
+      "eligible": 1127,
+      "strictFitLabels": 1127,
+      "missingLabels": 0,
+      "featureMissingFitPoints": 11,
+      "maturityDate": "2025-02-27"
+    },
+    {
+      "date": "2025-02-21",
+      "eligible": 1122,
+      "strictFitLabels": 1122,
+      "missingLabels": 0,
+      "featureMissingFitPoints": 10,
+      "maturityDate": "2025-02-28"
+    },
+    {
+      "date": "2025-02-24",
+      "eligible": 1124,
+      "strictFitLabels": 1124,
+      "missingLabels": 0,
+      "featureMissingFitPoints": 8,
+      "maturityDate": "2025-03-04"
+    },
+    {
+      "date": "2025-02-25",
+      "eligible": 1140,
+      "strictFitLabels": 1140,
+      "missingLabels": 0,
+      "featureMissingFitPoints": 9,
+      "maturityDate": "2025-03-05"
+    },
+    {
+      "date": "2025-02-26",
+      "eligible": 1135,
+      "strictFitLabels": 1135,
+      "missingLabels": 0,
+      "featureMissingFitPoints": 11,
+      "maturityDate": "2025-03-06"
+    },
+    {
+      "date": "2025-02-27",
+      "eligible": 1157,
+      "strictFitLabels": 1157,
+      "missingLabels": 0,
+      "featureMissingFitPoints": 11,
+      "maturityDate": "2025-03-07"
+    },
+    {
+      "date": "2025-02-28",
+      "eligible": 1182,
+      "strictFitLabels": 1182,
+      "missingLabels": 0,
+      "featureMissingFitPoints": 11,
+      "maturityDate": "2025-03-10"
+    },
+    {
+      "date": "2025-03-04",
+      "eligible": 1172,
+      "strictFitLabels": 1172,
+      "missingLabels": 0,
+      "featureMissingFitPoints": 11,
+      "maturityDate": "2025-03-11"
+    },
+    {
+      "date": "2025-03-05",
+      "eligible": 1180,
+      "strictFitLabels": 1180,
+      "missingLabels": 0,
+      "featureMissingFitPoints": 12,
+      "maturityDate": "2025-03-12"
+    },
+    {
+      "date": "2025-03-06",
+      "eligible": 1180,
+      "strictFitLabels": 1180,
+      "missingLabels": 0,
+      "featureMissingFitPoints": 11,
+      "maturityDate": "2025-03-13"
+    },
+    {
+      "date": "2025-03-07",
+      "eligible": 1182,
+      "strictFitLabels": 1182,
+      "missingLabels": 0,
+      "featureMissingFitPoints": 12,
+      "maturityDate": "2025-03-14"
+    },
+    {
+      "date": "2025-03-10",
+      "eligible": 1181,
+      "strictFitLabels": 1181,
+      "missingLabels": 0,
+      "featureMissingFitPoints": 11,
+      "maturityDate": "2025-03-17"
+    },
+    {
+      "date": "2025-03-11",
+      "eligible": 1165,
+      "strictFitLabels": 1165,
+      "missingLabels": 0,
+      "featureMissingFitPoints": 11,
+      "maturityDate": "2025-03-18"
+    },
+    {
+      "date": "2025-03-12",
+      "eligible": 1176,
+      "strictFitLabels": 1176,
+      "missingLabels": 0,
+      "featureMissingFitPoints": 10,
+      "maturityDate": "2025-03-19"
+    },
+    {
+      "date": "2025-03-13",
+      "eligible": 1171,
+      "strictFitLabels": 1171,
+      "missingLabels": 0,
+      "featureMissingFitPoints": 11,
+      "maturityDate": "2025-03-20"
+    },
+    {
+      "date": "2025-03-14",
+      "eligible": 1154,
+      "strictFitLabels": 1154,
+      "missingLabels": 0,
+      "featureMissingFitPoints": 11,
+      "maturityDate": "2025-03-21"
+    },
+    {
+      "date": "2025-03-17",
+      "eligible": 1152,
+      "strictFitLabels": 1152,
+      "missingLabels": 0,
+      "featureMissingFitPoints": 10,
+      "maturityDate": "2025-03-24"
+    },
+    {
+      "date": "2025-03-18",
+      "eligible": 1144,
+      "strictFitLabels": 1144,
+      "missingLabels": 0,
+      "featureMissingFitPoints": 7,
+      "maturityDate": "2025-03-25"
+    },
+    {
+      "date": "2025-03-19",
+      "eligible": 1155,
+      "strictFitLabels": 1155,
+      "missingLabels": 0,
+      "featureMissingFitPoints": 9,
+      "maturityDate": "2025-03-26"
+    },
+    {
+      "date": "2025-03-20",
+      "eligible": 1145,
+      "strictFitLabels": 1145,
+      "missingLabels": 0,
+      "featureMissingFitPoints": 8,
+      "maturityDate": "2025-03-27"
+    },
+    {
+      "date": "2025-03-21",
+      "eligible": 1129,
+      "strictFitLabels": 1129,
+      "missingLabels": 0,
+      "featureMissingFitPoints": 8,
+      "maturityDate": "2025-03-28"
+    },
+    {
+      "date": "2025-03-24",
+      "eligible": 1130,
+      "strictFitLabels": 1130,
+      "missingLabels": 0,
+      "featureMissingFitPoints": 8,
+      "maturityDate": "2025-03-31"
+    },
+    {
+      "date": "2025-03-25",
+      "eligible": 1142,
+      "strictFitLabels": 1142,
+      "missingLabels": 0,
+      "featureMissingFitPoints": 8,
+      "maturityDate": "2025-04-01"
+    },
+    {
+      "date": "2025-03-26",
+      "eligible": 1117,
+      "strictFitLabels": 1117,
+      "missingLabels": 0,
+      "featureMissingFitPoints": 8,
+      "maturityDate": "2025-04-02"
+    },
+    {
+      "date": "2025-03-27",
+      "eligible": 1129,
+      "strictFitLabels": 1129,
+      "missingLabels": 0,
+      "featureMissingFitPoints": 7,
+      "maturityDate": "2025-04-03"
+    },
+    {
+      "date": "2025-03-28",
+      "eligible": 1147,
+      "strictFitLabels": 1147,
+      "missingLabels": 0,
+      "featureMissingFitPoints": 8,
+      "maturityDate": "2025-04-04"
+    },
+    {
+      "date": "2025-03-31",
+      "eligible": 1138,
+      "strictFitLabels": 1138,
+      "missingLabels": 0,
+      "featureMissingFitPoints": 8,
+      "maturityDate": "2025-04-07"
+    },
+    {
+      "date": "2025-04-01",
+      "eligible": 1085,
+      "strictFitLabels": 1084,
+      "missingLabels": 1,
+      "featureMissingFitPoints": 8,
+      "maturityDate": "2025-04-08"
+    },
+    {
+      "date": "2025-04-02",
+      "eligible": 1125,
+      "strictFitLabels": 1124,
+      "missingLabels": 1,
+      "featureMissingFitPoints": 6,
+      "maturityDate": "2025-04-09"
+    },
+    {
+      "date": "2025-04-03",
+      "eligible": 1102,
+      "strictFitLabels": 1099,
+      "missingLabels": 3,
+      "featureMissingFitPoints": 6,
+      "maturityDate": "2025-04-10"
+    },
+    {
+      "date": "2025-04-04",
+      "eligible": 1074,
+      "strictFitLabels": 1070,
+      "missingLabels": 4,
+      "featureMissingFitPoints": 4,
+      "maturityDate": "2025-04-11"
+    },
+    {
+      "date": "2025-04-07",
+      "eligible": 1102,
+      "strictFitLabels": 1096,
+      "missingLabels": 6,
+      "featureMissingFitPoints": 4,
+      "maturityDate": "2025-04-14"
+    },
+    {
+      "date": "2025-04-08",
+      "eligible": 1091,
+      "strictFitLabels": 1087,
+      "missingLabels": 4,
+      "featureMissingFitPoints": 6,
+      "maturityDate": "2025-04-15"
+    },
+    {
+      "date": "2025-04-09",
+      "eligible": 1140,
+      "strictFitLabels": 1135,
+      "missingLabels": 5,
+      "featureMissingFitPoints": 5,
+      "maturityDate": "2025-04-16"
+    },
+    {
+      "date": "2025-04-10",
+      "eligible": 1041,
+      "strictFitLabels": 1039,
+      "missingLabels": 2,
+      "featureMissingFitPoints": 6,
+      "maturityDate": "2025-04-17"
+    },
+    {
+      "date": "2025-04-11",
+      "eligible": 1105,
+      "strictFitLabels": 1103,
+      "missingLabels": 2,
+      "featureMissingFitPoints": 5,
+      "maturityDate": "2025-04-18"
+    },
+    {
+      "date": "2025-04-14",
+      "eligible": 1114,
+      "strictFitLabels": 1113,
+      "missingLabels": 1,
+      "featureMissingFitPoints": 7,
+      "maturityDate": "2025-04-21"
+    },
+    {
+      "date": "2025-04-15",
+      "eligible": 1129,
+      "strictFitLabels": 1127,
+      "missingLabels": 2,
+      "featureMissingFitPoints": 5,
+      "maturityDate": "2025-04-22"
+    },
+    {
+      "date": "2025-04-16",
+      "eligible": 1126,
+      "strictFitLabels": 1124,
+      "missingLabels": 2,
+      "featureMissingFitPoints": 6,
+      "maturityDate": "2025-04-23"
+    },
+    {
+      "date": "2025-04-17",
+      "eligible": 1118,
+      "strictFitLabels": 1116,
+      "missingLabels": 2,
+      "featureMissingFitPoints": 7,
+      "maturityDate": "2025-04-24"
+    },
+    {
+      "date": "2025-04-18",
+      "eligible": 1097,
+      "strictFitLabels": 1096,
+      "missingLabels": 1,
+      "featureMissingFitPoints": 6,
+      "maturityDate": "2025-04-25"
+    },
+    {
+      "date": "2025-04-21",
+      "eligible": 1083,
+      "strictFitLabels": 1083,
+      "missingLabels": 0,
+      "featureMissingFitPoints": 6,
+      "maturityDate": "2025-04-28"
+    },
+    {
+      "date": "2025-04-22",
+      "eligible": 1102,
+      "strictFitLabels": 1102,
+      "missingLabels": 0,
+      "featureMissingFitPoints": 8,
+      "maturityDate": "2025-04-29"
+    },
+    {
+      "date": "2025-04-23",
+      "eligible": 1125,
+      "strictFitLabels": 1125,
+      "missingLabels": 0,
+      "featureMissingFitPoints": 11,
+      "maturityDate": "2025-04-30"
+    },
+    {
+      "date": "2025-04-24",
+      "eligible": 1140,
+      "strictFitLabels": 1139,
+      "missingLabels": 1,
+      "featureMissingFitPoints": 10,
+      "maturityDate": "2025-05-02"
+    },
+    {
+      "date": "2025-04-25",
+      "eligible": 1138,
+      "strictFitLabels": 1137,
+      "missingLabels": 1,
+      "featureMissingFitPoints": 10,
+      "maturityDate": "2025-05-07"
+    },
+    {
+      "date": "2025-04-28",
+      "eligible": 1144,
+      "strictFitLabels": 1142,
+      "missingLabels": 2,
+      "featureMissingFitPoints": 10,
+      "maturityDate": "2025-05-08"
+    },
+    {
+      "date": "2025-04-29",
+      "eligible": 1146,
+      "strictFitLabels": 1145,
+      "missingLabels": 1,
+      "featureMissingFitPoints": 11,
+      "maturityDate": "2025-05-09"
+    },
+    {
+      "date": "2025-04-30",
+      "eligible": 1176,
+      "strictFitLabels": 1173,
+      "missingLabels": 3,
+      "featureMissingFitPoints": 11,
+      "maturityDate": "2025-05-12"
+    },
+    {
+      "date": "2025-05-02",
+      "eligible": 1156,
+      "strictFitLabels": 1153,
+      "missingLabels": 3,
+      "featureMissingFitPoints": 10,
+      "maturityDate": "2025-05-13"
+    },
+    {
+      "date": "2025-05-07",
+      "eligible": 1136,
+      "strictFitLabels": 1135,
+      "missingLabels": 1,
+      "featureMissingFitPoints": 8,
+      "maturityDate": "2025-05-14"
+    },
+    {
+      "date": "2025-05-08",
+      "eligible": 1132,
+      "strictFitLabels": 1132,
+      "missingLabels": 0,
+      "featureMissingFitPoints": 8,
+      "maturityDate": "2025-05-15"
+    },
+    {
+      "date": "2025-05-09",
+      "eligible": 1134,
+      "strictFitLabels": 1133,
+      "missingLabels": 1,
+      "featureMissingFitPoints": 9,
+      "maturityDate": "2025-05-16"
+    },
+    {
+      "date": "2025-05-12",
+      "eligible": 1119,
+      "strictFitLabels": 1119,
+      "missingLabels": 0,
+      "featureMissingFitPoints": 9,
+      "maturityDate": "2025-05-19"
+    },
+    {
+      "date": "2025-05-13",
+      "eligible": 1134,
+      "strictFitLabels": 1134,
+      "missingLabels": 0,
+      "featureMissingFitPoints": 10,
+      "maturityDate": "2025-05-20"
+    },
+    {
+      "date": "2025-05-14",
+      "eligible": 1116,
+      "strictFitLabels": 1116,
+      "missingLabels": 0,
+      "featureMissingFitPoints": 11,
+      "maturityDate": "2025-05-21"
+    },
+    {
+      "date": "2025-05-15",
+      "eligible": 1139,
+      "strictFitLabels": 1139,
+      "missingLabels": 0,
+      "featureMissingFitPoints": 13,
+      "maturityDate": "2025-05-22"
+    },
+    {
+      "date": "2025-05-16",
+      "eligible": 1147,
+      "strictFitLabels": 1147,
+      "missingLabels": 0,
+      "featureMissingFitPoints": 12,
+      "maturityDate": "2025-05-23"
+    },
+    {
+      "date": "2025-05-19",
+      "eligible": 1172,
+      "strictFitLabels": 1172,
+      "missingLabels": 0,
+      "featureMissingFitPoints": 13,
+      "maturityDate": "2025-05-26"
+    },
+    {
+      "date": "2025-05-20",
+      "eligible": 1154,
+      "strictFitLabels": 1154,
+      "missingLabels": 0,
+      "featureMissingFitPoints": 11,
+      "maturityDate": "2025-05-27"
+    },
+    {
+      "date": "2025-05-21",
+      "eligible": 1141,
+      "strictFitLabels": 1141,
+      "missingLabels": 0,
+      "featureMissingFitPoints": 14,
+      "maturityDate": "2025-05-28"
+    },
+    {
+      "date": "2025-05-22",
+      "eligible": 1167,
+      "strictFitLabels": 1167,
+      "missingLabels": 0,
+      "featureMissingFitPoints": 14,
+      "maturityDate": "2025-05-29"
+    },
+    {
+      "date": "2025-05-23",
+      "eligible": 1147,
+      "strictFitLabels": 1147,
+      "missingLabels": 0,
+      "featureMissingFitPoints": 15,
+      "maturityDate": "2025-05-30"
+    },
+    {
+      "date": "2025-05-26",
+      "eligible": 1124,
+      "strictFitLabels": 1124,
+      "missingLabels": 0,
+      "featureMissingFitPoints": 14,
+      "maturityDate": "2025-06-02"
+    },
+    {
+      "date": "2025-05-27",
+      "eligible": 1144,
+      "strictFitLabels": 1144,
+      "missingLabels": 0,
+      "featureMissingFitPoints": 15,
+      "maturityDate": "2025-06-04"
+    },
+    {
+      "date": "2025-05-28",
+      "eligible": 1148,
+      "strictFitLabels": 1148,
+      "missingLabels": 0,
+      "featureMissingFitPoints": 14,
+      "maturityDate": "2025-06-05"
+    },
+    {
+      "date": "2025-05-29",
+      "eligible": 1125,
+      "strictFitLabels": 1125,
+      "missingLabels": 0,
+      "featureMissingFitPoints": 13,
+      "maturityDate": "2025-06-09"
+    },
+    {
+      "date": "2025-05-30",
+      "eligible": 1157,
+      "strictFitLabels": 1157,
+      "missingLabels": 0,
+      "featureMissingFitPoints": 15,
+      "maturityDate": "2025-06-10"
+    },
+    {
+      "date": "2025-06-02",
+      "eligible": 1167,
+      "strictFitLabels": 1167,
+      "missingLabels": 0,
+      "featureMissingFitPoints": 17,
+      "maturityDate": "2025-06-11"
+    },
+    {
+      "date": "2025-06-04",
+      "eligible": 1118,
+      "strictFitLabels": 1118,
+      "missingLabels": 0,
+      "featureMissingFitPoints": 16,
+      "maturityDate": "2025-06-12"
+    },
+    {
+      "date": "2025-06-05",
+      "eligible": 1134,
+      "strictFitLabels": 1134,
+      "missingLabels": 0,
+      "featureMissingFitPoints": 16,
+      "maturityDate": "2025-06-13"
+    },
+    {
+      "date": "2025-06-09",
+      "eligible": 1109,
+      "strictFitLabels": 1108,
+      "missingLabels": 1,
+      "featureMissingFitPoints": 14,
+      "maturityDate": "2025-06-16"
+    },
+    {
+      "date": "2025-06-10",
+      "eligible": 1138,
+      "strictFitLabels": 1137,
+      "missingLabels": 1,
+      "featureMissingFitPoints": 18,
+      "maturityDate": "2025-06-17"
+    },
+    {
+      "date": "2025-06-11",
+      "eligible": 1120,
+      "strictFitLabels": 1119,
+      "missingLabels": 1,
+      "featureMissingFitPoints": 16,
+      "maturityDate": "2025-06-18"
+    },
+    {
+      "date": "2025-06-12",
+      "eligible": 1144,
+      "strictFitLabels": 1143,
+      "missingLabels": 1,
+      "featureMissingFitPoints": 17,
+      "maturityDate": "2025-06-19"
+    },
+    {
+      "date": "2025-06-13",
+      "eligible": 1218,
+      "strictFitLabels": 1217,
+      "missingLabels": 1,
+      "featureMissingFitPoints": 18,
+      "maturityDate": "2025-06-20"
+    },
+    {
+      "date": "2025-06-16",
+      "eligible": 1155,
+      "strictFitLabels": 1155,
+      "missingLabels": 0,
+      "featureMissingFitPoints": 18,
+      "maturityDate": "2025-06-23"
+    },
+    {
+      "date": "2025-06-17",
+      "eligible": 1205,
+      "strictFitLabels": 1205,
+      "missingLabels": 0,
+      "featureMissingFitPoints": 18,
+      "maturityDate": "2025-06-24"
+    },
+    {
+      "date": "2025-06-18",
+      "eligible": 1196,
+      "strictFitLabels": 1196,
+      "missingLabels": 0,
+      "featureMissingFitPoints": 18,
+      "maturityDate": "2025-06-25"
+    },
+    {
+      "date": "2025-06-19",
+      "eligible": 1207,
+      "strictFitLabels": 1207,
+      "missingLabels": 0,
+      "featureMissingFitPoints": 17,
+      "maturityDate": "2025-06-26"
+    },
+    {
+      "date": "2025-06-20",
+      "eligible": 1218,
+      "strictFitLabels": 1218,
+      "missingLabels": 0,
+      "featureMissingFitPoints": 17,
+      "maturityDate": "2025-06-27"
+    },
+    {
+      "date": "2025-06-23",
+      "eligible": 1192,
+      "strictFitLabels": 1192,
+      "missingLabels": 0,
+      "featureMissingFitPoints": 18,
+      "maturityDate": "2025-06-30"
+    },
+    {
+      "date": "2025-06-24",
+      "eligible": 1206,
+      "strictFitLabels": 1206,
+      "missingLabels": 0,
+      "featureMissingFitPoints": 18,
+      "maturityDate": "2025-07-01"
+    },
+    {
+      "date": "2025-06-25",
+      "eligible": 1231,
+      "strictFitLabels": 1231,
+      "missingLabels": 0,
+      "featureMissingFitPoints": 17,
+      "maturityDate": "2025-07-02"
+    },
+    {
+      "date": "2025-06-26",
+      "eligible": 1291,
+      "strictFitLabels": 1291,
+      "missingLabels": 0,
+      "featureMissingFitPoints": 19,
+      "maturityDate": "2025-07-03"
+    },
+    {
+      "date": "2025-06-27",
+      "eligible": 1321,
+      "strictFitLabels": 1321,
+      "missingLabels": 0,
+      "featureMissingFitPoints": 21,
+      "maturityDate": "2025-07-04"
+    },
+    {
+      "date": "2025-06-30",
+      "eligible": 1313,
+      "strictFitLabels": 1313,
+      "missingLabels": 0,
+      "featureMissingFitPoints": 21,
+      "maturityDate": "2025-07-07"
+    },
+    {
+      "date": "2025-07-01",
+      "eligible": 1309,
+      "strictFitLabels": 1309,
+      "missingLabels": 0,
+      "featureMissingFitPoints": 21,
+      "maturityDate": "2025-07-08"
+    },
+    {
+      "date": "2025-07-02",
+      "eligible": 1337,
+      "strictFitLabels": 1337,
+      "missingLabels": 0,
+      "featureMissingFitPoints": 21,
+      "maturityDate": "2025-07-09"
+    },
+    {
+      "date": "2025-07-03",
+      "eligible": 1336,
+      "strictFitLabels": 1336,
+      "missingLabels": 0,
+      "featureMissingFitPoints": 19,
+      "maturityDate": "2025-07-10"
+    },
+    {
+      "date": "2025-07-04",
+      "eligible": 1352,
+      "strictFitLabels": 1352,
+      "missingLabels": 0,
+      "featureMissingFitPoints": 18,
+      "maturityDate": "2025-07-11"
+    },
+    {
+      "date": "2025-07-07",
+      "eligible": 1335,
+      "strictFitLabels": 1335,
+      "missingLabels": 0,
+      "featureMissingFitPoints": 18,
+      "maturityDate": "2025-07-14"
+    },
+    {
+      "date": "2025-07-08",
+      "eligible": 1321,
+      "strictFitLabels": 1321,
+      "missingLabels": 0,
+      "featureMissingFitPoints": 18,
+      "maturityDate": "2025-07-15"
+    },
+    {
+      "date": "2025-07-09",
+      "eligible": 1291,
+      "strictFitLabels": 1291,
+      "missingLabels": 0,
+      "featureMissingFitPoints": 16,
+      "maturityDate": "2025-07-16"
+    },
+    {
+      "date": "2025-07-10",
+      "eligible": 1274,
+      "strictFitLabels": 1274,
+      "missingLabels": 0,
+      "featureMissingFitPoints": 18,
+      "maturityDate": "2025-07-17"
+    },
+    {
+      "date": "2025-07-11",
+      "eligible": 1270,
+      "strictFitLabels": 1270,
+      "missingLabels": 0,
+      "featureMissingFitPoints": 14,
+      "maturityDate": "2025-07-18"
+    },
+    {
+      "date": "2025-07-14",
+      "eligible": 1239,
+      "strictFitLabels": 1239,
+      "missingLabels": 0,
+      "featureMissingFitPoints": 15,
+      "maturityDate": "2025-07-21"
+    },
+    {
+      "date": "2025-07-15",
+      "eligible": 1251,
+      "strictFitLabels": 1251,
+      "missingLabels": 0,
+      "featureMissingFitPoints": 20,
+      "maturityDate": "2025-07-22"
+    },
+    {
+      "date": "2025-07-16",
+      "eligible": 1276,
+      "strictFitLabels": 1276,
+      "missingLabels": 0,
+      "featureMissingFitPoints": 20,
+      "maturityDate": "2025-07-23"
+    },
+    {
+      "date": "2025-07-17",
+      "eligible": 1287,
+      "strictFitLabels": 1287,
+      "missingLabels": 0,
+      "featureMissingFitPoints": 18,
+      "maturityDate": "2025-07-24"
+    },
+    {
+      "date": "2025-07-18",
+      "eligible": 1303,
+      "strictFitLabels": 1303,
+      "missingLabels": 0,
+      "featureMissingFitPoints": 19,
+      "maturityDate": "2025-07-25"
+    },
+    {
+      "date": "2025-07-21",
+      "eligible": 1300,
+      "strictFitLabels": 1300,
+      "missingLabels": 0,
+      "featureMissingFitPoints": 19,
+      "maturityDate": "2025-07-28"
+    },
+    {
+      "date": "2025-07-22",
+      "eligible": 1297,
+      "strictFitLabels": 1297,
+      "missingLabels": 0,
+      "featureMissingFitPoints": 18,
+      "maturityDate": "2025-07-29"
+    },
+    {
+      "date": "2025-07-23",
+      "eligible": 1283,
+      "strictFitLabels": 1283,
+      "missingLabels": 0,
+      "featureMissingFitPoints": 17,
+      "maturityDate": "2025-07-30"
+    },
+    {
+      "date": "2025-07-24",
+      "eligible": 1278,
+      "strictFitLabels": 1278,
+      "missingLabels": 0,
+      "featureMissingFitPoints": 17,
+      "maturityDate": "2025-07-31"
+    },
+    {
+      "date": "2025-07-25",
+      "eligible": 1273,
+      "strictFitLabels": 1273,
+      "missingLabels": 0,
+      "featureMissingFitPoints": 13,
+      "maturityDate": "2025-08-01"
+    },
+    {
+      "date": "2025-07-28",
+      "eligible": 1273,
+      "strictFitLabels": 1273,
+      "missingLabels": 0,
+      "featureMissingFitPoints": 15,
+      "maturityDate": "2025-08-04"
+    },
+    {
+      "date": "2025-07-29",
+      "eligible": 1263,
+      "strictFitLabels": 1263,
+      "missingLabels": 0,
+      "featureMissingFitPoints": 15,
+      "maturityDate": "2025-08-05"
+    },
+    {
+      "date": "2025-07-30",
+      "eligible": 1255,
+      "strictFitLabels": 1255,
+      "missingLabels": 0,
+      "featureMissingFitPoints": 14,
+      "maturityDate": "2025-08-06"
+    },
+    {
+      "date": "2025-07-31",
+      "eligible": 1260,
+      "strictFitLabels": 1260,
+      "missingLabels": 0,
+      "featureMissingFitPoints": 13,
+      "maturityDate": "2025-08-07"
+    },
+    {
+      "date": "2025-08-01",
+      "eligible": 1270,
+      "strictFitLabels": 1270,
+      "missingLabels": 0,
+      "featureMissingFitPoints": 13,
+      "maturityDate": "2025-08-08"
+    },
+    {
+      "date": "2025-08-04",
+      "eligible": 1258,
+      "strictFitLabels": 1258,
+      "missingLabels": 0,
+      "featureMissingFitPoints": 13,
+      "maturityDate": "2025-08-11"
+    },
+    {
+      "date": "2025-08-05",
+      "eligible": 1256,
+      "strictFitLabels": 1255,
+      "missingLabels": 1,
+      "featureMissingFitPoints": 11,
+      "maturityDate": "2025-08-12"
+    },
+    {
+      "date": "2025-08-06",
+      "eligible": 1245,
+      "strictFitLabels": 1244,
+      "missingLabels": 1,
+      "featureMissingFitPoints": 12,
+      "maturityDate": "2025-08-13"
+    },
+    {
+      "date": "2025-08-07",
+      "eligible": 1227,
+      "strictFitLabels": 1226,
+      "missingLabels": 1,
+      "featureMissingFitPoints": 8,
+      "maturityDate": "2025-08-14"
+    },
+    {
+      "date": "2025-08-08",
+      "eligible": 1212,
+      "strictFitLabels": 1211,
+      "missingLabels": 1,
+      "featureMissingFitPoints": 8,
+      "maturityDate": "2025-08-18"
+    }
+  ],
+  "activationDate": "2025-08-19",
+  "lastLabelMaturity": "2025-08-18",
+  "allMaturitiesStrictlyEarlier": true,
+  "sampleWeightMean": 1.0,
+  "trainingInputSha256": "e788421743d62445b99d02199998fed05cfa0e64e0fdf11dc1790e3546e2b770",
+  "scoreMap": {
+    "touchWeight": 0.8,
+    "bullWeight": 0.2,
+    "lossPenaltyPoints": 20,
+    "rounding": "floor(clamp(100*(.8*pTouch+.2*pBull)-20*pLoss5,0,100)+.5)"
+  }
+}

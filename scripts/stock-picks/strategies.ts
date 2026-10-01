@@ -16,7 +16,7 @@ export type StrategyName =
   | 'composite'
 export type SelectionMode = 'force3' | 'abstain'
 export type AblationFeature = keyof StockFeatureVector
-export type TieredFillTier = 'breakout' | 'relaxedBreakout' | 'volumeOnly' | 'lowVolatility' | 'bullishTarget5d'
+export type TieredFillTier = 'breakout' | 'relaxedBreakout' | 'volumeOnly' | 'lowVolatility' | 'bullishTarget5d' | 'compositeUtility'
 
 export interface TieredFillPick {
   readonly symbol: string
@@ -317,6 +317,31 @@ export function rankLowVolatilityStableCandidates(input: {
     left.atrPercent14! - right.atrPercent14!
     || left.symbol.localeCompare(right.symbol)
   )).slice(0, input.pickCount ?? PICKS_PER_DATE).map((feature) => feature.symbol)
+}
+
+/** 공개 종합 점수의 정수값으로 선정한다. 동점에 숨은 소수 점수를 사용하지 않는다. */
+export function rankUtilityScoreCandidates(input: {
+  readonly features: readonly StockFeatureVector[]
+  readonly masters: ReadonlyMap<string, StockMasterState>
+  readonly scores: ReadonlyMap<string, number>
+  readonly parameters: typeof LOW_VOLATILITY_STABLE_PARAMETERS
+  readonly excludeSymbols: ReadonlySet<string>
+  readonly pickCount?: number
+}): Array<{ symbol: string; score: number }> {
+  const seen = new Set<string>()
+  return input.features.flatMap((feature) => {
+    if (seen.has(feature.symbol)) throw new Error(`중복 종합 점수 후보: ${feature.symbol}`)
+    seen.add(feature.symbol)
+    if (!passesTargetPoolGate(feature, input.masters.get(feature.symbol), input.parameters, input.excludeSymbols)) return []
+    const score = input.scores.get(feature.symbol)
+    if (score === undefined || !Number.isInteger(score) || score < 0 || score > 100) {
+      throw new Error(`종합 점수 후보 추론 누락: ${feature.symbol}`)
+    }
+    return [{ symbol: feature.symbol, score, turnover: feature.averageTurnover20! }]
+  }).sort((left, right) => (
+    right.score - left.score || right.turnover - left.turnover
+    || (left.symbol < right.symbol ? -1 : left.symbol > right.symbol ? 1 : 0)
+  )).slice(0, input.pickCount ?? PICKS_PER_DATE).map(({ symbol, score }) => ({ symbol, score }))
 }
 
 export function rankSeededRandomCandidates(input: {

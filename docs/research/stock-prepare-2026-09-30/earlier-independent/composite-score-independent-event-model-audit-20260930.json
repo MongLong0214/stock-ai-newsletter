@@ -1,0 +1,68 @@
+{
+  "scope": "Exact independent reproduction of ONLY six already-frozen HGB heads (two prescribed scopes), using independently built18observed feature arrays/raw mature labels/date-balanced weights. No family or parameter selection, external labels, output adjustment or repo writes. All fitted tree fields compared to owner joblib models.",
+  "fits": {
+    "first150": {
+      "trainingRows": 173439,
+      "combinedIndependentXWeightYsha256": "e788421743d62445b99d02199998fed05cfa0e64e0fdf11dc1790e3546e2b770",
+      "heads": {
+        "touch": {
+          "positiveCount": 32024,
+          "baselineLogit": -1.4746464854868528,
+          "nodeFieldDifferences": 0,
+          "maxLeafValueDifference": 0.0,
+          "iterations": 100
+        },
+        "D1bullish": {
+          "positiveCount": 77224,
+          "baselineLogit": -0.21578816074991997,
+          "nodeFieldDifferences": 0,
+          "maxLeafValueDifference": 0.0,
+          "iterations": 100
+        },
+        "loss5": {
+          "positiveCount": 33748,
+          "baselineLogit": -1.4184768607538125,
+          "nodeFieldDifferences": 0,
+          "maxLeafValueDifference": 0.0,
+          "iterations": 100
+        }
+      },
+      "maturity": "2025-08-18",
+      "activation": "2025-08-19",
+      "modelJoblibSha256": "a8653b31385a9af2627378fc4d7baf09070ac77ab53ab2984da55edc036a8b94"
+    },
+    "all235": {
+      "trainingRows": 273202,
+      "combinedIndependentXWeightYsha256": "3737e3fb8bcc85d99e9f72994d94579f34bf1d4b2e78b3e8b86335f0cede46ff",
+      "heads": {
+        "touch": {
+          "positiveCount": 49024,
+          "baselineLogit": -1.5133378867313125,
+          "nodeFieldDifferences": 0,
+          "maxLeafValueDifference": 0.0,
+          "iterations": 100
+        },
+        "D1bullish": {
+          "positiveCount": 118372,
+          "baselineLogit": -0.2656983266157656,
+          "nodeFieldDifferences": 0,
+          "maxLeafValueDifference": 0.0,
+          "iterations": 100
+        },
+        "loss5": {
+          "positiveCount": 53772,
+          "baselineLogit": -1.4073764301340466,
+          "nodeFieldDifferences": 0,
+          "maxLeafValueDifference": 0.0,
+          "iterations": 100
+        }
+      },
+      "maturity": "2025-12-22",
+      "activation": "2025-12-23",
+      "modelJoblibSha256": "ef8b69a6e9c9d8c311579b96241b1accb6b71d3703feb4ebb9d25a7ed7b37677"
+    }
+  },
+  "differences": {},
+  "predictorCacheScope": "first150 over earlier235; all235 over outer181; no future labels used in predictions",
+  "inputAudit": "/tmp/composite-score-independent-event-input-audit-20260930.json"
+}

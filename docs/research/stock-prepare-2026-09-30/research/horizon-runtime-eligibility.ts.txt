@@ -1,0 +1,29 @@
+import { createReadStream, readFileSync, writeFileSync, createWriteStream } from 'node:fs';
+import { createInterface } from 'node:readline';
+import { createHash } from 'node:crypto';
+import { rankLowVolatilityStableCandidates, LOW_VOLATILITY_STABLE_PARAMETERS } from '/Users/isaac/WebstormProjects/stock-ai-newsletter/scripts/stock-picks/strategies';
+async function main() {
+  const prefix='/tmp/composite-score-research-20260930';
+  const source='/Users/isaac/WebstormProjects/stock-ai-newsletter/scripts/stock-picks/strategies.ts';
+  const sha=(path: string)=>createHash('sha256').update(readFileSync(path)).digest('hex');
+  const sourceBefore=sha(source);
+  const metadata=JSON.parse(readFileSync('/private/tmp/stock-target-rebuilt-20260929/metadata.json','utf8'));
+  const masters=new Map(metadata.masters.map((m: {symbol: string})=>[m.symbol,m]));
+  const out=createWriteStream(prefix+'/horizon-runtime-eligibility.ndjson');
+  const differences: unknown[]=[];let points=0,dates=0,storedEligible=0,runtimeEligible=0;
+  for (const path of ['/tmp/upside-scored.ndjson','/tmp/stock-research-fresh-mature-20260930/scored.ndjson']) {
+    for await (const line of createInterface({input:createReadStream(path)})) {
+      const [date,rows]=JSON.parse(line);
+      const symbols=rankLowVolatilityStableCandidates({features:rows.map((p: {feature: unknown})=>p.feature),masters:masters as never,parameters:LOW_VOLATILITY_STABLE_PARAMETERS,excludeSymbols:new Set(),pickCount:rows.length});
+      const eligible=new Set(symbols);points+=rows.length;dates++;runtimeEligible+=symbols.length;
+      for (const p of rows) {storedEligible+=p.eligible?1:0;if(p.eligible!==eligible.has(p.symbol))differences.push({date,symbol:p.symbol,stored:p.eligible,runtime:eligible.has(p.symbol)});}
+      if (!out.write(JSON.stringify({date,runtimeEligibleSymbols:symbols})+'\n'))await new Promise(resolve=>out.once('drain',resolve));
+    }
+  }
+  await new Promise<void>((resolve,reject)=>{out.on('error',reject);out.end(resolve);});
+  const sourceAfter=sha(source);if(sourceBefore!==sourceAfter)throw new Error('Strategy source changed during runtime audit');
+  const report={dates,points,storedEligible,runtimeEligible,parameters:LOW_VOLATILITY_STABLE_PARAMETERS,differences,strategySourceSha256:sourceAfter,eligibilityOutputSha256:sha(prefix+'/horizon-runtime-eligibility.ndjson'),generatedAt:new Date().toISOString()};
+  writeFileSync(prefix+'/horizon-runtime-eligibility-audit.json',JSON.stringify(report,null,2));
+  console.log(JSON.stringify({...report,differences:differences.length}));
+}
+main().catch(error=>{console.error(error);process.exitCode=1;});

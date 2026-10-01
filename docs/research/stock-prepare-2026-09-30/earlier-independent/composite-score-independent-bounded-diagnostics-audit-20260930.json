@@ -1,0 +1,10 @@
+{
+  "scope": "Independent selected head reliability/deciles and fixed descriptive10-day circular1000-draw seed42 uncertainty; own raw outcomes/frozen selections only, no refit/reselection/new variant. Does not remove reused-period/search bias.",
+  "counts": {
+    "headCalibrationGroups": 36,
+    "probabilityBins": 360,
+    "bootstrapPolicyScopes": 4,
+    "bootstrapIntervals": 16
+  },
+  "differences": []
+}

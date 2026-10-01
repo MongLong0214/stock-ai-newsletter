@@ -1,0 +1,134 @@
+{
+  "scope": "Independent original KIS raw-price strict FP event oracle, all eight fitted input/query/date weights/hash/maturity/saved structures, actual complete integer ranking and own20 cooldown over two TRAIN and all inner/outer policies; no new tree fit",
+  "models": [
+    {
+      "bundle": "FP-A-small-lambda0.65-inputs18-prefix105",
+      "rows": 117053,
+      "inputSha256": "07cb834902e5b5469adf7c87f2986ecd937e17d54335541ef527bbd9972d924b",
+      "treeSha256": "a2b63794443b38f7a936fd5ff77d5c47bea913211d775be490766dba809b5f40"
+    },
+    {
+      "bundle": "FP-A-small-lambda0.65-inputs18-prefix130",
+      "rows": 148137,
+      "inputSha256": "e61d752db54d7e195d70ee4e0533e55487eb1f4eda3a8155dec2e34264691954",
+      "treeSha256": "6a7b6e51999ce4dbe8d259a4e3da65b7255edfcafe1fd8b5948f6d105351592d"
+    },
+    {
+      "bundle": "FP-A-small-lambda0.65-inputs18-prefix80",
+      "rows": 88487,
+      "inputSha256": "7f1f68a0d7980215bf64c90587b9cf5847a5bd1619cb696b445a724ce4a46110",
+      "treeSha256": "383f2e9fc20374b2ea49fffec290e4805f50b2d6bd770d8ecc600b7c732804d6"
+    },
+    {
+      "bundle": "FP-A-small-lambda0.65-inputs50-prefix105",
+      "rows": 117053,
+      "inputSha256": "2108e2189b34f218d86f668e0e69d48338961fa6d2dd6736129849bed5585a5d",
+      "treeSha256": "66df9f878dfd9c68e6938bafe974bb2b515f28118575ca85de8a14b6829ce026"
+    },
+    {
+      "bundle": "FP-A-small-lambda0.65-inputs50-prefix130",
+      "rows": 148137,
+      "inputSha256": "f47fdfccb71bda9c2cf1251ecd305174c589c12cb56c72ef3cce1fa8bcf11921",
+      "treeSha256": "ed860ab5db8e560c3874e80b5390c21159d274115be9eda916ac699a81d64ca1"
+    },
+    {
+      "bundle": "FP-A-small-lambda0.65-inputs50-prefix150",
+      "rows": 173439,
+      "inputSha256": "453248f79b62884f530149eb20611c7c0ea75dda079243c1a2e93266d3f5b643",
+      "treeSha256": "c7ab8e5ecc57793f52b574797f235ea661210187133d4f473dd70b1b5a0e4018"
+    },
+    {
+      "bundle": "FP-A-small-lambda0.65-inputs50-prefix235",
+      "rows": 273202,
+      "inputSha256": "e97bb02d054acaa47d37fc9c05d67f16282ac37119bfcf5023844dbc4f0bfc73",
+      "treeSha256": "0f9304dadaeffd20577cbea0ec99db28dd01b2371e20b983d9b80067fccbacde"
+    },
+    {
+      "bundle": "FP-A-small-lambda0.65-inputs50-prefix80",
+      "rows": 88487,
+      "inputSha256": "faf31c9b4665220bfc2757bd0fcd73bdc0ad3c28c3520a6829ddc90678b89a22",
+      "treeSha256": "ed4626abbb19d909275d544fb67a3c8972af0b7ed3ba79ec31c193bf91d8bf27"
+    }
+  ],
+  "policies": [
+    {
+      "scope": "train",
+      "policy": "FP-A-small-lambda0.65-inputs18",
+      "days": 150,
+      "selected": 450,
+      "strict": 450,
+      "unknownRetained": 0
+    },
+    {
+      "scope": "train",
+      "policy": "FP-A-small-lambda0.65-inputs50",
+      "days": 150,
+      "selected": 450,
+      "strict": 450,
+      "unknownRetained": 0
+    },
+    {
+      "scope": "inner",
+      "policy": "winnerFP",
+      "days": 235,
+      "selected": 705,
+      "strict": 705,
+      "unknownRetained": 0
+    },
+    {
+      "scope": "inner",
+      "policy": "currentOverall",
+      "days": 235,
+      "selected": 705,
+      "strict": 704,
+      "unknownRetained": 1
+    },
+    {
+      "scope": "inner",
+      "policy": "ATRbaseline",
+      "days": 235,
+      "selected": 705,
+      "strict": 705,
+      "unknownRetained": 0
+    },
+    {
+      "scope": "outer",
+      "policy": "winnerFP",
+      "days": 181,
+      "selected": 543,
+      "strict": 540,
+      "unknownRetained": 3
+    },
+    {
+      "scope": "outer",
+      "policy": "currentOverall",
+      "days": 181,
+      "selected": 543,
+      "strict": 540,
+      "unknownRetained": 3
+    },
+    {
+      "scope": "outer",
+      "policy": "ATRbaseline",
+      "days": 181,
+      "selected": 543,
+      "strict": 542,
+      "unknownRetained": 1
+    }
+  ],
+  "selectedObservations": 4644,
+  "differences": [],
+  "newFits": 0,
+  "productionChanges": 0,
+  "KISPeriodsRepeatedDiagnosticNotFreshOOS": true,
+  "sourceTruthLimitation": "Conditional on frozen KIS input; actual fills and corporate-action/vintage market truth unproven",
+  "hashes": {
+    "/tmp/composite-score-experimental-20260930/independent-kis-first-passage-audit.py": "bdc347a5d38eb222939c4a6ee1c3993a247f70033373b3d4e7ea9c5eaa6da9cb",
+    "/tmp/composite-score-experimental-20260930/first-passage-study/kis_fp.py": "c78b5fc155f91e56a8790154a74a8e44b0c00d12e5324176eb9b0fa0e5986f46",
+    "/tmp/composite-score-experimental-20260930/first-passage-study/kis-input-freeze.json": "8ae207397b40f93ed0dfabf961cf54eaef05d6096b5d480e12032480f9262c65",
+    "/tmp/composite-score-experimental-20260930/first-passage-study/kis-winner-frozen-before-inner-outer.json": "ddad9bf483b0334737f0d7eb9980f902579add3bdee1fd739d4122a42bd75d09",
+    "/tmp/composite-score-experimental-20260930/first-passage-study/kis-inner-ledger.json": "51903ee80e8d6856c136a53543a704a64dc191c81cc77699dd7481a0fc1c62fa",
+    "/tmp/composite-score-experimental-20260930/first-passage-study/kis-outer-ledger.json": "4cd79efc078972f05835ff83891b472b2280ea1915cefc999687931d76c88eb2",
+    "/tmp/stock-research-fresh-mature-20260930/input/prices.ndjson": "c0fe673a5c0cef5197625d2ccd811c900bbe6655e81a66f4b797c6e741a1ce54"
+  }
+}

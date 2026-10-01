@@ -1,0 +1,94 @@
+import { buildPriceBook, StockDataHandler, type GuardedStockDataHandler } from '/Users/isaac/WebstormProjects/stock-ai-newsletter/scripts/stock-picks/data-handler.ts'
+import { buildFeatureSeries, type StockFeatureVector } from '/Users/isaac/WebstormProjects/stock-ai-newsletter/scripts/stock-picks/features.ts'
+import { buildTechnicalContextMap, type TechnicalContext } from '/Users/isaac/WebstormProjects/stock-ai-newsletter/scripts/stock-picks/technical-context.ts'
+import { buildSignals } from '/Users/isaac/WebstormProjects/stock-ai-newsletter/scripts/stock-picks/signals.ts'
+import { hasCalculatedOutputMetrics } from '/Users/isaac/WebstormProjects/stock-ai-newsletter/scripts/stock-picks/generate-picks.ts'
+import { rankLowVolatilityStableCandidates, LOW_VOLATILITY_STABLE_PARAMETERS, type StockMasterState } from '/Users/isaac/WebstormProjects/stock-ai-newsletter/scripts/stock-picks/strategies.ts'
+import { TradingDayIndex } from '/Users/isaac/WebstormProjects/stock-ai-newsletter/scripts/stock-picks/trading-days.ts'
+import type { StockDailyPriceRow } from '/Users/isaac/WebstormProjects/stock-ai-newsletter/scripts/tli/prices/stock-daily-prices.ts'
+
+export const EXPECTED_SOURCE = 'naver-fchart' as const
+export type VendorRow = Omit<StockDailyPriceRow, 'source'> & { readonly source: typeof EXPECTED_SOURCE; readonly flags?: readonly string[] }
+export const ORIGINAL_INPUT_NAMES = [
+  'atrPercent14', 'volumeRatio20', 'chaikinMoneyFlow21', 'distanceFromPriorHigh20Percent',
+  'bollingerWidth20Percent', 'signalCloseCloseReturnPercent', 'gapFromPreviousClosePercent',
+  'signalIntradayReturnPercent', 'rsi14', 'sma20DistancePercent', 'sma60DistancePercent',
+  'return5Percent', 'return20Percent', 'return60Percent', 'closeLocation', 'upperWickPercent',
+  'kospiReturn20Percent', 'breadthAboveSma20Percent',
+] as const
+export const SIGNAL_NAMES = ['trend_score', 'momentum_score', 'volume_score', 'volatility_score', 'pattern_score', 'sentiment_score', 'overall_score'] as const
+export const RELAXED_OBSERVATION_PARAMETERS = { ...LOW_VOLATILITY_STABLE_PARAMETERS, maxRsi: 85, maxSignalDayReturn: 0.15 } as const
+const finite = (x: unknown): x is number => typeof x === 'number' && Number.isFinite(x)
+const nullable = (x: unknown): number | null => finite(x) ? x : null
+
+export function assertVendorRows(symbol: string, rows: readonly VendorRow[]): void {
+  let previous = ''
+  for (const row of rows) {
+    if (row.source !== EXPECTED_SOURCE || row.symbol !== symbol || row.trade_date <= previous) {
+      throw new Error(`Wrong provider, symbol or duplicate/unordered raw date: ${symbol} ${row.trade_date}`)
+    }
+    previous = row.trade_date
+  }
+}
+
+/** The source cast changes only the static type. Runtime rows keep naver-fchart verbatim. */
+export function vendorHandler(groups: readonly (readonly [string, readonly VendorRow[]])[], index: TradingDayIndex, asOf: string): GuardedStockDataHandler {
+  for (const [symbol, rows] of groups) assertVendorRows(symbol, rows)
+  const rows = groups.flatMap(([, values]) => values)
+  return new StockDataHandler(buildPriceBook(rows as unknown as readonly StockDailyPriceRow[]), index).at(asOf)
+}
+
+export function originalInputs18(f: StockFeatureVector, c: TechnicalContext): Array<number | null> {
+  const close = f.close, open = f.open, gap = f.gapFromPreviousClosePercent, sma60 = f.sma60
+  const validPrice = finite(close) && close > 0 && finite(open) && open > 0
+  return [
+    f.atrPercent14, f.volumeRatio20, c.chaikinMoneyFlow21, c.distanceFromPriorHigh20Percent,
+    c.bollingerWidth20Percent,
+    validPrice && finite(gap) ? ((1 + gap / 100) * (close / open) - 1) * 100 : null,
+    gap, validPrice ? (close / open - 1) * 100 : null, f.rsi14, f.sma20DistancePercent,
+    finite(close) && finite(sma60) && sma60 > 0 ? (close / sma60 - 1) * 100 : null,
+    c.return5Percent, c.return20Percent, c.return60Percent, c.closeLocation,
+    finite(c.upperWickRatio) ? c.upperWickRatio * 100 : null, c.benchmarkReturn20Percent,
+    finite(c.breadthAboveSma20) ? c.breadthAboveSma20 * 100 : null,
+  ].map(nullable)
+}
+
+/** Source acceptance is the sole offline adapter. Every remaining pool gate calls production. */
+export function currentProductionEligible(f: StockFeatureVector, master: StockMasterState, raw: VendorRow | undefined): boolean {
+  if (!master.is_active || raw?.source !== EXPECTED_SOURCE || !hasCalculatedOutputMetrics(f)) return false
+  return rankLowVolatilityStableCandidates({
+    features: [f], masters: new Map([[master.symbol, master]]),
+    parameters: LOW_VOLATILITY_STABLE_PARAMETERS, excludeSymbols: new Set(), pickCount: 1,
+  }).length === 1
+}
+
+export function relaxedMomentumGate(f: StockFeatureVector, master: StockMasterState, raw: VendorRow | undefined): boolean {
+  if (!master.is_active || raw?.source !== EXPECTED_SOURCE || !hasCalculatedOutputMetrics(f)) return false
+  return rankLowVolatilityStableCandidates({
+    features: [f], masters: new Map([[master.symbol, master]]),
+    // The existing selector accepts a literal-narrowed production type. Runtime values
+    // here explicitly differ only for this separate observed-candidate artifact.
+    parameters: RELAXED_OBSERVATION_PARAMETERS as unknown as typeof LOW_VOLATILITY_STABLE_PARAMETERS,
+    excludeSymbols: new Set(), pickCount: 1,
+  }).length === 1
+}
+
+export function computeObservedSymbol(input: {
+  readonly master: StockMasterState
+  readonly rows: readonly VendorRow[]
+  readonly benchmark: readonly VendorRow[]
+  readonly index: TradingDayIndex
+  readonly historyDates: readonly string[]
+  readonly includeFromDate: string
+}): Array<{ feature: StockFeatureVector; context: TechnicalContext; originalInputs18: Array<number | null>; sourceSignals: ReturnType<typeof buildSignals>; runtimeEligible: boolean; relaxedMomentumGate: boolean }> {
+  const { master, rows, benchmark, index, historyDates, includeFromDate } = input
+  const handler = vendorHandler([[master.symbol, rows], ['KOSPI', benchmark]], index, historyDates.at(-1)!)
+  const contexts = buildTechnicalContextMap({ handler, symbols: [master.symbol], dates: historyDates, includeFromDate })
+  const rowMap = new Map(rows.map(row => [row.trade_date, row]))
+  return buildFeatureSeries({ handler, symbol: master.symbol, dates: historyDates, includeFromDate }).map(feature => {
+    const context = contexts.get(feature.simDate)!.get(master.symbol)!
+    const sourceSignals = buildSignals(feature)
+    if (Object.values(sourceSignals).some(x => !Number.isInteger(x) || x < 0 || x > 100)) throw new Error('Invalid source technical score')
+    return { feature, context, sourceSignals, originalInputs18: originalInputs18(feature, context), runtimeEligible: currentProductionEligible(feature, master, rowMap.get(feature.simDate)), relaxedMomentumGate: relaxedMomentumGate(feature, master, rowMap.get(feature.simDate)) }
+  })
+}

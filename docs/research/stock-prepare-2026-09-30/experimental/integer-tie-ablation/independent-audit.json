@@ -1,0 +1,135 @@
+{
+  "scope": "Exact immutable cache->same calibrator->integer->same-bin utility tie/own20/all selected raw bars and strict whole metrics; independent np.interp calibration, no fit/model prediction",
+  "policies": [
+    {
+      "policy": "L5-A-original",
+      "days": 489,
+      "selected": 1467,
+      "strict": 1457,
+      "changedRosters": 0
+    },
+    {
+      "policy": "L5-A-utilityTie",
+      "days": 489,
+      "selected": 1467,
+      "strict": 1457,
+      "changedRosters": 353
+    },
+    {
+      "policy": "L5-B-original",
+      "days": 489,
+      "selected": 1467,
+      "strict": 1458,
+      "changedRosters": 0
+    },
+    {
+      "policy": "L5-B-utilityTie",
+      "days": 489,
+      "selected": 1467,
+      "strict": 1461,
+      "changedRosters": 217
+    },
+    {
+      "policy": "L0-A-original",
+      "days": 489,
+      "selected": 1467,
+      "strict": 1461,
+      "changedRosters": 0
+    },
+    {
+      "policy": "L0-A-utilityTie",
+      "days": 489,
+      "selected": 1467,
+      "strict": 1460,
+      "changedRosters": 416
+    },
+    {
+      "policy": "L0-B-original",
+      "days": 489,
+      "selected": 1467,
+      "strict": 1463,
+      "changedRosters": 0
+    },
+    {
+      "policy": "L0-B-utilityTie",
+      "days": 489,
+      "selected": 1467,
+      "strict": 1462,
+      "changedRosters": 150
+    },
+    {
+      "policy": "FP-A-original",
+      "days": 489,
+      "selected": 1467,
+      "strict": 1462,
+      "changedRosters": 0
+    },
+    {
+      "policy": "FP-A-utilityTie",
+      "days": 489,
+      "selected": 1467,
+      "strict": 1462,
+      "changedRosters": 475
+    },
+    {
+      "policy": "currentOverall-original",
+      "days": 489,
+      "selected": 1467,
+      "strict": 1465,
+      "changedRosters": 0
+    },
+    {
+      "policy": "ATRbaseline-original",
+      "days": 489,
+      "selected": 1467,
+      "strict": 1463,
+      "changedRosters": 0
+    }
+  ],
+  "selectedObservations": 17604,
+  "cachedPredictionPanels": 2445,
+  "selectionScoreMathRawDifferences": [],
+  "reportMetadataFinding": {
+    "staleInheritedScorableAfterCooldownCount": 1203,
+    "witnesses": [
+      {
+        "policy": "L5-A-utilityTie",
+        "date": "2023-01-13",
+        "inheritedOldScorable": 1173,
+        "actualScorable": 1174
+      },
+      {
+        "policy": "L5-A-utilityTie",
+        "date": "2023-01-18",
+        "inheritedOldScorable": 1175,
+        "actualScorable": 1176
+      },
+      {
+        "policy": "L5-A-utilityTie",
+        "date": "2023-01-19",
+        "inheritedOldScorable": 1166,
+        "actualScorable": 1167
+      },
+      {
+        "policy": "L5-A-utilityTie",
+        "date": "2023-01-20",
+        "inheritedOldScorable": 1160,
+        "actualScorable": 1161
+      },
+      {
+        "policy": "L5-A-utilityTie",
+        "date": "2023-01-25",
+        "inheritedOldScorable": 1134,
+        "actualScorable": 1133
+      }
+    ],
+    "selectionOrPerformanceEffect": 0
+  },
+  "sourceSha256": "b075ed04286113cacc0c031ca46e0a320442ca51e6ed4e405c4d5ae468def79c",
+  "reportSha256": "9a356ef1449b739dbbb1b50c16dfebef3e54e45718ca3b16fdf6a8541027148b",
+  "ledgerSha256": "2a7dd390cd5c94e10b6b0ccff116c077bfecc6f9fb47b1283f434396ae840a83",
+  "protocolSha256": "3f8332167db23152842c0f6a30849094ed7e215ccd9f62a997b9aadbfa339c58",
+  "newFits": 0,
+  "newModelPredictCalls": 0,
+  "PRIMARYReusedDiagnostic": true
+}
