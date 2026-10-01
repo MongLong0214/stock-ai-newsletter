@@ -1,9 +1,0 @@
-{
-  "sourceHashes": {
-    "/tmp/composite-score-experimental-20260930/cooldown-ablation/L0-ledger.json": "cc67f6badc7e0a06a65b57f106c17746c89287ff8d3d5862088dcfd6ae6f2bd7",
-    "/tmp/composite-score-experimental-20260930/cooldown-ablation/L5-ledger.json": "28e79ce647c3531f0ac122295be2ab668267d18ccbc0f91ea413c4e5690a8a26"
-  },
-  "TRAIN150BaselineEqualsFirst150OfOwnerParityCheckedInner235": true,
-  "daysCompared": 300,
-  "differences": []
-}
