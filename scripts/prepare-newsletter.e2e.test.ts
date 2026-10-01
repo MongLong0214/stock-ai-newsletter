@@ -145,6 +145,8 @@ import { buildPriceBook, StockDataHandler } from '@/scripts/stock-picks/data-han
 import { buildTradingDayIndex } from '@/scripts/stock-picks/trading-days'
 import { buildObservedInputs50 } from '@/scripts/stock-picks/observed-inputs'
 import { scoreUtilityModel } from '@/scripts/stock-picks/utility-model'
+import { buildFeatureVector } from '@/scripts/stock-picks/features'
+import { buildTechnicalContextMap } from '@/scripts/stock-picks/technical-context'
 
 const TARGET = '2026-10-01'
 const SIGNAL = '2026-09-30'
@@ -202,7 +204,7 @@ describe('Prepare boundary-isolated E2E', () => {
         const signalDay = trade_date === SIGNAL
         const previousClose = base + (index - 1) * 2 + ((index - 1) % 2 === 1 ? 10 : -10)
         const close = signalDay
-          ? Math.round((base + 317 * 2 + 10) * (stockIndex > 2 ? 0.995 : 1.003))
+          ? Math.round((base + 317 * 2 + 10) * (stockIndex > 5 ? 0.995 : 1.003))
           : base + index * 2 + (index % 2 === 1 ? 10 : -10)
         const open = signalDay ? previousClose : close - 5
         return { symbol, trade_date, open, high: Math.max(open, close) + 15,
@@ -296,7 +298,7 @@ describe('Prepare boundary-isolated E2E', () => {
       expect(inputs).toHaveLength(50)
       const predicted = scoreUtilityModel(FROZEN_COMPOSITE_UTILITY_MODEL, inputs)
       expect(candidate.utility).toBe(predicted.utility)
-      expect(candidate.score).toBe(Math.floor(predicted.utility * 100 + 0.5))
+      expect(candidate.score).toBe(predicted.score)
       expect(picks[pickIndex]!.signals).toEqual({ ...buildSignals(candidate), overall_score: predicted.score })
       expect(candidate.score).toBeGreaterThanOrEqual(0)
       expect(candidate.score).toBeLessThanOrEqual(100)
@@ -323,6 +325,42 @@ describe('Prepare boundary-isolated E2E', () => {
       expect(html).not.toContain(phrase)
     }
     expect(html).not.toMatch(/undefined|NaN/)
+    expect(state.model).not.toHaveBeenCalled()
+    expect(state.alert).not.toHaveBeenCalled()
+    expect(fetch).not.toHaveBeenCalled()
+  })
+
+  it('replaces a genuinely locked-down top model candidate with three tradable picks through actual feature inference', async () => {
+    const lockedSymbol = state.masters[0]!.symbol
+    state.rows = state.rows.map(row => {
+      if (row.symbol !== lockedSymbol || row.trade_date !== SIGNAL) return row
+      const lockedPrice = Math.round(row.open! * 0.7002)
+      return { ...row, open: lockedPrice, high: lockedPrice, low: lockedPrice, close: lockedPrice }
+    })
+    const index = buildTradingDayIndex(state.rows.filter(row => row.symbol === 'KOSPI'), [])
+    const handler = new StockDataHandler(buildPriceBook(state.rows), index).at(SIGNAL)
+    const feature = buildFeatureVector(handler, lockedSymbol)
+    const context = buildTechnicalContextMap({ handler, symbols: state.masters.map(master => master.symbol),
+      dates: index.tradingDays, includeFromDate: SIGNAL }).get(SIGNAL)!.get(lockedSymbol)!
+    expect(feature.high).toBe(feature.low)
+    expect(feature.gapFromPreviousClosePercent).toBeLessThan(-29.9)
+    expect(feature.gapFromPreviousClosePercent).toBeGreaterThan(-30.1)
+    const prediction = scoreUtilityModel(FROZEN_COMPOSITE_UTILITY_MODEL,
+      buildObservedInputs50({ feature, context, handler, dates: index.tradingDays }))
+
+    expect(await runPrepareNewsletterCli([`--target-date=${TARGET}`])).toBe(0)
+    const ranked = state.generated!.meta.rankedCandidates
+    expect(prediction.score).toBeGreaterThan(Math.max(...ranked.map(candidate => candidate.score)))
+    expect(ranked).toHaveLength(5)
+    expect(ranked.some(candidate => candidate.symbol === lockedSymbol)).toBe(false)
+    const picks = JSON.parse(String(state.newsletter!.gemini_analysis)) as StockData[]
+    expect(picks).toHaveLength(3)
+    expect(picks.map(pick => pick.ticker)).toEqual(ranked.slice(0, 3).map(candidate => candidate.symbol))
+    expect(picks.map(pick => pick.signals.overall_score)).toEqual(ranked.slice(0, 3).map(candidate => candidate.score))
+    expect((state.snapshots[0]!.picks as Array<{ symbol: string }>).map(candidate => candidate.symbol))
+      .toEqual(picks.map(pick => pick.ticker))
+    expect(state.newsletterWriteAttempts).toBe(1)
+    expect(state.fetchDaily).toHaveBeenCalledTimes(7)
     expect(state.model).not.toHaveBeenCalled()
     expect(state.alert).not.toHaveBeenCalled()
     expect(fetch).not.toHaveBeenCalled()

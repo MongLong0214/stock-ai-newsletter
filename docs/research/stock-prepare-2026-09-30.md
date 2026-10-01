@@ -71,15 +71,51 @@ L0-A50의 연도별 T10/L0/평균D5net은2023년40.74%/59.53%/−0.059%,2024년4
 
 코스모로보틱스는 실제 전일 대비−29.98%의 평평한 하한가 봉, 직전5일−34.89%였다. 양수 거래량과 기존 게이트를 통과했고 range0은 native missing routing으로 처리됐다. 실제 KIS 대조28행·140필드 차이0으로 데이터 오류가 아니었다. 점수 척도와 하락 위험을 함께 재검토해야 하며 이 선택을 안전하거나 고득점 요구를 만족한 최종안으로 설명할 수 없다.
 
+## 10/1 점수 의미 보존 후보 재검증
+
+기존 기술 종합점수, 기술75%+효용25%, 기존 효용 비교군, 평평한 봉 또는 전일 대비−10% 이하 제외, 기술70점 이상 효용 정렬, 효용 상위10% 안의 기존 기술 종합점수 정렬을 고정해 다시 평가했다. 자체 CD20과 정수 점수→20일 거래대금→ASCII 순서를 사용했다. 상위10% 정책의 필터→CD20→남은 후보10% 순서는 첫 프로세스를 중단한 뒤 결과·로그를 읽기 전에 명확히 고정했다. 결과를 보고 컷이나 가중치를 조정하지 않았다.
+
+| 방식 | KIS180 T10 / L0 / 평균D5net | NAVER489 T10 / L0 / 평균D5net |
+|---|---|---|
+| 기존 기술 종합 |35.57% / 56.42% / −0.452%|23.41% / 58.16% / −0.327%|
+| 기술75%+효용25% |36.50% / 56.24% / −0.254%|26.09% / 57.99% / −0.493%|
+| 기존 효용 |48.60% / 58.10% / −0.741%|43.60% / 58.25% / −0.173%|
+| 급락·평평한 봉 제외 효용 |49.07% / 59.48% / −0.743%|42.57% / 58.11% / −0.389%|
+| 기술≥70 효용 정렬 |45.98% / 60.37% / −0.605%|38.85% / 62.38% / −1.927%|
+| 효용 상위10%→기술 종합 |42.46% / 62.57% / −2.051%|37.82% / 61.35% / −1.048%|
+
+모든 방식은 매일3개이며 미래 미확정은 선정에서 제거하지 않았다. KIS180의 확정 분모는535~538/540, NAVER489는1461~1465/1467이다. 9/30 실측 후보952개에서 상위10% 정책은 저스템81·태성77·메가터치76을 골랐지만 과거 손실과 평균 수익이 악화돼 채택 근거가 아니다. 세 점수≥70인 날도119/180·388/489에 불과했다. 기존 기술 종합의 현재 후보는 레이언스83·프로텍82·저스템81이다. 어느 미리보기도 다음5일 성과를 관측한 결과가 아니다.
+
+KIS 기존150/235일 모델과 NAVER 분기 고정8모델을 사용해 최신421일 모델을 과거에 적용하지 않았다. 사용 모델10개의 실제 재계산과 캐시 비교, 기존 추천·라벨·점수5,430건, 전체 정책 CD20/정수 순서 검산에서 차이0이었다. 750예측 패널을 사용했다. 반복 관측 자료의 진단이며 독립 검증이 아니다. 원본은 `/tmp/stock-score-quality-reopen-20261001/{protocol.json,replay.py,results.json,audit.json,summary.md}`에 있고 이 문서에는 핵심 반례만 남긴다. 급등40%·L0손실30%를 동시에 충족하거나 기존 종합점수의 의미를 지키면서 손실까지 개선한 새 후보는 확인하지 못했다.
+
+## 10/1 최종 점수 척도와 잠김 후보 제외
+
+기술 종합점수에 `계수×(효용−학습 기준값)`을 더하는 계수0/50/100/200/400을 TRAIN240일에서 비교했다. 선택된200의 재사용 NAVER489일 결과는 T10 39.67%, L0 59.92%, D1bull 45.69%, 평균D5net−0.553%로 기존 효용보다 나빠 채택하지 않았다.
+
+채택한 점수는 `round(clip(50 + 20×(clip(utility,0,1)−학습평균)/학습표준편차,0,100))`이다. 각 과거 모델의 성숙한 학습 행에 날짜 동일 가중치를 적용한 기준값만 사용한다. 평균이50점, 평균보다1표준편차 높으면70점이다. 당일 백분위·상위3개 보너스·70점 하한이 아니며 약한 후보의 점수는 낮게 남는다. 공개 정수점수→거래대금→코드 순서와 자체 CD20을 유지한다. 점수 척도 변경만으로 예측력이나 수익이 개선됐다고 주장하지 않는다.
+
+10/15/20점·잠김 제외 유무를 TRAIN에서 비교해20점·잠김 제외를 선택했다. 제외는 신호일 `high==low`이고 전일 종가 대비≤−20%인 유효 캔들에만 적용한다. 일반 하락·보합·폭이 있는 봉까지 제외하지 않는다. 이전 모델과 잠김 제외로 발생한 선정·동점 변화 및 이후 CD20을 함께 재생했다.
+
+| 자료 | 확정/추천 | T10 | L0 | L5 | D1bull | 평균D5net | 세 점수≥70인 날 |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| TRAIN240일 |715/720|38.32%|55.66%|35.66%|46.43%|−0.260%|85/240|
+| 재사용 NAVER489일 진단 |1461/1467|43.46%|59.27%|40.11%|47.57%|−0.163%|489/489|
+
+기존 효용의 NAVER T10 43.60%·L0 58.25%·평균−0.173%와 비교해 급등은 비슷하고 손실 비율은 악화됐다. 손실30%·높은 추천일 양봉 목표를 달성하지 못했다. 이미 본 TRAIN/평가기간의 후속 진단으로 새 OOS가 아니다. 모든 날3종목이며 NAVER선정점수70~100, TRAIN최저51점·100점 추천10.28%였다. 원본은 `/tmp/stock-composite-{overlay,normalization}-20261001.py`와 동명 결과 디렉터리에 있으며 Git에는 중복 원장을 남기지 않는다.
+
+운영 기준값은421패널·506,470성숙 KIS행, 평균0.329215672917516·표준편차0.07781234949998984다. 모델 schema2/`composite-utility-v2`, 점수 `utility-reference-z20-v1`로 의미 변경을 식별한다. 라벨 기준일9/29·마지막 신호9/18과 fit-input hash를 모델에 결속한다. 전체 재학습에서 기존100트리·baseline·학습입력 hash는 동일했고 native/portable3,900예측·점수 차이는0이었다. 모델 SHA256은 `3d325eef020ddc66b76bde8dd25fc39c76c060da9df585f4652d20bcdd10c034`이다. 원본·검산은 `/tmp/stock-composite-normalized-refit-20261001/`이다.
+
+실제 TypeScript와 native sklearn의3,900사례·600개 분기 경계에서도 효용·환산점수 차이0이었다. 9/30신호의 실제 저장 시세·현재CD20으로 뽑힌 후보는 **진영285800 74점·엑스게이트356680 73점·아스플로159010 73점**이며 코스모로보틱스는 제외됐다. read-only실행은2,433active master·820,430봉·fresh KIS2,432종목을 읽고 선정3종목+KOSPI28봉/140필드를 KIS로 대조해 차이0·쓰기시도0이었다. 현재 시장판정NORMAL은 안전성 보증이 아니다. 원본은 `/tmp/stock-composite-normalized-live-20261001.json`이다. 운영 식별자는 `v4.1-2026-10-01`, canonical hash `9be0ca6f1383468bff5d8eaddfef2c5e2a2a29e7c6060bfb72e0c65a25c7f7ec`이다. UI파일과 Summary·rationale·표시 정렬함수는 기준main1b0e2d2와 동일하다.
+
 ## 남긴 구현과 검증 근거
 
 - 코드: `scripts/stock-picks/observed-inputs.ts`, `utility-model.ts`, `production-strategy.ts`, `generate-picks.ts`, `strategies.ts`와 Prepare 저장 전 점수 결속. 원18+가격·거래량 지속/수축·압축·낙폭/회복·다기간 구조32입력이다. 6항목 기술점수는 유지한다.
 - 모델: `scripts/stock-picks/models/composite-utility-v1.json`. HGB100트리, 최대7leaf/깊이3, minleaf100, LR0.05, L2=1, bins255, seed42, earlystop=false. 날짜 동일 가중치,421패널·506,470 strict행·119,819결측. 마지막 신호9/18, 라벨 성숙9/29. numpy2.5.3/sklearn1.9.1; 런타임 Python 불필요.
-- Trainer: `scripts/stock-picks/train-composite-utility.py`, SHA256 `4b3c88aed774ac8fb6c0151b9b84111bba6a20bab165479dbb41541182e10556`. 학습 입력·날짜·패키지 식별자는 모델 metadata에 남는다. 모델 공백 정리 전 SHA256은 `381a8c6a3f95b8dd333460ab19e0487147da8a2e3714da5f64264442af176fae`, 정리 후는 `c21d1ff3aae3a8af89a6af311795c6126e9b13faa852abe2c49aaa06fb828ccb`. 모든 JSON 토큰이 같아 모델 값·canonical 전략 hash는 불변이다. 과거 witness의 modelArtifactSha256은 당시 원본을 가리킨다.
+- 최초 Trainer: `scripts/stock-picks/train-composite-utility.py`, SHA256 `4b3c88aed774ac8fb6c0151b9b84111bba6a20bab165479dbb41541182e10556`. 학습 입력·날짜·패키지 식별자는 모델 metadata에 남는다. 최초 모델 공백 정리 전 SHA256은 `381a8c6a3f95b8dd333460ab19e0487147da8a2e3714da5f64264442af176fae`, 정리 후는 `c21d1ff3aae3a8af89a6af311795c6126e9b13faa852abe2c49aaa06fb828ccb`다. 이 공백 정리에서는 모든 JSON 토큰이 같았다. 현재v2·witness는 위 최종 환산 모델을 가리킨다.
 - Parity fixture·행동 회귀 테스트는 결측 분기·경계·반올림·원천·선정·Prepare 실패 경로를 검증한다. 최초후보 fcbc108에서4,198테스트·타입검사·lint0오류(기존15경고)·build487페이지·Prepare E2E37개가 통과했다. 독립100트리 refit, TS/native1,952사례와 raw50입력100사례가 일치했다. [CI36794302986](https://github.com/MongLong0214/stock-ai-newsletter/actions/runs/36794302986). 과거 결과를 변경 후 전체검사로 재사용하지 않는다.
 - 10/1 아카이브 정리 후367파일·4,211테스트(Prepare E2E 포함), app/scripts 타입검사, `git diff --check` 통과. 모델·parity JSON 전체 토큰과 canonical 전략 hash가 같고 UI 파일·Summary·표시 정렬·표시 rationale 함수는 기준main1b0e2d2와 같았다. 이 검사는 실행 로직 보존을 확인하며 점수 설계·추천 품질 재검토는 진행 중이다.
 - 리뷰 R2-001: 후보320봉만 KIS로 검사해 KOSPI20일 수익과 전체 breadth에 혼합원천이 들어올 수 있었다. foreign benchmark19→14/35, foreign breadth19→51점 재현을 확인했다. fe73eee에서 실제 기여 KOSPI21일·active-master20일 원천을 한 번 검사하고 기존 결측을 유지하도록 수정했다. 동일5개 witness가 수정 전 실패·수정 후 통과했고 집중91테스트가 통과했다. hash 기대값은 f4cb2b5에서 정정했다.
-- 현재 canonical 전략 hash: `d56b1782cadfe3c98f0ffa6258b8b09b599e9ecc16d567cc2a052affedb9976f`(`kis-market-21-20-v1` 포함). 최초후보 `7c1eb45a…`와 구분한다. PR219 자동 리뷰는1회 중단·2회차R2-001 보고가 있었고 남은 자동 재검토는1회다.
+- 원천 수정 당시 canonical 전략 hash: `d56b1782cadfe3c98f0ffa6258b8b09b599e9ecc16d567cc2a052affedb9976f`(`kis-market-21-20-v1` 포함). 최초후보 `7c1eb45a…` 및 위v4.1과 구분한다. PR219 자동 리뷰는1회 중단·2회차R2-001 보고가 있었고 남은 자동 재검토는1회다.
 - [전체 Prepare 시험36794297344](https://github.com/MongLong0214/stock-ai-newsletter/actions/runs/36794297344)는 fcbc108·수정 전 hash에서 성공했다. 2,434호출/2,433성공, exact-date99.9589%,17,020가격행 갱신,952후보,23분20.839초였다. 같은45·42·42를 골랐고 뉴스레터/픽스냅샷 저장·발송은 생략했다. 가격·마스터 쓰기는 실제 수행했다. 새 hash의 완료나 추천 품질 개선 증거가 아니다.
 - 원천 검사 수정 후 [전체 Prepare 시험36796445208](https://github.com/MongLong0214/stock-ai-newsletter/actions/runs/36796445208)도 fe73eee에서 성공했다(10/1 09:53 KST 완료). signal9/30→target10/1, `PICKS_SOURCE=code`, canonical hash `d56b1782…`가 실행 로그와 snapshot에서 일치했다. 2,434호출/2,433성공, exact-date99.9589%,17,020가격행 갱신,952후보,23분17.117초였다. 세 종목·45/42/42점은 같았고 뉴스레터/픽스냅샷 저장·발송을 생략했다. 저장 전 시장 재평가 NORMAL은 규칙 미충족이며 데이터 상태는 degraded였다. 원천 수정의 실제 실행 증거이며 추천 품질 문제의 해소 증거는 아니다. JSON 공백 정리 후06d567b의 [CI36798253498](https://github.com/MongLong0214/stock-ai-newsletter/actions/runs/36798253498)도 성공했다.
 - 10/1 정기[run36777694549](https://github.com/MongLong0214/stock-ai-newsletter/actions/runs/36777694549)는06:10 KST에 기존main1b0e2d2로 실행돼 경동제약·KT·CJ제일제당을 골랐다. 새 모델 운영으로 부르지 않는다. 스케줄은 main의 Prepare06:10/Send07:27 KST다.
@@ -107,7 +143,7 @@ uv run --script scripts/stock-picks/train-composite-utility.py \
   --audit-dir /tmp/stock-composite-refit-audit
 ```
 
-실험 원본은 `/tmp/composite-score-research-20260930/`, `/tmp/composite-score-experimental-20260930/`에 있었으며 이번 Git 정리로 삭제하지 않았다. 운영 검산은 `/tmp/stock-composite-production-20260930/`, 최종 학습 검산은 `freshest-kis-fit/`에 있었다. exporter가 자기 경로/해시를 metadata에 기록하므로 다른 경로의 의미상 같은 모델과 바이트 동일 재현을 구별한다. 재훈련 exporter는 들여쓴 JSON을 출력한다. 운영 보관본의 공백 정리는 학습 변경이 아니다.
+실험 원본은 `/tmp/composite-score-research-20260930/`, `/tmp/composite-score-experimental-20260930/`에 있었으며 이번 Git 정리로 삭제하지 않았다. 운영 검산은 `/tmp/stock-composite-production-20260930/`, 최초 학습 검산은 `freshest-kis-fit/`에 있었다. exporter가 자기 경로/해시를 metadata에 기록하므로 다른 경로의 의미상 같은 모델과 바이트 동일 재현을 구별한다. 현재 exporter는 숫자 배열을 compact JSON으로 출력한다.
 
 NAVER는 현재2,431master+KOSPI의1,999일 달력·4,221,467봉,1,231신호일·1,559,349현행 자격행을 사용했고9/30장중행은 제외했다. endpoint는 `https://fchart.stock.naver.com/sise.nhn?symbol={code}&timeframe=day&count=2000&requestType=0`이다. KIS 평가416패널과 관측423패널을 구별하며 이전235일은80~314관측으로 제품320창과 동일하지 않다.
 

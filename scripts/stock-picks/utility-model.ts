@@ -1,5 +1,22 @@
 import { OBSERVED_INPUT_NAMES, OBSERVED_INPUT_VERSION } from '@/scripts/stock-picks/observed-inputs'
 
+export const UTILITY_SCORE_VERSION = 'utility-reference-z20-v1'
+
+export interface UtilityScoreNormalization {
+  readonly version: typeof UTILITY_SCORE_VERSION
+  readonly mean: number
+  readonly standardDeviation: number
+  readonly center: 50
+  readonly pointsPerStandardDeviation: 20
+  readonly referencePanels: number
+  readonly referenceRows: number
+  readonly referenceThrough: string
+  readonly referenceLastSignal: string
+  readonly source: 'kis'
+  readonly weighting: 'equal signal date, strict matured training rows'
+  readonly fitInputSha256: string
+}
+
 export interface UtilityTreeNode {
   readonly isLeaf: boolean
   readonly value: number
@@ -11,24 +28,62 @@ export interface UtilityTreeNode {
 }
 
 export interface UtilityModelArtifact {
-  readonly schemaVersion: 1
+  readonly schemaVersion: 2
   readonly modelVersion: string
   readonly trainedLabelsThrough: string
   readonly observedInputVersion: string
   readonly featureNames: readonly string[]
   readonly baselinePrediction: number
+  readonly normalization: UtilityScoreNormalization
   readonly trees: readonly (readonly UtilityTreeNode[])[]
+}
+
+const validDate = (value: string): boolean => (
+  /^\d{4}-\d{2}-\d{2}$/.test(value)
+  && Number.isFinite(Date.parse(value))
+  && new Date(value).toISOString().slice(0, 10) === value
+)
+
+function validateNormalization(normalization: UtilityScoreNormalization): void {
+  if (!normalization || normalization.version !== UTILITY_SCORE_VERSION
+    || !Number.isFinite(normalization.mean) || normalization.mean < 0 || normalization.mean > 1
+    || !Number.isFinite(normalization.standardDeviation)
+    || normalization.standardDeviation <= 0 || normalization.standardDeviation > 0.5
+    || normalization.center !== 50 || normalization.pointsPerStandardDeviation !== 20
+    || !Number.isSafeInteger(normalization.referencePanels) || normalization.referencePanels <= 0
+    || !Number.isSafeInteger(normalization.referenceRows) || normalization.referenceRows < normalization.referencePanels
+    || !validDate(normalization.referenceThrough) || !validDate(normalization.referenceLastSignal)
+    || normalization.referenceLastSignal >= normalization.referenceThrough
+    || normalization.source !== 'kis'
+    || normalization.weighting !== 'equal signal date, strict matured training rows'
+    || !/^[a-f0-9]{64}$/.test(normalization.fitInputSha256)) {
+    throw new Error('종합 점수 모델 표준화 계약 불일치')
+  }
+}
+
+/** 학습 날짜를 동일 가중한 고정 기준 분포로 환산한다. 당일 후보 순위로 점수를 보정하지 않는다. */
+export function normalizeUtilityScore(normalization: UtilityScoreNormalization, utility: number): number {
+  validateNormalization(normalization)
+  if (!Number.isFinite(utility)) throw new Error('종합 점수 추론 실패')
+  const clippedUtility = Math.min(1, Math.max(0, utility))
+  const standardized = normalization.center + normalization.pointsPerStandardDeviation
+    * (clippedUtility - normalization.mean) / normalization.standardDeviation
+  return Math.floor(Math.min(100, Math.max(0, standardized)) + 0.5)
 }
 
 /** HGB 리프 값은 학습률이 이미 반영되어 있으며 결측 분기도 저장된 모델을 따른다. */
 export function validateUtilityModel(model: UtilityModelArtifact): UtilityModelArtifact {
-  if (model.schemaVersion !== 1 || !model.modelVersion
+  if (model.schemaVersion !== 2 || model.modelVersion !== 'composite-utility-v2'
     || model.observedInputVersion !== OBSERVED_INPUT_VERSION
-    || !/^\d{4}-\d{2}-\d{2}$/.test(model.trainedLabelsThrough)
+    || !validDate(model.trainedLabelsThrough)
     || !Number.isFinite(model.baselinePrediction)
     || model.featureNames.length !== OBSERVED_INPUT_NAMES.length
     || model.featureNames.some((name, i) => name !== OBSERVED_INPUT_NAMES[i])
     || model.trees.length !== 100) throw new Error('종합 점수 모델 계약 불일치')
+  validateNormalization(model.normalization)
+  if (model.normalization.referenceThrough !== model.trainedLabelsThrough) {
+    throw new Error('종합 점수 모델 표준화 학습 시점 불일치')
+  }
   for (const tree of model.trees) {
     if (!tree.length) throw new Error('종합 점수 모델 빈 트리')
     const visited = new Set<number>()
@@ -77,5 +132,5 @@ export function scoreUtilityModel(model: UtilityModelArtifact, inputs: readonly 
   }
   if (!Number.isFinite(prediction)) throw new Error('종합 점수 추론 실패')
   const utility = Math.min(1, Math.max(0, prediction))
-  return { utility, score: Math.floor(100 * utility + 0.5) }
+  return { utility, score: normalizeUtilityScore(model.normalization, utility) }
 }

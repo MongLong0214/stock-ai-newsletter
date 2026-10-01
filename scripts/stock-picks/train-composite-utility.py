@@ -25,6 +25,7 @@ PARAMS = dict(loss='squared_error', max_iter=100, max_leaf_nodes=7, max_depth=3,
               max_bins=255, random_state=42, early_stopping=False)
 CONFIG = dict(family='A', complexity='small', riskDefinition='L0=netD5<0',
               **{'lambda': .65, 'inputCount': 50, 'id': 'L0-A-small-lambda0.65-inputs50'})
+SCORE_VERSION = 'utility-reference-z20-v1'
 
 def sha(path):
     with pathlib.Path(path).open('rb') as f:
@@ -49,8 +50,17 @@ def portable_predict(model, values):
         value += tree[index]['value']
     return value
 
-def rounded_score(v):
-    return math.floor(100 * min(1, max(0, v)) + .5)
+def rounded_score(v, reference):
+    z = (min(1, max(0, v)) - reference['mean']) / reference['standardDeviation']
+    return math.floor(min(100, max(0, reference['center'] + reference['pointsPerStandardDeviation'] * z)) + .5)
+
+def compact_json(value, indent=0):
+    """Keep generated numeric arrays compact; do not archive the training corpus."""
+    if not isinstance(value, dict):
+        return json.dumps(value, ensure_ascii=False, allow_nan=False)
+    padding = '  ' * (indent + 1)
+    return '{\n' + ',\n'.join(padding + json.dumps(k) + ': ' + compact_json(v, indent + 1)
+                              for k, v in value.items()) + '\n' + '  ' * indent + '}'
 
 def serialize(model):
     trees = []
@@ -140,14 +150,25 @@ def main():
     print('FIXED_FIT_START', len(counts), len(fit_x), per_date[-1], flush=True)
     with threadpool_limits(limits=1):
         model = HistGradientBoostingRegressor(**PARAMS).fit(fit_x, y, sample_weight=weights)
+        reference_predictions = np.clip(model.predict(fit_x), 0, 1)
+    reference_mean = float(np.average(reference_predictions, weights=weights))
+    reference_sd = float(np.sqrt(np.average((reference_predictions - reference_mean) ** 2, weights=weights)))
+    assert math.isfinite(reference_sd) and reference_sd > 0, 'Cannot normalize a constant training predictor'
+    reference = dict(version=SCORE_VERSION, mean=reference_mean, standardDeviation=reference_sd,
+                     center=50, pointsPerStandardDeviation=20, referencePanels=len(counts),
+                     referenceRows=len(y), referenceThrough=per_date[-1]['labelMaturityDate'],
+                     referenceLastSignal=per_date[-1]['signalDate'], source='kis',
+                     weighting='equal signal date, strict matured training rows', fitInputSha256=input_sha)
     assert model.n_iter_ == 100
-    result = dict(schemaVersion=1, modelVersion='composite-utility-v1',
+    result = dict(schemaVersion=2, modelVersion='composite-utility-v2',
                   trainedLabelsThrough=per_date[-1]['labelMaturityDate'],
                   trainingLastSignalDate=per_date[-1]['signalDate'], trainingAsOf=args.as_of,
                   observedInputVersion='observed-50-v1-2026-09-30', featureNames=feature_names,
                   config=CONFIG, parameters=PARAMS, **serialize(model),
                   leafValuesAlreadyIncludeLearningRate=True,
-                  scoreMap=dict(scale=100, clamp=[0, 1], rounding='floor(100*clip(prediction,0,1)+0.5)'),
+                  normalization=reference,
+                  scoreMap=dict(version=SCORE_VERSION, utilityClamp=[0, 1], scoreClamp=[0, 100],
+                    rounding='floor(clip(50+20*(clip(prediction,0,1)-mean)/standardDeviation,0,100)+0.5)'),
                   targetDefinition=dict(eventOrder=['touch10', 'D1bullish', 'D5netNegative'],
                     formula='(.8*T10 + .2*D1bullish + .65*(1-L0))/(1+.65)',
                     entry='next actual trading session open', horizon=5, roundTripCostBps=30,
@@ -177,12 +198,12 @@ def main():
                     v = fit_x[sample_indices[boundary_count % len(sample_indices)]].copy(); v[node['featureIdx']] = value; cases.append(v)
                 boundary_count += 1
     cases = np.array(cases); native = model.predict(cases); portable = np.array([portable_predict(result, v) for v in cases])
-    error = np.abs(native - portable); score_difference = int(sum(rounded_score(a) != rounded_score(b) for a, b in zip(native, portable)))
+    error = np.abs(native - portable); score_difference = int(sum(rounded_score(a, reference) != rounded_score(b, reference) for a, b in zip(native, portable)))
     assert score_difference == 0 and np.array_equal(native, portable), 'Native/standalone prediction mismatch'
     fixtures = []
     for i in list(range(12)) + [2048, 2049, 2050, 2051, 2052, len(cases) - 1]:
         fixtures.append(dict(id='case-' + str(i), inputs=[float(v) if np.isfinite(v) else None for v in cases[i]],
-                             prediction=float(native[i]), overallScore=rounded_score(float(native[i]))))
+                             prediction=float(native[i]), overallScore=rounded_score(float(native[i]), reference)))
     audit = dict(cases=len(cases), observedCases=len(sample_indices), missingFeatureCases=51,
                  thresholdNodesChecked=boundary_count, thresholdEqualityAndAdjacentCases=3 * boundary_count,
                  maxAbsolutePredictionError=float(error.max()), predictionDifferences=int((error != 0).sum()),
@@ -193,10 +214,11 @@ def main():
                  floatVersusExactRoundedTouchDifferences=float_touch_differences,
                  strictFitFloatVersusExactRoundedTouchDifferences=strict_float_touch_differences)
     output = pathlib.Path(args.output); output.parent.mkdir(parents=True, exist_ok=True)
-    output.write_text(json.dumps(result, ensure_ascii=False, indent=2, allow_nan=False) + '\n')
+    output.write_text(compact_json(result) + '\n')
     audit['portableArtifactSha256'] = sha(output)
     (audit_dir / 'audit.json').write_text(json.dumps(audit, ensure_ascii=False, indent=2))
-    (audit_dir / 'fixtures.json').write_text(json.dumps(dict(schemaVersion=1, featureNames=feature_names, cases=fixtures), ensure_ascii=False, indent=2))
+    (audit_dir / 'fixtures.json').write_text(compact_json(dict(schemaVersion=2, scoreVersion=SCORE_VERSION,
+                                                           featureNames=feature_names, cases=fixtures)) + '\n')
     (audit_dir / 'observed-keys.json').write_text(json.dumps([keys[i] for i in np.flatnonzero(strict)[sample_indices]], ensure_ascii=False))
     print('FIXED_FIT_EXPORT_DONE', output, audit['portableArtifactSha256'], 'PARITY', len(cases), score_difference, flush=True)
 

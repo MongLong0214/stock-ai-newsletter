@@ -11,7 +11,8 @@ import {
   canonicalJson,
   hashCanonicalJson,
 } from '@/scripts/stock-picks/production-strategy'
-import { BULLISH_TARGET_PARAMETERS, LOW_VOLATILITY_STABLE_PARAMETERS } from '@/scripts/stock-picks/strategies'
+import { BULLISH_TARGET_PARAMETERS, LOW_VOLATILITY_STABLE_PARAMETERS, UTILITY_LOCKED_DOWN_RULE } from '@/scripts/stock-picks/strategies'
+import { UTILITY_SCORE_VERSION } from '@/scripts/stock-picks/utility-model'
 import { SIGNAL_SCORE_VERSION } from '@/scripts/stock-picks/signals'
 import { MODEL_MARKET_SOURCE_VERSION, OBSERVED_INPUT_VERSION } from '@/scripts/stock-picks/observed-inputs'
 import { addKoreanTradingDays } from '@/lib/tli/trading-calendar'
@@ -55,12 +56,12 @@ describe('frozen production strategy artifact', () => {
     )
   })
 
-  it('identifies the whole composite utility model, observed inputs, market source contract and unchanged eligibility parameters', () => {
+  it('identifies the whole composite utility model, fixed score reference, locked-down rule and market source contract', () => {
     expect(SIGNAL_SCORE_VERSION).toBe('technical-signals-v2-2026-09-30')
     expect(MODEL_MARKET_SOURCE_VERSION).toBe('kis-market-21-20-v1')
     expect(PRODUCTION_STRATEGY).toEqual({
       name: 'compositeUtility',
-      version: 'v4-2026-09-30',
+      version: 'v4.1-2026-10-01',
       objective: 'compositeUtility',
       parameters: LOW_VOLATILITY_STABLE_PARAMETERS,
       parametersHash: hashCanonicalJson({
@@ -70,19 +71,31 @@ describe('frozen production strategy artifact', () => {
         signalScoreVersion: SIGNAL_SCORE_VERSION,
         observedInputVersion: OBSERVED_INPUT_VERSION,
         modelMarketSourceVersion: MODEL_MARKET_SOURCE_VERSION,
+        utilityScoreVersion: UTILITY_SCORE_VERSION,
+        lockedDownRule: UTILITY_LOCKED_DOWN_RULE,
         model: FROZEN_COMPOSITE_UTILITY_MODEL,
       }),
     })
     expect(PRODUCTION_STRATEGY.parameters).toBe(LOW_VOLATILITY_STABLE_STRATEGY.parameters)
     expect(PRODUCTION_STRATEGY.parametersHash).not.toBe(LOW_VOLATILITY_STABLE_STRATEGY.parametersHash)
-    expect(PRODUCTION_STRATEGY.parametersHash).toBe('d56b1782cadfe3c98f0ffa6258b8b09b599e9ecc16d567cc2a052affedb9976f')
+    expect(PRODUCTION_STRATEGY.parametersHash).toBe('9be0ca6f1383468bff5d8eaddfef2c5e2a2a29e7c6060bfb72e0c65a25c7f7ec')
     expect(FROZEN_COMPOSITE_UTILITY_MODEL.trainedLabelsThrough).toBe('2026-09-29')
+    expect(FROZEN_COMPOSITE_UTILITY_MODEL).toMatchObject({
+      schemaVersion: 2, modelVersion: 'composite-utility-v2', normalization: {
+        version: UTILITY_SCORE_VERSION, center: 50, pointsPerStandardDeviation: 20,
+        mean: 0.329215672917516, standardDeviation: 0.07781234949998984,
+        referencePanels: 421, referenceRows: 506470, referenceThrough: '2026-09-29',
+        referenceLastSignal: '2026-09-18', source: 'kis',
+        weighting: 'equal signal date, strict matured training rows',
+      },
+    })
     expect(FROZEN_COMPOSITE_UTILITY_MODEL.trees).toHaveLength(100)
     expect(PRODUCTION_STRATEGY.parametersHash).not.toBe(hashCanonicalJson({
       parameters: LOW_VOLATILITY_STABLE_PARAMETERS,
       gateVersion: 'status-flags-valid-candle-v2', preferredRule: 'krx-code-last-digit-nonzero',
       signalScoreVersion: SIGNAL_SCORE_VERSION, observedInputVersion: `${OBSERVED_INPUT_VERSION}-changed`,
       modelMarketSourceVersion: MODEL_MARKET_SOURCE_VERSION,
+      utilityScoreVersion: UTILITY_SCORE_VERSION, lockedDownRule: UTILITY_LOCKED_DOWN_RULE,
       model: FROZEN_COMPOSITE_UTILITY_MODEL,
     }))
     expect(PRODUCTION_STRATEGY.parametersHash).not.toBe(hashCanonicalJson({
@@ -90,7 +103,25 @@ describe('frozen production strategy artifact', () => {
       gateVersion: 'status-flags-valid-candle-v2', preferredRule: 'krx-code-last-digit-nonzero',
       signalScoreVersion: SIGNAL_SCORE_VERSION, observedInputVersion: OBSERVED_INPUT_VERSION,
       modelMarketSourceVersion: `${MODEL_MARKET_SOURCE_VERSION}-changed`,
+      utilityScoreVersion: UTILITY_SCORE_VERSION, lockedDownRule: UTILITY_LOCKED_DOWN_RULE,
       model: FROZEN_COMPOSITE_UTILITY_MODEL,
+    }))
+    const contract = {
+      parameters: LOW_VOLATILITY_STABLE_PARAMETERS,
+      gateVersion: 'status-flags-valid-candle-v2', preferredRule: 'krx-code-last-digit-nonzero',
+      signalScoreVersion: SIGNAL_SCORE_VERSION, observedInputVersion: OBSERVED_INPUT_VERSION,
+      modelMarketSourceVersion: MODEL_MARKET_SOURCE_VERSION,
+      utilityScoreVersion: UTILITY_SCORE_VERSION, lockedDownRule: UTILITY_LOCKED_DOWN_RULE,
+      model: FROZEN_COMPOSITE_UTILITY_MODEL,
+    }
+    expect(PRODUCTION_STRATEGY.parametersHash).not.toBe(hashCanonicalJson({ ...contract,
+      utilityScoreVersion: 'utility-reference-z10-v1' }))
+    expect(PRODUCTION_STRATEGY.parametersHash).not.toBe(hashCanonicalJson({ ...contract,
+      lockedDownRule: { ...UTILITY_LOCKED_DOWN_RULE, maxPreviousCloseReturn: -0.30 } }))
+    expect(PRODUCTION_STRATEGY.parametersHash).not.toBe(hashCanonicalJson({ ...contract,
+      model: { ...FROZEN_COMPOSITE_UTILITY_MODEL, normalization: {
+        ...FROZEN_COMPOSITE_UTILITY_MODEL.normalization, mean: 0.4,
+      } },
     }))
   })
 

@@ -118,6 +118,33 @@ describe('stock-picks strategy gates and ranking', () => {
       .toEqual([{ symbol: 'KOSPI:000010', score: 0 }])
   })
 
+  it('excludes genuinely flat locked-down -29.98% and exact -20% candles before requiring scores', () => {
+    const candidates = [
+      feature('KOSPI:000010', { open: 1_400, high: 1_400, low: 1_400, close: 1_400,
+        gapFromPreviousClosePercent: -29.98 }),
+      feature('KOSPI:000020', { open: 1_600, high: 1_600, low: 1_600, close: 1_600,
+        gapFromPreviousClosePercent: -20 }),
+      feature('KOSPI:000030', { open: 1_600, high: 1_600, low: 1_600, close: 1_600,
+        gapFromPreviousClosePercent: -19.99 }),
+      feature('KOSPI:000040', { open: 1_900, high: 1_920, low: 1_590, close: 1_600,
+        gapFromPreviousClosePercent: -5 }),
+      feature('KOSPI:000050'),
+    ]
+    const masters = new Map(candidates.map((c) => [c.symbol, master(c.symbol)]))
+    const safeScores = new Map([['KOSPI:000030', 90], ['KOSPI:000040', 85], ['KOSPI:000050', 80]])
+    const input = { features: candidates, masters, parameters: LOW_VOLATILITY_STABLE_PARAMETERS,
+      excludeSymbols: new Set<string>() }
+    const expected = [{ symbol: 'KOSPI:000030', score: 90 }, { symbol: 'KOSPI:000040', score: 85 },
+      { symbol: 'KOSPI:000050', score: 80 }]
+    expect(rankUtilityScoreCandidates({ ...input, scores: safeScores })).toEqual(expected)
+    expect(rankUtilityScoreCandidates({ ...input, scores: new Map([
+      ...safeScores, ['KOSPI:000010', 100], ['KOSPI:000020', 100],
+    ]) })).toEqual(expected)
+    // The other selectors retain their existing eligible pool.
+    expect(rankLowVolatilityStableCandidates({ ...input, pickCount: 5 })).toContain('KOSPI:000010')
+    expect(rankLowVolatilityStableCandidates({ ...input, pickCount: 5 })).toContain('KOSPI:000020')
+  })
+
   it('classifies preferred shares by the final code character', () => {
     expect(['005930', '005935', 'KOSPI:003547', 'KOSDAQ:0130H0', 'KOSPI:159910', '097955']
       .map(isPreferredShare)).toEqual([false, true, true, false, false, true])
