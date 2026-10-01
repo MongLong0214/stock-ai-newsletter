@@ -62,3 +62,9 @@ PR 브랜치 배포 실패는 사용자 지시에 따라 기존 환경 문제로
 PR219를 Draft로 전환했다. 연구 결과·코드·검증은 보관하지만, 이 후보의 점수와 선택을 새로운 사용자 제약까지 만족한 최종 운영안으로 승격하지 않는다. 실제 외부 workflow [36794297344](https://github.com/MongLong0214/stock-ai-newsletter/actions/runs/36794297344)의 완료 여부는 별도로 기록한다. 실제 실행 성공이나4,198개 테스트 통과가 예측 품질·점수 의미를 해결한 증거는 아니다. 다음 정기 실행 일정은 기존과 같고 **현재 main에는 이 모델이 없다**.
 
 R2-001 수정: `validateModelMarketSources`를 생산 경로에서 한 번 호출해 실제 기여하는 KOSPI21일과 전체 active-master20일의 KIS 원천을 검사한다. 완전하지 않은 창은 기존 null을 유지하며, 후보320행 검사는 별도로 유지한다. `modelMarketSourceVersion=kis-market-21-20-v1`을 전략 hash에 결속했다. 모델 JSON/가중치는 그대로이며, 최종 전략 hash는 **`d56b1782cadfe3c98f0ffa6258b8b09b599e9ecc16d567cc2a052affedb9976f`**다. 최초 검산의 `7c1eb45a…`와 혼동하지 않는다. [수정 전 5개 실패](production/stock-market-source-old-regression.log.gz), [같은 5개 수정 후 통과](production/stock-market-source-fixed-regression.log.gz), [집중91개 통과](production/stock-market-source-focused-tests.log.gz)를 보관한다. 최종 전체검사·새 hash의 실제 workflow·리뷰 closure는 이어 갱신한다.
+
+## 최초 후보의 실제 외부 Prepare 시험 실행 완료
+
+[workflow36794297344](https://github.com/MongLong0214/stock-ai-newsletter/actions/runs/36794297344)가 성공 완료했다. 실제 실행 SHA는 `fcbc108b02bee43fbc4f5a6bae36a7ff31a17ea2`, 최초 hash `7c1eb45a…`, target10/1·signal9/30이다. 실제 마스터 갱신·KIS 전체 수집2,434호출/2,433성공, 신호일 커버리지99.9589%,17,020가격행 갱신,952 gate 후보에서45·42·42의 동일 세 종목을 선정했다. 23분20.839초, 시장 재평가 포함 `PICKS_SOURCE=code`이며 뉴스레터/픽 스냅샷 DB 저장·발송은 생략했다. 가격·마스터의 정상 갱신은 실제로 수행하므로 전체 DB 쓰기0인 시험이라고 부르지 않는다. [실제 요약](production/full-prepare-dry-36794297344-summary.json), [실제 스냅샷](production/full-prepare-dry-36794297344-snapshot.json.gz).
+
+이는 **R2-001 수정 전** 경로의 실행 성공이다. 새 hash `d56b1782…`의 완료 증거로 재사용하지 않는다. 같은45·42·42와 하한가 후보를 실제 전체 파이프라인에서도 재현했으므로 점수 의미·추천 품질 문제를 성공으로 덮을 수 없다. PR은 Draft이며 main 승격하지 않았다.
