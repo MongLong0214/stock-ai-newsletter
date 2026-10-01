@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import {
   BULLISH_TARGET_STRATEGY,
   FROZEN_BULLISH_TARGET_MODEL,
+  FROZEN_COMPOSITE_UTILITY_MODEL,
   LEGACY_VOLUME_BREAKOUT_STRATEGY,
   LOW_VOLATILITY_STABLE_STRATEGY,
   PRODUCTION_STRATEGY,
@@ -10,8 +11,10 @@ import {
   canonicalJson,
   hashCanonicalJson,
 } from '@/scripts/stock-picks/production-strategy'
-import { BULLISH_TARGET_PARAMETERS, LOW_VOLATILITY_STABLE_PARAMETERS } from '@/scripts/stock-picks/strategies'
+import { BULLISH_TARGET_PARAMETERS, LOW_VOLATILITY_STABLE_PARAMETERS, UTILITY_LOCKED_DOWN_RULE } from '@/scripts/stock-picks/strategies'
+import { UTILITY_SCORE_VERSION } from '@/scripts/stock-picks/utility-model'
 import { SIGNAL_SCORE_VERSION } from '@/scripts/stock-picks/signals'
+import { MODEL_MARKET_SOURCE_VERSION, OBSERVED_INPUT_VERSION } from '@/scripts/stock-picks/observed-inputs'
 import { addKoreanTradingDays } from '@/lib/tli/trading-calendar'
 
 describe('frozen production strategy artifact', () => {
@@ -53,24 +56,73 @@ describe('frozen production strategy artifact', () => {
     )
   })
 
-  it('identifies the corrected signal scores while retaining the frozen v2 selector', () => {
+  it('identifies the whole composite utility model, fixed score reference, locked-down rule and market source contract', () => {
     expect(SIGNAL_SCORE_VERSION).toBe('technical-signals-v2-2026-09-30')
+    expect(MODEL_MARKET_SOURCE_VERSION).toBe('kis-market-21-20-v1')
     expect(PRODUCTION_STRATEGY).toEqual({
-      ...LOW_VOLATILITY_STABLE_STRATEGY,
-      version: 'v2.1-2026-09-30',
-      objective: 'lowVolatilityStable',
+      name: 'compositeUtility',
+      version: 'v4.2-2026-10-01',
+      objective: 'compositeUtility',
+      parameters: LOW_VOLATILITY_STABLE_PARAMETERS,
       parametersHash: hashCanonicalJson({
         parameters: LOW_VOLATILITY_STABLE_PARAMETERS,
         gateVersion: 'status-flags-valid-candle-v2',
         preferredRule: 'krx-code-last-digit-nonzero',
         signalScoreVersion: SIGNAL_SCORE_VERSION,
+        observedInputVersion: OBSERVED_INPUT_VERSION,
+        modelMarketSourceVersion: MODEL_MARKET_SOURCE_VERSION,
+        utilityScoreVersion: UTILITY_SCORE_VERSION,
+        lockedDownRule: UTILITY_LOCKED_DOWN_RULE,
+        model: FROZEN_COMPOSITE_UTILITY_MODEL,
       }),
     })
     expect(PRODUCTION_STRATEGY.parameters).toBe(LOW_VOLATILITY_STABLE_STRATEGY.parameters)
     expect(PRODUCTION_STRATEGY.parametersHash).not.toBe(LOW_VOLATILITY_STABLE_STRATEGY.parametersHash)
-    expect(PRODUCTION_STRATEGY.parametersHash).toBe(
-      '3aebeed85a87338ee497e7d5ce10cd567949e8319c0193d361428cfee5f08a2f',
-    )
+    expect(PRODUCTION_STRATEGY.parametersHash).toBe('fa9f1666db9b5b7a5bf4d19b4d122547ab8b5b732b230452661a687165cf86cc')
+    expect(FROZEN_COMPOSITE_UTILITY_MODEL.trainedLabelsThrough).toBe('2026-09-29')
+    expect(FROZEN_COMPOSITE_UTILITY_MODEL).toMatchObject({
+      schemaVersion: 3, modelVersion: 'composite-utility-v3', normalization: {
+        version: UTILITY_SCORE_VERSION, center: 50, oneStandardDeviationScore: 70, tailCurvature: 5.25,
+        mean: 0.329215672917516, standardDeviation: 0.07781234949998984,
+        referencePanels: 421, referenceRows: 506470, referenceThrough: '2026-09-29',
+        referenceLastSignal: '2026-09-18', source: 'kis',
+        weighting: 'equal signal date, strict matured training rows',
+      },
+    })
+    expect(FROZEN_COMPOSITE_UTILITY_MODEL.trees).toHaveLength(100)
+    expect(PRODUCTION_STRATEGY.parametersHash).not.toBe(hashCanonicalJson({
+      parameters: LOW_VOLATILITY_STABLE_PARAMETERS,
+      gateVersion: 'status-flags-valid-candle-v2', preferredRule: 'krx-code-last-digit-nonzero',
+      signalScoreVersion: SIGNAL_SCORE_VERSION, observedInputVersion: `${OBSERVED_INPUT_VERSION}-changed`,
+      modelMarketSourceVersion: MODEL_MARKET_SOURCE_VERSION,
+      utilityScoreVersion: UTILITY_SCORE_VERSION, lockedDownRule: UTILITY_LOCKED_DOWN_RULE,
+      model: FROZEN_COMPOSITE_UTILITY_MODEL,
+    }))
+    expect(PRODUCTION_STRATEGY.parametersHash).not.toBe(hashCanonicalJson({
+      parameters: LOW_VOLATILITY_STABLE_PARAMETERS,
+      gateVersion: 'status-flags-valid-candle-v2', preferredRule: 'krx-code-last-digit-nonzero',
+      signalScoreVersion: SIGNAL_SCORE_VERSION, observedInputVersion: OBSERVED_INPUT_VERSION,
+      modelMarketSourceVersion: `${MODEL_MARKET_SOURCE_VERSION}-changed`,
+      utilityScoreVersion: UTILITY_SCORE_VERSION, lockedDownRule: UTILITY_LOCKED_DOWN_RULE,
+      model: FROZEN_COMPOSITE_UTILITY_MODEL,
+    }))
+    const contract = {
+      parameters: LOW_VOLATILITY_STABLE_PARAMETERS,
+      gateVersion: 'status-flags-valid-candle-v2', preferredRule: 'krx-code-last-digit-nonzero',
+      signalScoreVersion: SIGNAL_SCORE_VERSION, observedInputVersion: OBSERVED_INPUT_VERSION,
+      modelMarketSourceVersion: MODEL_MARKET_SOURCE_VERSION,
+      utilityScoreVersion: UTILITY_SCORE_VERSION, lockedDownRule: UTILITY_LOCKED_DOWN_RULE,
+      model: FROZEN_COMPOSITE_UTILITY_MODEL,
+    }
+    expect(PRODUCTION_STRATEGY.parametersHash).not.toBe(hashCanonicalJson({ ...contract,
+      utilityScoreVersion: 'utility-reference-z10-v1' }))
+    expect(PRODUCTION_STRATEGY.parametersHash).not.toBe(hashCanonicalJson({ ...contract,
+      lockedDownRule: { ...UTILITY_LOCKED_DOWN_RULE, maxPreviousCloseReturn: -0.30 } }))
+    expect(PRODUCTION_STRATEGY.parametersHash).not.toBe(hashCanonicalJson({ ...contract,
+      model: { ...FROZEN_COMPOSITE_UTILITY_MODEL, normalization: {
+        ...FROZEN_COMPOSITE_UTILITY_MODEL.normalization, mean: 0.4,
+      } },
+    }))
   })
 
   it('hashes the frozen target model with its pool gates and keeps training-label availability', () => {

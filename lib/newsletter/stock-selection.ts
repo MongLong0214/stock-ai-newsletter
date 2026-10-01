@@ -9,7 +9,8 @@ export function isStockSelection(value: unknown): value is StockSelection {
     && Number.isInteger(selection.rank)
     && selection.rank >= 1 && selection.rank <= 3
     && (selection.objective === 'lowVolatilityStable'
-      || selection.objective === 'bullishThenTouch10Within5TradingDays');
+      || selection.objective === 'bullishThenTouch10Within5TradingDays'
+      || selection.objective === 'compositeUtility');
 }
 
 /** 세 종목의 선정 메타데이터가 완전한지 확인한다. */

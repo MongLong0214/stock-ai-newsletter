@@ -30,6 +30,7 @@ import {
 import { loadStockMaster } from '@/scripts/stock-picks/load-stock-master'
 import { persistStockPickSnapshot } from '@/scripts/stock-picks/pick-snapshots'
 import { canonicalJson, PRODUCTION_STRATEGY } from '@/scripts/stock-picks/production-strategy'
+import { buildSignals } from '@/scripts/stock-picks/signals'
 
 export type PicksSource = 'code' | 'llm_fallback' | 'crash'
 export const MIN_DAILY_COLLECTION_SUCCESS_RATE = 0.95
@@ -266,6 +267,11 @@ async function runNewsletterPipeline(input: {
           || selected[index]?.symbol !== pick.ticker
           || selected[index]?.name !== pick.name
           || selected[index]?.close !== pick.close_price
+          || selected[index]?.score !== pick.signals.overall_score
+          || canonicalJson(pick.signals) !== canonicalJson({
+            ...buildSignals(selected[index]!),
+            overall_score: selected[index]!.score,
+          })
         ))) {
         throw new Error('Prepare 코드 픽과 선정 모델/스냅샷 불일치')
       }

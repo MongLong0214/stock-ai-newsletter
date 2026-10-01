@@ -93,11 +93,17 @@ const GENERATED_RESULT = {
       picked: 3,
     },
     rankedCandidates: [
-      { symbol: 'KOSPI:000001', name: '테스트1', close: 1000, score: 1, rank: 1, tier: 'lowVolatility' },
-      { symbol: 'KOSPI:000002', name: '테스트2', close: 2000, score: 2, rank: 2, tier: 'lowVolatility' },
-      { symbol: 'KOSPI:000003', name: '테스트3', close: 3000, score: 3, rank: 3, tier: 'lowVolatility' },
+      { symbol: 'KOSPI:000001', name: '테스트1', close: 1000, score: 50, rank: 1, tier: 'compositeUtility' },
+      { symbol: 'KOSPI:000002', name: '테스트2', close: 2000, score: 50, rank: 2, tier: 'compositeUtility' },
+      { symbol: 'KOSPI:000003', name: '테스트3', close: 3000, score: 50, rank: 3, tier: 'compositeUtility' },
       { symbol: 'KOSPI:000004', name: '테스트4', score: 4, rank: 4, tier: 'lowVolatility' },
-    ],
+    ].map(candidate => ({ ...candidate,
+      sma60: null, sma20: null, macdHistogram: null, volume: null, volumeRatio20: null,
+      obvSlope20: null, trendR2_20: null, trendSlope20: null, position52wFullWindow: false,
+      position52wObservations: 0, position52w: null, sma20DistancePercent: null,
+      sma20Slope5: null, rsi14: null, bullishCandle: null, consecutiveUpDays: null,
+      volumePercentile60: null, atrPercent14: null, distanceFromHigh60: null,
+    })),
     shadows: ['shadow:A-volumeBreakout-v1.1', 'shadow:B-random', 'shadow:J-randomConstrained']
       .map((strategy) => ({ strategy, strategyVersion: 'fixture-v1', parametersHash: `${strategy}-hash`,
         picks: [
@@ -343,9 +349,9 @@ describe('prepare-newsletter stock-pick wiring', () => {
         remainingSecAtPicks: expect.any(Number),
       },
       picks: [
-        { rank: 1, ticker: 'KOSPI:000001', score: 1 },
-        { rank: 2, ticker: 'KOSPI:000002', score: 2 },
-        { rank: 3, ticker: 'KOSPI:000003', score: 3 },
+        { rank: 1, ticker: 'KOSPI:000001', score: 50 },
+        { rank: 2, ticker: 'KOSPI:000002', score: 50 },
+        { rank: 3, ticker: 'KOSPI:000003', score: 50 },
       ],
     })
   })
@@ -435,8 +441,8 @@ describe('prepare-newsletter stock-pick wiring', () => {
       strategy_version: PRODUCTION_STRATEGY.version,
       parameters_hash: PRODUCTION_STRATEGY.parametersHash,
       run_id: null,
-      picks: expect.arrayContaining([expect.objectContaining({ tier: 'lowVolatility' })]),
-      top_candidates: expect.arrayContaining([expect.objectContaining({ tier: 'lowVolatility' })]),
+      picks: expect.arrayContaining([expect.objectContaining({ tier: 'compositeUtility' })]),
+      top_candidates: expect.arrayContaining([expect.objectContaining({ tier: 'compositeUtility' })]),
     }))
     expect(mocks.persistSnapshot).toHaveBeenCalledTimes(4)
     for (const shadow of GENERATED_RESULT.meta.shadows) {
@@ -587,6 +593,25 @@ describe('prepare-newsletter stock-pick wiring', () => {
         json: kind === 'invalid-json' ? 'invalid' : JSON.stringify(picks),
         meta: { ...GENERATED_RESULT.meta, signalDate: kind === 'wrong-date' ? '2026-08-31' : SIGNAL_DATE },
       })
+      expect(await runPrepareNewsletterCli([`--target-date=${TARGET_DATE}`])).toBe(1)
+      expect(client.insert).not.toHaveBeenCalled()
+      expect(client.update).not.toHaveBeenCalled()
+      expect(mocks.persistSnapshot).not.toHaveBeenCalled()
+      expect(mocks.getLlmAnalysis).not.toHaveBeenCalled()
+    },
+  )
+
+  it.each(['published-overall', 'snapshot-overall', 'category'] as const)(
+    'rejects score drift before saving a generated recommendation: %s', async (kind) => {
+      const client = mockNewsletterClient({ reads: [null] })
+      vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', 'https://example.supabase.co')
+      vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY', 'test-service-role-key')
+      const generated = structuredClone(GENERATED_RESULT)
+      if (kind === 'published-overall') generated.picks[0].signals.overall_score = 49
+      if (kind === 'snapshot-overall') generated.meta.rankedCandidates[0]!.score = 49
+      if (kind === 'category') generated.picks[0].signals.volume_score = 49
+      generated.json = JSON.stringify(generated.picks)
+      mocks.generateCodePicks.mockResolvedValue(generated)
       expect(await runPrepareNewsletterCli([`--target-date=${TARGET_DATE}`])).toBe(1)
       expect(client.insert).not.toHaveBeenCalled()
       expect(client.update).not.toHaveBeenCalled()

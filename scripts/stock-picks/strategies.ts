@@ -16,7 +16,7 @@ export type StrategyName =
   | 'composite'
 export type SelectionMode = 'force3' | 'abstain'
 export type AblationFeature = keyof StockFeatureVector
-export type TieredFillTier = 'breakout' | 'relaxedBreakout' | 'volumeOnly' | 'lowVolatility' | 'bullishTarget5d'
+export type TieredFillTier = 'breakout' | 'relaxedBreakout' | 'volumeOnly' | 'lowVolatility' | 'bullishTarget5d' | 'compositeUtility'
 
 export interface TieredFillPick {
   readonly symbol: string
@@ -37,6 +37,11 @@ export const LOW_VOLATILITY_STABLE_PARAMETERS = {
 } as const
 
 export const BULLISH_TARGET_PARAMETERS = { ...LOW_VOLATILITY_STABLE_PARAMETERS } as const
+
+export const UTILITY_LOCKED_DOWN_RULE = {
+  maxPreviousCloseReturn: -0.20,
+  requireFlatRange: true,
+} as const
 
 export const isPreferredShare = (symbol: string): boolean => (
   (symbol.split(':').at(-1) ?? '').at(-1) !== '0'
@@ -317,6 +322,35 @@ export function rankLowVolatilityStableCandidates(input: {
     left.atrPercent14! - right.atrPercent14!
     || left.symbol.localeCompare(right.symbol)
   )).slice(0, input.pickCount ?? PICKS_PER_DATE).map((feature) => feature.symbol)
+}
+
+/** 공개 종합 점수의 정수값으로 선정한다. 동점에 숨은 소수 점수를 사용하지 않는다. */
+export function rankUtilityScoreCandidates(input: {
+  readonly features: readonly StockFeatureVector[]
+  readonly masters: ReadonlyMap<string, StockMasterState>
+  readonly scores: ReadonlyMap<string, number>
+  readonly parameters: typeof LOW_VOLATILITY_STABLE_PARAMETERS
+  readonly excludeSymbols: ReadonlySet<string>
+  readonly pickCount?: number
+}): Array<{ symbol: string; score: number }> {
+  const seen = new Set<string>()
+  return input.features.flatMap((feature) => {
+    if (seen.has(feature.symbol)) throw new Error(`중복 종합 점수 후보: ${feature.symbol}`)
+    seen.add(feature.symbol)
+    if (!passesTargetPoolGate(feature, input.masters.get(feature.symbol), input.parameters, input.excludeSymbols)) return []
+    // 유효한 단일 가격 캔들의 전일 대비 급락을 제외한다. 비율 비교는 -20% 경계의 뺄셈 오차를 피한다.
+    const previousCloseRatio = (1 + feature.gapFromPreviousClosePercent! / 100) * (feature.close! / feature.open!)
+    if (UTILITY_LOCKED_DOWN_RULE.requireFlatRange && feature.high === feature.low
+      && previousCloseRatio <= 1 + UTILITY_LOCKED_DOWN_RULE.maxPreviousCloseReturn) return []
+    const score = input.scores.get(feature.symbol)
+    if (score === undefined || !Number.isInteger(score) || score < 0 || score > 100) {
+      throw new Error(`종합 점수 후보 추론 누락: ${feature.symbol}`)
+    }
+    return [{ symbol: feature.symbol, score, turnover: feature.averageTurnover20! }]
+  }).sort((left, right) => (
+    right.score - left.score || right.turnover - left.turnover
+    || (left.symbol < right.symbol ? -1 : left.symbol > right.symbol ? 1 : 0)
+  )).slice(0, input.pickCount ?? PICKS_PER_DATE).map(({ symbol, score }) => ({ symbol, score }))
 }
 
 export function rankSeededRandomCandidates(input: {

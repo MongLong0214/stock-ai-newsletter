@@ -3,6 +3,8 @@ import { describe, expect, it } from 'vitest'
 import type { StockPickStrategy } from '@/scripts/stock-picks/backtest'
 import type { StockFeatureVector } from '@/scripts/stock-picks/features'
 import { PRODUCTION_VOLUME_BREAKOUT_PARAMETERS } from '@/scripts/stock-picks/generate-picks'
+import { FROZEN_COMPOSITE_UTILITY_MODEL } from '@/scripts/stock-picks/production-strategy'
+import { normalizeUtilityScore } from '@/scripts/stock-picks/utility-model'
 import {
   COMPOSITE_ABLATION_FEATURES,
   DEFAULT_PULLBACK_REBOUND_PARAMETERS,
@@ -16,6 +18,7 @@ import {
   passesCommonGate,
   rankStrategyCandidates,
   rankLowVolatilityStableCandidates,
+  rankUtilityScoreCandidates,
   rankSeededRandomCandidates,
   rankTieredFillCandidates,
   rankVolumeBreakoutAtrRankCandidates,
@@ -72,6 +75,95 @@ const master = (symbol: string, overrides: Partial<StockMasterState> = {}): Stoc
 })
 
 describe('stock-picks strategy gates and ranking', () => {
+  it('retains the stronger high-score candidate instead of letting ceiling ties favor turnover', () => {
+    const utilities = [0.54, 0.55, 0.56, 0.80]
+    const candidates = utilities.map((_, i) => feature(`KOSDAQ:0000${i + 1}0`, {
+      averageTurnover20: i === 3 ? 500_000_000 : (5 - i) * 10_000_000_000,
+    }))
+    const result = rankUtilityScoreCandidates({ features: candidates,
+      masters: new Map(candidates.map((c) => [c.symbol, master(c.symbol)])),
+      scores: new Map(candidates.map((c, i) => [c.symbol,
+        normalizeUtilityScore(FROZEN_COMPOSITE_UTILITY_MODEL.normalization, utilities[i]!)])),
+      parameters: LOW_VOLATILITY_STABLE_PARAMETERS, excludeSymbols: new Set() })
+    expect(result).toEqual([
+      { symbol: 'KOSDAQ:000040', score: 97 },
+      { symbol: 'KOSDAQ:000030', score: 90 },
+      { symbol: 'KOSDAQ:000020', score: 89 },
+    ])
+  })
+
+  it('selects the published integer utility score even when ATR and latent utility order disagree', () => {
+    const candidates = [
+      feature('KOSPI:000010', { atrPercent14: 0.5 }),
+      feature('KOSPI:000020', { atrPercent14: 5, averageTurnover20: 3_000_000_000 }),
+      feature('KOSPI:000030', { atrPercent14: 7 }),
+      feature('KOSPI:000040', { atrPercent14: 1 }),
+    ]
+    const masters = new Map(candidates.map((c) => [c.symbol, master(c.symbol)]))
+    const result = rankUtilityScoreCandidates({ features: candidates, masters,
+      scores: new Map([['KOSPI:000010', 12], ['KOSPI:000020', 65], ['KOSPI:000030', 65], ['KOSPI:000040', 64]]),
+      parameters: LOW_VOLATILITY_STABLE_PARAMETERS, excludeSymbols: new Set() })
+    expect(result).toEqual([{ symbol: 'KOSPI:000020', score: 65 }, { symbol: 'KOSPI:000030', score: 65 }, { symbol: 'KOSPI:000040', score: 64 }])
+    expect(rankLowVolatilityStableCandidates({ features: candidates, masters,
+      parameters: LOW_VOLATILITY_STABLE_PARAMETERS, excludeSymbols: new Set() }))
+      .toEqual(['KOSPI:000010', 'KOSPI:000040', 'KOSPI:000020'])
+  })
+
+  it('breaks equal integer scores by turnover then ASCII symbol and keeps the existing cooldown', () => {
+    const candidates = ['KOSPI:000010', 'KOSDAQ:000030', 'KOSDAQ:000020', 'KOSPI:000040'].map((s) => feature(s))
+    const masters = new Map(candidates.map((c) => [c.symbol, master(c.symbol)]))
+    const input = { features: candidates, masters, scores: new Map(candidates.map((c) => [c.symbol, 30])),
+      parameters: LOW_VOLATILITY_STABLE_PARAMETERS, excludeSymbols: new Set(['KOSDAQ:000020']) }
+    expect(rankUtilityScoreCandidates(input).map((p) => p.symbol)).toEqual(['KOSDAQ:000030', 'KOSPI:000010', 'KOSPI:000040'])
+    expect(() => rankUtilityScoreCandidates({ ...input, scores: new Map() })).toThrow(/후보 추론 누락/)
+    expect(() => rankUtilityScoreCandidates({ ...input, scores: new Map(candidates.map((c) => [c.symbol, 30.1])) })).toThrow(/후보 추론 누락/)
+    expect(() => rankUtilityScoreCandidates({ ...input, features: [candidates[0]!, candidates[0]!] })).toThrow(/중복/)
+  })
+
+  it('applies the frozen price, status, preferred, RSI, return and turnover gates before requiring scores', () => {
+    const candidates = [
+      feature('KOSPI:000010'),
+      feature('KOSPI:000025'),
+      feature('KOSPI:000030', { rsi14: 75.01 }),
+      feature('KOSPI:000040', { close: 2_090, high: 2_100, gapFromPreviousClosePercent: 0 }),
+      feature('KOSPI:000050', { averageTurnover20: 499_999_999 }),
+      feature('KOSPI:000060', { open: 999, close: 999, low: 990, high: 1_000 }),
+      feature('KOSPI:000070'),
+    ]
+    const masters = new Map(candidates.map((c) => [c.symbol, master(c.symbol)]))
+    masters.set('KOSPI:000070', master('KOSPI:000070', { status_flags: { trading_suspended: true } }))
+    expect(rankUtilityScoreCandidates({ features: candidates, masters, scores: new Map([['KOSPI:000010', 0]]),
+      parameters: LOW_VOLATILITY_STABLE_PARAMETERS, excludeSymbols: new Set() }))
+      .toEqual([{ symbol: 'KOSPI:000010', score: 0 }])
+  })
+
+  it('excludes genuinely flat locked-down -29.98% and exact -20% candles before requiring scores', () => {
+    const candidates = [
+      feature('KOSPI:000010', { open: 1_400, high: 1_400, low: 1_400, close: 1_400,
+        gapFromPreviousClosePercent: -29.98 }),
+      feature('KOSPI:000020', { open: 1_600, high: 1_600, low: 1_600, close: 1_600,
+        gapFromPreviousClosePercent: -20 }),
+      feature('KOSPI:000030', { open: 1_600, high: 1_600, low: 1_600, close: 1_600,
+        gapFromPreviousClosePercent: -19.99 }),
+      feature('KOSPI:000040', { open: 1_900, high: 1_920, low: 1_590, close: 1_600,
+        gapFromPreviousClosePercent: -5 }),
+      feature('KOSPI:000050'),
+    ]
+    const masters = new Map(candidates.map((c) => [c.symbol, master(c.symbol)]))
+    const safeScores = new Map([['KOSPI:000030', 90], ['KOSPI:000040', 85], ['KOSPI:000050', 80]])
+    const input = { features: candidates, masters, parameters: LOW_VOLATILITY_STABLE_PARAMETERS,
+      excludeSymbols: new Set<string>() }
+    const expected = [{ symbol: 'KOSPI:000030', score: 90 }, { symbol: 'KOSPI:000040', score: 85 },
+      { symbol: 'KOSPI:000050', score: 80 }]
+    expect(rankUtilityScoreCandidates({ ...input, scores: safeScores })).toEqual(expected)
+    expect(rankUtilityScoreCandidates({ ...input, scores: new Map([
+      ...safeScores, ['KOSPI:000010', 100], ['KOSPI:000020', 100],
+    ]) })).toEqual(expected)
+    // The other selectors retain their existing eligible pool.
+    expect(rankLowVolatilityStableCandidates({ ...input, pickCount: 5 })).toContain('KOSPI:000010')
+    expect(rankLowVolatilityStableCandidates({ ...input, pickCount: 5 })).toContain('KOSPI:000020')
+  })
+
   it('classifies preferred shares by the final code character', () => {
     expect(['005930', '005935', 'KOSPI:003547', 'KOSDAQ:0130H0', 'KOSPI:159910', '097955']
       .map(isPreferredShare)).toEqual([false, true, true, false, false, true])

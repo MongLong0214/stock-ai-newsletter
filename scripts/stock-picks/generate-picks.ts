@@ -14,11 +14,14 @@ import {
 } from '@/scripts/stock-picks/data-handler'
 import { buildFeatureSeries, type StockFeatureVector } from '@/scripts/stock-picks/features'
 import { buildSignals, finiteOr } from '@/scripts/stock-picks/signals'
+import { buildObservedInputs50, validateModelMarketSources } from '@/scripts/stock-picks/observed-inputs'
+import { scoreUtilityModel } from '@/scripts/stock-picks/utility-model'
 import { parsePublishedPicks } from '@/scripts/stock-picks/measure-forward'
 import { buildTechnicalContextMap, type TechnicalContext } from '@/scripts/stock-picks/technical-context'
 import {
   BULLISH_TARGET_STRATEGY,
   FROZEN_BULLISH_TARGET_MODEL,
+  FROZEN_COMPOSITE_UTILITY_MODEL,
   hashCanonicalJson,
   LEGACY_VOLUME_BREAKOUT_STRATEGY,
   PRODUCTION_STRATEGY,
@@ -29,6 +32,7 @@ import {
   LOW_VOLATILITY_STABLE_PARAMETERS,
   rankBullishTargetCandidates,
   rankLowVolatilityStableCandidates,
+  rankUtilityScoreCandidates,
   rankSeededRandomCandidates,
   rankStrategyCandidates,
   rankTieredFillCandidates,
@@ -80,6 +84,7 @@ export interface RankedStockFeature extends StockFeatureVector {
   readonly technicalContext?: TechnicalContext
   readonly name: string
   readonly score: number
+  readonly utility?: number
   readonly rank: number
   readonly tier: TieredFillTier
 }
@@ -364,6 +369,9 @@ export async function generatePicksWithMeta(input: {
   const lastDate = tradingDays.lastDate
   if (!lastDate) throw new Error('KOSPI 실측 거래일이 없습니다')
   const signalDate = assertFreshSignalDate(lastDate, todayKst)
+  if (signalDate < FROZEN_COMPOSITE_UTILITY_MODEL.trainedLabelsThrough) {
+    throw new Error(`종합 점수 모델 학습 시점 이후만 추천할 수 있습니다: signalDate=${signalDate}, trainedLabelsThrough=${FROZEN_COMPOSITE_UTILITY_MODEL.trainedLabelsThrough}`)
+  }
   const signalDateIndex = tradingDays.indexByDate.get(signalDate)
   if (signalDateIndex === undefined) {
     throw new Error(
@@ -406,9 +414,11 @@ export async function generatePicksWithMeta(input: {
     return feature && hasCalculatedOutputMetrics(feature) ? [feature] : []
   })
   const featuresBySymbol = new Map(features.map((feature) => [feature.symbol, feature]))
+  const activeSymbols = masters.filter((master) => master.is_active).map((master) => master.symbol)
+  validateModelMarketSources({ handler, symbols: activeSymbols, dates: historyDates })
   const technicalContexts = buildTechnicalContextMap({
     handler,
-    symbols: masters.filter((master) => master.is_active).map((master) => master.symbol),
+    symbols: activeSymbols,
     dates: historyDates,
     includeFromDate: signalDate,
   }).get(signalDate)
@@ -417,24 +427,36 @@ export async function generatePicksWithMeta(input: {
     tradingDays,
     lookbackTradingDays: LOW_VOLATILITY_STABLE_PARAMETERS.recentPickTradingDays,
   })
-  const rankedSymbols = rankLowVolatilityStableCandidates({
+  const poolSymbols = rankLowVolatilityStableCandidates({
     features,
     masters: mastersBySymbol,
     parameters: LOW_VOLATILITY_STABLE_PARAMETERS,
     excludeSymbols: recentPublishedSymbols,
     pickCount: features.length,
   })
-  const rankedFeatures: RankedStockFeature[] = rankedSymbols.flatMap((symbol, index) => {
+  const predictions = new Map(poolSymbols.map((symbol) => {
+    const feature = featuresBySymbol.get(symbol)
+    const context = technicalContexts?.get(symbol)
+    if (!feature || !context) throw new Error(`종합 점수 후보 관측값 누락: ${symbol}`)
+    return [symbol, scoreUtilityModel(FROZEN_COMPOSITE_UTILITY_MODEL,
+      buildObservedInputs50({ feature, context, handler, dates: historyDates }))] as const
+  }))
+  const rankedCandidates = rankUtilityScoreCandidates({
+    features, masters: mastersBySymbol, parameters: LOW_VOLATILITY_STABLE_PARAMETERS,
+    excludeSymbols: recentPublishedSymbols, pickCount: features.length,
+    scores: new Map([...predictions].map(([symbol, prediction]) => [symbol, prediction.score])),
+  })
+  const rankedFeatures: RankedStockFeature[] = rankedCandidates.map(({ symbol, score }, index) => {
     const feature = featuresBySymbol.get(symbol)
     const master = mastersBySymbol.get(symbol)
-    if (!feature || !master || feature.atrPercent14 === null) return []
-    // score는 ATR% 원값이며 낮을수록 좋은 순위다.
-    return [{ ...feature, name: master.name, score: feature.atrPercent14, rank: index + 1,
-      tier: 'lowVolatility', technicalContext: technicalContexts?.get(symbol) }]
+    const prediction = predictions.get(symbol)
+    if (!feature || !master || !prediction) throw new Error(`종합 점수 픽 원천 데이터 누락: ${symbol}`)
+    return { ...feature, name: master.name, score, utility: prediction.utility, rank: index + 1,
+      tier: 'compositeUtility', technicalContext: technicalContexts?.get(symbol) }
   })
   const ranked = rankedFeatures.slice(0, REQUIRED_PICK_COUNT)
-  if (ranked.length !== REQUIRED_PICK_COUNT) {
-    throw new Error(`저변동 후보 부족: ${ranked.length}/${REQUIRED_PICK_COUNT}`)
+  if (ranked.length !== REQUIRED_PICK_COUNT || new Set(ranked.map(({ symbol }) => symbol)).size !== REQUIRED_PICK_COUNT) {
+    throw new Error(`종합 점수 후보 부족: ${ranked.length}/${REQUIRED_PICK_COUNT}`)
   }
 
   const shadows: GeneratePicksMeta['shadows'][number][] = []
@@ -522,7 +544,7 @@ export async function generatePicksWithMeta(input: {
     console.warn('⚠️ shadow:J-randomConstrained 섀도우 계산 실패:', error)
   }
 
-  const picks: StockData[] = ranked.map(({ symbol, rank }) => {
+  const picks: StockData[] = ranked.map(({ symbol, rank, score }) => {
     const master = mastersBySymbol.get(symbol)
     const feature = featuresBySymbol.get(symbol)
     if (!master || !feature || feature.close === null || !Number.isInteger(feature.close) || feature.close <= 0) {
@@ -533,7 +555,7 @@ export async function generatePicksWithMeta(input: {
       name: master.name,
       close_price: feature.close,
       rationale: buildAnalysisSummary(feature, technicalContexts?.get(symbol)),
-      signals: buildSignals(feature),
+      signals: { ...buildSignals(feature), overall_score: score },
       selection: {
         strategy: PRODUCTION_STRATEGY.name,
         rank: rank as 1 | 2 | 3,
@@ -550,7 +572,7 @@ export async function generatePicksWithMeta(input: {
     activeMasters: masters.filter((master) => master.is_active).length,
     withFreshKisRow: eligibleMasters.length,
     withCompleteFeatures: features.length,
-    gatePassed: rankedSymbols.length,
+    gatePassed: rankedCandidates.length,
     picked: picks.length,
   }
   console.log(JSON.stringify({ event: 'stock_picks_funnel', ...funnel }))
@@ -573,7 +595,7 @@ export async function generatePicksWithMeta(input: {
       technicalContext: candidate.technicalContext,
     }
   }
-  const picksByTier = { lowVolatility: ranked.length }
+  const picksByTier = { compositeUtility: ranked.length }
   console.log(JSON.stringify({
     event: 'stock_picks_generated',
     signalDate,
