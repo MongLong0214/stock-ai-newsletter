@@ -233,12 +233,15 @@ describe('Prepare boundary-isolated E2E', () => {
         update: (row: Record<string, unknown>) => {
           state.newsletterWriteAttempts++
           const filters = new Map<string, unknown>()
-          const builder = { eq: (key: string, value: unknown) => {
+          const builder = { is: (key: string, value: null) => {
+            filters.set(key, value)
+            return builder
+          }, eq: (key: string, value: unknown) => {
             filters.set(key, value)
             return builder
           }, select: async () => {
             // Apply the actual CAS predicates; an omitted is_sent filter must not be masked by the fixture.
-            if (!state.newsletter || [...filters].some(([key, value]) => state.newsletter![key] !== value)) {
+            if (!state.newsletter || [...filters].some(([key, value]) => (state.newsletter![key] ?? null) !== value)) {
               return { data: [], error: null }
             }
             state.newsletter = { ...state.newsletter, ...row }; return { data: [row], error: null }
@@ -271,6 +274,44 @@ describe('Prepare boundary-isolated E2E', () => {
       expect(picks[index]!.signals.overall_score).toBe(candidate.score)
     }
     expect(state.snapshots[0]!.parameters_hash).toBe(PRODUCTION_STRATEGY.parametersHash)
+  })
+
+  it.each(['2026-10-01T06:12:00+09:00', '2026-10-01T05:59:00+09:00'])(
+    'preserves content after sending has started even when the lease is expired (%s)', async (leaseUntil) => {
+      const startedNewsletter = {
+        newsletter_date: TARGET, is_sent: false, picks_source: 'code',
+        gemini_analysis: 'content-already-acquired-by-sender',
+        sending_owner: 'sending-worker', sending_started_at: E2E_NOW,
+        sending_lease_until: leaseUntil,
+      }
+      state.newsletter = structuredClone(startedNewsletter)
+      expect(await runPrepareNewsletterCli([`--target-date=${TARGET}`])).toBe(0)
+      expect(state.newsletter).toEqual(startedNewsletter)
+      expect(state.fetchDaily).not.toHaveBeenCalled()
+      expect(state.newsletterWriteAttempts).toBe(0)
+      expect(state.snapshots).toHaveLength(0)
+    },
+  )
+
+  it.each([false, true])('preserves content acquired by a sender during Prepare collection (existing=%s)', async (existing) => {
+    state.newsletter = existing ? {
+      newsletter_date: TARGET, is_sent: false, picks_source: 'code', gemini_analysis: 'prior-unsent',
+    } : null
+    const acquiredNewsletter = {
+      newsletter_date: TARGET, is_sent: false, picks_source: 'code',
+      gemini_analysis: 'content-acquired-during-collection',
+      sending_owner: 'sending-worker', sending_started_at: E2E_NOW,
+      sending_lease_until: `${TARGET}T06:12:00+09:00`,
+    }
+    const fetchDaily = state.fetchDaily.getMockImplementation()!
+    state.fetchDaily.mockImplementationOnce(async (symbol: string, start: string, end: string) => {
+      state.newsletter = structuredClone(acquiredNewsletter)
+      return fetchDaily(symbol, start, end)
+    })
+    expect(await runPrepareNewsletterCli([`--target-date=${TARGET}`])).toBe(0)
+    expect(state.newsletter).toEqual(acquiredNewsletter)
+    expect(state.snapshots).toHaveLength(0)
+    expect(state.alert).not.toHaveBeenCalled()
   })
 
   it('collects finalized candles, calculates real features, ranks 3 and saves matching snapshot/newsletter', async () => {

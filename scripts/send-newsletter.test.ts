@@ -87,12 +87,17 @@ function makeRepository(input: {
   const rows = new Map(
     (input.deliveries ?? []).map((row) => [row.subscriber_id, { ...row }]),
   )
-  const content = input.content ?? READY_CONTENT
+  let content = { ...(input.content ?? READY_CONTENT) }
   const repository: SendNewsletterRepository = {
     fetchActiveSubscribers: vi.fn(async () => subscribers),
     fetchContent: vi.fn(async () => content),
     fetchSendableContent: vi.fn(async () => content.is_sent ? null : content),
-    acquireLease: vi.fn(async () => input.acquireLease ?? true),
+    acquireLease: vi.fn(async (lease) => {
+      if (input.acquireLease === false) return false
+      content = { ...content, sending_owner: lease.runId,
+        sending_started_at: lease.sendingStartedAt, sending_lease_until: lease.leaseUntilIso }
+      return true
+    }),
     renewLease: vi.fn(async () => true),
     releaseLease: vi.fn(async () => undefined),
     markStaleSendingAsUnknown: vi.fn(async (_date, updatedAt) => {
@@ -232,7 +237,9 @@ describe('runSendNewsletter', () => {
     const { repository } = makeRepository({
       overrides: {
         fetchSendableContent,
-        fetchContent: vi.fn(async () => null),
+        fetchContent: vi.fn().mockResolvedValueOnce(null).mockResolvedValue({
+          ...READY_CONTENT, sending_owner: 'polling-fixture',
+        }),
       },
     })
     const send = makeSend()
@@ -252,6 +259,40 @@ describe('runSendNewsletter', () => {
     expect(fetchSendableContent).toHaveBeenCalledTimes(3)
     expect(sleep).toHaveBeenCalledTimes(2)
     expect(send).toHaveBeenCalledOnce()
+  })
+
+  it('sends the content frozen at lease acquisition after Prepare changes the pre-lease snapshot', async () => {
+    const { repository } = makeRepository({ content: { ...READY_CONTENT, gemini_analysis: 'before-lease' } })
+    vi.mocked(repository.acquireLease).mockImplementationOnce(async (lease) => {
+      vi.mocked(repository.fetchContent).mockResolvedValue({
+        ...READY_CONTENT, gemini_analysis: 'frozen-at-lease', sending_owner: lease.runId,
+        sending_started_at: lease.sendingStartedAt, sending_lease_until: lease.leaseUntilIso,
+      })
+      return true
+    })
+    const send = makeSend()
+    await expect(runSendNewsletter(
+      { targetDate: TARGET_DATE, dispatchId: 'freeze-run' },
+      { env: {}, repository, send, logger: makeLogger(), deliveryWriteFlushMs: 0 },
+    )).resolves.toBe(0)
+    expect(send).toHaveBeenCalledWith(expect.any(Array),
+      expect.objectContaining({ geminiAnalysis: 'frozen-at-lease' }), expect.any(Object))
+  })
+
+  it.each(['missing', 'different-owner'] as const)('does not send when frozen content is %s after acquiring the lease', async (kind) => {
+    const { repository } = makeRepository({ overrides: {
+      fetchContent: vi.fn(async () => kind === 'missing' ? null : {
+        ...READY_CONTENT, sending_owner: 'different-run',
+      }),
+    } })
+    const send = makeSend()
+    await expect(runSendNewsletter(
+      { targetDate: TARGET_DATE, dispatchId: 'freeze-run' },
+      { env: {}, repository, send, logger: makeLogger(), deliveryWriteFlushMs: 0 },
+    )).resolves.toBe(1)
+    expect(send).not.toHaveBeenCalled()
+    expect(repository.snapshotDeliveries).not.toHaveBeenCalled()
+    expect(repository.releaseLease).toHaveBeenCalledWith(TARGET_DATE, 'freeze-run')
   })
 
   it('acquires the lease and snapshots new recipients while preserving accepted rows', async () => {

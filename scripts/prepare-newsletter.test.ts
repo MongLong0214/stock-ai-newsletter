@@ -135,9 +135,11 @@ const mockNewsletterClient = (input: {
   }))
   const updateBuilder = {
     eq: vi.fn(),
+    is: vi.fn(),
     select: updateSelect,
   }
   updateBuilder.eq.mockReturnValue(updateBuilder)
+  updateBuilder.is.mockReturnValue(updateBuilder)
   const update = vi.fn(() => updateBuilder)
   const insertSelect = vi.fn(async () => ({ error: input.insertError ?? null }))
   const insert = vi.fn(() => ({ select: insertSelect }))
