@@ -6,10 +6,10 @@
  * @property trend_score - 추세 점수 (SMA, EMA 등 추세 지표)
  * @property momentum_score - 모멘텀 점수 (RSI, MACD 등 모멘텀 지표)
  * @property volume_score - 거래량 점수 (거래량 변화율, OBV 등)
- * @property volatility_score - 변동성 점수 (ATR, Bollinger Bands 등)
+ * @property volatility_score - ATR 가격 변동폭의 강도 점수
  * @property pattern_score - 패턴 점수 (차트 패턴, 캔들 패턴 등)
  * @property sentiment_score - 심리 점수 (투자자 심리, 뉴스 감성 등)
- * @property overall_score - 종합 점수 (전체 지표의 가중 평균)
+ * @property overall_score - 실제 선정 모델이 산출한 종합 점수
  */
 export interface StockSignals {
   trend_score: number;

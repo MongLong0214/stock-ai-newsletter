@@ -109,7 +109,10 @@ describe('causal production observed 50 inputs', () => {
         breadthAboveSma20: w.context.breadthAboveSma20 }
       const values = buildObservedInputs50({ feature, context, handler, dates: w.calendar320 })
       assertValues(values, w.expectedInputs50, w.symbol)
-      expect(buildSignals(feature), w.symbol).toEqual(w.sourceSignals)
+      // sourceSignals는 동결한 v2 연구 자료다. 원시 50입력/모델 예측과 유지한 5항목을 대조한다.
+      const sourceCategories = Object.fromEntries(Object.entries(w.sourceSignals)
+        .filter(([key]) => key !== 'volatility_score' && key !== 'overall_score'))
+      expect(buildSignals(feature), w.symbol).toMatchObject(sourceCategories)
       const prediction = scoreUtilityModel(FROZEN_COMPOSITE_UTILITY_MODEL, values)
       expect(prediction.utility, w.symbol).toBeCloseTo(w.expectedPrediction, 14)
       expect(prediction.score, w.symbol).toBe(w.expectedRoundedScore)
