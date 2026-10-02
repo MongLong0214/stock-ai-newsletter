@@ -351,7 +351,7 @@ describe('production stock pick generator', () => {
     expect(ranking[0]!.score).toBeGreaterThan(ranking[1]!.score)
     for (const pick of result.picks) {
       const candidate = result.meta.rankedCandidates.find(({ symbol }) => symbol === pick.ticker)!
-      expect(pick.signals).toEqual({ ...buildSignals(candidate), overall_score: candidate.score })
+      expect(pick.signals).toEqual(buildSignals(candidate, candidate.score))
       expect(candidate.score).toBe(normalizeUtilityScore(FROZEN_COMPOSITE_UTILITY_MODEL.normalization, candidate.utility!))
     }
     expect(result.meta.rankedCandidates.map(({ score }) => score)).toEqual(

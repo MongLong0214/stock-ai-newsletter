@@ -145,6 +145,18 @@ cfd801e의 [CI36803250538](https://github.com/MongLong0214/stock-ai-newsletter/a
 
 [최종 실제 Prepare36803261525](https://github.com/MongLong0214/stock-ai-newsletter/actions/runs/36803261525)는 10/1 11:17 KST에 성공했다. 실행 SHA cfd801e·signal9/30·target10/1·v4.2·hash `fa9f1666…`가 snapshot과 일치했고 엑스게이트73·진영73·아스플로72를 종합점수·동점 거래대금 순으로 선정했다. active2,433→fresh2,432→complete2,400→gate951→3개, KIS2,434호출 중2,433성공·누락1개(KOSDAQ:468670의 empty 응답)·exact-date99.9589%·가격17,020행 갱신·총22분58.300초다. dry-run의 뉴스레터·픽 스냅샷 저장 및 발송은 생략했고 마스터·일봉 갱신은 실제 실행했다. 저장 전 시장 판정을 다시 평가해 NORMAL이었지만 야간선물 stale로 데이터 상태는 degraded90이며 안전성 보증이 아니다. 실제 아티팩트는 `/tmp/stock-normalization-independent-20261001/smooth-final-real-prepare/`에 있다. 10/2는 기존 거래일 함수에서 거래일이며 Prepare06:10/Send07:27 KST의 main 참조를 확인했다.
 
+## 10/2 변동성 0점 붕괴 수정
+
+실제 발송된 [Prepare36926865586](https://github.com/MongLong0214/stock-ai-newsletter/actions/runs/36926865586)의 signal10/1·target10/2 후보는 빛샘전자072950(ATR9.9436%, 종합74), 진영285800(ATR10.4998%, 종합72), 아이씨티케이456010(ATR8.4521%, 종합71)이었고 변동성은 모두0이었다. 기존 `round(clamp(100-20*abs(ATR%-3),0,100))`가 ATR3%를 최적으로 취급하고 ATR8% 이상을 전부0으로 지우는 것이 원인이다. 급등 종합 모델과 맞지 않는 세부 산식을 남긴 결함이었다.
+
+변동성은 관측 가격 변동폭의 강도로 정의하고 `round(100/(1+5.221735562010756/ATR%))`로 변경했다. ATR0은0, 결측·비유한·음수는50이다. 기준값은 같은421일·506,470건 strict matured TRAIN의 날짜 동일 가중 중앙값이며 마지막 signal9/18·라벨 성숙9/29·입력 hash `7e390305a071d6dbb57d9b3800eb880b5ca6abcb066347f6f4fe12340bcc9ed2`가 종합 모델 학습과 일치한다. 성과 탐색·당일 후보 순위·점수 하한 보너스를 사용하지 않았다. 새 학습도 하지 않았다.
+
+오늘 전체 피처를 실제 TypeScript에 넣은 결과 변동성은 **빛샘전자66·진영67·아이씨티케이62**이며 다른5개 항목과 종합74·72·71은 동일하다. 506,470건 전수 적용에서 기존0점93,665건→새0점0건, 관측9~89점·81개 점수·ATR 증가에 대한 단조성을 확인했다. 기존 ATR≥8%만92,749건(날짜 가중18.1344%)이었다. 새 점수는 상승 확률이나 손실 위험 점수가 아니며 추천 성능 개선 증거로 해석하지 않는다. 선정용50입력·모델·종합점수 환산·정수점수 정렬은 그대로다. 발행·저장 검증은 `buildSignals(feature, selectedOverallScore)`로 선정 종합점수를 명시적으로 결속한다. 미전달 가중 기술점수 경로는 남았으나 현재 비테스트 호출자는 발행과 저장검증 두 곳이며 둘 다 모델 점수를 전달한다.
+
+수정 전 회귀9개 실패를 확인한 뒤 집중162개·전체367파일/4,229테스트, app/scripts 타입검사·변경파일 lint·프로덕션 build·diff check가 통과했다. 수집→실제 피처→모델선정→뉴스레터 저장 E2E에 ATR8% 초과 후보를 추가했다. UI·제품 문구·Summary·rationale와 선정 모델 파일은 동일하다. 운영 식별자는 `technical-signals-v3-2026-10-02`, `v4.3-2026-10-02`, hash `acbf4d9e2d036d7e00a1e9811bc75783e395d39a1f49f5856ef21dad68ace8e7`이다. 검산 원본은 `/tmp/stock-volatility-reference-20261002.py`, `/tmp/stock-volatility-history-20261002.py`, `/tmp/check-stock-volatility-20261002.ts`, 결과는 `/tmp/stock-volatility-actual-history-20261002.json`이다. 원시 데이터와 로그는 Git에 넣지 않는다. 오늘 이미 발송된 저장본·메일은 수정하지 않는다.
+
+[PR220](https://github.com/MongLong0214/stock-ai-newsletter/pull/220)의 코드 SHA `3e84ac0c2278f0afba71f4e0ac8ee516aebc4577`로 실행한 [실제 Prepare36946710450](https://github.com/MongLong0214/stock-ai-newsletter/actions/runs/36946710450)가 성공했다. signal10/1·target10/2·v4.3/hashacbf4d9e가 snapshot과 일치했고 출력 로그에서 변동성66·67·62, summary에서 종합74·72·71을 확인했다. active2,432→fresh2,432→complete2,396→gate900→3개, KIS2,433호출 모두 성공·exact-date100%·가격17,016행 갱신·총24분20.300초다. 뉴스레터·픽 스냅샷 저장 및 발송은 생략했고 마스터·가격 갱신은 실제 수행했다. 실행 전후 오늘 발송본의 내용 hash `6a3afe34faca79c356c9573b1ed15f122bac031834cad533a677df2e8bb7e16c`·sent_at·is_sent가 동일했다. 저장 전 시장 재평가NORMAL·데이터degraded90(야간선물stale)이었고 보조 Serp 이벤트 조회에 초기geopolitics·최종financialInstitutionFailure 타임아웃이 남았다. 실행 성공을 추천 품질이나 시장 안전성 증거로 쓰지 않는다. 아티팩트는 `/tmp/stock-volatility-pr220-real-prepare-20261002/`에 있다. 같은 코드 SHA의 GitHub CI36946703927도4,229테스트·전체lint·app/scripts 타입검사를 통과했다. cron의main참조와 다음 거래일10/6을 확인했다.
+
 ## 남긴 구현과 검증 근거
 
 - 코드: `scripts/stock-picks/observed-inputs.ts`, `utility-model.ts`, `production-strategy.ts`, `generate-picks.ts`, `strategies.ts`와 Prepare 저장 전 점수 결속. 원18+가격·거래량 지속/수축·압축·낙폭/회복·다기간 구조32입력이다. 6항목 기술점수는 유지한다.

@@ -1,7 +1,18 @@
 import type { StockSignals } from '@/lib/llm/_types/stock-data'
 import type { StockFeatureVector } from '@/scripts/stock-picks/features'
 
-export const SIGNAL_SCORE_VERSION = 'technical-signals-v2-2026-09-30'
+export const SIGNAL_SCORE_VERSION = 'technical-signals-v3-2026-10-02'
+
+/** 종합 모델과 같은 성숙 KIS 학습 표본. 날짜별 동일 가중 중앙값을 고정해 사용한다. */
+export const VOLATILITY_SCORE_REFERENCE = {
+  referenceAtrPercent14: 5.221735562010756,
+  referenceRows: 506470,
+  referencePanels: 421,
+  referenceThrough: '2026-09-29',
+  referenceLastSignal: '2026-09-18',
+  weighting: 'equal signal date, strict matured training rows',
+  fitInputSha256: '7e390305a071d6dbb57d9b3800eb880b5ca6abcb066347f6f4fe12340bcc9ed2',
+} as const
 
 const clamp = (value: number, minimum: number, maximum: number): number => (
   Math.min(maximum, Math.max(minimum, value))
@@ -21,10 +32,15 @@ const centeredScore = (value: number | null, fullScale: number): number => (
 )
 
 /**
- * 레거시 7개 카테고리를 전부 관측 기술지표로만 산출한다.
+ * 6개 카테고리는 관측 기술지표이며 변동성은 가격 변동폭의 강도다.
+ * 발행 종합점수는 선정 모델의 점수를 명시적으로 전달한다.
+ * 미전달 시 가중 기술점수는 기존 연구/섀도우 경로에서만 사용한다.
  * sentiment_score도 뉴스/LLM 감성이 아니라 가격 위치·추세·연속상승의 수급심리 대용치다.
  */
-export function buildSignals(feature: StockFeatureVector): StockSignals {
+export function buildSignals(feature: StockFeatureVector, selectedOverallScore?: number): StockSignals {
+  if (selectedOverallScore !== undefined && (
+    !Number.isInteger(selectedOverallScore) || selectedOverallScore < 0 || selectedOverallScore > 100
+  )) throw new Error('선정 모델 종합 점수 불일치')
   const sma60Distance = isPositiveFinite(feature.close) && isPositiveFinite(feature.sma60)
     ? (feature.close / feature.sma60 - 1) * 100
     : null
@@ -67,9 +83,11 @@ export function buildSignals(feature: StockFeatureVector): StockSignals {
     centeredScore(feature.volumeRatio20 === null ? null : feature.volumeRatio20 - 1, 2),
     centeredScore(obvAverageVolume, 0.5),
   ]))
-  const volatilityScore = feature.atrPercent14 === null || !Number.isFinite(feature.atrPercent14)
+  const volatilityScore = feature.atrPercent14 === null || !Number.isFinite(feature.atrPercent14) || feature.atrPercent14 < 0
     ? 50
-    : clampScore(100 - Math.abs(feature.atrPercent14 - 3) * 20)
+    : feature.atrPercent14 === 0 ? 0
+      // 학습 중앙값=50. 큰 ATR을 0으로 자르거나 종목별 최근 순위로 보정하지 않는다.
+      : clampScore(100 / (1 + VOLATILITY_SCORE_REFERENCE.referenceAtrPercent14 / feature.atrPercent14))
   const patternScore = clampScore(average([
     centeredScore(feature.distanceFromHigh60, 5),
     feature.bullishCandle === null ? 50 : feature.bullishCandle ? 70 : 30,
@@ -97,6 +115,6 @@ export function buildSignals(feature: StockFeatureVector): StockSignals {
     volatility_score: volatilityScore,
     pattern_score: patternScore,
     sentiment_score: sentimentScore,
-    overall_score: overallScore,
+    overall_score: selectedOverallScore ?? overallScore,
   }
 }

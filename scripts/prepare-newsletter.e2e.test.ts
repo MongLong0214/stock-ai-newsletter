@@ -250,6 +250,29 @@ describe('Prepare boundary-isolated E2E', () => {
   })
   afterEach(() => { vi.useRealTimers(); vi.unstubAllEnvs(); vi.unstubAllGlobals(); vi.restoreAllMocks() })
 
+  it('preserves volatility strength above 8 percent ATR through collection, model ranking and newsletter persistence', async () => {
+    state.rows = state.rows.map(row => {
+      if (row.symbol === 'KOSPI') return row
+      const spread = Math.round(row.close * (0.04 + Number(row.symbol.slice(-2)) * 0.0003))
+      return { ...row, high: Math.max(row.open!, row.close) + spread, low: Math.min(row.open!, row.close) - spread }
+    })
+    const cutoff = state.rows.filter(row => row.symbol === 'KOSPI').at(-7)!.trade_date
+    state.stored = new Map(state.rows.filter(row => row.trade_date < cutoff)
+      .map(row => [`${row.symbol}|${row.trade_date}`, row]))
+    expect(await runPrepareNewsletterCli([`--target-date=${TARGET}`])).toBe(0)
+    const picks = JSON.parse(String(state.newsletter?.gemini_analysis)) as StockData[]
+    expect(picks).toHaveLength(3)
+    expect(state.newsletter?.picks_source).toBe('code')
+    for (const [index, candidate] of state.generated!.meta.rankedCandidates.slice(0, 3).entries()) {
+      expect(candidate.atrPercent14).toBeGreaterThan(8)
+      expect(picks[index]!.signals.volatility_score).toBeGreaterThan(50)
+      expect(picks[index]!.signals.volatility_score).toBeLessThan(100)
+      expect(picks[index]!.signals).toEqual(buildSignals(candidate, candidate.score))
+      expect(picks[index]!.signals.overall_score).toBe(candidate.score)
+    }
+    expect(state.snapshots[0]!.parameters_hash).toBe(PRODUCTION_STRATEGY.parametersHash)
+  })
+
   it('collects finalized candles, calculates real features, ranks 3 and saves matching snapshot/newsletter', async () => {
     expect(await runPrepareNewsletterCli([`--target-date=${TARGET}`])).toBe(0)
     const picks = JSON.parse(String(state.newsletter?.gemini_analysis)) as StockData[]
@@ -299,7 +322,7 @@ describe('Prepare boundary-isolated E2E', () => {
       const predicted = scoreUtilityModel(FROZEN_COMPOSITE_UTILITY_MODEL, inputs)
       expect(candidate.utility).toBe(predicted.utility)
       expect(candidate.score).toBe(predicted.score)
-      expect(picks[pickIndex]!.signals).toEqual({ ...buildSignals(candidate), overall_score: predicted.score })
+      expect(picks[pickIndex]!.signals).toEqual(buildSignals(candidate, predicted.score))
       expect(candidate.score).toBeGreaterThanOrEqual(0)
       expect(candidate.score).toBeLessThanOrEqual(100)
       expect(Number.isInteger(candidate.score)).toBe(true)

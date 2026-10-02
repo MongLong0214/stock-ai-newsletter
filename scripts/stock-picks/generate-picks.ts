@@ -555,7 +555,7 @@ export async function generatePicksWithMeta(input: {
       name: master.name,
       close_price: feature.close,
       rationale: buildAnalysisSummary(feature, technicalContexts?.get(symbol)),
-      signals: { ...buildSignals(feature), overall_score: score },
+      signals: buildSignals(feature, score),
       selection: {
         strategy: PRODUCTION_STRATEGY.name,
         rank: rank as 1 | 2 | 3,

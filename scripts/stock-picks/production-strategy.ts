@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto'
 import { BULLISH_TARGET_PARAMETERS, LOW_VOLATILITY_STABLE_PARAMETERS, UTILITY_LOCKED_DOWN_RULE, type VolumeBreakoutParameters } from '@/scripts/stock-picks/strategies'
 import frozenTargetModel from '@/scripts/stock-picks/models/bullish-target-v3.json'
 import type { TargetModelArtifact } from '@/scripts/stock-picks/target-model'
-import { SIGNAL_SCORE_VERSION } from '@/scripts/stock-picks/signals'
+import { SIGNAL_SCORE_VERSION, VOLATILITY_SCORE_REFERENCE } from '@/scripts/stock-picks/signals'
 import frozenUtilityModel from '@/scripts/stock-picks/models/composite-utility-v1.json'
 import { MODEL_MARKET_SOURCE_VERSION, OBSERVED_INPUT_VERSION } from '@/scripts/stock-picks/observed-inputs'
 import { UTILITY_SCORE_VERSION, validateUtilityModel, type UtilityModelArtifact } from '@/scripts/stock-picks/utility-model'
@@ -90,7 +90,7 @@ export const FROZEN_COMPOSITE_UTILITY_MODEL = validateUtilityModel(frozenUtility
 
 export const PRODUCTION_STRATEGY = {
   name: 'compositeUtility',
-  version: 'v4.2-2026-10-01',
+  version: 'v4.3-2026-10-02',
   objective: 'compositeUtility',
   parameters: LOW_VOLATILITY_STABLE_PARAMETERS,
   parametersHash: hashCanonicalJson({
@@ -98,6 +98,7 @@ export const PRODUCTION_STRATEGY = {
     gateVersion: 'status-flags-valid-candle-v2',
     preferredRule: 'krx-code-last-digit-nonzero',
     signalScoreVersion: SIGNAL_SCORE_VERSION,
+    volatilityScoreReference: VOLATILITY_SCORE_REFERENCE,
     observedInputVersion: OBSERVED_INPUT_VERSION,
     modelMarketSourceVersion: MODEL_MARKET_SOURCE_VERSION,
     utilityScoreVersion: UTILITY_SCORE_VERSION,

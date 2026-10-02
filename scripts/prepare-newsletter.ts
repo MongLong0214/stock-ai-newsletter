@@ -268,10 +268,7 @@ async function runNewsletterPipeline(input: {
           || selected[index]?.name !== pick.name
           || selected[index]?.close !== pick.close_price
           || selected[index]?.score !== pick.signals.overall_score
-          || canonicalJson(pick.signals) !== canonicalJson({
-            ...buildSignals(selected[index]!),
-            overall_score: selected[index]!.score,
-          })
+          || canonicalJson(pick.signals) !== canonicalJson(buildSignals(selected[index]!, selected[index]!.score))
         ))) {
         throw new Error('Prepare 코드 픽과 선정 모델/스냅샷 불일치')
       }

@@ -13,7 +13,7 @@ import {
 } from '@/scripts/stock-picks/production-strategy'
 import { BULLISH_TARGET_PARAMETERS, LOW_VOLATILITY_STABLE_PARAMETERS, UTILITY_LOCKED_DOWN_RULE } from '@/scripts/stock-picks/strategies'
 import { UTILITY_SCORE_VERSION } from '@/scripts/stock-picks/utility-model'
-import { SIGNAL_SCORE_VERSION } from '@/scripts/stock-picks/signals'
+import { SIGNAL_SCORE_VERSION, VOLATILITY_SCORE_REFERENCE } from '@/scripts/stock-picks/signals'
 import { MODEL_MARKET_SOURCE_VERSION, OBSERVED_INPUT_VERSION } from '@/scripts/stock-picks/observed-inputs'
 import { addKoreanTradingDays } from '@/lib/tli/trading-calendar'
 
@@ -57,11 +57,11 @@ describe('frozen production strategy artifact', () => {
   })
 
   it('identifies the whole composite utility model, fixed score reference, locked-down rule and market source contract', () => {
-    expect(SIGNAL_SCORE_VERSION).toBe('technical-signals-v2-2026-09-30')
+    expect(SIGNAL_SCORE_VERSION).toBe('technical-signals-v3-2026-10-02')
     expect(MODEL_MARKET_SOURCE_VERSION).toBe('kis-market-21-20-v1')
     expect(PRODUCTION_STRATEGY).toEqual({
       name: 'compositeUtility',
-      version: 'v4.2-2026-10-01',
+      version: 'v4.3-2026-10-02',
       objective: 'compositeUtility',
       parameters: LOW_VOLATILITY_STABLE_PARAMETERS,
       parametersHash: hashCanonicalJson({
@@ -69,6 +69,7 @@ describe('frozen production strategy artifact', () => {
         gateVersion: 'status-flags-valid-candle-v2',
         preferredRule: 'krx-code-last-digit-nonzero',
         signalScoreVersion: SIGNAL_SCORE_VERSION,
+        volatilityScoreReference: VOLATILITY_SCORE_REFERENCE,
         observedInputVersion: OBSERVED_INPUT_VERSION,
         modelMarketSourceVersion: MODEL_MARKET_SOURCE_VERSION,
         utilityScoreVersion: UTILITY_SCORE_VERSION,
@@ -78,7 +79,14 @@ describe('frozen production strategy artifact', () => {
     })
     expect(PRODUCTION_STRATEGY.parameters).toBe(LOW_VOLATILITY_STABLE_STRATEGY.parameters)
     expect(PRODUCTION_STRATEGY.parametersHash).not.toBe(LOW_VOLATILITY_STABLE_STRATEGY.parametersHash)
-    expect(PRODUCTION_STRATEGY.parametersHash).toBe('fa9f1666db9b5b7a5bf4d19b4d122547ab8b5b732b230452661a687165cf86cc')
+    expect(PRODUCTION_STRATEGY.parametersHash).toBe('acbf4d9e2d036d7e00a1e9811bc75783e395d39a1f49f5856ef21dad68ace8e7')
+    const reference = FROZEN_COMPOSITE_UTILITY_MODEL.normalization
+    expect(VOLATILITY_SCORE_REFERENCE).toMatchObject({
+      referenceAtrPercent14: 5.221735562010756,
+      referenceRows: reference.referenceRows, referencePanels: reference.referencePanels,
+      referenceThrough: reference.referenceThrough, referenceLastSignal: reference.referenceLastSignal,
+      weighting: reference.weighting, fitInputSha256: reference.fitInputSha256,
+    })
     expect(FROZEN_COMPOSITE_UTILITY_MODEL.trainedLabelsThrough).toBe('2026-09-29')
     expect(FROZEN_COMPOSITE_UTILITY_MODEL).toMatchObject({
       schemaVersion: 3, modelVersion: 'composite-utility-v3', normalization: {
@@ -112,12 +120,15 @@ describe('frozen production strategy artifact', () => {
       signalScoreVersion: SIGNAL_SCORE_VERSION, observedInputVersion: OBSERVED_INPUT_VERSION,
       modelMarketSourceVersion: MODEL_MARKET_SOURCE_VERSION,
       utilityScoreVersion: UTILITY_SCORE_VERSION, lockedDownRule: UTILITY_LOCKED_DOWN_RULE,
+      volatilityScoreReference: VOLATILITY_SCORE_REFERENCE,
       model: FROZEN_COMPOSITE_UTILITY_MODEL,
     }
     expect(PRODUCTION_STRATEGY.parametersHash).not.toBe(hashCanonicalJson({ ...contract,
       utilityScoreVersion: 'utility-reference-z10-v1' }))
     expect(PRODUCTION_STRATEGY.parametersHash).not.toBe(hashCanonicalJson({ ...contract,
       lockedDownRule: { ...UTILITY_LOCKED_DOWN_RULE, maxPreviousCloseReturn: -0.30 } }))
+    expect(PRODUCTION_STRATEGY.parametersHash).not.toBe(hashCanonicalJson({ ...contract,
+      volatilityScoreReference: { ...VOLATILITY_SCORE_REFERENCE, referenceAtrPercent14: 3 } }))
     expect(PRODUCTION_STRATEGY.parametersHash).not.toBe(hashCanonicalJson({ ...contract,
       model: { ...FROZEN_COMPOSITE_UTILITY_MODEL, normalization: {
         ...FROZEN_COMPOSITE_UTILITY_MODEL.normalization, mean: 0.4,

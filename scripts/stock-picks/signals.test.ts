@@ -46,6 +46,46 @@ const feature = (overrides: Partial<StockFeatureVector> = {}): StockFeatureVecto
 })
 
 describe('observed stock signal scores', () => {
+  it('retains high-volatility information in the three actual 2026-10-02 picks', () => {
+    const cases = [
+      { symbol: 'KOSDAQ:072950', atrPercent14: 9.943637990328707, overall: 74, volatility: 66 },
+      { symbol: 'KOSDAQ:285800', atrPercent14: 10.499807347656692, overall: 72, volatility: 67 },
+      { symbol: 'KOSDAQ:456010', atrPercent14: 8.452108773308932, overall: 71, volatility: 62 },
+    ]
+    for (const row of cases) {
+      const signals = buildSignals(feature({ symbol: row.symbol, atrPercent14: row.atrPercent14 }), row.overall)
+      expect(signals.volatility_score, row.symbol).toBe(row.volatility)
+      expect(signals.overall_score, row.symbol).toBe(row.overall)
+    }
+  })
+
+  it('orders price-range strength without an artificial drop at 3 or 8 percent ATR', () => {
+    const levels = [0, 1, 3, 5.221735562010756, 7.99, 8, 8.01, 10, 15, 30]
+    const scores = levels.map(atrPercent14 => buildSignals(feature({ atrPercent14 })).volatility_score)
+    expect(scores[0]).toBe(0)
+    expect(scores[3]).toBe(50)
+    expect(scores).toEqual([...scores].sort((a, b) => a - b))
+    expect(new Set(scores.slice(7)).size).toBe(3)
+    expect(scores.at(-1)).toBeLessThan(100)
+  })
+
+  it.each([-1, Number.NaN, Number.POSITIVE_INFINITY])('keeps invalid ATR observations neutral (%s)', atrPercent14 => {
+    expect(buildSignals(feature({ atrPercent14 })).volatility_score).toBe(50)
+  })
+
+  it('uses the selected model score explicitly without changing it when category observations change', () => {
+    const low = buildSignals(feature({ atrPercent14: 1 }), 74)
+    const high = buildSignals(feature({ atrPercent14: 10 }), 74)
+    expect(high.volatility_score).toBeGreaterThan(low.volatility_score)
+    expect(low.overall_score).toBe(74)
+    expect(high.overall_score).toBe(74)
+    expect(high).toMatchObject({ ...low, volatility_score: high.volatility_score })
+  })
+
+  it.each([-1, 101, 74.5, Number.NaN, Number.POSITIVE_INFINITY])('rejects an invalid selected model score (%s)', score => {
+    expect(() => buildSignals(feature(), score)).toThrow(/종합 점수/)
+  })
+
   it('preserves the generator export and seven integer score fields', () => {
     expect(generatorBuildSignals).toBe(buildSignals)
     const scores = buildSignals(feature())
