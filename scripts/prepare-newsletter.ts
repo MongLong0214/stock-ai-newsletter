@@ -333,6 +333,7 @@ type NewsletterClient = ReturnType<typeof createNewsletterClient>
 interface ExistingNewsletterRow {
   readonly is_sent: boolean
   readonly picks_source: string | null
+  readonly sending_started_at: string | null
 }
 
 const readNewsletter = async (
@@ -341,7 +342,7 @@ const readNewsletter = async (
 ): Promise<ExistingNewsletterRow | null> => {
   const { data, error } = await client
     .from('newsletter_content')
-    .select('is_sent, picks_source')
+    .select('is_sent, picks_source, sending_started_at')
     .eq('newsletter_date', targetDate)
     .maybeSingle()
   if (error) throw new Error(`Database error: ${error.message}`)
@@ -358,25 +359,26 @@ const writeNewsletterWithCas = async (input: {
     readonly picks_source: PicksSource
     readonly created_at: string
   }
-}): Promise<'written' | 'already_sent'> => {
-  const updateUnsent = async (): Promise<'written' | 'missing' | 'already_sent'> => {
+}): Promise<'written' | 'preserved'> => {
+  const updateUnsent = async (): Promise<'written' | 'missing' | 'preserved'> => {
     const { data, error } = await input.client
       .from('newsletter_content')
       .update(input.payload)
       .eq('newsletter_date', input.targetDate)
       .eq('is_sent', false)
+      .is('sending_started_at', null)
       .select('newsletter_date')
     if (error) throw new Error(`Database error: ${error.message}`)
     if ((data ?? []).length > 0) return 'written'
     const current = await readNewsletter(input.client, input.targetDate)
-    if (current?.is_sent) {
-      console.log(JSON.stringify({ event: 'prepare_write_skipped', reason: 'already_sent' }))
-      return 'already_sent'
+    if (current?.is_sent || current?.sending_started_at != null) {
+      console.log(JSON.stringify({ event: 'prepare_write_skipped', reason: current.is_sent ? 'already_sent' : 'sending_started' }))
+      return 'preserved'
     }
     return 'missing'
   }
 
-  const insertNew = async (): Promise<'written' | 'retry_update' | 'already_sent'> => {
+  const insertNew = async (): Promise<'written' | 'retry_update' | 'preserved'> => {
     const { error } = await input.client
       .from('newsletter_content')
       .insert(input.payload)
@@ -384,19 +386,19 @@ const writeNewsletterWithCas = async (input: {
     if (!error) return 'written'
     if (error.code !== '23505') throw new Error(`Database error: ${error.message}`)
     const current = await readNewsletter(input.client, input.targetDate)
-    if (current?.is_sent) {
-      console.log(JSON.stringify({ event: 'prepare_write_skipped', reason: 'already_sent' }))
-      return 'already_sent'
+    if (current?.is_sent || current?.sending_started_at != null) {
+      console.log(JSON.stringify({ event: 'prepare_write_skipped', reason: current.is_sent ? 'already_sent' : 'sending_started' }))
+      return 'preserved'
     }
     return 'retry_update'
   }
 
   if (input.existing) {
     const updated = await updateUnsent()
-    if (updated === 'written' || updated === 'already_sent') return updated
+    if (updated !== 'missing') return updated
   }
   const inserted = await insertNew()
-  if (inserted === 'written' || inserted === 'already_sent') return inserted
+  if (inserted !== 'retry_update') return inserted
   const updated = await updateUnsent()
   if (updated === 'missing') throw new Error('Database error: newsletter row disappeared during CAS retry')
   return updated
@@ -539,6 +541,12 @@ export async function prepareNewsletter(options: PrepareNewsletterOptions = {}):
     console.log('🛡️ 이미 발송된 뉴스레터 — 내용 보존')
     return
   }
+  // Retried sends may already have accepted recipients even after their lease expires.
+  // Keep every recipient, the archive and the pick evidence on the same content.
+  if (existingNewsletter?.sending_started_at != null) {
+    console.log(JSON.stringify({ event: 'prepare_skipped', reason: 'sending_started', targetDate }))
+    return
+  }
   if (options.backupRun && existingNewsletter?.picks_source === 'code') {
     console.log('🛡️ 이미 코드 픽 존재 — 백업 실행 건너뜀')
     return
@@ -640,7 +648,7 @@ export async function prepareNewsletter(options: PrepareNewsletterOptions = {}):
       created_at: new Date().toISOString(),
     },
   })
-  if (writeResult === 'already_sent') {
+  if (writeResult === 'preserved') {
     await emitPrepareSummary(summary)
     return
   }

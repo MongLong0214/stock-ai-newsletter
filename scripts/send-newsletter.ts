@@ -708,6 +708,14 @@ export async function runSendNewsletter(
     acquiredRepository = repository
     logger.log(JSON.stringify({ event: 'send_lease_acquired', targetDate, runId }))
 
+    // Prepare may replace the content between the initial read and lease acquisition.
+    // The lease freezes further Prepare writes; only send that protected snapshot.
+    const frozenContent = await repository.fetchContent(targetDate)
+    if (!contentIsReady(frozenContent) || frozenContent.is_sent || frozenContent.sending_owner !== runId) {
+      throw new Error(`Newsletter content for ${targetDate} is not owned by this sending run.`)
+    }
+    newsletterContent = frozenContent
+
     // A prior worker may have reached SendGrid before dying. Never auto-resend that ambiguous request.
     const staleSendingCount = await repository.markStaleSendingAsUnknown(
       targetDate,
