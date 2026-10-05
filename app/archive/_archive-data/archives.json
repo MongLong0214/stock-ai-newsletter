@@ -2,6 +2,74 @@
   "newsletters": [
     {
       "type": "stock",
+      "date": "2026-10-06",
+      "stocks": [
+        {
+          "ticker": "KOSDAQ:043260",
+          "name": "성호전자",
+          "close_price": 31200,
+          "rationale": "2026-10-02 종가 31,200원|전일 대비 +9.5% 상승|시가 대비 +4.7% 양봉|20일선 21,680원·종가 43.9% 위|60일선 19,189원·종가 62.6% 위|최근 5거래일 종가 +19.1%|최근 20거래일 종가 +88.2%|20거래일 KOSPI 대비 +81.5%p|직전 20거래일 장중 고점 28,700원·+8.7% 돌파|직전 60거래일 최고 종가 28,500원·+9.5% 돌파|거래량 20일 평균의 1.95배|최근 60거래일 중 거래량 상위 4.2%|당일 범위 종가 52.8%·윗꼬리 47.2%|ATR14 평균 변동폭 7.9%·약 2,451원(갭 포함)|RSI14 73.6 강세|MACD 모멘텀 +3.11%(종가 대비)|20일 평균 거래대금 추정 1165.3억원|52주(252거래일) 종가 범위 57.8% 위치(저점0·고점100)",
+          "signals": {
+            "trend_score": 98,
+            "momentum_score": 80,
+            "volume_score": 90,
+            "volatility_score": 60,
+            "pattern_score": 82,
+            "sentiment_score": 79,
+            "overall_score": 71
+          },
+          "selection": {
+            "strategy": "compositeUtility",
+            "rank": 1,
+            "objective": "compositeUtility"
+          }
+        },
+        {
+          "ticker": "KOSDAQ:052710",
+          "name": "아모텍",
+          "close_price": 20700,
+          "rationale": "2026-10-02 종가 20,700원|전일 대비 -4.2% 하락|시가 대비 -4.2% 음봉|20일선 15,822원·종가 30.8% 위|60일선 13,911원·종가 48.8% 위|최근 5거래일 종가 +9.4%|최근 20거래일 종가 +92.4%|20거래일 KOSPI 대비 +85.7%p|직전 20거래일 장중 고점 22,000원까지 +6.3%|직전 60거래일 최고 종가 21,600원까지 +4.3%|거래량 20일 평균의 0.49배|최근 60거래일 중 거래량 상위 30.8%|당일 범위 종가 20.8%·윗꼬리 4.2%|ATR14 평균 변동폭 7.7%·약 1,584원(갭 포함)|RSI14 71.6 강세|MACD 모멘텀 +2.67%(종가 대비)|20일 평균 거래대금 추정 195.4억원|52주(252거래일) 종가 범위 60.7% 위치(저점0·고점100)",
+          "signals": {
+            "trend_score": 99,
+            "momentum_score": 64,
+            "volume_score": 69,
+            "volatility_score": 59,
+            "pattern_score": 50,
+            "sentiment_score": 70,
+            "overall_score": 71
+          },
+          "selection": {
+            "strategy": "compositeUtility",
+            "rank": 2,
+            "objective": "compositeUtility"
+          }
+        },
+        {
+          "ticker": "KOSDAQ:032580",
+          "name": "피델릭스",
+          "close_price": 7420,
+          "rationale": "2026-10-02 종가 7,420원|전일 대비 -2.8% 하락|시가 대비 -5.0% 음봉|20일선 5,872원·종가 26.4% 위|60일선 4,896원·종가 51.6% 위|최근 5거래일 종가 +5.7%|최근 20거래일 종가 +61.5%|20거래일 KOSPI 대비 +54.8%p|직전 20거래일 장중 고점 8,300원까지 +11.9%|직전 60거래일 최고 종가 7,920원까지 +6.7%|거래량 20일 평균의 1.09배|최근 60거래일 중 거래량 상위 54.2%|당일 범위 종가 6.7%·윗꼬리 28.3%|ATR14 평균 변동폭 7.7%·약 569원(갭 포함)|RSI14 70.5 강세|MACD 모멘텀 +2.84%(종가 대비)|20일 평균 거래대금 추정 49.0억원|52주(252거래일) 종가 범위 86.3% 위치(저점0·고점100)",
+          "signals": {
+            "trend_score": 99,
+            "momentum_score": 64,
+            "volume_score": 64,
+            "volatility_score": 59,
+            "pattern_score": 54,
+            "sentiment_score": 79,
+            "overall_score": 70
+          },
+          "selection": {
+            "strategy": "compositeUtility",
+            "rank": 3,
+            "objective": "compositeUtility"
+          }
+        }
+      ],
+      "sentAt": "2026-10-05T22:30:58.169+00:00",
+      "subscriberCount": 325
+    },
+    {
+      "type": "stock",
       "date": "2026-10-02",
       "stocks": [
         {
@@ -12619,5 +12687,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-10-01T22:31:26.763Z"
+  "lastUpdated": "2026-10-05T22:31:35.427Z"
 }
