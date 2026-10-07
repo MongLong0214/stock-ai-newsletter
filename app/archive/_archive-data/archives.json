@@ -2,6 +2,74 @@
   "newsletters": [
     {
       "type": "stock",
+      "date": "2026-10-08",
+      "stocks": [
+        {
+          "ticker": "KOSDAQ:468530",
+          "name": "프로티나",
+          "close_price": 44000,
+          "rationale": "2026-10-07 종가 44,000원|전일 대비 -14.6% 하락|시가 대비 -9.7% 음봉|20일선 39,180원·종가 12.3% 위|60일선 31,573원·종가 39.4% 위|최근 5거래일 종가 -17.9%|최근 20거래일 종가 +43.1%|20거래일 KOSPI 대비 +41.3%p|직전 20거래일 장중 고점 56,200원까지 +27.7%|직전 60거래일 최고 종가 53,700원까지 +22.0%|거래량 20일 평균의 2.02배|최근 60거래일 중 거래량 상위 5.8%|당일 범위 종가 7.8%·윗꼬리 1.0%|ATR14 평균 변동폭 10.4%·약 4,574원(갭 포함)|RSI14 56.4 중립|MACD 모멘텀 +1.82%(종가 대비)|20일 평균 거래대금 추정 64.7억원|52주(252거래일) 종가 범위 29.3% 위치(저점0·고점100)",
+          "signals": {
+            "trend_score": 98,
+            "momentum_score": 59,
+            "volume_score": 90,
+            "volatility_score": 67,
+            "pattern_score": 40,
+            "sentiment_score": 60,
+            "overall_score": 73
+          },
+          "selection": {
+            "strategy": "compositeUtility",
+            "rank": 1,
+            "objective": "compositeUtility"
+          }
+        },
+        {
+          "ticker": "KOSDAQ:439960",
+          "name": "코스모로보틱스",
+          "close_price": 7010,
+          "rationale": "2026-10-07 종가 7,010원|전일 대비 -9.0% 하락|시가 대비 -9.1% 음봉|20일선 10,688원·종가 34.4% 아래|60일선 13,199원·종가 46.9% 아래|최근 5거래일 종가 -34.7%|최근 20거래일 종가 -44.6%|20거래일 KOSPI 대비 -46.3%p|직전 20거래일 장중 고점 13,500원까지 +92.6%|직전 60거래일 최고 종가 19,000원까지 +171.0%|거래량 20일 평균의 0.69배|최근 60거래일 중 거래량 상위 42.5%|당일 범위 종가 1.4%·윗꼬리 4.1%|ATR14 평균 변동폭 15.7%·약 1,102원(갭 포함)|RSI14 24.1 약세|MACD 모멘텀 -4.52%(종가 대비)|20일 평균 거래대금 추정 225.5억원|최근 101거래일 종가 범위 0.0% 위치(저점0·고점100)",
+          "signals": {
+            "trend_score": 4,
+            "momentum_score": 27,
+            "volume_score": 60,
+            "volatility_score": 75,
+            "pattern_score": 20,
+            "sentiment_score": 33,
+            "overall_score": 71
+          },
+          "selection": {
+            "strategy": "compositeUtility",
+            "rank": 2,
+            "objective": "compositeUtility"
+          }
+        },
+        {
+          "ticker": "KOSDAQ:047920",
+          "name": "HLB제약",
+          "close_price": 12570,
+          "rationale": "2026-10-07 종가 12,570원|전일 대비 -3.4% 하락|시가 대비 +1.9% 양봉|20일선 8,493원·종가 48.0% 위|60일선 8,112원·종가 54.9% 위|최근 5거래일 종가 +4.5%|최근 20거래일 종가 +59.7%|20거래일 KOSPI 대비 +58.0%p|직전 20거래일 장중 고점 13,100원까지 +4.2%|직전 60거래일 최고 종가 13,010원까지 +3.5%|거래량 20일 평균의 3.47배|최근 60거래일 중 거래량 상위 5.8%|당일 범위 종가 26.1%·윗꼬리 73.9%|ATR14 평균 변동폭 8.9%·약 1,123원(갭 포함)|RSI14 68.0 강세|MACD 모멘텀 +4.73%(종가 대비)|20일 평균 거래대금 추정 133.5억원|52주(252거래일) 종가 범위 50.7% 위치(저점0·고점100)",
+          "signals": {
+            "trend_score": 96,
+            "momentum_score": 71,
+            "volume_score": 83,
+            "volatility_score": 63,
+            "pattern_score": 59,
+            "sentiment_score": 67,
+            "overall_score": 71
+          },
+          "selection": {
+            "strategy": "compositeUtility",
+            "rank": 3,
+            "objective": "compositeUtility"
+          }
+        }
+      ],
+      "sentAt": "2026-10-07T22:31:08.848+00:00",
+      "subscriberCount": 326
+    },
+    {
+      "type": "stock",
       "date": "2026-10-07",
       "stocks": [
         {
@@ -12755,5 +12823,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-10-06T22:32:03.818Z"
+  "lastUpdated": "2026-10-07T22:31:52.021Z"
 }
