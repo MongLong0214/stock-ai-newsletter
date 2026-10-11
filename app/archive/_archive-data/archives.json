@@ -2,6 +2,74 @@
   "newsletters": [
     {
       "type": "stock",
+      "date": "2026-10-12",
+      "stocks": [
+        {
+          "ticker": "KOSDAQ:087010",
+          "name": "펩트론",
+          "close_price": 91500,
+          "rationale": "2026-10-08 종가 91,500원|전일 대비 -29.9% 하락|시가 대비 -6.9% 음봉|20일선 140,300원·종가 34.8% 아래|60일선 150,492원·종가 39.2% 아래|최근 5거래일 종가 -30.5%|최근 20거래일 종가 -42.9%|20거래일 KOSPI 대비 -37.6%p|직전 20거래일 장중 고점 167,500원까지 +83.1%|직전 60거래일 최고 종가 196,700원까지 +115.0%|거래량 20일 평균의 2.78배|최근 60거래일 중 거래량 상위 7.5%|당일 범위 종가 0.0%·윗꼬리 10.5%|ATR14 평균 변동폭 14.8%·약 13,556원(갭 포함)|RSI14 27.4 약세|MACD 모멘텀 -3.69%(종가 대비)|20일 평균 거래대금 추정 285.9억원|52주(252거래일) 종가 범위 0.0% 위치(저점0·고점100)",
+          "signals": {
+            "trend_score": 7,
+            "momentum_score": 28,
+            "volume_score": 75,
+            "volatility_score": 74,
+            "pattern_score": 8,
+            "sentiment_score": 17,
+            "overall_score": 82
+          },
+          "selection": {
+            "strategy": "compositeUtility",
+            "rank": 1,
+            "objective": "compositeUtility"
+          }
+        },
+        {
+          "ticker": "KOSDAQ:365660",
+          "name": "레몬헬스케어",
+          "close_price": 3490,
+          "rationale": "2026-10-08 종가 3,490원|전일 대비 -4.9% 하락|시가 대비 -6.4% 음봉|20일선 4,347원·종가 19.7% 아래|60일선 5,159원·종가 32.3% 아래|최근 5거래일 종가 -15.3%|최근 20거래일 종가 -24.9%|20거래일 KOSPI 대비 -19.6%p|직전 20거래일 장중 고점 5,550원까지 +59.0%|직전 60거래일 최고 종가 9,850원까지 +182.2%|거래량 20일 평균의 0.34배|최근 60거래일 중 거래량 상위 94.2%|당일 범위 종가 3.9%·윗꼬리 2.0%|ATR14 평균 변동폭 10.9%·약 381원(갭 포함)|RSI14 25.5 약세|MACD 모멘텀 -1.13%(종가 대비)|20일 평균 거래대금 추정 38.7억원|최근 64거래일 종가 범위 0.0% 위치(저점0·고점100)",
+          "signals": {
+            "trend_score": 3,
+            "momentum_score": 33,
+            "volume_score": 29,
+            "volatility_score": 68,
+            "pattern_score": 20,
+            "sentiment_score": 33,
+            "overall_score": 81
+          },
+          "selection": {
+            "strategy": "compositeUtility",
+            "rank": 2,
+            "objective": "compositeUtility"
+          }
+        },
+        {
+          "ticker": "KOSDAQ:397030",
+          "name": "에이프릴바이오",
+          "close_price": 14560,
+          "rationale": "2026-10-08 종가 14,560원|전일 대비 -7.6% 하락|시가 대비 -4.3% 음봉|20일선 17,703원·종가 17.8% 아래|60일선 21,514원·종가 32.3% 아래|최근 5거래일 종가 -27.9%|최근 20거래일 종가 -19.9%|20거래일 KOSPI 대비 -14.6%p|직전 20거래일 장중 고점 21,450원까지 +47.3%|직전 60거래일 최고 종가 30,650원까지 +110.5%|거래량 20일 평균의 1.39배|최근 60거래일 중 거래량 상위 12.5%|당일 범위 종가 6.0%·윗꼬리 14.5%|ATR14 평균 변동폭 9.9%·약 1,447원(갭 포함)|RSI14 32.8 약세|MACD 모멘텀 -0.51%(종가 대비)|20일 평균 거래대금 추정 48.7억원|52주(252거래일) 종가 범위 0.0% 위치(저점0·고점100)",
+          "signals": {
+            "trend_score": 23,
+            "momentum_score": 39,
+            "volume_score": 63,
+            "volatility_score": 66,
+            "pattern_score": 8,
+            "sentiment_score": 31,
+            "overall_score": 80
+          },
+          "selection": {
+            "strategy": "compositeUtility",
+            "rank": 3,
+            "objective": "compositeUtility"
+          }
+        }
+      ],
+      "sentAt": "2026-10-11T22:31:02.701+00:00",
+      "subscriberCount": 326
+    },
+    {
+      "type": "stock",
       "date": "2026-10-08",
       "stocks": [
         {
@@ -12823,5 +12891,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-10-07T22:31:52.021Z"
+  "lastUpdated": "2026-10-11T22:31:42.214Z"
 }
