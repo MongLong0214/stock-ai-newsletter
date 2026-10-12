@@ -117,7 +117,7 @@ uv run --script scripts/stock-picks/train-composite-utility.py --features "$EXPO
 ## 코드 검증
 
 - 전체 Vitest 368파일/4,239테스트 통과. Python 목표 테스트 5건도 실제 실행된다.
-- Prepare E2E 42건은 실제 collector·모델·선정·검증·CAS 저장·메일 렌더링을 연결하고 외부 provider/storage만 메모리로 대체한다.
+- Prepare E2E 45건은 실제 collector·모델·선정·검증·CAS 저장·메일 렌더링을 연결하고 외부 provider/storage만 메모리로 대체한다.
 - 루트/scripts TypeScript 통과, ESLint 오류0·기존 경고15건, Next 프로덕션 빌드 통과(로컬 Node25.6.1).
 - 모델 identity, 두 head의 누락·잘못된 버전·연결·결측 분기, 학습 cutoff, 점수 환산, 선정 tie-break와 source gate를 확인했다.
 - 학습 cutoff 변경에 맞춰 테스트 날짜를 이후 거래일로 옮겼다. 기존 source-provenance 회귀의 고정 점수3곳은 새 모델 실제 결과로 갱신했다.
