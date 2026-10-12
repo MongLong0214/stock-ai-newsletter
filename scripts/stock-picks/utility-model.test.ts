@@ -4,7 +4,7 @@ import { OBSERVED_INPUT_NAMES, OBSERVED_INPUT_VERSION } from '@/scripts/stock-pi
 import parity from '@/scripts/stock-picks/fixtures/composite-utility-v1-parity.json'
 import { FROZEN_COMPOSITE_UTILITY_MODEL } from '@/scripts/stock-picks/production-strategy'
 import { normalizeUtilityScore, scoreUtilityModel, UTILITY_SCORE_VERSION, validateUtilityModel,
-  type UtilityModelArtifact, type UtilityScoreNormalization, type UtilityTreeNode } from '@/scripts/stock-picks/utility-model'
+  type UtilityModelArtifact, type LegacyUtilityModelArtifact, type CompositeUtilityModelArtifact, type UtilityScoreNormalization, type UtilityTreeNode } from '@/scripts/stock-picks/utility-model'
 
 const leaf = (value: number): UtilityTreeNode => ({ isLeaf: true, value, featureIdx: 0,
   numThreshold: 0, missingGoLeft: false, left: 0, right: 0 })
@@ -14,7 +14,7 @@ const normalization = (): UtilityScoreNormalization => ({
   referenceThrough: '2026-09-29', referenceLastSignal: '2026-09-18', source: 'kis',
   weighting: 'equal signal date, strict matured training rows', fitInputSha256: 'a'.repeat(64),
 })
-const model = (tree: readonly UtilityTreeNode[] = [leaf(0)]): UtilityModelArtifact => ({
+const model = (tree: readonly UtilityTreeNode[] = [leaf(0)]): LegacyUtilityModelArtifact => ({
   schemaVersion: 3, modelVersion: 'composite-utility-v3', trainedLabelsThrough: '2026-09-29',
   observedInputVersion: OBSERVED_INPUT_VERSION,
   featureNames: OBSERVED_INPUT_NAMES, baselinePrediction: 0.4,
@@ -24,6 +24,44 @@ const model = (tree: readonly UtilityTreeNode[] = [leaf(0)]): UtilityModelArtifa
 const inputs = (): (number | null)[] => Array(50).fill(null)
 
 describe('native HGB utility inference', () => {
+  const composite = (): CompositeUtilityModelArtifact => ({
+    schemaVersion: 4, modelVersion: 'composite-utility-v4',
+    trainedLabelsThrough: model().trainedLabelsThrough, observedInputVersion: OBSERVED_INPUT_VERSION,
+    featureNames: OBSERVED_INPUT_NAMES, normalization: normalization(),
+    targetDefinition: { version: 'touch-nonloss-v1', formula: 'clip(touch)*clip(nonLoss)^2', horizon: 5, roundTripCostBps: 30 },
+    heads: { touch: model(), nonLoss: model() },
+  })
+  it('combines separate head predictions and penalizes likely losses before normalization', () => {
+    const artifact = composite()
+    const safer = { ...artifact, heads: { touch: { ...model(), baselinePrediction: .5 }, nonLoss: { ...model(), baselinePrediction: .8 } } }
+    const risky = { ...artifact, heads: { touch: { ...model(), baselinePrediction: .9 }, nonLoss: { ...model(), baselinePrediction: .3 } } }
+    expect(scoreUtilityModel(safer, inputs()).utility).toBeCloseTo(.32, 14)
+    expect(scoreUtilityModel(safer, inputs()).score).toBeGreaterThan(scoreUtilityModel(risky, inputs()).score)
+    const clipped = { ...artifact, heads: { touch: { ...model(), baselinePrediction: 2 }, nonLoss: { ...model(), baselinePrediction: -.5 } } }
+    expect(scoreUtilityModel(clipped, inputs()).utility).toBe(0)
+  })
+  it('rejects incompatible composite targets and malformed or missing heads', () => {
+    const artifact = composite()
+    const invalid = [
+      { ...artifact, targetDefinition: undefined },
+      { ...artifact, targetDefinition: { ...artifact.targetDefinition, version: 'unknown' } },
+      { ...artifact, targetDefinition: { ...artifact.targetDefinition, formula: 'touch' } },
+      { ...artifact, targetDefinition: { ...artifact.targetDefinition, roundTripCostBps: 0 } },
+      { ...artifact, schemaVersion: 3 },
+      { ...artifact, heads: undefined },
+      { ...artifact, heads: { touch: model() } },
+      { ...artifact, heads: { ...artifact.heads, extra: model() } },
+      { ...artifact, heads: { ...artifact.heads, touch: { ...model(), trees: [] } } },
+      { ...artifact, heads: { ...artifact.heads, nonLoss: { ...model(), baselinePrediction: NaN } } },
+      { ...artifact, trees: model().trees },
+      { ...model(), schemaVersion: 4 },
+    ]
+    for (const candidate of invalid) expect(() => validateUtilityModel(candidate as UtilityModelArtifact)).toThrow()
+    for (const name of ['touch', 'nonLoss'] as const) {
+      expect(() => validateUtilityModel({ ...artifact, heads: { ...artifact.heads, [name]: model([leaf(0), leaf(0)]) } })).toThrow(/미연결/)
+      expect(() => validateUtilityModel({ ...artifact, heads: { ...artifact.heads, [name]: model([{ ...leaf(0), isLeaf: false, left: 0, right: 0 }]) } })).toThrow(/연결/)
+    }
+  })
   it('matches the independent native sklearn vectors including observed missing inputs', () => {
     expect(parity.featureNames).toEqual(OBSERVED_INPUT_NAMES)
     expect(parity.cases.some((c) => c.inputs.includes(null))).toBe(true)
@@ -79,9 +117,9 @@ describe('native HGB utility inference', () => {
   })
 
   it('preserves the upper score differences instead of tying every strong candidate at 100', () => {
-    const reference = FROZEN_COMPOSITE_UTILITY_MODEL.normalization
-    expect([0.54, 0.55, 0.56, 0.80].map((utility) => normalizeUtilityScore(reference, utility)))
-      .toEqual([88, 89, 90, 97])
+    const reference = normalization()
+    expect([0.64, 0.65, 0.66, 0.80].map((utility) => normalizeUtilityScore(reference, utility)))
+      .toEqual([86, 87, 88, 93])
   })
 
   it('rejects absent, malformed, incompatible or future training reference metadata', () => {
@@ -112,7 +150,7 @@ describe('native HGB utility inference', () => {
         .toThrow(/표준화/)
     }
     expect(() => validateUtilityModel({ ...model(), schemaVersion: 1 } as unknown as UtilityModelArtifact)).toThrow(/모델 계약/)
-    expect(() => validateUtilityModel({ ...model(), modelVersion: 'composite-utility-v1' })).toThrow(/모델 계약/)
+    expect(() => validateUtilityModel({ ...model(), modelVersion: 'composite-utility-v1' } as unknown as UtilityModelArtifact)).toThrow(/모델 계약/)
     expect(() => normalizeUtilityScore(normalization(), Number.NaN)).toThrow(/추론 실패/)
   })
 

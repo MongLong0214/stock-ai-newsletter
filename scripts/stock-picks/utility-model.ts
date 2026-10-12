@@ -28,16 +28,36 @@ export interface UtilityTreeNode {
   readonly right: number
 }
 
-export interface UtilityModelArtifact {
-  readonly schemaVersion: 3
-  readonly modelVersion: string
+export interface UtilityPredictor {
+  readonly baselinePrediction: number
+  readonly trees: readonly (readonly UtilityTreeNode[])[]
+}
+
+interface UtilityModelReference {
   readonly trainedLabelsThrough: string
   readonly observedInputVersion: string
   readonly featureNames: readonly string[]
-  readonly baselinePrediction: number
   readonly normalization: UtilityScoreNormalization
-  readonly trees: readonly (readonly UtilityTreeNode[])[]
 }
+
+export interface LegacyUtilityModelArtifact extends UtilityModelReference, UtilityPredictor {
+  readonly schemaVersion: 3
+  readonly modelVersion: 'composite-utility-v3'
+}
+
+export interface CompositeUtilityModelArtifact extends UtilityModelReference {
+  readonly schemaVersion: 4
+  readonly modelVersion: 'composite-utility-v4'
+  readonly targetDefinition: {
+    readonly version: 'touch-nonloss-v1'
+    readonly formula: 'clip(touch)*clip(nonLoss)^2'
+    readonly horizon: 5
+    readonly roundTripCostBps: 30
+  }
+  readonly heads: { readonly touch: UtilityPredictor; readonly nonLoss: UtilityPredictor }
+}
+
+export type UtilityModelArtifact = LegacyUtilityModelArtifact | CompositeUtilityModelArtifact
 
 const validDate = (value: string): boolean => (
   /^\d{4}-\d{2}-\d{2}$/.test(value)
@@ -78,19 +98,35 @@ export function normalizeUtilityScore(normalization: UtilityScoreNormalization, 
 
 /** HGB 리프 값은 학습률이 이미 반영되어 있으며 결측 분기도 저장된 모델을 따른다. */
 export function validateUtilityModel(model: UtilityModelArtifact): UtilityModelArtifact {
-  if (model.schemaVersion !== 3 || model.modelVersion !== 'composite-utility-v3'
-    || model.observedInputVersion !== OBSERVED_INPUT_VERSION
+  const supportedVersion = (model.schemaVersion === 3 && model.modelVersion === 'composite-utility-v3'
+    && !('heads' in model))
+    || (model.schemaVersion === 4 && model.modelVersion === 'composite-utility-v4'
+      && model.targetDefinition?.version === 'touch-nonloss-v1'
+      && model.targetDefinition.formula === 'clip(touch)*clip(nonLoss)^2'
+      && model.targetDefinition.horizon === 5 && model.targetDefinition.roundTripCostBps === 30
+      && model.heads && Object.keys(model.heads).sort().join(',') === 'nonLoss,touch'
+      && !('trees' in model) && !('baselinePrediction' in model))
+  if (!supportedVersion || model.observedInputVersion !== OBSERVED_INPUT_VERSION
     || !validDate(model.trainedLabelsThrough)
-    || !Number.isFinite(model.baselinePrediction)
-    || model.featureNames.length !== OBSERVED_INPUT_NAMES.length
-    || model.featureNames.some((name, i) => name !== OBSERVED_INPUT_NAMES[i])
-    || model.trees.length !== 100) throw new Error('종합 점수 모델 계약 불일치')
+    || !Array.isArray(model.featureNames) || model.featureNames.length !== OBSERVED_INPUT_NAMES.length
+    || model.featureNames.some((name, i) => name !== OBSERVED_INPUT_NAMES[i])) {
+    throw new Error('종합 점수 모델 계약 불일치')
+  }
   validateNormalization(model.normalization)
   if (model.normalization.referenceThrough !== model.trainedLabelsThrough) {
     throw new Error('종합 점수 모델 표준화 학습 시점 불일치')
   }
+  if (model.schemaVersion === 4) {
+    validatePredictor(model.heads.touch); validatePredictor(model.heads.nonLoss)
+  } else validatePredictor(model)
+  return model
+}
+
+function validatePredictor(model: UtilityPredictor): void {
+  if (!model || !Number.isFinite(model.baselinePrediction) || !Array.isArray(model.trees)
+    || model.trees.length !== 100) throw new Error('종합 점수 모델 계약 불일치')
   for (const tree of model.trees) {
-    if (!tree.length) throw new Error('종합 점수 모델 빈 트리')
+    if (!Array.isArray(tree) || !tree.length) throw new Error('종합 점수 모델 빈 트리')
     const visited = new Set<number>()
     const visit = (index: number): void => {
       if (!Number.isInteger(index) || index < 0 || index >= tree.length || visited.has(index)) {
@@ -98,7 +134,7 @@ export function validateUtilityModel(model: UtilityModelArtifact): UtilityModelA
       }
       visited.add(index)
       const node = tree[index]!
-      if (typeof node.isLeaf !== 'boolean' || !Number.isFinite(node.value)) throw new Error('종합 점수 모델 노드 오류')
+      if (!node || typeof node.isLeaf !== 'boolean' || !Number.isFinite(node.value)) throw new Error('종합 점수 모델 노드 오류')
       if (node.isLeaf) return
       if (!Number.isInteger(node.featureIdx) || node.featureIdx < 0 || node.featureIdx >= OBSERVED_INPUT_NAMES.length
         || typeof node.missingGoLeft !== 'boolean'
@@ -111,7 +147,6 @@ export function validateUtilityModel(model: UtilityModelArtifact): UtilityModelA
     visit(0)
     if (visited.size !== tree.length) throw new Error('종합 점수 모델 미연결 노드')
   }
-  return model
 }
 
 export function scoreUtilityModel(model: UtilityModelArtifact, inputs: readonly (number | null)[]): {
@@ -123,6 +158,13 @@ export function scoreUtilityModel(model: UtilityModelArtifact, inputs: readonly 
     || Array.from(inputs).some((v) => v !== null && (typeof v !== 'number' || !Number.isFinite(v) && !Number.isNaN(v)))) {
     throw new Error('종합 점수 관측 피처 계약 불일치')
   }
+  const utility = model.schemaVersion === 4
+    ? predict(model.heads.touch, inputs) * predict(model.heads.nonLoss, inputs) ** 2
+    : predict(model, inputs)
+  return { utility, score: normalizeUtilityScore(model.normalization, utility) }
+}
+
+function predict(model: UtilityPredictor, inputs: readonly (number | null)[]): number {
   let prediction = model.baselinePrediction
   for (const tree of model.trees) {
     let index = 0
@@ -136,6 +178,5 @@ export function scoreUtilityModel(model: UtilityModelArtifact, inputs: readonly 
     prediction += tree[index]!.value
   }
   if (!Number.isFinite(prediction)) throw new Error('종합 점수 추론 실패')
-  const utility = Math.min(1, Math.max(0, prediction))
-  return { utility, score: normalizeUtilityScore(model.normalization, utility) }
+  return Math.min(1, Math.max(0, prediction))
 }

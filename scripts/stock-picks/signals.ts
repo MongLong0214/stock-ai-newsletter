@@ -3,7 +3,7 @@ import type { StockFeatureVector } from '@/scripts/stock-picks/features'
 
 export const SIGNAL_SCORE_VERSION = 'technical-signals-v3-2026-10-02'
 
-/** 종합 모델과 같은 성숙 KIS 학습 표본. 날짜별 동일 가중 중앙값을 고정해 사용한다. */
+/** v4.3 당시 성숙 KIS 학습 표본. 날짜별 동일 가중 중앙값을 고정해 사용한다. */
 export const VOLATILITY_SCORE_REFERENCE = {
   referenceAtrPercent14: 5.221735562010756,
   referenceRows: 506470,

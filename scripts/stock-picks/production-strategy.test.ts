@@ -61,7 +61,7 @@ describe('frozen production strategy artifact', () => {
     expect(MODEL_MARKET_SOURCE_VERSION).toBe('kis-market-21-20-v1')
     expect(PRODUCTION_STRATEGY).toEqual({
       name: 'compositeUtility',
-      version: 'v4.3-2026-10-02',
+      version: 'v5-2026-10-12',
       objective: 'compositeUtility',
       parameters: LOW_VOLATILITY_STABLE_PARAMETERS,
       parametersHash: hashCanonicalJson({
@@ -79,25 +79,27 @@ describe('frozen production strategy artifact', () => {
     })
     expect(PRODUCTION_STRATEGY.parameters).toBe(LOW_VOLATILITY_STABLE_STRATEGY.parameters)
     expect(PRODUCTION_STRATEGY.parametersHash).not.toBe(LOW_VOLATILITY_STABLE_STRATEGY.parametersHash)
-    expect(PRODUCTION_STRATEGY.parametersHash).toBe('acbf4d9e2d036d7e00a1e9811bc75783e395d39a1f49f5856ef21dad68ace8e7')
-    const reference = FROZEN_COMPOSITE_UTILITY_MODEL.normalization
+    expect(PRODUCTION_STRATEGY.parametersHash).toBe('341cbaf15ea18efce096796886ca0e9abc4eba2775f1f73d9f148435778e759a')
+    // Technical categories retain their original frozen calibration; the composite refit is separate.
     expect(VOLATILITY_SCORE_REFERENCE).toMatchObject({
-      referenceAtrPercent14: 5.221735562010756,
-      referenceRows: reference.referenceRows, referencePanels: reference.referencePanels,
-      referenceThrough: reference.referenceThrough, referenceLastSignal: reference.referenceLastSignal,
-      weighting: reference.weighting, fitInputSha256: reference.fitInputSha256,
+      referenceAtrPercent14: 5.221735562010756, referenceRows: 506470, referencePanels: 421,
+      referenceThrough: '2026-09-29', referenceLastSignal: '2026-09-18',
+      weighting: 'equal signal date, strict matured training rows',
+      fitInputSha256: '7e390305a071d6dbb57d9b3800eb880b5ca6abcb066347f6f4fe12340bcc9ed2',
     })
-    expect(FROZEN_COMPOSITE_UTILITY_MODEL.trainedLabelsThrough).toBe('2026-09-29')
     expect(FROZEN_COMPOSITE_UTILITY_MODEL).toMatchObject({
-      schemaVersion: 3, modelVersion: 'composite-utility-v3', normalization: {
+      schemaVersion: 4, modelVersion: 'composite-utility-v4', trainedLabelsThrough: '2026-10-08',
+      targetDefinition: { version: 'touch-nonloss-v1', formula: 'clip(touch)*clip(nonLoss)^2', roundTripCostBps: 30 },
+      normalization: {
         version: UTILITY_SCORE_VERSION, center: 50, oneStandardDeviationScore: 70, tailCurvature: 5.25,
-        mean: 0.329215672917516, standardDeviation: 0.07781234949998984,
-        referencePanels: 421, referenceRows: 506470, referenceThrough: '2026-09-29',
-        referenceLastSignal: '2026-09-18', source: 'kis',
+        referencePanels: 386, referenceRows: 466134, referenceThrough: '2026-10-08',
+        referenceLastSignal: '2026-09-30', source: 'kis',
         weighting: 'equal signal date, strict matured training rows',
       },
     })
-    expect(FROZEN_COMPOSITE_UTILITY_MODEL.trees).toHaveLength(100)
+    if (FROZEN_COMPOSITE_UTILITY_MODEL.schemaVersion !== 4) throw new Error('Expected separate heads')
+    expect(FROZEN_COMPOSITE_UTILITY_MODEL.heads.touch.trees).toHaveLength(100)
+    expect(FROZEN_COMPOSITE_UTILITY_MODEL.heads.nonLoss.trees).toHaveLength(100)
     expect(PRODUCTION_STRATEGY.parametersHash).not.toBe(hashCanonicalJson({
       parameters: LOW_VOLATILITY_STABLE_PARAMETERS,
       gateVersion: 'status-flags-valid-candle-v2', preferredRule: 'krx-code-last-digit-nonzero',
