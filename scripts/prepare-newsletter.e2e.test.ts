@@ -148,8 +148,8 @@ import { scoreUtilityModel } from '@/scripts/stock-picks/utility-model'
 import { buildFeatureVector } from '@/scripts/stock-picks/features'
 import { buildTechnicalContextMap } from '@/scripts/stock-picks/technical-context'
 
-const TARGET = '2026-10-01'
-const SIGNAL = '2026-09-30'
+const TARGET = '2026-10-13'
+const SIGNAL = '2026-10-12'
 const E2E_NOW = `${TARGET}T06:00:00+09:00`
 
 function freshRiskQuote(code: string, changePct = 0, korea = false) {
@@ -276,7 +276,7 @@ describe('Prepare boundary-isolated E2E', () => {
     expect(state.snapshots[0]!.parameters_hash).toBe(PRODUCTION_STRATEGY.parametersHash)
   })
 
-  it.each(['2026-10-01T06:12:00+09:00', '2026-10-01T05:59:00+09:00'])(
+  it.each([`${TARGET}T06:12:00+09:00`, `${TARGET}T05:59:00+09:00`])(
     'preserves content after sending has started even when the lease is expired (%s)', async (leaseUntil) => {
       const startedNewsletter = {
         newsletter_date: TARGET, is_sent: false, picks_source: 'code',

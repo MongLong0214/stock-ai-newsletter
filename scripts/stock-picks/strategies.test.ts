@@ -76,7 +76,8 @@ const master = (symbol: string, overrides: Partial<StockMasterState> = {}): Stoc
 
 describe('stock-picks strategy gates and ranking', () => {
   it('retains the stronger high-score candidate instead of letting ceiling ties favor turnover', () => {
-    const utilities = [0.54, 0.55, 0.56, 0.80]
+    const reference = FROZEN_COMPOSITE_UTILITY_MODEL.normalization
+    const utilities = [1.5, 2, 2.5, 3].map((z) => reference.mean + reference.standardDeviation * z)
     const candidates = utilities.map((_, i) => feature(`KOSDAQ:0000${i + 1}0`, {
       averageTurnover20: i === 3 ? 500_000_000 : (5 - i) * 10_000_000_000,
     }))
@@ -86,9 +87,9 @@ describe('stock-picks strategy gates and ranking', () => {
         normalizeUtilityScore(FROZEN_COMPOSITE_UTILITY_MODEL.normalization, utilities[i]!)])),
       parameters: LOW_VOLATILITY_STABLE_PARAMETERS, excludeSymbols: new Set() })
     expect(result).toEqual([
-      { symbol: 'KOSDAQ:000040', score: 97 },
-      { symbol: 'KOSDAQ:000030', score: 90 },
-      { symbol: 'KOSDAQ:000020', score: 89 },
+      { symbol: 'KOSDAQ:000040', score: 90 },
+      { symbol: 'KOSDAQ:000030', score: 87 },
+      { symbol: 'KOSDAQ:000020', score: 83 },
     ])
   })
 
