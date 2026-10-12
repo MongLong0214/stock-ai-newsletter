@@ -61,7 +61,7 @@ describe('frozen production strategy artifact', () => {
     expect(MODEL_MARKET_SOURCE_VERSION).toBe('kis-market-21-20-v1')
     expect(PRODUCTION_STRATEGY).toEqual({
       name: 'compositeUtility',
-      version: 'v5-candidate-2026-10-12',
+      version: 'v5-2026-10-12',
       objective: 'compositeUtility',
       parameters: LOW_VOLATILITY_STABLE_PARAMETERS,
       parametersHash: hashCanonicalJson({
