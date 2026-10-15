@@ -5,7 +5,8 @@ import { getKSTDateString } from '@/lib/tli/date-utils'
  * TLI 수집 실행 모드 resolver.
  *
  * wall-clock(`date -u +%H`)은 runner 큐 지연으로 cron 시각과 어긋나 모드를 오분류한다.
- * `github.event.schedule`은 실행이 지연돼도 트리거된 cron 문자열 그대로이므로 이것만 사용한다.
+ * GitHub schedule은 일요일 full에만 사용한다. 평일에는 Vercel Cron이 intended_kst_date와 함께 workflow_dispatch한다.
+ * `github.event.schedule`은 실행이 지연돼도 트리거된 cron 문자열 그대로이므로 schedule 모드는 이것만 사용한다.
  */
 export const TLI_COLLECT_MODES = ['full', 'news-only', 'datalab-only'] as const
 export const TLI_DATALAB_REFRESH_MODES = ['reuse', 'force'] as const
@@ -13,11 +14,9 @@ export const TLI_DATALAB_REFRESH_MODES = ['reuse', 'force'] as const
 export type TliCollectMode = typeof TLI_COLLECT_MODES[number]
 export type TliDatalabRefreshMode = typeof TLI_DATALAB_REFRESH_MODES[number]
 
-/** `.github/workflows/tli-collect-data.yml`의 `on.schedule` cron과 정확히 일치해야 한다. */
+/** `.github/workflows/tli-collect-data.yml`에 남긴 일요일 `on.schedule` cron과 정확히 일치해야 한다. */
 export const TLI_COLLECT_SCHEDULE_MODES: Readonly<Record<string, TliCollectMode>> = {
-  '0 0 * * 1-6': 'news-only',
   '0 17 * * 6': 'full',
-  '30 9 * * 1': 'news-only',
 }
 
 export const TLI_COLLECT_DISPATCH_DEFAULT_MODE: TliCollectMode = 'full'

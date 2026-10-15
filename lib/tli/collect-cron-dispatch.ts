@@ -5,13 +5,15 @@ import { dispatchGitHubWorkflow } from '@/lib/github-actions-dispatch'
 import { getKSTDateString } from '@/lib/tli/date-utils'
 
 const WORKFLOW_FILE = 'tli-collect-data.yml'
+const KST_OFFSET_MS = 9 * 60 * 60 * 1000
 
 export const handleTliCollectCron = async (
   request: Request,
   input: {
-    readonly mode: 'full' | 'datalab-only'
+    readonly mode: 'full' | 'news-only' | 'datalab-only'
     readonly runKeyPrefix: string
     readonly label: string
+    readonly window?: { readonly fromKstMinutes: number; readonly toKstMinutes: number }
   },
 ): Promise<NextResponse> => {
   if (!verifyCronBearerToken(request.headers.get('authorization'))) {
@@ -19,6 +21,21 @@ export const handleTliCollectCron = async (
   }
 
   const date = getKSTDateString()
+
+  if (input.window) {
+    const kstNow = new Date(Date.now() + KST_OFFSET_MS)
+    const kstMinutes = kstNow.getUTCHours() * 60 + kstNow.getUTCMinutes()
+    if (kstMinutes < input.window.fromKstMinutes || kstMinutes >= input.window.toKstMinutes) {
+      console.warn(`${input.label} skipped outside window`)
+      return NextResponse.json({
+        success: true,
+        dispatched: false,
+        skipped: 'outside_window',
+        date,
+        window: input.window,
+      })
+    }
+  }
 
   try {
     const inputs = {
