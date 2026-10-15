@@ -84,6 +84,22 @@ describe.each(routes)('TLI news Vercel cron $name route', ({ get, path, runKeyPr
     expect(console.warn).toHaveBeenCalledWith(expect.stringContaining(label))
   })
 
+  it('skips one second before the window start without dispatching', async () => {
+    vi.setSystemTime(new Date(new Date(from).getTime() - 1000))
+
+    const response = await get(cronRequest())
+
+    expect(response.status).toBe(200)
+    expect(await response.json()).toEqual({
+      success: true,
+      dispatched: false,
+      skipped: 'outside_window',
+      date: '2026-09-02',
+      window,
+    })
+    expect(mocks.dispatchGitHubWorkflow).not.toHaveBeenCalled()
+  })
+
   it('dispatches at the inclusive start minute', async () => {
     vi.setSystemTime(new Date(from))
 
