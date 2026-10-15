@@ -2,14 +2,10 @@ name: TLI Data Collection
 
 on:
   schedule:
-    # 평일 full은 Vercel Cron(/api/cron/tli-full, /backup)이 intended_kst_date와 함께 dispatch한다.
-    # GitHub schedule은 7~9시간 지연돼 KST 자정을 넘긴다.
-    # 아침 뉴스 수집 (평일+토 KST 09:00 = UTC 00:00)
-    - cron: '0 0 * * 1-6'
-    # 주말 전체 수집 (일요일 KST 02:00 = UTC 17:00 토요일)
+    # 평일 full(16:30/19:00)·뉴스(09:00)·DataLab(09:00)·Monday origin(18:30)은 모두 Vercel Cron이 intended_kst_date와 함께 dispatch한다.
+    # GitHub schedule은 7~9시간 지연돼 concurrency 대기 슬롯을 점유/대체하므로 평일에는 두지 않는다.
+    # 일요일 full(KST 02:00 = UTC 토요일 17:00)만 지연이 무해해 남긴다.
     - cron: '0 17 * * 6'
-    # Monday origin 적시 생성 (월요일 KST 18:30 = UTC 09:30)
-    - cron: '30 9 * * 1'
   workflow_dispatch:
     inputs:
       mode:

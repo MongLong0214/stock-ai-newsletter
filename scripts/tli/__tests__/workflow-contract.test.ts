@@ -59,12 +59,8 @@ describe('resolveTliCollectMode', () => {
     vi.useRealTimers()
   })
 
-  it.each([
-    ['0 0 * * 1-6', 'news-only'],
-    ['0 17 * * 6', 'full'],
-    ['30 9 * * 1', 'news-only'],
-  ])('maps schedule %s to %s', (schedule, expected) => {
-    expect(resolveTliCollectMode({ eventName: 'schedule', schedule })).toBe(expected)
+  it('maps the remaining Sunday schedule to full', () => {
+    expect(resolveTliCollectMode({ eventName: 'schedule', schedule: '0 17 * * 6' })).toBe('full')
   })
 
   it.each([
@@ -140,16 +136,24 @@ describe('resolveTliCollectMode', () => {
     })).toThrow(/unknown datalab refresh/)
   })
 
-  // 기존 wall-clock 버그 재현: 00:00 cron이 60분 지연돼 01:xx UTC에 시작하면 `date -u +%H`는 full을 낸다.
-  it('keeps news-only when the 00:00 cron starts 60 minutes late', () => {
+  // 기존 wall-clock 버그 회귀 방지: Sunday full cron이 60분 지연돼도 실제 시각 대신 schedule 문자열을 사용한다.
+  it('keeps full when the Sunday cron starts 60 minutes late', () => {
     vi.useFakeTimers()
-    vi.setSystemTime(new Date('2026-07-06T01:03:27.000Z'))
+    vi.setSystemTime(new Date('2026-07-04T18:03:27.000Z'))
 
     const wallClockHour = new Date().toISOString().slice(11, 13)
-    expect(wallClockHour).not.toBe('00')
+    expect(wallClockHour).not.toBe('17')
 
-    expect(resolveTliCollectMode({ eventName: 'schedule', schedule: '0 0 * * 1-6' })).toBe('news-only')
+    expect(resolveTliCollectMode({ eventName: 'schedule', schedule: '0 17 * * 6' })).toBe('full')
   })
+
+  it.each(['0 0 * * 1-6', '30 9 * * 1'])(
+    'rejects the removed weekday schedule %s',
+    (schedule) => {
+      expect(() => resolveTliCollectMode({ eventName: 'schedule', schedule }))
+        .toThrow(/unknown schedule cron/)
+    },
+  )
 
   it('rejects an unmapped schedule cron', () => {
     expect(() => resolveTliCollectMode({ eventName: 'schedule', schedule: '0 5 * * *' }))
@@ -180,24 +184,39 @@ describe('resolveTliCollectMode', () => {
 })
 
 describe('tli-collect-data.yml contract', () => {
-  it('declares exactly the cron strings the resolver maps', () => {
+  it('keeps only the Sunday GitHub schedule and matches the resolver map', () => {
     const crons = (collectWorkflow.on.schedule ?? []).map((entry) => entry.cron)
-    expect([...crons].sort()).toEqual(Object.keys(TLI_COLLECT_SCHEDULE_MODES).sort())
+    expect(crons).toEqual(['0 17 * * 6'])
+    expect(crons).toEqual(Object.keys(TLI_COLLECT_SCHEDULE_MODES))
   })
 
-  it('dispatches weekday full runs from Vercel Cron instead of GitHub schedule', () => {
+  it('has no weekday GitHub schedule', () => {
+    for (const { cron } of collectWorkflow.on.schedule ?? []) {
+      const fields = cron.trim().split(/\s+/)
+      expect(fields).toHaveLength(5)
+      expect(fields[4]).toBe('6')
+    }
+  })
+
+  it('maps every TLI Vercel Cron to an existing route, mode, and run key', () => {
     const vercel = JSON.parse(readFileSync('vercel.json', 'utf8')) as {
       crons: readonly { path: string; schedule: string }[]
     }
-    expect(vercel.crons).toEqual(expect.arrayContaining([
-      { path: '/api/cron/tli-full', schedule: '30 7 * * 1-5' },
-      { path: '/api/cron/tli-full/backup', schedule: '0 10 * * 1-5' },
-    ]))
-    expect((collectWorkflow.on.schedule ?? []).map((entry) => entry.cron)
-      .filter((cron) => cron.endsWith('1-5'))).toEqual([])
-    expect(Object.entries(TLI_COLLECT_SCHEDULE_MODES)
-      .filter(([cron, mode]) => cron.endsWith('1-5') && mode === 'full'))
-      .toEqual([])
+    const contracts = [
+      { path: '/api/cron/tli-datalab', schedule: '0 0 * * 1-6', mode: 'datalab-only', runKeyPrefix: 'datalab-0900' },
+      { path: '/api/cron/tli-news', schedule: '0 0 * * 1-6', mode: 'news-only', runKeyPrefix: 'news-0900' },
+      { path: '/api/cron/tli-full', schedule: '30 7 * * 1-5', mode: 'full', runKeyPrefix: 'full-1630' },
+      { path: '/api/cron/tli-full/backup', schedule: '0 10 * * 1-5', mode: 'full', runKeyPrefix: 'full-1900' },
+      { path: '/api/cron/tli-news/monday-origin', schedule: '30 9 * * 1', mode: 'news-only', runKeyPrefix: 'origin-1830' },
+    ] as const
+    const tliCrons = vercel.crons.filter(({ path }) => path.startsWith('/api/cron/tli-'))
+
+    expect(tliCrons).toEqual(contracts.map(({ path, schedule }) => ({ path, schedule })))
+    for (const { path, mode, runKeyPrefix } of contracts) {
+      const route = readFileSync(`app${path}/route.ts`, 'utf8')
+      expect(route).toContain(`mode: '${mode}'`)
+      expect(route).toContain(`runKeyPrefix: '${runKeyPrefix}'`)
+    }
   })
 
   it('resolves the run mode from github.event.schedule instead of wall-clock', () => {

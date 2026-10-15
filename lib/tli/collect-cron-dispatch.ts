@@ -9,7 +9,7 @@ const WORKFLOW_FILE = 'tli-collect-data.yml'
 export const handleTliCollectCron = async (
   request: Request,
   input: {
-    readonly mode: 'full' | 'datalab-only'
+    readonly mode: 'full' | 'news-only' | 'datalab-only'
     readonly runKeyPrefix: string
     readonly label: string
   },
