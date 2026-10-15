@@ -208,4 +208,42 @@ describe('throwing daily range fetch', () => {
         volume: 498765432,
       }]);
   });
+
+  it.each(['0', 'not-a-price', '-1', 'Infinity'])(
+    'keeps permissively dropping close %s unless the index caller opts into rejection', async (close) => {
+      const fetchMock = vi.fn<typeof fetch>()
+        .mockResolvedValueOnce(new Response(JSON.stringify({ access_token: 'fixture-token' })))
+        .mockImplementation(async () => new Response(JSON.stringify({
+          rt_cd: '0',
+          output2: [
+            { stck_bsop_date: '20250320', bstp_nmix_prpr: close },
+            { stck_bsop_date: '20250321', bstp_nmix_prpr: '2643.13' },
+          ],
+        })));
+      vi.stubGlobal('fetch', fetchMock);
+
+      const points = [{ date: '2025-03-21', open: null, high: null, low: null, close: 2643.13, volume: null }];
+      await expect(fetchIndexDailyRangePriceRows('0001', '20250320', '20250321')).resolves.toEqual(points);
+      await expect(fetchIndexDailyRangePriceRows('0001', '20250320', '20250321', { rejectInvalidClose: true }))
+        .rejects.toMatchObject({ kind: 'parse' });
+    },
+  );
+
+  it('ignores invalid closes outside the requested range and undated rows even with rejection enabled', async () => {
+    const fetchMock = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ access_token: 'fixture-token' })))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        rt_cd: '0',
+        output2: [
+          { stck_bsop_date: '20250319', bstp_nmix_prpr: '0' },
+          { stck_bsop_date: '20250322', bstp_nmix_prpr: 'not-a-price' },
+          { stck_bsop_date: '', bstp_nmix_prpr: '0' },
+          { stck_bsop_date: '20250321', bstp_nmix_prpr: '2643.13' },
+        ],
+      })));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(fetchIndexDailyRangePriceRows('0001', '20250320', '20250321', { rejectInvalidClose: true }))
+      .resolves.toEqual([{ date: '2025-03-21', open: null, high: null, low: null, close: 2643.13, volume: null }]);
+  });
 });

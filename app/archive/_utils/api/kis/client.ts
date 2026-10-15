@@ -645,6 +645,7 @@ interface FetchRangePriceRowsInput {
   readonly fields: KisRangePriceFields;
   readonly parsePrice: (value: string) => number;
   readonly adjusted: boolean;
+  readonly rejectInvalidClose?: boolean;
 }
 
 async function fetchRangePriceRowsWithToken(
@@ -741,7 +742,14 @@ async function fetchRangePriceRowsWithToken(
 
   return data.output2
     .filter((row): row is Record<string, string> => typeof row === 'object' && row !== null)
-    .map((row) => parseRangePriceRow(row, input.closeField, input.parsePrice, input.fields))
+    .map((row) => {
+      const point = parseRangePriceRow(row, input.closeField, input.parsePrice, input.fields);
+      if (!point && input.rejectInvalidClose && toIsoDate(row.stck_bsop_date)
+        && row.stck_bsop_date >= input.startDate && row.stck_bsop_date <= input.endDate) {
+        throw createKisApiError('parse', `KIS daily range invalid close: ${input.code} ${row.stck_bsop_date}`);
+      }
+      return point;
+    })
     .filter((point): point is KisDailyRangePricePoint => point !== null);
 }
 
@@ -785,6 +793,7 @@ export async function fetchIndexDailyRangePriceRows(
   indexCode: string,
   startKisDate: string,
   endKisDate: string,
+  options: { readonly rejectInvalidClose?: boolean } = {},
 ): Promise<KisDailyRangePricePoint[]> {
   return fetchRangePriceRows({
     code: indexCode,
@@ -802,6 +811,7 @@ export async function fetchIndexDailyRangePriceRows(
     },
     parsePrice: (value) => Number.parseFloat(value),
     adjusted: false,
+    rejectInvalidClose: options.rejectInvalidClose,
   });
 }
 

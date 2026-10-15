@@ -193,6 +193,19 @@ beforeEach(() => {
 })
 
 describe('prospective gate DB loader', () => {
+  it('loads the appended attested series source id with the existing origin evidence', async () => {
+    const origin = state.tables.tli_experiment_origin_manifests[0]
+    const sourceIds = [...origin.kospi_source_ids as string[], `KOSPI_SERIES|${uuid('67', 1)}|${sha('b')}`]
+    origin.kospi_source_ids = sourceIds
+    const artifact = state.tables.tli_evidence_artifacts.find((row) => row.experiment_origin_manifest_id === origin.id)!
+    const payload = artifact.payload as Record<string, unknown>
+    payload.kospi_source_ids = sourceIds
+    const { loadProspectiveGateInputFromDb } = await import('../gate-input-from-db')
+    const result = await loadProspectiveGateInputFromDb({ cycleId: CYCLE_ID })
+    expect(result.checkpoint).toMatchObject({ kind: 'safety_due', sequenceEnd: 8 })
+    expect(result.incidents).toEqual([])
+  })
+
   it('loads one cycle in batched pages and opens safety only at exact eligible sequence 8', async () => {
     const { loadProspectiveGateInputFromDb } = await import('../gate-input-from-db')
     const result = await loadProspectiveGateInputFromDb({ cycleId: CYCLE_ID })

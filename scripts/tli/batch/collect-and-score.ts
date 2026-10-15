@@ -47,15 +47,15 @@ export async function runTliMainPipeline(): Promise<TliMainPipelineResult> {
 
   try {
     // WHY: 자정 넘긴 지연 run에서 달력 오늘은 미확정 세션이라 0행이므로 확정 거래일을 수집한다.
-    // 049 enroll은 월 18:00 KST cutoff 이전 KOSPI 적재를 요구하고, CRASH_ALERT prepare는 일봉을 건너뛰므로 맨 앞에서 독립 실행한다.
+    // 067 enroll은 월 18:00 KST cutoff 이전 KOSPI series attestation을 요구하므로 맨 앞에서 독립 실행한다(스키마 먼저 배포).
     if (mode === 'full') {
-      console.log('\n📈 0단계: KIS 일봉 주가 (테마 종목 + KOSPI, 최근 확정 7거래일)');
+      console.log('\n📈 0단계: KIS 일봉 주가 (최근 확정 7거래일) + KOSPI series 기록·attestation');
       try {
         const priceReport = await collectRecentFinalizedStockDailyPrices();
         console.log(`   ✅ 일봉 ${priceReport.persistedRows}행 저장 · 성공 ${priceReport.successCount}/${priceReport.attemptedCalls} · KOSPI ${priceReport.indexFailed ? '실패' : '정상'}`);
         if (priceReport.indexFailed) {
           criticalFailures++;
-          console.error('❌ KOSPI 일봉 수집 실패 — 거래일 창·Monday origin·라벨이 KOSPI 실측에 의존한다');
+          console.error('❌ KOSPI 일봉/series attestation 실패 — 거래일 창·Monday origin·라벨이 KOSPI 실측에 의존한다');
         }
         if (priceReport.failedSymbols.some((symbol) => symbol !== KOSPI_INDEX_SYMBOL)) warningFailures++;
         if (priceReport.skippedForBudget > 0) {
