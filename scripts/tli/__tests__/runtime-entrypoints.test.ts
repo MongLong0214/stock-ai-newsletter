@@ -231,6 +231,18 @@ describe('runtime entrypoints', () => {
     })
   })
 
+  it('continues later steps while reporting a KOSPI series failure as critical', async () => {
+    collectRecentFinalizedStockDailyPrices.mockResolvedValue({
+      failedSymbols: [], indexFailed: true, skippedForBudget: 0, persistedRows: 7,
+    })
+    const { runTliMainPipeline } = await import('@/scripts/tli/batch/collect-and-score')
+    expect(await runTliMainPipeline()).toMatchObject({ criticalFailures: 1, warningFailures: 0, exitCode: 1 })
+    expect(collectDataSources).toHaveBeenCalledOnce()
+    expect(runLabelBookkeepingPhase).toHaveBeenCalledOnce()
+    expect(runAnalysisPipeline).toHaveBeenCalledOnce()
+    expect(submitIndexNowStep).toHaveBeenCalledOnce()
+  })
+
   it('keeps the stock warning when KOSPI is flagged failed without being a failed symbol', async () => {
     collectRecentFinalizedStockDailyPrices.mockResolvedValue({
       failureCount: 1,

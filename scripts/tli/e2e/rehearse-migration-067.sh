@@ -80,38 +80,68 @@ for migration in supabase/migrations/04[9]_*.sql supabase/migrations/05*_*.sql s
   psql_in -q < "${migration}" >/dev/null
 done
 
-# 067 이전에 생긴 legacy 행(2026-08-31 개장 전 phantom 재현)은 close_written_at 컬럼 자체가 없다.
 psql_in -q <<'SQL'
-INSERT INTO public.stock_daily_prices (symbol, trade_date, close, volume, source, created_at)
-VALUES ('KOSPI', DATE '2026-08-31', 2800, 1, 'kis', TIMESTAMPTZ '2026-08-31 08:51:00+09');
+CREATE SCHEMA migration_067_rehearsal;
+CREATE TABLE migration_067_rehearsal.results (
+  probe TEXT PRIMARY KEY, passed BOOLEAN NOT NULL CHECK (passed)
+);
+CREATE TABLE migration_067_rehearsal.stock_cache_before AS
+SELECT (SELECT jsonb_agg(to_jsonb(a) ORDER BY a.attnum) FROM pg_attribute AS a
+        WHERE a.attrelid = 'public.stock_daily_prices'::regclass AND a.attnum > 0) AS columns,
+       (SELECT jsonb_agg(pg_get_triggerdef(t.oid) ORDER BY t.tgname) FROM pg_trigger AS t
+        WHERE t.tgrelid = 'public.stock_daily_prices'::regclass AND NOT t.tgisinternal) AS triggers;
 SQL
 
-readonly ENROLL_BEFORE=$(docker exec "${DB_CONTAINER}" psql -X -qAt -v ON_ERROR_STOP=1 -U postgres \
-  -c "SELECT pg_get_functiondef('public.enroll_tli_origin(uuid,uuid,uuid)'::regprocedure)")
-readonly ENROLL_ACL_BEFORE=$(docker exec "${DB_CONTAINER}" psql -X -qAt -v ON_ERROR_STOP=1 -U postgres \
-  -c "SELECT proacl::text FROM pg_proc WHERE oid = 'public.enroll_tli_origin(uuid,uuid,uuid)'::regprocedure")
+ENROLL_BEFORE=$(psql_in -qAt -c "SELECT pg_get_functiondef('public.enroll_tli_origin(uuid,uuid,uuid)'::regprocedure)")
+ENROLL_ACL_BEFORE=$(psql_in -qAt -c "SELECT proacl::text FROM pg_proc WHERE oid = 'public.enroll_tli_origin(uuid,uuid,uuid)'::regprocedure")
+readonly ENROLL_BEFORE ENROLL_ACL_BEFORE
+psql_in < supabase/migrations/067_tli_kospi_series_attestation.sql >/dev/null
+ENROLL_AFTER=$(psql_in -qAt -c "SELECT pg_get_functiondef('public.enroll_tli_origin(uuid,uuid,uuid)'::regprocedure)")
+ENROLL_ACL_AFTER=$(psql_in -qAt -c "SELECT proacl::text FROM pg_proc WHERE oid = 'public.enroll_tli_origin(uuid,uuid,uuid)'::regprocedure")
+readonly ENROLL_AFTER ENROLL_ACL_AFTER
 
-psql_in < supabase/migrations/067_stock_daily_prices_close_provenance.sql >/dev/null
+python3 - "${ENROLL_BEFORE}" "${ENROLL_AFTER}" <<'PYDIFF'
+import difflib
+import pathlib
+import sys
 
-readonly ENROLL_AFTER=$(docker exec "${DB_CONTAINER}" psql -X -qAt -v ON_ERROR_STOP=1 -U postgres \
-  -c "SELECT pg_get_functiondef('public.enroll_tli_origin(uuid,uuid,uuid)'::regprocedure)")
-readonly ENROLL_ACL_AFTER=$(docker exec "${DB_CONTAINER}" psql -X -qAt -v ON_ERROR_STOP=1 -U postgres \
-  -c "SELECT proacl::text FROM pg_proc WHERE oid = 'public.enroll_tli_origin(uuid,uuid,uuid)'::regprocedure")
-
-# enroll_tli_origin은 KOSPI provenance 판정 2줄만 달라야 하고 권한은 그대로여야 한다.
-CHANGED_LINES=$(diff <(printf '%s\n' "${ENROLL_BEFORE}") <(printf '%s\n' "${ENROLL_AFTER}") | grep -c '^[<>]' || true)
-readonly CHANGED_LINES
-if [[ "${CHANGED_LINES}" != "4" ]]; then
-  echo "enroll_tli_origin changed beyond the two KOSPI provenance predicates (${CHANGED_LINES} changed lines)" >&2
-  exit 1
-fi
+before, after = sys.argv[1:]
+original = pathlib.Path('supabase/migrations/049_tli_experiment_cycles.sql').read_text()
+original = original.split('CREATE OR REPLACE FUNCTION public.enroll_tli_origin(', 1)[1]
+body = original.split('AS $$\n', 1)[1].split('\n$$;', 1)[0]
+if body not in before:
+    sys.exit('pre-067 enroll body differs from 049')
+def without_kospi_blocks(text, selection_start):
+    start = text.index(selection_start)
+    end = text.index('  IF v_base_close IS NULL', start)
+    text = text[:start] + '<KOSPI selection>\n' + text[end:]
+    start = text.index('  v_source_ids := ARRAY[')
+    end = text.index('  v_input_sha :=', start)
+    return text[:start] + '<KOSPI provenance>\n' + text[end:]
+if without_kospi_blocks(before, '  SELECT trade_date, close, source') != without_kospi_blocks(after, '  -- One attested KIS response'):
+    sys.exit('enroll changed outside KOSPI selection/provenance blocks')
+print('enroll_tli_origin diff vs 049: only KOSPI selection/provenance blocks changed')
+print('\n'.join(difflib.unified_diff(before.splitlines(), after.splitlines(), fromfile='049', tofile='067', lineterm='')))
+PYDIFF
 if [[ "${ENROLL_ACL_BEFORE}" != "${ENROLL_ACL_AFTER}" ]]; then
   echo "enroll_tli_origin ACL changed: ${ENROLL_ACL_BEFORE} -> ${ENROLL_ACL_AFTER}" >&2
   exit 1
 fi
+printf 'enroll_tli_origin ACL unchanged: %s\n' "${ENROLL_ACL_AFTER}"
+psql_in -q <<'SQL'
+INSERT INTO migration_067_rehearsal.results VALUES
+  ('enroll_body_only_kospi_selection_and_provenance_changed', true), ('enroll_acl_unchanged', true);
+SQL
 
-docker exec -i "${DB_CONTAINER}" psql -X -qAt -v ON_ERROR_STOP=1 -U postgres \
-  < scripts/tli/e2e/sql/migration-067-stock-close-provenance.sql | tail -1
-docker exec -i "${DB_CONTAINER}" psql -X -qAt -v ON_ERROR_STOP=1 -U postgres \
-  < scripts/tli/e2e/sql/migration-067-enroll-kospi-provenance.sql | tail -1
-echo '{"enroll_tli_origin":"only_kospi_provenance_predicates_changed","acl":"unchanged"}'
+psql_in -q < scripts/tli/e2e/sql/migration-067-kospi-series-attestation.sql
+psql_in -q < scripts/tli/e2e/sql/migration-067-enroll-kospi-provenance.sql
+psql_in -qAt <<'SQL'
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM migration_067_rehearsal.results)
+     OR (SELECT bool_and(passed) FROM migration_067_rehearsal.results) IS DISTINCT FROM true THEN
+    RAISE EXCEPTION 'missing or failed rehearsal results';
+  END IF;
+END $$;
+SELECT jsonb_object_agg(probe, passed ORDER BY probe) FROM migration_067_rehearsal.results;
+SQL

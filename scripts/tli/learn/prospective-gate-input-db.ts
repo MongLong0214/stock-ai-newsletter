@@ -27,7 +27,7 @@ const originSchema = z.object({
   candidate_model_sha256: sha256, comparator_artifact_sha256: sha256,
   kospi_base_trade_date: z.iso.date(), kospi_base_close: z.coerce.number().positive().finite(),
   kospi_lookback_trade_date: z.iso.date(), kospi_lookback_close: z.coerce.number().positive().finite(),
-  kospi_source_ids: z.array(z.string().min(1)).length(2), kospi_input_sha256: sha256,
+  kospi_source_ids: z.array(z.string().min(1)).min(2).max(3), kospi_input_sha256: sha256,
   regime: z.enum(['risk_off', 'neutral', 'risk_on']),
 })
 const forecastSchema = z.object({

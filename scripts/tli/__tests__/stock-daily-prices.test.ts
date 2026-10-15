@@ -1,5 +1,5 @@
 import { readFile } from 'node:fs/promises'
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   dedupeStockDailyPriceRows,
   KOSPI_INDEX_SYMBOL,
@@ -12,10 +12,15 @@ import {
   DEFAULT_KIS_DAILY_PRICE_CALL_BUDGET,
   KIS_DAILY_PRICE_RATE_LIMIT_PER_SECOND,
   TLI_DAILY_PRICE_TRADING_DAYS,
+  getRecentTradingDates,
 } from '@/scripts/tli/prices/kis-daily-price-collector'
 import { createKisApiError } from '@/app/archive/_utils/api/kis/client'
 
+const { rpc } = vi.hoisted(() => ({ rpc: vi.fn() }))
+vi.mock('@/scripts/tli/shared/supabase-admin', () => ({ supabaseAdmin: { rpc } }))
+
 describe('stock daily prices', () => {
+  beforeEach(() => rpc.mockReset())
   it('keeps the stock_daily_prices migration additive with the expected dedupe key', async () => {
     const migration = await readFile('supabase/migrations/031_create_stock_daily_prices.sql', 'utf8')
 
@@ -112,6 +117,7 @@ describe('stock daily prices', () => {
       endDate: '2026-09-01',
       days: 7,
       universe: 'theme',
+      attestKospiSeries: true,
     })
   })
 
@@ -573,5 +579,161 @@ describe('stock daily prices', () => {
     expect(fetchDailyRangeClosePrices).toHaveBeenCalledOnce()
     expect(report.failureKinds).toEqual({ empty: 1 })
     expect(report.retriedSymbols).not.toContain('KOSPI:005930')
+  })
+})
+
+const seriesPoints = () => getRecentTradingDates({ endDate: '2026-09-01', days: 35 }).reverse()
+  .map((date, index) => ({ date, open: null, high: null, low: null, close: 3000 + index, volume: 100 }))
+const seriesId = '06700000-0000-4000-8000-000000000001'
+
+const collectSeries = (options: Partial<Parameters<typeof collectAndPersistStockDailyPriceRange>[0]> = {}) => (
+  collectAndPersistStockDailyPriceRange({
+    endDate: '2026-09-01', days: 7, finalizedThroughDate: '2026-09-01',
+    delayMs: 0, attestKospiSeries: true,
+    loadSymbols: async () => ['005930'],
+    fetchDailyRangeClosePrices: async () => [{ ...seriesPoints().at(-1)!, close: 70000 }],
+    fetchIndexDailyRangeClosePrices: async () => seriesPoints(),
+    persistDailyPrices: async (rows) => rows.length,
+    ...options,
+  })
+)
+
+describe('full-mode KOSPI response attestation', () => {
+  beforeEach(() => {
+    rpc.mockReset()
+    rpc.mockResolvedValueOnce({ data: seriesId, error: null })
+      .mockResolvedValueOnce({ data: 'attestation-id', error: null })
+  })
+
+  it('records one full response then attests its returned id in a separate awaited request', async () => {
+    let releaseRecord!: () => void
+    const recorded = new Promise<void>((resolve) => { releaseRecord = resolve })
+    rpc.mockReset().mockImplementationOnce(async () => {
+      await recorded
+      return { data: seriesId, error: null }
+    }).mockResolvedValueOnce({ data: 'attestation-id', error: null })
+    const fetchIndexDailyRangeClosePrices = vi.fn(async () => [...seriesPoints()].reverse())
+    const result = collectSeries({ fetchIndexDailyRangeClosePrices })
+    await vi.waitFor(() => expect(rpc).toHaveBeenCalledTimes(1))
+    expect(rpc.mock.calls[0]).toEqual(['record_tli_kospi_close_series', {
+      p_request_start: '2026-06-03', p_request_end: '2026-09-01', p_finalized_through: '2026-09-01',
+      p_trade_dates: seriesPoints().map((point) => point.date),
+      p_closes: seriesPoints().map((point) => point.close),
+    }])
+    releaseRecord()
+    const report = await result
+    expect(rpc).toHaveBeenCalledTimes(2)
+    expect(rpc).toHaveBeenNthCalledWith(2, 'attest_tli_kospi_close_series', { p_series_id: seriesId })
+    expect(fetchIndexDailyRangeClosePrices.mock.calls).toEqual([
+      ['0001', '20260824', '20260901'], ['0001', '20260603', '20260901'],
+    ])
+    expect(report.indexFailed).toBe(false)
+    expect(report.physicalCalls).toBe(3)
+  })
+
+  it.each(['fetch', 'short', 'last', 'duplicate', 'nonfinite', 'record', 'record-id', 'attest', 'attest-id'] as const)(
+    'marks %s failure critical through indexFailed while collecting and persisting stocks', async (failure) => {
+      const fetchDailyRangeClosePrices = vi.fn(async () => [{ ...seriesPoints().at(-1)!, close: 70000 }])
+      const persistDailyPrices = vi.fn(async (rows: readonly StockDailyPriceInput[]) => rows.length)
+      const fetchIndexDailyRangeClosePrices = vi.fn()
+        .mockResolvedValueOnce(seriesPoints())
+        .mockImplementationOnce(async () => {
+          if (failure === 'fetch') throw new Error('synthetic fetch failure')
+          const points = seriesPoints()
+          if (failure === 'short') return points.slice(-20)
+          if (failure === 'last') return points.slice(0, -1)
+          if (failure === 'duplicate') return [...points, points[0]]
+          if (failure === 'nonfinite') return [...points.slice(0, -1), { ...points.at(-1)!, close: NaN }]
+          return points
+        })
+      if (failure === 'record') rpc.mockReset().mockResolvedValueOnce({ data: null, error: { message: 'record unavailable' } })
+      if (failure === 'record-id') rpc.mockReset().mockResolvedValueOnce({ data: null, error: null })
+      if (failure === 'attest' || failure === 'attest-id') rpc.mockReset().mockResolvedValueOnce({ data: seriesId, error: null })
+        .mockResolvedValueOnce({ data: null, error: failure === 'attest' ? { message: 'attest unavailable' } : null })
+      const report = await collectSeries({ fetchDailyRangeClosePrices, fetchIndexDailyRangeClosePrices, persistDailyPrices })
+      expect(report.indexFailed).toBe(true)
+      expect(fetchDailyRangeClosePrices).toHaveBeenCalledOnce()
+      expect(persistDailyPrices).toHaveBeenCalledWith(expect.arrayContaining([expect.objectContaining({ symbol: '005930' })]))
+      expect(fetchIndexDailyRangeClosePrices).toHaveBeenCalledTimes(2)
+      expect(rpc).toHaveBeenCalledTimes(['attest', 'attest-id'].includes(failure) ? 2 : ['record', 'record-id'].includes(failure) ? 1 : 0)
+    },
+  )
+
+  it.each([0, 1])('skips the extra fetch and RPCs when the shared KIS budget is exhausted (%i)', async (callBudget) => {
+    const fetchIndexDailyRangeClosePrices = vi.fn(async () => seriesPoints())
+    const report = await collectSeries({ callBudget, fetchIndexDailyRangeClosePrices })
+    expect(fetchIndexDailyRangeClosePrices).toHaveBeenCalledTimes(callBudget)
+    expect(rpc).not.toHaveBeenCalled()
+    expect(report).toMatchObject({ indexFailed: true, physicalCalls: callBudget, skippedForBudget: 2 - callBudget })
+  })
+
+  it('counts the extra response against the shared budget before collecting stocks', async () => {
+    const fetchDailyRangeClosePrices = vi.fn()
+    const report = await collectSeries({ callBudget: 2, fetchDailyRangeClosePrices })
+    expect(rpc).toHaveBeenCalledTimes(2)
+    expect(fetchDailyRangeClosePrices).not.toHaveBeenCalled()
+    expect(report).toMatchObject({ indexFailed: false, physicalCalls: 2, skippedForBudget: 1 })
+  })
+
+  it('does not fetch a series after index retries consume the budget', async () => {
+    vi.useFakeTimers()
+    const fetchIndexDailyRangeClosePrices = vi.fn()
+      .mockRejectedValueOnce(createKisApiError('http', 'temporary'))
+      .mockResolvedValueOnce(seriesPoints())
+    try {
+      const result = collectSeries({ callBudget: 2, fetchIndexDailyRangeClosePrices })
+      await vi.runAllTimersAsync()
+      expect(await result).toMatchObject({ indexFailed: true, physicalCalls: 2 })
+      expect(fetchIndexDailyRangeClosePrices).toHaveBeenCalledTimes(2)
+      expect(rpc).not.toHaveBeenCalled()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('shares pacing with the cache and stock fetches', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-09-01T09:00:00Z'))
+    const starts: number[] = []
+    const fetchPoints = vi.fn(async () => { starts.push(Date.now()); return seriesPoints() })
+    try {
+      const result = collectSeries({ delayMs: 500, fetchIndexDailyRangeClosePrices: fetchPoints, fetchDailyRangeClosePrices: fetchPoints })
+      await vi.runAllTimersAsync()
+      expect((await result).indexFailed).toBe(false)
+      expect(starts.map((start) => start - starts[0])).toEqual([0, 500, 1000])
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('keeps the response calendar and removes future/phantom points with the existing filter', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-09-01T09:00:00Z'))
+    try {
+      const phantom = { ...seriesPoints().at(-1)!, open: 1, high: 1, low: 1, close: 1, volume: 0 }
+      const fetchIndexDailyRangeClosePrices = vi.fn().mockResolvedValueOnce(seriesPoints()).mockResolvedValueOnce([
+        ...seriesPoints(), phantom, { ...phantom, date: '2026-09-02' },
+      ])
+      const report = await collectSeries({ fetchIndexDailyRangeClosePrices })
+      expect(report).toMatchObject({ indexFailed: false, droppedPhantomRows: 1, droppedNotFinalizedRows: 1 })
+      expect(rpc.mock.calls[0][1].p_trade_dates).toEqual(seriesPoints().map((point) => point.date))
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('uses the last finalized session on a non-trading-day run', async () => {
+    const collectRange = vi.fn().mockResolvedValue({})
+    await collectRecentFinalizedStockDailyPrices({ now: new Date('2026-09-06T09:00:00Z'), collectRange })
+    expect(collectRange).toHaveBeenCalledWith(expect.objectContaining({ endDate: '2026-09-04', attestKospiSeries: true }))
+  })
+
+  it('uses dates from the single response without applying the local trading calendar', async () => {
+    const unusualSession = { ...seriesPoints()[0], date: '2026-08-29' }
+    const fetchIndexDailyRangeClosePrices = vi.fn().mockResolvedValueOnce(seriesPoints())
+      .mockResolvedValueOnce([...seriesPoints(), unusualSession])
+    expect((await collectSeries({ fetchIndexDailyRangeClosePrices })).indexFailed).toBe(false)
+    expect(rpc.mock.calls[0][1].p_trade_dates).toContain(unusualSession.date)
+    expect(rpc.mock.calls[0][1].p_trade_dates).toHaveLength(36)
   })
 })

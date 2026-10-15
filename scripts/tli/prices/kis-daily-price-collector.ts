@@ -118,6 +118,7 @@ export async function collectAndPersistStockDailyPriceRange(input: {
   readonly delayMs?: number
   readonly deadlineMs?: number
   readonly finalizedThroughDate?: string
+  readonly attestKospiSeries?: boolean
   readonly fetchDailyRangeClosePrices?: FetchDailyRangePriceRows
   readonly fetchIndexDailyRangeClosePrices?: FetchDailyRangePriceRows
   readonly persistDailyPrices?: PersistDailyPrices
@@ -185,6 +186,7 @@ export async function collectAndPersistStockDailyPriceRange(input: {
     return !deadlineExceeded()
   }
   const pace = async (): Promise<boolean> => {
+    if (input.attestKospiSeries && physicalCalls >= callBudget) return false
     if (previousCallStart !== null && paceIntervalMs > 0) {
       const waitMs = Math.max(0, previousCallStart + paceIntervalMs - Date.now())
       if (!(await waitWhileAllowed(waitMs))) return false
@@ -193,13 +195,13 @@ export async function collectAndPersistStockDailyPriceRange(input: {
     previousCallStart = Date.now()
     return true
   }
-  const normalizePoints = (
-    symbol: string,
+  const filterFinalizedPoints = (
     points: readonly KisDailyRangePricePoint[],
+    dateSet?: ReadonlySet<string>,
   ): KisDailyRangePricePoint[] => {
     const accepted: KisDailyRangePricePoint[] = []
     for (const point of points) {
-      if (!tradeDateSet.has(point.date)) continue
+      if (dateSet && !dateSet.has(point.date)) continue
       if (point.date > finalizedThroughDate) {
         droppedNotFinalizedRows++
         continue
@@ -209,6 +211,15 @@ export async function collectAndPersistStockDailyPriceRange(input: {
         continue
       }
       accepted.push(point)
+    }
+    return accepted
+  }
+  const normalizePoints = (
+    symbol: string,
+    points: readonly KisDailyRangePricePoint[],
+  ): KisDailyRangePricePoint[] => {
+    const accepted = filterFinalizedPoints(points, tradeDateSet)
+    for (const point of accepted) {
       prices.push({
         symbol,
         tradeDate: point.date,
@@ -292,6 +303,50 @@ export async function collectAndPersistStockDailyPriceRange(input: {
       : null
     indexFailed = !successfulSymbols.has(KOSPI_INDEX_SYMBOL)
       || (requiredIndexDate !== null && !symbolsByDate.get(requiredIndexDate)?.has(KOSPI_INDEX_SYMBOL))
+  }
+
+  if (input.attestKospiSeries) {
+    if (!(await pace())) {
+      indexFailed = true
+      console.error('   ❌ KOSPI series 조회 생략 — 콜 예산/deadline 소진')
+    } else {
+      try {
+        // Up to 100 rows per response; 90 calendar days leave room for 30+ sessions.
+        const requestStart = new Date(`${finalizedThroughDate}T00:00:00.000Z`)
+        requestStart.setUTCDate(requestStart.getUTCDate() - 90)
+        const requestStartDate = formatDate(requestStart)
+        physicalCalls++
+        const points = filterFinalizedPoints(await fetchIndexDailyRange(
+          KOSPI_INDEX_CODE, toKisDate(requestStartDate), toKisDate(finalizedThroughDate),
+        )).filter((point) => point.date >= requestStartDate)
+          .sort((left, right) => left.date.localeCompare(right.date))
+        if (points.length < 21 || points.at(-1)?.date !== finalizedThroughDate
+          || points.some((point, index) => !Number.isFinite(point.close) || point.close <= 0
+            || (index > 0 && point.date <= points[index - 1].date))) {
+          throw new Error('KOSPI series는 확정 기준일로 끝나는 21개 이상의 고유 거래일 종가가 필요합니다')
+        }
+        const { supabaseAdmin } = await import('@/scripts/tli/shared/supabase-admin')
+        const { data: seriesId, error: recordError } = await supabaseAdmin.rpc('record_tli_kospi_close_series', {
+          p_request_start: requestStartDate,
+          p_request_end: finalizedThroughDate,
+          p_finalized_through: finalizedThroughDate,
+          p_trade_dates: points.map((point) => point.date),
+          p_closes: points.map((point) => point.close),
+        })
+        if (recordError) throw new Error(`KOSPI series 기록 실패: ${recordError.message}`)
+        if (typeof seriesId !== 'string' || !seriesId) throw new Error('KOSPI series RPC가 id를 반환하지 않았습니다')
+        // Separate awaited PostgREST request: record must COMMIT before attest starts.
+        const { data: attestationId, error: attestError } = await supabaseAdmin.rpc('attest_tli_kospi_close_series', {
+          p_series_id: seriesId,
+        })
+        if (attestError) throw new Error(`KOSPI series attestation 실패: ${attestError.message}`)
+        if (typeof attestationId !== 'string' || !attestationId) throw new Error('KOSPI attestation RPC가 id를 반환하지 않았습니다')
+      } catch (error) {
+        indexFailed = true
+        console.error('   ❌ KOSPI series 수집·기록·attestation 실패:', error instanceof Error ? error.message : String(error))
+        if (getFailureKind(error) === 'rate_limit') await waitWhileAllowed(1_000)
+      }
+    }
   }
 
   let processedStocks = 0
@@ -408,6 +463,7 @@ export async function collectRecentFinalizedStockDailyPrices(input: {
     endDate: getLastFinalizedTradingDate(input.now),
     days: TLI_DAILY_PRICE_TRADING_DAYS,
     universe: 'theme',
+    attestKospiSeries: true,
   })
 }
 
