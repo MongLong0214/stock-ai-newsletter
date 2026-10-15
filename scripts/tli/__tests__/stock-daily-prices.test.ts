@@ -14,10 +14,14 @@ import {
   TLI_DAILY_PRICE_TRADING_DAYS,
   getRecentTradingDates,
 } from '@/scripts/tli/prices/kis-daily-price-collector'
-import { createKisApiError } from '@/app/archive/_utils/api/kis/client'
+import { createKisApiError, fetchIndexDailyRangePriceRows, resetKisClientCacheForTest } from '@/app/archive/_utils/api/kis/client'
 
 const { rpc } = vi.hoisted(() => ({ rpc: vi.fn() }))
 vi.mock('@/scripts/tli/shared/supabase-admin', () => ({ supabaseAdmin: { rpc } }))
+vi.mock('@/app/archive/_utils/api/kis/token-storage', () => ({
+  getTokenFromStorage: vi.fn(async () => null),
+  saveTokenToStorage: vi.fn(async () => undefined),
+}))
 
 describe('stock daily prices', () => {
   beforeEach(() => rpc.mockReset())
@@ -625,11 +629,45 @@ describe('full-mode KOSPI response attestation', () => {
     expect(rpc).toHaveBeenCalledTimes(2)
     expect(rpc).toHaveBeenNthCalledWith(2, 'attest_tli_kospi_close_series', { p_series_id: seriesId })
     expect(fetchIndexDailyRangeClosePrices.mock.calls).toEqual([
-      ['0001', '20260824', '20260901'], ['0001', '20260603', '20260901'],
+      ['0001', '20260824', '20260901'], ['0001', '20260603', '20260901', { rejectInvalidClose: true }],
     ])
     expect(report.indexFailed).toBe(false)
     expect(report.physicalCalls).toBe(3)
   })
+
+  it.each(['0', 'not-a-price'])(
+    'rejects a raw 35-session response with interior close %s before record/attest and still persists stocks', async (invalidClose) => {
+      const output2 = seriesPoints().map((point, index) => ({
+        stck_bsop_date: point.date.replace(/-/g, ''),
+        bstp_nmix_prpr: index === 15 ? invalidClose : String(point.close),
+        acml_vol: '100',
+      }))
+      const fetchMock = vi.fn<typeof fetch>()
+        .mockResolvedValueOnce(new Response(JSON.stringify({ access_token: 'fixture-token' })))
+        .mockImplementation(async () => new Response(JSON.stringify({ rt_cd: '0', output2 })))
+      const persistDailyPrices = vi.fn(async (rows: readonly StockDailyPriceInput[]) => rows.length)
+      vi.stubEnv('KIS_BASE_URL', 'https://example.com')
+      vi.stubEnv('KIS_APP_KEY', 'testkey')
+      vi.stubEnv('KIS_APP_SECRET', 'dGVzdA==')
+      vi.stubGlobal('fetch', fetchMock)
+      resetKisClientCacheForTest()
+      try {
+        const report = await collectSeries({ fetchIndexDailyRangeClosePrices: fetchIndexDailyRangePriceRows, persistDailyPrices })
+        expect(report).toMatchObject({ indexFailed: true, physicalCalls: 3, failureCount: 0 })
+        expect(rpc).not.toHaveBeenCalled()
+        expect(persistDailyPrices).toHaveBeenCalledOnce()
+        expect(persistDailyPrices).toHaveBeenCalledWith(expect.arrayContaining([
+          expect.objectContaining({ symbol: '005930', tradeDate: '2026-09-01', close: 70000 }),
+        ]))
+        expect(report.persistedRows).toBeGreaterThan(0)
+        expect(fetchMock).toHaveBeenCalledTimes(3)
+      } finally {
+        vi.unstubAllGlobals()
+        vi.unstubAllEnvs()
+        resetKisClientCacheForTest()
+      }
+    },
+  )
 
   it.each(['fetch', 'short', 'last', 'duplicate', 'nonfinite', 'record', 'record-id', 'attest', 'attest-id'] as const)(
     'marks %s failure critical through indexFailed while collecting and persisting stocks', async (failure) => {

@@ -120,7 +120,7 @@ export async function collectAndPersistStockDailyPriceRange(input: {
   readonly finalizedThroughDate?: string
   readonly attestKospiSeries?: boolean
   readonly fetchDailyRangeClosePrices?: FetchDailyRangePriceRows
-  readonly fetchIndexDailyRangeClosePrices?: FetchDailyRangePriceRows
+  readonly fetchIndexDailyRangeClosePrices?: typeof fetchIndexDailyRangePriceRows
   readonly persistDailyPrices?: PersistDailyPrices
   readonly loadSymbols?: LoadSymbols
 }): Promise<StockDailyPriceCollectionReport> {
@@ -318,6 +318,7 @@ export async function collectAndPersistStockDailyPriceRange(input: {
         physicalCalls++
         const points = filterFinalizedPoints(await fetchIndexDailyRange(
           KOSPI_INDEX_CODE, toKisDate(requestStartDate), toKisDate(finalizedThroughDate),
+          { rejectInvalidClose: true },
         )).filter((point) => point.date >= requestStartDate)
           .sort((left, right) => left.date.localeCompare(right.date))
         if (points.length < 21 || points.at(-1)?.date !== finalizedThroughDate
@@ -489,7 +490,7 @@ export async function backfillRecentStockDailyPrices(input: {
   readonly universe?: StockDailyPriceUniverse
   readonly delayMs?: number
   readonly fetchDailyRangeClosePrices?: FetchDailyRangePriceRows
-  readonly fetchIndexDailyRangeClosePrices?: FetchDailyRangePriceRows
+  readonly fetchIndexDailyRangeClosePrices?: typeof fetchIndexDailyRangePriceRows
   readonly persistDailyPrices?: PersistDailyPrices
 }): Promise<StockDailyPriceCollectionReport> {
   return collectAndPersistStockDailyPriceRange({
