@@ -219,6 +219,16 @@ describe('tli-collect-data.yml contract', () => {
     }
   })
 
+  it('keeps dispatch windows on both news-only routes', () => {
+    const primary = readFileSync('app/api/cron/tli-news/route.ts', 'utf8')
+    const mondayOrigin = readFileSync('app/api/cron/tli-news/monday-origin/route.ts', 'utf8')
+
+    expect(primary).toContain('fromKstMinutes: 540')
+    expect(primary).toContain('toKstMinutes: 600')
+    expect(mondayOrigin).toContain('fromKstMinutes: 1110')
+    expect(mondayOrigin).toContain('toKstMinutes: 1140')
+  })
+
   it('resolves the run mode from github.event.schedule instead of wall-clock', () => {
     const step = stepByName(collectSteps, 'Determine run mode')
     expect(step.id).toBe('mode')
