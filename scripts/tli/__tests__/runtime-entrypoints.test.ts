@@ -9,8 +9,7 @@ const autoActivate = vi.fn()
 const autoDeactivate = vi.fn()
 const getKSTDate = vi.fn()
 const getKSTDateString = vi.fn()
-const shouldCollectTliStocks = vi.fn()
-const collectDailyStockPricesForDate = vi.fn()
+const collectRecentFinalizedStockDailyPrices = vi.fn()
 const collectDataSources = vi.fn()
 const runInterestObservationGapWatchdog = vi.fn()
 const runCalibrationPhase = vi.fn()
@@ -44,12 +43,8 @@ vi.mock('@/lib/tli/date-utils', () => ({
   getKSTDateString,
 }))
 
-vi.mock('@/lib/tli/trading-calendar', () => ({
-  shouldCollectTliStocks,
-}))
-
 vi.mock('@/scripts/tli/prices/kis-daily-price-collector', () => ({
-  collectDailyStockPricesForDate,
+  collectRecentFinalizedStockDailyPrices,
 }))
 
 vi.mock('@/scripts/tli/batch/pipeline-steps', () => ({
@@ -88,9 +83,14 @@ describe('runtime entrypoints', () => {
     autoDeactivate.mockResolvedValue(undefined)
     getKSTDate.mockReturnValue(new Date('2026-03-20T00:00:00.000Z'))
     getKSTDateString.mockReturnValue('2026-03-20')
-    shouldCollectTliStocks.mockReturnValue(true)
-    collectDailyStockPricesForDate.mockResolvedValue({
+    collectRecentFinalizedStockDailyPrices.mockResolvedValue({
       failureCount: 0,
+      failedSymbols: [],
+      indexFailed: false,
+      skippedForBudget: 0,
+      persistedRows: 7,
+      successCount: 3,
+      attemptedCalls: 3,
     })
     collectDataSources.mockResolvedValue({
       criticalFailures: 0,
@@ -133,7 +133,11 @@ describe('runtime entrypoints', () => {
       warningFailures: 0,
       exitCode: 0,
     })
-    expect(collectDailyStockPricesForDate).toHaveBeenCalledWith('2026-03-20')
+    expect(collectRecentFinalizedStockDailyPrices).toHaveBeenCalledWith()
+    expect(collectRecentFinalizedStockDailyPrices.mock.invocationCallOrder[0])
+      .toBeLessThan(collectDataSources.mock.invocationCallOrder[0])
+    expect(collectRecentFinalizedStockDailyPrices.mock.invocationCallOrder[0])
+      .toBeLessThan(loadActiveThemes.mock.invocationCallOrder[0])
     expect(exitSpy).not.toHaveBeenCalled()
   })
 
@@ -152,7 +156,7 @@ describe('runtime entrypoints', () => {
       criticalFailures: 1,
       exitCode: 1,
     })
-    expect(collectDailyStockPricesForDate).not.toHaveBeenCalled()
+    expect(collectRecentFinalizedStockDailyPrices).toHaveBeenCalledOnce()
     expect(runAnalysisPipeline).not.toHaveBeenCalled()
     expect(exitSpy).not.toHaveBeenCalled()
 
@@ -181,9 +185,40 @@ describe('runtime entrypoints', () => {
     })
   })
 
-  it('counts daily stock price ingest failures as warnings', async () => {
-    collectDailyStockPricesForDate.mockResolvedValue({
-      failureCount: 2,
+  it('collects daily prices on a non-trading weekend in full mode', async () => {
+    getKSTDate.mockReturnValue(new Date('2026-03-21T00:00:00.000Z'))
+    getKSTDateString.mockReturnValue('2026-03-21')
+    const { runTliMainPipeline } = await import('@/scripts/tli/batch/collect-and-score')
+
+    await runTliMainPipeline()
+
+    expect(collectRecentFinalizedStockDailyPrices).toHaveBeenCalledOnce()
+  })
+
+  it('counts KOSPI failure as critical', async () => {
+    collectRecentFinalizedStockDailyPrices.mockResolvedValue({
+      failureCount: 1,
+      failedSymbols: ['KOSPI'],
+      indexFailed: true,
+      skippedForBudget: 0,
+    })
+    const { runTliMainPipeline } = await import('@/scripts/tli/batch/collect-and-score')
+
+    const result = await runTliMainPipeline()
+
+    expect(result).toMatchObject({
+      criticalFailures: 1,
+      warningFailures: 0,
+      exitCode: 1,
+    })
+  })
+
+  it('counts stock-only failures as one warning', async () => {
+    collectRecentFinalizedStockDailyPrices.mockResolvedValue({
+      failureCount: 3,
+      failedSymbols: ['005930', '000660', '035420'],
+      indexFailed: false,
+      skippedForBudget: 0,
     })
     const { runTliMainPipeline } = await import('@/scripts/tli/batch/collect-and-score')
 
@@ -196,10 +231,36 @@ describe('runtime entrypoints', () => {
     })
   })
 
+  it('keeps the stock warning when KOSPI is flagged failed without being a failed symbol', async () => {
+    collectRecentFinalizedStockDailyPrices.mockResolvedValue({
+      failureCount: 1,
+      failedSymbols: ['005930'],
+      indexFailed: true,
+      skippedForBudget: 0,
+    })
+    const { runTliMainPipeline } = await import('@/scripts/tli/batch/collect-and-score')
+
+    const result = await runTliMainPipeline()
+
+    expect(result).toMatchObject({ criticalFailures: 1, warningFailures: 1, exitCode: 1 })
+  })
+
+  it('counts a thrown daily price failure as critical', async () => {
+    collectRecentFinalizedStockDailyPrices.mockRejectedValue(new Error('persist unavailable'))
+    const { runTliMainPipeline } = await import('@/scripts/tli/batch/collect-and-score')
+
+    const result = await runTliMainPipeline()
+
+    expect(result).toMatchObject({
+      criticalFailures: 1,
+      warningFailures: 0,
+      exitCode: 1,
+    })
+  })
+
   it('adds the interest observation watchdog warning on a news-only run', async () => {
     // Given: news succeeds, but the trading-day interest watchdog reports a missing vintage.
     process.env.TLI_MODE = 'news-only'
-    shouldCollectTliStocks.mockReturnValue(false)
     runInterestObservationGapWatchdog.mockResolvedValue(1)
 
     // When: the news-only pipeline completes.
@@ -208,12 +269,22 @@ describe('runtime entrypoints', () => {
 
     // Then: the warning is surfaced without changing critical status or exit code.
     expect(runInterestObservationGapWatchdog).toHaveBeenCalledWith('2026-03-20')
+    expect(collectRecentFinalizedStockDailyPrices).not.toHaveBeenCalled()
     expect(result).toMatchObject({
       mode: 'news-only',
       criticalFailures: 0,
       warningFailures: 1,
       exitCode: 0,
     })
+  })
+
+  it('does not collect daily prices in datalab-only mode', async () => {
+    process.env.TLI_MODE = 'datalab-only'
+    const { runTliMainPipeline } = await import('@/scripts/tli/batch/collect-and-score')
+
+    await runTliMainPipeline()
+
+    expect(collectRecentFinalizedStockDailyPrices).not.toHaveBeenCalled()
   })
 
   it('does not terminate the process when the comparison pipeline is imported and invoked', async () => {

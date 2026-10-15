@@ -761,7 +761,8 @@ describe('Prepare boundary-isolated E2E', () => {
     expect(state.newsletter?.picks_source).toBe('crash')
     expect(alert).toMatchObject({ type: 'crash_alert', severity: 'critical' })
     expect(alert.market_overview.sp500_close).toContain('-6.00%')
-    expect(state.fetchDaily).not.toHaveBeenCalled()
+    // 뉴스레터 저장 후 best-effort 일봉 적재만 수행하고 종목 선정(마스터 갱신)은 하지 않는다
+    expect(state.fetchDaily).toHaveBeenCalledTimes(7)
     expect(state.refreshMaster).not.toHaveBeenCalled()
     expect(state.snapshots).toHaveLength(0)
     expect(state.model).not.toHaveBeenCalled()

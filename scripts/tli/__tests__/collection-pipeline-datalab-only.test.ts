@@ -233,7 +233,7 @@ describe('collect-and-score datalab-only entrypoint contract', () => {
   it('recognizes datalab-only while keeping lifecycle, prices, analysis, and IndexNow full-only', () => {
     expect(source).toContain("export type RunMode = 'full' | 'news-only' | 'datalab-only'")
     expect(source).toContain("if (value === 'news-only' || value === 'datalab-only') return value")
-    expect(source).toContain("mode === 'full'\n      && collection.criticalFailures === 0")
+    expect(source).toContain("if (mode === 'full') {\n      console.log('\\n📈 0단계")
     expect(source).toContain("if (mode === 'full')")
     expect(source).toContain("if (mode === 'full' && !shouldAbortAnalysisPipeline")
   })

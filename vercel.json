@@ -7,6 +7,14 @@
       "schedule": "0 0 * * 1-6"
     },
     {
+      "path": "/api/cron/tli-full",
+      "schedule": "30 7 * * 1-5"
+    },
+    {
+      "path": "/api/cron/tli-full/backup",
+      "schedule": "0 10 * * 1-5"
+    },
+    {
       "path": "/api/cron/newsletter-prepare",
       "schedule": "10 21 * * 0-4"
     },

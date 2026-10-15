@@ -8,8 +8,10 @@ import {
 } from '@/scripts/tli/prices/stock-daily-prices'
 import {
   collectAndPersistStockDailyPriceRange,
+  collectRecentFinalizedStockDailyPrices,
   DEFAULT_KIS_DAILY_PRICE_CALL_BUDGET,
   KIS_DAILY_PRICE_RATE_LIMIT_PER_SECOND,
+  TLI_DAILY_PRICE_TRADING_DAYS,
 } from '@/scripts/tli/prices/kis-daily-price-collector'
 import { createKisApiError } from '@/app/archive/_utils/api/kis/client'
 
@@ -95,6 +97,22 @@ describe('stock daily prices', () => {
 
   it('defaults the KIS call budget to 1,000 per day', () => {
     expect(DEFAULT_KIS_DAILY_PRICE_CALL_BUDGET).toBe(1000)
+  })
+
+  it('collects seven theme trading days through the last finalized date after KST midnight', async () => {
+    const collectRange = vi.fn().mockResolvedValue({})
+
+    await collectRecentFinalizedStockDailyPrices({
+      now: new Date('2026-09-01T21:10:00.000Z'),
+      collectRange,
+    })
+
+    expect(TLI_DAILY_PRICE_TRADING_DAYS).toBe(7)
+    expect(collectRange).toHaveBeenCalledExactlyOnceWith({
+      endDate: '2026-09-01',
+      days: 7,
+      universe: 'theme',
+    })
   })
 
   it('makes one period-range call per symbol (plus KOSPI) instead of one call per date×symbol pair', async () => {
@@ -257,6 +275,23 @@ describe('stock daily prices', () => {
     expect(report.successCount).toBe(0)
     expect(report.indexFailed).toBe(true)
     vi.useRealTimers()
+  })
+
+  it('flags KOSPI as failed when only older rows return and the finalized end date is missing', async () => {
+    const report = await collectAndPersistStockDailyPriceRange({
+      endDate: '2026-07-02',
+      days: 3,
+      delayMs: 0,
+      fetchDailyRangeClosePrices: vi.fn().mockResolvedValue([]),
+      fetchIndexDailyRangeClosePrices: vi.fn().mockResolvedValue([
+        { date: '2026-06-30', open: null, high: null, low: null, close: 2640, volume: null },
+      ]),
+      persistDailyPrices: vi.fn(async (rows: readonly StockDailyPriceInput[]) => rows.length),
+      loadSymbols: vi.fn(async () => []),
+    })
+
+    expect(report.successCount).toBe(1)
+    expect(report.indexFailed).toBe(true)
   })
 
   it('reports symbol-level success/failure counts and success rate', async () => {

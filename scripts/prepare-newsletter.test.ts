@@ -622,6 +622,34 @@ describe('prepare-newsletter stock-pick wiring', () => {
     },
   )
 
+  it.each([
+    { name: 'succeeds', collect: async () => HEALTHY_COLLECTION, warning: null },
+    { name: 'fails', collect: async () => { throw new Error('KIS down') }, warning: 'CRASH_ALERT 일봉 적재 실패' },
+    { name: 'is incomplete', collect: async () => ({ ...HEALTHY_COLLECTION, failureCount: 2 }), warning: 'CRASH_ALERT 일봉 적재 불완전' },
+  ])('backfills daily prices after saving the crash newsletter and never fails prepare when it $name', async ({ name, collect, warning }) => {
+    const client = mockNewsletterClient({ reads: [null] })
+    vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', 'https://example.supabase.co')
+    vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY', 'test-service-role-key')
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    mocks.assessMarket.mockResolvedValue({ ...NORMAL_ASSESSMENT, verdict: 'CRASH_ALERT' })
+    mocks.getLlmAnalysis.mockResolvedValue({ geminiAnalysis: '{"type":"crash_alert"}' })
+    mocks.collectDaily.mockImplementation(collect)
+
+    expect(await runPrepareNewsletterCli([`--target-date=${TARGET_DATE}`])).toBe(0)
+
+    expect(client.insert).toHaveBeenCalledWith(expect.objectContaining({ picks_source: 'crash' }))
+    expect(mocks.collectDaily).toHaveBeenCalledTimes(1)
+    expect(mocks.collectDaily).toHaveBeenCalledWith({ endDate: SIGNAL_DATE, deadlineAt: expect.any(Number) })
+    expect(client.insert.mock.invocationCallOrder[0]).toBeLessThan(mocks.collectDaily.mock.invocationCallOrder[0]!)
+    expect(mocks.refreshStockMaster).not.toHaveBeenCalled()
+    expect(mocks.alert).not.toHaveBeenCalled()
+    const warnings: string[] = findSummary(logSpy).warnings
+    if (warning) expect(warnings.some((line) => line.includes(warning))).toBe(true)
+    else expect(warnings).toEqual([])
+    if (name === 'succeeds') expect(findSummary(logSpy).collection.attemptedCalls).toBe(HEALTHY_COLLECTION.attemptedCalls)
+  })
+
   it.each(['CRASH_ALERT', 'unavailable'] as const)('rechecks an expired NORMAL assessment before writing: %s', async (verdict) => {
     vi.useFakeTimers()
     const started = new Date('2026-09-02T06:00:00+09:00')

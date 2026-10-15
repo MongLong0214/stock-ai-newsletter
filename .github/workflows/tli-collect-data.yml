@@ -2,10 +2,8 @@ name: TLI Data Collection
 
 on:
   schedule:
-    # 장 마감 후 전체 수집 (평일 KST 16:30 = UTC 07:30)
-    - cron: '30 7 * * 1-5'
-    # 평일 전체 수집 이중화 (안정 발화 관측대, KST 19:00 = UTC 10:00)
-    - cron: '0 10 * * 1-5'
+    # 평일 full은 Vercel Cron(/api/cron/tli-full, /backup)이 intended_kst_date와 함께 dispatch한다.
+    # GitHub schedule은 7~9시간 지연돼 KST 자정을 넘긴다.
     # 아침 뉴스 수집 (평일+토 KST 09:00 = UTC 00:00)
     - cron: '0 0 * * 1-6'
     # 주말 전체 수집 (일요일 KST 02:00 = UTC 17:00 토요일)

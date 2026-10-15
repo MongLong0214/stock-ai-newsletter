@@ -102,24 +102,18 @@ export function selectTopThemeStockSymbols(
 }
 
 export async function loadActiveThemeStockSymbols(limitPerTheme = 5): Promise<string[]> {
+  const { fetchAllRows } = await import('@/lib/supabase/paginate')
   const { supabaseAdmin } = await import('@/scripts/tli/shared/supabase-admin')
-  const { data, error } = await supabaseAdmin
+  // WHY: 활성 theme_stocks는 1000행(PostgREST max_rows)을 넘어 .range 없이 읽으면 테마별 top-N이 잘린 행에서 계산된다.
+  const data = await fetchAllRows<ThemeStockSelectionRow>((from, to) => supabaseAdmin
     .from('theme_stocks')
     .select('theme_id, symbol, relevance, is_active')
     .eq('is_active', true)
+    .order('theme_id', { ascending: true })
+    .order('symbol', { ascending: true })
+    .range(from, to))
 
-  if (error) {
-    throw new Error(`테마 종목 로딩 실패: ${error.message}`)
-  }
-
-  const rows: ThemeStockSelectionRow[] = (data ?? []).map((row) => ({
-    theme_id: row.theme_id,
-    symbol: row.symbol,
-    relevance: row.relevance,
-    is_active: row.is_active,
-  }))
-
-  return selectTopThemeStockSymbols(rows, limitPerTheme)
+  return selectTopThemeStockSymbols(data, limitPerTheme)
 }
 
 export async function loadActiveStockMasterSymbols(): Promise<string[]> {
