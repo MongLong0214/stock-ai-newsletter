@@ -5,11 +5,11 @@ import { loadActiveThemes } from '@/scripts/tli/shared/data-ops';
 import { discoverAndManageThemes } from '@/scripts/tli/themes/discover-themes';
 import { autoActivate, autoDeactivate } from '@/scripts/tli/themes/theme-lifecycle';
 import { getKSTDate, getKSTDateString } from '@/lib/tli/date-utils';
-import { shouldCollectTliStocks } from '@/lib/tli/trading-calendar';
 import { collectDataSources, runCalibrationPhase, runAnalysisPipeline, runInterestObservationGapWatchdog, shouldAbortAnalysisPipeline, submitIndexNowStep,
   runLabelBookkeepingPhase,
 } from '@/scripts/tli/batch/pipeline-steps';
-import { collectDailyStockPricesForDate } from '@/scripts/tli/prices/kis-daily-price-collector';
+import { collectRecentFinalizedStockDailyPrices } from '@/scripts/tli/prices/kis-daily-price-collector';
+import { KOSPI_INDEX_SYMBOL } from '@/scripts/tli/prices/stock-daily-prices';
 
 export type RunMode = 'full' | 'news-only' | 'datalab-only'
 
@@ -46,6 +46,28 @@ export async function runTliMainPipeline(): Promise<TliMainPipelineResult> {
   let warningFailures = 0;
 
   try {
+    // WHY: 자정 넘긴 지연 run에서 달력 오늘은 미확정 세션이라 0행이므로 확정 거래일을 수집한다.
+    // 049 enroll은 월 18:00 KST cutoff 이전 KOSPI 적재를 요구하고, CRASH_ALERT prepare는 일봉을 건너뛰므로 맨 앞에서 독립 실행한다.
+    if (mode === 'full') {
+      console.log('\n📈 0단계: KIS 일봉 주가 (테마 종목 + KOSPI, 최근 확정 7거래일)');
+      try {
+        const priceReport = await collectRecentFinalizedStockDailyPrices();
+        console.log(`   ✅ 일봉 ${priceReport.persistedRows}행 저장 · 성공 ${priceReport.successCount}/${priceReport.attemptedCalls} · KOSPI ${priceReport.indexFailed ? '실패' : '정상'}`);
+        if (priceReport.indexFailed) {
+          criticalFailures++;
+          console.error('❌ KOSPI 일봉 수집 실패 — 거래일 창·Monday origin·라벨이 KOSPI 실측에 의존한다');
+        }
+        if (priceReport.failedSymbols.some((symbol) => symbol !== KOSPI_INDEX_SYMBOL)) warningFailures++;
+        if (priceReport.skippedForBudget > 0) {
+          warningFailures++;
+          console.warn(`⚠️ 일봉 주가 콜 예산 초과로 ${priceReport.skippedForBudget}건 생략`);
+        }
+      } catch (error: unknown) {
+        criticalFailures++;
+        console.error('❌ 일봉 주가 적재 실패:', error instanceof Error ? error.message : String(error));
+      }
+    }
+
     // 사전단계: 테마 발견 (주 2회 - 일/수, full 모드에서만)
     if (mode === 'full' && (dayOfWeek === 0 || dayOfWeek === 3)) {
       try {
@@ -74,24 +96,6 @@ export async function runTliMainPipeline(): Promise<TliMainPipelineResult> {
 
     if (mode === 'news-only') {
       warningFailures += await runInterestObservationGapWatchdog(endDate);
-    }
-
-    if (
-      mode === 'full'
-      && collection.criticalFailures === 0
-      && shouldCollectTliStocks({ mode, kstDate: endDate })
-    ) {
-      try {
-        const priceReport = await collectDailyStockPricesForDate(endDate);
-        if (priceReport.failureCount > 0) warningFailures++;
-        if (priceReport.skippedForBudget > 0) {
-          warningFailures++;
-          console.warn(`⚠️ 일봉 주가 콜 예산 초과로 ${priceReport.skippedForBudget}건 생략`);
-        }
-      } catch (error: unknown) {
-        warningFailures++;
-        console.warn('⚠️ 일봉 주가 적재 실패:', error instanceof Error ? error.message : String(error));
-      }
     }
 
     // Steps 3.5-8: 교정 + 분석 (full 모드, DataLab 성공 시)

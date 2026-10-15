@@ -497,6 +497,47 @@ const parsePicks = (json: string): StockData[] => {
   }
 }
 
+// WHY: CRASH_ALERT 경로는 전종목 일봉 적재 전에 반환해, 폭락 국면 내내 stock_daily_prices가 멈추고
+// 7거래일 넘게 이어지면 다음 NORMAL 날의 7거래일 창으로도 못 메우는 영구 공백이 된다(소비자가 자기 입력을 보장).
+// 뉴스레터 저장 이후 best-effort로만 수행하므로 콘텐츠·발송 시각에 영향이 없고, 실패해도 prepare를 실패시키지 않는다.
+const backfillDailyPricesAfterCrash = async (input: {
+  readonly deadlineAt: number
+  readonly summary: PrepareRunSummary
+  readonly totalStartedAt: number
+  readonly warnings: string[]
+}): Promise<PrepareRunSummary> => {
+  const { summary } = input
+  console.log('\n📈 [CRASH_ALERT] 뉴스레터 저장 완료 — 일봉 공백 방지를 위해 전종목 일봉 적재')
+  try {
+    const report = await collectDailyStockPrices({ endDate: summary.signalDate, deadlineAt: input.deadlineAt })
+    if (report.failureCount > 0 || report.skippedForBudget > 0) {
+      input.warnings.push(
+        `CRASH_ALERT 일봉 적재 불완전: 실패 ${report.failureCount}, 예산/deadline 생략 ${report.skippedForBudget}`,
+      )
+    }
+    return {
+      ...summary,
+      collection: {
+        attemptedCalls: report.attemptedCalls,
+        successCount: report.successCount,
+        failureCount: report.failureCount,
+        exactDateCoverageRate: report.exactDateCoverageRate,
+        indexFailed: report.indexFailed,
+        skippedForBudget: report.skippedForBudget,
+        retriedSymbols: report.retriedSymbols,
+        recoveredSymbols: report.recoveredSymbols,
+        persistedRows: report.persistedRows,
+      },
+      durationsSec: { ...summary.durationsSec, total: elapsedMs(input.totalStartedAt) / 1000 },
+    }
+  } catch (error) {
+    const warning = `CRASH_ALERT 일봉 적재 실패 — 뉴스레터는 유지: ${error instanceof Error ? error.message : String(error)}`
+    input.warnings.push(warning)
+    console.warn(`⚠️ ${warning}`)
+    return { ...summary, durationsSec: { ...summary.durationsSec, total: elapsedMs(input.totalStartedAt) / 1000 } }
+  }
+}
+
 export async function prepareNewsletter(options: PrepareNewsletterOptions = {}): Promise<void> {
   const totalStartedAt = Date.now()
   const configuredDeadline = options.deadlineMinutes
@@ -572,6 +613,7 @@ export async function prepareNewsletter(options: PrepareNewsletterOptions = {}):
 
   if (remainingMs(deadlineAt) <= 0) abortForDeadline('summary and database write')
 
+  const needsCrashBackfill = pipeline.picksSource === 'crash' && pipeline.collection === null
   const rawPicks = pipeline.picksSource === 'code' ? parsePicks(pipeline.geminiAnalysis) : []
   const scoreBySymbol = new Map(
     pipeline.generated?.meta.rankedCandidates.map((candidate) => [candidate.symbol, candidate.score]) ?? [],
@@ -630,7 +672,7 @@ export async function prepareNewsletter(options: PrepareNewsletterOptions = {}):
     console.log(`\nDRY_RUN_RESULT picks_source=${pipeline.picksSource} analysis_chars=${pipeline.geminiAnalysis.length}`)
     console.log(pipeline.geminiAnalysis.slice(0, 2_000))
     console.log('\n✅ dry-run — 뉴스레터·픽 스냅샷 저장 생략 (마스터·일봉 갱신은 실행됨)')
-    await emitPrepareSummary(summary)
+    await emitPrepareSummary(needsCrashBackfill ? await backfillDailyPricesAfterCrash({ deadlineAt, summary, totalStartedAt, warnings }) : summary)
     return
   }
 
@@ -649,7 +691,7 @@ export async function prepareNewsletter(options: PrepareNewsletterOptions = {}):
     },
   })
   if (writeResult === 'preserved') {
-    await emitPrepareSummary(summary)
+    await emitPrepareSummary(needsCrashBackfill ? await backfillDailyPricesAfterCrash({ deadlineAt, summary, totalStartedAt, warnings }) : summary)
     return
   }
 
@@ -699,7 +741,7 @@ export async function prepareNewsletter(options: PrepareNewsletterOptions = {}):
       }
     }
   }
-  await emitPrepareSummary(summary)
+  await emitPrepareSummary(needsCrashBackfill ? await backfillDailyPricesAfterCrash({ deadlineAt, summary, totalStartedAt, warnings }) : summary)
 
   console.log(`\n${'━'.repeat(80)}`)
   console.log('✨ 뉴스레터 준비 완료!')

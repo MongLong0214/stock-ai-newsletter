@@ -23,6 +23,7 @@
 | **v9** | **2026-09-28** | **과거 점수 로딩 성능+정확성 수정: 테마별 최근 5건 RPC(066)** — 전체 이력 OFFSET 스캔의 8초 타임아웃(09-24 실패)과 `ORDER BY calculated_at`만 사용한 비고유 정렬의 페이지 경계 중복 692건·누락 692건(40테마 최근 5건 오류)을 해소. 새 RPC 결과 1,184행이 SQL 정답과 일치하여 해당 테마의 EMA/Bollinger/히스테리시스 입력이 설계된 최근 5건으로 바뀜 |
 | **v10** | **2026-09-28** | **TLI 문서를 SSOT·master plan 두 개로 수렴 — runbook·README 유효 내용 이관, 나머지 삭제(git 이력 보존)** |
 | **v11** | **2026-09-28** | **/themes 급상승 복구** — 랭킹 요약의 급상승 노이즈 필터가 앵커 척도 `raw_interest_avg`(7/27 사건 6 이후 전 테마)를 raw 임계값 4와 비교해 급상승이 항상 null이던 문제를 행별 `interest_scale` 기준 `getNoiseFloor`로 수정, 빈 구분선 제거 |
+| **v12** | **2026-10-15** | **사건 10 — 일봉 공백 → Monday origin 반복 실패 + DataLab 한도 소진** — 평일 full run을 Vercel Cron 정시 dispatch(16:30/19:00 KST, intended_kst_date)로 이전하고 GitHub 평일 schedule 제거, TLI 일봉 단계를 run 맨 앞·확정 거래일 7일 range·무조건 실행으로 바꾸고 KOSPI 실패를 critical로 승격, prepare CRASH_ALERT 경로에 저장 후 best-effort 전종목 일봉 적재 추가, KOSPI 일봉 기준일 행 부재도 critical로 판정(마이그레이션 067 provenance 교정은 **보류 — Isaac 승인 대기, 별도 PR**) |
 
 ## 문서 지도
 
@@ -87,7 +88,8 @@
 `full` 모드 단계:
 
 ```
-1 DataLab 수집 → 2 뉴스 수집 → 3 종목 수집/활성화 → 3.5 교정
+0 KIS 일봉(테마 종목+KOSPI, 최근 확정 7거래일 range — KOSPI 실패=critical, v12)
+→ 1 DataLab 수집 → 2 뉴스 수집 → 3 종목 수집/활성화 → 3.5 교정
 → 4 점수 계산(anchor 척도) → 4.1 GT 라벨(legacy v1) → 4.15 gta-v2 foundation 라벨
 → 4.25 phase0 analog materialization → 4.5 임계값 튜닝 → 5 비교 분석
 → 6 예측 스냅샷(비거래일 스킵; legacy v3는 containment면 생성 중단) → 6.5 B-Abl phase 스냅샷 → 6.6 Monday origin manifest + origin-eligibility-v2 판정
@@ -95,13 +97,13 @@
 → [사후 gate] prediction-parity · watchlist-canary (exit 3만 workflow fail)
 ```
 
-**크론** (`.github/workflows/tli-collect-data.yml`, UTC — GitHub 스케줄 지연 실측 **2~10시간**, 자정 spillover 관측 8/27·8/28·8/31. cutoff 민감 소스는 GitHub cron에 맡기지 않는다):
+**크론** (`.github/workflows/tli-collect-data.yml`, UTC — GitHub 스케줄 지연 실측 **2~10시간**, 자정 spillover 관측 8/27·8/28·8/31, 10/5~10/15는 평일 full이 **매일 7~9시간** 밀려 KST 자정을 넘김(사건 10). cutoff 민감 소스와 평일 full은 GitHub cron에 맡기지 않는다):
 
 | cron | KST | 역할 |
 |---|---|---|
 | **Vercel** `0 0 * * 1-6` → `/api/cron/tli-datalab` | 월~토 09:00 | **DataLab 선수집** — `workflow_dispatch(mode=datalab-only, intended_kst_date, run_key)`. 사전 완료 판정은 두지 않는다(부분 완료를 완료로 오판하면 선수집이 통째로 사라진다). 중복은 재사용과 workflow concurrency가 막는다 |
-| `30 7 * * 1-5` | 평일 16:30 | full 수집+점수 (DataLab은 09:00분 재사용, 신선도 미달분만 재요청) |
-| `0 10 * * 1-5` | 평일 19:00 | full 이중화 (v6까지 문서 누락. 요청은 대부분 재사용으로 상쇄) |
+| **Vercel** `30 7 * * 1-5` → `/api/cron/tli-full` | 평일 16:30 | full 수집+점수 (`run_key=full-1630:<date>`). 0단계 일봉이 16:35경 KOSPI 확정 종가를 월 18:00 cutoff 전에 적재. DataLab은 09:00분 재사용, 신선도 미달분만 재요청 |
+| **Vercel** `0 10 * * 1-5` → `/api/cron/tli-full/backup` | 평일 19:00 | full 이중화 (`full-1900:<date>`) — 월요일엔 18:00 cutoff 이후 origin 생성 담당. 요청은 대부분 재사용 |
 | `0 0 * * 1-6` | 월~토 09:00 | news 수집 (+origin backfill) |
 | `0 17 * * 6` | 일 02:00 | 주말 full (테마 발견 슬롯 — 비거래일 예측 스냅샷은 스킵됨) |
 | `30 9 * * 1` | 월 18:30 | Monday origin 생성 |
@@ -258,6 +260,29 @@ analog_candidates_v1을 읽어 무효 ② 서빙 단일화 + 분포기반 absten
 
 **교훈 (불변 규칙 ⑮⑯⑰)**: 분모는 "성공한 것"이 아니라 "의도한 것"이어야 한다. 외부 API 한도는 코드가 아니라 DB 원장으로 공유 관리한다. cutoff 민감 수집은 지연이 상습인 스케줄러에 맡기지 않는다.
 
+### 사건 10 — 일봉 공백 → Monday origin 반복 실패 + DataLab 한도 소진 (10/15 수정, v12)
+
+**증상**: 9/28 이후 workflow 실패 9회(9/28·9/29×2·10/12~10/15×6). 두 갈래 — ①`create_tli_forecast_origin_manifest` "forecast origin Monday is not an observed Korean trading date"(news-only에선 critical) ②DataLab "local ceiling 900 초과"로 critical 33~36건 → 4.25~8단계 전체 생략.
+
+**근본 원인 (CI 로그·prod DB 실측)**:
+1. **GitHub schedule 상습 지연** — 10/5~10/15 평일 `30 7`·`0 10` full이 매일 **7~9시간** 밀려 KST 00:11·02:22 등 다음 날에 시작했다. v7은 DataLab 선수집만 Vercel로 옮겼고 평일 full은 GitHub에 남아 있었다.
+2. **TLI 일봉 단계가 달력 날짜를 수집** — `collectDailyStockPricesForDate(getKSTDateString())`(1일). 자정 이후 run은 미확정 세션을 요청해 전 종목 `empty` → 0행, 경고 1건으로 끝났다(10/12~10/14 run 4회 모두 489/489 실패). DataLab critical·비거래일 조건에 걸려 아예 생략되기도 했다.
+3. **실질 유일 writer가 뉴스레터 prepare** — prepare는 CRASH_ALERT 날 `collectDaily` 전에 반환한다. 10/12 폭락(KOSPI -3.65%) 이후 연속 CRASH_ALERT → `stock_daily_prices` 전 종목이 **10/08 이후 0행** → KOSPI 10/12 부재 → 046 RPC 거부. 9/28 실패도 같은 사슬(KOSPI 9/28 행이 9/29 06:31 prepare에서야 생성).
+4. **spill이 DataLab 재사용을 무력화** — 자정 이후 run은 DataLab에 직전 거래일 데이터가 아직 없어 신선도 하한 미달 → 299건 전량 신규. 두 spill run + 09:00 선수집 = ledger **897(10/9·10/13), 900(10/14)** → 같은 날 정상 run이 한도에 막혀 critical.
+5. **잠재(Todo 16 차단 요인)** — 049 `enroll_tli_origin`은 KOSPI base close의 `created_at <= forecast_cutoff`(월 18:00 KST)를 요구한다. 7/13 이후 월요일 11개 중 cutoff 전 생성은 **3개뿐**(7/13·8/24·8/31). 046 universal manifest는 존재만 보므로 지금까지 드러나지 않았다.
+
+**조치**:
+1. **평일 full을 Vercel Cron 정시 dispatch로 이전** — `/api/cron/tli-full`(16:30)·`/backup`(19:00) → `workflow_dispatch(mode=full, intended_kst_date, run_key)`, 공용 핸들러 `lib/tli/collect-cron-dispatch.ts`(tli-datalab도 사용). GitHub 평일 schedule 2개 제거. 늦은 dispatch는 기존 stale 판정이 조용히 skip → 자정 spill 자체가 사라진다.
+2. **TLI 일봉 = 0단계** — full 모드면 무조건(휴장·DataLab 실패 무관), run 맨 앞에서 `getLastFinalizedTradingDate()` 기준 최근 7거래일 range(테마 종목+KOSPI, 심볼당 1콜, 멱등 업서트)를 적재한다. 놓친 날은 다음 run이 자기치유한다. **KOSPI 실패(기준일 행 부재 포함)·적재 throw는 critical**, 종목 일부 실패는 warning. 대상 종목 로더 `loadActiveThemeStockSymbols`는 활성 `theme_stocks` 5,877행을 PostgREST 1000행 상한 너머까지 `fetchAllRows`로 읽는다(이전엔 .range 없이 읽어 테마별 top-5가 잘린 행에서 계산됐다; 실측 top-5 합집합 647종목 + KOSPI < 예산 1000). KOSPI는 먼저 조회되지만 저장은 테마 종목 조회(~490콜) 후 한 번에 일어나며(16:30 시작 기준 약 5분 후) 0단계에는 deadline이 없다 — 18:00 cutoff 전 적재는 정시 dispatch의 결과이지 코드가 보장하는 것이 아니므로 월요일 KOSPI 행 시각을 감시한다(§8).
+3. **prepare CRASH_ALERT 경로가 자기 입력을 보장** — `scripts/prepare-newsletter.ts`는 폭락 판정 시 `collectDaily` 전에 반환해 `stock_daily_prices`가 멈췄다. 뉴스레터 저장 **이후** `backfillDailyPricesAfterCrash`가 전종목 7거래일 range를 best-effort로 적재한다(deadline 안에서만, 예외·불완전 적재는 summary warning — prepare를 실패시키지 않는다). 뉴스레터 본문·저장 시각·발송(07:27 KST)은 불변: 폭락 경로 실측 ~1.5분 + 적재 ~20분 = prepare 시작(06:10)+~22분으로 38분 deadline·워치독(07:05)·발송 안에 들어간다. 이미 NORMAL 수집을 마친 뒤 재평가로 CRASH가 된 경우(`collection != null`)는 재수집하지 않는다.
+4. **DataLab 한도 소진은 1번으로 해소** — 재사용 신선도 하한은 `min(요청창 끝, 직전 거래일)`(`naver-datalab-reuse.ts isReusableRun`)이고 같은 KST 날짜의 complete run만 재사용한다. 평일 full이 당일 16:30/19:00에 시작하면 09:00 선수집(source_max_date=전일)이 하한을 넘겨 재사용되고(신선도 미달 저볼륨 테마 ~36건만 재요청), 자정 spill이 없어 같은 날 신규 299건이 두 번 생기지 않는다. 기대 일일 시도 ≈ 299(09:00) + ~36 ≤ 600. 코드 변경은 필요 없다.
+5. **보류 — KOSPI 종가 저장 시각 provenance (마이그레이션 067, 이번 변경에 포함하지 않음)** — `stock_daily_prices`는 upsert로 갱신되는 가변 테이블이라 `created_at <= forecast_cutoff`(049 `enroll_tli_origin`)는 "그 종가가 cutoff 전에 저장됐다"를 증명하지 못한다(8/31 행: 08:51 개장 전 phantom 생성 → 나중에 덮어씀; 반대로 cutoff 이후 덮어쓴 값도 통과). 교정안(nullable `close_written_at` + BEFORE INSERT/UPDATE 트리거 + enroll KOSPI predicate 두 줄 교체)은 설계·실 PG 리허설을 마쳤으나 049 함수 정의 변경은 부록(045–052 forward recovery)상 사전 증거 보존(pg_dump·functiondef export·PG17 restore probe)과 reviewed-definition 갱신이 필요한 Level-2라 **Isaac 승인 전까지 코드·마이그레이션 모두 머지하지 않는다**. 앱 코드는 `close_written_at`에 의존하지 않는다. cycle(Todo 16) 시작 전 결정 필요.
+6. 복구: 배포 후 첫 full run이 10/12~ 공백을 채우고, 같은 run 6.6단계 backfill이 10/12 origin을 만든다(PIT 파생이라 payload 동일. 단 이 origin의 KOSPI 행은 cutoff 이후 생성이라 049 enrollment 대상은 아니다 — cycle 미가동이므로 영향 없음).
+
+**남은 위험 (실측 근거 있음)**: ①GitHub 평일 news-only(`0 0 * * 1-6`)가 7~9시간 지연돼 16:30~17:30에 실행 중이면 workflow `concurrency`(대기 1개만 유지)가 16:30 full dispatch를 19:00 dispatch로 대체할 수 있다 — 그 경우 월요일 KOSPI 행이 18:00 cutoff 뒤에 생겨 enroll이 거부된다(fail-closed). 월요일 KOSPI 행 시각 감시(§8)로 잡는다. ②prepare 폭락 적재가 실패해도 뉴스레터는 정상 발송되고 summary warning만 남는다(의도). ③7거래일 넘는 연속 폭락 중 prepare 자체가 하루 전체 실패하면 전종목 공백은 남는다 — TLI 0단계는 테마 종목(+KOSPI)만 적재한다. ④KOSPI 0단계가 실패해도 점수·IndexNow 등 KOSPI 비의존 단계는 계속 돈다(run은 critical로 실패 표시, origin 단계는 자체 fail-loud).
+
+**교훈 (불변 규칙 ⑱⑲)**: 과학 입력의 writer가 다른 파이프라인의 조건부 경로에만 있으면 안 된다. 수집 대상일은 달력 오늘이 아니라 확정 거래일이다.
+
 ## 6. 불변 규칙 (사고 이력에서 나온 것 — 재발 방지)
 
 1. **실제 페이지 렌더를 확인하라** — API·CI green ≠ 사용자 화면 정상 (사건 1).
@@ -276,7 +301,9 @@ analog_candidates_v1을 읽어 무효 ② 서빙 단일화 + 분포기반 absten
 14. **참조 데이터는 루프 밖에서 1회 로드** — base_date/전역 단위 데이터를 테마·엔티티 루프 안에서 읽으면 egress가 O(N)으로 조용히 폭증한다. `supabase inspect db outliers|traffic-profile`로 주기 점검 (사건 7).
 15. **completeness의 분모는 intended universe다** — "성공한 소스"에서 universe를 파생하면 결손이 100%로 위장된다(false-clean). 결손 테마는 명시적 abstain으로 기록하고 coverage는 roster 대비로 판정 (사건 9).
 16. **외부 API 일일 한도는 DB 원장으로 공유 예약** — runner·Vercel·수동 실행 사이에 프로세스 메모리·파일 카운터는 공유되지 않는다. 시도 단위 원자 예약 + 한도 오류는 재시도 금지 + 동일 요청 재사용 (사건 9).
-17. **cutoff 민감 수집은 지연 상습 스케줄러와 분리** — GitHub cron은 2~10시간 밀린다. 다른 인프라(Vercel Cron)에서 dispatch하고 intended date를 함께 보내 잘못된 날짜 실행을 거부 (사건 9; 뉴스레터 체인과 동일 원칙).
+17. **cutoff 민감 수집은 지연 상습 스케줄러와 분리** — GitHub cron은 2~10시간 밀린다. 다른 인프라(Vercel Cron)에서 dispatch하고 intended date를 함께 보내 잘못된 날짜 실행을 거부 (사건 9; 뉴스레터 체인과 동일 원칙). 평일 full도 동일(사건 10).
+18. **소비자가 자기 입력을 보장한다** — 과학 입력(KOSPI 일봉 등)의 writer가 다른 파이프라인의 조건부 경로(prepare의 CRASH_ALERT 분기)에만 있으면 그 조건이 곧 장애가 된다. 입력 적재 실패는 경고가 아니라 critical (사건 10). 소비자가 사용자 콘텐츠 발송을 책임지는 경로(prepare)는 콘텐츠 저장 이후 best-effort로 적재해 발송을 인질로 잡지 않는다.
+19. **수집 대상일은 달력 오늘이 아니라 확정 거래일** — `getLastFinalizedTradingDate()` 기준 range로 적재해 지연 run·놓친 run을 자기치유한다. 달력 날짜 1일 수집은 자정 spill에서 조용히 0행이 된다 (사건 10).
 
 ## 7. 아키텍처 지도 (작업 진입점)
 
@@ -288,7 +315,8 @@ analog_candidates_v1을 읽어 무효 ② 서빙 단일화 + 분포기반 absten
 | origin 생성 | `scripts/tli/origins/` (`lock-study-contract.ts`는 **재실행 금지**) |
 | origin clean 판정 | `scripts/tli/origins/origin-eligibility.ts`(규칙) · `origin-roster.ts`(RPC) · `run-origin-eligibility.ts`(`npm run tli:origins:eligibility`) · `study-origin-eligibility-source.ts`(dataset/평가기 공용 필터) |
 | DataLab quota/reuse | `scripts/tli/collectors/naver-datalab-quota.ts` · `naver-datalab-reuse.ts` · `naver-datalab-api.ts`(`NaverDatalabQuotaError`) |
-| TLI dispatch (Vercel Cron) | `app/api/cron/tli-datalab/route.ts` · `vercel.json` crons |
+| TLI dispatch (Vercel Cron) | `lib/tli/collect-cron-dispatch.ts`(공용) · `app/api/cron/tli-datalab/route.ts` · `app/api/cron/tli-full/route.ts` · `app/api/cron/tli-full/backup/route.ts` · `vercel.json` crons |
+| 일봉(KIS) | `scripts/tli/prices/kis-daily-price-collector.ts` `collectRecentFinalizedStockDailyPrices`(0단계) · 수동 `scripts/tli/ops/run-stock-daily-price-ingest.ts` · 전종목은 prepare(`scripts/prepare-newsletter.ts`, 폭락 경로는 `backfillDailyPricesAfterCrash`) |
 | 라벨 gta-v2 | `lib/tli/labels/gt-a-v2.ts` · `scripts/tli/labels/finalize-gt-a-v2.ts` · `scripts/tli/labels/gta-v2-daily.ts`(step 4.15) |
 | 만기 SSOT | `lib/tli/trading-calendar.ts` `getLatestMaturedBaseDate` |
 | 점수 척도 SSOT | `lib/tli/interest-scale.ts` (+ `score-config.ts` `getNoiseFloor`) |
@@ -326,6 +354,10 @@ analog_candidates_v1을 읽어 무효 ② 서빙 단일화 + 분포기반 absten
 | **12월** | **2027 휴장일 KRX 공식 발표 대조** | 테이블은 이미 존재(잠정값) — 공식 발표와 diff |
 | **매주 월요일 저녁** | `tli_study_origin_eligibility_latest` 최신 origin `eligible` | 신규 ineligible이면 critical 이슈(회귀는 나이 무관 critical) + 사건 9 재발 조사. 기존 ineligible의 재기록은 pass다 |
 | 매일 | `tli_datalab_quota_ledger` attempts ≤ 600 | 600 초과면 reuse 실패/spillover 조사 |
+| **매주 월요일** | KOSPI 당일 행 `created_at` ≤ 18:00 KST (사건 10) | 넘으면 16:30 Vercel dispatch 발화·0단계 일봉·concurrency 대체(사건 10 남은 위험 ①) 조사. `select created_at at time zone 'Asia/Seoul' from stock_daily_prices where symbol='KOSPI' and trade_date=<월>` |
+| 매일 | 평일 full run이 `full-1630:<date>`·`full-1900:<date>` run_key로 당일 KST에 시작 | GitHub schedule 이벤트의 평일 full이 보이면 회귀 |
+| **P1 (Todo 16 cycle 시작 전 결정)** | 마이그레이션 067(KOSPI 종가 provenance) — 049 정의 변경이라 Isaac 승인 + forward-recovery 증거 보존 후 별도 PR (사건 10 #5) | 보류 중에는 enroll이 가변 `created_at`에 의존 |
+| 배포 후 첫 평일 | 16:30 KST run_key `full-1630:<date>` 시작, KOSPI 10/12~ 행 복구, 10/12 origin manifest 생성, ledger ≤600, 다음 폭락 날 prepare summary의 일봉 적재 warning 유무 | 사건 10 검증 |
 | 9/8경 | 8/31 origin 라벨 final → 성숙 후 재판정 eligible 유지 | `label_accounting_incomplete`면 라벨 파이프라인 조사 |
 | 매일 | 관측 갭 워치독: 최신 `trading_date`가 2거래일 이상 뒤처지지 않음 | 뒤처지면 warning — DataLab 수집 중단 여부 조사 |
 | P1 | legacy 4,880 exclusion reason backfill(추측 금지, 복원 불가는 명시) · flywheel consumer + GSC/GA4 귀속 · DB 월간 증가율 | — |

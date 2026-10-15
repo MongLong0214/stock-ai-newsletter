@@ -60,8 +60,6 @@ describe('resolveTliCollectMode', () => {
   })
 
   it.each([
-    ['30 7 * * 1-5', 'full'],
-    ['0 10 * * 1-5', 'full'],
     ['0 0 * * 1-6', 'news-only'],
     ['0 17 * * 6', 'full'],
     ['30 9 * * 1', 'news-only'],
@@ -153,20 +151,6 @@ describe('resolveTliCollectMode', () => {
     expect(resolveTliCollectMode({ eventName: 'schedule', schedule: '0 0 * * 1-6' })).toBe('news-only')
   })
 
-  it('keeps full when the 07:30 cron starts 60 minutes late', () => {
-    vi.useFakeTimers()
-    vi.setSystemTime(new Date('2026-07-06T08:30:00.000Z'))
-
-    expect(resolveTliCollectMode({ eventName: 'schedule', schedule: '30 7 * * 1-5' })).toBe('full')
-  })
-
-  it('keeps full when the redundant 10:00 cron starts late', () => {
-    vi.useFakeTimers()
-    vi.setSystemTime(new Date('2026-07-06T10:37:00.000Z'))
-
-    expect(resolveTliCollectMode({ eventName: 'schedule', schedule: '0 10 * * 1-5' })).toBe('full')
-  })
-
   it('rejects an unmapped schedule cron', () => {
     expect(() => resolveTliCollectMode({ eventName: 'schedule', schedule: '0 5 * * *' }))
       .toThrow(/unknown schedule cron/)
@@ -201,13 +185,19 @@ describe('tli-collect-data.yml contract', () => {
     expect([...crons].sort()).toEqual(Object.keys(TLI_COLLECT_SCHEDULE_MODES).sort())
   })
 
-  it('keeps two independent weekday full schedules after market close', () => {
-    const weekdayFullSchedules = Object.entries(TLI_COLLECT_SCHEDULE_MODES)
-      .filter(([cron, mode]) => cron.endsWith('1-5') && mode === 'full')
-      .map(([cron]) => cron)
-      .sort()
-
-    expect(weekdayFullSchedules).toEqual(['0 10 * * 1-5', '30 7 * * 1-5'])
+  it('dispatches weekday full runs from Vercel Cron instead of GitHub schedule', () => {
+    const vercel = JSON.parse(readFileSync('vercel.json', 'utf8')) as {
+      crons: readonly { path: string; schedule: string }[]
+    }
+    expect(vercel.crons).toEqual(expect.arrayContaining([
+      { path: '/api/cron/tli-full', schedule: '30 7 * * 1-5' },
+      { path: '/api/cron/tli-full/backup', schedule: '0 10 * * 1-5' },
+    ]))
+    expect((collectWorkflow.on.schedule ?? []).map((entry) => entry.cron)
+      .filter((cron) => cron.endsWith('1-5'))).toEqual([])
+    expect(Object.entries(TLI_COLLECT_SCHEDULE_MODES)
+      .filter(([cron, mode]) => cron.endsWith('1-5') && mode === 'full'))
+      .toEqual([])
   })
 
   it('resolves the run mode from github.event.schedule instead of wall-clock', () => {

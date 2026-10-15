@@ -17,6 +17,8 @@ import {
 
 export const DEFAULT_KIS_DAILY_PRICE_CALL_BUDGET = 1000
 export const KIS_DAILY_PRICE_RATE_LIMIT_PER_SECOND = 2
+// WHY: 심볼당 기간조회는 1콜이므로 창을 넓혀도 콜 수는 같고, 놓친 run을 최대 6거래일까지 복구한다.
+export const TLI_DAILY_PRICE_TRADING_DAYS = 7
 export type StockDailyPriceUniverse = 'theme' | 'full'
 
 const KOSPI_INDEX_CODE = '0001'
@@ -284,7 +286,12 @@ export async function collectAndPersistStockDailyPriceRange(input: {
       const retryWaitMs = retryKind === 'rate_limit' ? Math.max(1_000, baseWaitMs) : baseWaitMs
       if (!(await waitWhileAllowed(retryWaitMs))) break
     }
+    // WHY: 과거 행만 오고 기준일 행이 빠진 응답을 정상으로 두면 Monday origin이 다시 KOSPI 부재로 거부된다.
+    const requiredIndexDate = input.endDate <= finalizedThroughDate && symbolsByDate.has(input.endDate)
+      ? input.endDate
+      : null
     indexFailed = !successfulSymbols.has(KOSPI_INDEX_SYMBOL)
+      || (requiredIndexDate !== null && !symbolsByDate.get(requiredIndexDate)?.has(KOSPI_INDEX_SYMBOL))
   }
 
   let processedStocks = 0
@@ -391,6 +398,17 @@ export async function collectAndPersistStockDailyPriceRange(input: {
       sortedDates.map((date) => [date, symbolsByDate.get(date)?.size ?? 0]),
     ),
   }
+}
+
+export async function collectRecentFinalizedStockDailyPrices(input: {
+  readonly now?: Date
+  readonly collectRange?: typeof collectAndPersistStockDailyPriceRange
+} = {}): Promise<StockDailyPriceCollectionReport> {
+  return (input.collectRange ?? collectAndPersistStockDailyPriceRange)({
+    endDate: getLastFinalizedTradingDate(input.now),
+    days: TLI_DAILY_PRICE_TRADING_DAYS,
+    universe: 'theme',
+  })
 }
 
 export async function collectDailyStockPricesForDate(
