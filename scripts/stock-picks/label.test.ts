@@ -190,6 +190,59 @@ describe('labelPick', () => {
     })
   })
 
+  it.each([
+    { signalClose: 100, limit: 130 },
+    { signalClose: 1540, limit: 2000 },
+    { signalClose: 2005, limit: 2605 },
+    { signalClose: 3850, limit: 5000 },
+    { signalClose: 5500, limit: 7150 },
+    { signalClose: 15400, limit: 20000 },
+    { signalClose: 20050, limit: 26050 },
+    { signalClose: 38500, limit: 50000 },
+    { signalClose: 50100, limit: 65100 },
+    { signalClose: 154000, limit: 200000 },
+    { signalClose: 200500, limit: 260500 },
+    { signalClose: 385000, limit: 500000 },
+    { signalClose: 501000, limit: 651000 },
+  ])('rejects a positive-volume locked upper limit at $signalClose → $limit', ({ signalClose, limit }) => {
+    const rows = buildRows()
+    rows[0] = { ...rows[0]!, open: signalClose, high: signalClose, low: signalClose, close: signalClose }
+    rows[1] = { ...rows[1]!, open: limit, high: limit, low: limit, close: limit }
+
+    expect(labelPick(SYMBOL, DATES[0], buildPriceBook(rows), new TradingDayIndex(DATES))).toMatchObject({
+      entry: limit, entryVolume: 1000, status: 'unexpected_untradeable', touched: false,
+      entryReturn: null, entryBullish: null, bullishAndTouched10In5d: null, targetExitReturn5d: null,
+    })
+    rows[1] = { ...rows[1]!, open: limit - 1, high: limit - 1, low: limit - 1, close: limit - 1 }
+    expect(labelPick(SYMBOL, DATES[0], buildPriceBook(rows), new TradingDayIndex(DATES))).toMatchObject({
+      status: 'miss', entryReturn: 0, entryBullish: false,
+    })
+  })
+
+  it.each([129, 131])('keeps a flat candle below the limit unchanged and rejects one above it: %i', (entry) => {
+    const rows = buildRows()
+    rows[1] = { ...rows[1]!, open: entry, high: entry, low: entry, close: entry }
+    expect(labelPick(SYMBOL, DATES[0], buildPriceBook(rows), new TradingDayIndex(DATES))).toMatchObject({
+      status: entry < 130 ? 'miss' : 'unexpected_untradeable', touched: false,
+    })
+  })
+
+  it('keeps a non-flat entry at the limit on the normal label path', () => {
+    const rows = buildRows()
+    rows[1] = { ...rows[1]!, open: 130, high: 130, low: 129, close: 130 }
+    expect(labelPick(SYMBOL, DATES[0], buildPriceBook(rows), new TradingDayIndex(DATES))).toMatchObject({
+      status: 'miss', entryReturn: 0, entryBullish: false,
+    })
+  })
+
+  it('keeps the current label when the signal-day row is missing', () => {
+    const rows = buildRows().slice(1)
+    rows[0] = { ...rows[0]!, open: 130, high: 130, low: 130, close: 130 }
+    expect(labelPick(SYMBOL, DATES[0], buildPriceBook(rows), new TradingDayIndex(DATES))).toMatchObject({
+      status: 'miss', entryReturn: 0, entryBullish: false,
+    })
+  })
+
   it('classifies a missing entry volume as a data error', () => {
     const tradingDays = new TradingDayIndex(DATES)
     const rows = buildRows()
