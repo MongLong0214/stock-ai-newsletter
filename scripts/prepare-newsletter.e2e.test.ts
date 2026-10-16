@@ -15,6 +15,7 @@ const state = vi.hoisted(() => ({
   snapshot: null as MarketAssessmentSnapshot | null,
   newsletter: null as Record<string, unknown> | null,
   snapshots: [] as Record<string, unknown>[],
+  masterSnapshots: [] as Record<string, unknown>[],
   generated: null as Awaited<ReturnType<typeof import('@/scripts/stock-picks/generate-picks').generatePicksWithMeta>> | null,
   newsletterWriteAttempts: 0,
   exposeFutureRows: false,
@@ -51,7 +52,10 @@ vi.mock('@/scripts/tli/prices/stock-daily-prices', async (importOriginal) => {
     },
   }
 })
-vi.mock('@/scripts/stock-picks/load-stock-master', () => ({ loadStockMaster: state.refreshMaster }))
+vi.mock('@/scripts/stock-picks/load-stock-master', async (importOriginal) => ({
+  ...await importOriginal<typeof import('@/scripts/stock-picks/load-stock-master')>(),
+  loadStockMaster: state.refreshMaster,
+}))
 vi.mock('@/scripts/stock-picks/data-handler', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/scripts/stock-picks/data-handler')>()
   return {
@@ -128,7 +132,7 @@ vi.mock('@/scripts/stock-picks/generate-picks', async (importOriginal) => {
     return { ...result, json: JSON.stringify(picks) }
   } }
 })
-const database = vi.hoisted(() => ({ from: vi.fn() }))
+const database = vi.hoisted(() => ({ from: vi.fn(), rpc: vi.fn() }))
 vi.mock('@supabase/supabase-js', () => ({ createClient: () => database }))
 vi.mock('@/scripts/tli/shared/supabase-admin', () => ({ supabaseAdmin: database }))
 
@@ -184,6 +188,7 @@ describe('Prepare boundary-isolated E2E', () => {
     vi.stubEnv('STOCK_PICKS_SNAPSHOT_PATH', '')
     state.newsletter = null
     state.snapshots = []
+    state.masterSnapshots = []
     state.generated = null
     state.newsletterWriteAttempts = 0
     state.exposeFutureRows = false
@@ -191,7 +196,7 @@ describe('Prepare boundary-isolated E2E', () => {
     state.futureValueReads = 0
     state.corruptSelection = null
     state.snapshot = freshRiskSnapshot()
-    state.refreshMaster.mockResolvedValue(undefined)
+    state.refreshMaster.mockImplementation(async () => ({ rows: state.masters.map(master => ({ ...master, market: 'KOSPI' })) }))
     state.alert.mockResolvedValue(undefined)
     state.masters = Array.from({ length: 6 }, (_, index) => ({
       symbol: `KOSPI:${String((index + 1) * 10).padStart(6, '0')}`,
@@ -219,6 +224,14 @@ describe('Prepare boundary-isolated E2E', () => {
     state.fetchDaily.mockImplementation(async (symbol: string, start: string, end: string) => state.rows
       .filter(row => row.symbol === symbol && row.trade_date.replaceAll('-', '') >= start && row.trade_date.replaceAll('-', '') <= end)
       .map(row => ({ date: row.trade_date, open: row.open, high: row.high, low: row.low, close: row.close, volume: row.volume })))
+    database.rpc.mockImplementation((name: string, input: { p_signal_date: string; p_rows: Record<string, unknown>[] }) => ({
+      abortSignal: async () => {
+        expect(name).toBe('record_stock_master_daily_snapshot')
+        if (state.masterSnapshots.some(row => row.signal_date === input.p_signal_date)) return { data: 0, error: null }
+        state.masterSnapshots.push(...input.p_rows.map(row => ({ ...row, signal_date: input.p_signal_date })))
+        return { data: input.p_rows.length, error: null }
+      },
+    }))
     database.from.mockImplementation((table: string) => {
       if (table === 'stock_pick_snapshots') return { upsert: async (row: Record<string, unknown>) => {
         state.snapshots.push(row); return { error: null }
@@ -316,6 +329,7 @@ describe('Prepare boundary-isolated E2E', () => {
 
   it('collects finalized candles, calculates real features, ranks 3 and saves matching snapshot/newsletter', async () => {
     expect(await runPrepareNewsletterCli([`--target-date=${TARGET}`])).toBe(0)
+    expect(state.masterSnapshots).toEqual(state.masters.map(master => ({ ...master, market: 'KOSPI', signal_date: SIGNAL })))
     const picks = JSON.parse(String(state.newsletter?.gemini_analysis)) as StockData[]
     expect(validateStockData(picks)).toBe(true)
     expect(state.newsletter?.picks_source).toBe('code')
@@ -761,9 +775,10 @@ describe('Prepare boundary-isolated E2E', () => {
     expect(state.newsletter?.picks_source).toBe('crash')
     expect(alert).toMatchObject({ type: 'crash_alert', severity: 'critical' })
     expect(alert.market_overview.sp500_close).toContain('-6.00%')
-    // 뉴스레터 저장 후 best-effort 일봉 적재만 수행하고 종목 선정(마스터 갱신)은 하지 않는다
+    // 뉴스레터 저장 후 best-effort로 마스터 갱신·기록과 일봉 적재를 수행한다. 종목 선정은 생략한다.
     expect(state.fetchDaily).toHaveBeenCalledTimes(7)
-    expect(state.refreshMaster).not.toHaveBeenCalled()
+    expect(state.refreshMaster).toHaveBeenCalledTimes(1)
+    expect(state.masterSnapshots).toEqual(state.masters.map(master => ({ ...master, market: 'KOSPI', signal_date: SIGNAL })))
     expect(state.snapshots).toHaveLength(0)
     expect(state.model).not.toHaveBeenCalled()
   })

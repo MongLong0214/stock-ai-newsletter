@@ -27,7 +27,7 @@ import {
   getExpectedSignalDate,
   type GeneratePicksResult,
 } from '@/scripts/stock-picks/generate-picks'
-import { loadStockMaster } from '@/scripts/stock-picks/load-stock-master'
+import { loadStockMaster, recordStockMasterDailySnapshot } from '@/scripts/stock-picks/load-stock-master'
 import { persistStockPickSnapshot } from '@/scripts/stock-picks/pick-snapshots'
 import { canonicalJson, PRODUCTION_STRATEGY } from '@/scripts/stock-picks/production-strategy'
 import { buildSignals } from '@/scripts/stock-picks/signals'
@@ -67,7 +67,8 @@ export interface NewsletterPipelineDependencies {
   }) => Promise<DailyCollectionCoverageReport>
   readonly generateCodePicks?: (input?: { readonly todayKst?: string }) => Promise<CodePicksResult>
   readonly getLlmAnalysis?: (options?: StockAnalysisOptions) => Promise<StockAnalysisResult>
-  readonly refreshStockMaster?: () => Promise<void>
+  readonly refreshStockMaster?: typeof loadStockMaster
+  readonly recordStockMasterDailySnapshot?: typeof recordStockMasterDailySnapshot
 }
 
 interface PipelineDurations {
@@ -116,6 +117,7 @@ async function runNewsletterPipeline(input: {
   readonly targetDate: string
   readonly signalDate: string
   readonly deadlineAt: number
+  readonly captureMasterSnapshot: boolean
   readonly dependencies?: NewsletterPipelineDependencies
 }): Promise<NewsletterPipelineResult> {
   const dependencies = input.dependencies ?? {}
@@ -125,6 +127,7 @@ async function runNewsletterPipeline(input: {
     ?? ((options) => generatePicksWithMeta({ todayKst: options?.todayKst }))
   const getLlmAnalysis = dependencies.getLlmAnalysis ?? getStockAnalysis
   const refreshStockMaster = dependencies.refreshStockMaster ?? loadStockMaster
+  const recordMasterSnapshot = dependencies.recordStockMasterDailySnapshot ?? recordStockMasterDailySnapshot
   const durationsMs: PipelineDurations = { assessment: 0, master: 0, collection: 0, picks: 0 }
   let collection: DailyCollectionCoverageReport | null = null
   const warnings: string[] = []
@@ -172,8 +175,9 @@ async function runNewsletterPipeline(input: {
 
   console.log('\n✅ [NORMAL] 일일 수집 → 코드 종목 추천 Pipeline 실행')
   const masterStartedAt = Date.now()
+  let refreshedMaster: Awaited<ReturnType<typeof loadStockMaster>> | undefined
   try {
-    await refreshStockMaster()
+    refreshedMaster = await refreshStockMaster()
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error)
     const warning = `종목 마스터 일일 갱신 실패 — 기존 마스터로 계속 진행: ${reason}`
@@ -181,6 +185,16 @@ async function runNewsletterPipeline(input: {
     console.warn(`⚠️ ${warning}`)
   } finally {
     durationsMs.master = elapsedMs(masterStartedAt)
+  }
+  if (input.captureMasterSnapshot && refreshedMaster) {
+    try {
+      await recordMasterSnapshot({ signalDate: input.signalDate, rows: refreshedMaster.rows })
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error)
+      const warning = `종목 마스터 일별 스냅샷 저장 실패 — 계속 진행: ${reason}`
+      warnings.push(warning)
+      console.warn(`⚠️ ${warning}`)
+    }
   }
 
   try {
@@ -311,6 +325,7 @@ export async function resolveNewsletterAnalysis(
     targetDate,
     signalDate: getExpectedSignalDate(targetDate),
     deadlineAt,
+    captureMasterSnapshot: true,
     dependencies,
   })
   return { geminiAnalysis: result.geminiAnalysis, picksSource: result.picksSource }
@@ -499,15 +514,20 @@ const parsePicks = (json: string): StockData[] => {
 
 // WHY: CRASH_ALERT 경로는 전종목 일봉 적재 전에 반환해, 폭락 국면 내내 stock_daily_prices가 멈추고
 // 7거래일 넘게 이어지면 다음 NORMAL 날의 7거래일 창으로도 못 메우는 영구 공백이 된다(소비자가 자기 입력을 보장).
-// 뉴스레터 저장 이후 best-effort로만 수행하므로 콘텐츠·발송 시각에 영향이 없고, 실패해도 prepare를 실패시키지 않는다.
+// 마스터 갱신·스냅샷도 뉴스레터 저장 이후 best-effort로만 수행하므로 콘텐츠·발송 시각에 영향이 없고, 실패해도 prepare를 실패시키지 않는다.
 const backfillDailyPricesAfterCrash = async (input: {
   readonly deadlineAt: number
   readonly summary: PrepareRunSummary
   readonly totalStartedAt: number
   readonly warnings: string[]
+  readonly captureMasterSnapshot: boolean
+  readonly dependencies?: NewsletterPipelineDependencies
 }): Promise<PrepareRunSummary> => {
-  const { summary } = input
+  let summary = input.summary
   console.log('\n📈 [CRASH_ALERT] 뉴스레터 저장 완료 — 일봉 공백 방지를 위해 전종목 일봉 적재')
+  const dependencies = input.dependencies ?? {}
+  const refreshStockMaster = dependencies.refreshStockMaster ?? loadStockMaster
+  const recordMasterSnapshot = dependencies.recordStockMasterDailySnapshot ?? recordStockMasterDailySnapshot
   try {
     const report = await collectDailyStockPrices({ endDate: summary.signalDate, deadlineAt: input.deadlineAt })
     if (report.failureCount > 0 || report.skippedForBudget > 0) {
@@ -515,7 +535,7 @@ const backfillDailyPricesAfterCrash = async (input: {
         `CRASH_ALERT 일봉 적재 불완전: 실패 ${report.failureCount}, 예산/deadline 생략 ${report.skippedForBudget}`,
       )
     }
-    return {
+    summary = {
       ...summary,
       collection: {
         attemptedCalls: report.attemptedCalls,
@@ -528,14 +548,30 @@ const backfillDailyPricesAfterCrash = async (input: {
         recoveredSymbols: report.recoveredSymbols,
         persistedRows: report.persistedRows,
       },
-      durationsSec: { ...summary.durationsSec, total: elapsedMs(input.totalStartedAt) / 1000 },
     }
   } catch (error) {
     const warning = `CRASH_ALERT 일봉 적재 실패 — 뉴스레터는 유지: ${error instanceof Error ? error.message : String(error)}`
     input.warnings.push(warning)
     console.warn(`⚠️ ${warning}`)
-    return { ...summary, durationsSec: { ...summary.durationsSec, total: elapsedMs(input.totalStartedAt) / 1000 } }
   }
+  let refreshedMaster: Awaited<ReturnType<typeof loadStockMaster>> | undefined
+  try {
+    refreshedMaster = await refreshStockMaster()
+  } catch (error) {
+    const warning = `종목 마스터 일일 갱신 실패 — 기존 마스터로 계속 진행: ${error instanceof Error ? error.message : String(error)}`
+    input.warnings.push(warning)
+    console.warn(`⚠️ ${warning}`)
+  }
+  if (input.captureMasterSnapshot && refreshedMaster) {
+    try {
+      await recordMasterSnapshot({ signalDate: summary.signalDate, rows: refreshedMaster.rows })
+    } catch (error) {
+      const warning = `종목 마스터 일별 스냅샷 저장 실패 — 계속 진행: ${error instanceof Error ? error.message : String(error)}`
+      input.warnings.push(warning)
+      console.warn(`⚠️ ${warning}`)
+    }
+  }
+  return { ...summary, durationsSec: { ...summary.durationsSec, total: elapsedMs(input.totalStartedAt) / 1000 } }
 }
 
 export async function prepareNewsletter(options: PrepareNewsletterOptions = {}): Promise<void> {
@@ -607,6 +643,7 @@ export async function prepareNewsletter(options: PrepareNewsletterOptions = {}):
     targetDate: signalTargetDate,
     signalDate,
     deadlineAt,
+    captureMasterSnapshot: !options.dryRun,
   })
   warnings.push(...pipeline.warnings)
   console.log('✅ 뉴스레터 분석 완료\n')
@@ -672,7 +709,7 @@ export async function prepareNewsletter(options: PrepareNewsletterOptions = {}):
     console.log(`\nDRY_RUN_RESULT picks_source=${pipeline.picksSource} analysis_chars=${pipeline.geminiAnalysis.length}`)
     console.log(pipeline.geminiAnalysis.slice(0, 2_000))
     console.log('\n✅ dry-run — 뉴스레터·픽 스냅샷 저장 생략 (마스터·일봉 갱신은 실행됨)')
-    await emitPrepareSummary(needsCrashBackfill ? await backfillDailyPricesAfterCrash({ deadlineAt, summary, totalStartedAt, warnings }) : summary)
+    await emitPrepareSummary(needsCrashBackfill ? await backfillDailyPricesAfterCrash({ deadlineAt, summary, totalStartedAt, warnings, captureMasterSnapshot: !options.dryRun }) : summary)
     return
   }
 
@@ -691,7 +728,7 @@ export async function prepareNewsletter(options: PrepareNewsletterOptions = {}):
     },
   })
   if (writeResult === 'preserved') {
-    await emitPrepareSummary(needsCrashBackfill ? await backfillDailyPricesAfterCrash({ deadlineAt, summary, totalStartedAt, warnings }) : summary)
+    await emitPrepareSummary(needsCrashBackfill ? await backfillDailyPricesAfterCrash({ deadlineAt, summary, totalStartedAt, warnings, captureMasterSnapshot: !options.dryRun }) : summary)
     return
   }
 
@@ -741,7 +778,7 @@ export async function prepareNewsletter(options: PrepareNewsletterOptions = {}):
       }
     }
   }
-  await emitPrepareSummary(needsCrashBackfill ? await backfillDailyPricesAfterCrash({ deadlineAt, summary, totalStartedAt, warnings }) : summary)
+  await emitPrepareSummary(needsCrashBackfill ? await backfillDailyPricesAfterCrash({ deadlineAt, summary, totalStartedAt, warnings, captureMasterSnapshot: !options.dryRun }) : summary)
 
   console.log(`\n${'━'.repeat(80)}`)
   console.log('✨ 뉴스레터 준비 완료!')

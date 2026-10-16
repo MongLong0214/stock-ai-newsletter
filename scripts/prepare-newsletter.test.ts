@@ -19,6 +19,7 @@ const mocks = vi.hoisted(() => ({
   getLlmAnalysis: vi.fn(),
   persistSnapshot: vi.fn(),
   refreshStockMaster: vi.fn(),
+  recordMasterSnapshot: vi.fn(),
 }))
 
 vi.mock('@supabase/supabase-js', () => ({ createClient: mocks.createClient }))
@@ -31,7 +32,10 @@ vi.mock('@/scripts/stock-picks/generate-picks', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/scripts/stock-picks/generate-picks')>()
   return { ...actual, generatePicksWithMeta: mocks.generateCodePicks }
 })
-vi.mock('@/scripts/stock-picks/load-stock-master', () => ({ loadStockMaster: mocks.refreshStockMaster }))
+vi.mock('@/scripts/stock-picks/load-stock-master', () => ({
+  loadStockMaster: mocks.refreshStockMaster,
+  recordStockMasterDailySnapshot: mocks.recordMasterSnapshot,
+}))
 vi.mock('@/scripts/stock-picks/pick-snapshots', () => ({
   persistStockPickSnapshot: mocks.persistSnapshot,
 }))
@@ -45,6 +49,7 @@ import {
 
 const TARGET_DATE = '2026-09-02'
 const SIGNAL_DATE = '2026-09-01'
+const MASTER_ROWS = [{ symbol: 'KOSPI:000010', name: '마스터', market: 'KOSPI' as const, is_active: true, status_flags: {} }]
 const NORMAL_ASSESSMENT = {
   verdict: 'NORMAL' as const,
   confidence: 90,
@@ -168,7 +173,8 @@ describe('prepare-newsletter stock-pick wiring', () => {
     mocks.generateCodePicks.mockResolvedValue(GENERATED_RESULT)
     mocks.getLlmAnalysis.mockResolvedValue({ geminiAnalysis: '[{"fallback":true}]' })
     mocks.persistSnapshot.mockResolvedValue(undefined)
-    mocks.refreshStockMaster.mockResolvedValue(undefined)
+    mocks.refreshStockMaster.mockResolvedValue({ rows: MASTER_ROWS })
+    mocks.recordMasterSnapshot.mockResolvedValue(undefined)
   })
 
   afterEach(() => {
@@ -190,7 +196,7 @@ describe('prepare-newsletter stock-pick wiring', () => {
       collectDaily: async () => HEALTHY_COLLECTION,
       generateCodePicks,
       getLlmAnalysis,
-      refreshStockMaster: vi.fn(async () => {}),
+      refreshStockMaster: vi.fn(async () => ({ rows: MASTER_ROWS })),
     })).rejects.toThrow('synthetic code-pick failure')
 
     expect(getLlmAnalysis).not.toHaveBeenCalled()
@@ -206,7 +212,7 @@ describe('prepare-newsletter stock-pick wiring', () => {
       collectDaily: async () => HEALTHY_COLLECTION,
       generateCodePicks: async () => CODE_PICKS,
       getLlmAnalysis,
-      refreshStockMaster: vi.fn(async () => {}),
+      refreshStockMaster: vi.fn(async () => ({ rows: MASTER_ROWS })),
     })
 
     expect(result).toEqual({ geminiAnalysis: CODE_PICKS, picksSource: 'code' })
@@ -230,7 +236,7 @@ describe('prepare-newsletter stock-pick wiring', () => {
       }),
       generateCodePicks: async () => CODE_PICKS,
       getLlmAnalysis,
-      refreshStockMaster: vi.fn(async () => {}),
+      refreshStockMaster: vi.fn(async () => ({ rows: MASTER_ROWS })),
     })
 
     expect(result.picksSource).toBe('code')
@@ -258,7 +264,7 @@ describe('prepare-newsletter stock-pick wiring', () => {
       collectDaily: async () => report,
       generateCodePicks,
       getLlmAnalysis,
-      refreshStockMaster: vi.fn(async () => {}),
+      refreshStockMaster: vi.fn(async () => ({ rows: MASTER_ROWS })),
     })).rejects.toThrow(reason)
     expect(generateCodePicks).not.toHaveBeenCalled()
     expect(getLlmAnalysis).not.toHaveBeenCalled()
@@ -298,6 +304,100 @@ describe('prepare-newsletter stock-pick wiring', () => {
       runId: 'dispatch-42',
       deadlineMinutes: 37,
     })
+  })
+
+  it.each(['NORMAL', 'CRASH_ALERT'] as const)('refreshes and captures once before NORMAL collection or after CRASH collection: %s', async (verdict) => {
+    const client = mockNewsletterClient({ reads: [null] })
+    vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', 'https://example.supabase.co')
+    vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY', 'test-service-role-key')
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    mocks.assessMarket.mockResolvedValue({ ...NORMAL_ASSESSMENT, verdict })
+
+    expect(await runPrepareNewsletterCli([`--target-date=${TARGET_DATE}`])).toBe(0)
+    expect(mocks.refreshStockMaster).toHaveBeenCalledTimes(1)
+    expect(mocks.recordMasterSnapshot).toHaveBeenCalledExactlyOnceWith({ signalDate: SIGNAL_DATE, rows: MASTER_ROWS })
+    expect(mocks.assessMarket.mock.invocationCallOrder[0]).toBeLessThan(mocks.refreshStockMaster.mock.invocationCallOrder[0]!)
+    expect(mocks.refreshStockMaster.mock.invocationCallOrder[0]).toBeLessThan(mocks.recordMasterSnapshot.mock.invocationCallOrder[0]!)
+    if (verdict === 'CRASH_ALERT') {
+      expect(mocks.getLlmAnalysis.mock.invocationCallOrder[0]).toBeLessThan(client.insert.mock.invocationCallOrder[0]!)
+      expect(client.insert.mock.invocationCallOrder[0]).toBeLessThan(mocks.collectDaily.mock.invocationCallOrder[0]!)
+      expect(mocks.collectDaily.mock.invocationCallOrder[0]).toBeLessThan(mocks.refreshStockMaster.mock.invocationCallOrder[0]!)
+    } else {
+      expect(mocks.recordMasterSnapshot.mock.invocationCallOrder[0]).toBeLessThan(mocks.collectDaily.mock.invocationCallOrder[0]!)
+    }
+    expect(client.insert).toHaveBeenCalledWith(expect.objectContaining({ picks_source: verdict === 'NORMAL' ? 'code' : 'crash' }))
+    expect(findSummary(logSpy).warnings).toEqual([])
+  })
+
+  it.each(['NORMAL', 'CRASH_ALERT'] as const)('skips the snapshot after a refresh failure and still produces %s', async (verdict) => {
+    const client = mockNewsletterClient({ reads: [null] })
+    vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', 'https://example.supabase.co')
+    vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY', 'test-service-role-key')
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    mocks.assessMarket.mockResolvedValue({ ...NORMAL_ASSESSMENT, verdict })
+    mocks.refreshStockMaster.mockRejectedValue(new Error('refresh down'))
+
+    expect(await runPrepareNewsletterCli([`--target-date=${TARGET_DATE}`])).toBe(0)
+    expect(mocks.recordMasterSnapshot).not.toHaveBeenCalled()
+    expect(findSummary(logSpy).warnings).toEqual(['종목 마스터 일일 갱신 실패 — 기존 마스터로 계속 진행: refresh down'])
+    expect(client.insert).toHaveBeenCalledWith(expect.objectContaining({ picks_source: verdict === 'NORMAL' ? 'code' : 'crash' }))
+    expect(mocks.collectDaily).toHaveBeenCalledTimes(1)
+    if (verdict === 'CRASH_ALERT') {
+      expect(client.insert.mock.invocationCallOrder[0]).toBeLessThan(mocks.collectDaily.mock.invocationCallOrder[0]!)
+      expect(mocks.collectDaily.mock.invocationCallOrder[0]).toBeLessThan(mocks.refreshStockMaster.mock.invocationCallOrder[0]!)
+      expect(findSummary(logSpy).collection).toEqual({
+        attemptedCalls: HEALTHY_COLLECTION.attemptedCalls,
+        successCount: HEALTHY_COLLECTION.successCount,
+        failureCount: HEALTHY_COLLECTION.failureCount,
+        exactDateCoverageRate: HEALTHY_COLLECTION.exactDateCoverageRate,
+        indexFailed: HEALTHY_COLLECTION.indexFailed,
+        skippedForBudget: HEALTHY_COLLECTION.skippedForBudget,
+        retriedSymbols: HEALTHY_COLLECTION.retriedSymbols,
+        recoveredSymbols: HEALTHY_COLLECTION.recoveredSymbols,
+        persistedRows: HEALTHY_COLLECTION.persistedRows,
+      })
+    }
+    expect(mocks.alert).not.toHaveBeenCalled()
+  })
+
+  it.each(['NORMAL', 'CRASH_ALERT'] as const)('warns on snapshot failure and still produces %s', async (verdict) => {
+    const client = mockNewsletterClient({ reads: [null] })
+    vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', 'https://example.supabase.co')
+    vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY', 'test-service-role-key')
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    mocks.assessMarket.mockResolvedValue({ ...NORMAL_ASSESSMENT, verdict })
+    mocks.recordMasterSnapshot.mockRejectedValue(new Error('snapshot down'))
+
+    expect(await runPrepareNewsletterCli([`--target-date=${TARGET_DATE}`])).toBe(0)
+    expect(findSummary(logSpy).warnings).toEqual(['종목 마스터 일별 스냅샷 저장 실패 — 계속 진행: snapshot down'])
+    expect(client.insert).toHaveBeenCalledWith(expect.objectContaining({ picks_source: verdict === 'NORMAL' ? 'code' : 'crash' }))
+    expect(mocks.collectDaily).toHaveBeenCalledTimes(1)
+    if (verdict === 'CRASH_ALERT') {
+      expect(client.insert.mock.invocationCallOrder[0]).toBeLessThan(mocks.collectDaily.mock.invocationCallOrder[0]!)
+      expect(mocks.collectDaily.mock.invocationCallOrder[0]).toBeLessThan(mocks.refreshStockMaster.mock.invocationCallOrder[0]!)
+    }
+    expect(mocks.alert).not.toHaveBeenCalled()
+  })
+
+  it.each(['NORMAL', 'CRASH_ALERT'] as const)('refreshes but never captures the simulated signal date on a dry run: %s', async (verdict) => {
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    mocks.assessMarket.mockResolvedValue({ ...NORMAL_ASSESSMENT, verdict })
+    mocks.generateCodePicks.mockResolvedValue({
+      ...GENERATED_RESULT, meta: { ...GENERATED_RESULT.meta, signalDate: '2026-08-28' },
+    })
+
+    expect(await runPrepareNewsletterCli([
+      '--dry-run', `--target-date=${TARGET_DATE}`, '--simulate-today=2026-08-31',
+    ])).toBe(0)
+    expect(mocks.refreshStockMaster).toHaveBeenCalledTimes(1)
+    expect(mocks.recordMasterSnapshot).not.toHaveBeenCalled()
+    expect(mocks.collectDaily).toHaveBeenCalledWith(expect.objectContaining({ endDate: '2026-08-28' }))
+    if (verdict === 'CRASH_ALERT') {
+      expect(mocks.getLlmAnalysis.mock.invocationCallOrder[0]).toBeLessThan(mocks.refreshStockMaster.mock.invocationCallOrder[0]!)
+    }
+    expect(findSummary(logSpy).warnings).toEqual([])
   })
 
   it('skips a non-trading target date unless force is set', async () => {
@@ -642,7 +742,8 @@ describe('prepare-newsletter stock-pick wiring', () => {
     expect(mocks.collectDaily).toHaveBeenCalledTimes(1)
     expect(mocks.collectDaily).toHaveBeenCalledWith({ endDate: SIGNAL_DATE, deadlineAt: expect.any(Number) })
     expect(client.insert.mock.invocationCallOrder[0]).toBeLessThan(mocks.collectDaily.mock.invocationCallOrder[0]!)
-    expect(mocks.refreshStockMaster).not.toHaveBeenCalled()
+    expect(mocks.refreshStockMaster).toHaveBeenCalledTimes(1)
+    expect(mocks.recordMasterSnapshot).toHaveBeenCalledWith({ signalDate: SIGNAL_DATE, rows: MASTER_ROWS })
     expect(mocks.alert).not.toHaveBeenCalled()
     const warnings: string[] = findSummary(logSpy).warnings
     if (warning) expect(warnings.some((line) => line.includes(warning))).toBe(true)
