@@ -247,7 +247,7 @@ describe('measureForwardPicks', () => {
         close: row.trade_date === DATES[5] ? 20_000 : 17_630 })))
     const report = measureForwardPicks({
       newsletters: [newsletter(DATES[1], 'code', ['BOUNDARY'])], prices,
-      tradingDays: new TradingDayIndex(DATES), startDate: DATES[0], asOfDate: DATES[5],
+      tradingDays: new TradingDayIndex(DATES), asOfDate: DATES[5],
     })
     const realistic = report.overall.returns5d.realisticCost
     expect(realistic.meanAppliedCostBps).toBeCloseTo(42.906693136698806, 12)

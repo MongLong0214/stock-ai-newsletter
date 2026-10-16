@@ -70,7 +70,7 @@ describe('realistic round-trip cost', () => {
   })
 
   it('matches Python to 1e-9 bps across tick bands, tax boundaries and overrides', () => {
-    const fixtures = TICK_CASES.flatMap(([entryPrice]) => TICK_CASES.flatMap(([exitPrice]) => (
+    const fixtures: Parameters<typeof estimateRoundTripCost>[0][] = TICK_CASES.flatMap(([entryPrice]) => TICK_CASES.flatMap(([exitPrice]) => (
       TAX_CASES.flatMap(([sellDate]) => [
         { entryPrice, exitPrice, sellDate },
         { entryPrice, exitPrice, sellDate, commissionBpsPerSide: 0, slippageTicksPerSide: 0 },
