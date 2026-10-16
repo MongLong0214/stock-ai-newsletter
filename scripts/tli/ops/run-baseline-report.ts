@@ -16,6 +16,7 @@ import {
   type ThemeStockFeatureRow,
 } from '@/scripts/tli/features/load-feature-inputs'
 import { supabaseAdmin } from '@/scripts/tli/shared/supabase-admin'
+import { fetchAllRows } from '@/lib/supabase/paginate'
 
 interface ThemeLabelRow {
   readonly theme_id: string
@@ -36,16 +37,21 @@ const readDateArg = (name: string, fallback: string): string => {
   return process.argv.find((arg) => arg.startsWith(prefix))?.slice(prefix.length) ?? fallback
 }
 
-const loadLabels = async (startDate: string, endDate: string): Promise<BaselineGtLabelRow[]> => {
-  const { data, error } = await supabaseAdmin
-    .from('theme_labels')
-    .select('theme_id, base_date, y_binary')
-    .eq('label_type', 'gt_a')
-    .eq('label_status', 'final')
-    .gte('base_date', startDate)
-    .lte('base_date', endDate)
+export const loadLabels = async (startDate: string, endDate: string): Promise<BaselineGtLabelRow[]> => {
+  const data = await fetchAllRows<ThemeLabelRow>(async (from, to) => {
+    const { data, error } = await supabaseAdmin
+      .from('theme_labels')
+      .select('theme_id, base_date, y_binary')
+      .eq('label_type', 'gt_a')
+      .eq('label_status', 'final')
+      .gte('base_date', startDate)
+      .lte('base_date', endDate)
+      .order('id')
+      .range(from, to)
 
-  if (error) throw new Error(`GT-A final 라벨 로딩 실패: ${error.message}`)
+    if (error) throw new Error(`GT-A final 라벨 로딩 실패: ${error.message}`)
+    return { data, error }
+  })
 
   return (data ?? []).flatMap((row: ThemeLabelRow) => (
     row.y_binary === null
@@ -54,15 +60,20 @@ const loadLabels = async (startDate: string, endDate: string): Promise<BaselineG
   ))
 }
 
-const loadSnapshots = async (startDate: string, endDate: string): Promise<BaselineSnapshotRow[]> => {
-  const { data, error } = await supabaseAdmin
-    .from('prediction_snapshots_v2')
-    .select('theme_id, snapshot_date, phase')
-    .eq('run_type', 'prod')
-    .gte('snapshot_date', startDate)
-    .lte('snapshot_date', endDate)
+export const loadSnapshots = async (startDate: string, endDate: string): Promise<BaselineSnapshotRow[]> => {
+  const data = await fetchAllRows<PredictionSnapshotRow>(async (from, to) => {
+    const { data, error } = await supabaseAdmin
+      .from('prediction_snapshots_v2')
+      .select('theme_id, snapshot_date, phase')
+      .eq('run_type', 'prod')
+      .gte('snapshot_date', startDate)
+      .lte('snapshot_date', endDate)
+      .order('id')
+      .range(from, to)
 
-  if (error) throw new Error(`prediction_snapshots_v2 로딩 실패: ${error.message}`)
+    if (error) throw new Error(`prediction_snapshots_v2 로딩 실패: ${error.message}`)
+    return { data, error }
+  })
 
   return (data ?? []).map((row: PredictionSnapshotRow) => ({
     themeId: row.theme_id,
@@ -73,7 +84,7 @@ const loadSnapshots = async (startDate: string, endDate: string): Promise<Baseli
 
 const uniqueSorted = (values: readonly string[]): string[] => [...new Set(values)].sort()
 
-const loadFeatureSourceRows = async (
+export const loadFeatureSourceRows = async (
   labels: readonly BaselineGtLabelRow[],
 ): Promise<{
   readonly interestRows: readonly InterestMetricFeatureRow[]
@@ -100,52 +111,60 @@ const loadFeatureSourceRows = async (
   const startDate = addKoreanTradingDays(firstDate, -20)
   const themeIds = uniqueSorted(labels.map((label) => label.themeId))
   const [interest, news, stocks, prices, states, episodes] = await Promise.all([
-    supabaseAdmin
+    fetchAllRows<InterestMetricFeatureRow>((from, to) => supabaseAdmin
       .from('interest_metrics')
       .select('theme_id, time, raw_value, anchor_scaled_value')
       .gte('time', startDate)
-      .lte('time', lastDate),
-    supabaseAdmin
+      .lte('time', lastDate)
+      .order('time', { ascending: true })
+      .order('id', { ascending: true })
+      .range(from, to)),
+    fetchAllRows<NewsMetricFeatureRow>((from, to) => supabaseAdmin
       .from('news_metrics')
       .select('theme_id, time, article_count')
       .in('theme_id', themeIds)
       .gte('time', startDate)
-      .lte('time', lastDate),
-    supabaseAdmin
+      .lte('time', lastDate)
+      .order('id')
+      .range(from, to)),
+    fetchAllRows<ThemeStockFeatureRow>((from, to) => supabaseAdmin
       .from('theme_stocks')
       .select('theme_id, symbol, relevance, is_active')
       .in('theme_id', themeIds)
-      .eq('is_active', true),
-    supabaseAdmin
+      .eq('is_active', true)
+      .order('id')
+      .range(from, to)),
+    fetchAllRows<StockDailyFeatureRow>((from, to) => supabaseAdmin
       .from('stock_daily_prices')
       .select('symbol, trade_date, close, volume')
       .gte('trade_date', startDate)
-      .lte('trade_date', lastDate),
-    supabaseAdmin
+      .lte('trade_date', lastDate)
+      .order('symbol')
+      .order('trade_date')
+      .range(from, to)),
+    fetchAllRows<ThemeStateFeatureRow>((from, to) => supabaseAdmin
       .from('theme_state_history_v2')
       .select('theme_id, effective_from, is_active, first_spike_date')
       .in('theme_id', themeIds)
-      .lte('effective_from', lastDate),
+      .lte('effective_from', lastDate)
+      .order('id')
+      .range(from, to)),
     // baseDate 제한 없이 로드 — 완결 여부 필터는 assembleFeatureInputsFromRows에서 라벨별 baseDate 기준으로 적용된다 (B1).
-    supabaseAdmin
+    fetchAllRows<CompletedEpisodeFeatureRow>((from, to) => supabaseAdmin
       .from('episode_registry_v1')
       .select('episode_start, episode_end, primary_peak_date, is_active')
-      .eq('is_active', false),
+      .eq('is_active', false)
+      .order('id')
+      .range(from, to)),
   ])
 
-  for (const response of [interest, news, stocks, prices, states, episodes]) {
-    if (response.error) {
-      throw new Error(`baseline 피처 소스 로딩 실패: ${response.error.message}`)
-    }
-  }
-
   return {
-    interestRows: interest.data ?? [],
-    newsRows: news.data ?? [],
-    themeStockRows: stocks.data ?? [],
-    priceRows: prices.data ?? [],
-    themeStateRows: states.data ?? [],
-    completedEpisodeRows: episodes.data ?? [],
+    interestRows: interest,
+    newsRows: news,
+    themeStockRows: stocks,
+    priceRows: prices,
+    themeStateRows: states,
+    completedEpisodeRows: episodes,
   }
 }
 
@@ -195,7 +214,10 @@ async function main(): Promise<void> {
   }, null, 2))
 }
 
-main().catch((error: unknown) => {
-  console.error(error instanceof Error ? error.message : String(error))
-  process.exitCode = 1
-})
+const isDirectRun = process.argv[1]?.includes('run-baseline-report') ?? false
+if (isDirectRun) {
+  main().catch((error: unknown) => {
+    console.error(error instanceof Error ? error.message : String(error))
+    process.exitCode = 1
+  })
+}

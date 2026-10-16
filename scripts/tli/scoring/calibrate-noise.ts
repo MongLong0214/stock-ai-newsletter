@@ -11,6 +11,7 @@ import { supabaseAdmin } from '@/scripts/tli/shared/supabase-admin';
 import { setMinRawInterest } from '@/lib/tli/constants/score-config';
 import { getKSTDate } from '@/scripts/tli/shared/utils';
 import { getKSTDateString } from '@/lib/tli/date-utils';
+import { fetchAllRows } from '@/lib/supabase/paginate';
 
 interface LabeledTheme {
   rawAvg: number;
@@ -101,12 +102,13 @@ async function collectLabeledData(): Promise<LabeledTheme[] | null> {
     .select('id')
     .eq('is_active', true);
 
-  if (error || !themes?.length) return null;
+  if (error) throw error;
+  if (!themes?.length) return null;
 
   const themeIds = themes.map(t => t.id);
   const labeled: LabeledTheme[] = [];
 
-  // 180-day lookback to stay within Supabase row limits per batch
+  // Preserve the 180-day calibration window; each theme chunk can span multiple pages.
   const lookbackDate = getKSTDateString(-180);
 
   // Batch process
@@ -115,14 +117,14 @@ async function collectLabeledData(): Promise<LabeledTheme[] | null> {
     const chunk = themeIds.slice(i, i + BATCH);
 
     // Get scores within lookback window for each theme
-    const { data: scores } = await supabaseAdmin
+    const scores = await fetchAllRows<{ theme_id: string; stage: string; components: unknown }>((from, to) => supabaseAdmin
       .from('lifecycle_scores')
       .select('theme_id, stage, components')
       .in('theme_id', chunk)
       .gte('calculated_at', lookbackDate)
-      .order('calculated_at', { ascending: false });
-
-    if (!scores) continue;
+      .order('calculated_at', { ascending: false })
+      .order('id')
+      .range(from, to));
 
     labeled.push(...labelScoreRecords(scores));
   }

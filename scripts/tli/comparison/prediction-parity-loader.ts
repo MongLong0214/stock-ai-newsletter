@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { fetchAllRows } from '@/lib/supabase/paginate'
 import { calculatePrediction } from '@/lib/tli/prediction'
 import {
   buildPredictionParityReport,
@@ -136,15 +137,19 @@ export async function loadPredictionParityReport(input: {
   const { batchQuery } = await import('@/scripts/tli/shared/supabase-batch')
   const startDate = shiftDate(input.asOfDate, -(input.windowDays - 1))
 
-  const { data, error } = await supabaseAdmin
-    .from('prediction_snapshots_v2')
-    .select('id, theme_id, snapshot_date, comparison_run_id, phase, confidence, risk_level, avg_peak_day, avg_total_days, avg_days_to_peak, days_since_spike, created_at')
-    .gte('snapshot_date', startDate)
-    .lte('snapshot_date', input.asOfDate)
-    .order('snapshot_date', { ascending: false })
-
-  if (error) throw new Error(`prediction parity snapshot load failed: ${error.message}`)
-  const snapshots = SnapshotRowSchema.array().parse(data ?? [])
+  const data = await fetchAllRows<SnapshotRow>(async (from, to) => {
+    const { data, error } = await supabaseAdmin
+      .from('prediction_snapshots_v2')
+      .select('id, theme_id, snapshot_date, comparison_run_id, phase, confidence, risk_level, avg_peak_day, avg_total_days, avg_days_to_peak, days_since_spike, created_at')
+      .gte('snapshot_date', startDate)
+      .lte('snapshot_date', input.asOfDate)
+      .order('snapshot_date', { ascending: false })
+      .order('id')
+      .range(from, to)
+    if (error) throw new Error(`prediction parity snapshot load failed: ${error.message}`)
+    return { data, error }
+  })
+  const snapshots = SnapshotRowSchema.array().parse(data)
   const runIds = [...new Set(snapshots.map((snapshot) => snapshot.comparison_run_id))]
   const themeIds = [...new Set(snapshots.map((snapshot) => snapshot.theme_id))]
   const candidates = CandidateRowSchema.array().parse(await batchQuery(
@@ -153,7 +158,7 @@ export async function loadPredictionParityReport(input: {
     runIds,
     (query) => query.order('rank', { ascending: true }),
     'run_id',
-    { failOnError: true },
+    { failOnError: true, orderBy: { column: 'id' } },
   ))
 
   const candidateThemeIds = candidates.map((candidate) => candidate.candidate_theme_id)
@@ -163,7 +168,7 @@ export async function loadPredictionParityReport(input: {
     [...new Set([...themeIds, ...candidateThemeIds])],
     undefined,
     'id',
-    { failOnError: true },
+    { failOnError: true, orderBy: { column: 'id' } },
   ))
   // 점수는 각 스냅샷 날짜의 ±1일 최근접만 쓴다(findNearestScore). 스냅샷은 [startDate, asOfDate]
   // 구간이므로 그 구간 -2일 이전 점수는 절대 매칭되지 않는다. 테마별 전 이력 로드는 불필요한
@@ -175,7 +180,7 @@ export async function loadPredictionParityReport(input: {
     themeIds,
     (query) => query.gte('calculated_at', scoreLowerBound).order('calculated_at', { ascending: false }),
     'theme_id',
-    { failOnError: true },
+    { failOnError: true, orderBy: { column: 'id' } },
   ))
 
   const themeById = new Map(themes.map((theme) => [theme.id, theme]))

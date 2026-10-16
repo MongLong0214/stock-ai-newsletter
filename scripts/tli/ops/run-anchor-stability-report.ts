@@ -11,6 +11,7 @@ import {
 } from '@/scripts/tli/ops/anchor-stability-report'
 import { supabaseAdmin } from '@/scripts/tli/shared/supabase-admin'
 import { getKSTDateString } from '@/lib/tli/date-utils'
+import { fetchAllRows } from '@/lib/supabase/paginate'
 
 const readArg = (name: string): string | null => {
   const prefix = `--${name}=`
@@ -59,20 +60,24 @@ const parseObservationFile = (path: string): AnchorObservation[] => {
   })
 }
 
-const loadInferredPrimaryRows = async (
+export const loadInferredPrimaryRows = async (
   startDate: string,
   endDate: string,
 ): Promise<InterestMetricAnchorScaleRow[]> => {
-  const { data, error } = await supabaseAdmin
-    .from('interest_metrics')
-    .select('time, raw_value, anchor_scaled_value')
-    .eq('source', 'naver_datalab')
-    .not('anchor_scaled_value', 'is', null)
-    .gte('time', startDate)
-    .lte('time', endDate)
+  return fetchAllRows<InterestMetricAnchorScaleRow>(async (from, to) => {
+    const { data, error } = await supabaseAdmin
+      .from('interest_metrics')
+      .select('time, raw_value, anchor_scaled_value')
+      .eq('source', 'naver_datalab')
+      .not('anchor_scaled_value', 'is', null)
+      .gte('time', startDate)
+      .lte('time', endDate)
+      .order('id')
+      .range(from, to)
 
-  if (error) throw new Error(`앵커 스케일 interest_metrics 로딩 실패: ${error.message}`)
-  return data ?? []
+    if (error) throw new Error(`앵커 스케일 interest_metrics 로딩 실패: ${error.message}`)
+    return { data, error }
+  })
 }
 
 async function main(): Promise<void> {
@@ -92,7 +97,10 @@ async function main(): Promise<void> {
   console.log(JSON.stringify(report, null, 2))
 }
 
-main().catch((error: unknown) => {
-  console.error(error instanceof Error ? error.message : String(error))
-  process.exitCode = 1
-})
+const isDirectRun = process.argv[1]?.includes('run-anchor-stability-report') ?? false
+if (isDirectRun) {
+  main().catch((error: unknown) => {
+    console.error(error instanceof Error ? error.message : String(error))
+    process.exitCode = 1
+  })
+}

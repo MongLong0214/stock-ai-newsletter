@@ -36,12 +36,14 @@ vi.mock('node:fs', async () => {
 
 import * as fs from 'node:fs'
 
-/** Helper: mock a chained query that returns .select().in().gte().range() */
+/** Helper: mock a chained query that returns .select().in().gte().order().range() */
 function mockMetricQuery(data: unknown[], error: unknown = null) {
   return {
     in: vi.fn().mockReturnValue({
       gte: vi.fn().mockReturnValue({
-        range: vi.fn().mockResolvedValue({ data, error }),
+        order: vi.fn().mockReturnValue({
+          range: vi.fn().mockResolvedValue({ data, error }),
+        }),
       }),
     }),
   }

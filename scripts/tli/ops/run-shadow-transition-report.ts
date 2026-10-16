@@ -1,6 +1,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname } from 'node:path'
 import { z } from 'zod'
+import { fetchAllRows } from '@/lib/supabase/paginate'
 import {
   METRICS_STREAK_DAYS,
   SHADOW_OBSERVATION_DAYS,
@@ -101,18 +102,22 @@ async function loadRegistry(): Promise<ModelRegistryObservation[]> {
   }))
 }
 
-async function loadShadowPredictions(asOfDate: string): Promise<ShadowPredictionObservation[]> {
+export async function loadShadowPredictions(asOfDate: string): Promise<ShadowPredictionObservation[]> {
   const { supabaseAdmin } = await import('../shared/supabase-admin')
   const startDate = shiftUtcDate(asOfDate, -(SHADOW_OBSERVATION_DAYS - 1))
-  const { data, error } = await supabaseAdmin
-    .from('theme_predictions_v3')
-    .select('prediction_date, model_version, serving_role')
-    .eq('serving_role', 'shadow')
-    .gte('prediction_date', startDate)
-    .lte('prediction_date', asOfDate)
-
-  if (error) throw new Error(`theme_predictions_v3 shadow 로딩 실패: ${error.message}`)
-  return z.array(shadowPredictionRowSchema).parse(data ?? []).map((row) => ({
+  const data = await fetchAllRows<z.infer<typeof shadowPredictionRowSchema>>(async (from, to) => {
+    const { data, error } = await supabaseAdmin
+      .from('theme_predictions_v3')
+      .select('prediction_date, model_version, serving_role')
+      .eq('serving_role', 'shadow')
+      .gte('prediction_date', startDate)
+      .lte('prediction_date', asOfDate)
+      .order('id')
+      .range(from, to)
+    if (error) throw new Error(`theme_predictions_v3 shadow 로딩 실패: ${error.message}`)
+    return { data, error }
+  })
+  return z.array(shadowPredictionRowSchema).parse(data).map((row) => ({
     predictionDate: row.prediction_date,
     modelVersion: row.model_version,
     servingRole: row.serving_role,
@@ -159,7 +164,10 @@ async function main(): Promise<void> {
   console.log(JSON.stringify(report, null, 2))
 }
 
-main().catch((error: unknown) => {
-  console.error(error instanceof Error ? error.message : String(error))
-  process.exitCode = 1
-})
+const isDirectRun = process.argv[1]?.includes('run-shadow-transition-report') ?? false
+if (isDirectRun) {
+  main().catch((error: unknown) => {
+    console.error(error instanceof Error ? error.message : String(error))
+    process.exitCode = 1
+  })
+}

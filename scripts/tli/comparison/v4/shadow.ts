@@ -1,5 +1,6 @@
 // allow: SIZE_OK - Legacy TLI phase0/v4 coordinator kept narrow for T-002; PRD Phase 4 cleanup is tracked in .omo/plans/tli-v3-rebuild.md.
 import { COMPARISON_PRIMARY_HORIZON_DAYS, type ComparisonCandidatePool } from '@/lib/tli/comparison/spec'
+import { fetchAllRows } from '@/lib/supabase/paginate'
 import type { ComparisonInput, PredictionResult } from '@/lib/tli/prediction'
 import { supabaseAdmin } from '@/scripts/tli/shared/supabase-admin'
 import { batchQuery, batchUpsert } from '@/scripts/tli/shared/supabase-batch'
@@ -369,19 +370,23 @@ export async function loadShadowRunsByTheme(input: {
     return new Map<string, { runId: string; candidatePool: ComparisonCandidatePool }>()
   }
 
-  const { data, error } = await supabaseAdmin
-    .from('theme_comparison_runs_v2')
-    .select('id, current_theme_id, candidate_pool, created_at')
-    .eq('run_date', input.runDate)
-    .eq('algorithm_version', input.config.algorithmVersion)
-    .in('run_type', ['prod', 'shadow'])
-    .in('status', ['materializing', 'complete', 'published'])
-    .order('created_at', { ascending: false })
-    .in('current_theme_id', input.themeIds)
-
-  if (error) {
-    throw new Error(`v2 shadow run 조회 실패: ${error.message}`)
-  }
+  const data = await fetchAllRows<{
+    id: string; current_theme_id: string; candidate_pool: string; created_at: string
+  }>(async (from, to) => {
+    const { data, error } = await supabaseAdmin
+      .from('theme_comparison_runs_v2')
+      .select('id, current_theme_id, candidate_pool, created_at')
+      .eq('run_date', input.runDate)
+      .eq('algorithm_version', input.config.algorithmVersion)
+      .in('run_type', ['prod', 'shadow'])
+      .in('status', ['materializing', 'complete', 'published'])
+      .order('created_at', { ascending: false })
+      .order('id')
+      .in('current_theme_id', input.themeIds)
+      .range(from, to)
+    if (error) throw new Error(`v2 shadow run 조회 실패: ${error.message}`)
+    return { data, error }
+  })
 
   const map = new Map<string, { runId: string; candidatePool: ComparisonCandidatePool }>()
   for (const row of data ?? []) {

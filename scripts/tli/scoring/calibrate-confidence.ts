@@ -10,6 +10,7 @@ import { supabaseAdmin } from '@/scripts/tli/shared/supabase-admin';
 import { calibrateConfidenceThresholds } from '@/lib/tli/confidence-calibration';
 import { setConfidenceThresholds } from '@/lib/tli/constants/score-config';
 import { getKSTDate } from '@/scripts/tli/shared/utils';
+import { fetchAllRows } from '@/lib/supabase/paginate';
 
 export async function calibrateConfidence(): Promise<{
   highCoverage: number;
@@ -29,7 +30,8 @@ export async function calibrateConfidence(): Promise<{
     .order('created_at', { ascending: false })
     .limit(500);
 
-  if (!v2Err && v2Snapshots && v2Snapshots.length >= 30) {
+  if (v2Err) throw v2Err;
+  if (v2Snapshots && v2Snapshots.length >= 30) {
     console.log(`   📊 V4 prediction 데이터: ${v2Snapshots.length}건`);
     snapshots = v2Snapshots;
   } else {
@@ -46,11 +48,13 @@ export async function calibrateConfidence(): Promise<{
   const themeIds = [...new Set(snapshots.map(s => s.theme_id))];
   const dates = [...new Set(snapshots.map(s => s.snapshot_date))];
 
-  const { data: scores } = await supabaseAdmin
+  const scores = await fetchAllRows<{ theme_id: string; calculated_at: string; components: unknown }>((from, to) => supabaseAdmin
     .from('lifecycle_scores')
     .select('theme_id, calculated_at, components')
     .in('theme_id', themeIds)
-    .in('calculated_at', dates);
+    .in('calculated_at', dates)
+    .order('id')
+    .range(from, to));
 
   const scoreMap = new Map<string, { interestCoverage: number; newsCoverage: number; dataAge: number }>();
   for (const s of scores ?? []) {
