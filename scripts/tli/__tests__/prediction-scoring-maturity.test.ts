@@ -38,6 +38,7 @@ vi.mock('@/scripts/tli/shared/supabase-admin', () => ({
         in: (col: string, val: readonly string[]) => { state.in = [col, val]; return builder },
         lte: (col: string, val: string) => { state.lte = [col, val]; return builder },
         order: () => builder,
+        range: () => builder,
         limit: () => builder,
         maybeSingle: async () => ({ data: null, error: null }),
         update: (payload: Record<string, unknown>) => { state.update = payload; return builder },

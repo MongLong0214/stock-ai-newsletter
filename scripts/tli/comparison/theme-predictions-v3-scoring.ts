@@ -2,6 +2,7 @@ import { GTA_HORIZON_DAYS } from '@/lib/tli/labels/gt-a'
 import { getLatestMaturedBaseDate, isKoreanTradingDate } from '@/lib/tli/trading-calendar'
 import { getKSTDateString } from '@/lib/tli/date-utils'
 import { evaluatePredictionRows, type EvalPredictionRow } from '@/lib/tli/eval/harness'
+import { fetchAllRows } from '@/lib/supabase/paginate'
 import { supabaseAdmin } from '@/scripts/tli/shared/supabase-admin'
 import { batchUpsert } from '@/scripts/tli/shared/supabase-batch'
 import {
@@ -81,15 +82,19 @@ async function loadPendingPredictions(cutoffDate: string, limit: number): Promis
 async function loadGtALabels(predictions: readonly ThemePredictionV3PendingRow[]): Promise<GtALabelScoreRow[]> {
   const dates = [...new Set(predictions.map((row) => row.prediction_date))]
   if (dates.length === 0) return []
-  const { data, error } = await supabaseAdmin
-    .from('theme_labels')
-    .select('theme_id, base_date, labeler_version, label_status, g_log_ratio, y_binary')
-    .eq('label_type', 'gt_a')
-    .eq('horizon_days', GTA_HORIZON_DAYS)
-    .in('base_date', dates)
+  return fetchAllRows<GtALabelScoreRow>(async (from, to) => {
+    const { data, error } = await supabaseAdmin
+      .from('theme_labels')
+      .select('theme_id, base_date, labeler_version, label_status, g_log_ratio, y_binary')
+      .eq('label_type', 'gt_a')
+      .eq('horizon_days', GTA_HORIZON_DAYS)
+      .in('base_date', dates)
+      .order('id')
+      .range(from, to)
 
-  if (error) throw new Error(`GT-A 라벨 로딩 실패: ${error.message}`)
-  return data ?? []
+    if (error) throw new Error(`GT-A 라벨 로딩 실패: ${error.message}`)
+    return { data, error }
+  })
 }
 
 async function applyScoreUpdates(updates: readonly ThemePredictionV3ScoreUpdate[]): Promise<void> {

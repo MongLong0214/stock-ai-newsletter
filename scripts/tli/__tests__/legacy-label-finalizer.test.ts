@@ -9,16 +9,31 @@ const mocks = vi.hoisted(() => ({
   batchUpsert: vi.fn(),
   filterEq: vi.fn(),
   finalizeLegacyLabelRows: vi.fn(),
+  order: vi.fn(),
+  range: vi.fn(),
+  priceErrorFrom: null as number | null,
   prices: [] as unknown[],
   themes: [] as unknown[],
 }))
 
-function resultQuery(data: readonly unknown[]) {
-  const result = Promise.resolve({ data, error: null })
+function resultQuery(table: string) {
+  const data = table === 'themes' ? mocks.themes : mocks.prices
+  const result = Promise.resolve({ data: data.slice(0, 1000), error: null })
   const query = {
     eq: vi.fn(() => query),
     in: vi.fn(() => query),
     select: vi.fn(() => query),
+    order: vi.fn((column: string) => {
+      mocks.order(table, column)
+      return query
+    }),
+    range: vi.fn(async (from: number, to: number) => {
+      mocks.range(table, from, to)
+      if (table === 'stock_daily_prices' && from === mocks.priceErrorFrom) {
+        return { data: null, error: { message: 'price source unavailable' } }
+      }
+      return { data: data.slice(from, to + 1), error: null }
+    }),
     then: result.then.bind(result),
   }
   return query
@@ -26,7 +41,7 @@ function resultQuery(data: readonly unknown[]) {
 
 vi.mock('../shared/supabase-admin', () => ({
   supabaseAdmin: {
-    from: vi.fn((table: string) => resultQuery(table === 'themes' ? mocks.themes : mocks.prices)),
+    from: vi.fn((table: string) => resultQuery(table)),
   },
 }))
 
@@ -59,6 +74,7 @@ beforeEach(() => {
   vi.clearAllMocks()
   mocks.prices.length = 0
   mocks.themes.length = 0
+  mocks.priceErrorFrom = null
   mocks.batchUpsert.mockResolvedValue(0)
   mocks.finalizeLegacyLabelRows.mockResolvedValue(1)
 })
@@ -102,6 +118,10 @@ describe('legacy label finalizer exact-match persistence', () => {
 
     expect(result).toMatchObject({ totalThemes: 1, finalCount: 1, pendingCount: 0 })
     expect(mocks.filterEq).toHaveBeenCalledWith('labeler_version', 'gta-v1')
+    expect(mocks.batchQuery).toHaveBeenCalledWith(
+      'interest_metrics', 'theme_id, time, raw_value', [themeId], expect.any(Function),
+      'theme_id', { failOnError: true, orderBy: { column: 'id' } },
+    )
     expect(mocks.finalizeLegacyLabelRows).toHaveBeenCalledWith([
       expect.objectContaining({
         id: labelId,
@@ -142,6 +162,10 @@ describe('legacy label finalizer exact-match persistence', () => {
 
     expect(result).toMatchObject({ totalThemes: 1, finalCount: 1, pendingCount: 0 })
     expect(mocks.filterEq).toHaveBeenCalledWith('labeler_version', 'gtb-v1')
+    expect(mocks.batchQuery).toHaveBeenCalledWith(
+      'theme_stocks', 'theme_id, symbol, relevance, is_active', [themeId], expect.any(Function),
+      'theme_id', { failOnError: true, orderBy: { column: 'id' } },
+    )
     expect(mocks.finalizeLegacyLabelRows).toHaveBeenCalledWith([
       expect.objectContaining({
         id: labelId,
@@ -150,6 +174,95 @@ describe('legacy label finalizer exact-match persistence', () => {
         labeler_version: 'gtb-v1',
       }),
     ])
+  })
+
+  it('finalizes GT-B labels using KOSPI prices on the second page of 1,294 price rows', async () => {
+    const themes = Array.from({ length: 130 }, (_, index) => ({
+      id: `54000000-0000-4000-8000-${String(index + 1).padStart(12, '0')}`,
+      is_active: true,
+    }))
+    const stocks = Array.from({ length: 646 }, (_, index) => ({
+      theme_id: themes[Math.floor(index / 5)].id,
+      symbol: String(index + 1).padStart(6, '0'),
+      relevance: 1,
+      is_active: true,
+    }))
+    mocks.themes.push(...themes)
+    mocks.prices.push(
+      ...stocks.flatMap(({ symbol }) => [
+        { symbol, trade_date: '2026-10-06', close: 100 },
+        { symbol, trade_date: '2026-10-14', close: 110 },
+      ]),
+      { symbol: 'KOSPI', trade_date: '2026-10-06', close: 3000 },
+      { symbol: 'KOSPI', trade_date: '2026-10-14', close: 3060 },
+    )
+    mocks.batchQuery.mockImplementation(async (table: string) => table === 'theme_labels'
+      ? themes.map(({ id }) => ({ id: id.replace('54000000', '54000001'), theme_id: id }))
+      : stocks)
+    const { generateGtBLabelsForBaseDate } = await import('../labels/label-gt-b')
+
+    const result = await generateGtBLabelsForBaseDate('2026-10-06', { existingPendingOnly: true })
+
+    expect(result).toMatchObject({ totalThemes: 130, finalCount: 130, pendingCount: 0, excludedCount: 0 })
+    expect(mocks.range.mock.calls.filter(([table]) => table === 'stock_daily_prices')).toEqual([
+      ['stock_daily_prices', 0, 999],
+      ['stock_daily_prices', 1000, 1999],
+    ])
+    expect(mocks.order.mock.calls.filter(([table]) => table === 'stock_daily_prices')).toEqual([
+      ['stock_daily_prices', 'symbol'],
+      ['stock_daily_prices', 'trade_date'],
+      ['stock_daily_prices', 'symbol'],
+      ['stock_daily_prices', 'trade_date'],
+    ])
+    const [finalizedRows] = mocks.finalizeLegacyLabelRows.mock.calls[0]
+    expect(finalizedRows).toHaveLength(130)
+    for (const row of finalizedRows) {
+      expect(row.label_status).toBe('final')
+      expect(row.basket_excess_return).toBeCloseTo(0.08, 10)
+    }
+  })
+
+  it.each([0, 1000])('keeps the GT-B price error and stops persistence when page %i fails', async (from) => {
+    mocks.themes.push({ id: 'theme-1', is_active: true })
+    mocks.prices.push(...Array.from({ length: 1000 }, (_, index) => ({
+      symbol: String(index).padStart(6, '0'), trade_date: '2026-07-03', close: 100,
+    })))
+    mocks.priceErrorFrom = from
+    mocks.batchQuery.mockImplementation(async (table: string) => table === 'theme_labels'
+      ? []
+      : [{ theme_id: 'theme-1', symbol: '000001', relevance: 1, is_active: true }])
+    const { generateGtBLabelsForBaseDate } = await import('../labels/label-gt-b')
+
+    await expect(generateGtBLabelsForBaseDate('2026-07-03')).rejects.toThrow(
+      'GT-B 일봉 로딩 실패: price source unavailable',
+    )
+    expect(mocks.batchUpsert).not.toHaveBeenCalled()
+    expect(mocks.finalizeLegacyLabelRows).not.toHaveBeenCalled()
+  })
+
+  it.each(['gt_a', 'gt_b'])('loads more than 1,000 themes before generating %s labels', async (labelType) => {
+    mocks.themes.push(...Array.from({ length: 1001 }, (_, index) => ({
+      id: `theme-${String(index).padStart(4, '0')}`, is_active: true, keyword_epoch: 1,
+    })))
+    mocks.batchQuery.mockResolvedValue([])
+
+    if (labelType === 'gt_a') {
+      const { generateGtALabelsForBaseDate } = await import('../labels/label-gt-a')
+      const result = await generateGtALabelsForBaseDate({ baseDate: '2026-07-03', today: '2026-07-03' })
+      expect(result).toMatchObject({ totalThemes: 1001, pendingCount: 1001 })
+    } else {
+      const { generateGtBLabelsForBaseDate } = await import('../labels/label-gt-b')
+      const result = await generateGtBLabelsForBaseDate('2026-07-03')
+      expect(result).toMatchObject({ totalThemes: 1001, pendingCount: 1001 })
+    }
+
+    expect(mocks.range.mock.calls.filter(([table]) => table === 'themes')).toEqual([
+      ['themes', 0, 999],
+      ['themes', 1000, 1999],
+    ])
+    const [, rows] = mocks.batchUpsert.mock.calls[0]
+    expect(rows).toHaveLength(1001)
+    expect(rows[1000].theme_id).toBe('theme-1000')
   })
 
   it('retries only missing or pending GT-A identities without rewriting terminal rows', async () => {

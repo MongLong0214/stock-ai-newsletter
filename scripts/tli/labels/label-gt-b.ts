@@ -1,5 +1,6 @@
 import { batchQuery, batchUpsert } from '../shared/supabase-batch'
 import { supabaseAdmin } from '../shared/supabase-admin'
+import { fetchAllRows } from '../../../lib/supabase/paginate'
 import {
   GTB_HORIZON_DAYS,
   GTB_LABELER_VERSION,
@@ -44,27 +45,34 @@ export interface GtBLabelGenerationResult {
 const priceKey = (symbol: string, tradeDate: string): string => `${symbol}|${tradeDate}`
 
 async function loadThemeRows(includeInactive: boolean): Promise<ThemeRow[]> {
-  let query = supabaseAdmin
-    .from('themes')
-    .select('id, is_active')
+  return fetchAllRows<ThemeRow>(async (from, to) => {
+    let query = supabaseAdmin
+      .from('themes')
+      .select('id, is_active')
 
-  if (!includeInactive) query = query.eq('is_active', true)
+    if (!includeInactive) query = query.eq('is_active', true)
 
-  const { data, error } = await query
-  if (error) throw new Error(`GT-B 테마 로딩 실패: ${error.message}`)
-  return data ?? []
+    const { data, error } = await query.order('id').range(from, to)
+    if (error) throw new Error(`GT-B 테마 로딩 실패: ${error.message}`)
+    return { data, error }
+  })
 }
 
 async function loadPriceRows(symbols: readonly string[], dates: readonly string[]): Promise<PriceRow[]> {
   if (symbols.length === 0 || dates.length === 0) return []
-  const { data, error } = await supabaseAdmin
-    .from('stock_daily_prices')
-    .select('symbol, trade_date, close')
-    .in('symbol', symbols)
-    .in('trade_date', dates)
+  return fetchAllRows<PriceRow>(async (from, to) => {
+    const { data, error } = await supabaseAdmin
+      .from('stock_daily_prices')
+      .select('symbol, trade_date, close')
+      .in('symbol', symbols)
+      .in('trade_date', dates)
+      .order('symbol')
+      .order('trade_date')
+      .range(from, to)
 
-  if (error) throw new Error(`GT-B 일봉 로딩 실패: ${error.message}`)
-  return data ?? []
+    if (error) throw new Error(`GT-B 일봉 로딩 실패: ${error.message}`)
+    return { data, error }
+  })
 }
 
 export function buildGtBLabelRow(input: {
@@ -134,7 +142,7 @@ export async function generateGtBLabelsForBaseDate(
     themeIds,
     (query) => query.eq('is_active', true),
     'theme_id',
-    { failOnError: true },
+    { failOnError: true, orderBy: { column: 'id' } },
   )
   const futureDate = addKoreanTradingDays(baseDate, GTB_HORIZON_DAYS)
   const allSymbols = [KOSPI_INDEX_SYMBOL, ...selectTopThemeStockSymbols(stockRows, 5)]

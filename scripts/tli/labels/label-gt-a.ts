@@ -1,4 +1,5 @@
 import { supabaseAdmin } from '../shared/supabase-admin'
+import { fetchAllRows } from '../../../lib/supabase/paginate'
 import { batchQuery, batchUpsert, groupByThemeId } from '../shared/supabase-batch'
 import {
   GTA_HORIZON_DAYS,
@@ -140,17 +141,19 @@ const buildPendingRow = (input: {
 })
 
 async function loadThemes(includeInactive: boolean): Promise<ThemeRow[]> {
-  let query = supabaseAdmin
-    .from('themes')
-    .select('id, is_active, keyword_epoch')
+  return fetchAllRows<ThemeRow>(async (from, to) => {
+    let query = supabaseAdmin
+      .from('themes')
+      .select('id, is_active, keyword_epoch')
 
-  if (!includeInactive) {
-    query = query.eq('is_active', true)
-  }
+    if (!includeInactive) {
+      query = query.eq('is_active', true)
+    }
 
-  const { data, error } = await query
-  if (error) throw new Error(`GT-A 테마 로딩 실패: ${error.message}`)
-  return data ?? []
+    const { data, error } = await query.order('id').range(from, to)
+    if (error) throw new Error(`GT-A 테마 로딩 실패: ${error.message}`)
+    return { data, error }
+  })
 }
 
 export async function generateGtALabelsForBaseDate(input: {
@@ -211,7 +214,7 @@ export async function generateGtALabelsForBaseDate(input: {
       .gte('time', queryStartDate)
       .lte('time', horizonDate),
     'theme_id',
-    { failOnError: true },
+    { failOnError: true, orderBy: { column: 'id' } },
   )
   const metricsByTheme = groupByThemeId(metricRows)
 

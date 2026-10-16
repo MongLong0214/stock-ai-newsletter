@@ -10,6 +10,7 @@
  */
 
 import { supabaseAdmin } from '../shared/supabase-admin'
+import { fetchAllRows } from '../../../lib/supabase/paginate'
 import {
   keysetOrExpression,
   paginateByKeyset,
@@ -126,12 +127,17 @@ export const loadKospiTradingDates = async (
 }
 
 const loadForecastChildren = async (manifestId: string): Promise<Map<string, ForecastChildRow>> => {
-  const { data, error } = await supabaseAdmin
-    .from('tli_forecast_origin_theme_inputs')
-    .select('theme_id, input_status, keyword_group_sha256, forecast_interest_run_id')
-    .eq('forecast_origin_manifest_id', manifestId)
-  if (error) throw new Error(`forecast theme child 조회 실패: ${error.message}`)
-  return new Map((data ?? []).map((row) => [row.theme_id as string, row as ForecastChildRow]))
+  const data = await fetchAllRows<ForecastChildRow>(async (from, to) => {
+    const { data, error } = await supabaseAdmin
+      .from('tli_forecast_origin_theme_inputs')
+      .select('theme_id, input_status, keyword_group_sha256, forecast_interest_run_id')
+      .eq('forecast_origin_manifest_id', manifestId)
+      .order('theme_id')
+      .range(from, to)
+    if (error) throw new Error(`forecast theme child 조회 실패: ${error.message}`)
+    return { data, error }
+  })
+  return new Map(data.map((row) => [row.theme_id, row]))
 }
 
 /** horizon을 커버하는, frozen keyword group의 최신 complete DataLab run 1건. */
@@ -176,17 +182,22 @@ const loadLatestLabelSourceRun = async (input: {
 }
 
 export async function runGtAV2FoundationPhase(today: string): Promise<GtAV2FoundationPhaseResult> {
-  const { data: manifests, error: manifestError } = await supabaseAdmin
-    .from('tli_forecast_origin_manifests')
-    .select('id, origin_date')
-    .lte('origin_date', today)
-    .order('origin_date', { ascending: true })
-  if (manifestError) throw new Error(`forecast manifest 조회 실패: ${manifestError.message}`)
+  const manifests = await fetchAllRows<{ id: string; origin_date: string }>(async (from, to) => {
+    const { data, error } = await supabaseAdmin
+      .from('tli_forecast_origin_manifests')
+      .select('id, origin_date')
+      .lte('origin_date', today)
+      .order('origin_date', { ascending: true })
+      .order('id')
+      .range(from, to)
+    if (error) throw new Error(`forecast manifest 조회 실패: ${error.message}`)
+    return { data, error }
+  })
 
   let pendingCreated = 0
   const childrenByManifest = new Map<string, Map<string, ForecastChildRow>>()
 
-  for (const manifest of manifests ?? []) {
+  for (const manifest of manifests) {
     const children = await loadForecastChildren(manifest.id as string)
     childrenByManifest.set(manifest.id as string, children)
     pendingCreated += await createGtAV2PendingLabels({

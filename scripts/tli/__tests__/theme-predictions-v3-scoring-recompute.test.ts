@@ -10,6 +10,9 @@ interface FakeQueryState {
 const dbMocks = vi.hoisted(() => ({
   pendingRows: [] as Record<string, unknown>[],
   labelRows: [] as Record<string, unknown>[],
+  labelOrder: vi.fn(),
+  labelRange: vi.fn(),
+  labelErrorFrom: null as number | null,
   scoredRowsByKey: new Map<string, Record<string, unknown>[]>(),
   updateCalls: [] as Record<string, unknown>[],
   legacyScopeCalls: 0,
@@ -32,7 +35,17 @@ vi.mock('@/scripts/tli/shared/supabase-admin', () => ({
         eq: (col: string, val: unknown) => { state[`eq_${col}`] = val; return builder },
         in: () => builder,
         lte: () => builder,
-        order: () => builder,
+        order: (column: string) => {
+          if (table === 'theme_labels') dbMocks.labelOrder(column)
+          return builder
+        },
+        range: async (from: number, to: number) => {
+          dbMocks.labelRange(from, to)
+          if (from === dbMocks.labelErrorFrom) {
+            return { data: null, error: { message: 'label source unavailable' } }
+          }
+          return { data: dbMocks.labelRows.slice(from, to + 1), error: null }
+        },
         limit: () => builder,
         update: (payload: Record<string, unknown>) => { state.update = payload; return builder },
         then: (resolve: (value: { data?: unknown; error: null }) => void) => {
@@ -48,7 +61,7 @@ vi.mock('@/scripts/tli/shared/supabase-admin', () => ({
             return resolve({ data: dbMocks.scoredRowsByKey.get(mapKey) ?? [], error: null })
           }
           if (table === 'theme_labels') {
-            return resolve({ data: dbMocks.labelRows, error: null })
+            return resolve({ data: dbMocks.labelRows.slice(0, 1000), error: null })
           }
           return resolve({ data: [], error: null })
         },
@@ -72,6 +85,7 @@ describe('evaluateThemePredictionsV3 — model_metrics_daily full recompute (C2)
     dbMocks.scoredRowsByKey.clear()
     dbMocks.pendingRows = []
     dbMocks.labelRows = []
+    dbMocks.labelErrorFrom = null
   })
 
   it('recomputes the full-day aggregate (not just this batch) when only one of three rows was newly scored', async () => {
@@ -107,6 +121,41 @@ describe('evaluateThemePredictionsV3 — model_metrics_daily full recompute (C2)
       n_scored: 3,
       coverage: 1,
     })
+  })
+
+  it('scores a prediction using its GT-A label beyond the first 1,000 rows', async () => {
+    dbMocks.pendingRows = [
+      { id: 'p1000', theme_id: 'theme-1000', prediction_date: '2026-07-06', model_version: 'b-abl-v1', labeler_version: 'gta-v1', p_rise: 0.8, abstain: false },
+    ]
+    dbMocks.labelRows = Array.from({ length: 1001 }, (_, index) => ({
+      theme_id: `theme-${index}`, base_date: '2026-07-06', labeler_version: 'gta-v1',
+      label_status: 'final', g_log_ratio: 0.3, y_binary: true,
+    }))
+    const { evaluateThemePredictionsV3 } = await import('@/scripts/tli/comparison/theme-predictions-v3-scoring')
+
+    const result = await evaluateThemePredictionsV3({ today: '2026-07-13' })
+
+    expect(result).toMatchObject({ updates: 1, skippedPending: 0 })
+    expect(dbMocks.updateCalls).toEqual([
+      expect.objectContaining({ actual_g: 0.3, actual_y: true, score_status: 'scored' }),
+    ])
+    expect(dbMocks.labelRange.mock.calls).toEqual([[0, 999], [1000, 1999]])
+    expect(dbMocks.labelOrder.mock.calls).toEqual([['id'], ['id']])
+  })
+
+  it.each([0, 1000])('keeps the GT-A label error and stops persistence when page %i fails', async (from) => {
+    dbMocks.pendingRows = [
+      { id: 'p1', theme_id: 'theme-a', prediction_date: '2026-07-06', model_version: 'b-abl-v1', labeler_version: 'gta-v1', p_rise: 0.8, abstain: false },
+    ]
+    dbMocks.labelRows = Array.from({ length: 1000 }, () => ({}))
+    dbMocks.labelErrorFrom = from
+    const { evaluateThemePredictionsV3 } = await import('@/scripts/tli/comparison/theme-predictions-v3-scoring')
+
+    await expect(evaluateThemePredictionsV3({ today: '2026-07-13' })).rejects.toThrow(
+      'GT-A 라벨 로딩 실패: label source unavailable',
+    )
+    expect(dbMocks.updateCalls).toEqual([])
+    expect(dbMocks.batchUpsert).not.toHaveBeenCalled()
   })
 
   it('fails instead of converting a null scored outcome to a negative metric observation', async () => {
