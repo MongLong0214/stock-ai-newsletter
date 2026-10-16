@@ -171,6 +171,106 @@ describe('measureForwardTieRate', () => {
 })
 
 describe('measureForwardPicks', () => {
+  it('adds per-pick realistic costs without changing model-cost returns, using D5 even in the eight-day report', () => {
+    const dates = ['2025-12-18', '2025-12-19', '2025-12-22', '2025-12-23', '2025-12-24',
+      '2025-12-26', '2025-12-29', '2025-12-30', '2026-01-02']
+    const outcomes = [
+      { symbol: 'LOW', entry: 100, exit: 101 },
+      { symbol: 'HIGH', entry: 10_000, exit: 10_020 },
+      { symbol: 'LOSS', entry: 30_000, exit: 27_000 },
+      { symbol: 'BROKEN', entry: 100, exit: 100 },
+      { symbol: 'UNTRADEABLE', entry: 100, exit: 100 },
+    ]
+    const prices = buildPriceBook(outcomes.flatMap(({ symbol, entry, exit }) => (
+      dates.map((tradeDate, index): StockDailyPriceRow => ({
+        symbol, trade_date: tradeDate, open: entry,
+        high: symbol === 'BROKEN' && index === 3 ? null : entry * 1.11,
+        low: entry * .85, close: index === 5 ? exit : entry,
+        volume: symbol === 'UNTRADEABLE' && index === 1 ? 0 : 1000, source: 'kis',
+      }))
+    )))
+    const tradingDays = new TradingDayIndex(dates)
+    const strategies = [PRODUCTION_STRATEGY.name, 'shadow:bullishTarget-v3',
+      'shadow:A-volumeBreakout-v1.1', 'shadow:B-random', 'shadow:J-randomConstrained']
+    const snapshots = strategies.map((strategy) => ({
+      signal_date: dates[0], strategy, picks: outcomes.map(({ symbol }) => ({ symbol })),
+      top_candidates: [],
+    } as unknown as StockPickSnapshot))
+    const input = { prices, tradingDays, snapshots, startDate: dates[0]!, asOfDate: dates[8]! }
+    const strategyComparison = measureStrategyForwardComparison(input)
+    const pairedStrategyComparison = measurePairedStrategyForwardComparison(input)
+    const report = measureForwardPicks({
+      ...input, newsletters: [newsletter(dates[1]!, 'code', outcomes.map(({ symbol }) => symbol))],
+      strategyComparison, pairedStrategyComparison,
+    })
+    const summary = report.overall.returns5d
+    expect(summary.meanNetReturn).toBeCloseTo((.01 + .002 - .1) / 3 - .003, 12)
+    const realistic = summary.realisticCost
+    const nets = [.01 - 118.165 / 10_000, .002 - 28.033 / 10_000, -.1 - (16.666666666666668 + 16.35) / 10_000]
+    expect(realistic).toMatchObject({ evaluablePicks: 3, positiveRate: 0, lossRate: 1 })
+    expect(realistic.meanNetReturn).toBeCloseTo(nets.reduce((sum, value) => sum + value, 0) / 3, 12)
+    expect(realistic.medianNetReturn).toBeCloseTo(nets[0]!, 12)
+    expect(realistic.meanAppliedCostBps).toBeCloseTo((118.165 + 28.033 + 33.016666666666666) / 3, 12)
+    expect(report.byPicksSource.code.returns5d.realisticCost).toEqual(realistic)
+    expect(report.recent4Weeks.find((week) => week.totalPicks > 0)?.returns5d.realisticCost).toEqual(realistic)
+    expect(report.informational8HoldingDays.returns5d.realisticCost).toEqual(realistic)
+    expect(report.entryDay.realisticCost.evaluablePicks).toBe(4)
+    expect(report.entryDay.realisticCost.meanAppliedCostBps).toBeCloseTo((118 + 28 + 34.666666666666664 + 118) / 4, 12)
+    expect(report.entryDayByPicksSource.code.realisticCost).toEqual(report.entryDay.realisticCost)
+    expect(report.overall.targetExitProxy5d.realisticCost.meanAppliedCostBps)
+      .toBeCloseTo((119.65 + 29.65 + 36.31666666666667) / 3, 12)
+    for (const row of [...strategyComparison, ...pairedStrategyComparison]) {
+      expect(row.realisticCost5d).toEqual(realistic)
+    }
+    const zeroCost = measureForwardPicks({ ...input, newsletters: [newsletter(dates[1]!, 'code', ['LOW'])], roundTripCostBps: 0 })
+    expect(zeroCost.overall.returns5d.meanNetReturn).toBeCloseTo(.01, 12)
+    expect(zeroCost.overall.returns5d.realisticCost.meanAppliedCostBps).toBeCloseTo(118.165, 12)
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {})
+    const table = vi.spyOn(console, 'table').mockImplementation(() => {})
+    try {
+      printForwardMeasurementReport(report)
+      expect(log).toHaveBeenCalledWith(expect.stringContaining('모델 비용 30bps'))
+      expect(log).toHaveBeenCalledWith(expect.stringContaining('5일 종가 청산 현실 비용: 평가 3건'))
+      expect(log).toHaveBeenCalledWith(expect.stringContaining('목표가 청산 모형 (도달일 미저장: D5 세율 가정) 현실 비용'))
+      expect(table.mock.calls[0]?.[0]).toEqual(expect.arrayContaining([
+        expect.objectContaining({ scope: 'overall', '현실 비용 평가 수': 3, '현실 비용 손실률': '100.0%' }),
+      ]))
+    } finally {
+      log.mockRestore()
+      table.mockRestore()
+    }
+  })
+
+  it('uses the 20,000 tick band for a return-derived D5 exit from 17,630', () => {
+    const prices = buildPriceBook(buildRows({ symbol: 'BOUNDARY', entryOpen: 17_630, maxHigh: 20_000 })
+      .map((row) => ({ ...row, open: 17_630, low: 17_000,
+        close: row.trade_date === DATES[5] ? 20_000 : 17_630 })))
+    const report = measureForwardPicks({
+      newsletters: [newsletter(DATES[1], 'code', ['BOUNDARY'])], prices,
+      tradingDays: new TradingDayIndex(DATES), asOfDate: DATES[5],
+    })
+    const realistic = report.overall.returns5d.realisticCost
+    expect(realistic.meanAppliedCostBps).toBeCloseTo(42.906693136698806, 12)
+    expect(realistic.meanNetReturn).toBeCloseTo(20_000 / 17_630 - 1 - 42.906693136698806 / 10_000, 12)
+    expect(report.byPicksSource.code.returns5d.realisticCost).toEqual(realistic)
+    // The touched target proxy exits at +10% (19,393), using the same normalized-price path.
+    expect(report.overall.targetExitProxy5d.realisticCost.meanAppliedCostBps)
+      .toBeCloseTo((.00015 * (17_630 + 19_393) + .002 * 19_393 + 10) / 17_630 * 10_000, 12)
+  })
+
+  it('leaves realistic returns unknown when no pick is evaluable', () => {
+    const report = measureForwardPicks({ newsletters: [], prices: new Map(),
+      tradingDays: new TradingDayIndex(DATES), asOfDate: DATES[5] })
+    const empty = { evaluablePicks: 0, meanNetReturn: null, medianNetReturn: null,
+      positiveRate: null, lossRate: null, meanAppliedCostBps: null }
+    expect(report.overall.returns5d.realisticCost).toEqual(empty)
+    expect(report.overall.targetExitProxy5d.realisticCost).toEqual(empty)
+    expect(report.entryDay.realisticCost).toEqual(empty)
+    const paired = measurePairedStrategyForwardComparison({ snapshots: [], prices: new Map(),
+      tradingDays: new TradingDayIndex(DATES), startDate: DATES[0], asOfDate: DATES[5] })
+    for (const row of paired) expect(row.realisticCost5d).toEqual(empty)
+  })
+
   it('reports finalized D1 candles independently of D5 maturity and excludes future or invalid entry data', () => {
     const symbols = ['BULL', 'BEAR', 'INVALID', 'UNTRADEABLE', 'FUTURE']
     const rows = symbols.map((symbol): StockDailyPriceRow => ({
