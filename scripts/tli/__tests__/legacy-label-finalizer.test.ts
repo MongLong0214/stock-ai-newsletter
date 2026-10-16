@@ -118,6 +118,10 @@ describe('legacy label finalizer exact-match persistence', () => {
 
     expect(result).toMatchObject({ totalThemes: 1, finalCount: 1, pendingCount: 0 })
     expect(mocks.filterEq).toHaveBeenCalledWith('labeler_version', 'gta-v1')
+    expect(mocks.batchQuery).toHaveBeenCalledWith(
+      'interest_metrics', 'theme_id, time, raw_value', [themeId], expect.any(Function),
+      'theme_id', { failOnError: true, orderBy: { column: 'id' } },
+    )
     expect(mocks.finalizeLegacyLabelRows).toHaveBeenCalledWith([
       expect.objectContaining({
         id: labelId,
@@ -158,6 +162,10 @@ describe('legacy label finalizer exact-match persistence', () => {
 
     expect(result).toMatchObject({ totalThemes: 1, finalCount: 1, pendingCount: 0 })
     expect(mocks.filterEq).toHaveBeenCalledWith('labeler_version', 'gtb-v1')
+    expect(mocks.batchQuery).toHaveBeenCalledWith(
+      'theme_stocks', 'theme_id, symbol, relevance, is_active', [themeId], expect.any(Function),
+      'theme_id', { failOnError: true, orderBy: { column: 'id' } },
+    )
     expect(mocks.finalizeLegacyLabelRows).toHaveBeenCalledWith([
       expect.objectContaining({
         id: labelId,

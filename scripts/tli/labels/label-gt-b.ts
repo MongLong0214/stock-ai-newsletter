@@ -142,7 +142,7 @@ export async function generateGtBLabelsForBaseDate(
     themeIds,
     (query) => query.eq('is_active', true),
     'theme_id',
-    { failOnError: true },
+    { failOnError: true, orderBy: { column: 'id' } },
   )
   const futureDate = addKoreanTradingDays(baseDate, GTB_HORIZON_DAYS)
   const allSymbols = [KOSPI_INDEX_SYMBOL, ...selectTopThemeStockSymbols(stockRows, 5)]

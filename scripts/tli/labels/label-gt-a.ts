@@ -214,7 +214,7 @@ export async function generateGtALabelsForBaseDate(input: {
       .gte('time', queryStartDate)
       .lte('time', horizonDate),
     'theme_id',
-    { failOnError: true },
+    { failOnError: true, orderBy: { column: 'id' } },
   )
   const metricsByTheme = groupByThemeId(metricRows)
 
