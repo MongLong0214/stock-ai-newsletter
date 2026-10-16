@@ -19,7 +19,7 @@ export interface TechnicalContext {
   readonly distanceFromPriorHigh20Percent: number | null
   readonly benchmarkReturn20Percent: number | null
   readonly benchmarkSma20DistancePercent: number | null
-  /** 현재 마스터 universe 중 해당일 유효한 20일 창을 가진 종목만 분모에 포함한다. */
+  /** 해당일 universe 중 유효한 20일 창을 가진 종목만 분모에 포함한다. */
   readonly breadthAboveSma20: number | null
   readonly breadthEligibleSymbols: number
   readonly breadthUniverseSymbols: number
@@ -103,12 +103,13 @@ export function buildTechnicalContextMap(input: {
   readonly symbols: readonly string[]
   readonly dates: readonly string[]
   readonly includeFromDate?: string
+  readonly isUniverseMember?: (symbol: string, date: string) => boolean
 }): ReadonlyMap<string, ReadonlyMap<string, TechnicalContext>> {
   const dates = [...new Set(input.dates)].sort()
   const symbols = [...new Set(input.symbols)].filter((symbol) => symbol !== KOSPI_INDEX_SYMBOL)
   const benchmarkRows = dates.map((date) => input.handler.get(KOSPI_INDEX_SYMBOL, date))
   const output = new Map<string, Map<string, TechnicalContext>>()
-  const breadth = new Map<string, { eligible: number; above: number }>()
+  const breadth = new Map<string, { eligible: number; above: number; universe: number }>()
   for (const symbol of symbols) {
     const rows: Row[] = []
     dates.forEach((date, index) => {
@@ -117,10 +118,13 @@ export function buildTechnicalContextMap(input: {
       if (input.includeFromDate && date < input.includeFromDate) return
       const context = buildContext(rows, benchmarkRows.slice(Math.max(0, index - 60), index + 1))
       const distance = smaDistance(rows, 20)
-      const dayBreadth = breadth.get(date) ?? { eligible: 0, above: 0 }
-      if (distance !== null) {
-        dayBreadth.eligible++
-        if (distance > 0) dayBreadth.above++
+      const dayBreadth = breadth.get(date) ?? { eligible: 0, above: 0, universe: 0 }
+      if (!input.isUniverseMember || input.isUniverseMember(symbol, date)) {
+        dayBreadth.universe++
+        if (distance !== null) {
+          dayBreadth.eligible++
+          if (distance > 0) dayBreadth.above++
+        }
       }
       breadth.set(date, dayBreadth)
       const day = output.get(date) ?? new Map<string, TechnicalContext>()
@@ -134,7 +138,7 @@ export function buildTechnicalContextMap(input: {
       ...context,
       breadthAboveSma20: counts.eligible > 0 ? counts.above / counts.eligible : null,
       breadthEligibleSymbols: counts.eligible,
-      breadthUniverseSymbols: symbols.length,
+      breadthUniverseSymbols: counts.universe,
     })
   }
   return output

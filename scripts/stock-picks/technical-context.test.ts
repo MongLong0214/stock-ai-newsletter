@@ -69,4 +69,32 @@ describe('technical context data', () => {
     expect(context.realizedVolatility20Percent).toBe(0)
     expect(calculate(data, dates.slice(0, 5)).get('A')!.return5Percent).toBeNull()
   })
+
+  it('limits breadth counts to date-specific universe members while retaining their price history', () => {
+    const handler = new StockDataHandler(buildPriceBook([...rows('A', 1), ...rows('B', -1)]), new TradingDayIndex(dates))
+    const map = buildTechnicalContextMap({ handler: handler.at(dates.at(-1)!), symbols: ['A', 'B'], dates,
+      includeFromDate: dates.at(-3), isUniverseMember: (symbol, date) => date === dates.at(-3) ? false
+        : symbol === (date === dates.at(-2) ? 'A' : 'B'),
+    })
+    for (const context of map.get(dates.at(-3)!)!.values()) expect(context).toMatchObject({
+      breadthAboveSma20: null, breadthEligibleSymbols: 0, breadthUniverseSymbols: 0,
+    })
+    for (const context of map.get(dates.at(-2)!)!.values()) expect(context).toMatchObject({
+      breadthAboveSma20: 1, breadthEligibleSymbols: 1, breadthUniverseSymbols: 1,
+    })
+    for (const context of map.get(dates.at(-1)!)!.values()) expect(context).toMatchObject({
+      breadthAboveSma20: 0, breadthEligibleSymbols: 1, breadthUniverseSymbols: 1,
+    })
+  })
+
+  it('keeps the full default production output identical to an unfiltered universe', () => {
+    const input = {
+      handler: new StockDataHandler(buildPriceBook([...rows('A', 1), ...rows('B', -1)]), new TradingDayIndex(dates)).at(dates.at(-1)!),
+      symbols: ['A', 'B'], dates,
+    }
+    expect(buildTechnicalContextMap(input)).toEqual(buildTechnicalContextMap({ ...input, isUniverseMember: () => true }))
+    expect(buildTechnicalContextMap(input).get(dates.at(-1)!)!.get('A')).toMatchObject({
+      breadthAboveSma20: 0.5, breadthEligibleSymbols: 2, breadthUniverseSymbols: 2,
+    })
+  })
 })

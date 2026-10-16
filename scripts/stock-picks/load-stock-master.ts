@@ -235,7 +235,7 @@ const extractMasterFile = async (archive: Buffer, fileName: string): Promise<Buf
       execFile(
         'unzip',
         ['-p', archivePath, fileName],
-        { encoding: 'buffer', maxBuffer: 32 * 1024 * 1024 },
+        { encoding: 'buffer', maxBuffer: 32 * 1024 * 1024, timeout: 60_000 },
         (error, stdout, stderr) => {
           if (error) {
             reject(new Error(`KIS master 압축 해제 실패 (${fileName}): ${stderr.toString() || error.message}`))
@@ -252,7 +252,7 @@ const extractMasterFile = async (archive: Buffer, fileName: string): Promise<Buf
 
 const downloadAndParseMaster = async (market: StockMarket): Promise<KisMasterParseResult> => {
   const layout = KIS_MASTER_LAYOUTS[market]
-  const response = await fetch(layout.url)
+  const response = await fetch(layout.url, { signal: AbortSignal.timeout(60_000) })
   if (!response.ok) {
     throw new Error(`KIS ${market} master 다운로드 실패: HTTP ${response.status}`)
   }
@@ -269,7 +269,7 @@ const logParseErrors = (market: StockMarket, errors: readonly KisMasterParseErro
   if (errors.length > 20) console.error(`      ... ${errors.length - 20}행 추가 실패`)
 }
 
-export async function loadStockMaster(): Promise<void> {
+export async function loadStockMaster(): Promise<{ rows: StockMasterInput[] }> {
   const results: KisMasterParseResult[] = []
   for (const market of ['KOSPI', 'KOSDAQ'] as const) {
     console.log(`📥 ${market} master 다운로드 중...`)
@@ -301,6 +301,30 @@ export async function loadStockMaster(): Promise<void> {
     skippedNonStockCount,
     skippedLetteredCodeCount,
     parseFailedCount,
+  }))
+  return { rows }
+}
+
+export async function recordStockMasterDailySnapshot(input: {
+  readonly signalDate: string
+  readonly rows: readonly StockMasterInput[]
+}): Promise<void> {
+  const { supabaseAdmin } = await import('@/scripts/tli/shared/supabase-admin')
+  const rows = input.rows.map((row) => ({
+    symbol: row.symbol,
+    name: row.name,
+    market: row.market,
+    is_active: row.is_active,
+    status_flags: row.status_flags,
+  }))
+  // The RPC locks the signal date before checking and inserting, so the first complete capture wins.
+  const { data, error } = await supabaseAdmin
+    .rpc('record_stock_master_daily_snapshot', { p_signal_date: input.signalDate, p_rows: rows })
+    .abortSignal(AbortSignal.timeout(30_000))
+  if (error) throw new Error(`종목 마스터 일별 스냅샷 저장 실패: ${error.message}`)
+  console.log(JSON.stringify({
+    event: 'stock_master_snapshot', signalDate: input.signalDate, rows: data,
+    ...(data === 0 ? { skipped: 'already_captured' } : {}),
   }))
 }
 

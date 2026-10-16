@@ -15,6 +15,11 @@ import type { StockDailyPriceRow } from '@/scripts/tli/prices/stock-daily-prices
 
 export type LabelNullReason = 'immature' | 'suspendedOrUntradeable' | 'dataError'
 
+interface StockMasterSnapshot extends StockPickMaster {
+  readonly signal_date: string
+  readonly market: 'KOSPI' | 'KOSDAQ'
+}
+
 /** 관측된 거래정지/진입불가는 미성숙보다 우선한다. 결측 거래량은 거래정지로 추정하지 않는다. */
 export function utilityResearchLabel(symbol: string, signalDate: string, prices: PriceBook, days: TradingDayIndex) {
   const j = days.indexByDate.get(signalDate)!
@@ -32,8 +37,7 @@ export function utilityResearchLabel(symbol: string, signalDate: string, prices:
 }
 
 /** Local files only. Never filters candidates using a future outcome. */
-async function main(): Promise<void> {
-  const args = process.argv.slice(2)
+export async function exportUtilityResearch(args: readonly string[]): Promise<void> {
   const option = (name: string): string => {
     const i = args.indexOf(name)
     if (i < 0 || !args[i + 1] || args[i + 1]!.startsWith('--')) throw new Error(`Missing ${name}`)
@@ -43,11 +47,13 @@ async function main(): Promise<void> {
   const keys = new Set<string>()
   const pricePath = resolve(option('--prices'))
   const masterPath = resolve(option('--master'))
+  const snapshotsPath = args.includes('--master-snapshots') ? resolve(option('--master-snapshots')) : undefined
   const calendarPath = resolve(option('--calendar'))
   const outputDir = resolve(option('--output-dir'))
   const from = option('--from')
   if (outputDir === resolve(pricePath, '..') || outputDir === resolve(masterPath, '..')
-    || outputDir === resolve(calendarPath, '..')) throw new Error('Use a separate output directory')
+    || outputDir === resolve(calendarPath, '..')
+    || (snapshotsPath && outputDir === resolve(snapshotsPath, '..'))) throw new Error('Use a separate output directory')
   const lines = createInterface({ input: createReadStream(pricePath), crlfDelay: Infinity })
   for await (const line of lines) {
     if (!line.trim()) continue
@@ -64,15 +70,39 @@ async function main(): Promise<void> {
   if (!Array.isArray(master) || new Set(master.map((m) => m.symbol)).size !== master.length) throw new Error('Invalid master')
   const active = master.filter((m) => m.is_active)
   const masters = new Map(active.map((m) => [m.symbol, m]))
+  const snapshotMasters = new Map<string, Map<string, StockPickMaster>>()
+  const universe = new Map(masters)
+  if (snapshotsPath) {
+    const snapshots: StockMasterSnapshot[] = JSON.parse(await readFile(snapshotsPath, 'utf8'))
+    if (!Array.isArray(snapshots)) throw new Error('Invalid master snapshots')
+    for (const row of snapshots) {
+      if (!row || !/^\d{4}-\d{2}-\d{2}$/.test(row.signal_date)
+        || typeof row.symbol !== 'string' || typeof row.name !== 'string'
+        || !['KOSPI', 'KOSDAQ'].includes(row.market) || typeof row.is_active !== 'boolean'
+        || !(row.status_flags === null || (typeof row.status_flags === 'object' && !Array.isArray(row.status_flags)))) {
+        throw new Error('Invalid master snapshot row')
+      }
+      const dayMasters = snapshotMasters.get(row.signal_date) ?? new Map<string, StockPickMaster>()
+      if (dayMasters.has(row.symbol)) throw new Error(`Duplicate master snapshot: ${row.signal_date}/${row.symbol}`)
+      dayMasters.set(row.symbol, row)
+      snapshotMasters.set(row.signal_date, dayMasters)
+      if (row.is_active && !universe.has(row.symbol)) universe.set(row.symbol, row)
+    }
+  }
+  const symbols = [...universe.keys()]
+  const mastersAt = (date: string) => snapshotMasters.get(date) ?? masters
   const { tradingDays: dates }: { tradingDays: string[] } = JSON.parse(await readFile(calendarPath, 'utf8'))
   if (!Array.isArray(dates) || !dates.length || dates.some((d, i) => !/^\d{4}-\d{2}-\d{2}$/.test(d)
     || (i > 0 && d <= dates[i - 1]!)) || !dates.includes(from)) throw new Error('Invalid calendar/from date')
   const days = new TradingDayIndex(dates)
   const handler = new StockDataHandler(prices, days)
   const contexts = buildTechnicalContextMap({ handler: handler.at(dates.at(-1)!),
-    symbols: active.map((m) => m.symbol), dates, includeFromDate: from })
+    symbols, dates, includeFromDate: from,
+    ...(snapshotsPath ? { isUniverseMember: (symbol: string, date: string) => mastersAt(date).get(symbol)?.is_active === true } : {}),
+  })
   for (const [i, d] of dates.entries()) if (d >= from) validateModelMarketSources({
-    handler: handler.at(d), symbols: active.map((m) => m.symbol), dates: dates.slice(Math.max(0, i - 319), i + 1),
+    handler: handler.at(d), symbols: symbols.filter(symbol => mastersAt(d).get(symbol)?.is_active),
+    dates: dates.slice(Math.max(0, i - 319), i + 1),
   })
   await mkdir(outputDir, { recursive: true })
   const output = await open(resolve(outputDir, 'features.ndjson'), 'w')
@@ -80,11 +110,11 @@ async function main(): Promise<void> {
   let lockedLimitUpEntries = 0; let suspensionPaths = 0
   const unknownReasons: Record<LabelNullReason, number> = { immature: 0, suspendedOrUntradeable: 0, dataError: 0 }
   try {
-    for (const [i, m] of active.entries()) {
+    for (const [i, m] of [...universe.values()].entries()) {
       const series = buildFeatureSeries({ handler: handler.at(dates.at(-1)!), symbol: m.symbol, dates, includeFromDate: from })
       for (const f of series) {
         if (handler.at(f.simDate).get(m.symbol, f.simDate)?.source !== 'kis' || !hasCalculatedOutputMetrics(f)) continue
-        if (!rankUtilityScoreCandidates({ features: [f], masters, scores: new Map([[f.symbol, 0]]),
+        if (!rankUtilityScoreCandidates({ features: [f], masters: mastersAt(f.simDate), scores: new Map([[f.symbol, 0]]),
           parameters: LOW_VOLATILITY_STABLE_PARAMETERS, excludeSymbols: new Set(), pickCount: 1 }).length) continue
         const j = days.indexByDate.get(f.simDate)!
         const history = dates.slice(Math.max(0, j - 319), j + 1)
@@ -94,7 +124,9 @@ async function main(): Promise<void> {
         const { label, labelNullReason, lockedLimitUpEntry, suspensionPath } = utilityResearchLabel(f.symbol, f.simDate, prices, days)
         await output.writeFile(`${JSON.stringify({ date: f.simDate, symbol: f.symbol, runtimeEligible: true,
           originalInputs18: x.slice(0, 18), extraInputs32: x.slice(18), turnover: f.averageTurnover20,
-          historySessions: history.length, signalClose: f.close, label, labelNullReason })}\n`)
+          historySessions: history.length, signalClose: f.close, label, labelNullReason,
+          ...(snapshotsPath ? { masterSource: snapshotMasters.has(f.simDate) ? 'snapshot' : 'current' } : {}),
+        })}\n`)
         eligible++; if (label) strict++
         if (lockedLimitUpEntry) lockedLimitUpEntries++
         if (suspensionPath) suspensionPaths++
@@ -105,9 +137,13 @@ async function main(): Promise<void> {
   } finally { await output.close() }
   await writeFile(resolve(outputDir, 'feature-spec.json'), JSON.stringify({ featureNames: OBSERVED_INPUT_NAMES }))
   await writeFile(resolve(outputDir, 'calendar.json'), JSON.stringify({ tradingDays: dates }))
-  console.log(JSON.stringify({ complete: true, eligible, strict, lockedLimitUpEntries, suspensionPaths, unknownReasons }))
+  const signalDates = dates.filter(date => date >= from)
+  const snapshotDates = signalDates.filter(date => snapshotMasters.has(date)).length
+  console.log(JSON.stringify({ complete: true, eligible, strict, lockedLimitUpEntries, suspensionPaths, unknownReasons,
+    ...(snapshotsPath ? { masterSourceDates: { snapshot: snapshotDates, current: signalDates.length - snapshotDates } } : {}),
+  }))
 }
 
 if (/export-utility-research\.(?:ts|js)$/.test(process.argv[1] ?? '')) {
-  main().catch((e: unknown) => { console.error(e instanceof Error ? e.message : String(e)); process.exitCode = 1 })
+  exportUtilityResearch(process.argv.slice(2)).catch((e: unknown) => { console.error(e instanceof Error ? e.message : String(e)); process.exitCode = 1 })
 }

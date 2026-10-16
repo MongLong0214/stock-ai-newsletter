@@ -240,3 +240,36 @@ unknown 사유 immature 4,128 / suspendedOrUntradeable 527 / dataError 1,051건�
 주의: 이번 snapshot의 절대 수치는 위 10-12 비교표와 다르다(예: 두 모델 후보 과거 117일 손실률 53.71% → 60.34%).
 10-12 corpus 원본이 남아 있지 않아 원인을 분리하지 못했다. 수정주가 재기록·master 시점·#228 라벨 변경이
 섞인 vintage 차이로 보이며, 이 절의 결론은 **같은 실행 안에서 비용만 바꾼 상대 비교**에만 해당한다.
+
+## 2026-10-16: 종목 마스터 일별 스냅샷 (#229)
+
+배포 후 첫 운영 Prepare부터 NORMAL은 수집 직전, CRASH_ALERT는 뉴스레터 저장·일봉 적재 후 백필에서
+KIS 마스터 갱신 직후 파싱한 행을 `stock_master_daily_snapshots`에 추가한다. dry-run은 기록하지 않는다. 파일에 없는 종목을 현재 마스터에서 보충하지 않는다.
+`signal_date`는 Prepare가 추천에 사용하는 KRX 신호 세션이다. 다음 세션 아침에 내려받은 마스터를
+그 신호일에 연결하므로 다운로드 날짜나 `trade_date`가 아니며, 신호일 종가 시점의 마스터를 복원했다는 뜻도 아니다.
+`captured_at`은 서버 저장 시각이다. RPC의 신호일별 advisory lock으로 같은 신호일 전체의 첫 캡처를 유지한다.
+갱신 실패 시 스냅샷을 생략하며, 스냅샷 저장 실패는 경고만 남기고 뉴스레터 생성을 계속한다.
+
+기록 시작 전 마스터 이력은 소급 복원할 수 없다. 아래 읽기 전용 SQL 결과를 JSON 배열 파일
+`master-snapshots.json`으로 내보내 다음 재학습·평가부터 선택적으로 사용한다.
+
+```sql
+SELECT COALESCE(json_agg(snapshot ORDER BY signal_date, symbol), '[]'::json)
+FROM (
+  SELECT signal_date, symbol, name, market, is_active, status_flags
+  FROM public.stock_master_daily_snapshots
+) AS snapshot;
+```
+
+기존 export 명령에 `--master-snapshots "$SNAPSHOT/master-snapshots.json"`을 추가한다.
+스냅샷 행이 있는 신호일은 해당 날짜의 마스터로 후보 자격과 breadth 유니버스를 판정한다.
+스냅샷 날짜에 없는 종목은 그날 제외하고, 스냅샷 날짜 자체가 없으면 현재 마스터로 fallback한다.
+순회 종목은 현재 active와 스냅샷에서 한 번이라도 active였던 종목의 합집합이다.
+옵션 사용 시 각 후보 행의 `masterSource`는 `snapshot` 또는 `current`이며,
+마지막 JSON의 `masterSourceDates: {snapshot, current}`는 `--from` 이후 달력 신호일 수를 센다
+(적격 후보가 없는 날짜도 포함). 옵션을 생략하면 기존 출력 형식을 유지한다.
+
+과거 구간의 current-master 생존·현재 상태 편향은 계속 명시한다.
+스냅샷으로 완전히 덮이지 않은 평가 창은 `currentMasterAndAdjustedVintageBias`를 계속 `true`로 둔다.
+스냅샷이 모두 있어도 수정주가 vintage 편향이 해결되는 것은 아니다.
+이번 변경은 수집·리서치 입력만 확장하며 운영 선정 로직·동결 모델·기존 성과표를 바꾸지 않는다.
