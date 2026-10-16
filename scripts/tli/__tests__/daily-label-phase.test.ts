@@ -4,21 +4,33 @@ const supabaseAdminMocks = vi.hoisted(() => {
   const pages: Array<{ readonly data: unknown; readonly error: unknown }> = []
   const eq = vi.fn()
   const order = vi.fn()
-  return { eq, order, pages }
+  const range = vi.fn()
+  const update = vi.fn()
+  const inFilter = vi.fn()
+  return { eq, order, range, update, inFilter, pages }
 })
 
 vi.mock('@/scripts/tli/shared/supabase-admin', () => ({
   supabaseAdmin: {
-    from: vi.fn(() => {
+    from: vi.fn((table: string) => {
+      const result = Promise.resolve({ data: [], error: null, count: 2 })
       const query = {
         select: vi.fn(() => query),
         eq: supabaseAdminMocks.eq,
         lte: vi.fn(() => query),
         order: supabaseAdminMocks.order,
-        range: vi.fn(async () => supabaseAdminMocks.pages.shift() ?? { data: [], error: null }),
+        range: vi.fn(async (from: number, to: number) => {
+          supabaseAdminMocks.range(table, from, to)
+          return supabaseAdminMocks.pages.shift() ?? { data: [], error: null }
+        }),
+        update: supabaseAdminMocks.update,
+        in: supabaseAdminMocks.inFilter,
+        then: result.then.bind(result),
       }
       supabaseAdminMocks.eq.mockImplementation(() => query)
       supabaseAdminMocks.order.mockImplementation(() => query)
+      supabaseAdminMocks.update.mockImplementation(() => query)
+      supabaseAdminMocks.inFilter.mockImplementation(() => query)
       return query
     }),
   },
@@ -51,8 +63,7 @@ const emptyGtBResult = {
 
 describe('daily label phase', () => {
   beforeEach(() => {
-    supabaseAdminMocks.eq.mockClear()
-    supabaseAdminMocks.order.mockClear()
+    vi.clearAllMocks()
     supabaseAdminMocks.pages.length = 0
   })
 
@@ -224,6 +235,27 @@ describe('daily label phase', () => {
     expect(result).toHaveLength(510)
     expect(supabaseAdminMocks.order).toHaveBeenCalledWith('base_date', { ascending: true })
     expect(supabaseAdminMocks.order).toHaveBeenCalledWith('id', { ascending: true })
+  })
+
+  it('closes a non-trading pending date found after the first 1,000 labels', async () => {
+    supabaseAdminMocks.pages.push(
+      { data: Array.from({ length: 1000 }, () => ({ base_date: '2026-07-03' })), error: null },
+      { data: [{ base_date: '2026-07-04' }], error: null },
+    )
+
+    const result = await runDailyLabelPhase('2026-07-12')
+
+    expect(result.nonTradingPendingClosed).toBe(2)
+    expect(result.warningFailures).toBe(0)
+    expect(supabaseAdminMocks.inFilter).toHaveBeenCalledWith('base_date', ['2026-07-04'])
+    expect(supabaseAdminMocks.update).toHaveBeenCalledWith(
+      expect.objectContaining({ label_status: 'excluded', exclude_reason: 'non_trading_base_date' }),
+      { count: 'exact' },
+    )
+    expect(supabaseAdminMocks.range.mock.calls.slice(0, 2)).toEqual([
+      ['theme_labels', 0, 999],
+      ['theme_labels', 1000, 1999],
+    ])
   })
 
   it('scopes each backlog scan to its legacy labeler version after the identity key became versioned', async () => {

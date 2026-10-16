@@ -1,4 +1,5 @@
 import { supabaseAdmin } from '../shared/supabase-admin'
+import { fetchAllRows } from '../../../lib/supabase/paginate'
 import {
   GTA_HORIZON_DAYS,
   GTA_LABELER_VERSION,
@@ -90,16 +91,21 @@ export async function loadPendingBaseDates(input: {
 
 /** base_date가 비거래일인 GT-A pending 행을 excluded로 자기치유 (주말 full 크론이 만든 고아 행 방지) */
 async function closeNonTradingBaseDatePendingLabels(): Promise<number> {
-  const { data, error } = await supabaseAdmin
-    .from('theme_labels')
-    .select('base_date')
-    .eq('label_type', 'gt_a')
-    .eq('labeler_version', GTA_LABELER_VERSION)
-    .eq('label_status', 'pending')
+  const data = await fetchAllRows<{ base_date: string }>(async (from, to) => {
+    const { data, error } = await supabaseAdmin
+      .from('theme_labels')
+      .select('base_date')
+      .eq('label_type', 'gt_a')
+      .eq('labeler_version', GTA_LABELER_VERSION)
+      .eq('label_status', 'pending')
+      .order('id')
+      .range(from, to)
 
-  if (error) throw new Error(`비거래일 pending 라벨 조회 실패: ${error.message}`)
+    if (error) throw new Error(`비거래일 pending 라벨 조회 실패: ${error.message}`)
+    return { data, error }
+  })
 
-  const baseDates = [...new Set((data ?? []).map((row) => row.base_date as string))]
+  const baseDates = [...new Set(data.map((row) => row.base_date))]
   const nonTradingDates = baseDates.filter((date) => !isKoreanTradingDate(date))
   if (nonTradingDates.length === 0) return 0
 

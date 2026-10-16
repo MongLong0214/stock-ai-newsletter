@@ -1,6 +1,47 @@
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { deriveGtAV2Windows, loadKospiTradingDates } from '../labels/gta-v2-daily'
+const mocks = vi.hoisted(() => ({
+  manifests: [] as unknown[],
+  children: [] as unknown[],
+  range: vi.fn(),
+  createGtAV2PendingLabels: vi.fn(),
+}))
+
+vi.mock('../shared/supabase-admin', () => ({
+  supabaseAdmin: {
+    from: vi.fn((table: string) => {
+      const rows = table === 'tli_forecast_origin_manifests' ? mocks.manifests : mocks.children
+      const result = Promise.resolve({ data: rows.slice(0, 1000), error: null })
+      const query = {
+        select: vi.fn(() => query),
+        eq: vi.fn(() => query),
+        lte: vi.fn(() => query),
+        order: vi.fn(() => query),
+        range: vi.fn(async (from: number, to: number) => {
+          mocks.range(table, from, to)
+          return { data: rows.slice(from, to + 1), error: null }
+        }),
+        limit: vi.fn(async () => ({ data: [], error: null })),
+        then: result.then.bind(result),
+      }
+      return query
+    }),
+  },
+}))
+
+vi.mock('../labels/finalize-gt-a-v2', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../labels/finalize-gt-a-v2')>()
+  return { ...actual, createGtAV2PendingLabels: mocks.createGtAV2PendingLabels }
+})
+
+import { deriveGtAV2Windows, loadKospiTradingDates, runGtAV2FoundationPhase } from '../labels/gta-v2-daily'
+
+beforeEach(() => {
+  vi.clearAllMocks()
+  mocks.manifests.length = 0
+  mocks.children.length = 0
+  mocks.createGtAV2PendingLabels.mockImplementation(async ({ themeIds }: { themeIds: string[] }) => themeIds.length)
+})
 
 // 2026-07 KOSPI 실측: 7/17(제헌절 재지정)·주말 휴장이 반영된 거래일 시퀀스.
 const KOSPI_DATES = [
@@ -33,6 +74,47 @@ describe('loadKospiTradingDates', () => {
       },
       pageSize: 1_000,
     })
+  })
+})
+
+describe('runGtAV2FoundationPhase pagination', () => {
+  it('creates foundation labels for manifests after the first 1,000 rows', async () => {
+    mocks.manifests.push(...Array.from({ length: 1001 }, (_, index) => ({
+      id: `manifest-${String(index).padStart(4, '0')}`, origin_date: '2026-07-20',
+    })))
+    mocks.children.push({ theme_id: 'theme-1', input_status: 'abstain', keyword_group_sha256: 'a'.repeat(64), forecast_interest_run_id: null })
+
+    const result = await runGtAV2FoundationPhase('2026-07-27')
+
+    expect(result.pendingCreated).toBe(1001)
+    expect(mocks.createGtAV2PendingLabels).toHaveBeenLastCalledWith({
+      baseDate: '2026-07-20', forecastOriginManifestId: 'manifest-1000', themeIds: ['theme-1'],
+    })
+    expect(mocks.range.mock.calls.filter(([table]) => table === 'tli_forecast_origin_manifests')).toEqual([
+      ['tli_forecast_origin_manifests', 0, 999],
+      ['tli_forecast_origin_manifests', 1000, 1999],
+    ])
+  })
+
+  it('creates foundation labels for every child when a manifest has more than 1,000 themes', async () => {
+    mocks.manifests.push({ id: 'manifest-1', origin_date: '2026-07-20' })
+    const children = Array.from({ length: 1001 }, (_, index) => ({
+      theme_id: `theme-${String(index).padStart(4, '0')}`, input_status: 'abstain',
+      keyword_group_sha256: 'a'.repeat(64), forecast_interest_run_id: null,
+    }))
+    mocks.children.push(...children)
+
+    const result = await runGtAV2FoundationPhase('2026-07-27')
+
+    expect(result.pendingCreated).toBe(1001)
+    expect(mocks.createGtAV2PendingLabels).toHaveBeenCalledWith({
+      baseDate: '2026-07-20', forecastOriginManifestId: 'manifest-1',
+      themeIds: children.map((child) => child.theme_id),
+    })
+    expect(mocks.range.mock.calls.filter(([table]) => table === 'tli_forecast_origin_theme_inputs')).toEqual([
+      ['tli_forecast_origin_theme_inputs', 0, 999],
+      ['tli_forecast_origin_theme_inputs', 1000, 1999],
+    ])
   })
 })
 
