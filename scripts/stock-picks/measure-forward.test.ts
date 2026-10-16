@@ -3,16 +3,18 @@ import { describe, expect, it, vi } from 'vitest'
 import { buildPriceBook } from '@/scripts/stock-picks/data-handler'
 import {
   measureForwardPicks,
+  measureForwardTieRate,
   measurePairedStrategyForwardComparison,
   measureShadowForwardComparison,
   measureStrategyForwardComparison,
+  parseForwardMeasurementArgs,
   printForwardMeasurementReport,
   renderShadowForwardComparisonSection,
   type PublishedNewsletterRow,
   type ShadowForwardComparison,
 } from '@/scripts/stock-picks/measure-forward'
 import type { StockPickSnapshot } from '@/scripts/stock-picks/pick-snapshots'
-import { PRODUCTION_STRATEGY } from '@/scripts/stock-picks/production-strategy'
+import { FROZEN_COMPOSITE_UTILITY_MODEL, PRODUCTION_STRATEGY } from '@/scripts/stock-picks/production-strategy'
 import { TradingDayIndex } from '@/scripts/stock-picks/trading-days'
 import type { StockDailyPriceRow } from '@/scripts/tli/prices/stock-daily-prices'
 
@@ -49,6 +51,123 @@ const newsletter = (
   newsletter_date: date,
   picks_source: source,
   gemini_analysis: JSON.stringify(tickers.map((ticker) => ({ ticker }))),
+})
+
+describe('parseForwardMeasurementArgs', () => {
+  it('allows imports after a schema rollback and only requires model cost when a default is needed', async () => {
+    vi.resetModules()
+    vi.doMock('@/scripts/stock-picks/production-strategy', async (importOriginal) => ({
+      ...await importOriginal<typeof import('@/scripts/stock-picks/production-strategy')>(),
+      FROZEN_COMPOSITE_UTILITY_MODEL: { schemaVersion: 3 },
+    }))
+    try {
+      const measurement = await import('@/scripts/stock-picks/measure-forward')
+      expect(measurement.parsePublishedPicks(newsletter(DATES[1], 'code', ['GAIN']))).toEqual({
+        kind: 'stock', picks: [{ publicationDate: DATES[1], symbol: 'GAIN', picksSource: 'code' }],
+      })
+      expect(measurement.parseForwardMeasurementArgs(['--cost-bps=0']).roundTripCostBps).toBe(0)
+      expect(() => measurement.parseForwardMeasurementArgs([])).toThrow('종합 점수 모델의 왕복 비용 정의가 필요합니다')
+
+      const input = {
+        newsletters: [], snapshots: [], prices: new Map(), tradingDays: new TradingDayIndex(DATES),
+        startDate: DATES[0], asOfDate: DATES[5],
+      }
+      expect(measurement.measureForwardPicks({ ...input, roundTripCostBps: 0 }).roundTripCostBps).toBe(0)
+      expect(() => measurement.measureForwardPicks(input)).toThrow('종합 점수 모델의 왕복 비용 정의가 필요합니다')
+      expect(measurement.measureStrategyForwardComparison({ ...input, roundTripCostBps: 0 })).toEqual([])
+      expect(() => measurement.measureStrategyForwardComparison(input)).toThrow('종합 점수 모델의 왕복 비용 정의가 필요합니다')
+      expect(measurement.measurePairedStrategyForwardComparison({ ...input, roundTripCostBps: 0 }))
+        .toEqual(expect.arrayContaining([expect.objectContaining({ roundTripCostBps: 0 })]))
+      expect(() => measurement.measurePairedStrategyForwardComparison(input)).toThrow('종합 점수 모델의 왕복 비용 정의가 필요합니다')
+    } finally {
+      vi.doUnmock('@/scripts/stock-picks/production-strategy')
+      vi.resetModules()
+    }
+  })
+
+  it('uses the frozen production model cost when no CLI arguments are supplied', () => {
+    const options = parseForwardMeasurementArgs([])
+    expect(options.lookbackDays).toBe(60)
+    expect(options.roundTripCostBps).toBeGreaterThan(0)
+    expect(FROZEN_COMPOSITE_UTILITY_MODEL).toMatchObject({
+      targetDefinition: { roundTripCostBps: options.roundTripCostBps },
+    })
+    const report = measureForwardPicks({
+      newsletters: [newsletter(DATES[1], 'code', ['GAIN'])],
+      prices: buildPriceBook(buildRows({ symbol: 'GAIN', maxHigh: 109 }).map((row) => ({ ...row, close: 105 }))),
+      tradingDays: new TradingDayIndex(DATES), asOfDate: DATES[5], ...options,
+    })
+    expect(report.roundTripCostBps).toBe(options.roundTripCostBps)
+    expect(report.overall.returns5d.meanGrossReturn).toBeCloseTo(0.05)
+    expect(report.overall.returns5d.meanNetReturn).toBeCloseTo(0.05 - options.roundTripCostBps / 10_000)
+  })
+
+  it('honors explicit zero and fractional costs while preserving the lookback option', () => {
+    expect(parseForwardMeasurementArgs(['--days=14', '--cost-bps=0'])).toEqual({
+      lookbackDays: 14, roundTripCostBps: 0,
+    })
+    expect(parseForwardMeasurementArgs(['--cost-bps=12.5']).roundTripCostBps).toBe(12.5)
+  })
+
+  it('rejects invalid explicit costs with the existing cost validation', () => {
+    for (const value of ['-1', 'NaN', 'Infinity', 'invalid', '', ' ']) {
+      expect(() => parseForwardMeasurementArgs([`--cost-bps=${value}`])).toThrow(/roundTripCostBps/)
+    }
+    expect(() => parseForwardMeasurementArgs(['--days=0'])).toThrow(/--days/)
+  })
+})
+
+describe('measureForwardTieRate', () => {
+  const snapshot = (signalDate: string, scores: readonly number[], strategy: string = PRODUCTION_STRATEGY.name) => {
+    const candidates = scores.map((score, index) => ({
+      symbol: `CANDIDATE_${index}`, score, rank: index + 1, averageTurnover20: 1_000_000_000 / (index + 1),
+    }))
+    return { signal_date: signalDate, strategy, picks: candidates.slice(0, 3), top_candidates: candidates } as unknown as StockPickSnapshot
+  }
+
+  it('counts integer score ties at the third slot using stored production ranks and the signal-date window', () => {
+    const snapshots = [
+      snapshot(DATES[0], [70, 60, 50, 50]), // Before the window.
+      snapshot(DATES[1], [70, 60, 50, 50]),
+      snapshot(DATES[2], [70, 70, 50, 49]), // A tie outside the cutoff does not count.
+      snapshot(DATES[3], [70, 60, 50]),
+      snapshot(DATES[4], [70, 60, 40, 40]), // Latest signal need not be D5-mature.
+      snapshot(DATES[5], [70, 60, 50, 50]), // After the window.
+      snapshot(DATES[1], [70, 60, 50, 50], 'shadow:bullishTarget-v3'),
+      snapshot(DATES[2], [70, 60, 50], 'lowVolatilityStable'),
+    ]
+    const report = measureForwardPicks({
+      newsletters: [], prices: new Map(), tradingDays: new TradingDayIndex(DATES),
+      snapshots, asOfDate: DATES[4], lookbackDays: 4,
+    })
+    expect(report.scoreTies).toEqual({
+      totalDates: 4, evaluableDates: 3, tiedDates: 2, fewerThanFourCandidatesDates: 1, tieRate: 2 / 3,
+    })
+    expect(measureForwardTieRate({ snapshots, startDate: DATES[1], asOfDate: DATES[4] })).toEqual(report.scoreTies)
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {})
+    const table = vi.spyOn(console, 'table').mockImplementation(() => {})
+    try {
+      printForwardMeasurementReport(report)
+      expect(JSON.parse(log.mock.calls[0]![0] as string).scoreTies).toEqual(report.scoreTies)
+      expect(log).toHaveBeenCalledWith(expect.stringContaining('66.7% (2/3, 후보 4개 미만 1일 제외, 저장 신호일 4일)'))
+    } finally {
+      log.mockRestore()
+      table.mockRestore()
+    }
+  })
+
+  it('excludes every date with fewer than four candidates and keeps an empty denominator unknown', () => {
+    const input = { startDate: DATES[0], asOfDate: DATES[5] }
+    expect(measureForwardTieRate({ ...input, snapshots: [
+      snapshot(DATES[0], []), snapshot(DATES[1], [70]),
+      snapshot(DATES[2], [70, 60]), snapshot(DATES[3], [70, 60, 50]),
+    ] })).toEqual({ totalDates: 4, evaluableDates: 0, tiedDates: 0, fewerThanFourCandidatesDates: 4, tieRate: null })
+    expect(measureForwardTieRate({ ...input, snapshots: [] })).toEqual({
+      totalDates: 0, evaluableDates: 0, tiedDates: 0, fewerThanFourCandidatesDates: 0, tieRate: null,
+    })
+    expect(measureForwardTieRate({ ...input, snapshots: [snapshot(DATES[0], [70, 60, 50, 49])] }).tieRate).toBe(0)
+    expect(measureForwardTieRate({ ...input, snapshots: [snapshot(DATES[0], [70, 60, 50.5, 50.5])] }).tieRate).toBe(0)
+  })
 })
 
 describe('measureForwardPicks', () => {
@@ -314,7 +433,12 @@ describe('measureForwardPicks', () => {
       newsletters: [newsletter('2026-01-05', 'code', symbols)],
       prices, tradingDays: new TradingDayIndex(DATES), asOfDate: '2026-01-09',
     }
-    expect(measureForwardPicks(input).overall.returns5d.positivePicks).toBe(2)
+    const zeroCostReport = measureForwardPicks({ ...input, ...parseForwardMeasurementArgs(['--cost-bps=0']) })
+    expect(zeroCostReport.overall.returns5d.positivePicks).toBe(2)
+    expect(zeroCostReport.roundTripCostBps).toBe(0)
+    expect(zeroCostReport.overall.returns5d.meanNetReturn).toBe(zeroCostReport.overall.returns5d.meanGrossReturn)
+    expect(zeroCostReport.overall.targetExitProxy5d.meanNetReturn).toBe(zeroCostReport.overall.targetExitProxy5d.meanGrossReturn)
+    expect(zeroCostReport.entryDay.meanNetReturn).toBe(zeroCostReport.entryDay.meanReturn)
     const report = measureForwardPicks({ ...input, roundTripCostBps: 30 })
     expect(report.overall.touchedPicks).toBe(1)
     expect(report.overall.returns5d).toMatchObject({
@@ -322,9 +446,47 @@ describe('measureForwardPicks', () => {
       positiveRate: 1 / 3, touchedButNotProfitablePicks: 1,
     })
     expect(report.overall.returns5d.meanNetReturn).toBeCloseTo(-0.0023333333)
+    expect(measureForwardPicks(input).overall.returns5d).toEqual(report.overall.returns5d)
+    expect(report.overall.returns5d.meanGrossReturn).toBeCloseTo(0.002 / 3)
+    expect(report.overall.returns5d.medianGrossReturn).toBeCloseTo(0.002)
     expect(report.overall.returns5d.medianNetReturn).toBeCloseTo(-0.001)
+    expect(report.overall.returns5d.worstGrossReturn).toBeCloseTo(-0.05)
     expect(report.overall.returns5d.worstNetReturn).toBeCloseTo(-0.053)
+    expect(report.overall.targetExitProxy5d.medianGrossReturn).toBeCloseTo(0.05)
+    expect(report.overall.targetExitProxy5d.medianNetReturn).toBeCloseTo(0.047)
+    expect(report.overall.targetExitProxy5d.worstGrossReturn).toBeCloseTo(0.002)
+    expect(report.overall.targetExitProxy5d.worstNetReturn).toBeCloseTo(-0.001)
+    expect(report.entryDay).toMatchObject({ roundTripCostBps: 30, meanReturn: 0, meanGrossReturn: 0 })
+    expect(report.entryDay.meanNetReturn).toBeCloseTo(-0.003)
     expect(report.byPicksSource.code.returns5d).toEqual(report.overall.returns5d)
+    expect(report.entryDayByPicksSource.code).toEqual(report.entryDay)
+    expect(report.recent4Weeks.at(-1)?.returns5d).toEqual(report.overall.returns5d)
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {})
+    const table = vi.spyOn(console, 'table').mockImplementation(() => {})
+    try {
+      printForwardMeasurementReport(report)
+      const json = JSON.parse(log.mock.calls[0]![0] as string)
+      expect(json.roundTripCostBps).toBe(30)
+      expect(json.overall.returns5d.meanGrossReturn).toBeCloseTo(0.002 / 3)
+      expect(json.overall.returns5d.meanNetReturn).toBeCloseTo(-0.0023333333)
+      expect(json.overall.targetExitProxy5d.medianGrossReturn).toBeCloseTo(0.05)
+      expect(json.overall.targetExitProxy5d.medianNetReturn).toBeCloseTo(0.047)
+      expect(log).toHaveBeenCalledWith('적용 왕복 비용: 30bps (gross: 비용 전, net: 비용 후)')
+      expect(log).toHaveBeenCalledWith(expect.stringContaining('평균 수익 gross 0.1% / net -0.2%'))
+      expect(log).toHaveBeenCalledWith(expect.stringContaining('중앙값 gross 0.2% / net -0.1%'))
+      expect(log).toHaveBeenCalledWith(expect.stringContaining('최악 gross -5.0% / net -5.3%'))
+      expect(table.mock.calls[0]?.[0]).toEqual(expect.arrayContaining([
+        expect.objectContaining({ scope: 'overall', roundTripCostBps: 30,
+          meanGrossReturn5d: '0.1%', meanNetReturn5d: '-0.2%',
+          targetExitProxyGross5d: '5.1%', targetExitProxyNet5d: '4.8%' }),
+      ]))
+      expect(table.mock.calls[1]?.[0]).toEqual(expect.arrayContaining([
+        expect.objectContaining({ roundTripCostBps: 30, meanGrossReturn5d: '0.1%', meanNetReturn5d: '-0.2%' }),
+      ]))
+    } finally {
+      log.mockRestore()
+      table.mockRestore()
+    }
     for (const cost of [-1, NaN, Infinity]) {
       expect(() => measureForwardPicks({ ...input, roundTripCostBps: cost })).toThrow(/roundTripCostBps/)
     }

@@ -5,12 +5,20 @@ import { getRawPrice, loadPriceBook, type PriceBook } from '@/scripts/stock-pick
 import { labelEntryDay, labelPick, type StockPickEntryDayLabel, type StockPickLabel } from '@/scripts/stock-picks/label'
 import type { StockPickSnapshot } from '@/scripts/stock-picks/pick-snapshots'
 import { loadStockPickSnapshots } from '@/scripts/stock-picks/pick-snapshots'
-import { LEGACY_VOLUME_BREAKOUT_STRATEGY, PRODUCTION_STRATEGY } from '@/scripts/stock-picks/production-strategy'
+import { FROZEN_COMPOSITE_UTILITY_MODEL, LEGACY_VOLUME_BREAKOUT_STRATEGY, PRODUCTION_STRATEGY } from '@/scripts/stock-picks/production-strategy'
 import { TradingDayIndex, loadTradingDayIndex } from '@/scripts/stock-picks/trading-days'
 
 const DEFAULT_LOOKBACK_DAYS = 60
 const RECENT_WEEK_COUNT = 4
 const INFORMATIONAL_HOLDING_DAYS = 8
+const resolveDefaultRoundTripCostBps = (): number => {
+  const model = FROZEN_COMPOSITE_UTILITY_MODEL
+  const cost = 'targetDefinition' in model ? model.targetDefinition?.roundTripCostBps : undefined
+  if (cost == null) {
+    throw new Error('종합 점수 모델의 왕복 비용 정의가 필요합니다')
+  }
+  return cost
+}
 export type ForwardPicksSource = 'code' | 'llm_fallback' | 'crash' | null
 export type ForwardNullReason = 'missingEntryOpen' | 'missingWindowData'
 type SourceKey = Exclude<ForwardPicksSource, null> | 'null'
@@ -46,6 +54,9 @@ export interface EntryDaySummary {
   readonly bullishRate: number | null
   readonly allPickBullishRate: number | null
   readonly meanReturn: number | null
+  readonly roundTripCostBps: number
+  readonly meanGrossReturn: number | null
+  readonly meanNetReturn: number | null
 }
 
 export interface JointOutcomeSummary {
@@ -62,7 +73,9 @@ export interface TargetExitProxySummary {
   readonly positiveRate: number | null
   readonly meanGrossReturn: number | null
   readonly meanNetReturn: number | null
+  readonly medianGrossReturn: number | null
   readonly medianNetReturn: number | null
+  readonly worstGrossReturn: number | null
   readonly worstNetReturn: number | null
 }
 
@@ -86,7 +99,9 @@ export interface ForwardAccuracySummary {
     readonly positiveRate: number | null
     readonly meanGrossReturn: number | null
     readonly meanNetReturn: number | null
+    readonly medianGrossReturn: number | null
     readonly medianNetReturn: number | null
+    readonly worstGrossReturn: number | null
     readonly worstNetReturn: number | null
     readonly meanMaxAdverseExcursion: number | null
     readonly touchedButNotProfitablePicks: number
@@ -120,6 +135,7 @@ export interface ForwardMeasurementReport {
   readonly asOfDate: string
   readonly lookbackDays: number
   readonly startDate: string
+  readonly roundTripCostBps: number
   readonly publishedNewsletterCount: number
   readonly invalidNewsletterCount: number
   readonly crashNewsletterCount: number
@@ -135,6 +151,15 @@ export interface ForwardMeasurementReport {
   readonly shadowComparison: ShadowForwardComparison
   readonly strategyComparison: readonly StrategyForwardSummary[]
   readonly pairedStrategyComparison: readonly PairedStrategyForwardSummary[]
+  readonly scoreTies: ForwardTieRateSummary
+}
+
+export interface ForwardTieRateSummary {
+  readonly totalDates: number
+  readonly evaluableDates: number
+  readonly tiedDates: number
+  readonly fewerThanFourCandidatesDates: number
+  readonly tieRate: number | null
 }
 
 export interface StrategyForwardSummary {
@@ -191,16 +216,23 @@ const validateCostBps = (value: number): void => {
   }
 }
 
-const summarizeEntryDay = (labels: readonly (StockPickEntryDayLabel | null)[]): EntryDaySummary => {
+const summarizeEntryDay = (
+  labels: readonly (StockPickEntryDayLabel | null)[],
+  roundTripCostBps: number,
+): EntryDaySummary => {
   const valid = labels.filter((label): label is StockPickEntryDayLabel => label !== null)
   const bullishPicks = valid.filter((label) => label.entryBullish).length
+  const grossReturns = valid.map((label) => label.entryReturn)
   return {
     totalPicks: labels.length,
     evaluablePicks: valid.length,
     bullishPicks,
     bullishRate: rate(bullishPicks, valid.length),
     allPickBullishRate: rate(bullishPicks, labels.length),
-    meanReturn: mean(valid.map((label) => label.entryReturn)),
+    meanReturn: mean(grossReturns),
+    roundTripCostBps,
+    meanGrossReturn: mean(grossReturns),
+    meanNetReturn: mean(grossReturns.map((value) => value - roundTripCostBps / 10_000)),
   }
 }
 
@@ -213,8 +245,8 @@ const summarizeObjectives = (
   const grossReturns = labels.flatMap((label) => (
     label?.targetExitReturn5d != null && Number.isFinite(label.targetExitReturn5d)
       ? [label.targetExitReturn5d] : []
-  ))
-  const netReturns = grossReturns.map((value) => value - roundTripCostBps / 10_000).sort((a, b) => a - b)
+  )).sort((a, b) => a - b)
+  const netReturns = grossReturns.map((value) => value - roundTripCostBps / 10_000)
   return {
     jointOutcome5d: {
       evaluablePicks: jointLabels.length,
@@ -228,13 +260,15 @@ const summarizeObjectives = (
       positiveRate: rate(netReturns.filter((value) => value > 0).length, netReturns.length),
       meanGrossReturn: mean(grossReturns),
       meanNetReturn: mean(netReturns),
+      medianGrossReturn: medianSorted(grossReturns),
       medianNetReturn: medianSorted(netReturns),
+      worstGrossReturn: grossReturns[0] ?? null,
       worstNetReturn: netReturns[0] ?? null,
     },
   }
 }
 
-const summarize = (picks: readonly EvaluatedPick[], roundTripCostBps = 0): ForwardAccuracySummary => {
+const summarize = (picks: readonly EvaluatedPick[], roundTripCostBps: number): ForwardAccuracySummary => {
   const labels = picks.flatMap((pick) => pick.label ? [pick.label] : [])
   const touchedPicks = labels.filter((label) => label.touched).length
   const conditionalLabelCount = labels.filter((label) => label.status !== 'data_error').length
@@ -244,8 +278,8 @@ const summarize = (picks: readonly EvaluatedPick[], roundTripCostBps = 0): Forwa
     (label.status === 'hit' || label.status === 'miss')
     && label.return5d !== null && Number.isFinite(label.return5d)
   ))
-  const netReturns = tradeableLabels.map((label) => label.return5d! - roundTripCostBps / 10_000)
-    .sort((a, b) => a - b)
+  const grossReturns = tradeableLabels.map((label) => label.return5d!).sort((a, b) => a - b)
+  const netReturns = grossReturns.map((value) => value - roundTripCostBps / 10_000)
   const positivePicks = netReturns.filter((value) => value > 0).length
   const adverseExcursions = tradeableLabels.flatMap((label) => (
     label.maxDrawdown !== null && Number.isFinite(label.maxDrawdown) ? [label.maxDrawdown] : []
@@ -274,9 +308,11 @@ const summarize = (picks: readonly EvaluatedPick[], roundTripCostBps = 0): Forwa
       evaluablePicks: netReturns.length,
       positivePicks,
       positiveRate: netReturns.length > 0 ? positivePicks / netReturns.length : null,
-      meanGrossReturn: mean(tradeableLabels.map((label) => label.return5d!)),
+      meanGrossReturn: mean(grossReturns),
       meanNetReturn: mean(netReturns),
+      medianGrossReturn: medianSorted(grossReturns),
       medianNetReturn: medianSorted(netReturns),
+      worstGrossReturn: grossReturns[0] ?? null,
       worstNetReturn: netReturns[0] ?? null,
       meanMaxAdverseExcursion: mean(adverseExcursions),
       touchedButNotProfitablePicks: tradeableLabels.filter((label) => (
@@ -432,6 +468,32 @@ export function measureShadowForwardComparison(input: {
   }
 }
 
+export function measureForwardTieRate(input: {
+  readonly snapshots: readonly StockPickSnapshot[]
+  readonly startDate: string
+  readonly asOfDate: string
+}): ForwardTieRateSummary {
+  const snapshots = input.snapshots.filter((snapshot) => (
+    snapshot.strategy === PRODUCTION_STRATEGY.name
+    && snapshot.signal_date >= input.startDate
+    && snapshot.signal_date <= input.asOfDate
+  ))
+  const evaluable = snapshots.filter((snapshot) => snapshot.top_candidates.length >= 4)
+  // 저장 순서는 공개 정수 점수 내림차순 → 20일 평균 거래대금 내림차순 → 심볼이다.
+  const tiedDates = evaluable.filter((snapshot) => {
+    const third = snapshot.top_candidates[2]!
+    const fourth = snapshot.top_candidates[3]!
+    return Number.isInteger(third.score) && third.score === fourth.score
+  }).length
+  return {
+    totalDates: snapshots.length,
+    evaluableDates: evaluable.length,
+    tiedDates,
+    fewerThanFourCandidatesDates: snapshots.length - evaluable.length,
+    tieRate: rate(tiedDates, evaluable.length),
+  }
+}
+
 export function measureStrategyForwardComparison(input: {
   readonly prices: PriceBook
   readonly tradingDays: TradingDayIndex
@@ -440,7 +502,7 @@ export function measureStrategyForwardComparison(input: {
   readonly asOfDate: string
   readonly roundTripCostBps?: number
 }): StrategyForwardSummary[] {
-  const roundTripCostBps = input.roundTripCostBps ?? 0
+  const roundTripCostBps = input.roundTripCostBps ?? resolveDefaultRoundTripCostBps()
   validateCostBps(roundTripCostBps)
   const grouped = new Map<string, Array<{ symbol: string; signalDate: string; entryDate: string; mature: boolean }>>()
   for (const snapshot of input.snapshots) {
@@ -467,7 +529,7 @@ export function measureStrategyForwardComparison(input: {
       ? [] : [pick.label.return5d])
     const entryCandles = summarizeEntryDay(picks.map((pick) => (
       labelEntryDay(pick.symbol, pick.entryDate, input.prices)
-    )))
+    )), roundTripCostBps)
     return {
       strategy,
       pickCount: picks.length,
@@ -477,7 +539,7 @@ export function measureStrategyForwardComparison(input: {
       meanNetCloseReturn5d: mean(returns.map((value) => value - roundTripCostBps / 10_000)),
       roundTripCostBps,
       entryBullishRate: entryCandles.bullishRate,
-      entryDay: summarizeEntryDay(allPicks.map((pick) => labelEntryDay(pick.symbol, pick.entryDate, input.prices))),
+      entryDay: summarizeEntryDay(allPicks.map((pick) => labelEntryDay(pick.symbol, pick.entryDate, input.prices)), roundTripCostBps),
       ...summarizeObjectives(labeled.map((pick) => pick.label), roundTripCostBps),
     }
   })
@@ -491,6 +553,8 @@ export function measurePairedStrategyForwardComparison(input: {
   readonly asOfDate: string
   readonly roundTripCostBps?: number
 }): PairedStrategyForwardSummary[] {
+  const roundTripCostBps = input.roundTripCostBps ?? resolveDefaultRoundTripCostBps()
+  validateCostBps(roundTripCostBps)
   const datesByStrategy = new Map(PAIRED_STRATEGIES.map((strategy) => [strategy, new Set<string>()]))
   for (const snapshot of input.snapshots) {
     const dates = datesByStrategy.get(snapshot.strategy as typeof PAIRED_STRATEGIES[number])
@@ -515,10 +579,10 @@ export function measurePairedStrategyForwardComparison(input: {
     touchRate5d: null,
     meanCloseReturn5d: null,
     meanNetCloseReturn5d: null,
-    roundTripCostBps: input.roundTripCostBps ?? 0,
+    roundTripCostBps,
     entryBullishRate: null,
-    entryDay: summarizeEntryDay([]),
-    ...summarizeObjectives([], input.roundTripCostBps ?? 0),
+    entryDay: summarizeEntryDay([], roundTripCostBps),
+    ...summarizeObjectives([], roundTripCostBps),
     ...summaries.get(strategy),
     commonDayCount: commonDates.size,
   }))
@@ -533,9 +597,10 @@ export function measureForwardPicks(input: {
   readonly shadowComparison?: ShadowForwardComparison
   readonly strategyComparison?: readonly StrategyForwardSummary[]
   readonly pairedStrategyComparison?: readonly PairedStrategyForwardSummary[]
+  readonly snapshots?: readonly StockPickSnapshot[]
   readonly roundTripCostBps?: number
 }): ForwardMeasurementReport {
-  const roundTripCostBps = input.roundTripCostBps ?? 0
+  const roundTripCostBps = input.roundTripCostBps ?? resolveDefaultRoundTripCostBps()
   validateCostBps(roundTripCostBps)
   const lookbackDays = input.lookbackDays ?? DEFAULT_LOOKBACK_DAYS
   if (!Number.isInteger(lookbackDays) || lookbackDays <= 0) {
@@ -597,6 +662,7 @@ export function measureForwardPicks(input: {
     asOfDate: input.asOfDate,
     lookbackDays,
     startDate,
+    roundTripCostBps,
     publishedNewsletterCount: newsletters.length,
     invalidNewsletterCount: parsed.filter((result) => result.kind === 'invalid').length,
     crashNewsletterCount: parsed.filter((result) => result.kind === 'crash').length,
@@ -605,16 +671,17 @@ export function measureForwardPicks(input: {
     overall: summarize(evaluated, roundTripCostBps),
     informational8HoldingDays: summarize(informational8Evaluated, roundTripCostBps),
     byPicksSource,
-    entryDay: summarizeEntryDay(entryDayPicks.map((pick) => pick.label)),
+    entryDay: summarizeEntryDay(entryDayPicks.map((pick) => pick.label), roundTripCostBps),
     entryDayByPicksSource: Object.fromEntries(SOURCE_KEYS.map((key) => [
       key,
-      summarizeEntryDay(entryDayPicks.filter((pick) => sourceKey(pick.picksSource) === key).map((pick) => pick.label)),
+      summarizeEntryDay(entryDayPicks.filter((pick) => sourceKey(pick.picksSource) === key).map((pick) => pick.label), roundTripCostBps),
     ])) as Record<SourceKey, EntryDaySummary>,
     nullBreakdown,
     recent4Weeks,
     shadowComparison: input.shadowComparison ?? emptyShadowComparison(startDate, input.asOfDate),
     strategyComparison: input.strategyComparison ?? [],
     pairedStrategyComparison: input.pairedStrategyComparison ?? [],
+    scoreTies: measureForwardTieRate({ snapshots: input.snapshots ?? [], startDate, asOfDate: input.asOfDate }),
   }
 }
 
@@ -657,6 +724,7 @@ export function renderShadowForwardComparisonSection(comparison: ShadowForwardCo
 
 export function printForwardMeasurementReport(report: ForwardMeasurementReport): void {
   console.log(JSON.stringify(report, null, 2))
+  console.log(`적용 왕복 비용: ${report.roundTripCostBps}bps (gross: 비용 전, net: 비용 후)`)
   console.table([
     { scope: 'overall', ...report.overall },
     ...SOURCE_KEYS.map((key) => ({ scope: `source:${key}`, ...report.byPicksSource[key] })),
@@ -668,6 +736,10 @@ export function printForwardMeasurementReport(report: ForwardMeasurementReport):
     hits: row.touchedPicks,
     hitRate: percent(row.hitRate),
     jointHitRate5d: percent(row.jointOutcome5d.hitRate),
+    roundTripCostBps: row.returns5d.roundTripCostBps,
+    meanGrossReturn5d: percent(row.returns5d.meanGrossReturn),
+    meanNetReturn5d: percent(row.returns5d.meanNetReturn),
+    targetExitProxyGross5d: percent(row.targetExitProxy5d.meanGrossReturn),
     targetExitProxyNet5d: percent(row.targetExitProxy5d.meanNetReturn),
     nullRate: percent(row.nullRate),
     statusHit: row.statusCounts.hit,
@@ -683,16 +755,24 @@ export function printForwardMeasurementReport(report: ForwardMeasurementReport):
     hits: week.touchedPicks,
     hitRate: percent(week.hitRate),
     nullRate: percent(week.nullRate),
+    roundTripCostBps: week.returns5d.roundTripCostBps,
+    meanGrossReturn5d: percent(week.returns5d.meanGrossReturn),
+    meanNetReturn5d: percent(week.returns5d.meanNetReturn),
+    targetExitProxyGross5d: percent(week.targetExitProxy5d.meanGrossReturn),
+    targetExitProxyNet5d: percent(week.targetExitProxy5d.meanNetReturn),
   })))
   console.log(`제품 기준: 5보유일 타율 ${percent(report.overall.hitRate)} (${report.overall.touchedPicks}/${report.overall.evaluablePicks}, 데이터 오류 제외)`)
   console.log(`전체 성숙 추천 기준: ${percent(report.overall.allPickHitRate)} (${report.overall.touchedPicks}/${report.overall.totalPicks}, 오류 포함)`)
-  console.log(`추천 당일 양봉률 (5일 성숙 전 포함): ${percent(report.entryDay.bullishRate)} (${report.entryDay.bullishPicks}/${report.entryDay.evaluablePicks}, 진입일 마감 ${report.entryDay.totalPicks}건)`)
+  console.log(`추천 당일 양봉률 (5일 성숙 전 포함): ${percent(report.entryDay.bullishRate)} (${report.entryDay.bullishPicks}/${report.entryDay.evaluablePicks}, 진입일 마감 ${report.entryDay.totalPicks}건), 평균 수익 gross ${percent(report.entryDay.meanGrossReturn)} / net ${percent(report.entryDay.meanNetReturn)}`)
   console.log(`추천 당일 양봉 + 5일 내 +10% 동시 달성: ${percent(report.overall.jointOutcome5d.hitRate)} (${report.overall.jointOutcome5d.hitPicks}/${report.overall.jointOutcome5d.evaluablePicks})`)
   const returns = report.overall.returns5d
-  console.log(`5일 종가 청산 가정 (왕복 비용 ${returns.roundTripCostBps}bps): 수익 양수 비율 ${percent(returns.positiveRate)} (${returns.positivePicks}/${returns.evaluablePicks}), 평균 수익 ${percent(returns.meanNetReturn)}, 중앙값 ${percent(returns.medianNetReturn)}, 최악 ${percent(returns.worstNetReturn)}, +10% 터치 후 비수익 ${returns.touchedButNotProfitablePicks}건`)
+  console.log(`5일 종가 청산 가정 (왕복 비용 ${returns.roundTripCostBps}bps): 수익 양수 비율 ${percent(returns.positiveRate)} (${returns.positivePicks}/${returns.evaluablePicks}), 평균 수익 gross ${percent(returns.meanGrossReturn)} / net ${percent(returns.meanNetReturn)}, 중앙값 gross ${percent(returns.medianGrossReturn)} / net ${percent(returns.medianNetReturn)}, 최악 gross ${percent(returns.worstGrossReturn)} / net ${percent(returns.worstNetReturn)}, +10% 터치 후 비수익 ${returns.touchedButNotProfitablePicks}건`)
   const targetExit = report.overall.targetExitProxy5d
-  console.log(`목표가 청산 모형 (+10% 장중 도달 시 +10%, 미도달 시 D5 종가, 왕복 비용 ${targetExit.roundTripCostBps}bps): 평균 순수익 ${percent(targetExit.meanNetReturn)}, OHLC 기반 가정이며 실제 체결을 보장하지 않음`)
-  console.log(`참고: 8보유일 확장 시 타율 ${percent(report.informational8HoldingDays.hitRate)} (${report.informational8HoldingDays.touchedPicks}/${report.informational8HoldingDays.evaluablePicks})`)
+  console.log(`목표가 청산 모형 (+10% 장중 도달 시 +10%, 미도달 시 D5 종가, 왕복 비용 ${targetExit.roundTripCostBps}bps): 평균 수익 gross ${percent(targetExit.meanGrossReturn)} / net ${percent(targetExit.meanNetReturn)}, 중앙값 gross ${percent(targetExit.medianGrossReturn)} / net ${percent(targetExit.medianNetReturn)}, 최악 gross ${percent(targetExit.worstGrossReturn)} / net ${percent(targetExit.worstNetReturn)}, OHLC 기반 가정이며 실제 체결을 보장하지 않음`)
+  const informational = report.informational8HoldingDays
+  console.log(`참고: 8보유일 확장 시 타율 ${percent(informational.hitRate)} (${informational.touchedPicks}/${informational.evaluablePicks}), 평균 수익 gross ${percent(informational.returns5d.meanGrossReturn)} / net ${percent(informational.returns5d.meanNetReturn)}`)
+  const ties = report.scoreTies
+  console.log(`프로덕션 3·4위 정수 점수 동률 (신호일 ${report.startDate}~${report.asOfDate}): ${percent(ties.tieRate)} (${ties.tiedDates}/${ties.evaluableDates}, 후보 4개 미만 ${ties.fewerThanFourCandidatesDates}일 제외, 저장 신호일 ${ties.totalDates}일)`)
   // 워크플로우가 이 로그를 GITHUB_STEP_SUMMARY에 그대로 적재하므로 같은 섹션이 양쪽에 노출된다.
   console.log(renderShadowForwardComparisonSection(report.shadowComparison))
   console.table(report.strategyComparison.map((row) => ({
@@ -702,10 +782,14 @@ export function printForwardMeasurementReport(report: ForwardMeasurementReport):
     touchRate5d: percent(row.touchRate5d),
     meanCloseReturn5d: percent(row.meanCloseReturn5d),
     meanNetCloseReturn5d: percent(row.meanNetCloseReturn5d),
+    roundTripCostBps: row.roundTripCostBps,
     entryBullishRate: percent(row.entryBullishRate),
+    meanGrossEntryReturn: percent(row.entryDay.meanGrossReturn),
+    meanNetEntryReturn: percent(row.entryDay.meanNetReturn),
     finalizedEntryPicks: row.entryDay.evaluablePicks,
     allFinalizedEntryBullishRate: percent(row.entryDay.bullishRate),
     jointHitRate5d: percent(row.jointOutcome5d.hitRate),
+    targetExitProxyGross5d: percent(row.targetExitProxy5d.meanGrossReturn),
     targetExitProxyNet5d: percent(row.targetExitProxy5d.meanNetReturn),
   })))
   console.log('프로덕션·섀도우 동일 신호일 짝 비교 (성숙한 공통 신호일만)')
@@ -717,8 +801,12 @@ export function printForwardMeasurementReport(report: ForwardMeasurementReport):
     touchRate5d: percent(row.touchRate5d),
     meanCloseReturn5d: percent(row.meanCloseReturn5d),
     meanNetCloseReturn5d: percent(row.meanNetCloseReturn5d),
+    roundTripCostBps: row.roundTripCostBps,
     entryBullishRate: percent(row.entryBullishRate),
+    meanGrossEntryReturn: percent(row.entryDay.meanGrossReturn),
+    meanNetEntryReturn: percent(row.entryDay.meanNetReturn),
     jointHitRate5d: percent(row.jointOutcome5d.hitRate),
+    targetExitProxyGross5d: percent(row.targetExitProxy5d.meanGrossReturn),
     targetExitProxyNet5d: percent(row.targetExitProxy5d.meanNetReturn),
   })))
 }
@@ -731,11 +819,21 @@ const readDays = (args: readonly string[]): number => {
   return days
 }
 
+export function parseForwardMeasurementArgs(args: readonly string[]): {
+  readonly lookbackDays: number
+  readonly roundTripCostBps: number
+} {
+  const rawCostBps = args.find((arg) => arg.startsWith('--cost-bps='))?.slice('--cost-bps='.length)
+  const roundTripCostBps = rawCostBps === undefined
+    ? resolveDefaultRoundTripCostBps() : rawCostBps.trim() === '' ? NaN : Number(rawCostBps)
+  validateCostBps(roundTripCostBps)
+  return { lookbackDays: readDays(args), roundTripCostBps }
+}
+
 const isDirectRun = /measure-forward\.(?:ts|js)$/.test(process.argv[1] ?? '')
 if (isDirectRun) {
-  const lookbackDays = readDays(process.argv.slice(2))
+  const { lookbackDays, roundTripCostBps } = parseForwardMeasurementArgs(process.argv.slice(2))
   const asOfDate = getLastFinalizedTradingDate()
-  const roundTripCostBps = Number(process.argv.slice(2).find((arg) => arg.startsWith('--cost-bps='))?.slice('--cost-bps='.length) ?? 0)
   const startDate = addCalendarDays(asOfDate, -(lookbackDays - 1))
 
   Promise.all([
@@ -772,6 +870,7 @@ if (isDirectRun) {
       tradingDays,
       asOfDate,
       lookbackDays,
+      snapshots,
       shadowComparison,
       strategyComparison: measureStrategyForwardComparison({ prices, tradingDays, snapshots, startDate, asOfDate, roundTripCostBps }),
       pairedStrategyComparison: measurePairedStrategyForwardComparison({ prices, tradingDays, snapshots, startDate, asOfDate, roundTripCostBps }),
