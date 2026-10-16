@@ -18,7 +18,7 @@ describe('two-head composite training target', () => {
     ], { encoding: 'utf8' })
     expect(result.error).toBeUndefined()
     expect(result.status, result.stderr).toBe(0)
-    expect(result.stderr).toContain('Ran 7 tests')
+    expect(result.stderr).toContain('Ran 12 tests')
     expect(result.stderr).toMatch(/\bOK\b/)
   })
 })

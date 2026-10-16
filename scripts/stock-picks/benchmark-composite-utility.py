@@ -9,11 +9,20 @@ Unknown future labels remain in selection and are counted separately.
 """
 import argparse, importlib.util, json, math, os, pathlib
 from statistics import fmean, median
+from trading_cost import estimate_round_trip_cost, reconstruct_exit_price
 
 SEGMENTS = [('validation', '2025-12-23', '2026-03-31'),
             ('historical_test', '2026-04-01', '2026-06-30'),
             ('historical_test', '2026-07-01', '2026-09-18'),
             ('recent_test', '2026-09-21', '2026-09-30')]
+
+
+def realistic_outcome(label, calendar, signal_index):
+    if label is None:
+        return dict(netRealisticCost=None, appliedCostBps=None)
+    cost = estimate_round_trip_cost(label['entry'], reconstruct_exit_price(label['entry'], label['return5d']),
+                                    calendar[signal_index+5])['costBps']
+    return dict(netRealisticCost=label['return5d']-cost/10000, appliedCostBps=cost)
 
 
 def summarize(rows):
@@ -32,6 +41,11 @@ def summarize(rows):
     # other data errors remain excluded from these two conservative denominators.
     assumed_net = min(worst, -.003) if worst is not None else -1.003
     conservative_count = len(good) + suspended
+    realistic_net = [p['netRealisticCost'] for p in good]
+    worst_realistic = min(realistic_net, default=None)
+    # Keep #228's explicit -30bps floor / -100.3% no-observation assumption for
+    # unknown fills; realistic observed outcomes replace only the segment worst.
+    assumed_realistic = min(worst_realistic, -.003) if worst_realistic is not None else -1.003
     return dict(dates=len(rows), slots=3*len(rows), picks=len(picks), known=len(good),
                 missing=len(picks)-len(good), touchRate=sum(p['touch'] for p in good)/(3*len(rows)) if rows else None,
                 bullishRate=sum(p['bullish'] for p in good)/len(good) if good else None,
@@ -39,13 +53,23 @@ def summarize(rows):
                 meanNet=fmean(p['net'] for p in good) if good else None,
                 medianNet=median(p['net'] for p in good) if good else None,
                 severeLossRate=sum(p['net'] <= -.1 for p in good)/len(good) if good else None,
+                lossRateRealisticCost=sum(net < 0 for net in realistic_net)/len(good) if good else None,
+                meanNetRealisticCost=fmean(realistic_net) if good else None,
+                medianNetRealisticCost=median(realistic_net) if good else None,
+                severeLossRateRealisticCost=sum(net <= -.1 for net in realistic_net)/len(good) if good else None,
+                meanAppliedCostBps=fmean(p['appliedCostBps'] for p in good) if good else None,
                 meanMae=fmean(p['mae'] for p in good) if good else None, worstNet=worst,
                 unknownReasons=unknown_reasons,
                 lossRateConservative=(sum(p['net'] < 0 for p in good)+suspended)/conservative_count
                     if conservative_count else None,
                 meanNetConservative=(sum(p['net'] for p in good)+suspended*assumed_net)/conservative_count
                     if conservative_count else None,
-                suspendedOrUntradeableNetAssumption=assumed_net)
+                suspendedOrUntradeableNetAssumption=assumed_net,
+                lossRateConservativeRealisticCost=(sum(net < 0 for net in realistic_net)+suspended)/conservative_count
+                    if conservative_count else None,
+                meanNetConservativeRealisticCost=(sum(realistic_net)+suspended*assumed_realistic)/conservative_count
+                    if conservative_count else None,
+                suspendedOrUntradeableNetAssumptionRealisticCost=assumed_realistic)
 
 
 def main():
@@ -82,6 +106,7 @@ def main():
     net = np.array([r['label']['return5d']-.003 if r['label'] else np.nan for r in records])
     mae = np.array([r['label']['maxDrawdown'] if r['label'] else np.nan for r in records])
     assert np.all(idx[known]+5 < len(calendar)) and np.isfinite(net[known]).all() and np.isfinite(mae[known]).all()
+    realistic = [realistic_outcome(r['label'], calendar, idx[k]) for k, r in enumerate(records)]
     legacy = (.8*touch+.2*bull+.65*(net >= 0))/1.65
     policies = ['legacy', 'touchNonLoss2']
     last = {p: {} for p in policies}; daily = {p: [] for p in policies}; fits = []
@@ -120,7 +145,8 @@ def main():
                     date=calendar[j], picks=[dict(symbol=keys[k][1], score=int(values[order[n]]), known=bool(known[k]),
                         labelNullReason=label_null_reasons[k],
                         touch=bool(touch[k]) if known[k] else None, bullish=bool(bull[k]) if known[k] else None,
-                        net=float(net[k]) if known[k] else None, mae=float(mae[k]) if known[k] else None)
+                        net=float(net[k]) if known[k] else None, mae=float(mae[k]) if known[k] else None,
+                        **realistic[k])
                         for n, k in enumerate(picks)]))
     summary = {p: {s: summarize([d for d in daily[p] if d['segment'] == s])
                for s in ['validation', 'historical_test', 'recent_test']} for p in policies}

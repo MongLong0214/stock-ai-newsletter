@@ -1,4 +1,5 @@
 import { getRawPrice, type PriceBook } from '@/scripts/stock-picks/data-handler'
+import { krxTickSize } from '@/scripts/stock-picks/trading-cost'
 import type { TradingDayIndex } from '@/scripts/stock-picks/trading-days'
 import type { StockDailyPriceRow } from '@/scripts/tli/prices/stock-daily-prices'
 
@@ -84,12 +85,7 @@ const hasValidOhlc = (row: StockDailyPriceRow | undefined): row is StockDailyPri
 /** KRX 보통주 호가 단위(2023년 이후): 130% 가격대의 호가 단위로 내림한다. */
 const krxUpperLimitPrice = (previousClose: number): number => {
   const price = previousClose * 130 / 100
-  const tickSize = price < 2_000 ? 1
-    : price < 5_000 ? 5
-      : price < 20_000 ? 10
-        : price < 50_000 ? 50
-          : price < 200_000 ? 100
-            : price < 500_000 ? 500 : 1_000
+  const tickSize = krxTickSize(price)
   // 정수 원화 × 130 / (100 × 호가 단위)로 계산해 1.30의 부동소수점 오차를 피한다.
   return Math.floor(previousClose * 130 / (100 * tickSize)) * tickSize
 }

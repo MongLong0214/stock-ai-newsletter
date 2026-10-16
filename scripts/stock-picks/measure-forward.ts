@@ -7,6 +7,7 @@ import type { StockPickSnapshot } from '@/scripts/stock-picks/pick-snapshots'
 import { loadStockPickSnapshots } from '@/scripts/stock-picks/pick-snapshots'
 import { FROZEN_COMPOSITE_UTILITY_MODEL, LEGACY_VOLUME_BREAKOUT_STRATEGY, PRODUCTION_STRATEGY } from '@/scripts/stock-picks/production-strategy'
 import { TradingDayIndex, loadTradingDayIndex } from '@/scripts/stock-picks/trading-days'
+import { estimateRoundTripCost, reconstructExitPrice } from '@/scripts/stock-picks/trading-cost'
 
 const DEFAULT_LOOKBACK_DAYS = 60
 const RECENT_WEEK_COUNT = 4
@@ -46,6 +47,15 @@ interface EvaluatedPick extends MaturePick {
   readonly nullReason: ForwardNullReason | null
 }
 
+export interface RealisticCostSummary {
+  readonly evaluablePicks: number
+  readonly meanNetReturn: number | null
+  readonly medianNetReturn: number | null
+  readonly positiveRate: number | null
+  readonly lossRate: number | null
+  readonly meanAppliedCostBps: number | null
+}
+
 export interface EntryDaySummary {
   /** 5일 성숙 여부와 무관하게 진입일이 마감된 추천 수. */
   readonly totalPicks: number
@@ -57,6 +67,7 @@ export interface EntryDaySummary {
   readonly roundTripCostBps: number
   readonly meanGrossReturn: number | null
   readonly meanNetReturn: number | null
+  readonly realisticCost: RealisticCostSummary
 }
 
 export interface JointOutcomeSummary {
@@ -77,6 +88,8 @@ export interface TargetExitProxySummary {
   readonly medianNetReturn: number | null
   readonly worstGrossReturn: number | null
   readonly worstNetReturn: number | null
+  /** 목표 도달일을 저장하지 않으므로 D5 세율을 적용하는 민감도 가정이다. */
+  readonly realisticCost: RealisticCostSummary
 }
 
 export interface ForwardAccuracySummary {
@@ -105,6 +118,7 @@ export interface ForwardAccuracySummary {
     readonly worstNetReturn: number | null
     readonly meanMaxAdverseExcursion: number | null
     readonly touchedButNotProfitablePicks: number
+    readonly realisticCost: RealisticCostSummary
   }
 }
 
@@ -169,6 +183,7 @@ export interface StrategyForwardSummary {
   readonly touchRate5d: number | null
   readonly meanCloseReturn5d: number | null
   readonly meanNetCloseReturn5d: number | null
+  readonly realisticCost5d: RealisticCostSummary
   readonly roundTripCostBps: number
   /** 기존 API: 5일 성숙 추천의 D1 양봉률. 최근 추천까지 포함한 수치는 entryDay. */
   readonly entryBullishRate: number | null
@@ -216,6 +231,41 @@ const validateCostBps = (value: number): void => {
   }
 }
 
+const summarizeRealisticCost = (outcomes: readonly {
+  readonly entryPrice: number
+  readonly exitPrice: number
+  readonly sellDate: string
+  readonly grossReturn: number
+}[]): RealisticCostSummary => {
+  const costs = outcomes.map(estimateRoundTripCost)
+  const netReturns = outcomes.map((outcome, index) => (
+    outcome.grossReturn - costs[index]!.costBps / 10_000
+  )).sort((a, b) => a - b)
+  return {
+    evaluablePicks: outcomes.length,
+    meanNetReturn: mean(netReturns),
+    medianNetReturn: medianSorted(netReturns),
+    positiveRate: rate(netReturns.filter((value) => value > 0).length, netReturns.length),
+    lossRate: rate(netReturns.filter((value) => value < 0).length, netReturns.length),
+    meanAppliedCostBps: mean(costs.map((cost) => cost.costBps)),
+  }
+}
+
+const summarizeLabelRealisticCost = (
+  labels: readonly (StockPickLabel | null)[],
+  tradingDays: TradingDayIndex,
+  returnKey: 'return5d' | 'targetExitReturn5d' = 'return5d',
+): RealisticCostSummary => summarizeRealisticCost(labels.flatMap((label) => {
+  if (!label || (label.status !== 'hit' && label.status !== 'miss')) return []
+  const grossReturn = label[returnKey]
+  // WHY: 8보유일 참고 집계에서도 return5d의 청산일은 D5다. 목표가 모형도
+  // 도달일을 저장하지 않으므로 D5 세율을 가정하되, 모형의 청산가격을 사용한다.
+  const sellDate = tradingDays.nextTradingDay(label.entryDate, 4)
+  return label.entry !== null && grossReturn !== null && Number.isFinite(grossReturn) && sellDate
+    ? [{ entryPrice: label.entry, exitPrice: reconstructExitPrice(label.entry, grossReturn), sellDate, grossReturn }]
+    : []
+}))
+
 const summarizeEntryDay = (
   labels: readonly (StockPickEntryDayLabel | null)[],
   roundTripCostBps: number,
@@ -233,12 +283,16 @@ const summarizeEntryDay = (
     roundTripCostBps,
     meanGrossReturn: mean(grossReturns),
     meanNetReturn: mean(grossReturns.map((value) => value - roundTripCostBps / 10_000)),
+    realisticCost: summarizeRealisticCost(valid.map((label) => ({
+      entryPrice: label.entry, exitPrice: label.close, sellDate: label.entryDate, grossReturn: label.entryReturn,
+    }))),
   }
 }
 
 const summarizeObjectives = (
   labels: readonly (StockPickLabel | null)[],
   roundTripCostBps: number,
+  tradingDays: TradingDayIndex,
 ): { jointOutcome5d: JointOutcomeSummary; targetExitProxy5d: TargetExitProxySummary } => {
   const jointLabels = labels.filter((label) => label?.bullishAndTouched10In5d != null)
   const hitPicks = jointLabels.filter((label) => label?.bullishAndTouched10In5d === true).length
@@ -264,11 +318,14 @@ const summarizeObjectives = (
       medianNetReturn: medianSorted(netReturns),
       worstGrossReturn: grossReturns[0] ?? null,
       worstNetReturn: netReturns[0] ?? null,
+      realisticCost: summarizeLabelRealisticCost(labels, tradingDays, 'targetExitReturn5d'),
     },
   }
 }
 
-const summarize = (picks: readonly EvaluatedPick[], roundTripCostBps: number): ForwardAccuracySummary => {
+const summarize = (
+  picks: readonly EvaluatedPick[], roundTripCostBps: number, tradingDays: TradingDayIndex,
+): ForwardAccuracySummary => {
   const labels = picks.flatMap((pick) => pick.label ? [pick.label] : [])
   const touchedPicks = labels.filter((label) => label.touched).length
   const conditionalLabelCount = labels.filter((label) => label.status !== 'data_error').length
@@ -302,7 +359,7 @@ const summarize = (picks: readonly EvaluatedPick[], roundTripCostBps: number): F
     nullRate: picks.length > 0 ? nullPicks / picks.length : 0,
     evaluablePicks: conditionalLabelCount,
     allPickHitRate: picks.length > 0 ? touchedPicks / picks.length : null,
-    ...summarizeObjectives(picks.map((pick) => pick.label), roundTripCostBps),
+    ...summarizeObjectives(picks.map((pick) => pick.label), roundTripCostBps, tradingDays),
     returns5d: {
       roundTripCostBps,
       evaluablePicks: netReturns.length,
@@ -318,6 +375,7 @@ const summarize = (picks: readonly EvaluatedPick[], roundTripCostBps: number): F
       touchedButNotProfitablePicks: tradeableLabels.filter((label) => (
         label.touched && label.return5d! - roundTripCostBps / 10_000 <= 0
       )).length,
+      realisticCost: summarizeLabelRealisticCost(tradeableLabels, tradingDays),
     },
   }
 }
@@ -537,10 +595,11 @@ export function measureStrategyForwardComparison(input: {
       touchRate5d: rate(evaluable.filter((pick) => pick.label?.touched).length, evaluable.length),
       meanCloseReturn5d: mean(returns),
       meanNetCloseReturn5d: mean(returns.map((value) => value - roundTripCostBps / 10_000)),
+      realisticCost5d: summarizeLabelRealisticCost(evaluable.map((pick) => pick.label), input.tradingDays),
       roundTripCostBps,
       entryBullishRate: entryCandles.bullishRate,
       entryDay: summarizeEntryDay(allPicks.map((pick) => labelEntryDay(pick.symbol, pick.entryDate, input.prices)), roundTripCostBps),
-      ...summarizeObjectives(labeled.map((pick) => pick.label), roundTripCostBps),
+      ...summarizeObjectives(labeled.map((pick) => pick.label), roundTripCostBps, input.tradingDays),
     }
   })
 }
@@ -579,10 +638,11 @@ export function measurePairedStrategyForwardComparison(input: {
     touchRate5d: null,
     meanCloseReturn5d: null,
     meanNetCloseReturn5d: null,
+    realisticCost5d: summarizeRealisticCost([]),
     roundTripCostBps,
     entryBullishRate: null,
     entryDay: summarizeEntryDay([], roundTripCostBps),
-    ...summarizeObjectives([], roundTripCostBps),
+    ...summarizeObjectives([], roundTripCostBps, input.tradingDays),
     ...summaries.get(strategy),
     commonDayCount: commonDates.size,
   }))
@@ -634,7 +694,7 @@ export function measureForwardPicks(input: {
 
   const byPicksSource = Object.fromEntries(SOURCE_KEYS.map((key) => [
     key,
-    summarize(evaluated.filter((pick) => sourceKey(pick.picksSource) === key), roundTripCostBps),
+    summarize(evaluated.filter((pick) => sourceKey(pick.picksSource) === key), roundTripCostBps, input.tradingDays),
   ])) as Record<SourceKey, ForwardAccuracySummary>
 
   const nullBreakdown: Record<ForwardNullReason, number> = {
@@ -654,7 +714,7 @@ export function measureForwardPicks(input: {
       endDate,
       ...summarize(evaluated.filter((pick) => (
         pick.publicationDate >= weekStartDate && pick.publicationDate <= endDate
-      )), roundTripCostBps),
+      )), roundTripCostBps, input.tradingDays),
     }
   })
 
@@ -668,8 +728,8 @@ export function measureForwardPicks(input: {
     crashNewsletterCount: parsed.filter((result) => result.kind === 'crash').length,
     loadedPickCount: publishedPicks.length,
     immaturePickCount: publishedPicks.length - maturePicks.length,
-    overall: summarize(evaluated, roundTripCostBps),
-    informational8HoldingDays: summarize(informational8Evaluated, roundTripCostBps),
+    overall: summarize(evaluated, roundTripCostBps, input.tradingDays),
+    informational8HoldingDays: summarize(informational8Evaluated, roundTripCostBps, input.tradingDays),
     byPicksSource,
     entryDay: summarizeEntryDay(entryDayPicks.map((pick) => pick.label), roundTripCostBps),
     entryDayByPicksSource: Object.fromEntries(SOURCE_KEYS.map((key) => [
@@ -722,9 +782,23 @@ export function renderShadowForwardComparisonSection(comparison: ShadowForwardCo
   ].join('\n')
 }
 
+const realisticCostColumns = (summary: RealisticCostSummary) => ({
+  '현실 비용 평가 수': summary.evaluablePicks,
+  '현실 비용 평균 net': percent(summary.meanNetReturn),
+  '현실 비용 중앙 net': percent(summary.medianNetReturn),
+  '현실 비용 양수 비율': percent(summary.positiveRate),
+  '현실 비용 손실률': percent(summary.lossRate),
+  '현실 비용 평균 bps': summary.meanAppliedCostBps,
+})
+
+const renderRealisticCost = (scope: string, summary: RealisticCostSummary): string => (
+  `${scope} 현실 비용: 평가 ${summary.evaluablePicks}건, 평균 net ${percent(summary.meanNetReturn)}, 중앙값 net ${percent(summary.medianNetReturn)}, 수익 양수 비율 ${percent(summary.positiveRate)}, 손실률(net<0) ${percent(summary.lossRate)}, 평균 적용 비용 ${summary.meanAppliedCostBps?.toFixed(3) ?? '-'}bps`
+)
+
 export function printForwardMeasurementReport(report: ForwardMeasurementReport): void {
   console.log(JSON.stringify(report, null, 2))
   console.log(`적용 왕복 비용: ${report.roundTripCostBps}bps (gross: 비용 전, net: 비용 후)`)
+  console.log(`모델 비용 ${report.roundTripCostBps}bps: 기존 net 지표 / 현실 비용: 매수·매도 수수료 + 매도일 세금 + 양쪽 반 호가 슬리피지`)
   console.table([
     { scope: 'overall', ...report.overall },
     ...SOURCE_KEYS.map((key) => ({ scope: `source:${key}`, ...report.byPicksSource[key] })),
@@ -739,8 +813,10 @@ export function printForwardMeasurementReport(report: ForwardMeasurementReport):
     roundTripCostBps: row.returns5d.roundTripCostBps,
     meanGrossReturn5d: percent(row.returns5d.meanGrossReturn),
     meanNetReturn5d: percent(row.returns5d.meanNetReturn),
+    ...realisticCostColumns(row.returns5d.realisticCost),
     targetExitProxyGross5d: percent(row.targetExitProxy5d.meanGrossReturn),
     targetExitProxyNet5d: percent(row.targetExitProxy5d.meanNetReturn),
+    targetExitProxyNetRealisticCost5d: percent(row.targetExitProxy5d.realisticCost.meanNetReturn),
     nullRate: percent(row.nullRate),
     statusHit: row.statusCounts.hit,
     statusMiss: row.statusCounts.miss,
@@ -758,19 +834,25 @@ export function printForwardMeasurementReport(report: ForwardMeasurementReport):
     roundTripCostBps: week.returns5d.roundTripCostBps,
     meanGrossReturn5d: percent(week.returns5d.meanGrossReturn),
     meanNetReturn5d: percent(week.returns5d.meanNetReturn),
+    ...realisticCostColumns(week.returns5d.realisticCost),
     targetExitProxyGross5d: percent(week.targetExitProxy5d.meanGrossReturn),
     targetExitProxyNet5d: percent(week.targetExitProxy5d.meanNetReturn),
+    targetExitProxyNetRealisticCost5d: percent(week.targetExitProxy5d.realisticCost.meanNetReturn),
   })))
   console.log(`제품 기준: 5보유일 타율 ${percent(report.overall.hitRate)} (${report.overall.touchedPicks}/${report.overall.evaluablePicks}, 데이터 오류 제외)`)
   console.log(`전체 성숙 추천 기준: ${percent(report.overall.allPickHitRate)} (${report.overall.touchedPicks}/${report.overall.totalPicks}, 오류 포함)`)
   console.log(`추천 당일 양봉률 (5일 성숙 전 포함): ${percent(report.entryDay.bullishRate)} (${report.entryDay.bullishPicks}/${report.entryDay.evaluablePicks}, 진입일 마감 ${report.entryDay.totalPicks}건), 평균 수익 gross ${percent(report.entryDay.meanGrossReturn)} / net ${percent(report.entryDay.meanNetReturn)}`)
+  console.log(renderRealisticCost('추천 당일 종가 청산', report.entryDay.realisticCost))
   console.log(`추천 당일 양봉 + 5일 내 +10% 동시 달성: ${percent(report.overall.jointOutcome5d.hitRate)} (${report.overall.jointOutcome5d.hitPicks}/${report.overall.jointOutcome5d.evaluablePicks})`)
   const returns = report.overall.returns5d
   console.log(`5일 종가 청산 가정 (왕복 비용 ${returns.roundTripCostBps}bps): 수익 양수 비율 ${percent(returns.positiveRate)} (${returns.positivePicks}/${returns.evaluablePicks}), 평균 수익 gross ${percent(returns.meanGrossReturn)} / net ${percent(returns.meanNetReturn)}, 중앙값 gross ${percent(returns.medianGrossReturn)} / net ${percent(returns.medianNetReturn)}, 최악 gross ${percent(returns.worstGrossReturn)} / net ${percent(returns.worstNetReturn)}, +10% 터치 후 비수익 ${returns.touchedButNotProfitablePicks}건`)
+  console.log(renderRealisticCost('5일 종가 청산', returns.realisticCost))
   const targetExit = report.overall.targetExitProxy5d
   console.log(`목표가 청산 모형 (+10% 장중 도달 시 +10%, 미도달 시 D5 종가, 왕복 비용 ${targetExit.roundTripCostBps}bps): 평균 수익 gross ${percent(targetExit.meanGrossReturn)} / net ${percent(targetExit.meanNetReturn)}, 중앙값 gross ${percent(targetExit.medianGrossReturn)} / net ${percent(targetExit.medianNetReturn)}, 최악 gross ${percent(targetExit.worstGrossReturn)} / net ${percent(targetExit.worstNetReturn)}, OHLC 기반 가정이며 실제 체결을 보장하지 않음`)
+  console.log(renderRealisticCost('목표가 청산 모형 (도달일 미저장: D5 세율 가정)', targetExit.realisticCost))
   const informational = report.informational8HoldingDays
   console.log(`참고: 8보유일 확장 시 타율 ${percent(informational.hitRate)} (${informational.touchedPicks}/${informational.evaluablePicks}), 평균 수익 gross ${percent(informational.returns5d.meanGrossReturn)} / net ${percent(informational.returns5d.meanNetReturn)}`)
+  console.log(renderRealisticCost('8보유일 참고 집계의 D5 종가 청산', informational.returns5d.realisticCost))
   const ties = report.scoreTies
   console.log(`프로덕션 3·4위 정수 점수 동률 (신호일 ${report.startDate}~${report.asOfDate}): ${percent(ties.tieRate)} (${ties.tiedDates}/${ties.evaluableDates}, 후보 4개 미만 ${ties.fewerThanFourCandidatesDates}일 제외, 저장 신호일 ${ties.totalDates}일)`)
   // 워크플로우가 이 로그를 GITHUB_STEP_SUMMARY에 그대로 적재하므로 같은 섹션이 양쪽에 노출된다.
@@ -782,15 +864,18 @@ export function printForwardMeasurementReport(report: ForwardMeasurementReport):
     touchRate5d: percent(row.touchRate5d),
     meanCloseReturn5d: percent(row.meanCloseReturn5d),
     meanNetCloseReturn5d: percent(row.meanNetCloseReturn5d),
+    ...realisticCostColumns(row.realisticCost5d),
     roundTripCostBps: row.roundTripCostBps,
     entryBullishRate: percent(row.entryBullishRate),
     meanGrossEntryReturn: percent(row.entryDay.meanGrossReturn),
     meanNetEntryReturn: percent(row.entryDay.meanNetReturn),
+    meanNetEntryReturnRealisticCost: percent(row.entryDay.realisticCost.meanNetReturn),
     finalizedEntryPicks: row.entryDay.evaluablePicks,
     allFinalizedEntryBullishRate: percent(row.entryDay.bullishRate),
     jointHitRate5d: percent(row.jointOutcome5d.hitRate),
     targetExitProxyGross5d: percent(row.targetExitProxy5d.meanGrossReturn),
     targetExitProxyNet5d: percent(row.targetExitProxy5d.meanNetReturn),
+    targetExitProxyNetRealisticCost5d: percent(row.targetExitProxy5d.realisticCost.meanNetReturn),
   })))
   console.log('프로덕션·섀도우 동일 신호일 짝 비교 (성숙한 공통 신호일만)')
   console.table(report.pairedStrategyComparison.map((row) => ({
@@ -801,13 +886,16 @@ export function printForwardMeasurementReport(report: ForwardMeasurementReport):
     touchRate5d: percent(row.touchRate5d),
     meanCloseReturn5d: percent(row.meanCloseReturn5d),
     meanNetCloseReturn5d: percent(row.meanNetCloseReturn5d),
+    ...realisticCostColumns(row.realisticCost5d),
     roundTripCostBps: row.roundTripCostBps,
     entryBullishRate: percent(row.entryBullishRate),
     meanGrossEntryReturn: percent(row.entryDay.meanGrossReturn),
     meanNetEntryReturn: percent(row.entryDay.meanNetReturn),
+    meanNetEntryReturnRealisticCost: percent(row.entryDay.realisticCost.meanNetReturn),
     jointHitRate5d: percent(row.jointOutcome5d.hitRate),
     targetExitProxyGross5d: percent(row.targetExitProxy5d.meanGrossReturn),
     targetExitProxyNet5d: percent(row.targetExitProxy5d.meanNetReturn),
+    targetExitProxyNetRealisticCost5d: percent(row.targetExitProxy5d.realisticCost.meanNetReturn),
   })))
 }
 
