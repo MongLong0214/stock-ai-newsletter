@@ -3,15 +3,33 @@ import { mkdir, open, readFile, writeFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { createInterface } from 'node:readline'
 
-import { buildPriceBook, StockDataHandler } from '@/scripts/stock-picks/data-handler'
+import { buildPriceBook, getRawPrice, StockDataHandler, type PriceBook } from '@/scripts/stock-picks/data-handler'
 import { buildFeatureSeries } from '@/scripts/stock-picks/features'
 import { hasCalculatedOutputMetrics, type StockPickMaster } from '@/scripts/stock-picks/generate-picks'
-import { labelPick } from '@/scripts/stock-picks/label'
+import { isLockedLimitUpEntry, labelPick } from '@/scripts/stock-picks/label'
 import { buildObservedInputs50, OBSERVED_INPUT_NAMES, validateModelMarketSources } from '@/scripts/stock-picks/observed-inputs'
 import { LOW_VOLATILITY_STABLE_PARAMETERS, rankUtilityScoreCandidates } from '@/scripts/stock-picks/strategies'
 import { buildTechnicalContextMap } from '@/scripts/stock-picks/technical-context'
 import { TradingDayIndex } from '@/scripts/stock-picks/trading-days'
 import type { StockDailyPriceRow } from '@/scripts/tli/prices/stock-daily-prices'
+
+export type LabelNullReason = 'immature' | 'suspendedOrUntradeable' | 'dataError'
+
+/** 관측된 거래정지/진입불가는 미성숙보다 우선한다. 결측 거래량은 거래정지로 추정하지 않는다. */
+export function utilityResearchLabel(symbol: string, signalDate: string, prices: PriceBook, days: TradingDayIndex) {
+  const j = days.indexByDate.get(signalDate)!
+  const windowDates = days.tradingDays.slice(j + 1, j + 6)
+  const windowRows = windowDates.map((date) => getRawPrice(prices, symbol, date))
+  const label = labelPick(symbol, signalDate, prices, days)
+  const valid = label && (label.status === 'hit' || label.status === 'miss')
+    && windowRows.every((row) => (row?.volume ?? 0) > 0)
+  const lockedLimitUpEntry = isLockedLimitUpEntry(windowRows[0], getRawPrice(prices, symbol, signalDate)?.close)
+  const suspensionPath = windowRows.some((row) => row?.volume === 0)
+  const labelNullReason: LabelNullReason | null = valid ? null
+    : suspensionPath || lockedLimitUpEntry || label?.status === 'unexpected_untradeable' ? 'suspendedOrUntradeable'
+      : !label ? 'immature' : 'dataError'
+  return { label: valid ? label : null, labelNullReason, lockedLimitUpEntry, suspensionPath }
+}
 
 /** Local files only. Never filters candidates using a future outcome. */
 async function main(): Promise<void> {
@@ -59,6 +77,8 @@ async function main(): Promise<void> {
   await mkdir(outputDir, { recursive: true })
   const output = await open(resolve(outputDir, 'features.ndjson'), 'w')
   let eligible = 0; let strict = 0
+  let lockedLimitUpEntries = 0; let suspensionPaths = 0
+  const unknownReasons: Record<LabelNullReason, number> = { immature: 0, suspendedOrUntradeable: 0, dataError: 0 }
   try {
     for (const [i, m] of active.entries()) {
       const series = buildFeatureSeries({ handler: handler.at(dates.at(-1)!), symbol: m.symbol, dates, includeFromDate: from })
@@ -71,20 +91,23 @@ async function main(): Promise<void> {
         const context = contexts.get(f.simDate)?.get(f.symbol)
         if (!context) throw new Error('Missing technical context')
         const x = buildObservedInputs50({ feature: f, context, handler: handler.at(f.simDate), dates: history })
-        const label = labelPick(f.symbol, f.simDate, prices, days)
-        const valid = label && (label.status === 'hit' || label.status === 'miss')
-          && dates.slice(j + 1, j + 6).every((d) => (prices.get(f.symbol)?.get(d)?.volume ?? 0) > 0)
+        const { label, labelNullReason, lockedLimitUpEntry, suspensionPath } = utilityResearchLabel(f.symbol, f.simDate, prices, days)
         await output.writeFile(`${JSON.stringify({ date: f.simDate, symbol: f.symbol, runtimeEligible: true,
           originalInputs18: x.slice(0, 18), extraInputs32: x.slice(18), turnover: f.averageTurnover20,
-          historySessions: history.length, signalClose: f.close, label: valid ? label : null })}\n`)
-        eligible++; if (valid) strict++
+          historySessions: history.length, signalClose: f.close, label, labelNullReason })}\n`)
+        eligible++; if (label) strict++
+        if (lockedLimitUpEntry) lockedLimitUpEntries++
+        if (suspensionPath) suspensionPaths++
+        if (labelNullReason) unknownReasons[labelNullReason]++
       }
       if ((i + 1) % 100 === 0) console.log(JSON.stringify({ symbols: i + 1, eligible, strict }))
     }
   } finally { await output.close() }
   await writeFile(resolve(outputDir, 'feature-spec.json'), JSON.stringify({ featureNames: OBSERVED_INPUT_NAMES }))
   await writeFile(resolve(outputDir, 'calendar.json'), JSON.stringify({ tradingDays: dates }))
-  console.log(JSON.stringify({ complete: true, eligible, strict }))
+  console.log(JSON.stringify({ complete: true, eligible, strict, lockedLimitUpEntries, suspensionPaths, unknownReasons }))
 }
 
-main().catch((e: unknown) => { console.error(e instanceof Error ? e.message : String(e)); process.exitCode = 1 })
+if (/export-utility-research\.(?:ts|js)$/.test(process.argv[1] ?? '')) {
+  main().catch((e: unknown) => { console.error(e instanceof Error ? e.message : String(e)); process.exitCode = 1 })
+}

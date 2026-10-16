@@ -81,6 +81,28 @@ const hasValidOhlc = (row: StockDailyPriceRow | undefined): row is StockDailyPri
   && row.close <= row.high
 )
 
+/** KRX 보통주 호가 단위(2023년 이후): 130% 가격대의 호가 단위로 내림한다. */
+const krxUpperLimitPrice = (previousClose: number): number => {
+  const price = previousClose * 130 / 100
+  const tickSize = price < 2_000 ? 1
+    : price < 5_000 ? 5
+      : price < 20_000 ? 10
+        : price < 50_000 ? 50
+          : price < 200_000 ? 100
+            : price < 500_000 ? 500 : 1_000
+  // 정수 원화 × 130 / (100 × 호가 단위)로 계산해 1.30의 부동소수점 오차를 피한다.
+  return Math.floor(previousClose * 130 / (100 * tickSize)) * tickSize
+}
+
+export function isLockedLimitUpEntry(
+  row: StockDailyPriceRow | undefined,
+  signalClose: number | null | undefined,
+): boolean {
+  return hasValidOhlc(row) && finitePositive(row.volume) && finitePositive(signalClose)
+    && row.open === row.high && row.high === row.low && row.low === row.close
+    && row.open >= krxUpperLimitPrice(signalClose)
+}
+
 const dataErrorLabel = (
   entryDate: string,
   entryRow: StockDailyPriceRow | undefined,
@@ -169,7 +191,7 @@ export function labelPick(
   const close5d = productWindowRows[PRODUCT_HOLDING_DAYS - 1]?.close as number
   const upDayCount = countUpDays(productWindowRows)
 
-  if (entryVolume === 0) {
+  if (entryVolume === 0 || isLockedLimitUpEntry(entryRow, getRawPrice(prices, symbol, signalDate)?.close)) {
     return {
       entryDate,
       entry,

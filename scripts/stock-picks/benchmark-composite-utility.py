@@ -8,15 +8,8 @@ Already inspected historical windows: exploratory evidence, not a sealed holdout
 Unknown future labels remain in selection and are counted separately.
 """
 import argparse, importlib.util, json, math, os, pathlib
-os.environ.setdefault('OMP_NUM_THREADS', '1')
-os.environ.setdefault('OPENBLAS_NUM_THREADS', '1')
-import numpy as np
-from sklearn.ensemble import HistGradientBoostingRegressor
-from threadpoolctl import threadpool_limits
+from statistics import fmean, median
 
-spec = importlib.util.spec_from_file_location('trainer', pathlib.Path(__file__).with_name('train-composite-utility.py'))
-trainer = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(trainer)
 SEGMENTS = [('validation', '2025-12-23', '2026-03-31'),
             ('historical_test', '2026-04-01', '2026-06-30'),
             ('historical_test', '2026-07-01', '2026-09-18'),
@@ -26,17 +19,45 @@ SEGMENTS = [('validation', '2025-12-23', '2026-03-31'),
 def summarize(rows):
     picks = [p for d in rows for p in d['picks']]
     good = [p for p in picks if p['known']]
+    unknown_reasons = {reason: 0 for reason in ['immature', 'suspendedOrUntradeable', 'dataError', 'unclassified']}
+    for p in picks:
+        if not p['known']:
+            reason = p.get('labelNullReason')
+            unknown_reasons[reason if reason in unknown_reasons else 'unclassified'] += 1
+    suspended = unknown_reasons['suspendedOrUntradeable']
+    worst = min((p['net'] for p in good), default=None)
+    # Impute each suspended/untradeable pick at min(segment worst observed net,
+    # -30bps), ensuring an assumed loss even in positive-only segments. Without observations,
+    # assume total capital loss plus the same 30bps cost (-1.003). Immature and
+    # other data errors remain excluded from these two conservative denominators.
+    assumed_net = min(worst, -.003) if worst is not None else -1.003
+    conservative_count = len(good) + suspended
     return dict(dates=len(rows), slots=3*len(rows), picks=len(picks), known=len(good),
-                missing=len(picks)-len(good), touchRate=sum(p['touch'] for p in good)/(3*len(rows)),
-                bullishRate=sum(p['bullish'] for p in good)/len(good),
-                lossRate=sum(p['net'] < 0 for p in good)/len(good),
-                meanNet=float(np.mean([p['net'] for p in good])),
-                medianNet=float(np.median([p['net'] for p in good])),
-                severeLossRate=sum(p['net'] <= -.1 for p in good)/len(good),
-                meanMae=float(np.mean([p['mae'] for p in good])), worstNet=min(p['net'] for p in good))
+                missing=len(picks)-len(good), touchRate=sum(p['touch'] for p in good)/(3*len(rows)) if rows else None,
+                bullishRate=sum(p['bullish'] for p in good)/len(good) if good else None,
+                lossRate=sum(p['net'] < 0 for p in good)/len(good) if good else None,
+                meanNet=fmean(p['net'] for p in good) if good else None,
+                medianNet=median(p['net'] for p in good) if good else None,
+                severeLossRate=sum(p['net'] <= -.1 for p in good)/len(good) if good else None,
+                meanMae=fmean(p['mae'] for p in good) if good else None, worstNet=worst,
+                unknownReasons=unknown_reasons,
+                lossRateConservative=(sum(p['net'] < 0 for p in good)+suspended)/conservative_count
+                    if conservative_count else None,
+                meanNetConservative=(sum(p['net'] for p in good)+suspended*assumed_net)/conservative_count
+                    if conservative_count else None,
+                suspendedOrUntradeableNetAssumption=assumed_net)
 
 
 def main():
+    # Keep summary regressions runnable with stdlib Python; fitting alone needs ML packages.
+    os.environ.setdefault('OMP_NUM_THREADS', '1')
+    os.environ.setdefault('OPENBLAS_NUM_THREADS', '1')
+    import numpy as np
+    from sklearn.ensemble import HistGradientBoostingRegressor
+    from threadpoolctl import threadpool_limits
+    spec = importlib.util.spec_from_file_location('trainer', pathlib.Path(__file__).with_name('train-composite-utility.py'))
+    trainer = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(trainer)
     parser = argparse.ArgumentParser(description=__doc__)
     for name in ['features', 'calendar', 'output']:
         parser.add_argument('--'+name, required=True)
@@ -53,6 +74,9 @@ def main():
     idx = np.array([di[d] for d, _ in keys]); history = np.array([r['historySessions'] for r in records])
     turnover = np.array([r['turnover'] for r in records]); assert np.isfinite(turnover).all()
     known = np.array([r['label'] is not None for r in records])
+    label_null_reasons = [None if known[k] else r.get('labelNullReason') or
+                          ('immature' if idx[k]+5 >= len(calendar) else 'unclassified')
+                          for k, r in enumerate(records)]
     touch = np.array([bool(r['label']['touched']) if r['label'] else False for r in records])
     bull = np.array([bool(r['label']['entryBullish']) if r['label'] else False for r in records])
     net = np.array([r['label']['return5d']-.003 if r['label'] else np.nan for r in records])
@@ -94,6 +118,7 @@ def main():
                 for k in picks: last[p][keys[k][1]] = int(j)
                 daily[p].append(dict(segment='warmup' if segment == 'validation' and j-first < 20 else segment,
                     date=calendar[j], picks=[dict(symbol=keys[k][1], score=int(values[order[n]]), known=bool(known[k]),
+                        labelNullReason=label_null_reasons[k],
                         touch=bool(touch[k]) if known[k] else None, bullish=bool(bull[k]) if known[k] else None,
                         net=float(net[k]) if known[k] else None, mae=float(mae[k]) if known[k] else None)
                         for n, k in enumerate(picks)]))
