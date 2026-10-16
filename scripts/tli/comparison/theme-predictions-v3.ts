@@ -1,4 +1,5 @@
 import { buildFeatureVector } from '@/lib/tli/features/build-features'
+import { fetchAllRows } from '@/lib/supabase/paginate'
 import type { FeatureVector } from '@/lib/tli/features/build-features'
 import { getKSTDateString } from '@/lib/tli/date-utils'
 import { isKoreanTradingDate } from '@/lib/tli/trading-calendar'
@@ -55,32 +56,9 @@ interface LoadedModelRegistryEntry {
   readonly containment: ModelContainment
 }
 
-interface QueryError {
-  readonly message: string
-}
-
-interface RangeQuery<T> {
-  range(from: number, to: number): PromiseLike<{
-    readonly data: readonly T[] | null
-    readonly error: QueryError | null
-  }>
-}
-
 interface ThemeLabelRecentBaseRateRow {
   readonly base_date: string
   readonly y_binary: boolean | null
-}
-
-const PAGE_SIZE = 1000
-
-const fetchAllRows = async <T>(createQuery: () => RangeQuery<T>): Promise<T[]> => {
-  const rows: T[] = []
-  for (let from = 0; ; from += PAGE_SIZE) {
-    const { data, error } = await createQuery().range(from, from + PAGE_SIZE - 1)
-    if (error) throw new Error(error.message)
-    rows.push(...(data ?? []))
-    if (!data || data.length < PAGE_SIZE) return rows
-  }
 }
 
 /** model_registry에서 champion/challenger 아티팩트를 조회 (SSOT = DB, 로컬 파일 경로 의존 제거 — A1) */
@@ -112,7 +90,7 @@ async function loadV2SnapshotsForDate(predictionDate: string): Promise<Predictio
 
 async function loadRecentFinalBaseRate(predictionDate: string): Promise<number | null> {
   const window = getTrailingFinalBaseRateWindow(predictionDate)
-  const rows = await fetchAllRows<ThemeLabelRecentBaseRateRow>(() => supabaseAdmin
+  const rows = await fetchAllRows<ThemeLabelRecentBaseRateRow>((from, to) => supabaseAdmin
     .from('theme_labels')
     .select('base_date, y_binary')
     .eq('label_type', 'gt_a')
@@ -122,7 +100,9 @@ async function loadRecentFinalBaseRate(predictionDate: string): Promise<number |
     .not('y_binary', 'is', null)
     .gte('base_date', window.startDate)
     .lte('base_date', window.endDate)
-    .order('base_date', { ascending: true }))
+    .order('base_date', { ascending: true })
+    .order('id')
+    .range(from, to))
 
   return computeTrailingFinalBaseRate(
     rows.flatMap((row) => (

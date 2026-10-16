@@ -6,6 +6,7 @@ import { UnsupportedLegacyArtifactError } from '@/lib/tli/model/predict'
 const registryMocks = vi.hoisted(() => ({
   snapshotRows: [] as Array<{ theme_id: string; snapshot_date: string; phase: string }>,
   recentLabelRows: [] as Array<{ base_date: string; y_binary: boolean | null }>,
+  recentLabelErrorFrom: -1,
   championEntry: null as {
     model_version: string
     model_type: string
@@ -79,7 +80,7 @@ vi.mock('@/scripts/tli/shared/supabase-admin', () => ({
           order(): ThemeLabelsQuery
           range(from: number, to: number): Promise<{
             readonly data: typeof registryMocks.recentLabelRows
-            readonly error: null
+            readonly error: { message: string } | null
           }>
         }
         const query: ThemeLabelsQuery = {
@@ -90,8 +91,8 @@ vi.mock('@/scripts/tli/shared/supabase-admin', () => ({
           lte: () => query,
           order: () => query,
           range: async (from: number, to: number) => ({
-            data: registryMocks.recentLabelRows.slice(from, to + 1),
-            error: null,
+            data: from === registryMocks.recentLabelErrorFrom ? [] : registryMocks.recentLabelRows.slice(from, Math.min(to + 1, from + 1000)),
+            error: from === registryMocks.recentLabelErrorFrom ? { message: 'base rate page failed' } : null,
           }),
         }
         return query
@@ -157,11 +158,37 @@ describe('snapshotThemePredictionsV3 — model_registry-driven scoring (A1)', ()
   beforeEach(() => {
     vi.clearAllMocks()
     registryMocks.upsertLegacyPredictionsV3.mockResolvedValue(1)
+    registryMocks.recentLabelErrorFrom = -1
     registryMocks.snapshotRows = [
       { theme_id: 'theme-1', snapshot_date: '2026-07-06', phase: 'rising' },
     ]
     registryMocks.recentLabelRows = []
     registryMocks.challengerEntry = null
+  })
+
+  it('retains trailing base-rate labels beyond row 999 when reusing shared pagination', async () => {
+    registryMocks.championEntry = null
+    registryMocks.recentLabelRows = Array.from({ length: 1003 }, (_, i) => ({ base_date: '2026-06-15', y_binary: i >= 1000 }))
+    const priorCorrection = await import('@/lib/tli/model/prior-correction')
+    const compute = vi.spyOn(priorCorrection, 'computeTrailingFinalBaseRate')
+    const { snapshotThemePredictionsV3 } = await import('@/scripts/tli/comparison/theme-predictions-v3')
+    try {
+      await snapshotThemePredictionsV3({ today: '2026-07-06' })
+      expect(compute).toHaveBeenCalledWith(
+        registryMocks.recentLabelRows.map((row) => ({ baseDate: row.base_date, y: row.y_binary })),
+        '2026-07-06',
+      )
+    } finally {
+      compute.mockRestore()
+    }
+  })
+
+  it('throws a later base-rate label page error before writing predictions', async () => {
+    registryMocks.recentLabelRows = Array.from({ length: 1000 }, () => ({ base_date: '2026-06-15', y_binary: true }))
+    registryMocks.recentLabelErrorFrom = 1000
+    const { snapshotThemePredictionsV3 } = await import('@/scripts/tli/comparison/theme-predictions-v3')
+    await expect(snapshotThemePredictionsV3({ today: '2026-07-06' })).rejects.toMatchObject({ message: 'base rate page failed' })
+    expect(registryMocks.upsertLegacyPredictionsV3).not.toHaveBeenCalled()
   })
 
   it('rejects a legacy v1 M1 champion before scoring or prior correction', async () => {

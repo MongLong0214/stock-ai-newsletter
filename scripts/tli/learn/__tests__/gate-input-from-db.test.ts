@@ -31,6 +31,7 @@ vi.mock('@/scripts/tli/shared/supabase-admin', () => {
     readonly table: string
     select: string | null
     readonly eqFilters: Map<string, unknown>
+    range: readonly [number, number] | null
   }
 
   interface QueryResult {
@@ -41,13 +42,16 @@ vi.mock('@/scripts/tli/shared/supabase-admin', () => {
   interface QueryBuilder extends PromiseLike<QueryResult> {
     select(columns: string): QueryBuilder
     eq(column: string, value: unknown): QueryBuilder
+    order(column: string): QueryBuilder
+    range(from: number, to: number): QueryBuilder
   }
 
   const resolveRows = (state: QueryState): Record<string, unknown>[] => {
     const rows = state.table === 'model_registry' ? gateDbMocks.registryRows : gateDbMocks.predictionRows
-    return rows.filter((row) => (
+    const filtered = rows.filter((row) => (
       [...state.eqFilters].every(([column, value]) => row[column] === value)
     ))
+    return state.range ? filtered.slice(state.range[0], state.range[1] + 1) : filtered
   }
 
   const createQueryBuilder = (table: string): QueryBuilder => {
@@ -55,6 +59,7 @@ vi.mock('@/scripts/tli/shared/supabase-admin', () => {
       table,
       select: null,
       eqFilters: new Map<string, unknown>(),
+      range: null,
     }
     const builder: QueryBuilder = {
       select(columns: string): QueryBuilder {
@@ -63,6 +68,13 @@ vi.mock('@/scripts/tli/shared/supabase-admin', () => {
       },
       eq(column: string, value: unknown): QueryBuilder {
         state.eqFilters.set(column, value)
+        return builder
+      },
+      order(): QueryBuilder {
+        return builder
+      },
+      range(from: number, to: number): QueryBuilder {
+        state.range = [from, to]
         return builder
       },
       then<TResult1 = QueryResult, TResult2 = never>(

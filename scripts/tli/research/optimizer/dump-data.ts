@@ -1,6 +1,7 @@
 import { readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { createClient } from '@supabase/supabase-js'
+import { fetchAllRows } from '@/lib/supabase/paginate'
 
 // --- Types ---
 
@@ -69,7 +70,7 @@ function countUniqueDays(metrics: Array<{ time: string }>): number {
 const BATCH_SIZE = 50
 
 /** 배치로 분할하여 전체 행 가져오기 */
-async function fetchInBatches<T>(
+export async function fetchInBatches<T>(
   supabase: ReturnType<typeof getSupabaseClient>,
   table: string,
   selectColumns: string,
@@ -81,15 +82,20 @@ async function fetchInBatches<T>(
   const allRows: T[] = []
   for (let i = 0; i < themeIds.length; i += BATCH_SIZE) {
     const batchIds = themeIds.slice(i, i + BATCH_SIZE)
-    const { data, error } = await supabase
-      .from(table)
-      .select(selectColumns)
-      .in(themeIdColumn, batchIds)
-      .gte(dateColumn, gteDate)
-      .range(0, 49999)
+    const data = await fetchAllRows<T>(async (from, to) => {
+      if (from >= 50000) return { data: [], error: null }
+      const { data, error } = await supabase
+        .from(table)
+        .select(selectColumns)
+        .in(themeIdColumn, batchIds)
+        .gte(dateColumn, gteDate)
+        .order('id')
+        .range(from, Math.min(to, 49999))
 
-    if (error) throw new Error(`${table} 로딩 실패 (batch ${i}): ${error.message}`)
-    if (data) allRows.push(...(data as T[]))
+      if (error) throw new Error(`${table} 로딩 실패 (batch ${i}): ${error.message}`)
+      return { data: data as T[] | null, error }
+    })
+    allRows.push(...data)
   }
   return allRows
 }

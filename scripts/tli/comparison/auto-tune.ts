@@ -2,6 +2,7 @@
 import { supabaseAdmin } from '@/scripts/tli/shared/supabase-admin'
 import { batchQuery } from '@/scripts/tli/shared/supabase-batch'
 import { daysAgo } from '@/scripts/tli/shared/utils'
+import { fetchAllRows } from '@/lib/supabase/paginate'
 
 export const DEFAULT_THRESHOLD = 0.35
 const MIN_SAMPLES_FOR_TUNING = 30
@@ -72,14 +73,21 @@ export function _optimizeFromData(rows: VerifiedRow[]): OptimalThresholdResult {
 /** V4 eval + candidates 테이블에서 검증 데이터 로드 */
 async function loadVerifiedRows(thirtyDaysAgo: string): Promise<VerifiedRow[]> {
   // V4: theme_comparison_eval_v2 + theme_comparison_candidates_v2 join
-  const { data: evals, error: evalErr } = await supabaseAdmin
-    .from('theme_comparison_eval_v2')
-    .select('run_id, candidate_theme_id, trajectory_corr_h14')
-    .gte('evaluated_at', thirtyDaysAgo)
-    .is('censored_reason', null)
-    .limit(5000)
+  const evals = await fetchAllRows<{
+    run_id: string; candidate_theme_id: string; trajectory_corr_h14: number | null
+  }>(async (from, to) => {
+    if (from >= 5000) return { data: [], error: null }
+    return supabaseAdmin
+      .from('theme_comparison_eval_v2')
+      .select('run_id, candidate_theme_id, trajectory_corr_h14')
+      .gte('evaluated_at', thirtyDaysAgo)
+      .is('censored_reason', null)
+      .order('evaluated_at', { ascending: false })
+      .order('id')
+      .range(from, Math.min(to, 4999))
+  })
 
-  if (!evalErr && evals && evals.length >= MIN_SAMPLES_FOR_TUNING) {
+  if (evals.length >= MIN_SAMPLES_FOR_TUNING) {
     const runIds = [...new Set(evals.map(e => e.run_id))]
     const candidates = await batchQuery<{ run_id: string; candidate_theme_id: string; similarity_score: number }>(
       'theme_comparison_candidates_v2',
@@ -87,6 +95,7 @@ async function loadVerifiedRows(thirtyDaysAgo: string): Promise<VerifiedRow[]> {
       runIds,
       undefined,
       'run_id',
+      { failOnError: true, orderBy: { column: 'id' } },
     )
 
     const candidateMap = new Map<string, number>()

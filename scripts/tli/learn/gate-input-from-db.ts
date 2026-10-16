@@ -1,4 +1,5 @@
 import { supabaseAdmin } from '../shared/supabase-admin'
+import { fetchAllRows } from '@/lib/supabase/paginate'
 import type { PromotionGateInput } from './legacy-promotion-gate'
 import {
   buildPromotionGateInputFromRows,
@@ -34,15 +35,19 @@ export type * from './prospective-gate-input-contract'
 type ServingRole = 'champion' | 'challenger'
 
 async function loadScoredPredictions(servingRole: ServingRole, modelVersion: string): Promise<ScoredPredictionRow[]> {
-  const { data, error } = await supabaseAdmin
-    .from('theme_predictions_v3')
-    .select('theme_id, prediction_date, p_rise, abstain, actual_y')
-    .eq('serving_role', servingRole)
-    .eq('model_version', modelVersion)
-    .eq('score_status', 'scored')
+  return fetchAllRows<ScoredPredictionRow>(async (from, to) => {
+    const { data, error } = await supabaseAdmin
+      .from('theme_predictions_v3')
+      .select('theme_id, prediction_date, p_rise, abstain, actual_y')
+      .eq('serving_role', servingRole)
+      .eq('model_version', modelVersion)
+      .eq('score_status', 'scored')
+      .order('id')
+      .range(from, to)
 
-  if (error) throw new Error(`theme_predictions_v3 ${servingRole} ${modelVersion} scored 로딩 실패: ${error.message}`)
-  return data ?? []
+    if (error) throw new Error(`theme_predictions_v3 ${servingRole} ${modelVersion} scored 로딩 실패: ${error.message}`)
+    return { data, error }
+  })
 }
 
 async function loadModelRegistryHistory(): Promise<ModelRegistryHistoryRow[]> {

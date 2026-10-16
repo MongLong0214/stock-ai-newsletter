@@ -3,6 +3,7 @@
 // 하나라도 다르면 manifest 생성이 거부된다 (fail-closed).
 
 import { compareUtf8Bytes } from '@/lib/tli/canonical-json'
+import { fetchAllRows } from '@/lib/supabase/paginate'
 import { addKoreanTradingDays, getKoreanTradingDateWindow, isKoreanTradingDate } from '@/lib/tli/trading-calendar'
 import { supabaseAdmin } from '@/scripts/tli/shared/supabase-admin'
 import { keysetOrExpression, paginateByKeyset } from '@/scripts/tli/shared/keyset'
@@ -287,24 +288,29 @@ export const loadStudyBablCandidates = async (input: {
 }): Promise<Map<string, StudyBablCandidate[]>> => {
   const cutoffIso = forecastCutoffUtc(input.originDate)
 
-  const { data, error } = await supabaseAdmin
-    .from('tli_babl_phase_observations')
-    .select(`
-      id, theme_id, payload_hash, candidate_pool, computed_at,
-      run:tli_collection_runs!inner(status, collected_at, completed_at),
-      snapshot:prediction_snapshots_v2!inner(
-        candidate_pool, created_at, run_type,
-        comparison_run:theme_comparison_runs_v2!inner(status, candidate_pool)
-      )
-    `)
-    .eq('snapshot_date', input.originDate)
-    .eq('algorithm_version', input.study.babl_algorithm_version)
-    .eq('comparison_spec_version', input.study.babl_comparison_spec_version)
-    .eq('evaluation_horizon_days', input.study.babl_evaluation_horizon_days)
-    .eq('snapshot.run_type', 'prod')
-    .in('theme_id', [...input.themeIds])
+  const data = await fetchAllRows<unknown>(async (from, to) => {
+    const { data, error } = await supabaseAdmin
+      .from('tli_babl_phase_observations')
+      .select(`
+        id, theme_id, payload_hash, candidate_pool, computed_at,
+        run:tli_collection_runs!inner(status, collected_at, completed_at),
+        snapshot:prediction_snapshots_v2!inner(
+          candidate_pool, created_at, run_type,
+          comparison_run:theme_comparison_runs_v2!inner(status, candidate_pool)
+        )
+      `)
+      .eq('snapshot_date', input.originDate)
+      .eq('algorithm_version', input.study.babl_algorithm_version)
+      .eq('comparison_spec_version', input.study.babl_comparison_spec_version)
+      .eq('evaluation_horizon_days', input.study.babl_evaluation_horizon_days)
+      .eq('snapshot.run_type', 'prod')
+      .in('theme_id', [...input.themeIds])
+      .order('id')
+      .range(from, to)
 
-  if (error) throw new Error(`B-Abl observation 조회 실패: ${error.message}`)
+    if (error) throw new Error(`B-Abl observation 조회 실패: ${error.message}`)
+    return { data, error }
+  })
 
   const byTheme = new Map<string, StudyBablCandidate[]>()
   for (const row of bablObservationRowSchema.array().parse(data ?? [])) {

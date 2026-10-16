@@ -7,6 +7,20 @@ import { getKSTDate } from '@/scripts/tli/shared/utils'
 import { buildFirstSpikeDateRepairRows } from '@/scripts/tli/themes/first-spike-date'
 import { buildFirstSpikeDateSyncPatch } from '@/scripts/tli/themes/theme-state-history'
 import { getKSTDate as getKSTDateObject } from '@/lib/tli/date-utils'
+import { fetchAllRows } from '@/lib/supabase/paginate'
+
+export const loadFirstSpikeHistoryRows = async (repairDates: string[]) => fetchAllRows<{
+  theme_id: string; first_spike_date: string | null
+}>(async (from, to) => {
+  const { data, error } = await supabaseAdmin
+    .from('theme_state_history_v2')
+    .select('theme_id, first_spike_date')
+    .in('first_spike_date', repairDates)
+    .order('id')
+    .range(from, to)
+  if (error) throw new Error(`theme_state_history_v2 load failed: ${error.message}`)
+  return { data, error }
+})
 
 async function main() {
   const repairDates = (process.env.TLI_FIRST_SPIKE_REPAIR_DATES || '2026-02-06')
@@ -23,14 +37,7 @@ async function main() {
     throw new Error(`theme load failed: ${error.message}`)
   }
 
-  const { data: historyRows, error: historyError } = await supabaseAdmin
-    .from('theme_state_history_v2')
-    .select('theme_id, first_spike_date')
-    .in('first_spike_date', repairDates)
-
-  if (historyError) {
-    throw new Error(`theme_state_history_v2 load failed: ${historyError.message}`)
-  }
+  const historyRows = await loadFirstSpikeHistoryRows(repairDates)
 
   const historyThemeIds = [...new Set((historyRows || []).map((row) => row.theme_id))]
   const missingThemeIds = historyThemeIds.filter(
@@ -106,7 +113,10 @@ async function main() {
   console.log(`✅ first_spike_date repair complete: ${updated}/${repairRows.length} updated on ${getKSTDate()}`)
 }
 
-main().catch((error) => {
-  console.error(error instanceof Error ? error.message : String(error))
-  process.exit(1)
-})
+const isDirectRun = process.argv[1]?.includes('run-first-spike-repair') ?? false
+if (isDirectRun) {
+  main().catch((error) => {
+    console.error(error instanceof Error ? error.message : String(error))
+    process.exit(1)
+  })
+}

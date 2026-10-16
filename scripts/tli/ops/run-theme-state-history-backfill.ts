@@ -2,17 +2,20 @@ import { config } from 'dotenv'
 config({ path: '.env.local' })
 
 import { supabaseAdmin } from '@/scripts/tli/shared/supabase-admin'
+import { fetchAllRows } from '@/lib/supabase/paginate'
 import { batchQuery } from '@/scripts/tli/shared/supabase-batch'
 import { buildBackfillRow } from '@/scripts/tli/themes/theme-state-history'
 
 export async function backfillThemeStateHistory() {
-  const { data: existingRows, error: existingError } = await supabaseAdmin
-    .from('theme_state_history_v2')
-    .select('theme_id')
-
-  if (existingError) {
-    throw new Error(`existing theme_state_history_v2 load failed: ${existingError.message}`)
-  }
+  const existingRows = await fetchAllRows<{ theme_id: string }>(async (from, to) => {
+    const { data, error } = await supabaseAdmin
+      .from('theme_state_history_v2')
+      .select('theme_id')
+      .order('id')
+      .range(from, to)
+    if (error) throw new Error(`existing theme_state_history_v2 load failed: ${error.message}`)
+    return { data, error }
+  })
 
   const existingThemeIds = new Set((existingRows || []).map((row) => row.theme_id))
 
@@ -39,7 +42,7 @@ export async function backfillThemeStateHistory() {
     targets.map((theme) => theme.id),
     (query) => query.order('calculated_at', { ascending: false }),
     'theme_id',
-    { failOnError: true },
+    { failOnError: true, orderBy: { column: 'id' } },
   )
 
   const lastScoreByTheme = new Map<string, string>()
