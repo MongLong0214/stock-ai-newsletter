@@ -1,6 +1,74 @@
 {
   "newsletters": [
     {
+      "type": "stock",
+      "date": "2026-10-19",
+      "stocks": [
+        {
+          "ticker": "KOSDAQ:217190",
+          "name": "제너셈",
+          "close_price": 8800,
+          "rationale": "2026-10-16 종가 8,800원|전일 대비 +1.1% 상승|시가 대비 -2.0% 음봉|20일선 8,228원·종가 7.0% 위|60일선 6,555원·종가 34.3% 위|최근 5거래일 종가 -12.5%|최근 20거래일 종가 +42.6%|20거래일 KOSPI 대비 +57.8%p|직전 20거래일 장중 고점 10,650원까지 +21.0%|직전 60거래일 최고 종가 10,060원까지 +14.3%|거래량 20일 평균의 0.52배|최근 60거래일 중 거래량 상위 32.5%|당일 범위 종가 16.1%·윗꼬리 54.8%|ATR14 평균 변동폭 8.3%·약 729원(갭 포함)|RSI14 59.6 중립|MACD 모멘텀 +0.27%(종가 대비)|20일 평균 거래대금 추정 30.3억원|52주(252거래일) 종가 범위 78.5% 위치(저점0·고점100)",
+          "signals": {
+            "trend_score": 94,
+            "momentum_score": 53,
+            "volume_score": 67,
+            "volatility_score": 61,
+            "pattern_score": 52,
+            "sentiment_score": 79,
+            "overall_score": 77
+          },
+          "selection": {
+            "strategy": "compositeUtility",
+            "rank": 1,
+            "objective": "compositeUtility"
+          }
+        },
+        {
+          "ticker": "KOSDAQ:084990",
+          "name": "헬릭스미스",
+          "close_price": 4080,
+          "rationale": "2026-10-16 종가 4,080원|전일 대비 +7.5% 상승|시가 대비 +6.8% 양봉|20일선 3,509원·종가 16.3% 위|60일선 3,273원·종가 24.7% 위|최근 5거래일 종가 -9.9%|최근 20거래일 종가 +39.7%|20거래일 KOSPI 대비 +54.9%p|직전 20거래일 장중 고점 4,955원까지 +21.4%|직전 60거래일 최고 종가 4,530원까지 +11.0%|거래량 20일 평균의 1.09배|최근 60거래일 중 거래량 상위 7.5%|당일 범위 종가 79.6%·윗꼬리 20.4%|ATR14 평균 변동폭 8.1%·약 331원(갭 포함)|RSI14 62.5 강세|MACD 모멘텀 +1.01%(종가 대비)|20일 평균 거래대금 추정 22.6억원|52주(252거래일) 종가 범위 19.1% 위치(저점0·고점100)",
+          "signals": {
+            "trend_score": 97,
+            "momentum_score": 68,
+            "volume_score": 82,
+            "volatility_score": 61,
+            "pattern_score": 47,
+            "sentiment_score": 63,
+            "overall_score": 77
+          },
+          "selection": {
+            "strategy": "compositeUtility",
+            "rank": 2,
+            "objective": "compositeUtility"
+          }
+        },
+        {
+          "ticker": "KOSDAQ:031980",
+          "name": "피에스케이홀딩스",
+          "close_price": 199000,
+          "rationale": "2026-10-16 종가 199,000원|전일 대비 +7.5% 상승|시가 대비 +0.8% 양봉|20일선 184,350원·종가 7.9% 위|60일선 140,178원·종가 42.0% 위|최근 5거래일 종가 -5.0%|최근 20거래일 종가 +28.0%|20거래일 KOSPI 대비 +43.2%p|직전 20거래일 장중 고점 219,000원까지 +10.1%|직전 60거래일 최고 종가 216,000원까지 +8.5%|거래량 20일 평균의 1.72배|최근 60거래일 중 거래량 상위 7.5%|당일 범위 종가 82.5%·윗꼬리 17.5%|ATR14 평균 변동폭 8.4%·약 16,618원(갭 포함)|RSI14 59.8 중립|MACD 모멘텀 -0.37%(종가 대비)|20일 평균 거래대금 추정 396.9억원|52주(252거래일) 종가 범위 90.3% 위치(저점0·고점100)",
+          "signals": {
+            "trend_score": 94,
+            "momentum_score": 57,
+            "volume_score": 76,
+            "volatility_score": 62,
+            "pattern_score": 65,
+            "sentiment_score": 83,
+            "overall_score": 76
+          },
+          "selection": {
+            "strategy": "compositeUtility",
+            "rank": 3,
+            "objective": "compositeUtility"
+          }
+        }
+      ],
+      "sentAt": "2026-10-18T22:30:54.986+00:00",
+      "subscriberCount": 326
+    },
+    {
       "type": "crash_alert",
       "date": "2026-10-16",
       "crashAlert": {
@@ -13064,5 +13132,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-10-15T22:31:38.055Z"
+  "lastUpdated": "2026-10-18T22:31:32.880Z"
 }
