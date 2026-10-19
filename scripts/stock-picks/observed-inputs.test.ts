@@ -4,12 +4,14 @@ import frozenFixture from '@/scripts/stock-picks/fixtures/composite-observed-v1-
 import { buildPriceBook, StockDataHandler } from '@/scripts/stock-picks/data-handler'
 import { buildFeatureSeries, type StockFeatureVector } from '@/scripts/stock-picks/features'
 import { buildObservedInputs50, OBSERVED_INPUT_NAMES, OBSERVED_INPUT_VERSION, validateModelMarketSources } from '@/scripts/stock-picks/observed-inputs'
-import { FROZEN_COMPOSITE_UTILITY_MODEL } from '@/scripts/stock-picks/production-strategy'
+import utilityArtifact from '@/scripts/stock-picks/models/composite-utility-v1.json'
 import { buildSignals } from '@/scripts/stock-picks/signals'
 import { buildTechnicalContextMap, type TechnicalContext } from '@/scripts/stock-picks/technical-context'
 import { TradingDayIndex } from '@/scripts/stock-picks/trading-days'
-import { scoreUtilityModel } from '@/scripts/stock-picks/utility-model'
+import { scoreUtilityModel, validateUtilityModel, type UtilityModelArtifact } from '@/scripts/stock-picks/utility-model'
 import type { StockDailyPriceRow } from '@/scripts/tli/prices/stock-daily-prices'
+
+const frozenUtilityModel = validateUtilityModel(utilityArtifact as UtilityModelArtifact)
 
 type Witness = {
   signalDate: string; symbol: string; calendar320: string[]; rawPrices320: StockDailyPriceRow[]
@@ -113,7 +115,7 @@ describe('causal production observed 50 inputs', () => {
       const sourceCategories = Object.fromEntries(Object.entries(w.sourceSignals)
         .filter(([key]) => key !== 'volatility_score' && key !== 'overall_score'))
       expect(buildSignals(feature), w.symbol).toMatchObject(sourceCategories)
-      const prediction = scoreUtilityModel(FROZEN_COMPOSITE_UTILITY_MODEL, values)
+      const prediction = scoreUtilityModel(frozenUtilityModel, values)
       expect(prediction.utility, w.symbol).toBeCloseTo(w.expectedPrediction, 14)
       expect(prediction.score, w.symbol).toBe(w.expectedRoundedScore)
     }

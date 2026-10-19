@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import type { StockPickStrategy } from '@/scripts/stock-picks/backtest'
 import type { StockFeatureVector } from '@/scripts/stock-picks/features'
 import { PRODUCTION_VOLUME_BREAKOUT_PARAMETERS } from '@/scripts/stock-picks/generate-picks'
-import { FROZEN_COMPOSITE_UTILITY_MODEL } from '@/scripts/stock-picks/production-strategy'
+import { FROZEN_COMPOSITE_RETURN_MODEL } from '@/scripts/stock-picks/production-strategy'
 import { normalizeUtilityScore } from '@/scripts/stock-picks/utility-model'
 import {
   COMPOSITE_ABLATION_FEATURES,
@@ -76,7 +76,7 @@ const master = (symbol: string, overrides: Partial<StockMasterState> = {}): Stoc
 
 describe('stock-picks strategy gates and ranking', () => {
   it('retains the stronger high-score candidate instead of letting ceiling ties favor turnover', () => {
-    const reference = FROZEN_COMPOSITE_UTILITY_MODEL.normalization
+    const reference = FROZEN_COMPOSITE_RETURN_MODEL.normalization
     const utilities = [1.5, 2, 2.5, 3].map((z) => reference.mean + reference.standardDeviation * z)
     const candidates = utilities.map((_, i) => feature(`KOSDAQ:0000${i + 1}0`, {
       averageTurnover20: i === 3 ? 500_000_000 : (5 - i) * 10_000_000_000,
@@ -84,7 +84,7 @@ describe('stock-picks strategy gates and ranking', () => {
     const result = rankUtilityScoreCandidates({ features: candidates,
       masters: new Map(candidates.map((c) => [c.symbol, master(c.symbol)])),
       scores: new Map(candidates.map((c, i) => [c.symbol,
-        normalizeUtilityScore(FROZEN_COMPOSITE_UTILITY_MODEL.normalization, utilities[i]!)])),
+        normalizeUtilityScore(FROZEN_COMPOSITE_RETURN_MODEL.normalization, utilities[i]!)])),
       parameters: LOW_VOLATILITY_STABLE_PARAMETERS, excludeSymbols: new Set() })
     expect(result).toEqual([
       { symbol: 'KOSDAQ:000040', score: 90 },

@@ -21,13 +21,18 @@ import sklearn
 from sklearn.ensemble import HistGradientBoostingRegressor
 from threadpoolctl import threadpool_limits
 from utility_target import COMPOSITE_TARGET, combine_heads
+from return_target import RETURN_TARGET, demeaned_tp7_net_targets
 
 PARAMS = dict(loss='squared_error', max_iter=100, max_leaf_nodes=7, max_depth=3,
               min_samples_leaf=100, l2_regularization=1, learning_rate=.05,
               max_bins=255, random_state=42, early_stopping=False)
+RETURN_PARAMS = dict(loss='squared_error', max_iter=200, max_leaf_nodes=31, max_depth=None,
+                     min_samples_leaf=500, l2_regularization=1, learning_rate=.05,
+                     max_bins=255, random_state=42, early_stopping=False)
 CONFIG = dict(family='A', complexity='small', riskDefinition='L0=netD5<0',
               **{'lambda': .65, 'inputCount': 50, 'id': 'L0-A-small-lambda0.65-inputs50'})
 SCORE_VERSION = 'utility-reference-smooth-v1'
+RETURN_SCORE_VERSION = 'return-reference-smooth-v1'
 
 def sha(path):
     with pathlib.Path(path).open('rb') as f:
@@ -59,7 +64,7 @@ def portable_predict(model, values):
     return predictor_predict(model, values)
 
 def rounded_score(v, reference):
-    delta = min(1, max(0, v)) - reference['mean']
+    delta = (v if reference['version'] == RETURN_SCORE_VERSION else min(1, max(0, v))) - reference['mean']
     return math.floor(reference['center'] + reference['center'] * delta / math.hypot(delta, math.sqrt(reference['tailCurvature']) * reference['standardDeviation']) + .5)
 
 def compact_json(value, indent=0):
@@ -84,15 +89,18 @@ def serialize(model):
                               missingGoLeft=bool(n['missing_go_to_left']),
                               left=int(n['left']), right=int(n['right'])))
         trees.append(nodes)
-    assert len(trees) == 100
+    assert len(trees) == model.max_iter
     return dict(baselinePrediction=float(model._baseline_prediction[0, 0]), trees=trees)
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     for name in ['features', 'feature-spec', 'calendar', 'prices', 'as-of', 'output', 'audit-dir']:
         parser.add_argument('--' + name, required=True)
-    parser.add_argument('--target', choices=['legacy', 'touch-nonloss-v1'], default='legacy')
+    parser.add_argument('--target', choices=['legacy', 'touch-nonloss-v1', 'demeaned-tp7-net-v1'], default='legacy')
     args = parser.parse_args(); paths = {k: pathlib.Path(getattr(args, k)) for k in ['features', 'feature_spec', 'calendar', 'prices']}
+    return_target = args.target == 'demeaned-tp7-net-v1'
+    params = RETURN_PARAMS if return_target else PARAMS
+    score_version = RETURN_SCORE_VERSION if return_target else SCORE_VERSION
     spec = json.loads(paths['feature_spec'].read_text()); feature_names = spec['featureNames']
     assert len(feature_names) == 50 and len(set(feature_names)) == 50
     calendar = json.loads(paths['calendar'].read_text())['tradingDays']
@@ -128,6 +136,7 @@ def main():
             raw[symbol_index[symbol], date_index[d]] = [bar[k] if finite(bar.get(k)) else np.nan for k in ['open', 'high', 'low', 'close', 'volume']]
     events = np.zeros((len(keys), 3), dtype=np.uint8); strict = np.zeros(len(keys), dtype=bool)
     outcomes = np.full((len(keys), 2), np.nan)
+    return_targets = np.full(len(keys), np.nan) if return_target else None
     per_date = []; offset = 0; float_touch_differences = 0; strict_float_touch_differences = 0
     for d in sorted(eligible_counts):
         count = eligible_counts[d]; kk = keys[offset:offset + count]; assert all(k[0] == d for k in kk)
@@ -148,6 +157,8 @@ def main():
         outcomes[offset:offset + count] = np.column_stack([net, adverse])
         strict[offset:offset + count] = valid
         strict_count = int(valid.sum()); assert strict_count > 0, 'Do not silently compress an empty signal panel'
+        if return_target:
+            return_targets[offset:offset + count][valid] = demeaned_tp7_net_targets(rr[valid], calendar[date_index[d] + 5])
         per_date.append(dict(signalDate=d, labelMaturityDate=calendar[date_index[d] + 5], eligible=count,
                              strictTrainingRows=strict_count, futureUnknownRows=count - strict_count))
         offset += count
@@ -161,9 +172,14 @@ def main():
     separate_heads = args.target == 'touch-nonloss-v1'
     if separate_heads:
         y = np.column_stack([fit_events[:, 0], 1 - fit_events[:, 2]]).astype(float)
+    if return_target:
+        y = return_targets[strict]
     assert abs(weights.mean() - 1) < 1e-12 and len(y) == int(counts.sum())
     hashes = {p.name: sha(p) for p in paths.values()}; hashes[pathlib.Path(__file__).name] = sha(__file__)
     hashes['utility_target.py'] = sha(pathlib.Path(__file__).with_name('utility_target.py'))
+    if return_target:
+        for name in ['return_target.py', 'trading_cost.py']:
+            hashes[name] = sha(pathlib.Path(__file__).with_name(name))
     input_sha = hashlib.sha256(fit_x.tobytes() + fit_events.tobytes() + counts.tobytes() + weights.tobytes() + y.tobytes()).hexdigest()
     print('FIXED_FIT_START', len(counts), len(fit_x), per_date[-1], flush=True)
     with threadpool_limits(limits=1):
@@ -173,19 +189,22 @@ def main():
                                           ('nonLoss', (1 - fit_events[:, 2]).astype(float))]}
             reference_predictions = (np.clip(model['touch'].predict(fit_x), 0, 1)
                                      * np.clip(model['nonLoss'].predict(fit_x), 0, 1) ** 2)
+        elif return_target:
+            model = HistGradientBoostingRegressor(**RETURN_PARAMS).fit(fit_x, y, sample_weight=weights)
+            reference_predictions = model.predict(fit_x)
         else:
             model = HistGradientBoostingRegressor(**PARAMS).fit(fit_x, y, sample_weight=weights)
             reference_predictions = np.clip(model.predict(fit_x), 0, 1)
     reference_mean = float(np.average(reference_predictions, weights=weights))
     reference_sd = float(np.sqrt(np.average((reference_predictions - reference_mean) ** 2, weights=weights)))
     assert math.isfinite(reference_sd) and reference_sd > 0, 'Cannot normalize a constant training predictor'
-    reference = dict(version=SCORE_VERSION, mean=reference_mean, standardDeviation=reference_sd,
+    reference = dict(version=score_version, mean=reference_mean, standardDeviation=reference_sd,
                      center=50, oneStandardDeviationScore=70, tailCurvature=5.25, referencePanels=len(counts),
                      referenceRows=len(y), referenceThrough=per_date[-1]['labelMaturityDate'],
                      referenceLastSignal=per_date[-1]['signalDate'], source='kis',
                      weighting='equal signal date, strict matured training rows', fitInputSha256=input_sha)
     predictors = list(model.values()) if separate_heads else [model]
-    assert all(m.n_iter_ == 100 for m in predictors)
+    assert all(m.n_iter_ == params['max_iter'] for m in predictors)
     target_definition = COMPOSITE_TARGET if separate_heads else dict(
         eventOrder=['touch10', 'D1bullish', 'D5netNegative'],
         formula='(.8*T10 + .2*D1bullish + .65*(1-L0))/(1+.65)',
@@ -213,6 +232,12 @@ def main():
                     selectionContract='published integer DESC, turnover20 DESC, ASCII symbol; own cooldown20',
                     performanceClaim='Fresh refit only; no new out-of-sample performance claim. Prior research did not attain40/30.',
                     currentMasterAndAdjustedVintageBias=True))
+    if return_target:
+        result.update(schemaVersion=5, modelVersion='composite-return-v6',
+                      targetDefinition=RETURN_TARGET, config=RETURN_TARGET, parameters=RETURN_PARAMS,
+                      scoreMap=dict(version=RETURN_SCORE_VERSION, scoreClamp=[0, 100],
+                        rounding='floor(50+50*delta/hypot(delta,sqrt(5.25)*standardDeviation)+0.5); delta=prediction-mean'))
+        result['metadata']['performanceClaim'] = 'Research walk-forward OOS 2025-09-03..2026-10-07 (docs/research/stock-composite-2026-10-19.md); fresh refit, no new OOS claim.'
     audit_dir = pathlib.Path(args.audit_dir); audit_dir.mkdir(parents=True, exist_ok=True)
     joblib.dump(model, audit_dir / 'model.joblib'); np.savez(audit_dir / 'fit-inputs.npz', X=fit_x, events=fit_events, outcomes=fit_outcomes, groups=counts, weights=weights, y=y)
     sample_indices = np.linspace(0, len(fit_x) - 1, min(2048, len(fit_x)), dtype=int)
@@ -263,7 +288,7 @@ def main():
     output.write_text(compact_json(result) + '\n')
     audit['portableArtifactSha256'] = sha(output)
     (audit_dir / 'audit.json').write_text(json.dumps(audit, ensure_ascii=False, indent=2))
-    (audit_dir / 'fixtures.json').write_text(compact_json(dict(schemaVersion=result['schemaVersion'], scoreVersion=SCORE_VERSION,
+    (audit_dir / 'fixtures.json').write_text(compact_json(dict(schemaVersion=result['schemaVersion'], scoreVersion=score_version,
                                                            featureNames=feature_names, cases=fixtures)) + '\n')
     (audit_dir / 'observed-keys.json').write_text(json.dumps([keys[i] for i in np.flatnonzero(strict)[sample_indices]], ensure_ascii=False))
     print('FIXED_FIT_EXPORT_DONE', output, audit['portableArtifactSha256'], 'PARITY', len(cases), score_difference, flush=True)

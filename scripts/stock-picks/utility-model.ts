@@ -1,9 +1,10 @@
 import { OBSERVED_INPUT_NAMES, OBSERVED_INPUT_VERSION } from '@/scripts/stock-picks/observed-inputs'
 
 export const UTILITY_SCORE_VERSION = 'utility-reference-smooth-v1'
+export const RETURN_SCORE_VERSION = 'return-reference-smooth-v1'
 
 export interface UtilityScoreNormalization {
-  readonly version: typeof UTILITY_SCORE_VERSION
+  readonly version: typeof UTILITY_SCORE_VERSION | typeof RETURN_SCORE_VERSION
   readonly mean: number
   readonly standardDeviation: number
   readonly center: 50
@@ -57,7 +58,21 @@ export interface CompositeUtilityModelArtifact extends UtilityModelReference {
   readonly heads: { readonly touch: UtilityPredictor; readonly nonLoss: UtilityPredictor }
 }
 
-export type UtilityModelArtifact = LegacyUtilityModelArtifact | CompositeUtilityModelArtifact
+export interface CompositeReturnModelArtifact extends UtilityModelReference, UtilityPredictor {
+  readonly schemaVersion: 5
+  readonly modelVersion: 'composite-return-v6'
+  readonly targetDefinition: {
+    readonly version: 'demeaned-tp7-net-v1'
+    readonly formula: string
+    readonly horizon: 5
+    readonly takeProfit: 0.07
+    readonly cost: 'krx-realistic-v1'
+    readonly demean: 'signal-date strict rows'
+  }
+  readonly normalization: UtilityScoreNormalization & { readonly version: typeof RETURN_SCORE_VERSION }
+}
+
+export type UtilityModelArtifact = LegacyUtilityModelArtifact | CompositeUtilityModelArtifact | CompositeReturnModelArtifact
 
 const validDate = (value: string): boolean => (
   /^\d{4}-\d{2}-\d{2}$/.test(value)
@@ -66,8 +81,10 @@ const validDate = (value: string): boolean => (
 )
 
 function validateNormalization(normalization: UtilityScoreNormalization): void {
-  if (!normalization || normalization.version !== UTILITY_SCORE_VERSION
-    || !Number.isFinite(normalization.mean) || normalization.mean < 0 || normalization.mean > 1
+  if (!normalization || ![UTILITY_SCORE_VERSION, RETURN_SCORE_VERSION].includes(normalization.version)
+    || !Number.isFinite(normalization.mean)
+    || (normalization.version === RETURN_SCORE_VERSION
+      ? Math.abs(normalization.mean) > 0.5 : normalization.mean < 0 || normalization.mean > 1)
     || !Number.isFinite(normalization.standardDeviation)
     || normalization.standardDeviation <= 0 || normalization.standardDeviation > 0.5
     || normalization.center !== 50 || normalization.oneStandardDeviationScore !== 70
@@ -87,7 +104,7 @@ function validateNormalization(normalization: UtilityScoreNormalization): void {
 export function normalizeUtilityScore(normalization: UtilityScoreNormalization, utility: number): number {
   validateNormalization(normalization)
   if (!Number.isFinite(utility)) throw new Error('종합 점수 추론 실패')
-  const clippedUtility = Math.min(1, Math.max(0, utility))
+  const clippedUtility = normalization.version === UTILITY_SCORE_VERSION ? Math.min(1, Math.max(0, utility)) : utility
   const delta = clippedUtility - normalization.mean
   // 5.25=(50/(70-50))²-1: 평균 50·+1σ 70을 유지하며 상단을 100점에 뭉개지 않는다.
   const standardized = normalization.center + normalization.center
@@ -106,6 +123,12 @@ export function validateUtilityModel(model: UtilityModelArtifact): UtilityModelA
       && model.targetDefinition.horizon === 5 && model.targetDefinition.roundTripCostBps === 30
       && model.heads && Object.keys(model.heads).sort().join(',') === 'nonLoss,touch'
       && !('trees' in model) && !('baselinePrediction' in model))
+    || (model.schemaVersion === 5 && model.modelVersion === 'composite-return-v6'
+      && model.targetDefinition?.version === 'demeaned-tp7-net-v1'
+      && typeof model.targetDefinition.formula === 'string' && model.targetDefinition.formula.length > 0
+      && model.targetDefinition.horizon === 5 && model.targetDefinition.takeProfit === 0.07
+      && model.targetDefinition.cost === 'krx-realistic-v1'
+      && model.targetDefinition.demean === 'signal-date strict rows' && !('heads' in model))
   if (!supportedVersion || model.observedInputVersion !== OBSERVED_INPUT_VERSION
     || !validDate(model.trainedLabelsThrough)
     || !Array.isArray(model.featureNames) || model.featureNames.length !== OBSERVED_INPUT_NAMES.length
@@ -113,18 +136,21 @@ export function validateUtilityModel(model: UtilityModelArtifact): UtilityModelA
     throw new Error('종합 점수 모델 계약 불일치')
   }
   validateNormalization(model.normalization)
+  if (model.normalization.version !== (model.schemaVersion === 5 ? RETURN_SCORE_VERSION : UTILITY_SCORE_VERSION)) {
+    throw new Error('종합 점수 모델 표준화 계약 불일치')
+  }
   if (model.normalization.referenceThrough !== model.trainedLabelsThrough) {
     throw new Error('종합 점수 모델 표준화 학습 시점 불일치')
   }
   if (model.schemaVersion === 4) {
     validatePredictor(model.heads.touch); validatePredictor(model.heads.nonLoss)
-  } else validatePredictor(model)
+  } else validatePredictor(model, model.schemaVersion === 5 ? 200 : 100)
   return model
 }
 
-function validatePredictor(model: UtilityPredictor): void {
+function validatePredictor(model: UtilityPredictor, treeCount = 100): void {
   if (!model || !Number.isFinite(model.baselinePrediction) || !Array.isArray(model.trees)
-    || model.trees.length !== 100) throw new Error('종합 점수 모델 계약 불일치')
+    || model.trees.length !== treeCount) throw new Error('종합 점수 모델 계약 불일치')
   for (const tree of model.trees) {
     if (!Array.isArray(tree) || !tree.length) throw new Error('종합 점수 모델 빈 트리')
     const visited = new Set<number>()
@@ -160,11 +186,11 @@ export function scoreUtilityModel(model: UtilityModelArtifact, inputs: readonly 
   }
   const utility = model.schemaVersion === 4
     ? predict(model.heads.touch, inputs) * predict(model.heads.nonLoss, inputs) ** 2
-    : predict(model, inputs)
+    : predict(model, inputs, model.schemaVersion !== 5)
   return { utility, score: normalizeUtilityScore(model.normalization, utility) }
 }
 
-function predict(model: UtilityPredictor, inputs: readonly (number | null)[]): number {
+function predict(model: UtilityPredictor, inputs: readonly (number | null)[], clip = true): number {
   let prediction = model.baselinePrediction
   for (const tree of model.trees) {
     let index = 0
@@ -178,5 +204,5 @@ function predict(model: UtilityPredictor, inputs: readonly (number | null)[]): n
     prediction += tree[index]!.value
   }
   if (!Number.isFinite(prediction)) throw new Error('종합 점수 추론 실패')
-  return Math.min(1, Math.max(0, prediction))
+  return clip ? Math.min(1, Math.max(0, prediction)) : prediction
 }

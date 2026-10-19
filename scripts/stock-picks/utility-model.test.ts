@@ -2,9 +2,13 @@ import { describe, expect, it } from 'vitest'
 
 import { OBSERVED_INPUT_NAMES, OBSERVED_INPUT_VERSION } from '@/scripts/stock-picks/observed-inputs'
 import parity from '@/scripts/stock-picks/fixtures/composite-utility-v1-parity.json'
-import { FROZEN_COMPOSITE_UTILITY_MODEL } from '@/scripts/stock-picks/production-strategy'
-import { normalizeUtilityScore, scoreUtilityModel, UTILITY_SCORE_VERSION, validateUtilityModel,
-  type UtilityModelArtifact, type LegacyUtilityModelArtifact, type CompositeUtilityModelArtifact, type UtilityScoreNormalization, type UtilityTreeNode } from '@/scripts/stock-picks/utility-model'
+import utilityArtifact from '@/scripts/stock-picks/models/composite-utility-v1.json'
+import returnParity from '@/scripts/stock-picks/fixtures/composite-return-v6-parity.json'
+import { FROZEN_COMPOSITE_RETURN_MODEL } from '@/scripts/stock-picks/production-strategy'
+import { normalizeUtilityScore, scoreUtilityModel, RETURN_SCORE_VERSION, UTILITY_SCORE_VERSION, validateUtilityModel,
+  type UtilityModelArtifact, type LegacyUtilityModelArtifact, type CompositeUtilityModelArtifact, type CompositeReturnModelArtifact, type UtilityScoreNormalization, type UtilityTreeNode } from '@/scripts/stock-picks/utility-model'
+
+const frozenUtilityModel = validateUtilityModel(utilityArtifact as UtilityModelArtifact)
 
 const leaf = (value: number): UtilityTreeNode => ({ isLeaf: true, value, featureIdx: 0,
   numThreshold: 0, missingGoLeft: false, left: 0, right: 0 })
@@ -24,6 +28,59 @@ const model = (tree: readonly UtilityTreeNode[] = [leaf(0)]): LegacyUtilityModel
 const inputs = (): (number | null)[] => Array(50).fill(null)
 
 describe('native HGB utility inference', () => {
+  const returnModel = (): CompositeReturnModelArtifact => ({
+    schemaVersion: 5, modelVersion: 'composite-return-v6',
+    trainedLabelsThrough: model().trainedLabelsThrough, observedInputVersion: OBSERVED_INPUT_VERSION,
+    featureNames: OBSERVED_INPUT_NAMES,
+    normalization: { ...normalization(), version: RETURN_SCORE_VERSION, mean: 0, standardDeviation: .01 },
+    targetDefinition: { version: 'demeaned-tp7-net-v1', formula: 'net-dateMean(net)', horizon: 5,
+      takeProfit: .07, cost: 'krx-realistic-v1', demean: 'signal-date strict rows' },
+    baselinePrediction: -.01, trees: Array.from({ length: 200 }, () => [leaf(0)]),
+  })
+  it('accepts the single 200-tree return predictor and preserves negative and unbounded predictions', () => {
+    const artifact = returnModel()
+    expect(validateUtilityModel(artifact)).toBe(artifact)
+    expect(scoreUtilityModel(artifact, inputs())).toEqual({ utility: -.01, score: 30 })
+    expect(scoreUtilityModel({ ...artifact, baselinePrediction: .01 }, inputs())).toEqual({ utility: .01, score: 70 })
+    expect(scoreUtilityModel({ ...artifact, baselinePrediction: 1.1 }, inputs()).utility).toBe(1.1)
+    expect(normalizeUtilityScore({ ...artifact.normalization, mean: -.01 }, -.01)).toBe(50)
+  })
+  it('rejects wrong return tree counts, targets, reference bounds and schema/score version mismatches', () => {
+    const artifact = returnModel()
+    const invalid = [
+      { ...artifact, trees: artifact.trees.slice(1) },
+      { ...artifact, trees: artifact.trees.slice(0, 100) },
+      { ...artifact, trees: [...artifact.trees, [leaf(0)]] },
+      { ...artifact, normalization: normalization() },
+      { ...artifact, targetDefinition: { ...artifact.targetDefinition, takeProfit: .1 } },
+      { ...artifact, targetDefinition: { ...artifact.targetDefinition, version: 'touch-nonloss-v1' } },
+      { ...artifact, modelVersion: 'composite-utility-v4' },
+      { ...model(), normalization: artifact.normalization },
+      { ...composite(), normalization: artifact.normalization },
+      { ...model(), trees: artifact.trees },
+    ]
+    for (const mean of [-.501, .501, NaN]) invalid.push({ ...artifact, normalization: { ...artifact.normalization, mean } })
+    for (const standardDeviation of [0, -.01, .501, Infinity]) {
+      invalid.push({ ...artifact, normalization: { ...artifact.normalization, standardDeviation } })
+    }
+    for (const candidate of invalid) expect(() => validateUtilityModel(candidate as UtilityModelArtifact)).toThrow()
+    for (const mean of [-.5, .5]) expect(() => validateUtilityModel({ ...artifact,
+      normalization: { ...artifact.normalization, mean, standardDeviation: .5 } })).not.toThrow()
+  })
+  it('matches native return vectors without clipping negative predictions', () => {
+    expect(returnParity.schemaVersion).toBe(5)
+    expect(returnParity.scoreVersion).toBe(RETURN_SCORE_VERSION)
+    expect(returnParity.featureNames).toEqual(OBSERVED_INPUT_NAMES)
+    expect(returnParity.cases.some((c) => c.prediction < 0)).toBe(true)
+    expect(returnParity.cases.some((c) => c.inputs.includes(null))).toBe(true)
+    for (const witness of returnParity.cases) {
+      const result = scoreUtilityModel(FROZEN_COMPOSITE_RETURN_MODEL, witness.inputs)
+      expect(result.utility, witness.id).toBeCloseTo(witness.prediction, 14)
+      expect(result.score, witness.id).toBe(witness.overallScore)
+      expect(scoreUtilityModel(FROZEN_COMPOSITE_RETURN_MODEL,
+        witness.inputs.map((v) => v === null ? Number.NaN : v))).toEqual(result)
+    }
+  })
   const composite = (): CompositeUtilityModelArtifact => ({
     schemaVersion: 4, modelVersion: 'composite-utility-v4',
     trainedLabelsThrough: model().trainedLabelsThrough, observedInputVersion: OBSERVED_INPUT_VERSION,
@@ -66,10 +123,10 @@ describe('native HGB utility inference', () => {
     expect(parity.featureNames).toEqual(OBSERVED_INPUT_NAMES)
     expect(parity.cases.some((c) => c.inputs.includes(null))).toBe(true)
     for (const witness of parity.cases) {
-      const result = scoreUtilityModel(FROZEN_COMPOSITE_UTILITY_MODEL, witness.inputs)
+      const result = scoreUtilityModel(frozenUtilityModel, witness.inputs)
       expect(result.utility, witness.id).toBeCloseTo(Math.min(1, Math.max(0, witness.prediction)), 14)
       expect(result.score, witness.id).toBe(witness.overallScore)
-      expect(scoreUtilityModel(FROZEN_COMPOSITE_UTILITY_MODEL,
+      expect(scoreUtilityModel(frozenUtilityModel,
         witness.inputs.map((v) => v === null ? Number.NaN : v))).toEqual(result)
     }
   })

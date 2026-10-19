@@ -5,21 +5,15 @@ import { getRawPrice, loadPriceBook, type PriceBook } from '@/scripts/stock-pick
 import { labelEntryDay, labelPick, type StockPickEntryDayLabel, type StockPickLabel } from '@/scripts/stock-picks/label'
 import type { StockPickSnapshot } from '@/scripts/stock-picks/pick-snapshots'
 import { loadStockPickSnapshots } from '@/scripts/stock-picks/pick-snapshots'
-import { FROZEN_COMPOSITE_UTILITY_MODEL, LEGACY_VOLUME_BREAKOUT_STRATEGY, PRODUCTION_STRATEGY } from '@/scripts/stock-picks/production-strategy'
+import { LEGACY_VOLUME_BREAKOUT_STRATEGY, PRODUCTION_STRATEGY } from '@/scripts/stock-picks/production-strategy'
 import { TradingDayIndex, loadTradingDayIndex } from '@/scripts/stock-picks/trading-days'
 import { estimateRoundTripCost, reconstructExitPrice } from '@/scripts/stock-picks/trading-cost'
 
 const DEFAULT_LOOKBACK_DAYS = 60
 const RECENT_WEEK_COUNT = 4
 const INFORMATIONAL_HOLDING_DAYS = 8
-const resolveDefaultRoundTripCostBps = (): number => {
-  const model = FROZEN_COMPOSITE_UTILITY_MODEL
-  const cost = 'targetDefinition' in model ? model.targetDefinition?.roundTripCostBps : undefined
-  if (cost == null) {
-    throw new Error('종합 점수 모델의 왕복 비용 정의가 필요합니다')
-  }
-  return cost
-}
+// WHY: 전방 측정 비교 지표는 연속성을 위해 30bps로 고정하고, 현실 비용은 별도로 계산한다.
+const DEFAULT_ROUND_TRIP_COST_BPS = 30
 export type ForwardPicksSource = 'code' | 'llm_fallback' | 'crash' | null
 export type ForwardNullReason = 'missingEntryOpen' | 'missingWindowData'
 type SourceKey = Exclude<ForwardPicksSource, null> | 'null'
@@ -560,7 +554,7 @@ export function measureStrategyForwardComparison(input: {
   readonly asOfDate: string
   readonly roundTripCostBps?: number
 }): StrategyForwardSummary[] {
-  const roundTripCostBps = input.roundTripCostBps ?? resolveDefaultRoundTripCostBps()
+  const roundTripCostBps = input.roundTripCostBps ?? DEFAULT_ROUND_TRIP_COST_BPS
   validateCostBps(roundTripCostBps)
   const grouped = new Map<string, Array<{ symbol: string; signalDate: string; entryDate: string; mature: boolean }>>()
   for (const snapshot of input.snapshots) {
@@ -612,7 +606,7 @@ export function measurePairedStrategyForwardComparison(input: {
   readonly asOfDate: string
   readonly roundTripCostBps?: number
 }): PairedStrategyForwardSummary[] {
-  const roundTripCostBps = input.roundTripCostBps ?? resolveDefaultRoundTripCostBps()
+  const roundTripCostBps = input.roundTripCostBps ?? DEFAULT_ROUND_TRIP_COST_BPS
   validateCostBps(roundTripCostBps)
   const datesByStrategy = new Map(PAIRED_STRATEGIES.map((strategy) => [strategy, new Set<string>()]))
   for (const snapshot of input.snapshots) {
@@ -660,7 +654,7 @@ export function measureForwardPicks(input: {
   readonly snapshots?: readonly StockPickSnapshot[]
   readonly roundTripCostBps?: number
 }): ForwardMeasurementReport {
-  const roundTripCostBps = input.roundTripCostBps ?? resolveDefaultRoundTripCostBps()
+  const roundTripCostBps = input.roundTripCostBps ?? DEFAULT_ROUND_TRIP_COST_BPS
   validateCostBps(roundTripCostBps)
   const lookbackDays = input.lookbackDays ?? DEFAULT_LOOKBACK_DAYS
   if (!Number.isInteger(lookbackDays) || lookbackDays <= 0) {
@@ -913,7 +907,7 @@ export function parseForwardMeasurementArgs(args: readonly string[]): {
 } {
   const rawCostBps = args.find((arg) => arg.startsWith('--cost-bps='))?.slice('--cost-bps='.length)
   const roundTripCostBps = rawCostBps === undefined
-    ? resolveDefaultRoundTripCostBps() : rawCostBps.trim() === '' ? NaN : Number(rawCostBps)
+    ? DEFAULT_ROUND_TRIP_COST_BPS : rawCostBps.trim() === '' ? NaN : Number(rawCostBps)
   validateCostBps(roundTripCostBps)
   return { lookbackDays: readDays(args), roundTripCostBps }
 }
