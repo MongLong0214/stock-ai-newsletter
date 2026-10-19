@@ -14,7 +14,7 @@ import {
   type ShadowForwardComparison,
 } from '@/scripts/stock-picks/measure-forward'
 import type { StockPickSnapshot } from '@/scripts/stock-picks/pick-snapshots'
-import { FROZEN_COMPOSITE_UTILITY_MODEL, PRODUCTION_STRATEGY } from '@/scripts/stock-picks/production-strategy'
+import { PRODUCTION_STRATEGY } from '@/scripts/stock-picks/production-strategy'
 import { TradingDayIndex } from '@/scripts/stock-picks/trading-days'
 import type { StockDailyPriceRow } from '@/scripts/tli/prices/stock-daily-prices'
 
@@ -54,11 +54,11 @@ const newsletter = (
 })
 
 describe('parseForwardMeasurementArgs', () => {
-  it('allows imports after a schema rollback and only requires model cost when a default is needed', async () => {
+  it('keeps the fixed comparison cost after a model schema change', async () => {
     vi.resetModules()
     vi.doMock('@/scripts/stock-picks/production-strategy', async (importOriginal) => ({
       ...await importOriginal<typeof import('@/scripts/stock-picks/production-strategy')>(),
-      FROZEN_COMPOSITE_UTILITY_MODEL: { schemaVersion: 3 },
+      FROZEN_COMPOSITE_RETURN_MODEL: { schemaVersion: 3 },
     }))
     try {
       const measurement = await import('@/scripts/stock-picks/measure-forward')
@@ -66,32 +66,30 @@ describe('parseForwardMeasurementArgs', () => {
         kind: 'stock', picks: [{ publicationDate: DATES[1], symbol: 'GAIN', picksSource: 'code' }],
       })
       expect(measurement.parseForwardMeasurementArgs(['--cost-bps=0']).roundTripCostBps).toBe(0)
-      expect(() => measurement.parseForwardMeasurementArgs([])).toThrow('종합 점수 모델의 왕복 비용 정의가 필요합니다')
+      expect(measurement.parseForwardMeasurementArgs([]).roundTripCostBps).toBe(30)
 
       const input = {
         newsletters: [], snapshots: [], prices: new Map(), tradingDays: new TradingDayIndex(DATES),
         startDate: DATES[0], asOfDate: DATES[5],
       }
       expect(measurement.measureForwardPicks({ ...input, roundTripCostBps: 0 }).roundTripCostBps).toBe(0)
-      expect(() => measurement.measureForwardPicks(input)).toThrow('종합 점수 모델의 왕복 비용 정의가 필요합니다')
+      expect(measurement.measureForwardPicks(input).roundTripCostBps).toBe(30)
       expect(measurement.measureStrategyForwardComparison({ ...input, roundTripCostBps: 0 })).toEqual([])
-      expect(() => measurement.measureStrategyForwardComparison(input)).toThrow('종합 점수 모델의 왕복 비용 정의가 필요합니다')
+      expect(measurement.measureStrategyForwardComparison(input)).toEqual([])
       expect(measurement.measurePairedStrategyForwardComparison({ ...input, roundTripCostBps: 0 }))
         .toEqual(expect.arrayContaining([expect.objectContaining({ roundTripCostBps: 0 })]))
-      expect(() => measurement.measurePairedStrategyForwardComparison(input)).toThrow('종합 점수 모델의 왕복 비용 정의가 필요합니다')
+      expect(measurement.measurePairedStrategyForwardComparison(input))
+        .toEqual(expect.arrayContaining([expect.objectContaining({ roundTripCostBps: 30 })]))
     } finally {
       vi.doUnmock('@/scripts/stock-picks/production-strategy')
       vi.resetModules()
     }
   })
 
-  it('uses the frozen production model cost when no CLI arguments are supplied', () => {
+  it('uses the fixed 30bps comparison cost when no CLI arguments are supplied', () => {
     const options = parseForwardMeasurementArgs([])
     expect(options.lookbackDays).toBe(60)
-    expect(options.roundTripCostBps).toBeGreaterThan(0)
-    expect(FROZEN_COMPOSITE_UTILITY_MODEL).toMatchObject({
-      targetDefinition: { roundTripCostBps: options.roundTripCostBps },
-    })
+    expect(options.roundTripCostBps).toBe(30)
     const report = measureForwardPicks({
       newsletters: [newsletter(DATES[1], 'code', ['GAIN'])],
       prices: buildPriceBook(buildRows({ symbol: 'GAIN', maxHigh: 109 }).map((row) => ({ ...row, close: 105 }))),

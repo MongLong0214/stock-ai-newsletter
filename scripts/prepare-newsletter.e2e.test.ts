@@ -143,7 +143,7 @@ import { generateNewsletterHTML } from '@/lib/sendgrid'
 import { createKisApiError } from '@/app/archive/_utils/api/kis/client'
 import { runPrepareNewsletterCli } from '@/scripts/prepare-newsletter'
 import { DEFAULT_DAILY_COLLECTION_CALL_BUDGET } from '@/scripts/stock-picks/collect-daily'
-import { FROZEN_COMPOSITE_UTILITY_MODEL, LOW_VOLATILITY_STABLE_STRATEGY, PRODUCTION_STRATEGY } from '@/scripts/stock-picks/production-strategy'
+import { FROZEN_COMPOSITE_RETURN_MODEL, LOW_VOLATILITY_STABLE_STRATEGY, PRODUCTION_STRATEGY } from '@/scripts/stock-picks/production-strategy'
 import { buildSignals } from '@/scripts/stock-picks/signals'
 import { buildPriceBook, StockDataHandler } from '@/scripts/stock-picks/data-handler'
 import { buildTradingDayIndex } from '@/scripts/stock-picks/trading-days'
@@ -152,8 +152,8 @@ import { scoreUtilityModel } from '@/scripts/stock-picks/utility-model'
 import { buildFeatureVector } from '@/scripts/stock-picks/features'
 import { buildTechnicalContextMap } from '@/scripts/stock-picks/technical-context'
 
-const TARGET = '2026-10-13'
-const SIGNAL = '2026-10-12'
+const TARGET = '2026-10-19'
+const SIGNAL = '2026-10-16'
 const E2E_NOW = `${TARGET}T06:00:00+09:00`
 
 function freshRiskQuote(code: string, changePct = 0, korea = false) {
@@ -212,9 +212,11 @@ describe('Prepare boundary-isolated E2E', () => {
           ? Math.round((base + 317 * 2 + 10) * (stockIndex > 5 ? 0.995 : 1.003))
           : base + index * 2 + (index % 2 === 1 ? 10 : -10)
         const open = signalDay ? previousClose : close - 5
+        // WHY: 거래대금이 낮은 후보의 숨은 예측값이 더 높아도 공개 점수 동점 정렬을 검증한다.
+        const signalVolume = stockIndex === 1 ? 3_600_000 : 5_000_000 + stockIndex * 100_000
         return { symbol, trade_date, open, high: Math.max(open, close) + 15,
           low: Math.min(open, close) - 15, close,
-          volume: signalDay ? 5_000_000 + stockIndex * 100_000 : 1_000_000 + index * 1_000,
+          volume: signalDay ? signalVolume : 1_000_000 + index * 1_000,
           source: 'kis' as const }
       })
     ))
@@ -343,6 +345,7 @@ describe('Prepare boundary-isolated E2E', () => {
     const snapshot = state.snapshots[0]
     expect(snapshot.strategy).toBe(PRODUCTION_STRATEGY.name)
     expect(snapshot.strategy_version).toBe(PRODUCTION_STRATEGY.version)
+    expect(snapshot.parameters_hash).toBe('2095aadd60f32b876b280bb6cabe70648f7704838890b09f19fd6187c93291ec')
     expect(snapshot.signal_date).toBe(SIGNAL)
     const candidates = snapshot.picks as Array<{ symbol: string; rank: number; close: number; score: number; technicalContext: unknown }>
     expect(candidates.map(row => row.symbol)).toEqual(picks.map((pick: { ticker: string }) => pick.ticker))
@@ -356,17 +359,17 @@ describe('Prepare boundary-isolated E2E', () => {
     expect(state.generated!.meta.funnel).toMatchObject({
       withFreshKisRow: 6, withCompleteFeatures: 6, gatePassed: 6, picked: 3,
     })
-    // Real frozen-model predictions differ in the decimals but round to the same
-    // published score. Higher turnover wins even against a higher hidden utility.
+    // WHY: 공개 정수 점수 동점은 숨은 예측값 대신 거래대금으로 정렬한다.
     const ranked = state.generated!.meta.rankedCandidates
     expect(ranked).toHaveLength(6)
-    expect(new Set(ranked.map(candidate => candidate.score)).size).toBe(1)
+    expect(ranked.map(candidate => candidate.score)).toEqual([61, 61, 61, 61, 61, 54])
     expect(new Set(ranked.map(candidate => candidate.utility)).size).toBeGreaterThan(1)
     expect(Math.max(...ranked.slice(3).map(candidate => candidate.utility!)))
       .toBeGreaterThan(Math.min(...ranked.slice(0, 3).map(candidate => candidate.utility!)))
-    expect(picks.map(pick => pick.ticker)).toEqual(['KOSPI:000060', 'KOSPI:000050', 'KOSPI:000040'])
-    expect(ranked.map(candidate => candidate.averageTurnover20))
-      .toEqual([...ranked.map(candidate => candidate.averageTurnover20)].sort((a, b) => b! - a!))
+    expect(picks.map(pick => pick.ticker)).toEqual(['KOSPI:000050', 'KOSPI:000040', 'KOSPI:000030'])
+    const tied = ranked.filter(candidate => candidate.score === ranked[0]!.score)
+    expect(tied.map(candidate => candidate.averageTurnover20))
+      .toEqual([...tied.map(candidate => candidate.averageTurnover20)].sort((a, b) => b! - a!))
     const index = buildTradingDayIndex(state.rows.filter(row => row.symbol === 'KOSPI'), [])
     const handler = new StockDataHandler(buildPriceBook([...state.stored.values()]), index).at(SIGNAL)
     expect(state.generated!.meta.rankedCandidates.length).toBeGreaterThanOrEqual(3)
@@ -374,7 +377,7 @@ describe('Prepare boundary-isolated E2E', () => {
       const inputs = buildObservedInputs50({ feature: candidate, context: candidate.technicalContext!,
         handler, dates: index.tradingDays })
       expect(inputs).toHaveLength(50)
-      const predicted = scoreUtilityModel(FROZEN_COMPOSITE_UTILITY_MODEL, inputs)
+      const predicted = scoreUtilityModel(FROZEN_COMPOSITE_RETURN_MODEL, inputs)
       expect(candidate.utility).toBe(predicted.utility)
       expect(candidate.score).toBe(predicted.score)
       expect(picks[pickIndex]!.signals).toEqual(buildSignals(candidate, predicted.score))
@@ -408,7 +411,7 @@ describe('Prepare boundary-isolated E2E', () => {
     expect(fetch).not.toHaveBeenCalled()
   })
 
-  it('replaces a genuinely locked-down top model candidate with three tradable picks through actual feature inference', async () => {
+  it('excludes a genuinely locked-down candle and keeps three tradable picks through actual feature inference', async () => {
     const lockedSymbol = state.masters[0]!.symbol
     state.rows = state.rows.map(row => {
       if (row.symbol !== lockedSymbol || row.trade_date !== SIGNAL) return row
@@ -423,12 +426,12 @@ describe('Prepare boundary-isolated E2E', () => {
     expect(feature.high).toBe(feature.low)
     expect(feature.gapFromPreviousClosePercent).toBeLessThan(-29.9)
     expect(feature.gapFromPreviousClosePercent).toBeGreaterThan(-30.1)
-    const prediction = scoreUtilityModel(FROZEN_COMPOSITE_UTILITY_MODEL,
+    const prediction = scoreUtilityModel(FROZEN_COMPOSITE_RETURN_MODEL,
       buildObservedInputs50({ feature, context, handler, dates: index.tradingDays }))
 
     expect(await runPrepareNewsletterCli([`--target-date=${TARGET}`])).toBe(0)
     const ranked = state.generated!.meta.rankedCandidates
-    expect(prediction.score).toBeGreaterThan(Math.max(...ranked.map(candidate => candidate.score)))
+    expect(prediction.score).toBe(38)
     expect(ranked).toHaveLength(5)
     expect(ranked.some(candidate => candidate.symbol === lockedSymbol)).toBe(false)
     const picks = JSON.parse(String(state.newsletter!.gemini_analysis)) as StockData[]
@@ -694,9 +697,9 @@ describe('Prepare boundary-isolated E2E', () => {
   })
 
   it('rejects historical issuance before the frozen model labels matured instead of scoring with future training', async () => {
-    const historicalTarget = FROZEN_COMPOSITE_UTILITY_MODEL.trainedLabelsThrough
+    const historicalTarget = FROZEN_COMPOSITE_RETURN_MODEL.trainedLabelsThrough
     const historicalSignal = addKoreanTradingDays(historicalTarget, -1)
-    expect(historicalSignal < FROZEN_COMPOSITE_UTILITY_MODEL.trainedLabelsThrough).toBe(true)
+    expect(historicalSignal < FROZEN_COMPOSITE_RETURN_MODEL.trainedLabelsThrough).toBe(true)
 
     expect(await runPrepareNewsletterCli([`--target-date=${historicalTarget}`])).toBe(1)
     expect(state.fetchDaily).toHaveBeenCalledTimes(7)

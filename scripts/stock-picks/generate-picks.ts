@@ -21,7 +21,7 @@ import { buildTechnicalContextMap, type TechnicalContext } from '@/scripts/stock
 import {
   BULLISH_TARGET_STRATEGY,
   FROZEN_BULLISH_TARGET_MODEL,
-  FROZEN_COMPOSITE_UTILITY_MODEL,
+  FROZEN_COMPOSITE_RETURN_MODEL,
   hashCanonicalJson,
   LEGACY_VOLUME_BREAKOUT_STRATEGY,
   PRODUCTION_STRATEGY,
@@ -369,8 +369,8 @@ export async function generatePicksWithMeta(input: {
   const lastDate = tradingDays.lastDate
   if (!lastDate) throw new Error('KOSPI 실측 거래일이 없습니다')
   const signalDate = assertFreshSignalDate(lastDate, todayKst)
-  if (signalDate < FROZEN_COMPOSITE_UTILITY_MODEL.trainedLabelsThrough) {
-    throw new Error(`종합 점수 모델 학습 시점 이후만 추천할 수 있습니다: signalDate=${signalDate}, trainedLabelsThrough=${FROZEN_COMPOSITE_UTILITY_MODEL.trainedLabelsThrough}`)
+  if (signalDate < FROZEN_COMPOSITE_RETURN_MODEL.trainedLabelsThrough) {
+    throw new Error(`종합 점수 모델 학습 시점 이후만 추천할 수 있습니다: signalDate=${signalDate}, trainedLabelsThrough=${FROZEN_COMPOSITE_RETURN_MODEL.trainedLabelsThrough}`)
   }
   const signalDateIndex = tradingDays.indexByDate.get(signalDate)
   if (signalDateIndex === undefined) {
@@ -438,7 +438,7 @@ export async function generatePicksWithMeta(input: {
     const feature = featuresBySymbol.get(symbol)
     const context = technicalContexts?.get(symbol)
     if (!feature || !context) throw new Error(`종합 점수 후보 관측값 누락: ${symbol}`)
-    return [symbol, scoreUtilityModel(FROZEN_COMPOSITE_UTILITY_MODEL,
+    return [symbol, scoreUtilityModel(FROZEN_COMPOSITE_RETURN_MODEL,
       buildObservedInputs50({ feature, context, handler, dates: historyDates }))] as const
   }))
   const rankedCandidates = rankUtilityScoreCandidates({

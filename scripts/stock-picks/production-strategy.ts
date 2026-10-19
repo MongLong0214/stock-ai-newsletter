@@ -4,9 +4,9 @@ import { BULLISH_TARGET_PARAMETERS, LOW_VOLATILITY_STABLE_PARAMETERS, UTILITY_LO
 import frozenTargetModel from '@/scripts/stock-picks/models/bullish-target-v3.json'
 import type { TargetModelArtifact } from '@/scripts/stock-picks/target-model'
 import { SIGNAL_SCORE_VERSION, VOLATILITY_SCORE_REFERENCE } from '@/scripts/stock-picks/signals'
-import frozenUtilityModel from '@/scripts/stock-picks/models/composite-utility-v1.json'
+import frozenReturnModel from '@/scripts/stock-picks/models/composite-return-v6.json'
 import { MODEL_MARKET_SOURCE_VERSION, OBSERVED_INPUT_VERSION } from '@/scripts/stock-picks/observed-inputs'
-import { UTILITY_SCORE_VERSION, validateUtilityModel, type UtilityModelArtifact } from '@/scripts/stock-picks/utility-model'
+import { RETURN_SCORE_VERSION, validateUtilityModel, type UtilityModelArtifact } from '@/scripts/stock-picks/utility-model'
 
 export function canonicalJson(value: unknown): string {
   if (value === null || typeof value === 'string' || typeof value === 'boolean') {
@@ -86,11 +86,11 @@ export const BULLISH_TARGET_STRATEGY = {
   }),
 } as const
 
-export const FROZEN_COMPOSITE_UTILITY_MODEL = validateUtilityModel(frozenUtilityModel as UtilityModelArtifact)
+export const FROZEN_COMPOSITE_RETURN_MODEL = validateUtilityModel(frozenReturnModel as UtilityModelArtifact)
 
 export const PRODUCTION_STRATEGY = {
   name: 'compositeUtility',
-  version: 'v5-2026-10-12',
+  version: 'v6-2026-10-19',
   objective: 'compositeUtility',
   parameters: LOW_VOLATILITY_STABLE_PARAMETERS,
   parametersHash: hashCanonicalJson({
@@ -101,8 +101,8 @@ export const PRODUCTION_STRATEGY = {
     volatilityScoreReference: VOLATILITY_SCORE_REFERENCE,
     observedInputVersion: OBSERVED_INPUT_VERSION,
     modelMarketSourceVersion: MODEL_MARKET_SOURCE_VERSION,
-    utilityScoreVersion: UTILITY_SCORE_VERSION,
+    utilityScoreVersion: RETURN_SCORE_VERSION,
     lockedDownRule: UTILITY_LOCKED_DOWN_RULE,
-    model: FROZEN_COMPOSITE_UTILITY_MODEL,
+    model: FROZEN_COMPOSITE_RETURN_MODEL,
   }),
 } as const
