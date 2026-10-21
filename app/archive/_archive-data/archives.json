@@ -1,6 +1,74 @@
 {
   "newsletters": [
     {
+      "type": "stock",
+      "date": "2026-10-22",
+      "stocks": [
+        {
+          "ticker": "KOSDAQ:089970",
+          "name": "브이엠",
+          "close_price": 45250,
+          "rationale": "2026-10-21 종가 45,250원|전일 대비 -2.5% 하락|시가 대비 -4.3% 음봉|20일선 58,438원·종가 22.6% 아래|60일선 59,605원·종가 24.1% 아래|최근 5거래일 종가 -19.3%|최근 20거래일 종가 -14.3%|20거래일 KOSPI 대비 +0.3%p|직전 20거래일 장중 고점 72,000원까지 +59.1%|직전 60거래일 최고 종가 82,100원까지 +81.4%|거래량 20일 평균의 0.70배|최근 60거래일 중 거래량 상위 67.5%|당일 범위 종가 16.9%·윗꼬리 20.0%|ATR14 평균 변동폭 12.0%·약 5,424원(갭 포함)|RSI14 36.6 약세|MACD 모멘텀 -4.22%(종가 대비)|20일 평균 거래대금 추정 450.1억원|52주(252거래일) 종가 범위 25.4% 위치(저점0·고점100)",
+          "signals": {
+            "trend_score": 19,
+            "momentum_score": 31,
+            "volume_score": 38,
+            "volatility_score": 70,
+            "pattern_score": 21,
+            "sentiment_score": 25,
+            "overall_score": 84
+          },
+          "selection": {
+            "strategy": "compositeUtility",
+            "rank": 1,
+            "objective": "compositeUtility"
+          }
+        },
+        {
+          "ticker": "KOSDAQ:474650",
+          "name": "링크솔루션",
+          "close_price": 19110,
+          "rationale": "2026-10-21 종가 19,110원|전일 대비 -0.9% 하락|시가 대비 -0.9% 음봉|20일선 24,611원·종가 22.4% 아래|60일선 24,163원·종가 20.9% 아래|최근 5거래일 종가 -9.4%|최근 20거래일 종가 -29.2%|20거래일 KOSPI 대비 -14.6%p|직전 20거래일 장중 고점 30,400원까지 +59.1%|직전 60거래일 최고 종가 29,450원까지 +54.1%|거래량 20일 평균의 0.38배|최근 60거래일 중 거래량 상위 99.2%|당일 범위 종가 26.9%·윗꼬리 54.8%|ATR14 평균 변동폭 9.9%·약 1,898원(갭 포함)|RSI14 32.0 약세|MACD 모멘텀 -4.44%(종가 대비)|20일 평균 거래대금 추정 6.7억원|52주(252거래일) 종가 범위 3.3% 위치(저점0·고점100)",
+          "signals": {
+            "trend_score": 3,
+            "momentum_score": 29,
+            "volume_score": 12,
+            "volatility_score": 66,
+            "pattern_score": 26,
+            "sentiment_score": 18,
+            "overall_score": 83
+          },
+          "selection": {
+            "strategy": "compositeUtility",
+            "rank": 2,
+            "objective": "compositeUtility"
+          }
+        },
+        {
+          "ticker": "KOSDAQ:232830",
+          "name": "아이티센피엔에스",
+          "close_price": 2190,
+          "rationale": "2026-10-21 종가 2,190원|전일 대비 0.0% 보합|시가 대비 +0.9% 양봉|20일선 2,737원·종가 20.0% 아래|60일선 2,141원·종가 2.3% 위|최근 5거래일 종가 -14.1%|최근 20거래일 종가 -37.2%|20거래일 KOSPI 대비 -22.6%p|직전 20거래일 장중 고점 3,985원까지 +82.0%|직전 60거래일 최고 종가 3,485원까지 +59.1%|거래량 20일 평균의 0.13배|최근 60거래일 중 거래량 상위 39.2%|당일 범위 종가 36.4%·윗꼬리 63.6%|ATR14 평균 변동폭 13.1%·약 286원(갭 포함)|RSI14 40.8 중립|MACD 모멘텀 -5.25%(종가 대비)|20일 평균 거래대금 추정 14.9억원|52주(252거래일) 종가 범위 23.1% 위치(저점0·고점100)",
+          "signals": {
+            "trend_score": 23,
+            "momentum_score": 39,
+            "volume_score": 53,
+            "volatility_score": 71,
+            "pattern_score": 48,
+            "sentiment_score": 24,
+            "overall_score": 82
+          },
+          "selection": {
+            "strategy": "compositeUtility",
+            "rank": 3,
+            "objective": "compositeUtility"
+          }
+        }
+      ],
+      "sentAt": "2026-10-21T22:31:06.029+00:00",
+      "subscriberCount": 328
+    },
+    {
       "type": "crash_alert",
       "date": "2026-10-21",
       "crashAlert": {
@@ -13242,5 +13310,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-10-20T22:31:51.516Z"
+  "lastUpdated": "2026-10-21T22:31:46.872Z"
 }
