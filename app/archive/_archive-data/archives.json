@@ -1,6 +1,74 @@
 {
   "newsletters": [
     {
+      "type": "stock",
+      "date": "2026-10-26",
+      "stocks": [
+        {
+          "ticker": "KOSDAQ:134580",
+          "name": "엔키AX",
+          "close_price": 1747,
+          "rationale": "2026-10-23 종가 1,747원|전일 대비 -4.7% 하락|시가 대비 -3.9% 음봉|20일선 2,429원·종가 28.1% 아래|60일선 2,523원·종가 30.8% 아래|최근 5거래일 종가 -15.2%|최근 20거래일 종가 -49.3%|20거래일 KOSPI 대비 -28.5%p|직전 20거래일 장중 고점 3,940원까지 +125.5%|직전 60거래일 최고 종가 4,240원까지 +142.7%|거래량 20일 평균의 0.56배|최근 60거래일 중 거래량 상위 67.5%|당일 범위 종가 41.9%·윗꼬리 10.8%|ATR14 평균 변동폭 16.1%·약 280원(갭 포함)|RSI14 32.6 약세|MACD 모멘텀 -4.27%(종가 대비)|20일 평균 거래대금 추정 10.8억원|52주(252거래일) 종가 범위 25.9% 위치(저점0·고점100)",
+          "signals": {
+            "trend_score": 1,
+            "momentum_score": 30,
+            "volume_score": 24,
+            "volatility_score": 75,
+            "pattern_score": 17,
+            "sentiment_score": 25,
+            "overall_score": 89
+          },
+          "selection": {
+            "strategy": "compositeUtility",
+            "rank": 1,
+            "objective": "compositeUtility"
+          }
+        },
+        {
+          "ticker": "KOSPI:001440",
+          "name": "대한전선",
+          "close_price": 21300,
+          "rationale": "2026-10-23 종가 21,300원|전일 대비 -3.2% 하락|시가 대비 0.0% 보합봉|20일선 26,873원·종가 20.7% 아래|60일선 27,520원·종가 22.6% 아래|최근 5거래일 종가 -9.6%|최근 20거래일 종가 -28.3%|20거래일 KOSPI 대비 -7.5%p|직전 20거래일 장중 고점 33,450원까지 +57.0%|직전 60거래일 최고 종가 31,750원까지 +49.1%|거래량 20일 평균의 0.44배|최근 60거래일 중 거래량 상위 79.2%|당일 범위 종가 76.5%·윗꼬리 23.5%|ATR14 평균 변동폭 7.9%·약 1,689원(갭 포함)|RSI14 30.2 약세|MACD 모멘텀 -3.07%(종가 대비)|20일 평균 거래대금 추정 709.0억원|52주(252거래일) 종가 범위 7.4% 위치(저점0·고점100)",
+          "signals": {
+            "trend_score": 2,
+            "momentum_score": 29,
+            "volume_score": 31,
+            "volatility_score": 60,
+            "pattern_score": 16,
+            "sentiment_score": 19,
+            "overall_score": 85
+          },
+          "selection": {
+            "strategy": "compositeUtility",
+            "rank": 2,
+            "objective": "compositeUtility"
+          }
+        },
+        {
+          "ticker": "KOSPI:064350",
+          "name": "현대로템",
+          "close_price": 82700,
+          "rationale": "2026-10-23 종가 82,700원|전일 대비 -3.3% 하락|시가 대비 +0.9% 양봉|20일선 102,760원·종가 19.5% 아래|60일선 122,557원·종가 32.5% 아래|최근 5거래일 종가 -14.7%|최근 20거래일 종가 -30.4%|20거래일 KOSPI 대비 -9.6%p|직전 20거래일 장중 고점 124,400원까지 +50.4%|직전 60거래일 최고 종가 158,400원까지 +91.5%|거래량 20일 평균의 1.34배|최근 60거래일 중 거래량 상위 12.5%|당일 범위 종가 62.2%·윗꼬리 37.8%|ATR14 평균 변동폭 7.3%·약 6,075원(갭 포함)|RSI14 25.6 약세|MACD 모멘텀 -1.51%(종가 대비)|20일 평균 거래대금 추정 491.4억원|52주(252거래일) 종가 범위 0.0% 위치(저점0·고점100)",
+          "signals": {
+            "trend_score": 1,
+            "momentum_score": 38,
+            "volume_score": 50,
+            "volatility_score": 58,
+            "pattern_score": 18,
+            "sentiment_score": 17,
+            "overall_score": 84
+          },
+          "selection": {
+            "strategy": "compositeUtility",
+            "rank": 3,
+            "objective": "compositeUtility"
+          }
+        }
+      ],
+      "sentAt": "2026-10-25T22:30:58.384+00:00",
+      "subscriberCount": 329
+    },
+    {
       "type": "crash_alert",
       "date": "2026-10-23",
       "crashAlert": {
@@ -13352,5 +13420,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-10-22T22:31:37.358Z"
+  "lastUpdated": "2026-10-25T22:31:37.474Z"
 }
