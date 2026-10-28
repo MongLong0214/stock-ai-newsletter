@@ -2,6 +2,74 @@
   "newsletters": [
     {
       "type": "stock",
+      "date": "2026-10-29",
+      "stocks": [
+        {
+          "ticker": "KOSDAQ:109670",
+          "name": "씨싸이트",
+          "close_price": 11120,
+          "rationale": "2026-10-28 종가 11,120원|전일 대비 -7.3% 하락|시가 대비 -4.1% 음봉|20일선 14,510원·종가 23.4% 아래|60일선 8,176원·종가 36.0% 위|최근 5거래일 종가 -19.4%|직전 60거래일 최고 종가 18,190원까지 +63.6%|거래량 20일 평균의 0.59배|최근 60거래일 중 거래량 상위 22.5%|당일 범위 종가 25.5%·윗꼬리 45.5%|ATR14 평균 변동폭 15.6%·약 1,740원(갭 포함)|RSI14 45.8 중립|MACD 모멘텀 -6.40%(종가 대비)|20일 평균 거래대금 추정 33.9억원|52주(252거래일) 종가 범위 54.5% 위치(저점0·고점100)",
+          "signals": {
+            "trend_score": 53,
+            "momentum_score": 33,
+            "volume_score": 57,
+            "volatility_score": 75,
+            "pattern_score": 46,
+            "sentiment_score": 35,
+            "overall_score": 86
+          },
+          "selection": {
+            "strategy": "compositeUtility",
+            "rank": 1,
+            "objective": "compositeUtility"
+          }
+        },
+        {
+          "ticker": "KOSDAQ:318060",
+          "name": "그래피",
+          "close_price": 10600,
+          "rationale": "2026-10-28 종가 10,600원|전일 대비 -2.2% 하락|시가 대비 -3.5% 음봉|20일선 13,205원·종가 19.7% 아래|60일선 16,466원·종가 35.6% 아래|최근 5거래일 종가 -9.7%|최근 20거래일 종가 -32.7%|20거래일 KOSPI 대비 -20.0%p|직전 20거래일 장중 고점 16,600원까지 +56.6%|직전 60거래일 최고 종가 22,300원까지 +110.4%|거래량 20일 평균의 0.67배|최근 60거래일 중 거래량 상위 62.5%|당일 범위 종가 15.7%·윗꼬리 30.0%|ATR14 평균 변동폭 8.6%·약 911원(갭 포함)|RSI14 26.8 약세|MACD 모멘텀 -1.30%(종가 대비)|20일 평균 거래대금 추정 10.5억원|52주(252거래일) 종가 범위 3.3% 위치(저점0·고점100)",
+          "signals": {
+            "trend_score": 1,
+            "momentum_score": 32,
+            "volume_score": 27,
+            "volatility_score": 62,
+            "pattern_score": 8,
+            "sentiment_score": 18,
+            "overall_score": 80
+          },
+          "selection": {
+            "strategy": "compositeUtility",
+            "rank": 2,
+            "objective": "compositeUtility"
+          }
+        },
+        {
+          "ticker": "KOSDAQ:396300",
+          "name": "HT로보틱스",
+          "close_price": 9000,
+          "rationale": "2026-10-28 종가 9,000원|전일 대비 -5.6% 하락|시가 대비 -5.9% 음봉|20일선 7,672원·종가 17.3% 위|60일선 5,672원·종가 58.7% 위|최근 5거래일 종가 -19.2%|최근 20거래일 종가 +51.8%|20거래일 KOSPI 대비 +64.5%p|직전 20거래일 장중 고점 11,690원까지 +29.9%|직전 60거래일 최고 종가 11,140원까지 +23.8%|거래량 20일 평균의 0.51배|최근 60거래일 중 거래량 상위 27.5%|당일 범위 종가 13.3%·윗꼬리 29.6%|ATR14 평균 변동폭 10.2%·약 919원(갭 포함)|RSI14 61.9 강세|MACD 모멘텀 +1.08%(종가 대비)|20일 평균 거래대금 추정 934.7억원|52주(252거래일) 종가 범위 75.8% 위치(저점0·고점100)",
+          "signals": {
+            "trend_score": 98,
+            "momentum_score": 56,
+            "volume_score": 70,
+            "volatility_score": 66,
+            "pattern_score": 52,
+            "sentiment_score": 75,
+            "overall_score": 77
+          },
+          "selection": {
+            "strategy": "compositeUtility",
+            "rank": 3,
+            "objective": "compositeUtility"
+          }
+        }
+      ],
+      "sentAt": "2026-10-28T22:30:56.78+00:00",
+      "subscriberCount": 329
+    },
+    {
+      "type": "stock",
       "date": "2026-10-28",
       "stocks": [
         {
@@ -13530,5 +13598,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-10-27T22:31:49.354Z"
+  "lastUpdated": "2026-10-28T22:31:42.684Z"
 }
