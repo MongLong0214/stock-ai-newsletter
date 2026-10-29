@@ -2,6 +2,74 @@
   "newsletters": [
     {
       "type": "stock",
+      "date": "2026-10-30",
+      "stocks": [
+        {
+          "ticker": "KOSDAQ:052400",
+          "name": "코나아이",
+          "close_price": 20600,
+          "rationale": "2026-10-29 종가 20,600원|전일 대비 -9.2% 하락|시가 대비 -7.6% 음봉|20일선 30,838원·종가 33.2% 아래|60일선 36,284원·종가 43.2% 아래|최근 5거래일 종가 -11.2%|최근 20거래일 종가 -46.1%|20거래일 KOSPI 대비 -32.6%p|직전 20거래일 장중 고점 38,750원까지 +88.1%|직전 60거래일 최고 종가 43,400원까지 +110.7%|거래량 20일 평균의 1.85배|최근 60거래일 중 거래량 상위 4.2%|당일 범위 종가 22.7%·윗꼬리 0.0%|ATR14 평균 변동폭 9.8%·약 2,010원(갭 포함)|RSI14 20.1 약세|MACD 모멘텀 -5.37%(종가 대비)|20일 평균 거래대금 추정 17.3억원|52주(252거래일) 종가 범위 0.0% 위치(저점0·고점100)",
+          "signals": {
+            "trend_score": 2,
+            "momentum_score": 26,
+            "volume_score": 58,
+            "volatility_score": 65,
+            "pattern_score": 8,
+            "sentiment_score": 17,
+            "overall_score": 82
+          },
+          "selection": {
+            "strategy": "compositeUtility",
+            "rank": 1,
+            "objective": "compositeUtility"
+          }
+        },
+        {
+          "ticker": "KOSPI:005090",
+          "name": "SGC에너지",
+          "close_price": 31800,
+          "rationale": "2026-10-29 종가 31,800원|전일 대비 -4.5% 하락|시가 대비 -2.5% 음봉|20일선 40,663원·종가 21.8% 아래|60일선 50,759원·종가 37.4% 아래|최근 5거래일 종가 -16.0%|최근 20거래일 종가 -33.5%|20거래일 KOSPI 대비 -19.9%p|직전 20거래일 장중 고점 50,000원까지 +57.2%|직전 60거래일 최고 종가 64,400원까지 +102.5%|거래량 20일 평균의 0.60배|최근 60거래일 중 거래량 상위 90.8%|당일 범위 종가 13.0%·윗꼬리 52.2%|ATR14 평균 변동폭 9.5%·약 3,028원(갭 포함)|RSI14 26.1 약세|MACD 모멘텀 -2.10%(종가 대비)|20일 평균 거래대금 추정 32.9억원|52주(252거래일) 종가 범위 23.5% 위치(저점0·고점100)",
+          "signals": {
+            "trend_score": 1,
+            "momentum_score": 28,
+            "volume_score": 16,
+            "volatility_score": 65,
+            "pattern_score": 13,
+            "sentiment_score": 24,
+            "overall_score": 79
+          },
+          "selection": {
+            "strategy": "compositeUtility",
+            "rank": 2,
+            "objective": "compositeUtility"
+          }
+        },
+        {
+          "ticker": "KOSDAQ:290720",
+          "name": "푸드나무",
+          "close_price": 1220,
+          "rationale": "2026-10-29 종가 1,220원|전일 대비 -8.8% 하락|시가 대비 -8.1% 음봉|20일선 2,446원·종가 50.1% 아래|60일선 2,748원·종가 55.6% 아래|최근 5거래일 종가 -26.4%|최근 20거래일 종가 -57.3%|20거래일 KOSPI 대비 -43.7%p|직전 20거래일 장중 고점 3,570원까지 +192.6%|직전 60거래일 최고 종가 3,450원까지 +182.8%|거래량 20일 평균의 0.25배|최근 60거래일 중 거래량 상위 10.8%|당일 범위 종가 0.8%·윗꼬리 13.5%|ATR14 평균 변동폭 27.5%·약 335원(갭 포함)|RSI14 22.4 약세|MACD 모멘텀 -13.08%(종가 대비)|20일 평균 거래대금 추정 89.1억원|52주(252거래일) 종가 범위 0.0% 위치(저점0·고점100)",
+          "signals": {
+            "trend_score": 3,
+            "momentum_score": 27,
+            "volume_score": 73,
+            "volatility_score": 84,
+            "pattern_score": 8,
+            "sentiment_score": 17,
+            "overall_score": 76
+          },
+          "selection": {
+            "strategy": "compositeUtility",
+            "rank": 3,
+            "objective": "compositeUtility"
+          }
+        }
+      ],
+      "sentAt": "2026-10-29T22:30:51.044+00:00",
+      "subscriberCount": 329
+    },
+    {
+      "type": "stock",
       "date": "2026-10-29",
       "stocks": [
         {
@@ -13598,5 +13666,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-10-28T22:31:42.684Z"
+  "lastUpdated": "2026-10-29T22:31:26.134Z"
 }
