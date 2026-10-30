@@ -3,7 +3,7 @@ import { isKoreanTradingDate } from '@/lib/tli/trading-calendar';
 import { getUsSessionCloseTime, hasUsMarketCalendar, isUsTradingDate } from './us-market-calendar';
 import type { MarketAssessmentSnapshot, MarketIndicatorSnapshot } from './kis-market-assessment';
 
-export const MARKET_RISK_POLICY_VERSION = '2026-09-23.v3';
+export const MARKET_RISK_POLICY_VERSION = '2026-10-30.v4';
 export const MAX_MARKET_OBSERVATION_AGE_MS = 10 * 60_000;
 export type MarketRiskVerdict = 'NORMAL' | 'CRASH_ALERT' | 'UNAVAILABLE';
 export type QuoteQuality = 'usable' | 'missing' | 'invalid' | 'undated' | 'stale' | 'conflict' | 'calendar_unknown';
@@ -119,21 +119,16 @@ export function assessMarketDataQuality(snapshot: MarketAssessmentSnapshot, now:
 
 /** Operational warning rules, not fitted probabilities or exchange halt declarations. */
 export function decideMarketRisk(input: {
-  crashScore: number;
   quality: MarketDataQuality;
   indicators: Record<string, MarketIndicatorSnapshot | undefined>;
 }): { verdict: MarketRiskVerdict; reasons: string[]; severity: 'warning' | 'critical' } {
-  const { indicators: i, quality, crashScore } = input;
+  const { indicators: i, quality } = input;
   const us = [i.sp500, i.dowJones, i.nasdaqComposite].filter((x): x is MarketIndicatorSnapshot => !!x);
-  const korea = [i.nightFutures ?? i.kospi200MiniFutures, i.kospi, i.kosdaq].filter((x): x is MarketIndicatorSnapshot => !!x);
   const reasons: string[] = [];
+  if (i.nightFutures && i.nightFutures.changePct <= -3) reasons.push('NIGHT_FUTURES_GAP_DOWN');
   if (i.sp500 && i.sp500.changePct <= -3) reasons.push('US_SP500_SEVERE_DROP');
   if (us.filter(x => x.changePct <= -2.5).length >= 2) reasons.push('US_BROAD_SELL_OFF');
-  if (korea.some(x => x.changePct <= -3)) reasons.push('KOREA_SEVERE_DROP');
-  if (us.some(x => x.changePct <= -1.5) && korea.some(x => x.changePct <= -1.5)) reasons.push('CROSS_MARKET_SELL_OFF');
-  if (i.vix && i.vix.price >= 35 && [...us, ...korea].some(x => x.changePct <= -1.5)) reasons.push('VOLATILITY_WITH_SELL_OFF');
-  if (crashScore >= 55 && [...us, ...korea].some(x => x.changePct <= -1.5)) reasons.push('COMPOSITE_RISK');
-  const severe = (i.sp500?.changePct ?? 0) <= -5 || korea.some(x => x.changePct <= -5);
+  const severe = (i.sp500?.changePct ?? 0) <= -5 || (i.nightFutures?.changePct ?? 0) <= -5;
   return {
     verdict: reasons.length ? 'CRASH_ALERT' : quality.status === 'unavailable' ? 'UNAVAILABLE' : 'NORMAL',
     reasons: reasons.length ? reasons : quality.status === 'unavailable' ? ['INSUFFICIENT_US_OR_KOREA_DATA'] : ['NO_WARNING_RULE_TRIGGERED'],

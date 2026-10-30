@@ -34,24 +34,78 @@ describe('market risk v2: timestamps, missing data and warning policy', () => {
     expect(e.confidence).toBeLessThan(70);
     expect(e.dataQuality.status).toBe('unavailable');
   });
-  it.each(['kospi', 'kosdaq'] as const)('detects Korea-only %s collapse without US selling or event keywords', key => {
+  it.each(['kospi', 'kosdaq', 'kospi200MiniFutures'] as const)('does not alert or become critical from the previous day %s close', key => {
     const s = riskSnapshot();
-    s.indicators[key] = riskQuote(key, -5, true);
-    expect(evaluate(s).reasonCodes).toContain('KOREA_SEVERE_DROP');
-    expect(evaluate(s).severity).toBe('critical');
+    Object.assign(s.indicators[key]!, riskQuote(key, -5, true));
+    const e = evaluate(s);
+    expect(e.verdict).toBe('NORMAL');
+    expect(e.reasonCodes).toEqual(['NO_WARNING_RULE_TRIGGERED']);
+    expect(e.severity).toBe('warning');
   });
   it('detects broad US selling even when S&P itself misses the threshold', () => {
     const s = riskSnapshot();
     s.indicators.dowJones = riskQuote('Dow', -2.6);
     s.indicators.nasdaqComposite = riskQuote('NASDAQ', -2.6);
-    expect(evaluate(s).reasonCodes).toContain('US_BROAD_SELL_OFF');
+    const e = evaluate(s);
+    expect(e.verdict).toBe('CRASH_ALERT');
+    expect(e.reasonCodes).toEqual(['US_BROAD_SELL_OFF']);
   });
-  it('retains a dated local decline when the US market rebounds', () => {
+  it('ignores the previous day local decline when the US market rebounds', () => {
     const s = riskSnapshot();
     s.indicators.kospi = riskQuote('KOSPI', -4, true);
     s.indicators.sp500 = riskQuote('S&P 500', 2);
     s.indicators.nasdaqComposite = riskQuote('NASDAQ', 2);
-    expect(evaluate(s).verdict).toBe('CRASH_ALERT');
+    expect(evaluate(s).verdict).toBe('NORMAL');
+  });
+  it.each([
+    { date: '10/20', kospi: -3.73, kosdaq: -3.33, nightFutures: 1.67 },
+    { date: '10/26', kospi: 0, kosdaq: -3.26, nightFutures: 2.67 },
+  ])('returns NORMAL for the $date overnight rebound after a local sell-off', ({ kospi, kosdaq, nightFutures }) => {
+    const s = riskSnapshot();
+    s.indicators.kospi = riskQuote('KOSPI', kospi, true);
+    s.indicators.kosdaq = riskQuote('KOSDAQ', kosdaq, true);
+    s.nightSession.kospiMiniFutures = { ...s.indicators.kospi200MiniFutures!, ...riskQuote('Night', nightFutures, true), session: 'night', observedAt: '2026-09-09T05:00:00+09:00' };
+    const e = evaluate(s);
+    expect(e.verdict).toBe('NORMAL');
+    expect(e.reasonCodes).toEqual(['NO_WARNING_RULE_TRIGGERED']);
+  });
+  it('returns NORMAL for 10/22 night futures -2.74% and NASDAQ alone -2.60%', () => {
+    const s = riskSnapshot();
+    s.nightSession.kospiMiniFutures = { ...s.indicators.kospi200MiniFutures!, ...riskQuote('Night', -2.74, true), session: 'night', observedAt: '2026-09-09T05:00:00+09:00' };
+    s.indicators.nasdaqComposite = riskQuote('NASDAQ', -2.6);
+    expect(evaluate(s).verdict).toBe('NORMAL');
+  });
+  it('does not substitute day futures -4% for missing night futures', () => {
+    const s = riskSnapshot();
+    s.indicators.kospi200MiniFutures = { ...s.indicators.kospi200MiniFutures!, ...riskQuote('Mini', -4, true) };
+    const e = evaluate(s);
+    expect(e.verdict).toBe('NORMAL');
+    expect(e.dataQuality.indicators.nightFutures).toBe('missing');
+    expect(e.dataQuality.indicators.kospi200MiniFutures).toBe('usable');
+  });
+  it('alerts on S&P 500 -3.1% without a Korean decline', () => {
+    const s = riskSnapshot();
+    s.indicators.sp500 = riskQuote('S&P 500', -3.1);
+    const e = evaluate(s);
+    expect(e.verdict).toBe('CRASH_ALERT');
+    expect(e.reasonCodes).toEqual(['US_SP500_SEVERE_DROP']);
+    expect(e.severity).toBe('warning');
+  });
+  it('keeps high composite risk and volatility as context without an overnight warning rule', () => {
+    const s = riskSnapshot();
+    s.indicators.kospi = riskQuote('KOSPI', -6, true);
+    s.indicators.sp500 = riskQuote('S&P 500', -2.4);
+    s.indicators.vix = { ...riskQuote('VIX'), price: 50 };
+    const e = evaluate(s);
+    expect(e.crashScore).toBeGreaterThanOrEqual(55);
+    expect(e.verdict).toBe('NORMAL');
+    expect(e.reasonCodes).toEqual(['NO_WARNING_RULE_TRIGGERED']);
+  });
+  it.each(['kospi', 'kosdaq', 'kospi200MiniFutures'] as const)('does not let the previous day %s collapse escalate a US warning to critical', key => {
+    const s = riskSnapshot();
+    Object.assign(s.indicators[key]!, riskQuote(key, -6, true));
+    s.indicators.sp500 = riskQuote('S&P 500', -3.1);
+    expect(evaluate(s).severity).toBe('warning');
   });
   it('excludes stale crash quotes and preserves valid local spot fallback', () => {
     const s = riskSnapshot();
@@ -67,10 +121,13 @@ describe('market risk v2: timestamps, missing data and warning policy', () => {
     expect(evaluate(s).verdict).toBe('NORMAL');
     expect(evaluate(s).dataQuality.indicators.nightFutures).toBe('invalid');
   });
-  it('uses a dated, explicit night session', () => {
+  it.each([-3, -4, -5, -5.2])('alerts on a dated, explicit night session at %s%%', pct => {
     const s = riskSnapshot();
-    s.nightSession.kospiMiniFutures = { ...s.indicators.kospi200MiniFutures!, ...riskQuote('Night', -4, true), session: 'night', observedAt: '2026-09-09T05:00:00+09:00' };
-    expect(evaluate(s).verdict).toBe('CRASH_ALERT');
+    s.nightSession.kospiMiniFutures = { ...s.indicators.kospi200MiniFutures!, ...riskQuote('Night', pct, true), session: 'night', observedAt: '2026-09-09T05:00:00+09:00' };
+    const e = evaluate(s);
+    expect(e.verdict).toBe('CRASH_ALERT');
+    expect(e.reasonCodes).toEqual(['NIGHT_FUTURES_GAP_DOWN']);
+    expect(e.severity).toBe(pct <= -5 ? 'critical' : 'warning');
   });
   it.each([24.99, 25, 34.99, 35, 49.99, 50, 80])('VIX contribution is monotonic at %s', price => {
     const s = riskSnapshot();

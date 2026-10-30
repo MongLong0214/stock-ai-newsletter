@@ -1997,7 +1997,7 @@ export function evaluateMarketAssessmentSnapshot(
     : koreaDown ? 'korea_specific' : usDown ? 'mixed' : 'coherent_normal';
   const vixRegime = getVixRegime(i.vix?.price ?? null);
   const { crashScore, signalDetails } = calculateCrashScore(snapshot, directionCoherence, vixRegime, i);
-  const decision = decideMarketRisk({ crashScore, quality, indicators: i });
+  const decision = decideMarketRisk({ quality, indicators: i });
   const tier1Signals: string[] = [];
   const tier2Signals: string[] = [];
   for (const indicator of [...us, ...[effectiveKoreaIndicator, i.kospi, i.kosdaq].filter((x): x is MarketIndicatorSnapshot => !!x)]) {
