@@ -1,7 +1,7 @@
 /** OpenAI 기반 블로그 콘텐츠 생성 서비스 */
 
 import { generateText } from '@/lib/llm/openai-client';
-import { PIPELINE_CONFIG } from '../_config/pipeline-config';
+import { CONTENT_CONFIG, PIPELINE_CONFIG } from '../_config/pipeline-config';
 import { buildContentGenerationPrompt } from '../_prompts/content-generation';
 import { ALL_PATTERNS } from '../_config/clickbait-patterns';
 import type { CompetitorAnalysis, GeneratedContent } from '../_types/blog';
@@ -227,7 +227,7 @@ export async function generateBlogContent(
     const attemptStartTime = Date.now();
 
     try {
-      const responseText = await generateText({ prompt, timeout: 120000 });
+      const responseText = await generateText({ prompt, timeout: CONTENT_CONFIG.timeout });
       if (!responseText) throw new Error('빈 응답을 받았습니다.');
 
       const content = parseJsonResponse(responseText);

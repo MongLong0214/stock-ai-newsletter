@@ -19,6 +19,7 @@ import { humanizeGeneratedContent } from './_services/humanizer';
 import { checkYmyl } from './_services/ymyl-gate';
 import { countPublishedToday, findBlogPostStatus, saveBlogPost, publishBlogPost } from './_services/blog-repository';
 import { generateKeywords } from './_services/keyword-generator';
+import { CONTENT_CONFIG, HUMANIZE_CONFIG, PIPELINE_CONFIG } from './_config/pipeline-config';
 import type { BlogPostCreateInput, PipelineResult, PipelineMetrics, CompetitorAnalysis, GeneratedContent } from './_types/blog';
 
 // --- 상수 ---
@@ -28,15 +29,10 @@ const TIMEOUTS = {
   // 배치 안쪽 예산(LIMITS.BATCH_BUDGET_MS=90초)이 먼저 끊고 부분 성공분을 돌려주도록
   // 바깥은 확실히 위에 둔다. 바깥이 먼저 터지면 fallback []가 되어 성공한 문서까지 버려진다.
   scrape: 180_000,
-  generate: 300_000,
-  // 안쪽(HUMANIZE_CONFIG.timeout=150초)이 먼저 끊기게 두고 바깥은 그보다 위에 둔다 —
-  // 그래야 "Humanize 타임아웃"이 아니라 실제 사유가 남는다.
-  //
-  // 27~39초라는 이전 근거는 e2e 1회 표본이었다. 과거 run 로그 전수로 다시 재면
-  // 성공 호출이 20.5s ~ 108.4s(p50 ~31s, p95 ~64s)로 퍼져 있다. 그래서 100/90초 조합은
-  // 꼬리를 장애로 집계했고 첫 적용일에 그날 발행이 0편이 됐다(run 33142081554).
-  // 최악 3편 × 165초 = 8.3분으로 25분 스크립트 한도 안에 든다(p50 기준 3분).
-  humanize: 165_000,
+  // 3회 × 600초 + backoff 최대 7.8초를 기다려 안쪽 요청 취소·오류가 먼저 전달되게 한다.
+  generate: CONTENT_CONFIG.timeout * PIPELINE_CONFIG.retryAttempts + 15_000,
+  // 안쪽 AbortSignal 취소가 먼저 실행돼 실제 실패 사유가 남도록 15초 여유를 둔다.
+  humanize: HUMANIZE_CONFIG.timeout + 15_000,
   save: 30_000,
   keyword: 300_000,
   selection: 120_000,
@@ -44,9 +40,8 @@ const TIMEOUTS = {
 
 // 윤문 서킷브레이커: LLM 윤문 서비스가 저하되면(연속 타임아웃/에러) 남은 초안은 윤문을 생략해
 // 초당 낭비를 막는다. run 단위 상태 — generateWithDynamicKeywords 시작 시 리셋.
-// 임계 2는 시스템 장애 2건이면 남은 초안 전부를 버린다. 윤문은 편당 30초 안팎이고
-// 진짜 행은 드물게 섞이므로(실측 로그에서 20여 건 중 4건), 2는 한 번의 불운으로 하루가
-// 통째로 0편이 되는 값이다. 3으로 올려도 API가 죽었을 때 낭비는 7.5분에서 멈춘다.
+// 시스템 장애만 센다. 현재 DRAFT_LIMIT=1이므로 run당 윤문은 최대 1회·600초이며,
+// 이 브레이커가 개별 요청의 타임아웃을 줄이지는 않는다.
 const HUMANIZE_TRIP_THRESHOLD = 3;
 let humanizeConsecutiveFailures = 0;
 let humanizeDisabled = false;
@@ -74,10 +69,11 @@ const QUALITY_MIN_SCORE = 60;
  */
 export const MAX_DAILY_PUBLISH = 1;
 /**
- * Phase 2(SERP+스크래핑+생성+윤문) 진입 상한. 발행 1편에 초안 5편은 SERP·스크래핑·LLM
- * 비용을 낭비하고 SerpApi 쿼터도 소진된 이력이 있다. 게이트 탈락 여유를 위해 1이 아닌 3으로 둔다.
+ * Phase 2(SERP+스크래핑+생성+윤문) 진입 상한. 발행 상한과 함께 1편으로 제한한다.
+ * 키워드 300초 + 검색 60초 + 스크래핑 180초 + 생성 1,815초 + 윤문 615초 + 저장 30초
+ * = 50분. 초안 3편이면 60분 CI 한도를 넘으므로 55분 스크립트 예산 안에 1편만 시도한다.
  */
-export const DRAFT_LIMIT = 3;
+export const DRAFT_LIMIT = 1;
 /** Phase 1 키워드 후보 수 — 게이트 탈락 여유분 */
 const KEYWORD_CANDIDATE_COUNT = 10;
 
@@ -383,7 +379,7 @@ export async function generateWithDynamicKeywords(options: { publish?: boolean; 
 
     // 실측 검색량(게이트에서 estimatedSearchVolume에 기록됨) 내림차순으로
     // DRAFT_LIMIT개만 Phase 2에 진입 — 초안 1개가 수 분(SERP+스크래핑+생성+윤문)이므로
-    // 여기서 줄이는 것이 25분 CI 예산과 비용을 지킨다.
+    // 여기서 줄이는 것이 55분 스크립트 예산과 비용을 지킨다.
     const drafting = [...kwResult.keywords]
       .sort((a, b) => (b.estimatedSearchVolume ?? 0) - (a.estimatedSearchVolume ?? 0))
       .slice(0, DRAFT_LIMIT);

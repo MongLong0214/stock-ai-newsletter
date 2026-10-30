@@ -9,7 +9,8 @@ if (existsSync(envPath)) config({ path: envPath });
 import { generateWithDynamicKeywords, DAILY_POST_COUNT } from '@/app/blog/pipeline';
 import { closeBrowser } from '@/app/blog/_services/web-scraper';
 
-const SCRIPT_TIMEOUT_MS = 25 * 60 * 1000;
+// 단계별 최대 예산 50분 + DB·발행 여유 5분. 60분 CI 한도에 준비·정리 시간을 남긴다.
+const SCRIPT_TIMEOUT_MS = 55 * 60 * 1000;
 
 let exiting = false;
 
@@ -31,7 +32,7 @@ process.on('uncaughtException', e => { console.error('Uncaught:', e); exit(1); }
 // 취소도 실패다 — exit(0)이면 CI가 초록으로 끝나 아무도 그날 발행이 없었다는 걸 모른다
 process.on('SIGINT', () => exit(1));
 process.on('SIGTERM', () => exit(1));
-setTimeout(() => { console.error('\n타임아웃 (25분)'); exit(1); }, SCRIPT_TIMEOUT_MS).unref();
+setTimeout(() => { console.error(`\n타임아웃 (${SCRIPT_TIMEOUT_MS / 60_000}분)`); exit(1); }, SCRIPT_TIMEOUT_MS).unref();
 
 (async () => {
   console.log('블로그 자동 생성 시작\n');

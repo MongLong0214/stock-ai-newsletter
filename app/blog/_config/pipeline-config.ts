@@ -22,8 +22,10 @@ export const SERP_API_CONFIG = {
 
 // GPT API 설정은 lib/llm/_config/pipeline-config.ts에서 관리
 
-/** guide 전용 — 다른 콘텐츠 타입 추가 시 분리 */
+/** 콘텐츠 생성 설정 — 분량·FAQ는 guide 기준 */
 export const CONTENT_CONFIG = {
+  /** gpt-6.1-sol high 실측 175초 — 장문 출력에 여유를 둔다 (2026-10-30). */
+  timeout: 600_000,
   minWordCount: 1500,
   maxWordCount: 3000,
   faqCount: 4,
@@ -49,19 +51,12 @@ export const HUMANIZE_CONFIG = {
    */
   maxWordLossRatio: 0.3,
   /**
-   * 파이프라인 외부 타이머(TIMEOUTS.humanize=165초)보다 낮게 둔다.
-   *
-   * 예전에는 안쪽 180초 > 바깥 60초라 바깥이 먼저 터졌고, 그러면 오류가 늘
-   * "Humanize 타임아웃"으로만 남아 실제 사유(빈 응답·반려·SDK 오류)가 묻혔다.
-   * 안쪽이 먼저 끊기면 AbortSignal로 요청도 실제로 취소된다.
-   *
-   * 값은 90초였다가 150초로 되돌렸다. 90초는 실측 분포를 과소평가한 값이다 —
-   * 과거 run 로그의 성공 호출은 20.5s ~ **108.4s**로 퍼져 있고(p50 ~31s, p95 ~64s),
-   * 90초 컷은 그 꼬리의 정상 호출을 시스템 장애로 집계한다. 실제로 첫 적용일에
-   * 90초 컷 2건이 서킷브레이커를 열어 그날 발행이 0편이 됐다(run 33142081554).
-   * 150초는 관측 최대 성공(108s)의 1.4배다. 그 위는 진짜 행이므로 끊는 게 맞다.
+   * 윤문도 본문 전체를 다시 출력하므로 콘텐츠 생성과 같은 600초를 허용한다.
+   * gpt-6.1-sol은 장문 출력 시간이 병목이어서 이전 모델의 150초 예산은 부족하다.
+   * 바깥 TIMEOUTS.humanize는 15초 더 기다려 안쪽 AbortSignal 취소와 실제 오류가
+   * 먼저 전달되도록 한다.
    */
-  timeout: 150_000,
+  timeout: 600_000,
 };
 
 export const SITE_INFO = {
