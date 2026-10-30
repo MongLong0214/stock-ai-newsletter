@@ -20,13 +20,10 @@ import { resolve } from 'node:path';
 
 const envPath = resolve(process.cwd(), '.env.local');
 if (existsSync(envPath)) config({ path: envPath });
-if (process.env.GOOGLE_APPLICATION_CREDENTIALS && !existsSync(process.env.GOOGLE_APPLICATION_CREDENTIALS)) {
-  delete process.env.GOOGLE_APPLICATION_CREDENTIALS; // 로컬은 gcloud ADC로 폴백
-}
 
 import { getServerSupabaseClient } from '@/lib/supabase/server-client';
 import { fetchAllRows } from '@/lib/supabase/paginate';
-import { generateText } from '@/lib/llm/gemini-client';
+import { generateText } from '@/lib/llm/openai-client';
 import { ALL_PATTERNS, isClickbait } from '@/app/blog/_config/clickbait-patterns';
 
 /** 되돌리기용 원본 기록 */
@@ -124,7 +121,7 @@ async function main(): Promise<void> {
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
         const prompt = buildPrompt(post, attempt === 0 ? undefined : reason ?? undefined);
-        rewritten = cleanTitle(await generateText({ prompt, config: { temperature: attempt === 0 ? 0.4 : 0.7 } }));
+        rewritten = cleanTitle(await generateText({ prompt }));
         reason = isAcceptable(post.title, rewritten);
         if (!reason) break;
       } catch (e) {

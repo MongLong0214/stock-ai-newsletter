@@ -2,7 +2,7 @@
  * 한글 AI 문체 제거(윤문) 서비스
  *
  * Humanize KR(im-not-ai)의 monolith Fast Path를 블로그 파이프라인에 이식한 것.
- * 생성된 본문을 Gemini 1콜로 윤문하고, 결정적 가드로 과윤문·의미 훼손을 차단한다.
+ * 생성된 본문을 GPT 1콜로 윤문하고, 결정적 가드로 과윤문·의미 훼손을 차단한다.
  *
  * 원본: https://github.com/epoko77-ai/im-not-ai (MIT License)
  *
@@ -10,7 +10,7 @@
  * 윤문은 부가 품질 개선이므로, 어떤 이유로든 실패하면 원문을 그대로 통과시킨다.
  */
 
-import { generateText } from '@/lib/llm/gemini-client';
+import { generateText } from '@/lib/llm/openai-client';
 import { buildHumanizePrompt, HUMANIZE_BEGIN, HUMANIZE_END } from '../_prompts/humanize';
 import { HUMANIZE_CONFIG } from '../_config/pipeline-config';
 import { humanizeMadeItWorse, measureAiTell } from '../_utils/ai-tell-metrics';
@@ -334,7 +334,6 @@ export async function humanizeWithVerdict(content: string, targetKeyword: string
     const response = await generateText({
       prompt: buildHumanizePrompt({ content, targetKeyword }),
       config: {
-        temperature: HUMANIZE_CONFIG.temperature,
         responseMimeType: 'text/plain',
       },
       timeout: HUMANIZE_CONFIG.timeout,

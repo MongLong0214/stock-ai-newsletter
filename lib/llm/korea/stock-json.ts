@@ -31,7 +31,7 @@ function isValidStockSignals(signals: unknown): signals is StockSignals {
 /**
  * 주식 데이터 검증 (Type Guard)
  *
- * Gemini Pipeline 응답의 JSON 데이터가 올바른 StockDataArray 형식인지 검증합니다.
+ * LLM Pipeline 응답의 JSON 데이터가 올바른 StockDataArray 형식인지 검증합니다.
  *
  * 검증 항목:
  * - 배열 타입 (정확히 3개 항목만 허용)
@@ -75,16 +75,16 @@ export function validateStockData(data: unknown): data is StockDataArray {
 /**
  * JSON 추출 및 검증
  *
- * Gemini 응답에서 JSON 배열을 추출하고 유효성을 검증합니다.
+ * LLM 응답에서 JSON 배열을 추출하고 유효성을 검증합니다.
  *
  * 처리 과정:
  * 1. 제어 문자 제거 (ASCII 0x00-0x1F, 0x7F)
- * 2. Gemini tool call 마커 제거 (<ctrl\d+>, call:google_search.search{...})
+ * 2. Legacy tool call 마커 제거 (<ctrl\d+>, call:google_search.search{...})
  * 3. 정규식으로 [{...}] 패턴 추출
  * 4. 각 후보를 JSON.parse → validateStockData로 검증
  * 5. 첫 번째 유효한 JSON 반환
  *
- * @param text - Gemini Pipeline 응답 텍스트
+ * @param text - LLM Pipeline 응답 텍스트
  * @returns 유효한 JSON 문자열 또는 null
  */
 export function extractAndValidateJSON(text: string): string | null {

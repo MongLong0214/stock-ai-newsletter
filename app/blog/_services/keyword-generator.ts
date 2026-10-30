@@ -2,7 +2,7 @@
 
 import { z } from 'zod';
 import { getServerSupabaseClient } from '@/lib/supabase/server-client';
-import { generateText } from '@/lib/llm/gemini-client';
+import { generateText } from '@/lib/llm/openai-client';
 import { buildKeywordGenerationPrompt } from '../_prompts/keyword-generation';
 import { validateKeywordItem, calculateSEOScore } from '../_prompts/keyword-validation';
 import { isDuplicate } from './keyword-similarity';
@@ -193,7 +193,7 @@ async function generateKeywordsWithAI(
  * fail-closed다. 자격증명이 없거나 API가 실패하면 그 후보는 탈락시킨다.
  * fail-open이던 때는 게이트가 실제로 필요한 순간(시크릿 누락·429·5xx)에 정확히
  * 꺼졌고, 그때 발행된 글의 정렬 기준이 AI가 지어낸 허수였다. 검증 못 한 키워드로
- * SerpAPI·Gemini 비용을 쓰고 공개까지 하는 것보다 그날 발행 0이 싸다.
+ * SerpAPI·GPT 비용을 쓰고 공개까지 하는 것보다 그날 발행 0이 싸다.
  */
 /**
  * 검색량 측정 대상 변형.

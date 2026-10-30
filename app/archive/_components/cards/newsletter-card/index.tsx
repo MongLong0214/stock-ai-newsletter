@@ -34,7 +34,7 @@ export default function NewsletterCard({
 }: NewsletterCardProps) {
   const { ticker, name, close_price, rationale, signals } = stock;
 
-  // KIS API 종가 우선, 없으면 Gemini 값 사용
+  // KIS API 종가 우선, 없으면 GPT 값 사용
   const displayClosePrice = historicalClosePrice ?? close_price;
 
   // 전체 점수 그라데이션

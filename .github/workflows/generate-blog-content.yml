@@ -47,15 +47,10 @@ jobs:
       - name: Playwright 시스템 의존성 설치
         run: npx playwright install-deps chromium
 
-      - name: Google Cloud 인증
-        uses: google-github-actions/auth@v2
-        with:
-          credentials_json: ${{ secrets.GOOGLE_CLOUD_CREDENTIALS }}
-
       - name: Generate blog content (AI Dynamic Keywords)
         env:
           SERP_API_KEY: ${{ secrets.SERP_API_KEY }}
-          GOOGLE_CLOUD_PROJECT: ${{ secrets.GOOGLE_CLOUD_PROJECT }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           # 네이버 검색광고 API — 실측 검색량 게이트. **필수**다.

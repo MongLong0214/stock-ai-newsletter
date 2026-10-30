@@ -23,7 +23,7 @@ ${createDateValidationBlock(context)}
 🚨 환각(Hallucination) 방지 - 최우선 원칙
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-🔴 CRITICAL: 모든 데이터는 반드시 실시간 Google Search로 수집!
+🔴 CRITICAL: 모든 데이터는 반드시 실시간 웹 검색로 수집!
 🔴 CRITICAL: 절대로 예시 데이터나 과거 학습 데이터를 사용하지 마세요!
 🔴 CRITICAL: 분석 기준일은 ${targetDate.korean} (ISO: ${targetDate.iso})
 
@@ -39,7 +39,7 @@ ${createDateValidationBlock(context)}
 ❌ 검색 결과 없이 데이터 작성 금지
 ❌ [target_date] 플레이스홀더 사용 금지 (실제 날짜 사용!)
 
-✅ 모든 전일 종가는 Google Search로 ${targetDate.koreanForSearch} 기준 실시간 확인
+✅ 모든 전일 종가는 웹 검색로 ${targetDate.koreanForSearch} 기준 실시간 확인
 ✅ 모든 기술 지표(RSI, MACD, ATR 등)는 실시간 검색으로 확인
 ✅ 검색 실패 시 즉시 제외/중단 (미검증 금지)
 ✅ 전일 종가는 5개 소스 조회 후 3개 이상 일치 확인 (STAGE 2/5 규칙)
@@ -56,7 +56,7 @@ ${createDateValidationBlock(context)}
 ❌ 환각(hallucination) 절대 금지
 ❌ 과매수 구간 추격매수 절대 금지 (RSI > 70, 볼린저밴드 상단 돌파, Williams %R > -20 등)
 ✅ 기술적 지표 점수만 제공
-✅ 모든 데이터는 Google Search로 실시간 수집
+✅ 모든 데이터는 웹 검색로 실시간 수집
 ✅ 찾지 못하면 즉시 제외, 계산/추정/유추 금지
 ✅ 최종 출력은 순수 JSON만 (마크다운 없이)
 ✅ 시간 제약 없음 - 완벽하게 완성할 때까지 진행

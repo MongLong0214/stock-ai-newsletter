@@ -2,7 +2,7 @@ import { config } from 'dotenv';
 import { resolve } from 'path';
 import { existsSync, writeFileSync } from 'fs';
 import { textToImage } from '@/lib/text-to-image';
-import { getGeminiRecommendation } from '@/lib/llm/korea/gemini';
+import { getLlmRecommendation } from '@/lib/llm/korea/llm-recommendation';
 
 const envPath = resolve(process.cwd(), '.env.local');
 if (existsSync(envPath)) {
@@ -13,15 +13,15 @@ async function testImageGeneration() {
   console.log('🖼️  트위터 이미지 생성 테스트 시작...\n');
 
   try {
-    // Gemini API 키 확인
-    if (!process.env.GEMINI_API_KEY) {
-      throw new Error('Gemini API 키가 설정되지 않았습니다.');
+    // OpenAI API 키 확인
+    if (!process.env.OPENAI_API_KEY) {
+      throw new Error('OpenAI API 키가 설정되지 않았습니다.');
     }
 
-    console.log('🤖 Gemini AI로 주식 분석 중...\n');
+    console.log('🤖 GPT로 주식 분석 중...\n');
     console.log('⏳ 분석에 최대 10분까지 소요될 수 있습니다...\n');
 
-    const analysisResult = await getGeminiRecommendation();
+    const analysisResult = await getLlmRecommendation();
 
     // 에러 메시지 체크
     if (analysisResult.startsWith('⚠️')) {

@@ -31,7 +31,7 @@ export interface StockSelection {
 /**
  * 주식 종목 데이터
  *
- * Gemini Pipeline이 생성하는 최종 JSON 형식
+ * GPT Pipeline이 생성하는 최종 JSON 형식
  *
  * @property ticker - 종목 코드 (형식: "KOSPI:005930" 또는 "KOSDAQ:035420")
  * @property name - 종목명 (예: "삼성전자", "SK하이닉스")
@@ -71,7 +71,7 @@ export interface StockData {
 /**
  * 주식 종목 배열 타입
  *
- * Gemini Pipeline의 최종 출력 형식
+ * GPT Pipeline의 최종 출력 형식
  * 1-3개 종목을 포함하는 배열
  */
 export type StockDataArray = StockData[];

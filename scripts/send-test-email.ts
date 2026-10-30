@@ -10,7 +10,7 @@ if (existsSync(envPath)) {
 }
 
 import { sendStockNewsletter } from '@/lib/sendgrid';
-import { getGeminiRecommendation } from '@/lib/llm/korea/gemini';
+import { getLlmRecommendation } from '@/lib/llm/korea/llm-recommendation';
 
 async function sendTestEmail() {
   console.log('🚀 테스트 이메일 발송 시작...\n');
@@ -25,9 +25,9 @@ async function sendTestEmail() {
 
     console.log(`📧 수신자: ${testRecipient.email}\n`);
 
-    // Gemini AI 분석 실행
-    console.log('🤖 Gemini 분석 실행 중...\n');
-    const geminiAnalysis = await getGeminiRecommendation();
+    // GPT AI 분석 실행
+    console.log('🤖 GPT 분석 실행 중...\n');
+    const geminiAnalysis = await getLlmRecommendation();
 
     // GPT, Claude는 서비스 준비 중 (빈 문자열)
     const gptAnalysis = '';

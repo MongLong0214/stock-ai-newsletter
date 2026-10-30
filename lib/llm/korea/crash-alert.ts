@@ -1,5 +1,5 @@
 import type { CrashAlertData } from '@/app/archive/_types/archive.types';
-import type { MarketAssessment } from './gemini-pipeline';
+import type { MarketAssessment } from './llm-pipeline';
 
 /** Numerical fields and severity belong to the risk engine, not the text model. */
 export function bindCrashAssessment(alert: CrashAlertData, assessment: MarketAssessment): CrashAlertData {
