@@ -1,5 +1,6 @@
 import { MarketAssessmentUnavailableError, type MarketDataQuality } from '@/lib/market-data/market-assessment-policy';
-import { FinishReason, GoogleGenAI, type GenerateContentResponse } from '@google/genai';
+import type OpenAI from 'openai';
+import { initializeOpenAI, logResponseUsage } from '../openai-client';
 import {
     createDateContext,
     getCommonPrinciples,
@@ -13,7 +14,7 @@ import {
     getCrashAnalysisSearchPrompt,
     getCrashAnalysisJsonPrompt,
 } from '../../prompts/korea';
-import { PIPELINE_CONFIG, GEMINI_API_CONFIG } from '../_config/pipeline-config';
+import { PIPELINE_CONFIG, OPENAI_API_CONFIG } from '../_config/pipeline-config';
 import { extractAndValidateJSON } from './stock-json';
 import {
     evaluateMarketAssessmentSnapshot,
@@ -64,26 +65,6 @@ function startProgressTimer(label: string, intervalMs = 10000): { stop: () => vo
             clearInterval(timer);
         },
     };
-}
-
-/**
- * Gemini 응답별 실제 토큰 사용량과 검색 쿼리 수를 한 줄 JSON으로 기록
- */
-function logGenerateContentUsage(stage: string, response: GenerateContentResponse): void {
-    const usage = response.usageMetadata;
-    const webSearchQueries = response.candidates?.[0]?.groundingMetadata?.webSearchQueries;
-
-    console.log(
-        JSON.stringify({
-            event: 'gemini_usage',
-            stage,
-            promptTokenCount: usage?.promptTokenCount ?? null,
-            candidatesTokenCount: usage?.candidatesTokenCount ?? null,
-            thoughtsTokenCount: usage?.thoughtsTokenCount ?? null,
-            totalTokenCount: usage?.totalTokenCount ?? null,
-            webSearchQueriesCount: webSearchQueries?.length ?? null,
-        })
-    );
 }
 
 /**
@@ -176,7 +157,7 @@ function appendPreviousOutput(basePrompt: string, previousOutput: string): strin
  * 단일 Stage 실행 (Inner Retry Layer)
  */
 async function executeStage(
-    genAI: GoogleGenAI,
+    client: OpenAI,
     stage: StagePrompt,
     previousOutput?: string
 ): Promise<string> {
@@ -202,7 +183,7 @@ async function executeStage(
             if (previousOutput) {
                 console.log(`   📥 이전 Stage 결과 주입: ${previousOutput.length.toLocaleString()} chars`);
             }
-            console.log(`   🤖 모델: ${GEMINI_API_CONFIG.MODEL} | 시도: ${attempt}/${PIPELINE_CONFIG.STAGE_MAX_RETRY}`);
+            console.log(`   🤖 모델: ${OPENAI_API_CONFIG.MODEL} | 시도: ${attempt}/${PIPELINE_CONFIG.STAGE_MAX_RETRY}`);
             console.log(`   ⏱️  타임아웃: ${formatElapsed(PIPELINE_CONFIG.STAGE_TIMEOUT)} | API 호출 시작...`);
 
             apiStartTime = Date.now();
@@ -210,34 +191,25 @@ async function executeStage(
             const abortController = new AbortController();
 
             const response = await withTimeout(
-                genAI.models.generateContent({
-                    model: GEMINI_API_CONFIG.MODEL,
-                    contents: [{ role: 'user', parts: [{ text: finalPrompt }] }],
-                    config: {
-                        abortSignal: abortController.signal,
-                        tools: [{ googleSearch: {} }],
-                        maxOutputTokens: GEMINI_API_CONFIG.MAX_OUTPUT_TOKENS,
-                        temperature: GEMINI_API_CONFIG.TEMPERATURE,
-                        topP: GEMINI_API_CONFIG.TOP_P,
-                        topK: GEMINI_API_CONFIG.TOP_K,
-                        responseMimeType: GEMINI_API_CONFIG.RESPONSE_MIME_TYPE,
-                    },
-                }),
+                client.responses.create({
+                    model: OPENAI_API_CONFIG.MODEL,
+                    input: finalPrompt,
+                    reasoning: { effort: OPENAI_API_CONFIG.REASONING_EFFORT },
+                    max_output_tokens: OPENAI_API_CONFIG.MAX_OUTPUT_TOKENS,
+                    tools: [{ type: 'web_search' }],
+                }, { signal: abortController.signal }),
                 PIPELINE_CONFIG.STAGE_TIMEOUT,
                 () => abortController.abort()
             );
 
             progress.stop();
             const apiElapsed = Date.now() - apiStartTime;
-            logGenerateContentUsage(`STAGE ${stage.stageNumber}`, response);
-            const text = response.text ?? '';
+            logResponseUsage(`STAGE ${stage.stageNumber}`, response);
+            const text = response.output_text ?? '';
             console.log(`   ✅ API 응답 수신: ${text.length.toLocaleString()} chars (${formatElapsed(apiElapsed)})`);
 
-            const finishReason = response.candidates?.[0]?.finishReason;
-            if (finishReason && finishReason !== FinishReason.STOP) {
-                throw new Error(
-                    `STAGE ${stage.stageNumber} 응답 비정상 종료 (finishReason: ${finishReason}) — 출력 잘림/차단 가능성`
-                );
+            if (response.status === 'incomplete' && response.incomplete_details?.reason === 'max_output_tokens') {
+                throw new Error(`STAGE ${stage.stageNumber} 응답 잘림 (max_output_tokens)`);
             }
             if (text.trim().length < PIPELINE_CONFIG.MIN_STAGE_OUTPUT_CHARS) {
                 throw new Error(
@@ -282,17 +254,17 @@ async function executeStage(
                 console.error('💡 해결방법: Stage 복잡도 확인 필요');
             } else if (isAuth) {
                 console.error('🔐 에러 타입: 인증/권한 오류');
-                console.error('💡 해결방법: GOOGLE_APPLICATION_CREDENTIALS 확인');
+                console.error('💡 해결방법: OPENAI_API_KEY 확인');
             } else if (isFetchError) {
                 console.error('🌐 에러 타입: Fetch 실패 (네트워크/API 요청 오류)');
                 console.error('💡 가능 원인:');
-                console.error('   - Google Search tool 동시 요청 제한');
+                console.error('   - 웹 검색 tool 동시 요청 제한');
                 console.error('   - 일시적 네트워크 불안정');
-                console.error('   - Vertex AI 엔드포인트 응답 지연');
+                console.error('   - OpenAI 엔드포인트 응답 지연');
                 console.error('💡 해결방법: 자동 재시도 진행 중 (Exponential Backoff)');
             } else if (isNetwork) {
                 console.error('🌐 에러 타입: 네트워크 연결 오류');
-                console.error('💡 해결방법: 인터넷 연결 및 Vertex AI API 활성화 확인');
+                console.error('💡 해결방법: 인터넷 연결 및 OpenAI API 활성화 확인');
             } else {
                 console.error('⚠️  에러 타입: 기타');
             }
@@ -332,7 +304,7 @@ async function executeStage(
 }
 
 /**
- * Gemini 7-Stage Pipeline 실행
+ * OpenAI 7-Stage Pipeline 실행
  *
  * Pipeline 구조:
  * STAGE 0: 200개 종목 수집 (30개 다양한 검색 쿼리)
@@ -351,36 +323,30 @@ async function executeStage(
  *
  * @returns JSON 문자열 (3개 종목 데이터)
  */
-export async function executeGeminiPipeline(): Promise<string> {
-    if (!process.env.GOOGLE_CLOUD_PROJECT) {
-        throw new Error('GOOGLE_CLOUD_PROJECT 환경 변수가 설정되지 않았습니다.');
+export async function executeLlmPipeline(): Promise<string> {
+    if (!process.env.OPENAI_API_KEY) {
+        throw new Error('OPENAI_API_KEY 환경 변수가 설정되지 않았습니다.');
     }
 
     const pipelineStartTime = Date.now();
 
     console.log(`\n${'='.repeat(80)}`);
-    console.log(`🎯 Gemini Multi-Stage Pipeline 시작`);
+    console.log(`🎯 OpenAI Multi-Stage Pipeline 시작`);
     console.log(`${'='.repeat(80)}`);
-    console.log(`   📌 Project: ${process.env.GOOGLE_CLOUD_PROJECT}`);
-    console.log(`   📌 Location: ${PIPELINE_CONFIG.VERTEX_AI_LOCATION}`);
-    console.log(`   📌 Model: ${GEMINI_API_CONFIG.MODEL}`);
-    console.log(`   📌 Max Output Tokens: ${GEMINI_API_CONFIG.MAX_OUTPUT_TOKENS.toLocaleString()}`);
-    console.log(`   📌 Temperature: ${GEMINI_API_CONFIG.TEMPERATURE} | TopP: ${GEMINI_API_CONFIG.TOP_P} | TopK: ${GEMINI_API_CONFIG.TOP_K}`);
+    console.log(`   📌 Model: ${OPENAI_API_CONFIG.MODEL}`);
+    console.log(`   📌 Max Output Tokens: ${OPENAI_API_CONFIG.MAX_OUTPUT_TOKENS.toLocaleString()}`);
+    console.log(`   📌 Reasoning Effort: ${OPENAI_API_CONFIG.REASONING_EFFORT}`);
     console.log(`   📌 Stage 타임아웃: ${formatElapsed(PIPELINE_CONFIG.STAGE_TIMEOUT)} | Stage 간 쿨다운: ${formatElapsed(PIPELINE_CONFIG.STAGE_DELAY)}`);
     console.log(`   📌 재시도: Outer ${PIPELINE_CONFIG.OUTER_MAX_RETRY}회 × Stage ${PIPELINE_CONFIG.STAGE_MAX_RETRY}회`);
     console.log(`${'='.repeat(80)}`);
 
-    const genAI = new GoogleGenAI({
-        vertexai: true,
-        project: process.env.GOOGLE_CLOUD_PROJECT,
-        location: PIPELINE_CONFIG.VERTEX_AI_LOCATION,
-    });
+    const client = initializeOpenAI();
 
     const stages = buildStagePrompts();
     let previousOutput: string | undefined;
 
     for (const stage of stages) {
-        const stageOutput = await executeStage(genAI, stage, previousOutput);
+        const stageOutput = await executeStage(client, stage, previousOutput);
 
         // Stage 6에서 파이프라인 종료
         if (stage.stageNumber === 6) {
@@ -505,28 +471,24 @@ export async function executeMarketAssessment(): Promise<MarketAssessment> {
 /**
  * 폭락 분석 2-Stage Pipeline 실행
  *
- * Stage 1: Google Search로 원인 심층 분석
+ * Stage 1: 웹 검색로 원인 심층 분석
  * Stage 2: 분석 결과를 구조화된 JSON으로 변환
  *
  * @param assessmentSummary - 시장 평가 요약 (context 전달용)
  * @returns crash_alert JSON 문자열
  */
 export async function executeCrashAnalysisPipeline(assessmentSummary: string): Promise<string> {
-    if (!process.env.GOOGLE_CLOUD_PROJECT) {
-        throw new Error('GOOGLE_CLOUD_PROJECT 환경 변수가 설정되지 않았습니다.');
+    if (!process.env.OPENAI_API_KEY) {
+        throw new Error('OPENAI_API_KEY 환경 변수가 설정되지 않았습니다.');
     }
 
     console.log(`\n${'='.repeat(80)}`);
     console.log(`🚨 폭락 분석 Pipeline 시작`);
     console.log(`${'='.repeat(80)}`);
 
-    const genAI = new GoogleGenAI({
-        vertexai: true,
-        project: process.env.GOOGLE_CLOUD_PROJECT,
-        location: PIPELINE_CONFIG.VERTEX_AI_LOCATION,
-    });
+    const client = initializeOpenAI();
 
-    // Stage 1: 심층 분석 (Google Search)
+    // Stage 1: 심층 분석 (웹 검색)
     console.log('\n🔍 [폭락 분석 Stage 1] 원인 심층 분석...');
     const searchPrompt = getCrashAnalysisSearchPrompt(assessmentSummary);
 
@@ -535,25 +497,22 @@ export async function executeCrashAnalysisPipeline(assessmentSummary: string): P
         try {
             const abortController = new AbortController();
             const response = await withTimeout(
-                genAI.models.generateContent({
-                    model: GEMINI_API_CONFIG.MODEL,
-                    contents: [{ role: 'user', parts: [{ text: searchPrompt }] }],
-                    config: {
-                        abortSignal: abortController.signal,
-                        tools: [{ googleSearch: {} }],
-                        maxOutputTokens: GEMINI_API_CONFIG.MAX_OUTPUT_TOKENS,
-                        temperature: GEMINI_API_CONFIG.TEMPERATURE,
-                        topP: GEMINI_API_CONFIG.TOP_P,
-                        topK: GEMINI_API_CONFIG.TOP_K,
-                        responseMimeType: 'text/plain',
-                    },
-                }),
+                client.responses.create({
+                    model: OPENAI_API_CONFIG.MODEL,
+                    input: searchPrompt,
+                    reasoning: { effort: OPENAI_API_CONFIG.REASONING_EFFORT },
+                    max_output_tokens: OPENAI_API_CONFIG.MAX_OUTPUT_TOKENS,
+                    tools: [{ type: 'web_search' }],
+                }, { signal: abortController.signal }),
                 PIPELINE_CONFIG.STAGE_TIMEOUT,
                 () => abortController.abort()
             );
 
-            logGenerateContentUsage('CRASH ANALYSIS STAGE 1', response);
-            searchResult = response.text || '';
+            logResponseUsage('CRASH ANALYSIS STAGE 1', response);
+            if (response.status === 'incomplete' && response.incomplete_details?.reason === 'max_output_tokens') {
+                throw new Error('폭락 분석 Stage 1 응답 잘림 (max_output_tokens)');
+            }
+            searchResult = response.output_text || '';
             if (searchResult.trim().length < PIPELINE_CONFIG.MIN_STAGE_OUTPUT_CHARS) {
                 throw new Error(
                     `폭락 분석 Stage 1 응답이 비정상적으로 짧습니다 (${searchResult.trim().length} chars)`
@@ -583,24 +542,22 @@ export async function executeCrashAnalysisPipeline(assessmentSummary: string): P
         try {
             const abortController = new AbortController();
             const response = await withTimeout(
-                genAI.models.generateContent({
-                    model: GEMINI_API_CONFIG.MODEL,
-                    contents: [{ role: 'user', parts: [{ text: jsonPrompt }] }],
-                    config: {
-                        abortSignal: abortController.signal,
-                        maxOutputTokens: GEMINI_API_CONFIG.MAX_OUTPUT_TOKENS,
-                        temperature: GEMINI_API_CONFIG.TEMPERATURE,
-                        topP: GEMINI_API_CONFIG.TOP_P,
-                        topK: GEMINI_API_CONFIG.TOP_K,
-                        responseMimeType: 'application/json',
-                    },
-                }),
+                client.responses.create({
+                    model: OPENAI_API_CONFIG.MODEL,
+                    input: jsonPrompt,
+                    reasoning: { effort: OPENAI_API_CONFIG.REASONING_EFFORT },
+                    max_output_tokens: OPENAI_API_CONFIG.MAX_OUTPUT_TOKENS,
+                    text: { format: { type: 'json_object' } },
+                }, { signal: abortController.signal }),
                 PIPELINE_CONFIG.STAGE_TIMEOUT,
                 () => abortController.abort()
             );
 
-            logGenerateContentUsage('CRASH ANALYSIS STAGE 2', response);
-            const text = response.text || '';
+            logResponseUsage('CRASH ANALYSIS STAGE 2', response);
+            if (response.status === 'incomplete' && response.incomplete_details?.reason === 'max_output_tokens') {
+                throw new Error('폭락 분석 Stage 2 응답 잘림 (max_output_tokens)');
+            }
+            const text = response.output_text || '';
             if (text.trim().length < PIPELINE_CONFIG.MIN_STAGE_OUTPUT_CHARS) {
                 throw new Error(
                     `폭락 분석 Stage 2 응답이 비정상적으로 짧습니다 (${text.trim().length} chars)`

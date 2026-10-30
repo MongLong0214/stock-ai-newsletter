@@ -28,7 +28,7 @@ const state = vi.hoisted(() => ({
   model: vi.fn(),
 }))
 
-vi.mock('@google/genai', () => ({ GoogleGenAI: class { constructor() { state.model(); throw new Error('E2E must not call a model') } } }))
+vi.mock('openai', () => ({ default: class { responses = { create: () => { state.model(); throw new Error('E2E must not call a model') } } } }))
 vi.mock('@/lib/newsletter/alert', () => ({ sendNewsletterAlertEmail: state.alert }))
 vi.mock('@/lib/market-data/kis-market-assessment', async (importOriginal) => ({
   ...await importOriginal<typeof import('@/lib/market-data/kis-market-assessment')>(),
@@ -180,7 +180,7 @@ describe('Prepare boundary-isolated E2E', () => {
     vi.useFakeTimers({ toFake: ['Date'] })
     vi.setSystemTime(new Date(E2E_NOW))
     vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('Unexpected external network in fixture E2E') }))
-    vi.stubEnv('GOOGLE_CLOUD_PROJECT', '')
+    vi.stubEnv('OPENAI_API_KEY', '')
     vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', 'https://fixture.invalid')
     vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY', 'fixture-only')
     vi.stubEnv('STOCK_PICKS_KIS_RATE_LIMIT_PER_SECOND', '10')

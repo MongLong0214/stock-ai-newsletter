@@ -82,11 +82,11 @@ type Stage6입력타입 = Stage5입력[];  // 정확히 3개 종목
 §2. 배치 검증 알고리즘
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-알고리즘 2.3: 배치 검색 실행 (Google Search Tool)
+알고리즘 2.3: 배치 검색 실행 (web_search)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 도구_사양:
-  도구명: Google Search (googleSearch)
+  도구명: 웹 검색 (web_search)
   용도: 각 종목의 지표/종가를 배치 쿼리로 실검색하여 Stage 5 값과 대조
 
 배치_검색_알고리즘
@@ -313,7 +313,7 @@ type Stage6출력타입 = Stage6출력[];  // 정확히 3개 종목
   9. 최종 JSON 반환
 
 핵심_규칙:
-  - GoogleSearchRetrieval API만 사용 (배치 최적화)
+  - web_search 도구만 사용 (배치 최적화)
   - 모든 검색에 ${searchFormats.naverStyle} 또는 ${targetDate.iso} 포함
   - 검증 불가 시 즉시 삭제하고 재검증을 요청한다
   - 종목당 최소 10개 rationale 지표 필수

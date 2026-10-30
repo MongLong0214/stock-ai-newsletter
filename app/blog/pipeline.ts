@@ -234,7 +234,7 @@ async function generateDraft(keyword: string, type: 'comparison' | 'guide' | 'li
       // 콘텐츠 사유 반려(수치·헤딩·AI 티)는 그 글 하나의 문제다. 이것까지 세면
       // 연속 2건 반려가 남은 초안 생성을 전부 막아 그날 발행이 0건이 된다
       // (실측: 타임아웃 1건 + 헤딩 변경 1건에 남은 3편이 생성조차 되지 않았다).
-      // 브레이커의 목적은 윤문 API가 죽었을 때 Gemini 비용을 끊는 것이다.
+      // 브레이커의 목적은 윤문 API가 죽었을 때 GPT 비용을 끊는 것이다.
       if (outcome.status === 'error') registerHumanizeFailure();
       throw new Error(`윤문 미채택(${outcome.status}) — 윤문 안 된 글은 발행하지 않는다`);
     }

@@ -1,7 +1,6 @@
-/** Gemini 기반 블로그 콘텐츠 생성 서비스 */
+/** OpenAI 기반 블로그 콘텐츠 생성 서비스 */
 
-import { GoogleGenAI } from '@google/genai';
-import { GEMINI_API_CONFIG } from '@/lib/llm/_config/pipeline-config';
+import { generateText } from '@/lib/llm/openai-client';
 import { PIPELINE_CONFIG } from '../_config/pipeline-config';
 import { buildContentGenerationPrompt } from '../_prompts/content-generation';
 import { ALL_PATTERNS } from '../_config/clickbait-patterns';
@@ -9,19 +8,6 @@ import type { CompetitorAnalysis, GeneratedContent } from '../_types/blog';
 
 // 하위 호환: pipeline.ts에서 이 경로로 import
 export { generateSlug } from '../_utils/slug-generator';
-
-/** Gemini Vertex AI 클라이언트 초기화 */
-function initializeGemini(): GoogleGenAI {
-  if (!process.env.GOOGLE_CLOUD_PROJECT) {
-    throw new Error('GOOGLE_CLOUD_PROJECT 환경변수가 설정되지 않았습니다.');
-  }
-
-  return new GoogleGenAI({
-    vertexai: true,
-    project: process.env.GOOGLE_CLOUD_PROJECT,
-    location: 'global',
-  });
-}
 
 /**
  * 런타임 GeneratedContent 타입 가드.
@@ -53,7 +39,7 @@ function isGeneratedContent(obj: unknown): obj is GeneratedContent {
   );
 }
 
-/** Gemini 응답에서 JSON 추출 및 타입 검증 */
+/** OpenAI 응답에서 JSON 추출 및 타입 검증 */
 /**
  * 이미지 플레이스홀더 제거.
  * 파이프라인에 실제 이미지 삽입 단계가 없으므로 `[이미지: ...]` / `![이미지: ...]` 마커는
@@ -232,42 +218,16 @@ export async function generateBlogContent(
   competitorAnalysis: CompetitorAnalysis,
   contentType: 'comparison' | 'guide' | 'listicle' | 'review' = 'guide'
 ): Promise<GeneratedContent> {
-  console.log(`[Gemini] 콘텐츠 생성 시작: "${targetKeyword}" (${contentType})`);
+  console.log(`[OpenAI] 콘텐츠 생성 시작: "${targetKeyword}" (${contentType})`);
 
-  const genAI = initializeGemini();
   const prompt = buildContentGenerationPrompt(targetKeyword, competitorAnalysis, contentType);
   let lastError: Error | null = null;
 
   for (let attempt = 1; attempt <= PIPELINE_CONFIG.retryAttempts; attempt++) {
     const attemptStartTime = Date.now();
 
-    // 타임아웃이 요청을 취소하지 않으면 재시도가 겹쳐 같은 프롬프트가 동시에 세 번 과금된다
-    const controller = new AbortController();
-    let timer: NodeJS.Timeout | undefined;
-
     try {
-      const response = await Promise.race([
-        genAI.models.generateContent({
-          model: GEMINI_API_CONFIG.MODEL,
-          contents: [{ role: 'user', parts: [{ text: prompt }] }],
-          config: {
-            abortSignal: controller.signal,
-            maxOutputTokens: GEMINI_API_CONFIG.MAX_OUTPUT_TOKENS,
-            temperature: GEMINI_API_CONFIG.TEMPERATURE,
-            topP: GEMINI_API_CONFIG.TOP_P,
-            topK: GEMINI_API_CONFIG.TOP_K,
-            responseMimeType: GEMINI_API_CONFIG.RESPONSE_MIME_TYPE,
-          },
-        }),
-        new Promise<never>((_, reject) => {
-          timer = setTimeout(() => {
-            controller.abort();
-            reject(new Error('Timeout after 120000ms'));
-          }, 120000);
-        }),
-      ]);
-
-      const responseText = response.text || '';
+      const responseText = await generateText({ prompt, timeout: 120000 });
       if (!responseText) throw new Error('빈 응답을 받았습니다.');
 
       const content = parseJsonResponse(responseText);
@@ -279,21 +239,17 @@ export async function generateBlogContent(
       }
 
       content.qualityScore = qualityScore;
-      console.log(`[Gemini] 생성 완료 (${Date.now() - attemptStartTime}ms, Q=${qualityScore})`);
+      console.log(`[OpenAI] 생성 완료 (${Date.now() - attemptStartTime}ms, Q=${qualityScore})`);
       return content;
     } catch (error) {
       lastError = error instanceof Error ? error : new Error(String(error));
-      console.error(`[Gemini] 시도 ${attempt} 실패: ${lastError.message}`);
+      console.error(`[OpenAI] 시도 ${attempt} 실패: ${lastError.message}`);
 
       if (attempt < PIPELINE_CONFIG.retryAttempts) {
         const baseDelay = PIPELINE_CONFIG.retryDelay * Math.pow(2, attempt - 1);
         const jitter = Math.random() * 0.3 * baseDelay;
         await new Promise((resolve) => setTimeout(resolve, baseDelay + jitter));
       }
-    } finally {
-      // 성공했을 때 타이머를 남기면 120초 뒤 abort가 걸린다(다음 시도까지 끊는다)
-      clearTimeout(timer);
-      controller.abort();
     }
   }
 

@@ -39,7 +39,7 @@ setTimeout(() => { console.error('\n타임아웃 (25분)'); exit(1); }, SCRIPT_T
   // 검색량 게이트가 없으면 AI가 지어낸 추정 검색량으로 발행된다 — 자동 공개 경로에서는 필수다
   const hasAdCreds = process.env.NAVER_AD_CREDS
     || (process.env.NAVER_AD_CUSTOMER_ID && process.env.NAVER_AD_API_KEY && process.env.NAVER_AD_SECRET_KEY);
-  const missing = ['SERP_API_KEY', 'GOOGLE_CLOUD_PROJECT', 'NEXT_PUBLIC_SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY'].filter(k => !process.env[k]);
+  const missing = ['SERP_API_KEY', 'OPENAI_API_KEY', 'NEXT_PUBLIC_SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY'].filter(k => !process.env[k]);
   if (!hasAdCreds) missing.push('NAVER_AD_CREDS (또는 NAVER_AD_CUSTOMER_ID/API_KEY/SECRET_KEY)');
   if (missing.length) { console.error(`환경변수 누락: ${missing.join(', ')}`); return exit(1); }
 

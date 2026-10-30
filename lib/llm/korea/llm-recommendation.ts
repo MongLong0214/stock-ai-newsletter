@@ -1,5 +1,5 @@
-import { executeGeminiPipeline, executeMarketAssessment, executeCrashAnalysisPipeline } from './gemini-pipeline';
-import type { MarketAssessment } from './gemini-pipeline';
+import { executeLlmPipeline, executeMarketAssessment, executeCrashAnalysisPipeline } from './llm-pipeline';
+import type { MarketAssessment } from './llm-pipeline';
 import { PIPELINE_CONFIG } from '../_config/pipeline-config';
 import { extractAndValidateJSON, extractAndValidateCrashJSON } from './stock-json';
 import { bindCrashAssessment, buildDeterministicCrashAlert } from './crash-alert';
@@ -8,7 +8,7 @@ import { MarketAssessmentUnavailableError } from '@/lib/market-data/market-asses
 /**
  * 에러 포맷팅
  *
- * Gemini API 에러를 사용자 친화적인 메시지로 변환합니다.
+ * OpenAI API 에러를 사용자 친화적인 메시지로 변환합니다.
  *
  * @param error - 에러 객체 (Error | unknown)
  * @returns 포맷된 에러 메시지
@@ -16,7 +16,7 @@ import { MarketAssessmentUnavailableError } from '@/lib/market-data/market-asses
  * @example
  * ```typescript
  * try {
- *   await geminiAPI();
+ *   await openaiAPI();
  * } catch (error) {
  *   console.error(formatError(error)); // "⚠️ 응답 시간 초과"
  * }
@@ -30,11 +30,11 @@ function formatError(error: unknown): string {
   if (msg.includes('429') || msg.includes('quota')) return '⚠️ API 사용량 한도 초과';
   if (msg.includes('404')) return '⚠️ 모델을 찾을 수 없음';
 
-  return `⚠️ Gemini 오류: ${msg}`;
+  return `⚠️ OpenAI 오류: ${msg}`;
 }
 
 /**
- * Gemini Multi-Stage Pipeline 실행 (Outer Retry Layer)
+ * OpenAI Multi-Stage Pipeline 실행 (Outer Retry Layer)
  *
  * 3-Layer Resilience Architecture의 최상위 레이어로,
  * Pipeline 전체 실패 또는 JSON 검증 실패 시 재시도를 담당합니다.
@@ -57,13 +57,13 @@ function formatError(error: unknown): string {
  *
  * @example
  * ```typescript
- * const result = await getGeminiRecommendation();
+ * const result = await getLlmRecommendation();
  * const stocks = JSON.parse(result);
  * ```
  */
-export async function getGeminiRecommendation(marketAssessment?: MarketAssessment): Promise<string> {
+export async function getLlmRecommendation(marketAssessment?: MarketAssessment): Promise<string> {
   console.log(
-    `[Gemini] Using Vertex AI Multi-Stage Pipeline (Project: ${process.env.GOOGLE_CLOUD_PROJECT})`
+    '[OpenAI] Using Responses API Multi-Stage Pipeline'
   );
 
   try {
@@ -76,7 +76,7 @@ export async function getGeminiRecommendation(marketAssessment?: MarketAssessmen
     if (assessment.verdict === 'CRASH_ALERT') {
       console.log(`\n🚨 [CRASH_ALERT] 위험 경고 기준 충족 → 폭락 분석 Pipeline 실행`);
       try {
-        if (!process.env.GOOGLE_CLOUD_PROJECT) return buildDeterministicCrashAlert(assessment);
+        if (!process.env.OPENAI_API_KEY) return buildDeterministicCrashAlert(assessment);
         return await executeCrashAnalysisWithRetry(assessment);
       } catch (error) {
         console.warn('[Crash Analysis] 상세 분석 실패; 검증된 숫자로 기본 경고 제공', error instanceof Error ? error.message : String(error));
@@ -84,7 +84,7 @@ export async function getGeminiRecommendation(marketAssessment?: MarketAssessmen
       }
     }
 
-    if (!process.env.GOOGLE_CLOUD_PROJECT) throw new Error('GOOGLE_CLOUD_PROJECT 환경 변수가 설정되지 않았습니다.');
+    if (!process.env.OPENAI_API_KEY) throw new Error('OPENAI_API_KEY 환경 변수가 설정되지 않았습니다.');
     console.log(`\n✅ [NORMAL] 위험 경고 기준 미충족 → 종목 추천 Pipeline 실행`);
 
     return await executeStockPipelineWithRetry();
@@ -155,10 +155,10 @@ async function executeStockPipelineWithRetry(): Promise<string> {
       PIPELINE_CONFIG.OUTER_MAX_RETRY_DELAY
     );
 
-    console.log(`[Gemini Pipeline] 시도 ${attempt}/${PIPELINE_CONFIG.OUTER_MAX_RETRY}`);
+    console.log(`[OpenAI Pipeline] 시도 ${attempt}/${PIPELINE_CONFIG.OUTER_MAX_RETRY}`);
 
     try {
-      const result = await executeGeminiPipeline();
+      const result = await executeLlmPipeline();
       if (!result) throw new Error('Empty response from Pipeline');
 
       console.log(`\n${'━'.repeat(80)}`);

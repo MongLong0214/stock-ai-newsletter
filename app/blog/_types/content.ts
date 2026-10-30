@@ -22,7 +22,7 @@ export interface KeywordMetadata {
   reasoning: string;
 }
 
-/** AI가 생성한 콘텐츠 (Gemini API JSON 응답) */
+/** AI가 생성한 콘텐츠 (GPT API JSON 응답) */
 export interface GeneratedContent {
   title: string;
   description: string;

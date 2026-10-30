@@ -35,7 +35,7 @@ async function main() {
     exclusions: ['stock_master refresh', 'full-universe live KIS recollection', 'production DB writes', 'LLM narrative', 'email delivery'],
   }
   try {
-    const { executeMarketAssessment } = await import('@/lib/llm/korea/gemini-pipeline')
+    const { executeMarketAssessment } = await import('@/lib/llm/korea/llm-pipeline')
     const assessment = await executeMarketAssessment()
     report.market = assessment
     if (assessment.verdict !== 'NORMAL') {

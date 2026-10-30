@@ -1,1 +1,1 @@
-export { getGeminiRecommendation } from './llm/korea/gemini';
+export { getLlmRecommendation } from './llm/korea/llm-recommendation';

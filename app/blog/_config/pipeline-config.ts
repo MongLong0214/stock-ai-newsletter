@@ -20,7 +20,7 @@ export const SERP_API_CONFIG = {
   num: 10,
 };
 
-// Gemini API 설정은 lib/llm/_config/pipeline-config.ts에서 관리
+// GPT API 설정은 lib/llm/_config/pipeline-config.ts에서 관리
 
 /** guide 전용 — 다른 콘텐츠 타입 추가 시 분리 */
 export const CONTENT_CONFIG = {
@@ -48,8 +48,6 @@ export const HUMANIZE_CONFIG = {
    * 뭉텅이로 잘려나가는 경우만 담당한다.
    */
   maxWordLossRatio: 0.3,
-  /** 창작이 아니라 교정이므로 생성보다 낮게 */
-  temperature: 0.4,
   /**
    * 파이프라인 외부 타이머(TIMEOUTS.humanize=165초)보다 낮게 둔다.
    *

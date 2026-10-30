@@ -51,19 +51,13 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Setup Google Cloud credentials
-        run: |
-          echo '${{ secrets.GOOGLE_CLOUD_CREDENTIALS }}' > "$HOME/gcloud-key.json"
-          echo "GOOGLE_APPLICATION_CREDENTIALS=$HOME/gcloud-key.json" >> "$GITHUB_ENV"
-
       - name: Prepare Newsletter
         timeout-minutes: 42
         env:
           KIS_APP_KEY: ${{ secrets.KIS_APP_KEY }}
           KIS_APP_SECRET: ${{ secrets.KIS_APP_SECRET }}
           KIS_BASE_URL: ${{ secrets.KIS_BASE_URL }}
-          GOOGLE_CLOUD_PROJECT: ${{ secrets.GOOGLE_CLOUD_PROJECT }}
-          GOOGLE_CLOUD_LOCATION: us-central1
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           SERP_API_KEY: ${{ secrets.SERP_API_KEY }}
           NAVER_CLIENT_ID: ${{ secrets.NAVER_CLIENT_ID }}
           NAVER_CLIENT_SECRET: ${{ secrets.NAVER_CLIENT_SECRET }}
@@ -104,10 +98,6 @@ jobs:
             exit 1
           fi
           exit "$PREPARE_EXIT"
-
-      - name: Cleanup credentials
-        if: always()
-        run: rm -f "$HOME/gcloud-key.json"
 
       # 요약 렌더링은 관측성이며 본체 성공을 실패로 바꾸거나 실패 알림을 유발하면 안 된다.
       - name: Write job summary

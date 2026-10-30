@@ -5,7 +5,7 @@
  *   npm run naver:draft                    # .naver-blog/draft.json 생성
  *   npm run naver:draft -- --out path.json
  *
- * 자사 블로그 파이프라인(Gemini 생성)과 다른 경로다. 여기서는 LLM으로 글을
+ * 자사 블로그 파이프라인(GPT 생성)과 다른 경로다. 여기서는 LLM으로 글을
  * 쓰지 않고 **이미 계산된 TLI 수치를 서술**한다. 이유:
  *   - 네이버는 발행 후 잦은 수정을 문서 신뢰도 감점으로 본다 — 사실만 쓰면 고칠 일이 없다
  *   - AI 생성 산문은 저품질 필터의 표적이고, 수치 서술은 그렇지 않다

@@ -24,7 +24,7 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock('@supabase/supabase-js', () => ({ createClient: mocks.createClient }))
 vi.mock('@/app/archive/_utils/api/kis/client', () => ({ ensureKisAccessToken: mocks.ensureToken }))
-vi.mock('@/lib/llm/korea/gemini-pipeline', () => ({ executeMarketAssessment: mocks.assessMarket }))
+vi.mock('@/lib/llm/korea/llm-pipeline', () => ({ executeMarketAssessment: mocks.assessMarket }))
 vi.mock('@/lib/llm/stock-analysis', () => ({ getStockAnalysis: mocks.getLlmAnalysis }))
 vi.mock('@/lib/newsletter/alert', () => ({ sendNewsletterAlertEmail: mocks.alert }))
 vi.mock('@/scripts/stock-picks/collect-daily', () => ({ collectDailyStockPrices: mocks.collectDaily }))

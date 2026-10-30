@@ -1,17 +1,17 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { riskQuote, riskSnapshot, RISK_NOW } from '@/lib/market-data/__tests__/market-risk-fixture';
 
-const { mockGenerateContent, mockGetSnapshot } = vi.hoisted(() => ({
-  mockGenerateContent: vi.fn(), mockGetSnapshot: vi.fn(),
+const { mockCreateResponse, mockGetSnapshot } = vi.hoisted(() => ({
+  mockCreateResponse: vi.fn(), mockGetSnapshot: vi.fn(),
 }));
-vi.mock('@google/genai', () => ({
-  GoogleGenAI: class { models = { generateContent: mockGenerateContent }; },
+vi.mock('openai', () => ({
+  default: class { responses = { create: mockCreateResponse }; },
 }));
 vi.mock('@/lib/market-data/kis-market-assessment', async importOriginal => ({
   ...await importOriginal<typeof import('@/lib/market-data/kis-market-assessment')>(),
   getKisMarketAssessmentSnapshot: mockGetSnapshot,
 }));
-import { executeMarketAssessment } from './gemini-pipeline';
+import { executeMarketAssessment } from './llm-pipeline';
 
 describe('executeMarketAssessment: authoritative deterministic verdict', () => {
   beforeEach(() => {
@@ -36,13 +36,13 @@ describe('executeMarketAssessment: authoritative deterministic verdict', () => {
     expect(result.severity).toBe('critical');
     expect(result.marketOverview?.sp500_close).toContain('-7.00%');
     expect(result.marketOverview?.kosdaq_futures).toContain('확인 불가');
-    expect(mockGenerateContent).not.toHaveBeenCalled();
+    expect(mockCreateResponse).not.toHaveBeenCalled();
   });
   it('never asks an LLM to manufacture a verdict after acquisition fails', async () => {
     mockGetSnapshot.mockRejectedValue(new Error('snapshot unavailable'));
-    mockGenerateContent.mockResolvedValue({ text: '{"verdict":"NORMAL","confidence":99,"summary":"invented"}' });
+    mockCreateResponse.mockResolvedValue({ output_text: '{"verdict":"NORMAL","confidence":99,"summary":"invented"}' });
     await expect(executeMarketAssessment()).rejects.toMatchObject({ code: 'MARKET_ASSESSMENT_UNAVAILABLE' });
-    expect(mockGenerateContent).not.toHaveBeenCalled();
+    expect(mockCreateResponse).not.toHaveBeenCalled();
   });
   it('preserves NORMAL at 07:00 KST despite previous day Tier 1 sell-off signals', async () => {
     const s = riskSnapshot();
@@ -65,7 +65,7 @@ describe('executeMarketAssessment: authoritative deterministic verdict', () => {
     for (const q of Object.values(s.indicators)) if (q) q.observedAt = null;
     mockGetSnapshot.mockResolvedValue(s);
     await expect(executeMarketAssessment()).rejects.toThrow('NORMAL 처리 및 종목 추천을 중단');
-    expect(mockGenerateContent).not.toHaveBeenCalled();
+    expect(mockCreateResponse).not.toHaveBeenCalled();
   });
   it('emits NORMAL with explicit probability and safety limitations', async () => {
     mockGetSnapshot.mockResolvedValue(riskSnapshot());
