@@ -58,7 +58,7 @@ describe('executeMarketAssessment: authoritative deterministic verdict', () => {
     expect(result.reasonCodes).toEqual(['NO_WARNING_RULE_TRIGGERED']);
     expect(result.summary).toContain('KOSPI -3.73%');
     expect(result.riskScore).toBeGreaterThan(0);
-    expect(mockGenerateContent).not.toHaveBeenCalled();
+    expect(mockCreateResponse).not.toHaveBeenCalled();
   });
   it('fails closed when timestamps are missing, even with a successful HTTP snapshot', async () => {
     const s = riskSnapshot();
