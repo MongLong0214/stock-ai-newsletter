@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto'
 
-import { BULLISH_TARGET_PARAMETERS, LOW_VOLATILITY_STABLE_PARAMETERS, UTILITY_LOCKED_DOWN_RULE, type VolumeBreakoutParameters } from '@/scripts/stock-picks/strategies'
+import { BULLISH_TARGET_PARAMETERS, LOW_VOLATILITY_STABLE_PARAMETERS, UTILITY_ATR_RANK_ADJUSTMENT, UTILITY_LOCKED_DOWN_RULE, type VolumeBreakoutParameters } from '@/scripts/stock-picks/strategies'
 import frozenTargetModel from '@/scripts/stock-picks/models/bullish-target-v3.json'
 import type { TargetModelArtifact } from '@/scripts/stock-picks/target-model'
 import { SIGNAL_SCORE_VERSION, VOLATILITY_SCORE_REFERENCE } from '@/scripts/stock-picks/signals'
@@ -90,7 +90,7 @@ export const FROZEN_COMPOSITE_RETURN_MODEL = validateUtilityModel(frozenReturnMo
 
 export const PRODUCTION_STRATEGY = {
   name: 'compositeUtility',
-  version: 'v6-2026-10-19',
+  version: 'v7-2026-10-30',
   objective: 'compositeUtility',
   parameters: LOW_VOLATILITY_STABLE_PARAMETERS,
   parametersHash: hashCanonicalJson({
@@ -103,6 +103,7 @@ export const PRODUCTION_STRATEGY = {
     modelMarketSourceVersion: MODEL_MARKET_SOURCE_VERSION,
     utilityScoreVersion: RETURN_SCORE_VERSION,
     lockedDownRule: UTILITY_LOCKED_DOWN_RULE,
+    ...UTILITY_ATR_RANK_ADJUSTMENT,
     model: FROZEN_COMPOSITE_RETURN_MODEL,
   }),
 } as const

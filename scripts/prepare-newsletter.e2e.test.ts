@@ -212,7 +212,7 @@ describe('Prepare boundary-isolated E2E', () => {
           ? Math.round((base + 317 * 2 + 10) * (stockIndex > 5 ? 0.995 : 1.003))
           : base + index * 2 + (index % 2 === 1 ? 10 : -10)
         const open = signalDay ? previousClose : close - 5
-        // WHY: 거래대금이 낮은 후보의 숨은 예측값이 더 높아도 공개 점수 동점 정렬을 검증한다.
+        // WHY: 거래대금이 낮고 v6 예측값이 높은 후보도 ATR 페널티로 순위가 낮아질 수 있다.
         const signalVolume = stockIndex === 1 ? 3_600_000 : 5_000_000 + stockIndex * 100_000
         return { symbol, trade_date, open, high: Math.max(open, close) + 15,
           low: Math.min(open, close) - 15, close,
@@ -345,7 +345,7 @@ describe('Prepare boundary-isolated E2E', () => {
     const snapshot = state.snapshots[0]
     expect(snapshot.strategy).toBe(PRODUCTION_STRATEGY.name)
     expect(snapshot.strategy_version).toBe(PRODUCTION_STRATEGY.version)
-    expect(snapshot.parameters_hash).toBe('2095aadd60f32b876b280bb6cabe70648f7704838890b09f19fd6187c93291ec')
+    expect(snapshot.parameters_hash).toBe('d8d9fc2f1055e9bec25a17f406026d52408c98668551a2aa11498334accb9232')
     expect(snapshot.signal_date).toBe(SIGNAL)
     const candidates = snapshot.picks as Array<{ symbol: string; rank: number; close: number; score: number; technicalContext: unknown }>
     expect(candidates.map(row => row.symbol)).toEqual(picks.map((pick: { ticker: string }) => pick.ticker))
@@ -359,17 +359,14 @@ describe('Prepare boundary-isolated E2E', () => {
     expect(state.generated!.meta.funnel).toMatchObject({
       withFreshKisRow: 6, withCompleteFeatures: 6, gatePassed: 6, picked: 3,
     })
-    // WHY: 공개 정수 점수 동점은 숨은 예측값 대신 거래대금으로 정렬한다.
+    // WHY: v6 원시 예측값은 보존하고, 선정·공개 점수에는 당일 ATR 보정을 적용한다.
     const ranked = state.generated!.meta.rankedCandidates
     expect(ranked).toHaveLength(6)
-    expect(ranked.map(candidate => candidate.score)).toEqual([61, 61, 61, 61, 61, 54])
+    expect(ranked.map(candidate => candidate.score)).toEqual([64, 60, 55, 50, 49, 22])
     expect(new Set(ranked.map(candidate => candidate.utility)).size).toBeGreaterThan(1)
     expect(Math.max(...ranked.slice(3).map(candidate => candidate.utility!)))
       .toBeGreaterThan(Math.min(...ranked.slice(0, 3).map(candidate => candidate.utility!)))
     expect(picks.map(pick => pick.ticker)).toEqual(['KOSPI:000050', 'KOSPI:000040', 'KOSPI:000030'])
-    const tied = ranked.filter(candidate => candidate.score === ranked[0]!.score)
-    expect(tied.map(candidate => candidate.averageTurnover20))
-      .toEqual([...tied.map(candidate => candidate.averageTurnover20)].sort((a, b) => b! - a!))
     const index = buildTradingDayIndex(state.rows.filter(row => row.symbol === 'KOSPI'), [])
     const handler = new StockDataHandler(buildPriceBook([...state.stored.values()]), index).at(SIGNAL)
     expect(state.generated!.meta.rankedCandidates.length).toBeGreaterThanOrEqual(3)
@@ -379,8 +376,7 @@ describe('Prepare boundary-isolated E2E', () => {
       expect(inputs).toHaveLength(50)
       const predicted = scoreUtilityModel(FROZEN_COMPOSITE_RETURN_MODEL, inputs)
       expect(candidate.utility).toBe(predicted.utility)
-      expect(candidate.score).toBe(predicted.score)
-      expect(picks[pickIndex]!.signals).toEqual(buildSignals(candidate, predicted.score))
+      expect(picks[pickIndex]!.signals).toEqual(buildSignals(candidate, candidate.score))
       expect(candidate.score).toBeGreaterThanOrEqual(0)
       expect(candidate.score).toBeLessThanOrEqual(100)
       expect(Number.isInteger(candidate.score)).toBe(true)

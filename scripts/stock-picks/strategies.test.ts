@@ -18,6 +18,7 @@ import {
   passesCommonGate,
   rankStrategyCandidates,
   rankLowVolatilityStableCandidates,
+  rankUtilityAtrPenaltyCandidates,
   rankUtilityScoreCandidates,
   rankSeededRandomCandidates,
   rankTieredFillCandidates,
@@ -72,6 +73,115 @@ const master = (symbol: string, overrides: Partial<StockMasterState> = {}): Stoc
   is_active: true,
   status_flags: {},
   ...overrides,
+})
+
+describe('per-date utility ATR penalty ranking', () => {
+  const rank = (candidates: readonly StockFeatureVector[], utilities: readonly number[], excludeSymbols = new Set<string>()) => (
+    rankUtilityAtrPenaltyCandidates({ features: candidates,
+      masters: new Map(candidates.map((candidate) => [candidate.symbol, master(candidate.symbol)])),
+      utilities: new Map(candidates.map((candidate, index) => [candidate.symbol, utilities[index]!])),
+      parameters: LOW_VOLATILITY_STABLE_PARAMETERS, excludeSymbols, pickCount: candidates.length })
+  )
+
+  it('uses population z-scores and subtracts half the ATR z-score', () => {
+    const candidates = [
+      feature('KOSPI:000010', { atrPercent14: 1 }),
+      feature('KOSPI:000020', { atrPercent14: 5 }),
+      feature('KOSPI:000030', { atrPercent14: 3 }),
+    ]
+    // Prediction mean=1, variance=2/3; ATR mean=3, variance=8/3.
+    const result = rank(candidates, [0, 1, 2])
+    expect(result.map(({ symbol, score }) => ({ symbol, score }))).toEqual([
+      { symbol: 'KOSPI:000030', score: 74 },
+      { symbol: 'KOSPI:000010', score: 38 },
+      { symbol: 'KOSPI:000020', score: 38 },
+    ])
+    expect(result[0]!.adjusted).toBeCloseTo(Math.sqrt(1.5), 12)
+    expect(result[1]!.adjusted).toBeCloseTo(-Math.sqrt(1.5) / 2, 12)
+    expect(result[2]!.adjusted).toBeCloseTo(-Math.sqrt(1.5) / 2, 12)
+  })
+
+  it('orders continuous adjustments before turnover and ASCII symbols, including rounded score ties', () => {
+    const candidates = [
+      feature('KOSPI:000010', { averageTurnover20: 20_000_000_000 }),
+      feature('KOSPI:000020', { averageTurnover20: 500_000_000 }),
+      feature('KOSPI:000030'),
+      feature('KOSDAQ:000040'),
+      feature('KOSPI:000050', { averageTurnover20: 3_000_000_000 }),
+    ]
+    const result = rank(candidates, [0, 0.001, 10, 10, 10])
+    expect(result.map(({ symbol }) => symbol)).toEqual([
+      'KOSPI:000050', 'KOSDAQ:000040', 'KOSPI:000030', 'KOSPI:000020', 'KOSPI:000010',
+    ])
+    expect(result[3]!.score).toBe(result[4]!.score)
+    expect(result[3]!.adjusted).toBeGreaterThan(result[4]!.adjusted)
+    expect(rank([...candidates].reverse(), [10, 10, 10, 0.001, 0]).map(({ symbol }) => symbol))
+      .toEqual(result.map(({ symbol }) => symbol))
+  })
+
+  it.each([
+    { utilities: [1, 1, 1], atrs: [3, 3, 3], adjusted: [0, 0, 0] },
+    { utilities: [0.1, 0.1, 0.1], atrs: [0.2, 0.2, 0.2], adjusted: [0, 0, 0] },
+    { utilities: [-1, 0, 1], atrs: [3, 3, 3], adjusted: [-Math.sqrt(1.5), 0, Math.sqrt(1.5)] },
+    { utilities: [1, 1, 1], atrs: [1, 3, 5], adjusted: [Math.sqrt(1.5) / 2, 0, -Math.sqrt(1.5) / 2] },
+  ])('uses std=1 for a constant prediction or ATR column: $utilities / $atrs', ({ utilities, atrs, adjusted }) => {
+    const candidates = atrs.map((atrPercent14, index) => feature(`KOSPI:0000${index + 1}0`, { atrPercent14 }))
+    const result = rank(candidates, utilities)
+    for (const [index, candidate] of candidates.entries()) {
+      expect(result.find(({ symbol }) => symbol === candidate.symbol)!.adjusted).toBeCloseTo(adjusted[index]!, 12)
+    }
+    expect(result.every(({ score }) => Number.isInteger(score) && score >= 0 && score <= 100)).toBe(true)
+  })
+
+  it('keeps cooldown symbols in the statistics while excluding them before the pick limit', () => {
+    const candidates = [1, 3, 5].map((atrPercent14, index) => feature(`KOSPI:0000${index + 1}0`, { atrPercent14 }))
+    const baseline = rank(candidates, [0, 1, 2])
+    const result = rank(candidates, [0, 1, 2], new Set(['KOSPI:000030']))
+    expect(result).toEqual(baseline.filter(({ symbol }) => symbol !== 'KOSPI:000030'))
+    expect(result.map(({ score }) => score)).toEqual([50, 38])
+    expect(rankUtilityAtrPenaltyCandidates({ features: candidates,
+      masters: new Map(candidates.map((candidate) => [candidate.symbol, master(candidate.symbol)])),
+      utilities: new Map(candidates.map((candidate, index) => [candidate.symbol, index])),
+      parameters: LOW_VOLATILITY_STABLE_PARAMETERS, excludeSymbols: new Set(['KOSPI:000030']), pickCount: 1 }))
+      .toEqual([result[0]])
+  })
+
+  it('leaves rejected gates and locked-down candles out of both statistics and inference', () => {
+    const candidates = [feature('KOSPI:000010'), feature('KOSPI:000020')]
+    const rejected = [
+      feature('KOSPI:000030', { open: 1_400, high: 1_400, low: 1_400, close: 1_400,
+        gapFromPreviousClosePercent: -20, atrPercent14: 100 }),
+      feature('KOSPI:000045', { atrPercent14: 100 }),
+      feature('KOSPI:000050', { rsi14: 76, atrPercent14: 100 }),
+      feature('KOSPI:000060', { atrPercent14: null }),
+    ]
+    // No predictions are supplied for the rejected rows.
+    expect(rank([...candidates, ...rejected], [0, 1])).toEqual(rank(candidates, [0, 1]))
+  })
+
+  it('clamps display scores at 0 and 100 while preserving continuous ordering', () => {
+    const candidates = Array.from({ length: 40 }, (_, index) => feature(`KOSPI:${String((index + 1) * 10).padStart(6, '0')}`, {
+      averageTurnover20: index === 1 || index === 3 ? 20_000_000_000 : 500_000_000,
+    }))
+    const result = rank(candidates, [10, 9, -9, -10, ...Array<number>(36).fill(0)])
+    expect(result.slice(0, 2).map(({ symbol, score }) => ({ symbol, score }))).toEqual([
+      { symbol: 'KOSPI:000010', score: 100 }, { symbol: 'KOSPI:000020', score: 100 },
+    ])
+    expect(result.slice(-2).map(({ symbol, score }) => ({ symbol, score }))).toEqual([
+      { symbol: 'KOSPI:000030', score: 0 }, { symbol: 'KOSPI:000040', score: 0 },
+    ])
+  })
+
+  it('handles empty and single-symbol pools and rejects missing or non-finite pre-cooldown predictions', () => {
+    expect(rank([], [])).toEqual([])
+    expect(rank([feature('KOSPI:000010')], [0.0123])).toEqual([
+      { symbol: 'KOSPI:000010', score: 50, adjusted: 0 },
+    ])
+    for (const utilities of [[], [Number.NaN], [Number.POSITIVE_INFINITY]]) {
+      expect(() => rank([feature('KOSPI:000010')], utilities, new Set(['KOSPI:000010'])))
+        .toThrow(/후보 추론 누락/)
+    }
+  })
 })
 
 describe('stock-picks strategy gates and ranking', () => {
