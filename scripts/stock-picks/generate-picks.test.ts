@@ -20,8 +20,9 @@ import {
 import * as strategies from '@/scripts/stock-picks/strategies'
 import { BULLISH_TARGET_STRATEGY, FROZEN_BULLISH_TARGET_MODEL, FROZEN_COMPOSITE_RETURN_MODEL, PRODUCTION_STRATEGY } from '@/scripts/stock-picks/production-strategy'
 import { buildSignals } from '@/scripts/stock-picks/signals'
+import { buildObservedInputs50 } from '@/scripts/stock-picks/observed-inputs'
 import { scoreTargetModel } from '@/scripts/stock-picks/target-model'
-import { normalizeUtilityScore } from '@/scripts/stock-picks/utility-model'
+import { scoreUtilityModel } from '@/scripts/stock-picks/utility-model'
 import { TradingDayIndex } from '@/scripts/stock-picks/trading-days'
 import type { StockDailyPriceRow } from '@/scripts/tli/prices/stock-daily-prices'
 
@@ -186,8 +187,8 @@ describe('stock analysis summary', () => {
 
 describe('production stock pick generator', () => {
   it.each([
-    { change: 50, scores: [65, 65, 56] },
-    { change: -50, scores: [17, 17, 14] },
+    { change: 50, scores: [62, 53, 35] },
+    { change: -50, scores: [62, 53, 35] },
   ])('rejects a non-KIS KOSPI return20 contributor ($change%) while keeping the KIS prediction', async ({ change, scores }) => {
     const fixture = makeFixture()
     expect(fixture.rows).toHaveLength(3 * 320)
@@ -233,7 +234,7 @@ describe('production stock pick generator', () => {
     } })
     const kis = await run(breadth)
     expect(kis.meta.rankedCandidates.map(candidate => candidate.symbol).sort()).toEqual([...SYMBOLS].sort())
-    expect(kis.picks.map(pick => pick.signals.overall_score)).toEqual([35, 35, 35])
+    expect(kis.picks.map(pick => pick.signals.overall_score)).toEqual([62, 53, 35])
     expect(kis.meta.rankedCandidates[0]!.technicalContext).toMatchObject({
       breadthUniverseSymbols: 43, breadthEligibleSymbols: 43, breadthAboveSma20: 3 / 43,
     })
@@ -349,10 +350,14 @@ describe('production stock pick generator', () => {
       parameters: strategies.BULLISH_TARGET_PARAMETERS, excludeSymbols: new Set(), model: FROZEN_BULLISH_TARGET_MODEL })
     expect(ranking.map((candidate) => candidate.symbol)).toEqual(['KOSPI:000020', 'KOSPI:000010'])
     expect(ranking[0]!.score).toBeGreaterThan(ranking[1]!.score)
+    const handler = new StockDataHandler(fixture.prices, new TradingDayIndex(fixture.dates)).at(SIGNAL_DATE)
+    expect(result.meta.rankedCandidates.map(({ score }) => score)).toEqual([62, 53, 35])
     for (const pick of result.picks) {
       const candidate = result.meta.rankedCandidates.find(({ symbol }) => symbol === pick.ticker)!
       expect(pick.signals).toEqual(buildSignals(candidate, candidate.score))
-      expect(candidate.score).toBe(normalizeUtilityScore(FROZEN_COMPOSITE_RETURN_MODEL.normalization, candidate.utility!))
+      expect(candidate.utility).toBe(scoreUtilityModel(FROZEN_COMPOSITE_RETURN_MODEL, buildObservedInputs50({
+        feature: candidate, context: candidate.technicalContext!, handler, dates: fixture.dates,
+      })).utility)
     }
     expect(result.meta.rankedCandidates.map(({ score }) => score)).toEqual(
       [...result.meta.rankedCandidates.map(({ score }) => score)].sort((a, b) => b - a),
@@ -370,7 +375,7 @@ describe('production stock pick generator', () => {
     )
   })
 
-  it('keeps an eligible high-ATR decline in the model pool and publishes the top three utility scores', async () => {
+  it('keeps an eligible high-ATR decline in the model pool and publishes the top three adjusted scores', async () => {
     const fixture = makeFixture(FOUR_SYMBOLS)
     const distressedSymbol = FOUR_SYMBOLS[0]
     const rows = fixture.rows.map((row) => {
@@ -641,13 +646,19 @@ describe('production stock pick generator', () => {
     }
   })
 
-  it('excludes recently published symbols from production and constrained random shadow', async () => {
+  it('keeps cooldown symbols in production statistics while excluding them from picks and constrained random shadow', async () => {
     const fixture = makeFixture(FOUR_SYMBOLS)
-    const loadRecentPublishedSymbols = vi.fn(async () => new Set<string>([FOUR_SYMBOLS[0]]))
-    const result = await generatePicksWithMeta({ todayKst: TODAY_KST, dependencies: {
+    const dependencies = {
       loadTradingDays: async () => new TradingDayIndex(fixture.dates),
       loadPrices: async () => fixture.prices,
       loadMasters: async () => fixture.masters,
+    }
+    const baseline = await generatePicksWithMeta({ todayKst: TODAY_KST, dependencies: {
+      ...dependencies, loadRecentPublishedSymbols: async () => new Set<string>(),
+    } })
+    const loadRecentPublishedSymbols = vi.fn(async () => new Set<string>([FOUR_SYMBOLS[0]]))
+    const result = await generatePicksWithMeta({ todayKst: TODAY_KST, dependencies: {
+      ...dependencies,
       loadRecentPublishedSymbols,
     } })
     expect(loadRecentPublishedSymbols).toHaveBeenCalledWith({
@@ -655,6 +666,8 @@ describe('production stock pick generator', () => {
       tradingDays: expect.any(TradingDayIndex),
       lookbackTradingDays: 20,
     })
+    const remaining = baseline.meta.rankedCandidates.filter(({ symbol }) => symbol !== FOUR_SYMBOLS[0])
+    expect(result.meta.rankedCandidates).toEqual(remaining.map((candidate, index) => ({ ...candidate, rank: index + 1 })))
     expect(result.picks.map((pick) => pick.ticker)).not.toContain(FOUR_SYMBOLS[0])
     expect(result.meta.shadows.find((shadow) => shadow.strategy === 'shadow:J-randomConstrained')
       ?.picks.map((pick) => pick.symbol)).not.toContain(FOUR_SYMBOLS[0])

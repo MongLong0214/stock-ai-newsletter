@@ -11,7 +11,7 @@ import {
   canonicalJson,
   hashCanonicalJson,
 } from '@/scripts/stock-picks/production-strategy'
-import { BULLISH_TARGET_PARAMETERS, LOW_VOLATILITY_STABLE_PARAMETERS, UTILITY_LOCKED_DOWN_RULE } from '@/scripts/stock-picks/strategies'
+import { BULLISH_TARGET_PARAMETERS, LOW_VOLATILITY_STABLE_PARAMETERS, UTILITY_ATR_RANK_ADJUSTMENT, UTILITY_LOCKED_DOWN_RULE } from '@/scripts/stock-picks/strategies'
 import { RETURN_SCORE_VERSION } from '@/scripts/stock-picks/utility-model'
 import { SIGNAL_SCORE_VERSION, VOLATILITY_SCORE_REFERENCE } from '@/scripts/stock-picks/signals'
 import { MODEL_MARKET_SOURCE_VERSION, OBSERVED_INPUT_VERSION } from '@/scripts/stock-picks/observed-inputs'
@@ -56,12 +56,15 @@ describe('frozen production strategy artifact', () => {
     )
   })
 
-  it('identifies the whole composite return model, fixed score reference, locked-down rule and market source contract', () => {
+  it('identifies the frozen v6 model, per-date ATR adjustment, locked-down rule and market source contract', () => {
     expect(SIGNAL_SCORE_VERSION).toBe('technical-signals-v3-2026-10-02')
     expect(MODEL_MARKET_SOURCE_VERSION).toBe('kis-market-21-20-v1')
+    expect(UTILITY_ATR_RANK_ADJUSTMENT).toEqual({
+      rankAdjustment: 'v6-pred-z-minus-0.5-atr14-z', atrPenalty: 0.5, statsPool: 'gated-pre-cooldown',
+    })
     expect(PRODUCTION_STRATEGY).toEqual({
       name: 'compositeUtility',
-      version: 'v6-2026-10-19',
+      version: 'v7-2026-10-30',
       objective: 'compositeUtility',
       parameters: LOW_VOLATILITY_STABLE_PARAMETERS,
       parametersHash: hashCanonicalJson({
@@ -74,12 +77,13 @@ describe('frozen production strategy artifact', () => {
         modelMarketSourceVersion: MODEL_MARKET_SOURCE_VERSION,
         utilityScoreVersion: RETURN_SCORE_VERSION,
         lockedDownRule: UTILITY_LOCKED_DOWN_RULE,
+        ...UTILITY_ATR_RANK_ADJUSTMENT,
         model: FROZEN_COMPOSITE_RETURN_MODEL,
       }),
     })
     expect(PRODUCTION_STRATEGY.parameters).toBe(LOW_VOLATILITY_STABLE_STRATEGY.parameters)
     expect(PRODUCTION_STRATEGY.parametersHash).not.toBe(LOW_VOLATILITY_STABLE_STRATEGY.parametersHash)
-    expect(PRODUCTION_STRATEGY.parametersHash).toBe('2095aadd60f32b876b280bb6cabe70648f7704838890b09f19fd6187c93291ec')
+    expect(PRODUCTION_STRATEGY.parametersHash).toBe('d8d9fc2f1055e9bec25a17f406026d52408c98668551a2aa11498334accb9232')
     // Technical categories retain their original frozen calibration; the composite refit is separate.
     expect(VOLATILITY_SCORE_REFERENCE).toMatchObject({
       referenceAtrPercent14: 5.221735562010756, referenceRows: 506470, referencePanels: 421,
@@ -105,6 +109,7 @@ describe('frozen production strategy artifact', () => {
       parameters: LOW_VOLATILITY_STABLE_PARAMETERS,
       gateVersion: 'status-flags-valid-candle-v2', preferredRule: 'krx-code-last-digit-nonzero',
       signalScoreVersion: SIGNAL_SCORE_VERSION, observedInputVersion: `${OBSERVED_INPUT_VERSION}-changed`,
+      volatilityScoreReference: VOLATILITY_SCORE_REFERENCE, ...UTILITY_ATR_RANK_ADJUSTMENT,
       modelMarketSourceVersion: MODEL_MARKET_SOURCE_VERSION,
       utilityScoreVersion: RETURN_SCORE_VERSION, lockedDownRule: UTILITY_LOCKED_DOWN_RULE,
       model: FROZEN_COMPOSITE_RETURN_MODEL,
@@ -113,6 +118,7 @@ describe('frozen production strategy artifact', () => {
       parameters: LOW_VOLATILITY_STABLE_PARAMETERS,
       gateVersion: 'status-flags-valid-candle-v2', preferredRule: 'krx-code-last-digit-nonzero',
       signalScoreVersion: SIGNAL_SCORE_VERSION, observedInputVersion: OBSERVED_INPUT_VERSION,
+      volatilityScoreReference: VOLATILITY_SCORE_REFERENCE, ...UTILITY_ATR_RANK_ADJUSTMENT,
       modelMarketSourceVersion: `${MODEL_MARKET_SOURCE_VERSION}-changed`,
       utilityScoreVersion: RETURN_SCORE_VERSION, lockedDownRule: UTILITY_LOCKED_DOWN_RULE,
       model: FROZEN_COMPOSITE_RETURN_MODEL,
@@ -124,8 +130,14 @@ describe('frozen production strategy artifact', () => {
       modelMarketSourceVersion: MODEL_MARKET_SOURCE_VERSION,
       utilityScoreVersion: RETURN_SCORE_VERSION, lockedDownRule: UTILITY_LOCKED_DOWN_RULE,
       volatilityScoreReference: VOLATILITY_SCORE_REFERENCE,
+      ...UTILITY_ATR_RANK_ADJUSTMENT,
       model: FROZEN_COMPOSITE_RETURN_MODEL,
     }
+    expect(PRODUCTION_STRATEGY.parametersHash).toBe(hashCanonicalJson(contract))
+    expect(PRODUCTION_STRATEGY.parametersHash).not.toBe(hashCanonicalJson({ ...contract,
+      rankAdjustment: 'v6-integer-score' }))
+    expect(PRODUCTION_STRATEGY.parametersHash).not.toBe(hashCanonicalJson({ ...contract, atrPenalty: 0.25 }))
+    expect(PRODUCTION_STRATEGY.parametersHash).not.toBe(hashCanonicalJson({ ...contract, statsPool: 'post-cooldown' }))
     expect(PRODUCTION_STRATEGY.parametersHash).not.toBe(hashCanonicalJson({ ...contract,
       utilityScoreVersion: 'utility-reference-z10-v1' }))
     expect(PRODUCTION_STRATEGY.parametersHash).not.toBe(hashCanonicalJson({ ...contract,
