@@ -44,6 +44,22 @@ describe('executeMarketAssessment: authoritative deterministic verdict', () => {
     await expect(executeMarketAssessment()).rejects.toMatchObject({ code: 'MARKET_ASSESSMENT_UNAVAILABLE' });
     expect(mockGenerateContent).not.toHaveBeenCalled();
   });
+  it('preserves NORMAL at 07:00 KST despite previous day Tier 1 sell-off signals', async () => {
+    const s = riskSnapshot();
+    s.indicators.kospi = riskQuote('KOSPI', -3.73, true);
+    s.indicators.kosdaq = riskQuote('KOSDAQ', -3.33, true);
+    s.indicators.kospi200MiniFutures = { ...s.indicators.kospi200MiniFutures!, ...riskQuote('Mini', -4, true) };
+    s.fetchedAt = '2026-09-09T07:00:00+09:00';
+    for (const q of Object.values(s.indicators)) if (q) q.fetchedAt = s.fetchedAt;
+    vi.setSystemTime(new Date(s.fetchedAt));
+    mockGetSnapshot.mockResolvedValue(s);
+    const result = await executeMarketAssessment();
+    expect(result.verdict).toBe('NORMAL');
+    expect(result.reasonCodes).toEqual(['NO_WARNING_RULE_TRIGGERED']);
+    expect(result.summary).toContain('KOSPI -3.73%');
+    expect(result.riskScore).toBeGreaterThan(0);
+    expect(mockGenerateContent).not.toHaveBeenCalled();
+  });
   it('fails closed when timestamps are missing, even with a successful HTTP snapshot', async () => {
     const s = riskSnapshot();
     for (const q of Object.values(s.indicators)) if (q) q.observedAt = null;
@@ -57,6 +73,6 @@ describe('executeMarketAssessment: authoritative deterministic verdict', () => {
     expect(result.verdict).toBe('NORMAL');
     expect(result.summary).toContain('안전 보장이 아닙니다');
     expect(result.summary).toContain('not a probability');
-    expect(result.policyVersion).toBe('2026-09-23.v3');
+    expect(result.policyVersion).toBe('2026-10-30.v4');
   });
 });

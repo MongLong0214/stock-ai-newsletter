@@ -246,8 +246,8 @@ const TP_SCENARIOS: BacktestScenario[] = [
 // ============================================================
 const TN_SCENARIOS: BacktestScenario[] = [
   {
-    name: 'REGRESSION: US rebound does not date or negate a verified Korea -6.58% quote',
-    expected: 'CRASH_ALERT',
+    name: 'REGRESSION: US rebound and previous day Korea -6.58% do not trigger an overnight warning',
+    expected: 'NORMAL',
     snapshot: { sp500Pct: 1.15, dowPct: 1.38, nasdaqPct: 1.38, kospiPct: -6.58, vixPrice: 26.15, vixChange: -0.63, usdKrwChange: -18.44 },
   },
   {
@@ -306,8 +306,8 @@ const TN_SCENARIOS: BacktestScenario[] = [
     snapshot: { sp500Pct: -1.0, dowPct: -0.8, nasdaqPct: -1.2, kospiPct: -0.5 },
   },
   {
-    name: 'REGRESSION: elevated VIX plus equity selling retains a warning',
-    expected: 'CRASH_ALERT',
+    name: 'REGRESSION: elevated VIX plus equity selling below US thresholds does not trigger a warning',
+    expected: 'NORMAL',
     snapshot: { sp500Pct: -1.5, dowPct: -1.2, nasdaqPct: -1.8, vixPrice: 47, vixChange: 2 },
   },
   {
@@ -316,8 +316,8 @@ const TN_SCENARIOS: BacktestScenario[] = [
     snapshot: { sp500Pct: 2, dowPct: 1.5, nasdaqPct: 2.5, kospiPct: -10, nightKospiPct: 8 },
   },
   {
-    name: 'REGRESSION: broad US -2.4% plus Korea -2.3% cross-market warning',
-    expected: 'CRASH_ALERT',
+    name: 'REGRESSION: US -2.4% plus previous day Korea -2.3% does not trigger a warning',
+    expected: 'NORMAL',
     snapshot: { sp500Pct: -2.4, dowPct: -2.4, nasdaqPct: -2.4, kospiPct: -2.3, vixPrice: 23, vixChange: 3 },
   },
 ];

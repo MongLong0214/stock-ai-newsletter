@@ -314,7 +314,7 @@ describe('market source acquisition v2', () => {
     vi.stubGlobal('fetch', providerMock({ downSignMissing: true }));
     const snapshot = await getKisMarketAssessmentSnapshot();
     expect(snapshot.indicators.kospi?.changePct).toBe(-4);
-    expect(evaluateMarketAssessmentSnapshot(snapshot).verdict).toBe('CRASH_ALERT');
+    expect(evaluateMarketAssessmentSnapshot(snapshot).verdict).toBe('NORMAL');
   });
   it('tries independent secondary VIX/FX feeds after a primary exception', async () => {
     const fetch = providerMock({ brokenSerp: true });
