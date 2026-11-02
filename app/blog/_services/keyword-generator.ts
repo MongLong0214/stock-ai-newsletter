@@ -12,6 +12,7 @@ import { credentialsFromEnv, fetchKeywordVolumes, HINT_KEYWORD_LIMIT } from '@/l
 import { fetchTLIContext } from './tli-context';
 import type { TLIContext } from './tli-context';
 import type { KeywordMetadata } from '../_types/blog';
+import { KEYWORD_CONFIG } from '../_config/pipeline-config';
 
 const keywordMetadataSchema = z.object({
   keyword: z.string(),
@@ -129,7 +130,7 @@ async function generateKeywordsWithAI(
   tliContext?: TLIContext,
 ): Promise<KeywordMetadata[]> {
   const prompt = buildKeywordGenerationPrompt(count, usedKeywords, undefined, existingTitles, tliContext);
-  const response = await generateText({ prompt });
+  const response = await generateText({ prompt, timeout: KEYWORD_CONFIG.timeout });
 
   const jsonText = extractJsonArray(response);
   if (!jsonText) {
@@ -289,18 +290,34 @@ export async function generateKeywords(
       fetchTLIContext(),
     ]);
     const keywordMap = new Map<string, KeywordMetadata>();
+    const startedAt = Date.now();
     let attempt = 0;
+    let lastError: unknown;
 
     while (keywordMap.size < requestedCount && attempt < maxRetries) {
+      // 첫 시도는 항상 한다. 이후는 호출 1회가 예산 안에 끝날 수 있을 때만 시작한다 —
+      // 바깥 타임아웃이 먼저 터지면 이미 모은 키워드까지 버려진다.
+      if (attempt > 0 && Date.now() - startedAt + KEYWORD_CONFIG.timeout > KEYWORD_CONFIG.budget) {
+        console.warn(`[KeywordGen] 예산 부족 — 시도 ${attempt}회에서 중단 (확보 ${keywordMap.size}개로 진행)`);
+        break;
+      }
       attempt++;
       const remainingCount = requestedCount - keywordMap.size;
-      const newKeywords = await generateKeywordsWithAI(
-        Math.ceil(remainingCount * 1.5),
-        usedContent.keywords,
-        usedContent.titles,
-        usedContent.allTimeKeywords,
-        tliContext,
-      );
+      let newKeywords: KeywordMetadata[];
+      try {
+        newKeywords = await generateKeywordsWithAI(
+          Math.ceil(remainingCount * 1.5),
+          usedContent.keywords,
+          usedContent.titles,
+          usedContent.allTimeKeywords,
+          tliContext,
+        );
+      } catch (error) {
+        // 한 번의 타임아웃·API 오류로 앞선 시도의 성공분을 버리지 않는다.
+        lastError = error;
+        console.warn(`[KeywordGen] 시도 ${attempt} 실패:`, error instanceof Error ? error.message : String(error));
+        continue;
+      }
 
       // 볼륨 게이트를 루프 안에서 배치별로 적용 — 게이트 탈락이 재생성을 트리거해야
       // 남은 재시도 횟수가 실제로 쓰인다 (루프 밖에 두면 탈락분만큼 그냥 모자란 채 끝난다)
@@ -313,6 +330,8 @@ export async function generateKeywords(
         console.log(`[KeywordGen] 시도 ${attempt}: ${newKeywords.length}개 중 ${passed.length}개 게이트 통과`);
       }
     }
+
+    if (!keywordMap.size && lastError) throw lastError;
 
     const allKeywords = Array.from(keywordMap.values());
     const scoreMap = new Map(allKeywords.map((kw) => [kw.keyword, calculateSEOScore(kw)]));

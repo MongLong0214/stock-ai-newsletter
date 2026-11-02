@@ -18,7 +18,8 @@ permissions:
 jobs:
   generate-blog:
     runs-on: ubuntu-22.04
-    timeout-minutes: 60
+    # 스크립트 자체 한도 75분(scripts/generate-blog-post.ts)이 먼저 끝나 실패 사유를 남기도록 위에 둔다.
+    timeout-minutes: 85
 
     steps:
       - name: Checkout repository

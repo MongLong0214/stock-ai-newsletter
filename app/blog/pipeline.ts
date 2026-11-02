@@ -19,7 +19,7 @@ import { humanizeGeneratedContent } from './_services/humanizer';
 import { checkYmyl } from './_services/ymyl-gate';
 import { countPublishedToday, findBlogPostStatus, saveBlogPost, publishBlogPost } from './_services/blog-repository';
 import { generateKeywords } from './_services/keyword-generator';
-import { CONTENT_CONFIG, HUMANIZE_CONFIG, PIPELINE_CONFIG } from './_config/pipeline-config';
+import { CONTENT_CONFIG, HUMANIZE_CONFIG, KEYWORD_CONFIG, PIPELINE_CONFIG } from './_config/pipeline-config';
 import type { BlogPostCreateInput, PipelineResult, PipelineMetrics, CompetitorAnalysis, GeneratedContent } from './_types/blog';
 
 // --- 상수 ---
@@ -34,7 +34,8 @@ const TIMEOUTS = {
   // 안쪽 AbortSignal 취소가 먼저 실행돼 실제 실패 사유가 남도록 15초 여유를 둔다.
   humanize: HUMANIZE_CONFIG.timeout + 15_000,
   save: 30_000,
-  keyword: 300_000,
+  // 안쪽 예산(KEYWORD_CONFIG.budget)이 먼저 끝나 모은 키워드를 돌려주도록 DB 조회·검색량 게이트 여유를 둔다.
+  keyword: KEYWORD_CONFIG.budget + 120_000,
   selection: 120_000,
 };
 

@@ -158,6 +158,21 @@ export async function scrapeUrl(
   return null;
 }
 
+const BUDGET_EXCEEDED = Symbol('scrape-budget-exceeded');
+
+/** Promise.race는 요청을 취소하지 못한다. 늦게 끝난 결과는 버리고 배치만 제시간에 돌려준다. */
+async function raceBudget<T>(promise: Promise<T>, ms: number): Promise<T | typeof BUDGET_EXCEEDED> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<typeof BUDGET_EXCEEDED>((resolve) => { timer = setTimeout(() => resolve(BUDGET_EXCEEDED), ms); }),
+    ]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 export async function scrapeSearchResults(
   searchResults: SerpSearchResult[],
 ): Promise<ScrapedContent[]> {
@@ -168,15 +183,23 @@ export async function scrapeSearchResults(
 
   for (let i = 0; i < searchResults.length; i++) {
     const result = searchResults[i];
+    const remainingMs = LIMITS.BATCH_BUDGET_MS - (Date.now() - startedAt);
 
-    if (i > 0 && Date.now() - startedAt > LIMITS.BATCH_BUDGET_MS) {
+    if (i > 0 && remainingMs <= 0) {
       console.warn(`   예산 초과 — 남은 ${total - i}건 생략 (성공 ${succeeded}건으로 진행)`);
       break;
     }
 
-    const content = await scrapeUrl(result.link, {
+    // URL 사이에서만 예산을 보면 진행 중인 URL 하나(재시도+브라우저 폴백 최대 2분+)가
+    // 바깥 180초를 넘겨 성공분까지 버린다(실측 run 41363393602). 진행 중인 URL도 남은 예산에서 끊는다.
+    const content = await raceBudget(scrapeUrl(result.link, {
       referer: 'https://www.google.co.kr/search?q=' + encodeURIComponent(result.title),
-    });
+    }), remainingMs);
+
+    if (content === BUDGET_EXCEEDED) {
+      console.warn(`   예산 초과 — 진행 중 ${result.link} 포기, 남은 ${total - i - 1}건 생략 (성공 ${succeeded}건으로 진행)`);
+      break;
+    }
 
     if (content) {
       scrapedContents.push(content);
