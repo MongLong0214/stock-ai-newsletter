@@ -22,6 +22,20 @@ export const SERP_API_CONFIG = {
 
 // GPT API 설정은 lib/llm/_config/pipeline-config.ts에서 관리
 
+/**
+ * 키워드 후보 생성 설정
+ *
+ * gpt-6.1-sol high 실측(run 41363393602): 호출 3회 96·68·27초. 이전 기본값 120초는
+ * 한 번만 느려도 키워드 단계 전체가 실패해 그날 발행이 0편이 됐다.
+ * 예산이 남아 있을 때만 다음 시도를 시작하고, 예산이 끝나면 모은 키워드로 진행한다.
+ */
+export const KEYWORD_CONFIG = {
+  /** 호출 1회 상한 */
+  timeout: 300_000,
+  /** 시도 전체 예산 — 남은 예산이 호출 1회 상한보다 작으면 새 시도를 시작하지 않는다 */
+  budget: 780_000,
+};
+
 /** 콘텐츠 생성 설정 — 분량·FAQ는 guide 기준 */
 export const CONTENT_CONFIG = {
   /** gpt-6.1-sol high 실측 175초 — 장문 출력에 여유를 둔다 (2026-10-30). */

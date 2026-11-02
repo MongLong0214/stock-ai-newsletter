@@ -9,8 +9,9 @@ if (existsSync(envPath)) config({ path: envPath });
 import { generateWithDynamicKeywords, DAILY_POST_COUNT } from '@/app/blog/pipeline';
 import { closeBrowser } from '@/app/blog/_services/web-scraper';
 
-// 단계별 최대 예산 50분 + DB·발행 여유 5분. 60분 CI 한도에 준비·정리 시간을 남긴다.
-const SCRIPT_TIMEOUT_MS = 55 * 60 * 1000;
+// gpt-6.1-sol 기준 단계별 최대 예산 약 61분(키워드 15 + 검색·스크랩 4 + 생성 30.25 + 윤문 10.25 + 저장)
+// + DB·발행 여유. 85분 CI 한도에 준비(npm ci·Playwright)·정리 시간을 남긴다.
+const SCRIPT_TIMEOUT_MS = 75 * 60 * 1000;
 
 let exiting = false;
 
