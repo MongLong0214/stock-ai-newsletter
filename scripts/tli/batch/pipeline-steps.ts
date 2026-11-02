@@ -163,7 +163,14 @@ export async function runLabelBookkeepingPhase(today = getKSTDateString()): Prom
   console.log('\n🏷️ 4.15단계: gta-v2 foundation 라벨 생성/확정')
   try {
     const gtAV2 = await runGtAV2FoundationPhase(today)
-    if (gtAV2.failures > 0) result.warningFailures++
+    if (gtAV2.graceExpiredFailures > 0) {
+      // grace 경과 라벨은 매 run 같은 이유로 실패해 영구 pending → 그 origin이 label_accounting_incomplete로
+      // study 시계에서 빠진다(2026-10-12, warning이라 3주간 무음). 시계 손실이므로 critical.
+      result.criticalFailures++
+      console.error(`❌ gta-v2 grace 경과 라벨 확정 실패 ${gtAV2.graceExpiredFailures}건 — origin eligibility 손실 위험`)
+    } else if (gtAV2.failures > 0) {
+      result.warningFailures++
+    }
     console.log(`   ✅ gta-v2 pending 생성=${gtAV2.pendingCreated}, 확정=${gtAV2.finalized}, 유지=${gtAV2.keptPending}, 실패=${gtAV2.failures}`)
   } catch (error: unknown) {
     result.warningFailures++

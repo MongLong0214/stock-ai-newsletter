@@ -79,6 +79,8 @@ export interface GtAV2FoundationPhaseResult {
   readonly finalized: number
   readonly keptPending: number
   readonly failures: number
+  /** grace가 지난 라벨의 확정 실패 — 스스로 회복되지 않고 origin eligibility를 막으므로 critical. */
+  readonly graceExpiredFailures: number
 }
 
 interface KospiTradingDateRow {
@@ -240,6 +242,7 @@ export async function runGtAV2FoundationPhase(today: string): Promise<GtAV2Found
   let finalized = 0
   let keptPending = 0
   let failures = 0
+  let graceExpiredFailures = 0
   let firstFailure: string | null = null
 
   for (const label of pendingLabels) {
@@ -295,13 +298,14 @@ export async function runGtAV2FoundationPhase(today: string): Promise<GtAV2Found
       finalized++
     } catch (error: unknown) {
       failures++
+      if (graceExpired) graceExpiredFailures++
       firstFailure ??= error instanceof Error ? error.message : String(error)
     }
   }
 
   if (firstFailure !== null) {
-    console.warn(`   ⚠️ gta-v2 확정 실패 ${failures}건 (첫 사유: ${firstFailure})`)
+    console.warn(`   ⚠️ gta-v2 확정 실패 ${failures}건 (grace 경과 ${graceExpiredFailures}건, 첫 사유: ${firstFailure})`)
   }
 
-  return { pendingCreated, finalized, keptPending, failures }
+  return { pendingCreated, finalized, keptPending, failures, graceExpiredFailures }
 }

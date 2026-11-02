@@ -117,6 +117,34 @@ describe('resolveGtAV2Finalize', () => {
     expect(outcome.payload.y_binary).toBeNull()
   })
 
+  it('keeps pending when the past window is incomplete within grace', () => {
+    const run: GtAV2SourceRun = {
+      ...sourceRun([], []),
+      observations: observations([10, 10, 10, 10], [11, 11, 11, 11, 11]),
+    }
+    const outcome = call({ sourceRun: run, graceExpired: false })
+    expect(outcome).toEqual({ kind: 'keep_pending', reason: 'future_window_incomplete' })
+  })
+
+  it('excludes (source_gap_sla) via a null source run when the past window is incomplete past grace', () => {
+    // DataLab이 base date(0값)를 응답에서 생략 → past 4개. 048 RPC는 run id가 있으면 past≠5를
+    // grace와 무관하게 거부하므로 run id를 붙이면 영구 pending이 된다(2026-10-12 사례).
+    const run: GtAV2SourceRun = {
+      ...sourceRun([], []),
+      observations: [
+        ...observations([10, 10, 10, 10, 10], [11, 11, 11, 11, 11]).filter((row) => row.tradingDate !== PAST_DATES[4]),
+      ],
+    }
+    const outcome = call({ sourceRun: run, graceExpired: true })
+    expect(outcome.kind).toBe('finalize')
+    if (outcome.kind !== 'finalize') return
+    expect(outcome.payload.label_source_run_id).toBeNull()
+    expect(outcome.payload.label_request_sha256).toBeNull()
+    expect(outcome.payload.label_response_sha256).toBeNull()
+    expect(outcome.payload.g_log_ratio).toBeNull()
+    expect(outcome.payload.y_binary).toBeNull()
+  })
+
   it('builds a foundation pending row as exploratory_only/pending_gta_v2 with only the manifest FK', () => {
     const row = buildGtAV2PendingRow({
       themeId: THEME_ID,

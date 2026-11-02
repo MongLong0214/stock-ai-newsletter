@@ -167,6 +167,13 @@ export function resolveGtAV2Finalize(input: {
     if (!input.graceExpired) {
       return { kind: 'keep_pending', reason: 'future_window_incomplete' }
     }
+    // 048 RPC는 source run이 주어지면 past 정확히 5개를 grace와 무관하게 요구한다(future 부족만
+    // source_gap_sla). DataLab은 0인 날짜를 응답에서 생략할 수 있어 past가 영구히 5개 미만이면
+    // run id를 붙인 payload는 매번 거부돼 라벨이 pending에 갇힌다(2026-10-12 origin ineligible).
+    // 계약상 결론은 같은 source_gap_sla이므로 RPC의 "source 미도착" 경로(run id null)로 보낸다.
+    if (pastValues.length < GTA_V2_PAST_WINDOW) {
+      return excluded()
+    }
     return {
       kind: 'finalize',
       payload: {
