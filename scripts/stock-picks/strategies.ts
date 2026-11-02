@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto'
 import type { StockPickStrategy } from '@/scripts/stock-picks/backtest'
 import type { StockFeatureVector } from '@/scripts/stock-picks/features'
 import { scoreTargetModel, type TargetModelArtifact } from '@/scripts/stock-picks/target-model'
+import { normalizeUtilityScore, type UtilityScoreNormalization } from '@/scripts/stock-picks/utility-model'
 
 const DEFAULT_MIN_TURNOVER = 1_000_000_000
 const PICKS_PER_DATE = 3
@@ -41,6 +42,13 @@ export const BULLISH_TARGET_PARAMETERS = { ...LOW_VOLATILITY_STABLE_PARAMETERS }
 export const UTILITY_LOCKED_DOWN_RULE = {
   maxPreviousCloseReturn: -0.20,
   requireFlatRange: true,
+} as const
+
+export const UTILITY_ATR_RANK_ADJUSTMENT = {
+  rankAdjustment: 'v6-pred-minus-0.5-poolsd-atr14-z',
+  atrPenalty: 0.5,
+  statsPool: 'gated-pre-cooldown',
+  scoreCurve: 'v6-return-reference-smooth',
 } as const
 
 export const isPreferredShare = (symbol: string): boolean => (
@@ -324,7 +332,34 @@ export function rankLowVolatilityStableCandidates(input: {
   )).slice(0, input.pickCount ?? PICKS_PER_DATE).map((feature) => feature.symbol)
 }
 
-/** 공개 종합 점수의 정수값으로 선정한다. 동점에 숨은 소수 점수를 사용하지 않는다. */
+/** 연구 export와 운영이 공유하는 종합 점수 후보 게이트다. */
+export function getUtilityCandidatePool(input: {
+  readonly features: readonly StockFeatureVector[]
+  readonly masters: ReadonlyMap<string, StockMasterState>
+  readonly parameters: typeof LOW_VOLATILITY_STABLE_PARAMETERS
+  readonly excludeSymbols: ReadonlySet<string>
+}): StockFeatureVector[] {
+  const seen = new Set<string>()
+  return input.features.filter((feature) => {
+    if (seen.has(feature.symbol)) throw new Error(`중복 종합 점수 후보: ${feature.symbol}`)
+    seen.add(feature.symbol)
+    if (!passesTargetPoolGate(feature, input.masters.get(feature.symbol), input.parameters, input.excludeSymbols)) return false
+    // 유효한 단일 가격 캔들의 전일 대비 급락을 제외한다. 비율 비교는 -20% 경계의 뺄셈 오차를 피한다.
+    const previousCloseRatio = (1 + feature.gapFromPreviousClosePercent! / 100) * (feature.close! / feature.open!)
+    if (UTILITY_LOCKED_DOWN_RULE.requireFlatRange && feature.high === feature.low
+      && previousCloseRatio <= 1 + UTILITY_LOCKED_DOWN_RULE.maxPreviousCloseReturn) return false
+    return true
+  })
+}
+
+const rankUtilityCandidates = <T extends { symbol: string; rankValue: number; turnover: number }>(
+  candidates: T[], pickCount: number,
+): T[] => candidates.sort((left, right) => (
+  right.rankValue - left.rankValue || right.turnover - left.turnover
+  || (left.symbol < right.symbol ? -1 : left.symbol > right.symbol ? 1 : 0)
+)).slice(0, pickCount)
+
+/** 기존 정수 점수 정렬은 연구 재현용으로 유지한다. */
 export function rankUtilityScoreCandidates(input: {
   readonly features: readonly StockFeatureVector[]
   readonly masters: ReadonlyMap<string, StockMasterState>
@@ -333,24 +368,53 @@ export function rankUtilityScoreCandidates(input: {
   readonly excludeSymbols: ReadonlySet<string>
   readonly pickCount?: number
 }): Array<{ symbol: string; score: number }> {
-  const seen = new Set<string>()
-  return input.features.flatMap((feature) => {
-    if (seen.has(feature.symbol)) throw new Error(`중복 종합 점수 후보: ${feature.symbol}`)
-    seen.add(feature.symbol)
-    if (!passesTargetPoolGate(feature, input.masters.get(feature.symbol), input.parameters, input.excludeSymbols)) return []
-    // 유효한 단일 가격 캔들의 전일 대비 급락을 제외한다. 비율 비교는 -20% 경계의 뺄셈 오차를 피한다.
-    const previousCloseRatio = (1 + feature.gapFromPreviousClosePercent! / 100) * (feature.close! / feature.open!)
-    if (UTILITY_LOCKED_DOWN_RULE.requireFlatRange && feature.high === feature.low
-      && previousCloseRatio <= 1 + UTILITY_LOCKED_DOWN_RULE.maxPreviousCloseReturn) return []
+  const candidates = getUtilityCandidatePool(input).map((feature) => {
     const score = input.scores.get(feature.symbol)
     if (score === undefined || !Number.isInteger(score) || score < 0 || score > 100) {
       throw new Error(`종합 점수 후보 추론 누락: ${feature.symbol}`)
     }
-    return [{ symbol: feature.symbol, score, turnover: feature.averageTurnover20! }]
-  }).sort((left, right) => (
-    right.score - left.score || right.turnover - left.turnover
-    || (left.symbol < right.symbol ? -1 : left.symbol > right.symbol ? 1 : 0)
-  )).slice(0, input.pickCount ?? PICKS_PER_DATE).map(({ symbol, score }) => ({ symbol, score }))
+    return { symbol: feature.symbol, score, rankValue: score, turnover: feature.averageTurnover20! }
+  })
+  return rankUtilityCandidates(candidates, input.pickCount ?? PICKS_PER_DATE)
+    .map(({ symbol, score }) => ({ symbol, score }))
+}
+
+const populationStats = (values: readonly number[]): { standardDeviation: number; zScores: number[] } => {
+  if (!values.length) return { standardDeviation: 0, zScores: [] }
+  // 기준값을 먼저 빼 동일한 소수 예측값의 합산 오차가 가짜 분산을 만들지 않게 한다.
+  const shifted = values.map((value) => value - values[0]!)
+  const mean = shifted.reduce((sum, value) => sum + value, 0) / shifted.length
+  const std = Math.sqrt(shifted.reduce((sum, value) => sum + (value - mean) ** 2, 0) / shifted.length)
+  return { standardDeviation: std, zScores: shifted.map((value) => (value - mean) / (std || 1)) }
+}
+
+/** 재추천 제외 전 풀의 ATR 보정을 v6 수익률 단위로 계산하고 기존 학습 기준 곡선으로 표시한다. */
+export function rankUtilityAtrPenaltyCandidates(input: {
+  readonly features: readonly StockFeatureVector[]
+  readonly masters: ReadonlyMap<string, StockMasterState>
+  readonly utilities: ReadonlyMap<string, number>
+  readonly normalization: UtilityScoreNormalization
+  readonly parameters: typeof LOW_VOLATILITY_STABLE_PARAMETERS
+  readonly excludeSymbols: ReadonlySet<string>
+  readonly pickCount?: number
+}): Array<{ symbol: string; score: number; adjusted: number }> {
+  const pool = getUtilityCandidatePool({ ...input, excludeSymbols: new Set() })
+  const utilities = pool.map(({ symbol }) => {
+    const utility = input.utilities.get(symbol)
+    if (utility === undefined || !Number.isFinite(utility)) throw new Error(`종합 점수 후보 추론 누락: ${symbol}`)
+    return utility
+  })
+  const { standardDeviation } = populationStats(utilities)
+  const { zScores: zAtr } = populationStats(pool.map((feature) => feature.atrPercent14!))
+  const candidates = pool.flatMap((feature, index) => {
+    if (input.excludeSymbols.has(feature.symbol)) return []
+    // std=0이면 원시 예측값을 유지한다. std>0에서는 기존 zPred−0.5*zAtr와 같은 순서다.
+    const adjusted = utilities[index]! - UTILITY_ATR_RANK_ADJUSTMENT.atrPenalty * standardDeviation * zAtr[index]!
+    return [{ symbol: feature.symbol, adjusted, rankValue: adjusted,
+      score: normalizeUtilityScore(input.normalization, adjusted), turnover: feature.averageTurnover20! }]
+  })
+  return rankUtilityCandidates(candidates, input.pickCount ?? PICKS_PER_DATE)
+    .map(({ symbol, score, adjusted }) => ({ symbol, score, adjusted }))
 }
 
 export function rankSeededRandomCandidates(input: {

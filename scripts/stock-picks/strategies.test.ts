@@ -18,6 +18,7 @@ import {
   passesCommonGate,
   rankStrategyCandidates,
   rankLowVolatilityStableCandidates,
+  rankUtilityAtrPenaltyCandidates,
   rankUtilityScoreCandidates,
   rankSeededRandomCandidates,
   rankTieredFillCandidates,
@@ -72,6 +73,138 @@ const master = (symbol: string, overrides: Partial<StockMasterState> = {}): Stoc
   is_active: true,
   status_flags: {},
   ...overrides,
+})
+
+describe('per-date utility ATR penalty ranking', () => {
+  const normalization = FROZEN_COMPOSITE_RETURN_MODEL.normalization
+  const rank = (candidates: readonly StockFeatureVector[], utilities: readonly number[], excludeSymbols = new Set<string>()) => (
+    rankUtilityAtrPenaltyCandidates({ features: candidates,
+      masters: new Map(candidates.map((candidate) => [candidate.symbol, master(candidate.symbol)])),
+      utilities: new Map(candidates.map((candidate, index) => [candidate.symbol, utilities[index]!])),
+      normalization,
+      parameters: LOW_VOLATILITY_STABLE_PARAMETERS, excludeSymbols, pickCount: candidates.length })
+  )
+
+  it('expresses the population ATR penalty in return units with the same ordering as v7', () => {
+    const candidates = [
+      feature('KOSPI:000010', { atrPercent14: 1 }),
+      feature('KOSPI:000020', { atrPercent14: 5 }),
+      feature('KOSPI:000030', { atrPercent14: 3 }),
+    ]
+    const utilities = [-0.007, 0, 0.014]
+    const mean = utilities.reduce((sum, value) => sum + value, 0) / utilities.length
+    const std = Math.sqrt(utilities.reduce((sum, value) => sum + (value - mean) ** 2, 0) / utilities.length)
+    const oldAdjusted = utilities.map((value, index) => (value - mean) / std
+      - 0.5 * (candidates[index]!.atrPercent14! - 3) / Math.sqrt(8 / 3))
+    const result = rank(candidates, utilities)
+    expect(result.map(({ symbol }) => symbol)).toEqual([...candidates]
+      .sort((left, right) => oldAdjusted[candidates.indexOf(right)]! - oldAdjusted[candidates.indexOf(left)]!)
+      .map(({ symbol }) => symbol))
+    for (const [index, candidate] of candidates.entries()) {
+      const actual = result.find(({ symbol }) => symbol === candidate.symbol)!
+      const expected = utilities[index]! - 0.5 * std * (candidate.atrPercent14! - 3) / Math.sqrt(8 / 3)
+      expect(actual.adjusted).toBeCloseTo(expected, 14)
+      expect(actual.adjusted).toBeCloseTo(mean + std * oldAdjusted[index]!, 14)
+      expect(actual.score).toBe(normalizeUtilityScore(normalization, expected))
+    }
+    // ATR at the pool mean leaves the raw v6 utility and its calibrated score unchanged.
+    expect(result[0]!.adjusted).toBe(utilities[2])
+    expect(result[0]!.score).toBe(normalizeUtilityScore(normalization, utilities[2]!))
+  })
+
+  it('orders continuous adjustments before turnover and ASCII symbols, including rounded score ties', () => {
+    const candidates = [
+      feature('KOSPI:000010', { averageTurnover20: 20_000_000_000 }),
+      feature('KOSPI:000020', { averageTurnover20: 500_000_000 }),
+      feature('KOSPI:000030'),
+      feature('KOSDAQ:000040'),
+      feature('KOSPI:000050', { averageTurnover20: 3_000_000_000 }),
+    ]
+    const result = rank(candidates, [0, 0.000001, 0.01, 0.01, 0.01])
+    expect(result.map(({ symbol }) => symbol)).toEqual([
+      'KOSPI:000050', 'KOSDAQ:000040', 'KOSPI:000030', 'KOSPI:000020', 'KOSPI:000010',
+    ])
+    expect(result[3]!.score).toBe(result[4]!.score)
+    expect(result[3]!.adjusted).toBeGreaterThan(result[4]!.adjusted)
+    expect(rank([...candidates].reverse(), [0.01, 0.01, 0.01, 0.000001, 0]).map(({ symbol }) => symbol))
+      .toEqual(result.map(({ symbol }) => symbol))
+  })
+
+  it.each([
+    { utilities: [0.01, 0.01, 0.01], atrs: [3, 3, 3] },
+    { utilities: [0.1, 0.1, 0.1], atrs: [0.2, 0.2, 0.2] },
+    { utilities: [-0.007, 0, 0.007], atrs: [3, 3, 3] },
+    { utilities: [0.0123, 0.0123, 0.0123], atrs: [1, 3, 5] },
+  ])('keeps raw utility when prediction or ATR has zero variance: $utilities / $atrs', ({ utilities, atrs }) => {
+    const candidates = atrs.map((atrPercent14, index) => feature(`KOSPI:0000${index + 1}0`, { atrPercent14 }))
+    const result = rank(candidates, utilities)
+    for (const [index, candidate] of candidates.entries()) {
+      const actual = result.find(({ symbol }) => symbol === candidate.symbol)!
+      expect(actual.adjusted).toBe(utilities[index])
+      expect(actual.score).toBe(normalizeUtilityScore(normalization, utilities[index]!))
+    }
+    expect(result.every(({ score }) => Number.isInteger(score) && score >= 0 && score <= 100)).toBe(true)
+  })
+
+  it('keeps cooldown symbols in the statistics while excluding them before the pick limit', () => {
+    const candidates = [1, 3, 5].map((atrPercent14, index) => feature(`KOSPI:0000${index + 1}0`, { atrPercent14 }))
+    const utilities = [-0.007, 0, 0.014]
+    const baseline = rank(candidates, utilities)
+    const result = rank(candidates, utilities, new Set(['KOSPI:000030']))
+    expect(result).toEqual(baseline.filter(({ symbol }) => symbol !== 'KOSPI:000030'))
+    expect(result).not.toEqual(rank(candidates.slice(0, 2), utilities.slice(0, 2)))
+    expect(rankUtilityAtrPenaltyCandidates({ features: candidates,
+      masters: new Map(candidates.map((candidate) => [candidate.symbol, master(candidate.symbol)])),
+      utilities: new Map(candidates.map((candidate, index) => [candidate.symbol, utilities[index]!])), normalization,
+      parameters: LOW_VOLATILITY_STABLE_PARAMETERS, excludeSymbols: new Set(['KOSPI:000030']), pickCount: 1 }))
+      .toEqual([result[0]])
+  })
+
+  it('leaves rejected gates and locked-down candles out of both statistics and inference', () => {
+    const candidates = [feature('KOSPI:000010'), feature('KOSPI:000020')]
+    const rejected = [
+      feature('KOSPI:000030', { open: 1_400, high: 1_400, low: 1_400, close: 1_400,
+        gapFromPreviousClosePercent: -20, atrPercent14: 100 }),
+      feature('KOSPI:000045', { atrPercent14: 100 }),
+      feature('KOSPI:000050', { rsi14: 76, atrPercent14: 100 }),
+      feature('KOSPI:000060', { atrPercent14: null }),
+    ]
+    // No predictions are supplied for the rejected rows.
+    expect(rank([...candidates, ...rejected], [0, 1])).toEqual(rank(candidates, [0, 1]))
+  })
+
+  it('avoids the November 2 score saturation on a realistic return-prediction pool', () => {
+    // Approximate normal quantiles at sigma=0.007 plus three realistic high predictions.
+    const quantiles = [-2.33, -1.64, -1.28, -1.04, -0.84, -0.67, -0.52, -0.39, -0.25, -0.13,
+      0, 0.13, 0.25, 0.39, 0.52, 0.67, 0.84, 1.04, 1.28, 1.64, 2.33]
+    const utilities = [...Array.from({ length: 210 }, (_, index) => quantiles[index % quantiles.length]! * 0.007),
+      0.0225, 0.0215, 0.0205]
+    const candidates = utilities.map((_value, index) => feature(`KOSPI:${String((index + 1) * 10).padStart(6, '0')}`, {
+      atrPercent14: index < 210 ? 2 + (index % 11) * 0.3 : 2 + (index - 210) * 0.3,
+    }))
+    const mean = utilities.reduce((sum, value) => sum + value, 0) / utilities.length
+    const std = Math.sqrt(utilities.reduce((sum, value) => sum + (value - mean) ** 2, 0) / utilities.length)
+    expect(mean).toBeCloseTo(0, 3)
+    expect(std).toBeCloseTo(0.007, 2)
+    const result = rank(candidates, utilities)
+    const top = result.slice(0, 3)
+    // This fixture reproduced 100/100/100 with v7's ad-hoc display conversion.
+    expect(top.map(({ adjusted }) => Math.min(100, Math.max(0, Math.round(50 + 20 * (adjusted - mean) / std)))))
+      .toEqual([100, 100, 100])
+    for (const candidate of result) expect(candidate.score).toBe(normalizeUtilityScore(normalization, candidate.adjusted))
+    expect(top.every(({ score }) => score < 100 && score >= 70)).toBe(true)
+  })
+
+  it('handles empty and single-symbol pools and rejects missing or non-finite pre-cooldown predictions', () => {
+    expect(rank([], [])).toEqual([])
+    expect(rank([feature('KOSPI:000010')], [0.0123])).toEqual([
+      { symbol: 'KOSPI:000010', score: normalizeUtilityScore(normalization, 0.0123), adjusted: 0.0123 },
+    ])
+    for (const utilities of [[], [Number.NaN], [Number.POSITIVE_INFINITY]]) {
+      expect(() => rank([feature('KOSPI:000010')], utilities, new Set(['KOSPI:000010'])))
+        .toThrow(/후보 추론 누락/)
+    }
+  })
 })
 
 describe('stock-picks strategy gates and ranking', () => {
