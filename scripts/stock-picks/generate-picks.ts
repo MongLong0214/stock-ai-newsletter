@@ -29,10 +29,10 @@ import {
 } from '@/scripts/stock-picks/production-strategy'
 import {
   BULLISH_TARGET_PARAMETERS,
-  getUtilityCandidatePool,
   LOW_VOLATILITY_STABLE_PARAMETERS,
   rankBullishTargetCandidates,
-  rankUtilityAtrPenaltyCandidates,
+  rankLowVolatilityStableCandidates,
+  rankUtilityScoreCandidates,
   rankSeededRandomCandidates,
   rankStrategyCandidates,
   rankTieredFillCandidates,
@@ -427,23 +427,24 @@ export async function generatePicksWithMeta(input: {
     tradingDays,
     lookbackTradingDays: LOW_VOLATILITY_STABLE_PARAMETERS.recentPickTradingDays,
   })
-  const pool = getUtilityCandidatePool({
+  const poolSymbols = rankLowVolatilityStableCandidates({
     features,
     masters: mastersBySymbol,
     parameters: LOW_VOLATILITY_STABLE_PARAMETERS,
-    excludeSymbols: new Set(),
+    excludeSymbols: recentPublishedSymbols,
+    pickCount: features.length,
   })
-  const predictions = new Map(pool.map((feature) => {
-    const { symbol } = feature
+  const predictions = new Map(poolSymbols.map((symbol) => {
+    const feature = featuresBySymbol.get(symbol)
     const context = technicalContexts?.get(symbol)
-    if (!context) throw new Error(`종합 점수 후보 관측값 누락: ${symbol}`)
+    if (!feature || !context) throw new Error(`종합 점수 후보 관측값 누락: ${symbol}`)
     return [symbol, scoreUtilityModel(FROZEN_COMPOSITE_RETURN_MODEL,
       buildObservedInputs50({ feature, context, handler, dates: historyDates }))] as const
   }))
-  const rankedCandidates = rankUtilityAtrPenaltyCandidates({
+  const rankedCandidates = rankUtilityScoreCandidates({
     features, masters: mastersBySymbol, parameters: LOW_VOLATILITY_STABLE_PARAMETERS,
     excludeSymbols: recentPublishedSymbols, pickCount: features.length,
-    utilities: new Map([...predictions].map(([symbol, prediction]) => [symbol, prediction.utility])),
+    scores: new Map([...predictions].map(([symbol, prediction]) => [symbol, prediction.score])),
   })
   const rankedFeatures: RankedStockFeature[] = rankedCandidates.map(({ symbol, score }, index) => {
     const feature = featuresBySymbol.get(symbol)
