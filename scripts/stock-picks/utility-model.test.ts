@@ -1,14 +1,17 @@
 import { describe, expect, it } from 'vitest'
 
-import { OBSERVED_INPUT_NAMES, OBSERVED_INPUT_VERSION } from '@/scripts/stock-picks/observed-inputs'
+import { OBSERVED_FLOW_INPUT_NAMES, OBSERVED_FLOW_INPUT_VERSION, OBSERVED_INPUT_NAMES, OBSERVED_INPUT_VERSION } from '@/scripts/stock-picks/observed-inputs'
 import parity from '@/scripts/stock-picks/fixtures/composite-utility-v1-parity.json'
 import utilityArtifact from '@/scripts/stock-picks/models/composite-utility-v1.json'
 import returnParity from '@/scripts/stock-picks/fixtures/composite-return-v6-parity.json'
+import returnV8Parity from '@/scripts/stock-picks/fixtures/composite-return-v8-parity.json'
+import returnV6Artifact from '@/scripts/stock-picks/models/composite-return-v6.json'
 import { FROZEN_COMPOSITE_RETURN_MODEL } from '@/scripts/stock-picks/production-strategy'
 import { normalizeUtilityScore, scoreUtilityModel, RETURN_SCORE_VERSION, UTILITY_SCORE_VERSION, validateUtilityModel,
   type UtilityModelArtifact, type LegacyUtilityModelArtifact, type CompositeUtilityModelArtifact, type CompositeReturnModelArtifact, type UtilityScoreNormalization, type UtilityTreeNode } from '@/scripts/stock-picks/utility-model'
 
 const frozenUtilityModel = validateUtilityModel(utilityArtifact as UtilityModelArtifact)
+const frozenReturnV6Model = validateUtilityModel(returnV6Artifact as UtilityModelArtifact)
 
 const leaf = (value: number): UtilityTreeNode => ({ isLeaf: true, value, featureIdx: 0,
   numThreshold: 0, missingGoLeft: false, left: 0, right: 0 })
@@ -67,19 +70,42 @@ describe('native HGB utility inference', () => {
     for (const mean of [-.5, .5]) expect(() => validateUtilityModel({ ...artifact,
       normalization: { ...artifact.normalization, mean, standardDeviation: .5 } })).not.toThrow()
   })
-  it('matches native return vectors without clipping negative predictions', () => {
-    expect(returnParity.schemaVersion).toBe(5)
-    expect(returnParity.scoreVersion).toBe(RETURN_SCORE_VERSION)
-    expect(returnParity.featureNames).toEqual(OBSERVED_INPUT_NAMES)
-    expect(returnParity.cases.some((c) => c.prediction < 0)).toBe(true)
-    expect(returnParity.cases.some((c) => c.inputs.includes(null))).toBe(true)
-    for (const witness of returnParity.cases) {
-      const result = scoreUtilityModel(FROZEN_COMPOSITE_RETURN_MODEL, witness.inputs)
+  it.each([
+    { label: 'v6', artifact: frozenReturnV6Model, fixture: returnParity, names: OBSERVED_INPUT_NAMES },
+    { label: 'v8 production', artifact: FROZEN_COMPOSITE_RETURN_MODEL, fixture: returnV8Parity, names: OBSERVED_FLOW_INPUT_NAMES },
+  ])('matches native $label return vectors without clipping negative predictions', ({ artifact, fixture, names }) => {
+    expect(fixture.schemaVersion).toBe(5)
+    expect(fixture.scoreVersion).toBe(RETURN_SCORE_VERSION)
+    expect(fixture.featureNames).toEqual(names)
+    expect(artifact.featureNames).toEqual(names)
+    expect(fixture.cases.some((c) => c.prediction < 0)).toBe(true)
+    expect(fixture.cases.some((c) => c.inputs.includes(null))).toBe(true)
+    for (const witness of fixture.cases) {
+      const result = scoreUtilityModel(artifact, witness.inputs)
       expect(result.utility, witness.id).toBeCloseTo(witness.prediction, 14)
       expect(result.score, witness.id).toBe(witness.overallScore)
-      expect(scoreUtilityModel(FROZEN_COMPOSITE_RETURN_MODEL,
+      expect(scoreUtilityModel(artifact,
         witness.inputs.map((v) => v === null ? Number.NaN : v))).toEqual(result)
     }
+  })
+  it('binds the 65-input investor-flow contract to v8 only', () => {
+    const v6 = returnModel()
+    const v8: CompositeReturnModelArtifact = { ...v6, modelVersion: 'composite-return-v8',
+      observedInputVersion: OBSERVED_FLOW_INPUT_VERSION, featureNames: OBSERVED_FLOW_INPUT_NAMES }
+    const flowSplit = (artifact: CompositeReturnModelArtifact): CompositeReturnModelArtifact => ({ ...artifact,
+      trees: [[{ ...leaf(0), isLeaf: false, featureIdx: 64, numThreshold: 0, missingGoLeft: true, left: 1, right: 2 },
+        leaf(-.01), leaf(.01)], ...artifact.trees.slice(1)] })
+    expect(validateUtilityModel(v8)).toBe(v8)
+    expect(scoreUtilityModel(flowSplit(v8), [...inputs(), ...Array(14).fill(null), 1]).utility).toBeCloseTo(0, 14)
+    expect(scoreUtilityModel(flowSplit(v8), [...inputs(), ...Array(15).fill(null)]).utility).toBeCloseTo(-.02, 14)
+    expect(() => scoreUtilityModel(v8, inputs())).toThrow('관측 피처 계약')
+    expect(() => scoreUtilityModel(v6, [...inputs(), ...Array(15).fill(null)])).toThrow('관측 피처 계약')
+    expect(() => validateUtilityModel(flowSplit(v6))).toThrow()
+    for (const invalid of [
+      { ...v8, featureNames: OBSERVED_INPUT_NAMES },
+      { ...v8, observedInputVersion: OBSERVED_INPUT_VERSION },
+      { ...v6, featureNames: OBSERVED_FLOW_INPUT_NAMES, observedInputVersion: OBSERVED_FLOW_INPUT_VERSION },
+    ]) expect(() => validateUtilityModel(invalid)).toThrow('종합 점수 모델 계약 불일치')
   })
   const composite = (): CompositeUtilityModelArtifact => ({
     schemaVersion: 4, modelVersion: 'composite-utility-v4',

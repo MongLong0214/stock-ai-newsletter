@@ -10,6 +10,8 @@ uv run --script scripts/stock-picks/train-composite-utility.py \
   --output scripts/stock-picks/models/composite-utility-v1.json --audit-dir RESULTS
 
 Use --target touch-nonloss-v1 for separate touch and net non-loss regressors.
+Add --investor-flow FLOW.ndjson ({date, symbol, inputs[15]} from export-investor-flow.ts) with
+--target demeaned-tp7-net-v1 to fit composite-return-v8 on the 50 observed + 15 KIS investor-flow inputs.
 A training option is not evidence that a candidate is better than production.
 """
 import argparse, hashlib, json, math, os, pathlib
@@ -31,6 +33,13 @@ RETURN_PARAMS = dict(loss='squared_error', max_iter=200, max_leaf_nodes=31, max_
                      max_bins=255, random_state=42, early_stopping=False)
 CONFIG = dict(family='A', complexity='small', riskDefinition='L0=netD5<0',
               **{'lambda': .65, 'inputCount': 50, 'id': 'L0-A-small-lambda0.65-inputs50'})
+OBSERVED_INPUT_VERSION = 'observed-50-v1-2026-09-30'
+INVESTOR_FLOW_INPUT_VERSION = 'kis-investor-flow-15-v1-2026-11-02'
+INVESTOR_FLOW_INPUT_NAMES = ['foreignNetBuyRatio1', 'foreignNetBuyRatio5', 'foreignNetBuyRatio20',
+    'institutionNetBuyRatio1', 'institutionNetBuyRatio5', 'institutionNetBuyRatio20',
+    'individualNetBuyRatio5', 'individualNetBuyRatio20',
+    'investmentTrustNetBuyRatio5', 'pensionNetBuyRatio5', 'privateFundNetBuyRatio5',
+    'foreignNetBuyStreak', 'institutionNetBuyStreak', 'foreignInstitutionBothBuy5', 'foreignNetBuyRatio5Minus20']
 SCORE_VERSION = 'utility-reference-smooth-v1'
 RETURN_SCORE_VERSION = 'return-reference-smooth-v1'
 
@@ -97,16 +106,27 @@ def main():
     for name in ['features', 'feature-spec', 'calendar', 'prices', 'as-of', 'output', 'audit-dir']:
         parser.add_argument('--' + name, required=True)
     parser.add_argument('--target', choices=['legacy', 'touch-nonloss-v1', 'demeaned-tp7-net-v1'], default='legacy')
+    parser.add_argument('--investor-flow')
     args = parser.parse_args(); paths = {k: pathlib.Path(getattr(args, k)) for k in ['features', 'feature_spec', 'calendar', 'prices']}
     return_target = args.target == 'demeaned-tp7-net-v1'
     params = RETURN_PARAMS if return_target else PARAMS
     score_version = RETURN_SCORE_VERSION if return_target else SCORE_VERSION
     spec = json.loads(paths['feature_spec'].read_text()); feature_names = spec['featureNames']
     assert len(feature_names) == 50 and len(set(feature_names)) == 50
+    flow = None
+    if args.investor_flow:
+        assert return_target, 'Investor-flow inputs are only defined for the v8 return model'
+        paths['investor_flow'] = pathlib.Path(args.investor_flow); flow = {}
+        for line in paths['investor_flow'].open():
+            r = json.loads(line); key = (r['date'], r['symbol']); assert key not in flow and len(r['inputs']) == 15
+            flow[key] = [x if finite(x) else np.nan for x in r['inputs']]
+        feature_names = feature_names + INVESTOR_FLOW_INPUT_NAMES
+    width = len(feature_names)
+    observed_version = OBSERVED_INPUT_VERSION + '+' + INVESTOR_FLOW_INPUT_VERSION if flow is not None else OBSERVED_INPUT_VERSION
     calendar = json.loads(paths['calendar'].read_text())['tradingDays']
     assert calendar == sorted(set(calendar)) and args.as_of in calendar
     date_index = {d: i for i, d in enumerate(calendar)}
-    n = sum(1 for _ in paths['features'].open()); xx = np.full((n, 50), np.nan)
+    n = sum(1 for _ in paths['features'].open()); xx = np.full((n, width), np.nan)
     keys = []; seen = set(); withheld = {}; eligible_counts = {}
     for line in paths['features'].open():
         r = json.loads(line); d = r['date']; symbol = r['symbol']
@@ -116,7 +136,9 @@ def main():
         if i + 5 >= len(calendar) or calendar[i + 5] > args.as_of:
             withheld[d] = withheld.get(d, 0) + 1; continue
         v = r['originalInputs18'] + r['extraInputs32']; assert len(v) == 50
-        xx[len(keys)] = [x if finite(x) else np.nan for x in v]
+        v = [x if finite(x) else np.nan for x in v]
+        if flow is not None: v += flow.get(key, [np.nan] * 15)
+        xx[len(keys)] = v
         keys.append(key); eligible_counts[d] = eligible_counts.get(d, 0) + 1
     xx = xx[:len(keys)]; assert len(keys) > 0
     order = sorted(range(len(keys)), key=keys.__getitem__); xx = xx[order]; keys = [keys[i] for i in order]
@@ -215,14 +237,14 @@ def main():
                   modelVersion='composite-utility-v4' if separate_heads else 'composite-utility-v3',
                   trainedLabelsThrough=per_date[-1]['labelMaturityDate'],
                   trainingLastSignalDate=per_date[-1]['signalDate'], trainingAsOf=args.as_of,
-                  observedInputVersion='observed-50-v1-2026-09-30', featureNames=feature_names,
+                  observedInputVersion=observed_version, featureNames=feature_names,
                   config=COMPOSITE_TARGET if separate_heads else CONFIG, parameters=PARAMS, **serialized,
                   leafValuesAlreadyIncludeLearningRate=True,
                   normalization=reference,
                   scoreMap=dict(version=SCORE_VERSION, utilityClamp=[0, 1], scoreClamp=[0, 100],
                     rounding='floor(50+50*delta/hypot(delta,sqrt(5.25)*standardDeviation)+0.5); delta=clip(prediction,0,1)-mean'),
                   targetDefinition=target_definition,
-                  metadata=dict(source='kis', observedInputVersion='observed-50-v1-2026-09-30', trainingAsOf=args.as_of, trainingFirstSignalDate=per_date[0]['signalDate'],
+                  metadata=dict(source='kis', observedInputVersion=observed_version, trainingAsOf=args.as_of, trainingFirstSignalDate=per_date[0]['signalDate'],
                     trainingLastSignalDate=per_date[-1]['signalDate'], latestLabelMaturity=per_date[-1]['labelMaturityDate'],
                     signalPanels=len(counts), trainingRows=len(y), sampleWeightMean=float(weights.mean()),
                     nativeMissingInputValues=int(np.isnan(fit_x).sum()), inputSha256=input_sha,
@@ -233,17 +255,18 @@ def main():
                     performanceClaim='Fresh refit only; no new out-of-sample performance claim. Prior research did not attain40/30.',
                     currentMasterAndAdjustedVintageBias=True))
     if return_target:
-        result.update(schemaVersion=5, modelVersion='composite-return-v6',
+        result.update(schemaVersion=5, modelVersion='composite-return-v8' if flow is not None else 'composite-return-v6',
                       targetDefinition=RETURN_TARGET, config=RETURN_TARGET, parameters=RETURN_PARAMS,
                       scoreMap=dict(version=RETURN_SCORE_VERSION, scoreClamp=[0, 100],
                         rounding='floor(50+50*delta/hypot(delta,sqrt(5.25)*standardDeviation)+0.5); delta=prediction-mean'))
-        result['metadata']['performanceClaim'] = 'Research walk-forward OOS 2025-09-03..2026-10-07 (docs/research/stock-composite-2026-10-19.md); fresh refit, no new OOS claim.'
+        result['metadata']['performanceClaim'] = ('Research walk-forward OOS 2025-09-03..2026-10-07 (docs/research/stock-composite-2026-11-02-v8.md, PREREG addendum 5 F2); fresh refit, no new OOS claim.'
+            if flow is not None else 'Research walk-forward OOS 2025-09-03..2026-10-07 (docs/research/stock-composite-2026-10-19.md); fresh refit, no new OOS claim.')
     audit_dir = pathlib.Path(args.audit_dir); audit_dir.mkdir(parents=True, exist_ok=True)
     joblib.dump(model, audit_dir / 'model.joblib'); np.savez(audit_dir / 'fit-inputs.npz', X=fit_x, events=fit_events, outcomes=fit_outcomes, groups=counts, weights=weights, y=y)
     sample_indices = np.linspace(0, len(fit_x) - 1, min(2048, len(fit_x)), dtype=int)
     cases = [v.copy() for v in fit_x[sample_indices]]
-    cases.append(np.full(50, np.nan)); cases.append(np.zeros(50))
-    for j in range(50):
+    cases.append(np.full(width, np.nan)); cases.append(np.zeros(width))
+    for j in range(width):
         v = fit_x[sample_indices[j % len(sample_indices)]].copy(); v[j] = np.nan; cases.append(v)
     boundary_count = 0
     exported_predictors = list(result['heads'].values()) if separate_heads else [result]
@@ -270,7 +293,7 @@ def main():
     for i in sorted(set(range(min(12, len(cases)))) | set(range(len(sample_indices), min(len(cases), len(sample_indices) + 5))) | {len(cases) - 1}):
         fixtures.append(dict(id='case-' + str(i), inputs=[float(v) if np.isfinite(v) else None for v in cases[i]],
                              prediction=float(native[i]), overallScore=rounded_score(float(native[i]), reference)))
-    audit = dict(cases=len(cases), observedCases=len(sample_indices), missingFeatureCases=51,
+    audit = dict(cases=len(cases), observedCases=len(sample_indices), missingFeatureCases=width + 1,
                  thresholdNodesChecked=boundary_count, thresholdEqualityAndAdjacentCases=3 * boundary_count,
                  maxAbsolutePredictionError=float(error.max()), predictionDifferences=int((error != 0).sum()),
                  roundedScoreDifferences=score_difference, headPredictionDifferences=head_differences, predictionTolerance=1e-14, fitInputSha256=input_sha,

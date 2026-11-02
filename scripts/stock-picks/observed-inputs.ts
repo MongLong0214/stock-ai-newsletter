@@ -22,6 +22,18 @@ export const OBSERVED_INPUT_NAMES = [
   'positiveCloseDays5', 'priorHigh20AgeSessions', 'drawdownFromPrior60ClosePeakPercent',
 ] as const
 
+/** KIS 종목별 투자자 매매동향(FHPTJ04160001) 순매수 금액 ÷ 같은 창 거래대금. 신호일 장 마감 후 확정값이다. */
+export const INVESTOR_FLOW_INPUT_VERSION = 'kis-investor-flow-15-v1-2026-11-02'
+export const INVESTOR_FLOW_INPUT_NAMES = [
+  'foreignNetBuyRatio1', 'foreignNetBuyRatio5', 'foreignNetBuyRatio20',
+  'institutionNetBuyRatio1', 'institutionNetBuyRatio5', 'institutionNetBuyRatio20',
+  'individualNetBuyRatio5', 'individualNetBuyRatio20',
+  'investmentTrustNetBuyRatio5', 'pensionNetBuyRatio5', 'privateFundNetBuyRatio5',
+  'foreignNetBuyStreak', 'institutionNetBuyStreak', 'foreignInstitutionBothBuy5', 'foreignNetBuyRatio5Minus20',
+] as const
+export const OBSERVED_FLOW_INPUT_VERSION = `${OBSERVED_INPUT_VERSION}+${INVESTOR_FLOW_INPUT_VERSION}`
+export const OBSERVED_FLOW_INPUT_NAMES = [...OBSERVED_INPUT_NAMES, ...INVESTOR_FLOW_INPUT_NAMES] as const
+
 type Value = number | null
 type Bar = { open: number; high: number; low: number; close: number; volume: Value }
 const finite = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v)

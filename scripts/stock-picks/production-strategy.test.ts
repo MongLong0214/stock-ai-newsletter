@@ -14,7 +14,8 @@ import {
 import { BULLISH_TARGET_PARAMETERS, LOW_VOLATILITY_STABLE_PARAMETERS, UTILITY_ATR_RANK_ADJUSTMENT, UTILITY_LOCKED_DOWN_RULE } from '@/scripts/stock-picks/strategies'
 import { RETURN_SCORE_VERSION } from '@/scripts/stock-picks/utility-model'
 import { SIGNAL_SCORE_VERSION, VOLATILITY_SCORE_REFERENCE } from '@/scripts/stock-picks/signals'
-import { MODEL_MARKET_SOURCE_VERSION, OBSERVED_INPUT_VERSION } from '@/scripts/stock-picks/observed-inputs'
+import { MODEL_MARKET_SOURCE_VERSION, OBSERVED_FLOW_INPUT_NAMES, OBSERVED_FLOW_INPUT_VERSION, OBSERVED_INPUT_VERSION } from '@/scripts/stock-picks/observed-inputs'
+import { INVESTOR_FLOW_WINDOW_TRADING_DAYS, MIN_INVESTOR_FLOW_COVERAGE } from '@/scripts/stock-picks/investor-flow'
 import { addKoreanTradingDays } from '@/lib/tli/trading-calendar'
 
 describe('frozen production strategy artifact', () => {
@@ -56,35 +57,39 @@ describe('frozen production strategy artifact', () => {
     )
   })
 
-  it('identifies the frozen v6 model, per-date ATR adjustment, locked-down rule and market source contract', () => {
+  it('identifies the frozen v8 model, investor-flow inputs, per-date ATR adjustment, locked-down rule and market source contract', () => {
     expect(SIGNAL_SCORE_VERSION).toBe('technical-signals-v3-2026-10-02')
     expect(MODEL_MARKET_SOURCE_VERSION).toBe('kis-market-21-20-v1')
+    expect(OBSERVED_FLOW_INPUT_VERSION).toBe(`${OBSERVED_INPUT_VERSION}+kis-investor-flow-15-v1-2026-11-02`)
     expect(UTILITY_ATR_RANK_ADJUSTMENT).toEqual({
-      rankAdjustment: 'v6-pred-minus-0.5-poolsd-atr14-z', atrPenalty: 0.5, statsPool: 'gated-pre-cooldown',
-      scoreCurve: 'v6-return-reference-smooth',
+      rankAdjustment: 'model-pred-minus-0.5-poolsd-atr14-z', atrPenalty: 0.5, statsPool: 'gated-pre-cooldown',
+      scoreCurve: 'model-return-reference-smooth',
     })
+    const contract = {
+      parameters: LOW_VOLATILITY_STABLE_PARAMETERS,
+      gateVersion: 'status-flags-valid-candle-v2', preferredRule: 'krx-code-last-digit-nonzero',
+      signalScoreVersion: SIGNAL_SCORE_VERSION, observedInputVersion: OBSERVED_FLOW_INPUT_VERSION,
+      investorFlowSource: 'kis-FHPTJ04160001-signal-date-close',
+      investorFlowWindowTradingDays: INVESTOR_FLOW_WINDOW_TRADING_DAYS,
+      minInvestorFlowCoverage: MIN_INVESTOR_FLOW_COVERAGE,
+      modelMarketSourceVersion: MODEL_MARKET_SOURCE_VERSION,
+      utilityScoreVersion: RETURN_SCORE_VERSION, lockedDownRule: UTILITY_LOCKED_DOWN_RULE,
+      volatilityScoreReference: VOLATILITY_SCORE_REFERENCE,
+      ...UTILITY_ATR_RANK_ADJUSTMENT,
+      model: FROZEN_COMPOSITE_RETURN_MODEL,
+    }
     expect(PRODUCTION_STRATEGY).toEqual({
       name: 'compositeUtility',
-      version: 'v7.1-2026-11-02',
+      version: 'v8-2026-11-02',
       objective: 'compositeUtility',
       parameters: LOW_VOLATILITY_STABLE_PARAMETERS,
-      parametersHash: hashCanonicalJson({
-        parameters: LOW_VOLATILITY_STABLE_PARAMETERS,
-        gateVersion: 'status-flags-valid-candle-v2',
-        preferredRule: 'krx-code-last-digit-nonzero',
-        signalScoreVersion: SIGNAL_SCORE_VERSION,
-        volatilityScoreReference: VOLATILITY_SCORE_REFERENCE,
-        observedInputVersion: OBSERVED_INPUT_VERSION,
-        modelMarketSourceVersion: MODEL_MARKET_SOURCE_VERSION,
-        utilityScoreVersion: RETURN_SCORE_VERSION,
-        lockedDownRule: UTILITY_LOCKED_DOWN_RULE,
-        ...UTILITY_ATR_RANK_ADJUSTMENT,
-        model: FROZEN_COMPOSITE_RETURN_MODEL,
-      }),
+      parametersHash: hashCanonicalJson(contract),
     })
+    expect(INVESTOR_FLOW_WINDOW_TRADING_DAYS).toBe(30)
+    expect(MIN_INVESTOR_FLOW_COVERAGE).toBe(0.95)
     expect(PRODUCTION_STRATEGY.parameters).toBe(LOW_VOLATILITY_STABLE_STRATEGY.parameters)
     expect(PRODUCTION_STRATEGY.parametersHash).not.toBe(LOW_VOLATILITY_STABLE_STRATEGY.parametersHash)
-    expect(PRODUCTION_STRATEGY.parametersHash).toBe('1bfb0822b6f023680ec3227632939110ad84e597439800436815ee4f280bb318')
+    expect(PRODUCTION_STRATEGY.parametersHash).toBe('8cac0d8bcbe4b4e8c5e1a4932c4a338b017ca04ff86288c133658cecc07c83db')
     // Technical categories retain their original frozen calibration; the composite refit is separate.
     expect(VOLATILITY_SCORE_REFERENCE).toMatchObject({
       referenceAtrPercent14: 5.221735562010756, referenceRows: 506470, referencePanels: 421,
@@ -93,50 +98,33 @@ describe('frozen production strategy artifact', () => {
       fitInputSha256: '7e390305a071d6dbb57d9b3800eb880b5ca6abcb066347f6f4fe12340bcc9ed2',
     })
     expect(FROZEN_COMPOSITE_RETURN_MODEL).toMatchObject({
-      schemaVersion: 5, modelVersion: 'composite-return-v6', trainedLabelsThrough: '2026-10-16',
+      schemaVersion: 5, modelVersion: 'composite-return-v8', trainedLabelsThrough: '2026-10-30',
+      observedInputVersion: OBSERVED_FLOW_INPUT_VERSION, featureNames: OBSERVED_FLOW_INPUT_NAMES,
       targetDefinition: { version: 'demeaned-tp7-net-v1',
         formula: 'touch7=floor(max(D1..D5 high)+.5)*100 >= floor(entry+.5)*107; net=(touch7 ? .07 : D5close/entry-1)-costBps/10000; y=net-dateMean(net)', horizon: 5,
         takeProfit: .07, cost: 'krx-realistic-v1', demean: 'signal-date strict rows' },
       normalization: {
         version: RETURN_SCORE_VERSION, center: 50, oneStandardDeviationScore: 70, tailCurvature: 5.25,
-        referencePanels: 391, referenceRows: 474242, referenceThrough: '2026-10-16',
-        referenceLastSignal: '2026-10-08', source: 'kis',
+        referencePanels: 401, referenceRows: 485292, referenceThrough: '2026-10-30',
+        referenceLastSignal: '2026-10-23', source: 'kis',
         weighting: 'equal signal date, strict matured training rows',
       },
     })
     if (FROZEN_COMPOSITE_RETURN_MODEL.schemaVersion !== 5) throw new Error('Expected return predictor')
     expect(FROZEN_COMPOSITE_RETURN_MODEL.trees).toHaveLength(200)
-    expect(PRODUCTION_STRATEGY.parametersHash).not.toBe(hashCanonicalJson({
-      parameters: LOW_VOLATILITY_STABLE_PARAMETERS,
-      gateVersion: 'status-flags-valid-candle-v2', preferredRule: 'krx-code-last-digit-nonzero',
-      signalScoreVersion: SIGNAL_SCORE_VERSION, observedInputVersion: `${OBSERVED_INPUT_VERSION}-changed`,
-      volatilityScoreReference: VOLATILITY_SCORE_REFERENCE, ...UTILITY_ATR_RANK_ADJUSTMENT,
-      modelMarketSourceVersion: MODEL_MARKET_SOURCE_VERSION,
-      utilityScoreVersion: RETURN_SCORE_VERSION, lockedDownRule: UTILITY_LOCKED_DOWN_RULE,
-      model: FROZEN_COMPOSITE_RETURN_MODEL,
-    }))
-    expect(PRODUCTION_STRATEGY.parametersHash).not.toBe(hashCanonicalJson({
-      parameters: LOW_VOLATILITY_STABLE_PARAMETERS,
-      gateVersion: 'status-flags-valid-candle-v2', preferredRule: 'krx-code-last-digit-nonzero',
-      signalScoreVersion: SIGNAL_SCORE_VERSION, observedInputVersion: OBSERVED_INPUT_VERSION,
-      volatilityScoreReference: VOLATILITY_SCORE_REFERENCE, ...UTILITY_ATR_RANK_ADJUSTMENT,
-      modelMarketSourceVersion: `${MODEL_MARKET_SOURCE_VERSION}-changed`,
-      utilityScoreVersion: RETURN_SCORE_VERSION, lockedDownRule: UTILITY_LOCKED_DOWN_RULE,
-      model: FROZEN_COMPOSITE_RETURN_MODEL,
-    }))
-    const contract = {
-      parameters: LOW_VOLATILITY_STABLE_PARAMETERS,
-      gateVersion: 'status-flags-valid-candle-v2', preferredRule: 'krx-code-last-digit-nonzero',
-      signalScoreVersion: SIGNAL_SCORE_VERSION, observedInputVersion: OBSERVED_INPUT_VERSION,
-      modelMarketSourceVersion: MODEL_MARKET_SOURCE_VERSION,
-      utilityScoreVersion: RETURN_SCORE_VERSION, lockedDownRule: UTILITY_LOCKED_DOWN_RULE,
-      volatilityScoreReference: VOLATILITY_SCORE_REFERENCE,
-      ...UTILITY_ATR_RANK_ADJUSTMENT,
-      model: FROZEN_COMPOSITE_RETURN_MODEL,
-    }
+    expect(PRODUCTION_STRATEGY.parametersHash).not.toBe(hashCanonicalJson({ ...contract,
+      observedInputVersion: `${OBSERVED_FLOW_INPUT_VERSION}-changed` }))
+    expect(PRODUCTION_STRATEGY.parametersHash).not.toBe(hashCanonicalJson({ ...contract,
+      observedInputVersion: OBSERVED_INPUT_VERSION }))
+    expect(PRODUCTION_STRATEGY.parametersHash).not.toBe(hashCanonicalJson({ ...contract,
+      investorFlowWindowTradingDays: 20 }))
+    expect(PRODUCTION_STRATEGY.parametersHash).not.toBe(hashCanonicalJson({ ...contract,
+      minInvestorFlowCoverage: 0.9 }))
+    expect(PRODUCTION_STRATEGY.parametersHash).not.toBe(hashCanonicalJson({ ...contract,
+      modelMarketSourceVersion: `${MODEL_MARKET_SOURCE_VERSION}-changed` }))
     expect(PRODUCTION_STRATEGY.parametersHash).toBe(hashCanonicalJson(contract))
     expect(PRODUCTION_STRATEGY.parametersHash).not.toBe(hashCanonicalJson({ ...contract,
-      rankAdjustment: 'v6-integer-score' }))
+      rankAdjustment: 'model-integer-score' }))
     expect(PRODUCTION_STRATEGY.parametersHash).not.toBe(hashCanonicalJson({ ...contract, atrPenalty: 0.25 }))
     expect(PRODUCTION_STRATEGY.parametersHash).not.toBe(hashCanonicalJson({ ...contract, statsPool: 'post-cooldown' }))
     expect(PRODUCTION_STRATEGY.parametersHash).not.toBe(hashCanonicalJson({ ...contract,

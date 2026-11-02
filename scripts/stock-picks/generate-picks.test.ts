@@ -21,13 +21,22 @@ import * as strategies from '@/scripts/stock-picks/strategies'
 import { BULLISH_TARGET_STRATEGY, FROZEN_BULLISH_TARGET_MODEL, FROZEN_COMPOSITE_RETURN_MODEL, PRODUCTION_STRATEGY } from '@/scripts/stock-picks/production-strategy'
 import { buildSignals } from '@/scripts/stock-picks/signals'
 import { buildObservedInputs50 } from '@/scripts/stock-picks/observed-inputs'
+import { buildInvestorFlowInputs, parseInvestorFlowRows } from '@/scripts/stock-picks/investor-flow'
+import { syntheticInvestorFlowRows } from '@/scripts/stock-picks/fixtures/investor-flow-rows'
 import { scoreTargetModel } from '@/scripts/stock-picks/target-model'
 import { normalizeUtilityScore, scoreUtilityModel } from '@/scripts/stock-picks/utility-model'
 import { TradingDayIndex } from '@/scripts/stock-picks/trading-days'
 import type { StockDailyPriceRow } from '@/scripts/tli/prices/stock-daily-prices'
 
-const SIGNAL_DATE = '2026-10-16'
-const TODAY_KST = '2026-10-19'
+// 운영 기본 경로(KIS 투자자 매매동향 조회)를 그대로 타고 외부 호출만 결정적 행으로 바꾼다.
+vi.mock('@/app/archive/_utils/api/kis/client', async (importOriginal) => ({
+  ...await importOriginal<typeof import('@/app/archive/_utils/api/kis/client')>(),
+  fetchInvestorTradeDailyRows: async (symbol: string, endKisDate: string) =>
+    (await import('@/scripts/stock-picks/fixtures/investor-flow-rows')).syntheticInvestorFlowRows(symbol, endKisDate),
+}))
+
+const SIGNAL_DATE = '2026-10-30'
+const TODAY_KST = '2026-11-02'
 const SYMBOLS = ['KOSPI:000010', 'KOSPI:000020', 'KOSDAQ:000030'] as const
 const FOUR_SYMBOLS = [...SYMBOLS, 'KOSPI:000040'] as const
 
@@ -187,8 +196,8 @@ describe('stock analysis summary', () => {
 
 describe('production stock pick generator', () => {
   it.each([
-    { change: 50, scores: [65, 63, 59] },
-    { change: -50, scores: [17, 16, 15] },
+    { change: 50, scores: [55, 54, 50] },
+    { change: -50, scores: [29, 27, 23] },
   ])('rejects a non-KIS KOSPI return20 contributor ($change%) while keeping the KIS prediction', async ({ change, scores }) => {
     const fixture = makeFixture()
     expect(fixture.rows).toHaveLength(3 * 320)
@@ -234,8 +243,8 @@ describe('production stock pick generator', () => {
     } })
     const kis = await run(breadth)
     expect(kis.meta.rankedCandidates.map(candidate => candidate.symbol).sort()).toEqual([...SYMBOLS].sort())
-    // Identical predictions have zero pool variance, so the ATR adjustment leaves the v6 score intact.
-    expect(kis.picks.map(pick => pick.signals.overall_score)).toEqual([35, 35, 35])
+    // Same price inputs; only the per-symbol investor flow differs (zero-variance ATR path: strategies.test).
+    expect(kis.picks.map(pick => pick.signals.overall_score)).toEqual([38, 37, 36])
     expect(kis.meta.rankedCandidates[0]!.technicalContext).toMatchObject({
       breadthUniverseSymbols: 43, breadthEligibleSymbols: 43, breadthAboveSma20: 3 / 43,
     })
@@ -314,6 +323,19 @@ describe('production stock pick generator', () => {
     }
   })
 
+  it('requests signal-date investor flow for the whole pool and stops when a pool symbol has none', async () => {
+    const fixture = makeFixture()
+    const loadFlow = vi.fn(async () => new Map<string, readonly (number | null)[]>())
+    await expect(generatePicksWithMeta({ todayKst: TODAY_KST, dependencies: {
+      loadTradingDays: async () => new TradingDayIndex(fixture.dates),
+      loadPrices: async () => fixture.prices, loadMasters: async () => fixture.masters,
+      loadRecentPublishedSymbols: async () => new Set<string>(), loadInvestorFlowInputs: loadFlow,
+    } })).rejects.toThrow('종합 점수 후보 관측값 누락')
+    expect(loadFlow).toHaveBeenCalledOnce()
+    expect(loadFlow).toHaveBeenCalledWith(expect.objectContaining({ signalDate: SIGNAL_DATE, dates: fixture.dates }))
+    expect([...(loadFlow.mock.calls[0] as unknown as [{ symbols: string[] }])[0].symbols].sort()).toEqual([...SYMBOLS].sort())
+  })
+
   it('rejects a historical signal before the production model labels are observable', async () => {
     const todayKst = FROZEN_COMPOSITE_RETURN_MODEL.trainedLabelsThrough
     const signalDate = addKoreanTradingDays(todayKst, -1)
@@ -352,8 +374,8 @@ describe('production stock pick generator', () => {
     expect(ranking.map((candidate) => candidate.symbol)).toEqual(['KOSPI:000020', 'KOSPI:000010'])
     expect(ranking[0]!.score).toBeGreaterThan(ranking[1]!.score)
     const handler = new StockDataHandler(fixture.prices, new TradingDayIndex(fixture.dates)).at(SIGNAL_DATE)
-    expect(result.meta.rankedCandidates.map(({ score }) => score)).toEqual([57, 55, 52])
-    // Independent recomputation: pool-SD(utility) × z(ATR) penalty, then the frozen v6 score curve.
+    expect(result.meta.rankedCandidates.map(({ score }) => score)).toEqual([57, 56, 51])
+    // Independent recomputation: pool-SD(utility) × z(ATR) penalty, then the frozen v8 score curve.
     const pool = result.meta.rankedCandidates
     const populationStd = (values: number[]) => {
       const mean = values.reduce((sum, value) => sum + value, 0) / values.length
@@ -364,9 +386,11 @@ describe('production stock pick generator', () => {
     for (const pick of result.picks) {
       const candidate = result.meta.rankedCandidates.find(({ symbol }) => symbol === pick.ticker)!
       expect(pick.signals).toEqual(buildSignals(candidate, candidate.score))
-      expect(candidate.utility).toBe(scoreUtilityModel(FROZEN_COMPOSITE_RETURN_MODEL, buildObservedInputs50({
+      const flow = buildInvestorFlowInputs({ dates: fixture.dates,
+        days: parseInvestorFlowRows(syntheticInvestorFlowRows(candidate.symbol, SIGNAL_DATE.replaceAll('-', ''))) })
+      expect(candidate.utility).toBe(scoreUtilityModel(FROZEN_COMPOSITE_RETURN_MODEL, [...buildObservedInputs50({
         feature: candidate, context: candidate.technicalContext!, handler, dates: fixture.dates,
-      })).utility)
+      }), ...flow]).utility)
       const adjusted = candidate.utility! - 0.5 * utilityStats.std * (candidate.atrPercent14! - atrStats.mean) / atrStats.std
       expect(candidate.score).toBe(normalizeUtilityScore(FROZEN_COMPOSITE_RETURN_MODEL.normalization, adjusted))
     }

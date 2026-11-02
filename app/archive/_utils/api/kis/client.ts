@@ -815,6 +815,89 @@ export async function fetchIndexDailyRangePriceRows(
   });
 }
 
+async function fetchInvestorTradeDailyRowsWithToken(
+  code: string,
+  endKisDate: string,
+  token: string,
+): Promise<Record<string, string>[]> {
+  const config = getKisConfig();
+  const params = new URLSearchParams({
+    FID_COND_MRKT_DIV_CODE: 'J',
+    FID_INPUT_ISCD: code,
+    FID_INPUT_DATE_1: endKisDate,
+    FID_ORG_ADJ_PRC: '',
+    FID_ETC_CLS_CODE: '',
+  });
+  let response: Response;
+  try {
+    response = await fetchWithTimeout(
+      `${config.KIS_BASE_URL}/uapi/domestic-stock/v1/quotations/investor-trade-by-stock-daily?${params}`,
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          authorization: `Bearer ${token}`,
+          appkey: config.KIS_APP_KEY,
+          appsecret: config.KIS_APP_SECRET,
+          tr_id: 'FHPTJ04160001',
+          custtype: 'P',
+        },
+      },
+    );
+  } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw createKisApiError('timeout', `KIS investor trade request timed out: ${code}`);
+    }
+    throw createKisApiError(
+      'http',
+      `KIS investor trade request failed: ${error instanceof Error ? error.message : String(error)}`,
+    );
+  }
+  let data: KisRangeResponse;
+  try {
+    data = await response.json() as KisRangeResponse;
+  } catch {
+    const kind = response.status === 429 ? 'rate_limit'
+      : response.status === 401 || response.status === 403 ? 'token' : response.ok ? 'parse' : 'http';
+    throw createKisApiError(kind, `KIS investor trade HTTP ${response.status}: ${code}`, { status: response.status });
+  }
+  const errorCode = getKisErrorCode(data);
+  if (response.status === 429 || errorCode === 'EGW00201') {
+    throw createKisApiError('rate_limit', `KIS investor trade rate limited: ${code}`, { status: response.status, code: errorCode });
+  }
+  if (response.status === 401 || response.status === 403 || errorCode === 'EGW00133') {
+    throw createKisApiError('token', `KIS investor trade token rejected: ${code}`, { status: response.status, code: errorCode });
+  }
+  if (!response.ok) {
+    throw createKisApiError('http', `KIS investor trade HTTP ${response.status}: ${code}`, { status: response.status, code: errorCode });
+  }
+  if (data.rt_cd !== '0') {
+    throw createKisApiError('api', `KIS investor trade API error: ${parseKisError(data)}`, { code: errorCode });
+  }
+  if (!Array.isArray(data.output2)) {
+    throw createKisApiError('parse', `KIS investor trade output2 is not an array: ${code}`);
+  }
+  return data.output2.filter((row): row is Record<string, string> => typeof row === 'object' && row !== null);
+}
+
+/** 종목별 투자자 매매동향(일별, FHPTJ04160001): endKisDate 이하 최근 30거래일. 금액 단위는 KIS 원본(백만원) 그대로다. */
+export async function fetchInvestorTradeDailyRows(
+  ticker: string,
+  endKisDate: string,
+): Promise<Record<string, string>[]> {
+  const code = cleanTicker(ticker);
+  let token = await getAccessToken();
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      return await fetchInvestorTradeDailyRowsWithToken(code, endKisDate, token);
+    } catch (error) {
+      if (getKisApiErrorKind(error) !== 'token' || attempt > 0) throw error;
+      invalidateKisAccessToken(token);
+      token = await getKisAccessToken();
+    }
+  }
+  throw createKisApiError('token', `KIS investor trade token rejected twice: ${code}`);
+}
+
 /**
  * 여러 종목 특정 날짜 종가 일괄 조회 (순차 + delay)
  */

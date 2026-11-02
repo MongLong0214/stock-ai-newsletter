@@ -19,6 +19,7 @@ const state = vi.hoisted(() => ({
   generated: null as Awaited<ReturnType<typeof import('@/scripts/stock-picks/generate-picks').generatePicksWithMeta>> | null,
   newsletterWriteAttempts: 0,
   exposeFutureRows: false,
+  flowTemplateSymbol: null as string | null,
   futureRowsLoaded: 0,
   futureValueReads: 0,
   corruptSelection: null as 'incomplete' | 'duplicate' | 'all-missing' | 'wrong-strategy' | 'wrong-objective' | 'wrong-ticker' | 'swapped-ranks' | 'wrong-price' | 'wrong-overall-score' | 'wrong-category-score' | 'snapshot-score' | 'snapshot-price' | 'snapshot-name' | 'model-identity' | 'stale-score-hash' | 'stale-score-version' | 'parameters' | null,
@@ -39,6 +40,9 @@ vi.mock('@/app/archive/_utils/api/kis/client', async (importOriginal) => ({
   ensureKisAccessToken: async () => ({ source: 'memory', expiresAt: Date.now() + 7_200_000 }),
   fetchDailyRangePriceRows: state.fetchDaily,
   fetchIndexDailyRangePriceRows: (_symbol: string, start: string, end: string) => state.fetchDaily('KOSPI', start, end),
+  fetchInvestorTradeDailyRows: async (symbol: string, endKisDate: string) =>
+    (await import('@/scripts/stock-picks/fixtures/investor-flow-rows'))
+      .syntheticInvestorFlowRows(state.flowTemplateSymbol ?? symbol, endKisDate),
 }))
 vi.mock('@/scripts/tli/prices/stock-daily-prices', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/scripts/tli/prices/stock-daily-prices')>()
@@ -148,13 +152,17 @@ import { buildSignals } from '@/scripts/stock-picks/signals'
 import { buildPriceBook, StockDataHandler } from '@/scripts/stock-picks/data-handler'
 import { buildTradingDayIndex } from '@/scripts/stock-picks/trading-days'
 import { buildObservedInputs50 } from '@/scripts/stock-picks/observed-inputs'
+import { buildInvestorFlowInputs, parseInvestorFlowRows } from '@/scripts/stock-picks/investor-flow'
+import { syntheticInvestorFlowRows } from '@/scripts/stock-picks/fixtures/investor-flow-rows'
 import { scoreUtilityModel } from '@/scripts/stock-picks/utility-model'
 import { buildFeatureVector } from '@/scripts/stock-picks/features'
 import { buildTechnicalContextMap } from '@/scripts/stock-picks/technical-context'
 
-const TARGET = '2026-10-19'
-const SIGNAL = '2026-10-16'
+const TARGET = '2026-11-02'
+const SIGNAL = '2026-10-30'
 const E2E_NOW = `${TARGET}T06:00:00+09:00`
+const flowInputs = (symbol: string, dates: readonly string[]) => buildInvestorFlowInputs({
+  dates, days: parseInvestorFlowRows(syntheticInvestorFlowRows(symbol, SIGNAL.replaceAll('-', ''))) })
 
 function freshRiskQuote(code: string, changePct = 0, korea = false) {
   return { ...riskQuote(code, changePct, korea), fetchedAt: E2E_NOW,
@@ -192,6 +200,7 @@ describe('Prepare boundary-isolated E2E', () => {
     state.generated = null
     state.newsletterWriteAttempts = 0
     state.exposeFutureRows = false
+    state.flowTemplateSymbol = null
     state.futureRowsLoaded = 0
     state.futureValueReads = 0
     state.corruptSelection = null
@@ -212,7 +221,7 @@ describe('Prepare boundary-isolated E2E', () => {
           ? Math.round((base + 317 * 2 + 10) * (stockIndex > 5 ? 0.995 : 1.003))
           : base + index * 2 + (index % 2 === 1 ? 10 : -10)
         const open = signalDay ? previousClose : close - 5
-        // WHY: 거래대금이 낮고 v6 예측값이 높은 후보도 ATR 페널티로 순위가 낮아질 수 있다.
+        // WHY: 거래대금이 낮고 모델 예측값이 높은 후보도 ATR 페널티로 순위가 낮아질 수 있다.
         const signalVolume = stockIndex === 1 ? 3_600_000 : 5_000_000 + stockIndex * 100_000
         return { symbol, trade_date, open, high: Math.max(open, close) + 15,
           low: Math.min(open, close) - 15, close,
@@ -345,7 +354,7 @@ describe('Prepare boundary-isolated E2E', () => {
     const snapshot = state.snapshots[0]
     expect(snapshot.strategy).toBe(PRODUCTION_STRATEGY.name)
     expect(snapshot.strategy_version).toBe(PRODUCTION_STRATEGY.version)
-    expect(snapshot.parameters_hash).toBe('1bfb0822b6f023680ec3227632939110ad84e597439800436815ee4f280bb318')
+    expect(snapshot.parameters_hash).toBe('8cac0d8bcbe4b4e8c5e1a4932c4a338b017ca04ff86288c133658cecc07c83db')
     expect(snapshot.signal_date).toBe(SIGNAL)
     const candidates = snapshot.picks as Array<{ symbol: string; rank: number; close: number; score: number; technicalContext: unknown }>
     expect(candidates.map(row => row.symbol)).toEqual(picks.map((pick: { ticker: string }) => pick.ticker))
@@ -359,21 +368,21 @@ describe('Prepare boundary-isolated E2E', () => {
     expect(state.generated!.meta.funnel).toMatchObject({
       withFreshKisRow: 6, withCompleteFeatures: 6, gatePassed: 6, picked: 3,
     })
-    // WHY: v6 원시 예측값은 보존하고, 선정·공개 점수에는 당일 ATR 보정을 적용한다.
+    // WHY: 모델 원시 예측값은 보존하고, 선정·공개 점수에는 당일 ATR 보정을 적용한다.
     const ranked = state.generated!.meta.rankedCandidates
     expect(ranked).toHaveLength(6)
-    expect(ranked.map(candidate => candidate.score)).toEqual([62, 61, 60, 60, 60, 56])
+    expect(ranked.map(candidate => candidate.score)).toEqual([57, 56, 55, 55, 54, 51])
     expect(new Set(ranked.map(candidate => candidate.utility)).size).toBeGreaterThan(1)
-    expect(Math.max(...ranked.slice(3).map(candidate => candidate.utility!)))
-      .toBeGreaterThan(Math.min(...ranked.slice(0, 3).map(candidate => candidate.utility!)))
-    expect(picks.map(pick => pick.ticker)).toEqual(['KOSPI:000050', 'KOSPI:000040', 'KOSPI:000030'])
+    // 원시 예측 1위(000030)가 ATR 보정 후 2위로 내려간다.
+    expect([...ranked].sort((a, b) => b.utility! - a.utility!)[0]!.symbol).toBe('KOSPI:000030')
+    expect(picks.map(pick => pick.ticker)).toEqual(['KOSPI:000050', 'KOSPI:000030', 'KOSPI:000020'])
     const index = buildTradingDayIndex(state.rows.filter(row => row.symbol === 'KOSPI'), [])
     const handler = new StockDataHandler(buildPriceBook([...state.stored.values()]), index).at(SIGNAL)
     expect(state.generated!.meta.rankedCandidates.length).toBeGreaterThanOrEqual(3)
     for (const [pickIndex, candidate] of state.generated!.meta.rankedCandidates.slice(0, 3).entries()) {
-      const inputs = buildObservedInputs50({ feature: candidate, context: candidate.technicalContext!,
-        handler, dates: index.tradingDays })
-      expect(inputs).toHaveLength(50)
+      const inputs = [...buildObservedInputs50({ feature: candidate, context: candidate.technicalContext!,
+        handler, dates: index.tradingDays }), ...flowInputs(candidate.symbol, index.tradingDays)]
+      expect(inputs).toHaveLength(65)
       const predicted = scoreUtilityModel(FROZEN_COMPOSITE_RETURN_MODEL, inputs)
       expect(candidate.utility).toBe(predicted.utility)
       expect(picks[pickIndex]!.signals).toEqual(buildSignals(candidate, candidate.score))
@@ -422,12 +431,13 @@ describe('Prepare boundary-isolated E2E', () => {
     expect(feature.high).toBe(feature.low)
     expect(feature.gapFromPreviousClosePercent).toBeLessThan(-29.9)
     expect(feature.gapFromPreviousClosePercent).toBeGreaterThan(-30.1)
-    const prediction = scoreUtilityModel(FROZEN_COMPOSITE_RETURN_MODEL,
-      buildObservedInputs50({ feature, context, handler, dates: index.tradingDays }))
+    const prediction = scoreUtilityModel(FROZEN_COMPOSITE_RETURN_MODEL, [
+      ...buildObservedInputs50({ feature, context, handler, dates: index.tradingDays }),
+      ...flowInputs(lockedSymbol, index.tradingDays)])
 
     expect(await runPrepareNewsletterCli([`--target-date=${TARGET}`])).toBe(0)
     const ranked = state.generated!.meta.rankedCandidates
-    expect(prediction.score).toBe(38)
+    expect(prediction.score).toBe(48)
     expect(ranked).toHaveLength(5)
     expect(ranked.some(candidate => candidate.symbol === lockedSymbol)).toBe(false)
     const picks = JSON.parse(String(state.newsletter!.gemini_analysis)) as StockData[]
@@ -481,6 +491,7 @@ describe('Prepare boundary-isolated E2E', () => {
       .map(row => [row.trade_date, row]))
     state.rows = state.rows.map(row => row.symbol === 'KOSPI' ? row
       : { ...templates.get(row.trade_date)!, symbol: row.symbol })
+    state.flowTemplateSymbol = templateSymbol
     const collectedFrom = addKoreanTradingDays(SIGNAL, -6)
     state.stored = new Map(state.rows.filter(row => row.trade_date < collectedFrom)
       .map(row => [`${row.symbol}|${row.trade_date}`, row]))

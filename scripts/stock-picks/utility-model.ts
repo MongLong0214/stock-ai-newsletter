@@ -1,4 +1,4 @@
-import { OBSERVED_INPUT_NAMES, OBSERVED_INPUT_VERSION } from '@/scripts/stock-picks/observed-inputs'
+import { OBSERVED_FLOW_INPUT_NAMES, OBSERVED_FLOW_INPUT_VERSION, OBSERVED_INPUT_NAMES, OBSERVED_INPUT_VERSION } from '@/scripts/stock-picks/observed-inputs'
 
 export const UTILITY_SCORE_VERSION = 'utility-reference-smooth-v1'
 export const RETURN_SCORE_VERSION = 'return-reference-smooth-v1'
@@ -60,7 +60,7 @@ export interface CompositeUtilityModelArtifact extends UtilityModelReference {
 
 export interface CompositeReturnModelArtifact extends UtilityModelReference, UtilityPredictor {
   readonly schemaVersion: 5
-  readonly modelVersion: 'composite-return-v6'
+  readonly modelVersion: 'composite-return-v6' | 'composite-return-v8'
   readonly targetDefinition: {
     readonly version: 'demeaned-tp7-net-v1'
     readonly formula: string
@@ -113,6 +113,16 @@ export function normalizeUtilityScore(normalization: UtilityScoreNormalization, 
   return Math.floor(standardized + 0.5)
 }
 
+/** v8만 기존 50개 관측값 뒤에 KIS 투자자 수급 15개를 붙인다. 다른 모델은 기존 50개 계약 그대로다. */
+export function modelInputContract(model: Pick<UtilityModelArtifact, 'schemaVersion' | 'modelVersion'>): {
+  readonly version: string
+  readonly names: readonly string[]
+} {
+  return model.schemaVersion === 5 && model.modelVersion === 'composite-return-v8'
+    ? { version: OBSERVED_FLOW_INPUT_VERSION, names: OBSERVED_FLOW_INPUT_NAMES }
+    : { version: OBSERVED_INPUT_VERSION, names: OBSERVED_INPUT_NAMES }
+}
+
 /** HGB 리프 값은 학습률이 이미 반영되어 있으며 결측 분기도 저장된 모델을 따른다. */
 export function validateUtilityModel(model: UtilityModelArtifact): UtilityModelArtifact {
   const supportedVersion = (model.schemaVersion === 3 && model.modelVersion === 'composite-utility-v3'
@@ -123,16 +133,17 @@ export function validateUtilityModel(model: UtilityModelArtifact): UtilityModelA
       && model.targetDefinition.horizon === 5 && model.targetDefinition.roundTripCostBps === 30
       && model.heads && Object.keys(model.heads).sort().join(',') === 'nonLoss,touch'
       && !('trees' in model) && !('baselinePrediction' in model))
-    || (model.schemaVersion === 5 && model.modelVersion === 'composite-return-v6'
+    || (model.schemaVersion === 5 && (model.modelVersion === 'composite-return-v6' || model.modelVersion === 'composite-return-v8')
       && model.targetDefinition?.version === 'demeaned-tp7-net-v1'
       && typeof model.targetDefinition.formula === 'string' && model.targetDefinition.formula.length > 0
       && model.targetDefinition.horizon === 5 && model.targetDefinition.takeProfit === 0.07
       && model.targetDefinition.cost === 'krx-realistic-v1'
       && model.targetDefinition.demean === 'signal-date strict rows' && !('heads' in model))
-  if (!supportedVersion || model.observedInputVersion !== OBSERVED_INPUT_VERSION
+  const inputs = supportedVersion ? modelInputContract(model) : null
+  if (!inputs || model.observedInputVersion !== inputs.version
     || !validDate(model.trainedLabelsThrough)
-    || !Array.isArray(model.featureNames) || model.featureNames.length !== OBSERVED_INPUT_NAMES.length
-    || model.featureNames.some((name, i) => name !== OBSERVED_INPUT_NAMES[i])) {
+    || !Array.isArray(model.featureNames) || model.featureNames.length !== inputs.names.length
+    || model.featureNames.some((name, i) => name !== inputs.names[i])) {
     throw new Error('종합 점수 모델 계약 불일치')
   }
   validateNormalization(model.normalization)
@@ -144,11 +155,11 @@ export function validateUtilityModel(model: UtilityModelArtifact): UtilityModelA
   }
   if (model.schemaVersion === 4) {
     validatePredictor(model.heads.touch); validatePredictor(model.heads.nonLoss)
-  } else validatePredictor(model, model.schemaVersion === 5 ? 200 : 100)
+  } else validatePredictor(model, model.schemaVersion === 5 ? 200 : 100, inputs.names.length)
   return model
 }
 
-function validatePredictor(model: UtilityPredictor, treeCount = 100): void {
+function validatePredictor(model: UtilityPredictor, treeCount = 100, inputCount: number = OBSERVED_INPUT_NAMES.length): void {
   if (!model || !Number.isFinite(model.baselinePrediction) || !Array.isArray(model.trees)
     || model.trees.length !== treeCount) throw new Error('종합 점수 모델 계약 불일치')
   for (const tree of model.trees) {
@@ -162,7 +173,7 @@ function validatePredictor(model: UtilityPredictor, treeCount = 100): void {
       const node = tree[index]!
       if (!node || typeof node.isLeaf !== 'boolean' || !Number.isFinite(node.value)) throw new Error('종합 점수 모델 노드 오류')
       if (node.isLeaf) return
-      if (!Number.isInteger(node.featureIdx) || node.featureIdx < 0 || node.featureIdx >= OBSERVED_INPUT_NAMES.length
+      if (!Number.isInteger(node.featureIdx) || node.featureIdx < 0 || node.featureIdx >= inputCount
         || typeof node.missingGoLeft !== 'boolean'
         || !(typeof node.numThreshold === 'number' && Number.isFinite(node.numThreshold)
           || node.numThreshold === 'Infinity' || node.numThreshold === '-Infinity')) {
@@ -180,7 +191,7 @@ export function scoreUtilityModel(model: UtilityModelArtifact, inputs: readonly 
   readonly score: number
 } {
   validateUtilityModel(model)
-  if (inputs.length !== OBSERVED_INPUT_NAMES.length
+  if (inputs.length !== modelInputContract(model).names.length
     || Array.from(inputs).some((v) => v !== null && (typeof v !== 'number' || !Number.isFinite(v) && !Number.isNaN(v)))) {
     throw new Error('종합 점수 관측 피처 계약 불일치')
   }
