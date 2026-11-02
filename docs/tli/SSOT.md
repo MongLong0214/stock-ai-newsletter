@@ -30,6 +30,7 @@
 | **v16** | **2026-10-15** | **067 재설계 — attested single-response KOSPI series, PR #225·prod 미적용**. v14/v15 trigger 설계는 **한 번도 prod에 적용되지 않았으며 폐기·대체**한다. `stock_daily_prices`는 변경하지 않는 가변 캐시로 남긴다. 한 KIS 응답의 날짜·종가 배열과 서버 SHA를 append-only series에 record하고, 별도 트랜잭션에서 이미 커밋된 행만 attest한다. enroll은 cutoff 이전 최신 attestation의 동일 응답 마지막/21번째 역순 원소와 series id/hash를 고정한다. full 0단계가 별도 KOSPI range 1콜 → record → attest를 실행하며 실패는 critical(종목 수집·후속 단계 계속). PG17 리허설은 오케스트레이터 실행 대상. **prod는 Isaac 명시 승인 후, 스키마 먼저 → 앱 나중**. Management API 적용 시 `supabase_migrations.schema_migrations`에 `('067', 'tli_kospi_series_attestation', '{}')` 행도 삽입 |
 | **v17** | **2026-10-16** | **GT-B 라벨 일봉 조회 1,000행 잘림 수정** — full 0단계 수집 확대 후 10/06 기준일의 필요 일봉 1,294행이 PostgREST `max_rows=1000`에 잘려 KOSPI가 누락되고 만기 GT-B 717건이 pending으로 적체됨(run 38867652971). 기존 `fetchAllRows`와 `(symbol, trade_date)` 고유 정렬로 전체 일봉을 읽고, 같은 라벨 경로의 테마·비거래일 pending·gta-v2 manifest/child 무제한 조회에도 고유 정렬 페이지네이션을 적용함. GT-B `theme_stocks`·GT-A `interest_metrics` 배치 조회에 `id` 고유 정렬을 추가하고, 예측 채점용 GT-A `theme_labels` 조회도 `id` 정렬 `fetchAllRows`로 전체 페이지를 읽으며 페이지 오류 시 중단함 |
 | **v18** | **2026-10-16** | **TLI 잔여 1,000행 잘림 수정** — 임계값 자동 튜닝은 최근 평가 최대 5,000행을 고유 정렬로 페이지 조회하고, prediction parity·noise/confidence 교정·baseline 보고서의 이력·피처 조회도 기존 `fetchAllRows`로 전체 페이지를 읽으며 조회 오류 시 중단함. parity·튜닝의 연관 배치 조회에 고유 `id` 정렬을 추가하고, 전수 검색에서 확인한 promotion gate 채점 이력·anchor 보고서 관심도·first-spike 보정 및 상태 백필 이력·v4 shadow run·shadow 전환 보고서·B-Abl origin 원천·옵티마이저 이력 덤프도 같은 방식으로 수정함(옵티마이저는 쿼리 배치당 최대 50,000행 유지). 1,000행 이후 데이터 반영·후속 페이지 실패 회귀 테스트 추가 |
+| **v19** | **2026-11-02** | **사건 11 — gta-v2 past 결손 라벨 영구 pending → 10/12 origin ineligible** — DataLab이 0값 날짜(base 10/12)를 응답에서 생략해 past가 4개인 라벨 1건을 클라이언트는 run id를 붙여 `source_gap_sla`로 보냈으나 048 RPC는 past≠5를 grace와 무관하게 거부 → 10/26부터 매 run 실패, warning이라 무음. past 결손+grace 경과는 run id null(RPC의 미도착 경로)로 `source_gap_sla` 확정, grace 경과 라벨의 확정 실패는 critical로 승격. 마이그레이션 없음 |
 
 > v16 보완: KOSPI attestation 전용 조회는 요청 시작일~확정 기준일의 원본 응답에 무효 종가 행이 하나라도 있으면 record·attest 없이 critical(`indexFailed=true`)로 처리하되 기존 캐시·종목 수집은 계속한다.
 
@@ -291,6 +292,16 @@ analog_candidates_v1을 읽어 무효 ② 서빙 단일화 + 분포기반 absten
 
 **교훈 (불변 규칙 ⑱⑲)**: 과학 입력의 writer가 다른 파이프라인의 조건부 경로에만 있으면 안 된다. 수집 대상일은 달력 오늘이 아니라 확정 거래일이다.
 
+### 사건 11 — gta-v2 past 결손 라벨 영구 pending → 10/12 origin ineligible (11/2 수정, v19)
+
+**실측**: 10/12 origin이 성숙 후(10/22) `label_accounting_incomplete`로 ineligible — terminal 222/223, pending 1, source_gap 1. pending은 '재난/안전(지진/화재 등)' 1건. frozen keyword group의 최신 complete DataLab run(10/01~10/30) 응답에 **10/12(거래일, base date) 행이 없다**(10/09 한글날은 휴장이라 정상 부재). DataLab은 0값 날짜를 생략하는 것으로 보인다. past 4개(10/02·10/06·10/07·10/08).
+
+**근본 원인 — 클라이언트와 048 RPC의 계약 불일치**: `resolveGtAV2Finalize`는 past/future 어느 쪽이 부족해도 grace 경과 시 run id를 붙인 payload로 `source_gap_sla`를 기대했다. 048 `finalize_tli_gta_v2_label`은 run id가 있으면 **past 정확히 5개를 grace와 무관하게 요구**하고 future 부족만 grace 뒤 `source_gap_sla`로 처리한다 → 매 run `requires exactly five past observations` 예외, 라벨은 terminal이 될 수 없다. 4.15단계 실패가 warning이라 3주간 무음(전 run success). master plan Todo 7 계약("3번째 거래일 18:00에도 미달이면 source_gap_sla")상 결론은 excluded다.
+
+**조치**: past 결손 + grace 경과는 run id/hash null payload로 RPC의 "source 미도착" 경로에 보내 `source_gap_sla`로 확정(같은 origin의 다른 1건이 10/22 이 경로로 정상 확정된 실증 있음). future 결손은 기존대로 run id를 붙인다. grace 경과 라벨의 확정 실패는 `graceExpiredFailures`로 집계해 **critical**(시계 손실), grace 이내 실패는 warning 유지. 마이그레이션 없음. 배포 후 첫 full run에서 해당 라벨 excluded → 6.6단계가 직전 ineligible을 재평가해 10/12 eligible 회복 기대(terminal 223/223, source_gap 2/223=0.9% ≤1%) → #26이 2027-02-22에서 **2027-02-15**로 복귀.
+
+**교훈 (불변 규칙 ⑳)**: 서버 RPC가 독립 재검증하는 계약은 클라이언트 분기와 경계(past/future, grace 전후)가 1:1로 같아야 한다. 같은 이유로 매 run 반복되는 실패는 일시 오류가 아니라 영구 결함이며, study 시계에 닿으면 warning이 아니라 critical이다.
+
 ## 6. 불변 규칙 (사고 이력에서 나온 것 — 재발 방지)
 
 1. **실제 페이지 렌더를 확인하라** — API·CI green ≠ 사용자 화면 정상 (사건 1).
@@ -312,6 +323,7 @@ analog_candidates_v1을 읽어 무효 ② 서빙 단일화 + 분포기반 absten
 17. **cutoff 민감 수집은 지연 상습 스케줄러와 분리** — GitHub cron은 2~10시간 밀린다. 다른 인프라(Vercel Cron)에서 dispatch하고 intended date를 함께 보내 잘못된 날짜 실행을 거부 (사건 9; 뉴스레터 체인과 동일 원칙). 평일 full도 동일(사건 10).
 18. **소비자가 자기 입력을 보장한다** — 과학 입력(KOSPI 일봉 등)의 writer가 다른 파이프라인의 조건부 경로(prepare의 CRASH_ALERT 분기)에만 있으면 그 조건이 곧 장애가 된다. 입력 적재 실패는 경고가 아니라 critical (사건 10). 소비자가 사용자 콘텐츠 발송을 책임지는 경로(prepare)는 콘텐츠 저장 이후 best-effort로 적재해 발송을 인질로 잡지 않는다.
 19. **수집 대상일은 달력 오늘이 아니라 확정 거래일** — `getLastFinalizedTradingDate()` 기준 range로 적재해 지연 run·놓친 run을 자기치유한다. 달력 날짜 1일 수집은 자정 spill에서 조용히 0행이 된다 (사건 10).
+20. **클라이언트 분기와 서버 재검증 RPC의 경계를 일치시켜라** — 서버가 거부하는 payload를 grace 뒤에도 계속 보내면 라벨이 영구 pending에 갇힌다. grace 경과 라벨의 반복 실패는 critical (사건 11).
 
 ## 7. 아키텍처 지도 (작업 진입점)
 

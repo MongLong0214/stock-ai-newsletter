@@ -99,7 +99,7 @@ describe('analysis snapshot fail-loud contract', () => {
     })
     mocks.countExpiredPendingLabels.mockResolvedValue(0)
     mocks.runGtAV2FoundationPhase.mockResolvedValue({
-      pendingCreated: 0, finalized: 0, keptPending: 0, failures: 0,
+      pendingCreated: 0, finalized: 0, keptPending: 0, failures: 0, graceExpiredFailures: 0,
     })
     mocks.materializePhase0Artifacts.mockResolvedValue({
       episodeCount: 0,
@@ -140,6 +140,24 @@ describe('analysis snapshot fail-loud contract', () => {
     const result = await runAnalysisPipeline([], '2026-07-13')
 
     expect(result).toEqual({ criticalFailures: 1, warningFailures: 0 })
+  })
+
+  it('escalates a gta-v2 finalize failure past grace to critical (stuck label blocks the study clock)', async () => {
+    mocks.runGtAV2FoundationPhase.mockResolvedValue({
+      pendingCreated: 0, finalized: 0, keptPending: 0, failures: 1, graceExpiredFailures: 1,
+    })
+    const { runLabelBookkeepingPhase } = await import('@/scripts/tli/batch/pipeline-steps')
+
+    expect(await runLabelBookkeepingPhase('2026-11-02')).toEqual({ criticalFailures: 1, warningFailures: 0 })
+  })
+
+  it('keeps a gta-v2 finalize failure within grace as a warning', async () => {
+    mocks.runGtAV2FoundationPhase.mockResolvedValue({
+      pendingCreated: 0, finalized: 0, keptPending: 0, failures: 1, graceExpiredFailures: 0,
+    })
+    const { runLabelBookkeepingPhase } = await import('@/scripts/tli/batch/pipeline-steps')
+
+    expect(await runLabelBookkeepingPhase('2026-11-02')).toEqual({ criticalFailures: 0, warningFailures: 1 })
   })
 
   it('keeps the global label backlog fail-loud and requests version-specific diagnostics', async () => {
