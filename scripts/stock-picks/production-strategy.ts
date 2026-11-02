@@ -4,8 +4,9 @@ import { BULLISH_TARGET_PARAMETERS, LOW_VOLATILITY_STABLE_PARAMETERS, UTILITY_AT
 import frozenTargetModel from '@/scripts/stock-picks/models/bullish-target-v3.json'
 import type { TargetModelArtifact } from '@/scripts/stock-picks/target-model'
 import { SIGNAL_SCORE_VERSION, VOLATILITY_SCORE_REFERENCE } from '@/scripts/stock-picks/signals'
-import frozenReturnModel from '@/scripts/stock-picks/models/composite-return-v6.json'
-import { MODEL_MARKET_SOURCE_VERSION, OBSERVED_INPUT_VERSION } from '@/scripts/stock-picks/observed-inputs'
+import frozenReturnModel from '@/scripts/stock-picks/models/composite-return-v8.json'
+import { INVESTOR_FLOW_WINDOW_TRADING_DAYS, MIN_INVESTOR_FLOW_COVERAGE } from '@/scripts/stock-picks/investor-flow'
+import { MODEL_MARKET_SOURCE_VERSION, OBSERVED_FLOW_INPUT_VERSION } from '@/scripts/stock-picks/observed-inputs'
 import { RETURN_SCORE_VERSION, validateUtilityModel, type UtilityModelArtifact } from '@/scripts/stock-picks/utility-model'
 
 export function canonicalJson(value: unknown): string {
@@ -86,11 +87,12 @@ export const BULLISH_TARGET_STRATEGY = {
   }),
 } as const
 
+/** v8: v6와 같은 수익 목표·HGB 설정에 KIS 투자자 수급 15개 입력을 더해 10/30 종가까지 재학습했다. */
 export const FROZEN_COMPOSITE_RETURN_MODEL = validateUtilityModel(frozenReturnModel as UtilityModelArtifact)
 
 export const PRODUCTION_STRATEGY = {
   name: 'compositeUtility',
-  version: 'v7.1-2026-11-02',
+  version: 'v8-2026-11-02',
   objective: 'compositeUtility',
   parameters: LOW_VOLATILITY_STABLE_PARAMETERS,
   parametersHash: hashCanonicalJson({
@@ -99,7 +101,10 @@ export const PRODUCTION_STRATEGY = {
     preferredRule: 'krx-code-last-digit-nonzero',
     signalScoreVersion: SIGNAL_SCORE_VERSION,
     volatilityScoreReference: VOLATILITY_SCORE_REFERENCE,
-    observedInputVersion: OBSERVED_INPUT_VERSION,
+    observedInputVersion: OBSERVED_FLOW_INPUT_VERSION,
+    investorFlowSource: 'kis-FHPTJ04160001-signal-date-close',
+    investorFlowWindowTradingDays: INVESTOR_FLOW_WINDOW_TRADING_DAYS,
+    minInvestorFlowCoverage: MIN_INVESTOR_FLOW_COVERAGE,
     modelMarketSourceVersion: MODEL_MARKET_SOURCE_VERSION,
     utilityScoreVersion: RETURN_SCORE_VERSION,
     lockedDownRule: UTILITY_LOCKED_DOWN_RULE,

@@ -14,6 +14,7 @@ import {
 } from '@/scripts/stock-picks/data-handler'
 import { buildFeatureSeries, type StockFeatureVector } from '@/scripts/stock-picks/features'
 import { buildSignals, finiteOr } from '@/scripts/stock-picks/signals'
+import { loadInvestorFlowInputs } from '@/scripts/stock-picks/investor-flow'
 import { buildObservedInputs50, validateModelMarketSources } from '@/scripts/stock-picks/observed-inputs'
 import { scoreUtilityModel } from '@/scripts/stock-picks/utility-model'
 import { parsePublishedPicks } from '@/scripts/stock-picks/measure-forward'
@@ -69,6 +70,7 @@ export interface GeneratePicksDependencies {
     readonly tradingDays: TradingDayIndex
     readonly lookbackTradingDays: number
   }) => Promise<ReadonlySet<string>>
+  readonly loadInvestorFlowInputs?: typeof loadInvestorFlowInputs
 }
 
 export interface StockPicksFunnel {
@@ -364,6 +366,7 @@ export async function generatePicksWithMeta(input: {
   const loadPrices = input.dependencies?.loadPrices ?? loadPriceBook
   const loadMasters = input.dependencies?.loadMasters ?? loadStockPickMasters
   const loadRecent = input.dependencies?.loadRecentPublishedSymbols ?? loadRecentPublishedSymbols
+  const loadFlow = input.dependencies?.loadInvestorFlowInputs ?? loadInvestorFlowInputs
 
   const tradingDays = await loadTradingDays()
   const lastDate = tradingDays.lastDate
@@ -433,12 +436,15 @@ export async function generatePicksWithMeta(input: {
     parameters: LOW_VOLATILITY_STABLE_PARAMETERS,
     excludeSymbols: new Set(),
   })
+  // v8: 기존 50개 관측값 + 신호일 장 마감 후 확정된 KIS 투자자 수급 15개(재추천 제외 전 풀 전체).
+  const flowInputs = await loadFlow({ symbols: pool.map(({ symbol }) => symbol), signalDate, dates: historyDates })
   const predictions = new Map(pool.map((feature) => {
     const { symbol } = feature
     const context = technicalContexts?.get(symbol)
-    if (!context) throw new Error(`종합 점수 후보 관측값 누락: ${symbol}`)
+    const flow = flowInputs.get(symbol)
+    if (!context || !flow) throw new Error(`종합 점수 후보 관측값 누락: ${symbol}`)
     return [symbol, scoreUtilityModel(FROZEN_COMPOSITE_RETURN_MODEL,
-      buildObservedInputs50({ feature, context, handler, dates: historyDates }))] as const
+      [...buildObservedInputs50({ feature, context, handler, dates: historyDates }), ...flow])] as const
   }))
   const rankedCandidates = rankUtilityAtrPenaltyCandidates({
     features, masters: mastersBySymbol, parameters: LOW_VOLATILITY_STABLE_PARAMETERS,

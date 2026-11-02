@@ -45,10 +45,10 @@ export const UTILITY_LOCKED_DOWN_RULE = {
 } as const
 
 export const UTILITY_ATR_RANK_ADJUSTMENT = {
-  rankAdjustment: 'v6-pred-minus-0.5-poolsd-atr14-z',
+  rankAdjustment: 'model-pred-minus-0.5-poolsd-atr14-z',
   atrPenalty: 0.5,
   statsPool: 'gated-pre-cooldown',
-  scoreCurve: 'v6-return-reference-smooth',
+  scoreCurve: 'model-return-reference-smooth',
 } as const
 
 export const isPreferredShare = (symbol: string): boolean => (
@@ -388,7 +388,7 @@ const populationStats = (values: readonly number[]): { standardDeviation: number
   return { standardDeviation: std, zScores: shifted.map((value) => (value - mean) / (std || 1)) }
 }
 
-/** 재추천 제외 전 풀의 ATR 보정을 v6 수익률 단위로 계산하고 기존 학습 기준 곡선으로 표시한다. */
+/** 재추천 제외 전 풀의 ATR 보정을 모델 예측 수익률 단위로 계산하고 기존 학습 기준 곡선으로 표시한다. */
 export function rankUtilityAtrPenaltyCandidates(input: {
   readonly features: readonly StockFeatureVector[]
   readonly masters: ReadonlyMap<string, StockMasterState>
