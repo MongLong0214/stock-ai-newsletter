@@ -10,7 +10,7 @@ import { addKoreanTradingDays } from '@/lib/tli/trading-calendar';
 import { getUsSessionCloseTime } from './us-market-calendar';
 import {
   assessMarketDataQuality, decideMarketRisk, MARKET_RISK_POLICY_VERSION,
-  FX_PREFERRED_OBSERVATION_AGE_MS, parseKisObservedAt, parseObservedAt, quoteQuality,
+  FX_MAX_CROSS_VENUE_GAP_PCT, FX_PREFERRED_OBSERVATION_AGE_MS, kmbSessionCloseAt, parseKisObservedAt, parseObservedAt, quoteQuality,
   type MarketDataQuality, type MarketRiskVerdict,
 } from './market-assessment-policy';
 
@@ -814,6 +814,47 @@ async function getKisOverseasDailyIndexIndicator(
   });
 }
 
+/**
+ * KIS 원/달러(KMB, 서울외국환중개) 세션 종가.
+ * 진행 중인 세션 행은 종가가 아니므로 건너뛰고, 마감된 최신 세션(종가 D+1 02:00 KST)과 그 전 세션으로 등락을 계산한다.
+ */
+async function getKisUsdKrwIndicator(): Promise<MarketIndicatorSnapshot> {
+  const now = new Date();
+  const response = await kisGet<KisOverseasDailyChartResponse>(
+    '/uapi/overseas-price/v1/quotations/inquire-daily-chartprice',
+    {
+      FID_COND_MRKT_DIV_CODE: 'X',
+      FID_INPUT_ISCD: 'FX@KRW',
+      FID_INPUT_DATE_1: formatKisDate(new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000)),
+      FID_INPUT_DATE_2: formatKisDate(now),
+      FID_PERIOD_DIV_CODE: 'D',
+    },
+    'FHKST03030100'
+  );
+  const rows = (Array.isArray(response.output2) ? response.output2 : [])
+    .map((row) => ({ date: row.stck_bsop_date?.trim() ?? '', price: parseNumber(row.ovrs_nmix_prpr) }))
+    .filter((row) => /^\d{8}$/.test(row.date) && Number.isFinite(row.price) && row.price > 0)
+    .map((row) => ({ ...row, closeAt: kmbSessionCloseAt(`${row.date.slice(0, 4)}-${row.date.slice(4, 6)}-${row.date.slice(6, 8)}`) }))
+    .sort((left, right) => right.date.localeCompare(left.date));
+  const latestIndex = rows.findIndex((row) => row.closeAt <= now.getTime());
+  const latest = rows[latestIndex];
+  const previous = rows[latestIndex + 1];
+  if (latestIndex < 0 || !previous) throw new Error('USD/KRW KIS daily chart returned no completed session pair');
+
+  const change = latest.price - previous.price;
+  return withSingleSourceValidation({
+    code: 'FX@KRW',
+    label: 'USD/KRW',
+    source: 'KIS',
+    price: latest.price,
+    change,
+    changePct: (latest.price / previous.price - 1) * 100,
+    observedAt: new Date(latest.closeAt).toISOString(),
+    observedAtPrecision: 'session_close',
+    fetchedAt: new Date().toISOString(),
+  });
+}
+
 async function getOverseasIndexQuote(
   symbol: string,
   label: string
@@ -1499,6 +1540,13 @@ async function getCrossValidatedIndicator(
     const isFresh = (quote: MarketIndicatorSnapshot) => Date.now() - Date.parse(quote.observedAt ?? '') <= FX_PREFERRED_OBSERVATION_AGE_MS;
     if (isFresh(primary) && !isFresh(secondary)) return primary;
     if (isFresh(secondary) && !isFresh(primary)) return secondary;
+    // FX는 24시간 연속 거래라 시각이 다르면 최신 시세가 앞선 시세를 대체한다(장소별 '전일 종가'가 달라 연속성 비교 불가).
+    const primaryAt = Date.parse(primary.observedAt ?? '');
+    const secondaryAt = Date.parse(secondary.observedAt ?? '');
+    const gapPct = calculatePriceGapPct(primary.price, secondary.price);
+    if (Math.abs(primaryAt - secondaryAt) > MARKET_INDICATOR_OBSERVATION_TOLERANCE_MS && gapPct !== null && gapPct <= FX_MAX_CROSS_VENUE_GAP_PCT) {
+      return primaryAt > secondaryAt ? primary : secondary;
+    }
   }
 
   if (!primary.observedAt && secondary.observedAt) return secondary;
@@ -1925,11 +1973,14 @@ async function collectMarketAssessmentSnapshot(): Promise<MarketAssessmentSnapsh
   const usdKrw = await safeSupplementaryValue(
     'USD/KRW',
     () =>
+      // WHY: Serp(Google)·Naver만으로는 Naver가 Actions에서 늘 실패해 Google 단일 소스였고, 갱신 정지·쿼터 소진 시 환율이 사라졌다.
+      // KIS 공식 KMB 세션 종가를 기본 축으로 두고, 더 최신인 Google(없으면 Naver) 시세가 있으면 그것을 쓴다.
       getCrossValidatedIndicator(
         'USD/KRW',
-        () => getSerpFinanceIndicator('USD-KRW', 'USD/KRW', { retryNoResults: true }),
-        () =>
-          getNaverFinanceExchangeIndicator(
+        () => getKisUsdKrwIndicator(),
+        async () =>
+          (await safeSupplementaryValue('USD/KRW Serp', () => getSerpFinanceIndicator('USD-KRW', 'USD/KRW', { retryNoResults: true }), null))
+          ?? getNaverFinanceExchangeIndicator(
             'https://finance.naver.com/marketindex/exchangeDetail.naver?marketindexCd=FX_USDKRW',
             'FX_USDKRW',
             'USD/KRW'

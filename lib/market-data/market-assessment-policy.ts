@@ -1,9 +1,9 @@
 import { fromZonedTime } from 'date-fns-tz';
-import { isKoreanTradingDate } from '@/lib/tli/trading-calendar';
+import { addKoreanTradingDays, isKoreanTradingDate } from '@/lib/tli/trading-calendar';
 import { getUsSessionCloseTime, hasUsMarketCalendar, isUsTradingDate } from './us-market-calendar';
 import type { MarketAssessmentSnapshot, MarketIndicatorSnapshot } from './kis-market-assessment';
 
-export const MARKET_RISK_POLICY_VERSION = '2026-11-03.v5';
+export const MARKET_RISK_POLICY_VERSION = '2026-11-03.v6';
 export const MAX_MARKET_OBSERVATION_AGE_MS = 10 * 60_000;
 /**
  * FX(USD/KRW·USD/JPY) 관측 허용 시간.
@@ -14,6 +14,26 @@ export const MAX_MARKET_OBSERVATION_AGE_MS = 10 * 60_000;
 export const FX_MAX_OBSERVATION_AGE_MS = 90 * 60_000;
 /** 두 FX 소스가 모두 usable일 때 이 시간 안의 관측을 우선한다(창 확대 전 v3 선택 동작 유지). */
 export const FX_PREFERRED_OBSERVATION_AGE_MS = 45 * 60_000;
+/** 시각이 다른 두 FX 시세는 최신을 택하되, 이 이상 벌어지면 데이터 오류로 보고 conflict로 남긴다. */
+export const FX_MAX_CROSS_VENUE_GAP_PCT = 3;
+
+/**
+ * 서울외환시장(KMB) 원/달러 세션: 거래일 D 09:00 ~ D+1 02:00 KST (2024-07 연장).
+ * 세션 종가 시세는 다음 세션이 열리기 전까지 가장 최신의 공식 시세다(월요일 아침의 금요일 세션 포함).
+ */
+export function kmbSessionCloseAt(sessionDate: string): number {
+  const next = new Date(`${sessionDate}T12:00:00Z`);
+  next.setUTCDate(next.getUTCDate() + 1);
+  return fromZonedTime(`${next.toISOString().slice(0, 10)}T02:00:00`, 'Asia/Seoul').getTime();
+}
+
+function isKmbSessionCloseStale(observed: number, now: number): boolean {
+  // 종가 02:00 KST에서 3시간 빼면 세션 날짜 D가 된다.
+  const sessionDate = localDate(observed - 3 * 3_600_000, 'Asia/Seoul');
+  if (kmbSessionCloseAt(sessionDate) !== observed) return true;
+  const nextOpen = fromZonedTime(`${addKoreanTradingDays(sessionDate, 1)}T09:00:00`, 'Asia/Seoul').getTime();
+  return now >= nextOpen;
+}
 export type MarketRiskVerdict = 'NORMAL' | 'CRASH_ALERT' | 'UNAVAILABLE';
 export type QuoteQuality = 'usable' | 'missing' | 'invalid' | 'undated' | 'stale' | 'conflict' | 'calendar_unknown';
 export interface MarketDataQuality {
@@ -96,7 +116,9 @@ export function quoteQuality(indicator: MarketIndicatorSnapshot | null | undefin
   if (!Number.isFinite(now) || !Number.isFinite(fetched) || observed > now + 5 * 60_000 || fetched > now + 5 * 60_000) return 'invalid';
   if (korea === false && !hasUsMarketCalendar(localDate(now, 'America/New_York'))) return 'calendar_unknown';
   if (now - fetched > MAX_MARKET_OBSERVATION_AGE_MS
-    || (korea === 'fx' ? now - observed > FX_MAX_OBSERVATION_AGE_MS : isStale(observed, now, korea, indicator.session))) return 'stale';
+    || (korea === 'fx'
+      ? (indicator.observedAtPrecision === 'session_close' ? isKmbSessionCloseStale(observed, now) : now - observed > FX_MAX_OBSERVATION_AGE_MS)
+      : isStale(observed, now, korea, indicator.session))) return 'stale';
   return 'usable';
 }
 

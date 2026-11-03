@@ -12,6 +12,7 @@ function providerMock(options: {
   dailyRows?: Array<{ stck_bsop_date: string; futs_prpr: string }>;
   nightPriceFailure?: boolean; nightChartFailure?: boolean; nightChartTime?: string; nightChartDate?: string; nightPrice?: string; nightChartPrice?: string; nightBase?: string;
   serpFinance?: Record<string, unknown>;
+  kisFxRows?: Array<{ stck_bsop_date: string; ovrs_nmix_prpr: string }>;
 } = {}) {
   return vi.fn<typeof fetch>(async input => {
     const u = new URL(String(input));
@@ -27,6 +28,9 @@ function providerMock(options: {
         output1: { hts_kor_isnm: 'Index', ovrs_nmix_prpr: '100', ovrs_nmix_prdy_vrss: options.missingChange ? undefined : '0', prdy_ctrt: options.missingChange ? undefined : '0' },
         output2: [{ stck_bsop_date: options.staleUs ? '20260801' : '20260908', stck_cntg_hour: '161500', optn_prpr: '100' }],
       });
+    }
+    if (u.pathname.endsWith('/inquire-daily-chartprice') && u.searchParams.get('FID_COND_MRKT_DIV_CODE') === 'X') {
+      return json({ rt_cd: '0', output2: options.kisFxRows ?? [] });
     }
     if (u.pathname.endsWith('/inquire-daily-chartprice')) {
       if (options.brokenUs || options.missingChange || options.missingDow) return json({ rt_cd: '0', output2: [] });
@@ -494,59 +498,63 @@ describe('market source acquisition v2', () => {
     expect(quote?.price).toBe(1358.51);
     expect(quote?.observedAt).toBe('2026-09-23T06:31:19.000Z');
   });
-  it('selects fresh Naver FX when the Serp quote is older than 45 minutes', async () => {
-    vi.setSystemTime(new Date('2026-09-23T16:30:00+09:00'));
-    const base = providerMock({ serpFinance: { 'USD-KRW': { summary: {
-      price: '1358', extensions: ['Sep 23, 6:31:00 AM UTC'], price_movement: { value: 0, percentage: 0 },
-    } } } });
+  // KIS KMB 행: 11/2 세션 종가는 11/3 02:00 KST, 진행 중 11/3 행은 종가가 아니므로 건너뛴다.
+  const KMB_ROWS = [
+    { stck_bsop_date: '20261103', ovrs_nmix_prpr: '1344.90' },
+    { stck_bsop_date: '20261102', ovrs_nmix_prpr: '1346.00' },
+    { stck_bsop_date: '20261030', ovrs_nmix_prpr: '1334.30' },
+  ];
+  const serpKrw = (price: string, at: string, value = 0, percentage = 0) => ({ 'USD-KRW': { summary: {
+    price, extensions: [at], price_movement: { value, percentage },
+  } } });
+  it('uses the KIS KMB session close when Google returns nothing', async () => {
+    vi.setSystemTime(new Date('2026-11-03T06:50:00+09:00'));
+    vi.stubGlobal('fetch', providerMock({ kisFxRows: KMB_ROWS.slice(1) }));
+    const snapshot = await getKisMarketAssessmentSnapshot();
+    expect(snapshot.indicators.usdKrw).toMatchObject({
+      source: 'KIS', price: 1346, observedAt: '2026-11-02T17:00:00.000Z', observedAtPrecision: 'session_close',
+    });
+    expect(snapshot.indicators.usdKrw?.changePct).toBeCloseTo((1346 / 1334.3 - 1) * 100, 6);
+    expect(evaluateMarketAssessmentSnapshot(snapshot).dataQuality.indicators.usdKrw).toBe('usable');
+  });
+  it('keeps the Friday KMB close usable on Monday premarket instead of dropping FX', async () => {
+    vi.setSystemTime(new Date('2026-11-02T06:11:00+09:00'));
+    vi.stubGlobal('fetch', providerMock({
+      kisFxRows: [{ stck_bsop_date: '20261030', ovrs_nmix_prpr: '1334.30' }, { stck_bsop_date: '20261029', ovrs_nmix_prpr: '1330.00' }],
+      serpFinance: serpKrw('1336.20', 'Oct 30, 9:18:00 AM UTC'),
+    }));
+    const snapshot = await getKisMarketAssessmentSnapshot();
+    expect(snapshot.indicators.usdKrw).toMatchObject({ source: 'KIS', price: 1334.3, observedAt: '2026-10-30T17:00:00.000Z' });
+    expect(evaluateMarketAssessmentSnapshot(snapshot).dataQuality.indicators.usdKrw).toBe('usable');
+  });
+  it('prefers a fresher Google quote over the KMB close without flagging a conflict', async () => {
+    vi.setSystemTime(new Date('2026-11-03T06:55:00+09:00'));
+    vi.stubGlobal('fetch', providerMock({ kisFxRows: KMB_ROWS, serpFinance: serpKrw('1346.43', 'Nov 2, 9:03:00 PM UTC', 13.07, 0.98) }));
+    const snapshot = await getKisMarketAssessmentSnapshot();
+    expect(snapshot.indicators.usdKrw).toMatchObject({ source: 'SERP_API', price: 1346.43, observedAt: '2026-11-02T21:03:00.000Z' });
+    expect(snapshot.indicators.usdKrw?.sourceConflict).toBeFalsy();
+    expect(evaluateMarketAssessmentSnapshot(snapshot).dataQuality.indicators.usdKrw).toBe('usable');
+  });
+  it('falls back to Naver only when Google fails, still against the KMB close', async () => {
+    vi.setSystemTime(new Date('2026-11-03T06:55:00+09:00'));
+    const base = providerMock({ kisFxRows: KMB_ROWS, brokenSerp: true });
     vi.stubGlobal('fetch', vi.fn<typeof fetch>((url, init) => {
       const u = new URL(String(url));
       if (u.hostname === 'finance.naver.com' && u.searchParams.get('marketindexCd') === 'FX_USDKRW') {
-        return Promise.resolve(new Response('<p class="no_today"><em><span class="no1"></span><span class="no3"></span><span class="no5"></span><span class="no8"></span></em></p><p class="no_exday"><em><span class="no0"></span></em><em>(0%)</em></p><div class="exchange_info"><span class="date">2026.09.23 16:25</span></div>'));
+        return Promise.resolve(new Response('<p class="no_today"><em><span class="no1"></span><span class="no3"></span><span class="no4"></span><span class="no7"></span></em></p><p class="no_exday"><em><span class="no1"></span></em><em>(0.07%)</em></p><div class="exchange_info"><span class="date">2026.11.03 06:40</span></div>'));
       }
       return base(url, init);
     }));
     const quote = (await getKisMarketAssessmentSnapshot()).indicators.usdKrw;
-    expect(quote?.source).toBe('NAVER_FINANCE');
-    expect(quote?.observedAt).toBe('2026-09-23T07:25:00.000Z');
+    expect(quote).toMatchObject({ source: 'NAVER_FINANCE', price: 1347, observedAt: '2026-11-02T21:40:00.000Z' });
   });
-  it('prefers a fresh Naver FX quote over a usable but older Serp quote instead of flagging a conflict', async () => {
-    vi.setSystemTime(new Date('2026-09-23T16:30:00+09:00'));
-    const base = providerMock({ serpFinance: { 'USD-KRW': { summary: {
-      price: '1358.51', extensions: ['Sep 23, 6:40:00 AM UTC'], price_movement: { value: 0, percentage: 0 },
-    } } } });
-    vi.stubGlobal('fetch', vi.fn<typeof fetch>((url, init) => {
-      const u = new URL(String(url));
-      if (u.hostname === 'finance.naver.com' && u.searchParams.get('marketindexCd') === 'FX_USDKRW') {
-        return Promise.resolve(new Response('<p class="no_today"><em><span class="no1"></span><span class="no3"></span><span class="no7"></span><span class="no2"></span></em></p><p class="no_exday"><em><span class="no0"></span></em><em>(0%)</em></p><div class="exchange_info"><span class="date">2026.09.23 16:10</span></div>'));
-      }
-      return base(url, init);
-    }));
+  it('keeps an FX conflict when venues disagree by more than a plausible move', async () => {
+    vi.setSystemTime(new Date('2026-11-03T06:55:00+09:00'));
+    vi.stubGlobal('fetch', providerMock({ kisFxRows: KMB_ROWS, serpFinance: serpKrw('1400.00', 'Nov 2, 9:03:00 PM UTC', 1, 0.07) }));
     const snapshot = await getKisMarketAssessmentSnapshot();
-    expect(snapshot.indicators.usdKrw).toMatchObject({ source: 'NAVER_FINANCE', price: 1372, observedAt: '2026-09-23T07:10:00.000Z' });
-    expect(snapshot.indicators.usdKrw?.sourceConflict).toBeFalsy();
-    expect(evaluateMarketAssessmentSnapshot(snapshot).dataQuality.indicators.usdKrw).toBe('usable');
-  });
-  it('keeps an FX conflict when a future quote has no price continuity with a usable older quote', async () => {
-    vi.setSystemTime(new Date('2026-09-23T07:30:00.000Z'));
-    const base = providerMock({ serpFinance: { 'USD-KRW': { summary: {
-      price: '1358.51', extensions: ['Sep 23, 6:45:00 AM UTC'], price_movement: { value: 0, percentage: 0 },
-    } } } });
-    vi.stubGlobal('fetch', vi.fn<typeof fetch>((url, init) => {
-      const u = new URL(String(url));
-      if (u.hostname === 'finance.naver.com' && u.searchParams.get('marketindexCd') === 'FX_USDKRW') {
-        return Promise.resolve(new Response('<p class="no_today"><em><span class="no1"></span><span class="no4"></span><span class="no0"></span><span class="no0"></span></em></p><p class="no_exday"><em><span class="no1"></span></em><em>(0.07%)</em></p><div class="exchange_info"><span class="date">2026.09.23 16:34</span></div>'));
-      }
-      return base(url, init);
-    }));
-    const snapshot = await getKisMarketAssessmentSnapshot();
-    expect(snapshot.indicators.usdKrw).toMatchObject({
-      source: 'SERP_API', price: 1358.51, observedAt: '2026-09-23T06:45:00.000Z', sourceConflict: true,
-    });
+    expect(snapshot.indicators.usdKrw?.sourceConflict).toBe(true);
     expect(evaluateMarketAssessmentSnapshot(snapshot).dataQuality.indicators.usdKrw).toBe('conflict');
-    expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('USD/KRW 교차검증 불일치'));
   });
-
   it('retries one transient Serp Finance no-results error and keeps the successful quote', async () => {
     vi.setSystemTime(new Date('2026-09-23T06:40:00.000Z'));
     const base = providerMock({ serpFinance: { 'USD-KRW': { summary: {
@@ -576,7 +584,7 @@ describe('market source acquisition v2', () => {
     }));
     await getKisMarketAssessmentSnapshot();
     expect(attempts).toBe(2);
-    expect(console.warn).toHaveBeenCalledWith(expect.stringContaining("USD/KRW primary 수집 실패: SerpAPI request failed: Google Finance hasn't returned any results for this query."));
+    expect(console.warn).toHaveBeenCalledWith(expect.stringContaining("USD/KRW Serp 수집 실패: SerpAPI request failed: Google Finance hasn't returned any results for this query."));
   });
   it('does not retry other Serp Finance errors', async () => {
     const base = providerMock();
