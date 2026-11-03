@@ -19,6 +19,14 @@ describe('crash alert delivery does not depend on generative text', () => {
     expect(alert.historical_context).toContain('제공하지 않습니다');
     expect(stockPipeline).not.toHaveBeenCalled();
   });
+  it('passes the prepare crash deadline to the analysis and falls back when it is spent', async () => {
+    vi.stubEnv('OPENAI_API_KEY', 'test');
+    crashPipeline.mockRejectedValue(new Error('폭락 분석 Stage 1 deadline 소진 (잔여 0s)'));
+    const alert = JSON.parse(await getLlmRecommendation(assessment, 1_700_000_000_000));
+    expect(crashPipeline).toHaveBeenCalledExactlyOnceWith(assessment.summary, 1_700_000_000_000);
+    expect(alert.type).toBe('crash_alert');
+    expect(alert.market_overview).toEqual(assessment.marketOverview);
+  });
   it('produces a base warning even without LLM credentials', async () => {
     vi.stubEnv('OPENAI_API_KEY', '');
     expect(JSON.parse(await getLlmRecommendation(assessment)).type).toBe('crash_alert');

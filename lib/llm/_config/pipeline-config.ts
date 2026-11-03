@@ -42,6 +42,12 @@ export const PIPELINE_CONFIG = {
   STAGE_TIMEOUT: 1200000,
 
   /**
+   * deadline이 주어진 호출에서 한 번의 시도를 시작할 최소 잔여 시간 (밀리초)
+   * 이보다 적게 남으면 재시도 대신 즉시 실패해 호출부의 결정적 폴백으로 넘긴다.
+   */
+  DEADLINE_MIN_ATTEMPT_MS: 60000,
+
+  /**
    * Stage 실패 시 최대 재시도 횟수
    * Exponential Backoff: 5s → 10s → 20s → 40s → 80s
    * 429 Rate Limit 시: 10s → 20s → 40s → 80s → 160s

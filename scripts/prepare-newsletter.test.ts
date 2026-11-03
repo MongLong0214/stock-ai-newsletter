@@ -41,6 +41,8 @@ vi.mock('@/scripts/stock-picks/pick-snapshots', () => ({
 }))
 
 import {
+  CRASH_ANALYSIS_DEADLINE_RESERVE_MS,
+  DEFAULT_PREPARE_DEADLINE_MINUTES,
   parsePrepareNewsletterCliArgs,
   prepareNewsletter,
   resolveNewsletterAnalysis,
@@ -284,6 +286,26 @@ describe('prepare-newsletter stock-pick wiring', () => {
 
     expect(result).toEqual({ geminiAnalysis: '{"type":"crash_alert"}', picksSource: 'crash' })
     expect(collectDaily).not.toHaveBeenCalled()
+  })
+
+  it('bounds crash analysis so the post-save daily backfill keeps its budget', async () => {
+    vi.useFakeTimers({ now: new Date('2026-11-02T21:11:00Z'), toFake: ['Date'] })
+    vi.spyOn(console, 'log').mockImplementation(() => {})
+    const getLlmAnalysis = vi.fn(async () => ({ geminiAnalysis: '{"type":"crash_alert"}' }))
+
+    await resolveNewsletterAnalysis({
+      assessMarket: async () => ({ ...NORMAL_ASSESSMENT, verdict: 'CRASH_ALERT' }),
+      collectDaily: vi.fn(),
+      generateCodePicks: vi.fn(),
+      getLlmAnalysis,
+    })
+
+    const prepareDeadlineAt = Date.now() + DEFAULT_PREPARE_DEADLINE_MINUTES * 60_000
+    expect(getLlmAnalysis).toHaveBeenCalledExactlyOnceWith({
+      marketAssessment: expect.objectContaining({ verdict: 'CRASH_ALERT' }),
+      crashDeadlineAt: prepareDeadlineAt - CRASH_ANALYSIS_DEADLINE_RESERVE_MS,
+    })
+    vi.useRealTimers()
   })
 
   it('parses target date, force, and dispatch-id CLI flags', () => {
