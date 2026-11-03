@@ -104,6 +104,12 @@ export function deadlineAttemptTimeoutMs(stage: string, deadlineAt?: number): nu
     return Math.min(PIPELINE_CONFIG.STAGE_TIMEOUT, remaining);
 }
 
+/** 재시도 대기도 deadline을 넘기지 않는다(남은 시간 − 최소 시도 시간까지만 대기). */
+export function deadlineRetryDelayMs(delayMs: number, deadlineAt?: number): number {
+    if (deadlineAt === undefined) return delayMs;
+    return Math.max(0, Math.min(delayMs, deadlineAt - Date.now() - PIPELINE_CONFIG.DEADLINE_MIN_ATTEMPT_MS));
+}
+
 /**
  * Stage별 프롬프트 조립
  *
@@ -553,7 +559,7 @@ export async function executeCrashAnalysisPipeline(assessmentSummary: string, de
             if (attempt === PIPELINE_CONFIG.STAGE_MAX_RETRY) throw error;
             if (deadlineAt !== undefined && deadlineAt - Date.now() < PIPELINE_CONFIG.DEADLINE_MIN_ATTEMPT_MS) throw error;
 
-            const delay = PIPELINE_CONFIG.STAGE_INITIAL_RETRY_DELAY * Math.pow(2, attempt - 1);
+            const delay = deadlineRetryDelayMs(PIPELINE_CONFIG.STAGE_INITIAL_RETRY_DELAY * Math.pow(2, attempt - 1), deadlineAt);
             await new Promise((resolve) => setTimeout(resolve, delay));
         }
     }
@@ -605,7 +611,7 @@ export async function executeCrashAnalysisPipeline(assessmentSummary: string, de
             if (attempt === PIPELINE_CONFIG.STAGE_MAX_RETRY) throw error;
             if (deadlineAt !== undefined && deadlineAt - Date.now() < PIPELINE_CONFIG.DEADLINE_MIN_ATTEMPT_MS) throw error;
 
-            const delay = PIPELINE_CONFIG.STAGE_INITIAL_RETRY_DELAY * Math.pow(2, attempt - 1);
+            const delay = deadlineRetryDelayMs(PIPELINE_CONFIG.STAGE_INITIAL_RETRY_DELAY * Math.pow(2, attempt - 1), deadlineAt);
             await new Promise((resolve) => setTimeout(resolve, delay));
         }
     }

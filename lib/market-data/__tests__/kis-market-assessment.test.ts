@@ -510,6 +510,23 @@ describe('market source acquisition v2', () => {
     expect(quote?.source).toBe('NAVER_FINANCE');
     expect(quote?.observedAt).toBe('2026-09-23T07:25:00.000Z');
   });
+  it('prefers a fresh Naver FX quote over a usable but older Serp quote instead of flagging a conflict', async () => {
+    vi.setSystemTime(new Date('2026-09-23T16:30:00+09:00'));
+    const base = providerMock({ serpFinance: { 'USD-KRW': { summary: {
+      price: '1358.51', extensions: ['Sep 23, 6:40:00 AM UTC'], price_movement: { value: 0, percentage: 0 },
+    } } } });
+    vi.stubGlobal('fetch', vi.fn<typeof fetch>((url, init) => {
+      const u = new URL(String(url));
+      if (u.hostname === 'finance.naver.com' && u.searchParams.get('marketindexCd') === 'FX_USDKRW') {
+        return Promise.resolve(new Response('<p class="no_today"><em><span class="no1"></span><span class="no3"></span><span class="no7"></span><span class="no2"></span></em></p><p class="no_exday"><em><span class="no0"></span></em><em>(0%)</em></p><div class="exchange_info"><span class="date">2026.09.23 16:10</span></div>'));
+      }
+      return base(url, init);
+    }));
+    const snapshot = await getKisMarketAssessmentSnapshot();
+    expect(snapshot.indicators.usdKrw).toMatchObject({ source: 'NAVER_FINANCE', price: 1372, observedAt: '2026-09-23T07:10:00.000Z' });
+    expect(snapshot.indicators.usdKrw?.sourceConflict).toBeFalsy();
+    expect(evaluateMarketAssessmentSnapshot(snapshot).dataQuality.indicators.usdKrw).toBe('usable');
+  });
   it('keeps an FX conflict when a future quote has no price continuity with a usable older quote', async () => {
     vi.setSystemTime(new Date('2026-09-23T07:30:00.000Z'));
     const base = providerMock({ serpFinance: { 'USD-KRW': { summary: {

@@ -12,6 +12,8 @@ export const MAX_MARKET_OBSERVATION_AGE_MS = 10 * 60_000;
  * 90분은 backup 지연까지 덮고, 주말을 넘긴 금요일 시세(8시간+)는 그대로 stale로 남긴다.
  */
 export const FX_MAX_OBSERVATION_AGE_MS = 90 * 60_000;
+/** 두 FX 소스가 모두 usable일 때 이 시간 안의 관측을 우선한다(창 확대 전 v3 선택 동작 유지). */
+export const FX_PREFERRED_OBSERVATION_AGE_MS = 45 * 60_000;
 export type MarketRiskVerdict = 'NORMAL' | 'CRASH_ALERT' | 'UNAVAILABLE';
 export type QuoteQuality = 'usable' | 'missing' | 'invalid' | 'undated' | 'stale' | 'conflict' | 'calendar_unknown';
 export interface MarketDataQuality {

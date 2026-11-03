@@ -161,4 +161,30 @@ describe('generateNewsletterHTML', () => {
     expect(html).toContain('미국 증시 급락')
     expect(html).toContain('주요 지수가 동반 하락했습니다.')
   })
+
+  it('colors only signed declines red, not hyphens inside observation timestamps', () => {
+    const overview = {
+      kospi_futures: '-3.93% (야간; 2026-11-02T21:00:00.000Z)',
+      kosdaq_futures: '-2.34% (야간; 2026-11-02T21:00:00.000Z)',
+      dow_close: '0.41% (관측 2026-11-02T21:00:00.000Z)',
+      usd_krw: '1346.43원 (0.98%; 관측 2026-11-02T21:03:00.000Z; 갱신 지연)',
+      vix: '21.15 (관측 2026-11-02T21:15:01.000Z)',
+      nasdaq_close: '1341.34원 (-0.31%; 관측 2026-11-03T00:18:00.000Z)',
+    }
+    const html = generateNewsletterHTML({
+      date: '2026-11-03',
+      geminiAnalysis: JSON.stringify({
+        type: 'crash_alert', severity: 'warning', title: '시장 급락 위험 경고', market_overview: overview,
+        causes: [{ factor: '야간선물 급락', impact: 'high', detail: '야간선물이 하락했습니다.' }],
+        historical_context: '과거 사례', outlook: '전망', investor_guidance: '점검',
+      }),
+    }, 'reader@example.com')
+    const colorOf = (value: string) => html.split('<tr>').find(row => row.includes(`>${value}<`))?.match(/color: (#[0-9A-F]{6}); text-align: right/)?.[1]
+    expect(colorOf(overview.kospi_futures)).toBe('#DC2626')
+    expect(colorOf(overview.kosdaq_futures)).toBe('#DC2626')
+    expect(colorOf(overview.nasdaq_close)).toBe('#DC2626')
+    expect(colorOf(overview.dow_close)).toBe('#0F172A')
+    expect(colorOf(overview.usd_krw)).toBe('#0F172A')
+    expect(colorOf(overview.vix)).toBe('#0F172A')
+  })
 })

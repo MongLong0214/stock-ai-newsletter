@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 const { crashPipeline, stockPipeline } = vi.hoisted(() => ({ crashPipeline: vi.fn(), stockPipeline: vi.fn() }));
-vi.mock('./llm-pipeline', () => ({ executeCrashAnalysisPipeline: crashPipeline, executeLlmPipeline: stockPipeline, executeMarketAssessment: vi.fn() }));
+vi.mock('./llm-pipeline', () => ({ executeCrashAnalysisPipeline: crashPipeline, executeLlmPipeline: stockPipeline, executeMarketAssessment: vi.fn(), deadlineRetryDelayMs: (ms: number) => ms }));
 vi.mock('../_config/pipeline-config', () => ({ PIPELINE_CONFIG: { OUTER_MAX_RETRY: 1, OUTER_BASE_RETRY_DELAY: 0, OUTER_MAX_RETRY_DELAY: 0 } }));
 import { getLlmRecommendation } from './llm-recommendation';
 import { buildDeterministicCrashAlert } from './crash-alert';

@@ -17,7 +17,7 @@ vi.mock('../_config/pipeline-config', async importOriginal => {
     STAGE_INITIAL_RETRY_DELAY: 1, STAGE_DELAY: 1, STAGE_TIMEOUT: 100, DEADLINE_MIN_ATTEMPT_MS: 10,
   } };
 });
-import { executeCrashAnalysisPipeline, executeLlmPipeline } from './llm-pipeline';
+import { deadlineRetryDelayMs, executeCrashAnalysisPipeline, executeLlmPipeline } from './llm-pipeline';
 
 const ANALYSIS = '검증된 시세와 출처를 바탕으로 작성한 분석 근거입니다. '.repeat(20);
 const STOCKS = JSON.stringify([1, 2, 3].map(rank => ({
@@ -131,6 +131,13 @@ describe('OpenAI analysis pipelines', () => {
     expect(mockCreateResponse).toHaveBeenCalledTimes(1);
     expect(mockCreateResponse.mock.calls[0][1].signal.aborted).toBe(true);
     expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it('caps retry backoff at the time left before the deadline', () => {
+    vi.useFakeTimers({ now: 1_000_000 });
+    expect(deadlineRetryDelayMs(80_000)).toBe(80_000);
+    expect(deadlineRetryDelayMs(80_000, 1_000_000 + 30_000)).toBe(30_000 - 10);
+    expect(deadlineRetryDelayMs(80_000, 1_000_000 + 5)).toBe(0);
   });
 
   it('does not call the API when the crash deadline is already spent', async () => {

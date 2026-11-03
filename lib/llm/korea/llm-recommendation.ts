@@ -1,4 +1,4 @@
-import { executeLlmPipeline, executeMarketAssessment, executeCrashAnalysisPipeline } from './llm-pipeline';
+import { executeLlmPipeline, executeMarketAssessment, executeCrashAnalysisPipeline, deadlineRetryDelayMs } from './llm-pipeline';
 import type { MarketAssessment } from './llm-pipeline';
 import { PIPELINE_CONFIG } from '../_config/pipeline-config';
 import { extractAndValidateJSON, extractAndValidateCrashJSON } from './stock-json';
@@ -99,10 +99,10 @@ export async function getLlmRecommendation(marketAssessment?: MarketAssessment, 
  */
 async function executeCrashAnalysisWithRetry(assessment: MarketAssessment, deadlineAt?: number): Promise<string> {
   for (let attempt = 1; attempt <= PIPELINE_CONFIG.OUTER_MAX_RETRY; attempt++) {
-    const retryDelay = Math.min(
+    const retryDelay = deadlineRetryDelayMs(Math.min(
       PIPELINE_CONFIG.OUTER_BASE_RETRY_DELAY * Math.pow(2, attempt - 1),
       PIPELINE_CONFIG.OUTER_MAX_RETRY_DELAY
-    );
+    ), deadlineAt);
 
     console.log(`[Crash Analysis] 시도 ${attempt}/${PIPELINE_CONFIG.OUTER_MAX_RETRY}`);
 

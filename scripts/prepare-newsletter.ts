@@ -8,6 +8,7 @@ import { config } from 'dotenv'
 import { ensureKisAccessToken } from '@/app/archive/_utils/api/kis/client'
 import { siteConfig } from '@/lib/constants/seo/config'
 import type { StockData } from '@/lib/llm/_types/stock-data'
+import { buildDeterministicCrashAlert } from '@/lib/llm/korea/crash-alert'
 import type { MarketAssessment } from '@/lib/llm/korea/llm-pipeline'
 import { executeMarketAssessment } from '@/lib/llm/korea/llm-pipeline'
 import { validateStockData } from '@/lib/llm/korea/stock-json'
@@ -37,9 +38,9 @@ export const MIN_DAILY_COLLECTION_SUCCESS_RATE = 0.95
 export const MIN_EXACT_DATE_COVERAGE_RATE = 0.97
 export const MIN_HISTORICAL_DATE_COVERAGE_RATE = 0.8
 export const DEFAULT_PREPARE_DEADLINE_MINUTES = 38
-// WHY: CRASH_ALERT 상세 분석이 deadline 직전까지 돌면 저장 후 전종목 일봉 백필(실측 ~15분)이 생략된다.
+// WHY: CRASH_ALERT 상세 분석이 deadline 직전까지 돌면 저장 후 전종목 일봉 백필(실측 ~15분 + 저장·요약 여유)이 생략된다.
 // 이 예산을 남기고 LLM을 끊어 결정적 경고로 대체한다(2026-11-03 primary Prepare가 LLM 재시도로 Actions 타임아웃).
-export const CRASH_ANALYSIS_DEADLINE_RESERVE_MS = 15 * 60_000
+export const CRASH_ANALYSIS_DEADLINE_RESERVE_MS = 18 * 60_000
 
 interface DailyCollectionCoverageReport {
   readonly successRate: number
@@ -165,6 +166,9 @@ async function runNewsletterPipeline(input: {
       crashDeadlineAt: input.deadlineAt - CRASH_ANALYSIS_DEADLINE_RESERVE_MS,
     })
     durationsMs.picks += elapsedMs(picksStartedAt)
+    if (result.geminiAnalysis === buildDeterministicCrashAlert(assessment)) {
+      warnings.push('CRASH_ALERT 상세 분석 실패/예산 소진 — 검증된 숫자 기반 기본 경고로 발행')
+    }
     if (remainingMs(input.deadlineAt) <= 0) abortForDeadline('crash analysis completion')
     return {
       geminiAnalysis: result.geminiAnalysis,

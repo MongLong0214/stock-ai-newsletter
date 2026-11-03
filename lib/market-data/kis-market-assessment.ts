@@ -10,7 +10,7 @@ import { addKoreanTradingDays } from '@/lib/tli/trading-calendar';
 import { getUsSessionCloseTime } from './us-market-calendar';
 import {
   assessMarketDataQuality, decideMarketRisk, MARKET_RISK_POLICY_VERSION,
-  parseKisObservedAt, parseObservedAt, quoteQuality,
+  FX_PREFERRED_OBSERVATION_AGE_MS, parseKisObservedAt, parseObservedAt, quoteQuality,
   type MarketDataQuality, type MarketRiskVerdict,
 } from './market-assessment-policy';
 
@@ -20,6 +20,9 @@ const REQUEST_DELAY_MS = 350;
 const SNAPSHOT_TTL_MS = 30_000;
 const SNAPSHOT_TIMEOUT_MS = 90_000;
 const EVENT_SIGNALS_BUDGET_MS = 30_000;
+// 표시 전용 KOSDAQ150 선물: 판정 입력을 모두 모은 뒤, 남은 스냅샷 예산이 KIS 호출(각 fetch 타임아웃 8초)을 감당할 때만 조회한다.
+const KOSDAQ_FUTURES_DAY_MIN_REMAINING_MS = 45_000;
+const KOSDAQ_FUTURES_NIGHT_MIN_REMAINING_MS = 20_000;
 const snapshotRequestContext = new AsyncLocalStorage<AbortSignal>();
 let snapshotInFlight: Promise<MarketAssessmentSnapshot> | null = null;
 
@@ -1491,6 +1494,12 @@ async function getCrossValidatedIndicator(
   const secondaryUsable = quoteQuality(secondary, Date.now(), market) === 'usable';
   if (primaryUsable && !secondaryUsable) return primary;
   if (secondaryUsable && !primaryUsable) return secondary;
+  if (market === 'fx' && primaryUsable && secondaryUsable) {
+    // WHY: FX 창을 90분으로 넓혀도, 45분 이내 신선한 시세가 오래된 시세와 0.5% 비교로 conflict가 되어 버려지면 안 된다.
+    const isFresh = (quote: MarketIndicatorSnapshot) => Date.now() - Date.parse(quote.observedAt ?? '') <= FX_PREFERRED_OBSERVATION_AGE_MS;
+    if (isFresh(primary) && !isFresh(secondary)) return primary;
+    if (isFresh(secondary) && !isFresh(primary)) return secondary;
+  }
 
   if (!primary.observedAt && secondary.observedAt) return secondary;
   if (!secondary.observedAt && primary.observedAt) return primary;
@@ -1890,14 +1899,7 @@ async function collectMarketAssessmentSnapshot(): Promise<MarketAssessmentSnapsh
 
   const kospi = await safeSupplementaryValue('KOSPI spot', () => getKoreanSpotIndex('KOSPI'), null);
   const kosdaq = await safeSupplementaryValue('KOSDAQ spot', () => getKoreanSpotIndex('KOSDAQ'), null);
-  await requestCooldown();
 
-  // 표시 전용: 판정·coverage에는 넣지 않는다(정책 무변경). 메일 'KOSDAQ 선물' 칸을 실측값으로 채운다.
-  const dayKosdaqFutures = await safeSupplementaryValue('KOSDAQ150 futures', () => getDomesticIndexFutures(KOSDAQ150_FUTURES), null);
-  await requestCooldown();
-  const nightKosdaqFutures = dayKosdaqFutures?.dailyCloses.length
-    ? await safeSupplementaryValue('KOSDAQ150 futures night', () => getNightDomesticIndexFutures(dayKosdaqFutures.snapshot, dayKosdaqFutures.dailyCloses), null)
-    : null;
 
   const kospi200Futures = await safeSupplementaryValue(
     'KOSPI 200 futures',
@@ -1965,6 +1967,19 @@ async function collectMarketAssessmentSnapshot(): Promise<MarketAssessmentSnapsh
   await requestCooldown();
 
   const events = await safeSupplementaryValue('Event signals', () => getEventSignals(), emptyEventSignals());
+
+  // 표시 전용: 판정·coverage에는 넣지 않는다(정책 무변경). 메일 'KOSDAQ 선물' 칸을 실측값으로 채운다.
+  // 판정 입력보다 뒤에 두고 남은 예산을 확인해, 느린 KIS가 FX·VIX·이벤트를 스냅샷 deadline 밖으로 밀지 않게 한다.
+  const hasSnapshotBudget = (requiredMs: number) => !snapshotRequestContext.getStore()?.aborted
+    && SNAPSHOT_TIMEOUT_MS - (Date.now() - now) >= requiredMs;
+  await requestCooldown();
+  const dayKosdaqFutures = hasSnapshotBudget(KOSDAQ_FUTURES_DAY_MIN_REMAINING_MS)
+    ? await safeSupplementaryValue('KOSDAQ150 futures', () => getDomesticIndexFutures(KOSDAQ150_FUTURES), null)
+    : null;
+  await requestCooldown();
+  const nightKosdaqFutures = dayKosdaqFutures?.dailyCloses.length && hasSnapshotBudget(KOSDAQ_FUTURES_NIGHT_MIN_REMAINING_MS)
+    ? await safeSupplementaryValue('KOSDAQ150 futures night', () => getNightDomesticIndexFutures(dayKosdaqFutures.snapshot, dayKosdaqFutures.dailyCloses), null)
+    : null;
 
   const preMarketHours = isKstPreMarketHours();
   // The CM price and minute chart jointly establish the night-session quote and its observation time.
