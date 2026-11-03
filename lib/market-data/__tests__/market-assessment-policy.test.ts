@@ -186,6 +186,16 @@ describe('market risk v2: timestamps, missing data and warning policy', () => {
     const q = { ...riskQuote('USD/KRW'), observedAt, fetchedAt: time };
     expect(quoteQuality(q, now, 'fx')).toBe(expected);
   });
+  it.each([
+    ['Tuesday 06:50 reads the Monday session close (02:00)', '2026-11-03T02:00:00+09:00', '2026-11-03T06:50:00+09:00', 'usable'],
+    ['Monday 06:11 reads the Friday session close', '2026-10-31T02:00:00+09:00', '2026-11-02T06:11:00+09:00', 'usable'],
+    ['the next session has opened', '2026-11-03T02:00:00+09:00', '2026-11-03T09:00:00+09:00', 'stale'],
+    ['a non-close timestamp claims session_close', '2026-11-03T01:30:00+09:00', '2026-11-03T06:50:00+09:00', 'stale'],
+  ] as const)('KMB session close freshness: %s', (_case, observedAt, time, expected) => {
+    const now = Date.parse(time);
+    const q = { ...riskQuote('USD/KRW'), observedAt, fetchedAt: time, observedAtPrecision: 'session_close' as const };
+    expect(quoteQuality(q, now, 'fx')).toBe(expected);
+  });
   it('keeps future and old-fetch checks for FX quotes', () => {
     const now = Date.parse('2026-09-23T15:50:00+09:00');
     const q = { ...riskQuote('USD/KRW'), observedAt: '2026-09-23T15:31:00+09:00', fetchedAt: new Date(now).toISOString() };
