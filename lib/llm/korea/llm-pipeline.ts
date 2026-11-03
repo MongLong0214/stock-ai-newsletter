@@ -1,4 +1,4 @@
-import { MarketAssessmentUnavailableError, type MarketDataQuality } from '@/lib/market-data/market-assessment-policy';
+import { MarketAssessmentUnavailableError, quoteQuality, type MarketDataQuality } from '@/lib/market-data/market-assessment-policy';
 import type OpenAI from 'openai';
 import { initializeOpenAI, logResponseUsage } from '../openai-client';
 import {
@@ -418,6 +418,12 @@ function resolveMarketAssessmentFromSnapshot(
     };
     const vix = usable('vix');
     const fx = usable('usdKrw');
+    // 표시 전용: 판정에서 제외된 stale 환율도 관측 시각을 밝혀 보여주고, conflict/invalid만 숨긴다.
+    const staleFx = !fx && evidence.dataQuality.indicators.usdKrw === 'stale' ? snapshot.indicators.usdKrw : null;
+    const snapshotNow = Date.parse(snapshot.fetchedAt);
+    const kosdaqFutures = snapshot.supplementary.kosdaq150Futures;
+    const kosdaqNight = quoteQuality(kosdaqFutures?.night, snapshotNow, true) === 'usable' ? kosdaqFutures!.night : null;
+    const kosdaqDay = quoteQuality(kosdaqFutures?.day, snapshotNow, true) === 'usable' ? kosdaqFutures!.day : null;
     const summary = [
         `[POLICY: ${evidence.policyVersion}] [SCORE: ${evidence.crashScore}/100; not a probability]`,
         `[SEVERITY: ${evidence.verdict === 'CRASH_ALERT' ? evidence.severity : 'none'}]`,
@@ -440,9 +446,12 @@ function resolveMarketAssessmentFromSnapshot(
             kospi_futures: evidence.dataQuality.indicators.nightFutures === 'usable' && snapshot.nightSession.kospiMiniFutures
                 ? `${snapshot.nightSession.kospiMiniFutures.changePct.toFixed(2)}% (야간; ${snapshot.nightSession.kospiMiniFutures.observedAt})`
                 : evidence.dataQuality.indicators.kospi200MiniFutures === 'usable' ? `${percent('kospi200MiniFutures')} (주간)` : '확인 불가',
-            kosdaq_futures: '확인 불가 (KOSDAQ 현물과 별개)',
+            kosdaq_futures: kosdaqNight
+                ? `${kosdaqNight.changePct.toFixed(2)}% (야간; ${kosdaqNight.observedAt})`
+                : kosdaqDay ? `${kosdaqDay.changePct.toFixed(2)}% (주간; ${kosdaqDay.observedAt})` : '확인 불가',
             vix: vix ? `${vix.price.toFixed(2)} (관측 ${vix.observedAt})` : '확인 불가',
-            usd_krw: fx ? `${fx.price.toFixed(2)}원 (${fx.changePct.toFixed(2)}%; 관측 ${fx.observedAt})` : '확인 불가',
+            usd_krw: fx ? `${fx.price.toFixed(2)}원 (${fx.changePct.toFixed(2)}%; 관측 ${fx.observedAt})`
+                : staleFx ? `${staleFx.price.toFixed(2)}원 (${staleFx.changePct.toFixed(2)}%; 관측 ${staleFx.observedAt}; 갱신 지연)` : '확인 불가',
         },
     };
 }

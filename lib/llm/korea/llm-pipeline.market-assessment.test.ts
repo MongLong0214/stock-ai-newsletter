@@ -38,6 +38,35 @@ describe('executeMarketAssessment: authoritative deterministic verdict', () => {
     expect(result.marketOverview?.kosdaq_futures).toContain('확인 불가');
     expect(mockCreateResponse).not.toHaveBeenCalled();
   });
+  it('shows KOSDAQ150 night futures, falling back to the day close, without scoring them', async () => {
+    const s = riskSnapshot();
+    const day = { ...riskQuote('KOSDAQ150 futures', -1.2, true), contractName: '코스닥150F 202609', remainingDays: 1 };
+    const night = { ...day, ...riskQuote('KOSDAQ150 futures (night)', -2.34, true), session: 'night' as const, observedAt: '2026-09-08T21:00:00.000Z' };
+    s.supplementary.kosdaq150Futures = { day, night };
+    mockGetSnapshot.mockResolvedValue(s);
+    const withNight = await executeMarketAssessment();
+    expect(withNight.marketOverview?.kosdaq_futures).toBe('-2.34% (야간; 2026-09-08T21:00:00.000Z)');
+    expect(Object.keys(withNight.dataQuality!.indicators)).not.toContain('kosdaq150Futures');
+
+    s.supplementary.kosdaq150Futures = { day, night: null };
+    mockGetSnapshot.mockResolvedValue(s);
+    const baseline = await executeMarketAssessment();
+    expect(baseline.marketOverview?.kosdaq_futures).toBe('-1.20% (주간; 2026-09-08T15:45:00+09:00)');
+    expect(baseline.riskScore).toBe(withNight.riskScore);
+    expect(baseline.confidence).toBe(withNight.confidence);
+  });
+  it('shows a stale USD/KRW quote with its observation time but hides conflicting quotes', async () => {
+    const s = riskSnapshot();
+    s.indicators.usdKrw = { ...riskQuote('USD/KRW', 0.98), price: 1346.43, change: 13.07, observedAt: '2026-09-08T18:30:00.000Z' };
+    mockGetSnapshot.mockResolvedValue(s);
+    const stale = await executeMarketAssessment();
+    expect(stale.dataQuality?.indicators.usdKrw).toBe('stale');
+    expect(stale.marketOverview?.usd_krw).toBe('1346.43원 (0.98%; 관측 2026-09-08T18:30:00.000Z; 갱신 지연)');
+
+    s.indicators.usdKrw = { ...s.indicators.usdKrw, sourceConflict: true };
+    mockGetSnapshot.mockResolvedValue(s);
+    expect((await executeMarketAssessment()).marketOverview?.usd_krw).toBe('확인 불가');
+  });
   it('never asks an LLM to manufacture a verdict after acquisition fails', async () => {
     mockGetSnapshot.mockRejectedValue(new Error('snapshot unavailable'));
     mockCreateResponse.mockResolvedValue({ output_text: '{"verdict":"NORMAL","confidence":99,"summary":"invented"}' });
@@ -73,6 +102,6 @@ describe('executeMarketAssessment: authoritative deterministic verdict', () => {
     expect(result.verdict).toBe('NORMAL');
     expect(result.summary).toContain('안전 보장이 아닙니다');
     expect(result.summary).toContain('not a probability');
-    expect(result.policyVersion).toBe('2026-10-30.v4');
+    expect(result.policyVersion).toBe('2026-11-03.v5');
   });
 });

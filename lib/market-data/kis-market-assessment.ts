@@ -223,6 +223,11 @@ export interface MarketAssessmentSnapshot {
   supplementary: {
     kospi200Futures: SearchIndicatorSnapshot | null;
     nikkeiFutures: SearchIndicatorSnapshot | null;
+    /** 표시 전용(위험 점수·coverage 미반영). KRX 야간시장 포함 KOSDAQ150 선물 근월물. */
+    kosdaq150Futures?: {
+      day: Kospi200MiniFuturesSnapshot | null;
+      night: Kospi200MiniFuturesSnapshot | null;
+    };
   };
   events: EventSignals;
 }
@@ -861,13 +866,24 @@ async function getRequiredUsIndex(symbol: string, naverCode: string, label: stri
   return fallback;
 }
 
-function selectFrontMonthMiniFuture(rows: KisDomesticFuturesRow[]): KisDomesticFuturesRow {
+interface DomesticIndexFuturesProduct {
+  /** display-board-futures FID_COND_MRKT_CLS_CODE */
+  boardClass: string;
+  /** 근월물 판별용 종목명 접두 (KIS hts_kor_isnm) */
+  namePrefix: string;
+  label: string;
+}
+
+const KOSPI200_MINI_FUTURES: DomesticIndexFuturesProduct = { boardClass: 'MKI', namePrefix: '미니F ', label: 'KOSPI200 mini futures' };
+const KOSDAQ150_FUTURES: DomesticIndexFuturesProduct = { boardClass: 'KQI', namePrefix: '코스닥150F ', label: 'KOSDAQ150 futures' };
+
+function selectFrontMonthFuture(rows: KisDomesticFuturesRow[], product: DomesticIndexFuturesProduct): KisDomesticFuturesRow {
   const candidates = rows
     .map((row) => ({
       row,
       remainingDays: Number.parseInt(row.hts_rmnn_dynu ?? '', 10),
     }))
-    .filter(({ row }) => typeof row.hts_kor_isnm === 'string' && row.hts_kor_isnm.startsWith('미니F '))
+    .filter(({ row }) => typeof row.hts_kor_isnm === 'string' && row.hts_kor_isnm.startsWith(product.namePrefix))
     .filter(({ row, remainingDays }) => Number.isFinite(remainingDays) && remainingDays >= 0 && !!row.futs_shrn_iscd)
     .sort((left, right) => {
       const leftDays = Number.isFinite(left.remainingDays) ? left.remainingDays : Number.MAX_SAFE_INTEGER;
@@ -876,7 +892,7 @@ function selectFrontMonthMiniFuture(rows: KisDomesticFuturesRow[]): KisDomesticF
     });
 
   if (candidates.length === 0) {
-    throw new Error('KOSPI200 mini futures board returned no front-month contract');
+    throw new Error(`${product.label} board returned no front-month contract`);
   }
 
   return candidates[0].row;
@@ -945,41 +961,41 @@ async function getMiniFuturesChartObservation(code: string, market: 'F' | 'CM'):
   };
 }
 
-async function getKospi200MiniFutures(): Promise<{ snapshot: Kospi200MiniFuturesSnapshot; dailyCloses: Array<{ date: string; price: number }> }> {
+async function getDomesticIndexFutures(product: DomesticIndexFuturesProduct): Promise<{ snapshot: Kospi200MiniFuturesSnapshot; dailyCloses: Array<{ date: string; price: number }> }> {
   const response = await kisGet<KisDomesticFuturesResponse>(
     '/uapi/domestic-futureoption/v1/quotations/display-board-futures',
     {
       FID_COND_MRKT_DIV_CODE: 'F',
       FID_COND_SCR_DIV_CODE: '20503',
-      FID_COND_MRKT_CLS_CODE: 'MKI',
+      FID_COND_MRKT_CLS_CODE: product.boardClass,
     },
     'FHPIF05030200'
   );
 
   const rows = Array.isArray(response.output) ? response.output : [];
-  const contract = selectFrontMonthMiniFuture(rows);
+  const contract = selectFrontMonthFuture(rows, product);
   const price = parseNumber(contract.futs_prpr);
   const change = parseNumber(contract.futs_prdy_vrss);
   const changePct = parseNumber(contract.futs_prdy_ctrt);
 
   const remainingDays = Number.parseInt(contract.hts_rmnn_dynu ?? '', 10);
   await requestCooldown();
-  const dailyCloses = await safeSupplementaryValue('KOSPI200 mini futures daily chart', () => getMiniFuturesDailyCloses(contract.futs_shrn_iscd!), []);
+  const dailyCloses = await safeSupplementaryValue(`${product.label} daily chart`, () => getMiniFuturesDailyCloses(contract.futs_shrn_iscd!), []);
   await requestCooldown();
-  const observation = await safeSupplementaryValue('KOSPI200 mini futures chart', () => getMiniFuturesChartObservation(contract.futs_shrn_iscd!, 'F'), null);
+  const observation = await safeSupplementaryValue(`${product.label} chart`, () => getMiniFuturesChartObservation(contract.futs_shrn_iscd!, 'F'), null);
   const sessionDate = observation?.sessionDate;
   const previousTradingDate = sessionDate && addKoreanTradingDays(
     `${sessionDate.slice(0, 4)}-${sessionDate.slice(4, 6)}-${sessionDate.slice(6, 8)}`, -1
   ).replaceAll('-', '');
   const previousClose = dailyCloses.find(row => row.date === previousTradingDate)?.price;
   if (!observation || !previousClose) {
-    assertPositivePrice(price, 'KOSPI200 mini futures');
-    if (!Number.isFinite(change) || !Number.isFinite(changePct)) throw new Error('KOSPI200 mini futures missing change data');
+    assertPositivePrice(price, product.label);
+    if (!Number.isFinite(change) || !Number.isFinite(changePct)) throw new Error(`${product.label} missing change data`);
   }
 
   const snapshot = withDirectValidation({
     code: contract.futs_shrn_iscd ?? 'UNKNOWN',
-    label: 'KOSPI200 mini futures',
+    label: product.label,
     contractName: contract.hts_kor_isnm ?? 'Unknown contract',
     remainingDays: Number.isFinite(remainingDays) ? remainingDays : null,
     source: 'KIS',
@@ -993,7 +1009,7 @@ async function getKospi200MiniFutures(): Promise<{ snapshot: Kospi200MiniFutures
   return { snapshot, dailyCloses };
 }
 
-async function getNightKospi200MiniFutures(day: Kospi200MiniFuturesSnapshot, dailyCloses: Array<{ date: string; price: number }>): Promise<Kospi200MiniFuturesSnapshot | null> {
+async function getNightDomesticIndexFutures(day: Kospi200MiniFuturesSnapshot, dailyCloses: Array<{ date: string; price: number }>): Promise<Kospi200MiniFuturesSnapshot | null> {
   const response = await kisGet<KisMiniFuturesPriceResponse>(
     '/uapi/domestic-futureoption/v1/quotations/inquire-price',
     { FID_COND_MRKT_DIV_CODE: 'CM', FID_INPUT_ISCD: day.code },
@@ -1014,7 +1030,7 @@ async function getNightKospi200MiniFutures(day: Kospi200MiniFuturesSnapshot, dai
   const change = observation.price - dayClose;
   return withDirectValidation({
     code: day.code,
-    label: 'KOSPI200 mini futures (night)',
+    label: `${day.label} (night)`,
     contractName: day.contractName,
     remainingDays: day.remainingDays,
     source: 'KIS',
@@ -1864,16 +1880,24 @@ async function collectMarketAssessmentSnapshot(): Promise<MarketAssessmentSnapsh
 
   await requestCooldown();
 
-  const dayMiniFutures = await safeSupplementaryValue('KOSPI200 mini futures', () => getKospi200MiniFutures(), null);
+  const dayMiniFutures = await safeSupplementaryValue('KOSPI200 mini futures', () => getDomesticIndexFutures(KOSPI200_MINI_FUTURES), null);
   const kospi200MiniFutures = dayMiniFutures?.snapshot ?? null;
   await requestCooldown();
   const nightKospiMiniFutures = kospi200MiniFutures && dayMiniFutures?.dailyCloses.length
-    ? await safeSupplementaryValue('KOSPI200 mini futures night', () => getNightKospi200MiniFutures(kospi200MiniFutures, dayMiniFutures.dailyCloses), null)
+    ? await safeSupplementaryValue('KOSPI200 mini futures night', () => getNightDomesticIndexFutures(kospi200MiniFutures, dayMiniFutures.dailyCloses), null)
     : null;
   await requestCooldown();
 
   const kospi = await safeSupplementaryValue('KOSPI spot', () => getKoreanSpotIndex('KOSPI'), null);
   const kosdaq = await safeSupplementaryValue('KOSDAQ spot', () => getKoreanSpotIndex('KOSDAQ'), null);
+  await requestCooldown();
+
+  // 표시 전용: 판정·coverage에는 넣지 않는다(정책 무변경). 메일 'KOSDAQ 선물' 칸을 실측값으로 채운다.
+  const dayKosdaqFutures = await safeSupplementaryValue('KOSDAQ150 futures', () => getDomesticIndexFutures(KOSDAQ150_FUTURES), null);
+  await requestCooldown();
+  const nightKosdaqFutures = dayKosdaqFutures?.dailyCloses.length
+    ? await safeSupplementaryValue('KOSDAQ150 futures night', () => getNightDomesticIndexFutures(dayKosdaqFutures.snapshot, dayKosdaqFutures.dailyCloses), null)
+    : null;
 
   const kospi200Futures = await safeSupplementaryValue(
     'KOSPI 200 futures',
@@ -1970,6 +1994,7 @@ async function collectMarketAssessmentSnapshot(): Promise<MarketAssessmentSnapsh
     supplementary: {
       kospi200Futures,
       nikkeiFutures,
+      kosdaq150Futures: { day: dayKosdaqFutures?.snapshot ?? null, night: nightKosdaqFutures },
     },
     events,
   };
@@ -2028,7 +2053,12 @@ export function evaluateMarketAssessmentSnapshot(
 }
 
 export function formatMarketAssessmentSnapshot(snapshot: MarketAssessmentSnapshot): string {
-  const entries = Object.entries({ ...snapshot.indicators, nightFutures: snapshot.nightSession.kospiMiniFutures });
+  const entries = Object.entries({
+    ...snapshot.indicators,
+    nightFutures: snapshot.nightSession.kospiMiniFutures,
+    kosdaq150Futures: snapshot.supplementary.kosdaq150Futures?.day ?? null,
+    kosdaq150NightFutures: snapshot.supplementary.kosdaq150Futures?.night ?? null,
+  });
   return [
     ...entries.map(([key, quote]) => quote
       ? `- ${quote.label} (${quote.code}): ${quote.price.toFixed(2)} (${quote.changePct.toFixed(2)}%) [${quote.source}; ${quote.validation}; observed=${quote.observedAt ?? 'UNKNOWN'}; fetched=${quote.fetchedAt}]`

@@ -106,6 +106,31 @@ describe('market source acquisition v2', () => {
   });
   afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks(); vi.unstubAllGlobals(); vi.unstubAllEnvs(); });
 
+  it('collects KOSDAQ150 day and night futures for display without touching risk coverage', async () => {
+    const base = providerMock();
+    const fetch = vi.fn<typeof globalThis.fetch>((url, init) => {
+      const u = new URL(String(url));
+      if (u.pathname.endsWith('/display-board-futures') && u.searchParams.get('FID_COND_MRKT_CLS_CODE') === 'KQI') {
+        return Promise.resolve(json({ rt_cd: '0', output: [
+          { futs_shrn_iscd: 'KQNEXT', hts_kor_isnm: '코스닥150F next', futs_prpr: '100', futs_prdy_vrss: '0', futs_prdy_ctrt: '0', hts_rmnn_dynu: '30' },
+          { futs_shrn_iscd: 'KQNEAR', hts_kor_isnm: '코스닥150F near', futs_prpr: '100', futs_prdy_vrss: '0', futs_prdy_ctrt: '0', hts_rmnn_dynu: '1' },
+        ] }));
+      }
+      return base(url, init);
+    });
+    vi.stubGlobal('fetch', fetch);
+    const snapshot = await getKisMarketAssessmentSnapshot();
+    expect(snapshot.supplementary.kosdaq150Futures?.day).toMatchObject({ code: 'KQNEAR', label: 'KOSDAQ150 futures', session: 'day' });
+    expect(snapshot.supplementary.kosdaq150Futures?.night).toMatchObject({
+      code: 'KQNEAR', label: 'KOSDAQ150 futures (night)', session: 'night', observedAt: '2026-09-08T21:00:00.000Z',
+    });
+    expect(snapshot.indicators.kospi200MiniFutures?.code).toBe('NEAR');
+    expect(Object.keys(evaluateMarketAssessmentSnapshot(snapshot).dataQuality.indicators)).not.toContain('kosdaq150Futures');
+    const boardClasses = fetch.mock.calls.map(([url]) => new URL(String(url)))
+      .filter(url => url.pathname.endsWith('/display-board-futures')).map(url => url.searchParams.get('FID_COND_MRKT_CLS_CODE'));
+    expect(boardClasses).toEqual(['MKI', 'KQI']);
+  });
+
   it('collects timestamped day and night mini futures from the selected front month', async () => {
     const fetch = providerMock();
     vi.stubGlobal('fetch', fetch);
