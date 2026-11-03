@@ -1,4 +1,4 @@
-import { executeLlmPipeline, executeMarketAssessment, executeCrashAnalysisPipeline } from './llm-pipeline';
+import { executeLlmPipeline, executeMarketAssessment, executeCrashAnalysisPipeline, deadlineRetryDelayMs } from './llm-pipeline';
 import type { MarketAssessment } from './llm-pipeline';
 import { PIPELINE_CONFIG } from '../_config/pipeline-config';
 import { extractAndValidateJSON, extractAndValidateCrashJSON } from './stock-json';
@@ -61,7 +61,7 @@ function formatError(error: unknown): string {
  * const stocks = JSON.parse(result);
  * ```
  */
-export async function getLlmRecommendation(marketAssessment?: MarketAssessment): Promise<string> {
+export async function getLlmRecommendation(marketAssessment?: MarketAssessment, crashDeadlineAt?: number): Promise<string> {
   console.log(
     '[OpenAI] Using Responses API Multi-Stage Pipeline'
   );
@@ -77,7 +77,7 @@ export async function getLlmRecommendation(marketAssessment?: MarketAssessment):
       console.log(`\n🚨 [CRASH_ALERT] 위험 경고 기준 충족 → 폭락 분석 Pipeline 실행`);
       try {
         if (!process.env.OPENAI_API_KEY) return buildDeterministicCrashAlert(assessment);
-        return await executeCrashAnalysisWithRetry(assessment);
+        return await executeCrashAnalysisWithRetry(assessment, crashDeadlineAt);
       } catch (error) {
         console.warn('[Crash Analysis] 상세 분석 실패; 검증된 숫자로 기본 경고 제공', error instanceof Error ? error.message : String(error));
         return buildDeterministicCrashAlert(assessment);
@@ -97,17 +97,17 @@ export async function getLlmRecommendation(marketAssessment?: MarketAssessment):
 /**
  * 폭락 분석 Pipeline (Outer Retry)
  */
-async function executeCrashAnalysisWithRetry(assessment: MarketAssessment): Promise<string> {
+async function executeCrashAnalysisWithRetry(assessment: MarketAssessment, deadlineAt?: number): Promise<string> {
   for (let attempt = 1; attempt <= PIPELINE_CONFIG.OUTER_MAX_RETRY; attempt++) {
-    const retryDelay = Math.min(
+    const retryDelay = deadlineRetryDelayMs(Math.min(
       PIPELINE_CONFIG.OUTER_BASE_RETRY_DELAY * Math.pow(2, attempt - 1),
       PIPELINE_CONFIG.OUTER_MAX_RETRY_DELAY
-    );
+    ), deadlineAt);
 
     console.log(`[Crash Analysis] 시도 ${attempt}/${PIPELINE_CONFIG.OUTER_MAX_RETRY}`);
 
     try {
-      const result = await executeCrashAnalysisPipeline(assessment.summary);
+      const result = await executeCrashAnalysisPipeline(assessment.summary, deadlineAt);
       if (!result) throw new Error('Empty response from Crash Analysis Pipeline');
 
       console.log(`\n${'━'.repeat(80)}`);
@@ -133,7 +133,8 @@ async function executeCrashAnalysisWithRetry(assessment: MarketAssessment): Prom
       const errorMsg = pipelineError instanceof Error ? pipelineError.message : String(pipelineError);
       console.warn(`⚠️ [Crash Analysis] 오류 (${attempt}/${PIPELINE_CONFIG.OUTER_MAX_RETRY}): ${errorMsg}`);
 
-      if (attempt < PIPELINE_CONFIG.OUTER_MAX_RETRY) {
+      const deadlineExhausted = deadlineAt !== undefined && deadlineAt - Date.now() < PIPELINE_CONFIG.DEADLINE_MIN_ATTEMPT_MS;
+      if (attempt < PIPELINE_CONFIG.OUTER_MAX_RETRY && !deadlineExhausted) {
         console.log(`🔄 ${retryDelay / 1000}초 후 재시도...`);
         await new Promise((resolve) => setTimeout(resolve, retryDelay));
       } else {

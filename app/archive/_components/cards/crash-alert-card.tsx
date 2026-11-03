@@ -81,7 +81,8 @@ export const CrashAlertCard = ({ crashAlert }: CrashAlertCardProps) => {
             <tbody>
               {Object.entries(crashAlert.market_overview).map(([key, value]) => {
                 const label = MARKET_LABELS[key] || key;
-                const isNegative = typeof value === 'string' && value.includes('-');
+                // 관측 시각(ISO)의 '-'는 하락이 아니다 → 값 맨 앞 또는 '(' 직후의 음수 부호만 본다.
+                const isNegative = typeof value === 'string' && /(^|\()\s*-\d/.test(value.trim());
                 return (
                   <tr key={key} className="border-b border-slate-700/30 last:border-b-0">
                     <td className="px-4 py-3 text-sm font-medium text-slate-400">{label}</td>

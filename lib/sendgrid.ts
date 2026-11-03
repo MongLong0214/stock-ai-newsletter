@@ -569,7 +569,8 @@ function formatCrashAlertHTML(data: CrashAlertData): string {
   const marketRows = Object.entries(data.market_overview)
     .map(([key, value]) => {
       const label = marketLabels[key] || key;
-      const isNegative = typeof value === 'string' && value.includes('-');
+      // 관측 시각(ISO)의 '-'는 하락이 아니다 → 값 맨 앞 또는 '(' 직후의 음수 부호만 본다.
+      const isNegative = typeof value === 'string' && /(^|\()\s*-\d/.test(value.trim());
       const valueColor = isNegative ? '#DC2626' : '#0F172A';
       return `
         <tr>

@@ -2,8 +2,9 @@
  * 재사용 가능한 OpenAI 클라이언트 래퍼
  */
 
-import OpenAI from 'openai';
+import OpenAI, { type ClientOptions } from 'openai';
 import type { Response } from 'openai/resources/responses/responses';
+import { Agent, fetch as undiciFetch } from 'undici';
 import { OPENAI_API_CONFIG, PIPELINE_CONFIG } from '@/lib/llm/_config/pipeline-config';
 
 interface GenerateTextOptions {
@@ -16,6 +17,20 @@ interface GenerateTextOptions {
   timeout?: number;
 }
 
+/**
+ * Node 내장 fetch(undici)는 headersTimeout 기본값이 300초라, 응답 헤더를 완료 후에야 보내는
+ * 비스트리밍 Responses 호출은 STAGE_TIMEOUT과 무관하게 5분에서 끊긴다(2026-11-03 CRASH_ALERT 실패).
+ * SDK timeout과 같은 헤더/바디 타임아웃의 dispatcher로 요청 수명을 호출부 타임아웃에 맡긴다.
+ */
+const openAIDispatcher = new Agent({
+  headersTimeout: PIPELINE_CONFIG.STAGE_TIMEOUT,
+  bodyTimeout: PIPELINE_CONFIG.STAGE_TIMEOUT,
+});
+
+// WHY: Node 20 워크플로(블로그)의 내장 fetch는 undici 6이라 npm undici 7 Agent를 받지 못한다 → fetch도 같은 undici로 고정.
+// undici Request/Response 타입은 DOM 타입과 구조만 미세하게 달라 SDK Fetch 시그니처로 맞춘다.
+const openAIFetch = undiciFetch as unknown as NonNullable<ClientOptions['fetch']>;
+
 export function initializeOpenAI(): OpenAI {
   if (!process.env.OPENAI_API_KEY) {
     throw new Error('OPENAI_API_KEY 환경변수가 설정되지 않았습니다.');
@@ -26,6 +41,8 @@ export function initializeOpenAI(): OpenAI {
     // 호출부의 재시도와 타임아웃으로 요청 수명을 관리한다.
     maxRetries: 0,
     timeout: PIPELINE_CONFIG.STAGE_TIMEOUT,
+    fetch: openAIFetch,
+    fetchOptions: { dispatcher: openAIDispatcher },
   });
 }
 

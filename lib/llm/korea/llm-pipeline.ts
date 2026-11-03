@@ -1,4 +1,4 @@
-import { MarketAssessmentUnavailableError, type MarketDataQuality } from '@/lib/market-data/market-assessment-policy';
+import { MarketAssessmentUnavailableError, quoteQuality, type MarketDataQuality } from '@/lib/market-data/market-assessment-policy';
 import type OpenAI from 'openai';
 import { initializeOpenAI, logResponseUsage } from '../openai-client';
 import {
@@ -87,6 +87,27 @@ async function withTimeout<T>(promise: Promise<T>, ms: number, onTimeout?: () =>
     } finally {
         clearTimeout(timer);
     }
+}
+
+/**
+ * deadline 안에서 이번 시도에 줄 타임아웃
+ *
+ * WHY: 재시도(내부 5 × 외부 3)가 prepare deadline을 모르면 Actions 타임아웃까지 LLM만 돌다
+ * 결정적 폴백조차 저장하지 못한다(2026-11-03 primary Prepare 실패).
+ */
+export function deadlineAttemptTimeoutMs(stage: string, deadlineAt?: number): number {
+    if (deadlineAt === undefined) return PIPELINE_CONFIG.STAGE_TIMEOUT;
+    const remaining = deadlineAt - Date.now();
+    if (remaining < PIPELINE_CONFIG.DEADLINE_MIN_ATTEMPT_MS) {
+        throw new Error(`${stage} deadline 소진 (잔여 ${Math.max(0, Math.floor(remaining / 1000))}s)`);
+    }
+    return Math.min(PIPELINE_CONFIG.STAGE_TIMEOUT, remaining);
+}
+
+/** 재시도 대기도 deadline을 넘기지 않는다(남은 시간 − 최소 시도 시간까지만 대기). */
+export function deadlineRetryDelayMs(delayMs: number, deadlineAt?: number): number {
+    if (deadlineAt === undefined) return delayMs;
+    return Math.max(0, Math.min(delayMs, deadlineAt - Date.now() - PIPELINE_CONFIG.DEADLINE_MIN_ATTEMPT_MS));
 }
 
 /**
@@ -403,6 +424,12 @@ function resolveMarketAssessmentFromSnapshot(
     };
     const vix = usable('vix');
     const fx = usable('usdKrw');
+    // 표시 전용: 판정에서 제외된 stale 환율도 관측 시각을 밝혀 보여주고, conflict/invalid만 숨긴다.
+    const staleFx = !fx && evidence.dataQuality.indicators.usdKrw === 'stale' ? snapshot.indicators.usdKrw : null;
+    const snapshotNow = Date.parse(snapshot.fetchedAt);
+    const kosdaqFutures = snapshot.supplementary.kosdaq150Futures;
+    const kosdaqNight = quoteQuality(kosdaqFutures?.night, snapshotNow, true) === 'usable' ? kosdaqFutures!.night : null;
+    const kosdaqDay = quoteQuality(kosdaqFutures?.day, snapshotNow, true) === 'usable' ? kosdaqFutures!.day : null;
     const summary = [
         `[POLICY: ${evidence.policyVersion}] [SCORE: ${evidence.crashScore}/100; not a probability]`,
         `[SEVERITY: ${evidence.verdict === 'CRASH_ALERT' ? evidence.severity : 'none'}]`,
@@ -425,9 +452,12 @@ function resolveMarketAssessmentFromSnapshot(
             kospi_futures: evidence.dataQuality.indicators.nightFutures === 'usable' && snapshot.nightSession.kospiMiniFutures
                 ? `${snapshot.nightSession.kospiMiniFutures.changePct.toFixed(2)}% (야간; ${snapshot.nightSession.kospiMiniFutures.observedAt})`
                 : evidence.dataQuality.indicators.kospi200MiniFutures === 'usable' ? `${percent('kospi200MiniFutures')} (주간)` : '확인 불가',
-            kosdaq_futures: '확인 불가 (KOSDAQ 현물과 별개)',
+            kosdaq_futures: kosdaqNight
+                ? `${kosdaqNight.changePct.toFixed(2)}% (야간; ${kosdaqNight.observedAt})`
+                : kosdaqDay ? `${kosdaqDay.changePct.toFixed(2)}% (주간; ${kosdaqDay.observedAt})` : '확인 불가',
             vix: vix ? `${vix.price.toFixed(2)} (관측 ${vix.observedAt})` : '확인 불가',
-            usd_krw: fx ? `${fx.price.toFixed(2)}원 (${fx.changePct.toFixed(2)}%; 관측 ${fx.observedAt})` : '확인 불가',
+            usd_krw: fx ? `${fx.price.toFixed(2)}원 (${fx.changePct.toFixed(2)}%; 관측 ${fx.observedAt})`
+                : staleFx ? `${staleFx.price.toFixed(2)}원 (${staleFx.changePct.toFixed(2)}%; 관측 ${staleFx.observedAt}; 갱신 지연)` : '확인 불가',
         },
     };
 }
@@ -475,9 +505,10 @@ export async function executeMarketAssessment(): Promise<MarketAssessment> {
  * Stage 2: 분석 결과를 구조화된 JSON으로 변환
  *
  * @param assessmentSummary - 시장 평가 요약 (context 전달용)
+ * @param deadlineAt - 이 시각(epoch ms)을 넘겨 시도하지 않는다. 소진 시 throw → 호출부가 결정적 경고로 대체
  * @returns crash_alert JSON 문자열
  */
-export async function executeCrashAnalysisPipeline(assessmentSummary: string): Promise<string> {
+export async function executeCrashAnalysisPipeline(assessmentSummary: string, deadlineAt?: number): Promise<string> {
     if (!process.env.OPENAI_API_KEY) {
         throw new Error('OPENAI_API_KEY 환경 변수가 설정되지 않았습니다.');
     }
@@ -495,6 +526,7 @@ export async function executeCrashAnalysisPipeline(assessmentSummary: string): P
     let searchResult = '';
     for (let attempt = 1; attempt <= PIPELINE_CONFIG.STAGE_MAX_RETRY; attempt++) {
         try {
+            const attemptTimeout = deadlineAttemptTimeoutMs('폭락 분석 Stage 1', deadlineAt);
             const abortController = new AbortController();
             const response = await withTimeout(
                 client.responses.create({
@@ -504,7 +536,7 @@ export async function executeCrashAnalysisPipeline(assessmentSummary: string): P
                     max_output_tokens: OPENAI_API_CONFIG.MAX_OUTPUT_TOKENS,
                     tools: [{ type: 'web_search' }],
                 }, { signal: abortController.signal }),
-                PIPELINE_CONFIG.STAGE_TIMEOUT,
+                attemptTimeout,
                 () => abortController.abort()
             );
 
@@ -525,8 +557,9 @@ export async function executeCrashAnalysisPipeline(assessmentSummary: string): P
             console.warn(`⚠️ Stage 1 시도 ${attempt}/${PIPELINE_CONFIG.STAGE_MAX_RETRY} 실패: ${errorMsg}`);
 
             if (attempt === PIPELINE_CONFIG.STAGE_MAX_RETRY) throw error;
+            if (deadlineAt !== undefined && deadlineAt - Date.now() < PIPELINE_CONFIG.DEADLINE_MIN_ATTEMPT_MS) throw error;
 
-            const delay = PIPELINE_CONFIG.STAGE_INITIAL_RETRY_DELAY * Math.pow(2, attempt - 1);
+            const delay = deadlineRetryDelayMs(PIPELINE_CONFIG.STAGE_INITIAL_RETRY_DELAY * Math.pow(2, attempt - 1), deadlineAt);
             await new Promise((resolve) => setTimeout(resolve, delay));
         }
     }
@@ -540,6 +573,7 @@ export async function executeCrashAnalysisPipeline(assessmentSummary: string): P
 
     for (let attempt = 1; attempt <= PIPELINE_CONFIG.STAGE_MAX_RETRY; attempt++) {
         try {
+            const attemptTimeout = deadlineAttemptTimeoutMs('폭락 분석 Stage 2', deadlineAt);
             const abortController = new AbortController();
             const response = await withTimeout(
                 client.responses.create({
@@ -549,7 +583,7 @@ export async function executeCrashAnalysisPipeline(assessmentSummary: string): P
                     max_output_tokens: OPENAI_API_CONFIG.MAX_OUTPUT_TOKENS,
                     text: { format: { type: 'json_object' } },
                 }, { signal: abortController.signal }),
-                PIPELINE_CONFIG.STAGE_TIMEOUT,
+                attemptTimeout,
                 () => abortController.abort()
             );
 
@@ -575,8 +609,9 @@ export async function executeCrashAnalysisPipeline(assessmentSummary: string): P
             console.warn(`⚠️ Stage 2 시도 ${attempt}/${PIPELINE_CONFIG.STAGE_MAX_RETRY} 실패: ${errorMsg}`);
 
             if (attempt === PIPELINE_CONFIG.STAGE_MAX_RETRY) throw error;
+            if (deadlineAt !== undefined && deadlineAt - Date.now() < PIPELINE_CONFIG.DEADLINE_MIN_ATTEMPT_MS) throw error;
 
-            const delay = PIPELINE_CONFIG.STAGE_INITIAL_RETRY_DELAY * Math.pow(2, attempt - 1);
+            const delay = deadlineRetryDelayMs(PIPELINE_CONFIG.STAGE_INITIAL_RETRY_DELAY * Math.pow(2, attempt - 1), deadlineAt);
             await new Promise((resolve) => setTimeout(resolve, delay));
         }
     }

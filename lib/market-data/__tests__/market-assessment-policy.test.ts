@@ -162,7 +162,9 @@ describe('market risk v2: timestamps, missing data and warning policy', () => {
   });
   it.each([
     ['2026-09-23T15:50:00+09:00', 'usable'],
-    ['2026-09-23T16:30:00+09:00', 'stale'],
+    ['2026-09-23T16:30:00+09:00', 'usable'],
+    ['2026-09-23T17:01:00+09:00', 'usable'],
+    ['2026-09-23T17:02:00+09:00', 'stale'],
     ['2026-09-23T23:00:00+09:00', 'stale'],
     ['2026-09-24T06:00:00+09:00', 'stale'],
   ] as const)('uses a rolling FX quote age at %s', (time, expected) => {
@@ -175,6 +177,14 @@ describe('market risk v2: timestamps, missing data and warning policy', () => {
       expect(quoteQuality(snapshot.indicators[key], now, 'fx')).toBe(expected);
     }
     expect(assessMarketDataQuality(snapshot, now).quality.indicators).toMatchObject({ usdKrw: expected, usdJpy: expected });
+  });
+  it.each([
+    ['backup Prepare reads the last weekday quote 52 minutes later', '2026-11-03T06:03:00+09:00', '2026-11-03T06:55:00+09:00', 'usable'],
+    ['Monday Prepare reads a Friday quote across the weekend', '2026-10-30T18:18:00+09:00', '2026-11-02T06:11:00+09:00', 'stale'],
+  ] as const)('FX freshness: %s', (_case, observedAt, time, expected) => {
+    const now = Date.parse(time);
+    const q = { ...riskQuote('USD/KRW'), observedAt, fetchedAt: time };
+    expect(quoteQuality(q, now, 'fx')).toBe(expected);
   });
   it('keeps future and old-fetch checks for FX quotes', () => {
     const now = Date.parse('2026-09-23T15:50:00+09:00');

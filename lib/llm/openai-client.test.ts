@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { Agent } from 'undici';
 import { OPENAI_API_CONFIG, PIPELINE_CONFIG } from './_config/pipeline-config';
 
 const { mockCreateResponse, mockClient } = vi.hoisted(() => ({
@@ -28,7 +29,10 @@ describe('OpenAI generateText', () => {
 
   it('returns output_text and records usage with SDK retries disabled', async () => {
     expect(await generateText({ prompt: '분석하세요' })).toBe('완료된 응답');
-    expect(mockClient).toHaveBeenCalledWith({ apiKey: 'test-key', maxRetries: 0, timeout: PIPELINE_CONFIG.STAGE_TIMEOUT });
+    expect(mockClient).toHaveBeenCalledWith({
+      apiKey: 'test-key', maxRetries: 0, timeout: PIPELINE_CONFIG.STAGE_TIMEOUT,
+      fetch: expect.any(Function), fetchOptions: { dispatcher: expect.any(Agent) },
+    });
     expect(mockCreateResponse).toHaveBeenCalledExactlyOnceWith({
       model: OPENAI_API_CONFIG.MODEL, input: '분석하세요',
       max_output_tokens: OPENAI_API_CONFIG.MAX_OUTPUT_TOKENS,

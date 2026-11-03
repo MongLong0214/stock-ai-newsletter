@@ -3,8 +3,17 @@ import { isKoreanTradingDate } from '@/lib/tli/trading-calendar';
 import { getUsSessionCloseTime, hasUsMarketCalendar, isUsTradingDate } from './us-market-calendar';
 import type { MarketAssessmentSnapshot, MarketIndicatorSnapshot } from './kis-market-assessment';
 
-export const MARKET_RISK_POLICY_VERSION = '2026-10-30.v4';
+export const MARKET_RISK_POLICY_VERSION = '2026-11-03.v5';
 export const MAX_MARKET_OBSERVATION_AGE_MS = 10 * 60_000;
+/**
+ * FX(USD/KRW·USD/JPY) 관측 허용 시간.
+ * WHY: Google Finance USD/KRW는 평일 06:00~06:15 KST(21:00~21:15Z)에 마지막으로 갱신된 뒤 한국 장 전까지 멈춘다.
+ * 45분 창이면 06:50 backup Prepare가 같은 최신 시세를 41~52분 경과로 stale 처리했다(10/12~11/3 실측, 11/3 52분).
+ * 90분은 backup 지연까지 덮고, 주말을 넘긴 금요일 시세(8시간+)는 그대로 stale로 남긴다.
+ */
+export const FX_MAX_OBSERVATION_AGE_MS = 90 * 60_000;
+/** 두 FX 소스가 모두 usable일 때 이 시간 안의 관측을 우선한다(창 확대 전 v3 선택 동작 유지). */
+export const FX_PREFERRED_OBSERVATION_AGE_MS = 45 * 60_000;
 export type MarketRiskVerdict = 'NORMAL' | 'CRASH_ALERT' | 'UNAVAILABLE';
 export type QuoteQuality = 'usable' | 'missing' | 'invalid' | 'undated' | 'stale' | 'conflict' | 'calendar_unknown';
 export interface MarketDataQuality {
@@ -87,7 +96,7 @@ export function quoteQuality(indicator: MarketIndicatorSnapshot | null | undefin
   if (!Number.isFinite(now) || !Number.isFinite(fetched) || observed > now + 5 * 60_000 || fetched > now + 5 * 60_000) return 'invalid';
   if (korea === false && !hasUsMarketCalendar(localDate(now, 'America/New_York'))) return 'calendar_unknown';
   if (now - fetched > MAX_MARKET_OBSERVATION_AGE_MS
-    || (korea === 'fx' ? now - observed > 45 * 60_000 : isStale(observed, now, korea, indicator.session))) return 'stale';
+    || (korea === 'fx' ? now - observed > FX_MAX_OBSERVATION_AGE_MS : isStale(observed, now, korea, indicator.session))) return 'stale';
   return 'usable';
 }
 

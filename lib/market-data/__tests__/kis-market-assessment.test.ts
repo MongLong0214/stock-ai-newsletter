@@ -106,6 +106,31 @@ describe('market source acquisition v2', () => {
   });
   afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks(); vi.unstubAllGlobals(); vi.unstubAllEnvs(); });
 
+  it('collects KOSDAQ150 day and night futures for display without touching risk coverage', async () => {
+    const base = providerMock();
+    const fetch = vi.fn<typeof globalThis.fetch>((url, init) => {
+      const u = new URL(String(url));
+      if (u.pathname.endsWith('/display-board-futures') && u.searchParams.get('FID_COND_MRKT_CLS_CODE') === 'KQI') {
+        return Promise.resolve(json({ rt_cd: '0', output: [
+          { futs_shrn_iscd: 'KQNEXT', hts_kor_isnm: '코스닥150F next', futs_prpr: '100', futs_prdy_vrss: '0', futs_prdy_ctrt: '0', hts_rmnn_dynu: '30' },
+          { futs_shrn_iscd: 'KQNEAR', hts_kor_isnm: '코스닥150F near', futs_prpr: '100', futs_prdy_vrss: '0', futs_prdy_ctrt: '0', hts_rmnn_dynu: '1' },
+        ] }));
+      }
+      return base(url, init);
+    });
+    vi.stubGlobal('fetch', fetch);
+    const snapshot = await getKisMarketAssessmentSnapshot();
+    expect(snapshot.supplementary.kosdaq150Futures?.day).toMatchObject({ code: 'KQNEAR', label: 'KOSDAQ150 futures', session: 'day' });
+    expect(snapshot.supplementary.kosdaq150Futures?.night).toMatchObject({
+      code: 'KQNEAR', label: 'KOSDAQ150 futures (night)', session: 'night', observedAt: '2026-09-08T21:00:00.000Z',
+    });
+    expect(snapshot.indicators.kospi200MiniFutures?.code).toBe('NEAR');
+    expect(Object.keys(evaluateMarketAssessmentSnapshot(snapshot).dataQuality.indicators)).not.toContain('kosdaq150Futures');
+    const boardClasses = fetch.mock.calls.map(([url]) => new URL(String(url)))
+      .filter(url => url.pathname.endsWith('/display-board-futures')).map(url => url.searchParams.get('FID_COND_MRKT_CLS_CODE'));
+    expect(boardClasses).toEqual(['MKI', 'KQI']);
+  });
+
   it('collects timestamped day and night mini futures from the selected front month', async () => {
     const fetch = providerMock();
     vi.stubGlobal('fetch', fetch);
@@ -484,6 +509,23 @@ describe('market source acquisition v2', () => {
     const quote = (await getKisMarketAssessmentSnapshot()).indicators.usdKrw;
     expect(quote?.source).toBe('NAVER_FINANCE');
     expect(quote?.observedAt).toBe('2026-09-23T07:25:00.000Z');
+  });
+  it('prefers a fresh Naver FX quote over a usable but older Serp quote instead of flagging a conflict', async () => {
+    vi.setSystemTime(new Date('2026-09-23T16:30:00+09:00'));
+    const base = providerMock({ serpFinance: { 'USD-KRW': { summary: {
+      price: '1358.51', extensions: ['Sep 23, 6:40:00 AM UTC'], price_movement: { value: 0, percentage: 0 },
+    } } } });
+    vi.stubGlobal('fetch', vi.fn<typeof fetch>((url, init) => {
+      const u = new URL(String(url));
+      if (u.hostname === 'finance.naver.com' && u.searchParams.get('marketindexCd') === 'FX_USDKRW') {
+        return Promise.resolve(new Response('<p class="no_today"><em><span class="no1"></span><span class="no3"></span><span class="no7"></span><span class="no2"></span></em></p><p class="no_exday"><em><span class="no0"></span></em><em>(0%)</em></p><div class="exchange_info"><span class="date">2026.09.23 16:10</span></div>'));
+      }
+      return base(url, init);
+    }));
+    const snapshot = await getKisMarketAssessmentSnapshot();
+    expect(snapshot.indicators.usdKrw).toMatchObject({ source: 'NAVER_FINANCE', price: 1372, observedAt: '2026-09-23T07:10:00.000Z' });
+    expect(snapshot.indicators.usdKrw?.sourceConflict).toBeFalsy();
+    expect(evaluateMarketAssessmentSnapshot(snapshot).dataQuality.indicators.usdKrw).toBe('usable');
   });
   it('keeps an FX conflict when a future quote has no price continuity with a usable older quote', async () => {
     vi.setSystemTime(new Date('2026-09-23T07:30:00.000Z'));

@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { PRODUCTION_STRATEGY } from '@/scripts/stock-picks/production-strategy'
 
 import { siteConfig } from '@/lib/constants/seo/config'
+import { buildDeterministicCrashAlert } from '@/lib/llm/korea/crash-alert'
 import { MarketAssessmentUnavailableError } from '@/lib/market-data/market-assessment-policy'
 
 const mocks = vi.hoisted(() => ({
@@ -41,6 +42,8 @@ vi.mock('@/scripts/stock-picks/pick-snapshots', () => ({
 }))
 
 import {
+  CRASH_ANALYSIS_DEADLINE_RESERVE_MS,
+  DEFAULT_PREPARE_DEADLINE_MINUTES,
   parsePrepareNewsletterCliArgs,
   prepareNewsletter,
   resolveNewsletterAnalysis,
@@ -286,6 +289,26 @@ describe('prepare-newsletter stock-pick wiring', () => {
     expect(collectDaily).not.toHaveBeenCalled()
   })
 
+  it('bounds crash analysis so the post-save daily backfill keeps its budget', async () => {
+    vi.useFakeTimers({ now: new Date('2026-11-02T21:11:00Z'), toFake: ['Date'] })
+    vi.spyOn(console, 'log').mockImplementation(() => {})
+    const getLlmAnalysis = vi.fn(async () => ({ geminiAnalysis: '{"type":"crash_alert"}' }))
+
+    await resolveNewsletterAnalysis({
+      assessMarket: async () => ({ ...NORMAL_ASSESSMENT, verdict: 'CRASH_ALERT' }),
+      collectDaily: vi.fn(),
+      generateCodePicks: vi.fn(),
+      getLlmAnalysis,
+    })
+
+    const prepareDeadlineAt = Date.now() + DEFAULT_PREPARE_DEADLINE_MINUTES * 60_000
+    expect(getLlmAnalysis).toHaveBeenCalledExactlyOnceWith({
+      marketAssessment: expect.objectContaining({ verdict: 'CRASH_ALERT' }),
+      crashDeadlineAt: prepareDeadlineAt - CRASH_ANALYSIS_DEADLINE_RESERVE_MS,
+    })
+    vi.useRealTimers()
+  })
+
   it('parses target date, force, and dispatch-id CLI flags', () => {
     expect(parsePrepareNewsletterCliArgs([
       '--dry-run',
@@ -398,6 +421,18 @@ describe('prepare-newsletter stock-pick wiring', () => {
       expect(mocks.getLlmAnalysis.mock.invocationCallOrder[0]).toBeLessThan(mocks.refreshStockMaster.mock.invocationCallOrder[0]!)
     }
     expect(findSummary(logSpy).warnings).toEqual([])
+  })
+
+  it('flags a crash newsletter published from the deterministic fallback alert', async () => {
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    const assessment = { ...NORMAL_ASSESSMENT, verdict: 'CRASH_ALERT' as const }
+    mocks.assessMarket.mockResolvedValue(assessment)
+    mocks.getLlmAnalysis.mockResolvedValue({ geminiAnalysis: buildDeterministicCrashAlert(assessment) })
+
+    expect(await runPrepareNewsletterCli([
+      '--dry-run', `--target-date=${TARGET_DATE}`, '--simulate-today=2026-08-31',
+    ])).toBe(0)
+    expect(findSummary(logSpy).warnings).toContain('CRASH_ALERT 상세 분석 실패/예산 소진 — 검증된 숫자 기반 기본 경고로 발행')
   })
 
   it('skips a non-trading target date unless force is set', async () => {

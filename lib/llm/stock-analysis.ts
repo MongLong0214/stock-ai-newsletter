@@ -12,6 +12,8 @@ export interface StockAnalysisResult {
 export interface StockAnalysisOptions {
   /** prepare 단계에서 이미 끝낸 시장평가를 재사용해 중복 평가를 막는다. */
   readonly marketAssessment?: MarketAssessment;
+  /** CRASH_ALERT 상세 분석을 이 시각(epoch ms)까지만 시도하고, 넘으면 결정적 경고로 대체한다. */
+  readonly crashDeadlineAt?: number;
 }
 
 /**
@@ -29,7 +31,7 @@ export async function getStockAnalysis(options: StockAnalysisOptions = {}): Prom
 
   const startTime = Date.now();
   try {
-    const geminiAnalysis = await getLlmRecommendation(options.marketAssessment);
+    const geminiAnalysis = await getLlmRecommendation(options.marketAssessment, options.crashDeadlineAt);
     const endTime = Date.now();
     const duration = ((endTime - startTime) / 1000).toFixed(2);
 

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 const { crashPipeline, stockPipeline } = vi.hoisted(() => ({ crashPipeline: vi.fn(), stockPipeline: vi.fn() }));
-vi.mock('./llm-pipeline', () => ({ executeCrashAnalysisPipeline: crashPipeline, executeLlmPipeline: stockPipeline, executeMarketAssessment: vi.fn() }));
+vi.mock('./llm-pipeline', () => ({ executeCrashAnalysisPipeline: crashPipeline, executeLlmPipeline: stockPipeline, executeMarketAssessment: vi.fn(), deadlineRetryDelayMs: (ms: number) => ms }));
 vi.mock('../_config/pipeline-config', () => ({ PIPELINE_CONFIG: { OUTER_MAX_RETRY: 1, OUTER_BASE_RETRY_DELAY: 0, OUTER_MAX_RETRY_DELAY: 0 } }));
 import { getLlmRecommendation } from './llm-recommendation';
 import { buildDeterministicCrashAlert } from './crash-alert';
@@ -18,6 +18,14 @@ describe('crash alert delivery does not depend on generative text', () => {
     expect(alert.market_overview).toEqual(assessment.marketOverview);
     expect(alert.historical_context).toContain('제공하지 않습니다');
     expect(stockPipeline).not.toHaveBeenCalled();
+  });
+  it('passes the prepare crash deadline to the analysis and falls back when it is spent', async () => {
+    vi.stubEnv('OPENAI_API_KEY', 'test');
+    crashPipeline.mockRejectedValue(new Error('폭락 분석 Stage 1 deadline 소진 (잔여 0s)'));
+    const alert = JSON.parse(await getLlmRecommendation(assessment, 1_700_000_000_000));
+    expect(crashPipeline).toHaveBeenCalledExactlyOnceWith(assessment.summary, 1_700_000_000_000);
+    expect(alert.type).toBe('crash_alert');
+    expect(alert.market_overview).toEqual(assessment.marketOverview);
   });
   it('produces a base warning even without LLM credentials', async () => {
     vi.stubEnv('OPENAI_API_KEY', '');

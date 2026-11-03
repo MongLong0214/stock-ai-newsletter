@@ -14,10 +14,10 @@ vi.mock('../_config/pipeline-config', async importOriginal => {
   const actual = await importOriginal<typeof import('../_config/pipeline-config')>();
   return { ...actual, PIPELINE_CONFIG: {
     ...actual.PIPELINE_CONFIG, STAGE_MAX_RETRY: 2,
-    STAGE_INITIAL_RETRY_DELAY: 1, STAGE_DELAY: 1, STAGE_TIMEOUT: 100,
+    STAGE_INITIAL_RETRY_DELAY: 1, STAGE_DELAY: 1, STAGE_TIMEOUT: 100, DEADLINE_MIN_ATTEMPT_MS: 10,
   } };
 });
-import { executeCrashAnalysisPipeline, executeLlmPipeline } from './llm-pipeline';
+import { deadlineRetryDelayMs, executeCrashAnalysisPipeline, executeLlmPipeline } from './llm-pipeline';
 
 const ANALYSIS = '검증된 시세와 출처를 바탕으로 작성한 분석 근거입니다. '.repeat(20);
 const STOCKS = JSON.stringify([1, 2, 3].map(rank => ({
@@ -46,7 +46,7 @@ describe('OpenAI analysis pipelines', () => {
     for (let i = 0; i < 6; i++) mockCreateResponse.mockResolvedValueOnce(response());
     mockCreateResponse.mockResolvedValueOnce(response(`결과:\n\`\`\`json\n${STOCKS}\n\`\`\``));
     expect(JSON.parse(await executeLlmPipeline())).toEqual(JSON.parse(STOCKS));
-    expect(mockClient).toHaveBeenCalledExactlyOnceWith({ apiKey: 'test-key', maxRetries: 0, timeout: 100 });
+    expect(mockClient).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ apiKey: 'test-key', maxRetries: 0, timeout: 100 }));
     expect(mockCreateResponse).toHaveBeenCalledTimes(7);
     for (const [request, options] of mockCreateResponse.mock.calls) {
       expect(request).toEqual({
@@ -120,5 +120,28 @@ describe('OpenAI analysis pipelines', () => {
     expect(mockCreateResponse).toHaveBeenCalledTimes(2);
     expect(mockCreateResponse.mock.calls.every(call => call[1].signal.aborted)).toBe(true);
     expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it('caps crash attempts at the deadline and stops retrying once it is spent', async () => {
+    vi.useFakeTimers();
+    mockCreateResponse.mockImplementation(() => new Promise(() => {}));
+    const rejected = expect(executeCrashAnalysisPipeline('위험 경고', Date.now() + 50)).rejects.toThrow('Timeout after 50ms');
+    await vi.advanceTimersByTimeAsync(60);
+    await rejected;
+    expect(mockCreateResponse).toHaveBeenCalledTimes(1);
+    expect(mockCreateResponse.mock.calls[0][1].signal.aborted).toBe(true);
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it('caps retry backoff at the time left before the deadline', () => {
+    vi.useFakeTimers({ now: 1_000_000 });
+    expect(deadlineRetryDelayMs(80_000)).toBe(80_000);
+    expect(deadlineRetryDelayMs(80_000, 1_000_000 + 30_000)).toBe(30_000 - 10);
+    expect(deadlineRetryDelayMs(80_000, 1_000_000 + 5)).toBe(0);
+  });
+
+  it('does not call the API when the crash deadline is already spent', async () => {
+    await expect(executeCrashAnalysisPipeline('위험 경고', Date.now() + 5)).rejects.toThrow('deadline 소진');
+    expect(mockCreateResponse).not.toHaveBeenCalled();
   });
 });
