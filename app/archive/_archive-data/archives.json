@@ -2,6 +2,74 @@
   "newsletters": [
     {
       "type": "stock",
+      "date": "2026-11-05",
+      "stocks": [
+        {
+          "ticker": "KOSDAQ:242040",
+          "name": "나무AX",
+          "close_price": 2410,
+          "rationale": "2026-11-04 종가 2,410원|전일 대비 +0.6% 상승|시가 대비 0.0% 보합봉|20일선 2,732원·종가 11.8% 아래|60일선 3,094원·종가 22.1% 아래|최근 5거래일 종가 -9.6%|최근 20거래일 종가 -26.2%|20거래일 KOSPI 대비 -8.1%p|직전 20거래일 장중 고점 3,435원까지 +42.5%|직전 60거래일 최고 종가 3,910원까지 +62.2%|거래량 20일 평균의 0.85배|최근 60거래일 중 거래량 상위 75.8%|당일 범위 종가 57.9%·윗꼬리 42.1%|ATR14 평균 변동폭 6.9%·약 166원(갭 포함)|RSI14 29.3 약세|MACD 모멘텀 -0.97%(종가 대비)|20일 평균 거래대금 추정 5.2억원|52주(252거래일) 종가 범위 14.6% 위치(저점0·고점100)",
+          "signals": {
+            "trend_score": 2,
+            "momentum_score": 38,
+            "volume_score": 31,
+            "volatility_score": 57,
+            "pattern_score": 11,
+            "sentiment_score": 25,
+            "overall_score": 83
+          },
+          "selection": {
+            "strategy": "compositeUtility",
+            "rank": 1,
+            "objective": "compositeUtility"
+          }
+        },
+        {
+          "ticker": "KOSDAQ:126700",
+          "name": "하이비젼시스템",
+          "close_price": 9280,
+          "rationale": "2026-11-04 종가 9,280원|전일 대비 +0.1% 상승|시가 대비 -0.3% 음봉|20일선 10,971원·종가 15.4% 아래|60일선 11,124원·종가 16.6% 아래|최근 5거래일 종가 -13.6%|최근 20거래일 종가 -24.2%|20거래일 KOSPI 대비 -6.1%p|직전 20거래일 장중 고점 12,740원까지 +37.3%|직전 60거래일 최고 종가 12,500원까지 +34.7%|거래량 20일 평균의 0.83배|최근 60거래일 중 거래량 상위 52.5%|당일 범위 종가 62.9%·윗꼬리 32.3%|ATR14 평균 변동폭 6.1%·약 566원(갭 포함)|RSI14 28.1 약세|MACD 모멘텀 -2.33%(종가 대비)|20일 평균 거래대금 추정 7.8억원|52주(252거래일) 종가 범위 6.6% 위치(저점0·고점100)",
+          "signals": {
+            "trend_score": 7,
+            "momentum_score": 31,
+            "volume_score": 41,
+            "volatility_score": 54,
+            "pattern_score": 18,
+            "sentiment_score": 22,
+            "overall_score": 82
+          },
+          "selection": {
+            "strategy": "compositeUtility",
+            "rank": 2,
+            "objective": "compositeUtility"
+          }
+        },
+        {
+          "ticker": "KOSDAQ:406820",
+          "name": "뷰티스킨",
+          "close_price": 1743,
+          "rationale": "2026-11-04 종가 1,743원|전일 대비 -1.2% 하락|시가 대비 +0.4% 양봉|20일선 2,093원·종가 16.7% 아래|60일선 2,102원·종가 17.1% 아래|최근 5거래일 종가 -9.0%|최근 20거래일 종가 -28.1%|20거래일 KOSPI 대비 -10.0%p|직전 20거래일 장중 고점 2,835원까지 +62.7%|직전 60거래일 최고 종가 2,625원까지 +50.6%|거래량 20일 평균의 0.20배|최근 60거래일 중 거래량 상위 90.8%|당일 범위 종가 47.3%·윗꼬리 52.7%|ATR14 평균 변동폭 9.3%·약 163원(갭 포함)|RSI14 32.8 약세|MACD 모멘텀 -2.71%(종가 대비)|20일 평균 거래대금 추정 10.3억원|52주(252거래일) 종가 범위 3.5% 위치(저점0·고점100)",
+          "signals": {
+            "trend_score": 2,
+            "momentum_score": 37,
+            "volume_score": 27,
+            "volatility_score": 64,
+            "pattern_score": 30,
+            "sentiment_score": 18,
+            "overall_score": 81
+          },
+          "selection": {
+            "strategy": "compositeUtility",
+            "rank": 3,
+            "objective": "compositeUtility"
+          }
+        }
+      ],
+      "sentAt": "2026-11-04T22:31:17.107+00:00",
+      "subscriberCount": 330
+    },
+    {
+      "type": "stock",
       "date": "2026-11-04",
       "stocks": [
         {
@@ -13854,5 +13922,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-11-03T22:32:16.477Z"
+  "lastUpdated": "2026-11-04T22:32:26.166Z"
 }
