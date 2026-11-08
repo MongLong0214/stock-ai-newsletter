@@ -1,6 +1,74 @@
 {
   "newsletters": [
     {
+      "type": "stock",
+      "date": "2026-11-09",
+      "stocks": [
+        {
+          "ticker": "KOSDAQ:123330",
+          "name": "제닉",
+          "close_price": 14870,
+          "rationale": "2026-11-06 종가 14,870원|전일 대비 -4.7% 하락|시가 대비 +2.8% 양봉|20일선 17,163원·종가 13.4% 아래|60일선 24,299원·종가 38.8% 아래|최근 5거래일 종가 -3.9%|최근 20거래일 종가 -31.8%|20거래일 KOSPI 대비 -8.2%p|직전 20거래일 장중 고점 22,400원까지 +50.6%|직전 60거래일 최고 종가 36,900원까지 +148.2%|거래량 20일 평균의 1.09배|최근 60거래일 중 거래량 상위 69.2%|당일 범위 종가 57.6%·윗꼬리 42.4%|ATR14 평균 변동폭 7.7%·약 1,152원(갭 포함)|RSI14 23.1 약세|MACD 모멘텀 +1.01%(종가 대비)|20일 평균 거래대금 추정 22.9억원|52주(252거래일) 종가 범위 0.0% 위치(저점0·고점100)",
+          "signals": {
+            "trend_score": 1,
+            "momentum_score": 53,
+            "volume_score": 30,
+            "volatility_score": 60,
+            "pattern_score": 18,
+            "sentiment_score": 17,
+            "overall_score": 87
+          },
+          "selection": {
+            "strategy": "compositeUtility",
+            "rank": 1,
+            "objective": "compositeUtility"
+          }
+        },
+        {
+          "ticker": "KOSDAQ:394280",
+          "name": "오픈엣지테크놀로지",
+          "close_price": 5780,
+          "rationale": "2026-11-06 종가 5,780원|전일 대비 -6.5% 하락|시가 대비 +1.6% 양봉|20일선 7,624원·종가 24.2% 아래|60일선 8,728원·종가 33.8% 아래|최근 5거래일 종가 -17.9%|최근 20거래일 종가 -44.4%|20거래일 KOSPI 대비 -20.8%p|직전 20거래일 장중 고점 10,480원까지 +81.3%|직전 60거래일 최고 종가 10,590원까지 +83.2%|거래량 20일 평균의 1.35배|최근 60거래일 중 거래량 상위 15.8%|당일 범위 종가 83.9%·윗꼬리 16.1%|ATR14 평균 변동폭 9.3%·약 538원(갭 포함)|RSI14 24.5 약세|MACD 모멘텀 -2.73%(종가 대비)|20일 평균 거래대금 추정 7.2억원|52주(252거래일) 종가 범위 0.0% 위치(저점0·고점100)",
+          "signals": {
+            "trend_score": 2,
+            "momentum_score": 35,
+            "volume_score": 59,
+            "volatility_score": 64,
+            "pattern_score": 18,
+            "sentiment_score": 17,
+            "overall_score": 85
+          },
+          "selection": {
+            "strategy": "compositeUtility",
+            "rank": 2,
+            "objective": "compositeUtility"
+          }
+        },
+        {
+          "ticker": "KOSDAQ:019990",
+          "name": "에너토크",
+          "close_price": 3880,
+          "rationale": "2026-11-06 종가 3,880원|전일 대비 -3.5% 하락|시가 대비 +5.1% 양봉|20일선 4,600원·종가 15.7% 아래|60일선 4,979원·종가 22.1% 아래|최근 5거래일 종가 -7.7%|최근 20거래일 종가 -26.8%|20거래일 KOSPI 대비 -3.2%p|직전 20거래일 장중 고점 6,040원까지 +55.7%|직전 60거래일 최고 종가 5,710원까지 +47.2%|거래량 20일 평균의 0.57배|최근 60거래일 중 거래량 상위 22.5%|당일 범위 종가 68.4%·윗꼬리 31.6%|ATR14 평균 변동폭 9.0%·약 349원(갭 포함)|RSI14 31.3 약세|MACD 모멘텀 -1.85%(종가 대비)|20일 평균 거래대금 추정 6.4억원|52주(252거래일) 종가 범위 0.0% 위치(저점0·고점100)",
+          "signals": {
+            "trend_score": 2,
+            "momentum_score": 38,
+            "volume_score": 72,
+            "volatility_score": 63,
+            "pattern_score": 18,
+            "sentiment_score": 17,
+            "overall_score": 85
+          },
+          "selection": {
+            "strategy": "compositeUtility",
+            "rank": 3,
+            "objective": "compositeUtility"
+          }
+        }
+      ],
+      "sentAt": "2026-11-08T22:31:09.813+00:00",
+      "subscriberCount": 330
+    },
+    {
       "type": "crash_alert",
       "date": "2026-11-06",
       "crashAlert": {
@@ -13969,5 +14037,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-11-05T22:32:01.526Z"
+  "lastUpdated": "2026-11-08T22:32:08.970Z"
 }
