@@ -119,3 +119,53 @@ export async function generateText(options: GenerateTextOptions): Promise<string
 
   return response.output_text || '';
 }
+
+interface GenerateImageOptions {
+  prompt: string;
+  model: string;
+  size: `${number}x${number}`;
+  quality: 'low' | 'medium' | 'high';
+  timeout: number;
+}
+
+/**
+ * 이미지 1장 생성 → WebP 바이트.
+ *
+ * 텍스트와 같은 이유로 타임아웃 시 요청을 실제로 끊는다(과금 방지). 재시도와 모델 폴백은
+ * 호출부가 정한다 — 같은 프롬프트를 여기서 다시 보내면 실패 원인(권한·정책)과 무관하게
+ * 비용만 두 배가 된다.
+ */
+export async function generateImage(options: GenerateImageOptions): Promise<Buffer> {
+  const { prompt, model, size, quality, timeout } = options;
+  const client = initializeOpenAI();
+  const controller = new AbortController();
+
+  const response = await withTimeout(
+    client.images.generate({
+      model,
+      prompt,
+      size: size as NonNullable<Parameters<typeof client.images.generate>[0]['size']>,
+      quality,
+      n: 1,
+      output_format: 'webp',
+      output_compression: 85,
+    }, { signal: controller.signal }),
+    timeout,
+    controller,
+  );
+
+  const usage = 'usage' in response ? response.usage : undefined;
+  console.log(JSON.stringify({
+    event: 'llm_usage',
+    provider: 'openai',
+    model,
+    stage: 'generateImage',
+    promptTokenCount: usage?.input_tokens ?? null,
+    candidatesTokenCount: usage?.output_tokens ?? null,
+    totalTokenCount: usage?.total_tokens ?? null,
+  }));
+
+  const b64 = 'data' in response ? response.data?.[0]?.b64_json : undefined;
+  if (!b64) throw new Error(`이미지 응답에 데이터가 없습니다 (${model})`);
+  return Buffer.from(b64, 'base64');
+}

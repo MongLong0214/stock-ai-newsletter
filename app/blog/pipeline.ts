@@ -17,9 +17,12 @@ import { scrapeSearchResults, analyzeCompetitors, closeBrowser, getMetrics, rese
 import { generateBlogContent, generateSlug, calculateQualityScore, validateContent } from './_services/content-generator';
 import { humanizeGeneratedContent } from './_services/humanizer';
 import { checkYmyl } from './_services/ymyl-gate';
-import { countPublishedToday, findBlogPostStatus, saveBlogPost, publishBlogPost } from './_services/blog-repository';
+import { blogPostExists, countPublishedToday, findBlogPostStatus, saveBlogPost, publishBlogPost } from './_services/blog-repository';
 import { generateKeywords } from './_services/keyword-generator';
-import { CONTENT_CONFIG, HUMANIZE_CONFIG, KEYWORD_CONFIG, PIPELINE_CONFIG } from './_config/pipeline-config';
+import { alignMarketToBody, buildMarketContext, formatMarketDataForPrompt } from './_services/market-data';
+import { createPostVisuals, type PostVisualsResult } from './_services/post-visuals';
+import { removeBlogImages } from './_services/image-storage';
+import { CONTENT_CONFIG, HUMANIZE_CONFIG, KEYWORD_CONFIG, PIPELINE_CONFIG, VISUAL_CONFIG } from './_config/pipeline-config';
 import type { BlogPostCreateInput, PipelineResult, PipelineMetrics, CompetitorAnalysis, GeneratedContent } from './_types/blog';
 
 // --- 상수 ---
@@ -34,10 +37,20 @@ const TIMEOUTS = {
   // 안쪽 AbortSignal 취소가 먼저 실행돼 실제 실패 사유가 남도록 15초 여유를 둔다.
   humanize: HUMANIZE_CONFIG.timeout + 15_000,
   save: 30_000,
+  marketData: VISUAL_CONFIG.marketDataTimeout,
   // 안쪽 예산(KEYWORD_CONFIG.budget)이 먼저 끝나 모은 키워드를 돌려주도록 DB 조회·검색량 게이트 여유를 둔다.
   keyword: KEYWORD_CONFIG.budget + 120_000,
   selection: 120_000,
 };
+
+/**
+ * 시각자료는 run 시작 후 이 시각까지만 쓴다. 스크립트 한도 75분(scripts/generate-blog-post.ts) 전에
+ * YMYL 재검사·저장·발행이 끝나야 한다 — 시각자료 때문에 글 자체를 잃으면 안 된다.
+ */
+const VISUALS_RUN_CUTOFF_MS = 68 * 60_000;
+/** 이보다 남은 시간이 적으면 시각자료를 시작하지 않는다 */
+const VISUALS_MIN_BUDGET_MS = 60_000;
+let runStartedAt = Date.now();
 
 // 윤문 서킷브레이커: LLM 윤문 서비스가 저하되면(연속 타임아웃/에러) 남은 초안은 윤문을 생략해
 // 초당 낭비를 막는다. run 단위 상태 — generateWithDynamicKeywords 시작 시 리셋.
@@ -88,6 +101,8 @@ type DraftSuccess = {
   blogPost: BlogPostCreateInput;
   metrics: PipelineMetrics;
   qualityScore: number;
+  /** 본문에 실린 스토리지 이미지 — 저장 실패 시 정리한다 */
+  imagePaths: readonly string[];
   /** 네이버 실측 월간 검색량 — 발행 우선순위 정렬 기준 */
   searchVolume?: number;
 };
@@ -103,6 +118,25 @@ type DraftResult = DraftSuccess | DraftFailure;
 // --- 유틸 ---
 
 const err = (e: unknown) => e instanceof Error ? e.message : String(e);
+
+/**
+ * 저장되지 않은 초안의 이미지를 지운다 — 스토리지에 고아 파일을 남기지 않는다.
+ * 행이 있거나 존재 여부를 모르면 지우지 않는다(커밋된 글의 이미지가 깨지는 쪽이 더 나쁘다).
+ * 저장이 타임아웃으로 끝났으면 취소되지 않은 upsert가 뒤늦게 커밋될 수 있으므로 지우지 않는다.
+ */
+async function discardImages(draft: { imagePaths: readonly string[]; blogPost?: { slug: string } }, cause?: unknown): Promise<void> {
+  if (draft.imagePaths.length === 0) return;
+  if (cause !== undefined && err(cause).includes('타임아웃')) {
+    console.warn(`[Pipeline] 저장 타임아웃 — 늦은 커밋 가능성 때문에 이미지 ${draft.imagePaths.length}개를 남긴다`);
+    return;
+  }
+  try {
+    if (draft.blogPost && await blogPostExists(draft.blogPost.slug)) return;
+    await removeBlogImages(draft.imagePaths);
+  } catch (e) {
+    console.warn(`[Pipeline] 이미지 정리 생략: ${err(e)}`);
+  }
+}
 
 async function withTimeout<R>(p: Promise<R>, ms: number, label: string): Promise<R> {
   let t: NodeJS.Timeout;
@@ -183,6 +217,18 @@ function resolveHumanized(
   return { ...humanized, qualityScore: after };
 }
 
+/** YMYL 게이트 검사 표면 */
+function ymylSurface(content: GeneratedContent) {
+  return {
+    body: content.content,
+    description: content.description,
+    faqItems: content.faqItems,
+    metaDescription: content.metaDescription,
+    metaTitle: content.metaTitle,
+    title: content.title,
+  };
+}
+
 // --- Phase 2: 단일 초안 생성 (저장 없이) ---
 
 async function generateDraft(keyword: string, type: 'comparison' | 'guide' | 'listicle' | 'review'): Promise<DraftResult> {
@@ -212,7 +258,19 @@ async function generateDraft(keyword: string, type: 'comparison' | 'guide' | 'li
     }
 
     const analysis = analyzeCompetitors(scraped, keyword);
-    const generated = await withTimeout(generateBlogContent(keyword, analysis, type), TIMEOUTS.generate, 'AI');
+    // 키워드가 가리키는 종목·테마의 실측 시세. 본문 수치의 근거이자 발행 시 차트·표의 원천이다.
+    // 실패해도 글은 시세 없이 진행한다(시각자료는 게이트가 아니다).
+    const market = await withTimeoutFallback(
+      buildMarketContext(keyword, Date.now() + TIMEOUTS.marketData),
+      TIMEOUTS.marketData + 5_000,
+      null,
+      'MarketData',
+    );
+    const generated = await withTimeout(
+      generateBlogContent(keyword, analysis, type, formatMarketDataForPrompt(market)),
+      TIMEOUTS.generate,
+      'AI',
+    );
 
     // 윤문은 필수 게이트다. 실패는 발행 금지, 의도적 스킵(킬스위치)만 원문 통과.
     let outcome;
@@ -248,26 +306,54 @@ async function generateDraft(keyword: string, type: 'comparison' | 'guide' | 'li
 
     // YMYL 결정적 게이트 — 모호 출처·투자 권유 단정·브랜드 남용·유령 종목.
     // 위반 시 재생성하지 않고 그 슬롯을 비운다.
-    const violations = await checkYmyl(
-      {
-        body: content.content,
-        description: content.description,
-        faqItems: content.faqItems,
-        metaDescription: content.metaDescription,
-        metaTitle: content.metaTitle,
-        title: content.title,
-      },
-      keyword,
-    );
+    const violations = await checkYmyl(ymylSurface(content), keyword);
     if (violations.length > 0) {
       throw new Error(`YMYL 게이트 위반: ${violations.map((v) => `[${v.rule}] ${v.detail}`).join(' / ')}`);
     }
 
+    // 시각자료는 모든 게이트를 통과한 글에만 만든다 — 반려될 초안에 이미지 비용을 쓰지 않는다.
+    // 스크립트 한도(75분) 안에서 저장·발행할 시간을 남기도록 run 마감에 맞춰 예산을 줄인다.
+    const slug = generateSlug(content.title, keyword);
+    const visualsBudget = Math.min(VISUAL_CONFIG.budget, runStartedAt + VISUALS_RUN_CUTOFF_MS - Date.now());
+    const noVisuals: PostVisualsResult = { markdown: content.content, uploadedPaths: [], summary: { chart: false, cover: false, sections: 0 } };
+    let visuals = noVisuals;
+    if (visualsBudget < VISUALS_MIN_BUDGET_MS) {
+      console.warn(`[Visuals] run 마감 임박 — 시각자료 생략 (남은 ${Math.round(visualsBudget / 1000)}초)`);
+    } else {
+      visuals = await withTimeoutFallback(
+        createPostVisuals({
+          slug,
+          keyword,
+          title: content.title,
+          markdown: content.content,
+          // 본문이 다루지 않는 테마 종목·본문과 어긋나는 수치는 싣지 않는다
+          market: alignMarketToBody(market, content.content),
+          budgetMs: visualsBudget,
+        }),
+        // 안쪽 마감(+유예 20초)이 먼저 끝나 끝난 것만 싣도록 여유를 둔다
+        visualsBudget + 60_000,
+        noVisuals,
+        'Visuals',
+      );
+    }
+    let body = visuals.markdown;
+    let imagePaths = visuals.uploadedPaths;
+    if (body !== content.content) {
+      // 끼워 넣은 데이터 섹션·캡션도 같은 YMYL 규칙을 지켜야 한다. 어기면 시각자료만 버리고 글은 살린다.
+      const visualViolations = await checkYmyl({ ...ymylSurface(content), body }, keyword);
+      if (visualViolations.length > 0) {
+        console.warn(`[Visuals] YMYL 위반으로 시각자료 제외: ${visualViolations.map((v) => `[${v.rule}] ${v.detail}`).join(' / ')}`);
+        await discardImages({ imagePaths });
+        body = content.content;
+        imagePaths = [];
+      }
+    }
+
     const post: BlogPostCreateInput = {
-      slug: generateSlug(content.title, keyword),
+      slug,
       title: content.title,
       description: content.description,
-      content: content.content,
+      content: body,
       meta_title: content.metaTitle,
       meta_description: content.metaDescription,
       target_keyword: keyword,
@@ -279,7 +365,7 @@ async function generateDraft(keyword: string, type: 'comparison' | 'guide' | 'li
     };
 
     metrics.totalTime = Date.now() - start;
-    return { success: true, blogPost: post, metrics, qualityScore: content.qualityScore || 0 };
+    return { success: true, blogPost: post, metrics, qualityScore: content.qualityScore || 0, imagePaths };
   } catch (e) {
     console.error(`[Draft] "${keyword}" 실패: ${err(e)}`);
     metrics.totalTime = Date.now() - start;
@@ -300,6 +386,7 @@ async function saveAndPublishPosts(posts: DraftSuccess[]): Promise<PipelineResul
       if (already >= MAX_DAILY_PUBLISH) {
         const message = `하루 상한 도달 (${already}/${MAX_DAILY_PUBLISH}) — 남은 글은 발행하지 않는다`;
         console.warn(`[Pipeline] ${message}`);
+        await discardImages(draft);
         results.push({ success: false, error: message, metrics: draft.metrics });
         continue;
       }
@@ -315,6 +402,7 @@ async function saveAndPublishPosts(posts: DraftSuccess[]): Promise<PipelineResul
       results.push({ success: true, blogPost: draft.blogPost, metrics: draft.metrics });
     } catch (e) {
       console.error(`[Pipeline] 저장 실패 "${draft.blogPost.title}": ${err(e)}`);
+      await discardImages(draft, e);
       results.push({ success: false, error: err(e), metrics: draft.metrics });
     }
   }
@@ -326,6 +414,7 @@ async function saveAndPublishPosts(posts: DraftSuccess[]): Promise<PipelineResul
 
 export async function generateBlogPost(keyword: string, type: 'comparison' | 'guide' | 'listicle' | 'review' = 'guide', publish = false): Promise<PipelineResult> {
   console.log(`[Pipeline] "${keyword}" (${type})`);
+  runStartedAt = Date.now();
 
   const draft = await generateDraft(keyword, type);
   if (!draft.success) return { success: false, error: draft.error, metrics: draft.metrics };
@@ -338,6 +427,7 @@ export async function generateBlogPost(keyword: string, type: 'comparison' | 'gu
       await publishBlogPost(saved.slug).catch(e => console.warn('[Pipeline] publish 실패:', err(e)));
     } catch (e) {
       console.error(`[Pipeline] 저장 실패: ${err(e)}`);
+      await discardImages(draft, e);
       return { success: false, error: err(e), metrics: draft.metrics };
     }
   } else {
@@ -345,6 +435,7 @@ export async function generateBlogPost(keyword: string, type: 'comparison' | 'gu
       await withTimeout(saveBlogPost(draft.blogPost), TIMEOUTS.save, 'DB');
     } catch (e) {
       console.error(`[Pipeline] 저장 실패: ${err(e)}`);
+      await discardImages(draft, e);
       return { success: false, error: err(e), metrics: draft.metrics };
     }
   }
@@ -359,6 +450,9 @@ export async function generateWithDynamicKeywords(options: { publish?: boolean; 
 
   console.log(`[Pipeline] 4-Phase 블로그 파이프라인 시작 (목표: ${count}개)`);
   resetHumanizeGate();
+  runStartedAt = Date.now();
+  // Phase 3 도중 throw(예: 발행 수 조회 실패)로 빠져도 업로드한 이미지를 정리하기 위해 밖에 둔다
+  let successfulDrafts: DraftSuccess[] = [];
 
   try {
     // ━━━ Phase 1: 키워드 후보 생성 + 게이트 ━━━
@@ -401,7 +495,7 @@ export async function generateWithDynamicKeywords(options: { publish?: boolean; 
 
     await closeBrowser().catch(() => {});
 
-    const successfulDrafts = drafts.filter((d): d is DraftSuccess => d.success);
+    successfulDrafts = drafts.filter((d): d is DraftSuccess => d.success);
     console.log(`[Pipeline] Phase 2 완료: ${successfulDrafts.length}/${drafts.length} 게이트 통과`);
     if (successfulDrafts.length === 0) {
       console.warn('[Pipeline] 게이트 통과 초안 없음 — 오늘은 발행하지 않는다 (할당량을 채우기 위해 게이트를 끄지 않는다)');
@@ -426,6 +520,7 @@ export async function generateWithDynamicKeywords(options: { publish?: boolean; 
         await saveWithReconcile(draft.blogPost);
         results.push({ success: true, blogPost: draft.blogPost, metrics: draft.metrics });
       } catch (e) {
+        await discardImages(draft, e);
         results.push({ success: false, error: err(e), metrics: draft.metrics });
       }
     }
@@ -441,6 +536,8 @@ export async function generateWithDynamicKeywords(options: { publish?: boolean; 
   } catch (e) {
     console.error(`[Pipeline] ${err(e)}`);
     await closeBrowser().catch(() => {});
+    // 저장된 글의 이미지는 discardImages가 행 존재를 확인하고 남긴다
+    for (const draft of successfulDrafts) await discardImages(draft);
     return [];
   }
 }

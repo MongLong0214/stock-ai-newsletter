@@ -11,11 +11,14 @@
 
 import { siteConfig, schemaIds, ensureKSTTimezone, withOgImageVersion } from '@/lib/constants/seo/config';
 import type { BlogPost, BlogPostCreateInput, FAQItem, SchemaData } from '../_types/blog';
+import { extractCoverImage } from './markdown-visuals';
 
 function createArticleSchema(post: BlogPost, slug: string) {
   const wordCount = post.content ? post.content.replace(/<[^>]*>/g, '').split(/\s+/).length : undefined;
   const url = `${siteConfig.domain}/blog/${slug}`;
   const ogImage = withOgImageVersion(`${url}/opengraph-image`);
+  // 본문 커버(사진)가 있으면 대표 이미지로 맨 앞에 둔다. 없으면(기존 글) OG 카드만.
+  const cover = extractCoverImage(post.content);
 
   return {
     '@context': 'https://schema.org',
@@ -24,6 +27,7 @@ function createArticleSchema(post: BlogPost, slug: string) {
     headline: post.title,
     description: post.description,
     image: [
+      ...(cover ? [{ '@type': 'ImageObject', url: cover.url, width: cover.width, height: cover.height, caption: cover.caption }] : []),
       { '@type': 'ImageObject', url: ogImage, width: 1200, height: 675 },
       { '@type': 'ImageObject', url: ogImage, width: 1200, height: 900 },
       { '@type': 'ImageObject', url: ogImage, width: 1200, height: 1200 },
@@ -72,6 +76,7 @@ function createFAQSchema(faqItems: FAQItem[]) {
 
 function createBlogPostingSchema(post: BlogPostCreateInput, slug: string): SchemaData {
   const now = new Date().toISOString();
+  const cover = extractCoverImage(post.content);
 
   return {
     '@context': 'https://schema.org',
@@ -79,6 +84,7 @@ function createBlogPostingSchema(post: BlogPostCreateInput, slug: string): Schem
     '@id': schemaIds.articleId(`/blog/${slug}`),
     headline: post.title,
     description: post.description,
+    ...(cover ? { image: cover.url } : {}),
     author: { '@id': schemaIds.organization },
     publisher: {
       '@type': 'Organization',

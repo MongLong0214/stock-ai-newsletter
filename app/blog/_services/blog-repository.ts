@@ -115,6 +115,23 @@ export async function findBlogPostStatus(
 }
 
 /**
+ * 슬러그 행 존재 여부. 조회 실패는 throw — "모름"을 "없음"으로 읽으면 안 된다.
+ *
+ * 저장 실패 후 이미지 정리 판단에 쓴다. 네트워크 오류는 서버 커밋 뒤에도 날 수 있어
+ * 행이 실제로 없을 때만 지운다(있는데 지우면 공개글 이미지가 깨진다).
+ */
+export async function blogPostExists(slug: string): Promise<boolean> {
+  const supabase = getServerSupabaseClient();
+  const { data, error } = await supabase
+    .from('blog_posts')
+    .select('slug')
+    .eq('slug', slug)
+    .maybeSingle<{ slug: string }>();
+  if (error) throw new Error(`슬러그 조회 실패(${slug}): ${error.message}`);
+  return data !== null;
+}
+
+/**
  * 블로그 포스트 발행 (status: published, published_at 기록)
  * @param slug - 발행할 포스트의 슬러그
  * @returns 발행된 블로그 포스트

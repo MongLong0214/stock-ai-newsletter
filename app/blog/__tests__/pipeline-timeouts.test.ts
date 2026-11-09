@@ -24,7 +24,20 @@ vi.mock('../_services/blog-repository', () => ({
   saveBlogPost: mockSave,
   countPublishedToday: vi.fn(async () => 0),
   findBlogPostStatus: vi.fn(), publishBlogPost: vi.fn(),
+  blogPostExists: vi.fn(async () => false),
 }));
+// 시세·시각자료는 타임아웃 예산과 무관하다 — 네트워크 없이 본문을 그대로 돌려준다
+vi.mock('../_services/market-data', () => ({
+  buildMarketContext: vi.fn(async () => null),
+  alignMarketToBody: vi.fn((market: unknown) => market),
+  formatMarketDataForPrompt: vi.fn(() => ''),
+}));
+vi.mock('../_services/post-visuals', () => ({
+  createPostVisuals: vi.fn(async ({ markdown }: { markdown: string }) => ({
+    markdown, uploadedPaths: [], summary: { chart: false, cover: false, sections: 0 },
+  })),
+}));
+vi.mock('../_services/image-storage', () => ({ removeBlogImages: vi.fn(async () => {}) }));
 vi.mock('../_services/keyword-generator', () => ({
   generateKeywords: vi.fn(async () => ({
     success: true,

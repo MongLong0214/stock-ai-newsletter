@@ -7,6 +7,7 @@ import { ArrowLeft, Calendar, Tag } from 'lucide-react';
 import { siteConfig, withOgImageVersion } from '@/lib/constants/seo/config';
 import { getServerSupabaseClient } from '@/lib/supabase/server-client';
 import { parseMarkdown } from '../_utils/markdown-parser';
+import { extractCoverImage, stripLeadingH1 } from '../_utils/markdown-visuals';
 import { formatDateKo } from '../_utils/date-formatter';
 import { createArticleSchema, createFAQSchema, createBreadcrumbSchema } from '../_utils/schema-generator';
 import { isValidBlogSlug } from '../_utils/slug-validator';
@@ -62,6 +63,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const description = post.meta_description || post.description;
   const url = `${siteConfig.domain}/blog/${slug}`;
   const ogImageUrl = withOgImageVersion(`${siteConfig.domain}/blog/${slug}/opengraph-image`);
+  // 공유 미리보기는 호환성이 검증된 PNG 카드를 먼저 두고, 본문 커버 사진을 두 번째 후보로 둔다
+  const cover = extractCoverImage(post.content);
 
   return {
     title,
@@ -78,7 +81,10 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       section: post.category || '투자 분석',
       tags: post.tags || [],
       authors: [siteConfig.serviceName],
-      images: [{ url: ogImageUrl, width: 1200, height: 630, alt: title, type: 'image/png' }],
+      images: [
+        { url: ogImageUrl, width: 1200, height: 630, alt: title, type: 'image/png' },
+        ...(cover ? [{ url: cover.url, width: cover.width, height: cover.height, alt: cover.alt }] : []),
+      ],
     },
     twitter: { card: 'summary_large_image', title, description, images: [ogImageUrl] },
     alternates: { canonical: url },
@@ -93,7 +99,8 @@ async function BlogPostPage({ params }: PageProps) {
 
   const [relatedPosts, htmlContent] = await Promise.all([
     getRelatedPosts(slug, post.tags || []),
-    parseMarkdown(post.content),
+    // 본문 맨 앞 H1은 헤더 H1과 중복이라 렌더 전에 뺀다
+    parseMarkdown(stripLeadingH1(post.content)),
   ]);
 
   const tocItems = extractTOCItems(htmlContent);

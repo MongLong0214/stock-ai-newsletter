@@ -656,12 +656,23 @@ body::-webkit-scrollbar-thumb:hover { background: rgba(16,185,129,0.4); }
 }
 
 .prose-article :where(figure) {
+  max-width: var(--article-max-width);
   margin: 2.5rem 0;
+}
+
+/* 본문 시각자료: 사진·차트 모두 본문 폭에 맞추고 어두운 배경과 경계만 구분한다 */
+.prose-article :where(figure img) {
+  display: block;
+  width: 100%;
+  margin: 0;
+  border: 1px solid var(--article-border);
+  background-color: var(--article-bg-subtle);
 }
 
 .prose-article :where(figcaption) {
   color: var(--article-text-muted);
   font-size: 0.9375rem;
+  line-height: 1.6;
   text-align: center;
   margin-top: 0.75rem;
 }

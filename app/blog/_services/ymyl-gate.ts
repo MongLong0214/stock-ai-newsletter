@@ -11,6 +11,7 @@ import { getServerSupabaseClient } from '@/lib/supabase/server-client';
 import { fetchAllRows } from '@/lib/supabase/paginate';
 import { RELATED_STOCK_RE } from './cluster-guard';
 import { INVESTMENT_SOLICITATION_RE } from '../_config/clickbait-patterns';
+import { findThemeForKeyword } from '../_utils/theme-match';
 
 /**
  * 모호 출처 인용 — 기관명 없이 통계를 주장하는 패턴.
@@ -90,12 +91,7 @@ export async function loadThemeStockNames(targetKeyword: string): Promise<Set<st
       supabase.from('themes').select('id, name').eq('is_active', true).order('id').range(from, to),
     );
 
-    // "스테이블코인 관련주" → 테마 "스테이블코인". 여러 개 걸리면 가장 긴 이름을 택한다
-    // ("2차전지"와 "2차전지 장비"가 둘 다 포함되면 구체적인 쪽이 맞다).
-    const normalized = targetKeyword.replace(/\s+/g, '');
-    const match = themes
-      .filter((t) => t.name && t.name.length >= 2 && normalized.includes(t.name.replace(/\s+/g, '')))
-      .sort((a, b) => (b.name?.length ?? 0) - (a.name?.length ?? 0))[0];
+    const match = findThemeForKeyword(targetKeyword, themes);
 
     if (!match) {
       themeStockCache.set(targetKeyword, null);

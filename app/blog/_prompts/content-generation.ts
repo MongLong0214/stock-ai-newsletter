@@ -84,10 +84,30 @@ ${competitorDetails}
 }
 
 /** 콘텐츠 생성 프롬프트 빌더 */
+/**
+ * 실측 시세 블록. 경쟁 글의 주가 수치는 스크랩 시점이 제각각이라 서로 어긋난다.
+ * 발행 시 같은 숫자로 차트·표가 붙으므로 본문의 주가 수치도 이 값으로 고정한다.
+ */
+function buildVerifiedMarketData(verifiedMarketData: string): string {
+  if (!verifiedMarketData.trim()) return '';
+  return `
+<verified_market_data>
+  <!-- 한국투자증권 Open API 수정주가 일봉에서 계산한 실측값이다. -->
+${verifiedMarketData}
+  <usage>
+    - 본문에서 위 종목의 주가·등락률·최고/최저가를 말할 때는 이 값만 쓴다. 경쟁 글의 주가 수치는 시점이 달라 쓰지 않는다.
+    - 기준일을 함께 밝힌다. 숫자를 반올림·변형하지 않는다.
+    - 이 데이터의 차트와 수익률 표는 발행 시 자동으로 붙는다. 같은 표를 본문에 다시 만들지 않는다.
+    - 주가 흐름을 매수·매도 판단으로 연결하지 않는다.
+  </usage>
+</verified_market_data>`;
+}
+
 export function buildContentGenerationPrompt(
   targetKeyword: string,
   competitorAnalysis: CompetitorAnalysis,
-  contentType: 'comparison' | 'guide' | 'listicle' | 'review'
+  contentType: 'comparison' | 'guide' | 'listicle' | 'review',
+  verifiedMarketData = ''
 ): string {
   const config = CONTENT_CONFIG;
   const competitorSummary = summarizeCompetitorAnalysis(competitorAnalysis);
@@ -130,6 +150,7 @@ ${targetKeyword}
 </no_self_promotion>
 
 ${competitorSummary}
+${buildVerifiedMarketData(verifiedMarketData)}
 
 ${cotGuide}
 

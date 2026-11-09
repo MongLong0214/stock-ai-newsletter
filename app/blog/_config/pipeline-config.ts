@@ -73,6 +73,32 @@ export const HUMANIZE_CONFIG = {
   timeout: 600_000,
 };
 
+/**
+ * 본문 시각자료(AI 이미지·실측 차트) 설정
+ *
+ * 시각자료는 발행 게이트가 아니다 — 실패하면 그 이미지만 빠지고 글은 그대로 나간다.
+ * 모델은 앞에서부터 시도한다. 2026-11-09 실측: 2.6-sunburst 24초·2.6-flare 11초(1536x1024 medium),
+ * 둘 다 사진 품질은 동급. CI 키에 최신 모델 권한이 없을 때를 대비해 이전 세대를 끝에 둔다.
+ */
+export const VISUAL_CONFIG = {
+  imageModels: ['gpt-image-2.6-sunburst', 'gpt-image-2.6-flare', 'gpt-image-2'],
+  imageSize: { width: 1536, height: 1024 },
+  coverQuality: 'high' as const,
+  sectionQuality: 'medium' as const,
+  /** 커버 외 섹션 이미지 상한 */
+  maxSectionImages: 3,
+  /** 이미지 1장(모델 1회) 상한 */
+  imageTimeout: 150_000,
+  /** 시각자료 기획(LLM) 상한 */
+  planTimeout: 180_000,
+  /** 시각자료 단계 전체 예산 — 넘으면 끝난 것만 싣는다 */
+  budget: 420_000,
+  /** 실측 시세 조회 상한 (초안 생성 전) */
+  marketDataTimeout: 60_000,
+  chartSize: { width: 1600, height: 900 },
+  storageBucket: 'blog-images',
+};
+
 export const SITE_INFO = {
   name: siteConfig.serviceName,
   nameKo: siteConfig.serviceNameKo,
