@@ -148,13 +148,12 @@ import { createKisApiError } from '@/app/archive/_utils/api/kis/client'
 import { runPrepareNewsletterCli } from '@/scripts/prepare-newsletter'
 import { DEFAULT_DAILY_COLLECTION_CALL_BUDGET } from '@/scripts/stock-picks/collect-daily'
 import { FROZEN_COMPOSITE_RETURN_MODEL, LOW_VOLATILITY_STABLE_STRATEGY, PRODUCTION_STRATEGY } from '@/scripts/stock-picks/production-strategy'
-import { buildSignals } from '@/scripts/stock-picks/signals'
 import { buildPriceBook, StockDataHandler } from '@/scripts/stock-picks/data-handler'
 import { buildTradingDayIndex } from '@/scripts/stock-picks/trading-days'
 import { buildObservedInputs50 } from '@/scripts/stock-picks/observed-inputs'
 import { buildInvestorFlowInputs, parseInvestorFlowRows } from '@/scripts/stock-picks/investor-flow'
 import { syntheticInvestorFlowRows } from '@/scripts/stock-picks/fixtures/investor-flow-rows'
-import { scoreUtilityModel } from '@/scripts/stock-picks/utility-model'
+import { attributeUtilityModel, scoreUtilityModel } from '@/scripts/stock-picks/utility-model'
 import { buildFeatureVector } from '@/scripts/stock-picks/features'
 import { buildTechnicalContextMap } from '@/scripts/stock-picks/technical-context'
 
@@ -277,7 +276,7 @@ describe('Prepare boundary-isolated E2E', () => {
   })
   afterEach(() => { vi.useRealTimers(); vi.unstubAllEnvs(); vi.unstubAllGlobals(); vi.restoreAllMocks() })
 
-  it('preserves volatility strength above 8 percent ATR through collection, model ranking and newsletter persistence', async () => {
+  it('publishes model-contribution categories for above-8-percent ATR picks through collection, model ranking and newsletter persistence', async () => {
     state.rows = state.rows.map(row => {
       if (row.symbol === 'KOSPI') return row
       const spread = Math.round(row.close * (0.04 + Number(row.symbol.slice(-2)) * 0.0003))
@@ -292,9 +291,10 @@ describe('Prepare boundary-isolated E2E', () => {
     expect(state.newsletter?.picks_source).toBe('code')
     for (const [index, candidate] of state.generated!.meta.rankedCandidates.slice(0, 3).entries()) {
       expect(candidate.atrPercent14).toBeGreaterThan(8)
-      expect(picks[index]!.signals.volatility_score).toBeGreaterThan(50)
+      expect(picks[index]!.signals.basis).toBe('model_contribution')
+      expect(picks[index]!.signals.volatility_score).toBeGreaterThan(0)
       expect(picks[index]!.signals.volatility_score).toBeLessThan(100)
-      expect(picks[index]!.signals).toEqual(buildSignals(candidate, candidate.score))
+      expect(picks[index]!.signals).toEqual(candidate.signals)
       expect(picks[index]!.signals.overall_score).toBe(candidate.score)
     }
     expect(state.snapshots[0]!.parameters_hash).toBe(PRODUCTION_STRATEGY.parametersHash)
@@ -385,7 +385,10 @@ describe('Prepare boundary-isolated E2E', () => {
       expect(inputs).toHaveLength(65)
       const predicted = scoreUtilityModel(FROZEN_COMPOSITE_RETURN_MODEL, inputs)
       expect(candidate.utility).toBe(predicted.utility)
-      expect(picks[pickIndex]!.signals).toEqual(buildSignals(candidate, candidate.score))
+      const { bias, contributions } = attributeUtilityModel(FROZEN_COMPOSITE_RETURN_MODEL, inputs)
+      expect(bias + contributions.reduce((sum, value) => sum + value, 0)).toBeCloseTo(predicted.utility, 12)
+      expect(picks[pickIndex]!.signals).toEqual(candidate.signals)
+      expect(picks[pickIndex]!.signals.basis).toBe('model_contribution')
       expect(candidate.score).toBeGreaterThanOrEqual(0)
       expect(candidate.score).toBeLessThanOrEqual(100)
       expect(Number.isInteger(candidate.score)).toBe(true)
@@ -404,7 +407,8 @@ describe('Prepare boundary-isolated E2E', () => {
       expect(positions[0]).toBeLessThan(positions[1])
       expect(positions[1]).toBeLessThan(positions[2])
     }
-    expect(html.match(/종합 점수/g)).toHaveLength(3)
+    expect(html.match(/>종합 점수</g)).toHaveLength(3)
+    expect(html.match(/>종합 점수 기여도 · 50 = 영향 없음</g)).toHaveLength(3)
     for (const pick of picks) expect(html).toContain(`>${pick.signals.overall_score}점</span>`)
     for (const phrase of ['선정 순위', '선정 목표', '공동 목표 모델 순위', '기술 참고 점수',
       '추천일 양봉 마감', '추천일 포함 5거래일', '상승 확률이 아닙니다']) {

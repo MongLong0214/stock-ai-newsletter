@@ -110,3 +110,17 @@ uv run --script scripts/stock-picks/train-composite-utility.py --features featur
   --as-of 2026-10-30 --target demeaned-tp7-net-v1 --investor-flow investor-flow.ndjson \
   --output scripts/stock-picks/models/composite-return-v8.json --audit-dir AUDIT_DIR
 ```
+
+## 2026-11-09 발행 카테고리 점수 → 모델 기여도
+
+기존 6개 카테고리 점수(추세·모멘텀·거래량·변동성·패턴·심리)는 선정과 무관한 상승 추세형 기술 점수였다.
+v8은 급락 종목의 반등을 높게 보므로 종합 88점 옆에 추세 2점·패턴 9점이 붙는 모순이 생겼고(11/4·11/5·11/9 발행분 전부),
+변동성 점수는 높을수록 위험한데 초록색으로 표시됐다.
+
+- 6개 점수를 **종합 점수 모델 기여도**로 바꿨다. HGB 트리 경로 분해(Saabas: 분기마다 자식 값 − 부모 값을 분기 입력에 귀속)로
+  65개 입력의 기여도를 구하고 카테고리로 합산한다. `baseline + Σ루트 + Σ기여도 = 예측값`이 정확히 성립한다(v8 패리티 18건 검증).
+- 카테고리 매핑: `MODEL_SIGNAL_CATEGORIES`(signals.ts). 시장 지표 2개와 투자자 수급 15개는 심리로 묶었다.
+- 변동성에는 순위 단계의 ATR 보정(adjusted − 예측값)을 더한다. 높을수록 선정에 유리했다는 뜻으로 방향이 다른 카테고리와 같다.
+- 점수 곡선은 종합 점수와 같다(기여도 0 = 50, +1σ = 70). 선정·종합 점수·전략 해시는 바뀌지 않는다.
+- `signals.basis = 'model_contribution'`일 때 메일·아카이브 제목을 "종합 점수 기여도 · 50 = 영향 없음"으로 표시한다. 이전 발행분과 LLM 대체 경로는 기존 제목을 유지한다.
+- 실데이터 재현(11/9 발행, 읽기 전용): 제닉 종합 87 = 추세 91·모멘텀 72·거래량 5·변동성 77·패턴 61·심리 67.

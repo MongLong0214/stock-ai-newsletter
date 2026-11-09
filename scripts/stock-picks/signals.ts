@@ -1,5 +1,6 @@
 import type { StockSignals } from '@/lib/llm/_types/stock-data'
 import type { StockFeatureVector } from '@/scripts/stock-picks/features'
+import { normalizeUtilityScore, type UtilityScoreNormalization } from '@/scripts/stock-picks/utility-model'
 
 export const SIGNAL_SCORE_VERSION = 'technical-signals-v3-2026-10-02'
 
@@ -30,6 +31,85 @@ const isPositiveFinite = (value: number | null): value is number => (
 const centeredScore = (value: number | null, fullScale: number): number => (
   value === null || !Number.isFinite(value) ? 50 : clampScore(50 + value / fullScale * 50)
 )
+
+type SignalCategory = Exclude<keyof StockSignals, 'overall_score' | 'basis'>
+
+/** 종합 점수 모델 입력 65개를 발행 카테고리 6개로 묶는다. 시장 지표와 투자자 수급은 심리로 본다. */
+export const MODEL_SIGNAL_CATEGORIES: Readonly<Record<SignalCategory, readonly string[]>> = {
+  trend_score: [
+    'sma20DistancePercent', 'sma60DistancePercent', 'return5Percent', 'return10Percent', 'return20Percent',
+    'return40Percent', 'return60Percent', 'return120Percent', 'return20ExcludingRecent5Percent',
+    'closeSma5DistancePercent', 'sma5ToSma20Ratio',
+  ],
+  momentum_score: [
+    'rsi14', 'return1Percent', 'return2Percent', 'return3Percent', 'signalCloseCloseReturnPercent',
+    'gapFromPreviousClosePercent', 'signalIntradayReturnPercent', 'positiveCloseDays5',
+  ],
+  volume_score: [
+    'volumeRatio20', 'chaikinMoneyFlow21', 'volumeMean3ToPrevious20Ratio', 'volumeMean5ToPrevious20Ratio',
+    'todayVolumeToPrior5MeanRatio', 'bullishVolumeShare5', 'upCloseVolumeShare10',
+    'todayTurnoverToPrior20MeanRatio', 'logAverageTurnover20',
+  ],
+  volatility_score: [
+    'atrPercent14', 'bollingerWidth20Percent', 'atr5ToAtr20Ratio', 'returnVolatility5To20Ratio',
+    'normalizedRange5To20Ratio', 'todayTrToPrior20MeanRatio',
+  ],
+  pattern_score: [
+    'distanceFromPriorHigh5Percent', 'distanceFromPriorHigh10Percent', 'distanceFromPriorHigh20Percent',
+    'distanceFromPriorHigh60Percent', 'distanceFromPriorHigh120Percent', 'drawdownFromPrior60ClosePeakPercent',
+    'priorHigh20AgeSessions', 'closeLocation', 'upperWickPercent', 'clvMean3', 'clvMean5',
+    'candleBodyMean3Percent', 'candleBodyMean5Percent', 'upperWickMean5',
+  ],
+  sentiment_score: [
+    'kospiReturn20Percent', 'breadthAboveSma20Percent',
+    'foreignNetBuyRatio1', 'foreignNetBuyRatio5', 'foreignNetBuyRatio20',
+    'institutionNetBuyRatio1', 'institutionNetBuyRatio5', 'institutionNetBuyRatio20',
+    'individualNetBuyRatio5', 'individualNetBuyRatio20', 'investmentTrustNetBuyRatio5',
+    'pensionNetBuyRatio5', 'privateFundNetBuyRatio5', 'foreignNetBuyStreak', 'institutionNetBuyStreak',
+    'foreignInstitutionBothBuy5', 'foreignNetBuyRatio5Minus20',
+  ],
+}
+
+/**
+ * 발행 종목의 6개 카테고리 점수를 종합 점수 모델의 기여도로 만든다.
+ * 50은 영향 없음이고, 카테고리 기여도에 종합 점수와 같은 기준 곡선(+1σ=70)을 적용한다.
+ * 변동성에는 순위 단계의 ATR 보정(adjusted − 예측값)도 더하므로 높을수록 선정에 유리했다는 뜻이다.
+ */
+export function buildModelContributionSignals(input: {
+  readonly featureNames: readonly string[]
+  readonly contributions: readonly number[]
+  readonly atrAdjustment: number
+  readonly normalization: UtilityScoreNormalization
+  readonly overallScore: number
+}): StockSignals {
+  const { featureNames, contributions, normalization, overallScore } = input
+  if (featureNames.length !== contributions.length) throw new Error('종합 점수 기여도 입력 불일치')
+  if (!Number.isInteger(overallScore) || overallScore < 0 || overallScore > 100) throw new Error('선정 모델 종합 점수 불일치')
+  if (!Number.isFinite(input.atrAdjustment)) throw new Error('ATR 보정 기여도 불일치')
+  const indexByName = new Map(featureNames.map((name, index) => [name, index]))
+  const assigned = new Set<string>()
+  const score = (category: SignalCategory): number => {
+    const total = MODEL_SIGNAL_CATEGORIES[category].reduce((sum, name) => {
+      const index = indexByName.get(name)
+      if (index === undefined || assigned.has(name)) throw new Error(`종합 점수 기여도 카테고리 불일치: ${name}`)
+      assigned.add(name)
+      return sum + contributions[index]!
+    }, category === 'volatility_score' ? input.atrAdjustment : 0)
+    return normalizeUtilityScore(normalization, normalization.mean + total)
+  }
+  const signals: StockSignals = {
+    trend_score: score('trend_score'),
+    momentum_score: score('momentum_score'),
+    volume_score: score('volume_score'),
+    volatility_score: score('volatility_score'),
+    pattern_score: score('pattern_score'),
+    sentiment_score: score('sentiment_score'),
+    overall_score: overallScore,
+    basis: 'model_contribution',
+  }
+  if (assigned.size !== featureNames.length) throw new Error('종합 점수 기여도 카테고리 누락')
+  return signals
+}
 
 /**
  * 6개 카테고리는 관측 기술지표이며 변동성은 가격 변동폭의 강도다.

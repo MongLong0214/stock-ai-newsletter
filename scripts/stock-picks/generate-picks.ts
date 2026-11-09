@@ -2,7 +2,7 @@ import { mkdir, writeFile } from 'node:fs/promises'
 import { dirname } from 'node:path'
 
 import { KOREAN_MARKET_HOLIDAYS_BY_YEAR } from '@/app/archive/_utils/market/_constants/holidays'
-import type { StockData } from '@/lib/llm/_types/stock-data'
+import type { StockData, StockSignals } from '@/lib/llm/_types/stock-data'
 import { validateStockData } from '@/lib/llm/korea/stock-json'
 import { getKSTDateString } from '@/lib/tli/date-utils'
 import { addKoreanTradingDays } from '@/lib/tli/trading-calendar'
@@ -13,10 +13,10 @@ import {
   type PriceBook,
 } from '@/scripts/stock-picks/data-handler'
 import { buildFeatureSeries, type StockFeatureVector } from '@/scripts/stock-picks/features'
-import { buildSignals, finiteOr } from '@/scripts/stock-picks/signals'
+import { buildModelContributionSignals, finiteOr } from '@/scripts/stock-picks/signals'
 import { loadInvestorFlowInputs } from '@/scripts/stock-picks/investor-flow'
 import { buildObservedInputs50, validateModelMarketSources } from '@/scripts/stock-picks/observed-inputs'
-import { scoreUtilityModel } from '@/scripts/stock-picks/utility-model'
+import { attributeUtilityModel, scoreUtilityModel } from '@/scripts/stock-picks/utility-model'
 import { parsePublishedPicks } from '@/scripts/stock-picks/measure-forward'
 import { buildTechnicalContextMap, type TechnicalContext } from '@/scripts/stock-picks/technical-context'
 import {
@@ -89,6 +89,8 @@ export interface RankedStockFeature extends StockFeatureVector {
   readonly utility?: number
   readonly rank: number
   readonly tier: TieredFillTier
+  /** 운영 종합 점수 후보만: 발행 6개 카테고리의 모델 기여도 점수 */
+  readonly signals?: StockSignals
 }
 
 export interface GeneratePicksMeta {
@@ -443,8 +445,8 @@ export async function generatePicksWithMeta(input: {
     const context = technicalContexts?.get(symbol)
     const flow = flowInputs.get(symbol)
     if (!context || !flow) throw new Error(`종합 점수 후보 관측값 누락: ${symbol}`)
-    return [symbol, scoreUtilityModel(FROZEN_COMPOSITE_RETURN_MODEL,
-      [...buildObservedInputs50({ feature, context, handler, dates: historyDates }), ...flow])] as const
+    const inputs = [...buildObservedInputs50({ feature, context, handler, dates: historyDates }), ...flow]
+    return [symbol, { ...scoreUtilityModel(FROZEN_COMPOSITE_RETURN_MODEL, inputs), inputs }] as const
   }))
   const rankedCandidates = rankUtilityAtrPenaltyCandidates({
     features, masters: mastersBySymbol, parameters: LOW_VOLATILITY_STABLE_PARAMETERS,
@@ -452,13 +454,21 @@ export async function generatePicksWithMeta(input: {
     excludeSymbols: recentPublishedSymbols, pickCount: features.length,
     utilities: new Map([...predictions].map(([symbol, prediction]) => [symbol, prediction.utility])),
   })
-  const rankedFeatures: RankedStockFeature[] = rankedCandidates.map(({ symbol, score }, index) => {
+  const rankedFeatures: RankedStockFeature[] = rankedCandidates.map(({ symbol, score, adjusted }, index) => {
     const feature = featuresBySymbol.get(symbol)
     const master = mastersBySymbol.get(symbol)
     const prediction = predictions.get(symbol)
     if (!feature || !master || !prediction) throw new Error(`종합 점수 픽 원천 데이터 누락: ${symbol}`)
+    const { contributions } = attributeUtilityModel(FROZEN_COMPOSITE_RETURN_MODEL, prediction.inputs)
+    const signals = buildModelContributionSignals({
+      featureNames: FROZEN_COMPOSITE_RETURN_MODEL.featureNames,
+      contributions,
+      atrAdjustment: adjusted - prediction.utility,
+      normalization: FROZEN_COMPOSITE_RETURN_MODEL.normalization,
+      overallScore: score,
+    })
     return { ...feature, name: master.name, score, utility: prediction.utility, rank: index + 1,
-      tier: 'compositeUtility', technicalContext: technicalContexts?.get(symbol) }
+      tier: 'compositeUtility', technicalContext: technicalContexts?.get(symbol), signals }
   })
   const ranked = rankedFeatures.slice(0, REQUIRED_PICK_COUNT)
   if (ranked.length !== REQUIRED_PICK_COUNT || new Set(ranked.map(({ symbol }) => symbol)).size !== REQUIRED_PICK_COUNT) {
@@ -550,10 +560,10 @@ export async function generatePicksWithMeta(input: {
     console.warn('⚠️ shadow:J-randomConstrained 섀도우 계산 실패:', error)
   }
 
-  const picks: StockData[] = ranked.map(({ symbol, rank, score }) => {
+  const picks: StockData[] = ranked.map(({ symbol, rank, signals }) => {
     const master = mastersBySymbol.get(symbol)
     const feature = featuresBySymbol.get(symbol)
-    if (!master || !feature || feature.close === null || !Number.isInteger(feature.close) || feature.close <= 0) {
+    if (!master || !feature || feature.close === null || !Number.isInteger(feature.close) || feature.close <= 0 || !signals) {
       throw new Error(`픽 원천 데이터 불완전: ${symbol}`)
     }
     return {
@@ -561,7 +571,7 @@ export async function generatePicksWithMeta(input: {
       name: master.name,
       close_price: feature.close,
       rationale: buildAnalysisSummary(feature, technicalContexts?.get(symbol)),
-      signals: buildSignals(feature, score),
+      signals,
       selection: {
         strategy: PRODUCTION_STRATEGY.name,
         rank: rank as 1 | 2 | 3,
