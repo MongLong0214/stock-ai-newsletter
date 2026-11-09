@@ -2,6 +2,77 @@
   "newsletters": [
     {
       "type": "stock",
+      "date": "2026-11-10",
+      "stocks": [
+        {
+          "ticker": "KOSPI:298000",
+          "name": "효성화학",
+          "close_price": 33250,
+          "rationale": "2026-11-09 종가 33,250원|전일 대비 +0.6% 상승|시가 대비 +2.0% 양봉|20일선 43,465원·종가 23.5% 아래|60일선 53,790원·종가 38.2% 아래|최근 5거래일 종가 -10.3%|최근 20거래일 종가 -33.8%|20거래일 KOSPI 대비 -12.4%p|직전 20거래일 장중 고점 51,500원까지 +54.9%|직전 60거래일 최고 종가 76,300원까지 +129.5%|거래량 20일 평균의 1.08배|최근 60거래일 중 거래량 상위 35.8%|당일 범위 종가 86.4%·윗꼬리 13.6%|ATR14 평균 변동폭 8.6%·약 2,845원(갭 포함)|RSI14 20.9 약세|MACD 모멘텀 -3.01%(종가 대비)|20일 평균 거래대금 추정 10.0억원|52주(252거래일) 종가 범위 0.4% 위치(저점0·고점100)",
+          "signals": {
+            "trend_score": 99,
+            "momentum_score": 90,
+            "volume_score": 4,
+            "volatility_score": 12,
+            "pattern_score": 40,
+            "sentiment_score": 5,
+            "overall_score": 89,
+            "basis": "model_contribution"
+          },
+          "selection": {
+            "strategy": "compositeUtility",
+            "rank": 1,
+            "objective": "compositeUtility"
+          }
+        },
+        {
+          "ticker": "KOSPI:077970",
+          "name": "STX엔진",
+          "close_price": 13830,
+          "rationale": "2026-11-09 종가 13,830원|전일 대비 -1.1% 하락|시가 대비 +0.9% 양봉|20일선 16,627원·종가 16.8% 아래|60일선 21,530원·종가 35.8% 아래|최근 5거래일 종가 -15.0%|최근 20거래일 종가 -30.0%|20거래일 KOSPI 대비 -8.6%p|직전 20거래일 장중 고점 20,700원까지 +49.7%|직전 60거래일 최고 종가 29,650원까지 +114.4%|거래량 20일 평균의 0.63배|최근 60거래일 중 거래량 상위 69.2%|당일 범위 종가 45.8%·윗꼬리 54.2%|ATR14 평균 변동폭 8.2%·약 1,130원(갭 포함)|RSI14 26.3 약세|MACD 모멘텀 -0.43%(종가 대비)|20일 평균 거래대금 추정 31.2억원|52주(252거래일) 종가 범위 0.0% 위치(저점0·고점100)",
+          "signals": {
+            "trend_score": 93,
+            "momentum_score": 95,
+            "volume_score": 11,
+            "volatility_score": 9,
+            "pattern_score": 91,
+            "sentiment_score": 9,
+            "overall_score": 88,
+            "basis": "model_contribution"
+          },
+          "selection": {
+            "strategy": "compositeUtility",
+            "rank": 2,
+            "objective": "compositeUtility"
+          }
+        },
+        {
+          "ticker": "KOSPI:105840",
+          "name": "우진",
+          "close_price": 8200,
+          "rationale": "2026-11-09 종가 8,200원|전일 대비 -0.5% 하락|시가 대비 +1.5% 양봉|20일선 10,032원·종가 18.3% 아래|60일선 12,518원·종가 34.5% 아래|최근 5거래일 종가 -16.2%|최근 20거래일 종가 -27.8%|20거래일 KOSPI 대비 -6.4%p|직전 20거래일 장중 고점 12,170원까지 +48.4%|직전 60거래일 최고 종가 15,660원까지 +91.0%|거래량 20일 평균의 0.81배|최근 60거래일 중 거래량 상위 79.2%|당일 범위 종가 26.7%·윗꼬리 73.3%|ATR14 평균 변동폭 8.0%·약 654원(갭 포함)|RSI14 24.3 약세|MACD 모멘텀 -1.25%(종가 대비)|20일 평균 거래대금 추정 16.3억원|52주(252거래일) 종가 범위 0.0% 위치(저점0·고점100)",
+          "signals": {
+            "trend_score": 87,
+            "momentum_score": 94,
+            "volume_score": 2,
+            "volatility_score": 29,
+            "pattern_score": 68,
+            "sentiment_score": 92,
+            "overall_score": 88,
+            "basis": "model_contribution"
+          },
+          "selection": {
+            "strategy": "compositeUtility",
+            "rank": 3,
+            "objective": "compositeUtility"
+          }
+        }
+      ],
+      "sentAt": "2026-11-09T22:31:28.047+00:00",
+      "subscriberCount": 330
+    },
+    {
+      "type": "stock",
       "date": "2026-11-09",
       "stocks": [
         {
@@ -14037,5 +14108,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-11-08T22:32:08.970Z"
+  "lastUpdated": "2026-11-09T22:32:31.440Z"
 }
