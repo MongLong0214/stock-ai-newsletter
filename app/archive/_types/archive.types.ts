@@ -46,6 +46,8 @@ export interface StockSignals {
   sentiment_score: number;
   /** 종합 전체 점수 */
   overall_score: number;
+  /** 'model_contribution'이면 6개 점수는 종합 점수 모델 기여도(50=영향 없음)다 */
+  basis?: 'model_contribution';
 }
 
 /**

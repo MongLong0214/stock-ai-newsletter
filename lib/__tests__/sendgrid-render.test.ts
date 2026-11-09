@@ -103,6 +103,18 @@ describe('generateNewsletterHTML', () => {
 
   })
 
+  it('titles model-contribution scores separately from legacy technical scores', () => {
+    const legacy = generateNewsletterHTML(makeCodePickData(), 'reader@example.com')
+    expect(legacy).toContain('기술적 신호 점수')
+    expect(legacy).not.toContain('종합 점수 기여도')
+    const data = makeCodePickData()
+    const stocks = JSON.parse(data.geminiAnalysis) as Array<{ signals: Record<string, unknown> }>
+    stocks[0]!.signals = { ...stocks[0]!.signals, basis: 'model_contribution' }
+    const html = generateNewsletterHTML({ ...data, geminiAnalysis: JSON.stringify(stocks) }, 'reader@example.com')
+    expect(html.match(/종합 점수 기여도 · 50 = 영향 없음/g)).toHaveLength(1)
+    expect(html.match(/기술적 신호 점수<\/p>/g)).toHaveLength(2)
+  })
+
   it('renders the production code-pick shape without missing-value artifacts', () => {
     const html = generateNewsletterHTML(makeCodePickData(), 'reader@example.com')
 

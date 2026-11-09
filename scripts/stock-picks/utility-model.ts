@@ -201,6 +201,39 @@ export function scoreUtilityModel(model: UtilityModelArtifact, inputs: readonly 
   return { utility, score: normalizeUtilityScore(model.normalization, utility) }
 }
 
+/**
+ * 수익 모델(schema 5) 예측값을 입력별 기여도로 나눈다(트리 경로 분해, Saabas).
+ * 분기마다 자식 노드 값 − 부모 노드 값을 그 분기 입력에 더하므로
+ * baselinePrediction + Σ루트 값 + Σ기여도 = 예측값이 정확히 성립한다.
+ */
+export function attributeUtilityModel(model: UtilityModelArtifact, inputs: readonly (number | null)[]): {
+  readonly bias: number
+  readonly contributions: readonly number[]
+} {
+  validateUtilityModel(model)
+  if (model.schemaVersion !== 5) throw new Error('기여도 분해는 수익 모델(schema 5)만 지원합니다')
+  if (inputs.length !== modelInputContract(model).names.length) throw new Error('종합 점수 관측 피처 계약 불일치')
+  const contributions = Array<number>(inputs.length).fill(0)
+  let bias = model.baselinePrediction
+  for (const tree of model.trees) {
+    let index = 0
+    bias += tree[0]!.value
+    while (!tree[index]!.isLeaf) {
+      const node = tree[index]!
+      const value = inputs[node.featureIdx]
+      const goLeft = value === null || Number.isNaN(value)
+        ? node.missingGoLeft : value! <= Number(node.numThreshold)
+      const next = goLeft ? node.left : node.right
+      contributions[node.featureIdx]! += tree[next]!.value - node.value
+      index = next
+    }
+  }
+  if (!Number.isFinite(bias) || contributions.some((value) => !Number.isFinite(value))) {
+    throw new Error('종합 점수 기여도 계산 실패')
+  }
+  return { bias, contributions }
+}
+
 function predict(model: UtilityPredictor, inputs: readonly (number | null)[], clip = true): number {
   let prediction = model.baselinePrediction
   for (const tree of model.trees) {

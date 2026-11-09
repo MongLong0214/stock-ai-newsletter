@@ -19,12 +19,12 @@ import {
 } from '@/scripts/stock-picks/generate-picks'
 import * as strategies from '@/scripts/stock-picks/strategies'
 import { BULLISH_TARGET_STRATEGY, FROZEN_BULLISH_TARGET_MODEL, FROZEN_COMPOSITE_RETURN_MODEL, PRODUCTION_STRATEGY } from '@/scripts/stock-picks/production-strategy'
-import { buildSignals } from '@/scripts/stock-picks/signals'
+import { MODEL_SIGNAL_CATEGORIES } from '@/scripts/stock-picks/signals'
 import { buildObservedInputs50 } from '@/scripts/stock-picks/observed-inputs'
 import { buildInvestorFlowInputs, parseInvestorFlowRows } from '@/scripts/stock-picks/investor-flow'
 import { syntheticInvestorFlowRows } from '@/scripts/stock-picks/fixtures/investor-flow-rows'
 import { scoreTargetModel } from '@/scripts/stock-picks/target-model'
-import { normalizeUtilityScore, scoreUtilityModel } from '@/scripts/stock-picks/utility-model'
+import { attributeUtilityModel, normalizeUtilityScore, scoreUtilityModel } from '@/scripts/stock-picks/utility-model'
 import { TradingDayIndex } from '@/scripts/stock-picks/trading-days'
 import type { StockDailyPriceRow } from '@/scripts/tli/prices/stock-daily-prices'
 
@@ -315,11 +315,13 @@ describe('production stock pick generator', () => {
       startDate: fixture.dates[0],
       endDate: SIGNAL_DATE,
     })
-    for (const pick of picks as Array<{ rationale: string; signals: Record<string, number> }>) {
+    for (const pick of picks as Array<{ rationale: string; signals: Record<string, number | string> }>) {
       expect(pick.rationale.split('|').length).toBeGreaterThanOrEqual(12)
       expect(pick.rationale.length).toBeGreaterThanOrEqual(50)
       expect(pick.rationale).not.toMatch(/공동 목표 모델 순위|선정 목표|변동성 안정 순위|선정 경로 저변동 안정/)
-      expect(Object.values(pick.signals).every(Number.isInteger)).toBe(true)
+      const { basis, ...scores } = pick.signals
+      expect(basis).toBe('model_contribution')
+      expect(Object.values(scores).every(Number.isInteger)).toBe(true)
     }
   })
 
@@ -355,7 +357,7 @@ describe('production stock pick generator', () => {
     }
   })
 
-  it('publishes the ranking score as overall while retaining the six categories and frozen target shadow', async () => {
+  it('publishes the ranking score as overall with six model-contribution categories and frozen target shadow', async () => {
     const fixture = makeFixture()
     const result = await generatePicksWithMeta({ todayKst: TODAY_KST, dependencies: {
       loadTradingDays: async () => new TradingDayIndex(fixture.dates),
@@ -385,14 +387,26 @@ describe('production stock pick generator', () => {
     const atrStats = populationStd(pool.map(({ atrPercent14 }) => atrPercent14!))
     for (const pick of result.picks) {
       const candidate = result.meta.rankedCandidates.find(({ symbol }) => symbol === pick.ticker)!
-      expect(pick.signals).toEqual(buildSignals(candidate, candidate.score))
       const flow = buildInvestorFlowInputs({ dates: fixture.dates,
         days: parseInvestorFlowRows(syntheticInvestorFlowRows(candidate.symbol, SIGNAL_DATE.replaceAll('-', ''))) })
-      expect(candidate.utility).toBe(scoreUtilityModel(FROZEN_COMPOSITE_RETURN_MODEL, [...buildObservedInputs50({
+      const inputs = [...buildObservedInputs50({
         feature: candidate, context: candidate.technicalContext!, handler, dates: fixture.dates,
-      }), ...flow]).utility)
+      }), ...flow]
+      expect(candidate.utility).toBe(scoreUtilityModel(FROZEN_COMPOSITE_RETURN_MODEL, inputs).utility)
       const adjusted = candidate.utility! - 0.5 * utilityStats.std * (candidate.atrPercent14! - atrStats.mean) / atrStats.std
       expect(candidate.score).toBe(normalizeUtilityScore(FROZEN_COMPOSITE_RETURN_MODEL.normalization, adjusted))
+      // Six categories = model path contributions per input group (+ATR rank adjustment on volatility), same score curve.
+      const { contributions } = attributeUtilityModel(FROZEN_COMPOSITE_RETURN_MODEL, inputs)
+      const { normalization, featureNames } = FROZEN_COMPOSITE_RETURN_MODEL
+      const category = (key: keyof typeof MODEL_SIGNAL_CATEGORIES) => normalizeUtilityScore(normalization,
+        normalization.mean + MODEL_SIGNAL_CATEGORIES[key].reduce((sum, name) => sum + contributions[featureNames.indexOf(name)]!,
+          key === 'volatility_score' ? adjusted - candidate.utility! : 0))
+      expect(pick.signals).toEqual({
+        trend_score: category('trend_score'), momentum_score: category('momentum_score'),
+        volume_score: category('volume_score'), volatility_score: category('volatility_score'),
+        pattern_score: category('pattern_score'), sentiment_score: category('sentiment_score'),
+        overall_score: candidate.score, basis: 'model_contribution',
+      })
     }
     expect(result.meta.rankedCandidates.map(({ score }) => score)).toEqual(
       [...result.meta.rankedCandidates.map(({ score }) => score)].sort((a, b) => b - a),

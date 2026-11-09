@@ -10,6 +10,7 @@
  * @property pattern_score - 패턴 점수 (차트 패턴, 캔들 패턴 등)
  * @property sentiment_score - 심리 점수 (투자자 심리, 뉴스 감성 등)
  * @property overall_score - 실제 선정 모델이 산출한 종합 점수
+ * @property basis - 'model_contribution'이면 6개 점수는 종합 점수 모델 기여도(50=영향 없음)다. 없으면 기술 지표 점수다.
  */
 export interface StockSignals {
   trend_score: number;
@@ -19,6 +20,7 @@ export interface StockSignals {
   pattern_score: number;
   sentiment_score: number;
   overall_score: number;
+  basis?: 'model_contribution';
 }
 
 /** 실제 선정 순서와 평가 목표. 기술 점수 또는 상승 확률과 구분한다. */

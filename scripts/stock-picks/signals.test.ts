@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest'
 
 import type { StockFeatureVector } from '@/scripts/stock-picks/features'
 import { buildSignals as generatorBuildSignals } from '@/scripts/stock-picks/generate-picks'
-import { buildSignals } from '@/scripts/stock-picks/signals'
+import { buildModelContributionSignals, buildSignals, MODEL_SIGNAL_CATEGORIES } from '@/scripts/stock-picks/signals'
+import { OBSERVED_FLOW_INPUT_NAMES } from '@/scripts/stock-picks/observed-inputs'
+import { FROZEN_COMPOSITE_RETURN_MODEL } from '@/scripts/stock-picks/production-strategy'
 
 const feature = (overrides: Partial<StockFeatureVector> = {}): StockFeatureVector => ({
   symbol: 'KOSPI:000001',
@@ -210,5 +212,52 @@ describe('observed stock signal scores', () => {
       distanceFromHigh60: Number.MAX_VALUE,
     })
     expect(Object.values(buildSignals(extreme)).every((score) => Number.isInteger(score) && score >= 0 && score <= 100)).toBe(true)
+  })
+})
+
+describe('buildModelContributionSignals', () => {
+  const { normalization } = FROZEN_COMPOSITE_RETURN_MODEL
+  const names = OBSERVED_FLOW_INPUT_NAMES
+  const sigma = normalization.standardDeviation
+  const build = (contributions: readonly number[], atrAdjustment = 0, overallScore = 88) => buildModelContributionSignals({
+    featureNames: names, contributions, atrAdjustment, normalization, overallScore,
+  })
+
+  it('assigns each of the 65 production model inputs to exactly one published category', () => {
+    const assigned = Object.values(MODEL_SIGNAL_CATEGORIES).flat()
+    expect(new Set(assigned).size).toBe(assigned.length)
+    expect([...assigned].sort()).toEqual([...names].sort())
+  })
+
+  it('scores no contribution as neutral 50 and keeps the selected overall score', () => {
+    expect(build(Array(names.length).fill(0))).toEqual({ trend_score: 50, momentum_score: 50, volume_score: 50,
+      volatility_score: 50, pattern_score: 50, sentiment_score: 50, overall_score: 88, basis: 'model_contribution' })
+  })
+
+  it('maps a +1σ category contribution to 70 on the overall score curve and sums inputs within a category', () => {
+    const contributions = Array(names.length).fill(0)
+    contributions[names.indexOf('return20Percent')] = sigma / 2
+    contributions[names.indexOf('sma20DistancePercent')] = sigma / 2
+    contributions[names.indexOf('foreignNetBuyRatio5')] = -sigma
+    const signals = build(contributions)
+    expect(signals.trend_score).toBe(70)
+    expect(signals.sentiment_score).toBe(30)
+    expect(signals.momentum_score).toBe(50)
+  })
+
+  it('adds the ATR rank adjustment to volatility so a high-ATR penalty lowers the score', () => {
+    const contributions = Array(names.length).fill(0)
+    contributions[names.indexOf('atrPercent14')] = sigma
+    expect(build(contributions).volatility_score).toBe(70)
+    expect(build(contributions, -sigma).volatility_score).toBe(50)
+    expect(build(contributions, -2 * sigma).volatility_score).toBe(30)
+  })
+
+  it('rejects mismatched inputs and invalid overall scores', () => {
+    expect(() => buildModelContributionSignals({ featureNames: names.slice(1), contributions: Array(names.length - 1).fill(0),
+      atrAdjustment: 0, normalization, overallScore: 50 })).toThrow('카테고리')
+    expect(() => build(Array(names.length - 1).fill(0))).toThrow('입력 불일치')
+    expect(() => build(Array(names.length).fill(0), Number.NaN)).toThrow('ATR')
+    expect(() => build(Array(names.length).fill(0), 0, 50.5)).toThrow('종합 점수')
   })
 })

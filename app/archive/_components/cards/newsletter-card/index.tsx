@@ -192,7 +192,7 @@ export default function NewsletterCard({
       {/* 시그널 점수 */}
       <div className="space-y-3">
         <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-4 font-mono">
-          기술 시그널
+          {signals.basis === 'model_contribution' ? '종합 점수 기여도 · 50 = 영향 없음' : '기술 시그널'}
         </h4>
 
         {SIGNAL_BADGES?.map(({ label, key }) => (

@@ -7,7 +7,7 @@ import returnParity from '@/scripts/stock-picks/fixtures/composite-return-v6-par
 import returnV8Parity from '@/scripts/stock-picks/fixtures/composite-return-v8-parity.json'
 import returnV6Artifact from '@/scripts/stock-picks/models/composite-return-v6.json'
 import { FROZEN_COMPOSITE_RETURN_MODEL } from '@/scripts/stock-picks/production-strategy'
-import { normalizeUtilityScore, scoreUtilityModel, RETURN_SCORE_VERSION, UTILITY_SCORE_VERSION, validateUtilityModel,
+import { attributeUtilityModel, normalizeUtilityScore, scoreUtilityModel, RETURN_SCORE_VERSION, UTILITY_SCORE_VERSION, validateUtilityModel,
   type UtilityModelArtifact, type LegacyUtilityModelArtifact, type CompositeUtilityModelArtifact, type CompositeReturnModelArtifact, type UtilityScoreNormalization, type UtilityTreeNode } from '@/scripts/stock-picks/utility-model'
 
 const frozenUtilityModel = validateUtilityModel(utilityArtifact as UtilityModelArtifact)
@@ -69,6 +69,17 @@ describe('native HGB utility inference', () => {
     for (const candidate of invalid) expect(() => validateUtilityModel(candidate as UtilityModelArtifact)).toThrow()
     for (const mean of [-.5, .5]) expect(() => validateUtilityModel({ ...artifact,
       normalization: { ...artifact.normalization, mean, standardDeviation: .5 } })).not.toThrow()
+  })
+  it('decomposes every native v8 prediction exactly into per-input path contributions', () => {
+    for (const witness of returnV8Parity.cases) {
+      const { bias, contributions } = attributeUtilityModel(FROZEN_COMPOSITE_RETURN_MODEL, witness.inputs)
+      expect(contributions).toHaveLength(OBSERVED_FLOW_INPUT_NAMES.length)
+      expect(bias + contributions.reduce((sum, value) => sum + value, 0), witness.id).toBeCloseTo(witness.prediction, 12)
+      expect(attributeUtilityModel(FROZEN_COMPOSITE_RETURN_MODEL,
+        witness.inputs.map((v) => v === null ? Number.NaN : v))).toEqual({ bias, contributions })
+    }
+    expect(() => attributeUtilityModel(frozenUtilityModel, Array(OBSERVED_INPUT_NAMES.length).fill(0))).toThrow('schema 5')
+    expect(() => attributeUtilityModel(FROZEN_COMPOSITE_RETURN_MODEL, Array(OBSERVED_INPUT_NAMES.length).fill(0))).toThrow('관측 피처 계약')
   })
   it.each([
     { label: 'v6', artifact: frozenReturnV6Model, fixture: returnParity, names: OBSERVED_INPUT_NAMES },

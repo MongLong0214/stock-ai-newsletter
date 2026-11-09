@@ -13,10 +13,10 @@ import {
   type PriceBook,
 } from '@/scripts/stock-picks/data-handler'
 import { buildFeatureSeries, type StockFeatureVector } from '@/scripts/stock-picks/features'
-import { buildSignals, finiteOr } from '@/scripts/stock-picks/signals'
+import { buildModelContributionSignals, finiteOr } from '@/scripts/stock-picks/signals'
 import { loadInvestorFlowInputs } from '@/scripts/stock-picks/investor-flow'
 import { buildObservedInputs50, validateModelMarketSources } from '@/scripts/stock-picks/observed-inputs'
-import { scoreUtilityModel } from '@/scripts/stock-picks/utility-model'
+import { attributeUtilityModel, scoreUtilityModel } from '@/scripts/stock-picks/utility-model'
 import { parsePublishedPicks } from '@/scripts/stock-picks/measure-forward'
 import { buildTechnicalContextMap, type TechnicalContext } from '@/scripts/stock-picks/technical-context'
 import {
@@ -443,8 +443,8 @@ export async function generatePicksWithMeta(input: {
     const context = technicalContexts?.get(symbol)
     const flow = flowInputs.get(symbol)
     if (!context || !flow) throw new Error(`종합 점수 후보 관측값 누락: ${symbol}`)
-    return [symbol, scoreUtilityModel(FROZEN_COMPOSITE_RETURN_MODEL,
-      [...buildObservedInputs50({ feature, context, handler, dates: historyDates }), ...flow])] as const
+    const inputs = [...buildObservedInputs50({ feature, context, handler, dates: historyDates }), ...flow]
+    return [symbol, { ...scoreUtilityModel(FROZEN_COMPOSITE_RETURN_MODEL, inputs), inputs }] as const
   }))
   const rankedCandidates = rankUtilityAtrPenaltyCandidates({
     features, masters: mastersBySymbol, parameters: LOW_VOLATILITY_STABLE_PARAMETERS,
@@ -452,6 +452,7 @@ export async function generatePicksWithMeta(input: {
     excludeSymbols: recentPublishedSymbols, pickCount: features.length,
     utilities: new Map([...predictions].map(([symbol, prediction]) => [symbol, prediction.utility])),
   })
+  const adjustedBySymbol = new Map(rankedCandidates.map(({ symbol, adjusted }) => [symbol, adjusted]))
   const rankedFeatures: RankedStockFeature[] = rankedCandidates.map(({ symbol, score }, index) => {
     const feature = featuresBySymbol.get(symbol)
     const master = mastersBySymbol.get(symbol)
@@ -553,15 +554,25 @@ export async function generatePicksWithMeta(input: {
   const picks: StockData[] = ranked.map(({ symbol, rank, score }) => {
     const master = mastersBySymbol.get(symbol)
     const feature = featuresBySymbol.get(symbol)
-    if (!master || !feature || feature.close === null || !Number.isInteger(feature.close) || feature.close <= 0) {
+    const prediction = predictions.get(symbol)
+    const adjusted = adjustedBySymbol.get(symbol)
+    if (!master || !feature || feature.close === null || !Number.isInteger(feature.close) || feature.close <= 0
+      || !prediction || adjusted === undefined) {
       throw new Error(`픽 원천 데이터 불완전: ${symbol}`)
     }
+    const { contributions } = attributeUtilityModel(FROZEN_COMPOSITE_RETURN_MODEL, prediction.inputs)
     return {
       ticker: symbol,
       name: master.name,
       close_price: feature.close,
       rationale: buildAnalysisSummary(feature, technicalContexts?.get(symbol)),
-      signals: buildSignals(feature, score),
+      signals: buildModelContributionSignals({
+        featureNames: FROZEN_COMPOSITE_RETURN_MODEL.featureNames,
+        contributions,
+        atrAdjustment: adjusted - prediction.utility,
+        normalization: FROZEN_COMPOSITE_RETURN_MODEL.normalization,
+        overallScore: score,
+      }),
       selection: {
         strategy: PRODUCTION_STRATEGY.name,
         rank: rank as 1 | 2 | 3,

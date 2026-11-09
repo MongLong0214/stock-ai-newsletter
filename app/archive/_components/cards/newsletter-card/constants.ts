@@ -13,8 +13,8 @@ export const RATIONALE_LAYOUT = {
   BOTTOM_PADDING: 24,
 } as const;
 
-/** 시그널 점수 키 타입 (overall_score 제외) */
-type SignalKey = keyof Omit<StockSignals, 'overall_score'>;
+/** 시그널 점수 키 타입 (overall_score·basis 제외) */
+type SignalKey = keyof Omit<StockSignals, 'overall_score' | 'basis'>;
 
 /** 시그널 배지 설정 아이템 타입 */
 interface SignalBadgeConfig {

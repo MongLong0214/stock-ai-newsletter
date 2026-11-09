@@ -78,6 +78,7 @@ interface StockSignals {
   pattern_score: number;
   sentiment_score: number;
   overall_score: number;
+  basis?: 'model_contribution';
 }
 
 interface AnalysisDepth {
@@ -813,7 +814,7 @@ function parseAndFormatAnalysis(jsonString: string): string {
                 <!-- Section Title: 기술적 신호 점수 -->
                 <tr>
                   <td colspan="2" style="padding: 0 0 16px 0;">
-                    <p style="margin: 0; padding: 0; font-size: 11px; font-weight: 600; color: #0EA5E9; letter-spacing: 0.05em; text-transform: uppercase;">기술적 신호 점수</p>
+                    <p style="margin: 0; padding: 0; font-size: 11px; font-weight: 600; color: #0EA5E9; letter-spacing: 0.05em; text-transform: uppercase;">${stock.signals.basis === 'model_contribution' ? '종합 점수 기여도 · 50 = 영향 없음' : '기술적 신호 점수'}</p>
                   </td>
                 </tr>
 
