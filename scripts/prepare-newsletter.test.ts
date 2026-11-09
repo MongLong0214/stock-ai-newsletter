@@ -74,13 +74,14 @@ const HEALTHY_COLLECTION = {
     [SIGNAL_DATE]: 3,
   },
 }
+const CODE_PICK_SIGNALS = { trend_score: 50, momentum_score: 50, volume_score: 50, volatility_score: 50,
+  pattern_score: 50, sentiment_score: 50, overall_score: 50, basis: 'model_contribution' as const }
 const CODE_PICKS = JSON.stringify([
   { ticker: 'KOSPI:000001', name: '테스트1', close_price: 1000 },
   { ticker: 'KOSPI:000002', name: '테스트2', close_price: 2000 },
   { ticker: 'KOSPI:000003', name: '테스트3', close_price: 3000 },
 ].map((pick, index) => ({ ...pick, selection: { strategy: PRODUCTION_STRATEGY.name, rank: index + 1, objective: PRODUCTION_STRATEGY.objective }, rationale: '관측한 가격과 거래량에 기반한 검증용 기술적 분석입니다. 미래 수익이나 상승 확률을 보장하지 않습니다.',
-  signals: { trend_score: 50, momentum_score: 50, volume_score: 50, volatility_score: 50,
-    pattern_score: 50, sentiment_score: 50, overall_score: 50 },
+  signals: CODE_PICK_SIGNALS,
 })))
 
 const GENERATED_RESULT = {
@@ -101,9 +102,9 @@ const GENERATED_RESULT = {
       picked: 3,
     },
     rankedCandidates: [
-      { symbol: 'KOSPI:000001', name: '테스트1', close: 1000, score: 50, rank: 1, tier: 'compositeUtility' },
-      { symbol: 'KOSPI:000002', name: '테스트2', close: 2000, score: 50, rank: 2, tier: 'compositeUtility' },
-      { symbol: 'KOSPI:000003', name: '테스트3', close: 3000, score: 50, rank: 3, tier: 'compositeUtility' },
+      { symbol: 'KOSPI:000001', name: '테스트1', close: 1000, score: 50, rank: 1, tier: 'compositeUtility', signals: CODE_PICK_SIGNALS },
+      { symbol: 'KOSPI:000002', name: '테스트2', close: 2000, score: 50, rank: 2, tier: 'compositeUtility', signals: CODE_PICK_SIGNALS },
+      { symbol: 'KOSPI:000003', name: '테스트3', close: 3000, score: 50, rank: 3, tier: 'compositeUtility', signals: CODE_PICK_SIGNALS },
       { symbol: 'KOSPI:000004', name: '테스트4', score: 4, rank: 4, tier: 'lowVolatility' },
     ].map(candidate => ({ ...candidate,
       sma60: null, sma20: null, macdHistogram: null, volume: null, volumeRatio20: null,
