@@ -3,6 +3,7 @@ import { getServerSupabaseClient } from '@/lib/supabase/server-client';
 import { fetchAllRows } from '@/lib/supabase/paginate';
 import { siteConfig } from '@/lib/constants/seo/config';
 import { isValidBlogSlug } from './blog/_utils/slug-validator';
+import { isOwnBlogImageUrl } from './blog/_utils/markdown-visuals';
 
 // 테마 상세 페이지의 ISR(3600)과 주기를 맞춘다.
 //
@@ -25,13 +26,21 @@ function withAlternates(url: string) {
   };
 }
 
-async function getPublishedBlogSlugs(): Promise<{ slug: string; published_at: string; updated_at: string | null }[]> {
+interface PublishedBlogRow {
+  slug: string;
+  published_at: string;
+  updated_at: string | null;
+  /** schema_data.image — 파이프라인이 본문 커버를 실은 글에만 있다 */
+  cover: string | null;
+}
+
+async function getPublishedBlogSlugs(): Promise<PublishedBlogRow[]> {
   try {
     const supabase = getServerSupabaseClient();
-    return await fetchAllRows((from, to) =>
+    return await fetchAllRows<PublishedBlogRow>((from, to) =>
       supabase
         .from('blog_posts')
-        .select('slug, published_at, updated_at')
+        .select('slug, published_at, updated_at, cover:schema_data->>image')
         .eq('status', 'published')
         .order('published_at', { ascending: false })
         .range(from, to),
@@ -126,6 +135,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         changeFrequency: 'weekly',
         priority: 0.8,
         alternates: withAlternates(url),
+        // 사이트맵 이미지는 우리 스토리지 커버만 싣는다
+        ...(post.cover && isOwnBlogImageUrl(post.cover) ? { images: [post.cover] } : {}),
       };
     });
 

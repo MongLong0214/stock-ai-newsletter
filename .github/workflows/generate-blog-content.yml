@@ -62,6 +62,15 @@ jobs:
           NAVER_AD_API_KEY: ${{ secrets.NAVER_AD_API_KEY }}
           NAVER_AD_SECRET_KEY: ${{ secrets.NAVER_AD_SECRET_KEY }}
           NAVER_AD_CREDS: ${{ secrets.NAVER_AD_CREDS }}
+          # 한국투자증권 Open API — 본문 실측 주가 차트·표용 1년 일봉. 선택이다:
+          # 없거나 실패하면 데이터 섹션만 빠지고 글은 그대로 발행된다.
+          KIS_APP_KEY: ${{ secrets.KIS_APP_KEY }}
+          KIS_APP_SECRET: ${{ secrets.KIS_APP_SECRET }}
+          KIS_BASE_URL: ${{ secrets.KIS_BASE_URL }}
+          # 운영 킬스위치 (저장소 Variables, 비우면 켜짐): 'off'면 배포 없이 끈다.
+          # BLOG_MARKET_DATA=off → 실측 시세(프롬프트·차트·표) 끔, BLOG_AI_IMAGES=off → AI 사진만 끔.
+          BLOG_MARKET_DATA: ${{ vars.BLOG_MARKET_DATA }}
+          BLOG_AI_IMAGES: ${{ vars.BLOG_AI_IMAGES }}
         run: |
           echo "블로그 파이프라인 실행 (게이트 우선 — 발행은 상한, 할당량 아님)"
           npx tsx scripts/generate-blog-post.ts

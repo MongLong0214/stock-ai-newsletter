@@ -2,16 +2,17 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Agent } from 'undici';
 import { OPENAI_API_CONFIG, PIPELINE_CONFIG } from './_config/pipeline-config';
 
-const { mockCreateResponse, mockClient } = vi.hoisted(() => ({
-  mockCreateResponse: vi.fn(), mockClient: vi.fn(),
+const { mockCreateResponse, mockClient, mockGenerateImage } = vi.hoisted(() => ({
+  mockCreateResponse: vi.fn(), mockClient: vi.fn(), mockGenerateImage: vi.fn(),
 }));
 vi.mock('openai', () => ({
   default: class {
     constructor(options: unknown) { mockClient(options); }
     responses = { create: mockCreateResponse };
+    images = { generate: mockGenerateImage };
   },
 }));
-import { generateText } from './openai-client';
+import { generateImage, generateText } from './openai-client';
 
 const response = {
   model: 'gpt-6.1-sol', status: 'completed', output_text: '완료된 응답', output: [],
@@ -85,5 +86,44 @@ describe('OpenAI generateText', () => {
     await expect(generateText({ prompt: '분석하세요' })).rejects.toThrow('429');
     expect(mockCreateResponse).toHaveBeenCalledTimes(1);
     expect(vi.getTimerCount()).toBe(0);
+  });
+});
+
+describe('OpenAI generateImage', () => {
+  const options = { prompt: '장면', model: 'gpt-image-2.6-sunburst', size: '1536x1024' as const, quality: 'medium' as const, timeout: 1_000 };
+
+  beforeEach(() => {
+    vi.resetAllMocks();
+    vi.stubEnv('OPENAI_API_KEY', 'test-key');
+    vi.spyOn(console, 'log').mockImplementation(() => {});
+  });
+  afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks(); vi.unstubAllEnvs(); });
+
+  it('decodes the base64 image and requests compressed webp', async () => {
+    mockGenerateImage.mockResolvedValue({ data: [{ b64_json: Buffer.from('webp-bytes').toString('base64') }], usage: { input_tokens: 10, output_tokens: 20, total_tokens: 30 } });
+    expect((await generateImage(options)).toString()).toBe('webp-bytes');
+    expect(mockGenerateImage).toHaveBeenCalledExactlyOnceWith({
+      model: 'gpt-image-2.6-sunburst', prompt: '장면', size: '1536x1024', quality: 'medium', n: 1,
+      output_format: 'webp', output_compression: 85,
+    }, { signal: expect.any(AbortSignal) });
+  });
+
+  it('throws when the response carries no image', async () => {
+    mockGenerateImage.mockResolvedValue({ data: [] });
+    await expect(generateImage(options)).rejects.toThrow('이미지 응답에 데이터가 없습니다');
+  });
+
+  it('aborts the request when it runs past the timeout', async () => {
+    vi.useFakeTimers();
+    let signal: AbortSignal | undefined;
+    mockGenerateImage.mockImplementation((_body: unknown, opts: { signal: AbortSignal }) => {
+      signal = opts.signal;
+      return new Promise(() => {});
+    });
+    const pending = generateImage(options);
+    const assertion = expect(pending).rejects.toThrow('Timeout after 1000ms');
+    await vi.advanceTimersByTimeAsync(1_000);
+    await assertion;
+    expect(signal?.aborted).toBe(true);
   });
 });

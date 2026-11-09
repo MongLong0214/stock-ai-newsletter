@@ -211,16 +211,18 @@ export function calculateQualityScore(
  * @param targetKeyword - SEO 타겟 키워드
  * @param competitorAnalysis - 경쟁사 분석 결과
  * @param contentType - 콘텐츠 유형 (기본: guide)
+ * @param verifiedMarketData - 실측 시세 요약 (없으면 빈 문자열)
  * @returns 생성된 블로그 콘텐츠
  */
 export async function generateBlogContent(
   targetKeyword: string,
   competitorAnalysis: CompetitorAnalysis,
-  contentType: 'comparison' | 'guide' | 'listicle' | 'review' = 'guide'
+  contentType: 'comparison' | 'guide' | 'listicle' | 'review' = 'guide',
+  verifiedMarketData = ''
 ): Promise<GeneratedContent> {
   console.log(`[OpenAI] 콘텐츠 생성 시작: "${targetKeyword}" (${contentType})`);
 
-  const prompt = buildContentGenerationPrompt(targetKeyword, competitorAnalysis, contentType);
+  const prompt = buildContentGenerationPrompt(targetKeyword, competitorAnalysis, contentType, verifiedMarketData);
   let lastError: Error | null = null;
 
   for (let attempt = 1; attempt <= PIPELINE_CONFIG.retryAttempts; attempt++) {
