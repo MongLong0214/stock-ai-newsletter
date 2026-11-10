@@ -2,7 +2,7 @@
  * 블로그 파이프라인 오케스트레이터 — 게이트 우선 설계
  *
  * Phase 1: AI 키워드 후보 → 결정적 게이트 3단 (전 기간 클러스터 차단 → 중복 → 네이버 실측 검색량)
- * Phase 2: 검색량 상위 DRAFT_LIMIT개만 초안 생성 (SERP 근거 필수 → 생성 → 윤문 필수 → YMYL 게이트)
+ * Phase 2: 검색량 순으로 초안을 시도해 발행 상한만큼 통과하면 멈춘다 (SERP 근거 필수 → 생성 → 윤문 필수 → YMYL 게이트)
  * Phase 3: 게이트 통과분 중 검색량 상위 MAX_DAILY_PUBLISH개 발행, 나머지는 draft 보관
  *
  * 설계 원칙: 발행량은 상한이지 할당량이 아니다. 게이트를 통과한 글이 2개면 2개만
@@ -54,8 +54,7 @@ let runStartedAt = Date.now();
 
 // 윤문 서킷브레이커: LLM 윤문 서비스가 저하되면(연속 타임아웃/에러) 남은 초안은 윤문을 생략해
 // 초당 낭비를 막는다. run 단위 상태 — generateWithDynamicKeywords 시작 시 리셋.
-// 시스템 장애만 센다. 현재 DRAFT_LIMIT=1이므로 run당 윤문은 최대 1회·600초이며,
-// 이 브레이커가 개별 요청의 타임아웃을 줄이지는 않는다.
+// 시스템 장애만 센다. 이 브레이커가 개별 요청의 타임아웃을 줄이지는 않는다.
 const HUMANIZE_TRIP_THRESHOLD = 3;
 let humanizeConsecutiveFailures = 0;
 let humanizeDisabled = false;
@@ -83,11 +82,18 @@ const QUALITY_MIN_SCORE = 60;
  */
 export const MAX_DAILY_PUBLISH = 1;
 /**
- * Phase 2(SERP+스크래핑+생성+윤문) 진입 상한. 발행 상한과 함께 1편으로 제한한다.
- * 키워드 300초 + 검색 60초 + 스크래핑 180초 + 생성 1,815초 + 윤문 615초 + 저장 30초
- * = 50분. 초안 3편이면 60분 CI 한도를 넘으므로 55분 스크립트 예산 안에 1편만 시도한다.
+ * Phase 2 새 초안 시도는 run 시작 후 이 시각까지만 시작한다.
+ *
+ * 예전에는 검색량 1위 키워드 1개만 시도했다(DRAFT_LIMIT=1). 초안 하나가 검색 0건·스크래핑
+ * 0건·윤문 반려·YMYL 위반 중 하나에만 걸려도 그날 발행이 0건이 됐다 — 2026-09-01~11-10
+ * 40회 중 18회. 그래서 게이트는 그대로 두고, 상한만큼 통과할 때까지 다음 키워드로 넘어간다.
+ *
+ * 실측 소요: 검색·스크래핑 실패는 1~3분, 생성 207~259초 + 윤문 97~162초 = 초안 6~8분.
+ * 40분에 시작한 시도는 생성 1회 재시도(+10분)를 겪어도 시각자료 마감(68분) 전에 끝난다.
+ * 생성 3회 전부 타임아웃 같은 최악(약 40분)은 스크립트 한도(75분)에 걸리지만, 그 시도까지
+ * 왔다는 것은 앞선 시도가 모두 실패했다는 뜻이라 잃는 글이 없다.
  */
-export const DRAFT_LIMIT = 1;
+export const DRAFT_START_CUTOFF_MS = 40 * 60_000;
 /** Phase 1 키워드 후보 수 — 게이트 탈락 여유분 */
 const KEYWORD_CANDIDATE_COUNT = 10;
 
@@ -457,7 +463,7 @@ export async function generateWithDynamicKeywords(options: { publish?: boolean; 
   try {
     // ━━━ Phase 1: 키워드 후보 생성 + 게이트 ━━━
     // 발행 상한(count)이 아니라 후보 수를 요청한다 — 클러스터·중복·검색량 게이트가
-    // 걸러낸 뒤에도 DRAFT_LIMIT를 채울 여유가 있어야 한다.
+    // 걸러낸 뒤에도 초안이 실패했을 때 넘어갈 다음 키워드가 남아 있어야 한다.
     console.log(`[Pipeline] Phase 1: AI 키워드 후보 ${KEYWORD_CANDIDATE_COUNT}개 생성 (발행 상한 ${Math.min(count, MAX_DAILY_PUBLISH)}개)`);
 
     const kwResult = await withTimeoutFallback(
@@ -472,25 +478,35 @@ export async function generateWithDynamicKeywords(options: { publish?: boolean; 
       return [];
     }
 
-    // 실측 검색량(게이트에서 estimatedSearchVolume에 기록됨) 내림차순으로
-    // DRAFT_LIMIT개만 Phase 2에 진입 — 초안 1개가 수 분(SERP+스크래핑+생성+윤문)이므로
-    // 여기서 줄이는 것이 55분 스크립트 예산과 비용을 지킨다.
-    const drafting = [...kwResult.keywords]
-      .sort((a, b) => (b.estimatedSearchVolume ?? 0) - (a.estimatedSearchVolume ?? 0))
-      .slice(0, DRAFT_LIMIT);
-    console.log(`[Pipeline] Phase 1 완료: 게이트 통과 ${kwResult.keywords.length}개 → 초안 대상 ${drafting.length}개`);
+    // 실측 검색량(게이트에서 estimatedSearchVolume에 기록됨) 내림차순으로 시도한다.
+    const candidates = [...kwResult.keywords]
+      .sort((a, b) => (b.estimatedSearchVolume ?? 0) - (a.estimatedSearchVolume ?? 0));
+    const needed = Math.min(count, MAX_DAILY_PUBLISH);
+    console.log(`[Pipeline] Phase 1 완료: 게이트 통과 ${candidates.length}개 → 검색량 순으로 ${needed}개 통과까지 시도`);
 
     // ━━━ Phase 2: 초안 생성 (근거·윤문·YMYL 게이트 포함, 저장 없이) ━━━
-    console.log(`[Pipeline] Phase 2: ${drafting.length}개 초안 생성`);
+    // 실패한 초안의 게이트는 끄지 않는다. 그 키워드를 버리고 다음 키워드로 넘어갈 뿐이다.
+    console.log(`[Pipeline] Phase 2: 초안 생성 (통과 ${needed}개 또는 시작 마감 ${DRAFT_START_CUTOFF_MS / 60_000}분까지)`);
 
     const drafts: DraftResult[] = [];
-    for (let i = 0; i < drafting.length; i++) {
-      const kw = drafting[i];
-      const draft = await generateDraft(kw.keyword, kw.contentType);
-      if (draft.success) draft.searchVolume = kw.estimatedSearchVolume ?? 0;
-      drafts.push(draft);
+    let passed = 0;
+    for (const kw of candidates) {
+      if (passed >= needed) break;
+      if (humanizeDisabled) break;
+      const elapsed = Date.now() - runStartedAt;
+      if (elapsed > DRAFT_START_CUTOFF_MS) {
+        console.warn(`[Pipeline] 초안 시작 마감 경과 (${Math.round(elapsed / 60_000)}분) — 남은 키워드는 시도하지 않는다`);
+        break;
+      }
+      if (drafts.length > 0) await new Promise(r => setTimeout(r, BATCH_DELAY_MS));
 
-      if (i < drafting.length - 1) await new Promise(r => setTimeout(r, BATCH_DELAY_MS));
+      console.log(`[Pipeline] 초안 시도 ${drafts.length + 1}/${candidates.length}: "${kw.keyword}"`);
+      const draft = await generateDraft(kw.keyword, kw.contentType);
+      if (draft.success) {
+        draft.searchVolume = kw.estimatedSearchVolume ?? 0;
+        passed += 1;
+      }
+      drafts.push(draft);
     }
 
     await closeBrowser().catch(() => {});

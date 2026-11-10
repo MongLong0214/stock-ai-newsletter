@@ -11,6 +11,19 @@ describe('measureAiTell', () => {
     expect(measureAiTell(DIVERSE).daStreaks).toBe(0);
   });
 
+  it("합니다체 '~니다'는 스트릭으로 세지 않는다 — 블로그 본문의 정상 문체다", () => {
+    const formal = '시장이 상승했습니다. 지수가 올랐습니다. 거래량이 늘었습니다. 투자가 증가했습니다. 심리가 개선됐습니다.';
+    expect(measureAiTell(formal).daStreaks).toBe(0);
+    // 문단을 나눠도(문장 수가 늘어도) 스트릭이 생기지 않는다
+    expect(measureAiTell(`${formal}\n\n${formal}`).daStreaks).toBe(0);
+  });
+
+  it('합니다체 종결은 3음절로 구분해 다양성을 잰다', () => {
+    const same = measureAiTell('가격이 올랐습니다. 매출이 늘었습니다. 이익이 줄었습니다. 비용이 컸습니다.').endingDiversity;
+    const varied = measureAiTell('가격이 올랐습니다. 이것이 기준입니다. 비교가 필요합니다. 판단은 독자 몫입니다.').endingDiversity;
+    expect(varied).toBeGreaterThan(same);
+  });
+
   it('이중 피동 표층형을 잡는다', () => {
     expect(measureAiTell('이는 긍정적으로 평가되어진다.').doublePassiveCount).toBe(1);
     expect(measureAiTell('이는 긍정적으로 평가된다.').doublePassiveCount).toBe(0);
