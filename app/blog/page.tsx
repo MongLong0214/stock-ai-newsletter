@@ -118,4 +118,6 @@ export const metadata: Metadata = {
   },
 };
 
-export const revalidate = 3600;
+// 발행은 GitHub Actions에서 일어나 온디맨드 재검증을 걸 수 없다. 1시간이면 새 글이 목록에
+// 최대 1시간 늦게 뜨므로 10분으로 줄인다(목록 쿼리는 컬럼 몇 개짜리라 재생성 비용이 작다).
+export const revalidate = 600;

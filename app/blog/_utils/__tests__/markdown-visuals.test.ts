@@ -183,8 +183,17 @@ describe('cover extraction and H1 stripping', () => {
     expect(extractCoverImage(md)).toEqual({ url: img('cover').url, alt: img('cover').alt, caption: img('cover').caption, width: 1536, height: 1024 });
     expect(extractCoverImage('![x](https://evil.example/r-cover-1536x1024.webp "c")')).toBeNull();
     expect(extractCoverImage('![x](https://evil.example/storage/v1/object/public/blog-images/x-cover-1200x630.png "c")')).toBeNull();
-    expect(extractCoverImage(insertInSection(DOC, '첫 섹션', img('section1'))!)).toBeNull();
     expect(extractCoverImage(null)).toBeNull();
+  });
+
+  it('falls back to the first section photo when the cover was rejected, never to the chart', () => {
+    const chart = { url: `${BASE}/r-chart-1600x900.png`, alt: '차트', caption: '차트 캡션' };
+    const withSections = insertInSection(insertInSection(DOC, '첫 섹션', img('section1'))!, '마지막 섹션', img('section2'))!;
+    expect(extractCoverImage(insertAfterFirstSection(withSections, imageMarkdown(chart)))?.url).toBe(img('section1').url);
+    // 커버가 있으면 섹션보다 뒤에 있어도 커버가 이긴다
+    expect(extractCoverImage(insertCover(withSections, img('cover')))?.url).toBe(img('cover').url);
+    expect(extractCoverImage(insertAfterFirstSection(DOC, imageMarkdown(chart)))).toBeNull();
+    expect(extractCoverImage('![x](https://evil.example/storage/v1/object/public/blog-images/x-section1-1536x1024.webp "c")')).toBeNull();
   });
 
   it('passes only our own storage covers to list cards', () => {
