@@ -16,6 +16,11 @@ export interface ImageRef {
 const OWN_BUCKET_PATH = '/storage/v1/object/public/blog-images/';
 const COVER_NAME_RE = /-cover-(\d{3,4})x(\d{3,4})\.(?:webp|png|jpe?g)$/;
 
+/** 목록 카드용 커버 — 우리 스토리지 URL만 통과시킨다 */
+export function ownCoverOrNull(url: unknown): string | null {
+  return typeof url === 'string' && isOwnBlogImageUrl(url) ? url : null;
+}
+
 /**
  * 우리 Supabase 프로젝트의 blog-images 버킷 URL인가 (호스트까지 확인).
  * 본문에 끼어든 외부 이미지가 OG·JSON-LD·사이트맵 대표 이미지가 되지 않게 한다.
@@ -146,8 +151,9 @@ export function comparisonReturns(stocks: readonly StockSnapshot[]): { label: st
 /** 데이터 섹션 제목 (차트 제목과 같은 기준) */
 export function dataSectionTitle(ctx: MarketContext): string {
   const names = ctx.stocks.slice(0, 4).map((s) => s.name);
-  if (!ctx.direct && ctx.theme) return `${ctx.theme.name} 테마 대표 종목 주가`;
+  // 한 종목이면 테마 글이어도 단일 종목 차트·문장이다 — 제목도 그 종목으로
   if (ctx.stocks.length === 1) return `${names[0]} 주가 흐름`;
+  if (!ctx.direct && ctx.theme) return `${ctx.theme.name} 테마 대표 종목 주가`;
   return `${names.join('·')} 주가 비교`;
 }
 
@@ -238,5 +244,6 @@ export function extractCoverImage(markdown: string | null | undefined): CoverIma
 
 /** 본문 맨 앞의 H1 제거 — 페이지 헤더가 이미 제목 H1을 그린다(중복 H1 방지) */
 export function stripLeadingH1(markdown: string): string {
-  return markdown.replace(/^\s*#\s+[^\n]*\n*/, '');
+  // [ \t]+ — 빈 `#` 줄 뒤의 다음 줄까지 먹지 않게 줄바꿈을 넘지 않는다
+  return markdown.replace(/^\s*#[ \t]+[^\n]*\n*/, '');
 }

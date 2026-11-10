@@ -630,6 +630,35 @@ body::-webkit-scrollbar-thumb:hover { background: rgba(16,185,129,0.4); }
   background: rgba(15, 23, 42, 0.3);
 }
 
+/* 넓은 표는 상자 안에서 가로 스크롤 (body overflow clip에 잘리지 않게) — 여백은 상자가 갖는다 */
+.prose-article :where(.table-scroll) {
+  max-width: var(--article-max-width);
+  margin: 2.5rem 0;
+  overflow-x: auto;
+}
+
+.prose-article :where(.table-scroll table) {
+  margin: 0;
+}
+
+@media (min-width: 768px) {
+  .prose-article :where(.table-scroll) {
+    margin: 3rem 0;
+  }
+}
+
+@media (max-width: 767px) {
+  .prose-article :where(th, td) {
+    padding: 0.625rem 0.75rem;
+    font-size: 0.9375rem;
+  }
+
+  /* 모바일 표는 어차피 상자 안에서 스크롤한다 — 한글이 글자 단위로 쪼개져 행이 세로로 늘어나지 않게 어절 단위로만 줄바꿈 */
+  .prose-article :where(.table-scroll th, .table-scroll td) {
+    word-break: keep-all;
+  }
+}
+
 /* =========================
    Horizontal Rules
    ========================= */

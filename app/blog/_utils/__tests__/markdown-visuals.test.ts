@@ -10,6 +10,7 @@ import {
   insertCover,
   insertInSection,
   listH2Headings,
+  ownCoverOrNull,
   stripLeadingH1,
 } from '../markdown-visuals';
 
@@ -132,6 +133,8 @@ describe('data section', () => {
 
   it('describes theme picks by trading value and uses the period label when a stock lacks a full year', () => {
     expect(dataSectionTitle(themed)).toBe('방산 테마 대표 종목 주가');
+    // 본문 대조 후 한 종목만 남은 테마는 그 종목 제목을 쓴다
+    expect(dataSectionTitle({ ...themed, stocks: [themed.stocks[0]] })).toBe('한화 주가 흐름');
     const md = buildDataSection(themed, null);
     expect(md).not.toContain('![');
     expect(md).toContain('최근 거래일 거래대금이 많은 방산 테마 종목 2개');
@@ -184,9 +187,19 @@ describe('cover extraction and H1 stripping', () => {
     expect(extractCoverImage(null)).toBeNull();
   });
 
+  it('passes only our own storage covers to list cards', () => {
+    expect(ownCoverOrNull(img('cover').url)).toBe(img('cover').url);
+    expect(ownCoverOrNull('https://evil.example/storage/v1/object/public/blog-images/r-cover-1536x1024.webp')).toBeNull();
+    expect(ownCoverOrNull(null)).toBeNull();
+    expect(ownCoverOrNull({ url: img('cover').url })).toBeNull();
+  });
+
   it('removes only a leading H1', () => {
     expect(stripLeadingH1(DOC).startsWith('도입 문단입니다.')).toBe(true);
     expect(stripLeadingH1('## 섹션\n\n본문')).toBe('## 섹션\n\n본문');
     expect(stripLeadingH1('본문\n\n# 중간 H1')).toBe('본문\n\n# 중간 H1');
+    // 제목 없는 '#' 줄이 다음 줄을 삼키지 않는다
+    expect(stripLeadingH1('# 제목\n본문 첫 줄')).toBe('본문 첫 줄');
+    expect(stripLeadingH1('#\n## 섹션')).toBe('#\n## 섹션');
   });
 });

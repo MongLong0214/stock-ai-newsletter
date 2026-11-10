@@ -17,6 +17,29 @@ export const IMAGE_STYLE_SUFFIX = [
   '(show places and objects only), and any monitor, phone or tablet screen that is switched on.',
 ].join(' ');
 
+/**
+ * 생성 이미지 검수 프롬프트 — 금지 규칙을 모델이 실제로 지켰는지 사진을 보고 판정한다.
+ * 프롬프트로 금지해도 이미지 모델은 간판 글자·가짜 로고·사람을 섞는 일이 있다.
+ */
+export function buildImageQaPrompt(alt: string): string {
+  return `
+You are the photo desk QA for a Korean financial news site. Inspect the attached generated photo strictly, at normal web viewing size.
+
+Report true for each problem you can see:
+- text: any letters, numbers, characters, or text-like scribbles anywhere (signs, labels, paper, packaging, screens, clothing), legible or not.
+- logo: any brand mark, emblem, or trademark-like symbol.
+- person: any human or part of one (face, hand, arm, silhouette, reflection).
+- screen: any monitor, phone, tablet, or display that is switched on.
+- chart: any chart, graph, candlestick, or ticker-like pattern.
+- artifact: obvious AI distortion (melted or merged objects, impossible geometry) a reader would notice.
+- alt_mismatch: the Korean alt text below names an object or scene that is not actually in the photo.
+
+<alt>${alt.replace(/[<>]/g, ' ')}</alt>
+
+Output JSON only: {"text":false,"logo":false,"person":false,"screen":false,"chart":false,"artifact":false,"alt_mismatch":false,"note":"<one short English sentence>"}
+`.trim();
+}
+
 export interface VisualPlanSection {
   readonly heading: string;
   readonly excerpt: string;

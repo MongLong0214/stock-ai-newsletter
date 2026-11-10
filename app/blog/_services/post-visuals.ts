@@ -11,7 +11,7 @@
 import { randomBytes } from 'node:crypto';
 import { generateImage, generateText } from '@/lib/llm/openai-client';
 import { VISUAL_CONFIG } from '../_config/pipeline-config';
-import { IMAGE_STYLE_SUFFIX, buildVisualPlanPrompt } from '../_prompts/visual-plan';
+import { IMAGE_STYLE_SUFFIX, buildImageQaPrompt, buildVisualPlanPrompt } from '../_prompts/visual-plan';
 import { renderComparisonChart, renderPriceChart } from './chart-renderer';
 import { removeBlogImages, uploadBlogImage } from './image-storage';
 import {
@@ -33,6 +33,11 @@ const MIN_ATTEMPT_MS = 20_000;
 const CLOSE_GRACE_MS = 20_000;
 /** 업로드 직후 공개 URL 확인 상한 */
 const PUBLIC_CHECK_TIMEOUT_MS = 10_000;
+/** 이미지 검수(비전) 1회 상한 */
+const QA_TIMEOUT_MS = 90_000;
+/** 검수 탈락 시 같은 장면을 다시 그리는 최대 횟수 (총 시도 = 1 + 이 값) */
+const QA_REGENERATIONS = 1;
+const QA_FLAGS = ['text', 'logo', 'person', 'screen', 'chart', 'artifact', 'alt_mismatch'] as const;
 
 /** AI 이미지 활성화 여부 — `BLOG_AI_IMAGES=off`로 끌 수 있다(실측 데이터 섹션은 유지) */
 function aiImagesEnabled(): boolean {
@@ -153,6 +158,51 @@ async function generateWithFallback(prompt: string, quality: 'medium' | 'high', 
   return null;
 }
 
+// --- 검수 ---
+
+export interface ImageQaVerdict {
+  readonly ok: boolean;
+  /** 탈락 사유 (검수 실패 포함) */
+  readonly reasons: readonly string[];
+}
+
+/** 검수 응답 → 판정. 형식이 어긋나면 탈락이다(검수를 통과했다고 볼 근거가 없다). */
+export function parseImageQa(raw: string): ImageQaVerdict {
+  const start = raw.indexOf('{');
+  const end = raw.lastIndexOf('}');
+  if (start === -1 || end <= start) return { ok: false, reasons: ['검수 응답 형식 오류'] };
+  let parsed: Record<string, unknown>;
+  try {
+    parsed = JSON.parse(raw.slice(start, end + 1)) as Record<string, unknown>;
+  } catch {
+    return { ok: false, reasons: ['검수 응답 형식 오류'] };
+  }
+  if (QA_FLAGS.some((f) => typeof parsed[f] !== 'boolean')) return { ok: false, reasons: ['검수 응답 항목 누락'] };
+  const reasons = QA_FLAGS.filter((f) => parsed[f] === true);
+  const note = typeof parsed.note === 'string' ? parsed.note.slice(0, 160) : '';
+  return { ok: reasons.length === 0, reasons: reasons.length ? [...reasons, ...(note ? [note] : [])] : [] };
+}
+
+/**
+ * 생성 이미지를 비전 모델로 검수한다. 글자·로고·사람·켜진 화면·차트·왜곡·alt 불일치가 하나라도
+ * 보이면 탈락. 검수 자체가 실패해도 탈락이다 — 확인 못 한 이미지는 싣지 않는다.
+ */
+async function inspectImage(webp: Buffer, alt: string, deadline: number): Promise<ImageQaVerdict> {
+  const remaining = deadline - Date.now();
+  if (remaining < MIN_ATTEMPT_MS) return { ok: false, reasons: ['검수 시간 부족'] };
+  try {
+    const raw = await generateText({
+      prompt: buildImageQaPrompt(alt),
+      image: { data: webp, mimeType: 'image/webp' },
+      config: { responseMimeType: 'application/json', reasoningEffort: 'low', maxOutputTokens: 2000 },
+      timeout: Math.min(QA_TIMEOUT_MS, remaining),
+    });
+    return parseImageQa(raw);
+  } catch (error) {
+    return { ok: false, reasons: [`검수 실패: ${err(error).slice(0, 120)}`] };
+  }
+}
+
 async function planImages(input: { keyword: string; title: string; markdown: string }, deadline: number): Promise<PlannedImage[]> {
   const sections = sectionExcerpts(input.markdown);
   const headings = listH2Headings(input.markdown);
@@ -258,7 +308,15 @@ export async function createPostVisuals(input: {
     const plan = await planImages(input, deadline);
     await Promise.all(plan.map(async (p, i) => {
       const quality = p.heading === null ? VISUAL_CONFIG.coverQuality : VISUAL_CONFIG.sectionQuality;
-      const webp = await generateWithFallback(`${p.scene}\n\n${IMAGE_STYLE_SUFFIX}`, quality, deadline);
+      const label = p.heading === null ? '커버' : `섹션 ${p.heading}`;
+      let webp: Buffer | null = null;
+      for (let attempt = 0; attempt <= QA_REGENERATIONS && !webp; attempt++) {
+        const candidate = await generateWithFallback(`${p.scene}\n\n${IMAGE_STYLE_SUFFIX}`, quality, deadline);
+        if (!candidate) return;
+        const qa = await inspectImage(candidate, p.alt, deadline);
+        if (qa.ok) webp = candidate;
+        else console.warn(`[Visuals] 검수 탈락 (${label}, ${attempt + 1}차): ${qa.reasons.join(' / ')}`);
+      }
       if (!webp) return;
       try {
         const url = await upload(p.heading === null ? 'cover' : `section${i}`, webp, 'webp', VISUAL_CONFIG.imageSize);
@@ -280,10 +338,18 @@ export async function createPostVisuals(input: {
     const images = [...done.images];
     let result = assemble(input.markdown, input.market, chart, images);
 
-    const firstUrl = [chart?.url, ...images.map((r) => r.image.url)].find((u): u is string => !!u && result.markdown.includes(u));
-    if (firstUrl && !(await isPubliclyReadable(firstUrl))) {
-      console.warn(`[Visuals] 공개 URL을 읽을 수 없음 — 이미지 없이 싣는다: ${firstUrl}`);
-      result = assemble(input.markdown, input.market, null, []);
+    // 실린 이미지마다 공개 URL이 실제로 읽히는지 확인하고, 안 읽히는 것만 뺀다
+    const embedded = [chart?.url, ...images.map((r) => r.image.url)].filter((u): u is string => !!u && result.markdown.includes(u));
+    const readable = await Promise.all(embedded.map(isPubliclyReadable));
+    const broken = new Set(embedded.filter((_, i) => !readable[i]));
+    if (broken.size > 0) {
+      console.warn(`[Visuals] 공개 URL을 읽을 수 없는 이미지 제외: ${[...broken].join(', ')}`);
+      result = assemble(
+        input.markdown,
+        input.market,
+        chart && !broken.has(chart.url) ? chart : null,
+        images.filter((r) => !broken.has(r.image.url)),
+      );
     }
 
     // 본문에 실리지 못한 업로드는 바로 지운다

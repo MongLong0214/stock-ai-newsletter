@@ -6,6 +6,7 @@ import AnimatedBackground from '@/components/animated-background';
 import BlogListClient from './_components/blog-list/blog-list-client';
 import createCollectionPageSchema from './_utils/schema-generator-list';
 import isValidBlogPost from './_utils/type-guards';
+import { ownCoverOrNull } from './_utils/markdown-visuals';
 import { isValidBlogSlug } from './_utils/slug-validator';
 import { generateBreadcrumbSchema } from '@/lib/constants/seo/breadcrumb-schema';
 import type { BlogPostListItem } from './_types/blog';
@@ -17,13 +18,16 @@ async function getPublishedPosts(): Promise<BlogPostListItem[]> {
     const data = await fetchAllRows<unknown>((from, to) =>
       supabase
         .from('blog_posts')
-        .select('slug, title, description, target_keyword, category, tags, published_at, view_count')
+        .select('slug, title, description, target_keyword, category, tags, published_at, view_count, cover:schema_data->>image')
         .eq('status', 'published')
         .order('published_at', { ascending: false })
         .range(from, to),
     );
 
-    return data.filter(isValidBlogPost).filter((post) => isValidBlogSlug(post.slug));
+    return data
+      .filter(isValidBlogPost)
+      .filter((post) => isValidBlogSlug(post.slug))
+      .map((post) => ({ ...post, cover: ownCoverOrNull(post.cover) }));
   } catch (error) {
     console.error('[Blog] 발행글 조회 실패', error);
     return [];
