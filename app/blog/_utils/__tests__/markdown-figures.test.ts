@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseMarkdown, wrapFigures } from '../markdown-parser';
+import { parseMarkdown, wrapFigures, wrapTables } from '../markdown-parser';
 
 const COVER = 'https://x.supabase.co/storage/v1/object/public/blog-images/posts/a/r-cover-1536x1024.webp';
 const SECTION = 'https://x.supabase.co/storage/v1/object/public/blog-images/posts/a/r-section1-1536x1024.webp';
@@ -50,5 +50,11 @@ describe('blog figures', () => {
     const html = await parseMarkdown(`도입\n\n## 데이터\n\n![차트](${CHART})`);
     expect(html).toContain('loading="lazy"');
     expect(html).not.toContain('fetchpriority');
+  });
+
+  it('wraps tables in a horizontal scroll container', async () => {
+    const html = await parseMarkdown('| a | b |\n|--|--|\n| 1 | 2 |');
+    expect(html).toMatch(/^<div class="table-scroll"><table>[\s\S]*<\/table><\/div>$/);
+    expect(wrapTables('<p>표 없음</p>')).toBe('<p>표 없음</p>');
   });
 });

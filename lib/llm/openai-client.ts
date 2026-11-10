@@ -9,6 +9,8 @@ import { OPENAI_API_CONFIG, PIPELINE_CONFIG } from '@/lib/llm/_config/pipeline-c
 
 interface GenerateTextOptions {
   prompt: string;
+  /** 함께 보낼 이미지 1장 (비전 검수용) */
+  image?: { data: Buffer; mimeType: string };
   config?: {
     maxOutputTokens?: number;
     responseMimeType?: string;
@@ -91,6 +93,7 @@ async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, abort?: Ab
 export async function generateText(options: GenerateTextOptions): Promise<string> {
   const {
     prompt,
+    image,
     config = {},
     timeout = 120000,
   } = options;
@@ -101,7 +104,15 @@ export async function generateText(options: GenerateTextOptions): Promise<string
   const response = await withTimeout(
     client.responses.create({
       model: OPENAI_API_CONFIG.MODEL,
-      input: prompt,
+      input: image
+        ? [{
+          role: 'user' as const,
+          content: [
+            { type: 'input_text' as const, text: prompt },
+            { type: 'input_image' as const, image_url: `data:${image.mimeType};base64,${image.data.toString('base64')}`, detail: 'high' as const },
+          ],
+        }]
+        : prompt,
       max_output_tokens: config.maxOutputTokens || OPENAI_API_CONFIG.MAX_OUTPUT_TOKENS,
       reasoning: { effort: config.reasoningEffort || OPENAI_API_CONFIG.REASONING_EFFORT },
       ...(config.responseMimeType === 'application/json' && {

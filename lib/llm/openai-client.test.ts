@@ -54,6 +54,17 @@ describe('OpenAI generateText', () => {
     }, { signal: expect.any(AbortSignal) });
   });
 
+  it('sends an attached image as an input_image next to the prompt', async () => {
+    await generateText({ prompt: '검수하세요', image: { data: Buffer.from('img'), mimeType: 'image/webp' }, config: { reasoningEffort: 'low' } });
+    expect(mockCreateResponse.mock.calls[0][0].input).toEqual([{
+      role: 'user',
+      content: [
+        { type: 'input_text', text: '검수하세요' },
+        { type: 'input_image', image_url: `data:image/webp;base64,${Buffer.from('img').toString('base64')}`, detail: 'high' },
+      ],
+    }]);
+  });
+
   it('rejects token-truncated text before consumers can use it', async () => {
     mockCreateResponse.mockResolvedValue({ ...response, status: 'incomplete', incomplete_details: { reason: 'max_output_tokens' } });
     await expect(generateText({ prompt: '분석하세요' })).rejects.toThrow('max_output_tokens');

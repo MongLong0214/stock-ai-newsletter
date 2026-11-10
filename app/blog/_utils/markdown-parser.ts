@@ -126,6 +126,14 @@ const sanitizeSchema = {
  * @param markdown - 변환할 Markdown 텍스트
  * @returns 안전하게 sanitize된 HTML 문자열
  */
+/**
+ * 표를 가로 스크롤 상자로 감싼다 (sanitize 이후 — 우리가 만든 마크업만 추가).
+ * 열이 많은 표(시세 7열)가 모바일 폭을 넘으면 body overflow clip에 잘려 숫자를 볼 수 없다.
+ */
+export function wrapTables(html: string): string {
+  return html.replace(/<table>/g, '<div class="table-scroll"><table>').replace(/<\/table>/g, '</table></div>');
+}
+
 export async function parseMarkdown(markdown: string): Promise<string> {
   const result = await remark()
     .use(remarkGfm)
@@ -134,7 +142,7 @@ export async function parseMarkdown(markdown: string): Promise<string> {
     .use(rehypeStringify)
     .process(markdown);
 
-  let html = wrapFigures(addHeadingIds(result.toString()));
+  let html = wrapTables(wrapFigures(addHeadingIds(result.toString())));
 
   // remark가 변환하지 못한 잔여 마크다운 강조 패턴 후처리
   // ***bold+italic*** → <strong><em>text</em></strong> (3개짜리 먼저 처리)

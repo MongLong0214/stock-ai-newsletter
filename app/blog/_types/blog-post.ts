@@ -101,4 +101,6 @@ export interface BlogPostListItem {
   tags: string[] | null;
   published_at: string | null;
   view_count: number;
+  /** 커버 이미지 URL (schema_data.image) — 우리 스토리지 URL만 남긴다. 커버 없는 글·홈 섹션 쿼리는 생략 */
+  cover?: string | null;
 }

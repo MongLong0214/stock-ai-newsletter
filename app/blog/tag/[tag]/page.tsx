@@ -9,6 +9,7 @@ import { siteConfig, withOgImageVersion } from '@/lib/constants/seo/config';
 import AnimatedBackground from '@/components/animated-background';
 import BlogListClient from '../../_components/blog-list/blog-list-client';
 import isValidBlogPost from '../../_utils/type-guards';
+import { ownCoverOrNull } from '../../_utils/markdown-visuals';
 import { isValidBlogSlug } from '../../_utils/slug-validator';
 import type { BlogPostListItem } from '../../_types/blog';
 
@@ -25,14 +26,17 @@ const getPostsByTag = cache(async (tag: string): Promise<BlogPostListItem[]> => 
 
   const { data, error } = await supabase
     .from('blog_posts')
-    .select('slug, title, description, target_keyword, category, tags, published_at, view_count')
+    .select('slug, title, description, target_keyword, category, tags, published_at, view_count, cover:schema_data->>image')
     .eq('status', 'published')
     .contains('tags', [tag])
     .order('published_at', { ascending: false });
 
   if (error || !Array.isArray(data)) return [];
 
-  return data.filter(isValidBlogPost).filter((post) => isValidBlogSlug(post.slug));
+  return data
+    .filter(isValidBlogPost)
+    .filter((post) => isValidBlogSlug(post.slug))
+    .map((post) => ({ ...post, cover: ownCoverOrNull(post.cover) }));
 });
 
 async function isValidTag(tag: string): Promise<boolean> {
