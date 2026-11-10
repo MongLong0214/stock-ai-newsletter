@@ -15,6 +15,11 @@ const SENTENCE_SPLIT_RE = /(?<=[.!?。])\s+/;
 /** 문장 종결 키: 종결부호 앞 한글 2음절 (1음절 문장은 폴백) */
 const ENDING_FINAL_RE = /([가-힣]{2})[.!?]\s*$/;
 const ENDING_FINAL_FALLBACK_RE = /([가-힣])[.!?]\s*$/;
+/**
+ * 합니다체 종결은 3음절로 본다. 2음절이면 "합니다·습니다·입니다·됩니다"가 전부 "니다" 하나로
+ * 뭉쳐 다양성이 0.02 안팎에 붙고, 윤문 전후 비교가 문장 몇 개 차이의 잡음이 된다.
+ */
+const FORMAL_ENDING_RE = /([가-힣]니다)[.!?]\s*$/;
 
 /** 이중 피동 표층형 (T2b). 단순 "되다"는 정상 표현이므로 제외. */
 const DOUBLE_PASSIVE_TOKENS = [
@@ -37,7 +42,7 @@ const OPENER_CONJUNCTION_RE = /(?:^|[.!?]\s+)(또한|따라서|즉|나아가|아
 export interface AiTellMetrics {
   /** 결산 상투구 등장 수 */
   readonly conclusionPivotCount: number;
-  /** '~다' 4연속 이상 스트릭 수 (0이 다양, 클수록 단조) */
+  /** 한다체 '~다' 4연속 이상 스트릭 수 (0이 다양, 클수록 단조). 합니다체 '~니다'는 세지 않는다 */
   readonly daStreaks: number;
   /** 이중 피동 표층형 등장 수 */
   readonly doublePassiveCount: number;
@@ -77,10 +82,14 @@ export function measureAiTell(text: string): AiTellMetrics {
   let daStreaks = 0;
   let currentStreak = 0;
   for (const sentence of sentences) {
-    const key = ENDING_FINAL_RE.exec(sentence)?.[1] ?? ENDING_FINAL_FALLBACK_RE.exec(sentence)?.[1];
+    const key = FORMAL_ENDING_RE.exec(sentence)?.[1] ?? ENDING_FINAL_RE.exec(sentence)?.[1] ?? ENDING_FINAL_FALLBACK_RE.exec(sentence)?.[1];
     if (key) endingKeys.push(key);
 
-    if (lastEojeol(sentence).endsWith('다')) {
+    // 한다체 '~다'만 센다. 합니다체 '~니다'까지 세면 블로그 본문(문장 2/3이 '니다')은
+    // 문단마다 스트릭이 되어 발행된 글도 17~22개였고, 윤문이 문단을 나누기만 해도
+    // 수가 늘어 반려됐다(2026-11-10 15→18로 그날 발행 0건).
+    const last = lastEojeol(sentence);
+    if (last.endsWith('다') && !last.endsWith('니다')) {
       currentStreak += 1;
     } else {
       if (currentStreak >= 4) daStreaks += 1;

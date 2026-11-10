@@ -2,8 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { CONTENT_CONFIG, HUMANIZE_CONFIG } from '../_config/pipeline-config';
 import type { CompetitorAnalysis, GeneratedContent } from '../_types/blog';
 
-const { mockCreateResponse, mockSave } = vi.hoisted(() => ({
-  mockCreateResponse: vi.fn(), mockSave: vi.fn(),
+const { mockCreateResponse, mockSave, mockSearch } = vi.hoisted(() => ({
+  mockCreateResponse: vi.fn(), mockSave: vi.fn(), mockSearch: vi.fn(),
 }));
 vi.mock('openai', () => ({
   default: class {
@@ -11,7 +11,7 @@ vi.mock('openai', () => ({
   },
 }));
 vi.mock('../_services/serp-api', () => ({
-  searchGoogle: vi.fn(async () => [{ link: 'https://example.com/article' }]),
+  searchGoogle: mockSearch,
 }));
 vi.mock('../_services/web-scraper', () => ({
   scrapeSearchResults: vi.fn(async () => [{}]),
@@ -80,6 +80,7 @@ describe('blog LLM timeout budgets', () => {
     vi.useFakeTimers();
     vi.clearAllMocks();
     mockCreateResponse.mockReset();
+    mockSearch.mockReset().mockResolvedValue([{ link: 'https://example.com/article' }]);
     vi.stubEnv('OPENAI_API_KEY', 'test-key');
     vi.stubEnv('BLOG_HUMANIZE', 'on');
     vi.spyOn(Math, 'random').mockReturnValue(1);
@@ -102,6 +103,35 @@ describe('blog LLM timeout budgets', () => {
     expect(await result).toMatchObject([{ success: true }]);
     expect(mockCreateResponse).toHaveBeenCalledTimes(2);
     expect(mockSave).toHaveBeenCalledTimes(1);
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it('moves on to the next keyword when a draft fails a gate, keeping the gate intact', async () => {
+    mockSearch.mockResolvedValueOnce([]);
+    mockCreateResponse
+      .mockImplementationOnce(responseAfter(JSON.stringify(content), 1_000))
+      .mockImplementationOnce(responseAfter(content.content, 1_000));
+
+    const result = generateWithDynamicKeywords();
+    await vi.advanceTimersByTimeAsync(60_000);
+
+    expect(await result).toMatchObject([{ success: true }]);
+    expect(mockSearch).toHaveBeenCalledTimes(2);
+    expect(mockCreateResponse).toHaveBeenCalledTimes(2);
+    expect(mockSave).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not start a new draft after the start cutoff', async () => {
+    mockCreateResponse.mockImplementation(() => new Promise(() => {}));
+
+    const result = generateWithDynamicKeywords();
+    // 초안마다 생성 3회 타임아웃(약 30분) — 두 번째 시도가 끝나면 40분 마감이 지나 세 번째는 시작하지 않는다
+    await vi.advanceTimersByTimeAsync(2 * 1_807_800 + 10_000);
+
+    expect(await result).toEqual([]);
+    expect(mockSearch).toHaveBeenCalledTimes(2);
+    expect(mockCreateResponse).toHaveBeenCalledTimes(6);
+    expect(mockSave).not.toHaveBeenCalled();
     expect(vi.getTimerCount()).toBe(0);
   });
 
