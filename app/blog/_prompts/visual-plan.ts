@@ -15,19 +15,32 @@ export const IMAGE_STYLE_SUFFIX = [
   'stock tickers, screens or documents with readable content, money piles, bull or bear figures, rockets,',
   'neon glow, dramatic lens flare, real company facilities, and any people, faces, hands or human figures',
   '(show places and objects only), and any monitor, phone or tablet screen that is switched on.',
+  'Avoid objects that naturally carry printed characters: keyboards, calculators, clocks with numerals,',
+  'books, newspapers, magazines, labels, price tags, packaging and paper documents.',
 ].join(' ');
 
 /**
  * 생성 이미지 검수 프롬프트 — 금지 규칙을 모델이 실제로 지켰는지 사진을 보고 판정한다.
  * 프롬프트로 금지해도 이미지 모델은 간판 글자·가짜 로고·사람을 섞는 일이 있다.
+ *
+ * 커버는 글자·로고 기준을 "읽히거나 눈에 띄는 것"으로 완화한다(Isaac 결정 2026-11-10).
+ * 키보드 자판·먼 라벨 같은 작은 무의미 표식까지 잡으니 커버가 두 번 다 탈락해 목록 썸네일이
+ * 비었다. 읽을 수 없는 표식은 사실 주장으로 읽히지 않는다. 사람·켜진 화면·차트·왜곡·alt
+ * 불일치는 커버도 그대로 엄격하다.
  */
-export function buildImageQaPrompt(alt: string): string {
+export function buildImageQaPrompt(alt: string, options: { cover?: boolean } = {}): string {
+  const text = options.cover
+    ? '- text: letters, numbers, or words a reader could actually read at normal web viewing size, or a prominent text-like block that draws the eye. Ignore tiny incidental marks that cannot be read (keyboard key markings, distant labels, texture patterns).'
+    : '- text: any letters, numbers, characters, or text-like scribbles anywhere (signs, labels, paper, packaging, screens, clothing), legible or not.';
+  const logo = options.cover
+    ? '- logo: a recognizable brand mark, emblem, or trademark. Ignore a tiny generic shape nobody could identify as a brand.'
+    : '- logo: any brand mark, emblem, or trademark-like symbol.';
   return `
 You are the photo desk QA for a Korean financial news site. Inspect the attached generated photo strictly, at normal web viewing size.
 
 Report true for each problem you can see:
-- text: any letters, numbers, characters, or text-like scribbles anywhere (signs, labels, paper, packaging, screens, clothing), legible or not.
-- logo: any brand mark, emblem, or trademark-like symbol.
+${text}
+${logo}
 - person: any human or part of one (face, hand, arm, silhouette, reflection).
 - screen: any monitor, phone, tablet, or display that is switched on.
 - chart: any chart, graph, candlestick, or ticker-like pattern.
@@ -79,6 +92,7 @@ ${sections}
 - scene: 영어 40~90단어. 피사체·장소·구도·빛을 구체적으로 쓴다. 사람(얼굴·손 포함)이 없는 장소·사물 장면만 쓴다. 특정 실존 기업의 건물·제품·로고를 묘사하지 않는다.
   기업 글이면 그 산업의 일반적인 장면(예: 배터리 소재 연구실, 조선소 도크, 반도체 클린룸)으로 표현한다.
   추상 개념(리스크 관리, 배당, 실적 발표)은 일상 사물의 정물이나 빈 업무 공간으로 표현한다. 켜진 화면, 읽을 수 있는 문서가 보이면 안 된다.
+  키보드·계산기·숫자 시계·책·신문·라벨·포장지처럼 원래 글자가 새겨진 사물은 넣지 않는다(작게 보여도 검수에서 탈락한다).
 - alt: 한국어 40~110자. 이미지에 실제로 보이는 것을 객관적으로 묘사한다. 사실 주장·수치·평가를 넣지 않는다. 커버 alt에는 키워드를 자연스럽게 한 번 넣는다.
 - caption: 한국어 60자 이내. 이미지가 그 섹션의 어떤 내용을 표현하는지 설명한다. 실제 해당 기업·현장 사진인 것처럼 쓰지 않는다("~를 표현한 이미지").
 - heading: 위 article의 heading 문자열을 한 글자도 바꾸지 말고 그대로 복사한다.

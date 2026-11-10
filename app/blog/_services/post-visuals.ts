@@ -187,12 +187,12 @@ export function parseImageQa(raw: string): ImageQaVerdict {
  * 생성 이미지를 비전 모델로 검수한다. 글자·로고·사람·켜진 화면·차트·왜곡·alt 불일치가 하나라도
  * 보이면 탈락. 검수 자체가 실패해도 탈락이다 — 확인 못 한 이미지는 싣지 않는다.
  */
-async function inspectImage(webp: Buffer, alt: string, deadline: number): Promise<ImageQaVerdict> {
+async function inspectImage(webp: Buffer, alt: string, deadline: number, cover: boolean): Promise<ImageQaVerdict> {
   const remaining = deadline - Date.now();
   if (remaining < MIN_ATTEMPT_MS) return { ok: false, reasons: ['검수 시간 부족'] };
   try {
     const raw = await generateText({
-      prompt: buildImageQaPrompt(alt),
+      prompt: buildImageQaPrompt(alt, { cover }),
       image: { data: webp, mimeType: 'image/webp' },
       config: { responseMimeType: 'application/json', reasoningEffort: 'low', maxOutputTokens: 2000 },
       timeout: Math.min(QA_TIMEOUT_MS, remaining),
@@ -313,7 +313,7 @@ export async function createPostVisuals(input: {
       for (let attempt = 0; attempt <= QA_REGENERATIONS && !webp; attempt++) {
         const candidate = await generateWithFallback(`${p.scene}\n\n${IMAGE_STYLE_SUFFIX}`, quality, deadline);
         if (!candidate) return;
-        const qa = await inspectImage(candidate, p.alt, deadline);
+        const qa = await inspectImage(candidate, p.alt, deadline, p.heading === null);
         if (qa.ok) webp = candidate;
         else console.warn(`[Visuals] 검수 탈락 (${label}, ${attempt + 1}차): ${qa.reasons.join(' / ')}`);
       }

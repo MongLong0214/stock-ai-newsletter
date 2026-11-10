@@ -15,6 +15,8 @@ export interface ImageRef {
 
 const OWN_BUCKET_PATH = '/storage/v1/object/public/blog-images/';
 const COVER_NAME_RE = /-cover-(\d{3,4})x(\d{3,4})\.(?:webp|png|jpe?g)$/;
+/** 섹션 사진 — 커버가 없을 때 대표 이미지 후보. 차트(-chart-)는 글자·수치가 있어 쓰지 않는다 */
+const SECTION_NAME_RE = /-section\d+-(\d{3,4})x(\d{3,4})\.(?:webp|png|jpe?g)$/;
 
 /** 목록 카드용 커버 — 우리 스토리지 URL만 통과시킨다 */
 export function ownCoverOrNull(url: unknown): string | null {
@@ -229,17 +231,29 @@ export interface CoverImage {
   readonly height: number;
 }
 
-/** 본문에서 파이프라인이 올린 커버 이미지를 찾는다. 없으면 null (기존 글) */
+/**
+ * 글의 대표 이미지(목록 썸네일·JSON-LD·OG 두 번째 후보)를 찾는다. 없으면 null (기존 글).
+ *
+ * 커버가 우선이고, 커버가 없으면 첫 섹션 사진을 쓴다. 커버는 비전 검수에서 글자·로고가
+ * 보이면 탈락하는데(2026-11-10 키보드 자판 2회 탈락), 그때 검수를 통과한 섹션 사진이
+ * 본문에 있어도 대표 이미지가 비어 목록이 회색 칸이 됐다.
+ */
 export function extractCoverImage(markdown: string | null | undefined): CoverImage | null {
   if (!markdown) return null;
+  let section: CoverImage | null = null;
   for (const raw of markdown.split('\n')) {
     const line = raw.trim();
     if (!line.startsWith('![')) continue;
     const m = IMAGE_LINE_RE.exec(line);
-    const size = m && isOwnBlogImageUrl(m[2]) ? COVER_NAME_RE.exec(m[2]) : null;
-    if (m && size) return { url: m[2], alt: m[1], caption: m[3] || m[1], width: Number(size[1]), height: Number(size[2]) };
+    if (!m || !isOwnBlogImageUrl(m[2])) continue;
+    const toImage = (size: RegExpExecArray): CoverImage =>
+      ({ url: m[2], alt: m[1], caption: m[3] || m[1], width: Number(size[1]), height: Number(size[2]) });
+    const cover = COVER_NAME_RE.exec(m[2]);
+    if (cover) return toImage(cover);
+    const sectionSize = section ? null : SECTION_NAME_RE.exec(m[2]);
+    if (sectionSize) section = toImage(sectionSize);
   }
-  return null;
+  return section;
 }
 
 /** 본문 맨 앞의 H1 제거 — 페이지 헤더가 이미 제목 H1을 그린다(중복 H1 방지) */

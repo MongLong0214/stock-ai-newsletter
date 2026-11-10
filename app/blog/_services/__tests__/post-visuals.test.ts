@@ -213,6 +213,19 @@ describe('createPostVisuals', () => {
     expect(call.config).toMatchObject({ responseMimeType: 'application/json' });
   });
 
+  it('judges cover text and logos by what a reader can see, sections by the strict rule', async () => {
+    mockPlan.mockResolvedValue(plan([{ heading: HEADINGS[0] }]));
+    await createPostVisuals(input(null));
+    const prompts = mockQa.mock.calls.map((c) => c[0].prompt as string);
+    const cover = prompts.find((p) => p.includes('LG화학 실적 분석 커버 이미지'))!;
+    const section = prompts.find((p) => p !== cover)!;
+    expect(cover).toContain('Ignore tiny incidental marks');
+    expect(cover).not.toContain('legible or not');
+    expect(section).toContain('legible or not');
+    // 사람·화면·차트 기준은 커버도 같다
+    for (const p of [cover, section]) expect(p).toContain('- person: any human or part of one');
+  });
+
   it('redraws an image the vision check rejects, and drops it after a second rejection', async () => {
     mockPlan.mockResolvedValue(plan([]));
     mockQa.mockResolvedValueOnce(qa({ person: true }, 'A worker stands by the line.'));
