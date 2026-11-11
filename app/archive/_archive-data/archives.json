@@ -2,6 +2,77 @@
   "newsletters": [
     {
       "type": "stock",
+      "date": "2026-11-12",
+      "stocks": [
+        {
+          "ticker": "KOSPI:030610",
+          "name": "교보증권",
+          "close_price": 7940,
+          "rationale": "2026-11-11 종가 7,940원|전일 대비 +1.9% 상승|시가 대비 +1.5% 양봉|20일선 8,253원·종가 3.8% 아래|60일선 9,444원·종가 15.9% 아래|최근 5거래일 종가 -0.9%|최근 20거래일 종가 -12.3%|20거래일 KOSPI 대비 -1.7%p|직전 20거래일 장중 고점 9,290원까지 +17.0%|직전 60거래일 최고 종가 10,530원까지 +32.6%|거래량 20일 평균의 0.44배|최근 60거래일 중 거래량 상위 65.8%|당일 범위 종가 88.9%·윗꼬리 11.1%|ATR14 평균 변동폭 3.7%·약 297원(갭 포함)|RSI14 36.3 약세|MACD 모멘텀 +0.13%(종가 대비)|20일 평균 거래대금 추정 5.1억원|52주(252거래일) 종가 범위 3.8% 위치(저점0·고점100)",
+          "signals": {
+            "trend_score": 26,
+            "momentum_score": 40,
+            "volume_score": 37,
+            "volatility_score": 84,
+            "pattern_score": 45,
+            "sentiment_score": 90,
+            "overall_score": 88,
+            "basis": "model_contribution"
+          },
+          "selection": {
+            "strategy": "compositeUtility",
+            "rank": 1,
+            "objective": "compositeUtility"
+          }
+        },
+        {
+          "ticker": "KOSDAQ:032190",
+          "name": "다우데이타",
+          "close_price": 16280,
+          "rationale": "2026-11-11 종가 16,280원|전일 대비 +1.0% 상승|시가 대비 +0.9% 양봉|20일선 16,657원·종가 2.3% 아래|60일선 18,672원·종가 12.8% 아래|최근 5거래일 종가 -0.3%|최근 20거래일 종가 -9.3%|20거래일 KOSPI 대비 +1.2%p|직전 20거래일 장중 고점 18,210원까지 +11.9%|직전 60거래일 최고 종가 20,550원까지 +26.2%|거래량 20일 평균의 0.84배|최근 60거래일 중 거래량 상위 64.2%|당일 범위 종가 57.7%·윗꼬리 42.3%|ATR14 평균 변동폭 3.6%·약 587원(갭 포함)|RSI14 38.7 약세|MACD 모멘텀 +0.20%(종가 대비)|20일 평균 거래대금 추정 8.6억원|52주(252거래일) 종가 범위 4.3% 위치(저점0·고점100)",
+          "signals": {
+            "trend_score": 44,
+            "momentum_score": 28,
+            "volume_score": 42,
+            "volatility_score": 96,
+            "pattern_score": 64,
+            "sentiment_score": 19,
+            "overall_score": 84,
+            "basis": "model_contribution"
+          },
+          "selection": {
+            "strategy": "compositeUtility",
+            "rank": 2,
+            "objective": "compositeUtility"
+          }
+        },
+        {
+          "ticker": "KOSDAQ:241520",
+          "name": "DSC인베스트먼트",
+          "close_price": 6300,
+          "rationale": "2026-11-11 종가 6,300원|전일 대비 +2.9% 상승|시가 대비 +3.3% 양봉|20일선 6,443원·종가 2.2% 아래|60일선 7,537원·종가 16.4% 아래|최근 5거래일 종가 -0.6%|최근 20거래일 종가 -12.3%|20거래일 KOSPI 대비 -1.7%p|직전 20거래일 장중 고점 7,530원까지 +19.5%|직전 60거래일 최고 종가 8,510원까지 +35.1%|거래량 20일 평균의 0.77배|최근 60거래일 중 거래량 상위 80.8%|당일 범위 종가 83.3%·윗꼬리 16.7%|ATR14 평균 변동폭 6.3%·약 397원(갭 포함)|RSI14 41.6 중립|MACD 모멘텀 +0.22%(종가 대비)|20일 평균 거래대금 추정 6.3억원|52주(252거래일) 종가 범위 3.9% 위치(저점0·고점100)",
+          "signals": {
+            "trend_score": 37,
+            "momentum_score": 11,
+            "volume_score": 21,
+            "volatility_score": 92,
+            "pattern_score": 94,
+            "sentiment_score": 38,
+            "overall_score": 83,
+            "basis": "model_contribution"
+          },
+          "selection": {
+            "strategy": "compositeUtility",
+            "rank": 3,
+            "objective": "compositeUtility"
+          }
+        }
+      ],
+      "sentAt": "2026-11-11T22:31:14.562+00:00",
+      "subscriberCount": 330
+    },
+    {
+      "type": "stock",
       "date": "2026-11-11",
       "stocks": [
         {
@@ -14179,5 +14250,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-11-10T22:32:50.407Z"
+  "lastUpdated": "2026-11-11T22:32:23.560Z"
 }
