@@ -12,9 +12,10 @@ const STAGES = [
   { id: 'early', label: '초기', color: '#10B981', x: 75, y: 118 },
   { id: 'growth', label: '성장', color: '#0EA5E9', x: 185, y: 38 },
   { id: 'peak', label: '정점', color: '#F59E0B', x: 290, y: 14 },
-  { id: 'decay', label: '쇠퇴', color: '#EF4444', x: 475, y: 134 },
+  { id: 'decay', label: '하락', color: '#EF4444', x: 475, y: 134 },
 ];
 
+// 화면 예시용 고정 값이다 — 실시간 데이터처럼 보이지 않게 툴바에 "예시"로 표시한다
 const MOCK_THEMES = [
   { name: 'AI 반도체', score: 72, stage: 'growth', change: 12, color: '#0EA5E9' },
   { name: '로봇', score: 85, stage: 'peak', change: 3, color: '#F59E0B' },
@@ -76,7 +77,7 @@ function ThemePreviewSection({ isMobile = false }: ThemePreviewSectionProps) {
             {'테마 라이프사이클'}
             <br className="sm:hidden" />
             {' '}
-            <span className="font-semibold bg-gradient-to-r from-emerald-400 to-sky-400 bg-clip-text text-transparent">
+            <span className="font-semibold text-emerald-400">
               인텔리전스
             </span>
           </h2>
@@ -98,16 +99,13 @@ function ThemePreviewSection({ isMobile = false }: ThemePreviewSectionProps) {
           {/* Toolbar */}
           <div className="flex items-center justify-between px-5 lg:px-7 py-3.5 border-b border-white/[0.04]">
             <div className="flex items-center gap-2.5">
-              <span className="relative flex h-1.5 w-1.5">
-                <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75 animate-ping" />
-                <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-500" />
-              </span>
+              <span className="inline-flex h-1.5 w-1.5 rounded-full bg-emerald-500" />
               <span className="text-[10px] font-medium text-slate-500 tracking-wider uppercase">
                 Theme Lifecycle
               </span>
             </div>
             <span className="text-[10px] text-slate-600 font-mono tabular-nums tracking-wider">
-              LIVE
+              예시
             </span>
           </div>
 
@@ -119,7 +117,7 @@ function ThemePreviewSection({ isMobile = false }: ThemePreviewSectionProps) {
               className="w-full h-auto"
               style={{ aspectRatio: '560 / 180' }}
               role="img"
-              aria-label="테마 라이프사이클 곡선: 초기, 성장, 정점, 쇠퇴 단계를 보여주는 시각화"
+              aria-label="테마 라이프사이클 곡선: 초기, 성장, 정점, 하락 단계를 보여주는 시각화"
             >
               <defs>
                 {/* Multi-stop gradient following stage colors */}

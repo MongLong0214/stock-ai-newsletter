@@ -10,6 +10,6 @@ const MINUTE = 30;
 export const DELIVERY_TIME_DISPLAY = `오전 ${HOUR}시 ${MINUTE}분`;
 export const DELIVERY_TIME_SHORT = `${HOUR}:${MINUTE}`;
 
-/** 카운트다운 대상 시각 (발송 + 1시간 버퍼) */
-export const COUNTDOWN_HOUR = HOUR + 1;
-export const COUNTDOWN_MINUTE = MINUTE;
+/** 발송 시각 (KST) — 카운트다운이 이 시각을 센다 */
+export const DELIVERY_HOUR = HOUR;
+export const DELIVERY_MINUTE = MINUTE;

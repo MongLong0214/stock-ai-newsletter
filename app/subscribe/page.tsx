@@ -289,7 +289,7 @@ export default function SubscribePage() {
                         처리 중...
                       </>
                     ) : (
-                      `${formatted} 후 메일 받기`
+                      formatted ? `${formatted} 후 메일 받기` : '무료 메일 받기'
                     )}
                   </span>
 
