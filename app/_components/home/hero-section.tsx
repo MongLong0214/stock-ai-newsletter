@@ -16,11 +16,9 @@ function HeroSection({ formatted }: HeroSectionProps) {
     offset: ["start start", "end start"]
   });
 
-  // Parallax effects - Enhanced for visibility
-  const y = useTransform(scrollYProgress, [0, 1], [0, 400]); // 150 → 400px for dramatic movement
-  const opacity = useTransform(scrollYProgress, [0, 0.6], [1, 0]); // Slower fade
-  const scale = useTransform(scrollYProgress, [0, 0.6], [1, 0.85]); // 0.95 → 0.85 for more noticeable shrink
-  const blur = useTransform(scrollYProgress, [0, 0.6], [0, 10]); // Add blur effect
+  // 스크롤 시 살짝 내려가며 흐려진다. scale·blur는 글자를 뭉개서 쓰지 않는다(디자인 원칙).
+  const y = useTransform(scrollYProgress, [0, 1], [0, 200]);
+  const opacity = useTransform(scrollYProgress, [0, 0.6], [1, 0]);
 
   return (
     <section ref={ref} className="relative pt-32 pb-16 lg:pb-24 flex items-center justify-center px-6 lg:px-8 overflow-hidden" aria-labelledby="hero-heading">
@@ -31,36 +29,26 @@ function HeroSection({ formatted }: HeroSectionProps) {
         aria-hidden="true"
       />
 
+      {/* 진입 애니메이션 없이 서버 HTML에서 바로 보인다 — opacity:0 시작은 JS 실행 전까지
+          히어로가 비어 LCP를 늦추고, JS가 실패하면 첫 화면이 통째로 검게 남는다 */}
       <motion.div
-        initial={{ opacity: 0, y: 60 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.8, ease: [0.19, 1, 0.22, 1] }}
-        style={{ y, opacity, scale, filter: `blur(${blur}px)` }}
+        style={{ y, opacity }}
         className="max-w-5xl mx-auto text-center relative z-10"
       >
-        <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.8, ease: [0.19, 1, 0.22, 1] }}
-        >
+        <div>
           <h1
             id="hero-heading"
             className="font-extralight mb-6 lg:mb-8 tracking-[-0.02em] leading-[0.95]"
           >
             <span className="block text-4xl sm:text-5xl md:text-6xl lg:text-7xl xl:text-8xl text-emerald-500/80">AI가 분석한{' '}</span>
             <br />
-            <span className="block text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-normal bg-clip-text text-transparent bg-gradient-to-r from-emerald-400 via-teal-400 to-emerald-400">
+            <span className="block text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-normal text-emerald-400">
               기술적 지표 데이터
             </span>
           </h1>
-        </motion.div>
+        </div>
 
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.8, delay: 0.2, ease: [0.19, 1, 0.22, 1] }}
-          className="mb-8 max-w-3xl mx-auto text-center"
-        >
+        <div className="mb-8 max-w-3xl mx-auto text-center">
           <p className="text-base sm:text-lg md:text-xl lg:text-2xl text-slate-300 font-light leading-relaxed tracking-wide mb-1">
             매일 프리마켓 개장 30분 전 <span className="text-[10px] sm:text-xs md:text-sm lg:text-base text-slate-400">(7시 30분)</span>
           </p>
@@ -70,23 +58,19 @@ function HeroSection({ formatted }: HeroSectionProps) {
           <p className="text-xs sm:text-sm md:text-base text-slate-400 font-light tracking-wide">
             5초 구독 • 광고 없음 • 완전 무료
           </p>
-          <p className="mt-5 text-sm sm:text-base md:text-lg text-slate-400/95 leading-relaxed max-w-3xl mx-auto">
-            <span className="text-emerald-400/90">StockMatrix는 한국 주식 투자자를 위한 무료 AI 주식 분석 뉴스레터입니다.</span>{' '}
+          <p className="mt-8 md:mt-10 text-sm sm:text-base md:text-lg text-slate-400/95 leading-relaxed max-w-3xl mx-auto break-keep">
+            <span className="block text-emerald-400/90">StockMatrix는 한국 주식 투자자를 위한 무료 AI 주식 분석 뉴스레터입니다.</span>
             매일 오전 7시 30분, AI가 30개 기술적 지표로 분석한 KOSPI·KOSDAQ 3종목을 이메일로 전달하며, 웹사이트에서는 {siteConfig.themeCountFloor}+ 테마 생명주기 분석을 제공합니다.
           </p>
-        </motion.div>
+        </div>
 
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, delay: 0.4, ease: [0.19, 1, 0.22, 1] }}
-        >
+        <div>
           <CTAButton
             formatted={formatted}
             ariaLabel="Get started with AI stock intelligence"
             location="home_hero"
           />
-        </motion.div>
+        </div>
       </motion.div>
     </section>
   );
