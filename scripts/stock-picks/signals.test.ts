@@ -219,8 +219,8 @@ describe('buildModelContributionSignals', () => {
   const { normalization } = FROZEN_COMPOSITE_RETURN_MODEL
   const names = OBSERVED_FLOW_INPUT_NAMES
   const sigma = normalization.standardDeviation
-  const build = (contributions: readonly number[], atrAdjustment = 0, overallScore = 88) => buildModelContributionSignals({
-    featureNames: names, contributions, atrAdjustment, normalization, overallScore,
+  const build = (contributions: readonly number[], overallScore = 88) => buildModelContributionSignals({
+    featureNames: names, contributions, normalization, overallScore,
   })
 
   it('assigns each of the 65 production model inputs to exactly one published category', () => {
@@ -245,19 +245,19 @@ describe('buildModelContributionSignals', () => {
     expect(signals.momentum_score).toBe(50)
   })
 
-  it('adds the ATR rank adjustment to volatility so a high-ATR penalty lowers the score', () => {
+  it('scores volatility from its own input contributions without a separate rank adjustment', () => {
     const contributions = Array(names.length).fill(0)
     contributions[names.indexOf('atrPercent14')] = sigma
     expect(build(contributions).volatility_score).toBe(70)
-    expect(build(contributions, -sigma).volatility_score).toBe(50)
-    expect(build(contributions, -2 * sigma).volatility_score).toBe(30)
+    contributions[names.indexOf('bollingerWidth20Percent')] = -2 * sigma
+    expect(build(contributions).volatility_score).toBe(30)
   })
 
   it('rejects mismatched inputs and invalid overall scores', () => {
     expect(() => buildModelContributionSignals({ featureNames: names.slice(1), contributions: Array(names.length - 1).fill(0),
-      atrAdjustment: 0, normalization, overallScore: 50 })).toThrow('카테고리')
+      normalization, overallScore: 50 })).toThrow('카테고리')
     expect(() => build(Array(names.length - 1).fill(0))).toThrow('입력 불일치')
-    expect(() => build(Array(names.length).fill(0), Number.NaN)).toThrow('ATR')
-    expect(() => build(Array(names.length).fill(0), 0, 50.5)).toThrow('종합 점수')
+    expect(() => build([Number.NaN, ...Array(names.length - 1).fill(0)])).toThrow('입력 불일치')
+    expect(() => build(Array(names.length).fill(0), 50.5)).toThrow('종합 점수')
   })
 })

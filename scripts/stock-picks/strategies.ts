@@ -44,9 +44,9 @@ export const UTILITY_LOCKED_DOWN_RULE = {
   requireFlatRange: true,
 } as const
 
-export const UTILITY_ATR_RANK_ADJUSTMENT = {
-  rankAdjustment: 'model-pred-minus-0.5-poolsd-atr14-z',
-  atrPenalty: 0.5,
+export const UTILITY_HIT_RANK_BLEND = {
+  rankAdjustment: 'mean-of-pool-z-return-pred-and-hit-log-odds-in-return-units',
+  hitWeight: 1,
   statsPool: 'gated-pre-cooldown',
   scoreCurve: 'model-return-reference-smooth',
 } as const
@@ -388,33 +388,46 @@ const populationStats = (values: readonly number[]): { standardDeviation: number
   return { standardDeviation: std, zScores: shifted.map((value) => (value - mean) / (std || 1)) }
 }
 
-/** 재추천 제외 전 풀의 ATR 보정을 모델 예측 수익률 단위로 계산하고 기존 학습 기준 곡선으로 표시한다. */
-export function rankUtilityAtrPenaltyCandidates(input: {
+/**
+ * 재추천 제외 전 풀에서 수익 예측과 타율 로그오즈를 각각 z로 바꿔 섞고, 예측 수익률 단위로 되돌려 기존 학습 기준 곡선으로 표시한다.
+ * 순위는 zPred + hitWeight·zHit로 정하고, 표시용 adjusted = utilityWeight·예측 + hitLogOddsWeight·로그오즈 + 풀 상수는 그 순위값의 증가 함수다.
+ */
+export function rankUtilityHitBlendCandidates(input: {
   readonly features: readonly StockFeatureVector[]
   readonly masters: ReadonlyMap<string, StockMasterState>
   readonly utilities: ReadonlyMap<string, number>
+  readonly hitLogOdds: ReadonlyMap<string, number>
   readonly normalization: UtilityScoreNormalization
   readonly parameters: typeof LOW_VOLATILITY_STABLE_PARAMETERS
   readonly excludeSymbols: ReadonlySet<string>
   readonly pickCount?: number
-}): Array<{ symbol: string; score: number; adjusted: number }> {
+}): Array<{ symbol: string; score: number; adjusted: number; utilityWeight: number; hitLogOddsWeight: number }> {
   const pool = getUtilityCandidatePool({ ...input, excludeSymbols: new Set() })
-  const utilities = pool.map(({ symbol }) => {
-    const utility = input.utilities.get(symbol)
-    if (utility === undefined || !Number.isFinite(utility)) throw new Error(`종합 점수 후보 추론 누락: ${symbol}`)
-    return utility
+  const read = (values: ReadonlyMap<string, number>) => pool.map(({ symbol }) => {
+    const value = values.get(symbol)
+    if (value === undefined || !Number.isFinite(value)) throw new Error(`종합 점수 후보 추론 누락: ${symbol}`)
+    return value
   })
-  const { standardDeviation } = populationStats(utilities)
-  const { zScores: zAtr } = populationStats(pool.map((feature) => feature.atrPercent14!))
+  const utilities = read(input.utilities)
+  const hitLogOdds = read(input.hitLogOdds)
+  const { standardDeviation, zScores: zUtility } = populationStats(utilities)
+  const { standardDeviation: hitStandardDeviation, zScores: zHit } = populationStats(hitLogOdds)
+  // 두 z의 가중 평균이라 풀 안 점수 폭이 예측값 폭을 넘지 않는다(합으로 쓰면 상단이 100점에 몰린다).
+  const hitShare = UTILITY_HIT_RANK_BLEND.hitWeight / (1 + UTILITY_HIT_RANK_BLEND.hitWeight)
+  const utilityWeight = 1 - hitShare
+  // 예측 std=0이면 로그오즈를 수익률 단위로 바꿀 척도가 없어 0이 된다. 이때 풀의 표시 점수는 모두 같고,
+  // 타율 z는 같은 점수 안의 순서만 정한다. 카테고리 점수는 표시 점수를 분해하므로 타율 기여도가 들어가지 않는다.
+  const hitLogOddsWeight = hitStandardDeviation ? hitShare * standardDeviation / hitStandardDeviation : 0
   const candidates = pool.flatMap((feature, index) => {
     if (input.excludeSymbols.has(feature.symbol)) return []
-    // std=0이면 원시 예측값을 유지한다. std>0에서는 기존 zPred−0.5*zAtr와 같은 순서다.
-    const adjusted = utilities[index]! - UTILITY_ATR_RANK_ADJUSTMENT.atrPenalty * standardDeviation * zAtr[index]!
-    return [{ symbol: feature.symbol, adjusted, rankValue: adjusted,
+    // 예측 std=0이면 표시값은 원시 예측값을 유지하고 순위는 타율 z만으로 정해진다.
+    const adjusted = utilities[index]! + hitShare * standardDeviation * (zHit[index]! - zUtility[index]!)
+    // WHY: 표시값으로 정렬하면 예측 폭이 아주 좁을 때 타율 항이 부동소수 반올림에 묻힌다. 순위는 z 합으로 직접 정한다.
+    return [{ symbol: feature.symbol, adjusted, rankValue: zUtility[index]! + UTILITY_HIT_RANK_BLEND.hitWeight * zHit[index]!,
       score: normalizeUtilityScore(input.normalization, adjusted), turnover: feature.averageTurnover20! }]
   })
   return rankUtilityCandidates(candidates, input.pickCount ?? PICKS_PER_DATE)
-    .map(({ symbol, score, adjusted }) => ({ symbol, score, adjusted }))
+    .map(({ symbol, score, adjusted }) => ({ symbol, score, adjusted, utilityWeight, hitLogOddsWeight }))
 }
 
 export function rankSeededRandomCandidates(input: {

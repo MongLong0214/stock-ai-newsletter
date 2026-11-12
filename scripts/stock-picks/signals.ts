@@ -73,19 +73,18 @@ export const MODEL_SIGNAL_CATEGORIES: Readonly<Record<SignalCategory, readonly s
 /**
  * 발행 종목의 6개 카테고리 점수를 종합 점수 모델의 기여도로 만든다.
  * 50은 영향 없음이고, 카테고리 기여도에 종합 점수와 같은 기준 곡선(+1σ=70)을 적용한다.
- * 변동성에는 순위 단계의 ATR 보정(adjusted − 예측값)도 더하므로 높을수록 선정에 유리했다는 뜻이다.
+ * 기여도는 순위에 쓴 값(수익 예측과 풀 평균 대비 타율 로그오즈의 혼합)을 입력별로 나눈 것이라 높을수록 선정에 유리했다는 뜻이다.
  */
 export function buildModelContributionSignals(input: {
   readonly featureNames: readonly string[]
   readonly contributions: readonly number[]
-  readonly atrAdjustment: number
   readonly normalization: UtilityScoreNormalization
   readonly overallScore: number
 }): StockSignals {
   const { featureNames, contributions, normalization, overallScore } = input
   if (featureNames.length !== contributions.length) throw new Error('종합 점수 기여도 입력 불일치')
   if (!Number.isInteger(overallScore) || overallScore < 0 || overallScore > 100) throw new Error('선정 모델 종합 점수 불일치')
-  if (!Number.isFinite(input.atrAdjustment)) throw new Error('ATR 보정 기여도 불일치')
+  if (contributions.some((value) => !Number.isFinite(value))) throw new Error('종합 점수 기여도 입력 불일치')
   const indexByName = new Map(featureNames.map((name, index) => [name, index]))
   const assigned = new Set<string>()
   const score = (category: SignalCategory): number => {
@@ -94,7 +93,7 @@ export function buildModelContributionSignals(input: {
       if (index === undefined || assigned.has(name)) throw new Error(`종합 점수 기여도 카테고리 불일치: ${name}`)
       assigned.add(name)
       return sum + contributions[index]!
-    }, category === 'volatility_score' ? input.atrAdjustment : 0)
+    }, 0)
     return normalizeUtilityScore(normalization, normalization.mean + total)
   }
   const signals: StockSignals = {

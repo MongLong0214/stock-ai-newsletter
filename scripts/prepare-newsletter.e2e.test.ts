@@ -153,12 +153,12 @@ import { buildTradingDayIndex } from '@/scripts/stock-picks/trading-days'
 import { buildObservedInputs50 } from '@/scripts/stock-picks/observed-inputs'
 import { buildInvestorFlowInputs, parseInvestorFlowRows } from '@/scripts/stock-picks/investor-flow'
 import { syntheticInvestorFlowRows } from '@/scripts/stock-picks/fixtures/investor-flow-rows'
-import { attributeUtilityModel, scoreUtilityModel } from '@/scripts/stock-picks/utility-model'
+import { attributeUtilityModel, scoreUtilityHitHead, scoreUtilityModel } from '@/scripts/stock-picks/utility-model'
 import { buildFeatureVector } from '@/scripts/stock-picks/features'
 import { buildTechnicalContextMap } from '@/scripts/stock-picks/technical-context'
 
-const TARGET = '2026-11-02'
-const SIGNAL = '2026-10-30'
+const TARGET = '2026-11-12'
+const SIGNAL = '2026-11-11'
 const E2E_NOW = `${TARGET}T06:00:00+09:00`
 const flowInputs = (symbol: string, dates: readonly string[]) => buildInvestorFlowInputs({
   dates, days: parseInvestorFlowRows(syntheticInvestorFlowRows(symbol, SIGNAL.replaceAll('-', ''))) })
@@ -220,7 +220,7 @@ describe('Prepare boundary-isolated E2E', () => {
           ? Math.round((base + 317 * 2 + 10) * (stockIndex > 5 ? 0.995 : 1.003))
           : base + index * 2 + (index % 2 === 1 ? 10 : -10)
         const open = signalDay ? previousClose : close - 5
-        // WHY: 거래대금이 낮고 모델 예측값이 높은 후보도 ATR 페널티로 순위가 낮아질 수 있다.
+        // WHY: 한 종목만 신호일 거래량을 낮춰 후보 간 입력 차이를 만든다.
         const signalVolume = stockIndex === 1 ? 3_600_000 : 5_000_000 + stockIndex * 100_000
         return { symbol, trade_date, open, high: Math.max(open, close) + 15,
           low: Math.min(open, close) - 15, close,
@@ -354,7 +354,7 @@ describe('Prepare boundary-isolated E2E', () => {
     const snapshot = state.snapshots[0]
     expect(snapshot.strategy).toBe(PRODUCTION_STRATEGY.name)
     expect(snapshot.strategy_version).toBe(PRODUCTION_STRATEGY.version)
-    expect(snapshot.parameters_hash).toBe('8cac0d8bcbe4b4e8c5e1a4932c4a338b017ca04ff86288c133658cecc07c83db')
+    expect(snapshot.parameters_hash).toBe('156140d8038bf108d25202e49d163758cb9431f3c0ead099d84fe22a00865805')
     expect(snapshot.signal_date).toBe(SIGNAL)
     const candidates = snapshot.picks as Array<{ symbol: string; rank: number; close: number; score: number; technicalContext: unknown }>
     expect(candidates.map(row => row.symbol)).toEqual(picks.map((pick: { ticker: string }) => pick.ticker))
@@ -368,14 +368,17 @@ describe('Prepare boundary-isolated E2E', () => {
     expect(state.generated!.meta.funnel).toMatchObject({
       withFreshKisRow: 6, withCompleteFeatures: 6, gatePassed: 6, picked: 3,
     })
-    // WHY: 모델 원시 예측값은 보존하고, 선정·공개 점수에는 당일 ATR 보정을 적용한다.
+    // WHY: 모델 원시 예측값은 보존하고, 선정·공개 점수에는 타율 머리 혼합을 적용한다.
     const ranked = state.generated!.meta.rankedCandidates
     expect(ranked).toHaveLength(6)
-    expect(ranked.map(candidate => candidate.score)).toEqual([57, 56, 55, 55, 54, 51])
+    expect(ranked.map(candidate => candidate.score)).toEqual([66, 65, 64, 64, 64, 63])
     expect(new Set(ranked.map(candidate => candidate.utility)).size).toBeGreaterThan(1)
-    // 원시 예측 1위(000030)가 ATR 보정 후 2위로 내려간다.
-    expect([...ranked].sort((a, b) => b.utility! - a.utility!)[0]!.symbol).toBe('KOSPI:000030')
-    expect(picks.map(pick => pick.ticker)).toEqual(['KOSPI:000050', 'KOSPI:000030', 'KOSPI:000020'])
+    // 원시 예측 2위(000050)는 타율 머리 혼합 후 4위로 내려가 선정에서 빠진다.
+    expect([...ranked].sort((a, b) => b.utility! - a.utility!).slice(0, 2).map(candidate => candidate.symbol))
+      .toEqual(['KOSPI:000040', 'KOSPI:000050'])
+    expect(ranked.map(candidate => candidate.symbol)).toEqual([
+      'KOSPI:000040', 'KOSPI:000020', 'KOSPI:000010', 'KOSPI:000050', 'KOSPI:000030', 'KOSPI:000060'])
+    expect(picks.map(pick => pick.ticker)).toEqual(['KOSPI:000040', 'KOSPI:000020', 'KOSPI:000010'])
     const index = buildTradingDayIndex(state.rows.filter(row => row.symbol === 'KOSPI'), [])
     const handler = new StockDataHandler(buildPriceBook([...state.stored.values()]), index).at(SIGNAL)
     expect(state.generated!.meta.rankedCandidates.length).toBeGreaterThanOrEqual(3)
@@ -387,6 +390,9 @@ describe('Prepare boundary-isolated E2E', () => {
       expect(candidate.utility).toBe(predicted.utility)
       const { bias, contributions } = attributeUtilityModel(FROZEN_COMPOSITE_RETURN_MODEL, inputs)
       expect(bias + contributions.reduce((sum, value) => sum + value, 0)).toBeCloseTo(predicted.utility, 12)
+      const hit = attributeUtilityModel(FROZEN_COMPOSITE_RETURN_MODEL, inputs, 'hit')
+      expect(hit.bias + hit.contributions.reduce((sum, value) => sum + value, 0))
+        .toBeCloseTo(scoreUtilityHitHead(FROZEN_COMPOSITE_RETURN_MODEL, inputs), 12)
       expect(picks[pickIndex]!.signals).toEqual(candidate.signals)
       expect(picks[pickIndex]!.signals.basis).toBe('model_contribution')
       expect(candidate.score).toBeGreaterThanOrEqual(0)
@@ -441,7 +447,7 @@ describe('Prepare boundary-isolated E2E', () => {
 
     expect(await runPrepareNewsletterCli([`--target-date=${TARGET}`])).toBe(0)
     const ranked = state.generated!.meta.rankedCandidates
-    expect(prediction.score).toBe(48)
+    expect(prediction.score).toBe(39)
     expect(ranked).toHaveLength(5)
     expect(ranked.some(candidate => candidate.symbol === lockedSymbol)).toBe(false)
     const picks = JSON.parse(String(state.newsletter!.gemini_analysis)) as StockData[]

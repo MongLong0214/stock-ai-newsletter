@@ -5,13 +5,17 @@ import parity from '@/scripts/stock-picks/fixtures/composite-utility-v1-parity.j
 import utilityArtifact from '@/scripts/stock-picks/models/composite-utility-v1.json'
 import returnParity from '@/scripts/stock-picks/fixtures/composite-return-v6-parity.json'
 import returnV8Parity from '@/scripts/stock-picks/fixtures/composite-return-v8-parity.json'
+import returnV9Parity from '@/scripts/stock-picks/fixtures/composite-return-v9-parity.json'
 import returnV6Artifact from '@/scripts/stock-picks/models/composite-return-v6.json'
+import returnV8Artifact from '@/scripts/stock-picks/models/composite-return-v8.json'
 import { FROZEN_COMPOSITE_RETURN_MODEL } from '@/scripts/stock-picks/production-strategy'
-import { attributeUtilityModel, normalizeUtilityScore, scoreUtilityModel, RETURN_SCORE_VERSION, UTILITY_SCORE_VERSION, validateUtilityModel,
-  type UtilityModelArtifact, type LegacyUtilityModelArtifact, type CompositeUtilityModelArtifact, type CompositeReturnModelArtifact, type UtilityScoreNormalization, type UtilityTreeNode } from '@/scripts/stock-picks/utility-model'
+import { attributeUtilityModel, normalizeUtilityScore, scoreUtilityHitHead, scoreUtilityModel, RETURN_SCORE_VERSION, UTILITY_SCORE_VERSION, validateUtilityModel,
+  type UtilityModelArtifact, type LegacyUtilityModelArtifact, type CompositeUtilityModelArtifact, type CompositeReturnModelArtifact,
+  type CompositeReturnHitModelArtifact, type UtilityScoreNormalization, type UtilityTreeNode } from '@/scripts/stock-picks/utility-model'
 
 const frozenUtilityModel = validateUtilityModel(utilityArtifact as UtilityModelArtifact)
 const frozenReturnV6Model = validateUtilityModel(returnV6Artifact as UtilityModelArtifact)
+const frozenReturnV8Model = validateUtilityModel(returnV8Artifact as UtilityModelArtifact)
 
 const leaf = (value: number): UtilityTreeNode => ({ isLeaf: true, value, featureIdx: 0,
   numThreshold: 0, missingGoLeft: false, left: 0, right: 0 })
@@ -38,6 +42,7 @@ describe('native HGB utility inference', () => {
     normalization: { ...normalization(), version: RETURN_SCORE_VERSION, mean: 0, standardDeviation: .01 },
     targetDefinition: { version: 'demeaned-tp7-net-v1', formula: 'net-dateMean(net)', horizon: 5,
       takeProfit: .07, cost: 'krx-realistic-v1', demean: 'signal-date strict rows' },
+    parameters: { learning_rate: .05 }, leafValuesAlreadyIncludeLearningRate: true,
     baselinePrediction: -.01, trees: Array.from({ length: 200 }, () => [leaf(0)]),
   })
   it('accepts the single 200-tree return predictor and preserves negative and unbounded predictions', () => {
@@ -70,22 +75,46 @@ describe('native HGB utility inference', () => {
     for (const mean of [-.5, .5]) expect(() => validateUtilityModel({ ...artifact,
       normalization: { ...artifact.normalization, mean, standardDeviation: .5 } })).not.toThrow()
   })
-  it('decomposes every native v8 prediction exactly into per-input path contributions', () => {
-    for (const witness of returnV8Parity.cases) {
-      const { bias, contributions } = attributeUtilityModel(FROZEN_COMPOSITE_RETURN_MODEL, witness.inputs)
+  it.each([
+    { label: 'v8', artifact: frozenReturnV8Model, fixture: returnV8Parity },
+    { label: 'v9 production', artifact: FROZEN_COMPOSITE_RETURN_MODEL, fixture: returnV9Parity },
+  ])('decomposes every native $label prediction exactly into per-input path contributions', ({ artifact, fixture }) => {
+    for (const witness of fixture.cases) {
+      const { bias, contributions } = attributeUtilityModel(artifact, witness.inputs)
       expect(contributions).toHaveLength(OBSERVED_FLOW_INPUT_NAMES.length)
       expect(bias + contributions.reduce((sum, value) => sum + value, 0), witness.id).toBeCloseTo(witness.prediction, 12)
-      expect(attributeUtilityModel(FROZEN_COMPOSITE_RETURN_MODEL,
+      expect(attributeUtilityModel(artifact,
         witness.inputs.map((v) => v === null ? Number.NaN : v))).toEqual({ bias, contributions })
     }
     expect(() => attributeUtilityModel(frozenUtilityModel, Array(OBSERVED_INPUT_NAMES.length).fill(0))).toThrow('schema 5')
-    expect(() => attributeUtilityModel(FROZEN_COMPOSITE_RETURN_MODEL, Array(OBSERVED_INPUT_NAMES.length).fill(0))).toThrow('관측 피처 계약')
+    expect(() => attributeUtilityModel(artifact, Array(OBSERVED_INPUT_NAMES.length).fill(0))).toThrow('관측 피처 계약')
+  })
+  it('matches the native v9 hit-head log-odds and decomposes them into per-input path contributions', () => {
+    expect(returnV9Parity.cases.some((c) => c.hitLogOdds > 0)).toBe(true)
+    expect(returnV9Parity.cases.some((c) => c.hitLogOdds < 0)).toBe(true)
+    for (const witness of returnV9Parity.cases) {
+      const hitLogOdds = scoreUtilityHitHead(FROZEN_COMPOSITE_RETURN_MODEL, witness.inputs)
+      expect(hitLogOdds, witness.id).toBeCloseTo(witness.hitLogOdds, 12)
+      expect(scoreUtilityHitHead(FROZEN_COMPOSITE_RETURN_MODEL,
+        witness.inputs.map((v) => v === null ? Number.NaN : v))).toBe(hitLogOdds)
+      const { bias, contributions } = attributeUtilityModel(FROZEN_COMPOSITE_RETURN_MODEL, witness.inputs, 'hit')
+      expect(contributions).toHaveLength(OBSERVED_FLOW_INPUT_NAMES.length)
+      expect(bias + contributions.reduce((sum, value) => sum + value, 0), witness.id).toBeCloseTo(witness.hitLogOdds, 12)
+      // The two heads are separate predictors: the hit head is not the return head on another scale.
+      expect(contributions).not.toEqual(attributeUtilityModel(FROZEN_COMPOSITE_RETURN_MODEL, witness.inputs).contributions)
+    }
+    const flowInputs = Array(OBSERVED_FLOW_INPUT_NAMES.length).fill(0)
+    expect(() => scoreUtilityHitHead(frozenReturnV8Model, flowInputs)).toThrow('schema 6')
+    expect(() => attributeUtilityModel(frozenReturnV8Model, flowInputs, 'hit')).toThrow('schema 6')
+    expect(() => scoreUtilityHitHead(FROZEN_COMPOSITE_RETURN_MODEL, Array(OBSERVED_INPUT_NAMES.length).fill(0))).toThrow('관측 피처 계약')
+    expect(() => scoreUtilityHitHead(FROZEN_COMPOSITE_RETURN_MODEL, [Number.POSITIVE_INFINITY, ...flowInputs.slice(1)])).toThrow('관측 피처 계약')
   })
   it.each([
-    { label: 'v6', artifact: frozenReturnV6Model, fixture: returnParity, names: OBSERVED_INPUT_NAMES },
-    { label: 'v8 production', artifact: FROZEN_COMPOSITE_RETURN_MODEL, fixture: returnV8Parity, names: OBSERVED_FLOW_INPUT_NAMES },
-  ])('matches native $label return vectors without clipping negative predictions', ({ artifact, fixture, names }) => {
-    expect(fixture.schemaVersion).toBe(5)
+    { label: 'v6', schemaVersion: 5, artifact: frozenReturnV6Model, fixture: returnParity, names: OBSERVED_INPUT_NAMES },
+    { label: 'v8', schemaVersion: 5, artifact: frozenReturnV8Model, fixture: returnV8Parity, names: OBSERVED_FLOW_INPUT_NAMES },
+    { label: 'v9 production', schemaVersion: 6, artifact: FROZEN_COMPOSITE_RETURN_MODEL, fixture: returnV9Parity, names: OBSERVED_FLOW_INPUT_NAMES },
+  ])('matches native $label return vectors without clipping negative predictions', ({ schemaVersion, artifact, fixture, names }) => {
+    expect(fixture.schemaVersion).toBe(schemaVersion)
     expect(fixture.scoreVersion).toBe(RETURN_SCORE_VERSION)
     expect(fixture.featureNames).toEqual(names)
     expect(artifact.featureNames).toEqual(names)
@@ -99,7 +128,7 @@ describe('native HGB utility inference', () => {
         witness.inputs.map((v) => v === null ? Number.NaN : v))).toEqual(result)
     }
   })
-  it('binds the 65-input investor-flow contract to v8 only', () => {
+  it('binds the 65-input investor-flow contract to v8 and v9 only', () => {
     const v6 = returnModel()
     const v8: CompositeReturnModelArtifact = { ...v6, modelVersion: 'composite-return-v8',
       observedInputVersion: OBSERVED_FLOW_INPUT_VERSION, featureNames: OBSERVED_FLOW_INPUT_NAMES }
@@ -117,6 +146,66 @@ describe('native HGB utility inference', () => {
       { ...v8, observedInputVersion: OBSERVED_INPUT_VERSION },
       { ...v6, featureNames: OBSERVED_FLOW_INPUT_NAMES, observedInputVersion: OBSERVED_FLOW_INPUT_VERSION },
     ]) expect(() => validateUtilityModel(invalid)).toThrow('종합 점수 모델 계약 불일치')
+  })
+  it('requires the v9 hit head to be a second 200-tree predictor on the same 65 inputs', () => {
+    const v8: CompositeReturnModelArtifact = { ...returnModel(), modelVersion: 'composite-return-v8',
+      observedInputVersion: OBSERVED_FLOW_INPUT_VERSION, featureNames: OBSERVED_FLOW_INPUT_NAMES }
+    const hitSplit = [{ ...leaf(0), isLeaf: false, featureIdx: 64, numThreshold: 0, missingGoLeft: true, left: 1, right: 2 },
+      leaf(-.4), leaf(.6)]
+    const v9: CompositeReturnHitModelArtifact = { ...v8, schemaVersion: 6, modelVersion: 'composite-return-v9',
+      hitTargetDefinition: { version: 'net-positive-d5-v1', formula: 'hit = net > 0', horizon: 5,
+        cost: 'krx-realistic-v1', output: 'log-odds' },
+      hitParameters: { learning_rate: .05 },
+      hitHead: { baselinePrediction: -.3, trees: [hitSplit, ...Array.from({ length: 199 }, () => [leaf(0)])] } }
+    const flowInputs = (last: number | null) => [...inputs(), ...Array(14).fill(null), last]
+    expect(validateUtilityModel(v9)).toBe(v9)
+    // The return head keeps its own score; the hit head returns unclipped log-odds.
+    expect(scoreUtilityModel(v9, flowInputs(1))).toEqual({ utility: -.01, score: 30 })
+    expect(scoreUtilityHitHead(v9, flowInputs(1))).toBeCloseTo(.3, 14)
+    expect(scoreUtilityHitHead(v9, flowInputs(null))).toBeCloseTo(-.7, 14)
+    expect(attributeUtilityModel(v9, flowInputs(1), 'hit').contributions[64]).toBeCloseTo(.6, 14)
+    expect(attributeUtilityModel(v9, flowInputs(1)).contributions.every((value) => value === 0)).toBe(true)
+    expect(() => scoreUtilityHitHead(v8, flowInputs(1))).toThrow('schema 6')
+    const { hitHead, hitTargetDefinition, ...withoutHit } = v9
+    for (const invalid of [
+      withoutHit,
+      { ...withoutHit, hitHead },
+      { ...withoutHit, hitTargetDefinition },
+      { ...v9, hitHead: { ...hitHead, trees: hitHead.trees.slice(1) } },
+      { ...v9, hitHead: { ...hitHead, baselinePrediction: Number.NaN } },
+      { ...v9, hitTargetDefinition: { ...hitTargetDefinition, output: 'probability' } },
+      { ...v9, hitTargetDefinition: { ...hitTargetDefinition, version: 'demeaned-tp7-net-v1' } },
+      { ...v9, modelVersion: 'composite-return-v8' },
+      { ...v9, featureNames: OBSERVED_INPUT_NAMES, observedInputVersion: OBSERVED_INPUT_VERSION },
+      { ...v9, normalization: normalization() },
+      { ...v8, hitHead },
+      { ...v9, hitParameters: undefined },
+      { ...v9, hitParameters: { learning_rate: 0 } },
+      { ...v9, parameters: { learning_rate: 1.5 } },
+      { ...v9, leafValuesAlreadyIncludeLearningRate: false },
+      { ...v8, parameters: undefined },
+      { ...v8, leafValuesAlreadyIncludeLearningRate: undefined },
+    ]) expect(() => validateUtilityModel(invalid as UtilityModelArtifact)).toThrow()
+  })
+  it('puts internal node values on the leaf scale (× learning rate) before attributing each split', () => {
+    const v8: CompositeReturnModelArtifact = { ...returnModel(), modelVersion: 'composite-return-v8',
+      observedInputVersion: OBSERVED_FLOW_INPUT_VERSION, featureNames: OBSERVED_FLOW_INPUT_NAMES }
+    const split = (featureIdx: number, value: number, left: number, right: number): UtilityTreeNode => (
+      { isLeaf: false, value, featureIdx, numThreshold: 0, missingGoLeft: true, left, right })
+    // scikit-learn keeps raw (unshrunk) values on internal nodes: 2 and 8 are 0.1 and 0.4 on the leaf scale.
+    const tree = [split(64, 2, 1, 2), leaf(-.4), split(63, 8, 3, 4), leaf(.3), leaf(.6)]
+    const artifact = { ...v8, trees: [tree, ...v8.trees.slice(1)] }
+    const flowInputs = [...inputs(), ...Array(13).fill(null), 1, 1]
+    const { bias, contributions } = attributeUtilityModel(artifact, flowInputs)
+    expect(bias).toBeCloseTo(-.01 + .1, 14)
+    expect(contributions[64]).toBeCloseTo(.4 - .1, 14)
+    expect(contributions[63]).toBeCloseTo(.6 - .4, 14)
+    expect(bias + contributions[63]! + contributions[64]!).toBeCloseTo(scoreUtilityModel(artifact, flowInputs).utility, 14)
+    // Another learning rate rescales only the internal steps; the prediction and the total stay the same.
+    const slower = attributeUtilityModel({ ...artifact, parameters: { learning_rate: .1 } }, flowInputs)
+    expect(slower.contributions[64]).toBeCloseTo(.8 - .2, 14)
+    expect(slower.contributions[63]).toBeCloseTo(.6 - .8, 14)
+    expect(slower.bias + slower.contributions[63]! + slower.contributions[64]!).toBeCloseTo(.59, 14)
   })
   const composite = (): CompositeUtilityModelArtifact => ({
     schemaVersion: 4, modelVersion: 'composite-utility-v4',

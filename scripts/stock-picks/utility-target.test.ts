@@ -21,4 +21,14 @@ describe('two-head composite training target', () => {
     expect(result.stderr).toContain('Ran 12 tests')
     expect(result.stderr).toMatch(/\bOK\b/)
   })
+
+  it('runs the actual Python regressions for the return target and the v9 hit label', () => {
+    const result = spawnSync('python3', [
+      '-m', 'unittest', 'discover', '-s', 'scripts/stock-picks', '-p', 'return_target_test.py',
+    ], { encoding: 'utf8' })
+    expect(result.error).toBeUndefined()
+    expect(result.status, result.stderr).toBe(0)
+    expect(result.stderr).toContain('Ran 3 tests')
+    expect(result.stderr).toMatch(/\bOK\b/)
+  })
 })

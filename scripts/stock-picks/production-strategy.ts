@@ -1,10 +1,10 @@
 import { createHash } from 'node:crypto'
 
-import { BULLISH_TARGET_PARAMETERS, LOW_VOLATILITY_STABLE_PARAMETERS, UTILITY_ATR_RANK_ADJUSTMENT, UTILITY_LOCKED_DOWN_RULE, type VolumeBreakoutParameters } from '@/scripts/stock-picks/strategies'
+import { BULLISH_TARGET_PARAMETERS, LOW_VOLATILITY_STABLE_PARAMETERS, UTILITY_HIT_RANK_BLEND, UTILITY_LOCKED_DOWN_RULE, type VolumeBreakoutParameters } from '@/scripts/stock-picks/strategies'
 import frozenTargetModel from '@/scripts/stock-picks/models/bullish-target-v3.json'
 import type { TargetModelArtifact } from '@/scripts/stock-picks/target-model'
 import { SIGNAL_SCORE_VERSION, VOLATILITY_SCORE_REFERENCE } from '@/scripts/stock-picks/signals'
-import frozenReturnModel from '@/scripts/stock-picks/models/composite-return-v8.json'
+import frozenReturnModel from '@/scripts/stock-picks/models/composite-return-v9.json'
 import { INVESTOR_FLOW_WINDOW_TRADING_DAYS, MIN_INVESTOR_FLOW_COVERAGE } from '@/scripts/stock-picks/investor-flow'
 import { MODEL_MARKET_SOURCE_VERSION, OBSERVED_FLOW_INPUT_VERSION } from '@/scripts/stock-picks/observed-inputs'
 import { RETURN_SCORE_VERSION, validateUtilityModel, type UtilityModelArtifact } from '@/scripts/stock-picks/utility-model'
@@ -87,12 +87,12 @@ export const BULLISH_TARGET_STRATEGY = {
   }),
 } as const
 
-/** v8: v6와 같은 수익 목표·HGB 설정에 KIS 투자자 수급 15개 입력을 더해 10/30 종가까지 재학습했다. */
+/** v9: v8과 같은 수익 머리(11/11 종가까지 재학습)에 같은 65개 입력의 타율 머리(5일 순수익 > 0 로그오즈)를 더했다. */
 export const FROZEN_COMPOSITE_RETURN_MODEL = validateUtilityModel(frozenReturnModel as UtilityModelArtifact)
 
 export const PRODUCTION_STRATEGY = {
   name: 'compositeUtility',
-  version: 'v8-2026-11-02',
+  version: 'v9-2026-11-12',
   objective: 'compositeUtility',
   parameters: LOW_VOLATILITY_STABLE_PARAMETERS,
   parametersHash: hashCanonicalJson({
@@ -108,7 +108,7 @@ export const PRODUCTION_STRATEGY = {
     modelMarketSourceVersion: MODEL_MARKET_SOURCE_VERSION,
     utilityScoreVersion: RETURN_SCORE_VERSION,
     lockedDownRule: UTILITY_LOCKED_DOWN_RULE,
-    ...UTILITY_ATR_RANK_ADJUSTMENT,
+    ...UTILITY_HIT_RANK_BLEND,
     model: FROZEN_COMPOSITE_RETURN_MODEL,
   }),
 } as const
