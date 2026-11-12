@@ -58,9 +58,18 @@ export async function renderCover(photoJpeg: Buffer, overlay: CoverOverlay): Pro
   );
   const png = Buffer.from(await new ImageResponse(element, { width: W, height: H, fonts: await loadChartFonts() }).arrayBuffer());
   try {
-    const sharp = (await import('sharp')).default;
+    const sharp = ((await import(/* webpackIgnore: true */ SHARP_MODULE)) as { default: SharpLike }).default;
     return { data: await sharp(png).webp({ quality: 84 }).toBuffer(), ext: 'webp' };
-  } catch {
+  } catch (error) {
+    console.warn(`[Visuals] sharp 없음 — 커버를 PNG로 싣는다: ${error instanceof Error ? error.message : String(error)}`);
     return { data: png, ext: 'png' };
   }
 }
+
+/**
+ * sharp는 직접 의존성이 아니다(next의 선택 의존성). npm(Actions, 파이프라인 실행처)은 최상위에 깔지만
+ * pnpm(Vercel 빌드)은 숨겨 `import('sharp')` 타입 해석이 실패해 next build가 깨진다(PR #253 Preview).
+ * 지정자를 변수로 둬 타입 해석·번들링 대상에서 빼고 실행 시점에만 불러온다.
+ */
+const SHARP_MODULE = 'sharp';
+type SharpLike = (input: Buffer) => { webp(options: { quality: number }): { toBuffer(): Promise<Buffer> } };
