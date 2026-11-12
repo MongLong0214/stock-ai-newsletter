@@ -58,6 +58,11 @@ export interface CompositeUtilityModelArtifact extends UtilityModelReference {
   readonly heads: { readonly touch: UtilityPredictor; readonly nonLoss: UtilityPredictor }
 }
 
+/** scikit-learn HGB는 리프 값에만 학습률을 곱해 저장한다. 내부 노드 값을 같은 단위로 맞출 때 쓴다. */
+interface HgbShrinkage {
+  readonly learning_rate: number
+}
+
 export interface CompositeReturnModelArtifact extends UtilityModelReference, UtilityPredictor {
   readonly schemaVersion: 5
   readonly modelVersion: 'composite-return-v6' | 'composite-return-v8'
@@ -69,10 +74,32 @@ export interface CompositeReturnModelArtifact extends UtilityModelReference, Uti
     readonly cost: 'krx-realistic-v1'
     readonly demean: 'signal-date strict rows'
   }
+  readonly parameters: HgbShrinkage
+  readonly leafValuesAlreadyIncludeLearningRate: true
   readonly normalization: UtilityScoreNormalization & { readonly version: typeof RETURN_SCORE_VERSION }
 }
 
+/** v9: v8과 같은 수익 머리에, 같은 65개 입력으로 5일 순수익 > 0 여부를 맞히는 타율 머리(로그오즈)를 더한다. */
+export interface CompositeReturnHitModelArtifact extends UtilityModelReference, UtilityPredictor {
+  readonly schemaVersion: 6
+  readonly modelVersion: 'composite-return-v9'
+  readonly targetDefinition: CompositeReturnModelArtifact['targetDefinition']
+  readonly hitTargetDefinition: {
+    readonly version: 'net-positive-d5-v1'
+    readonly formula: string
+    readonly horizon: 5
+    readonly cost: 'krx-realistic-v1'
+    readonly output: 'log-odds'
+  }
+  readonly hitHead: UtilityPredictor
+  readonly parameters: HgbShrinkage
+  readonly hitParameters: HgbShrinkage
+  readonly leafValuesAlreadyIncludeLearningRate: true
+  readonly normalization: CompositeReturnModelArtifact['normalization']
+}
+
 export type UtilityModelArtifact = LegacyUtilityModelArtifact | CompositeUtilityModelArtifact | CompositeReturnModelArtifact
+  | CompositeReturnHitModelArtifact
 
 const validDate = (value: string): boolean => (
   /^\d{4}-\d{2}-\d{2}$/.test(value)
@@ -113,12 +140,13 @@ export function normalizeUtilityScore(normalization: UtilityScoreNormalization, 
   return Math.floor(standardized + 0.5)
 }
 
-/** v8만 기존 50개 관측값 뒤에 KIS 투자자 수급 15개를 붙인다. 다른 모델은 기존 50개 계약 그대로다. */
+/** v8·v9만 기존 50개 관측값 뒤에 KIS 투자자 수급 15개를 붙인다. 다른 모델은 기존 50개 계약 그대로다. */
 export function modelInputContract(model: Pick<UtilityModelArtifact, 'schemaVersion' | 'modelVersion'>): {
   readonly version: string
   readonly names: readonly string[]
 } {
-  return model.schemaVersion === 5 && model.modelVersion === 'composite-return-v8'
+  return (model.schemaVersion === 5 && model.modelVersion === 'composite-return-v8')
+    || (model.schemaVersion === 6 && model.modelVersion === 'composite-return-v9')
     ? { version: OBSERVED_FLOW_INPUT_VERSION, names: OBSERVED_FLOW_INPUT_NAMES }
     : { version: OBSERVED_INPUT_VERSION, names: OBSERVED_INPUT_NAMES }
 }
@@ -134,11 +162,16 @@ export function validateUtilityModel(model: UtilityModelArtifact): UtilityModelA
       && model.heads && Object.keys(model.heads).sort().join(',') === 'nonLoss,touch'
       && !('trees' in model) && !('baselinePrediction' in model))
     || (model.schemaVersion === 5 && (model.modelVersion === 'composite-return-v6' || model.modelVersion === 'composite-return-v8')
-      && model.targetDefinition?.version === 'demeaned-tp7-net-v1'
-      && typeof model.targetDefinition.formula === 'string' && model.targetDefinition.formula.length > 0
-      && model.targetDefinition.horizon === 5 && model.targetDefinition.takeProfit === 0.07
-      && model.targetDefinition.cost === 'krx-realistic-v1'
-      && model.targetDefinition.demean === 'signal-date strict rows' && !('heads' in model))
+      && validReturnTarget(model.targetDefinition) && !('heads' in model) && !('hitHead' in model)
+      && validShrinkage(model.parameters) && model.leafValuesAlreadyIncludeLearningRate === true)
+    || (model.schemaVersion === 6 && model.modelVersion === 'composite-return-v9'
+      && validReturnTarget(model.targetDefinition) && !('heads' in model)
+      && validShrinkage(model.parameters) && validShrinkage(model.hitParameters)
+      && model.leafValuesAlreadyIncludeLearningRate === true
+      && model.hitTargetDefinition?.version === 'net-positive-d5-v1'
+      && typeof model.hitTargetDefinition.formula === 'string' && model.hitTargetDefinition.formula.length > 0
+      && model.hitTargetDefinition.horizon === 5 && model.hitTargetDefinition.cost === 'krx-realistic-v1'
+      && model.hitTargetDefinition.output === 'log-odds')
   const inputs = supportedVersion ? modelInputContract(model) : null
   if (!inputs || model.observedInputVersion !== inputs.version
     || !validDate(model.trainedLabelsThrough)
@@ -147,7 +180,7 @@ export function validateUtilityModel(model: UtilityModelArtifact): UtilityModelA
     throw new Error('종합 점수 모델 계약 불일치')
   }
   validateNormalization(model.normalization)
-  if (model.normalization.version !== (model.schemaVersion === 5 ? RETURN_SCORE_VERSION : UTILITY_SCORE_VERSION)) {
+  if (model.normalization.version !== (model.schemaVersion >= 5 ? RETURN_SCORE_VERSION : UTILITY_SCORE_VERSION)) {
     throw new Error('종합 점수 모델 표준화 계약 불일치')
   }
   if (model.normalization.referenceThrough !== model.trainedLabelsThrough) {
@@ -155,9 +188,21 @@ export function validateUtilityModel(model: UtilityModelArtifact): UtilityModelA
   }
   if (model.schemaVersion === 4) {
     validatePredictor(model.heads.touch); validatePredictor(model.heads.nonLoss)
-  } else validatePredictor(model, model.schemaVersion === 5 ? 200 : 100, inputs.names.length)
+  } else validatePredictor(model, model.schemaVersion >= 5 ? 200 : 100, inputs.names.length)
+  if (model.schemaVersion === 6) validatePredictor(model.hitHead, 200, inputs.names.length)
   return model
 }
+
+const validShrinkage = (parameters: HgbShrinkage | undefined): boolean => (
+  typeof parameters?.learning_rate === 'number' && parameters.learning_rate > 0 && parameters.learning_rate <= 1
+)
+
+const validReturnTarget = (target: CompositeReturnModelArtifact['targetDefinition'] | undefined): boolean => (
+  target?.version === 'demeaned-tp7-net-v1'
+  && typeof target.formula === 'string' && target.formula.length > 0
+  && target.horizon === 5 && target.takeProfit === 0.07
+  && target.cost === 'krx-realistic-v1' && target.demean === 'signal-date strict rows'
+)
 
 function validatePredictor(model: UtilityPredictor, treeCount = 100, inputCount: number = OBSERVED_INPUT_NAMES.length): void {
   if (!model || !Number.isFinite(model.baselinePrediction) || !Array.isArray(model.trees)
@@ -191,40 +236,61 @@ export function scoreUtilityModel(model: UtilityModelArtifact, inputs: readonly 
   readonly score: number
 } {
   validateUtilityModel(model)
+  assertModelInputs(model, inputs)
+  const utility = model.schemaVersion === 4
+    ? predict(model.heads.touch, inputs) * predict(model.heads.nonLoss, inputs) ** 2
+    : predict(model, inputs, model.schemaVersion === 3)
+  return { utility, score: normalizeUtilityScore(model.normalization, utility) }
+}
+
+/** v9 타율 머리의 로그오즈. 확률로 바꾸지 않아 scikit-learn decision_function과 그대로 대조된다. */
+export function scoreUtilityHitHead(model: UtilityModelArtifact, inputs: readonly (number | null)[]): number {
+  validateUtilityModel(model)
+  if (model.schemaVersion !== 6) throw new Error('타율 머리는 schema 6 모델만 지원합니다')
+  assertModelInputs(model, inputs)
+  return predict(model.hitHead, inputs, false)
+}
+
+function assertModelInputs(model: UtilityModelArtifact, inputs: readonly (number | null)[]): void {
   if (inputs.length !== modelInputContract(model).names.length
     || Array.from(inputs).some((v) => v !== null && (typeof v !== 'number' || !Number.isFinite(v) && !Number.isNaN(v)))) {
     throw new Error('종합 점수 관측 피처 계약 불일치')
   }
-  const utility = model.schemaVersion === 4
-    ? predict(model.heads.touch, inputs) * predict(model.heads.nonLoss, inputs) ** 2
-    : predict(model, inputs, model.schemaVersion !== 5)
-  return { utility, score: normalizeUtilityScore(model.normalization, utility) }
 }
 
 /**
- * 수익 모델(schema 5) 예측값을 입력별 기여도로 나눈다(트리 경로 분해, Saabas).
+ * 수익 모델(schema 5 이상) 예측값을 입력별 기여도로 나눈다(트리 경로 분해, Saabas).
  * 분기마다 자식 노드 값 − 부모 노드 값을 그 분기 입력에 더하므로
  * baselinePrediction + Σ루트 값 + Σ기여도 = 예측값이 정확히 성립한다.
+ * 저장된 내부 노드 값은 학습률을 곱하기 전 값이라 리프와 같은 단위(× 학습률)로 맞춘 뒤 차이를 낸다.
+ * head='hit'은 v9 타율 머리의 로그오즈를 같은 방식으로 나눈다.
  */
-export function attributeUtilityModel(model: UtilityModelArtifact, inputs: readonly (number | null)[]): {
+export function attributeUtilityModel(model: UtilityModelArtifact, inputs: readonly (number | null)[],
+  head: 'return' | 'hit' = 'return'): {
   readonly bias: number
   readonly contributions: readonly number[]
 } {
   validateUtilityModel(model)
-  if (model.schemaVersion !== 5) throw new Error('기여도 분해는 수익 모델(schema 5)만 지원합니다')
+  if (model.schemaVersion !== 5 && model.schemaVersion !== 6) throw new Error('기여도 분해는 수익 모델(schema 5 이상)만 지원합니다')
+  if (head === 'hit' && model.schemaVersion !== 6) throw new Error('타율 머리는 schema 6 모델만 지원합니다')
   if (inputs.length !== modelInputContract(model).names.length) throw new Error('종합 점수 관측 피처 계약 불일치')
+  const useHit = head === 'hit' && model.schemaVersion === 6
+  const predictor: UtilityPredictor = useHit ? model.hitHead : model
+  const learningRate = (useHit ? model.hitParameters : model.parameters).learning_rate
+  // WHY: 단위를 맞추지 않으면 내부 분기의 차이가 1/학습률배로 부풀고 마지막 분기 입력에 반대 부호로 몰린다(합은 그대로라 검산으로는 안 보인다).
+  const valueOf = (node: UtilityTreeNode): number => (node.isLeaf ? node.value : node.value * learningRate)
   const contributions = Array<number>(inputs.length).fill(0)
-  let bias = model.baselinePrediction
-  for (const tree of model.trees) {
+  let bias = predictor.baselinePrediction
+  for (const tree of predictor.trees) {
     let index = 0
-    bias += tree[0]!.value
+    bias += valueOf(tree[0]!)
     while (!tree[index]!.isLeaf) {
       const node = tree[index]!
       const value = inputs[node.featureIdx]
       const goLeft = value === null || Number.isNaN(value)
         ? node.missingGoLeft : value! <= Number(node.numThreshold)
       const next = goLeft ? node.left : node.right
-      contributions[node.featureIdx]! += tree[next]!.value - node.value
+      contributions[node.featureIdx]! += valueOf(tree[next]!) - valueOf(node)
       index = next
     }
   }

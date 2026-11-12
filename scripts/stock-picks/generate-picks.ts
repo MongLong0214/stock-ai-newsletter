@@ -16,7 +16,7 @@ import { buildFeatureSeries, type StockFeatureVector } from '@/scripts/stock-pic
 import { buildModelContributionSignals, finiteOr } from '@/scripts/stock-picks/signals'
 import { loadInvestorFlowInputs } from '@/scripts/stock-picks/investor-flow'
 import { buildObservedInputs50, validateModelMarketSources } from '@/scripts/stock-picks/observed-inputs'
-import { attributeUtilityModel, scoreUtilityModel } from '@/scripts/stock-picks/utility-model'
+import { attributeUtilityModel, scoreUtilityHitHead, scoreUtilityModel } from '@/scripts/stock-picks/utility-model'
 import { parsePublishedPicks } from '@/scripts/stock-picks/measure-forward'
 import { buildTechnicalContextMap, type TechnicalContext } from '@/scripts/stock-picks/technical-context'
 import {
@@ -33,7 +33,7 @@ import {
   getUtilityCandidatePool,
   LOW_VOLATILITY_STABLE_PARAMETERS,
   rankBullishTargetCandidates,
-  rankUtilityAtrPenaltyCandidates,
+  rankUtilityHitBlendCandidates,
   rankSeededRandomCandidates,
   rankStrategyCandidates,
   rankTieredFillCandidates,
@@ -438,7 +438,7 @@ export async function generatePicksWithMeta(input: {
     parameters: LOW_VOLATILITY_STABLE_PARAMETERS,
     excludeSymbols: new Set(),
   })
-  // v8: 기존 50개 관측값 + 신호일 장 마감 후 확정된 KIS 투자자 수급 15개(재추천 제외 전 풀 전체).
+  // v9: 기존 50개 관측값 + 신호일 장 마감 후 확정된 KIS 투자자 수급 15개(재추천 제외 전 풀 전체)로 수익·타율 두 머리를 추론한다.
   const flowInputs = await loadFlow({ symbols: pool.map(({ symbol }) => symbol), signalDate, dates: historyDates })
   const predictions = new Map(pool.map((feature) => {
     const { symbol } = feature
@@ -446,24 +446,33 @@ export async function generatePicksWithMeta(input: {
     const flow = flowInputs.get(symbol)
     if (!context || !flow) throw new Error(`종합 점수 후보 관측값 누락: ${symbol}`)
     const inputs = [...buildObservedInputs50({ feature, context, handler, dates: historyDates }), ...flow]
-    return [symbol, { ...scoreUtilityModel(FROZEN_COMPOSITE_RETURN_MODEL, inputs), inputs }] as const
+    return [symbol, { ...scoreUtilityModel(FROZEN_COMPOSITE_RETURN_MODEL, inputs),
+      hitLogOdds: scoreUtilityHitHead(FROZEN_COMPOSITE_RETURN_MODEL, inputs),
+      hitParts: attributeUtilityModel(FROZEN_COMPOSITE_RETURN_MODEL, inputs, 'hit').contributions, inputs }] as const
   }))
-  const rankedCandidates = rankUtilityAtrPenaltyCandidates({
+  // 순위에는 타율 로그오즈의 풀 평균 대비 차이만 들어가므로 입력별 기여도도 같은 풀 평균을 뺀다.
+  const hitPartsPoolMean = FROZEN_COMPOSITE_RETURN_MODEL.featureNames.map((_name, i) => (
+    [...predictions.values()].reduce((sum, prediction) => sum + prediction.hitParts[i]!, 0) / predictions.size
+  ))
+  const rankedCandidates = rankUtilityHitBlendCandidates({
     features, masters: mastersBySymbol, parameters: LOW_VOLATILITY_STABLE_PARAMETERS,
     normalization: FROZEN_COMPOSITE_RETURN_MODEL.normalization,
     excludeSymbols: recentPublishedSymbols, pickCount: features.length,
     utilities: new Map([...predictions].map(([symbol, prediction]) => [symbol, prediction.utility])),
+    hitLogOdds: new Map([...predictions].map(([symbol, prediction]) => [symbol, prediction.hitLogOdds])),
   })
-  const rankedFeatures: RankedStockFeature[] = rankedCandidates.map(({ symbol, score, adjusted }, index) => {
+  const rankedFeatures: RankedStockFeature[] = rankedCandidates.map(({ symbol, score, utilityWeight, hitLogOddsWeight }, index) => {
     const feature = featuresBySymbol.get(symbol)
     const master = mastersBySymbol.get(symbol)
     const prediction = predictions.get(symbol)
     if (!feature || !master || !prediction) throw new Error(`종합 점수 픽 원천 데이터 누락: ${symbol}`)
-    const { contributions } = attributeUtilityModel(FROZEN_COMPOSITE_RETURN_MODEL, prediction.inputs)
+    // 순위에 쓴 값과 같은 비중으로 두 머리의 입력별 기여도를 섞는다.
+    const returnParts = attributeUtilityModel(FROZEN_COMPOSITE_RETURN_MODEL, prediction.inputs).contributions
     const signals = buildModelContributionSignals({
       featureNames: FROZEN_COMPOSITE_RETURN_MODEL.featureNames,
-      contributions,
-      atrAdjustment: adjusted - prediction.utility,
+      contributions: returnParts.map((value, i) => (
+        utilityWeight * value + hitLogOddsWeight * (prediction.hitParts[i]! - hitPartsPoolMean[i]!)
+      )),
       normalization: FROZEN_COMPOSITE_RETURN_MODEL.normalization,
       overallScore: score,
     })

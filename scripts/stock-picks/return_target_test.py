@@ -1,5 +1,5 @@
 import unittest
-from return_target import demeaned_tp7_net_targets
+from return_target import demeaned_tp7_net_targets, net_positive_d5_targets
 
 
 class ReturnTargetTest(unittest.TestCase):
@@ -26,6 +26,16 @@ class ReturnTargetTest(unittest.TestCase):
         other_net = -(1.5 + 5 + 1.5 + 20 + 5) / 10000
         self.assertAlmostEqual(other[0], (net[0] - other_net) / 2)
         self.assertEqual(demeaned_tp7_net_targets([untouched], '2026-10-16'), [0])
+
+    def test_hit_label_is_d5_close_net_of_cost_without_the_take_profit_cap(self):
+        # WHY: 장중 +7%를 찍어도 D5 종가가 손실이면 타율 라벨은 0이다.
+        touched_then_lost = [[10000, 10700, 9000, 9500, 100]] * 5
+        flat = [[10000, 10100, 9900, 10000, 100]] * 5
+        # 10,000원: 왕복 비용 = 1.5+5 + (1.5+20+4.98)*1.0033 ≈ 33.07bps → +0.33%는 손실, +0.34%는 이익.
+        below_cost = [[10000, 10100, 9900, 10033, 100]] * 5
+        above_cost = [[10000, 10100, 9900, 10034, 100]] * 5
+        self.assertEqual(net_positive_d5_targets([touched_then_lost, flat, below_cost, above_cost], '2026-10-16'),
+                         [0.0, 0.0, 0.0, 1.0])
 
 
 if __name__ == '__main__':

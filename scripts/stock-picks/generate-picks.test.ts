@@ -24,7 +24,7 @@ import { buildObservedInputs50 } from '@/scripts/stock-picks/observed-inputs'
 import { buildInvestorFlowInputs, parseInvestorFlowRows } from '@/scripts/stock-picks/investor-flow'
 import { syntheticInvestorFlowRows } from '@/scripts/stock-picks/fixtures/investor-flow-rows'
 import { scoreTargetModel } from '@/scripts/stock-picks/target-model'
-import { attributeUtilityModel, normalizeUtilityScore, scoreUtilityModel } from '@/scripts/stock-picks/utility-model'
+import { attributeUtilityModel, normalizeUtilityScore, scoreUtilityHitHead, scoreUtilityModel } from '@/scripts/stock-picks/utility-model'
 import { TradingDayIndex } from '@/scripts/stock-picks/trading-days'
 import type { StockDailyPriceRow } from '@/scripts/tli/prices/stock-daily-prices'
 
@@ -35,8 +35,8 @@ vi.mock('@/app/archive/_utils/api/kis/client', async (importOriginal) => ({
     (await import('@/scripts/stock-picks/fixtures/investor-flow-rows')).syntheticInvestorFlowRows(symbol, endKisDate),
 }))
 
-const SIGNAL_DATE = '2026-10-30'
-const TODAY_KST = '2026-11-02'
+const SIGNAL_DATE = '2026-11-11'
+const TODAY_KST = '2026-11-12'
 const SYMBOLS = ['KOSPI:000010', 'KOSPI:000020', 'KOSDAQ:000030'] as const
 const FOUR_SYMBOLS = [...SYMBOLS, 'KOSPI:000040'] as const
 
@@ -196,8 +196,8 @@ describe('stock analysis summary', () => {
 
 describe('production stock pick generator', () => {
   it.each([
-    { change: 50, scores: [55, 54, 50] },
-    { change: -50, scores: [29, 27, 23] },
+    { change: 50, scores: [60, 58, 51] },
+    { change: -50, scores: [41, 41, 41] },
   ])('rejects a non-KIS KOSPI return20 contributor ($change%) while keeping the KIS prediction', async ({ change, scores }) => {
     const fixture = makeFixture()
     expect(fixture.rows).toHaveLength(3 * 320)
@@ -243,8 +243,8 @@ describe('production stock pick generator', () => {
     } })
     const kis = await run(breadth)
     expect(kis.meta.rankedCandidates.map(candidate => candidate.symbol).sort()).toEqual([...SYMBOLS].sort())
-    // Same price inputs; only the per-symbol investor flow differs (zero-variance ATR path: strategies.test).
-    expect(kis.picks.map(pick => pick.signals.overall_score)).toEqual([38, 37, 36])
+    // Same price inputs; only the per-symbol investor flow differs, so the blended display values round to one integer.
+    expect(kis.picks.map(pick => pick.signals.overall_score)).toEqual([43, 43, 43])
     expect(kis.meta.rankedCandidates[0]!.technicalContext).toMatchObject({
       breadthUniverseSymbols: 43, breadthEligibleSymbols: 43, breadthAboveSma20: 3 / 43,
     })
@@ -376,31 +376,45 @@ describe('production stock pick generator', () => {
     expect(ranking.map((candidate) => candidate.symbol)).toEqual(['KOSPI:000020', 'KOSPI:000010'])
     expect(ranking[0]!.score).toBeGreaterThan(ranking[1]!.score)
     const handler = new StockDataHandler(fixture.prices, new TradingDayIndex(fixture.dates)).at(SIGNAL_DATE)
-    expect(result.meta.rankedCandidates.map(({ score }) => score)).toEqual([57, 56, 51])
-    // Independent recomputation: pool-SD(utility) × z(ATR) penalty, then the frozen v8 score curve.
+    expect(result.meta.rankedCandidates.map(({ score }) => score)).toEqual([64, 64, 60])
+    // Independent recomputation: mean of the pool z-scores of both heads in return units, then the frozen v9 score curve.
     const pool = result.meta.rankedCandidates
     const populationStd = (values: number[]) => {
       const mean = values.reduce((sum, value) => sum + value, 0) / values.length
       return { mean, std: Math.sqrt(values.reduce((sum, value) => sum + (value - mean) ** 2, 0) / values.length) }
     }
+    const inputsOf = (candidate: typeof pool[number]) => [...buildObservedInputs50({
+      feature: candidate, context: candidate.technicalContext!, handler, dates: fixture.dates,
+    }), ...buildInvestorFlowInputs({ dates: fixture.dates,
+      days: parseInvestorFlowRows(syntheticInvestorFlowRows(candidate.symbol, SIGNAL_DATE.replaceAll('-', ''))) })]
+    const hitLogOdds = new Map(pool.map((candidate) => [candidate.symbol,
+      scoreUtilityHitHead(FROZEN_COMPOSITE_RETURN_MODEL, inputsOf(candidate))]))
+    const poolHitParts = pool.map((candidate) => attributeUtilityModel(FROZEN_COMPOSITE_RETURN_MODEL, inputsOf(candidate), 'hit').contributions)
     const utilityStats = populationStd(pool.map(({ utility }) => utility!))
-    const atrStats = populationStd(pool.map(({ atrPercent14 }) => atrPercent14!))
+    const hitStats = populationStd([...hitLogOdds.values()])
+    expect(hitStats.std).toBeGreaterThan(0)
     for (const pick of result.picks) {
       const candidate = result.meta.rankedCandidates.find(({ symbol }) => symbol === pick.ticker)!
-      const flow = buildInvestorFlowInputs({ dates: fixture.dates,
-        days: parseInvestorFlowRows(syntheticInvestorFlowRows(candidate.symbol, SIGNAL_DATE.replaceAll('-', ''))) })
-      const inputs = [...buildObservedInputs50({
-        feature: candidate, context: candidate.technicalContext!, handler, dates: fixture.dates,
-      }), ...flow]
+      const inputs = inputsOf(candidate)
       expect(candidate.utility).toBe(scoreUtilityModel(FROZEN_COMPOSITE_RETURN_MODEL, inputs).utility)
-      const adjusted = candidate.utility! - 0.5 * utilityStats.std * (candidate.atrPercent14! - atrStats.mean) / atrStats.std
+      const hitWeight = 0.5 * utilityStats.std / hitStats.std
+      const adjusted = 0.5 * candidate.utility! + hitWeight * hitLogOdds.get(candidate.symbol)!
+        + 0.5 * utilityStats.mean - hitWeight * hitStats.mean
+      expect(adjusted).toBeCloseTo(utilityStats.mean + utilityStats.std * ((candidate.utility! - utilityStats.mean) / utilityStats.std
+        + (hitLogOdds.get(candidate.symbol)! - hitStats.mean) / hitStats.std) / 2, 14)
       expect(candidate.score).toBe(normalizeUtilityScore(FROZEN_COMPOSITE_RETURN_MODEL.normalization, adjusted))
-      // Six categories = model path contributions per input group (+ATR rank adjustment on volatility), same score curve.
-      const { contributions } = attributeUtilityModel(FROZEN_COMPOSITE_RETURN_MODEL, inputs)
+      // Six categories = path contributions of both heads per input group, blended with the ranking weights, same score curve.
+      // The hit head enters the ranking only relative to the pool mean, so its contributions are pool-demeaned per input.
+      const returnParts = attributeUtilityModel(FROZEN_COMPOSITE_RETURN_MODEL, inputs)
+      const hitParts = attributeUtilityModel(FROZEN_COMPOSITE_RETURN_MODEL, inputs, 'hit').contributions
       const { normalization, featureNames } = FROZEN_COMPOSITE_RETURN_MODEL
+      const blended = featureNames.map((_name, index) => 0.5 * returnParts.contributions[index]!
+        + hitWeight * (hitParts[index]! - poolHitParts.reduce((sum, parts) => sum + parts[index]!, 0) / poolHitParts.length))
+      // The blended contributions add up to the ranking value itself (up to the return head's pool mean and bias).
+      expect(blended.reduce((sum, value) => sum + value, 0))
+        .toBeCloseTo(adjusted - 0.5 * (utilityStats.mean + returnParts.bias), 12)
       const category = (key: keyof typeof MODEL_SIGNAL_CATEGORIES) => normalizeUtilityScore(normalization,
-        normalization.mean + MODEL_SIGNAL_CATEGORIES[key].reduce((sum, name) => sum + contributions[featureNames.indexOf(name)]!,
-          key === 'volatility_score' ? adjusted - candidate.utility! : 0))
+        normalization.mean + MODEL_SIGNAL_CATEGORIES[key].reduce((sum, name) => sum + blended[featureNames.indexOf(name)]!, 0))
       expect(pick.signals).toEqual({
         trend_score: category('trend_score'), momentum_score: category('momentum_score'),
         volume_score: category('volume_score'), volatility_score: category('volatility_score'),
