@@ -11,7 +11,7 @@ vi.mock('../image-storage', () => ({ uploadBlogImage: mockUpload, removeBlogImag
 vi.mock('../chart-renderer', () => ({ renderPriceChart: mockPriceChart, renderComparisonChart: mockComparisonChart }));
 
 import { VISUAL_CONFIG } from '../../_config/pipeline-config';
-import { createPostVisuals, fallbackCoverPlan, parseImageQa, parseVisualPlan, shouldTryNextModel } from '../post-visuals';
+import { createPostVisuals, parseImageQa, parseVisualPlan, shouldTryNextModel } from '../post-visuals';
 
 const SCENE = 'A quiet battery materials laboratory with glass beakers, a precision scale and soft morning light across a clean bench.';
 const HEADINGS = ['LG화학 사업 구조', '실적 흐름 읽는 법', '자주 묻는 질문'];
@@ -39,7 +39,7 @@ const MARKET: MarketContext = { stocks: [snapshot()], theme: { id: 't1', name: '
 
 /** 비전 검수 응답 — 기본은 전부 통과 */
 const qa = (flags: Record<string, boolean> = {}, note = '') => JSON.stringify({
-  text: false, logo: false, person: false, screen: false, chart: false, artifact: false, alt_mismatch: false, ...flags, note,
+  text: false, logo: false, face: false, screen: false, chart: false, artifact: false, alt_mismatch: false, off_topic: false, ...flags, note,
 });
 
 const input = (market: MarketContext | null = MARKET) => ({ slug: 'lg-chem-2026-11-10-abc', keyword: 'LG화학 실적 분석', title: 'LG화학 실적 분석', markdown: MARKDOWN, market });
@@ -108,12 +108,28 @@ describe('createPostVisuals', () => {
     expect(mockGenerateImage.mock.calls[0][0].prompt).toContain('Strictly forbidden');
   });
 
-  it('falls back to a cover only when planning fails', async () => {
+  it('publishes no AI image when planning fails — no generic off-topic cover', async () => {
     mockPlan.mockRejectedValue(new Error('plan timeout'));
     const result = await createPostVisuals(input(null));
-    expect(result.summary).toEqual({ chart: false, cover: true, sections: 0 });
-    expect(result.markdown).toContain(fallbackCoverPlan('LG화학 실적 분석').caption);
-    expect(result.markdown).not.toContain('## 데이터로 보는');
+    expect(result.summary).toEqual({ chart: false, cover: false, sections: 0 });
+    expect(result.markdown).not.toContain('![');
+    expect(mockGenerateImage).not.toHaveBeenCalled();
+  });
+
+  it('keeps section images without inventing a cover when the plan has none', async () => {
+    mockPlan.mockResolvedValue(JSON.stringify(JSON.parse(plan([{ heading: HEADINGS[0] }]), (k, v) => (k === 'cover' ? undefined : v))));
+    const result = await createPostVisuals(input(null));
+    expect(result.summary).toEqual({ chart: false, cover: false, sections: 1 });
+    expect(mockGenerateImage).toHaveBeenCalledTimes(1);
+  });
+
+  it('asks the planner for the literal subject, not symbolic still lifes', async () => {
+    await createPostVisuals(input(null));
+    const prompt = mockPlan.mock.calls[0][0].prompt as string;
+    expect(prompt).toContain('3초 안에');
+    expect(prompt).toContain('나무 블록·구슬');
+    expect(mockPlan.mock.calls[0][0].config).toMatchObject({ reasoningEffort: 'medium' });
+    expect(mockGenerateImage.mock.calls[0][0].prompt).toContain('not a conceptual still life');
   });
 
   it('moves to the next model only for access or service errors', () => {
@@ -213,26 +229,35 @@ describe('createPostVisuals', () => {
     expect(call.config).toMatchObject({ responseMimeType: 'application/json' });
   });
 
-  it('judges cover text and logos by what a reader can see, sections by the strict rule', async () => {
+  it('checks every image against the article topic with the readable-text rule', async () => {
     mockPlan.mockResolvedValue(plan([{ heading: HEADINGS[0] }]));
     await createPostVisuals(input(null));
     const prompts = mockQa.mock.calls.map((c) => c[0].prompt as string);
-    const cover = prompts.find((p) => p.includes('LG화학 실적 분석 커버 이미지'))!;
-    const section = prompts.find((p) => p !== cover)!;
-    expect(cover).toContain('Ignore tiny incidental marks');
-    expect(cover).not.toContain('legible or not');
-    expect(section).toContain('legible or not');
-    // 사람·화면·차트 기준은 커버도 같다
-    for (const p of [cover, section]) expect(p).toContain('- person: any human or part of one');
+    expect(prompts).toHaveLength(2);
+    for (const p of prompts) {
+      expect(p).toContain('<topic>LG화학 실적 분석 — LG화학 실적 분석</topic>');
+      expect(p).toContain('- off_topic:');
+      expect(p).toContain('Ignore tiny incidental marks');
+      expect(p).toContain('- face: a clearly visible, in-focus human face');
+    }
+  });
+
+  it('redraws an off-topic image', async () => {
+    mockPlan.mockResolvedValue(plan([]));
+    mockQa.mockResolvedValueOnce(qa({ off_topic: true }, 'Wooden blocks on a plinth.'));
+    const result = await createPostVisuals(input(null));
+    expect(result.summary.cover).toBe(true);
+    expect(mockGenerateImage).toHaveBeenCalledTimes(2);
+    expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('검수 탈락 (커버, 1차): off_topic / Wooden blocks on a plinth.'));
   });
 
   it('redraws an image the vision check rejects, and drops it after a second rejection', async () => {
     mockPlan.mockResolvedValue(plan([]));
-    mockQa.mockResolvedValueOnce(qa({ person: true }, 'A worker stands by the line.'));
+    mockQa.mockResolvedValueOnce(qa({ face: true }, 'A worker faces the camera.'));
     const redrawn = await createPostVisuals(input(null));
     expect(redrawn.summary.cover).toBe(true);
     expect(mockGenerateImage).toHaveBeenCalledTimes(2);
-    expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('검수 탈락 (커버, 1차): person / A worker stands by the line.'));
+    expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('검수 탈락 (커버, 1차): face / A worker faces the camera.'));
 
     vi.clearAllMocks();
     mockQa.mockResolvedValue(qa({ text: true }));
@@ -277,6 +302,6 @@ describe('parseImageQa', () => {
     expect(parseImageQa('looks fine').ok).toBe(false);
     expect(parseImageQa('{ broken').ok).toBe(false);
     expect(parseImageQa(JSON.stringify({ text: false, logo: false })).reasons).toEqual(['검수 응답 항목 누락']);
-    expect(parseImageQa(qa().replace('"person":false', '"person":"no"')).ok).toBe(false);
+    expect(parseImageQa(qa().replace('"face":false', '"face":"no"')).ok).toBe(false);
   });
 });

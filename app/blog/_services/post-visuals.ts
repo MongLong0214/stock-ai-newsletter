@@ -37,7 +37,7 @@ const PUBLIC_CHECK_TIMEOUT_MS = 10_000;
 const QA_TIMEOUT_MS = 90_000;
 /** 검수 탈락 시 같은 장면을 다시 그리는 최대 횟수 (총 시도 = 1 + 이 값) */
 const QA_REGENERATIONS = 1;
-const QA_FLAGS = ['text', 'logo', 'person', 'screen', 'chart', 'artifact', 'alt_mismatch'] as const;
+const QA_FLAGS = ['text', 'logo', 'face', 'screen', 'chart', 'artifact', 'alt_mismatch', 'off_topic'] as const;
 
 /** AI 이미지 활성화 여부 — `BLOG_AI_IMAGES=off`로 끌 수 있다(실측 데이터 섹션은 유지) */
 function aiImagesEnabled(): boolean {
@@ -104,16 +104,6 @@ export function parseVisualPlan(raw: string, headings: readonly string[], maxSec
     plan.push(image);
   }
   return plan;
-}
-
-/** 기획 실패 시 커버 1장만 — 키워드를 화면 속 글자로 그리지 않도록 영어 장면으로만 지시 */
-export function fallbackCoverPlan(keyword: string): PlannedImage {
-  return {
-    scene: 'A calm, modern investment research desk by a large window at dawn: a closed laptop, a notebook with a pen, a cup of coffee and soft city skyline in the background, shallow depth of field, quiet professional atmosphere.',
-    alt: `${keyword} 글의 커버로 쓰인, 창가 업무 책상 위 노트북과 노트를 담은 이미지`,
-    caption: `${keyword} 분석을 표현한 이미지`,
-    heading: null,
-  };
 }
 
 /** 본문 → 기획 입력 (H2와 그 섹션 앞부분) */
@@ -184,15 +174,15 @@ export function parseImageQa(raw: string): ImageQaVerdict {
 }
 
 /**
- * 생성 이미지를 비전 모델로 검수한다. 글자·로고·사람·켜진 화면·차트·왜곡·alt 불일치가 하나라도
- * 보이면 탈락. 검수 자체가 실패해도 탈락이다 — 확인 못 한 이미지는 싣지 않는다.
+ * 생성 이미지를 비전 모델로 검수한다. 읽히는 글자·로고·얼굴·읽히는 화면/차트·왜곡·alt 불일치·주제 무관이
+ * 하나라도 보이면 탈락. 검수 자체가 실패해도 탈락이다 — 확인 못 한 이미지는 싣지 않는다.
  */
-async function inspectImage(webp: Buffer, alt: string, deadline: number, cover: boolean): Promise<ImageQaVerdict> {
+async function inspectImage(webp: Buffer, alt: string, topic: string, deadline: number): Promise<ImageQaVerdict> {
   const remaining = deadline - Date.now();
   if (remaining < MIN_ATTEMPT_MS) return { ok: false, reasons: ['검수 시간 부족'] };
   try {
     const raw = await generateText({
-      prompt: buildImageQaPrompt(alt, { cover }),
+      prompt: buildImageQaPrompt({ alt, topic }),
       image: { data: webp, mimeType: 'image/webp' },
       config: { responseMimeType: 'application/json', reasoningEffort: 'low', maxOutputTokens: 2000 },
       timeout: Math.min(QA_TIMEOUT_MS, remaining),
@@ -203,21 +193,21 @@ async function inspectImage(webp: Buffer, alt: string, deadline: number, cover: 
   }
 }
 
+/** 기획 실패면 빈 배열(이미지 없음). 기획에 커버가 없으면 섹션만 싣는다 — 목록 썸네일은 첫 섹션 사진으로 폴백된다. */
 async function planImages(input: { keyword: string; title: string; markdown: string }, deadline: number): Promise<PlannedImage[]> {
   const sections = sectionExcerpts(input.markdown);
   const headings = listH2Headings(input.markdown);
   try {
     const raw = await generateText({
       prompt: buildVisualPlanPrompt({ keyword: promptSafe(input.keyword), title: promptSafe(input.title), sections, maxSections: VISUAL_CONFIG.maxSectionImages }),
-      config: { responseMimeType: 'application/json', reasoningEffort: 'low', maxOutputTokens: 4000 },
+      config: { responseMimeType: 'application/json', reasoningEffort: 'medium', maxOutputTokens: 6000 },
       timeout: Math.max(1, Math.min(VISUAL_CONFIG.planTimeout, deadline - Date.now() - MIN_ATTEMPT_MS * 2)),
     });
-    const plan = parseVisualPlan(raw, headings, VISUAL_CONFIG.maxSectionImages);
-    if (plan.some((p) => p.heading === null)) return plan;
-    return [fallbackCoverPlan(input.keyword), ...plan];
+    return parseVisualPlan(raw, headings, VISUAL_CONFIG.maxSectionImages);
   } catch (error) {
-    console.warn(`[Visuals] 기획 실패 — 커버만 생성: ${err(error)}`);
-    return [fallbackCoverPlan(input.keyword)];
+    // 주제를 모르는 범용 커버(창가 책상 등)는 싣지 않는다 — 무관한 사진보다 없는 편이 낫다
+    console.warn(`[Visuals] 기획 실패 — AI 이미지 생략: ${err(error)}`);
+    return [];
   }
 }
 
@@ -306,6 +296,7 @@ export async function createPostVisuals(input: {
       return;
     }
     const plan = await planImages(input, deadline);
+    const topic = `${promptSafe(input.keyword)} — ${promptSafe(input.title)}`;
     await Promise.all(plan.map(async (p, i) => {
       const quality = p.heading === null ? VISUAL_CONFIG.coverQuality : VISUAL_CONFIG.sectionQuality;
       const label = p.heading === null ? '커버' : `섹션 ${p.heading}`;
@@ -313,7 +304,7 @@ export async function createPostVisuals(input: {
       for (let attempt = 0; attempt <= QA_REGENERATIONS && !webp; attempt++) {
         const candidate = await generateWithFallback(`${p.scene}\n\n${IMAGE_STYLE_SUFFIX}`, quality, deadline);
         if (!candidate) return;
-        const qa = await inspectImage(candidate, p.alt, deadline, p.heading === null);
+        const qa = await inspectImage(candidate, p.alt, topic, deadline);
         if (qa.ok) webp = candidate;
         else console.warn(`[Visuals] 검수 탈락 (${label}, ${attempt + 1}차): ${qa.reasons.join(' / ')}`);
       }
