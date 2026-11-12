@@ -41,8 +41,8 @@ const PLOT_W = PLOT_RIGHT - PLOT_LEFT;
 type FontDef = { name: string; data: Buffer; weight: 500 | 700; style: 'normal' };
 let fontsPromise: Promise<FontDef[]> | null = null;
 
-/** 전체 한글 글리프 폰트 (OG용 subset은 종목명 글자가 빠질 수 있다) */
-function loadChartFonts(): Promise<FontDef[]> {
+/** 전체 한글 글리프 폰트 (OG용 subset은 종목명 글자가 빠질 수 있다) — 커버 문구 합성도 같이 쓴다 */
+export function loadChartFonts(): Promise<FontDef[]> {
   fontsPromise ??= Promise.all(
     ([500, 700] as const).map(async (weight) => ({
       name: 'Noto Sans KR',

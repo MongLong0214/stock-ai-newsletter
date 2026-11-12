@@ -44,7 +44,7 @@ Report true for each problem you can see:
 - chart: a chart, graph, candlestick, or ticker with readable axes or values. Unreadable blurred lines in the background are fine.
 - artifact: obvious AI distortion (melted or merged objects, extra fingers, impossible geometry) a reader would notice.
 - alt_mismatch: the Korean alt text below names an object or scene that is not actually in the photo.
-- off_topic: a reader who sees only this photo would not connect it to the article topic below, or it is a symbolic still life (blocks, marbles, chess pieces, scales, an empty generic office or desk) instead of a real scene of the subject.
+- off_topic: judge by subject matter only. The photo is not allowed to show company names or logos, so never require it to identify a specific company; a scene of that company's industry, product type, or the event at issue is on-topic. Report true only when the depicted subject is unrelated to the topic below, when it is a symbolic still life (blocks, marbles, chess pieces, scales, an empty generic office or desk), or when it is a generic scene with no link to the topic's industry or event (a hand holding a phone, a random office tower, plain paperwork).
 
 <topic>${input.topic.replace(/[<>]/g, ' ')}</topic>
 <alt>${input.alt.replace(/[<>]/g, ' ')}</alt>
@@ -73,7 +73,8 @@ export function buildVisualPlanPrompt(input: {
 <role>
 당신은 한국 경제 매체의 사진 에디터입니다. 투자 블로그 글에 실을 사진을 기획합니다.
 목록 썸네일만 보고도 독자가 3초 안에 "아, 이건 ○○ 얘기구나" 하고 알아보고 눌러 보고 싶어지는 사진이어야 합니다.
-분위기만 내는 은유·상징 사진은 실패작입니다.
+분위기만 내는 은유·상징 사진, 다른 글에 그대로 써도 되는 범용 사진은 실패작입니다.
+커버에는 코드가 사진 위에 한글 후킹 문구(kicker·headline·subhead)를 크게 얹습니다. 문구가 무엇을, 사진이 어떤 현장인지를 맡습니다.
 </role>
 
 <article>
@@ -83,28 +84,41 @@ ${sections}
 </article>
 
 <task>
-1. 커버 이미지 1장: 글 제목의 핵심 대상(기업·산업·사건·상품)이 한눈에 보이는 장면. 목록 썸네일로 쓰인다.
+1. 커버 이미지 1장 + 후킹 문구: 글 제목의 핵심 대상(기업·산업·사건·상품)과 쟁점이 한눈에 보이는 장면. 목록 썸네일·SNS 공유 이미지로 쓰인다.
+   사진 하단 1/3은 문구가 덮으므로 주인공 피사체는 화면 위쪽 2/3에 둔다.
 2. 섹션 이미지 최대 ${input.maxSections}장: 이미지가 이해를 실제로 돕는 H2 섹션만 고른다.
    FAQ·요약·정리·체크리스트·용어 정의처럼 그림이 도움 되지 않는 섹션, "데이터로 보는"으로 시작하는 섹션은 고르지 않는다.
    섹션 이미지도 그 섹션이 다루는 구체 대상을 보여 준다. 이미지끼리 장면이 겹치지 않게 한다(같은 공장 반복 금지).
 </task>
 
 <rules>
-- scene: 영어 40~90단어. 글의 대상을 문자 그대로 보여 주는 실제 현장·사물 사진이다. 주인공 피사체 하나가 화면 대부분을 차지하게 하고, 장소·구도·빛을 구체적으로 쓴다.
-  · 기업·업종 글: 그 회사가 실제로 만드는 제품과 생산 현장을 일반화해 보여 준다. 예) LG화학 → 배터리 양극재 분말과 화학 공장 설비, 메디톡스 → 바이알·주사기가 놓인 바이오 의약품 생산 라인, 공기청정기 관련주 → 거실의 공기청정기와 필터.
-  · 사건·이슈 글: 사건의 상징적 현장을 보여 준다. 예) 소송 → 법정과 판사봉, 미국 중간선거 → 미 국회의사당과 투표소, 금리 → 중앙은행 건물 외관.
-  · 금융 상품·제도 글(공모주·ETF·배당·세금): 그 일이 실제로 벌어지는 장면을 보여 준다. 예) 공모주 청약 → 증권사 객장 상담 창구나 상장 기념 타종 행사장, 스마트폰으로 청약하는 손(화면은 흐리게), ETF → 여의도 금융가와 트레이딩 데스크(모니터는 흐리게), 게임 ETF → 게임 패드와 e스포츠 경기장.
-  · 금지: 나무 블록·구슬·체스말·퍼즐·저울·모래시계·돼지저금통 같은 상징 소품 정물, 텅 빈 사무실·책상·회의실, 주제와 상관없는 풍경.
+- scene: 영어 50~100단어. 이 글에만 맞는 구체적인 실제 현장·사물 사진이다. 주인공 피사체 하나가 화면 대부분을 차지하게 하고, 장소·구도·빛을 구체적으로 쓴다.
+  · 핵심 대상 + 쟁점을 한 장면에 함께 담는다. 대상은 그 회사의 실제 주력 제품·그 사건의 쟁점 사물·그 상품이 실제로 쓰이는 장면이고, 쟁점은 제목의 이슈(소송·실적·청약·선거·배당 등)다.
+    예) 메디톡스 소송 → 법정 판사석 앞 탁자에 놓인 소형 주사제 바이알(배경은 흐린 법정)
+        LG화학 실적 → 양극재 분말이 쏟아지는 배터리 소재 생산 설비와 완성된 원통형 배터리 셀
+        11월 공모주 → 상장 첫날 거래소 기념 타종 행사장의 큰 종과 꽃다발, 전광판은 흐리게
+        미국 중간선거 → 미국 국회의사당 앞 투표소의 성조기 투표함
+        게임 ETF → 관중석이 꽉 찬 e스포츠 경기장 무대와 게이밍 장비
+        공기청정기 관련주 → 거실에서 가동 중인 공기청정기와 교체용 헤파 필터
+  · 이미지 모델 안전 필터에 걸리는 단어는 scene에 쓰지 않는다: 독소·독극물·마약·무기·폭발·혈액·시신 등. 예) 보툴리눔 톡신 → small injectable medicine vials.
+  · 섹션 이미지는 그 섹션이 다루는 구체 대상(특정 제품·특정 절차·특정 현장)을 같은 방식으로 보여 준다.
+  · 실패 기준: 다른 금융 글에 그대로 써도 어색하지 않은 범용 장면(스마트폰 든 손, 여의도 빌딩 외관, 정체 모를 공장, 빈 사무실·책상·회의실),
+    나무 블록·구슬·체스말·퍼즐·저울·모래시계·돼지저금통 같은 상징 소품 정물, 주제와 상관없는 풍경.
   · 사람은 얼굴이 보이지 않는 익명 인물(뒷모습·손·멀리 흐릿한 사람)로만 넣는다. 화면은 흐려서 내용을 읽을 수 없게 쓴다. 읽을 수 있는 글자·숫자·로고, 특정 실존 기업의 건물·제품·로고, 실존 인물은 묘사하지 않는다.
 - alt: 한국어 40~110자. 이미지에 실제로 보이는 것을 객관적으로 묘사한다. 사실 주장·수치·평가를 넣지 않는다. 커버 alt에는 키워드를 자연스럽게 한 번 넣는다.
 - caption: 한국어 60자 이내. 이미지가 그 섹션의 어떤 내용을 표현하는지 설명한다. 실제 해당 기업·현장 사진인 것처럼 쓰지 않는다("~를 표현한 이미지").
 - heading: 위 article의 heading 문자열을 한 글자도 바꾸지 말고 그대로 복사한다.
+- 커버 문구(사진 위에 큰 글자로 얹힌다. 숫자는 제목·본문에 그대로 있는 것만 쓴다. 매수 권유·수익 보장·과장어(폭등·대박·무조건) 금지):
+  · kicker: 2~8자. 글 유형. 예) 소송 분석, 실적 분석, 공모주 일정, ETF 비교
+  · headline: 6~16자. 핵심 대상의 고유명사(기업명·상품명·사건명)를 반드시 넣고 독자가 가장 궁금해할 쟁점을 짚는다.
+    예) 메디톡스 400억 소송의 향방, LG화학 실적 7가지 체크, 11월 공모주 청약 일정
+  · subhead: 8~26자. 글을 읽으면 얻는 것. 예) 판결이 주가에 미칠 3가지 경로
 </rules>
 
 <output>
 JSON만 출력한다.
 {
-  "cover": { "scene": "...", "alt": "...", "caption": "..." },
+  "cover": { "scene": "...", "alt": "...", "caption": "...", "kicker": "...", "headline": "...", "subhead": "..." },
   "sections": [ { "heading": "...", "scene": "...", "alt": "...", "caption": "..." } ]
 }
 </output>

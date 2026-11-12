@@ -2,7 +2,8 @@
  * 발행 직전 본문 시각자료 조립
  *
  * 1) 실측 데이터 섹션: KIS 시세 차트(PNG) + 수익률 표 + 결정적 사실 문장
- * 2) AI 이미지: 커버 1장 + 섹션 이미지 최대 3장 (gpt-image, 사진풍 · 텍스트/로고/수치 금지)
+ * 2) AI 이미지: 커버 1장 + 섹션 이미지 최대 3장 (gpt-image 보도사진풍 · 모델이 그린 글자/로고/수치 금지)
+ *    커버에는 코드가 한글 후킹 문구를 합성한다(cover-renderer)
  *
  * 전부 best-effort다. 시각자료는 발행 게이트가 아니므로 어떤 실패도 throw하지 않고
  * 그 이미지만 뺀 본문을 돌려준다. 예산(VISUAL_CONFIG.budget)을 넘기면 끝난 것만 싣는다.
@@ -13,6 +14,7 @@ import { generateImage, generateText } from '@/lib/llm/openai-client';
 import { VISUAL_CONFIG } from '../_config/pipeline-config';
 import { IMAGE_STYLE_SUFFIX, buildImageQaPrompt, buildVisualPlanPrompt } from '../_prompts/visual-plan';
 import { renderComparisonChart, renderPriceChart } from './chart-renderer';
+import { renderCover, type CoverOverlay } from './cover-renderer';
 import { removeBlogImages, uploadBlogImage } from './image-storage';
 import {
   buildDataSection,
@@ -50,6 +52,8 @@ export interface PlannedImage {
   readonly caption: string;
   /** 섹션 이미지면 H2 제목, 커버면 null */
   readonly heading: string | null;
+  /** 커버 문구 (검증 전 원문) — 섹션은 null */
+  readonly overlay: CoverOverlay | null;
 }
 
 export interface PostVisualsResult {
@@ -84,7 +88,8 @@ export function parseVisualPlan(raw: string, headings: readonly string[], maxSec
     const alt = str(o.alt, 160);
     const caption = str(o.caption, 80);
     if (scene.length < 40 || alt.length < 10 || caption.length < 4) return null;
-    return { scene, alt, caption, heading };
+    const overlay = heading === null ? { kicker: str(o.kicker, 40), headline: str(o.headline, 60), subhead: str(o.subhead, 80) } : null;
+    return { scene, alt, caption, heading, overlay };
   };
 
   const plan: PlannedImage[] = [];
@@ -104,6 +109,32 @@ export function parseVisualPlan(raw: string, headings: readonly string[], maxSec
     plan.push(image);
   }
   return plan;
+}
+
+const OVERLAY_BANNED = /폭등|폭락|대박|무조건|급등\s*확정|수익\s*보장|매수\s*추천|강력\s*추천|지금\s*사/;
+const NUMBER = /\d[\d,.]*/g;
+const digits = (t: string) => t.replace(/[,\s]/g, '');
+
+/**
+ * 커버 문구 검증 (순수). 사진 위 큰 글자는 사실 주장으로 읽히므로
+ * - 숫자는 제목·본문에 그대로 있는 것만(쉼표 무시), 과장·권유어 금지, 길이 상한
+ * - headline은 키워드의 단어(2자+) 하나 이상을 포함해야 한다 — 무엇에 관한 글인지 반드시 드러낸다
+ * 어긋나면 headline은 키워드로, kicker·subhead는 빈 문자열로 대체한다.
+ */
+export function validateOverlay(raw: CoverOverlay | null, source: string, keyword: string): CoverOverlay {
+  const src = digits(source);
+  const safe = (text: string, min: number, max: number) => {
+    const len = [...text].length;
+    if (len < min || len > max || OVERLAY_BANNED.test(text) || /[<>#*|`]/.test(text)) return false;
+    return (text.match(NUMBER) ?? []).every((n) => src.includes(digits(n).replace(/\.$/, '')));
+  };
+  const words = keyword.split(/\s+/).filter((w) => w.length >= 2);
+  const headline = raw && safe(raw.headline, 4, 20) && words.some((w) => raw.headline.includes(w)) ? raw.headline : promptSafe(keyword).slice(0, 20);
+  return {
+    kicker: raw && safe(raw.kicker, 2, 10) ? raw.kicker : '',
+    headline,
+    subhead: raw && safe(raw.subhead, 6, 28) ? raw.subhead : '',
+  };
 }
 
 /** 본문 → 기획 입력 (H2와 그 섹션 앞부분) */
@@ -133,13 +164,13 @@ export function shouldTryNextModel(error: unknown): boolean {
   return e?.status === 400 || e?.status === 403 || e?.status === 404 || e?.status === 429 || (e?.status ?? 0) >= 500;
 }
 
-async function generateWithFallback(prompt: string, quality: 'medium' | 'high', deadline: number): Promise<Buffer | null> {
+async function generateWithFallback(prompt: string, quality: 'medium' | 'high', deadline: number, format: 'webp' | 'jpeg'): Promise<Buffer | null> {
   const { width, height } = VISUAL_CONFIG.imageSize;
   for (const model of VISUAL_CONFIG.imageModels) {
     const remaining = deadline - Date.now();
     if (remaining < MIN_ATTEMPT_MS) return null;
     try {
-      return await generateImage({ prompt, model, size: `${width}x${height}`, quality, timeout: Math.min(VISUAL_CONFIG.imageTimeout, remaining) });
+      return await generateImage({ prompt, model, size: `${width}x${height}`, quality, format, timeout: Math.min(VISUAL_CONFIG.imageTimeout, remaining) });
     } catch (error) {
       console.warn(`[Visuals] ${model} 실패: ${err(error).slice(0, 200)}`);
       if (!shouldTryNextModel(error)) return null;
@@ -177,13 +208,13 @@ export function parseImageQa(raw: string): ImageQaVerdict {
  * 생성 이미지를 비전 모델로 검수한다. 읽히는 글자·로고·얼굴·읽히는 화면/차트·왜곡·alt 불일치·주제 무관이
  * 하나라도 보이면 탈락. 검수 자체가 실패해도 탈락이다 — 확인 못 한 이미지는 싣지 않는다.
  */
-async function inspectImage(webp: Buffer, alt: string, topic: string, deadline: number): Promise<ImageQaVerdict> {
+async function inspectImage(image: { data: Buffer; mimeType: 'image/webp' | 'image/jpeg' }, alt: string, topic: string, deadline: number): Promise<ImageQaVerdict> {
   const remaining = deadline - Date.now();
   if (remaining < MIN_ATTEMPT_MS) return { ok: false, reasons: ['검수 시간 부족'] };
   try {
     const raw = await generateText({
       prompt: buildImageQaPrompt({ alt, topic }),
-      image: { data: webp, mimeType: 'image/webp' },
+      image,
       config: { responseMimeType: 'application/json', reasoningEffort: 'low', maxOutputTokens: 2000 },
       timeout: Math.min(QA_TIMEOUT_MS, remaining),
     });
@@ -203,7 +234,9 @@ async function planImages(input: { keyword: string; title: string; markdown: str
       config: { responseMimeType: 'application/json', reasoningEffort: 'medium', maxOutputTokens: 6000 },
       timeout: Math.max(1, Math.min(VISUAL_CONFIG.planTimeout, deadline - Date.now() - MIN_ATTEMPT_MS * 2)),
     });
-    return parseVisualPlan(raw, headings, VISUAL_CONFIG.maxSectionImages);
+    const source = `${input.title}\n${input.markdown}`;
+    return parseVisualPlan(raw, headings, VISUAL_CONFIG.maxSectionImages)
+      .map((p) => (p.heading === null ? { ...p, overlay: validateOverlay(p.overlay, source, input.keyword) } : p));
   } catch (error) {
     // 주제를 모르는 범용 커버(창가 책상 등)는 싣지 않는다 — 무관한 사진보다 없는 편이 낫다
     console.warn(`[Visuals] 기획 실패 — AI 이미지 생략: ${err(error)}`);
@@ -264,9 +297,9 @@ export async function createPostVisuals(input: {
   const runId = `${startedAt.toString(36)}${randomBytes(3).toString('hex')}`;
   const uploadedPaths: string[] = [];
   let closed = false;
-  const upload = async (name: string, data: Buffer, ext: 'webp' | 'png', size: { width: number; height: number }) => {
+  const upload = async (name: string, data: Buffer, ext: 'webp' | 'png' | 'jpg', size: { width: number; height: number }) => {
     const path = `posts/${input.slug}/${runId}-${name}-${size.width}x${size.height}.${ext}`;
-    const url = await uploadBlogImage(path, data, `image/${ext}`);
+    const url = await uploadBlogImage(path, data, ext === 'jpg' ? 'image/jpeg' : `image/${ext}`);
     if (closed) {
       await removeBlogImages([path]).catch(() => {});
       throw new Error(`마감 후 업로드 — 폐기 (${path})`);
@@ -298,20 +331,33 @@ export async function createPostVisuals(input: {
     const plan = await planImages(input, deadline);
     const topic = `${promptSafe(input.keyword)} — ${promptSafe(input.title)}`;
     await Promise.all(plan.map(async (p, i) => {
-      const quality = p.heading === null ? VISUAL_CONFIG.coverQuality : VISUAL_CONFIG.sectionQuality;
-      const label = p.heading === null ? '커버' : `섹션 ${p.heading}`;
-      let webp: Buffer | null = null;
-      for (let attempt = 0; attempt <= QA_REGENERATIONS && !webp; attempt++) {
-        const candidate = await generateWithFallback(`${p.scene}\n\n${IMAGE_STYLE_SUFFIX}`, quality, deadline);
+      const isCover = p.heading === null;
+      const quality = isCover ? VISUAL_CONFIG.coverQuality : VISUAL_CONFIG.sectionQuality;
+      const label = isCover ? '커버' : `섹션 ${p.heading}`;
+      // 커버는 문구 합성(satori)이 webp를 못 읽어 jpeg로 받는다. 검수는 문구를 얹기 전 사진으로 한다.
+      const format = isCover ? 'jpeg' : 'webp';
+      let photo: Buffer | null = null;
+      for (let attempt = 0; attempt <= QA_REGENERATIONS && !photo; attempt++) {
+        const candidate = await generateWithFallback(`${p.scene}\n\n${IMAGE_STYLE_SUFFIX}`, quality, deadline, format);
         if (!candidate) return;
-        const qa = await inspectImage(candidate, p.alt, topic, deadline);
-        if (qa.ok) webp = candidate;
+        const qa = await inspectImage({ data: candidate, mimeType: `image/${format}` }, p.alt, topic, deadline);
+        if (qa.ok) photo = candidate;
         else console.warn(`[Visuals] 검수 탈락 (${label}, ${attempt + 1}차): ${qa.reasons.join(' / ')}`);
       }
-      if (!webp) return;
+      if (!photo) return;
       try {
-        const url = await upload(p.heading === null ? 'cover' : `section${i}`, webp, 'webp', VISUAL_CONFIG.imageSize);
-        done.images.push({ plan: p, image: { url, alt: p.alt, caption: `${p.caption} · ${AI_IMAGE_LABEL}` } });
+        let file: { data: Buffer; ext: 'webp' | 'png' | 'jpg' } = { data: photo, ext: isCover ? 'jpg' : 'webp' };
+        let alt = p.alt;
+        if (isCover && p.overlay) {
+          try {
+            file = await renderCover(photo, p.overlay);
+            alt = `${p.overlay.headline} 문구가 얹힌 이미지. ${p.alt}`;
+          } catch (error) {
+            console.warn(`[Visuals] 커버 문구 합성 실패 — 사진만 싣는다: ${err(error)}`);
+          }
+        }
+        const url = await upload(isCover ? 'cover' : `section${i}`, file.data, file.ext, VISUAL_CONFIG.imageSize);
+        done.images.push({ plan: p, image: { url, alt, caption: `${p.caption} · ${AI_IMAGE_LABEL}` } });
       } catch (error) {
         console.warn(`[Visuals] 업로드 실패: ${err(error)}`);
       }

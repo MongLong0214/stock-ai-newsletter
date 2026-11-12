@@ -1,17 +1,18 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { MarketContext, StockSnapshot } from '../market-data';
 
-const { mockGenerateImage, mockGenerateText, mockPlan, mockQa, mockUpload, mockRemove, mockPriceChart, mockComparisonChart } = vi.hoisted(() => ({
+const { mockGenerateImage, mockGenerateText, mockPlan, mockQa, mockUpload, mockRemove, mockPriceChart, mockComparisonChart, mockRenderCover } = vi.hoisted(() => ({
   mockGenerateImage: vi.fn(), mockGenerateText: vi.fn(), mockPlan: vi.fn(), mockQa: vi.fn(), mockUpload: vi.fn(), mockRemove: vi.fn(),
-  mockPriceChart: vi.fn(), mockComparisonChart: vi.fn(),
+  mockPriceChart: vi.fn(), mockComparisonChart: vi.fn(), mockRenderCover: vi.fn(),
 }));
 
 vi.mock('@/lib/llm/openai-client', () => ({ generateImage: mockGenerateImage, generateText: mockGenerateText }));
 vi.mock('../image-storage', () => ({ uploadBlogImage: mockUpload, removeBlogImages: mockRemove }));
 vi.mock('../chart-renderer', () => ({ renderPriceChart: mockPriceChart, renderComparisonChart: mockComparisonChart }));
+vi.mock('../cover-renderer', () => ({ renderCover: mockRenderCover }));
 
 import { VISUAL_CONFIG } from '../../_config/pipeline-config';
-import { createPostVisuals, parseImageQa, parseVisualPlan, shouldTryNextModel } from '../post-visuals';
+import { createPostVisuals, parseImageQa, parseVisualPlan, shouldTryNextModel, validateOverlay } from '../post-visuals';
 
 const SCENE = 'A quiet battery materials laboratory with glass beakers, a precision scale and soft morning light across a clean bench.';
 const HEADINGS = ['LG화학 사업 구조', '실적 흐름 읽는 법', '자주 묻는 질문'];
@@ -24,7 +25,7 @@ const MARKDOWN = [
 ].join('\n');
 
 const plan = (sections: Array<{ heading: string }>) => JSON.stringify({
-  cover: { scene: SCENE, alt: '배터리 소재 연구실의 실험대를 담은 LG화학 실적 분석 커버 이미지', caption: '배터리 소재 연구 현장을 표현한 이미지' },
+  cover: { scene: SCENE, alt: '배터리 소재 연구실의 실험대를 담은 LG화학 실적 분석 커버 이미지', caption: '배터리 소재 연구 현장을 표현한 이미지', kicker: '실적 분석', headline: 'LG화학 실적 흐름', subhead: '사업 구조부터 읽는 법' },
   sections: sections.map((s) => ({ ...s, scene: SCENE, alt: '실험대 위에 놓인 유리 비커와 정밀 저울', caption: '소재 연구 과정을 표현한 이미지' })),
 });
 
@@ -54,6 +55,7 @@ beforeEach(() => {
   mockGenerateImage.mockResolvedValue(Buffer.from('webp'));
   mockPriceChart.mockResolvedValue(Buffer.from('png'));
   mockComparisonChart.mockResolvedValue(Buffer.from('png'));
+  mockRenderCover.mockResolvedValue({ data: Buffer.from('cover-webp'), ext: 'webp' });
   mockUpload.mockImplementation(async (path: string) => `https://x.supabase.co/storage/v1/object/public/blog-images/${path}`);
   mockRemove.mockResolvedValue(undefined);
   vi.stubGlobal('fetch', vi.fn(async () => new Response(null, { status: 200 })));
@@ -224,7 +226,7 @@ describe('createPostVisuals', () => {
     await createPostVisuals(input(null));
     expect(mockQa).toHaveBeenCalledTimes(1);
     const call = mockQa.mock.calls[0][0];
-    expect(call.image).toEqual({ data: Buffer.from('webp'), mimeType: 'image/webp' });
+    expect(call.image).toEqual({ data: Buffer.from('webp'), mimeType: 'image/jpeg' });
     expect(call.prompt).toContain('배터리 소재 연구실의 실험대를 담은 LG화학 실적 분석 커버 이미지');
     expect(call.config).toMatchObject({ responseMimeType: 'application/json' });
   });
@@ -289,6 +291,38 @@ describe('createPostVisuals', () => {
     await createPostVisuals(input(ctx));
     expect(mockComparisonChart).toHaveBeenCalledWith(ctx.stocks, 'LG화학 · 삼성SDI 주가 비교');
     expect(mockPriceChart).not.toHaveBeenCalled();
+  });
+});
+
+describe('cover overlay', () => {
+  it('renders the validated hook copy onto a jpeg cover photo and checks the photo before the copy', async () => {
+    mockPlan.mockResolvedValue(plan([{ heading: HEADINGS[0] }]));
+    const result = await createPostVisuals(input(null));
+    const coverCall = mockGenerateImage.mock.calls.find((c) => c[0].quality === VISUAL_CONFIG.coverQuality)![0];
+    expect(coverCall.format).toBe('jpeg');
+    expect(mockGenerateImage.mock.calls.find((c) => c[0].quality === VISUAL_CONFIG.sectionQuality)![0].format).toBe('webp');
+    expect(mockRenderCover).toHaveBeenCalledWith(Buffer.from('webp'), { kicker: '실적 분석', headline: 'LG화학 실적 흐름', subhead: '사업 구조부터 읽는 법' });
+    expect(mockQa.mock.calls.map((c) => c[0].image.mimeType).sort()).toEqual(['image/jpeg', 'image/webp']);
+    expect(result.markdown).toMatch(/!\[LG화학 실적 흐름 문구가 얹힌 이미지\. .+\]\(https:.+-cover-1536x1024\.webp /);
+  });
+
+  it('keeps the bare photo as jpg when compositing fails', async () => {
+    mockPlan.mockResolvedValue(plan([]));
+    mockRenderCover.mockRejectedValue(new Error('font missing'));
+    const result = await createPostVisuals(input(null));
+    expect(result.summary.cover).toBe(true);
+    expect(result.markdown).toMatch(/-cover-1536x1024\.jpg /);
+  });
+
+  it('accepts only numbers from the article and copy that names the subject', () => {
+    const source = 'LG화학 실적 분석 7가지 기준. 순이익 1,234억 원';
+    expect(validateOverlay({ kicker: '실적 분석', headline: 'LG화학 실적 7가지 체크', subhead: '순이익 1234억 원의 의미' }, source, 'LG화학 실적 분석'))
+      .toEqual({ kicker: '실적 분석', headline: 'LG화학 실적 7가지 체크', subhead: '순이익 1234억 원의 의미' });
+    // 본문에 없는 숫자·과장어·대상 없는 문구는 버린다
+    expect(validateOverlay({ kicker: '대박 종목', headline: 'LG화학 9가지 체크', subhead: '주가 폭등 신호 3가지' }, source, 'LG화학 실적 분석'))
+      .toEqual({ kicker: '', headline: 'LG화학 실적 분석', subhead: '' });
+    expect(validateOverlay({ kicker: '', headline: '지금 확인할 것', subhead: '' }, source, 'LG화학 실적 분석').headline).toBe('LG화학 실적 분석');
+    expect(validateOverlay(null, source, 'LG화학 실적 분석')).toEqual({ kicker: '', headline: 'LG화학 실적 분석', subhead: '' });
   });
 });
 
