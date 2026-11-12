@@ -1,17 +1,18 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { MarketContext, StockSnapshot } from '../market-data';
 
-const { mockGenerateImage, mockGenerateText, mockPlan, mockQa, mockUpload, mockRemove, mockPriceChart, mockComparisonChart } = vi.hoisted(() => ({
+const { mockGenerateImage, mockGenerateText, mockPlan, mockQa, mockUpload, mockRemove, mockPriceChart, mockComparisonChart, mockRenderCover } = vi.hoisted(() => ({
   mockGenerateImage: vi.fn(), mockGenerateText: vi.fn(), mockPlan: vi.fn(), mockQa: vi.fn(), mockUpload: vi.fn(), mockRemove: vi.fn(),
-  mockPriceChart: vi.fn(), mockComparisonChart: vi.fn(),
+  mockPriceChart: vi.fn(), mockComparisonChart: vi.fn(), mockRenderCover: vi.fn(),
 }));
 
 vi.mock('@/lib/llm/openai-client', () => ({ generateImage: mockGenerateImage, generateText: mockGenerateText }));
 vi.mock('../image-storage', () => ({ uploadBlogImage: mockUpload, removeBlogImages: mockRemove }));
 vi.mock('../chart-renderer', () => ({ renderPriceChart: mockPriceChart, renderComparisonChart: mockComparisonChart }));
+vi.mock('../cover-renderer', () => ({ renderCover: mockRenderCover }));
 
 import { VISUAL_CONFIG } from '../../_config/pipeline-config';
-import { createPostVisuals, fallbackCoverPlan, parseImageQa, parseVisualPlan, shouldTryNextModel } from '../post-visuals';
+import { createPostVisuals, parseImageQa, parseVisualPlan, shouldTryNextModel, validateOverlay } from '../post-visuals';
 
 const SCENE = 'A quiet battery materials laboratory with glass beakers, a precision scale and soft morning light across a clean bench.';
 const HEADINGS = ['LG화학 사업 구조', '실적 흐름 읽는 법', '자주 묻는 질문'];
@@ -24,7 +25,7 @@ const MARKDOWN = [
 ].join('\n');
 
 const plan = (sections: Array<{ heading: string }>) => JSON.stringify({
-  cover: { scene: SCENE, alt: '배터리 소재 연구실의 실험대를 담은 LG화학 실적 분석 커버 이미지', caption: '배터리 소재 연구 현장을 표현한 이미지' },
+  cover: { scene: SCENE, alt: '배터리 소재 연구실의 실험대를 담은 LG화학 실적 분석 커버 이미지', caption: '배터리 소재 연구 현장을 표현한 이미지', kicker: '실적 분석', headline: 'LG화학 실적 흐름', subhead: '사업 구조부터 읽는 법' },
   sections: sections.map((s) => ({ ...s, scene: SCENE, alt: '실험대 위에 놓인 유리 비커와 정밀 저울', caption: '소재 연구 과정을 표현한 이미지' })),
 });
 
@@ -39,7 +40,7 @@ const MARKET: MarketContext = { stocks: [snapshot()], theme: { id: 't1', name: '
 
 /** 비전 검수 응답 — 기본은 전부 통과 */
 const qa = (flags: Record<string, boolean> = {}, note = '') => JSON.stringify({
-  text: false, logo: false, person: false, screen: false, chart: false, artifact: false, alt_mismatch: false, ...flags, note,
+  text: false, logo: false, face: false, screen: false, chart: false, artifact: false, alt_mismatch: false, off_topic: false, ...flags, note,
 });
 
 const input = (market: MarketContext | null = MARKET) => ({ slug: 'lg-chem-2026-11-10-abc', keyword: 'LG화학 실적 분석', title: 'LG화학 실적 분석', markdown: MARKDOWN, market });
@@ -54,6 +55,7 @@ beforeEach(() => {
   mockGenerateImage.mockResolvedValue(Buffer.from('webp'));
   mockPriceChart.mockResolvedValue(Buffer.from('png'));
   mockComparisonChart.mockResolvedValue(Buffer.from('png'));
+  mockRenderCover.mockResolvedValue({ data: Buffer.from('cover-webp'), ext: 'webp' });
   mockUpload.mockImplementation(async (path: string) => `https://x.supabase.co/storage/v1/object/public/blog-images/${path}`);
   mockRemove.mockResolvedValue(undefined);
   vi.stubGlobal('fetch', vi.fn(async () => new Response(null, { status: 200 })));
@@ -108,12 +110,28 @@ describe('createPostVisuals', () => {
     expect(mockGenerateImage.mock.calls[0][0].prompt).toContain('Strictly forbidden');
   });
 
-  it('falls back to a cover only when planning fails', async () => {
+  it('publishes no AI image when planning fails — no generic off-topic cover', async () => {
     mockPlan.mockRejectedValue(new Error('plan timeout'));
     const result = await createPostVisuals(input(null));
-    expect(result.summary).toEqual({ chart: false, cover: true, sections: 0 });
-    expect(result.markdown).toContain(fallbackCoverPlan('LG화학 실적 분석').caption);
-    expect(result.markdown).not.toContain('## 데이터로 보는');
+    expect(result.summary).toEqual({ chart: false, cover: false, sections: 0 });
+    expect(result.markdown).not.toContain('![');
+    expect(mockGenerateImage).not.toHaveBeenCalled();
+  });
+
+  it('keeps section images without inventing a cover when the plan has none', async () => {
+    mockPlan.mockResolvedValue(JSON.stringify(JSON.parse(plan([{ heading: HEADINGS[0] }]), (k, v) => (k === 'cover' ? undefined : v))));
+    const result = await createPostVisuals(input(null));
+    expect(result.summary).toEqual({ chart: false, cover: false, sections: 1 });
+    expect(mockGenerateImage).toHaveBeenCalledTimes(1);
+  });
+
+  it('asks the planner for the literal subject, not symbolic still lifes', async () => {
+    await createPostVisuals(input(null));
+    const prompt = mockPlan.mock.calls[0][0].prompt as string;
+    expect(prompt).toContain('3초 안에');
+    expect(prompt).toContain('나무 블록·구슬');
+    expect(mockPlan.mock.calls[0][0].config).toMatchObject({ reasoningEffort: 'medium' });
+    expect(mockGenerateImage.mock.calls[0][0].prompt).toContain('not a conceptual still life');
   });
 
   it('moves to the next model only for access or service errors', () => {
@@ -208,31 +226,40 @@ describe('createPostVisuals', () => {
     await createPostVisuals(input(null));
     expect(mockQa).toHaveBeenCalledTimes(1);
     const call = mockQa.mock.calls[0][0];
-    expect(call.image).toEqual({ data: Buffer.from('webp'), mimeType: 'image/webp' });
+    expect(call.image).toEqual({ data: Buffer.from('webp'), mimeType: 'image/jpeg' });
     expect(call.prompt).toContain('배터리 소재 연구실의 실험대를 담은 LG화학 실적 분석 커버 이미지');
     expect(call.config).toMatchObject({ responseMimeType: 'application/json' });
   });
 
-  it('judges cover text and logos by what a reader can see, sections by the strict rule', async () => {
+  it('checks every image against the article topic with the readable-text rule', async () => {
     mockPlan.mockResolvedValue(plan([{ heading: HEADINGS[0] }]));
     await createPostVisuals(input(null));
     const prompts = mockQa.mock.calls.map((c) => c[0].prompt as string);
-    const cover = prompts.find((p) => p.includes('LG화학 실적 분석 커버 이미지'))!;
-    const section = prompts.find((p) => p !== cover)!;
-    expect(cover).toContain('Ignore tiny incidental marks');
-    expect(cover).not.toContain('legible or not');
-    expect(section).toContain('legible or not');
-    // 사람·화면·차트 기준은 커버도 같다
-    for (const p of [cover, section]) expect(p).toContain('- person: any human or part of one');
+    expect(prompts).toHaveLength(2);
+    for (const p of prompts) {
+      expect(p).toContain('<topic>LG화학 실적 분석 — LG화학 실적 분석</topic>');
+      expect(p).toContain('- off_topic:');
+      expect(p).toContain('Ignore tiny incidental marks');
+      expect(p).toContain('- face: a clearly visible, in-focus human face');
+    }
+  });
+
+  it('redraws an off-topic image', async () => {
+    mockPlan.mockResolvedValue(plan([]));
+    mockQa.mockResolvedValueOnce(qa({ off_topic: true }, 'Wooden blocks on a plinth.'));
+    const result = await createPostVisuals(input(null));
+    expect(result.summary.cover).toBe(true);
+    expect(mockGenerateImage).toHaveBeenCalledTimes(2);
+    expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('검수 탈락 (커버, 1차): off_topic / Wooden blocks on a plinth.'));
   });
 
   it('redraws an image the vision check rejects, and drops it after a second rejection', async () => {
     mockPlan.mockResolvedValue(plan([]));
-    mockQa.mockResolvedValueOnce(qa({ person: true }, 'A worker stands by the line.'));
+    mockQa.mockResolvedValueOnce(qa({ face: true }, 'A worker faces the camera.'));
     const redrawn = await createPostVisuals(input(null));
     expect(redrawn.summary.cover).toBe(true);
     expect(mockGenerateImage).toHaveBeenCalledTimes(2);
-    expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('검수 탈락 (커버, 1차): person / A worker stands by the line.'));
+    expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('검수 탈락 (커버, 1차): face / A worker faces the camera.'));
 
     vi.clearAllMocks();
     mockQa.mockResolvedValue(qa({ text: true }));
@@ -267,6 +294,38 @@ describe('createPostVisuals', () => {
   });
 });
 
+describe('cover overlay', () => {
+  it('renders the validated hook copy onto a jpeg cover photo and checks the photo before the copy', async () => {
+    mockPlan.mockResolvedValue(plan([{ heading: HEADINGS[0] }]));
+    const result = await createPostVisuals(input(null));
+    const coverCall = mockGenerateImage.mock.calls.find((c) => c[0].quality === VISUAL_CONFIG.coverQuality)![0];
+    expect(coverCall.format).toBe('jpeg');
+    expect(mockGenerateImage.mock.calls.find((c) => c[0].quality === VISUAL_CONFIG.sectionQuality)![0].format).toBe('webp');
+    expect(mockRenderCover).toHaveBeenCalledWith(Buffer.from('webp'), { kicker: '실적 분석', headline: 'LG화학 실적 흐름', subhead: '사업 구조부터 읽는 법' });
+    expect(mockQa.mock.calls.map((c) => c[0].image.mimeType).sort()).toEqual(['image/jpeg', 'image/webp']);
+    expect(result.markdown).toMatch(/!\[LG화학 실적 흐름 문구가 얹힌 이미지\. .+\]\(https:.+-cover-1536x1024\.webp /);
+  });
+
+  it('keeps the bare photo as jpg when compositing fails', async () => {
+    mockPlan.mockResolvedValue(plan([]));
+    mockRenderCover.mockRejectedValue(new Error('font missing'));
+    const result = await createPostVisuals(input(null));
+    expect(result.summary.cover).toBe(true);
+    expect(result.markdown).toMatch(/-cover-1536x1024\.jpg /);
+  });
+
+  it('accepts only numbers from the article and copy that names the subject', () => {
+    const source = 'LG화학 실적 분석 7가지 기준. 순이익 1,234억 원';
+    expect(validateOverlay({ kicker: '실적 분석', headline: 'LG화학 실적 7가지 체크', subhead: '순이익 1234억 원의 의미' }, source, 'LG화학 실적 분석'))
+      .toEqual({ kicker: '실적 분석', headline: 'LG화학 실적 7가지 체크', subhead: '순이익 1234억 원의 의미' });
+    // 본문에 없는 숫자·과장어·대상 없는 문구는 버린다
+    expect(validateOverlay({ kicker: '대박 종목', headline: 'LG화학 9가지 체크', subhead: '주가 폭등 신호 3가지' }, source, 'LG화학 실적 분석'))
+      .toEqual({ kicker: '', headline: 'LG화학 실적 분석', subhead: '' });
+    expect(validateOverlay({ kicker: '', headline: '지금 확인할 것', subhead: '' }, source, 'LG화학 실적 분석').headline).toBe('LG화학 실적 분석');
+    expect(validateOverlay(null, source, 'LG화학 실적 분석')).toEqual({ kicker: '', headline: 'LG화학 실적 분석', subhead: '' });
+  });
+});
+
 describe('parseImageQa', () => {
   it('passes only when every flag is false', () => {
     expect(parseImageQa(qa())).toEqual({ ok: true, reasons: [] });
@@ -277,6 +336,6 @@ describe('parseImageQa', () => {
     expect(parseImageQa('looks fine').ok).toBe(false);
     expect(parseImageQa('{ broken').ok).toBe(false);
     expect(parseImageQa(JSON.stringify({ text: false, logo: false })).reasons).toEqual(['검수 응답 항목 누락']);
-    expect(parseImageQa(qa().replace('"person":false', '"person":"no"')).ok).toBe(false);
+    expect(parseImageQa(qa().replace('"face":false', '"face":"no"')).ok).toBe(false);
   });
 });

@@ -137,17 +137,19 @@ interface GenerateImageOptions {
   size: `${number}x${number}`;
   quality: 'low' | 'medium' | 'high';
   timeout: number;
+  /** 기본 webp. 글자 합성(satori)이 webp를 못 읽어 커버는 jpeg로 받는다 */
+  format?: 'webp' | 'jpeg';
 }
 
 /**
- * 이미지 1장 생성 → WebP 바이트.
+ * 이미지 1장 생성 → WebP(기본) 또는 JPEG 바이트.
  *
  * 텍스트와 같은 이유로 타임아웃 시 요청을 실제로 끊는다(과금 방지). 재시도와 모델 폴백은
  * 호출부가 정한다 — 같은 프롬프트를 여기서 다시 보내면 실패 원인(권한·정책)과 무관하게
  * 비용만 두 배가 된다.
  */
 export async function generateImage(options: GenerateImageOptions): Promise<Buffer> {
-  const { prompt, model, size, quality, timeout } = options;
+  const { prompt, model, size, quality, timeout, format = 'webp' } = options;
   const client = initializeOpenAI();
   const controller = new AbortController();
 
@@ -158,7 +160,7 @@ export async function generateImage(options: GenerateImageOptions): Promise<Buff
       size: size as NonNullable<Parameters<typeof client.images.generate>[0]['size']>,
       quality,
       n: 1,
-      output_format: 'webp',
+      output_format: format,
       output_compression: 85,
     }, { signal: controller.signal }),
     timeout,
