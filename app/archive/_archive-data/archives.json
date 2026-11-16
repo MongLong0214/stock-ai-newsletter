@@ -2,6 +2,77 @@
   "newsletters": [
     {
       "type": "stock",
+      "date": "2026-11-17",
+      "stocks": [
+        {
+          "ticker": "KOSPI:136490",
+          "name": "선진",
+          "close_price": 8500,
+          "rationale": "2026-11-16 종가 8,500원|전일 대비 -1.6% 하락|시가 대비 -2.0% 음봉|20일선 9,817원·종가 13.4% 아래|60일선 10,170원·종가 16.4% 아래|최근 5거래일 종가 -13.4%|최근 20거래일 종가 -17.0%|20거래일 KOSPI 대비 -5.4%p|직전 20거래일 장중 고점 10,340원까지 +21.6%|직전 60거래일 최고 종가 11,260원까지 +32.5%|거래량 20일 평균의 0.91배|최근 60거래일 중 거래량 상위 37.5%|당일 범위 종가 15.2%·윗꼬리 33.3%|ATR14 평균 변동폭 4.6%·약 389원(갭 포함)|RSI14 24.6 약세|MACD 모멘텀 -1.60%(종가 대비)|20일 평균 거래대금 추정 7.0억원|52주(252거래일) 종가 범위 0.0% 위치(저점0·고점100)",
+          "signals": {
+            "trend_score": 62,
+            "momentum_score": 63,
+            "volume_score": 53,
+            "volatility_score": 67,
+            "pattern_score": 56,
+            "sentiment_score": 57,
+            "overall_score": 88,
+            "basis": "model_contribution"
+          },
+          "selection": {
+            "strategy": "compositeUtility",
+            "rank": 1,
+            "objective": "compositeUtility"
+          }
+        },
+        {
+          "ticker": "KOSPI:108670",
+          "name": "LX하우시스",
+          "close_price": 24600,
+          "rationale": "2026-11-16 종가 24,600원|전일 대비 -2.8% 하락|시가 대비 -3.1% 음봉|20일선 28,018원·종가 12.2% 아래|60일선 31,710원·종가 22.4% 아래|최근 5거래일 종가 -4.3%|최근 20거래일 종가 -22.2%|20거래일 KOSPI 대비 -10.6%p|직전 20거래일 장중 고점 31,900원까지 +29.7%|직전 60거래일 최고 종가 35,800원까지 +45.5%|거래량 20일 평균의 1.54배|최근 60거래일 중 거래량 상위 15.8%|당일 범위 종가 10.0%·윗꼬리 10.0%|ATR14 평균 변동폭 4.0%·약 991원(갭 포함)|RSI14 21.7 약세|MACD 모멘텀 -0.90%(종가 대비)|20일 평균 거래대금 추정 6.0억원|52주(252거래일) 종가 범위 0.0% 위치(저점0·고점100)",
+          "signals": {
+            "trend_score": 54,
+            "momentum_score": 67,
+            "volume_score": 54,
+            "volatility_score": 64,
+            "pattern_score": 49,
+            "sentiment_score": 64,
+            "overall_score": 86,
+            "basis": "model_contribution"
+          },
+          "selection": {
+            "strategy": "compositeUtility",
+            "rank": 2,
+            "objective": "compositeUtility"
+          }
+        },
+        {
+          "ticker": "KOSDAQ:006730",
+          "name": "서부T&D",
+          "close_price": 9850,
+          "rationale": "2026-11-16 종가 9,850원|전일 대비 -1.9% 하락|시가 대비 -2.4% 음봉|20일선 11,035원·종가 10.7% 아래|60일선 11,135원·종가 11.5% 아래|최근 5거래일 종가 -3.1%|최근 20거래일 종가 -22.5%|20거래일 KOSPI 대비 -10.9%p|직전 20거래일 장중 고점 12,820원까지 +30.2%|직전 60거래일 최고 종가 12,720원까지 +29.1%|거래량 20일 평균의 1.06배|최근 60거래일 중 거래량 상위 34.2%|당일 범위 종가 30.4%·윗꼬리 17.4%|ATR14 평균 변동폭 5.6%·약 553원(갭 포함)|RSI14 31.0 약세|MACD 모멘텀 -1.60%(종가 대비)|20일 평균 거래대금 추정 48.3억원|52주(252거래일) 종가 범위 11.6% 위치(저점0·고점100)",
+          "signals": {
+            "trend_score": 52,
+            "momentum_score": 62,
+            "volume_score": 52,
+            "volatility_score": 55,
+            "pattern_score": 53,
+            "sentiment_score": 72,
+            "overall_score": 84,
+            "basis": "model_contribution"
+          },
+          "selection": {
+            "strategy": "compositeUtility",
+            "rank": 3,
+            "objective": "compositeUtility"
+          }
+        }
+      ],
+      "sentAt": "2026-11-16T22:31:40.31+00:00",
+      "subscriberCount": 330
+    },
+    {
+      "type": "stock",
       "date": "2026-11-16",
       "stocks": [
         {
@@ -14392,5 +14463,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-11-15T22:32:34.734Z"
+  "lastUpdated": "2026-11-16T22:32:33.177Z"
 }
