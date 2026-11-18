@@ -37,8 +37,12 @@ const CLOSE_GRACE_MS = 20_000;
 const PUBLIC_CHECK_TIMEOUT_MS = 10_000;
 /** 이미지 검수(비전) 1회 상한 */
 const QA_TIMEOUT_MS = 90_000;
-/** 검수 탈락 시 같은 장면을 다시 그리는 최대 횟수 (총 시도 = 1 + 이 값) */
-const QA_REGENERATIONS = 1;
+/**
+ * 검수 탈락 시 다시 그리는 최대 횟수 (총 시도 = 1 + 이 값).
+ * 다시 그릴 때는 탈락 사유를 고치는 지시를 장면에 덧붙인다 — 같은 장면을 그대로 다시 그리면 같은 이유로 또 떨어진다
+ * (2026-11-17·18 커버가 모니터 화면 장면으로 두 번 연속 탈락).
+ */
+const QA_REGENERATIONS = 2;
 const QA_FLAGS = ['text', 'logo', 'face', 'screen', 'chart', 'artifact', 'alt_mismatch', 'off_topic'] as const;
 
 /** AI 이미지 활성화 여부 — `BLOG_AI_IMAGES=off`로 끌 수 있다(실측 데이터 섹션은 유지) */
@@ -95,16 +99,21 @@ export function parseVisualPlan(raw: string, headings: readonly string[], maxSec
   const plan: PlannedImage[] = [];
   const cover = toImage(parsed.cover, null);
   if (cover) plan.push(cover);
+  else console.warn('[Visuals] 기획 커버 제외: 장면·alt·캡션이 비었거나 짧다');
 
   const bySafe = new Map(headings.map((h) => [promptSafe(h), h]));
   const used = new Set<string>();
   const sections = Array.isArray(parsed.sections) ? parsed.sections : [];
   for (const s of sections) {
     if (used.size >= maxSections) break;
-    const heading = bySafe.get(promptSafe(str((s as Record<string, unknown>)?.heading, 200)));
-    if (!heading || used.has(heading) || heading.startsWith('데이터로 보는')) continue;
-    const image = toImage(s, heading);
-    if (!image) continue;
+    const asked = str((s as Record<string, unknown>)?.heading, 200);
+    const heading = bySafe.get(promptSafe(asked));
+    const dropped = !heading ? '본문 H2와 불일치' : used.has(heading) ? '중복' : heading.startsWith('데이터로 보는') ? '데이터 섹션' : null;
+    const image = heading && !dropped ? toImage(s, heading) : null;
+    if (!heading || !image || dropped) {
+      console.warn(`[Visuals] 기획 섹션 제외 "${asked}": ${dropped ?? '장면·alt·캡션이 비었거나 짧다'}`);
+      continue;
+    }
     used.add(heading);
     plan.push(image);
   }
@@ -181,11 +190,41 @@ async function generateWithFallback(prompt: string, quality: 'medium' | 'high', 
 
 // --- 검수 ---
 
+/** 탈락 사유 → 다시 그릴 때 장면에 덧붙이는 지시 (영어, 이미지 모델용) */
+const QA_FIXES: Record<Exclude<QaFlag, 'alt_mismatch'>, string> = {
+  text: 'Remove every paper document, form, page, label, sign and any surface with lettering from the frame.',
+  screen: 'Remove every monitor, laptop, phone, tablet and display board; show the physical subject itself, not a screen.',
+  chart: 'Remove every chart, graph and ticker; show the physical subject itself.',
+  logo: 'Keep every object plain and unbranded with no emblems or brand marks.',
+  face: 'Show people only from behind, as hands at work, or as distant out-of-focus figures.',
+  artifact: 'Use a simpler, physically plausible composition with fewer, clearly separated objects.',
+  off_topic: 'Show the concrete real-world subject of the topic directly, not a symbolic or generic scene.',
+};
+
+/**
+ * 다시 그릴 장면. 앞 시도의 탈락 사유를 고치는 지시를 누적해 덧붙인다(같은 장면을 그대로 다시 그리면 같은 이유로 떨어진다).
+ * 화면·서류 문제면 원래 장면이 화면 자체일 수 있으므로 주제의 실제 현장으로 바꾸라고 함께 지시한다.
+ */
+export function revisedScene(scene: string, flags: readonly QaFlag[], topic: string): string {
+  const fixes = [...new Set(flags)].filter((f): f is Exclude<QaFlag, 'alt_mismatch'> => f !== 'alt_mismatch').map((f) => QA_FIXES[f]);
+  if (fixes.length === 0) return scene;
+  const reframe = flags.some((f) => f === 'text' || f === 'screen' || f === 'chart')
+    ? ` If the scene above is built around a screen or paperwork, replace it with the real place or object where this topic happens (${topic}).`
+    : '';
+  return `${scene}\n\nCorrection for this redraw (the previous photo was rejected): ${fixes.join(' ')}${reframe}`;
+}
+
 export interface ImageQaVerdict {
   readonly ok: boolean;
   /** 탈락 사유 (검수 실패 포함) */
   readonly reasons: readonly string[];
+  /** 탈락 사유 플래그만 (메모 제외) */
+  readonly flags?: readonly QaFlag[];
+  /** 검수 모델이 본 실제 장면 (한국어) — alt 불일치만 걸렸을 때 alt를 이것으로 바꾼다 */
+  readonly observedAlt?: string;
 }
+
+type QaFlag = (typeof QA_FLAGS)[number];
 
 /** 검수 응답 → 판정. 형식이 어긋나면 탈락이다(검수를 통과했다고 볼 근거가 없다). */
 export function parseImageQa(raw: string): ImageQaVerdict {
@@ -199,9 +238,17 @@ export function parseImageQa(raw: string): ImageQaVerdict {
     return { ok: false, reasons: ['검수 응답 형식 오류'] };
   }
   if (QA_FLAGS.some((f) => typeof parsed[f] !== 'boolean')) return { ok: false, reasons: ['검수 응답 항목 누락'] };
-  const reasons = QA_FLAGS.filter((f) => parsed[f] === true);
+  const flags = QA_FLAGS.filter((f) => parsed[f] === true);
   const note = typeof parsed.note === 'string' ? parsed.note.slice(0, 160) : '';
-  return { ok: reasons.length === 0, reasons: reasons.length ? [...reasons, ...(note ? [note] : [])] : [] };
+  const observed = str(parsed.observed_ko, 160);
+  // 사실 주장으로 읽힐 숫자·마크다운이 없고 길이가 맞을 때만 alt로 쓴다
+  const observedAlt = [...observed].length >= 15 && !/\d|[<>#*|`[\]]/.test(observed) ? observed : undefined;
+  return {
+    ok: flags.length === 0,
+    reasons: flags.length ? [...flags, ...(note ? [note] : [])] : [],
+    ...(flags.length ? { flags } : {}),
+    ...(observedAlt ? { observedAlt } : {}),
+  };
 }
 
 /**
@@ -228,20 +275,41 @@ async function inspectImage(image: { data: Buffer; mimeType: 'image/webp' | 'ima
 async function planImages(input: { keyword: string; title: string; markdown: string }, deadline: number): Promise<PlannedImage[]> {
   const sections = sectionExcerpts(input.markdown);
   const headings = listH2Headings(input.markdown);
-  try {
-    const raw = await generateText({
-      prompt: buildVisualPlanPrompt({ keyword: promptSafe(input.keyword), title: promptSafe(input.title), sections, maxSections: VISUAL_CONFIG.maxSectionImages }),
-      config: { responseMimeType: 'application/json', reasoningEffort: 'medium', maxOutputTokens: 6000 },
-      timeout: Math.max(1, Math.min(VISUAL_CONFIG.planTimeout, deadline - Date.now() - MIN_ATTEMPT_MS * 2)),
-    });
-    const source = `${input.title}\n${input.markdown}`;
-    return parseVisualPlan(raw, headings, VISUAL_CONFIG.maxSectionImages)
-      .map((p) => (p.heading === null ? { ...p, overlay: validateOverlay(p.overlay, source, input.keyword) } : p));
-  } catch (error) {
-    // 주제를 모르는 범용 커버(창가 책상 등)는 싣지 않는다 — 무관한 사진보다 없는 편이 낫다
-    console.warn(`[Visuals] 기획 실패 — AI 이미지 생략: ${err(error)}`);
-    return [];
+  // 섹션 하한은 그림이 될 만한 섹션 수를 넘지 않는다 (FAQ·출처·데이터 섹션 제외)
+  const eligible = headings.filter((h) => !h.startsWith('데이터로 보는') && !/자주 묻는|FAQ|출처|참고 자료/.test(h)).length;
+  const minSections = Math.min(VISUAL_CONFIG.minSectionImages, eligible);
+  const source = `${input.title}\n${input.markdown}`;
+  const sectionCount = (plan: readonly PlannedImage[]) => plan.filter((p) => p.heading !== null).length;
+  let best: PlannedImage[] = [];
+  let retryNote: string | undefined;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    // 다시 기획하면 이미지 생성·검수 시간이 남아야 한다
+    const remaining = deadline - Date.now();
+    if (attempt > 0 && remaining < VISUAL_CONFIG.planTimeout + MIN_ATTEMPT_MS * 4) break;
+    try {
+      const raw = await generateText({
+        prompt: buildVisualPlanPrompt({
+          keyword: promptSafe(input.keyword), title: promptSafe(input.title), sections,
+          minSections, maxSections: VISUAL_CONFIG.maxSectionImages, retryNote,
+        }),
+        config: { responseMimeType: 'application/json', reasoningEffort: 'medium', maxOutputTokens: 6000 },
+        timeout: Math.max(1, Math.min(VISUAL_CONFIG.planTimeout, remaining - MIN_ATTEMPT_MS * 2)),
+      });
+      const plan = parseVisualPlan(raw, headings, VISUAL_CONFIG.maxSectionImages)
+        .map((p) => (p.heading === null ? { ...p, overlay: validateOverlay(p.overlay, source, input.keyword) } : p));
+      const hasCover = (candidate: readonly PlannedImage[]) => candidate.some((p) => p.heading === null);
+      if (sectionCount(plan) + (hasCover(plan) ? 1 : 0) > sectionCount(best) + (hasCover(best) ? 1 : 0)) best = plan;
+      console.log(`[Visuals] 기획 ${attempt + 1}차: 커버 ${hasCover(plan) ? 1 : 0} · 섹션 ${sectionCount(plan)} (하한 ${minSections})`);
+      if (hasCover(best) && sectionCount(best) >= minSections) break;
+      retryNote = `직전 기획은 쓸 수 있는 섹션 이미지가 ${sectionCount(plan)}장이었다(하한 ${minSections}장). `
+        + `heading을 article의 heading 그대로 복사해 섹션 이미지를 최소 ${minSections}장 고르고, 커버도 반드시 채운다.`;
+    } catch (error) {
+      console.warn(`[Visuals] 기획 ${attempt + 1}차 실패: ${err(error)}`);
+    }
   }
+  // 주제를 모르는 범용 커버(창가 책상 등)는 싣지 않는다 — 무관한 사진보다 없는 편이 낫다
+  if (best.length === 0) console.warn('[Visuals] 기획 실패 — AI 이미지 생략');
+  return best;
 }
 
 // --- 오케스트레이션 ---
@@ -337,21 +405,34 @@ export async function createPostVisuals(input: {
       // 커버는 문구 합성(satori)이 webp를 못 읽어 jpeg로 받는다. 검수는 문구를 얹기 전 사진으로 한다.
       const format = isCover ? 'jpeg' : 'webp';
       let photo: Buffer | null = null;
+      let photoAlt = p.alt;
+      let scene = p.scene;
+      const rejected: QaFlag[] = [];
       for (let attempt = 0; attempt <= QA_REGENERATIONS && !photo; attempt++) {
-        const candidate = await generateWithFallback(`${p.scene}\n\n${IMAGE_STYLE_SUFFIX}`, quality, deadline, format);
+        const candidate = await generateWithFallback(`${scene}\n\n${IMAGE_STYLE_SUFFIX}`, quality, deadline, format);
         if (!candidate) return;
-        const qa = await inspectImage({ data: candidate, mimeType: `image/${format}` }, p.alt, topic, deadline);
-        if (qa.ok) photo = candidate;
-        else console.warn(`[Visuals] 검수 탈락 (${label}, ${attempt + 1}차): ${qa.reasons.join(' / ')}`);
+        const qa = await inspectImage({ data: candidate, mimeType: `image/${format}` }, photoAlt, topic, deadline);
+        if (qa.ok) {
+          photo = candidate;
+        } else if (qa.flags?.length === 1 && qa.flags[0] === 'alt_mismatch' && qa.observedAlt) {
+          // 사진은 규칙을 다 지켰고 설명만 어긋났다 — 사진을 버리지 않고 alt를 실제 장면으로 바꾼다
+          photo = candidate;
+          photoAlt = isCover && !qa.observedAlt.includes(promptSafe(input.keyword)) ? `${promptSafe(input.keyword)} 관련 이미지. ${qa.observedAlt}` : qa.observedAlt;
+          console.warn(`[Visuals] alt만 불일치 (${label}, ${attempt + 1}차) — 사진 유지, alt 교체: ${photoAlt}`);
+        } else {
+          console.warn(`[Visuals] 검수 탈락 (${label}, ${attempt + 1}차): ${qa.reasons.join(' / ')}`);
+          rejected.push(...(qa.flags ?? []));
+          scene = revisedScene(p.scene, rejected, topic);
+        }
       }
       if (!photo) return;
       try {
         let file: { data: Buffer; ext: 'webp' | 'png' | 'jpg' } = { data: photo, ext: isCover ? 'jpg' : 'webp' };
-        let alt = p.alt;
+        let alt = photoAlt;
         if (isCover && p.overlay) {
           try {
             file = await renderCover(photo, p.overlay);
-            alt = `${p.overlay.headline} 문구가 얹힌 이미지. ${p.alt}`;
+            alt = `${p.overlay.headline} 문구가 얹힌 이미지. ${photoAlt}`;
           } catch (error) {
             console.warn(`[Visuals] 커버 문구 합성 실패 — 사진만 싣는다: ${err(error)}`);
           }
@@ -394,6 +475,9 @@ export async function createPostVisuals(input: {
     await removeBlogImages(uploadedPaths.filter((p) => !result.markdown.includes(p))).catch(() => {});
 
     const { summary } = result;
+    if (aiImagesEnabled() && !summary.cover && summary.sections === 0) {
+      console.error('[Visuals] AI 이미지 0장 — 기획·생성·검수 로그를 확인하라');
+    }
     console.log(`[Visuals] 차트 ${summary.chart ? 1 : 0} · 커버 ${summary.cover ? 1 : 0} · 섹션 ${summary.sections} (${Math.round((Date.now() - startedAt) / 1000)}초)`);
     return { markdown: result.markdown, uploadedPaths: used, summary };
   } catch (error) {

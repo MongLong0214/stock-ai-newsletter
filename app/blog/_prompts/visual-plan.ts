@@ -49,7 +49,9 @@ Report true for each problem you can see:
 <topic>${input.topic.replace(/[<>]/g, ' ')}</topic>
 <alt>${input.alt.replace(/[<>]/g, ' ')}</alt>
 
-Output JSON only: {"text":false,"logo":false,"face":false,"screen":false,"chart":false,"artifact":false,"alt_mismatch":false,"off_topic":false,"note":"<one short English sentence>"}
+Also write observed_ko: one objective Korean sentence of 30-100 characters describing only what is actually visible in the photo (no numbers, no company names, no opinions).
+
+Output JSON only: {"text":false,"logo":false,"face":false,"screen":false,"chart":false,"artifact":false,"alt_mismatch":false,"off_topic":false,"note":"<one short English sentence>","observed_ko":"<Korean sentence>"}
 `.trim();
 }
 
@@ -63,7 +65,10 @@ export function buildVisualPlanPrompt(input: {
   keyword: string;
   title: string;
   sections: readonly VisualPlanSection[];
+  minSections: number;
   maxSections: number;
+  /** 직전 기획이 섹션 하한을 못 채웠을 때 다시 기획하며 붙이는 지시 */
+  retryNote?: string;
 }): string {
   const sections = input.sections
     .map((s, i) => `<section index="${i + 1}">\n<heading>${s.heading}</heading>\n<excerpt>${s.excerpt}</excerpt>\n</section>`)
@@ -86,8 +91,9 @@ ${sections}
 <task>
 1. 커버 이미지 1장 + 후킹 문구: 글 제목의 핵심 대상(기업·산업·사건·상품)과 쟁점이 한눈에 보이는 장면. 목록 썸네일·SNS 공유 이미지로 쓰인다.
    사진 하단 1/3은 문구가 덮으므로 주인공 피사체는 화면 위쪽 2/3에 둔다.
-2. 섹션 이미지 최대 ${input.maxSections}장: 이미지가 이해를 실제로 돕는 H2 섹션만 고른다.
-   FAQ·요약·정리·체크리스트·용어 정의처럼 그림이 도움 되지 않는 섹션, "데이터로 보는"으로 시작하는 섹션은 고르지 않는다.
+2. 섹션 이미지 최소 ${input.minSections}장, 최대 ${input.maxSections}장: 실제 현장·사물로 보여 줄 수 있는 H2 섹션을 고른다.
+   수수료·세금·손익·금리처럼 추상적인 글도 그 돈이 오가는 실제 장소·사물·절차가 있다. 그것을 찾아 최소 ${input.minSections}장은 반드시 채운다.
+   FAQ·출처·요약·정리·체크리스트·용어 정의 섹션, "데이터로 보는"으로 시작하는 섹션은 고르지 않는다.
    섹션 이미지도 그 섹션이 다루는 구체 대상을 보여 준다. 이미지끼리 장면이 겹치지 않게 한다(같은 공장 반복 금지).
 </task>
 
@@ -104,6 +110,12 @@ ${sections}
   · 섹션 이미지는 그 섹션이 다루는 구체 대상(특정 제품·특정 절차·특정 현장)을 같은 방식으로 보여 준다.
   · 실패 기준: 다른 금융 글에 그대로 써도 어색하지 않은 범용 장면(스마트폰 든 손, 여의도 빌딩 외관, 정체 모를 공장, 빈 사무실·책상·회의실),
     나무 블록·구슬·체스말·퍼즐·저울·모래시계·돼지저금통 같은 상징 소품 정물, 주제와 상관없는 풍경.
+  · 화면·글자가 주인공인 장면은 쓰지 않는다: 모니터·노트북·스마트폰·태블릿·전광판 화면, 인쇄된 서류·계약서·투자설명서·영수증·신청서·표.
+    검수가 읽히는 화면과 글자 덩어리를 탈락시키므로 이런 장면은 다시 그려도 떨어진다. 화면은 배경에 아주 작고 흐리게만 허용한다.
+    추상적인 주제는 화면 대신 그 일이 일어나는 실제 장소·사물로 보여 준다.
+    예) 공모주 수수료 → 증권사 지점 상담 창구 앞에서 차례를 기다리는 고객들의 뒷모습과 번호표 발급기
+        가상자산 거래소 적자 → 거래소 데이터센터의 길게 늘어선 서버 랙과 케이블
+        주식 양도세 → 세무서 민원실 창구와 대기 의자
   · 사람은 얼굴이 보이지 않는 익명 인물(뒷모습·손·멀리 흐릿한 사람)로만 넣는다. 화면은 흐려서 내용을 읽을 수 없게 쓴다. 읽을 수 있는 글자·숫자·로고, 특정 실존 기업의 건물·제품·로고, 실존 인물은 묘사하지 않는다.
 - alt: 한국어 40~110자. 이미지에 실제로 보이는 것을 객관적으로 묘사한다. 사실 주장·수치·평가를 넣지 않는다. 커버 alt에는 키워드를 자연스럽게 한 번 넣는다.
 - caption: 한국어 60자 이내. 이미지가 그 섹션의 어떤 내용을 표현하는지 설명한다. 실제 해당 기업·현장 사진인 것처럼 쓰지 않는다("~를 표현한 이미지").
@@ -115,7 +127,7 @@ ${sections}
   · subhead: 8~26자. 글을 읽으면 얻는 것. 예) 판결이 주가에 미칠 3가지 경로
 </rules>
 
-<output>
+${input.retryNote ? `<retry>\n${input.retryNote}\n</retry>\n\n` : ''}<output>
 JSON만 출력한다.
 {
   "cover": { "scene": "...", "alt": "...", "caption": "...", "kicker": "...", "headline": "...", "subhead": "..." },

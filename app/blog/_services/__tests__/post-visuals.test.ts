@@ -12,7 +12,7 @@ vi.mock('../chart-renderer', () => ({ renderPriceChart: mockPriceChart, renderCo
 vi.mock('../cover-renderer', () => ({ renderCover: mockRenderCover }));
 
 import { VISUAL_CONFIG } from '../../_config/pipeline-config';
-import { createPostVisuals, parseImageQa, parseVisualPlan, shouldTryNextModel, validateOverlay } from '../post-visuals';
+import { createPostVisuals, parseImageQa, parseVisualPlan, revisedScene, shouldTryNextModel, validateOverlay } from '../post-visuals';
 
 const SCENE = 'A quiet battery materials laboratory with glass beakers, a precision scale and soft morning light across a clean bench.';
 const HEADINGS = ['LG화학 사업 구조', '실적 흐름 읽는 법', '자주 묻는 질문'];
@@ -253,7 +253,7 @@ describe('createPostVisuals', () => {
     expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('검수 탈락 (커버, 1차): off_topic / Wooden blocks on a plinth.'));
   });
 
-  it('redraws an image the vision check rejects, and drops it after a second rejection', async () => {
+  it('redraws an image the vision check rejects, and drops it after a third rejection', async () => {
     mockPlan.mockResolvedValue(plan([]));
     mockQa.mockResolvedValueOnce(qa({ face: true }, 'A worker faces the camera.'));
     const redrawn = await createPostVisuals(input(null));
@@ -265,8 +265,78 @@ describe('createPostVisuals', () => {
     mockQa.mockResolvedValue(qa({ text: true }));
     const dropped = await createPostVisuals(input(null));
     expect(dropped.summary.cover).toBe(false);
-    expect(mockGenerateImage).toHaveBeenCalledTimes(2);
+    expect(mockGenerateImage).toHaveBeenCalledTimes(3);
     expect(mockUpload).not.toHaveBeenCalled();
+    expect(console.error).toHaveBeenCalledWith(expect.stringContaining('AI 이미지 0장'));
+  });
+
+  it('redraws with a correction for the rejection instead of repeating the same scene (2026-11-17 monitor cover)', async () => {
+    mockPlan.mockResolvedValue(plan([]));
+    mockQa.mockResolvedValueOnce(qa({ screen: true, text: true }, 'A three-panel comparison interface.'))
+      .mockResolvedValueOnce(qa({ face: true }, 'A clerk faces the camera.'));
+    const result = await createPostVisuals(input(null));
+    expect(result.summary.cover).toBe(true);
+    const prompts = mockGenerateImage.mock.calls.map((c) => c[0].prompt as string);
+    expect(prompts).toHaveLength(3);
+    expect(prompts[0]).not.toContain('Correction for this redraw');
+    expect(prompts[1]).toContain('Remove every monitor, laptop, phone');
+    expect(prompts[1]).toContain('replace it with the real place or object where this topic happens');
+    // 앞선 사유는 누적된다
+    expect(prompts[2]).toContain('Remove every monitor, laptop, phone');
+    expect(prompts[2]).toContain('Show people only from behind');
+    expect(prompts.every((prompt) => prompt.startsWith(SCENE))).toBe(true);
+  });
+
+  it('keeps a rule-abiding photo whose only problem is the alt text, with the observed alt (2026-11-18)', async () => {
+    mockPlan.mockResolvedValue(plan([]));
+    mockQa.mockResolvedValueOnce(JSON.stringify({ ...JSON.parse(qa({ alt_mismatch: true }, 'Panels are stacked.')),
+      observed_ko: '흐릿한 화면 앞 책상에 서류철과 계산기가 놓인 사무 공간' }));
+    const result = await createPostVisuals(input(null));
+    expect(result.summary.cover).toBe(true);
+    expect(mockGenerateImage).toHaveBeenCalledTimes(1);
+    expect(result.markdown).toContain('LG화학 실적 분석 관련 이미지. 흐릿한 화면 앞 책상에 서류철과 계산기가 놓인 사무 공간');
+  });
+
+  it('still redraws an alt mismatch when another rule is broken or no usable description came back', async () => {
+    mockPlan.mockResolvedValue(plan([]));
+    mockQa.mockResolvedValueOnce(JSON.stringify({ ...JSON.parse(qa({ alt_mismatch: true, logo: true })), observed_ko: '로고가 보이는 매장 앞 진열대와 상품 상자들' }))
+      .mockResolvedValueOnce(JSON.stringify({ ...JSON.parse(qa({ alt_mismatch: true })), observed_ko: '2026년 실적표' }));
+    const result = await createPostVisuals(input(null));
+    expect(result.summary.cover).toBe(true);
+    expect(mockGenerateImage).toHaveBeenCalledTimes(3);
+  });
+
+  it('plans again when the first plan has fewer section images than the floor, and keeps the better plan', async () => {
+    mockPlan.mockResolvedValueOnce(plan([])).mockResolvedValueOnce(plan([{ heading: HEADINGS[0] }, { heading: HEADINGS[1] }]));
+    const result = await createPostVisuals(input(null));
+    expect(mockPlan).toHaveBeenCalledTimes(2);
+    expect(mockPlan.mock.calls[0][0].prompt).not.toContain('<retry>');
+    expect(mockPlan.mock.calls[1][0].prompt).toContain('직전 기획은 쓸 수 있는 섹션 이미지가 0장이었다(하한 2장)');
+    expect(result.summary).toEqual({ chart: false, cover: true, sections: 2 });
+
+    vi.clearAllMocks();
+    mockPlan.mockResolvedValueOnce(plan([{ heading: HEADINGS[0] }])).mockResolvedValueOnce(plan([]));
+    const kept = await createPostVisuals(input(null));
+    expect(mockPlan).toHaveBeenCalledTimes(2);
+    expect(kept.summary).toEqual({ chart: false, cover: true, sections: 1 });
+  });
+
+  it('does not plan again when the plan meets the floor or there is no time left for images', async () => {
+    await createPostVisuals(input(null));
+    expect(mockPlan).toHaveBeenCalledTimes(1);
+
+    vi.clearAllMocks();
+    mockPlan.mockResolvedValue(plan([]));
+    await createPostVisuals({ ...input(null), budgetMs: 200_000 });
+    expect(mockPlan).toHaveBeenCalledTimes(1);
+  });
+
+  it('asks the planner for at least two section images and never a screen or paperwork as the subject', async () => {
+    await createPostVisuals(input(null));
+    const prompt = mockPlan.mock.calls[0][0].prompt as string;
+    expect(prompt).toContain('섹션 이미지 최소 2장, 최대 3장');
+    expect(prompt).toContain('화면·글자가 주인공인 장면은 쓰지 않는다');
+    expect(mockQa.mock.calls[0][0].prompt).toContain('observed_ko');
   });
 
   it('fails closed when the vision check itself errors', async () => {
@@ -326,10 +396,28 @@ describe('cover overlay', () => {
   });
 });
 
+describe('revisedScene', () => {
+  it('leaves the scene alone for an alt-only rejection and adds each fix once', () => {
+    expect(revisedScene(SCENE, ['alt_mismatch'], 't')).toBe(SCENE);
+    const scene = revisedScene(SCENE, ['logo', 'logo', 'off_topic'], 't');
+    expect(scene.match(/no emblems/g)).toHaveLength(1);
+    expect(scene).toContain('concrete real-world subject');
+    expect(scene).not.toContain('replace it with the real place');
+  });
+});
+
 describe('parseImageQa', () => {
+  it('returns the observed Korean description only when it is safe to publish as alt', () => {
+    const verdict = (observed: string) => parseImageQa(JSON.stringify({ ...JSON.parse(qa({ alt_mismatch: true })), observed_ko: observed }));
+    expect(verdict('서버 랙이 길게 늘어선 데이터센터 통로와 케이블').observedAlt).toBe('서버 랙이 길게 늘어선 데이터센터 통로와 케이블');
+    expect(verdict('2분기 적자 35억원 그래프가 보이는 장면').observedAlt).toBeUndefined();
+    expect(verdict('짧은 설명').observedAlt).toBeUndefined();
+  });
+
   it('passes only when every flag is false', () => {
     expect(parseImageQa(qa())).toEqual({ ok: true, reasons: [] });
-    expect(parseImageQa('```json\n' + qa({ logo: true, artifact: true }, '간판 글자') + '\n```')).toEqual({ ok: false, reasons: ['logo', 'artifact', '간판 글자'] });
+    expect(parseImageQa('```json\n' + qa({ logo: true, artifact: true }, '간판 글자') + '\n```'))
+      .toEqual({ ok: false, reasons: ['logo', 'artifact', '간판 글자'], flags: ['logo', 'artifact'] });
   });
 
   it('rejects malformed or incomplete verdicts', () => {
