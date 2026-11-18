@@ -2,6 +2,77 @@
   "newsletters": [
     {
       "type": "stock",
+      "date": "2026-11-19",
+      "stocks": [
+        {
+          "ticker": "KOSDAQ:141080",
+          "name": "리가켐바이오",
+          "close_price": 53900,
+          "rationale": "2026-11-18 종가 53,900원|전일 대비 0.0% 보합|시가 대비 -0.9% 음봉|20일선 61,585원·종가 12.5% 아래|60일선 76,482원·종가 29.5% 아래|최근 5거래일 종가 -18.0%|최근 20거래일 종가 -24.4%|20거래일 KOSPI 대비 -12.8%p|직전 20거래일 장중 고점 73,200원까지 +35.8%|직전 60거래일 최고 종가 108,300원까지 +100.9%|거래량 20일 평균의 1.17배|최근 60거래일 중 거래량 상위 15.8%|당일 범위 종가 29.4%·윗꼬리 55.9%|ATR14 평균 변동폭 9.3%·약 5,013원(갭 포함)|RSI14 34.5 약세|MACD 모멘텀 +0.02%(종가 대비)|20일 평균 거래대금 추정 146.1억원|52주(252거래일) 종가 범위 0.0% 위치(저점0·고점100)",
+          "signals": {
+            "trend_score": 74,
+            "momentum_score": 54,
+            "volume_score": 48,
+            "volatility_score": 43,
+            "pattern_score": 50,
+            "sentiment_score": 74,
+            "overall_score": 85,
+            "basis": "model_contribution"
+          },
+          "selection": {
+            "strategy": "compositeUtility",
+            "rank": 1,
+            "objective": "compositeUtility"
+          }
+        },
+        {
+          "ticker": "KOSPI:475150",
+          "name": "SK이터닉스",
+          "close_price": 30900,
+          "rationale": "2026-11-18 종가 30,900원|전일 대비 -0.6% 하락|시가 대비 -1.4% 음봉|20일선 37,038원·종가 16.6% 아래|60일선 45,362원·종가 31.9% 아래|최근 5거래일 종가 -21.0%|최근 20거래일 종가 -25.4%|20거래일 KOSPI 대비 -13.7%p|직전 20거래일 장중 고점 41,950원까지 +35.8%|직전 60거래일 최고 종가 56,000원까지 +81.2%|거래량 20일 평균의 0.58배|최근 60거래일 중 거래량 상위 89.2%|당일 범위 종가 41.7%·윗꼬리 33.3%|ATR14 평균 변동폭 8.6%·약 2,652원(갭 포함)|RSI14 27.0 약세|MACD 모멘텀 -1.10%(종가 대비)|20일 평균 거래대금 추정 249.5억원|52주(252거래일) 종가 범위 21.1% 위치(저점0·고점100)",
+          "signals": {
+            "trend_score": 69,
+            "momentum_score": 60,
+            "volume_score": 49,
+            "volatility_score": 48,
+            "pattern_score": 48,
+            "sentiment_score": 69,
+            "overall_score": 84,
+            "basis": "model_contribution"
+          },
+          "selection": {
+            "strategy": "compositeUtility",
+            "rank": 2,
+            "objective": "compositeUtility"
+          }
+        },
+        {
+          "ticker": "KOSPI:483650",
+          "name": "달바글로벌",
+          "close_price": 116500,
+          "rationale": "2026-11-18 종가 116,500원|전일 대비 -2.1% 하락|시가 대비 -2.2% 음봉|20일선 141,425원·종가 17.6% 아래|60일선 171,317원·종가 32.0% 아래|최근 5거래일 종가 -20.2%|최근 20거래일 종가 -30.4%|20거래일 KOSPI 대비 -18.8%p|직전 20거래일 장중 고점 168,900원까지 +45.0%|직전 60거래일 최고 종가 233,000원까지 +100.0%|거래량 20일 평균의 0.95배|최근 60거래일 중 거래량 상위 50.8%|당일 범위 종가 27.1%·윗꼬리 42.4%|ATR14 평균 변동폭 8.7%·약 10,168원(갭 포함)|RSI14 27.5 약세|MACD 모멘텀 -1.62%(종가 대비)|20일 평균 거래대금 추정 171.1억원|52주(252거래일) 종가 범위 0.0% 위치(저점0·고점100)",
+          "signals": {
+            "trend_score": 70,
+            "momentum_score": 60,
+            "volume_score": 53,
+            "volatility_score": 47,
+            "pattern_score": 44,
+            "sentiment_score": 69,
+            "overall_score": 84,
+            "basis": "model_contribution"
+          },
+          "selection": {
+            "strategy": "compositeUtility",
+            "rank": 3,
+            "objective": "compositeUtility"
+          }
+        }
+      ],
+      "sentAt": "2026-11-18T22:31:54.931+00:00",
+      "subscriberCount": 332
+    },
+    {
+      "type": "stock",
       "date": "2026-11-18",
       "stocks": [
         {
@@ -14534,5 +14605,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-11-17T22:32:52.297Z"
+  "lastUpdated": "2026-11-18T22:33:13.144Z"
 }
