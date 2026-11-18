@@ -87,6 +87,11 @@ export const VISUAL_CONFIG = {
   sectionQuality: 'medium' as const,
   /** 커버 외 섹션 이미지 상한 */
   maxSectionImages: 3,
+  /**
+   * 커버 외 섹션 이미지 하한 — 기획이 이보다 적게 고르면 한 번 다시 기획한다.
+   * 2026-11-17·18: 수수료·적자처럼 추상적인 글에서 기획이 섹션을 0장 고르고 커버마저 검수에 두 번 떨어져 이미지 0장으로 발행됐다.
+   */
+  minSectionImages: 2,
   /** 이미지 1장(모델 1회) 상한 */
   imageTimeout: 150_000,
   /** 시각자료 기획(LLM) 상한 */
