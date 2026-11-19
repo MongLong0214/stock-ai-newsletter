@@ -26,6 +26,7 @@ interface PageProps {
 }
 
 // generateMetadata와 페이지 컴포넌트에서 동일 slug로 호출되므로 요청 단위 캐싱
+// 조회 오류는 던진다 — null로 바꾸면 DB 일시 장애가 공개글을 404로 캐시해 색인에서 빠진다(던지면 ISR이 이전 페이지를 계속 낸다)
 const getBlogPost = cache(async (slug: string): Promise<BlogPost | null> => {
   const supabase = getServerSupabaseClient();
   const { data, error } = await supabase
@@ -33,9 +34,10 @@ const getBlogPost = cache(async (slug: string): Promise<BlogPost | null> => {
     .select('*')
     .eq('slug', slug)
     .eq('status', 'published')
-    .single();
+    .maybeSingle();
 
-  return error || !data ? null : (data as BlogPost);
+  if (error) throw new Error(`[Blog] 글 조회 실패(${slug}): ${error.message}`);
+  return (data as BlogPost | null) ?? null;
 });
 
 async function getRelatedPosts(currentSlug: string, tags: string[]) {

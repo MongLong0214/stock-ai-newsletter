@@ -124,8 +124,9 @@ export async function generateText(options: GenerateTextOptions): Promise<string
   );
 
   logResponseUsage('generateText', response);
-  if (response.status === 'incomplete' && response.incomplete_details?.reason === 'max_output_tokens') {
-    throw new Error('OpenAI 응답 잘림 (max_output_tokens)');
+  // 잘린 응답은 사유가 무엇이든(max_output_tokens·content_filter) 부분 텍스트다 — 그대로 쓰면 끝이 잘린 글이 나간다
+  if (response.status === 'incomplete') {
+    throw new Error(`OpenAI 응답 잘림 (${response.incomplete_details?.reason ?? 'incomplete'})`);
   }
 
   return response.output_text || '';

@@ -162,6 +162,15 @@ describe('data section', () => {
     expect(chartAlt(ctx)).toContain('(2026-01-03 이후). 기존 +20.0%, 신규상장 +100.0%');
   });
 
+  it('uses the common start even when both count as a full year but start on different days', () => {
+    const a = snapshot('가', [100, 120, 100, 110]);
+    const b = { ...snapshot('나', [100, 100, 100, 130]) };
+    const bLate = { ...b, series: b.series.slice(1) }; // 1년으로 인정되지만 첫 거래일이 하루 늦다
+    const md = buildDataSection({ stocks: [a, bLate], theme: null, direct: true, asOf: '2026-01-04' }, null);
+    expect(md).toContain('2026-01-02 이후 등락률은 가 -8.3%, 나 +30.0%입니다.');
+    expect(md).not.toContain('최근 1년 등락률');
+  });
+
   it('never calls a flat year a rise or a close just below the high the high', () => {
     const flat = buildDataSection({ stocks: [snapshot('평탄', [100, 120, 100])], theme: null, direct: true, asOf: '2026-01-03' }, null);
     expect(flat).toContain('주가는 거의 변동이 없었습니다.');

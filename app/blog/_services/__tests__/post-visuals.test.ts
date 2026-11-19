@@ -236,9 +236,12 @@ describe('createPostVisuals', () => {
     await createPostVisuals(input(null));
     const prompts = mockQa.mock.calls.map((c) => c[0].prompt as string);
     expect(prompts).toHaveLength(2);
+    // 커버는 글 주제로, 섹션은 글 주제 + 그 섹션 제목으로 본다
+    expect(prompts.some((p) => p.includes('<topic>LG화학 실적 분석 — LG화학 실적 분석</topic>'))).toBe(true);
+    expect(prompts.some((p) => p.includes(`<topic>LG화학 실적 분석 — LG화학 실적 분석 / 섹션: ${HEADINGS[0]}</topic>`))).toBe(true);
     for (const p of prompts) {
-      expect(p).toContain('<topic>LG화학 실적 분석 — LG화학 실적 분석</topic>');
       expect(p).toContain('- off_topic:');
+      expect(p).toContain('- generic:');
       expect(p).toContain('Ignore tiny incidental marks');
       expect(p).toContain('- face: a clearly visible, in-focus human face');
     }
@@ -251,6 +254,24 @@ describe('createPostVisuals', () => {
     expect(result.summary.cover).toBe(true);
     expect(mockGenerateImage).toHaveBeenCalledTimes(2);
     expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('검수 탈락 (커버, 1차): off_topic / Wooden blocks on a plinth.'));
+  });
+
+  it('redraws a photo a reader could not link to the topic, asking for the topic\'s own subject (2026-11-19 hotel bed, server rack)', async () => {
+    mockPlan.mockResolvedValue(plan([]));
+    mockQa.mockResolvedValueOnce(qa({ generic: true }, 'Hands making a hotel bed.'));
+    const result = await createPostVisuals(input(null));
+    expect(result.summary.cover).toBe(true);
+    expect(mockGenerateImage).toHaveBeenCalledTimes(2);
+    expect(mockGenerateImage.mock.calls[1][0].prompt).toContain('the object a reader first pictures for this topic');
+  });
+
+  it('re-inspects the same photo instead of paying for a new one when the vision check itself fails', async () => {
+    mockPlan.mockResolvedValue(plan([]));
+    mockQa.mockRejectedValueOnce(new Error('qa timeout'));
+    const result = await createPostVisuals(input(null));
+    expect(result.summary.cover).toBe(true);
+    expect(mockGenerateImage).toHaveBeenCalledTimes(1);
+    expect(mockQa).toHaveBeenCalledTimes(2);
   });
 
   it('redraws an image the vision check rejects, and drops it after a third rejection', async () => {
@@ -394,15 +415,34 @@ describe('cover overlay', () => {
     expect(validateOverlay({ kicker: '', headline: '지금 확인할 것', subhead: '' }, source, 'LG화학 실적 분석').headline).toBe('LG화학 실적 분석');
     expect(validateOverlay(null, source, 'LG화학 실적 분석')).toEqual({ kicker: '', headline: 'LG화학 실적 분석', subhead: '' });
   });
+
+  it('rejects a number reused with a different unit and solicitation copy', () => {
+    const source = 'LG화학 실적 분석. 순이익 30억 원, 7가지 기준';
+    expect(validateOverlay({ kicker: '', headline: 'LG화학 30% 급변', subhead: '순이익 30억 원 점검' }, source, 'LG화학 실적 분석'))
+      .toEqual({ kicker: '', headline: 'LG화학 실적 분석', subhead: '순이익 30억 원 점검' });
+    expect(validateOverlay({ kicker: '', headline: 'LG화학 실적 7가지', subhead: '지금 매수하세요' }, source, 'LG화학 실적 분석').subhead).toBe('');
+    // 같은 숫자·단위라도 앞 단어가 다르면 다른 주장이다
+    const fee = '공모주 청약 수수료 10%와 환불일 정리';
+    expect(validateOverlay({ kicker: '', headline: '공모주 수수료 10%', subhead: '연간 수익률 10% 기대' }, fee, '공모주 수수료'))
+      .toEqual({ kicker: '', headline: '공모주 수수료 10%', subhead: '' });
+  });
 });
 
 describe('revisedScene', () => {
   it('leaves the scene alone for an alt-only rejection and adds each fix once', () => {
     expect(revisedScene(SCENE, ['alt_mismatch'], 't')).toBe(SCENE);
-    const scene = revisedScene(SCENE, ['logo', 'logo', 'off_topic'], 't');
+    const scene = revisedScene(SCENE, ['logo', 'logo', 'artifact'], 't');
     expect(scene.match(/no emblems/g)).toHaveLength(1);
-    expect(scene).toContain('concrete real-world subject');
+    expect(scene).toContain(SCENE);
     expect(scene).not.toContain('replace it with the real place');
+  });
+
+  it('drops the original scene when it was rejected as generic or off-topic', () => {
+    const scene = revisedScene(SCENE, ['generic', 'logo'], '공모주 수수료 / 섹션: 환불금 계산');
+    expect(scene).not.toContain(SCENE);
+    expect(scene).toContain('공모주 수수료 / 섹션: 환불금 계산');
+    expect(scene).toContain('no emblems');
+    expect(revisedScene(SCENE, ['off_topic'], 't')).toContain('concrete real-world subject');
   });
 });
 

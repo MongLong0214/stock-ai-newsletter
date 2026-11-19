@@ -24,9 +24,13 @@ import { findThemeForKeyword } from '../_utils/theme-match';
 //      기관명이 아니라 수식어인데도 구체 인용으로 취급됐고, 한국어에서는 이쪽이 더 흔하다.
 //  (2) 맨몸 인용: 문장 첫머리나 비한글 뒤의 "통계에 따르면".
 // "한국은행 통계에 따르면"은 (1)의 수식어 목록에 없고 (2)의 lookbehind에 막혀 통과한다.
-const VAGUE_MODIFIER = '최근|여러|일부|각종|다수의|이|그|해당|어떤|한';
+//  (3) 누가 말했는지 특정되지 않는 주체: "업계에 따르면", "증권가에 따르면", "전문가들에 따르면", "관계자에 의하면".
+//      앞말과 상관없이 모호하다("반도체 업계에 따르면"도 누구인지 알 수 없다).
+// "~에 의하면"도 같은 인용 표현이다.
+const VAGUE_MODIFIER = '최근|여러|일부|각종|다수의|이|그|해당|어떤|한|관련|한편|또한|그러나|하지만|다만|실제로|특히';
+const VAGUE_SUBJECT = '업계(?:\\s*관계자들?)?|증권가|시장\\s*관계자들?|관계자들?|전문가들?|애널리스트들?|시장\\s*조사|시장조사';
 const VAGUE_SOURCE_RE = new RegExp(
-  `(정부\\s*통계|모\\s*기관|(?:${VAGUE_MODIFIER})\\s+(?:통계|조사|연구|자료|보고서)(?:\\s*결과)?|(?<![가-힣] ?)(?:한 조사|업계|통계|연구\\s*결과|조사\\s*결과))에\\s*따르면`,
+  `(정부\\s*통계|모\\s*기관|(?:${VAGUE_SUBJECT})|(?:${VAGUE_MODIFIER})\\s+(?:통계|조사|연구|자료|보고서)(?:\\s*결과)?|(?<![가-힣] ?)(?:한 조사|통계|연구\\s*결과|조사\\s*결과))(?:에\\s*따르면|에\\s*의하면)`,
 );
 
 
@@ -118,11 +122,17 @@ export async function loadThemeStockNames(targetKeyword: string): Promise<Set<st
   }
 }
 
-/** 본문에 등장하는 실재 종목 수 */
+/**
+ * 본문에 등장하는 실재 종목 수.
+ * 긴 이름부터 찾고 찾은 자리를 지운다 — "LG전자우" 한 번이 LG·LG전자·LG전자우 세 종목으로 세지지 않게.
+ */
 export function countRealStocks(content: string, stockNames: ReadonlySet<string>): number {
+  let rest = content;
   let count = 0;
-  for (const name of stockNames) {
-    if (content.includes(name)) count += 1;
+  for (const name of [...stockNames].sort((a, b) => b.length - a.length)) {
+    if (!rest.includes(name)) continue;
+    count += 1;
+    rest = rest.split(name).join('\u0000');
   }
   return count;
 }
@@ -182,7 +192,8 @@ export async function checkYmyl(
     });
   }
 
-  if (RELATED_STOCK_RE.test(targetKeyword)) {
+  // 키워드가 일반 주제여도 제목이 "관련주"를 내걸면 같은 검증을 한다
+  if ([targetKeyword, source.title, source.metaTitle].some((t) => t && RELATED_STOCK_RE.test(t))) {
     // 테마를 특정할 수 있으면 그 테마 종목으로, 아니면 전역 사전으로 센다
     const themeScoped = await loadThemeStockNames(targetKeyword);
     const stockNames = themeScoped ?? (await loadActiveStockNames());

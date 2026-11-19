@@ -40,6 +40,27 @@ describe('checkYmyl — 실제 발행물에서 나온 문제를 재현해 잡는
     expect(v.some((x) => x.rule === 'solicitation')).toBe(true);
   });
 
+  it('권유형 매수 표현은 잡고, 배당 기준일 같은 사실 안내는 통과시킨다', async () => {
+    const solicits = [
+      '그리고 언제 매수해야 하는지 명확히 짚어드리겠습니다.',
+      '30 부근에서 반등 신호가 보일 때가 저점 매수 기회입니다.',
+      '최소 3회 이상 나누어 진입하세요.',
+      '증권가는 목표주가 9만 5천원을 제시합니다.',
+      '원금을 보장해 드립니다.',
+    ];
+    for (const text of solicits) {
+      expect((await checkYmyl(text, '배당')).some((x) => x.rule === 'solicitation'), text).toBe(true);
+    }
+    const facts = [
+      '배당을 받으려면 배당기준일 2영업일 전까지 주식을 매수해야 합니다.',
+      '이 상품은 원금 보장 상품이 아닙니다.',
+      '한 증권사는 목표주가를 올렸다.',
+    ];
+    for (const text of facts) {
+      expect((await checkYmyl(text, '배당')).some((x) => x.rule === 'solicitation'), text).toBe(false);
+    }
+  });
+
   it('브랜드 언급 상한 초과를 잡는다 (실측: 16/20이 본문 광고)', async () => {
     const v = await checkYmyl('Stock Matrix가 좋다. 스탁매트릭스를 쓰자.', '뉴스레터');
     expect(v.some((x) => x.rule === 'brand-overuse')).toBe(true);
@@ -55,6 +76,11 @@ describe('checkYmyl — 실제 발행물에서 나온 문제를 재현해 잡는
     expect(await checkYmyl(clean, '스테이블코인 관련주')).toHaveLength(0);
   });
 
+  it('키워드가 일반 주제여도 제목이 관련주를 내걸면 종목을 검사한다', async () => {
+    const v = await checkYmyl({ body: '가상해상풍력과 바다에너지솔루션, 윈드코리아를 본다.', title: '해상풍력 관련주 세 종목 분석' }, '해상풍력 산업 전망');
+    expect(v.some((x) => x.rule === 'ghost-stocks')).toBe(true);
+  });
+
   it('관련주류가 아닌 키워드에는 종목 검사를 하지 않는다', async () => {
     const v = await checkYmyl('RSI는 상대강도지수다. 70 이상은 과매수 구간이다.', 'RSI 활용법');
     expect(v.filter((x) => x.rule === 'ghost-stocks')).toHaveLength(0);
@@ -65,5 +91,11 @@ describe('countRealStocks', () => {
   it('본문에 등장하는 사전 내 종목만 센다', () => {
     const dict = new Set(['삼성전자', '카카오페이']);
     expect(countRealStocks('삼성전자와 유령종목월드가 있다', dict)).toBe(1);
+  });
+
+  it('겹치는 이름은 가장 긴 종목 하나로만 센다', () => {
+    const dict = new Set(['LG', 'LG전자', 'LG전자우', '삼성전자']);
+    expect(countRealStocks('LG전자우를 분석합니다', dict)).toBe(1);
+    expect(countRealStocks('LG전자우와 LG전자, 삼성전자', dict)).toBe(3);
   });
 });

@@ -33,6 +33,8 @@ function normalizeSlugBase(text: string): string {
     .replace(/^-|-$/g, '');
 }
 
+const MAX_SLUG_BASE = 80;
+
 /** 영문 알파벳이 하나라도 포함되었는지 확인 */
 function hasAlpha(slug: string): boolean {
   return /[a-z]/.test(slug);
@@ -78,6 +80,9 @@ export function generateSlug(title: string, fallbackKeyword?: string): string {
     const seed = title || fallbackKeyword || 'stock-analysis';
     slugBase = `stock-analysis-${hashSlugSeed(seed)}`;
   }
+
+  // 공개 라우트는 200자 넘는 slug를 404로 막는다(slug-validator). 날짜·해시(18자)를 붙여도 넉넉하게 단어 경계에서 자른다.
+  if (slugBase.length > MAX_SLUG_BASE) slugBase = slugBase.slice(0, MAX_SLUG_BASE).replace(/-[^-]*$/, '') || slugBase.slice(0, MAX_SLUG_BASE);
 
   // KST 날짜를 쓴다. UTC로 두면 05:30 KST 발행이 전날 날짜 슬러그를 받아,
   // 같은 KST 날짜의 실행이 서로 다른 날짜를 갖고 날짜 기반 충돌 보호도 어긋난다.

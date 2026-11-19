@@ -124,9 +124,11 @@ export function isDuplicate(
   existingKeywords: string[],
   existingTitles: string[] = []
 ): boolean {
-  const normalized = newKeyword.toLowerCase().trim();
+  // 띄어쓰기만 다른 같은 키워드("삼성전자 목표 주가" vs "삼성전자 목표주가")도 같은 키워드다
+  const compact = (k: string) => k.toLowerCase().replace(/\s+/g, '');
+  const normalized = compact(newKeyword);
 
-  if (existingKeywords.includes(normalized)) return true;
+  if (existingKeywords.some((k) => compact(k) === normalized)) return true;
   if (isSimilar(newKeyword, existingKeywords, 0.5)) return true;
   if (existingTitles.length > 0 && isSimilar(newKeyword, existingTitles, 0.4)) return true;
 

@@ -29,8 +29,9 @@ async function getPublishedPosts(): Promise<BlogPostListItem[]> {
       .filter((post) => isValidBlogSlug(post.slug))
       .map((post) => ({ ...post, cover: ownCoverOrNull(post.cover) }));
   } catch (error) {
+    // 빈 배열로 바꾸면 일시 장애가 "글 0개" 목록으로 캐시된다 — 던져서 ISR이 이전 목록을 유지하게 한다
     console.error('[Blog] 발행글 조회 실패', error);
-    return [];
+    throw error;
   }
 }
 

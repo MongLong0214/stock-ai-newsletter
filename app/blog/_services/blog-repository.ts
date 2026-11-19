@@ -50,17 +50,20 @@ export async function saveBlogPost(
     }),
   };
 
-  const { data, error } = await supabase
-    .from('blog_posts')
-    .upsert(postData, { onConflict: 'slug' })
-    .select()
-    .single<BlogPost>();
+  // 조회와 쓰기 사이에 다른 실행이 같은 slug로 공개할 수 있다(같은 제목·키워드·날짜면 slug가 같다).
+  // upsert는 그 공개글을 덮어쓰므로, 새 행은 insert(유일성 위반이면 실패), 기존 초안은 published가 아닐 때만 update한다.
+  const { data, error } = existing
+    ? await supabase.from('blog_posts').update(postData).eq('slug', input.slug).neq('status', 'published').select().maybeSingle<BlogPost>()
+    : await supabase.from('blog_posts').insert(postData).select().single<BlogPost>();
 
-  if (error) {
-    throw new Error(`블로그 포스트 저장 실패: ${error.message}`);
+  if (error?.code === '23505' || (!error && !data)) {
+    throw new Error(`슬러그 충돌: /blog/${input.slug}를 다른 실행이 먼저 저장했다 — 덮어쓰지 않고 중단한다`);
+  }
+  if (error || !data) {
+    throw new Error(`블로그 포스트 저장 실패: ${error?.message ?? '응답 없음'}`);
   }
 
-  // 이미 발행된 글의 수정도 재크롤 대상이다. 발행 시점(publishBlogPost)에만 알리면
+  // 이미 발행된 글의 수정도 재크롤 대상이다. 발행 시점에만 알리면
   // 종목 수치 정정 같은 변경이 Bing·네이버에 영영 전달되지 않는다.
   if (status === 'published') {
     await notifyIndexNow([`${siteConfig.domain}/blog/${input.slug}`]);
@@ -104,13 +107,13 @@ export async function countPublishedToday(now: number = Date.now()): Promise<num
  */
 export async function findBlogPostStatus(
   slug: string,
-): Promise<{ status: string; title: string; updated_at: string | null } | null> {
+): Promise<{ status: string; title: string; content: string; updated_at: string | null } | null> {
   const supabase = getServerSupabaseClient();
   const { data } = await supabase
     .from('blog_posts')
-    .select('status, title, updated_at')
+    .select('status, title, content, updated_at')
     .eq('slug', slug)
-    .maybeSingle<{ status: string; title: string; updated_at: string | null }>();
+    .maybeSingle<{ status: string; title: string; content: string; updated_at: string | null }>();
   return data ?? null;
 }
 
@@ -131,33 +134,6 @@ export async function blogPostExists(slug: string): Promise<boolean> {
   return data !== null;
 }
 
-/**
- * 블로그 포스트 발행 (status: published, published_at 기록)
- * @param slug - 발행할 포스트의 슬러그
- * @returns 발행된 블로그 포스트
- */
-export async function publishBlogPost(slug: string): Promise<BlogPost> {
-  const supabase = getServerSupabaseClient();
-
-  const { data, error } = await supabase
-    .from('blog_posts')
-    .update({
-      status: 'published',
-      published_at: new Date().toISOString(),
-    })
-    .eq('slug', slug)
-    .select()
-    .single<BlogPost>();
-
-  if (error) {
-    throw new Error(`발행 실패: ${error.message}`);
-  }
-
-  // IndexNow: 발행 즉시 Bing·네이버에 통보 (실패해도 발행에 영향 없음)
-  await notifyIndexNow([`${siteConfig.domain}/blog/${slug}`]);
-
-  return data;
-}
 
 /**
  * 블로그 포스트 조회수 증가 (RPC 원자적 연산, fallback 포함)

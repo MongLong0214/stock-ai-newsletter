@@ -23,7 +23,7 @@ vi.mock('../_services/ymyl-gate', () => ({ checkYmyl: vi.fn(async () => []) }));
 vi.mock('../_services/blog-repository', () => ({
   saveBlogPost: mockSave,
   countPublishedToday: vi.fn(async () => 0),
-  findBlogPostStatus: vi.fn(), publishBlogPost: vi.fn(),
+  findBlogPostStatus: vi.fn(),
   blogPostExists: vi.fn(async () => false),
 }));
 // 시세·시각자료는 타임아웃 예산과 무관하다 — 네트워크 없이 본문을 그대로 돌려준다
@@ -133,6 +133,23 @@ describe('blog LLM timeout budgets', () => {
     expect(mockCreateResponse).toHaveBeenCalledTimes(6);
     expect(mockSave).not.toHaveBeenCalled();
     expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it('does not start humanization when too little run time remains', async () => {
+    // 앞선 시도들이 시간을 다 써 72분째에 생성이 끝난 상황 — 75분 한도에 강제 종료되기 전에 사유를 남기고 멈춘다
+    mockSearch.mockImplementationOnce(async () => {
+      vi.setSystemTime(Date.now() + 72 * 60_000);
+      return [{ link: 'https://example.com/article' }];
+    });
+    mockCreateResponse.mockImplementationOnce(responseAfter(JSON.stringify(content), 1_000));
+
+    const result = generateWithDynamicKeywords();
+    await vi.advanceTimersByTimeAsync(10_000);
+
+    expect(await result).toEqual([]);
+    expect(mockCreateResponse).toHaveBeenCalledTimes(1);
+    expect(mockSave).not.toHaveBeenCalled();
+    expect(console.error).toHaveBeenCalledWith(expect.stringContaining('윤문을 시작하지 않는다'));
   });
 
   it('waits for two full timeouts, maximum retry backoff, and a slow successful final attempt', async () => {

@@ -14,14 +14,17 @@ export const IMAGE_STYLE_SUFFIX = [
   'Style: photorealistic news photograph for a Korean financial publication, shot on location like a real photojournalist:',
   'one strong, instantly recognizable main subject filling most of the frame, close-to-medium framing, shallow depth of field,',
   'natural rich colors and realistic light with clear contrast, real textures, high detail.',
-  'It must look like a real photo of the actual subject, not a conceptual still life:',
+  'It must look like a real photo of the actual subject, not a conceptual still life.',
+  'A reader who sees only this photo must be able to guess the topic at a glance: the main subject is the object people first picture for this topic,',
+  'not a behind-the-scenes chore (cleaning, repairs, warehouse scanning, server rooms, cards or papers handed over a counter).',
+  'Physical coins are allowed as a subject (for example a few generic gold cryptocurrency coins with an embossed ₿ symbol); a currency symbol on a coin is not text.',
   'no symbolic props such as wooden blocks, marbles, chess pieces, puzzle pieces, balance scales, hourglasses or piggy banks,',
   'and no empty generic offices, desks or meeting rooms.',
   'People may appear only as anonymous figures (seen from behind, hands at work, distant or out-of-focus figures) with no clearly visible face.',
   'Screens may appear only blurred so that nothing on them can be read.',
   'Strictly forbidden: readable text, letters or numbers, logos, watermarks, brand marks, signage with words,',
   'charts or tickers with readable values, identifiable real company buildings or products, real celebrities or politicians,',
-  'money piles, bull or bear figures, rockets, neon glow and dramatic lens flare.',
+  'piles of banknotes, bull or bear figures, rockets, neon glow and dramatic lens flare.',
 ].join(' ');
 
 /**
@@ -37,13 +40,14 @@ export function buildImageQaPrompt(input: { alt: string; topic: string }): strin
 You are the photo desk QA for a Korean financial news site. Inspect the attached generated photo strictly, at normal web viewing size.
 
 Report true for each problem you can see:
-- text: letters, numbers, or words a reader could actually read at normal web viewing size, or a prominent text-like block that draws the eye. Ignore tiny incidental marks that cannot be read (key markings, distant labels, texture patterns).
-- logo: a recognizable brand mark, emblem, or trademark. Ignore a tiny generic shape nobody could identify as a brand.
+- text: letters, numbers, or words a reader could actually read at normal web viewing size, or a prominent text-like block that draws the eye. Ignore tiny incidental marks that cannot be read (key markings, distant labels, texture patterns) and a currency symbol such as ₿ or ₩ embossed on a coin.
+- logo: a recognizable brand mark, emblem, or trademark. Ignore a tiny generic shape nobody could identify as a brand. The ₿ currency symbol on a generic coin is not a brand mark.
 - face: a clearly visible, in-focus human face. Figures seen from behind, hands, silhouettes, and distant or blurred people are fine.
 - screen: a screen whose content can be read (text, numbers, app or website interface). A blurred, unreadable screen glow is fine.
 - chart: a chart, graph, candlestick, or ticker with readable axes or values. Unreadable blurred lines in the background are fine.
 - artifact: obvious AI distortion (melted or merged objects, extra fingers, impossible geometry) a reader would notice.
 - alt_mismatch: the Korean alt text below names an object or scene that is not actually in the photo.
+- generic: the main subject is a behind-the-scenes chore or interchangeable everyday scene (cleaning, bed-making, repairs, scanning boxes in a warehouse, a server room, cards or papers or cash handed over a counter, hands alone) that a typical Korean reader could NOT link to the topic below without a caption. A photo whose main subject is the topic's own product, asset, place or event (a crypto coin for crypto, a listing ceremony bell for an IPO, an airliner or famous destination for travel, the actual appliance for a rental business) is not generic.
 - off_topic: judge by subject matter only. The photo is not allowed to show company names or logos, so never require it to identify a specific company; a scene of that company's industry, product type, or the event at issue is on-topic. Report true only when the depicted subject is unrelated to the topic below, when it is a symbolic still life (blocks, marbles, chess pieces, scales, an empty generic office or desk), or when it is a generic scene with no link to the topic's industry or event (a hand holding a phone, a random office tower, plain paperwork).
 
 <topic>${input.topic.replace(/[<>]/g, ' ')}</topic>
@@ -51,7 +55,7 @@ Report true for each problem you can see:
 
 Also write observed_ko: one objective Korean sentence of 30-100 characters describing only what is actually visible in the photo (no numbers, no company names, no opinions).
 
-Output JSON only: {"text":false,"logo":false,"face":false,"screen":false,"chart":false,"artifact":false,"alt_mismatch":false,"off_topic":false,"note":"<one short English sentence>","observed_ko":"<Korean sentence>"}
+Output JSON only: {"text":false,"logo":false,"face":false,"screen":false,"chart":false,"artifact":false,"alt_mismatch":false,"off_topic":false,"generic":false,"note":"<one short English sentence>","observed_ko":"<Korean sentence>"}
 `.trim();
 }
 
@@ -94,10 +98,19 @@ ${sections}
 2. 섹션 이미지 최소 ${input.minSections}장, 최대 ${input.maxSections}장: 실제 현장·사물로 보여 줄 수 있는 H2 섹션을 고른다.
    수수료·세금·손익·금리처럼 추상적인 글도 그 돈이 오가는 실제 장소·사물·절차가 있다. 그것을 찾아 최소 ${input.minSections}장은 반드시 채운다.
    FAQ·출처·요약·정리·체크리스트·용어 정의 섹션, "데이터로 보는"으로 시작하는 섹션은 고르지 않는다.
-   섹션 이미지도 그 섹션이 다루는 구체 대상을 보여 준다. 이미지끼리 장면이 겹치지 않게 한다(같은 공장 반복 금지).
+   섹션 이미지도 그 섹션이 다루는 구체 대상을 보여 주고 같은 3초 연상 테스트를 통과해야 한다(섹션 제목을 가려도 무엇에 관한 섹션인지 짐작된다).
+   이미지끼리 장면이 겹치지 않게 한다(같은 공장 반복 금지). 커버의 주인공 피사체(예: ₿ 코인, 상장 종)를 섹션에서 다시 주인공으로 쓰지 않는다 —
+   섹션은 그 섹션만의 다른 구체 대상(예: 가상자산 거래소 글의 "고객 자산 보관" 섹션 → 하드웨어 지갑, "수수료 수익" 섹션 → 거래소 고객센터·광고판이 걸린 거리)을 주인공으로 한다.
 </task>
 
 <rules>
+- 3초 연상 테스트(가장 중요): 글자를 다 가리고 사진만 봐도 평범한 한국 개인투자자가 "아, ○○ 얘기구나" 하고 주제를 맞혀야 한다.
+  주인공 피사체는 그 주제를 들었을 때 누구나 머릿속에 제일 먼저 떠올리는 대표 사물·장면이다. 고르는 순서:
+  ① 주제 그 자체의 대표 사물 — 가상자산·코인 거래소 → 실물 코인 모양의 가상화폐(₿가 새겨진 금색 코인), 공모주·상장 → 상장 기념식의 큰 종과 축하 꽃다발,
+     패키지여행 → 여객기·유명 관광지, 반도체 → 웨이퍼·칩, 정수기 렌털 → 정수기, 조선 → 도크에서 건조 중인 거대한 선박, 방산 → 전차·자주포, 2차전지 → 배터리 셀
+  ② 그 제품·서비스를 소비자가 실제로 쓰는 장면 ③ 쟁점 사건의 현장.
+  실패: 뒷단 업무 장면(청소·침구 정리·정비·창고 스캔·서버실·창구에서 카드·서류·돈 건네기·ATM 현금 인출·손만 클로즈업)은 그 업무 자체가 글 주제가 아니면 쓰지 않는다.
+  사진만 보고 업종을 맞힐 수 없고, 검수가 generic으로 탈락시킨다.
 - scene: 영어 50~100단어. 이 글에만 맞는 구체적인 실제 현장·사물 사진이다. 주인공 피사체 하나가 화면 대부분을 차지하게 하고, 장소·구도·빛을 구체적으로 쓴다.
   · 핵심 대상 + 쟁점을 한 장면에 함께 담는다. 대상은 그 회사의 실제 주력 제품·그 사건의 쟁점 사물·그 상품이 실제로 쓰이는 장면이고, 쟁점은 제목의 이슈(소송·실적·청약·선거·배당 등)다.
     예) 메디톡스 소송 → 법정 판사석 앞 탁자에 놓인 소형 주사제 바이알(배경은 흐린 법정)
@@ -113,9 +126,9 @@ ${sections}
   · 화면·글자가 주인공인 장면은 쓰지 않는다: 모니터·노트북·스마트폰·태블릿·전광판 화면, 인쇄된 서류·계약서·투자설명서·영수증·신청서·표.
     검수가 읽히는 화면과 글자 덩어리를 탈락시키므로 이런 장면은 다시 그려도 떨어진다. 화면은 배경에 아주 작고 흐리게만 허용한다.
     추상적인 주제는 화면 대신 그 일이 일어나는 실제 장소·사물로 보여 준다.
-    예) 공모주 수수료 → 증권사 지점 상담 창구 앞에서 차례를 기다리는 고객들의 뒷모습과 번호표 발급기
-        가상자산 거래소 적자 → 거래소 데이터센터의 길게 늘어선 서버 랙과 케이블
-        주식 양도세 → 세무서 민원실 창구와 대기 의자
+    예) 공모주 수수료 → 상장 기념식 무대의 큰 종과 축하 꽃다발(전광판은 흐리게)
+        가상자산 거래소 적자 → 어두운 책상 위 ₿가 새겨진 금색 실물 코인 몇 개, 차갑고 낮은 붉은 조명
+        패키지여행사 비교 → 활주로에서 이륙하는 여객기와 창가 좌석
   · 사람은 얼굴이 보이지 않는 익명 인물(뒷모습·손·멀리 흐릿한 사람)로만 넣는다. 화면은 흐려서 내용을 읽을 수 없게 쓴다. 읽을 수 있는 글자·숫자·로고, 특정 실존 기업의 건물·제품·로고, 실존 인물은 묘사하지 않는다.
 - alt: 한국어 40~110자. 이미지에 실제로 보이는 것을 객관적으로 묘사한다. 사실 주장·수치·평가를 넣지 않는다. 커버 alt에는 키워드를 자연스럽게 한 번 넣는다.
 - caption: 한국어 60자 이내. 이미지가 그 섹션의 어떤 내용을 표현하는지 설명한다. 실제 해당 기업·현장 사진인 것처럼 쓰지 않는다("~를 표현한 이미지").

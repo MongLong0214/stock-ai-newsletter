@@ -28,7 +28,6 @@ const keywordMetadataSchema = z.object({
   reasoning: z.string(),
 });
 
-const keywordsArraySchema = z.array(keywordMetadataSchema);
 
 interface KeywordGenerationResult {
   success: boolean;
@@ -66,20 +65,23 @@ async function getUsedContent(): Promise<UsedContent> {
   // .range()를 반복하면 그 사이 삽입·갱신으로 암묵 순서가 바뀌어 경계 행이 중복·누락된다
   // (누락된 제목은 중복 방지 집합에 안 들어가고, 같은 주제가 또 발행된다).
   const [titles, allTime, recent, shortTerm] = await Promise.all([
-    fetchAllRows<{ title: string | null }>((from, to) =>
-      supabase.from('blog_posts').select('title').not('title', 'is', null).order('slug').range(from, to)),
+    fetchAllRows<{ title: string | null; created_at: string }>((from, to) =>
+      supabase.from('blog_posts').select('title, created_at').not('title', 'is', null).order('slug').range(from, to)),
     // 전 기간 target_keyword — 관련주 클러스터는 기간 만료 없이 차단한다
     fetchAllRows<{ target_keyword: string | null }>((from, to) =>
       supabase.from('blog_posts').select('target_keyword').not('target_keyword', 'is', null).order('slug').range(from, to)),
-    fetchAllRows<{ target_keyword: string | null }>((from, to) =>
-      supabase.from('blog_posts').select('target_keyword').not('target_keyword', 'is', null)
+    fetchAllRows<{ target_keyword: string | null; created_at: string }>((from, to) =>
+      supabase.from('blog_posts').select('target_keyword, created_at').not('target_keyword', 'is', null)
         .gte('created_at', days90Ago).order('slug').range(from, to)),
-    fetchAllRows<{ secondary_keywords: string[] | null }>((from, to) =>
-      supabase.from('blog_posts').select('secondary_keywords').gte('created_at', days30Ago).order('slug').range(from, to)),
+    fetchAllRows<{ secondary_keywords: string[] | null; created_at: string }>((from, to) =>
+      supabase.from('blog_posts').select('secondary_keywords, created_at').gte('created_at', days30Ago).order('slug').range(from, to)),
   ]);
-  const titlesRes = { data: titles };
-  const recentRes = { data: recent };
-  const shortTermRes = { data: shortTerm };
+  // 페이지네이션은 slug 순이지만 프롬프트는 목록의 **끝**(최근 50개 제목·100개 키워드)만 싣는다.
+  // slug 순 그대로 자르면 최근 글이 빠져 LLM이 방금 쓴 주제를 다시 내놓는다 — 작성 시각 순으로 정렬한다.
+  const byCreated = (a: { created_at: string }, b: { created_at: string }) => a.created_at.localeCompare(b.created_at);
+  const titlesRes = { data: [...titles].sort(byCreated) };
+  const recentRes = { data: [...recent].sort(byCreated) };
+  const shortTermRes = { data: [...shortTerm].sort(byCreated) };
 
   const allKeywords = new Set<string>();
   const allTitles: string[] = [];
@@ -88,19 +90,21 @@ async function getUsedContent(): Promise<UsedContent> {
     if (post.title) allTitles.push(post.title.trim());
   });
 
-  (recentRes.data ?? []).forEach((post) => {
-    if (post.target_keyword) {
-      allKeywords.add(post.target_keyword.toLowerCase().trim());
+  // 대표 키워드(90일)와 보조 키워드(30일)를 작성 시각 순으로 합친다. 따로 이어 붙이면 끝 100개가
+  // 보조 키워드로만 채워져 최근 대표 키워드가 프롬프트 제외 목록에서 빠진다.
+  const keywordEvents = [
+    ...(recentRes.data ?? []).map((post) => ({ at: post.created_at, words: [post.target_keyword] })),
+    ...(shortTermRes.data ?? []).map((post) => ({ at: post.created_at, words: Array.isArray(post.secondary_keywords) ? post.secondary_keywords : [] })),
+  ].sort((a, b) => a.at.localeCompare(b.at));
+  for (const event of keywordEvents) {
+    for (const kw of event.words) {
+      if (!kw) continue;
+      const key = kw.toLowerCase().trim();
+      // 다시 나온 키워드는 끝(최근)으로 옮긴다
+      allKeywords.delete(key);
+      allKeywords.add(key);
     }
-  });
-
-  (shortTermRes.data ?? []).forEach((post) => {
-    if (Array.isArray(post.secondary_keywords)) {
-      post.secondary_keywords.forEach((kw: string) => {
-        if (kw) allKeywords.add(kw.toLowerCase().trim());
-      });
-    }
-  });
+  }
 
   const allTimeKeywords = allTime
     .map((row) => row.target_keyword?.toLowerCase().trim())
@@ -139,12 +143,18 @@ async function generateKeywordsWithAI(
   }
 
   try {
-    const parsed = keywordsArraySchema.safeParse(JSON.parse(jsonText));
-    if (!parsed.success) {
-      console.warn('[KeywordGen] AI 응답 Zod 검증 실패:', parsed.error.message);
+    const raw: unknown = JSON.parse(jsonText);
+    if (!Array.isArray(raw)) {
+      console.warn('[KeywordGen] AI 응답이 배열이 아님');
       return [];
     }
-    const keywords: KeywordMetadata[] = parsed.data;
+    // 항목별로 검증한다. 배열 통째로 검증하면 enum 하나 어긋난 항목 때문에 나머지 후보까지(최대 300초 호출분) 버려진다.
+    const keywords: KeywordMetadata[] = [];
+    for (const item of raw) {
+      const parsed = keywordMetadataSchema.safeParse(item);
+      if (parsed.success) keywords.push(parsed.data);
+      else console.warn('[KeywordGen] 후보 Zod 검증 탈락:', parsed.error.issues[0]?.message ?? 'invalid');
+    }
 
 
     const validKeywords: KeywordMetadata[] = [];
@@ -229,7 +239,7 @@ async function applySearchVolumeGate(keywords: KeywordMetadata[]): Promise<Keywo
   }
 
   // 네이버는 relKeyword의 ASCII를 대문자로 돌려준다 — 케이스 폴딩 없이는 영문 키워드(RSI·ETF·PER)가 전부 미매칭
-  const normalize = (k: string) => k.replace(/\s+/g, '').toUpperCase();
+  const normalize = (k: string) => k.replace(/[\s,]+/g, '').toUpperCase();
 
   // 키워드별 변형을 한 번에 모아 유니크 힌트로 조회한다 — 같은 헤드를 공유하는
   // 키워드가 여러 개면 호출 수가 줄어든다.
@@ -241,7 +251,12 @@ async function applySearchVolumeGate(keywords: KeywordMetadata[]): Promise<Keywo
   for (let i = 0; i < hints.length; i += HINT_KEYWORD_LIMIT) {
     const batch = hints.slice(i, i + HINT_KEYWORD_LIMIT);
     try {
-      const rows = await fetchKeywordVolumes(creds, batch);
+      // 일시 오류(429·5xx·타임아웃) 한 번에 그 배치 후보가 전부 탈락하지 않도록 1초 뒤 한 번 더 묻는다
+      const rows = await fetchKeywordVolumes(creds, batch).catch(async (error) => {
+        console.warn(`[KeywordGen] 검색량 조회 재시도: ${error instanceof Error ? error.message : String(error)}`);
+        await new Promise((r) => setTimeout(r, 1_000));
+        return fetchKeywordVolumes(creds, batch);
+      });
       for (const hint of batch) {
         const row = rows.find((v) => normalize(v.keyword) === normalize(hint));
         measured.set(normalize(hint), row?.total ?? 0);
@@ -293,11 +308,12 @@ export async function generateKeywords(
     const startedAt = Date.now();
     let attempt = 0;
     let lastError: unknown;
+    let gateMs = 0;
 
     while (keywordMap.size < requestedCount && attempt < maxRetries) {
-      // 첫 시도는 항상 한다. 이후는 호출 1회가 예산 안에 끝날 수 있을 때만 시작한다 —
-      // 바깥 타임아웃이 먼저 터지면 이미 모은 키워드까지 버려진다.
-      if (attempt > 0 && Date.now() - startedAt + KEYWORD_CONFIG.timeout > KEYWORD_CONFIG.budget) {
+      // 첫 시도는 항상 한다. 이후는 호출 1회 + 검색량 조회(직전 실측)까지 예산 안에 끝날 수 있을 때만 시작한다 —
+      // 바깥 타임아웃이 먼저 터지면 이미 모은 키워드까지 버려진다(검색량 조회를 빼고 계산해 1,060초 경로가 있었다).
+      if (attempt > 0 && Date.now() - startedAt + KEYWORD_CONFIG.timeout + gateMs > KEYWORD_CONFIG.budget) {
         console.warn(`[KeywordGen] 예산 부족 — 시도 ${attempt}회에서 중단 (확보 ${keywordMap.size}개로 진행)`);
         break;
       }
@@ -321,11 +337,12 @@ export async function generateKeywords(
 
       // 볼륨 게이트를 루프 안에서 배치별로 적용 — 게이트 탈락이 재생성을 트리거해야
       // 남은 재시도 횟수가 실제로 쓰인다 (루프 밖에 두면 탈락분만큼 그냥 모자란 채 끝난다)
+      const gateStartedAt = Date.now();
       const passed = await applySearchVolumeGate(newKeywords);
-      passed.forEach((kw) => {
-        keywordMap.set(kw.keyword.toLowerCase(), kw);
-        usedContent.keywords.push(kw.keyword);
-      });
+      gateMs = Math.max(gateMs, Date.now() - gateStartedAt);
+      passed.forEach((kw) => keywordMap.set(kw.keyword.toLowerCase(), kw));
+      // 검색량에서 떨어진 후보도 제외 목록에 넣는다 — 다음 시도에서 같은 후보를 다시 받아 호출을 낭비하지 않는다
+      newKeywords.forEach((kw) => usedContent.keywords.push(kw.keyword.toLowerCase().trim()));
       if (passed.length < newKeywords.length) {
         console.log(`[KeywordGen] 시도 ${attempt}: ${newKeywords.length}개 중 ${passed.length}개 게이트 통과`);
       }
