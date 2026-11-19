@@ -49,7 +49,7 @@ function isCoveredBy(a: Set<string>, b: Set<string>): boolean {
  * 일반 교육 주제("RSI 활용법")까지 실체어 부분집합으로 막으면 과차단이 된다
  * (RSI 글 하나가 RSI 주제 전체를 영구 차단). 관련주 리스트는 성격이 다르다 —
  * 같은 테마의 관련주 글은 새 URL이 아니라 기존 글 갱신이어야 한다. */
-export const RELATED_STOCK_RE = /관련주|수혜주|대장주|테마주/;
+export const RELATED_STOCK_RE = /관련\s*주|수혜\s*주|대장\s*주|테마\s*주|(관련|수혜|테마|대장)\s*종목/;
 
 /**
  * 새 키워드가 기존 키워드 중 하나와 같은 관련주 클러스터인가.

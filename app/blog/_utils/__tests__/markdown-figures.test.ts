@@ -1,11 +1,14 @@
-import { describe, expect, it } from 'vitest';
-import { parseMarkdown, wrapFigures, wrapTables } from '../markdown-parser';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+import { dropForeignImages, parseMarkdown, wrapFigures, wrapTables } from '../markdown-parser';
 
 const COVER = 'https://x.supabase.co/storage/v1/object/public/blog-images/posts/a/r-cover-1536x1024.webp';
 const SECTION = 'https://x.supabase.co/storage/v1/object/public/blog-images/posts/a/r-section1-1536x1024.webp';
 const CHART = 'https://x.supabase.co/storage/v1/object/public/blog-images/posts/a/r-chart-1600x900.png';
 
 describe('blog figures', () => {
+  beforeAll(() => vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', 'https://x.supabase.co'));
+  afterAll(() => vi.unstubAllEnvs());
+
   it('turns standalone images into figures with intrinsic size, captions and loading hints', async () => {
     const html = await parseMarkdown([
       `![커버 설명](${COVER} "커버 캡션 · AI 생성 이미지")`,
@@ -34,6 +37,14 @@ describe('blog figures', () => {
     const html = await parseMarkdown('![x](javascript:alert(1) "bad")');
     expect(html).not.toContain('javascript:');
     expect(html).not.toContain('<figure>');
+  });
+
+  it('drops images that are not in our storage bucket', async () => {
+    const html = await parseMarkdown(`도입\n\n![외부](https://evil.example/pixel.png "x")\n\n본문 ![추적](https://evil.example/t.gif) 끝\n\n![커버](${COVER})`);
+    expect(html).not.toContain('evil.example');
+    expect(html).not.toContain('<p></p>');
+    expect(html).toContain(`src="${COVER}"`);
+    expect(dropForeignImages('<p><img src="https://x.supabase.co.evil/storage/v1/object/public/blog-images/a.webp"></p>')).toBe('');
   });
 
   it('leaves inline images inside text untouched', () => {

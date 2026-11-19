@@ -352,13 +352,27 @@ export async function buildMarketContext(keyword: string, deadline: number): Pro
 
 // --- 본문 대조 ---
 
-const PERIOD_RE = /1년|일 년|한 해|연간|52주|1개월|한 달|한달|3개월|석 달|세 달/;
+// 앞자리 숫자 제외 — "2021년"·"11개월"을 1년·1개월로 읽지 않는다
+const PERIOD_RE = /(?<!\d)(1년|52주|1개월|3개월)|일 년|한 해|연간|한 ?달|석 달|세 달/;
 const PRICE_MOVE_RE = /주가|종가|등락|상승|하락|올랐|내렸|오른|내린|올라|내려|떨어|빠졌|급등|급락|수익률/;
 /** 주가 등락률이 아닌 % 수치를 말하는 문장 (실적·밸류에이션·지분 등) */
 const NON_PRICE_FIGURE_RE = /영업이익|매출|순이익|이익|실적|배당|PER|PBR|ROE|점유율|성장률|목표|지분|금리|비중|확률/i;
 const PERCENT_RE = /(\d+(?:\.\d+)?)\s*%/g;
+/** 주가 자체를 가리키는 말 — 실적 문장 안에서 주가 절을 고를 때 쓴다 */
+const STOCK_PRICE_RE = /주가|종가|등락률|수익률/;
 /** 본문 수치와 검증값의 허용 오차(%p) — "약 45%"처럼 반올림한 표현은 받아 준다 */
 const FIGURE_TOLERANCE = 0.6;
+const UP_RE = /상승|올랐|오른|올라|급등|뛰었|뛴|반등/;
+const DOWN_RE = /하락|내렸|내린|내려|떨어|빠졌|빠진|급락|밀렸|밀린/;
+const fromStart = (s: StockSnapshot) => pct(s.close, s.series[0]?.close);
+/** 문장이 가리키는 기간·기준점별 검증값. 여러 개를 말하면 말한 것들의 값만 허용한다 */
+const PERIOD_FIGURES: ReadonlyArray<{ re: RegExp; values: (s: StockSnapshot) => Array<number | null> }> = [
+  { re: /최고|고점/, values: (s) => [s.fromHighPct] },
+  { re: /최저|저점/, values: (s) => [pct(s.close, s.low.close)] },
+  { re: /(?<!\d)(1년|52주)|일 년|한 해|연간/, values: (s) => [s.returns.y1, fromStart(s)] },
+  { re: /(?<!\d)1개월|한 ?달/, values: (s) => [s.returns.m1] },
+  { re: /(?<!\d)3개월|석 달|세 달/, values: (s) => [s.returns.m3] },
+];
 
 /**
  * 본문에서 검증 시세와 어긋나는 등락률을 말하는 문장.
@@ -368,20 +382,41 @@ const FIGURE_TOLERANCE = 0.6;
  * 어디에도 맞지 않으면 어긋난 문장이다. 표는 건너뛴다.
  */
 export function findContradictedSentences(ctx: MarketContext, body: string): string[] {
-  const figures = (s: StockSnapshot) =>
-    [s.returns.m1, s.returns.m3, s.returns.y1, pct(s.close, s.series[0]?.close), s.fromHighPct, pct(s.close, s.low.close)]
-      .filter((v): v is number => v !== null)
-      .map(Math.abs);
   const out: string[] = [];
-  for (const sentence of body.split(/\n+|(?<=[.!?])\s+/)) {
-    if (sentence.trimStart().startsWith('|')) continue;
+  for (const line of body.split(/\n+|(?<=[.!?])\s+/)) {
+    // 표 행은 칸을 이어 한 문장으로 본다 — "| 삼성전자 | 1년 주가 상승률 | 90% |"도 같은 주장이다
+    const sentence = line.trimStart().startsWith('|') ? line.replace(/\|/g, ' ') : line;
     const named = ctx.stocks.filter((s) => sentence.includes(s.name));
-    if (named.length === 0 || !PERIOD_RE.test(sentence) || !PRICE_MOVE_RE.test(sentence) || NON_PRICE_FIGURE_RE.test(sentence)) continue;
-    const allowed = named.flatMap(figures);
-    const stated = [...sentence.matchAll(PERCENT_RE)].map((m) => Number(m[1]));
-    if (stated.some((v) => !allowed.some((a) => Math.abs(a - v) <= FIGURE_TOLERANCE))) out.push(sentence.trim());
+    if (named.length === 0 || !PERIOD_RE.test(sentence) || !PRICE_MOVE_RE.test(sentence)) continue;
+    // 실적 수치가 섞인 문장은 통째로 건너뛰지 않고, 주가를 말하는 절만 본다("주가는 1년 90% 올랐고 매출도 늘었다")
+    if (NON_PRICE_FIGURE_RE.test(sentence)) {
+      const priceClauses = sentence.split(/,|(?<=고|며|지만|는데|면서)\s/).filter((c) => STOCK_PRICE_RE.test(c) && !NON_PRICE_FIGURE_RE.test(c));
+      if (priceClauses.some((c) => contradicts(named, sentence, c))) out.push(line.trim());
+      continue;
+    }
+    if (contradicts(named, sentence, sentence)) out.push(line.trim());
   }
   return out;
+}
+
+/**
+ * clause의 % 수치가 검증값과 다른가. 방향어가 한쪽뿐이면 부호까지, 말한 기간·기준점의 값만 맞춘다
+ * (절댓값·전 기간으로만 보면 "1년 +10%"를 "1년 10% 하락"으로, "1개월 +2%"를 "1년 2% 상승"으로 써도 통과한다).
+ * 방향·기간은 절에 있으면 절에서, 없으면 문장 전체(context)에서 읽는다.
+ */
+function contradicts(named: readonly StockSnapshot[], context: string, clause: string): boolean {
+  const scope = (test: (t: string) => boolean) => (test(clause) ? clause : context);
+  const dirText = scope((t) => UP_RE.test(t) || DOWN_RE.test(t));
+  const up = UP_RE.test(dirText);
+  const down = DOWN_RE.test(dirText);
+  const sign = up === down ? 0 : up ? 1 : -1;
+  const periodText = scope((t) => PERIOD_FIGURES.some((p) => p.re.test(t)));
+  const periods = PERIOD_FIGURES.filter((p) => p.re.test(periodText));
+  const allowed = named.flatMap((s) => periods.flatMap((p) => p.values(s)).filter((v): v is number => v !== null));
+  const stated = [...clause.matchAll(PERCENT_RE)].map((m) => Number(m[1]));
+  const matches = (v: number, a: number) =>
+    sign === 0 ? Math.abs(Math.abs(a) - v) <= FIGURE_TOLERANCE : Math.abs(a - sign * v) <= FIGURE_TOLERANCE;
+  return stated.some((v) => !allowed.some((a) => matches(v, a)));
 }
 
 /**
@@ -391,12 +426,18 @@ export function findContradictedSentences(ctx: MarketContext, body: string): str
  */
 export function alignMarketToBody(ctx: MarketContext | null, body: string): MarketContext | null {
   if (!ctx) return null;
-  const stocks = ctx.direct ? ctx.stocks : ctx.stocks.filter((s) => body.includes(s.name));
-  if (stocks.length === 0) {
+  const discussed = ctx.direct ? ctx.stocks : ctx.stocks.filter((s) => body.includes(s.name));
+  if (discussed.length === 0) {
     console.warn('[MarketData] 본문이 테마 대표 종목을 다루지 않음 — 데이터 섹션 생략');
     return null;
   }
-  const aligned: MarketContext = { ...ctx, stocks, asOf: stocks.map((s) => s.asOf).sort().at(-1) ?? ctx.asOf };
+  // 표·주석은 기준일 하나("○○ 종가 기준")로 쓰인다. 마지막 시세가 더 오래된 종목(거래정지 등)을 섞으면 며칠 전 가격이 최신으로 보인다.
+  const asOf = discussed.map((s) => s.asOf).sort().at(-1) ?? ctx.asOf;
+  const stocks = discussed.filter((s) => s.asOf === asOf);
+  if (stocks.length < discussed.length) {
+    console.warn(`[MarketData] 기준일(${asOf})과 다른 종목 제외: ${discussed.filter((s) => s.asOf !== asOf).map((s) => `${s.name}(${s.asOf})`).join(', ')}`);
+  }
+  const aligned: MarketContext = { ...ctx, stocks, asOf };
   const contradicted = findContradictedSentences(aligned, body);
   if (contradicted.length > 0) {
     console.warn(`[MarketData] 본문 등락률이 검증값과 다름 — 데이터 섹션 생략: ${contradicted.map((c) => c.slice(0, 80)).join(' / ')}`);

@@ -76,7 +76,8 @@ export function analyzeCompetitors(
   const regexCache = new Map<string, RegExp>();
 
   relatedKeywords.forEach((keyword) => {
-    regexCache.set(keyword, new RegExp(keyword, 'gi'));
+    // "+5%"·"C++" 같은 키워드가 정규식 문법으로 해석돼 SyntaxError로 초안 전체가 실패하지 않게 이스케이프한다
+    regexCache.set(keyword, new RegExp(keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'));
   });
 
   scrapedContents.forEach((content) => {

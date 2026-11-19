@@ -12,6 +12,7 @@
 import { randomBytes } from 'node:crypto';
 import { generateImage, generateText } from '@/lib/llm/openai-client';
 import { VISUAL_CONFIG } from '../_config/pipeline-config';
+import { ALL_PATTERNS, INVESTMENT_SOLICITATION_RE } from '../_config/clickbait-patterns';
 import { IMAGE_STYLE_SUFFIX, buildImageQaPrompt, buildVisualPlanPrompt } from '../_prompts/visual-plan';
 import { renderComparisonChart, renderPriceChart } from './chart-renderer';
 import { renderCover, type CoverOverlay } from './cover-renderer';
@@ -43,7 +44,7 @@ const QA_TIMEOUT_MS = 90_000;
  * (2026-11-17·18 커버가 모니터 화면 장면으로 두 번 연속 탈락).
  */
 const QA_REGENERATIONS = 2;
-const QA_FLAGS = ['text', 'logo', 'face', 'screen', 'chart', 'artifact', 'alt_mismatch', 'off_topic'] as const;
+const QA_FLAGS = ['text', 'logo', 'face', 'screen', 'chart', 'artifact', 'alt_mismatch', 'off_topic', 'generic'] as const;
 
 /** AI 이미지 활성화 여부 — `BLOG_AI_IMAGES=off`로 끌 수 있다(실측 데이터 섹션은 유지) */
 function aiImagesEnabled(): boolean {
@@ -121,7 +122,10 @@ export function parseVisualPlan(raw: string, headings: readonly string[], maxSec
 }
 
 const OVERLAY_BANNED = /폭등|폭락|대박|무조건|급등\s*확정|수익\s*보장|매수\s*추천|강력\s*추천|지금\s*사/;
-const NUMBER = /\d[\d,.]*/g;
+/** 커버 문구는 이미지 픽셀로만 존재해 본문 YMYL 게이트를 거치지 않는다 — 본문과 같은 권유·낚시 규칙을 여기서 건다 */
+const overlayViolates = (text: string) => OVERLAY_BANNED.test(text) || INVESTMENT_SOLICITATION_RE.test(text) || ALL_PATTERNS.some((re) => re.test(text));
+/** 숫자와 바로 뒤 단위 — 단위까지 맞춰야 "30만원"을 "30%"로 바꿔 쓰는 것을 막는다 */
+const NUMBER = /(\d[\d,.]*)\s*(%p|%|[원배만억조천개명년월일주건]|포인트)?/g;
 const digits = (t: string) => t.replace(/[,\s]/g, '');
 
 /**
@@ -134,8 +138,15 @@ export function validateOverlay(raw: CoverOverlay | null, source: string, keywor
   const src = digits(source);
   const safe = (text: string, min: number, max: number) => {
     const len = [...text].length;
-    if (len < min || len > max || OVERLAY_BANNED.test(text) || /[<>#*|`]/.test(text)) return false;
-    return (text.match(NUMBER) ?? []).every((n) => src.includes(digits(n).replace(/\.$/, '')));
+    if (len < min || len > max || overlayViolates(text) || /[<>#*|`]/.test(text)) return false;
+    // 숫자는 제목·본문에 같은 숫자·같은 단위로 있어야 한다. 부분 문자열로 보면 "10"이 "2026.10"에도 맞으므로 앞뒤가 숫자가 아닌 자리만 본다.
+    // 숫자 바로 앞 단어도 본문에서 그 숫자 앞(20자 안)에 있어야 한다 — "수수료 10%"를 "연간 수익률 10%"로 바꿔 다른 주장을 만들지 않게.
+    return [...text.matchAll(NUMBER)].every((m) => {
+      const [, n, unit = ''] = m;
+      const num = `(?<![\\d.])${digits(n).replace(/\.$/, '').replace(/\./g, '\\.')}(?![\\d])${unit}`;
+      const label = /([가-힣A-Za-z]{2,})\s*$/.exec(text.slice(0, m.index))?.[1];
+      return new RegExp(label ? `${label}.{0,20}?${num}` : num).test(src);
+    });
   };
   const words = keyword.split(/\s+/).filter((w) => w.length >= 2);
   const headline = raw && safe(raw.headline, 4, 20) && words.some((w) => raw.headline.includes(w)) ? raw.headline : promptSafe(keyword).slice(0, 20);
@@ -199,15 +210,21 @@ const QA_FIXES: Record<Exclude<QaFlag, 'alt_mismatch'>, string> = {
   face: 'Show people only from behind, as hands at work, or as distant out-of-focus figures.',
   artifact: 'Use a simpler, physically plausible composition with fewer, clearly separated objects.',
   off_topic: 'Show the concrete real-world subject of the topic directly, not a symbolic or generic scene.',
+  generic: 'Replace the main subject with the object a reader first pictures for this topic (its product, asset, place or event) so the topic is obvious without any caption; drop behind-the-scenes chores and hands-only close-ups.',
 };
 
 /**
  * 다시 그릴 장면. 앞 시도의 탈락 사유를 고치는 지시를 누적해 덧붙인다(같은 장면을 그대로 다시 그리면 같은 이유로 떨어진다).
  * 화면·서류 문제면 원래 장면이 화면 자체일 수 있으므로 주제의 실제 현장으로 바꾸라고 함께 지시한다.
+ * 범용·주제 이탈이면 장면 자체가 틀린 것이라 원래 장면을 넘기지 않는다 — 넘기면 같은 피사체(ATM 등)를 세 번 다시 그린다(실측 11/19).
  */
 export function revisedScene(scene: string, flags: readonly QaFlag[], topic: string): string {
   const fixes = [...new Set(flags)].filter((f): f is Exclude<QaFlag, 'alt_mismatch'> => f !== 'alt_mismatch').map((f) => QA_FIXES[f]);
   if (fixes.length === 0) return scene;
+  if (flags.some((f) => f === 'generic' || f === 'off_topic')) {
+    return `A realistic editorial photo whose main subject is the real-world object, place or event a Korean retail investor first pictures for this topic: ${topic}. `
+      + `The previous scene was rejected as generic, so choose a different main subject. ${fixes.join(' ')}`;
+  }
   const reframe = flags.some((f) => f === 'text' || f === 'screen' || f === 'chart')
     ? ` If the scene above is built around a screen or paperwork, replace it with the real place or object where this topic happens (${topic}).`
     : '';
@@ -237,7 +254,8 @@ export function parseImageQa(raw: string): ImageQaVerdict {
   } catch {
     return { ok: false, reasons: ['검수 응답 형식 오류'] };
   }
-  if (QA_FLAGS.some((f) => typeof parsed[f] !== 'boolean')) return { ok: false, reasons: ['검수 응답 항목 누락'] };
+  // generic(주제를 알아볼 수 없는 범용 장면)은 나중에 더한 항목이라 빠지면 false로 본다. 나머지는 빠지면 검수 실패다.
+  if (QA_FLAGS.some((f) => f !== 'generic' && typeof parsed[f] !== 'boolean')) return { ok: false, reasons: ['검수 응답 항목 누락'] };
   const flags = QA_FLAGS.filter((f) => parsed[f] === true);
   const note = typeof parsed.note === 'string' ? parsed.note.slice(0, 160) : '';
   const observed = str(parsed.observed_ko, 160);
@@ -367,7 +385,11 @@ export async function createPostVisuals(input: {
   let closed = false;
   const upload = async (name: string, data: Buffer, ext: 'webp' | 'png' | 'jpg', size: { width: number; height: number }) => {
     const path = `posts/${input.slug}/${runId}-${name}-${size.width}x${size.height}.${ext}`;
-    const url = await uploadBlogImage(path, data, ext === 'jpg' ? 'image/jpeg' : `image/${ext}`);
+    // 응답만 유실되고 객체는 저장됐을 수 있다 — 실패 시 그 경로를 지워 본다(목록에 없으니 나중엔 찾을 수 없다)
+    const url = await uploadBlogImage(path, data, ext === 'jpg' ? 'image/jpeg' : `image/${ext}`).catch(async (e: unknown) => {
+      await removeBlogImages([path]).catch(() => {});
+      throw e;
+    });
     if (closed) {
       await removeBlogImages([path]).catch(() => {});
       throw new Error(`마감 후 업로드 — 폐기 (${path})`);
@@ -408,10 +430,18 @@ export async function createPostVisuals(input: {
       let photoAlt = p.alt;
       let scene = p.scene;
       const rejected: QaFlag[] = [];
+      // 섹션 사진은 그 섹션 주제로 본다 — 글 전체 주제만 주면 섹션에 맞는 장면을 "주제와 무관"으로 오판한다
+      const qaTopic = isCover ? topic : `${topic} / 섹션: ${promptSafe(p.heading ?? '')}`;
       for (let attempt = 0; attempt <= QA_REGENERATIONS && !photo; attempt++) {
         const candidate = await generateWithFallback(`${scene}\n\n${IMAGE_STYLE_SUFFIX}`, quality, deadline, format);
         if (!candidate) return;
-        const qa = await inspectImage({ data: candidate, mimeType: `image/${format}` }, photoAlt, topic, deadline);
+        let qa = await inspectImage({ data: candidate, mimeType: `image/${format}` }, photoAlt, qaTopic, deadline);
+        if (!qa.ok && !qa.flags?.length) {
+          // 검수 자체가 실패했다(타임아웃·형식 오류) — 사진 문제가 아니니 새로 그리지 않고 같은 사진을 한 번 더 검수한다
+          console.warn(`[Visuals] 검수 실패 (${label}): ${qa.reasons.join(' / ')} — 같은 사진 재검수`);
+          qa = await inspectImage({ data: candidate, mimeType: `image/${format}` }, photoAlt, qaTopic, deadline);
+          if (!qa.ok && !qa.flags?.length) return;
+        }
         if (qa.ok) {
           photo = candidate;
         } else if (qa.flags?.length === 1 && qa.flags[0] === 'alt_mismatch' && qa.observedAlt) {
@@ -422,7 +452,7 @@ export async function createPostVisuals(input: {
         } else {
           console.warn(`[Visuals] 검수 탈락 (${label}, ${attempt + 1}차): ${qa.reasons.join(' / ')}`);
           rejected.push(...(qa.flags ?? []));
-          scene = revisedScene(p.scene, rejected, topic);
+          scene = revisedScene(p.scene, rejected, qaTopic);
         }
       }
       if (!photo) return;

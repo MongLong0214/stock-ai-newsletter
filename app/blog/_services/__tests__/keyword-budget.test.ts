@@ -5,12 +5,14 @@ vi.mock('@/lib/llm/openai-client', () => ({ generateText: mockGenerateText }));
 vi.mock('@/lib/supabase/server-client', () => ({ getServerSupabaseClient: () => ({}) }));
 vi.mock('@/lib/supabase/paginate', () => ({ fetchAllRows: vi.fn(async () => []) }));
 vi.mock('../tli-context', () => ({ fetchTLIContext: vi.fn(async () => undefined) }));
+const { mockVolumes } = vi.hoisted(() => ({ mockVolumes: vi.fn() }));
 vi.mock('@/lib/naver-searchad', () => ({
   HINT_KEYWORD_LIMIT: 5,
   credentialsFromEnv: () => ({ customerId: 'c', apiKey: 'k', secretKey: 's' }),
-  fetchKeywordVolumes: vi.fn(async (_creds: unknown, batch: string[]) =>
-    batch.map((keyword) => ({ keyword, pc: 1_000, mobile: 1_000, total: 2_000 }))),
+  fetchKeywordVolumes: mockVolumes,
 }));
+const volumes = async (_creds: unknown, batch: string[]) =>
+  batch.map((keyword) => ({ keyword, pc: 1_000, mobile: 1_000, total: 2_000 }));
 
 import { KEYWORD_CONFIG } from '../../_config/pipeline-config';
 import { generateKeywords } from '../keyword-generator';
@@ -27,6 +29,7 @@ describe('generateKeywords time budget (gpt-6.1-sol)', () => {
 
   beforeEach(() => {
     mockGenerateText.mockReset();
+    mockVolumes.mockReset().mockImplementation(volumes);
     log = vi.spyOn(console, 'log').mockImplementation(() => {});
     warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     error = vi.spyOn(console, 'error').mockImplementation(() => {});
@@ -64,6 +67,19 @@ describe('generateKeywords time budget (gpt-6.1-sol)', () => {
     const result = await pending;
     expect(mockGenerateText).toHaveBeenCalledTimes(1);
     expect(result).toMatchObject({ success: true, keywords: [expect.objectContaining({ keyword: '배당주 투자 방법' })] });
+  });
+
+  it('counts the search-volume lookup time before starting another attempt', async () => {
+    vi.useFakeTimers();
+    // 첫 호출 200초 + 검색량 조회 280초 → 480초. 호출 하나(300초)만 보면 780초 안이지만 조회까지 더하면 넘는다.
+    mockGenerateText.mockImplementationOnce(() => new Promise((resolve) => setTimeout(() => resolve(response('배당주 투자 방법')), 200_000)));
+    mockVolumes.mockImplementationOnce((creds: unknown, batch: string[]) =>
+      new Promise((resolve) => setTimeout(() => resolve(volumes(creds, batch)), 280_000)));
+    const pending = generateKeywords(4);
+    await vi.advanceTimersByTimeAsync(KEYWORD_CONFIG.budget);
+    const result = await pending;
+    expect(mockGenerateText).toHaveBeenCalledTimes(1);
+    expect(result.success).toBe(true);
   });
 
   it('still reports failure when every attempt errors', async () => {

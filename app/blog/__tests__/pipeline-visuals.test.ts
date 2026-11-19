@@ -1,9 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CompetitorAnalysis, GeneratedContent } from '../_types/blog';
 
-const { mockCreateResponse, mockSave, mockCheckYmyl, mockVisuals, mockRemoveImages, mockMarket } = vi.hoisted(() => ({
-  mockCreateResponse: vi.fn(), mockSave: vi.fn(), mockCheckYmyl: vi.fn(),
+const { mockCreateResponse, mockSave, mockCheckYmyl, mockVisuals, mockRemoveImages, mockMarket, mockContradicted, mockFindStatus } = vi.hoisted(() => ({
+  mockCreateResponse: vi.fn(), mockSave: vi.fn(), mockCheckYmyl: vi.fn(), mockFindStatus: vi.fn(),
   mockVisuals: vi.fn(), mockRemoveImages: vi.fn(), mockMarket: vi.fn(),
+  mockContradicted: vi.fn((): string[] => []),
 }));
 
 vi.mock('openai', () => ({
@@ -24,12 +25,13 @@ vi.mock('../_services/ymyl-gate', () => ({ checkYmyl: mockCheckYmyl }));
 vi.mock('../_services/blog-repository', () => ({
   saveBlogPost: mockSave,
   countPublishedToday: vi.fn(async () => 0),
-  findBlogPostStatus: vi.fn(), publishBlogPost: vi.fn(),
+  findBlogPostStatus: mockFindStatus,
   blogPostExists: vi.fn(async () => false),
 }));
 vi.mock('../_services/market-data', () => ({
   buildMarketContext: mockMarket,
   alignMarketToBody: vi.fn((market: unknown) => market),
+  findContradictedSentences: mockContradicted,
   formatMarketDataForPrompt: vi.fn(() => ''),
 }));
 vi.mock('../_services/post-visuals', () => ({ createPostVisuals: mockVisuals }));
@@ -83,6 +85,8 @@ describe('blog pipeline visuals integration', () => {
       .mockImplementationOnce(respond(JSON.stringify(content)))
       .mockImplementationOnce(respond(content.content));
     mockCheckYmyl.mockReset().mockResolvedValue([]);
+    mockSave.mockReset();
+    mockFindStatus.mockReset();
     mockMarket.mockReset().mockResolvedValue(MARKET);
     mockRemoveImages.mockReset().mockResolvedValue(undefined);
     mockVisuals.mockReset().mockImplementation(async ({ markdown }: { markdown: string }) => ({
@@ -131,6 +135,35 @@ describe('blog pipeline visuals integration', () => {
 
     expect(await result).toMatchObject({ success: false });
     expect(mockRemoveImages).not.toHaveBeenCalled();
+  });
+
+  it('treats a failed publish-save as committed only when the stored row is this exact post', async () => {
+    mockSave.mockRejectedValue(new Error('503'));
+    const row = (over: object) => ({ status: 'published', updated_at: new Date().toISOString(), ...over });
+    // 같은 slug·제목의 다른 초안(게이트를 거치지 않은 본문)을 이번 저장으로 착각하지 않는다
+    mockFindStatus.mockImplementation(async () => row({ status: 'draft', title: mockSave.mock.calls[0][0].title, content: '예전 초안' }));
+    const failed = generateBlogPost(KEYWORD, 'guide', true);
+    await vi.advanceTimersByTimeAsync(30_000);
+    expect(await failed).toMatchObject({ success: false });
+
+    mockCreateResponse.mockReset()
+      .mockImplementationOnce(respond(JSON.stringify(content)))
+      .mockImplementationOnce(respond(content.content));
+    mockFindStatus.mockImplementation(async () => {
+      const sent = mockSave.mock.calls.at(-1)![0];
+      return row({ title: sent.title, content: sent.content });
+    });
+    const committed = generateBlogPost(KEYWORD, 'guide', true);
+    await vi.advanceTimersByTimeAsync(30_000);
+    expect(await committed).toMatchObject({ success: true });
+  });
+
+  it('rejects the draft when the body states a price move that contradicts verified market data', async () => {
+    mockContradicted.mockReturnValueOnce(['삼성전자는 1년간 35% 올랐다']);
+
+    expect(await run()).toMatchObject({ success: false, error: expect.stringContaining('검증 시세와 다름') });
+    expect(mockVisuals).not.toHaveBeenCalled();
+    expect(mockSave).not.toHaveBeenCalled();
   });
 
   it('still publishes the text when market data and visuals fail', async () => {

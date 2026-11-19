@@ -1,6 +1,7 @@
 /** SerpApi 구글 검색 결과 수집 서비스 */
 
 import { SERP_API_CONFIG, PIPELINE_CONFIG } from '../_config/pipeline-config';
+import { siteConfig } from '@/lib/constants/seo/config';
 import type { SerpApiResponse, SerpSearchResult } from '../_types/blog';
 
 /** 텍스트 콘텐츠 스크래핑이 불가능한 도메인 */
@@ -38,11 +39,19 @@ function buildSearchUrl(keyword: string, apiKey: string): string {
   return `${SERP_API_CONFIG.baseUrl}?${params.toString()}`;
 }
 
-/** 소셜미디어/동영상 플랫폼 등 분석 부적합 도메인 필터링 */
-function filterSearchResults(results: SerpSearchResult[]): SerpSearchResult[] {
+/** 우리 사이트 호스트 — 자사 글을 경쟁 글로 수집해 자기 글을 베끼지 않도록 뺀다 */
+const OWN_HOST = new URL(siteConfig.domain).hostname.replace(/^www\./, '');
+
+/** 소셜미디어/동영상 플랫폼·자사 사이트 등 분석 부적합 도메인 필터링 (호스트 기준) */
+export function filterSearchResults(results: SerpSearchResult[]): SerpSearchResult[] {
   return results.filter((result) => {
-    const url = result.link.toLowerCase();
-    return !EXCLUDED_DOMAINS.some((domain) => url.includes(domain));
+    let host: string;
+    try {
+      host = new URL(result.link).hostname.toLowerCase().replace(/^www\./, '');
+    } catch {
+      return false;
+    }
+    return ![...EXCLUDED_DOMAINS, OWN_HOST].some((domain) => host === domain || host.endsWith(`.${domain}`));
   });
 }
 

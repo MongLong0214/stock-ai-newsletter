@@ -18,6 +18,7 @@ import { remark } from 'remark';
 import remarkGfm from 'remark-gfm';
 import remarkRehype from 'remark-rehype';
 import rehypeSanitize, { defaultSchema } from 'rehype-sanitize';
+import { isOwnBlogImageUrl } from './markdown-visuals';
 import rehypeStringify from 'rehype-stringify';
 
 /**
@@ -92,6 +93,16 @@ export function wrapFigures(html: string): string {
   });
 }
 
+/**
+ * 우리 스토리지(blog-images 버킷)가 아닌 이미지를 지운다.
+ * 생성 본문에 끼어든 외부 이미지(핫링크·추적 픽셀·저작권 문제)를 공개 페이지에 싣지 않는다.
+ */
+export function dropForeignImages(html: string): string {
+  return html
+    .replace(/<img\s(?:[^>"]|"[^"]*")*>/g, (img) => (isOwnBlogImageUrl(attr(img, 'src') ?? '') ? img : ''))
+    .replace(/<p>\s*<\/p>/g, '');
+}
+
 // rehype-sanitize용 커스텀 스키마 (기본 스키마 확장)
 const sanitizeSchema = {
   ...defaultSchema,
@@ -142,7 +153,7 @@ export async function parseMarkdown(markdown: string): Promise<string> {
     .use(rehypeStringify)
     .process(markdown);
 
-  let html = wrapTables(wrapFigures(addHeadingIds(result.toString())));
+  let html = wrapTables(wrapFigures(dropForeignImages(addHeadingIds(result.toString()))));
 
   // remark가 변환하지 못한 잔여 마크다운 강조 패턴 후처리
   // ***bold+italic*** → <strong><em>text</em></strong> (3개짜리 먼저 처리)

@@ -82,7 +82,8 @@ export async function fetchKeywordVolumes(
   const timestamp = Date.now().toString();
   // 네이버는 힌트 키워드에서 공백을 무시한다. 공백을 넣으면 다른 키워드로 집계된다.
   const query = new URLSearchParams({
-    hintKeywords: keywords.map((k) => k.replace(/\s+/g, '')).join(','),
+    // 쉼표는 힌트 구분자라 키워드 안에 있으면 힌트 수가 늘어 요청 전체가 거절된다
+    hintKeywords: keywords.map((k) => k.replace(/[\s,]+/g, '')).join(','),
     showDetail: '1',
   });
 

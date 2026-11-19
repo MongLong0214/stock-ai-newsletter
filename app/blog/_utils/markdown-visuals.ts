@@ -139,8 +139,9 @@ export const periodReturn = (s: StockSnapshot) =>
  * 기간이 다른 등락률을 나란히 순위 매기지 않기 위해서다.
  */
 export function comparisonReturns(stocks: readonly StockSnapshot[]): { label: string; values: number[] } {
-  if (stocks.every((s) => s.fullYear)) return { label: '최근 1년', values: stocks.map(periodReturn) };
   const start = stocks.map((s) => s.series[0].date).sort().at(-1) ?? '';
+  // 1년을 채웠다고 봐도 첫 거래일이 다를 수 있다(상장·거래정지). 그때 1년 등락률을 쓰면 차트(공통 시작일 기준)와 부호까지 어긋난다.
+  if (stocks.every((s) => s.fullYear && s.series[0].date === start)) return { label: '최근 1년', values: stocks.map(periodReturn) };
   return {
     label: `${start} 이후`,
     values: stocks.map((s) => {

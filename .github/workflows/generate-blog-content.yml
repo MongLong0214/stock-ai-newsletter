@@ -8,9 +8,11 @@ on:
   # 수동 실행 가능
   workflow_dispatch:
 
+# 진행 중인 run을 취소하지 않고 뒤 run을 기다리게 한다. 취소는 저장 도중의 run을 끊어 커밋 여부를 모르게 하고
+# 업로드한 이미지를 고아로 남긴다. 뒤 run은 시작 시 하루 상한을 보고 이미 발행됐으면 바로 끝난다.
 concurrency:
   group: generate-blog
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 permissions:
   contents: read

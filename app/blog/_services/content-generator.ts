@@ -108,6 +108,37 @@ export function findFutureDateClaim(title: string, now: Date = new Date()): stri
   return null;
 }
 
+/**
+ * 제목 끝 기준 시점 표기 "(2026.08)"가 지난달보다 오래됐는가. 11월 글에 "(2026.08)"이 붙으면 낡은 자료처럼 읽힌다.
+ * 괄호 속 "연.월" 표기만 본다 — "2020년 3월 폭락 분석"처럼 과거 사건을 다루는 제목은 막지 않는다.
+ */
+export function findStaleDateTag(title: string, now: Date = new Date()): string | null {
+  const kst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
+  const current = kst.getUTCFullYear() * 12 + kst.getUTCMonth();
+  for (const m of title.matchAll(/[(\[]\s*(20\d{2})\.(\d{1,2})\s*[)\]]/g)) {
+    const month = Number(m[2]);
+    if (month < 1 || month > 12) continue;
+    if (Number(m[1]) * 12 + (month - 1) < current - 1) return `${m[1]}.${String(month).padStart(2, '0')}`;
+  }
+  return null;
+}
+
+/**
+ * 제목·메타 제목의 금액·비율 숫자(%, 원, 배, 만·억·조) 중 본문에 같은 숫자로 없는 것.
+ * 제목은 클릭을 끌기 위해 강하게 쓰게 하므로, 숫자만큼은 본문 근거가 있어야 지어낸 숫자가 검색 결과에 뜨지 않는다.
+ * 개수("3가지", "7종목")와 연·월은 보지 않는다 — 본문 구조로 드러나고 날짜는 별도 검사가 있다.
+ */
+export function findUnsupportedTitleFigures(title: string, body: string): string[] {
+  const plain = body.replace(/,/g, '');
+  const out: string[] = [];
+  for (const m of title.matchAll(/(\d[\d,]*(?:\.\d+)?)\s*(%p?|원|배|만|억|조)/g)) {
+    const n = m[1].replace(/,/g, '');
+    const escaped = n.replace(/\./g, '\\.');
+    if (!new RegExp(`(?<![\\d.])${escaped}(?![\\d]|\\.\\d)`).test(plain)) out.push(m[0]);
+  }
+  return out;
+}
+
 /** SEO 기준 콘텐츠 유효성 검증 — 가산식 점수가 보상할 수 없는 필수 축은 여기서 하드 게이트 */
 export function validateContent(content: GeneratedContent, targetKeyword?: string): void {
   const errors: string[] = [];
@@ -126,8 +157,15 @@ export function validateContent(content: GeneratedContent, targetKeyword?: strin
   // 미래 시점 제목 금지 — 라이브에서 8월 발행 글 7개가 "(2026.10)"을 달고 나갔다.
   // 존재하지 않는 시점의 데이터를 가진 것처럼 읽히는 YMYL 신뢰 결함.
   // 괄호 점 표기만 잡던 것을 "2027년 1월", "[2027.01]", "2027-01", 연도 단독까지 넓혔다.
-  const futureClaim = findFutureDateClaim(content.title ?? '');
-  if (futureClaim) errors.push(`제목이 미래 시점(${futureClaim})을 표기합니다.`);
+  // 메타 제목은 검색 결과에 그대로 뜨는 제목이다 — 본 제목과 같은 기준으로 본다.
+  for (const [label, text] of [['제목', content.title ?? ''], ['메타 제목', content.metaTitle ?? '']] as const) {
+    const futureClaim = findFutureDateClaim(text);
+    if (futureClaim) errors.push(`${label}이 미래 시점(${futureClaim})을 표기합니다.`);
+    const staleTag = findStaleDateTag(text);
+    if (staleTag) errors.push(`${label}의 기준 시점(${staleTag})이 지난 자료처럼 보입니다.`);
+    const unsupported = findUnsupportedTitleFigures(text, content.content ?? '');
+    if (unsupported.length > 0) errors.push(`${label}의 숫자(${unsupported.join(', ')})가 본문에 없습니다.`);
+  }
   if (!content.metaTitle || content.metaTitle.length > 70) errors.push('메타 제목이 없거나 70자를 초과합니다.');
   if (!content.metaDescription || content.metaDescription.length > 160) errors.push('메타 설명이 없거나 160자를 초과합니다.');
   if (!content.faqItems || content.faqItems.length < 2) errors.push('FAQ 항목이 부족합니다 (최소 2개).');
@@ -143,8 +181,8 @@ export function validateContent(content: GeneratedContent, targetKeyword?: strin
     errors.push(`본문 소제목(## )이 ${headingCount}개입니다 (최소 ${MIN_BODY_HEADINGS}개).`);
   }
 
-  const banned = ALL_PATTERNS.find((re) => re.test(content.title || ''));
-  if (banned) errors.push(`제목에 낚시성 금지 표현 포함 (패턴: ${banned.source}). 사실형 제목으로 재생성 필요.`);
+  const banned = ALL_PATTERNS.find((re) => re.test(content.title || '') || re.test(content.metaTitle || ''));
+  if (banned) errors.push(`제목·메타 제목에 낚시성 금지 표현 포함 (패턴: ${banned.source}). 사실형 제목으로 재생성 필요.`);
 
   if (errors.length > 0) {
     throw new Error(`콘텐츠 유효성 검증 실패:\n${errors.join('\n')}`);

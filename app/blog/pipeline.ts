@@ -17,9 +17,9 @@ import { scrapeSearchResults, analyzeCompetitors, closeBrowser, getMetrics, rese
 import { generateBlogContent, generateSlug, calculateQualityScore, validateContent } from './_services/content-generator';
 import { humanizeGeneratedContent } from './_services/humanizer';
 import { checkYmyl } from './_services/ymyl-gate';
-import { blogPostExists, countPublishedToday, findBlogPostStatus, saveBlogPost, publishBlogPost } from './_services/blog-repository';
+import { blogPostExists, countPublishedToday, findBlogPostStatus, saveBlogPost } from './_services/blog-repository';
 import { generateKeywords } from './_services/keyword-generator';
-import { alignMarketToBody, buildMarketContext, formatMarketDataForPrompt } from './_services/market-data';
+import { alignMarketToBody, buildMarketContext, findContradictedSentences, formatMarketDataForPrompt } from './_services/market-data';
 import { createPostVisuals, type PostVisualsResult } from './_services/post-visuals';
 import { removeBlogImages } from './_services/image-storage';
 import { CONTENT_CONFIG, HUMANIZE_CONFIG, KEYWORD_CONFIG, PIPELINE_CONFIG, VISUAL_CONFIG } from './_config/pipeline-config';
@@ -28,7 +28,9 @@ import type { BlogPostCreateInput, PipelineResult, PipelineMetrics, CompetitorAn
 // --- 상수 ---
 
 const TIMEOUTS = {
-  search: 60_000,
+  // 안쪽 SerpAPI 재시도(30초 × 3회 + backoff 6초 = 96초)가 먼저 끝나 실제 사유가 남도록 위에 둔다.
+  // 60초였을 때는 두 번 느리면 바깥이 먼저 끊겨 "검색 0건"으로 기록되고 세 번째 요청은 뒤에서 계속 과금됐다.
+  search: 110_000,
   // 배치 안쪽 예산(LIMITS.BATCH_BUDGET_MS=90초)이 먼저 끊고 부분 성공분을 돌려주도록
   // 바깥은 확실히 위에 둔다. 바깥이 먼저 터지면 fallback []가 되어 성공한 문서까지 버려진다.
   scrape: 180_000,
@@ -50,6 +52,13 @@ const TIMEOUTS = {
 const VISUALS_RUN_CUTOFF_MS = 68 * 60_000;
 /** 이보다 남은 시간이 적으면 시각자료를 시작하지 않는다 */
 const VISUALS_MIN_BUDGET_MS = 60_000;
+/** 스크립트 한도(scripts/generate-blog-post.ts SCRIPT_TIMEOUT_MS)와 같아야 한다 */
+const RUN_LIMIT_MS = 75 * 60_000;
+/**
+ * 윤문 시작에 필요한 최소 잔여 시간. 실측 윤문 97~162초 + 게이트·저장 여유.
+ * 생성 재시도로 늦게 끝난 초안이 한도에 강제 종료되기 전에, 윤문 비용을 쓰지 않고 사유를 남긴다.
+ */
+const HUMANIZE_MIN_RUN_MS = 4 * 60_000;
 let runStartedAt = Date.now();
 
 // 윤문 서킷브레이커: LLM 윤문 서비스가 저하되면(연속 타임아웃/에러) 남은 초안은 윤문을 생략해
@@ -175,23 +184,56 @@ async function withTimeoutFallback<R>(p: Promise<R>, ms: number, fallback: R, la
  */
 async function saveWithReconcile(post: BlogPostCreateInput): Promise<void> {
   const startedAt = Date.now();
-  try {
-    await withTimeout(saveBlogPost(post), TIMEOUTS.save, 'DB');
-  } catch (e) {
-    // 타임아웃일 때만 화해한다. 제약조건 위반 같은 진짜 실패까지 "행이 있으니 성공"으로
-    // 바꾸면, 예전 draft 행을 이번 글로 착각해 그대로 공개하게 된다.
-    if (!err(e).includes('타임아웃')) throw e;
-
-    const row = await findBlogPostStatus(post.slug).catch(() => null);
-    if (!row || row.title !== post.title) throw e;
-
-    // 제목만 보면 같은 날 같은 제목으로 만들어진 **이전** 행을 이번 저장으로 착각한다.
-    // updated_at이 이번 시도 이후여야 실제로 커밋된 것이다(시계 오차 5초 여유).
-    const updatedAt = Date.parse(row.updated_at ?? '');
-    if (!Number.isFinite(updatedAt) || updatedAt < startedAt - 5_000) throw e;
-
-    console.warn(`[Pipeline] 저장 타임아웃이었으나 DB에 커밋됨 (${post.slug}, status=${row.status})`);
+  // 일시 오류(502·연결 끊김) 한 번에 그날 하나뿐인 초안을 버리지 않도록 한 번 더 시도한다.
+  // 다시 시도하기 전에 항상 실제 행을 본다 — 첫 요청이 커밋됐는데 다시 저장하면 "이미 발행된 글" 보호에 걸린다.
+  for (let attempt = 1; ; attempt++) {
+    try {
+      await withTimeout(saveBlogPost(post), TIMEOUTS.save, 'DB');
+      return;
+    } catch (e) {
+      if (await committedSince(post, startedAt)) {
+        console.warn(`[Pipeline] 저장 오류(${err(e)})였으나 DB에 커밋됨 (${post.slug})`);
+        return;
+      }
+      // 슬러그 충돌·조회 실패 보호는 다시 해도 같은 결과다
+      if (attempt >= 2 || err(e).includes('슬러그 충돌')) {
+        // 타임아웃은 요청을 취소하지 못한다 — 서버가 조금 늦게 커밋했으면 실패로 보고하지 않도록 한 번 더 본다
+        if (err(e).includes('타임아웃')) {
+          await new Promise((r) => setTimeout(r, 10_000));
+          if (await committedSince(post, startedAt)) {
+            console.warn(`[Pipeline] 저장 타임아웃 뒤 늦은 커밋 확인 (${post.slug})`);
+            return;
+          }
+        }
+        throw e;
+      }
+      console.warn(`[Pipeline] 저장 실패 — 3초 뒤 다시 시도: ${err(e)}`);
+      await new Promise((r) => setTimeout(r, 3_000));
+    }
   }
+}
+
+/** 오늘 발행 수. 일시 오류 한 번으로 생성이 끝난 초안을 버리지 않도록 한 번 더 묻는다(실패하면 그날은 발행하지 않는다). */
+async function countToday(): Promise<number> {
+  try {
+    return await withTimeout(countPublishedToday(), TIMEOUTS.save, '발행 수 조회');
+  } catch (e) {
+    console.warn(`[Pipeline] 발행 수 조회 실패 — 3초 뒤 다시 시도: ${err(e)}`);
+    await new Promise((r) => setTimeout(r, 3_000));
+    return withTimeout(countPublishedToday(), TIMEOUTS.save, '발행 수 조회');
+  }
+}
+
+/**
+ * 이번 저장 시도가 실제로 커밋됐는가. 타임아웃·연결 오류는 요청을 취소하지 못해 서버가 뒤늦게 커밋할 수 있다.
+ * 제목·시각만 보면 같은 slug의 **다른** 초안(게이트를 거치지 않은 본문)을 이번 저장으로 착각하므로
+ * 상태·본문까지 같아야 하고, updated_at이 이번 시도 이후여야 커밋으로 본다(시계 오차 5초 여유).
+ */
+async function committedSince(post: BlogPostCreateInput, startedAt: number): Promise<boolean> {
+  const row = await withTimeout(findBlogPostStatus(post.slug), TIMEOUTS.save, 'DB 확인').catch(() => null);
+  if (!row || row.title !== post.title || row.content !== post.content || row.status !== (post.status ?? 'draft')) return false;
+  const updatedAt = Date.parse(row.updated_at ?? '');
+  return Number.isFinite(updatedAt) && updatedAt >= startedAt - 5_000;
 }
 
 /**
@@ -278,6 +320,11 @@ async function generateDraft(keyword: string, type: 'comparison' | 'guide' | 'li
       'AI',
     );
 
+    const runRemaining = runStartedAt + RUN_LIMIT_MS - Date.now();
+    if (runRemaining < HUMANIZE_MIN_RUN_MS) {
+      throw new Error(`run 마감 임박(남은 ${Math.round(runRemaining / 1000)}초) — 윤문을 시작하지 않는다`);
+    }
+
     // 윤문은 필수 게이트다. 실패는 발행 금지, 의도적 스킵(킬스위치)만 원문 통과.
     let outcome;
     try {
@@ -315,6 +362,15 @@ async function generateDraft(keyword: string, type: 'comparison' | 'guide' | 'li
     const violations = await checkYmyl(ymylSurface(content), keyword);
     if (violations.length > 0) {
       throw new Error(`YMYL 게이트 위반: ${violations.map((v) => `[${v.rule}] ${v.detail}`).join(' / ')}`);
+    }
+
+    // 검증 시세와 다른 등락률을 말하는 글은 발행하지 않는다. 예전에는 차트·표만 빼고 틀린 숫자가 든 본문을 그대로 냈다.
+    if (market) {
+      const surface = [content.content, content.description, ...content.faqItems.map((f) => f.answer)].join('\n');
+      const contradicted = findContradictedSentences(market, surface);
+      if (contradicted.length > 0) {
+        throw new Error(`본문 등락률이 검증 시세와 다름 — 발행하지 않는다: ${contradicted.map((c) => c.slice(0, 80)).join(' / ')}`);
+      }
     }
 
     // 시각자료는 모든 게이트를 통과한 글에만 만든다 — 반려될 초안에 이미지 비용을 쓰지 않는다.
@@ -388,7 +444,7 @@ async function saveAndPublishPosts(posts: DraftSuccess[]): Promise<PipelineResul
     try {
       // 상한을 한 번만 읽으면 로컬 실행과 Actions 실행이 겹칠 때 둘 다 0건을 읽고 각각 발행한다.
       // 원자적 예약(RPC·트랜잭션)이 없는 동안은 발행 직전 재확인으로 창을 좁힌다.
-      const already = await countPublishedToday();
+      const already = await countToday();
       if (already >= MAX_DAILY_PUBLISH) {
         const message = `하루 상한 도달 (${already}/${MAX_DAILY_PUBLISH}) — 남은 글은 발행하지 않는다`;
         console.warn(`[Pipeline] ${message}`);
@@ -397,13 +453,11 @@ async function saveAndPublishPosts(posts: DraftSuccess[]): Promise<PipelineResul
         continue;
       }
 
+      // published로 바로 저장한다 — 발행 시각·IndexNow 통보는 saveBlogPost가 한 번만 한다.
+      // 예전에는 뒤이어 publish를 또 불러 published_at을 덮어썼고(자정 넘기면 날짜 이동), 그 실패를 삼켜 draft인데 성공으로 보고했다.
+      // 색인은 sitemap, Bing·네이버 재크롤은 IndexNow가 담당한다(Google Indexing API는 블로그 URL 비대상).
       draft.blogPost.status = 'published';
       await saveWithReconcile(draft.blogPost);
-      const saved = draft.blogPost;
-      // Google Indexing API 호출은 제거 — 공식적으로 JobPosting/BroadcastEvent 전용이라
-      // 일반 블로그 URL·sitemap 전송은 지원 대상이 아니다. 색인은 sitemap이 담당하고
-      // Bing·네이버 재크롤은 publishBlogPost 안의 IndexNow가 처리한다.
-      await publishBlogPost(saved.slug).catch(e => console.warn('[Pipeline] publish 실패:', err(e)));
 
       results.push({ success: true, blogPost: draft.blogPost, metrics: draft.metrics });
     } catch (e) {
@@ -429,8 +483,6 @@ export async function generateBlogPost(keyword: string, type: 'comparison' | 'gu
     draft.blogPost.status = 'published';
     try {
       await saveWithReconcile(draft.blogPost);
-      const saved = draft.blogPost;
-      await publishBlogPost(saved.slug).catch(e => console.warn('[Pipeline] publish 실패:', err(e)));
     } catch (e) {
       console.error(`[Pipeline] 저장 실패: ${err(e)}`);
       await discardImages(draft, e);
@@ -521,7 +573,7 @@ export async function generateWithDynamicKeywords(options: { publish?: boolean; 
     // ━━━ Phase 3: 저장 & 발행 — 검색량 상위 상한만 발행, 초과분은 draft 보관 ━━━
     const ranked = [...successfulDrafts].sort((a, b) => (b.searchVolume ?? 0) - (a.searchVolume ?? 0));
     // 상한은 하루 단위다. 이번 실행분만 세면 재실행·수동 실행이 그대로 누적 발행된다.
-    const publishedToday = publish ? await countPublishedToday() : 0;
+    const publishedToday = publish ? await countToday() : 0;
     const remaining = Math.max(0, MAX_DAILY_PUBLISH - publishedToday);
     if (publish && remaining === 0) {
       console.warn(`[Pipeline] 오늘 이미 ${publishedToday}편 발행 — 상한 ${MAX_DAILY_PUBLISH} 도달, 전부 draft 보관`);

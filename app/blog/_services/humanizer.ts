@@ -103,8 +103,9 @@ const FIGURE_SCALE: Record<string, number> = { 천: 1e3, 만: 1e4, 억: 1e8, 조
 const FIGURE_UNIT = '%|퍼센트|원|달러|엔|위안|배|건|일|년|월|주|개|명|포인트|bp';
 // 자릿수는 연달아 붙는다: `5천만` = 5 × 1e3 × 1e4 = 5e7 = `5000만`.
 // 하나만 받으면 `5천만원`이 `5천`(=5000, 단위 없음)으로 잘려 `5000만원`과 달라진다.
+// 앞의 부호(+·-·−)도 읽는다 — "10-20%"처럼 숫자 바로 뒤의 붙임표는 범위라 부호가 아니다.
 const FIGURE_TOKEN_RE = new RegExp(
-  `(\\d[\\d,]*(?:\\.\\d+)?)\\s*([천만억조]*)\\s*((?:${FIGURE_UNIT})?)`,
+  `(?:(?<![\\d.,])([+\\-−])\\s*)?(\\d[\\d,]*(?:\\.\\d+)?)\\s*([천만억조]*)\\s*((?:${FIGURE_UNIT})?)`,
   'g',
 );
 
@@ -124,25 +125,58 @@ interface FigureToken {
   readonly value: number;
   /** 단위. 빈 문자열이면 맨 숫자다. */
   readonly unit: string;
+  /** 숫자 앞에 적힌 부호. 없으면 0 */
+  readonly sign: -1 | 0 | 1;
 }
+
+const KOREAN_NUMERALS: Record<string, number> = {
+  두: 2, 세: 3, 네: 4, 다섯: 5, 여섯: 6, 일곱: 7, 여덟: 8, 아홉: 9, 열: 10,
+};
+const KOREAN_MULTIPLE_RE = /(?<![가-힣])(두|세|네|다섯|여섯|일곱|여덟|아홉|열)\s?배(?![당율정분치터송출우경포제])/g;
 
 function parseFigureTokens(text: string): FigureToken[] {
   // 전각(％ ０-９)을 반각으로 맞춘다. 모델이 표기만 정규화해도 "유실"로 오판하기 때문이다.
   const normalized = text
     .replace(/[０-９]/g, (d) => String.fromCharCode(d.charCodeAt(0) - 0xfee0))
     .replace(/％/g, '%')
-    .replace(/，/g, ',');
+    .replace(/，/g, ',')
+    // "두 배"↔"2배"는 같은 값이다. 윤문이 숫자로 바꾸면 "없던 수치 추가"로 반려되고,
+    // 원문이 한글 수사면 "두 배"→"세 배" 변조도 보이지 않는다. 배당·배율 같은 단어는 건드리지 않는다.
+    .replace(KOREAN_MULTIPLE_RE, (_, n: string) => `${KOREAN_NUMERALS[n]}배`);
   // 목록 마커("1) ", "2. ")는 C-9 규칙상 정당하게 사라질 수 있으므로 제외한다.
   const withoutMarkers = normalized.replace(/^\s*\d+[.)]\s+/gm, '');
 
   const tokens: FigureToken[] = [];
   for (const m of withoutMarkers.matchAll(FIGURE_TOKEN_RE)) {
-    const base = Number(m[1].replace(/,/g, ''));
+    const base = Number(m[2].replace(/,/g, ''));
     if (!Number.isFinite(base)) continue;
-    const scale = [...(m[2] ?? '')].reduce((acc, ch) => acc * (FIGURE_SCALE[ch] ?? 1), 1);
-    tokens.push({ value: base * scale, unit: normalizeUnit(m[3] ?? '') });
+    const scale = [...(m[3] ?? '')].reduce((acc, ch) => acc * (FIGURE_SCALE[ch] ?? 1), 1);
+    const sign = m[1] === '+' ? 1 : m[1] ? -1 : 0;
+    tokens.push({ value: base * scale, unit: normalizeUnit(m[4] ?? ''), sign });
   }
   return tokens;
+}
+
+const UP_WORDS = '상승|올랐|오른|올라|급등|뛰었|증가|늘었|늘어|확대';
+const DOWN_WORDS = '하락|내렸|내린|내려|떨어|빠졌|급락|감소|줄었|줄어|축소';
+/** 숫자(단위 포함) 바로 뒤 8자 안의 방향어 — "10% 증가", "20%나 줄었다" */
+const FIGURE_DIRECTION_RE = new RegExp(
+  `(\\d[\\d,]*(?:\\.\\d+)?)\\s*([천만억조]*)\\s*(${FIGURE_UNIT})[^\\d\\n.,]{0,8}?(${UP_WORDS}|${DOWN_WORDS})`,
+  'g',
+);
+const UP_RE = new RegExp(UP_WORDS);
+
+/** 값·단위별로 붙어 나온 방향(up/down) 집합 */
+function figureDirections(text: string): Map<string, Set<'up' | 'down'>> {
+  const out = new Map<string, Set<'up' | 'down'>>();
+  for (const m of text.matchAll(FIGURE_DIRECTION_RE)) {
+    const scale = [...(m[2] ?? '')].reduce((acc, ch) => acc * (FIGURE_SCALE[ch] ?? 1), 1);
+    const key = `${Number(m[1].replace(/,/g, '')) * scale}${normalizeUnit(m[3])}`;
+    const set = out.get(key) ?? new Set<'up' | 'down'>();
+    set.add(UP_RE.test(m[4]) ? 'up' : 'down');
+    out.set(key, set);
+  }
+  return out;
 }
 
 /** 단위가 붙은 토큰의 개수 맵 — 단위 변조·개수 유실을 잡는다 */
@@ -258,6 +292,26 @@ export function evaluateHumanization(
   const newBare = [...bareAfter].filter((v) => v >= 10 && !bareBefore.has(v));
   if (newBare.length > 0) {
     return reject(`원문에 없던 수치 추가 (${newBare.slice(0, 5).join(', ')})`, rate);
+  }
+
+  // 부호·방향 반전. 값만 보면 "-10%"→"+10%", "10% 하락"→"10% 상승"이 그대로 통과한다.
+  // 부호를 지우고 말로 풀어 쓰는 윤문은 허용하고, 원문과 반대 부호가 새로 생기는 경우만 막는다.
+  const signedKey = (t: FigureToken) => `${t.sign > 0 ? '+' : '-'}${t.value}${t.unit}`;
+  const signedBefore = new Set(beforeTokens.filter((t) => t.sign !== 0).map(signedKey));
+  const flipped = afterTokens
+    .filter((t) => t.sign !== 0 && !signedBefore.has(signedKey(t)) && signedBefore.has(signedKey({ ...t, sign: t.sign > 0 ? -1 : 1 })))
+    .map(signedKey);
+  if (flipped.length > 0) {
+    return reject(`수치 부호 반전 (${flipped.slice(0, 5).join(', ')})`, rate);
+  }
+  // 방향은 숫자마다 짝지어 본다. 전체 개수만 비교하면 "갑 10% 증가, 을 20% 감소"를 "갑 10% 감소, 을 20% 증가"로 맞바꿔도 같다.
+  const dirBefore = figureDirections(original);
+  const dirFlipped = [...figureDirections(cleaned)].filter(([key, dirs]) => {
+    const before = dirBefore.get(key);
+    return before !== undefined && [...dirs].some((d) => !before.has(d));
+  }).map(([key]) => key);
+  if (dirFlipped.length > 0) {
+    return reject(`등락 방향 반전 (${dirFlipped.slice(0, 5).join(', ')})`, rate);
   }
 
   // SEO: 키워드 빈도가 품질 점수 기준(3회) 아래로 떨어지면 안 된다

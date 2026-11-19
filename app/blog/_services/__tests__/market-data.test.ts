@@ -214,6 +214,25 @@ describe('body alignment', () => {
     expect(alignMarketToBody(ctx, wrong)).toBeNull();
   });
 
+  it('flags a flipped direction or a figure borrowed from another period', () => {
+    const ctx = { stocks: [snap], theme: null, direct: true, asOf: snap.asOf };
+    const m1 = snap.returns.m1!;
+    const flipped = `LG화학 주가는 최근 1년 동안 ${y1.toFixed(1)}% 하락했습니다.`;
+    const borrowed = `LG화학 주가는 최근 1년 동안 ${m1.toFixed(1)}% 올랐습니다.`;
+    expect(findContradictedSentences(ctx, `${flipped}\n${borrowed}`)).toEqual([flipped, borrowed]);
+    // 고점 대비는 음수 값과 하락 방향이 맞으면 통과, 여러 기간을 함께 말하면 말한 기간 값 중 하나와 맞으면 통과
+    const fromHigh = `LG화학 주가는 1년 최고가 대비 ${Math.abs(snap.fromHighPct).toFixed(1)}% 낮습니다.`;
+    const mixed = `LG화학 주가는 한 달 ${m1.toFixed(1)}%, 1년 ${y1.toFixed(1)}% 올랐습니다.`;
+    expect(findContradictedSentences(ctx, `${fromHigh}\n${mixed}`)).toEqual([]);
+    // 표 행과 실적이 섞인 문장도 주가 부분은 대조한다. 실적 절의 수치는 건드리지 않는다
+    const tableRow = `| LG화학 | 1년 주가 상승률 | ${(y1 + 40).toFixed(0)}% |`;
+    const mixedWrong = `LG화학 주가는 1년 동안 ${(y1 + 40).toFixed(0)}% 상승했고 매출도 늘었습니다.`;
+    expect(findContradictedSentences(ctx, `${tableRow}\n${mixedWrong}`)).toEqual([tableRow, mixedWrong]);
+    expect(findContradictedSentences(ctx, `LG화학 주가는 1년 동안 ${y1.toFixed(1)}% 올랐고, 영업이익은 40% 감소했습니다.`)).toEqual([]);
+    // "2021년"은 1년 기간이 아니다
+    expect(findContradictedSentences(ctx, 'LG화학 주가는 2021년 이후 300% 올랐습니다.')).toEqual([]);
+  });
+
   it('keeps only theme stocks the article actually discusses', () => {
     const theme = { stocks: [snap, other], theme: { id: 't', name: '방산' }, direct: false, asOf: snap.asOf };
     expect(alignMarketToBody(theme, '한화의 수주 흐름을 봅니다.')?.stocks.map((s) => s.name)).toEqual(['한화']);
@@ -222,6 +241,14 @@ describe('body alignment', () => {
     const direct = { ...theme, direct: true };
     expect(alignMarketToBody(direct, '본문')?.stocks).toHaveLength(2);
     expect(alignMarketToBody(null, '본문')).toBeNull();
+  });
+
+  it('drops stocks whose last quote is older than the table date', () => {
+    const stale = { ...other, asOf: '2026-11-02' };
+    const ctx = { stocks: [snap, stale], theme: null, direct: true, asOf: snap.asOf };
+    const aligned = alignMarketToBody(ctx, '본문');
+    expect(aligned?.stocks.map((s) => s.name)).toEqual(['LG화학']);
+    expect(aligned?.asOf).toBe(snap.asOf);
   });
 });
 

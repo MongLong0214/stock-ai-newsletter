@@ -168,6 +168,31 @@ describe('evaluateHumanization', () => {
     expect(verdict.reason).toMatch(/헤딩 구조 변경/);
   });
 
+  it('수치 부호나 등락 방향을 뒤집으면 반려하고, 부호를 말로 풀어 쓰는 것은 채택한다', () => {
+    const original = buildBody().replace('RSI가 30 아래면 과매도입니다.', '주가는 1년간 -10% 하락했고 거래량은 20% 증가했습니다.');
+    const flippedSign = evaluateHumanization(original, original.replace('-10% 하락', '+10% 하락'), KEYWORD);
+    expect(flippedSign.reason).toMatch(/부호 반전/);
+    const flippedWords = evaluateHumanization(original, original.replace('하락했고', '상승했고'), KEYWORD);
+    expect(flippedWords.reason).toMatch(/방향 반전/);
+    // 두 사실의 방향을 맞바꿔 전체 증감 단어 수가 같아도 잡는다
+    const swapped = evaluateHumanization(original, original.replace('-10% 하락했고 거래량은 20% 증가', '-10% 증가했고 거래량은 20% 하락'), KEYWORD);
+    expect(swapped.reason).toMatch(/방향 반전/);
+    const reworded = evaluateHumanization(original, original.replace('-10% 하락했고', '10% 떨어졌고'), KEYWORD);
+    expect(reworded.accepted).toBe(true);
+    // "10-20%" 같은 범위의 붙임표는 부호가 아니다
+    const range = original.replace('20% 증가', '10-20% 증가');
+    expect(evaluateHumanization(range, range.replace('판단하는 데 쓰입니다', '판단할 때 씁니다'), KEYWORD).accepted).toBe(true);
+  });
+
+  it('"두 배"를 "2배"로 바꾸는 것은 채택하고, 배수를 바꾸면 반려한다', () => {
+    const original = buildBody().replace('RSI가 30 아래면 과매도입니다.', '배당금은 5년 전보다 두 배로 늘었고 배당률도 올랐습니다.');
+    expect(evaluateHumanization(original, original.replace('두 배로', '2배로'), KEYWORD).accepted).toBe(true);
+    expect(evaluateHumanization(original, original.replace('두 배로', '세 배로'), KEYWORD).accepted).toBe(false);
+    // 배당·배율 같은 단어의 "세", "두"는 수사가 아니다
+    const words = buildBody().replace('RSI가 30 아래면 과매도입니다.', '세 배당주와 두 배율을 비교합니다.');
+    expect(evaluateHumanization(words, words.replace('비교합니다', '견줍니다'), KEYWORD).accepted).toBe(true);
+  });
+
   it('수치가 유실되면 반려한다', () => {
     const original = buildBody();
     const candidate = original.replace('RSI가 30 아래면', 'RSI가 낮으면');

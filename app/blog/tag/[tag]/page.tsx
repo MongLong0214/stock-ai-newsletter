@@ -31,7 +31,9 @@ const getPostsByTag = cache(async (tag: string): Promise<BlogPostListItem[]> => 
     .contains('tags', [tag])
     .order('published_at', { ascending: false });
 
-  if (error || !Array.isArray(data)) return [];
+  // 오류를 빈 목록으로 바꾸면 태그 페이지가 404로 캐시된다 — 던져서 이전 페이지를 유지한다
+  if (error) throw new Error(`[Blog] 태그 글 조회 실패(${tag}): ${error.message}`);
+  if (!Array.isArray(data)) return [];
 
   return data
     .filter(isValidBlogPost)
