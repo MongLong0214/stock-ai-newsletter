@@ -14,7 +14,7 @@ vi.mock('../_services/serp-api', () => ({
   searchGoogle: mockSearch,
 }));
 vi.mock('../_services/web-scraper', () => ({
-  scrapeSearchResults: vi.fn(async () => [{}]),
+  scrapeSearchResults: vi.fn(async () => [{ title: '', description: '', paragraphs: [] }]),
   analyzeCompetitors: vi.fn(() => analysis),
   closeBrowser: vi.fn(async () => {}),
   getMetrics: vi.fn(), resetMetrics: vi.fn(),

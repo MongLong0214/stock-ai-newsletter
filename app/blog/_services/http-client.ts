@@ -2,6 +2,7 @@
 
 import { Agent, fetch as undiciFetch } from 'undici';
 import { chromium, type Browser, type Page } from 'playwright';
+import { assertPublicUrl } from './url-guard';
 
 export interface DomainConfig {
   extraDelay?: number;
@@ -22,6 +23,7 @@ const USER_AGENTS = [
 ];
 
 const BROWSER_CHECK_TIMEOUT = 5000;
+const MAX_REDIRECTS = 5;
 const BROWSER_RECHECK_INTERVAL = 5 * 60 * 1000;
 let browserInstance: Browser | null = null;
 let browserAvailable: boolean | null = null;
@@ -57,7 +59,18 @@ async function fetchWithUndici(url: string, timeout: number, referer?: string): 
   const timeoutId = setTimeout(() => controller.abort(), timeout);
 
   try {
-    const response = await undiciFetch(url, { headers: createBrowserHeaders(referer), signal: controller.signal, redirect: 'follow', dispatcher: agent });
+    // 리다이렉트는 직접 따라가며 매 hop을 검사한다 — 'follow'면 공인 URL이 내부 주소로 넘겨도 모른다
+    let current = url;
+    let response;
+    for (let hop = 0; ; hop++) {
+      await assertPublicUrl(current);
+      response = await undiciFetch(current, { headers: createBrowserHeaders(referer), signal: controller.signal, redirect: 'manual', dispatcher: agent });
+      const location = response.status >= 300 && response.status < 400 ? response.headers.get('location') : null;
+      if (!location) break;
+      if (hop >= MAX_REDIRECTS) throw new Error(`리다이렉트 ${MAX_REDIRECTS}회 초과`);
+      await response.body?.cancel();
+      current = new URL(location, current).toString();
+    }
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
     const contentType = response.headers.get('content-type') || '';
@@ -141,10 +154,24 @@ export async function fetchWithBrowser(url: string, timeout: number, domainConfi
     locale: 'ko-KR',
   });
 
+  // 페이지 안의 모든 요청(iframe·스크립트·XHR)도 내부 주소로 못 가게 막는다. 호스트별 판정은 캐시한다.
+  const verdicts = new Map<string, Promise<boolean>>();
+  await context.route('**/*', async (route) => {
+    const target = route.request().url();
+    if (target.startsWith('data:') || target.startsWith('blob:')) return route.continue();
+    let host = '';
+    try { const u = new URL(target); host = `${u.protocol}//${u.host}`; } catch { /* 형식 오류는 아래에서 차단 */ }
+    if (!verdicts.has(host)) verdicts.set(host, assertPublicUrl(target).then(() => true, () => false));
+    return (await verdicts.get(host)) ? route.continue() : route.abort('blockedbyclient');
+  });
+
   let page: Page | null = null;
   try {
+    await assertPublicUrl(url);
     page = await context.newPage();
     await page.goto(url, { waitUntil: 'domcontentloaded', timeout });
+    // route는 리다이렉트 중간 hop을 보지 못한다 — 도착한 주소를 다시 검사한다
+    await assertPublicUrl(page.url());
 
     if (domainConfig.extraDelay) await sleep(domainConfig.extraDelay);
 
