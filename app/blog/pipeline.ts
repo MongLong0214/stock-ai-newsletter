@@ -17,7 +17,8 @@ import { scrapeSearchResults, analyzeCompetitors, closeBrowser, getMetrics, rese
 import { generateBlogContent, generateSlug, calculateQualityScore, validateContent } from './_services/content-generator';
 import { humanizeGeneratedContent } from './_services/humanizer';
 import { checkYmyl } from './_services/ymyl-gate';
-import { blogPostExists, countPublishedToday, findBlogPostStatus, saveBlogPost } from './_services/blog-repository';
+import { findUngroundedAttributedFigures } from './_utils/source-grounding';
+import { blogPostExists, countPublishedToday, findBlogPostStatus, publishBlogPostWithinCap, saveBlogPost } from './_services/blog-repository';
 import { generateKeywords } from './_services/keyword-generator';
 import { alignMarketToBody, buildMarketContext, findContradictedSentences, formatMarketDataForPrompt } from './_services/market-data';
 import { createPostVisuals, type PostVisualsResult } from './_services/post-visuals';
@@ -213,6 +214,24 @@ async function saveWithReconcile(post: BlogPostCreateInput): Promise<void> {
   }
 }
 
+/**
+ * 하루 상한 안에서 발행. 함수는 멱등이라(이미 발행이면 already_published) 일시 오류는 한 번 더 부른다.
+ * 타임아웃 뒤 서버가 커밋했을 수 있으므로 재시도 결과 already_published도 발행으로 본다.
+ */
+async function publishWithinCap(slug: string): Promise<'published' | 'cap_reached'> {
+  const call = () => withTimeout(publishBlogPostWithinCap(slug, MAX_DAILY_PUBLISH), TIMEOUTS.save, '발행');
+  let outcome;
+  try {
+    outcome = await call();
+  } catch (e) {
+    console.warn(`[Pipeline] 발행 실패 — 3초 뒤 다시 시도: ${err(e)}`);
+    await new Promise((r) => setTimeout(r, 3_000));
+    outcome = await call();
+  }
+  if (outcome === 'not_found') throw new Error(`발행 실패: 저장된 초안이 없다 (${slug})`);
+  return outcome === 'cap_reached' ? 'cap_reached' : 'published';
+}
+
 /** 오늘 발행 수. 일시 오류 한 번으로 생성이 끝난 초안을 버리지 않도록 한 번 더 묻는다(실패하면 그날은 발행하지 않는다). */
 async function countToday(): Promise<number> {
   try {
@@ -373,6 +392,19 @@ async function generateDraft(keyword: string, type: 'comparison' | 'guide' | 'li
       }
     }
 
+    // 기관명을 붙인 통계도 근거(수집 문서·검증 시세)에 없으면 확인할 수 없는 수치다 — 발행하지 않는다
+    const grounding = [
+      ...scraped.flatMap((s) => [s.title, s.description, ...s.paragraphs]),
+      formatMarketDataForPrompt(market),
+    ].join('\n');
+    const ungrounded = findUngroundedAttributedFigures(
+      [content.content, content.description, ...content.faqItems.map((f) => f.answer)].join('\n'),
+      grounding,
+    );
+    if (ungrounded.length > 0) {
+      throw new Error(`출처를 단 수치가 근거 문서에 없음 — 발행하지 않는다: ${ungrounded.map((c) => c.slice(0, 80)).join(' / ')}`);
+    }
+
     // 시각자료는 모든 게이트를 통과한 글에만 만든다 — 반려될 초안에 이미지 비용을 쓰지 않는다.
     // 스크립트 한도(75분) 안에서 저장·발행할 시간을 남기도록 run 마감에 맞춰 예산을 줄인다.
     const slug = generateSlug(content.title, keyword);
@@ -442,8 +474,7 @@ async function saveAndPublishPosts(posts: DraftSuccess[]): Promise<PipelineResul
 
   for (const draft of posts) {
     try {
-      // 상한을 한 번만 읽으면 로컬 실행과 Actions 실행이 겹칠 때 둘 다 0건을 읽고 각각 발행한다.
-      // 원자적 예약(RPC·트랜잭션)이 없는 동안은 발행 직전 재확인으로 창을 좁힌다.
+      // 상한이 이미 찼으면 저장하지 않는다. 동시 실행 경합은 아래 발행 RPC가 원자적으로 막는다.
       const already = await countToday();
       if (already >= MAX_DAILY_PUBLISH) {
         const message = `하루 상한 도달 (${already}/${MAX_DAILY_PUBLISH}) — 남은 글은 발행하지 않는다`;
@@ -453,11 +484,20 @@ async function saveAndPublishPosts(posts: DraftSuccess[]): Promise<PipelineResul
         continue;
       }
 
-      // published로 바로 저장한다 — 발행 시각·IndexNow 통보는 saveBlogPost가 한 번만 한다.
-      // 예전에는 뒤이어 publish를 또 불러 published_at을 덮어썼고(자정 넘기면 날짜 이동), 그 실패를 삼켜 draft인데 성공으로 보고했다.
+      // 초안으로 저장한 뒤 DB 함수가 하루 상한 안에서만 발행한다(세기와 발행이 한 잠금 안).
+      // 발행 시각·IndexNow 통보는 발행 순간에 한 번만 한다. 실패는 삼키지 않는다.
       // 색인은 sitemap, Bing·네이버 재크롤은 IndexNow가 담당한다(Google Indexing API는 블로그 URL 비대상).
-      draft.blogPost.status = 'published';
+      draft.blogPost.status = 'draft';
       await saveWithReconcile(draft.blogPost);
+      const outcome = await publishWithinCap(draft.blogPost.slug);
+      if (outcome === 'cap_reached') {
+        // 다른 실행이 먼저 상한을 채웠다 — 초안(이미지 포함)은 보관한다
+        const message = `하루 상한 도달 (다른 실행이 먼저 발행) — ${draft.blogPost.slug}는 draft 보관`;
+        console.warn(`[Pipeline] ${message}`);
+        results.push({ success: false, error: message, metrics: draft.metrics });
+        continue;
+      }
+      draft.blogPost.status = 'published';
 
       results.push({ success: true, blogPost: draft.blogPost, metrics: draft.metrics });
     } catch (e) {
@@ -480,14 +520,9 @@ export async function generateBlogPost(keyword: string, type: 'comparison' | 'gu
   if (!draft.success) return { success: false, error: draft.error, metrics: draft.metrics };
 
   if (publish) {
-    draft.blogPost.status = 'published';
-    try {
-      await saveWithReconcile(draft.blogPost);
-    } catch (e) {
-      console.error(`[Pipeline] 저장 실패: ${err(e)}`);
-      await discardImages(draft, e);
-      return { success: false, error: err(e), metrics: draft.metrics };
-    }
+    // 하루 상한·원자적 발행은 메인 파이프라인과 같은 경로를 탄다
+    const [result] = await saveAndPublishPosts([draft]);
+    return result;
   } else {
     try {
       await withTimeout(saveBlogPost(draft.blogPost), TIMEOUTS.save, 'DB');

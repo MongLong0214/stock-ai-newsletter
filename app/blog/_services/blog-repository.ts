@@ -72,6 +72,25 @@ export async function saveBlogPost(
   return data;
 }
 
+export type PublishWithinCapResult = 'published' | 'already_published' | 'cap_reached' | 'not_found';
+
+/**
+ * 저장된 초안을 하루 상한 안에서만 발행한다 (DB 함수가 advisory lock 안에서 세고 발행).
+ *
+ * 앱에서 countPublishedToday 후 저장하면, 로컬 실행과 Actions 실행이 겹칠 때 둘 다 0을 읽고 각각 발행한다.
+ * 발행 시각(published_at)은 DB가 발행 순간에 한 번만 찍는다.
+ */
+export async function publishBlogPostWithinCap(slug: string, cap: number): Promise<PublishWithinCapResult> {
+  const supabase = getServerSupabaseClient();
+  const { data, error } = await supabase.rpc('publish_blog_post_within_cap', { p_slug: slug, p_cap: cap });
+  if (error) throw new Error(`발행 실패(${slug}): ${error.message}`);
+  const result = data as PublishWithinCapResult;
+  if (result === 'published') {
+    await notifyIndexNow([`${siteConfig.domain}/blog/${slug}`]);
+  }
+  return result;
+}
+
 const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
