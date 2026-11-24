@@ -2,6 +2,77 @@
   "newsletters": [
     {
       "type": "stock",
+      "date": "2026-11-25",
+      "stocks": [
+        {
+          "ticker": "KOSPI:017860",
+          "name": "DS단석",
+          "close_price": 7860,
+          "rationale": "2026-11-24 종가 7,860원|전일 대비 +3.7% 상승|시가 대비 +2.7% 양봉|20일선 9,053원·종가 13.2% 아래|60일선 10,927원·종가 28.1% 아래|최근 5거래일 종가 -7.2%|최근 20거래일 종가 -20.8%|20거래일 KOSPI 대비 -9.6%p|직전 20거래일 장중 고점 10,240원까지 +30.3%|직전 60거래일 최고 종가 13,140원까지 +67.2%|거래량 20일 평균의 0.88배|최근 60거래일 중 거래량 상위 67.5%|당일 범위 종가 81.4%·윗꼬리 18.6%|ATR14 평균 변동폭 6.5%·약 513원(갭 포함)|RSI14 27.9 약세|MACD 모멘텀 -0.92%(종가 대비)|20일 평균 거래대금 추정 5.7억원|52주(252거래일) 종가 범위 1.5% 위치(저점0·고점100)",
+          "signals": {
+            "trend_score": 63,
+            "momentum_score": 59,
+            "volume_score": 54,
+            "volatility_score": 55,
+            "pattern_score": 47,
+            "sentiment_score": 69,
+            "overall_score": 83,
+            "basis": "model_contribution"
+          },
+          "selection": {
+            "strategy": "compositeUtility",
+            "rank": 1,
+            "objective": "compositeUtility"
+          }
+        },
+        {
+          "ticker": "KOSDAQ:048870",
+          "name": "시너지이노베이션",
+          "close_price": 1129,
+          "rationale": "2026-11-24 종가 1,129원|전일 대비 +6.4% 상승|시가 대비 +5.4% 양봉|20일선 1,309원·종가 13.7% 아래|60일선 1,460원·종가 22.7% 아래|최근 5거래일 종가 -7.0%|최근 20거래일 종가 -17.9%|20거래일 KOSPI 대비 -6.7%p|직전 20거래일 장중 고점 1,440원까지 +27.5%|직전 60거래일 최고 종가 1,683원까지 +49.1%|거래량 20일 평균의 1.28배|최근 60거래일 중 거래량 상위 10.8%|당일 범위 종가 88.7%·윗꼬리 11.3%|ATR14 평균 변동폭 5.8%·약 65원(갭 포함)|RSI14 29.4 약세|MACD 모멘텀 -1.90%(종가 대비)|20일 평균 거래대금 추정 5.5억원|52주(252거래일) 종가 범위 4.6% 위치(저점0·고점100)",
+          "signals": {
+            "trend_score": 61,
+            "momentum_score": 57,
+            "volume_score": 53,
+            "volatility_score": 56,
+            "pattern_score": 50,
+            "sentiment_score": 65,
+            "overall_score": 80,
+            "basis": "model_contribution"
+          },
+          "selection": {
+            "strategy": "compositeUtility",
+            "rank": 2,
+            "objective": "compositeUtility"
+          }
+        },
+        {
+          "ticker": "KOSPI:000490",
+          "name": "대동",
+          "close_price": 5600,
+          "rationale": "2026-11-24 종가 5,600원|전일 대비 +4.3% 상승|시가 대비 +3.3% 양봉|20일선 6,447원·종가 13.1% 아래|60일선 7,222원·종가 22.5% 아래|최근 5거래일 종가 -6.0%|최근 20거래일 종가 -19.5%|20거래일 KOSPI 대비 -8.3%p|직전 20거래일 장중 고점 8,090원까지 +44.5%|직전 60거래일 최고 종가 8,400원까지 +50.0%|거래량 20일 평균의 0.20배|최근 60거래일 중 거래량 상위 54.2%|당일 범위 종가 75.0%·윗꼬리 25.0%|ATR14 평균 변동폭 6.9%·약 388원(갭 포함)|RSI14 34.1 약세|MACD 모멘텀 -1.64%(종가 대비)|20일 평균 거래대금 추정 41.7억원|52주(252거래일) 종가 범위 3.6% 위치(저점0·고점100)",
+          "signals": {
+            "trend_score": 63,
+            "momentum_score": 51,
+            "volume_score": 51,
+            "volatility_score": 53,
+            "pattern_score": 48,
+            "sentiment_score": 71,
+            "overall_score": 79,
+            "basis": "model_contribution"
+          },
+          "selection": {
+            "strategy": "compositeUtility",
+            "rank": 3,
+            "objective": "compositeUtility"
+          }
+        }
+      ],
+      "sentAt": "2026-11-24T22:31:45.071+00:00",
+      "subscriberCount": 332
+    },
+    {
+      "type": "stock",
       "date": "2026-11-24",
       "stocks": [
         {
@@ -14794,5 +14865,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-11-23T22:32:39.531Z"
+  "lastUpdated": "2026-11-24T22:33:06.844Z"
 }
