@@ -166,4 +166,4 @@ async function TagHubPage({ params }: PageProps) {
 
 export default TagHubPage;
 
-export const revalidate = 21600;
+export const revalidate = 86400;
