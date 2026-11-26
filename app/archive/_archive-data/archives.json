@@ -2,6 +2,77 @@
   "newsletters": [
     {
       "type": "stock",
+      "date": "2026-11-27",
+      "stocks": [
+        {
+          "ticker": "KOSPI:192400",
+          "name": "쿠쿠홀딩스",
+          "close_price": 24900,
+          "rationale": "2026-11-26 종가 24,900원|전일 대비 -0.6% 하락|시가 대비 -1.8% 음봉|20일선 26,795원·종가 7.1% 아래|60일선 27,025원·종가 7.9% 아래|최근 5거래일 종가 -6.4%|최근 20거래일 종가 -8.1%|20거래일 KOSPI 대비 +12.5%p|직전 20거래일 장중 고점 28,300원까지 +13.7%|직전 60거래일 최고 종가 28,200원까지 +13.3%|거래량 20일 평균의 0.91배|최근 60거래일 중 거래량 상위 24.2%|당일 범위 종가 30.8%·윗꼬리 0.0%|ATR14 평균 변동폭 3.0%·약 756원(갭 포함)|RSI14 29.5 약세|MACD 모멘텀 -1.09%(종가 대비)|20일 평균 거래대금 추정 6.5억원|52주(252거래일) 종가 범위 17.8% 위치(저점0·고점100)",
+          "signals": {
+            "trend_score": 53,
+            "momentum_score": 56,
+            "volume_score": 51,
+            "volatility_score": 60,
+            "pattern_score": 54,
+            "sentiment_score": 64,
+            "overall_score": 81,
+            "basis": "model_contribution"
+          },
+          "selection": {
+            "strategy": "compositeUtility",
+            "rank": 1,
+            "objective": "compositeUtility"
+          }
+        },
+        {
+          "ticker": "KOSDAQ:348370",
+          "name": "엔켐",
+          "close_price": 8380,
+          "rationale": "2026-11-26 종가 8,380원|전일 대비 -9.3% 하락|시가 대비 -8.9% 음봉|20일선 14,118원·종가 40.6% 아래|60일선 18,378원·종가 54.4% 아래|최근 5거래일 종가 -28.7%|최근 20거래일 종가 -49.4%|20거래일 KOSPI 대비 -28.8%p|직전 20거래일 장중 고점 17,960원까지 +114.3%|직전 60거래일 최고 종가 24,300원까지 +190.0%|거래량 20일 평균의 2.49배|최근 60거래일 중 거래량 상위 4.2%|당일 범위 종가 5.1%·윗꼬리 48.3%|ATR14 평균 변동폭 18.8%·약 1,579원(갭 포함)|RSI14 25.1 약세|MACD 모멘텀 -6.32%(종가 대비)|20일 평균 거래대금 추정 30.5억원|52주(252거래일) 종가 범위 0.0% 위치(저점0·고점100)",
+          "signals": {
+            "trend_score": 70,
+            "momentum_score": 69,
+            "volume_score": 47,
+            "volatility_score": 39,
+            "pattern_score": 54,
+            "sentiment_score": 56,
+            "overall_score": 80,
+            "basis": "model_contribution"
+          },
+          "selection": {
+            "strategy": "compositeUtility",
+            "rank": 2,
+            "objective": "compositeUtility"
+          }
+        },
+        {
+          "ticker": "KOSDAQ:294570",
+          "name": "쿠콘",
+          "close_price": 18420,
+          "rationale": "2026-11-26 종가 18,420원|전일 대비 -4.4% 하락|시가 대비 -4.6% 음봉|20일선 20,862원·종가 11.7% 아래|60일선 24,562원·종가 25.0% 아래|최근 5거래일 종가 -10.1%|최근 20거래일 종가 -23.4%|20거래일 KOSPI 대비 -2.8%p|직전 20거래일 장중 고점 24,550원까지 +33.3%|직전 60거래일 최고 종가 30,950원까지 +68.0%|거래량 20일 평균의 0.84배|최근 60거래일 중 거래량 상위 79.2%|당일 범위 종가 0.0%·윗꼬리 22.1%|ATR14 평균 변동폭 6.7%·약 1,231원(갭 포함)|RSI14 31.9 약세|MACD 모멘텀 -0.45%(종가 대비)|20일 평균 거래대금 추정 5.9억원|52주(252거래일) 종가 범위 12.2% 위치(저점0·고점100)",
+          "signals": {
+            "trend_score": 60,
+            "momentum_score": 63,
+            "volume_score": 57,
+            "volatility_score": 52,
+            "pattern_score": 50,
+            "sentiment_score": 52,
+            "overall_score": 78,
+            "basis": "model_contribution"
+          },
+          "selection": {
+            "strategy": "compositeUtility",
+            "rank": 3,
+            "objective": "compositeUtility"
+          }
+        }
+      ],
+      "sentAt": "2026-11-26T22:32:08.701+00:00",
+      "subscriberCount": 331
+    },
+    {
+      "type": "stock",
       "date": "2026-11-26",
       "stocks": [
         {
@@ -14936,5 +15007,5 @@
       "subscriberCount": 21
     }
   ],
-  "lastUpdated": "2026-11-25T22:32:37.259Z"
+  "lastUpdated": "2026-11-26T22:33:20.550Z"
 }
